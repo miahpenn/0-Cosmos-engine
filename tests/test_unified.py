@@ -21,7 +21,7 @@ def test_archive_normalization_bridge():
 
 def test_scalar_stress_and_sum():
     s = scalar_stress(phi_r=2.0, Pi=3.0, potential=0.5, a=1.0)
-    assert s == ScalarStress(rho=7.0, p_r=6.0, p_t=0.0, j_r=-6.0)
+    assert s == ScalarStress(rho=7.0, p_r=6.0, p_t=2.0, j_r=-6.0)
     total = sum_stress(s, s)
     assert total.rho == 14.0
     assert total.j_r == -12.0
@@ -34,7 +34,7 @@ def test_constraints_and_mass_relations():
     rhs = radial_B_rhs(2.0, 0.01, Kr, 0.2)
     assert rhs == radial_B_rhs(2.0, 0.01, Kr, 0.2)
 
-    assert misner_sharp_mass(2.0, 0.9, 0.1) == 0.11
+    assert isclose(misner_sharp_mass(2.0, 0.9, 0.1), 0.11)
     assert trapping_indicator(0.9, 0.1) == 0.89
 
 
