@@ -4,10 +4,9 @@ There is deliberately NO added interface source term.
 All local/COSMOS feedback is carried by the single metric + total Tmunu.
 This module records the derived exchange ledger only.
 """
-import sys, numpy as np
-sys.path.insert(0,'/mnt/data/gear_v55')
-import GEAR_V5_5_TRUE_CMC_GAUGE as cmc
-import GEAR_V5_5_REFERENCE_PIRK_UNIFIED as q
+import numpy as np
+from . import true_cmc_reference as cmc
+from . import reference_pirk_unified as q
 
 def ledger_observables(g,s,fields,Rcoord=10.0):
     e,pr,pt,j=q.matter_projection(g,s,fields)
