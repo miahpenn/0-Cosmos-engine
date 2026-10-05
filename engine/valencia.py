@@ -169,6 +169,14 @@ def recover_radiation(
     hi = E / 3.0
     f_lo, _ = residual(lo)
     f_hi, _ = residual(hi)
+    # E/3 is the exact physical upper bound for p.  At tiny S/E,
+    # floating-point evaluation of 3*(E/3)-E can round infinitesimally
+    # negative even though the full analytic residual is positive.
+    # Move only to the adjacent representable number; this changes no
+    # physical bound or EOS.
+    if f_hi < 0.0:
+        hi = math.nextafter(hi, math.inf)
+        f_hi, _ = residual(hi)
     if not math.isfinite(f_hi) or f_lo > 0.0 or f_hi < 0.0:
         raise ValueError(
             "radiation primitive inversion has no physical bracket: "
