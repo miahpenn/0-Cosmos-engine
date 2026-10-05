@@ -6,23 +6,25 @@ The bundle keeps the physical roles distinct:
 - dark matter and baryons are conservative fluids;
 - radiation is a p=rho/3 fluid;
 - homogeneous Bianchi-I shear is represented only in the homogeneous
-  cosmology lane and is explicitly absent from the exact spherical local
-  geometry.
+  cosmology lane and is absent from the exact spherical local geometry.
 
 No D-to-matter identification or phenomenological interface source exists.
 """
 from dataclasses import dataclass
+import math
 import numpy as np
 
-from . import reference_pirk_unified as q
 from .matter_system import (
     BSSNMetricSlice,
     ConservedSpecies,
     Species,
+    primitives,
     project_species,
     initialize_dust,
     initialize_radiation,
 )
+from .scalar_system import scalar_projection, ScalarFields
+from .valencia import spherical_metric_from_bssn
 
 
 RHO_TOTAL_PRESENT = 9.64116e-5
@@ -63,40 +65,64 @@ def metric_slice_from_q(g, s) -> BSSNMetricSlice:
     )
 
 
-def initialize_from_archive(g, s) -> V55MatterState:
-    """Initialize the homogeneous COSMOS matter densities in the unified grid."""
-    metrics = []
-    for r, a, b, X, alpha, beta in zip(
-        g.centers, s.a, s.b, s.X, s.alpha, s.beta
-    ):
-        from .valencia import spherical_metric_from_bssn
-        metrics.append(
-            spherical_metric_from_bssn(
-                float(r), float(a), float(b), float(X),
-                float(alpha), float(beta)
-            )
+def _metrics(g, s):
+    return [
+        spherical_metric_from_bssn(
+            float(r), float(a), float(b), float(X),
+            float(alpha), float(beta)
         )
+        for r, a, b, X, alpha, beta in zip(
+            g.centers, s.a, s.b, s.X, s.alpha, s.beta
+        )
+    ]
 
+
+def initialize_from_archive(g, s, include_radiation=True) -> V55MatterState:
+    """Initialize the corrected archive matter operating point."""
+    metrics = _metrics(g, s)
     dm = initialize_dust(
-        metrics,
-        np.full(g.n, RHO_DM_PRESENT, dtype=float),
+        metrics, np.full(g.n, RHO_DM_PRESENT, dtype=float)
     )
     baryons = initialize_dust(
-        metrics,
-        np.full(g.n, RHO_B_PRESENT, dtype=float),
+        metrics, np.full(g.n, RHO_B_PRESENT, dtype=float)
     )
     radiation = initialize_radiation(
         metrics,
-        np.full(g.n, RHO_R_PRESENT, dtype=float),
+        np.full(g.n, RHO_R_PRESENT if include_radiation else 0.0, dtype=float),
     )
     return V55MatterState(dm, baryons, radiation)
+
+
+def normalized_fluid_densities(
+    metric: BSSNMetricSlice,
+    state: V55MatterState,
+) -> tuple[np.ndarray, np.ndarray]:
+    metrics = _metrics_from_slice(metric)
+    dm = primitives(metrics, state.dark_matter, Species.DARK_MATTER)
+    baryons = primitives(metrics, state.baryons, Species.BARYON)
+    return (
+        np.asarray([q.rho for q in dm]),
+        np.asarray([q.rho for q in baryons]),
+    )
+
+
+def _metrics_from_slice(metric: BSSNMetricSlice):
+    return [
+        spherical_metric_from_bssn(
+            float(r), float(a), float(b), float(X),
+            float(alpha), float(beta)
+        )
+        for r, a, b, X, alpha, beta in zip(
+            metric.r, metric.a, metric.b, metric.X,
+            metric.alpha, metric.beta
+        )
+    ]
 
 
 def total_fluid_projection(
     metric: BSSNMetricSlice,
     state: V55MatterState,
 ) -> dict[str, np.ndarray]:
-    """Return rho, radial pressure, tangential pressure, and j for Einstein RHS."""
     pieces = [
         project_species(metric, state.dark_matter, Species.DARK_MATTER),
         project_species(metric, state.baryons, Species.BARYON),
@@ -111,30 +137,44 @@ def total_fluid_projection(
 def total_matter_projection(
     g,
     s,
-    scalar_fields,
+    scalar_fields: ScalarFields,
     matter: V55MatterState,
 ) -> dict[str, np.ndarray]:
-    """Combine the frozen scalar source with the conservative fluid source."""
+    """Combine scalar and conservative-fluid stress projections once each."""
     metric = metric_slice_from_q(g, s)
-    se, spr, spa, sj = q.matter_projection(g, s, scalar_fields)
+    scalar_e, scalar_pr, scalar_pt, scalar_j = scalar_projection(
+        g, s, scalar_fields
+    )
     fluid = total_fluid_projection(metric, matter)
+
     return {
-        "rho": se + fluid["rho"],
-        "pr": spr + fluid["pr"],
-        "pt": spa + fluid["pt"],
-        "j": sj + fluid["j"],
+        "rho": scalar_e + fluid["rho"],
+        "pr": scalar_pr + fluid["pr"],
+        "pt": scalar_pt + fluid["pt"],
+        "j": scalar_j + fluid["j"],
         "fluid": fluid,
+        "scalar": {
+            "rho": scalar_e,
+            "pr": scalar_pr,
+            "pt": scalar_pt,
+            "j": scalar_j,
+        },
     }
 
 
 def dm_density(metric: BSSNMetricSlice, matter: V55MatterState) -> np.ndarray:
-    return project_species(
-        metric, matter.dark_matter, Species.DARK_MATTER
-    )["rho"] * (8.0 * np.pi)
+    """Return archive-normalized DM rest density, not Einstein-normalized rho."""
+    return normalized_fluid_densities(
+        metric, matter
+    )[0]
 
 
-def exchange_pair(beta_dm: float, rho_dm: np.ndarray,
-                  dphi_t: np.ndarray, dphi_r: np.ndarray) -> dict[str, np.ndarray]:
+def exchange_pair(
+    beta_dm: float,
+    rho_dm: np.ndarray,
+    dphi_t: np.ndarray,
+    dphi_r: np.ndarray,
+) -> dict[str, np.ndarray]:
     """Return the locked DM/scalar covector exchange pair."""
     q_t = beta_dm * rho_dm * dphi_t
     q_r = beta_dm * rho_dm * dphi_r
@@ -143,6 +183,30 @@ def exchange_pair(beta_dm: float, rho_dm: np.ndarray,
         "dm_r": q_r,
         "phi_t": -q_t,
         "phi_r": -q_r,
-        "net_t": q_t - q_t,
-        "net_r": q_r - q_r,
+        "net_t": np.zeros_like(q_t),
+        "net_r": np.zeros_like(q_r),
+    }
+
+
+def radiation_density_normalized(
+    metric: BSSNMetricSlice, state: V55MatterState
+) -> np.ndarray:
+    projection = project_species(
+        metric, state.radiation, Species.RADIATION
+    )
+    return projection["rho"] * (8.0 * math.pi)
+
+
+def species_states(metric: BSSNMetricSlice, state: V55MatterState):
+    metrics = _metrics_from_slice(metric)
+    return {
+        "dark_matter": primitives(
+            metrics, state.dark_matter, Species.DARK_MATTER
+        ),
+        "baryons": primitives(
+            metrics, state.baryons, Species.BARYON
+        ),
+        "radiation": primitives(
+            metrics, state.radiation, Species.RADIATION
+        ),
     }
