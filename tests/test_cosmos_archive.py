@@ -4,6 +4,8 @@ from engine.cosmos import (
     CosmosParams,
     construct_present_day,
     normalized_budgets,
+    state_rho_p,
+    cosmos_rhs,
 )
 
 
@@ -18,9 +20,7 @@ def test_present_day_operating_point():
 
 def test_present_day_budget_is_archived():
     state = construct_present_day()
-    rho, _ = state_rho = __import__(
-        "engine.cosmos", fromlist=["state_rho_p"]
-    ).state_rho_p(state, CosmosParams())
+    rho, _ = state_rho_p(state, CosmosParams())
     assert isclose(rho, 9.64116e-5, rel_tol=0.0, abs_tol=2.0e-8)
 
     omega = normalized_budgets(state)
@@ -36,8 +36,6 @@ def test_signed_h_background_rhs_crossing_is_allowed():
         9.2e-5 * 9.64116e-5,
         1.745e-8 * 9.64116e-5,
     )
-    dy = __import__(
-        "engine.cosmos", fromlist=["cosmos_rhs"]
-    ).cosmos_rhs(y, p)
+    dy = cosmos_rhs(y, p)
     assert dy[0] < 0.0
-    assert dy[1] == dy[1]
+    assert isclose(dy[1], dy[1], rel_tol=0.0, abs_tol=0.0)
