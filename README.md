@@ -18,6 +18,12 @@ Build one reproducible machine in which the cosmic lane, local Einstein-scalar l
 - A reduced diagnostic source is never promoted to a physical source without conservation and resolution tests.
 
 ## Architecture
+
+- engine/reference_pirk_unified.py — archived unified V5.5 spherical PIRK kernel.
+- engine/true_cmc_reference.py — stage-aware CMC lapse evolution.
+- engine/bidirectional_production.py — derived Misner–Sharp/stress-energy ledger.
+- engine/handoff.py — dynamical handoff and H=0 cycle-event observation.
+- engine/coupled_engine.py — continuous one-metric coupled evolution driver.
 - engine/cosmos.py — cosmic background dynamics and corrected component budget.
 - engine/local.py — GEAR-03 S/D local sector and GEAR-63/65 barrier.
 - engine/interface.py — common-clock, stress-energy, flux, and exchange bookkeeping.
