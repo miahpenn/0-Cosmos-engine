@@ -1,8 +1,6 @@
 name: Engine controls
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 jobs:
