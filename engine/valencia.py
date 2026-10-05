@@ -153,20 +153,23 @@ def recover_radiation(
         )
 
     def residual(p: float) -> tuple[float, float]:
-        rho = 3.0 * p
         z = E + p
         v2 = S2 / (z * z)
         if v2 >= 1.0:
             return math.inf, v2
-        W2 = 1.0 / (1.0 - v2)
-        implied_E = 4.0 * p * W2 - p
-        return implied_E - E, v2
+        # Algebraically identical to
+        #   4 p W^2 - p - E,
+        # but avoids catastrophic cancellation when p ~ E/3 and |S| << E.
+        # Using W^2 = 1/(1-v^2), this is
+        #   3 p - E + 4 p v^2/(1-v^2).
+        correction = 4.0 * p * v2 / (1.0 - v2)
+        return (3.0 * p - E) + correction, v2
 
-    lo = 1.0e-16
-    hi = max(E / 3.0, 1.0e-16)
+    lo = 0.0
+    hi = E / 3.0
     f_lo, _ = residual(lo)
     f_hi, _ = residual(hi)
-    if not math.isfinite(f_hi) or f_lo * f_hi > 0.0:
+    if not math.isfinite(f_hi) or f_lo > 0.0 or f_hi < 0.0:
         raise ValueError(
             "radiation primitive inversion has no physical bracket: "
             f"E={E:.17e}, |S|={S_abs:.17e}"
@@ -183,12 +186,10 @@ def recover_radiation(
                 v_r=math.copysign(v, S_r),
                 gamma_rr=metric.gamma_rr,
             )
-        if f_lo * f_mid <= 0.0:
+        if f_mid >= 0.0:
             hi = mid
-            f_hi = f_mid
         else:
             lo = mid
-            f_lo = f_mid
 
     mid = 0.5 * (lo + hi)
     f_mid, v2 = residual(mid)
