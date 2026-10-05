@@ -29,7 +29,6 @@ from .v55_matter import (
     V55MatterState,
     initialize_from_archive,
 )
-from .matter_system import ConservedSpecies
 
 
 @dataclass(frozen=True)
@@ -123,7 +122,7 @@ def build_initial_data(
         + 2.0 / r * (1.0 / b - 1.0 / a)
     )
 
-    state = vacuum_state_factory(n)
+    state = vacuum_state_factory(grid)
     state.a[:] = a
     state.b[:] = b
     state.X[:] = X
