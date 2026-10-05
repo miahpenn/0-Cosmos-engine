@@ -21,6 +21,7 @@ import math
 import numpy as np
 
 from .handoff import CycleLedger, handoff_from_ledger
+from .production_contract import KernelCapabilities
 from .invariant_diagnostics import (
     misner_sharp_mass_from_chi,
     trapping_indicator_from_areal_radius,
@@ -62,7 +63,7 @@ class ProductionState:
 class V55ProductionKernel:
     """Unvalidated production-facing implementation of the full state graph."""
 
-    capabilities = adapter.KernelCapabilities(
+    capabilities = KernelCapabilities(
         reference_metric_bssn=True,
         pirk2=True,
         moving_gauge=True,
