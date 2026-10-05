@@ -120,7 +120,10 @@ class V55ProductionKernel:
             rho_dm=rho_dm,
         )
 
-        md = geometry_metric_derivatives(metric, self._d1)
+        md = geometry_metric_derivatives(
+            metric,
+            lambda values, parity: self._d1(state.grid, values, parity),
+        )
         dphi_t = srhs.phi
         dphi_r = self._d1(state.grid, state.scalars.phi, 1)
 
