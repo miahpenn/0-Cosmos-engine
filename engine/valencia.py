@@ -133,11 +133,23 @@ def recover_radiation(
         raise ValueError("radiation conservative state is nonphysical")
     S_r = U.momentum_r / metric.sqrt_gamma
     S2 = metric.gamma_rr_inv * S_r * S_r
+    S_abs = math.sqrt(max(S2, 0.0))
     if S2 == 0.0:
         rho = E
         return FluidPrimitive(
             rho=rho, pressure=rho / 3.0, v_r=0.0,
             gamma_rr=metric.gamma_rr
+        )
+
+    # A physical radiation state must satisfy the dominant-energy bound
+    # |S| <= E.  Do not hide a violation by clipping the state: report the
+    # actual conservative-state failure so the production campaign can trace
+    # the source of the loss of admissibility.
+    if S_abs > E:
+        raise ValueError(
+            "radiation conservative state violates E>=|S|: "
+            f"E={E:.17e}, |S|={S_abs:.17e}, "
+            f"ratio={S_abs / max(E, 1.0e-300):.17e}"
         )
 
     def residual(p: float) -> tuple[float, float]:
@@ -155,7 +167,10 @@ def recover_radiation(
     f_lo, _ = residual(lo)
     f_hi, _ = residual(hi)
     if not math.isfinite(f_hi) or f_lo * f_hi > 0.0:
-        raise ValueError("radiation primitive inversion has no physical bracket")
+        raise ValueError(
+            "radiation primitive inversion has no physical bracket: "
+            f"E={E:.17e}, |S|={S_abs:.17e}"
+        )
 
     for _ in range(max_iter):
         mid = 0.5 * (lo + hi)
