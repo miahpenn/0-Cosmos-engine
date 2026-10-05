@@ -1,0 +1,63 @@
+name: Final V5.5 numerical campaign
+
+on:
+  workflow_dispatch:
+    inputs:
+      final_time:
+        description: "Physical evolution horizon for the campaign"
+        required: false
+        default: "160.0"
+      resolutions:
+        description: "Comma-separated radial resolutions"
+        required: false
+        default: "40,60,80"
+
+jobs:
+  campaign:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+
+    steps:
+      - name: Checkout engine and pinned numerical kernel
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Run complete repository tests
+        run: python -m pytest -q
+
+      - name: Run production campaign
+        env:
+          FINAL_TIME: ${{ inputs.final_time }}
+          RESOLUTIONS: ${{ inputs.resolutions }}
+        run: |
+          python - <<'PY'
+          import os
+          from engine.campaign import CampaignConfig
+          from engine.run_production import run_campaign
+
+          resolutions = tuple(int(x.strip()) for x in os.environ["RESOLUTIONS"].split(",") if x.strip())
+          config = CampaignConfig(
+              resolutions=resolutions,
+              final_time=float(os.environ["FINAL_TIME"]),
+              output_dir="runs/final",
+          )
+          run_campaign(config=config)
+          PY
+
+      - name: Upload campaign outputs
+        uses: actions/upload-artifact@v4
+        with:
+          name: v55-final-campaign
+          path: runs/final/
+          if-no-files-found: error
+      
