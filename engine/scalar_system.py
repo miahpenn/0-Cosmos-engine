@@ -106,9 +106,10 @@ def scalar_projection(grid, geometry, fields):
     ):
         fp = _d1(grid, f, 1)
         gr2 = invr * fp * fp
-        e += 0.5 * p * p + 0.5 * gr2 + V
-        pr += 0.5 * p * p + 0.5 * gr2 - V
-        pt += 0.5 * p * p - 0.5 * gr2 - V
-        j += -p * fp
+        scale = KAPPA if f is fields.phi else 1.0
+        e += (0.5 * p * p + 0.5 * gr2 + V) / scale
+        pr += (0.5 * p * p + 0.5 * gr2 - V) / scale
+        pt += (0.5 * p * p - 0.5 * gr2 - V) / scale
+        j += (-p * fp) / scale
 
     return e, pr, pt, j
