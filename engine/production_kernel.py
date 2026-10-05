@@ -296,17 +296,15 @@ class V55ProductionKernel:
             )
         )
 
-        # Final PIRK primary correction uses the final explicit block with the
-        # stage-1 primary variables retained, exactly as in the pinned kernel.
+        # Final PIRK primary correction follows the archived TRUE-PIRK
+        # ordering: build the final explicit state, evaluate L22, update Aa/K,
+        # then evaluate the Lambda L2 term again on that final primary state.
         final_u_old_v = g1.copy()
         for name in gterms0["explicit"]:
             setattr(final_u_old_v, name, getattr(gnew, name))
 
         _, vacuum, _ = adapter.vendor_modules()
         l2_final = vacuum.primary_l2_rhs(grid, final_u_old_v)
-        ll2_final = vacuum.lambda_l2_rhs(
-            grid, final_u_old_v, lambda_m=LAMBDA_M
-        )
 
         gnew.Aa = g0.Aa + 0.5 * dt * (
             gterms0["primary_l2"]["Aa"]
@@ -320,6 +318,14 @@ class V55ProductionKernel:
             + gterms0["primary_l3"]["K"]
             + gterms1["primary_l3"]["K"]
         )
+
+        final_primary = final_u_old_v.copy()
+        final_primary.Aa = gnew.Aa.copy()
+        final_primary.K = gnew.K.copy()
+        ll2_final = vacuum.lambda_l2_rhs(
+            grid, final_primary, lambda_m=LAMBDA_M
+        )
+
         gnew.Lambda = g0.Lambda + 0.5 * dt * (
             gterms0["lambda_l2"]
             + ll2_final
