@@ -26,6 +26,8 @@ from .invariant_diagnostics import (
     misner_sharp_mass_from_chi,
     trapping_indicator_from_areal_radius,
 )
+from .cosmology_observables import effective_hubble, append_efolds
+from .stress_energy import assemble_total_stress_energy
 from .matter_rhs import species_rhs
 from .matter_system import (
     Species,
@@ -55,6 +57,7 @@ class ProductionState:
     matter: V55MatterState
     t: float = 0.0
     tau: float = 0.0
+    e_folds: float = 0.0
     cycle: CycleLedger = field(default_factory=CycleLedger)
     history: list[dict] = field(default_factory=list)
     handoffs: list = field(default_factory=list)
@@ -102,6 +105,7 @@ class V55ProductionKernel:
             geometry=init.geometry,
             scalars=init.scalars,
             matter=init.matter,
+            e_folds=0.0,
         )
 
     @staticmethod
@@ -331,12 +335,16 @@ class V55ProductionKernel:
             matter=mnew,
             t=state.t + dt,
             tau=state.tau,
+            e_folds=state.e_folds,
             cycle=state.cycle,
             history=list(state.history),
             handoffs=list(state.handoffs),
         )
 
         obs = self.diagnostics(candidate, profiles=False)
+        candidate.e_folds = append_efolds(
+            state.e_folds, obs["H_eff"], dt
+        )
         previous_H = (
             state.history[-1]["H_eff"]
             if state.history
@@ -384,7 +392,7 @@ class V55ProductionKernel:
 
         _, vacuum, moving = adapter.vendor_modules()
         metric = metric_slice_from_q(grid, geom)
-        total = total_matter_projection(
+        total = assemble_total_stress_energy(
             grid, geom, state.scalars, state.matter
         )
         raw = vacuum.constraints(grid, geom)
@@ -437,10 +445,8 @@ class V55ProductionKernel:
                 )
 
         out = {
-            "H_eff": -float(
-                np.sum(grid.volumes * geom.K)
-                / np.sum(grid.volumes)
-            ) / 3.0,
+            "H_eff": effective_hubble(geom, grid.volumes),
+            "e_folds": float(state.e_folds),
             "tau_rate": float(geom.alpha[0]),
             "R_sigma": float(R[surface]),
             "M_MS": float(mass[surface]),
@@ -497,6 +503,7 @@ def write_checkpoint_npz(
     arrays = {
         "t": np.asarray(state.t),
         "tau": np.asarray(state.tau),
+        "e_folds": np.asarray(state.e_folds),
         "r": np.asarray(state.grid.centers),
         "a": state.geometry.a,
         "b": state.geometry.b,
