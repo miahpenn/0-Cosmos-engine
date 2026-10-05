@@ -1,8 +1,6 @@
 name: Final V5.5 numerical campaign
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
     inputs:
       final_time:
