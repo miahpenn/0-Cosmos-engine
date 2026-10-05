@@ -234,33 +234,29 @@ def mixed_flux(metric: SphericalMetric, q: FluidPrimitive) -> FluidConserved:
 def geometric_source(
     metric: SphericalMetric,
     q: FluidPrimitive,
-    dg_tt: float,
-    dg_tr: float,
-    dg_rr: float,
-    dg_thth: float,
-    sin2_theta_integrated: bool = True,
+    dt_metric: dict[str, float],
+    dr_metric: dict[str, float],
 ) -> tuple[float, float]:
-    """Return the exact t/r metric sources for the mixed tensor equations.
+    """Return exact covariant t/r metric sources for mixed T^mu_nu.
 
-    Spherical symmetry combines the theta and phi contributions into
-    2 T^{theta theta} d g_theta theta.
+    The source identity is
+        1/2 sqrt(-g) T^(ab) partial_nu g_ab.
+    Spherical symmetry combines theta and phi into
+        2 T^(theta theta) partial_nu g_theta theta.
     """
     T = stress_tensor_contravariant(metric, q)
     pref = 0.5 * metric.sqrt_minus_g
-    angular = 2.0 * T["thth"] * dg_thth if sin2_theta_integrated else 0.0
-    source_t = pref * (
-        T["tt"] * dg_tt
-        + 2.0 * T["tr"] * dg_tr
-        + T["rr"] * dg_rr
-        + angular
-    )
-    source_r = pref * (
-        T["tt"] * dg_tt * 0.0
-        + 2.0 * T["tr"] * dg_tr * 0.0
-        + T["rr"] * dg_rr
-        + angular
-    )
-    return source_t, source_r
+
+    def contract(dg: dict[str, float]) -> float:
+        angular = 2.0 * T["thth"] * dg["thth"]
+        return pref * (
+            T["tt"] * dg["tt"]
+            + 2.0 * T["tr"] * dg["tr"]
+            + T["rr"] * dg["rr"]
+            + angular
+        )
+
+    return contract(dt_metric), contract(dr_metric)
 
 
 def dark_matter_covector_source(
