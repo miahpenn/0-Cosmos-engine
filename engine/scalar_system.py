@@ -92,28 +92,23 @@ def scalar_rhs_arrays(grid, geometry, fields, beta_dm=-0.04,
 
 
 def scalar_projection(grid, geometry, fields):
-    """Return normalized Einstein projections (before multiplying by 1/KAPPA)."""
+    """Return the archive-normalized scalar Einstein projections."""
     invr = geometry.X**2 / geometry.a
     e = np.zeros_like(fields.S)
     pr = np.zeros_like(fields.S)
     pt = np.zeros_like(fields.S)
     j = np.zeros_like(fields.S)
 
-    for f, p, V, scale in (
-        (fields.S, fields.PS, 0.5 * fields.S**2, 1.0),
-        (fields.D, fields.PD, -0.5 * fields.D**2, 1.0),
-        (
-            fields.phi,
-            fields.Pi,
-            cosmos_potential(fields.phi),
-            KAPPA,
-        ),
+    for f, p, V in (
+        (fields.S, fields.PS, 0.5 * fields.S**2),
+        (fields.D, fields.PD, -0.5 * fields.D**2),
+        (fields.phi, fields.Pi, cosmos_potential(fields.phi)),
     ):
         fp = _d1(grid, f, 1)
         gr2 = invr * fp * fp
-        e += (0.5 * p * p + 0.5 * gr2 + V) / scale
-        pr += (0.5 * p * p + 0.5 * gr2 - V) / scale
-        pt += (0.5 * p * p - 0.5 * gr2 - V) / scale
-        j += (-p * fp) / scale
+        e += 0.5 * p * p + 0.5 * gr2 + V
+        pr += 0.5 * p * p + 0.5 * gr2 - V
+        pt += 0.5 * p * p - 0.5 * gr2 - V
+        j += -p * fp
 
     return e, pr, pt, j
