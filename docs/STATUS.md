@@ -6,12 +6,13 @@ The repository is being assembled as one canonical machine rather than independe
 
 1. archive-locked COSMOS background equations and corrected V0;
 2. GEAR-03 local S/D sector with the GEAR-63/65 geometric barrier;
-3. unified V5.5 spherical stress-energy and reference-metric BSSN/PIRK kernel;
-4. stage-aware CMC gauge;
-5. Misner–Sharp mass/current and stress-energy ledger;
-6. dynamical proper-time and H=0 handoff observer;
-7. continuous one-metric coupled evolution driver;
-8. covariant matter-sector interfaces for DM exchange, baryon dust, and radiation.
+3. unified V5.5 spherical stress-energy and reference-metric BSSN/PIRK reference kernel;
+4. stage-aware CMC reference gauge;
+5. conservative/primitive matter interfaces for beta-coupled DM, baryonic dust, and radiation;
+6. Misner–Sharp mass/current and stress-energy ledger;
+7. dynamical proper-time and H=0 handoff observer;
+8. invariant trapping/current/constraint witness interfaces;
+9. continuous one-metric coupled evolution driver.
 
 ## Physical locks
 
@@ -29,10 +30,11 @@ The repository is being assembled as one canonical machine rather than independe
 
 ## Remaining build work before the final test
 
-- complete the conservative/primitive DM and baryon evolution connection to the BSSN matter sources;
-- connect radiation evolution to the unified source ledger;
-- finish invariant trapped-surface and Misner–Sharp diagnostics in the continuous driver;
-- make the final end-to-end runner produce checkpoints and cycle/handoff ledgers;
+- connect the conservative/primitive DM and baryon state evolution to the actual reference-metric BSSN matter-source interface;
+- connect radiation evolution to the unified source ledger and homogeneous COSMOS regression;
+- finish the final invariant diagnostic adapter against the actual production kernel;
+- build the end-to-end checkpoint/trajectory/cycle ledger runner;
+- promote only the actual horizon-penetrating PIRK kernel to the production entry point;
 - then run the entire repository test and numerical campaign together.
 
 **No intermediate execution test is being treated as the final acceptance gate.**
