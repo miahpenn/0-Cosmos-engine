@@ -88,13 +88,11 @@ class V55ProductionKernel:
         D_amplitude: float = 1.0e-10,
         include_radiation: bool = True,
     ) -> ProductionState:
-        _, vacuum, _ = adapter.vendor_modules()
-        grid = adapter.vendor_modules()[0].SphericalCellGrid(
-            resolution, r_max
-        )
+        grid_ops, vacuum, _ = adapter.vendor_modules()
+        grid = grid_ops.SphericalCellGrid(resolution, r_max)
         init = build_initial_data(
             grid,
-            vacuum.VacuumState,
+            vacuum.flat_state,
             amplitude=amplitude,
             width=width,
             D_amplitude=D_amplitude,
