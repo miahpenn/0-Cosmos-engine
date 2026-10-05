@@ -89,8 +89,8 @@ def build_initial_data(
     for _ in range(6):
         rhoS = 0.5 * (PS**2 + B * Sp**2) + 0.5 * S**2
         rhoD = 0.5 * (PD**2 + B * Dp**2) - 0.5 * D**2
-        rhoPhi = 0.5 * Pi**2 + cosmos_potential(phi)
-        rhoMatter = dm0 + b0 + rho_r
+        rhoPhi = (0.5 * Pi**2 + cosmos_potential(phi)) / (8.0 * math.pi)
+        rhoMatter = (dm0 + b0 + rho_r) / (8.0 * math.pi)
         rho = rhoS + rhoD + rhoPhi + rhoMatter
         Kr = Kt + r * Ktp + 4.0 * math.pi * r * j
         src = (
