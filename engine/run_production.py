@@ -15,6 +15,7 @@ import numpy as np
 from .campaign import CampaignConfig
 from .production_contract import require_production_capabilities
 from .production_kernel import V55ProductionKernel
+from .worldtube import current_residual
 
 
 @dataclass
@@ -27,6 +28,11 @@ class ResolutionResult:
     cycle_events: int
     handoffs: int
     checkpoint_count: int
+    turnaround_events: int
+    reexpansion_events: int
+    trapped_root_count_max: int
+    misner_sharp_current_max: float
+    misner_sharp_current_rms: float
     last_diagnostics: dict
 
 
@@ -103,6 +109,24 @@ def run_campaign(
                 next_checkpoint += config.checkpoint_interval
 
         last = state.history[-1] if state.history else kernel.diagnostics(state)
+        if len(state.history) >= 3:
+            times = np.asarray([row["t"] for row in state.history])
+            masses = np.asarray([row["M_MS"] for row in state.history])
+            rhs = np.asarray([
+                row["flux_T"] + row["work_pR"] for row in state.history
+            ])
+            ms_residual = current_residual(times, masses, rhs)
+            ms_max = float(np.max(np.abs(ms_residual)))
+            ms_rms = float(np.sqrt(np.mean(ms_residual**2)))
+        else:
+            ms_max = float("nan")
+            ms_rms = float("nan")
+        turnaround = sum(e.kind == "turnaround" for e in state.cycle.events)
+        reexpansion = sum(e.kind == "re_expansion_crossing" for e in state.cycle.events)
+        max_roots = max(
+            (len(row.get("trapped_roots", [])) for row in state.history),
+            default=0,
+        )
         result = ResolutionResult(
             resolution=resolution,
             status=status,
@@ -112,6 +136,11 @@ def run_campaign(
             cycle_events=len(state.cycle.events),
             handoffs=len(state.handoffs),
             checkpoint_count=checkpoint_count,
+            turnaround_events=turnaround,
+            reexpansion_events=reexpansion,
+            trapped_root_count_max=max_roots,
+            misner_sharp_current_max=ms_max,
+            misner_sharp_current_rms=ms_rms,
             last_diagnostics=_json_safe(last),
         )
         run_dir = Path(config.output_dir) / f"N{resolution}"
