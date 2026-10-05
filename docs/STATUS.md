@@ -1,40 +1,54 @@
 # Build Status — 2026-10-05
 
-## Current build architecture
+## Current state
 
-The repository is being assembled as one canonical machine rather than independent diagnostic branches:
+The canonical repository now contains a unified production-facing state graph:
 
-1. archive-locked COSMOS background equations and corrected V0;
-2. GEAR-03 local S/D sector with the GEAR-63/65 geometric barrier;
-3. unified V5.5 spherical stress-energy and reference-metric BSSN/PIRK reference kernel;
-4. stage-aware CMC reference gauge;
-5. conservative/primitive matter interfaces for beta-coupled DM, baryonic dust, and radiation;
-6. Misner–Sharp mass/current and stress-energy ledger;
-7. dynamical proper-time and H=0 handoff observer;
-8. invariant trapping/current/constraint witness interfaces;
-9. continuous one-metric coupled evolution driver.
+1. corrected archive COSMOS background equations;
+2. local GEAR-03 S/D sector with GEAR-63/65 barrier;
+3. scalar S/D/COSMOS evolution and stress projections;
+4. conservative spherical dark-matter, baryon, and radiation matter sectors;
+5. locked beta DM/scalar four-force exchange;
+6. one total Einstein stress-energy assembly;
+7. pinned reference-metric BSSN/PIRK numerical geometry;
+8. synchronized geometry/scalar/matter evolution state;
+9. dynamically derived proper time, H_eff, e-folds, trapping, and Misner-Sharp observables;
+10. cycle/handoff ledgers without a synthetic lambda_cycle;
+11. checkpoint and long-horizon multi-resolution campaign infrastructure.
 
-## Physical locks
+## Explicit exclusions
 
-- G=1.
-- kappa=0, g=1.
-- alpha_D=1.
-- corrected COSMOS V0 is retained.
-- one metric and one total T_mu_nu in the unified spherical branch.
-- no phenomenological reciprocal source.
-- no fitted coefficient.
-- no imposed clock conversion.
-- no D-to-matter identification law.
-- no bounce, reset, branch flip, lapse floor, ejection threshold, or physical stop condition.
-- shear is explicitly excluded from the exact spherical branch rather than being replaced by an isotropic surrogate.
+- Bianchi-I shear remains outside the exact spherical local source.
+- No D-to-matter identification law.
+- No shell EOS/action.
+- No phenomenological interface source.
+- No fitted coefficient.
+- No imposed clock conversion.
+- No bounce/reset/branch flip/lapse floor/ejection threshold/physical stop.
 
-## Remaining build work before the final test
+## Validation state
 
-- connect the conservative/primitive DM and baryon state evolution to the actual reference-metric BSSN matter-source interface;
-- connect radiation evolution to the unified source ledger and homogeneous COSMOS regression;
-- finish the final invariant diagnostic adapter against the actual production kernel;
-- build the end-to-end checkpoint/trajectory/cycle ledger runner;
-- promote only the actual horizon-penetrating PIRK kernel to the production entry point;
-- then run the entire repository test and numerical campaign together.
+No repository tests or production numerical campaign have been executed in this
+construction pass.
 
-**No intermediate execution test is being treated as the final acceptance gate.**
+The code is therefore classified:
+
+IMPLEMENTED / NOT YET CAMPAIGN-VALIDATED
+
+## Final engineering gate
+
+The remaining work is not another physical model. It is the final integration audit
+and execution of the complete regression + numerical campaign, followed by analysis
+of:
+
+- Hamiltonian, momentum, connection, determinant witnesses;
+- invariant trapped-surface roots;
+- Misner-Sharp current balance;
+- proper-time and H_eff trajectories;
+- dark-sector exchange closure;
+- resolution convergence;
+- turnaround and re-expansion events;
+- genuinely emergent multi-cycle behavior, if the solved equations produce it.
+
+A numerical failure will be classified as a numerical/gauge result unless invariant,
+resolution-independent evidence supports a physical interpretation.
