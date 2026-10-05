@@ -11,7 +11,6 @@ The bundle keeps the physical roles distinct:
 No D-to-matter identification or phenomenological interface source exists.
 """
 from dataclasses import dataclass
-import math
 import numpy as np
 
 from .matter_system import (
@@ -191,10 +190,11 @@ def exchange_pair(
 def radiation_density_normalized(
     metric: BSSNMetricSlice, state: V55MatterState
 ) -> np.ndarray:
+    """Return archive-normalized radiation density consistently with all sectors."""
     projection = project_species(
         metric, state.radiation, Species.RADIATION
     )
-    return projection["rho"] * (8.0 * math.pi)
+    return projection["rho"]
 
 
 def species_states(metric: BSSNMetricSlice, state: V55MatterState):
