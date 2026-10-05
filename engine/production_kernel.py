@@ -1,35 +1,49 @@
-"""Integrated V5.5 production state and synchronized PIRK2 step.
+"""Integrated V5.5 production state and synchronized PIRK2 evolution.
 
-This is the first production-facing machine layer that evolves:
-- reference-metric BSSN geometry from the pinned numerical kernel;
-- V5.5 local S/D and COSMOS scalars;
-- conservative DM/baryon/radiation states;
-- the derived proper clock and cycle ledger.
+The machine carries one global spherical spacetime with:
+- reference-metric BSSN geometry;
+- local S/D scalar fields;
+- corrected COSMOS scalar;
+- conservative beta-coupled dark matter;
+- conservative baryonic dust;
+- conservative radiation p=rho/3;
+- derived proper time, trapping, Misner-Sharp, and cycle/handoff ledgers.
 
-No branch reset, bounce, ejection threshold, interface source, or fitted
-feedback coefficient is present. The only hard termination in a host runner
-should be non-finite state or an explicitly stated computational resource
-limit.
+The external vendor supplies numerical geometry operators/PIRK ordering only.
+All V5.5 matter equations and source terms remain local to this repository.
+
+No bounce, reset, branch flip, shell source, fitted feedback coefficient,
+lapse floor, ejection threshold, or physical stop is present.
 """
 from dataclasses import dataclass, field
-import math
 from pathlib import Path
+import math
 import numpy as np
 
 from .handoff import CycleLedger, handoff_from_ledger
-from .matter_rhs import species_rhs
-from .matter_system import geometry_metric_derivatives
-from .production_contract import KernelCapabilities
-from .scalar_system import ScalarFields, scalar_rhs_arrays
-from .v55_initial import build_initial_data
-from .v55_matter import V55MatterState, dm_density, total_matter_projection
-from . import v55_pirk_adapter as adapter
 from .invariant_diagnostics import (
     misner_sharp_mass_from_chi,
     trapping_indicator_from_areal_radius,
 )
+from .matter_rhs import species_rhs
+from .matter_system import (
+    Species,
+    ConservedSpecies,
+    geometry_metric_derivatives,
+)
+from .scalar_system import ScalarFields, scalar_rhs_arrays
+from .v55_initial import build_initial_data
+from .v55_matter import (
+    V55MatterState,
+    dm_density,
+    metric_slice_from_q,
+    total_matter_projection,
+)
+from . import v55_pirk_adapter as adapter
+
 
 BETA_DM = -0.04
+LAMBDA_M = 2.0
 
 
 @dataclass
@@ -45,10 +59,10 @@ class ProductionState:
     handoffs: list = field(default_factory=list)
 
 
-@dataclass(frozen=True)
-class ProductionKernel:
-    """Capability-bearing kernel object used by the final campaign contract."""
-    capabilities: KernelCapabilities = KernelCapabilities(
+class V55ProductionKernel:
+    """Unvalidated production-facing implementation of the full state graph."""
+
+    capabilities = adapter.KernelCapabilities(
         reference_metric_bssn=True,
         pirk2=True,
         moving_gauge=True,
@@ -58,6 +72,7 @@ class ProductionKernel:
         invariant_trapping=True,
         misner_sharp_current=True,
     )
+    validation_state = "implemented_not_campaign_validated"
 
     def initialize(
         self,
@@ -69,8 +84,10 @@ class ProductionKernel:
         D_amplitude: float = 1.0e-10,
         include_radiation: bool = True,
     ) -> ProductionState:
-        ops, vacuum, _ = adapter.vendor_modules()
-        grid = ops.SphericalCellGrid(resolution, r_max)
+        _, vacuum, _ = adapter.vendor_modules()
+        grid = adapter.vendor_modules()[0].SphericalCellGrid(
+            resolution, r_max
+        )
         init = build_initial_data(
             grid,
             vacuum.VacuumState,
@@ -84,20 +101,17 @@ class ProductionKernel:
             geometry=init.geometry,
             scalars=init.scalars,
             matter=init.matter,
-            t=0.0,
-            tau=0.0,
         )
 
     @staticmethod
-    def _grid_d1(grid, values, parity):
+    def _d1(grid, values, parity):
         return grid.cell_derivative_fourth(values, parity=parity)
 
-    def _scalar_and_matter_rhs(self, state: ProductionState):
-        rho_dm = dm_density(
-            adapter_vm_slice(state),
-            state.matter,
-        )
-        scalar_rhs = scalar_rhs_arrays(
+    def _rhs(self, state: ProductionState):
+        metric = metric_slice_from_q(state.grid, state.geometry)
+
+        rho_dm = dm_density(metric, state.matter)
+        srhs = scalar_rhs_arrays(
             state.grid,
             state.geometry,
             state.scalars,
@@ -105,93 +119,126 @@ class ProductionKernel:
             rho_dm=rho_dm,
         )
 
-        md = geometry_metric_derivatives(
-            adapter_vm_slice(state),
-            self._grid_d1,
-        )
-        dphi_t = scalar_rhs.phi
-        dphi_r = self._grid_d1(
-            state.grid, state.scalars.phi, 1
-        )
+        md = geometry_metric_derivatives(metric, self._d1)
+        dphi_t = srhs.phi
+        dphi_r = self._d1(state.grid, state.scalars.phi, 1)
 
-        matter_rhs = {
-            name: species_rhs(
-                adapter_vm_slice(state),
+        mrhs = {}
+        for name, species in (
+            ("dark_matter", Species.DARK_MATTER),
+            ("baryons", Species.BARYON),
+            ("radiation", Species.RADIATION),
+        ):
+            mrhs[name] = species_rhs(
+                metric,
                 md,
                 getattr(state.matter, name),
                 species,
-                dphi_t=dphi_t if species.name == "DARK_MATTER" else None,
-                dphi_r=dphi_r if species.name == "DARK_MATTER" else None,
+                dphi_t=dphi_t if species is Species.DARK_MATTER else None,
+                dphi_r=dphi_r if species is Species.DARK_MATTER else None,
                 beta_dm=BETA_DM,
             )
-            for name, species in (
-                ("dark_matter", __import__("engine.matter_system", fromlist=["Species"]).Species.DARK_MATTER),
-                ("baryons", __import__("engine.matter_system", fromlist=["Species"]).Species.BARYON),
-                ("radiation", __import__("engine.matter_system", fromlist=["Species"]).Species.RADIATION),
-            )
-        }
-        return scalar_rhs, matter_rhs, md
+        return srhs, mrhs, md
+
+    @staticmethod
+    def _add_matter(base: ConservedSpecies, rhs, factor: float) -> ConservedSpecies:
+        return ConservedSpecies(
+            base.rest + factor * rhs.rest,
+            base.energy_t + factor * rhs.energy_t,
+            base.momentum_r + factor * rhs.momentum_r,
+        )
+
+    def _primary_stage(
+        self,
+        grid,
+        g0,
+        g_explicit,
+        scalars,
+        matter,
+        dt,
+        l20=None,
+        l30=None,
+        ll20=None,
+        ll30=None,
+    ):
+        terms0 = adapter.geometry_stage_terms(
+            grid, g0, scalars, matter, lambda_m=LAMBDA_M
+        )
+        if l20 is None:
+            l20 = terms0["primary_l2"]
+        if l30 is None:
+            l30 = terms0["primary_l3"]
+        if ll20 is None:
+            ll20 = terms0["lambda_l2"]
+        if ll30 is None:
+            ll30 = terms0["lambda_l3"]
+
+        _, vacuum, _ = adapter.vendor_modules()
+        l2_u1 = vacuum.primary_l2_rhs(grid, g_explicit)
+        ll2_u1 = vacuum.lambda_l2_rhs(
+            grid, g_explicit, lambda_m=LAMBDA_M
+        )
+
+        stage = g_explicit.copy()
+        stage.Aa = g0.Aa + dt * (
+            0.5 * l20["Aa"] + 0.5 * l2_u1["Aa"] + l30["Aa"]
+        )
+        stage.K = g0.K + dt * (
+            0.5 * l20["K"] + 0.5 * l2_u1["K"] + l30["K"]
+        )
+        stage.Lambda = g0.Lambda + dt * (
+            0.5 * ll20 + 0.5 * ll2_u1 + ll30
+        )
+        stage.B = g0.B + 0.75 * (stage.Lambda - g0.Lambda)
+        return stage, terms0
 
     def step(self, state: ProductionState, dt: float) -> ProductionState:
-        if not dt > 0.0 or not np.isfinite(dt):
+        if not np.isfinite(dt) or dt <= 0.0:
             raise ValueError("dt must be finite and positive")
 
         grid = state.grid
         g0 = state.geometry
-        f0 = state.scalars
+        s0 = state.scalars
         m0 = state.matter
 
-        # Stage 0: explicit geometry/scalars/matter plus PIRK primary terms.
+        srhs0, mrhs0, _ = self._rhs(state)
         gterms0 = adapter.geometry_stage_terms(
-            grid, g0, f0, m0
+            grid, g0, s0, m0, lambda_m=LAMBDA_M
         )
-        srhs0, mrhs0, _ = self._scalar_and_matter_rhs(state)
 
-        g1 = g0.copy()
-        for name, rhs in gterms0["explicit"].items():
-            setattr(g1, name, getattr(g0, name) + dt * rhs)
+        g_explicit1 = g0.copy()
+        for name, value in gterms0["explicit"].items():
+            setattr(g_explicit1, name, getattr(g0, name) + dt * value)
 
-        # PIRK primary predictor uses explicit-stage geometry and stage-0
-        # primary source.  This is the same variable-role ordering as the
-        # pinned kernel, but with V5.5 sources.
-        l2_0 = gterms0["primary_l2"]
-        l3_0 = gterms0["primary_l3"]
-        ll2_0 = gterms0["lambda_l2"]
-        ll3_0 = gterms0["lambda_l3"]
-
-        old_primary = g0.copy()
-        old_primary.a = g1.a
-        old_primary.b = g1.b
-        old_primary.X = g1.X
-        old_primary.alpha = g1.alpha
-        old_primary.beta = g1.beta
-        l2_u1 = adapter.vendor_modules()[1].primary_l2_rhs(grid, old_primary)
-
-        g1.Aa = g0.Aa + dt * (
-            0.5 * l2_0["Aa"] + 0.5 * l2_u1["Aa"] + l3_0["Aa"]
+        g1, _ = self._primary_stage(
+            grid,
+            g0,
+            g_explicit1,
+            s0,
+            m0,
+            dt,
+            l20=gterms0["primary_l2"],
+            l30=gterms0["primary_l3"],
+            ll20=gterms0["lambda_l2"],
+            ll30=gterms0["lambda_l3"],
         )
-        g1.K = g0.K + dt * (
-            0.5 * l2_0["K"] + 0.5 * l2_u1["K"] + l3_0["K"]
-        )
-        g1.Lambda = g0.Lambda + dt * (
-            0.5 * ll2_0 + 0.5 * adapter.vendor_modules()[1].lambda_l2_rhs(
-                grid, g1, lambda_m=2.0
-            ) + ll3_0
-        )
-        g1.B = g0.B + 0.75 * (g1.Lambda - g0.Lambda)
 
         s1 = ScalarFields(
-            *(getattr(f0, name) + dt * getattr(srhs0, name)
-              for name in ("S", "PS", "D", "PD", "phi", "Pi"))
+            *(
+                getattr(s0, name) + dt * getattr(srhs0, name)
+                for name in ("S", "PS", "D", "PD", "phi", "Pi")
+            )
         )
         m1 = V55MatterState(
-            *(ConservedSpecies(
-                getattr(m0, name).rest + dt * getattr(mrhs0, name).rest,
-                getattr(m0, name).energy_t + dt * getattr(mrhs0, name).energy_t,
-                getattr(m0, name).momentum_r + dt * getattr(mrhs0, name).momentum_r,
-            ) for name in ("dark_matter", "baryons", "radiation"))
+            *(
+                self._add_matter(
+                    getattr(m0, name),
+                    mrhs0[name],
+                    dt,
+                )
+                for name in ("dark_matter", "baryons", "radiation")
+            )
         )
-
         stage1 = ProductionState(
             grid=grid,
             geometry=g1,
@@ -201,13 +248,11 @@ class ProductionKernel:
             tau=state.tau,
         )
 
-        # Stage 1 explicit RHS uses the complete predicted U state.
+        srhs1, mrhs1, _ = self._rhs(stage1)
         gterms1 = adapter.geometry_stage_terms(
-            grid, g1, s1, m1
+            grid, g1, s1, m1, lambda_m=LAMBDA_M
         )
-        srhs1, mrhs1, _ = self._scalar_and_matter_rhs(stage1)
 
-        # Final explicit block.
         gnew = g0.copy()
         for name in gterms0["explicit"]:
             setattr(
@@ -220,7 +265,7 @@ class ProductionKernel:
 
         snew = ScalarFields(
             *(
-                getattr(f0, name) + 0.5 * dt * (
+                getattr(s0, name) + 0.5 * dt * (
                     getattr(srhs0, name) + getattr(srhs1, name)
                 )
                 for name in ("S", "PS", "D", "PD", "phi", "Pi")
@@ -230,40 +275,48 @@ class ProductionKernel:
             *(
                 ConservedSpecies(
                     getattr(m0, name).rest + 0.5 * dt * (
-                        getattr(mrhs0, name).rest + getattr(mrhs1, name).rest
+                        getattr(mrhs0[name], "rest") + getattr(mrhs1[name], "rest")
                     ),
                     getattr(m0, name).energy_t + 0.5 * dt * (
-                        getattr(mrhs0, name).energy_t + getattr(mrhs1, name).energy_t
+                        getattr(mrhs0[name], "energy_t") + getattr(mrhs1[name], "energy_t")
                     ),
                     getattr(m0, name).momentum_r + 0.5 * dt * (
-                        getattr(mrhs0, name).momentum_r + getattr(mrhs1, name).momentum_r
+                        getattr(mrhs0[name], "momentum_r") + getattr(mrhs1[name], "momentum_r")
                     ),
                 )
                 for name in ("dark_matter", "baryons", "radiation")
             )
         )
 
-        # Final PIRK primary correction using the final explicit block.
+        # Final PIRK primary correction uses the final explicit block with the
+        # stage-1 primary variables retained, exactly as in the pinned kernel.
         final_u_old_v = g1.copy()
         for name in gterms0["explicit"]:
             setattr(final_u_old_v, name, getattr(gnew, name))
+
         _, vacuum, _ = adapter.vendor_modules()
         l2_final = vacuum.primary_l2_rhs(grid, final_u_old_v)
         ll2_final = vacuum.lambda_l2_rhs(
-            grid, final_u_old_v, lambda_m=2.0
+            grid, final_u_old_v, lambda_m=LAMBDA_M
         )
 
         gnew.Aa = g0.Aa + 0.5 * dt * (
-            l2_0["Aa"] + l2_final["Aa"]
-            + l3_0["Aa"] + gterms1["primary_l3"]["Aa"]
+            gterms0["primary_l2"]["Aa"]
+            + l2_final["Aa"]
+            + gterms0["primary_l3"]["Aa"]
+            + gterms1["primary_l3"]["Aa"]
         )
         gnew.K = g0.K + 0.5 * dt * (
-            l2_0["K"] + l2_final["K"]
-            + l3_0["K"] + gterms1["primary_l3"]["K"]
+            gterms0["primary_l2"]["K"]
+            + l2_final["K"]
+            + gterms0["primary_l3"]["K"]
+            + gterms1["primary_l3"]["K"]
         )
         gnew.Lambda = g0.Lambda + 0.5 * dt * (
-            ll2_0 + ll2_final
-            + ll3_0 + gterms1["lambda_l3"]
+            gterms0["lambda_l2"]
+            + ll2_final
+            + gterms0["lambda_l3"]
+            + gterms1["lambda_l3"]
         )
         gnew.B = g0.B + 0.75 * (gnew.Lambda - g0.Lambda)
 
@@ -279,96 +332,111 @@ class ProductionKernel:
             handoffs=list(state.handoffs),
         )
 
-        obs = self.diagnostics(candidate)
+        obs = self.diagnostics(candidate, profiles=False)
         previous_H = (
-            state.history[-1]["H_eff"] if state.history else obs["H_eff"]
+            state.history[-1]["H_eff"]
+            if state.history
+            else obs["H_eff"]
         )
+        candidate.tau += dt * obs["tau_rate"]
         event = candidate.cycle.observe(
             len(candidate.history),
             candidate.t,
-            candidate.tau + dt * obs["tau_rate"],
+            candidate.tau,
             previous_H,
             obs["H_eff"],
         )
-        candidate.tau += dt * obs["tau_rate"]
 
+        S_t = float(srhs1.S[0])
+        D_t = float(srhs1.D[0])
         hp = handoff_from_ledger(
             candidate.t,
             candidate.tau,
             obs,
             float(candidate.scalars.S[0]),
-            float(srhs1.S[0]),
+            S_t,
             float(candidate.scalars.D[0]),
-            float(srhs1.D[0]),
+            D_t,
         )
-        candidate.handoffs.append(hp)
-        obs["cycle_event"] = event.kind if event else None
+
+        obs = {
+            key: value
+            for key, value in obs.items()
+            if key not in (
+                "total_rho", "total_pr", "total_pt", "total_j",
+                "areal_radius", "chi", "misner_sharp"
+            )
+        }
         obs["t"] = candidate.t
         obs["tau"] = candidate.tau
-        obs["R_sigma"] = hp.radius
-        obs["M_MS_sigma"] = hp.misner_sharp_mass
+        obs["cycle_event"] = event.kind if event else None
         candidate.history.append(obs)
-
+        candidate.handoffs.append(hp)
         return candidate
 
-    def diagnostics(self, state: ProductionState) -> dict:
+    def diagnostics(self, state: ProductionState, *, profiles: bool = False) -> dict:
         grid = state.grid
         geom = state.geometry
-        scalars = state.scalars
-        matter = state.matter
 
         _, vacuum, moving = adapter.vendor_modules()
-        metric = adapter_vm_slice(state)
+        metric = metric_slice_from_q(grid, geom)
         total = total_matter_projection(
-            grid, geom, scalars, matter
+            grid, geom, state.scalars, state.matter
         )
-        raw_constraints = vacuum.constraints(grid, geom)
-        H = raw_constraints["hamiltonian"] - 16.0 * math.pi * total["rho"]
-        M = raw_constraints["momentum"] - 8.0 * math.pi * total["j"]
+        raw = vacuum.constraints(grid, geom)
+
+        H = raw["hamiltonian"] - 16.0 * math.pi * total["rho"]
+        M = raw["momentum"] - 8.0 * math.pi * total["j"]
 
         r = np.asarray(grid.centers)
         R = r * np.sqrt(geom.b) / geom.X
         Rr = grid.cell_derivative_fourth(R, parity=1)
         Ktheta = geom.K / 3.0 - geom.Aa / 2.0
-        normal_Rt = -R * Ktheta
+        normal_dR = -R * Ktheta
         chi = trapping_indicator_from_areal_radius(
-            Rr, normal_Rt, geom.X**2 / geom.a
+            Rr,
+            normal_dR,
+            geom.X**2 / geom.a,
         )
         mass = misner_sharp_mass_from_chi(R, chi)
 
-        eu = moving.moving_puncture_explicit_rhs(grid, geom)
-        Rdot = R * (0.5 * eu["b"] / geom.b - eu["X"] / geom.X)
+        explicit = moving.moving_puncture_explicit_rhs(grid, geom)
+        Rdot = R * (
+            0.5 * explicit["b"] / geom.b
+            - explicit["X"] / geom.X
+        )
 
         surface = int(np.argmin(np.abs(r - 10.0)))
         outer = r >= 0.8 * grid.r_max
-
-        E = total["rho"]
-        j = total["j"]
         coordinate_energy_flux = 4.0 * math.pi * R[surface]**2 * (
             geom.alpha[surface] * (geom.X[surface]**2 / geom.a[surface])
-            * j[surface] - geom.beta[surface] * E[surface]
+            * total["j"][surface]
+            - geom.beta[surface] * total["rho"][surface]
+        )
+        flux_T = 4.0 * math.pi * R[surface]**2 * (
+            -geom.alpha[surface] * (geom.X[surface]**2 / geom.a[surface])
+            * total["j"][surface] * Rr[surface]
         )
         work_pR = -4.0 * math.pi * R[surface]**2 * (
             total["pr"][surface] * Rdot[surface]
         )
 
-        H_eff = -float(
-            np.sum(grid.volumes * geom.K) / np.sum(grid.volumes)
-        )
-
         roots = []
-        signs = chi[:-1] * chi[1:]
-        for i in np.where(signs <= 0.0)[0]:
+        sign_change = chi[:-1] * chi[1:] <= 0.0
+        for i in np.where(sign_change)[0]:
             if chi[i] != chi[i + 1]:
                 roots.append(
                     float(
-                        r[i] - chi[i] * (r[i + 1] - r[i]) /
-                        (chi[i + 1] - chi[i])
+                        r[i] - chi[i] * (r[i + 1] - r[i])
+                        / (chi[i + 1] - chi[i])
                     )
                 )
 
-        return {
-            "H_eff": H_eff,
+        out = {
+            "H_eff": -float(
+                np.sum(grid.volumes * geom.K)
+                / np.sum(grid.volumes)
+            ) / 3.0,
             "tau_rate": float(geom.alpha[0]),
             "R_sigma": float(R[surface]),
             "M_MS": float(mass[surface]),
@@ -376,11 +444,7 @@ class ProductionKernel:
             "trapping_min": float(np.min(chi)),
             "trapped_roots": roots,
             "coordinate_energy_flux": float(coordinate_energy_flux),
-            "flux_T": float(
-                4.0 * math.pi * R[surface]**2
-                * (-geom.alpha[surface] * (geom.X[surface]**2 / geom.a[surface])
-                   * j[surface] * Rr[surface])
-            ),
+            "flux_T": float(flux_T),
             "work_pR": float(work_pR),
             "rho_outer": float(np.mean(total["rho"][outer])),
             "p_outer": float(np.mean(total["pr"][outer])),
@@ -388,38 +452,48 @@ class ProductionKernel:
             "rho_total_max": float(np.max(total["rho"])),
             "hamiltonian_max": float(np.max(np.abs(H[2:]))),
             "momentum_max": float(np.max(np.abs(M[2:]))),
-            "connection_max": float(np.max(np.abs(raw_constraints["connection"][2:]))),
-            "determinant_min": float(np.min(geom.a * geom.b**2)),
+            "connection_max": float(
+                np.max(np.abs(raw["connection"][2:]))
+            ),
+            "determinant_min": float(
+                np.min(geom.a * geom.b**2)
+            ),
+            "determinant_constraint_max": float(
+                np.max(np.abs(geom.a * geom.b**2 - 1.0))
+            ),
             "lapse_min": float(np.min(geom.alpha)),
             "lapse_max": float(np.max(geom.alpha)),
             "Rdot_sigma": float(Rdot[surface]),
-            "phi_outer": float(np.mean(scalars.phi[outer])),
-            "Pi_outer": float(np.mean(scalars.Pi[outer])),
-            "total_rho": total["rho"],
-            "total_pr": total["pr"],
-            "total_pt": total["pt"],
-            "total_j": total["j"],
-            "areal_radius": R,
-            "chi": chi,
-            "misner_sharp": mass,
+            "phi_outer": float(np.mean(state.scalars.phi[outer])),
+            "Pi_outer": float(np.mean(state.scalars.Pi[outer])),
         }
 
+        if profiles:
+            out.update({
+                "total_rho": total["rho"],
+                "total_pr": total["pr"],
+                "total_pt": total["pt"],
+                "total_j": total["j"],
+                "areal_radius": R,
+                "chi": chi,
+                "misner_sharp": mass,
+            })
+        return out
 
-def adapter_vm_slice(state: ProductionState):
-    from .v55_matter import metric_slice_from_q
-    return metric_slice_from_q(state.grid, state.geometry)
+    def checkpoint(self, state: ProductionState, path: str | Path) -> None:
+        write_checkpoint_npz(state, path)
 
 
 def write_checkpoint_npz(
     state: ProductionState,
     path: str | Path,
 ) -> None:
-    """Write the solved state without imposing any restart/reset operation."""
     out = Path(path)
     out.parent.mkdir(parents=True, exist_ok=True)
-    z = {
+    arrays = {
         "t": np.asarray(state.t),
         "tau": np.asarray(state.tau),
+        "r": np.asarray(state.grid.centers),
         "a": state.geometry.a,
         "b": state.geometry.b,
         "X": state.geometry.X,
@@ -441,7 +515,8 @@ def write_checkpoint_npz(
         "baryon_rest": state.matter.baryons.rest,
         "baryon_energy_t": state.matter.baryons.energy_t,
         "baryon_momentum_r": state.matter.baryons.momentum_r,
+        "radiation_rest": state.matter.radiation.rest,
         "radiation_energy_t": state.matter.radiation.energy_t,
         "radiation_momentum_r": state.matter.radiation.momentum_r,
     }
-    np.savez_compressed(out, **z)
+    np.savez_compressed(out, **arrays)
