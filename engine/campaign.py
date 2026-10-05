@@ -16,8 +16,8 @@ class CampaignConfig:
     resolutions: tuple = (40, 60, 80)
     r_max: float = 40.0
     cfl: float = 0.03
-    final_time: float = 40.0
-    checkpoint_interval: float = 1.0
+    final_time: float = 160.0
+    checkpoint_interval: float = 2.0
     output_dir: str = "runs"
 
 
