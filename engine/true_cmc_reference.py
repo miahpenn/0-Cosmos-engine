@@ -1,6 +1,6 @@
 import numpy as np, math, json, time
 from scipy.linalg import solve_banded
-import GEAR_V5_5_REFERENCE_PIRK_UNIFIED as q
+from engine import reference_pirk_unified as q
 
 # True stage-wise CMC slicing on the validated V5.5 matter/geometry system.
 # Spatial shift is held at zero in this first isolated gauge gate. No physical
