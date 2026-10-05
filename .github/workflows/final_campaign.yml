@@ -1,6 +1,8 @@
 name: Final V5.5 numerical campaign
 
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
     inputs:
       final_time:
@@ -14,6 +16,7 @@ on:
 
 jobs:
   campaign:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[campaign]')
     runs-on: ubuntu-latest
     timeout-minutes: 360
 
@@ -37,8 +40,8 @@ jobs:
 
       - name: Run production campaign
         env:
-          FINAL_TIME: ${{ inputs.final_time }}
-          RESOLUTIONS: ${{ inputs.resolutions }}
+          FINAL_TIME: ${{ inputs.final_time || '160.0' }}
+          RESOLUTIONS: ${{ inputs.resolutions || '40,60,80' }}
         run: |
           python - <<'PY'
           import os
@@ -51,7 +54,8 @@ jobs:
               final_time=float(os.environ["FINAL_TIME"]),
               output_dir="runs/final",
           )
-          run_campaign(config=config)
+          results = run_campaign(config=config)
+          print(results)
           PY
 
       - name: Upload campaign outputs
@@ -60,4 +64,3 @@ jobs:
           name: v55-final-campaign
           path: runs/final/
           if-no-files-found: error
-      
