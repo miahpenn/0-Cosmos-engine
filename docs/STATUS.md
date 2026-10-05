@@ -53,4 +53,5 @@ of:
 A numerical failure will be classified as a numerical/gauge result unless invariant,
 resolution-independent evidence supports a physical interpretation.
 
-Campaign rerun requested after exact radiation primitive inversion was stabilized; no physical floor, clipping, or fitted parameter was introduced.
+
+Campaign rerun: radiation inversion bracket now uses the adjacent representable value only when endpoint roundoff reverses the analytically positive residual; physical EOS and bound unchanged.
