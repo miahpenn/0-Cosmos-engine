@@ -401,8 +401,8 @@ class V55ProductionKernel:
         )
         raw = vacuum.constraints(grid, geom)
 
-        H = raw["hamiltonian"] - 16.0 * math.pi * total["rho"]
-        M = raw["momentum"] - 8.0 * math.pi * total["j"]
+        H = raw["hamiltonian"] - 16.0 * math.pi * total.rho
+        M = raw["momentum"] - 8.0 * math.pi * total.j
 
         r = np.asarray(grid.centers)
         R = r * np.sqrt(geom.b) / geom.X
@@ -426,15 +426,15 @@ class V55ProductionKernel:
         outer = r >= 0.8 * grid.r_max
         coordinate_energy_flux = 4.0 * math.pi * R[surface]**2 * (
             geom.alpha[surface] * (geom.X[surface]**2 / geom.a[surface])
-            * total["j"][surface]
-            - geom.beta[surface] * total["rho"][surface]
+            * total.j[surface]
+            - geom.beta[surface] * total.rho[surface]
         )
         flux_T = 4.0 * math.pi * R[surface]**2 * (
             -geom.alpha[surface] * (geom.X[surface]**2 / geom.a[surface])
-            * total["j"][surface] * Rr[surface]
+            * total.j[surface] * Rr[surface]
         )
         work_pR = -4.0 * math.pi * R[surface]**2 * (
-            total["pr"][surface] * Rdot[surface]
+            total.pr[surface] * Rdot[surface]
         )
 
         roots = []
@@ -460,10 +460,10 @@ class V55ProductionKernel:
             "coordinate_energy_flux": float(coordinate_energy_flux),
             "flux_T": float(flux_T),
             "work_pR": float(work_pR),
-            "rho_outer": float(np.mean(total["rho"][outer])),
-            "p_outer": float(np.mean(total["pr"][outer])),
-            "j_outer": float(np.mean(total["j"][outer])),
-            "rho_total_max": float(np.max(total["rho"])),
+            "rho_outer": float(np.mean(total.rho[outer])),
+            "p_outer": float(np.mean(total.pr[outer])),
+            "j_outer": float(np.mean(total.j[outer])),
+            "rho_total_max": float(np.max(total.rho)),
             "hamiltonian_max": float(np.max(np.abs(H[2:]))),
             "momentum_max": float(np.max(np.abs(M[2:]))),
             "connection_max": float(
@@ -484,10 +484,10 @@ class V55ProductionKernel:
 
         if profiles:
             out.update({
-                "total_rho": total["rho"],
-                "total_pr": total["pr"],
-                "total_pt": total["pt"],
-                "total_j": total["j"],
+                "total_rho": total.rho,
+                "total_pr": total.pr,
+                "total_pt": total.pt,
+                "total_j": total.j,
                 "areal_radius": R,
                 "chi": chi,
                 "misner_sharp": mass,
