@@ -3,7 +3,9 @@
 Canonical writable workspace for the interconnected GEAR/COSMOS research engine.
 
 ## Objective
-Build one reproducible machine in which the cosmic lane, local Einstein-scalar lane, dynamically generated proper-time interface, stress-energy/flux ledger, and cycle observer can be evolved and tested without carrying the full machine in chat.
+Build one reproducible machine in which the cosmic lane, local Einstein-scalar
+lane, dynamically generated proper-time interface, stress-energy/flux ledger,
+and cycle observer can evolve together without carrying the full machine in chat.
 
 ## Physics locks
 - GEAR-03: kappa=0, g=1; omega_S^2=1 and alpha_D^2=1.
@@ -14,41 +16,53 @@ Build one reproducible machine in which the cosmic lane, local Einstein-scalar l
 - No imposed clock conversion.
 - No D-to-matter conversion law.
 - No artificial bounce, stop, reset, ejection threshold, or lifetime threshold.
-- Reciprocal coupling must come from exposed stress-energy, geometric flux, local energy/transport, and COSMOS ledger quantities.
-- A reduced diagnostic source is never promoted to a physical source without conservation and resolution tests.
+- Reciprocal coupling comes only from the unified stress-energy/geometry system.
+- A reduced diagnostic source is never promoted to physical coupling without conservation and resolution evidence.
 - The exact spherical branch does not isotropize the archive's Bianchi-I shear.
+- lambda_cycle is not invented; only archive-supported phase, phi, H_eff, proper time, and derived e-fold coordinates are carried.
 
 ## Architecture
 
 ### Physics and stress-energy
-- engine/cosmos.py — cosmic background equations and corrected component budget.
+- engine/scalar_system.py — S/D/COSMOS scalar evolution and projections.
+- engine/cosmos.py — archive homogeneous COSMOS lane, signed-H evolution, beta exchange, radiation, and homogeneous shear semantics.
 - engine/local.py — GEAR-03 S/D sector and GEAR-63/65 barrier.
-- engine/unified.py — unified scalar stress-energy and Misner–Sharp identities.
-- engine/matter_closures.py — kinematic fluid stress projections.
-- engine/matter_evolution.py — conservative/primitive Valencia identities, DM four-force exchange, baryon dust, and radiation EOS.
-- engine/spherical_scope.py — explicit spherical-sector scope; shear cannot be silently enabled.
+- engine/valencia.py — metric-aware conservative/primitive identities and exact mixed-tensor source contraction.
+- engine/matter_system.py — conservative spherical dust/radiation transport and DM four-force.
+- engine/v55_matter.py — corrected V5.5 matter bundle and archive operating point.
+- engine/stress_energy.py — single total Einstein source assembly.
+- engine/spherical_scope.py — explicit exact-spherical matter scope.
 
 ### Geometry and evolution
-- engine/reference_pirk_unified.py — archived unified V5.5 spherical reference kernel.
-- engine/true_cmc_reference.py — stage-aware CMC reference evolution.
-- engine/production_contract.py — required capabilities for the final horizon-penetrating production kernel.
+- vendor/bb-palatini-unified-r0 — pinned reference-metric spherical BSSN/PIRK numerical kernel.
+- engine/v55_pirk_adapter.py — V5.5 adapter over the pinned geometry kernel.
+- engine/v55_initial.py — corrected production initial-data mapping.
+- engine/production_kernel.py — synchronized geometry + scalar + conservative-matter state evolution.
+- engine/production_contract.py — production capability contract.
+- engine/true_cmc_reference.py — historical/reference CMC layer; not the production entry point.
+- engine/reference_pirk_unified.py — historical archive reference; not the production initializer.
 
 ### Coupling and observables
-- engine/bidirectional_production.py — derived Misner–Sharp/stress-energy ledger.
-- engine/handoff.py — dynamical handoff and H=0 cycle-event observation.
-- engine/coupled_engine.py — continuous one-metric coupled driver.
-- engine/interface.py — stress-energy/flux bookkeeping.
-- engine/coupled.py — orchestration state.
-- engine/cycle.py — cycle event observation.
-- engine/invariant_diagnostics.py — invariant trapping/current/constraint witness interfaces.
+- engine/worldtube.py — invariant areal radius, chi, Misner-Sharp mass, marginal roots, and current residual.
+- engine/handoff.py — proper-time/cycle handoff observation.
+- engine/cosmology_observables.py — H_eff and derived e-fold coordinate.
+- engine/invariant_diagnostics.py — invariant numerical witnesses.
+- engine/interface.py — bookkeeping only; no phenomenological source.
+- engine/coupled.py — orchestration data structures.
+- engine/coupled_engine.py — historical continuous CMC driver; not production.
 
-### Controls and final campaign
-- engine/diagnostics.py — cheap algebraic/conservation diagnostics.
-- tests/ — final controls and regression suite; not executed during construction.
-- docs/ — locked equations, status, and decision records.
-- runs/ — generated outputs/checkpoints.
+### Campaign and controls
+- engine/campaign.py — long-horizon campaign configuration.
+- engine/run_production.py — canonical final campaign runner.
+- engine/run_controls.py — cheap control-only harness.
+- tests/ — regression suite; not executed during construction.
+- docs/ — provenance, locks, status, and cycle-coordinate decisions.
+- runs/ — generated campaign checkpoints/ledgers.
 
 ## Scientific status
-The repository is still under construction. The CMC/reference driver remains a reference layer, not the final production strong-field kernel. The final engine must connect the frozen V5.5 stress-energy to a horizon-penetrating reference-metric BSSN/PIRK implementation, complete DM momentum, baryon momentum, and radiation evolution, then run the full campaign.
+The production state graph is implemented but NOT yet campaign-validated.
+The next and final engineering gate is a complete repository test plus the
+long synchronized numerical campaign at multiple resolutions.
 
-No completed multi-cycle or physical-bounce claim is made until that final campaign is passed.
+No completed multi-cycle or physical-bounce claim is made until that campaign
+actually runs and the invariant witnesses support it.
