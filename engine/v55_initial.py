@@ -64,8 +64,8 @@ def build_initial_data(
     dm0 = RHO_DM_PRESENT
     b0 = RHO_B_PRESENT
 
-    # Normalized archive density. The exact spherical branch excludes
-    # anisotropic shear, so it is not silently folded into rho.
+    # Archive-normalized spherical budget. The exact spherical branch
+    # excludes anisotropic shear, so it is not silently folded into rho.
     rho0 = 0.5 * pi0**2 + float(cosmos_potential(np.array([phi0]))[0])
     rho0 += dm0 + b0 + rho_r
     H0 = math.sqrt(max(rho0 / 3.0, 0.0))
@@ -85,14 +85,12 @@ def build_initial_data(
     B = np.ones_like(r)
 
     # Same constrained areal initial-data reconstruction used by the archived
-    # V5.5 gate, with the corrected COSMOS variables and optional radiation.
+    # V5.5 gate, with corrected COSMOS variables and optional radiation.
     for _ in range(6):
         rhoS = 0.5 * (PS**2 + B * Sp**2) + 0.5 * S**2
         rhoD = 0.5 * (PD**2 + B * Dp**2) - 0.5 * D**2
-        rhoPhi = (
-            0.5 * Pi**2 + cosmos_potential(phi)
-        ) / (8.0 * math.pi)
-        rhoMatter = (dm0 + b0 + rho_r) / (8.0 * math.pi)
+        rhoPhi = 0.5 * Pi**2 + cosmos_potential(phi)
+        rhoMatter = dm0 + b0 + rho_r
         rho = rhoS + rhoD + rhoPhi + rhoMatter
         Kr = Kt + r * Ktp + 4.0 * math.pi * r * j
         src = (
@@ -136,7 +134,11 @@ def build_initial_data(
     scalars = __import__("engine.scalar_system", fromlist=["ScalarFields"]).ScalarFields(
         S, PS, D, PD, phi, Pi
     )
-    matter = initialize_from_archive(grid, state)
+    matter = initialize_from_archive(
+        grid,
+        state,
+        include_radiation=include_radiation,
+    )
     return CorrectedInitialData(
         geometry=state,
         scalars=scalars,
