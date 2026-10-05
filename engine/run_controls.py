@@ -20,8 +20,8 @@ def run_controls():
     cp = CosmosParams()
     lp = LocalParams()
 
-    # COSMOS initial state is intentionally a control state satisfying
-    # 3 H^2 = rho.  No reciprocal source is inserted.
+    # COSMOS control state. It is deliberately not forced to satisfy the
+    # Friedmann constraint; the residual is reported rather than hidden.
     cosmos = (1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
     rho, _ = cosmos_rho_p(cosmos, cp)
     friedmann0 = friedmann_constraint(cosmos[1], rho)
