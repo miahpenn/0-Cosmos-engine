@@ -440,6 +440,14 @@ class V55ProductionKernel:
             - explicit["X"] / geom.X
         )
 
+        # Turnaround diagnostic: expose the CMC projection and radial lapse
+        # response on the same slice. Diagnostic only; no evolution change.
+        from .cmc_gauge import target_kdot
+        cmc_kdot = target_kdot(grid, geom, state.scalars, state.matter)
+        alpha_r = grid.cell_derivative_fourth(geom.alpha, parity=1)
+        i_alpha = int(np.argmax(np.abs(alpha_r)))
+        i_sigma = surface
+
         # Geometry-collapse witness.  This is diagnostic only: it does not
         # modify any evolved variable.  In a unit-determinant conformal
         # metric, a*b^2=1 and therefore da/a + 2 db/b must vanish.
@@ -541,6 +549,13 @@ class V55ProductionKernel:
             "lapse_min": float(np.min(geom.alpha)),
             "lapse_max": float(np.max(geom.alpha)),
             "Rdot_sigma": float(Rdot[surface]),
+            "cmc_kdot": float(cmc_kdot),
+            "alpha_r_max": float(np.max(np.abs(alpha_r))),
+            "alpha_r_max_r": float(r[i_alpha]),
+            "alpha_r_sigma": float(alpha_r[i_sigma]),
+            "alpha_sigma": float(geom.alpha[i_sigma]),
+            "K_sigma": float(geom.K[i_sigma]),
+            "Aa_sigma": float(geom.Aa[i_sigma]),
             "phi_outer": float(np.mean(state.scalars.phi[outer])),
             "Pi_outer": float(np.mean(state.scalars.Pi[outer])),
             "vacuum_l3_Aa_max_idx": i_vAa,
