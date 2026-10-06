@@ -21,6 +21,7 @@ import math
 import numpy as np
 
 from .handoff import CycleLedger, handoff_from_ledger
+from .cmc_gauge import solve_cmc_lapse
 from .production_contract import KernelCapabilities
 from .invariant_diagnostics import (
     misner_sharp_mass_from_chi,
@@ -47,7 +48,6 @@ from . import v55_pirk_adapter as adapter
 
 BETA_DM = -0.04
 LAMBDA_M = 2.0
-GAUGE_ETA = 2.0  # pinned vendor moving-puncture damping; not a fitted physics parameter
 
 
 @dataclass
@@ -99,6 +99,13 @@ class V55ProductionKernel:
             D_amplitude=D_amplitude,
             include_radiation=include_radiation,
         )
+        # Initialize the production slice on the same stage-aware CMC gauge
+        # that is carried throughout evolution.
+        init.geometry.alpha = solve_cmc_lapse(
+            grid, init.geometry, init.scalars, init.matter
+        )[0]
+        init.geometry.beta.fill(0.0)
+        init.geometry.B.fill(0.0)
         return ProductionState(
             grid=grid,
             geometry=init.geometry,
@@ -164,21 +171,36 @@ class V55ProductionKernel:
         s0 = state.scalars
         m0 = state.matter
 
-        srhs0, mrhs0, _ = self._rhs(state)
+        # The lapse is elliptically determined by the current CMC slice.
+        # Spatial shift is zero in the spherical CMC branch.
+        g0.alpha = solve_cmc_lapse(
+            grid, g0, s0, m0
+        )[0]
+        g0.beta.fill(0.0)
+        g0.B.fill(0.0)
+
+        srhs0, mrhs0, _ = self._rhs(
+            ProductionState(
+                grid=grid, geometry=g0, scalars=s0, matter=m0,
+                t=state.t, tau=state.tau, e_folds=state.e_folds,
+            )
+        )
         gterms0 = adapter.geometry_stage_terms(
             grid, g0, s0, m0, lambda_m=LAMBDA_M
         )
 
-        # TRUE-PIRK predictor: advance every explicit variable first, then
-        # evaluate the implicit terms on that predictor together with the
-        # explicitly advanced matter/scalars.
+        # TRUE-PIRK predictor with CMC: advance only the metric's
+        # explicit variables. Alpha and shift are gauge variables here and are
+        # resolved from the predictor slice rather than integrated by 1+log.
         g_explicit1 = g0.copy()
-        for name, value in gterms0["explicit"].items():
+        for name in ("a", "b", "X"):
             setattr(
                 g_explicit1,
                 name,
-                getattr(g0, name) + dt * value,
+                getattr(g0, name) + dt * gterms0["explicit"][name],
             )
+        g_explicit1.beta.fill(0.0)
+        g_explicit1.B.fill(0.0)
 
         s1 = ScalarFields(
             *(
@@ -193,6 +215,9 @@ class V55ProductionKernel:
             )
         )
 
+        g_explicit1.alpha = solve_cmc_lapse(
+            grid, g_explicit1, s1, m1
+        )[0]
         gterms_pred = adapter.geometry_stage_terms(
             grid, g_explicit1, s1, m1, lambda_m=LAMBDA_M
         )
@@ -214,10 +239,13 @@ class V55ProductionKernel:
             + 0.5 * gterms_pred["lambda_l2"]
             + gterms0["lambda_l3"]
         )
-        g1.B = (
-            g0.B + 0.75 * (g1.Lambda - g0.Lambda)
-            - dt * GAUGE_ETA * g0.B
-        )
+        # Resolve the CMC lapse on the full primary predictor, then
+        # use that gauge state for the second split evaluation.
+        g1.alpha = solve_cmc_lapse(
+            grid, g1, s1, m1
+        )[0]
+        g1.beta.fill(0.0)
+        g1.B.fill(0.0)
         g1.assert_finite_positive()
 
         # Re-evaluate the complete split on the primary-updated predictor.
@@ -231,9 +259,10 @@ class V55ProductionKernel:
         )
 
         # Final explicit block uses the TRUE-PIRK trapezoidal pairing with the
-        # second split evaluation above.
+        # second split evaluation above. CMC supplies alpha after the primary
+        # state is formed; it is not an evolved 1+log variable.
         gnew = g0.copy()
-        for name in gterms0["explicit"]:
+        for name in ("a", "b", "X"):
             setattr(
                 gnew,
                 name,
@@ -241,6 +270,9 @@ class V55ProductionKernel:
                     gterms0["explicit"][name] + gterms1["explicit"][name]
                 ),
             )
+        gnew.beta.fill(0.0)
+        gnew.B.fill(0.0)
+        gnew.alpha = g1.alpha.copy()
 
         snew = ScalarFields(
             *(
@@ -299,11 +331,12 @@ class V55ProductionKernel:
             + gterms0["lambda_l3"]
             + gterms1["lambda_l3"]
         )
-        gnew.B = (
-            g0.B
-            + 0.75 * (gnew.Lambda - g0.Lambda)
-            - 0.5 * dt * GAUGE_ETA * (g0.B + g1.B)
-        )
+        # Final stage-aware CMC solve on the completed final A/K/matter slice.
+        gnew.alpha = solve_cmc_lapse(
+            grid, gnew, snew, mnew
+        )[0]
+        gnew.beta.fill(0.0)
+        gnew.B.fill(0.0)
 
         candidate = ProductionState(
             grid=grid, geometry=gnew, scalars=snew, matter=mnew,
