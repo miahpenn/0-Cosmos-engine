@@ -298,6 +298,12 @@ def spherical_metric_from_bssn(
     gamma_thth = b * r * r / (X * X)
     gamma_thth_inv = 1.0 / gamma_thth
     sqrt_gamma = math.sqrt(max(a, 0.0)) * b * r * r / (X**3)
+    if not math.isfinite(sqrt_gamma) or sqrt_gamma <= 0.0:
+        raise ValueError(
+            "invalid spatial volume element: "
+            f"r={r:.17e}, a={a:.17e}, b={b:.17e}, X={X:.17e}, "
+            f"sqrt_gamma={sqrt_gamma:.17e}"
+        )
     return SphericalMetric(
         alpha=alpha,
         beta=beta,
