@@ -156,10 +156,29 @@ def primitives(
             try:
                 out.append(recover_radiation(metric, state))
             except ValueError as exc:
+                # Diagnostic only: expose the local characteristic state and
+                # its neighboring cells before declaring the inversion failed.
+                # This distinguishes transport-generated admissibility loss
+                # from a boundary/metric state inherited by the radiation.
+                def _ratio(j):
+                    mm = metrics[j]
+                    EE = U.energy_t[j] / mm.sqrt_gamma
+                    SS = U.momentum_r[j] / mm.sqrt_gamma
+                    SSabs = math.sqrt(
+                        max(mm.gamma_rr_inv * SS * SS, 0.0)
+                    )
+                    return EE, SSabs, SSabs / max(abs(EE), 1.0e-300)
+
+                lo = max(0, i - 2)
+                hi = min(len(metrics) - 1, i + 2)
+                neighborhood = [
+                    (j, *_ratio(j)) for j in range(lo, hi + 1)
+                ]
                 raise ValueError(
                     f"radiation inversion failure at cell i={i}: "
                     f"alpha={metric.alpha:.17e}, beta={metric.beta:.17e}, "
-                    f"gamma_rr={metric.gamma_rr:.17e}; {exc}"
+                    f"gamma_rr={metric.gamma_rr:.17e}; {exc}; "
+                    f"neighbors(i,E,|S|,|S|/E)={neighborhood}"
                 ) from exc
     return out
 
