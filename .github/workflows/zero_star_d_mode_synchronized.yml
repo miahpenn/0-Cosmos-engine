@@ -201,3 +201,5 @@ jobs:
           name: 0star-d-mode-synchronized-continuation
           path: runs/0star-d-synchronized
           if-no-files-found: error
+
+# Explicit trigger for synchronized continuation campaign.
