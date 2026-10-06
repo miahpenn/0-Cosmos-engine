@@ -27,7 +27,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -e .
+          python -m pip install -r requirements.txt
 
       - name: Repository tests
         run: pytest -q
@@ -98,6 +98,10 @@ jobs:
                   try:
                       state = kernel.step(state, dt)
                       state.geometry.assert_finite_positive()
+                      # Attach the CFL trace to the same solved-state history row.
+                      if state.history:
+                          state.history[-1]["coordinate_cfl_dt"] = float(dt)
+                          state.history[-1]["coordinate_signal_speed"] = float(max_speed)
                   except (FloatingPointError, ValueError) as exc:
                       status = "numerical_failure:" + str(exc)
                       break
