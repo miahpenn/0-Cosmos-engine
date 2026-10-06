@@ -2,6 +2,8 @@ name: 0-star central proper-time gauge campaign
 
 on:
   workflow_dispatch:
+  push:
+    branches: [0star-central-clock]
 
 jobs:
   central-clock:
