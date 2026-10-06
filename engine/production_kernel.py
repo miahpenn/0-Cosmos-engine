@@ -21,6 +21,7 @@ import math
 import numpy as np
 
 from .handoff import CycleLedger, handoff_from_ledger
+from .cmc_gauge import solve_cmc_lapse
 from .production_contract import KernelCapabilities
 from .invariant_diagnostics import (
     misner_sharp_mass_from_chi,
@@ -203,34 +204,23 @@ class V55ProductionKernel:
             raise ValueError("dt must be finite and positive")
 
         grid = state.grid
-        g0 = state.geometry
+        g0 = state.geometry.copy()
+        g0.beta.fill(0.0)
+        g0.B.fill(0.0)
+        g0.alpha = solve_cmc_lapse(
+            grid, g0, state.scalars, state.matter
+        )[0]
+
         s0 = state.scalars
         m0 = state.matter
-
-        srhs0, mrhs0, _ = self._rhs(state)
+        srhs0, mrhs0, _ = self._rhs(
+            ProductionState(
+                grid=grid, geometry=g0, scalars=s0, matter=m0,
+                t=state.t, tau=state.tau, e_folds=state.e_folds,
+            )
+        )
         gterms0 = adapter.geometry_stage_terms(
             grid, g0, s0, m0, lambda_m=LAMBDA_M
-        )
-
-        g_explicit1 = g0.copy()
-        for name, value in gterms0["explicit"].items():
-            if name == "alpha":
-                continue
-            setattr(g_explicit1, name, getattr(g0, name) + dt * value)
-        alpha_rate0 = gterms0["explicit"]["alpha"] / g0.alpha
-        g_explicit1.alpha = g0.alpha * np.exp(dt * alpha_rate0)
-
-        g1, _ = self._primary_stage(
-            grid,
-            g0,
-            g_explicit1,
-            s0,
-            m0,
-            dt,
-            l20=gterms0["primary_l2"],
-            l30=gterms0["primary_l3"],
-            ll20=gterms0["lambda_l2"],
-            ll30=gterms0["lambda_l3"],
         )
 
         s1 = ScalarFields(
@@ -241,41 +231,39 @@ class V55ProductionKernel:
         )
         m1 = V55MatterState(
             *(
-                self._add_matter(
-                    getattr(m0, name),
-                    mrhs0[name],
-                    dt,
-                )
+                self._add_matter(getattr(m0, name), mrhs0[name], dt)
                 for name in ("dark_matter", "baryons", "radiation")
             )
         )
-        stage1 = ProductionState(
-            grid=grid,
-            geometry=g1,
-            scalars=s1,
-            matter=m1,
-            t=state.t,
-            tau=state.tau,
-        )
 
+        g_explicit1 = g0.copy()
+        for name in ("a", "b", "X"):
+            value = gterms0["explicit"][name]
+            setattr(g_explicit1, name, getattr(g0, name) + dt * value)
+        g_explicit1.beta.fill(0.0)
+        g_explicit1.B.fill(0.0)
+        g_explicit1.alpha = solve_cmc_lapse(
+            grid, g_explicit1, s1, m1
+        )[0]
+
+        g1, _ = self._primary_stage(
+            grid, g0, g_explicit1, s0, m0, dt,
+            l20=gterms0["primary_l2"],
+            l30=gterms0["primary_l3"],
+            ll20=gterms0["lambda_l2"],
+            ll30=gterms0["lambda_l3"],
+        )
+        g1.beta.fill(0.0)
+        g1.B.fill(0.0)
+
+        stage1 = ProductionState(
+            grid=grid, geometry=g1, scalars=s1, matter=m1,
+            t=state.t, tau=state.tau,
+        )
         srhs1, mrhs1, _ = self._rhs(stage1)
         gterms1 = adapter.geometry_stage_terms(
             grid, g1, s1, m1, lambda_m=LAMBDA_M
         )
-
-        gnew = g0.copy()
-        for name in gterms0["explicit"]:
-            if name == "alpha":
-                continue
-            setattr(
-                gnew,
-                name,
-                getattr(g0, name) + 0.5 * dt * (
-                    gterms0["explicit"][name] + gterms1["explicit"][name]
-                ),
-            )
-        alpha_rate1 = gterms1["explicit"]["alpha"] / g1.alpha
-        gnew.alpha = g0.alpha * np.exp(0.5 * dt * (alpha_rate0 + alpha_rate1))
 
         snew = ScalarFields(
             *(
@@ -289,27 +277,40 @@ class V55ProductionKernel:
             *(
                 ConservedSpecies(
                     getattr(m0, name).rest + 0.5 * dt * (
-                        getattr(mrhs0[name], "rest") + getattr(mrhs1[name], "rest")
+                        mrhs0[name].rest + mrhs1[name].rest
                     ),
                     getattr(m0, name).energy_t + 0.5 * dt * (
-                        getattr(mrhs0[name], "energy_t") + getattr(mrhs1[name], "energy_t")
+                        mrhs0[name].energy_t + mrhs1[name].energy_t
                     ),
                     getattr(m0, name).momentum_r + 0.5 * dt * (
-                        getattr(mrhs0[name], "momentum_r") + getattr(mrhs1[name], "momentum_r")
+                        mrhs0[name].momentum_r + mrhs1[name].momentum_r
                     ),
                 )
                 for name in ("dark_matter", "baryons", "radiation")
             )
         )
 
-        # Final PIRK primary correction follows the archived TRUE-PIRK
-        # ordering: build the final explicit state, evaluate L22, update Aa/K,
-        # then evaluate the Lambda L2 term again on that final primary state.
-        final_u_old_v = g1.copy()
-        for name in gterms0["explicit"]:
-            setattr(final_u_old_v, name, getattr(gnew, name))
+        gnew = g0.copy()
+        for name in ("a", "b", "X"):
+            setattr(
+                gnew, name,
+                getattr(g0, name) + 0.5 * dt * (
+                    gterms0["explicit"][name] + gterms1["explicit"][name]
+                ),
+            )
+        gnew.beta.fill(0.0)
+        gnew.B.fill(0.0)
+        # Stage lapse is the predictor used for the final primary correction.
+        gnew.alpha = g1.alpha.copy()
 
         _, vacuum, _ = adapter.vendor_modules()
+        final_u_old_v = g1.copy()
+        final_u_old_v.a = gnew.a.copy()
+        final_u_old_v.b = gnew.b.copy()
+        final_u_old_v.X = gnew.X.copy()
+        final_u_old_v.beta.fill(0.0)
+        final_u_old_v.B.fill(0.0)
+        final_u_old_v.alpha = g1.alpha.copy()
         l2_final = vacuum.primary_l2_rhs(grid, final_u_old_v)
 
         gnew.Aa = g0.Aa + 0.5 * dt * (
@@ -325,31 +326,30 @@ class V55ProductionKernel:
             + gterms1["primary_l3"]["K"]
         )
 
-        final_primary = final_u_old_v.copy()
-        final_primary.Aa = gnew.Aa.copy()
-        final_primary.K = gnew.K.copy()
+        # True stage-aware CMC correction: the lapse carried by the final
+        # primary state is the elliptic solution on the final A/K/matter slice.
+        gnew.alpha = solve_cmc_lapse(
+            grid, gnew, snew, mnew
+        )[0]
+        gnew.beta.fill(0.0)
+        gnew.B.fill(0.0)
+
+        final_primary = gnew.copy()
         ll2_final = vacuum.lambda_l2_rhs(
             grid, final_primary, lambda_m=LAMBDA_M
         )
-
         gnew.Lambda = g0.Lambda + 0.5 * dt * (
             gterms0["lambda_l2"]
             + ll2_final
             + gterms0["lambda_l3"]
             + gterms1["lambda_l3"]
         )
-        gnew.B = g0.B + 0.75 * (gnew.Lambda - g0.Lambda)
+        gnew.B.fill(0.0)
 
         candidate = ProductionState(
-            grid=grid,
-            geometry=gnew,
-            scalars=snew,
-            matter=mnew,
-            t=state.t + dt,
-            tau=state.tau,
-            e_folds=state.e_folds,
-            cycle=state.cycle,
-            history=list(state.history),
+            grid=grid, geometry=gnew, scalars=snew, matter=mnew,
+            t=state.t + dt, tau=state.tau, e_folds=state.e_folds,
+            cycle=state.cycle, history=list(state.history),
             handoffs=list(state.handoffs),
         )
 
@@ -359,33 +359,24 @@ class V55ProductionKernel:
         )
         previous_H = (
             state.history[-1]["H_eff"]
-            if state.history
-            else obs["H_eff"]
+            if state.history else obs["H_eff"]
         )
         candidate.tau += dt * obs["tau_rate"]
         event = candidate.cycle.observe(
-            len(candidate.history),
-            candidate.t,
-            candidate.tau,
-            previous_H,
-            obs["H_eff"],
+            len(candidate.history), candidate.t, candidate.tau,
+            previous_H, obs["H_eff"],
         )
 
         S_t = float(srhs1.S[0])
         D_t = float(srhs1.D[0])
         hp = handoff_from_ledger(
-            candidate.t,
-            candidate.tau,
-            obs,
-            float(candidate.scalars.S[0]),
-            S_t,
-            float(candidate.scalars.D[0]),
-            D_t,
+            candidate.t, candidate.tau, obs,
+            float(candidate.scalars.S[0]), S_t,
+            float(candidate.scalars.D[0]), D_t,
         )
 
         obs = {
-            key: value
-            for key, value in obs.items()
+            key: value for key, value in obs.items()
             if key not in (
                 "total_rho", "total_pr", "total_pt", "total_j",
                 "areal_radius", "chi", "misner_sharp"
