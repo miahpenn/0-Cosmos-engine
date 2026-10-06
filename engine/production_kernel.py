@@ -557,14 +557,57 @@ class V55ProductionKernel:
             float(rad_md.radial["rr"][-2]),
             float(rad_md.radial["thth"][-2]),
         )
-        # COSMOS scalar characteristics at the same worldtube. For the
-        # wave principal part, W+/- = Pi +/- sqrt(gamma^rr) * phi_r and
-        # speeds are -beta +/- alpha*sqrt(gamma^rr).
+        # Dust worldtube audit: compare outer-cell transport divergence with
+        # the geometric metric source. Dark matter additionally has the archived
+        # scalar exchange term, which is intentionally kept separate here.
+        dust_audits = {}
+        for label, species, field in (
+            ("dark_matter", Species.DARK_MATTER, state.matter.dark_matter),
+            ("baryons", Species.BARYON, state.matter.baryons),
+        ):
+            prim = matter_primitives(rad_metrics, field, species)
+            q_outer = prim[-1]
+            outer_flux = _valencia_flux(rad_metrics[-1], q_outer)
+            ql_d = _reconstructed_primitive(
+                prim, grid.n - 2, "right", mf_rad.gamma_rr
+            )
+            qr_d = _reconstructed_primitive(
+                prim, grid.n - 1, "left", mf_rad.gamma_rr
+            )
+            inner_flux = _hll_flux(
+                mf_rad, ql_d, qr_d, species
+            )
+            div_d = -(
+                float(outer_flux[1]) - float(inner_flux[1])
+            ) / dr_rad, -(
+                float(outer_flux[2]) - float(inner_flux[2])
+            ) / dr_rad
+            geom_src = _valencia_source(
+                rad_metrics[-1], q_outer, float(geom.K[-1]), float(geom.Aa[-1]),
+                float(rad_md.radial["alpha"][-1]),
+                float(rad_md.radial["beta"][-1]),
+                float(rad_md.radial["rr"][-1]),
+                float(rad_md.radial["thth"][-1]),
+            )
+            dust_audits[label] = {
+                "div_E": div_d[0],
+                "div_S": div_d[1],
+                "geom_source_E": float(geom_src[0]),
+                "geom_source_S": float(geom_src[1]),
+                "transport_to_geom_source_E": abs(div_d[0]) / max(abs(float(geom_src[0])), 1.0e-300),
+                "transport_to_geom_source_S": abs(div_d[1]) / max(abs(float(geom_src[1])), 1.0e-300),
+                "vhat": math.sqrt(rad_metrics[-1].gamma_rr) * q_outer.v_r,
+            }
+
+        # COSMOS scalar characteristics at the same worldtube.
+        # With the evolved equations, W_in = Pi + c*phi_r has speed
+        # -beta-alpha*c, while W_out = Pi - c*phi_r has speed
+        # -beta+alpha*c. Diagnostic only; no boundary condition is changed.
         phi_r = grid.cell_derivative_fourth(state.scalars.phi, parity=1)
-        phi_char_plus = state.scalars.Pi[-1] + math.sqrt(rad_metrics[-1].gamma_rr_inv) * phi_r[-1]
-        phi_char_minus = state.scalars.Pi[-1] - math.sqrt(rad_metrics[-1].gamma_rr_inv) * phi_r[-1]
-        phi_speed_plus = -rad_metrics[-1].beta + rad_metrics[-1].alpha * math.sqrt(rad_metrics[-1].gamma_rr_inv)
-        phi_speed_minus = -rad_metrics[-1].beta - rad_metrics[-1].alpha * math.sqrt(rad_metrics[-1].gamma_rr_inv)
+        phi_char_in = state.scalars.Pi[-1] + math.sqrt(rad_metrics[-1].gamma_rr_inv) * phi_r[-1]
+        phi_char_out = state.scalars.Pi[-1] - math.sqrt(rad_metrics[-1].gamma_rr_inv) * phi_r[-1]
+        phi_speed_in = -rad_metrics[-1].beta - rad_metrics[-1].alpha * math.sqrt(rad_metrics[-1].gamma_rr_inv)
+        phi_speed_out = -rad_metrics[-1].beta + rad_metrics[-1].alpha * math.sqrt(rad_metrics[-1].gamma_rr_inv)
         flux_e_scale = max(
             abs(float(rad_inner_flux[1])),
             abs(float(rad_outer_flux[1])),
@@ -770,15 +813,29 @@ class V55ProductionKernel:
             "radiation_outer_transport_to_source_S": float(
                 abs(rad_outer_div_S) / max(abs(rad_outer_source_S), 1.0e-300)
             ),
-            "cosmos_phi_outer_char_plus": float(phi_char_plus),
-            "cosmos_phi_outer_char_minus": float(phi_char_minus),
-            "cosmos_phi_outer_speed_plus": float(phi_speed_plus),
-            "cosmos_phi_outer_speed_minus": float(phi_speed_minus),
-            "cosmos_phi_outer_outgoing_plus": float(phi_speed_plus > 0.0),
-            "cosmos_phi_outer_outgoing_minus": float(phi_speed_minus > 0.0),
-            "cosmos_phi_outer_abs_char_ratio": float(
-                abs(phi_char_minus) / max(abs(phi_char_plus), 1.0e-300)
+            "cosmos_phi_outer_char_in": float(phi_char_in),
+            "cosmos_phi_outer_char_out": float(phi_char_out),
+            "cosmos_phi_outer_speed_in": float(phi_speed_in),
+            "cosmos_phi_outer_speed_out": float(phi_speed_out),
+            "cosmos_phi_outer_incoming": float(phi_speed_in < 0.0),
+            "cosmos_phi_outer_outgoing": float(phi_speed_out > 0.0),
+            "cosmos_phi_outer_abs_out_in_ratio": float(
+                abs(phi_char_out) / max(abs(phi_char_in), 1.0e-300)
             ),
+            "dark_matter_outer_div_E": float(dust_audits["dark_matter"]["div_E"]),
+            "dark_matter_outer_div_S": float(dust_audits["dark_matter"]["div_S"]),
+            "dark_matter_outer_geom_source_E": float(dust_audits["dark_matter"]["geom_source_E"]),
+            "dark_matter_outer_geom_source_S": float(dust_audits["dark_matter"]["geom_source_S"]),
+            "dark_matter_outer_transport_to_geom_source_E": float(dust_audits["dark_matter"]["transport_to_geom_source_E"]),
+            "dark_matter_outer_transport_to_geom_source_S": float(dust_audits["dark_matter"]["transport_to_geom_source_S"]),
+            "dark_matter_outer_vhat": float(dust_audits["dark_matter"]["vhat"]),
+            "baryons_outer_div_E": float(dust_audits["baryons"]["div_E"]),
+            "baryons_outer_div_S": float(dust_audits["baryons"]["div_S"]),
+            "baryons_outer_geom_source_E": float(dust_audits["baryons"]["geom_source_E"]),
+            "baryons_outer_geom_source_S": float(dust_audits["baryons"]["geom_source_S"]),
+            "baryons_outer_transport_to_geom_source_E": float(dust_audits["baryons"]["transport_to_geom_source_E"]),
+            "baryons_outer_transport_to_geom_source_S": float(dust_audits["baryons"]["transport_to_geom_source_S"]),
+            "baryons_outer_vhat": float(dust_audits["baryons"]["vhat"]),
             "K_sigma": float(geom.K[i_sigma]),
             "Aa_sigma": float(geom.Aa[i_sigma]),
             "phi_outer": float(np.mean(state.scalars.phi[outer])),
