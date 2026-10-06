@@ -735,8 +735,16 @@ class V55ProductionKernel:
                     )
                 )
 
+        H_eff = effective_hubble(geom, grid.volumes)
+        H_center = -float(geom.K[0]) / 3.0
+        H_coord_center = float(geom.alpha[0]) * H_center
         out = {
-            "H_eff": effective_hubble(geom, grid.volumes),
+            "H_eff": H_eff,
+            "H_center": H_center,
+            "H_coord_center": H_coord_center,
+            "H_eff_over_H_center": (
+                H_eff / H_center if abs(H_center) > 1.0e-300 else float("nan")
+            ),
             "e_folds": float(state.e_folds),
             "tau_rate": float(geom.alpha[0]),
             "R_sigma": float(R[surface]),
