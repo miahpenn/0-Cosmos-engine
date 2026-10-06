@@ -4,6 +4,8 @@ on:
   workflow_dispatch:
   push:
     branches: [0star-central-clock]
+  pull_request:
+    branches: [main]
 
 jobs:
   central-clock:
