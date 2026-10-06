@@ -1,0 +1,126 @@
+name: 0-star early-phase long synchronization campaign
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [0star-central-clock]
+
+jobs:
+  early-sync-long:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[0star-sync]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    env:
+      PYTHONPATH: .
+    steps:
+      - uses: actions/checkout@v4
+        with: {submodules: recursive}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - run: pip install -r requirements.txt
+      - run: pytest -q
+      - name: Run early-phase synchronization
+        run: |
+          python - <<'PY'
+          import json, math
+          from pathlib import Path
+          import numpy as np
+          from engine.campaign import CampaignConfig
+          from engine.production_kernel import ProductionState, V55ProductionKernel
+          from engine.run_production import run_campaign
+          from engine.v55_initial import build_initial_data
+          from engine import v55_pirk_adapter as adapter
+
+          TARGET = 2.0e-3
+          CASES = {"Dhalf":5e-11, "Dbase":1e-10, "Ddouble":2e-10}
+          base = Path("runs/0star-early-sync")
+          base.mkdir(parents=True, exist_ok=True)
+
+          class K(V55ProductionKernel):
+              def __init__(self, amp): self.amp=float(amp)
+              def initialize(self, resolution=160, r_max=160.0, **kwargs):
+                  grid_ops, vacuum, _ = adapter.vendor_modules()
+                  grid = grid_ops.SphericalCellGrid(resolution, r_max)
+                  init = build_initial_data(grid, vacuum.flat_state,
+                                            D_amplitude=self.amp,
+                                            include_radiation=True)
+                  init.geometry.alpha = self._solve_lapse(
+                      grid, init.geometry, init.scalars, init.matter
+                  )[0]
+                  init.geometry.beta.fill(0.0); init.geometry.B.fill(0.0)
+                  return ProductionState(grid=grid, geometry=init.geometry,
+                                         scalars=init.scalars, matter=init.matter,
+                                         e_folds=0.0)
+              def diagnostics(self, state, *, profiles=False):
+                  out=super().diagnostics(state, profiles=profiles)
+                  f=state.scalars
+                  active=2.0*f.PD**2 + f.D**2
+                  out.update({
+                      "D_active_sync":float(active[0]),
+                      "D_sync":float(f.D[0]),
+                      "PD_sync":float(f.PD[0]),
+                      "H_center_sync":float(out.get("H_center", float("nan"))),
+                      "H_eff_sync":float(out.get("H_eff", float("nan"))),
+                      "lapse_min_sync":float(out.get("lapse_min", float("nan"))),
+                      "lapse_max_sync":float(out.get("lapse_max", float("nan"))),
+                      "alpha_r_max_sync":float(out.get("alpha_r_max", float("nan"))),
+                      "alpha_r_max_r_sync":float(out.get("alpha_r_max_r", float("nan"))),
+                      "tau_rate_sync":float(out.get("tau_rate", float("nan"))),
+                  })
+                  return out
+
+          summary={}
+          for label,amp in CASES.items():
+              cfg=CampaignConfig(resolutions=(160,), r_max=160.0, cfl=0.0075,
+                                 final_time=40.0, checkpoint_interval=0.10,
+                                 output_dir=str(base/label))
+              result=run_campaign(kernel=K(amp), config=cfg)
+              summary[label]=result[0].__dict__
+
+          aligned={}
+          for label in CASES:
+              h=json.loads((base/label/"N160"/"ledgers.json").read_text())["history"]
+              h=[x for x in h if x.get("D_active_sync") is not None]
+              h.sort(key=lambda x:float(x["tau"]))
+              k=next((i for i in range(len(h)-1)
+                      if (float(h[i]["D_active_sync"])-TARGET)*
+                         (float(h[i+1]["D_active_sync"])-TARGET)<=0),None)
+              if k is None:
+                  aligned[label]={"crossing_found":False}; continue
+              a,b=h[k],h[k+1]
+              xa,xb=float(a["D_active_sync"]),float(b["D_active_sync"])
+              u=0 if xb==xa else (TARGET-xa)/(xb-xa)
+              tau0=float(a["tau"])+u*(float(b["tau"])-float(a["tau"]))
+              t0=float(a["t"])+u*(float(b["t"])-float(a["t"]))
+              fields=["D_active_sync","D_sync","PD_sync","H_center_sync","H_eff_sync",
+                      "lapse_min_sync","lapse_max_sync","alpha_r_max_sync",
+                      "alpha_r_max_r_sync","tau_rate_sync"]
+              offsets=[0,.1,.25,.5,.75,1,1.5,2,3,4,5]
+              samples=[]
+              for off in offsets:
+                  tt=tau0+off
+                  if tt>float(h[-1]["tau"]): break
+                  j=next((q for q in range(len(h)-1)
+                          if float(h[q]["tau"])<=tt<=float(h[q+1]["tau"])),None)
+                  if j is None: continue
+                  p,q=h[j],h[j+1]
+                  den=float(q["tau"])-float(p["tau"])
+                  z=0 if den==0 else (tt-float(p["tau"]))/den
+                  rec={"delta_tau":off}
+                  for nm in fields:
+                      vp,vq=p.get(nm),q.get(nm)
+                      if isinstance(vp,(int,float)) and isinstance(vq,(int,float)):
+                          rec[nm]=float(vp)+z*(float(vq)-float(vp))
+                  samples.append(rec)
+              aligned[label]={"crossing_found":True,"target_D_active":TARGET,
+                              "t_cross":t0,"tau_cross":tau0,"samples":samples}
+          (base/"summary.json").write_text(json.dumps(
+              {"target_D_active":TARGET,"cases":summary,"aligned":aligned},
+              indent=2, default=float))
+          print(json.dumps(aligned, indent=2, default=float))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: 0star-early-phase-long-sync
+          path: runs/0star-early-sync
+          if-no-files-found: error
