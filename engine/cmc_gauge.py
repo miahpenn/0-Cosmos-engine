@@ -1,9 +1,10 @@
 """Stage-aware constant-mean-curvature lapse for the production BSSN branch.
 
-The CMC target is derived from the solved outer/weak-field region of the same
-stage. The lapse equation is the ADM K-evolution equation with Kdot chosen as
-the outer-region mean of the actual K RHS. No fitted gauge coefficient,
-lapse floor, or physical source is introduced.
+The CMC target is obtained by a geometric projection of the actual K RHS over
+the whole proper spatial slice. This removes the previous outer-region
+selection from the gauge itself: no weak-field assumption is used to choose
+the CMC time rate, and no fitted gauge coefficient, lapse floor, or physical
+source is introduced.
 """
 from __future__ import annotations
 
@@ -20,13 +21,32 @@ def _d1(grid, values, parity):
 
 
 def target_kdot(grid, geometry, scalars, matter, outer_frac: float = 0.20) -> float:
-    """Derive the CMC target from the outer weak-field region of this stage."""
+    """Project the actual K RHS onto the CMC mode using proper 3-volume.
+
+    outer_frac remains accepted for API compatibility, but is deliberately
+    unused: selecting a fixed outer fraction makes the gauge response depend
+    on a coordinate-region choice. The proper-volume projection is intrinsic
+    to the current spatial slice.
+    """
+    del outer_frac
     _, vacuum, _ = adapter.vendor_modules()
     l2 = vacuum.primary_l2_rhs(grid, geometry)
     l3 = adapter.primary_l3_with_matter(grid, geometry, scalars, matter)
-    raw = l2["K"] + l3["K"]
-    p0 = int((1.0 - outer_frac) * grid.n)
-    return float(np.mean(raw[p0:]))
+    raw = np.asarray(l2["K"] + l3["K"], dtype=float)
+
+    r = np.asarray(grid.centers)
+    a = np.asarray(geometry.a)
+    b = np.asarray(geometry.b)
+    X = np.asarray(geometry.X)
+
+    # sqrt(gamma) d^3x for the spherical BSSN slice, up to the common 4*pi
+    # factor which cancels in the normalized projection.
+    weights = r**2 * np.sqrt(np.maximum(a, 0.0)) * b / X**3
+    weights *= float(grid.dr)
+    total_weight = float(np.sum(weights))
+    if not np.isfinite(total_weight) or total_weight <= 0.0:
+        raise FloatingPointError("CMC proper-volume projection has invalid weight")
+    return float(np.sum(weights * raw) / total_weight)
 
 
 def solve_cmc_lapse(
