@@ -26,6 +26,12 @@ This established that the earlier post-turnaround lapse-gradient layer is not si
 
 Failures are not promoted to physical claims until the invariant witnesses, resolution behavior, and worldtube dependence agree. Borrowed numerical tools remain pinned and are treated as diagnostic/numerical infrastructure; adoption into the physical model requires the project 0* and archive-consistency checks.
 
+
+## D-mode interior causality / time-shape
+
+- [D-mode causality campaign](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/37512951152) — four N=160, Rmax=160 runs with D0=0, 5e-11, 1e-10, 2e-10. All completed. The D=0 control remained near lapse_min=0.990 and max |alpha_r|=0.00127 at t=22.5, while increasing nonzero-D amplitude progressively advanced central contraction and strengthened lapse deformation. Final tau values were 21.4338, 20.8697, and 20.2487 for Dhalf, Dbase, and Ddouble. This supports a D-amplitude-dependent interior dynamical time-shape, but does not yet establish one-way causality.
+- The next investigation is diagnostic only: resolve the onset in time, decompose the existing stress/geometry sources by sector, and test whether the trajectories align more tightly when parameterized by the instantaneous D state than by coordinate time. No physical term or gauge change is adopted from this result.
+
 ## Standing workflow
 
 **Run the complete machine → expose the actual defect → repair only that layer → rerun.**
