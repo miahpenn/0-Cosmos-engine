@@ -155,6 +155,24 @@ class V55ProductionKernel:
         return srhs, mrhs, md
 
     @staticmethod
+    def _apply_outer_light_boundary(grid, geometry, scalars, matter) -> None:
+        """Apply the pinned R0 incoming-light constraint at the finite radius.
+
+        This is a boundary-condition operation only. It uses the already
+        evolved total stress-energy projections; no fitted boundary parameter
+        or new physical source is introduced.
+        """
+        adapter.vendor_modules()
+        from bssn_characteristic_boundary import apply_light_constraint_boundary
+
+        total = assemble_total_stress_energy(
+            grid, geometry, scalars, matter
+        )
+        apply_light_constraint_boundary(
+            grid, geometry, total.rho, total.j
+        )
+
+    @staticmethod
     def _add_matter(base: ConservedSpecies, rhs, factor: float) -> ConservedSpecies:
         return ConservedSpecies(
             base.rest + factor * rhs.rest,
@@ -239,6 +257,11 @@ class V55ProductionKernel:
             + 0.5 * gterms_pred["lambda_l2"]
             + gterms0["lambda_l3"]
         )
+        # The pinned R0 radial system supplies a parameter-free incoming-light
+        # characteristic reconstruction for Aa at the finite outer worldtube.
+        # Apply it only after Lambda is current, as in the reference PIRK/CPBC
+        # sequence. The CMC lapse is then re-solved on the conditioned slice.
+        self._apply_outer_light_boundary(grid, g1, s1, m1)
         # Resolve the CMC lapse on the full primary predictor, then
         # use that gauge state for the second split evaluation.
         g1.alpha = solve_cmc_lapse(
@@ -331,6 +354,10 @@ class V55ProductionKernel:
             + gterms0["lambda_l3"]
             + gterms1["lambda_l3"]
         )
+        # Apply the same incoming-light reconstruction after Lambda is current
+        # on the completed final slice. This replaces the unconstrained finite-
+        # radius boundary mode without altering the interior equations.
+        self._apply_outer_light_boundary(grid, gnew, snew, mnew)
         # Final stage-aware CMC solve on the completed final A/K/matter slice.
         gnew.alpha = solve_cmc_lapse(
             grid, gnew, snew, mnew
