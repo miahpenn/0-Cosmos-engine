@@ -1,9 +1,13 @@
 name: 0-star central-clock time-consistency campaign
+# Explicit campaign trigger: [0star-time]
 
 on:
   workflow_dispatch:
   push:
     branches: [0star-central-clock]
+
+env:
+  PYTHONPATH: .
 
 jobs:
   low-cfl-central-clock:
