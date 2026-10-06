@@ -130,7 +130,8 @@ def geometry_metric_derivatives(
 
     return MetricDerivativeSet(
         time={"tt": dt_gtt, "tr": dt_gtr, "rr": dt_grr, "thth": dt_gthth},
-        radial={"tt": dr_gtt, "tr": dr_gtr, "rr": dr_grr, "thth": dr_gthth},
+        radial={"tt": dr_gtt, "tr": dr_gtr, "rr": dr_grr, "thth": dr_gthth,
+                 "alpha": dr_alpha, "beta": dr_beta},
     )
 
 
@@ -216,10 +217,16 @@ def _hll_flux(
     right: FluidPrimitive,
     species: Species,
 ) -> np.ndarray:
-    fl = _cons_vector(mixed_flux(metric, left))
-    fr = _cons_vector(mixed_flux(metric, right))
-    ul = _cons_vector(primitive_to_conserved(metric, left))
-    ur = _cons_vector(primitive_to_conserved(metric, right))
+    if species == Species.RADIATION:
+        fl = _radiation_flux(metric, left)
+        fr = _radiation_flux(metric, right)
+        ul = _radiation_conserved(metric, left)
+        ur = _radiation_conserved(metric, right)
+    else:
+        fl = _cons_vector(mixed_flux(metric, left))
+        fr = _cons_vector(mixed_flux(metric, right))
+        ul = _cons_vector(primitive_to_conserved(metric, left))
+        ur = _cons_vector(primitive_to_conserved(metric, right))
 
     c_s = 0.0 if species != Species.RADIATION else 1.0 / math.sqrt(3.0)
 
@@ -229,21 +236,13 @@ def _hll_flux(
         num = q.v_r + sign * c_s / math.sqrt(metric.gamma_rr)
         return metric.alpha * num / denom - metric.beta
 
-    s_minus = min(
-        0.0, speed(left, -1.0), speed(right, -1.0)
-    )
-    s_plus = max(
-        0.0, speed(left, 1.0), speed(right, 1.0)
-    )
+    s_minus = min(0.0, speed(left, -1.0), speed(right, -1.0))
+    s_plus = max(0.0, speed(left, 1.0), speed(right, 1.0))
     if s_plus <= 0.0:
         return fr
     if s_minus >= 0.0:
         return fl
-    return (
-        s_plus * fl
-        - s_minus * fr
-        + s_minus * s_plus * (ur - ul)
-    ) / (s_plus - s_minus)
+    return (s_plus * fl - s_minus * fr + s_minus * s_plus * (ur - ul)) / (s_plus - s_minus)
 
 
 def species_projection(
@@ -304,17 +303,63 @@ def initialize_radiation(
     energy = np.empty_like(rho)
     momentum = np.empty_like(rho)
     for i, m in enumerate(metrics):
-        U = primitive_to_conserved(
-            m,
-            FluidPrimitive(
-                rho=float(rho[i]),
-                pressure=float(rho[i]) / 3.0,
-                v_r=float(v[i]),
-                gamma_rr=m.gamma_rr,
-            ),
+        q = FluidPrimitive(
+            rho=float(rho[i]),
+            pressure=float(rho[i]) / 3.0,
+            v_r=float(v[i]),
+            gamma_rr=m.gamma_rr,
         )
-        rest[i], energy[i], momentum[i] = _cons_vector(U)
+        W = q.lorentz()
+        h = q.rho + q.pressure
+        E = h * W * W - q.pressure
+        S_r = h * W * W * m.gamma_rr * q.v_r
+        rest[i] = 0.0
+        energy[i] = m.sqrt_gamma * E
+        momentum[i] = m.sqrt_gamma * S_r
     return ConservedSpecies(rest, energy, momentum)
+
+
+def _radiation_conserved(metric: SphericalMetric, q: FluidPrimitive) -> np.ndarray:
+    W = q.lorentz()
+    h = q.rho + q.pressure
+    E = h * W * W - q.pressure
+    S_r = h * W * W * metric.gamma_rr * q.v_r
+    return np.asarray([0.0, metric.sqrt_gamma * E, metric.sqrt_gamma * S_r], dtype=float)
+
+
+def _radiation_flux(metric: SphericalMetric, q: FluidPrimitive) -> np.ndarray:
+    W = q.lorentz()
+    h = q.rho + q.pressure
+    E = h * W * W - q.pressure
+    S_r = h * W * W * metric.gamma_rr * q.v_r
+    S_up = metric.gamma_rr_inv * S_r
+    return np.asarray([
+        0.0,
+        metric.sqrt_gamma * (metric.alpha * S_up - metric.beta * E),
+        metric.sqrt_gamma * (metric.alpha * S_r * q.v_r
+                              + metric.alpha * q.pressure
+                              - metric.beta * S_r),
+    ], dtype=float)
+
+
+def _radiation_source(metric, q, K, Aa, dr_alpha, dr_beta, dr_grr, dr_gthth):
+    W = q.lorentz()
+    h = q.rho + q.pressure
+    E = h * W * W - q.pressure
+    S_r = h * W * W * metric.gamma_rr * q.v_r
+    S_up = metric.gamma_rr_inv * S_r
+    Srr = h * W * W * q.v_r * q.v_r + q.pressure * metric.gamma_rr_inv
+    Sthth = q.pressure * metric.gamma_thth_inv
+    Krr = metric.gamma_rr * (K / 3.0 + Aa)
+    Kthth = metric.gamma_thth * (K / 3.0 - Aa / 2.0)
+    energy = metric.sqrt_gamma * (
+        metric.alpha * (Krr * Srr + 2.0 * Kthth * Sthth) - S_up * dr_alpha
+    )
+    momentum = metric.sqrt_gamma * (
+        -E * dr_alpha + S_r * dr_beta
+        + 0.5 * metric.alpha * (Srr * dr_grr + 2.0 * Sthth * dr_gthth)
+    )
+    return energy, momentum
 
 
 def evolve_species(
@@ -357,14 +402,31 @@ def evolve_species(
         face_flux[i + 1] = _hll_flux(mf, ql, qr, species)
 
     # Causal/outflow outer closure: continue the last physical state.
-    face_flux[-1] = _cons_vector(mixed_flux(metrics[-1], prim[-1]))
+    face_flux[-1] = (
+        _radiation_flux(metrics[-1], prim[-1])
+        if species == Species.RADIATION
+        else _cons_vector(mixed_flux(metrics[-1], prim[-1]))
+    )
 
     out = state.copy()
     inv_dr = 1.0 / (metric.r[1] - metric.r[0])
     for i, m in enumerate(metrics):
+        if species == Species.RADIATION:
+            source_e, source_s = _radiation_source(
+                m, prim[i], float(metric.K[i]), float(metric.Aa[i]),
+                float(metric_derivatives.radial["alpha"][i]),
+                float(metric_derivatives.radial["beta"][i]),
+                float(metric_derivatives.radial["rr"][i]),
+                float(metric_derivatives.radial["thth"][i]),
+            )
+            out.energy_t[i] -= dt * inv_dr * (face_flux[i + 1, 1] - face_flux[i, 1])
+            out.momentum_r[i] -= dt * inv_dr * (face_flux[i + 1, 2] - face_flux[i, 2])
+            out.energy_t[i] += dt * source_e
+            out.momentum_r[i] += dt * source_s
+            continue
+
         source_t, source_r = geometric_source(
-            m,
-            prim[i],
+            m, prim[i],
             {k: float(v[i]) for k, v in metric_derivatives.time.items()},
             {k: float(v[i]) for k, v in metric_derivatives.radial.items()},
         )
@@ -374,29 +436,14 @@ def evolve_species(
             if dphi_t is None or dphi_r is None:
                 raise ValueError("DM evolution requires dphi_t and dphi_r")
             q_t, q_r = dark_matter_covector_source(
-                beta_dm,
-                prim[i].rho,
-                float(dphi_t[i]),
-                float(dphi_r[i]),
+                beta_dm, prim[i].rho, float(dphi_t[i]), float(dphi_r[i])
             )
 
-        if species != Species.RADIATION:
-            out.rest[i] -= dt * inv_dr * (
-                face_flux[i + 1, 0] - face_flux[i, 0]
-            )
-        out.energy_t[i] -= dt * inv_dr * (
-            face_flux[i + 1, 1] - face_flux[i, 1]
-        )
-        out.momentum_r[i] -= dt * inv_dr * (
-            face_flux[i + 1, 2] - face_flux[i, 2]
-        )
-
-        out.energy_t[i] += dt * (
-            source_t + q_t * m.sqrt_minus_g
-        )
-        out.momentum_r[i] += dt * (
-            source_r + q_r * m.sqrt_minus_g
-        )
+        out.rest[i] -= dt * inv_dr * (face_flux[i + 1, 0] - face_flux[i, 0])
+        out.energy_t[i] -= dt * inv_dr * (face_flux[i + 1, 1] - face_flux[i, 1])
+        out.momentum_r[i] -= dt * inv_dr * (face_flux[i + 1, 2] - face_flux[i, 2])
+        out.energy_t[i] += dt * (source_t + q_t * m.sqrt_minus_g)
+        out.momentum_r[i] += dt * (source_r + q_r * m.sqrt_minus_g)
 
     return out
 
