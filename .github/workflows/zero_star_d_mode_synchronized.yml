@@ -2,8 +2,6 @@ name: 0-star D-mode synchronized continuation campaign
 
 on:
   workflow_dispatch:
-  push:
-    branches: [0star-central-clock]
 
 jobs:
   synchronized-continuation:
@@ -201,5 +199,3 @@ jobs:
           name: 0star-d-mode-synchronized-continuation
           path: runs/0star-d-synchronized
           if-no-files-found: error
-
-# Explicit trigger for synchronized continuation campaign.
