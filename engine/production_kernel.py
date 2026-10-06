@@ -481,13 +481,10 @@ class V55ProductionKernel:
             "connection_max": float(
                 np.max(np.abs(raw["connection"][2:]))
             ),
-            "determinant_min": float(
-                np.min(geom.a * geom.b**2)
-            ),
+            "determinant_min": float(np.min(det)),
             "determinant_constraint_max": float(
                 np.max(np.abs(det - 1.0))
             ),
-            "determinant_min": float(np.min(det)),
             "conformal_trace_rhs_max": float(np.max(np.abs(conformal_trace_rhs))),
             "explicit_da_over_a_max": float(np.max(np.abs(explicit["a"] / geom.a))),
             "explicit_db_over_b_max": float(np.max(np.abs(explicit["b"] / geom.b))),
