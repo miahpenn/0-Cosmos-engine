@@ -47,6 +47,7 @@ from . import v55_pirk_adapter as adapter
 
 BETA_DM = -0.04
 LAMBDA_M = 2.0
+GAUGE_ETA = 2.0  # pinned vendor moving-puncture damping; not a fitted physics parameter
 
 
 @dataclass
@@ -213,7 +214,10 @@ class V55ProductionKernel:
             + 0.5 * gterms_pred["lambda_l2"]
             + gterms0["lambda_l3"]
         )
-        g1.B = g0.B + 0.75 * (g1.Lambda - g0.Lambda)
+        g1.B = (
+            g0.B + 0.75 * (g1.Lambda - g0.Lambda)
+            - dt * GAUGE_ETA * g0.B
+        )
         g1.assert_finite_positive()
 
         # Re-evaluate the complete split on the primary-updated predictor.
@@ -295,7 +299,11 @@ class V55ProductionKernel:
             + gterms0["lambda_l3"]
             + gterms1["lambda_l3"]
         )
-        gnew.B = g0.B + 0.75 * (gnew.Lambda - g0.Lambda)
+        gnew.B = (
+            g0.B
+            + 0.75 * (gnew.Lambda - g0.Lambda)
+            - 0.5 * dt * GAUGE_ETA * (g0.B + g1.B)
+        )
 
         candidate = ProductionState(
             grid=grid, geometry=gnew, scalars=snew, matter=mnew,
