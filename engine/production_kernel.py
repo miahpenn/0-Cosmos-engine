@@ -41,6 +41,7 @@ from .matter_system import (
     _reconstructed_primitive,
     _hll_flux,
     _valencia_flux,
+    _valencia_source,
 )
 from .scalar_system import ScalarFields, scalar_rhs_arrays
 from .v55_initial import build_initial_data
@@ -503,6 +504,63 @@ class V55ProductionKernel:
         rad_inner_flux = _hll_flux(
             mf_rad, ql_rad, qr_rad, Species.RADIATION
         )
+        # One more interior face lets us distinguish a boundary closure
+        # contribution from a genuine outgoing pulse entering the last cell.
+        m2_rad, m3_rad = rad_metrics[-3], rad_metrics[-2]
+        mf2_rad = SphericalMetric(
+            alpha=0.5 * (m2_rad.alpha + m3_rad.alpha),
+            beta=0.5 * (m2_rad.beta + m3_rad.beta),
+            gamma_rr=0.5 * (m2_rad.gamma_rr + m3_rad.gamma_rr),
+            gamma_rr_inv=0.5 * (m2_rad.gamma_rr_inv + m3_rad.gamma_rr_inv),
+            gamma_thth=0.5 * (m2_rad.gamma_thth + m3_rad.gamma_thth),
+            gamma_thth_inv=0.5 * (m2_rad.gamma_thth_inv + m3_rad.gamma_thth_inv),
+            sqrt_gamma=0.5 * (m2_rad.sqrt_gamma + m3_rad.sqrt_gamma),
+        )
+        ql2_rad = _reconstructed_primitive(
+            rad_prim, grid.n - 3, "right", mf2_rad.gamma_rr
+        )
+        qr2_rad = _reconstructed_primitive(
+            rad_prim, grid.n - 2, "left", mf2_rad.gamma_rr
+        )
+        rad_penultimate_flux = _hll_flux(
+            mf2_rad, ql2_rad, qr2_rad, Species.RADIATION
+        )
+        dr_rad = float(grid.dr)
+        rad_outer_div_E = -(
+            float(rad_outer_flux[1]) - float(rad_inner_flux[1])
+        ) / dr_rad
+        rad_outer_div_S = -(
+            float(rad_outer_flux[2]) - float(rad_inner_flux[2])
+        ) / dr_rad
+        rad_penultimate_div_E = -(
+            float(rad_inner_flux[1]) - float(rad_penultimate_flux[1])
+        ) / dr_rad
+        rad_penultimate_div_S = -(
+            float(rad_inner_flux[2]) - float(rad_penultimate_flux[2])
+        ) / dr_rad
+        rad_md = geometry_metric_derivatives(metric, grid.cell_derivative_fourth)
+        rad_outer_source_E, rad_outer_source_S = _valencia_source(
+            rad_metrics[-1], q_rad, float(geom.K[-1]), float(geom.Aa[-1]),
+            float(rad_md.radial["alpha"][-1]),
+            float(rad_md.radial["beta"][-1]),
+            float(rad_md.radial["rr"][-1]),
+            float(rad_md.radial["thth"][-1]),
+        )
+        rad_penultimate_source_E, rad_penultimate_source_S = _valencia_source(
+            rad_metrics[-2], rad_prim[-2], float(geom.K[-2]), float(geom.Aa[-2]),
+            float(rad_md.radial["alpha"][-2]),
+            float(rad_md.radial["beta"][-2]),
+            float(rad_md.radial["rr"][-2]),
+            float(rad_md.radial["thth"][-2]),
+        )
+        # COSMOS scalar characteristics at the same worldtube. For the
+        # wave principal part, W+/- = Pi +/- sqrt(gamma^rr) * phi_r and
+        # speeds are -beta +/- alpha*sqrt(gamma^rr).
+        phi_r = grid.cell_derivative_fourth(scalars.phi, parity=1)
+        phi_char_plus = scalars.Pi[-1] + math.sqrt(rad_metrics[-1].gamma_rr_inv) * phi_r[-1]
+        phi_char_minus = scalars.Pi[-1] - math.sqrt(rad_metrics[-1].gamma_rr_inv) * phi_r[-1]
+        phi_speed_plus = -rad_metrics[-1].beta + rad_metrics[-1].alpha * math.sqrt(rad_metrics[-1].gamma_rr_inv)
+        phi_speed_minus = -rad_metrics[-1].beta - rad_metrics[-1].alpha * math.sqrt(rad_metrics[-1].gamma_rr_inv)
         flux_e_scale = max(
             abs(float(rad_inner_flux[1])),
             abs(float(rad_outer_flux[1])),
@@ -693,6 +751,29 @@ class V55ProductionKernel:
             "radiation_boundary_momentum_flux_rel_mismatch": float(
                 abs(float(rad_outer_flux[2] - rad_inner_flux[2]))
                 / flux_s_scale
+            ),
+            "radiation_outer_div_E": float(rad_outer_div_E),
+            "radiation_outer_div_S": float(rad_outer_div_S),
+            "radiation_penultimate_div_E": float(rad_penultimate_div_E),
+            "radiation_penultimate_div_S": float(rad_penultimate_div_S),
+            "radiation_outer_source_E": float(rad_outer_source_E),
+            "radiation_outer_source_S": float(rad_outer_source_S),
+            "radiation_penultimate_source_E": float(rad_penultimate_source_E),
+            "radiation_penultimate_source_S": float(rad_penultimate_source_S),
+            "radiation_outer_transport_to_source_E": float(
+                abs(rad_outer_div_E) / max(abs(rad_outer_source_E), 1.0e-300)
+            ),
+            "radiation_outer_transport_to_source_S": float(
+                abs(rad_outer_div_S) / max(abs(rad_outer_source_S), 1.0e-300)
+            ),
+            "cosmos_phi_outer_char_plus": float(phi_char_plus),
+            "cosmos_phi_outer_char_minus": float(phi_char_minus),
+            "cosmos_phi_outer_speed_plus": float(phi_speed_plus),
+            "cosmos_phi_outer_speed_minus": float(phi_speed_minus),
+            "cosmos_phi_outer_outgoing_plus": float(phi_speed_plus > 0.0),
+            "cosmos_phi_outer_outgoing_minus": float(phi_speed_minus > 0.0),
+            "cosmos_phi_outer_abs_char_ratio": float(
+                abs(phi_char_minus) / max(abs(phi_char_plus), 1.0e-300)
             ),
             "K_sigma": float(geom.K[i_sigma]),
             "Aa_sigma": float(geom.Aa[i_sigma]),
