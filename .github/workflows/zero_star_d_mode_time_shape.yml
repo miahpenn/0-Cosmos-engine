@@ -1,0 +1,248 @@
+name: 0-star D-mode time-shape source-order campaign
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [0star-central-clock]
+
+jobs:
+  d-time-shape:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[0star-d]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    env:
+      PYTHONPATH: .
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Repository tests
+        run: pytest -q
+
+      - name: Run source-order campaign
+        run: |
+          python - <<'PY'
+          import json
+          import math
+          from pathlib import Path
+          import numpy as np
+
+          from engine.campaign import CampaignConfig
+          from engine.production_kernel import ProductionState, V55ProductionKernel
+          from engine.run_production import run_campaign
+          from engine.v55_initial import build_initial_data
+          from engine.v55_matter import metric_slice_from_q, project_species, total_fluid_projection
+          from engine.scalar_system import ScalarFields, KAPPA
+          from engine import v55_pirk_adapter as adapter
+
+          BETA_DM = -0.04
+
+          class SourceAuditKernel(V55ProductionKernel):
+              def __init__(self, d_amplitude):
+                  super().__init__()
+                  self.d_amplitude = float(d_amplitude)
+
+              def initialize(self, resolution=160, r_max=160.0, **kwargs):
+                  grid_ops, vacuum, _ = adapter.vendor_modules()
+                  grid = grid_ops.SphericalCellGrid(resolution, r_max)
+                  init = build_initial_data(
+                      grid,
+                      vacuum.flat_state,
+                      D_amplitude=self.d_amplitude,
+                      include_radiation=True,
+                  )
+                  init.geometry.alpha = self._solve_lapse(
+                      grid, init.geometry, init.scalars, init.matter
+                  )[0]
+                  init.geometry.beta.fill(0.0)
+                  init.geometry.B.fill(0.0)
+                  return ProductionState(
+                      grid=grid,
+                      geometry=init.geometry,
+                      scalars=init.scalars,
+                      matter=init.matter,
+                      e_folds=0.0,
+                  )
+
+              def diagnostics(self, state, *, profiles=False):
+                  out = super().diagnostics(state, profiles=profiles)
+                  g = state.grid
+                  geom = state.geometry
+                  fields = state.scalars
+                  r = np.asarray(g.centers)
+                  invr = geom.X**2 / geom.a
+
+                  def d1(x, parity=1):
+                      return g.cell_derivative_fourth(x, parity=parity)
+
+                  # Existing scalar stress projection, decomposed by sector.
+                  sectors = {}
+                  for label, f, p, V, scale in (
+                      ("S", fields.S, fields.PS, 0.5 * fields.S**2, 1.0),
+                      ("D", fields.D, fields.PD, -0.5 * fields.D**2, 1.0),
+                      ("COSMOS", fields.phi, fields.Pi,
+                       8.242522415500654e-5 * (np.exp(-fields.phi) - 0.10), KAPPA),
+                  ):
+                      fp = d1(f)
+                      gr2 = invr * fp * fp
+                      rho = (0.5 * p*p + 0.5*gr2 + V) / scale
+                      pr = (0.5 * p*p + 0.5*gr2 - V) / scale
+                      pt = (0.5 * p*p - 0.5*gr2 - V) / scale
+                      sectors[label] = {
+                          "rho": rho,
+                          "pr": pr,
+                          "pt": pt,
+                          "K_source": 4.0 * math.pi * geom.alpha * (rho + pr + 2.0*pt),
+                      }
+
+                  metric = metric_slice_from_q(g, geom)
+                  fluids = {}
+                  for label, species, field in (
+                      ("dark_matter", 0, state.matter.dark_matter),
+                      ("baryons", 1, state.matter.baryons),
+                      ("radiation", 2, state.matter.radiation),
+                  ):
+                      from engine.matter_system import Species
+                      sp = (Species.DARK_MATTER, Species.BARYON, Species.RADIATION)[species]
+                      piece = project_species(metric, field, sp)
+                      fluids[label] = {
+                          "rho": piece["rho"],
+                          "pr": piece["pr"],
+                          "pt": piece["pt"],
+                          "K_source": 4.0 * math.pi * geom.alpha * (
+                              piece["rho"] + piece["pr"] + 2.0*piece["pt"]
+                          ),
+                      }
+
+                  active_D = 2.0*fields.PD**2 + fields.D**2
+                  i_grad = int(np.argmax(np.abs(d1(geom.alpha))))
+                  i_center = 0
+                  i_active = int(np.argmax(active_D))
+
+                  # Exact existing geometry K source split: vacuum plus total matter.
+                  _, vacuum, _ = adapter.vendor_modules()
+                  vacuum_l3 = vacuum.primary_l3_rhs(g, geom)
+                  total_l3 = adapter.primary_l3_with_matter(
+                      g, geom, fields, state.matter
+                  )
+                  matter_K = np.asarray(total_l3["K"]) - np.asarray(vacuum_l3["K"])
+
+                  def at(arr, idx):
+                      return float(np.asarray(arr)[idx])
+
+                  out.update({
+                      "D_growth_rate_center": (
+                          at(geom.alpha, i_center) * at(fields.PD, i_center) / at(fields.D, i_center)
+                          if abs(at(fields.D, i_center)) > 1.0e-300 else 0.0
+                      ),
+                      "D_active_center": at(active_D, i_center),
+                      "D_active_max": at(active_D, i_active),
+                      "D_active_max_r": at(r, i_active),
+                      "source_probe_r": at(r, i_grad),
+                      "D_at_source_probe": at(fields.D, i_grad),
+                      "D_active_at_source_probe": at(active_D, i_grad),
+                      "PD_at_source_probe": at(fields.PD, i_grad),
+                      "matter_K_source_center": at(matter_K, i_center),
+                      "matter_K_source_probe": at(matter_K, i_grad),
+                      "vacuum_K_source_center": at(vacuum_l3["K"], i_center),
+                      "vacuum_K_source_probe": at(vacuum_l3["K"], i_grad),
+                  })
+                  for label, data in sectors.items():
+                      for key, arr in data.items():
+                          out[f"{label}_{key}_center"] = at(arr, i_center)
+                          out[f"{label}_{key}_probe"] = at(arr, i_grad)
+                  for label, data in fluids.items():
+                      for key, arr in data.items():
+                          out[f"{label}_{key}_center"] = at(arr, i_center)
+                          out[f"{label}_{key}_probe"] = at(arr, i_grad)
+                  return out
+
+          cases = {
+              "D0": 0.0,
+              "Dhalf": 5.0e-11,
+              "Dbase": 1.0e-10,
+              "Ddouble": 2.0e-10,
+          }
+
+          base = Path("runs/0star-d-time-shape")
+          summaries = {}
+          for label, amplitude in cases.items():
+              cfg = CampaignConfig(
+                  resolutions=(160,),
+                  r_max=160.0,
+                  cfl=0.0075,
+                  final_time=22.5,
+                  checkpoint_interval=0.25,
+                  output_dir=str(base / label),
+              )
+              result = run_campaign(kernel=SourceAuditKernel(amplitude), config=cfg)
+              summaries[label] = {
+                  "amplitude": amplitude,
+                  "result": result[0].__dict__,
+              }
+
+          # Post-process the full history already written by run_campaign.
+          # This is analysis only: no thresholds feed back into evolution.
+          ordering = {}
+          for label in cases:
+              ledger = json.loads((base / label / "N160" / "ledgers.json").read_text())
+              hist = ledger["history"]
+              keys = [
+                  "t", "tau", "H_center", "H_eff", "H_coord_center",
+                  "tau_rate", "lapse_max", "alpha_r_max", "alpha_r_max_r",
+                  "cmc_kdot", "D_center", "D_growth_rate_center",
+                  "D_active_center", "D_active_max", "D_active_max_r",
+                  "matter_K_source_center", "matter_K_source_probe",
+                  "vacuum_K_source_center", "vacuum_K_source_probe",
+                  "D_K_source_center", "D_K_source_probe",
+                  "S_K_source_center", "S_K_source_probe",
+                  "COSMOS_K_source_center", "COSMOS_K_source_probe",
+                  "dark_matter_K_source_center", "dark_matter_K_source_probe",
+                  "baryons_K_source_center", "baryons_K_source_probe",
+                  "radiation_K_source_center", "radiation_K_source_probe",
+              ]
+              rows = [{k: row.get(k) for k in keys} for row in hist]
+              (base / label / "N160" / "time_shape_history.json").write_text(
+                  json.dumps(rows, indent=2, default=float)
+              )
+              ordering[label] = {
+                  "rows": len(rows),
+                  "final_t": rows[-1]["t"] if rows else None,
+                  "final_tau": rows[-1]["tau"] if rows else None,
+              }
+
+          (base / "time_shape_summary.json").write_text(
+              json.dumps({"cases": summaries, "ordering": ordering}, indent=2, default=float)
+          )
+
+          for label, payload in summaries.items():
+              r = payload["result"]
+              d = r.get("last_diagnostics", {})
+              print(
+                  label,
+                  "status=", r["status"],
+                  "t_final=", r["t_final"],
+                  "D_center=", d.get("D_center"),
+                  "D_active=", d.get("D_active_center"),
+                  "lapse_max=", d.get("lapse_max"),
+                  "alpha_r_max=", d.get("alpha_r_max"),
+                  "cmc_kdot=", d.get("cmc_kdot"),
+              )
+          PY
+
+      - name: Upload D-mode time-shape artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: 0star-d-mode-time-shape
+          path: runs/0star-d-time-shape
+          if-no-files-found: error
