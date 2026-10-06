@@ -2,8 +2,6 @@ name: 0-star early-phase long synchronization campaign
 
 on:
   workflow_dispatch:
-  push:
-    branches: [0star-central-clock]
 
 jobs:
   early-sync-long:
