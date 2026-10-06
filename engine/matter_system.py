@@ -485,6 +485,8 @@ def evolve_species(
 
     out = state.copy()
     inv_dr = 1.0 / (metric.r[1] - metric.r[0])
+    source_e_diag = np.zeros(n, dtype=float)
+    source_s_diag = np.zeros(n, dtype=float)
     for i, m in enumerate(metrics):
         source_e, source_s = _valencia_source(
             m, prim[i], float(metric.K[i]), float(metric.Aa[i]),
@@ -493,6 +495,9 @@ def evolve_species(
             float(metric_derivatives.radial["rr"][i]),
             float(metric_derivatives.radial["thth"][i]),
         )
+
+        source_e_diag[i] = source_e
+        source_s_diag[i] = source_s
 
         q_e = q_s = 0.0
         if species == Species.DARK_MATTER:
@@ -515,6 +520,28 @@ def evolve_species(
         )
         out.energy_t[i] += dt * (source_e + q_e)
         out.momentum_r[i] += dt * (source_s + q_s)
+
+    if species is Species.RADIATION:
+        # Diagnostic only: expose the transport and metric-source pieces
+        # when this update itself creates an inadmissible state.
+        sg = np.asarray([m.sqrt_gamma for m in metrics])
+        E = out.energy_t / sg
+        S_r = out.momentum_r / sg
+        S_abs = np.sqrt(np.maximum(
+            np.asarray([m.gamma_rr_inv for m in metrics]) * S_r * S_r, 0.0
+        ))
+        bad = np.where((E < 0.0) | (S_abs > E))[0]
+        if bad.size:
+            i = int(bad[0])
+            flux_dE = -inv_dr * (face_flux[i + 1, 1] - face_flux[i, 1])
+            flux_dS = -inv_dr * (face_flux[i + 1, 2] - face_flux[i, 2])
+            raise ValueError(
+                f"radiation RHS created inadmissible state at cell i={i}: "
+                f"tendency_flux_E={flux_dE:.17e}, source_E={source_e_diag[i]:.17e}, "
+                f"tendency_flux_S={flux_dS:.17e}, source_S={source_s_diag[i]:.17e}; "
+                f"E={E[i]:.17e}, |S|={S_abs[i]:.17e}, "
+                f"ratio={S_abs[i] / max(abs(E[i]), 1.0e-300):.17e}"
+            )
 
     return out
 
