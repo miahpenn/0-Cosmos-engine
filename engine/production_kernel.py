@@ -21,7 +21,6 @@ import math
 import numpy as np
 
 from .handoff import CycleLedger, handoff_from_ledger
-from .cmc_gauge import solve_cmc_lapse
 from .production_contract import KernelCapabilities
 from .invariant_diagnostics import (
     misner_sharp_mass_from_chi,
@@ -155,73 +154,30 @@ class V55ProductionKernel:
             base.momentum_r + factor * rhs.momentum_r,
         )
 
-    def _primary_stage(
-        self,
-        grid,
-        g0,
-        g_explicit,
-        scalars,
-        matter,
-        dt,
-        l20=None,
-        l30=None,
-        ll20=None,
-        ll30=None,
-    ):
-        terms0 = adapter.geometry_stage_terms(
-            grid, g0, scalars, matter, lambda_m=LAMBDA_M
-        )
-        if l20 is None:
-            l20 = terms0["primary_l2"]
-        if l30 is None:
-            l30 = terms0["primary_l3"]
-        if ll20 is None:
-            ll20 = terms0["lambda_l2"]
-        if ll30 is None:
-            ll30 = terms0["lambda_l3"]
-
-        _, vacuum, _ = adapter.vendor_modules()
-        l2_u1 = vacuum.primary_l2_rhs(grid, g_explicit)
-        ll2_u1 = vacuum.lambda_l2_rhs(
-            grid, g_explicit, lambda_m=LAMBDA_M
-        )
-
-        stage = g_explicit.copy()
-        stage.Aa = g0.Aa + dt * (
-            0.5 * l20["Aa"] + 0.5 * l2_u1["Aa"] + l30["Aa"]
-        )
-        stage.K = g0.K + dt * (
-            0.5 * l20["K"] + 0.5 * l2_u1["K"] + l30["K"]
-        )
-        stage.Lambda = g0.Lambda + dt * (
-            0.5 * ll20 + 0.5 * ll2_u1 + ll30
-        )
-        stage.B = g0.B + 0.75 * (stage.Lambda - g0.Lambda)
-        return stage, terms0
-
     def step(self, state: ProductionState, dt: float) -> ProductionState:
         if not np.isfinite(dt) or dt <= 0.0:
             raise ValueError("dt must be finite and positive")
 
         grid = state.grid
         g0 = state.geometry.copy()
-        g0.beta.fill(0.0)
-        g0.B.fill(0.0)
-        g0.alpha = solve_cmc_lapse(
-            grid, g0, state.scalars, state.matter
-        )[0]
-
         s0 = state.scalars
         m0 = state.matter
-        srhs0, mrhs0, _ = self._rhs(
-            ProductionState(
-                grid=grid, geometry=g0, scalars=s0, matter=m0,
-                t=state.t, tau=state.tau, e_folds=state.e_folds,
-            )
-        )
+
+        srhs0, mrhs0, _ = self._rhs(state)
         gterms0 = adapter.geometry_stage_terms(
             grid, g0, s0, m0, lambda_m=LAMBDA_M
         )
+
+        # TRUE-PIRK predictor: advance every explicit variable first, then
+        # evaluate the implicit terms on that predictor together with the
+        # explicitly advanced matter/scalars.
+        g_explicit1 = g0.copy()
+        for name, value in gterms0["explicit"].items():
+            setattr(
+                g_explicit1,
+                name,
+                getattr(g0, name) + dt * value,
+            )
 
         s1 = ScalarFields(
             *(
@@ -236,34 +192,51 @@ class V55ProductionKernel:
             )
         )
 
-        g_explicit1 = g0.copy()
-        for name in ("a", "b", "X"):
-            value = gterms0["explicit"][name]
-            setattr(g_explicit1, name, getattr(g0, name) + dt * value)
-        g_explicit1.beta.fill(0.0)
-        g_explicit1.B.fill(0.0)
-        g_explicit1.alpha = solve_cmc_lapse(
-            grid, g_explicit1, s1, m1
-        )[0]
-
-        g1, _ = self._primary_stage(
-            grid, g0, g_explicit1, s0, m0, dt,
-            l20=gterms0["primary_l2"],
-            l30=gterms0["primary_l3"],
-            ll20=gterms0["lambda_l2"],
-            ll30=gterms0["lambda_l3"],
+        gterms_pred = adapter.geometry_stage_terms(
+            grid, g_explicit1, s1, m1, lambda_m=LAMBDA_M
         )
-        g1.beta.fill(0.0)
-        g1.B.fill(0.0)
+        _, vacuum, _ = adapter.vendor_modules()
 
+        g1 = g_explicit1.copy()
+        g1.Aa = g0.Aa + dt * (
+            0.5 * gterms0["primary_l2"]["Aa"]
+            + 0.5 * gterms_pred["primary_l2"]["Aa"]
+            + gterms0["primary_l3"]["Aa"]
+        )
+        g1.K = g0.K + dt * (
+            0.5 * gterms0["primary_l2"]["K"]
+            + 0.5 * gterms_pred["primary_l2"]["K"]
+            + gterms0["primary_l3"]["K"]
+        )
+        g1.Lambda = g0.Lambda + dt * (
+            0.5 * gterms0["lambda_l2"]
+            + 0.5 * gterms_pred["lambda_l2"]
+            + gterms0["lambda_l3"]
+        )
+        g1.B = g0.B + 0.75 * (g1.Lambda - g0.Lambda)
+        g1.assert_finite_positive()
+
+        # Re-evaluate the complete split on the primary-updated predictor.
         stage1 = ProductionState(
             grid=grid, geometry=g1, scalars=s1, matter=m1,
-            t=state.t, tau=state.tau,
+            t=state.t, tau=state.tau, e_folds=state.e_folds,
         )
         srhs1, mrhs1, _ = self._rhs(stage1)
         gterms1 = adapter.geometry_stage_terms(
             grid, g1, s1, m1, lambda_m=LAMBDA_M
         )
+
+        # Final explicit block uses the TRUE-PIRK trapezoidal pairing with the
+        # second split evaluation above.
+        gnew = g0.copy()
+        for name in gterms0["explicit"]:
+            setattr(
+                gnew,
+                name,
+                getattr(g0, name) + 0.5 * dt * (
+                    gterms0["explicit"][name] + gterms1["explicit"][name]
+                ),
+            )
 
         snew = ScalarFields(
             *(
@@ -290,29 +263,13 @@ class V55ProductionKernel:
             )
         )
 
-        gnew = g0.copy()
-        for name in ("a", "b", "X"):
-            setattr(
-                gnew, name,
-                getattr(g0, name) + 0.5 * dt * (
-                    gterms0["explicit"][name] + gterms1["explicit"][name]
-                ),
-            )
-        gnew.beta.fill(0.0)
-        gnew.B.fill(0.0)
-        # Stage lapse is the predictor used for the final primary correction.
-        gnew.alpha = g1.alpha.copy()
-
-        _, vacuum, _ = adapter.vendor_modules()
+        # Final implicit evaluation is taken on the final explicit state,
+        # preserving the archived PIRK partition.
         final_u_old_v = g1.copy()
-        final_u_old_v.a = gnew.a.copy()
-        final_u_old_v.b = gnew.b.copy()
-        final_u_old_v.X = gnew.X.copy()
-        final_u_old_v.beta.fill(0.0)
-        final_u_old_v.B.fill(0.0)
-        final_u_old_v.alpha = g1.alpha.copy()
-        l2_final = vacuum.primary_l2_rhs(grid, final_u_old_v)
+        for name in gterms0["explicit"]:
+            setattr(final_u_old_v, name, getattr(gnew, name))
 
+        l2_final = vacuum.primary_l2_rhs(grid, final_u_old_v)
         gnew.Aa = g0.Aa + 0.5 * dt * (
             gterms0["primary_l2"]["Aa"]
             + l2_final["Aa"]
@@ -326,15 +283,9 @@ class V55ProductionKernel:
             + gterms1["primary_l3"]["K"]
         )
 
-        # True stage-aware CMC correction: the lapse carried by the final
-        # primary state is the elliptic solution on the final A/K/matter slice.
-        gnew.alpha = solve_cmc_lapse(
-            grid, gnew, snew, mnew
-        )[0]
-        gnew.beta.fill(0.0)
-        gnew.B.fill(0.0)
-
-        final_primary = gnew.copy()
+        final_primary = final_u_old_v.copy()
+        final_primary.Aa = gnew.Aa.copy()
+        final_primary.K = gnew.K.copy()
         ll2_final = vacuum.lambda_l2_rhs(
             grid, final_primary, lambda_m=LAMBDA_M
         )
@@ -344,7 +295,7 @@ class V55ProductionKernel:
             + gterms0["lambda_l3"]
             + gterms1["lambda_l3"]
         )
-        gnew.B.fill(0.0)
+        gnew.B = g0.B + 0.75 * (gnew.Lambda - g0.Lambda)
 
         candidate = ProductionState(
             grid=grid, geometry=gnew, scalars=snew, matter=mnew,
