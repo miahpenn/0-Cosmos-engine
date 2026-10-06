@@ -1,6 +1,6 @@
 name: 0-star coordinate-CFL central-clock campaign
 # Explicit campaign trigger: [0star-cfl]
-# Test trigger after repository-path repair.
+# Clean rerun after time-consistency confirmation; no physics change.
 
 on:
   workflow_dispatch:
