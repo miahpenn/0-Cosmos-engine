@@ -413,6 +413,27 @@ class V55ProductionKernel:
             - explicit["X"] / geom.X
         )
 
+        # Geometry-collapse witness.  This is diagnostic only: it does not
+        # modify any evolved variable.  In a unit-determinant conformal
+        # metric, a*b^2=1 and therefore da/a + 2 db/b must vanish.
+        det = geom.a * geom.b**2
+        conformal_trace_rhs = (
+            explicit["a"] / geom.a
+            + 2.0 * explicit["b"] / geom.b
+        )
+
+        # Split the primary curvature source into the pinned vacuum operator
+        # and the local total stress-energy contribution.  This exposes whether
+        # the first departure is already present in vacuum geometry or enters
+        # through the matter projection, without introducing a new source.
+        vacuum_l3 = vacuum.primary_l3_rhs(grid, geom)
+        matter_l3 = {
+            key: np.asarray(adapter.primary_l3_with_matter(
+                grid, geom, state.scalars, state.matter
+            )[key]) - np.asarray(vacuum_l3[key])
+            for key in ("Aa", "K")
+        }
+
         surface = int(np.argmin(np.abs(r - 10.0)))
         outer = r >= 0.8 * grid.r_max
         coordinate_energy_flux = 4.0 * math.pi * R[surface]**2 * (
@@ -464,8 +485,16 @@ class V55ProductionKernel:
                 np.min(geom.a * geom.b**2)
             ),
             "determinant_constraint_max": float(
-                np.max(np.abs(geom.a * geom.b**2 - 1.0))
+                np.max(np.abs(det - 1.0))
             ),
+            "determinant_min": float(np.min(det)),
+            "conformal_trace_rhs_max": float(np.max(np.abs(conformal_trace_rhs))),
+            "explicit_da_over_a_max": float(np.max(np.abs(explicit["a"] / geom.a))),
+            "explicit_db_over_b_max": float(np.max(np.abs(explicit["b"] / geom.b))),
+            "vacuum_l3_Aa_max": float(np.max(np.abs(vacuum_l3["Aa"]))),
+            "matter_l3_Aa_max": float(np.max(np.abs(matter_l3["Aa"]))),
+            "vacuum_l3_K_max": float(np.max(np.abs(vacuum_l3["K"]))),
+            "matter_l3_K_max": float(np.max(np.abs(matter_l3["K"]))),
             "lapse_min": float(np.min(geom.alpha)),
             "lapse_max": float(np.max(geom.alpha)),
             "Rdot_sigma": float(Rdot[surface]),
