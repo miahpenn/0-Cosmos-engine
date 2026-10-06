@@ -110,7 +110,7 @@ class V55ProductionKernel:
         )
         # Initialize the production slice on the same stage-aware CMC gauge
         # that is carried throughout evolution.
-        init.geometry.alpha = solve_cmc_lapse(
+        init.geometry.alpha = self._solve_lapse(
             grid, init.geometry, init.scalars, init.matter
         )[0]
         init.geometry.beta.fill(0.0)
@@ -126,6 +126,10 @@ class V55ProductionKernel:
     @staticmethod
     def _d1(grid, values, parity):
         return grid.cell_derivative_fourth(values, parity=parity)
+
+    @staticmethod
+    def _solve_lapse(grid, geometry, scalars, matter):
+        return solve_cmc_lapse(grid, geometry, scalars, matter)
 
     def _rhs(self, state: ProductionState):
         metric = metric_slice_from_q(state.grid, state.geometry)
@@ -200,7 +204,7 @@ class V55ProductionKernel:
 
         # The lapse is elliptically determined by the current CMC slice.
         # Spatial shift is zero in the spherical CMC branch.
-        g0.alpha = solve_cmc_lapse(
+        g0.alpha = self._solve_lapse(
             grid, g0, s0, m0
         )[0]
         g0.beta.fill(0.0)
@@ -242,7 +246,7 @@ class V55ProductionKernel:
             )
         )
 
-        g_explicit1.alpha = solve_cmc_lapse(
+        g_explicit1.alpha = self._solve_lapse(
             grid, g_explicit1, s1, m1
         )[0]
         gterms_pred = adapter.geometry_stage_terms(
@@ -273,7 +277,7 @@ class V55ProductionKernel:
         self._apply_outer_light_boundary(grid, g1, s1, m1)
         # Resolve the CMC lapse on the full primary predictor, then
         # use that gauge state for the second split evaluation.
-        g1.alpha = solve_cmc_lapse(
+        g1.alpha = self._solve_lapse(
             grid, g1, s1, m1
         )[0]
         g1.beta.fill(0.0)
@@ -368,7 +372,7 @@ class V55ProductionKernel:
         # radius boundary mode without altering the interior equations.
         self._apply_outer_light_boundary(grid, gnew, snew, mnew)
         # Final stage-aware CMC solve on the completed final A/K/matter slice.
-        gnew.alpha = solve_cmc_lapse(
+        gnew.alpha = self._solve_lapse(
             grid, gnew, snew, mnew
         )[0]
         gnew.beta.fill(0.0)
