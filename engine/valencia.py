@@ -127,24 +127,26 @@ def recover_radiation(
     tol: float = 1.0e-12,
     max_iter: int = 80,
 ) -> FluidPrimitive:
-    """Recover the p=rho/3 radiation primitive by safeguarded bisection."""
-    D, E = conserved_energy(metric, U)
-    if D < 0.0 or E < 0.0:
+    """Recover radiation from Eulerian Valencia energy/momentum variables.
+
+    For radiation the production integrator stores
+        U_E = sqrt(gamma) E,  U_r = sqrt(gamma) S_r,
+    rather than the lapse-singular mixed component sqrt(-g) T^t_t.
+    """
+    E = U.energy_t / metric.sqrt_gamma
+    if E < 0.0:
         raise ValueError("radiation conservative state is nonphysical")
     S_r = U.momentum_r / metric.sqrt_gamma
     S2 = metric.gamma_rr_inv * S_r * S_r
     S_abs = math.sqrt(max(S2, 0.0))
     if S2 == 0.0:
-        rho = E
         return FluidPrimitive(
-            rho=rho, pressure=rho / 3.0, v_r=0.0,
+            rho=E, pressure=E / 3.0, v_r=0.0,
             gamma_rr=metric.gamma_rr
         )
 
-    # A physical radiation state must satisfy the dominant-energy bound
-    # |S| <= E.  Do not hide a violation by clipping the state: report the
-    # actual conservative-state failure so the production campaign can trace
-    # the source of the loss of admissibility.
+    # The dominant-energy bound is a physical admissibility condition.
+    # Report a violation; never clip it away.
     if S_abs > E:
         raise ValueError(
             "radiation conservative state violates E>=|S|: "
@@ -157,11 +159,6 @@ def recover_radiation(
         v2 = S2 / (z * z)
         if v2 >= 1.0:
             return math.inf, v2
-        # Algebraically identical to
-        #   4 p W^2 - p - E,
-        # but avoids catastrophic cancellation when p ~ E/3 and |S| << E.
-        # Using W^2 = 1/(1-v^2), this is
-        #   3 p - E + 4 p v^2/(1-v^2).
         correction = 4.0 * p * v2 / (1.0 - v2)
         return (3.0 * p - E) + correction, v2
 
@@ -169,11 +166,6 @@ def recover_radiation(
     hi = E / 3.0
     f_lo, _ = residual(lo)
     f_hi, _ = residual(hi)
-    # E/3 is the exact physical upper bound for p.  At tiny S/E,
-    # floating-point evaluation of 3*(E/3)-E can round infinitesimally
-    # negative even though the full analytic residual is positive.
-    # Move only to the adjacent representable number; this changes no
-    # physical bound or EOS.
     if f_hi < 0.0:
         hi = math.nextafter(hi, math.inf)
         f_hi, _ = residual(hi)
