@@ -446,7 +446,6 @@ class V55ProductionKernel:
         cmc_kdot = target_kdot(grid, geom, state.scalars, state.matter)
         alpha_r = grid.cell_derivative_fourth(geom.alpha, parity=1)
         i_alpha = int(np.argmax(np.abs(alpha_r)))
-        i_sigma = surface
 
         # Geometry-collapse witness.  This is diagnostic only: it does not
         # modify any evolved variable.  In a unit-determinant conformal
@@ -471,6 +470,7 @@ class V55ProductionKernel:
         }
 
         surface = int(np.argmin(np.abs(r - 10.0)))
+        i_sigma = surface
         outer = r >= 0.8 * grid.r_max
         coordinate_energy_flux = 4.0 * math.pi * R[surface]**2 * (
             geom.alpha[surface] * (geom.X[surface]**2 / geom.a[surface])
