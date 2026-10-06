@@ -11,8 +11,7 @@ import math
 import numpy as np
 from scipy.linalg import solve_banded
 
-from .matter_system import metric_slice_from_q, geometry_metric_derivatives
-from .v55_matter import total_matter_projection
+from .v55_matter import metric_slice_from_q, total_matter_projection
 from . import v55_pirk_adapter as adapter
 
 
