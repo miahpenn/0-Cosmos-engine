@@ -214,7 +214,11 @@ class V55ProductionKernel:
 
         g_explicit1 = g0.copy()
         for name, value in gterms0["explicit"].items():
+            if name == "alpha":
+                continue
             setattr(g_explicit1, name, getattr(g0, name) + dt * value)
+        alpha_rate0 = gterms0["explicit"]["alpha"] / g0.alpha
+        g_explicit1.alpha = g0.alpha * np.exp(dt * alpha_rate0)
 
         g1, _ = self._primary_stage(
             grid,
@@ -261,6 +265,8 @@ class V55ProductionKernel:
 
         gnew = g0.copy()
         for name in gterms0["explicit"]:
+            if name == "alpha":
+                continue
             setattr(
                 gnew,
                 name,
@@ -268,6 +274,8 @@ class V55ProductionKernel:
                     gterms0["explicit"][name] + gterms1["explicit"][name]
                 ),
             )
+        alpha_rate1 = gterms1["explicit"]["alpha"] / g1.alpha
+        gnew.alpha = g0.alpha * np.exp(0.5 * dt * (alpha_rate0 + alpha_rate1))
 
         snew = ScalarFields(
             *(
