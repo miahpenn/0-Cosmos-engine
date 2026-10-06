@@ -13,8 +13,10 @@ from .production_contract import require_production_capabilities
 
 @dataclass(frozen=True)
 class CampaignConfig:
-    resolutions: tuple = (40, 60, 80)
-    r_max: float = 40.0
+    # Preserve the original dr values while moving the finite-radius
+    # worldtube outward so the strong outgoing D geometry remains interior.
+    resolutions: tuple = (80, 120, 160)
+    r_max: float = 80.0
     cfl: float = 0.03
     final_time: float = 160.0
     checkpoint_interval: float = 2.0
