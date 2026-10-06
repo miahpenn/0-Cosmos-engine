@@ -1,4 +1,5 @@
 # Campaign diagnostic build: CMC turnaround response instrumentation remains diagnostic-only.
+# Deep worldtube causal audit: radiation transport/source and COSMOS characteristics.
 """Integrated V5.5 production state and synchronized PIRK2 evolution.
 
 The machine carries one global spherical spacetime with:
