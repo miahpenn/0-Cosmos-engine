@@ -1,0 +1,169 @@
+name: 0-star coordinate-CFL central-clock campaign
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [0star-central-clock]
+
+jobs:
+  coordinate-cfl:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[0star-cfl]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+
+      - name: Repository tests
+        run: pytest -q
+
+      - name: Run central-clock coordinate-CFL campaign
+        run: |
+          python - <<'PY'
+          from dataclasses import asdict
+          from pathlib import Path
+          import json
+          import numpy as np
+
+          from engine.campaign import CampaignConfig
+          from engine.production_kernel import V55ProductionKernel
+          from engine.run_production import ResolutionResult, _write_ledgers, current_residual
+          from engine.zero_star_clock_gauge import solve_central_proper_time_lapse
+
+          class CentralProperTimeKernel(V55ProductionKernel):
+              def _solve_lapse(self, grid, geometry, scalars, matter):
+                  return solve_central_proper_time_lapse(grid, geometry, scalars, matter)
+
+          config = CampaignConfig(
+              resolutions=(80, 120, 160),
+              r_max=160.0,
+              cfl=0.0075,
+              final_time=22.5,
+              checkpoint_interval=2.0,
+              output_dir="runs/0star-coordinate-cfl",
+          )
+
+          out = Path(config.output_dir)
+          out.mkdir(parents=True, exist_ok=True)
+          results = []
+
+          for resolution in config.resolutions:
+              kernel = CentralProperTimeKernel()
+              state = kernel.initialize(
+                  resolution=resolution,
+                  r_max=config.r_max,
+                  include_radiation=True,
+              )
+              next_checkpoint = config.checkpoint_interval
+              checkpoint_count = 0
+              status = "completed"
+              dt_min_seen = float("inf")
+              speed_max_seen = 0.0
+
+              while state.t < config.final_time:
+                  gamma_rr = state.geometry.a / (state.geometry.X ** 2)
+                  # Radial null speed in the evolved zero-shift metric:
+                  # |dr/dt| = alpha / sqrt(gamma_rr).
+                  speed = (
+                      np.abs(state.geometry.beta)
+                      + state.geometry.alpha / np.sqrt(gamma_rr)
+                  )
+                  max_speed = float(np.max(speed))
+                  if not np.isfinite(max_speed) or max_speed <= 0.0:
+                      status = "numerical_failure:invalid coordinate signal speed"
+                      break
+
+                  dt = min(
+                      config.cfl * state.grid.dr / max_speed,
+                      config.final_time - state.t,
+                  )
+                  dt_min_seen = min(dt_min_seen, dt)
+                  speed_max_seen = max(speed_max_seen, max_speed)
+
+                  try:
+                      state = kernel.step(state, dt)
+                      state.geometry.assert_finite_positive()
+                  except (FloatingPointError, ValueError) as exc:
+                      status = "numerical_failure:" + str(exc)
+                      break
+
+                  while state.t + 0.5 * dt >= next_checkpoint:
+                      kernel.checkpoint(
+                          state,
+                          out / f"N{resolution}" / f"checkpoint_t{next_checkpoint:012.6f}.npz",
+                      )
+                      checkpoint_count += 1
+                      next_checkpoint += config.checkpoint_interval
+
+              last = state.history[-1] if state.history else kernel.diagnostics(state)
+              if len(state.history) >= 3:
+                  times = np.asarray([row["t"] for row in state.history])
+                  masses = np.asarray([row["M_MS"] for row in state.history])
+                  rhs = np.asarray([
+                      row["flux_T"] + row["work_pR"] for row in state.history
+                  ])
+                  residual = current_residual(times, masses, rhs)
+                  ms_max = float(np.max(np.abs(residual)))
+                  ms_rms = float(np.sqrt(np.mean(residual ** 2)))
+              else:
+                  ms_max = float("nan")
+                  ms_rms = float("nan")
+
+              turnaround = sum(e.kind == "turnaround" for e in state.cycle.events)
+              reexpansion = sum(e.kind == "re_expansion_crossing" for e in state.cycle.events)
+              max_roots = max(
+                  (len(row.get("trapped_roots", [])) for row in state.history),
+                  default=0,
+              )
+              last = dict(last)
+              last["coordinate_cfl_dt_min"] = float(dt_min_seen)
+              last["coordinate_signal_speed_max"] = float(speed_max_seen)
+
+              result = ResolutionResult(
+                  resolution=resolution,
+                  status=status,
+                  t_final=float(state.t),
+                  tau_final=float(state.tau),
+                  steps=len(state.history),
+                  cycle_events=len(state.cycle.events),
+                  handoffs=len(state.handoffs),
+                  checkpoint_count=checkpoint_count,
+                  turnaround_events=turnaround,
+                  reexpansion_events=reexpansion,
+                  trapped_root_count_max=max_roots,
+                  misner_sharp_current_max=ms_max,
+                  misner_sharp_current_rms=ms_rms,
+                  last_diagnostics=last,
+              )
+              _write_ledgers(state, out / f"N{resolution}", result)
+              results.append(result)
+
+          summary = {
+              "campaign": asdict(config),
+              "dt_rule": "dt = cfl * dr / max(|beta| + alpha/sqrt(gamma_rr))",
+              "cfl": config.cfl,
+              "results": [asdict(r) for r in results],
+          }
+          (out / "campaign_summary.json").write_text(json.dumps(summary, indent=2))
+          print(json.dumps(summary, indent=2))
+          PY
+
+      - name: Upload campaign artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: 0star-coordinate-cfl-central-clock
+          path: runs/0star-coordinate-cfl
