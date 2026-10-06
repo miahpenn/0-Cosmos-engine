@@ -1,3 +1,4 @@
+# Campaign diagnostic build: CMC turnaround response instrumentation remains diagnostic-only.
 """Integrated V5.5 production state and synchronized PIRK2 evolution.
 
 The machine carries one global spherical spacetime with:
