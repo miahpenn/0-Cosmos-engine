@@ -25,22 +25,24 @@ def test_central_proper_time_gauge_is_pure_lapse_rescaling():
     np.testing.assert_allclose(kdot_tau, kdot_cmc / c, rtol=1e-12, atol=1e-14)
     np.testing.assert_allclose(alpha_tau[0], 1.0, rtol=0.0, atol=1e-14)
 
-def test_central_proper_time_gauge_is_idempotent_on_same_slice():
-    """A coordinate relabel must not change again when reapplied."""
+def test_central_clock_roundtrip_recovers_cmc_normalization():
     from engine.production_kernel import V55ProductionKernel
+    from engine.zero_star_clock_gauge import recover_cmc_clock
 
     kernel = V55ProductionKernel()
     state = kernel.initialize(resolution=40, r_max=40.0)
 
-    alpha1, kdot1 = solve_central_proper_time_lapse(
+    alpha_cmc, _ = solve_cmc_lapse(
         state.grid, state.geometry, state.scalars, state.matter
     )
-
     twice = state.geometry.copy()
-    twice.alpha = alpha1.copy()
-    alpha2, kdot2 = solve_central_proper_time_lapse(
-        state.grid, twice, state.scalars, state.matter
-    )
+    twice.alpha = alpha_cmc / alpha_cmc[0]
 
-    np.testing.assert_allclose(alpha2, alpha1, rtol=1e-11, atol=1e-13)
-    np.testing.assert_allclose(kdot2, kdot1, rtol=1e-11, atol=1e-13)
+    recovered, alpha_c = recover_cmc_clock(twice)
+
+    np.testing.assert_allclose(
+        recovered.alpha, alpha_cmc / alpha_cmc[-1],
+        rtol=1e-12, atol=1e-14
+    )
+    np.testing.assert_allclose(alpha_c, alpha_cmc[0], rtol=1e-12, atol=1e-14)
+    np.testing.assert_allclose(recovered.alpha[-1], 1.0, rtol=0.0, atol=1e-14)
