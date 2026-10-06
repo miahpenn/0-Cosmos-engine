@@ -34,7 +34,13 @@ from .matter_rhs import species_rhs
 from .matter_system import (
     Species,
     ConservedSpecies,
+    SphericalMetric,
     geometry_metric_derivatives,
+    _metric_arrays,
+    primitives as matter_primitives,
+    _reconstructed_primitive,
+    _hll_flux,
+    _valencia_flux,
 )
 from .scalar_system import ScalarFields, scalar_rhs_arrays
 from .v55_initial import build_initial_data
@@ -448,6 +454,81 @@ class V55ProductionKernel:
         alpha_r = grid.cell_derivative_fourth(geom.alpha, parity=1)
         i_alpha = int(np.argmax(np.abs(alpha_r)))
 
+        # Radiation worldtube audit: expose the actual outer characteristic
+        # state and compare the physical outer-face flux to the HLL flux on the
+        # last interior face. Diagnostic only; the evolution closure is
+        # unchanged.
+        rad_metrics = _metric_arrays(metric)
+        rad_prim = matter_primitives(
+            rad_metrics, state.matter.radiation, Species.RADIATION
+        )
+        q_rad = rad_prim[-1]
+        vhat_rad = math.sqrt(rad_metrics[-1].gamma_rr) * q_rad.v_r
+        cs_rad = 1.0 / math.sqrt(3.0)
+        s_minus_rad = (
+            geom.alpha[-1] * (vhat_rad - cs_rad)
+            / (1.0 - vhat_rad * cs_rad)
+            - geom.beta[-1]
+        )
+        s_plus_rad = (
+            geom.alpha[-1] * (vhat_rad + cs_rad)
+            / (1.0 + vhat_rad * cs_rad)
+            - geom.beta[-1]
+        )
+        rad_outer_flux = _valencia_flux(rad_metrics[-1], q_rad)
+        m0_rad, m1_rad = rad_metrics[-2], rad_metrics[-1]
+        mf_rad = SphericalMetric(
+            alpha=0.5 * (m0_rad.alpha + m1_rad.alpha),
+            beta=0.5 * (m0_rad.beta + m1_rad.beta),
+            gamma_rr=0.5 * (m0_rad.gamma_rr + m1_rad.gamma_rr),
+            gamma_rr_inv=0.5 * (
+                m0_rad.gamma_rr_inv + m1_rad.gamma_rr_inv
+            ),
+            gamma_thth=0.5 * (
+                m0_rad.gamma_thth + m1_rad.gamma_thth
+            ),
+            gamma_thth_inv=0.5 * (
+                m0_rad.gamma_thth_inv + m1_rad.gamma_thth_inv
+            ),
+            sqrt_gamma=0.5 * (
+                m0_rad.sqrt_gamma + m1_rad.sqrt_gamma
+            ),
+        )
+        ql_rad = _reconstructed_primitive(
+            rad_prim, grid.n - 2, "right", mf_rad.gamma_rr
+        )
+        qr_rad = _reconstructed_primitive(
+            rad_prim, grid.n - 1, "left", mf_rad.gamma_rr
+        )
+        rad_inner_flux = _hll_flux(
+            mf_rad, ql_rad, qr_rad, Species.RADIATION
+        )
+        flux_e_scale = max(
+            abs(float(rad_inner_flux[1])),
+            abs(float(rad_outer_flux[1])),
+            1.0e-300,
+        )
+        flux_s_scale = max(
+            abs(float(rad_inner_flux[2])),
+            abs(float(rad_outer_flux[2])),
+            1.0e-300,
+        )
+        rad_E_outer = (
+            state.matter.radiation.energy_t[-1]
+            / rad_metrics[-1].sqrt_gamma
+        )
+        rad_S_outer = (
+            state.matter.radiation.momentum_r[-1]
+            / rad_metrics[-1].sqrt_gamma
+        )
+        rad_Sabs_outer = math.sqrt(
+            max(
+                rad_metrics[-1].gamma_rr_inv * rad_S_outer * rad_S_outer,
+                0.0,
+            )
+        )
+        rad_ratio_outer = rad_Sabs_outer / max(abs(rad_E_outer), 1.0e-300)
+
         # CMC boundary audit: evaluate the elliptic equation on the solved
         # lapse through the last interior cell. Diagnostic only; no evolution
         # quantity or boundary condition is changed here.
@@ -596,6 +677,23 @@ class V55ProductionKernel:
             "alpha_r_max_r": float(r[i_alpha]),
             "alpha_r_sigma": float(alpha_r[i_sigma]),
             "alpha_sigma": float(geom.alpha[i_sigma]),
+            "radiation_outer_ratio": float(rad_ratio_outer),
+            "radiation_outer_vhat": float(vhat_rad),
+            "radiation_outer_s_minus": float(s_minus_rad),
+            "radiation_outer_s_plus": float(s_plus_rad),
+            "radiation_outer_all_outgoing": float(s_minus_rad >= 0.0),
+            "radiation_boundary_energy_flux": float(rad_outer_flux[1]),
+            "radiation_inner_face_energy_flux": float(rad_inner_flux[1]),
+            "radiation_boundary_momentum_flux": float(rad_outer_flux[2]),
+            "radiation_inner_face_momentum_flux": float(rad_inner_flux[2]),
+            "radiation_boundary_energy_flux_rel_mismatch": float(
+                abs(float(rad_outer_flux[1] - rad_inner_flux[1]))
+                / flux_e_scale
+            ),
+            "radiation_boundary_momentum_flux_rel_mismatch": float(
+                abs(float(rad_outer_flux[2] - rad_inner_flux[2]))
+                / flux_s_scale
+            ),
             "K_sigma": float(geom.K[i_sigma]),
             "Aa_sigma": float(geom.Aa[i_sigma]),
             "phi_outer": float(np.mean(state.scalars.phi[outer])),
