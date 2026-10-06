@@ -539,7 +539,10 @@ class V55ProductionKernel:
         rad_penultimate_div_S = -(
             float(rad_inner_flux[2]) - float(rad_penultimate_flux[2])
         ) / dr_rad
-        rad_md = geometry_metric_derivatives(metric, grid.cell_derivative_fourth)
+        rad_md = geometry_metric_derivatives(
+            metric,
+            lambda values, parity: grid.cell_derivative_fourth(values, parity=parity),
+        )
         rad_outer_source_E, rad_outer_source_S = _valencia_source(
             rad_metrics[-1], q_rad, float(geom.K[-1]), float(geom.Aa[-1]),
             float(rad_md.radial["alpha"][-1]),
