@@ -448,6 +448,36 @@ class V55ProductionKernel:
         alpha_r = grid.cell_derivative_fourth(geom.alpha, parity=1)
         i_alpha = int(np.argmax(np.abs(alpha_r)))
 
+        # CMC boundary audit: evaluate the elliptic equation on the solved
+        # lapse through the last interior cell. Diagnostic only; no evolution
+        # quantity or boundary condition is changed here.
+        inv_cmc = geom.X**2 / geom.a
+        a_r_cmc = grid.cell_derivative_fourth(geom.a, parity=1)
+        b_r_cmc = grid.cell_derivative_fourth(geom.b, parity=1)
+        X_r_cmc = grid.cell_derivative_fourth(geom.X, parity=1)
+        alpha_rr_cmc = grid.cell_second_derivative_fourth(geom.alpha, parity=1)
+        c_cmc = (
+            -0.5 * a_r_cmc / geom.a
+            + b_r_cmc / geom.b
+            - X_r_cmc / geom.X
+            + 2.0 / r
+        )
+        Q_cmc = (
+            1.5 * geom.Aa * geom.Aa
+            + geom.K * geom.K / 3.0
+            + 4.0 * math.pi * (
+                total.rho + total.pr + 2.0 * total.pt
+            )
+        )
+        cmc_residual = (
+            alpha_rr_cmc
+            + c_cmc * alpha_r
+            - (Q_cmc / inv_cmc) * geom.alpha
+            + cmc_kdot / inv_cmc
+        )
+        outer_cmc = r >= 0.8 * grid.r_max
+        cmc_last_interior = grid.n - 2
+
         # Geometry-collapse witness.  This is diagnostic only: it does not
         # modify any evolved variable.  In a unit-determinant conformal
         # metric, a*b^2=1 and therefore da/a + 2 db/b must vanish.
@@ -551,6 +581,17 @@ class V55ProductionKernel:
             "lapse_max": float(np.max(geom.alpha)),
             "Rdot_sigma": float(Rdot[surface]),
             "cmc_kdot": float(cmc_kdot),
+            "cmc_residual_outer_max": float(
+                np.max(np.abs(cmc_residual[outer_cmc & (np.arange(grid.n) < grid.n - 1)]))
+            ),
+            "cmc_residual_last_interior": float(cmc_residual[cmc_last_interior]),
+            "cmc_residual_penultimate_interior": float(cmc_residual[max(1, grid.n - 3)]),
+            "cmc_boundary_alpha": float(geom.alpha[-1]),
+            "cmc_boundary_alpha_prev": float(geom.alpha[-2]),
+            "cmc_boundary_alpha_drop_per_dr": float(
+                (geom.alpha[-1] - geom.alpha[-2]) / grid.dr
+            ),
+            "cmc_boundary_alpha_r": float(alpha_r[-1]),
             "alpha_r_max": float(np.max(np.abs(alpha_r))),
             "alpha_r_max_r": float(r[i_alpha]),
             "alpha_r_sigma": float(alpha_r[i_sigma]),
