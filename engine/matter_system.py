@@ -153,7 +153,14 @@ def primitives(
         if species in (Species.DARK_MATTER, Species.BARYON):
             out.append(recover_dust(metric, state))
         else:
-            out.append(recover_radiation(metric, state))
+            try:
+                out.append(recover_radiation(metric, state))
+            except ValueError as exc:
+                raise ValueError(
+                    f"radiation inversion failure at cell i={i}: "
+                    f"alpha={metric.alpha:.17e}, beta={metric.beta:.17e}, "
+                    f"gamma_rr={metric.gamma_rr:.17e}; {exc}"
+                ) from exc
     return out
 
 
