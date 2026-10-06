@@ -561,8 +561,8 @@ class V55ProductionKernel:
         # wave principal part, W+/- = Pi +/- sqrt(gamma^rr) * phi_r and
         # speeds are -beta +/- alpha*sqrt(gamma^rr).
         phi_r = grid.cell_derivative_fourth(state.scalars.phi, parity=1)
-        phi_char_plus = scalars.Pi[-1] + math.sqrt(rad_metrics[-1].gamma_rr_inv) * phi_r[-1]
-        phi_char_minus = scalars.Pi[-1] - math.sqrt(rad_metrics[-1].gamma_rr_inv) * phi_r[-1]
+        phi_char_plus = state.scalars.Pi[-1] + math.sqrt(rad_metrics[-1].gamma_rr_inv) * phi_r[-1]
+        phi_char_minus = state.scalars.Pi[-1] - math.sqrt(rad_metrics[-1].gamma_rr_inv) * phi_r[-1]
         phi_speed_plus = -rad_metrics[-1].beta + rad_metrics[-1].alpha * math.sqrt(rad_metrics[-1].gamma_rr_inv)
         phi_speed_minus = -rad_metrics[-1].beta - rad_metrics[-1].alpha * math.sqrt(rad_metrics[-1].gamma_rr_inv)
         flux_e_scale = max(
