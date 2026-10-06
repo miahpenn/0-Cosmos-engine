@@ -427,6 +427,7 @@ class V55ProductionKernel:
         # the first departure is already present in vacuum geometry or enters
         # through the matter projection, without introducing a new source.
         vacuum_l3 = vacuum.primary_l3_rhs(grid, geom)
+        vacuum_l2 = vacuum.primary_l2_rhs(grid, geom)
         matter_l3 = {
             key: np.asarray(adapter.primary_l3_with_matter(
                 grid, geom, state.scalars, state.matter
@@ -448,6 +449,24 @@ class V55ProductionKernel:
         work_pR = -4.0 * math.pi * R[surface]**2 * (
             total.pr[surface] * Rdot[surface]
         )
+
+        # Spatial witnesses for the first runaway source. Diagnostic only:
+        # record where the vacuum and explicit geometry RHS are largest and
+        # expose the local slice state there so the next run can distinguish
+        # a boundary, center, or interior operator failure.
+        def _witness(arr):
+            values = np.asarray(arr, dtype=float)
+            idx = int(np.argmax(np.abs(values)))
+            return idx, float(r[idx]), float(values[idx])
+
+        i_vAa, r_vAa, v_vAa = _witness(vacuum_l3["Aa"])
+        i_vK, r_vK, v_vK = _witness(vacuum_l3["K"])
+        i_l2Aa, r_l2Aa, v_l2Aa = _witness(vacuum_l2["Aa"])
+        i_l2K, r_l2K, v_l2K = _witness(vacuum_l2["K"])
+        i_ea, r_ea, v_ea = _witness(explicit["a"] / geom.a)
+        i_eb, r_eb, v_eb = _witness(explicit["b"] / geom.b)
+        i_conn, r_conn, v_conn = _witness(raw["connection"])
+        i_H, r_H, v_H = _witness(H)
 
         roots = []
         sign_change = chi[:-1] * chi[1:] <= 0.0
@@ -497,6 +516,36 @@ class V55ProductionKernel:
             "Rdot_sigma": float(Rdot[surface]),
             "phi_outer": float(np.mean(state.scalars.phi[outer])),
             "Pi_outer": float(np.mean(state.scalars.Pi[outer])),
+            "vacuum_l3_Aa_max_idx": i_vAa,
+            "vacuum_l3_Aa_max_r": r_vAa,
+            "vacuum_l3_Aa_at_max": v_vAa,
+            "vacuum_l3_Aa_state_a": float(geom.a[i_vAa]),
+            "vacuum_l3_Aa_state_b": float(geom.b[i_vAa]),
+            "vacuum_l3_Aa_state_X": float(geom.X[i_vAa]),
+            "vacuum_l3_Aa_state_Aa": float(geom.Aa[i_vAa]),
+            "vacuum_l3_Aa_state_K": float(geom.K[i_vAa]),
+            "vacuum_l3_Aa_state_alpha": float(geom.alpha[i_vAa]),
+            "vacuum_l3_K_max_idx": i_vK,
+            "vacuum_l3_K_max_r": r_vK,
+            "vacuum_l3_K_at_max": v_vK,
+            "vacuum_l3_K_state_a": float(geom.a[i_vK]),
+            "vacuum_l3_K_state_b": float(geom.b[i_vK]),
+            "vacuum_l3_K_state_X": float(geom.X[i_vK]),
+            "vacuum_l3_K_state_Aa": float(geom.Aa[i_vK]),
+            "vacuum_l3_K_state_K": float(geom.K[i_vK]),
+            "vacuum_l3_K_state_alpha": float(geom.alpha[i_vK]),
+            "vacuum_l2_Aa_max_r": r_l2Aa,
+            "vacuum_l2_Aa_at_max": v_l2Aa,
+            "vacuum_l2_K_max_r": r_l2K,
+            "vacuum_l2_K_at_max": v_l2K,
+            "explicit_da_over_a_max_r": r_ea,
+            "explicit_da_over_a_at_max": v_ea,
+            "explicit_db_over_b_max_r": r_eb,
+            "explicit_db_over_b_at_max": v_eb,
+            "connection_max_r": r_conn,
+            "connection_at_max": v_conn,
+            "hamiltonian_max_r": r_H,
+            "hamiltonian_at_max": v_H,
         }
 
         if profiles:
