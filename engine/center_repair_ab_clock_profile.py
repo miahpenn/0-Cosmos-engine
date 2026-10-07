@@ -31,7 +31,7 @@ def run_case(D, repair, N=160, r_max=80.0, cfl=0.0075, final_time=24.0):
     dt_nom = cfl * state.grid.dr
     target_times = [0.0, 6.0, 12.0, 18.0, 24.0]
     sample_idx = 1
-    r = np.asarray(state.grid.r, dtype=float).copy()
+    r = np.asarray(state.grid.centers, dtype=float).copy()
     tau_profile = np.zeros_like(r)
     alpha_prev = np.asarray(state.geometry.alpha, dtype=float).copy()
 
