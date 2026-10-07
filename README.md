@@ -52,3 +52,6 @@ The D-mode causality/source-order diagnostic pair is also being launched to comp
 
 
 A coordinate-CFL central-clock control is being launched alongside the coupled and D-mode campaigns; it is a numerical control, not a physics modification.
+
+
+Coupled launch retry: the workflow is now present on the branch; this commit exists solely to trigger the full bidirectional D/CMC diagnostic.
