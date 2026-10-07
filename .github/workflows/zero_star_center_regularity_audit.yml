@@ -1,4 +1,4 @@
-name: [0star] Center-regularity repair resolution audit
+name: "[0star]" Center-regularity repair resolution audit
 
 on:
   workflow_dispatch:
