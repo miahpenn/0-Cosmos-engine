@@ -144,7 +144,7 @@ def cosmos_rhs_driven(y, p: CosmosParams, H_driver: float):
     """
     if not math.isfinite(H_driver):
         raise ValueError("H_driver must be finite")
-    a, _, phi, pi, rho_dm, rho_b, rho_r, rho_s = y
+    a, phi, pi, rho_dm, rho_b, rho_r, rho_s = y
     da = H_driver * a
     dphi = pi
     dpi = -3.0 * H_driver * pi - dV_dphi(phi, p) + p.beta * rho_dm
