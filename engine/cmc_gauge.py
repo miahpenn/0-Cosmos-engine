@@ -188,6 +188,9 @@ def solve_cmc_lapse(
     trial = geometry.copy()
     previous_target = None
     alpha = np.asarray(trial.alpha, dtype=float).copy()
+    converged = False
+    target_delta = float("inf")
+    alpha_delta = float("inf")
 
     for _ in range(32):
         trial.alpha = alpha
@@ -198,32 +201,25 @@ def solve_cmc_lapse(
 
         if previous_target is not None:
             target_scale = max(abs(target), abs(previous_target), 1.0e-14)
-            target_converged = (
-                abs(target - previous_target) <= 1.0e-11 * target_scale
-            )
+            target_delta = abs(target - previous_target)
+            target_converged = target_delta <= 1.0e-11 * target_scale
             alpha_scale = max(float(np.max(np.abs(alpha_new))), 1.0e-14)
-            alpha_converged = (
-                float(np.max(np.abs(alpha_new - alpha))) <=
-                1.0e-11 * alpha_scale
-            )
+            alpha_delta = float(np.max(np.abs(alpha_new - alpha)))
+            alpha_converged = alpha_delta <= 1.0e-11 * alpha_scale
             if target_converged and alpha_converged:
+                converged = True
                 alpha = alpha_new
-                trial.alpha = alpha
-                target = target_kdot(grid, trial, scalars, matter)
-                return alpha, target
+                break
 
         previous_target = target
         alpha = alpha_new
 
-    trial.alpha = alpha
-    target = target_kdot(grid, trial, scalars, matter)
-    target_scale = max(abs(target), 1.0)
-    residual = np.max(np.abs(
-        target_kdot(grid, trial, scalars, matter) - target
-    ))
-    if not np.isfinite(residual) or residual > 1.0e-8 * target_scale:
+    if not converged:
         raise FloatingPointError(
             "CMC target/lapse fixed-point iteration did not converge: "
-            f"target={target:.17e}, residual={residual:.17e}"
+            f"target_delta={target_delta:.17e}, alpha_delta={alpha_delta:.17e}"
         )
+
+    trial.alpha = alpha
+    target = target_kdot(grid, trial, scalars, matter)
     return alpha, target
