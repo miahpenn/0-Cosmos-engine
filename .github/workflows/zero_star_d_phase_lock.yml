@@ -50,6 +50,7 @@ jobs:
         run: |
           python - <<'PY'
           import json, math, os
+          from dataclasses import replace
           from pathlib import Path
           from engine.production_kernel import ProductionState, V55ProductionKernel
           from engine.v55_initial import build_initial_data
@@ -72,8 +73,11 @@ jobs:
                   # Rotate only the initial D/PD phase while preserving the
                   # local radial amplitude profile sqrt(D^2+PD^2).
                   amp = (init.scalars.D**2 + init.scalars.PD**2) ** 0.5
-                  init.scalars.D = amp * math.cos(PHASE)
-                  init.scalars.PD = amp * math.sin(PHASE)
+                  rotated_scalars = replace(
+                      init.scalars,
+                      D=amp * math.cos(PHASE),
+                      PD=amp * math.sin(PHASE),
+                  )
                   geometry = self._enforce_center_regularity(grid, init.geometry)
                   geometry.alpha = self._solve_lapse(
                       grid, geometry, init.scalars, init.matter
@@ -82,7 +86,7 @@ jobs:
                   geometry.B.fill(0.0)
                   return ProductionState(
                       grid=grid, geometry=geometry,
-                      scalars=init.scalars, matter=init.matter, e_folds=0.0,
+                      scalars=rotated_scalars, matter=init.matter, e_folds=0.0,
                   )
 
           kernel = PhaseKernel()
