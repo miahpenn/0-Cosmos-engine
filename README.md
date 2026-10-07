@@ -58,3 +58,6 @@ Coupled launch retry: the workflow is now present on the branch; this commit exi
 
 
 The coupled D-amplitude/CFL discriminator matrix is now active: D=0, 5e-11, 1e-10 crossed with CFL=0.06 and 0.03 at N=160, Rmax=80, target t=50.
+
+
+The coupled D phase-lock discriminator is now active: fixed D amplitude with phase rotations at -pi/2, 0, pi/4, pi/2 on the full bidirectional machine.
