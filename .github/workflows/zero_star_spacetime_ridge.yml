@@ -30,7 +30,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          RUN_ID=$(gh run list             --workflow zero_star_spacetime_lock.yml             --branch 0star-central-clock             --status completed             --limit 10             --json databaseId,headSha             --jq ".[] | select(.headSha != \"$GITHUB_SHA\") | .databaseId"             | head -n 1)
+          RUN_ID=$(gh run list             --workflow zero_star_spacetime_lock.yml             --branch 0star-central-clock             --status completed             --limit 20             --json databaseId,headSha,conclusion             --jq ".[] | select(.conclusion == \"success\" and .headSha != \"$GITHUB_SHA\") | .databaseId"             | head -n 1)
           test -n "$RUN_ID"
           echo "RUN_ID=$RUN_ID" >> "$GITHUB_ENV"
 
