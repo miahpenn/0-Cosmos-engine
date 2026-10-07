@@ -1,3 +1,4 @@
+# Clean-head numerical rerun after separating radiation from dust conserved variables.
 # Clean-head launch marker for the validated radiation-EOS repair.
 # The commit message carries the explicit gate tokens.
 name: "[0star] True-CMC long post-turnaround gate"
