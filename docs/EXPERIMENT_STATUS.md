@@ -47,6 +47,14 @@ A separate kernel, `engine/moving_pirk_kernel.py`, now uses the pinned reference
 
 This kernel is **unvalidated** until the smoke test and controlled strong-field resolution/CFL gates pass. No bounce, horizon crossing, or physical singularity is claimed from the implementation alone.
 
+## True-CMC stage-aware candidate
+
+Because the moving-gauge campaign reached a common late outer-gauge pathology before the strong-field solution could remain clean, an archive-backed true-CMC candidate has been added as an independent representation test. It is stage-aware: CMC is solved at the beginning of the step, on the explicit predictor, and on the completed state. The spatial shift is held at zero for this isolated foliation gate.
+
+This candidate retains the current conservative radiation/DM/baryon state and validates physical matter admissibility on real RK stages. It does not reuse the legacy nonadvective/algebraic-B outer characteristic boundary.
+
+The archived CMC gate is the reference witness for this path: at t=24 and CFL=0.06 it reported H maxima of 1.95e-3, 1.66e-3, and 1.02e-3 for N=40/60/80, with minimum lapse about 6.78e-2, 6.70e-2, and 6.66e-2. Those values are archive evidence, not yet a result of the new repository kernel.
+
 ## Campaign launch plumbing repair
 
 The moving-gauge strong-field and resolution workflows retain `workflow_dispatch` for compatibility and also accept an explicit branch-push launch token. They run only when the commit message contains `[run-moving-gauge-gates]`, so ordinary experimental commits cannot launch the expensive campaigns. The campaign jobs now fail CI when `run_campaign` reports a numerical failure instead of allowing a numerical failure to appear as a successful workflow.
