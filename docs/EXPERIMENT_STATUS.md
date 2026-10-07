@@ -53,3 +53,8 @@ Moving-gauge smoke/strong-field/resolution gates are now launched from the exper
 3. Run the manual N=40/60/80 resolution audit at controlled CFL.
 4. Compare invariant witnesses, constraint localization, radiation admissibility, trapped roots, and Misner-Sharp current against the archived reference.
 5. Only then decide whether to extend through the former ~28 lapse-collapse region and reconnect/extend long bidirectional runs.
+
+
+## Latest moving-gauge diagnostic run
+
+The first controlled moving-gauge campaign reached the numerical campaign step at all requested resolutions, but the jobs failed and discarded their ledgers because artifact upload was conditional on success. The workflow is now repaired to preserve ledgers on numerical failure. The next controlled run will capture the exact first-failure state before any physics-layer repair.
