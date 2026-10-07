@@ -110,6 +110,9 @@ class V55ProductionKernel:
         )
         # Initialize the production slice on the same stage-aware CMC gauge
         # that is carried throughout evolution.
+        init.geometry = self._enforce_center_regularity(
+            grid, init.geometry
+        )
         init.geometry.alpha = self._solve_lapse(
             grid, init.geometry, init.scalars, init.matter
         )[0]
@@ -130,6 +133,18 @@ class V55ProductionKernel:
     @staticmethod
     def _solve_lapse(grid, geometry, scalars, matter):
         return solve_cmc_lapse(grid, geometry, scalars, matter)
+
+    @staticmethod
+    def _enforce_center_regularity(grid, geometry):
+        """Project only exact algebraic/spherical-centre BSSN identities.
+
+        The pinned reference kernel defines this as a numerical regularity
+        projection: a*b**2=1 everywhere, a/b=1+O(r**2), Aa=O(r**2), and odd
+        connection/shift variables are O(r) at the first cell. No field
+        equation, source, gauge target, or physical outcome is introduced.
+        """
+        _, vacuum, _ = adapter.vendor_modules()
+        return vacuum.enforce_algebraic_regularity(grid, geometry)
 
     def _rhs(self, state: ProductionState):
         metric = metric_slice_from_q(state.grid, state.geometry)
@@ -198,7 +213,9 @@ class V55ProductionKernel:
             raise ValueError("dt must be finite and positive")
 
         grid = state.grid
-        g0 = state.geometry.copy()
+        g0 = self._enforce_center_regularity(
+            grid, state.geometry.copy()
+        )
         s0 = state.scalars
         m0 = state.matter
 
@@ -232,6 +249,9 @@ class V55ProductionKernel:
             )
         g_explicit1.beta.fill(0.0)
         g_explicit1.B.fill(0.0)
+        g_explicit1 = self._enforce_center_regularity(
+            grid, g_explicit1
+        )
 
         s1 = ScalarFields(
             *(
@@ -270,6 +290,7 @@ class V55ProductionKernel:
             + 0.5 * gterms_pred["lambda_l2"]
             + gterms0["lambda_l3"]
         )
+        g1 = self._enforce_center_regularity(grid, g1)
         # The pinned R0 radial system supplies a parameter-free incoming-light
         # characteristic reconstruction for Aa at the finite outer worldtube.
         # Apply it only after Lambda is current, as in the reference PIRK/CPBC
@@ -309,6 +330,10 @@ class V55ProductionKernel:
         gnew.beta.fill(0.0)
         gnew.B.fill(0.0)
         gnew.alpha = g1.alpha.copy()
+
+        # Regularize the explicit block before the final L2 evaluation: the
+        # spherical-center identities are part of the numerical state domain.
+        gnew = self._enforce_center_regularity(grid, gnew)
 
         snew = ScalarFields(
             *(
@@ -370,6 +395,7 @@ class V55ProductionKernel:
         # Apply the same incoming-light reconstruction after Lambda is current
         # on the completed final slice. This replaces the unconstrained finite-
         # radius boundary mode without altering the interior equations.
+        gnew = self._enforce_center_regularity(grid, gnew)
         self._apply_outer_light_boundary(grid, gnew, snew, mnew)
         # Final stage-aware CMC solve on the completed final A/K/matter slice.
         gnew.alpha = self._solve_lapse(
