@@ -61,10 +61,19 @@ jobs:
           results = run_campaign(kernel=V55TrueCMCPIRKKernel(), config=config)
           for result in results:
               print(result)
-          if any(r.turnaround_events < 1 for r in results):
+          failures = [r for r in results if r.status != "completed"]
+          missing_turnaround = [r for r in results if r.turnaround_events < 1]
+          if failures:
+              raise SystemExit(
+                  "R120 campaign reported numerical failure(s): "
+                  + "; ".join(
+                      f"N{r.resolution}: {r.status}" for r in failures
+                  )
+              )
+          if missing_turnaround:
               raise SystemExit(
                   "R120 campaign did not observe H_eff=0 for "
-                  f"N{resolution}"
+                  + ", ".join(f"N{r.resolution}" for r in missing_turnaround)
               )
           PY
 
