@@ -26,7 +26,12 @@ from .production_kernel import (
     LAMBDA_M,
 )
 from .scalar_system import ScalarFields
-from .matter_system import ConservedSpecies
+from .matter_system import (
+    ConservedSpecies,
+    Species,
+    _metric_arrays,
+    primitives,
+)
 from .v55_initial import build_initial_data
 from .cosmology_observables import append_efolds
 from .handoff import handoff_from_ledger
@@ -155,6 +160,7 @@ class V55MovingPIRKKernel(V55ProductionKernel):
             )
         )
         m1 = V55MovingPIRKKernel._advance_matter(m0, mrhs0, dt)
+        self._validate_matter_state(grid, g_explicit1, m1)
 
         # First PIRK primary stage: use the updated explicit block but the
         # previous Aa/K values, exactly as in the pinned two-stage ordering.
@@ -223,6 +229,7 @@ class V55MovingPIRKKernel(V55ProductionKernel):
         mnew = V55MovingPIRKKernel._advance_matter_trapezoid(
             m0, mrhs0, mrhs1, dt
         )
+        self._validate_matter_state(grid, gnew, mnew)
 
         # Final implicit primary block, following the pinned PIRK2 sequence.
         final_u_old_v = g1.copy()
@@ -323,6 +330,21 @@ class V55MovingPIRKKernel(V55ProductionKernel):
         candidate.history.append(obs)
         candidate.handoffs.append(hp)
         return candidate
+
+    @staticmethod
+    def _validate_matter_state(grid, geometry, matter):
+        """Recover primitives on a real RK stage without altering the state."""
+        metric = __import__(
+            "engine.v55_matter",
+            fromlist=["metric_slice_from_q"],
+        ).metric_slice_from_q(grid, geometry)
+        metrics = _metric_arrays(metric)
+        for name, species in (
+            ("dark_matter", Species.DARK_MATTER),
+            ("baryons", Species.BARYON),
+            ("radiation", Species.RADIATION),
+        ):
+            primitives(metrics, getattr(matter, name), species)
 
     @staticmethod
     def _advance_matter(base, rhs, dt):
