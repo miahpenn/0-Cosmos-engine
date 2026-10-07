@@ -29,84 +29,20 @@ from . import v55_pirk_adapter as adapter
 OUTER_CMC_FRACTION = 0.20
 
 
-def _d1(grid, values, parity):
-    return grid.cell_derivative_fourth(values, parity=parity)
+from .cmc_gauge import solve_cmc_lapse
+
+OUTER_CMC_FRACTION = 0.20
 
 
-def _cmc_target_kdot(grid, geometry, scalars, matter) -> float:
-    """Dynamically obtain Kdot target from the outer weak-field/cosmological region."""
-    _, vacuum, _ = adapter.vendor_modules()
-    l2 = vacuum.primary_l2_rhs(grid, geometry)
-    l3 = adapter.primary_l3_with_matter(
-        grid, geometry, scalars, matter
-    )
-    raw = np.asarray(l2["K"] + l3["K"], dtype=float)
-    start = int((1.0 - OUTER_CMC_FRACTION) * grid.n)
-    target = float(np.mean(raw[start:]))
-    if not np.isfinite(target):
-        raise FloatingPointError("CMC target Kdot is non-finite")
-    return target
+def solve_archive_cmc_lapse(grid, geometry, scalars, matter):
+    """Compatibility name for the shared production CMC solver.
 
-
-def solve_archive_cmc_lapse(grid, geometry, scalars, matter) -> tuple[np.ndarray, float]:
-    """Solve the stage CMC lapse with alpha'(0)=0 and alpha(R)=1."""
-    metric = metric_slice_from_q(grid, geometry)
-    total = __import__(
-        "engine.v55_matter",
-        fromlist=["total_matter_projection"],
-    ).total_matter_projection(grid, geometry, scalars, matter)
-
-    a = np.asarray(geometry.a)
-    b = np.asarray(geometry.b)
-    X = np.asarray(geometry.X)
-    r = np.asarray(grid.centers)
-    inv = X * X / a
-
-    ap = _d1(grid, a, 1)
-    bp = _d1(grid, b, 1)
-    Xp = _d1(grid, X, 1)
-    c = -0.5 * ap / a + bp / b - Xp / X + 2.0 / r
-
-    Q = (
-        1.5 * geometry.Aa * geometry.Aa
-        + geometry.K * geometry.K / 3.0
-        + 4.0 * math.pi * (
-            total["rho"] + total["pr"] + 2.0 * total["pt"]
-        )
-    )
-    kdot = _cmc_target_kdot(grid, geometry, scalars, matter)
-
-    n = grid.n
-    h = grid.dr
-    band = np.zeros((3, n), dtype=float)
-    rhs = np.zeros(n, dtype=float)
-
-    # Regular center: alpha'(0)=0.
-    band[1, 0] = 1.0
-    band[0, 1] = -1.0
-
-    for i in range(1, n - 1):
-        ci = c[i] / (2.0 * h)
-        band[2, i - 1] = 1.0 / h**2 - ci
-        band[1, i] = -2.0 / h**2 - Q[i] / inv[i]
-        band[0, i + 1] = 1.0 / h**2 + ci
-        rhs[i] = -kdot / inv[i]
-
-    # Outer normalization fixes the CMC time scale.
-    band[1, n - 1] = 1.0
-    rhs[n - 1] = 1.0
-
-    alpha = solve_banded((1, 1), band, rhs, check_finite=False)
-    if not np.all(np.isfinite(alpha)):
-        raise FloatingPointError("archive CMC lapse returned non-finite values")
-    if float(np.min(alpha)) <= 0.0:
-        raise ValueError(
-            "archive CMC lapse has no positive solution: "
-            f"min_alpha={float(np.min(alpha)):.17e}"
-        )
-    return alpha, kdot
-
-
+    The production and isolated true-CMC kernels must carry the same
+    stage-aware gauge operator and the same proper-volume CMC target.
+    """
+    return solve_cmc_lapse(grid, geometry, scalars, matter)
+ 
+ 
 class V55TrueCMCPIRKKernel(V55ProductionKernel):
     """V5.5 with stage-aware CMC lapse and zero spatial shift."""
 
