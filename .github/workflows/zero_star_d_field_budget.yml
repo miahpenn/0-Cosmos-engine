@@ -1,0 +1,68 @@
+name: "[0star] D-field equation budget"
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [0star-central-clock]
+
+jobs:
+  diagnostic:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[run-d-budget]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 720
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        include:
+          - label: D1e4-on-N160
+            damp: "1.0e-4"
+            radiation: "1"
+            resolution: 160
+            rmax: 160.0
+            cfl: 0.03
+          - label: D1e4-on-N320
+            damp: "1.0e-4"
+            radiation: "1"
+            resolution: 320
+            rmax: 160.0
+            cfl: 0.03
+          - label: D1e4-off-N160
+            damp: "1.0e-4"
+            radiation: "0"
+            resolution: 160
+            rmax: 160.0
+            cfl: 0.03
+          - label: D1e10-on-N160
+            damp: "1.0e-10"
+            radiation: "1"
+            resolution: 160
+            rmax: 160.0
+            cfl: 0.03
+    env:
+      PYTHONPATH: .
+      DAMP: \${{ matrix.damp }}
+      RADIATION: \${{ matrix.radiation }}
+      RESOLUTION: \${{ matrix.resolution }}
+      RMAX: \${{ matrix.rmax }}
+      CFL: \${{ matrix.cfl }}
+      CASE_LABEL: \${{ matrix.label }}
+      TARGET: "22.5"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt
+      - run: pytest -q
+      - name: Run D equation budget
+        run: python engine/d_field_budget_diagnostics.py
+      - name: Upload report
+        uses: actions/upload-artifact@v4
+        with:
+          name: 0star-d-field-budget-\${{ matrix.label }}
+          path: runs/0star-d-field-budget/\${{ matrix.label }}
+          if-no-files-found: error
