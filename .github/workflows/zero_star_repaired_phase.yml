@@ -1,0 +1,103 @@
+name: [0star] D-phase collapse after center-regularity repair
+
+on:
+  workflow_dispatch:
+
+jobs:
+  phase:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: Dhalf
+            amp: 5.0e-11
+          - label: Dbase
+            amp: 1.0e-10
+          - label: Ddouble
+            amp: 2.0e-10
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    env:
+      PYTHONPATH: .
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements.txt
+      - name: Repository tests
+        run: pytest -q
+      - name: Run repaired long phase campaign
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from engine.campaign import CampaignConfig
+          from engine.production_kernel import ProductionState, V55ProductionKernel
+          from engine.run_production import run_campaign
+          from engine.v55_initial import build_initial_data
+          from engine import v55_pirk_adapter as adapter
+
+          label = "${{ matrix.label }}"
+          amp = float("${{ matrix.amp }}")
+          base = Path("runs/0star-repaired-phase") / label
+
+          class K(V55ProductionKernel):
+              def initialize(self, resolution=160, r_max=160.0, **kwargs):
+                  grid_ops, vacuum, _ = adapter.vendor_modules()
+                  grid = grid_ops.SphericalCellGrid(resolution, r_max)
+                  init = build_initial_data(
+                      grid, vacuum.flat_state,
+                      D_amplitude=amp,
+                      include_radiation=True,
+                  )
+                  init.geometry = self._enforce_center_regularity(
+                      grid, init.geometry
+                  )
+                  init.geometry.alpha = self._solve_lapse(
+                      grid, init.geometry, init.scalars, init.matter
+                  )[0]
+                  init.geometry.beta.fill(0.0)
+                  init.geometry.B.fill(0.0)
+                  return ProductionState(
+                      grid=grid, geometry=init.geometry,
+                      scalars=init.scalars, matter=init.matter,
+                      e_folds=0.0,
+                  )
+
+              def diagnostics(self, state, *, profiles=False):
+                  out = super().diagnostics(state, profiles=profiles)
+                  f = state.scalars
+                  active = 2.0 * f.PD**2 + f.D**2
+                  out.update({
+                      "D_active_sync": float(active[0]),
+                      "D_sync": float(f.D[0]),
+                      "PD_sync": float(f.PD[0]),
+                      "H_center_sync": float(out["H_center"]),
+                      "H_eff_sync": float(out["H_eff"]),
+                      "lapse_min_sync": float(out["lapse_min"]),
+                      "lapse_max_sync": float(out["lapse_max"]),
+                      "alpha_r_max_sync": float(out["alpha_r_max"]),
+                      "alpha_r_max_r_sync": float(out["alpha_r_max_r"]),
+                      "tau_rate_sync": float(out["tau_rate"]),
+                  })
+                  return out
+
+          cfg = CampaignConfig(
+              resolutions=(160,),
+              r_max=160.0,
+              cfl=0.0075,
+              final_time=40.0,
+              checkpoint_interval=0.10,
+              output_dir=str(base),
+          )
+          result = run_campaign(kernel=K(), config=cfg)[0]
+          print(json.dumps(result.__dict__, indent=2, default=float))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: 0star-repaired-phase-${{ matrix.label }}
+          path: runs/0star-repaired-phase/${{ matrix.label }}
+          if-no-files-found: error
