@@ -1,4 +1,4 @@
-name: "[0star]" CFL and domain-independence audit after center repair
+name: "[0star] CFL and domain-independence audit after center repair"
 
 on:
   workflow_dispatch:
