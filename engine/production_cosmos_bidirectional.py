@@ -164,7 +164,7 @@ def run_case(
         "avg_abs_pi_gap": float(avg_abs_pi_gap),
         "max_abs_friedmann_residual": float(max_abs_friedmann),
         "exact_constraint_witnesses": exact_checks,
-        "final_exact_constraints": {k: final[k] for k in ("hamiltonian_max", "hamiltonian_normalized_max", "hamiltonian_l2_inner", "hamiltonian_l2_outer", "momentum_max", "momentum_normalized_max", "momentum_l2_inner", "momentum_l2_outer", "cmc_residual_outer_max", "cmc_residual_last_interior", "determinant_min", "determinant_constraint_max", "trapping_min", "trapped_roots", "alpha_r_max", "alpha_sigma")},
+        "final_exact_constraints": {k: final[k] for k in ("hamiltonian_max", "hamiltonian_normalized_max", "hamiltonian_l2_inner", "hamiltonian_l2_outer", "momentum_max", "momentum_normalized_max", "momentum_l2_inner", "momentum_l2_outer", "cmc_residual_outer_max", "cmc_residual_last_interior", "determinant_min", "determinant_constraint_max", "trapping_min", "trapped_roots_count", "alpha_r_max", "alpha_sigma")},
         "max_abs_production_volume_friedmann_residual": float(max_abs_production_volume_friedmann),
         "avg_abs_rho_outer_physical_gap_rel": float(avg_abs_rho_outer_physical_gap_rel),
         "cycle_events": len(state.cycle.events),
