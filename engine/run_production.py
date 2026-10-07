@@ -116,8 +116,9 @@ def run_campaign(
                 row["flux_T"] + row["work_pR"] for row in state.history
             ])
             ms_residual = current_residual(times, masses, rhs)
-            ms_max = float(np.max(np.abs(ms_residual)))
-            ms_rms = float(np.sqrt(np.mean(ms_residual**2)))
+            finite = np.isfinite(ms_residual)
+            ms_max = float(np.max(np.abs(ms_residual[finite])))
+            ms_rms = float(np.sqrt(np.mean(ms_residual[finite]**2)))
         else:
             ms_max = float("nan")
             ms_rms = float("nan")
