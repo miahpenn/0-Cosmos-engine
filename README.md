@@ -35,13 +35,21 @@ Draft PR #1: archive-derived central proper-time CMC gauge diagnostic.
 
 Manual GitHub Actions workflows under `.github/workflows/` are the canonical expensive-run entry points. Artifacts should be preserved with each campaign and compared before any subsequent physics interpretation.
 
-## Campaign progression
+## Current validation status
 
-The True-CMC stage-aware strong-field gate completed successfully at N=40,60,80 through t=24.
+The production branch is one shared spherical spacetime/state graph containing the local S/D fields, corrected COSMOS scalar, conservative dark matter, baryons, and radiation. There is **not yet** a reciprocal homogeneous COSMOS evolution/source channel driven by the local production solution.
 
-The matched-spacing enlarged-domain turnaround gate then completed successfully at N=80,120,160 through t=40, with one turnaround event and one handoff in each resolution and no re-expansion before t=40.
+The completed full space-time D-lock campaign established the current diagnostic picture: strong D produces a moving D-centered spacetime/clock structure with ordered geometric responses, while the completed runs showed no turnaround/re-expansion/handoff event through t=22.5. This is a diagnostic result, not evidence for a bounce or cycle.
 
-The next gate is the existing long post-turnaround campaign `[run-true-cmc-post]`.
+The current production validation sequence is therefore:
+
+1. repository regression/smoke tests;
+2. spherical-center regularity validation;
+3. resolution/CFL/domain checks;
+4. D-field source-order and propagating-ridge diagnostics;
+5. only then, any reciprocal COSMOS coupling derived from existing physical ledger quantities.
+
+No fitted feedback coefficient, free volume normalization, manufactured bounce law, lapse floor, or physical stop condition is permitted.
 
 
 ## Launch note
