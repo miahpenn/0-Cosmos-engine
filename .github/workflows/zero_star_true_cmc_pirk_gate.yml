@@ -1,0 +1,75 @@
+name: "[0star] True-CMC stage-aware strong-field gate"
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - 0star-central-clock
+
+env:
+  PYTHONPATH: .
+
+jobs:
+  true-cmc-strongfield:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[run-true-cmc-gates]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    strategy:
+      fail-fast: false
+      matrix:
+        resolution: [40, 60, 80]
+    steps:
+      - name: Checkout engine and pinned numerical kernel
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Run repository tests
+        run: python -m pytest -q
+
+      - name: Run true-CMC strong-field campaign
+        run: |
+          python - <<'PY'
+          from engine.campaign import CampaignConfig
+          from engine.true_cmc_pirk_kernel import V55TrueCMCPIRKKernel
+          from engine.run_production import run_campaign
+
+          resolution = int("${{ matrix.resolution }}")
+          config = CampaignConfig(
+              resolutions=(resolution,),
+              r_max=40.0,
+              cfl=0.06,
+              final_time=24.0,
+              checkpoint_interval=0.10,
+              output_dir=f'runs/0star-true-cmc/N{resolution}',
+          )
+          results = run_campaign(
+              kernel=V55TrueCMCPIRKKernel(),
+              config=config,
+          )
+          for result in results:
+              print(result)
+          failures = [r for r in results if r.status != "completed"]
+          if failures:
+              raise SystemExit(
+                  "True-CMC strong-field campaign reported numerical failure(s): "
+                  + "; ".join(f"N{r.resolution}: {r.status}" for r in failures)
+              )
+          PY
+
+      - name: Upload campaign outputs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: 0star-true-cmc-N${{ matrix.resolution }}
+          path: runs/0star-true-cmc/N${{ matrix.resolution }}/
+          if-no-files-found: error
