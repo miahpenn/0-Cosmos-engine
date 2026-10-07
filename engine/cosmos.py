@@ -11,6 +11,7 @@ background pressure p_shear=rho_shear and evolves as a^-6. It is NOT inserted
 into the exact spherical local stress tensor.
 """
 from dataclasses import dataclass
+import math
 from math import exp, sqrt
 
 
