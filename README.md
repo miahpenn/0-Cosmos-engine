@@ -64,3 +64,6 @@ The coupled D phase-lock discriminator is now active: fixed D amplitude with pha
 
 
 Phase-lock retry uses immutable ScalarFields replacement; no physical equations changed.
+
+
+The full bidirectional machine is also being tested at Rmax=160, N=320 (fixed dr=0.5) for D=0 versus D=1e-10 through t=80.
