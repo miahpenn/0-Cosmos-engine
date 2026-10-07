@@ -57,6 +57,7 @@ jobs:
               )
           PY
       - name: Upload campaign outputs
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: 0star-moving-strongfield
