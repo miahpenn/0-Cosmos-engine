@@ -91,7 +91,7 @@ def run_case(
             "determinant_min": float(obs["determinant_min"]),
             "determinant_constraint_max": float(obs["determinant_constraint_max"]),
             "trapping_min": float(obs["trapping_min"]),
-            "trapped_roots": int(obs["trapped_roots"]),
+            "trapped_roots_count": len(obs["trapped_roots"]),
             "alpha_r_max": float(obs["alpha_r_max"]),
             "alpha_sigma": float(obs["alpha_sigma"]),
             "t": float(state.t),
