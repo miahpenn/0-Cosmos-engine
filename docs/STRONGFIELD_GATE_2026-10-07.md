@@ -119,3 +119,23 @@ The enlarged-domain audit is rerun only after restoring the previously verified 
 ### Gate relaunch control
 
 The expensive matrix concurrency group is now keyed by resolution so N=80/120/160 can run simultaneously without cancelling one another. Ordinary pushes use no gate trigger token.
+
+### 2026-10-07: enlarged-domain gate passed
+
+The clean Rmax=80 True-CMC campaign completed at N=80/120/160 through t=40 with one dynamically detected turnaround at every resolution and exactly one event-level handoff per run.
+
+| N | turnaround t | turnaround tau | final tau | H_eff(t=40) | Hmax(t=40) | CMC/domain result |
+|---:|---:|---:|---:|---:|---:|---|
+| 80 | 39.78 | 21.210134 | 21.215870 | -3.183e-4 | 9.210e-4 | completed |
+| 120 | 39.76 | 21.211477 | 21.217698 | -3.018e-4 | 9.144e-4 | completed |
+| 160 | 39.81 | 21.213810 | 21.218672 | -2.449e-4 | 9.111e-4 | completed |
+
+The proper-time turnaround spread is about 0.021%, while the coordinate-time spread is about 0.126%. This is an important result: changing the outer domain substantially changes the coordinate clock rate, but the dynamically generated local proper-time location of the turnaround is much more stable.
+
+At tau≈21.0, the inner Hamiltonian L2 changes only from 1.211e-4 to 1.176e-4 across N=80/120/160, and the inner momentum L2 changes from 6.64e-6 to 6.34e-6. The outer residuals grow with resolution, so boundary contamination remains visible in high-order diagnostic maxima, but it no longer causes a numerical failure in the tested window.
+
+Importantly, the Rmax=80 runs show no trapped-surface roots through t=40. The earlier post-turnaround trapped roots on Rmax=40 therefore cannot be treated as physical evidence; they were on a branch already dominated by outer-shell breakdown. The previously archived independent reference/geodesic branch remains the evidence for the separate trapped-surface formation gate.
+
+### Next gate
+
+A long Rmax=80 post-turnaround run is now launched at the same CFL and N=80/120/160 through t=80. The purpose is to determine whether re-expansion emerges from the solved equations and, if not, to isolate the next numerical boundary. No bounce or branch sign is imposed.
