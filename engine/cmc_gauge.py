@@ -121,19 +121,22 @@ def _cmc_operator_banded(
     return band
 
 
-
-
-
-def _solve_cmc_lapse_for_target(
+def solve_cmc_lapse(
     grid,
     geometry,
     scalars,
     matter,
-    kdot: float,
-    *,
-    require_positive: bool = True,
-) -> np.ndarray:
-    """Solve the linear CMC lapse equation for a fixed Kdot target."""
+    outer_frac: float = 0.20,
+) -> tuple[np.ndarray, float]:
+    """Solve the stage-aware CMC lapse with the native spatial discretization.
+
+    The elliptic operator uses exactly the same fourth-order/parity derivative
+    rows as the evolved K equation. The PDE is enforced through the first
+    retained center cell and through the penultimate cell; the outermost cell
+    is the normalization alpha(R)=1. This removes the former mixed-order
+    center closure that allowed a spurious central K mode to grow with
+    resolution.
+    """
     metric = metric_slice_from_q(grid, geometry)
     total = total_matter_projection(grid, geometry, scalars, matter)
 
@@ -148,89 +151,27 @@ def _solve_cmc_lapse_for_target(
     Xp = _d1(grid, X, 1)
     c = -0.5 * ap / a + bp / b - Xp / X + 2.0 / r
 
+    # K_ij K^ij = 3/2 Aa^2 + K^2/3 in spherical BSSN.
     Q = (
         1.5 * geometry.Aa * geometry.Aa
         + geometry.K * geometry.K / 3.0
         + 4.0 * math.pi * (total["rho"] + total["pr"] + 2.0 * total["pt"])
     )
 
+    kdot = target_kdot(grid, geometry, scalars, matter)
+    m = Q / inv
     rhs = np.zeros(grid.n, dtype=float)
-    rhs[:-1] = -float(kdot) / inv[:-1]
+    rhs[:-1] = -kdot / inv[:-1]
     rhs[-1] = 1.0
 
-    band = _cmc_operator_banded(grid, c, Q / inv)
+    band = _cmc_operator_banded(grid, c, m)
     alpha = solve_banded((4, 4), band, rhs, check_finite=False)
 
     if not np.all(np.isfinite(alpha)):
         raise FloatingPointError("CMC lapse solve returned non-finite values")
-    if require_positive and float(np.min(alpha)) <= 0.0:
+    if float(np.min(alpha)) <= 0.0:
         raise ValueError(
             "CMC lapse solve has no positive solution on this stage: "
             f"min_alpha={float(np.min(alpha)):.17e}"
         )
-    return alpha
-
-def solve_cmc_lapse(
-    grid,
-    geometry,
-    scalars,
-    matter,
-    outer_frac: float = 0.20,
-) -> tuple[np.ndarray, float]:
-    """Solve the stage-aware CMC lapse self-consistently.
-
-    For a fixed stage, the discrete CMC elliptic operator is linear in the
-    lapse, and the projected K RHS is affine in that lapse. Therefore the
-    self-consistent CMC target is an affine scalar function of the requested
-    Kdot. Two elliptic solves determine that function exactly (to floating
-    point accuracy), avoiding a slowly converging fixed-point iteration.
-    This introduces no physical coefficient or fitted control.
-    """
-    del outer_frac
-    trial = geometry.copy()
-
-    # target(kdot) is affine because the K RHS is linear in alpha for fixed
-    # geometry/matter. Evaluate it at two separated targets and solve
-    #
-    #     kdot = target(kdot)
-    #
-    # analytically at the scalar level.
-    scale = max(1.0, abs(target_kdot(grid, trial, scalars, matter)))
-
-    alpha0 = _solve_cmc_lapse_for_target(
-        grid, trial, scalars, matter, 0.0, require_positive=False
-    )
-    trial.alpha = alpha0
-    target0 = target_kdot(grid, trial, scalars, matter)
-
-    alpha1 = _solve_cmc_lapse_for_target(
-        grid, trial, scalars, matter, scale, require_positive=False
-    )
-    trial.alpha = alpha1
-    target1 = target_kdot(grid, trial, scalars, matter)
-
-    slope = (target1 - target0) / scale
-    denominator = 1.0 - slope
-    if not np.isfinite(denominator) or abs(denominator) <= 1.0e-12:
-        raise FloatingPointError(
-            "CMC target/lapse coupling is singular or unresolved: "
-            f"slope={slope:.17e}"
-        )
-
-    kdot = target0 / denominator
-    alpha, _ = (
-        _solve_cmc_lapse_for_target(
-            grid, trial, scalars, matter, float(kdot)
-        ),
-        None,
-    )
-    trial.alpha = alpha
-    target = target_kdot(grid, trial, scalars, matter)
-    residual = abs(target - kdot)
-    scale_residual = max(1.0, abs(kdot))
-    if not np.isfinite(residual) or residual > 1.0e-10 * scale_residual:
-        raise FloatingPointError(
-            "CMC target/lapse self-consistency residual is too large: "
-            f"kdot={kdot:.17e}, target={target:.17e}, residual={residual:.17e}"
-        )
-    return alpha, float(target)
+    return alpha, kdot
