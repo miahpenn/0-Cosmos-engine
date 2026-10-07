@@ -49,3 +49,6 @@ The full bidirectional production diagnostic is being launched now: D-amplitude 
 
 
 The D-mode causality/source-order diagnostic pair is also being launched to compare the response across initial D amplitudes and source-order observables.
+
+
+A coordinate-CFL central-clock control is being launched alongside the coupled and D-mode campaigns; it is a numerical control, not a physics modification.
