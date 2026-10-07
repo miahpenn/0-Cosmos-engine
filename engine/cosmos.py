@@ -148,7 +148,7 @@ def cosmos_rhs_driven(y, p: CosmosParams, H_driver: float):
     dphi = pi
     dpi = -3.0 * H_driver * pi - dV_dphi(phi, p) + p.beta * rho_dm
     drho_dm = -3.0 * H_driver * rho_dm - p.beta * rho_dm * pi
-    drho_b = -4.0 * H_driver * rho_b
+    drho_b = -3.0 * H_driver * rho_b
     drho_r = -4.0 * H_driver * rho_r
     drho_s = -6.0 * H_driver * rho_s
     return (da, dphi, dpi, drho_dm, drho_b, drho_r, drho_s)
