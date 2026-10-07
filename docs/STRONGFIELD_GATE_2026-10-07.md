@@ -110,3 +110,7 @@ The next gate enlarges Rmax from 40 to 80 while preserving the same physical spa
 ## 2026-10-07: event-ledger repair
 
 The production kernel previously appended a HandoffPoint at every timestep. That was a bookkeeping defect: a handoff is defined by an actual cycle crossing, while the continuous trajectory belongs in history. The kernel now records handoffs only when CycleLedger.observe() emits a real turnaround or re-expansion event.
+
+### Enlarged-domain rerun
+
+The enlarged-domain audit is rerun only after restoring the previously verified CMC target semantics. The current gate therefore tests the domain effect without the rejected fixed-point/affine gauge experiment.
