@@ -1,5 +1,6 @@
 from math import isclose
 
+from engine.matter_system import Species
 from engine.valencia import (
     FluidPrimitive,
     SphericalMetric,
