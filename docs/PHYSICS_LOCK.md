@@ -24,3 +24,7 @@ No phenomenological efficiency, EOS, pressure closure, time-scale conversion, bo
 
 ## Promotion rule
 A candidate coupling must satisfy algebraic consistency, donor-plus-recipient conservation accounting, radial and temporal resolution checks, constraint monitoring, and no hidden source term.
+
+
+## Geometric production↔COSMOS bridge
+The production spacetime may hand its solved H_eff to the homogeneous COSMOS equations as a geometric driver. This is a derived synchronization channel, not an added energy source. Worldtube flux, pressure-work, and local energy transport remain conservation ledgers only; no free V_c, efficiency, EOS closure, or component recipient is introduced.
