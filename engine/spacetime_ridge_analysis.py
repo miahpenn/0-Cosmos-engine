@@ -43,6 +43,8 @@ def summarize_case(z, meta):
         tracks[key], _ = ridge_track(z, key)
 
     d = tracks["D_active"]
+    d_amp = ridge_track(z, "D_active")[1]
+    d_valid = d_amp > 0.0
     out = {
         "meta": meta,
         "tracks": {
@@ -54,6 +56,7 @@ def summarize_case(z, meta):
             }
         },
         "relative": {},
+        "comoving": comoving_collapse(z, d, d_valid),
     }
 
     vd = linear_speed(t, d)
@@ -84,6 +87,73 @@ def summarize_case(z, meta):
     return out
 
 
+
+def comoving_collapse(z, d_track, valid):
+    """Measure whether radial-gradient profiles become stationary in the D frame.
+
+    The comoving coordinate is xi = r - r_D(t), where r_D(t) is the measured D
+    ridge itself. The common xi range is derived from the existing radial window
+    and the D track; no physical speed or fitted delay is introduced.
+    """
+    r = np.asarray(z["r"], dtype=float)
+    t = np.asarray(z["t"], dtype=float)
+    dr = float(np.median(np.diff(r)))
+    if not np.any(valid):
+        return {"valid": False, "reason": "no nonzero D ridge signal"}
+
+    d_valid = d_track[valid]
+    xi_limit = float(min(np.min(d_valid - RMIN), np.min(RMAX - d_valid)))
+    if not np.isfinite(xi_limit) or xi_limit <= dr:
+        return {"valid": False, "reason": "insufficient common comoving window"}
+
+    xi = np.arange(-xi_limit, xi_limit + 0.5 * dr, dr)
+    late_mask = valid & (t >= np.median(t[valid]))
+    out = {
+        "valid": True,
+        "xi_min": float(xi[0]),
+        "xi_max": float(xi[-1]),
+        "sample_spacing": dr,
+        "fields": {},
+    }
+
+    for key in ("D_active",) + FIELDS:
+        a = np.asarray(z[f"{key}_grad_abs"], dtype=float)
+        aligned = np.full((t.size, xi.size), np.nan)
+        for i in np.flatnonzero(valid):
+            aligned[i] = np.interp(d_track[i] + xi, r, a[i], left=np.nan, right=np.nan)
+
+        med = np.nanmedian(aligned[valid], axis=0)
+        corrs = []
+        late_corrs = []
+        peak_offsets = []
+        centroids = []
+        for i in np.flatnonzero(valid):
+            row = aligned[i]
+            ok = np.isfinite(row) & np.isfinite(med)
+            if np.count_nonzero(ok) >= 5 and np.nanstd(row[ok]) > 0 and np.nanstd(med[ok]) > 0:
+                c = float(np.corrcoef(row[ok], med[ok])[0, 1])
+                corrs.append(c)
+                if late_mask[i]:
+                    late_corrs.append(c)
+            if np.any(np.isfinite(row)):
+                peak_offsets.append(float(xi[np.nanargmax(row)]))
+                w = np.nan_to_num(row, nan=0.0)
+                den = float(np.sum(w))
+                if den > 0:
+                    centroids.append(float(np.sum(w * xi) / den))
+
+        out["fields"][key] = {
+            "profile_median_corr": float(np.nanmedian(corrs)) if corrs else float("nan"),
+            "profile_min_corr": float(np.nanmin(corrs)) if corrs else float("nan"),
+            "late_profile_median_corr": float(np.nanmedian(late_corrs)) if late_corrs else float("nan"),
+            "peak_offset_median": float(np.nanmedian(peak_offsets)) if peak_offsets else float("nan"),
+            "peak_offset_std": float(np.nanstd(peak_offsets)) if peak_offsets else float("nan"),
+            "centroid_offset_median": float(np.nanmedian(centroids)) if centroids else float("nan"),
+            "centroid_offset_std": float(np.nanstd(centroids)) if centroids else float("nan"),
+        }
+    return out
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--input-root", required=True)
@@ -103,6 +173,8 @@ def main():
         "conventions": {
             "ridge": "argmax of |dr(field)| in the existing r=1..60 analysis window",
             "co_motion": "geometry ridge position compared directly with D ridge position",
+            "comoving_coordinate": "xi = r - r_D(t), with r_D(t) measured from the D gradient ridge",
+            "comoving_collapse": "profile-shape correlations against the median D-centered profile; common xi window is derived from the data",
             "kinematic_time_equivalent": "spatial offset divided by fitted D ridge speed; not a causal delay",
             "evolution": "unchanged; diagnostic only",
         },
