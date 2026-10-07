@@ -37,8 +37,8 @@ def run(
     dt_nominal = cfl * state.grid.dr
     cosmos_params = CosmosParams()
     cosmos = construct_present_day()
-    previous_t = 0.0
-    previous_H = float(kernel.diagnostics(state)["H_eff"])
+    initial_H = float(kernel.diagnostics(state)["H_eff"])
+    previous_H = initial_H
 
     while state.t < final_time:
         dt = min(dt_nominal, final_time - state.t)
@@ -49,7 +49,6 @@ def run(
             cosmos, cosmos_params, previous_H, current_H, dt
         )
         previous_H = current_H
-        previous_t = state.t
 
     rho_cosmos, p_cosmos = state_rho_p(cosmos, cosmos_params)
     local_H = previous_H
@@ -61,14 +60,7 @@ def run(
         "final_time": float(state.t),
         "steps": len(state.history),
         "tau_final": float(state.tau),
-        "H_eff_initial": float(kernel.diagnostics(
-            kernel.initialize(
-                resolution=resolution,
-                r_max=r_max,
-                D_amplitude=1.0e-10,
-                include_radiation=True,
-            )
-        )["H_eff"]),
+        "H_eff_initial": initial_H,
         "H_eff_final": local_H,
         "cosmos_a_final": float(cosmos.a),
         "cosmos_phi_final": float(cosmos.phi),
