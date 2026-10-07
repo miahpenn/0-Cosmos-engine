@@ -1,0 +1,29 @@
+name: "[CI] Unit and regression tests"
+
+on:
+  push:
+    branches: [0star-central-clock]
+  pull_request:
+    branches: [main]
+
+env:
+  PYTHONPATH: .
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout engine and pinned numerical kernel
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Run repository tests
+        run: python -m pytest -q
