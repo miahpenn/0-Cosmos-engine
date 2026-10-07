@@ -11,6 +11,7 @@ env:
 
 jobs:
   moving-strongfield:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[run-moving-gauge-gates]')
     runs-on: ubuntu-latest
     timeout-minutes: 360
     steps:
