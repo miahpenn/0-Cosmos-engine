@@ -175,51 +175,60 @@ def solve_cmc_lapse(
     matter,
     outer_frac: float = 0.20,
 ) -> tuple[np.ndarray, float]:
-    """Solve the stage-aware CMC condition self-consistently.
+    """Solve the stage-aware CMC lapse self-consistently.
 
-    The Kdot target is defined as the proper-volume mean of the actual
-    current K right-hand side. Because that RHS contains the lapse Hessian,
-    the gauge target and lapse are coupled. Iterate that *derived* target
-    with the elliptic solve until the target is self-consistent. This is a
-    numerical fixed-point solve of the stated CMC condition, not a physical
-    fitting parameter.
+    For a fixed stage, the discrete CMC elliptic operator is linear in the
+    lapse, and the projected K RHS is affine in that lapse. Therefore the
+    self-consistent CMC target is an affine scalar function of the requested
+    Kdot. Two elliptic solves determine that function exactly (to floating
+    point accuracy), avoiding a slowly converging fixed-point iteration.
+    This introduces no physical coefficient or fitted control.
     """
     del outer_frac
     trial = geometry.copy()
-    previous_target = None
-    alpha = np.asarray(trial.alpha, dtype=float).copy()
-    converged = False
-    target_delta = float("inf")
-    alpha_delta = float("inf")
 
-    for _ in range(32):
-        trial.alpha = alpha
-        target = target_kdot(grid, trial, scalars, matter)
-        alpha_new = _solve_cmc_lapse_for_target(
-            grid, trial, scalars, matter, target
-        )
+    # target(kdot) is affine because the K RHS is linear in alpha for fixed
+    # geometry/matter. Evaluate it at two separated targets and solve
+    #
+    #     kdot = target(kdot)
+    #
+    # analytically at the scalar level.
+    scale = max(1.0, abs(target_kdot(grid, trial, scalars, matter)))
 
-        if previous_target is not None:
-            target_scale = max(abs(target), abs(previous_target), 1.0e-14)
-            target_delta = abs(target - previous_target)
-            target_converged = target_delta <= 1.0e-11 * target_scale
-            alpha_scale = max(float(np.max(np.abs(alpha_new))), 1.0e-14)
-            alpha_delta = float(np.max(np.abs(alpha_new - alpha)))
-            alpha_converged = alpha_delta <= 1.0e-11 * alpha_scale
-            if target_converged and alpha_converged:
-                converged = True
-                alpha = alpha_new
-                break
+    alpha0 = _solve_cmc_lapse_for_target(
+        grid, trial, scalars, matter, 0.0
+    )
+    trial.alpha = alpha0
+    target0 = target_kdot(grid, trial, scalars, matter)
 
-        previous_target = target
-        alpha = alpha_new
+    alpha1 = _solve_cmc_lapse_for_target(
+        grid, trial, scalars, matter, scale
+    )
+    trial.alpha = alpha1
+    target1 = target_kdot(grid, trial, scalars, matter)
 
-    if not converged:
+    slope = (target1 - target0) / scale
+    denominator = 1.0 - slope
+    if not np.isfinite(denominator) or abs(denominator) <= 1.0e-12:
         raise FloatingPointError(
-            "CMC target/lapse fixed-point iteration did not converge: "
-            f"target_delta={target_delta:.17e}, alpha_delta={alpha_delta:.17e}"
+            "CMC target/lapse coupling is singular or unresolved: "
+            f"slope={slope:.17e}"
         )
 
+    kdot = target0 / denominator
+    alpha, _ = (
+        _solve_cmc_lapse_for_target(
+            grid, trial, scalars, matter, float(kdot)
+        ),
+        None,
+    )
     trial.alpha = alpha
     target = target_kdot(grid, trial, scalars, matter)
-    return alpha, target
+    residual = abs(target - kdot)
+    scale_residual = max(1.0, abs(kdot))
+    if not np.isfinite(residual) or residual > 1.0e-10 * scale_residual:
+        raise FloatingPointError(
+            "CMC target/lapse self-consistency residual is too large: "
+            f"kdot={kdot:.17e}, target={target:.17e}, residual={residual:.17e}"
+        )
+    return alpha, float(target)
