@@ -1,4 +1,5 @@
 # Matched-spacing domain test: R120 with dr=1,2/3,1/2.
+# Trigger the long domain gate only when this token is present.
 name: "[0star] True-CMC R120 domain-independence gate"
 
 on:
