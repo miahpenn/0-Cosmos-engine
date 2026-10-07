@@ -114,3 +114,8 @@ The production kernel previously appended a HandoffPoint at every timestep. That
 ### Enlarged-domain rerun
 
 The enlarged-domain audit is rerun only after restoring the previously verified CMC target semantics. The current gate therefore tests the domain effect without the rejected fixed-point/affine gauge experiment.
+
+
+### Gate relaunch control
+
+The expensive matrix concurrency group is now keyed by resolution so N=80/120/160 can run simultaneously without cancelling one another. Ordinary pushes use no gate trigger token.
