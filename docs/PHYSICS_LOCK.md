@@ -30,3 +30,5 @@ A candidate coupling must satisfy algebraic consistency, donor-plus-recipient co
 The production spacetime may hand its solved H_eff to the homogeneous COSMOS equations as a geometric driver. This is a derived synchronization channel, not an added energy source. Worldtube flux, pressure-work, and local energy transport remain conservation ledgers only; no free V_c, efficiency, EOS closure, or component recipient is introduced.
 
 Validation campaign dispatches remain explicit: expensive D-lock and D-budget runs require their trigger tags in the commit message.
+
+Campaign retry note: shared geometry-bridge validation fixes must pass the repository test gate before the expensive spacetime-lock and D-budget runs are treated as valid.
