@@ -57,6 +57,9 @@ jobs:
                       D_amplitude=self.d_amplitude,
                       include_radiation=True,
                   )
+                  init.geometry = self._enforce_center_regularity(
+                      grid, init.geometry
+                  )
                   init.geometry.alpha = self._solve_lapse(
                       grid, init.geometry, init.scalars, init.matter
                   )[0]
