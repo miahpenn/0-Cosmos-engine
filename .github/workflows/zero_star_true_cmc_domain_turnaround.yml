@@ -9,12 +9,11 @@ on:
 env:
   PYTHONPATH: .
 
-concurrency:
-  group: zero-star-true-cmc-domain-turnaround
-  cancel-in-progress: true
-
 jobs:
   true-cmc-domain:
+    concurrency:
+      group: zero-star-true-cmc-domain-turnaround
+      cancel-in-progress: true
     if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[run-true-cmc-domain]')
     runs-on: ubuntu-latest
     timeout-minutes: 720
