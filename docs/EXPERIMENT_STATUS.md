@@ -88,3 +88,6 @@ The captured moving-puncture runs confirm a common late numerical boundary in bo
 
 The dominant late errors are therefore in the outer gauge/geometry region while the determinant identity stays exact. Radiation remains physically admissible in the reported final ledgers. This points to the moving-gauge outer continuation layer, not to the radiation source model or centre determinant repair.
 
+
+## Controlled repair campaigns launched
+The repaired moving-gauge gate and the stage-aware true-CMC gate are now launched from the current branch. Both preserve the V5.5 matter/source model and are acceptance campaigns only.
