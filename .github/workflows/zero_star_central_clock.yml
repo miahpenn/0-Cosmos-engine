@@ -1,11 +1,8 @@
 name: 0-star central proper-time gauge campaign
 
 on:
+  # Expensive campaign; run only when deliberately dispatched.
   workflow_dispatch:
-  push:
-    branches: [0star-central-clock]
-  pull_request:
-    branches: [main]
 
 env:
   PYTHONPATH: .
