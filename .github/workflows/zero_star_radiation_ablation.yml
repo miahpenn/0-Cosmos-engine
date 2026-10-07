@@ -48,7 +48,7 @@ jobs:
           import pathlib
           from engine.true_cmc_pirk_kernel import V55TrueCMCPIRKKernel
 
-          include_radiation = ${INCLUDE_RADIATION}
+          include_radiation = "${INCLUDE_RADIATION}".strip().lower() == "true"
           kernel = V55TrueCMCPIRKKernel()
           state = kernel.initialize(
               resolution=80,
