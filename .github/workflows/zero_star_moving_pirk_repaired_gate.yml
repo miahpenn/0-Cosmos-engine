@@ -1,0 +1,75 @@
+name: "[0star] Repaired moving-gauge strong-field gate"
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - 0star-central-clock
+
+env:
+  PYTHONPATH: .
+
+jobs:
+  repaired-moving:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[run-repaired-moving-gate]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    strategy:
+      fail-fast: false
+      matrix:
+        resolution: [40, 60]
+    steps:
+      - name: Checkout repaired branch and pinned numerical kernel
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Run repository tests
+        run: python -m pytest -q
+
+      - name: Run repaired moving-gauge strong-field campaign
+        run: |
+          python - <<'PY'
+          from engine.campaign import CampaignConfig
+          from engine.moving_pirk_kernel import V55MovingPIRKKernel
+          from engine.run_production import run_campaign
+
+          resolution = int("${{ matrix.resolution }}")
+          config = CampaignConfig(
+              resolutions=(resolution,),
+              r_max=40.0,
+              cfl=0.03,
+              final_time=30.0,
+              checkpoint_interval=0.10,
+              output_dir=f'runs/0star-moving-repaired/N{resolution}',
+          )
+          results = run_campaign(
+              kernel=V55MovingPIRKKernel(),
+              config=config,
+          )
+          for result in results:
+              print(result)
+          failures = [r for r in results if r.status != "completed"]
+          if failures:
+              raise SystemExit(
+                  "Repaired moving-gauge campaign reported numerical failure(s): "
+                  + "; ".join(f"N{r.resolution}: {r.status}" for r in failures)
+              )
+          PY
+
+      - name: Upload repaired campaign outputs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: 0star-moving-repaired-N${{ matrix.resolution }}
+          path: runs/0star-moving-repaired/N${{ matrix.resolution }}/
+          if-no-files-found: error
