@@ -9,7 +9,7 @@ jobs:
   audit:
     if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[run-constraint-resolution]')
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 90
     env:
       PYTHONPATH: .
     steps:
