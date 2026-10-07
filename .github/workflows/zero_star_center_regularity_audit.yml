@@ -51,8 +51,13 @@ jobs:
               "t", "tau", "H_eff", "H_center", "lapse_min", "lapse_max",
               "alpha_r_max", "alpha_r_max_r",
               "hamiltonian_max", "hamiltonian_max_r", "hamiltonian_at_max",
-              "momentum_max", "cmc_residual_outer_max",
-              "determinant_constraint_max", "trapping_min",
+              "hamiltonian_normalized_max",
+              "hamiltonian_l2_inner", "hamiltonian_l2_outer",
+              "momentum_max", "momentum_normalized_max",
+              "momentum_l2_inner", "momentum_l2_outer",
+              "cmc_residual_outer_max",
+              "determinant_constraint_max", "lapse_min_r", "lapse_max_r",
+              "trapping_min",
           ]
           print("\nKEY DIAGNOSTICS")
           print(json.dumps({k: last.get(k) for k in keys}, indent=2, default=float))
