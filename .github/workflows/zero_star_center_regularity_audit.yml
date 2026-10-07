@@ -1,0 +1,64 @@
+name: [0star] Center-regularity repair resolution audit
+
+on:
+  workflow_dispatch:
+
+jobs:
+  audit:
+    strategy:
+      fail-fast: false
+      matrix:
+        resolution: [80, 120, 160]
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    env:
+      PYTHONPATH: .
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements.txt
+      - name: Repository tests
+        run: pytest -q
+      - name: Run repaired resolution audit
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from engine.campaign import CampaignConfig
+          from engine.run_production import run_campaign
+          from engine.production_kernel import V55ProductionKernel
+
+          n = int("${{ matrix.resolution }}")
+          out = Path("runs/0star-center-regularity-audit") / f"N{n}"
+          cfg = CampaignConfig(
+              resolutions=(n,),
+              r_max=160.0,
+              cfl=0.0075,
+              final_time=30.0,
+              checkpoint_interval=0.10,
+              output_dir=str(out),
+          )
+          result = run_campaign(kernel=V55ProductionKernel(), config=cfg)[0]
+          payload = result.__dict__
+          print(json.dumps(payload, indent=2, default=float))
+
+          last = payload["last_diagnostics"]
+          keys = [
+              "t", "tau", "H_eff", "H_center", "lapse_min", "lapse_max",
+              "alpha_r_max", "alpha_r_max_r",
+              "hamiltonian_max", "hamiltonian_max_r", "hamiltonian_at_max",
+              "momentum_max", "cmc_residual_outer_max",
+              "determinant_constraint_max", "trapping_min",
+          ]
+          print("\nKEY DIAGNOSTICS")
+          print(json.dumps({k: last.get(k) for k in keys}, indent=2, default=float))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: 0star-center-regularity-audit-N${{ matrix.resolution }}
+          path: runs/0star-center-regularity-audit/N${{ matrix.resolution }}
+          if-no-files-found: error
