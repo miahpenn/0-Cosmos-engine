@@ -66,3 +66,17 @@ Do not merge the experimental gauge branch into production until:
 Run the complete machine, expose the actual defect, repair only that layer, and rerun. No hand tuning, arbitrary damping/floors, fitted feedback, or invented boundary physics.
 
 No completed multi-cycle or physical-bounce claim is made until invariant, resolution-independent evidence supports it.
+
+## 2026-10-07 center/clock diagnostic gate
+
+The widened strong-D constraint scan (N=160/240/320/480, r_max=N, Δr≈1) shows stable proper-time suppression and slowly decreasing central Hamiltonian residual, but it is a domain-size/fixed-Δr scan rather than formal fixed-domain convergence.
+
+The apparent trapping root appears immediately and at a nearly fixed physical radius as the outer domain is enlarged; it is therefore treated as a domain/pre-existing-geometry diagnostic candidate until explicitly tested.
+
+Next diagnostic sequence:
+1. Center-regularity repair A/B at N=160, r_max=80 for D=0 and D=1e-4, repair ON/OFF.
+2. On those same runs, report radial τ(r) and α(r) profiles at common times.
+3. Only then spend N=320 fixed-r_max=80 runs.
+
+The A/B campaign is diagnostic-only and changes no physical evolution equation, source term, fitted coefficient, or boundary physics.
+
