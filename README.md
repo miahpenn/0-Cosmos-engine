@@ -67,3 +67,6 @@ Phase-lock retry uses immutable ScalarFields replacement; no physical equations 
 
 
 The full bidirectional machine is also being tested at Rmax=160, N=320 (fixed dr=0.5) for D=0 versus D=1e-10 through t=80.
+
+
+[run-coupled-r160-mid] Launch high-domain intermediate D=5e-11 control.
