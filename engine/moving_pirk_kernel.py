@@ -62,8 +62,7 @@ class V55MovingPIRKKernel(V55ProductionKernel):
         D_amplitude: float = 1.0e-10,
         include_radiation: bool = True,
     ) -> ProductionState:
-        _, vacuum, _ = adapter.vendor_modules()
-        grid_ops, _, _ = adapter.vendor_modules()
+        grid_ops, vacuum, _ = adapter.vendor_modules()
         grid = grid_ops.SphericalCellGrid(resolution, r_max)
         init = build_initial_data(
             grid,
