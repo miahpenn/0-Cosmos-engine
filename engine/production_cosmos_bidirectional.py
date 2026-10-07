@@ -12,6 +12,8 @@ from __future__ import annotations
 
 import json
 import math
+
+import numpy as np
 from pathlib import Path
 
 from .cosmos import CosmosParams, construct_present_day, geometry_driven_step, state_rho_p
