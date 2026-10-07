@@ -109,6 +109,9 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Install analysis dependencies
+        run: python -m pip install numpy
+
       - name: Download all case artifacts
         uses: actions/download-artifact@v4
         with:
