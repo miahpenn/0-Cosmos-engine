@@ -308,10 +308,16 @@ def _hll_flux(
     right: FluidPrimitive,
     species: Species,
 ) -> np.ndarray:
-    fl = _valencia_flux(metric, left)
-    fr = _valencia_flux(metric, right)
-    ul = _valencia_conserved(metric, left)
-    ur = _valencia_conserved(metric, right)
+    if species is Species.RADIATION:
+        fl = _radiation_flux(metric, left)
+        fr = _radiation_flux(metric, right)
+        ul = _radiation_conserved(metric, left)
+        ur = _radiation_conserved(metric, right)
+    else:
+        fl = _valencia_flux(metric, left)
+        fr = _valencia_flux(metric, right)
+        ul = _valencia_conserved(metric, left)
+        ur = _valencia_conserved(metric, right)
 
     c_s = 0.0 if species != Species.RADIATION else 1.0 / math.sqrt(3.0)
 
