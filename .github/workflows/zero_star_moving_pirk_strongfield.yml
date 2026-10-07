@@ -2,6 +2,9 @@ name: "[0star] Moving-gauge strong-field gate"
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - 0star-central-clock
 
 env:
   PYTHONPATH: .
@@ -45,6 +48,12 @@ jobs:
           )
           for result in results:
               print(result)
+          failures = [r for r in results if r.status != "completed"]
+          if failures:
+              raise SystemExit(
+                  "Moving-gauge strong-field campaign reported numerical failure(s): "
+                  + "; ".join(f"N{r.resolution}: {r.status}" for r in failures)
+              )
           PY
       - name: Upload campaign outputs
         uses: actions/upload-artifact@v4
