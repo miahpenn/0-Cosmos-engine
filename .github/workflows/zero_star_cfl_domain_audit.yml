@@ -1,0 +1,67 @@
+name: [0star] CFL and domain-independence audit after center repair
+
+on:
+  workflow_dispatch:
+
+jobs:
+  audit:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: N80_R80_CFL0075
+            resolution: 80
+            rmax: 80.0
+            cfl: 0.0075
+          - label: N160_R160_CFL0075
+            resolution: 160
+            rmax: 160.0
+            cfl: 0.0075
+          - label: N160_R160_CFL00375
+            resolution: 160
+            rmax: 160.0
+            cfl: 0.00375
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    env:
+      PYTHONPATH: .
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements.txt
+      - name: Repository tests
+        run: pytest -q
+      - name: Run CFL/domain audit
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from engine.campaign import CampaignConfig
+          from engine.run_production import run_campaign
+          from engine.production_kernel import V55ProductionKernel
+
+          label = "${{ matrix.label }}"
+          n = int("${{ matrix.resolution }}")
+          rmax = float("${{ matrix.rmax }}")
+          cfl = float("${{ matrix.cfl }}")
+          out = Path("runs/0star-cfl-domain-audit") / label
+          cfg = CampaignConfig(
+              resolutions=(n,),
+              r_max=rmax,
+              cfl=cfl,
+              final_time=30.0,
+              checkpoint_interval=0.10,
+              output_dir=str(out),
+          )
+          result = run_campaign(kernel=V55ProductionKernel(), config=cfg)[0]
+          print(json.dumps(result.__dict__, indent=2, default=float))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: 0star-cfl-domain-${{ matrix.label }}
+          path: runs/0star-cfl-domain-audit/${{ matrix.label }}
+          if-no-files-found: error
