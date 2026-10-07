@@ -109,18 +109,20 @@ class V55ProductionKernel:
             include_radiation=include_radiation,
         )
         # Initialize the production slice on the same stage-aware CMC gauge
-        # that is carried throughout evolution.
-        init.geometry = self._enforce_center_regularity(
+        # that is carried throughout evolution. CorrectedInitialData is frozen,
+        # so keep the repaired geometry in a local binding rather than assigning
+        # back through init.geometry.
+        geometry = self._enforce_center_regularity(
             grid, init.geometry
         )
-        init.geometry.alpha = self._solve_lapse(
-            grid, init.geometry, init.scalars, init.matter
+        geometry.alpha = self._solve_lapse(
+            grid, geometry, init.scalars, init.matter
         )[0]
-        init.geometry.beta.fill(0.0)
-        init.geometry.B.fill(0.0)
+        geometry.beta.fill(0.0)
+        geometry.B.fill(0.0)
         return ProductionState(
             grid=grid,
-            geometry=init.geometry,
+            geometry=geometry,
             scalars=init.scalars,
             matter=init.matter,
             e_folds=0.0,
