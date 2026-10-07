@@ -74,10 +74,21 @@ def summarize(grid, geometry, *, surface_r=10.0, H_eff=0.0,
 
 
 def current_residual(times, masses, rhs):
-    """Residual of dM/dt = rhs on an already sampled worldtube ledger."""
+    """Interior residual of dM/dt = rhs on a sampled worldtube ledger.
+
+    The first and last samples are not scored: their time derivative is an
+    unavoidable one-sided finite-difference estimate, while the interior uses
+    the centered derivative. Returning NaN at those endpoints prevents the
+    campaign summary from mistaking endpoint differentiation error for a
+    physical or discretization failure.
+    """
     t = np.asarray(times, dtype=float)
     m = np.asarray(masses, dtype=float)
     r = np.asarray(rhs, dtype=float)
+    if t.shape != m.shape or t.shape != r.shape:
+        raise ValueError("times, masses, and rhs must have identical shapes")
     if len(t) < 3:
         return np.asarray([])
-    return np.gradient(m, t, edge_order=2) - r
+    residual = np.full_like(m, np.nan, dtype=float)
+    residual[1:-1] = np.gradient(m, t, edge_order=2)[1:-1] - r[1:-1]
+    return residual
