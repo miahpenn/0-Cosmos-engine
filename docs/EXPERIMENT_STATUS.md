@@ -32,6 +32,15 @@ A persistent lapse collapse after the repair must be tested against regional/nor
 
 Run #107 on the repaired branch completed its CI job with all 83 repository tests passing, but the numerical campaign is quarantined. All three resolutions encountered genuine radiation admissibility failures near t≈21.2–21.5, accompanied by severe lapse/CMC deformation and growing outer/constraint defects. This is evidence against the central-proper-time CMC representation as the current strong-field continuation method, not evidence of a radiation-model failure.
 
+## Moving-gauge boundary/centre consistency repair
+
+The moving-gauge kernel was audited against the pinned reference implementation. Two representation inconsistencies were isolated and repaired without changing the V5.5 field equations:
+
+- The legacy frozen R0 light-boundary reconstruction is derived for the nonadvective-lapse/algebraic-B characteristic system. The moving gauge instead uses advective 1+log lapse and independently evolved B, so the moving PIRK step no longer applies that boundary reconstruction.
+- The vendor centre projector sets B=3/4 Lambda as an algebraic convenience. Because B is independent in the moving gauge, the repaired kernel preserves the evolved B and imposes the same odd spherical centre regularity on B directly.
+
+Both changes are numerical boundary/regularity consistency repairs only. The next moving-gauge campaign will determine whether the strong-field failure persists.
+
 ## Moving-gauge repair now under validation
 
 A separate kernel, `engine/moving_pirk_kernel.py`, now uses the pinned reference moving-puncture/1+log PIRK2 ordering for the strong-field representation while retaining the existing V5.5 scalar, matter, and stress-energy equations. The vendor center-regularity projection is retained, but its algebraic `B=3/4 Lambda` assignment is not allowed to overwrite the independently evolved moving-gauge B field.
