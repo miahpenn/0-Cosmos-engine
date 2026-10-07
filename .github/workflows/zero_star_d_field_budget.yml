@@ -1,4 +1,4 @@
-name: "[0star] D-field equation budget"
+name: "[0star] D-field equation budget" # [run-d-budget]
 
 on:
   workflow_dispatch:
