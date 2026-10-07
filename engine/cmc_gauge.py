@@ -130,6 +130,8 @@ def _solve_cmc_lapse_for_target(
     scalars,
     matter,
     kdot: float,
+    *,
+    require_positive: bool = True,
 ) -> np.ndarray:
     """Solve the linear CMC lapse equation for a fixed Kdot target."""
     metric = metric_slice_from_q(grid, geometry)
@@ -161,7 +163,7 @@ def _solve_cmc_lapse_for_target(
 
     if not np.all(np.isfinite(alpha)):
         raise FloatingPointError("CMC lapse solve returned non-finite values")
-    if float(np.min(alpha)) <= 0.0:
+    if require_positive and float(np.min(alpha)) <= 0.0:
         raise ValueError(
             "CMC lapse solve has no positive solution on this stage: "
             f"min_alpha={float(np.min(alpha)):.17e}"
@@ -196,13 +198,13 @@ def solve_cmc_lapse(
     scale = max(1.0, abs(target_kdot(grid, trial, scalars, matter)))
 
     alpha0 = _solve_cmc_lapse_for_target(
-        grid, trial, scalars, matter, 0.0
+        grid, trial, scalars, matter, 0.0, require_positive=False
     )
     trial.alpha = alpha0
     target0 = target_kdot(grid, trial, scalars, matter)
 
     alpha1 = _solve_cmc_lapse_for_target(
-        grid, trial, scalars, matter, scale
+        grid, trial, scalars, matter, scale, require_positive=False
     )
     trial.alpha = alpha1
     target1 = target_kdot(grid, trial, scalars, matter)
