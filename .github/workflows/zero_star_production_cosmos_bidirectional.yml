@@ -13,10 +13,15 @@ jobs:
   audit:
     if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[run-bidirectional]')
     runs-on: ubuntu-latest
+    env:
+      PYTHONPATH: .
     timeout-minutes: 30
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -29,13 +34,9 @@ jobs:
           python -m pip install pytest
 
       - name: Run repository tests
-        env:
-          PYTHONPATH: .
         run: python -m pytest -q
 
       - name: Run full production-COSMOS bidirectional audit
-        env:
-          PYTHONPATH: .
         run: python -m engine.production_cosmos_bidirectional
 
       - name: Upload audit report
