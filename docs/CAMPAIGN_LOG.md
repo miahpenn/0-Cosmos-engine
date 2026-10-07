@@ -35,3 +35,14 @@ Failures are not promoted to physical claims until the invariant witnesses, reso
 ## Standing workflow
 
 **Run the complete machine → expose the actual defect → repair only that layer → rerun.**
+
+## 2026-10-07 coupled propagation discriminator launch
+
+Launched from the experimental branch after the completed coupled/D-phase results:
+
+- six-case coupled D-amplitude × CFL matrix;
+- R=160 midpoint D=5e-11 control;
+- R=160 radiation-off D=0 and D=1e-10 controls;
+- five-case front/rear expansion-contraction radial probe at N=160, Rmax=160, CFL=0.0075.
+
+The new probe records D/D-active, lapse, local volume-expansion proxy θ=-alpha*K, areal-radius rate, total stress/flux, and radiation stress profiles at fixed coordinate-time samples. It is diagnostic-only and does not feed thresholds or sign choices back into evolution.
