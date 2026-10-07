@@ -15,8 +15,6 @@ from __future__ import annotations
 
 import math
 import numpy as np
-from scipy.linalg import solve_banded
-
 from .production_kernel import V55ProductionKernel, ProductionState, LAMBDA_M
 from .scalar_system import ScalarFields
 from .matter_system import ConservedSpecies
@@ -24,9 +22,6 @@ from .v55_matter import metric_slice_from_q
 from .cosmology_observables import append_efolds
 from .handoff import handoff_from_ledger
 from . import v55_pirk_adapter as adapter
-
-
-OUTER_CMC_FRACTION = 0.20
 
 
 from .cmc_gauge import solve_cmc_lapse
