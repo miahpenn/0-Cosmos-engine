@@ -247,11 +247,11 @@ class V55ProductionKernel:
                 name,
                 getattr(g0, name) + dt * gterms0["explicit"][name],
             )
-        g_explicit1.beta.fill(0.0)
-        g_explicit1.B.fill(0.0)
         g_explicit1 = self._enforce_center_regularity(
             grid, g_explicit1
         )
+        g_explicit1.beta.fill(0.0)
+        g_explicit1.B.fill(0.0)
 
         s1 = ScalarFields(
             *(
