@@ -154,6 +154,18 @@ def comoving_collapse(z, d_track, valid):
     return out
 
 
+
+def find_case_dir(root: Path, label: str):
+    exact = root / label
+    if exact.is_dir() and (exact / "profiles.npz").exists():
+        return exact
+    matches = sorted(
+        p for p in root.iterdir()
+        if p.is_dir() and p.name.endswith(label) and (p / "profiles.npz").exists()
+    )
+    return matches[0] if matches else None
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--input-root", required=True)
@@ -186,9 +198,9 @@ def main():
         report["cases"][case_dir.name] = summarize_case(z, meta)
 
     # Matched-grid radiation ON/OFF check.
-    on_dir = root / "D1e4-on-N160"
-    off_dir = root / "D1e4-off-N160"
-    if on_dir.exists() and off_dir.exists():
+    on_dir = find_case_dir(root, "D1e4-on-N160")
+    off_dir = find_case_dir(root, "D1e4-off-N160")
+    if on_dir is not None and off_dir is not None:
         zon, _ = load_case(on_dir)
         zof, _ = load_case(off_dir)
         if np.array_equal(zon["t"], zof["t"]) and np.array_equal(zon["r"], zof["r"]):
@@ -205,9 +217,9 @@ def main():
             report["matched_on_off_N160"] = cmp
 
     # Same-physics resolution convergence.
-    a_dir = root / "D1e4-on-N160"
-    b_dir = root / "D1e4-on-N320"
-    if a_dir.exists() and b_dir.exists():
+    a_dir = find_case_dir(root, "D1e4-on-N160")
+    b_dir = find_case_dir(root, "D1e4-on-N320")
+    if a_dir is not None and b_dir is not None:
         za, _ = load_case(a_dir)
         zb, _ = load_case(b_dir)
         cmp = {}
