@@ -576,10 +576,10 @@ class V55ProductionKernel:
             ),
         )
         ql_rad = _reconstructed_primitive(
-            rad_prim, grid.n - 2, "right", mf_rad.gamma_rr
+            rad_prim, grid.n - 2, "right", mf_rad.gamma_rr, Species.RADIATION
         )
         qr_rad = _reconstructed_primitive(
-            rad_prim, grid.n - 1, "left", mf_rad.gamma_rr
+            rad_prim, grid.n - 1, "left", mf_rad.gamma_rr, Species.RADIATION
         )
         rad_inner_flux = _hll_flux(
             mf_rad, ql_rad, qr_rad, Species.RADIATION
