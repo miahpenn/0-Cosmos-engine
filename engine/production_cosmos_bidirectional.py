@@ -16,6 +16,7 @@ from pathlib import Path
 
 from .cosmos import CosmosParams, construct_present_day, geometry_driven_step, state_rho_p
 from .production_kernel import V55ProductionKernel
+from .stress_energy import assemble_total_stress_energy
 
 
 def _signed_friedmann_H(rho: float, H_ref: float) -> float:
@@ -61,6 +62,13 @@ def run_case(
         )
         rho_c, p_c = state_rho_p(cosmos, params)
         H_f = _signed_friedmann_H(rho_c, H_eff)
+        total = assemble_total_stress_energy(
+            state.grid, state.geometry, state.scalars, state.matter
+        )
+        w = state.grid.volumes
+        rho_prod_volume = 8.0 * math.pi * float(np.sum(w * total.rho) / np.sum(w))
+        rho_prod_outer_physical = 8.0 * math.pi * float(obs["rho_outer"])
+        H_f_prod_volume = _signed_friedmann_H(rho_prod_volume, H_eff)
         a_from_geometry = math.exp(float(state.e_folds)) * 33.8983
 
         phi_gap = float(obs["phi_outer"]) - float(cosmos.phi)
@@ -73,6 +81,9 @@ def run_case(
             "H_eff": H_eff,
             "H_friedmann_cosmos": H_f,
             "friedmann_residual": float(3.0 * H_eff * H_eff - rho_c),
+            "production_volume_rho_physical": rho_prod_volume,
+            "production_volume_friedmann_residual": float(3.0 * H_eff * H_eff - rho_prod_volume),
+            "production_volume_H_friedmann": H_f_prod_volume,
             "production_a_from_e_folds": a_from_geometry,
             "cosmos_a": float(cosmos.a),
             "a_log_gap": float(math.log(max(cosmos.a, 1.0e-300) / max(a_from_geometry, 1.0e-300))),
@@ -83,9 +94,12 @@ def run_case(
             "cosmos_pi_phi": float(cosmos.pi_phi),
             "pi_gap": pi_gap,
             "production_rho_outer": float(obs["rho_outer"]),
+            "production_rho_outer_physical": rho_prod_outer_physical,
             "cosmos_rho": float(rho_c),
             "rho_gap": rho_gap,
             "rho_gap_rel": abs(rho_gap) / max(abs(rho_c), 1.0e-300),
+            "rho_outer_physical_gap": float(rho_prod_outer_physical - rho_c),
+            "rho_outer_physical_gap_rel": abs(float(rho_prod_outer_physical - rho_c)) / max(abs(rho_c), 1.0e-300),
             "lapse_min": float(obs["lapse_min"]),
             "lapse_min_r": float(obs["lapse_min_r"]),
             "D_center": float(state.scalars.D[0]),
@@ -98,6 +112,8 @@ def run_case(
     avg_abs_phi_gap = sum(abs(r["phi_gap"]) for r in rows) / len(rows)
     avg_abs_pi_gap = sum(abs(r["pi_gap"]) for r in rows) / len(rows)
     max_abs_friedmann = max(abs(r["friedmann_residual"]) for r in rows)
+    max_abs_production_volume_friedmann = max(abs(r["production_volume_friedmann_residual"]) for r in rows)
+    avg_abs_rho_outer_physical_gap_rel = sum(r["rho_outer_physical_gap_rel"] for r in rows) / len(rows)
 
     return {
         "D_amplitude": D_amplitude,
@@ -126,6 +142,8 @@ def run_case(
         "avg_abs_phi_gap": float(avg_abs_phi_gap),
         "avg_abs_pi_gap": float(avg_abs_pi_gap),
         "max_abs_friedmann_residual": float(max_abs_friedmann),
+        "max_abs_production_volume_friedmann_residual": float(max_abs_production_volume_friedmann),
+        "avg_abs_rho_outer_physical_gap_rel": float(avg_abs_rho_outer_physical_gap_rel),
         "cycle_events": len(state.cycle.events),
         "turnaround_events": sum(e.kind == "turnaround" for e in state.cycle.events),
         "reexpansion_events": sum(e.kind == "re-expansion_crossing" for e in state.cycle.events),
@@ -173,6 +191,28 @@ def run(
         "strong_minus_control_H_final": float(
             strong["H_eff_final"] - control["H_eff_final"]
         ),
+        "production_cosmos_response": {
+            "phi_outer_change_strong_minus_control": float(
+                strong["production_phi_outer_final"] - control["production_phi_outer_final"]
+            ),
+            "Pi_outer_change_strong_minus_control": float(
+                strong["production_Pi_outer_final"] - control["production_Pi_outer_final"]
+            ),
+            "homogeneous_phi_change_strong_minus_control": float(
+                strong["cosmos_phi_final"] - control["cosmos_phi_final"]
+            ),
+            "homogeneous_Pi_change_strong_minus_control": float(
+                strong["cosmos_pi_final"] - control["cosmos_pi_final"]
+            ),
+            "extra_local_phi_shift_beyond_H_mirror": float(
+                (strong["production_phi_outer_final"] - control["production_phi_outer_final"])
+                - (strong["cosmos_phi_final"] - control["cosmos_phi_final"])
+            ),
+            "extra_local_Pi_shift_beyond_H_mirror": float(
+                (strong["production_Pi_outer_final"] - control["production_Pi_outer_final"])
+                - (strong["cosmos_pi_final"] - control["cosmos_pi_final"])
+            ),
+        },
         "sample_rows": {
             "strong_D_first": strong_rows[0],
             "strong_D_mid": strong_rows[len(strong_rows) // 2],
