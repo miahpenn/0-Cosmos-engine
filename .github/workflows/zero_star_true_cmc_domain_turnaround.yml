@@ -12,7 +12,7 @@ env:
 jobs:
   true-cmc-domain:
     concurrency:
-      group: zero-star-true-cmc-domain-turnaround
+      group: zero-star-true-cmc-domain-turnaround-${{ matrix.resolution }}
       cancel-in-progress: true
     if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[run-true-cmc-domain]')
     runs-on: ubuntu-latest
