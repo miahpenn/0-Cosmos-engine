@@ -22,6 +22,28 @@ def test_moving_kernel_uses_native_gauge_without_cmc():
     assert np.all(np.isfinite(state.geometry.B))
     assert np.all(np.isfinite(state.scalars.D))
 
+    # B is independently evolved in the moving gauge, but remains an odd
+    # spherical field: B/r must have the same regular centre extrapolation
+    # class as the pinned vendor odd fields.
+    r = state.grid.centers
+    q = state.geometry.B / r
+    x = r[1:4] ** 2
+    y = q[1:4]
+    x0 = r[0] ** 2
+    expected_center_q = 0.0
+    for j in range(3):
+        w = 1.0
+        for k in range(3):
+            if j != k:
+                w *= (x0 - x[k]) / (x[j] - x[k])
+        expected_center_q += w * y[j]
+    assert np.isclose(q[0], expected_center_q)
+
+    # The legacy R0 boundary reconstruction belongs to the frozen
+    # nonadvective/algebraic-B characteristic system and must not be mixed
+    # into the moving-gauge PIRK step.
+    kernel._apply_outer_light_boundary = forbidden
+
     b0 = state.geometry.B.copy()
     lam0 = state.geometry.Lambda.copy()
     stepped = kernel.step(state, 0.002)
