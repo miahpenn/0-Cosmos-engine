@@ -1,6 +1,14 @@
 from math import isclose
 
-from engine.matter_system import Species
+import numpy as np
+
+from engine.matter_system import (
+    BSSNMetricSlice,
+    MetricDerivativeSet,
+    Species,
+    evolve_species,
+    initialize_radiation,
+)
 from engine.valencia import (
     FluidPrimitive,
     SphericalMetric,
@@ -67,3 +75,43 @@ def test_radiation_reconstruction_preserves_equation_of_state():
 
     assert isclose(left.pressure, left.rho / 3.0)
     assert isclose(right.pressure, right.rho / 3.0)
+
+
+def test_radiation_transport_preserves_zero_rest_component():
+    n = 4
+    r = np.arange(n, dtype=float) + 0.5
+    zeros = np.zeros(n, dtype=float)
+    metric = BSSNMetricSlice(
+        r=r,
+        a=np.ones(n),
+        b=np.ones(n),
+        X=np.ones(n),
+        alpha=np.ones(n),
+        beta=zeros,
+        Aa=zeros,
+        K=zeros,
+        Lambda=zeros,
+        B=zeros,
+    )
+    derivatives = MetricDerivativeSet(
+        time={key: zeros.copy() for key in ("tt", "tr", "rr", "thth")},
+        radial={
+            key: zeros.copy()
+            for key in ("tt", "tr", "rr", "thth", "alpha", "beta")
+        },
+    )
+    metrics = [
+        spherical_metric_from_bssn(
+            float(ri), 1.0, 1.0, 1.0, 1.0, 0.0
+        )
+        for ri in r
+    ]
+    state = initialize_radiation(
+        metrics, np.full(n, 1.0e-6), np.zeros(n)
+    )
+
+    advanced = evolve_species(
+        metric, derivatives, state, Species.RADIATION, 1.0e-3
+    )
+
+    assert np.allclose(advanced.rest, 0.0, atol=1.0e-30)
