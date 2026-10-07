@@ -78,3 +78,43 @@ def test_true_cmc_lapse_outer_normalization_is_exact():
     assert np.all(np.isfinite(alpha))
     assert np.all(alpha > 0.0)
     assert np.isclose(alpha[-1], 1.0)
+
+
+def test_cmc_lapse_uses_same_discrete_operator_as_k_evolution():
+    kernel = V55TrueCMCPIRKKernel()
+    state = kernel.initialize(
+        resolution=32,
+        r_max=16.0,
+        D_amplitude=1.0e-10,
+        include_radiation=True,
+    )
+
+    alpha, kdot_target = solve_archive_cmc_lapse(
+        state.grid,
+        state.geometry,
+        state.scalars,
+        state.matter,
+    )
+    geometry = state.geometry.copy()
+    geometry.alpha = alpha
+
+    _, vacuum, _ = __import__(
+        "engine.v55_pirk_adapter",
+        fromlist=["vendor_modules"],
+    ).vendor_modules()
+    l2 = vacuum.primary_l2_rhs(state.grid, geometry)
+    l3 = __import__(
+        "engine.v55_pirk_adapter",
+        fromlist=["primary_l3_with_matter"],
+    ).primary_l3_with_matter(
+        state.grid,
+        geometry,
+        state.scalars,
+        state.matter,
+    )
+    k_rhs = l2["K"] + l3["K"]
+
+    # The CMC PDE is imposed using the same native fourth-order derivative
+    # rows used by primary_l2_rhs. The only exempt cell is the outer
+    # normalization point alpha(R)=1.
+    assert np.max(np.abs(k_rhs[:-1] - kdot_target)) < 1.0e-10
