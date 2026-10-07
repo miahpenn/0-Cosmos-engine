@@ -55,3 +55,6 @@ A coordinate-CFL central-clock control is being launched alongside the coupled a
 
 
 Coupled launch retry: the workflow is now present on the branch; this commit exists solely to trigger the full bidirectional D/CMC diagnostic.
+
+
+The coupled D-amplitude/CFL discriminator matrix is now active: D=0, 5e-11, 1e-10 crossed with CFL=0.06 and 0.03 at N=160, Rmax=80, target t=50.
