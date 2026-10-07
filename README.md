@@ -37,4 +37,4 @@ Manual GitHub Actions workflows under `.github/workflows/` are the canonical exp
 
 ## Campaign trigger
 
-The True-CMC stage-aware strong-field gate is being launched from the experimental branch using the repository's existing `[run-true-cmc-gates]` push trigger.
+The True-CMC stage-aware strong-field gate completed successfully at N=40,60,80 through t=24. The next gate is the existing matched-spacing enlarged-domain turnaround campaign `[run-true-cmc-domain]`.
