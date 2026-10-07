@@ -750,6 +750,31 @@ class V55ProductionKernel:
         i_conn, r_conn, v_conn = _witness(raw["connection"])
         i_H, r_H, v_H = _witness(H)
 
+        # Constraint localization/conditioning witnesses. These distinguish
+        # an absolute residual from the size of the terms it is cancelling and
+        # identify whether the defect is center, interior, or outer dominated.
+        vol = np.asarray(grid.volumes, dtype=float)
+        inner_mask = r <= min(20.0, 0.5 * grid.r_max)
+        outer_mask = r >= 0.8 * grid.r_max
+
+        def _weighted_l2(values, mask):
+            w = vol[mask]
+            v = np.asarray(values)[mask]
+            return float(np.sqrt(
+                np.sum(w * v * v) / max(np.sum(w), 1.0e-300)
+            ))
+
+        raw_H = np.asarray(raw["hamiltonian"], dtype=float)
+        raw_M = np.asarray(raw["momentum"], dtype=float)
+        normalized_H = np.abs(H) / (
+            np.abs(raw_H) + 16.0 * math.pi * np.abs(total.rho)
+            + 1.0e-30
+        )
+        normalized_M = np.abs(M) / (
+            np.abs(raw_M) + 8.0 * math.pi * np.abs(total.j)
+            + 1.0e-30
+        )
+
         roots = []
         sign_change = chi[:-1] * chi[1:] <= 0.0
         for i in np.where(sign_change)[0]:
@@ -786,7 +811,13 @@ class V55ProductionKernel:
             "j_outer": float(np.mean(total.j[outer])),
             "rho_total_max": float(np.max(total.rho)),
             "hamiltonian_max": float(np.max(np.abs(H[2:]))),
+            "hamiltonian_normalized_max": float(np.max(normalized_H[2:])),
+            "hamiltonian_l2_inner": _weighted_l2(H, inner_mask),
+            "hamiltonian_l2_outer": _weighted_l2(H, outer_mask),
             "momentum_max": float(np.max(np.abs(M[2:]))),
+            "momentum_normalized_max": float(np.max(normalized_M[2:])),
+            "momentum_l2_inner": _weighted_l2(M, inner_mask),
+            "momentum_l2_outer": _weighted_l2(M, outer_mask),
             "connection_max": float(
                 np.max(np.abs(raw["connection"][2:]))
             ),
@@ -802,7 +833,9 @@ class V55ProductionKernel:
             "vacuum_l3_K_max": float(np.max(np.abs(vacuum_l3["K"]))),
             "matter_l3_K_max": float(np.max(np.abs(matter_l3["K"]))),
             "lapse_min": float(np.min(geom.alpha)),
+            "lapse_min_r": float(r[int(np.argmin(geom.alpha))]),
             "lapse_max": float(np.max(geom.alpha)),
+            "lapse_max_r": float(r[int(np.argmax(geom.alpha))]),
             "Rdot_sigma": float(Rdot[surface]),
             "cmc_kdot": float(cmc_kdot),
             "cmc_residual_outer_max": float(
