@@ -121,22 +121,17 @@ def _cmc_operator_banded(
     return band
 
 
-def solve_cmc_lapse(
+
+
+
+def _solve_cmc_lapse_for_target(
     grid,
     geometry,
     scalars,
     matter,
-    outer_frac: float = 0.20,
-) -> tuple[np.ndarray, float]:
-    """Solve the stage-aware CMC lapse with the native spatial discretization.
-
-    The elliptic operator uses exactly the same fourth-order/parity derivative
-    rows as the evolved K equation. The PDE is enforced through the first
-    retained center cell and through the penultimate cell; the outermost cell
-    is the normalization alpha(R)=1. This removes the former mixed-order
-    center closure that allowed a spurious central K mode to grow with
-    resolution.
-    """
+    kdot: float,
+) -> np.ndarray:
+    """Solve the linear CMC lapse equation for a fixed Kdot target."""
     metric = metric_slice_from_q(grid, geometry)
     total = total_matter_projection(grid, geometry, scalars, matter)
 
@@ -151,20 +146,17 @@ def solve_cmc_lapse(
     Xp = _d1(grid, X, 1)
     c = -0.5 * ap / a + bp / b - Xp / X + 2.0 / r
 
-    # K_ij K^ij = 3/2 Aa^2 + K^2/3 in spherical BSSN.
     Q = (
         1.5 * geometry.Aa * geometry.Aa
         + geometry.K * geometry.K / 3.0
         + 4.0 * math.pi * (total["rho"] + total["pr"] + 2.0 * total["pt"])
     )
 
-    kdot = target_kdot(grid, geometry, scalars, matter)
-    m = Q / inv
     rhs = np.zeros(grid.n, dtype=float)
-    rhs[:-1] = -kdot / inv[:-1]
+    rhs[:-1] = -float(kdot) / inv[:-1]
     rhs[-1] = 1.0
 
-    band = _cmc_operator_banded(grid, c, m)
+    band = _cmc_operator_banded(grid, c, Q / inv)
     alpha = solve_banded((4, 4), band, rhs, check_finite=False)
 
     if not np.all(np.isfinite(alpha)):
@@ -174,4 +166,64 @@ def solve_cmc_lapse(
             "CMC lapse solve has no positive solution on this stage: "
             f"min_alpha={float(np.min(alpha)):.17e}"
         )
-    return alpha, kdot
+    return alpha
+
+def solve_cmc_lapse(
+    grid,
+    geometry,
+    scalars,
+    matter,
+    outer_frac: float = 0.20,
+) -> tuple[np.ndarray, float]:
+    """Solve the stage-aware CMC condition self-consistently.
+
+    The Kdot target is defined as the proper-volume mean of the actual
+    current K right-hand side. Because that RHS contains the lapse Hessian,
+    the gauge target and lapse are coupled. Iterate that *derived* target
+    with the elliptic solve until the target is self-consistent. This is a
+    numerical fixed-point solve of the stated CMC condition, not a physical
+    fitting parameter.
+    """
+    del outer_frac
+    trial = geometry.copy()
+    previous_target = None
+    alpha = np.asarray(trial.alpha, dtype=float).copy()
+
+    for _ in range(32):
+        trial.alpha = alpha
+        target = target_kdot(grid, trial, scalars, matter)
+        alpha_new = _solve_cmc_lapse_for_target(
+            grid, trial, scalars, matter, target
+        )
+
+        if previous_target is not None:
+            target_scale = max(abs(target), abs(previous_target), 1.0e-14)
+            target_converged = (
+                abs(target - previous_target) <= 1.0e-11 * target_scale
+            )
+            alpha_scale = max(float(np.max(np.abs(alpha_new))), 1.0e-14)
+            alpha_converged = (
+                float(np.max(np.abs(alpha_new - alpha))) <=
+                1.0e-11 * alpha_scale
+            )
+            if target_converged and alpha_converged:
+                alpha = alpha_new
+                trial.alpha = alpha
+                target = target_kdot(grid, trial, scalars, matter)
+                return alpha, target
+
+        previous_target = target
+        alpha = alpha_new
+
+    trial.alpha = alpha
+    target = target_kdot(grid, trial, scalars, matter)
+    target_scale = max(abs(target), 1.0)
+    residual = np.max(np.abs(
+        target_kdot(grid, trial, scalars, matter) - target
+    ))
+    if not np.isfinite(residual) or residual > 1.0e-8 * target_scale:
+        raise FloatingPointError(
+            "CMC target/lapse fixed-point iteration did not converge: "
+            f"target={target:.17e}, residual={residual:.17e}"
+        )
+    return alpha, target
