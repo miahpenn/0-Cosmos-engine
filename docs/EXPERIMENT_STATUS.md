@@ -42,6 +42,10 @@ This kernel is **unvalidated** until the smoke test and controlled strong-field 
 
 The moving-gauge strong-field and resolution workflows retain `workflow_dispatch` for compatibility and also accept an explicit branch-push launch token. They run only when the commit message contains `[run-moving-gauge-gates]`, so ordinary experimental commits cannot launch the expensive campaigns. The campaign jobs now fail CI when `run_campaign` reports a numerical failure instead of allowing a numerical failure to appear as a successful workflow.
 
+## Campaign launch
+
+Moving-gauge smoke/strong-field/resolution gates are now launched from the experimental branch through the explicit commit token `[run-moving-gauge-gates]`. This keeps `main` untouched and prevents ordinary branch pushes from starting expensive campaigns.
+
 ## Current next gate
 
 1. Run the moving-gauge smoke/regression path.
