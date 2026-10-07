@@ -49,6 +49,78 @@ def target_kdot(grid, geometry, scalars, matter, outer_frac: float = 0.20) -> fl
     return float(np.sum(weights * raw) / total_weight)
 
 
+def _fourth_derivative_row(grid, i: int, parity: int, order: int) -> dict[int, float]:
+    """Return one row of the grid's native fourth-order derivative operator.
+
+    This mirrors SphericalCellGrid.cell_derivative_fourth exactly, including
+    the parity ghosts at the regular center and the one-sided outer closure.
+    Keeping the CMC elliptic operator on the same discrete derivative is
+    essential: the K evolution and the CMC solve must use one operator.
+    """
+    if order not in (1, 2):
+        raise ValueError("order must be one or two")
+    n = grid.n
+    h = float(grid.dr)
+    if i < 0 or i >= n - 1:
+        raise ValueError("CMC derivative row must be a physical cell before the outer boundary")
+    coeff = (
+        np.asarray([1.0, -8.0, 0.0, 8.0, -1.0], dtype=float)
+        if order == 1
+        else np.asarray([-1.0, 16.0, -30.0, 16.0, -1.0], dtype=float)
+    )
+    coeff /= (12.0 * h**order)
+
+    if i < n - 2:
+        row: dict[int, float] = {}
+        for k, weight in enumerate(coeff):
+            ext_index = i + k
+            if ext_index == 0:
+                j = 1
+                factor = parity
+            elif ext_index == 1:
+                j = 0
+                factor = parity
+            else:
+                j = ext_index - 2
+                factor = 1.0
+            row[j] = row.get(j, 0.0) + factor * float(weight)
+        return row
+
+    indices = np.arange(n - 5, n, dtype=int)
+    offsets = indices.astype(float) - float(i)
+    vandermonde = np.vstack(
+        [offsets**power for power in range(5)]
+    )
+    target = np.zeros(5, dtype=float)
+    target[order] = float(math.factorial(order))
+    weights = np.linalg.solve(vandermonde, target) / h**order
+    return {int(j): float(weight) for j, weight in zip(indices, weights)}
+
+
+def _cmc_operator_banded(
+    grid,
+    c: np.ndarray,
+    m: np.ndarray,
+) -> np.ndarray:
+    """Assemble the native cell-centered CMC operator in banded form."""
+    n = grid.n
+    lower = upper = 4
+    band = np.zeros((lower + upper + 1, n), dtype=float)
+
+    for i in range(n - 1):
+        d2 = _fourth_derivative_row(grid, i, 1, 2)
+        d1 = _fourth_derivative_row(grid, i, 1, 1)
+        for j, weight in d2.items():
+            band[upper + i - j, j] += weight
+        for j, weight in d1.items():
+            band[upper + i - j, j] += float(c[i]) * weight
+        band[upper, i] -= float(m[i])
+
+    # The outer slice fixes the remaining CMC time normalization.
+    band[upper, n - 1] = 1.0
+    return band
+
+
 def solve_cmc_lapse(
     grid,
     geometry,
@@ -56,7 +128,15 @@ def solve_cmc_lapse(
     matter,
     outer_frac: float = 0.20,
 ) -> tuple[np.ndarray, float]:
-    """Solve the positive CMC lapse equation on the supplied stage."""
+    """Solve the stage-aware CMC lapse with the native spatial discretization.
+
+    The elliptic operator uses exactly the same fourth-order/parity derivative
+    rows as the evolved K equation. The PDE is enforced through the first
+    retained center cell and through the penultimate cell; the outermost cell
+    is the normalization alpha(R)=1. This removes the former mixed-order
+    center closure that allowed a spurious central K mode to grow with
+    resolution.
+    """
     metric = metric_slice_from_q(grid, geometry)
     total = total_matter_projection(grid, geometry, scalars, matter)
 
@@ -78,31 +158,15 @@ def solve_cmc_lapse(
         + 4.0 * math.pi * (total["rho"] + total["pr"] + 2.0 * total["pt"])
     )
 
-    kdot = target_kdot(grid, geometry, scalars, matter, outer_frac)
+    kdot = target_kdot(grid, geometry, scalars, matter)
     m = Q / inv
-    rhs = -kdot / inv
+    rhs = np.zeros(grid.n, dtype=float)
+    rhs[:-1] = -kdot / inv[:-1]
+    rhs[-1] = 1.0
 
-    n = grid.n
-    h = grid.dr
-    band = np.zeros((3, n), dtype=float)
-    bvec = np.zeros(n, dtype=float)
+    band = _cmc_operator_banded(grid, c, m)
+    alpha = solve_banded((4, 4), band, rhs, check_finite=False)
 
-    # Regular center: alpha'(0)=0.
-    band[1, 0] = 1.0
-    band[0, 1] = -1.0
-
-    for i in range(1, n - 1):
-        ci = c[i] / (2.0 * h)
-        band[2, i - 1] = 1.0 / h**2 - ci
-        band[1, i] = -2.0 / h**2 - m[i]
-        band[0, i + 1] = 1.0 / h**2 + ci
-        bvec[i] = rhs[i]
-
-    # Outer normalization fixes the remaining CMC gauge scale.
-    band[1, n - 1] = 1.0
-    bvec[n - 1] = 1.0
-
-    alpha = solve_banded((1, 1), band, bvec, check_finite=False)
     if not np.all(np.isfinite(alpha)):
         raise FloatingPointError("CMC lapse solve returned non-finite values")
     if float(np.min(alpha)) <= 0.0:
