@@ -6,15 +6,14 @@ on:
     branches:
       - 0star-central-clock
 
-concurrency:
-  group: zero-star-true-cmc-turnaround
-  cancel-in-progress: true
-
 env:
   PYTHONPATH: .
 
 jobs:
   true-cmc-turnaround:
+    concurrency:
+      group: zero-star-true-cmc-turnaround
+      cancel-in-progress: true
     if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[run-true-cmc-turnaround]')
     runs-on: ubuntu-latest
     timeout-minutes: 720
