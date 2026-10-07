@@ -17,3 +17,10 @@ def test_production_handoff_policy_is_event_level():
     source = open("engine/production_kernel.py", encoding="utf-8").read()
     assert "if event is not None:" in source
     assert "candidate.handoffs.append(hp)" in source
+
+
+
+def test_run_production_reports_reexpansion_event_name():
+    source = open("engine/run_production.py", encoding="utf-8").read()
+    assert 'e.kind == "re-expansion_crossing"' in source
+    assert 'e.kind == "re_expansion_crossing"' not in source
