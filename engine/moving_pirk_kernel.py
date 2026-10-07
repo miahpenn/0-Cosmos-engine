@@ -49,6 +49,28 @@ class V55MovingPIRKKernel(V55ProductionKernel):
         projected = V55ProductionKernel._enforce_center_regularity(
             grid, geometry
         )
+
+        # B is independent in the moving gauge, but it is still an odd
+        # spherical field. The pinned vacuum projector gets this for free by
+        # replacing B with 3/4 Lambda. Preserve the independent B evolution,
+        # then impose only the same centre regularity class on B itself.
+        r = np.asarray(grid.centers)
+        if len(r) < 4:
+            raise ValueError("moving-gauge centre projection needs at least 4 cells")
+        quotient = B_saved / r
+        x = r**2
+        target = x[0]
+        nodes = x[1:4]
+        samples = quotient[1:4]
+        value = 0.0
+        for j in range(3):
+            weight = 1.0
+            for k in range(3):
+                if j != k:
+                    weight *= (target - nodes[k]) / (nodes[j] - nodes[k])
+            value += weight * samples[j]
+
+        B_saved[0] = r[0] * value
         projected.B = B_saved
         return projected
 
@@ -157,7 +179,12 @@ class V55MovingPIRKKernel(V55ProductionKernel):
         )
         g1.B = g0.B + 0.75 * (g1.Lambda - g0.Lambda)
         g1 = self._enforce_moving_center_regularity(grid, g1)
-        self._apply_outer_light_boundary(grid, g1, s1, m1)
+        # Do not apply the legacy frozen R0 light-boundary reconstruction here.
+        # That condition was derived for the nonadvective lapse/algebraic-B
+        # characteristic system. The moving gauge has advective 1+log lapse
+        # and independently evolved B, so importing that boundary condition
+        # would silently mix two different principal systems. Rmax=40 keeps the
+        # strong-field region causally interior for this gate.
         g1.assert_finite_positive()
 
         stage1 = ProductionState(
@@ -232,7 +259,8 @@ class V55MovingPIRKKernel(V55ProductionKernel):
         gnew.B = g0.B + 0.75 * (gnew.Lambda - g0.Lambda)
 
         gnew = self._enforce_moving_center_regularity(grid, gnew)
-        self._apply_outer_light_boundary(grid, gnew, snew, mnew)
+        # Same moving-gauge boundary policy as the predictor: no legacy
+        # nonadvective/algebraic-B characteristic reconstruction.
         gnew.assert_finite_positive()
 
         candidate = ProductionState(
