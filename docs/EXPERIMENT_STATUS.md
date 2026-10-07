@@ -27,3 +27,21 @@ The production kernel reapplies the existing spherical-center algebraic regulari
 ## Interpretation rule
 
 A persistent lapse collapse after the repair must be tested against regional/normalized constraint diagnostics and resolution/CFL/domain convergence before being called a physical clock-stalling or singular behavior.
+
+## Central proper-time campaign result
+
+Run #107 on the repaired branch completed its CI job with all 83 repository tests passing, but the numerical campaign is quarantined. All three resolutions encountered genuine radiation admissibility failures near t≈21.2–21.5, accompanied by severe lapse/CMC deformation and growing outer/constraint defects. This is evidence against the central-proper-time CMC representation as the current strong-field continuation method, not evidence of a radiation-model failure.
+
+## Moving-gauge repair now under validation
+
+A separate kernel, `engine/moving_pirk_kernel.py`, now uses the pinned reference moving-puncture/1+log PIRK2 ordering for the strong-field representation while retaining the existing V5.5 scalar, matter, and stress-energy equations. The vendor center-regularity projection is retained, but its algebraic `B=3/4 Lambda` assignment is not allowed to overwrite the independently evolved moving-gauge B field.
+
+This kernel is **unvalidated** until the smoke test and controlled strong-field resolution/CFL gates pass. No bounce, horizon crossing, or physical singularity is claimed from the implementation alone.
+
+## Current next gate
+
+1. Run the moving-gauge smoke/regression path.
+2. Run the manual moving-gauge strong-field gate.
+3. Run the manual N=40/60/80 resolution audit at controlled CFL.
+4. Compare invariant witnesses, constraint localization, radiation admissibility, trapped roots, and Misner-Sharp current against the archived reference.
+5. Only then decide whether to extend through the former ~28 lapse-collapse region and reconnect/extend long bidirectional runs.
