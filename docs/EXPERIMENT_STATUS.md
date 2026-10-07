@@ -75,3 +75,6 @@ Moving-gauge smoke/strong-field/resolution gates are now launched from the exper
 ## Latest moving-gauge diagnostic run
 
 The first controlled moving-gauge campaign reached the numerical campaign step at all requested resolutions, but the jobs failed and discarded their ledgers because artifact upload was conditional on success. The workflow is now repaired to preserve ledgers on numerical failure. The next controlled run will capture the exact first-failure state before any physics-layer repair.
+
+## True-CMC campaign launch
+The N=40/60/80 stage-aware true-CMC gate is now authorized to run at Rmax=40, CFL=0.06, final_time=24.0. The campaign is diagnostic/acceptance gating only; no physical interpretation is attached to a successful numerical continuation.
