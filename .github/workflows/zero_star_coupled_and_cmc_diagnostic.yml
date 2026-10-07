@@ -1,0 +1,269 @@
+name: "[0star] coupled machine and CMC operator diagnostic"
+
+on:
+  push:
+    branches:
+      - 0star-central-clock
+
+jobs:
+  coupled-and-cmc-diagnostic:
+    if: contains(github.event.head_commit.message, '[run-coupled-diagnostic]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    env:
+      PYTHONPATH: .
+    steps:
+      - name: Checkout engine and pinned numerical kernel
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Repository tests
+        run: python -m pytest -q
+
+      - name: Run full bidirectional V5.5 D sensitivity and CMC operator probe
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          import numpy as np
+
+          from engine.production_kernel import ProductionState, V55ProductionKernel
+          from engine.true_cmc_pirk_kernel import V55TrueCMCPIRKKernel
+          from engine.v55_initial import build_initial_data
+          from engine import v55_pirk_adapter as adapter
+          from engine import cmc_gauge
+          from engine.handoff import ejected_phase, local_phase
+
+          N, RMAX, CFL, TARGET = 160, 80.0, 0.06, 50.0
+          D_CASES = (1.0e-10, 1.0e-9, 1.0e-8)
+          SAMPLE_TIMES = (0.0, 20.0, 30.0, 35.0, 38.0, 40.0, 42.0, 45.0, 46.0, 47.0, 50.0)
+          base = Path("runs/0star-coupled-diagnostic")
+          base.mkdir(parents=True, exist_ok=True)
+
+          def make_coupled_kernel(damp):
+              class CoupledDKernel(V55ProductionKernel):
+                  def initialize(self, resolution=N, r_max=RMAX, **kwargs):
+                      grid_ops, vacuum, _ = adapter.vendor_modules()
+                      grid = grid_ops.SphericalCellGrid(resolution, r_max)
+                      init = build_initial_data(
+                          grid, vacuum.flat_state,
+                          D_amplitude=damp,
+                          include_radiation=True,
+                      )
+                      geometry = self._enforce_center_regularity(grid, init.geometry)
+                      geometry.alpha = self._solve_lapse(
+                          grid, geometry, init.scalars, init.matter
+                      )[0]
+                      geometry.beta.fill(0.0)
+                      geometry.B.fill(0.0)
+                      return ProductionState(
+                          grid=grid, geometry=geometry,
+                          scalars=init.scalars, matter=init.matter,
+                          e_folds=0.0,
+                      )
+              return CoupledDKernel()
+
+          coupled_summary = {}
+          for damp in D_CASES:
+              kernel = make_coupled_kernel(damp)
+              state = kernel.initialize()
+              dt = CFL * state.grid.dr
+              rows = []
+              failure = None
+
+              def capture(st):
+                  f = st.scalars
+                  obs = kernel.diagnostics(st, profiles=False)
+                  rows.append({
+                      "t": float(st.t),
+                      "tau": float(st.tau),
+                      "H_eff": float(obs["H_eff"]),
+                      "H_center": float(obs["H_center"]),
+                      "tau_rate": float(obs["tau_rate"]),
+                      "D0": float(f.D[0]),
+                      "PD0": float(f.PD[0]),
+                      "theta_D": float(ejected_phase(f.D[0], f.PD[0])),
+                      "S0": float(f.S[0]),
+                      "PS0": float(f.PS[0]),
+                      "theta_S": float(local_phase(f.S[0], f.PS[0])),
+                      "phi0": float(f.phi[0]),
+                      "Pi0": float(f.Pi[0]),
+                      "lapse_min": float(obs["lapse_min"]),
+                      "lapse_max": float(obs["lapse_max"]),
+                      "R_sigma": float(obs["R_sigma"]),
+                      "M_MS": float(obs["M_MS"]),
+                      "chi_sigma": float(obs["chi_sigma"]),
+                      "flux_T": float(obs["flux_T"]),
+                      "work_pR": float(obs["work_pR"]),
+                      "hamiltonian_max": float(obs["hamiltonian_max"]),
+                      "momentum_max": float(obs["momentum_max"]),
+                      "cmc_residual_outer_max": float(obs["cmc_residual_outer_max"]),
+                      "trapped_root_count": len(obs.get("trapped_roots", [])),
+                  })
+
+              capture(state)
+              next_sample = 1
+              while state.t < TARGET:
+                  try:
+                      state = kernel.step(state, min(dt, TARGET - state.t))
+                      while next_sample < len(SAMPLE_TIMES) and state.t >= SAMPLE_TIMES[next_sample] - 0.5*dt:
+                          capture(state)
+                          next_sample += 1
+                      state.geometry.assert_finite_positive()
+                  except Exception as exc:
+                      failure = {
+                          "type": type(exc).__name__,
+                          "message": str(exc),
+                          "t": float(state.t),
+                          "tau": float(state.tau),
+                      }
+                      break
+
+              out = base / ("D" + format(damp, ".0e"))
+              out.mkdir(parents=True, exist_ok=True)
+              result = {
+                  "D_amplitude": damp,
+                  "resolution": N,
+                  "r_max": RMAX,
+                  "dr": float(state.grid.dr),
+                  "cfl": CFL,
+                  "target_time": TARGET,
+                  "include_radiation": True,
+                  "coupling_model": "single metric + total Tmunu + locked DM/phi exchange; no phenomenological reciprocal source",
+                  "t_final": float(state.t),
+                  "tau_final": float(state.tau),
+                  "failure": failure,
+                  "turnaround_events": sum(e.kind == "turnaround" for e in state.cycle.events),
+                  "reexpansion_events": sum(e.kind == "re-expansion_crossing" for e in state.cycle.events),
+                  "handoff_events": len(state.handoffs),
+                  "events": [e.__dict__ for e in state.cycle.events],
+                  "samples": rows,
+              }
+              (out/"result.json").write_text(json.dumps(result, indent=2, default=float))
+              coupled_summary[format(damp, ".0e")] = result
+
+          # Independent operator/gauge probe at the same production-scale
+          # resolution/domain. This changes no equations or gauge definitions.
+          cmc_kernel = V55TrueCMCPIRKKernel()
+          state = cmc_kernel.initialize(
+              resolution=N, r_max=RMAX,
+              include_radiation=True, D_amplitude=1.0e-10
+          )
+          dt = CFL * state.grid.dr
+          probe_times = (20.0, 30.0, 35.0, 40.0, 42.0, 45.0, 46.0, 47.0, 50.0)
+          probes = []
+          failure = None
+
+          def band_to_dense(band, lower, upper):
+              n = band.shape[1]
+              A = np.zeros((n,n), dtype=float)
+              for i in range(n):
+                  for j in range(max(0, i-upper), min(n-1, i+lower)+1):
+                      A[i,j] = band[upper+i-j,j]
+              return A
+
+          def probe(st):
+              grid, geom, scalars, matter = st.grid, st.geometry, st.scalars, st.matter
+              r = np.asarray(grid.centers)
+              a, b, X = np.asarray(geom.a), np.asarray(geom.b), np.asarray(geom.X)
+              inv = X*X/a
+              ap = cmc_gauge._d1(grid,a,1)
+              bp = cmc_gauge._d1(grid,b,1)
+              Xp = cmc_gauge._d1(grid,X,1)
+              c = -0.5*ap/a + bp/b - Xp/X + 2.0/r
+              total = cmc_gauge.total_matter_projection(grid,geom,scalars,matter)
+              Q = 1.5*geom.Aa*geom.Aa + geom.K*geom.K/3.0 + 4.0*np.pi*(total["rho"]+total["pr"]+2.0*total["pt"])
+              m = Q/inv
+              kdot = cmc_gauge.target_kdot(grid,geom,scalars,matter)
+              rhs = np.zeros(grid.n)
+              rhs[:-1] = -kdot/inv[:-1]
+              rhs[-1] = 1.0
+              band = cmc_gauge._cmc_operator_banded(grid,c,m)
+              A = band_to_dense(band,4,4)
+              svals = np.linalg.svd(A, compute_uv=False)
+              alpha, _ = cmc_gauge.solve_cmc_lapse(grid,geom,scalars,matter)
+              residual = A @ alpha - rhs
+              obs = cmc_kernel.diagnostics(st, profiles=False)
+              return {
+                  "t": float(st.t),
+                  "tau": float(st.tau),
+                  "sigma_max": float(svals[0]),
+                  "sigma_min": float(svals[-1]),
+                  "condition_number": float(svals[0]/max(svals[-1],1e-300)),
+                  "operator_residual_max": float(np.max(np.abs(residual[:-1]))),
+                  "operator_residual_l2": float(np.sqrt(np.mean(residual[:-1]**2))),
+                  "alpha_min": float(np.min(alpha)),
+                  "alpha_max": float(np.max(alpha)),
+                  "alpha_boundary": float(alpha[-1]),
+                  "alpha_penultimate": float(alpha[-2]),
+                  "cmc_kdot": float(kdot),
+                  "H_eff": float(obs["H_eff"]),
+                  "cmc_residual_outer_max": float(obs["cmc_residual_outer_max"]),
+              }
+
+          next_probe = 0
+          while state.t < TARGET:
+              try:
+                  state = cmc_kernel.step(state, min(dt, TARGET - state.t))
+                  while next_probe < len(probe_times) and state.t >= probe_times[next_probe] - 0.5*dt:
+                      probes.append(probe(state))
+                      next_probe += 1
+                  state.geometry.assert_finite_positive()
+              except Exception as exc:
+                  failure = {
+                      "type": type(exc).__name__,
+                      "message": str(exc),
+                      "t": float(state.t),
+                      "tau": float(state.tau),
+                  }
+                  try:
+                      probes.append(probe(state))
+                  except Exception:
+                      pass
+                  break
+
+          cmc_result = {
+              "resolution": N, "r_max": RMAX, "dr": float(state.grid.dr),
+              "cfl": CFL, "target_time": TARGET,
+              "t_final": float(state.t), "tau_final": float(state.tau),
+              "failure": failure, "probes": probes,
+          }
+          (base/"cmc_operator_result.json").write_text(
+              json.dumps(cmc_result, indent=2, default=float)
+          )
+          (base/"summary.json").write_text(
+              json.dumps({
+                  "coupled": coupled_summary,
+                  "cmc_operator": cmc_result,
+              }, indent=2, default=float)
+          )
+          print(json.dumps({
+              "coupled": {k: {
+                  "t_final": v["t_final"],
+                  "tau_final": v["tau_final"],
+                  "turnaround_events": v["turnaround_events"],
+                  "reexpansion_events": v["reexpansion_events"],
+                  "handoff_events": v["handoff_events"],
+                  "failure": v["failure"],
+                  "last_sample": v["samples"][-1],
+              } for k,v in coupled_summary.items()},
+              "cmc_operator": cmc_result,
+          }, indent=2, default=float))
+          PY
+
+      - name: Upload coupled and CMC diagnostic
+        uses: actions/upload-artifact@v4
+        with:
+          name: 0star-coupled-and-cmc-diagnostic
+          path: runs/0star-coupled-diagnostic
+          if-no-files-found: error
