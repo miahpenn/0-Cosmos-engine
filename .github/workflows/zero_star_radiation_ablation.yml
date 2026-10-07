@@ -1,3 +1,4 @@
+# Clean-head rerun after fixing workflow boolean expansion.
 # Controlled radiation-sector ablation diagnostic.
 # This is diagnostic only: it compares the same V5.5 CMC engine with
 # radiation included and excluded, without changing any equation or
