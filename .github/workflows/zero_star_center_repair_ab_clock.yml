@@ -1,0 +1,31 @@
+name: "[0star] center repair A/B + spatial clock profile"
+
+on:
+  push:
+    branches: ["0star-central-clock"]
+  workflow_dispatch:
+
+jobs:
+  diagnostic:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[run-center-ab]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    env:
+      PYTHONPATH: .
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements.txt
+      - name: Repository tests
+        run: pytest -q
+      - name: Run center A/B and radial clock profile
+        run: python engine/center_repair_ab_clock_profile.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: 0star-center-repair-ab-clock-profile
+          path: runs/0star-center-repair-ab/report.json
+          if-no-files-found: error
