@@ -35,6 +35,10 @@ Draft PR #1: archive-derived central proper-time CMC gauge diagnostic.
 
 Manual GitHub Actions workflows under `.github/workflows/` are the canonical expensive-run entry points. Artifacts should be preserved with each campaign and compared before any subsequent physics interpretation.
 
-## Campaign trigger
+## Campaign progression
 
-The True-CMC stage-aware strong-field gate completed successfully at N=40,60,80 through t=24. The next gate is the existing matched-spacing enlarged-domain turnaround campaign `[run-true-cmc-domain]`.
+The True-CMC stage-aware strong-field gate completed successfully at N=40,60,80 through t=24.
+
+The matched-spacing enlarged-domain turnaround gate then completed successfully at N=80,120,160 through t=40, with one turnaround event and one handoff in each resolution and no re-expansion before t=40.
+
+The next gate is the existing long post-turnaround campaign `[run-true-cmc-post]`.
