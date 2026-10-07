@@ -46,3 +46,6 @@ The next gate is the existing long post-turnaround campaign `[run-true-cmc-post]
 
 ## Launch note
 The full bidirectional production diagnostic is being launched now: D-amplitude sensitivity plus an independent CMC-operator probe. This launch changes no physical equations.
+
+
+The D-mode causality/source-order diagnostic pair is also being launched to compare the response across initial D amplitudes and source-order observables.
