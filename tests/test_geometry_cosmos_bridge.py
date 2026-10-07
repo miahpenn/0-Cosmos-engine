@@ -47,7 +47,7 @@ def test_geometry_bridge_carries_only_derived_h():
     state = construct_present_day()
     out = geometry_driven_step(state, p, state.H, 0.0, 0.1)
     assert out.H == 0.0
-    assert out.a < state.a
+    assert out.a > state.a
     assert out.rho_dm < state.rho_dm
     assert out.rho_b < state.rho_b
     assert out.rho_r < state.rho_r
