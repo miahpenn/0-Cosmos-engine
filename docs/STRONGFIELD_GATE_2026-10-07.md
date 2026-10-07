@@ -88,3 +88,25 @@ and diagnostic branches cannot silently diverge in their gauge operator or CMC t
 The next controlled gate is the same N=40/60/80, Rmax=40, CFL=0.06, t=24 campaign. Promotion
 requires actual resolution improvement in the invariant/constraint witnesses, not merely a
 successful run.
+
+## 2026-10-07: first same-CFL turnaround result
+
+The first same-CFL True-CMC turnaround campaign used Rmax=40, CFL=0.06 and N=40/60/80. All three resolutions crossed H_eff=0 before the later finite-radius breakdown:
+
+| N | turnaround t | turnaround tau | later numerical boundary |
+|---:|---:|---:|---|
+| 40 | 27.6000 | 21.21158 | t≈34.44 |
+| 60 | 27.5600 | 21.21044 | t≈34.28 |
+| 80 | 27.5700 | 21.21253 | t≈34.23 |
+
+The turnaround times agree to approximately 0.15% across the three resolutions. This is a strong same-CFL dynamical convergence witness for the H_eff=0 crossing itself.
+
+The later failures are qualitatively different from the earlier lapse-collapse failure. The lapse remains positive, while the outer retained shell develops very large conformal-geometry derivatives and Hamiltonian/momentum/connection residuals. The failure is therefore classified as finite-radius outer-domain contamination, not as a failed turnaround or a demonstrated physical singularity.
+
+At the recorded failure states, the radiation characteristic state remains admissible at the outermost cell. The divergent constraint terms are dominated by the outer geometry variables. This does not justify a physical interpretation of the late trapped roots.
+
+The next gate enlarges Rmax from 40 to 80 while preserving the same physical spacing: N=80/120/160 gives dr=1, 2/3, 1/2, matching the earlier N=40/60/80 spacings. This directly tests whether the late failure follows the finite outer boundary.
+
+## 2026-10-07: event-ledger repair
+
+The production kernel previously appended a HandoffPoint at every timestep. That was a bookkeeping defect: a handoff is defined by an actual cycle crossing, while the continuous trajectory belongs in history. The kernel now records handoffs only when CycleLedger.observe() emits a real turnaround or re-expansion event.
