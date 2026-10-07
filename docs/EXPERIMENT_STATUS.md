@@ -78,3 +78,13 @@ The first controlled moving-gauge campaign reached the numerical campaign step a
 
 ## True-CMC campaign launch
 The N=40/60/80 stage-aware true-CMC gate is now authorized to run at Rmax=40, CFL=0.06, final_time=24.0. The campaign is diagnostic/acceptance gating only; no physical interpretation is attached to a successful numerical continuation.
+
+## Archived moving-gauge failure state
+
+The captured moving-puncture runs confirm a common late numerical boundary in both resolutions before the current boundary/centre repair was applied:
+
+- N=40, CFL=0.015: failure at t≈27.18; lapse minimum ≈1.76e-21 at the first retained cell r=0.5; lapse maximum ≈3.42e-9 at r=34.5; Hamiltonian maximum ≈7.34 with outer H L2 ≈2.85; determinant constraint remained at machine precision.
+- N=60, CFL=0.010: failure at t≈27.36; lapse minimum ≈7.24e-22 at r=1/3; lapse maximum ≈4.41e-9 at r=35.67; Hamiltonian maximum ≈6.15 with outer H L2 ≈1.97; determinant constraint remained at machine precision.
+
+The dominant late errors are therefore in the outer gauge/geometry region while the determinant identity stays exact. Radiation remains physically admissible in the reported final ledgers. This points to the moving-gauge outer continuation layer, not to the radiation source model or centre determinant repair.
+
