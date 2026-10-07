@@ -207,17 +207,28 @@ def _reconstructed_primitive(
     i: int,
     side: str,
     gamma_rr: float,
+    species: Species | None = None,
 ) -> FluidPrimitive:
     if side not in ("left", "right"):
         raise ValueError("side must be left or right")
-    attrs = {}
-    for name in ("rho", "pressure", "v_r"):
-        vals = np.asarray([getattr(q, name) for q in prim])
-        lo, hi = _reconstruct(vals, i)
-        attrs[name] = lo if side == "left" else hi
-    rho = max(0.0, attrs["rho"])
-    pressure = max(0.0, attrs["pressure"])
-    v = attrs["v_r"]
+
+    rho_vals = np.asarray([q.rho for q in prim])
+    v_vals = np.asarray([q.v_r for q in prim])
+    rho_lo, rho_hi = _reconstruct(rho_vals, i)
+    v_lo, v_hi = _reconstruct(v_vals, i)
+    rho = max(0.0, rho_lo if side == "left" else rho_hi)
+    v = v_lo if side == "left" else v_hi
+
+    if species is Species.RADIATION:
+        # Radiation is defined by p=rho/3. Reconstructing rho and p
+        # independently can violate the equation of state at a face and
+        # generate an inconsistent Riemann state in the strong-field regime.
+        pressure = rho / 3.0
+    else:
+        pressure_vals = np.asarray([q.pressure for q in prim])
+        p_lo, p_hi = _reconstruct(pressure_vals, i)
+        pressure = max(0.0, p_lo if side == "left" else p_hi)
+
     vmax = (1.0 - 1.0e-12) / math.sqrt(gamma_rr)
     v = max(-vmax, min(vmax, v))
     return FluidPrimitive(
@@ -483,8 +494,8 @@ def evolve_species(
             gamma_thth_inv=0.5 * (m0.gamma_thth_inv + m1.gamma_thth_inv),
             sqrt_gamma=0.5 * (m0.sqrt_gamma + m1.sqrt_gamma),
         )
-        ql = _reconstructed_primitive(prim, i, "right", mf.gamma_rr)
-        qr = _reconstructed_primitive(prim, i + 1, "left", mf.gamma_rr)
+        ql = _reconstructed_primitive(prim, i, "right", mf.gamma_rr, species)
+        qr = _reconstructed_primitive(prim, i + 1, "left", mf.gamma_rr, species)
         face_flux[i + 1] = _hll_flux(mf, ql, qr, species)
 
     # Causal/outflow outer closure: continue the last physical state.
