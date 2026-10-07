@@ -61,3 +61,6 @@ The coupled D-amplitude/CFL discriminator matrix is now active: D=0, 5e-11, 1e-1
 
 
 The coupled D phase-lock discriminator is now active: fixed D amplitude with phase rotations at -pi/2, 0, pi/4, pi/2 on the full bidirectional machine.
+
+
+Phase-lock retry uses immutable ScalarFields replacement; no physical equations changed.
