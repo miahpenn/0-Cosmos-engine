@@ -70,3 +70,6 @@ The full bidirectional machine is also being tested at Rmax=160, N=320 (fixed dr
 
 
 [run-coupled-r160-mid] Launch high-domain intermediate D=5e-11 control.
+
+
+[run-coupled-r160-roff] Launch high-domain radiation-off D=1e-10 control.
