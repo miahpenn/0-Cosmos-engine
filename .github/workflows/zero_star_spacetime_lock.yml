@@ -1,0 +1,139 @@
+name: "[0star] full space-time D->geometry lock"
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - 0star-central-clock
+
+jobs:
+  simulate:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[run-spacetime-lock]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 720
+    strategy:
+      fail-fast: false
+      max-parallel: 6
+      matrix:
+        include:
+          - label: D0-on-N160
+            damp: "0.0"
+            radiation: "1"
+            resolution: 160
+            rmax: 160.0
+            cfl: 0.03
+          - label: D0-on-N320
+            damp: "0.0"
+            radiation: "1"
+            resolution: 320
+            rmax: 160.0
+            cfl: 0.03
+          - label: D1e10-on-N160
+            damp: "1.0e-10"
+            radiation: "1"
+            resolution: 160
+            rmax: 160.0
+            cfl: 0.03
+          - label: D1e4-on-N160
+            damp: "1.0e-4"
+            radiation: "1"
+            resolution: 160
+            rmax: 160.0
+            cfl: 0.03
+          - label: D1e4-off-N160
+            damp: "1.0e-4"
+            radiation: "0"
+            resolution: 160
+            rmax: 160.0
+            cfl: 0.03
+          - label: D1e4-on-N320
+            damp: "1.0e-4"
+            radiation: "1"
+            resolution: 320
+            rmax: 160.0
+            cfl: 0.03
+
+    env:
+      PYTHONPATH: .
+      DAMP: ${{ matrix.damp }}
+      RADIATION: ${{ matrix.radiation }}
+      RESOLUTION: ${{ matrix.resolution }}
+      RMAX: ${{ matrix.rmax }}
+      CFL: ${{ matrix.cfl }}
+      CASE_LABEL: ${{ matrix.label }}
+      TARGET: "22.5"
+      SAMPLE_DT: "0.25"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Repository tests
+        run: pytest -q
+
+      - name: Run full-profile space-time probe
+        run: python engine/spacetime_lock_diagnostics.py
+
+      - name: Upload raw space-time profiles
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: 0star-spacetime-lock-${{ matrix.label }}
+          path: runs/0star-spacetime-lock/${{ matrix.label }}
+          if-no-files-found: error
+
+  analyze:
+    if: always() && (github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[run-spacetime-lock]'))
+    needs: simulate
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Download all case artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: 0star-spacetime-lock-*
+          path: artifacts
+          merge-multiple: false
+
+      - name: Run space-time lag analysis
+        run: |
+          python engine/spacetime_lock_analysis.py \
+            --input-root artifacts \
+            --output runs/0star-spacetime-lock-analysis/report.json
+
+      - name: Publish compact result
+        run: |
+          python - <<'PY'
+          import json
+          p = "runs/0star-spacetime-lock-analysis/report.json"
+          report = json.load(open(p))
+          print(json.dumps(report["compact"], indent=2))
+          PY
+
+      - name: Upload aggregate analysis
+        uses: actions/upload-artifact@v4
+        with:
+          name: 0star-spacetime-lock-analysis
+          path: runs/0star-spacetime-lock-analysis/report.json
+          if-no-files-found: error
