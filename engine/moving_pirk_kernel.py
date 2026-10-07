@@ -18,10 +18,18 @@ algebraic/centre identities while preserving the PIRK B update.
 
 from __future__ import annotations
 
-from .production_kernel import V55ProductionKernel, ProductionState
+import numpy as np
+
+from .production_kernel import (
+    V55ProductionKernel,
+    ProductionState,
+    LAMBDA_M,
+)
 from .scalar_system import ScalarFields
 from .matter_system import ConservedSpecies
 from .v55_initial import build_initial_data
+from .cosmology_observables import append_efolds
+from .handoff import handoff_from_ledger
 from . import v55_pirk_adapter as adapter
 
 
@@ -80,10 +88,7 @@ class V55MovingPIRKKernel(V55ProductionKernel):
         )
 
     def step(self, state: ProductionState, dt: float) -> ProductionState:
-        if not hasattr(dt, "__float__") or not float(dt) > 0.0:
-            raise ValueError("dt must be finite and positive")
-        import numpy as np
-        if not np.isfinite(dt):
+        if not np.isfinite(dt) or dt <= 0.0:
             raise ValueError("dt must be finite and positive")
 
         grid = state.grid
@@ -105,7 +110,7 @@ class V55MovingPIRKKernel(V55ProductionKernel):
             )
         )
         gterms0 = adapter.geometry_stage_terms(
-            grid, g0, s0, m0, lambda_m=2.0
+            grid, g0, s0, m0, lambda_m=LAMBDA_M
         )
 
         # Vendor moving-puncture PIRK2 explicit block:
@@ -128,14 +133,12 @@ class V55MovingPIRKKernel(V55ProductionKernel):
                 for name in ("S", "PS", "D", "PD", "phi", "Pi")
             )
         )
-        m1 = V55MovingPIRKKernel._advance_matter(
-            m0, mrhs0, dt
-        )
+        m1 = V55MovingPIRKKernel._advance_matter(m0, mrhs0, dt)
 
         # First PIRK primary stage: use the updated explicit block but the
         # previous Aa/K values, exactly as in the pinned two-stage ordering.
         gterms_pred = adapter.geometry_stage_terms(
-            grid, g_explicit1, s1, m1, lambda_m=2.0
+            grid, g_explicit1, s1, m1, lambda_m=LAMBDA_M
         )
         g1 = g_explicit1.copy()
         g1.Aa = g0.Aa + dt * (
@@ -169,7 +172,7 @@ class V55MovingPIRKKernel(V55ProductionKernel):
         )
         srhs1, mrhs1, _ = self._rhs(stage1)
         gterms1 = adapter.geometry_stage_terms(
-            grid, g1, s1, m1, lambda_m=2.0
+            grid, g1, s1, m1, lambda_m=LAMBDA_M
         )
 
         # Second explicit PIRK block.
@@ -219,7 +222,7 @@ class V55MovingPIRKKernel(V55ProductionKernel):
         final_primary.Aa = gnew.Aa.copy()
         final_primary.K = gnew.K.copy()
         ll2_final = vacuum.lambda_l2_rhs(
-            grid, final_primary, lambda_m=2.0
+            grid, final_primary, lambda_m=LAMBDA_M
         )
         gnew.Lambda = g0.Lambda + 0.5 * dt * (
             gterms0["lambda_l2"]
@@ -247,10 +250,7 @@ class V55MovingPIRKKernel(V55ProductionKernel):
         )
 
         obs = self.diagnostics(candidate, profiles=False)
-        candidate.e_folds = __import__(
-            "engine.cosmology_observables",
-            fromlist=["append_efolds"],
-        ).append_efolds(
+        candidate.e_folds = append_efolds(
             state.e_folds, obs["H_eff"], dt
         )
         previous_H = (
@@ -267,10 +267,7 @@ class V55MovingPIRKKernel(V55ProductionKernel):
 
         S_t = float(srhs1.S[0])
         D_t = float(srhs1.D[0])
-        hp = __import__(
-            "engine.handoff",
-            fromlist=["handoff_from_ledger"],
-        ).handoff_from_ledger(
+        hp = handoff_from_ledger(
             candidate.t,
             candidate.tau,
             obs,
@@ -281,7 +278,8 @@ class V55MovingPIRKKernel(V55ProductionKernel):
         )
 
         obs = {
-            key: value for key, value in obs.items()
+            key: value
+            for key, value in obs.items()
             if key not in (
                 "total_rho",
                 "total_pr",
@@ -300,9 +298,7 @@ class V55MovingPIRKKernel(V55ProductionKernel):
         return candidate
 
     @staticmethod
-    def _advance_matter(
-        base, rhs, dt
-    ):
+    def _advance_matter(base, rhs, dt):
         return type(base)(
             *(
                 V55MovingPIRKKernel._add_matter(
@@ -313,9 +309,7 @@ class V55MovingPIRKKernel(V55ProductionKernel):
         )
 
     @staticmethod
-    def _advance_matter_trapezoid(
-        base, rhs0, rhs1, dt
-    ):
+    def _advance_matter_trapezoid(base, rhs0, rhs1, dt):
         return type(base)(
             *(
                 ConservedSpecies(
