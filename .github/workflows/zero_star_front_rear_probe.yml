@@ -32,9 +32,9 @@ jobs:
             radiation: "0"
     env:
       PYTHONPATH: .
-      DAMP: \${{ matrix.damp }}
-      RADIATION: \${{ matrix.radiation }}
-      CASE_LABEL: \${{ matrix.label }}
+      DAMP: ${{ matrix.damp }}
+      RADIATION: ${{ matrix.radiation }}
+      CASE_LABEL: ${{ matrix.label }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -246,6 +246,6 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: 0star-front-rear-\${{ matrix.label }}
-          path: runs/0star-front-rear/\${{ matrix.label }}
+          name: 0star-front-rear-${{ matrix.label }}
+          path: runs/0star-front-rear/${{ matrix.label }}
           if-no-files-found: error
