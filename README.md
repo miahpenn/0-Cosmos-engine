@@ -34,3 +34,7 @@ Draft PR #1: archive-derived central proper-time CMC gauge diagnostic.
 ## Campaigns
 
 Manual GitHub Actions workflows under `.github/workflows/` are the canonical expensive-run entry points. Artifacts should be preserved with each campaign and compared before any subsequent physics interpretation.
+
+## Campaign trigger
+
+The True-CMC stage-aware strong-field gate is being launched from the experimental branch using the repository's existing `[run-true-cmc-gates]` push trigger.
