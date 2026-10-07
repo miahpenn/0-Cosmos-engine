@@ -427,13 +427,20 @@ class V55ProductionKernel:
             previous_H, obs["H_eff"],
         )
 
-        S_t = float(srhs1.S[0])
-        D_t = float(srhs1.D[0])
-        hp = handoff_from_ledger(
-            candidate.t, candidate.tau, obs,
-            float(candidate.scalars.S[0]), S_t,
-            float(candidate.scalars.D[0]), D_t,
-        )
+        # A handoff is an event-level record, not a per-timestep sample.
+        # The previous implementation appended one for every evolution step,
+        # making the ledger report hundreds of "handoffs" during a single
+        # turnaround. Preserve the full time history separately and record only
+        # actual dynamical cycle crossings here.
+        hp = None
+        if event is not None:
+            S_t = float(srhs1.S[0])
+            D_t = float(srhs1.D[0])
+            hp = handoff_from_ledger(
+                candidate.t, candidate.tau, obs,
+                float(candidate.scalars.S[0]), S_t,
+                float(candidate.scalars.D[0]), D_t,
+            )
 
         obs = {
             key: value for key, value in obs.items()
@@ -446,7 +453,8 @@ class V55ProductionKernel:
         obs["tau"] = candidate.tau
         obs["cycle_event"] = event.kind if event else None
         candidate.history.append(obs)
-        candidate.handoffs.append(hp)
+        if hp is not None:
+            candidate.handoffs.append(hp)
         return candidate
 
     def diagnostics(self, state: ProductionState, *, profiles: bool = False) -> dict:
