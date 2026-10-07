@@ -1,0 +1,113 @@
+name: "[0star] R160 no-light-CPBC geometry discriminator"
+
+on:
+  push:
+    branches:
+      - 0star-central-clock
+
+jobs:
+  r160-no-light-cpbc:
+    if: contains(github.event.head_commit.message, '[run-r160-no-light-cpbc]')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout engine and pinned numerical kernel
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Run repository tests
+        run: python -m pytest -q
+
+      - name: Run R160 no-light-CPBC continuation
+        env:
+          PYTHONPATH: .
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          from engine.true_cmc_pirk_kernel import V55TrueCMCPIRKKernel
+
+          class NoLightCPBCKernel(V55TrueCMCPIRKKernel):
+              @staticmethod
+              def _apply_outer_light_boundary(grid, geometry, scalars, matter):
+                  # Diagnostic only: deliberately omit the finite-radius
+                  # incoming-light reconstruction while leaving the interior
+                  # equations and CMC gauge untouched.
+                  return None
+
+          kernel = NoLightCPBCKernel()
+          state = kernel.initialize(
+              resolution=320,
+              r_max=160.0,
+              include_radiation=False,
+          )
+          dt = 0.06 * state.grid.dr
+          target = 80.0
+          failure = None
+
+          while state.t < target:
+              dt_step = min(dt, target - state.t)
+              try:
+                  state = kernel.step(state, dt_step)
+                  state.geometry.assert_finite_positive()
+              except Exception as exc:
+                  failure = {
+                      "type": type(exc).__name__,
+                      "message": str(exc),
+                      "t": float(state.t),
+                      "tau": float(state.tau),
+                  }
+                  break
+
+          result = {
+              "resolution": 320,
+              "r_max": 160.0,
+              "dr": float(state.grid.dr),
+              "cfl": 0.06,
+              "target_time": target,
+              "include_radiation": False,
+              "outer_light_cpbc": False,
+              "t_final": float(state.t),
+              "tau_final": float(state.tau),
+              "failure": failure,
+              "turnaround_events": sum(
+                  e.kind == "turnaround" for e in state.cycle.events
+              ),
+              "reexpansion_events": sum(
+                  e.kind == "re-expansion_crossing" for e in state.cycle.events
+              ),
+              "trapped_root_count_max": max(
+                  (len(row.get("trapped_roots", [])) for row in state.history),
+                  default=0,
+              ),
+              "last_diagnostics": (
+                  state.history[-1]
+                  if state.history
+                  else kernel.diagnostics(state, profiles=False)
+              ),
+          }
+
+          out = Path("runs/0star-r160-no-light-cpbc")
+          out.mkdir(parents=True, exist_ok=True)
+          (out / "result.json").write_text(
+              json.dumps(result, indent=2, default=float)
+          )
+          print(json.dumps(result, indent=2, default=float))
+          PY
+
+      - name: Upload R160 no-light-CPBC output
+        uses: actions/upload-artifact@v4
+        with:
+          name: 0star-r160-no-light-cpbc
+          path: runs/0star-r160-no-light-cpbc/result.json
+          if-no-files-found: error
