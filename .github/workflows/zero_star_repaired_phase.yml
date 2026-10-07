@@ -1,4 +1,4 @@
-name: [0star] D-phase collapse after center-regularity repair
+name: "[0star]" D-phase collapse after center-regularity repair
 
 on:
   workflow_dispatch:
