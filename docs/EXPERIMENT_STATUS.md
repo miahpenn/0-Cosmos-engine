@@ -38,6 +38,10 @@ A separate kernel, `engine/moving_pirk_kernel.py`, now uses the pinned reference
 
 This kernel is **unvalidated** until the smoke test and controlled strong-field resolution/CFL gates pass. No bounce, horizon crossing, or physical singularity is claimed from the implementation alone.
 
+## Campaign launch plumbing repair
+
+The moving-gauge strong-field and resolution workflows retain `workflow_dispatch` for compatibility and also accept an explicit branch-push launch token. They run only when the commit message contains `[run-moving-gauge-gates]`, so ordinary experimental commits cannot launch the expensive campaigns. The campaign jobs now fail CI when `run_campaign` reports a numerical failure instead of allowing a numerical failure to appear as a successful workflow.
+
 ## Current next gate
 
 1. Run the moving-gauge smoke/regression path.
