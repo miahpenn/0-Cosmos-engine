@@ -78,6 +78,22 @@ def run_case(
         rho_gap = float(obs["rho_outer"]) - float(rho_c)
 
         rows.append({
+            "hamiltonian_max": float(obs["hamiltonian_max"]),
+            "hamiltonian_normalized_max": float(obs["hamiltonian_normalized_max"]),
+            "hamiltonian_l2_inner": float(obs["hamiltonian_l2_inner"]),
+            "hamiltonian_l2_outer": float(obs["hamiltonian_l2_outer"]),
+            "momentum_max": float(obs["momentum_max"]),
+            "momentum_normalized_max": float(obs["momentum_normalized_max"]),
+            "momentum_l2_inner": float(obs["momentum_l2_inner"]),
+            "momentum_l2_outer": float(obs["momentum_l2_outer"]),
+            "cmc_residual_outer_max": float(obs["cmc_residual_outer_max"]),
+            "cmc_residual_last_interior": float(obs["cmc_residual_last_interior"]),
+            "determinant_min": float(obs["determinant_min"]),
+            "determinant_constraint_max": float(obs["determinant_constraint_max"]),
+            "trapping_min": float(obs["trapping_min"]),
+            "trapped_roots": int(obs["trapped_roots"]),
+            "alpha_r_max": float(obs["alpha_r_max"]),
+            "alpha_sigma": float(obs["alpha_sigma"]),
             "t": float(state.t),
             "tau": float(state.tau),
             "H_eff": H_eff,
@@ -114,6 +130,9 @@ def run_case(
     avg_abs_phi_gap = sum(abs(r["phi_gap"]) for r in rows) / len(rows)
     avg_abs_pi_gap = sum(abs(r["pi_gap"]) for r in rows) / len(rows)
     max_abs_friedmann = max(abs(r["friedmann_residual"]) for r in rows)
+    exact_checks = {}
+    for key in ("hamiltonian_max", "hamiltonian_normalized_max", "momentum_max", "momentum_normalized_max", "cmc_residual_outer_max", "cmc_residual_last_interior", "determinant_constraint_max"):
+        exact_checks[f"max_abs_{key}"] = float(max(abs(r[key]) for r in rows))
     max_abs_production_volume_friedmann = max(abs(r["production_volume_friedmann_residual"]) for r in rows)
     avg_abs_rho_outer_physical_gap_rel = sum(r["rho_outer_physical_gap_rel"] for r in rows) / len(rows)
 
@@ -144,6 +163,8 @@ def run_case(
         "avg_abs_phi_gap": float(avg_abs_phi_gap),
         "avg_abs_pi_gap": float(avg_abs_pi_gap),
         "max_abs_friedmann_residual": float(max_abs_friedmann),
+        "exact_constraint_witnesses": exact_checks,
+        "final_exact_constraints": {k: final[k] for k in ("hamiltonian_max", "hamiltonian_normalized_max", "hamiltonian_l2_inner", "hamiltonian_l2_outer", "momentum_max", "momentum_normalized_max", "momentum_l2_inner", "momentum_l2_outer", "cmc_residual_outer_max", "cmc_residual_last_interior", "determinant_min", "determinant_constraint_max", "trapping_min", "trapped_roots", "alpha_r_max", "alpha_sigma")},
         "max_abs_production_volume_friedmann_residual": float(max_abs_production_volume_friedmann),
         "avg_abs_rho_outer_physical_gap_rel": float(avg_abs_rho_outer_physical_gap_rel),
         "cycle_events": len(state.cycle.events),
