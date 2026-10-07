@@ -66,3 +66,25 @@ A numerical continuation is not by itself evidence of a physical bounce, complet
 4. Extend through the post-turnaround regime with Hamiltonian/momentum/connection/determinant and Misner-Sharp checks.
 5. Reconnect the full bidirectional COSMOS handoff only after the strong-field representation passes.
 6. Run the unrestricted cycle search with no imposed bounce or stop condition.
+
+
+## 2026-10-06 CMC operator repair
+
+The first repository true-CMC gate reached t=24 at N=40/60/80, but its Hamiltonian maximum was
+center-dominated and increased with resolution. Audit of the actual numerical operators identified
+the gauge-layer defect: the CMC elliptic solve used a mixed second-order three-point interior
+operator while the evolved K equation used the pinned fourth-order cell-centered derivative,
+with a separate first-cell alpha equality row. The two discrete operators therefore did not
+enforce the same CMC condition.
+
+The repair replaces that mixed operator with the native fourth-order/parity derivative rows,
+including the regular first cell and the one-sided penultimate cell, while retaining the outer
+alpha(R)=1 normalization. No physical source, equation of state, coefficient, lapse floor,
+boundary prescription, bounce rule, or interface term was added.
+
+The isolated true-CMC kernel now calls the same shared production CMC solver, so the production
+and diagnostic branches cannot silently diverge in their gauge operator or CMC target.
+
+The next controlled gate is the same N=40/60/80, Rmax=40, CFL=0.06, t=24 campaign. Promotion
+requires actual resolution improvement in the invariant/constraint witnesses, not merely a
+successful run.
