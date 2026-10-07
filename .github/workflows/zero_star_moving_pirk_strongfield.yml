@@ -1,0 +1,54 @@
+name: "[0star] Moving-gauge strong-field gate"
+
+on:
+  workflow_dispatch:
+
+env:
+  PYTHONPATH: .
+
+jobs:
+  moving-strongfield:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - name: Checkout engine and pinned numerical kernel
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Run repository tests
+        run: python -m pytest -q
+      - name: Run moving-gauge strong-field campaign
+        run: |
+          python - <<'PY'
+          from engine.campaign import CampaignConfig
+          from engine.moving_pirk_kernel import V55MovingPIRKKernel
+          from engine.run_production import run_campaign
+
+          config = CampaignConfig(
+              resolutions=(40, 60),
+              r_max=40.0,
+              cfl=0.03,
+              final_time=30.0,
+              checkpoint_interval=0.10,
+              output_dir='runs/0star-moving-strongfield',
+          )
+          results = run_campaign(
+              kernel=V55MovingPIRKKernel(),
+              config=config,
+          )
+          for result in results:
+              print(result)
+          PY
+      - name: Upload campaign outputs
+        uses: actions/upload-artifact@v4
+        with:
+          name: 0star-moving-strongfield
+          path: runs/0star-moving-strongfield/
+          if-no-files-found: error
