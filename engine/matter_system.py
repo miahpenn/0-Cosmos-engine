@@ -450,8 +450,15 @@ def evolve_species(
     dphi_t: np.ndarray | None = None,
     dphi_r: np.ndarray | None = None,
     beta_dm: float = -0.04,
+    validate_physical_state: bool = True,
 ) -> ConservedSpecies:
-    """Advance one conservative finite-volume step."""
+    """Advance one conservative finite-volume step.
+
+    validate_physical_state belongs to the actual evolution step. The
+    synchronized RHS wrapper uses a unit bookkeeping step (dt=1) only to
+    extract the spatial operator; that bookkeeping step must not be mistaken
+    for a physical update when checking radiation admissibility.
+    """
     n = len(metric.r)
     if any(np.shape(x) != (n,) for x in (
         state.rest, state.energy_t, state.momentum_r
@@ -521,9 +528,10 @@ def evolve_species(
         out.energy_t[i] += dt * (source_e + q_e)
         out.momentum_r[i] += dt * (source_s + q_s)
 
-    if species is Species.RADIATION:
-        # Diagnostic only: expose the transport and metric-source pieces
-        # when this update itself creates an inadmissible state.
+    if species is Species.RADIATION and validate_physical_state:
+        # This check is meaningful only for the actual physical update. In
+        # particular, species_rhs() deliberately disables it while extracting
+        # a RHS with dt=1 as a linear bookkeeping operation.
         sg = np.asarray([m.sqrt_gamma for m in metrics])
         E = out.energy_t / sg
         S_r = out.momentum_r / sg
@@ -536,7 +544,7 @@ def evolve_species(
             flux_dE = -inv_dr * (face_flux[i + 1, 1] - face_flux[i, 1])
             flux_dS = -inv_dr * (face_flux[i + 1, 2] - face_flux[i, 2])
             raise ValueError(
-                f"radiation RHS created inadmissible state at cell i={i}: "
+                f"radiation evolution step created inadmissible state at cell i={i}: "
                 f"tendency_flux_E={flux_dE:.17e}, source_E={source_e_diag[i]:.17e}, "
                 f"tendency_flux_S={flux_dS:.17e}, source_S={source_s_diag[i]:.17e}; "
                 f"E={E[i]:.17e}, |S|={S_abs[i]:.17e}, "
