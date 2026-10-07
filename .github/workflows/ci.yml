@@ -27,3 +27,28 @@ jobs:
         run: python -m pip install -r requirements.txt
       - name: Run repository tests
         run: python -m pytest -q
+
+  center_repair_ab_clock:
+    if: github.event_name == 'push' && contains(github.event.head_commit.message, '[run-center-ab]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - name: Checkout engine and pinned numerical kernel
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Run center A/B and radial clock profile
+        run: python engine/center_repair_ab_clock_profile.py
+      - name: Upload center A/B artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: 0star-center-repair-ab-clock-profile
+          path: runs/0star-center-repair-ab/report.json
+          if-no-files-found: error
