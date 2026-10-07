@@ -499,20 +499,32 @@ def evolve_species(
         face_flux[i + 1] = _hll_flux(mf, ql, qr, species)
 
     # Causal/outflow outer closure: continue the last physical state.
-    face_flux[-1] = _valencia_flux(metrics[-1], prim[-1])
+    if species is Species.RADIATION:
+        face_flux[-1] = _radiation_flux(metrics[-1], prim[-1])
+    else:
+        face_flux[-1] = _valencia_flux(metrics[-1], prim[-1])
 
     out = state.copy()
     inv_dr = 1.0 / (metric.r[1] - metric.r[0])
     source_e_diag = np.zeros(n, dtype=float)
     source_s_diag = np.zeros(n, dtype=float)
     for i, m in enumerate(metrics):
-        source_e, source_s = _valencia_source(
-            m, prim[i], float(metric.K[i]), float(metric.Aa[i]),
-            float(metric_derivatives.radial["alpha"][i]),
-            float(metric_derivatives.radial["beta"][i]),
-            float(metric_derivatives.radial["rr"][i]),
-            float(metric_derivatives.radial["thth"][i]),
-        )
+        if species is Species.RADIATION:
+            source_e, source_s = _radiation_source(
+                m, prim[i], float(metric.K[i]), float(metric.Aa[i]),
+                float(metric_derivatives.radial["alpha"][i]),
+                float(metric_derivatives.radial["beta"][i]),
+                float(metric_derivatives.radial["rr"][i]),
+                float(metric_derivatives.radial["thth"][i]),
+            )
+        else:
+            source_e, source_s = _valencia_source(
+                m, prim[i], float(metric.K[i]), float(metric.Aa[i]),
+                float(metric_derivatives.radial["alpha"][i]),
+                float(metric_derivatives.radial["beta"][i]),
+                float(metric_derivatives.radial["rr"][i]),
+                float(metric_derivatives.radial["thth"][i]),
+            )
 
         source_e_diag[i] = source_e
         source_s_diag[i] = source_s
