@@ -42,3 +42,7 @@ The True-CMC stage-aware strong-field gate completed successfully at N=40,60,80 
 The matched-spacing enlarged-domain turnaround gate then completed successfully at N=80,120,160 through t=40, with one turnaround event and one handoff in each resolution and no re-expansion before t=40.
 
 The next gate is the existing long post-turnaround campaign `[run-true-cmc-post]`.
+
+
+## Launch note
+The full bidirectional production diagnostic is being launched now: D-amplitude sensitivity plus an independent CMC-operator probe. This launch changes no physical equations.
