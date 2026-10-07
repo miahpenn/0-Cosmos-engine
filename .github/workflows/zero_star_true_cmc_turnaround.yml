@@ -6,6 +6,10 @@ on:
     branches:
       - 0star-central-clock
 
+concurrency:
+  group: zero-star-true-cmc-turnaround
+  cancel-in-progress: true
+
 env:
   PYTHONPATH: .
 
