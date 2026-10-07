@@ -357,16 +357,22 @@ class V55TrueCMCPIRKKernel(V55ProductionKernel):
                 state.scalars.D[0]
                 + fraction * (candidate.scalars.D[0] - state.scalars.D[0])
             )
-            S_t = float(srhs1.S[0])
-            D_t = float(srhs1.D[0])
+            sdot_event = float(
+                srhs0.PS[0]
+                + fraction * (srhs1.PS[0] - srhs0.PS[0])
+            )
+            ddot_event = float(
+                srhs0.PD[0]
+                + fraction * (srhs1.PD[0] - srhs0.PD[0])
+            )
             hp = handoff_from_ledger(
                 event_t,
                 event_tau,
                 event_obs,
                 s_event,
-                S_t,
+                sdot_event,
                 d_event,
-                D_t,
+                ddot_event,
             )
 
         obs = {
