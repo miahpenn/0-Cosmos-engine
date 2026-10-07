@@ -1,0 +1,149 @@
+name: "[0star] coupled D phase-lock discriminator"
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - 0star-central-clock
+
+jobs:
+  phase-sweep:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[run-d-phase]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 420
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: phase-minus-pi2
+            phase: -1.5707963267948966
+          - label: phase-zero
+            phase: 0.0
+          - label: phase-pi4
+            phase: 0.7853981633974483
+          - label: phase-pi2
+            phase: 1.5707963267948966
+    env:
+      PYTHONPATH: .
+      PHASE: ${{ matrix.phase }}
+      CASELABEL: ${{ matrix.label }}
+
+    steps:
+      - name: Checkout engine
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Repository tests
+        run: python -m pytest -q
+
+      - name: Run phase-lock discriminator
+        run: |
+          python - <<'PY'
+          import json, math, os
+          from pathlib import Path
+          from engine.production_kernel import ProductionState, V55ProductionKernel
+          from engine.v55_initial import build_initial_data
+          from engine import v55_pirk_adapter as adapter
+          from engine.handoff import ejected_phase, local_phase
+
+          PHASE = float(os.environ["PHASE"])
+          CASE = os.environ["CASELABEL"]
+          DAMP = 1.0e-10
+          N, RMAX, CFL, TARGET = 160, 80.0, 0.06, 50.0
+
+          class PhaseKernel(V55ProductionKernel):
+              def initialize(self, resolution=N, r_max=RMAX, **kwargs):
+                  grid_ops, vacuum, _ = adapter.vendor_modules()
+                  grid = grid_ops.SphericalCellGrid(resolution, r_max)
+                  init = build_initial_data(
+                      grid, vacuum.flat_state,
+                      D_amplitude=DAMP, include_radiation=True,
+                  )
+                  # Rotate only the initial D/PD phase while preserving the
+                  # local radial amplitude profile sqrt(D^2+PD^2).
+                  amp = (init.scalars.D**2 + init.scalars.PD**2) ** 0.5
+                  init.scalars.D = amp * math.cos(PHASE)
+                  init.scalars.PD = amp * math.sin(PHASE)
+                  geometry = self._enforce_center_regularity(grid, init.geometry)
+                  geometry.alpha = self._solve_lapse(
+                      grid, geometry, init.scalars, init.matter
+                  )[0]
+                  geometry.beta.fill(0.0)
+                  geometry.B.fill(0.0)
+                  return ProductionState(
+                      grid=grid, geometry=geometry,
+                      scalars=init.scalars, matter=init.matter, e_folds=0.0,
+                  )
+
+          kernel = PhaseKernel()
+          state = kernel.initialize()
+          dt = CFL * state.grid.dr
+          failure = None
+          rows = []
+          sample_times = (0.0, 20.0, 30.0, 35.0, 38.0, 40.0, 42.0, 45.0, 47.0, 50.0)
+
+          def capture(st):
+              f = st.scalars
+              obs = kernel.diagnostics(st, profiles=False)
+              rows.append({
+                  "t": float(st.t), "tau": float(st.tau),
+                  "H_eff": float(obs["H_eff"]), "tau_rate": float(obs["tau_rate"]),
+                  "D0": float(f.D[0]), "PD0": float(f.PD[0]),
+                  "theta_D": float(ejected_phase(f.D[0], f.PD[0])),
+                  "S0": float(f.S[0]), "PS0": float(f.PS[0]),
+                  "theta_S": float(local_phase(f.S[0], f.PS[0])),
+                  "phi0": float(f.phi[0]), "Pi0": float(f.Pi[0]),
+                  "lapse_min": float(obs["lapse_min"]),
+                  "M_MS": float(obs["M_MS"]), "flux_T": float(obs["flux_T"]),
+                  "work_pR": float(obs["work_pR"]),
+                  "hamiltonian_max": float(obs["hamiltonian_max"]),
+                  "momentum_max": float(obs["momentum_max"]),
+                  "cmc_residual_outer_max": float(obs["cmc_residual_outer_max"]),
+                  "trapped_root_count": len(obs.get("trapped_roots", [])),
+              })
+
+          capture(state)
+          k = 1
+          while state.t < TARGET:
+              try:
+                  state = kernel.step(state, min(dt, TARGET - state.t))
+                  while k < len(sample_times) and state.t >= sample_times[k] - 0.5 * dt:
+                      capture(state); k += 1
+                  state.geometry.assert_finite_positive()
+              except Exception as exc:
+                  failure = {"type":type(exc).__name__,"message":str(exc),"t":float(state.t),"tau":float(state.tau)}
+                  break
+
+          result = {
+              "case": CASE, "initial_D_amplitude": DAMP, "initial_D_phase": PHASE,
+              "resolution": N, "r_max": RMAX, "cfl": CFL, "target_time": TARGET,
+              "t_final": float(state.t), "tau_final": float(state.tau),
+              "failure": failure,
+              "turnaround_events": sum(e.kind=="turnaround" for e in state.cycle.events),
+              "reexpansion_events": sum(e.kind=="re-expansion_crossing" for e in state.cycle.events),
+              "handoff_events": len(state.handoffs),
+              "events": [e.__dict__ for e in state.cycle.events], "samples": rows,
+          }
+          out = Path("runs/0star-d-phase") / CASE
+          out.mkdir(parents=True, exist_ok=True)
+          (out/"result.json").write_text(json.dumps(result,indent=2,default=float))
+          print(json.dumps(result,indent=2,default=float))
+          PY
+
+      - name: Upload phase result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: 0star-d-phase-${{ matrix.label }}
+          path: runs/0star-d-phase/${{ matrix.label }}
+          if-no-files-found: error
