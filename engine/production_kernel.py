@@ -434,12 +434,51 @@ class V55ProductionKernel:
         # actual dynamical cycle crossings here.
         hp = None
         if event is not None:
+            # Localize the crossing inside this timestep from the two solved
+            # H_eff values. This improves the event ledger without changing the
+            # evolved state or introducing a branch/sign operation.
+            h0 = float(previous_H)
+            h1 = float(obs["H_eff"])
+            denom = h0 - h1
+            fraction = 0.5 if abs(denom) <= 1.0e-300 else h0 / denom
+            fraction = min(1.0, max(0.0, fraction))
+
+            event_obs = dict(obs)
+            if state.history:
+                previous_obs = state.history[-1]
+                for key in (
+                    "phi_outer", "R_sigma", "M_MS",
+                    "chi_sigma", "flux_T", "work_pR",
+                ):
+                    if key in previous_obs and key in obs:
+                        event_obs[key] = float(
+                            previous_obs[key]
+                            + fraction * (obs[key] - previous_obs[key])
+                        )
+            event_obs["H_eff"] = 0.0
+            event_t = state.t + fraction * dt
+            event_tau = state.tau + fraction * (
+                candidate.tau - state.tau
+            )
+
             S_t = float(srhs1.S[0])
             D_t = float(srhs1.D[0])
+            s_event = float(
+                state.scalars.S[0]
+                + fraction * (
+                    candidate.scalars.S[0] - state.scalars.S[0]
+                )
+            )
+            d_event = float(
+                state.scalars.D[0]
+                + fraction * (
+                    candidate.scalars.D[0] - state.scalars.D[0]
+                )
+            )
             hp = handoff_from_ledger(
-                candidate.t, candidate.tau, obs,
-                float(candidate.scalars.S[0]), S_t,
-                float(candidate.scalars.D[0]), D_t,
+                event_t, event_tau, event_obs,
+                s_event, S_t,
+                d_event, D_t,
             )
 
         obs = {
