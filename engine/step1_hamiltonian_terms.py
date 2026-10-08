@@ -61,7 +61,7 @@ def hamiltonian_terms(state):
     }
 
 
-def record_sample(state, step):
+def record_sample(state, sample_index):
     terms = hamiltonian_terms(state)
     r = terms["r"]
     H = terms["vendor_H"]
@@ -71,9 +71,13 @@ def record_sample(state, step):
             "cell": i,
             "r": float(r[i]),
             "curvature": float(terms["curvature"][i]),
+            "abs_curvature": float(abs(terms["curvature"][i])),
             "extrinsic_A": float(terms["extrinsic_A"][i]),
+            "abs_extrinsic_A": float(abs(terms["extrinsic_A"][i])),
             "extrinsic_K": float(terms["extrinsic_K"][i]),
+            "abs_extrinsic_K": float(abs(terms["extrinsic_K"][i])),
             "matter_source": float(terms["matter_source"][i]),
+            "abs_matter_source": float(abs(terms["matter_source"][i])),
             "reconstructed": float(terms["reconstructed"][i]),
             "vendor_H": float(H[i]),
             "decomposition_error": float(terms["decomposition_error"][i]),
@@ -83,7 +87,7 @@ def record_sample(state, step):
     i_global = int(np.argmax(np.abs(H)))
     i_masked = 2 + int(np.argmax(np.abs(masked)))
     return {
-        "step": int(step),
+        "sample_index": int(sample_index),
         "t": float(state.t),
         "cells_0_to_4": cells,
         "global_max_abs_H": float(np.max(np.abs(H))),

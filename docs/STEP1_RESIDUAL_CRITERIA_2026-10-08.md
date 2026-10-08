@@ -69,10 +69,12 @@ using the signed four-term values, H, global maximum, and masked maximum.
 
 ### D. Does repair sensitivity remain localized?
 
-A center-localized effect means the ON/OFF difference is confined to cells
-0–4 while the masked profile (cells 2 onward) remains materially unchanged.
-If cells outside the center region change as well, the effect is reported as
-propagating beyond the center.
+A center-localized effect means the recorded ON/OFF differences are confined
+to cells 0–4. The overlapping masked cells 2–4 will be shown explicitly, and
+the masked maximum will be reported separately as the coarse check for any
+larger resolved-interior response. A change in the masked maximum is reported
+as propagation beyond the recorded center cells; it is not by itself treated
+as proof of a physical effect.
 
 Because cells 2–4 are included in both views, that overlap will be shown
 explicitly rather than hidden by masking.
