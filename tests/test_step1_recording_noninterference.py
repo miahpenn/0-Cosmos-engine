@@ -40,7 +40,6 @@ def evolve(recording):
     state = kernel.initialize(
         resolution=32,
         r_max=16.0,
-        amplitude=0.01,
         width=7.0,
         D_amplitude=1.0e-4,
         include_radiation=True,

@@ -109,8 +109,8 @@ def run_case(
     N=160,
     r_max=80.0,
     cfl=0.0075,
-    final_time=24.0,
-    sample_times=(0.0, 6.0, 12.0, 18.0, 24.0),
+    final_time=22.5,
+    sample_times=(0.01, 4.0, 8.0, 12.0, 16.0, 20.0, 22.5),
 ):
     """Run one repair state and record only at the registered sample times."""
     if N < 5:
@@ -125,11 +125,17 @@ def run_case(
     )
     dt_nominal = cfl * state.grid.dr
     targets = tuple(float(x) for x in sample_times)
-    if not targets or targets[0] != 0.0:
-        raise ValueError("sample_times must begin with 0.0")
+    if not targets:
+        raise ValueError("sample_times must not be empty")
+    if any(x <= 0.0 for x in targets):
+        raise ValueError("sample_times must be strictly greater than 0.0; t=0 is recorded automatically")
+    if any(b <= a for a, b in zip(targets, targets[1:])):
+        raise ValueError("sample_times must be strictly increasing")
+    if targets[-1] > final_time + 1.0e-14:
+        raise ValueError("sample_times cannot exceed final_time")
 
     samples = [record_sample(state, 0)]
-    target_index = 1
+    target_index = 0
     failed = None
 
     while state.t < final_time - 1.0e-14:
@@ -145,7 +151,7 @@ def run_case(
             target_index < len(targets)
             and state.t + 0.5 * dt >= targets[target_index]
         ):
-            samples.append(record_sample(state, target_index))
+            samples.append(record_sample(state, target_index + 1))
             target_index += 1
 
     return {
@@ -169,7 +175,13 @@ def main():
     parser.add_argument("--N", type=int, default=160)
     parser.add_argument("--r-max", type=float, default=80.0)
     parser.add_argument("--cfl", type=float, default=0.0075)
-    parser.add_argument("--final-time", type=float, default=24.0)
+    parser.add_argument("--final-time", type=float, default=22.5)
+    parser.add_argument(
+        "--sample-times",
+        type=lambda value: tuple(float(x) for x in value.split(",")),
+        default=(0.01, 4.0, 8.0, 12.0, 16.0, 20.0, 22.5),
+        help="Comma-separated positive sample times; t=0 is recorded automatically.",
+    )
     parser.add_argument(
         "--output",
         default="runs/0star-step1/hamiltonian_terms.json",
@@ -183,6 +195,7 @@ def main():
         r_max=args.r_max,
         cfl=args.cfl,
         final_time=args.final_time,
+        sample_times=args.sample_times,
     )
     out = Path(args.output)
     out.parent.mkdir(parents=True, exist_ok=True)

@@ -5,6 +5,13 @@
 This document is frozen before the N=160 repair-ON/repair-OFF physics runs.
 It defines what will be compared; it does not change the production equations.
 
+## Registered sampling grid
+
+The recorder always records the initial state at **t = 0**. The registered
+admission samples are **t = 0.01, 4, 8, 12, 16, 20, and 22.5**, with the
+physics run ending at **t = 22.5**. These are the default recorder targets and
+are also the frozen comparison grid for the repair-ON and repair-OFF runs.
+
 ## Quantity being interpreted
 
 The physical Hamiltonian residual is the vendor Hamiltonian constraint after
