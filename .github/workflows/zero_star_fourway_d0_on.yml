@@ -1,0 +1,34 @@
+name: "[0star] four-way CFL=0.0075 — D0 repair ON"
+
+on:
+  push:
+    branches: ["0star-central-clock"]
+  workflow_dispatch:
+
+jobs:
+  diagnostic:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[run-fourway-d0-on]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    env:
+      PYTHONPATH: .
+      CASE_D: "0.0"
+      CASE_REPAIR: "1"
+      CASE_NAME: "D0_repair-on_cfl0075"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements.txt
+      - name: Repository tests
+        run: pytest -q
+      - name: Run common-schema D0 repair-ON case
+        run: python engine/four_way_cfl0075_profile.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: 0star-fourway-D0-repair-on-cfl0075
+          path: GEAR_group/four_way_D0_repair-on_cfl0075_N160.json
+          if-no-files-found: error
