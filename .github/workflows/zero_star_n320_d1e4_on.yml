@@ -1,0 +1,62 @@
+name: "[0star] N320 fixed-rmax80 D1e-4 repair ON"
+
+on:
+  push:
+    branches: ["0star-central-clock"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  diagnostic:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[run-n320-d1e4-on]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    env:
+      PYTHONPATH: .
+      CASE_D: "0.0001"
+      CASE_REPAIR: "1"
+      CASE_NAME: "D1e-4_repair-on_cfl0075"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements.txt
+      - name: Repository tests
+        run: pytest -q
+      - name: Run N320 fixed-rmax80 D1e-4 repair-ON case
+        run: python engine/four_way_cfl0075_profile_n320.py
+      - name: Validate exact N320 admission gates
+        run: |
+          python - <<'PY'
+          import json, math
+          from pathlib import Path
+          p=Path("GEAR_group/four_way_D1e-4_repair-on_cfl0075_N320.json")
+          d=json.loads(p.read_text())
+          assert d["status"] == "completed"
+          q=d["parameters"]
+          assert q["D_amplitude"] == 1e-4 and q["repair"] is True
+          assert q["resolution"] == 320 and q["r_max"] == 80.0 and q["cfl"] == 0.0075
+          assert q["final_time_requested"] == 22.5 and q["include_radiation"] is True
+          assert q["target_times"] == [0.01,4.0,8.0,12.0,16.0,20.0,22.5]
+          assert abs(d["final_time"]-22.5) < 0.05
+          assert len(d["samples"]) == 7
+          for s,tgt in zip(d["samples"], q["target_times"]):
+              assert abs(s["t"]-tgt) < 0.05
+              assert "tau_central" in s
+              assert len(s["r"]) == len(s["tau_r"]) == len(s["alpha_r"]) == 320
+              for key in ("r","tau_r","alpha_r"):
+                  assert all(math.isfinite(float(x)) for x in s[key])
+          print("N320 D1e-4 repair-ON ADMISSION: PASS")
+          PY
+      - name: Commit exact JSON
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add GEAR_group/four_way_D1e-4_repair-on_cfl0075_N320.json
+          git commit -m "persist N320 D1e-4 repair-ON fixed-rmax80 diagnostic JSON"
+          git push origin HEAD:0star-central-clock
