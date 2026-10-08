@@ -56,12 +56,12 @@ jobs:
           assert abs(float(d.get("cfl"))-0.0075)<1e-15
           assert abs(float(d.get("requested_final_time"))-22.5)<1e-12
           assert abs(float(d.get("final_time"))-22.5)<0.05
-          rec=d.get("records")
+          rec=d.get("samples")
           assert isinstance(rec,list) and len(rec)==8
           targets=[0.0,0.01,4.0,8.0,12.0,16.0,20.0,22.5]
           for i,(r,t) in enumerate(zip(rec,targets)):
               assert abs(float(r["t"])-t)<=0.05, (i,r.get("t"),t)
-              cells=r.get("cells")
+              cells=r.get("cells_0_to_4")
               assert isinstance(cells,list) and len(cells)>=5
               for c in cells[:5]:
                   for k in ("curvature","extrinsic_A","extrinsic_K","matter_source","reconstructed","vendor_H","decomposition_error"):
