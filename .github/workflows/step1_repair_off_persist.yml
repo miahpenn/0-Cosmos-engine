@@ -40,7 +40,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p GEAR_group
-          python engine/step1_hamiltonian_terms.py --repair off --N 160 --D 1e-4 --final-time 22.5 --output GEAR_group/diag_center_terms_D1e4_N160_repair-off.json
+          python -m engine.step1_hamiltonian_terms --repair off --N 160 --D 1e-4 --final-time 22.5 --output GEAR_group/diag_center_terms_D1e4_N160_repair-off.json
 
       - name: Admission check
         run: |
