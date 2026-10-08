@@ -30,10 +30,10 @@ jobs:
           BASE_SHA: ${{ github.event.before }}
         run: |
           set -euo pipefail
-          if [ -z "\${BASE_SHA}" ] || [ "\${BASE_SHA}" = "0000000000000000000000000000000000000000" ]; then
+          if [ -z "${BASE_SHA}" ] || [ "${BASE_SHA}" = "0000000000000000000000000000000000000000" ]; then
             echo "No usable push parent SHA; skipping old/new comparison."
-            exit 0
+            exit 1
           fi
-          git worktree add --detach /tmp/step0a-old "\${BASE_SHA}"
+          git worktree add --detach /tmp/step0a-old "${BASE_SHA}"
           trap 'git worktree remove --force /tmp/step0a-old' EXIT
-          python engine/step0a_bitwise_state_check.py /tmp/step0a-old "\${GITHUB_WORKSPACE}"
+          python engine/step0a_bitwise_state_check.py /tmp/step0a-old "${GITHUB_WORKSPACE}"
