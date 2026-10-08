@@ -27,7 +27,7 @@ jobs:
 
       - name: Check parent and candidate at repeated intermediate states
         env:
-          BASE_SHA: ${{ github.event.before }}
+          BASE_SHA: 99da7488fc0c3da33c1a01b36812c30dd80984a5
         run: |
           set -euo pipefail
           if [ -z "${BASE_SHA}" ] || [ "${BASE_SHA}" = "0000000000000000000000000000000000000000" ]; then
