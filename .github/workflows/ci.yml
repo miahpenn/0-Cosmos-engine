@@ -52,3 +52,59 @@ jobs:
           name: 0star-center-repair-ab-clock-profile
           path: runs/0star-center-repair-ab/report.json
           if-no-files-found: error
+
+
+  persist_d0_on_artifact:
+    if: github.event_name == 'push' && contains(github.event.head_commit.message, '[persist-d0-on]')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download exact completed D0 repair-ON artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/d0on
+          curl -fsSL \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/miahpenn/0-Cosmos-engine/actions/artifacts/11525581488/zip" \
+            -o /tmp/d0on/artifact.zip
+          unzip -q /tmp/d0on/artifact.zip -d /tmp/d0on/unzipped
+          src="$(find /tmp/d0on/unzipped -type f -name 'four_way_D0_repair-on_cfl0075_N160.json' -print -quit)"
+          test -n "$src"
+          cp "$src" GEAR_group/four_way_D0_repair-on_cfl0075_N160.json
+
+      - name: Validate and persist JSON
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path("GEAR_group/four_way_D0_repair-on_cfl0075_N160.json")
+          d = json.loads(p.read_text())
+          assert d["status"] == "completed"
+          pms = d["parameters"]
+          assert pms["D_amplitude"] == 0.0
+          assert pms["repair"] is True
+          assert pms["resolution"] == 160
+          assert pms["r_max"] == 80.0
+          assert pms["cfl"] == 0.0075
+          assert pms["final_time_requested"] == 22.5
+          assert pms["include_radiation"] is True
+          assert pms["target_times"] == [0.01, 4.0, 8.0, 12.0, 16.0, 20.0, 22.5]
+          assert len(d["samples"]) == 7
+          assert all("tau_central" in s for s in d["samples"])
+          print("validated exact completed D0 repair-ON artifact")
+          PY
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add GEAR_group/four_way_D0_repair-on_cfl0075_N160.json
+          git commit -m "persist D0 repair-ON common-CFL diagnostic JSON"
+          git push origin 0star-central-clock
