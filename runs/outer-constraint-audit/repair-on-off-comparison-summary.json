@@ -497,5 +497,24 @@
         }
       }
     }
+  ],
+  "final_time_comparison_notes": {
+    "center_cell_momentum_residual": {
+      "repair_on": -0.000010177941375556223,
+      "repair_off": 0.00039242888144708145,
+      "opposite_sign": true,
+      "magnitude_ratio_off_to_on": 38.55680308687524,
+      "interpretation_limit": "The center momentum residual is substantially repair-dependent too; do not describe the overall repair effect as overwhelmingly Hamiltonian/R-only."
+    },
+    "middle_region_H_relative_difference": 2.363687675246401e-10,
+    "middle_region_M_relative_difference": 3.7702236825191625e-8,
+    "outer_region_H_relative_difference": 2.640338395464499e-7,
+    "outer_region_M_relative_difference": 9.006911705602126e-9,
+    "wording": "At t=22.5 the middle/outer regional maxima for both H and M are numerically close across repair settings, but not bitwise identical. This does not by itself prove all effects are confined to the center; global witnesses and full profiles remain authoritative."
+  },
+  "interpretation_notes": [
+    "At cell 0, repair ON/OFF changes both the Hamiltonian residual and momentum residual substantially; the H decomposition shows a major change in curvature R, but the M difference means the overall effect must not be characterized as R-only.",
+    "Middle and outer regional maxima for H and M are numerically close at the final sample; report exact values and relative differences rather than saying identical.",
+    "Diagnostic-only: no physical H/M threshold and no physical interpretation is inferred."
   ]
 }
