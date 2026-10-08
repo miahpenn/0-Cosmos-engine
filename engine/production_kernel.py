@@ -510,6 +510,20 @@ class V55ProductionKernel:
         H = raw["hamiltonian"] - 16.0 * math.pi * total.rho
         M = raw["momentum"] - 8.0 * math.pi * total.j
 
+        # Exact Hamiltonian bookkeeping from the pinned vendor constraint:
+        # H = R - (Aa^2 + 2 Ab^2) + 2 K^2/3 - 16 pi rho.
+        # Diagnostic only: expose each existing algebraic block and verify
+        # their sum reproduces H without changing the evolution.
+        Ab = -0.5 * geom.Aa
+        h_curvature = np.asarray(raw["hamiltonian"], dtype=float)
+        h_extrinsic_A = -(geom.Aa**2 + 2.0 * Ab**2)
+        h_extrinsic_K = (2.0 / 3.0) * geom.K**2
+        h_matter = -16.0 * math.pi * total.rho
+        h_reconstructed = (
+            h_curvature + h_extrinsic_A + h_extrinsic_K + h_matter
+        )
+        h_decomposition_error = h_reconstructed - H
+
         r = np.asarray(grid.centers)
         R = r * np.sqrt(geom.b) / geom.X
         Rr = grid.cell_derivative_fourth(R, parity=1)
@@ -871,6 +885,11 @@ class V55ProductionKernel:
             "hamiltonian_index0": float(H[0]),
             "hamiltonian_index1": float(H[1]),
             "hamiltonian_index2": float(H[2]),
+            "hamiltonian_curvature": float(h_curvature[i_H]),
+            "hamiltonian_extrinsic_A": float(h_extrinsic_A[i_H]),
+            "hamiltonian_extrinsic_K": float(h_extrinsic_K[i_H]),
+            "hamiltonian_matter_source": float(h_matter[i_H]),
+            "hamiltonian_decomposition_error": float(h_decomposition_error[i_H]),
             "hamiltonian_l2_inner": _weighted_l2(H, inner_mask),
             "hamiltonian_l2_outer": _weighted_l2(H, outer_mask),
             "momentum_max": float(np.max(np.abs(M[2:]))),
