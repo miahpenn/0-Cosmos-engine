@@ -523,6 +523,7 @@ class V55ProductionKernel:
             h_curvature + h_extrinsic_A + h_extrinsic_K + h_matter
         )
         h_decomposition_error = h_reconstructed - H
+        i_H_masked = 2 + int(np.argmax(np.abs(H[2:])))
 
         r = np.asarray(grid.centers)
         R = r * np.sqrt(geom.b) / geom.X
@@ -890,6 +891,16 @@ class V55ProductionKernel:
             "hamiltonian_extrinsic_K": float(h_extrinsic_K[i_H]),
             "hamiltonian_matter_source": float(h_matter[i_H]),
             "hamiltonian_decomposition_error": float(h_decomposition_error[i_H]),
+            "hamiltonian_global_curvature": float(h_curvature[i_H]),
+            "hamiltonian_global_extrinsic_A": float(h_extrinsic_A[i_H]),
+            "hamiltonian_global_extrinsic_K": float(h_extrinsic_K[i_H]),
+            "hamiltonian_global_matter_source": float(h_matter[i_H]),
+            "hamiltonian_global_decomposition_error": float(h_decomposition_error[i_H]),
+            "hamiltonian_masked_curvature": float(h_curvature[i_H_masked]),
+            "hamiltonian_masked_extrinsic_A": float(h_extrinsic_A[i_H_masked]),
+            "hamiltonian_masked_extrinsic_K": float(h_extrinsic_K[i_H_masked]),
+            "hamiltonian_masked_matter_source": float(h_matter[i_H_masked]),
+            "hamiltonian_masked_decomposition_error": float(h_decomposition_error[i_H_masked]),
             "hamiltonian_l2_inner": _weighted_l2(H, inner_mask),
             "hamiltonian_l2_outer": _weighted_l2(H, outer_mask),
             "momentum_max": float(np.max(np.abs(M[2:]))),
