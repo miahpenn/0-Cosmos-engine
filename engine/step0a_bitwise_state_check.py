@@ -97,14 +97,24 @@ def main():
     old, new = map(lambda x: Path(x).resolve(), sys.argv[1:])
     a = run(str(old))
     b = run(str(new))
-    if a != b:
-        for oa, nb in zip(a, b):
+    if len(a) != len(b):
+        raise SystemExit("FAIL: sampled checkpoint count differs between parent and candidate")
+    for oa, nb in zip(a, b):
+        # Compare only the state/step identity. The parent predates the
+        # decomposition gate, so its decomposition_checked metadata is allowed
+        # to differ from the candidate's candidate-only gate result.
+        if (oa["step"], oa["before"], oa["after"]) != (nb["step"], nb["before"], nb["after"]):
             print(f"step {oa['step']}: old_before={oa['before']} new_before={nb['before']} "
                   f"old_after={oa['after']} new_after={nb['after']}")
-        raise SystemExit("FAIL: diagnostic invariance or evolved-state checksum mismatch")
-    for row in a:
-        print(f"step {row['step']}: {row['before']} -> {row['after']}")
-    print("PASS: diagnostics called and full-state checksums match at every sampled step")
+            raise SystemExit("FAIL: evolved-state checksum mismatch")
+        if not nb.get("decomposition_checked", False):
+            raise SystemExit(
+                f"FAIL: candidate decomposition gate was not checked at step {nb['step']}"
+            )
+        print(f"step {nb['step']}: old_before={oa['before']} new_before={nb['before']} "
+              f"old_after={oa['after']} new_after={nb['after']} "
+              f"candidate_decomposition_checked={nb['decomposition_checked']}")
+    print("PASS: diagnostics called, candidate decomposition gate passed, and full-state checksums match at every sampled step")
 
 if __name__ == "__main__":
     main()
