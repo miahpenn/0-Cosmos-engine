@@ -859,8 +859,18 @@ class V55ProductionKernel:
             "p_outer": float(np.mean(total.pr[outer])),
             "j_outer": float(np.mean(total.j[outer])),
             "rho_total_max": float(np.max(total.rho)),
+            # Preserve the admitted legacy keys exactly. The legacy
+            # hamiltonian_max is the masked maximum (indices 2+), while
+            # hamiltonian_at_max below is the unmasked global witness.
             "hamiltonian_max": float(np.max(np.abs(H[2:]))),
             "hamiltonian_normalized_max": float(np.max(normalized_H[2:])),
+            "hamiltonian_max_masked": float(np.max(np.abs(H[2:]))),
+            "hamiltonian_max_masked_r": float(r[2 + int(np.argmax(np.abs(H[2:])))]),
+            "hamiltonian_global_max": float(np.max(np.abs(H))),
+            "hamiltonian_global_max_r": float(r[i_H]),
+            "hamiltonian_index0": float(H[0]),
+            "hamiltonian_index1": float(H[1]),
+            "hamiltonian_index2": float(H[2]),
             "hamiltonian_l2_inner": _weighted_l2(H, inner_mask),
             "hamiltonian_l2_outer": _weighted_l2(H, outer_mask),
             "momentum_max": float(np.max(np.abs(M[2:]))),
