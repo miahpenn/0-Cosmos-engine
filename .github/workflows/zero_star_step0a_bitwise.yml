@@ -36,4 +36,5 @@ jobs:
           fi
           git worktree add --detach /tmp/step0a-old "${BASE_SHA}"
           trap 'git worktree remove --force /tmp/step0a-old' EXIT
+          git -C /tmp/step0a-old submodule update --init --recursive
           python engine/step0a_bitwise_state_check.py /tmp/step0a-old "${GITHUB_WORKSPACE}"
