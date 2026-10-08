@@ -515,6 +515,8 @@ class V55ProductionKernel:
         # Diagnostic only: expose each existing algebraic block and verify
         # their sum reproduces H without changing the evolution.
         Ab = -0.5 * geom.Aa
+        _, vacuum_geom, _ = adapter.vendor_modules()
+        geometry = vacuum_geom.geometry_terms(grid, geom)
         h_curvature = np.asarray(geometry["R"], dtype=float)
         h_extrinsic_A = -(geom.Aa**2 + 2.0 * Ab**2)
         h_extrinsic_K = (2.0 / 3.0) * geom.K**2
@@ -901,6 +903,8 @@ class V55ProductionKernel:
             "hamiltonian_masked_extrinsic_K": float(h_extrinsic_K[i_H_masked]),
             "hamiltonian_masked_matter_source": float(h_matter[i_H_masked]),
             "hamiltonian_masked_decomposition_error": float(h_decomposition_error[i_H_masked]),
+            "hamiltonian_decomposition_error_max": float(np.max(np.abs(h_decomposition_error))),
+            "hamiltonian_decomposition_error_min": float(np.min(np.abs(h_decomposition_error))),
             "hamiltonian_l2_inner": _weighted_l2(H, inner_mask),
             "hamiltonian_l2_outer": _weighted_l2(H, outer_mask),
             "momentum_max": float(np.max(np.abs(M[2:]))),
