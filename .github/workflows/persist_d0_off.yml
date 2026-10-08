@@ -1,0 +1,54 @@
+name: "[0star] persist D0 repair-OFF common-CFL artifact"
+
+on:
+  push:
+    branches: ["0star-central-clock"]
+  workflow_dispatch:
+
+jobs:
+  persist:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[persist-d0-off]')
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 0star-central-clock
+      - name: Download completed D0 repair-OFF artifact
+        uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          repository: miahpenn/0-Cosmos-engine
+          run-id: 37710915370
+          name: 0star-fourway-D0-repair-off-cfl0075
+          path: /tmp/d0off
+      - name: Validate exact artifact
+        run: |
+          test -f /tmp/d0off/four_way_D0_repair-off_cfl0075_N160.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path('/tmp/d0off/four_way_D0_repair-off_cfl0075_N160.json')
+          d=json.loads(p.read_text())
+          assert d.get('status') == 'completed'
+          assert d.get('cfl') == 0.0075
+          assert d.get('resolution') == 160
+          assert d.get('r_max') == 80.0
+          assert d.get('final_time_requested') == 22.5
+          assert d.get('include_radiation') is True
+          assert d.get('target_times') == [0.01,4.0,8.0,12.0,16.0,20.0,22.5]
+          assert len(d.get('samples', [])) == 7
+          assert all('tau_central' in s for s in d['samples'])
+          print('artifact validation PASS')
+          PY
+      - name: Persist JSON
+        run: |
+          mkdir -p GEAR_group
+          cp /tmp/d0off/four_way_D0_repair-off_cfl0075_N160.json GEAR_group/four_way_D0_repair-off_cfl0075_N160.json
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add GEAR_group/four_way_D0_repair-off_cfl0075_N160.json
+          git commit -m "persist D0 repair-OFF common-CFL diagnostic JSON"
+          git push origin 0star-central-clock
