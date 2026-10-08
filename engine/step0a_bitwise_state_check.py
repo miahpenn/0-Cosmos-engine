@@ -43,11 +43,13 @@ def checkpoint(k, s, step):
         "hamiltonian_masked_extrinsic_K",
         "hamiltonian_masked_matter_source",
         "hamiltonian_masked_decomposition_error",
+        "hamiltonian_decomposition_error_max",
     )
     if all(key in d for key in required):
         for key in (
             "hamiltonian_global_decomposition_error",
             "hamiltonian_masked_decomposition_error",
+            "hamiltonian_decomposition_error_max",
         ):
             if abs(float(d[key])) > 1.0e-12:
                 raise RuntimeError(
