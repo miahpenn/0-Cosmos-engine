@@ -58,3 +58,5 @@ jobs:
           git add GEAR_group/four_way_D0_repair-on_cfl0075_N160.json
           git commit -m "persist D0 repair-ON common-CFL diagnostic JSON"
           git push origin 0star-central-clock
+
+# retrigger persistence after workflow registration
