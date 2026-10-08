@@ -3,11 +3,11 @@ name: "[0star] persist D0 repair-ON common-CFL diagnostic"
 on:
   push:
     branches: ["0star-central-clock"]
+    paths: [".github/workflows/persist_d0_on.yml"]
   workflow_dispatch:
 
 jobs:
   persist:
-    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[persist-d0-on]')
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -58,5 +58,3 @@ jobs:
           git add GEAR_group/four_way_D0_repair-on_cfl0075_N160.json
           git commit -m "persist D0 repair-ON common-CFL diagnostic JSON"
           git push origin 0star-central-clock
-
-# retrigger persistence after workflow registration
