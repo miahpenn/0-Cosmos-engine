@@ -515,7 +515,7 @@ class V55ProductionKernel:
         # Diagnostic only: expose each existing algebraic block and verify
         # their sum reproduces H without changing the evolution.
         Ab = -0.5 * geom.Aa
-        h_curvature = np.asarray(raw["hamiltonian"], dtype=float)
+        h_curvature = np.asarray(geometry["R"], dtype=float)
         h_extrinsic_A = -(geom.Aa**2 + 2.0 * Ab**2)
         h_extrinsic_K = (2.0 / 3.0) * geom.K**2
         h_matter = -16.0 * math.pi * total.rho
