@@ -1,0 +1,90 @@
+name: "[0star] Step 1 repair-OFF recorder"
+
+on:
+  push:
+    branches: [0star-central-clock]
+
+permissions:
+  contents: write
+
+jobs:
+  repair_off:
+    if: contains(github.event.head_commit.message, '[run-step1-repair-off]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Checkout pinned physics commit
+        uses: actions/checkout@v4
+        with:
+          ref: 765946cad8873a20cf3c64119dc2c9dd0796589e
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Verify pinned commit
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "765946cad8873a20cf3c64119dc2c9dd0796589e"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install requirements
+        run: python -m pip install -r requirements.txt
+
+      - name: Run Step 1 recording non-interference test
+        run: python -m pytest -q tests/test_step1_recording_noninterference.py
+
+      - name: Run repair-OFF recorder
+        run: |
+          set -euo pipefail
+          mkdir -p GEAR_group
+          python engine/step1_hamiltonian_terms.py --repair off --N 160 --D 1e-4 --final-time 22.5 --output GEAR_group/diag_center_terms_D1e4_N160_repair-off.json
+
+      - name: Admission check
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, math, pathlib, hashlib
+          p=pathlib.Path("GEAR_group/diag_center_terms_D1e4_N160_repair-off.json")
+          d=json.loads(p.read_text())
+          assert d.get("status")=="completed"
+          assert d.get("failure") is None
+          assert d.get("repair") is False
+          assert d.get("resolution")==160
+          assert abs(float(d.get("cfl"))-0.0075)<1e-15
+          assert abs(float(d.get("requested_final_time"))-22.5)<1e-12
+          assert abs(float(d.get("final_time"))-22.5)<0.05
+          rec=d.get("records")
+          assert isinstance(rec,list) and len(rec)==8
+          targets=[0.0,0.01,4.0,8.0,12.0,16.0,20.0,22.5]
+          for i,(r,t) in enumerate(zip(rec,targets)):
+              assert abs(float(r["t"])-t)<=0.05, (i,r.get("t"),t)
+              cells=r.get("cells")
+              assert isinstance(cells,list) and len(cells)>=5
+              for c in cells[:5]:
+                  for k in ("curvature","extrinsic_A","extrinsic_K","matter_source","reconstructed","vendor_H","decomposition_error"):
+                      assert math.isfinite(float(c[k])), (i,c.get("cell"),k,c.get(k))
+              assert float(r["decomposition_error_max"])==0.0, (i,r["decomposition_error_max"])
+              print(f"ADMITTED record {i}: t={r['t']:.12g} cells=5 decomposition_error_max={r['decomposition_error_max']}")
+          h=hashlib.sha256(p.read_bytes()).hexdigest()
+          print(f"JSON_SHA256 {h}")
+          print("ADMISSION PASS: repair=off, N=160, D=1e-4, final_time=22.5, 8 records, finite center terms, exact zero decomposition error")
+          PY
+
+      - name: Persist admitted JSON
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          HASH="$(sha256sum GEAR_group/diag_center_terms_D1e4_N160_repair-off.json | awk '{print $1}')"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin 0star-central-clock
+          git checkout -B 0star-central-clock origin/0star-central-clock
+          git status --short
+          git add GEAR_group/diag_center_terms_D1e4_N160_repair-off.json
+          git diff --cached --quiet && { echo "No JSON changes to persist"; exit 1; }
+          git commit -m "[step1] add repair-OFF center-term record: engine/step1_hamiltonian_terms.py at 765946c; --repair off --N 160 --D 1e-4 --final-time 22.5; sha256 $HASH"
+          git push origin HEAD:0star-central-clock
