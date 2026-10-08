@@ -32,3 +32,5 @@ jobs:
           name: 0star-fourway-D1e-4-repair-on-cfl0075
           path: GEAR_group/four_way_D1e-4_repair-on_cfl0075_N160.json
           if-no-files-found: error
+
+# final-corner launch trigger
