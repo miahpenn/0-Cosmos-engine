@@ -32,7 +32,36 @@ def checkpoint(k, s, step):
     after = checksum(s)
     if before != after:
         raise RuntimeError(f"diagnostics mutated state at step {step}")
-    return {"step": step, "before": before, "after": after, "diagnostics_called": True}
+    required = (
+        "hamiltonian_global_curvature",
+        "hamiltonian_global_extrinsic_A",
+        "hamiltonian_global_extrinsic_K",
+        "hamiltonian_global_matter_source",
+        "hamiltonian_global_decomposition_error",
+        "hamiltonian_masked_curvature",
+        "hamiltonian_masked_extrinsic_A",
+        "hamiltonian_masked_extrinsic_K",
+        "hamiltonian_masked_matter_source",
+        "hamiltonian_masked_decomposition_error",
+    )
+    if all(key in d for key in required):
+        for key in (
+            "hamiltonian_global_decomposition_error",
+            "hamiltonian_masked_decomposition_error",
+        ):
+            if abs(float(d[key])) > 1.0e-12:
+                raise RuntimeError(
+                    f"Hamiltonian decomposition failed at step {step}: "
+                    f"{key}={d[key]!r}"
+                )
+        return {
+            "step": step, "before": before, "after": after,
+            "diagnostics_called": True, "decomposition_checked": True,
+        }
+    return {
+        "step": step, "before": before, "after": after,
+        "diagnostics_called": True, "decomposition_checked": False,
+    }
 
 k = V55ProductionKernel()
 s = k.initialize(
