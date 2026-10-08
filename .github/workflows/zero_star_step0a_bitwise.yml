@@ -7,7 +7,7 @@ on:
 
 jobs:
   bitwise_state_check:
-    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[run-step0a]')
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[run-step0a]') || contains(github.event.head_commit.message, '[run-step1-gate]')
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
