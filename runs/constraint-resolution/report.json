@@ -1,0 +1,127 @@
+{
+  "status": "completed",
+  "D_amplitude": 0.0001,
+  "final_time": 24.0,
+  "diagnostic_only": true,
+  "cases": [
+    {
+      "resolution": 160,
+      "t": 24.0,
+      "tau": 6.9431071890904,
+      "hamiltonian_max": 0.00044751139492930567,
+      "hamiltonian_normalized_max": 0.3107184476318957,
+      "hamiltonian_l2_inner": 0.00041585431615891866,
+      "hamiltonian_l2_outer": 1.2318258972008628e-07,
+      "momentum_max": 1.617654389734085e-05,
+      "momentum_normalized_max": 0.2194214561289441,
+      "momentum_l2_inner": 6.587042524659761e-06,
+      "momentum_l2_outer": 4.239204251031716e-09,
+      "cmc_residual_outer_max": 3.585314284771778e-10,
+      "determinant_constraint_max": 3.3306690738754696e-16,
+      "determinant_min": 0.9999999999999997,
+      "trapping_min": 0.09945854176491442,
+      "trapped_roots_count": 0,
+      "trapped_root_radii": [],
+      "first_trapping": null,
+      "minimum_trapping_indicator_over_run": 0.09945854176491442,
+      "lapse_min": 0.0008577598925451657,
+      "lapse_min_r": 0.5
+    },
+    {
+      "resolution": 240,
+      "t": 24.0,
+      "tau": 6.940470691849779,
+      "hamiltonian_max": 0.00044167269241458806,
+      "hamiltonian_normalized_max": 0.30517347999355365,
+      "hamiltonian_l2_inner": 0.00040732938916813587,
+      "hamiltonian_l2_outer": 1.2532808548641948e-07,
+      "momentum_max": 1.6206873308167454e-05,
+      "momentum_normalized_max": 0.2218491827651534,
+      "momentum_l2_inner": 7.253493798874924e-06,
+      "momentum_l2_outer": 4.850394016026005e-09,
+      "cmc_residual_outer_max": 6.698930691032782e-11,
+      "determinant_constraint_max": 4.440892098500626e-16,
+      "determinant_min": 0.9999999999999998,
+      "trapping_min": -1.031690287620329,
+      "trapped_roots_count": 1,
+      "trapped_root_radii": [
+        167.84952156901628
+      ],
+      "first_trapping": {
+        "t": 0.03,
+        "tau": 0.03044684728013796,
+        "trapping_min": -0.843918135127867,
+        "root_radii": [
+          176.35217844231016
+        ]
+      },
+      "minimum_trapping_indicator_over_run": -1.031690287620329,
+      "lapse_min": 0.0006333879409569065,
+      "lapse_min_r": 0.5
+    },
+    {
+      "resolution": 320,
+      "t": 24.0,
+      "tau": 6.939820721475998,
+      "hamiltonian_max": 0.00043942111480432724,
+      "hamiltonian_normalized_max": 1.0,
+      "hamiltonian_l2_inner": 0.00040301243080436425,
+      "hamiltonian_l2_outer": 1.2581763803763516e-07,
+      "momentum_max": 1.621606064025781e-05,
+      "momentum_normalized_max": 0.16971864828161934,
+      "momentum_l2_inner": 7.5216357745809e-06,
+      "momentum_l2_outer": 4.543925283505865e-09,
+      "cmc_residual_outer_max": 2.0858322962715933e-11,
+      "determinant_constraint_max": 3.3306690738754696e-16,
+      "determinant_min": 0.9999999999999997,
+      "trapping_min": -2.6161279151877856,
+      "trapped_roots_count": 1,
+      "trapped_root_radii": [
+        167.90336111839946
+      ],
+      "first_trapping": {
+        "t": 0.03,
+        "tau": 0.030448586481211858,
+        "trapping_min": -2.2811913402439843,
+        "root_radii": [
+          176.35217813341023
+        ]
+      },
+      "minimum_trapping_indicator_over_run": -2.6161279151877856,
+      "lapse_min": 0.0006027346096808564,
+      "lapse_min_r": 0.5
+    },
+    {
+      "resolution": 480,
+      "t": 24.0,
+      "tau": 6.939451071044743,
+      "hamiltonian_max": 0.0004374409920868882,
+      "hamiltonian_normalized_max": 0.6682696881043468,
+      "hamiltonian_l2_inner": 0.0003992879747333291,
+      "hamiltonian_l2_outer": 1.2598448923873616e-07,
+      "momentum_max": 1.622228156762987e-05,
+      "momentum_normalized_max": 0.15952475038196628,
+      "momentum_l2_inner": 7.726308082458437e-06,
+      "momentum_l2_outer": 3.8457157782287284e-09,
+      "cmc_residual_outer_max": 4.108235886896017e-12,
+      "determinant_constraint_max": 3.3306690738754696e-16,
+      "determinant_min": 0.9999999999999997,
+      "trapping_min": -7.145250704473341,
+      "trapped_roots_count": 1,
+      "trapped_root_radii": [
+        168.00477805759684
+      ],
+      "first_trapping": {
+        "t": 0.03,
+        "tau": 0.03044982971662373,
+        "trapping_min": -6.390029310356896,
+        "root_radii": [
+          176.352177809042
+        ]
+      },
+      "minimum_trapping_indicator_over_run": -7.145250704473341,
+      "lapse_min": 0.0005970345986805968,
+      "lapse_min_r": 0.5
+    }
+  ]
+}
