@@ -17,6 +17,7 @@ from engine.matter_system import ConservedSpecies
 from engine.production_kernel import ProductionState, V55ProductionKernel
 from engine.scalar_system import ScalarFields
 from engine.v55_matter import V55MatterState
+from engine.d_mode_source_audit import SourceAuditKernel
 
 ARTIFACT_ID = 11638114258
 ARTIFACT_SHA256 = "85b5fdfd379fe793cb0b4c70efd21fa43e598127ba45193f58b131380af61ba7"
@@ -74,7 +75,8 @@ def load_checkpoint_npz(path: str | Path, r_max: float) -> ProductionState:
 
 def reconstruct_l2(state: ProductionState) -> dict[str, float]:
     """Calculate the four frozen regional L2 values using production diagnostics."""
-    diagnostics = V55ProductionKernel().diagnostics(state, profiles=False)
+    # The archived campaign used SourceAuditKernel; preserve its exact diagnostic dispatch path.
+    diagnostics = SourceAuditKernel(1.0e-10).diagnostics(state, profiles=False)
     result = {name: float(diagnostics[name]) for name in L2_FIELDS}
     result["hamiltonian_decomposition_error_max"] = float(
         diagnostics["hamiltonian_decomposition_error_max"]
