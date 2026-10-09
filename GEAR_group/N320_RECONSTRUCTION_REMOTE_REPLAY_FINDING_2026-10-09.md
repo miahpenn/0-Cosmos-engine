@@ -32,15 +32,16 @@ At the last target, row 11999 is the checkpoint's own step. Row 12000 at exactly
 
 ## Independent replay history
 
-Five fresh remote replays used the same diagnostic implementation and the same archived artifact:
+Six fresh remote replays used the same diagnostic implementation and the same archived artifact:
 
 1. [Replay A](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/37994882843), commit `11ddfe26a1294d2e8d69da01aa0cbfa6509cb58f`, artifact ID `11646856787`, artifact digest `8f51a5c83c028b70b56737258fbed632bb28ba3073778fa18d9b9060a26ce276`: **12/24 bitwise field matches**.
 2. [Replay B](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/37995406676), commit `be3731c44fc6d99cb005631521227edba940c738`, artifact ID `11647106173`, digest `baf4e140dfa42bae84cc09c7b364ca46d7558c8770b50c458cee04442cef28f1`: **12/24 bitwise field matches**.
 3. [Replay C](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/37995953192), commit `ea4dc9019eaf4840f448ef797b11aebdda0496f8`, artifact ID `11646269284`, digest `5d1889a2b2080d1c6d265388f3f1a9e78e77dd2478b47f563cb1081f46ec0b79`: **24/24 bitwise field matches**.
 4. [Replay D](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/37996275665), commit `12cce94e01d1f6b5b1faa1031353ef7436378b35`, artifact ID `11647152530`, digest `8e7664b909bb2878076202a020fa436136298415c0fdb572fe5648bd25832ee3`: **12/24 bitwise field matches**. It also passed the 121-test suite.
 5. [Replay E](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/37996340522), commit `e0dc776a6a2d58c0f7e7cb70a77269a03519d3cb`, artifact ID `11646569430`, digest `40cafc31692d832512cb15b8bd148e12f38d1cd8d236c0e7181c775f17a36960`: **24/24 bitwise field matches**. It passed the 121-test suite.
+6. [Replay F](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/37996827098), commit `95e3dc82bdc96d3c9acef7a7fb402932737df9fa`, artifact ID `11648075367`, digest `2f3b639c3ace3871bc729958e4e8c9c02752d3e184e7c0fec43233bed65e4841`: **12/24 bitwise field matches**. It passed the expanded 121-test suite and the data-integrity gates; its report explicitly leaves formal numerical acceptance unresolved.
 
-All five runs verified the source kernel and exact vendor pin, verified the artifact ZIP SHA-256, used the same six exact timestamp pairings, and reported zero decomposition error. Replays A–C ran the 117-test suite; replays D and E ran the expanded 121-test suite. Replays A, B, and D differ only in the outer-region H/M norms, with very small absolute differences; C and E reproduce all four fields at all six targets exactly.
+All six runs verified the source kernel and exact vendor pin, verified the artifact ZIP SHA-256, used the same six exact timestamp pairings, and reported zero decomposition error. Replays A–C ran the 117-test suite; replays D–F ran the expanded 121-test suite. Replays A, B, D, and F differ only in the outer-region H/M norms, with very small absolute differences; C and E reproduce all four fields at all six targets exactly. Following the protocol correction, a nonzero field difference is recorded as `NUMERIC_DIFFERENCE`, not treated as a code/integrity failure; no numerical acceptance result is claimed.
 
 ### The small differences seen in Replay A/B
 
@@ -61,6 +62,7 @@ Two CPU-dispatch probes ran with better runtime evidence:
 
 - [Probe P](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/37996015342), artifact ID `11646534059`, digest `46a3d78a5c5a4260f9ce5eb42c9c5f31cc69e9ee768a11e2df7d459fb31c40a3`: all seven default/feature-mask variants produced 24/24 exact values on an AMD EPYC 9V45 host; NumPy reported `X86_V4` and `AVX512_ICL`.
 - [Probe Q](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/37996340552), artifact ID `11646889054`, digest `b363204799d0ab0ef4515b6ca83a1e4b1774fd1dd37886509aa410d461cbbf2b`: all seven variants produced 12/24 exact values on an AMD EPYC 7763 host; NumPy reported `X86_V3` and no `X86_V4/AVX512_ICL`.
+- [Probe R](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/37996830575), artifact ID `11647024308`, digest `9663ce85109a5ef519c6b12b27587df79dd550011651d46dad3f0b33de0b3cca`: all seven variants produced 24/24 exact values; NumPy reported `X86_V3`, `X86_V4`, and `AVX512_ICL`. That workflow did not independently record the full CPU model, so no model attribution is made for Probe R.
 
 On each individual host, disabling the tested NumPy CPU feature flags did not change the result. Across these hosts, however, the bitwise result differed and the available ISA set differed as well. This is strong evidence of host/runtime dependence, but does not isolate the exact low-level instruction or operation responsible. The original run's CPU model and low-level runtime fingerprint were not recorded, so we cannot prove which path produced its archived values.
 
@@ -75,7 +77,7 @@ Established:
 - All six checkpoint timestamps pair uniquely to their own ledger steps under dataset-scoped Rev 4.
 - The checkpoint loader produces finite fields and zero Hamiltonian decomposition bookkeeping error.
 - 24/24 bitwise field matches have been reproduced on a fresh runner.
-- Three of five full replays returned 12/24 and two returned 24/24; differences are confined to the outer-region H/M norms and are very small in absolute terms.
+- Four of six full replays returned 12/24 and two returned 24/24; differences are confined to the outer-region H/M norms and are very small in absolute terms.
 - Host fingerprints correlate with the result: the recorded AMD EPYC 7763/X86_V3 host returned 12/24 and AMD EPYC 9V45/X86_V4 returned 24/24. Changing the tested NumPy feature masks did not alter the result within either host; the exact low-level cause remains unresolved.
 
 Not established:
