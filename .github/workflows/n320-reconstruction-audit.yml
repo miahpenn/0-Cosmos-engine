@@ -1,0 +1,95 @@
+name: N320 archived checkpoint reconstruction audit (diagnostics only)
+
+on:
+  push:
+    branches: [n320-reconstruction-audit-review-2026-10-09]
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  reconstruct:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      PYTHONPATH: .
+    steps:
+      - name: Checkout repository and pinned vendor kernel
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Verify archived source code and exact vendor pin
+        shell: bash
+        run: |
+          set -euo pipefail
+          source_commit="180324199196d7a5eacb7477187ce7e22ff6db64"
+          source_kernel="$(git rev-parse "${source_commit}:engine/production_kernel.py")"
+          audit_kernel="$(git rev-parse "HEAD:engine/production_kernel.py")"
+          test "$source_kernel" = "$audit_kernel"
+          echo "production_kernel_blob_sha=$audit_kernel" | tee audit_provenance.txt
+
+          expected_vendor="$(git ls-tree "$source_commit" vendor/bb-palatini-unified-r0 | awk '{print $3}')"
+          actual_vendor="$(git -C vendor/bb-palatini-unified-r0 rev-parse HEAD)"
+          test -n "$expected_vendor"
+          test "$actual_vendor" = "$expected_vendor"
+          printf 'vendor_expected=%s\nvendor_actual=%s\n' "$expected_vendor" "$actual_vendor" | tee -a audit_provenance.txt
+
+      - name: Run repository tests (no evolution campaign)
+        shell: bash
+        run: |
+          set -o pipefail
+          python -m pytest -q | tee audit_pytest.log
+
+      - name: Download and verify frozen N320 artifact
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/n320-zip /tmp/n320-unpacked
+          curl -fsSL \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/miahpenn/0-Cosmos-engine/actions/artifacts/11638114258/zip" \
+            -o /tmp/n320-zip/N320_artifact.zip
+          printf '%s  %s\n' \
+            '85b5fdfd379fe793cb0b4c70efd21fa43e598127ba45193f58b131380af61ba7' \
+            '/tmp/n320-zip/N320_artifact.zip' | sha256sum -c -
+          unzip -q /tmp/n320-zip/N320_artifact.zip -d /tmp/n320-unpacked
+          unzip -l /tmp/n320-zip/N320_artifact.zip > audit_artifact_inventory.txt
+
+      - name: Reconstruct the six archived checkpoint diagnostics
+        shell: bash
+        run: |
+          set -euo pipefail
+          python engine/checkpoint_reconstruction_driver.py \
+            --artifact-root /tmp/n320-unpacked \
+            --out audit_output/comparison_results_N320_Dbase.json \
+            --source-commit "$GITHUB_SHA" \
+            --artifact-zip-sha256 '85b5fdfd379fe793cb0b4c70efd21fa43e598127ba45193f58b131380af61ba7' \
+            | tee audit_reconstruction.log
+
+      - name: Upload reproducibility package
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: n320-checkpoint-reconstruction-audit
+          path: |
+            audit_output/comparison_results_N320_Dbase.json
+            audit_pytest.log
+            audit_provenance.txt
+            audit_artifact_inventory.txt
+            audit_reconstruction.log
+          if-no-files-found: warn
+          retention-days: 90
