@@ -1,0 +1,126 @@
+name: N320 checkpoint reduction-path probe (diagnostics only)
+
+on:
+  push:
+    branches: [n320-reconstruction-audit-review-2026-10-09]
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  cpu-dispatch-probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PYTHONPATH: .
+    steps:
+      - name: Checkout audit branch and pinned vendor kernel
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Verify the archived source kernel and vendor revision
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse 180324199196d7a5eacb7477187ce7e22ff6db64:engine/production_kernel.py)" = "$(git rev-parse HEAD:engine/production_kernel.py)"
+          expected_vendor="$(git ls-tree 180324199196d7a5eacb7477187ce7e22ff6db64 vendor/bb-palatini-unified-r0 | awk '{print $3}')"
+          actual_vendor="$(git -C vendor/bb-palatini-unified-r0 rev-parse HEAD)"
+          test "$expected_vendor" = "$actual_vendor"
+          printf 'source_commit=180324199196d7a5eacb7477187ce7e22ff6db64\nproduction_kernel_blob=%s\nvendor_commit=%s\n' "$(git rev-parse HEAD:engine/production_kernel.py)" "$actual_vendor" | tee probe_provenance.txt
+
+      - name: Download and verify the exact archived N320 artifact
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/n320-unpacked probe_output
+          curl -fsSL \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/miahpenn/0-Cosmos-engine/actions/artifacts/11638114258/zip" \
+            -o /tmp/N320_artifact.zip
+          printf '%s  %s\n' \
+            '85b5fdfd379fe793cb0b4c70efd21fa43e598127ba45193f58b131380af61ba7' \
+            '/tmp/N320_artifact.zip' | sha256sum -c -
+          unzip -q /tmp/N320_artifact.zip -d /tmp/n320-unpacked
+
+      - name: Probe predeclared NumPy CPU dispatch variants
+        shell: bash
+        run: |
+          set -u
+          : > probe_cpu_dispatch.log
+          python -c 'import numpy as np; print("DEFAULT_RUNTIME"); np.show_runtime()' >> probe_cpu_dispatch.log 2>&1
+          run_probe() {
+            local label="$1"
+            local mask="$2"
+            echo "=== $label (NPY_DISABLE_CPU_FEATURES=$mask) ===" | tee -a probe_cpu_dispatch.log
+            if [[ "$mask" == "NONE" ]]; then
+              env -u NPY_DISABLE_CPU_FEATURES python -c 'import numpy as np; print("RUNTIME"); np.show_runtime()' >> probe_cpu_dispatch.log 2>&1 || true
+              env -u NPY_DISABLE_CPU_FEATURES python engine/checkpoint_reconstruction_driver.py \
+                --artifact-root /tmp/n320-unpacked \
+                --out "probe_output/$label.json" \
+                --source-commit "$GITHUB_SHA" \
+                --artifact-zip-sha256 '85b5fdfd379fe793cb0b4c70efd21fa43e598127ba45193f58b131380af61ba7' \
+                >> probe_cpu_dispatch.log 2>&1
+            else
+              NPY_DISABLE_CPU_FEATURES="$mask" python -c 'import numpy as np; print("RUNTIME"); np.show_runtime()' >> probe_cpu_dispatch.log 2>&1 || true
+              NPY_DISABLE_CPU_FEATURES="$mask" python engine/checkpoint_reconstruction_driver.py \
+                --artifact-root /tmp/n320-unpacked \
+                --out "probe_output/$label.json" \
+                --source-commit "$GITHUB_SHA" \
+                --artifact-zip-sha256 '85b5fdfd379fe793cb0b4c70efd21fa43e598127ba45193f58b131380af61ba7' \
+                >> probe_cpu_dispatch.log 2>&1
+            fi
+            local rc=$?
+            echo "PROBE_EXIT_CODE $label=$rc" | tee -a probe_cpu_dispatch.log
+            return 0
+          }
+          run_probe default NONE
+          run_probe no_avx512 AVX512F
+          run_probe no_avx2 AVX2
+          run_probe no_fma3 FMA3
+          run_probe no_avx512_avx2 AVX512F,AVX2
+          run_probe no_avx512_avx2_fma3 AVX512F,AVX2,FMA3
+          run_probe no_avx512_skx AVX512_SKX
+          python - <<'PY' | tee probe_cpu_dispatch_summary.txt
+          import json
+          from pathlib import Path
+          print("This is an exploratory numerical-runtime diagnostic, not a new acceptance criterion.")
+          print("Do not select a feature mask just because it agrees with the archived numbers; the original runner dispatch profile was not recorded.")
+          for path in sorted(Path("probe_output").glob("*.json")):
+              d = json.loads(path.read_text())
+              errs = [
+                  (result["target"], field, values["rel_err"])
+                  for result in d["results"]
+                  for field, values in result["l2_fields"].items()
+                  if values["rel_err"] is not None
+              ]
+              nonzero = sum(not x["float64_bitwise_equal"] for r in d["results"] for x in r["l2_fields"].values())
+              max_rel = max((e[2] for e in errs), default=None)
+              print(f"{path.stem}: exact={d['exact_float64_matches']}/24 non_bitwise={nonzero}/24 max_relative_error={max_rel:.17g}")
+          PY
+
+      - name: Upload CPU dispatch diagnostic results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: n320-checkpoint-reduction-path-probe
+          path: |
+            probe_output/*.json
+            probe_cpu_dispatch.log
+            probe_cpu_dispatch_summary.txt
+            probe_provenance.txt
+          if-no-files-found: warn
+          retention-days: 90
