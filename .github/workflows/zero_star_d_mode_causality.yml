@@ -7,7 +7,7 @@ on:
 
 jobs:
   d-causality:
-    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[0star-d]')
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[0star-d-causality]')
     runs-on: ubuntu-latest
     timeout-minutes: 360
     env:
