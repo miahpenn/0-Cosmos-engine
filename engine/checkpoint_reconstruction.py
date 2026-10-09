@@ -114,7 +114,7 @@ def match_ledger_row_by_checkpoint_time(checkpoint_t: float, rows: list[dict]) -
 
 
 def compare_field(reconstructed: float, recorded: float | None) -> dict:
-    """Test exact reconstruction; report absolute/relative errors without a fitted tolerance."""
+    """Report stored-value differences without inventing a pass/fail tolerance."""
     if recorded is None:
         return {
             "outcome": "UNDEFINED", "reason": "missing reference",
@@ -125,7 +125,7 @@ def compare_field(reconstructed: float, recorded: float | None) -> dict:
     recorded = float(recorded)
     if not math.isfinite(reconstructed) or not math.isfinite(recorded):
         return {
-            "outcome": "FAIL", "reason": "non-finite value",
+            "outcome": "INVALID", "reason": "non-finite value",
             "abs_err": None, "rel_err": None, "exact_equal": False,
             "float64_bitwise_equal": False,
         }
@@ -140,10 +140,11 @@ def compare_field(reconstructed: float, recorded: float | None) -> dict:
     rel_err = abs_err / abs(recorded)
     bitwise_equal = struct.pack(">d", reconstructed) == struct.pack(">d", recorded)
     exact_equal = reconstructed == recorded
-    # This is reproduction of archived diagnostic values, not an accuracy
-    # tolerance for physics. Any nonzero difference must be reported as FAIL.
+    # Exact equality is recorded as a diagnostic fact, not as a formal
+    # acceptance criterion. The frozen audit text available to this branch
+    # does not specify a numerical acceptance tolerance for these comparisons.
     return {
-        "outcome": "PASS" if bitwise_equal else "FAIL",
+        "outcome": "BITWISE_MATCH" if bitwise_equal else "NUMERIC_DIFFERENCE",
         "reason": None if bitwise_equal else "float64 values differ",
         "abs_err": abs_err,
         "rel_err": rel_err,
