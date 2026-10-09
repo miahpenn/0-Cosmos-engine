@@ -79,13 +79,13 @@ The run summary reports:
 
 Code inspection shows `engine/run_production.py` computes this residual from the native history via `current_residual(times, masses, rhs)`, where `engine/worldtube.py` differentiates (M_{MS}) with `numpy.gradient` over the recorded timestamps. The tiny final interval makes the centered derivative at the penultimate row ill-conditioned and creates the reported maximum.
 
-As a post-run diagnostic audit only (not a changed admission criterion), masking the interior residual sample whose centered derivative touches the sub-`1e-9` interval—while leaving the raw history and solver state untouched—gives:
+As a post-run diagnostic audit only (not a changed admission criterion), masking both interior residual samples adjacent to the sub-`1e-9` interval, exactly as the committed `current_residual` function does, while leaving the raw history and solver state untouched, gives:
 - maximum absolute residual: 8.286849171659783e-05
 - RMS residual: 1.4784940828500333e-05
 
-The previously admitted N=160 Dbase values were max 8.166937695150422e-05 and RMS 1.6662565588568402e-05. With the terminal roundoff-sensitive derivative excluded, the N=320 maximum is about 1.47% higher and its RMS about 11.27% lower than N=160, instead of the misleading 48.6x peak increase and 2.68x RMS increase in the raw summary.
+The previously admitted N=160 Dbase values were max 8.166937695150422e-05 and RMS 1.6662565588568402e-05. With the terminal roundoff-sensitive derivative excluded, the N=320 maximum is about 1.47% higher and its RMS about 11.27% lower than N=160, the raw summary values are 49.34× the N=160 maximum and 2.379× the N=160 RMS (rounded: 49.3× and 2.38×).
 
-This identifies terminal-step sensitivity in a secondary diagnostic, not a failed preregistered gate and not evidence of a physical discontinuity. The original artifact and its emitted summary remain untouched.
+The tiny-interval residual spike was first noticed in the completed run's summary; that observed anomaly motivated the subsequent diagnostic-only change. Applying the committed `current_residual` implementation to the original N=320 native ledger masks both interior samples adjacent to the tiny interval and reproduces the corrected values above. This is a post-run diagnostic audit, not a failed preregistered gate and not evidence of a physical discontinuity. The original artifact and its emitted summary remain untouched.
 
 ## Artifact file hashes emitted by the admission report
 
