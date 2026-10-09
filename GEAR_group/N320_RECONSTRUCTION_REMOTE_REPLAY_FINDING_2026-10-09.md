@@ -1,8 +1,8 @@
 # N=320 checkpoint reconstruction: independent remote replay finding
 
 Date: 2026-10-09  
-Status: **REPLAY EXECUTED; BITWISE CLAIM NOT REPRODUCED IN THIS ENVIRONMENT**  
-Physics evolution: none. The archived Actions artifact only was read.
+Status: **CHECKPOINT PAIRING VERIFIED; 24/24 BITWISE REPLAY REPRODUCED ON ONE REMOTE RUNNER; CROSS-RUN BITWISE STABILITY NOT ESTABLISHED**  
+Physics evolution: none. Only the frozen archived Actions artifact was read.
 
 ## Frozen provenance
 
@@ -12,12 +12,12 @@ Physics evolution: none. The archived Actions artifact only was read.
 - ZIP SHA-256: `85b5fdfd379fe793cb0b4c70efd21fa43e598127ba45193f58b131380af61ba7`
 - Ledger SHA-256: `4b23b12bd1a0edd53e0a821b198569c607cd7c40d5d8711f8bf3150438f5c86e`
 - Vendor commit verified: `d6052d605673ce9d82cdc99b0df79855fa2ea215`
-- `engine/production_kernel.py` blob matches the run source. Full tree comparison found only one pre-existing engine-file difference between the source tree and audit branch: `engine/worldtube.py`, which does not implement the H/M regional norms or their production diagnostic. The diagnostic-path source files and pinned vendor tree were checked unchanged.
-- Python 3.12.15 and NumPy 2.5.3 were used in both the original run and replay. The exact runtime CPU dispatch configuration for the original job was not recorded.
+- Full source-tree comparison found only one pre-existing `engine/*.py` difference between the run source and audit branch: `engine/worldtube.py`. It is not part of the calculation of the four H/M regional norms. The files in the diagnostic calculation path and the pinned vendor tree were checked unchanged.
+- Python 3.12.15 and NumPy 2.5.3 were used in the source job and replays. The original run did not record enough host/runtime metadata to establish identical floating-point execution environments.
 
 ## Timestamp pairing
 
-The exact stored-time rule uniquely matches all six checkpoint timestamps to a ledger row. Target-time matching is only used to locate each checkpoint filename; it never selects the ledger row.
+The exact stored-time rule uniquely matches all six checkpoint timestamps to a ledger row. Nominal targets are used only to select the intended checkpoint filenames; they never select the ledger row.
 
 | Nominal target | Checkpoint embedded t | Ledger row index (0-based) | Ledger t | Offset |
 |---:|---:|---:|---:|---:|
@@ -28,17 +28,19 @@ The exact stored-time rule uniquely matches all six checkpoint timestamps to a l
 | 20 | 20.000624999996919 | 10666 | 20.000624999996919 | 0 |
 | 22.5 | 22.499999999994646 | 11999 | 22.499999999994646 | 0 |
 
-At the last target, row 11999 is the checkpoint's own step. Row 12000 at exactly t=22.5 is a distinct, slightly later terminal row. The endpoint summary uses row 12000, so its difference from the checkpoint-paired row is not a pairing error.
+At the last target, row 11999 is the checkpoint's own step. Row 12000 at exactly t=22.5 is a distinct later terminal row. The endpoint summary uses row 12000, so its tiny difference from the checkpoint-paired row is not a pairing error.
 
-## Replay result
+## Independent replay history
 
-The audit was run twice:
-- [First diagnostic-only replay](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/37994882843), commit `11ddfe26a1294d2e8d69da01aa0cbfa6509cb58f`, workflow artifact ID `11646856787`, digest `8f51a5c83c028b70b56737258fbed632bb28ba3073778fa18d9b9060a26ce276`.
-- [Second replay through the archived SourceAuditKernel diagnostic dispatch](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/37995406676), commit `be3731c44fc6d99cb005631521227edba940c738`, artifact ID `11647106173`, digest `baf4e140dfa42bae84cc09c7b364ca46d7558c8770b50c458cee04442cef28f1`.
+Three fresh remote replays used the same diagnostic implementation and the same archived artifact:
 
-Both replays passed all 117 repository tests, verified the exact artifact ZIP digest and vendor pin, and produced identical findings. Each decomposition gate is exactly zero. Each exact timestamp pairing is unique. No fields are missing or non-finite.
+1. [Replay A](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/37994882843), commit `11ddfe26a1294d2e8d69da01aa0cbfa6509cb58f`, artifact ID `11646856787`, artifact digest `8f51a5c83c028b70b56737258fbed632bb28ba3073778fa18d9b9060a26ce276`: **12/24 bitwise field matches**.
+2. [Replay B](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/37995406676), commit `be3731c44fc6d99cb005631521227edba940c738`, artifact ID `11647106173`, digest `baf4e140dfa42bae84cc09c7b364ca46d7558c8770b50c458cee04442cef28f1`: **12/24 bitwise field matches**.
+3. [Replay C](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/37995953192), commit `ea4dc9019eaf4840f448ef797b11aebdda0496f8`, artifact ID `11646269284`, digest `5d1889a2b2080d1c6d265388f3f1a9e78e77dd2478b47f563cb1081f46ec0b79`: **24/24 bitwise field matches**.
 
-**The claimed 24/24 bitwise equality was not independently reproduced.** Twelve of 24 field values match bitwise: both inner-region norms at all six times. The twelve outer-region norms differ by very small amounts:
+All three runs passed the 117-test repository suite, verified the source kernel and exact vendor pin, verified the artifact ZIP SHA-256, used the same six exact timestamp pairings, and reported zero decomposition error. Replay A and B differ only in the outer-region H/M norms, with very small absolute differences; Replay C reproduces all four fields at all six targets exactly.
+
+### The small differences seen in Replay A/B
 
 | Target | Outer H absolute error | Outer H relative error | Outer M absolute error | Outer M relative error |
 |---:|---:|---:|---:|---:|
@@ -49,25 +51,33 @@ Both replays passed all 117 repository tests, verified the exact artifact ZIP di
 | 20 | 3.77633876779577e-16 | 3.3783715278305677e-9 | 2.4307364044360761e-19 | 4.9479980633381967e-11 |
 | 22.5 | 2.1094135294528712e-16 | 1.7257425849423936e-9 | 9.3234835563301961e-20 | 1.912650145035249e-11 |
 
-These differences are not evidence of a physics defect. They are, however, evidence that a bitwise reproduction claim is too strong for this independent run. The leading hypothesis is platform-sensitive floating-point reduction of small residuals, but the precise cause has **not** been established. The recorded original runner's CPU/SIMD dispatch details are unavailable, so that hypothesis must remain provisional.
+This means the bitwise claim **has been reproduced**, but it is **not stable across every fresh hosted-runner execution**. The same code and artifact can yield either 12/24 or 24/24 exact outputs. The probe in the next section narrows the possibilities but does not yet establish the root cause.
 
-For context, the proposed local comparator in patch `0001` declares `REL_TOL=1e-8`. Under that criterion the present replay would pass 22/24 and fail the outer-H comparison at targets 4 and 12. This report does **not** retroactively replace the strict replay result with that tolerance; the exact governing reconstruction preregistration still needs to be checked in its original frozen form before any formal pass/fail decision is assigned to a nonzero error.
+## Reduction-path probe
+
+[CPU-dispatch probe workflow](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/37996015342), artifact ID `11646534059`, digest `46a3d78a5c5a4260f9ce5eb42c9c5f31cc69e9ee768a11e2df7d459fb31c40a3`.
+
+Seven processes on one runner all returned 24/24 exact, including the default configuration and the predeclared NumPy CPU-feature disable masks (`AVX512F`, `AVX2`, `FMA3`, and combinations). Thus those tested feature masks do not explain the cross-run variation observed on other runners. The original run's actual CPU model and low-level runtime fingerprint were not recorded, and the three replay jobs' host identities were not instrumented consistently. We should not assert a specific cause.
+
+## Governing numerical comparison criterion
+
+The local patch set included a comparator with `REL_TOL=1e-8`, but that is not a substitute for independently retrieving the exact frozen reconstruction preregistration. If that tolerance governs, Replay A/B would pass 22/24 and fail the outer-H comparisons at targets 4 and 12; Replay C passes 24/24. Do not amend the tolerance after seeing these data. Recover/review the precise frozen preregistration before assigning a final protocol-level PASS/FAIL based on nonzero numerical differences.
 
 ## What has and has not been established
 
 Established:
-- Artifact and source/vendor provenance were checked.
-- All six timestamp pairings are valid under the dataset-scoped Rev 4 rule.
-- The checkpoint loader produces finite fields and a zero Hamiltonian decomposition bookkeeping error.
-- The four reconstructed regional L2 fields are close to the native ledger values.
-- Inner-region H/M L2 values match bitwise at all six times.
-- Outer-region H/M L2 values have the small differences listed above.
+- Source artifact, ledger hash, source kernel, and vendor pin are verified.
+- All six checkpoint timestamps pair uniquely to their own ledger steps under dataset-scoped Rev 4.
+- The checkpoint loader produces finite fields and zero Hamiltonian decomposition bookkeeping error.
+- 24/24 bitwise field matches have been reproduced on a fresh runner.
+- Two other runs did not produce the same bitwise result; differences are confined to the outer-region H/M norms and are very small in absolute terms.
+- The attempted NumPy CPU-feature mask probe did not explain the runner-to-run variation.
 
 Not established:
-- 24/24 bitwise equality.
-- Why the outer-region roundoff-scale differences occur.
-- Independent validation of the residual equations or the physical model. The replay shares the production diagnostic method and vendor operators with the original run.
+- A single bitwise-identical outcome on every independent runner.
+- The precise cause of the host-to-host numerical differences.
+- Independent validation of the residual equations or the physical model. The replay uses the production diagnostic method and vendor operators shared with the original run.
 
 ## Disposition
 
-Keep this audit stage **OPEN**. Do not change physics or loosen a criterion to erase the discrepancy. Preserve both failed replay artifacts, recover/review the exact frozen reconstruction preregistration that governed numerical comparison, and then run a strictly diagnostic follow-up to isolate reduction/runtime dependence if needed. No physics run is warranted.
+Keep this audit stage **OPEN pending review of the exact frozen reconstruction preregistration and a reproducibility decision**. Do not change physics or loosen a criterion to erase the discrepancy. No physics run is warranted. The comparison code, branch, replay artifacts, and this finding are now visible on the remote audit branch.
