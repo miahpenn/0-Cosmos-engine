@@ -414,16 +414,19 @@ jobs:
                   checkpoint_failures.append((path.name, "*", repr(exc))
                   )
           expected_checkpoint_times = [0.25 * i for i in range(1, 91)]
+          # Checkpoints are written at the nearest completed integration step;
+          # their embedded t can differ from the 0.25 target by up to dt/2.
+          checkpoint_time_tolerance = 0.5 * 0.001875 + 1.0e-9
           checkpoint_time_ok = (
               len(checkpoint_times) == 90
               and all(
-                  abs(a - b) <= 1.0e-9
+                  abs(a - b) <= checkpoint_time_tolerance
                   for a, b in zip(sorted(checkpoint_times), expected_checkpoint_times)
               )
           )
           gate("checkpoint arrays finite and N320 grid correct",
                not checkpoint_failures and checkpoint_time_ok,
-               f"bad_arrays_or_grids={len(checkpoint_failures)}; checkpoint_times_match_0.25_to_22.5={checkpoint_time_ok}")
+               f"bad_arrays_or_grids={len(checkpoint_failures)}; checkpoint_time_alignment_within_half_step={checkpoint_time_ok}; tolerance={checkpoint_time_tolerance}")
 
           tau320 = result.get("tau_final")
           tau_ok = finite_number(tau320) and abs(float(tau320) - reference_tau) <= tau_tolerance
