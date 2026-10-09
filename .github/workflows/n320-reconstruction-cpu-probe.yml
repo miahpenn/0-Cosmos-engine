@@ -59,6 +59,7 @@ jobs:
       - name: Probe predeclared NumPy CPU dispatch variants
         shell: bash
         run: |
+          set +e
           set -u
           : > probe_cpu_dispatch.log
           python -c 'import numpy as np; print("DEFAULT_RUNTIME"); np.show_runtime()' >> probe_cpu_dispatch.log 2>&1
@@ -94,6 +95,7 @@ jobs:
           run_probe no_avx512_avx2 AVX512F,AVX2
           run_probe no_avx512_avx2_fma3 AVX512F,AVX2,FMA3
           run_probe no_avx512_skx AVX512_SKX
+          set -e
           python - <<'PY' | tee probe_cpu_dispatch_summary.txt
           import json
           from pathlib import Path
