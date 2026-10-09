@@ -3,6 +3,10 @@ name: N320 checkpoint reduction-path probe (diagnostics only)
 on:
   push:
     branches: [n320-reconstruction-audit-review-2026-10-09]
+    paths:
+      - engine/checkpoint_reconstruction.py
+      - engine/checkpoint_reconstruction_driver.py
+      - .github/workflows/n320-reconstruction-cpu-probe.yml
 
 permissions:
   contents: read
