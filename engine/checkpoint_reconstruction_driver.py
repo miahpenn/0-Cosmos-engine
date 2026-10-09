@@ -8,7 +8,7 @@ import math
 from pathlib import Path
 
 from engine.checkpoint_reconstruction import (
-    ARTIFACT_ID, ARTIFACT_SHA256, DECOMP_TOL, L2_FIELDS, SOURCE_COMMIT,
+    ARTIFACT_ID, ARTIFACT_SHA256, DECOMP_TOL, REL_TOL, L2_FIELDS, SOURCE_COMMIT,
     TARGETS, MATCHED, load_checkpoint_npz,
     match_ledger_row_by_checkpoint_time, reconstruct_l2, compare_field,
 )
@@ -66,6 +66,9 @@ def main() -> int:
     integrity_pass = True
     total_exact = 0
     total_fields = 0
+    total_field_pass = 0
+    total_field_fail = 0
+    total_field_undefined = 0
 
     for target in TARGETS:
         checkpoint_path = case_root / checkpoint_label(target)
@@ -93,6 +96,7 @@ def main() -> int:
 
         field_results = {}
         fields_valid = True
+        target_comparison_outcomes = []
         for field in L2_FIELDS:
             value = recorded_row.get(field)
             result = compare_field(reconstructed[field], value)
@@ -103,12 +107,22 @@ def main() -> int:
             }
             total_fields += 1
             total_exact += int(result["float64_bitwise_equal"])
-            fields_valid = fields_valid and result["outcome"] in ("BITWISE_MATCH", "NUMERIC_DIFFERENCE")
+            fields_valid = fields_valid and result["outcome"] in ("PASS", "FAIL", "UNDEFINED")
+            target_comparison_outcomes.append(result["outcome"])
+            total_field_pass += int(result["outcome"] == "PASS")
+            total_field_fail += int(result["outcome"] == "FAIL")
+            total_field_undefined += int(result["outcome"] == "UNDEFINED")
 
         decomposition_error = reconstructed["hamiltonian_decomposition_error_max"]
         decomposition_ok = decomposition_error <= DECOMP_TOL
         target_integrity_ok = fields_valid and decomposition_ok
         integrity_pass = integrity_pass and target_integrity_ok
+        if 'FAIL' in target_comparison_outcomes:
+            target_comparison_status = 'FAIL'
+        elif 'UNDEFINED' in target_comparison_outcomes:
+            target_comparison_status = 'UNDEFINED'
+        else:
+            target_comparison_status = 'PASS'
 
         out_results.append({
             "target": target,
@@ -126,6 +140,7 @@ def main() -> int:
             "decomposition_gate_tolerance": DECOMP_TOL,
             "decomposition_gate_ok": bool(decomposition_ok),
             "integrity_status": "PASS" if target_integrity_ok else "FAIL",
+            "comparison_status": target_comparison_status,
         })
 
     payload = {
@@ -146,18 +161,21 @@ def main() -> int:
         "targets": list(TARGETS),
         "l2_fields": list(L2_FIELDS),
         "comparison_rule": (
-            "Report exact float64 equality, absolute errors, and relative errors. "
-            "Do not assign numerical acceptance PASS/FAIL: the frozen reconstruction "
-            "acceptance tolerance was not found in available records. Exact timestamp "
-            "pairing is Rev 4 dataset-scoped only."
+            "For each nonzero, present reference, PASS iff abs(reconstructed-recorded) / "
+            "abs(recorded) <= 1e-8; otherwise FAIL. Missing or exactly-zero references "
+            "are UNDEFINED; non-finite values are INVALID. Exact timestamp pairing is "
+            "Rev 4 dataset-scoped only."
         ),
-        "formal_comparison_acceptance": "UNRESOLVED_NO_FROZEN_NUMERICAL_TOLERANCE_LOCATED",
+        "relative_tolerance": REL_TOL,
         "decomposition_tolerance": DECOMP_TOL,
         "exact_float64_matches": total_exact,
         "field_comparisons": total_fields,
+        "field_passes": total_field_pass,
+        "field_failures": total_field_fail,
+        "field_undefined": total_field_undefined,
         "audit_status": "COMPLETED" if integrity_pass else "INTEGRITY_FAILURE",
         "integrity_checks_pass": bool(integrity_pass),
-        "numerical_acceptance_decision": "UNRESOLVED",
+        "formal_comparison_acceptance": ("FAIL" if total_field_fail else "UNDEFINED" if total_field_undefined else "PASS"),
         "results": out_results,
         "interpretation_limits": (
             "This checks reproducibility of stored diagnostic values from saved checkpoint states. "
@@ -176,12 +194,16 @@ def main() -> int:
         print(
             f"target={item['target']:>4} stored_t={item['checkpoint_t']:.15f} "
             f"ledger_row={item['ledger_row_index']} offset={item['ledger_offset']:.1e} "
-            f"integrity={'PASS' if item['integrity_status'] == 'PASS' else 'FAIL'} "
-            f"bitwise={exact}/4 decomposition={item['hamiltonian_decomposition_error_max']:.3e}"
+            f"integrity={item['integrity_status']} "
+            f"comparison={item['comparison_status']} bitwise={exact}/4 "
+            f"decomposition={item['hamiltonian_decomposition_error_max']:.3e}"
         )
     print(f"exact_float64_matches={total_exact}/{total_fields}")
     print(f"integrity_checks={'PASS' if integrity_pass else 'FAIL'}")
-    print("formal_numerical_acceptance=UNRESOLVED")
+    print(f"field_passes={total_field_pass}/{total_fields}")
+    print(f"field_failures={total_field_fail}/{total_fields}")
+    print(f"field_undefined={total_field_undefined}/{total_fields}")
+    print(f"relative_tolerance={REL_TOL:.1e}")
     print(f"results_json={args.out}")
     return 0 if integrity_pass else 1
 
