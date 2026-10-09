@@ -93,12 +93,25 @@ def test_duplicate_exact_timestamps_are_ambiguous():
     assert result["status"] == cr.AMBIGUOUS
 
 
-def test_exact_comparison_reports_match_and_nonzero_difference_without_tolerance():
-    assert cr.compare_field(1.25e-4, 1.25e-4)["outcome"] == "BITWISE_MATCH"
-    result = cr.compare_field(1.25e-4 + 1.0e-16, 1.25e-4)
-    assert result["outcome"] == "NUMERIC_DIFFERENCE"
-    assert result["abs_err"] > 0.0
-    assert result["rel_err"] > 0.0
+def test_frozen_relative_tolerance_passes_small_difference():
+    result = cr.compare_field(1.25e-4 * (1.0 + 5.0e-9), 1.25e-4)
+    assert result["outcome"] == "PASS"
+    assert result["rel_err"] <= 1.0e-8
+    assert not result["float64_bitwise_equal"]
+
+
+def test_frozen_relative_tolerance_fails_above_threshold():
+    result = cr.compare_field(1.25e-4 * (1.0 + 1.5e-8), 1.25e-4)
+    assert result["outcome"] == "FAIL"
+    assert result["rel_err"] > 1.0e-8
+    assert result["reason"] == "relative error exceeds frozen tolerance"
+
+
+def test_bitwise_match_passes_frozen_relative_tolerance():
+    result = cr.compare_field(1.25e-4, 1.25e-4)
+    assert result["outcome"] == "PASS"
+    assert result["float64_bitwise_equal"]
+    assert result["rel_err"] == 0.0
 
 
 def test_zero_or_missing_reference_is_undefined():
