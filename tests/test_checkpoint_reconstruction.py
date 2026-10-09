@@ -93,10 +93,10 @@ def test_duplicate_exact_timestamps_are_ambiguous():
     assert result["status"] == cr.AMBIGUOUS
 
 
-def test_exact_comparison_passes_and_nonzero_difference_fails():
-    assert cr.compare_field(1.25e-4, 1.25e-4)["outcome"] == "PASS"
+def test_exact_comparison_reports_match_and_nonzero_difference_without_tolerance():
+    assert cr.compare_field(1.25e-4, 1.25e-4)["outcome"] == "BITWISE_MATCH"
     result = cr.compare_field(1.25e-4 + 1.0e-16, 1.25e-4)
-    assert result["outcome"] == "FAIL"
+    assert result["outcome"] == "NUMERIC_DIFFERENCE"
     assert result["abs_err"] > 0.0
     assert result["rel_err"] > 0.0
 
@@ -106,8 +106,8 @@ def test_zero_or_missing_reference_is_undefined():
     assert cr.compare_field(1.0e-6, None)["outcome"] == "UNDEFINED"
 
 
-def test_non_finite_value_fails():
-    assert cr.compare_field(float("nan"), 1.0)["outcome"] == "FAIL"
+def test_non_finite_value_is_invalid():
+    assert cr.compare_field(float("nan"), 1.0)["outcome"] == "INVALID"
 
 
 def _assert_entry_equal(path, a, b):
