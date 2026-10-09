@@ -1,0 +1,664 @@
+name: 0-star D-mode time-shape resolution convergence N160-N320 (r80)
+
+on:
+  workflow_dispatch:
+    inputs:
+      approval:
+        description: "Set to approved only after review of the committed preregistration records and workflow diff. Default is HOLD."
+        required: true
+        type: choice
+        options:
+          - hold
+          - approved
+        default: hold
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  d-time-shape-r80-n320:
+    if: github.ref == 'refs/heads/0star-central-clock'
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    env:
+      PYTHONPATH: .
+      APPROVAL: ${{ github.event.inputs.approval || 'hold' }}
+      ARTIFACT_NAME: 0star-d-mode-time-shape-r80-N320-Dbase
+    steps:
+      - name: Checkout reviewed branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Fail-closed approval and exact preregistration-hash gate
+        run: |
+          python - <<'PY'
+          import hashlib
+          import os
+          import subprocess
+          import sys
+          from pathlib import Path
+
+          if os.environ.get("APPROVAL") != "approved":
+              raise SystemExit(
+                  "HOLD: workflow input approval must be explicitly set to 'approved' "
+                  "after independent review. No physics run was started."
+              )
+
+          expected = {
+              "PREREG_N320_timeshape_dbase_2026-10-09.md":
+                  "c96d138544aa07e32dfeee15daedcf7c811883fac448a47488f8d0d79f8eb06e",
+              "PREREG_N320_AMENDMENT_2_2026-10-09.md":
+                  "99676c07596bb339df0e5ad8f20e8e2bcb49a0489b04ca6224ee1c01dd810e4c",
+              "D_TIME_SHAPE_ANALYSIS_2026-10-09.md":
+                  "56dbe6ce8b3615d4b0bf701589488fd8618d6a7c222efff05dc9649528bd2d37",
+              "T10_UNBLINDING_RECORD_2026-10-09.md":
+                  "a42314d11251165276e34b35cd8abd8aa6a1ef78f10c5f42450e02993bc88bec",
+              "PREREG_N320_AMENDMENT_3_2026-10-09.md":
+                  "df52d1037f319ee21b42defa6e69b76e473a1f05095388896e45dc8c66edfa34",
+          }
+          tracked = subprocess.check_output(
+              ["git", "ls-files", "-z"], text=False
+          ).split(b"\0")
+          paths = [Path(p.decode()) for p in tracked if p]
+          problems = []
+          for basename, required_sha in expected.items():
+              matches = [p for p in paths if p.name == basename]
+              if len(matches) != 1:
+                  problems.append(
+                      f"{basename}: expected exactly one tracked copy, found {len(matches)}"
+                  )
+                  continue
+              got = hashlib.sha256(matches[0].read_bytes()).hexdigest()
+              print(f"PREREG {matches[0]} SHA256={got}")
+              if got != required_sha:
+                  problems.append(
+                      f"{matches[0]}: SHA256 {got} != required {required_sha}"
+                  )
+
+          if problems:
+              print("HOLD: preregistration gate failed:", file=sys.stderr)
+              for problem in problems:
+                  print(f" - {problem}", file=sys.stderr)
+              print("No physics run was started.", file=sys.stderr)
+              raise SystemExit(1)
+
+          print("PREREGISTRATION GATE PASS: all four exact hashes match.")
+          PY
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Repository tests
+        run: pytest -q
+
+      - name: Run the single preregistered N320 Dbase case
+        run: |
+          python - <<'PY'
+          import hashlib
+          import json
+          import math
+          from pathlib import Path
+
+          from engine.campaign import CampaignConfig
+          from engine.d_mode_source_audit import SourceAuditKernel
+          from engine.run_production import run_campaign
+
+          label = "Dbase"
+          amplitude = 1.0e-10
+          base = Path("runs/0star-d-time-shape-r80-N320")
+          cfg = CampaignConfig(
+              resolutions=(320,),
+              r_max=80.0,
+              cfl=0.0075,
+              final_time=22.5,
+              checkpoint_interval=0.25,
+              output_dir=str(base / label),
+          )
+          results = run_campaign(kernel=SourceAuditKernel(amplitude), config=cfg)
+          if len(results) != 1:
+              raise RuntimeError(f"Expected exactly one resolution result, got {len(results)}")
+          result = results[0].__dict__
+          out = base / label / "N320"
+          out.mkdir(parents=True, exist_ok=True)
+
+          ledger_path = out / "ledgers.json"
+          if not ledger_path.is_file():
+              raise FileNotFoundError(f"Native per-step ledger missing: {ledger_path}")
+          ledger = json.loads(ledger_path.read_text())
+          native_history = ledger["history"]
+
+          keys = [
+              "t", "tau", "D_center", "PD_center", "D_at_source_probe",
+              "PD_at_source_probe", "D_active_at_source_probe",
+              "D_growth_rate_center", "D_K_source_center",
+              "vacuum_K_source_center", "alpha_r_max", "tau_rate",
+          ]
+          rows = [{key: row.get(key) for key in keys} for row in native_history]
+          history_path = out / "time_shape_history.json"
+          history_path.write_text(json.dumps(rows, indent=2, default=float) + "\n")
+
+          case_summary = {
+              "case": label,
+              "amplitude": amplitude,
+              "radiation_on": True,
+              "resolution": 320,
+              "r_max": 80.0,
+              "dr": 0.25,
+              "cfl": 0.0075,
+              "dt_nominal": 0.001875,
+              "final_t": rows[-1]["t"] if rows else None,
+              "final_tau": rows[-1]["tau"] if rows else None,
+              "rows": len(rows),
+              "result": result,
+          }
+          (out / "time_shape_case_summary.json").write_text(
+              json.dumps(case_summary, indent=2, default=float) + "\n"
+          )
+          (base / "time_shape_summary.json").write_text(
+              json.dumps({
+                  "case": label,
+                  "amplitude": amplitude,
+                  "resolution": 320,
+                  "result": result,
+                  "native_history_rows": len(rows),
+                  "final_t": case_summary["final_t"],
+                  "final_tau": case_summary["final_tau"],
+              }, indent=2, default=float) + "\n"
+          )
+
+          manifest = {
+              "case": label,
+              "amplitude": amplitude,
+              "radiation_on": True,
+              "configuration": {
+                  "resolutions": [320],
+                  "r_max": 80.0,
+                  "dr": 0.25,
+                  "cfl": 0.0075,
+                  "dt_nominal": 0.001875,
+                  "final_time": 22.5,
+                  "checkpoint_interval": 0.25,
+                  "checkpoint_expected": 90,
+              },
+              "reference": {
+                  "case": "admitted N160 Dbase, same r_max=80",
+                  "final_tau": 20.85989340408469,
+                  "native_ledger_sha256":
+                      "ac18633839734461622e3d16f6390248d40810d324189899eb2bc43ed629a634",
+                  "native_time_shape_history_sha256":
+                      "da05fa33312276909c1a7d7fb2392117dbee0dc6f48e7311aa085ba9eb802afd",
+                  "artifact_zip_sha256":
+                      "d643b7521d40c8e49bef3c5efca6548bdcf703172a1599c08c974ff08b5c87d5",
+              },
+          }
+          (out / "run_manifest.json").write_text(
+              json.dumps(manifest, indent=2, default=float) + "\n"
+          )
+          print("N320 Dbase run produced; fail-closed admission checks follow.")
+          PY
+
+      - name: Validate integrity gates and preregistered convergence
+        id: admission
+        run: |
+          python - <<'PY'
+          import hashlib
+          import json
+          import math
+          from pathlib import Path
+          import sys
+
+          import numpy as np
+
+          root = Path("runs/0star-d-time-shape-r80-N320")
+          case_dir = root / "Dbase"
+          out = case_dir / "N320"
+          failures = []
+          gates = []
+
+          def gate(name, passed, detail):
+              gates.append({"gate": name, "pass": bool(passed), "detail": str(detail)})
+              print(f'{"PASS" if passed else "FAIL"} {name}: {detail}')
+              if not passed:
+                  failures.append(name)
+
+          def finite_number(value):
+              try:
+                  return math.isfinite(float(value))
+              except (TypeError, ValueError, OverflowError):
+                  return False
+
+          def sha256(path):
+              h = hashlib.sha256()
+              with Path(path).open("rb") as stream:
+                  for block in iter(lambda: stream.read(1024 * 1024), b""):
+                      h.update(block)
+              return h.hexdigest()
+
+          required_fields = [
+              "D_center", "PD_center", "D_at_source_probe",
+              "PD_at_source_probe", "D_active_at_source_probe",
+          ]
+          onset_fields = [
+              "D_center", "D_at_source_probe", "D_growth_rate_center",
+              "D_K_source_center", "vacuum_K_source_center", "alpha_r_max",
+              "tau_rate", "D_active_at_source_probe",
+          ]
+          reference_field = "D_active_at_source_probe"
+          fractions = (0.10, 0.25, 0.50)
+
+          # Native N160 reference histories were measured from the admitted ledger:
+          # SHA256 ac186338...29a634, not from checkpoints.
+          reference_onsets = {
+              0.10: {
+                  "D_center": 18.618750000001,
+                  "D_at_source_probe": 18.063750000001,
+                  "D_growth_rate_center": 0.911250000001,
+                  "D_K_source_center": 19.057500000001,
+                  "vacuum_K_source_center": 7.327500000000,
+                  "alpha_r_max": 19.417500000001,
+                  "tau_rate": 19.350000000001,
+                  "D_active_at_source_probe": 19.533750000001,
+              },
+              0.25: {
+                  "D_center": 19.620000000001,
+                  "D_at_source_probe": 19.203750000001,
+                  "D_growth_rate_center": 19.935000000001,
+                  "D_K_source_center": 19.608750000001,
+                  "vacuum_K_source_center": 19.496250000001,
+                  "alpha_r_max": 19.987500000001,
+                  "tau_rate": 20.047500000001,
+                  "D_active_at_source_probe": 20.148750000001,
+              },
+              0.50: {
+                  "D_center": 20.531250000001,
+                  "D_at_source_probe": 20.145000000001,
+                  "D_growth_rate_center": 20.685000000001,
+                  "D_K_source_center": 20.115000000001,
+                  "vacuum_K_source_center": 20.512500000001,
+                  "alpha_r_max": 20.613750000001,
+                  "tau_rate": 20.733750000001,
+                  "D_active_at_source_probe": 20.812500000001,
+              },
+          }
+          reference_tau = 20.85989340408469
+          tau_tolerance = 1.0e-3
+          onset_tolerance = 0.05
+          lag_tolerance = 0.05
+          ordering_tolerance = 1.0
+
+          result = {}
+          ledger = {}
+          history = []
+          case_summary_path = out / "time_shape_case_summary.json"
+          ledger_path = out / "ledgers.json"
+          history_path = out / "time_shape_history.json"
+          try:
+              result = json.loads(case_summary_path.read_text())["result"]
+              ledger = json.loads(ledger_path.read_text())
+              history = json.loads(history_path.read_text())
+          except Exception as exc:
+              gate("required outputs readable", False, repr(exc))
+
+          gate("single N320 resolution",
+               result.get("resolution") == 320,
+               f"resolution={result.get('resolution')}")
+          gate("completed run",
+               result.get("status") == "completed",
+               f"status={result.get('status')}")
+          gate("Dbase amplitude",
+               abs(float(json.loads(case_summary_path.read_text()).get("amplitude", -1)) - 1.0e-10) <= 1.0e-24
+               if case_summary_path.exists() else False,
+               "amplitude must be exactly the preregistered 1e-10")
+          gate("final coordinate time",
+               finite_number(result.get("t_final")) and abs(float(result["t_final"]) - 22.5) <= 1.0e-9,
+               f"t_final={result.get('t_final')}")
+          gate("native history row count",
+               len(history) == 12000 or (
+                   len(history) == 12001 and history
+                   and finite_number(history[-1].get("t"))
+                   and abs(float(history[-1]["t"]) - 22.5) <= 1.0e-9
+                   and len(history) >= 2
+                   and finite_number(history[-1].get("t"))
+                   and finite_number(history[-2].get("t"))
+                   and 0.0 <= float(history[-1]["t"]) - float(history[-2]["t"]) < 1.0e-9
+               ),
+               f"rows={len(history)} (expected 12000, with preregistered tiny-final-step exception only)")
+          gate("one native history row per integration step",
+               result.get("steps") == len(history),
+               f"steps={result.get('steps')} rows={len(history)}")
+
+          times = [row.get("t") for row in history]
+          time_ok = (
+              bool(times)
+              and all(finite_number(t) for t in times)
+              and abs(float(times[0]) - 0.001875) <= 1.0e-12
+              and abs(float(times[-1]) - 22.5) <= 1.0e-9
+              and all(float(b) > float(a) for a, b in zip(times, times[1:]))
+          )
+          gate("native timestamps",
+               time_ok,
+               f"first={times[0] if times else None}; last={times[-1] if times else None}; dt_nominal=0.001875")
+
+          finite_failures = []
+          for i, row in enumerate(history):
+              for key in required_fields:
+                  if key not in row or not finite_number(row.get(key)):
+                      finite_failures.append((i, key, row.get(key)))
+          gate("five required fields finite on every native row",
+               not finite_failures,
+               f"rows={len(history)} required_fields={required_fields} nonfinite_or_missing={len(finite_failures)}")
+
+          onset_finite_failures = []
+          for i, row in enumerate(history):
+              for key in onset_fields:
+                  if key not in row or not finite_number(row.get(key)):
+                      onset_finite_failures.append((i, key, row.get(key)))
+          gate("all eight onset histories finite",
+               not onset_finite_failures,
+               f"nonfinite_or_missing={len(onset_finite_failures)}")
+
+          event_checks = {
+              "cycle_events": result.get("cycle_events"),
+              "handoffs": result.get("handoffs"),
+              "turnaround_events": result.get("turnaround_events"),
+              "reexpansion_events": result.get("reexpansion_events"),
+              "trapped_root_count_max": result.get("trapped_root_count_max"),
+          }
+          def empty_or_zero(value):
+              if isinstance(value, (list, tuple, dict, set)):
+                  return len(value) == 0
+              return finite_number(value) and float(value) == 0.0
+          event_ok = all(empty_or_zero(v) for v in event_checks.values())
+          event_ok = event_ok and empty_or_zero(ledger.get("cycle_events", []))
+          event_ok = event_ok and empty_or_zero(ledger.get("handoffs", []))
+          trapped_rows = [
+              (i, row.get("trapped_roots")) for i, row in enumerate(ledger.get("history", []))
+              if row.get("trapped_roots")
+          ]
+          event_ok = event_ok and not trapped_rows
+          gate("no cycle/handoff/turnaround/re-expansion/trapped-root events",
+               event_ok,
+               f"result_events={event_checks}; ledger_cycle_events={len(ledger.get('cycle_events', []))}; ledger_handoffs={len(ledger.get('handoffs', []))}; rows_with_trapped_roots={len(trapped_rows)}")
+
+          checkpoint_dir = case_dir / "N320"
+          checkpoints = sorted(checkpoint_dir.glob("checkpoint_t*.npz"))
+          gate("exactly 90 checkpoints",
+               len(checkpoints) == 90,
+               f"checkpoint_count={len(checkpoints)}")
+          checkpoint_failures = []
+          checkpoint_times = []
+          for path in checkpoints:
+              try:
+                  with np.load(path, allow_pickle=False) as data:
+                      t_value = float(data["t"])
+                      checkpoint_times.append(t_value)
+                      for key in data.files:
+                          arr = np.asarray(data[key])
+                          if np.issubdtype(arr.dtype, np.number) and not np.isfinite(arr).all():
+                              checkpoint_failures.append((path.name, key, "nonfinite"))
+                      r = np.asarray(data["r"], dtype=float)
+                      if (
+                          r.shape != (320,)
+                          or abs(float(r[0]) - 0.125) > 1.0e-10
+                          or abs(float(r[-1]) - 79.875) > 1.0e-10
+                          or not np.allclose(np.diff(r), 0.25, rtol=0.0, atol=1.0e-10)
+                      ):
+                          checkpoint_failures.append((path.name, "r", "grid mismatch"))
+              except Exception as exc:
+                  checkpoint_failures.append((path.name, "*", repr(exc))
+                  )
+          expected_checkpoint_times = [0.25 * i for i in range(1, 91)]
+          # Checkpoints are written at the nearest completed integration step;
+          # their embedded t can differ from the 0.25 target by up to dt/2.
+          checkpoint_time_tolerance = 0.5 * 0.001875 + 1.0e-9
+          checkpoint_time_ok = (
+              len(checkpoint_times) == 90
+              and all(
+                  abs(a - b) <= checkpoint_time_tolerance
+                  for a, b in zip(sorted(checkpoint_times), expected_checkpoint_times)
+              )
+          )
+          gate("checkpoint arrays finite and N320 grid correct",
+               not checkpoint_failures and checkpoint_time_ok,
+               f"bad_arrays_or_grids={len(checkpoint_failures)}; checkpoint_time_alignment_within_half_step={checkpoint_time_ok}; tolerance={checkpoint_time_tolerance}")
+
+          tau320 = result.get("tau_final")
+          tau_ok = finite_number(tau320) and abs(float(tau320) - reference_tau) <= tau_tolerance
+          gate("proper-time convergence",
+               tau_ok,
+               f"tau320={tau320}; tau160={reference_tau:.14f}; abs_delta={abs(float(tau320)-reference_tau) if finite_number(tau320) else None}; tolerance={tau_tolerance}")
+
+          onset_results = {}
+          lag_results = {}
+          for fraction in fractions:
+              current_onsets = {}
+              for field in onset_fields:
+                  values = [float(row[field]) for row in history] if history and all(finite_number(row.get(field)) for row in history) else []
+                  if not values:
+                      current_onsets[field] = None
+                      continue
+                  excursion = max(abs(value - values[0]) for value in values)
+                  if excursion <= 1.0e-12:
+                      current_onsets[field] = None
+                      continue
+                  threshold = fraction * excursion
+                  index = next(
+                      (i for i, value in enumerate(values) if abs(value - values[0]) >= threshold),
+                      None,
+                  )
+                  current_onsets[field] = float(times[index]) if index is not None else None
+              onset_results[fraction] = current_onsets
+              ref = current_onsets.get(reference_field)
+              current_lags = {
+                  field: (
+                      value - ref if value is not None and ref is not None else None
+                  )
+                  for field, value in current_onsets.items()
+              }
+              lag_results[fraction] = current_lags
+
+          primary = 0.25
+          onset_shifts = {}
+          lag_shifts = {}
+          onset_gate_ok = True
+          lag_gate_ok = True
+          ordering_ok = True
+          for field in onset_fields:
+              ref_onset = reference_onsets[primary][field]
+              new_onset = onset_results[primary][field]
+              if ref_onset is not None and new_onset is None:
+                  onset_gate_ok = False
+                  onset_shifts[field] = None
+              elif ref_onset is None and new_onset is None:
+                  onset_shifts[field] = None
+              elif ref_onset is None:
+                  # A newly defined metric has no preregistered onset to compare.
+                  onset_gate_ok = False
+                  onset_shifts[field] = None
+              else:
+                  shift = abs(float(new_onset) - float(ref_onset))
+                  onset_shifts[field] = shift
+                  if shift > onset_tolerance:
+                      onset_gate_ok = False
+
+          primary_lags = lag_results[primary]
+          for field in onset_fields:
+              if field == reference_field:
+                  continue
+              ref_onset = reference_onsets[primary][field]
+              ref_active = reference_onsets[primary][reference_field]
+              ref_lag = (
+                  float(ref_onset) - float(ref_active)
+                  if ref_onset is not None and ref_active is not None else None
+              )
+              new_lag = primary_lags[field]
+              if ref_lag is not None and new_lag is None:
+                  lag_gate_ok = False
+                  ordering_ok = False
+                  lag_shifts[field] = None
+              elif ref_lag is None and new_lag is None:
+                  lag_shifts[field] = None
+              elif ref_lag is None:
+                  lag_gate_ok = False
+                  lag_shifts[field] = None
+              else:
+                  shift = abs(float(new_lag) - float(ref_lag))
+                  lag_shifts[field] = shift
+                  if shift > lag_tolerance:
+                      lag_gate_ok = False
+                  if new_lag is None or abs(float(new_lag)) > ordering_tolerance:
+                      ordering_ok = False
+
+          gate("all eight f=0.25 onset shifts within 0.05",
+               onset_gate_ok,
+               f"absolute_shifts={onset_shifts}; tolerance={onset_tolerance}")
+          gate("seven f=0.25 lag shifts within 0.05",
+               lag_gate_ok,
+               f"absolute_shifts={lag_shifts}; tolerance={lag_tolerance}")
+          gate("every defined f=0.25 ordering has |lag| <= 1.0",
+               ordering_ok,
+               f"lags={primary_lags}; tolerance={ordering_tolerance}")
+
+          onset_serializable = {
+              str(f): {
+                  "onsets": onset_results[f],
+                  "lags_relative_to_D_active_at_source_probe": lag_results[f],
+                  "reference_onsets_N160": reference_onsets[f],
+              }
+              for f in fractions
+          }
+          artifacts = {}
+          for label, path in {
+              "native_ledger": ledger_path,
+              "time_shape_history": history_path,
+              "case_summary": case_summary_path,
+              "campaign_summary": case_dir / "campaign_summary.json",
+          }.items():
+              artifacts[label] = {
+                  "path": str(path),
+                  "sha256": sha256(path) if path.is_file() else None,
+                  "exists": path.is_file(),
+              }
+
+          report = {
+              "admission": "PASS" if not failures else "FAIL",
+              "case": "Dbase",
+              "amplitude": 1.0e-10,
+              "radiation_on": True,
+              "configuration": {
+                  "N": 320, "r_max": 80.0, "dr": 0.25, "cfl": 0.0075,
+                  "dt_nominal": 0.001875, "final_time": 22.5,
+                  "checkpoint_interval": 0.25, "checkpoint_count": len(checkpoints),
+              },
+              "reference": {
+                  "case": "admitted r_max=80 N160 Dbase",
+                  "tau_final": reference_tau,
+                  "native_ledger_sha256":
+                      "ac18633839734461622e3d16f6390248d40810d324189899eb2bc43ed629a634",
+                  "native_time_shape_history_sha256":
+                      "da05fa33312276909c1a7d7fb2392117dbee0dc6f48e7311aa085ba9eb802afd",
+                  "artifact_zip_sha256":
+                      "d643b7521d40c8e49bef3c5efca6548bdcf703172a1599c08c974ff08b5c87d5",
+              },
+              "final_tau_N320": tau320,
+              "native_rows": len(history),
+              "timestamp_first": times[0] if times else None,
+              "timestamp_last": times[-1] if times else None,
+              "event_checks": event_checks,
+              "onsets_and_lags_by_fraction": onset_serializable,
+              "gate_results": gates,
+              "failed_gates": failures,
+              "file_sha256": artifacts,
+              "note": (
+                  "f=0.25 is the sole primary convergence gate. f=0.10 and f=0.50 "
+                  "are sensitivity reporting only. Onsets use native per-step histories, "
+                  "never the 90 checkpoints."
+              ),
+          }
+          report_path = out / "admission_report.json"
+          report_path.write_text(json.dumps(report, indent=2, default=float) + "\n")
+
+          summary_path = root / "time_shape_summary.json"
+          if summary_path.exists():
+              summary = json.loads(summary_path.read_text())
+              summary["admission"] = report["admission"]
+              summary["admission_report"] = "Dbase/N320/admission_report.json"
+              summary["file_sha256"] = artifacts
+              summary_path.write_text(json.dumps(summary, indent=2, default=float) + "\n")
+
+          print("SUMMARY_JSON_SHA256", sha256(summary_path) if summary_path.is_file() else "MISSING")
+          print("NATIVE_LEDGER_SHA256", artifacts["native_ledger"]["sha256"])
+          print("TIME_SHAPE_HISTORY_SHA256", artifacts["time_shape_history"]["sha256"])
+          print("CASE_SUMMARY_SHA256", artifacts["case_summary"]["sha256"])
+          print("CAMPAIGN_SUMMARY_SHA256", artifacts["campaign_summary"]["sha256"])
+
+          with open(Path.cwd() / "N320_ADMISSION_RESULT.txt", "w") as stream:
+              stream.write(json.dumps({
+                  "admission": report["admission"],
+                  "failed_gates": failures,
+                  "tau_final": tau320,
+                  "native_rows": len(history),
+                  "summary_sha256": sha256(summary_path) if summary_path.is_file() else None,
+                  "ledger_sha256": artifacts["native_ledger"]["sha256"],
+              }, indent=2) + "\n")
+
+          if failures:
+              raise SystemExit(1)
+          print("ADMISSION PASS: all preregistered N320 gates passed.")
+          PY
+
+      - name: Upload N320 run and diagnostics even on gate failure
+        id: upload
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.ARTIFACT_NAME }}
+          path: |
+            runs/0star-d-time-shape-r80-N320
+            N320_ADMISSION_RESULT.txt
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Record and verify downloaded artifact ZIP SHA256
+        if: always() && steps.upload.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          api="$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/artifacts?per_page=100"
+          curl --fail --silent --show-error \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "$api" -o /tmp/artifacts.json
+          aid="$(jq -r --arg name "$ARTIFACT_NAME" '.artifacts[] | select(.name == $name) | .id' /tmp/artifacts.json | head -n 1)"
+          expected="$(jq -r --arg name "$ARTIFACT_NAME" '.artifacts[] | select(.name == $name) | (.digest // "")' /tmp/artifacts.json | head -n 1)"
+          test -n "$aid"
+          curl --fail --location --silent --show-error \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/actions/artifacts/$aid/zip" \
+            -o /tmp/n320-artifact.zip
+          actual="sha256:$(sha256sum /tmp/n320-artifact.zip | awk '{print $1}')"
+          echo "ARTIFACT_ID=$aid"
+          echo "ARTIFACT_NAME=$ARTIFACT_NAME"
+          echo "ARTIFACT_METADATA_DIGEST=$expected"
+          echo "ARTIFACT_DOWNLOADED_ZIP_SHA256=$actual"
+          {
+            echo "### N320 artifact integrity"
+            echo "- Artifact ID: $aid"
+            echo "- Artifact: $ARTIFACT_NAME"
+            echo "- GitHub digest: $expected"
+            echo "- Downloaded ZIP SHA256: $actual"
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [[ -n "$expected" && "$expected" != "$actual" ]]; then
+            echo "Artifact metadata digest and downloaded ZIP SHA256 differ." >&2
+            exit 1
+          fi
