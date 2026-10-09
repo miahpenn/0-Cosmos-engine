@@ -32,11 +32,11 @@ At the last target, row 11999 is the checkpoint's own step. Row 12000 at exactly
 
 ## Independent replay history
 
-Three fresh remote replays used the same diagnostic implementation and the same archived artifact:
+Four fresh remote replays used the same diagnostic implementation and the same archived artifact:
 
 1. [Replay A](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/37994882843), commit `11ddfe26a1294d2e8d69da01aa0cbfa6509cb58f`, artifact ID `11646856787`, artifact digest `8f51a5c83c028b70b56737258fbed632bb28ba3073778fa18d9b9060a26ce276`: **12/24 bitwise field matches**.
 2. [Replay B](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/37995406676), commit `be3731c44fc6d99cb005631521227edba940c738`, artifact ID `11647106173`, digest `baf4e140dfa42bae84cc09c7b364ca46d7558c8770b50c458cee04442cef28f1`: **12/24 bitwise field matches**.
-3. [Replay C](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/37995953192), commit `ea4dc9019eaf4840f448ef797b11aebdda0496f8`, artifact ID `11646269284`, digest `5d1889a2b2080d1c6d265388f3f1a9e78e77dd2478b47f563cb1081f46ec0b79`: **24/24 bitwise field matches**.
+3. [Replay C](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/37995953192), commit `ea4dc9019eaf4840f448ef797b11aebdda0496f8`, artifact ID `11646269284`, digest `5d1889a2b2080d1c6d265388f3f1a9e78e77dd2478b47f563cb1081f46ec0b79`: **24/24 bitwise field matches**.\n4. [Replay D](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/37996275665), commit `12cce94e01d1f6b5b1faa1031353ef7436378b35`, artifact ID `11647152530`, digest `8e7664b909bb2878076202a020fa436136298415c0fdb572fe5648bd25832ee3`: **12/24 bitwise field matches**. It also passed the 121-test suite.
 
 All three runs passed the 117-test repository suite, verified the source kernel and exact vendor pin, verified the artifact ZIP SHA-256, used the same six exact timestamp pairings, and reported zero decomposition error. Replay A and B differ only in the outer-region H/M norms, with very small absolute differences; Replay C reproduces all four fields at all six targets exactly.
 
@@ -55,9 +55,12 @@ This means the bitwise claim **has been reproduced**, but it is **not stable acr
 
 ## Reduction-path probe
 
-[CPU-dispatch probe workflow](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/37996015342), artifact ID `11646534059`, digest `46a3d78a5c5a4260f9ce5eb42c9c5f31cc69e9ee768a11e2df7d459fb31c40a3`.
+Two CPU-dispatch probes ran with better runtime evidence:
 
-Seven processes on one runner all returned 24/24 exact, including the default configuration and the predeclared NumPy CPU-feature disable masks (`AVX512F`, `AVX2`, `FMA3`, and combinations). Thus those tested feature masks do not explain the cross-run variation observed on other runners. The original run's actual CPU model and low-level runtime fingerprint were not recorded, and the three replay jobs' host identities were not instrumented consistently. We should not assert a specific cause.
+- [Probe P](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/37996015342), artifact ID `11646534059`, digest `46a3d78a5c5a4260f9ce5eb42c9c5f31cc69e9ee768a11e2df7d459fb31c40a3`: all seven default/feature-mask variants produced 24/24 exact values on an AMD EPYC 9V45 host; NumPy reported `X86_V4` and `AVX512_ICL`.
+- [Probe Q](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/37996340552), artifact ID `11646889054`, digest `b363204799d0ab0ef4515b6ca83a1e4b1774fd1dd37886509aa410d461cbbf2b`: all seven variants produced 12/24 exact values on an AMD EPYC 7763 host; NumPy reported `X86_V3` and no `X86_V4/AVX512_ICL`.
+
+On each individual host, disabling the tested NumPy CPU feature flags did not change the result. Across these hosts, however, the bitwise result differed and the available ISA set differed as well. This is strong evidence of host/runtime dependence, but does not isolate the exact low-level instruction or operation responsible. The original run's CPU model and low-level runtime fingerprint were not recorded, so we cannot prove which path produced its archived values.
 
 ## Governing numerical comparison criterion
 
