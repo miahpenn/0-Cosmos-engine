@@ -1,0 +1,142 @@
+name: 0-star D-mode time-shape domain comparison r80
+
+on:
+  workflow_dispatch:
+    inputs:
+      case:
+        description: "Run one case only; verify D0 artifact before selecting Dbase"
+        required: true
+        type: choice
+        options:
+          - D0
+          - Dbase
+        default: D0
+  push:
+    branches: [0star-central-clock]
+
+jobs:
+  d-time-shape-r80:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[0star-d80]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    env:
+      PYTHONPATH: .
+      CASE_LABEL: ${{ github.event.inputs.case || 'D0' }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Repository tests
+        run: pytest -q
+
+      - name: Run one preregistered domain-comparison case
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          from engine.campaign import CampaignConfig
+          from engine.d_mode_source_audit import SourceAuditKernel
+          from engine.run_production import run_campaign
+
+          cases = {
+              "D0": 0.0,
+              "Dbase": 1.0e-10,
+          }
+          label = os.environ["CASE_LABEL"]
+          if label not in cases:
+              raise ValueError(f"Unsupported case selection: {label!r}")
+
+          base = Path("runs/0star-d-time-shape-r80")
+          amplitude = cases[label]
+          cfg = CampaignConfig(
+              resolutions=(160,),
+              r_max=80.0,
+              cfl=0.0075,
+              final_time=22.5,
+              checkpoint_interval=0.25,
+              output_dir=str(base / label),
+          )
+          result = run_campaign(kernel=SourceAuditKernel(amplitude), config=cfg)
+          payload = {
+              "case": label,
+              "amplitude": amplitude,
+              "result": result[0].__dict__,
+          }
+
+          # Export the same time-shape fields as the r_max=160 campaign.
+          ledger_path = base / label / "N160" / "ledgers.json"
+          ledger = json.loads(ledger_path.read_text())
+          hist = ledger["history"]
+          keys = [
+              "t", "tau", "H_center", "H_eff", "H_coord_center",
+              "tau_rate", "lapse_max", "alpha_r_max", "alpha_r_max_r",
+              "cmc_kdot", "D_center", "PD_center", "D_growth_rate_center",
+              "D_active_center", "D_active_max", "D_active_max_r",
+              "D_at_source_probe", "PD_at_source_probe", "D_active_at_source_probe",
+              "matter_K_source_center", "matter_K_source_probe",
+              "vacuum_K_source_center", "vacuum_K_source_probe",
+              "D_K_source_center", "D_K_source_probe",
+              "S_K_source_center", "S_K_source_probe",
+              "COSMOS_K_source_center", "COSMOS_K_source_probe",
+              "dark_matter_K_source_center", "dark_matter_K_source_probe",
+              "baryons_K_source_center", "baryons_K_source_probe",
+              "radiation_K_source_center", "radiation_K_source_probe",
+          ]
+          rows = [{k: row.get(k) for k in keys} for row in hist]
+          (base / label / "N160" / "time_shape_history.json").write_text(
+              json.dumps(rows, indent=2, default=float)
+          )
+          (base / label / "N160" / "time_shape_case_summary.json").write_text(
+              json.dumps({
+                  "case": label,
+                  "amplitude": amplitude,
+                  "rows": len(rows),
+                  "final_t": rows[-1]["t"] if rows else None,
+                  "final_tau": rows[-1]["tau"] if rows else None,
+                  "result": payload["result"],
+              }, indent=2, default=float)
+          )
+          (base / "time_shape_summary.json").write_text(
+              json.dumps({"cases": {label: payload}, "ordering": {
+                  label: {
+                      "rows": len(rows),
+                      "final_t": rows[-1]["t"] if rows else None,
+                      "final_tau": rows[-1]["tau"] if rows else None,
+                  }
+              }}, indent=2, default=float)
+          )
+
+          r = payload["result"]
+          d = r.get("last_diagnostics", {})
+          print(
+              label,
+              "amplitude=", amplitude,
+              "status=", r["status"],
+              "t_final=", r["t_final"],
+              "D_center=", d.get("D_center"),
+              "D_active=", d.get("D_active_center"),
+              "lapse_max=", d.get("lapse_max"),
+              "alpha_r_max=", d.get("alpha_r_max"),
+              "cmc_kdot=", d.get("cmc_kdot"),
+          )
+          PY
+
+      - name: Upload r80 D-mode time-shape artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: 0star-d-mode-time-shape-r80-${{ github.event.inputs.case || 'D0' }}
+          path: runs/0star-d-time-shape-r80
+          if-no-files-found: error
