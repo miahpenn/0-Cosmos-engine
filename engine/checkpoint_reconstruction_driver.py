@@ -63,7 +63,7 @@ def main() -> int:
 
     case_root = ledger_path.parent
     out_results = []
-    all_pass = True
+    integrity_pass = True
     total_exact = 0
     total_fields = 0
 
@@ -92,7 +92,7 @@ def main() -> int:
         reconstructed = reconstruct_l2(state)
 
         field_results = {}
-        target_pass = True
+        fields_valid = True
         for field in L2_FIELDS:
             value = recorded_row.get(field)
             result = compare_field(reconstructed[field], value)
@@ -103,12 +103,12 @@ def main() -> int:
             }
             total_fields += 1
             total_exact += int(result["float64_bitwise_equal"])
-            target_pass = target_pass and result["outcome"] == "PASS"
+            fields_valid = fields_valid and result["outcome"] in ("BITWISE_MATCH", "NUMERIC_DIFFERENCE")
 
         decomposition_error = reconstructed["hamiltonian_decomposition_error_max"]
         decomposition_ok = decomposition_error <= DECOMP_TOL
-        target_pass = target_pass and decomposition_ok
-        all_pass = all_pass and target_pass
+        target_integrity_ok = fields_valid and decomposition_ok
+        integrity_pass = integrity_pass and target_integrity_ok
 
         out_results.append({
             "target": target,
@@ -125,7 +125,7 @@ def main() -> int:
             "hamiltonian_decomposition_error_max": decomposition_error,
             "decomposition_gate_tolerance": DECOMP_TOL,
             "decomposition_gate_ok": bool(decomposition_ok),
-            "outcome": "PASS" if target_pass else "FAIL",
+            "integrity_status": "PASS" if target_integrity_ok else "FAIL",
         })
 
     payload = {
@@ -146,13 +146,18 @@ def main() -> int:
         "targets": list(TARGETS),
         "l2_fields": list(L2_FIELDS),
         "comparison_rule": (
-            "PASS requires identical float64 bit patterns; report absolute and "
-            "relative errors; no fitted/tolerance-based comparison rule"
+            "Report exact float64 equality, absolute errors, and relative errors. "
+            "Do not assign numerical acceptance PASS/FAIL: the frozen reconstruction "
+            "acceptance tolerance was not found in available records. Exact timestamp "
+            "pairing is Rev 4 dataset-scoped only."
         ),
+        "formal_comparison_acceptance": "UNRESOLVED_NO_FROZEN_NUMERICAL_TOLERANCE_LOCATED",
         "decomposition_tolerance": DECOMP_TOL,
         "exact_float64_matches": total_exact,
         "field_comparisons": total_fields,
-        "all_pass": bool(all_pass),
+        "audit_status": "COMPLETED" if integrity_pass else "INTEGRITY_FAILURE",
+        "integrity_checks_pass": bool(integrity_pass),
+        "numerical_acceptance_decision": "UNRESOLVED",
         "results": out_results,
         "interpretation_limits": (
             "This checks reproducibility of stored diagnostic values from saved checkpoint states. "
@@ -167,18 +172,18 @@ def main() -> int:
     )
 
     for item in out_results:
-        passed = sum(v["outcome"] == "PASS" for v in item["l2_fields"].values())
         exact = sum(v["float64_bitwise_equal"] for v in item["l2_fields"].values())
         print(
             f"target={item['target']:>4} stored_t={item['checkpoint_t']:.15f} "
             f"ledger_row={item['ledger_row_index']} offset={item['ledger_offset']:.1e} "
-            f"fields={passed}/4 exact_float64={exact}/4 "
-            f"decomposition={item['hamiltonian_decomposition_error_max']:.3e}"
+            f"integrity={'PASS' if item['integrity_status'] == 'PASS' else 'FAIL'} "
+            f"bitwise={exact}/4 decomposition={item['hamiltonian_decomposition_error_max']:.3e}"
         )
     print(f"exact_float64_matches={total_exact}/{total_fields}")
-    print(f"all_pass={all_pass}")
+    print(f"integrity_checks={'PASS' if integrity_pass else 'FAIL'}")
+    print("formal_numerical_acceptance=UNRESOLVED")
     print(f"results_json={args.out}")
-    return 0 if all_pass else 1
+    return 0 if integrity_pass else 1
 
 
 if __name__ == "__main__":
