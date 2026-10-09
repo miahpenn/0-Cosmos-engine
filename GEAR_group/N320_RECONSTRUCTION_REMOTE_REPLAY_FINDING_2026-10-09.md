@@ -32,13 +32,15 @@ At the last target, row 11999 is the checkpoint's own step. Row 12000 at exactly
 
 ## Independent replay history
 
-Four fresh remote replays used the same diagnostic implementation and the same archived artifact:
+Five fresh remote replays used the same diagnostic implementation and the same archived artifact:
 
 1. [Replay A](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/37994882843), commit `11ddfe26a1294d2e8d69da01aa0cbfa6509cb58f`, artifact ID `11646856787`, artifact digest `8f51a5c83c028b70b56737258fbed632bb28ba3073778fa18d9b9060a26ce276`: **12/24 bitwise field matches**.
 2. [Replay B](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/37995406676), commit `be3731c44fc6d99cb005631521227edba940c738`, artifact ID `11647106173`, digest `baf4e140dfa42bae84cc09c7b364ca46d7558c8770b50c458cee04442cef28f1`: **12/24 bitwise field matches**.
-3. [Replay C](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/37995953192), commit `ea4dc9019eaf4840f448ef797b11aebdda0496f8`, artifact ID `11646269284`, digest `5d1889a2b2080d1c6d265388f3f1a9e78e77dd2478b47f563cb1081f46ec0b79`: **24/24 bitwise field matches**.\n4. [Replay D](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/37996275665), commit `12cce94e01d1f6b5b1faa1031353ef7436378b35`, artifact ID `11647152530`, digest `8e7664b909bb2878076202a020fa436136298415c0fdb572fe5648bd25832ee3`: **12/24 bitwise field matches**. It also passed the 121-test suite.
+3. [Replay C](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/37995953192), commit `ea4dc9019eaf4840f448ef797b11aebdda0496f8`, artifact ID `11646269284`, digest `5d1889a2b2080d1c6d265388f3f1a9e78e77dd2478b47f563cb1081f46ec0b79`: **24/24 bitwise field matches**.
+4. [Replay D](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/37996275665), commit `12cce94e01d1f6b5b1faa1031353ef7436378b35`, artifact ID `11647152530`, digest `8e7664b909bb2878076202a020fa436136298415c0fdb572fe5648bd25832ee3`: **12/24 bitwise field matches**. It also passed the 121-test suite.
+5. [Replay E](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/37996340522), commit `e0dc776a6a2d58c0f7e7cb70a77269a03519d3cb`, artifact ID `11646569430`, digest `40cafc31692d832512cb15b8bd148e12f38d1cd8d236c0e7181c775f17a36960`: **24/24 bitwise field matches**. It passed the 121-test suite.
 
-All three runs passed the 117-test repository suite, verified the source kernel and exact vendor pin, verified the artifact ZIP SHA-256, used the same six exact timestamp pairings, and reported zero decomposition error. Replay A and B differ only in the outer-region H/M norms, with very small absolute differences; Replay C reproduces all four fields at all six targets exactly.
+All five runs verified the source kernel and exact vendor pin, verified the artifact ZIP SHA-256, used the same six exact timestamp pairings, and reported zero decomposition error. Replays A–C ran the 117-test suite; replays D and E ran the expanded 121-test suite. Replays A, B, and D differ only in the outer-region H/M norms, with very small absolute differences; C and E reproduce all four fields at all six targets exactly.
 
 ### The small differences seen in Replay A/B
 
@@ -64,7 +66,7 @@ On each individual host, disabling the tested NumPy CPU feature flags did not ch
 
 ## Governing numerical comparison criterion
 
-The local patch set included a comparator with `REL_TOL=1e-8`, but that is not a substitute for independently retrieving the exact frozen reconstruction preregistration. If that tolerance governs, Replay A/B would pass 22/24 and fail the outer-H comparisons at targets 4 and 12; Replay C passes 24/24. Do not amend the tolerance after seeing these data. Recover/review the precise frozen preregistration before assigning a final protocol-level PASS/FAIL based on nonzero numerical differences.
+The exact reconstruction-specific frozen preregistration has not been located in the available files or repository. The pre-existing patch `0001-Add-diagnostic-checkpoint-loader-and-comparator-with.patch` sets `REL_TOL=1e-8` but comments that it is a “new choice, not inherited”; it therefore cannot be treated as an inherited acceptance criterion. If a separately approved tolerance of 1e-8 were to govern, a 12/24 runner would meet it for 22/24 fields but miss the outer-H fields at targets 4 and 12; a 24/24 runner has zero differences. That tolerance must not be retroactively adopted from the patch. Until the frozen numerical rule is recovered or a new preregistration is prospectively authorized, these results are descriptive and no formal numerical acceptance PASS/FAIL should be assigned.
 
 ## What has and has not been established
 
@@ -73,8 +75,8 @@ Established:
 - All six checkpoint timestamps pair uniquely to their own ledger steps under dataset-scoped Rev 4.
 - The checkpoint loader produces finite fields and zero Hamiltonian decomposition bookkeeping error.
 - 24/24 bitwise field matches have been reproduced on a fresh runner.
-- Two other runs did not produce the same bitwise result; differences are confined to the outer-region H/M norms and are very small in absolute terms.
-- The attempted NumPy CPU-feature mask probe did not explain the runner-to-run variation.
+- Three of five full replays returned 12/24 and two returned 24/24; differences are confined to the outer-region H/M norms and are very small in absolute terms.
+- Host fingerprints correlate with the result: the recorded AMD EPYC 7763/X86_V3 host returned 12/24 and AMD EPYC 9V45/X86_V4 returned 24/24. Changing the tested NumPy feature masks did not alter the result within either host; the exact low-level cause remains unresolved.
 
 Not established:
 - A single bitwise-identical outcome on every independent runner.
