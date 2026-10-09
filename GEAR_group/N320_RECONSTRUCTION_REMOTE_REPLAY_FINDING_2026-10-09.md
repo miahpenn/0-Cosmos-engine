@@ -1,7 +1,7 @@
 # N=320 checkpoint reconstruction: independent remote replay finding
 
 Date: 2026-10-09  
-Status: **CHECKPOINT PAIRING VERIFIED; 24/24 BITWISE REPLAY REPRODUCED ON ONE REMOTE RUNNER; CROSS-RUN BITWISE STABILITY NOT ESTABLISHED**  
+Status: **PAIRING VERIFIED; HOST-DEPENDENT BITWISE OUTPUT; FORMAL FROZEN-TOLERANCE OUTCOMES: FOUR FAIL, TWO PASS**  
 Physics evolution: none. Only the frozen archived Actions artifact was read.
 
 ## Frozen provenance
@@ -41,7 +41,9 @@ Six fresh remote replays used the same diagnostic implementation and the same ar
 5. [Replay E](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/37996340522), commit `e0dc776a6a2d58c0f7e7cb70a77269a03519d3cb`, artifact ID `11646569430`, digest `40cafc31692d832512cb15b8bd148e12f38d1cd8d236c0e7181c775f17a36960`: **24/24 bitwise field matches**. It passed the 121-test suite.
 6. [Replay F](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/37996827098), commit `95e3dc82bdc96d3c9acef7a7fb402932737df9fa`, artifact ID `11648075367`, digest `2f3b639c3ace3871bc729958e4e8c9c02752d3e184e7c0fec43233bed65e4841`: **12/24 bitwise field matches**. It passed the expanded 121-test suite and the data-integrity gates; its report explicitly leaves formal numerical acceptance unresolved.
 
-All six runs verified the source kernel and exact vendor pin, verified the artifact ZIP SHA-256, used the same six exact timestamp pairings, and reported zero decomposition error. Replays A–C ran the 117-test suite; replays D–F ran the expanded 121-test suite. Replays A, B, D, and F differ only in the outer-region H/M norms, with very small absolute differences; C and E reproduce all four fields at all six targets exactly. Following the protocol correction, a nonzero field difference is recorded as `NUMERIC_DIFFERENCE`, not treated as a code/integrity failure; no numerical acceptance result is claimed.
+All six runs verified the source kernel and exact vendor pin, verified the artifact ZIP SHA-256, used the same six exact timestamp pairings, and reported zero decomposition error. Replays A–C ran the 117-test suite; replays D–F ran the expanded 121-test suite. Replays A, B, D, and F differ only in the outer-region H/M norms; C and E reproduce all four fields at all six targets exactly.
+
+The frozen preregistration sets a per-field relative-error limit of `1e-8`. Applying that rule to the replay JSON artifacts: Replays A, B, D, and F each formally **FAIL** two fields (outer Hamiltonian L2 at targets 4 and 12); the other 22 fields pass. The relative errors are `1.3436801137561909e-8` and `1.9979944854801685e-8`. Replays C and E **PASS** all 24 fields. Bitwise equality is a separate property; it does not replace the frozen relative-error criterion.
 
 ### The small differences seen in Replay A/B
 
@@ -68,7 +70,14 @@ On each individual host, disabling the tested NumPy CPU feature flags did not ch
 
 ## Governing numerical comparison criterion
 
-The exact reconstruction-specific frozen preregistration has not been located in the available files or repository. The pre-existing patch `0001-Add-diagnostic-checkpoint-loader-and-comparator-with.patch` sets `REL_TOL=1e-8` but comments that it is a “new choice, not inherited”; it therefore cannot be treated as an inherited acceptance criterion. If a separately approved tolerance of 1e-8 were to govern, a 12/24 runner would meet it for 22/24 fields but miss the outer-H fields at targets 4 and 12; a 24/24 runner has zero differences. That tolerance must not be retroactively adopted from the patch. Until the frozen numerical rule is recovered or a new preregistration is prospectively authorized, these results are descriptive and no formal numerical acceptance PASS/FAIL should be assigned.
+The frozen reconstruction preregistration, supplied for review at local commit `0e77da0` (SHA-256 `ac2fbf5048a049dfd46160e35a2f3389e1f9daf89dd8fe11e19cce2e4d7030a4`), specifies: relative tolerance `abs(reconstructed-recorded)/abs(recorded) <= 1e-8` for each field at each matched target. The rebuilt remote branch had omitted the source preregistration, which caused the earlier finding to incorrectly state that no tolerance existed. The rule is now restored in the audit code and this report; the threshold is not being changed retroactively.
+
+Applying the frozen rule to the replay JSONs gives:
+- Replays A, B, D, and F: **FAIL**, with two fields above threshold (outer Hamiltonian L2 at targets 4 and 12); the other 22 fields pass.
+- Replays C and E: **PASS**, 24/24 fields.
+- All six runs pass the checkpoint pairing and decomposition bookkeeping checks. The four failing runs nevertheless fail the frozen numerical comparison criterion. Their differences are host-dependent, so the archived diagnostic values are not reproduced within tolerance on every tested runner.
+
+The original frozen files should be committed unchanged to the review branch so reviewers can inspect the full protocol and amendments. The source documents themselves were not included in the rebuilt remote branch.
 
 ## What has and has not been established
 
@@ -76,8 +85,8 @@ Established:
 - Source artifact, ledger hash, source kernel, and vendor pin are verified.
 - All six checkpoint timestamps pair uniquely to their own ledger steps under dataset-scoped Rev 4.
 - The checkpoint loader produces finite fields and zero Hamiltonian decomposition bookkeeping error.
-- 24/24 bitwise field matches have been reproduced on a fresh runner.
-- Four of six full replays returned 12/24 and two returned 24/24; differences are confined to the outer-region H/M norms and are very small in absolute terms.
+- 24/24 bitwise field matches have been reproduced on fresh runners, but not consistently.
+- Under the frozen relative-error rule, four of six replays fail two outer-H fields, while two pass all 24 fields. Differences are confined to the outer-region H/M norms and are tiny in absolute terms but exceed the frozen relative threshold for two H values.
 - Host fingerprints correlate with the result: the recorded AMD EPYC 7763/X86_V3 host returned 12/24 and AMD EPYC 9V45/X86_V4 returned 24/24. Changing the tested NumPy feature masks did not alter the result within either host; the exact low-level cause remains unresolved.
 
 Not established:
@@ -87,4 +96,4 @@ Not established:
 
 ## Disposition
 
-Keep this audit stage **OPEN pending review of the exact frozen reconstruction preregistration and a reproducibility decision**. Do not change physics or loosen a criterion to erase the discrepancy. No physics run is warranted. The comparison code, branch, replay artifacts, and this finding are now visible on the remote audit branch.
+Keep this audit stage **OPEN**. The formal result is now known under the frozen rule: four replays fail and two pass. Do not change physics or loosen the criterion to erase the discrepancy. The next procedural repair is to add the exact frozen preregistration and Amendments Rev 2–4 unchanged to the review branch, then ensure the workflow and machine-readable report emit the same PASS/FAIL classifications. No physics run is warranted.
