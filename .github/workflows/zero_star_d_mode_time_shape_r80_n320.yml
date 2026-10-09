@@ -61,6 +61,8 @@ jobs:
                   "56dbe6ce8b3615d4b0bf701589488fd8618d6a7c222efff05dc9649528bd2d37",
               "T10_UNBLINDING_RECORD_2026-10-09.md":
                   "a42314d11251165276e34b35cd8abd8aa6a1ef78f10c5f42450e02993bc88bec",
+              "PREREG_N320_AMENDMENT_3_2026-10-09.md":
+                  "df52d1037f319ee21b42defa6e69b76e473a1f05095388896e45dc8c66edfa34",
           }
           tracked = subprocess.check_output(
               ["git", "ls-files", "-z"], text=False
