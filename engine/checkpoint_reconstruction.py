@@ -32,6 +32,7 @@ L2_FIELDS = (
 )
 # Existing full-grid outer-constraint bookkeeping criterion.
 DECOMP_TOL = 1.0e-12
+REL_TOL = 1.0e-8
 MATCHED, UNMATCHED, AMBIGUOUS = "MATCHED", "UNMATCHED", "AMBIGUOUS"
 
 
@@ -114,7 +115,7 @@ def match_ledger_row_by_checkpoint_time(checkpoint_t: float, rows: list[dict]) -
 
 
 def compare_field(reconstructed: float, recorded: float | None) -> dict:
-    """Report stored-value differences without inventing a pass/fail tolerance."""
+    """Apply the frozen per-field relative-error criterion (1e-8)."""
     if recorded is None:
         return {
             "outcome": "UNDEFINED", "reason": "missing reference",
@@ -140,14 +141,13 @@ def compare_field(reconstructed: float, recorded: float | None) -> dict:
     rel_err = abs_err / abs(recorded)
     bitwise_equal = struct.pack(">d", reconstructed) == struct.pack(">d", recorded)
     exact_equal = reconstructed == recorded
-    # Exact equality is recorded as a diagnostic fact, not as a formal
-    # acceptance criterion. The frozen audit text available to this branch
-    # does not specify a numerical acceptance tolerance for these comparisons.
+    passed = rel_err <= REL_TOL
     return {
-        "outcome": "BITWISE_MATCH" if bitwise_equal else "NUMERIC_DIFFERENCE",
-        "reason": None if bitwise_equal else "float64 values differ",
+        "outcome": "PASS" if passed else "FAIL",
+        "reason": None if passed else "relative error exceeds frozen tolerance",
         "abs_err": abs_err,
         "rel_err": rel_err,
+        "relative_tolerance": REL_TOL,
         "exact_equal": exact_equal,
         "float64_bitwise_equal": bitwise_equal,
     }
