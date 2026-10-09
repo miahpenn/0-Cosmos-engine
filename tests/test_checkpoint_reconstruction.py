@@ -108,3 +108,79 @@ def test_zero_or_missing_reference_is_undefined():
 
 def test_non_finite_value_fails():
     assert cr.compare_field(float("nan"), 1.0)["outcome"] == "FAIL"
+
+
+def _assert_entry_equal(path, a, b):
+    """Recursively compare production diagnostic entries; unsupported types fail loudly."""
+    if isinstance(a, bool) or isinstance(b, bool):
+        assert type(a) is type(b) and a == b, path
+    elif isinstance(a, (int, np.integer)) and isinstance(b, (int, np.integer)):
+        assert int(a) == int(b), path
+    elif isinstance(a, (float, np.floating)) and isinstance(b, (float, np.floating)):
+        assert float(a) == float(b) or (math.isnan(float(a)) and math.isnan(float(b))), path
+    elif isinstance(a, str) or a is None:
+        assert a == b, path
+    elif isinstance(a, np.ndarray):
+        assert isinstance(b, np.ndarray) and a.shape == b.shape, path
+        assert np.array_equal(a, b, equal_nan=True), path
+    elif isinstance(a, (list, tuple)):
+        assert isinstance(b, (list, tuple)) and len(a) == len(b), path
+        for i, (x, y) in enumerate(zip(a, b)):
+            _assert_entry_equal(f"{path}[{i}]", x, y)
+    elif isinstance(a, dict):
+        assert isinstance(b, dict) and a.keys() == b.keys(), path
+        for key in a:
+            _assert_entry_equal(f"{path}.{key}", a[key], b[key])
+    else:
+        raise TypeError(f"unsupported diagnostic type at {path}: {type(a).__name__}")
+
+
+def _state_snapshot(state):
+    """Copy every persisted field that production diagnostics might inspect."""
+    snapshot = {"t": state.t, "tau": state.tau, "e_folds": state.e_folds}
+    for name in ("a", "b", "X", "alpha", "beta", "Aa", "K", "Lambda", "B"):
+        snapshot[f"geometry.{name}"] = getattr(state.geometry, name).copy()
+    for name in ("S", "PS", "D", "PD", "phi", "Pi"):
+        snapshot[f"scalars.{name}"] = getattr(state.scalars, name).copy()
+    for species in ("dark_matter", "baryons", "radiation"):
+        for name in ("rest", "energy_t", "momentum_r"):
+            snapshot[f"matter.{species}.{name}"] = getattr(
+                getattr(state.matter, species), name
+            ).copy()
+    return snapshot
+
+
+def test_full_production_diagnostics_dict_identical_after_round_trip(small_state, tmp_path):
+    path = _write(small_state, tmp_path / "state.npz")
+    loaded = cr.load_checkpoint_npz(path, r_max=32.0)
+    kernel = V55ProductionKernel()
+    original = kernel.diagnostics(small_state, profiles=False)
+    rebuilt = kernel.diagnostics(loaded, profiles=False)
+    assert original.keys() == rebuilt.keys()
+    assert len(original) > 100
+    for key in original:
+        _assert_entry_equal(key, original[key], rebuilt[key])
+
+
+def test_diagnostics_do_not_mutate_loaded_checkpoint_state(small_state, tmp_path):
+    path = _write(small_state, tmp_path / "state.npz")
+    loaded = cr.load_checkpoint_npz(path, r_max=32.0)
+    before = _state_snapshot(loaded)
+    V55ProductionKernel().diagnostics(loaded, profiles=False)
+    after = _state_snapshot(loaded)
+    assert before.keys() == after.keys()
+    for key in before:
+        if isinstance(before[key], np.ndarray):
+            assert np.array_equal(before[key], after[key]), key
+        else:
+            assert before[key] == after[key], key
+
+
+def test_recursive_diagnostic_comparator_detects_difference():
+    with pytest.raises(AssertionError):
+        _assert_entry_equal("x", np.array([1.0, 2.0]), np.array([1.0, 2.5]))
+
+
+def test_recursive_diagnostic_comparator_rejects_unsupported_type():
+    with pytest.raises(TypeError, match="unsupported diagnostic type"):
+        _assert_entry_equal("x", object(), object())
