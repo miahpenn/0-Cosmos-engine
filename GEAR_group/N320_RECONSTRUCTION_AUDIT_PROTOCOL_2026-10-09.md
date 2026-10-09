@@ -30,7 +30,7 @@ At targets 4, 8, 12, 16, 20, and 22.5, compare:
 - `momentum_l2_inner`
 - `momentum_l2_outer`
 
-Record the reconstructed value, ledger value, absolute error, relative error, exact-equality flag, and float64 bitwise-equality flag. An exact zero or missing reference is `UNDEFINED`, as specified in the reported base protocol. Non-finite values are invalid data. The accessible frozen campaign preregistrations do not define a numerical acceptance tolerance for this post-run reconstruction comparison. The proposed patch's `REL_TOL=1e-8` is explicitly described in the patch as a new choice, not an inherited rule. Therefore, no formal numerical PASS/FAIL decision may be assigned to nonzero differences until the exact reconstruction-specific preregistration is located and reviewed. Bitwise equality is reported as a diagnostic fact, not substituted for the missing formal criterion.
+Record the reconstructed value, ledger value, absolute error, relative error, exact-equality flag, and float64 bitwise-equality flag. The governing reconstruction preregistration (local commit `0e77da0`, SHA-256 `ac2fbf5048a049dfd46160e35a2f3389e1f9daf89dd8fe11e19cce2e4d7030a4`, as supplied for review) sets the per-field criterion: relative error `abs(reconstructed-recorded)/abs(recorded) <= 1e-8` at each matched target. An exact zero or missing reference is `UNDEFINED`; non-finite values are invalid. A nonzero relative error above `1e-8` is a formal `FAIL`, even if the absolute difference is tiny or the values are not bitwise identical. Bitwise equality is recorded separately and is not the acceptance criterion. The full frozen preregistration and Amendments Rev 2–4 should be committed unchanged for reviewers; the source files were not present in this rebuilt remote branch at the time of this correction.
 
 At each target also check `hamiltonian_decomposition_error_max <= 1e-12`. This is the existing bookkeeping criterion from `docs/OUTER_CONSTRAINT_AUDIT_CRITERIA_2026-10-08.md`; it is not a physical H/M residual acceptance threshold.
 
@@ -47,6 +47,12 @@ The following are data-integrity and reconstruction checks, separate from an unr
 4. Require the archived 12,001-row history, terminal `t=22.5`, and final interval in `(0, 1e-9)` under the preregistered exception.
 5. Record every selected checkpoint hash, stored timestamp, exact ledger row index/time, offset, candidate count, four comparisons, and decomposition gate.
 6. Upload a machine-readable result and logs so the work can be reproduced from GitHub.
+
+## Frozen numerical criterion and observed outcomes
+
+The frozen criterion is per-field relative error `abs(reconstructed-recorded)/abs(recorded) <= 1e-8` at every matched target. Reconstructed values equal to the recorded value pass with zero relative error. A missing or exactly-zero reference is `UNDEFINED`; non-finite data are invalid. This rule governs the archived replays and must not be changed retroactively.
+
+Review of the downloaded replay result artifacts shows that Replays A, B, D, and F each have two formal failures: outer-region Hamiltonian L2 at targets 4 and 12, with relative errors `1.3436801137561909e-8` and `1.9979944854801685e-8`. The other 22 fields pass. Replays C and E have 24/24 bitwise matches and pass the relative-error rule. Thus four replays formally fail the frozen criterion, and two pass. The tiny absolute size of the discrepancies does not override the frozen relative threshold.
 
 ## Numerical portability observation
 
