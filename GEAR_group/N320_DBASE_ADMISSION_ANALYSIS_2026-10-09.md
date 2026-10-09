@@ -79,13 +79,13 @@ The run summary reports:
 
 Code inspection shows `engine/run_production.py` computes this residual from the native history via `current_residual(times, masses, rhs)`, where `engine/worldtube.py` differentiates (M_{MS}) with `numpy.gradient` over the recorded timestamps. The tiny final interval makes the centered derivative at the penultimate row ill-conditioned and creates the reported maximum.
 
-As a post-run diagnostic audit only (not a changed admission criterion), recomputing the same residual after omitting just the final tiny-step row gives:
+As a post-run diagnostic audit only (not a changed admission criterion), masking the interior residual sample whose centered derivative touches the sub-`1e-9` interval—while leaving the raw history and solver state untouched—gives:
 - maximum absolute residual: 8.286849171659783e-05
-- RMS residual: 1.4783708698757078e-05
+- RMS residual: 1.4784940828500333e-05
 
-The previously admitted N=160 Dbase values were max 8.166937695150422e-05 and RMS 1.6662565588568402e-05. After omitting the terminal tiny-step row for this diagnostic comparison, the N=320 maximum is about 1.47% higher and its RMS about 11.28% lower than N=160, instead of the misleading 49x peak increase in the raw summary.
+The previously admitted N=160 Dbase values were max 8.166937695150422e-05 and RMS 1.6662565588568402e-05. With the terminal roundoff-sensitive derivative excluded, the N=320 maximum is about 1.47% higher and its RMS about 11.27% lower than N=160, instead of the misleading 48.6x peak increase and 2.68x RMS increase in the raw summary.
 
-This identifies a terminal-step sensitivity in a secondary diagnostic, not a failed preregistered gate and not evidence of a physical discontinuity. The raw artifact and its emitted summary remain untouched. The correct follow-up is a separate, workflow/diagnostic-only correction and independent validation, without altering physics or retroactively modifying this run's admission.
+This identifies terminal-step sensitivity in a secondary diagnostic, not a failed preregistered gate and not evidence of a physical discontinuity. The original artifact and its emitted summary remain untouched.
 
 ## Artifact file hashes emitted by the admission report
 
@@ -98,3 +98,12 @@ This identifies a terminal-step sensitivity in a secondary diagnostic, not a fai
 ## Conclusion
 
 The preregistered N=320 Dbase run is admitted. Its proper time and primary (f=0.25) onset/lag metrics meet the specified N160-to-N320 tolerances. The source-probe D onset/lag is close to the decision bounds, and low-fraction sensitivity remains unresolved. The raw artifact is hash-verified. The separate secondary-diagnostic issue is traced to the permitted terminal tiny step interacting with the numerical time derivative; diagnose/correct that output layer separately, without changing physics.
+
+## Diagnostic-only repair and validation (after the admitted run)
+
+- Commit: https://github.com/miahpenn/0-Cosmos-engine/commit/695e55953350b06efff25f3ce850273d884326fe
+- Scope: `engine/worldtube.py` and `tests/test_worldtube.py` only. No evolution equation, matter/geometry/gauge code, workflow acceptance rule, preregistration, or archived run artifact was changed.
+- The residual diagnostic now returns NaN for interior derivative samples touching an interval shorter than (10^{-9}), aligning with the preregistered tiny-final-step exception. The aggregation already ignores non-finite residual samples.
+- A synthetic regression test reproducing a smooth signal with a (5\times10^{-12}) terminal interval passes locally.
+- Repository CI test run: https://github.com/miahpenn/0-Cosmos-engine/actions/runs/37976386163 — completed successfully, including the repository test suite.
+- Applying the revised diagnostic to the original native N320 ledger produces the corrected residual values listed above. No second physics campaign was launched.
