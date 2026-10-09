@@ -29,6 +29,24 @@ jobs:
       - name: Install dependencies
         run: python -m pip install -r requirements.txt
 
+      - name: Record runtime fingerprint for floating-point reproducibility
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo "=== uname ==="
+            uname -a
+            echo "=== lscpu ==="
+            lscpu
+            echo "=== NumPy runtime/config ==="
+            python - <<'PY'
+          import numpy as np
+          print("numpy_version", np.__version__)
+          np.show_runtime()
+          np.show_config()
+          PY
+          } | tee audit_runtime_fingerprint.txt
+
       - name: Verify archived source code and exact vendor pin
         shell: bash
         run: |
@@ -89,6 +107,7 @@ jobs:
             audit_output/comparison_results_N320_Dbase.json
             audit_pytest.log
             audit_provenance.txt
+            audit_runtime_fingerprint.txt
             audit_artifact_inventory.txt
             audit_reconstruction.log
           if-no-files-found: warn
