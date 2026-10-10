@@ -1,0 +1,38 @@
+name: Diagnostic - Initial-data Newton convergence
+
+on:
+  push:
+    branches:
+      - diag/initial-solver-instrumentation
+    paths:
+      - engine/discrete_consistent_initial.py
+      - diagnostics/curvature_consistency/initial_solver_diagnostic.py
+      - .github/workflows/initial-solver-diagnostic.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  initial-solver-diagnostic:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PYTHONPATH: .
+    steps:
+      - name: Checkout diagnostic branch and pinned vendor submodule
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Compile solver and diagnostic
+        run: python -m py_compile engine/discrete_consistent_initial.py diagnostics/curvature_consistency/initial_solver_diagnostic.py
+      - name: Run initial-data-only diagnostic (no evolution)
+        run: python diagnostics/curvature_consistency/initial_solver_diagnostic.py
