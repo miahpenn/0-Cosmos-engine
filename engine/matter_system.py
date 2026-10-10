@@ -535,19 +535,40 @@ def evolve_species(
         source_e_diag[i] = source_e
         source_s_diag[i] = source_s
 
-        q_e = q_s = 0.0
+        q_rest = q_e = q_s = 0.0
         if species == Species.DARK_MATTER:
             if dphi_t is None or dphi_r is None:
                 raise ValueError("DM evolution requires dphi_t and dphi_r")
             q_t, q_r = dark_matter_covector_source(
                 beta_dm, prim[i].rho, float(dphi_t[i]), float(dphi_r[i])
             )
+
+            # Covariant exchange: nabla_mu T_DM^{mu nu} = Q_DM^nu,
+            # Q_DM,nu = beta*rho*partial_nu(phi). Contracting with u_nu
+            # gives nabla_mu(rho*u^mu) = -beta*rho*u^mu*partial_mu(phi).
+            # With U_rest=sqrt(gamma)*rho*W and
+            # u^mu*d_mu(phi)=W*(Pi+v^r*phi_r), the coordinate-time source is
+            # -alpha*sqrt(gamma)*beta*rho*W*(Pi+v^r*phi_r).
+            pi_normal = (
+                float(dphi_t[i]) - m.beta * float(dphi_r[i])
+            ) / m.alpha
+            u_grad_phi = prim[i].lorentz() * (
+                pi_normal + prim[i].v_r * float(dphi_r[i])
+            )
+            q_rest = (
+                -m.alpha * m.sqrt_gamma * beta_dm
+                * prim[i].rho * u_grad_phi
+            )
+
+            # Eulerian energy and spatial-momentum projections of Q_nu.
+            # The lapse is required by sqrt(-g)=alpha*sqrt(gamma).
             q_e = -m.sqrt_gamma * (q_t - m.beta * q_r)
-            q_s = m.sqrt_gamma * q_r
+            q_s = m.alpha * m.sqrt_gamma * q_r
 
         out.rest[i] -= dt * inv_dr * (
             face_flux[i + 1, 0] - face_flux[i, 0]
         )
+        out.rest[i] += dt * q_rest
         out.energy_t[i] -= dt * inv_dr * (
             face_flux[i + 1, 1] - face_flux[i, 1]
         )
