@@ -31,7 +31,9 @@ jobs:
           cache: pip
       - name: Install dependencies
         run: python -m pip install -r requirements.txt
-      - name: Compile diagnostic
-        run: python -m py_compile diagnostics/curvature_consistency/evolved_curvature_compare.py
+      - name: Compile diagnostics
+        run: python -m py_compile diagnostics/curvature_consistency/*.py
       - name: Compare initial and evolved curvature
         run: python diagnostics/curvature_consistency/evolved_curvature_compare.py
+      - name: Momentum residual spatial-refinement check
+        run: python diagnostics/curvature_consistency/momentum_resolution_compare.py
