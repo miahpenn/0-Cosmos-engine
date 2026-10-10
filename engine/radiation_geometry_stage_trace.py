@@ -1358,7 +1358,9 @@ class RadiationStageTrace:
             "engine/stress_energy.py",
             "engine/true_cmc_pirk_kernel.py",
             "engine/radiation_geometry_stage_trace.py",
+            "vendor/bb-palatini-unified-r0/bssn_characteristic_boundary.py",
             ".github/workflows/zero_star_radiation_stage_trace.yml",
+            ".github/workflows/zero_star_radiation_proper_time_domain.yml",
             ".github/workflows/zero_star_extended_b_recovery_metric.yml",
         ):
             path = Path(rel)
@@ -1417,6 +1419,7 @@ class RadiationStageTrace:
             "predictor_budgets": self.predictor_budgets,
             "completed_state_budgets": self.completed_state_budgets,
             "geometry_predictor_budgets": self.geometry_predictor_budgets,
+            "boundary_update_snapshots": self.boundary_update_snapshots,
             "instrumentation_errors": self.instrumentation_errors,
             "wall_elapsed_seconds": float(time.time() - self.started_wall),
             "notes": [
@@ -1431,6 +1434,7 @@ class RadiationStageTrace:
                 "The cone budget is ordered and uses the accepted spatial metric for the accepted, flux-only, and source-updated stages, then the predictor metric for the final predictor margin.",
                 "Completed-state budgets reconstruct the trapezoidal radiation update from actual RHS0/RHS1 evaluations and close the accepted-to-completed cone-margin change across stage-specific metrics.",
                 "Geometry predictor budgets record the actual first geometry-stage explicit RHS and compare its raw Euler candidate with the predictor geometry after algebraic regularity projection.",
+                "P-minus boundary snapshots record the incoming-light characteristic before and after the existing boundary reconstruction, its target, the Aa correction, and post-reconstruction residual. This is diagnostic-only and does not change the boundary rule.",
                 (
                     "Extended-B mode uses the accepted start-of-step metric only for predictor-stage radiation primitive inversion; stage metrics still enter the fluxes, geometric sources, stress projections, and CMC spatial operator."
                     if self.use_accepted_metric_for_predictor_radiation_recovery
@@ -1463,6 +1467,23 @@ class RadiationStageTrace:
             "geometry_predictor_budget_count": len(self.geometry_predictor_budgets),
             "geometry_predictor_budget_error_count": sum(
                 1 for row in self.stage_snapshots if row.get("geometry_predictor_budget_error")
+            ),
+            "boundary_update_snapshot_count": len(self.boundary_update_snapshots),
+            "boundary_update_snapshot_error_count": sum(
+                1 for row in self.boundary_update_snapshots
+                if row.get("boundary_exception") or row.get("pre_capture_error")
+            ),
+            "max_abs_Pminus_preboundary_mismatch": max(
+                (abs(row["pre"]["target_minus_omega_outer"]) for row in self.boundary_update_snapshots),
+                default=None,
+            ),
+            "max_abs_Pminus_postboundary_mismatch": max(
+                (abs(row["post_target_mismatch"]) for row in self.boundary_update_snapshots),
+                default=None,
+            ),
+            "max_abs_Aa_boundary_correction_formula_error": max(
+                (abs(row["delta_Aa_formula_error"]) for row in self.boundary_update_snapshots),
+                default=None,
             ),
             "progress_sample_count": len(self.progress_samples),
             "rejected_step_attempt_count": len(self.rejected_step_attempts),
