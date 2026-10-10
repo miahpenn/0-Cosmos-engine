@@ -8,6 +8,8 @@
 
 The live spatial source path appears to apply the lapse to the dark-matter energy-transfer term but not to the paired scalar momentum-equation source. This mismatch vanishes in the homogeneous alpha=1 limit. Treat this as a candidate defect pending derivation from the governing action, the stress-energy divergence convention, and the ADM definition/sign of Pi. Do not patch from this report alone.
 
+An archived October 5 V5.5 inhomogeneous gate explicitly omitted the beta scalar-DM interaction because its local momentum equations had not yet been supplied by the archive. The current spatial interaction is therefore not authorized solely by that older gate. Both the local coupling law itself and its lapse weighting must be derived; correcting only the alpha factor would be premature.
+
 ## Source evidence
 
 - [Scalar RHS](https://github.com/miahpenn/0-Cosmos-engine/blob/research/gear-kernel-integration-gates/engine/scalar_system.py)
@@ -49,17 +51,22 @@ This is an algebraic implication of the source expressions, not a measured produ
 
 The homogeneous lane has alpha=1 by construction, so the homogeneous scalar/DM continuity test cannot probe this lapse-dependent mismatch.
 
-## Test-coverage limitation
+## Deterministic source-only witness — executed
 
-tests/test_exchange.py tests the separate v55_matter.exchange_pair() helper. The live spatial path computes its scalar and DM source contributions separately in scalar_system.py and matter_system.py. The helper's opposite-sign arrays therefore do not prove cancellation in the actual production RHS. Existing center-regularity and outer-constraint tests passed in the normal suite, but they do not test exchange-source conservation.
+The read-only algebra probe is implemented at [tests/test_spatial_beta_exchange_audit.py](https://github.com/miahpenn/0-Cosmos-engine/blob/research/gear-kernel-integration-gates/tests/test_spatial_beta_exchange_audit.py). It initializes a small state, then creates a **synthetic, unadvanced probe** with nonzero shift and a spatial phi gradient. It calls the active production RHS twice on the same probe, first with the current beta coupling and then with the coupling coefficient set to zero. It does not take a finite-time step or claim the modified probe is a constraint-satisfying physical state.
+
+The test verifies three code facts: (1) the actual scalar Pi RHS difference is beta*rho_dm, (2) the actual conservative dark-matter energy RHS difference reduces to -sqrt(gamma)*alpha*beta*rho_dm*Pi, and (3) their source-level pair residual equals sqrt(gamma)*(1-alpha)*beta*rho_dm*Pi at cells with non-unit lapse. The test passed as a **source fingerprint**. It deliberately does not assert that this residual is physically acceptable.
+
+GitHub Actions run [38059772092](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38059772092) passed **111 tests in 30.22 s** at commit 5654db1e1a064c189a95eaf734615afbc15767b3. Both optional long-campaign jobs were skipped. No production physics equation was changed.
+
+The older helper-only test, tests/test_exchange.py, still does not by itself prove cancellation in the active RHS. The new source-only witness directly exercises that active path, but is evidence about current code behavior—not a source conservation pass.
 
 ## Required next verification
 
-1. Derive the scalar and DM sources from the governing action / archived covariant equations, fixing metric signature, Pi, units, index placement, and Q_nu sign.
-2. Derive the coordinate-time scalar energy balance, explicitly tracking alpha, sqrt(gamma), shift, and the same DM density primitive.
-3. Build a deterministic, non-evolving source-pair check at alpha != 1 and nonzero shift, using the actual RHS source assembly. It must show cancellation, or explain from the derived equations why a remainder is physical. Do not test only the disconnected helper.
-4. If derivation confirms the lapse factor is missing, make the smallest correction on a separate physics branch, keep prior commits/artifacts intact, and run deterministic gates before any trajectory.
-5. Do not launch more expensive runs or attempt cross-lane coupling until the source accounting is resolved.
+1. Derive whether the local covariant scalar-DM interaction is part of the approved model at all; the older inhomogeneous archive gate explicitly deferred it because its local momentum equations were missing.
+2. From the governing action/equations, fix metric signature, Pi definition, units, index placement, source sign, and density normalization. Then derive the coordinate-time energy balance with alpha, sqrt(gamma), and shift accounted for.
+3. Only if that derivation requires the paired terms to cancel, replace the current source-fingerprint test with a conservation assertion at alpha != 1 and nonzero shift. If it confirms a missing lapse, make the smallest correction on a separate physics branch and rerun the deterministic gates.
+4. Keep all existing source commits and artifacts immutable. Do not launch a full trajectory or connect the homogeneous lane until these equation-level gates pass.
 
 ## Explicitly not done
 
