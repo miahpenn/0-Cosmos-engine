@@ -95,3 +95,12 @@ This is a dated addendum to the 2026-10-06 record above. It does not replace tha
 - Open questions remain: full-domain constraint/convergence behavior, radiation outer-boundary realizability, reciprocal local-COSMOS coupling, D-to-matter identification, and global shear closure. No turnaround, bounce, completed cycle, or validated cosmology is claimed.
 
 Standing rule unchanged: run the full machine, expose the actual defect, repair only the affected layer, and rerun. Keep code diagnostics, physics changes, and long-run campaigns independently identifiable.
+
+## 2026-10-10 radiation predictor trace — captured, not repaired
+
+- Source baseline: `9eed1cf95c52f001c2b87afbbe6da37faa56d50e`; trigger commit: `c8a9967126ba07cd12e4da9c86b7066a703d3419`; branch remains isolated. No production physics source changed in the instrumentation commits.
+- [Trace run #7](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38068938182) completed its diagnostic capture; [CI #576](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38068938171) passed 127 tests. Artifact [11676486591](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38068938182/artifacts/11676486591).
+- N=80, r_max=80, dr=1, dt=CFL=0.03, radiation ON, D=1e-10. Last accepted t=46.98, τ=22.0161154; attempted predictor t=47.01 fails radiation `E>=|S|` at cell i=79 (r=79.5), ratio 1.0000569941.
+- Ordered cone budget at i=79: accepted `C=+4.6971e-7`; flux-updated on accepted metric `+1.4812e-6`; source-updated on accepted metric `+2.2171e-6`; predictor metric contribution `−2.2340e-6`, giving `C=−1.6900e-8`. The predictor metric changes `gamma_rr_inv` upward by 1.5239% at this cell; flux/source terms in this ordered budget improve its margin.
+- Detailed data and artifact hashes: [`docs/RADIATION_PREDICTOR_TRACE_2026-10-10.md`](RADIATION_PREDICTOR_TRACE_2026-10-10.md).
+- Next: instrument the explicit geometry RHS (`a/b/X`) at cells 75–79 and audit the matching outer characteristic-boundary variables. Do not add clipping, damping, floors, or a speculative boundary law. The trace identifies the stage of crossing, not yet the upstream defect.
