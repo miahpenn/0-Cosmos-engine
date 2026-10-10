@@ -139,9 +139,12 @@ def main():
 
         C_lambda_prime = d1(grid, C_lambda, -1)
         a_prime = d1(grid, a, +1)
+        # The vendor *scalar* Ricci bracket contains -a*D(Lambda),
+        # but the additional -0.5*Lambda*D(a) term belongs to its radial
+        # Ricci component, not its scalar_R expression.
         R_connection_formula = finite_array(
             "connection Ricci contribution",
-            X**2 * C_lambda_prime + 0.5 * (X**2 / a) * a_prime * C_lambda,
+            X**2 * C_lambda_prime,
         )
 
         # The total difference is split into two separately reported pieces:
@@ -254,7 +257,7 @@ def main():
             ),
             "connection_contribution_identity": (
                 "R_vendor(Lambda)-R_vendor(Lambda_metric) = "
-                "X^2*D(C_Lambda,-1) + 0.5*(X^2/a)*D(a,+1)*C_Lambda"
+                "X^2*D(C_Lambda,-1)"
             ),
             "no_polar_areal_identity_used": True,
             "no_evolution_or_physics_changes": True,
