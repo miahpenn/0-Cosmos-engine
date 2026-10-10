@@ -178,6 +178,7 @@ def test_trace_instrumentation_preserves_one_step_production_state_bitwise(tmp_p
     """Observational tracing must not perturb a representative production step."""
     import engine.matter_rhs as mr
     import engine.matter_system as ms
+    import engine.production_kernel as pk
     from engine.production_kernel import V55ProductionKernel
 
     kernel = V55ProductionKernel()
