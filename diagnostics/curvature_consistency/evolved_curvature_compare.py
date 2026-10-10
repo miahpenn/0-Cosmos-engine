@@ -129,6 +129,81 @@ def metric_connection_expression(grid, geometry):
     )
 
 
+def momentum_components(state):
+    """Signed terms in M_total = M_geometry - 8*pi*j, including source sectors."""
+    grid, geometry = state.grid, state.geometry
+    radius = np.asarray(grid.centers)
+    aa = np.asarray(geometry.Aa)
+    K = np.asarray(geometry.K)
+    a = np.asarray(geometry.a)
+    b = np.asarray(geometry.b)
+    X = np.asarray(geometry.X)
+
+    dAa = np.asarray(grid.cell_derivative_fourth(aa, parity=+1))
+    dK = np.asarray(grid.cell_derivative_fourth(K, parity=+1))
+    db = np.asarray(grid.cell_derivative_fourth(b, parity=+1))
+    dX = np.asarray(grid.cell_derivative_fourth(X, parity=+1))
+    chip = -0.5 * dX / X
+
+    # Vendor convention: Ab=-Aa/2, so Aa-Ab=3 Aa/2.
+    terms = {
+        "M_DAa": dAa,
+        "M_DK": -(2.0 / 3.0) * dK,
+        "M_chi": 6.0 * aa * chip,
+        "M_radial_Aa": 1.5 * aa * (2.0 / radius + db / b),
+    }
+
+    zero = np.zeros_like(state.scalars.S)
+    names = ("S", "PS", "D", "PD", "phi", "Pi")
+    scalar_js = {}
+    for field_name in ("S", "D", "phi"):
+        isolated = ScalarFields(*(
+            getattr(state.scalars, name)
+            if name == field_name
+            or (field_name == "S" and name == "PS")
+            or (field_name == "D" and name == "PD")
+            or (field_name == "phi" and name == "Pi")
+            else zero
+            for name in names
+        ))
+        scalar_js[field_name] = np.asarray(
+            scalar_projection(grid, geometry, isolated)[3], dtype=float
+        )
+
+    total = assemble_total_stress_energy(grid, geometry, state.scalars, state.matter)
+    fluid_j = np.asarray(total.fluid_j, dtype=float)
+    terms.update({
+        "M_S_source": -8.0 * math.pi * scalar_js["S"],
+        "M_D_source": -8.0 * math.pi * scalar_js["D"],
+        "M_phi_source": -8.0 * math.pi * scalar_js["phi"],
+        "M_fluid_source": -8.0 * math.pi * fluid_j,
+    })
+
+    raw = vacuum.constraints(grid, geometry)
+    direct = np.asarray(raw["momentum"], dtype=float) - 8.0 * math.pi * np.asarray(total.j)
+    reconstructed = np.sum(np.stack(list(terms.values())), axis=0)
+    terms["M_total"] = direct
+    terms["closure"] = reconstructed - direct
+    return terms
+
+
+def report_momentum_checkpoint(state, label):
+    terms = momentum_components(state)
+    print(f"[MOMENTUM_BUDGET {label}] t={state.t:.12g}")
+    for name, values in terms.items():
+        if name == "closure":
+            print(
+                f"  {name}: maxabs_cells0-4={np.max(np.abs(values[:5])):.3e}; "
+                f"maxabs_all={np.max(np.abs(values)):.3e}"
+            )
+            continue
+        print(
+            f"  {name}: cell0={values[0]:+.6e}; "
+            f"maxabs_cells0-4={np.max(np.abs(values[:5])):.3e}; "
+            f"maxabs_all={np.max(np.abs(values)):.3e}"
+        )
+
+
 def constraint_components(state):
     """Term accounting for H; signs match the vendor constraint definition."""
     geometry = state.geometry
@@ -371,11 +446,13 @@ def one_step_budget(kernel, state):
 
     base = constraint_components(projected)
     connection_rhs_budget(kernel, projected)
+    momentum_base = momentum_components(projected)
     base_dr = projected.grid.dr
     for factor in PROBE_DT_FACTORS:
         dt = factor * base_dr
         advanced = kernel.step(copy.deepcopy(projected), dt)
         after = constraint_components(advanced)
+        momentum_after = momentum_components(advanced)
         after_connection = np.asarray(
             vacuum.constraints(advanced.grid, advanced.geometry)["connection"],
             dtype=float,
@@ -430,6 +507,20 @@ def one_step_budget(kernel, state):
             f"d(metric connection): cell0={delta_metric_connection[0]:+.6e}; "
             f"split closure={np.max(np.abs(connection_split_closure)):.3e}"
         )
+        print("    momentum residual change by signed term:")
+        for name, values in momentum_after.items():
+            delta = values - momentum_base[name]
+            if name == "closure":
+                print(
+                    f"      {name}: maxabs(delta)={np.max(np.abs(delta)):.3e}"
+                )
+            else:
+                print(
+                    f"      d{name}: cell0={delta[0]:+.6e}; "
+                    f"maxabs_cells0-4={np.max(np.abs(delta[:5])):.3e}; "
+                    f"maxabs_all={np.max(np.abs(delta)):.3e}"
+                )
+
 
 
 if __name__ == "__main__":
@@ -445,6 +536,7 @@ if __name__ == "__main__":
     )
     reference_grid = ref.Grid(N, R_MAX)
     report_curvature(state, reference_grid, "initial slice", initial_gate=True)
+    report_momentum_checkpoint(state, "initial")
     one_step_budget(kernel, state)
 
     dt = CFL * state.grid.dr
@@ -452,4 +544,5 @@ if __name__ == "__main__":
         while state.t < target - 1.0e-12:
             state = kernel.step(state, min(dt, target - state.t))
         report_curvature(state, reference_grid, "evolved slice")
+        report_momentum_checkpoint(state, f"t={target:g}")
         one_step_budget(kernel, state)
