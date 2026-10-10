@@ -14,6 +14,10 @@ For the metric used by this reference initializer,
 `R = 2(1-B)/r^2 - 2 B'/r`. The source-balance witness is
 `B + r D(B) - source(B)`. Both use the reference's stated discrete derivative for `D(B)`; the polar Ricci expression is independent of the reference BSSN Ricci function.
 
+**Important dependency:** by direct algebra,
+`R_polar - R_source = -2 [B + r D(B) - source(B)] / r^2`.
+Therefore the source-balance residual and the polar-minus-source curvature term are the same witness in different units, not two independent failure signals. At the first cell, `r=dr/2`; division by `r^2` can keep the curvature-scaled residual nearly constant even while the raw source-balance residual shrinks like `dr^2`. The audit now reports an identity-closure residual to guard this interpretation.
+
 ## Preliminary numerical replay
 
 The 16-case control matrix uses N = 40, 80, 160, 320 with (a) fixed `r_max=40` and (b) fixed `dr=1` with `r_max=N`; each is run with S amplitude 0 and 0.01.
@@ -68,7 +72,7 @@ The matter-density projection difference is far too small to account for the Ham
 ## Interpretation and guardrails
 
 1. The H0 algebraic cancellation passes the uniform, S=0 control.
-2. The perturbed initial slice exposes a geometric residual split into source-to-metric and polar-to-BSSN Ricci mismatches.
+2. The perturbed initial slice exposes a source-balance/curvature witness and a separate polar-to-BSSN Ricci mismatch. The first pair are algebraically linked, not independent defects.
 3. Off-center residuals improve substantially under fixed-domain refinement, while the center Ricci mismatch and center Hamiltonian residual persist.
 4. The exact source coefficient/stencil/center handling responsible remains undiagnosed. This audit intentionally does not select or patch one.
 5. The independent polar formula is an identity for the stated areal metric, not a new evolution equation.
