@@ -1,0 +1,43 @@
+name: "[0star] Reference initial-data geometric consistency (diagnostic only)"
+
+on:
+  push:
+    branches:
+      - diag/reference-initial-data-geometric-consistency
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  reference-initial-data-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout diagnostic branch and pinned reference
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Run baseline residual tripwires
+        run: python -m pytest -q tests/test_reference_initial_data_consistency.py
+
+      - name: Run deterministic initial-slice matrix (no evolution)
+        run: python -m engine.reference_initial_data_consistency
+
+      - name: Upload complete initial-data audit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reference-initial-data-geometric-consistency
+          path: runs/reference-initial-data-geometric-consistency/report.json
+          if-no-files-found: error
