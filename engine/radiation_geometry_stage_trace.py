@@ -79,6 +79,7 @@ class RadiationStageTrace:
         self.last_radiation_sources: dict[int, tuple[float, float]] = {}
         self.stage_snapshots: list[dict] = []
         self.predictor_budgets: list[dict] = []
+        self.completed_state_budgets: list[dict] = []
         self.progress_samples: list[dict] = []
         self.global_geometry_minima: dict[str, dict] = {}
         self.failure: dict | None = None
@@ -365,6 +366,184 @@ class RadiationStageTrace:
             ),
         }
 
+
+    @staticmethod
+    def _budget_metric_provenance(geometry, cone, i):
+        return {
+            "sqrt_gamma": float(cone["sqrt_gamma"][i]),
+            "gamma_rr_inv": float(cone["gamma_rr_inv"][i]),
+            "a": float(geometry.a[i]),
+            "b": float(geometry.b[i]),
+            "X": float(geometry.X[i]),
+            "alpha": float(geometry.alpha[i]),
+            "beta": float(geometry.beta[i]),
+        }
+
+    def completed_state_budget(
+        self, grid, completed_geometry, completed_matter,
+        rhs0, rhs1, dt, t, step_index, stage,
+    ):
+        """Decompose the accepted-to-completed conservative radiation update.
+
+        This is observational instrumentation. It uses the actual RHS0/RHS1
+        arrays and captured source values. It does not alter equations, state,
+        recovery, boundaries, or accept/reject decisions.
+        """
+        dt = float(dt)
+        g0, g1 = rhs0["geometry"], rhs1["geometry"]
+        U0, U1, Uc = (
+            rhs0["matter_radiation"],
+            rhs1["matter_radiation"],
+            completed_matter.radiation,
+        )
+        U0e, U0r = _array(U0.energy_t), _array(U0.momentum_r)
+        U1e, U1r = _array(U1.energy_t), _array(U1.momentum_r)
+        Uce, Ucr = _array(Uc.energy_t), _array(Uc.momentum_r)
+        r0e, r0r = _array(rhs0["rhs_energy"]), _array(rhs0["rhs_momentum"])
+        r1e, r1r = _array(rhs1["rhs_energy"]), _array(rhs1["rhs_momentum"])
+        arrays = (U0e, U0r, U1e, U1r, Uce, Ucr, r0e, r0r, r1e, r1r)
+        if any(arr.shape != U0e.shape for arr in arrays):
+            raise ValueError("completed radiation budget arrays have inconsistent shapes")
+
+        c0 = self.cone_values(grid, g0, U0)
+        c1 = self.cone_values(grid, g1, U1)
+        cc = self.cone_values(grid, completed_geometry, Uc)
+        cc_g0 = self.cone_values(grid, g0, Uc)
+        cc_g1 = self.cone_values(grid, g1, Uc)
+        sources0, sources1 = rhs0.get("sources", {}), rhs1.get("sources", {})
+        n = len(U0e)
+        lo = max(0, n - OUTER_CELLS)
+        rows = []
+
+        for i in range(lo, n):
+            pred_e = U0e[i] + dt * r0e[i]
+            pred_r = U0r[i] + dt * r0r[i]
+            comp_e = U0e[i] + 0.5 * dt * (r0e[i] + r1e[i])
+            comp_r = U0r[i] + 0.5 * dt * (r0r[i] + r1r[i])
+            row = {
+                "i": int(i), "r": float(grid.centers[i]),
+                "source_capture_missing": False,
+                "U_E_accepted": float(U0e[i]), "U_r_accepted": float(U0r[i]),
+                "U_E_predictor_actual": float(U1e[i]), "U_r_predictor_actual": float(U1r[i]),
+                "U_E_predictor_reconstructed_from_rhs0": float(pred_e),
+                "U_r_predictor_reconstructed_from_rhs0": float(pred_r),
+                "predictor_U_E_actual_minus_rhs0": float(U1e[i] - pred_e),
+                "predictor_U_r_actual_minus_rhs0": float(U1r[i] - pred_r),
+                "U_E_completed_actual": float(Uce[i]), "U_r_completed_actual": float(Ucr[i]),
+                "U_E_completed_reconstructed_from_trapezoid": float(comp_e),
+                "U_r_completed_reconstructed_from_trapezoid": float(comp_r),
+                "completed_U_E_actual_minus_trapezoid": float(Uce[i] - comp_e),
+                "completed_U_r_actual_minus_trapezoid": float(Ucr[i] - comp_r),
+                "rhs0_U_E_rate": float(r0e[i]), "rhs0_U_r_rate": float(r0r[i]),
+                "rhs1_U_E_rate": float(r1e[i]), "rhs1_U_r_rate": float(r1r[i]),
+                "C_accepted": float(c0["C"][i]),
+                "C_predictor_on_rhs1_metric": float(c1["C"][i]),
+                "C_completed_on_accepted_metric": float(cc_g0["C"][i]),
+                "C_completed_on_rhs1_metric": float(cc_g1["C"][i]),
+                "C_completed_final_metric": float(cc["C"][i]),
+                "accepted_metric": self._budget_metric_provenance(g0, c0, i),
+                "rhs1_stage_metric": self._budget_metric_provenance(g1, c1, i),
+                "completed_metric": self._budget_metric_provenance(completed_geometry, cc, i),
+            }
+            s0, s1 = sources0.get(i), sources1.get(i)
+            if s0 is None or s1 is None:
+                row["source_capture_missing"] = True
+                row["missing_source_stages"] = [
+                    label for label, value in (("rhs0", s0), ("rhs1", s1))
+                    if value is None
+                ]
+                row["closure_error"] = None
+                rows.append(row)
+                continue
+
+            s0e, s0r = float(s0[0]), float(s0[1])
+            s1e, s1r = float(s1[0]), float(s1[1])
+            f0e, f0r = float(r0e[i] - s0e), float(r0r[i] - s0r)
+            f1e, f1r = float(r1e[i] - s1e), float(r1r[i] - s1r)
+            dfe, dfr = 0.5 * dt * (f0e + f1e), 0.5 * dt * (f0r + f1r)
+            dse, dsr = 0.5 * dt * (s0e + s1e), 0.5 * dt * (s0r + s1r)
+            Ufe, Ufr = float(U0e[i] + dfe), float(U0r[i] + dfr)
+            Use, Usr = float(Ufe + dse), float(Ufr + dsr)
+            root_ginv0 = math.sqrt(float(c0["gamma_rr_inv"][i]))
+            C_flux = Ufe - root_ginv0 * abs(Ufr)
+            C_sources = Use - root_ginv0 * abs(Usr)
+            dC_flux = C_flux - float(c0["C"][i])
+            dC_sources = C_sources - C_flux
+            dC_metric_rhs1 = float(cc_g1["C"][i] - cc_g0["C"][i])
+            dC_metric_completed = float(cc["C"][i] - cc_g1["C"][i])
+            dC_total = float(cc["C"][i] - c0["C"][i])
+            closure = dC_flux + dC_sources + dC_metric_rhs1 + dC_metric_completed - dC_total
+            dC_matter = float(cc_g1["C"][i] - c1["C"][i])
+            dC_pred_completed = float(cc["C"][i] - c1["C"][i])
+            pred_closure = dC_matter + dC_metric_completed - dC_pred_completed
+            row.update({
+                "rhs0_source_U_E_rate": s0e, "rhs0_source_U_r_rate": s0r,
+                "rhs1_source_U_E_rate": s1e, "rhs1_source_U_r_rate": s1r,
+                "rhs0_flux_U_E_rate": f0e, "rhs0_flux_U_r_rate": f0r,
+                "rhs1_flux_U_E_rate": f1e, "rhs1_flux_U_r_rate": f1r,
+                "delta_flux_U_E_trapezoidal": float(dfe),
+                "delta_flux_U_r_trapezoidal": float(dfr),
+                "delta_source_U_E_trapezoidal": float(dse),
+                "delta_source_U_r_trapezoidal": float(dsr),
+                "U_E_after_flux_on_accepted_metric": Ufe,
+                "U_r_after_flux_on_accepted_metric": Ufr,
+                "U_E_after_sources_on_accepted_metric": Use,
+                "U_r_after_sources_on_accepted_metric": Usr,
+                "C_after_flux_on_accepted_metric": float(C_flux),
+                "C_after_sources_on_accepted_metric": float(C_sources),
+                "delta_C_flux_trapezoidal": float(dC_flux),
+                "delta_C_sources_trapezoidal": float(dC_sources),
+                "delta_C_metric_accepted_to_rhs1": dC_metric_rhs1,
+                "delta_C_metric_rhs1_to_completed": dC_metric_completed,
+                "delta_C_total_accepted_to_completed": dC_total,
+                "closure_error": float(closure),
+                "delta_C_trapezoid_matter_correction_on_rhs1_metric": dC_matter,
+                "delta_C_predictor_to_completed": dC_pred_completed,
+                "predictor_to_completed_closure_error": float(pred_closure),
+                "completed_conservative_energy_split_error": float(Use - Uce[i]),
+                "completed_conservative_momentum_split_error": float(Usr - Ucr[i]),
+            })
+            rows.append(row)
+
+        valid = [row for row in rows if row.get("closure_error") is not None]
+        missing = [int(row["i"]) for row in rows if row["source_capture_missing"]]
+        def max_abs(key, rows_for_key=valid):
+            return max((abs(row[key]) for row in rows_for_key), default=None)
+        return {
+            "t_accepted": float(t), "t_completed_candidate": float(t + dt),
+            "step_index": int(step_index), "stage": stage, "dt": dt,
+            "cell_band": [lo, n - 1],
+            "budget_order": [
+                "accepted conservative state on accepted spatial metric",
+                "trapezoidal flux-only update on accepted spatial metric",
+                "trapezoidal source update on accepted spatial metric",
+                "same completed conservative state on RHS1 stage spatial metric",
+                "same completed conservative state on completed candidate spatial metric",
+            ],
+            "rhs_metric_provenance": {
+                "rhs0_stage": self._budget_metric_provenance(g0, c0, min(n - 1, lo)),
+                "rhs1_stage": self._budget_metric_provenance(g1, c1, min(n - 1, lo)),
+            },
+            "source_capture_missing_cells": missing, "cells": rows,
+            "max_abs_budget_closure_error": max_abs("closure_error"),
+            "max_abs_predictor_U_E_reconstruction_error": max_abs(
+                "predictor_U_E_actual_minus_rhs0", rows
+            ),
+            "max_abs_predictor_U_r_reconstruction_error": max_abs(
+                "predictor_U_r_actual_minus_rhs0", rows
+            ),
+            "max_abs_completed_U_E_reconstruction_error": max_abs(
+                "completed_U_E_actual_minus_trapezoid", rows
+            ),
+            "max_abs_completed_U_r_reconstruction_error": max_abs(
+                "completed_U_r_actual_minus_trapezoid", rows
+            ),
+            "max_abs_source_flux_split_energy_error": max_abs("completed_conservative_energy_split_error"),
+            "max_abs_source_flux_split_momentum_error": max_abs("completed_conservative_momentum_split_error"),
+            "max_abs_predictor_to_completed_closure_error": max_abs("predictor_to_completed_closure_error"),
+        }
+
+
     def _patch_production_kernel(self):
         kernel_cls = production_kernel_module.V55ProductionKernel
         original_solve = kernel_cls._solve_lapse
@@ -419,10 +598,45 @@ class RadiationStageTrace:
                 "completed_state_outer_light_boundary",
             )
             stage = labels[idx] if idx < len(labels) else f"outer_light_boundary_call_{idx}"
-            trace.record_stage(
+            stage_row = trace.record_stage(
                 stage, grid, geometry, matter, t, tau,
                 trace.step_index, step["dt"], force=(idx == 1),
             )
+            # Observe the completed candidate before normal boundary recovery.
+            # This block does not modify matter/geometry or affect admissibility.
+            if idx == 1 and trace.latest_state is not None and stage_row is not None:
+                if step.get("rhs0_record") is None or step.get("rhs1_record") is None:
+                    error = "completed-state budget lacks rhs0/rhs1 provenance"
+                    stage_row["completed_state_budget_error"] = error
+                    trace.instrumentation_errors.append({
+                        "where": "completed_state_budget",
+                        "t": t, "step_index": trace.step_index, "error": error,
+                    })
+                else:
+                    try:
+                        budget = trace.completed_state_budget(
+                            grid, geometry, matter, step["rhs0_record"],
+                            step["rhs1_record"], step["dt"], t,
+                            trace.step_index, stage,
+                        )
+                        trace.completed_state_budgets.append(budget)
+                        stage_row["completed_state_budget_index"] = len(trace.completed_state_budgets) - 1
+                        if budget["source_capture_missing_cells"]:
+                            error = "completed-state source capture missing at cells " + ",".join(
+                                map(str, budget["source_capture_missing_cells"])
+                            )
+                            stage_row["completed_state_budget_error"] = error
+                            trace.instrumentation_errors.append({
+                                "where": "completed_state_budget",
+                                "t": t, "step_index": trace.step_index, "error": error,
+                            })
+                    except Exception as exc:
+                        error = f"{type(exc).__name__}: {exc}"
+                        stage_row["completed_state_budget_error"] = error
+                        trace.instrumentation_errors.append({
+                            "where": "completed_state_budget",
+                            "t": t, "step_index": trace.step_index, "error": error,
+                        })
             try:
                 if radiation_recovery_metric is None:
                     return original_boundary(grid, geometry, scalars, matter)
@@ -548,14 +762,15 @@ class RadiationStageTrace:
                 )
                 raise
             srhs, mrhs, md = out
-            if step is not None and rhs_idx == 0:
-                step["rhs0_record"] = {
+            if step is not None and rhs_idx in (0, 1):
+                rhs_record = {
                     "geometry": state.geometry.copy(),
                     "matter_radiation": state.matter.radiation.copy(),
                     "rhs_energy": _array(mrhs["radiation"].energy_t).copy(),
                     "rhs_momentum": _array(mrhs["radiation"].momentum_r).copy(),
                     "sources": dict(trace.last_radiation_sources),
                 }
+                step["rhs0_record" if rhs_idx == 0 else "rhs1_record"] = rhs_record
             return out
 
         def traced_step(kernel_self, state, dt):
@@ -570,6 +785,7 @@ class RadiationStageTrace:
                 "rhs_count": 0,
                 "boundary_count": 0,
                 "rhs0_record": None,
+                "rhs1_record": None,
                 "failing_stage": None,
             }
             try:
@@ -618,6 +834,10 @@ class RadiationStageTrace:
         self.predictor_budgets = [
             row for row in self.predictor_budgets
             if float(row.get("t", -math.inf)) >= cutoff_t
+        ]
+        self.completed_state_budgets = [
+            row for row in self.completed_state_budgets
+            if float(row.get("t_completed_candidate", -math.inf)) >= cutoff_t
         ]
 
     def record_progress(self, state):
@@ -843,6 +1063,7 @@ class RadiationStageTrace:
             "progress_samples": self.progress_samples,
             "stage_snapshots": self.stage_snapshots,
             "predictor_budgets": self.predictor_budgets,
+            "completed_state_budgets": self.completed_state_budgets,
             "instrumentation_errors": self.instrumentation_errors,
             "wall_elapsed_seconds": float(time.time() - self.started_wall),
             "notes": [
@@ -850,6 +1071,7 @@ class RadiationStageTrace:
                 "The source is captured directly from the existing production radiation source routine.",
                 "Flux transport rate is reconstructed as the existing total radiation RHS minus that captured source; evolve_species sums only those two components for radiation.",
                 "The cone budget is ordered and uses the accepted spatial metric for the accepted, flux-only, and source-updated stages, then the predictor metric for the final predictor margin.",
+                "Completed-state budgets reconstruct the trapezoidal radiation update from actual RHS0/RHS1 evaluations and close the accepted-to-completed cone-margin change across stage-specific metrics.",
                 (
                     "Extended-B mode uses the accepted start-of-step metric only for predictor-stage radiation primitive inversion; stage metrics still enter the fluxes, geometric sources, stress projections, and CMC spatial operator."
                     if self.use_accepted_metric_for_predictor_radiation_recovery
@@ -875,6 +1097,10 @@ class RadiationStageTrace:
             "source_file_sha256": hashes,
             "stage_snapshot_count": len(self.stage_snapshots),
             "predictor_budget_count": len(self.predictor_budgets),
+            "completed_state_budget_count": len(self.completed_state_budgets),
+            "completed_state_budget_error_count": sum(
+                1 for row in self.stage_snapshots if row.get("completed_state_budget_error")
+            ),
             "progress_sample_count": len(self.progress_samples),
             "rejected_step_attempt_count": len(self.rejected_step_attempts),
             "instrumentation_error_count": len(self.instrumentation_errors),

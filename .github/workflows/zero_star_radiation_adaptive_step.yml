@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - diag/extended-B-recovery-metric
+      - diag/completed-radiation-margin-budget
 
 permissions:
   contents: read
