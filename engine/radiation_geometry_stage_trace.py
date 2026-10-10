@@ -146,13 +146,9 @@ class RadiationStageTrace:
     def _should_expand(self, cone, t, force=False):
         finite_ratio = cone["ratio"][np.isfinite(cone["ratio"])]
         max_ratio = float(np.max(finite_ratio)) if finite_ratio.size else None
-        return (
-            force
-            or t >= TARGET_TIME - TAIL_WINDOW
-            or (max_ratio is not None and max_ratio >= 0.98)
-            or np.any(cone["C"] < 0.0)
-            or np.any(cone["U_E"] < 0.0)
-        )
+        # Keep full stage rows in a rolling two-time-unit buffer. The
+        # failing time is not assumed in advance, so do not key this to TARGET_TIME.
+        return True
 
     def record_stage(self, stage, grid, geometry, matter, t, tau,
                      step_index, dt, force=False, exception=None):
@@ -237,9 +233,7 @@ class RadiationStageTrace:
                     }
                     self.instrumentation_errors.append(err)
                     stage_row["predictor_budget_error"] = err["error"]
-        if tmin >= TARGET_TIME - TAIL_WINDOW or self._should_expand(cone, tmin, force):
-            self.stage_snapshots.append(stage_row)
-        elif exception is not None:
+        if self.current_step is not None:
             self.stage_snapshots.append(stage_row)
         return stage_row
 
@@ -435,7 +429,7 @@ class RadiationStageTrace:
                     step["failing_stage"] = stage
                 raise
 
-        def traced_rhs(state):
+        def traced_rhs(kernel_self, state):
             step = trace.current_step
             t = float(state.t)
             tau = float(state.tau)
@@ -449,7 +443,7 @@ class RadiationStageTrace:
                 stage, state.grid, state.geometry, state.matter, t, tau,
                 trace.step_index, step["dt"] if step is not None else None,
             )
-            out = original_rhs(state)
+            out = original_rhs(kernel_self, state)
             srhs, mrhs, md = out
             if step is not None and rhs_idx == 0:
                 step["rhs0_record"] = {
@@ -461,7 +455,7 @@ class RadiationStageTrace:
                 }
             return out
 
-        def traced_step(state, dt):
+        def traced_step(kernel_self, state, dt):
             trace.latest_state = state
             trace.latest_dt = float(dt)
             trace.current_step = {
@@ -475,9 +469,10 @@ class RadiationStageTrace:
                 "failing_stage": None,
             }
             try:
-                candidate = original_step(state, dt)
+                candidate = original_step(kernel_self, state, dt)
                 trace.record_progress(candidate)
                 trace.step_index += 1
+                trace.prune_tail(float(candidate.t) - TAIL_WINDOW)
                 return candidate
             except Exception as exc:
                 trace.failure = {
@@ -485,6 +480,7 @@ class RadiationStageTrace:
                     "tau_accepted": float(state.tau),
                     "step_index": int(trace.step_index),
                     "dt": float(dt),
+                    "t_attempted": float(state.t + dt),
                     "stage": trace.current_step.get("failing_stage"),
                     "exception_class": type(exc).__name__,
                     "exception_message": str(exc),
@@ -504,6 +500,16 @@ class RadiationStageTrace:
             kernel_cls, original_solve, original_rhs, original_step,
             original_evolve, original_radiation_source,
         )
+
+    def prune_tail(self, cutoff_t):
+        self.stage_snapshots = [
+            row for row in self.stage_snapshots
+            if float(row.get("t", -math.inf)) >= cutoff_t
+        ]
+        self.predictor_budgets = [
+            row for row in self.predictor_budgets
+            if float(row.get("t", -math.inf)) >= cutoff_t
+        ]
 
     def record_progress(self, state):
         try:
@@ -584,6 +590,7 @@ class RadiationStageTrace:
                         "tau_accepted": float(state.tau),
                         "step_index": int(self.step_index),
                         "dt": float(dt),
+                        "t_attempted": float(state.t + dt),
                         "stage": None,
                         "exception_class": type(exc).__name__,
                         "exception_message": str(exc),
@@ -606,6 +613,11 @@ class RadiationStageTrace:
             elif self.step_index >= target_steps:
                 status = "step_cap_reached_without_failure"
 
+        # Anchor the final trace window to the attempted failing step, not
+        # to the planned target time.
+        if self.failure is not None:
+            attempted_t = float(self.failure.get("t_attempted", state.t))
+            self.prune_tail(attempted_t - TAIL_WINDOW)
         return self.write_outputs(state, status, dt_nominal)
 
     def write_outputs(self, state, status, dt_nominal):
