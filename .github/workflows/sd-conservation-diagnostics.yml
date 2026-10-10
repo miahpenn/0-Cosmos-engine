@@ -1,0 +1,43 @@
+name: Diagnostic - S/D conservation measurements
+
+on:
+  push:
+    branches:
+      - diag/curved-scalar-energy-balance
+    paths:
+      - diagnostics/sd_conservation/**
+      - .github/workflows/sd-conservation-diagnostics.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sd-conservation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      PYTHONPATH: .
+    steps:
+      - name: Checkout diagnostic branch and pinned vendor submodule
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Compile supplied diagnostics
+        run: python -m py_compile diagnostics/sd_conservation/*.py
+      - name: Flat scalar conservation
+        run: python diagnostics/sd_conservation/scalar_flat_conservation.py
+      - name: Projection jump and successive steps
+        run: python diagnostics/sd_conservation/projection_jump.py
+      - name: One-step constraint rate and controls
+        run: python diagnostics/sd_conservation/one_step_rate.py
+      - name: Per-cell constraint rate
+        run: python diagnostics/sd_conservation/per_cell_rate.py
