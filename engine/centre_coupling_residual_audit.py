@@ -18,6 +18,7 @@ SET = dict(N=160, r_max=40.0, amplitude=0.01, width=7.0, D_amplitude=1e-10,
            radiation=True, cfl=0.03, final_time=3.0,
            probes=[0.0, 0.75, 1.5, 2.25, 3.0])
 NC = 5
+TOL = 2.0e-10
 STAGES = ["step_start_projection", "explicit_predictor_projection",
           "primary_predictor_projection", "final_explicit_block_projection",
           "completed_slice_projection"]
