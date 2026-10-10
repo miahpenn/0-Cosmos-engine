@@ -37,7 +37,10 @@ def maxabs(values):
 
 def run_resolution(n):
     kernel = V55ProductionKernel()
-    state, _, _ = discrete_consistent_state(
+    # N=320 hit the original 12-iteration cap at 3.08e-13 while the
+    # unchanged acceptance tolerance is 1e-13. Give Newton more iterations
+    # to test convergence to the SAME tolerance; do not relax any gate.
+    state, _, initial_history, initial_info = discrete_consistent_state(
         kernel,
         resolution=n,
         r_max=R_MAX,
@@ -45,7 +48,17 @@ def run_resolution(n):
         width=7.0,
         D_amplitude=D_AMPLITUDE,
         include_radiation=True,
+        max_iter=20,
+        tol=1.0e-13,
+        return_info=True,
     )
+    print(
+        f"[INITIAL_SOLVE N={n}] iterations={initial_info['iterations']} "
+        f"final_max_residual={initial_info['final_max_residual']:.6e} "
+        f"tolerance={initial_info['tolerance']:.1e} "
+        f"max_condition={initial_info['max_condition_number']}"
+    )
+    print(f"  residual history={initial_history}")
     dr = state.grid.dr
     dt_evolve = EVOLUTION_CFL * dr
     while state.t < TARGET_T - 1.0e-12:
