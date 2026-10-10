@@ -169,6 +169,7 @@ def test_tracer_records_rhs1_rates_and_source_provenance(tmp_path, monkeypatch):
         kernel_cls._rhs = old_rhs
         kernel_cls._apply_outer_light_boundary = staticmethod(old_boundary)
         kernel_cls.step = old_step
+        pk.adapter.geometry_stage_terms = trace._restore_geometry_stage_terms
         mr.evolve_species = old_evolve
         ms._radiation_source = old_source
 
@@ -195,12 +196,17 @@ def test_trace_instrumentation_preserves_one_step_production_state_bitwise(tmp_p
     try:
         traced = kernel.step(state_traced, dt)
         assert not trace.instrumentation_errors
+        assert len(trace.geometry_predictor_budgets) == 1
+        assert trace.geometry_predictor_budgets[0]["max_abs_gamma_rr_inv_decomposition_closure_error"] < 1e-14
+        assert trace.geometry_predictor_budgets[0]["max_abs_rhs_a_formula_residual"] < 1e-14
+        assert trace.geometry_predictor_budgets[0]["max_abs_rhs_X_formula_residual"] < 1e-14
     finally:
         kernel_cls, old_solve, old_rhs, old_step, old_evolve, old_source, old_boundary = trace._restore_hooks
         kernel_cls._solve_lapse = staticmethod(old_solve)
         kernel_cls._rhs = old_rhs
         kernel_cls._apply_outer_light_boundary = staticmethod(old_boundary)
         kernel_cls.step = old_step
+        pk.adapter.geometry_stage_terms = trace._restore_geometry_stage_terms
         mr.evolve_species = old_evolve
         ms._radiation_source = old_source
 

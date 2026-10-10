@@ -80,6 +80,7 @@ class RadiationStageTrace:
         self.stage_snapshots: list[dict] = []
         self.predictor_budgets: list[dict] = []
         self.completed_state_budgets: list[dict] = []
+        self.geometry_predictor_budgets: list[dict] = []
         self.progress_samples: list[dict] = []
         self.global_geometry_minima: dict[str, dict] = {}
         self.failure: dict | None = None
@@ -379,6 +380,139 @@ class RadiationStageTrace:
             "beta": float(geometry.beta[i]),
         }
 
+
+    def geometry_predictor_budget(
+        self, grid, predictor_geometry, predictor_matter, step, t, stage, stage_row
+    ):
+        """Audit actual explicit a/b/X rates versus the post-regularity predictor.
+
+        Uses the explicit RHS returned by the live first geometry_stage_terms call.
+        The raw Euler candidate and the algebraically regularized predictor are
+        recorded separately. This method is observational and changes no state.
+        """
+        accepted = step.get("geometry_rhs0_input")
+        rhs = step.get("geometry_rhs0_explicit")
+        rhs0 = step.get("rhs0_record")
+        if accepted is None or rhs is None or rhs0 is None:
+            raise ValueError("missing accepted geometry or actual explicit RHS provenance")
+
+        dt = float(step["dt"])
+        U0 = rhs0["matter_radiation"]
+        U1 = predictor_matter.radiation
+        U0e, U0r = _array(U0.energy_t), _array(U0.momentum_r)
+        U1e, U1r = _array(U1.energy_t), _array(U1.momentum_r)
+        n = len(grid.centers)
+        lo = max(0, n - OUTER_CELLS)
+        cells = []
+        for i in range(lo, n):
+            a0, b0, X0 = (float(_array(getattr(accepted, name))[i]) for name in ("a", "b", "X"))
+            a_raw = a0 + dt * float(rhs["a"][i])
+            b_raw = b0 + dt * float(rhs["b"][i])
+            X_raw = X0 + dt * float(rhs["X"][i])
+            ap = float(_array(predictor_geometry.a)[i])
+            bp = float(_array(predictor_geometry.b)[i])
+            Xp = float(_array(predictor_geometry.X)[i])
+
+            gamma0 = X0 * X0 / a0
+            gamma_a_only = X0 * X0 / a_raw
+            gamma_raw = X_raw * X_raw / a_raw
+            gamma_pred = Xp * Xp / ap
+            dgamma_a = gamma_a_only - gamma0
+            dgamma_X = gamma_raw - gamma_a_only
+            dgamma_projection = gamma_pred - gamma_raw
+            dgamma_total = gamma_pred - gamma0
+            gamma_closure = dgamma_a + dgamma_X + dgamma_projection - dgamma_total
+
+            Aa0 = float(_array(accepted.Aa)[i])
+            K0 = float(_array(accepted.K)[i])
+            alpha0 = float(_array(accepted.alpha)[i])
+            beta0 = float(_array(accepted.beta)[i])
+            explicit_a = float(rhs["a"][i])
+            explicit_X = float(rhs["X"][i])
+            # On this zero-shift, KO_EPSILON=0 lane, these are the pinned
+            # explicit BSSN equations. Residuals reveal any changed assumption.
+            rhs_a_formula = -2.0 * alpha0 * a0 * Aa0
+            rhs_X_formula = alpha0 * X0 * K0 / 3.0
+
+            metric0 = gamma0
+            metric_pred = gamma_pred
+            C0 = float(U0e[i] - math.sqrt(metric0) * abs(U0r[i]))
+            C1_same_metric = float(U1e[i] - math.sqrt(metric0) * abs(U1r[i]))
+            C1_predictor_metric = float(U1e[i] - math.sqrt(metric_pred) * abs(U1r[i]))
+            snapshot = next(
+                (row for row in (stage_row or {}).get("outer_cell_snapshots", [])
+                 if int(row.get("i", -1)) == i),
+                None,
+            )
+            cells.append({
+                "i": int(i),
+                "r": float(grid.centers[i]),
+                "alpha_accepted": alpha0,
+                "beta_accepted": beta0,
+                "Aa_accepted": Aa0,
+                "K_accepted": K0,
+                "a_accepted": a0,
+                "b_accepted": b0,
+                "X_accepted": X0,
+                "rhs_explicit_a_actual": explicit_a,
+                "rhs_explicit_b_actual": float(rhs["b"][i]),
+                "rhs_explicit_X_actual": explicit_X,
+                "rhs_explicit_a_formula_zero_shift": rhs_a_formula,
+                "rhs_explicit_X_formula_zero_shift": rhs_X_formula,
+                "rhs_a_formula_residual": explicit_a - rhs_a_formula,
+                "rhs_X_formula_residual": explicit_X - rhs_X_formula,
+                "a_predictor_raw_euler": a_raw,
+                "b_predictor_raw_euler": b_raw,
+                "X_predictor_raw_euler": X_raw,
+                "a_predictor_after_regularity": ap,
+                "b_predictor_after_regularity": bp,
+                "X_predictor_after_regularity": Xp,
+                "projection_delta_a": ap - a_raw,
+                "projection_delta_b": bp - b_raw,
+                "projection_delta_X": Xp - X_raw,
+                "gamma_rr_inv_accepted": gamma0,
+                "gamma_rr_inv_after_a_update": gamma_a_only,
+                "gamma_rr_inv_after_raw_X_update": gamma_raw,
+                "gamma_rr_inv_predictor_after_regularity": gamma_pred,
+                "delta_gamma_rr_inv_from_a_update": dgamma_a,
+                "delta_gamma_rr_inv_from_X_update": dgamma_X,
+                "delta_gamma_rr_inv_from_regularity_projection": dgamma_projection,
+                "delta_gamma_rr_inv_total": dgamma_total,
+                "gamma_rr_inv_decomposition_closure_error": gamma_closure,
+                "C_accepted_on_accepted_metric": C0,
+                "C_predictor_conserved_state_on_accepted_metric": C1_same_metric,
+                "C_predictor_conserved_state_on_predictor_metric": C1_predictor_metric,
+                "delta_C_metric_on_same_predictor_matter": C1_predictor_metric - C1_same_metric,
+                "stage_snapshot_C": None if snapshot is None else float(snapshot["C"]),
+                "stage_snapshot_gamma_rr_inv": None if snapshot is None else float(snapshot["gamma_rr_inv"]),
+            })
+        return {
+            "t": float(t),
+            "t_attempted": float(t + dt),
+            "step_index": int(step["step_index"]),
+            "dt": dt,
+            "stage": stage,
+            "cell_band": [lo, n - 1],
+            "rhs_source": "actual first adapter.geometry_stage_terms explicit RHS",
+            "metric_identity": "gamma_rr_inv = X**2 / a",
+            "pinned_zero_shift_explicit_identity": "a_t = -2 alpha a Aa; X_t = alpha X K / 3 (KO_EPSILON=0)",
+            "cells": cells,
+            "max_abs_gamma_rr_inv_decomposition_closure_error": max(
+                (abs(cell["gamma_rr_inv_decomposition_closure_error"]) for cell in cells),
+                default=None,
+            ),
+            "max_abs_rhs_a_formula_residual": max(
+                (abs(cell["rhs_a_formula_residual"]) for cell in cells), default=None
+            ),
+            "max_abs_rhs_X_formula_residual": max(
+                (abs(cell["rhs_X_formula_residual"]) for cell in cells), default=None
+            ),
+            "max_abs_projection_delta_X": max(
+                (abs(cell["projection_delta_X"]) for cell in cells), default=None
+            ),
+        }
+
+
     def completed_state_budget(
         self, grid, completed_geometry, completed_matter,
         rhs0, rhs1, dt, t, step_index, stage,
@@ -552,6 +686,7 @@ class RadiationStageTrace:
         original_evolve = matter_rhs_module.evolve_species
         original_radiation_source = matter_system_module._radiation_source
         original_boundary = kernel_cls._apply_outer_light_boundary
+        original_geometry_stage_terms = production_kernel_module.adapter.geometry_stage_terms
         trace = self
 
         def note_failure_identity(step, stage, caller, grid, exc):
@@ -567,6 +702,21 @@ class RadiationStageTrace:
             centers = _array(grid.centers)
             if 0 <= index < len(centers):
                 step["failing_radius"] = float(centers[index])
+
+        def traced_geometry_stage_terms(*args, **kwargs):
+            result = original_geometry_stage_terms(*args, **kwargs)
+            step = trace.current_step
+            if step is not None:
+                idx = int(step.get("geometry_terms_count", 0))
+                step["geometry_terms_count"] = idx + 1
+                if idx == 0:
+                    geometry = args[1]
+                    step["geometry_rhs0_input"] = geometry.copy()
+                    step["geometry_rhs0_explicit"] = {
+                        name: _array(result["explicit"][name]).copy()
+                        for name in ("a", "b", "X")
+                    }
+            return result
 
         def traced_radiation_source(*args, **kwargs):
             result = original_radiation_source(*args, **kwargs)
@@ -697,6 +847,31 @@ class RadiationStageTrace:
                 trace.step_index, step["dt"] if step is not None else None,
                 force=(step is not None and idx == 1),
             )
+            if step is not None and idx == 1:
+                if step.get("geometry_rhs0_explicit") is None:
+                    error = "missing actual RHS0 geometry explicit terms"
+                    if row is not None:
+                        row["geometry_predictor_budget_error"] = error
+                    trace.instrumentation_errors.append({
+                        "where": "geometry_predictor_budget",
+                        "t": t, "step_index": trace.step_index, "error": error,
+                    })
+                else:
+                    try:
+                        budget = trace.geometry_predictor_budget(
+                            grid, geometry, matter, step, t, stage, row
+                        )
+                        trace.geometry_predictor_budgets.append(budget)
+                        if row is not None:
+                            row["geometry_predictor_budget_index"] = len(trace.geometry_predictor_budgets) - 1
+                    except Exception as exc:
+                        error = f"{type(exc).__name__}: {exc}"
+                        if row is not None:
+                            row["geometry_predictor_budget_error"] = error
+                        trace.instrumentation_errors.append({
+                            "where": "geometry_predictor_budget",
+                            "t": t, "step_index": trace.step_index, "error": error,
+                        })
             try:
                 if radiation_recovery_metric is None:
                     result = original_solve(grid, geometry, scalars, matter)
@@ -786,6 +961,9 @@ class RadiationStageTrace:
                 "boundary_count": 0,
                 "rhs0_record": None,
                 "rhs1_record": None,
+                "geometry_terms_count": 0,
+                "geometry_rhs0_input": None,
+                "geometry_rhs0_explicit": None,
                 "failing_stage": None,
             }
             try:
@@ -819,12 +997,14 @@ class RadiationStageTrace:
         kernel_cls._solve_lapse = staticmethod(traced_solve)
         kernel_cls._rhs = traced_rhs
         kernel_cls._apply_outer_light_boundary = staticmethod(traced_boundary)
+        production_kernel_module.adapter.geometry_stage_terms = traced_geometry_stage_terms
         kernel_cls.step = traced_step
 
         self._restore_hooks = (
             kernel_cls, original_solve, original_rhs, original_step,
             original_evolve, original_radiation_source, original_boundary,
         )
+        self._restore_geometry_stage_terms = original_geometry_stage_terms
 
     def prune_tail(self, cutoff_t):
         self.stage_snapshots = [
@@ -838,6 +1018,10 @@ class RadiationStageTrace:
         self.completed_state_budgets = [
             row for row in self.completed_state_budgets
             if float(row.get("t_completed_candidate", -math.inf)) >= cutoff_t
+        ]
+        self.geometry_predictor_budgets = [
+            row for row in self.geometry_predictor_budgets
+            if float(row.get("t_attempted", -math.inf)) >= cutoff_t
         ]
 
     def record_progress(self, state):
@@ -1064,6 +1248,7 @@ class RadiationStageTrace:
             "stage_snapshots": self.stage_snapshots,
             "predictor_budgets": self.predictor_budgets,
             "completed_state_budgets": self.completed_state_budgets,
+            "geometry_predictor_budgets": self.geometry_predictor_budgets,
             "instrumentation_errors": self.instrumentation_errors,
             "wall_elapsed_seconds": float(time.time() - self.started_wall),
             "notes": [
@@ -1072,6 +1257,7 @@ class RadiationStageTrace:
                 "Flux transport rate is reconstructed as the existing total radiation RHS minus that captured source; evolve_species sums only those two components for radiation.",
                 "The cone budget is ordered and uses the accepted spatial metric for the accepted, flux-only, and source-updated stages, then the predictor metric for the final predictor margin.",
                 "Completed-state budgets reconstruct the trapezoidal radiation update from actual RHS0/RHS1 evaluations and close the accepted-to-completed cone-margin change across stage-specific metrics.",
+                "Geometry predictor budgets record the actual first geometry-stage explicit RHS and compare its raw Euler candidate with the predictor geometry after algebraic regularity projection.",
                 (
                     "Extended-B mode uses the accepted start-of-step metric only for predictor-stage radiation primitive inversion; stage metrics still enter the fluxes, geometric sources, stress projections, and CMC spatial operator."
                     if self.use_accepted_metric_for_predictor_radiation_recovery
@@ -1100,6 +1286,10 @@ class RadiationStageTrace:
             "completed_state_budget_count": len(self.completed_state_budgets),
             "completed_state_budget_error_count": sum(
                 1 for row in self.stage_snapshots if row.get("completed_state_budget_error")
+            ),
+            "geometry_predictor_budget_count": len(self.geometry_predictor_budgets),
+            "geometry_predictor_budget_error_count": sum(
+                1 for row in self.stage_snapshots if row.get("geometry_predictor_budget_error")
             ),
             "progress_sample_count": len(self.progress_samples),
             "rejected_step_attempt_count": len(self.rejected_step_attempts),

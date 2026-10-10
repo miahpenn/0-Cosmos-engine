@@ -338,6 +338,7 @@ def test_trace_records_rhs_exception_stage_and_cell_identity(tmp_path, monkeypat
         kernel_cls._rhs = old_rhs
         kernel_cls._apply_outer_light_boundary = staticmethod(old_boundary)
         kernel_cls.step = old_step
+        pk.adapter.geometry_stage_terms = trace._restore_geometry_stage_terms
         mr.evolve_species = old_evolve
         ms._radiation_source = old_source
 
