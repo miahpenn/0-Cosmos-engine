@@ -11,6 +11,7 @@ import json
 import math
 import os
 import platform
+import re
 import subprocess
 import sys
 import time
@@ -366,6 +367,20 @@ class RadiationStageTrace:
         original_radiation_source = matter_system_module._radiation_source
         trace = self
 
+        def note_failure_identity(step, stage, caller, grid, exc):
+            if step is None:
+                return
+            step["failing_stage"] = stage
+            step["failing_caller"] = caller
+            match = re.search(r"\\bcell i=(\\d+)", str(exc))
+            if match is None:
+                return
+            index = int(match.group(1))
+            step["failing_grid_index"] = index
+            centers = _array(grid.centers)
+            if 0 <= index < len(centers):
+                step["failing_radius"] = float(centers[index])
+
         def traced_radiation_source(*args, **kwargs):
             result = original_radiation_source(*args, **kwargs)
             active = trace.active_radiation_evolve
@@ -437,8 +452,11 @@ class RadiationStageTrace:
                     trace.step_index, step["dt"] if step is not None else None,
                     force=True, exception=detail,
                 )
-                if step is not None:
-                    step["failing_stage"] = stage
+                note_failure_identity(
+                    step, stage,
+                    "engine.production_kernel.V55ProductionKernel._solve_lapse",
+                    grid, exc,
+                )
                 raise
 
         def traced_rhs(kernel_self, state, radiation_recovery_metric=None):
@@ -455,12 +473,28 @@ class RadiationStageTrace:
                 stage, state.grid, state.geometry, state.matter, t, tau,
                 trace.step_index, step["dt"] if step is not None else None,
             )
-            if radiation_recovery_metric is None:
-                out = original_rhs(kernel_self, state)
-            else:
-                out = original_rhs(
-                    kernel_self, state, radiation_recovery_metric=radiation_recovery_metric
+            try:
+                if radiation_recovery_metric is None:
+                    out = original_rhs(kernel_self, state)
+                else:
+                    out = original_rhs(
+                        kernel_self, state,
+                        radiation_recovery_metric=radiation_recovery_metric,
+                    )
+            except Exception as exc:
+                detail = f"{type(exc).__name__}: {exc}"
+                trace.record_stage(
+                    stage + "_failure",
+                    state.grid, state.geometry, state.matter, t, tau,
+                    trace.step_index, step["dt"] if step is not None else None,
+                    force=True, exception=detail,
                 )
+                note_failure_identity(
+                    step, stage,
+                    "engine.production_kernel.V55ProductionKernel._rhs",
+                    state.grid, exc,
+                )
+                raise
             srhs, mrhs, md = out
             if step is not None and rhs_idx == 0:
                 step["rhs0_record"] = {
@@ -499,6 +533,10 @@ class RadiationStageTrace:
                     "dt": float(dt),
                     "t_attempted": float(state.t + dt),
                     "stage": trace.current_step.get("failing_stage"),
+                    "stage_name": trace.current_step.get("failing_stage"),
+                    "caller": trace.current_step.get("failing_caller"),
+                    "grid_index": trace.current_step.get("failing_grid_index"),
+                    "radius": trace.current_step.get("failing_radius"),
                     "exception_class": type(exc).__name__,
                     "exception_message": str(exc),
                     "wall_elapsed_seconds": float(time.time() - trace.started_wall),
