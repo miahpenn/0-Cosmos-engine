@@ -2,7 +2,7 @@ name: "[CI] Unit and regression tests"
 
 on:
   push:
-    branches: [0star-central-clock, research/gear-kernel-integration-gates]
+    branches: [0star-central-clock, research/gear-kernel-integration-gates, physics/spatial-beta-lapse-source-correction]
   pull_request:
     branches: [main]
 
