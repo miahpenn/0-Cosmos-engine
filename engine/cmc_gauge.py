@@ -77,7 +77,7 @@ def target_kdot(grid, geometry, scalars, matter, outer_frac: float = 0.20) -> fl
     l2 = vacuum.primary_l2_rhs(grid, geometry)
     l3 = adapter.primary_l3_with_matter(grid, geometry, scalars, matter)
     raw = np.asarray(l2["K"] + l3["K"], dtype=float)
-    if raw.shape != expected_shape:
+    if raw.shape != r.shape:
         raise ValueError(
             "CMC K-RHS shape does not match the spatial metric: "
             f"expected {expected_shape}, got {raw.shape}"
