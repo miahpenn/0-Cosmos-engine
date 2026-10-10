@@ -1,0 +1,51 @@
+name: "[0star] Radiation boundary control matched by central proper time"
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - diag/radiation-proper-time-domain-control
+
+permissions:
+  contents: read
+
+env:
+  PYTHONPATH: .
+
+jobs:
+  radiation-proper-time-domain:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[run-radiation-proper-time-domain]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - name: Checkout diagnostic source and pinned numerical operators
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Full repository tests
+        run: python -m pytest -q
+
+      - name: Trace the larger domain to the original run's central proper time
+        env:
+          EXTENDED_B_ACCEPTED_METRIC_RECOVERY: "0"
+          RADIATION_ADMISSIBILITY_RETRY: "1"
+        run: |
+          python -c 'import engine.radiation_geometry_stage_trace as trace; trace.RESOLUTION = 120; trace.R_MAX = 120.0; trace.CFL = 0.03; trace.TARGET_TIME = 100.0; trace.TARGET_TAU = 22.1; trace.OUTER_CELLS = 45; raise SystemExit(trace.main())'
+
+      - name: Upload proper-time-matched radiation trace
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: 0star-radiation-proper-time-domain-control
+          path: runs/radiation-stage-trace/
+          if-no-files-found: error
