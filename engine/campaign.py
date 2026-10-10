@@ -21,9 +21,10 @@ class CampaignConfig:
     cfl: float = 0.03
     # Coordinate-time safety cap; evolution may stop earlier at final_proper_time.
     final_time: float = 160.0
-    final_proper_time: float | None = None
     checkpoint_interval: float = 2.0
     output_dir: str = "runs"
+    # Optional endpoint in central proper time; appended to preserve positional compatibility.
+    final_proper_time: float | None = None
 
 
 def campaign_endpoint_reached(t: float, tau: float, config: CampaignConfig) -> bool:
