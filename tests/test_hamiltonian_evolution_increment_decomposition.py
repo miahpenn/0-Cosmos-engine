@@ -69,26 +69,15 @@ def test_accepted_step_increment_closes_and_diagnostic_does_not_mutate_states():
     assert witness["finite"]
     assert witness["closure_max_abs_all_cells"] < 1.0e-9
 
-    cells = witness["cells_0_to_4"]
-    for cell in cells:
+    for cell in witness["cells_0_to_4"]:
         index = cell["cell"]
-        assert cell["H_before"] == pytest_approx(before_h[index])
-        assert cell["H_after"] == pytest_approx(after_h[index])
+        np.testing.assert_allclose(
+            cell["H_before"], before_h[index], rtol=0.0, atol=1.0e-12
+        )
+        np.testing.assert_allclose(
+            cell["H_after"], after_h[index], rtol=0.0, atol=1.0e-12
+        )
         assert abs(
             sum(cell["component_delta_H"].values()) - cell["delta_H"]
         ) < 1.0e-9
         assert abs(cell["closure_error"]) < 1.0e-9
-
-
-def pytest_approx(value):
-    # Keep numpy's array comparison separate from this simple scalar tolerance.
-    return np.testing.assert_allclose if False else _Approx(float(value))
-
-
-class _Approx:
-    """Tiny local scalar comparator so the test has no implicit tolerance guess."""
-    def __init__(self, expected):
-        self.expected = expected
-
-    def __eq__(self, actual):
-        return bool(np.isclose(actual, self.expected, rtol=0.0, atol=1.0e-12))
