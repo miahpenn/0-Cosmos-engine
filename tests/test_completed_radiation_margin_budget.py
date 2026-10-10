@@ -164,12 +164,13 @@ def test_tracer_records_rhs1_rates_and_source_provenance(tmp_path, monkeypatch):
         assert record["sources"] == source_map
         assert np.array_equal(record["matter_radiation"].energy_t, U.energy_t)
     finally:
-        kernel_cls, old_solve, old_rhs, old_step, old_evolve, old_source, old_boundary = trace._restore_hooks
+        kernel_cls, old_solve, old_rhs, old_step, old_evolve, old_source, old_boundary, old_assemble_total = trace._restore_hooks
         kernel_cls._solve_lapse = staticmethod(old_solve)
         kernel_cls._rhs = old_rhs
         kernel_cls._apply_outer_light_boundary = staticmethod(old_boundary)
         kernel_cls.step = old_step
         pk.adapter.geometry_stage_terms = trace._restore_geometry_stage_terms
+        pk.assemble_total_stress_energy = old_assemble_total
         mr.evolve_species = old_evolve
         ms._radiation_source = old_source
 
@@ -202,12 +203,13 @@ def test_trace_instrumentation_preserves_one_step_production_state_bitwise(tmp_p
         assert trace.geometry_predictor_budgets[0]["max_abs_rhs_a_formula_residual"] < 1e-14
         assert trace.geometry_predictor_budgets[0]["max_abs_rhs_X_formula_residual"] < 1e-14
     finally:
-        kernel_cls, old_solve, old_rhs, old_step, old_evolve, old_source, old_boundary = trace._restore_hooks
+        kernel_cls, old_solve, old_rhs, old_step, old_evolve, old_source, old_boundary, old_assemble_total = trace._restore_hooks
         kernel_cls._solve_lapse = staticmethod(old_solve)
         kernel_cls._rhs = old_rhs
         kernel_cls._apply_outer_light_boundary = staticmethod(old_boundary)
         kernel_cls.step = old_step
         pk.adapter.geometry_stage_terms = trace._restore_geometry_stage_terms
+        pk.assemble_total_stress_energy = old_assemble_total
         mr.evolve_species = old_evolve
         ms._radiation_source = old_source
 

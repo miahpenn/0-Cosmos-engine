@@ -333,12 +333,13 @@ def test_trace_records_rhs_exception_stage_and_cell_identity(tmp_path, monkeypat
             "ValueError: radiation inversion failure at cell i=3: forced trace test",
         )
     finally:
-        kernel_cls, old_solve, old_rhs, old_step, old_evolve, old_source, old_boundary = old_hooks
+        kernel_cls, old_solve, old_rhs, old_step, old_evolve, old_source, old_boundary, old_assemble_total = old_hooks
         kernel_cls._solve_lapse = staticmethod(old_solve)
         kernel_cls._rhs = old_rhs
         kernel_cls._apply_outer_light_boundary = staticmethod(old_boundary)
         kernel_cls.step = old_step
         pk.adapter.geometry_stage_terms = trace._restore_geometry_stage_terms
+        pk.assemble_total_stress_energy = old_assemble_total
         mr.evolve_species = old_evolve
         ms._radiation_source = old_source
 
@@ -395,11 +396,13 @@ def test_trace_records_completed_boundary_exception_stage_and_cell_identity(
         )
     finally:
         trace.current_step = None
-        kernel_cls, old_solve, old_rhs, old_step, old_evolve, old_source, old_boundary = trace._restore_hooks
+        kernel_cls, old_solve, old_rhs, old_step, old_evolve, old_source, old_boundary, old_assemble_total = trace._restore_hooks
         kernel_cls._solve_lapse = staticmethod(old_solve)
         kernel_cls._rhs = old_rhs
         kernel_cls._apply_outer_light_boundary = staticmethod(old_boundary)
         kernel_cls.step = old_step
+        pk.adapter.geometry_stage_terms = trace._restore_geometry_stage_terms
+        pk.assemble_total_stress_energy = old_assemble_total
         import engine.matter_rhs as mr
         import engine.matter_system as ms
         mr.evolve_species = old_evolve
