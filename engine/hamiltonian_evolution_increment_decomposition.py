@@ -188,10 +188,16 @@ def run_case(
     }
 
     dt_nominal = cfl * float(state.grid.dr)
+    # Stop at a scale-aware floating-point tolerance instead of taking a
+    # spurious final step of order machine epsilon after repeated additions.
+    time_tolerance = (
+        32.0 * float(np.finfo(float).eps)
+        * max(abs(final_time), abs(dt_nominal))
+    )
     steps = []
     failure = None
     step_number = 0
-    while state.t < final_time - 1.0e-14:
+    while final_time - state.t > time_tolerance:
         dt = min(dt_nominal, final_time - state.t)
         before = clone_state(state)
         try:
@@ -252,13 +258,14 @@ def run_case(
             "include_radiation": bool(include_radiation),
             "cfl": float(cfl),
             "requested_final_time": float(final_time),
+            "time_termination_tolerance": float(time_tolerance),
         },
         "components": [
             {"name": name, "owner": owner, "fields": list(fields)}
             for name, owner, fields in GROUPS
         ],
         "initial": initial,
-        "status": "completed" if failure is None and state.t >= final_time - 1.0e-12 else "numerical_failure",
+        "status": "completed" if failure is None and final_time - state.t <= time_tolerance else "numerical_failure",
         "failure": failure,
         "final": {
             "t": float(state.t),
