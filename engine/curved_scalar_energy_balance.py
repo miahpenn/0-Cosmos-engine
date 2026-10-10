@@ -20,7 +20,6 @@ from pathlib import Path
 import numpy as np
 
 from engine import v55_pirk_adapter as adapter
-from engine.centre_coupling_residual_audit import first
 from engine.discrete_consistent_initial import discrete_consistent_state
 from engine.hamiltonian_evolution_increment_decomposition import hamiltonian_residual
 from engine.production_kernel import V55ProductionKernel, BETA_DM
@@ -48,6 +47,10 @@ FIELD_DEFS = (
     ("D", "D", "PD", 1.0),
     ("phi", "phi", "Pi", KAPPA),
 )
+
+
+def first(values):
+    return [float(v) for v in np.asarray(values)[:5]]
 
 
 def _d1(grid, values, parity):
