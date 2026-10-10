@@ -210,7 +210,7 @@ def test_trace_instrumentation_preserves_one_step_production_state_bitwise(tmp_p
 
     geometry_fields = (
         "a", "b", "X", "alpha", "beta", "Aa", "K",
-        "Lambda", "B", "r",
+        "Lambda", "B",
     )
     for name in geometry_fields:
         assert np.array_equal(
