@@ -177,8 +177,13 @@ The first gate set is now implemented on the isolated `research/gear-kernel-inte
 - GitHub Actions run [38059261015](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38059261015) passed **110 tests in 32.14 s** at commit `c0e096d68b14a929a0df37676102ced82a720db9`. The normal test job succeeded; both optional long-campaign jobs were skipped.
 - This is a source-scope / deterministic component-gate pass, not a full-machine coupling pass, convergence proof, or campaign admission.
 
-## 9. Immediate next action
+## 9. Source-accounting review — initial finding
 
-Preserve these tests as scope guards. The next allowed step is a narrowly specified source-accounting review of the spatial beta-coupled scalar/DM terms and the independent homogeneous beta-source identity, including units, state/time levels, and conservation residuals. It must distinguish the same-form internal exchange identity from the still-open cross-lane local-source-to-global-(Q) bridge. Do not connect the homogeneous helper to `V55ProductionKernel.step()`, do not alter production equations, and do not launch another long trajectory yet.
+The source-level review is recorded in [SPATIAL_BETA_EXCHANGE_LAPSE_ACCOUNTING_AUDIT_2026-10-10.md](SPATIAL_BETA_EXCHANGE_LAPSE_ACCOUNTING_AUDIT_2026-10-10.md). It identifies a **suspected** lapse-weighting mismatch: the DM conservative energy source simplifies to -sqrt(gamma)*alpha*beta*rho_DM*Pi, while the scalar Pi_t source currently adds +beta*rho_DM without an explicit lapse. The apparent paired residual is sqrt(gamma)*(1-alpha)*beta*rho_DM*Pi, conditional on the conventional ADM source/sign definitions being confirmed.
 
-A future architecture revision must show the exact governing equations and conservation argument that closes each edge, along with falsifiers, before corresponding production code is written.
+Do not apply an alpha factor or change a source yet. Independently derive the covariant/source normalization and construct a deterministic source-pair check at alpha != 1, nonzero shift, and matched state/time level. The homogeneous cancellation test has alpha=1 and cannot settle this question. tests/test_exchange.py tests a separate helper; it does not establish cancellation in the active spatial RHS.
+
+Keep this distinct from the still-open cross-lane local-source-to-global-Q bridge. No homogeneous helper wiring, production-equation edit, or long trajectory is authorized until the source pair is resolved.
+
+A future architecture revision must show the exact governing equations and conservation argument that closes each edge, with falsifiers, before corresponding production code is written.
+
