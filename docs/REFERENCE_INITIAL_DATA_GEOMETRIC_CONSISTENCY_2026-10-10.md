@@ -38,10 +38,37 @@ At N=320, fixed `r_max=40`, `dr=0.125`:
 
 At fixed `dr=1`, domain growth from `r_max=40` to `r_max=320` leaves the local value near r=2.5 at `-3.6980660e-5` to numerical precision. This is consistent with a local discrete residual rather than a simple outer-radius effect.
 
+## Hamiltonian residual decomposition
+
+The audit now records three separate curvature quantities:
+- `R_source = 2(1-source)/r^2`, obtained directly from the initializer's radial source;
+- `R_polar = 2(1-B)/r^2 - 2 D(B)/r`, independently reconstructed from the final metric;
+- `R_BSSN`, from the reference Ricci operator.
+
+For the initializer's source variables, the algebraic Hamiltonian closes:
+`H_source = R_source + 4 K_r K_t + 2 K_t^2 - 16 pi rho_source = 0`.
+The measured residual then decomposes as
+`H_BSSN = (R_BSSN - R_polar) + (R_polar - R_source) - 16 pi (rho_constraint - rho_source) + roundoff`.
+
+At the first cell in the `S=0.01, N=40, r_max=40` case:
+- `R_BSSN - R_polar = +4.1451664e-4`;
+- `R_polar - R_source = +6.1022102e-4`;
+- `R_BSSN - R_source = +1.0247377e-3`;
+- `rho_constraint - rho_source = -3.2957522e-11`;
+- the source-variable algebraic Hamiltonian closure is within `1e-11`.
+
+At `N=320, r_max=40`, the first-cell terms are:
+- `R_BSSN - R_polar = +3.7485921e-4`;
+- `R_polar - R_source = +6.8996697e-4`;
+- `R_BSSN - R_source = +1.0648262e-3`;
+- `rho_constraint - rho_source = -1.3227267e-16`.
+
+The matter-density projection difference is far too small to account for the Hamiltonian residual. The dominant discrepancies are the two *geometric* differences: source-derived curvature versus metric-derived polar curvature, and polar curvature versus BSSN curvature. This further localizes the problem, but does not yet identify one erroneous coefficient or stencil.
+
 ## Interpretation and guardrails
 
 1. The H0 algebraic cancellation passes the uniform, S=0 control.
-2. The source-balance and Ricci mismatch are exposed by the perturbed initial slice.
+2. The perturbed initial slice exposes a geometric residual split into source-to-metric and polar-to-BSSN Ricci mismatches.
 3. Off-center residuals improve substantially under fixed-domain refinement, while the center Ricci mismatch and center Hamiltonian residual persist.
 4. The exact source coefficient/stencil/center handling responsible remains undiagnosed. This audit intentionally does not select or patch one.
 5. The independent polar formula is an identity for the stated areal metric, not a new evolution equation.
