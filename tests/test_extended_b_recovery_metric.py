@@ -272,3 +272,55 @@ def test_true_cmc_step_clears_recovery_stash_on_exception(monkeypatch):
         kernel.step(state, 0.01)
 
     assert kernel._accepted_geometry_for_recovery is None
+
+def test_trace_records_rhs_exception_stage_and_cell_identity(tmp_path, monkeypatch):
+    """RHS recovery errors must not leave the trace failure stage as null."""
+    import engine.production_kernel as pk
+    import engine.matter_rhs as mr
+    import engine.matter_system as ms
+    from engine.radiation_geometry_stage_trace import RadiationStageTrace
+
+    def fail_metric_conversion(*args, **kwargs):
+        raise ValueError("radiation inversion failure at cell i=3: forced trace test")
+
+    monkeypatch.setattr(pk, "metric_slice_from_q", fail_metric_conversion)
+    trace = RadiationStageTrace(tmp_path)
+    recorded = []
+    monkeypatch.setattr(
+        trace, "record_stage",
+        lambda stage, *args, **kwargs: recorded.append(
+            (stage, kwargs.get("exception"))
+        ),
+    )
+    trace.step_index = 12
+    trace.current_step = {
+        "t0": 1.25, "tau0": 0.75, "dt": 0.01,
+        "solve_count": 0, "rhs_count": 0, "rhs0_record": None,
+        "failing_stage": None,
+    }
+    grid = SimpleNamespace(centers=np.arange(5, dtype=float) + 0.5)
+    state = SimpleNamespace(
+        t=1.25, tau=0.75, grid=grid, geometry=object(), matter=object(),
+    )
+    kernel = pk.V55ProductionKernel()
+    old_hooks = trace._restore_hooks
+    try:
+        with pytest.raises(ValueError, match="cell i=3"):
+            kernel._rhs(state)
+        assert trace.current_step["failing_stage"] == "rhs0_accepted_geometry"
+        assert trace.current_step["failing_caller"] == (
+            "engine.production_kernel.V55ProductionKernel._rhs"
+        )
+        assert trace.current_step["failing_grid_index"] == 3
+        assert trace.current_step["failing_radius"] == pytest.approx(3.5)
+        assert recorded[-1] == (
+            "rhs0_accepted_geometry_failure",
+            "ValueError: radiation inversion failure at cell i=3: forced trace test",
+        )
+    finally:
+        kernel_cls, old_solve, old_rhs, old_step, old_evolve, old_source = old_hooks
+        kernel_cls._solve_lapse = staticmethod(old_solve)
+        kernel_cls._rhs = old_rhs
+        kernel_cls.step = old_step
+        mr.evolve_species = old_evolve
+        ms._radiation_source = old_source
