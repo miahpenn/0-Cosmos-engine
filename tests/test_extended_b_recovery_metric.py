@@ -249,7 +249,22 @@ def test_true_cmc_step_clears_recovery_stash_on_exception(monkeypatch):
 
     kernel = V55TrueCMCPIRKKernel()
     kernel.use_accepted_metric_for_predictor_radiation_recovery = True
-    geometry = _slice(n=4)
+    metric = _slice(n=4)
+
+    # The kernel step expects its evolving geometry object to provide a mutable
+    # copy() method. BSSNMetricSlice is intentionally frozen and is only the
+    # metric adapter type used by the matter recovery tests.
+    class MutableGeometry(SimpleNamespace):
+        def copy(self):
+            return MutableGeometry(**{
+                name: value.copy() if isinstance(value, np.ndarray) else value
+                for name, value in vars(self).items()
+            })
+
+    geometry = MutableGeometry(**{
+        name: getattr(metric, name).copy()
+        for name in ("r", "a", "b", "X", "alpha", "beta", "Aa", "K", "Lambda", "B")
+    })
 
     # Isolate the wrapper contract: reach the real step() try/finally without
     # running the numerical step body or the production elliptic solve.
