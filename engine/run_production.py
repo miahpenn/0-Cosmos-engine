@@ -16,7 +16,7 @@ from .adaptive_step import (
     RadiationStepSizeUnderflow,
     advance_with_radiation_admissibility_retries,
 )
-from .campaign import CampaignConfig
+from .campaign import CampaignConfig, campaign_endpoint_reached
 from .production_contract import require_production_capabilities
 from .production_kernel import V55ProductionKernel
 from .worldtube import current_residual
@@ -95,7 +95,7 @@ def run_campaign(
         status = "completed"
         rejected_attempts: list[dict] = []
 
-        while state.t < config.final_time:
+        while not campaign_endpoint_reached(state.t, state.tau, config):
             dt = min(dt_proposal, config.final_time - state.t)
             try:
                 state, dt_used, rejected = advance_with_radiation_admissibility_retries(
@@ -127,6 +127,14 @@ def run_campaign(
                 kernel.checkpoint(state, path)
                 checkpoint_count += 1
                 next_checkpoint += config.checkpoint_interval
+
+        if (
+            status == "completed"
+            and config.final_proper_time is not None
+            and state.tau < config.final_proper_time
+        ):
+            # Coordinate-time cap was reached before the requested central clock.
+            status = "coordinate_cap_before_proper_time_target"
 
         last = state.history[-1] if state.history else kernel.diagnostics(state)
         if len(state.history) >= 3:
