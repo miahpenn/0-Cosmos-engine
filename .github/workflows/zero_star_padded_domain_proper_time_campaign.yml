@@ -93,7 +93,12 @@ jobs:
               gate("N=120 padded grid", result.resolution == 120, result.resolution)
               gate("native history rows match step count", len(history) == result.steps, f"rows={len(history)} steps={result.steps}")
               gate("native history nonempty", bool(history), f"rows={len(history)}")
-              gate("endpoint is a single accepted step past target at most", finite(result.tau_final) and result.tau_final >= target_tau, f"tau_final={result.tau_final}; final_t={result.t_final}")
+              first_crossing = (
+                  len(taus := [row.get("tau") for row in history]) >= 2
+                  and finite(taus[-1]) and float(taus[-1]) >= target_tau
+                  and finite(taus[-2]) and float(taus[-2]) < target_tau
+              )
+              gate("final state is the first accepted proper-time crossing", first_crossing, f"previous_tau={taus[-2] if len(taus) >= 2 else None}; final_tau={taus[-1] if taus else None}; target={target_tau}")
 
           required = [
               "t", "tau", "H_eff", "H_center", "H_coord_center", "tau_rate",
