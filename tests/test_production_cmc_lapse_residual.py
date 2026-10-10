@@ -10,6 +10,7 @@ import copy
 import numpy as np
 import pytest
 
+from engine.cmc_gauge import target_kdot
 from engine.production_kernel import V55ProductionKernel, adapter
 
 
@@ -147,3 +148,60 @@ def test_production_cmc_residual_holds_on_actual_predictor_and_final_slices(
         solve_records[3]["alpha"],
         err_msg="accepted state does not retain its own final CMC solve output",
     )
+
+
+
+@pytest.mark.parametrize("field", ["a", "b", "X"])
+def test_cmc_target_rejects_nonpositive_metric_before_operators(
+    field, monkeypatch
+):
+    """An invalid spatial metric must be rejected, not hidden by a weight clamp."""
+    import engine.cmc_gauge as cmc_gauge
+
+    kernel = V55ProductionKernel()
+    state = kernel.initialize(
+        resolution=32,
+        r_max=16.0,
+        D_amplitude=1.0e-10,
+        include_radiation=True,
+    )
+    invalid_geometry = copy.deepcopy(state.geometry)
+    values = getattr(invalid_geometry, field)
+    values[5] = -abs(float(values[5]))
+
+    def forbidden_operator_access():
+        raise AssertionError("metric admission must happen before K-RHS operators")
+
+    monkeypatch.setattr(
+        cmc_gauge.adapter, "vendor_modules", forbidden_operator_access
+    )
+    with pytest.raises(ValueError, match="positive r, a, b, and X"):
+        target_kdot(
+            state.grid, invalid_geometry, state.scalars, state.matter
+        )
+
+
+def test_cmc_target_rejects_nonfinite_metric_before_operators(monkeypatch):
+    """Non-finite metric data are an admission failure, not a gauge weight."""
+    import engine.cmc_gauge as cmc_gauge
+
+    kernel = V55ProductionKernel()
+    state = kernel.initialize(
+        resolution=32,
+        r_max=16.0,
+        D_amplitude=1.0e-10,
+        include_radiation=True,
+    )
+    invalid_geometry = copy.deepcopy(state.geometry)
+    invalid_geometry.a[5] = np.nan
+
+    def forbidden_operator_access():
+        raise AssertionError("metric admission must happen before K-RHS operators")
+
+    monkeypatch.setattr(
+        cmc_gauge.adapter, "vendor_modules", forbidden_operator_access
+    )
+    with pytest.raises(FloatingPointError, match="finite a values"):
+        target_kdot(
+            state.grid, invalid_geometry, state.scalars, state.matter
+        )

@@ -29,24 +29,64 @@ def target_kdot(grid, geometry, scalars, matter, outer_frac: float = 0.20) -> fl
     to the current spatial slice.
     """
     del outer_frac
+    r = np.asarray(grid.centers, dtype=float)
+    a = np.asarray(geometry.a, dtype=float)
+    b = np.asarray(geometry.b, dtype=float)
+    X = np.asarray(geometry.X, dtype=float)
+    metric_arrays = {"r": r, "a": a, "b": b, "X": X}
+
+    # Validate the spatial metric before evaluating the K operator or forming
+    # the proper-volume measure. A negative metric coefficient is an invalid
+    # slice, not something the CMC projection may repair with a square-root
+    # clamp.
+    expected_shape = (int(grid.n),)
+    for name, values in metric_arrays.items():
+        if values.shape != expected_shape:
+            raise ValueError(
+                f"CMC proper-volume projection requires {name} shape "
+                f"{expected_shape}, got {values.shape}"
+            )
+        if not np.all(np.isfinite(values)):
+            raise FloatingPointError(
+                f"CMC proper-volume projection requires finite {name} values"
+            )
+    if np.any(r <= 0.0) or np.any(a <= 0.0) or np.any(b <= 0.0) or np.any(X <= 0.0):
+        raise ValueError(
+            "CMC proper-volume projection requires positive r, a, b, and X"
+        )
+    dr = float(grid.dr)
+    if not math.isfinite(dr):
+        raise FloatingPointError("CMC proper-volume projection requires finite grid spacing")
+    if dr <= 0.0:
+        raise ValueError("CMC proper-volume projection requires positive grid spacing")
+
     _, vacuum, _ = adapter.vendor_modules()
     l2 = vacuum.primary_l2_rhs(grid, geometry)
     l3 = adapter.primary_l3_with_matter(grid, geometry, scalars, matter)
     raw = np.asarray(l2["K"] + l3["K"], dtype=float)
-
-    r = np.asarray(grid.centers)
-    a = np.asarray(geometry.a)
-    b = np.asarray(geometry.b)
-    X = np.asarray(geometry.X)
+    if raw.shape != expected_shape:
+        raise ValueError(
+            "CMC K-RHS shape does not match the spatial metric: "
+            f"expected {expected_shape}, got {raw.shape}"
+        )
+    if not np.all(np.isfinite(raw)):
+        raise FloatingPointError("CMC K RHS is non-finite before volume projection")
 
     # sqrt(gamma) d^3x for the spherical BSSN slice, up to the common 4*pi
     # factor which cancels in the normalized projection.
-    weights = r**2 * np.sqrt(np.maximum(a, 0.0)) * b / X**3
-    weights *= float(grid.dr)
+    weights = r**2 * np.sqrt(a) * b / X**3
+    weights *= dr
+    if not np.all(np.isfinite(weights)) or np.any(weights <= 0.0):
+        raise FloatingPointError(
+            "CMC proper-volume projection produced invalid metric weights"
+        )
     total_weight = float(np.sum(weights))
-    if not np.isfinite(total_weight) or total_weight <= 0.0:
+    if not math.isfinite(total_weight) or total_weight <= 0.0:
         raise FloatingPointError("CMC proper-volume projection has invalid weight")
-    return float(np.sum(weights * raw) / total_weight)
+    kdot = float(np.sum(weights * raw) / total_weight)
+    if not math.isfinite(kdot):
+        raise FloatingPointError("CMC proper-volume projection returned non-finite K-dot")
+    return kdot
 
 
 def _fourth_derivative_row(grid, i: int, parity: int, order: int) -> dict[int, float]:
