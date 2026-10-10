@@ -63,7 +63,19 @@ The ledger is internally closed: across the retained 66 late-window predictor bu
 
 For this failing step, flux transport and geometric sources *increase* the cone margin when evaluated on the accepted metric. The final metric evaluation then reduces it by more than the margin remaining and is the decisive crossing in this ordered budget. The accepted-state margin had already been collapsing as the run approached the outer lightlike limit: accepted outer-cell ratios rose from about `0.99254` at `t=46.86` to `0.99839` at `t=46.98`.
 
-This locates the crossing in the explicit predictor metric, but it does **not** prove the metric evolution is an incorrect physical law. The upstream source of the increasingly steep radial-metric change could involve the explicit geometry RHS, boundary/characteristic treatment, stage admissibility, or their coupling. No clipping, damping, floors, or boundary-law edits are justified by this result.
+This locates the crossing in the explicit predictor metric, but it does **not** prove the metric evolution is an incorrect physical law. No clipping, damping, floors, or boundary-law edits are justified by this result.
+
+### Code-order refinement
+
+A source-order audit narrows the immediate stage further. In `production_kernel.py`, the first explicit predictor is constructed by advancing `a`, `b`, and `X` with `dt * gterms0["explicit"]`; `_enforce_center_regularity` is then applied; matter is advanced; and the first CMC lapse solve is called on that predictor slice. That solve attempts the matter projection and encounters the radiation inversion failure. The later `_apply_outer_light_boundary(grid, g1, s1, m1)` call occurs after this first CMC solve, so that later boundary application is **not** the operation directly executing at the point of failure. Earlier boundary effects on the accepted state/RHS remain possible and are not ruled out.
+
+The cone invariant simplifies because `gamma_rr_inv = X²/a` and `C = U_E - |U_r| X/sqrt(a)`; `b) and `sqrt(gamma)` cancel from the physical `|S|/E` ratio. Holding the terminal predictor conservative variables fixed and changing the metric in a stated order (first `X`, then `a`):
+
+- `X: 0.94389565 -> 0.94655832` contributes `ΔC_X = -8.30224097e-7`.
+- `a: 0.60895534 -> 0.60320350` contributes a further `ΔC_a = -1.40380624e-6`.
+- Total metric contribution: `ΔC = -2.23403033e-6`.
+
+This decomposition is order-dependent because the expression is nonlinear, but the sum is exact for the stated order. It quantifies the contributions of the **post-projection** metric values; it does not separate raw explicit-RHS effects from the subsequent algebraic regularity projection. The projection enforces `a*b²=1` throughout the grid, so the next diagnostic must record raw RHS, raw Euler predictor, and post-projection values separately.
 
 ## Integrity
 
@@ -74,4 +86,4 @@ This locates the crossing in the explicit predictor metric, but it does **not** 
 
 ## Next diagnostic gate
 
-Keep physics unchanged. On a new, separately pinned diagnostic, record accepted and first-predictor explicit RHS terms for `a`, `b`, and `X` at cells 75–79; reconstruct `Δgamma_rr_inv` from those terms; and audit the matching pinned light-characteristic boundary variables. The immediate question is whether the rise in `gamma_rr_inv` is supplied by the interior explicit geometry RHS, boundary reconstruction, or both. Only after that deterministic audit should a controlled resolution/CFL comparison be authorized. No stabilization or physical-law edit is authorized by this trace.
+Keep physics unchanged. On a new, separately pinned diagnostic, record at cells 75–79: (1) raw `moving_puncture_explicit_rhs` values for `a`, `b`, and `X`; (2) the unprojected Euler predictor; (3) post-`enforce_algebraic_regularity` values; and (4) the first CMC solve inputs. Reconstruct `Δgamma_rr_inv) and the cone margin at each intermediate point. This isolates whether the metric crossing is already present in the raw explicit RHS or is materially changed by the algebraic projection. Record boundary variables as context, but do not label the later boundary call as the direct failing operation. Only after this deterministic audit should a controlled resolution/CFL comparison be authorized. No stabilization or physical-law edit is authorized by this trace.
