@@ -256,12 +256,12 @@ class V55TrueCMCPIRKKernel(V55ProductionKernel):
             )
         )
         mpred = self._matter_euler(m0, mrhs0, dt)
-        if self.use_accepted_metric_for_predictor_radiation_recovery:
-            self._validate_matter_state(grid, gpred, mpred, recovery_geometry=g0)
-        else:
-            self._validate_matter_state(grid, gpred, mpred)
-        if self.use_accepted_metric_for_predictor_radiation_recovery:
-            recovery_metric = metric_slice_from_q(grid, g0)
+        recovery_geometry = self._accepted_geometry_for_recovery
+        self._validate_matter_state(
+            grid, gpred, mpred, recovery_geometry=recovery_geometry
+        )
+        if recovery_geometry is not None:
+            recovery_metric = metric_slice_from_q(grid, recovery_geometry)
             gpred.alpha = solve_archive_cmc_lapse(
                 grid, gpred, spred, mpred, radiation_recovery_metric=recovery_metric
             )[0]
@@ -305,9 +305,10 @@ class V55TrueCMCPIRKKernel(V55ProductionKernel):
             tau=state.tau,
             e_folds=state.e_folds,
         )
-        if self.use_accepted_metric_for_predictor_radiation_recovery:
-            pred_recovery = metric_slice_from_q(grid, g0)
-            srhs1, mrhs1, _ = self._rhs(stage1, radiation_recovery_metric=pred_recovery)
+        if recovery_metric is not None:
+            srhs1, mrhs1, _ = self._rhs(
+                stage1, radiation_recovery_metric=recovery_metric
+            )
         else:
             srhs1, mrhs1, _ = self._rhs(stage1)
         if recovery_metric is None:
