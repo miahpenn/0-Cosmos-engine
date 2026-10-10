@@ -21,7 +21,7 @@ from engine.production_kernel import V55ProductionKernel
 
 _, vacuum, _ = adapter.vendor_modules()
 
-RESOLUTIONS = (40, 80)
+RESOLUTIONS = (40, 80, 160)
 R_MAX = 40.0
 AMPLITUDE = 0.01
 D_AMPLITUDE = 1.0e-10
