@@ -10,7 +10,9 @@ def test_push_trace_provenance_separates_source_instrumentation_and_trigger(
 ):
     source_commit = "1" * 40
     instrumentation_commit = "2" * 40
-    trigger_commit = "3" * 40
+    workflow_commit = "3" * 40
+    trigger_commit = "4" * 40
+    vendor_commit = "5" * 40
 
     monkeypatch.setenv("GITHUB_EVENT_NAME", "push")
     monkeypatch.setenv("GITHUB_REF_NAME", "physics/spatial-beta-covariant-source-closure")
@@ -19,8 +21,14 @@ def test_push_trace_provenance_separates_source_instrumentation_and_trigger(
     def fake_git(command):
         key = " ".join(command)
         return {
-            "rev-parse HEAD^": instrumentation_commit,
-            "rev-parse HEAD~2": source_commit,
+            "log -1 --format=%H -- engine/radiation_geometry_stage_trace.py":
+                instrumentation_commit,
+            "log -1 --format=%H -- .github/workflows/zero_star_radiation_stage_trace.yml":
+                workflow_commit,
+            "log -1 --format=%B":
+                "[run-radiation-stage-trace] patched head\ntrace-source-commit: "
+                + source_commit,
+            "-C vendor/bb-palatini-unified-r0 rev-parse HEAD": vendor_commit,
         }.get(key, "unavailable")
 
     monkeypatch.setattr(trace_module, "_git", fake_git)
@@ -29,9 +37,9 @@ def test_push_trace_provenance_separates_source_instrumentation_and_trigger(
     assert provenance["branch"] == "physics/spatial-beta-covariant-source-closure"
     assert provenance["run_trigger_commit"] == trigger_commit
     assert provenance["instrumentation_commit"] == instrumentation_commit
-    assert provenance["workflow_commit"] == instrumentation_commit
+    assert provenance["workflow_commit"] == workflow_commit
     assert provenance["source_commit_before_trace_workflow"] == source_commit
-
+    assert provenance["vendor_submodule_commit"] == vendor_commit
 
 def test_trace_classifies_only_explicit_radiation_admissibility_as_radiation():
     radiation_failure = {
@@ -93,3 +101,20 @@ def test_trace_writes_hashed_failure_artifact_when_initialization_has_no_state(
     assert payload["failure"]["exception_message"] == "test initialization failure"
     assert summary["trace_sha256"]
     assert "trace.json" in checksums and "summary.json" in checksums
+    required_sources = {
+        "engine/production_kernel.py",
+        "engine/cmc_gauge.py",
+        "engine/scalar_system.py",
+        "engine/matter_system.py",
+        "engine/matter_rhs.py",
+        "engine/valencia.py",
+        "engine/v55_matter.py",
+        "engine/v55_pirk_adapter.py",
+        "engine/v55_initial.py",
+        "engine/radiation_geometry_stage_trace.py",
+        ".github/workflows/zero_star_radiation_stage_trace.yml",
+        "tests/test_radiation_geometry_stage_trace.py",
+    }
+    assert required_sources <= set(summary["source_file_sha256"])
+    assert summary["run_trigger_commit"] == "4" * 40
+    assert "vendor_submodule_commit" in summary

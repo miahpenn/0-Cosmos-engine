@@ -11,6 +11,7 @@ import json
 import math
 import os
 import platform
+import re
 import subprocess
 import sys
 import time
@@ -43,31 +44,51 @@ def _git(command: list[str]) -> str:
 
 
 def _trace_provenance() -> dict:
-    """Resolve the run, instrumentation, workflow and pre-instrumentation commits.
-
-    The push-trigger protocol is two commits by design: the first changes this
-    tracer/workflow; the second is a content-neutral launch marker. For a
-    manual workflow dispatch, the selected HEAD is both source and tracer.
-    """
+    """Resolve immutable source, tracer, workflow and run-trigger identities."""
     event = os.environ.get("GITHUB_EVENT_NAME", "")
     run_commit = os.environ.get("GITHUB_SHA") or _git(["rev-parse", "HEAD"])
-    if event == "push":
-        instrumentation_commit = _git(["rev-parse", "HEAD^"])
-        source_commit = _git(["rev-parse", "HEAD~2"])
-        workflow_commit = instrumentation_commit
-    else:
-        instrumentation_commit = _git(["rev-parse", "HEAD"])
-        source_commit = instrumentation_commit
-        workflow_commit = instrumentation_commit
     branch = os.environ.get("GITHUB_REF_NAME") or _git(
         ["rev-parse", "--abbrev-ref", "HEAD"]
     )
+    vendor_commit = _git([
+        "-C", "vendor/bb-palatini-unified-r0", "rev-parse", "HEAD"
+    ])
+
+    if event == "push":
+        instrumentation_commit = _git([
+            "log", "-1", "--format=%H", "--",
+            "engine/radiation_geometry_stage_trace.py",
+        ])
+        workflow_commit = _git([
+            "log", "-1", "--format=%H", "--",
+            ".github/workflows/zero_star_radiation_stage_trace.yml",
+        ])
+        trigger_message = _git(["log", "-1", "--format=%B"])
+        match = re.search(
+            r"(?m)^trace-source-commit:\s*([0-9a-f]{40})\s*$",
+            trigger_message,
+        )
+        source_commit = (
+            match.group(1) if match
+            else _git(["rev-parse", "HEAD~2"])
+        )
+    else:
+        # A manual dispatch runs the selected HEAD; no distinct push marker
+        # exists to name a pre-instrumentation baseline.
+        instrumentation_commit = _git(["rev-parse", "HEAD"])
+        workflow_commit = _git([
+            "log", "-1", "--format=%H", "--",
+            ".github/workflows/zero_star_radiation_stage_trace.yml",
+        ])
+        source_commit = None
+
     return {
         "branch": branch,
         "run_trigger_commit": run_commit,
         "instrumentation_commit": instrumentation_commit,
         "source_commit_before_trace_workflow": source_commit,
         "workflow_commit": workflow_commit,
+        "vendor_submodule_commit": vendor_commit,
     }
 
 
@@ -659,10 +680,17 @@ class RadiationStageTrace:
         hashes = {}
         for rel in (
             "engine/production_kernel.py",
+            "engine/cmc_gauge.py",
+            "engine/scalar_system.py",
             "engine/matter_system.py",
             "engine/matter_rhs.py",
             "engine/valencia.py",
+            "engine/v55_matter.py",
+            "engine/v55_pirk_adapter.py",
+            "engine/v55_initial.py",
+            "engine/radiation_geometry_stage_trace.py",
             ".github/workflows/zero_star_radiation_stage_trace.yml",
+            "tests/test_radiation_geometry_stage_trace.py",
         ):
             path = Path(rel)
             hashes[rel] = (
@@ -727,8 +755,12 @@ class RadiationStageTrace:
             "failure": self.failure,
             "final_state": payload["final_state"],
             "configuration": payload["provenance"]["configuration"],
+            "branch": payload["provenance"]["branch"],
+            "run_trigger_commit": payload["provenance"]["run_trigger_commit"],
             "instrumentation_commit": payload["provenance"]["instrumentation_commit"],
             "source_commit_before_trace_workflow": payload["provenance"]["source_commit_before_trace_workflow"],
+            "workflow_commit": payload["provenance"]["workflow_commit"],
+            "vendor_submodule_commit": payload["provenance"]["vendor_submodule_commit"],
             "source_file_sha256": hashes,
             "stage_snapshot_count": len(self.stage_snapshots),
             "predictor_budget_count": len(self.predictor_budgets),
