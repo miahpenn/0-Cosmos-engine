@@ -37,6 +37,17 @@ def campaign_endpoint_reached(t: float, tau: float, config: CampaignConfig) -> b
     )
 
 
+def campaign_endpoint_status(t: float, tau: float, config: CampaignConfig) -> str:
+    """Classify a normally ended campaign without conflating cap and target."""
+    if (
+        config.final_proper_time is not None
+        and float(tau) < float(config.final_proper_time)
+        and float(t) >= float(config.final_time)
+    ):
+        return "coordinate_cap_before_proper_time_target"
+    return "completed"
+
+
 def write_checkpoint(path: Path, metadata: dict, trajectory: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     payload = {"metadata": metadata, "trajectory": trajectory}
