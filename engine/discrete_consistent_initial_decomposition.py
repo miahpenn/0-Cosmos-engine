@@ -1,8 +1,8 @@
-"""Attribute discrete-consistent candidate's evolved Hamiltonian drift by state group.
+"""Attribute baseline/candidate Hamiltonian drift at a selected resolution.
 
 Diagnostic only. Reuses the existing exact per-step Shapley attribution machinery;
 does not change any evolution equation, gauge choice, source, or production default.
-Runs only the N=40 matched-setting candidate trajectory (r_max=40, CFL=.03, t=3).
+The selected resolution is recorded in each report for auditable convergence checks.
 """
 from __future__ import annotations
 
@@ -106,7 +106,7 @@ def run_case(mode: str = "candidate", resolution: int | None = None) -> dict:
         "kind": "diagnostic_only_stepwise_shapley_attribution",
         "mode": mode,
         "source_commit": os.environ.get("GITHUB_SHA", "unavailable"),
-        "settings": SETTINGS,
+        "settings": settings,
         "admission": "NOT_ADMITTED_DIAGNOSTIC_ONLY",
         "interpretation_guard": (
             "Per-group increments are numerical attribution, not proof that a "
