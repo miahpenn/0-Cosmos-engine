@@ -3,7 +3,7 @@ import math
 
 import pytest
 
-from engine.radiation_predictor_stage_ledger import reconstruct_metric_cone
+from engine.radiation_predictor_stage_ledger import reconstruct_metric_cone, validate_ledger_steps
 
 
 def test_reconstruct_metric_inverse_and_cone_margin_independently():
@@ -44,3 +44,20 @@ def test_reconstruction_reproduces_captured_predictor_crossing():
 def test_reconstruction_rejects_invalid_radial_metric(a):
     with pytest.raises(ValueError):
         reconstruct_metric_cone(a, 1.0, 1.0, 0.0)
+
+
+def test_empty_ledger_fails_closed():
+    result = validate_ledger_steps([], range(75, 80))
+    assert result["ok"] is False
+    assert result["step_count"] == 0
+    assert result["errors"]
+
+
+def test_invalid_inverse_metric_factor_rejected():
+    with pytest.raises(ValueError):
+        reconstruct_metric_cone(1.0, 0.0, 1.0, 0.1)
+
+
+def test_nonpositive_radiation_energy_rejected():
+    with pytest.raises(ValueError):
+        reconstruct_metric_cone(1.0, 1.0, 0.0, 0.1)
