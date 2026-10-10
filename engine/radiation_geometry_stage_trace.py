@@ -372,7 +372,7 @@ class RadiationStageTrace:
                 return
             step["failing_stage"] = stage
             step["failing_caller"] = caller
-            match = re.search(r"\\bcell i=(\\d+)", str(exc))
+            match = re.search(r"\bcell i=(\d+)", str(exc))
             if match is None:
                 return
             index = int(match.group(1))
