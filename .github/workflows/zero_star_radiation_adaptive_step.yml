@@ -1,4 +1,4 @@
-name: "[0star] Radiation admissibility adaptive-step diagnostic"
+name: "[0star] Radiation admissibility adaptive-step diagnostic — accepted-metric control"
 
 on:
   workflow_dispatch:
@@ -6,6 +6,7 @@ on:
     branches:
       - diag/extended-B-recovery-metric
       - diag/completed-radiation-margin-budget
+      - diag/radiation-accepted-metric-control
 
 permissions:
   contents: read
@@ -29,18 +30,22 @@ jobs:
         with:
           python-version: '3.12'
       - name: Install dependencies
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
         run: python -m pip install -r requirements.txt
       - name: Full repository tests
         run: python -m pytest -q
-      - name: Run stage-metric radiation trace with admissibility retries
+      - name: Run stage-metric radiation trace with accepted-metric recovery control and admissibility retries
         env:
-          EXTENDED_B_ACCEPTED_METRIC_RECOVERY: "0"
+          EXTENDED_B_ACCEPTED_METRIC_RECOVERY: "1"
           RADIATION_ADMISSIBILITY_RETRY: "1"
         run: python -m engine.radiation_geometry_stage_trace
-      - name: Upload complete radiation adaptive-step trace
+      - name: Upload accepted-metric control trace
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: 0star-radiation-adaptive-step-trace
+          name: 0star-radiation-adaptive-step-accepted-metric-control
           path: runs/radiation-stage-trace/
           if-no-files-found: error
