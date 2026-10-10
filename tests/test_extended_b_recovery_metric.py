@@ -241,3 +241,34 @@ def test_target_kdot_passes_recovery_metric_into_matter_rhs(monkeypatch):
     out = cg.target_kdot(grid, geometry, object(), object(), radiation_recovery_metric=accepted)
     assert out == pytest.approx(0.0)
     assert calls == [accepted]
+
+def test_true_cmc_step_clears_recovery_stash_on_exception(monkeypatch):
+    """The temporary accepted-geometry context must never survive a failed step."""
+    import engine.true_cmc_pirk_kernel as tmod
+    from engine.true_cmc_pirk_kernel import V55TrueCMCPIRKKernel
+
+    kernel = V55TrueCMCPIRKKernel()
+    kernel.use_accepted_metric_for_predictor_radiation_recovery = True
+    geometry = _slice(n=4)
+
+    # Isolate the wrapper contract: reach the real step() try/finally without
+    # running the numerical step body or the production elliptic solve.
+    monkeypatch.setattr(kernel, "_regularize", lambda grid, q: q)
+    monkeypatch.setattr(
+        tmod, "solve_archive_cmc_lapse",
+        lambda *args, **kwargs: (np.ones(4), 0.0),
+    )
+
+    def fail_inside_step(*args, **kwargs):
+        assert kernel._accepted_geometry_for_recovery is not None
+        raise RuntimeError("forced mid-step failure")
+
+    monkeypatch.setattr(kernel, "_step_body", fail_inside_step)
+    state = SimpleNamespace(
+        grid=object(), geometry=geometry, scalars=object(), matter=object(),
+        t=0.0, tau=0.0, e_folds=0.0,
+    )
+    with pytest.raises(RuntimeError, match="forced mid-step failure"):
+        kernel.step(state, 0.01)
+
+    assert kernel._accepted_geometry_for_recovery is None
