@@ -212,6 +212,60 @@ def run_frequency_case(label, dt_factor, projection_mode):
         vacuum.enforce_algebraic_regularity = original_projection
 
 
+def constraint_budget(state):
+    """Split H = H_geometry - 16*pi*(rho_scalar + rho_fluid)."""
+    raw = vacuum.constraints(state.grid, state.geometry)
+    total = assemble_total_stress_energy(
+        state.grid, state.geometry, state.scalars, state.matter
+    )
+    return {
+        "H_geometry": np.asarray(raw["hamiltonian"], dtype=float),
+        "rho_scalar": np.asarray(total.scalar_rho, dtype=float),
+        "rho_fluid": np.asarray(total.fluid_rho, dtype=float),
+        "H_total": np.asarray(raw["hamiltonian"], dtype=float)
+        - 16.0 * math.pi * np.asarray(total.rho, dtype=float),
+    }
+
+
+def run_constraint_budget():
+    """Decompose the measured constraint drift without changing the evolution."""
+    kernel = V55ProductionKernel()
+    state = kernel.initialize(
+        resolution=40, r_max=40.0, amplitude=0.01, width=7.0,
+        D_amplitude=1.0e-10, include_radiation=True
+    )
+    initial = constraint_budget(state)
+    dt = 0.015 * state.grid.dr
+    nsteps = int(round(TARGET_T / dt))
+    snapshot_steps = {int(round(t / dt)): t for t in SNAPSHOT_TIMES}
+    print("=== Hamiltonian drift budget: geometry vs scalar/fluid energy ===")
+    print("Convention: Delta H = Delta H_geometry - 16*pi*Delta rho_scalar - 16*pi*Delta rho_fluid")
+    for step in range(1, nsteps + 1):
+        state = kernel.step(state, dt)
+        if step not in snapshot_steps:
+            continue
+        now = constraint_budget(state)
+        components = {
+            "dH_geometry": now["H_geometry"] - initial["H_geometry"],
+            "scalar_term": -16.0 * math.pi * (now["rho_scalar"] - initial["rho_scalar"]),
+            "fluid_term": -16.0 * math.pi * (now["rho_fluid"] - initial["rho_fluid"]),
+            "dH_total": now["H_total"] - initial["H_total"],
+        }
+        i = 0
+        print(
+            f"CONSTRAINT_BUDGET t={state.t:.6g} "
+            f"cell0 dHgeom={components['dH_geometry'][i]:+.6e} "
+            f"scalar={components['scalar_term'][i]:+.6e} "
+            f"fluid={components['fluid_term'][i]:+.6e} "
+            f"sum={components['dH_total'][i]:+.6e}"
+        )
+        for name, values in components.items():
+            print(
+                f"   {name}: maxabs_cells0-4={np.max(np.abs(values[:5])):.6e} "
+                f"maxabs_all={np.max(np.abs(values)):.6e}"
+            )
+
+
 if __name__ == "__main__":
     print("=== CFL comparison: candidate S/D and background; matched-time ledger ===")
     for factor in DT_FACTORS:
@@ -220,6 +274,7 @@ if __name__ == "__main__":
     print("=== Scalar-amplitude scaling: S only (D=0), fixed dt/dr=0.015 ===")
     for amplitude in (0.005, 0.01, 0.02):
         run_case("S-only amplitude", amplitude, 0.0, 0.015, matched_times=True)
+    run_constraint_budget()
     print("=== Projection-frequency causal test: fixed equations, S/D candidate ===")
     for factor in (0.03, 0.015):
         for mode in ("every-step", "every-second-step", "initial-only"):
