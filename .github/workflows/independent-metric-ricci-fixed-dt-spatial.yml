@@ -1,0 +1,45 @@
+name: Diagnostic - independent Ricci fixed-dt spatial refinement
+
+on:
+  push:
+    branches:
+      - diag/independent-metric-ricci-audit
+    paths:
+      - diagnostics/curvature_consistency/independent_metric_ricci_fixed_dt_spatial.py
+      - .github/workflows/independent-metric-ricci-fixed-dt-spatial.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  independent-metric-ricci-fixed-dt-spatial:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      PYTHONPATH: .
+    steps:
+      - name: Checkout diagnostic branch and pinned vendor submodule
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Compile fixed-dt spatial diagnostic
+        run: python -m py_compile diagnostics/curvature_consistency/independent_metric_ricci_fixed_dt_spatial.py
+      - name: Run fixed-timestep spatial refinement (N=40/80/160, t=0 to 3)
+        run: python diagnostics/curvature_consistency/independent_metric_ricci_fixed_dt_spatial.py
+      - name: Upload diagnostic report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: independent-metric-ricci-fixed-dt-spatial
+          path: runs/independent-metric-ricci-fixed-dt-spatial/report.json
+          if-no-files-found: error
+          retention-days: 90
