@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - 0star-central-clock
+      - physics/spatial-beta-covariant-source-closure
 
 permissions:
   contents: read
@@ -39,6 +40,7 @@ jobs:
         run: python -m engine.radiation_geometry_stage_trace
 
       - name: Upload complete radiation stage trace
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: 0star-radiation-stage-trace

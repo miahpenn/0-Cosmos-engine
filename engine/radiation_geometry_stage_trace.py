@@ -25,7 +25,6 @@ from .matter_system import Species
 
 
 REPOSITORY = "miahpenn/0-Cosmos-engine"
-BRANCH = "0star-central-clock"
 RESOLUTION = 80
 R_MAX = 80.0
 CFL = 0.03
@@ -41,6 +40,48 @@ def _git(command: list[str]) -> str:
         ).strip()
     except Exception:
         return "unavailable"
+
+
+def _trace_provenance() -> dict:
+    """Resolve the run, instrumentation, workflow and pre-instrumentation commits.
+
+    The push-trigger protocol is two commits by design: the first changes this
+    tracer/workflow; the second is a content-neutral launch marker. For a
+    manual workflow dispatch, the selected HEAD is both source and tracer.
+    """
+    event = os.environ.get("GITHUB_EVENT_NAME", "")
+    run_commit = os.environ.get("GITHUB_SHA") or _git(["rev-parse", "HEAD"])
+    if event == "push":
+        instrumentation_commit = _git(["rev-parse", "HEAD^"])
+        source_commit = _git(["rev-parse", "HEAD~2"])
+        workflow_commit = instrumentation_commit
+    else:
+        instrumentation_commit = _git(["rev-parse", "HEAD"])
+        source_commit = instrumentation_commit
+        workflow_commit = instrumentation_commit
+    branch = os.environ.get("GITHUB_REF_NAME") or _git(
+        ["rev-parse", "--abbrev-ref", "HEAD"]
+    )
+    return {
+        "branch": branch,
+        "run_trigger_commit": run_commit,
+        "instrumentation_commit": instrumentation_commit,
+        "source_commit_before_trace_workflow": source_commit,
+        "workflow_commit": workflow_commit,
+    }
+
+
+def _failure_status(failure: dict | None) -> str:
+    """Only label an explicit radiation realizability exception as such."""
+    message = str((failure or {}).get("exception_message", "")).casefold()
+    radiation_witnesses = (
+        "radiation conservative state",
+        "radiation realizability",
+        "radiation admissibility",
+    )
+    if any(witness in message for witness in radiation_witnesses):
+        return "radiation_admissibility_failure_captured"
+    return "numerical_failure_captured"
 
 
 def _safe_float(value) -> float | None:
@@ -577,13 +618,7 @@ class RadiationStageTrace:
             except (FloatingPointError, ValueError) as exc:
                 # The unmodified numerical failure is data for this diagnostic.
                 # Do not repair or suppress it; the trace is the run product.
-                status = "expected_radiation_failure_captured" if (
-                    self.failure is not None
-                    and (
-                        "radiation" in self.failure["exception_message"].lower()
-                        or self.failure.get("stage") == "explicit_predictor_first_CMC_lapse"
-                    )
-                ) else "numerical_failure_captured"
+                status = _failure_status(self.failure)
                 if self.failure is None:
                     self.failure = {
                         "t_accepted": float(state.t),
@@ -640,10 +675,7 @@ class RadiationStageTrace:
             "status": status,
             "provenance": {
                 "repository": REPOSITORY,
-                "branch": BRANCH,
-                "instrumentation_commit": os.environ.get("GITHUB_SHA", _git(["rev-parse", "HEAD"])),
-                "source_commit_before_trace_workflow": _git(["rev-parse", "HEAD~2"]),
-                "workflow_commit": _git(["rev-parse", "HEAD^"]),
+                **_trace_provenance(),
                 "source_file_sha256": hashes,
                 "run_id": os.environ.get("GITHUB_RUN_ID"),
                 "run_attempt": os.environ.get("GITHUB_RUN_ATTEMPT"),
@@ -653,9 +685,9 @@ class RadiationStageTrace:
                 "configuration": {
                     "resolution": RESOLUTION,
                     "r_max": R_MAX,
-                    "dr": float(state.grid.dr),
+                    "dr": float(state.grid.dr) if state is not None else None,
                     "cfl": CFL,
-                    "dt_nominal": float(dt_nominal),
+                    "dt_nominal": _safe_float(dt_nominal),
                     "target_time": TARGET_TIME,
                     "tail_window": TAIL_WINDOW,
                     "outer_cells_traced": OUTER_CELLS,
@@ -668,10 +700,10 @@ class RadiationStageTrace:
             },
             "failure": self.failure,
             "final_state": {
-                "t": float(state.t),
-                "tau": float(state.tau),
+                "t": float(state.t) if state is not None else None,
+                "tau": float(state.tau) if state is not None else None,
                 "steps_completed": int(self.step_index),
-                "steps_recorded_in_history": len(state.history),
+                "steps_recorded_in_history": len(state.history) if state is not None else 0,
             },
             "global_geometry_minima": self.global_geometry_minima,
             "progress_samples": self.progress_samples,
