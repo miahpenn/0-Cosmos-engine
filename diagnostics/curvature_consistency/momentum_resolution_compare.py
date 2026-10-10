@@ -139,7 +139,7 @@ def run_resolution(n):
 
 
 if __name__ == "__main__":
-    results = [run_resolution(n) for n in (40, 80)]
+    results = [run_resolution(n) for n in (40, 80, 160)]
     print("=== SPATIAL REFINEMENT SUMMARY ===")
     for row in results:
         print(
