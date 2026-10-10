@@ -20,26 +20,19 @@ def _d1(grid, values, parity):
     return grid.cell_derivative_fourth(values, parity=parity)
 
 
-def target_kdot(grid, geometry, scalars, matter, outer_frac: float = 0.20) -> float:
-    """Project the actual K RHS onto the CMC mode using proper 3-volume.
+def _validated_spatial_metric_arrays(grid, geometry):
+    """Return spatial metric arrays after checking CMC-slice admissibility.
 
-    outer_frac remains accepted for API compatibility, but is deliberately
-    unused: selecting a fixed outer fraction makes the gauge response depend
-    on a coordinate-region choice. The proper-volume projection is intrinsic
-    to the current spatial slice.
+    Reject an invalid spatial metric before metric conversions, matter
+    projections, or K-RHS evaluation; never repair it by clamping weights.
     """
-    del outer_frac
     r = np.asarray(grid.centers, dtype=float)
     a = np.asarray(geometry.a, dtype=float)
     b = np.asarray(geometry.b, dtype=float)
     X = np.asarray(geometry.X, dtype=float)
     metric_arrays = {"r": r, "a": a, "b": b, "X": X}
-
-    # Validate the spatial metric before evaluating the K operator or forming
-    # the proper-volume measure. A negative metric coefficient is an invalid
-    # slice, not something the CMC projection may repair with a square-root
-    # clamp.
     expected_shape = (int(grid.n),)
+
     for name, values in metric_arrays.items():
         if values.shape != expected_shape:
             raise ValueError(
@@ -50,15 +43,35 @@ def target_kdot(grid, geometry, scalars, matter, outer_frac: float = 0.20) -> fl
             raise FloatingPointError(
                 f"CMC proper-volume projection requires finite {name} values"
             )
-    if np.any(r <= 0.0) or np.any(a <= 0.0) or np.any(b <= 0.0) or np.any(X <= 0.0):
+    if (
+        np.any(r <= 0.0) or np.any(a <= 0.0)
+        or np.any(b <= 0.0) or np.any(X <= 0.0)
+    ):
         raise ValueError(
             "CMC proper-volume projection requires positive r, a, b, and X"
         )
     dr = float(grid.dr)
     if not math.isfinite(dr):
-        raise FloatingPointError("CMC proper-volume projection requires finite grid spacing")
+        raise FloatingPointError(
+            "CMC proper-volume projection requires finite grid spacing"
+        )
     if dr <= 0.0:
-        raise ValueError("CMC proper-volume projection requires positive grid spacing")
+        raise ValueError(
+            "CMC proper-volume projection requires positive grid spacing"
+        )
+    return r, a, b, X, dr
+
+
+def target_kdot(grid, geometry, scalars, matter, outer_frac: float = 0.20) -> float:
+    """Project the actual K RHS onto the CMC mode using proper 3-volume.
+
+    outer_frac remains accepted for API compatibility, but is deliberately
+    unused: selecting a fixed outer fraction makes the gauge response depend
+    on a coordinate-region choice. The proper-volume projection is intrinsic
+    to the current spatial slice.
+    """
+    del outer_frac
+    r, a, b, X, dr = _validated_spatial_metric_arrays(grid, geometry)
 
     _, vacuum, _ = adapter.vendor_modules()
     l2 = vacuum.primary_l2_rhs(grid, geometry)
@@ -177,13 +190,11 @@ def solve_cmc_lapse(
     center closure that allowed a spurious central K mode to grow with
     resolution.
     """
+    # Admit the spatial metric before downstream code interprets the slice.
+    r, a, b, X, _ = _validated_spatial_metric_arrays(grid, geometry)
     metric = metric_slice_from_q(grid, geometry)
     total = total_matter_projection(grid, geometry, scalars, matter)
 
-    a = np.asarray(geometry.a)
-    b = np.asarray(geometry.b)
-    X = np.asarray(geometry.X)
-    r = np.asarray(grid.centers)
     inv = X * X / a
 
     ap = _d1(grid, a, 1)

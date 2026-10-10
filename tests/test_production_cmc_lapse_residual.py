@@ -205,3 +205,34 @@ def test_cmc_target_rejects_nonfinite_metric_before_operators(monkeypatch):
         target_kdot(
             state.grid, invalid_geometry, state.scalars, state.matter
         )
+
+
+
+@pytest.mark.parametrize("field", ["a", "b", "X"])
+def test_cmc_lapse_solver_rejects_invalid_metric_before_conversion(
+    field, monkeypatch
+):
+    """The full CMC solve rejects invalid geometry before metric adapters."""
+    import engine.cmc_gauge as cmc_gauge
+
+    kernel = V55ProductionKernel()
+    state = kernel.initialize(
+        resolution=16,
+        r_max=8.0,
+        D_amplitude=1.0e-10,
+        include_radiation=True,
+    )
+    invalid_geometry = copy.deepcopy(state.geometry)
+    values = getattr(invalid_geometry, field)
+    values[5] = -abs(float(values[5]))
+
+    def forbidden_conversion(*args, **kwargs):
+        raise AssertionError("invalid CMC slice reached metric conversion")
+
+    monkeypatch.setattr(
+        cmc_gauge, "metric_slice_from_q", forbidden_conversion
+    )
+    with pytest.raises(ValueError, match="positive r, a, b, and X"):
+        cmc_gauge.solve_cmc_lapse(
+            state.grid, invalid_geometry, state.scalars, state.matter
+        )
