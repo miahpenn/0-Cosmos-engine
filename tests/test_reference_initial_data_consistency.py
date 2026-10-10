@@ -57,9 +57,15 @@ def test_hamiltonian_residual_is_resolved_into_source_and_ricci_terms():
     case = audit_initial_slice(40, 40.0, amplitude=0.01)
     assert case["hamiltonian_source_algebraic_closure"]["max_abs_all"] < 1.0e-11
     assert case["hamiltonian_decomposition_closure"]["max_abs_all"] < 1.0e-10
+    assert case["source_balance_curvature_identity_error"]["max_abs_all"] < 1.0e-10
     rb_p = case["ricci_BSSN_minus_polar"]["first_cell"]
     rp_s = case["ricci_polar_minus_source"]["first_cell"]
     rb_s = case["ricci_BSSN_minus_source"]["first_cell"]
+    # This "polar minus source" term is the source-balance residual rescaled
+    # by -2/r^2, so it is not an independent diagnostic witness.
+    source_balance = case["source_balance_B_plus_r_dB_minus_source"]["first_cell"]
+    first_cell_r = 0.5 * case["dr"]
+    assert rp_s == pytest.approx(-2.0 * source_balance / first_cell_r**2, abs=1.0e-12)
     assert rb_s == pytest.approx(rb_p + rp_s, abs=1.0e-12)
     rho_mismatch = case["matter_density_constraint_minus_source"]["first_cell"]
     h_bssn = case["hamiltonian_BSSN"]["first_cell"]
