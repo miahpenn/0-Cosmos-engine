@@ -74,6 +74,43 @@ def _array(values) -> np.ndarray:
     return np.asarray(values, dtype=float)
 
 
+def _pminus_boundary_terms(grid, geometry, energy_density, momentum_radial) -> dict:
+    """Read the pinned outer P-minus characteristic and its existing target.
+
+    This is a pure diagnostic: it reads the live state and never modifies it.
+    """
+    production_kernel_module.adapter.vendor_modules()
+    from bssn_characteristic_boundary import (
+        light_characteristic_minus,
+        pminus_source,
+    )
+
+    omega = _array(light_characteristic_minus(grid, geometry))
+    source = _array(pminus_source(
+        grid, geometry, energy_density, momentum_radial
+    ))
+    dr = float(grid.dr)
+    target = float(omega[-3] + 2.0 * dr * source[-2])
+    return {
+        "omega_outer": float(omega[-1]),
+        "omega_third_last": float(omega[-3]),
+        "source_penultimate": float(source[-2]),
+        "target_omega_outer": target,
+        "target_minus_omega_outer": float(target - omega[-1]),
+        "pminus_reconstruction_residual": float(
+            (omega[-1] - omega[-3]) / (2.0 * dr) - source[-2]
+        ),
+        "Aa_outer": float(geometry.Aa[-1]),
+        "K_outer": float(geometry.K[-1]),
+        "Lambda_outer": float(geometry.Lambda[-1]),
+        "a_outer": float(geometry.a[-1]),
+        "b_outer": float(geometry.b[-1]),
+        "X_outer": float(geometry.X[-1]),
+        "alpha_outer": float(geometry.alpha[-1]),
+        "alpha_penultimate": float(geometry.alpha[-2]),
+    }
+
+
 class RadiationStageTrace:
     def __init__(
         self, output_dir: Path,
@@ -90,7 +127,9 @@ class RadiationStageTrace:
         self.step_index = 0
         self.current_step = None
         self.active_radiation_evolve = None
+        self.active_boundary_context = None
         self.last_radiation_sources: dict[int, tuple[float, float]] = {}
+        self.boundary_update_snapshots: list[dict] = []
         self.stage_snapshots: list[dict] = []
         self.predictor_budgets: list[dict] = []
         self.completed_state_budgets: list[dict] = []
@@ -700,6 +739,7 @@ class RadiationStageTrace:
         original_evolve = matter_rhs_module.evolve_species
         original_radiation_source = matter_system_module._radiation_source
         original_boundary = kernel_cls._apply_outer_light_boundary
+        original_assemble_total = production_kernel_module.assemble_total_stress_energy
         original_geometry_stage_terms = production_kernel_module.adapter.geometry_stage_terms
         trace = self
 
@@ -731,6 +771,29 @@ class RadiationStageTrace:
                         for name in ("a", "b", "X")
                     }
             return result
+
+        def traced_assemble_total(*args, **kwargs):
+            total = original_assemble_total(*args, **kwargs)
+            context = trace.active_boundary_context
+            if context is not None and context.get("pre") is None:
+                try:
+                    rho = _array(total.rho).copy()
+                    momentum = _array(total.j).copy()
+                    context["rho"] = rho
+                    context["momentum"] = momentum
+                    context["pre"] = _pminus_boundary_terms(
+                        context["grid"], context["geometry"], rho, momentum
+                    )
+                except Exception as exc:
+                    detail = f"{type(exc).__name__}: {exc}"
+                    context["capture_error"] = detail
+                    trace.instrumentation_errors.append({
+                        "where": "pminus_boundary_pre_capture",
+                        "stage": context.get("stage"),
+                        "t": context.get("t"),
+                        "error": detail,
+                    })
+            return total
 
         def traced_radiation_source(*args, **kwargs):
             result = original_radiation_source(*args, **kwargs)
