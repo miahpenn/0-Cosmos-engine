@@ -1,10 +1,12 @@
-"""CFL-pair ledger of regularity-projection displacement versus Hamiltonian drift.
+"""Projection-displacement ledger with matched-time and scalar-amplitude controls.
 
-Diagnostic only. The pinned projection routine is wrapped to measure its actual
-per-call state displacement during evolution; no production source is changed.
-Uses resolution=40, r_max=40, target t=3, and three dt/dr factors (0.03, 0.015,
-0.0075). This tests whether accumulated projection displacement and H drift
-remain comparable as the step count changes; correlation is not causation.
+Diagnostic-only: wraps the pinned regularity projection and measures its actual
+per-call state displacement. No production source/equations are changed.
+CFL comparison: resolution=40, r_max=40, t=3, dt/dr=(0.03, 0.015, 0.0075),
+candidate S/D and zero-amplitude background. Matched-time snapshots are emitted
+near t=(0.75, 1.5, 2.25, 3.0). A separate S-only amplitude sweep holds D=0 and
+dt/dr=0.015 fixed at A=(0.005, 0.01, 0.02), isolating scalar-amplitude scaling.
+Correlation between projection displacement and H drift is not proof of cause.
 """
 import math
 import pathlib
@@ -21,6 +23,7 @@ _, vacuum, _ = ad.vendor_modules()
 FIELDS = ("a", "b", "X", "Aa", "K", "Lambda")
 DT_FACTORS = (0.03, 0.015, 0.0075)
 TARGET_T = 3.0
+SNAPSHOT_TIMES = (0.75, 1.5, 2.25, 3.0)
 
 
 def Hprof(st):
@@ -29,13 +32,17 @@ def Hprof(st):
     return np.asarray(raw["hamiltonian"]) - 16.0 * math.pi * np.asarray(tot.rho)
 
 
-def run_case(label, amplitude, D_amplitude, dt_factor):
-    kernel = V55ProductionKernel()
-    original_projection = vacuum.enforce_algebraic_regularity
-    ledger = {
+def new_ledger():
+    return {
         name: {"signed": 0.0, "absolute": 0.0, "max_abs_single": 0.0}
         for name in FIELDS
     }
+
+
+def run_case(label, amplitude, D_amplitude, dt_factor, matched_times=False):
+    kernel = V55ProductionKernel()
+    original_projection = vacuum.enforce_algebraic_regularity
+    ledger = new_ledger()
     calls = 0
 
     def measured_projection(grid, geometry):
@@ -59,20 +66,30 @@ def run_case(label, amplitude, D_amplitude, dt_factor):
             resolution=40, r_max=40.0, amplitude=amplitude, width=7.0,
             D_amplitude=D_amplitude, include_radiation=True
         )
-        # Exclude initializer activity; ledger is specifically for evolution.
-        for values in ledger.values():
-            values.update(signed=0.0, absolute=0.0, max_abs_single=0.0)
+        # Exclude initializer projection activity; measure evolution only.
+        ledger = new_ledger()
         calls = 0
         H_initial = Hprof(state)
         dt = dt_factor * state.grid.dr
         nsteps = int(round(TARGET_T / dt))
-        for _ in range(nsteps):
+        snapshot_steps = {
+            int(round(t / dt)): t for t in SNAPSHOT_TIMES
+        } if matched_times else {}
+        snapshots = []
+        if matched_times and 0 in snapshot_steps:
+            snapshots.append((state.t, Hprof(state) - H_initial, {k: v.copy() for k, v in ledger.items()}))
+        for step in range(1, nsteps + 1):
             state = kernel.step(state, dt)
+            if step in snapshot_steps:
+                snapshots.append((
+                    state.t, Hprof(state) - H_initial,
+                    {k: v.copy() for k, v in ledger.items()}
+                ))
         H_final = Hprof(state)
         drift = H_final - H_initial
         print(
-            f"{label}: dt/dr={dt_factor:.5g} steps={nsteps} dt={dt:.6g} "
-            f"t_final={state.t:.6g} projection_calls={calls}"
+            f"{label}: A={amplitude:g} D={D_amplitude:g} dt/dr={dt_factor:.5g} "
+            f"steps={nsteps} dt={dt:.6g} t_final={state.t:.6g} projection_calls={calls}"
         )
         print(
             f"   H drift cell0={drift[0]:+.6e}; "
@@ -86,11 +103,25 @@ def run_case(label, amplitude, D_amplitude, dt_factor):
                 f"abs_sum={x['absolute']:.6e} "
                 f"max_single_any_cell={x['max_abs_single']:.6e}"
             )
+        for actual_t, h_drift, snap_ledger in snapshots:
+            print(
+                f"   MATCHED_TIME requested-near={actual_t:.6g} "
+                f"actual_t={actual_t:.6g} H_cell0={h_drift[0]:+.6e} "
+                f"max|H_drift|all={np.max(np.abs(h_drift)):.6e} "
+                f"a_cell0_signed={snap_ledger['a']['signed']:+.6e} "
+                f"a_cell0_abs={snap_ledger['a']['absolute']:.6e} "
+                f"b_cell0_signed={snap_ledger['b']['signed']:+.6e} "
+                f"b_cell0_abs={snap_ledger['b']['absolute']:.6e}"
+            )
     finally:
         vacuum.enforce_algebraic_regularity = original_projection
 
 
 if __name__ == "__main__":
+    print("=== CFL comparison: candidate S/D and background; matched-time ledger ===")
     for factor in DT_FACTORS:
-        run_case("candidate S/D", 0.01, 1.0e-10, factor)
-        run_case("background", 0.0, 0.0, factor)
+        run_case("candidate S/D", 0.01, 1.0e-10, factor, matched_times=True)
+        run_case("background", 0.0, 0.0, factor, matched_times=True)
+    print("=== Scalar-amplitude scaling: S only (D=0), fixed dt/dr=0.015 ===")
+    for amplitude in (0.005, 0.01, 0.02):
+        run_case("S-only amplitude", amplitude, 0.0, 0.015, matched_times=True)
