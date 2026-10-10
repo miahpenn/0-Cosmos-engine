@@ -1,0 +1,184 @@
+name: "[0star] Full production campaign admission — padded outer domain"
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - diag/production-r120-t50-integration
+
+permissions:
+  contents: read
+
+env:
+  PYTHONPATH: .
+
+jobs:
+  production-campaign:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[run-padded-domain-production]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - name: Checkout production kernel and pinned numerical operators
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Full repository tests
+        run: python -m pytest -q
+
+      - name: Run canonical full-machine production campaign at the admitted padded domain
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib
+          import json
+          import math
+          from pathlib import Path
+
+          import numpy as np
+
+          from engine.campaign import CampaignConfig
+          from engine.production_kernel import V55ProductionKernel
+          from engine.run_production import run_campaign
+
+          out = Path("runs/0star-padded-domain-production-r120-t50")
+          cfg = CampaignConfig(
+              resolutions=(120,),
+              r_max=120.0,
+              cfl=0.03,
+              final_time=50.0,
+              checkpoint_interval=5.0,
+              output_dir=str(out),
+          )
+          results = run_campaign(kernel=V55ProductionKernel(), config=cfg)
+          result_rows = [r.__dict__ for r in results]
+          ledger_path = out / "N120" / "ledgers.json"
+          summary_path = out / "campaign_summary.json"
+          failures = []
+          gates = []
+
+          def gate(name, ok, detail):
+              entry = {"gate": name, "passed": bool(ok), "detail": str(detail)}
+              gates.append(entry)
+              print(("PASS" if ok else "FAIL") + " " + name + ": " + str(detail))
+              if not ok:
+                  failures.append(name)
+
+          def finite(x):
+              try:
+                  return math.isfinite(float(x))
+              except (TypeError, ValueError, OverflowError):
+                  return False
+
+          def sha256(path):
+              h = hashlib.sha256()
+              with Path(path).open("rb") as f:
+                  for block in iter(lambda: f.read(1024 * 1024), b""):
+                      h.update(block)
+              return h.hexdigest()
+
+          gate("one requested resolution", len(results) == 1, f"count={len(results)}")
+          if len(results) == 1:
+              res = results[0]
+              gate("production status completed", res.status == "completed", res.status)
+              gate("resolution is N=120", res.resolution == 120, res.resolution)
+              gate("coordinate endpoint t=50", finite(res.t_final) and abs(res.t_final - 50.0) <= 1e-9, res.t_final)
+              gate("step count reproduces diagnostic run", res.steps == 1667, res.steps)
+              gate("proper-time result reproduces trace", finite(res.tau_final) and abs(res.tau_final - 21.16458184235484) <= 1e-8, res.tau_final)
+              gate("radiation outer state remains admissible", finite(res.last_diagnostics.get("radiation_outer_ratio")) and 0.0 <= res.last_diagnostics["radiation_outer_ratio"] < 1.0, res.last_diagnostics.get("radiation_outer_ratio"))
+
+          gate("native ledger exists", ledger_path.is_file(), ledger_path)
+          gate("campaign summary exists", summary_path.is_file(), summary_path)
+          history = []
+          ledger = {}
+          if ledger_path.is_file():
+              ledger = json.loads(ledger_path.read_text())
+              history = ledger.get("history", [])
+          gate("native history row count matches steps", len(results) == 1 and len(history) == results[0].steps, f"rows={len(history)}, steps={results[0].steps if results else None}")
+
+          required = [
+              "t", "tau", "H_eff", "H_center", "H_coord_center", "tau_rate",
+              "M_MS", "flux_T", "work_pR", "radiation_outer_ratio",
+              "radiation_outer_vhat", "cmc_kdot", "alpha_r_max", "lapse_min",
+              "lapse_max", "hamiltonian_normalized_max", "momentum_normalized_max",
+              "determinant_constraint_max", "cmc_residual_last_interior",
+              "cmc_boundary_alpha",
+          ]
+          missing_or_nonfinite = []
+          for row_idx, row in enumerate(history):
+              for key in required:
+                  if key not in row or not finite(row.get(key)):
+                      missing_or_nonfinite.append((row_idx, key, row.get(key)))
+          gate("required per-step diagnostics finite", not missing_or_nonfinite, f"fields={len(required)}, rows={len(history)}, faults={missing_or_nonfinite[:5]}")
+
+          times = [row.get("t") for row in history]
+          taus = [row.get("tau") for row in history]
+          time_ok = bool(times) and all(finite(x) for x in times) and all(float(b) > float(a) for a, b in zip(times, times[1:]))
+          tau_ok = bool(taus) and all(finite(x) for x in taus) and all(float(b) > float(a) for a, b in zip(taus, taus[1:]))
+          gate("coordinate-time history monotonic", time_ok, f"first={times[0] if times else None}, last={times[-1] if times else None}")
+          gate("proper-time history monotonic", tau_ok, f"first={taus[0] if taus else None}, last={taus[-1] if taus else None}")
+
+          checkpoints = sorted((out / "N120").glob("checkpoint_t*.npz"))
+          gate("checkpoint count", len(checkpoints) == 10, f"count={len(checkpoints)}")
+          checkpoint_issues = []
+          for path in checkpoints:
+              try:
+                  with np.load(path, allow_pickle=False) as z:
+                      if "r" not in z.files:
+                          checkpoint_issues.append((path.name, "missing r grid"))
+                      else:
+                          r = np.asarray(z["r"], dtype=float)
+                          if r.shape != (120,) or abs(float(r[0])-0.5)>1e-10 or abs(float(r[-1])-119.5)>1e-10 or not np.allclose(np.diff(r), 1.0, rtol=0.0, atol=1e-10):
+                              checkpoint_issues.append((path.name, "grid mismatch"))
+                      for key in z.files:
+                          arr = np.asarray(z[key])
+                          if np.issubdtype(arr.dtype, np.number) and not np.isfinite(arr).all():
+                              checkpoint_issues.append((path.name, key, "nonfinite"))
+              except Exception as exc:
+                  checkpoint_issues.append((path.name, repr(exc)))
+          gate("checkpoint content and grid finite", not checkpoint_issues, str(checkpoint_issues[:5]))
+
+          # Capture checksums only after output creation and validation.
+          files = [p for p in out.rglob("*") if p.is_file() and p.name != "admission.json"]
+          manifest = {str(p.relative_to(out)): sha256(p) for p in sorted(files)}
+          report = {
+              "schema": "0star_padded_domain_production_admission_v1",
+              "branch": "diag/production-r120-t50-integration",
+              "configuration": {
+                  "resolutions": [120], "r_max": 120.0, "dr": 1.0,
+                  "cfl": 0.03, "dt_nominal": 0.03, "final_time": 50.0,
+                  "checkpoint_interval": 5.0,
+                  "purpose": "canonical run_campaign integration of the successful expanded-domain configuration",
+              },
+              "result": result_rows,
+              "history_rows": len(history),
+              "cycle_events": ledger.get("cycle_events", []),
+              "handoffs": ledger.get("handoffs", []),
+              "gates": gates,
+              "passed": not failures,
+              "failures": failures,
+              "sha256": manifest,
+          }
+          out.mkdir(parents=True, exist_ok=True)
+          (out / "admission.json").write_text(json.dumps(report, indent=2, allow_nan=False) + "\n")
+          print(json.dumps({"passed": report["passed"], "failures": failures, "checks": gates, "result": result_rows}, indent=2, allow_nan=False))
+          if failures:
+              raise SystemExit(1)
+          PY
+
+      - name: Upload canonical campaign, native ledgers, checkpoints, and admission report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: 0star-padded-domain-production-r120-t50
+          path: runs/0star-padded-domain-production-r120-t50/
+          if-no-files-found: error
