@@ -12,6 +12,10 @@ from pathlib import Path
 import json
 import numpy as np
 
+from .adaptive_step import (
+    RadiationStepSizeUnderflow,
+    advance_with_radiation_admissibility_retries,
+)
 from .campaign import CampaignConfig
 from .production_contract import require_production_capabilities
 from .production_kernel import V55ProductionKernel
@@ -77,6 +81,7 @@ def run_campaign(
     require_production_capabilities(kernel)
 
     results: list[ResolutionResult] = []
+    retry_summary: dict[str, dict] = {}
     for resolution in config.resolutions:
         state = kernel.initialize(
             resolution=resolution,
@@ -84,21 +89,36 @@ def run_campaign(
             include_radiation=True,
         )
         dt_nominal = config.cfl * state.grid.dr
+        dt_proposal = dt_nominal
         next_checkpoint = config.checkpoint_interval
         checkpoint_count = 0
         status = "completed"
+        rejected_attempts: list[dict] = []
 
         while state.t < config.final_time:
-            dt = min(dt_nominal, config.final_time - state.t)
+            dt = min(dt_proposal, config.final_time - state.t)
             try:
-                state = kernel.step(state, dt)
+                state, dt_used, rejected = advance_with_radiation_admissibility_retries(
+                    kernel, state, dt
+                )
+                rejected_attempts.extend(rejected)
                 # This is a numerical validity check, not a physical event.
                 state.geometry.assert_finite_positive()
+            except RadiationStepSizeUnderflow as exc:
+                rejected_attempts.extend(
+                    item for item in exc.rejected_attempts
+                    if item not in rejected_attempts
+                )
+                status = "radiation_admissibility_step_underflow:" + str(exc)
+                break
             except (FloatingPointError, ValueError) as exc:
                 status = "numerical_failure:" + str(exc)
                 break
 
-            while state.t + 0.5 * dt >= next_checkpoint:
+            # Grow the next proposal gradually toward the nominal CFL step.
+            dt_proposal = min(dt_nominal, 2.0 * dt_used)
+
+            while state.t + 0.5 * dt_used >= next_checkpoint:
                 path = (
                     Path(config.output_dir)
                     / f"N{resolution}"
@@ -147,10 +167,15 @@ def run_campaign(
         run_dir = Path(config.output_dir) / f"N{resolution}"
         _write_ledgers(state, run_dir, result)
         results.append(result)
+        retry_summary[str(resolution)] = {
+            "rejected_attempt_count": len(rejected_attempts),
+            "rejected_attempts": rejected_attempts,
+        }
 
     summary = {
         "campaign": _json_safe(asdict(config)),
         "results": _json_safe([asdict(r) for r in results]),
+        "radiation_admissibility_retry_summary": _json_safe(retry_summary),
     }
     out = Path(config.output_dir)
     out.mkdir(parents=True, exist_ok=True)

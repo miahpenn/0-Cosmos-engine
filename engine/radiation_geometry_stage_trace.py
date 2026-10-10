@@ -22,6 +22,10 @@ import numpy as np
 from . import matter_rhs as matter_rhs_module
 from . import matter_system as matter_system_module
 from . import production_kernel as production_kernel_module
+from .adaptive_step import (
+    RadiationStepSizeUnderflow,
+    advance_with_radiation_admissibility_retries,
+)
 from .matter_system import Species
 
 
@@ -60,11 +64,13 @@ class RadiationStageTrace:
     def __init__(
         self, output_dir: Path,
         use_accepted_metric_for_predictor_radiation_recovery: bool = False,
+        use_radiation_admissibility_retry: bool = False,
     ):
         self.output_dir = output_dir
         self.use_accepted_metric_for_predictor_radiation_recovery = bool(
             use_accepted_metric_for_predictor_radiation_recovery
         )
+        self.use_radiation_admissibility_retry = bool(use_radiation_admissibility_retry)
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self.started_wall = time.time()
         self.step_index = 0
@@ -76,6 +82,7 @@ class RadiationStageTrace:
         self.progress_samples: list[dict] = []
         self.global_geometry_minima: dict[str, dict] = {}
         self.failure: dict | None = None
+        self.rejected_step_attempts: list[dict] = []
         self.instrumentation_errors: list[dict] = []
         self.latest_state = None
         self.latest_dt = None
@@ -670,18 +677,57 @@ class RadiationStageTrace:
             include_radiation=True,
         )
         dt_nominal = CFL * float(state.grid.dr)
+        dt_proposal = dt_nominal
         start = time.time()
         last_report_step = -1
         status = "completed_without_reproducing_expected_failure"
         target_steps = int(math.ceil(TARGET_TIME / dt_nominal)) + 5
-        while state.t < TARGET_TIME and self.step_index < target_steps:
-            dt = min(dt_nominal, TARGET_TIME - state.t)
+
+        def record_rejected_attempt(record):
+            # traced_step stores stage/cell identity in trace.failure. The
+            # rejected candidate is discarded; every retry starts from state.
+            if self.failure is not None:
+                record.update(self.failure)
+            record["rejected_for_radiation_admissibility"] = True
+            self.rejected_step_attempts.append(dict(record))
+            self.failure = None
+
+        while state.t < TARGET_TIME and (
+            self.use_radiation_admissibility_retry or self.step_index < target_steps
+        ):
+            dt = min(dt_proposal, TARGET_TIME - state.t)
             try:
-                state = kernel.step(state, dt)
+                if self.use_radiation_admissibility_retry:
+                    state, dt_used, _ = advance_with_radiation_admissibility_retries(
+                        kernel, state, dt, on_reject=record_rejected_attempt
+                    )
+                    dt_proposal = min(dt_nominal, 2.0 * dt_used)
+                else:
+                    state = kernel.step(state, dt)
+                    dt_used = dt
+                    dt_proposal = dt_nominal
                 state.geometry.assert_finite_positive()
+            except RadiationStepSizeUnderflow as exc:
+                status = "radiation_admissibility_step_underflow"
+                if self.rejected_step_attempts:
+                    self.failure = dict(self.rejected_step_attempts[-1])
+                    self.failure["underflow_message"] = str(exc)
+                else:
+                    self.failure = {
+                        "t_accepted": float(state.t),
+                        "tau_accepted": float(state.tau),
+                        "step_index": int(self.step_index),
+                        "dt": float(dt),
+                        "t_attempted": float(state.t + dt),
+                        "stage": "radiation_admissibility_step_underflow",
+                        "exception_class": type(exc).__name__,
+                        "exception_message": str(exc),
+                        "wall_elapsed_seconds": float(time.time() - self.started_wall),
+                    }
+                break
             except (FloatingPointError, ValueError) as exc:
-                # The unmodified numerical failure is data for this diagnostic.
-                # Do not repair or suppress it; the trace is the run product.
+                # Only typed radiation admissibility failures are retried.
+                # Other numerical or geometry failures remain visible here.
                 status = "expected_radiation_failure_captured" if (
                     self.failure is not None
                     and (
@@ -709,13 +755,15 @@ class RadiationStageTrace:
                     "t": state.t,
                     "tau": state.tau,
                     "outer_band_max_ratio": self.progress_samples[-1].get("outer_band_max_ratio") if self.progress_samples else None,
+                    "dt_accepted": dt_used,
+                    "rejected_attempt_count": len(self.rejected_step_attempts),
                     "elapsed_seconds": time.time() - start,
                 }), flush=True)
                 last_report_step = self.step_index
         else:
             if state.t >= TARGET_TIME:
                 status = "target_time_completed_without_failure"
-            elif self.step_index >= target_steps:
+            elif not self.use_radiation_admissibility_retry and self.step_index >= target_steps:
                 status = "step_cap_reached_without_failure"
 
         # Anchor the final trace window to the attempted failing step, not
@@ -732,6 +780,7 @@ class RadiationStageTrace:
             "engine/matter_system.py",
             "engine/matter_rhs.py",
             "engine/valencia.py",
+            "engine/adaptive_step.py",
             "engine/v55_matter.py",
             "engine/v55_pirk_adapter.py",
             "engine/cmc_gauge.py",
@@ -777,10 +826,13 @@ class RadiationStageTrace:
                     "include_radiation": True,
                     "use_accepted_metric_for_predictor_radiation_recovery":
                         self.use_accepted_metric_for_predictor_radiation_recovery,
+                    "radiation_admissibility_retry_enabled":
+                        self.use_radiation_admissibility_retry,
                     "outer_boundary": "existing production light-constraint boundary and radiation outer closure",
                 },
             },
             "failure": self.failure,
+            "rejected_step_attempts": self.rejected_step_attempts,
             "final_state": {
                 "t": float(state.t),
                 "tau": float(state.tau),
@@ -803,7 +855,11 @@ class RadiationStageTrace:
                     if self.use_accepted_metric_for_predictor_radiation_recovery
                     else "Extended-B mode is disabled; the original predictor-stage radiation recovery metric is used."
                 ),
-                "No clipping, floor, damping, physical source insertion, or timestep adjustment is introduced.",
+                (
+                    "Radiation admissibility retries change numerical timestep only; they do not clip conservative variables or alter field equations."
+                    if self.use_radiation_admissibility_retry
+                    else "No clipping, floor, damping, physical source insertion, or timestep adjustment is introduced."
+                ),
             ],
         }
         trace_path = self.output_dir / "trace.json"
@@ -820,6 +876,7 @@ class RadiationStageTrace:
             "stage_snapshot_count": len(self.stage_snapshots),
             "predictor_budget_count": len(self.predictor_budgets),
             "progress_sample_count": len(self.progress_samples),
+            "rejected_step_attempt_count": len(self.rejected_step_attempts),
             "instrumentation_error_count": len(self.instrumentation_errors),
             "wall_elapsed_seconds": payload["wall_elapsed_seconds"],
             "trace_sha256": hashlib.sha256(trace_path.read_bytes()).hexdigest(),
@@ -840,9 +897,13 @@ def main():
     use_accepted_recovery = (
         os.environ.get("EXTENDED_B_ACCEPTED_METRIC_RECOVERY", "0") == "1"
     )
+    use_admissibility_retry = (
+        os.environ.get("RADIATION_ADMISSIBILITY_RETRY", "0") == "1"
+    )
     trace = RadiationStageTrace(
         output,
         use_accepted_metric_for_predictor_radiation_recovery=use_accepted_recovery,
+        use_radiation_admissibility_retry=use_admissibility_retry,
     )
     try:
         return trace.run()
