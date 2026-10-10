@@ -1,0 +1,47 @@
+name: "[0star] first-cell scalar RHS diagnostic"
+
+on:
+  push:
+    branches:
+      - diag/discrete-consistent-initial-review
+
+permissions:
+  contents: read
+
+jobs:
+  first-cell-scalar-rhs:
+    if: contains(github.event.head_commit.message, '[run-first-cell-scalar-rhs]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    env:
+      PYTHONPATH: .
+    steps:
+      - name: Checkout diagnostic branch and pinned vendor submodule
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Re-run discrete-consistent initializer admission tests
+        run: python -m pytest -q tests/test_discrete_consistent_initial.py
+
+      - name: Run focused first-cell RHS and grouped accepted-step diagnostic
+        env:
+          GITHUB_SHA: \${{ github.sha }}
+        run: python -m engine.first_cell_scalar_rhs_diagnostic
+
+      - name: Upload first-cell RHS diagnostic report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: first-cell-scalar-rhs-diagnostic
+          path: runs/first-cell-scalar-rhs-diagnostic/report.json
+          if-no-files-found: warn
