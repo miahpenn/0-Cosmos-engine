@@ -50,23 +50,29 @@ def _sample(state, residual, label):
     }
 
 
-def run_case(mode: str = "candidate") -> dict:
+def run_case(mode: str = "candidate", resolution: int | None = None) -> dict:
     if mode not in ("baseline", "candidate"):
         raise ValueError("mode must be 'baseline' or 'candidate'")
+    settings = dict(SETTINGS)
+    if resolution is not None:
+        resolution = int(resolution)
+        if resolution < 8:
+            raise ValueError("resolution must be at least 8")
+        settings["resolution"] = resolution
     kernel = V55ProductionKernel()
     solver = None
     if mode == "candidate":
         state, B, residual_history, solver = discrete_consistent_state(
             kernel,
-            resolution=SETTINGS["resolution"],
-            r_max=SETTINGS["r_max"],
-            amplitude=SETTINGS["amplitude"],
-            width=SETTINGS["width"],
-            D_amplitude=SETTINGS["D_amplitude"],
-            include_radiation=SETTINGS["include_radiation"],
-            max_iter=SETTINGS["solver_max_iter"],
-            tol=SETTINGS["solver_tolerance"],
-            max_cond=SETTINGS["solver_max_condition_number"],
+            resolution=settings["resolution"],
+            r_max=settings["r_max"],
+            amplitude=settings["amplitude"],
+            width=settings["width"],
+            D_amplitude=settings["D_amplitude"],
+            include_radiation=settings["include_radiation"],
+            max_iter=settings["solver_max_iter"],
+            tol=settings["solver_tolerance"],
+            max_cond=settings["solver_max_condition_number"],
             return_info=True,
         )
         solver = {
@@ -86,12 +92,12 @@ def run_case(mode: str = "candidate") -> dict:
         state.geometry.B.fill(0.0)
     else:
         state = kernel.initialize(
-            resolution=SETTINGS["resolution"],
-            r_max=SETTINGS["r_max"],
-            amplitude=SETTINGS["amplitude"],
-            width=SETTINGS["width"],
-            D_amplitude=SETTINGS["D_amplitude"],
-            include_radiation=SETTINGS["include_radiation"],
+            resolution=settings["resolution"],
+            r_max=settings["r_max"],
+            amplitude=settings["amplitude"],
+            width=settings["width"],
+            D_amplitude=settings["D_amplitude"],
+            include_radiation=settings["include_radiation"],
         )
 
     initial_residual = hamiltonian_residual(state)
@@ -126,12 +132,12 @@ def run_case(mode: str = "candidate") -> dict:
         "final": None,
     }
 
-    dt_nominal = SETTINGS["cfl"] * float(state.grid.dr)
-    final_time = SETTINGS["final_time"]
+    dt_nominal = settings["cfl"] * float(state.grid.dr)
+    final_time = settings["final_time"]
     time_tolerance = (
         32.0 * np.finfo(float).eps * max(abs(final_time), abs(dt_nominal))
     )
-    sample_targets = SETTINGS["sample_times"][1:]
+    sample_targets = settings["sample_times"][1:]
     next_sample = 0
     cumulative = {}
     accepted_steps = 0
@@ -227,34 +233,40 @@ def run_case(mode: str = "candidate") -> dict:
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--mode", choices=("baseline", "candidate"), default="candidate")
+    parser.add_argument("--mode", choices=("baseline", "candidate", "both"), default="candidate")
+    parser.add_argument("--resolution", type=int, default=SETTINGS["resolution"])
     args = parser.parse_args()
-    output = (
-        Path("runs/discrete-consistent-initial-decomposition-baseline/report.json")
-        if args.mode == "baseline"
-        else Path("runs/discrete-consistent-initial-decomposition/report.json")
-    )
-    output.parent.mkdir(parents=True, exist_ok=True)
-    report = run_case(args.mode)
-    output.write_text(json.dumps(report, indent=2, allow_nan=False))
-    print(json.dumps({
-        "status": report["status"],
-        "source_commit": report["source_commit"],
-        "mode": report["mode"],
-        "settings": report["settings"],
-        "solver": report["solver"],
-        "initial": report["initial"],
-        "final": report["final"],
-        "accepted_step_count": report["accepted_step_count"],
-        "max_step_closure_error_all_cells": report["max_step_closure_error_all_cells"],
-        "cumulative_component_delta_H_center": report["cumulative_component_delta_H_center"],
-        "net_delta_H_center": report["net_delta_H_center"],
-        "cumulative_component_sum_center": report["cumulative_component_sum_center"],
-        "cumulative_component_sum_closure_center": report["cumulative_component_sum_closure_center"],
-        "failure": report["failure"],
-        "admission": report["admission"],
-    }, indent=2, allow_nan=False), flush=True)
-    return 0 if report["status"] == "completed" else 2
+    modes = ("baseline", "candidate") if args.mode == "both" else (args.mode,)
+    statuses = []
+    for mode in modes:
+        output = (
+            Path("runs/discrete-consistent-initial-decomposition-baseline/report.json")
+            if mode == "baseline"
+            else Path("runs/discrete-consistent-initial-decomposition/report.json")
+        )
+        output.parent.mkdir(parents=True, exist_ok=True)
+        report = run_case(mode, resolution=args.resolution)
+        output.write_text(json.dumps(report, indent=2, allow_nan=False))
+        summary = {
+            "status": report["status"],
+            "source_commit": report["source_commit"],
+            "mode": report["mode"],
+            "settings": report["settings"],
+            "solver": report["solver"],
+            "initial": report["initial"],
+            "final": report["final"],
+            "accepted_step_count": report["accepted_step_count"],
+            "max_step_closure_error_all_cells": report["max_step_closure_error_all_cells"],
+            "cumulative_component_delta_H_center": report["cumulative_component_delta_H_center"],
+            "net_delta_H_center": report["net_delta_H_center"],
+            "cumulative_component_sum_center": report["cumulative_component_sum_center"],
+            "cumulative_component_sum_closure_center": report["cumulative_component_sum_closure_center"],
+            "failure": report["failure"],
+            "admission": report["admission"],
+        }
+        print(json.dumps(summary, indent=2, allow_nan=False), flush=True)
+        statuses.append(report["status"])
+    return 0 if all(status == "completed" for status in statuses) else 2
 
 
 if __name__ == "__main__":
