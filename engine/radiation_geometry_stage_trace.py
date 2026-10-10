@@ -116,7 +116,7 @@ class RadiationStageTrace:
         }
 
     def _geometry_minima(self, grid, geometry, t, stage, step_index):
-        r = _array(grid.r)
+        r = _array(grid.centers)
         fields = ("a", "b", "X", "alpha")
         context_values = {
             name: _array(getattr(geometry, name)) for name in fields
@@ -182,10 +182,10 @@ class RadiationStageTrace:
             "dt": _safe_float(dt),
             "stage": stage,
             "grid_index_min_C": idx_c,
-            "r_min_C": float(grid.r[idx_c]),
+            "r_min_C": float(grid.centers[idx_c]),
             "min_C": _safe_float(C[idx_c]),
             "grid_index_max_ratio": idx_r,
-            "r_max_ratio": float(grid.r[idx_r]),
+            "r_max_ratio": float(grid.centers[idx_r]),
             "max_ratio": _safe_float(ratio[idx_r]),
             "negative_energy_cells": np.where(cone["U_E"] < 0.0)[0].astype(int).tolist(),
             "negative_cone_cells": np.where(C < 0.0)[0].astype(int).tolist(),
@@ -200,7 +200,7 @@ class RadiationStageTrace:
                 m = cone["metrics"][i]
                 cells.append({
                     "i": i,
-                    "r": float(grid.r[i]),
+                    "r": float(grid.centers[i]),
                     "U_E": float(cone["U_E"][i]),
                     "U_r": float(cone["U_r"][i]),
                     "sqrt_gamma": float(cone["sqrt_gamma"][i]),
@@ -254,7 +254,7 @@ class RadiationStageTrace:
             src = sources.get(i)
             if src is None:
                 rows.append({
-                    "i": i, "r": float(grid.r[i]),
+                    "i": i, "r": float(grid.centers[i]),
                     "source_capture_missing": True,
                     "C_accepted": float(cone0["C"][i]),
                     "C_predictor": float(conep["C"][i]),
@@ -283,7 +283,7 @@ class RadiationStageTrace:
             closure = dflux + dsource + dmetric - dtotal
             rows.append({
                 "i": i,
-                "r": float(grid.r[i]),
+                "r": float(grid.centers[i]),
                 "source_capture_missing": False,
                 "C_accepted": C0,
                 "U_E_accepted": U_E0,
