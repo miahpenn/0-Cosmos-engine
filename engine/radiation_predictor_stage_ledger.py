@@ -180,8 +180,7 @@ class RadiationPredictorStageLedger(RadiationStageTrace):
             "branch": os.environ.get("GITHUB_REF_NAME", "local"),
             "run_trigger_commit": os.environ.get("GITHUB_SHA"),
             "source_file_sha256": hashes,
-            "vendor_submodule_commit": self._trace_provenance()["vendor_submodule_commit"]
-                if hasattr(self, "_trace_provenance") else None,
+            "vendor_submodule_commit": _trace_provenance()["vendor_submodule_commit"],
             "capture_from_t": CAPTURE_FROM_T,
             "cells": "outermost five cells (75-79 for N=80)",
             "steps": [self.ledger_steps[k] for k in sorted(self.ledger_steps, key=int)],
