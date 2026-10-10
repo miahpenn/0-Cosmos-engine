@@ -1,10 +1,11 @@
-"""Short-run ledger of regularity-projection displacement versus Hamiltonian drift.
+"""CFL-pair ledger of regularity-projection displacement versus Hamiltonian drift.
 
 Diagnostic only. The pinned projection routine is wrapped to measure its actual
 per-call state displacement during evolution; no production source is changed.
-Uses resolution=40, r_max=40, dt=0.03*dr, target t=3.
+Uses resolution=40, r_max=40, target t=3, and three dt/dr factors (0.03, 0.015,
+0.0075). This tests whether accumulated projection displacement and H drift
+remain comparable as the step count changes; correlation is not causation.
 """
-import copy
 import math
 import pathlib
 import sys
@@ -18,6 +19,8 @@ from engine import v55_pirk_adapter as ad
 
 _, vacuum, _ = ad.vendor_modules()
 FIELDS = ("a", "b", "X", "Aa", "K", "Lambda")
+DT_FACTORS = (0.03, 0.015, 0.0075)
+TARGET_T = 3.0
 
 
 def Hprof(st):
@@ -26,7 +29,7 @@ def Hprof(st):
     return np.asarray(raw["hamiltonian"]) - 16.0 * math.pi * np.asarray(tot.rho)
 
 
-def run_case(label, amplitude, D_amplitude):
+def run_case(label, amplitude, D_amplitude, dt_factor):
     kernel = V55ProductionKernel()
     original_projection = vacuum.enforce_algebraic_regularity
     ledger = {
@@ -61,14 +64,16 @@ def run_case(label, amplitude, D_amplitude):
             values.update(signed=0.0, absolute=0.0, max_abs_single=0.0)
         calls = 0
         H_initial = Hprof(state)
-        dt = 0.03 * state.grid.dr
-        target_t = 3.0
-        nsteps = int(round(target_t / dt))
+        dt = dt_factor * state.grid.dr
+        nsteps = int(round(TARGET_T / dt))
         for _ in range(nsteps):
             state = kernel.step(state, dt)
         H_final = Hprof(state)
         drift = H_final - H_initial
-        print(f"{label}: steps={nsteps} dt={dt:.6g} t_final={state.t:.6g} projection_calls={calls}")
+        print(
+            f"{label}: dt/dr={dt_factor:.5g} steps={nsteps} dt={dt:.6g} "
+            f"t_final={state.t:.6g} projection_calls={calls}"
+        )
         print(
             f"   H drift cell0={drift[0]:+.6e}; "
             f"max|drift| cells0-4={np.max(np.abs(drift[:5])):.6e}; "
@@ -86,5 +91,6 @@ def run_case(label, amplitude, D_amplitude):
 
 
 if __name__ == "__main__":
-    run_case("candidate S/D", 0.01, 1.0e-10)
-    run_case("background", 0.0, 0.0)
+    for factor in DT_FACTORS:
+        run_case("candidate S/D", 0.01, 1.0e-10, factor)
+        run_case("background", 0.0, 0.0, factor)
