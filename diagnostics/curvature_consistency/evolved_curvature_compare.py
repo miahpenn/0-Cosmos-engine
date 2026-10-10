@@ -1,11 +1,14 @@
-"""Evolved-state curvature consistency audit.
+"""Evolved-state curvature consistency and local constraint-budget audit.
 
-Compares the pinned vendor BSSN curvature with the repository's independent
-general-BSSN ricci_terms() on identical geometry arrays. Both use evolved
-Lambda in the Ricci principal part. No polar-areal identity is used.
-The initial-slice agreement is a gate; failure stops before evolution.
-Measurement only: no production equations or trajectory settings are changed.
+Compares the pinned vendor BSSN curvature with the repository's general-BSSN
+ricci_terms() on identical states. Both use evolved Lambda in the Ricci
+principal part. No polar-areal identity is used.
+
+At t=0,1,2,3, also measures one-step Hamiltonian changes from the curvature,
+extrinsic-curvature terms, S, D, COSMOS phi, and fluid energy. The regularity
+projection's state-map offset is reported separately. Measurement only.
 """
+import copy
 import math
 import pathlib
 import sys
@@ -20,6 +23,7 @@ from engine import reference_pirk_unified as ref
 from engine import v55_pirk_adapter as adapter
 from engine.discrete_consistent_initial import discrete_consistent_state
 from engine.production_kernel import V55ProductionKernel
+from engine.scalar_system import ScalarFields, scalar_projection
 from engine.stress_energy import assemble_total_stress_energy
 
 _, vacuum, _ = adapter.vendor_modules()
@@ -30,6 +34,7 @@ AMPLITUDE = 0.01
 D_AMPLITUDE = 1.0e-10
 CFL = 0.03
 TARGET_TIMES = (1.0, 2.0, 3.0)
+PROBE_DT_FACTORS = (0.03, 0.015, 0.0075)
 INITIAL_AGREEMENT_TOL = 1.0e-12
 
 
@@ -53,17 +58,14 @@ def compare_derivative_operators(state, reference_grid):
         "b": (geometry.b, +1),
         "X": (geometry.X, +1),
         "Lambda": (geometry.Lambda, -1),
+        "alpha": (geometry.alpha, +1),
     }
     second_order = {
         "a": (geometry.a, +1),
         "b": (geometry.b, +1),
         "X": (geometry.X, +1),
+        "alpha": (geometry.alpha, +1),
     }
-    # Alpha derivatives do not enter R itself, but are checked as a useful
-    # companion because the same vendor geometry_terms routine also returns
-    # lapse-Hessian terms used by the geometry RHS.
-    first_order["alpha"] = (geometry.alpha, +1)
-    second_order["alpha"] = (geometry.alpha, +1)
 
     for name, (values, parity) in first_order.items():
         vendor = np.asarray(grid.cell_derivative_fourth(values, parity=parity))
@@ -78,6 +80,33 @@ def compare_derivative_operators(state, reference_grid):
     return results
 
 
+def scalar_density_components(state):
+    """Return isolated S, D, and phi energy densities for delta accounting.
+
+    In the S-only and D-only isolated evaluations, phi=0 contributes the same
+    constant potential offset at every time. That offset cancels in differences;
+    these component values must not be summed as absolute total rho.
+    """
+    zero = np.zeros_like(state.scalars.S)
+    components = {}
+    names = ("S", "PS", "D", "PD", "phi", "Pi")
+    for field_name in ("S", "D", "phi"):
+        isolated = ScalarFields(*(
+            getattr(state.scalars, name)
+            if name == field_name
+            or (field_name == "S" and name == "PS")
+            or (field_name == "D" and name == "PD")
+            or (field_name == "phi" and name == "Pi")
+            else zero
+            for name in names
+        ))
+        components[field_name] = np.asarray(
+            scalar_projection(state.grid, state.geometry, isolated)[0],
+            dtype=float,
+        )
+    return components
+
+
 def hamiltonian_residual(state):
     raw = vacuum.constraints(state.grid, state.geometry)
     total = assemble_total_stress_energy(
@@ -86,7 +115,42 @@ def hamiltonian_residual(state):
     return np.asarray(raw["hamiltonian"]) - 16.0 * math.pi * np.asarray(total.rho)
 
 
-def report(state, reference_grid, label, initial_gate=False):
+def constraint_components(state):
+    """Term accounting for H; signs match the vendor constraint definition."""
+    geometry = state.geometry
+    raw = vacuum.constraints(state.grid, geometry)
+    terms = vacuum.geometry_terms(state.grid, geometry)
+    total = assemble_total_stress_energy(
+        state.grid, geometry, state.scalars, state.matter
+    )
+    scalar_parts = scalar_density_components(state)
+    R = np.asarray(terms["R"], dtype=float)
+    Aa = np.asarray(geometry.Aa, dtype=float)
+    K = np.asarray(geometry.K, dtype=float)
+    A_term = -1.5 * Aa**2
+    K_term = (2.0 / 3.0) * K**2
+    H_vendor = np.asarray(raw["hamiltonian"]) - 16.0 * math.pi * np.asarray(total.rho)
+    H_reconstructed = (
+        R + A_term + K_term
+        - 16.0 * math.pi * np.asarray(total.scalar_rho)
+        - 16.0 * math.pi * np.asarray(total.fluid_rho)
+    )
+    return {
+        "R": R,
+        "A_term": A_term,
+        "K_term": K_term,
+        "rho_scalar": np.asarray(total.scalar_rho, dtype=float),
+        "rho_fluid": np.asarray(total.fluid_rho, dtype=float),
+        "S_rho": scalar_parts["S"],
+        "D_rho": scalar_parts["D"],
+        "phi_rho": scalar_parts["phi"],
+        "H_vendor": H_vendor,
+        "H_reconstructed": H_reconstructed,
+        "closure": H_reconstructed - H_vendor,
+    }
+
+
+def report_curvature(state, reference_grid, label, initial_gate=False):
     geometry = state.geometry
     radius = np.asarray(state.grid.centers)
     vendor_R = np.asarray(vacuum.geometry_terms(state.grid, geometry)["R"])
@@ -105,7 +169,7 @@ def report(state, reference_grid, label, initial_gate=False):
     H = hamiltonian_residual(state)
     areal_departure = np.asarray(geometry.b) / np.asarray(geometry.X) ** 2 - 1.0
 
-    print(f"[{label}] t={state.t:.12g}")
+    print(f"[CURVATURE {label}] t={state.t:.12g}")
     print("  derivative operator max-absolute differences:")
     for name in sorted(operator_maxima):
         d = derivative_diffs[name]
@@ -146,7 +210,59 @@ def report(state, reference_grid, label, initial_gate=False):
             f"curvature max {all_curvature_max:.3e}, tolerance "
             f"{INITIAL_AGREEMENT_TOL:.1e})"
         )
-    return all_curvature_max, operator_max
+
+
+def one_step_budget(kernel, state):
+    """Probe the state with short steps from a separately projected copy."""
+    raw_H = hamiltonian_residual(state)
+    projected = copy.deepcopy(state)
+    projected.geometry = vacuum.enforce_algebraic_regularity(
+        projected.grid, projected.geometry.copy()
+    )
+    base_H = hamiltonian_residual(projected)
+    projection_jump = base_H - raw_H
+    print(f"[ONE_STEP_BUDGET] base_t={state.t:.12g}")
+    print(
+        f"  projection-only deltaH: cell0={projection_jump[0]:+.6e}; "
+        f"maxabs_cells0-4={np.max(np.abs(projection_jump[:5])):.6e}; "
+        f"maxabs_all={np.max(np.abs(projection_jump)):.6e}"
+    )
+
+    base = constraint_components(projected)
+    base_dr = projected.grid.dr
+    for factor in PROBE_DT_FACTORS:
+        dt = factor * base_dr
+        advanced = kernel.step(copy.deepcopy(projected), dt)
+        after = constraint_components(advanced)
+        contributions = {
+            "dR": after["R"] - base["R"],
+            "dA_term": after["A_term"] - base["A_term"],
+            "dK_term": after["K_term"] - base["K_term"],
+            "S_term": -16.0 * math.pi * (after["S_rho"] - base["S_rho"]),
+            "D_term": -16.0 * math.pi * (after["D_rho"] - base["D_rho"]),
+            "phi_term": -16.0 * math.pi * (after["phi_rho"] - base["phi_rho"]),
+            "fluid_term": -16.0 * math.pi * (after["rho_fluid"] - base["rho_fluid"]),
+        }
+        direct_delta = after["H_vendor"] - base["H_vendor"]
+        reconstructed_delta = np.sum(np.stack(list(contributions.values())), axis=0)
+        scalar_delta = -16.0 * math.pi * (after["rho_scalar"] - base["rho_scalar"])
+        scalar_split_delta = (
+            contributions["S_term"] + contributions["D_term"] + contributions["phi_term"]
+        )
+        print(f"  dt/dr={factor:.4g} dt={dt:.6g}: cell0 dH={direct_delta[0]:+.6e}")
+        for name, values in contributions.items():
+            print(
+                f"    {name}: cell0={values[0]:+.6e}; "
+                f"maxabs_cells0-4={np.max(np.abs(values[:5])):.6e}; "
+                f"maxabs_all={np.max(np.abs(values)):.6e}"
+            )
+        print(
+            f"    accounting closure: maxabs(dH_direct - sum_terms)="
+            f"{np.max(np.abs(direct_delta - reconstructed_delta)):.3e}; "
+            f"scalar split delta mismatch="
+            f"{np.max(np.abs(scalar_delta - scalar_split_delta)):.3e}; "
+            f"H reconstruction maxabs={np.max(np.abs(base['closure'])):.3e}"
+        )
 
 
 if __name__ == "__main__":
@@ -161,10 +277,12 @@ if __name__ == "__main__":
         include_radiation=True,
     )
     reference_grid = ref.Grid(N, R_MAX)
-    report(state, reference_grid, "initial slice", initial_gate=True)
+    report_curvature(state, reference_grid, "initial slice", initial_gate=True)
+    one_step_budget(kernel, state)
 
     dt = CFL * state.grid.dr
     for target in TARGET_TIMES:
         while state.t < target - 1.0e-12:
             state = kernel.step(state, min(dt, target - state.t))
-        report(state, reference_grid, "evolved slice")
+        report_curvature(state, reference_grid, "evolved slice")
+        one_step_budget(kernel, state)
