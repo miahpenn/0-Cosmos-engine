@@ -1,0 +1,40 @@
+name: Diagnostic - centre residual and coupling audit
+
+on:
+  push:
+    branches:
+      - diag/centre-coupling-audit
+    paths:
+      - engine/centre_coupling_residual_audit.py
+      - .github/workflows/centre-coupling-residual-audit.yml
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      PYTHONPATH: .
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Run existing tests
+        run: pytest -q
+      - name: Run centre residual and coupling audit
+        run: python -m engine.centre_coupling_residual_audit
+      - name: Upload diagnostic outputs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: centre-coupling-residual-audit
+          path: runs/centre-coupling-residual-audit/
+          if-no-files-found: warn
