@@ -115,6 +115,20 @@ def hamiltonian_residual(state):
     return np.asarray(raw["hamiltonian"]) - 16.0 * math.pi * np.asarray(total.rho)
 
 
+def metric_connection_expression(grid, geometry):
+    """Metric-derived conformal connection used by the vendor constraint."""
+    radius = np.asarray(grid.centers)
+    ap = np.asarray(grid.cell_derivative_fourth(geometry.a, parity=+1))
+    bp = np.asarray(grid.cell_derivative_fourth(geometry.b, parity=+1))
+    return (
+        ap / (2.0 * np.asarray(geometry.a) ** 2)
+        - bp / (np.asarray(geometry.a) * np.asarray(geometry.b))
+        + 2.0 / radius * (
+            1.0 / np.asarray(geometry.b) - 1.0 / np.asarray(geometry.a)
+        )
+    )
+
+
 def constraint_components(state):
     """Term accounting for H; signs match the vendor constraint definition."""
     geometry = state.geometry
@@ -238,17 +252,33 @@ def report_curvature(state, reference_grid, label, initial_gate=False):
 def one_step_budget(kernel, state):
     """Probe the state with short steps from a separately projected copy."""
     raw_H = hamiltonian_residual(state)
+    raw_connection = np.asarray(
+        vacuum.constraints(state.grid, state.geometry)["connection"], dtype=float
+    )
     projected = copy.deepcopy(state)
     projected.geometry = vacuum.enforce_algebraic_regularity(
         projected.grid, projected.geometry.copy()
     )
     base_H = hamiltonian_residual(projected)
     projection_jump = base_H - raw_H
+    base_connection = np.asarray(
+        vacuum.constraints(projected.grid, projected.geometry)["connection"],
+        dtype=float,
+    )
+    connection_projection_jump = base_connection - raw_connection
+    base_metric_connection = metric_connection_expression(
+        projected.grid, projected.geometry
+    )
     print(f"[ONE_STEP_BUDGET] base_t={state.t:.12g}")
     print(
         f"  projection-only deltaH: cell0={projection_jump[0]:+.6e}; "
         f"maxabs_cells0-4={np.max(np.abs(projection_jump[:5])):.6e}; "
         f"maxabs_all={np.max(np.abs(projection_jump)):.6e}"
+    )
+    print(
+        f"  projection-only deltaC_Lambda: cell0={connection_projection_jump[0]:+.6e}; "
+        f"maxabs_cells0-4={np.max(np.abs(connection_projection_jump[:5])):.6e}; "
+        f"maxabs_all={np.max(np.abs(connection_projection_jump)):.6e}"
     )
 
     base = constraint_components(projected)
@@ -257,6 +287,21 @@ def one_step_budget(kernel, state):
         dt = factor * base_dr
         advanced = kernel.step(copy.deepcopy(projected), dt)
         after = constraint_components(advanced)
+        after_connection = np.asarray(
+            vacuum.constraints(advanced.grid, advanced.geometry)["connection"],
+            dtype=float,
+        )
+        delta_connection = after_connection - base_connection
+        delta_lambda = (
+            np.asarray(advanced.geometry.Lambda) - np.asarray(projected.geometry.Lambda)
+        )
+        after_metric_connection = metric_connection_expression(
+            advanced.grid, advanced.geometry
+        )
+        delta_metric_connection = after_metric_connection - base_metric_connection
+        connection_split_closure = (
+            delta_connection - (delta_lambda - delta_metric_connection)
+        )
         contributions = {
             "dR": after["R"] - base["R"],
             "dA_term": after["A_term"] - base["A_term"],
@@ -285,6 +330,16 @@ def one_step_budget(kernel, state):
             f"scalar split delta mismatch="
             f"{np.max(np.abs(scalar_delta - scalar_split_delta)):.3e}; "
             f"H reconstruction maxabs={np.max(np.abs(base['closure'])):.3e}"
+        )
+        print(
+            f"    dC_Lambda: cell0={delta_connection[0]:+.6e}; "
+            f"maxabs_cells0-4={np.max(np.abs(delta_connection[:5])):.6e}; "
+            f"maxabs_all={np.max(np.abs(delta_connection)):.6e}"
+        )
+        print(
+            f"    dLambda: cell0={delta_lambda[0]:+.6e}; "
+            f"d(metric connection): cell0={delta_metric_connection[0]:+.6e}; "
+            f"split closure={np.max(np.abs(connection_split_closure)):.3e}"
         )
 
 
