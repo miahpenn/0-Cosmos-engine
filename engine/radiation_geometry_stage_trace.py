@@ -365,6 +365,7 @@ class RadiationStageTrace:
         original_step = kernel_cls.step
         original_evolve = matter_rhs_module.evolve_species
         original_radiation_source = matter_system_module._radiation_source
+        original_boundary = kernel_cls._apply_outer_light_boundary
         trace = self
 
         def note_failure_identity(step, stage, caller, grid, exc):
@@ -390,6 +391,50 @@ class RadiationStageTrace:
                     active["sources"][i] = (float(result[0]), float(result[1]))
                 active["source_index"] += 1
             return result
+
+        def traced_boundary(grid, geometry, scalars, matter,
+                            radiation_recovery_metric=None):
+            step = trace.current_step
+            if step is None:
+                if radiation_recovery_metric is None:
+                    return original_boundary(grid, geometry, scalars, matter)
+                return original_boundary(
+                    grid, geometry, scalars, matter,
+                    radiation_recovery_metric=radiation_recovery_metric,
+                )
+
+            t = float(step["t0"])
+            tau = float(step["tau0"])
+            idx = int(step.get("boundary_count", 0))
+            step["boundary_count"] = idx + 1
+            labels = (
+                "primary_predictor_outer_light_boundary",
+                "completed_state_outer_light_boundary",
+            )
+            stage = labels[idx] if idx < len(labels) else f"outer_light_boundary_call_{idx}"
+            trace.record_stage(
+                stage, grid, geometry, matter, t, tau,
+                trace.step_index, step["dt"], force=(idx == 1),
+            )
+            try:
+                if radiation_recovery_metric is None:
+                    return original_boundary(grid, geometry, scalars, matter)
+                return original_boundary(
+                    grid, geometry, scalars, matter,
+                    radiation_recovery_metric=radiation_recovery_metric,
+                )
+            except Exception as exc:
+                detail = f"{type(exc).__name__}: {exc}"
+                trace.record_stage(
+                    stage + "_failure", grid, geometry, matter, t, tau,
+                    trace.step_index, step["dt"], force=True, exception=detail,
+                )
+                note_failure_identity(
+                    step, stage,
+                    "engine.production_kernel.V55ProductionKernel._apply_outer_light_boundary",
+                    grid, exc,
+                )
+                raise
 
         def traced_evolve(*args, **kwargs):
             species = kwargs.get("species")
@@ -516,6 +561,7 @@ class RadiationStageTrace:
                 "dt": float(dt),
                 "solve_count": 0,
                 "rhs_count": 0,
+                "boundary_count": 0,
                 "rhs0_record": None,
                 "failing_stage": None,
             }
@@ -549,11 +595,12 @@ class RadiationStageTrace:
         matter_system_module._radiation_source = traced_radiation_source
         kernel_cls._solve_lapse = staticmethod(traced_solve)
         kernel_cls._rhs = traced_rhs
+        kernel_cls._apply_outer_light_boundary = staticmethod(traced_boundary)
         kernel_cls.step = traced_step
 
         self._restore_hooks = (
             kernel_cls, original_solve, original_rhs, original_step,
-            original_evolve, original_radiation_source,
+            original_evolve, original_radiation_source, original_boundary,
         )
 
     def prune_tail(self, cutoff_t):

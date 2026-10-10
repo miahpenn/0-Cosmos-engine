@@ -333,9 +333,73 @@ def test_trace_records_rhs_exception_stage_and_cell_identity(tmp_path, monkeypat
             "ValueError: radiation inversion failure at cell i=3: forced trace test",
         )
     finally:
-        kernel_cls, old_solve, old_rhs, old_step, old_evolve, old_source = old_hooks
+        kernel_cls, old_solve, old_rhs, old_step, old_evolve, old_source, old_boundary = old_hooks
         kernel_cls._solve_lapse = staticmethod(old_solve)
         kernel_cls._rhs = old_rhs
+        kernel_cls._apply_outer_light_boundary = staticmethod(old_boundary)
         kernel_cls.step = old_step
+        mr.evolve_species = old_evolve
+        ms._radiation_source = old_source
+
+
+def test_trace_records_completed_boundary_exception_stage_and_cell_identity(
+    tmp_path, monkeypatch
+):
+    """Boundary stress-energy failures must identify the completed-state stage."""
+    import engine.production_kernel as pk
+    from engine.radiation_geometry_stage_trace import RadiationStageTrace
+
+    def fail_boundary(grid, geometry, scalars, matter, radiation_recovery_metric=None):
+        raise ValueError(
+            "radiation inversion failure at cell i=3: forced boundary trace test"
+        )
+
+    # Install the failure before the trace wraps the production boundary method.
+    monkeypatch.setattr(
+        pk.V55ProductionKernel, "_apply_outer_light_boundary",
+        staticmethod(fail_boundary),
+    )
+    trace = RadiationStageTrace(tmp_path)
+    recorded = []
+    monkeypatch.setattr(
+        trace, "record_stage",
+        lambda stage, *args, **kwargs: recorded.append(
+            (stage, kwargs.get("exception"))
+        ),
+    )
+    trace.step_index = 12
+    trace.current_step = {
+        "t0": 1.25, "tau0": 0.75, "dt": 0.01,
+        "solve_count": 0, "rhs_count": 0, "boundary_count": 1,
+        "rhs0_record": None, "failing_stage": None,
+    }
+    grid = SimpleNamespace(centers=np.arange(5, dtype=float) + 0.5)
+    try:
+        with pytest.raises(ValueError, match="cell i=3"):
+            pk.V55ProductionKernel._apply_outer_light_boundary(
+                grid, object(), object(), SimpleNamespace(radiation=object())
+            )
+        assert trace.current_step["failing_stage"] == (
+            "completed_state_outer_light_boundary"
+        )
+        assert trace.current_step["failing_caller"] == (
+            "engine.production_kernel.V55ProductionKernel._apply_outer_light_boundary"
+        )
+        assert trace.current_step["failing_grid_index"] == 3
+        assert trace.current_step["failing_radius"] == pytest.approx(3.5)
+        assert recorded[0] == ("completed_state_outer_light_boundary", None)
+        assert recorded[-1] == (
+            "completed_state_outer_light_boundary_failure",
+            "ValueError: radiation inversion failure at cell i=3: forced boundary trace test",
+        )
+    finally:
+        trace.current_step = None
+        kernel_cls, old_solve, old_rhs, old_step, old_evolve, old_source, old_boundary = trace._restore_hooks
+        kernel_cls._solve_lapse = staticmethod(old_solve)
+        kernel_cls._rhs = old_rhs
+        kernel_cls._apply_outer_light_boundary = staticmethod(old_boundary)
+        kernel_cls.step = old_step
+        import engine.matter_rhs as mr
+        import engine.matter_system as ms
         mr.evolve_species = old_evolve
         ms._radiation_source = old_source
