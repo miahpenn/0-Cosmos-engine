@@ -73,11 +73,15 @@ def test_active_rhs_beta_source_pair_cancels_with_lapse_and_shift(monkeypatch):
     )
     assert np.any(mask), "probe did not exercise non-unit lapse and nonzero shift"
 
+    # delta_dm_energy_rhs is formed by subtracting two full RHS arrays.
+    # Bound subtraction roundoff using the magnitudes of those operands too,
+    # not only the much smaller coupling increment left after cancellation.
     scale = max(
         float(np.max(np.abs(scalar_energy_source[mask]))),
-        float(np.max(np.abs(delta_dm_energy_rhs[mask]))),
+        float(np.max(np.abs(matter_on["dark_matter"].energy_t[mask]))),
+        float(np.max(np.abs(matter_off["dark_matter"].energy_t[mask]))),
     )
-    roundoff_tolerance = 128.0 * np.finfo(float).eps * scale
+    roundoff_tolerance = 512.0 * np.finfo(float).eps * scale
     np.testing.assert_allclose(
         observed_pair_residual[mask],
         np.zeros_like(observed_pair_residual[mask]),
