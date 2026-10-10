@@ -17,6 +17,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 from engine.production_kernel import V55ProductionKernel
 from engine.stress_energy import assemble_total_stress_energy
+from engine.scalar_system import ScalarFields, scalar_projection
 from engine import v55_pirk_adapter as ad
 
 _, vacuum, _ = ad.vendor_modules()
@@ -227,14 +228,36 @@ def constraint_budget(state):
     }
 
 
+def scalar_density_components(state):
+    """Return separate S, D, and COSMOS-phi contributions to scalar rho."""
+    zero = np.zeros_like(state.scalars.S)
+    components = {}
+    names = ("S", "PS", "D", "PD", "phi", "Pi")
+    for field_name in ("S", "D", "phi"):
+        isolated = ScalarFields(*(
+            getattr(state.scalars, name) if name == field_name or
+            (field_name == "S" and name == "PS") or
+            (field_name == "D" and name == "PD") or
+            (field_name == "phi" and name == "Pi")
+            else zero
+            for name in names
+        ))
+        components[field_name] = np.asarray(
+            scalar_projection(state.grid, state.geometry, isolated)[0],
+            dtype=float,
+        )
+    return components
+
+
 def run_constraint_budget():
-    """Decompose the measured constraint drift without changing the evolution."""
+    """Decompose constraint drift into geometry, individual scalars, and fluids."""
     kernel = V55ProductionKernel()
     state = kernel.initialize(
         resolution=40, r_max=40.0, amplitude=0.01, width=7.0,
         D_amplitude=1.0e-10, include_radiation=True
     )
     initial = constraint_budget(state)
+    initial_scalar_parts = scalar_density_components(state)
     dt = 0.015 * state.grid.dr
     nsteps = int(round(TARGET_T / dt))
     snapshot_steps = {int(round(t / dt)): t for t in SNAPSHOT_TIMES}
@@ -245,9 +268,13 @@ def run_constraint_budget():
         if step not in snapshot_steps:
             continue
         now = constraint_budget(state)
+        now_scalar_parts = scalar_density_components(state)
         components = {
             "dH_geometry": now["H_geometry"] - initial["H_geometry"],
             "scalar_term": -16.0 * math.pi * (now["rho_scalar"] - initial["rho_scalar"]),
+            "S_term": -16.0 * math.pi * (now_scalar_parts["S"] - initial_scalar_parts["S"]),
+            "D_term": -16.0 * math.pi * (now_scalar_parts["D"] - initial_scalar_parts["D"]),
+            "COSMOS_phi_term": -16.0 * math.pi * (now_scalar_parts["phi"] - initial_scalar_parts["phi"]),
             "fluid_term": -16.0 * math.pi * (now["rho_fluid"] - initial["rho_fluid"]),
             "dH_total": now["H_total"] - initial["H_total"],
         }
