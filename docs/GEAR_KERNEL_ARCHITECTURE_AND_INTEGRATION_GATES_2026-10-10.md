@@ -168,8 +168,17 @@ First demonstrate the predicted convergence of source accounting and constraints
 - No clipping, radiation floors, artificial damping, branch resets, manufactured bounce, or hand-forced sign changes.
 - No edits to the canonical archive; no merge of this documentation branch to `main`; no change to REV16 or existing campaign criteria.
 
-## 8. Immediate next action
+## 8. Initial deterministic gates — executed 2026-10-10
 
-The architecture scope is now explicit, while the physical cross-lane bridges remain open. Next, add and run only deterministic, low-cost checks for (a) the homogeneous scalar/DM source identity, (b) state ownership/call-graph scope, and (c) the existing spatial algebraic/constraint diagnostics. Do not launch another long trajectory and do not insert the homogeneous helper into `V55ProductionKernel.step()` yet.
+The first gate set is now implemented on the isolated `research/gear-kernel-integration-gates` branch. No production physics file or archive baseline was changed.
 
-A future architecture revision must show the exact governing equations and conservation argument that closes each edge, along with its falsifiers, before any corresponding production code is written.
+- New `tests/test_architecture_gates.py`: checks homogeneous scalar–DM continuity-source cancellation at the initialized archive state, confirms unpromoted nonzero (Q) fails closed, and uses an AST/call-graph scope guard to ensure the live V5.5 production step/runner do not silently call the homogeneous COSMOS RHS/helper or introduce `CosmosState` as a production call.
+- Existing spatial checks were included in the same suite: `tests/test_center_regularity.py` tests initialized/one-step center regularity and determinant identities; `tests/test_outer_constraint_audit.py` checks the finite full-grid constraint profile, Hamiltonian reconstruction/decomposition and regional coverage; `tests/test_v55_reference.py` checks finite reference initial constraints; the remaining source/geometry tests also ran.
+- GitHub Actions run [38059261015](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38059261015) passed **110 tests in 32.14 s** at commit `c0e096d68b14a929a0df37676102ced82a720db9`. The normal test job succeeded; both optional long-campaign jobs were skipped.
+- This is a source-scope / deterministic component-gate pass, not a full-machine coupling pass, convergence proof, or campaign admission.
+
+## 9. Immediate next action
+
+Preserve these tests as scope guards. The next allowed step is a narrowly specified source-accounting review of the spatial beta-coupled scalar/DM terms and the independent homogeneous beta-source identity, including units, state/time levels, and conservation residuals. It must distinguish the same-form internal exchange identity from the still-open cross-lane local-source-to-global-(Q) bridge. Do not connect the homogeneous helper to `V55ProductionKernel.step()`, do not alter production equations, and do not launch another long trajectory yet.
+
+A future architecture revision must show the exact governing equations and conservation argument that closes each edge, along with falsifiers, before corresponding production code is written.
