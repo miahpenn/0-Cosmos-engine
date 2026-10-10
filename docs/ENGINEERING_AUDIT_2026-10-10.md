@@ -127,4 +127,6 @@ The late outer radiation failure has now been reproduced on the patched covarian
 
 ### Next gate
 
-Add a diagnostic-only outer-worldtube ledger for the explicit `a`, `b`, and `X` RHS contributions at cells 75–79; reconstruct `Δgamma_rr_inv`; then audit the matching characteristic-boundary variables before any controlled resolution/CFL comparison. No stabilization edit is authorized by this result.
+Code order now narrows the direct failing stage: the explicit Euler predictor advances `a`, `b`, and `X`, then applies the pinned `a*b²=1` algebraic regularity projection, then calls the first CMC lapse solve. Radiation inversion fails inside that solve, before the later outer-light-boundary call. Earlier boundary effects on the accepted state/RHS are not ruled out.
+
+Add a diagnostic-only outer-worldtube ledger for raw explicit `a`, `b`, and `X` RHS values, the unprojected Euler predictor, and post-projection values at cells 75–79; reconstruct `Δgamma_rr_inv` at each stage. Only then audit related characteristic-boundary variables and consider a controlled resolution/CFL comparison. No stabilization edit is authorized by this result.

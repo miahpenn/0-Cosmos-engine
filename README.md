@@ -7,12 +7,12 @@ GEAR-derived cyclic-cosmos numerical engine and diagnostic archive.
 
 **Active diagnostic branch:** `physics/spatial-beta-covariant-source-closure`  
 **Verified source baseline:** `9eed1cf95c52f001c2b87afbbe6da37faa56d50e` (isolated; not merged to `main`)  
-**Latest regression CI:** [Run #576](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38068938171) — **127 tests passed in 59.58 s**.  
-**Radiation diagnostic:** [Trace run #7](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38068938182) reproduced and captured the late outer predictor failure; see [the trace report](docs/RADIATION_PREDICTOR_TRACE_2026-10-10.md).
+**Latest regression CI:** [Run #579](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38070237509) — **128 tests passed in 35.48 s**.  
+**Radiation diagnostic:** [Trace run #7](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38068938182) reproduced and captured the late outer predictor failure; see [the trace report](docs/RADIATION_PREDICTOR_TRACE_2026-10-10.md) and the captured-state [metric-cone regression](tests/test_radiation_predictor_metric_cone_attribution.py).
 
 The current branch verifies the covariant scalar/DM source pair, a deterministic homogeneous-COSMOS limit, PIRK stage synchronization, and the production CMC residual at multiple initial configurations and on the actual predictor/final slices of a controlled one-step update. Its CMC proper-volume gauge now rejects non-finite or non-positive spatial metric factors before metric/matter operators are called; no metric clamp is used.
 
-These regression checks are software/numerical consistency gates, **not long-run physical validation**. A separate diagnostic-only N=80 radiation run now reproduces the late outer predictor realizability failure at t=46.98 accepted / t=47.01 attempted; its uploaded artifact and ordered cone-margin budget are documented in the trace report. The result localizes the final crossing to the predictor-metric evaluation but does not establish whether the upstream driver is the geometry RHS, boundary treatment, or coupled stage admissibility. No bounce, turnaround, or completed cycle is established.
+These regression checks are software/numerical consistency gates, **not long-run physical validation**. A separate diagnostic-only N=80 radiation run now reproduces the late outer predictor realizability failure at t=46.98 accepted / t=47.01 attempted; its uploaded artifact and ordered cone-margin budget are documented in the trace report. The result localizes the final crossing to the predictor-metric evaluation. Code order shows the failing first CMC lapse solve runs after the explicit Euler geometry predictor and algebraic regularity projection, but before the later outer-light-boundary call. The raw explicit RHS versus projection contribution is still unseparated. No bounce, turnaround, or completed cycle is established.
 
 **Governance note:** GitHub currently reports `main` and the active experimental branch as unprotected. The connected integration could not change repository protection settings. A repository administrator should review branch protection and required checks.
 
