@@ -1,4 +1,4 @@
-name: "[0star] discrete-consistent candidate Hamiltonian drift decomposition"
+name: "[0star] discrete-consistent matched Hamiltonian drift decomposition"
 
 on:
   push:
@@ -9,8 +9,8 @@ permissions:
   contents: read
 
 jobs:
-  candidate-drift-attribution:
-    if: contains(github.event.head_commit.message, '[run-discrete-consistent-decomposition]') || contains(github.event.head_commit.message, '[run-baseline-decomposition]')
+  matched-drift-attribution:
+    if: contains(github.event.head_commit.message, '[run-discrete-consistent-decomposition]') || contains(github.event.head_commit.message, '[run-baseline-decomposition]') || contains(github.event.head_commit.message, '[run-n80-decomposition-pair]')
     runs-on: ubuntu-latest
     timeout-minutes: 180
     env:
@@ -33,11 +33,12 @@ jobs:
       - name: Confirm candidate solver admission tests
         run: python -m pytest -q tests/test_discrete_consistent_initial.py
 
-      - name: Attribute baseline or candidate Hamiltonian drift over matched N=40 trajectory
+      - name: Attribute matched baseline/candidate Hamiltonian drift at selected resolution
         env:
           GITHUB_SHA: ${{ github.sha }}
-          RUN_MODE: ${{ contains(github.event.head_commit.message, '[run-baseline-decomposition]') && 'baseline' || 'candidate' }}
-        run: python -m engine.discrete_consistent_initial_decomposition --mode "$RUN_MODE"
+          RUN_MODE: ${{ contains(github.event.head_commit.message, '[run-baseline-decomposition]') && 'baseline' || contains(github.event.head_commit.message, '[run-n80-decomposition-pair]') && 'both' || 'candidate' }}
+          RESOLUTION: ${{ contains(github.event.head_commit.message, '[run-n80-decomposition-pair]') && '80' || '40' }}
+        run: python -m engine.discrete_consistent_initial_decomposition --mode "$RUN_MODE" --resolution "$RESOLUTION"
 
       - name: Upload per-step attribution report
         if: always()
