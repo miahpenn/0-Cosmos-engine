@@ -2,6 +2,21 @@
 
 GEAR-derived cyclic-cosmos numerical engine and diagnostic archive.
 
+
+## Current engineering checkpoint — 2026-10-10
+
+**Active diagnostic branch:** `physics/spatial-beta-covariant-source-closure`  
+**Verified head:** `1ad4b6219bfd6899d5f064cd90f19f6a2dee32c3` (isolated; not merged to `main`)  
+**Latest CI:** [Run #572](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38068034703) — **124 tests passed in 60.02 s**.
+
+The current branch verifies the covariant scalar/DM source pair, a deterministic homogeneous-COSMOS limit, PIRK stage synchronization, and the production CMC residual at multiple initial configurations and on the actual predictor/final slices of a controlled one-step update. Its CMC proper-volume gauge now rejects non-finite or non-positive spatial metric factors before metric/matter operators are called; no metric clamp is used.
+
+These are software/numerical consistency gates, **not long-run physical validation**. No extended physical trajectory was launched by the listed CI checks. The known late radiation outer-cell realizability failure has not yet been reproduced on this exact branch head. No bounce, turnaround, or completed cycle is established.
+
+**Governance note:** GitHub currently reports `main` and the active experimental branch as unprotected. The connected integration could not change repository protection settings. A repository administrator should review branch protection and required checks.
+
+For exact commit/run chronology, preserved failed attempts, equations and next gates, see [the engineering audit](docs/ENGINEERING_AUDIT_2026-10-10.md). The older campaign notes below are retained as historical records and should not be read as proof that those jobs are running now.
+
 ## Experimental status
 
 The active experimental work is on **0star-central-clock** and is not merged into `main`.
@@ -52,7 +67,11 @@ The current production validation sequence is therefore:
 No fitted feedback coefficient, free volume normalization, manufactured bounce law, lapse floor, or physical stop condition is permitted.
 
 
-## Launch note
+## Historical launch notes (retained record)
+
+The entries below preserve prior trigger messages and launch context; they are not a current run-status indicator.
+
+### Earlier launch notes
 The full bidirectional production diagnostic is being launched now: D-amplitude sensitivity plus an independent CMC-operator probe. This launch changes no physical equations.
 
 

@@ -80,3 +80,18 @@ Next diagnostic sequence:
 
 The A/B campaign is diagnostic-only and changes no physical evolution equation, source term, fitted coefficient, or boundary physics.
 
+
+
+## 2026-10-10 engineering update — isolated source/CMC branch
+
+This is a dated addendum to the 2026-10-06 record above. It does not replace that historical status or merge the current branch into production.
+
+- Active branch: `physics/spatial-beta-covariant-source-closure`.
+- Current tested head at this update: `1ad4b6219bfd6899d5f064cd90f19f6a2dee32c3`.
+- `main` remains `48f06d09a5b88b831ac86f6bdd3d9ecc94f092f6`; no merge was made.
+- [CI #572](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38068034703) passes **124 tests in 60.02 s**. This commit adds fail-fast CMC spatial-metric validation in both the projection and full lapse-solver entry point. [The preceding #571 failure](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38067950792) is preserved and documents a fixed stale variable reference.
+- Also verified: [#568, multi-configuration CMC residual](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38067318842); [#569, actual predictor/final CMC residual](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38067488971); [#570, invalid-metric projection gate](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38067741630).
+- The current CI runs tested code, not long physical trajectories; optional campaign jobs were skipped. The radiation outer-boundary failure still needs reproduction against a pinned current-head run.
+- Open questions remain: full-domain constraint/convergence behavior, radiation outer-boundary realizability, reciprocal local-COSMOS coupling, D-to-matter identification, and global shear closure. No turnaround, bounce, completed cycle, or validated cosmology is claimed.
+
+Standing rule unchanged: run the full machine, expose the actual defect, repair only the affected layer, and rerun. Keep code diagnostics, physics changes, and long-run campaigns independently identifiable.

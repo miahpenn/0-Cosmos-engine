@@ -78,3 +78,37 @@ No bounce, turnaround, completed cycle, or validated cosmology is established by
 **Run the full machine → expose the actual defect → repair only the affected layer → rerun.**
 
 Keep diagnostic engineering, physical-law changes, and numerical campaigns separately identifiable in commits and artifacts.
+
+
+## 7. Addendum — verified follow-on gates (2026-10-10)
+
+**Current experimental head at this update:** `1ad4b6219bfd6899d5f064cd90f19f6a2dee32c3`  
+**Branch:** `physics/spatial-beta-covariant-source-closure`  
+**Observed `main` head:** `48f06d09a5b88b831ac86f6bdd3d9ecc94f092f6` (unchanged; no merge)
+
+The audit snapshot above accurately records the starting point. The following later checks extend it; they are listed separately to preserve chronology and the failed attempt record.
+
+| Gate | Exact commit | Run | Result |
+|---|---|---|---|
+| Audit document CI | `72d6ef48082fc2c96af014f8b9aa70c3b4df25d5` | [#567](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38066744796) | Pass |
+| CMC residual at three deterministic initial configurations | `76999d2c9a4d62c88262444e357825ef9d97ffd8` | [#568](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38067318842) | 116 passed |
+| CMC residual on actual predictor and accepted slices | `7af42c00fb4b68a4888bebbc7fd3f4deb176f2a9` | [#569](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38067488971) | 117 passed |
+| Reject invalid metric in proper-volume projection | `373427dfba0307efb8c1051d16eaba556a6664c8` | [#570](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38067741630) | 121 passed |
+| First shared-helper refactor attempt | `8dc13270053d6aba943653571f49c32b6ffd0d5f` | [#571](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38067950792) | **Failed** — stale `expected_shape` reference raised `NameError` in `target_kdot` |
+| CMC helper reference correction and full solver preflight check | `1ad4b6219bfd6899d5f064cd90f19f6a2dee32c3` | [#572](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38068034703) | **124 passed in 60.02 s** |
+
+Run #571 is intentionally preserved as a failed development gate; #572 is the verified correction, not a replacement of the historical failure. In all these CI runs, the two optional long-campaign jobs (`center_repair_ab_clock` and `persist_d0_on_artifact`) were skipped by their explicit workflow conditions. No long physical trajectory was launched by these checks.
+
+### CMC metric-admissibility finding
+
+The earlier proper-volume expression used `sqrt(max(a, 0))`. That could conceal a negative radial metric coefficient while forming CMC gauge weights. The current branch removes that clamp and uses a shared fail-fast validation path for both `target_kdot` and `solve_cmc_lapse`. It rejects mismatched shapes, non-finite metric data, non-positive `r/a/b/X`, and invalid grid spacing before metric conversion, matter projection, or K-RHS evaluation. Regressions confirm negative `a/b/X` values are rejected before the respective downstream operators are called and non-finite metric data are rejected before K-RHS evaluation.
+
+This is an admissibility guard, not a geometry repair, projection, new physical term, or change in the CMC target. The same discrete residual threshold (`1e-10`) remains unchanged. The result is code-level consistency evidence only; it is not evidence of long-run stability or physical validity.
+
+### Repository status and next gate
+
+- `main` remains at `48f06d09a5b88b831ac86f6bdd3d9ecc94f092f6`; all work above remains isolated.
+- The repository still reports `main` and the experimental branch as unprotected. The connected GitHub integration could not inspect or change branch protection (HTTP 403); a repository administrator must review required-check enforcement.
+- The source-exchange, homogeneous-limit, stage-synchronization, multi-configuration CMC, actual predictor/final CMC, and invalid-metric rejection gates are green on their listed commits.
+- Still **not established**: long-horizon constraint/convergence behavior on this exact patched head, radiation outer-boundary failure reproduction on this head, reciprocal local-COSMOS coupling, a D-to-matter law, global shear closure, turnaround, bounce, or a completed cycle.
+- Next: continue the remaining deterministic diagnostic gates, then reproduce the known late radiation realizability/boundary failure on an explicitly pinned current commit. Keep that campaign separate from this source/gauge code audit, preserve all artifacts and hashes, and do not introduce clipping, damping, or speculative boundary physics.
