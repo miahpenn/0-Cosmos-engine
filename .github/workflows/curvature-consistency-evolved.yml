@@ -1,0 +1,37 @@
+name: Diagnostic - Evolved-state curvature consistency
+
+on:
+  push:
+    branches:
+      - diag/curvature-consistency-evolved
+    paths:
+      - diagnostics/curvature_consistency/**
+      - .github/workflows/curvature-consistency-evolved.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  curvature-consistency:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      PYTHONPATH: .
+    steps:
+      - name: Checkout diagnostic branch and pinned vendor submodule
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Compile diagnostic
+        run: python -m py_compile diagnostics/curvature_consistency/evolved_curvature_compare.py
+      - name: Compare initial and evolved curvature
+        run: python diagnostics/curvature_consistency/evolved_curvature_compare.py
