@@ -16,7 +16,7 @@ import numpy as np
 
 from . import production_kernel as production_kernel_module
 from . import v55_pirk_adapter as adapter
-from .radiation_geometry_stage_trace import RadiationStageTrace, _safe_float
+from .radiation_geometry_stage_trace import RadiationStageTrace, _trace_provenance
 
 CELLS = 5
 CAPTURE_FROM_T = 44.0
@@ -106,7 +106,7 @@ class RadiationPredictorStageLedger(RadiationStageTrace):
             )
             step = ledger.current_step
             if (step is not None
-                    and int(step.get("rhs_count", 0)) == 0
+                    and int(step.get("rhs_count", 0)) == 1
                     and float(step.get("t0", 0.0)) >= CAPTURE_FROM_T):
                 row = ledger._row_for_step(step)
                 row["accepted_geometry_and_rhs"] = {
