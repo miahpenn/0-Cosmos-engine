@@ -212,6 +212,17 @@ class V55TrueCMCPIRKKernel(V55ProductionKernel):
             grid, g0, s0, m0
         )[0]
 
+        # Extended-B recovery context is scoped to a single step and cleared
+        # on every exit path, including failures inside the predictor.
+        self._accepted_geometry_for_recovery = (
+            g0 if self.use_accepted_metric_for_predictor_radiation_recovery else None
+        )
+        try:
+            return self._step_body(state, dt, grid, g0, s0, m0)
+        finally:
+            self._accepted_geometry_for_recovery = None
+
+    def _step_body(self, state, dt, grid, g0, s0, m0):
         srhs0, mrhs0, _ = self._rhs(
             ProductionState(
                 grid=grid,
