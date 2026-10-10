@@ -93,6 +93,9 @@ def audit_initial_slice(resolution, r_max, amplitude=0.01, width=7.0):
     H_source = R_source + 4.0 * Kr * Kt + 2.0 * Kt * Kt - 16.0 * math.pi * rho_source
     rho_mismatch = rho_constraint - rho_source
     R_polar_minus_source = R_polar - R_source
+    # These quantities are algebraically linked, not independent evidence:
+    # R_polar - R_source = -2 * (B + r*D(B) - source) / r**2.
+    source_balance_curvature_identity = R_polar_minus_source + 2.0 * source_balance / (r * r)
     R_bssn_minus_source = R_bssn - R_source
 
     # Identity closing the decomposition:
@@ -101,7 +104,8 @@ def audit_initial_slice(resolution, r_max, amplitude=0.01, width=7.0):
 
     arrays = (
         B, source, source_balance, R_source, R_bssn, R_polar,
-        H_bssn, H_polar, H_source, rho_mismatch, decomposition_closure, M_bssn, conn, det
+        H_bssn, H_polar, H_source, rho_mismatch, decomposition_closure,
+        source_balance_curvature_identity, M_bssn, conn, det
     )
     return {
         "resolution": int(resolution),
@@ -114,6 +118,7 @@ def audit_initial_slice(resolution, r_max, amplitude=0.01, width=7.0):
         "source_balance_B_plus_r_dB_minus_source": _regions(source_balance, r, int(resolution)),
         "ricci_BSSN_minus_polar": _regions(R_bssn - R_polar, r, int(resolution)),
         "ricci_polar_minus_source": _regions(R_polar_minus_source, r, int(resolution)),
+        "source_balance_curvature_identity_error": _regions(source_balance_curvature_identity, r, int(resolution)),
         "ricci_BSSN_minus_source": _regions(R_bssn_minus_source, r, int(resolution)),
         "hamiltonian_BSSN": _regions(np.asarray(H_bssn), r, int(resolution)),
         "hamiltonian_independent_polar": _regions(np.asarray(H_polar), r, int(resolution)),
@@ -162,6 +167,7 @@ def main(output="runs/reference-initial-data-geometric-consistency/report.json")
             "source_away": case["source_balance_B_plus_r_dB_minus_source"]["max_abs_away_from_center"],
             "R_BSSN_minus_polar_first": case["ricci_BSSN_minus_polar"]["first_cell"],
             "R_polar_minus_source_first": case["ricci_polar_minus_source"]["first_cell"],
+            "source_balance_curvature_identity_error": case["source_balance_curvature_identity_error"]["max_abs_all"],
             "R_BSSN_minus_source_first": case["ricci_BSSN_minus_source"]["first_cell"],
             "H_source_closure_first": case["hamiltonian_source_algebraic_closure"]["first_cell"],
             "rho_density_mismatch_first": case["matter_density_constraint_minus_source"]["first_cell"],
