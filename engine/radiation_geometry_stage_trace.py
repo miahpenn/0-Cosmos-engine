@@ -35,8 +35,22 @@ RESOLUTION = 80
 R_MAX = 80.0
 CFL = 0.03
 TARGET_TIME = 50.0
+# Optional central proper-time endpoint for comparisons across differently gauged domains.
+TARGET_TAU: float | None = None
 TAIL_WINDOW = 2.0
 OUTER_CELLS = 5
+
+
+def _completion_status(
+    t: float, tau: float, target_time: float, target_tau: float | None
+) -> str | None:
+    if target_tau is not None:
+        if tau >= target_tau:
+            return "target_proper_time_completed_without_failure"
+        if t >= target_time:
+            return "coordinate_cap_reached_before_proper_time_target"
+        return None
+    return "target_time_completed_without_failure" if t >= target_time else None
 
 
 def _git(command: list[str]) -> str:
@@ -1096,9 +1110,14 @@ class RadiationStageTrace:
             self.rejected_step_attempts.append(dict(record))
             self.failure = None
 
+        if TARGET_TAU is not None and (
+            not math.isfinite(float(TARGET_TAU)) or float(TARGET_TAU) <= 0.0
+        ):
+            raise ValueError("TARGET_TAU must be finite and positive when set")
+
         while state.t < TARGET_TIME and (
             self.use_radiation_admissibility_retry or self.step_index < target_steps
-        ):
+        ) and (TARGET_TAU is None or state.tau < TARGET_TAU):
             dt = min(dt_proposal, TARGET_TIME - state.t)
             try:
                 if self.use_radiation_admissibility_retry:
@@ -1165,8 +1184,11 @@ class RadiationStageTrace:
                 }), flush=True)
                 last_report_step = self.step_index
         else:
-            if state.t >= TARGET_TIME:
-                status = "target_time_completed_without_failure"
+            completed_status = _completion_status(
+                float(state.t), float(state.tau), float(TARGET_TIME), TARGET_TAU
+            )
+            if completed_status is not None:
+                status = completed_status
             elif not self.use_radiation_admissibility_retry and self.step_index >= target_steps:
                 status = "step_cap_reached_without_failure"
 
@@ -1222,6 +1244,7 @@ class RadiationStageTrace:
                     "cfl": CFL,
                     "dt_nominal": float(dt_nominal),
                     "target_time": TARGET_TIME,
+                    "target_proper_time": TARGET_TAU,
                     "tail_window": TAIL_WINDOW,
                     "outer_cells_traced": OUTER_CELLS,
                     "amplitude": 0.01,
@@ -1253,6 +1276,11 @@ class RadiationStageTrace:
             "wall_elapsed_seconds": float(time.time() - self.started_wall),
             "notes": [
                 "The conservative radiation variables remain unmodified by the trace.",
+                (
+                    "The trace stops at the first accepted state reaching the requested central proper time."
+                    if TARGET_TAU is not None
+                    else "The trace stops at the configured coordinate-time endpoint."
+                ),
                 "The source is captured directly from the existing production radiation source routine.",
                 "Flux transport rate is reconstructed as the existing total radiation RHS minus that captured source; evolve_species sums only those two components for radiation.",
                 "The cone budget is ordered and uses the accepted spatial metric for the accepted, flux-only, and source-updated stages, then the predictor metric for the final predictor margin.",
