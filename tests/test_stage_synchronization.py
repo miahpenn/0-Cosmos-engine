@@ -51,8 +51,10 @@ def _assert_stage_matches_solve_input(stage, solve_call, label):
     # The solver is a one-pass projected CMC solve, not necessarily an
     # idempotent fixed-point map. Compare to the exact input and output from
     # that stage's own solve rather than solving again from the returned lapse.
+    # B is a gauge auxiliary that the step intentionally resets to zero after
+    # solving the lapse, and is not an input to solve_cmc_lapse.
     for name in _GEOMETRY_FIELDS:
-        if name != "alpha":
+        if name not in ("alpha", "B"):
             _assert_array_equal(
                 stage["geometry"][name],
                 solve_call["input"]["geometry"][name],
@@ -199,6 +201,21 @@ def test_step_uses_synchronized_predictor_and_matching_heun_rhs(monkeypatch):
                 getattr(getattr(final_state.matter, species), name), expected,
                 f"accepted {species}.{name} did not use matching RHS0/RHS1",
             )
+
+    # The final lapse must be the fourth solve's output on the accepted
+    # geometry/scalar/matter slice. B is reset after that solve by design.
+    final_snapshot = _snapshot(final_state)
+    _assert_stage_matches_solve_input(final_snapshot, solve_calls[3], "final")
+    _assert_array_equal(
+        final_snapshot["geometry"]["beta"],
+        np.zeros_like(final_snapshot["geometry"]["beta"]),
+        "accepted state did not preserve the zero-shift CMC branch",
+    )
+    _assert_array_equal(
+        final_snapshot["geometry"]["B"],
+        np.zeros_like(final_snapshot["geometry"]["B"]),
+        "accepted state did not reset the auxiliary B gauge variable",
+    )
 
     # The caller's start state is not mutated in place by predictor formation.
     for name in _SCALAR_FIELDS:
