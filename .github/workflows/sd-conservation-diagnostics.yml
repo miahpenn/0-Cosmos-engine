@@ -41,3 +41,5 @@ jobs:
         run: python diagnostics/sd_conservation/one_step_rate.py
       - name: Per-cell constraint rate
         run: python diagnostics/sd_conservation/per_cell_rate.py
+      - name: Projection displacement versus Hamiltonian drift
+        run: python diagnostics/sd_conservation/projection_displacement_ledger.py
