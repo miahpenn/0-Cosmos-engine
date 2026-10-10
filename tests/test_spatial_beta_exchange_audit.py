@@ -6,7 +6,12 @@ source identities, not a trajectory or a full Einstein constraint solution.
 import numpy as np
 
 import engine.production_kernel as production_kernel
-from engine.matter_system import _metric_arrays
+from engine.matter_system import (
+    Species,
+    _metric_arrays,
+    initialize_dust,
+    primitives,
+)
 from engine.v55_matter import dm_density, metric_slice_from_q
 
 
@@ -25,14 +30,24 @@ def test_active_rhs_beta_exchange_sources_match_covariant_law(monkeypatch):
     )
 
     # A source-only algebra probe, not an evolved/constraint-satisfying state:
-    # exercise non-unit lapse, nonzero shift, and a spatial phi gradient.
+    # exercise non-unit lapse, nonzero shift, moving DM, and a spatial phi gradient.
     r = np.asarray(state.grid.centers)
     state.geometry.beta[:] = 0.03 * np.sin(r / 7.0)
     state.scalars.phi[:] += 1.0e-3 * np.exp(-(r / 7.0) ** 2)
 
     metric = metric_slice_from_q(state.grid, state.geometry)
-    rho_dm = dm_density(metric, state.matter)
     metrics = _metric_arrays(metric)
+    rho_dm = dm_density(metric, state.matter)
+
+    # Rebuild the DM conservative state with a small, explicitly nonzero
+    # radial velocity while preserving its recovered rest-density profile.
+    v_r = 0.02 * np.sin(r / 5.5)
+    state.matter.dark_matter = initialize_dust(metrics, rho_dm, v_r=v_r)
+    rho_dm = dm_density(metric, state.matter)
+    dm_prim = primitives(metrics, state.matter.dark_matter, Species.DARK_MATTER)
+    dm_W = np.asarray([q.lorentz() for q in dm_prim])
+    dm_v_r = np.asarray([q.v_r for q in dm_prim])
+
     sqrt_gamma = np.asarray([m.sqrt_gamma for m in metrics])
     alpha = np.asarray(state.geometry.alpha)
     shift = np.asarray(state.geometry.beta)
@@ -60,8 +75,8 @@ def test_active_rhs_beta_exchange_sources_match_covariant_law(monkeypatch):
         - matter_off["dark_matter"].momentum_r
     )
 
-    # Homogeneous control limit: the scalar normal-momentum source is
-    # alpha*beta*rho and cancels the DM Eulerian energy source.
+    # The scalar normal-momentum source is alpha*beta*rho and cancels
+    # the DM Eulerian energy source on the same ADM slice.
     expected_scalar_source = alpha * beta_source * rho_dm
     np.testing.assert_allclose(
         delta_pi_rhs, expected_scalar_source,
@@ -74,10 +89,13 @@ def test_active_rhs_beta_exchange_sources_match_covariant_law(monkeypatch):
     )
 
     # Contracting nabla_mu T_DM^{mu nu}=Q_DM^nu with u_nu gives
-    # nabla_mu(rho*u^mu)=-beta*rho*u^mu*d_mu(phi). The initialized
-    # dust is normal-comoving (W=1, v^r=0), so u.grad(phi)=Pi and the
-    # densitized rest-energy-current source is -alpha*sqrt(gamma)*beta*rho*Pi.
-    expected_dm_rest_source = -sqrt_gamma * alpha * beta_source * rho_dm * pi
+    # nabla_mu(rho*u^mu)=-beta*rho*u^mu*d_mu(phi). For the general moving
+    # dust probe, u.grad(phi)=W*(Pi+v^r*phi_r), so the densitized current
+    # source is -alpha*sqrt(gamma)*beta*rho*W*(Pi+v^r*phi_r).
+    expected_dm_rest_source = (
+        -sqrt_gamma * alpha * beta_source * rho_dm
+        * dm_W * (pi + dm_v_r * phi_r)
+    )
 
     # The Valencia spatial-momentum equation receives sqrt(-g)*Q_r
     # = alpha*sqrt(gamma)*beta*rho*d_r(phi), not just sqrt(gamma)*Q_r.
@@ -91,6 +109,9 @@ def test_active_rhs_beta_exchange_sources_match_covariant_law(monkeypatch):
         & (rho_dm > 0.0)
     )
     assert np.any(mask), "probe did not exercise non-unit lapse and nonzero shift"
+    assert np.any(mask & (np.abs(dm_v_r) > 1.0e-8)), (
+        "probe did not exercise nonzero DM radial velocity"
+    )
 
     np.testing.assert_allclose(
         delta_dm_rest_rhs[mask],
@@ -116,7 +137,7 @@ def test_active_rhs_beta_exchange_sources_match_covariant_law(monkeypatch):
         ),
     )
 
-    # The scalar and matter energy-transfer contributions cancel to the
+    # The scalar and DM energy-transfer contributions cancel to the
     # floating-point error incurred when subtracting the full matter RHS.
     scalar_energy_source = sqrt_gamma * pi * delta_pi_rhs
     observed_energy_pair_residual = scalar_energy_source + delta_dm_energy_rhs
