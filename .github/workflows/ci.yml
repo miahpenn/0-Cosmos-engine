@@ -2,7 +2,7 @@ name: "[CI] Unit and regression tests"
 
 on:
   push:
-    branches: [0star-central-clock, diag/extended-B-recovery-metric]
+    branches: [0star-central-clock, diag/extended-B-recovery-metric, diag/completed-radiation-margin-budget]
   pull_request:
     branches: [main]
 
