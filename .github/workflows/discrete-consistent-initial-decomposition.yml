@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   matched-drift-attribution:
-    if: contains(github.event.head_commit.message, '[run-discrete-consistent-decomposition]') || contains(github.event.head_commit.message, '[run-baseline-decomposition]') || contains(github.event.head_commit.message, '[run-n80-decomposition-pair]')
+    if: contains(github.event.head_commit.message, '[run-discrete-consistent-decomposition]') || contains(github.event.head_commit.message, '[run-baseline-decomposition]') || contains(github.event.head_commit.message, '[run-n80-decomposition-pair]') || contains(github.event.head_commit.message, '[run-n160-candidate-convergence]')
     runs-on: ubuntu-latest
     timeout-minutes: 180
     env:
@@ -37,7 +37,7 @@ jobs:
         env:
           GITHUB_SHA: ${{ github.sha }}
           RUN_MODE: ${{ contains(github.event.head_commit.message, '[run-baseline-decomposition]') && 'baseline' || contains(github.event.head_commit.message, '[run-n80-decomposition-pair]') && 'both' || 'candidate' }}
-          RESOLUTION: ${{ contains(github.event.head_commit.message, '[run-n80-decomposition-pair]') && '80' || '40' }}
+          RESOLUTION: ${{ contains(github.event.head_commit.message, '[run-n80-decomposition-pair]') && '80' || contains(github.event.head_commit.message, '[run-n160-candidate-convergence]') && '160' || '40' }}
         run: python -m engine.discrete_consistent_initial_decomposition --mode "$RUN_MODE" --resolution "$RESOLUTION"
 
       - name: Upload per-step attribution report
