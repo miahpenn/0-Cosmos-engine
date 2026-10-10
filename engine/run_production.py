@@ -16,7 +16,12 @@ from .adaptive_step import (
     RadiationStepSizeUnderflow,
     advance_with_radiation_admissibility_retries,
 )
-from .campaign import CampaignConfig, campaign_endpoint_reached, campaign_endpoint_status
+from .campaign import (
+    CampaignConfig,
+    campaign_endpoint_reached,
+    campaign_endpoint_status,
+    prepare_campaign,
+)
 from .production_contract import require_production_capabilities
 from .production_kernel import V55ProductionKernel
 from .worldtube import current_residual
@@ -78,7 +83,7 @@ def run_campaign(
     """Run all requested resolutions after validating the production contract."""
     if kernel is None:
         kernel = V55ProductionKernel()
-    require_production_capabilities(kernel)
+    prepare_campaign(kernel, config)
 
     results: list[ResolutionResult] = []
     retry_summary: dict[str, dict] = {}
