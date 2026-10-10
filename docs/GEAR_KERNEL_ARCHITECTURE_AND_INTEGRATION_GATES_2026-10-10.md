@@ -8,13 +8,13 @@
 
 ## 1. Decision for the current work
 
-The source evidence requires us to keep three configurations distinct:
+The evidence requires us to distinguish the **canonical archive reference** from the **later V5.5 target**:
 
-1. **Canonical GEAR archive reference — two independently evolved lanes.** The preserved `CYCLIC-COSMOS ENGINE-.docx` runner calls the local sector, runs homogeneous cosmic expansion and contraction, and compares their outputs. The lanes use their natural clocks. The archive explicitly leaves unsupported inter-lane bridges open. This is the reference baseline and must not be silently rewritten.
-2. **V5.5 spatial production kernel — one radially resolved evolution.** Its `ProductionState` owns spatial geometry, spatial scalar fields, conservative matter species, coordinate time, accumulated central proper time, and diagnostic ledgers. Geometry, scalars, and species interact within that solve. Its state does not contain a homogeneous `CosmosState`.
-3. **A future matched background-plus-local model — not yet derived or implemented.** It would need explicit matching, clock, source, and conservation equations. It is not created merely by putting both state objects in a container or calling the current geometry-driven helper.
+1. **Canonical GEAR archive reference — two independently evolved lanes.** The preserved `CYCLIC-COSMOS ENGINE-.docx` runner evolves the local S/D sector and homogeneous COSMOS sector separately and compares their outputs using their natural clocks. Its open gates and separate-lane behavior must remain preserved; do not rewrite it silently.
+2. **V5.5 target — one radially resolved spacetime.** The later `GEAR_V5_5_STRONGFIELD_CLOSURE_AUDIT_2026-10-05.md`, Sections 10–11, explicitly indicates one metric and one total stress-energy tensor, with local S/D, the COSMOS scalar `phi(r,t)`, dark matter, baryons and radiation represented within the same spatial evolution. The exact spherical branch excludes the archived anisotropic shear rather than pretending it is isotropic matter. The homogeneous `CosmosState` is a separate reference/control implementation, not a second live copy to inject into `ProductionState`.
+3. **Current V5.5 kernel — implementation candidate, not campaign-admitted.** It has the one-spacetime state structure but still needs source-pair conservation, homogeneous-limit regressions, constraint/convergence admission and remaining declared physics gates. A missing call to `geometry_driven_step()` is not automatically a missing production link under this architecture; the question is whether the spatial equations reproduce the homogeneous COSMOS equations in the appropriate limit.
 
-This classification settles the near-term operating mode, not the ultimate physical architecture: **preserve the archive reference; diagnose the V5.5 spatial solve on its own terms; do not wire the homogeneous lane into production until the governing design supplies the missing ownership/matching equations.** It also avoids pretending the present spatial solver alone has solved every global GEAR degree of freedom.
+**Operating decision:** preserve the original two-lane archive unchanged; assess V5.5 against its later single-spacetime closure contract; keep `CosmosState` as an independent control rather than dynamically linking duplicate scalar states. Do not conflate the original archive's open local-to-global-`Q` bridge with the V5.5 representation, which aims to produce geometry and the transition from one solved stress-energy system. This does not by itself solve D-to-matter identification, global anisotropic shear, or all cosmological comparison gates.
 
 ## 2. Provenance and scope
 
@@ -57,12 +57,12 @@ Its captured terminal state is a radiation-admissibility timestep underflow at c
 | Local S/D and spatial φ fields | `ProductionState.scalars` (`ScalarFields`) | Radial fields in the spatial evolution. The S/D mode is not, by that fact alone, ordinary baryonic matter. |
 | Dark matter, baryons, radiation | `ProductionState.matter` (`V55MatterState`) | Conservative species evolved on the spatial metric. The existing spatial φ–DM beta coupling is an equation-level interaction; it is not a D-to-matter conversion law. |
 | Coordinate time (t) and central proper time (\tau) | `ProductionState.t`, `ProductionState.tau` | Both are recorded, but their presence does not define an arbitrary conversion between clocks. |
-| Homogeneous (a,H,φ,π_φ,\rho_{DM},\rho_b,\rho_r,\rho_{shear}) | `CosmosState` in `engine/cosmos.py` | Independent homogeneous state. It is not a member of the live V5.5 `ProductionState` and is not advanced in its `step()` path. |
+| Homogeneous (a,H,φ,π_φ,ρ_DM,ρ_b,ρ_r,ρ_shear) | `CosmosState` in `engine/cosmos.py` | Independent homogeneous reference/control. It is not a live member of the selected single-spacetime V5.5 state; its role is a homogeneous-limit regression, not a second evolved copy. |
 | `CoupledState` | `engine/coupled.py` container of Cosmos, Local, Interface states | Construction/serialization is not proof of a conserved, active coupled evolution. |
 | (H_{eff}), Misner–Sharp flux/work, cycle and handoff events | Production diagnostics / ledgers | Observables and records. An observable does not become a receiving evolution equation simply because another helper can read it. |
 | Homogeneous shear | `CosmosState.rho_shear), with its archived (a^{-6}) dilution/effective pressure | It is explicitly not inserted as a homogeneous shear-pressure term into the exact spherical local stress tensor. Global anisotropic curvature remains a separate global-geometry issue. |
 
-The local spatial φ field and homogeneous `CosmosState.phi` have no approved identity/matching rule. They may not be blindly equated, copied, or evolved as duplicate physical copies. The architecture decision must state which is authoritative or provide a derived background/perturbation/matching relation.
+Under the later V5.5 target, spatial `ProductionState.scalars.phi` is the live representation of the cosmological scalar, and `CosmosState.phi` is the independent homogeneous control representation of that same intended field. Do not copy/evolve both as duplicate live fields. Validate agreement through a homogeneous-limit regression with matched parameters, density normalization, coordinate-time convention, and initial data. The distinction between cosmic coordinate time and central proper time remains an observable/clock gate; it is not a fitted conversion.
 
 ## 4. What the existing homogeneous helper does — and does not do
 
@@ -77,14 +77,14 @@ The homogeneous equations in `engine/cosmos.py` include:
 
 Therefore:
 
-- a geometric (H_{eff}) handoff is a one-way driver, not reciprocal source coupling;
-- an active local spatial solve is not automatically the archive's two-lane reference;
-- a combined state container is not an integrated physical machine;
-- adding a call to the helper would be insufficient and is not authorized by this contract.
+- `geometry_driven_step()` is a one-way helper for a driven homogeneous control, not the selected single-spacetime production coupling;
+- the active radial `phi(r,t)) plus conservative matter must recover the homogeneous COSMOS evolution in a controlled homogeneous limit;
+- a combined `CoupledState` container is not an integrated physical machine;
+- do not insert a second live `CosmosState` into `ProductionState` or call the one-way helper from production as a substitute for the homogeneous-limit regression.
 
 ## 5. Coupling-edge contract
 
-No cross-lane edge is promoted by this document. Every proposed edge must be written down with all of the following fields before implementation:
+The original archive's two-lane bridges remain open for that archived representation; V5.5 instead promotes the later single-spacetime target and its covariant scalar-DM exchange law. Every active source or proposed bridge must be specified with the following fields before implementation or promotion:
 
 | Required field | Question it must answer |
 |---|---|
@@ -103,7 +103,7 @@ No cross-lane edge is promoted by this document. Every proposed edge must be wri
 1. **Local proper time ↔ cosmic time.** Derive a parameter-free relation or define a single-spacetime time coordinate and its proper-time observables. No fitted scale or convenient identification (\tau=t).
 2. **D-mode energy → localized ordinary matter.** Derive the identification/conversion law. D amplitude, D flux, or generated-energy proxy cannot simply be relabelled as baryon density.
 3. **Local work/current → global (Q).** GEAR-66 supplies an evidentiary accounting route: local force → dissipated power → event energy → event/ejection rate → (Q). Its reduced event-energy result is not proof of a first-principles force/carrier law, node abundance, ejection history, or a normalization-free (Q(a)) match. Do not set (Q=F_{local}), add an arbitrary coefficient, or guess a recipient.
-4. **Spatial φ ↔ homogeneous φ.** Establish ownership and matching, including the relation of a radial solution to a homogeneous observable, if such a relation is intended.
+4. **V5.5 homogeneous-limit regression.** With spatial gradients and local S/D perturbations suppressed, show that the radial cosmological scalar and matter equations reproduce the independent homogeneous COSMOS RHS under matched parameters and units. This compares two representations; it does not evolve two copies or imply τ=t.
 5. **Homogeneous shear / global anisotropic curvature ↔ spatial geometry.** Derive the representation. Do not inject the homogeneous (a^{-6}) effective shear term into the spherical stress tensor by convenience.
 6. **Cycle/turnaround interpretation.** Require event rows and neighboring states from the same continuous run, with signs, (t), (\tau), named expansion measure and constraints. (H_{eff}) sign-crossings alone do not establish a scale-factor turnaround or completed physical cycle.
 
