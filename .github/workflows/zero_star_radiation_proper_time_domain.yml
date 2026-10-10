@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - diag/radiation-proper-time-domain-control
+      - diag/radiation-pminus-boundary-audit
 
 permissions:
   contents: read
