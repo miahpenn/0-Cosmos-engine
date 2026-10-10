@@ -8,7 +8,7 @@
 
 The live spatial source path appears to apply the lapse to the dark-matter energy-transfer term but not to the paired scalar momentum-equation source. This mismatch vanishes in the homogeneous alpha=1 limit. Treat this as a candidate defect pending derivation from the governing action, the stress-energy divergence convention, and the ADM definition/sign of Pi. Do not patch from this report alone.
 
-An archived October 5 V5.5 inhomogeneous gate explicitly omitted the beta scalar-DM interaction because its local momentum equations had not yet been supplied by the archive. The current spatial interaction is therefore not authorized solely by that older gate. Both the local coupling law itself and its lapse weighting must be derived; correcting only the alpha factor would be premature.
+The October 5 V5.5 inhomogeneous gate initially omitted the beta scalar-DM interaction because its local momentum equations had not yet been supplied. The later same-date `GEAR_V5_5_STRONGFIELD_CLOSURE_AUDIT_2026-10-05.md`, Sections 8–9, then locks the covariant source signs for signature (-,+,+,+), states `Q_DM^nu = + beta rho_DM nabla^nu phi`, and requires the scalar to receive the opposite source from total stress-energy conservation. Thus the covariant interaction law is supplied by the later archive audit. The remaining question is whether this production code's 3+1 coordinate-time source implements that locked law with the correct lapse, signs, Pi convention, and density normalization. Do not change alpha from source arithmetic alone; derive the 3+1 projection first.
 
 ## Source evidence
 
