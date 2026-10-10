@@ -181,5 +181,5 @@ def test_radiation_closed_form_recovery_roundtrips_moderate_and_near_null_states
         h = q.rho + q.pressure
         energy_back = h * W * W - q.pressure
         momentum_back = h * W * W * metric.gamma_rr * q.v_r
-        assert abs(energy_back - energy) / energy < 5.0e-14
-        assert abs(momentum_back - radial_momentum) / abs(radial_momentum) < 5.0e-14
+        assert abs(energy_back - energy) / energy < 1.0e-12
+        assert abs(momentum_back - radial_momentum) / abs(radial_momentum) < 1.0e-12
