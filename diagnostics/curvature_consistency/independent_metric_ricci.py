@@ -98,6 +98,7 @@ def main():
     grid = state.grid
     dt_nominal = CFL * grid.dr
     samples = []
+    gate_failures = []
 
     for target in TARGET_TIMES:
         while state.t < target - 1.0e-12:
@@ -178,6 +179,13 @@ def main():
             "max_abs_vendor_connection_constraint_mismatch": float(
                 np.max(np.abs(C_lambda - constraint_C))
             ),
+            "vendor_connection_reconstruction_closure": {
+                "max_abs_all": float(np.max(np.abs(C_lambda - constraint_C))),
+                "tolerance": roundoff_tolerance,
+                "pass": bool(
+                    np.max(np.abs(C_lambda - constraint_C)) <= roundoff_tolerance
+                ),
+            },
             "max_abs_b_over_X2_minus_one": float(
                 np.max(np.abs(b_over_X2_minus_one))
             ),
@@ -208,20 +216,23 @@ def main():
             "finite_all_arrays": True,
         }
 
-        if row["max_abs_vendor_connection_constraint_mismatch"] > roundoff_tolerance:
-            raise RuntimeError(
-                "Vendor connection constraint does not match the explicitly "
-                "reconstructed metric connection within roundoff."
-            )
-        if not row["split_closure"]["pass"] or not row["connection_formula_closure"]["pass"]:
-            raise RuntimeError(f"Algebraic diagnostic closure failed at t={state.t:g}")
+        row["gate_failures"] = []
+        if not row["vendor_connection_reconstruction_closure"]["pass"]:
+            row["gate_failures"].append("vendor_connection_reconstruction_closure")
+        if not row["split_closure"]["pass"]:
+            row["gate_failures"].append("split_closure")
+        if not row["connection_formula_closure"]["pass"]:
+            row["gate_failures"].append("connection_formula_closure")
+        for failed_gate in row["gate_failures"]:
+            gate_failures.append({"t": row["t"], "gate": failed_gate})
         samples.append(row)
 
     output_dir = ROOT / "runs" / "independent-metric-ricci-audit"
     output_dir.mkdir(parents=True, exist_ok=True)
     report = {
-        "status": "completed",
+        "status": "completed" if not gate_failures else "completed_with_diagnostic_gate_failures",
         "diagnostic_only": True,
+        "diagnostic_gate_failures": gate_failures,
         "configuration": {
             "N": N,
             "r_max": R_MAX,
@@ -268,8 +279,14 @@ def main():
             "[INDEPENDENT_METRIC_RICCI_AUDIT] "
             + json.dumps(sample, sort_keys=True)
         )
-    print("[INDEPENDENT_METRIC_RICCI_AUDIT] status=PASS")
+    print("[INDEPENDENT_METRIC_RICCI_AUDIT] diagnostic_gate_failures=" + json.dumps(gate_failures))
+    print("[INDEPENDENT_METRIC_RICCI_AUDIT] status=" + report["status"])
     print("[INDEPENDENT_METRIC_RICCI_AUDIT] report_json=" + json.dumps(report, sort_keys=True))
+    if gate_failures:
+        raise RuntimeError(
+            "Diagnostic completed and report was written, but algebraic closure "
+            "gate(s) failed: " + json.dumps(gate_failures, sort_keys=True)
+        )
 
 
 if __name__ == "__main__":
