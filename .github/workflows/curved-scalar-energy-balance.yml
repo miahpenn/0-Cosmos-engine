@@ -1,0 +1,46 @@
+name: Diagnostic - curved scalar energy balance
+
+on:
+  push:
+    branches:
+      - diag/curved-scalar-energy-balance
+    paths:
+      - engine/curved_scalar_energy_balance.py
+      - .github/workflows/curved-scalar-energy-balance.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  curved-scalar-energy-balance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      PYTHONPATH: .
+    steps:
+      - name: Checkout diagnostic branch and pinned vendor submodule
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Compile diagnostic
+        run: python -m py_compile engine/curved_scalar_energy_balance.py
+      - name: Run curved scalar energy-balance diagnostic
+        env:
+          GITHUB_SHA: ${{ github.sha }}
+        run: python -m engine.curved_scalar_energy_balance
+      - name: Upload diagnostic output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: curved-scalar-energy-balance
+          path: runs/curved-scalar-energy-balance/report.json
+          if-no-files-found: error
