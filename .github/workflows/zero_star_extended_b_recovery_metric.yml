@@ -1,0 +1,44 @@
+name: "[0star] Extended-B accepted-metric radiation recovery diagnostic"
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - diag/extended-B-recovery-metric
+
+permissions:
+  contents: read
+
+env:
+  PYTHONPATH: .
+
+jobs:
+  extended-b:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[run-extended-B-recovery-metric]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 720
+    steps:
+      - name: Checkout engine and pinned numerical operators
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Full repository tests
+        run: python -m pytest -q
+      - name: Run Extended-B trace on the exact radiation failure path
+        env:
+          EXTENDED_B_ACCEPTED_METRIC_RECOVERY: "1"
+        run: python -m engine.radiation_geometry_stage_trace
+      - name: Upload complete Extended-B trace
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: 0star-radiation-stage-trace-extended-B
+          path: runs/radiation-stage-trace/
+          if-no-files-found: error

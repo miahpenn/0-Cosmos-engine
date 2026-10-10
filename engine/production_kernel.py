@@ -87,6 +87,8 @@ class V55ProductionKernel:
         misner_sharp_current=True,
     )
     validation_state = "implemented_not_campaign_validated"
+    # Diagnostic experiment only; the production default is unchanged.
+    use_accepted_metric_for_predictor_radiation_recovery = False
 
     def initialize(
         self,
@@ -133,8 +135,13 @@ class V55ProductionKernel:
         return grid.cell_derivative_fourth(values, parity=parity)
 
     @staticmethod
-    def _solve_lapse(grid, geometry, scalars, matter):
-        return solve_cmc_lapse(grid, geometry, scalars, matter)
+    def _solve_lapse(grid, geometry, scalars, matter, radiation_recovery_metric=None):
+        if radiation_recovery_metric is None:
+            return solve_cmc_lapse(grid, geometry, scalars, matter)
+        return solve_cmc_lapse(
+            grid, geometry, scalars, matter,
+            radiation_recovery_metric=radiation_recovery_metric,
+        )
 
     @staticmethod
     def _enforce_center_regularity(grid, geometry):
@@ -148,7 +155,7 @@ class V55ProductionKernel:
         _, vacuum, _ = adapter.vendor_modules()
         return vacuum.enforce_algebraic_regularity(grid, geometry)
 
-    def _rhs(self, state: ProductionState):
+    def _rhs(self, state: ProductionState, radiation_recovery_metric=None):
         metric = metric_slice_from_q(state.grid, state.geometry)
 
         rho_dm = dm_density(metric, state.matter)
@@ -173,19 +180,21 @@ class V55ProductionKernel:
             ("baryons", Species.BARYON),
             ("radiation", Species.RADIATION),
         ):
+            extra = {}
+            if species is Species.RADIATION and radiation_recovery_metric is not None:
+                extra["recovery_metric"] = radiation_recovery_metric
             mrhs[name] = species_rhs(
-                metric,
-                md,
-                getattr(state.matter, name),
-                species,
+                metric, md, getattr(state.matter, name), species,
                 dphi_t=dphi_t if species is Species.DARK_MATTER else None,
                 dphi_r=dphi_r if species is Species.DARK_MATTER else None,
-                beta_dm=BETA_DM,
+                beta_dm=BETA_DM, **extra,
             )
         return srhs, mrhs, md
 
     @staticmethod
-    def _apply_outer_light_boundary(grid, geometry, scalars, matter) -> None:
+    def _apply_outer_light_boundary(
+        grid, geometry, scalars, matter, radiation_recovery_metric=None
+    ) -> None:
         """Apply the pinned R0 incoming-light constraint at the finite radius.
 
         This is a boundary-condition operation only. It uses the already
@@ -195,9 +204,13 @@ class V55ProductionKernel:
         adapter.vendor_modules()
         from bssn_characteristic_boundary import apply_light_constraint_boundary
 
-        total = assemble_total_stress_energy(
-            grid, geometry, scalars, matter
-        )
+        if radiation_recovery_metric is None:
+            total = assemble_total_stress_energy(grid, geometry, scalars, matter)
+        else:
+            total = assemble_total_stress_energy(
+                grid, geometry, scalars, matter,
+                radiation_recovery_metric=radiation_recovery_metric,
+            )
         apply_light_constraint_boundary(
             grid, geometry, total.rho, total.j
         )
@@ -228,6 +241,10 @@ class V55ProductionKernel:
         )[0]
         g0.beta.fill(0.0)
         g0.B.fill(0.0)
+        recovery_metric = (
+            metric_slice_from_q(grid, g0)
+            if self.use_accepted_metric_for_predictor_radiation_recovery else None
+        )
 
         srhs0, mrhs0, _ = self._rhs(
             ProductionState(
@@ -268,12 +285,19 @@ class V55ProductionKernel:
             )
         )
 
-        g_explicit1.alpha = self._solve_lapse(
-            grid, g_explicit1, s1, m1
-        )[0]
-        gterms_pred = adapter.geometry_stage_terms(
-            grid, g_explicit1, s1, m1, lambda_m=LAMBDA_M
-        )
+        if recovery_metric is None:
+            g_explicit1.alpha = self._solve_lapse(grid, g_explicit1, s1, m1)[0]
+            gterms_pred = adapter.geometry_stage_terms(
+                grid, g_explicit1, s1, m1, lambda_m=LAMBDA_M
+            )
+        else:
+            g_explicit1.alpha = self._solve_lapse(
+                grid, g_explicit1, s1, m1, radiation_recovery_metric=recovery_metric
+            )[0]
+            gterms_pred = adapter.geometry_stage_terms(
+                grid, g_explicit1, s1, m1, lambda_m=LAMBDA_M,
+                radiation_recovery_metric=recovery_metric,
+            )
         _, vacuum, _ = adapter.vendor_modules()
 
         g1 = g_explicit1.copy()
@@ -297,12 +321,18 @@ class V55ProductionKernel:
         # characteristic reconstruction for Aa at the finite outer worldtube.
         # Apply it only after Lambda is current, as in the reference PIRK/CPBC
         # sequence. The CMC lapse is then re-solved on the conditioned slice.
-        self._apply_outer_light_boundary(grid, g1, s1, m1)
+        if recovery_metric is None:
+            self._apply_outer_light_boundary(grid, g1, s1, m1)
+            g1.alpha = self._solve_lapse(grid, g1, s1, m1)[0]
+        else:
+            self._apply_outer_light_boundary(
+                grid, g1, s1, m1, radiation_recovery_metric=recovery_metric
+            )
+            g1.alpha = self._solve_lapse(
+                grid, g1, s1, m1, radiation_recovery_metric=recovery_metric
+            )[0]
         # Resolve the CMC lapse on the full primary predictor, then
         # use that gauge state for the second split evaluation.
-        g1.alpha = self._solve_lapse(
-            grid, g1, s1, m1
-        )[0]
         g1.beta.fill(0.0)
         g1.B.fill(0.0)
         g1.assert_finite_positive()
@@ -312,10 +342,17 @@ class V55ProductionKernel:
             grid=grid, geometry=g1, scalars=s1, matter=m1,
             t=state.t, tau=state.tau, e_folds=state.e_folds,
         )
-        srhs1, mrhs1, _ = self._rhs(stage1)
-        gterms1 = adapter.geometry_stage_terms(
-            grid, g1, s1, m1, lambda_m=LAMBDA_M
-        )
+        if recovery_metric is None:
+            srhs1, mrhs1, _ = self._rhs(stage1)
+            gterms1 = adapter.geometry_stage_terms(
+                grid, g1, s1, m1, lambda_m=LAMBDA_M
+            )
+        else:
+            srhs1, mrhs1, _ = self._rhs(stage1, radiation_recovery_metric=recovery_metric)
+            gterms1 = adapter.geometry_stage_terms(
+                grid, g1, s1, m1, lambda_m=LAMBDA_M,
+                radiation_recovery_metric=recovery_metric,
+            )
 
         # Final explicit block uses the TRUE-PIRK trapezoidal pairing with the
         # second split evaluation above. CMC supplies alpha after the primary

@@ -121,46 +121,47 @@ def _metrics_from_slice(metric: BSSNMetricSlice):
 def total_fluid_projection(
     metric: BSSNMetricSlice,
     state: V55MatterState,
+    radiation_recovery_metric: BSSNMetricSlice | None = None,
 ) -> dict[str, np.ndarray]:
     pieces = [
         project_species(metric, state.dark_matter, Species.DARK_MATTER),
         project_species(metric, state.baryons, Species.BARYON),
-        project_species(metric, state.radiation, Species.RADIATION),
     ]
+    if radiation_recovery_metric is None:
+        pieces.append(project_species(metric, state.radiation, Species.RADIATION))
+    else:
+        pieces.append(project_species(
+            metric, state.radiation, Species.RADIATION,
+            recovery_metric=radiation_recovery_metric,
+        ))
     return {
         key: sum(piece[key] for piece in pieces)
         for key in ("rho", "pr", "pt", "j")
     }
-
-
 def total_matter_projection(
     g,
     s,
     scalar_fields: ScalarFields,
     matter: V55MatterState,
+    radiation_recovery_metric: BSSNMetricSlice | None = None,
 ) -> dict[str, np.ndarray]:
     """Combine scalar and conservative-fluid stress projections once each."""
     metric = metric_slice_from_q(g, s)
-    scalar_e, scalar_pr, scalar_pt, scalar_j = scalar_projection(
-        g, s, scalar_fields
-    )
-    fluid = total_fluid_projection(metric, matter)
-
+    scalar_e, scalar_pr, scalar_pt, scalar_j = scalar_projection(g, s, scalar_fields)
+    if radiation_recovery_metric is None:
+        fluid = total_fluid_projection(metric, matter)
+    else:
+        fluid = total_fluid_projection(
+            metric, matter, radiation_recovery_metric=radiation_recovery_metric
+        )
     return {
         "rho": scalar_e + fluid["rho"],
         "pr": scalar_pr + fluid["pr"],
         "pt": scalar_pt + fluid["pt"],
         "j": scalar_j + fluid["j"],
         "fluid": fluid,
-        "scalar": {
-            "rho": scalar_e,
-            "pr": scalar_pr,
-            "pt": scalar_pt,
-            "j": scalar_j,
-        },
+        "scalar": {"rho": scalar_e, "pr": scalar_pr, "pt": scalar_pt, "j": scalar_j},
     }
-
-
 def dm_density(metric: BSSNMetricSlice, matter: V55MatterState) -> np.ndarray:
     """Return archive-normalized DM rest density, not Einstein-normalized rho."""
     return normalized_fluid_densities(

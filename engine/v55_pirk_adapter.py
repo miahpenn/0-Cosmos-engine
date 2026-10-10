@@ -41,58 +41,49 @@ class V55KernelSlice:
     matter: vm.V55MatterState
 
 
-def primary_l3_with_matter(grid, geometry, fields, matter):
+def primary_l3_with_matter(grid, geometry, fields, matter, radiation_recovery_metric=None):
     _, vacuum, _ = vendor_modules()
     out = vacuum.primary_l3_rhs(grid, geometry)
-    metric = vm.metric_slice_from_q(grid, geometry)
-    total = vm.total_matter_projection(grid, geometry, fields, matter)
-    out["Aa"] = (
-        out["Aa"]
-        - (16.0 * np.pi / 3.0)
-        * geometry.alpha
-        * (total["pr"] - total["pt"])
-    )
-    out["K"] = (
-        out["K"]
-        + 4.0 * np.pi
-        * geometry.alpha
-        * (total["rho"] + total["pr"] + 2.0 * total["pt"])
-    )
+    if radiation_recovery_metric is None:
+        total = vm.total_matter_projection(grid, geometry, fields, matter)
+    else:
+        total = vm.total_matter_projection(
+            grid, geometry, fields, matter, radiation_recovery_metric=radiation_recovery_metric
+        )
+    out["Aa"] = out["Aa"] - (16.0 * np.pi / 3.0) * geometry.alpha * (total["pr"] - total["pt"])
+    out["K"] = out["K"] + 4.0 * np.pi * geometry.alpha * (total["rho"] + total["pr"] + 2.0 * total["pt"])
     return out
-
-
-def lambda_l3_with_matter(grid, geometry, fields, matter, lambda_m=2.0):
+def lambda_l3_with_matter(
+    grid, geometry, fields, matter, lambda_m=2.0, radiation_recovery_metric=None
+):
     _, vacuum, _ = vendor_modules()
-    total = vm.total_matter_projection(grid, geometry, fields, matter)
-    return (
-        vacuum.lambda_l3_rhs(grid, geometry)
-        - 8.0 * np.pi
-        * lambda_m
-        * geometry.alpha
-        * total["j"]
-        / geometry.a
-    )
-
-
-def geometry_stage_terms(grid, geometry, fields, matter, lambda_m=2.0):
-    """Return the full frozen V5.5 geometry stage blocks."""
+    if radiation_recovery_metric is None:
+        total = vm.total_matter_projection(grid, geometry, fields, matter)
+    else:
+        total = vm.total_matter_projection(
+            grid, geometry, fields, matter, radiation_recovery_metric=radiation_recovery_metric
+        )
+    return vacuum.lambda_l3_rhs(grid, geometry) - 8.0 * np.pi * lambda_m * geometry.alpha * total["j"] / geometry.a
+def geometry_stage_terms(
+    grid, geometry, fields, matter, lambda_m=2.0, radiation_recovery_metric=None
+):
+    """Return geometry blocks with stage metrics and optional radiation inversion metric."""
     _, vacuum, moving = vendor_modules()
     explicit = moving.moving_puncture_explicit_rhs(grid, geometry)
     l2 = vacuum.primary_l2_rhs(grid, geometry)
-    l3 = primary_l3_with_matter(grid, geometry, fields, matter)
+    if radiation_recovery_metric is None:
+        l3 = primary_l3_with_matter(grid, geometry, fields, matter)
+        ll3 = lambda_l3_with_matter(grid, geometry, fields, matter, lambda_m=lambda_m)
+    else:
+        l3 = primary_l3_with_matter(
+            grid, geometry, fields, matter, radiation_recovery_metric=radiation_recovery_metric
+        )
+        ll3 = lambda_l3_with_matter(
+            grid, geometry, fields, matter, lambda_m=lambda_m,
+            radiation_recovery_metric=radiation_recovery_metric
+        )
     ll2 = vacuum.lambda_l2_rhs(grid, geometry, lambda_m=lambda_m)
-    ll3 = lambda_l3_with_matter(
-        grid, geometry, fields, matter, lambda_m=lambda_m
-    )
-    return {
-        "explicit": explicit,
-        "primary_l2": l2,
-        "primary_l3": l3,
-        "lambda_l2": ll2,
-        "lambda_l3": ll3,
-    }
-
-
+    return {"explicit": explicit, "primary_l2": l2, "primary_l3": l3, "lambda_l2": ll2, "lambda_l3": ll3}
 def geometry_constraints(grid, geometry):
     _, vacuum, _ = vendor_modules()
     return vacuum.constraints(grid, geometry)

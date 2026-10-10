@@ -40,24 +40,21 @@ class TotalStressEnergy:
         )
 
 
-def assemble_total_stress_energy(grid, geometry, scalars: ScalarFields,
-                                 matter: V55MatterState) -> TotalStressEnergy:
-    scalar_rho, scalar_pr, scalar_pt, scalar_j = scalar_projection(
-        grid, geometry, scalars
-    )
+def assemble_total_stress_energy(
+    grid, geometry, scalars: ScalarFields, matter: V55MatterState,
+    radiation_recovery_metric=None,
+) -> TotalStressEnergy:
+    scalar_rho, scalar_pr, scalar_pt, scalar_j = scalar_projection(grid, geometry, scalars)
     metric = metric_slice_from_q(grid, geometry)
-    fluid = total_fluid_projection(metric, matter)
+    if radiation_recovery_metric is None:
+        fluid = total_fluid_projection(metric, matter)
+    else:
+        fluid = total_fluid_projection(
+            metric, matter, radiation_recovery_metric=radiation_recovery_metric
+        )
     return TotalStressEnergy(
-        rho=scalar_rho + fluid["rho"],
-        pr=scalar_pr + fluid["pr"],
-        pt=scalar_pt + fluid["pt"],
-        j=scalar_j + fluid["j"],
-        scalar_rho=scalar_rho,
-        scalar_pr=scalar_pr,
-        scalar_pt=scalar_pt,
-        scalar_j=scalar_j,
-        fluid_rho=fluid["rho"],
-        fluid_pr=fluid["pr"],
-        fluid_pt=fluid["pt"],
-        fluid_j=fluid["j"],
+        rho=scalar_rho + fluid["rho"], pr=scalar_pr + fluid["pr"],
+        pt=scalar_pt + fluid["pt"], j=scalar_j + fluid["j"],
+        scalar_rho=scalar_rho, scalar_pr=scalar_pr, scalar_pt=scalar_pt, scalar_j=scalar_j,
+        fluid_rho=fluid["rho"], fluid_pr=fluid["pr"], fluid_pt=fluid["pt"], fluid_j=fluid["j"],
     )

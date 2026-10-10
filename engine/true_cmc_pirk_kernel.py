@@ -29,13 +29,18 @@ from .cmc_gauge import solve_cmc_lapse
 OUTER_CMC_FRACTION = 0.20
 
 
-def solve_archive_cmc_lapse(grid, geometry, scalars, matter):
+def solve_archive_cmc_lapse(grid, geometry, scalars, matter, radiation_recovery_metric=None):
     """Compatibility name for the shared production CMC solver.
 
     The production and isolated true-CMC kernels must carry the same
     stage-aware gauge operator and the same proper-volume CMC target.
     """
-    return solve_cmc_lapse(grid, geometry, scalars, matter)
+    if radiation_recovery_metric is None:
+        return solve_cmc_lapse(grid, geometry, scalars, matter)
+    return solve_cmc_lapse(
+        grid, geometry, scalars, matter,
+        radiation_recovery_metric=radiation_recovery_metric,
+    )
  
  
 class V55TrueCMCPIRKKernel(V55ProductionKernel):
@@ -244,13 +249,21 @@ class V55TrueCMCPIRKKernel(V55ProductionKernel):
             self._validate_matter_state(grid, gpred, mpred, recovery_geometry=g0)
         else:
             self._validate_matter_state(grid, gpred, mpred)
-        gpred.alpha = solve_archive_cmc_lapse(
-            grid, gpred, spred, mpred
-        )[0]
-
-        gterms_pred = adapter.geometry_stage_terms(
-            grid, gpred, spred, mpred, lambda_m=LAMBDA_M
-        )
+        if self.use_accepted_metric_for_predictor_radiation_recovery:
+            recovery_metric = metric_slice_from_q(grid, g0)
+            gpred.alpha = solve_archive_cmc_lapse(
+                grid, gpred, spred, mpred, radiation_recovery_metric=recovery_metric
+            )[0]
+            gterms_pred = adapter.geometry_stage_terms(
+                grid, gpred, spred, mpred, lambda_m=LAMBDA_M,
+                radiation_recovery_metric=recovery_metric,
+            )
+        else:
+            recovery_metric = None
+            gpred.alpha = solve_archive_cmc_lapse(grid, gpred, spred, mpred)[0]
+            gterms_pred = adapter.geometry_stage_terms(
+                grid, gpred, spred, mpred, lambda_m=LAMBDA_M
+            )
 
         g1 = gpred.copy()
         g1.Aa = g0.Aa + dt * (
@@ -286,9 +299,15 @@ class V55TrueCMCPIRKKernel(V55ProductionKernel):
             srhs1, mrhs1, _ = self._rhs(stage1, radiation_recovery_metric=pred_recovery)
         else:
             srhs1, mrhs1, _ = self._rhs(stage1)
-        gterms1 = adapter.geometry_stage_terms(
-            grid, g1, spred, mpred, lambda_m=LAMBDA_M
-        )
+        if recovery_metric is None:
+            gterms1 = adapter.geometry_stage_terms(
+                grid, g1, spred, mpred, lambda_m=LAMBDA_M
+            )
+        else:
+            gterms1 = adapter.geometry_stage_terms(
+                grid, g1, spred, mpred, lambda_m=LAMBDA_M,
+                radiation_recovery_metric=recovery_metric,
+            )
 
         gnew = g0.copy()
         for name in ("a", "b", "X"):

@@ -129,3 +129,69 @@ def test_predictor_rhs_passes_explicit_recovery_metric(monkeypatch):
     monkeypatch.setattr(mr,"species_rhs",species_spy)
     V55TrueCMCPIRKKernel()._rhs(state,radiation_recovery_metric=accepted)
     assert seen==[accepted]
+
+
+def test_total_fluid_projection_passes_recovery_metric_only_to_radiation(monkeypatch):
+    import engine.v55_matter as vm
+    stage = _slice(alpha=0.9)
+    accepted = _slice(alpha=0.6)
+    matter = SimpleNamespace(dark_matter=object(), baryons=object(), radiation=object())
+    seen = []
+    def project(metric, state, species, recovery_metric=None):
+        seen.append((metric, species, recovery_metric))
+        return {k: np.zeros(4) for k in ("rho", "pr", "pt", "j")}
+    monkeypatch.setattr(vm, "project_species", project)
+    vm.total_fluid_projection(stage, matter, radiation_recovery_metric=accepted)
+    assert len(seen) == 3
+    assert all(row[0] is stage for row in seen)
+    assert seen[0][1] is Species.DARK_MATTER and seen[0][2] is None
+    assert seen[1][1] is Species.BARYON and seen[1][2] is None
+    assert seen[2][1] is Species.RADIATION and seen[2][2] is accepted
+
+
+def test_production_kernel_lapse_solver_forwards_recovery_metric(monkeypatch):
+    import engine.production_kernel as pk
+    from engine.production_kernel import V55ProductionKernel
+    accepted = _slice(alpha=0.6)
+    calls = []
+    def fake_solve(*args, **kwargs):
+        calls.append(kwargs)
+        return np.ones(4), 0.0
+    monkeypatch.setattr(pk, "solve_cmc_lapse", fake_solve)
+    V55ProductionKernel._solve_lapse(object(), object(), object(), object(),
+                                     radiation_recovery_metric=accepted)
+    assert calls[-1].get("radiation_recovery_metric") is accepted
+    V55ProductionKernel._solve_lapse(object(), object(), object(), object())
+    assert "radiation_recovery_metric" not in calls[-1]
+
+
+def test_production_kernel_rhs_passes_recovery_metric(monkeypatch):
+    import engine.production_kernel as pk
+    from engine.production_kernel import ProductionState, V55ProductionKernel
+    from engine.scalar_system import ScalarFields
+    z, o = np.zeros(4), np.ones(4)
+    stage = _slice(alpha=0.9, a_scale=0.25)
+    accepted = _slice(alpha=0.6)
+    state = ProductionState(
+        grid=SimpleNamespace(cell_derivative_fourth=lambda vals, parity=1: np.gradient(vals)),
+        geometry=stage, scalars=ScalarFields(o, z, z, z, z, z),
+        matter=SimpleNamespace(
+            dark_matter=ConservedSpecies(o,o,z),
+            baryons=ConservedSpecies(o,o,z),
+            radiation=_radiation_state(_metric_arrays(_slice())),
+        ),
+        t=0.0, tau=0.0, e_folds=0.0,
+    )
+    monkeypatch.setattr(pk, "metric_slice_from_q", lambda grid, geometry: geometry)
+    monkeypatch.setattr(pk, "dm_density", lambda metric, matter: z)
+    class Rhs:
+        S = PS = D = PD = phi = Pi = z
+    monkeypatch.setattr(pk, "scalar_rhs_arrays", lambda *a, **k: Rhs())
+    seen = []
+    def species_spy(metric, md, U, species, **kwargs):
+        if species is Species.RADIATION:
+            seen.append(kwargs.get("recovery_metric"))
+        return ConservedSpecies(np.zeros_like(U.rest), np.zeros_like(U.energy_t), np.zeros_like(U.momentum_r))
+    monkeypatch.setattr(pk, "species_rhs", species_spy)
+    V55ProductionKernel()._rhs(state, radiation_recovery_metric=accepted)
+    assert seen == [accepted]

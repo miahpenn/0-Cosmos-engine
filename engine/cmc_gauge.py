@@ -20,35 +20,28 @@ def _d1(grid, values, parity):
     return grid.cell_derivative_fourth(values, parity=parity)
 
 
-def target_kdot(grid, geometry, scalars, matter, outer_frac: float = 0.20) -> float:
-    """Project the actual K RHS onto the CMC mode using proper 3-volume.
-
-    outer_frac remains accepted for API compatibility, but is deliberately
-    unused: selecting a fixed outer fraction makes the gauge response depend
-    on a coordinate-region choice. The proper-volume projection is intrinsic
-    to the current spatial slice.
-    """
+def target_kdot(
+    grid, geometry, scalars, matter, outer_frac: float = 0.20, radiation_recovery_metric=None
+) -> float:
+    """Project the actual K RHS onto the CMC mode using proper 3-volume."""
     del outer_frac
     _, vacuum, _ = adapter.vendor_modules()
     l2 = vacuum.primary_l2_rhs(grid, geometry)
-    l3 = adapter.primary_l3_with_matter(grid, geometry, scalars, matter)
+    if radiation_recovery_metric is None:
+        l3 = adapter.primary_l3_with_matter(grid, geometry, scalars, matter)
+    else:
+        l3 = adapter.primary_l3_with_matter(
+            grid, geometry, scalars, matter, radiation_recovery_metric=radiation_recovery_metric
+        )
     raw = np.asarray(l2["K"] + l3["K"], dtype=float)
-
-    r = np.asarray(grid.centers)
-    a = np.asarray(geometry.a)
-    b = np.asarray(geometry.b)
-    X = np.asarray(geometry.X)
-
-    # sqrt(gamma) d^3x for the spherical BSSN slice, up to the common 4*pi
-    # factor which cancels in the normalized projection.
+    r = np.asarray(grid.centers); a = np.asarray(geometry.a)
+    b = np.asarray(geometry.b); X = np.asarray(geometry.X)
     weights = r**2 * np.sqrt(np.maximum(a, 0.0)) * b / X**3
     weights *= float(grid.dr)
     total_weight = float(np.sum(weights))
     if not np.isfinite(total_weight) or total_weight <= 0.0:
         raise FloatingPointError("CMC proper-volume projection has invalid weight")
     return float(np.sum(weights * raw) / total_weight)
-
-
 def _fourth_derivative_row(grid, i: int, parity: int, order: int) -> dict[int, float]:
     """Return one row of the grid's native fourth-order derivative operator.
 
@@ -122,51 +115,31 @@ def _cmc_operator_banded(
 
 
 def solve_cmc_lapse(
-    grid,
-    geometry,
-    scalars,
-    matter,
-    outer_frac: float = 0.20,
+    grid, geometry, scalars, matter, outer_frac: float = 0.20, radiation_recovery_metric=None
 ) -> tuple[np.ndarray, float]:
-    """Solve the stage-aware CMC lapse with the native spatial discretization.
-
-    The elliptic operator uses exactly the same fourth-order/parity derivative
-    rows as the evolved K equation. The PDE is enforced through the first
-    retained center cell and through the penultimate cell; the outermost cell
-    is the normalization alpha(R)=1. This removes the former mixed-order
-    center closure that allowed a spurious central K mode to grow with
-    resolution.
-    """
+    """Solve the stage-aware CMC lapse using the native spatial discretization."""
     metric = metric_slice_from_q(grid, geometry)
-    total = total_matter_projection(grid, geometry, scalars, matter)
-
-    a = np.asarray(geometry.a)
-    b = np.asarray(geometry.b)
-    X = np.asarray(geometry.X)
-    r = np.asarray(grid.centers)
-    inv = X * X / a
-
-    ap = _d1(grid, a, 1)
-    bp = _d1(grid, b, 1)
-    Xp = _d1(grid, X, 1)
+    if radiation_recovery_metric is None:
+        total = total_matter_projection(grid, geometry, scalars, matter)
+        kdot = target_kdot(grid, geometry, scalars, matter, outer_frac=outer_frac)
+    else:
+        total = total_matter_projection(
+            grid, geometry, scalars, matter, radiation_recovery_metric=radiation_recovery_metric
+        )
+        kdot = target_kdot(
+            grid, geometry, scalars, matter, outer_frac=outer_frac,
+            radiation_recovery_metric=radiation_recovery_metric
+        )
+    a = np.asarray(geometry.a); b = np.asarray(geometry.b); X = np.asarray(geometry.X)
+    r = np.asarray(grid.centers); inv = X * X / a
+    ap = _d1(grid, a, 1); bp = _d1(grid, b, 1); Xp = _d1(grid, X, 1)
     c = -0.5 * ap / a + bp / b - Xp / X + 2.0 / r
-
-    # K_ij K^ij = 3/2 Aa^2 + K^2/3 in spherical BSSN.
-    Q = (
-        1.5 * geometry.Aa * geometry.Aa
-        + geometry.K * geometry.K / 3.0
-        + 4.0 * math.pi * (total["rho"] + total["pr"] + 2.0 * total["pt"])
-    )
-
-    kdot = target_kdot(grid, geometry, scalars, matter)
+    Q = (1.5 * geometry.Aa * geometry.Aa + geometry.K * geometry.K / 3.0
+         + 4.0 * math.pi * (total["rho"] + total["pr"] + 2.0 * total["pt"]))
     m = Q / inv
-    rhs = np.zeros(grid.n, dtype=float)
-    rhs[:-1] = -kdot / inv[:-1]
-    rhs[-1] = 1.0
-
+    rhs = np.zeros(grid.n, dtype=float); rhs[:-1] = -kdot / inv[:-1]; rhs[-1] = 1.0
     band = _cmc_operator_banded(grid, c, m)
     alpha = solve_banded((4, 4), band, rhs, check_finite=False)
-
     if not np.all(np.isfinite(alpha)):
         raise FloatingPointError("CMC lapse solve returned non-finite values")
     if float(np.min(alpha)) <= 0.0:

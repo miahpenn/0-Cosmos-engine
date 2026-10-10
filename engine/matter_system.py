@@ -602,7 +602,17 @@ def project_species(
     metric: BSSNMetricSlice,
     state: ConservedSpecies,
     species: Species,
+    recovery_metric: BSSNMetricSlice | None = None,
 ) -> dict[str, np.ndarray]:
-    """Recover primitives and return Einstein-source projections."""
+    """Recover primitives and return Einstein-source projections.
+
+    The returned stress projection always uses the stage metric argument.
+    An optional recovery metric affects primitive inversion only.
+    """
     metrics = _metric_arrays(metric)
-    return species_projection(metrics, primitives(metrics, state, species))
+    if recovery_metric is None:
+        prim = primitives(metrics, state, species)
+    else:
+        recovery_metrics = _metric_arrays(recovery_metric)
+        prim = primitives(metrics, state, species, recovery_metrics=recovery_metrics)
+    return species_projection(metrics, prim)

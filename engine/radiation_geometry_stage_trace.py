@@ -56,8 +56,14 @@ def _array(values) -> np.ndarray:
 
 
 class RadiationStageTrace:
-    def __init__(self, output_dir: Path):
+    def __init__(
+        self, output_dir: Path,
+        use_accepted_metric_for_predictor_radiation_recovery: bool = False,
+    ):
         self.output_dir = output_dir
+        self.use_accepted_metric_for_predictor_radiation_recovery = bool(
+            use_accepted_metric_for_predictor_radiation_recovery
+        )
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self.started_wall = time.time()
         self.step_index = 0
@@ -391,7 +397,7 @@ class RadiationStageTrace:
             finally:
                 self.active_radiation_evolve = None
 
-        def traced_solve(grid, geometry, scalars, matter):
+        def traced_solve(grid, geometry, scalars, matter, radiation_recovery_metric=None):
             step = trace.current_step
             t = float(step["t0"]) if step is not None else 0.0
             tau = float(step["tau0"]) if step is not None else 0.0
@@ -411,7 +417,13 @@ class RadiationStageTrace:
                 force=(step is not None and idx == 1),
             )
             try:
-                result = original_solve(grid, geometry, scalars, matter)
+                if radiation_recovery_metric is None:
+                    result = original_solve(grid, geometry, scalars, matter)
+                else:
+                    result = original_solve(
+                        grid, geometry, scalars, matter,
+                        radiation_recovery_metric=radiation_recovery_metric,
+                    )
                 if row is not None and (
                     t >= TARGET_TIME - TAIL_WINDOW
                     or row.get("max_ratio") is not None and row["max_ratio"] >= 0.98
@@ -429,7 +441,7 @@ class RadiationStageTrace:
                     step["failing_stage"] = stage
                 raise
 
-        def traced_rhs(kernel_self, state):
+        def traced_rhs(kernel_self, state, radiation_recovery_metric=None):
             step = trace.current_step
             t = float(state.t)
             tau = float(state.tau)
@@ -443,7 +455,12 @@ class RadiationStageTrace:
                 stage, state.grid, state.geometry, state.matter, t, tau,
                 trace.step_index, step["dt"] if step is not None else None,
             )
-            out = original_rhs(kernel_self, state)
+            if radiation_recovery_metric is None:
+                out = original_rhs(kernel_self, state)
+            else:
+                out = original_rhs(
+                    kernel_self, state, radiation_recovery_metric=radiation_recovery_metric
+                )
             srhs, mrhs, md = out
             if step is not None and rhs_idx == 0:
                 step["rhs0_record"] = {
@@ -556,6 +573,9 @@ class RadiationStageTrace:
 
     def run(self):
         kernel = production_kernel_module.V55ProductionKernel()
+        kernel.use_accepted_metric_for_predictor_radiation_recovery = (
+            self.use_accepted_metric_for_predictor_radiation_recovery
+        )
         state = kernel.initialize(
             resolution=RESOLUTION,
             r_max=R_MAX,
@@ -663,6 +683,8 @@ class RadiationStageTrace:
                     "width": 7.0,
                     "D_amplitude": 1.0e-10,
                     "include_radiation": True,
+                    "use_accepted_metric_for_predictor_radiation_recovery":
+                        self.use_accepted_metric_for_predictor_radiation_recovery,
                     "outer_boundary": "existing production light-constraint boundary and radiation outer closure",
                 },
             },
@@ -718,7 +740,13 @@ class RadiationStageTrace:
 
 def main():
     output = Path("runs/radiation-stage-trace")
-    trace = RadiationStageTrace(output)
+    use_accepted_recovery = (
+        os.environ.get("EXTENDED_B_ACCEPTED_METRIC_RECOVERY", "0") == "1"
+    )
+    trace = RadiationStageTrace(
+        output,
+        use_accepted_metric_for_predictor_radiation_recovery=use_accepted_recovery,
+    )
     try:
         return trace.run()
     except Exception as exc:
