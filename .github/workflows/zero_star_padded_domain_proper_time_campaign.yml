@@ -1,0 +1,186 @@
+name: "[0star] Canonical production campaign to matched central proper time"
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - diag/production-proper-time-admission
+
+permissions:
+  contents: read
+
+env:
+  PYTHONPATH: .
+
+jobs:
+  production-proper-time-campaign:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[run-padded-domain-proper-time]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - name: Checkout canonical production runner and pinned numerical operators
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Full repository tests
+        run: python -m pytest -q
+
+      - name: Run canonical full-machine campaign to central proper time tau=22.1
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import math
+          from pathlib import Path
+
+          import numpy as np
+
+          from engine.campaign import CampaignConfig
+          from engine.production_kernel import V55ProductionKernel
+          from engine.run_production import run_campaign
+
+          out = Path("runs/0star-production-proper-time-r120-target22p1")
+          target_tau = 22.1
+          coordinate_cap = 100.0
+          cfg = CampaignConfig(
+              resolutions=(120,),
+              r_max=120.0,
+              cfl=0.03,
+              final_time=coordinate_cap,
+              final_proper_time=target_tau,
+              checkpoint_interval=5.0,
+              output_dir=str(out),
+          )
+          results = run_campaign(kernel=V55ProductionKernel(), config=cfg)
+          summary_path = out / "campaign_summary.json"
+          summary = json.loads(summary_path.read_text())
+          ledger_path = out / "N120" / "ledgers.json"
+          ledger = json.loads(ledger_path.read_text())
+          history = ledger.get("history", [])
+          result_rows = [r.__dict__ for r in results]
+          failures = []
+          gates = []
+
+          def finite(x):
+              try:
+                  return math.isfinite(float(x))
+              except (TypeError, ValueError, OverflowError):
+                  return False
+
+          def gate(name, passed, detail):
+              record = {"gate": name, "passed": bool(passed), "detail": str(detail)}
+              gates.append(record)
+              print(("PASS" if passed else "FAIL") + " " + name + ": " + str(detail))
+              if not passed:
+                  failures.append(name)
+
+          gate("exactly one requested resolution", len(results) == 1, f"results={len(results)}")
+          result = results[0] if results else None
+          if result is not None:
+              gate("proper-time target status completed", result.status == "completed", result.status)
+              gate("central proper time reaches target", finite(result.tau_final) and result.tau_final >= target_tau, result.tau_final)
+              gate("coordinate safety cap not reached first", finite(result.t_final) and result.t_final < coordinate_cap, result.t_final)
+              gate("N=120 padded grid", result.resolution == 120, result.resolution)
+              gate("native history rows match step count", len(history) == result.steps, f"rows={len(history)} steps={result.steps}")
+              gate("native history nonempty", bool(history), f"rows={len(history)}")
+              gate("endpoint is a single accepted step past target at most", finite(result.tau_final) and result.tau_final >= target_tau, f"tau_final={result.tau_final}; final_t={result.t_final}")
+
+          required = [
+              "t", "tau", "H_eff", "H_center", "H_coord_center", "tau_rate",
+              "M_MS", "flux_T", "work_pR", "radiation_outer_ratio",
+              "radiation_outer_vhat", "cmc_kdot", "alpha_r_max", "lapse_min",
+              "lapse_max", "hamiltonian_normalized_max", "momentum_normalized_max",
+              "determinant_constraint_max", "cmc_residual_last_interior",
+              "cmc_boundary_alpha",
+          ]
+          bad_fields = []
+          for idx, row in enumerate(history):
+              for key in required:
+                  if key not in row or not finite(row.get(key)):
+                      bad_fields.append((idx, key, row.get(key)))
+          gate("required per-step diagnostics finite", not bad_fields, f"rows={len(history)} fields={len(required)} faults={bad_fields[:5]}")
+
+          times = [row.get("t") for row in history]
+          taus = [row.get("tau") for row in history]
+          gate("coordinate time monotonic", bool(times) and all(finite(v) for v in times) and all(float(b)>float(a) for a,b in zip(times,times[1:])), f"first={times[0] if times else None}, last={times[-1] if times else None}")
+          gate("proper time monotonic", bool(taus) and all(finite(v) for v in taus) and all(float(b)>float(a) for a,b in zip(taus,taus[1:])), f"first={taus[0] if taus else None}, last={taus[-1] if taus else None}")
+
+          cone_bad = [
+              (idx, row.get("t"), row.get("radiation_outer_ratio"))
+              for idx, row in enumerate(history)
+              if not finite(row.get("radiation_outer_ratio"))
+              or not (0.0 <= float(row["radiation_outer_ratio"]) < 1.0)
+          ]
+          gate("outer radiation cone admissible on every accepted history row", not cone_bad, f"bad_rows={cone_bad[:5]}")
+
+          checkpoints = sorted((out / "N120").glob("checkpoint_t*.npz"))
+          expected_checkpoint_count = result.checkpoint_count if result is not None else -1
+          gate("checkpoint count matches result ledger", len(checkpoints) == expected_checkpoint_count and len(checkpoints) > 0, f"files={len(checkpoints)} result_count={expected_checkpoint_count}")
+          checkpoint_issues = []
+          for path in checkpoints:
+              try:
+                  with np.load(path, allow_pickle=False) as z:
+                      if "r" not in z.files:
+                          checkpoint_issues.append((path.name, "missing grid"))
+                      else:
+                          r = np.asarray(z["r"], dtype=float)
+                          if r.shape != (120,) or abs(float(r[0]) - 0.5) > 1e-10 or abs(float(r[-1]) - 119.5) > 1e-10 or not np.allclose(np.diff(r), 1.0, rtol=0.0, atol=1e-10):
+                              checkpoint_issues.append((path.name, "grid mismatch"))
+                      for key in z.files:
+                          a = np.asarray(z[key])
+                          if np.issubdtype(a.dtype, np.number) and not np.isfinite(a).all():
+                              checkpoint_issues.append((path.name, key, "nonfinite"))
+              except Exception as exc:
+                  checkpoint_issues.append((path.name, repr(exc))
+                  )
+          gate("all checkpoint states finite and domain exact", not checkpoint_issues, str(checkpoint_issues[:5]))
+
+          summary["proper_time_admission"] = {
+              "target_tau": target_tau,
+              "coordinate_cap": coordinate_cap,
+              "passed": not failures,
+              "gates": gates,
+              "failures": failures,
+              "history_rows": len(history),
+              "rejected_attempt_count": summary.get("radiation_admissibility_retry_summary", {}).get("120", {}).get("rejected_attempt_count"),
+          }
+          summary_path.write_text(json.dumps(summary, indent=2, allow_nan=False) + "\n")
+          admission = {
+              "schema": "0star_canonical_proper_time_admission_v1",
+              "branch": "diag/production-proper-time-admission",
+              "source_commit": __import__("subprocess").check_output(["git", "rev-parse", "HEAD"], text=True).strip(),
+              "configuration": {
+                  "resolutions": [120], "r_max": 120.0, "dr": 1.0, "cfl": 0.03,
+                  "target_tau": target_tau, "coordinate_cap": coordinate_cap,
+                  "checkpoint_interval": 5.0,
+                  "purpose": "canonical run_campaign run to match and slightly exceed the old rmax=80 failure proper time"
+              },
+              "result": result_rows,
+              "gates": gates,
+              "passed": not failures,
+              "failures": failures,
+              "rejected_attempt_summary": summary.get("radiation_admissibility_retry_summary", {}),
+          }
+          (out / "proper_time_admission.json").write_text(json.dumps(admission, indent=2, allow_nan=False) + "\n")
+          print(json.dumps({"passed": not failures, "failures": failures, "result": result_rows, "gates": gates}, indent=2, allow_nan=False))
+          if failures:
+              raise SystemExit(1)
+          PY
+
+      - name: Upload canonical proper-time campaign, native ledger, checkpoints, and admission
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: 0star-production-proper-time-r120-tau22p1
+          path: runs/0star-production-proper-time-r120-target22p1/
+          if-no-files-found: error
