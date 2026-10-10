@@ -38,7 +38,7 @@ def _regions(values, r, n):
 
 
 def audit_initial_slice(resolution, r_max, amplitude=0.01, width=7.0):
-    """Measure source balance, independent polar Ricci, and both Hamiltonians."""
+    """Measure source balance and decompose the Hamiltonian mismatch."""
     if int(resolution) < 8 or not math.isfinite(float(r_max)) or r_max <= 0.0:
         raise ValueError("resolution must be >= 8 and r_max finite and positive")
     if not math.isfinite(float(amplitude)) or not math.isfinite(float(width)) or width <= 0.0:
@@ -49,44 +49,60 @@ def audit_initial_slice(resolution, r_max, amplitude=0.01, width=7.0):
     r = np.asarray(grid.centers, dtype=float)
     S, PS, Df, PD, phi, Pi, rdm, rb = fields
 
-    # Given the reference's metric parametrization, b^3 = X^6 = B = A^(-2).
+    # Given the reference metric parametrization, b^3 = X^6 = B = A^(-2).
     B_b = np.asarray(state.b, dtype=float) ** 3
     B_X = np.asarray(state.X, dtype=float) ** 6
     B = B_b
     metric_identity = B_b - B_X
 
+    # These analytic Gaussian gradients match those used by make_initial().
     Sp = -2.0 * r / float(width) ** 2 * S
     Dp = -2.0 * r / float(width) ** 2 * Df
-    rho = (
+    rho_source = (
         0.5 * (PS * PS + B * Sp * Sp) + 0.5 * S * S
         + 0.5 * (PD * PD + B * Dp * Dp) - 0.5 * Df * Df
         + (0.5 * Pi * Pi + ref.Vc(phi)) / ref.KAPPA
         + (rdm + rb) / ref.KAPPA
     )
+    # The legacy H0 definition is intentionally repeated as an audit witness;
+    # this is its own radiation-free, historically mapped reference background.
     H0 = math.sqrt((
         0.5 * 0.179055**2 + float(ref.Vc(np.array([33.8983]))[0])
         + 2.5857e-5 + 4.0306e-6
     ) / 3.0)
-    Kr = -H0 - 4.0 * math.pi * r * PD * Dp
-    source = 1.0 - 8.0 * math.pi * r * r * rho + 2.0 * r * r * Kr * (-H0) + r * r * H0 * H0
+    Kt = np.full_like(r, -H0)
+    Kr = Kt - 4.0 * math.pi * r * PD * Dp
+    source = 1.0 - 8.0 * math.pi * r * r * rho_source + 2.0 * r * r * Kr * Kt + r * r * Kt * Kt
     dB = ref.D(grid, B, 1)
 
-    # Continuum relation from the initializer is B + r B' = source.
+    # B + r B' = source is the continuum radial reconstruction identity.
     source_balance = B + r * dB - source
-
-    # Independent polar-areal identity for dl^2 = dr^2/B + r^2 dOmega^2.
-    # This does not reuse the reference BSSN Ricci expression.
-    R_bssn = ref.ricci_terms(grid, state)[0]
+    R_source = 2.0 * (1.0 - source) / (r * r)
     R_polar = 2.0 * (1.0 - B) / (r * r) - 2.0 * dB / r
-    ricci_difference = R_bssn - R_polar
 
+    # Independently evaluate the reference BSSN Ricci and constraint monitors.
+    R_bssn = ref.ricci_terms(grid, state)[0]
     H_bssn, M_bssn, conn, det = ref.constraint(grid, state, fields)
     Aa = np.asarray(state.Aa)
     Ab = -0.5 * Aa
-    rho_projection = ref.matter_projection(grid, state, fields)[0]
-    H_polar = R_polar - (Aa * Aa + 2.0 * Ab * Ab) + (2.0 / 3.0) * state.K * state.K - 16.0 * math.pi * rho_projection
+    rho_constraint = ref.matter_projection(grid, state, fields)[0]
+    H_polar = R_polar - (Aa * Aa + 2.0 * Ab * Ab) + (2.0 / 3.0) * state.K * state.K - 16.0 * math.pi * rho_constraint
 
-    arrays = (B, source, source_balance, R_bssn, R_polar, H_bssn, H_polar, M_bssn, conn, det)
+    # In source variables the Hamiltonian has the algebraic form
+    # R_source + 4 K_r K_t + 2 K_t^2 - 16 pi rho = 0.
+    H_source = R_source + 4.0 * Kr * Kt + 2.0 * Kt * Kt - 16.0 * math.pi * rho_source
+    rho_mismatch = rho_constraint - rho_source
+    R_polar_minus_source = R_polar - R_source
+    R_bssn_minus_source = R_bssn - R_source
+
+    # Identity closing the decomposition:
+    # H_BSSN - H_source = (R_BSSN - R_source) - 16 pi (rho_constraint-rho_source).
+    decomposition_closure = H_bssn - H_source - R_bssn_minus_source + 16.0 * math.pi * rho_mismatch
+
+    arrays = (
+        B, source, source_balance, R_source, R_bssn, R_polar,
+        H_bssn, H_polar, H_source, rho_mismatch, decomposition_closure, M_bssn, conn, det
+    )
     return {
         "resolution": int(resolution),
         "r_max": float(r_max),
@@ -96,9 +112,14 @@ def audit_initial_slice(resolution, r_max, amplitude=0.01, width=7.0):
         "H0_reference": H0,
         "metric_B_identity_max_abs_b3_minus_X6": _maxabs(metric_identity),
         "source_balance_B_plus_r_dB_minus_source": _regions(source_balance, r, int(resolution)),
-        "ricci_difference_BSSN_minus_independent_polar": _regions(ricci_difference, r, int(resolution)),
+        "ricci_BSSN_minus_polar": _regions(R_bssn - R_polar, r, int(resolution)),
+        "ricci_polar_minus_source": _regions(R_polar_minus_source, r, int(resolution)),
+        "ricci_BSSN_minus_source": _regions(R_bssn_minus_source, r, int(resolution)),
         "hamiltonian_BSSN": _regions(np.asarray(H_bssn), r, int(resolution)),
         "hamiltonian_independent_polar": _regions(np.asarray(H_polar), r, int(resolution)),
+        "hamiltonian_source_algebraic_closure": _regions(np.asarray(H_source), r, int(resolution)),
+        "matter_density_constraint_minus_source": _regions(rho_mismatch, r, int(resolution)),
+        "hamiltonian_decomposition_closure": _regions(decomposition_closure, r, int(resolution)),
         "momentum_constraint_max_abs": _maxabs(M_bssn),
         "connection_constraint_max_abs": _maxabs(conn),
         "determinant_constraint_max_abs": _maxabs(det),
@@ -139,12 +160,14 @@ def main(output="runs/reference-initial-data-geometric-consistency/report.json")
             "S_amplitude": case["amplitude"],
             "source_first5": case["source_balance_B_plus_r_dB_minus_source"]["max_abs_first_five"],
             "source_away": case["source_balance_B_plus_r_dB_minus_source"]["max_abs_away_from_center"],
-            "ricci_first5": case["ricci_difference_BSSN_minus_independent_polar"]["max_abs_first_five"],
-            "ricci_away": case["ricci_difference_BSSN_minus_independent_polar"]["max_abs_away_from_center"],
+            "R_BSSN_minus_polar_first": case["ricci_BSSN_minus_polar"]["first_cell"],
+            "R_polar_minus_source_first": case["ricci_polar_minus_source"]["first_cell"],
+            "R_BSSN_minus_source_first": case["ricci_BSSN_minus_source"]["first_cell"],
+            "H_source_closure_first": case["hamiltonian_source_algebraic_closure"]["first_cell"],
+            "rho_density_mismatch_first": case["matter_density_constraint_minus_source"]["first_cell"],
             "H_bssn_first": case["hamiltonian_BSSN"]["first_cell"],
             "H_polar_first": case["hamiltonian_independent_polar"]["first_cell"],
             "H_bssn_r2p5": case["hamiltonian_BSSN"]["at_r_near_2p5"],
-            "H_polar_r2p5": case["hamiltonian_independent_polar"]["at_r_near_2p5"],
         })
     print(json.dumps({
         "schema": result["schema"], "case_count": result["case_count"],
