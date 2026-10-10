@@ -18,6 +18,10 @@ from . import v55_pirk_adapter as adapter
 class ConvergenceError(RuntimeError):
     """The discrete-consistent initial-data solve did not safely converge."""
 
+    def __init__(self, message, diagnostics=None):
+        super().__init__(message)
+        self.diagnostics = list(diagnostics or [])
+
 
 def _residual(kernel, state, B, K_base, Aa_base):
     grid, G = state.grid, state.geometry
@@ -99,13 +103,26 @@ def discrete_consistent_state(
     hist = [float(np.max(np.abs(H)))]
     max_condition_seen = None
     iterations = 0
+    diagnostics = []
 
-    for _ in range(max_iter):
+    for iteration in range(max_iter):
         if hist[-1] <= tol:
             break
 
+        record = {
+            "iteration": iteration + 1,
+            "residual_before": float(hist[-1]),
+            "jacobian_relative_eps": 1.0e-7,
+            "jacobian_condition": None,
+            "update_linf": None,
+            "update_l2": None,
+            "candidate_B_min": None,
+            "residual_after": None,
+            "status": "building_jacobian",
+        }
+        diagnostics.append(record)
         J = np.zeros((B.size, B.size), dtype=float)
-        eps = 1.0e-7
+        eps = record["jacobian_relative_eps"]
         for j in range(B.size):
             Bp = B.copy()
             Bp[j] *= 1.0 + eps
@@ -125,33 +142,48 @@ def discrete_consistent_state(
             np.isfinite(condition) and condition > max_condition_seen
         ):
             max_condition_seen = condition
+        record["jacobian_condition"] = condition
+        record["status"] = "jacobian_conditioned"
         if not np.isfinite(condition) or condition > max_cond:
+            record["status"] = "jacobian_condition_rejected"
             raise ConvergenceError(
-                f"Jacobian condition {condition!r} exceeds limit {max_cond:g}"
+                f"Jacobian condition {condition!r} exceeds limit {max_cond:g}",
+                diagnostics=diagnostics,
             )
 
         try:
             delta = np.linalg.solve(J, -H)
         except np.linalg.LinAlgError as exc:
             raise ConvergenceError("Jacobian solve is singular") from exc
+        record["update_linf"] = float(np.max(np.abs(delta)))
+        record["update_l2"] = float(np.linalg.norm(delta))
         if not np.all(np.isfinite(delta)):
-            raise ConvergenceError("Newton update contains non-finite values")
+            record["status"] = "nonfinite_update"
+            raise ConvergenceError(
+                "Newton update contains non-finite values", diagnostics=diagnostics
+            )
 
         candidate = B + delta
+        record["candidate_B_min"] = float(np.min(candidate))
         if not np.all(np.isfinite(candidate)) or np.any(candidate <= 0.0):
+            record["status"] = "candidate_B_invalid"
             raise ConvergenceError(
-                "Newton update would make metric B non-finite or non-positive"
+                "Newton update would make metric B non-finite or non-positive",
+                diagnostics=diagnostics,
             )
 
         B = candidate
         H = evaluate(B)
         hist.append(float(np.max(np.abs(H))))
+        record["residual_after"] = hist[-1]
+        record["status"] = "updated"
         iterations += 1
 
     if hist[-1] > tol:
         raise ConvergenceError(
             f"did not converge in {max_iter} iterations; "
-            f"final max |H|={hist[-1]:.17g}, tolerance={tol:.17g}"
+            f"final max |H|={hist[-1]:.17g}, tolerance={tol:.17g}",
+            diagnostics=diagnostics,
         )
 
     # Leave the returned state's geometry at the converged B, not at the last
