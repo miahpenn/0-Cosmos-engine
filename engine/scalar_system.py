@@ -87,7 +87,10 @@ def scalar_rhs_arrays(grid, geometry, fields, beta_dm=-0.04,
         fields.phi, fields.Pi, cosmos_potential_prime(fields.phi)
     )
     if rho_dm is not None:
-        Pit = Pit + beta_dm * rho_dm
+        # The covariant scalar-DM exchange contributes alpha * beta * rho
+        # to the coordinate-time Pi RHS. This is the opposite scalar source
+        # to the conservative DM source in the same ADM slice.
+        Pit = Pit + geometry.alpha * beta_dm * rho_dm
     return ScalarFields(St, PSt, Dt, Pdt, phit, Pit)
 
 
