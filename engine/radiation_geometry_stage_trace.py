@@ -647,7 +647,14 @@ class RadiationStageTrace:
             "engine/matter_system.py",
             "engine/matter_rhs.py",
             "engine/valencia.py",
+            "engine/v55_matter.py",
+            "engine/v55_pirk_adapter.py",
+            "engine/cmc_gauge.py",
+            "engine/stress_energy.py",
+            "engine/true_cmc_pirk_kernel.py",
+            "engine/radiation_geometry_stage_trace.py",
             ".github/workflows/zero_star_radiation_stage_trace.yml",
+            ".github/workflows/zero_star_extended_b_recovery_metric.yml",
         ):
             path = Path(rel)
             hashes[rel] = (
@@ -656,11 +663,11 @@ class RadiationStageTrace:
             )
         payload = {
             "schema_name": "0star_radiation_predictor_trace_v1",
-            "purpose": "diagnostic-only trace; no production physics changes",
+            "purpose": "diagnostic-only trace; production defaults unchanged; optional predictor radiation recovery metric experiment",
             "status": status,
             "provenance": {
                 "repository": REPOSITORY,
-                "branch": BRANCH,
+                "branch": os.environ.get("GITHUB_REF_NAME", _git(["branch", "--show-current"])),
                 "instrumentation_commit": os.environ.get("GITHUB_SHA", _git(["rev-parse", "HEAD"])),
                 "source_commit_before_trace_workflow": _git(["rev-parse", "HEAD~2"]),
                 "workflow_commit": _git(["rev-parse", "HEAD^"]),
@@ -706,7 +713,12 @@ class RadiationStageTrace:
                 "The source is captured directly from the existing production radiation source routine.",
                 "Flux transport rate is reconstructed as the existing total radiation RHS minus that captured source; evolve_species sums only those two components for radiation.",
                 "The cone budget is ordered and uses the accepted spatial metric for the accepted, flux-only, and source-updated stages, then the predictor metric for the final predictor margin.",
-                "No alternative metric, projection, clipping, floor, damping, source insertion, or timestep adjustment is applied.",
+                (
+                    "Extended-B mode uses the accepted start-of-step metric only for predictor-stage radiation primitive inversion; stage metrics still enter the fluxes, geometric sources, stress projections, and CMC spatial operator."
+                    if self.use_accepted_metric_for_predictor_radiation_recovery
+                    else "Extended-B mode is disabled; the original predictor-stage radiation recovery metric is used."
+                ),
+                "No clipping, floor, damping, physical source insertion, or timestep adjustment is introduced.",
             ],
         }
         trace_path = self.output_dir / "trace.json"

@@ -195,3 +195,49 @@ def test_production_kernel_rhs_passes_recovery_metric(monkeypatch):
     monkeypatch.setattr(pk, "species_rhs", species_spy)
     V55ProductionKernel()._rhs(state, radiation_recovery_metric=accepted)
     assert seen == [accepted]
+
+
+def test_cmc_lapse_threads_recovery_metric_to_stress_and_target(monkeypatch):
+    import engine.cmc_gauge as cg
+    geometry = _slice(n=8)
+    grid = SimpleNamespace(
+        centers=geometry.r.copy(), n=8, dr=1.0,
+        cell_derivative_fourth=lambda values, parity=1: np.gradient(values),
+    )
+    accepted = _slice(n=8, alpha=0.6)
+    calls = []
+    def total_spy(grid_arg, geometry_arg, scalars_arg, matter_arg, radiation_recovery_metric=None):
+        calls.append(("total", radiation_recovery_metric))
+        z = np.zeros(8)
+        return {"rho": z, "pr": z, "pt": z, "j": z}
+    def target_spy(grid_arg, geometry_arg, scalars_arg, matter_arg, outer_frac=0.2, radiation_recovery_metric=None):
+        calls.append(("target", radiation_recovery_metric))
+        return 0.0
+    monkeypatch.setattr(cg, "total_matter_projection", total_spy)
+    monkeypatch.setattr(cg, "target_kdot", target_spy)
+    monkeypatch.setattr(cg, "solve_banded", lambda *a, **k: np.ones(8))
+    cg.solve_cmc_lapse(
+        grid, geometry, object(), object(),
+        radiation_recovery_metric=accepted,
+    )
+    assert calls == [("total", accepted), ("target", accepted)]
+
+
+def test_target_kdot_passes_recovery_metric_into_matter_rhs(monkeypatch):
+    import engine.cmc_gauge as cg
+    geometry = _slice(n=8)
+    grid = SimpleNamespace(centers=geometry.r.copy(), n=8, dr=1.0)
+    accepted = _slice(n=8, alpha=0.6)
+    class Vacuum:
+        @staticmethod
+        def primary_l2_rhs(grid_arg, geometry_arg):
+            return {"K": np.zeros(8)}
+    monkeypatch.setattr(cg.adapter, "vendor_modules", lambda: (None, Vacuum(), None))
+    calls = []
+    def l3_spy(grid_arg, geometry_arg, scalars_arg, matter_arg, radiation_recovery_metric=None):
+        calls.append(radiation_recovery_metric)
+        return {"K": np.zeros(8)}
+    monkeypatch.setattr(cg.adapter, "primary_l3_with_matter", l3_spy)
+    out = cg.target_kdot(grid, geometry, object(), object(), radiation_recovery_metric=accepted)
+    assert out == pytest.approx(0.0)
+    assert calls == [accepted]
