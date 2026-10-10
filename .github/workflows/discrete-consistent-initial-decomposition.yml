@@ -1,0 +1,47 @@
+name: "[0star] discrete-consistent candidate Hamiltonian drift decomposition"
+
+on:
+  push:
+    branches:
+      - diag/discrete-consistent-initial-review
+
+permissions:
+  contents: read
+
+jobs:
+  candidate-drift-attribution:
+    if: contains(github.event.head_commit.message, '[run-discrete-consistent-decomposition]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    env:
+      PYTHONPATH: .
+    steps:
+      - name: Checkout diagnostic branch and pinned vendor submodule
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Confirm candidate solver admission tests
+        run: python -m pytest -q tests/test_discrete_consistent_initial.py
+
+      - name: Attribute candidate Hamiltonian drift over matched N=40 trajectory
+        env:
+          GITHUB_SHA: ${{ github.sha }}
+        run: python -m engine.discrete_consistent_initial_decomposition
+
+      - name: Upload per-step attribution report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: discrete-consistent-initial-drift-decomposition
+          path: runs/discrete-consistent-initial-decomposition/report.json
+          if-no-files-found: warn
