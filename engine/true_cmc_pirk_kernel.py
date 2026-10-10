@@ -42,6 +42,8 @@ class V55TrueCMCPIRKKernel(V55ProductionKernel):
     """V5.5 with stage-aware CMC lapse and zero spatial shift."""
 
     validation_state = "implementation_smoke_pending"
+    # Diagnostic-only experiment; default remains OFF.
+    use_accepted_metric_for_predictor_radiation_recovery = False
 
     @staticmethod
     def _regularize(grid, geometry):
@@ -91,19 +93,31 @@ class V55TrueCMCPIRKKernel(V55ProductionKernel):
         )
 
     @staticmethod
-    def _validate_matter_state(grid, geometry, matter):
+    def _validate_matter_state(grid, geometry, matter, recovery_geometry=None):
+        """Validate on stage geometry; optionally recover radiation on another metric."""
         metric = metric_slice_from_q(grid, geometry)
-        metrics = __import__(
+        metrics_mod = __import__(
             "engine.matter_system",
             fromlist=["_metric_arrays", "Species", "primitives"],
         )
-        arrays = metrics._metric_arrays(metric)
+        arrays = metrics_mod._metric_arrays(metric)
+        recovery_arrays = None
+        if recovery_geometry is not None:
+            recovery_arrays = metrics_mod._metric_arrays(
+                metric_slice_from_q(grid, recovery_geometry)
+            )
         for name, species in (
-            ("dark_matter", metrics.Species.DARK_MATTER),
-            ("baryons", metrics.Species.BARYON),
-            ("radiation", metrics.Species.RADIATION),
+            ("dark_matter", metrics_mod.Species.DARK_MATTER),
+            ("baryons", metrics_mod.Species.BARYON),
+            ("radiation", metrics_mod.Species.RADIATION),
         ):
-            metrics.primitives(arrays, getattr(matter, name), species)
+            state = getattr(matter, name)
+            if species is metrics_mod.Species.RADIATION and recovery_arrays is not None:
+                metrics_mod.primitives(
+                    arrays, state, species, recovery_metrics=recovery_arrays
+                )
+            else:
+                metrics_mod.primitives(arrays, state, species)
 
     @staticmethod
     def _matter_euler(base, rhs, dt):
@@ -136,6 +150,49 @@ class V55TrueCMCPIRKKernel(V55ProductionKernel):
                 for name in ("dark_matter", "baryons", "radiation")
             )
         )
+
+    def _rhs(self, state: ProductionState, radiation_recovery_metric=None):
+        """Use an explicit recovery metric only for predictor radiation inversion.
+
+        Without an override, delegate directly to the production RHS so the
+        diagnostic-off path preserves the original implementation.
+        """
+        if radiation_recovery_metric is None:
+            return super()._rhs(state)
+
+        from .matter_rhs import species_rhs
+        from .matter_system import Species, geometry_metric_derivatives
+        from .scalar_system import scalar_rhs_arrays
+        from .v55_matter import dm_density
+        from .production_kernel import BETA_DM
+
+        metric = metric_slice_from_q(state.grid, state.geometry)
+        rho_dm = dm_density(metric, state.matter)
+        srhs = scalar_rhs_arrays(
+            state.grid, state.geometry, state.scalars,
+            beta_dm=BETA_DM, rho_dm=rho_dm,
+        )
+        md = geometry_metric_derivatives(
+            metric, lambda values, parity: self._d1(state.grid, values, parity),
+        )
+        dphi_t = srhs.phi
+        dphi_r = self._d1(state.grid, state.scalars.phi, 1)
+        mrhs = {}
+        for name, species in (
+            ("dark_matter", Species.DARK_MATTER),
+            ("baryons", Species.BARYON),
+            ("radiation", Species.RADIATION),
+        ):
+            args = {}
+            if species is Species.RADIATION:
+                args["recovery_metric"] = radiation_recovery_metric
+            mrhs[name] = species_rhs(
+                metric, md, getattr(state.matter, name), species,
+                dphi_t=dphi_t if species is Species.DARK_MATTER else None,
+                dphi_r=dphi_r if species is Species.DARK_MATTER else None,
+                beta_dm=BETA_DM, **args,
+            )
+        return srhs, mrhs, md
 
     def step(self, state: ProductionState, dt: float) -> ProductionState:
         if not np.isfinite(dt) or dt <= 0.0:
@@ -183,7 +240,10 @@ class V55TrueCMCPIRKKernel(V55ProductionKernel):
             )
         )
         mpred = self._matter_euler(m0, mrhs0, dt)
-        self._validate_matter_state(grid, gpred, mpred)
+        if self.use_accepted_metric_for_predictor_radiation_recovery:
+            self._validate_matter_state(grid, gpred, mpred, recovery_geometry=g0)
+        else:
+            self._validate_matter_state(grid, gpred, mpred)
         gpred.alpha = solve_archive_cmc_lapse(
             grid, gpred, spred, mpred
         )[0]
@@ -221,7 +281,11 @@ class V55TrueCMCPIRKKernel(V55ProductionKernel):
             tau=state.tau,
             e_folds=state.e_folds,
         )
-        srhs1, mrhs1, _ = self._rhs(stage1)
+        if self.use_accepted_metric_for_predictor_radiation_recovery:
+            pred_recovery = metric_slice_from_q(grid, g0)
+            srhs1, mrhs1, _ = self._rhs(stage1, radiation_recovery_metric=pred_recovery)
+        else:
+            srhs1, mrhs1, _ = self._rhs(stage1)
         gterms1 = adapter.geometry_stage_terms(
             grid, g1, spred, mpred, lambda_m=LAMBDA_M
         )

@@ -146,9 +146,18 @@ def primitives(
     metrics: list[SphericalMetric],
     U: ConservedSpecies,
     species: Species,
+    recovery_metrics: list[SphericalMetric] | None = None,
 ) -> list[FluidPrimitive]:
+    """Recover primitives, optionally using a separate metric for inversion only.
+
+    Callers continue to use `metrics` for fluxes and geometric sources.
+    `recovery_metrics` changes only the metric used by primitive inversion.
+    """
+    recover_with = recovery_metrics if recovery_metrics is not None else metrics
+    if len(recover_with) != len(metrics):
+        raise ValueError("recovery_metrics length must match metrics")
     out: list[FluidPrimitive] = []
-    for i, metric in enumerate(metrics):
+    for i, metric in enumerate(recover_with):
         state = _state_at(U, i)
         if species in (Species.DARK_MATTER, Species.BARYON):
             out.append(recover_dust(metric, state))
@@ -161,7 +170,7 @@ def primitives(
                 # This distinguishes transport-generated admissibility loss
                 # from a boundary/metric state inherited by the radiation.
                 def _ratio(j):
-                    mm = metrics[j]
+                    mm = recover_with[j]
                     EE = U.energy_t[j] / mm.sqrt_gamma
                     SS = U.momentum_r[j] / mm.sqrt_gamma
                     SSabs = math.sqrt(
@@ -468,6 +477,7 @@ def evolve_species(
     dphi_r: np.ndarray | None = None,
     beta_dm: float = -0.04,
     validate_physical_state: bool = True,
+    recovery_metric: BSSNMetricSlice | None = None,
 ) -> ConservedSpecies:
     """Advance one conservative finite-volume step.
 
@@ -483,7 +493,12 @@ def evolve_species(
         raise ValueError("conserved state shape mismatch")
 
     metrics = _metric_arrays(metric)
-    prim = primitives(metrics, state, species)
+    # Stage metrics still drive face fluxes and geometric sources.
+    if recovery_metric is None:
+        prim = primitives(metrics, state, species)
+    else:
+        recovery_metrics = _metric_arrays(recovery_metric)
+        prim = primitives(metrics, state, species, recovery_metrics=recovery_metrics)
 
     face_flux = np.zeros((n + 1, 3), dtype=float)
 
