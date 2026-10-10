@@ -167,6 +167,22 @@ def report_curvature(state, reference_grid, label, initial_gate=False):
     idx = int(np.argmax(np.abs(curvature_diff)))
 
     H = hamiltonian_residual(state)
+    raw_constraints = vacuum.constraints(state.grid, geometry)
+    total_stress = assemble_total_stress_energy(
+        state.grid, geometry, state.scalars, state.matter
+    )
+    # The source normalization matches reference_pirk_unified.constraint():
+    # M_total = M_geometry - 8*pi*j, with j assembled from all matter sectors.
+    momentum_total = (
+        np.asarray(raw_constraints["momentum"], dtype=float)
+        - 8.0 * math.pi * np.asarray(total_stress.j, dtype=float)
+    )
+    constraint_profiles = {
+        "connection": np.asarray(raw_constraints["connection"], dtype=float),
+        "determinant": np.asarray(raw_constraints["determinant"], dtype=float),
+        "momentum_geometric": np.asarray(raw_constraints["momentum"], dtype=float),
+        "momentum_total_minus_8pi_j": momentum_total,
+    }
     areal_departure = np.asarray(geometry.b) / np.asarray(geometry.X) ** 2 - 1.0
 
     print(f"[CURVATURE {label}] t={state.t:.12g}")
@@ -193,6 +209,13 @@ def report_curvature(state, reference_grid, label, initial_gate=False):
         f"  Hamiltonian residual: cells0-4={np.array2string(H[:5], precision=4)}; "
         f"max|H| all={np.max(np.abs(H)):.3e}"
     )
+    print("  BSSN constraint profiles (no centre masking):")
+    for name, values in constraint_profiles.items():
+        print(
+            f"    {name}: cells0-4={np.array2string(values[:5], precision=4)}; "
+            f"cell0={values[0]:+.4e}; maxabs_cells0-4={np.max(np.abs(values[:5])):.3e}; "
+            f"maxabs_all={np.max(np.abs(values)):.3e}"
+        )
 
     if initial_gate:
         if operator_max > INITIAL_AGREEMENT_TOL:
