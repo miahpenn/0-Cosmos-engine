@@ -11,7 +11,7 @@ from engine.matter_system import _metric_arrays
 from engine.v55_matter import dm_density, metric_slice_from_q
 
 
-def test_active_rhs_beta_source_pair_cancels_with_lapse_and_shift():
+def test_active_rhs_beta_source_pair_cancels_with_lapse_and_shift(monkeypatch):
     kernel = production_kernel.V55ProductionKernel()
     state = kernel.initialize(
         resolution=32,
@@ -36,7 +36,7 @@ def test_active_rhs_beta_source_pair_cancels_with_lapse_and_shift():
 
     # Compare the same unadvanced state with the active coupling and with only
     # its coefficient set to zero. No finite-time step is taken.
-    with monkeypatch_context() as patch:
+    with monkeypatch.context() as patch:
         patch.setattr(production_kernel, "BETA_DM", beta_source)
         scalar_on, matter_on, _ = kernel._rhs(state)
         patch.setattr(production_kernel, "BETA_DM", 0.0)
