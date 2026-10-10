@@ -171,3 +171,61 @@ def test_tracer_records_rhs1_rates_and_source_provenance(tmp_path, monkeypatch):
         kernel_cls.step = old_step
         mr.evolve_species = old_evolve
         ms._radiation_source = old_source
+
+
+def test_trace_instrumentation_preserves_one_step_production_state_bitwise(tmp_path):
+    """Observational tracing must not perturb a representative production step."""
+    import engine.matter_rhs as mr
+    import engine.matter_system as ms
+    from engine.production_kernel import V55ProductionKernel
+
+    kernel = V55ProductionKernel()
+    state_plain = kernel.initialize(
+        resolution=32, r_max=16.0, amplitude=0.01, width=7.0,
+        D_amplitude=1.0e-10, include_radiation=True,
+    )
+    state_traced = kernel.initialize(
+        resolution=32, r_max=16.0, amplitude=0.01, width=7.0,
+        D_amplitude=1.0e-10, include_radiation=True,
+    )
+
+    dt = 0.002
+    plain = kernel.step(state_plain, dt)
+    trace = RadiationStageTrace(tmp_path)
+    try:
+        traced = kernel.step(state_traced, dt)
+        assert not trace.instrumentation_errors
+    finally:
+        kernel_cls, old_solve, old_rhs, old_step, old_evolve, old_source, old_boundary = trace._restore_hooks
+        kernel_cls._solve_lapse = staticmethod(old_solve)
+        kernel_cls._rhs = old_rhs
+        kernel_cls._apply_outer_light_boundary = staticmethod(old_boundary)
+        kernel_cls.step = old_step
+        mr.evolve_species = old_evolve
+        ms._radiation_source = old_source
+
+    assert plain.t == traced.t
+    assert plain.tau == traced.tau
+    assert plain.e_folds == traced.e_folds
+
+    geometry_fields = (
+        "a", "b", "X", "alpha", "beta", "Aa", "K",
+        "Lambda", "B", "r",
+    )
+    for name in geometry_fields:
+        assert np.array_equal(
+            getattr(plain.geometry, name), getattr(traced.geometry, name)
+        ), f"traced production geometry differs in {name}"
+
+    for name, value in vars(plain.scalars).items():
+        if isinstance(value, np.ndarray):
+            assert np.array_equal(value, getattr(traced.scalars, name)), (
+                f"traced scalar state differs in {name}"
+            )
+
+    for species in ("dark_matter", "baryons", "radiation"):
+        a, b = getattr(plain.matter, species), getattr(traced.matter, species)
+        for name in ("rest", "energy_t", "momentum_r"):
+            assert np.array_equal(getattr(a, name), getattr(b, name)), (
+                f"traced {species}.{name} differs"
+            )
