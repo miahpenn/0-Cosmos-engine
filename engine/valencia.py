@@ -121,85 +121,77 @@ def conserved_energy(metric: SphericalMetric, U: FluidConserved) -> tuple[float,
     return D, E
 
 
+class RadiationRecoveryError(ValueError):
+    """Radiation conservative state is outside the finite-fluid admissible domain."""
+
+
 def recover_radiation(
     metric: SphericalMetric,
     U: FluidConserved,
     tol: float = 1.0e-12,
     max_iter: int = 80,
 ) -> FluidPrimitive:
-    """Recover radiation from Eulerian Valencia energy/momentum variables.
+    """Recover radiation primitives from Eulerian energy and radial momentum.
 
-    For radiation the production integrator stores
-        U_E = sqrt(gamma) E,  U_r = sqrt(gamma) S_r,
-    rather than the lapse-singular mixed component sqrt(-g) T^t_t.
+    With p=rho/3, r=|S|/E=4v/(3+v^2). The physical root is
+
+        v = 6r / (4 + sqrt(16 - 12r^2)),
+        p = E (1-v^2)/(3+v^2).
+
+    This closed form avoids energy-scale-dependent iterative tolerances in
+    dilute cells. The legacy tol and max_iter parameters remain accepted for
+    call compatibility; this exact EOS inversion does not require iteration.
     """
+    del tol, max_iter
     E = U.energy_t / metric.sqrt_gamma
-    if E < 0.0:
-        raise ValueError("radiation conservative state is nonphysical")
+    if not math.isfinite(E) or E < 0.0:
+        raise RadiationRecoveryError(
+            f"radiation conservative energy is nonphysical: E={E:.17e}"
+        )
+
     S_r = U.momentum_r / metric.sqrt_gamma
     S2 = metric.gamma_rr_inv * S_r * S_r
     S_abs = math.sqrt(max(S2, 0.0))
     if S2 == 0.0:
         return FluidPrimitive(
             rho=E, pressure=E / 3.0, v_r=0.0,
-            gamma_rr=metric.gamma_rr
+            gamma_rr=metric.gamma_rr,
         )
 
-    # The dominant-energy bound is a physical admissibility condition.
-    # Report a violation; never clip it away.
-    if S_abs > E:
-        raise ValueError(
+    # Do not clip an inadmissible conservative state into the physical domain.
+    if not math.isfinite(S_abs) or S_abs > E:
+        raise RadiationRecoveryError(
             "radiation conservative state violates E>=|S|: "
             f"E={E:.17e}, |S|={S_abs:.17e}, "
             f"ratio={S_abs / max(E, 1.0e-300):.17e}"
         )
-
-    def residual(p: float) -> tuple[float, float]:
-        z = E + p
-        v2 = S2 / (z * z)
-        if v2 >= 1.0:
-            return math.inf, v2
-        correction = 4.0 * p * v2 / (1.0 - v2)
-        return (3.0 * p - E) + correction, v2
-
-    lo = 0.0
-    hi = E / 3.0
-    f_lo, _ = residual(lo)
-    f_hi, _ = residual(hi)
-    if f_hi < 0.0:
-        hi = math.nextafter(hi, math.inf)
-        f_hi, _ = residual(hi)
-    if not math.isfinite(f_hi) or f_lo > 0.0 or f_hi < 0.0:
-        raise ValueError(
-            "radiation primitive inversion has no physical bracket: "
-            f"E={E:.17e}, |S|={S_abs:.17e}"
+    if S_abs == E:
+        raise RadiationRecoveryError(
+            "radiation conservative state lies on the null boundary E=|S|; "
+            "no finite perfect-fluid primitive exists"
         )
 
-    for _ in range(max_iter):
-        mid = 0.5 * (lo + hi)
-        f_mid, v2 = residual(mid)
-        if abs(f_mid) <= tol * E:
-            v = math.sqrt(max(v2, 0.0) / metric.gamma_rr)
-            return FluidPrimitive(
-                rho=3.0 * mid,
-                pressure=mid,
-                v_r=math.copysign(v, S_r),
-                gamma_rr=metric.gamma_rr,
-            )
-        if f_mid >= 0.0:
-            hi = mid
-        else:
-            lo = mid
+    ratio = S_abs / E
+    discriminant = 16.0 - 12.0 * ratio * ratio
+    vhat = 6.0 * ratio / (4.0 + math.sqrt(discriminant))
+    v2 = vhat * vhat
+    if not math.isfinite(v2) or v2 >= 1.0:
+        raise RadiationRecoveryError(
+            "radiation primitive inversion reached a non-finite or null velocity: "
+            f"E={E:.17e}, |S|={S_abs:.17e}, v2={v2:.17e}"
+        )
 
-    mid = 0.5 * (lo + hi)
-    f_mid, v2 = residual(mid)
-    if not math.isfinite(f_mid) or v2 >= 1.0:
-        raise ValueError("radiation primitive inversion did not converge")
-    v = math.sqrt(max(v2, 0.0) / metric.gamma_rr)
+    pressure = E * (1.0 - v2) / (3.0 + v2)
+    if not math.isfinite(pressure) or pressure <= 0.0:
+        raise RadiationRecoveryError(
+            "radiation primitive inversion produced non-positive pressure: "
+            f"E={E:.17e}, |S|={S_abs:.17e}, p={pressure:.17e}"
+        )
+    v_r = math.copysign(vhat / math.sqrt(metric.gamma_rr), S_r)
     return FluidPrimitive(
-        rho=3.0 * mid,
-        pressure=mid,
-        v_r=math.copysign(v, S_r),
+        rho=3.0 * pressure,
+        pressure=pressure,
+        v_r=v_r,
         gamma_rr=metric.gamma_rr,
     )
 

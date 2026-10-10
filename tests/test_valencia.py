@@ -150,3 +150,36 @@ def test_low_density_near_null_radiation_recovery_is_relative_accuracy():
     assert recovered.pressure > 0.0
     assert abs(energy_reconstructed - energy) / energy < 1.0e-10
     assert abs(momentum_reconstructed - radial_momentum) / abs(radial_momentum) < 1.0e-10
+
+
+
+def test_radiation_closed_form_recovery_roundtrips_moderate_and_near_null_states():
+    from engine.valencia import recover_radiation
+
+    metric = SphericalMetric(
+        alpha=1.0,
+        beta=0.0,
+        gamma_rr=0.6938513563030541,
+        gamma_rr_inv=1.4412308787982382,
+        gamma_thth=5000.0,
+        gamma_thth_inv=1.0 / 5000.0,
+        sqrt_gamma=7579.229307576932,
+    )
+    for energy, ratio in (
+        (3.5729677738253134e-8, 0.999571710404479),
+        (8.0e-7, 0.4),
+        (2.0e-5, 0.95),
+    ):
+        radial_momentum = ratio * energy / math.sqrt(metric.gamma_rr_inv)
+        state = FluidConserved(
+            rest=0.0,
+            energy_t=metric.sqrt_gamma * energy,
+            momentum_r=metric.sqrt_gamma * radial_momentum,
+        )
+        q = recover_radiation(metric, state)
+        W = q.lorentz()
+        h = q.rho + q.pressure
+        energy_back = h * W * W - q.pressure
+        momentum_back = h * W * W * metric.gamma_rr * q.v_r
+        assert abs(energy_back - energy) / energy < 5.0e-14
+        assert abs(momentum_back - radial_momentum) / abs(radial_momentum) < 5.0e-14

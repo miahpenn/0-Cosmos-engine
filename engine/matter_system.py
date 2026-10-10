@@ -26,6 +26,7 @@ import numpy as np
 from .valencia import (
     FluidConserved,
     FluidPrimitive,
+    RadiationRecoveryError,
     SphericalMetric,
     dark_matter_covector_source,
     recover_dust,
@@ -183,7 +184,7 @@ def primitives(
                 neighborhood = [
                     (j, *_ratio(j)) for j in range(lo, hi + 1)
                 ]
-                raise ValueError(
+                raise RadiationRecoveryError(
                     f"radiation inversion failure at cell i={i}: "
                     f"alpha={metric.alpha:.17e}, beta={metric.beta:.17e}, "
                     f"gamma_rr={metric.gamma_rr:.17e}; {exc}; "
@@ -587,7 +588,7 @@ def evolve_species(
             i = int(bad[0])
             flux_dE = -inv_dr * (face_flux[i + 1, 1] - face_flux[i, 1])
             flux_dS = -inv_dr * (face_flux[i + 1, 2] - face_flux[i, 2])
-            raise ValueError(
+            raise RadiationRecoveryError(
                 f"radiation evolution step created inadmissible state at cell i={i}: "
                 f"tendency_flux_E={flux_dE:.17e}, source_E={source_e_diag[i]:.17e}, "
                 f"tendency_flux_S={flux_dS:.17e}, source_S={source_s_diag[i]:.17e}; "
