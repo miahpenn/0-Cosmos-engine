@@ -1,0 +1,45 @@
+name: "[0star] S/PS stress projection and step refinement"
+
+on:
+  push:
+    branches:
+      - diag/discrete-consistent-initial-review
+
+permissions:
+  contents: read
+
+jobs:
+  s-ps-projection-refinement:
+    if: contains(github.event.head_commit.message, '[run-s-ps-projection-refinement]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    env:
+      PYTHONPATH: .
+    steps:
+      - name: Checkout diagnostic branch and pinned vendor submodule
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Re-run candidate initializer admission tests
+        run: python -m pytest -q tests/test_discrete_consistent_initial.py
+
+      - name: Run S/PS projection and full/half/quarter-step audit
+        run: python -m engine.s_ps_projection_refinement
+
+      - name: Upload S/PS projection refinement report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: s-ps-projection-refinement
+          path: runs/s-ps-projection-refinement/report.json
+          if-no-files-found: warn
