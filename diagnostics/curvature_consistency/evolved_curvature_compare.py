@@ -22,7 +22,7 @@ sys.path.insert(0, str(ROOT))
 from engine import reference_pirk_unified as ref
 from engine import v55_pirk_adapter as adapter
 from engine.discrete_consistent_initial import discrete_consistent_state
-from engine.production_kernel import V55ProductionKernel
+from engine.production_kernel import LAMBDA_M, V55ProductionKernel
 from engine.scalar_system import ScalarFields, scalar_projection
 from engine.stress_energy import assemble_total_stress_energy
 
@@ -249,6 +249,94 @@ def report_curvature(state, reference_grid, label, initial_gate=False):
         )
 
 
+def metric_connection_time_derivative(grid, geometry, adot, bdot):
+    """Directional derivative of the discrete metric-connection expression."""
+    radius = np.asarray(grid.centers)
+    a = np.asarray(geometry.a)
+    b = np.asarray(geometry.b)
+    da = np.asarray(grid.cell_derivative_fourth(a, parity=+1))
+    db = np.asarray(grid.cell_derivative_fourth(b, parity=+1))
+    dadot = np.asarray(grid.cell_derivative_fourth(adot, parity=+1))
+    dbdot = np.asarray(grid.cell_derivative_fourth(bdot, parity=+1))
+    adot = np.asarray(adot)
+    bdot = np.asarray(bdot)
+    return (
+        dadot / (2.0 * a**2)
+        - da * adot / a**3
+        - dbdot / (a * b)
+        + db * adot / (a**2 * b)
+        + db * bdot / (a * b**2)
+        + 2.0 / radius * (-bdot / b**2 + adot / a**2)
+    )
+
+
+def connection_rhs_budget(kernel, state):
+    """Compare C_Lambda RHS with the momentum-driver source and metric rate."""
+    rhs_state = copy.deepcopy(state)
+    rhs_state.geometry = vacuum.enforce_algebraic_regularity(
+        rhs_state.grid, rhs_state.geometry.copy()
+    )
+    rhs_state.geometry.alpha = kernel._solve_lapse(
+        rhs_state.grid, rhs_state.geometry, rhs_state.scalars, rhs_state.matter
+    )[0]
+    rhs_state.geometry.beta.fill(0.0)
+    rhs_state.geometry.B.fill(0.0)
+
+    grid = rhs_state.grid
+    geometry = rhs_state.geometry
+    stage_terms = adapter.geometry_stage_terms(
+        grid, geometry, rhs_state.scalars, rhs_state.matter, lambda_m=LAMBDA_M
+    )
+    adot = np.asarray(stage_terms["explicit"]["a"], dtype=float)
+    bdot = np.asarray(stage_terms["explicit"]["b"], dtype=float)
+    metric_connection_rate = metric_connection_time_derivative(
+        grid, geometry, adot, bdot
+    )
+    lambda_rate = (
+        np.asarray(stage_terms["lambda_l2"], dtype=float)
+        + np.asarray(stage_terms["lambda_l3"], dtype=float)
+    )
+    c_rate = lambda_rate - metric_connection_rate
+
+    # Remove only the configured lambda_m momentum-constraint channel, without
+    # changing any state: lambda_l2 carries +lambda_m*alpha*M_geom/a and the
+    # matter correction in lambda_l3 carries -8*pi*lambda_m*alpha*j/a.
+    _, vacuum_local, _ = adapter.vendor_modules()
+    lambda_rate_no_m = (
+        np.asarray(vacuum_local.lambda_l2_rhs(grid, geometry, lambda_m=0.0))
+        + np.asarray(vacuum_local.lambda_l3_rhs(grid, geometry))
+    )
+    c_rate_no_m = lambda_rate_no_m - metric_connection_rate
+    raw = vacuum_local.constraints(grid, geometry)
+    total = assemble_total_stress_energy(
+        grid, geometry, rhs_state.scalars, rhs_state.matter
+    )
+    momentum_total = np.asarray(raw["momentum"]) - 8.0 * math.pi * np.asarray(total.j)
+    momentum_channel = (
+        LAMBDA_M * np.asarray(geometry.alpha) / np.asarray(geometry.a)
+        * momentum_total
+    )
+    closure = c_rate - (c_rate_no_m + momentum_channel)
+
+    print(f"[CONNECTION_RHS_BUDGET] t={state.t:.12g}")
+    for name, values in (
+        ("Cdot_full", c_rate),
+        ("Cdot_no_lambda_m", c_rate_no_m),
+        ("lambda_m_alpha_over_a_times_Mtotal", momentum_channel),
+    ):
+        print(
+            f"  {name}: cell0={values[0]:+.6e}; "
+            f"maxabs_cells0-4={np.max(np.abs(values[:5])):.6e}; "
+            f"maxabs_all={np.max(np.abs(values)):.6e}"
+        )
+    print(
+        f"  closure maxabs={np.max(np.abs(closure)):.3e}; "
+        f"lambda-dot cell0={lambda_rate[0]:+.6e}; "
+        f"metric-connection-dot cell0={metric_connection_rate[0]:+.6e}; "
+        f"Mtotal cell0={momentum_total[0]:+.6e}"
+    )
+
+
 def one_step_budget(kernel, state):
     """Probe the state with short steps from a separately projected copy."""
     raw_H = hamiltonian_residual(state)
@@ -282,6 +370,7 @@ def one_step_budget(kernel, state):
     )
 
     base = constraint_components(projected)
+    connection_rhs_budget(kernel, projected)
     base_dr = projected.grid.dr
     for factor in PROBE_DT_FACTORS:
         dt = factor * base_dr
