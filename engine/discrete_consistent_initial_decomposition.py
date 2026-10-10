@@ -6,6 +6,7 @@ Runs only the N=40 matched-setting candidate trajectory (r_max=40, CFL=.03, t=3)
 """
 from __future__ import annotations
 
+import argparse
 import json
 import math
 import os
@@ -49,42 +50,55 @@ def _sample(state, residual, label):
     }
 
 
-def run_case() -> dict:
+def run_case(mode: str = "candidate") -> dict:
+    if mode not in ("baseline", "candidate"):
+        raise ValueError("mode must be 'baseline' or 'candidate'")
     kernel = V55ProductionKernel()
-    state, B, residual_history, solver = discrete_consistent_state(
-        kernel,
-        resolution=SETTINGS["resolution"],
-        r_max=SETTINGS["r_max"],
-        amplitude=SETTINGS["amplitude"],
-        width=SETTINGS["width"],
-        D_amplitude=SETTINGS["D_amplitude"],
-        include_radiation=SETTINGS["include_radiation"],
-        max_iter=SETTINGS["solver_max_iter"],
-        tol=SETTINGS["solver_tolerance"],
-        max_cond=SETTINGS["solver_max_condition_number"],
-        return_info=True,
-    )
-    solver = {
-        **solver,
-        "residual_history": [float(x) for x in residual_history],
-        "B_min": float(np.min(B)),
-        "B_max": float(np.max(B)),
-    }
-
-    # Match the A/B run: recompute the same CMC gauge on the changed geometry.
-    state.geometry.alpha = np.asarray(
-        kernel._solve_lapse(
-            state.grid, state.geometry, state.scalars, state.matter
-        )[0],
-        dtype=float,
-    ).copy()
-    state.geometry.beta.fill(0.0)
-    state.geometry.B.fill(0.0)
+    solver = None
+    if mode == "candidate":
+        state, B, residual_history, solver = discrete_consistent_state(
+            kernel,
+            resolution=SETTINGS["resolution"],
+            r_max=SETTINGS["r_max"],
+            amplitude=SETTINGS["amplitude"],
+            width=SETTINGS["width"],
+            D_amplitude=SETTINGS["D_amplitude"],
+            include_radiation=SETTINGS["include_radiation"],
+            max_iter=SETTINGS["solver_max_iter"],
+            tol=SETTINGS["solver_tolerance"],
+            max_cond=SETTINGS["solver_max_condition_number"],
+            return_info=True,
+        )
+        solver = {
+            **solver,
+            "residual_history": [float(x) for x in residual_history],
+            "B_min": float(np.min(B)),
+            "B_max": float(np.max(B)),
+        }
+        # Match the A/B run: recompute CMC lapse after the candidate B solve.
+        state.geometry.alpha = np.asarray(
+            kernel._solve_lapse(
+                state.grid, state.geometry, state.scalars, state.matter
+            )[0],
+            dtype=float,
+        ).copy()
+        state.geometry.beta.fill(0.0)
+        state.geometry.B.fill(0.0)
+    else:
+        state = kernel.initialize(
+            resolution=SETTINGS["resolution"],
+            r_max=SETTINGS["r_max"],
+            amplitude=SETTINGS["amplitude"],
+            width=SETTINGS["width"],
+            D_amplitude=SETTINGS["D_amplitude"],
+            include_radiation=SETTINGS["include_radiation"],
+        )
 
     initial_residual = hamiltonian_residual(state)
     report = {
         "schema": "discrete_consistent_initial_hamiltonian_drift_attribution_v1",
-        "kind": "diagnostic_only_candidate_stepwise_shapley_attribution",
+        "kind": "diagnostic_only_stepwise_shapley_attribution",
+        "mode": mode,
         "source_commit": os.environ.get("GITHUB_SHA", "unavailable"),
         "settings": SETTINGS,
         "admission": "NOT_ADMITTED_DIAGNOSTIC_ONLY",
@@ -212,13 +226,21 @@ def run_case() -> dict:
 
 
 def main() -> int:
-    output = Path("runs/discrete-consistent-initial-decomposition/report.json")
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--mode", choices=("baseline", "candidate"), default="candidate")
+    args = parser.parse_args()
+    output = (
+        Path("runs/discrete-consistent-initial-decomposition-baseline/report.json")
+        if args.mode == "baseline"
+        else Path("runs/discrete-consistent-initial-decomposition/report.json")
+    )
     output.parent.mkdir(parents=True, exist_ok=True)
-    report = run_case()
+    report = run_case(args.mode)
     output.write_text(json.dumps(report, indent=2, allow_nan=False))
     print(json.dumps({
         "status": report["status"],
         "source_commit": report["source_commit"],
+        "mode": report["mode"],
         "settings": report["settings"],
         "solver": report["solver"],
         "initial": report["initial"],
