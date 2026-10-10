@@ -1,3 +1,4 @@
+import math
 from math import isclose
 
 import numpy as np
@@ -10,10 +11,12 @@ from engine.matter_system import (
     initialize_radiation,
 )
 from engine.valencia import (
+    FluidConserved,
     FluidPrimitive,
     SphericalMetric,
     mixed_flux,
     primitive_to_conserved,
+    recover_radiation,
     spherical_metric_from_bssn,
 )
 
@@ -115,3 +118,35 @@ def test_radiation_transport_preserves_zero_rest_component():
     )
 
     assert np.allclose(advanced.rest, 0.0, atol=1.0e-30)
+
+
+
+def test_low_density_near_null_radiation_recovery_is_relative_accuracy():
+    """Tiny physical energy must not turn the inversion tolerance into an absolute 1e-12."""
+    metric = SphericalMetric(
+        alpha=1.0,
+        beta=0.0,
+        gamma_rr=0.6938513563030541,
+        gamma_rr_inv=1.4412308787982382,
+        gamma_thth=5000.0,
+        gamma_thth_inv=1.0 / 5000.0,
+        sqrt_gamma=7579.229307576932,
+    )
+    energy = 3.5729677738253134e-8
+    ratio = 0.999571710404479
+    radial_momentum = ratio * energy / math.sqrt(metric.gamma_rr_inv)
+    state = FluidConserved(
+        rest=0.0,
+        energy_t=metric.sqrt_gamma * energy,
+        momentum_r=metric.sqrt_gamma * radial_momentum,
+    )
+
+    recovered = recover_radiation(metric, state)
+    W = recovered.lorentz()
+    h = recovered.rho + recovered.pressure
+    energy_reconstructed = h * W * W - recovered.pressure
+    momentum_reconstructed = h * W * W * metric.gamma_rr * recovered.v_r
+
+    assert recovered.pressure > 0.0
+    assert abs(energy_reconstructed - energy) / energy < 1.0e-10
+    assert abs(momentum_reconstructed - radial_momentum) / abs(radial_momentum) < 1.0e-10
