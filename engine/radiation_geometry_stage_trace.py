@@ -864,15 +864,37 @@ class RadiationStageTrace:
                             "where": "completed_state_budget",
                             "t": t, "step_index": trace.step_index, "error": error,
                         })
+            context = {
+                "grid": grid,
+                "geometry": geometry,
+                "stage": stage,
+                "t": t,
+                "tau": tau,
+                "dt": float(step["dt"]),
+                "step_index": int(trace.step_index),
+                "boundary_call_index": idx,
+                "pre": None,
+                "rho": None,
+                "momentum": None,
+                "capture_attempted": False,
+                "capture_error": None,
+                "boundary_exception": None,
+            }
+            trace.active_boundary_context = context
+            boundary_succeeded = False
             try:
                 if radiation_recovery_metric is None:
-                    return original_boundary(grid, geometry, scalars, matter)
-                return original_boundary(
-                    grid, geometry, scalars, matter,
-                    radiation_recovery_metric=radiation_recovery_metric,
-                )
+                    result = original_boundary(grid, geometry, scalars, matter)
+                else:
+                    result = original_boundary(
+                        grid, geometry, scalars, matter,
+                        radiation_recovery_metric=radiation_recovery_metric,
+                    )
+                boundary_succeeded = True
+                return result
             except Exception as exc:
                 detail = f"{type(exc).__name__}: {exc}"
+                context["boundary_exception"] = detail
                 trace.record_stage(
                     stage + "_failure", grid, geometry, matter, t, tau,
                     trace.step_index, step["dt"], force=True, exception=detail,
@@ -883,6 +905,9 @@ class RadiationStageTrace:
                     grid, exc,
                 )
                 raise
+            finally:
+                trace.active_boundary_context = None
+                trace.finish_boundary_update(context, geometry, boundary_succeeded)
 
         def traced_evolve(*args, **kwargs):
             species = kwargs.get("species")
@@ -1071,6 +1096,7 @@ class RadiationStageTrace:
 
         matter_rhs_module.evolve_species = traced_evolve
         matter_system_module._radiation_source = traced_radiation_source
+        production_kernel_module.assemble_total_stress_energy = traced_assemble_total
         kernel_cls._solve_lapse = staticmethod(traced_solve)
         kernel_cls._rhs = traced_rhs
         kernel_cls._apply_outer_light_boundary = staticmethod(traced_boundary)
@@ -1080,8 +1106,60 @@ class RadiationStageTrace:
         self._restore_hooks = (
             kernel_cls, original_solve, original_rhs, original_step,
             original_evolve, original_radiation_source, original_boundary,
+            original_assemble_total,
         )
         self._restore_geometry_stage_terms = original_geometry_stage_terms
+
+    def finish_boundary_update(self, context, geometry, boundary_succeeded):
+        """Record pre/post effect of the pinned P-minus boundary reconstruction."""
+        try:
+            pre = context.get("pre")
+            if pre is None:
+                if context.get("capture_error") is None:
+                    self.instrumentation_errors.append({
+                        "where": "pminus_boundary_audit",
+                        "stage": context.get("stage"),
+                        "t": context.get("t"),
+                        "error": "P-minus pre-boundary state was not captured",
+                    })
+                return
+            post = _pminus_boundary_terms(
+                context["grid"], geometry,
+                context["rho"], context["momentum"],
+            )
+            predicted_delta_Aa = (
+                pre["X_outer"] / math.sqrt(pre["a_outer"])
+                * pre["target_minus_omega_outer"]
+            )
+            row = {
+                "t": float(context["t"]),
+                "tau": float(context["tau"]),
+                "step_index": int(context["step_index"]),
+                "dt": float(context["dt"]),
+                "boundary_call_index": int(context["boundary_call_index"]),
+                "stage": context["stage"],
+                "boundary_succeeded": bool(boundary_succeeded),
+                "boundary_exception": context.get("boundary_exception"),
+                "pre": pre,
+                "post": post,
+                "delta_Aa_actual": float(post["Aa_outer"] - pre["Aa_outer"]),
+                "delta_Aa_predicted_from_Pminus_target": float(predicted_delta_Aa),
+                "delta_Aa_formula_error": float(
+                    (post["Aa_outer"] - pre["Aa_outer"]) - predicted_delta_Aa
+                ),
+                "post_target_mismatch": float(
+                    post["target_minus_omega_outer"]
+                ),
+                "pre_capture_error": context.get("capture_error"),
+            }
+            self.boundary_update_snapshots.append(row)
+        except Exception as exc:
+            self.instrumentation_errors.append({
+                "where": "pminus_boundary_audit_post",
+                "stage": context.get("stage"),
+                "t": context.get("t"),
+                "error": f"{type(exc).__name__}: {exc}",
+            })
 
     def prune_tail(self, cutoff_t):
         self.stage_snapshots = [
@@ -1099,6 +1177,10 @@ class RadiationStageTrace:
         self.geometry_predictor_budgets = [
             row for row in self.geometry_predictor_budgets
             if float(row.get("t_attempted", -math.inf)) >= cutoff_t
+        ]
+        self.boundary_update_snapshots = [
+            row for row in self.boundary_update_snapshots
+            if float(row.get("t", -math.inf)) >= cutoff_t
         ]
 
     def record_progress(self, state):
