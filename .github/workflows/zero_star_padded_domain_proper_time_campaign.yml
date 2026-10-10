@@ -93,8 +93,9 @@ jobs:
               gate("N=120 padded grid", result.resolution == 120, result.resolution)
               gate("native history rows match step count", len(history) == result.steps, f"rows={len(history)} steps={result.steps}")
               gate("native history nonempty", bool(history), f"rows={len(history)}")
+              taus = [row.get("tau") for row in history]
               first_crossing = (
-                  len(taus := [row.get("tau") for row in history]) >= 2
+                  len(taus) >= 2
                   and finite(taus[-1]) and float(taus[-1]) >= target_tau
                   and finite(taus[-2]) and float(taus[-2]) < target_tau
               )
