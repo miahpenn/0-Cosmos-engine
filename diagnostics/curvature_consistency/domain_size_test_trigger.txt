@@ -1,2 +1,2 @@
-Purpose: launch the compile-only validation workflow for strong_D_domain_size_residual_audit.py.
-This marker is changed again only when the complete domain-size campaign is authorized to start.
+Purpose: authorize and launch the complete domain-size numerical campaign after successful half-CFL comparison.
+Half-CFL workflow #38106791775 completed successfully. At matched t≈4, 8, 12, the off-centre max-|H| differs from the original-CFL baseline by less than 0.2%; central lapse also closely matches. This marker is changed only to launch the four-case, fixed-dr=0.5 domain-size campaign.
