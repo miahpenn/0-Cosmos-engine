@@ -13,6 +13,10 @@ import sys
 
 import numpy as np
 
+# Executing this file by path puts its directory, not the repository root,
+# at sys.path[0]. Make the project package import deterministic in CI.
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
 import engine.production_kernel as pk
 import engine.scalar_system as scalar_system
 import engine.stress_energy as stress_energy
