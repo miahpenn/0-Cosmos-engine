@@ -14,7 +14,7 @@ permissions:
 jobs:
   validate:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 240
     steps:
       - name: Checkout diagnostic branch and pinned vendor submodule
         uses: actions/checkout@v4
@@ -40,3 +40,15 @@ jobs:
           assert ast.literal_eval(assignments["SAMPLE_INTERVAL"]) == 0.25
           print("Fixed-spacing and quarter-time sampling configuration passed.")
           PY
+      - name: Install dependencies for numerical evolution
+        run: python -m pip install -r requirements.txt
+      - name: Run four domain-size trajectories and save quarter-time radial profiles
+        run: python diagnostics/curvature_consistency/strong_D_domain_size_residual_audit.py
+      - name: Upload full profiles, checkpoints, and report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: strong-D-domain-size-residual-audit
+          path: runs/strong-D-domain-size-residual-audit/
+          if-no-files-found: warn
+          retention-days: 90
