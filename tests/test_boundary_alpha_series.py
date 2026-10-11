@@ -1,7 +1,13 @@
+import json
+
 import numpy as np
 import pytest
 
-from diagnostics.curvature_consistency.boundary_alpha_series import BoundaryAlphaSeries
+import engine.production_kernel as production_kernel_module
+from diagnostics.curvature_consistency.boundary_alpha_series import (
+    BoundaryAlphaSeries,
+    R80BoundaryFaceSeries,
+)
 from engine.cmc_gauge import solve_cmc_lapse
 from engine.production_kernel import V55ProductionKernel
 
@@ -62,3 +68,71 @@ def test_production_default_one_step_remains_finite():
     assert np.all(np.isfinite(stepped.geometry.alpha))
     assert np.all(stepped.geometry.alpha > 0.0)
     assert stepped.geometry.alpha[-1] == 1.0
+
+
+def test_r80_boundary_face_series_returns_interpolated_metric_inputs(tmp_path):
+    path = tmp_path / "profile.jsonl"
+    fields = ("a", "b", "X", "alpha", "beta")
+    rows = []
+    for t, offset in ((0.0, 0.0), (1.0, 2.0)):
+        geometry = {name: [1.0, 10.0 + offset + i] for i, name in enumerate(fields)}
+        rows.append({
+            "schema": "strong_D_evolved_state_r80_capture_v1",
+            "t": t,
+            "state_snapshot": {"geometry": geometry},
+        })
+    path.write_text("".join(json.dumps(row) + "\n" for row in rows))
+    series = R80BoundaryFaceSeries(path)
+    midpoint = series(0.5)
+    assert set(midpoint) == set(fields)
+    assert midpoint["a"] == pytest.approx(11.0)
+    assert midpoint["alpha"] == pytest.approx(14.0)
+    assert series(-1.0)["a"] == pytest.approx(10.0)
+    assert series(2.0)["a"] == pytest.approx(12.0)
+
+
+def test_stage_time_override_and_frozen_matter_boundary_are_separated(monkeypatch):
+    baseline = _small_state()
+    fixed_boundary = {
+        name: float(getattr(baseline.geometry, name)[-1])
+        for name in ("a", "b", "X", "alpha", "beta")
+    }
+    alpha_times = []
+    boundary_times = []
+    observed = []
+    alpha_value = 0.987654321
+
+    def alpha_provider(t):
+        alpha_times.append(float(t))
+        return alpha_value + 0.001 * float(t)
+
+    def boundary_provider(t):
+        boundary_times.append(float(t))
+        return dict(fixed_boundary)
+
+    original_species_rhs = production_kernel_module.species_rhs
+
+    def recording_species_rhs(metric, *args, **kwargs):
+        observed.append({name: float(getattr(metric, name)[-1]) for name in fixed_boundary})
+        return original_species_rhs(metric, *args, **kwargs)
+
+    monkeypatch.setattr(production_kernel_module, "species_rhs", recording_species_rhs)
+    kernel = V55ProductionKernel(
+        diagnostic_outer_alpha=alpha_provider,
+        diagnostic_matter_boundary=boundary_provider,
+    )
+    state = kernel.initialize(
+        resolution=32, r_max=16.0, amplitude=0.01, width=7.0,
+        D_amplitude=1.0e-10, include_radiation=True,
+    )
+    assert state.geometry.alpha[-1] == alpha_value
+    stepped = kernel.step(state, 0.002)
+    assert np.all(np.isfinite(stepped.geometry.alpha))
+
+    assert alpha_times == pytest.approx([0.0, 0.0, 0.002, 0.002, 0.002])
+    assert boundary_times == pytest.approx([0.0, 0.002])
+    assert len(observed) == 6
+    for values in observed:
+        for name, expected in fixed_boundary.items():
+            assert values[name] == expected
+    assert stepped.geometry.alpha[-1] == pytest.approx(alpha_value + 0.001 * 0.002)

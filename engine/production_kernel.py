@@ -88,6 +88,33 @@ class V55ProductionKernel:
     )
     validation_state = "implemented_not_campaign_validated"
 
+    def __init__(
+        self,
+        *,
+        diagnostic_outer_alpha=None,
+        diagnostic_matter_boundary=None,
+    ):
+        """Opt-in diagnostic counterfactuals; defaults preserve production behaviour.
+
+        diagnostic_outer_alpha(t) supplies the CMC Dirichlet value for a stage.
+        diagnostic_matter_boundary(t) supplies baseline outer-cell values for
+        a, b, X, alpha, and beta used only by the matter RHS.
+        """
+        if diagnostic_outer_alpha is not None and not callable(diagnostic_outer_alpha):
+            raise TypeError("diagnostic_outer_alpha must be callable or None")
+        if diagnostic_matter_boundary is not None and not callable(diagnostic_matter_boundary):
+            raise TypeError("diagnostic_matter_boundary must be callable or None")
+        self._diagnostic_outer_alpha = diagnostic_outer_alpha
+        self._diagnostic_matter_boundary = diagnostic_matter_boundary
+
+    def _outer_alpha_at(self, t: float):
+        if self._diagnostic_outer_alpha is None:
+            return None
+        value = float(self._diagnostic_outer_alpha(float(t)))
+        if not np.isfinite(value):
+            raise FloatingPointError("diagnostic CMC outer alpha is non-finite")
+        return value
+
     def initialize(
         self,
         resolution: int = 80,
@@ -116,7 +143,8 @@ class V55ProductionKernel:
             grid, init.geometry
         )
         geometry.alpha = self._solve_lapse(
-            grid, geometry, init.scalars, init.matter
+            grid, geometry, init.scalars, init.matter,
+            outer_alpha=self._outer_alpha_at(0.0),
         )[0]
         geometry.beta.fill(0.0)
         geometry.B.fill(0.0)
@@ -153,8 +181,39 @@ class V55ProductionKernel:
 
     def _rhs(self, state: ProductionState):
         metric = metric_slice_from_q(state.grid, state.geometry)
+        matter_metric = metric
+        if self._diagnostic_matter_boundary is not None:
+            boundary_values = self._diagnostic_matter_boundary(float(state.t))
+            required = ("a", "b", "X", "alpha", "beta")
+            if not isinstance(boundary_values, dict):
+                raise TypeError("diagnostic matter-boundary provider must return a dict")
+            missing = [name for name in required if name not in boundary_values]
+            if missing:
+                raise ValueError(f"diagnostic matter-boundary values missing fields: {missing}")
+            matter_geometry = state.geometry.copy()
+            for name in required:
+                value = float(boundary_values[name])
+                if not np.isfinite(value):
+                    raise FloatingPointError(
+                        f"diagnostic matter-boundary value {name} is non-finite"
+                    )
+                if name in ("a", "b", "X", "alpha") and value <= 0.0:
+                    raise ValueError(
+                        f"diagnostic matter-boundary value {name} must be positive"
+                    )
+                getattr(matter_geometry, name)[-1] = value
+            matter_metric = metric_slice_from_q(state.grid, matter_geometry)
+            # Recompute only the matter-source derivative bundle from the
+            # frozen face values. Geometry/scalar evolution keeps the live
+            # counterfactual geometry and lapse.
+            matter_md = geometry_metric_derivatives(
+                matter_metric,
+                lambda values, parity: self._d1(state.grid, values, parity),
+            )
+        else:
+            matter_md = None
 
-        rho_dm = dm_density(metric, state.matter)
+        rho_dm = dm_density(matter_metric, state.matter)
         srhs = scalar_rhs_arrays(
             state.grid,
             state.geometry,
@@ -163,10 +222,11 @@ class V55ProductionKernel:
             rho_dm=rho_dm,
         )
 
-        md = geometry_metric_derivatives(
-            metric,
-            lambda values, parity: self._d1(state.grid, values, parity),
-        )
+        if matter_md is None:
+            matter_md = geometry_metric_derivatives(
+                matter_metric,
+                lambda values, parity: self._d1(state.grid, values, parity),
+            )
         dphi_t = srhs.phi
         dphi_r = self._d1(state.grid, state.scalars.phi, 1)
 
@@ -177,15 +237,15 @@ class V55ProductionKernel:
             ("radiation", Species.RADIATION),
         ):
             mrhs[name] = species_rhs(
-                metric,
-                md,
+                matter_metric,
+                matter_md,
                 getattr(state.matter, name),
                 species,
                 dphi_t=dphi_t if species is Species.DARK_MATTER else None,
                 dphi_r=dphi_r if species is Species.DARK_MATTER else None,
                 beta_dm=BETA_DM,
             )
-        return srhs, mrhs, md
+        return srhs, mrhs, matter_md
 
     @staticmethod
     def _apply_outer_light_boundary(grid, geometry, scalars, matter) -> None:
@@ -227,7 +287,7 @@ class V55ProductionKernel:
         # The lapse is elliptically determined by the current CMC slice.
         # Spatial shift is zero in the spherical CMC branch.
         g0.alpha = self._solve_lapse(
-            grid, g0, s0, m0
+            grid, g0, s0, m0, outer_alpha=self._outer_alpha_at(state.t)
         )[0]
         g0.beta.fill(0.0)
         g0.B.fill(0.0)
@@ -272,7 +332,8 @@ class V55ProductionKernel:
         )
 
         g_explicit1.alpha = self._solve_lapse(
-            grid, g_explicit1, s1, m1
+            grid, g_explicit1, s1, m1,
+            outer_alpha=self._outer_alpha_at(state.t + dt),
         )[0]
         gterms_pred = adapter.geometry_stage_terms(
             grid, g_explicit1, s1, m1, lambda_m=LAMBDA_M
@@ -304,7 +365,8 @@ class V55ProductionKernel:
         # Resolve the CMC lapse on the full primary predictor, then
         # use that gauge state for the second split evaluation.
         g1.alpha = self._solve_lapse(
-            grid, g1, s1, m1
+            grid, g1, s1, m1,
+            outer_alpha=self._outer_alpha_at(state.t + dt),
         )[0]
         g1.beta.fill(0.0)
         g1.B.fill(0.0)
@@ -313,7 +375,7 @@ class V55ProductionKernel:
         # Re-evaluate the complete split on the primary-updated predictor.
         stage1 = ProductionState(
             grid=grid, geometry=g1, scalars=s1, matter=m1,
-            t=state.t, tau=state.tau, e_folds=state.e_folds,
+            t=state.t + dt, tau=state.tau, e_folds=state.e_folds,
         )
         srhs1, mrhs1, _ = self._rhs(stage1)
         gterms1 = adapter.geometry_stage_terms(
@@ -404,7 +466,8 @@ class V55ProductionKernel:
         self._apply_outer_light_boundary(grid, gnew, snew, mnew)
         # Final stage-aware CMC solve on the completed final A/K/matter slice.
         gnew.alpha = self._solve_lapse(
-            grid, gnew, snew, mnew
+            grid, gnew, snew, mnew,
+            outer_alpha=self._outer_alpha_at(state.t + dt),
         )[0]
         gnew.beta.fill(0.0)
         gnew.B.fill(0.0)

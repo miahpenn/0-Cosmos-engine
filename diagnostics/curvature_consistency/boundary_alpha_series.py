@@ -59,3 +59,43 @@ class BoundaryAlphaSeries:
             "interpolation": "linear_in_t_clamp_endpoints",
             "limitation": "49-slice history (~0.25 spacing) does not bound stage-level interpolation error at dt=0.00375; held-out max absolute error ~1.5e-4 on 0.5 spacing",
         }
+
+
+class R80BoundaryFaceSeries:
+    """Interpolate baseline R=80 outer-cell face inputs from an admitted JSONL capture.
+
+    The returned values are the last-cell a, b, X, alpha, and beta values.
+    Samples are linearly interpolated and clamped at endpoints; the source
+    capture spacing (~0.25) is coarser than the internal PIRK stage interval.
+    """
+
+    FIELDS = ("a", "b", "X", "alpha", "beta")
+
+    def __init__(self, profile_path: str | Path):
+        self.path = str(profile_path)
+        rows = []
+        with open(profile_path) as stream:
+            for line in stream:
+                if line.strip():
+                    rows.append(json.loads(line))
+        if len(rows) < 2:
+            raise ValueError("R80 profile must contain at least two state samples")
+        self.t = np.asarray([row["t"] for row in rows], dtype=float)
+        self.values = {
+            name: np.asarray(
+                [row["state_snapshot"]["geometry"][name][-1] for row in rows],
+                dtype=float,
+            )
+            for name in self.FIELDS
+        }
+        if not np.all(np.isfinite(self.t)) or not np.all(np.diff(self.t) > 0):
+            raise ValueError("R80 boundary sample times must be finite and strictly increasing")
+        if any(not np.all(np.isfinite(v)) for v in self.values.values()):
+            raise ValueError("R80 boundary profile contains non-finite face values")
+
+    def __call__(self, t: float) -> dict[str, float]:
+        t = float(t)
+        return {
+            name: float(np.interp(t, self.t, values))
+            for name, values in self.values.items()
+        }
