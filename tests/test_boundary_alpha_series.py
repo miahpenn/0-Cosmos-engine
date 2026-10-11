@@ -147,9 +147,13 @@ def test_stage_time_override_and_frozen_matter_boundary_are_separated(monkeypatc
             assert values[name] == expected
     # Matter metric endpoints are restored, but derivatives continue to use
     # the live stage alpha rather than the baseline endpoint value.
-    assert len(derivative_alpha_boundaries) == 2
+    expected_live_alpha = alpha_value + 0.001 * 0.002
+    assert len(derivative_alpha_boundaries) == 3
     assert derivative_alpha_boundaries[0] == pytest.approx(alpha_value)
-    assert derivative_alpha_boundaries[1] == pytest.approx(alpha_value + 0.001 * 0.002)
+    assert derivative_alpha_boundaries[1] == pytest.approx(expected_live_alpha)
+    # The second RHS evaluation and end-of-step diagnostics both see the
+    # accepted live alpha; none should see the frozen matter endpoint alpha.
+    assert derivative_alpha_boundaries[2] == pytest.approx(expected_live_alpha)
     assert all(
         abs(value - fixed_boundary["alpha"]) > 1.0e-6
         for value in derivative_alpha_boundaries
