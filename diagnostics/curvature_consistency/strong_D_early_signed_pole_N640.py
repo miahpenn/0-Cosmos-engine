@@ -45,7 +45,7 @@ def sample(state,label,requested,steps):
     H=finite_array("H_vendor",np.asarray(raw["hamiltonian"],float)+S+F)
     rebuilt=R+A+Kt+S+F
     closure=float(np.max(np.abs(H-rebuilt)))
-    tol=2048*EPS*max(1.,float(np.max(np.abs(R))),float(np.max(np.abs(A))),float(np.max(np.abs(Kt))),float(np.max(np.abs(S+F))))
+    tol=float(2048*EPS*max(1.,float(np.max(np.abs(R))),float(np.max(np.abs(A))),float(np.max(np.abs(Kt))),float(np.max(np.abs(S+F)))))
     alpha=finite_array("alpha",np.asarray(geo.alpha,float))
     ext=local_extrema(r,H);edges=sign_edges(r,H)
     def band(lo,hi):
@@ -85,7 +85,7 @@ def sample(state,label,requested,steps):
       "ridge_winner":band(4,20),"inner_winner":band(1.25,4),
       "local_extrema":ext,"sign_edges":edges,"sign_transition_count":len(edges),
       "probes":probes,"central":{"H":float(H[0]),"alpha":float(alpha[0]),"D":float(state.scalars.D[0]),"PD":float(state.scalars.PD[0])},
-      "closure":{"max_abs_H_reconstruction":closure,"tolerance":tol,"pass":closure<=tol},
+      "closure":{"max_abs_H_reconstruction":closure,"tolerance":tol,"pass":bool(closure<=tol)},
       "term_maxima":{"R":float(np.max(np.abs(R))),"A":float(np.max(np.abs(A))),"K":float(np.max(np.abs(Kt))),
         "S":float(np.max(np.abs(pieces["S"]["term_H"]))),"D":float(np.max(np.abs(pieces["D"]["term_H"]))),
         "phi":float(np.max(np.abs(pieces["phi"]["term_H"]))),"fluid":float(np.max(np.abs(F)))}}
