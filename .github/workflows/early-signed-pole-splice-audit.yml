@@ -1,4 +1,4 @@
-name: Diagnostic - N640 early signed-pole splice audit
+name: Diagnostic - N640 signed-pole audit through t=12
 
 on:
   push:
@@ -38,16 +38,16 @@ jobs:
           git diff --exit-code "$BASE" HEAD -- engine/production_kernel.py engine/scalar_system.py engine/stress_energy.py
           python - <<'PY'
           from diagnostics.curvature_consistency.strong_D_early_signed_pole_N640 import N,RMAX,CFL,TFINAL,SAMPLE
-          assert (N,RMAX,CFL,TFINAL,SAMPLE)==(640,80.0,0.0075,6.5,0.0625)
+          assert (N,RMAX,CFL,TFINAL,SAMPLE)==(640,80.0,0.0075,12.0,0.0625)
           print("settings admitted", N, RMAX, CFL, TFINAL, SAMPLE)
           PY
-      - name: Run one targeted N640 production trajectory through the sign exchange
+      - name: Run one targeted N640 production trajectory through early sign exchange and late ridge
         run: python diagnostics/curvature_consistency/strong_D_early_signed_pole_N640.py
       - name: Upload full signed profiles and term budget
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: strong-D-early-signed-pole-N640
+          name: strong-D-signed-pole-N640-through-t12
           path: runs/strong-D-early-signed-pole-N640/
           if-no-files-found: warn
           retention-days: 90
