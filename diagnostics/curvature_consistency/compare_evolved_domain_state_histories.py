@@ -47,6 +47,7 @@ def metrics(small, reference, radius):
     relative_l2 = norm_d / norm_r if norm_r > 0.0 else (0.0 if norm_d == 0.0 else None)
     scale = max(float(np.max(np.abs(s))), float(np.max(np.abs(r))))
     numeric_threshold = max(1.0e-12, 1.0e-10 * scale)
+    relative_threshold = max(1.0e-12, 1.0e-6 * scale)
     return {
         "max_abs": float(abs_delta[i]),
         "max_abs_radius": float(radius[i]),
@@ -56,7 +57,9 @@ def metrics(small, reference, radius):
         "core_max_abs_r_le_20": float(abs_delta[core].max()),
         "core_max_radius_r_le_20": float(radius[ic]),
         "core_rms_abs_r_le_20": float(np.sqrt(np.mean(delta[core] * delta[core]))),
+        "field_scale": scale,
         "numeric_threshold_for_onset": numeric_threshold,
+        "relative_threshold_for_onset": relative_threshold,
         "above_numeric_threshold": bool(abs_delta[i] > numeric_threshold),
     }
 
@@ -124,6 +127,8 @@ def main():
         t8 = min(field_rows, key=lambda row: abs(row["t"] - 8.0))
         t12 = min(field_rows, key=lambda row: abs(row["t"] - 12.0))
         onset = next((row for row in field_rows if row["above_numeric_threshold"]), None)
+        initial_difference = field_rows[0]["max_abs"]
+        growth_onset = next((row for row in field_rows if row["max_abs"] > max(10.0 * initial_difference, row["relative_threshold_for_onset"])), None)
         summaries.append({
             "field": name,
             "max_abs_over_time": bymax["max_abs"],
@@ -140,10 +145,17 @@ def main():
             "t12_relative_l2_to_reference": t12["relative_l2_to_reference"],
             "t12_core_max_abs_r_le_20": t12["core_max_abs_r_le_20"],
             "t12_core_rms_abs_r_le_20": t12["core_rms_abs_r_le_20"],
-            "first_time_above_numeric_threshold": onset["t"] if onset else None,
-            "numeric_threshold_at_onset": onset["numeric_threshold_for_onset"] if onset else None,
+            "initial_max_abs_difference": initial_difference,
+            "first_roundoff_threshold_time": onset["t"] if onset else None,
+            "first_roundoff_threshold_radius": onset["max_abs_radius"] if onset else None,
+            "first_roundoff_threshold_value": onset["max_abs"] if onset else None,
+            "first_growth_threshold_time": growth_onset["t"] if growth_onset else None,
+            "first_growth_threshold_radius": growth_onset["max_abs_radius"] if growth_onset else None,
+            "growth_threshold_definition": "max_abs_difference > max(10 * initial max_abs_difference, 1e-6 * field scale at that sample)",
         })
     summaries.sort(key=lambda row: row["max_abs_over_time"], reverse=True)
+    small_time_rows = [json.loads(line) for line in args.small.read_text().splitlines() if line.strip()]
+    tau_deltas = [{"t": float(s["t"]), "tau_small": s.get("tau"), "tau_reference": r.get("tau"), "delta_tau": (float(s["tau"]) - float(r["tau"])) if s.get("tau") is not None and r.get("tau") is not None else None} for s, r in zip(small_time_rows, reference_rows)]
 
     with (args.out / "field_history.csv").open("w", newline="") as stream:
         writer = csv.DictWriter(stream, fieldnames=list(records[0].keys()))
@@ -161,8 +173,9 @@ def main():
         "time_end": float(small_rows[-1]["t"]),
         "small_domain": small_rows[0].get("domain"),
         "reference_domain": {"N": reference_rows[0].get("full_N"), "r_max": reference_rows[0].get("full_r_max")},
-        "onset_criterion": "first saved sample where max absolute field difference exceeds max(1e-12, 1e-10 * max field magnitude on the shared slice); diagnostic reporting threshold only, not a physics-admission gate",
+        "onset_criterion": "report both first numeric-threshold crossing and first growth crossing, defined as max_abs_difference > max(10 * t0 max_abs_difference, 1e-6 * max field magnitude at that sample); diagnostic reporting thresholds only, not physics-admission gates",
         "field_summaries_descending_by_max_abs": summaries,
+        "central_proper_time_comparison": {"definition": "difference of saved state.tau accumulators; confirm the engine convention before interpretation", "samples": tau_deltas, "final_delta_tau": tau_deltas[-1]["delta_tau"] if tau_deltas else None, "max_abs_delta_tau": max((abs(x["delta_tau"]) for x in tau_deltas if x["delta_tau"] is not None), default=None)},
     }
     (args.out / "comparison_report.json").write_text(json.dumps(report, indent=2, sort_keys=True, allow_nan=False) + "\n")
     md = [
@@ -172,14 +185,15 @@ def main():
         "- Comparison: R=80 production state vs R=160 production state restricted to the same radial cell centers.",
         "- Threshold above is only to label the first clearly non-roundoff saved slice; it is not a physics pass/fail criterion.",
         "",
-        "| Field | First above numeric threshold | Max difference (time, radius) | RMS at t=12 | Relative L2 at t=12 | Core max at t=12 |",
-        "|---|---:|---:|---:|---:|---:|",
+        "| Field | First roundoff crossing (t, r) | First growth crossing (t, r) | Max difference (time, radius) | RMS at t=12 | Relative L2 at t=12 | Core max at t=12 |",
+        "|---|---:|---:|---:|---:|---:|:---:|",
     ]
     for s in summaries:
         rel = "n/a" if s["t12_relative_l2_to_reference"] is None else f"{s['t12_relative_l2_to_reference']:.4g}"
-        onset = "none" if s["first_time_above_numeric_threshold"] is None else f"{s['first_time_above_numeric_threshold']:.4f}"
-        md.append(f"| {s['field']} | {onset} | {s['max_abs_over_time']:.4g} ({s['time_of_max_abs']:.4f}, {s['radius_of_max_abs']:.2f}) | {s['t12_rms_abs']:.4g} | {rel} | {s['t12_core_max_abs_r_le_20']:.4g} |")
-    md += ["", "## First interpretation rule", "", "Read each field separately. Initial-slice differences are initialization/domain effects; growth from t=0 shows later evolution divergence. Do not infer a physical cause solely from correlations or from the largest field difference.", ""]
+        onset = "none" if s["first_roundoff_threshold_time"] is None else f"{s['first_roundoff_threshold_time']:.4f}, {s['first_roundoff_threshold_radius']:.2f}"
+        growth = "none" if s["first_growth_threshold_time"] is None else f"{s['first_growth_threshold_time']:.4f}, {s['first_growth_threshold_radius']:.2f}"
+        md.append(f"| {s['field']} | {onset} | {growth} | {s['max_abs_over_time']:.4g} ({s['time_of_max_abs']:.4f}, {s['radius_of_max_abs']:.2f}) | {s['t12_rms_abs']:.4g} | {rel} | {s['t12_core_max_abs_r_le_20']:.4g} |")
+    md += ["", "## Central proper-time accumulator", "", f"- Final delta tau (R=80 minus R=160): {tau_deltas[-1]['delta_tau'] if tau_deltas else None}", f"- Maximum absolute delta tau over saved samples: {max((abs(x['delta_tau']) for x in tau_deltas if x['delta_tau'] is not None), default=None)}", "", "## First interpretation rule", "", "Read each field separately. Initial-slice differences are initialization/domain effects; the growth-threshold crossing is a reporting aid, not a causal verdict. Record both the time and radius at each field threshold crossing. A propagation-speed claim requires checking characteristic speeds for the actual evolved metric and matter system; do not assume a unit-speed cone without that check.", ""]
     (args.out / "comparison_report.md").write_text("\n".join(md) + "\n")
     print(json.dumps({"status": report["status"], "sample_count": len(small_rows), "fields_compared": len(field_names), "output": str(args.out), "largest_final_time_fields": summaries[:5]}, indent=2))
 
