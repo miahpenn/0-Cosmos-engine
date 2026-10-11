@@ -1,0 +1,5 @@
+rmax=  80.0 N=160: alpha(r=79.75)=1.000000000 (cell 159)  alpha(centre)=1.014256307  alpha(outer cell)=1.000000000
+rmax= 160.0 N=320: alpha(r=79.75)=1.000220671 (cell 159)  alpha(centre)=1.014823165  alpha(outer cell)=1.000000000
+rmax= 240.0 N=480: alpha(r=79.75)=1.000341413 (cell 159)  alpha(centre)=1.014973834  alpha(outer cell)=1.000000000
+difference at r=79.75: R80-R160 = -2.206712e-04;  R160-R240 = -1.207416e-04
+centre: R80-R160 = -5.668583e-04;  R160-R240 = -1.506695e-04
