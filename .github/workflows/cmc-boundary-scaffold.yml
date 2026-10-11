@@ -82,7 +82,23 @@ jobs:
                   for species_name in ("dark_matter", "baryons", "radiation")
               },
           }
-          assert snapshot == reference["state_snapshot"], "diagnostic-off initialization differs from archived R80 t=0 arrays"
+          if snapshot != reference["state_snapshot"]:
+              print("DIAGNOSTIC: exact t=0 snapshot mismatch summary follows.")
+              for group, values in snapshot.items():
+                  for name, got in values.items():
+                      exp = reference["state_snapshot"][group][name]
+                      if group == "matter":
+                          for field, arr in got.items():
+                              expected = np.asarray(exp[field], dtype=float)
+                              actual = np.asarray(arr, dtype=float)
+                              if not np.array_equal(actual, expected):
+                                  print(f"DIFF matter.{name}.{field}: max_abs={np.max(np.abs(actual-expected)):.17g}, neq={np.count_nonzero(actual!=expected)}")
+                      else:
+                          actual = np.asarray(got, dtype=float)
+                          expected = np.asarray(exp[name], dtype=float)
+                          if not np.array_equal(actual, expected):
+                              print(f"DIFF {group}.{name}: max_abs={np.max(np.abs(actual-expected)):.17g}, neq={np.count_nonzero(actual!=expected)}")
+              raise AssertionError("diagnostic-off initialization differs from archived R80 t=0 arrays")
           print("PASS: diagnostic-off initialization exactly matches archived R80 t=0 arrays, all fields.")
           PY
       - name: Exact short evolution match against archived R80 t=0.25 state

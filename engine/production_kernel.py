@@ -203,17 +203,11 @@ class V55ProductionKernel:
                     )
                 getattr(matter_geometry, name)[-1] = value
             matter_metric = metric_slice_from_q(state.grid, matter_geometry)
-            # Recompute only the matter-source derivative bundle from the
-            # frozen face values. Geometry/scalar evolution keeps the live
-            # counterfactual geometry and lapse.
-            matter_md = geometry_metric_derivatives(
-                matter_metric,
-                lambda values, parity: self._d1(state.grid, values, parity),
-            )
-        else:
-            matter_md = None
-
-        rho_dm = dm_density(matter_metric, state.matter)
+            # Only the matter-cell metric values used in fluid primitives
+            # and face fluxes are frozen. Keep scalar sourcing and spatial
+            # derivative terms on the live counterfactual geometry so changing
+            # one endpoint value does not rewrite the derivative stencil.
+        rho_dm = dm_density(metric, state.matter)
         srhs = scalar_rhs_arrays(
             state.grid,
             state.geometry,
@@ -222,11 +216,10 @@ class V55ProductionKernel:
             rho_dm=rho_dm,
         )
 
-        if matter_md is None:
-            matter_md = geometry_metric_derivatives(
-                matter_metric,
-                lambda values, parity: self._d1(state.grid, values, parity),
-            )
+        matter_md = geometry_metric_derivatives(
+            metric,
+            lambda values, parity: self._d1(state.grid, values, parity),
+        )
         dphi_t = srhs.phi
         dphi_r = self._d1(state.grid, state.scalars.phi, 1)
 
