@@ -1,0 +1,42 @@
+name: Diagnostic - strong-D domain-size residual audit
+
+on:
+  push:
+    branches:
+      - diag/independent-metric-ricci-audit
+    paths:
+      - diagnostics/curvature_consistency/domain_size_test_trigger.txt
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout diagnostic branch and pinned vendor submodule
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Compile domain-size diagnostic
+        run: python -m py_compile diagnostics/curvature_consistency/strong_D_domain_size_residual_audit.py
+      - name: Validate fixed-spacing sampling configuration
+        run: |
+          python - <<'PY'
+          import ast
+          from pathlib import Path
+          p = Path("diagnostics/curvature_consistency/strong_D_domain_size_residual_audit.py")
+          tree = ast.parse(p.read_text())
+          assignments = {t.id: n.value for n in tree.body if isinstance(n, ast.Assign) for t in n.targets if isinstance(t, ast.Name)}
+          domains = ast.literal_eval(assignments["DOMAINS"])
+          assert [(d["N"], d["r_max"], d["r_max"] / d["N"]) for d in domains] == [(160, 80.0, 0.5), (320, 160.0, 0.5)]
+          assert ast.literal_eval(assignments["SAMPLE_INTERVAL"]) == 0.25
+          print("Fixed-spacing and quarter-time sampling configuration passed.")
+          PY
