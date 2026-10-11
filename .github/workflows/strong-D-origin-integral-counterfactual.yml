@@ -1,0 +1,45 @@
+name: Diagnostic - strong-D origin integral counterfactual
+
+on:
+  push:
+    branches:
+      - diag/independent-metric-ricci-audit
+    paths:
+      - diagnostics/curvature_consistency/strong_D_origin_integral_counterfactual.py
+      - .github/workflows/strong-D-origin-integral-counterfactual.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      PYTHONPATH: .
+    steps:
+      - name: Checkout diagnostic branch and pinned vendor submodule
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Compile origin integral counterfactual
+        run: python -m py_compile diagnostics/curvature_consistency/strong_D_origin_integral_counterfactual.py
+      - name: Compare production versus regular-origin inner quadrature (N=40/80/160/320)
+        run: python diagnostics/curvature_consistency/strong_D_origin_integral_counterfactual.py
+      - name: Upload diagnostic report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: strong-D-origin-integral-counterfactual
+          path: runs/strong-D-origin-integral-counterfactual/report.json
+          if-no-files-found: error
+          retention-days: 90
