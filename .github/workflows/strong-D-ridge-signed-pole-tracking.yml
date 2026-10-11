@@ -1,0 +1,62 @@
+name: Diagnostic - signed strong-D Hamiltonian pole tracking
+
+on:
+  push:
+    branches:
+      - diag/signed-hamiltonian-pole-tracking
+    paths:
+      - diagnostics/curvature_consistency/strong_D_ridge_signed_pole_tracking.py
+      - .github/workflows/strong-D-ridge-signed-pole-tracking.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  analyze-saved-profiles:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout diagnostic branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Download and verify admitted N=160, R=80 profile artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/signed-pole-reference/unpacked
+          curl -fsSL \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/miahpenn/0-Cosmos-engine/actions/artifacts/11706797173/zip" \
+            -o /tmp/signed-pole-reference/reference.zip
+          echo "8b118d1f81e01f2a5d291d160b8bac42abc6a11051d8453efd9c19d0826d6d8b  /tmp/signed-pole-reference/reference.zip" | sha256sum -c -
+          unzip -q /tmp/signed-pole-reference/reference.zip -d /tmp/signed-pole-reference/unpacked
+          find /tmp/signed-pole-reference/unpacked -type f \
+            -name 'rmax080_N160_production_full_state_profiles.jsonl' \
+            -print -quit > /tmp/signed-pole-reference/profile_path.txt
+          test -s /tmp/signed-pole-reference/profile_path.txt
+          REF_PROFILE="$(cat /tmp/signed-pole-reference/profile_path.txt)"
+          test "$(wc -l < "$REF_PROFILE")" -eq 49
+      - name: Compile signed-pole diagnostic
+        run: python -m py_compile diagnostics/curvature_consistency/strong_D_ridge_signed_pole_tracking.py
+      - name: Track signed extrema, pole identities and zero crossings
+        run: |
+          python diagnostics/curvature_consistency/strong_D_ridge_signed_pole_tracking.py \
+            "$(cat /tmp/signed-pole-reference/profile_path.txt)" \
+            --output-dir runs/strong-D-ridge-signed-pole-tracking
+      - name: Upload signed-pole report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: strong-D-ridge-signed-pole-tracking
+          path: runs/strong-D-ridge-signed-pole-tracking/
+          if-no-files-found: warn
+          retention-days: 90
