@@ -11,7 +11,7 @@ from engine.stress_energy import assemble_total_stress_energy
 from diagnostics.curvature_consistency.independent_metric_ricci import finite_array, metric_connection
 
 _,vacuum,_=adapter.vendor_modules()
-N,RMAX,CFL,TFINAL,SAMPLE=640,80.0,0.0075,6.5,0.0625
+N,RMAX,CFL,TFINAL,SAMPLE=640,80.0,0.0075,12.0,0.0625
 AMP,WIDTH,DAMP,RADIATION=0.01,7.0,1e-4,True
 OUT=ROOT/"runs"/"strong-D-early-signed-pole-N640"
 EPS=np.finfo(float).eps
@@ -115,17 +115,17 @@ def main():
         if steps%512==0: print("[EARLY_N640] HEARTBEAT "+json.dumps({"t":state.t,"steps":steps,"slices":len(records)},sort_keys=True),flush=True)
         while j<len(targets) and (state.t+.5*dt>=targets[j] or abs(state.t-targets[j])<1e-12):
             save(float(targets[j]),f"target={targets[j]:g}");j+=1
-    status="completed" if failure is None and state.t>=TFINAL-1e-10 and len(records)==105 else "numerical_or_sampling_failure"
-    report={"schema":"strong_D_early_signed_pole_N640_v1","status":status,"diagnostic_only":True,
+    expected_records=int(round(TFINAL/SAMPLE))+1\n    status="completed" if failure is None and state.t>=TFINAL-1e-10 and len(records)==expected_records else "numerical_or_sampling_failure"
+    report={"schema":"strong_D_signed_pole_N640_through_t12_v2","status":status,"diagnostic_only":True,
       "configuration":{"N":N,"r_max":RMAX,"dr":RMAX/N,"CFL":CFL,"dt_nominal":dt0,"final_time":TFINAL,"sample_interval":SAMPLE,
         "amplitude":AMP,"width":WIDTH,"D_amplitude":DAMP,"radiation":RADIATION,"production_kernel_changed":False,
         "physics_changed":False,"gauge_changed":False,"projection_changed":False,"boundary_changed":False},
       "accepted_steps":steps,"sample_count":len(records),"all_closure_checks_pass":all(x["closure"]["pass"] for x in records),
       "failure":failure,"sign_change_timeline":[{"t":x["t"],"count":x["sign_transition_count"],"edges":x["sign_edges"]} for x in records],
       "pole_timeline":[{"t":x["t"],"ridge":x["ridge_winner"],"inner":x["inner_winner"],"extrema":x["local_extrema"]} for x in records],
-      "profiles_file":prof.name,"interpretation_guardrail":"N=640 targeted early-time refinement with unchanged production equations. Signed extrema are constraint-residual features, not presumed physical objects. The per-term decomposition tests which existing terms make/cancel the signs; it does not insert a new coupling."}
+      "profiles_file":prof.name,"interpretation_guardrail":"N=640 refinement through early sign exchange and late ridge with unchanged production equations. Signed extrema are constraint-residual features, not presumed physical objects. The per-term decomposition tests which existing terms make/cancel the signs; it does not insert a new coupling."}
     (OUT/"report.json").write_text(json.dumps(report,indent=2,sort_keys=True,allow_nan=False)+"\n")
-    lines=["# Targeted N=640 early signed-pole/splice audit","","Diagnostic-only full production evolution, unchanged equations and gauge.",
+    lines=["# N=640 signed-pole audit through t=12","","Diagnostic-only full production evolution, unchanged equations and gauge.",
       f"- Status: {status}; N={N}; Rmax={RMAX}; dr={RMAX/N}; dt={dt0}; t={state.t}; steps={steps}; slices={len(records)}.",
       f"- All Hamiltonian reconstruction checks passed: {report['all_closure_checks_pass']}.","",
       "## Signed poles and sign topology","","| t | sign transitions | inner winner (r,H) | ridge winner (r,H) |",
@@ -137,6 +137,6 @@ def main():
       "A robust sign/pole pattern that survives this refinement is a candidate structural feature for a follow-up equation-level audit. A pattern that shifts/disappears is not admitted as a physical splice. This run itself does not add a sign-flip law or a D-to-matter transfer term.",""]
     (OUT/"report.md").write_text("\n".join(lines))
     print("[EARLY_N640] FINAL "+json.dumps({"status":status,"steps":steps,"slices":len(records),"all_closure_checks_pass":report["all_closure_checks_pass"],"failure":failure},sort_keys=True),flush=True)
-    if status!="completed": raise RuntimeError("targeted N640 run incomplete; preserve partial profiles")
+    if status!="completed": raise RuntimeError("N640 through-t12 run incomplete; preserve partial profiles")
     if not report["all_closure_checks_pass"]: raise RuntimeError("Hamiltonian term reconstruction failed")
 if __name__=="__main__":main()
