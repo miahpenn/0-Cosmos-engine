@@ -32,7 +32,7 @@ jobs:
       - name: Validate source without changing production
         run: |
           set -euo pipefail
-          git fetch --no-tags --depth=1 origin main
+          git fetch --no-tags --depth=1 origin main:refs/remotes/origin/main
           python -m py_compile diagnostics/curvature_consistency/strong_D_early_signed_pole_N640.py
           git diff --exit-code origin/main -- engine/production_kernel.py engine/scalar_system.py engine/stress_energy.py
           python - <<'PY'
