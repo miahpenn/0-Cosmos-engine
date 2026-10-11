@@ -1,0 +1,63 @@
+name: Boundary-matched CMC preflight
+
+on:
+  push:
+    branches:
+      - diag/independent-metric-ricci-audit
+    paths:
+      - diagnostics/curvature_consistency/boundary-matched-cmc-r80-evolution.py
+      - diagnostics/curvature_consistency/boundary-matched-cmc-scaffolding-2026-10-11.md
+      - .github/workflows/boundary-matched-cmc-preflight.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout engine and pinned numerical kernel
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Download and verify admitted R80 and R160 state artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/ref80/unpacked /tmp/ref160/unpacked
+          curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/miahpenn/0-Cosmos-engine/actions/artifacts/11706797173/zip" -o /tmp/ref80/artifact.zip
+          curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/miahpenn/0-Cosmos-engine/actions/artifacts/11694568292/zip" -o /tmp/ref160/artifact.zip
+          echo "8b118d1f81e01f2a5d291d160b8bac42abc6a11051d8453efd9c19d0826d6d8b  /tmp/ref80/artifact.zip" | sha256sum -c -
+          echo "04949c7e0332c495385f6afef231b54270225892b1d124f2c19973c7d5b4872d  /tmp/ref160/artifact.zip" | sha256sum -c -
+          unzip -q /tmp/ref80/artifact.zip -d /tmp/ref80/unpacked
+          unzip -q /tmp/ref160/artifact.zip -d /tmp/ref160/unpacked
+          find /tmp/ref80/unpacked -type f -name 'rmax080_N160_production_full_state_profiles.jsonl' -print -quit > /tmp/ref80/path.txt
+          find /tmp/ref160/unpacked -type f -name 'frozen_state_crop_profiles.jsonl' -print -quit > /tmp/ref160/path.txt
+          test -s /tmp/ref80/path.txt
+          test -s /tmp/ref160/path.txt
+      - name: Compile and validate separated one-step intervention
+        env:
+          PYTHONPATH: .
+        run: |
+          python -m py_compile diagnostics/curvature_consistency/boundary-matched-cmc-r80-evolution.py
+          python diagnostics/curvature_consistency/boundary-matched-cmc-r80-evolution.py \
+            --r80-profile "$(cat /tmp/ref80/path.txt)" \
+            --r160-profile "$(cat /tmp/ref160/path.txt)" \
+            --smoke-only
+      - name: Unit tests
+        env:
+          PYTHONPATH: .
+        run: python -m pytest -q tests/test_boundary_alpha_series.py

@@ -1,0 +1,93 @@
+name: Diagnostic - boundary-matched CMC R80 trajectory
+
+on:
+  push:
+    branches:
+      - diag/independent-metric-ricci-audit
+    paths:
+      - diagnostics/curvature_consistency/boundary_matched_run_trigger.txt
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  evolve:
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    steps:
+      - name: Checkout diagnostic branch and pinned vendor submodule
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Download and verify exact R80 and R160 reference artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/ref80/unpacked /tmp/ref160/unpacked
+          curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/miahpenn/0-Cosmos-engine/actions/artifacts/11706797173/zip" -o /tmp/ref80/artifact.zip
+          curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/miahpenn/0-Cosmos-engine/actions/artifacts/11694568292/zip" -o /tmp/ref160/artifact.zip
+          echo "8b118d1f81e01f2a5d291d160b8bac42abc6a11051d8453efd9c19d0826d6d8b  /tmp/ref80/artifact.zip" | sha256sum -c -
+          echo "04949c7e0332c495385f6afef231b54270225892b1d124f2c19973c7d5b4872d  /tmp/ref160/artifact.zip" | sha256sum -c -
+          unzip -q /tmp/ref80/artifact.zip -d /tmp/ref80/unpacked
+          unzip -q /tmp/ref160/artifact.zip -d /tmp/ref160/unpacked
+          find /tmp/ref80/unpacked -type f -name 'rmax080_N160_production_full_state_profiles.jsonl' -print -quit > /tmp/ref80/path.txt
+          find /tmp/ref160/unpacked -type f -name 'frozen_state_crop_profiles.jsonl' -print -quit > /tmp/ref160/path.txt
+          test -s /tmp/ref80/path.txt
+          test -s /tmp/ref160/path.txt
+      - name: Mandatory real-history one-step gate
+        env:
+          PYTHONPATH: .
+        run: |
+          python diagnostics/curvature_consistency/boundary-matched-cmc-r80-evolution.py \
+            --r80-profile "$(cat /tmp/ref80/path.txt)" \
+            --r160-profile "$(cat /tmp/ref160/path.txt)" \
+            --smoke-only
+      - name: Run exactly one separated boundary-matched R80 trajectory to t=12
+        env:
+          PYTHONPATH: .
+          GITHUB_SHA: ${{ github.sha }}
+        run: |
+          python diagnostics/curvature_consistency/boundary-matched-cmc-r80-evolution.py \
+            --r80-profile "$(cat /tmp/ref80/path.txt)" \
+            --r160-profile "$(cat /tmp/ref160/path.txt)"
+      - name: Upload full trajectory and comparison evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: boundary-matched-cmc-r80-result
+          path: runs/boundary-matched-cmc-r80/
+          if-no-files-found: error
+          retention-days: 90
+      - name: Persist compact result report to the diagnostic branch
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test -s runs/boundary-matched-cmc-r80/report.json || exit 0
+          mkdir -p diagnostics/curvature_consistency
+          cp runs/boundary-matched-cmc-r80/report.json diagnostics/curvature_consistency/boundary-matched-cmc-result-2026-10-11.json
+          if test -s runs/boundary-matched-cmc-r80/report.md; then
+            cp runs/boundary-matched-cmc-r80/report.md diagnostics/curvature_consistency/boundary-matched-cmc-result-2026-10-11.md
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add diagnostics/curvature_consistency/boundary-matched-cmc-result-2026-10-11.json
+          if test -f diagnostics/curvature_consistency/boundary-matched-cmc-result-2026-10-11.md; then
+            git add diagnostics/curvature_consistency/boundary-matched-cmc-result-2026-10-11.md
+          fi
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Record boundary-matched CMC diagnostic result"
+          git push origin "${GITHUB_REF_NAME}"

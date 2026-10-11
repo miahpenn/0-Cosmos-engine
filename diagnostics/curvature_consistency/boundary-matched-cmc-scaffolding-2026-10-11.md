@@ -1,23 +1,36 @@
-# Boundary-matched CMC experiment — scaffolding — 2026-10-11
+# Boundary-matched CMC experiment — implementation and run gates — 2026-10-11
 
 **Branch:** diag/independent-metric-ricci-audit
 
-## Scope
+## Question
 
-This diagnostic scaffold adds an optional outer Dirichlet value to the CMC lapse solve. When unset, the default remains alpha(R)=1.0; the operator coefficients are unchanged. The wrapper forwards the optional argument, but existing production call sites do not activate the override.
+Does matching the R=80 CMC outer Dirichlet to the R=160 solved lapse history at r=79.75 materially reduce the independent-evolution mismatch, when matter RHS evaluation is prevented from inheriting the altered outer-cell metric/lapse inputs?
 
-The reference series contains 49 R=160 samples at index 159 (r=79.75), the cell centre that aligns with the R=80 outer cell centre. It is not the R=160 outermost cell, which is pinned to 1.0. Source: frozen-state CMC crop audit run 38117001920. The uploaded source JSON SHA-256 was 0641d5387b054a2aa97b7dfdf77a6ffed9b18ceed823bd70af9824405b9ea5ba; this repository copy preserves the sample values but is JSON-reserialized.
+## Diagnostic implementation
 
-## Confound
+- solve_cmc_lapse accepts optional outer_alpha. None retains alpha(R)=1.0; a finite override changes only the RHS boundary entry. The CMC operator coefficients are unchanged.
+- V55ProductionKernel accepts two optional callables, both disabled by default: diagnostic_outer_alpha(t) supplies the CMC Dirichlet value, and diagnostic_matter_boundary(t) returns baseline outer-cell a,b,X,alpha,beta values for matter RHS evaluation.
+- The CMC alpha provider is called at all five solve sites: initialization at t=0, step-start at t, then predictor, post-light-boundary predictor, and accepted slice at t+dt.
+- With the separated arm enabled, _rhs makes a geometry copy and overwrites only the outer-cell a,b,X,alpha,beta values for matter metric/source assembly. The live counterfactual geometry remains intact for CMC, scalar, and geometric evolution. The matter RHS receives the frozen metric slice and derivative bundle. The workflow asserts this contract at unit-test scale.
+- The default path leaves both providers absent. Exact comparison to the archived R=80 t=0 and requested t=0.25 states passed across all geometry, scalar, and conservative matter arrays.
 
-geom.alpha[-1] is read by radiation characteristic speeds and outer-face flux/metric assembly and by dust outer flux/source diagnostics. Changing the CMC Dirichlet can therefore change matter-boundary inputs. A joint intervention allows those reads to follow the changed alpha. A separated CMC-only arm must freeze baseline R=80 matter-boundary alpha/metric values and assert they remain unchanged. That arm is not yet implemented.
+## Reference data
 
-## Admission gates
+- CMC boundary series: R=160 index 159 at r=79.75, extracted from frozen-state crop audit run 38117001920; 49 samples over t=0..12.
+- Matter boundary series: R=80 index 159 at r=79.75, extracted from admitted evolved-state capture run 38150925743; 49 saved slices over t=0..12.
+- Both series use linear time interpolation and clamp endpoints. The spacing is about 0.25, not the PIRK stage interval dt=0.00375. The R=160 alpha held-out 0.5-spacing interpolation error was max ~1.5e-4 (RMS ~5.6e-5). These histories therefore do not establish a rigorous stage-level interpolation error bound.
+- The committed JSON is a reserialized copy of the uploaded reference history; source sample values are preserved. Uploaded source JSON SHA-256: 0641d5387b054a2aa97b7dfdf77a6ffed9b18ceed823bd70af9824405b9ea5ba.
 
-1. Diagnostic-off initialization matches the archived R=80 capture exactly across geometry, scalar, and matter arrays.
-2. Default / explicit None solves are identical; default outer alpha is exactly 1.0.
-3. A finite override imposes that outer value and demonstrably changes the interior lapse. Non-finite inputs fail closed.
-4. The interpolation helper is validated for schema, sample ordering, finiteness, endpoints, and midpoint interpolation.
-5. No full trajectory until stage-time values are threaded through all five CMC solves and the separated matter-boundary freeze assertions are implemented and passing.
+## What the separated arm does and does not isolate
 
-Linear interpolation of the 49-slice reference (~0.25 spacing) is not a stage-level error bound for dt=0.00375. The held-out 0.5-spacing max error was ~1.5e-4 (RMS ~5.6e-5). Do not interpret the residual ridge as a physical front from this experiment alone.
+The full CMC lapse remains the matched R=160-history solution and can change throughout the R=80 domain. Geometry/scalar evolution responds to that live lapse. Matter RHS evaluation restores the baseline R=80 last-cell a,b,X,alpha,beta values at each stage before building its metric and derivative bundle. This separates the outer matter closure from the imposed CMC boundary intervention; it is not a claim that lapse changes are physically irrelevant or that the two evolutions are gauge-equivalent.
+
+## Single-trajectory gates
+
+1. Archived default-path t=0 and t=0.25 exact state matches pass.
+2. Unit tests verify default/None equivalence, finite override response, invalid-value rejection, stage-time routing, matter-boundary freezing, and interpolation behavior.
+3. With real archived boundary histories, run a one-step R=80 smoke test and verify the boundary value at the accepted stage.
+4. Only after the smoke test succeeds, run one separated boundary-matched R=80 trajectory to t=12.
+5. Compare every matched slice against both archived R=80 and R=160 states on their identical shared radial grid. Report field-level mismatch changes and all interpolation limitations.
+
+No production physics equation, CMC operator coefficient, or matter equation is changed. No full trajectory should be interpreted as evidence of a physical front, propagation speed, bounce, or turnaround.
