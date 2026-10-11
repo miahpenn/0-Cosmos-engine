@@ -1,4 +1,4 @@
-name: Diagnostic - strong-D domain-size residual audit
+name: Diagnostic - CMC lapse frozen-state crop audit
 
 on:
   push:
@@ -25,31 +25,37 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Compile intermediate-domain diagnostic
-        run: python -m py_compile diagnostics/curvature_consistency/strong_D_domain_size_intermediate_audit.py
-      - name: Validate fixed-spacing intermediate-domain configuration
+      - name: Compile frozen-state CMC crop diagnostic
+        run: python -m py_compile diagnostics/curvature_consistency/cmc_lapse_frozen_state_crop_audit.py
+      - name: Validate fixed-spacing single-trajectory configuration
         run: |
           python - <<'PY'
           import ast
           from pathlib import Path
-          p = Path("diagnostics/curvature_consistency/strong_D_domain_size_intermediate_audit.py")
+          p = Path("diagnostics/curvature_consistency/cmc_lapse_frozen_state_crop_audit.py")
           tree = ast.parse(p.read_text())
           assignments = {t.id: n.value for n in tree.body if isinstance(n, ast.Assign) for t in n.targets if isinstance(t, ast.Name)}
-          domains = ast.literal_eval(assignments["DOMAINS"])
-          assert [(d["N"], d["r_max"], d["r_max"] / d["N"]) for d in domains] == [(240, 120.0, 0.5)]
+          full_n = ast.literal_eval(assignments["FULL_N"])
+          full_r = ast.literal_eval(assignments["FULL_R_MAX"])
+          crops = ast.literal_eval(assignments["CROPS"])
+          assert (full_n, full_r, full_r / full_n) == (320, 160.0, 0.5)
+          assert [(c["N"], c["r_max"], c["r_max"] / c["N"]) for c in crops] == [
+              (160, 80.0, 0.5), (240, 120.0, 0.5), (320, 160.0, 0.5)
+          ]
           assert ast.literal_eval(assignments["SAMPLE_INTERVAL"]) == 0.25
           assert ast.literal_eval(assignments["CFL"]) == 0.0075
-          print("Intermediate domain N=240, r_max=120, dr=0.5 and quarter-time sampling passed.")
+          assert ast.literal_eval(assignments["FINAL_TIME"]) == 12.0
+          print("Single trajectory N=320, r_max=160, dr=0.5; three exact crops; t=12 and quarter-time sampling passed.")
           PY
       - name: Install dependencies for numerical evolution
         run: python -m pip install -r requirements.txt
-      - name: Run production and regular-F intermediate-domain trajectories
-        run: python diagnostics/curvature_consistency/strong_D_domain_size_intermediate_audit.py
-      - name: Upload full profiles, checkpoints, and report
+      - name: Run one production trajectory and frozen-state lapse crop audit
+        run: python diagnostics/curvature_consistency/cmc_lapse_frozen_state_crop_audit.py
+      - name: Upload full state slices, lapse profiles, checkpoints, and report
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: strong-D-domain-size-intermediate-audit
-          path: runs/strong-D-domain-size-intermediate-audit/
+          name: cmc-lapse-frozen-state-crop-audit
+          path: runs/cmc-lapse-frozen-state-crop-audit/
           if-no-files-found: warn
           retention-days: 90
