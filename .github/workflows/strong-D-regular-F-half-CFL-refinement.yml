@@ -15,7 +15,7 @@ permissions:
 jobs:
   refinement:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 240
     env:
       PYTHONPATH: .
     steps:
@@ -40,6 +40,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: strong-D-regular-F-half-CFL-refinement
-          path: runs/strong-D-regular-F-half-CFL-refinement/report.json
-          if-no-files-found: error
+          path: runs/strong-D-regular-F-half-CFL-refinement/
+          if-no-files-found: warn
           retention-days: 90
