@@ -1,0 +1,2 @@
+Single-run trigger for the separated CMC boundary-match experiment.
+This starts one R=80 trajectory to t=12 only after archived-control and preflight gates.
