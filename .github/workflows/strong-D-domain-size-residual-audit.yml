@@ -1,4 +1,4 @@
-name: Diagnostic - CMC lapse frozen-state crop audit
+name: Diagnostic - R80 evolved-state capture
 
 on:
   push:
@@ -25,37 +25,33 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Compile frozen-state CMC crop diagnostic
-        run: python -m py_compile diagnostics/curvature_consistency/cmc_lapse_frozen_state_crop_audit.py
-      - name: Validate fixed-spacing single-trajectory configuration
+      - name: Compile R80 full-state diagnostic
+        run: python -m py_compile diagnostics/curvature_consistency/strong_D_evolved_state_r80_capture.py
+      - name: Validate R80 fixed-spacing state-capture configuration
         run: |
           python - <<'PY'
           import ast
           from pathlib import Path
-          p = Path("diagnostics/curvature_consistency/cmc_lapse_frozen_state_crop_audit.py")
+          p = Path("diagnostics/curvature_consistency/strong_D_evolved_state_r80_capture.py")
           tree = ast.parse(p.read_text())
           assignments = {t.id: n.value for n in tree.body if isinstance(n, ast.Assign) for t in n.targets if isinstance(t, ast.Name)}
-          full_n = ast.literal_eval(assignments["FULL_N"])
-          full_r = ast.literal_eval(assignments["FULL_R_MAX"])
-          crops = ast.literal_eval(assignments["CROPS"])
-          assert (full_n, full_r, full_r / full_n) == (320, 160.0, 0.5)
-          assert [(c["N"], c["r_max"], c["r_max"] / c["N"]) for c in crops] == [
-              (160, 80.0, 0.5), (240, 120.0, 0.5), (320, 160.0, 0.5)
-          ]
+          n = ast.literal_eval(assignments["RESOLUTION"])
+          r = ast.literal_eval(assignments["R_MAX"])
+          assert (n, r, r / n) == (160, 80.0, 0.5)
           assert ast.literal_eval(assignments["SAMPLE_INTERVAL"]) == 0.25
           assert ast.literal_eval(assignments["CFL"]) == 0.0075
           assert ast.literal_eval(assignments["FINAL_TIME"]) == 12.0
-          print("Single trajectory N=320, r_max=160, dr=0.5; three exact crops; t=12 and quarter-time sampling passed.")
+          print("R80 production trajectory N=160, r_max=80, dr=0.5; t=12 and quarter-time full-state capture passed.")
           PY
       - name: Install dependencies for numerical evolution
         run: python -m pip install -r requirements.txt
-      - name: Run one production trajectory and frozen-state lapse crop audit
-        run: python diagnostics/curvature_consistency/cmc_lapse_frozen_state_crop_audit.py
-      - name: Upload full state slices, lapse profiles, checkpoints, and report
+      - name: Run one R80 production trajectory with full-state capture
+        run: python diagnostics/curvature_consistency/strong_D_evolved_state_r80_capture.py
+      - name: Upload full state history, profiles, checkpoints, and report
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: cmc-lapse-frozen-state-crop-audit
-          path: runs/cmc-lapse-frozen-state-crop-audit/
+          name: strong-D-evolved-state-r80-capture
+          path: runs/strong-D-evolved-state-r80-capture/
           if-no-files-found: warn
           retention-days: 90
