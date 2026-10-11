@@ -49,6 +49,6 @@ Before running, verify that the R=80 and R=160 initialization algorithms are ide
 
 - R=80 full-state trajectory: completed successfully.
 - Frozen-state crop audit: completed successfully.
-- One-step diagnostic source: committed in audit branch; its independent CI reproduction has not yet been observed.
+- One-step diagnostic source: committed at `a0c1971120d1aa98c474811ffe16ac92848f65a5`; independent CI reproduction passed in [workflow run 38153562804](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38153562804). It reproduces the initial alpha max difference 5.669e-4 at cell 0, identical initial shared physical arrays, and one-step centre differences X=1.205e-8, PS=2.383e-8, phi=7.268e-9, D=2.130e-10, S=9.065e-11.
 - Boundary-matched trajectory: not launched.
 - No physics, production gauge, or matter equations changed.
