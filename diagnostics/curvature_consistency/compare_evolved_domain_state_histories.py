@@ -164,11 +164,11 @@ def main():
         "onset_criterion": "first saved sample where max absolute field difference exceeds max(1e-12, 1e-10 * max field magnitude on the shared slice); diagnostic reporting threshold only, not a physics-admission gate",
         "field_summaries_descending_by_max_abs": summaries,
     }
-    (args.out / "comparison_report.json").write_text(json.dumps(report, indent=2, sort_keys=True, allow_nan=False) + "\\n")
+    (args.out / "comparison_report.json").write_text(json.dumps(report, indent=2, sort_keys=True, allow_nan=False) + "\n")
     md = [
         "# Evolved-state domain comparison",
         "",
-        f"- Samples: {len(small_rows)}; t={small_rows[0]["t"]:.6g} to {small_rows[-1]["t"]:.6g}",
+        f"- Samples: {len(small_rows)}; t={small_rows[0]['t']:.6g} to {small_rows[-1]['t']:.6g}",
         "- Comparison: R=80 production state vs R=160 production state restricted to the same radial cell centers.",
         "- Threshold above is only to label the first clearly non-roundoff saved slice; it is not a physics pass/fail criterion.",
         "",
@@ -176,11 +176,11 @@ def main():
         "|---|---:|---:|---:|---:|---:|",
     ]
     for s in summaries:
-        rel = "n/a" if s["t12_relative_l2_to_reference"] is None else f"{s["t12_relative_l2_to_reference"]:.4g}"
-        onset = "none" if s["first_time_above_numeric_threshold"] is None else f"{s["first_time_above_numeric_threshold"]:.4f}"
-        md.append(f"| {s["field"]} | {onset} | {s["max_abs_over_time"]:.4g} ({s["time_of_max_abs"]:.4f}, {s["radius_of_max_abs"]:.2f}) | {s["t12_rms_abs"]:.4g} | {rel} | {s["t12_core_max_abs_r_le_20"]:.4g} |")
+        rel = "n/a" if s["t12_relative_l2_to_reference"] is None else f"{s['t12_relative_l2_to_reference']:.4g}"
+        onset = "none" if s["first_time_above_numeric_threshold"] is None else f"{s['first_time_above_numeric_threshold']:.4f}"
+        md.append(f"| {s['field']} | {onset} | {s['max_abs_over_time']:.4g} ({s['time_of_max_abs']:.4f}, {s['radius_of_max_abs']:.2f}) | {s['t12_rms_abs']:.4g} | {rel} | {s['t12_core_max_abs_r_le_20']:.4g} |")
     md += ["", "## First interpretation rule", "", "Read each field separately. Initial-slice differences are initialization/domain effects; growth from t=0 shows later evolution divergence. Do not infer a physical cause solely from correlations or from the largest field difference.", ""]
-    (args.out / "comparison_report.md").write_text("\\n".join(md) + "\\n")
+    (args.out / "comparison_report.md").write_text("\n".join(md) + "\n")
     print(json.dumps({"status": report["status"], "sample_count": len(small_rows), "fields_compared": len(field_names), "output": str(args.out), "largest_final_time_fields": summaries[:5]}, indent=2))
 
 if __name__ == "__main__":
