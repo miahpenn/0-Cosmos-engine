@@ -1,0 +1,91 @@
+name: CMC boundary scaffold admission checks
+
+on:
+  push:
+    branches:
+      - diag/independent-metric-ricci-audit
+    paths:
+      - engine/cmc_gauge.py
+      - engine/production_kernel.py
+      - diagnostics/curvature_consistency/r160_alpha_boundary_r79_75.json
+      - diagnostics/curvature_consistency/boundary_alpha_series.py
+      - diagnostics/curvature_consistency/boundary-matched-cmc-scaffolding-2026-10-11.md
+      - tests/test_boundary_alpha_series.py
+      - .github/workflows/cmc-boundary-scaffold.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  admission:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout engine and pinned numerical kernel
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Download exact admitted R80 state-capture artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/r80-reference
+          curl -fsSL \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/miahpenn/0-Cosmos-engine/actions/artifacts/11706797173/zip" \
+            -o /tmp/r80-reference/artifact.zip
+          unzip -q /tmp/r80-reference/artifact.zip -d /tmp/r80-reference/unpacked
+          find /tmp/r80-reference/unpacked -type f -name 'rmax080_N160_production_full_state_profiles.jsonl' -print -quit > /tmp/r80-reference/profile_path.txt
+          test -s /tmp/r80-reference/profile_path.txt
+      - name: Exact initialization state match against archived R80 capture
+        env:
+          PYTHONPATH: .
+          REFERENCE_PROFILE_PATH: /tmp/r80-reference/profile_path.txt
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          import numpy as np
+          from engine.production_kernel import V55ProductionKernel
+          p = Path(Path(os.environ["REFERENCE_PROFILE_PATH"]).read_text().strip())
+          with p.open() as f:
+              reference = json.loads(next(f))
+          assert reference["schema"] == "strong_D_evolved_state_r80_capture_v1"
+          assert reference["label"] == "t=0"
+          kernel = V55ProductionKernel()
+          state = kernel.initialize(
+              resolution=160, r_max=80.0, amplitude=0.01, width=7.0,
+              D_amplitude=1.0e-4, include_radiation=True,
+          )
+          snapshot = {
+              "geometry": {name: [float(x) for x in np.asarray(getattr(state.geometry, name), dtype=float)]
+                           for name in ("a", "b", "X", "alpha", "beta", "Aa", "K", "Lambda", "B")},
+              "scalars": {name: [float(x) for x in np.asarray(getattr(state.scalars, name), dtype=float)]
+                          for name in ("S", "PS", "D", "PD", "phi", "Pi")},
+              "matter": {
+                  species_name: {
+                      name: [float(x) for x in np.asarray(getattr(getattr(state.matter, species_name), name), dtype=float)]
+                      for name in ("rest", "energy_t", "momentum_r")
+                  }
+                  for species_name in ("dark_matter", "baryons", "radiation")
+              },
+          }
+          assert snapshot == reference["state_snapshot"], "diagnostic-off initialization differs from archived R80 t=0 arrays"
+          print("PASS: diagnostic-off initialization exactly matches archived R80 t=0 arrays, all fields.")
+          PY
+      - name: Unit tests — boundary series and CMC optional-argument contract
+        env:
+          PYTHONPATH: .
+        run: python -m pytest -q tests/test_boundary_alpha_series.py
