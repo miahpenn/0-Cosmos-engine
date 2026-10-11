@@ -1,1 +1,0 @@
-Launch the diagnostic-only N=240, r_max=120 intermediate-domain pair. Keep dr=0.5, CFL=0.0075, D=1e-4, radiation enabled, production physics/gauge/projection unchanged, and sample full radial H/alpha profiles every 0.25 through t=12. Run production then regular-F cubic/Gauss shadow; no physics changes.
