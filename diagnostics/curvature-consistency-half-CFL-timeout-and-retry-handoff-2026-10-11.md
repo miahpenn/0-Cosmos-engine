@@ -86,7 +86,7 @@ It defines four sequential cases, ordered to prioritize the primary production c
 
 All use Δr=0.5, CFL=0.0075, D=10^-4, identical scalar profile parameters, radiation ON, and (t=0\ldots12). It saves full radial H and lapse profiles at (t=0) and every 0.25 time units to per-case JSONL files, while keeping scalar summaries (maximum-residual radius and first-cell lapse among them) in progress JSON. Heartbeats/checkpoints are built in so partial artifacts survive a later failure when the workflow artifact step runs.
 
-The domain-size workflow file has **not** been added/launched yet, deliberately: the half-CFL retry is the active expensive run, and the project rule is one expensive campaign at a time. After the retry's final/partial artifacts are inspected, add the workflow and start the domain campaign.
+The domain-size workflow file is now staged at `.github/workflows/strong-D-domain-size-residual-audit.yml`, but its full numerical campaign has **not** been launched. The trigger is a separate marker file, so the workflow definition can be prepared without starting a second expensive run. Compile/configuration validation passed in [run #38106921140](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38106921140). The half-CFL retry remains the active expensive run. After its final/partial artifacts are inspected, update the marker file to launch the domain campaign.
 
 ## 7. Next action
 
