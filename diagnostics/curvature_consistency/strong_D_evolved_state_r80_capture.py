@@ -135,7 +135,7 @@ def write_progress(state, accepted_steps, records, status, failure=None):
         "failure": failure,
     }
     (OUT_DIR / "campaign_progress.json").write_text(
-        json.dumps(payload, indent=2, sort_keys=True, allow_nan=False) + "\\n"
+        json.dumps(payload, indent=2, sort_keys=True, allow_nan=False) + "\n"
     )
 
 def main():
@@ -157,7 +157,7 @@ def main():
     initial = sample_state(state, 0.0, "t=0")
     records.append(initial)
     with profiles_path.open("a") as stream:
-        stream.write(json.dumps(initial, sort_keys=True, allow_nan=False) + "\\n")
+        stream.write(json.dumps(initial, sort_keys=True, allow_nan=False) + "\n")
         stream.flush()
     write_progress(state, accepted_steps, records, "in_progress")
 
@@ -196,7 +196,7 @@ def main():
             sample = sample_state(state, target, f"target={target:g}")
             records.append(sample)
             with profiles_path.open("a") as stream:
-                stream.write(json.dumps(sample, sort_keys=True, allow_nan=False) + "\\n")
+                stream.write(json.dumps(sample, sort_keys=True, allow_nan=False) + "\n")
                 stream.flush()
             target_index += 1
             write_progress(state, accepted_steps, records, "in_progress", failure)
@@ -227,7 +227,7 @@ def main():
             "evolution_boundary_conditions_changed": False,
         },
     }
-    (OUT_DIR / "report.json").write_text(json.dumps(report, indent=2, sort_keys=True, allow_nan=False) + "\\n")
+    (OUT_DIR / "report.json").write_text(json.dumps(report, indent=2, sort_keys=True, allow_nan=False) + "\n")
     print("[STRONG_D_R80_STATE_CAPTURE] FINAL " + json.dumps(report, sort_keys=True), flush=True)
     if status != "completed":
         raise RuntimeError("R=80 full-state diagnostic capture did not complete cleanly.")
