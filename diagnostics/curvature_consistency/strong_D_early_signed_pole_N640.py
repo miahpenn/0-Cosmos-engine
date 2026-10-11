@@ -115,7 +115,8 @@ def main():
         if steps%512==0: print("[EARLY_N640] HEARTBEAT "+json.dumps({"t":state.t,"steps":steps,"slices":len(records)},sort_keys=True),flush=True)
         while j<len(targets) and (state.t+.5*dt>=targets[j] or abs(state.t-targets[j])<1e-12):
             save(float(targets[j]),f"target={targets[j]:g}");j+=1
-    expected_records=int(round(TFINAL/SAMPLE))+1\n    status="completed" if failure is None and state.t>=TFINAL-1e-10 and len(records)==expected_records else "numerical_or_sampling_failure"
+    expected_records=int(round(TFINAL/SAMPLE))+1
+    status="completed" if failure is None and state.t>=TFINAL-1e-10 and len(records)==expected_records else "numerical_or_sampling_failure"
     report={"schema":"strong_D_signed_pole_N640_through_t12_v2","status":status,"diagnostic_only":True,
       "configuration":{"N":N,"r_max":RMAX,"dr":RMAX/N,"CFL":CFL,"dt_nominal":dt0,"final_time":TFINAL,"sample_interval":SAMPLE,
         "amplitude":AMP,"width":WIDTH,"D_amplitude":DAMP,"radiation":RADIATION,"production_kernel_changed":False,
