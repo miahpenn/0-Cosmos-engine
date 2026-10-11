@@ -45,7 +45,7 @@ EPS = np.finfo(float).eps
 
 def shadow_initial(grid, mode):
     """Duplicate v55_initial builder, varying only the radial integral quadrature."""
-    if mode not in ("origin_only", "regular_F"):
+    if mode not in ("origin_only", "regular_F", "regular_F_cubic"):
         raise ValueError("unknown shadow mode")
     r = np.asarray(grid.centers, dtype=float)
     n = len(r)
@@ -97,22 +97,64 @@ def shadow_initial(grid, mode):
         inner = r0 + sum(float(c)*r0**(2*k+3)/(2*k+3) for k,c in enumerate(coeff))
         inner_prod = r0*float(src[0])
         regular_intervals = []
+        cubic_gauss_intervals = []
+        gauss_nodes, gauss_weights = np.polynomial.legendre.leggauss(5)
+
+        # Independent quadrature of the same cubic-in-r^2 interpolation used
+        # to represent F. Five-point Gauss integrates 1+r^2*F_cubic(r^2)
+        # exactly in exact arithmetic (degree at most eight in r).
         for i in range(n-1):
             ra, rb = float(r[i]), float(r[i+1])
             xa, xb = ra*ra, rb*rb
             slope = (float(F[i+1])-float(F[i]))/(xb-xa)
             intercept = float(F[i])-slope*xa
-            # Exact integral of 1 + r^2*(intercept+slope*r^2)
-            # when F is linear in r^2 on this interval.
             dI = (rb-ra) + intercept*(rb**3-ra**3)/3.0 + slope*(rb**5-ra**5)/5.0
             regular_intervals.append(dI)
+
+            first = max(0, min(i-1, n-4))
+            ix = np.arange(first, first+4)
+            xnodes = r[ix]**2
+            xcenter = float(np.mean(xnodes))
+            xscale = float((np.max(xnodes)-np.min(xnodes))/2.0)
+            cscaled = np.polynomial.polynomial.polyfit(
+                (xnodes-xcenter)/xscale, F[ix], 3
+            )
+            rq = 0.5*(rb-ra)*gauss_nodes + 0.5*(rb+ra)
+            fq = np.polynomial.polynomial.polyval((rq*rq-xcenter)/xscale, cscaled)
+            dI_gauss = 0.5*(rb-ra)*float(np.sum(gauss_weights*(1.0+rq*rq*fq)))
+            cubic_gauss_intervals.append(dI_gauss)
+
         regular_intervals = np.asarray(regular_intervals, dtype=float)
+        cubic_gauss_intervals = np.asarray(cubic_gauss_intervals, dtype=float)
+
+        # Gauss-integrate the first-cell cubic extrapolation as an independent
+        # numerical check on the analytic regular-origin integral above.
+        xinner = r[:nfit]**2
+        xcenter_inner = float(np.mean(xinner))
+        xscale_inner = float((np.max(xinner)-np.min(xinner))/2.0)
+        cinner_scaled = np.polynomial.polynomial.polyfit(
+            (xinner-xcenter_inner)/xscale_inner, F[:nfit], nfit-1
+        )
+        rq_inner = 0.5*r0*(gauss_nodes+1.0)
+        fq_inner = np.polynomial.polynomial.polyval(
+            (rq_inner*rq_inner-xcenter_inner)/xscale_inner, cinner_scaled
+        )
+        inner_gauss = 0.5*r0*float(np.sum(
+            gauss_weights*(1.0+rq_inner*rq_inner*fq_inner)
+        ))
+
         production_intervals = 0.5*dr*(src[1:]+src[:-1])
         if mode == "origin_only":
             increments = production_intervals
-        else:
+            inner_used = inner
+        elif mode == "regular_F":
             increments = regular_intervals
-        integ = np.cumsum(np.r_[inner, increments])
+            inner_used = inner
+        else:
+            increments = cubic_gauss_intervals
+            inner_used = inner_gauss
+
+        integ = np.cumsum(np.r_[inner_used, increments])
         B = integ/r
         histories.append({
             "iteration": iteration+1,
@@ -124,6 +166,8 @@ def shadow_initial(grid, mode):
             "interval_increments_production_max_abs": float(np.max(np.abs(production_intervals))),
             "interval_increments_regular_F_max_abs": float(np.max(np.abs(regular_intervals))),
             "regular_F_minus_production_interval_max_abs": float(np.max(np.abs(regular_intervals-production_intervals))),
+            "cubic_Gauss_minus_linear_F_interval_max_abs": float(np.max(np.abs(cubic_gauss_intervals-regular_intervals))),
+            "origin_Gauss_minus_analytic_integral": float(inner_gauss-inner),
             "B_min": float(np.min(B)),
             "B_max": float(np.max(B)),
         })
@@ -216,7 +260,7 @@ def main():
 
         result={"N":n,"dr":float(grid.dr),"r_max":R_MAX,"modes":{}}
         result["modes"]["production"]={"raw":summarize(b_raw),"projected":summarize(b_proj)}
-        for mode in ("origin_only","regular_F"):
+        for mode in ("origin_only","regular_F","regular_F_cubic"):
             geom, scalars, matter, H0, history, B = shadow_initial(grid,mode)
             raw=evaluate(grid,geom.copy(),scalars,matter)
             proj_geom=kernel._enforce_center_regularity(grid,geom.copy())
@@ -239,7 +283,7 @@ def main():
     comparisons=[]
     indexed={r["N"]:r for r in all_results}
     for stage in ("raw","projected"):
-        for mode in ("production","origin_only","regular_F"):
+        for mode in ("production","origin_only","regular_F","regular_F_cubic"):
             values=[abs(indexed[n]["modes"][mode][stage]["central"]["H_vendor"]) for n in RESOLUTIONS]
             metric_values=[abs(indexed[n]["modes"][mode][stage]["central"]["H_metric"]) for n in RESOLUTIONS]
             comparisons.append({
@@ -260,6 +304,7 @@ def main():
             "production_mode":"untouched build_initial_data cumulative trapezoid",
             "origin_only_mode":"analytic origin integral, existing interval trapezoids",
             "regular_F_mode":"analytic origin integral plus exact interval integral assuming F linear in r^2",
+            "regular_F_cubic_mode":"Gauss-5 integration of piecewise-cubic F(r^2) interpolants; analytic-origin integral is checked independently with Gauss-5",
             "projection":"same existing centre projection applied to each mode",
             "production_code_changed":False,"shadow_used_for_evolution":False,
         },
@@ -269,10 +314,13 @@ def main():
         "interpretation_guardrail":(
             "All alternatives are counterfactual initial-data quadrature diagnostics. "
             "F is inferred from the existing source formula, not fit to H. The regular_F "
-            "interval method assumes F varies linearly in r^2 over each interval; whether "
-            "this is sufficiently accurate requires convergence checks. A small residual "
-            "would support but not prove a production quadrature defect. Production "
-            "sources, six-step iteration, gauge, projection and evolution remain unchanged."
+            "interval method assumes F varies linearly in r^2; regular_F_cubic instead "
+            "uses local cubic interpolation in r^2 and five-point Gauss integration. "
+            "The Gauss and analytic-integral forms provide a consistency cross-check, but "
+            "the interpolation still approximates the continuous source between cell "
+            "centres. A small residual supports but does not alone prove a production "
+            "quadrature defect. Production sources, six-step iteration, gauge, projection "
+            "and evolution remain unchanged."
         ),
     }
     out=ROOT/"runs"/"strong-D-origin-and-regular-F-integral-comparison"
