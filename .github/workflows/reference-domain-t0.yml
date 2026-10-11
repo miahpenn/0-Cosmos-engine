@@ -1,0 +1,34 @@
+name: Diagnostic - initial reference-domain lapse
+
+on:
+  push:
+    branches:
+      - diag/independent-metric-ricci-audit
+    paths:
+      - diagnostics/curvature_consistency/reference_domain_t0.py
+      - .github/workflows/reference-domain-t0.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  reference-domain-t0:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout diagnostic branch and pinned vendor submodule
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Compile diagnostic
+        run: python -m py_compile diagnostics/curvature_consistency/reference_domain_t0.py
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Run initial lapse comparison only
+        run: python diagnostics/curvature_consistency/reference_domain_t0.py
