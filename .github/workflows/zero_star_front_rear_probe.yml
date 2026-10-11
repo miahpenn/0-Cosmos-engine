@@ -1,0 +1,251 @@
+name: "[0star] front-rear expansion-contraction probe"
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - 0star-central-clock
+
+jobs:
+  probe:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[run-front-rear]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 720
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: D0-on
+            damp: "0.0"
+            radiation: "1"
+          - label: Dhalf-on
+            damp: "5.0e-11"
+            radiation: "1"
+          - label: Dbase-on
+            damp: "1.0e-10"
+            radiation: "1"
+          - label: Ddouble-on
+            damp: "2.0e-10"
+            radiation: "1"
+          - label: Dbase-off
+            damp: "1.0e-10"
+            radiation: "0"
+    env:
+      PYTHONPATH: .
+      DAMP: ${{ matrix.damp }}
+      RADIATION: ${{ matrix.radiation }}
+      CASE_LABEL: ${{ matrix.label }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Repository tests
+        run: pytest -q
+
+      - name: Run radial front-rear probe
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          import numpy as np
+
+          from engine.production_kernel import ProductionState, V55ProductionKernel
+          from engine.v55_initial import build_initial_data
+          from engine.v55_matter import metric_slice_from_q
+          from engine.stress_energy import assemble_total_stress_energy
+          from engine.matter_system import Species, project_species
+          from engine import v55_pirk_adapter as adapter
+
+          N = 160
+          RMAX = 160.0
+          CFL = 0.0075
+          TARGET = 22.5
+          DAMP = float(os.environ["DAMP"])
+          INCLUDE_RADIATION = os.environ["RADIATION"] == "1"
+          CASE = os.environ["CASE_LABEL"]
+
+          class ProbeKernel(V55ProductionKernel):
+              def initialize(self, resolution=N, r_max=RMAX, **kwargs):
+                  grid_ops, vacuum, _ = adapter.vendor_modules()
+                  grid = grid_ops.SphericalCellGrid(resolution, r_max)
+                  init = build_initial_data(
+                      grid, vacuum.flat_state,
+                      D_amplitude=DAMP,
+                      include_radiation=INCLUDE_RADIATION,
+                  )
+                  init.geometry.alpha = self._solve_lapse(
+                      grid, init.geometry, init.scalars, init.matter
+                  )[0]
+                  init.geometry.beta.fill(0.0)
+                  init.geometry.B.fill(0.0)
+                  return ProductionState(
+                      grid=grid,
+                      geometry=init.geometry,
+                      scalars=init.scalars,
+                      matter=init.matter,
+                      e_folds=0.0,
+                  )
+
+          kernel = ProbeKernel()
+          state = kernel.initialize()
+          outdir = Path("runs/0star-front-rear") / CASE
+          outdir.mkdir(parents=True, exist_ok=True)
+
+          sample_times = [0.0, 2.5, 5.0, 7.5, 10.0, 12.5, 15.0, 17.5, 20.0, 22.5]
+          rows = []
+          profiles = []
+          next_sample = 0
+
+          def capture(st):
+              g = st.grid
+              geom = st.geometry
+              fields = st.scalars
+              metric = metric_slice_from_q(g, geom)
+              total = assemble_total_stress_energy(
+                  g, geom, fields, st.matter
+              )
+              _, _, moving = adapter.vendor_modules()
+              explicit = moving.moving_puncture_explicit_rhs(g, geom)
+
+              r = np.asarray(g.centers)
+              R = r * np.sqrt(geom.b) / geom.X
+              Rdot = R * (
+                  0.5 * explicit["b"] / geom.b
+                  - explicit["X"] / geom.X
+              )
+              theta = -geom.alpha * geom.K
+              D_active = 2.0 * fields.PD**2 + fields.D**2
+              alpha_r = g.cell_derivative_fourth(geom.alpha, parity=1)
+              theta_r = g.cell_derivative_fourth(theta, parity=1)
+              D_active_r = g.cell_derivative_fourth(D_active, parity=1)
+
+              rad = project_species(
+                  metric, st.matter.radiation, Species.RADIATION
+              )
+
+              i_active = int(np.argmax(D_active))
+              i_theta_pos = int(np.argmax(theta))
+              i_theta_neg = int(np.argmin(theta))
+              i_Rdot_pos = int(np.argmax(Rdot))
+              i_Rdot_neg = int(np.argmin(Rdot))
+              i_alpha_grad = int(np.argmax(np.abs(alpha_r)))
+              i_Dgrad = int(np.argmax(np.abs(D_active_r)))
+
+              rows.append({
+                  "t": float(st.t),
+                  "tau": float(st.tau),
+                  "r_active_D": float(r[i_active]),
+                  "D_active_max": float(D_active[i_active]),
+                  "theta_at_D_active": float(theta[i_active]),
+                  "Rdot_at_D_active": float(Rdot[i_active]),
+                  "theta_max": float(theta[i_theta_pos]),
+                  "theta_max_r": float(r[i_theta_pos]),
+                  "theta_min": float(theta[i_theta_neg]),
+                  "theta_min_r": float(r[i_theta_neg]),
+                  "Rdot_max": float(Rdot[i_Rdot_pos]),
+                  "Rdot_max_r": float(r[i_Rdot_pos]),
+                  "Rdot_min": float(Rdot[i_Rdot_neg]),
+                  "Rdot_min_r": float(r[i_Rdot_neg]),
+                  "alpha_min": float(np.min(geom.alpha)),
+                  "alpha_min_r": float(r[np.argmin(geom.alpha)]),
+                  "alpha_r_max": float(np.max(np.abs(alpha_r))),
+                  "alpha_r_max_r": float(r[i_alpha_grad]),
+                  "D_active_grad_max": float(np.max(np.abs(D_active_r))),
+                  "D_active_grad_max_r": float(r[i_Dgrad]),
+                  "rho_rad_max": float(np.max(rad["rho"])),
+                  "rho_rad_max_r": float(r[np.argmax(rad["rho"])]),
+                  "j_rad_max_abs": float(np.max(np.abs(rad["j"]))),
+                  "j_rad_max_abs_r": float(r[np.argmax(np.abs(rad["j"]))]),
+                  "rho_total_max_abs": float(np.max(np.abs(total.rho))),
+                  "rho_total_max_abs_r": float(r[np.argmax(np.abs(total.rho))]),
+              })
+
+              profiles.append({
+                  "t": float(st.t),
+                  "tau": float(st.tau),
+                  "r": r.tolist(),
+                  "D": np.asarray(fields.D).tolist(),
+                  "PD": np.asarray(fields.PD).tolist(),
+                  "D_active": np.asarray(D_active).tolist(),
+                  "alpha": np.asarray(geom.alpha).tolist(),
+                  "K": np.asarray(geom.K).tolist(),
+                  "theta": np.asarray(theta).tolist(),
+                  "R": np.asarray(R).tolist(),
+                  "Rdot": np.asarray(Rdot).tolist(),
+                  "total_rho": np.asarray(total.rho).tolist(),
+                  "total_j": np.asarray(total.j).tolist(),
+                  "radiation_rho": np.asarray(rad["rho"]).tolist(),
+                  "radiation_j": np.asarray(rad["j"]).tolist(),
+              })
+
+          capture(state)
+          next_sample = 1
+          dt = CFL * state.grid.dr
+          failure = None
+
+          while state.t < TARGET:
+              try:
+                  state = kernel.step(state, min(dt, TARGET - state.t))
+                  state.geometry.assert_finite_positive()
+                  while next_sample < len(sample_times) and state.t >= sample_times[next_sample] - 0.5 * dt:
+                      capture(state)
+                      next_sample += 1
+              except Exception as exc:
+                  failure = {
+                      "type": type(exc).__name__,
+                      "message": str(exc),
+                      "t": float(state.t),
+                      "tau": float(state.tau),
+                  }
+                  break
+
+          result = {
+              "case": CASE,
+              "D_amplitude": DAMP,
+              "include_radiation": INCLUDE_RADIATION,
+              "resolution": N,
+              "r_max": RMAX,
+              "cfl": CFL,
+              "target_time": TARGET,
+              "t_final": float(state.t),
+              "tau_final": float(state.tau),
+              "failure": failure,
+              "turnaround_events": sum(e.kind == "turnaround" for e in state.cycle.events),
+              "reexpansion_events": sum(e.kind == "re-expansion_crossing" for e in state.cycle.events),
+              "handoff_events": len(state.handoffs),
+              "cycle_events": [e.__dict__ for e in state.cycle.events],
+              "rows": rows,
+              "profiles": profiles,
+          }
+          (outdir / "front_rear_probe.json").write_text(
+              json.dumps(result, indent=2, default=float)
+          )
+          print(json.dumps({
+              k: result[k] for k in (
+                  "case", "D_amplitude", "include_radiation",
+                  "t_final", "tau_final", "failure",
+                  "turnaround_events", "reexpansion_events",
+                  "handoff_events",
+              )
+          }, indent=2, default=float))
+          PY
+
+      - name: Upload front-rear probe
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: 0star-front-rear-${{ matrix.label }}
+          path: runs/0star-front-rear/${{ matrix.label }}
+          if-no-files-found: error

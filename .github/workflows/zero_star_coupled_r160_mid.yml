@@ -1,0 +1,105 @@
+name: "[0star] coupled high-domain D control"
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - 0star-central-clock
+
+jobs:
+  high-domain-coupled:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[run-coupled-r160-mid]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 720
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: D0
+            D: 0.0
+          - label: D5e-11
+            D: 5.0e-11
+    env:
+      PYTHONPATH: .
+      DAMP: ${{ matrix.D }}
+      CASELABEL: ${{ matrix.label }}
+
+    steps:
+      - name: Checkout engine
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Repository tests
+        run: python -m pytest -q
+      - name: Run high-domain coupled continuation
+        run: |
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          from engine.production_kernel import ProductionState, V55ProductionKernel
+          from engine.v55_initial import build_initial_data
+          from engine import v55_pirk_adapter as adapter
+          from engine.handoff import ejected_phase, local_phase
+
+          DAMP=float(os.environ["DAMP"]); CASE=os.environ["CASELABEL"]
+          N,RMAX,CFL,TARGET=320,160.0,0.06,80.0
+
+          class HighDomainKernel(V55ProductionKernel):
+              def initialize(self, resolution=N, r_max=RMAX, **kwargs):
+                  grid_ops, vacuum, _ = adapter.vendor_modules()
+                  grid=grid_ops.SphericalCellGrid(resolution,r_max)
+                  init=build_initial_data(grid,vacuum.flat_state,D_amplitude=DAMP,include_radiation=True)
+                  geometry=self._enforce_center_regularity(grid,init.geometry)
+                  geometry.alpha=self._solve_lapse(grid,geometry,init.scalars,init.matter)[0]
+                  geometry.beta.fill(0.0); geometry.B.fill(0.0)
+                  return ProductionState(grid=grid,geometry=geometry,scalars=init.scalars,matter=init.matter,e_folds=0.0)
+
+          kernel=HighDomainKernel(); state=kernel.initialize()
+          dt=CFL*state.grid.dr; failure=None; rows=[]
+          sample_times=(0.,20.,30.,35.,38.,40.,45.,50.,60.,70.,80.)
+
+          def cap(st):
+              f=st.scalars; o=kernel.diagnostics(st,profiles=False)
+              rows.append({
+                  "t":float(st.t),"tau":float(st.tau),"H_eff":float(o["H_eff"]),"tau_rate":float(o["tau_rate"]),
+                  "D0":float(f.D[0]),"PD0":float(f.PD[0]),"theta_D":float(ejected_phase(f.D[0],f.PD[0])),
+                  "S0":float(f.S[0]),"PS0":float(f.PS[0]),"theta_S":float(local_phase(f.S[0],f.PS[0])),
+                  "phi0":float(f.phi[0]),"Pi0":float(f.Pi[0]),"lapse_min":float(o["lapse_min"]),
+                  "M_MS":float(o["M_MS"]),"flux_T":float(o["flux_T"]),"work_pR":float(o["work_pR"]),
+                  "hamiltonian_max":float(o["hamiltonian_max"]),"momentum_max":float(o["momentum_max"]),
+                  "cmc_residual_outer_max":float(o["cmc_residual_outer_max"]),
+                  "trapped_root_count":len(o.get("trapped_roots",[]))})
+
+          cap(state); k=1
+          while state.t<TARGET:
+              try:
+                  state=kernel.step(state,min(dt,TARGET-state.t))
+                  while k<len(sample_times) and state.t>=sample_times[k]-0.5*dt:
+                      cap(state); k+=1
+                  state.geometry.assert_finite_positive()
+              except Exception as exc:
+                  failure={"type":type(exc).__name__,"message":str(exc),"t":float(state.t),"tau":float(state.tau)}
+                  break
+
+          result={"case":CASE,"D_amplitude":DAMP,"resolution":N,"r_max":RMAX,"dr":float(state.grid.dr),
+                  "cfl":CFL,"target_time":TARGET,"t_final":float(state.t),"tau_final":float(state.tau),
+                  "failure":failure,"turnaround_events":sum(e.kind=="turnaround" for e in state.cycle.events),
+                  "reexpansion_events":sum(e.kind=="re-expansion_crossing" for e in state.cycle.events),
+                  "handoff_events":len(state.handoffs),"events":[e.__dict__ for e in state.cycle.events],"samples":rows}
+          out=Path("runs/0star-coupled-r160")/CASE; out.mkdir(parents=True,exist_ok=True)
+          (out/"result.json").write_text(json.dumps(result,indent=2,default=float)); print(json.dumps(result,indent=2,default=float))
+          PY
+      - name: Upload high-domain result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: 0star-coupled-r160-${{ matrix.label }}
+          path: runs/0star-coupled-r160/${{ matrix.label }}
+          if-no-files-found: error

@@ -74,10 +74,31 @@ def summarize(grid, geometry, *, surface_r=10.0, H_eff=0.0,
 
 
 def current_residual(times, masses, rhs):
-    """Residual of dM/dt = rhs on an already sampled worldtube ledger."""
+    """Interior residual of dM/dt = rhs on a sampled worldtube ledger.
+
+    The first and last samples are not scored because their derivatives are
+    one-sided. Interior samples adjacent to a sub-nanounit interval are also
+    excluded: a terminal remainder that tiny can arise from floating-point
+    time accumulation, and a centered derivative across it is ill-conditioned.
+    This avoids reporting a numerical differencing artifact as a conservation
+    residual. The source history itself is not modified.
+    """
     t = np.asarray(times, dtype=float)
     m = np.asarray(masses, dtype=float)
     r = np.asarray(rhs, dtype=float)
+    if t.shape != m.shape or t.shape != r.shape:
+        raise ValueError("times, masses, and rhs must have identical shapes")
     if len(t) < 3:
         return np.asarray([])
-    return np.gradient(m, t, edge_order=2) - r
+    residual = np.full_like(m, np.nan, dtype=float)
+    residual[1:-1] = np.gradient(m, t, edge_order=2)[1:-1] - r[1:-1]
+
+    # The N=320 preregistration explicitly permits a <1e-9 final remainder
+    # when the accumulated time is already within tolerance of final_time.
+    # Exclude only the derivative samples touching such an interval.
+    short_intervals = np.flatnonzero(np.diff(t) < 1.0e-9)
+    for left in short_intervals:
+        for index in (int(left), int(left) + 1):
+            if 0 < index < len(t) - 1:
+                residual[index] = np.nan
+    return residual

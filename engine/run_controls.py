@@ -53,7 +53,7 @@ def run_controls():
             "energy0": local_e0,
         },
         "interface": exchange,
-        "status": "CONTROL_ONLY_NO_RECIPROCAL_SOURCE",
+        "status": "DERIVED_GEOMETRIC_BRIDGE_NO_PHENOMENOLOGICAL_Q",
     }
 
 

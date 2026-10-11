@@ -1,0 +1,84 @@
+name: "[persist] final D1e-4 repair-ON common-CFL artifact"
+
+on:
+  push:
+    branches: ["0star-central-clock"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  persist:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[persist-final-d1e4-on]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      EXPECTED_WORKFLOW: "zero_star_fourway_d1e4_on.yml"
+      EXPECTED_ARTIFACT: "0star-fourway-D1e-4-repair-on-cfl0075"
+      EXPECTED_FILE: "four_way_D1e-4_repair-on_cfl0075_N160.json"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 0star-central-clock
+          fetch-depth: 0
+      - name: Locate latest successful final-corner run
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          id="$(gh run list --workflow "$EXPECTED_WORKFLOW" --branch 0star-central-clock --limit 20 --json databaseId,status,conclusion,createdAt --jq 'map(select(.status == "completed" and .conclusion == "success")) | sort_by(.createdAt) | reverse | .[0].databaseId')"
+          test -n "$id" && test "$id" != "null"
+          echo "SOURCE_RUN_ID=$id" >> "$GITHUB_ENV"
+          echo "Using completed successful source run: $id"
+      - name: Download exact artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/final-artifact
+          mkdir -p /tmp/final-artifact
+          gh run download "$SOURCE_RUN_ID" --name "$EXPECTED_ARTIFACT" --dir /tmp/final-artifact
+          test -f "/tmp/final-artifact/$EXPECTED_FILE"
+      - name: Validate exact JSON admission gates
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, math
+          from pathlib import Path
+          p=Path("/tmp/final-artifact/four_way_D1e-4_repair-on_cfl0075_N160.json")
+          d=json.loads(p.read_text())
+          assert d["status"] == "completed"
+          q=d["parameters"]
+          assert q["D_amplitude"] == 1e-4
+          assert q["repair"] is True
+          assert q["resolution"] == 160
+          assert q["r_max"] == 80.0
+          assert q["cfl"] == 0.0075
+          assert q["final_time_requested"] == 22.5
+          assert q["include_radiation"] is True
+          assert q["target_times"] == [0.01,4.0,8.0,12.0,16.0,20.0,22.5]
+          assert abs(d["final_time"]-22.5) < 0.05
+          assert len(d["samples"]) == 7
+          for s,tgt in zip(d["samples"], q["target_times"]):
+              assert abs(s["t"]-tgt) < 0.05
+              assert "tau_central" in s
+              assert len(s["r"]) == 160
+              assert len(s["tau_r"]) == 160
+              assert len(s["alpha_r"]) == 160
+              for key in ("r","tau_r","alpha_r"):
+                  assert all(math.isfinite(float(x)) for x in s[key])
+          print("FINAL CORNER ADMISSION GATES: PASS")
+          print("SOURCE_RUN_ID:", __import__("os").environ["SOURCE_RUN_ID"])
+          PY
+      - name: Persist exact JSON
+        run: |
+          set -euo pipefail
+          cp "/tmp/final-artifact/$EXPECTED_FILE" "GEAR_group/$EXPECTED_FILE"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "GEAR_group/$EXPECTED_FILE"
+          git diff --cached --quiet && { echo "No new JSON change to commit."; exit 0; }
+          git commit -m "persist D1e-4 repair-ON common-CFL diagnostic JSON"
+          git push origin HEAD:0star-central-clock

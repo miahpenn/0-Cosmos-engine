@@ -1,0 +1,27 @@
+name: D-mode diagnostic non-interference gate
+
+on:
+  push:
+    branches: [0star-central-clock]
+  workflow_dispatch:
+
+jobs:
+  diagnostic-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      PYTHONPATH: .
+    steps:
+      - name: Checkout repository with archived baseline
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Diagnostic non-interference and evolution-equivalence gates
+        run: pytest -q tests/test_d_mode_source_audit.py tests/test_d_mode_source_audit_equivalence.py

@@ -1,0 +1,204 @@
+name: 0-star D-mode synchronized continuation campaign
+
+on:
+  workflow_dispatch:
+
+jobs:
+  synchronized-continuation:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[0star-sync]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    env:
+      PYTHONPATH: .
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Repository tests
+        run: pytest -q
+
+      - name: Run synchronized continuation
+        run: |
+          python - <<'PY'
+          import json, math
+          from pathlib import Path
+          import numpy as np
+
+          from engine.campaign import CampaignConfig
+          from engine.production_kernel import ProductionState, V55ProductionKernel
+          from engine.run_production import run_campaign
+          from engine.v55_initial import build_initial_data
+          from engine.v55_matter import metric_slice_from_q, project_species
+          from engine.scalar_system import KAPPA
+          from engine import v55_pirk_adapter as adapter
+          from engine.matter_system import Species
+
+          TARGET = 3.5e-3
+
+          class SyncKernel(V55ProductionKernel):
+              def __init__(self, d_amplitude):
+                  self.d_amplitude = float(d_amplitude)
+
+              def initialize(self, resolution=160, r_max=160.0, **kwargs):
+                  grid_ops, vacuum, _ = adapter.vendor_modules()
+                  grid = grid_ops.SphericalCellGrid(resolution, r_max)
+                  init = build_initial_data(
+                      grid, vacuum.flat_state,
+                      D_amplitude=self.d_amplitude,
+                      include_radiation=True,
+                  )
+                  init.geometry = self._enforce_center_regularity(
+                      grid, init.geometry
+                  )
+                  init.geometry.alpha = self._solve_lapse(
+                      grid, init.geometry, init.scalars, init.matter
+                  )[0]
+                  init.geometry.beta.fill(0.0)
+                  init.geometry.B.fill(0.0)
+                  return ProductionState(
+                      grid=grid, geometry=init.geometry,
+                      scalars=init.scalars, matter=init.matter,
+                      e_folds=0.0,
+                  )
+
+              def diagnostics(self, state, *, profiles=False):
+                  out = super().diagnostics(state, profiles=profiles)
+                  f = state.scalars
+                  r = np.asarray(state.grid.centers)
+                  active = 2.0*f.PD**2 + f.D**2
+                  i_grad = int(np.argmax(np.abs(
+                      state.grid.cell_derivative_fourth(state.geometry.alpha, parity=1)
+                  )))
+                  _, vacuum, _ = adapter.vendor_modules()
+                  vl3 = vacuum.primary_l3_rhs(state.grid, state.geometry)
+                  tl3 = adapter.primary_l3_with_matter(
+                      state.grid, state.geometry, f, state.matter
+                  )
+                  matter_k = np.asarray(tl3["K"]) - np.asarray(vl3["K"])
+
+                  def scalar_K(src, p, V, scale):
+                      q = state.geometry.X**2 / state.geometry.a
+                      fp = state.grid.cell_derivative_fourth(src, parity=1)
+                      rho = (0.5*p*p + 0.5*q*fp*fp + V)/scale
+                      pr  = (0.5*p*p + 0.5*q*fp*fp - V)/scale
+                      pt  = (0.5*p*p - 0.5*q*fp*fp - V)/scale
+                      return 4.0*math.pi*state.geometry.alpha*(rho+pr+2.0*pt)
+
+                  dK = scalar_K(f.D, f.PD, -0.5*f.D**2, 1.0)
+                  sK = scalar_K(f.S, f.PS, 0.5*f.S**2, 1.0)
+                  cV = 8.242522415500654e-5*(np.exp(-f.phi)-0.10)
+                  cK = scalar_K(f.phi, f.Pi, cV, KAPPA)
+
+                  out.update({
+                      "D_active_sync": float(active[0]),
+                      "D_sync": float(f.D[0]),
+                      "PD_sync": float(f.PD[0]),
+                      "D_K_source_sync": float(dK[0]),
+                      "S_K_source_sync": float(sK[0]),
+                      "COSMOS_K_source_sync": float(cK[0]),
+                      "matter_K_source_sync": float(matter_k[0]),
+                      "probe_r_sync": float(r[i_grad]),
+                      "D_K_source_probe_sync": float(dK[i_grad]),
+                      "matter_K_source_probe_sync": float(matter_k[i_grad]),
+                  })
+                  return out
+
+          cases = {
+              "Dhalf": 5.0e-11,
+              "Dbase": 1.0e-10,
+              "Ddouble": 2.0e-10,
+          }
+          base = Path("runs/0star-d-synchronized")
+          summary = {}
+
+          for label, amp in cases.items():
+              cfg = CampaignConfig(
+                  resolutions=(160,), r_max=160.0, cfl=0.0075,
+                  final_time=27.0, checkpoint_interval=0.25,
+                  output_dir=str(base / label),
+              )
+              result = run_campaign(kernel=SyncKernel(amp), config=cfg)
+              summary[label] = result[0].__dict__
+
+          aligned = {}
+          for label in cases:
+              ledger = json.loads(
+                  (base / label / "N160" / "ledgers.json").read_text()
+              )
+              hist = ledger["history"]
+              target = TARGET
+              # Locate the D_active crossing and linearly interpolate all
+              # diagnostics in tau. This is rephasing of the evolved trajectory,
+              # not a modification of the dynamics.
+              h = [row for row in hist if row.get("D_active_sync") is not None]
+              h.sort(key=lambda x: float(x["tau"]))
+              k = next((i for i in range(len(h)-1)
+                        if (h[i]["D_active_sync"]-target) *
+                           (h[i+1]["D_active_sync"]-target) <= 0.0), None)
+              if k is None:
+                  aligned[label] = {"crossing_found": False}
+                  continue
+              a,b = h[k],h[k+1]
+              xa,xb = float(a["D_active_sync"]),float(b["D_active_sync"])
+              u = 0.0 if xb == xa else (target-xa)/(xb-xa)
+              tau0 = float(a["tau"]) + u*(float(b["tau"])-float(a["tau"]))
+              t0 = float(a["t"]) + u*(float(b["t"])-float(a["t"]))
+              rows = []
+              fields = [
+                  "D_active_sync","D_sync","PD_sync","H_center","H_eff",
+                  "lapse_min","lapse_max","alpha_r_max","alpha_r_max_r",
+                  "cmc_kdot","tau_rate","D_K_source_sync",
+                  "S_K_source_sync","COSMOS_K_source_sync",
+                  "matter_K_source_sync","probe_r_sync",
+                  "D_K_source_probe_sync","matter_K_source_probe_sync",
+              ]
+              for row in h:
+                  if float(row["tau"]) >= tau0:
+                      rows.append(row)
+              # Compare at common proper-time offsets by linear interpolation.
+              offsets = [0.0,0.25,0.5,0.75,1.0,1.25,1.5,2.0,2.5]
+              samples = []
+              for off in offsets:
+                  target_tau = tau0 + off
+                  if target_tau > float(h[-1]["tau"]):
+                      continue
+                  j = next((q for q in range(len(h)-1)
+                            if float(h[q]["tau"]) <= target_tau <= float(h[q+1]["tau"])), None)
+                  if j is None: continue
+                  p,q = h[j],h[j+1]
+                  den=float(q["tau"])-float(p["tau"])
+                  u2=0.0 if den==0 else (target_tau-float(p["tau"]))/den
+                  rec={"delta_tau":off}
+                  for name in fields:
+                      vp=p.get(name); vq=q.get(name)
+                      if isinstance(vp,(int,float)) and isinstance(vq,(int,float)):
+                          rec[name]=float(vp)+u2*(float(vq)-float(vp))
+                  samples.append(rec)
+              aligned[label] = {
+                  "crossing_found": True, "target_D_active": target,
+                  "t_cross":t0, "tau_cross":tau0, "samples":samples
+              }
+
+          (base/"synchronized_summary.json").write_text(
+              json.dumps({"target_D_active":TARGET,"cases":summary,
+                          "aligned":aligned},indent=2,default=float)
+          )
+          print(json.dumps(aligned,indent=2,default=float))
+          PY
+
+      - name: Upload synchronized continuation artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: 0star-d-mode-synchronized-continuation
+          path: runs/0star-d-synchronized
+          if-no-files-found: error

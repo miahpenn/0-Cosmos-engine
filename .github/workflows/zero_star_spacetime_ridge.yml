@@ -1,0 +1,54 @@
+name: "[0star] propagating ridge / comoving lock"
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - 0star-central-clock
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  analyze:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[run-ridge]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install analysis dependency
+        run: python -m pip install numpy
+
+      - name: Locate latest completed spacetime-lock run
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          RUN_ID=$(gh run list             --workflow zero_star_spacetime_lock.yml             --branch 0star-central-clock             --status completed             --limit 20             --json databaseId,headSha,conclusion             --jq ".[] | select(.conclusion == \"success\" and .headSha != \"$GITHUB_SHA\") | .databaseId"             | head -n 1)
+          test -n "$RUN_ID"
+          echo "RUN_ID=$RUN_ID" >> "$GITHUB_ENV"
+
+      - name: Download completed spacetime-lock artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          rm -rf artifacts
+          gh run download "$RUN_ID"             --repo "$GITHUB_REPOSITORY"             --dir artifacts
+
+      - name: Run propagating-ridge analysis
+        run: |
+          python engine/spacetime_ridge_analysis.py             --input-root artifacts             --output ridge_report.json
+
+      - name: Upload ridge report
+        uses: actions/upload-artifact@v4
+        with:
+          name: 0star-spacetime-ridge-analysis
+          path: ridge_report.json
+          if-no-files-found: error

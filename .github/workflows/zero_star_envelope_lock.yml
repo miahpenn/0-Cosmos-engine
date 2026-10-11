@@ -1,0 +1,79 @@
+name: "[0star] D-envelope field-lock diagnostic"
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - 0star-central-clock
+
+jobs:
+  field_lock:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[run-envelope-lock]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 720
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: D1e10-on-N160-CFL003
+            damp: "1.0e-10"
+            radiation: "1"
+            resolution: 160
+            rmax: 160.0
+            cfl: 0.03
+          - label: D1e4-on-N160-CFL003
+            damp: "1.0e-4"
+            radiation: "1"
+            resolution: 160
+            rmax: 160.0
+            cfl: 0.03
+          - label: D1e4-off-N160-CFL003
+            damp: "1.0e-4"
+            radiation: "0"
+            resolution: 160
+            rmax: 160.0
+            cfl: 0.03
+          - label: D1e4-on-N320-CFL003
+            damp: "1.0e-4"
+            radiation: "1"
+            resolution: 320
+            rmax: 160.0
+            cfl: 0.03
+
+    env:
+      PYTHONPATH: .
+      DAMP: ${{ matrix.damp }}
+      RADIATION: ${{ matrix.radiation }}
+      RESOLUTION: ${{ matrix.resolution }}
+      RMAX: ${{ matrix.rmax }}
+      CFL: ${{ matrix.cfl }}
+      CASE_LABEL: ${{ matrix.label }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Repository tests
+        run: pytest -q
+
+      - name: Run field-lock diagnostic
+        run: python engine/envelope_lock_diagnostics.py
+
+      - name: Upload field-lock artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: 0star-envelope-lock-${{ matrix.label }}
+          path: runs/0star-envelope-lock/${{ matrix.label }}
+          if-no-files-found: error

@@ -27,6 +27,9 @@ def species_rhs(
     matter with the geometry without introducing a second physical evolution
     law.
     """
+    # dt=1 is only a bookkeeping device for extracting the RHS. It is
+    # not a physical update and must not trigger radiation admissibility
+    # rejection. The actual RK stages are checked when they are formed.
     advanced = evolve_species(
         metric,
         metric_derivatives,
@@ -36,6 +39,7 @@ def species_rhs(
         dphi_t=dphi_t,
         dphi_r=dphi_r,
         beta_dm=beta_dm,
+        validate_physical_state=False,
     )
     return ConservedSpecies(
         advanced.rest - state.rest,

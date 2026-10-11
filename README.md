@@ -1,68 +1,83 @@
 # 0-Cosmos Engine
 
-Canonical writable workspace for the interconnected GEAR/COSMOS research engine.
+GEAR-derived cyclic-cosmos numerical engine and diagnostic archive.
 
-## Objective
-Build one reproducible machine in which the cosmic lane, local Einstein-scalar
-lane, dynamically generated proper-time interface, stress-energy/flux ledger,
-and cycle observer can evolve together without carrying the full machine in chat.
+## Experimental status
 
-## Physics locks
-- GEAR-03: kappa=0, g=1; omega_S^2=1 and alpha_D^2=1.
-- GEAR-63/65 local cubic geometric barrier is retained.
-- G=1.
-- Corrected COSMOS potential normalization is retained; legacy V0=1 is a control only.
-- No fitted feedback coefficient.
-- No imposed clock conversion.
-- No D-to-matter conversion law.
-- No artificial bounce, stop, reset, ejection threshold, or lifetime threshold.
-- Reciprocal coupling comes only from the unified stress-energy/geometry system.
-- A reduced diagnostic source is never promoted to physical coupling without conservation and resolution evidence.
-- The exact spherical branch does not isotropize the archive's Bianchi-I shear.
-- lambda_cycle is not invented; only archive-supported phase, phi, H_eff, proper time, and derived e-fold coordinates are carried.
+The active experimental work is on **0star-central-clock** and is not merged into `main`.
 
-## Architecture
+The current validation sequence is:
 
-### Physics and stress-energy
-- engine/scalar_system.py — S/D/COSMOS scalar evolution and projections.
-- engine/cosmos.py — archive homogeneous COSMOS lane, signed-H evolution, beta exchange, radiation, and homogeneous shear semantics.
-- engine/local.py — GEAR-03 S/D sector and GEAR-63/65 barrier.
-- engine/valencia.py — metric-aware conservative/primitive identities and exact mixed-tensor source contraction.
-- engine/matter_system.py — conservative spherical dust/radiation transport and DM four-force.
-- engine/v55_matter.py — corrected V5.5 matter bundle and archive operating point.
-- engine/stress_energy.py — single total Einstein source assembly.
-- engine/spherical_scope.py — explicit exact-spherical matter scope.
+1. repository regression/smoke tests;
+2. spherical-center regularity validation;
+3. resolution convergence;
+4. CFL/domain independence;
+5. synchronized D-mode phase collapse;
+6. only then, extended turnaround/bounce searches.
 
-### Geometry and evolution
-- vendor/bb-palatini-unified-r0 — pinned reference-metric spherical BSSN/PIRK numerical kernel.
-- engine/v55_pirk_adapter.py — V5.5 adapter over the pinned geometry kernel.
-- engine/v55_initial.py — corrected production initial-data mapping.
-- engine/production_kernel.py — synchronized geometry + scalar + conservative-matter state evolution.
-- engine/production_contract.py — production capability contract.
-- engine/true_cmc_reference.py — historical/reference CMC layer; not the production entry point.
-- engine/reference_pirk_unified.py — historical archive reference; not the production initializer.
+The project follows a strict rule: repair numerical defects in the numerical layer before interpreting strong-field behavior physically. No fitted feedback coefficients, damping/clamps, lapse floors, manufactured bounce laws, or silent physical terms are introduced.
 
-### Coupling and observables
-- engine/worldtube.py — invariant areal radius, chi, Misner-Sharp mass, marginal roots, and current residual.
-- engine/handoff.py — proper-time/cycle handoff observation.
-- engine/cosmology_observables.py — H_eff and derived e-fold coordinate.
-- engine/invariant_diagnostics.py — invariant numerical witnesses.
-- engine/interface.py — bookkeeping only; no phenomenological source.
-- engine/coupled.py — orchestration data structures.
-- engine/coupled_engine.py — historical continuous CMC driver; not production.
+## Current numerical repair
 
-### Campaign and controls
-- engine/campaign.py — long-horizon campaign configuration.
-- engine/run_production.py — canonical final campaign runner.
-- engine/run_controls.py — cheap control-only harness.
-- tests/ — regression suite; not executed during construction.
-- docs/ — provenance, locks, status, and cycle-coordinate decisions.
-- runs/ — generated campaign checkpoints/ledgers.
+The production kernel now reapplies the pinned spherical-center algebraic regularity projection during the PIRK/CMC stages. This is a numerical consistency projection already defined by the reference BSSN kernel; it does not alter the physical equations.
 
-## Scientific status
-The production state graph is implemented but NOT yet campaign-validated.
-The next and final engineering gate is a complete repository test plus the
-long synchronized numerical campaign at multiple resolutions.
+See `docs/center-regularity-repair.md` for the finding and validation gates.
 
-No completed multi-cycle or physical-bounce claim is made until that campaign
-actually runs and the invariant witnesses support it.
+## Experimental branch
+
+`0star-central-clock`
+
+Draft PR #1: archive-derived central proper-time CMC gauge diagnostic.
+
+`main` remains untouched by the experimental repair.
+
+## Campaigns
+
+Manual GitHub Actions workflows under `.github/workflows/` are the canonical expensive-run entry points. Artifacts should be preserved with each campaign and compared before any subsequent physics interpretation.
+
+## Current validation status
+
+The production branch is one shared spherical spacetime/state graph containing the local S/D fields, corrected COSMOS scalar, conservative dark matter, baryons, and radiation. There is **not yet** a reciprocal homogeneous COSMOS evolution/source channel driven by the local production solution.
+
+The completed full space-time D-lock campaign established the current diagnostic picture: strong D produces a moving D-centered spacetime/clock structure with ordered geometric responses, while the completed runs showed no turnaround/re-expansion/handoff event through t=22.5. This is a diagnostic result, not evidence for a bounce or cycle.
+
+The current production validation sequence is therefore:
+
+1. repository regression/smoke tests;
+2. spherical-center regularity validation;
+3. resolution/CFL/domain checks;
+4. D-field source-order and propagating-ridge diagnostics;
+5. only then, any reciprocal COSMOS coupling derived from existing physical ledger quantities.
+
+No fitted feedback coefficient, free volume normalization, manufactured bounce law, lapse floor, or physical stop condition is permitted.
+
+
+## Launch note
+The full bidirectional production diagnostic is being launched now: D-amplitude sensitivity plus an independent CMC-operator probe. This launch changes no physical equations.
+
+
+The D-mode causality/source-order diagnostic pair is also being launched to compare the response across initial D amplitudes and source-order observables.
+
+
+A coordinate-CFL central-clock control is being launched alongside the coupled and D-mode campaigns; it is a numerical control, not a physics modification.
+
+
+Coupled launch retry: the workflow is now present on the branch; this commit exists solely to trigger the full bidirectional D/CMC diagnostic.
+
+
+The coupled D-amplitude/CFL discriminator matrix is now active: D=0, 5e-11, 1e-10 crossed with CFL=0.06 and 0.03 at N=160, Rmax=80, target t=50.
+
+
+The coupled D phase-lock discriminator is now active: fixed D amplitude with phase rotations at -pi/2, 0, pi/4, pi/2 on the full bidirectional machine.
+
+
+Phase-lock retry uses immutable ScalarFields replacement; no physical equations changed.
+
+
+The full bidirectional machine is also being tested at Rmax=160, N=320 (fixed dr=0.5) for D=0 versus D=1e-10 through t=80.
+
+
+[run-coupled-r160-mid] Launch high-domain intermediate D=5e-11 control.
+
+
+[run-coupled-r160-roff] Launch high-domain radiation-off D=1e-10 control.

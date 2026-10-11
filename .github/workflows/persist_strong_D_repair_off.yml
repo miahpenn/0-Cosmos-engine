@@ -1,0 +1,63 @@
+name: "[0star] persist exact strong-D repair-OFF JSON"
+
+on:
+  push:
+    branches: ["0star-central-clock"]
+
+permissions:
+  contents: write
+
+jobs:
+  persist:
+    if: contains(github.event.head_commit.message, '[persist-artifact-11521141975]')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          ref: 0star-central-clock
+          fetch-depth: 0
+
+      - name: Download exact completed artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          curl -fsSL \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/miahpenn/0-Cosmos-engine/actions/artifacts/11521141975/zip" \
+            -o /tmp/exact-artifact.zip
+          unzip -o /tmp/exact-artifact.zip -d /tmp/exact-artifact
+          test -f /tmp/exact-artifact/strong_D1e-4_repair_off_N160.json
+
+      - name: Persist exact JSON
+        run: |
+          set -euo pipefail
+          mkdir -p GEAR_group
+          cp /tmp/exact-artifact/strong_D1e-4_repair_off_N160.json GEAR_group/strong_D1e-4_repair_off_N160.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path("GEAR_group/strong_D1e-4_repair_off_N160.json")
+          d = json.loads(p.read_text())
+          assert d["status"] == "completed"
+          assert d["diagnostic_only"] is True
+          assert d["parameters"]["D_amplitude"] == 1e-4
+          assert d["parameters"]["repair"] is False
+          assert d["parameters"]["resolution"] == 160
+          assert d["parameters"]["r_max"] == 80.0
+          assert d["final_time"] == 22.5
+          assert len(d["samples"]) == 7
+          for s in d["samples"]:
+              assert len(s["r"]) == 160
+              assert len(s["alpha_r"]) == 160
+              assert len(s["tau_r"]) == 160
+          print("Exact artifact validation passed.")
+          PY
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add GEAR_group/strong_D1e-4_repair_off_N160.json
+          git commit -m "persist exact strong-D repair-OFF diagnostic JSON"
+          git push origin 0star-central-clock

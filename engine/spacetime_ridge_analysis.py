@@ -1,0 +1,247 @@
+"""Propagating-ridge / comoving-lock diagnostic for the 0star campaign.
+
+Diagnostic only: no evolution equations, source terms, or fitted coefficients.
+The same radial window used by the existing space-time lock analysis is used.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+from pathlib import Path
+
+import numpy as np
+
+RMIN, RMAX = 1.0, 60.0
+FIELDS = ("rho_total", "Rdot", "alpha", "theta")
+
+
+def load_case(case_dir: Path):
+    z = np.load(case_dir / "profiles.npz")
+    meta = json.loads((case_dir / "meta.json").read_text())
+    return z, meta
+
+
+def ridge_track(z, key: str):
+    r = np.asarray(z["r"], dtype=float)
+    a = np.asarray(z[f"{key}_grad_abs"], dtype=float)
+    mask = (r >= RMIN) & (r <= RMAX)
+    idx = np.argmax(np.where(mask[None, :], a, -np.inf), axis=1)
+    return r[idx], a[np.arange(a.shape[0]), idx]
+
+
+def linear_speed(t, r):
+    if len(t) < 2 or np.std(t) == 0:
+        return float("nan")
+    return float(np.polyfit(t, r, 1)[0])
+
+
+def summarize_case(z, meta):
+    t = np.asarray(z["t"], dtype=float)
+    tracks = {}
+    for key in ("D_active",) + FIELDS:
+        tracks[key], _ = ridge_track(z, key)
+
+    d = tracks["D_active"]
+    d_amp = ridge_track(z, "D_active")[1]
+    d_valid = d_amp > 0.0
+    out = {
+        "meta": meta,
+        "tracks": {
+            "D_active": {
+                "r_start": float(d[0]),
+                "r_end": float(d[-1]),
+                "net_delta_r": float(d[-1] - d[0]),
+                "linear_speed": linear_speed(t, d),
+            }
+        },
+        "relative": {},
+        "comoving": comoving_collapse(z, d, d_valid),
+    }
+
+    vd = linear_speed(t, d)
+    for key in FIELDS:
+        x = tracks[key]
+        delta = x - d
+        corr = (
+            float(np.corrcoef(d, x)[0, 1])
+            if np.std(d) > 0 and np.std(x) > 0
+            else float("nan")
+        )
+        out["tracks"][key] = {
+            "r_start": float(x[0]),
+            "r_end": float(x[-1]),
+            "net_delta_r": float(x[-1] - x[0]),
+            "linear_speed": linear_speed(t, x),
+        }
+        out["relative"][key] = {
+            "offset_median": float(np.median(delta)),
+            "offset_q25": float(np.percentile(delta, 25)),
+            "offset_q75": float(np.percentile(delta, 75)),
+            "offset_std": float(np.std(delta)),
+            "co_ridge_position_corr": corr,
+            "kinematic_time_equivalent": (
+                float(np.median(delta) / vd) if np.isfinite(vd) and abs(vd) > 0 else float("nan")
+            ),
+        }
+    return out
+
+
+
+def comoving_collapse(z, d_track, valid):
+    """Measure whether radial-gradient profiles become stationary in the D frame.
+
+    The comoving coordinate is xi = r - r_D(t), where r_D(t) is the measured D
+    ridge itself. The common xi range is derived from the existing radial window
+    and the D track; no physical speed or fitted delay is introduced.
+    """
+    r = np.asarray(z["r"], dtype=float)
+    t = np.asarray(z["t"], dtype=float)
+    dr = float(np.median(np.diff(r)))
+    if not np.any(valid):
+        return {"valid": False, "reason": "no nonzero D ridge signal"}
+
+    d_valid = d_track[valid]
+    xi_limit = float(min(np.min(d_valid - RMIN), np.min(RMAX - d_valid)))
+    if not np.isfinite(xi_limit) or xi_limit <= dr:
+        return {"valid": False, "reason": "insufficient common comoving window"}
+
+    xi = np.arange(-xi_limit, xi_limit + 0.5 * dr, dr)
+    late_mask = valid & (t >= np.median(t[valid]))
+    out = {
+        "valid": True,
+        "xi_min": float(xi[0]),
+        "xi_max": float(xi[-1]),
+        "sample_spacing": dr,
+        "fields": {},
+    }
+
+    for key in ("D_active",) + FIELDS:
+        a = np.asarray(z[f"{key}_grad_abs"], dtype=float)
+        aligned = np.full((t.size, xi.size), np.nan)
+        for i in np.flatnonzero(valid):
+            aligned[i] = np.interp(d_track[i] + xi, r, a[i], left=np.nan, right=np.nan)
+
+        med = np.nanmedian(aligned[valid], axis=0)
+        corrs = []
+        late_corrs = []
+        peak_offsets = []
+        centroids = []
+        for i in np.flatnonzero(valid):
+            row = aligned[i]
+            ok = np.isfinite(row) & np.isfinite(med)
+            if np.count_nonzero(ok) >= 5 and np.nanstd(row[ok]) > 0 and np.nanstd(med[ok]) > 0:
+                c = float(np.corrcoef(row[ok], med[ok])[0, 1])
+                corrs.append(c)
+                if late_mask[i]:
+                    late_corrs.append(c)
+            if np.any(np.isfinite(row)):
+                peak_offsets.append(float(xi[np.nanargmax(row)]))
+                w = np.nan_to_num(row, nan=0.0)
+                den = float(np.sum(w))
+                if den > 0:
+                    centroids.append(float(np.sum(w * xi) / den))
+
+        out["fields"][key] = {
+            "profile_median_corr": float(np.nanmedian(corrs)) if corrs else float("nan"),
+            "profile_min_corr": float(np.nanmin(corrs)) if corrs else float("nan"),
+            "late_profile_median_corr": float(np.nanmedian(late_corrs)) if late_corrs else float("nan"),
+            "peak_offset_median": float(np.nanmedian(peak_offsets)) if peak_offsets else float("nan"),
+            "peak_offset_std": float(np.nanstd(peak_offsets)) if peak_offsets else float("nan"),
+            "centroid_offset_median": float(np.nanmedian(centroids)) if centroids else float("nan"),
+            "centroid_offset_std": float(np.nanstd(centroids)) if centroids else float("nan"),
+        }
+    return out
+
+
+
+def find_case_dir(root: Path, label: str):
+    exact = root / label
+    if exact.is_dir() and (exact / "profiles.npz").exists():
+        return exact
+    matches = sorted(
+        p for p in root.iterdir()
+        if p.is_dir() and p.name.endswith(label) and (p / "profiles.npz").exists()
+    )
+    return matches[0] if matches else None
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--input-root", required=True)
+    ap.add_argument("--output", required=True)
+    args = ap.parse_args()
+
+    root = Path(args.input_root)
+    case_dirs = sorted(
+        p for p in root.iterdir()
+        if p.is_dir() and (p / "profiles.npz").exists()
+    )
+    if not case_dirs:
+        raise SystemExit("No case artifacts found")
+
+    report = {
+        "diagnostic": "0star propagating-ridge / comoving-lock test",
+        "conventions": {
+            "ridge": "argmax of |dr(field)| in the existing r=1..60 analysis window",
+            "co_motion": "geometry ridge position compared directly with D ridge position",
+            "comoving_coordinate": "xi = r - r_D(t), with r_D(t) measured from the D gradient ridge",
+            "comoving_collapse": "profile-shape correlations against the median D-centered profile; common xi window is derived from the data",
+            "kinematic_time_equivalent": "spatial offset divided by fitted D ridge speed; not a causal delay",
+            "evolution": "unchanged; diagnostic only",
+        },
+        "cases": {},
+    }
+
+    for case_dir in case_dirs:
+        z, meta = load_case(case_dir)
+        report["cases"][case_dir.name] = summarize_case(z, meta)
+
+    # Matched-grid radiation ON/OFF check.
+    on_dir = find_case_dir(root, "D1e4-on-N160")
+    off_dir = find_case_dir(root, "D1e4-off-N160")
+    if on_dir is not None and off_dir is not None:
+        zon, _ = load_case(on_dir)
+        zof, _ = load_case(off_dir)
+        if np.array_equal(zon["t"], zof["t"]) and np.array_equal(zon["r"], zof["r"]):
+            cmp = {}
+            for key in ("D_active",) + FIELDS:
+                ron, _ = ridge_track(zon, key)
+                roff, _ = ridge_track(zof, key)
+                diff = ron - roff
+                cmp[key] = {
+                    "max_abs_ridge_difference": float(np.max(np.abs(diff))),
+                    "median_ridge_difference": float(np.median(diff)),
+                    "identical_all_samples": bool(np.array_equal(ron, roff)),
+                }
+            report["matched_on_off_N160"] = cmp
+
+    # Same-physics resolution convergence.
+    a_dir = find_case_dir(root, "D1e4-on-N160")
+    b_dir = find_case_dir(root, "D1e4-on-N320")
+    if a_dir is not None and b_dir is not None:
+        za, _ = load_case(a_dir)
+        zb, _ = load_case(b_dir)
+        cmp = {}
+        ta = np.asarray(za["t"], dtype=float)
+        tb = np.asarray(zb["t"], dtype=float)
+        for key in ("D_active",) + FIELDS:
+            ra, _ = ridge_track(za, key)
+            rb, _ = ridge_track(zb, key)
+            rb_i = np.interp(ta, tb, rb)
+            diff = ra - rb_i
+            cmp[key] = {
+                "max_abs_ridge_difference": float(np.max(np.abs(diff))),
+                "median_ridge_difference": float(np.median(diff)),
+                "mean_abs_ridge_difference": float(np.mean(np.abs(diff))),
+            }
+        report["resolution_convergence"] = cmp
+
+    out = Path(args.output)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(report, indent=2, default=float))
+    print(json.dumps(report, indent=2, default=float))
+
+
+if __name__ == "__main__":
+    main()

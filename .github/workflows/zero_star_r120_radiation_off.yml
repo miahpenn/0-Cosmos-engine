@@ -1,0 +1,95 @@
+name: "[0star] R120 radiation-off geometry isolation"
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - 0star-central-clock
+
+env:
+  PYTHONPATH: .
+
+jobs:
+  r120-radiation-off:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[run-r120-radiation-off]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 900
+    steps:
+      - name: Checkout engine and pinned numerical kernel
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Run repository tests
+        run: python -m pytest -q
+
+      - name: Run R120 radiation-off continuation
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from engine.true_cmc_pirk_kernel import V55TrueCMCPIRKKernel
+
+          kernel = V55TrueCMCPIRKKernel()
+          state = kernel.initialize(
+              resolution=180,
+              r_max=120.0,
+              include_radiation=False,
+          )
+          dt = 0.06 * state.grid.dr
+          target = 80.0
+          failure = None
+
+          while state.t < target:
+              dt_step = min(dt, target - state.t)
+              try:
+                  state = kernel.step(state, dt_step)
+                  state.geometry.assert_finite_positive()
+              except (FloatingPointError, ValueError) as exc:
+                  failure = {
+                      "type": type(exc).__name__,
+                      "message": str(exc),
+                      "t": float(state.t),
+                      "tau": float(state.tau),
+                  }
+                  break
+
+          result = {
+              "resolution": 180,
+              "r_max": 120.0,
+              "cfl": 0.06,
+              "include_radiation": False,
+              "target_time": target,
+              "t_final": float(state.t),
+              "tau_final": float(state.tau),
+              "failure": failure,
+              "turnaround_events": sum(e.kind == "turnaround" for e in state.cycle.events),
+              "reexpansion_events": sum(e.kind == "re-expansion_crossing" for e in state.cycle.events),
+              "trapped_root_count_max": max(
+                  (len(row.get("trapped_roots", [])) for row in state.history),
+                  default=0,
+              ),
+              "last_diagnostics": state.history[-1] if state.history else kernel.diagnostics(state),
+          }
+          out = Path("runs/0star-r120-radiation-off")
+          out.mkdir(parents=True, exist_ok=True)
+          (out / "result.json").write_text(json.dumps(result, indent=2, default=float))
+          print(json.dumps(result, indent=2, default=float))
+          PY
+
+      - name: Upload diagnostic result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: 0star-r120-radiation-off
+          path: runs/0star-r120-radiation-off/result.json
+          if-no-files-found: error

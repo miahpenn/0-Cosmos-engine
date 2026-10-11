@@ -1,0 +1,32 @@
+name: "[0star] strong-D exact constraint resolution audit"
+on:
+  workflow_dispatch:
+  push:
+    branches: [0star-central-clock]
+permissions:
+  contents: read
+jobs:
+  audit:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[run-constraint-resolution]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      PYTHONPATH: .
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Run exact constraint resolution audit
+        run: python -m engine.constraint_resolution_audit
+      - name: Upload report
+        uses: actions/upload-artifact@v4
+        with:
+          name: 0star-constraint-resolution
+          path: runs/constraint-resolution/report.json
+          if-no-files-found: error

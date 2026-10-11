@@ -109,15 +109,20 @@ class V55ProductionKernel:
             include_radiation=include_radiation,
         )
         # Initialize the production slice on the same stage-aware CMC gauge
-        # that is carried throughout evolution.
-        init.geometry.alpha = self._solve_lapse(
-            grid, init.geometry, init.scalars, init.matter
+        # that is carried throughout evolution. CorrectedInitialData is frozen,
+        # so keep the repaired geometry in a local binding rather than assigning
+        # back through init.geometry.
+        geometry = self._enforce_center_regularity(
+            grid, init.geometry
+        )
+        geometry.alpha = self._solve_lapse(
+            grid, geometry, init.scalars, init.matter
         )[0]
-        init.geometry.beta.fill(0.0)
-        init.geometry.B.fill(0.0)
+        geometry.beta.fill(0.0)
+        geometry.B.fill(0.0)
         return ProductionState(
             grid=grid,
-            geometry=init.geometry,
+            geometry=geometry,
             scalars=init.scalars,
             matter=init.matter,
             e_folds=0.0,
@@ -130,6 +135,18 @@ class V55ProductionKernel:
     @staticmethod
     def _solve_lapse(grid, geometry, scalars, matter):
         return solve_cmc_lapse(grid, geometry, scalars, matter)
+
+    @staticmethod
+    def _enforce_center_regularity(grid, geometry):
+        """Project only exact algebraic/spherical-centre BSSN identities.
+
+        The pinned reference kernel defines this as a numerical regularity
+        projection: a*b**2=1 everywhere, a/b=1+O(r**2), Aa=O(r**2), and odd
+        connection/shift variables are O(r) at the first cell. No field
+        equation, source, gauge target, or physical outcome is introduced.
+        """
+        _, vacuum, _ = adapter.vendor_modules()
+        return vacuum.enforce_algebraic_regularity(grid, geometry)
 
     def _rhs(self, state: ProductionState):
         metric = metric_slice_from_q(state.grid, state.geometry)
@@ -198,7 +215,9 @@ class V55ProductionKernel:
             raise ValueError("dt must be finite and positive")
 
         grid = state.grid
-        g0 = state.geometry.copy()
+        g0 = self._enforce_center_regularity(
+            grid, state.geometry.copy()
+        )
         s0 = state.scalars
         m0 = state.matter
 
@@ -230,6 +249,9 @@ class V55ProductionKernel:
                 name,
                 getattr(g0, name) + dt * gterms0["explicit"][name],
             )
+        g_explicit1 = self._enforce_center_regularity(
+            grid, g_explicit1
+        )
         g_explicit1.beta.fill(0.0)
         g_explicit1.B.fill(0.0)
 
@@ -270,6 +292,7 @@ class V55ProductionKernel:
             + 0.5 * gterms_pred["lambda_l2"]
             + gterms0["lambda_l3"]
         )
+        g1 = self._enforce_center_regularity(grid, g1)
         # The pinned R0 radial system supplies a parameter-free incoming-light
         # characteristic reconstruction for Aa at the finite outer worldtube.
         # Apply it only after Lambda is current, as in the reference PIRK/CPBC
@@ -309,6 +332,10 @@ class V55ProductionKernel:
         gnew.beta.fill(0.0)
         gnew.B.fill(0.0)
         gnew.alpha = g1.alpha.copy()
+
+        # Regularize the explicit block before the final L2 evaluation: the
+        # spherical-center identities are part of the numerical state domain.
+        gnew = self._enforce_center_regularity(grid, gnew)
 
         snew = ScalarFields(
             *(
@@ -370,6 +397,7 @@ class V55ProductionKernel:
         # Apply the same incoming-light reconstruction after Lambda is current
         # on the completed final slice. This replaces the unconstrained finite-
         # radius boundary mode without altering the interior equations.
+        gnew = self._enforce_center_regularity(grid, gnew)
         self._apply_outer_light_boundary(grid, gnew, snew, mnew)
         # Final stage-aware CMC solve on the completed final A/K/matter slice.
         gnew.alpha = self._solve_lapse(
@@ -399,13 +427,59 @@ class V55ProductionKernel:
             previous_H, obs["H_eff"],
         )
 
-        S_t = float(srhs1.S[0])
-        D_t = float(srhs1.D[0])
-        hp = handoff_from_ledger(
-            candidate.t, candidate.tau, obs,
-            float(candidate.scalars.S[0]), S_t,
-            float(candidate.scalars.D[0]), D_t,
-        )
+        # A handoff is an event-level record, not a per-timestep sample.
+        # The previous implementation appended one for every evolution step,
+        # making the ledger report hundreds of "handoffs" during a single
+        # turnaround. Preserve the full time history separately and record only
+        # actual dynamical cycle crossings here.
+        hp = None
+        if event is not None:
+            # Localize the crossing inside this timestep from the two solved
+            # H_eff values. This improves the event ledger without changing the
+            # evolved state or introducing a branch/sign operation.
+            h0 = float(previous_H)
+            h1 = float(obs["H_eff"])
+            denom = h0 - h1
+            fraction = 0.5 if abs(denom) <= 1.0e-300 else h0 / denom
+            fraction = min(1.0, max(0.0, fraction))
+
+            event_obs = dict(obs)
+            if state.history:
+                previous_obs = state.history[-1]
+                for key in (
+                    "phi_outer", "R_sigma", "M_MS",
+                    "chi_sigma", "flux_T", "work_pR",
+                ):
+                    if key in previous_obs and key in obs:
+                        event_obs[key] = float(
+                            previous_obs[key]
+                            + fraction * (obs[key] - previous_obs[key])
+                        )
+            event_obs["H_eff"] = 0.0
+            event_t = state.t + fraction * dt
+            event_tau = state.tau + fraction * (
+                candidate.tau - state.tau
+            )
+
+            S_t = float(srhs1.S[0])
+            D_t = float(srhs1.D[0])
+            s_event = float(
+                state.scalars.S[0]
+                + fraction * (
+                    candidate.scalars.S[0] - state.scalars.S[0]
+                )
+            )
+            d_event = float(
+                state.scalars.D[0]
+                + fraction * (
+                    candidate.scalars.D[0] - state.scalars.D[0]
+                )
+            )
+            hp = handoff_from_ledger(
+                event_t, event_tau, event_obs,
+                s_event, S_t,
+                d_event, D_t,
+            )
 
         obs = {
             key: value for key, value in obs.items()
@@ -418,7 +492,8 @@ class V55ProductionKernel:
         obs["tau"] = candidate.tau
         obs["cycle_event"] = event.kind if event else None
         candidate.history.append(obs)
-        candidate.handoffs.append(hp)
+        if hp is not None:
+            candidate.handoffs.append(hp)
         return candidate
 
     def diagnostics(self, state: ProductionState, *, profiles: bool = False) -> dict:
@@ -434,6 +509,23 @@ class V55ProductionKernel:
 
         H = raw["hamiltonian"] - 16.0 * math.pi * total.rho
         M = raw["momentum"] - 8.0 * math.pi * total.j
+
+        # Exact Hamiltonian bookkeeping from the pinned vendor constraint:
+        # H = R - (Aa^2 + 2 Ab^2) + 2 K^2/3 - 16 pi rho.
+        # Diagnostic only: expose each existing algebraic block and verify
+        # their sum reproduces H without changing the evolution.
+        Ab = -0.5 * geom.Aa
+        _, vacuum_geom, _ = adapter.vendor_modules()
+        geometry = vacuum_geom.geometry_terms(grid, geom)
+        h_curvature = np.asarray(geometry["R"], dtype=float)
+        h_extrinsic_A = -(geom.Aa**2 + 2.0 * Ab**2)
+        h_extrinsic_K = (2.0 / 3.0) * geom.K**2
+        h_matter = -16.0 * math.pi * total.rho
+        h_reconstructed = (
+            h_curvature + h_extrinsic_A + h_extrinsic_K + h_matter
+        )
+        h_decomposition_error = h_reconstructed - H
+        i_H_masked = 2 + int(np.argmax(np.abs(H[2:])))
 
         r = np.asarray(grid.centers)
         R = r * np.sqrt(geom.b) / geom.X
@@ -501,10 +593,10 @@ class V55ProductionKernel:
             ),
         )
         ql_rad = _reconstructed_primitive(
-            rad_prim, grid.n - 2, "right", mf_rad.gamma_rr
+            rad_prim, grid.n - 2, "right", mf_rad.gamma_rr, Species.RADIATION
         )
         qr_rad = _reconstructed_primitive(
-            rad_prim, grid.n - 1, "left", mf_rad.gamma_rr
+            rad_prim, grid.n - 1, "left", mf_rad.gamma_rr, Species.RADIATION
         )
         rad_inner_flux = _hll_flux(
             mf_rad, ql_rad, qr_rad, Species.RADIATION
@@ -724,6 +816,31 @@ class V55ProductionKernel:
         i_conn, r_conn, v_conn = _witness(raw["connection"])
         i_H, r_H, v_H = _witness(H)
 
+        # Constraint localization/conditioning witnesses. These distinguish
+        # an absolute residual from the size of the terms it is cancelling and
+        # identify whether the defect is center, interior, or outer dominated.
+        vol = np.asarray(grid.volumes, dtype=float)
+        inner_mask = r <= min(20.0, 0.5 * grid.r_max)
+        outer_mask = r >= 0.8 * grid.r_max
+
+        def _weighted_l2(values, mask):
+            w = vol[mask]
+            v = np.asarray(values)[mask]
+            return float(np.sqrt(
+                np.sum(w * v * v) / max(np.sum(w), 1.0e-300)
+            ))
+
+        raw_H = np.asarray(raw["hamiltonian"], dtype=float)
+        raw_M = np.asarray(raw["momentum"], dtype=float)
+        normalized_H = np.abs(H) / (
+            np.abs(raw_H) + 16.0 * math.pi * np.abs(total.rho)
+            + 1.0e-30
+        )
+        normalized_M = np.abs(M) / (
+            np.abs(raw_M) + 8.0 * math.pi * np.abs(total.j)
+            + 1.0e-30
+        )
+
         roots = []
         sign_change = chi[:-1] * chi[1:] <= 0.0
         for i in np.where(sign_change)[0]:
@@ -735,8 +852,16 @@ class V55ProductionKernel:
                     )
                 )
 
+        H_eff = effective_hubble(geom, grid.volumes)
+        H_center = -float(geom.K[0]) / 3.0
+        H_coord_center = float(geom.alpha[0]) * H_center
         out = {
-            "H_eff": effective_hubble(geom, grid.volumes),
+            "H_eff": H_eff,
+            "H_center": H_center,
+            "H_coord_center": H_coord_center,
+            "H_eff_over_H_center": (
+                H_eff / H_center if abs(H_center) > 1.0e-300 else float("nan")
+            ),
             "e_folds": float(state.e_folds),
             "tau_rate": float(geom.alpha[0]),
             "R_sigma": float(R[surface]),
@@ -751,8 +876,41 @@ class V55ProductionKernel:
             "p_outer": float(np.mean(total.pr[outer])),
             "j_outer": float(np.mean(total.j[outer])),
             "rho_total_max": float(np.max(total.rho)),
+            # Preserve the admitted legacy keys exactly. The legacy
+            # hamiltonian_max is the masked maximum (indices 2+), while
+            # hamiltonian_at_max below is the unmasked global witness.
             "hamiltonian_max": float(np.max(np.abs(H[2:]))),
+            "hamiltonian_normalized_max": float(np.max(normalized_H[2:])),
+            "hamiltonian_max_masked": float(np.max(np.abs(H[2:]))),
+            "hamiltonian_max_masked_r": float(r[2 + int(np.argmax(np.abs(H[2:])))]),
+            "hamiltonian_global_max": float(np.max(np.abs(H))),
+            "hamiltonian_global_max_r": float(r[i_H]),
+            "hamiltonian_index0": float(H[0]),
+            "hamiltonian_index1": float(H[1]),
+            "hamiltonian_index2": float(H[2]),
+            "hamiltonian_curvature": float(h_curvature[i_H]),
+            "hamiltonian_extrinsic_A": float(h_extrinsic_A[i_H]),
+            "hamiltonian_extrinsic_K": float(h_extrinsic_K[i_H]),
+            "hamiltonian_matter_source": float(h_matter[i_H]),
+            "hamiltonian_decomposition_error": float(h_decomposition_error[i_H]),
+            "hamiltonian_global_curvature": float(h_curvature[i_H]),
+            "hamiltonian_global_extrinsic_A": float(h_extrinsic_A[i_H]),
+            "hamiltonian_global_extrinsic_K": float(h_extrinsic_K[i_H]),
+            "hamiltonian_global_matter_source": float(h_matter[i_H]),
+            "hamiltonian_global_decomposition_error": float(h_decomposition_error[i_H]),
+            "hamiltonian_masked_curvature": float(h_curvature[i_H_masked]),
+            "hamiltonian_masked_extrinsic_A": float(h_extrinsic_A[i_H_masked]),
+            "hamiltonian_masked_extrinsic_K": float(h_extrinsic_K[i_H_masked]),
+            "hamiltonian_masked_matter_source": float(h_matter[i_H_masked]),
+            "hamiltonian_masked_decomposition_error": float(h_decomposition_error[i_H_masked]),
+            "hamiltonian_decomposition_error_max": float(np.max(np.abs(h_decomposition_error))),
+            "hamiltonian_decomposition_error_min": float(np.min(np.abs(h_decomposition_error))),
+            "hamiltonian_l2_inner": _weighted_l2(H, inner_mask),
+            "hamiltonian_l2_outer": _weighted_l2(H, outer_mask),
             "momentum_max": float(np.max(np.abs(M[2:]))),
+            "momentum_normalized_max": float(np.max(normalized_M[2:])),
+            "momentum_l2_inner": _weighted_l2(M, inner_mask),
+            "momentum_l2_outer": _weighted_l2(M, outer_mask),
             "connection_max": float(
                 np.max(np.abs(raw["connection"][2:]))
             ),
@@ -768,7 +926,9 @@ class V55ProductionKernel:
             "vacuum_l3_K_max": float(np.max(np.abs(vacuum_l3["K"]))),
             "matter_l3_K_max": float(np.max(np.abs(matter_l3["K"]))),
             "lapse_min": float(np.min(geom.alpha)),
+            "lapse_min_r": float(r[int(np.argmin(geom.alpha))]),
             "lapse_max": float(np.max(geom.alpha)),
+            "lapse_max_r": float(r[int(np.argmax(geom.alpha))]),
             "Rdot_sigma": float(Rdot[surface]),
             "cmc_kdot": float(cmc_kdot),
             "cmc_residual_outer_max": float(

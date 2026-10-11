@@ -1,0 +1,520 @@
+{
+  "audit": "Full-grid outer-constraint audit; repair ON/OFF comparison",
+  "diagnostic_only": true,
+  "value_pair_order": [
+    "repair_ON",
+    "repair_OFF"
+  ],
+  "admission": {
+    "repair_on": true,
+    "repair_off": true,
+    "samples": 8,
+    "cells_per_sample": 160,
+    "full_grid_hamiltonian_decomposition_max_abs": {
+      "repair_on": 0,
+      "repair_off": 0
+    },
+    "all_profile_values_finite": true,
+    "sample_time_absolute_tolerance": 0.05,
+    "physical_H_M_pass_fail_threshold": false
+  },
+  "configuration": {
+    "D_amplitude": 0.0001,
+    "resolution": 160,
+    "r_max": 80,
+    "cfl": 0.0075,
+    "include_radiation": true,
+    "final_time": 22.5,
+    "target_times": [
+      0,
+      0.01,
+      4,
+      8,
+      12,
+      16,
+      20,
+      22.5
+    ],
+    "regions": {
+      "inner": "r <= 20",
+      "middle": "20 < r < 64",
+      "outer": "r >= 64"
+    }
+  },
+  "sources": {
+    "repair_on": {
+      "source_commit": "92b383b8133ac747654c6d0cd6fb0656b35569bb",
+      "workflow_run": 37852226397,
+      "artifact_id": 11583388522,
+      "artifact_zip_sha256": "4e02f25548cf7ac6ea12fe14b031ef2413540da255e8665ccdab0e1dd53079d8",
+      "report_sha256": "5d2837ce52aa695df3655d6fc9ffbb50268597bb9a5ad5f72b191e0cbc25e945"
+    },
+    "repair_off": {
+      "source_commit": "5049c7cd001b046bc37d727a763c3ef8f3f40b73",
+      "workflow_run": 37855818725,
+      "artifact_id": 11584329648,
+      "artifact_zip_sha256": "f8a9ed2933c3254d0200f649ae82bc87858bcf43b58f5fc91bc32521c5cc737d",
+      "report_sha256": "d1617a1e2002d6c711b14eee2dd1ec357a49e5bfad85ad3614266e113cce8657"
+    }
+  },
+  "physics_code_blob_hashes_unchanged_from_step1_reference_869a745": {
+    "engine/production_kernel.py": "d9a4740592f2521f7dc04d66a718a854c70a8cde",
+    "engine/step1_hamiltonian_terms.py": "30254271cb24b621a1831711e985a6d6b4e5e7d9"
+  },
+  "regional_max_abs_value_pair_order": "[repair_ON, repair_OFF]",
+  "final_time_volume_weighted_l2": {
+    "full_grid": {
+      "H": [
+        0.00008180374180656563,
+        0.00008187153603780936
+      ],
+      "M": [
+        0.0000023216484227193525,
+        0.000002330349028579399
+      ]
+    },
+    "inner_r_le_20": {
+      "H": [
+        0.00043110153822310224,
+        0.00043192440888418615
+      ],
+      "M": [
+        0.00000482751205455488,
+        0.000005088739626495599
+      ]
+    },
+    "middle_20_lt_r_lt_64": {
+      "H": [
+        0.000087356073585603,
+        0.00008735607369427487
+      ],
+      "M": [
+        0.000003179734717343953,
+        0.0000031797347880356218
+      ]
+    },
+    "outer_r_ge_64": {
+      "H": [
+        4.2867598855683676e-7,
+        4.286760579734145e-7
+      ],
+      "M": [
+        1.2153105912789073e-7,
+        1.215310500675614e-7
+      ]
+    }
+  },
+  "samples": [
+    {
+      "t": 0,
+      "center_cell0": {
+        "curvature_R": [
+          0.003586169088383541,
+          0.006548692535790509
+        ],
+        "hamiltonian_residual_H": [
+          0.0010790371909651635,
+          0.004041560646003002
+        ],
+        "momentum_residual_M": [
+          -6.132783242079647e-14,
+          6.4556649162211e-19
+        ]
+      },
+      "regions": {
+        "inner_r_le_20": {
+          "H": [
+            0.0010790371909651635,
+            0.004041560646003002
+          ],
+          "M": [
+            6.132783242079647e-14,
+            1.2261129475028568e-17
+          ]
+        },
+        "middle_20_lt_r_lt_64": {
+          "H": [
+            1.1360516002857819e-10,
+            1.1360516002857819e-10
+          ],
+          "M": [
+            4.417905179027269e-18,
+            4.417905179027269e-18
+          ]
+        },
+        "outer_r_ge_64": {
+          "H": [
+            3.9854686391394e-13,
+            3.985023574147595e-13
+          ],
+          "M": [
+            4.6582584347394335e-18,
+            4.6582584347391885e-18
+          ]
+        }
+      }
+    },
+    {
+      "t": 0.01125,
+      "center_cell0": {
+        "curvature_R": [
+          0.003585824264459735,
+          0.006537208065384232
+        ],
+        "hamiltonian_residual_H": [
+          0.0010786489116456797,
+          0.004030032514601189
+        ],
+        "momentum_residual_M": [
+          0.000002725073139582417,
+          0.0001204904954997689
+        ]
+      },
+      "regions": {
+        "inner_r_le_20": {
+          "H": [
+            0.0010786489116456797,
+            0.004030032514601189
+          ],
+          "M": [
+            0.000002725073139582417,
+            0.0001204904954997689
+          ]
+        },
+        "middle_20_lt_r_lt_64": {
+          "H": [
+            1.9423242997155567e-10,
+            1.9422952468920417e-10
+          ],
+          "M": [
+            8.816263174113502e-13,
+            8.816458925060777e-13
+          ]
+        },
+        "outer_r_ge_64": {
+          "H": [
+            8.07928869476799e-11,
+            8.079331737594238e-11
+          ],
+          "M": [
+            7.823618464291522e-11,
+            7.823652817592152e-11
+          ]
+        }
+      }
+    },
+    {
+      "t": 4.001250000000057,
+      "center_cell0": {
+        "curvature_R": [
+          0.003605382245869754,
+          0.003824449739252351
+        ],
+        "hamiltonian_residual_H": [
+          0.0011452483918943748,
+          0.0013642828490973524
+        ],
+        "momentum_residual_M": [
+          -0.000014950600832839616,
+          -0.0009904754690260246
+        ]
+      },
+      "regions": {
+        "inner_r_le_20": {
+          "H": [
+            0.0011452483918943748,
+            0.0013642828490973524
+          ],
+          "M": [
+            0.000014950600832839616,
+            0.0009904754690260246
+          ]
+        },
+        "middle_20_lt_r_lt_64": {
+          "H": [
+            2.712457360934048e-8,
+            2.7124510477088233e-8
+          ],
+          "M": [
+            5.317654407040052e-10,
+            5.317639887246914e-10
+          ]
+        },
+        "outer_r_ge_64": {
+          "H": [
+            2.7211703747731172e-8,
+            2.7211732144449743e-8
+          ],
+          "M": [
+            2.598519757944677e-9,
+            2.59851609593424e-9
+          ]
+        }
+      }
+    },
+    {
+      "t": 7.998750000000208,
+      "center_cell0": {
+        "curvature_R": [
+          -0.0025271890958551784,
+          -0.0015846610626749844
+        ],
+        "hamiltonian_residual_H": [
+          0.001081074373832217,
+          0.0020236802469053472
+        ],
+        "momentum_residual_M": [
+          0.0000024862432126519253,
+          -0.0014244345074157882
+        ]
+      },
+      "regions": {
+        "inner_r_le_20": {
+          "H": [
+            0.001081074373832217,
+            0.0020236802469053472
+          ],
+          "M": [
+            0.000004946526392676873,
+            0.0014244345074157882
+          ]
+        },
+        "middle_20_lt_r_lt_64": {
+          "H": [
+            5.1141352010706815e-8,
+            5.1141415688583805e-8
+          ],
+          "M": [
+            1.50008474162071e-9,
+            1.5000779760383365e-9
+          ]
+        },
+        "outer_r_ge_64": {
+          "H": [
+            5.2570880009313514e-8,
+            5.257088753177924e-8
+          ],
+          "M": [
+            4.745456392880245e-9,
+            4.745482372098525e-9
+          ]
+        }
+      }
+    },
+    {
+      "t": 12.000000000000359,
+      "center_cell0": {
+        "curvature_R": [
+          -0.004232068789994338,
+          0.0015898625059063295
+        ],
+        "hamiltonian_residual_H": [
+          0.0010933023550834921,
+          0.0069152493009764365
+        ],
+        "momentum_residual_M": [
+          -0.000009160984860067096,
+          -0.0003556472934091887
+        ]
+      },
+      "regions": {
+        "inner_r_le_20": {
+          "H": [
+            0.0010933023550834921,
+            0.0069152493009764365
+          ],
+          "M": [
+            0.000012473363377237846,
+            0.0003556472934091887
+          ]
+        },
+        "middle_20_lt_r_lt_64": {
+          "H": [
+            0.0000025772608320316723,
+            0.0000025772605565041874
+          ],
+          "M": [
+            3.509327392405351e-7,
+            3.50932721906121e-7
+          ]
+        },
+        "outer_r_ge_64": {
+          "H": [
+            8.289167039888406e-8,
+            8.28917009362785e-8
+          ],
+          "M": [
+            5.8846452732740695e-9,
+            5.884668835612286e-9
+          ]
+        }
+      }
+    },
+    {
+      "t": 16.00125000000051,
+      "center_cell0": {
+        "curvature_R": [
+          -0.004342208055615139,
+          0.001553572920031123
+        ],
+        "hamiltonian_residual_H": [
+          0.0010977449211973288,
+          0.006993517940308924
+        ],
+        "momentum_residual_M": [
+          -0.000009888303205226594,
+          0.000036018467527151474
+        ]
+      },
+      "regions": {
+        "inner_r_le_20": {
+          "H": [
+            0.0010977449211973288,
+            0.006993517940308924
+          ],
+          "M": [
+            0.000013908684231514305,
+            0.000036018467527151474
+          ]
+        },
+        "middle_20_lt_r_lt_64": {
+          "H": [
+            0.00011579344182960024,
+            0.00011579344331367342
+          ],
+          "M": [
+            0.000010424650746453882,
+            0.000010424650823555402
+          ]
+        },
+        "outer_r_ge_64": {
+          "H": [
+            1.8141454092012203e-7,
+            1.8141444281999158e-7
+          ],
+          "M": [
+            3.019455466932362e-8,
+            3.0194540978164486e-8
+          ]
+        }
+      }
+    },
+    {
+      "t": 19.998750000000662,
+      "center_cell0": {
+        "curvature_R": [
+          -0.004354140458914742,
+          0.0015028994616430155
+        ],
+        "hamiltonian_residual_H": [
+          0.0011001350337428656,
+          0.006957152828258204
+        ],
+        "momentum_residual_M": [
+          -0.0000100908664366829,
+          0.0002377805437231007
+        ]
+      },
+      "regions": {
+        "inner_r_le_20": {
+          "H": [
+            0.0011001350337428656,
+            0.006957152828258204
+          ],
+          "M": [
+            0.0000100908664366829,
+            0.0002377805437231007
+          ]
+        },
+        "middle_20_lt_r_lt_64": {
+          "H": [
+            0.00039806882649777876,
+            0.00039806882647412667
+          ],
+          "M": [
+            0.000013859607072821446,
+            0.000013859607459690802
+          ]
+        },
+        "outer_r_ge_64": {
+          "H": [
+            9.231149434106426e-7,
+            9.231153245575796e-7
+          ],
+          "M": [
+            1.5808535844838563e-7,
+            1.580853638866192e-7
+          ]
+        }
+      }
+    },
+    {
+      "t": 22.5,
+      "center_cell0": {
+        "curvature_R": [
+          -0.004353259733387339,
+          0.0014382433349623706
+        ],
+        "hamiltonian_residual_H": [
+          0.0011020277117824726,
+          0.0068934966573620466
+        ],
+        "momentum_residual_M": [
+          -0.000010177941375556223,
+          0.00039242888144708145
+        ]
+      },
+      "regions": {
+        "inner_r_le_20": {
+          "H": [
+            0.0011020277117824726,
+            0.0068934966573620466
+          ],
+          "M": [
+            0.000010177941375556223,
+            0.00039242888144708145
+          ]
+        },
+        "middle_20_lt_r_lt_64": {
+          "H": [
+            0.00045766716329125306,
+            0.00045766716318307483
+          ],
+          "M": [
+            0.000013624133157820982,
+            0.000013624133671481277
+          ]
+        },
+        "outer_r_ge_64": {
+          "H": [
+            0.0000019271191629213486,
+            0.0000019271196717460205
+          ],
+          "M": [
+            3.4099198659029233e-7,
+            3.409919835190076e-7
+          ]
+        }
+      }
+    }
+  ],
+  "final_time_comparison_notes": {
+    "center_cell_momentum_residual": {
+      "repair_on": -0.000010177941375556223,
+      "repair_off": 0.00039242888144708145,
+      "opposite_sign": true,
+      "magnitude_ratio_off_to_on": 38.55680308687524,
+      "interpretation_limit": "The center momentum residual is substantially repair-dependent too; do not describe the overall repair effect as overwhelmingly Hamiltonian/R-only."
+    },
+    "middle_region_H_relative_difference": 2.363687675246401e-10,
+    "middle_region_M_relative_difference": 3.7702236825191625e-8,
+    "outer_region_H_relative_difference": 2.640338395464499e-7,
+    "outer_region_M_relative_difference": 9.006911705602126e-9,
+    "wording": "At t=22.5 the middle/outer regional maxima for both H and M are numerically close across repair settings, but not bitwise identical. This does not by itself prove all effects are confined to the center; global witnesses and full profiles remain authoritative."
+  },
+  "interpretation_notes": [
+    "At cell 0, repair ON/OFF changes both the Hamiltonian residual and momentum residual substantially; the H decomposition shows a major change in curvature R, but the M difference means the overall effect must not be characterized as R-only.",
+    "Middle and outer regional maxima for H and M are numerically close at the final sample; report exact values and relative differences rather than saying identical.",
+    "Diagnostic-only: no physical H/M threshold and no physical interpretation is inferred."
+  ]
+}

@@ -207,17 +207,28 @@ def _reconstructed_primitive(
     i: int,
     side: str,
     gamma_rr: float,
+    species: Species | None = None,
 ) -> FluidPrimitive:
     if side not in ("left", "right"):
         raise ValueError("side must be left or right")
-    attrs = {}
-    for name in ("rho", "pressure", "v_r"):
-        vals = np.asarray([getattr(q, name) for q in prim])
-        lo, hi = _reconstruct(vals, i)
-        attrs[name] = lo if side == "left" else hi
-    rho = max(0.0, attrs["rho"])
-    pressure = max(0.0, attrs["pressure"])
-    v = attrs["v_r"]
+
+    rho_vals = np.asarray([q.rho for q in prim])
+    v_vals = np.asarray([q.v_r for q in prim])
+    rho_lo, rho_hi = _reconstruct(rho_vals, i)
+    v_lo, v_hi = _reconstruct(v_vals, i)
+    rho = max(0.0, rho_lo if side == "left" else rho_hi)
+    v = v_lo if side == "left" else v_hi
+
+    if species is Species.RADIATION:
+        # Radiation is defined by p=rho/3. Reconstructing rho and p
+        # independently can violate the equation of state at a face and
+        # generate an inconsistent Riemann state in the strong-field regime.
+        pressure = rho / 3.0
+    else:
+        pressure_vals = np.asarray([q.pressure for q in prim])
+        p_lo, p_hi = _reconstruct(pressure_vals, i)
+        pressure = max(0.0, p_lo if side == "left" else p_hi)
+
     vmax = (1.0 - 1.0e-12) / math.sqrt(gamma_rr)
     v = max(-vmax, min(vmax, v))
     return FluidPrimitive(
@@ -297,10 +308,16 @@ def _hll_flux(
     right: FluidPrimitive,
     species: Species,
 ) -> np.ndarray:
-    fl = _valencia_flux(metric, left)
-    fr = _valencia_flux(metric, right)
-    ul = _valencia_conserved(metric, left)
-    ur = _valencia_conserved(metric, right)
+    if species is Species.RADIATION:
+        fl = _radiation_flux(metric, left)
+        fr = _radiation_flux(metric, right)
+        ul = _radiation_conserved(metric, left)
+        ur = _radiation_conserved(metric, right)
+    else:
+        fl = _valencia_flux(metric, left)
+        fr = _valencia_flux(metric, right)
+        ul = _valencia_conserved(metric, left)
+        ur = _valencia_conserved(metric, right)
 
     c_s = 0.0 if species != Species.RADIATION else 1.0 / math.sqrt(3.0)
 
@@ -450,8 +467,15 @@ def evolve_species(
     dphi_t: np.ndarray | None = None,
     dphi_r: np.ndarray | None = None,
     beta_dm: float = -0.04,
+    validate_physical_state: bool = True,
 ) -> ConservedSpecies:
-    """Advance one conservative finite-volume step."""
+    """Advance one conservative finite-volume step.
+
+    validate_physical_state belongs to the actual evolution step. The
+    synchronized RHS wrapper uses a unit bookkeeping step (dt=1) only to
+    extract the spatial operator; that bookkeeping step must not be mistaken
+    for a physical update when checking radiation admissibility.
+    """
     n = len(metric.r)
     if any(np.shape(x) != (n,) for x in (
         state.rest, state.energy_t, state.momentum_r
@@ -476,25 +500,37 @@ def evolve_species(
             gamma_thth_inv=0.5 * (m0.gamma_thth_inv + m1.gamma_thth_inv),
             sqrt_gamma=0.5 * (m0.sqrt_gamma + m1.sqrt_gamma),
         )
-        ql = _reconstructed_primitive(prim, i, "right", mf.gamma_rr)
-        qr = _reconstructed_primitive(prim, i + 1, "left", mf.gamma_rr)
+        ql = _reconstructed_primitive(prim, i, "right", mf.gamma_rr, species)
+        qr = _reconstructed_primitive(prim, i + 1, "left", mf.gamma_rr, species)
         face_flux[i + 1] = _hll_flux(mf, ql, qr, species)
 
     # Causal/outflow outer closure: continue the last physical state.
-    face_flux[-1] = _valencia_flux(metrics[-1], prim[-1])
+    if species is Species.RADIATION:
+        face_flux[-1] = _radiation_flux(metrics[-1], prim[-1])
+    else:
+        face_flux[-1] = _valencia_flux(metrics[-1], prim[-1])
 
     out = state.copy()
     inv_dr = 1.0 / (metric.r[1] - metric.r[0])
     source_e_diag = np.zeros(n, dtype=float)
     source_s_diag = np.zeros(n, dtype=float)
     for i, m in enumerate(metrics):
-        source_e, source_s = _valencia_source(
-            m, prim[i], float(metric.K[i]), float(metric.Aa[i]),
-            float(metric_derivatives.radial["alpha"][i]),
-            float(metric_derivatives.radial["beta"][i]),
-            float(metric_derivatives.radial["rr"][i]),
-            float(metric_derivatives.radial["thth"][i]),
-        )
+        if species is Species.RADIATION:
+            source_e, source_s = _radiation_source(
+                m, prim[i], float(metric.K[i]), float(metric.Aa[i]),
+                float(metric_derivatives.radial["alpha"][i]),
+                float(metric_derivatives.radial["beta"][i]),
+                float(metric_derivatives.radial["rr"][i]),
+                float(metric_derivatives.radial["thth"][i]),
+            )
+        else:
+            source_e, source_s = _valencia_source(
+                m, prim[i], float(metric.K[i]), float(metric.Aa[i]),
+                float(metric_derivatives.radial["alpha"][i]),
+                float(metric_derivatives.radial["beta"][i]),
+                float(metric_derivatives.radial["rr"][i]),
+                float(metric_derivatives.radial["thth"][i]),
+            )
 
         source_e_diag[i] = source_e
         source_s_diag[i] = source_s
@@ -521,9 +557,10 @@ def evolve_species(
         out.energy_t[i] += dt * (source_e + q_e)
         out.momentum_r[i] += dt * (source_s + q_s)
 
-    if species is Species.RADIATION:
-        # Diagnostic only: expose the transport and metric-source pieces
-        # when this update itself creates an inadmissible state.
+    if species is Species.RADIATION and validate_physical_state:
+        # This check is meaningful only for the actual physical update. In
+        # particular, species_rhs() deliberately disables it while extracting
+        # a RHS with dt=1 as a linear bookkeeping operation.
         sg = np.asarray([m.sqrt_gamma for m in metrics])
         E = out.energy_t / sg
         S_r = out.momentum_r / sg
@@ -536,7 +573,7 @@ def evolve_species(
             flux_dE = -inv_dr * (face_flux[i + 1, 1] - face_flux[i, 1])
             flux_dS = -inv_dr * (face_flux[i + 1, 2] - face_flux[i, 2])
             raise ValueError(
-                f"radiation RHS created inadmissible state at cell i={i}: "
+                f"radiation evolution step created inadmissible state at cell i={i}: "
                 f"tendency_flux_E={flux_dE:.17e}, source_E={source_e_diag[i]:.17e}, "
                 f"tendency_flux_S={flux_dS:.17e}, source_S={source_s_diag[i]:.17e}; "
                 f"E={E[i]:.17e}, |S|={S_abs[i]:.17e}, "

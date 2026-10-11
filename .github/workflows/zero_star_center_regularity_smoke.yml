@@ -1,0 +1,43 @@
+name: "[0star] Center-regularity repair smoke test"
+
+on:
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      PYTHONPATH: .
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements.txt
+      - name: Repository regression suite
+        run: pytest -q
+      - name: One-step production smoke
+        run: |
+          python - <<'PY'
+          from engine.production_kernel import V55ProductionKernel
+
+          kernel = V55ProductionKernel()
+          state = kernel.initialize(
+              resolution=32,
+              r_max=16.0,
+              D_amplitude=1.0e-10,
+          )
+          state = kernel.step(state, 0.002)
+          print({
+              "t": state.t,
+              "tau": state.tau,
+              "lapse_min": state.geometry.alpha[0],
+              "hamiltonian_max": state.history[-1]["hamiltonian_max"],
+              "hamiltonian_max_r": state.history[-1]["hamiltonian_max_r"],
+              "cmc_residual_outer_max": state.history[-1]["cmc_residual_outer_max"],
+              "determinant_constraint_max": state.history[-1]["determinant_constraint_max"],
+          })
+          PY

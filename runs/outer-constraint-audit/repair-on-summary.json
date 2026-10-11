@@ -1,0 +1,274 @@
+{
+  "audit": "outer-constraint-audit repair-on",
+  "diagnostic_only": true,
+  "admission_passed": true,
+  "source_commit": "92b383b8133ac747654c6d0cd6fb0656b35569bb",
+  "workflow_run": "https://github.com/miahpenn/0-Cosmos-engine/actions/runs/37852226397",
+  "raw_artifact": {
+    "id": 11583388522,
+    "url": "https://github.com/miahpenn/0-Cosmos-engine/actions/runs/37852226397/artifacts/11583388522",
+    "name": "outer-constraint-audit-on",
+    "zip_sha256": "4e02f25548cf7ac6ea12fe14b031ef2413540da255e8665ccdab0e1dd53079d8",
+    "extracted_report": "repair-on.json",
+    "extracted_report_bytes": 857428,
+    "report_sha256": "5d2837ce52aa695df3655d6fc9ffbb50268597bb9a5ad5f72b191e0cbc25e945"
+  },
+  "config": {
+    "D_amplitude": 0.0001,
+    "resolution": 160,
+    "r_max": 80,
+    "cfl": 0.0075,
+    "include_radiation": true,
+    "final_time": 22.5,
+    "sample_targets": [
+      0.01,
+      4,
+      8,
+      12,
+      16,
+      20,
+      22.5
+    ],
+    "record_initial_state": true
+  },
+  "admission_checks": {
+    "completed_without_numerical_failure": true,
+    "frozen_configuration_matches": true,
+    "all_registered_samples_present_within_tolerance": true,
+    "full_radial_profile_has_all_cells": true,
+    "all_profile_values_finite": true,
+    "full_grid_hamiltonian_decomposition_le_1e_12": true,
+    "sample_count": 8,
+    "grid_cells_per_sample": 160,
+    "max_abs_decomposition_error_per_sample": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "physical_H_or_M_threshold_applied": false
+  },
+  "samples": [
+    {
+      "t": 0,
+      "H_global": {
+        "max_abs": 0.0010790371909651635,
+        "cell": 0,
+        "r": 0.25
+      },
+      "H_cell2plus": {
+        "max_abs": 0.00001441033358284523,
+        "cell": 3,
+        "r": 1.75
+      },
+      "M_global": {
+        "max_abs": 6.132783242079647e-14,
+        "cell": 0,
+        "r": 0.25
+      }
+    },
+    {
+      "t": 0.01125,
+      "H_global": {
+        "max_abs": 0.0010786489116456797,
+        "cell": 0,
+        "r": 0.25
+      },
+      "H_cell2plus": {
+        "max_abs": 0.00001440202499694045,
+        "cell": 3,
+        "r": 1.75
+      },
+      "M_global": {
+        "max_abs": 0.000002725073139582417,
+        "cell": 0,
+        "r": 0.25
+      }
+    },
+    {
+      "t": 4.001250000000057,
+      "H_global": {
+        "max_abs": 0.0011452483918943748,
+        "cell": 0,
+        "r": 0.25
+      },
+      "H_cell2plus": {
+        "max_abs": 0.0001236832871399085,
+        "cell": 2,
+        "r": 1.25
+      },
+      "M_global": {
+        "max_abs": 0.00001495060083283962,
+        "cell": 0,
+        "r": 0.25
+      }
+    },
+    {
+      "t": 7.998750000000208,
+      "H_global": {
+        "max_abs": 0.001081074373832217,
+        "cell": 0,
+        "r": 0.25
+      },
+      "H_cell2plus": {
+        "max_abs": 0.0001012021407516593,
+        "cell": 2,
+        "r": 1.25
+      },
+      "M_global": {
+        "max_abs": 0.000004946526392676873,
+        "cell": 6,
+        "r": 3.25
+      }
+    },
+    {
+      "t": 12.000000000000359,
+      "H_global": {
+        "max_abs": 0.0010933023550834921,
+        "cell": 0,
+        "r": 0.25
+      },
+      "H_cell2plus": {
+        "max_abs": 0.0002829182347374778,
+        "cell": 19,
+        "r": 9.75
+      },
+      "M_global": {
+        "max_abs": 0.00001247336337723785,
+        "cell": 24,
+        "r": 12.25
+      }
+    },
+    {
+      "t": 16.00125000000051,
+      "H_global": {
+        "max_abs": 0.0010977449211973288,
+        "cell": 0,
+        "r": 0.25
+      },
+      "H_cell2plus": {
+        "max_abs": 0.0004010170020906072,
+        "cell": 26,
+        "r": 13.25
+      },
+      "M_global": {
+        "max_abs": 0.00001390868423151431,
+        "cell": 35,
+        "r": 17.75
+      }
+    },
+    {
+      "t": 19.998750000000662,
+      "H_global": {
+        "max_abs": 0.0011001350337428656,
+        "cell": 0,
+        "r": 0.25
+      },
+      "H_cell2plus": {
+        "max_abs": 0.0004506958063118785,
+        "cell": 32,
+        "r": 16.25
+      },
+      "M_global": {
+        "max_abs": 0.00001385960707282145,
+        "cell": 46,
+        "r": 23.25
+      }
+    },
+    {
+      "t": 22.5,
+      "H_global": {
+        "max_abs": 0.0011020277117824726,
+        "cell": 0,
+        "r": 0.25
+      },
+      "H_cell2plus": {
+        "max_abs": 0.0004638237605335193,
+        "cell": 36,
+        "r": 18.25
+      },
+      "M_global": {
+        "max_abs": 0.000013624133157820982,
+        "cell": 53,
+        "r": 26.75
+      }
+    }
+  ],
+  "final_time_regional_summary": {
+    "inner_r_le_20": {
+      "H": {
+        "max_abs": 0.0011020277117824726,
+        "cell": 0,
+        "r": 0.25,
+        "volume_weighted_l2": 0.00043110153822310224
+      },
+      "M": {
+        "max_abs": 0.000010177941375556223,
+        "cell": 0,
+        "r": 0.25,
+        "volume_weighted_l2": 0.00000482751205455488
+      }
+    },
+    "middle_20_lt_r_lt_64": {
+      "H": {
+        "max_abs": 0.00045766716329125306,
+        "cell": 40,
+        "r": 20.25,
+        "volume_weighted_l2": 0.000087356073585603
+      },
+      "M": {
+        "max_abs": 0.000013624133157820982,
+        "cell": 53,
+        "r": 26.75,
+        "volume_weighted_l2": 0.000003179734717343953
+      }
+    },
+    "outer_r_ge_64": {
+      "H": {
+        "max_abs": 0.0000019271191629213486,
+        "cell": 159,
+        "r": 79.75,
+        "volume_weighted_l2": 4.2867598855683676e-7
+      },
+      "M": {
+        "max_abs": 3.4099198659029233e-7,
+        "cell": 158,
+        "r": 79.25,
+        "volume_weighted_l2": 1.2153105912789073e-7
+      }
+    }
+  },
+  "step1_crosscheck": {
+    "reference_step1_on_blob_sha": "6817c23da76f4012dcea0b0beb6fe6fad30d858d",
+    "production_kernel_blob_sha_869a745": "d9a4740592f2521f7dc04d66a718a854c70a8cde",
+    "production_kernel_blob_sha_audit": "d9a4740592f2521f7dc04d66a718a854c70a8cde",
+    "step1_recorder_blob_sha_869a745": "30254271cb24b621a1831711e985a6d6b4e5e7d9",
+    "step1_recorder_blob_sha_audit": "30254271cb24b621a1831711e985a6d6b4e5e7d9",
+    "final_cell2plus_H_max_step1": {
+      "max_abs": 0.0004638237604395251,
+      "cell": 36,
+      "r": 18.25
+    },
+    "final_cell2plus_H_max_outer_audit": {
+      "max_abs": 0.0004638237605335193,
+      "cell": 36,
+      "r": 18.25
+    },
+    "final_global_H_step1": {
+      "max_abs": 0.0011020277092482012,
+      "cell": 0,
+      "r": 0.25
+    },
+    "final_global_H_outer_audit": {
+      "max_abs": 0.0011020277117824726,
+      "cell": 0,
+      "r": 0.25
+    },
+    "observed_small_run_to_run_difference_preserved": true
+  },
+  "interpretation": "No physical interpretation admitted from ON alone. Repair OFF remains gated."
+}

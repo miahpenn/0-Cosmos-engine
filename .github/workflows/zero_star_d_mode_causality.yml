@@ -1,0 +1,157 @@
+name: 0-star D-mode interior causality campaign
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [0star-central-clock]
+
+jobs:
+  d-causality:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[0star-d-causality]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    env:
+      PYTHONPATH: .
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Repository tests
+        run: pytest -q
+
+      - name: Run D-mode causality cases
+        run: |
+          python - <<'PY'
+          import json
+          import math
+          from pathlib import Path
+          import numpy as np
+
+          from engine.campaign import CampaignConfig
+          from engine.production_kernel import ProductionState, V55ProductionKernel
+          from engine.run_production import run_campaign
+          from engine.scalar_system import ScalarFields
+          from engine.v55_initial import build_initial_data
+          from engine.v55_matter import V55MatterState
+          from engine import v55_pirk_adapter as adapter
+
+          class DAuditKernel(V55ProductionKernel):
+              def __init__(self, d_amplitude):
+                  super().__init__()
+                  self.d_amplitude = float(d_amplitude)
+
+              def initialize(self, resolution=80, r_max=160.0, **kwargs):
+                  grid_ops, vacuum, _ = adapter.vendor_modules()
+                  grid = grid_ops.SphericalCellGrid(resolution, r_max)
+                  init = build_initial_data(
+                      grid,
+                      vacuum.flat_state,
+                      D_amplitude=self.d_amplitude,
+                      include_radiation=True,
+                  )
+                  init.geometry.alpha = self._solve_lapse(
+                      grid, init.geometry, init.scalars, init.matter
+                  )[0]
+                  init.geometry.beta.fill(0.0)
+                  init.geometry.B.fill(0.0)
+                  return ProductionState(
+                      grid=grid,
+                      geometry=init.geometry,
+                      scalars=init.scalars,
+                      matter=init.matter,
+                      e_folds=0.0,
+                  )
+
+              def diagnostics(self, state, *, profiles=False):
+                  out = super().diagnostics(state, profiles=profiles)
+                  r = np.asarray(state.grid.centers)
+                  D = np.asarray(state.scalars.D)
+                  PD = np.asarray(state.scalars.PD)
+                  active = 2.0 * PD * PD + D * D
+
+                  i_active = int(np.argmax(active))
+                  i_grad = int(out["alpha_r_max_r"] == r).sum() if False else int(
+                      np.argmin(np.abs(r - out["alpha_r_max_r"]))
+                  )
+
+                  D0 = float(D[0])
+                  PD0 = float(PD[0])
+                  out.update({
+                      "D_amplitude_initial": self.d_amplitude,
+                      "D_center": D0,
+                      "PD_center": PD0,
+                      "D_growth_rate_center": (
+                          float(state.geometry.alpha[0] * PD0 / D0)
+                          if abs(D0) > 1.0e-300 else 0.0
+                      ),
+                      "D_active_center": float(active[0]),
+                      "D_active_max": float(active[i_active]),
+                      "D_active_max_r": float(r[i_active]),
+                      "D_at_alpha_grad_max": float(D[i_grad]),
+                      "PD_at_alpha_grad_max": float(PD[i_grad]),
+                      "D_active_at_alpha_grad_max": float(active[i_grad]),
+                  })
+                  return out
+
+          cases = {
+              "D0": 0.0,
+              "Dhalf": 5.0e-11,
+              "Dbase": 1.0e-10,
+              "Ddouble": 2.0e-10,
+          }
+
+          base = Path("runs/0star-d-causality")
+          summaries = {}
+          for label, amplitude in cases.items():
+              outdir = base / label
+              cfg = CampaignConfig(
+                  resolutions=(160,),
+                  r_max=160.0,
+                  cfl=0.0075,
+                  final_time=22.5,
+                  checkpoint_interval=2.0,
+                  output_dir=str(outdir),
+              )
+              result = run_campaign(kernel=DAuditKernel(amplitude), config=cfg)
+              summaries[label] = {
+                  "amplitude": amplitude,
+                  "result": result[0].__dict__,
+              }
+
+          base.mkdir(parents=True, exist_ok=True)
+          (base / "causality_summary.json").write_text(
+              json.dumps(summaries, indent=2, default=float)
+          )
+
+          # Emit a compact comparison for the CI log.
+          for label, payload in summaries.items():
+              r = payload["result"]
+              d = r.get("last_diagnostics", {})
+              print(
+                  label,
+                  "amp=", payload["amplitude"],
+                  "status=", r["status"],
+                  "t_final=", r["t_final"],
+                  "D_center=", d.get("D_center"),
+                  "D_active_center=", d.get("D_active_center"),
+                  "alpha_max=", d.get("lapse_max"),
+                  "alpha_r_max=", d.get("alpha_r_max"),
+              )
+          PY
+
+      - name: Upload D-mode causality artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: 0star-d-mode-causality
+          path: runs/0star-d-causality
+          if-no-files-found: error

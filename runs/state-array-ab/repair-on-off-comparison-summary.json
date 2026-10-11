@@ -1,0 +1,151 @@
+{
+  "schema": "0star-state-array-ab-comparison-summary-v1",
+  "diagnostic_only": true,
+  "source": {
+    "workflow_run_id": 37859756564,
+    "workflow_url": "https://github.com/miahpenn/0-Cosmos-engine/actions/runs/37859756564",
+    "workflow_name": "[0star] repair ON/OFF full state-array comparison",
+    "branch": "0star-central-clock",
+    "code_commit": "7b9bac434f402df597641cfe7b24cf1a126a02e1",
+    "artifact_id": 11588005336,
+    "artifact_name": "state-array-ab-comparison",
+    "artifact_size_bytes": 531182,
+    "artifact_zip_sha256": "349c239c8f0fd394831e8dee2bb77e922d771e92a5ccc80599d480920dc64abf",
+    "contained_json": "state-array-ab.json",
+    "contained_json_size_bytes": 2196349,
+    "contained_json_sha256": "4e53d8c62a369ebd5517a72307966730a49fcfab243bf39b9849d410fcc33b07"
+  },
+  "configuration": {
+    "D_amplitude": 0.0001,
+    "resolution_cells": 160,
+    "r_max": 80.0,
+    "cfl": 0.0075,
+    "include_radiation": true,
+    "requested_final_time": 22.5,
+    "requested_target_times": [0.0, 0.01, 4.0, 8.0, 12.0, 16.0, 20.0, 22.5],
+    "array_mode": "sequential repair ON then repair OFF; OFF uses NoRepairKernel with only center repair overridden",
+    "scope": "read-only numeric state-array snapshots; no production physics or evolution equations changed"
+  },
+  "admission": {
+    "repair_on": {
+      "status": "completed",
+      "numerical_failure": null,
+      "passed": true,
+      "checks": {
+        "completed_without_numerical_failure": true,
+        "frozen_configuration_matches": true,
+        "all_eight_registered_samples_present_within_0.05_time_tolerance": true,
+        "all_state_arrays_cover_160_cells": true,
+        "all_recorded_array_values_finite": true
+      }
+    },
+    "repair_off": {
+      "status": "completed",
+      "numerical_failure": null,
+      "passed": true,
+      "checks": {
+        "completed_without_numerical_failure": true,
+        "frozen_configuration_matches": true,
+        "all_eight_registered_samples_present_within_0.05_time_tolerance": true,
+        "all_state_arrays_cover_160_cells": true,
+        "all_recorded_array_values_finite": true
+      }
+    },
+    "thresholds": {
+      "state_difference_threshold_applied": false,
+      "physical_residual_threshold_applied": false,
+      "purpose": "admission verifies run/configuration/coverage/finiteness, not whether the physics or state difference is acceptable"
+    },
+    "exact_commit_checks": {
+      "state_array_ab_job": "success",
+      "repository_tests_jobs": "success",
+      "run_check": "https://github.com/miahpenn/0-Cosmos-engine/actions/runs/37859756564"
+    }
+  },
+  "checkpoints": [
+    {"target_t": 0.0, "actual_t": 0.0, "state_fields_with_any_bitwise_difference": 5},
+    {"target_t": 0.01, "actual_t": 0.01125, "state_fields_with_any_bitwise_difference": 21},
+    {"target_t": 4.0, "actual_t": 4.001250000000057, "state_fields_with_any_bitwise_difference": 21},
+    {"target_t": 8.0, "actual_t": 7.998750000000208, "state_fields_with_any_bitwise_difference": 21},
+    {"target_t": 12.0, "actual_t": 12.000000000000359, "state_fields_with_any_bitwise_difference": 21},
+    {"target_t": 16.0, "actual_t": 16.00125000000051, "state_fields_with_any_bitwise_difference": 21},
+    {"target_t": 20.0, "actual_t": 19.998750000000662, "state_fields_with_any_bitwise_difference": 21},
+    {"target_t": 22.5, "actual_t": 22.5, "state_fields_with_any_bitwise_difference": 21}
+  ],
+  "initial_state_differences_at_t0": {
+    "geometry.Lambda": {"max_abs_difference": 0.00035084779663030924, "rms_difference": 2.7736953735083144e-05, "max_index": 0, "max_radius": 0.25, "unequal_cells": 1},
+    "geometry.a": {"max_abs_difference": 0.000029237463107900652, "rms_difference": 2.3114244106527844e-06, "max_index": 0, "max_radius": 0.25, "unequal_cells": 4},
+    "geometry.b": {"max_abs_difference": 0.0000146179067, "rms_difference": 1.155647e-06, "max_index": 0, "max_radius": 0.25, "unequal_cells": 21},
+    "geometry.alpha": {"max_abs_difference": 1.1489962314925606e-09, "rms_difference": 1.1608853e-10, "max_index": 0, "max_radius": 0.25, "unequal_cells": 159},
+    "geometry.Aa": {"max_abs_difference": 5.165345900464822e-15, "rms_difference": 4.0835644870205574e-16, "max_index": 0, "max_radius": 0.25, "unequal_cells": 1}
+  },
+  "temporal_diagnostics": {
+    "geometry.Lambda_max_abs_difference_by_checkpoint": [0.00035084779663030924, 0.000350847786005533, 0.000350858261844, 0.000350818488, 0.000351521935, 0.000351534724, 0.000351533933, 0.000351534044],
+    "geometry.Aa_max_abs_difference_by_checkpoint": [5.165345900464822e-15, 0.0000116054269, 0.0000929713037, 0.00013345543, 0.0000335372632, 0.0000078236267, 0.0000220128216, 0.0000364852029],
+    "geometry.a_max_abs_difference_by_checkpoint": [0.0000292374631, 0.0000291049374, 0.0000610732885, 0.000057056854, 0.0000604049114, 0.000061442606, 0.0000610051207, 0.0000602153659],
+    "geometry.b_max_abs_difference_by_checkpoint": [0.0000146179067, 0.0000145516491, 0.0000305260285, 0.0000285269441, 0.0000302011734, 0.0000307199774, 0.0000305012534, 0.0000301064099],
+    "scalars.D_max_abs_difference_by_checkpoint": [0.0, 2.20143456e-14, 2.91136593e-09, 1.77358337e-08, 5.89168535e-09, 9.34585558e-09, 9.99883883e-09, 1.01413344e-08],
+    "tau_on_at_final_t": 6.983326299808656,
+    "tau_off_at_final_t": 6.983325414935567,
+    "tau_off_minus_on_at_final_t": -8.848730894683854e-07,
+    "physical_sample_times_match_exactly": true
+  },
+  "final_t_22_5_spatial_max_abs_difference_by_region": {
+    "regions": {
+      "inner": "r <= 20, 40 cells",
+      "middle": "20 < r < 64, 88 cells",
+      "outer": "r >= 64, 32 cells"
+    },
+    "geometry.Lambda": {
+      "inner": {"max": 0.000351534044, "cell": 0, "rms": 0.0000555824531},
+      "middle": {"max": 1.01180071e-11, "cell": 57, "rms": 3.51414553e-12},
+      "outer": {"max": 2.30906765e-13, "cell": 159, "rms": 9.20554033e-14}
+    },
+    "geometry.Aa": {
+      "inner": {"max": 0.0000364852029, "cell": 0, "rms": 0.00000601054563},
+      "middle": {"max": 4.48551959e-12, "cell": 51, "rms": 2.06112135e-12},
+      "outer": {"max": 1.39301765e-13, "cell": 139, "rms": 1.09102539e-13}
+    },
+    "geometry.a": {
+      "inner": {"max": 0.0000602153659, "cell": 0, "rms": 0.000012867187},
+      "middle": {"max": 1.56968882e-10, "cell": 60, "rms": 9.42261488e-11},
+      "outer": {"max": 4.95059549e-12, "cell": 128, "rms": 3.04454274e-12}
+    },
+    "geometry.b": {
+      "inner": {"max": 0.0000301064099, "cell": 0, "rms": 0.00000643349931},
+      "middle": {"max": 7.22053528e-11, "cell": 40, "rms": 2.83833595e-11},
+      "outer": {"max": 1.79478654e-12, "cell": 128, "rms": 1.2320024e-12}
+    },
+    "geometry.alpha": {
+      "inner": {"max": 3.67485643e-10, "cell": 0, "rms": 7.95989892e-11},
+      "middle": {"max": 1.10618237e-10, "cell": 59, "rms": 5.64692505e-11},
+      "outer": {"max": 6.16506846e-12, "cell": 128, "rms": 3.06196903e-12}
+    },
+    "scalars.D": {
+      "inner": {"max": 1.01413344e-08, "cell": 0, "rms": 1.95421023e-09},
+      "middle": {"max": 8.23473234e-12, "cell": 58, "rms": 3.17651377e-12},
+      "outer": {"max": 5.53607792e-27, "cell": 128, "rms": 1.06108348e-27}
+    },
+    "matter.dark_matter.energy_t": {
+      "inner": {"max": 7.62054985e-11, "cell": 10, "rms": 2.64320518e-11},
+      "middle": {"max": 5.08475206e-12, "cell": 57, "rms": 2.0121402e-12},
+      "outer": {"max": 3.11126125e-13, "cell": 128, "rms": 2.0368814e-13}
+    }
+  },
+  "interpretation": {
+    "supported": [
+      "Repair ON and OFF have distinct initial numeric state arrays before physical-time evolution begins.",
+      "Differences evolve in multiple geometry and scalar state fields; geometry.Aa maximum difference rises from about 5.2e-15 at t=0 to 1.33e-4 by t approximately 8, then changes magnitude at later checkpoints.",
+      "The largest persistent geometry differences are strongly concentrated in the inner region; representative outer-region differences are much smaller in absolute magnitude.",
+      "This is not strictly a center-only bitwise difference: by the first positive-time checkpoint 21 of 26 recorded arrays differ, and by t approximately 4 many fields differ at all 160 cells. For most such fields, outer-region difference magnitudes remain small compared with the dominant inner-region differences.",
+      "At t=22.5, tau differs by about -8.85e-7 (OFF minus ON), despite matching physical sample times."
+    ],
+    "not_established": [
+      "No inference that the differences represent a physical signal or causal propagation speed.",
+      "No claim that every difference is confined to the center.",
+      "No claim that the repair effect is only through scalar curvature R or any one field.",
+      "No claim of constraint satisfaction, convergence, bounce, trapped surface, or physical interpretation.",
+      "No claim that numerical differences exceed a meaningful physics threshold; none was defined or applied."
+    ]
+  }
+}

@@ -1,0 +1,84 @@
+name: "[0star] True-CMC turnaround and post-turnaround gate"
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - 0star-central-clock
+
+env:
+  PYTHONPATH: .
+
+jobs:
+  true-cmc-turnaround:
+    concurrency:
+      group: zero-star-true-cmc-turnaround-${{ matrix.resolution }}
+      cancel-in-progress: true
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[run-true-cmc-turnaround]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 720
+    strategy:
+      fail-fast: false
+      matrix:
+        resolution: [40, 60, 80]
+    steps:
+      - name: Checkout engine and pinned numerical kernel
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Run repository tests
+        run: python -m pytest -q
+
+      - name: Run same-CFL turnaround campaign
+        run: |
+          python - <<'PY'
+          from engine.campaign import CampaignConfig
+          from engine.true_cmc_pirk_kernel import V55TrueCMCPIRKKernel
+          from engine.run_production import run_campaign
+
+          resolution = int("${{ matrix.resolution }}")
+          config = CampaignConfig(
+              resolutions=(resolution,),
+              r_max=40.0,
+              cfl=0.06,
+              final_time=40.0,
+              checkpoint_interval=0.20,
+              output_dir=f'runs/0star-true-cmc-turnaround/N{resolution}',
+          )
+          results = run_campaign(
+              kernel=V55TrueCMCPIRKKernel(),
+              config=config,
+          )
+          for result in results:
+              print(result)
+          failures = [r for r in results if r.status != "completed"]
+          missing_turnaround = [r for r in results if r.turnaround_events < 1]
+          if failures:
+              raise SystemExit(
+                  "True-CMC turnaround campaign reported numerical failure(s): "
+                  + "; ".join(f"N{r.resolution}: {r.status}" for r in failures)
+              )
+          if missing_turnaround:
+              raise SystemExit(
+                  "True-CMC turnaround campaign did not observe H_eff=0 at: "
+                  + ", ".join(f"N{r.resolution}" for r in missing_turnaround)
+              )
+          PY
+
+      - name: Upload turnaround outputs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: 0star-true-cmc-turnaround-N${{ matrix.resolution }}
+          path: runs/0star-true-cmc-turnaround/N${{ matrix.resolution }}/
+          if-no-files-found: error

@@ -1,0 +1,48 @@
+name: "[0star] persist D0 repair-OFF common-CFL artifact"
+
+on:
+  push:
+    branches: ["0star-central-clock"]
+  workflow_dispatch:
+
+jobs:
+  persist:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[persist-d0-off]')
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 0star-central-clock
+      - name: Download completed D0 repair-OFF artifact
+        uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          repository: miahpenn/0-Cosmos-engine
+          run-id: 37710915370
+          name: 0star-fourway-D0-repair-off-cfl0075
+          path: /tmp/d0off
+      - name: Inspect artifact
+        run: |
+          find /tmp/d0off -maxdepth 2 -type f -print
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=next(Path('/tmp/d0off').rglob('*.json'))
+          d=json.loads(p.read_text())
+          print('artifact=', p)
+          print('keys=', sorted(d.keys()))
+          print('metadata=', {k:d.get(k) for k in ['status','cfl','CFL','resolution','N','r_max','final_time_requested','final_time','include_radiation','target_times']})
+          print('sample_count=', len(d.get('samples', d.get('snaps', []))))
+          PY
+      - name: Persist JSON
+        run: |
+          mkdir -p GEAR_group
+          cp /tmp/d0off/four_way_D0_repair-off_cfl0075_N160.json GEAR_group/four_way_D0_repair-off_cfl0075_N160.json
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add GEAR_group/four_way_D0_repair-off_cfl0075_N160.json
+          git commit -m "persist D0 repair-OFF common-CFL diagnostic JSON"
+          git push origin 0star-central-clock

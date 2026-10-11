@@ -1,0 +1,61 @@
+name: "[0star] quarantined strong-D repair-OFF profile"
+
+on:
+  push:
+    branches: ["0star-central-clock"]
+  workflow_dispatch:
+
+jobs:
+  strong_D1e4_repair_off:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[run-strong-D-repair-off]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    env:
+      PYTHONPATH: .
+    steps:
+      - name: Checkout engine and pinned numerical kernel
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Preflight exact output directory
+        run: |
+          test -d GEAR_group
+          test -w GEAR_group
+          echo "GEAR_group exists and is writable"
+          rm -f GEAR_group/strong_D1e-4_repair_off_N160.json
+
+      - name: Run quarantined strong-D repair-OFF profile
+        run: python engine/strong_D1e4_repair_off_profile.py
+
+      - name: Verify exact artifact path
+        if: always()
+        run: |
+          test -f GEAR_group/strong_D1e-4_repair_off_N160.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path("GEAR_group/strong_D1e-4_repair_off_N160.json")
+          d = json.loads(p.read_text())
+          print("status:", d.get("status"))
+          print("samples:", len(d.get("samples", [])))
+          print("final_time:", d.get("final_time"))
+          print("output:", p)
+          PY
+
+      - name: Upload exact diagnostic artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: strong-D1e-4-repair-off-N160-fixed-r80
+          path: GEAR_group/strong_D1e-4_repair_off_N160.json
+          if-no-files-found: error

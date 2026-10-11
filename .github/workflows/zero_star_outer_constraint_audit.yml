@@ -1,0 +1,47 @@
+name: "[0star] full-grid outer constraint audit (sequential repair A/B)"
+on:
+  push:
+    branches: [0star-central-clock]
+permissions:
+  contents: read
+jobs:
+  outer-constraint:
+    if: contains(github.event.head_commit.message, '[run-outer-constraint-on]') || contains(github.event.head_commit.message, '[run-outer-constraint-off]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    env:
+      PYTHONPATH: .
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Repository tests
+        run: python -m pytest -q
+      - name: Run full-grid constraint audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${GITHUB_EVENT_HEAD_COMMIT_MESSAGE:-}" == *"[run-outer-constraint-off]"* ]]; then
+            mode=off
+          elif [[ "${GITHUB_EVENT_HEAD_COMMIT_MESSAGE:-}" == *"[run-outer-constraint-on]"* ]]; then
+            mode=on
+          else
+            echo "No audit trigger tag in commit message"
+            exit 1
+          fi
+          python -m engine.outer_constraint_audit --repair "$mode"
+        env:
+          GITHUB_EVENT_HEAD_COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+      - name: Upload audit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: outer-constraint-audit-${{ contains(github.event.head_commit.message, '[run-outer-constraint-off]') && 'off' || 'on' }}
+          path: runs/outer-constraint-audit/repair-*.json
+          if-no-files-found: error
