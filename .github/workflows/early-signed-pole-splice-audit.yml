@@ -32,9 +32,10 @@ jobs:
       - name: Validate source without changing production
         run: |
           set -euo pipefail
-          git fetch --no-tags --depth=1 origin main:refs/remotes/origin/main
+          BASE=0df13fafe0f4639ae3597021929a09eefb01acf0
+          git fetch --no-tags origin "$BASE"
           python -m py_compile diagnostics/curvature_consistency/strong_D_early_signed_pole_N640.py
-          git diff --exit-code origin/main -- engine/production_kernel.py engine/scalar_system.py engine/stress_energy.py
+          git diff --exit-code "$BASE" HEAD -- engine/production_kernel.py engine/scalar_system.py engine/stress_energy.py
           python - <<'PY'
           from diagnostics.curvature_consistency.strong_D_early_signed_pole_N640 import N,RMAX,CFL,TFINAL,SAMPLE
           assert (N,RMAX,CFL,TFINAL,SAMPLE)==(640,80.0,0.0075,6.5,0.0625)
