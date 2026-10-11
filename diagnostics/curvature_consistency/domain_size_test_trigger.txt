@@ -1,0 +1,2 @@
+Purpose: launch the compile-only validation workflow for strong_D_domain_size_residual_audit.py.
+This marker is changed again only when the complete domain-size campaign is authorized to start.
