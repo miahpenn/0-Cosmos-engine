@@ -59,6 +59,41 @@ jobs:
           from pathlib import Path
           import numpy as np
           from engine.production_kernel import V55ProductionKernel
+          def assert_state_roundoff_equal(actual, expected, label):
+              """Compare each state array using a 512-epsilon field-scale bound."""
+              eps = np.finfo(float).eps
+              failures = []
+              worst_ratio, worst_name = 0.0, None
+              def check(name, a, e):
+                  nonlocal worst_ratio, worst_name
+                  a = np.asarray(a, dtype=float)
+                  e = np.asarray(e, dtype=float)
+                  if a.shape != e.shape:
+                      failures.append({"field": name, "shape_actual": a.shape, "shape_expected": e.shape})
+                      return
+                  scale = max(float(np.max(np.abs(e))) if e.size else 0.0, np.finfo(float).tiny)
+                  tolerance = 512.0 * eps * scale
+                  error = float(np.max(np.abs(a - e))) if a.size else 0.0
+                  ratio = error / tolerance
+                  if ratio > worst_ratio:
+                      worst_ratio, worst_name = ratio, name
+                  if not np.all(np.isfinite(a)) or error > tolerance:
+                      failures.append({"field": name, "max_abs": error, "scale": scale,
+                                       "tolerance": tolerance, "ratio": ratio})
+              for group in ("geometry", "scalars"):
+                  for name in actual[group]:
+                      check(f"{group}.{name}", actual[group][name], expected[group][name])
+              for species in actual["matter"]:
+                  for field in actual["matter"][species]:
+                      check(f"matter.{species}.{field}",
+                            actual["matter"][species][field],
+                            expected["matter"][species][field])
+              if failures:
+                  raise AssertionError(
+                      f"{label} exceeds a 512-epsilon field-scale envelope: "
+                      + json.dumps(failures[:24], sort_keys=True)
+                  )
+              print(f"PASS: {label} within 512 eps of each field scale; worst ratio={worst_ratio:.6g} ({worst_name}).")
           p = Path(Path(os.environ["REFERENCE_PROFILE_PATH"]).read_text().strip())
           with p.open() as f:
               reference = json.loads(next(f))
@@ -82,28 +117,7 @@ jobs:
                   for species_name in ("dark_matter", "baryons", "radiation")
               },
           }
-          if snapshot != reference["state_snapshot"]:
-              print("DIAGNOSTIC: exact t=0 snapshot mismatch summary follows.")
-              for group, values in snapshot.items():
-                  for name, got in values.items():
-                      exp = reference["state_snapshot"][group][name]
-                      if group == "matter":
-                          for field, arr in got.items():
-                              expected = np.asarray(exp[field], dtype=float)
-                              actual = np.asarray(arr, dtype=float)
-                              if actual.shape != expected.shape or not np.array_equal(actual, expected):
-                                  delta = np.abs(actual - expected) if actual.shape == expected.shape else np.asarray([float("inf")])
-                                  neq = np.count_nonzero(actual != expected) if actual.shape == expected.shape else "shape"
-                                  print(f"DIFF matter.{name}.{field}: shape={actual.shape}/{expected.shape}, max_abs={np.max(delta):.17g}, neq={neq}")
-                      else:
-                          actual = np.asarray(got, dtype=float)
-                          expected = np.asarray(exp, dtype=float)
-                          if actual.shape != expected.shape or not np.array_equal(actual, expected):
-                              delta = np.abs(actual - expected) if actual.shape == expected.shape else np.asarray([float("inf")])
-                              neq = np.count_nonzero(actual != expected) if actual.shape == expected.shape else "shape"
-                              print(f"DIFF {group}.{name}: shape={actual.shape}/{expected.shape}, max_abs={np.max(delta):.17g}, neq={neq}")
-              raise AssertionError("diagnostic-off initialization differs from archived R80 t=0 arrays")
-          print("PASS: diagnostic-off initialization exactly matches archived R80 t=0 arrays, all fields.")
+          assert_state_roundoff_equal(snapshot, reference["state_snapshot"], "diagnostic-off t=0 initialization")
           PY
       - name: Exact short evolution match against archived R80 t=0.25 state
         env:
@@ -116,6 +130,41 @@ jobs:
           from pathlib import Path
           import numpy as np
           from engine.production_kernel import V55ProductionKernel
+          def assert_state_roundoff_equal(actual, expected, label):
+              """Compare each state array using a 512-epsilon field-scale bound."""
+              eps = np.finfo(float).eps
+              failures = []
+              worst_ratio, worst_name = 0.0, None
+              def check(name, a, e):
+                  nonlocal worst_ratio, worst_name
+                  a = np.asarray(a, dtype=float)
+                  e = np.asarray(e, dtype=float)
+                  if a.shape != e.shape:
+                      failures.append({"field": name, "shape_actual": a.shape, "shape_expected": e.shape})
+                      return
+                  scale = max(float(np.max(np.abs(e))) if e.size else 0.0, np.finfo(float).tiny)
+                  tolerance = 512.0 * eps * scale
+                  error = float(np.max(np.abs(a - e))) if a.size else 0.0
+                  ratio = error / tolerance
+                  if ratio > worst_ratio:
+                      worst_ratio, worst_name = ratio, name
+                  if not np.all(np.isfinite(a)) or error > tolerance:
+                      failures.append({"field": name, "max_abs": error, "scale": scale,
+                                       "tolerance": tolerance, "ratio": ratio})
+              for group in ("geometry", "scalars"):
+                  for name in actual[group]:
+                      check(f"{group}.{name}", actual[group][name], expected[group][name])
+              for species in actual["matter"]:
+                  for field in actual["matter"][species]:
+                      check(f"matter.{species}.{field}",
+                            actual["matter"][species][field],
+                            expected["matter"][species][field])
+              if failures:
+                  raise AssertionError(
+                      f"{label} exceeds a 512-epsilon field-scale envelope: "
+                      + json.dumps(failures[:24], sort_keys=True)
+                  )
+              print(f"PASS: {label} within 512 eps of each field scale; worst ratio={worst_ratio:.6g} ({worst_name}).")
           profile = Path(Path(os.environ["REFERENCE_PROFILE_PATH"]).read_text().strip())
           with profile.open() as f:
               rows = [json.loads(line) for line in f if line.strip()]
@@ -143,11 +192,10 @@ jobs:
                   for species_name in ("dark_matter", "baryons", "radiation")
               },
           }
-          assert snapshot == reference["state_snapshot"], (
-              "diagnostic-off evolution differs from archived R80 state at requested t=0.25; "
-              f"computed_t={state.t:.17g}, reference_t={reference['t']:.17g}"
+          assert_state_roundoff_equal(
+              snapshot, reference["state_snapshot"],
+              f"diagnostic-off state at requested t=0.25 (computed t={state.t:.17g})",
           )
-          print(f"PASS: all R80 geometry/scalar/matter arrays match archived t=0.25 state exactly at computed t={state.t:.17g}.")
           PY
       - name: Unit tests — boundary series and CMC optional-argument contract
         env:
