@@ -1,0 +1,45 @@
+name: Diagnostic - metric Ricci Hamiltonian spatial refinement
+
+on:
+  push:
+    branches:
+      - diag/independent-metric-ricci-audit
+    paths:
+      - diagnostics/curvature_consistency/independent_metric_ricci_hamiltonian_spatial_refine.py
+      - .github/workflows/independent-metric-ricci-hamiltonian-spatial-refine.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  refine:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      PYTHONPATH: .
+    steps:
+      - name: Checkout diagnostic branch and pinned vendor submodule
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Compile matched-CFL Hamiltonian refinement
+        run: python -m py_compile diagnostics/curvature_consistency/independent_metric_ricci_hamiltonian_spatial_refine.py
+      - name: Run matched-CFL Hamiltonian spatial refinement (N=40/80/160)
+        run: python diagnostics/curvature_consistency/independent_metric_ricci_hamiltonian_spatial_refine.py
+      - name: Upload diagnostic report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: independent-metric-ricci-hamiltonian-spatial-refine
+          path: runs/independent-metric-ricci-hamiltonian-spatial-refine/report.json
+          if-no-files-found: error
+          retention-days: 90
