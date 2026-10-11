@@ -1,0 +1,45 @@
+name: Diagnostic - strong-D half-CFL off-centre residual refinement
+
+on:
+  push:
+    branches:
+      - diag/independent-metric-ricci-audit
+    paths:
+      - diagnostics/curvature_consistency/strong_D_regular_F_half_CFL_refinement.py
+      - .github/workflows/strong-D-regular-F-half-CFL-refinement.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  refinement:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      PYTHONPATH: .
+    steps:
+      - name: Checkout diagnostic branch and pinned vendor submodule
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Compile half-CFL paired refinement diagnostic
+        run: python -m py_compile diagnostics/curvature_consistency/strong_D_regular_F_half_CFL_refinement.py
+      - name: Run production and cubic/Gauss shadow trajectories at half CFL to t=12
+        run: python diagnostics/curvature_consistency/strong_D_regular_F_half_CFL_refinement.py
+      - name: Upload diagnostic report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: strong-D-regular-F-half-CFL-refinement
+          path: runs/strong-D-regular-F-half-CFL-refinement/report.json
+          if-no-files-found: error
+          retention-days: 90
