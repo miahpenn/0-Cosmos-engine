@@ -177,7 +177,7 @@ def evaluate(grid, geom, scalars, matter):
         "first_five_H_vendor": [float(x) for x in H[:5]],
         "closure": {
             "H_term_reconstruction": float(np.max(np.abs(H-(Rv+tA+tK+ts+tf)))),
-            "curvature_replacement": float(np.max(np.abs((H-Hm)-(Rv-Rm))),
+            "curvature_replacement": float(np.max(np.abs((H-Hm)-(Rv-Rm)))),
             "tolerance": tol,
         },
     }
