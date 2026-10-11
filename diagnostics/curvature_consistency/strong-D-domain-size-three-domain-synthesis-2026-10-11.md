@@ -42,7 +42,7 @@ This supports describing a **shared outward-moving residual feature in the saved
 
 ### 2. The global off-centre maximum switch is initializer-sensitive
 
-Define the inner competitor as the maximum of (|H_{\mathrm{vendor}}|) over (1.25\le r<4), and the outer competitor over (4\le r\le20). The first saved sample where the outer maximum exceeds the inner one is:
+Define the inner competitor as the maximum of (|H_{\mathrm{vendor}}|) over (1.25\le r<4), and the outer competitor over (4\le r\le20). The first *post-initial* sampled crossover to sustained outer dominance (after the inner sector dominates at intermediate earlier samples) is:
 
 | Domain | Production | Regular-(F) shadow |
 |---|---:|---:|
