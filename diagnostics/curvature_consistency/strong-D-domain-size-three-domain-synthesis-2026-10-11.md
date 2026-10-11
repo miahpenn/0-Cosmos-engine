@@ -87,11 +87,13 @@ The intermediate-domain pair confirms a continuous domain-size sensitivity rathe
 
 **No physics patch is justified by this campaign. Do not label the residual feature a physical (D)-front, causal propagation, bounce, or turnaround.**
 
-## Next diagnostic step
+## Next diagnostic step — frozen-state CMC lapse crop-resolve
 
-Do not launch another domain sweep yet. Use the saved (t=0\ldots12) slices to audit the **actual elliptic lapse equation and boundary contribution** at matched times across the three domains, separating:
-1. change already present in the initial slice;
-2. the subsequent time growth of the lapse-profile difference;
-3. residual changes at fixed radii versus changes caused by the moving residual maximum.
+The previous domain-size artifacts contain full radial profiles of H_vendor and alpha, but they **do not contain** the full per-cell geometry, scalar fields, conservative matter variables, or CMC target Kdot. They therefore cannot reconstruct the exact lapse operator/source or by themselves separate the elliptic boundary-value effect from the difference in evolved states. See the [source-level lapse audit](cmc-lapse-domain-sensitivity-source-audit-2026-10-11.md).
 
-Keep this post-processing/diagnostic-only. Do not alter the lapse equation, boundary condition, gauge, projection, or matter/geometry evolution until that audit identifies a specific defective layer.
+The diagnostic-only follow-up is implemented in [cmc_lapse_frozen_state_crop_audit.py](cmc_lapse_frozen_state_crop_audit.py). It evolves **one** unchanged production trajectory at N=320, R=160, dr=0.5, saves the full state every 0.25 through t=12, then solves the native lapse equation on exact state crops at R=80,120,160. The same frozen interior arrays are used in each crop. It also performs non-evolving counterfactual solves to isolate:
+1. the change in global CMC Kdot projection under cropping;
+2. the changed outer Dirichlet value alpha(R)=1 while holding the projected target fixed;
+3. the remaining native cropped-solve difference.
+
+The registered workflow is configured to run this single trajectory and save full state, operator coefficients, and discrete residuals. No production equations, gauge, projection, boundary conditions, or evolution settings are changed. Do not launch another sweep; do not infer that lapse sensitivity causes the residual movement until the matched-state outputs are examined.
