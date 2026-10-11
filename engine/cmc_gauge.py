@@ -127,6 +127,7 @@ def solve_cmc_lapse(
     scalars,
     matter,
     outer_frac: float = 0.20,
+    outer_alpha: float | None = None,
 ) -> tuple[np.ndarray, float]:
     """Solve the stage-aware CMC lapse with the native spatial discretization.
 
@@ -162,7 +163,13 @@ def solve_cmc_lapse(
     m = Q / inv
     rhs = np.zeros(grid.n, dtype=float)
     rhs[:-1] = -kdot / inv[:-1]
-    rhs[-1] = 1.0
+    # Production default: alpha(R)=1. Diagnostic override may supply another value.
+    if outer_alpha is None:
+        rhs[-1] = 1.0
+    else:
+        rhs[-1] = float(outer_alpha)
+        if not np.isfinite(rhs[-1]):
+            raise FloatingPointError("CMC outer_alpha override is non-finite")
 
     band = _cmc_operator_banded(grid, c, m)
     alpha = solve_banded((4, 4), band, rhs, check_finite=False)

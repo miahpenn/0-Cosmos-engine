@@ -133,8 +133,11 @@ class V55ProductionKernel:
         return grid.cell_derivative_fourth(values, parity=parity)
 
     @staticmethod
-    def _solve_lapse(grid, geometry, scalars, matter):
-        return solve_cmc_lapse(grid, geometry, scalars, matter)
+    def _solve_lapse(grid, geometry, scalars, matter, outer_alpha=None):
+        """Solve CMC lapse; outer_alpha is diagnostic-only (None = production alpha(R)=1)."""
+        return solve_cmc_lapse(
+            grid, geometry, scalars, matter, outer_alpha=outer_alpha
+        )
 
     @staticmethod
     def _enforce_center_regularity(grid, geometry):
