@@ -57,7 +57,7 @@ jobs:
             --r80-profile "$(cat /tmp/ref80/path.txt)" \
             --r160-profile "$(cat /tmp/ref160/path.txt)" \
             --smoke-only
-      - name: Unit tests
+      - name: Unit tests — boundary contract and live derivative separation
         env:
           PYTHONPATH: .
         run: python -m pytest -q tests/test_boundary_alpha_series.py

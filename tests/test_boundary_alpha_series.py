@@ -111,12 +111,22 @@ def test_stage_time_override_and_frozen_matter_boundary_are_separated(monkeypatc
         return dict(fixed_boundary)
 
     original_species_rhs = production_kernel_module.species_rhs
+    original_metric_derivatives = production_kernel_module.geometry_metric_derivatives
+    derivative_alpha_boundaries = []
 
     def recording_species_rhs(metric, *args, **kwargs):
         observed.append({name: float(getattr(metric, name)[-1]) for name in fixed_boundary})
         return original_species_rhs(metric, *args, **kwargs)
 
+    def recording_metric_derivatives(metric, *args, **kwargs):
+        derivative_alpha_boundaries.append(float(metric.alpha[-1]))
+        return original_metric_derivatives(metric, *args, **kwargs)
+
     monkeypatch.setattr(production_kernel_module, "species_rhs", recording_species_rhs)
+    monkeypatch.setattr(
+        production_kernel_module, "geometry_metric_derivatives",
+        recording_metric_derivatives,
+    )
     kernel = V55ProductionKernel(
         diagnostic_outer_alpha=alpha_provider,
         diagnostic_matter_boundary=boundary_provider,
@@ -135,4 +145,13 @@ def test_stage_time_override_and_frozen_matter_boundary_are_separated(monkeypatc
     for values in observed:
         for name, expected in fixed_boundary.items():
             assert values[name] == expected
+    # Matter metric endpoints are restored, but derivatives continue to use
+    # the live stage alpha rather than the baseline endpoint value.
+    assert derivative_alpha_boundaries == pytest.approx([
+        alpha_value, alpha_value + 0.001 * 0.002,
+    ])
+    assert all(
+        abs(value - fixed_boundary["alpha"]) > 1.0e-6
+        for value in derivative_alpha_boundaries
+    )
     assert stepped.geometry.alpha[-1] == pytest.approx(alpha_value + 0.001 * 0.002)
