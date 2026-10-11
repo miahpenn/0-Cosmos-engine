@@ -26,11 +26,25 @@ The intended intermediate-domain run [#38114367091](https://github.com/miahpenn/
 
 The earlier duplicate run [#38114304847](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38114304847) is now conclusively `cancelled`, with only a partial production trajectory to t=3 and no shadow case. Do not treat its partial artifact as a completed campaign.
 
-## Active R=80 full-state capture
+## R=80 evolved-field capture — completed
 
-Run [#38150925743](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38150925743) remains reported as `in_progress` on the latest status query; the numerical trajectory step is active and no artifact is available yet. Its job metadata has not updated since 2026-10-11T15:21:23Z. Attempted log retrieval returned 404 while the job was active, so the run may be slow or stalled; do not assert either without further evidence. Do not launch another expensive trajectory while this one is unresolved.
+Run [#38150925743](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38150925743) completed successfully on commit `f7be6306a0f7845f06d02dbb098ae869eec9759c`. Artifact `strong-D-evolved-state-r80-capture`, ID `11706797173`, SHA-256 `8b118d1f81e01f2a5d291d160b8bac42abc6a11051d8453efd9c19d0826d6d8b`.
 
-The capture uses unchanged production settings (N=160, R=80, dr=0.5, CFL=0.0075, D amplitude 1e-4, scalar amplitude 0.01, width 7, radiation enabled, t=12) and is intended to save full geometry, scalar and conservative matter fields at 49 times. Compilation and fixed-spacing configuration validation passed before numerical evolution.
+The capture used unchanged production settings (N=160, R=80, dr=0.5, CFL=0.0075, D amplitude 1e-4, scalar amplitude 0.01, width 7, radiation enabled, t=12). It completed 3,200 accepted steps and saved 49 evolved-field slices. Status is completed; no failure, cycle event, or handoff. No gauge, boundary-condition, projection, or production-physics change was made.
+
+## Evolved-field comparison result
+
+Report committed at [evolved-field-domain-comparison-r80-vs-r160-2026-10-11.md](https://github.com/miahpenn/0-Cosmos-engine/blob/diag/independent-metric-ricci-audit/diagnostics/curvature_consistency/evolved-field-domain-comparison-r80-vs-r160-2026-10-11.md).
+
+The R=80 capture and R=160 full-state snapshots have 49 exactly matching sample times and identical shared radial cell centers. The independently evolved states diverge even though the initial physical-state arrays match at stored precision except for the small domain-dependent lapse difference and roundoff-scale geometry terms.
+
+- Initial maximum lapse difference: `5.66858e-4`.
+- By t=12, maximum lapse difference: `0.116139` at r=39.75 (alpha_R80=0.95381218; alpha_R160=0.83767311).
+- At t=12, D differs by `0.00421259` at r=13.25; a by `0.00700752` at r=17.75; b by `0.00371757` at r=17.25.
+- The saved tau accumulators differ by +0.00101611 at t≈4, +0.01563555 at t≈8, and +0.01174265 at t=12 (R=80 minus R=160). Treat these as saved accumulator differences until the engine convention is formally confirmed.
+- D/PD differences cross the diagnostic growth threshold at the first post-initial slice, t=0.25125, while the lapse's own growth threshold is crossed at t=5.74875, r=21.75. These are reporting thresholds, not proof of causal order or propagation.
+
+This confirms an evolved-state domain-associated mismatch; it does not identify whether lapse normalization, elliptic boundary influence, or later coupled evolution dominates. No physical-front, bounce, turnaround, or causal-speed interpretation is admitted. No physics or gauge patch is warranted.
 
 ## Comparison analysis requirements
 
@@ -51,7 +65,7 @@ The postprocessor `diagnostics/curvature_consistency/compare_evolved_domain_stat
 
 ## Next action
 
-Wait for the one active R=80 capture to finish or provide updated status/log evidence. Once the artifact exists, run the updated comparator against the R=160 frozen-state full-state snapshots. Do not start R=120 full-state replay yet; the completed R=120 profile campaign is available for context, but not for full per-cell state comparison.
+The planned R=80 vs R=160 evolved-field comparison is complete. Next, audit the exact t=0 initializer and the CMC lapse solve side-by-side, then trace the first saved-slice differences by field. Keep this diagnostic-only and do not launch another expensive trajectory until this comparison is reconciled. Do not start an R=120 full-state replay yet; the completed R=120 profile campaign is useful context but lacks matching full per-cell state history.
 
 **No physics patch, gauge patch, artificial damping/floor/clamp, or bounce/turnaround interpretation is warranted by the current evidence.**
 
