@@ -91,13 +91,17 @@ jobs:
                           for field, arr in got.items():
                               expected = np.asarray(exp[field], dtype=float)
                               actual = np.asarray(arr, dtype=float)
-                              if not np.array_equal(actual, expected):
-                                  print(f"DIFF matter.{name}.{field}: max_abs={np.max(np.abs(actual-expected)):.17g}, neq={np.count_nonzero(actual!=expected)}")
+                              if actual.shape != expected.shape or not np.array_equal(actual, expected):
+                                  delta = np.abs(actual - expected) if actual.shape == expected.shape else np.asarray([float("inf")])
+                                  neq = np.count_nonzero(actual != expected) if actual.shape == expected.shape else "shape"
+                                  print(f"DIFF matter.{name}.{field}: shape={actual.shape}/{expected.shape}, max_abs={np.max(delta):.17g}, neq={neq}")
                       else:
                           actual = np.asarray(got, dtype=float)
-                          expected = np.asarray(exp[name], dtype=float)
-                          if not np.array_equal(actual, expected):
-                              print(f"DIFF {group}.{name}: max_abs={np.max(np.abs(actual-expected)):.17g}, neq={np.count_nonzero(actual!=expected)}")
+                          expected = np.asarray(exp, dtype=float)
+                          if actual.shape != expected.shape or not np.array_equal(actual, expected):
+                              delta = np.abs(actual - expected) if actual.shape == expected.shape else np.asarray([float("inf")])
+                              neq = np.count_nonzero(actual != expected) if actual.shape == expected.shape else "shape"
+                              print(f"DIFF {group}.{name}: shape={actual.shape}/{expected.shape}, max_abs={np.max(delta):.17g}, neq={neq}")
               raise AssertionError("diagnostic-off initialization differs from archived R80 t=0 arrays")
           print("PASS: diagnostic-off initialization exactly matches archived R80 t=0 arrays, all fields.")
           PY
