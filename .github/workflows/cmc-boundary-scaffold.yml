@@ -85,6 +85,50 @@ jobs:
           assert snapshot == reference["state_snapshot"], "diagnostic-off initialization differs from archived R80 t=0 arrays"
           print("PASS: diagnostic-off initialization exactly matches archived R80 t=0 arrays, all fields.")
           PY
+      - name: Exact short evolution match against archived R80 t=0.25 state
+        env:
+          PYTHONPATH: .
+          REFERENCE_PROFILE_PATH: /tmp/r80-reference/profile_path.txt
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          import numpy as np
+          from engine.production_kernel import V55ProductionKernel
+          profile = Path(Path(os.environ["REFERENCE_PROFILE_PATH"]).read_text().strip())
+          with profile.open() as f:
+              rows = [json.loads(line) for line in f if line.strip()]
+          reference = next(row for row in rows if row["label"] == "target=0.25")
+          kernel = V55ProductionKernel()
+          state = kernel.initialize(
+              resolution=160, r_max=80.0, amplitude=0.01, width=7.0,
+              D_amplitude=1.0e-4, include_radiation=True,
+          )
+          dt = 0.0075 * float(state.grid.dr)
+          while True:
+              state = kernel.step(state, dt)
+              if state.t + 0.5 * dt >= 0.25 or abs(state.t - 0.25) < 1.0e-12:
+                  break
+          snapshot = {
+              "geometry": {name: [float(x) for x in np.asarray(getattr(state.geometry, name), dtype=float)]
+                           for name in ("a", "b", "X", "alpha", "beta", "Aa", "K", "Lambda", "B")},
+              "scalars": {name: [float(x) for x in np.asarray(getattr(state.scalars, name), dtype=float)]
+                          for name in ("S", "PS", "D", "PD", "phi", "Pi")},
+              "matter": {
+                  species_name: {
+                      name: [float(x) for x in np.asarray(getattr(getattr(state.matter, species_name), name), dtype=float)]
+                      for name in ("rest", "energy_t", "momentum_r")
+                  }
+                  for species_name in ("dark_matter", "baryons", "radiation")
+              },
+          }
+          assert snapshot == reference["state_snapshot"], (
+              "diagnostic-off evolution differs from archived R80 state at requested t=0.25; "
+              f"computed_t={state.t:.17g}, reference_t={reference['t']:.17g}"
+          )
+          print(f"PASS: all R80 geometry/scalar/matter arrays match archived t=0.25 state exactly at computed t={state.t:.17g}.")
+          PY
       - name: Unit tests — boundary series and CMC optional-argument contract
         env:
           PYTHONPATH: .
