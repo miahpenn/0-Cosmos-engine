@@ -71,6 +71,23 @@ Lumen reports a local production-arm rerun at (N=160, r_{max}=80, D=10^{-4}), CF
 
 These are **Lumen-reported local reproduction observations**, not yet a committed, independently retrievable artifact in the repository. They should be retained with Lumen's script and log, clearly labelled as reproduction evidence and not as the official half-CFL or domain campaign. The hourly samples are insufficient to decide whether the (t=8\rightarrow9) argmax jump is a moving front or a switch between peaks.
 
+
+## 8. Domain-size runner staged (not launched)
+
+Diagnostic script committed after the half-CFL retry started:
+- `diagnostics/curvature_consistency/strong_D_domain_size_residual_audit.py`
+- Commit: `2023753e22e9f80665bda98b566a1597b9a1ff90`
+
+It defines four sequential cases, ordered to prioritize the primary production comparison:
+1. production initializer, (N=160, r_{max}=80);
+2. production initializer, (N=320, r_{max}=160);
+3. regular-F cubic/Gauss shadow, (N=160, r_{max}=80);
+4. regular-F cubic/Gauss shadow, (N=320, r_{max}=160).
+
+All use Δr=0.5, CFL=0.0075, D=10^-4, identical scalar profile parameters, radiation ON, and (t=0\ldots12). It saves full radial H and lapse profiles at (t=0) and every 0.25 time units to per-case JSONL files, while keeping scalar summaries (maximum-residual radius and first-cell lapse among them) in progress JSON. Heartbeats/checkpoints are built in so partial artifacts survive a later failure when the workflow artifact step runs.
+
+The domain-size workflow file has **not** been added/launched yet, deliberately: the half-CFL retry is the active expensive run, and the project rule is one expensive campaign at a time. After the retry's final/partial artifacts are inspected, add the workflow and start the domain campaign.
+
 ## 7. Next action
 
 Wait for retry #38106791775 to finish and inspect its checkpoint artifact even if final status is not success. Compare production and shadow at matched times, including off-centre max-|H|, its radius, α(0), and lapse/geometry health. Do **not** launch the domain-size experiment until the half-CFL campaign's status and partial/final records have been assessed.
