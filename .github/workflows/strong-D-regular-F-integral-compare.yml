@@ -1,0 +1,45 @@
+name: Diagnostic - strong-D regular-F radial integral comparison
+
+on:
+  push:
+    branches:
+      - diag/independent-metric-ricci-audit
+    paths:
+      - diagnostics/curvature_consistency/strong_D_regular_F_integral_compare.py
+      - .github/workflows/strong-D-regular-F-integral-compare.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      PYTHONPATH: .
+    steps:
+      - name: Checkout diagnostic branch and pinned vendor submodule
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Compile regular-F radial integral comparison
+        run: python -m py_compile diagnostics/curvature_consistency/strong_D_regular_F_integral_compare.py
+      - name: Compare production, origin-only and regular-F radial quadratures
+        run: python diagnostics/curvature_consistency/strong_D_regular_F_integral_compare.py
+      - name: Upload diagnostic report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: strong-D-regular-F-integral-comparison
+          path: runs/strong-D-origin-and-regular-F-integral-comparison/report.json
+          if-no-files-found: error
+          retention-days: 90
