@@ -40,6 +40,7 @@ CFL = 0.00375
 FINAL_TIME = 12.0
 TARGET_TIMES = (0.01, 4.0, 8.0, 12.0)
 EPS = np.finfo(float).eps
+OUT_DIR = ROOT / "runs" / "strong-D-regular-F-half-CFL-refinement"
 
 
 def initialize_case(mode):
@@ -176,6 +177,58 @@ def sample_state(state, label):
     }
 
 
+
+def write_progress(mode, state, metadata, samples, failures, accepted_steps,
+                   failed=None, finished=False):
+    """Persist durable per-mode checkpoints so timeout/cancellation loses no samples."""
+    if failed is not None:
+        status = "numerical_failure"
+    elif finished and failures:
+        status = "completed_with_diagnostic_gate_failures"
+    elif finished:
+        status = "completed"
+    else:
+        status = "in_progress"
+    report = {
+        "schema": "strong_D_regular_F_half_CFL_progress_v1",
+        "diagnostic_only": True,
+        "mode": mode,
+        "status": status,
+        "configuration": {
+            "N": N, "r_max": R_MAX, "amplitude": AMPLITUDE, "width": WIDTH,
+            "D_amplitude": D_AMPLITUDE, "include_radiation": INCLUDE_RADIATION,
+            "CFL": CFL, "dt_nominal": CFL * (R_MAX / N),
+            "requested_final_time": FINAL_TIME,
+            "target_times": [0.0, *TARGET_TIMES],
+            "production_physics_changed": False,
+            "production_defaults_changed": False,
+        },
+        "metadata": metadata,
+        "accepted_steps": accepted_steps,
+        "current_state": {
+            "t": float(state.t), "tau": float(state.tau),
+            "e_folds": float(state.e_folds),
+            "cycle_event_count": len(state.cycle.events),
+            "handoff_count": len(state.handoffs),
+        },
+        "samples": samples,
+        "diagnostic_gate_failures": failures,
+        "failure": failed,
+    }
+    OUT_DIR.mkdir(parents=True, exist_ok=True)
+    path = OUT_DIR / f"{mode}_progress.json"
+    path.write_text(json.dumps(report, indent=2, sort_keys=True, allow_nan=False) + "\n")
+    print(
+        "[STRONG_D_REGULAR_F_HALF_CFL_REFINEMENT] CHECKPOINT "
+        + json.dumps({
+            "mode": mode, "status": status, "t": float(state.t),
+            "accepted_steps": accepted_steps, "sample_count": len(samples),
+            "path": str(path),
+        }, sort_keys=True),
+        flush=True,
+    )
+
+
 def run_case(mode):
     kernel, state, metadata = initialize_case(mode)
     dr = float(state.grid.dr)
@@ -188,6 +241,7 @@ def run_case(mode):
     failed = None
     targets = list(TARGET_TIMES)
     target_index = 0
+    write_progress(mode, state, metadata, samples, failures, accepted_steps, failed=failed)
     while state.t < FINAL_TIME - 1.0e-13:
         dt = min(dt_nominal, FINAL_TIME-state.t)
         try:
@@ -202,6 +256,15 @@ def run_case(mode):
                 finite_array(field,arr)
             state = new_state
             accepted_steps += 1
+            if accepted_steps % 128 == 0:
+                print(
+                    "[STRONG_D_REGULAR_F_HALF_CFL_REFINEMENT] HEARTBEAT "
+                    + json.dumps({
+                        "mode": mode, "t": float(state.t),
+                        "accepted_steps": accepted_steps,
+                    }, sort_keys=True),
+                    flush=True,
+                )
         except Exception as exc:
             failed = {
                 "stage":"evolution_step","step_attempt":accepted_steps+1,
@@ -220,9 +283,13 @@ def run_case(mode):
             if not sample["closures"]["pass"]:
                 failures.append({"t":sample["t"],"gate":"sample_closure","closures":sample["closures"]})
             target_index += 1
+            write_progress(
+                mode, state, metadata, samples, failures, accepted_steps,
+                failed=failed,
+            )
 
     completed = failed is None and state.t >= FINAL_TIME-1.0e-10
-    return {
+    result = {
         "mode": mode,
         "status": "completed" if completed and not failures else (
             "completed_with_diagnostic_gate_failures" if completed else "numerical_failure"
@@ -243,6 +310,11 @@ def run_case(mode):
         "diagnostic_gate_failures":failures,
         "failure":failed,
     }
+    write_progress(
+        mode, state, metadata, samples, failures, accepted_steps,
+        failed=failed, finished=True,
+    )
+    return result
 
 
 def main():
@@ -314,8 +386,8 @@ def main():
             "A successful shadow trajectory is not a production patch or admission."
         ),
     }
-    out=ROOT/"runs"/"strong-D-regular-F-half-CFL-refinement"
-    out.mkdir(parents=True,exist_ok=True)
+    out = OUT_DIR
+    out.mkdir(parents=True, exist_ok=True)
     path=out/"report.json"
     path.write_text(json.dumps(report,indent=2,sort_keys=True,allow_nan=False)+"\n")
     print("[STRONG_D_REGULAR_F_HALF_CFL_REFINEMENT] report="+str(path))
