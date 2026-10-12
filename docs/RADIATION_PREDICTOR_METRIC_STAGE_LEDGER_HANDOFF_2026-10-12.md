@@ -313,3 +313,38 @@ The attempted step's boundary update comes later than the recovery exception, bu
 ### Separate historical-source Aa/K instrumentation status
 
 A diagnostic-only source-term capture was pushed on this handoff branch at commits `6f603a7aabfed36069d4c9f258fe6f31029431c0`, `5bba82c6a1f8414549b6628283ff9f67db1c6dc2`, `54d84507e2cda4df3f35452c44ff0024bdb759d1`, `f0d394fda39db344ad7f58486d7a715e9edded57`, and trigger commit `b581535f89ad676c54ed3d330bd67e7db10a6661`. It is frozen by its workflow to the **historical** source baseline `9eed1cf95c52f001c2b87afbbe6da37faa56d50e), so its outputs (if the workflow artifact is produced) must be labeled as a historical-source capture, not a matched reproduction of the corrected-rate run. The run/artifact outcome has not been independently verified from accessible workflow-run metadata in this review. No further long trajectory is queued by this handoff; use the already completed corrected-rate artifact for the next offline analysis.
+
+
+## 12. Ten-step, corrected-rate outer-cell trend — offline budget closure
+
+**Method:** re-read the already completed corrected-rate artifact only; no simulation or production change. Inputs are the same-source trace from run `38310237842`, `trace.json` SHA-256 `53a1f9f188e0eea4575da4458d09891f50144b9f89f945c995cd9980221fb619`. The archive was downloaded and independently verified against ZIP SHA-256 `f64298e2819e0dd9c4c2df712a4d1250e4855a5b0e467430fe7aa419a533e49f`.
+
+At cell `i=79), across steps 1557–1566 ((t=46.71) to (46.98), fixed (dt=0.03)), the saved trace shows a **monotone approach**, not a one-step spike:
+
+| Step | t | C accepted | C after flux + source | C after metric predictor | (A_a) accepted | (K) accepted | (Deltagamma^{rr}) predictor |
+|---:|---:|---:|---:|---:|---:|---:|---:|
+| 1557 | 46.71 | +3.45018e-6 | +4.61793e-6 | +3.15420e-6 | 0.126442 | 0.229097 | +0.0158786 |
+| 1558 | 46.74 | +3.18524e-6 | +4.41492e-6 | +2.87700e-6 | 0.129633 | 0.234548 | +0.0164757 |
+| 1559 | 46.77 | +2.90915e-6 | +4.20294e-6 | +2.58749e-6 | 0.132898 | 0.240111 | +0.0170995 |
+| 1560 | 46.80 | +2.62066e-6 | +3.98062e-6 | +2.28430e-6 | 0.136236 | 0.245785 | +0.0177512 |
+| 1561 | 46.83 | +2.31835e-6 | +3.74640e-6 | +1.96589e-6 | 0.139648 | 0.251568 | +0.0184322 |
+| 1562 | 46.86 | +2.00068e-6 | +3.49846e-6 | +1.63051e-6 | 0.143132 | 0.257459 | +0.0191437 |
+| 1563 | 46.89 | +1.66458e-6 | +3.23288e-6 | +1.27453e-6 | 0.146688 | 0.263455 | +0.0198871 |
+| 1564 | 46.92 | +1.30109e-6 | +2.92753e-6 | +8.77875e-7 | 0.150314 | 0.269553 | +0.0206638 |
+| 1565 | 46.95 | +9.03933e-7 | +2.58990e-6 | +4.47393e-7 | 0.154009 | 0.275752 | +0.0214754 |
+| 1566 | 46.98 | +4.72909e-7 | +2.21976e-6 | −1.69974e-8 | 0.157772 | 0.282048 | +0.0223233 |
+
+Here `C accepted` uses the accepted radiation conservatives and accepted metric. `C after flux + source` applies the recorded matter RHS components while holding the accepted metric fixed. `C after metric predictor` evaluates that updated conservative state on the explicit predictor metric. The saved ordered budget has **zero closure error at every listed step**.
+
+Across these nine transitions:
+- (A_a) rises by (0.0313308) (about 24.8%) and (K) by (0.0529511) (about 23.1%).
+- (|\dot a|) rises from (0.166243) to (0.192166); (dot X) rises from (0.0704451) to (0.0887393).
+- The predictor's (Delta\gamma^{rr}) rises from (0.0158786) to (0.0223233), approximately 40.6%.
+- The metric-induced change to C becomes more negative from (-1.46373\times10^{-6}) to (-2.23676\times10^{-6}). Meanwhile the separately recorded flux and source contributions each remain positive and grow smoothly.
+- Across all ten records, the pinned (dot a=-2\alpha a A_a) and (dot X=\alpha X K/3) identities have zero recorded residual, the (Delta\gamma^{rr}) decomposition has zero closure error, and the matter-budget closure is zero.
+
+**Admitted interpretation:** the cone margin is progressively consumed by the combined metric predictor while the curvature inputs/rates rise smoothly; the exact guard failure is the terminal point of this trend. The trace does not show a discrete single-step RHS identity error at (t=46.98). It still does not establish whether the upstream cause is the evolution of (A_a/K), a constraint or gauge synchronization defect, prior boundary-conditioned data, or model coupling. These source/constraint/boundary causes remain open; no repair is justified by this trend alone.
+
+### Minimal offline next gate
+
+Use these ten rows and the three terminal same-source counterfactuals as fixed regression witnesses. The immediate review should verify from existing source and archived diagnostics: (1) whether the accepted (A_a,K) trajectory is consistent with the full primary L2/L3 update and constraint residuals; (2) whether the previous completed-state outer-boundary modification is quantitatively separable from the incoming (A_a) at this same source/state; and (3) whether H/M/(C_\Lambda), centre-series, and Misner–Sharp flux/work gate values are admitted at the same times. Where the current artifact omitted a required field, mark it **not captured** instead of inferring it. Do not start another trajectory solely to duplicate the trend.
