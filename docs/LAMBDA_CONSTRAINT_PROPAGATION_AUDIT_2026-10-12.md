@@ -213,6 +213,44 @@ No generic error has been found in the pinned parity stencil. The evolved centre
 
 The next diagnostic should report the actual regularity series ratios directly on the saved states—`Aa/r²`, `Lambda/r`, `(a/b-1)/r²`, plus `D_r f/r` for the even fields K, X, a, b, S, D and phi—at the first cells for t=0 and t=2.16. Compare these against resolution and the exact production stencil, and report the independent matter-current derivative. That is a narrower test of centre smoothness than fitting one quartic across r<=6. No long run and no physics change is needed.
 
+## Centre-series ratio audit — complete
+
+Run: https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38214837536
+Artifact: `center-series-ratio-audit`
+SHA-256: `d5af2d743068000a354506eba3dc34ff1be5f9a9fba6482727045e5178be43d4`
+
+The audit reads the t=0 initializer and the exact N=40,60,80,120 saved t=2.16 states. No evolution was advanced. It reports `Aa/r²`, `Lambda/r`, `Lambda_metric/r`, `C_lambda/r`, `(1-a/b)/r²`, determinant error and `D_r f/r` for even fields K,X,a,b,S,D,phi, using the pinned production derivative.
+
+At t=0, the centre ratios are bounded across resolution: `Lambda/r` at the first cell is 2.85e-3 (N40), 2.97e-3 (N60), 3.02e-3 (N80), 3.05e-3 (N120); `(1-a/b)/r²` there is about -1.21e-3 to -1.25e-3. `Aa/r²` and `D_r K/r` are roundoff-close to zero. The metric connection residual is zero by construction at all cells. However, `Lambda/r` drops by about a factor two from the first cell to the next for every N, indicating a persistent first-cell stencil/regularity feature even on the initializer.
+
+At t=2.16, the first-cell ratios depart strongly from the adjacent cell:
+- `Lambda/r`: N40 3.52e-3 at r=1 versus 1.28e-3 at r=3; N60 4.49e-3 at r=.667 versus 1.78e-3 at r=2; N80 5.70e-3 at r=.5 versus 2.23e-3 at r=1.5; N120 9.06e-3 at r=.333 versus 3.26e-3 at r=1.
+- `C_lambda/r` in the first cell: +1.64e-3, -2.99e-3, -1.95e-3, +3.59e-3 for N40,60,80,120 respectively. Signs vary with resolution and the largest magnitude grows to 3.59e-3 at N120.
+- `Aa/r²` in the first cell is -7.72e-4 (N40), -9.96e-4 (N60), +1.029e-3 (N80), +4.429e-4 (N120); it changes sign with resolution. `(1-a/b)/r²` likewise develops a first-cell shift whose magnitude/sign is not uniformly convergent.
+- By i=2 and outward, several ratios are much closer across refinements; for example N80 at r=2.5 has `Lambda/r=1.13e-3`, and N120 at r=1.667 has `1.19e-3`, but `C_lambda/r` at those cells is +1.29e-4 versus -1.54e-4.
+
+**Decision:** this strengthens the central-layer diagnosis and localizes a resolution-sensitive first-cell regularity feature. It does not indicate a generic parity-sign error: the manufactured even/odd derivative tests passed at ~2e-15. Nor does it prove the evolved field equations are wrong; the initializer already shows a persistent first-cell ratio jump, while evolution magnifies it. Keep the production stencil and physics unchanged. Next compare the production first-cell ratio jumps with the discrete centre parity closure implied by the actual geometry/scalar evolution rates, without projecting or re-evolving a modified state.
+
+## Per-step N=80 momentum observer — complete
+
+Run: https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38214554266
+Artifact: `momentum-per-step-observer-n80`
+SHA-256: `223901a0fbd2ce4ddbfb39cce2cb2b3c88eb24286f7d249c62cc3ecad2f9b569`
+
+This observer replayed the original N80 production trajectory through t=12, logging all 400 accepted steps and each signed momentum term. The final replay matches the archived checkpoint field-for-field (max difference exactly zero; proper time exactly matches). Geometry and source term closures are 1.73e-18 and 8.47e-22, so the observer reproduces the production path rather than a nearby run.
+
+At i=2, r=2.5, the momentum residual is **oscillatory, not monotone**: it crosses zero at approximately t=1.86, 3.93, 4.92, 7.08, 8.01, 10.26 and 11.07. Prominent negative excursions occur around t≈3,6,9.12,12, with transient recovery between them. RMS over the full trajectory at that cell: M residual 1.083e-3, H residual 9.119e-3, C_lambda 6.816e-3. M strongly tracks the geometric momentum term (correlation 0.9975); the scalar current term RMS is only 6.49e-5.
+
+At t=12/i=2 the geometric momentum residual components are:
+- D_r Aa: +2.6496e-4
+- -(2/3)D_r K: -6.3120e-4
+- 6 Aa chi_r: +1.0166e-5
+- radial (2(Aa-Ab)/r): -2.30978e-3 (dominant)
+- b-gradient piece: -1.74225e-5
+- summed M_geom: -2.68327e-3; total M residual: -2.68944e-3.
+
+This per-step replay matters: the earlier t=2-separated checkpoint tangent average cannot be treated as instantaneous causality because the strongly oscillatory trajectory can reverse within each interval. The step-by-step record shows large variation and cancellation in the geometric terms, with the radial (2/r) term dominating the endpoint geometric residual. That further supports centre/curvature/derivative compatibility as the next audit target, not a large matter-current source. No physical interpretation is admitted by these oscillations alone.
+
 ## Matched-CFL spatial refinement — complete
 
 Run: https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38212879394
