@@ -109,6 +109,12 @@ class V55ProductionKernel:
             D_amplitude=D_amplitude,
             include_radiation=include_radiation,
         )
+        # Check radiation realizability before CMC's total-source assembly
+        # recovers primitives. The check depends on a, b, X, not on alpha.
+        validate_species_admissibility(
+            metric_slice_from_q(grid, init.geometry),
+            init.matter.radiation, Species.RADIATION, stage="initialization",
+        )
         # Initialize the production slice on the same stage-aware CMC gauge
         # that is carried throughout evolution.
         init.geometry.alpha = self._solve_lapse(
@@ -203,6 +209,14 @@ class V55ProductionKernel:
         s0 = state.scalars
         m0 = state.matter
 
+        # Validate before the CMC solve projects total matter and recovers
+        # radiation primitives. The cone check depends on the spatial metric
+        # (a, b, X), not on the as-yet-unsolved lapse.
+        validate_species_admissibility(
+            metric_slice_from_q(grid, g0), m0.radiation, Species.RADIATION,
+            stage="initial",
+        )
+
         # The lapse is elliptically determined by the current CMC slice.
         # Spatial shift is zero in the spherical CMC branch.
         g0.alpha = self._solve_lapse(
@@ -211,8 +225,8 @@ class V55ProductionKernel:
         g0.beta.fill(0.0)
         g0.B.fill(0.0)
 
-        # Validate the actual starting radiation state, not a unit-step RHS
-        # extraction intermediate.
+        # Retain the post-solve check as a fail-closed assertion on the same
+        # starting state after the gauge slice is refreshed.
         validate_species_admissibility(
             metric_slice_from_q(grid, g0), m0.radiation, Species.RADIATION,
             stage="initial",
@@ -254,10 +268,16 @@ class V55ProductionKernel:
             )
         )
 
+        # Preflight the actual timestep-scaled predictor before the CMC
+        # source projection can attempt primitive recovery on this state.
+        validate_species_admissibility(
+            metric_slice_from_q(grid, g_explicit1), m1.radiation,
+            Species.RADIATION, stage="explicit-predictor",
+        )
         g_explicit1.alpha = self._solve_lapse(
             grid, g_explicit1, s1, m1
         )[0]
-        # Check the timestep-scaled matter predictor against its solved metric.
+        # Recheck after the lapse solve as a fail-closed stage assertion.
         validate_species_admissibility(
             metric_slice_from_q(grid, g_explicit1), m1.radiation,
             Species.RADIATION, stage="explicit-predictor",
@@ -282,6 +302,13 @@ class V55ProductionKernel:
             0.5 * gterms0["lambda_l2"]
             + 0.5 * gterms_pred["lambda_l2"]
             + gterms0["lambda_l3"]
+        )
+        # Validate before the boundary routine's total stress-energy
+        # projection and the following CMC solve can recover radiation.
+        # The primary predictor has the same spatial (a, b, X) as g_explicit1.
+        validate_species_admissibility(
+            metric_slice_from_q(grid, g1), m1.radiation, Species.RADIATION,
+            stage="primary-predictor",
         )
         # The pinned R0 radial system supplies a parameter-free incoming-light
         # characteristic reconstruction for Aa at the finite outer worldtube.
@@ -350,6 +377,15 @@ class V55ProductionKernel:
                 )
                 for name in ("dark_matter", "baryons", "radiation")
             )
+        )
+
+        # The completed matter state and final explicit spatial metric are
+        # already known. Check realizability before any final boundary/source
+        # projection or CMC solve can recover radiation primitives. Later
+        # implicit updates change A_a, K and Lambda, not this spatial metric.
+        validate_species_admissibility(
+            metric_slice_from_q(grid, gnew), mnew.radiation,
+            Species.RADIATION, stage="final",
         )
 
         # Final implicit evaluation is taken on the final explicit state,
