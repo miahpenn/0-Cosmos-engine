@@ -1,0 +1,68 @@
+name: Diagnostic - discrete-initial multi-constraint RHS tangent
+
+on:
+  push:
+    branches:
+      - diag/constraint-tangent-discrete-initial-2026-10-12
+    paths:
+      - tools/discrete_initial_constraint_tangent.py
+      - .github/workflows/discrete-initial-constraint-tangent.yml
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: discrete-initial-constraint-tangent
+  cancel-in-progress: true
+
+jobs:
+  tangent-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      PYTHONUNBUFFERED: "1"
+    steps:
+      - name: Checkout diagnostic branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Checkout exact production source and pinned vendor
+        uses: actions/checkout@v4
+        with:
+          ref: 6d8b3f2790644591326df57c55908863f994cb0c
+          path: source
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install exact production dependencies
+        run: python -m pip install -r source/requirements.txt
+
+      - name: Download paired baseline/candidate initial checkpoints
+        uses: actions/download-artifact@v4
+        with:
+          name: discrete-consistent-initial-production-ab-t2p16
+          run-id: 38284401548
+          github-token: \${{ github.token }}
+          path: production-ab-artifact
+
+      - name: Compile tangent diagnostic
+        run: python -m py_compile tools/discrete_initial_constraint_tangent.py
+
+      - name: Evaluate frozen-state RHS tangent and one-step comparator
+        run: python tools/discrete_initial_constraint_tangent.py
+
+      - name: Upload signed multi-constraint tangent report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: discrete-initial-constraint-tangent
+          path: results/discrete-initial-constraint-tangent/
+          if-no-files-found: warn
+          retention-days: 90
