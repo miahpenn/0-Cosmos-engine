@@ -1468,7 +1468,7 @@ class RadiationStageTrace:
             "engine/true_cmc_pirk_kernel.py",
             "engine/radiation_geometry_stage_trace.py",
             ".github/workflows/zero_star_radiation_stage_trace.yml",
-            ".github/workflows/radiation_trace_after_rate_fix.yml",
+            ".github/workflows/boundary_cmc_coupling_audit.yml",
             ".github/workflows/zero_star_extended_b_recovery_metric.yml",
         ):
             path = Path(rel)
@@ -1477,8 +1477,8 @@ class RadiationStageTrace:
                 if path.is_file() else None
             )
         payload = {
-            "schema_name": "0star_radiation_predictor_trace_v1",
-            "purpose": "diagnostic-only trace on rate-extraction-corrected candidate; production defaults unchanged; optional predictor radiation recovery metric experiment",
+            "schema_name": "0star_boundary_cmc_radiation_audit_v1",
+            "purpose": "diagnostic-only corrected-guard radiation trace with P-minus pre/post witnesses and one preceding-boundary Aa[-1] history counterfactual; production equations unchanged",
             "status": status,
             "provenance": {
                 "repository": REPOSITORY,
@@ -1525,6 +1525,14 @@ class RadiationStageTrace:
             "global_geometry_minima": self.global_geometry_minima,
             "progress_samples": self.progress_samples,
             "stage_snapshots": self.stage_snapshots,
+            "boundary_records": self.boundary_records,
+            "last_completed_boundary_record": self.last_completed_boundary_record,
+            "boundary_history_counterfactual": self.boundary_history_counterfactual,
+            "frozen_failure_snapshot": (
+                "boundary_failure_snapshot.npz"
+                if (self.output_dir / "boundary_failure_snapshot.npz").exists()
+                else None
+            ),
             "predictor_budgets": self.predictor_budgets,
             "completed_state_budgets": self.completed_state_budgets,
             "geometry_predictor_budgets": self.geometry_predictor_budgets,
@@ -1532,7 +1540,9 @@ class RadiationStageTrace:
             "wall_elapsed_seconds": float(time.time() - self.started_wall),
             "notes": [
                 "The conservative radiation variables remain unmodified by the trace.",
-                "Radiation geometric source arrays are captured from the rate-only matter RHS components; the tracing hook does not emulate a finite-time update.",
+                "Radiation geometric source arrays are captured by observing the actual finite-volume helper invocation during RHS extraction; no physical equation or source is modified.",
+                "Boundary records compare P-minus and local zero-shift metric witnesses immediately before and after each existing production boundary call.",
+                "If the late explicit-predictor cone crossing recurs, one diagnostic arm restores only the preceding completed-boundary pre-update Aa[-1] while keeping other accepted arrays fixed; it is not a production alternative.",
                 "Flux transport rate is reconstructed as the existing total radiation RHS minus that captured source; evolve_species sums only those two components for radiation.",
                 "The cone budget is ordered and uses the accepted spatial metric for the accepted, flux-only, and source-updated stages, then the predictor metric for the final predictor margin.",
                 "Completed-state budgets reconstruct the trapezoidal radiation update from actual RHS0/RHS1 evaluations and close the accepted-to-completed cone-margin change across stage-specific metrics.",
