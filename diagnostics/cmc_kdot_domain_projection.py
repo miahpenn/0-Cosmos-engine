@@ -132,8 +132,11 @@ def target_decomposition(grid, geometry, scalars, matter):
     outer_target, outer_weight, outer_numerator = mean(outer)
     reconstructed_target = (inner_numerator + outer_numerator) / (inner_weight + outer_weight)
     identity_error = reconstructed_target - full_target
+    production_target = float(cmc.target_kdot(grid, geometry, scalars, matter))
     return {
         "full_target": float(full_target),
+        "production_target_api": production_target,
+        "manual_vs_production_target_abs_error": float(abs(full_target - production_target)),
         "inner_only_target_same_R160_state": float(inner_target),
         "outer_only_weighted_mean_diagnostic": float(outer_target),
         "outer_shell_effect_on_full_target": float(full_target - inner_target),
@@ -222,6 +225,8 @@ def main():
             "target_R160_inner_only_same_state": float(d160_inner),
             "target_R160_outer_only_weighted_mean": float(d160["outer_only_weighted_mean_diagnostic"]),
             "R160_target_reconstruction_error": float(err160),
+            "R80_manual_vs_production_target_abs_error": float(d80["manual_vs_production_target_abs_error"]),
+            "R160_manual_vs_production_target_abs_error": float(d160["manual_vs_production_target_abs_error"]),
             "R80_native_minus_R160_full": float(d80_target - d160_full),
             "R160_full_minus_R160_inner_only_outer_shell_effect": float(shell),
             "R160_inner_only_minus_R80_native_state_difference": float(remainder),
@@ -261,6 +266,10 @@ def main():
         "time_range": [float(times[0]), float(times[-1])],
         "r160_target_reconstruction_max_abs_error": float(np.max(np.abs(errors))),
         "r160_target_reconstruction_rms_error": float(np.sqrt(np.mean(errors * errors))),
+        "max_manual_vs_production_target_abs_error": float(max(
+            max(r["R80_manual_vs_production_target_abs_error"], r["R160_manual_vs_production_target_abs_error"])
+            for r in records
+        )),
         "max_abs_split_identity_residual": float(max(abs(r["R160_full_minus_R80_native_decomposition_residual"]) for r in records)),
         "inputs": {
             "R80_profile_path": str(r80_path),
