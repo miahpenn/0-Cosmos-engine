@@ -120,6 +120,27 @@ The last three fixed-dt attempts show the predictor margin shrinking toward zero
 
 On the failing step, flux and source lift C to about +2.22 × 10^-6 on the accepted metric, but the predictor metric contributes about −2.24 × 10^-6. This confirms rapidly growing metric sensitivity at the outer edge for this frozen configuration. It does not yet distinguish geometry RHS discretization, constraint propagation, boundary-conditioned geometry, gauge/CMC coupling, or a deeper physical model requirement.
 
+## Ten-step late-window trend from the same corrected-rate trajectory
+
+The artifact contains ten *completed* production steps leading into the failing predictor, not just three final snapshots. On each completed step, the trapezoidal radiation flux and source increase the cone margin when evaluated on the accepted metric, yet the evolved spatial metric takes away more margin than the matter update adds. Over this ten-step window, the outer-cell inverse radial metric rises monotonically from 1.278974 to 1.462894 (+14.38%), while the accepted cone margin falls from 3.7051e−6 to 4.7291e−7 (−87.2%). This is a persistent accumulation, not a one-step unit-Δt artifact.
+
+| Accepted interval | C at interval start | C after flux + source on accepted metric | C at completed state | Metric change contribution through RHS1 | Net completed-step ΔC |
+|---|---:|---:|---:|---:|---:|
+| 46.680 → 46.710 | +3.7051e−6 | +4.8577e−6 | +3.4502e−6 | −1.3931e−6 | −2.5488e−7 |
+| 46.710 → 46.740 | +3.4502e−6 | +4.6642e−6 | +3.1852e−6 | −1.4639e−6 | −2.6495e−7 |
+| 46.740 → 46.770 | +3.1852e−6 | +4.4629e−6 | +2.9091e−6 | −1.5381e−6 | −2.7609e−7 |
+| 46.770 → 46.800 | +2.9091e−6 | +4.2526e−6 | +2.6207e−6 | −1.6156e−6 | −2.8849e−7 |
+| 46.800 → 46.830 | +2.6207e−6 | +4.0317e−6 | +2.3184e−6 | −1.6964e−6 | −3.0230e−7 |
+| 46.830 → 46.860 | +2.3184e−6 | +3.7988e−6 | +2.0007e−6 | −1.7805e−6 | −3.1767e−7 |
+| 46.860 → 46.890 | +2.0007e−6 | +3.5506e−6 | +1.6646e−6 | −1.8678e−6 | −3.3610e−7 |
+| 46.890 → 46.920 | +1.6646e−6 | +3.2774e−6 | +1.3011e−6 | −1.9574e−6 | −3.6350e−7 |
+| 46.920 → 46.950 | +1.3011e−6 | +2.9721e−6 | +9.0393e−7 | −2.0486e−6 | −3.9715e−7 |
+| 46.950 → 46.980 | +9.0393e−7 | +2.6344e−6 | +4.7291e−7 | −2.1414e−6 | −4.3102e−7 |
+
+The C values are densitized cone margins at cell i=79. The metric contribution shown is the accepted-to-RHS1 stage change; the completed-stage correction is smaller but also negative (about −1.4e−8 to −2.0e−8 in these rows). All saved completed-state budgets report zero algebraic closure error. Thus the matter update is not what drives the late-window *loss of margin* in this discrete trace; the repeatedly changing spatial metric is. That still does not make the metric RHS or the physical geometry “wrong” by itself: the radiation state at i=79 is already much closer to null than its neighbors, and a valid continuum solution could in principle approach that boundary. The failed predictor means the current discretized stage cannot represent that attempted next state while preserving the exact radiation primitive condition.
+
+The same last-step trace gives another useful nuance: the *fractional* rise in γ^rr on cells i=75–78 (about 2.06–2.81%) is larger than on i=79 (about 1.53%), but those neighboring radiation states keep C comfortably positive. The outermost cell crosses because the margin there is orders smaller than adjacent-cell margins; this is a coupled near-null-state / metric-stage event, not evidence that the largest fractional metric update alone predicts failure. The measured final predictor margins are i=75: +4.7428e−6, i=76: +5.0984e−6, i=77: +5.7824e−6, i=78: +8.6027e−6, i=79: −1.6997e−8.
+
 ## Cross-check against the older stage ledger
 
 The historical-source ledger also captured t = 47.01, cell 79. In that run gamma^rr rose from 1.4628939 to 1.4853572 across the raw Euler geometry update. The margin remained negative after the centre-regularity stage (C = −1.6900205 × 10^-8, ratio = 1.0000569941); the raw metric already crossed the cone and projection only improved it slightly. Because the old ledger used source base `9eed1cf95c52f001c2b87afbbe6da37faa56d50e`, its exact numbers must not be treated as a paired comparison with the corrected-rate trace. It corroborates the stage ordering: the predictor metric is inadmissible before the lapse rejection.
