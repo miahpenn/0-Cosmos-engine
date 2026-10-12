@@ -23,6 +23,19 @@ STEPS = (1.0e-4, 5.0e-5, 2.5e-5)
 REFERENCE_DT = 6.25e-6
 
 
+def extract_arrays(state):
+    arrays = {}
+    for name in ("a", "b", "X", "alpha", "beta", "Aa", "K", "Lambda", "B"):
+        arrays[f"geometry.{name}"] = np.asarray(getattr(state.geometry, name), dtype=float).copy()
+    for name in ("S", "PS", "D", "PD", "phi", "Pi"):
+        arrays[f"scalars.{name}"] = np.asarray(getattr(state.scalars, name), dtype=float).copy()
+    for species in ("dark_matter", "baryons", "radiation"):
+        item = getattr(state.matter, species)
+        for name in ("rest", "energy_t", "momentum_r"):
+            arrays[f"matter.{species}.{name}"] = np.asarray(getattr(item, name), dtype=float).copy()
+    return arrays
+
+
 def evolve(dt: float):
     kernel = V55ProductionKernel()
     state = kernel.initialize(
@@ -34,27 +47,20 @@ def evolve(dt: float):
         include_radiation=False,
     )
     initial_diag = kernel.diagnostics(state, profiles=False)
+    initial_arrays = extract_arrays(state)
     nsteps = round(T_FINAL / dt)
     if not np.isclose(nsteps * dt, T_FINAL, rtol=0.0, atol=1.0e-15):
         raise ValueError(f"dt={dt} does not divide final time")
     for _ in range(nsteps):
         state = kernel.step(state, dt)
     final_diag = kernel.diagnostics(state, profiles=False)
-    arrays = {}
-    for name in ("a", "b", "X", "alpha", "beta", "Aa", "K", "Lambda", "B"):
-        arrays[f"geometry.{name}"] = np.asarray(getattr(state.geometry, name), dtype=float)
-    for name in ("S", "PS", "D", "PD", "phi", "Pi"):
-        arrays[f"scalars.{name}"] = np.asarray(getattr(state.scalars, name), dtype=float)
-    for species in ("dark_matter", "baryons", "radiation"):
-        item = getattr(state.matter, species)
-        for name in ("rest", "energy_t", "momentum_r"):
-            arrays[f"matter.{species}.{name}"] = np.asarray(getattr(item, name), dtype=float)
+    arrays = extract_arrays(state)
     finite = all(np.all(np.isfinite(v)) for v in arrays.values())
     finite = finite and all(np.isfinite(float(final_diag[k])) for k in (
         "H_eff", "hamiltonian_max", "momentum_max", "connection_max",
         "lapse_min", "determinant_min",
     ))
-    return arrays, {
+    return initial_arrays, arrays, {
         "dt": dt,
         "steps": nsteps,
         "t_final": float(state.t),
@@ -83,10 +89,12 @@ def normalized_state_error(candidate, reference):
 
 
 def main():
+    initial_runs = {}
     runs = {}
     meta = {}
     for dt in (*STEPS, REFERENCE_DT):
-        arrays, info = evolve(dt)
+        initial_arrays, arrays, info = evolve(dt)
+        initial_runs[dt] = initial_arrays
         runs[dt] = arrays
         meta[dt] = info
 
@@ -96,6 +104,15 @@ def main():
         error, per_field = normalized_state_error(runs[dt], ref)
         errors.append(error)
         meta[dt]["normalized_state_error_vs_fine_production_run"] = error
+        meta[dt]["per_field_relative_rms_error_vs_fine_run"] = per_field
+        meta[dt]["per_field_absolute_rms_error_vs_fine_run"] = {
+            key: float(np.sqrt(np.mean((runs[dt][key] - ref[key]) ** 2)))
+            for key in sorted(ref)
+        }
+        meta[dt]["per_field_initial_to_final_rms_change"] = {
+            key: float(np.sqrt(np.mean((runs[dt][key] - initial_runs[dt][key]) ** 2)))
+            for key in sorted(ref)
+        }
         meta[dt]["largest_field_error"] = max(per_field.items(), key=lambda item: item[1])
     ratios = [errors[i] / errors[i + 1] for i in range(len(errors) - 1)]
     finite = all(item["finite"] for item in meta.values())
