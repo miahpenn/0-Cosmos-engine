@@ -1,4 +1,4 @@
-"""Cheap known-physics smoke test: homogeneous massive scalar in flat spacetime.
+"""Cheap known-physics smoke test: [flat-oscillator-smoke] homogeneous massive scalar in flat spacetime.
 
 For the S field with flat geometry, K=0, beta=0 and spatially constant S,
 the implemented equations reduce exactly to dS/dt=PS, dPS/dt=-S.
