@@ -1,0 +1,72 @@
+name: Diagnostic - centre regularity series and current derivatives
+
+on:
+  push:
+    branches:
+      - diag/lambda-connection-budget-2026-10-12
+    paths:
+      - tools/center_regularity_current_derivative_audit.py
+      - tools/momentum_constraint_stage_budget.py
+      - .github/workflows/center-regularity-current-derivative-audit.yml
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: center-regularity-current-derivative-audit
+  cancel-in-progress: false
+
+jobs:
+  center-regularity-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      PYTHONUNBUFFERED: "1"
+    steps:
+      - name: Checkout diagnostic tools
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Checkout exact production source and pinned vendor
+        uses: actions/checkout@v4
+        with:
+          ref: 6d8b3f2790644591326df57c55908863f994cb0c
+          path: source
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install exact production dependencies
+        run: python -m pip install -r source/requirements.txt
+
+      - name: Download archived matched-CFL t=2.16 signed profiles
+        uses: actions/download-artifact@v4
+        with:
+          name: lambda-spatial-refinement-t2p16
+          run-id: 38212879394
+          github-token: ${{ github.token }}
+          path: reference-artifact
+
+      - name: Compile diagnostics
+        run: python -m py_compile tools/center_regularity_current_derivative_audit.py tools/momentum_constraint_stage_budget.py
+
+      - name: Audit regularity series and current derivatives
+        run: |
+          PYTHONPATH=source python tools/center_regularity_current_derivative_audit.py \
+            --reference-profiles reference-artifact/results/lambda-spatial-refinement/signed_profiles.npz \
+            --output-dir results/center-regularity-current-derivative-audit
+
+      - name: Upload frozen-state centre series and current-derivative profiles
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: center-regularity-current-derivative-audit
+          path: results/center-regularity-current-derivative-audit/
+          if-no-files-found: warn
+          retention-days: 90
