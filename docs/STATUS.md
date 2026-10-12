@@ -154,11 +154,26 @@ The match is within 1.2% and 0.8%. Current working diagnosis: the Lambda residua
 
 A matched fixed-grid CFL refinement at N=80, r_max=80, through t=2.1 (CFL .03 and .015) passed strict campaign completion. At t=2.1 the first admitted inner cell has (C_Lambda=3.5556	imes10^{-4}) vs (3.5580	imes10^{-4}), and H=-(9.9268	imes10^{-4}) vs -(9.9255	imes10^{-4}). The fixed inner peak norms differ by only about 0.2% for (C_Lambda) and 0.12% for H. This argues against simple time-step truncation as the dominant cause of the early defect.
 
-Next: review same-domain spatial refinement before proposing a numerical change. Keep matter sources, CMC gauge, outer boundary, and all coefficients locked. Do not add damping, center projection, a custom Lambda equation, or any physical source as a shortcut.
+### Completed same-domain spatial refinement
+
+Run: https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38212879394
+Artifact SHA-256: `181e807240a54126db39a35fdd22f865509b96027db0a724853512225dd8b6e8`
+
+The bounded production run at N=40,60,80,120, r_max=80, CFL=.03, radiation on, t=2.16 passed strict completion at every resolution (36,54,72,108 accepted steps; no tiny terminal steps).
+
+Spatial findings at t=2.16:
+- Fixed exterior `max|H|` for r>=5: 4.0086e-4 (N40), 1.6886e-5 (N60), 8.9180e-6 (N80), 5.4585e-6 (N120).
+- Volume-weighted RMS H over the fixed annulus 2<=r<5: 7.4135e-4, 6.5404e-4, 4.4980e-4, 1.2832e-4.
+- At fixed r=3, signed H is +7.4135e-4, -1.8587e-4, -4.1919e-4, +9.2175e-6 respectively; at r=5 it falls from -4.0086e-4 to -5.4585e-6 by N120.
+- The maximum in admitted cells (index>=2 and r<5) moves inward and grows from |H|=7.51e-4 at r=3.333 (N60), to 1.071e-3 at r=2.5 (N80), to 1.539e-3 at r=1.667 (N120). The full inner peak, including the two cells excluded by the constraint stencil, decreases from 9.27e-3 (N60) to 6.97e-3 (N80) to 4.74e-3 (N120).
+
+The fixed-radius and volume-weighted metrics improve, but the admitted-inner maximum follows the moving centre and does not converge in the sup norm. Working characterization: a narrowing central numerical layer; pointwise central regularity remains unadmitted. N40 has no cells with index>=2 and r<5, so it cannot provide an admitted-inner max for this mask.
+
+Combined with the time-refinement result, the evidence does not support a simple CFL error or a broad-domain failure. It points to a centre-localized spatial/momentum-constraint propagation problem. Preserve physics; the next diagnostic decomposes the momentum-constraint residual term-by-term at each production stage. Do not add damping, center projection, a custom Lambda equation, or a physical source as a shortcut.
 
 ## Next gates
 
-1. Complete the same-domain N=40,60,80,120 spatial refinement at fixed r_max=80, CFL=.03, through t=2.16, then compare signed H/momentum/connection profiles at shared physical radii and fixed r<5 / r>=5 masks.
+1. Complete the one-step signed momentum-constraint decomposition across the initial and saved t≈10 states. Compare the derivatives of Aa and K, the X-gradient term, the b-gradient term, and the 8πJ source; retain all signed stage witnesses.
 2. Use the geometric audit to identify whether the admitted inner H drift is tied to the connection/Ricci pathway. Only then design a single bounded numerical-layer intervention with preregistered pass/fail metrics.
 3. Check matter and radiation boundary flux direction and local conservation terms from raw signed terms, not ratios whose denominators may be near zero.
 4. Preserve frozen N=320 reconstruction tolerance 1e-8 and report host/runtime variance; do not relax thresholds after seeing results.
