@@ -31,3 +31,18 @@ No projection, clipping, floors, damping, retry, relaxed cone, altered flux/sour
 ## Result record
 
 Workflow and artifact IDs, exact commit, pass/fail status for each case, JSON SHA-256, and the distinction between source-level and executed evidence will be appended here after the new Actions run is available.
+
+
+## Result — full radiation profiles and matched-arm deltas
+
+- Workflow [38317295748](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38317295748): **success**; exact runner commit `83486b03c0789f571c76e7a5a4287b6afaf13330`.
+- Regression results: four radiation RHS guard-repair tests passed, three null-identity tests passed, and all 29 tests in the repository suite passed.
+- Artifact [11777006845](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38317295748/artifacts/11777006845); ZIP SHA-256 `9d29529a8096b6a3b46b8704ad0901bb2a3e637ad6f5373adbb4767bab227e34`; JSON SHA-256 `3e2a151895160a2e82caa8c8225f80af9b8721a53e5b7343869dc08eeaebcddb`, matches the manifest.
+
+All four actual finite-time cases passed and all post-step radiation cells are finite/admissible. Maximum (|S|/E): N=80 null/candidate `0.0099086223695 / 0.0099086123118`; N=160 null/candidate `0.0099068411682 / 0.0099068361387`. Candidate-minus-null maximum full-profile changes: Eulerian E `1.84e-14 / 9.21e-15`; (|S|) `9.33e-17 / 4.67e-17); (|S|/E) `1.01e-8 / 5.03e-9`; densitized energy `2.88e-11 / 1.45e-11); densitized momentum `1.82e-15 / 4.55e-16`, for N=80 / N=160 respectively.
+
+The very small response is a one-step counterfactual only. This `beta_rad` candidate adds a radiation source without a matching scalar source, so it is not yet a covariantly closed exchange model. Misner–Sharp current/balance remains NaN/unavailable in the harness; no production or full-machine admission follows.
+
+### New separate audit lead: radiation rest-current slot
+
+The post-step profile shows the initially-zero radiation `rest` slot drifting to `-1.00857e-11` (N=80 outer cell) and `-5.01262e-12` (N=160 outer cell). `initialize_radiation`, `_radiation_conserved`, and `_radiation_flux` indicate this first component is intended to be zero for radiation, but `_hll_flux` and the outer-face fill currently use the generic fluid `_valencia_conserved` / `_valencia_flux` for all species. Radiation energy/momentum recovery ignores this rest slot, and candidate-minus-null differences are only roundoff-scale; therefore do not attribute the late cone failure to it. Add an isolated regression/audit for this invariant before changing the transport code.
