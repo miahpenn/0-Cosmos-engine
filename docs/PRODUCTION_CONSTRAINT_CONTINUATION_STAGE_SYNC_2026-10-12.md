@@ -139,3 +139,27 @@ This next experiment uses the exact production fourth-order even-parity derivati
 
 The original local GEAR archive also documents a central finite-volume divergence mistake in a different radial scalar operator (GEAR-70C.1). That is a useful reminder to test radial origin terms cell by cell, but it must not be transplanted as a patch to this BSSN/CMC machine: its operator and variable representation differ. The current one-step evidence specifically rejects a standalone center-row replacement.
 
+
+
+### Production-matched CMC one-step result — no constraint improvement
+
+Run: [38280957254](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38280957254), artifact \`cmc-production-matched-one-step\`.  
+Tool: \`tools/test_cmc_production_matched_one_step.py\`.
+
+The CMC solver was rebuilt diagnostically with the exact fourth-order, even-parity derivative matrices used by the production BSSN K RHS, then substituted only for the lapse solves on the same six frozen inputs. This version solves its own K-RHS operator identity by construction; the relevant comparison is the evolved state measured by the original production H/M/\(C_\Lambda\) constraints.
+
+The result closely repeats the even-parity second-order counterfactual:
+- At N=80, \(t=0\), admitted-inner max-norm changes after one step are \(\Delta\max|H|=-5.16\times10^{-7}\), \(\Delta\max|M|=+3.79\times10^{-6}\), and \(\Delta\max|C_\Lambda|=+1.15\times10^{-7}\).
+- At N=80, \(t=2.16\), they are \(-3.99\times10^{-7}\), \(+3.06\times10^{-6}\), and \(-9.12\times10^{-8}\).
+- At N=120, \(t=2.16\), they are \(-4.10\times10^{-7}\), \(+3.15\times10^{-6}\), and \(+6.18\times10^{-8}\).
+- At N=80, \(t\approx10\), they are approximately \(-4.25\times10^{-7}\), \(+3.61\times10^{-6}\), and \(+1.07\times10^{-7}\).
+
+The full fourth-order lapse operator and the center-row-only fix therefore both make the Hamiltonian norm slightly smaller but worsen the admitted-inner momentum residual at the same scale. They do not change the established large late-time H/M/C defects meaningfully.
+
+**Decision:** downgrade the CMC center row and the CMC/K-RHS stencil mismatch as the primary cause of the evolved constraint failure. Keep this as a genuine local operator-consistency finding, but do not patch \`engine/cmc_gauge.py\`: the one-step constraint evidence does not support it as a repair.
+
+## New equation-level consistency lead: scalar lapse-gradient contraction
+
+The next diagnostic will audit the scalar momentum equation’s \(\nabla^i\alpha\,\nabla_i f\) term against the physical radial inverse metric used elsewhere in the same production code.
+
+The production metric convention is \(\gamma_{rr}=a/X^2\), so \(\gamma^{rr}=X^2/a\). The scalar Laplacian and stress projection both use \(X^2/a\), but the extra lapse-gradient term in \`engine/scalar_system.py\` is currently coded as \(X^{-2}\,\partial_r\alpha\,\partial_r f\). The same coefficient appears in the retained \`engine/reference_pirk_unified.py\`, so provenance alone does not establish correctness. The covariant contraction under the current declared metric variables indicates \(X^2/a\); the next step is an isolated one-step comparison to quantify whether this term can account for the S-current/momentum-constraint tangent mismatch. No production change is authorized yet.
