@@ -887,7 +887,7 @@ class RadiationStageTrace:
         original_solve = kernel_cls._solve_lapse
         original_rhs = kernel_cls._rhs
         original_step = kernel_cls.step
-        original_species_rhs_components = matter_rhs_module._species_rhs_components
+        original_evolve_species = matter_rhs_module.evolve_species
         original_radiation_source = matter_system_module._radiation_source
         original_boundary = kernel_cls._apply_outer_light_boundary
         original_geometry_stage_terms = production_kernel_module.adapter.geometry_stage_terms
@@ -935,7 +935,7 @@ class RadiationStageTrace:
         def traced_boundary(grid, geometry, scalars, matter,
                             radiation_recovery_metric=None):
             step = trace.current_step
-            if step is None:
+            if step is None or step.get("diagnostic_label"):
                 if radiation_recovery_metric is None:
                     return original_boundary(grid, geometry, scalars, matter)
                 return original_boundary(
@@ -952,82 +952,65 @@ class RadiationStageTrace:
                 "completed_state_outer_light_boundary",
             )
             stage = labels[idx] if idx < len(labels) else f"outer_light_boundary_call_{idx}"
-            stage_row = trace.record_stage(
+            trace.record_stage(
                 stage, grid, geometry, matter, t, tau,
                 trace.step_index, step["dt"], force=(idx == 1),
             )
-            # Observe the completed candidate before normal boundary recovery.
-            # This block does not modify matter/geometry or affect admissibility.
-            if idx == 1 and trace.latest_state is not None and stage_row is not None:
-                if step.get("rhs0_record") is None or step.get("rhs1_record") is None:
-                    error = "completed-state budget lacks rhs0/rhs1 provenance"
-                    stage_row["completed_state_budget_error"] = error
-                    trace.instrumentation_errors.append({
-                        "where": "completed_state_budget",
-                        "t": t, "step_index": trace.step_index, "error": error,
-                    })
-                else:
-                    try:
-                        budget = trace.completed_state_budget(
-                            grid, geometry, matter, step["rhs0_record"],
-                            step["rhs1_record"], step["dt"], t,
-                            trace.step_index, stage,
-                        )
-                        trace.completed_state_budgets.append(budget)
-                        stage_row["completed_state_budget_index"] = len(trace.completed_state_budgets) - 1
-                        if budget["source_capture_missing_cells"]:
-                            error = "completed-state source capture missing at cells " + ",".join(
-                                map(str, budget["source_capture_missing_cells"])
-                            )
-                            stage_row["completed_state_budget_error"] = error
-                            trace.instrumentation_errors.append({
-                                "where": "completed_state_budget",
-                                "t": t, "step_index": trace.step_index, "error": error,
-                            })
-                    except Exception as exc:
-                        error = f"{type(exc).__name__}: {exc}"
-                        stage_row["completed_state_budget_error"] = error
-                        trace.instrumentation_errors.append({
-                            "where": "completed_state_budget",
-                            "t": t, "step_index": trace.step_index, "error": error,
-                        })
+            before = trace.boundary_witness(grid, geometry, scalars, matter)
+            record = {
+                "step_index": int(trace.step_index), "stage": stage,
+                "coordinate_time": float(t + step["dt"]), "dt": float(step["dt"]),
+                "pre_Aa_outer": before.get("Aa_outer"), "pre_witness": before,
+            }
             try:
                 if radiation_recovery_metric is None:
-                    return original_boundary(grid, geometry, scalars, matter)
-                return original_boundary(
-                    grid, geometry, scalars, matter,
-                    radiation_recovery_metric=radiation_recovery_metric,
+                    result = original_boundary(grid, geometry, scalars, matter)
+                else:
+                    result = original_boundary(
+                        grid, geometry, scalars, matter,
+                        radiation_recovery_metric=radiation_recovery_metric,
+                    )
+                after = trace.boundary_witness(grid, geometry, scalars, matter)
+                record["post_Aa_outer"] = after.get("Aa_outer")
+                record["post_witness"] = after
+                record["delta_Aa_outer"] = (
+                    None if before.get("Aa_outer") is None or after.get("Aa_outer") is None
+                    else float(after["Aa_outer"] - before["Aa_outer"])
                 )
+                record["delta_dot_a_outer_zero_shift"] = (
+                    None if before.get("dot_a_outer_zero_shift") is None or after.get("dot_a_outer_zero_shift") is None
+                    else float(after["dot_a_outer_zero_shift"] - before["dot_a_outer_zero_shift"])
+                )
+                if stage == "completed_state_outer_light_boundary":
+                    trace.last_completed_boundary_record = record
+                return result
             except Exception as exc:
-                detail = f"{type(exc).__name__}: {exc}"
-                trace.record_stage(
-                    stage + "_failure", grid, geometry, matter, t, tau,
-                    trace.step_index, step["dt"], force=True, exception=detail,
-                )
-                note_failure_identity(
-                    step, stage,
-                    "engine.production_kernel.V55ProductionKernel._apply_outer_light_boundary",
-                    grid, exc,
-                )
+                record["post_Aa_outer"] = float(geometry.Aa[-1])
+                record["error"] = f"{type(exc).__name__}: {exc}"
+                record["post_witness"] = trace.boundary_witness(grid, geometry, scalars, matter)
                 raise
+            finally:
+                trace.boundary_records.append(record)
+                step.setdefault("boundary_records", []).append(record)
 
-        def traced_species_rhs_components(*args, **kwargs):
-            # On the rate-extraction-corrected engine, species_rhs calls this
-            # pure rate helper directly. Observe the returned source arrays so
-            # the ledger remains compatible without any fake finite-time step.
-            result = original_species_rhs_components(*args, **kwargs)
+        def traced_evolve_species(*args, **kwargs):
             species = kwargs.get("species")
             if species is None and len(args) >= 4:
                 species = args[3]
-            if species is Species.RADIATION:
-                _, _, _, source_e, source_s = result
-                n = len(source_e)
-                lo = max(0, n - OUTER_CELLS)
-                self.last_radiation_sources = {
-                    i: (float(source_e[i]), float(source_s[i]))
-                    for i in range(lo, n)
-                }
-            return result
+            if species is not Species.RADIATION:
+                return original_evolve_species(*args, **kwargs)
+            metric = args[0] if args else kwargs.get("metric")
+            radial = _array(metric.r) if metric is not None else np.asarray([], dtype=float)
+            trace.active_radiation_evolve = {
+                "source_index": 0, "metric_r": radial, "sources": {},
+            }
+            try:
+                return original_evolve_species(*args, **kwargs)
+            finally:
+                active = trace.active_radiation_evolve
+                if active is not None:
+                    trace.last_radiation_sources = dict(active["sources"])
+                trace.active_radiation_evolve = None
 
         def traced_solve(grid, geometry, scalars, matter, radiation_recovery_metric=None):
             step = trace.current_step
