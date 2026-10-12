@@ -5,7 +5,9 @@ Null: beta_rad = 0.0 (current production)
 Candidate: beta_rad = -0.04 (same structural form as DM)
 
 Frozen-state + one ordinary production step. No long campaign, coefficient
-fitting, or merge to main. This runner is intentionally not launched by CI.
+fitting, or merge to main. This runner is executed only by the diagnostic
+branch's gated CI workflow after the focused regression and existing suite
+pass.
 """
 from __future__ import annotations
 
