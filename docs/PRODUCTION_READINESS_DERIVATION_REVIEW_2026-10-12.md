@@ -35,7 +35,9 @@ Do not combine test counts from independent branches as though they were all run
 - Historical architecture-gate branch: 110 tests passed; optional long campaigns skipped.
 - Historical lapse-source candidate: 111 tests passed; no long physical trajectory.
 - Current-main beta-source candidate at commit 88e4d2e809: 1 targeted test and 80 full-suite tests passed.
-- Extended current-main beta-source candidate: [run 38302775872](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38302775872), commit 23462c7e2e433402f9fef4b5789a8ebfa9e7795c, 2 targeted source-stage tests and 81 full-suite tests passed in 7.01 s. This remained isolated from main and was not a production-admitted trajectory.
+- Extended current-main beta-source candidate: [run 38302775872](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38302775872), commit 23462c7e2e433402f9fef4b5789a8ebfa9e7795c, 2 targeted source-stage tests and 81 full-suite tests passed in 7.01 s.
+- Latest extended current-main source candidate: [run 38303904514](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38303904514), commit 92bfab1e330c9754d9909f0b2cb066baef7e8944, 2 targeted stage-pair tests passed in 0.38 s and the full suite 82 passed in 7.38 s. This version also ports the spatial homogeneous-COSMOS limit regression; it remains isolated from main and is not a production-admitted trajectory.
+- CMC centre-row candidate regression suite: [run 38303841261](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38303841261), isolated branch diag/cmc-lapse-full-ci-2026-10-12, 89 tests passed in 9.43 s. Comparison against the CMC candidate head shows this commit added the workflow only; it did not alter the tested production modules. This is regression coverage, not trajectory or science admission.
 
 ## 3. Initial data and constraint propagation
 
@@ -125,13 +127,15 @@ The candidate places that PDE row at cell 0 and uses parity-aware fourth-order r
 
 The nonzero `alpha[0]-alpha[1]` is expected for even-profile samples at two different positive radii; forcing this difference to zero was the bad condition. The even-series fit residual falls by roughly six orders of magnitude between N=40 and N=320. All lapses were finite and positive.
 
-**Critical limitation:** the frozen candidate still fails the required `Aa_dot = O(r²)` centre-series criterion. At N=80, `Aa_dot/r_0² ≈ -1.43e-5`; at N=160, `≈ -5.59e-5`; at N=320, `≈ -6.72e-5`. The first-cell `Aa_dot` tends towards zero more slowly than r², while fixed-radius Aa RHS values remain nonzero; this is not centre regularity admission. The row repair resolves a genuine gauge-discretization defect candidate, but it is not a full-machine repair. There has been no one-step or trajectory test using the candidate lapse.
+**Critical limitation:** the frozen candidate still fails the required `Aa_dot = O(r²)` centre-series criterion. At N=80, `Aa_dot/r_0² ≈ -1.43e-5`; at N=160, `≈ -5.59e-5`; at N=320, `≈ -6.72e-5`. The first-cell `Aa_dot` tends towards zero more slowly than r², while fixed-radius Aa RHS values remain nonzero; this is not centre regularity admission. The row repair resolves a genuine gauge-discretization defect candidate, but it is not a full-machine repair. At the time of this frozen-state report, no one-step test had yet been run; it was subsequently completed and is summarized in the next section.
 
 ### Reconciliation with the earlier audit
 
 My preceding frozen uniform-profile audit correctly excluded the old centre row from its interior PDE residual and compared fixed physical radii. Its mixed-order production residual was real for the old solver, but should no longer be treated as the leading explanation in isolation: the actual first-row closure was itself inconsistent with a cell-centred mesh. The new parity-aware candidate deliberately changes the numerical row so the CMC and production K RHS use compatible fourth-order derivative rows. Since the candidate's near-zero production Kdot-target residual is constructed from matching operators, it is a consistency result, not independent proof of constraint propagation or continuum correctness.
 
 **No production patch or merge is justified yet.** The matched one-step A/B is now complete; its mixed results are summarized in the next section. The next test must extend the same A/B witness set to an explicit, separately instrumented radiation-cone budget and a closed Misner–Sharp balance residual before any trajectory or candidate promotion.
+
+The parity-aware candidate also passed the full regression suite on isolated run [38303841261](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38303841261): 89 tests passed in 9.43 s. The comparison from candidate head 9f7ebf1aab2076fe8925737591366b416427305e to that branch contains only the newly added workflow, so the tested candidate sources were unchanged. This is a code-regression pass, not physics or trajectory admission.
 
 ## 6. Matched one-step A/B — centre-row candidate has mixed constraint results
 
@@ -189,14 +193,22 @@ The candidate sharply reduces the magnitude and removes the old positive sign at
 
 ## 7. Covariant scalar–DM source pair: candidate passes, trajectory gate remains open
 
-The locked V5.5 covariant exchange law is Q_nu = beta_DM rho_DM partial_nu(phi), with the reciprocal source entering scalar and DM equations. With the active ADM coordinate-time convention, the candidate source pair requires alpha weighting in the scalar Pi source and DM radial conservative-momentum source.
+The locked V5.5 covariant exchange law is Q_nu = beta_DM rho_DM partial_nu(phi), with reciprocal scalar and dark-matter sources. On the ADM coordinate-time convention used by production, the source pair requires:
 
-On isolated candidate branch diag/current-main-beta-source-gate-2026-10-12, [run 38302775872](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38302775872) passed both source-pair stage tests and 81 full-suite tests. Its one small step was from an initialized, deliberately perturbed diagnostic state:
-- Stage 0 energy-pair residual 3.98e-19, radial-current residual 2.49e-24.
-- Stage 1 energy-pair residual 5.52e-19, radial-current residual 2.22e-24.
-- Maximum lapse deviation from unity about 9.03e-3.
+- Scalar momentum: Pi_dot += alpha * beta_DM * rho_DM.
+- Conservative DM rest-current source: q_rest = -alpha*sqrt(gamma)*beta_DM*rho_DM*W*(Pi + v^r*phi_r).
+- Conservative DM energy source: q_e = -sqrt(gamma)*(Q_t - beta^r*Q_r), where Q_t uses the coordinate-time phi_dot.
+- Conservative DM radial-momentum source: q_s = alpha*sqrt(gamma)*Q_r.
 
-This is useful source-stage evidence, not full stress-energy conservation at every PIRK update, constraint admission, radiation admission, or a production trajectory. Main remains unchanged.
+The newest isolated current-main source candidate is [commit 92bfab1e330c9754d9909f0b2cb066baef7e8944](https://github.com/miahpenn/0-Cosmos-engine/commit/92bfab1e330c9754d9909f0b2cb066baef7e8944), run [38303904514](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38303904514):
+- Targeted source-stage pair tests: 2 passed in 0.38 s.
+- Full repository suite: 82 passed in 7.38 s.
+- Stage 0: lapse deviation 9.029416e-3; rest-source error 3.984231e-19; energy-pair residual 3.983172e-19; radial-current residual 2.487600e-24.
+- Stage 1: lapse deviation 9.026827e-3; rest-source error 4.206577e-19; energy-pair residual 6.680972e-19; radial-current residual 1.772703e-24.
+
+The same current-main candidate also ports tests/test_spatial_homogeneous_cosmos_limit_current_main.py. That deterministic unadvanced FLRW-slice test compares the spatial scalar, DM rest/energy, baryons/radiation and the BSSN trace equation against the archived homogeneous COSMOS RHS and checks the initial Hamiltonian/momentum constraints. It excludes the archival Bianchi-I shear consistently with the exact-spherical V5.5 scope. This materially advances the homogeneous-limit/state-ownership gate while remaining a code/RHS regression, not an evolved cosmological trajectory.
+
+These passes establish a source-level candidate and tightly closed synthetic/actual-stage identities on the tested states; they do not establish full stress-energy conservation through every PIRK stage, constraint propagation, radiation admissibility, or production campaign success. They also do not close the separate D-mode-to-matter or old two-lane local-source-to-global-Q bridges. Main remains unchanged.
 
 ## 8. Radiation admissibility remains independent
 
