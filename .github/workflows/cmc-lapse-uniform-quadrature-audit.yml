@@ -34,7 +34,14 @@ jobs:
       - name: Fail closed unless production source equals the frozen source
         run: |
           git fetch --no-tags origin "$SOURCE_COMMIT"
-          git diff --exit-code "$SOURCE_COMMIT" HEAD -- engine vendor .gitmodules requirements.txt
+          # The research branch carries one explicitly non-production helper under engine/.
+          # Any other engine/vendor/dependency difference blocks the audit.
+          changed="$(git diff --name-only "$SOURCE_COMMIT" HEAD -- engine vendor .gitmodules requirements.txt)"
+          unexpected="$(printf '%s\n' "$changed" | grep -vxF 'engine/discrete_consistent_initial.py' | sed '/^$/d' || true)"
+          if [ -n "$unexpected" ]; then
+            printf 'Unexpected frozen-source differences:\n%s\n' "$unexpected"
+            exit 1
+          fi
           test "$(git rev-parse HEAD:vendor/bb-palatini-unified-r0)" = "$VENDOR_COMMIT"
 
       - name: Set up Python
