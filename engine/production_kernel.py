@@ -132,6 +132,12 @@ class V55ProductionKernel:
     def _solve_lapse(grid, geometry, scalars, matter):
         return solve_cmc_lapse(grid, geometry, scalars, matter)
 
+    def set_diagnostic_beta_rad(self, value: float) -> None:
+        """Diagnostic-only. Production path defaults to beta_rad=0.0."""
+        if not np.isfinite(value):
+            raise ValueError("diagnostic beta_rad must be finite")
+        self._diagnostic_beta_rad = float(value)
+
     def _rhs(self, state: ProductionState):
         metric = metric_slice_from_q(state.grid, state.geometry)
 
@@ -162,9 +168,10 @@ class V55ProductionKernel:
                 md,
                 getattr(state.matter, name),
                 species,
-                dphi_t=dphi_t if species is Species.DARK_MATTER else None,
-                dphi_r=dphi_r if species is Species.DARK_MATTER else None,
+                dphi_t=dphi_t if species in (Species.DARK_MATTER, Species.RADIATION) else None,
+                dphi_r=dphi_r if species in (Species.DARK_MATTER, Species.RADIATION) else None,
                 beta_dm=BETA_DM,
+                beta_rad=getattr(self, "_diagnostic_beta_rad", 0.0),
             )
         return srhs, mrhs, md
 
