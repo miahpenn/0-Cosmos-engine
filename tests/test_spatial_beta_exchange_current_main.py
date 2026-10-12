@@ -47,6 +47,13 @@ def test_active_rhs_beta_source_pair_cancels_with_lapse_and_shift(monkeypatch):
         matter_on["dark_matter"].energy_t
         - matter_off["dark_matter"].energy_t
     )
+    delta_dm_momentum_rhs = (
+        matter_on["dark_matter"].momentum_r
+        - matter_off["dark_matter"].momentum_r
+    )
+    dphi_r = state.grid.cell_derivative_fourth(
+        state.scalars.phi, parity=1
+    )
 
     # The archive-locked covariant law and the ADM Pi definition
     # d_t(phi) = alpha*Pi + beta^r*d_r(phi) require the alpha-weighted
@@ -60,6 +67,14 @@ def test_active_rhs_beta_source_pair_cancels_with_lapse_and_shift(monkeypatch):
     expected_dm_source = -sqrt_gamma * alpha * beta_source * rho_dm * pi
     np.testing.assert_allclose(
         delta_dm_energy_rhs, expected_dm_source,
+        rtol=2.0e-10, atol=2.0e-20,
+    )
+
+    # The radial component of the same covector exchange must also carry
+    # alpha in coordinate-time conservative momentum evolution.
+    expected_dm_momentum = alpha * sqrt_gamma * beta_source * rho_dm * dphi_r
+    np.testing.assert_allclose(
+        delta_dm_momentum_rhs, expected_dm_momentum,
         rtol=2.0e-10, atol=2.0e-20,
     )
 
@@ -87,4 +102,29 @@ def test_active_rhs_beta_source_pair_cancels_with_lapse_and_shift(monkeypatch):
         np.zeros_like(observed_pair_residual[mask]),
         rtol=0.0,
         atol=max(roundoff_tolerance, 1.0e-24),
+    )
+
+    # The scalar radial-current source and the conservative DM momentum
+    # source are opposite at the same frozen ADM state. This catches the
+    # independent lapse omission in q_s that an energy-only test misses.
+    scalar_radial_current_source = -delta_pi_rhs * dphi_r
+    fluid_radial_current_source = delta_dm_momentum_rhs / sqrt_gamma
+    radial_pair_residual = (
+        scalar_radial_current_source + fluid_radial_current_source
+    )
+    radial_mask = mask & (np.abs(dphi_r) > 0.0)
+    assert np.any(radial_mask), "probe must have nonzero radial scalar gradient"
+    radial_scale = max(
+        float(np.max(np.abs(scalar_radial_current_source[radial_mask]))),
+        float(np.max(np.abs(matter_on["dark_matter"].momentum_r[radial_mask]))),
+        float(np.max(np.abs(matter_off["dark_matter"].momentum_r[radial_mask]))),
+    )
+    radial_roundoff_tolerance = (
+        512.0 * np.finfo(float).eps * radial_scale
+    )
+    np.testing.assert_allclose(
+        radial_pair_residual[radial_mask],
+        np.zeros_like(radial_pair_residual[radial_mask]),
+        rtol=0.0,
+        atol=max(radial_roundoff_tolerance, 1.0e-24),
     )
