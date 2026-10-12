@@ -143,6 +143,33 @@ def audit_state(state, vacuum, *, label: str, scheduled_time: float, state_sourc
         if not np.all(np.isfinite(values)):
             raise FloatingPointError(f"{label}: non-finite values in {name} profile")
 
+    # Frozen-slice sensitivity test for the vendor's exact algebraic/spherical
+    # center regularity projection. This does not modify the evolved state or
+    # feed the projected state back into any trajectory.
+    projected_geometry = vacuum.enforce_algebraic_regularity(
+        state.grid, state.geometry
+    )
+    projected_total = assemble_total_stress_energy(
+        state.grid, projected_geometry, state.scalars, state.matter
+    )
+    projected_raw = vacuum.constraints(state.grid, projected_geometry)
+    projected_profiles = {
+        "hamiltonian": np.asarray(projected_raw["hamiltonian"], dtype=float)
+        - 16.0 * np.pi * np.asarray(projected_total.rho, dtype=float),
+        "momentum": np.asarray(projected_raw["momentum"], dtype=float)
+        - 8.0 * np.pi * np.asarray(projected_total.j, dtype=float),
+        "connection": np.asarray(projected_raw["connection"], dtype=float),
+        "determinant_error": (
+            np.asarray(projected_geometry.a, dtype=float)
+            * np.asarray(projected_geometry.b, dtype=float) ** 2 - 1.0
+        ),
+    }
+    for name, values in projected_profiles.items():
+        if values.shape != radii.shape or not np.all(np.isfinite(values)):
+            raise FloatingPointError(
+                f"{label}: invalid projected {name} profile"
+            )
+
     inner = radii < R_CUT
     exterior = radii >= R_CUT
     summary = {
@@ -164,7 +191,44 @@ def audit_state(state, vacuum, *, label: str, scheduled_time: float, state_sourc
             if name in ("hamiltonian", "momentum", "connection", "determinant_error")
         },
         "sampled_signed_profiles": {},
+        "frozen_regularity_projection_test": {
+            "method": (
+                "apply vendor enforce_algebraic_regularity to a copy of the "
+                "frozen geometry; recompute stress source and constraints; "
+                "do not evolve or feed back the projected copy"
+            ),
+            "profiles": {},
+        },
     }
+    for name in ("hamiltonian", "momentum", "connection", "determinant_error"):
+        before = profiles[name]
+        after = projected_profiles[name]
+        delta = after - before
+        details = {}
+        for region_name, mask in (
+            ("first_two_cells", np.arange(radii.size) < 2),
+            ("first_four_cells", np.arange(radii.size) < min(4, radii.size)),
+            ("inner_r_lt_5", inner),
+            ("exterior_r_ge_5", exterior),
+            ("full_domain", np.ones_like(radii, dtype=bool)),
+        ):
+            details[region_name] = {
+                "before_absmax": _peak(before, radii, mask),
+                "after_absmax": _peak(after, radii, mask),
+                "delta_absmax": float(np.max(np.abs(delta[mask]))) if np.any(mask) else None,
+            }
+        details["first_four_signed_values"] = [
+            {
+                "index": int(i),
+                "radius": float(radii[i]),
+                "before": float(before[i]),
+                "after": float(after[i]),
+                "delta": float(delta[i]),
+            }
+            for i in range(min(4, radii.size))
+        ]
+        summary["frozen_regularity_projection_test"]["profiles"][name] = details
+
     for target_radius in SAMPLE_RADII:
         idx = int(np.argmin(np.abs(radii - target_radius)))
         summary["sampled_signed_profiles"][str(target_radius)] = {
