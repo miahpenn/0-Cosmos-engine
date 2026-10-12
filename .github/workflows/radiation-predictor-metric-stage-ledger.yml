@@ -1,0 +1,98 @@
+name: Diagnostic - radiation predictor metric stage ledger
+
+on:
+  push:
+    branches:
+      - diag/radiation-predictor-metric-stage-ledger-2026-10-12
+    paths:
+      - engine/production_kernel.py
+      - engine/radiation_geometry_stage_trace.py
+      - engine/radiation_predictor_stage_ledger.py
+      - tests/test_radiation_predictor_stage_ledger.py
+      - .github/workflows/radiation-predictor-metric-stage-ledger.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: radiation-predictor-metric-stage-ledger-2026-10-12
+  cancel-in-progress: false
+
+jobs:
+  source-check-and-ledger:
+    if: contains(github.event.head_commit.message, '[run-radiation-metric-stage-ledger]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      PYTHONUNBUFFERED: "1"
+      SOURCE_COMMIT: "9eed1cf95c52f001c2b87afbbe6da37faa56d50e"
+      VENDOR_COMMIT: "d6052d605673ce9d82cdc99b0df79855fa2ea215"
+
+    steps:
+      - name: Checkout frozen diagnostic source and pinned vendor
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Fail closed unless physics source and vendor remain frozen
+        run: |
+          git fetch --no-tags origin "$SOURCE_COMMIT"
+          for path in \
+            engine/production_kernel.py \
+            engine/cmc_gauge.py \
+            engine/scalar_system.py \
+            engine/matter_system.py \
+            engine/matter_rhs.py \
+            engine/valencia.py \
+            engine/v55_matter.py \
+            engine/v55_pirk_adapter.py \
+            engine/v55_initial.py
+          do
+            source_blob="$(git rev-parse "$SOURCE_COMMIT:$path")"
+            head_blob="$(git rev-parse "HEAD:$path")"
+            if [ "$source_blob" != "$head_blob" ]; then
+              echo "Frozen physics/runtime source changed: $path"
+              exit 1
+            fi
+          done
+          test "$(git rev-parse HEAD:vendor/bb-palatini-unified-r0)" = "$VENDOR_COMMIT"
+          echo "Frozen source and vendor pins verified."
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install frozen-source dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Compile stage ledger and regression tests
+        run: |
+          python -m py_compile engine/radiation_geometry_stage_trace.py
+          python -m py_compile engine/radiation_predictor_stage_ledger.py
+          python -m py_compile tests/test_radiation_predictor_stage_ledger.py
+
+      - name: Run complete repository regression suite
+        run: python -m pytest -q
+
+      - name: Capture raw RHS, unprojected predictor, projected metric and first CMC inputs
+        run: python -m engine.radiation_predictor_stage_ledger
+
+      - name: Record final provenance hashes
+        if: always()
+        run: |
+          mkdir -p runs/radiation-predictor-stage-ledger
+          git rev-parse HEAD > runs/radiation-predictor-stage-ledger/AUDIT_COMMIT.txt
+          git rev-parse "$SOURCE_COMMIT" > runs/radiation-predictor-stage-ledger/FROZEN_SOURCE_COMMIT.txt
+          git rev-parse HEAD:vendor/bb-palatini-unified-r0 > runs/radiation-predictor-stage-ledger/VENDOR_COMMIT.txt
+          sha256sum engine/production_kernel.py engine/radiation_geometry_stage_trace.py engine/radiation_predictor_stage_ledger.py tests/test_radiation_predictor_stage_ledger.py > runs/radiation-predictor-stage-ledger/SOURCE_SHA256SUMS.txt
+
+      - name: Upload complete trace and predictor-stage ledger
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: radiation-predictor-metric-stage-ledger
+          path: runs/radiation-predictor-stage-ledger/
+          if-no-files-found: warn
+          retention-days: 90
