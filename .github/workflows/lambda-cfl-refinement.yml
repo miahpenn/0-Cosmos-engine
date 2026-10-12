@@ -1,0 +1,62 @@
+name: Diagnostic - short production CFL refinement for Lambda constraint
+
+on:
+  push:
+    branches:
+      - diag/lambda-connection-budget-2026-10-12
+    paths:
+      - tools/lambda_cfl_refinement.py
+      - .github/workflows/lambda-cfl-refinement.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lambda-cfl-refinement
+  cancel-in-progress: true
+
+jobs:
+  cfl-refinement:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      PYTHONUNBUFFERED: "1"
+
+    steps:
+      - name: Checkout diagnostic launcher
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Checkout exact production source and pinned vendor
+        uses: actions/checkout@v4
+        with:
+          ref: 6d8b3f2790644591326df57c55908863f994cb0c
+          path: source
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install exact production dependencies
+        run: python -m pip install -r source/requirements.txt
+
+      - name: Compile controlled CFL refinement
+        run: python -m py_compile tools/lambda_cfl_refinement.py
+
+      - name: Run matched N=80 CFL=0.03 and CFL=0.015 campaigns through t=2.1
+        run: python tools/lambda_cfl_refinement.py
+
+      - name: Upload both trajectories and comparison report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lambda-cfl-refinement-t2p1
+          path: |
+            runs/lambda-cfl-refinement/
+            results/lambda-cfl-refinement/
+          if-no-files-found: warn
+          retention-days: 90
