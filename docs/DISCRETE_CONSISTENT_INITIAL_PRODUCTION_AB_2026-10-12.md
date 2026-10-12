@@ -205,3 +205,48 @@ The centre-adjacent comparison is more discriminating. The exact analytic R_TF/r
 The smooth manufactured tests do not show a generic Ricci or momentum-operator defect. They do show that the trace-free Ricci centre response is sensitive to whether Lambda matches the same discrete metric-connection relation used by the production constraint. The evolved checkpoints have a much larger and sign-changing centre C_Lambda residual (e.g. baseline t=2.16 first cell: -1.990e-3 at N60, -9.728e-4 at N80, +1.197e-3 at N120), while the frozen centre-series audit finds a large, resolution-dependent Lambda/r RHS tendency.
 
 The next bounded test should therefore freeze each production checkpoint and compare the current Lambda input to a counterfactual Lambda reconstructed from the exact production discrete metric-connection formula, recording the resulting trace-free Ricci and A_a RHS differences at the first cells and fixed radii. If this diagnostic materially changes the A_a tendency, the next step is one matched ordinary production step with the original H/M/C diagnostics retained. This is not authorization to insert a projection or replace Lambda evolution: any such intervention must earn support from a multi-constraint one-step comparison across resolutions. No t=160 campaign or physics change is authorized by these diagnostics.
+
+
+---
+
+## Frozen evolved-Lambda / metric-connection RHS sensitivity — completed (2026-10-12)
+
+**Workflow:** [38289657512](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38289657512)  
+**Artifact:** discrete-consistent-initial-lambda-ricci-sensitivity, ID 11764557943  
+**Artifact ZIP SHA-256:** 5cb556cc9a9311fb6ba1a86b1daf398e4c01c9ffeb7f458960ff45e767bb47a2
+
+The diagnostic reads the same 16 frozen baseline/candidate checkpoints. It re-solves the CMC lapse on a copy and compares the live saved Lambda with Lambda reconstructed from the exact production-discrete metric-connection expression. Only the Lambda input to the frozen RHS evaluation is changed; no saved field is altered, no step is advanced, and the original H/M/C_lambda constraints are evaluated on the untouched state.
+
+### Main findings
+
+At t=0, C_lambda is at roundoff and replacing Lambda by the same discrete metric-derived expression changes the trace-free Ricci and A_a RHS only at roundoff. Yet the independent same-slice Ricci-route control described below still disagrees strongly with the production trace-free curvature at the centre. Therefore evolved-Lambda drift cannot explain the entire initial centre discrepancy.
+
+By t=2.16, the live Lambda constraint residual is O(10^-3) in the first few cells and the frozen A_a RHS is sensitive to Lambda replacement. At the first cell, baseline delta(A_a-dot/r²), defined as metric-Lambda RHS minus live-Lambda RHS, is -1.069e-4 (N40), +2.162e-3 (N60), +3.100e-3 (N80), and -7.396e-3 (N120). Candidate-arm values are -4.055e-5, +3.657e-4, +1.318e-3 and -1.008e-2. The sign and magnitude change with resolution, so the replacement is not a consistent repair.
+
+The effect is localized: at the same frozen states the K RHS is unchanged to exact zero under the Lambda-only substitution, while the A_a RHS and Lambda RHS do change. At fixed r=3 the baseline delta(A_a-dot/r²) is +3.17e-5 (N40), -7.06e-5 (N60), -1.74e-5 (N80), +1.16e-5 (N120); the candidate values also change sign across resolutions. This demonstrates a strong centre sensitivity but fails the cross-resolution consistency test required for a correction.
+
+**Decision:** do not project Lambda onto the metric connection or replace the evolved Lambda equation. The control proves that a Lambda mismatch can materially affect the trace-free Ricci / A_a tendency after evolution, but not that enforcing the metric connection would preserve the full H/M/connection system.
+
+---
+
+## Production-initial trace-free Ricci cross-check from parallel branch — completed (2026-10-12)
+
+**Workflow:** [38289275758](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38289275758)  
+**Artifact:** production-initial-tracefree-ricci-crosscheck, ID 11764109840  
+**Artifact ZIP SHA-256:** d0525ab5494c7230c428bcaba1503aab3f12e7720316aefd4c50bbb604b82718  
+**Source:** production initializer / kernel commit 6d8b3f2790644591326df57c55908863f994cb0c.
+
+This is a frozen initial-slice audit only. It calls the pinned initializer and CMC lapse solve unchanged, compares the vendor trace-free Ricci with a separate metric-derived expression, and decomposes the actual A_a RHS. All split-closure checks pass at roundoff. The initial metric connection constraint is zero at every audited resolution.
+
+Despite C_lambda=0, the first-cell production trace-free Ricci divided by r² is about +1.065e-3 (N40), +2.347e-3 (N60), +4.148e-3 (N80), and +9.297e-3 (N120). The independent metric-derived route gives about -5.915e-4, -1.286e-3, -2.262e-3 and -5.052e-3. Correspondingly, the live production A_a RHS at that cell is about +1.10e-3 before division by r² at each resolution, whereas the same-state metric-Ricci counterfactual yields about -5.7e-4 before division. The disagreement therefore exists on the initialized slice when the discrete connection constraint is already satisfied; it is not explained solely by evolved C_lambda error.
+
+At the same time, the smooth manufactured-metric control shows near-fourth-order convergence of the pinned vendor Ricci operator. These findings must not be collapsed into a claim that one curvature formula is universally right: the production initializer’s centre-adjacent metric profiles may fail the discrete regular-centre series assumptions, and the independent metric route is a discriminator rather than an admitted replacement. The centre-series rate audit independently confirms that the production A_a tendency does not scale as r² in the first cell; its A_a-dot/r² witness grows roughly as dr^-2 with refinement, while D_r(K-dot)/r does likewise.
+
+### Revised engineering conclusion
+
+The evidence now separates three effects:
+1. **Initial centre compatibility:** the pinned initializer satisfies C_lambda and the discrete H candidate can satisfy H at t=0, but the unmodified production A_a RHS still has a nonzero centre limit instead of an O(r²) tendency.
+2. **Curvature-route sensitivity:** the independent metric Ricci route changes that initial A_a tendency substantially, but has not been established as the governing discrete evolution operator.
+3. **Subsequent Lambda drift:** by t=2.16, C_lambda grows and a Lambda-only RHS counterfactual strongly changes A_a, but its effect is resolution-dependent and does not justify a projection.
+
+The most discriminating next experiment remains the same: repair only the initialization/centre quadrature candidate’s reporting, compare its first-cell series and first-stage A_a/K/connection tendencies with the pinned baseline at matched physical radii, then carry only a justified numerical candidate through one ordinary bounded production step and re-evaluate H/M/C_lambda. No physics change, damping, clamp, centre projection, or long-horizon run is authorized at this point.
