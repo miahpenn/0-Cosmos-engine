@@ -15,7 +15,7 @@ from tools.audit_uniform_radial_quadrature_initial_profile import candidate_unif
 from tools.origin_half_cell_quadrature_regularity_ab import AMPLITUDE,WIDTH,D_AMPLITUDE
 from engine import v55_pirk_adapter as adapter
 from engine.production_kernel import V55ProductionKernel
-from engine.cmc_gauge import solve_cmc_lapse, target_kdot, _fourth_derivative_row
+from engine.cmc_gauge import solve_cmc_lapse, target_kdot
 from engine.v55_matter import total_matter_projection
 from engine.stress_energy import assemble_total_stress_energy
 
@@ -27,15 +27,15 @@ OUT=Path("results/cmc-lapse-uniform-quadrature-operator-compare")
 _,vacuum,_=adapter.vendor_modules()
 
 def apply_row_derivative(grid,values,order):
-    values=np.asarray(values,float); out=np.empty_like(values)
-    for i in range(len(values)-1):
-        row=_fourth_derivative_row(grid,i,1,order)
-        out[i]=sum(w*values[j] for j,w in row.items())
+    values=np.asarray(values,float)
     if order==1:
-        out[-1]=grid.cell_derivative_fourth(values,parity=1)[-1]
-    else:
+        return np.asarray(grid.cell_derivative_fourth(values,parity=1),float)
+    if order==2:
+        out=np.asarray(grid.cell_second_derivative_fourth(values,parity=1),float).copy()
+        # The outer normalization cell is not an elliptic PDE row.
         out[-1]=np.nan
-    return out
+        return out
+    raise ValueError(f"unsupported derivative order: {order}")
 
 def stats(x):
     x=np.asarray(x,float); x=x[np.isfinite(x)]
