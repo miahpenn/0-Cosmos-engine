@@ -131,7 +131,7 @@ def audit_checkpoint(path: Path, kernel, vacuum):
 
     inner = radii < R_CUT
     exterior = radii >= R_CUT
-    match = re.fullmatch(r"checkpoint_t([0-9]+\\.[0-9]+)\\.npz", path.name)
+    match = re.fullmatch(r"checkpoint_t([0-9]+\.[0-9]+)\.npz", path.name)
     if not match:
         raise ValueError(f"unexpected checkpoint filename: {path.name}")
     summary = {
