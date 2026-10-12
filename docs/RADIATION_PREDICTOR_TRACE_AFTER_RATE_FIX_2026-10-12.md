@@ -82,6 +82,26 @@ The rate-fixed trace records the following at cell 79:
 
 The explicit decrease in a, followed by increase in X, both increase gamma^rr = X²/a. Together they account for +0.022323346211304 in gamma^rr. The centre-regularity projection leaves a, b and X unchanged at this outer cell, so it is not the direct cause of this crossing. This is limited to the recorded failing cell and step; it does not exclude earlier boundary influence or all regularity effects elsewhere.
 
+### Exact origin of the explicit metric rates
+
+The pinned numerical operator states the explicit geometry equations in [`vacuum_bssn.py` at vendor commit `d6052d6`](https://github.com/RonBibb/bb-palatini-unified-r0/blob/d6052d605673ce9d82cdc99b0df79855fa2ea215/vacuum_bssn.py#L268-L295):
+
+- `a_dot = beta*a_r + 2*a*beta_r - (2/3)*a*div_beta - 2*alpha*a*Aa + KO[a]`
+- `X_dot = beta*X_r + X*(alpha*K - div_beta)/3 + KO[X]`
+
+The captured outer cell has beta = 0; the explicit operator uses its default KO strength of zero, so the actual rates reduce to `a_dot = -2*alpha*a*Aa` and `X_dot = alpha*X*K/3`. Substitution of the recorded accepted values alpha = 1, Aa = 0.1577723855707334 and K = 0.2820482338520797 reproduces the saved rates `a_dot = -0.1921657198214381` and `X_dot = +0.08873930174627159`. This is the expected extrinsic-curvature-driven explicit BSSN metric update at zero shift, not evidence that a missing direct stress-energy term belongs in these two explicit equations. The local geometry-stage adapter separately places total-stress-energy terms into the Aa/K primary RHS blocks; that upstream coupling and the constraints still need their own admission.
+
+To isolate the metric factors without modifying any state, I evaluated the *same predictor matter values* on counterfactual metrics formed by changing only one of a or X:
+
+| Metric used for the same predictor radiation state | gamma^rr used | Cone margin C | Admissibility |
+|---|---:|---:|---|
+| Accepted metric, no explicit metric update | 1.462893887838753 | +2.2197597457 × 10^-6 | Admissible |
+| a updated; X held at accepted value | 1.476874488513230 | +8.1694973651 × 10^-7 | Admissible |
+| X updated; a held at accepted value | 1.471157658083646 | +1.3897691933 × 10^-6 | Admissible |
+| Both explicit updates applied | 1.485217234050057 | −1.6997416818 × 10^-8 | Inadmissible |
+
+Thus neither metric-field change alone crosses the cone in this one step; their combined increase in gamma^rr does. Using the recorded a-then-X decomposition, the a update consumes 1.4028100092 × 10^-6 of margin and the X update consumes a further 8.3394715333 × 10^-7. This ordering attribution is path-dependent because gamma^rr = X²/a is nonlinear, but the separate-field counterfactuals show the joint update is necessary for the observed crossing at this stage.
+
 ## Approach to the crossing
 
 The last three fixed-dt attempts show the predictor margin shrinking toward zero:
