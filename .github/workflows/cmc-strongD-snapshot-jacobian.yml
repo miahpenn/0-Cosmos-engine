@@ -1,0 +1,50 @@
+name: Diagnostic - strong-D snapshot CMC Jacobian
+
+on:
+  push:
+    branches:
+      - "diag/independent-metric-ricci-audit"
+    paths:
+      - "diagnostics/cmc_strongD_snapshot_jacobian.py"
+      - ".github/workflows/cmc-strongD-snapshot-jacobian.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  strongD-snapshot-jacobian:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[cmc-strongD-jacobian]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout matching CMC kernel and pinned vendor
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Download admitted full-state strong-D snapshot
+        uses: actions/download-artifact@v4
+        with:
+          name: boundary-matched-cmc-r80-result
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: miahpenn/0-Cosmos-engine
+          run-id: 38162318255
+          path: artifacts/strongD
+      - name: Verify snapshot file and run matched-state lapse Jacobian
+        run: |
+          test -s artifacts/strongD/boundary_matched_r80_profiles.jsonl
+          python diagnostics/cmc_strongD_snapshot_jacobian.py artifacts/strongD/boundary_matched_r80_profiles.jsonl
+      - name: Upload strong-D lapse-map diagnostic
+        uses: actions/upload-artifact@v4
+        with:
+          name: cmc-strongD-snapshot-jacobian
+          path: runs/cmc_strongD_snapshot_jacobian/cmc_strongD_snapshot_jacobian.json
+          if-no-files-found: error
