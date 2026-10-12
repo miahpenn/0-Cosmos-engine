@@ -157,11 +157,42 @@ The exact geometric momentum decomposition, scalar/fluid current assembly, and t
 
 So the *value* of the late momentum residual is overwhelmingly geometric, even though the time derivative of the S current is important in its instantaneous propagation balance. This is why “the scalar source causes it” would be too strong: the residual depends on the difference between geometric and total-current evolution.
 
-## Immediate next diagnostic: spatial behavior of the semi-discrete tendency
+## Spatial refinement of the semi-discrete momentum-residual tangent — complete
 
-Evaluate the same no-trajectory momentum-residual tangent at N=40,60,80,120 on (a) fresh t=0 states and (b) saved t≈2.16 states from the successful same-domain refinement. Compare ẊM, each signed geometric rate term, and each scalar/fluid-current rate at common physical radii (r=2,3,4,5,6) as well as in fixed inner/exterior regions. Keep CMC, matter, boundary, and coefficients unchanged.
+Run: https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38214065011
+Artifact SHA-256: `6c19e84cb197dbd4ed248791e8a06bcc42bd982339d196ea380cf9c58a43884b9`
 
-This will distinguish a central spatial layer in the instantaneous defect from a resolution-independent source/geometry inconsistency. No production equation change is authorized until the fixed-radius tangent itself has been checked for spatial refinement.
+The diagnostic evaluated the full semi-discrete production RHS on 8 frozen states: the production initial slice and the saved t=2.16 checkpoint for N=40,60,80,120. At each state it split the momentum residual rate into the signed geometric derivative terms and separate S/D/COSMOS-phi/DM/baryon/radiation current terms. It re-solved the CMC lapse in the plus/minus tangent states and compared two epsilons, then made one independent production step to compare actual ΔM/dt. No trajectory was continued.
+
+### Fixed-radius results for dM/dt
+
+| Time | Radius | N40 | N60 | N80 | N120 |
+|---|---:|---:|---:|---:|---:|
+| 0 | r=3 | -4.80e-4 | -9.59e-5 | +7.59e-5 | +1.91e-7 |
+| 0 | r=4 | -1.96e-4 | +6.23e-5 | +2.51e-6 | +5.87e-7 |
+| 0 | r=5 | +8.77e-5 | +2.51e-6 | +1.22e-6 | +4.84e-7 |
+| 0 | r=6 | +3.98e-5 | -6.65e-7 | +8.24e-8 | +2.11e-7 |
+| 0 | r=8 | -5.43e-6 | -1.12e-6 | -2.80e-7 | -5.45e-9 |
+| 2.16 | r=3 | +5.11e-4 | -3.38e-4 | -3.04e-4 | -7.81e-5 |
+| 2.16 | r=4 | +1.47e-4 | -1.57e-4 | +2.06e-4 | -2.01e-5 |
+| 2.16 | r=5 | -2.18e-4 | +1.99e-4 | -6.23e-5 | +1.65e-6 |
+| 2.16 | r=6 | -6.60e-5 | -7.34e-5 | +5.87e-6 | -8.25e-8 |
+| 2.16 | r=8 | +3.10e-5 | +4.56e-6 | +3.87e-8 | +9.25e-8 |
+
+The fixed-radius tangent is increasingly small at the finer resolutions, especially by N120 for r=3–8. However, the convergence is **not monotone at every radius**, and the r=2 result remains strongly resolution-sensitive: at t=0 dM/dt ranges from +1.11e-3 (N40) to +1.06e-4 (N120), with opposite signs at N60/N80; at t=2.16 it ranges from -8.92e-4 (N40) to -1.27e-4 (N120), again with non-monotone signs among N60/N80/N120. This is not enough to claim central pointwise convergence.
+
+The tangent and direct one-step rate generally agree closely. Representative cases:
+- Initial r=3, N120: dM/dt = +1.91e-7 vs actual ΔM/dt = +2.13e-7.
+- t=2.16, r=3, N120: -7.81e-5 vs -7.21e-5.
+- t=2.16, r=5, N120: +1.65e-6 vs +1.75e-6.
+This continues to support that the semi-discrete RHS contains the observed tendency; the PIRK step is a close local realization of it.
+
+### Decision
+
+The spatially refined tangent supports the current working diagnosis: a **central spatial/derivative compatibility layer** is the leading issue, while fixed radii away from the very centre improve substantially with N. The non-monotone r≈2 behavior and the admitted-inner maximum that moves inward remain unresolved. We should not alter matter-source coefficients, add a centre projection, replace the Lambda equation, or interpret this as physical behavior.
+
+**Next test:** compare the semi-discrete tangent against the exact regular-centre parity/stencil identities for Aa, K, X, a, and b, and independently check the matter-current derivative at the same cells. Do not launch a long trajectory; the next work should be a bounded operator-level audit of the first cells. Any numerical repair proposal must be isolated and pass the same t=0/t=2.16 fixed-radius and centre-cell witnesses without fitted parameters.
+
 
 ## Matched-CFL spatial refinement — complete
 
