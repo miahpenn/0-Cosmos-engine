@@ -62,12 +62,12 @@ Against the earlier boundary-matched R80 trajectory using its native R80 target 
 
 **Interpretation:** the full-evolution intervention provides strong causal evidence that the archived R160 global CMC target history drives the R80/R160 lapse and proper-time divergence in this controlled boundary-matched setup. It does not establish that the R160 target is uniquely physically correct or self-consistent on R80, because the R160 target and outer-alpha history and R80 matter-face history are imported archived inputs. This remains diagnostic-only.
 
-Next: run [coarsened target-history sensitivity](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38207554072), which retains every other archived R160 target sample (preserving the final endpoint) and linearly interpolates through them. Compare its τ and lapse history against both the full-sample target-forced run and native-target boundary-matched R80. Do not modify production physics pending that sensitivity result.
+Next: [coarsened target-history sensitivity run 38207554072](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38207554072) is currently in progress. Its diagnostic-only stride-2 setup retains every other archived R160 target sample, preserves the t=12 endpoint, and linearly interpolates through approximately 0.5-time-unit intervals. The full-resolution target-forced reference is run 38206154450/artifact 11727976800. Compare tau, maximum saved-slice tau gap, shared-core lapse differences, geometry differences, target delivery and admission gates. This is the only active expensive numerical trajectory; do not modify production physics or launch another trajectory until it is complete.
 
 
 ## 7. 12 October continuation: interpolation audit and full target-forced trajectory complete
 
-Detailed dated handoff: [CMC strong-D lapse / global-target handoff](../blob/d29af5977e7958d89a633ef8aa84f5aa67012338/outputs/cmc_strongD_cmc_lapse_handoff_2026-10-12.md).
+Detailed dated handoff: [CMC strong-D lapse / global-target handoff](../blob/8e2810948f9753ea96f55b650645f705ff4b5dd5/outputs/cmc_strongD_cmc_lapse_handoff_2026-10-12.md).
 
 The first Kdot interpolation audit attempt, [run 38206744317](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38206744317), failed before analysis with `ModuleNotFoundError: No module named 'numpy'`. This was a workflow setup failure, not a numerical finding. Dependency correction: commit [d6142ac81a4bf56905de0fae5298f8fc540f7d98](https://github.com/miahpenn/0-Cosmos-engine/commit/d6142ac81a4bf56905de0fae5298f8fc540f7d98) adds explicit NumPy installation. The corrected run [38206848868](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38206848868) succeeded and uploaded artifact [11727926565](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38206848868/artifacts/11727926565), ZIP SHA-256 `993340f756973e2a0251da03269ea37d38dd1591a0cffa45e9540148c471c39b`.
 
