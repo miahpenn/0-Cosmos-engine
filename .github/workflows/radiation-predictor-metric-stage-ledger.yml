@@ -1,4 +1,5 @@
 name: Diagnostic - radiation predictor metric stage ledger
+# Revision 2: record raw Euler metric, post-projection metric and first CMC inputs.
 
 on:
   push:
