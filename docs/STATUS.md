@@ -135,9 +135,30 @@ At t=0, the one-step control keeps the connection residual near zero (final i=2 
 
 Before touching production evolution, compare the full-step change in `Lambda - Lambda_metric(a,b)` against the change predicted by the metric connection from the explicit a/b rates and the pinned PIRK Lambda RHS, cell-by-cell at the initial and t≈10 states. Report the separate `lambda_l2`, `lambda_l3`, and metric-connection derivative contributions. This should test whether the discrete connection constraint is propagated consistently by the existing split scheme. Keep all physics terms and coefficients unchanged.
 
+## Lambda/connection propagation and time-step audit
+
+The follow-on diagnostic series now ties the connection-constraint growth to the evolving momentum-constraint residual.
+
+- Saved-state Lambda RHS audit (21 states, no evolution): https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38210572528
+- One-step Lambda connection budget: https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38210399733
+- One-step stage trace: https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38209727710
+- Matched CFL refinement: https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38212493285
+
+The analytic time derivative of the metric-derived connection agrees with an independent centered directional-difference check to roughly (10^{-11}) or better. The production step's actual Lambda increment agrees with the declared split `lambda_l2 + lambda_l3` to about (6	imes10^{-17}). At t=0 the vector-field difference between Lambda RHS and the metric-connection time derivative is near roundoff; a single production step creates only an (O(10^{-7})) connection residual at the first admitted inner cell.
+
+At t=12, the momentum-residual term in the exact Lambda equation predicts nearly all of the connection-residual rate at the first admitted inner cell:
+- N=60, r=3.333: momentum residual (-9.8167	imes10^{-4}); ((2alpha/a)M approx -1.9483	imes10^{-3}); measured (dot C_Lambda approx -1.9255	imes10^{-3}).
+- N=80, r=2.5: momentum residual (-2.6894	imes10^{-3}); ((2alpha/a)M approx -5.3380	imes10^{-3}); measured (dot C_Lambda approx -5.2978	imes10^{-3}).
+
+The match is within 1.2% and 0.8%. Current working diagnosis: the Lambda residual is predominantly **tracking the growing momentum constraint**, not independently proving the Lambda equation defective.
+
+A matched fixed-grid CFL refinement at N=80, r_max=80, through t=2.1 (CFL .03 and .015) passed strict campaign completion. At t=2.1 the first admitted inner cell has (C_Lambda=3.5556	imes10^{-4}) vs (3.5580	imes10^{-4}), and H=-(9.9268	imes10^{-4}) vs -(9.9255	imes10^{-4}). The fixed inner peak norms differ by only about 0.2% for (C_Lambda) and 0.12% for H. This argues against simple time-step truncation as the dominant cause of the early defect.
+
+Next: review same-domain spatial refinement before proposing a numerical change. Keep matter sources, CMC gauge, outer boundary, and all coefficients locked. Do not add damping, center projection, a custom Lambda equation, or any physical source as a shortcut.
+
 ## Next gates
 
-1. Use the completed same-state Ricci decomposition to trace how the geometry/connection residual first grows across a production step, starting from t=0 and then an early evolved checkpoint. Keep the matter/scalar equations unchanged and preserve signed H/connection witnesses at every stage.
+1. Complete the same-domain N=40,60,80,120 spatial refinement at fixed r_max=80, CFL=.03, through t=2.16, then compare signed H/momentum/connection profiles at shared physical radii and fixed r<5 / r>=5 masks.
 2. Use the geometric audit to identify whether the admitted inner H drift is tied to the connection/Ricci pathway. Only then design a single bounded numerical-layer intervention with preregistered pass/fail metrics.
 3. Check matter and radiation boundary flux direction and local conservation terms from raw signed terms, not ratios whose denominators may be near zero.
 4. Preserve frozen N=320 reconstruction tolerance 1e-8 and report host/runtime variance; do not relax thresholds after seeing results.
