@@ -271,3 +271,42 @@ The maximum in the first **admitted** inner cells is not uniformly convergent in
 This supports a **central error layer that narrows with refinement**, but does not yet establish pointwise regular convergence at the centre. N=40 has no cell with index>=2 and r<5, so it cannot supply the admitted-inner max for that mask.
 
 The exterior convergence is encouraging; central regularity and the momentum-constraint source remain open. Do not add the center projection as a repair, change the Lambda equation, add damping, or launch t=160 based on these results alone. The next step is a one-step signed decomposition of the momentum constraint into its exact geometric derivatives and matter-current source across the existing initial and t≈10 stage captures.
+
+
+## Coarse saved-checkpoint tangent comparison — complete, with a time-resolution limitation
+
+Run: [38214221863](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38214221863)  
+Artifact SHA-256: \`f7f9bd83f6c15804b02ce304826bee76172e147118142f4a5c8c8bf018a74af9\`
+
+The offline tangent audit sampled 21 states (t=0,2,4,6,8,10,12 at N=40/60/80) and compared 18 observed interval rates against the trapezoid average of the endpoint semi-discrete RHS tangents. There were no kernel evolution steps. The tangent epsilon sensitivity maximum was \`9.35e-13\`, the geometric reconstruction closure was zero, and scalar/fluid sector closure was \`2.71e-20\`.
+
+The endpoint tangent is locally useful but its two-unit average often fails to predict the accumulated change. At N=80, i=2, r=2.5:
+- t=4→6: observed \(\Delta M/\Delta t=-9.9283\times10^{-4}\), endpoint-tangent prediction \(+5.6073\times10^{-4}\);
+- t=6→8: observed \(+9.2270\times10^{-4}\), prediction \(-1.3362\times10^{-3}\);
+- t=10→12: observed \(-1.0006\times10^{-3}\), prediction \(+7.4291\times10^{-4}\).
+
+That mismatch is not proof of an incorrect production RHS. The separate one-step tangent matches the actual one-step M-rate to about 0.8% at N=80,t≈10 and 6.4% at t=12. The per-step replay also shows fixed-radius reversals every 0.03-step boundary near t=1.86,3.93,4.92,7.08,8.01,10.26,11.07 at r=2.5. Endpoint sampling every two time units cannot capture these reversals or nonlinear within-interval rate changes.
+
+## Centre regularity plus matter-current derivative cross-check — complete
+
+Run: [38215015337](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38215015337)  
+Artifact: [center-regularity-current-derivative-audit](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38215015337/artifacts/11731946191)  
+Artifact SHA-256: \`6f74bb436227d1e7259509527a6cdb000994557851199d1667681fa42371eaa2\`
+
+The audit recreates the production initial state and a matched t=2.16 state at N=40,60,80,120 (270 short steps total). Its four t=2.16 H/M/C_lambda/connection profiles reproduce the previously archived matched-CFL artifact at zero-to-\(1.73\times10^{-18}\) maximum difference. The exact momentum/current budget closure is at most \(4.34\times10^{-19}\); scalar-sector sum closure is zero and total current-sector closure at most \(8.47\times10^{-22}\).
+
+### What it establishes
+
+- The production even/odd derivative parity tests pass at roundoff on manufactured smooth profiles. The t=0 series ratios are also consistent across resolution: \(A_a/r^2\) is approximately zero, \(C_\Lambda=0\) by construction, and first-cell \(\Lambda/r\) varies smoothly from about \(2.85\times10^{-3}\) (N40) to \(3.05\times10^{-3}\) (N120).
+- At t=2.16, the **first-cell** \(\Lambda/r\) is not resolved by simple pointwise refinement: N40 \(3.52\times10^{-3}\), N60 \(4.49\times10^{-3}\), N80 \(5.70\times10^{-3}\), N120 \(9.06\times10^{-3}\). The first-cell \(A_a/r^2\) also changes sign with resolution. These first-cell values are at different physical radii for each N, so this is evidence of a narrowing centre layer, not a matched-radius convergence sequence.
+- At fixed r=5, the ratios behave much better: \(\Lambda/r\) lies around \(6.17\)–\(6.55\times10^{-4}\) for N40–N120; \(A_a/r^2\) lies around \(3.8\)–\(5.85\times10^{-6}\); and the connection residual drops from \(5.10\times10^{-4}\) (N40) to approximately \(1.2\)–\(1.6\times10^{-6}\) (N80/N120). The most severe issue is confined inward of the fixed exterior region.
+- The scalar current decomposition \(j_S=-P_S D_r S\), \(j_D=-P_D D_r D\), and \(j_\phi=-\Pi D_r\phi/(8\pi)\) closes to the production scalar current exactly. At N80, t=2.16, i=2, r=2.5, the direct odd-parity derivative \(D_r j_S=7.82\times10^{-7}\) and product-rule form \(7.97\times10^{-7}\) differ by only \(-1.49\times10^{-8}\). The analogous current derivative defects across resolutions are of order \(10^{-8}\), much smaller than the \(10^{-4}\)–\(10^{-3}\) momentum residual in these inner cells. This does not indicate a gross scalar-current assembly or product-derivative failure.
+- At N80,t=2.16,i=2, \(M=-3.0435\times10^{-4}\), with \(M_\mathrm{geo}=-2.0061\times10^{-4}\) and \(M_\mathrm{source}=-1.0374\times10^{-4}\). The scalar current is material at this early time, but exact current reconstruction does not remove the geometric remainder. At t=10–12 the saved-state budget shows the geometry dominating still more strongly.
+
+The polynomial centre fit from the earlier stencil-sensitivity probe has noticeable fit residual on evolved states and is **not** a reliable replacement stencil. The independent product/current closure does not warrant modifying that production stencil or a Lambda/Ricci formula.
+
+## Current decision
+
+Do not change the production Lambda equation, the vendor Ricci operator, or centre stencil on this evidence. The consistent picture is a central regularity/constraint layer with substantial resolution sensitivity, plus strongly time-dependent momentum residuals that invalidate endpoint-only two-unit rate attribution. Preserve the original physics and production path.
+
+The next discriminating diagnostic should focus on **the exact radial geometric terms that dominate M**, particularly \(D_r A_a\), \(-(2/3)D_rK\) and \((A_a-A_b)2/r\), with matched fixed-physical-radius and centre-series comparisons. Compare those terms across the first admitted radii at t=0 and t=2.16, then at t≈10/12 if the initial/early comparison isolates the effect. No numerical intervention is justified until this shows which discrete geometric piece loses regular convergence.
