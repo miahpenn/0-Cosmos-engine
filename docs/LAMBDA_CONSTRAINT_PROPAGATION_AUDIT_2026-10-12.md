@@ -194,6 +194,25 @@ The spatially refined tangent supports the current working diagnosis: a **centra
 **Next test:** compare the semi-discrete tangent against the exact regular-centre parity/stencil identities for Aa, K, X, a, and b, and independently check the matter-current derivative at the same cells. Do not launch a long trajectory; the next work should be a bounded operator-level audit of the first cells. Any numerical repair proposal must be isolated and pass the same t=0/t=2.16 fixed-radius and centre-cell witnesses without fitted parameters.
 
 
+## Centre parity / derivative-operator audit — complete
+
+Workflow: https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38214547118
+Artifact SHA-256: `dc4959fc117cb428ffcfc180db143b0c74adfd7d60f5e9db0d356361c7191981`
+
+The pinned fourth-order cell-centred derivative was tested on manufactured even/odd regular polynomials at N=40,60,80,120, using the actual parity ghost rules. First-five-cell first- and second-derivative errors were all at floating-point scale; the largest was (2.0\times10^{-15}). This rules out a basic even/odd parity sign error or a generic polynomial-exactness defect in the shared operator.
+
+A second frozen-state sensitivity probe compared the production momentum/connection residuals with an alternate local even-in-r polynomial derivative fit (quadratic in r²) over r<=6. It left the evolved state unchanged and applied the alternate reconstruction only within r<=5. It is **not** a candidate production stencil.
+
+The probe shows that the t=0 momentum residual remains at roundoff under both derivative choices, but the connection constraint is derivative-definition-sensitive at t=0: the production initializer sets it to zero using the production derivative, while the alternate fit differs by (2.4\times10^{-5}) to (1.5\times10^{-4}) across the resolutions. This is expected sensitivity of a derived constraint to changing its derivative definition, not proof of an evolution defect.
+
+At t=2.16, changing the local derivative reconstruction shifts the momentum residual by as much as (8.3\times10^{-4}) (N40), (1.27\times10^{-3}) (N60), (8.6\times10^{-4}) (N80), and (1.92\times10^{-3}) (N120) somewhere in r<=5. At corresponding first admitted cells, the residual can change in magnitude or sign. However, the polynomial fit itself has non-negligible residuals on the evolved fields: the worst fit residual in K is (1.09\times10^{-3}) (N60), (1.37\times10^{-3}) (N80), and (1.94\times10^{-3}) (N120). The fixed r<=6 fitting window also contains different cell counts at different resolutions; N40 has only three fit nodes and therefore no independent fit-error estimate. Thus this probe demonstrates sensitivity, not which derivative is more accurate.
+
+### Decision and next bounded audit
+
+No generic error has been found in the pinned parity stencil. The evolved centre region is both spatially sensitive and not well represented by a quartic regular-centre profile over the full r<=6 window. Do **not** replace the production derivative with this fit.
+
+The next diagnostic should report the actual regularity series ratios directly on the saved states—`Aa/r²`, `Lambda/r`, `(a/b-1)/r²`, plus `D_r f/r` for the even fields K, X, a, b, S, D and phi—at the first cells for t=0 and t=2.16. Compare these against resolution and the exact production stencil, and report the independent matter-current derivative. That is a narrower test of centre smoothness than fitting one quartic across r<=6. No long run and no physics change is needed.
+
 ## Matched-CFL spatial refinement — complete
 
 Run: https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38212879394
