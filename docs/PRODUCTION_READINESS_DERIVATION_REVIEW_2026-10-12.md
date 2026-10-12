@@ -12,7 +12,7 @@ The machine is implemented and operational at component/smoke level, but is **no
 
 1. Radial quadrature materially changes the initial Hamiltonian residual, but the best tested initializer still fails the required regular-centre Aa_dot = O(r²) test.
 2. Initial H/M/C_Lambda closure at roundoff does not stop a nonzero momentum-constraint tangent from developing under the unchanged production RHS. The tangent agrees closely with the one-step quotient.
-3. A frozen-state audit first found a difference between the old CMC solver and production K operator on the uniform-quadrature initializer. A newer cross-agent derivation corrected the more fundamental problem: the cell-centred grid’s first value is at r=dr/2, but the old CMC solve imposed alpha[0]=alpha[1] as its centre row, which is not the even-parity boundary condition for samples at two distinct positive radii. An isolated candidate now solves the CMC PDE at the first cell using the same parity-aware fourth-order stencils used by the production K RHS. The frozen rows close at roundoff through N=320 and the even-series fit improves dramatically, but Aa_dot/r² still fails the centre-series gate; the candidate has not been evolved.
+3. A frozen-state audit first found a difference between the old CMC solver and production K operator on the uniform-quadrature initializer. A newer cross-agent derivation corrected the more fundamental problem: the cell-centred grid’s first value is at r=dr/2, but the old CMC solve imposed alpha[0]=alpha[1] as its centre row, which is not the even-parity boundary condition for samples at two distinct positive radii. An isolated candidate now solves the CMC PDE at the first cell using the same parity-aware fourth-order stencils used by the production K RHS. The frozen rows close at roundoff through N=320 and the even-series fit improves dramatically. A matched one-step A/B then showed substantial momentum/connection improvements at N=60–160, but a mixed Hamiltonian response and no demonstration of regular-centre convergence or radiation admission.
 4. Radiation admissibility remains a separate blocker: N=240/320 one-step cases violate |S|/E ≤ 1 in the first cell for all tested initializer arms, and a distinct long-run outer-cell trace shows the explicit predictor metric taking a near-saturated radiation state outside the cone.
 
 The evidence does not support inserting a guessed global source Q, wiring a duplicate homogeneous COSMOS state into the V5.5 spatial step, or declaring a physical bounce/cycle.
@@ -131,9 +131,63 @@ The nonzero `alpha[0]-alpha[1]` is expected for even-profile samples at two diff
 
 My preceding frozen uniform-profile audit correctly excluded the old centre row from its interior PDE residual and compared fixed physical radii. Its mixed-order production residual was real for the old solver, but should no longer be treated as the leading explanation in isolation: the actual first-row closure was itself inconsistent with a cell-centred mesh. The new parity-aware candidate deliberately changes the numerical row so the CMC and production K RHS use compatible fourth-order derivative rows. Since the candidate's near-zero production Kdot-target residual is constructed from matching operators, it is a consistency result, not independent proof of constraint propagation or continuum correctness.
 
-**No production patch or merge is justified yet.** The decisive next experiment is a bounded, matched one-step A/B on identical frozen initial state(s), one arm using the current old centre row and one using the parity-aware candidate, recording signed `Aa_dot`, `K_dot`, H, M, C_Lambda, determinant/Lambda identities, radiation cone margin/admissibility, and Misner–Sharp balance at cell 0/1/2, first formally admitted cell and fixed physical radii. Do not continue to a long campaign unless the implicated witnesses improve together.
+**No production patch or merge is justified yet.** The matched one-step A/B is now complete; its mixed results are summarized in the next section. The next test must extend the same A/B witness set to an explicit, separately instrumented radiation-cone budget and a closed Misner–Sharp balance residual before any trajectory or candidate promotion.
 
-## 5. Covariant scalar–DM source pair: candidate passes, trajectory gate remains open
+## 6. Matched one-step A/B — centre-row candidate has mixed constraint results
+
+**Run:** [38303550121](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38303550121) — completed successfully.  
+**Branch:** `diag/cmc-lapse-cellcenter-one-step-ab-2026-10-12`  
+**Commit:** `0de3fa09511c919941072390a24426d10681b1fd`  
+**Artifact ID:** `11770494466`  
+**ZIP SHA-256:** `9c4934ddafed682044aced6222d94caf7c8fcff2434ec00a72a423c4abccf19d`  
+**Internal report.json SHA-256:** `1b32400c29ce7340d68b9db590942144fa1d5d57ac71fa6b170ccd28c6ea9bdd`  
+**Vendor:** `d6052d605673ce9d82cdc99b0df79855fa2ea215`  
+**Scope:** one ordinary production step at N=40/60/80/120/160, r_max=80, dt=0.03 dr. Same initial non-lapse geometry, scalars and conservative matter in each pair; old and candidate differ only in the CMC lapse row/operator. No physical source/parameter/boundary/damping/floor/clamp changed.
+
+### Full-domain constraint maxima after one step
+
+| N | dt | H old → candidate | M old → candidate | C_Lambda old → candidate |
+|---:|---:|---:|---:|---:|
+| 40 | 0.060 | 3.847e-4 → 3.837e-4 | 1.530e-5 → 2.062e-5 | 9.321e-7 → 1.261e-6 |
+| 60 | 0.040 | 1.009e-4 → 9.985e-5 | 5.850e-6 → 3.359e-6 | 2.390e-7 → 1.372e-7 |
+| 80 | 0.030 | 3.776e-5 → 3.670e-5 | 6.123e-6 → 4.175e-7 | 1.875e-7 → 1.294e-8 |
+| 120 | 0.020 | 1.019e-5 → 1.056e-5 | 6.185e-6 → 3.342e-7 | 1.262e-7 → 6.750e-9 |
+| 160 | 0.015 | 5.926e-6 → 6.876e-6 | 6.166e-6 → 2.965e-7 | 9.437e-8 → 4.506e-9 |
+
+The candidate improves full-domain M and C_Lambda strongly at N=60–160, but worsens both full-domain maxima at N=40. H improves at N=40/60/80 and worsens at N=120/160. Because full-domain peaks include the centre cells, these results must be read alongside regional masks—not reduced to a single “pass”.
+
+### Fixed physical annulus (2 ≤ r < 5)
+
+| N | H old → candidate | M old → candidate | C_Lambda old → candidate |
+|---:|---:|---:|---:|
+| 40 | 2.682e-5 → 2.591e-5 (one cell only) | 4.101e-6 → 1.675e-6 | 2.532e-7 → 1.003e-7 |
+| 60 | 9.816e-6 → 1.075e-5 | 5.850e-6 → 2.084e-7 | 2.390e-7 → 8.800e-9 |
+| 80 | 3.754e-6 → 4.270e-6 | 3.832e-6 → 1.316e-7 | 1.167e-7 → 4.107e-9 |
+| 120 | 3.613e-7 → 3.613e-7 | 9.732e-7 → 4.575e-8 | 1.978e-8 → 9.514e-10 |
+| 160 | 1.261e-7 → 1.261e-7 | 8.525e-9 → 3.436e-9 | 1.242e-10 → 5.976e-11 |
+
+For N=60–160, the candidate cuts the annulus M and C_Lambda witnesses materially—often by roughly 20–30×—while H is a little worse at N=60/80 and essentially unchanged at N=120/160. N=40 has no cells in the predeclared admitted-inner mask (i≥2, r<5), so its one-cell annulus value is not a meaningful regional convergence sample.
+
+### Centre evolution witness
+
+| N | old Aa_dot/r_0² | candidate Aa_dot/r_0² |
+|---:|---:|---:|
+| 40 | +1.446e-4 | +1.053e-4 |
+| 60 | +1.166e-4 | +2.318e-5 |
+| 80 | +1.543e-4 | -1.426e-5 |
+| 120 | +3.385e-4 | -4.433e-5 |
+| 160 | +6.270e-4 | -5.557e-5 |
+
+The candidate sharply reduces the magnitude and removes the old positive sign at N≥80, but the candidate’s `Aa_dot/r_0²` remains finite/nonzero and drifts toward approximately `-6e-5` when compared with the frozen N=240/320 profile. That is not a demonstration of `Aa_dot=O(r²)` at the regular origin. This is a promising numerical-layer correction whose centre-series gate remains open.
+
+### Additional controls and interpretation limits
+
+- The CMC target computed from the common alpha=1 input slice is identical between arms at all five resolutions; the candidate’s matched production Kdot-target residual is roundoff, whereas the old row’s final max is approximately 1.42e-3–1.58e-3. The candidate row is built from the same derivative operators as production K RHS, so this residual is a discrete-consistency check—not an independent physics proof.
+- At R_sigma≈10, the recorded Misner–Sharp mass, H_eff, flux and work observables differ only slightly between arms. This A/B report does not publish an explicit closed Misner–Sharp balance residual, so conservation admission cannot be inferred from the small observable differences.
+- The workflow did not measure radiation cone margin/admissibility at every predictor stage. It used only N=40–160 and cannot close the separate N=240/320 first-cell radiation failure or the long-run outer-cell cone failure.
+- The candidate is not authorized to merge. The next gate must join one-step H/M/C_Lambda, signed Aa/K series, radiation predictor-cone terms and a closed Misner–Sharp budget on the same exact states and stages. Only promote if the implicated witnesses improve together.
+
+## 7. Covariant scalar–DM source pair: candidate passes, trajectory gate remains open
 
 The locked V5.5 covariant exchange law is Q_nu = beta_DM rho_DM partial_nu(phi), with the reciprocal source entering scalar and DM equations. With the active ADM coordinate-time convention, the candidate source pair requires alpha weighting in the scalar Pi source and DM radial conservative-momentum source.
 
@@ -144,7 +198,7 @@ On isolated candidate branch diag/current-main-beta-source-gate-2026-10-12, [run
 
 This is useful source-stage evidence, not full stress-energy conservation at every PIRK update, constraint admission, radiation admission, or a production trajectory. Main remains unchanged.
 
-## 6. Radiation admissibility remains independent
+## 8. Radiation admissibility remains independent
 
 The matched quadrature one-step campaign fails at N=240/320 in the first cell for every tested initialization arm, with |S|/E > 1. A distinct long-run trace at t≈46.98, central proper time tau≈22.0161, records a near-saturated outer cell crossing the cone during the explicit predictor-metric update. On the accepted metric the flux/source increments increased the margin; the predictor metric reduced it by more than the remaining margin. Expanding the domain moved the failure outward rather than curing it. These are captured diagnostic failures, not successful physical trajectories and not proof of a bad radiation law.
 
@@ -152,21 +206,21 @@ Do not clip conserved variables, introduce floors/damping, or relax |S|/E ≤ 1.
 
 References: [radiation predictor report](https://github.com/miahpenn/0-Cosmos-engine/blob/diag/radiation-predictor-stage-ledger/docs/RADIATION_PREDICTOR_TRACE_2026-10-10.md), [P-minus audit run](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38028306184).
 
-## 7. Other valid but non-dominant equation lead
+## 9. Other valid but non-dominant equation lead
 
 The spatial metric has gamma_rr = a/X² and gamma^rr = X²/a. An isolated scalar candidate corrected a lapse-gradient contraction that used X^-2 instead of the declared inverse radial metric. Its matched N=40/60/80 campaign reached t=12, but H_eff/proper-time changes were tiny and centre-dominated constraint/Misner–Sharp defects remained open. Keep this source-correctness issue isolated; it is not the whole machine repair. See the [candidate assessment](https://github.com/miahpenn/0-Cosmos-engine/blob/fix/scalar-inverse-metric-lapse-gradient-strict-2026-10-12/docs/SCALAR_INVERSE_METRIC_CANDIDATE_ASSESSMENT_2026-10-12.md).
 
-## 8. Recommended next gates
+## 10. Recommended next gates
 
-1. First reconcile the newer parity-aware CMC row against the signed Aa/K RHS split and discrete constraint-tangent result on identical frozen source states. The old alpha[0]=alpha[1] row is now understood to be incorrect for cell-centred parity; the candidate still does not pass Aa_dot/r².
-2. Run a bounded matched one-step A/B comparing the old centre row with the parity-aware candidate only after same-input provenance and exact RHS instrumentation are verified. Compare H, M, C_Lambda, Aa_dot/r², determinant/Lambda identities, radiation admissibility and Misner–Sharp balance together. Earlier CMC counterfactuals improved one local K witness but worsened admitted-inner M by about 3e-6, so a local residual is not enough.
+1. Reconcile the completed one-step A/B against the signed Aa/K RHS split and discrete constraint-tangent result on identical states. The candidate improves M/C_Lambda at N=60–160, but full-domain H is slightly worse at N=120/160, and the first-cell Aa_dot/r² remains nonzero.
+2. Keep the parity-aware centre row isolated; do not merge from this one-step result. Add a predictor-stage radiation-cone budget and an explicit Misner–Sharp balance residual to the same A/B instrumentation before making a promotion decision.
 3. Keep the passed synthetic source-stage cancellation result; next use a production-relevant saved state with nonzero phi_r to confirm the same paired source terms at actual stage levels.
 4. Reuse existing radiation predictor/P-minus artifacts first. If another diagnostic is needed, record raw metric RHS, unprojected predictor and post-regularity-projection geometry separately.
 5. Complete the spatial homogeneous-limit regression and state-ownership guards. Keep CosmosState a reference/control; do not invent Q, D-to-matter, clock scaling, or a spherical-shear insertion.
 6. Only after these gates pass: freeze an exact commit, pass exact-commit CI, preregister multi-resolution tolerances, and run one full controlled trajectory at a time.
 
-## Standing guardrails
+## 11. Standing guardrails
 
 Preserve the GEAR archive and REV16. Do not merge diagnostic branches merely because a unit suite passes. No fitted coefficients, arbitrary damping, floors/clamps, centre projection, forced bounce/reset, D-to-matter law or phenomenological global Q. Distinguish workflow success, target-time completion, unit-test success and scientific admission. Do not infer convergence from centre-cell sequences whose physical radii change with N.
 
-**Bottom line:** the cell-centred CMC row is now identified as a concrete numerical-layer defect candidate and its frozen operator closure has been verified through N=320; its effect on one-step constraints remains untested, while Aa_dot/r² and radiation admission still fail. The next useful action is a matched one-step A/B of this row alone, with full constraint and admissibility witnesses, not another invented interface or long campaign. The source-stage beta pair has a separate successful isolated gate; main remains untouched.
+**Bottom line:** the cell-centred CMC row is a concrete numerical-layer defect candidate: frozen operator rows close through N=320, and the matched one-step A/B improves M/C_Lambda strongly at N=60–160. It is not a full repair: H has a mixed response, Aa_dot/r² remains nonzero, radiation stages were not admitted in this A/B, and an explicit Misner–Sharp balance residual is absent. Continue with same-stage radiation and balance instrumentation before any merge or long campaign. The source-stage beta pair has a separate successful isolated gate; main remains untouched.
