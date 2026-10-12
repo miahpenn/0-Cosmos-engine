@@ -288,3 +288,15 @@ All work above is diagnostic-only. Production main is unchanged.
 ## Main-branch reconciliation (2026-10-12)
 
 Current main HEAD is 87e71c3793d8afd5519ca1099dc69ebff707546b. Compared with the recorded production baseline 809228c380d80af83858412557c78b6329ffa5c8, the only transient difference was the diagnostic workflow .github/workflows/cmc-target-closure-rank-probe.yml, which was added in commit 6d3c508 and removed in the current revert commit. The current main tree has no production source, physics, or kernel changes relative to that recorded baseline. Diagnostic scripts/reports remain on diagnostic branches.
+
+
+## Latest bounded PIRK Lambda stage-order A/B — 12 October 2026
+
+- Regression run [38318119471](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38318119471): success; 1 focused stage-order test and 36 full-suite tests passed.
+- Bounded A/B [38318309196](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38318309196): success, audit commit `ce9a49560b04ccbe33d5b51ac86219a5c4a3c2f9`.
+- Artifact [11777443806](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38318309196/artifacts/11777443806); ZIP SHA-256 `1ec986b7cbbe97ba23184c2d448aba26199257f6ae9d6c4182490c81af3867fe`; report JSON SHA-256 `283c5b337a90670c9a397c9584d19447497017cc44a640ca96bc7303a03186ef`.
+- Detailed result: [PIRK_LAMBDA_PREDICTOR_STAGE_ORDER_AB_2026-10-12.md](https://github.com/miahpenn/0-Cosmos-engine/blob/diag/pirk-lambda-predictor-stage-order-2026-10-12/docs/PIRK_LAMBDA_PREDICTOR_STAGE_ORDER_AB_2026-10-12.md).
+
+The source-stage difference is real: recomputing Lambda-L2 after predictor Aa/K changes the raw Lambda-L2 array by 5.32e-8 (N=80) and 1.33e-8 (N=160). But its predictor Lambda delta is only 3.99e-10 / 4.99e-11, and the completed-state Lambda difference falls to 6.94e-17 / 2.17e-18. Full-step H/C-Lambda and radiation cone witnesses are unchanged to roundoff/exactly; full-domain max |S|/E is 0.00501354 / 0.00501510 for both arms. This confirms a stage-order mismatch but demotes it as a material cause of the late-time cone crossing under the tested one-step conditions.
+
+Main remains `2035acc1210db18da0cededea18750b7ed813260`. No change from this diagnostic was merged. Do not confuse the stage-order test pass with the outstanding centre-series, high-resolution first-cell radiation admissibility, late outer-cell cone, H/M/C-Lambda propagation, Misner-Sharp, and convergence gates.
