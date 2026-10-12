@@ -291,12 +291,23 @@ def main() -> None:
             if not checkpoint.is_file():
                 raise FileNotFoundError(f"missing saved checkpoint {checkpoint}")
             state = restore_checkpoint(kernel, n, 80.0, checkpoint)
-            if abs(state.t - t) > 1.0e-10:
-                raise ValueError(f"{checkpoint} contains t={state.t}, expected t={t}")
+            # Checkpoints are stored on the nearest accepted step surrounding
+            # the scheduled target; keep the actual timestamp and permit at most
+            # half a nominal production step of offset.
+            checkpoint_time_tolerance = 0.5 * 0.03 * float(state.grid.dr) + 1.0e-10
+            if abs(state.t - t) > checkpoint_time_tolerance:
+                raise ValueError(
+                    f"{checkpoint} contains t={state.t}, outside half-step "
+                    f"tolerance {checkpoint_time_tolerance} around scheduled t={t}"
+                )
             summary, profile = audit_state(state, vacuum)
+            summary["scheduled_checkpoint_time"] = float(t)
+            summary["checkpoint_time_offset"] = float(state.t - t)
             summary["input_checkpoint"] = checkpoint.relative_to(artifact_dir).as_posix()
             summary["input_checkpoint_sha256"] = sha256_file(checkpoint)
             summaries.append(summary)
+            profile["scheduled_checkpoint_time"] = float(t)
+            profile["checkpoint_time_offset"] = float(state.t - t)
             profiles_by_n_time[(n, float(t))] = profile
 
     comparisons = common_radius_comparison(summaries, profiles_by_n_time)
@@ -320,7 +331,7 @@ def main() -> None:
             "hamiltonian_residual": "raw vacuum Hamiltonian constraint - 16*pi*(scalar_rho + fluid_rho)",
             "momentum_residual": "raw vacuum momentum constraint - 8*pi*(scalar_j + fluid_j)",
             "geometry_and_source_terms": "evaluated from the same restored slice using the pinned production operator and stress-energy assembly",
-            "common_radius_comparison": "linear interpolation of N=60 and N=80 profiles onto N=40 cell centers r=1..79; fixed-radius exterior comparison uses r>=5",
+            "common_radius_comparison": "linear interpolation of N=60 and N=80 profiles onto N=40 cell centers r=1..79 grouped by scheduled checkpoint; actual checkpoint-time offsets are retained and at most half a nominal step; fixed-radius exterior comparison uses r>=5",
             "production_steps_run": 0,
         },
         "snapshots": summaries,
