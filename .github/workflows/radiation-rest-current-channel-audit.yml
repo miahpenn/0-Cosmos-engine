@@ -46,6 +46,8 @@ jobs:
       - name: Full repository test suite
         run: python -m pytest -q tests
       - name: Run generic-versus-radiation-specific one-step audit
+        env:
+          PYTHONPATH: .
         run: python tools/diag_radiation_rest_current_audit.py
       - name: Save JSON hash
         if: always()
