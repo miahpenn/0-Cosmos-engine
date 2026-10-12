@@ -191,3 +191,52 @@ At t=0 the shared-core R80/R160 archived states agree to roundoff for the other 
 
 The next snapshot-only diagnostic now queued is [run 38208798160](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38208798160), code commit [ae9d5efea6ae17a22ede1faa5aa6a01fb959526a](https://github.com/miahpenn/0-Cosmos-engine/commit/ae9d5efea6ae17a22ede1faa5aa6a01fb959526a). It swaps only the shared-core alpha profile in each archived state, freezes all other fields and volume weights, and recomputes the production CMC target. This is an algebraic target-functional probe, not a CMC-consistent state or evolution. Inspect whether the t=0 target mismatch follows the lapse replacement and whether that persists as the archived states diverge.
 
+
+
+## 9. Alpha-only target-functional cross-transplant — completed
+
+- Run [38208798160](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38208798160): successful.
+- Artifact [cmc-kdot-domain-projection, ID 11728910612](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38208798160/artifacts/11728910612).
+- ZIP SHA-256: `e12ed6af9818c09587754ed76ffc46597701fe49f26a8fc834cdf767b44bbe30`.
+- Report SHA-256: `f189e990a7ef21078a95fbcb29f806237f739469a169f9e423247d4992aa50f4`.
+- Records JSONL SHA-256: `c47a36662c2edb638e624b2b557b0aaca4f7823d10d144a4ede6dda05f6e6479`.
+- Script update commit: [ae9d5efea6ae17a22ede1faa5aa6a01fb959526a](https://github.com/miahpenn/0-Cosmos-engine/commit/ae9d5efea6ae17a22ede1faa5aa6a01fb959526a).
+
+The v2 snapshot-only probe recomputed the target functional after replacing only the shared-core alpha profile on an archived state, holding every other field and the proper-volume weights unchanged. It did not advance the state and did not claim the alpha-transplanted state solves the CMC lapse equation.
+
+Admission checks: 49 saved times from t=0 to 12; manual target projection and production API agree exactly (maximum absolute difference 0); recomputed archived R160 target differs by no more than (1.12689\times10^{-16}); additive shell/state decomposition identity residual max (2.71\times10^{-20}).
+
+### 9.1 Forward transplant: use R160 alpha in the R80 target functional
+
+At t=0 the native target difference (\dot K_{80}-\dot K_{160}) was (-3.46833157\times10^{-7}). Replacing only R80's alpha profile with the shared-core R160 alpha profile changes its target to (6.233524859847672\times10^{-5}), leaving a target gap of only (-5.88335126\times10^{-14}): approximately 99.999983% of the initial target gap disappears in this frozen functional evaluation.
+
+At t=6, this same transplant closes about 99.831% of the target gap. At t=12, it closes about 92.673%: the gap falls from (1.70649370\times10^{-4}) to (1.2503500\times10^{-5}). Across all saved times, the target-gap RMS decreases from (6.6910561\times10^{-5}) to (3.8294903\times10^{-6}), about 94.28% reduction, and the maximum absolute gap drops from (1.70649370\times10^{-4}) to (1.2503500\times10^{-5}).
+
+### 9.2 Reverse transplant: use R80 alpha on the R160 shared core
+
+Replacing the R160 shared-core alpha with R80 alpha while retaining R160's outer alpha and all its other fields has very little effect on the R160 full-domain target. The largest change over the snapshots is (6.1003816\times10^{-7}). At t=0 it closes only about 0.3115% of the target gap; at t=12 it closes about 0.3575%, leaving (1.70039332\times10^{-4}) of the gap.
+
+### 9.3 Interpretation boundary
+
+This asymmetry is strong evidence that the target functional is highly coupled to the lapse profile on the R80 slice and that the initial target discrepancy is not caused by outer-shell averaging. It does **not** prove a physical cause or a unique self-consistent lapse: the transplanted states are algebraic probes with their stored lapse equation not re-solved.
+
+The current causal chain supported by the diagnostics is:
+1. At t=0, R80 and R160 share-core spatial geometry, K, scalar fields, and matter agree to roundoff; their lapse alpha differs (max (3.57126\times10^{-4}), RMS (2.58354\times10^{-4})).
+2. Evaluating the R80 target on R160 alpha nearly removes the initial target gap; the reverse transplant does not.
+3. In full evolution, forcing the archived R160 target history into R80 closes 99.9941% of the final proper-time gap; using every-other target samples still closes 99.9813%.
+4. Direct contribution of the R160 outer shell to its saved-state volume-averaged target is ≤(7.1518\times10^{-12}).
+
+This makes initial CMC lapse/target self-consistency the next precise diagnostic, rather than another grid-size sweep.
+
+## 10. Next diagnostic: initial-slice CMC target/lapse fixed-point map
+
+Run a snapshot-only, no-damping, no-production-edit iteration study on t=0 archived R80 and R160 states. Keep all fields except alpha frozen; for each domain preserve its declared outer boundary normalization (R80 uses the archived R160 alpha at r=79.75 for the boundary-matched comparison; R160 native uses alpha(R)=1). At iteration (n):
+- compute (\dot K_n=\mathrm{target\_kdot}(\alpha_n)) with the production implementation;
+- solve the actual CMC elliptic equation using that input target and the chosen outer-alpha boundary;
+- record output-alpha RMS/max change, (\dot K_n), target evaluated on output alpha, target drift, positivity/finiteness and the contraction ratio of successive alpha increments;
+- repeat without damping, clipping, or parameter tuning, up to a fixed diagnostic cap (e.g. 20 iterations), then report convergence or non-convergence honestly;
+- include a fixed-target control using the archived R160 target, confirming the elliptic solve is repeatable to roundoff when Kdot is held fixed.
+
+This is a test of the nonlinear map (\alpha\mapsto\mathrm{solve}(\dot K[\alpha])), not a request to force convergence. The earlier weak-field Picard run did not contract, so a non-convergent result is admissible and important. A clear non-convergence would motivate deriving/solving the coupled discretized system directly, rather than introducing damping or fitted feedback.
+
+No new expensive full trajectory should be launched for this next step; it is a two-snapshot diagnostic. All earlier full evolutions passed their gates. Keep production equations unchanged and keep diagnostic work on this branch.
