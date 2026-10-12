@@ -74,8 +74,10 @@ def _install_capture(capture):
     originals = {name: getattr(ms, name) for name in
                  ("primitives", "_reconstructed_primitive", "_hll_flux", "_valencia_source")}
     source_count = {"n": 0}
+    current_species = {"name": None}
     def primitives(metrics, U, species):
         result = originals["primitives"](metrics, U, species)
+        current_species["name"] = species
         if species is ms.Species.RADIATION and capture["rhs_entry"] is None:
             cap = {"cells": {}}
             for i in CELLS:
@@ -96,7 +98,7 @@ def _install_capture(capture):
 
     def reconstructed(prim, i, side, gamma_rr):
         result = originals["_reconstructed_primitive"](prim, i, side, gamma_rr)
-        if i in (0, 1) and len(capture["faces"]) < 2:
+        if current_species["name"] is ms.Species.RADIATION and i in (0, 1) and len(capture["faces"]) < 2:
             capture["faces"].append({"cell_i": i, "side": side, "gamma_rr": _number(gamma_rr),
                                      "primitive": {"rho": _number(result.rho),
                                                    "pressure": _number(result.pressure),
@@ -172,7 +174,8 @@ def run_one(resolution, beta_rad):
     result = {"resolution": resolution, "beta_rad": beta_rad, "status": "failed",
               "dt": None, "pre": None, "post": None, "capture_A": None,
               "capture_B": {"rhs_entry": None, "faces": [], "first_face": None,
-                            "centre_source": None, "grid_centres": []},
+                            "centre_source": None, "grid_centres": [],
+                            "centre_flux": [0.0, 0.0, 0.0]},
               "error_type": None, "error": None, "traceback": None}
     kernel = None
     restore = None
