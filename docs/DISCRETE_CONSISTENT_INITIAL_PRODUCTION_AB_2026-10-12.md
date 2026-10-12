@@ -159,3 +159,49 @@ The sum reconstructs the exact adapter K RHS to roundoff. Shift advection and KO
 This audit confirms a concrete second-order-CMC versus fourth-order-production-K operator mismatch and a strong lapse/matter cancellation in the centre. It does **not** establish that the mismatch alone causes the H/M constraint drift: earlier one-step CMC-operator counterfactuals did not improve the full original H/M/connection constraint set. Do not patch the CMC solver, replace the K RHS stencil, use a field projection, or launch t=160 from this result alone.
 
 The next decision should reconcile this term budget with the parallel manufactured-momentum-operator audit and any newer stage-level evidence. Only a term-level prediction that survives a frozen-input counterfactual with the original H/M/C diagnostics can justify a numerical-layer change.
+
+
+---
+
+## Frozen centre-series RHS-rate audit — completed (2026-10-12)
+
+**Workflow:** [38289053751](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38289053751)  
+**Artifact:** discrete-consistent-initial-centre-series-rhs, ID 11763734669  
+**Artifact ZIP SHA-256:** c29969262e7bd79a8dde8ace357945685a5b5a418db3344f5aa08fda94b52021
+
+This diagnostic evaluates the same 16 frozen baseline/candidate checkpoints at N=40/60/80/120 and t=0/2.16. It reproduces the production first-stage sequence: solve CMC lapse on a copy, zero shift and B as in the production stage, compute the actual scalar and geometry RHS, then evaluate rates of the centre-series ratios. It takes no evolution step.
+
+### Main measurements
+
+At t=0, the candidate's discrete H constraint is at roundoff, but the first-stage rate of the even-field ratio D_r K/r is almost unchanged by the initializer. Its first-cell rate grows from +5.107e-4 (N40) to +1.195e-3 (N60), +2.149e-3 (N80) and +4.869e-3 (N120); baseline and candidate agree closely at every resolution.
+
+The first-cell rate of A_a/r² does respond to the B-solved candidate initializer. Baseline values grow from +1.104e-3 (N40), +2.456e-3 (N60), +4.357e-3 (N80) to +9.792e-3 (N120); candidate values are +3.949e-5, +7.431e-5, +1.463e-4 and +3.575e-4. Thus solving the initial H defect substantially changes this one tendency, but it does not remove the resolution-sensitive K-gradient tendency.
+
+At t=2.16, the saved first-cell D_r K/r values themselves are -1.004e-3 (N40), -2.348e-3 (N60), -4.220e-3 (N80) and -9.558e-3 (N120). Their first-stage rates remain similar between baseline and candidate: -4.35e-4, -1.021e-3, -1.839e-3 and -4.172e-3, respectively. The first-cell Lambda/r RHS rate likewise grows with refinement, from about +1.218e-3 at N40 to +2.987e-3, +5.443e-3 and +1.247e-2 at N60/80/120, again almost unchanged by the candidate initializer.
+
+For the first-cell A_a/r² tendency at t=2.16, the candidate is not uniformly better: it changes the N40/N60 values and reduces the N120 rate, but the N80 candidate rate remains +2.276e-3 against baseline +2.826e-3. The corresponding (a/b-1)/r² rate also changes sign/magnitude non-uniformly, especially at N120. These are centre-adjacent values at different physical radii, so they are a diagnostic flag rather than a fixed-radius convergence estimate. The separate fixed-r=3 witnesses remain sign-changing and resolution-sensitive for the K-gradient ratio rate.
+
+### Interpretation
+
+The initialized H defect is real, but it is not the whole evolution problem. The first-stage K-gradient tendency and the subsequent Lambda/r tendency are present at essentially the same scale on the baseline and the discrete-consistent initial slice; the A_a tendency is partly changed by the initializer but does not uniformly converge. Together with the signed K-RHS budget, this localizes the remaining issue to the central coupled geometry / connection / lapse-RHS interface more strongly than to initial H alone. It does not identify a single defective term, and the rates do not prove a physical centre singularity.
+
+---
+
+## Manufactured trace-free radial Ricci centre control — completed (2026-10-12)
+
+**Workflow:** [38289053430](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38289053430)  
+**Artifact:** manufactured-tracefree-ricci-center-audit, ID 11764423233  
+**Artifact ZIP SHA-256:** 4e5ad8862499b8964025c3a94940b4a3e6bf772a6e1f7cd8f39a325a6a149c4f  
+**Source:** production kernel 6d8b3f2790644591326df57c55908863f994cb0c, pinned vendor d6052d605673ce9d82cdc99b0df79855fa2ea215.
+
+This independent no-evolution test compares the vendor radial Ricci and trace-free Ricci operators against analytic derivatives of smooth, regular spherical-metric profiles. It runs N=40/60/80/120 on r_max=40 and separates (a) the continuum analytic Lambda profile from (b) Lambda reconstructed using the production discrete metric-connection formula.
+
+On the fixed physical annulus 3≤r≤6, the measured descriptive error order is 4.014 for continuum Lambda and 4.025 for production-discrete Lambda. That is a negative control against a generic low-order Ricci/stencil failure for smooth profiles.
+
+The centre-adjacent comparison is more discriminating. The exact analytic R_TF/r² in the first cell is about +9.980e-6 across resolutions. With continuum Lambda, the vendor value changes from -4.248e-5 (N40) and -1.547e-5 (N60), through -4.789e-6 (N80), to +3.266e-6 (N120). When Lambda is instead reconstructed by the production-discrete metric-connection formula, the vendor R_TF/r² approaches the analytic value: -5.509e-6 (N40), +5.431e-6 (N60), +7.984e-6 (N80), +9.278e-6 (N120). The discrete-Lambda case has C_Lambda exactly zero by construction; that is a controlled operator comparison, not independent validation or a proposal to project the live state.
+
+### Combined decision and next bounded gate
+
+The smooth manufactured tests do not show a generic Ricci or momentum-operator defect. They do show that the trace-free Ricci centre response is sensitive to whether Lambda matches the same discrete metric-connection relation used by the production constraint. The evolved checkpoints have a much larger and sign-changing centre C_Lambda residual (e.g. baseline t=2.16 first cell: -1.990e-3 at N60, -9.728e-4 at N80, +1.197e-3 at N120), while the frozen centre-series audit finds a large, resolution-dependent Lambda/r RHS tendency.
+
+The next bounded test should therefore freeze each production checkpoint and compare the current Lambda input to a counterfactual Lambda reconstructed from the exact production discrete metric-connection formula, recording the resulting trace-free Ricci and A_a RHS differences at the first cells and fixed radii. If this diagnostic materially changes the A_a tendency, the next step is one matched ordinary production step with the original H/M/C diagnostics retained. This is not authorization to insert a projection or replace Lambda evolution: any such intervention must earn support from a multi-constraint one-step comparison across resolutions. No t=160 campaign or physics change is authorized by these diagnostics.
