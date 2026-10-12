@@ -161,3 +161,10 @@ Run [38209945367](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38209
 Across 121 trial Kdot values from (6.09884155001\times10^{-5}) to (6.33352486573\times10^{-5}), (H(k)=\mathrm{target\_kdot}(\alpha_{solve}(k))-k) was negative at every sample: range ([-8.60824948\times10^{-14},-8.54097609\times10^{-14}]), no sign changes, no exact-zero sample. Endpoint finite-difference (dH/dk=-1.71\times10^{-10}); max residual is (1.38\times10^{-9}) relative to target scale. Native-R80 and archived-R160 Kdot controls both give about (-8.58\times10^{-14}) closure residual. This does not prove no root exists outside the scanned range. It means there is no bracketed root on the tested interval and the map has a tiny, almost constant closure offset.
 
 The dual-seed profile persistence must therefore be described as near-fixed/noncontracting, not proof of multiple exact roots. Next test the pointwise K RHS minus trial Kdot on fixed-target lapse solutions at native R80, archived R160, and midpoint targets. Check interior and outer boundary-adjacent residuals and their weighted average against (H(k)). This will localize any discrete mismatch between the production lapse solve and the reconstructed production K RHS, without changing physics.
+
+
+### Pointwise K-RHS/lapse consistency run launched
+
+- Workflow [38210163221](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38210163221) is in progress; artifact name expected: `cmc-target-lapse-pointwise-residual`.
+- Script commit [349e507a101c691e31be831832f72e715c76a09f](https://github.com/miahpenn/0-Cosmos-engine/commit/349e507a101c691e31be831832f72e715c76a09f); workflow trigger commit [ff7a14d2e30c9f99a0dadbafe0914bef43511bfd](https://github.com/miahpenn/0-Cosmos-engine/commit/ff7a14d2e30c9f99a0dadbafe0914bef43511bfd).
+- The run reconstructs three fixed-target lapse solutions (native R80 target, midpoint, archived R160 target) and compares pointwise production (K)-RHS to the trial Kdot, separating center, bulk, and outer closure rows. It reports the proper-volume weighted residual and compares it with the scalar closure (H(k)). This is snapshot-only, no production code changes.
