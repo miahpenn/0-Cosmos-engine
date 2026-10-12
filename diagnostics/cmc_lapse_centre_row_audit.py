@@ -38,9 +38,21 @@ def audit(path,n,rmax,outer_alpha,domain):
     r=np.asarray(state.grid.centers,float)
     dr=float(state.grid.dr)
     # Reproduce the exact coefficients used by solve_cmc_lapse.
-    d1=lambda x,parity: np.asarray(state.grid.cell_derivative_fourth(x,parity=parity),float)
+    def apply_native_derivative(values,order):
+        values=np.asarray(values,float)
+        out=np.empty_like(values)
+        for ii in range(len(values)-1):
+            row=cmc._fourth_derivative_row(state.grid,ii,1,order)
+            out[ii]=sum(weight*values[jj] for jj,weight in row.items())
+        if order==1:
+            out[-1]=float(state.grid.cell_derivative_fourth(values,parity=1)[-1])
+        else:
+            # The outer normalization cell is not a PDE row and is not used
+            # for centre/fixed-radius witnesses; preserve it as NaN explicitly.
+            out[-1]=np.nan
+        return out
     a=np.asarray(geom.a,float); b=np.asarray(geom.b,float); X=np.asarray(geom.X,float)
-    ap,bp,Xp=d1(a,1),d1(b,1),d1(X,1)
+    ap,bp,Xp=apply_native_derivative(a,1),apply_native_derivative(b,1),apply_native_derivative(X,1)
     c=-0.5*ap/a+bp/b-Xp/X+2.0/r
     inv=X*X/a
     Q=1.5*np.asarray(geom.Aa,float)**2+np.asarray(geom.K,float)**2/3.0
@@ -49,11 +61,8 @@ def audit(path,n,rmax,outer_alpha,domain):
     Q=Q+4.0*np.pi*(total["rho"]+total["pr"]+2.0*total["pt"])
     m=Q/inv
     # Native fourth-order radial derivatives, same grid operator as production.
-    alpha_p=d1(alpha,1)
-    alpha_pp=d1(alpha,-1)
-    # The second derivative uses even parity. The native grid's parity convention
-    # is recorded explicitly; residual closure is also checked against production K RHS.
-    alpha_pp_even=d1(alpha,1)
+    alpha_p=apply_native_derivative(alpha,1)
+    alpha_pp_even=apply_native_derivative(alpha,2)
     cmc_lhs=alpha_pp_even+c*alpha_p-m*alpha
     cmc_rhs=-float(used)/inv
     elliptic_residual=cmc_lhs-cmc_rhs
