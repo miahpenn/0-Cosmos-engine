@@ -1,0 +1,62 @@
+name: Diagnostic - short same-domain spatial refinement for Lambda constraint
+
+on:
+  push:
+    branches:
+      - diag/lambda-connection-budget-2026-10-12
+    paths:
+      - tools/lambda_spatial_refinement.py
+      - .github/workflows/lambda-spatial-refinement.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lambda-spatial-refinement
+  cancel-in-progress: true
+
+jobs:
+  spatial-refinement:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      PYTHONUNBUFFERED: "1"
+
+    steps:
+      - name: Checkout diagnostic launcher
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Checkout exact production source and pinned vendor
+        uses: actions/checkout@v4
+        with:
+          ref: 6d8b3f2790644591326df57c55908863f994cb0c
+          path: source
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install exact production dependencies
+        run: python -m pip install -r source/requirements.txt
+
+      - name: Compile spatial refinement
+        run: python -m py_compile tools/lambda_spatial_refinement.py
+
+      - name: Run N40/N60/N80/N120 through t=2.16 at matched CFL
+        run: python tools/lambda_spatial_refinement.py
+
+      - name: Upload trajectories and signed profile comparison
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lambda-spatial-refinement-t2p16
+          path: |
+            runs/lambda-spatial-refinement/
+            results/lambda-spatial-refinement/
+          if-no-files-found: warn
+          retention-days: 90
