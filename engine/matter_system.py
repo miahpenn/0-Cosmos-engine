@@ -507,7 +507,8 @@ def evolve_species(
                 beta_dm, prim[i].rho, float(dphi_t[i]), float(dphi_r[i])
             )
             q_e = -m.sqrt_gamma * (q_t - m.beta * q_r)
-            q_s = m.sqrt_gamma * q_r
+            # Covariant spatial source is lapse-weighted in coordinate time.
+            q_s = m.alpha * m.sqrt_gamma * q_r
 
         out.rest[i] -= dt * inv_dr * (
             face_flux[i + 1, 0] - face_flux[i, 0]
