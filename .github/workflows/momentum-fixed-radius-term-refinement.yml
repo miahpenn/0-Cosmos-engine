@@ -1,0 +1,72 @@
+name: Diagnostic - fixed-radius momentum geometric-term refinement
+
+on:
+  push:
+    branches:
+      - diag/lambda-connection-budget-2026-10-12
+    paths:
+      - tools/momentum_fixed_radius_term_refinement.py
+      - tools/momentum_constraint_stage_budget.py
+      - .github/workflows/momentum-fixed-radius-term-refinement.yml
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: momentum-fixed-radius-term-refinement
+  cancel-in-progress: false
+
+jobs:
+  fixed-radius-term-refinement:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PYTHONUNBUFFERED: "1"
+    steps:
+      - name: Checkout diagnostic tools
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Checkout exact production source and pinned vendor
+        uses: actions/checkout@v4
+        with:
+          ref: 6d8b3f2790644591326df57c55908863f994cb0c
+          path: source
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install exact production dependencies
+        run: python -m pip install -r source/requirements.txt
+
+      - name: Download matched-CFL archived N40/N60/N80/N120 states at t=2.16
+        uses: actions/download-artifact@v4
+        with:
+          name: lambda-spatial-refinement-t2p16
+          run-id: 38212879394
+          github-token: ${{ github.token }}
+          path: reference-artifact
+
+      - name: Compile fixed-radius diagnostic
+        run: python -m py_compile tools/momentum_fixed_radius_term_refinement.py tools/momentum_constraint_stage_budget.py
+
+      - name: Audit signed momentum terms at fixed physical radii
+        run: |
+          PYTHONPATH=source python tools/momentum_fixed_radius_term_refinement.py \
+            --reference-artifact reference-artifact \
+            --output-dir results/momentum-fixed-radius-term-refinement
+
+      - name: Upload fixed-radius term comparisons
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: momentum-fixed-radius-term-refinement
+          path: results/momentum-fixed-radius-term-refinement/
+          if-no-files-found: warn
+          retention-days: 90
