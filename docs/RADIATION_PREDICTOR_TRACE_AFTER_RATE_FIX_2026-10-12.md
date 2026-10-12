@@ -350,6 +350,34 @@ The matching boundary trace's completed-state P-minus row labelled t=59.97000000
 
 This is the first quantified whole-grid CMC-target effect of the P-minus change. At this t≈60 checkpoint, its direct contribution to the proper-volume average is extremely small relative to Kdot_CMC; the evidence does not support claiming this global scalar jump alone explains the radiation-cone failure. It still does not determine the solved-lapse response, the correction at the exact t≈61.0 terminal state, or the total effect of prior boundary history. The boundary correction grows steeply late; applying t=60 weights to the terminal delta_Aa would be an unverified cross-time extrapolation and is not done.
 
+## Frozen-grid CMC lapse response from the recovered t=60 checkpoint
+
+I reconstructed the linear CMC lapse response to the near-matched boundary-induced delta-Kdot-CMC on the full native N=120 canonical checkpoint, without re-running the evolution. The calculation uses the checkpoint's all-grid geometry and scalar/conservative matter fields, the pinned fourth-order cell-centred derivative rows, and the same CMC operator:
+
+- L[delta-alpha] = delta-alpha'' + c delta-alpha' - m delta-alpha.
+- c = -0.5 D_r(a)/a + D_r(b)/b - D_r(X)/X + 2/r.
+- m = {1.5 Aa^2 + K^2/3 + 4*pi*(rho + pr + 2*pt)} / gamma^rr.
+- Frozen outer normalization: delta-alpha[-1] = 0.
+
+The reconstructed total-density maximum is 1.2550018116046338e-4, matching the campaign's t=60 native ledger value to the last displayed digit. The boundary changes only Aa[-1], so the interior PDE-row coefficients m[i] for i < N-1 are unchanged; the target scalar changes the interior RHS by -delta-Kdot-CMC / gamma^rr[i].
+
+For the cross-artifact-qualified delta-Kdot-CMC = +1.107003121672167e-8 at t≈60, solving the frozen linear response gives:
+
+| Measure | Frozen-operator response |
+|---|---:|
+| max absolute delta-alpha | 7.031980962362896e-7 |
+| location of max | r = 102.5 |
+| RMS absolute delta-alpha, full grid | 3.049057233153554e-7 |
+| boundary delta-alpha[-1] | 0 (normalization fixed) |
+| max absolute delta-alpha / absolute checkpoint alpha | 1.54446e-7 |
+| max absolute lapse on checkpoint | 4.564922859146704 |
+
+Using the trace's own (rather than canonical post-boundary) Aa pair changes the inferred delta-Kdot by about 0.0215% and the max response to 7.03349e-7, so this cross-pair uncertainty is immaterial to the scale at this checkpoint.
+
+The matrix-system solve is a frozen-coefficient derivative, not a second full nonlinear production step. It does not include previous-step boundary history or the direct Aa-to-a-dot pathway. As a consistency guard, the saved checkpoint lapse itself has a maximum residual around 2.1e-5 under the reconstructed CMC operator and recorded Kdot, with the stored alpha profile about 1.06e-3 from the exact same-slice linear solve. The campaign diagnostic records the last-interior residual near 1.85e-5; the full interior maximum is not that boundary-only diagnostic. This stage mismatch is why I report only the difference between two linear solves on the same operator, not that the reconstructed solve reproduces the entire recorded lapse bit-for-bit.
+
+Conclusion limited to t≈60: the global CMC target scalar channel from the measured P-minus Aa-change is very small in the solved lapse, max about 7e-7. That makes this scalar channel alone an unlikely explanation of the large late outer lapse/geometry structure. It does not exonerate the boundary: direct Aa-driven metric evolution, same-slice H/M changes, outer-face radiation flux, boundary history, and cross-gauge coupling remain separate possible pathways. Do not transfer this t=60 sensitivity to the t≈61 failure without a matched state.
+
 ## What this does and does not establish
 
 **Established for the captured frozen configuration:**
