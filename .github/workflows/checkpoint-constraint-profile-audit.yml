@@ -1,0 +1,66 @@
+name: Diagnostic - checkpoint constraint profile audit
+
+on:
+  push:
+    branches:
+      - diag/independent-metric-ricci-audit
+    paths:
+      - tools/audit_checkpoint_constraints.py
+      - .github/workflows/checkpoint-constraint-profile-audit.yml
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  checkpoint-profile-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout diagnostic tools
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Checkout exact production source and pinned vendor
+        uses: actions/checkout@v4
+        with:
+          ref: fix/strict-campaign-admission-2026-10-12
+          path: source
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install exact production-source dependencies
+        run: python -m pip install -r source/requirements.txt
+
+      - name: Download completed N40/N60/N80 t=12 checkpoints
+        uses: actions/download-artifact@v4
+        with:
+          name: v55-production-t12-n40-n60-n80
+          path: runs/t12
+          repository: miahpenn/0-Cosmos-engine
+          run-id: 38208253687
+          github-token: ${{ github.token }}
+
+      - name: Recompute signed constraint profiles without evolving the state
+        run: |
+          python tools/audit_checkpoint_constraints.py \
+            --source source \
+            --input runs/t12 \
+            --output results/checkpoint-profile-audit \
+            --run-id 38208253687 \
+            --source-sha 6d8b3f2790644591326df57c55908863f994cb0c
+
+      - name: Upload signed profiles and report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: checkpoint-constraint-profiles-t12
+          path: results/checkpoint-profile-audit/
+          if-no-files-found: warn
+          retention-days: 90
