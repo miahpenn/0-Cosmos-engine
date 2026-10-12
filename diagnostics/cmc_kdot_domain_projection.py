@@ -115,8 +115,10 @@ def target_decomposition(grid, geometry, scalars, matter):
     raw = raw_k_rhs(grid, geometry, scalars, matter)
     inner = radius < SPLIT_RADIUS
     outer = ~inner
-    if int(np.count_nonzero(inner)) == 0 or int(np.count_nonzero(outer)) == 0:
-        raise ValueError("domain split must contain nonempty inner and outer regions")
+    n_inner = int(np.count_nonzero(inner))
+    n_outer = int(np.count_nonzero(outer))
+    if n_inner == 0:
+        raise ValueError("domain split must contain at least one inner cell")
     if not np.all(np.isfinite(weights)) or np.any(weights <= 0.0):
         raise FloatingPointError("invalid proper-volume weights")
 
@@ -129,7 +131,12 @@ def target_decomposition(grid, geometry, scalars, matter):
 
     full_target, full_weight, full_numerator = mean(np.ones_like(inner, dtype=bool))
     inner_target, inner_weight, inner_numerator = mean(inner)
-    outer_target, outer_weight, outer_numerator = mean(outer)
+    if n_outer:
+        outer_target, outer_weight, outer_numerator = mean(outer)
+    else:
+        # The R80 comparison domain lies wholly inside r<80; its full target
+        # equals its inner target and has no outer-shell contribution.
+        outer_target, outer_weight, outer_numerator = None, 0.0, 0.0
     reconstructed_target = (inner_numerator + outer_numerator) / (inner_weight + outer_weight)
     identity_error = reconstructed_target - full_target
     production_target = float(cmc.target_kdot(grid, geometry, scalars, matter))
@@ -138,7 +145,7 @@ def target_decomposition(grid, geometry, scalars, matter):
         "production_target_api": production_target,
         "manual_vs_production_target_abs_error": float(abs(full_target - production_target)),
         "inner_only_target_same_R160_state": float(inner_target),
-        "outer_only_weighted_mean_diagnostic": float(outer_target),
+        "outer_only_weighted_mean_diagnostic": (None if outer_target is None else float(outer_target)),
         "outer_shell_effect_on_full_target": float(full_target - inner_target),
         "outer_weight_fraction": float(outer_weight / full_weight),
         "inner_weight_fraction": float(inner_weight / full_weight),
@@ -149,8 +156,8 @@ def target_decomposition(grid, geometry, scalars, matter):
         "inner_numerator": float(inner_numerator),
         "outer_numerator": float(outer_numerator),
         "full_from_split_identity_error": float(identity_error),
-        "n_inner_cells": int(np.count_nonzero(inner)),
-        "n_outer_cells": int(np.count_nonzero(outer)),
+        "n_inner_cells": n_inner,
+        "n_outer_cells": n_outer,
     }
 
 
