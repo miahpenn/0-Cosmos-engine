@@ -9,6 +9,7 @@ captured with the stage and kept distinct from a completed physical step.
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 import sys
 
@@ -157,7 +158,7 @@ def misner_sharp_interval_budget(initial_summary, final_summary, dt):
     scale = max(abs(mass_delta), abs(float(dt) * rhs_average), 1.0e-30)
     return {
         "definition": "Delta M_MS - dt*0.5[(flux_T+work_pR)_initial+(flux_T+work_pR)_final]",
-        "surface_coordinate_r": float(w1["R_sigma"] if False else w1.get("coordinate_r", 10.0)),
+        "surface_areal_radius": float(w1["R_sigma"]),
         "initial_M_MS": float(w0["M_MS"]),
         "final_M_MS": float(w1["M_MS"]),
         "delta_M_MS": mass_delta,
@@ -347,6 +348,7 @@ def main():
         "status": "completed_capture",
         "diagnostic_only": True,
         "candidate_source_commit": CANDIDATE_SOURCE_COMMIT,
+        "audit_commit": os.environ.get("GITHUB_SHA", "unavailable"),
         "pinned_geometry_vendor": VENDOR_COMMIT,
         "resolutions": list(RESOLUTIONS),
         "r_max": R_MAX,
