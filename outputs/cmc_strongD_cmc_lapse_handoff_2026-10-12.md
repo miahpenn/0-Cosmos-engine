@@ -323,3 +323,10 @@ The residual was (H(k)=\mathrm{target\_kdot}(\alpha_{solve}(k))-k). It stayed ne
 ## 16. Next diagnostic — pointwise K-RHS/lapse-equation consistency
 
 On the same archived t=0 R80 slice, choose a few trial Kdot values (native R80, archived R160, and midpoint). For each one, freeze that target, solve the production elliptic lapse, restore the target callback, then reconstruct the production pointwise K RHS `l2["K"] + l3["K"]` on the solved alpha. Report per-radius residual (R_i=\dot K_{RHS,i}-k): center and boundary-adjacent values, RMS/max on interior cells excluding the outermost derivative-closure rows, weighted mean over all cells, and its agreement with the scalar (H(k)) residual. This will reveal whether the (~10^{-13}) average offset comes from the pointwise elliptic-vs-K-RHS operator mismatch or cancellation/closure at a few edge cells. It remains a saved-state diagnostic; no evolution or production edit is required.
+
+
+### Pointwise K-RHS/lapse consistency run launched
+
+- Workflow [38210163221](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38210163221) is in progress; artifact name expected: `cmc-target-lapse-pointwise-residual`.
+- Script commit [349e507a101c691e31be831832f72e715c76a09f](https://github.com/miahpenn/0-Cosmos-engine/commit/349e507a101c691e31be831832f72e715c76a09f); workflow trigger commit [ff7a14d2e30c9f99a0dadbafe0914bef43511bfd](https://github.com/miahpenn/0-Cosmos-engine/commit/ff7a14d2e30c9f99a0dadbafe0914bef43511bfd).
+- The run reconstructs three fixed-target lapse solutions (native R80 target, midpoint, archived R160 target) and compares pointwise production (K)-RHS to the trial Kdot, separating center, bulk, and outer closure rows. It reports the proper-volume weighted residual and compares it with the scalar closure (H(k)). This is snapshot-only, no production code changes.
