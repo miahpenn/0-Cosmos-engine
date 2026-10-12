@@ -6,8 +6,10 @@ import pytest
 from engine.radiation_predictor_stage_ledger import (
     _attach_radiation_state,
     _grid_size,
+    _primary_source_term_record,
     reconstruct_metric_cone,
     validate_ledger_steps,
+    validate_primary_source_capture,
 )
 
 
@@ -100,6 +102,87 @@ def test_geometry_terms_before_capture_window_are_not_counted():
     assert _capture_first_geometry_terms_call(step) is False
     assert "ledger_geometry_terms_count" not in step
 
+
+
+def test_primary_source_record_separates_vacuum_and_matter_l3_terms():
+    from types import SimpleNamespace
+    import numpy as np
+
+    grid = SimpleNamespace(centers=np.asarray([75.5, 79.5]))
+    geometry = SimpleNamespace(
+        a=np.asarray([0.8, 0.6]), b=np.asarray([1.1, 1.3]),
+        X=np.asarray([0.9, 0.95]), alpha=np.ones(2),
+        Aa=np.asarray([0.1, 0.15]), K=np.asarray([0.2, 0.28]),
+        Lambda=np.asarray([0.03, 0.27]),
+    )
+    terms = {
+        "primary_l2": {"Aa": np.asarray([1.0, 2.0]), "K": np.asarray([3.0, 4.0])},
+        "primary_l3": {"Aa": np.asarray([10.0, 20.0]), "K": np.asarray([30.0, 40.0])},
+        "explicit": {
+            "a": np.asarray([-0.1, -0.2]), "b": np.asarray([0.1, 0.2]),
+            "X": np.asarray([0.08, 0.09]),
+        },
+    }
+    vacuum_l3 = {"Aa": np.asarray([7.0, 17.0]), "K": np.asarray([23.0, 31.0])}
+    record = _primary_source_term_record(grid, geometry, terms, vacuum_l3, 0)
+
+    assert record["stage_label"] == "accepted_start_gterms0"
+    assert [x["i"] for x in record["cells"]] == [0, 1]
+    assert record["cells"][1]["primary_l2"] == {"Aa": 2.0, "K": 4.0}
+    assert record["cells"][1]["primary_l3_total"] == {"Aa": 20.0, "K": 40.0}
+    assert record["cells"][1]["primary_l3_vacuum"] == {"Aa": 17.0, "K": 31.0}
+    assert record["cells"][1]["primary_l3_matter_delta"] == {"Aa": 3.0, "K": 9.0}
+
+
+def test_primary_source_capture_validates_terminal_failure_and_prior_handoff():
+    cells = list(range(75, 80))
+    labels = [
+        "accepted_start_gterms0",
+        "explicit_predictor_gterms_pred",
+        "primary_predictor_gterms1",
+    ]
+
+    def source_stage(label, call_index):
+        rows = []
+        for i in cells:
+            rows.append({
+                "i": i, "primary_l2": {"Aa": 1.0, "K": 2.0},
+                "primary_l3_total": {"Aa": 3.0, "K": 5.0},
+                "primary_l3_vacuum": {"Aa": 2.0, "K": 4.0},
+                "primary_l3_matter_delta": {"Aa": 1.0, "K": 1.0},
+                "explicit_rhs": {"a": -0.1, "b": 0.1, "X": 0.08},
+            })
+        return {"stage_label": label, "call_index": call_index, "cells": rows}
+
+    def geometry_rows():
+        return [
+            {"i": i, "a": 0.6, "b": 1.29, "X": 0.946, "Aa": 0.157, "K": 0.282}
+            for i in cells
+        ]
+
+    previous = {
+        "step_index": 1565,
+        "primary_source_stages": [source_stage(label, i) for i, label in enumerate(labels)],
+        "final_explicit_state_primary_l2": {
+            "geometry": [{"i": i} for i in cells],
+            "rhs": {key: [{"i": i, "value": 1.0} for i in cells] for key in ("Aa", "K")},
+        },
+        "primary_predictor_after_outer_boundary": geometry_rows(),
+        "completed_state_after_outer_boundary": geometry_rows(),
+    }
+    failed = {
+        "step_index": 1566,
+        "primary_source_stages": [source_stage(labels[0], 0)],
+        "accepted_geometry_and_rhs": {"accepted_geometry": geometry_rows()},
+    }
+
+    result = validate_primary_source_capture(
+        [previous, failed], cells, failure_step_index=1566
+    )
+    assert result["ok"] is True
+    assert result["max_abs_primary_l3_split_error"] == 0.0
+    assert result["max_abs_completed_to_next_accepted_error"] == 0.0
+    assert result["errors"] == []
 
 def test_intermediate_metric_stages_store_conserved_radiation_state():
     from types import SimpleNamespace
