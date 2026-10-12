@@ -118,7 +118,8 @@ def audit(state,label,scheduled_t=None):
       "d_dt_one_minus_a_over_b_over_r2":q_dot,
     }
     for name in EVEN_FIELDS:
-      ratio_values[f"D_r_{name}_over_r"]=d1(grid,np.asarray(getattr(g,name),dtype=float),+1)/r
+      field_values = np.asarray(getattr(g,name),dtype=float) if name in ("K","X","a","b") else np.asarray(getattr(s,name),dtype=float)
+      ratio_values[f"D_r_{name}_over_r"]=d1(grid,field_values,+1)/r
       ratio_rates[f"d_dt_D_r_{name}_over_r"]=d1(grid,rates[f"{name}_dot"],+1)/r
     for name,arr in {**ratio_values,**ratio_rates,**rates}.items():
       if not np.all(np.isfinite(arr)):raise FloatingPointError(f"{label}: non-finite {name}")
