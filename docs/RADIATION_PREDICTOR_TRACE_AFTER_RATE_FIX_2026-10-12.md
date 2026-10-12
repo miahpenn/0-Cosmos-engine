@@ -401,3 +401,54 @@ Conclusion limited to t≈60: the global CMC target scalar channel from the meas
 Use this captured failing-step record rather than another long trajectory to perform a bounded geometry/source sensitivity attribution on the same accepted snapshot: verify the evolution-equation contributions to the a and X rates; check source and constraint budgets; and compare the resulting X²/a change to the radiation cone margin with a preregistered criterion. Keep geometry, radiation transport, boundary closure, CMC solve, and physical interpretation as separate ledger columns. No production change follows until a matched comparison distinguishes the defective layer. Keep the exact E ≥ |S| guard.
 
 No change to `main`, production physics, or the canonical GEAR archive was made for this diagnostic report.
+
+
+## Cross-resolution centre probe: unit-step RHS-extraction guard confirmed — 12 October 2026
+
+**Status:** Diagnostic artifact admitted for call-path attribution only. The counterfactual run exited nonzero for two N=160 cases; this is not four failed physical comparisons and is not evidence for or against the proposed radiation four-force.
+
+- Workflow: [38316415773](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38316415773), completed with expected per-case rejection records and successful artifact upload.
+- Diagnostic branch/commit: `diag/radiation-four-force-counterfactual-2026-10-12`, `1f1c49d722807082bf7a1ba112afdab7d5726843`.
+- Artifact: [11777115667 — radiation-four-force-counterfactual](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38316415773/artifacts/11777115667).
+- Artifact ZIP SHA-256, independently checked: `2af6bb96012655b88ea57f1610819be35c5fa94d2da5b481561ff27fd28abd5d`.
+- JSON SHA-256, independently checked against the artifact manifest: `0fcaa70934c6b830da3689e61d44eeaedca18c03fdd69c390ceeee8a7c678e0d`.
+- Focused null-identity tests: 3 passed; full existing suite: 25 passed; the four-case runner preserved outputs and returned nonzero for the two N=160 cases.
+
+### What actually passed
+
+The N=80 null and candidate one-step cases both complete at dt = 0.015. Their aggregate outputs are nearly identical. Candidate-minus-null at t = 0.015 includes changes of approximately:
+- H_eff: -4.5e-17;
+- max admitted Hamiltonian residual: -4.0e-14;
+- max admitted momentum residual: -4.0e-18;
+- centre radiation margin: +1.01e-8;
+- admitted-region radiation margin: +1.29e-10.
+
+This is only the observed response of one short N=80 step under the diagnostic candidate. It does not identify a physical coupling law, establish long-time stability, or admit beta_rad = -0.04 for production. The Misner–Sharp current remains explicitly unavailable/NaN in this first-pass harness.
+
+### Why both N=160 cases reject before the ordinary step
+
+Both N=160 cases begin with an admissible centre primitive at rest. During RHS extraction, the current main-based `species_rhs()` calls `evolve_species(..., dt=1.0)` and subtracts the original conservative state to approximate the semi-discrete rate. The radiation cone guard runs inside that artificial unit update. It rejects at cell 0 before `V55ProductionKernel.step()` has applied its actual dt = 0.0075.
+
+The captured unit-update ratios are:
+- beta_rad = 0: |S|/E = 1.3585922116020037;
+- beta_rad = -0.04: |S|/E = 1.3584029299128977.
+
+The same structured capture records the actual initial centre-face flux as the existing zero vector and the first interior face radial-momentum HLL flux as about +2.3399337053e-10. The centre flux tendency and geometric-source split is, to the captured precision, the same for the two coefficients: flux momentum tendency -9.3597348210e-10, geometric momentum source +7.4876150659e-10, and energy source -7.9588193414e-13. The small difference in rejected unit-step ratios does not isolate a centre transport change.
+
+The artifact separately forms the diagnostic first-stage candidate U + dt L(U), keeping the pre-step metric fixed. It finds:
+- beta_rad = 0: |S|/E = 0.010131364229693135;
+- beta_rad = -0.04: |S|/E = 0.010131353702168193.
+
+Both satisfy the existing cone inequality in this limited calculation. **This is not the complete PIRK predictor/final state**, but it directly shows why a unit-sized wrapper update must not be mistaken for the actual timestep-scaled state.
+
+### Cross-agent reconciliation: existing PR #8 is the isolated correction
+
+The same API-contract defect is already isolated in draft [PR #8 — Separate matter RHS extraction from finite-time updates](https://github.com/miahpenn/0-Cosmos-engine/pull/8). Its source-only refactor calls the shared conservative rate calculation directly instead of emulating a dt=1 finite update, while preserving incoming-state recovery checks and admissibility validation on real finite-time updates. Reported checks include [full contract CI 38307704487](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38307704487) and the matched coupled one-step A/B [38307235876](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38307235876), which completed both CMC arms at N=40, 60, 80, 120, 160, 240 and 320. PR #8 remains draft/unmerged; its passing bounded tests do not admit the full production trajectory.
+
+Therefore do not copy a second version of that fix into PR #9 and do not treat the PR #9 red runner as evidence against beta_rad. The next clean discriminator for the four-force question is a matched four-case one-step test against the already-reviewed rate-extraction implementation, with the candidate still diagnostic-only and PR #9 still draft. Before doing that, reconcile the two branch diffs so the experiment changes only the candidate coefficient plus the approved RHS API correction. Keep actual finite-time predictor/final cone checks; no guard relaxation, clipping, floors, damping or physical promotion.
+
+### Keep the two radiation failures separate
+
+This central N=160 failure is the uncorrected unit-step rate-extraction artifact. It is distinct from the corrected-rate N=80 trajectory that reaches about t = 46.98 and then crosses the radiation cone at the outermost cell during the explicit geometry predictor. PR #8 addresses the former contract defect; it has not repaired or explained the latter late-time metric/matter-stage synchronization failure. Both are software/numerical admission issues until independent evidence establishes more. No bounce, turnaround, missing-physics law, or production readiness conclusion follows from this centre probe.
+
+No changes to `main`, the canonical GEAR archive, or production physics were made by this report addendum.
