@@ -171,9 +171,32 @@ The fixed-radius and volume-weighted metrics improve, but the admitted-inner max
 
 Combined with the time-refinement result, the evidence does not support a simple CFL error or a broad-domain failure. It points to a centre-localized spatial/momentum-constraint propagation problem. Preserve physics; the next diagnostic decomposes the momentum-constraint residual term-by-term at each production stage. Do not add damping, center projection, a custom Lambda equation, or a physical source as a shortcut.
 
+## Momentum-constraint term budget and semi-discrete tangent (2026-10-12)
+
+The central momentum residual has now been audited as an exact sum of signed geometric derivative terms and separately projected scalar/DM/baryon/radiation currents at all 21 initial/checkpoint states, followed by an RHS tangent test and one-step comparison.
+
+Saved-state term budget:
+- Workflow: https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38213685916
+- Artifact SHA-256: `0db11b923cd5ab5671d5da95739744c5b6fc6d1561de990a2b6e3c95c26324ee`
+- Geometry, current assembly, and total momentum residual closures all pass at roundoff.
+- At t=12/i=2, N60 has M_geom=-9.71025e-4 vs M=-9.81671e-4; scalar current term -8pi*j_S=-1.082e-5 and DM about +1.55e-7. N80 has M_geom=-2.68327e-3 vs M=-2.68944e-3; scalar term -6.317e-6 and DM about +1.31e-7. Late M values are dominated by geometry, not a large fluid-current source.
+
+Semi-discrete tangent:
+- Workflow: https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38213760419
+- Artifact SHA-256: `d00310158e8d509f34d4ade1c347e2b5fa4542565f51b749e9c781e0b94d862f`
+- On six frozen states (N60/N80 at t=0, t≈10, t=12), the tangent uses the actual production RHS, perturbs by ±epsilon, re-solves the CMC lapse, and finite-differences every signed geometry/source term. Two epsilons (2e-5 and 1e-5) agree for dM/dt within absolute 1e-12; geometric/source assembly closes at about 1e-19 or smaller.
+- At t=0, M starts at roundoff but the RHS predicts dM/dt=+1.21132e-4 (N60) and +1.48735e-4 (N80). One actual production step yields +1.21228e-4 and +1.48716e-4 respectively, agreeing within 0.1%. This means the residual tendency exists in the semi-discrete coupled RHS; it is not generated solely by finite-dt error.
+- At N60/t≈10, dM/dt=-3.21262e-4 vs actual step -3.12853e-4; at N80/t≈10, +2.95895e-3 vs +2.93569e-3. At t=12, N60 is near cancellation (-8.04e-6 predicted vs -6.34e-6 actual), while N80 is -1.47313e-3 predicted vs -1.37845e-3 actual.
+- On the initial slice, the source-current tendency is overwhelmingly the local S-field current: d(8pi*j_S)/dt=-2.42151e-4 (N60) and -2.23599e-4 (N80); D, COSMOS-phi and all fluid-current rates are orders smaller. Geometry contributes -1.20974e-4 / -7.48267e-5 respectively, leaving the measured nonzero dM/dt. At N80/t≈10 the geometric rate (+3.06906e-3, mainly D_r Aa and radial-b terms) dominates the current-source rate (+1.10102e-4).
+- Interpretation: no single scalar or geometry term is isolated as the sole error. The defect is a mismatch in the *balance* between the semi-discrete geometric momentum constraint and evolving source current. The fixed-grid CFL refinement hardly changes the early defect, while the N=40/60/80/120 t=2.16 refinement shows a narrowing central spatial layer.
+
+### Current operational decision
+
+**Do not modify production physics or merge PR #3 yet. Do not launch t=160.** Next run only a diagnostic RHS-tangent refinement at shared physical radii for N=40,60,80,120 at t=0 and saved t≈2.16. If dM/dt converges at fixed radii while the first-cell sup norm moves inward, keep the equations fixed and treat the center layer as a spatial discretization/regularity issue. If dM/dt stays non-convergent at fixed radii, inspect discrete consistency between the A/K geometric RHS and the S-field current equation before proposing a tightly scoped numerical-layer repair.
+
 ## Next gates
 
-1. Complete the one-step signed momentum-constraint decomposition across the initial and saved t≈10 states. Compare the derivatives of Aa and K, the X-gradient term, the b-gradient term, and the 8πJ source; retain all signed stage witnesses.
+1. Run the diagnostic-only semi-discrete momentum-residual tangent at N=40,60,80,120 on the initial slice and saved t≈2.16 states; compare ẊM and each signed geometry/current contribution at common physical radii. Do not take another long trajectory.
 2. Use the geometric audit to identify whether the admitted inner H drift is tied to the connection/Ricci pathway. Only then design a single bounded numerical-layer intervention with preregistered pass/fail metrics.
 3. Check matter and radiation boundary flux direction and local conservation terms from raw signed terms, not ratios whose denominators may be near zero.
 4. Preserve frozen N=320 reconstruction tolerance 1e-8 and report host/runtime variance; do not relax thresholds after seeing results.
