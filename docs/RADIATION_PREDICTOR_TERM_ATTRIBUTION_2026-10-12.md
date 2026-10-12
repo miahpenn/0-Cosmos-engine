@@ -129,3 +129,55 @@ These are not one perfectly matched convergence suite: source revisions and retr
 5. Preserve the no-bounce/no-turnaround guardrail. This radiation-cone failure is a numerical admission failure; it is not evidence for a bounce, turnaround, cycle completion, or a D-to-matter identification law.
 
 No long campaign was started for this report. No production code, canonical GEAR file, or main branch was changed.
+
+
+## 5. Source-path and upstream-boundary refinement (cross-agent reconciliation)
+
+A complementary source-path audit is recorded in [RADIATION_PREDICTOR_TRACE_AFTER_RATE_FIX_2026-10-12.md](https://github.com/miahpenn/0-Cosmos-engine/blob/research/production-readiness-review-2026-10-12/docs/RADIATION_PREDICTOR_TRACE_AFTER_RATE_FIX_2026-10-12.md), alongside the fixed-dt artifact. It refines what “predictor CMC failure” means and adds same-source field counterfactuals.
+
+### Failure site is primitive recovery, not the CMC linear solve
+
+The exact call path is: V55ProductionKernel.step forms the Euler geometry predictor and radiation conservative predictor, then calls _solve_lapse(grid, g_explicit1, s1, m1). At the start of solve_cmc_lapse, total_matter_projection(...) evaluates the supplied scalar/fluid sources. Radiation primitive recovery checks the invariant \(E\geq |S|\) and raises before the CMC matrix is assembled/solved to completion. Thus the exception label explicit_predictor_first_CMC_lapse identifies the calling stage; it is **not** evidence that the CMC linear system itself diverged.
+
+### Same-source one-field counterfactuals
+
+These values are all from the corrected-rate trace [run 38310237842](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38310237842), with each step's predictor conservative radiation state held fixed while varying the metric. Unlike the historical ledger above, these are a single-source comparison.
+
+| Accepted time | Metric used | \(\gamma^{rr}=X^2/a\) | Cone margin \(C\) | \(|S|/E\) |
+|---:|---|---:|---:|---:|
+| 46.92 | Accepted metric | 1.4203544029 | \(+2.92753094\times10^{-6}\) | 0.9897538451 |
+| 46.92 | a update only | 1.4332809124 | \(+1.64361212\times10^{-6}\) | 0.9942474718 |
+| 46.92 | X update only | 1.4280219498 | \(+2.16525438\times10^{-6}\) | 0.9924217601 |
+| 46.92 | Both explicit updates | 1.4410182410 | \(+8.77874710\times10^{-7}\) | 0.9969274995 |
+| 46.95 | Accepted metric | 1.4412159444 | \(+2.58989744\times10^{-6}\) | 0.9911068669 |
+| 46.95 | a update only | 1.4546577813 | \(+1.24701279\times10^{-6}\) | 0.9957180348 |
+| 46.95 | X update only | 1.4491752752 | \(+1.79398118\times10^{-6}\) | 0.9938398667 |
+| 46.95 | Both explicit updates | 1.4626913466 | \(+4.47393488\times10^{-7}\) | 0.9984637500 |
+| 46.98 | Accepted metric | 1.4628938913 | \(+2.21975975\times10^{-6}\) | 0.9925132639 |
+| 46.98 | a update only | 1.4768744921 | \(+8.16949732\times10^{-7}\) | 0.9972446175 |
+| 46.98 | X update only | 1.4711576616 | \(+1.38976919\times10^{-6}\) | 0.9953126300 |
+| 46.98 | Both explicit updates | 1.4852172376 | \(-1.69974260\times10^{-8}\) | 1.0000573284 |
+
+The same-source table adds a useful discriminant: **neither the a nor the X change alone crosses the cone on the terminal step; their joint explicit update does**. The state is increasingly close to the cone over the three steps, rather than showing a one-step discontinuity in the reconstruction identity.
+
+For the terminal updated conservative state, the exact threshold is \(\gamma^{rr}_{\mathrm{crit}}=(U_E/|U_r|)^2=1.4850469621\). The predictor reaches \(1.4852172376\), exceeding that threshold by \(1.70276\times10^{-4}\), or \(0.01147\%\) of the threshold. The overshoot is \(0.7628\%\) of the total joint \(\gamma^{rr}\) increment. That quantifies how close the update was to preserving admissibility; it does not prescribe a timestep tweak or establish the proper repair.
+
+### What the signed geometry equations establish
+
+The pinned numerical operator's explicit BSSN equations are in [vacuum_bssn.py at vendor commit d6052d6](https://github.com/RonBibb/bb-palatini-unified-r0/blob/d6052d605673ce9d82cdc99b0df79855fa2ea215/vacuum_bssn.py#L268-L295). At the captured cell, shift is zero and KO strength is zero, so
+
+\[
+\dot a=-2\alpha a A_a,\qquad
+\dot X=\frac{\alpha X K}{3}.
+\]
+
+On the corrected-rate trace at \(t=46.98\), \(\alpha=1\), \(A_a=0.157772386214\), \(K=0.282048234945\), \(a=0.608996684842\), and \(X=0.943873683323\). Substitution reproduces the saved rates \(\dot a=-0.192165720328\) and \(\dot X=+0.088739302131\); the recorded formula residuals are both zero. This establishes faithful execution of the pinned explicit equations at this cell. It does not establish that the incoming \(A_a,K\) satisfy all continuum equations, constraints, or boundary/CMC coupling requirements.
+
+### Upstream boundary influence remains open
+
+The boundary routine for the *attempted* \(t=47.01\) predictor has not run when radiation primitive recovery fails. But the accepted state at \(t=46.98\) already contains all prior completed-state updates, including any previous outer light-constraint boundary correction. At zero shift the next a-RHS uses the incoming \(A_a\) directly, so “the current boundary call occurs later” does **not** exonerate earlier boundary influence.
+
+The existing expanded-domain trace [run 38028306184](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38028306184), configuration \(N=120,R_{\max}=120\) and a different source revision, records a completed-state outer \(A_a\) correction of \(+1.185133219\times10^{-4}\) at \(t\approx60.99\) (\(\tau\approx21.89305\)). Its characteristic target/formula residual closes near \(10^{-17}\), but the *size of the correction* is not zero. Holding that correction alone in the zero-shift equation gives the local first-order estimate \(\delta\dot a=-2\alpha a\,\delta A_a\approx-1.62214\times10^{-4}\); over \(dt=0.03\), \(\delta a/a\approx-7.1108\times10^{-6}\), implying \(\delta\gamma^{rr}/\gamma^{rr}\approx+7.1108\times10^{-6}\) and \(\delta(|S|/E)/(|S|/E)\approx+3.5554\times10^{-6}\) at fixed conservative state. This is a scale estimate from a different domain/source, not a counterfactual replay of the N=80 trajectory.
+
+Therefore the current-step boundary condition is not the direct operation at the failing substage, and the boundary formula's algebraic closure is strong; nevertheless, prior boundary-conditioned \(A_a\) remains a possible contributor to the later explicit metric RHS. The corrected-rate N=80 trace does not record matched pre/post-boundary \(A_a\) snapshots, so no causal boundary attribution is admitted. Any next study should compare those quantities on a matched source and state, while also inspecting \(A_a/K\) constraint/source evolution. The archived boundary trace is not sufficient to justify changing the boundary law.
+
