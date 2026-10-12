@@ -135,3 +135,24 @@ The completed interpolation audit [38206848868](https://github.com/miahpenn/0-Co
 - The interpolation audit is now successful with a setup fix; it measured rather than guaranteed interpolation accuracy.
 - The next run is a coarsened target-history sensitivity test; do not change production physics before reviewing it.
 - The verified `main` head remains `7604bd6cc87c48c9dc8e24f2facbfe1458364ca5`; do not promote diagnostic findings to production without a separate review and exact successful CI.
+
+
+## 8. Follow-up started 12 October: target-history stride-2 sensitivity
+
+After the full target-forced result was admitted, the diagnostic script was extended to support an optional integer target sampling stride. The existing default remains stride 1, preserving the full archived target history. The new diagnostic run uses stride 2, retaining every other archived R160 Kdot row and preserving the final endpoint at t=12; the linear interpolation span is therefore about 0.5 time units.
+
+- Script update commit: [2657c5d4f13ddee30ed0c446a99bcb60720ebf0f](https://github.com/miahpenn/0-Cosmos-engine/commit/2657c5d4f13ddee30ed0c446a99bcb60720ebf0f).
+- New workflow commit: [7d53a3d78d628aeec1af88b392a43136bd087142](https://github.com/miahpenn/0-Cosmos-engine/commit/7d53a3d78d628aeec1af88b392a43136bd087142).
+- Stride-2 full-evolution workflow: [run 38207554072](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38207554072).
+- Expected artifact name: `cmc-r80-r160-kdot-coarse-counterfactual`.
+
+At the last status check the workflow was in progress and had not yet been reviewed. The next task is to inspect the artifact and compare:
+1. final \\(\\tau\\) and final gap to R160;
+2. maximum saved-slice absolute \\(\\tau\\) difference;
+3. shared-core center-lapse history and t=12 profile errors;
+4. geometry differences and finite/positive gate;
+5. 12,801 target deliveries, all finite, with zero prescribed-versus-returned target mismatch;
+6. report metadata confirming 25 retained target samples with the t=0 and t=12 endpoints preserved.
+
+The full-stride-1 reference is artifact `11727976800` from [run 38206154450](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38206154450); its ZIP SHA-256 is `63835669c695f9577d0416a2aa1fb3740aef9d4a90f36aaf9b9dbb94a5783006`. The stride-2 run is the sole new expensive numerical trajectory active for this investigation. Do not launch another trajectory until it completes.
+
