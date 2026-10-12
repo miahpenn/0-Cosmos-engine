@@ -112,13 +112,56 @@ At the saved t≈10 state:
 
 The primary update makes the momentum residual slightly worse at N=60 but substantially better at N=80. This resolution-dependent sign is important: there is no single universal “primary stage worsens M” story. The geometric terms show strong cancellation between `D_r Aa`, `D_r K`, and the radial b term. The result is consistent with a centre-localized spatial/derivative compatibility problem, but it is not enough to attribute the problem to any one term or matter sector.
 
-## Immediate next diagnostic: semi-discrete momentum-residual tangent
+## Semi-discrete momentum-residual tangent — complete
 
-Compute the instantaneous derivative of the full momentum residual at (a) fresh t=0 states and (b) saved t≈10 and t=12 states, using the actual production semi-discrete RHS without taking an evolution step. Decompose
-`dM/dt = d(M_geom)/dt - 8*pi*dJ/dt`
-into directional derivatives of each signed geometric term plus the scalar/matter-current response. Validate the derivative numerically with a second epsilon and finite-difference control, and compare `dM/dt` against actual one-step ΔM/dt.
+Workflow: https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38213760419
+Artifact SHA-256: `d00310158e8d509f34d4ade1c347e2b5fa4542565f51b749e9c781e0b94d862f`
 
-This distinguishes a pointwise semi-discrete constraint-propagation defect from time-integrator splitting. No production equation, gauge, boundary or coefficient change is authorized by this diagnostic.
+The diagnostic evaluates the actual production semi-discrete RHS on six frozen states: N=60/N=80 at t=0 and saved t≈10/t=12. It computes the directional derivative of every signed geometric momentum term and each source-current term by perturbing the state along the RHS, re-solving the CMC lapse at the perturbed plus/minus states, and comparing two epsilons (2e-5 and 1e-5). It also takes one independent normal production step from each state for a measured ΔM/dt comparator. No long trajectory was launched.
+
+The epsilon check is extremely stable: at i=2, the max absolute difference between the two ε estimates for ẊM is ~1.7e-13 to 6.0e-13 across all six states. The signed momentum term reconstruction and current-sector reconstruction close at 1e-19–1e-21 scale.
+
+| State | Initial M residual at i=2 | RHS-predicted ẊM | Actual one-step ΔM/dt |
+|---|---:|---:|---:|
+| N60, t=0 | ~0 | +1.21132e-4 | +1.21228e-4 |
+| N80, t=0 | ~0 | +1.48735e-4 | +1.48716e-4 |
+| N60, t=10 | -8.28647e-4 | -3.21262e-4 | -3.12853e-4 |
+| N80, t≈9.99 | -6.78261e-4 | +2.95895e-3 | +2.93569e-3 |
+| N60, t=12 | -9.81671e-4 | -8.03541e-6 | -6.34156e-6 |
+| N80, t=12 | -2.68944e-3 | -1.47313e-3 | -1.37845e-3 |
+
+At t=0 the semi-discrete RHS itself moves a zero momentum residual away from zero; one step matches that rate to much better than 0.1%. The t≈10 tangent also matches the actual step rate within about 2.6% for N60 and 0.8% for N80. At t=12 the N60 tangent is near cancellation, so relative error is uninformative (absolute mismatch ~1.7e-6); N80 agrees in sign and scale within about 6.4%.
+
+This is the strongest current distinction: **the residual tendency is already present in the semi-discrete coupled RHS, not created solely by choosing a finite time step.** The actual step responds consistently to that tangent. The two-CFL check likewise shows little early change on halving dt.
+
+### Which terms drive the instantaneous residual rate?
+
+At the initially constraint-satisfied i=2 cell:
+- N60: geometry-side ẊM contribution `-1.20974e-4`, current-source `d(8πJ)/dt=-2.42106e-4`, net ẊM `+1.21132e-4`.
+- N80: geometry-side `-7.48267e-5`, current-source `-2.23561e-4`, net ẊM `+1.48735e-4`.
+
+The local S-field current supplies essentially all of that initial current-source rate: `d(8πJ_S)/dt=-2.42151e-4` at N60 and `-2.23599e-4` at N80. The D and COSMOS-φ current rates, dark matter, baryons, and radiation are orders of magnitude smaller at those cells.
+
+At N60/t=12, the geometry-side rate is `-1.63963e-4` and current-source rate `-1.55928e-4`, nearly canceling; at N80/t=12 the geometry-side rate `-1.61209e-3` dominates the current-source rate `-1.38957e-4`. At N80/t≈10, the geometric rate `+3.06906e-3` is dominated by the `D_r Aa` term `+1.83503e-3` and radial-b term `+1.34463e-3`; the source-current rate is only `+1.10102e-4`.
+
+**Interpretation limit:** a large S-current derivative is not proof the S equation is wrong; it must cancel appropriately against the geometry evolution if the discrete system propagates the momentum constraint. Here the balance differs by a measurable amount, and the geometric contribution changes sign between states/resolutions. No single RHS component is yet identified as the sole defect.
+
+## Saved-state momentum budget across all 21 slices
+
+Workflow: https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38213685916
+Artifact SHA-256: `0db11b923cd5ab5671d5da95739744c5b6fc6d1561de990a2b6e3c95c26324ee`
+
+The exact geometric momentum decomposition, scalar/fluid current assembly, and total residual were rechecked at t=0,2,4,6,8,10,12 for N=40,60,80. Geometry and total-source closures all pass at roundoff. At t=12/i=2:
+- N60: `M_geom=-9.71025e-4`, residual `M=-9.81671e-4`, scalar source term `-8πj_S=-1.082e-5`; DM source term about `+1.55e-7`, with baryon/radiation smaller.
+- N80: `M_geom=-2.68327e-3`, residual `M=-2.68944e-3`, scalar source term `-8πj_S=-6.317e-6`; DM source term about `+1.31e-7`, with baryon/radiation smaller.
+
+So the *value* of the late momentum residual is overwhelmingly geometric, even though the time derivative of the S current is important in its instantaneous propagation balance. This is why “the scalar source causes it” would be too strong: the residual depends on the difference between geometric and total-current evolution.
+
+## Immediate next diagnostic: spatial behavior of the semi-discrete tendency
+
+Evaluate the same no-trajectory momentum-residual tangent at N=40,60,80,120 on (a) fresh t=0 states and (b) saved t≈2.16 states from the successful same-domain refinement. Compare ẊM, each signed geometric rate term, and each scalar/fluid-current rate at common physical radii (r=2,3,4,5,6) as well as in fixed inner/exterior regions. Keep CMC, matter, boundary, and coefficients unchanged.
+
+This will distinguish a central spatial layer in the instantaneous defect from a resolution-independent source/geometry inconsistency. No production equation change is authorized until the fixed-radius tangent itself has been checked for spatial refinement.
 
 ## Matched-CFL spatial refinement — complete
 
