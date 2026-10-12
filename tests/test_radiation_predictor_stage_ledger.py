@@ -71,3 +71,26 @@ def test_pinned_spherical_grid_uses_center_array_for_cell_count():
     assert not hasattr(grid, 'resolution')
     assert len(grid.centers) == 80
     assert _grid_size(grid) == 80
+
+
+
+def test_only_first_geometry_terms_call_is_recorded_as_accepted_rhs():
+    from engine.radiation_predictor_stage_ledger import _capture_first_geometry_terms_call
+
+    step = {"t0": 46.98, "rhs_count": 1}
+    assert _capture_first_geometry_terms_call(step) is True
+    assert _capture_first_geometry_terms_call(step) is False
+
+    # Counter remains advanced when production evaluates the predictor and
+    # completed-state geometry terms before/after the next matter RHS call.
+    step["rhs_count"] = 2
+    assert _capture_first_geometry_terms_call(step) is False
+    assert step["ledger_geometry_terms_count"] == 3
+
+
+def test_geometry_terms_before_capture_window_are_not_counted():
+    from engine.radiation_predictor_stage_ledger import _capture_first_geometry_terms_call
+
+    step = {"t0": 43.98, "rhs_count": 1}
+    assert _capture_first_geometry_terms_call(step) is False
+    assert "ledger_geometry_terms_count" not in step
