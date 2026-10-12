@@ -58,3 +58,18 @@ The independent pointwise K-RHS/lapse residual audit (run [38210163221](https://
 ## Next step
 
 Construct an independently evaluated residual/Jacobian for the coupled discrete system: the CMC elliptic equation on PDE rows plus `Kdot - target_kdot(alpha) = 0`, with the outer normalization cell treated explicitly and not silently included/excluded. Compare the R80-native and R160-target near-stationary candidates under the **same** shared-core boundary condition. Separately audit the pointwise outer-cell contribution against the authoritative CMC derivation. Keep all work diagnostic-only and do not launch another expensive trajectory yet.
+
+
+## Target-closure flatness across three fixed-target trials
+
+The pointwise residual artifact [11729296911](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38210163221/artifacts/11729296911) provides three fixed-target R80 solves with the same frozen non-lapse state and matched outer boundary. The trial Kdot values span the entire native-R80 to archived-R160 target gap:
+
+| Trial | Kdot trial | H = target_kdot(alpha_solved) − Kdot |
+|---|---:|---:|
+| Native R80 | (6.198841550010287\times10^{-5}) | (-8.581045487891792\times10^{-14}) |
+| Midpoint | (6.216183207871493\times10^{-5}) | (-8.582846618750833\times10^{-14}) |
+| Archived R160 | (6.233524865732698\times10^{-5}) | (-8.580558952166889\times10^{-14}) |
+
+Across a Kdot span of (3.46833157\times10^{-7}), H varies by only (2.28767\times10^{-17}); the endpoint finite-difference slope is about (1.40\times10^{-11}). For every trial, H matches the proper-volume weighted mean of the pointwise K-RHS residual to (1.6\text{–}4.0\times10^{-21}). PDE-row residuals are at ~(10^{-15}); the outermost normalization cell carries a residual of about (-4.5882\times10^{-12}).
+
+**Interpretation:** the coupled target-closure residual is nearly flat with respect to trial Kdot over this interval after solving the lapse equation. This is strong evidence that the global target equation supplies little independent selection of Kdot beyond the elliptic PDE rows and the boundary closure, and it is consistent with distinct near-stationary target/lapse candidates. It is not yet a proof of a continuum of exact roots or of a production defect. The next diagnostic must derive the discrete residual/Jacobian and treat the normalization cell explicitly, then check the authoritative CMC derivation before any production change.
