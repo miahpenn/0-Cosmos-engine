@@ -285,8 +285,8 @@ class RadiationPredictorStageLedger(RadiationStageTrace):
             "t_accepted": float(step["t0"]),
             "t_attempted": float(step["t0"] + step["dt"]),
             "dt": float(step["dt"]),
-            "cells": list(range(max(0, self.latest_state.len(grid.centers) - CELLS),
-                                self.latest_state.len(grid.centers)))
+            "cells": list(range(max(0, len(self.latest_state.grid.centers) - CELLS),
+                                len(self.latest_state.grid.centers)))
                 if self.latest_state is not None else [],
         })
         return row
@@ -341,7 +341,7 @@ class RadiationPredictorStageLedger(RadiationStageTrace):
         grid_centers_sha256 = hashlib.sha256(centers.tobytes()).hexdigest()
         config_payload = {
             "trace_configuration": configuration,
-            "resolution": int(state.len(grid.centers)) if state is not None else None,
+            "resolution": int(len(state.grid.centers)) if state is not None else None,
             "dr": float(state.grid.dr) if state is not None else None,
             "dt_nominal": float(dt_nominal) if math.isfinite(float(dt_nominal)) else None,
             "capture_from_t": CAPTURE_FROM_T,
@@ -364,7 +364,7 @@ class RadiationPredictorStageLedger(RadiationStageTrace):
         ).encode()).hexdigest()
 
         expected_indices = (
-            list(range(max(0, int(state.len(grid.centers)) - CELLS), int(state.len(grid.centers))))
+            list(range(max(0, int(len(state.grid.centers)) - CELLS), int(len(state.grid.centers))))
             if state is not None else []
         )
         steps = [self.ledger_steps[k] for k in sorted(self.ledger_steps, key=int)]
