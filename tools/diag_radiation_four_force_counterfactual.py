@@ -78,8 +78,8 @@ def main() -> None:
     out = Path("artifacts/radiation_four_force_counterfactual.json")
     out.parent.mkdir(parents=True, exist_ok=True)
     payload = json.dumps(results, indent=2, sort_keys=True)
-    out.write_text(payload + "\\n", encoding="utf-8")
-    digest = hashlib.sha256((payload + "\\n").encode("utf-8")).hexdigest()
+    out.write_text(payload + "\n", encoding="utf-8")
+    digest = hashlib.sha256((payload + "\n").encode("utf-8")).hexdigest()
     print(f"Wrote {out} SHA-256={digest}")
 
 
