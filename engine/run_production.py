@@ -126,7 +126,7 @@ def run_campaign(
                         "t_before": state_before_time,
                         "requested_dt": requested_dt,
                         "accepted_dt": None,
-                        "retry_count": exc.attempts.__len__(),
+                        "retry_count": len(exc.attempts),
                         "attempts": list(exc.attempts),
                         "status": "failed_closed_at_time_precision",
                         "exception_class": type(exc).__name__,
