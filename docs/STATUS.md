@@ -1,88 +1,82 @@
 # Build Status — 2026-10-12
 
-## Objective
+## Objective and current classification
 
-Get the unified V5.5 production machine running through a controlled, synchronized multi-resolution campaign, while leaving the locked physics unchanged until numerical admission is satisfied.
+Objective: get the unified V5.5 production machine running through a controlled, synchronized multi-resolution campaign without changing locked physics before numerical admission.
 
-## Current production state graph
-
-The canonical repository contains the production-facing state graph:
-
-1. corrected archive COSMOS background equations;
-2. local GEAR-03 S/D sector with GEAR-63/65 barrier;
-3. scalar S/D/COSMOS evolution and stress projections;
-4. conservative spherical dark-matter, baryon, and radiation matter sectors;
-5. locked beta DM/scalar four-force exchange;
-6. one total Einstein stress-energy assembly;
-7. pinned reference-metric BSSN/PIRK numerical geometry;
-8. synchronized geometry/scalar/matter state evolution;
-9. derived proper time, H_eff, e-folds, trapping, and Misner-Sharp observables;
-10. cycle/handoff ledgers without a synthetic lambda_cycle;
-11. checkpoint and long-horizon multi-resolution campaign infrastructure.
-
-## Physics locks and scope exclusions
-
-- Bianchi-I shear remains outside the exact spherical local source.
-- No D-to-matter identification law.
-- No shell EOS/action or phenomenological interface source.
-- No fitted coefficient, imposed clock conversion, bounce/reset/branch flip, lapse floor, ejection threshold, or physical stop.
-- A finite campaign horizon is a computation boundary, not physics.
-- Diagnostic-only forced histories are never promoted to the production equations.
-
-## Validation state
-
-Independent review reported the full test suite passed 79/79 on 2026-10-11, and a short production smoke campaign (`resolution=40`, `r_max=40`, `final_time=1.0`) completed without NaNs or assertion failures.
-
-A separate strict-admission branch has now rerun the full repository suite and the same bounded full-machine smoke successfully:
-- Branch: `fix/strict-campaign-admission-2026-10-12`
-- Workflow: https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38207394186
-- Branch changes are not yet merged into `main`.
-
-The branch adds a fail-closed campaign gate: all requested resolutions must be present, every resolution must report `completed`, and every trajectory must reach the requested final coordinate time within floating-point endpoint tolerance. The campaign summary records admission status and errors before a failure is raised; the campaign workflow is configured to upload available output even if admission fails. This prevents an early numerical stop from being mistaken for a successful campaign.
+The canonical state graph is implemented. The first synchronized production campaign at N=40,60,80, r_max=80, CFL=0.03, radiation enabled, through t=12 has completed, and the fail-closed completion gate passed. This is **horizon completion, not physical/numerical admission**.
 
 Current classification:
 
-**IMPLEMENTED / UNIT-TESTED / SHORT-SMOKE-TESTED / NOT YET MULTI-RESOLUTION-CAMPAIGN-VALIDATED**
+**IMPLEMENTED / 83-TESTED / SHORT-SMOKE-TESTED / t=12 MULTI-RESOLUTION RUNS COMPLETE / CONSTRAINT AND BALANCE ADMISSION STILL OPEN**
 
-## Recent diagnostic evidence
+## Locked physics and scope
 
-### CMC target counterfactual
+- Corrected archive COSMOS background equations.
+- Local GEAR-03 S/D sector with GEAR-63/65 barrier and corrected COSMOS potential normalization V0=8.242522415500654e-5.
+- Conservative spherical dark matter, baryons and radiation, with the locked beta DM/scalar exchange.
+- One total Einstein stress-energy assembly and pinned reference-metric BSSN/PIRK numerical geometry.
+- No fitted coefficient, imposed clock conversion, D-to-matter law, shell EOS, phenomenological interface source, artificial bounce/reset/branch flip, lapse floor, ejection threshold or physical stop.
+- Bianchi-I shear remains outside the exact spherical source. Diagnostic-only forced CMC histories are not part of production physics.
 
-The diagnostic-only R80 evolution with the archived R160 CMC `Kdot` history completed through `t=12`:
-- Run: https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38206154450
-- Commit: `51045b8e0dfa8a00d167f7df78da9f07cfa772c5`
-- 3,200 accepted steps, 49 saved slices, 12,801 lapse-target calls.
-- Target delivery error was exactly zero; final central lapse was approximately 0.0172773 and final proper time approximately 6.90677991.
+## Engineering admission fix and checks
 
-In the autonomous/baseline R80 comparison, final proper time differed from the archived R160 trajectory by about `+1.1743e-2`, with maximum saved-slice absolute difference about `1.5702e-2`. Jointly prescribing the archived R160 outer-lapse boundary history and full-domain CMC `Kdot` target reduced those differences to about `+6.30e-7` at the final time and `1.2192e-5` maximum over saved slices. Most core geometric and scalar profile discrepancies were also strongly reduced.
+Draft PR #3: https://github.com/miahpenn/0-Cosmos-engine/pull/3
 
-**Interpretation limit:** this is a full evolving, jointly forced gauge/boundary counterfactual, not a self-consistent R160 solution on an R80 domain. It demonstrates strong sensitivity to the combined outer-lapse boundary and global CMC target history; it does **not** isolate the `Kdot` contribution by itself, prove that the archived histories are the unique correct gauge, or establish a physical cause. The target history is interpolated. The separate Kdot interpolation audit passed 24 held-out times with maximum absolute error `5.29e-8`; the archived outer-lapse history has a larger reported held-out absolute interpolation discrepancy (about `1.5e-4` over a 0.5 time spacing), so stage-level target accuracy remains a limitation.
+Branch: fix/strict-campaign-admission-2026-10-12
 
-A separate fixed-state target-swap (run https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38205934746) holds each R80 slice fixed and uses the same archived R160 outer-lapse boundary for both lapse solves, varying only the CMC Kdot target. At t=12, native R80 Kdot is about `2.4571e-4` versus archived R160 Kdot `7.5058e-5`; the target-swapped central lapse remains about `-3.793e-3` from the R160 value. The integrated target-only correction is opposite in sign to the observed proper-time mismatch. This fixed-state test does not capture later feedback, but it shows that the target value alone does not explain the R80/R160 difference on a frozen slice. Isolate outer-lapse boundary and Kdot target in separate evolved counterfactuals before attributing causality.
+- The campaign runner now writes an admission result and raises if requested resolutions are missing, a resolution did not complete, or a trajectory fails to reach the requested horizon.
+- Available campaign outputs are uploaded even when the run fails.
+- The runner checks numeric geometry, scalar and matter state fields and stored diagnostic values for non-finite entries.
+- The initial t=0 slice is now in the history, and an endpoint discrepancy within floating-point roundoff is recorded and canonicalized without a tiny extra evolution step.
+- The strict smoke workflow passed. At the last smoke revision: full repository suite 83 passed; N=40, r_max=40, CFL=0.03, t=1 finished and produced its ledger. Workflow: https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38207394186
 
-### N=640 signed-pole audit
+## Synchronized production campaign through t=12
 
-The workflow at https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38183314088 was **cancelled at the 240-minute execution limit** after reaching approximately `t=8.375`, short of the requested `t=12`. Its partial artifact was uploaded and reproducible; this is not a completed through-`t=12` result. The early sign crossings disappeared by approximately `t=5.125`, while a later Hamiltonian residual ridge grew afterward. Term reconstruction closes to roundoff, but that is not independent constraint satisfaction.
+Baseline run: https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38207515326
 
-### Other current audits
+- N=40: 200 steps, tau_final=11.9559993814.
+- N=60: 300 effective steps after endpoint correction, tau_final=11.9284259877.
+- N=80: 400 effective steps after endpoint correction, tau_final=11.9184114053.
+- All requested resolutions reached t=12 and the state/diagnostic values were finite.
+- Endpoint canonicalization in the rerun corrected only +7.9936057773e-14 for N=60 and +6.3948846218e-14 for N=80; no additional physical evolution step was inserted.
+- Post-correction Misner-Sharp current residual max/RMS: N=40 2.3899e-3 / 1.2621e-3; N=60 5.5462e-4 / 2.3152e-4; N=80 6.0062e-4 / 2.1438e-4. The enormous old N=60/N=80 maxima were endpoint-sliver artifacts. The remaining current balance is smaller and improves strongly in RMS from N=40, but its resolution behavior is not yet a completed balance proof.
 
-- Successful CMC Kdot interpolation audit: https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38206848868
-- Strong-D CMC lapse Jacobian audit: https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38205542397
-- Strong-D CMC lapse time series: https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38205709871
-- R80/R160 CMC target counterfactual comparison: https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38205934746
-- Bond sweep is diagnostic evidence only; it does not by itself explain the full evolving constraint discrepancy.
+### Constraint-location finding
 
-## Open validation gates
+The earlier norm called hamiltonian_max excluded the first two *cells*, not the same physical region at each resolution. After correcting the recorded peak location, that maximum sat exactly on the first included cell: r=5.0 for N=40, r=3.3333 for N=60, r=2.5 for N=80. This means the former cross-resolution comparison used a moving near-center cutoff and is not a valid convergence norm.
 
-1. Run a controlled production campaign through `t=12` for `N=40,60,80`, `r_max=80`, `CFL=0.03`, radiation enabled, and locked physics. Preserve all partial ledgers if a resolution fails.
-2. Require strict admission: all requested resolutions present, all runs completed, exact campaign horizon reached within endpoint tolerance, and no non-finite state.
-3. Review per-resolution Hamiltonian, momentum, connection, determinant, trapped-root, Misner-Sharp current, proper-time, H_eff, matter-exchange, and boundary-flux histories. Completion alone is not physics admission.
-4. Compare the same-domain resolution sequence before drawing conclusions from cross-domain comparisons.
-5. Continue the N=320 reconstruction audit using the frozen `1e-8` per-field relative criterion. Do not widen tolerances to force a pass. PR #2 remains draft because earlier host/runtime-dependent outer-Hamiltonian discrepancies and preregistration-source provenance remain unresolved.
-6. Only after the intermediate campaign is admitted should the longer multi-resolution horizon be run.
+At t=12, the full-domain Hamiltonian residual maxima were:
+- N=40: 4.0417e-2 at r=1.0.
+- N=60: 7.9698e-2 at r=0.6667.
+- N=80: 1.3494e-1 at r=0.5.
 
-A numerical/gauge failure is not a physical interpretation. No production physics change is authorized by unit tests, a short smoke run, or a target-forced counterfactual alone.
+Those maxima lie in the central cells and grow as the grid is refined; this remains a real unresolved numerical/regularity concern. It must not be hidden by an exterior-only norm. The new diagnostics compare like-for-like exterior norms over the fixed physical domain r >= 5.0, with separate inner (r < 5.0) and full-domain maxima and matching peak locations. These fixed-mask metrics await the next t=12 rerun.
 
-## Reproducibility note
+The determinant constraint remains small at the reported end slices (roughly 2.8e-9, 4.4e-10, and 7.7e-10 for N=40,60,80), and CMC residuals are small, but that does not compensate for the central Hamiltonian growth or establish full constraint satisfaction.
 
-Record commit SHA, pinned vendor revision, settings, runtime, checkpoint hashes, and all failing diagnostics for every admitted campaign. Preserve preregistered tolerances and report host/runtime variance explicitly.
+## CMC target counterfactual and causal limits
+
+R80 with jointly prescribed archived R160 outer-lapse boundary history and full-domain CMC Kdot target completed through t=12:
+https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38206154450
+
+It reduced the final proper-time discrepancy relative to archived R160 from about +1.1743e-2 to +6.30e-7 and maximum saved-slice discrepancy from about 1.5702e-2 to 1.2192e-5. This is a **joint gauge/boundary counterfactual**, not a self-consistent R160 solution on R80. It does not isolate Kdot.
+
+The separate frozen-state Kdot target swap (https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38205934746) did not recover the R160 central lapse at t=12; its residual difference was about -3.793e-3. Therefore the near-match in the evolved run cannot be assigned to Kdot alone. If needed, separately evolved counterfactuals must vary outer-lapse boundary and Kdot independently.
+
+The interpolation audit passed 24 held-out times with maximum absolute Kdot interpolation error 5.29e-8; the archived outer-lapse history has a larger reported held-out absolute interpolation discrepancy around 1.5e-4 over half-time-unit spacing.
+
+## N=640 signed-pole audit
+
+Run https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38183314088 was cancelled at the 240-minute limit near t=8.375, short of t=12. Its partial artifact uploaded. Early sign crossings disappeared by about t=5.125; a later residual ridge grew afterward. Term reconstruction closes to roundoff, but this is not independent constraint satisfaction.
+
+## Next gates
+
+1. Complete the fixed-radius-mask diagnostic rerun at N=40,60,80 through t=12 and review inner, fixed-exterior and full-domain constraint maxima with correct peak locations.
+2. Independently audit the Misner-Sharp current definition and its flux/work terms at the same fixed-coordinate worldtube; don't infer physical ejection from residuals alone.
+3. Check matter and radiation boundary flux direction and local conservation terms from raw signed terms, not ratios whose denominators may be near zero.
+4. Preserve frozen N=320 reconstruction tolerance 1e-8 and report host/runtime variance; do not relax thresholds after seeing results.
+5. Do not launch the t=160 campaign until the t=12 fixed-domain constraint behavior and balance residual are reviewed.
+6. After the code and diagnostics are reviewed, enable same-workflow concurrency control so a sequence of pushes cannot launch overlapping expensive campaigns.
+
+A passing unit suite or a completed run does not itself prove physical turnaround, ejection, or multi-cycle behavior. Numerical/gauge failures remain numerical/gauge results unless invariant, independent and resolution-consistent evidence supports a physical interpretation.

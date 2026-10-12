@@ -57,6 +57,26 @@ from . import v55_pirk_adapter as adapter
 
 BETA_DM = -0.04
 LAMBDA_M = 2.0
+CONSTRAINT_INNER_EXCLUSION_RADIUS = 5.0
+
+
+def _peak_witness(values, radii, mask=None):
+    """Return (index, radius, signed value) for the absolute peak on a mask."""
+    values = np.asarray(values, dtype=float)
+    radii = np.asarray(radii, dtype=float)
+    if values.ndim != 1 or radii.ndim != 1 or values.shape != radii.shape:
+        raise ValueError("peak witness values and radii must be matching 1-D arrays")
+    if mask is None:
+        indices = np.arange(values.size)
+    else:
+        selected = np.asarray(mask, dtype=bool)
+        if selected.shape != values.shape:
+            raise ValueError("peak witness mask must match the profile shape")
+        indices = np.flatnonzero(selected)
+    if indices.size == 0:
+        raise ValueError("peak witness mask selects no grid points")
+    idx = int(indices[np.argmax(np.abs(values[indices]))])
+    return idx, float(radii[idx]), float(values[idx])
 
 
 @dataclass
@@ -710,18 +730,17 @@ class V55ProductionKernel:
         # record where the vacuum and explicit geometry RHS are largest and
         # expose the local slice state there so the next run can distinguish
         # a boundary, center, or interior operator failure.
-        def _witness(arr, *, start=0, stop=None):
-            """Return argmax witness on an explicit spatial slice."""
-            values = np.asarray(arr, dtype=float)
-            end = len(values) if stop is None else min(int(stop), len(values))
-            begin = int(start)
-            if begin < 0 or end > len(values) or begin >= end:
-                raise ValueError(
-                    f"invalid witness slice [{begin}:{end}] for {len(values)} values"
-                )
-            local = values[begin:end]
-            idx = begin + int(np.argmax(np.abs(local)))
-            return idx, float(r[idx]), float(values[idx])
+        constraint_exclusion_radius = CONSTRAINT_INNER_EXCLUSION_RADIUS
+        exterior_mask = r >= constraint_exclusion_radius
+        inner_mask = ~exterior_mask
+        if not np.any(exterior_mask) or not np.any(inner_mask):
+            raise ValueError(
+                "grid must contain cells both inside and outside the fixed "
+                f"constraint radius r={constraint_exclusion_radius}"
+            )
+
+        def _witness(arr, mask=None):
+            return _peak_witness(arr, r, mask=mask)
 
         i_vAa, r_vAa, v_vAa = _witness(vacuum_l3["Aa"])
         i_vK, r_vK, v_vK = _witness(vacuum_l3["K"])
@@ -730,21 +749,21 @@ class V55ProductionKernel:
         i_ea, r_ea, v_ea = _witness(explicit["a"] / geom.a)
         i_eb, r_eb, v_eb = _witness(explicit["b"] / geom.b)
 
-        # The accepted interior norm excludes the two center cells because
-        # the production constraint stencil is not admitted there. Keep
-        # separate full-domain and center-cell witnesses so this exclusion is
-        # explicit and no reported norm is paired with a different location.
-        i_conn, r_conn, v_conn = _witness(raw["connection"], start=2)
+        # The comparable exterior norm uses the same physical cutoff at every
+        # resolution. Separate inner and full-domain witnesses keep central
+        # regularity errors visible rather than hiding them in a resolution-
+        # dependent number of excluded cells.
+        i_conn, r_conn, v_conn = _witness(raw["connection"], exterior_mask)
         i_conn_full, r_conn_full, v_conn_full = _witness(raw["connection"])
-        i_conn_center, r_conn_center, v_conn_center = _witness(
-            raw["connection"], stop=2
+        i_conn_inner, r_conn_inner, v_conn_inner = _witness(
+            raw["connection"], inner_mask
         )
-        i_H, r_H, v_H = _witness(H, start=2)
+        i_H, r_H, v_H = _witness(H, exterior_mask)
         i_H_full, r_H_full, v_H_full = _witness(H)
-        i_H_center, r_H_center, v_H_center = _witness(H, stop=2)
-        i_M, r_M, v_M = _witness(M, start=2)
+        i_H_inner, r_H_inner, v_H_inner = _witness(H, inner_mask)
+        i_M, r_M, v_M = _witness(M, exterior_mask)
         i_M_full, r_M_full, v_M_full = _witness(M)
-        i_M_center, r_M_center, v_M_center = _witness(M, stop=2)
+        i_M_inner, r_M_inner, v_M_inner = _witness(M, inner_mask)
 
         roots = []
         sign_change = chi[:-1] * chi[1:] <= 0.0
@@ -773,32 +792,33 @@ class V55ProductionKernel:
             "p_outer": float(np.mean(total.pr[outer])),
             "j_outer": float(np.mean(total.j[outer])),
             "rho_total_max": float(np.max(total.rho)),
-            # These three norms use the same [2:] domain as their
-            # corresponding *_max_r and *_at_max fields below.
+            # Comparable exterior norms use r >= constraint_exclusion_radius;
+            # inner and full-domain peaks are reported separately.
+            "constraint_exclusion_radius": float(constraint_exclusion_radius),
             "hamiltonian_max": float(abs(v_H)),
             "hamiltonian_max_r": r_H,
             "hamiltonian_at_max": v_H,
-            "hamiltonian_center_absmax": float(abs(v_H_center)),
-            "hamiltonian_center_max_r": r_H_center,
-            "hamiltonian_center_at_max": v_H_center,
+            "hamiltonian_inner_absmax": float(abs(v_H_inner)),
+            "hamiltonian_inner_max_r": r_H_inner,
+            "hamiltonian_inner_at_max": v_H_inner,
             "hamiltonian_full_absmax": float(abs(v_H_full)),
             "hamiltonian_full_max_r": r_H_full,
             "hamiltonian_full_at_max": v_H_full,
             "momentum_max": float(abs(v_M)),
             "momentum_max_r": r_M,
             "momentum_at_max": v_M,
-            "momentum_center_absmax": float(abs(v_M_center)),
-            "momentum_center_max_r": r_M_center,
-            "momentum_center_at_max": v_M_center,
+            "momentum_inner_absmax": float(abs(v_M_inner)),
+            "momentum_inner_max_r": r_M_inner,
+            "momentum_inner_at_max": v_M_inner,
             "momentum_full_absmax": float(abs(v_M_full)),
             "momentum_full_max_r": r_M_full,
             "momentum_full_at_max": v_M_full,
             "connection_max": float(abs(v_conn)),
             "connection_max_r": r_conn,
             "connection_at_max": v_conn,
-            "connection_center_absmax": float(abs(v_conn_center)),
-            "connection_center_max_r": r_conn_center,
-            "connection_center_at_max": v_conn_center,
+            "connection_inner_absmax": float(abs(v_conn_inner)),
+            "connection_inner_max_r": r_conn_inner,
+            "connection_inner_at_max": v_conn_inner,
             "connection_full_absmax": float(abs(v_conn_full)),
             "connection_full_max_r": r_conn_full,
             "connection_full_at_max": v_conn_full,

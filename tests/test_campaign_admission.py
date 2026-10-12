@@ -1,6 +1,14 @@
 from types import SimpleNamespace
 
-from engine.run_production import campaign_admission_errors
+import numpy as np
+import pytest
+
+from engine.production_kernel import _peak_witness
+from engine.run_production import (
+    _canonicalize_endpoint_roundoff,
+    assert_finite_state,
+    campaign_admission_errors,
+)
 
 
 def _result(resolution, status="completed", t_final=1.0):
@@ -49,3 +57,52 @@ def test_campaign_admission_rejects_nonfinite_final_time():
     )
 
     assert any("N=40 final time is not finite" in error for error in errors)
+
+
+
+def test_fixed_physical_mask_reports_peak_and_radius_from_same_region():
+    radii = np.array([1.0, 3.0, 5.0, 7.0])
+    values = np.array([50.0, -30.0, 4.0, -2.0])
+    exterior = radii >= 5.0
+
+    assert _peak_witness(values, radii, mask=exterior) == (2, 5.0, 4.0)
+    assert _peak_witness(values, radii) == (0, 1.0, 50.0)
+
+
+def test_endpoint_roundoff_snaps_timestamp_without_an_extra_step():
+    state = SimpleNamespace(
+        t=12.0 - 8.0e-14,
+        history=[{"t": 12.0 - 8.0e-14, "tau": 11.9}],
+    )
+
+    correction = _canonicalize_endpoint_roundoff(state, 12.0, 1.0e-12)
+
+    assert correction == pytest.approx(8.0e-14)
+    assert state.t == 12.0
+    assert state.history[-1]["t"] == 12.0
+    assert state.history[-1]["tau"] == 11.9
+
+
+def test_endpoint_roundoff_does_not_snap_a_materially_short_run():
+    state = SimpleNamespace(t=11.9, history=[{"t": 11.9}])
+
+    correction = _canonicalize_endpoint_roundoff(state, 12.0, 1.0e-12)
+
+    assert correction == 0.0
+    assert state.t == 11.9
+    assert state.history[-1]["t"] == 11.9
+
+
+def test_finite_state_guard_checks_nested_scalar_and_matter_arrays():
+    state = SimpleNamespace(
+        geometry=SimpleNamespace(a=np.array([1.0, 1.1])),
+        scalars=SimpleNamespace(phi=np.array([0.1, 0.2])),
+        matter=SimpleNamespace(
+            dark_matter=SimpleNamespace(energy_t=np.array([0.01, 0.02]))
+        ),
+    )
+
+    assert_finite_state(state)
+    state.scalars.phi[1] = np.nan
+    with pytest.raises(FloatingPointError, match=r"state.scalars.phi"):
+        assert_finite_state(state)
