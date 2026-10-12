@@ -162,3 +162,10 @@ At the last status check the workflow was in progress and had not yet been revie
 
 The full-stride-1 reference is artifact `11727976800` from [run 38206154450](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38206154450); its ZIP SHA-256 is `63835669c695f9577d0416a2aa1fb3740aef9d4a90f36aaf9b9dbb94a5783006`. The stride-2 run is the sole new expensive numerical trajectory active for this investigation. Do not launch another trajectory until it completes.
 
+
+
+### Saved-slice domain decomposition: first attempt and correction
+
+The first snapshot-only workflow [38208437494](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38208437494) failed before producing numerical results. Its region check incorrectly required a nonempty outer region for the R80 control grid, although all R80 cell centers necessarily satisfy r<80. This was a diagnostic-control-flow bug, not a production or physics failure.
+
+Correction commit [9f54b9c53fe4c4d8e932f687d311a3294cc4eb3b](https://github.com/miahpenn/0-Cosmos-engine/commit/9f54b9c53fe4c4d8e932f687d311a3294cc4eb3b) now treats R80 as the full inner-region control with zero outer weight and performs the inner/outer split only where an outer shell exists (R160). The corrected rerun is [38208523930](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38208523930); it was queued at the last status check because the diagnostic runner was occupied. No shell-decomposition values are available yet.
