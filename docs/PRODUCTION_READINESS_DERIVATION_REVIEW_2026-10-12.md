@@ -38,6 +38,8 @@ Do not combine test counts from independent branches as though they were all run
 - Extended current-main beta-source candidate: [run 38302775872](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38302775872), commit 23462c7e2e433402f9fef4b5789a8ebfa9e7795c, 2 targeted source-stage tests and 81 full-suite tests passed in 7.01 s.
 - Latest extended current-main source candidate: [run 38303904514](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38303904514), commit 92bfab1e330c9754d9909f0b2cb066baef7e8944, 2 targeted stage-pair tests passed in 0.38 s and the full suite 82 passed in 7.38 s. This version also ports the spatial homogeneous-COSMOS limit regression; it remains isolated from main and is not a production-admitted trajectory.
 - CMC centre-row candidate regression suite: [run 38303841261](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38303841261), isolated branch diag/cmc-lapse-full-ci-2026-10-12, 89 tests passed in 9.43 s. Comparison against the CMC candidate head shows this commit added the workflow only; it did not alter the tested production modules. This is regression coverage, not trajectory or science admission.
+- The corrected CMC row is now also tracked in open draft [PR #7](https://github.com/miahpenn/0-Cosmos-engine/pull/7), branch fix/cmc-cellcenter-row-2026-10-12 at commit 72483464c6008b4529985c8767b501b11f57fcc9. Both [run 38304045777](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38304045777) and [run 38304170442](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38304170442) passed 2 focused row tests and the full 81-test repository suite; the latter was the latest code test on that branch. PR is still draft; no merge.
+- The latest beta source-candidate A/B snapshot, [run 38304517568](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38304517568), commit cd835df3d87f30f92d29afcd9a4b50a54b2877cf, passed 4 focused tests and 83 full-suite tests (11.38 s). An earlier compare attempt [run 38304363097](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38304363097) failed during test collection because test_covariant_beta_source_one_step_ab.py had an unclosed parenthesis; that harness failure is superseded by the subsequent successful source A/B run and must not be reported as a physics failure.
 
 ## 3. Initial data and constraint propagation
 
@@ -216,6 +218,61 @@ The row-order comparison corroborates that **the principal one-step benefit is f
 
 Most importantly, the three-arm test still lacks predictor-stage radiation margins and a closed Misner–Sharp interval residual. The new combined one-step radiation/MS diagnostic is running on isolated branch [diag/cmc-lapse-rad-ms-one-step-ab-2026-10-12](https://github.com/miahpenn/0-Cosmos-engine/tree/diag/cmc-lapse-rad-ms-one-step-ab-2026-10-12); no production file is changed.
 
+### Three-arm row-order separation (12 October)
+
+**Run:** [38304709682](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38304709682), successful diagnostic capture; commit 1fca3f2f03626346720c95f4d4c114b884d1be96. **Artifact:** ID 11771896263, ZIP SHA-256 59918d53bc883fbc796bf79057666692a01c49a0a355bd26f89cbac22fbb08d8. Resolutions N=80/120/160, one matched production step per arm.
+
+The third arm separates the *type of centre row* from derivative order:
+
+- A: historical alpha[0]=alpha[1] equality row, omitting the first-cell CMC PDE.
+- B: second-order CMC PDE row at the first cell instead of the equality row.
+- C: parity-aware fourth-order PDE row, matched to the production derivative operator.
+
+At N=80, changing A→B reduces the admitted-inner momentum maximum by 3.70e-6. B and C differ by only about 2.64e-10 in annulus M, 1.27e-11 in annulus H, and 8.30e-12 in annulus C_Lambda. The same pattern holds at N=120/160: the B/C constraint differences are around 1e-11 or smaller for the fixed-annulus witnesses, while A→B changes M at approximately 1e-6.
+
+| N | A old-row annulus M | B second-order PDE-row annulus M | C fourth-order PDE-row annulus M | A full H | B full H | C full H |
+|---:|---:|---:|---:|---:|---:|---:|
+| 80 | 3.83225e-6 | 1.31315e-7 | 1.31579e-7 | 3.77559e-5 | 3.67008e-5 | 3.67010e-5 |
+| 120 | 9.73239e-7 | 4.57432e-8 | 4.57517e-8 | 1.01913e-5 | 1.05613e-5 | 1.05613e-5 |
+| 160 | 8.52531e-9 | 3.43453e-9 | 3.43645e-9 | 5.92559e-6 | 6.87585e-6 | 6.87585e-6 |
+
+This supports the conclusion that the principal one-step M/C improvement comes from solving the omitted first-cell CMC equation, not primarily from fourth-order versus second-order stencil accuracy. C remains the operator-matched candidate. But the cell-0 Aa_rhs/r0^2 values differ between B and C by about 3.96e-7 at N=80, 1.93e-7 at N=120, and 1.12e-7 at N=160; neither row has passed centre-series admission. H worsens for B/C relative to A at N=120 and N=160. This is a diagnostic attribution, not permission to merge.
+
+### Matched radiation-cone and one-step Misner–Sharp budget (new)
+
+**Run:** [38304860664](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38304860664), successful capture workflow on isolated branch diag/cmc-lapse-rad-ms-one-step-ab-2026-10-12. **Audit commit:** 759c5ead2d1b591667ddbe8ae82dbdc622aee15d. **Candidate engine source:** 9f7ebf1aab2076fe8925737591366b416427305e. **Vendor:** d6052d605673ce9d82cdc99b0df79855fa2ea215. **Artifact:** ID 11772240963, archive digest SHA-256 b63218c17b91a85d329441d9252124f96b6b7095602009cd1bf5e0d24e29e045; report.json SHA-256 0a938cfca543e838cf0415ecd37c450375c34f4c103faab9ba28f212b862d90f. The artifact is also present in the local runtime for this handoff. The helper tests passed 2/2 in 0.27 s; the complete repository suite passed 91 tests in 5.41 s.
+
+The candidate check fail-closed gate verified there were no engine/vendor/dependency changes from the pinned CMC candidate source. The run did **not** finish both physical arms at every resolution: N=40/60/80/120/160 completed one ordinary step; N=240/320 captured a first-cell radiation RHS failure in both old and candidate arms. The workflow conclusion “success” means the diagnostic reported and archived the captured failures correctly; it is not a full 7-resolution physical-step pass.
+
+At N=40–160, each arm remained within the radiation cone for this one-step sample. The largest recorded full-domain predictor |S|/E ratios were around 0.01013–0.01018 and the minimum cone margins stayed positive. This low-resolution one-step state is not representative of the long-run near-saturated outer-cell failure at t≈46.98 from the separate radiation trace.
+
+At N=240 and N=320, both arms failed **inside the radiation RHS before the first explicit predictor’s CMC solve**, at cell 0. The recorded failure is therefore not caused by the changed CMC row or its lapse solve. Values:
+
+| N | Old-row RHS failure ratio | Candidate-row RHS failure ratio | Candidate minus old |
+|---:|---:|---:|---:|
+| 240 | 1.0202778 | 1.0201269 | -0.0001509 |
+| 320 | 1.3602899 | 1.3601766 | -0.0001134 |
+
+At N=240, the captured conservative state after source/RHS update was E≈8.81887e-9 and |S|≈8.99770e-9 (old), versus E≈8.81887e-9 and |S|≈8.99636e-9 (candidate). At N=320 the corresponding ratios were 1.36029 and 1.36018. The change is small and does not restore admissibility. This independently preserves the high-resolution first-cell radiation failure as a separate blocker from the CMC centre-row mismatch.
+
+The run also computed a one-step trapezoidal Misner–Sharp current residual using ΔM_MS minus dt times the averaged endpoint (flux_T+work_pR). It decreases in normalized magnitude with refinement but remains nonzero, and is almost unchanged by the CMC row:
+
+| N | dt | Old scaled integrated MS residual | Candidate scaled integrated MS residual | Candidate − old integrated residual (absolute) |
+|---:|---:|---:|---:|---:|
+| 40 | 0.0600 | -5.9588e-2 | -5.9002e-2 | 8.11e-9 |
+| 60 | 0.0400 | -1.9503e-2 | -1.9487e-2 | 1.31e-10 |
+| 80 | 0.0300 | -6.7155e-3 | -6.7132e-3 | 1.34e-11 |
+| 120 | 0.0200 | -9.8935e-4 | -9.8985e-4 | 2.21e-12 |
+| 160 | 0.0150 | -3.8669e-4 | -3.8679e-4 | 3.20e-13 |
+
+The unscaled integrated residuals range from approximately -8.48e-7 (N=40) to -1.22e-9 (N=160). The decreasing normalized mismatch is encouraging as a resolution trend, but no tolerance was preregistered and a one-step endpoint quadrature is not a multi-step conservation proof. It must not be reported as “Misner–Sharp conservation passed”. For this A/B it does show the centre-row switch does not materially account for the balance residual.
+
+### Covariant source candidate — latest one-step A/B evidence
+
+Run [38304517568](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38304517568), isolated current-main source-candidate snapshot commit cd835df3d87f30f92d29afcd9a4b50a54b2877cf. The run passed 4 targeted tests and 83 full-suite tests. The source stage-pair checks at the two actual kernel RHS stages reported rest-source errors 3.96e-19 and 4.15e-19, energy-pair residuals 3.96e-19 and 6.73e-19, and radial-current residuals 2.51e-24 and 1.72e-24.
+
+For its matched N=40, rmax=16, dt=0.012 one-step source A/B, the candidate-minus-baseline changes were extremely small in the derived global witnesses: max H changed by about -8.49e-11, admitted-inner M by about -6.0e-16, all-domain connection max by about -3.7e-17, Misner–Sharp mass at R≈10 by about -2.27e-13, and first-cell radiation margin by about -1.67e-22. Source terms themselves differ nontrivially and close pointwise, but the measured global step/constraint response in this test state is tiny. Therefore this supports the correctness of the reciprocal covariant source accounting on the tested stages; it does **not** show that this term is the dominant full-machine constraint defect or that the physical trajectory is materially repaired.
+
 ## 7. Covariant scalar–DM source pair: candidate passes, trajectory gate remains open
 
 The locked V5.5 covariant exchange law is Q_nu = beta_DM rho_DM partial_nu(phi), with reciprocal scalar and dark-matter sources. On the ADM coordinate-time convention used by production, the source pair requires:
@@ -260,4 +317,4 @@ The spatial metric has gamma_rr = a/X² and gamma^rr = X²/a. An isolated scalar
 
 Preserve the GEAR archive and REV16. Do not merge diagnostic branches merely because a unit suite passes. No fitted coefficients, arbitrary damping, floors/clamps, centre projection, forced bounce/reset, D-to-matter law or phenomenological global Q. Distinguish workflow success, target-time completion, unit-test success and scientific admission. Do not infer convergence from centre-cell sequences whose physical radii change with N.
 
-**Bottom line:** the cell-centred CMC row is a concrete numerical-layer defect candidate: frozen operator rows close through N=320, and the matched one-step A/B improves M/C_Lambda strongly at N=60–160. It is not a full repair: H has a mixed response, Aa_dot/r² remains nonzero, radiation stages were not admitted in this A/B, and an explicit Misner–Sharp balance residual is absent. Continue with same-stage radiation and balance instrumentation before any merge or long campaign. The source-stage beta pair has a separate successful isolated gate; main remains untouched.
+**Bottom line:** the cell-centred CMC equality row is demonstrably the wrong closure for cell-centred samples; replacing it with a first-cell PDE row causes the main one-step M/C improvement. The operator-matched candidate has passed regression and bounded A/B diagnostics, but H responds non-monotonically, Aa_dot/r² remains nonzero, high-resolution first-cell radiation admissibility still fails before the CMC solve, and the one-step Misner–Sharp balance residual is nonzero (with a declining but unadmitted resolution trend). The covariant scalar–DM source pair passes source-stage tests plus a homogeneous-limit RHS regression, while its tested one-step global response is very small. The next session should review the archived combined radiation/MS artifact and freeze decisions; do not start a long campaign or merge from these results alone. Main and the canonical GEAR archive remain untouched.
