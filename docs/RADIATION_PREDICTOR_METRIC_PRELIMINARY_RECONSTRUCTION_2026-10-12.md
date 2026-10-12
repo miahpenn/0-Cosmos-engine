@@ -29,7 +29,7 @@ Existing ordered budget: the radiation conservative flux and geometric-source in
 Workflow [38309326002](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38309326002) passed source/vendor checks, compilation and 138 tests, then reproduced the terminal failure and wrote 100 steps × five outer cells for all four stages. The run ended nonzero because `stage_ledger_summary.json` correctly reported `validation.ok=false`.
 
 - Artifact ID: `11774216769`
-- Archive: [download in this ChatGPT session](sandbox:/mnt/data/radiation-predictor-metric-stage-ledger-attempt-2.zip)
+- Archive: downloadable from the Artifacts section of [workflow 38309326002](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38309326002); this unadmitted archive is also preserved in the current session as a local copy.
 - ZIP SHA-256: `7d5c59bf585d3a7733f1cddccf09e876b4705acafc36eb88e0942b77151e4758`
 - Internal `stage_ledger.json` SHA-256: `bb7944cb21c5f9f8f0c2b85b066a49c6c82243489cebf7e083d6064b3bbcb3f8`
 - Trace SHA-256 recorded in the package: `52d65eec16aa39ad0d7e58277ee4a8715be0309012145b9286ec0881fb3574f5`
