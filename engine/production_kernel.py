@@ -31,6 +31,7 @@ from .invariant_diagnostics import (
 )
 from .cosmology_observables import effective_hubble, append_efolds
 from .stress_energy import assemble_total_stress_energy
+from .worldtube import areal_radius_derivative
 from .matter_rhs import species_rhs
 from .matter_system import (
     Species,
@@ -457,7 +458,7 @@ class V55ProductionKernel:
 
         r = np.asarray(grid.centers)
         R = r * np.sqrt(geom.b) / geom.X
-        Rr = grid.cell_derivative_fourth(R, parity=1)
+        Rr = areal_radius_derivative(grid, geom)
         Ktheta = geom.K / 3.0 - geom.Aa / 2.0
         normal_dR = -R * Ktheta
         chi = trapping_indicator_from_areal_radius(
