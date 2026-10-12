@@ -1,0 +1,36 @@
+name: Diagnostic - CMC fixed-target iteration study
+
+on:
+  push:
+    branches:
+      - "diag/bond-sweep-self-consistent"
+    paths:
+      - "diagnostics/cmc_fixed_target_study.py"
+      - ".github/workflows/cmc-fixed-target-study.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  cmc-fixed-target-study:
+    if: contains(github.event.head_commit.message, '[cmc-fixed-target-study]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Run fixed-target and self-consistency study
+        run: python diagnostics/cmc_fixed_target_study.py
+      - name: Upload study
+        uses: actions/upload-artifact@v4
+        with:
+          name: cmc-fixed-target-study
+          path: runs/cmc_fixed_target_study/cmc_fixed_target_study.json
+          if-no-files-found: error
