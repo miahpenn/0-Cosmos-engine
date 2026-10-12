@@ -68,7 +68,7 @@ def constraint_profile(state):
       "determinant":np.asarray(raw["determinant"],dtype=float),
     }
     region={name:{mask:summarize(v,r,sel) for mask,sel in masks(r).items()} for name,v in values.items()}
-    first={str(i):{"r":float(r[i],),**{name:float(v[i]) for name,v in values.items()}} for i in range(min(8,len(r))}
+    first={str(i):{"r":float(r[i],),**{name:float(v[i]) for name,v in values.items()}} for i in range(min(8,len(r))) }
     fixed={str(x):{name:float(np.interp(x,r,v)) for name,v in values.items()} for x in (1.0,1.5,2.0,2.5,3.0,4.0,5.0,6.0,8.0) if r[0]<=x<=r[-1]}
     geom=vacuum.geometry_terms(grid,g)
     stage=adapter.geometry_stage_terms(grid,g,state.scalars,state.matter,lambda_m=2.0)
@@ -85,7 +85,7 @@ def constraint_profile(state):
       "C_lambda_direct":np.asarray(g.Lambda,dtype=float)-lam_metric,
       "R_tf_over_r2":(np.asarray(geom["Rr_r"],dtype=float)-np.asarray(geom["R"],dtype=float)/3.0)/r**2,
     }
-    ratio_first={str(i):{name:float(v[i]) for name,v in ratios.items()} for i in range(min(8,len(r))}
+    ratio_first={str(i):{name:float(v[i]) for name,v in ratios.items()} for i in range(min(8,len(r))) }
     ratio_fixed={str(x):{name:float(np.interp(x,r,v)) for name,v in ratios.items()} for x in (1.0,1.5,2.0,2.5,3.0,4.0,5.0,6.0,8.0) if r[0]<=x<=r[-1]}
     return {"summary":region,"first_cells":first,"fixed_radius":fixed,"series_first_cells":ratio_first,"series_fixed_radius":ratio_fixed,"finite":all(np.all(np.isfinite(v)) for v in (*values.values(),*ratios.values()))}
 
