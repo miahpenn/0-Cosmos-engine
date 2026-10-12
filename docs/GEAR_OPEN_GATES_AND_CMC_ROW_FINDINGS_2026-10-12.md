@@ -72,3 +72,47 @@ The complete lapse-weighted scalar–DM source accounting and regression already
 4. Only after the numerical admission gates pass should work move to the outward-shell remnant question and the derived event-population/Q bridge. Keep those physical unknowns open unless the machine produces discriminating evidence.
 
 **Disposition:** promising, source-derived numerical fix candidate; not merged; physical closure claims remain unchanged.
+
+
+---
+
+## 5. Matched one-step A/B after the CMC centre-row correction — 2026-10-12
+
+**Run:** [38303550121](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38303550121) — success  
+**Artifact:** [11770494466](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38303550121/artifacts/11770494466)  
+**Artifact ZIP SHA-256:** `9c4934ddafed682044aced6222d94caf7c8fcff2434ec00a72a423c4abccf19d`  
+**Report JSON SHA-256:** `1b32400c29ce7340d68b9db590942144fa1d5d57ac71fa6b170ccd28c6ea9bdd`  
+**Branch:** [`diag/cmc-lapse-cellcenter-one-step-ab-2026-10-12`](https://github.com/miahpenn/0-Cosmos-engine/tree/diag/cmc-lapse-cellcenter-one-step-ab-2026-10-12)  
+**Scope:** N=40/60/80/120/160, `dt=0.03 dr`, one ordinary step per arm; identical non-lapse initial geometry, scalar fields and conservative matter; only the CMC lapse solver differs.
+
+The old CMC solver is retained inside the diagnostic as an audit reference. No production-main or canonical GEAR edits, physical-source changes, coefficients, damping, floors, clamps or radiation criteria were changed.
+
+### One-step results
+
+The candidate's CMC PDE rows and production `Kdot-target` close to roundoff at all reported states (roughly (2\times10^{-16}) to (5\times10^{-15})). The old tridiagonal solver retains the cell-0 residual of roughly (1.42\times10^{-3})–(1.58\times10^{-3}), because that historical row enforces `alpha[0] == alpha[1]` instead of imposing the centre-cell PDE.
+
+| N | Post-step max |M|, old | Post-step max |M|, candidate | Fixed-annulus max |M|, old → candidate | Fixed-annulus max |C_Λ|, old → candidate | Post-step full max |H|, old → candidate |
+|---:|---:|---:|---:|---:|---:|
+| 40 | (1.53\times10^{-5}) | (2.06\times10^{-5}) | (4.10\times10^{-6}\to1.68\times10^{-6}) | (2.53\times10^{-7}\to1.00\times10^{-7}) | (3.85\times10^{-4}\to3.84\times10^{-4}) |
+| 60 | (5.85\times10^{-6}) | (3.36\times10^{-6}) | (5.85\times10^{-6}\to2.08\times10^{-7}) | (2.39\times10^{-7}\to8.80\times10^{-9}) | (1.01\times10^{-4}\to9.98\times10^{-5}) |
+| 80 | (6.12\times10^{-6}) | (4.17\times10^{-7}) | (3.83\times10^{-6}\to1.32\times10^{-7}) | (1.17\times10^{-7}\to4.11\times10^{-9}) | (3.78\times10^{-5}\to3.67\times10^{-5}) |
+| 120 | (6.19\times10^{-6}) | (3.34\times10^{-7}) | (9.73\times10^{-7}\to4.58\times10^{-8}) | (1.98\times10^{-8}\to9.51\times10^{-10}) | (1.02\times10^{-5}\to1.06\times10^{-5}) |
+| 160 | (6.17\times10^{-6}) | (2.97\times10^{-7}) | (8.53\times10^{-9}\to3.44\times10^{-9}) | (1.24\times10^{-10}\to5.98\times10^{-11}) | (5.93\times10^{-6}\to6.88\times10^{-6}) |
+
+At N=60–160, the fixed inner region (i\ge2, r<5) max momentum residual improves by about 17×, 29×, 44× and 62× respectively. The connection constraint also improves strongly at those resolutions. N=40 is a useful caution: its full-domain momentum maximum is worse in the candidate, even while the fixed annulus improves, because its central residual dominates the full maximum.
+
+The centre curvature witness also changes materially. Post-step (dot A_a/r^2) at cell zero changes from (+1.45\times10^{-4}), (+1.17\times10^{-4}), (+1.54\times10^{-4}), (+3.39\times10^{-4}), (+6.27\times10^{-4}) in the old arm to (+1.05\times10^{-4}), (+2.32\times10^{-5}), (-1.43\times10^{-5}), (-4.43\times10^{-5}), (-5.56\times10^{-5}) in the candidate for N=40/60/80/120/160. The quotient is no longer growing monotonically as the old row's resolution increases, but its sign changes and the i=0/i=1 limits are not yet reconciled.
+
+### The result is positive but deliberately not called a complete repair
+
+- **Strong support:** the old CMC row was incompatible with the actual cell-centred PDE stencil. The candidate makes the solved lapse and production `K` RHS use the same discrete operator. This is a concrete numerical defect, not a newly postulated physical interface.
+- **Momentum/connection:** substantially better after one step at N=60/80/120/160.
+- **Hamiltonian:** mixed. The full-domain maximum improves slightly at N=60/80, but worsens at N=120/160; the fixed annulus is nearly unchanged at N=120/160 and modestly worse at N=60/80. The lapse correction must not be promoted on momentum improvements alone.
+- **Worldtube observables:** one-step (M_{MS}), areal radius, current and work diagnostics remain very close between arms at the resolutions where sampled; this is only a one-step non-regression check, not a converged conservation result.
+- **Centre series:** the first-cell (dot A_a/r^2) is greatly improved relative to the old CMC row, but the first two centre-adjacent cells still differ. Keep the centre admission gate open until the regular series is demonstrated.
+- **Radiation:** this A/B only reaches N=160. It does not clear the known first-cell (|S|/E>1) failure at N=240/320.
+- **Long-time evolution:** not tested here. No t=160 campaign or production promotion is justified.
+
+### Next gate
+
+Before any promotion, retain this branch as a candidate and run no duplicate CMC row audit. Reconcile the one-step A/B with existing signed RHS and momentum-tangent evidence; specifically determine why the candidate's K/lapse compatibility produces large momentum improvement while H is mixed at N=120/160. Then require all of H, M, (C_\Lambda), centre-series (dot A_a=O(r^2)), radiation admissibility, and Misner–Sharp balance/convergence to pass together. Keep the radiation failure, GEAR D-to-matter gate and force-to-Q/node-population gate separate.
