@@ -99,3 +99,10 @@ The snapshot-only diagnostic `diagnostics/cmc_kdot_domain_projection.py` reconst
 This separates the outer shell's direct projection effect from the remainder due to comparing different archived states. The diagnostic verifies target reconstruction against the production API and checks the split identity at all 49 saved times; it does not evolve the engine or modify production physics. Workflow: `.github/workflows/cmc-kdot-domain-projection.yml`. The pinned R80 ZIP SHA-256 was independently verified locally as `decb775cc8d3b72f97ba9c0278aa3e23b8248b51b9c786c4344052e682ed9745`; the R160 ZIP uses `04949c7e0332c495385f6afef231b54270225892b1d124f2c19973c7d5b4872d`.
 
 The workflow is gated by commit text `[cmc-kdot-domain-projection]`; after successful completion, document its artifact ID, target reconstruction errors, outer weight fraction and shell contribution versus state-difference remainder. Do not confuse a target decomposition on archived slices with an evolving causal intervention.
+
+
+### Saved-slice domain decomposition: first attempt and correction
+
+The first snapshot-only workflow [38208437494](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38208437494) failed before producing numerical results. Its region check incorrectly required a nonempty outer region for the R80 control grid, although all R80 cell centers necessarily satisfy r<80. This was a diagnostic-control-flow bug, not a production or physics failure.
+
+Correction commit [9f54b9c53fe4c4d8e932f687d311a3294cc4eb3b](https://github.com/miahpenn/0-Cosmos-engine/commit/9f54b9c53fe4c4d8e932f687d311a3294cc4eb3b) now treats R80 as the full inner-region control with zero outer weight and performs the inner/outer split only where an outer shell exists (R160). The corrected rerun is [38208523930](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38208523930); it was queued at the last status check because the diagnostic runner was occupied. No shell-decomposition values are available yet.
