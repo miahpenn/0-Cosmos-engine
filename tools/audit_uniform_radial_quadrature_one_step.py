@@ -8,7 +8,8 @@ Arms:
 At each resolution each arm takes exactly one unmodified production step with
 dt=CFL*dr. Report H/M/C_lambda/determinant before and after, fixed-radius
 profiles, H signed budgets, and first-cell Aa RHS/centre-series witnesses.
-No production equations or physics are changed.
+No production equations or physics are changed. This is a bounded admission diagnostic only;
+its output must not be used to admit a long campaign without the centre-series gates.
 """
 from __future__ import annotations
 import json, math, sys
