@@ -27,6 +27,8 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - name: Install audit dependency
+        run: python -m pip install --upgrade numpy
       - name: Download and verify archived R160 target history
         env:
           GH_TOKEN: ${{ github.token }}
