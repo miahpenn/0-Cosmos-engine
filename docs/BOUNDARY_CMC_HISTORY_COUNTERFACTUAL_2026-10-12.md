@@ -95,3 +95,38 @@ At the final completed candidate (t=47.130000000001026), cell band (i=75\ldots79
 The same matched preceding-boundary history counterfactual reproduces the result: resetting only the accepted outer (A_a[-1]) to its immediate pre-boundary value still fails at (i=79, r=79.5), with (|S|/E=1.0004012440766743). This is an insignificant change to the threshold excess and does not rescue admissibility. The exception text establishes the explicit-predictor guard as the failed stage; the counterfactual object's `failure_stage` field remains a stale internal label (`accepted_start_CMC_lapse`) on this tested workflow commit. No inference is drawn from that metadata field.
 
 This follow-up closes the previous diagnostic's missing completed-state accounting. It does not promote the boundary, establish covariant conservation, or admit the trajectory. A smaller-(dt) one-step comparison from the saved accepted state is now the next bounded discriminator for the predictor-stage failure; any successful smaller step remains a diagnostic-only observation, not permission to add an adaptive production policy automatically.
+
+
+---
+
+## Frozen-state timestep discriminator — dt/2 passes without modifying the state
+
+**Run:** [38322337250](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38322337250), completed success as an expected failure capture with pre-trace full repository tests passing.  
+**Artifact:** [11778409394 — boundary-cmc-radiation-audit](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38322337250/artifacts/11778409394)  
+**Artifact ZIP SHA-256:** `9238f2464b62acbfcac51813cd8d0fda354ac2d80a92b926ac108fa2797f9dbc`  
+**Trace JSON SHA-256:** `72f4bbf47d1853aa675995939ac3155725481235cd1d40a5d90ae4223abc940e`  
+**Accepted full state SHA-256:** `ccd1fa0fbabe65c51c3dd7ac2c9227d6d25aa680c169eef1afd3fca4326294cf`  
+**Tested tracer/workflow head:** `e91a0eaef96e64b000811b17af86743c7211e2b2`  
+**Source/vendor:** `cdcec8282bff0443f2fe4674b15929822ff38736` / `d6052d605673ce9d82cdc99b0df79855fa2ea215`.
+
+From the exact accepted full state at (t=47.130000000001026), the nominal (dt=0.03) production step rejects the outer explicit predictor at (i=79, r=79.5), (|S|/E=1.000401250165977). Independent deep copies of that same state were then stepped normally at three smaller timesteps. No radiation variables were clipped/projected, no source or geometry equation was changed, no accepted-metric recovery was enabled, and each arm used the usual production validation path.
+
+| One-step arm | Status | Final max (|S|/E) | Final minimum densitized (C) |
+|---|---|---:|---:|
+| (dt=0.03) | rejected at explicit predictor | (1.00040125017) | not admitted |
+| (dt=0.015) | completed | (0.99960013415) | (2.03884620035\times10^{-9}) |
+| (dt=0.0075) | completed | (0.99922840794) | (2.03846433753\times10^{-9}) |
+| (dt=0.00375) | completed | (0.99904292195) | (2.03827429400\times10^{-9}) |
+
+**Interpretation:** the exact same accepted state admits smaller true production steps, including the full explicit predictor, primary predictor and final validations, when the ordinary (|S|/E\le1) cone rule is left unchanged. This is strong evidence that a timestep-sized predictor crossing is involved. It does not prove long-run stability, nor that smaller timesteps will always suffice, and it does not imply a change to physical radiation dynamics.
+
+### Engineering disposition
+
+The next repair candidate is a deterministic, fail-closed *numerical timestep retry* path on an isolated branch:
+- retry only a typed radiation-admissibility rejection, halving (dt) and leaving the rejected input state unchanged;
+- never clip/project conserved variables, relax the cone, or alter physical sources;
+- propagate all unrelated errors immediately;
+- record every rejected/accepted timestep and fail cleanly if coordinate time can no longer advance at floating-point precision;
+- prove the retry wrapper's behavior with deterministic regressions and repeat this exact accepted-state comparison on the candidate.
+
+This should remain separate from the boundary law and from production promotion. The current full kernel still fails at the nominal (dt=0.03) timestep; only the bounded smaller-step arms passed.
