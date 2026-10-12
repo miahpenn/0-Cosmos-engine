@@ -45,6 +45,28 @@ def d1(grid, x, parity=+1):
     return np.asarray(grid.cell_derivative_fourth(x, parity=parity), dtype=float)
 
 
+def reconstruct_initial_source(state, B_profile):
+    """Reconstruct the final initializer source for reporting on the baseline arm."""
+    grid = state.grid
+    r = np.asarray(grid.centers, dtype=float)
+    scalars = state.scalars
+    Sp = d1(grid, np.asarray(scalars.S), +1)
+    Dp = d1(grid, np.asarray(scalars.D), +1)
+    phi0, pi0 = 0.179055, 0.00341913
+    rho0 = 0.5*pi0**2 + float(cosmos_potential(np.array([phi0]))[0])
+    rho0 += RHO_DM_PRESENT + RHO_B_PRESENT + RHO_R_PRESENT
+    H0 = math.sqrt(max(rho0/3.0, 0.0))
+    Kt = -H0
+    j = -(np.asarray(scalars.PD)*Dp)
+    rhoS = 0.5*(np.asarray(scalars.PS)**2 + B_profile*Sp**2) + 0.5*np.asarray(scalars.S)**2
+    rhoD = 0.5*(np.asarray(scalars.PD)**2 + B_profile*Dp**2) - 0.5*np.asarray(scalars.D)**2
+    rhoPhi = (0.5*np.asarray(scalars.Pi)**2 + cosmos_potential(np.asarray(scalars.phi)))/(8.0*math.pi)
+    rhoMatter = (RHO_DM_PRESENT + RHO_B_PRESENT + RHO_R_PRESENT)/(8.0*math.pi)
+    rho = rhoS + rhoD + rhoPhi + rhoMatter
+    Kr = Kt + 4.0*math.pi*r*j
+    return 1.0 - 8.0*math.pi*r*r*rho + 2.0*r*r*Kr*Kt + r*r*Kt*Kt
+
+
 def counterfactual_build_initial_data(grid, vacuum_state_factory):
     """Exact copy of pinned build_initial_data except the origin half-cell rule."""
     r = np.asarray(grid.centers, dtype=float)
@@ -228,7 +250,9 @@ def main():
     for n in RESOLUTIONS:
         base=kernel.initialize(resolution=n,r_max=R_MAX,amplitude=AMPLITUDE,width=WIDTH,
              D_amplitude=D_AMPLITUDE,include_radiation=True)
-        rows.append(evaluate(base,"pinned_production_initializer",np.nan*np.ones(n),np.zeros(n)))
+        base_B = np.asarray(base.geometry.a, dtype=float)**(-1.5)
+        base_src = reconstruct_initial_source(base, base_B)
+        rows.append(evaluate(base,"pinned_production_initializer",base_B,base_src))
 
         geom,scalars,matter,B,src=counterfactual_build_initial_data(
             base.grid,vacuum.flat_state
