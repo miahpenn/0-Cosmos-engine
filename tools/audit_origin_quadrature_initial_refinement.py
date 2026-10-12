@@ -83,7 +83,7 @@ def audit(state,n,arm):
     all_arrays=list(prof.values())+list(series.values())+[np.asarray(getattr(g,k),dtype=float) for k in ("a","b","X","alpha","Aa","K","Lambda") ]
     finite=all(np.all(np.isfinite(x)) for x in all_arrays)
     if not finite:raise FloatingPointError(f"N={n} {arm}: non-finite initializer output")
-    return {"N":n,"arm":arm,"source_commit":SOURCE_COMMIT,"vendor_commit":VENDOR_COMMIT,"t":float(state.t),"dr":float(grid.dr),"finite":finite,"H_budget_closure_max_abs":float(np.max(np.abs(H-(hgeo-source))),"summary":summary,"first_cells":first,"fixed_radius":fixed}
+    return {"N":n,"arm":arm,"source_commit":SOURCE_COMMIT,"vendor_commit":VENDOR_COMMIT,"t":float(state.t),"dr":float(grid.dr),"finite":finite,"H_budget_closure_max_abs":float(np.max(np.abs(H-(hgeo-source)))),"summary":summary,"first_cells":first,"fixed_radius":fixed}
 
 
 def main():
