@@ -10,6 +10,8 @@ from engine.adaptive_step import (
     advance_with_radiation_admissibility_retries,
 )
 from engine.matter_system import RadiationAdmissibilityError
+from engine.campaign import CampaignConfig
+from engine.run_production import run_campaign
 
 
 @dataclass
@@ -97,3 +99,21 @@ def test_underflow_fails_closed_and_preserves_input_state():
     )
     assert state.t == 1.0
     assert state.marker == 3
+
+
+def test_runner_uses_adaptive_helper_and_writes_retry_ledger(tmp_path):
+    config = CampaignConfig(
+        resolutions=(40,),
+        r_max=40.0,
+        cfl=0.001,
+        final_time=0.001,
+        checkpoint_interval=1.0,
+        output_dir=str(tmp_path),
+    )
+    results = run_campaign(config=config)
+    assert len(results) == 1
+    assert results[0].status == "completed"
+    assert results[0].t_final == pytest.approx(0.001)
+    retry_path = tmp_path / "N40" / "radiation_step_retries.json"
+    assert retry_path.is_file()
+    assert retry_path.read_text().strip() == "[]"
