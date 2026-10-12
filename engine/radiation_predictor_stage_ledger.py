@@ -213,6 +213,93 @@ def validate_ledger_steps(steps, expected_indices):
 
 
 
+
+def validate_primary_source_capture(steps, expected_indices, failure_step_index=None):
+    """Fail closed on missing/misaligned Aa/K source-term captures."""
+    errors = []
+    max_split_error = 0.0
+    max_transition_error = 0.0
+    expected_indices = list(expected_indices)
+    labels = (
+        "accepted_start_gterms0",
+        "explicit_predictor_gterms_pred",
+        "primary_predictor_gterms1",
+    )
+    previous = None
+    for step in steps:
+        step_index = int(step.get("step_index", -1))
+        is_failure = failure_step_index is not None and step_index == int(failure_step_index)
+        stages = step.get("primary_source_stages")
+        expected_labels = [labels[0]] if is_failure else list(labels)
+        if not isinstance(stages, list):
+            errors.append(f"step {step_index}: primary_source_stages missing")
+            stages = []
+        got_labels = [str(s.get("stage_label")) for s in stages]
+        if got_labels != expected_labels:
+            errors.append(f"step {step_index}: stage labels {got_labels!r} != {expected_labels!r}")
+        for stage in stages:
+            rows = stage.get("cells", [])
+            got_indices = [int(r.get("i", -1)) for r in rows]
+            if got_indices != expected_indices:
+                errors.append(f"step {step_index}/{stage.get('stage_label')}: cells {got_indices!r} != {expected_indices!r}")
+            for cell in rows:
+                for block in ("primary_l2", "primary_l3_total", "primary_l3_vacuum",
+                              "primary_l3_matter_delta", "explicit_rhs"):
+                    values = cell.get(block, {})
+                    required = ("Aa", "K") if block != "explicit_rhs" else ("a", "b", "X")
+                    if any(k not in values or not math.isfinite(float(values[k])) for k in required):
+                        errors.append(f"step {step_index}/{stage.get('stage_label')}/cell {cell.get('i')}: invalid {block}")
+                for key in ("Aa", "K"):
+                    total = float(cell["primary_l3_total"][key])
+                    vacuum = float(cell["primary_l3_vacuum"][key])
+                    matter_delta = float(cell["primary_l3_matter_delta"][key])
+                    max_split_error = max(max_split_error, abs(total - vacuum - matter_delta))
+        if not is_failure:
+            final_l2 = step.get("final_explicit_state_primary_l2")
+            if not isinstance(final_l2, dict):
+                errors.append(f"step {step_index}: final_explicit_state_primary_l2 missing")
+            else:
+                for section in ("geometry",):
+                    got = [int(r.get("i", -1)) for r in final_l2.get(section, [])]
+                    if got != expected_indices:
+                        errors.append(f"step {step_index}/final_explicit_state_primary_l2/{section}: cells {got!r} != {expected_indices!r}")
+                for key in ("Aa", "K"):
+                    got = [int(r.get("i", -1)) for r in final_l2.get("rhs", {}).get(key, [])]
+                    if got != expected_indices:
+                        errors.append(f"step {step_index}/final_explicit_state_primary_l2/{key}: cells {got!r} != {expected_indices!r}")
+            for name in ("primary_predictor_after_outer_boundary", "completed_state_after_outer_boundary"):
+                rows = step.get(name)
+                if not isinstance(rows, list) or [int(r.get("i", -1)) for r in rows] != expected_indices:
+                    errors.append(f"step {step_index}: {name} missing or cell mismatch")
+        if previous is not None:
+            previous_step, previous_rows = previous
+            if previous_step + 1 == step_index and not is_failure:
+                new_accepted = {
+                    int(r["i"]): r for r in step.get("accepted_geometry_and_rhs", {}).get("accepted_geometry", [])
+                }
+                for old in previous_rows:
+                    i = int(old["i"])
+                    if i not in new_accepted:
+                        continue
+                    for field in ("a", "b", "X", "Aa", "K"):
+                        delta = abs(float(old[field]) - float(new_accepted[i][field]))
+                        max_transition_error = max(max_transition_error, delta)
+                        if delta > 1.0e-10:
+                            errors.append(f"step {previous_step}->{step_index}/cell {i}/{field}: completed-to-accepted mismatch {delta:.6g}")
+        completed = step.get("completed_state_after_outer_boundary")
+        if completed:
+            previous = (step_index, completed)
+        else:
+            previous = (step_index, [])
+    return {
+        "ok": not errors and max_split_error <= 1.0e-12 and max_transition_error <= 1.0e-10,
+        "step_count": len(steps),
+        "expected_cell_indices": expected_indices,
+        "max_abs_primary_l3_split_error": max_split_error,
+        "max_abs_completed_to_next_accepted_error": max_transition_error,
+        "errors": errors,
+    }
+
 def _primary_source_term_record(grid, geometry, terms, vacuum_l3, call_index):
     """Serialize existing Aa/K L2/L3 terms for the outer capture cells."""
     n = len(grid.centers)
@@ -490,6 +577,10 @@ class RadiationPredictorStageLedger(RadiationStageTrace):
         )
         steps = [self.ledger_steps[k] for k in sorted(self.ledger_steps, key=int)]
         validation = validate_ledger_steps(steps, expected_indices)
+        failure_step_index = trace_payload.get("failure", {}).get("step_index")
+        primary_source_validation = validate_primary_source_capture(
+            steps, expected_indices, failure_step_index=failure_step_index
+        )
         payload = {
             "schema_name": "0star_radiation_predictor_metric_stage_ledger_v2",
             "purpose": "diagnostic-only raw-RHS / Euler predictor / projection attribution",
@@ -509,6 +600,7 @@ class RadiationPredictorStageLedger(RadiationStageTrace):
             "cells": expected_indices,
             "steps": steps,
             "validation": validation,
+            "primary_source_capture_validation": primary_source_validation,
             "interpretation_guardrail": "A recorded stage attribution is numerical evidence, not a physical-law conclusion.",
             "trace_sha256": hashlib.sha256(trace_path.read_bytes()).hexdigest() if trace_path.is_file() else None,
         }
@@ -530,7 +622,8 @@ class RadiationPredictorStageLedger(RadiationStageTrace):
             "trace_sha256": payload["trace_sha256"],
             "stage_ledger_sha256": hashlib.sha256(ledger_path.read_bytes()).hexdigest(),
             "admission": validation,
-            "all_steps_have_expected_order": validation["ok"],
+            "primary_source_capture_admission": primary_source_validation,
+            "all_steps_have_expected_order": validation["ok"] and primary_source_validation["ok"],
         }
         summary_path = self.output_dir / "stage_ledger_summary.json"
         summary_path.write_text(json.dumps(summary, indent=2, allow_nan=False))
@@ -541,7 +634,7 @@ class RadiationPredictorStageLedger(RadiationStageTrace):
                 + hashlib.sha256(summary_path.read_bytes()).hexdigest() + "  stage_ledger_summary.json\n"
             )
         print(json.dumps({"stage_ledger_summary": summary}, indent=2), flush=True)
-        return result if validation["ok"] else 1
+        return result if validation["ok"] and primary_source_validation["ok"] else 1
 
 
 def main():
