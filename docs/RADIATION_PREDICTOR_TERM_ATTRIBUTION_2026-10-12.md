@@ -206,5 +206,70 @@ Therefore:
 3. the current \(N=80\) corrected trace does not record the matched pre-/post-boundary Aa values needed to quantify that pathway;
 4. no boundary-law edit is justified from either a tiny post-residual or the nonzero correction magnitude alone.
 
-The next existing diagnostic capture is on frozen historical source 9eed1cf95c52f001c2b87afbbe6da37faa56d50e, not the corrected-rate source 1c63090d4f42396f899421a2379f70320689d5ad. It may clarify how the historical Aa/K sources feed its predictor, but it must not be presented as a source-matched explanation of the corrected-rate trajectory. Compare formulas and structure, not raw trajectory values.
+The previously pending diagnostic-only source capture has now completed: [run 38311614754](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38311614754), frozen source 9eed1cf95c52f001c2b87afbbe6da37faa56d50e. It captures a 100-step window of the primary Aa/K terms and boundary stage. Because its frozen source is historical rather than the corrected-rate baseline 1c63090d4f42396f899421a2379f70320689d5ad, use it to test structural mechanisms and stage order only—not as a matched numerical explanation of the corrected-rate trajectory. Section 7 records the new decomposition and a recorder key-overwrite caveat.
 
+
+
+## 7. Completed historical-source Aa/K stage capture — boundary contribution and recorder caveat
+
+### Provenance and admission
+
+- Workflow: [38311614754](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38311614754), completed successfully.
+- Artifact: [11774209967](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38311614754/artifacts/11774209967), ZIP SHA-256 989b51ffec4c9153d228ce3e8f80ef38873337985b3a4271ef904d2c1ff6b30b.
+- stage_ledger.json SHA-256: 2c56e08e0331b7b06dcf7017f53ffb47413eb647658c6a17bd075a8f902a7bb6.
+- trace.json SHA-256: f5c4b39d8c53648024a9cf95b53c1ac5ef44b7c27babce920ccf500587545e15.
+- Frozen source: 9eed1cf95c52f001c2b87afbbe6da37faa56d50e; instrumentation commit: 527b44931b059f4d118a86c898b91d79ca4d96f2; workflow/audit trigger: b581535f89ad676c54ed3d330bd67e7db10a6661; vendor: d6052d605673ce9d82cdc99b0df79855fa2ea215.
+- 100 accepted-step records, five outer cells per step (cells 75–79). Source freeze and complete repository tests passed. Stage/order validation passed; primary L3 vacuum-plus-matter split error was zero; completed-to-next-accepted geometry handoff maximum absolute discrepancy was 2.220446049250313e-16.
+- Captured failure remains the expected radiation-cone crossing at step 1566, accepted t=46.98, attempted t=47.01, cell 79. This is a **successful diagnostic capture**, not an admitted full trajectory.
+
+All values in this section come from the frozen historical-source run. The corrected-rate run uses source 1c63090d4f42396f899421a2379f70320689d5ad; do not combine the two runs' exact state values into one matched trajectory.
+
+### Primary Aa/K source split near the crossing
+
+At cell 79 and the three most recent accepted times, the captured primary terms were:
+
+| Accepted time | L2_Aa | L3_Aa total | L3_Aa vacuum | L3_Aa matter delta | L2_K | L3_K total | L3_K vacuum | L3_K matter delta |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 46.92 | 0.079059294 | 0.040392575 | 0.040529717 | -1.371420e-4 | 0.146035060 | 0.058373414 | 0.058128245 | +2.451695e-4 |
+| 46.95 | 0.079285645 | 0.042340801 | 0.042481157 | -1.403562e-4 | 0.146463778 | 0.061194711 | 0.060942823 | +2.518880e-4 |
+| 46.98 | 0.079390756 | 0.044369313 | 0.044512876 | -1.435630e-4 | 0.146667735 | 0.064133074 | 0.063874369 | +2.587045e-4 |
+
+Here L3 matter delta = L3 total − L3 vacuum; L2 is the existing geometric primary split, so no extra matter source is implied in that column. At these three terminal states, the matter part is about -0.340% to -0.324% of total L3_Aa, and +0.420% to +0.403% of total L3_K. In this cell/window, the vacuum L3 and L2 contributions dominate the local primary terms. This is a local source-split attribution only; it does not prove scalar/fluid coupling negligible elsewhere or establish a defective vacuum geometry term.
+
+### Exact primary-stage outer Aa correction
+
+The captured primary predictor has enough information to reconstruct the pre-boundary Aa from the production update actually used:
+
+\[
+A^{\mathrm{preBC}}_{a,1}=A_{a,0}+\Delta t\left(\tfrac12 L2_{Aa,0}+\tfrac12 L2_{Aa,\mathrm{pred}}+L3_{Aa,0}\right).
+\]
+
+Compare this reconstructed value with the primary predictor's post-boundary Aa at the same outer cell i=79. The result is zero to the displayed precision for interior cells i=75–78, but a growing positive correction at the outermost cell:
+
+| Accepted t → next slice | Pre-boundary Aa at i=79 | Post-boundary Aa at i=79 | Delta Aa_boundary |
+|---|---:|---:|---:|
+| 46.74 → 46.77 | 0.132840238989 | 0.132872035203 | +3.179621385e-5 |
+| 46.77 → 46.80 | 0.136175182709 | 0.136210430679 | +3.524797003e-5 |
+| 46.80 → 46.83 | 0.139583169121 | 0.139622003056 | +3.883393503e-5 |
+| 46.83 → 46.86 | 0.143063575059 | 0.143106101470 | +4.252641052e-5 |
+| 46.86 → 46.89 | 0.146615593583 | 0.146661885930 | +4.629234768e-5 |
+| 46.89 → 46.92 | 0.150238229133 | 0.150288318479 | +5.008934568e-5 |
+| 46.92 → 46.95 | 0.153930296253 | 0.153984160929 | +5.386467605e-5 |
+| 46.95 → 46.98 | 0.157690420189 | 0.157747974203 | +5.755401388e-5 |
+
+The increment grows monotonically across this eight-step range (roughly 81% from the first listed correction to the last). Because the primary stage computes its later geometry_stage_terms after applying the boundary operation, this shift enters that stage's Aa and thus its explicit a tendency; the completed-state boundary operation also conditions the accepted Aa passed into the following step's initial RHS. This provides a concrete upstream coupling pathway in the historical-source run, not proof of causation in the corrected-rate run.
+
+The post-boundary P-minus target residual near 1e-17 remains only an algebraic target-reconstruction check. The vendor module explicitly says it is not a full constraint-preserving boundary. A material, monotonically increasing correction should be audited for compatibility with the outer CMC normalization, interior characteristic target and constraint propagation—not simply accepted because its own reconstructed residual is tiny.
+
+### Important instrumentation caveat: a captured key is overwritten by diagnostics
+
+The source audit found that the recorder stores an integrator-stage primary_l2_rhs result into the key final_explicit_state_primary_l2. Later in the same production step, the diagnostic summary also calls vacuum.primary_l2_rhs(grid, geom) on the completed candidate. The wrapper writes that later diagnostic result to the same key while the ledger transaction is active. Therefore final_explicit_state_primary_l2.rhs in this artifact is **not reliably the integrator's l2_final**; it is overwritten by a later diagnostics call. The current validation checks key presence, finiteness and cell indices but does not validate the phase identity of that record.
+
+Consequences:
+1. Do not use that key to reconstruct or quantify the final completed-state boundary correction.
+2. The primary pre/post-boundary Aa differences above remain usable because they are reconstructed independently from the captured stage-0/stage-predictor terms and compared with the explicit primary_predictor_after_outer_boundary snapshot.
+3. A future instrumentation repair should store the actual integrator l2_final under a phase-specific name, store the post-completion diagnostic L2 under a separate name, and validate both expected call phase and source identity. This can be done offline/in a diagnostic-only branch without changing any physics equations.
+
+### Decision update
+
+This capture strengthens a boundary/gauge/constraint compatibility lead but does not establish a boundary defect, because (a) it uses historical source, (b) the P-minus operation is self-consistent with its own declared target, and (c) the current corrected-rate artifact lacks same-source pre/post-boundary snapshots. Preserve all exact cone and constraint invariants. Do not change the boundary law or radiation recovery on this evidence alone. The correct next step is to fix the recorder phase ambiguity and reconcile the existing source/snapshot differences offline; do not commission another long run until the source-matched causal question is well framed and a predeclared diagnostic criterion exists.
