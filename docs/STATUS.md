@@ -214,9 +214,44 @@ A frozen-state local even-in-r polynomial probe changes the t=2.16 momentum resi
 
 This audit therefore narrows the issue but does not resolve it: production profiles develop a centre-localized spatial layer, and the connection/momentum constraints are sensitive to derivative reconstruction there. The next test is direct evaluation of regular-centre series ratios `Aa/r^2`, `Lambda/r`, `(a/b-1)/r^2`, and `D_r f/r` for the even fields `K,X,a,b,S,D,phi` at t=0 and t=2.16. This will compare regularity at the first cells across resolutions without imposing a replacement stencil.
 
+## Latest centre-series and exact per-step momentum audits (2026-10-12)
+
+### Centre-series ratio audit
+
+Run: https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38214837536
+Artifact SHA-256: `d5af2d743068000a354506eba3dc34ff1be5f9a9fba6482727045e5178be43d4`
+
+At t=0 the centre ratios are bounded and `Aa/r²`, `D_r K/r` are roundoff-close to zero. The first-cell `Lambda/r` is about 2.85e-3 (N40), 2.97e-3 (N60), 3.02e-3 (N80), 3.05e-3 (N120), but it drops by roughly a factor two from first to second cell across every N. The production `C_lambda` is zero by construction on the initializer.
+
+At t=2.16 the first cell becomes strongly resolution-sensitive:
+- `Lambda/r` first-to-second cell: N40 3.52e-3 to 1.28e-3; N60 4.49e-3 to 1.78e-3; N80 5.70e-3 to 2.23e-3; N120 9.06e-3 to 3.26e-3.
+- `C_lambda/r` first cell: +1.64e-3 (N40), -2.99e-3 (N60), -1.95e-3 (N80), +3.59e-3 (N120), with signs changing across resolutions.
+- `Aa/r²` first cell changes sign with resolution: -7.72e-4 (N40), -9.96e-4 (N60), +1.029e-3 (N80), +4.429e-4 (N120).
+
+The direct ratio audit supports a first-cell regularity layer that grows relative to the adjacent-cell behavior as the mesh is refined. It does not find a generic parity-stencil implementation error: the manufactured even/odd polynomial checks pass to ~2e-15. Do not replace the production stencil or apply a fitted centre projection.
+
+### Full replay with per-step signed momentum budget
+
+Run: https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38214554266
+Artifact SHA-256: `223901a0fbd2ce4ddbfb39cce2cb2b3c88eb24286f7d249c62cc3ecad2f9b569`
+
+The N80 observer replayed all 400 accepted production steps through t=12 and reproduced the archived endpoint exactly field-by-field, including proper time. Constraint-term closures remain roundoff-level.
+
+The first admitted inner momentum residual at r=2.5 is **oscillatory, not monotonic**: zero crossings occur near t=1.86, 3.93, 4.92, 7.08, 8.01, 10.26, 11.07, with prominent negative excursions near t≈3,6,9.12,12 and partial recovery between them. Over the complete record, RMS is about 1.083e-3 for M, 9.119e-3 for H, and 6.816e-3 for C_lambda. M tracks the geometric momentum term strongly (correlation 0.9975); scalar-current RMS is about 6.49e-5.
+
+At t=12, i=2, the geometric M terms are:
+- D_r Aa: +2.6496e-4
+- -(2/3)D_r K: -6.3120e-4
+- 6 Aa chi_r: +1.0166e-5
+- radial 2(Aa-Ab)/r: -2.30978e-3 (dominant)
+- b-gradient term: -1.74225e-5
+- M_geom: -2.68327e-3; total M residual: -2.68944e-3.
+
+The sparse two-time-unit tangent comparison must not be read as instantaneous causality because the trajectory reverses several times between those samples. The per-step observer is the more faithful reference for temporal variation. Current diagnosis remains: a centre-localized spatial/derivative-compatibility issue, with a strongly oscillating constraint mode, rather than a simple CFL error or an oversized matter-current source. This remains a numerical diagnosis; no bounce/ejection claim is admitted.
+
 ## Next gates
 
-1. Run the diagnostic-only centre-series ratio audit at N=40,60,80,120 on the initial slice and saved t=2.16 states. Report signed first-cell profiles for Aa/r², Lambda/r, (a/b-1)/r², and D_r f/r for the even fields; compare with existing momentum/current witnesses. No long trajectory.
+1. Compare first-cell regularity-series evolution rates implied by the production RHS against the ratios now recorded at t=0/t=2.16: Aa/r², Lambda/r, (a/b-1)/r² and D_r f/r for K,X,a,b,S,D,phi. Use the exact per-step N80 replay to select signed intervals around the large M excursions. Keep this as an operator-level diagnostic; no modified trajectory.
 2. Use the geometric audit to identify whether the admitted inner H drift is tied to the connection/Ricci pathway. Only then design a single bounded numerical-layer intervention with preregistered pass/fail metrics.
 3. Check matter and radiation boundary flux direction and local conservation terms from raw signed terms, not ratios whose denominators may be near zero.
 4. Preserve frozen N=320 reconstruction tolerance 1e-8 and report host/runtime variance; do not relax thresholds after seeing results.
