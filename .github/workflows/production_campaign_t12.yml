@@ -1,0 +1,67 @@
+name: Bounded V5.5 production campaign through t=12
+
+on:
+  push:
+    branches:
+      - fix/strict-campaign-admission-2026-10-12
+    paths:
+      - .github/workflows/production_campaign_t12.yml
+      - engine/**
+      - tests/**
+      - requirements.txt
+
+jobs:
+  production-t12:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    env:
+      PYTHONUNBUFFERED: "1"
+
+    steps:
+      - name: Checkout engine and pinned numerical kernel
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Run full repository test suite
+        run: python -m pytest -q
+
+      - name: Run synchronized production machine at N=40,60,80 through t=12
+        run: |
+          python - <<'PY'
+          import json
+          from dataclasses import asdict
+          from engine.campaign import CampaignConfig
+          from engine.run_production import run_campaign
+
+          config = CampaignConfig(
+              resolutions=(40, 60, 80),
+              r_max=80.0,
+              cfl=0.03,
+              final_time=12.0,
+              checkpoint_interval=2.0,
+              output_dir="runs/production-t12",
+          )
+          print("PRODUCTION_CAMPAIGN_START " + json.dumps(asdict(config)), flush=True)
+          results = run_campaign(config=config)
+          print("PRODUCTION_CAMPAIGN_ADMITTED " + json.dumps([asdict(r) for r in results]), flush=True)
+          PY
+
+      - name: Upload complete and partial production ledgers
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v55-production-t12-n40-n60-n80
+          path: runs/production-t12/
+          if-no-files-found: warn
+          retention-days: 90
