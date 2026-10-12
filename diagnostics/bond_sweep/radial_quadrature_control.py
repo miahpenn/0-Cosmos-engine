@@ -63,7 +63,7 @@ def run():
         state.geometry.beta.fill(0.0); state.geometry.B.fill(0.0)
         row=measure(state,"discrete_consistent",n)
         row.update({"solver_iterations":info["iterations"],"solver_final_max_residual":info["final_max_residual"],"solver_max_condition_number":info["max_condition_number"],"solver_residual_history":[float(x) for x in hist]})
-        rows[-1:]=[row]
+        rows.append(row)
     pk.build_initial_data=original
     by={}
     for x in rows: by.setdefault(x["N"],{})[x["mode"]]=x
