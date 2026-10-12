@@ -1,0 +1,40 @@
+name: "[DIAG] CMC centre-row versus stencil-order three-arm test"
+
+on:
+  push:
+    branches:
+      - diag/cmc-lapse-three-arm-row-order-2026-10-12
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  PYTHONPATH: .
+
+jobs:
+  three-arm-one-step:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout diagnostic source and pinned kernel
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Run three-arm single-step separation
+        run: python tools/audit_cmc_lapse_three_arm_row_order.py
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cmc-lapse-three-arm-row-order
+          path: results/cmc-lapse-three-arm-row-order/report.json
+          if-no-files-found: error
+          retention-days: 90
