@@ -1,0 +1,46 @@
+name: Bond sweep central residual audit
+
+on:
+  push:
+    branches:
+      - "diag/bond-sweep-self-consistent"
+    paths:
+      - "diagnostics/bond_sweep/central_residual_audit.py"
+      - ".github/workflows/bond-sweep-central-residual-audit.yml"
+      - "engine/**"
+      - "vendor/bb-palatini-unified-r0"
+      - ".gitmodules"
+      - "requirements.txt"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  initial-residual-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout engine and pinned numerical kernel
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Record exact revisions
+        run: |
+          git rev-parse HEAD
+          git -C vendor/bb-palatini-unified-r0 rev-parse HEAD
+      - name: Run initial-slice N40/N80 audit
+        run: python diagnostics/bond_sweep/central_residual_audit.py
+      - name: Upload audit outputs
+        uses: actions/upload-artifact@v4
+        with:
+          name: bond-sweep-central-residual-audit
+          path: runs/central_residual_audit/
+          if-no-files-found: error
+          compression-level: 6
