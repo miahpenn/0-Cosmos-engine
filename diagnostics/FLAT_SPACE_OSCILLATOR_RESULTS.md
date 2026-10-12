@@ -6,7 +6,7 @@
 - Initial workflow: [GitHub Actions run 38201499478](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38201499478)
 - Initial artifact: [flat-oscillator-smoke](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38201499478/artifacts/11725521660)
 - Initial run result: **PASS** for the scalar RHS under a fixed flat background, using an independent RK4 driver.
-- Follow-up code correction: JSON output newline was changed from a literal backslash-n suffix to a real newline. A clean rerun should be recorded before treating the artifact as the canonical machine-readable result.
+- Clean rerun after JSON-output correction: [GitHub Actions run 38201654516](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38201654516), **PASS**. Artifact: [flat-oscillator-smoke, artifact 11725831501](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38201654516/artifacts/11725831501). The artifact was downloaded and parsed successfully as valid JSON; its final byte is a newline.
 
 ## Physical setup and analytic answer
 
@@ -44,3 +44,8 @@ This test **does not validate the production time integrator, evolving geometry,
 3. If that passes, test a small-amplitude inhomogeneous scalar mode on fixed flat geometry against a known linear-wave solution, then test a simple coupled geometry case.
 
 Do not infer anything about the 0* hypothesis from this smoke test. Keep all changes on the diagnostic branch; production `main` remains untouched.
+
+
+## Clean rerun confirmation
+
+The corrected-output rerun reproduces the original results: `pass=true`, error-reduction ratios `15.99861806396705` and `15.997082126259276`. The JSON artifact is valid and parses without cleanup. This closes the output-format issue; the scope limitations above remain unchanged.
