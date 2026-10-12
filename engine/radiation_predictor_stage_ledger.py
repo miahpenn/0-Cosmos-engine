@@ -26,6 +26,17 @@ def _grid_size(grid):
     """Return cell count through the pinned grid's public coordinate array."""
     return len(grid.centers)
 
+def _attach_radiation_state(values, radiation):
+    """Attach the exact predictor conservative state and recompute cone metrics."""
+    for cell in values:
+        i = int(cell["i"])
+        U_E = float(radiation.energy_t[i])
+        U_r = float(radiation.momentum_r[i])
+        cell["U_E"] = U_E
+        cell["U_r"] = U_r
+        cell.update(reconstruct_metric_cone(cell["a"], cell["X"], U_E, U_r))
+    return values
+
 
 def _capture_first_geometry_terms_call(step):
     """Capture only gterms0, not later predictor geometry evaluations."""
@@ -246,22 +257,12 @@ class RadiationPredictorStageLedger(RadiationStageTrace):
                 accepted_values = row.get("accepted_geometry_and_rhs", {}).get(
                     "accepted_geometry", []
                 )
-                # Independently recompute the invariant from primitive a/X and
-                # conservative U_E/U_r for all recorded intermediate metrics.
-                for stage_name, values in (
-                    ("accepted_metric", accepted_values),
-                    ("unprojected_metric", raw_values),
-                    ("post_projection_metric", projected_values),
-                ):
-                    if not values:
-                        continue
-                    for cell in values:
-                        i = cell["i"]
-                        rad = matter.radiation
-                        cell.update(reconstruct_metric_cone(
-                            cell["a"], cell["X"],
-                            rad.energy_t[i], rad.momentum_r[i],
-                        ))
+                # The same actual predictor conservative state must accompany
+                # each metric stage; attach U_E/U_r explicitly so the validator
+                # can independently reconstruct every cone witness.
+                for values in (accepted_values, raw_values, projected_values):
+                    if values:
+                        _attach_radiation_state(values, matter.radiation)
             return ledger._ledger_original_solve(grid, geometry, scalars, matter)
 
         def capture_geometry_terms(grid, geometry, fields, matter, lambda_m=2.0):
