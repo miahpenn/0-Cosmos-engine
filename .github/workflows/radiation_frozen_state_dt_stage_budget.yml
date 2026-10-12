@@ -1,0 +1,89 @@
+name: Radiation frozen-state timestep stage budget
+
+on:
+  push:
+    branches:
+      - diag/radiation-frozen-state-stage-budget-2026-10-12
+    paths:
+      - tools/audit_radiation_frozen_state_dt_stage_budget.py
+      - tests/test_radiation_frozen_state_dt_stage_budget.py
+      - .github/workflows/radiation_frozen_state_dt_stage_budget.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: radiation-frozen-state-stage-budget-2026-10-12
+  cancel-in-progress: false
+
+jobs:
+  frozen-state-stage-budget:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout diagnostic source and pinned vendor
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Fail closed on engine/vendor scope
+        env:
+          SOURCE_BASE_COMMIT: "cdcec8282bff0443f2fe4674b15929822ff38736"
+          VENDOR_COMMIT: "d6052d605673ce9d82cdc99b0df79855fa2ea215"
+        run: |
+          git fetch --no-tags origin "$SOURCE_BASE_COMMIT"
+          unexpected="$(git diff --name-only "$SOURCE_BASE_COMMIT" HEAD -- engine vendor requirements.txt .gitmodules | grep -v '^engine/radiation_geometry_stage_trace.py$' || true)"
+          if [ -n "$unexpected" ]; then
+            printf 'Unexpected source/vendor/dependency change:\n%s\n' "$unexpected"
+            exit 1
+          fi
+          actual_vendor="$(git rev-parse HEAD:vendor/bb-palatini-unified-r0)"
+          test "$actual_vendor" = "$VENDOR_COMMIT"
+          printf 'Source base: %s\nVendor: %s\nOnly diagnostic tracer differs under engine/.\n' "$SOURCE_BASE_COMMIT" "$actual_vendor"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install pinned-source dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Compile audit and run metric identity regression
+        run: |
+          python -m py_compile tools/audit_radiation_frozen_state_dt_stage_budget.py
+          python -m pytest -q tests/test_radiation_frozen_state_dt_stage_budget.py
+
+      - name: Full repository regression suite
+        run: python -m pytest -q
+
+      - name: Download the already-captured rejected full state (no lead-in replay)
+        uses: actions/download-artifact@v4
+        with:
+          name: boundary-cmc-radiation-audit
+          path: runs/source-artifact
+          repository: ${{ github.repository }}
+          run-id: 38322337250
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Verify accepted-state hash and source metadata
+        run: |
+          echo 'ccd1fa0fbabe65c51c3dd7ac2c9227d6d25aa680c169eef1afd3fca4326294cf  runs/source-artifact/boundary_failure_accepted_state.npz' | sha256sum -c -
+          grep -q '"rate_fix_source_commit": "cdcec8282bff0443f2fe4674b15929822ff38736"' runs/source-artifact/boundary_failure_accepted_state.json
+          grep -q '"pinned_vendor_commit": "d6052d605673ce9d82cdc99b0df79855fa2ea215"' runs/source-artifact/boundary_failure_accepted_state.json
+
+      - name: Compare nominal, half, quarter and eighth dt from the same accepted state
+        run: PYTHONPATH=. python tools/audit_radiation_frozen_state_dt_stage_budget.py --input-dir runs/source-artifact
+
+      - name: Upload signed timestep stage budget and checksums
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: radiation-frozen-state-dt-stage-budget
+          path: artifacts/radiation-frozen-state-stage-budget/
+          if-no-files-found: warn
+          retention-days: 90
