@@ -243,7 +243,12 @@ def common_radius_comparison(summaries_by_n_time, profiles_by_n_time) -> list[di
 
 
 H_GROUPS = (
-    ("metric", "geometry", ("a", "b", "X")),
+    # Split the former spatial-metric group into its evolved variables. This
+    # identifies which variable leads the observed H drift without an evolution
+    # step; it remains a Shapley attribution on saved endpoint states.
+    ("a", "geometry", ("a",)),
+    ("b", "geometry", ("b",)),
+    ("X", "geometry", ("X",)),
     ("lapse_shift_gauge", "geometry", ("alpha", "beta", "B")),
     ("A_a", "geometry", ("Aa",)),
     ("K", "geometry", ("K",)),
@@ -507,13 +512,13 @@ def main() -> None:
 
     (output_dir / "checkpoint_hamiltonian_increment_attribution.json").write_text(
         json.dumps({
-            "schema": "v55_checkpoint_H_increment_shapley_v1",
+            "schema": "v55_checkpoint_H_increment_shapley_by_variable_v2",
             "diagnostic_only": True,
             "source_run_id": args.source_run_id,
             "source_code_commit": args.source_code_sha,
             "source_campaign_summary_sha256": sha256_file(campaign_path),
             "interval_count": len(increment_attributions),
-            "method": "Shapley attribution of H(after)-H(before) across metric (a,b,X), lapse/shift gauge (alpha,beta,B), A_a, K, Lambda, and matter (all scalars and fluids); all 64 pre/post hybrids evaluated on the same saved grid; no evolution steps",
+            "method": "Shapley attribution of H(after)-H(before) across separate a, b, X, lapse/shift gauge (alpha,beta,B), A_a, K, Lambda, and matter (all scalars and fluids); all 256 pre/post hybrids evaluated on the same saved grid; no evolution steps",
             "intervals": increment_attributions,
         }, indent=2)
     )
