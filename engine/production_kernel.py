@@ -43,6 +43,7 @@ from .matter_system import (
     _hll_flux,
     _valencia_flux,
     _valencia_source,
+    validate_species_admissibility,
 )
 from .scalar_system import ScalarFields, scalar_rhs_arrays
 from .v55_initial import build_initial_data
@@ -214,6 +215,10 @@ class V55ProductionKernel:
         )[0]
         g0.beta.fill(0.0)
         g0.B.fill(0.0)
+        validate_species_admissibility(
+            metric_slice_from_q(grid, g0), m0.radiation, Species.RADIATION,
+            stage="initial",
+        )
 
         srhs0, mrhs0, _ = self._rhs(
             ProductionState(
@@ -254,6 +259,10 @@ class V55ProductionKernel:
         g_explicit1.alpha = self._solve_lapse(
             grid, g_explicit1, s1, m1
         )[0]
+        validate_species_admissibility(
+            metric_slice_from_q(grid, g_explicit1), m1.radiation,
+            Species.RADIATION, stage="explicit-predictor",
+        )
         gterms_pred = adapter.geometry_stage_terms(
             grid, g_explicit1, s1, m1, lambda_m=LAMBDA_M
         )
@@ -288,6 +297,10 @@ class V55ProductionKernel:
         g1.beta.fill(0.0)
         g1.B.fill(0.0)
         g1.assert_finite_positive()
+        validate_species_admissibility(
+            metric_slice_from_q(grid, g1), m1.radiation,
+            Species.RADIATION, stage="primary-predictor",
+        )
 
         # Re-evaluate the complete split on the primary-updated predictor.
         stage1 = ProductionState(
@@ -382,6 +395,10 @@ class V55ProductionKernel:
         )[0]
         gnew.beta.fill(0.0)
         gnew.B.fill(0.0)
+        validate_species_admissibility(
+            metric_slice_from_q(grid, gnew), mnew.radiation,
+            Species.RADIATION, stage="final",
+        )
 
         candidate = ProductionState(
             grid=grid, geometry=gnew, scalars=snew, matter=mnew,
