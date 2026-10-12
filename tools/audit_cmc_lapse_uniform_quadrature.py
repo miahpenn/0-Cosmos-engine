@@ -49,7 +49,7 @@ def audit(n):
     g=state.geometry
     saved_alpha=np.asarray(g.alpha,float).copy()
     target=float(target_kdot(grid,g,state.scalars,state.matter))
-    solved,used=solve_cmc_lapse(grid,g.copy(),state.scalars,state.matter,outer_alpha=1.0)
+    solved,used=solve_cmc_lapse(grid,g.copy(),state.scalars,state.matter)
     solved=np.asarray(solved,float)
     geom=g.copy();geom.alpha=solved.copy()
     r=np.asarray(grid.centers,float);a=np.asarray(geom.a,float);b=np.asarray(geom.b,float);X=np.asarray(geom.X,float)
