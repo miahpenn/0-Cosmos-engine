@@ -1,0 +1,244 @@
+{
+  "schema": "0cosmos-centre-series-audit-manifest-v1",
+  "updated_utc": "2026-10-12",
+  "repository": "miahpenn/0-Cosmos-engine",
+  "production_branch_snapshot": {
+    "ref": "main",
+    "sha": "809228c380d80af83858412557c78b6329ffa5c8",
+    "status": "left untouched by these diagnostic changes"
+  },
+  "source_under_test": {
+    "commit": "6d8b3f2790644591326df57c55908863f994cb0c",
+    "vendor_submodule": "vendor/bb-palatini-unified-r0",
+    "vendor_commit": "d6052d605673ce9d82cdc99b0df79855fa2ea215"
+  },
+  "admission": {
+    "t12_multi_resolution_execution": "completed at N=40/60/80; execution/horizon completion only",
+    "constraints_and_balance": "OPEN",
+    "centre_series_Aa_rhs": "OPEN",
+    "high_resolution_radiation_admissibility": "OPEN; first-cell failure at N=240 and N=320 during one-step test",
+    "long_campaign_t160": "NOT AUTHORIZED BY CURRENT EVIDENCE"
+  },
+  "findings": [
+    {
+      "id": "uniform-radial-quadrature-initial-profile",
+      "run_id": 38291938761,
+      "url": "https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38291938761",
+      "artifact_id": 11767500772,
+      "artifact_name": "uniform-radial-quadrature-initial-profile",
+      "artifact_sha256": "937a139ffd360ccae753f06572da34a400c26183dbdd0f308f1f8d67ef2bc918",
+      "status": "success",
+      "coverage": "frozen initial data, N=40/60/80/120/160/240/320; no evolution",
+      "result": {
+        "first_cell_abs_H_uniform_quadrature": {
+          "40": 0.00038647624175238305,
+          "60": 0.00010030830058968846,
+          "80": 0.00003676555698930084,
+          "120": 0.000010568628767244296,
+          "160": 0.000006880515303069219,
+          "240": 0.0000010698556368376674,
+          "320": 4.987529630406939e-7
+        },
+        "formal_stencil_max_abs_H_at_N320": 1.5963133796282128e-7,
+        "fixed_annulus_2_le_r_lt_5_max_abs_H_at_N320": 7.945332567869598e-9,
+        "first_cell_Aa_rhs_at_N320": 0.000041367820467062846,
+        "first_cell_Aa_rhs_over_r2_at_N320": 0.002647540509892022,
+        "disposition": "initial H improvement is real; centre-series RHS criterion still fails"
+      }
+    },
+    {
+      "id": "uniform-radial-quadrature-one-step",
+      "run_id": 38292762118,
+      "url": "https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38292762118",
+      "artifact_id": 11766972176,
+      "artifact_name": "uniform-radial-quadrature-one-step",
+      "artifact_sha256": "0faff832630fe189143e2aa178013967e79d30de5c0b1d0276447691fee7993e",
+      "status": "failure_with_case_failures_artifact_preserved",
+      "coverage": "one ordinary production step; three initializer arms; N=40/60/80/120/160/240/320; dt=0.03*dr",
+      "result": {
+        "uniform_arm_post_step_max_abs_H": {
+          "40": 0.000384686696016399,
+          "60": 0.00010089293843939216,
+          "80": 0.000037755927257212846,
+          "120": 0.000010191282504841241,
+          "160": 0.000005925591871357421
+        },
+        "uniform_arm_post_step_max_abs_M": {
+          "40": 0.000015297517674549406,
+          "60": 0.0000058501112925434,
+          "80": 0.000006122919401237539,
+          "120": 0.000006185058720522398,
+          "160": 0.000006166256907443059
+        },
+        "uniform_arm_post_step_max_abs_C_lambda": {
+          "40": 9.321322194011557e-7,
+          "60": 2.390150397992355e-7,
+          "80": 1.8747567153950054e-7,
+          "120": 1.2621556557865753e-7,
+          "160": 9.436657747276603e-8
+        },
+        "high_resolution_failures": [
+          {
+            "N": 240,
+            "arms": [
+              "pinned_baseline",
+              "origin_half_cell_only",
+              "uniform_fourth_order_intervals"
+            ],
+            "cell": 0,
+            "reason": "radiation RHS created inadmissible state",
+            "E": 8.8188697e-9,
+            "abs_S": 8.9976e-9,
+            "abs_S_over_E": 1.0203
+          },
+          {
+            "N": 320,
+            "arms": [
+              "pinned_baseline",
+              "origin_half_cell_only",
+              "uniform_fourth_order_intervals"
+            ],
+            "cell": 0,
+            "reason": "radiation RHS created inadmissible state",
+            "E": 8.8188683e-9,
+            "abs_S": 1.1996e-8,
+            "abs_S_over_E": 1.3603
+          }
+        ],
+        "disposition": "N=40-160 one-step cases completed; N=240/320 failed admission for all arms; no high-N passing result"
+      }
+    },
+    {
+      "id": "discrete-initial-constraint-rhs-tangent",
+      "run_id": 38290633971,
+      "url": "https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38290633971",
+      "artifact_id": 11766405316,
+      "artifact_name": "discrete-initial-constraint-tangent",
+      "artifact_sha256": "2011162ba822bea1b52d2b8c2099284f97f7a0ca5e76e2d2bdc1788c324a7186",
+      "status": "success",
+      "coverage": "six frozen t=0 states; baseline/candidate × N=60/80/120; symmetric RHS finite differences; lapse re-solved; one-step comparator",
+      "result": {
+        "candidate_first_admitted_cell": [
+          {
+            "N": 60,
+            "r": 3.3333333333,
+            "Mdot_rhs": -0.00008755271353226317,
+            "Mdot_step": -0.000086967
+          },
+          {
+            "N": 80,
+            "r": 2.5,
+            "Mdot_rhs": -0.00012353846152913584,
+            "Mdot_step": -0.00012295
+          },
+          {
+            "N": 120,
+            "r": 1.6666666667,
+            "Mdot_rhs": -0.00019063205854520985,
+            "Mdot_step": -0.00018993
+          }
+        ],
+        "max_signed_term_closure": {
+          "base_H_reconstruction": 8.673617379884035e-19,
+          "base_M_geometry_reconstruction": 0,
+          "base_M_reconstruction": 0,
+          "tangent_H_reconstruction": 4.3706900290907315e-14,
+          "tangent_M_geometry_reconstruction": 8.673617379884035e-19,
+          "tangent_M_reconstruction": 8.673617379884035e-19
+        },
+        "disposition": "initial H/M/C constraints at roundoff do not make momentum RHS tangent vanish"
+      }
+    },
+    {
+      "id": "origin-half-cell-initial-refinement",
+      "run_id": 38291486881,
+      "url": "https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38291486881",
+      "artifact_id": 11767325140,
+      "artifact_name": "origin-quadrature-initial-refinement",
+      "artifact_sha256": "42d898b6f195bdd823fba35a240cdb58bb557146c828c87f8b3a8b2a58636638",
+      "status": "success",
+      "coverage": "frozen initial slices, N=40/60/80/120/160/240/320; origin half-cell only",
+      "disposition": "initial first-cell H improves, but centre A_a RHS series is not repaired"
+    },
+    {
+      "id": "origin-signed-H-budget",
+      "run_id": 38291098188,
+      "url": "https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38291098188",
+      "artifact_id": 11765137827,
+      "artifact_name": "origin-quadrature-initial-h-budget",
+      "artifact_sha256": "92bff9be02569772505794f3f4bad5853bd451c745c32d287db12951a51333c2",
+      "status": "success",
+      "disposition": "origin quadrature alters geometric H term while matter source remains nearly fixed"
+    },
+    {
+      "id": "origin-only-one-step",
+      "run_id": 38290654079,
+      "url": "https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38290654079",
+      "artifact_id": 11766655192,
+      "artifact_name": "origin-quadrature-one-step-propagation",
+      "artifact_sha256": "a511f67db4d9a1a12ce27652c82a200dbb4b876266fa3045bf8f995ddc087987",
+      "status": "success",
+      "coverage": "one ordinary production step, origin-only vs baseline, N=40/60/80/120/160",
+      "disposition": "H centre improvement persists one step but the full constraint set is not uniformly improved"
+    },
+    {
+      "id": "regular-centre-Ricci-Aa-identity",
+      "run_id": 38290099699,
+      "url": "https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38290099699",
+      "artifact_id": 11765776185,
+      "artifact_name": "regular-center-ricci-aa-rhs-identity",
+      "artifact_sha256": "345f91141bb19920051935b9c5c516bf1ddc798046012a36583426d9e5e34e97",
+      "status": "success",
+      "coverage": "manufactured smooth regular profiles; no evolution",
+      "result": {
+        "fixed_annulus_descriptive_order": {
+          "Ricci_trace_free": 4.017,
+          "lapse_Hessian_trace_free": 4.006,
+          "Aa_full_rhs": 4.017
+        },
+        "disposition": "negative control against generic vendor Ricci/parity defect; actual production initializer remains an outlier"
+      }
+    },
+    {
+      "id": "discrete-initial-Lambda-Ricci-sensitivity",
+      "run_id": 38289657512,
+      "url": "https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38289657512",
+      "artifact_id": 11764557943,
+      "artifact_name": "discrete-consistent-initial-lambda-ricci-sensitivity",
+      "artifact_sha256": "5cb556cc9a9311fb6ba1a86b1daf398e4c01c9ffeb7f458960ff45e767bb47a2",
+      "status": "success",
+      "disposition": "Lambda-only substitution effect is resolution/sign dependent; no projection repair justified"
+    },
+    {
+      "id": "discrete-initial-centre-series-rhs",
+      "run_id": 38289053751,
+      "url": "https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38289053751",
+      "artifact_id": 11763734669,
+      "artifact_name": "discrete-consistent-initial-centre-series-rhs",
+      "artifact_sha256": "c29969262e7bd79a8dde8ace357945685a5b5a418db3344f5aa08fda94b52021",
+      "status": "success",
+      "disposition": "actual production RHS centre rates remain resolution-sensitive"
+    },
+    {
+      "id": "manufactured-momentum-operator-identity",
+      "run_id": 38288419513,
+      "url": "https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38288419513",
+      "artifact_id": 11763654184,
+      "artifact_name": "manufactured-momentum-operator-identity",
+      "artifact_sha256": "83c738421ca014b781d5a07d1218d3de116ddc43bea5bc4d762233bc1dfb2d77",
+      "status": "success",
+      "disposition": "generic derivative/parity-sign defect disfavoured by smooth-profile convergence control"
+    }
+  ],
+  "current_recommendation": [
+    "Read-only signed Aa/K RHS component split at i=0,1,2 and fixed radii r=2,3,4,5 on exact pinned baseline and uniform-quadrature t=0 states, then t=2.16 checkpoints.",
+    "Independently audit first-cell radiation flux/source and E-|S| at N=160/240/320; do not loosen cone/admissibility criterion.",
+    "Only propose a production numerical-layer change after a specific signed discrete identity failure is isolated and a bounded one-step counterfactual improves H/M/C_lambda without causing regressions.",
+    "No t=160 campaign until constraint, centre-series, radiation admissibility and Misner-Sharp balance gates are admitted."
+  ],
+  "documentation": {
+    "latest_handoff": "docs/CONTINUATION_HANDOFF_LATEST_2026-10-12.md",
+    "centre_regularity_handoff": "docs/CONTINUATION_HANDOFF_CENTRE_REGULARITY_2026-10-12.md",
+    "detailed_A_B_audit": "docs/DISCRETE_CONSISTENT_INITIAL_PRODUCTION_AB_2026-10-12.md"
+  }
+}
