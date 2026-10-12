@@ -48,8 +48,9 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: discrete-consistent-initial-production-ab-t2p16
+          repository: miahpenn/0-Cosmos-engine
           run-id: 38284401548
-          github-token: \${{ github.token }}
+          github-token: ${{ github.token }}
           path: production-ab-artifact
 
       - name: Compile diagnostic
