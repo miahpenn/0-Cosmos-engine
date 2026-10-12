@@ -1,0 +1,66 @@
+name: "[0star] Radiation adaptive-step retry candidate"
+
+on:
+  push:
+    branches:
+      - fix/radiation-adaptive-step-on-cone-2026-10-12
+    paths:
+      - engine/adaptive_step.py
+      - engine/matter_system.py
+      - engine/run_production.py
+      - tests/test_adaptive_step_retry.py
+      - tests/test_radiation_rhs_admissibility_contract.py
+      - .github/workflows/radiation_adaptive_step_gate.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: radiation-adaptive-step-candidate
+  cancel-in-progress: false
+
+jobs:
+  adaptive-step-regression:
+    if: contains(github.event.head_commit.message, '[run-radiation-adaptive-step-tests]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout candidate and pinned vendor
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Fail closed on source/vendor scope
+        env:
+          BASE_SOURCE_COMMIT: "cdcec8282bff0443f2fe4674b15929822ff38736"
+          VENDOR_COMMIT: "d6052d605673ce9d82cdc99b0df79855fa2ea215"
+        run: |
+          git fetch --no-tags origin "$BASE_SOURCE_COMMIT"
+          unexpected="$(git diff --name-only "$BASE_SOURCE_COMMIT" HEAD | grep -v -E '^(engine/adaptive_step\.py|engine/matter_system\.py|engine/run_production\.py|tests/test_adaptive_step_retry\.py|tests/test_radiation_rhs_admissibility_contract\.py|\.github/workflows/radiation_adaptive_step_gate\.yml)$' || true)"
+          if [ -n "$unexpected" ]; then
+            printf 'Unexpected changed files relative to exact stacked source:\n%s\n' "$unexpected"
+            exit 1
+          fi
+          actual_vendor="$(git rev-parse HEAD:vendor/bb-palatini-unified-r0)"
+          test "$actual_vendor" = "$VENDOR_COMMIT"
+          printf 'Source base: %s\nVendor: %s\n' "$BASE_SOURCE_COMMIT" "$VENDOR_COMMIT"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Compile changed runtime and tests
+        run: |
+          python -m py_compile engine/adaptive_step.py engine/matter_system.py engine/run_production.py
+          python -m py_compile tests/test_adaptive_step_retry.py tests/test_radiation_rhs_admissibility_contract.py
+
+      - name: Focused adaptive-step and radiation guard regressions
+        run: python -m pytest -q tests/test_adaptive_step_retry.py tests/test_radiation_rhs_admissibility_contract.py tests/test_radiation_rest_current_contract.py
+
+      - name: Full repository regression suite
+        run: python -m pytest -q
