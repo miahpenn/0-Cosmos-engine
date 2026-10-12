@@ -151,3 +151,55 @@ A third, focused recorder guard is now in the branch:
 - Regression commit: `1f1f50b5f4d56cbe6297722f6149195e065cb36d`.
 
 The currently running [run 38309326002](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38309326002) was triggered before this last guard. Any ledger it produces must be checked for `validation.ok`; if the RHS identity fails or accepted geometry does not match the real Euler starting state, it is not admitted. The next tagged run must include this guard and its two new tests before any raw-versus-projection conclusion is recorded.
+
+
+## 9. Final validated stage-ledger result — 12 October 2026
+
+**This section supersedes the earlier “still running / not yet admitted” notes above.** The corrected run completed successfully, including the full trace capture and ledger validation.
+
+- Run: [38309949383](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38309949383)
+- Workflow commit: `0b7b012e3d79880dc4b8bd74ffadb2891f6c513b`
+- Frozen physics source baseline: `9eed1cf95c52f001c2b87afbbe6da37faa56d50e`
+- Pinned vendor: `d6052d605673ce9d82cdc99b0df79855fa2ea215`
+- Complete repository suite: **141 passed** in 30.70 seconds.
+- Artifact ID: `11773874630`; archive: `radiation-predictor-metric-stage-ledger`.
+- Downloaded artifact ZIP SHA-256: `356f067a583ec3596c3b15e8b5d17a18058cc7bd7a2bbc7fd379b6b1e2acbe93`.
+- `stage_ledger.json` SHA-256: `35af5f350fe2888323cc851ab05190c5ddb981ef5042d656f4f45d4a803398bf`.
+- `stage_ledger_summary.json` SHA-256: `6f2085abe8462d9ac33c71ef6c9c07bdb5fc63a360e73bc74b0776860b70526c`.
+- `trace.json` SHA-256: `d2e9d507f8300598c4dd5ac45b4bcd3f77d205adc388e460e6a75ae614a214c9`.
+- `summary.json` SHA-256: `79970f812f4fc45791b6d1b63951e4da1065c686554a47e3884a1f72b5778d82`.
+
+### Admission checks
+
+The ledger reports `status=radiation_admissibility_failure_captured`, `validation.ok=true`, 100 steps (indices 1467–1566), exactly five outer cells (75–79), and **zero validation errors**. Each of the 100 steps contains all four required stages. The frozen-source/vendor guard passed. The Euler predictor reconstructed as accepted geometry plus (dt\times\) the recorded explicit RHS with **zero absolute difference** across the captured fields. The post-projection determinant condition (ab^2=1) has maximum absolute error (3.33\times10^{-16}). Projected geometry and first predictor CMC inputs match exactly for (a,b,X).
+
+This means the diagnostic ledger is now admitted as a faithful stage capture. The physical evolution remains failed at the recorded predictor stage; successful capture is not successful evolution.
+
+### Validated terminal-cell witness
+
+At the failing outer cell (i=79), (r=79.5), (dt=0.03), on the same updated conservative radiation state:
+
+| Stage | (a) | (X) | (gamma^{rr}=X^2/a) | Cone margin (C) | (|S|/E) |
+|---|---:|---:|---:|---:|---:|
+| Accepted metric | 0.6089553401 | 0.9438956524 | 1.4630613182 | (+2.2171301\times10^{-6}) | 0.9925229671 |
+| Unprojected Euler predictor | 0.6031899399 | 0.9465583195 | 1.4853905759 | (-2.0233473\times10^{-8}) | 1.0000682352 |
+| After algebraic regularity projection | 0.6032035002 | 0.9465583195 | 1.4853571835 | (-1.6900205\times10^{-8}) | 1.0000569941 |
+| First predictor CMC inputs | 0.6032035002 | 0.9465583195 | 1.4853571835 | (-1.6900205\times10^{-8}) | 1.0000569941 |
+
+The original captured failure is unchanged: last accepted (t=46.98000000000102), central proper time (	au=22.016115393070738); attempted (t=47.01000000000102); the first predictor CMC lapse fails at (i=79).
+
+### Cross-window result: projection is not the initiating crossing
+
+Across all 500 cell-step pairs (100 steps × five outer cells):
+- Algebraic projection **increased** the cone margin in all 500 pairs; there were zero decreases and zero ties.
+- Projection reduced (|S|/E) in all 500 pairs.
+- Exactly one raw Euler-predictor pair was outside the cone, and exactly one post-projection pair was outside it: the terminal cell of the terminal captured step.
+- At that pair, projection improves the margin by (+3.3332677935\times10^{-9}) and reduces the ratio by (1.1241\times10^{-5}), but does not restore admissibility.
+
+**Admitted numerical conclusion:** the cone crossing is already present on the unprojected explicit Euler metric predictor. The following algebraic regularity projection marginally improves the cone margin; it does not create the crossing. The proximate numerical failure is therefore the explicit geometry predictor (or synchronization of that predictor with the updated radiation state), not the projection itself. This is a stage attribution only, not proof that the underlying physical geometry equations are wrong.
+
+### Next bounded discriminator
+
+Do not change the cone condition and do not launch a long campaign yet. The next task is a frozen-state term attribution at the same final step: decompose the recorded explicit (dot a,dot b,dot X) by its existing signed RHS components and quantify their contributions to (Deltagamma^{rr}), (C) and (|S|/E), holding the actual updated conservative radiation state fixed. Reconstruct the same values at the prior accepted step as a control. Any proposed correction must then preserve the existing equations and improve the entire gate set (centre-series regularity, H/M/(C_\Lambda), radiation cone, outer boundary, and Misner–Sharp balance), not merely this terminal ratio.
+
+The separate main-based matter-RHS rate-extraction fix remains in draft [PR #8](https://github.com/miahpenn/0-Cosmos-engine/pull/8); it addresses the artificial unit-step wrapper failure, not this validated late-time geometry-predictor crossing. `main` remains at `2035acc1210db18da0cededea18750b7ed813260`.
