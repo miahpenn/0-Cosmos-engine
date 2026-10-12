@@ -122,8 +122,8 @@ def main():
     central_correction = np.asarray([r["delta_alpha_center"] for r in records], dtype=float)
     if np.any(np.diff(times) <= 0.0):
         raise ValueError("snapshot time series must be strictly increasing")
-    central_correction_integral = float(np.trapz(central_correction, times))
-    central_abs_integral = float(np.trapz(np.abs(central_correction), times))
+    central_correction_integral = float(np.trapezoid(central_correction, times))
+    central_abs_integral = float(np.trapezoid(np.abs(central_correction), times))
     tau = np.asarray([r["tau_snapshot"] for r in records], dtype=float)
     tau_rates = np.diff(tau) / np.diff(times)
 
