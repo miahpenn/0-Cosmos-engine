@@ -324,11 +324,28 @@ def main():
             ),
             "expected_r2_raw_rhs_reduction_N40_to_N120": (family[0]["first_cells"]["0"]["r"] / family[-1]["first_cells"]["0"]["r"])**2,
         }
-        qfactor = row["first_cell_Aa_rhs_quotient_factor_max_min"]
-        raw_factor = row["first_cell_raw_rhs_abs_N40_over_N120"]
-        expected_factor = row["expected_r2_raw_rhs_reduction_N40_to_N120"]
+        first_cell_errors = [
+            abs(c["first_cells"]["0"]["Aa_rhs_error_over_r2"])
+            for c in family
+        ]
+        row["first_cell_quotient_abs_error_by_resolution"] = first_cell_errors
+        row["first_cell_analytic_error_monotonic_decrease"] = all(
+            right < left for left, right in zip(first_cell_errors, first_cell_errors[1:])
+        )
+        row["fixed_annulus_Aa_rhs_error_order"] = row[
+            "fixed_annulus_observed_order_descriptive_only"
+        ]["Aa_rhs_error"]
+        # The raw quotient value changes as the cell centre moves inward;
+        # demanding an exact dr^2 reduction from the coarsest point is not a
+        # valid convergence gate before the asymptotic regime. Use measured
+        # error against the independent analytic RHS plus fixed-annulus order.
+        row["raw_rhs_scaling_factor_is_descriptive_not_gate"] = True
+        order = row["fixed_annulus_Aa_rhs_error_order"]
         row["regularity_scaling_gate"] = (
-            "PASS" if qfactor <= 2.0 and raw_factor >= 0.5 * expected_factor
+            "PASS"
+            if row["first_cell_analytic_error_monotonic_decrease"]
+            and order is not None and order >= 3.5
+            and max(report["flat_control"]["max_abs_Aa_rhs"], report["flat_control"]["max_abs_ricci_tf"], report["flat_control"]["max_abs_lapse_hessian_tf"]) < 1.0e-12
             else "FAIL"
         )
         comparisons.append(row)
