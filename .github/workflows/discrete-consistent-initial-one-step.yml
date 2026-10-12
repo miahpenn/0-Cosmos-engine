@@ -59,6 +59,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: discrete-consistent-initial-one-step-propagation
-          path: results/discrete-consistent-initial-one-step/
+          path: results/discrete-consistent-initial-one-step-propagation/
           if-no-files-found: warn
           retention-days: 90
