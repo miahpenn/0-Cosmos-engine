@@ -1,13 +1,15 @@
-"""Paired provisional-vs-self-consistent S-D bond diagnostic.
+"""Paired S-D bond diagnostic from corrected, constraint-closed initial data.
 
-Both models use the same input parameters and scalar profile. Each is initialized
-under its own stress prescription. The provisional mode adds gSD only to scalar
-momentum RHS (intentionally missing bond stress); the self-consistent mode also
-adds its stress projection to geometry/CMC and constraint consumers. On every
-state, both H-residual definitions are postprocessed using that exact same slice.
-This is diagnostic only, not a physics claim.
+Both models use the same scalar profiles and numerical parameters. Their radial
+metric estimate uses exact-origin cumulative Simpson quadrature, then the
+unchanged discrete Hamiltonian constraint is solved at t=0. The RHS-only mode
+omits bond stress from its initial metric/lapse/constraint sources; the
+self-consistent mode includes the chosen bond stress in each of those paths.
+Both H-residual definitions are evaluated on every exact saved state. This is
+diagnostic only and does not establish that the chosen bond is physical.
 """
 import csv
+import inspect
 import json
 import math
 import os
@@ -15,10 +17,13 @@ from pathlib import Path
 import sys
 
 import numpy as np
+from scipy.integrate import cumulative_simpson
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 import engine.production_kernel as pk
+import engine.v55_initial as initial_module
+from engine.discrete_consistent_initial import discrete_consistent_state
 import engine.scalar_system as scalar_system
 import engine.stress_energy as stress_energy
 import engine.v55_matter as v55_matter
@@ -29,10 +34,47 @@ OUT.mkdir(parents=True, exist_ok=True)
 
 ORIGINAL_RHS = pk.scalar_rhs_arrays
 ORIGINAL_PROJECTION = scalar_system.scalar_projection
+ORIGINAL_INITIAL_BUILDER = pk.build_initial_data
+INITIALIZER_METADATA = {}
 G_BOND = 0.0
 STRESS_BOND_ENABLED = False
 CLOSURE_TOL = 5.0e-12
 
+
+
+
+def corrected_initial_builder(include_bond_stress, coupling):
+    """Build production initial data with exact-origin cumulative Simpson quadrature.
+
+    The self-consistent case adds the candidate g*S*D density to the radial
+    constraint source before constructing the metric. The RHS-only case leaves
+    that source absent by definition.
+    """
+    source = inspect.getsource(initial_module.build_initial_data)
+    old_integral = '''integ = np.cumsum(
+            np.r_[0.5 * dr * src[0],
+                  0.5 * dr * (src[1:] + src[:-1])]
+        )'''
+    new_integral = '''# src(r) = 1 + r^2*F(r), so the exact origin value is 1.
+        xq = np.r_[0.0, r]
+        yq = np.r_[1.0, src]
+        integ = cumulative_simpson(yq, x=xq, initial=0.0)[1:]'''
+    if old_integral not in source:
+        raise RuntimeError("radial integral source changed; refusing initializer patch")
+    source = source.replace(old_integral, new_integral)
+    if include_bond_stress:
+        rho_line = "rho = rhoS + rhoD + rhoPhi + rhoMatter"
+        if rho_line not in source:
+            raise RuntimeError("initial density assembly changed; refusing bond patch")
+        source = source.replace(
+            rho_line,
+            rho_line + "\n        rho = rho + INITIAL_BOND_G * S * D"
+        )
+    namespace = dict(initial_module.__dict__)
+    namespace["cumulative_simpson"] = cumulative_simpson
+    namespace["INITIAL_BOND_G"] = float(coupling)
+    exec(compile(source, "<paired_corrected_initializer>", "exec"), namespace)
+    return namespace["build_initial_data"]
 
 def maxabs(*arrays):
     values = []
@@ -158,6 +200,7 @@ def measure(state, model):
             (0.5 * np.asarray(state.scalars.PD)**2)[mask] * weights[mask]
         )),
     }
+    row.update(INITIALIZER_METADATA)
     return row
 
 
@@ -178,17 +221,43 @@ def log_row(row, stage):
 
 
 def run_model(g, model):
-    global G_BOND, STRESS_BOND_ENABLED
+    global G_BOND, STRESS_BOND_ENABLED, INITIALIZER_METADATA
     G_BOND = float(g)
     STRESS_BOND_ENABLED = model == "self_consistent"
     kernel = pk.V55ProductionKernel()
-    # Initialize in the selected mode so the self-consistent lapse/geometry
-    # source includes the potential from the first slice. Input scalar profiles
-    # and numerical settings remain the same across modes.
-    state = kernel.initialize(
-        resolution=40, r_max=40.0, amplitude=0.01, width=7.0,
-        D_amplitude=1.0e-4, include_radiation=True,
-    )
+
+    # Seed the metric with corrected radial quadrature. Then solve the same
+    # discrete H constraint used by the diagnostic on this model's own source
+    # prescription. The self-consistent initializer includes g*S*D in rho.
+    prior_builder = pk.build_initial_data
+    try:
+        pk.build_initial_data = corrected_initial_builder(
+            include_bond_stress=STRESS_BOND_ENABLED, coupling=G_BOND
+        )
+        state, _, _, init_info = discrete_consistent_state(
+            kernel, resolution=40, r_max=40.0, amplitude=0.01, width=7.0,
+            D_amplitude=1.0e-4, include_radiation=True,
+            max_iter=16, tol=2.0e-13, max_cond=1.0e12, return_info=True,
+        )
+    finally:
+        pk.build_initial_data = prior_builder
+
+    # The lapse must be recomputed after the metric constraint solve.
+    state.geometry.alpha = np.asarray(
+        kernel._solve_lapse(
+            state.grid, state.geometry, state.scalars, state.matter
+        )[0], dtype=float
+    ).copy()
+    state.geometry.beta.fill(0.0)
+    state.geometry.B.fill(0.0)
+    INITIALIZER_METADATA = {
+        "initial_metric_quadrature": "cumulative_simpson_exact_origin",
+        "initial_metric_bond_stress_included": bool(STRESS_BOND_ENABLED),
+        "initial_constraint_solver_iterations": int(init_info["iterations"]),
+        "initial_constraint_solver_final_max_residual": float(init_info["final_max_residual"]),
+        "initial_constraint_solver_max_condition_number": init_info["max_condition_number"],
+    }
+
     dt_base = 0.0075 * float(state.grid.dr)
     rows = []
     initial = measure(state, model)
