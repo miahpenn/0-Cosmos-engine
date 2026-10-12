@@ -115,3 +115,18 @@ Taken with the completed stride-1/stride-2 evolutions and shell decomposition, t
 **Next:** a snapshot-only, no-damping fixed-point map test on the t=0 R80 and R160 states: iterate production `target_kdot(alpha)` → production CMC lapse solve with fixed boundary normalization; record per-iteration alpha change, Kdot drift, positivity, and contraction ratio up to a fixed cap. Include a fixed-target repeatability control. Do not force convergence and do not change production physics.
 
 Latest detailed handoff: [CMC strong-D lapse / global-target handoff](../blob/912d56b13d04e2457bdf3c35ac48ea75fb38f4c8/outputs/cmc_strongD_cmc_lapse_handoff_2026-10-12.md).
+
+
+## 10. Initial-slice CMC target/lapse map audit complete
+
+[Run 38209333687](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38209333687) succeeded; artifact [11728232378](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38209333687/artifacts/11728232378), ZIP SHA-256 `21018a09c7f30cf57915e4f1aebd3be62135efcd04941f2ece1e4efcc38f1f87`, report SHA-256 `b951aae61ba16b3c1850d26534a28ce40a6ee09b69178c45f847b74ebc99c7fb`.
+
+The no-damping t=0 map starts from native archived alpha on each domain and runs 20 iterations:
+- R160 alpha-map RMS step: (2.4449\times10^{-12}) initially, (2.2369\times10^{-12}) at step 20; successive ratios 0.9085–1.1028; no convergence to the (10^{-13}) threshold.
+- R80 alpha-map RMS step: (6.1644\times10^{-11}) initially, (6.3926\times10^{-11}) at step 20; successive ratios 0.9969–1.0370; no convergence to (10^{-13}).
+- Both remain finite and positive; target drift per output-alpha evaluation is only ~(-9\times10^{-16}) R160 and (-8.58\times10^{-14}) R80.
+- Fixed-target controls repeat identically with RMS difference exactly zero for both domains, confirming fixed-Kdot elliptic repeatability.
+
+Thus the archived native alpha profiles are already extremely close to their own self-consistent map states; the no-damping iteration does not contract to the strict tolerance, but the per-iteration changes are tiny compared with the (3.57\times10^{-4}) cross-domain lapse difference. The question is now whether the same frozen R80 operator supports both the native-R80-alpha seed and the restricted R160-alpha seed as separate near-fixed points.
+
+**Next run:** [38209561182](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38209561182), queued at last check. It iterates both seeds under identical R80 non-lapse fields and the same outer-alpha boundary, with no damping or tuning. Distinct residual-small endpoints would support coexisting fixed points; convergence to one profile would argue against that interpretation.
