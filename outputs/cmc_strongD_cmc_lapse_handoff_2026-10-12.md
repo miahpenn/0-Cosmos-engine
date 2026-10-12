@@ -240,3 +240,31 @@ Run a snapshot-only, no-damping, no-production-edit iteration study on t=0 archi
 This is a test of the nonlinear map (\alpha\mapsto\mathrm{solve}(\dot K[\alpha])), not a request to force convergence. The earlier weak-field Picard run did not contract, so a non-convergent result is admissible and important. A clear non-convergence would motivate deriving/solving the coupled discretized system directly, rather than introducing damping or fitted feedback.
 
 No new expensive full trajectory should be launched for this next step; it is a two-snapshot diagnostic. All earlier full evolutions passed their gates. Keep production equations unchanged and keep diagnostic work on this branch.
+
+
+## 11. Initial-slice CMC target/lapse map iteration — completed
+
+- Run [38209333687](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38209333687): successful; artifact [11728232378](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38209333687/artifacts/11728232378).
+- ZIP SHA-256 `21018a09c7f30cf57915e4f1aebd3be62135efcd04941f2ece1e4efcc38f1f87`; report SHA-256 `b951aae61ba16b3c1850d26534a28ce40a6ee09b69178c45f847b74ebc99c7fb`.
+- Script: [cmc_target_lapse_fixed_point_initial.py](../blob/7d7e060ecd2a5fc44edf1b48e67d83ae19a433c6/diagnostics/cmc_target_lapse_fixed_point_initial.py); original runner commit [04172fadbea50c4315054fec16bf41419e8e7f3b](https://github.com/miahpenn/0-Cosmos-engine/commit/04172fadbea50c4315054fec16bf41419e8e7f3b).
+
+The run used exact archived R80/R160 inputs. Recomputed R160 target = archived R160 target (6.233524865732698\times10^{-5}), reconstruction error 0. Initial R80 target (6.198841550010287\times10^{-5}); initial gap (\dot K_{80}-\dot K_{160}=-3.4683315722410597\times10^{-7}).
+
+The undamped native-seed map was evaluated for 20 iterations per domain with all non-lapse fields frozen and prescribed boundary normalization retained:
+- R160: (\|Δ\alpha|_{RMS}) started at (2.4449\times10^{-12}), ending (2.2369\times10^{-12}). The target input changed from (6.233524865732698\times10^{-5}) to (6.23352486403349\times10^{-5}); final target evaluated on output alpha (6.23352486394733\times10^{-5}). Successive alpha-delta ratio fluctuated 0.9085–1.1028 (median ~0.9906); no convergence to the strict (10^{-13}) RMS threshold in 20 steps.
+- R80: (\|\Delta\alpha\|_{RMS}) started at (6.1644\times10^{-11}), ending (6.3926\times10^{-11}). The target input changed from (6.198841550010287\times10^{-5}) to (6.198841387034092\times10^{-5}), final target on output alpha (6.198841378456812\times10^{-5}). Successive alpha-delta ratio fluctuated 0.9969–1.0370 (median ~0.999998); no convergence to (10^{-13}) RMS in 20 iterations. All outputs remained finite and positive.
+- Output-target/input-target drift per iteration remained tiny: around (-9\times10^{-16}) for R160 and (-8.58\times10^{-14}) for R80.
+- Fixed-target control (using archived R160 Kdot) was exactly repeatable: the RMS difference between each repeated elliptic output was 0 for both R80 and R160. The elliptic solve itself is therefore deterministic/repeatable for fixed Kdot.
+
+**Interpretation:** native archived lapse profiles already lie extremely close to a self-consistent target/lapse map state under their own native targets (alpha residuals ~(10^{-12}) R160 and ~(10^{-11}) R80). The map did not contract to the requested (10^{-13}) threshold, but the alpha updates are microscopic relative to the original cross-domain alpha difference (~(3.57\times10^{-4})). The meaningful discrepancy is not a same-slice elliptic solver instability. Rather, the coupled target functional supports at least two near-fixed-point candidates in the t=0 archive (native R80 target and R160 target/lapse profile). This is a working numerical observation; the same-domain two-seed test below is designed to check coexistence directly.
+
+## 12. Immediate follow-up: two lapse seeds on the identical R80 target/lapse map
+
+The first iteration study only started R80 from its native archived alpha and R160 from its native archived alpha. Since the alpha-only transplant indicated that R160 alpha also produces the R160 target under the R80 functional, the next run tests **both seeds on the identical R80 grid, spatial geometry, scalar/matter state, and outer-alpha boundary**:
+- seed A: archived native R80 alpha;
+- seed B: archived R160 alpha restricted to the shared R80 cells;
+- all non-alpha R80 fields fixed for both;
+- same undamped production map (\alpha\to\dot K[\alpha]\to\mathrm{solve\_cmc\_lapse});
+- the existing fixed-target repeatability controls remain.
+
+Workflow run [38209561182](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38209561182) was queued at the last check. The code change is [commit 0f7706811df5a9d47cf36ee11c7091e94b79f515](https://github.com/miahpenn/0-Cosmos-engine/commit/0f7706811df5a9d47cf36ee11c7091e94b79f515), and the gated workflow trigger commit is [ec10741991358a4bb87048ec7e050a03f1defcdf](https://github.com/miahpenn/0-Cosmos-engine/commit/ec10741991358a4bb87048ec7e050a03f1defcdf). If the two seeds remain distinct while each map residual stays small, this establishes direct evidence of multiple near-fixed points for the same frozen R80 map; if they converge to the same profile, that rejects the simplest multi-root interpretation. Do not add damping or tune parameters in response.
