@@ -32,7 +32,7 @@ jobs:
         run: python -m pip install -r requirements.txt
       - name: Download and verify exact archived R80/R160 profiles
         env:
-          GH_TOKEN: \${{ github.token }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           mkdir -p /tmp/r80 /tmp/r160 artifacts/r80 artifacts/r160
