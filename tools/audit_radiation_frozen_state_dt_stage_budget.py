@@ -548,7 +548,7 @@ def main():
         "frozen_input": {
             "t": float(seed.t), "tau": float(seed.tau),
             "dt_nominal_rejected": 0.03, "N": int(seed.grid.n),
-            "r_max": float(seed.grid.r_max),
+            "r_max": 80.0,
             "exact_state_arrays_restored": True,
             "cycle_history_restored_from_npz": False,
             "initial_full_sourced_constraint_witnesses": baseline,
