@@ -3,7 +3,7 @@ name: Diagnostic - CMC row radiation cone and Misner-Sharp A/B
 on:
   push:
     branches:
-      - diag/cmc-lapse-rad-ms-one-step-ab-2026-10-12
+      - fix/matter-rhs-generator-2026-10-12
     paths:
       - tools/audit_cmc_lapse_radiation_ms_one_step_ab.py
       - tools/audit_cmc_lapse_cellcenter_one_step_ab.py
@@ -14,7 +14,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: cmc-lapse-radiation-ms-one-step-ab-2026-10-12
+  group: matter-rhs-generator-radiation-ms-audit-2026-10-12
   cancel-in-progress: false
 
 jobs:
@@ -23,7 +23,7 @@ jobs:
     timeout-minutes: 40
     env:
       PYTHONUNBUFFERED: "1"
-      SOURCE_COMMIT: "9f7ebf1aab2076fe8925737591366b416427305e"
+      SOURCE_COMMIT: "d7f964657df2cb8aabe4bd30c04eaff9e65d635d"
       VENDOR_COMMIT: "d6052d605673ce9d82cdc99b0df79855fa2ea215"
     steps:
       - name: Checkout isolated diagnostic branch
