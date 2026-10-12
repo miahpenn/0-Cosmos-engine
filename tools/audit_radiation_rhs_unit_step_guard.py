@@ -31,7 +31,8 @@ from tools.audit_uniform_radial_quadrature_initial_profile import (
     candidate_uniform_initial_state,
 )
 
-SOURCE_COMMIT = "6d8b3f2790644591326df57c55908863f994cb0c"
+FROZEN_PRODUCTION_SOURCE_COMMIT = "6d8b3f2790644591326df57c55908863f994cb0c"
+CMC_CANDIDATE_SOURCE_COMMIT = "9f7ebf1aab2076fe8925737591366b416427305e"
 VENDOR_COMMIT = "d6052d605673ce9d82cdc99b0df79855fa2ea215"
 RESOLUTIONS = (160, 240, 320)
 R_MAX = 80.0
@@ -241,7 +242,8 @@ def main():
         "schema": "radiation_rhs_unit_step_guard_audit_v1",
         "status": "completed_capture",
         "diagnostic_only": True,
-        "source_commit": SOURCE_COMMIT,
+        "frozen_production_source_commit": FROZEN_PRODUCTION_SOURCE_COMMIT,
+        "cmc_candidate_source_commit": CMC_CANDIDATE_SOURCE_COMMIT,
         "vendor_commit": VENDOR_COMMIT,
         "initializer": "existing uniform fourth-order radial quadrature diagnostic",
         "cmc_row": "candidate parity-aware first-cell PDE row from isolated candidate source",
