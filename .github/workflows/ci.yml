@@ -2,7 +2,7 @@ name: "[CI] Unit and regression tests"
 
 on:
   push:
-    branches: [0star-central-clock, research/gear-kernel-integration-gates, physics/spatial-beta-lapse-source-correction, physics/spatial-beta-covariant-source-closure, diag/radiation-predictor-stage-ledger]
+    branches: [0star-central-clock, research/gear-kernel-integration-gates, physics/spatial-beta-lapse-source-correction, physics/spatial-beta-covariant-source-closure, diag/radiation-predictor-stage-ledger, diag/radiation-predictor-metric-stage-ledger-2026-10-12]
   pull_request:
     branches: [main]
 
