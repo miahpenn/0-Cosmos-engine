@@ -98,7 +98,8 @@ def main():
                                      "count":val.get("count",0),"max_abs":val.get("max_abs"),
                                      "peak_signed":val.get("peak_signed"),"peak_r":val.get("peak_r"),
                                      "rms":val.get("rms")})
-    lookup={(x["resolution"],x["time"],x["arm"]):x for x in records}
+    # Pair by scheduled checkpoint label; raw saved floats can differ by roundoff.
+    lookup={(x["resolution"],x["time_label"],x["arm"]):x for x in records}
     comparisons=[]
     for n in RESOLUTIONS:
         for t in TIMES:
