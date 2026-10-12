@@ -298,3 +298,11 @@ Because `solve_cmc_lapse` is linear for a prescribed scalar `Kdot`, reduce the c
 H(k)=\mathrm{target\_kdot}(\alpha_{solve}(k))-k,
 ]
 where (\alpha_{solve}(k)) is the production elliptic solution with `target_kdot` temporarily fixed to (k), then the native target functional is recomputed from the resulting alpha and otherwise frozen R80 state. Sample a bracket covering both native R80 and archived R160 target values (with margins), detect all sign changes, and report roots/brackets or explicitly report that no root was bracketed. This isolates actual scalar self-consistency from the near-identity Picard iteration. Restore the production `target_kdot` after each fixed-target solve, and do not edit production source, add damping, or fit any feedback coefficient.
+
+
+### Scalar closure scan launched (12 October)
+
+- Run [38209945367](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38209945367) is in progress.
+- Script commit [bc1e0a4c5bdb28f8c3e71967133f8a0923309ed4](https://github.com/miahpenn/0-Cosmos-engine/commit/bc1e0a4c5bdb28f8c3e71967133f8a0923309ed4); workflow trigger commit [ed30da8d41746cdb65a97ca9b666873dc40661b2](https://github.com/miahpenn/0-Cosmos-engine/commit/ed30da8d41746cdb65a97ca9b666873dc40661b2).
+- Expected artifact: `cmc-target-lapse-scalar-closure-scan`.
+- It scans 121 trial Kdot values from the native R80 target minus (10^{-6}) through archived R160 target plus (10^{-6}). For each trial it temporarily fixes the target, solves the production lapse equation, restores the native target callback, and measures (H(k)=\mathrm{target}(\alpha_{solve}(k))-k). This tests sign changes/root brackets without Picard iteration. The diagnostic is frozen-state only; no source equation is changed.
