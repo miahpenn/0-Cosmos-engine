@@ -1,0 +1,62 @@
+name: Diagnostic - R80 trajectory with archived R160 CMC target
+
+on:
+  push:
+    branches:
+      - "diag/independent-metric-ricci-audit"
+    paths:
+      - "diagnostics/curvature_consistency/cmc-r80-r160-kdot-counterfactual.py"
+      - ".github/workflows/cmc-r80-r160-kdot-counterfactual.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  r160-target-cmc-r80:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[cmc-r80-r160-kdot-fullrun]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    steps:
+      - name: Checkout diagnostic branch and pinned vendor
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Download and verify archived R80 matter-boundary and R160 full-domain Kdot histories
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/r80 /tmp/r160 artifacts/r80 artifacts/r160
+          curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/miahpenn/0-Cosmos-engine/actions/artifacts/11706797173/zip" -o /tmp/r80/artifact.zip
+          curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/miahpenn/0-Cosmos-engine/actions/artifacts/11694568292/zip" -o /tmp/r160/artifact.zip
+          echo "8b118d1f81e01f2a5d291d160b8bac42abc6a11051d8453efd9c19d0826d6d8b  /tmp/r80/artifact.zip" | sha256sum -c -
+          echo "04949c7e0332c495385f6afef231b54270225892b1d124f2c19973c7d5b4872d  /tmp/r160/artifact.zip" | sha256sum -c -
+          unzip -q /tmp/r80/artifact.zip -d artifacts/r80
+          unzip -q /tmp/r160/artifact.zip -d artifacts/r160
+          find artifacts/r80 -type f -name 'rmax080_N160_production_full_state_profiles.jsonl' -print -quit > /tmp/r80/path.txt
+          find artifacts/r160 -type f -name 'frozen_state_crop_profiles.jsonl' -print -quit > /tmp/r160/path.txt
+          test -s /tmp/r80/path.txt
+          test -s /tmp/r160/path.txt
+      - name: Run one full R80 evolution with the interpolated R160 CMC target
+        run: |
+          python diagnostics/curvature_consistency/cmc-r80-r160-kdot-counterfactual.py \
+            "$(cat /tmp/r80/path.txt)" "$(cat /tmp/r160/path.txt)"
+      - name: Upload target-forced trajectory and comparison
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cmc-r80-r160-kdot-counterfactual
+          path: runs/cmc-r80-r160-kdot-counterfactual/
+          if-no-files-found: warn
+          retention-days: 90
