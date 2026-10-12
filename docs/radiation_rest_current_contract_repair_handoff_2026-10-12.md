@@ -3,7 +3,7 @@
 **Date:** 12 October 2026  
 **Status:** isolated repair candidate; not merged, not production-admitted.  
 **Branch:** `fix/radiation-rest-current-channel-2026-10-12`  
-**Base:** PR #10 radiation RHS/admissibility repair candidate `5a5a9657e5d0e45c899addd5851ab2bd8db1cfe0`.
+**Current stacked base:** draft PR #10 head `6f6fd9d81af739cacce16fcd428bdfeac996e343`. The original implementation/first passing repair gate used PR #10 base commit `5a5a9657e5d0e45c899addd5851ab2bd8db1cfe0`; this branch has since been rebased onto the latest PR #10 head.
 
 ## Admitted diagnostic evidence
 
@@ -59,3 +59,10 @@ This candidate remains **stacked on draft PR #10**, not promoted to main. The di
 The candidate gate passed at tested head `b9185aa160adaceb5917a9162892e466945ccbd2`: 3 focused rest-current tests, 4 radiation RHS/admissibility tests and 29 full-suite tests passed. The code candidate is now draft stacked [PR #11](https://github.com/miahpenn/0-Cosmos-engine/pull/11), with base [PR #10](https://github.com/miahpenn/0-Cosmos-engine/pull/10). No merge was made. The later report-only branch commit does not change the source or test files covered by that run.
 
 The main-branch checkpoint writer currently serializes `radiation_rest`; the separate A/B confirms the generic path can put the spurious rest drift into that saved field. Radiation-specific recovery and stress-energy projection continue to use E/S. Fixing the species dispatch therefore preserves an existing state representation contract in runtime state and checkpoint output without changing E/S dynamics.
+
+
+## Stacked-base revalidation status — 12 October 2026
+
+PR #10 advanced after the original passing PR #11 repair gate, briefly making PR #11 non-mergeable. The rest-current branch has been re-applied onto latest PR #10 head `6f6fd9d81af739cacce16fcd428bdfeac996e343` at commit `ec57b533ba5f8ee1b679ae854c8f89494d66f666`. GitHub now reports [draft PR #11](https://github.com/miahpenn/0-Cosmos-engine/pull/11) mergeable against that base. The new stacked gate [38318631134](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38318631134) is queued/running for the rebased head; the prior pass [38317961532](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38317961532) proves the pre-rebase source candidate only. Do not call the rebased stack fully revalidated until run 38318631134 succeeds.
+
+No main or physics change was made. The minimal source diff and existing regressions remain the same; main is still `2035acc1210db18da0cededea18750b7ed813260`.
