@@ -3,11 +3,11 @@
 **Date:** 12 October 2026  
 **Status:** isolated repair candidate; not merged, not production-admitted.  
 **Branch:** `fix/radiation-rest-current-channel-2026-10-12`  
-**Current stacked base:** draft PR #10 head `6f6fd9d81af739cacce16fcd428bdfeac996e343`. The rest-current code was re-applied onto this parent and revalidated below.
+**Current stacked base:** draft PR #10 head `6f6fd9d81af739cacce16fcd428bdfeac996e343`. The rest-current code was reapplied on this parent and revalidated below.
 
 ## Admitted diagnostic evidence
 
-Diagnostic run [38317797540](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38317797540) completed successfully on isolated audit branch `diag/radiation-rest-current-channel-audit-2026-10-12`. It verified the pinned vendor, compiled the audit/tests, passed 1 radiation-helper test, 4 RHS-admissibility tests, and **27 tests from the `tests/` subtree** before completing four one-step arms (generic vs radiation-specific dispatch at N=80/160). The `python -m pytest -q tests` command is not the whole-repository suite; the distinction is made explicit here.
+Diagnostic run [38317797540](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38317797540) completed successfully on isolated audit branch `diag/radiation-rest-current-channel-audit-2026-10-12`. It verified the pinned vendor, compiled the audit/tests, passed 1 radiation-helper test, 4 RHS-admissibility tests, and **27 tests from the `tests/` subtree** before completing four one-step arms (generic vs radiation-specific dispatch at N=80/160). The `python -m pytest -q tests` command is not the whole-repository suite.
 
 - Artifact [11777312270 — radiation-rest-current-channel-audit](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38317797540/artifacts/11777312270).
 - Artifact ZIP SHA-256: `e34c99e6b575222f0f8ce5c134f9ac2bdb9a958ece0dc235f593a8a63e38e090`.
@@ -27,36 +27,39 @@ The added regression `tests/test_radiation_rest_current_contract.py` checks:
 2. the actual radiation HLL dispatch keeps the first flux component exactly zero for moving left/right states, while the generic dispatch produces a nonzero first component;
 3. the real production kernel step preserves an exact-zero radiation rest slot at N=80 and N=160 and still passes the existing E≥|S| state validator.
 
-## Guardrails
+## Regression and CI evidence
 
-- No clamp/floor, source, damping, limiter, radiation inequality change, or new coupling law.
-- The late-time corrected-rate N=80 cone crossing remains unresolved and must not be attributed to this rest channel based on these data.
-- Misner–Sharp balance remains untested by this one-step rest-current audit.
+### Previous gate (subtree only)
 
-## Dedicated repair CI history
-
-The original branch gate [38317961532](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38317961532) passed at code head `b9185aa160adaceb5917a9162892e466945ccbd2`:
+The original candidate gate [38317961532](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38317961532) passed at code head `b9185aa160adaceb5917a9162892e466945ccbd2`:
 - focused rest-current contract tests: **3 passed**;
 - radiation RHS/admissibility tests: **4 passed**;
 - `python -m pytest -q tests`: **29 passed in the `tests/` subtree**;
 - pinned vendor verified.
-No evolution artifact was produced by this regression gate; the diagnostic A/B evidence is artifact 11777312270.
 
-## Stacked-base revalidation
+The rebase gate [38318631134](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38318631134) also passed at rebased code head `ec57b533ba5f8ee1b679ae854c8f89494d66f666`, using the same focused tests and `tests/`-subtree command. No evolution artifact is produced by this repair CI; the one-step A/B evidence remains in artifact 11777312270.
 
-PR #10 advanced after the original passing PR #11 gate, briefly making PR #11 non-mergeable. The rest-current branch was reapplied onto latest PR #10 head `6f6fd9d81af739cacce16fcd428bdfeac996e343`.
+### Repository-wide validation
 
-- Rebased source/test head: `ec57b533ba5f8ee1b679ae854c8f89494d66f666`.
-- Rebased-stack gate: [38318631134](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38318631134) succeeded; vendor pin, compile, 3 focused rest-current tests, 4 RHS/admissibility tests, and 29 tests in the `tests/` subtree passed.
-- The workflow was then upgraded from `python -m pytest -q tests` to repository-wide `python -m pytest -q`. [Run 38318740928](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38318740928) passed **3 focused rest-current tests, 4 RHS/admissibility tests, and 86 repository-wide tests**. This validates the rebased source candidate under the whole-repository suite, before the additional direct-HLL regression below.
-- A direct moving-state HLL-dispatch test was then added in test-only commit `d100d27fe94efdecbd759a53fecd5ba2560229c5`. The push-triggered full-repository workflow is run [38318805927](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38318805927); record its final outcome before declaring the latest test head validated.
-- Latest handoff edits are documentation-only; the source candidate remains unpromoted.
+The workflow was upgraded from `python -m pytest -q tests` to repository-wide `python -m pytest -q`.
 
-## Interpretation and disposition
+- Workflow commit: `85e34da02c97cb6829ece387ea917dcd6895e9f8`.
+- Run [38318740928](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38318740928): **3 rest-current tests passed, 4 RHS/admissibility tests passed, 86 repository-wide tests passed**.
+- A direct moving-state HLL-dispatch regression was added in test-only commit `d100d27fe94efdecbd759a53fecd5ba2560229c5`. It asserts the radiation-specific HLL branch returns exact-zero rest flux for nonzero opposing face velocities, while the generic species path returns a nonzero first-component flux.
+- Run [38318805927](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38318805927) passed on that source/test head: **4 focused rest-current tests passed, 4 radiation RHS/admissibility tests passed, 87 repository-wide tests passed**. Vendor pin and module/test compilation also passed.
+- The latest branch head is documentation-only commit `6c843a7f79663a348b585b234266422d1c9b17a4`; source and test files are unchanged from tested head `d100d27fe94efdecbd759a53fecd5ba2560229c5`.
 
-The representation patch preserves an existing state invariant. It does not alter radiation E/S dynamics at captured one-step precision and does not explain or resolve the separate late-time outer cone crossing. Misner–Sharp conservation remains open.
+## Guardrails and interpretation
+
+- No clamp/floor, source, damping, limiter, radiation inequality change, or new coupling law.
+- The rest-current patch preserves an existing representation invariant and does not change radiation E/S dynamics at captured one-step precision.
+- The late-time corrected-rate N=80 cone crossing remains unresolved and must not be attributed to this rest channel based on these data.
+- Misner–Sharp balance remains open.
+
+## Disposition
 
 - Draft PR #11: https://github.com/miahpenn/0-Cosmos-engine/pull/11
 - Parent draft PR #10: https://github.com/miahpenn/0-Cosmos-engine/pull/10
-- No main or physics change was made. Main remains `2035acc1210db18da0cededea18750b7ed813260`.
-- No PR has been merged. Independent code review remains outstanding.
+- PR #11 is currently mergeable against PR #10's latest head but remains draft and unmerged.
+- Main remains `2035acc1210db18da0cededea18750b7ed813260`; no main or physics change was made.
+- Independent code review remains outstanding.
