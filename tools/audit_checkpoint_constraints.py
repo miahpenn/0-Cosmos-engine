@@ -65,16 +65,34 @@ def _restore_checkpoint(path: Path, kernel):
 
     for name in GEOMETRY_FIELDS:
         setattr(state.geometry, name, np.asarray(data[name], dtype=float).copy())
-    for name in SCALAR_FIELDS:
-        setattr(state.scalars, name, np.asarray(data[name], dtype=float).copy())
+    # ScalarFields is frozen; restore it as a complete immutable record instead
+    # of mutating its dataclass fields individually.
+    from engine.scalar_system import ScalarFields
+    state.scalars = ScalarFields(
+        *(
+            np.asarray(data[name], dtype=float).copy()
+            for name in SCALAR_FIELDS
+        )
+    )
+
+    # Restore each conservative species as a new record. The matter bundle is
+    # intentionally replaceable, but preserving the embedded species objects
+    # avoids mutation assumptions about dataclass immutability.
+    from engine.matter_system import ConservedSpecies
+    from engine.v55_matter import V55MatterState
+    species = {}
     for species_name, prefix in MATTER_FIELDS.items():
-        species_state = getattr(state.matter, species_name)
-        for field_name in CONSERVED_FIELDS:
-            setattr(
-                species_state,
-                field_name,
-                np.asarray(data[f"{prefix}_{field_name}"], dtype=float).copy(),
+        species[species_name] = ConservedSpecies(
+            *(
+                np.asarray(data[f"{prefix}_{field_name}"], dtype=float).copy()
+                for field_name in CONSERVED_FIELDS
             )
+        )
+    state.matter = V55MatterState(
+        dark_matter=species["dark_matter"],
+        baryons=species["baryons"],
+        radiation=species["radiation"],
+    )
 
     state.t = float(data["t"])
     state.tau = float(data["tau"])
