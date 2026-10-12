@@ -52,6 +52,8 @@ R80's native target (\dot K) and R160's full-domain target are nearly equal init
 
 Therefore the global target contributes to lapse differences, but transplanting the target onto frozen R80 states does not reproduce the center-lapse history. Its feedback through the evolved geometry/matter must be tested.
 
+The production mechanism is explicit in `engine/cmc_gauge.py::target_kdot`: the pointwise RHS is `l2["K"] + l3["K"]), averaged with proper-volume weights (W_i=r_i^2\sqrt{a_i}b_i/X_i^3\,dr). The legacy `outer_frac` parameter is ignored. Therefore outer-region cells enter both the weighted numerator and denominator; this is a concrete code-level route by which the numerical domain changes the CMC target.
+
 ## 6. Full evolving target-history counterfactual — completed
 
 [Run 38206154450](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38206154450) completed successfully. Artifact [11727976800](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38206154450/artifacts/11727976800), ZIP SHA-256 `63835669c695f9577d0416a2aa1fb3740aef9d4a90f36aaf9b9dbb94a5783006`.
@@ -67,7 +69,7 @@ Against the earlier boundary-matched R80 trajectory using its native R80 target 
 
 ## 7. 12 October continuation: interpolation audit and full target-forced trajectory complete
 
-Detailed dated handoff: [CMC strong-D lapse / global-target handoff](../blob/78720e52f61ac5f0aa1e0c6478a4d624c8ab9db7/outputs/cmc_strongD_cmc_lapse_handoff_2026-10-12.md).
+Detailed dated handoff: [CMC strong-D lapse / global-target handoff](../blob/73e95f50331dc78505bd5ef9d32c9566f6897ef2/outputs/cmc_strongD_cmc_lapse_handoff_2026-10-12.md).
 
 The first Kdot interpolation audit attempt, [run 38206744317](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38206744317), failed before analysis with `ModuleNotFoundError: No module named 'numpy'`. This was a workflow setup failure, not a numerical finding. Dependency correction: commit [d6142ac81a4bf56905de0fae5298f8fc540f7d98](https://github.com/miahpenn/0-Cosmos-engine/commit/d6142ac81a4bf56905de0fae5298f8fc540f7d98) adds explicit NumPy installation. The corrected run [38206848868](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38206848868) succeeded and uploaded artifact [11727926565](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38206848868/artifacts/11727926565), ZIP SHA-256 `993340f756973e2a0251da03269ea37d38dd1591a0cffa45e9540148c471c39b`.
 
