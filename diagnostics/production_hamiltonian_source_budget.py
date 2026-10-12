@@ -623,18 +623,19 @@ def main() -> None:
             include_radiation=True,
         )
         summary, profile = audit_state(initial, vacuum)
-        ricci_summary, ricci_profile = ricci_budget_state(
-            initial.grid,
-            initial.geometry,
-            (
-                np.asarray(vacuum.constraints(initial.grid, initial.geometry)["hamiltonian"], dtype=float)
-                - 16.0 * math.pi * np.asarray(assemble_total_stress_energy(
-                    initial.grid, initial.geometry, initial.scalars, initial.matter
-                ).rho, dtype=float)
-            ),
-            assemble_total_stress_energy(initial.grid, initial.geometry, initial.scalars, initial.matter),
-            vacuum,
+        initial_total = assemble_total_stress_energy(
+            initial.grid, initial.geometry, initial.scalars, initial.matter
         )
+        initial_raw_constraints = vacuum.constraints(initial.grid, initial.geometry)
+        initial_h_residual = (
+            np.asarray(initial_raw_constraints["hamiltonian"], dtype=float)
+            - 16.0 * math.pi * np.asarray(initial_total.rho, dtype=float)
+        )
+        ricci_summary, ricci_profile = ricci_budget_state(
+            initial.grid, initial.geometry, initial_h_residual, initial_total, vacuum
+        )
+        if not ricci_summary["closure"]["passed"]:
+            raise ValueError(f"N={n} t=0 Ricci audit closure failed: {ricci_summary['closure']}")
         ricci_summary.update({"resolution": int(n), "t": float(initial.t), "scheduled_checkpoint_time": 0.0})
         ricci_profile.update({"resolution": int(n), "t": float(initial.t), "scheduled_checkpoint_time": 0.0})
         ricci_summaries.append(ricci_summary)
@@ -658,19 +659,22 @@ def main() -> None:
                     f"tolerance {checkpoint_time_tolerance} around scheduled t={t}"
                 )
             summary, profile = audit_state(state, vacuum)
-            ricci_summary, ricci_profile = ricci_budget_state(
-                state.grid,
-                state.geometry,
-                np.asarray(summary["hamiltonian"]["full"]["signed_value"] * np.ones(state.grid.n))
-                if False else (
-                    np.asarray(vacuum.constraints(state.grid, state.geometry)["hamiltonian"], dtype=float)
-                    - 16.0 * math.pi * np.asarray(assemble_total_stress_energy(
-                        state.grid, state.geometry, state.scalars, state.matter
-                    ).rho, dtype=float)
-                ),
-                assemble_total_stress_energy(state.grid, state.geometry, state.scalars, state.matter),
-                vacuum,
+            state_total = assemble_total_stress_energy(
+                state.grid, state.geometry, state.scalars, state.matter
             )
+            state_raw_constraints = vacuum.constraints(state.grid, state.geometry)
+            state_h_residual = (
+                np.asarray(state_raw_constraints["hamiltonian"], dtype=float)
+                - 16.0 * math.pi * np.asarray(state_total.rho, dtype=float)
+            )
+            ricci_summary, ricci_profile = ricci_budget_state(
+                state.grid, state.geometry, state_h_residual, state_total, vacuum
+            )
+            if not ricci_summary["closure"]["passed"]:
+                raise ValueError(
+                    f"N={n} t={state.t} Ricci audit closure failed: "
+                    f"{ricci_summary['closure']}"
+                )
             ricci_summary.update({
                 "resolution": int(n),
                 "t": float(state.t),
@@ -703,6 +707,7 @@ def main() -> None:
         "source_code_commit": args.source_code_sha,
         "source_campaign_summary_sha256": sha256_file(campaign_path),
         "snapshot_count": len(ricci_summaries),
+        "all_closures_passed": all(x["closure"]["passed"] for x in ricci_summaries),
         "method": "On each exact t=0 and saved N40/N60/N80 checkpoint, compare vendor R with the independent general-spherical-metric R in proper radial distance. Replace only Lambda by metric-derived Lambda on a copied geometry to split the explicit evolved-connection contribution from remaining metric-route/discretization difference. No production steps.",
         "snapshots": ricci_summaries,
     }, indent=2) + "\n")
