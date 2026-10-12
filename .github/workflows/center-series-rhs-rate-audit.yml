@@ -1,0 +1,61 @@
+name: Diagnostic - centre-series RHS rates
+
+on:
+  push:
+    branches:
+      - diag/lambda-connection-budget-2026-10-12
+    paths:
+      - tools/center_series_rhs_rate_audit.py
+      - .github/workflows/center-series-rhs-rate-audit.yml
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: center-series-rhs-rate-audit
+  cancel-in-progress: true
+
+jobs:
+  centre-series-rates:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PYTHONUNBUFFERED: "1"
+    steps:
+      - name: Checkout diagnostic code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Checkout exact production source and pinned vendor
+        uses: actions/checkout@v4
+        with:
+          ref: 6d8b3f2790644591326df57c55908863f994cb0c
+          path: source
+          submodules: recursive
+          fetch-depth: 0
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install exact production dependencies
+        run: python -m pip install -r source/requirements.txt
+      - name: Download N40/N60/N80/N120 t=2.16 checkpoints
+        uses: actions/download-artifact@v4
+        with:
+          name: lambda-spatial-refinement-t2p16
+          run-id: 38212879394
+          github-token: ${{ github.token }}
+          path: spatial-artifact
+      - name: Compile diagnostic
+        run: python -m py_compile tools/center_series_rhs_rate_audit.py
+      - name: Evaluate regularity-ratio rates from production RHS
+        run: python tools/center_series_rhs_rate_audit.py
+      - name: Upload centre-series RHS rates
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: center-series-rhs-rate-audit
+          path: results/center-series-rhs-rate-audit/
+          if-no-files-found: warn
+          retention-days: 90
