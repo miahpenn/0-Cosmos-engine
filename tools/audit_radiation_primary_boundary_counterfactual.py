@@ -342,7 +342,7 @@ def main() -> int:
                 "Aa_used_after_counterfactual_override": applied,
                 "suppressed": False,
             }
-            if ctx["suppress_primary"] and call_idx == 0:
+            if is_target and ctx["suppress_primary"] and call_idx == 0:
                 geometry.Aa[OUTER_INDEX] = before
                 record["Aa_used_after_counterfactual_override"] = float(
                     geometry.Aa[OUTER_INDEX]
@@ -420,8 +420,8 @@ def main() -> int:
         # We need both accepted snapshots. The two-step helper only returns t=46.98,
         # so a separately captured t=46.95 comes from history-independent replay.
         # Re-run the first step alone to retain the midpoint without changing the seed.
-        ctx["run_mode"] = "actual_midpoint"
-        actual_mid = kernel.step(kernel, _clone_state(seed), dt)
+        ctx["run_mode"] = "actual"
+        actual_mid = kernel.step(_clone_state(seed), dt)
         # The counterfactual replay is independent and changes only the first
         # primary-predictor boundary output on the frozen target step.
         ctx["run_mode"] = "no_primary_boundary"
@@ -487,7 +487,7 @@ def main() -> int:
         return result
     kernel_cls._apply_outer_light_boundary = staticmethod(midpoint_boundary)
     try:
-        control_mid = kernel.step(kernel, _clone_state(seed), dt)
+        control_mid = kernel.step(_clone_state(seed), dt)
     finally:
         kernel_cls._apply_outer_light_boundary = staticmethod(old_boundary)
     accepted_control["t46_95"] = _state_summary(kernel, control_mid)
