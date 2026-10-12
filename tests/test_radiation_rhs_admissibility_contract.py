@@ -8,6 +8,7 @@ from engine.matter_rhs import species_rhs
 from engine.matter_system import (
     Species,
     _metric_arrays,
+    evolve_species,
     geometry_metric_derivatives,
     validate_species_admissibility,
 )
@@ -47,6 +48,23 @@ def test_radiation_rhs_extraction_does_not_guard_unit_step_intermediate():
     validate_species_admissibility(
         metric, state.matter.radiation, Species.RADIATION, stage="test-initial"
     )
+
+
+def test_direct_update_keeps_admissibility_guard_enabled_by_default():
+    """The guard remains active for a direct, actual update API call."""
+    _, state, metric, _ = _frozen_radiation_rhs(160)
+    derivatives = geometry_metric_derivatives(
+        metric,
+        lambda values, parity: V55ProductionKernel()._d1(state.grid, values, parity),
+    )
+    with pytest.raises(ValueError, match="radiation state inadmissible"):
+        evolve_species(
+            metric,
+            derivatives,
+            state.matter.radiation,
+            Species.RADIATION,
+            1.0,
+        )
 
 
 def test_real_state_validator_enforces_existing_radiation_bound():
