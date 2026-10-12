@@ -134,3 +134,6 @@ def main():
     (OUT/"report.json").write_text(json.dumps(report,indent=2,sort_keys=True,allow_nan=False)+"\n",encoding="utf-8")
     print("CMC_LAPSE_UNIFORM_QUADRATURE_OPERATOR_COMPARE "+json.dumps({"status":report["status"],"summary":report["summary"],"rows":[{"N":x["N"],"closures":x["closures"],"even_series":x["even_series"],"first_cells":x["centre_cells"][:3]} for x in rows]},sort_keys=True),flush=True)
 if __name__=="__main__": main()
+
+# Re-trigger after source-provenance gate was narrowed to permit the documented
+# research-only engine/discrete_consistent_initial.py helper.
