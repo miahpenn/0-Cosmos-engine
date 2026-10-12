@@ -68,3 +68,30 @@ This trace version did not invoke the completed-state trapezoidal budget writer 
 4. Do not merge diagnostic branches or claim scientific production admission from this run. `main` and the GEAR archive remain unchanged.
 
 The run completed as an **expected failure capture** with the full repository regression suite passing before the trace. That status means the diagnostic reproduced and recorded the numerical failure, not that the production trajectory passed.
+
+
+---
+
+## Follow-up accounting-complete run — source-separated completed-state budget
+
+**Run:** [38321456272](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38321456272) — completed successfully as an expected radiation-failure capture after the full repository suite passed.  
+**Artifact:** [11779635426 — boundary-cmc-radiation-audit](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38321456272/artifacts/11779635426)  
+**Artifact ZIP SHA-256:** `448f8184571a7d0d0e4603e53531ef3148f07c0b565acfa250e31a230a8377d0`  
+**Trace JSON SHA-256:** `06138c2b31db6d6bd2f7807a4cdb655d535eb48ec392c22aaae897ff855391ce`  
+**Summary JSON SHA-256:** `64638067e3e30d6d379e6e0a4b38cbe19b58905981b85a0cf8d53da6a5cf67ec`  
+**Instrumentation commit:** `bc7cf1ab052644457d7c3a1b5fd404d736605ec0`; same source/vendor baseline as above.
+
+This run restores the completed-state budget call that was absent from the earlier boundary-history run. It captured:
+- 65 source-separated explicit-predictor cone-margin budgets;
+- 66 accepted-to-completed trapezoidal budgets;
+- 66 geometry predictor budgets;
+- zero instrumentation errors;
+- zero missing source-capture cells in the completed-state budgets;
+- maximum completed-state margin-budget closure error (5.421010862427522\times10^{-20});
+- exact (zero recorded) predictor RHS reconstruction errors for energy and radial momentum, exact (zero recorded) completed trapezoidal reconstruction errors, zero recorded explicit-metric identity closure error, and zero recorded predictor cone-budget closure error.
+
+At the final completed candidate (t=47.130000000001026), cell band (i=75\ldots79), the saved accepted-state (C) at (i=79) is (2.806443726585477\times10^{-7}). The accepted-to-completed margin budget remains consistent: matter flux and source increments increase the margin on the accepted metric, while the accepted-to-RHS1 predictor metric change is negative. The next attempted explicit predictor fails at (t=47.16000000000103), (i=79, r=79.5), with (|S|/E=1.0004012501699084).
+
+The same matched preceding-boundary history counterfactual reproduces the result: resetting only the accepted outer (A_a[-1]) to its immediate pre-boundary value still fails at (i=79, r=79.5), with (|S|/E=1.0004012440766743). This is an insignificant change to the threshold excess and does not rescue admissibility. The exception text establishes the explicit-predictor guard as the failed stage; the counterfactual object's `failure_stage` field remains a stale internal label (`accepted_start_CMC_lapse`) on this tested workflow commit. No inference is drawn from that metadata field.
+
+This follow-up closes the previous diagnostic's missing completed-state accounting. It does not promote the boundary, establish covariant conservation, or admit the trajectory. A smaller-(dt) one-step comparison from the saved accepted state is now the next bounded discriminator for the predictor-stage failure; any successful smaller step remains a diagnostic-only observation, not permission to add an adaptive production policy automatically.
