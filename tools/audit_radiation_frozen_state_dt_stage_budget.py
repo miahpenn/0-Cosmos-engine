@@ -68,11 +68,10 @@ def load_state(npz_path: Path, include_radiation: bool = True):
         if key not in data:
             raise RuntimeError(f"accepted-state snapshot lacks {key}")
         setattr(state.geometry, name, np.asarray(data[key], dtype=float).copy())
-    for name in SCALAR_FIELDS:
-        setattr(
-            state.scalars, name,
-            np.asarray(data[f"accepted_scalar_{name}"], dtype=float).copy(),
-        )
+    state.scalars = ScalarFields(*(
+        np.asarray(data[f"accepted_scalar_{name}"], dtype=float).copy()
+        for name in SCALAR_FIELDS
+    ))
     for species_name in ("dark_matter", "baryons", "radiation"):
         species = getattr(state.matter, species_name)
         for field in SPECIES_FIELDS:
