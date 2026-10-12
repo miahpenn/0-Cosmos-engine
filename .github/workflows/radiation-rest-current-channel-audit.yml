@@ -1,0 +1,68 @@
+name: Radiation rest-current channel audit
+
+on:
+  push:
+    branches:
+      - diag/radiation-rest-current-channel-audit-2026-10-12
+    paths:
+      - engine/matter_system.py
+      - engine/production_kernel.py
+      - tests/test_radiation_rest_current_channel.py
+      - tools/diag_radiation_rest_current_audit.py
+      - .github/workflows/radiation-rest-current-channel-audit.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: radiation-rest-current-channel-audit
+  cancel-in-progress: false
+
+jobs:
+  one-step-channel-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout diagnostic branch and pinned vendor
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install requirements
+        run: python -m pip install -r requirements.txt
+      - name: Verify vendor pin
+        run: test "$(git rev-parse HEAD:vendor/bb-palatini-unified-r0)" = "d6052d605673ce9d82cdc99b0df79855fa2ea215"
+      - name: Compile audit and tests
+        run: python -m py_compile tools/diag_radiation_rest_current_audit.py tests/test_radiation_rest_current_channel.py
+      - name: Radiation-specific helper checks
+        run: python -m pytest -q tests/test_radiation_rest_current_channel.py
+      - name: Existing radiation RHS admissibility gates
+        run: python -m pytest -q tests/test_radiation_rhs_admissibility_contract.py
+      - name: Full repository test suite
+        run: python -m pytest -q tests
+      - name: Run generic-versus-radiation-specific one-step audit
+        run: python tools/diag_radiation_rest_current_audit.py
+      - name: Save JSON hash
+        if: always()
+        run: |
+          if [ -f artifacts/radiation_rest_current_channel_audit.json ]; then
+            sha256sum artifacts/radiation_rest_current_channel_audit.json | tee artifacts/radiation_rest_current_channel_audit.sha256
+          else
+            echo "No audit JSON; inspect job logs." > artifacts-run-status.txt
+          fi
+      - name: Upload audit even if one-step admission fails
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: radiation-rest-current-channel-audit
+          path: |
+            artifacts/radiation_rest_current_channel_audit.json
+            artifacts/radiation_rest_current_channel_audit.sha256
+            artifacts-run-status.txt
+          if-no-files-found: warn
+          retention-days: 90
