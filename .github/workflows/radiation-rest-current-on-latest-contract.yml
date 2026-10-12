@@ -1,0 +1,45 @@
+name: Radiation rest-current representation repair gate
+
+on:
+  push:
+    branches:
+      - diag/review-rest-current-on-latest-contract-2026-10-12
+    paths:
+      - engine/matter_system.py
+      - tests/test_radiation_rest_current_contract.py
+      - .github/workflows/radiation-rest-current-on-latest-contract.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: radiation-rest-current-on-latest-contract
+  cancel-in-progress: false
+
+jobs:
+  regression-and-one-step:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout candidate and pinned vendor
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install requirements
+        run: python -m pip install -r requirements.txt
+      - name: Verify pinned vendor
+        run: test "$(git rev-parse HEAD:vendor/bb-palatini-unified-r0)" = "d6052d605673ce9d82cdc99b0df79855fa2ea215"
+      - name: Compile source and focused tests
+        run: python -m py_compile engine/matter_system.py tests/test_radiation_rest_current_contract.py
+      - name: Run rest-current invariant regression
+        run: python -m pytest -q tests/test_radiation_rest_current_contract.py
+      - name: Preserve actual-state cone-guard regressions
+        run: python -m pytest -q tests/test_radiation_rhs_admissibility_contract.py
+      - name: Full repository regression suite
+        run: python -m pytest -q tests
