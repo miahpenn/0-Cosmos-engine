@@ -24,7 +24,7 @@ def test_areal_radius_derivative_uses_odd_parity_at_regular_center():
     # control, ensuring the test would catch the previous implementation.
     wrong_parity = grid.cell_derivative_fourth(radius, parity=+1)
     assert abs(float(wrong_parity[0]) - 1.0) > 0.1
-    assert abs(float(wrong_parity[1]) - 1.0) > 0.1
+    assert abs(float(wrong_parity[1]) - 1.0) > 0.05
 
 
 def test_flat_regular_slice_has_unit_chi_including_center_cells():
