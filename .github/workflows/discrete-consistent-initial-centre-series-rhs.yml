@@ -1,0 +1,64 @@
+name: Diagnostic - discrete-consistent initial centre-series RHS rates
+
+on:
+  push:
+    branches:
+      - diag/discrete-consistent-initial-production-test-2026-10-12
+    paths:
+      - tools/audit_discrete_consistent_initial_centre_series_rhs.py
+      - .github/workflows/discrete-consistent-initial-centre-series-rhs.yml
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: discrete-consistent-initial-centre-series-rhs-2026-10-12
+  cancel-in-progress: false
+
+jobs:
+  frozen-centre-series-rates:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      PYTHONPATH: .
+      PYTHONUNBUFFERED: "1"
+
+    steps:
+      - name: Checkout diagnostic branch and pinned numerical kernel
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install production dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Download matched production A/B checkpoints through t=2.16
+        uses: actions/download-artifact@v4
+        with:
+          name: discrete-consistent-initial-production-ab-t2p16
+          repository: miahpenn/0-Cosmos-engine
+          run-id: 38284401548
+          github-token: ${{ github.token }}
+          path: production-ab-artifact
+
+      - name: Compile the frozen-state centre-series audit
+        run: python -m py_compile tools/audit_discrete_consistent_initial_centre_series_rhs.py
+
+      - name: Measure production RHS rates of centre-series ratios
+        run: python tools/audit_discrete_consistent_initial_centre_series_rhs.py
+
+      - name: Upload centre-series value and RHS-rate witnesses
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: discrete-consistent-initial-centre-series-rhs
+          path: results/discrete-consistent-initial-centre-series-rhs/
+          if-no-files-found: warn
+          retention-days: 90
