@@ -1,0 +1,60 @@
+name: Diagnostic - manufactured momentum operator identity
+
+on:
+  push:
+    branches:
+      - diag/manufactured-momentum-operator-identity-2026-10-12
+    paths:
+      - tools/manufactured_momentum_operator_identity.py
+      - .github/workflows/manufactured-momentum-operator-identity.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: manufactured-momentum-operator-identity
+  cancel-in-progress: true
+
+jobs:
+  operator-identity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PYTHONUNBUFFERED: "1"
+
+    steps:
+      - name: Checkout diagnostic branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Checkout exact production source and pinned vendor
+        uses: actions/checkout@v4
+        with:
+          ref: 6d8b3f2790644591326df57c55908863f994cb0c
+          path: source
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install exact production dependencies
+        run: python -m pip install -r source/requirements.txt
+
+      - name: Compile diagnostic
+        run: python -m py_compile tools/manufactured_momentum_operator_identity.py
+
+      - name: Compare signed production terms with analytic profiles
+        run: python tools/manufactured_momentum_operator_identity.py
+
+      - name: Upload diagnostic report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: manufactured-momentum-operator-identity
+          path: results/manufactured-momentum-operator-identity/
+          if-no-files-found: warn
+          retention-days: 90
