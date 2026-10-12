@@ -331,7 +331,6 @@ def main():
             "R160_native_alpha_seed": self160,
         },
         "same_R80_operator_two_seed_comparison": two_seed_same_operator,
-        },
         "fixed_target_control": {
             "target_source": "archived R160 full-domain target on the initial slice",
             "R80": fixed80,
