@@ -181,6 +181,45 @@ There is an additional equation-level limit to this diagnostic: the implemented 
 
 This is a gauge/constraint-compatibility gate, not a license to replace the boundary law. The archived GEAR blueprint and unified V5.5 architecture require one evolved spatial metric and total stress tensor, but they do not make the vendor's exact (P_-) target a physical law. Keep the following checks distinct: (1) residual closure of the coded reconstruction, (2) compatibility with the CMC outer normalization and current zero-shift evolution, (3) full incoming characteristic/constraint control, and (4) impact on radiation-cone and Hamiltonian/momentum/connection budgets. Only (1) has been demonstrated to roundoff here.
 
+## Historical-source boundary correction measured from the admitted Aa/K stage ledger
+
+The separate [Aa/K source-stage ledger run 38311614754](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38311614754) has completed and passed its fail-closed checks. Its [artifact 11774209967](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38311614754/artifacts/11774209967) has ZIP SHA-256 `989b51ffec4c9153d228ce3e8f80ef38873337985b3a4271ef904d2c1ff6b30b`; internal `stage_ledger.json` SHA-256 `2c56e08e0331b7b06dcf7017f53ffb47413eb647658c6a17bd075a8f902a7bb6`; `stage_ledger_summary.json` SHA-256 `1f2a749a6b8cb131a0d6d626d0f9f40380cad15501813911c3d744be306284fa`. The source/vendor pins passed, the complete test suite passed, all 100 captured steps had the required raw RHS/Euler/projection/first-CMC stages for cells 75–79, the signed L3 total−vacuum split closed exactly, and the completed-to-next-accepted handoff closed to (2.22\times10^{-16}). There were no stage or source-admission errors.
+
+**Source qualification:** this recorder is frozen to historical production source `9eed1cf95c52f001c2b87afbbe6da37faa56d50e`, with vendor `d6052d605673ce9d82cdc99b0df79855fa2ea215`. It is not an A/B against the corrected rate-extraction source `1c63090d4f42396f899421a2379f70320689d5ad`. The terminal event is close in time and state but the artifact's terminal τ is `22.016115394562938` and its radiation conservatives differ slightly. Retain all exact figures under the historical-source provenance.
+
+### Isolated measurement of the primary-predictor outer boundary correction
+
+For each completed step, the saved accepted-state stage and explicit-predictor stage contain the exact (A_a) RHS pieces used by the production PIRK update. The pre-boundary primary predictor at cell (i) can therefore be reconstructed as
+
+[
+A_{a,\mathrm{pre}}^{(1)}=A_{a,0}+\Delta t\left(\tfrac12 L_{2,0}^{A_a}+\tfrac12 L_{2,\mathrm{pred}}^{A_a}+L_{3,0}^{A_a}\right).
+]
+
+At the outer cell this reconstruction differs from the captured post-boundary primary-predictor (A_a) only by the incoming-(P_-) boundary assignment; the centre-regularity projection does not alter (A_a) there. I evaluated all 99 completed primary-predictor stages in the admitted 100-step window.
+
+| Accepted coordinate time | Reconstructed (A_a) before primary boundary | Captured (A_a) after primary boundary | Boundary-stage Δ(A_a) |
+|---:|---:|---:|---:|
+| 46.680 | 0.126391027654 | 0.126416414193 | +2.53865387e−5 |
+| 46.710 | 0.129578770133 | 0.129607274080 | +2.85039467e−5 |
+| 46.740 | 0.132840238989 | 0.132872035203 | +3.17962139e−5 |
+| 46.770 | 0.136175182709 | 0.136210430679 | +3.52479700e−5 |
+| 46.800 | 0.139583169121 | 0.139622003056 | +3.88339350e−5 |
+| 46.830 | 0.143063575059 | 0.143106101470 | +4.25264105e−5 |
+| 46.860 | 0.146615593583 | 0.146661885930 | +4.62923477e−5 |
+| 46.890 | 0.150238229133 | 0.150288318479 | +5.00893457e−5 |
+| 46.920 | 0.153930296253 | 0.153984160929 | +5.38646760e−5 |
+| 46.950 | 0.157690420189 | 0.157747974203 | +5.75540139e−5 |
+
+Across the five captured cells, the algebraically reconstructed correction is exactly zero at (i=75,76,77,78), and all of the boundary correction sits at the imposed outer point (i=79), as expected for the existing boundary routine that assigns only (A_a[-1]). Over the listed ten steps the correction grows by a factor of about 2.27. At (t=46.95), Δ(A_a=5.7554\times10^{-5}), about (0.0365\%) of post-boundary (A_a), and about (1.6\%) of the step's unconditioned primary-predictor (A_a) increment. This is not numerically zero, and it demonstrates a growing boundary-conditioned contribution in the same late window where the radiation cone is eroding.
+
+### What this narrows—and what it still cannot prove
+
+This establishes that the outer (P_-) rule materially corrects the outer (A_a) primary predictor and that the correction grows smoothly near the terminal failure. Because (A_a) feeds (dot a=-2\alpha a A_a) at zero shift and also enters the subsequent primary RHS, this is a concrete pathway for a previous boundary condition to affect future metric updates. It strengthens the case for a **boundary/CMC/geometry compatibility audit** rather than simply clearing the boundary because its spatial residual is near roundoff.
+
+It does **not** establish that the boundary correction is wrong, that it causes the radiation-cone crossing, or that the corrected-rate run has the same correction magnitudes. The rate-fixed trace does not contain paired pre-/post-boundary (A_a) on the same accepted snapshots; the historical ledger's completed-state boundary delta is not independently reconstructable from its current saved final-L2 recorder field, which was overwritten by a later diagnostic invocation. I do not substitute that ambiguous value for a measured final-boundary delta. This report therefore admits the **primary-predictor** correction only, and leaves its transfer to the corrected-rate baseline open.
+
+The next discriminating step is offline-first: reconcile the existing P-minus formula with the production CMC outer normalization and reconstruct the characteristic/constraint budget using the archived source rows. If a matched corrected-rate boundary attribution is later deemed essential, instrument the same pre/post boundary (A_a) directly at the production call site and pin all physics/runtime source blobs unchanged. Do not alter the target, add an incoming-wave law, or launch another trajectory until that analysis supplies a specific preregistered question.
+
 ## What this does and does not establish
 
 **Established for the captured frozen configuration:**
