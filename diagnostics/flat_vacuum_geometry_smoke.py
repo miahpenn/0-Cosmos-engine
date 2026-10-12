@@ -1,4 +1,4 @@
-"""Known-physics check: production geometry operators on exact flat vacuum.
+"""Known-physics check: [flat-vacuum-geometry-smoke] production geometry operators on exact flat vacuum.
 
 This probes the production adapter's geometry RHS blocks, not the full
 PIRK stepper. Exact flat spherical BSSN data with all stress-energy zero must
@@ -71,7 +71,7 @@ def main():
     }
     OUT.mkdir(parents=True, exist_ok=True)
     (OUT / "flat_vacuum_geometry_smoke.json").write_text(
-        json.dumps(payload, indent=2, sort_keys=True) + "\\n"
+        json.dumps(payload, indent=2, sort_keys=True) + "\n"
     )
     print(json.dumps(payload, indent=2, sort_keys=True), flush=True)
     if not passed:
