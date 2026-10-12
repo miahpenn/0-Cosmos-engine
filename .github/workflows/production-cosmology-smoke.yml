@@ -1,0 +1,38 @@
+name: Diagnostic - production homogeneous cosmology smoke
+
+on:
+  push:
+    branches:
+      - "diag/bond-sweep-self-consistent"
+    paths:
+      - "diagnostics/production_cosmology_smoke.py"
+      - ".github/workflows/production-cosmology-smoke.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  production-cosmology:
+    if: contains(github.event.head_commit.message, '[production-cosmology-smoke]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout engine and pinned numerical kernel
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Run full production homogeneous cosmology smoke
+        run: python diagnostics/production_cosmology_smoke.py
+      - name: Upload diagnostic result
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-cosmology-smoke
+          path: runs/production_cosmology_smoke/production_cosmology_smoke.json
+          if-no-files-found: error
