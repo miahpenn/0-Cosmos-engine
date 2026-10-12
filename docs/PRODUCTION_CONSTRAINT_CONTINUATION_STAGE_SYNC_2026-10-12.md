@@ -112,3 +112,30 @@ The bounded next test is a single normal production step on identical inputs, wi
 ## Research comparator
 
 Montero & Cordero-Carrión’s spherical BSSN/PIRK implementation uses cell-centered radial grids and careful origin treatment while demonstrating regular evolutions without a separate origin-regularization algorithm ([Phys. Rev. D 85, 124037 (2012)](https://doi.org/10.1103/PhysRevD.85.124037)). The paper supports treating parity and center-row closure as structural parts of the discretization; it does not directly validate the CMC row or matter-coupled split used here. The current counterfactual is therefore a useful interface test, not an imported repair.
+
+
+### One-step result for the even-parity center-row alternative
+
+Run: [38280666579](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38280666579), artifact \`cmc-center-even-lapse-one-step\`.  
+Tool: \`tools/test_cmc_center_even_lapse_one_step.py\`. One ordinary production step was compared from identical states, using the same original H/M/\(C_\Lambda\) diagnostics.
+
+The alternative does **not** improve the complete constraint set. Across all six states (N=60/80 initial; N=80/120 at \(t=2.16\); N=60/80 at \(t\approx10\)), the admitted-inner momentum residual norm rises by approximately \(3.0\times10^{-6}\) to \(3.8\times10^{-6}\) in max norm after one step. The RMS increase is roughly \(1.4\times10^{-6}\) to \(2.7\times10^{-6}\). Connection changes are small but mixed; the Hamiltonian norm improves slightly, by roughly \(2\times10^{-7}\) to \(3\times10^{-7}\) RMS. At \(t=0\), the alternative moves an initially near-constraint-satisfied M residual farther from zero at admitted cells.
+
+Representative admitted-inner changes (alternative minus baseline, max norm):
+| Frozen input | \(\Delta\max |H|\) | \(\Delta\max |M|\) | \(\Delta\max |C_\Lambda|\) |
+|---|---:|---:|---:|
+| N80, \(t=0\) | \(-5.16\times10^{-7}\) | \(+3.79\times10^{-6}\) | \(+1.16\times10^{-7}\) |
+| N80, \(t=2.16\) | \(-3.98\times10^{-7}\) | \(+3.03\times10^{-6}\) | \(-8.88\times10^{-8}\) |
+| N120, \(t=2.16\) | \(-4.08\times10^{-7}\) | \(+3.12\times10^{-6}\) | \(+5.98\times10^{-8}\) |
+| N80, \(t\approx10\) | \(-4.27\times10^{-7}\) | \(+3.53\times10^{-6}\) | \(+1.02\times10^{-7}\) |
+
+The center-even row correctly reduces the algebraic first-cell lapse/K-RHS mismatch, but it is not sufficient as a production change and does not improve momentum propagation. Preserve it as a diagnostic finding only.
+
+### Next discriminator: the full CMC operator/order compatibility
+
+Workflow started: [CMC production-matched one-step counterfactual](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38280957254), tool \`tools/test_cmc_production_matched_one_step.py\`.
+
+This next experiment uses the exact production fourth-order even-parity derivative matrices in the CMC elliptic solve, retaining the same stage-wise target functional and outer alpha normalization. It compares one ordinary production step against the current solve on the same frozen inputs. Its elliptic residual is expected to close by construction, so the decision is based on whether the *evolved, original-definition* H, M, and connection witnesses improve—not on the lapse-equation residual alone. No long trajectory is planned unless this short comparison demonstrates a clear multi-constraint benefit.
+
+The original local GEAR archive also documents a central finite-volume divergence mistake in a different radial scalar operator (GEAR-70C.1). That is a useful reminder to test radial origin terms cell by cell, but it must not be transplanted as a patch to this BSSN/CMC machine: its operator and variable representation differ. The current one-step evidence specifically rejects a standalone center-row replacement.
+
