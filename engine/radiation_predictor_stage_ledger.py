@@ -336,7 +336,7 @@ class RadiationPredictorStageLedger(RadiationStageTrace):
             "engine/radiation_geometry_stage_trace.py",
             "engine/radiation_predictor_stage_ledger.py",
             ".github/workflows/zero_star_radiation_stage_trace.yml",
-            ".github/workflows/zero_star_radiation_predictor_stage_ledger.yml",
+            ".github/workflows/radiation-predictor-metric-stage-ledger.yml",
             "tests/test_radiation_predictor_stage_ledger.py",
         ):
             path = Path(rel)
