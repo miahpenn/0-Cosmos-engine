@@ -3,7 +3,7 @@ name: "[0star] Radiation predictor trace after matter-RHS rate fix"
 on:
   push:
     branches:
-      - diag/radiation-trace-after-rate-fix-2026-10-12
+      - diag/radiation-boundary-aa-pair-2026-10-12
     paths:
       - engine/radiation_geometry_stage_trace.py
       - .github/workflows/radiation_trace_after_rate_fix.yml
@@ -84,7 +84,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: radiation-trace-after-rate-fix
+          name: radiation-boundary-aa-pair
           path: runs/radiation-stage-trace/
           if-no-files-found: warn
           retention-days: 90
