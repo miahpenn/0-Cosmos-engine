@@ -229,3 +229,28 @@ The corrected source is at [engine/scalar_system.py on the experimental branch](
 Do not recreate the already-passing synthetic unit test or merge the old branch as a shortcut. Reuse its source-pair calculation on an admitted frozen state from the current main source, then perform source-only A/B evaluation at the actual beginning, predictor and corrector stages. Record local alpha, rho_DM, Pi, scalar source increment, DM conservative source increment, signed source residual, and whether the residual enters the full discrete constraint/current budget. Only if this closes at each real stage should a bounded one-step A/B be considered.
 
 Keep this separate from the inverse-metric lapse-gradient candidate and from the centre Aa/K regularity investigation. The source-pair lapse mismatch is demonstrated in the baseline; its impact on the current full production evolution remains unmeasured. It is not yet established as the dominant centre or radiation defect, and production admission remains open.
+
+
+## 9. Current-main port of the source-pair gate (2026-10-12)
+
+A clean diagnostic candidate is now based on the exact October 12 main snapshot, rather than relying only on the older October 10 experimental branch:
+
+- Base main SHA: 2035acc1210db18da0cededea18750b7ed813260
+- Candidate branch: diag/current-main-beta-source-gate-2026-10-12
+- Source-only candidate commit: 11a605d3ba0299ddbcc3f42568bbfd3577099fe9
+- Current-main test commit: cadbdfdab396385b0d0d188d1e9a7282b8759a61
+- Workflow commit: e7e3e8dc05d61745b38ae59e4fce94d27480d8c9
+- Workflow: [38301890834](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38301890834)
+- Source: [candidate scalar_system.py](https://github.com/miahpenn/0-Cosmos-engine/blob/diag/current-main-beta-source-gate-2026-10-12/engine/scalar_system.py)
+- Test: [current-main source-pair test](https://github.com/miahpenn/0-Cosmos-engine/blob/diag/current-main-beta-source-gate-2026-10-12/tests/test_spatial_beta_exchange_current_main.py)
+
+The only production expression changed on this candidate branch is the scalar source increment, from the unweighted beta*rho_DM to alpha*beta*rho_DM. The inverse-metric lapse-gradient issue is deliberately unchanged in this candidate so the source-pair effect remains isolated.
+
+The ported test initializes through the current production kernel, constructs a synthetic unadvanced state with non-unit lapse and nonzero shift, evaluates the current-kernel RHS with the coupling enabled and disabled, then checks:
+1. The scalar Pi RHS increment equals alpha*beta*rho_DM.
+2. The conservative DM energy-source increment equals -sqrt(gamma)*alpha*beta*rho_DM*Pi.
+3. The sum of those source contributions is zero within roundoff tolerance scaled to the full RHS operands being subtracted.
+
+The branch-local workflow runs that test directly and then the full repository test suite. At this report version, the workflow is queued; no test result is claimed until its conclusion/logs are inspected. It performs no time evolution. Even a clean result would establish only source-pair algebra on this current-main code line, not constraint recovery, radiation admissibility or production readiness.
+
+No main-branch source changed. The candidate is not merged. The next physics gate after CI is a bounded comparison using an admitted frozen production state and actual beginning/predictor/corrector stages—not another long campaign.
