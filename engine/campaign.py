@@ -61,8 +61,13 @@ def _validate_config_values(config) -> dict:
     # The pinned SphericalCellGrid defines dr = r_max / N. Validate the
     # smallest and largest nominal steps across the requested resolutions
     # before the runner can enter a time/checkpoint loop.
-    min_nominal_dt = cfl * (r_max / max(resolutions))
-    max_nominal_dt = cfl * (r_max / min(resolutions))
+    try:
+        min_nominal_dt = cfl * (r_max / max(resolutions))
+        max_nominal_dt = cfl * (r_max / min(resolutions))
+    except (OverflowError, ZeroDivisionError) as exc:
+        raise ValueError(
+            "cfl and r_max/resolutions produce an unrepresentable nominal timestep"
+        ) from exc
     if not math.isfinite(min_nominal_dt) or min_nominal_dt <= 0.0:
         raise ValueError(
             "cfl and r_max/resolutions produce a zero or non-finite nominal timestep"
