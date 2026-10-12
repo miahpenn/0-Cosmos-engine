@@ -106,6 +106,6 @@ The present audit adds that the *initial* undamped target-to-lapse map produces 
 - Run: [38209333687](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38209333687)
 - Artifact: [11728232378](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38209333687/artifacts/11728232378)
 - Artifact SHA-256: `21018a09c7f30cf57915e4f1aebd3be62135efcd04941f2ece1e4efcc38f1f87`
-- Extracted JSON report SHA-256: `<report-sha256-to-fill>`
+- Extracted JSON report SHA-256: `b951aae61ba16b3c1850d26534a28ce40a6ee09b69178c45f847b74ebc99c7fb`
 - Exact input ZIP checksums are recorded in the workflow and input-file hashes in the JSON report.
 - `main` is not the target branch for this diagnostic. Keep all further work on `diag/independent-metric-ricci-audit`; production source remains untouched.
