@@ -282,6 +282,56 @@
         },
         "disposition": "Improved initial quadrature suppresses baseline centre Ricci term, but the lapse-Hessian contribution and K centre-row/lapse-Laplacian compatibility remain unresolved; diagnostic lead only"
       }
+    },
+    {
+      "id": "cmc-target-closure-rank-probe",
+      "run_id": 38294955148,
+      "url": "https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38294955148",
+      "artifact_id": 11768056222,
+      "artifact_name": "cmc-target-closure-rank-probe",
+      "artifact_sha256": "64cc1666a2010d73b462cac48c78706ac48be1a1d02fea7de343bd09172c4e24",
+      "status": "success",
+      "result": {
+        "trial_count": 9,
+        "target_span": [
+          0.00006129474918577911,
+          0.00006302891497169222
+        ],
+        "target_output_slope": 0.9999999997573141,
+        "closure_slope": -2.426863537036872e-10,
+        "H_min": -8.605133749658989e-14,
+        "H_max": -8.56134553441773e-14,
+        "H_range": 4.378821524125831e-16,
+        "max_pde_row_residual": 3.709313130088876e-15,
+        "max_abs_H_minus_weighted_residual": 1.1367835759637179e-20,
+        "outer_normalization_cell_residual": -4.5785172799340385e-12,
+        "outer_normalization_weight_fraction": 0.018629100179086755
+      },
+      "disposition": "Current discrete target closure is nearly redundant with interior CMC PDE on frozen R80 slice; do not change target summation domain absent authoritative derivation."
+    },
+    {
+      "id": "cmc-lapse-centre-row-operator-identity",
+      "run_id": 38296556473,
+      "url": "https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38296556473",
+      "diagnostic_commit": "95606bb4db9260286191aec4a513a0430aed386a",
+      "artifact_id": 11768278320,
+      "artifact_name": "cmc-lapse-centre-row-audit",
+      "artifact_sha256": "e02c2c0f384d20692fc02bb3ee771409d0743a2479dc39276ee3a14b1156101f",
+      "status": "success",
+      "coverage": "Frozen t=0 R80 boundary-matched and native R160 profiles; no evolution",
+      "result": {
+        "max_pde_residual": 3.869625973818014e-15,
+        "max_even_series_fit_residual": 4.48628556526387e-8,
+        "R80_alpha_saved_max_abs_difference": 8.583511679205458e-11,
+        "R80_alpha_saved_rms_difference": 6.164365802171483e-11,
+        "R160_alpha_saved_max_abs_difference": 3.353317623577823e-12,
+        "R160_alpha_saved_rms_difference": 2.4449091817073764e-12,
+        "first_cell_production_minus_cmc_lapse_term_R80": 1.9613217300262775e-15,
+        "first_cell_production_minus_cmc_lapse_term_R160": 1.8518173106052416e-16,
+        "R80_normalization_cell_K_rhs_residual": -4.588278121699964e-12,
+        "R160_normalization_cell_K_rhs_residual": -6.934447319747322e-14
+      },
+      "disposition": "Archived-state CMC centre row and production lapse-geometric K term agree to roundoff; this weakens the centre-row-defect hypothesis for these profiles only. Uniform-quadrature arm remains untested by this audit."
     }
   ],
   "current_recommendation": [
@@ -294,6 +344,8 @@
     "latest_handoff": "docs/CONTINUATION_HANDOFF_LATEST_2026-10-12.md",
     "centre_regularity_handoff": "docs/CONTINUATION_HANDOFF_CENTRE_REGULARITY_2026-10-12.md",
     "detailed_A_B_audit": "docs/DISCRETE_CONSISTENT_INITIAL_PRODUCTION_AB_2026-10-12.md",
-    "signed_rhs_split": "docs/PRODUCTION_AA_K_RHS_CENTRE_SOURCE_SPLIT_2026-10-12.md"
+    "signed_rhs_split": "docs/PRODUCTION_AA_K_RHS_CENTRE_SOURCE_SPLIT_2026-10-12.md",
+    "cmc_target_closure_rank": "docs/CMC_TARGET_CLOSURE_RANK_AUDIT_2026-10-12.md",
+    "cmc_lapse_centre_row": "docs/CMC_LAPSE_CENTRE_ROW_AUDIT_2026-10-12.md"
   }
 }
