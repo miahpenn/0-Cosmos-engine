@@ -60,12 +60,6 @@ class AdaptiveStepOutcome:
         )
 
 
-def _minimum_advancing_dt(coordinate_time: float) -> float:
-    """A floating-point progress bound, not a physical timestep floor."""
-    scale = max(1.0, abs(float(coordinate_time)))
-    return 8.0 * math.ulp(scale)
-
-
 def advance_with_radiation_admissibility_retries(
     kernel,
     state,
@@ -78,22 +72,27 @@ def advance_with_radiation_admissibility_retries(
     immediately. No conserved variables are clipped or projected; the cone
     criterion, sources, and geometry equations remain unchanged.
 
-    Retry stops only when a step succeeds or dt cannot advance coordinate time
-    beyond a conservative floating-point spacing bound.
+    Retry stops only when a step succeeds or halving dt no longer advances the
+    stored coordinate time in the active floating-point representation.
     """
     requested_dt = float(dt)
     if not math.isfinite(requested_dt) or requested_dt <= 0.0:
         raise ValueError("dt must be finite and positive")
 
     coordinate_time = float(state.t)
-    minimum_dt = _minimum_advancing_dt(coordinate_time)
+    if not math.isfinite(coordinate_time):
+        raise ValueError("coordinate time must be finite")
     trial_dt = requested_dt
     attempts: list[dict[str, Any]] = []
     last_error = "no radiation admissibility failure was attempted"
     smallest_attempted_dt: float | None = None
 
     while True:
-        if trial_dt < minimum_dt or coordinate_time + trial_dt <= coordinate_time:
+        if (
+            trial_dt <= 0.0
+            or not math.isfinite(trial_dt)
+            or coordinate_time + trial_dt <= coordinate_time
+        ):
             raise RadiationStepSizeUnderflow(
                 coordinate_time=coordinate_time,
                 requested_dt=requested_dt,
@@ -114,7 +113,11 @@ def advance_with_radiation_admissibility_retries(
                 "exception_message": str(exc),
             })
             next_dt = 0.5 * trial_dt
-            if next_dt < minimum_dt or coordinate_time + next_dt <= coordinate_time:
+            if (
+                next_dt <= 0.0
+                or not math.isfinite(next_dt)
+                or coordinate_time + next_dt <= coordinate_time
+            ):
                 raise RadiationStepSizeUnderflow(
                     coordinate_time=coordinate_time,
                     requested_dt=requested_dt,
