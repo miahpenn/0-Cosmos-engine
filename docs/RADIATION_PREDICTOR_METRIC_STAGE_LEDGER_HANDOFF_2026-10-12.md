@@ -203,3 +203,75 @@ Across all 500 cell-step pairs (100 steps × five outer cells):
 Do not change the cone condition and do not launch a long campaign yet. The next task is a frozen-state term attribution at the same final step: decompose the recorded explicit (dot a,dot b,dot X) by its existing signed RHS components and quantify their contributions to (Deltagamma^{rr}), (C) and (|S|/E), holding the actual updated conservative radiation state fixed. Reconstruct the same values at the prior accepted step as a control. Any proposed correction must then preserve the existing equations and improve the entire gate set (centre-series regularity, H/M/(C_\Lambda), radiation cone, outer boundary, and Misner–Sharp balance), not merely this terminal ratio.
 
 The separate main-based matter-RHS rate-extraction fix remains in draft [PR #8](https://github.com/miahpenn/0-Cosmos-engine/pull/8); it addresses the artificial unit-step wrapper failure, not this validated late-time geometry-predictor crossing. `main` remains at `2035acc1210db18da0cededea18750b7ed813260`.
+
+
+## 10. Frozen-state explicit metric-RHS attribution — 12 October 2026
+
+**Status: admitted diagnostic-only attribution; no physics or production code changed.** This extends the validated ledger result above with a componentwise frozen-state reconstruction of the terminal predictor and the immediately preceding non-crossing control.
+
+### Provenance and reanalysis
+
+- Source ledger: `stage_ledger.json`, SHA-256 `35af5f350fe2888323cc851ab05190c5ddb981ef5042d656f4f45d4a803398bf`.
+- Trace run: [38309949383](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38309949383).
+- Frozen source: `9eed1cf95c52f001c2b87afbbe6da37faa56d50e`; pinned vendor: `d6052d605673ce9d82cdc99b0df79855fa2ea215`.
+- Reanalysis steps: 1565 at `t=46.95000000000102` and 1566 at `t=46.98000000000102`; five outer cells per step.
+- Recorded RHS identities reproduce to a maximum absolute error of `2.78e-17`; Euler predictor reconstruction error is `0.0`; reconstructed ledger metric/cone observables error is `0.0`.
+
+### Existing component equations
+
+With captured `beta=0` and pinned `KO_EPSILON=0`, the existing vendor explicit metric RHS reduces to
+
+\[
+\dot a=-2\alpha a A_a,\quad
+\dot b=\alpha b A_a,\quad
+\dot X=\alpha X K/3.
+\]
+
+The radial inverse metric and frozen-conservative cone observables are
+
+\[
+\gamma^{rr}=X^2/a,\quad
+C=U_E-\sqrt{\gamma^{rr}}|U_r|,\quad
+|S|/E=\sqrt{\gamma^{rr}}|U_r|/U_E.
+\]
+
+The common positive volume factor cancels from the cone comparison, so `b` has no direct contribution to these three observables with conservatives fixed. The comparison isolates the exact existing Euler increment in `a`, in `X`, and then both together; the remaining small difference is the nonlinear interaction in `X²/a`.
+
+### Preceding non-crossing control — step 1565
+
+| Metric case | `gamma_rr_inv` | Cone margin C | `|S|/E` |
+|---|---:|---:|---:|
+| Accepted metric | 1.4413770169 | +2.58748840e-6 | 0.9911161620 |
+| `a` channel only | 1.4548222763 | +1.24424510e-6 | 0.9957280303 |
+| `X` channel only | 1.4493385078 | +1.79134613e-6 | 0.9938496231 |
+| Combined unprojected predictor | 1.4628580325 | +4.44398220e-7 | 0.9984742108 |
+| After algebraic projection | 1.4628266993 | +4.47512736e-7 | 0.9984635175 |
+
+The combined predictor moves toward the cone boundary but remains admissible.
+
+### Terminal crossing — step 1566, cell 79
+
+The fixed recorded conservatives are `U_E=2.965253923984548e-4` and `U_r=2.433162925154048e-4`.
+
+| Metric case | `gamma_rr_inv` | Cone margin C | `|S|/E` |
+|---|---:|---:|---:|
+| Accepted metric | 1.4630613182 | +2.21713013e-6 | 0.9925229671 |
+| `a` channel only | 1.4770455270 | +8.13948905e-7 | 0.9972550448 |
+| `X` channel only | 1.4713273587 | +1.38690603e-6 | 0.9953228086 |
+| Combined unprojected predictor | 1.4853905759 | -2.02334730e-8 | 1.0000682352 |
+| After algebraic projection | 1.4853571835 | -1.69002052e-8 | 1.0000569941 |
+
+The terminal recorded rates match the existing equations: `a_dot=-0.19218000782919148`, `b_dot=+0.2022087973237754`, `X_dot=+0.08875556865168259`. Signed attribution of the inverse-metric change:
+
+| Contribution | `Delta gamma_rr_inv` | Share | `Delta C` |
+|---|---:|---:|---:|
+| Existing `a) channel (controlled by `A_a`) | +0.01398420880 | 62.6273% | -1.40318122e-6 |
+| Existing `X` channel (controlled by `K`) | +0.00826604052 | 37.0189% | -8.30224097e-7 |
+| Nonlinear interaction in `X²/a` | +0.00007900833 | 0.3538% | -3.95828120e-9 |
+| **Total** | **+0.02232925766** | **100%** | **-2.23736360e-6** |
+
+Each isolated channel retains positive cone margin; the combined update crosses. The projection improves C by `3.3332677935e-9` and lowers the ratio by about `1.1241e-5`, but does not restore admissibility.
+
+### Admitted conclusion and next discriminator
+
+The immediate crossing is attributed to the **combined existing explicit metric update** acting against the recorded conservative radiation state, with about 62.6% of the inverse-metric increase from the `a/A_a` channel and 37.0% from the `X/K` channel. This does **not** prove either field equation is wrong and does not justify a limiter or physics change. The next bounded task is to trace the already-existing `A_a` and `K` values at cell 79 backward through the primary `L2`/`L3` stage terms for steps 1565 and 1566. Keep all production equations and conservative states unchanged; if required source terms were not captured, add diagnostic-only capture rather than infer missing values. Continue to keep centre regularity, H/M/`C_Lambda`, radiation cone, outer boundary, and Misner–Sharp flux/work gates open.
