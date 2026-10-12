@@ -86,7 +86,7 @@ jobs:
           git rev-parse HEAD > runs/radiation-predictor-stage-ledger/AUDIT_COMMIT.txt
           git rev-parse "$SOURCE_COMMIT" > runs/radiation-predictor-stage-ledger/FROZEN_SOURCE_COMMIT.txt
           git rev-parse HEAD:vendor/bb-palatini-unified-r0 > runs/radiation-predictor-stage-ledger/VENDOR_COMMIT.txt
-          sha256sum engine/production_kernel.py engine/radiation_geometry_stage_trace.py engine/radiation_predictor_stage_ledger.py tests/test_radiation_predictor_stage_ledger.py > runs/radiation-predictor-stage-ledger/SOURCE_SHA256SUMS.txt
+          sha256sum engine/production_kernel.py engine/radiation_geometry_stage_trace.py engine/radiation_predictor_stage_ledger.py tests/test_radiation_predictor_stage_ledger.py .github/workflows/radiation-predictor-metric-stage-ledger.yml > runs/radiation-predictor-stage-ledger/SOURCE_SHA256SUMS.txt
 
       - name: Upload complete trace and predictor-stage ledger
         if: always()
