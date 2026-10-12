@@ -1,8 +1,8 @@
 # Radiation centre-state capture probe (diagnostic only)
 
-Status: design / not yet executed  
+Status: instrumentation implemented; CI execution and admission pending  
 Target branch: `diag/radiation-four-force-counterfactual-2026-10-12`  
-Parent experiment: run 38315678068, commit `1042e75396d8aca889d28e0a75608b041354ae9b`
+Parent experiment: run 38315678068, commit `1042e75396d8aca889d28e0a75608b041354ae9b`\nInstrumentation commits: `2e32bfc` (rejection-point state), `ccb5cf4` (capture runner), `45f34cf` (radiation-only face capture).
 
 ## Purpose
 
@@ -55,7 +55,7 @@ Compare N=80 and N=160 by physical cell index and normalized location, preservin
 4. Primitive recovery inconsistency or conditioning.
 5. Centre parity/regularity handling or grid-centre convention.
 
-The existing exception's flux tendency and source are useful, but they are not a substitute for recording the actual face flux and pre-update conserved state.
+The rejection diagnostic now additionally includes the pre-update and post-update conserved triplets, metric values, actual adjacent face-flux vectors, and recovered centre primitive values. The runner also captures pre-step and RHS-entry state, the first interior reconstructed face states, characteristic speeds/HLL flux, and the centre geometric source. The centre-face value is recorded explicitly as the existing regular-centre zero vector.
 
 ## Admission criteria
 
