@@ -11,7 +11,11 @@
 
 The (0.18\%) comparison between the saved-time integral of the central-lapse difference and the R80–R160 final proper-time difference is a **bookkeeping/quadrature check**, not causal attribution. Since (\tau=\int \alpha_c\,dt), the proper-time difference is by definition the integral of the central-lapse-history difference; close agreement checks sampling/integration consistency. The same-slice lapse re-solve correction is negligible at the relevant scale.
 
-The global CMC target (\dot K) is a credible domain-sensitive gauge mechanism: the target is a proper-volume projection of the full-domain K RHS. R80 and R160 can therefore obtain different target histories even when a shared local region initially matches. The frozen-state target swap demonstrates that this global target changes lapse profiles, but does not reproduce the observed center-lapse/proper-time history; the evolving feedback test remains the key experiment.
+The global CMC target (\dot K) is a domain-sensitive gauge mechanism, and the full evolving intervention now strongly implicates it in this boundary-matched comparison: prescribing the archived R160 target history in the R80 evolution closes 99.9941% of the final proper-time gap versus R160. The frozen-state target swap alone did not reproduce the center history; including the target in the full evolution did.
+
+In code, `engine/cmc_gauge.py::target_kdot` constructs raw cell RHS values as `raw = l2["K"] + l3["K"]`, applies proper-volume weights `W_i = r_i^2 sqrt(a_i) b_i / X_i^3 * dr`, and returns `sum_i(W_i * raw_i)/sum_i(W_i)`. The common spherical (4\pi) factor cancels. The legacy `outer_frac` argument is explicitly unused; outer-region cells therefore enter both numerator and denominator. This is the direct implementation path by which domain size can change the gauge target.
+
+The coarsened target-history sensitivity run [38207554072](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38207554072) is the only active expensive trajectory. The offline stride-2 versus stride-1 target input difference is at most (5.29437\times10^{-8}) across accepted-step times, but the coupled trajectory must still be inspected before treating interpolation sensitivity as negligible.
 
 **New completed result:** the R160 target-history interpolation audit now passes after a workflow dependency correction. Its artifact shows a smooth resolved target curve and a small held-out interpolation error over a deliberately doubled interval. This is empirical evidence only, not a rigorous bound at every evolution stage.
 
