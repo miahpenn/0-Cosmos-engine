@@ -6,6 +6,7 @@ the exact pre-correction source formulas by subtracting only the three derived
 source differences inside the RHS wrapper. This is one step, not a campaign or
 production admission test.
 """
+import copy
 import json
 import numpy as np
 
@@ -30,7 +31,7 @@ def _clone_state(state):
         t=state.t,
         tau=state.tau,
         e_folds=state.e_folds,
-        cycle=state.cycle,
+        cycle=copy.deepcopy(state.cycle),
         history=list(state.history),
         handoffs=list(state.handoffs),
     )
@@ -71,7 +72,7 @@ def _witness(kernel, state):
     if not np.any(fixed):
         raise AssertionError("grid does not resolve the predeclared 2 <= r < 5 annulus")
     def maxabs(x, mask):
-        return float(np.max(np.abs(np.asarray(x)[mask]))
+        return float(np.max(np.abs(np.asarray(x)[mask])))
     def at_radius(x, target):
         return float(np.asarray(x)[int(np.argmin(np.abs(r - target)))])
     diag = kernel.diagnostics(state, profiles=False)
