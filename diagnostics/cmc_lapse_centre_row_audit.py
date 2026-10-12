@@ -78,6 +78,9 @@ def audit(path,n,rmax,outer_alpha,domain):
         fixed[str(target)]={"index":i,"r":float(r[i]),"alpha":float(alpha[i]),
             "alpha_prime":float(alpha_p[i]),"alpha_second_even":float(alpha_pp_even[i]),
             "laplace_bracket":float(alpha_pp_even[i]+c[i]*alpha_p[i]),
+            "production_l2_K_lapse_geometry_term":float(np.asarray(l2["K"],float)[i]),
+            "cmc_operator_implied_lapse_term":float(-inv[i]*(alpha_pp_even[i]+c[i]*alpha_p[i])),
+            "production_minus_cmc_lapse_term":float(np.asarray(l2["K"],float)[i]+inv[i]*(alpha_pp_even[i]+c[i]*alpha_p[i])),
             "cmc_elliptic_residual":float(elliptic_residual[i]),
             "K_rhs_minus_target":float(pde_residual[i])}
     center_count=min(6,n)
@@ -90,6 +93,10 @@ def audit(path,n,rmax,outer_alpha,domain):
           "alpha_prime":float(alpha_p[i]),"alpha_second_even":float(alpha_pp_even[i]),
           "laplace_bracket":float(alpha_pp_even[i]+c[i]*alpha_p[i]),
           "Q":float(Q[i]),"m":float(m[i]),"elliptic_residual":float(elliptic_residual[i]),
+          "production_l2_K_lapse_geometry_term":float(np.asarray(l2["K"],float)[i]),
+          "production_l3_K_remaining_term":float(np.asarray(l3["K"],float)[i]),
+          "cmc_operator_implied_lapse_term":float(-inv[i]*(alpha_pp_even[i]+c[i]*alpha_p[i])),
+          "production_minus_cmc_lapse_term":float(np.asarray(l2["K"],float)[i]+inv[i]*(alpha_pp_even[i]+c[i]*alpha_p[i])),
           "K_rhs":float(raw[i]),"K_rhs_minus_target":float(pde_residual[i])} for i in range(center_count)],
       "even_series_fit_first_cells":{"fit_points":fit_n,"coefficients_alpha_of_r2_ascending":[float(x) for x in coeff],
           "fit_residual_first_3":[float(x) for x in fit_res[:min(3,len(fit_res))]],
