@@ -29,11 +29,11 @@ Branch: fix/strict-campaign-admission-2026-10-12
 - Available campaign outputs are uploaded even when the run fails.
 - The runner checks numeric geometry, scalar and matter state fields and stored diagnostic values for non-finite entries.
 - The initial t=0 slice is now in the history, and an endpoint discrepancy within floating-point roundoff is recorded and canonicalized without a tiny extra evolution step.
-- The strict smoke workflow passed. At the last smoke revision: full repository suite 83 passed; N=40, r_max=40, CFL=0.03, t=1 finished and produced its ledger. Workflow: https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38207394186
+- The strict smoke workflow passed. Latest strict smoke: full repository suite passed and N=40, r_max=40, CFL=0.03, t=1 finished and produced its ledger. Workflow: https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38208253695
 
 ## Synchronized production campaign through t=12
 
-Baseline run: https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38207515326
+Latest fixed-radius campaign run: https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38208253687
 
 - N=40: 200 steps, tau_final=11.9559993814.
 - N=60: 300 effective steps after endpoint correction, tau_final=11.9284259877.
