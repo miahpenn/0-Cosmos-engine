@@ -1,6 +1,6 @@
 name: "[0star] Boundary–CMC radiation coupling audit"
 # Trigger: [run-boundary-cmc-audit] uses an exact stacked-source pin.
-# Latest rerun includes updated guard parsing and source-separated completed-state budget.
+# Next gate also saves the accepted full state and compares frozen dt/2, dt/4, dt/8 one-step arms.
 
 on:
   push:
@@ -82,6 +82,9 @@ jobs:
           fi
           if [ -f runs/radiation-stage-trace/boundary_failure_snapshot.npz ]; then
             sha256sum runs/radiation-stage-trace/boundary_failure_snapshot.npz runs/radiation-stage-trace/boundary_failure_snapshot.json >> runs/radiation-stage-trace/TRACE_SHA256SUMS.txt
+          fi
+          if [ -f runs/radiation-stage-trace/boundary_failure_accepted_state.npz ]; then
+            sha256sum runs/radiation-stage-trace/boundary_failure_accepted_state.npz runs/radiation-stage-trace/boundary_failure_accepted_state.json >> runs/radiation-stage-trace/TRACE_SHA256SUMS.txt
           fi
 
       - name: Upload trace, boundary witnesses, and frozen state (including captured failures)
