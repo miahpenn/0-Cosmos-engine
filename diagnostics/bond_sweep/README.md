@@ -6,7 +6,8 @@ This branch is isolated from `main`. No production source file is changed.
 - Grid: N=40, Rmax=40
 - CFL: 0.0075
 - Checkpoints: initial slice, t=2,3,4,5
-- Initial data: A=0.01, width=7, D amplitude=1e-4, radiation enabled\n- Initial metric: exact-origin cumulative Simpson radial quadrature, followed by the existing discrete-consistent initializer solving the production H constraint at t=0.
+- Initial data: A=0.01, width=7, D amplitude=1e-4, radiation enabled
+- Initial metric: exact-origin cumulative Simpson radial quadrature, followed by the existing discrete-consistent initializer solving the production H constraint at t=0.
 - Couplings: g=0, +0.05, -0.05, +0.10
 - Candidate potential: V_bond = g S D (diagnostic choice, not derived from the archive)
 
