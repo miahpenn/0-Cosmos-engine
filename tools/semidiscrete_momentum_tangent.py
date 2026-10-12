@@ -51,6 +51,11 @@ def momentum_terms(grid, geom, scalars, matter):
     total=assemble_total_stress_energy(grid,geom,scalars,matter)
     metric=metric_slice_from_q(grid,geom)
     j_scalar=np.asarray(scalar_projection(grid,geom,scalars)[3],dtype=float)
+    # Exact component-level split of scalar_projection's j sum. The local S
+    # and D fields are unscaled; COSMOS phi is divided by KAPPA=8*pi there.
+    j_S=-np.asarray(scalars.PS,dtype=float)*d1(grid,np.asarray(scalars.S,dtype=float),+1)
+    j_D=-np.asarray(scalars.PD,dtype=float)*d1(grid,np.asarray(scalars.D,dtype=float),+1)
+    j_phi=-np.asarray(scalars.Pi,dtype=float)*d1(grid,np.asarray(scalars.phi,dtype=float),+1)/(8.0*np.pi)
     j_dm=np.asarray(project_species(metric,matter.dark_matter,Species.DARK_MATTER)["j"],dtype=float)
     j_baryon=np.asarray(project_species(metric,matter.baryons,Species.BARYON)["j"],dtype=float)
     j_radiation=np.asarray(project_species(metric,matter.radiation,Species.RADIATION)["j"],dtype=float)
@@ -63,12 +68,15 @@ def momentum_terms(grid, geom, scalars, matter):
     Mgeom=np.asarray(raw["momentum"],dtype=float)
     Msource=8.0*np.pi*np.asarray(total.j,dtype=float)
     Msource_scalar=8.0*np.pi*j_scalar
+    Msource_S=8.0*np.pi*j_S
+    Msource_D=8.0*np.pi*j_D
+    Msource_phi=8.0*np.pi*j_phi
     Msource_dm=8.0*np.pi*j_dm
     Msource_baryon=8.0*np.pi*j_baryon
     Msource_radiation=8.0*np.pi*j_radiation
     Mres=Mgeom-Msource
     rebuilt=t_dAa+t_dK+t_chi+t_b
-    source_rebuilt=Msource_scalar+Msource_dm+Msource_baryon+Msource_radiation
+    source_rebuilt=Msource_S+Msource_D+Msource_phi+Msource_dm+Msource_baryon+Msource_radiation
     return {
         "momentum_dAa":t_dAa,
         "momentum_dK":t_dK,
@@ -77,6 +85,9 @@ def momentum_terms(grid, geom, scalars, matter):
         "momentum_geometric":Mgeom,
         "momentum_source_8piJ":Msource,
         "momentum_source_8piJ_scalar":Msource_scalar,
+        "momentum_source_8piJ_S":Msource_S,
+        "momentum_source_8piJ_D":Msource_D,
+        "momentum_source_8piJ_phi":Msource_phi,
         "momentum_source_8piJ_dark_matter":Msource_dm,
         "momentum_source_8piJ_baryons":Msource_baryon,
         "momentum_source_8piJ_radiation":Msource_radiation,
