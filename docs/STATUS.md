@@ -259,3 +259,19 @@ The sparse two-time-unit tangent comparison must not be read as instantaneous ca
 6. **Completed:** the production t=12 workflow now uses per-branch concurrency cancellation and no longer triggers on edits to its own workflow YAML. It triggers only on engine, tests or dependency changes, preventing documentation/workflow-maintenance pushes from launching a fresh expensive campaign.
 
 A passing unit suite or a completed run does not itself prove physical turnaround, ejection, or multi-cycle behavior. Numerical/gauge failures remain numerical/gauge results unless invariant, independent and resolution-consistent evidence supports a physical interpretation.
+
+
+## 2026-10-12 centre regularity / quadrature handoff
+
+A consolidated diagnostic handoff records the origin-half-cell and uniform fourth-order quadrature A/B results, the independent manufactured regular-centre Ricci/Aa RHS identity, the discrete-initial semi-discrete momentum tangent, exact run/artifact hashes, limitations, and the next bounded admission tests:
+
+- [Centre regularity and constraint propagation handoff](CONTINUATION_HANDOFF_CENTRE_REGULARITY_2026-10-12.md)
+- Uniform fourth-order initial-profile run: https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38291938761 (artifact SHA-256 `937a139ffd360ccae753f06572da34a400c26183dbdd0f308f1f8d67ef2bc918`)
+- Origin quadrature refinement: https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38291486881 (artifact SHA-256 `42d898b6f195bdd823fba35a240cdb58bb557146c828c87f8b3a8b2a58636638`)
+- Matched origin-only one-step propagation: https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38290654079 (artifact SHA-256 `a511f67db4d9a1a12ce27652c82a200dbb4b876266fa3045bf8f995ddc087987`)
+- Independent manufactured Ricci/Aa RHS identity: https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38290099699 (artifact SHA-256 `345f91141bb19920051935b9c5c516bf1ddc798046012a36583426d9e5e34e97`)
+- Discrete-initial multi-constraint RHS tangent: https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38290633971 (artifact SHA-256 `2011162ba822bea1b52d2b8c2099284f97f7a0ca5e76e2d2bdc1788c324a7186`)
+
+Decision remains **diagnostic gate not passed**. Uniform fourth-order quadrature sharply improves initial H (N=320 first-cell H about (5.0\times10^{-7})), but the first-cell production Aa RHS remains about (4.1\times10^{-5}) and Aa RHS/r² grows under refinement. The origin-only candidate reduces one-step M and C_lambda errors but does not eliminate them. The manufactured curvature identity shows expected fixed-annulus convergence, not regularity of the actual production profile. No unique faulty RHS term is proven.
+
+Next: matched one-step propagation for the uniform-fourth-order initializer, plus signed Aa/K RHS decomposition and centre parity/stencil checks on frozen states. No production physics edits, centre projection, or long campaign until the exact numerical identity and acceptance checks pass. This update is diagnostic documentation only; it does not modify or admit the production engine.
