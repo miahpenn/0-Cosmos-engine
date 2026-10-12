@@ -1456,6 +1456,17 @@ class RadiationStageTrace:
                             "status": "counterfactual_harness_error",
                             "exception": f"{type(cf_exc).__name__}: {cf_exc}",
                         }
+                if trace.failure.get("stage") == "explicit_predictor_pre_CMC_admissibility_guard":
+                    try:
+                        trace.write_accepted_failure_state(state, dt, trace.failure)
+                        trace.run_predictor_step_size_sweep(
+                            kernel_self, original_step, state, dt
+                        )
+                    except Exception as sweep_exc:
+                        trace.predictor_step_size_sweep = {
+                            "status": "sweep_harness_error",
+                            "exception": f"{type(sweep_exc).__name__}: {sweep_exc}",
+                        }
                 raise
             finally:
                 trace.current_step = None
@@ -1724,6 +1735,12 @@ class RadiationStageTrace:
             "boundary_records": self.boundary_records,
             "last_completed_boundary_record": self.last_completed_boundary_record,
             "boundary_history_counterfactual": self.boundary_history_counterfactual,
+            "predictor_step_size_sweep": self.predictor_step_size_sweep,
+            "frozen_accepted_state_snapshot": (
+                "boundary_failure_accepted_state.npz"
+                if (self.output_dir / "boundary_failure_accepted_state.npz").exists()
+                else None
+            ),
             "frozen_failure_snapshot": (
                 "boundary_failure_snapshot.npz"
                 if (self.output_dir / "boundary_failure_snapshot.npz").exists()
