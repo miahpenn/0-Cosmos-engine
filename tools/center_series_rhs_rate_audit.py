@@ -85,17 +85,49 @@ def audit(state,label,scheduled_t=None):
     srhs,mrhs,_=V55ProductionKernel()._rhs(state)
     gt=adapter.geometry_stage_terms(grid,g,s,state.matter,lambda_m=LAMBDA_M)
     exp=gt["explicit"]
+    stage=adapter.geometry_stage_terms(grid,g,s,state.matter,lambda_m=LAMBDA_M)
+    terms=vacuum.geometry_terms(grid,g)
+    Aa=np.asarray(g.Aa,dtype=float);Ab=-0.5*Aa;K=np.asarray(g.K,dtype=float)
+    alpha=np.asarray(g.alpha,dtype=float)
+    Aa_l2=np.asarray(stage["primary_l2"]["Aa"],dtype=float)
+    Aa_l3=np.asarray(stage["primary_l3"]["Aa"],dtype=float)
+    K_l2=np.asarray(stage["primary_l2"]["K"],dtype=float)
+    K_l3=np.asarray(stage["primary_l3"]["K"],dtype=float)
+    Lambda_l2=np.asarray(stage["lambda_l2"],dtype=float)
+    Lambda_l3=np.asarray(stage["lambda_l3"],dtype=float)
+    # Explicit named decompositions from the pinned vendor formulas.
+    Aa_l2_lapse=-(np.asarray(terms["DrDr_alpha"],dtype=float)-np.asarray(terms["lap_alpha"],dtype=float)/3.0)
+    Aa_l2_ricci=alpha*(np.asarray(terms["Rr_r"],dtype=float)-np.asarray(terms["R"],dtype=float)/3.0)
+    Aa_l3_nonlinear=alpha*K*Aa
+    K_l3_nonlinear=alpha*(Aa**2+2.0*Ab**2+K**2/3.0)
+    term_rates={
+      "Aa_dot_L2":Aa_l2,"Aa_dot_L3":Aa_l3,
+      "Aa_dot_L2_lapse_hessian":Aa_l2_lapse,
+      "Aa_dot_L2_ricci":Aa_l2_ricci,
+      "Aa_dot_L3_nonlinear":Aa_l3_nonlinear,
+      "Aa_dot_L3_remainder":Aa_l3-Aa_l3_nonlinear,
+      "K_dot_L2":K_l2,"K_dot_L3":K_l3,
+      "K_dot_L2_minus_lap_alpha":K_l2+np.asarray(terms["lap_alpha"],dtype=float),
+      "K_dot_L3_nonlinear":K_l3_nonlinear,
+      "K_dot_L3_remainder":K_l3-K_l3_nonlinear,
+      "Lambda_dot_L2":Lambda_l2,"Lambda_dot_L3":Lambda_l3,
+      "alpha_radial_laplacian":np.asarray(terms["lap_alpha"],dtype=float),
+      "alpha_radial_hessian":np.asarray(terms["DrDr_alpha"],dtype=float),
+      "alpha_prime_over_r":d1(grid,alpha,+1)/r,
+      "Rr_r_minus_R_over_3":np.asarray(terms["Rr_r"],dtype=float)-np.asarray(terms["R"],dtype=float)/3.0,
+    }
     rates={
       "a_dot":np.asarray(exp["a"],dtype=float),
       "b_dot":np.asarray(exp["b"],dtype=float),
       "X_dot":np.asarray(exp["X"],dtype=float),
-      "Aa_dot":np.asarray(gt["primary_l2"]["Aa"]+gt["primary_l3"]["Aa"],dtype=float),
-      "K_dot":np.asarray(gt["primary_l2"]["K"]+gt["primary_l3"]["K"],dtype=float),
-      "Lambda_dot":np.asarray(gt["lambda_l2"]+gt["lambda_l3"],dtype=float),
+      "Aa_dot":Aa_l2+Aa_l3,
+      "K_dot":K_l2+K_l3,
+      "Lambda_dot":Lambda_l2+Lambda_l3,
       "S_dot":np.asarray(srhs.S,dtype=float),
       "D_dot":np.asarray(srhs.D,dtype=float),
       "phi_dot":np.asarray(srhs.phi,dtype=float),
     }
+    rates.update(term_rates)
     a=np.asarray(g.a,dtype=float);b=np.asarray(g.b,dtype=float)
     Aa=np.asarray(g.Aa,dtype=float);lam=np.asarray(g.Lambda,dtype=float)
     q=(1.0-a/b)/(r*r)
@@ -112,10 +144,16 @@ def audit(state,label,scheduled_t=None):
     }
     ratio_rates={
       "d_dt_Aa_over_r2":rates["Aa_dot"]/(r*r),
+      "d_dt_Aa_over_r2_L2":rates["Aa_dot_L2"]/(r*r),
+      "d_dt_Aa_over_r2_L3":rates["Aa_dot_L3"]/(r*r),
       "d_dt_Lambda_over_r":rates["Lambda_dot"]/r,
+      "d_dt_Lambda_over_r_L2":rates["Lambda_dot_L2"]/r,
+      "d_dt_Lambda_over_r_L3":rates["Lambda_dot_L3"]/r,
       "d_dt_Lambda_metric_over_r":lm_dot/r,
       "d_dt_C_lambda_over_r":(rates["Lambda_dot"]-lm_dot)/r,
       "d_dt_one_minus_a_over_b_over_r2":q_dot,
+      "d_dt_D_r_K_over_r_L2":d1(grid,rates["K_dot_L2"],+1)/r,
+      "d_dt_D_r_K_over_r_L3":d1(grid,rates["K_dot_L3"],+1)/r,
     }
     for name in EVEN_FIELDS:
       field_values = np.asarray(getattr(g,name),dtype=float) if name in ("K","X","a","b") else np.asarray(getattr(s,name),dtype=float)
