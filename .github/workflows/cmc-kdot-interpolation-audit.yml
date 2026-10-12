@@ -1,0 +1,51 @@
+name: Diagnostic - CMC Kdot interpolation audit
+
+on:
+  push:
+    branches:
+      - "diag/independent-metric-ricci-audit"
+    paths:
+      - "diagnostics/cmc_kdot_interpolation_audit.py"
+      - ".github/workflows/cmc-kdot-interpolation-audit.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  kdot-interpolation-audit:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[cmc-kdot-interpolation-audit]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout diagnostic branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Download and verify archived R160 target history
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/r160
+          curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/miahpenn/0-Cosmos-engine/actions/artifacts/11694568292/zip" \
+            -o /tmp/r160-reference.zip
+          echo "04949c7e0332c495385f6afef231b54270225892b1d124f2c19973c7d5b4872d  /tmp/r160-reference.zip" | sha256sum -c -
+          unzip -q /tmp/r160-reference.zip -d artifacts/r160
+          find artifacts/r160 -type f -name 'frozen_state_crop_profiles.jsonl' -print -quit > /tmp/profile_path.txt
+          test -s /tmp/profile_path.txt
+      - name: Measure held-out temporal interpolation error
+        run: python diagnostics/cmc_kdot_interpolation_audit.py "$(cat /tmp/profile_path.txt)"
+      - name: Upload interpolation audit
+        uses: actions/upload-artifact@v4
+        with:
+          name: cmc-kdot-interpolation-audit
+          path: runs/cmc_kdot_interpolation_audit.json
+          if-no-files-found: error
+          retention-days: 90
