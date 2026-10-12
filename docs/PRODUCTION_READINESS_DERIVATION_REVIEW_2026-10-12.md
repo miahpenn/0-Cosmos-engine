@@ -191,6 +191,31 @@ The candidate sharply reduces the magnitude and removes the old positive sign at
 - The workflow did not measure radiation cone margin/admissibility at every predictor stage. It used only N=40–160 and cannot close the separate N=240/320 first-cell radiation failure or the long-run outer-cell cone failure.
 - The candidate is not authorized to merge. The next gate must join one-step H/M/C_Lambda, signed Aa/K series, radiation predictor-cone terms and a closed Misner–Sharp budget on the same exact states and stages. Only promote if the implicated witnesses improve together.
 
+### Three-arm row-order separation (new, 12 October)
+
+**Run:** [38304709682](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38304709682) — successful diagnostic capture.  
+**Branch:** `diag/cmc-lapse-three-arm-row-order-2026-10-12`; commit `1fca3f2f03626346720c95f4d4c114b884d1be96`.  
+**Artifact:** `cmc-lapse-three-arm-row-order`, ID `11771896263`; ZIP SHA-256 `59918d53bc883fbc796bf79057666692a01c49a0a355bd26f89cbac22fbb08d8`.  
+**Scope:** one-step matched A/B/C on N=80/120/160.
+
+The third arm separates the *type of centre row* from its *derivative order*:
+
+- **A:** historical `alpha[0] = alpha[1]` equality row, omitting the first-cell CMC PDE.
+- **B:** second-order PDE row at the first cell, instead of the equality row.
+- **C:** parity-aware fourth-order PDE row, matched to the production derivative operator.
+
+This is an important discriminator. At N=80, changing A→B reduces admitted-inner momentum max by `3.70e-6`; B and C then differ in annulus M by only `2.64e-10`, annulus H by `1.27e-11`, annulus C_lambda by `8.30e-12`. The same pattern holds at N=120 and N=160: B and C constraint differences remain around (10^{-11}) or smaller for the fixed-annulus witnesses, while A→B changes M at approximately (10^{-6}). C therefore does not need its fourth-order row to reproduce the main one-step H/M/C improvement seen when the missing first-cell PDE replaces the invalid equality condition.
+
+| N | A old-row annulus M | B second-order PDE-row annulus M | C fourth-order PDE-row annulus M | A full H | B full H | C full H |
+|---:|---:|---:|---:|---:|---:|---:|
+| 80 | (3.83225\times10^{-6}) | (1.31315\times10^{-7}) | (1.31579\times10^{-7}) | (3.77559\times10^{-5}) | (3.67008\times10^{-5}) | (3.67010\times10^{-5}) |
+| 120 | (9.73239\times10^{-7}) | (4.57432\times10^{-8}) | (4.57517\times10^{-8}) | (1.01913\times10^{-5}) | (1.05613\times10^{-5}) | (1.05613\times10^{-5}) |
+| 160 | (8.52531\times10^{-9}) | (3.43453\times10^{-9}) | (3.43645\times10^{-9}) | (5.92559\times10^{-6}) | (6.87585\times10^{-6}) | (6.87585\times10^{-6}) |
+
+The row-order comparison corroborates that **the principal one-step benefit is from solving the omitted first-cell CMC equation, rather than from fourth-order versus second-order PDE stencil accuracy alone**. The C row remains preferable as the operator-matched candidate, but the B/C similarity on constraints does not mean their centre-series behavior is interchangeable: their cell-0 (\dot A_a/r_0^2) witnesses differ by about (3.96\times10^{-7}) at N=80, (1.93\times10^{-7}) at N=120, and (1.12\times10^{-7}) at N=160. Both still have a nonzero centre-series witness; neither is centre-regularity admission.
+
+Most importantly, the three-arm test still lacks predictor-stage radiation margins and a closed Misner–Sharp interval residual. The new combined one-step radiation/MS diagnostic is running on isolated branch [diag/cmc-lapse-rad-ms-one-step-ab-2026-10-12](https://github.com/miahpenn/0-Cosmos-engine/tree/diag/cmc-lapse-rad-ms-one-step-ab-2026-10-12); no production file is changed.
+
 ## 7. Covariant scalar–DM source pair: candidate passes, trajectory gate remains open
 
 The locked V5.5 covariant exchange law is Q_nu = beta_DM rho_DM partial_nu(phi), with reciprocal scalar and dark-matter sources. On the ADM coordinate-time convention used by production, the source pair requires:
