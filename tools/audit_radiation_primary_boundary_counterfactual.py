@@ -399,6 +399,7 @@ def main() -> int:
         ctx["rhs_count"] = 0
         ctx["geometry_terms_count"] = 0
         if at_target_step():
+            ctx["captures"][ctx["mode"]].clear()
             ctx["captures"][ctx["mode"]].update({
                 "step_start_t": float(step_state.t),
                 "step_start_tau": float(step_state.tau),
