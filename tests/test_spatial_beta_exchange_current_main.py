@@ -208,10 +208,20 @@ def test_beta_source_pair_cancels_at_actual_step_rhs_stages(monkeypatch):
 
         scalar_energy_source = sqrt_gamma * pi * delta_pi
         energy_residual = scalar_energy_source + delta_energy
+        # species_rhs forms its RHS as advanced_conserved - base_conserved,
+        # then this source-only probe differences the on/off RHS. Roundoff
+        # must therefore be bounded by both stored and advanced conserved
+        # operand magnitudes, not only by the much smaller RHS residual.
+        base_energy = stage_state.matter.dark_matter.energy_t
+        advanced_energy_on = base_energy + matter_on["dark_matter"].energy_t
+        advanced_energy_off = base_energy + matter_off["dark_matter"].energy_t
         energy_scale = max(
             float(np.max(np.abs(scalar_energy_source[mask]))),
             float(np.max(np.abs(matter_on["dark_matter"].energy_t[mask]))),
             float(np.max(np.abs(matter_off["dark_matter"].energy_t[mask]))),
+            float(np.max(np.abs(base_energy[mask]))),
+            float(np.max(np.abs(advanced_energy_on[mask]))),
+            float(np.max(np.abs(advanced_energy_off[mask]))),
             1.0e-30,
         )
         energy_tol = 512.0 * np.finfo(float).eps * energy_scale + 1.0e-24
@@ -220,10 +230,18 @@ def test_beta_source_pair_cancels_at_actual_step_rhs_stages(monkeypatch):
         scalar_radial_current = -delta_pi * dphi_r
         fluid_radial_current = delta_momentum / sqrt_gamma
         radial_residual = scalar_radial_current + fluid_radial_current
+        # Use the stored and advanced momentum operands for the same
+        # subtraction-roundoff reason as the conservative energy budget.
+        base_momentum = stage_state.matter.dark_matter.momentum_r
+        advanced_momentum_on = base_momentum + matter_on["dark_matter"].momentum_r
+        advanced_momentum_off = base_momentum + matter_off["dark_matter"].momentum_r
         radial_scale = max(
             float(np.max(np.abs(scalar_radial_current[radial_mask]))),
             float(np.max(np.abs(matter_on["dark_matter"].momentum_r[radial_mask]))),
             float(np.max(np.abs(matter_off["dark_matter"].momentum_r[radial_mask]))),
+            float(np.max(np.abs(base_momentum[radial_mask]))),
+            float(np.max(np.abs(advanced_momentum_on[radial_mask]))),
+            float(np.max(np.abs(advanced_momentum_off[radial_mask]))),
             1.0e-30,
         )
         radial_tol = 512.0 * np.finfo(float).eps * radial_scale + 1.0e-24
