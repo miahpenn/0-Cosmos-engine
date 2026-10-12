@@ -1,0 +1,63 @@
+name: Diagnostic - origin quadrature initial refinement
+
+on:
+  push:
+    branches:
+      - diag/discrete-consistent-initial-production-test-2026-10-12
+    paths:
+      - tools/audit_origin_quadrature_initial_refinement.py
+      - tools/origin_half_cell_quadrature_regularity_ab.py
+      - .github/workflows/origin-quadrature-initial-refinement.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: origin-quadrature-initial-refinement-2026-10-12
+  cancel-in-progress: false
+
+jobs:
+  frozen-initial-refinement:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      PYTHONUNBUFFERED: "1"
+
+    steps:
+      - name: Checkout diagnostic branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Checkout exact production source and pinned numerical kernel
+        uses: actions/checkout@v4
+        with:
+          ref: 6d8b3f2790644591326df57c55908863f994cb0c
+          path: source
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install exact production dependencies
+        run: python -m pip install -r source/requirements.txt
+
+      - name: Compile initial refinement diagnostic
+        run: |
+          python -m py_compile tools/audit_origin_quadrature_initial_refinement.py
+          python -m py_compile tools/origin_half_cell_quadrature_regularity_ab.py
+
+      - name: Compare frozen initial profiles over refined grids
+        run: python tools/audit_origin_quadrature_initial_refinement.py
+
+      - name: Upload initial constraint and centre-series profiles
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: origin-quadrature-initial-refinement
+          path: results/origin-quadrature-initial-refinement/
+          if-no-files-found: warn
+          retention-days: 90
