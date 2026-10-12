@@ -257,11 +257,9 @@ def main():
         geom,scalars,matter,B,src=counterfactual_build_initial_data(
             base.grid,vacuum.flat_state
         )
-        # Match the production initialize() sequence exactly: after the initial
-        # matter state has been constructed, apply the pinned center-regularity
-        # operation before the stage-zero CMC solve. Without this, the arms
-        # differ in both origin quadrature and initialization projection.
-        geom=kernel._enforce_center_regularity(base.grid,geom)
+        # Match the pinned production initialize() sequence exactly:
+        # solve the CMC lapse, then zero shift and B. That pinned source commit
+        # does not apply a separate centre-regularity helper here.
         geom.alpha=kernel._solve_lapse(base.grid,geom,scalars,matter)[0]
         geom.beta.fill(0.0)
         geom.B.fill(0.0)
