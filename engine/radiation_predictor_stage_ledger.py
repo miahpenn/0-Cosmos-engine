@@ -22,6 +22,11 @@ CELLS = 5
 CAPTURE_FROM_T = 44.0
 
 
+def _grid_size(grid):
+    """Return cell count through the pinned grid's public coordinate array."""
+    return len(grid.centers)
+
+
 def reconstruct_metric_cone(a, X, U_E, U_r):
     """Reconstruct the radial inverse metric and radiation cone invariant."""
     a, X, U_E, U_r = map(float, (a, X, U_E, U_r))
@@ -285,8 +290,8 @@ class RadiationPredictorStageLedger(RadiationStageTrace):
             "t_accepted": float(step["t0"]),
             "t_attempted": float(step["t0"] + step["dt"]),
             "dt": float(step["dt"]),
-            "cells": list(range(max(0, len(self.latest_state.grid.centers) - CELLS),
-                                len(self.latest_state.grid.centers)))
+            "cells": list(range(max(0, _grid_size(self.latest_state.grid) - CELLS),
+                                _grid_size(self.latest_state.grid)))
                 if self.latest_state is not None else [],
         })
         return row
@@ -341,7 +346,7 @@ class RadiationPredictorStageLedger(RadiationStageTrace):
         grid_centers_sha256 = hashlib.sha256(centers.tobytes()).hexdigest()
         config_payload = {
             "trace_configuration": configuration,
-            "resolution": int(len(state.grid.centers)) if state is not None else None,
+            "resolution": int(_grid_size(state.grid)) if state is not None else None,
             "dr": float(state.grid.dr) if state is not None else None,
             "dt_nominal": float(dt_nominal) if math.isfinite(float(dt_nominal)) else None,
             "capture_from_t": CAPTURE_FROM_T,
@@ -364,7 +369,7 @@ class RadiationPredictorStageLedger(RadiationStageTrace):
         ).encode()).hexdigest()
 
         expected_indices = (
-            list(range(max(0, int(len(state.grid.centers)) - CELLS), int(len(state.grid.centers))))
+            list(range(max(0, int(_grid_size(state.grid)) - CELLS), int(_grid_size(state.grid))))
             if state is not None else []
         )
         steps = [self.ledger_steps[k] for k in sorted(self.ledger_steps, key=int)]
