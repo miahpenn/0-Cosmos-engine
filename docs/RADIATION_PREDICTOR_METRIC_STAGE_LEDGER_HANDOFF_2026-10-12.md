@@ -116,3 +116,25 @@ Once the stage-ledger artifact is available, compare the terminal-cell cone rati
 - In every branch, reproduce the signs and witnesses on saved data before any new physics change or long campaign.
 
 No physics patch is justified by the current terminal budget alone.
+
+
+## 8. Recorder implementation attempts — provenance and correction (12 Oct 2026)
+
+The first stage-ledger attempt did not produce a scientific ledger. [Run 38308235431](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38308235431) passed compilation and **137 repository tests** before the recorder accessed a nonexistent `SphericalCellGrid.resolution` attribute. Artifact `11774360345` (921 bytes) contains provenance/hash files only; it contains no stage trace or ledger and must not be interpreted as an admitted capture.
+
+A second attempt, [run 38308988809](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38308988809), passed compilation and **138 repository tests** in 30.75 seconds, but an overly broad textual correction had generated the invalid expression `self.latest_state.len(grid.centers)`. At the first captured step it failed with `AttributeError: 'ProductionState' object has no attribute 'len'`. This is also an instrumentation-only failure; artifact `11774360345` belongs to the prior run, and run 38308988809 has no admitted stage ledger.
+
+The recorder has since been corrected to use one tested helper:
+```python
+def _grid_size(grid):
+    return len(grid.centers)
+```
+The row builder and output serializer call `_grid_size(...grid)`, the regression test imports and exercises this helper on the actual pinned `SphericalCellGrid(n=80, r_max=80)`, and the source fingerprint list now names the active workflow file. The physics-source SHA/blob pins and vendor pin are unchanged.
+
+- Grid-size helper source commit: `b76fbdfe7ff43e2878d532526a15123fcc30c02a`
+- Test commit: `8a69e5dc16e3d3e4cf39fa0a91fc8ce312f55ba1`
+- Active-workflow fingerprint commit: `9c3df9f85bc6dfd6c5ea01bb7cde871f5ea046b6`
+- Corrected tagged workflow commit: `4d9fcb2bf1d7faccbe2013e1c71c70ea7c32bbd9`
+- Corrected run: [38309326002](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38309326002) (queued when this addendum was written)
+
+Do not accept the corrected run until all of the following hold: (1) frozen source/vendor guard passes; (2) full repository test suite passes; (3) capture reaches the target failure and writes `stage_ledger.json` plus its summary; (4) ledger `validation.ok=true`, with all four stages for cells 75–79 and zero stage/Euler/projection mismatches; and (5) artifact hashes verify. A green test suite without a complete ledger is not a successful attribution.
