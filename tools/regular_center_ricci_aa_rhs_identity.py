@@ -289,6 +289,7 @@ def audit_resolution(n, mode):
 
 def main():
     cases = [audit_resolution(n, mode) for mode in MODES for n in RESOLUTIONS]
+    flat = flat_control()
     comparisons = []
     for mode in MODES:
         family = [c for c in cases if c["mode"] == mode]
@@ -345,7 +346,7 @@ def main():
             "PASS"
             if row["first_cell_analytic_error_monotonic_decrease"]
             and order is not None and order >= 3.5
-            and max(report["flat_control"]["max_abs_Aa_rhs"], report["flat_control"]["max_abs_ricci_tf"], report["flat_control"]["max_abs_lapse_hessian_tf"]) < 1.0e-12
+            and max(flat["max_abs_Aa_rhs"], flat["max_abs_ricci_tf"], flat["max_abs_lapse_hessian_tf"]) < 1.0e-12
             else "FAIL"
         )
         comparisons.append(row)
@@ -359,7 +360,7 @@ def main():
         "resolutions": list(RESOLUTIONS),
         "r_max": R_MAX,
         "modes": list(MODES),
-        "flat_control": flat_control(),
+        "flat_control": flat,
         "cases": cases,
         "mode_comparisons": comparisons,
         "interpretation_guardrail": (
