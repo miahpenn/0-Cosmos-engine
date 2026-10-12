@@ -275,3 +275,12 @@ A consolidated diagnostic handoff records the origin-half-cell and uniform fourt
 Decision remains **diagnostic gate not passed**. Uniform fourth-order quadrature sharply improves initial H (N=320 first-cell H about (5.0\times10^{-7})), but the first-cell production Aa RHS remains about (4.1\times10^{-5}) and Aa RHS/r² grows under refinement. The origin-only candidate reduces one-step M and C_lambda errors but does not eliminate them. The manufactured curvature identity shows expected fixed-annulus convergence, not regularity of the actual production profile. No unique faulty RHS term is proven.
 
 Next: matched one-step propagation for the uniform-fourth-order initializer, plus signed Aa/K RHS decomposition and centre parity/stencil checks on frozen states. No production physics edits, centre projection, or long campaign until the exact numerical identity and acceptance checks pass. This update is diagnostic documentation only; it does not modify or admit the production engine.
+
+
+## CMC lapse centre-row counterfactual (2026-10-12)
+
+Frozen-state counterfactual workflow: https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38280503385. Full report: [CMC lapse centre-row counterfactual](CMC_LAPSE_CENTER_ROW_COUNTERFACTUAL_2026-10-12.md).
+
+Ten frozen states (N=40/60/80/120 at t=0 and approximately t=2.16, plus N=60/80 near t=10) compared the current second-order centre row, a cell-centred even-ghost variant, and a production-matched fourth-order CMC solve. The current first-cell Kdot-target residual is about 1.2e-3 to 1.6e-3 in magnitude. The even-ghost variant reduces it to about 1e-5–8e-5 on most tested states but does not eliminate it. The production-matched solve reaches roundoff because its matrix uses the same discrete operators as the production K RHS; that cancellation is expected by construction and is not independent validation.
+
+This supports a centre-row/discrete-operator compatibility issue in the CMC lapse solve, but does not prove it is the sole source of evolving H/M/C defects. No trajectory was advanced and no production code changed. Next gate is an independent matched frozen-input RHS identity test, then at most a one-step numerical counterfactual if a specific term fails. Keep physics and production settings locked; t=160 remains blocked until t=12 constraint and balance gates pass.
