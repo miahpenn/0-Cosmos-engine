@@ -155,8 +155,69 @@ def _install_capture(capture):
     return restore
 
 
+def _radiation_observables(state, include_profile=False):
+    """Recompute the radiation cone directly from the supplied production state."""
+    metric_slice = metric_slice_from_q(state.grid, state.geometry)
+    metrics = ms._metric_arrays(metric_slice)
+    radiation = state.matter.radiation
+    sqrt_gamma = np.asarray([m.sqrt_gamma for m in metrics], dtype=float)
+    gamma_rr_inv = np.asarray([m.gamma_rr_inv for m in metrics], dtype=float)
+    energy = np.asarray(radiation.energy_t, dtype=float) / sqrt_gamma
+    momentum_r = np.asarray(radiation.momentum_r, dtype=float) / sqrt_gamma
+    abs_momentum = np.sqrt(np.maximum(gamma_rr_inv * momentum_r * momentum_r, 0.0))
+    ratio = abs_momentum / np.maximum(np.abs(energy), 1.0e-300)
+    ratio_margin = 1.0 - ratio
+    cone_margin = energy - abs_momentum
+    radii = np.asarray(state.grid.centers, dtype=float)
+    finite = np.isfinite(energy) & np.isfinite(abs_momentum) & np.isfinite(ratio)
+    inadmissible = (~finite) | (energy < 0.0) | (abs_momentum > energy)
+    max_ratio_idx = int(np.argmax(np.where(finite, ratio, np.inf)))
+    min_ratio_margin_idx = int(np.argmin(np.where(finite, ratio_margin, -np.inf)))
+    min_cone_margin_idx = int(np.argmin(np.where(finite, cone_margin, -np.inf)))
+    n = len(radii)
+    summary = {
+        "scope": "all physical grid cells, evaluated on the snapshot metric",
+        "cell_count": int(n),
+        "finite_cell_count": int(np.count_nonzero(finite)),
+        "inadmissible_cell_count": int(np.count_nonzero(inadmissible)),
+        "max_abs_S_over_E": _number(float(ratio[max_ratio_idx])),
+        "max_ratio_cell": max_ratio_idx,
+        "max_ratio_radius": _number(float(radii[max_ratio_idx])),
+        "min_ratio_margin_1_minus_abs_S_over_E": _number(float(ratio_margin[min_ratio_margin_idx])),
+        "min_ratio_margin_cell": min_ratio_margin_idx,
+        "min_ratio_margin_radius": _number(float(radii[min_ratio_margin_idx])),
+        "min_cone_margin_E_minus_abs_S": _number(float(cone_margin[min_cone_margin_idx])),
+        "min_cone_margin_cell": min_cone_margin_idx,
+        "min_cone_margin_radius": _number(float(radii[min_cone_margin_idx])),
+        "centre_abs_S_over_E": _number(float(ratio[0])),
+        "centre_ratio_margin": _number(float(ratio_margin[0])),
+        "centre_cone_margin": _number(float(cone_margin[0])),
+        "outer_abs_S_over_E": _number(float(ratio[-1])),
+        "outer_ratio_margin": _number(float(ratio_margin[-1])),
+        "outer_cone_margin": _number(float(cone_margin[-1])),
+    }
+    profile = None
+    if include_profile:
+        profile = [
+            {
+                "i": int(i), "r": _number(float(radii[i])),
+                "rest": _number(float(radiation.rest[i])),
+                "energy_t": _number(float(radiation.energy_t[i])),
+                "momentum_r": _number(float(radiation.momentum_r[i])),
+                "E": _number(float(energy[i])),
+                "abs_S": _number(float(abs_momentum[i])),
+                "abs_S_over_E": _number(float(ratio[i])),
+                "ratio_margin": _number(float(ratio_margin[i])),
+                "cone_margin": _number(float(cone_margin[i])),
+            }
+            for i in range(n)
+        ]
+    return summary, profile
+
+
 def _snapshot(kernel, state, label):
     obs = kernel.diagnostics(state, profiles=True)
+    radiation, _ = _radiation_observables(state, include_profile=False)
     return {
         "label": label, "t": float(state.t), "tau": float(state.tau),
         "H_eff": _number(obs.get("H_eff", np.nan)),
@@ -165,14 +226,15 @@ def _snapshot(kernel, state, label):
         "max_abs_C_Lambda": _number(obs.get("connection_max", np.nan)),
         "MS_current_max": _number(obs.get("misner_sharp_current_max", np.nan)),
         "MS_current_rms": _number(obs.get("misner_sharp_current_rms", np.nan)),
-        "rad_margin_i0": _number(obs.get("radiation_margin_i0", np.nan)),
-        "rad_margin_admitted": _number(obs.get("radiation_margin_admitted", np.nan)),
+        "rad_margin_i0": radiation["centre_ratio_margin"],
+        "rad_margin_admitted": radiation["min_ratio_margin_1_minus_abs_S_over_E"],
+        "radiation_cone": radiation,
     }
 
 
 def run_one(resolution, beta_rad):
     result = {"resolution": resolution, "beta_rad": beta_rad, "status": "failed",
-              "dt": None, "pre": None, "post": None, "capture_A": None,
+              "dt": None, "pre": None, "post": None, "post_radiation_profile": None, "capture_A": None,
               "capture_B": {"rhs_entry": None, "faces": [], "first_face": None,
                             "centre_source": None, "grid_centres": [],
                             "centre_flux": [0.0, 0.0, 0.0]},
@@ -192,6 +254,7 @@ def run_one(resolution, beta_rad):
         restore = _install_capture(result["capture_B"])
         state = kernel.step(state, result["dt"])
         result["post"] = _snapshot(kernel, state, "t0+dt")
+        _, result["post_radiation_profile"] = _radiation_observables(state, include_profile=True)
         result["status"] = "passed"
     except Exception as exc:
         result["capture_C"] = getattr(exc, "diagnostic", None)
@@ -233,20 +296,74 @@ def run_one(resolution, beta_rad):
     return result
 
 
+def _matched_arm_summary(results):
+    by_case = {(int(row["resolution"]), float(row["beta_rad"])): row for row in results}
+    paired = []
+    fields = ("energy_t", "momentum_r", "rest", "E", "abs_S", "abs_S_over_E", "ratio_margin", "cone_margin")
+    for resolution in RESOLUTIONS:
+        null = by_case[(resolution, 0.0)]
+        candidate = by_case[(resolution, -0.04)]
+        item = {
+            "resolution": int(resolution),
+            "dt": _number(float(null["dt"])),
+            "null_status": null["status"],
+            "candidate_status": candidate["status"],
+            "candidate_beta_rad": -0.04,
+            "null_post_radiation_cone": (null.get("post") or {}).get("radiation_cone"),
+            "candidate_post_radiation_cone": (candidate.get("post") or {}).get("radiation_cone"),
+            "candidate_minus_null_max_abs_differences": {},
+            "comparison_available": False,
+        }
+        npf = null.get("post_radiation_profile")
+        cpf = candidate.get("post_radiation_profile")
+        if null["status"] == "passed" and candidate["status"] == "passed" and isinstance(npf, list) and isinstance(cpf, list) and len(npf) == len(cpf):
+            item["comparison_available"] = True
+            for field in fields:
+                diffs = []
+                for a, b in zip(npf, cpf):
+                    av = float(a[field])
+                    bv = float(b[field])
+                    if math.isfinite(av) and math.isfinite(bv):
+                        diffs.append((abs(bv - av), bv - av, int(a["i"]), float(a["r"]), av, bv))
+                if diffs:
+                    max_abs, signed, i, radius, null_value, candidate_value = max(diffs, key=lambda x: x[0])
+                    item["candidate_minus_null_max_abs_differences"][field] = {
+                        "max_abs_delta": _number(max_abs),
+                        "signed_delta_candidate_minus_null_at_witness": _number(signed),
+                        "cell": i,
+                        "radius": _number(radius),
+                        "null_value": _number(null_value),
+                        "candidate_value": _number(candidate_value),
+                    }
+        paired.append(item)
+    return paired
+
+
 def main():
     results = []
     for resolution in RESOLUTIONS:
         for beta in BETAS:
             print(f"Running N={resolution} beta_rad={beta}")
             results.append(run_one(resolution, beta))
+    paired = _matched_arm_summary(results)
+    payload_obj = {
+        "schema": "radiation_four_force_counterfactual_v2",
+        "diagnostic_only": True,
+        "production_physics_changed": False,
+        "misner_sharp_current_status": "unavailable_in_first_pass_harness; reported fields remain NaN",
+        "cases": results,
+        "matched_arm_summary": paired,
+    }
     out = Path("artifacts/radiation_four_force_counterfactual.json")
     out.parent.mkdir(parents=True, exist_ok=True)
-    payload = json.dumps(results, indent=2, sort_keys=True, allow_nan=False)
+    payload = json.dumps(payload_obj, indent=2, sort_keys=True, allow_nan=False)
     out.write_text(payload + "\n", encoding="utf-8")
     digest = hashlib.sha256((payload + "\n").encode("utf-8")).hexdigest()
     print(f"Wrote {out} SHA-256={digest}")
     failures = [r for r in results if r["status"] != "passed"]
     print(f"Counterfactual cases: {len(results)-len(failures)} passed, {len(failures)} failed")
+    print("Matched-arm radiation profile summaries:")
+    print(json.dumps(paired, sort_keys=True), flush=True)
     if failures:
         raise SystemExit(1)
 
