@@ -98,6 +98,19 @@ On the failing step, flux and source lift C to about +2.22 × 10^-6 on the accep
 
 The historical-source ledger also captured t = 47.01, cell 79. In that run gamma^rr rose from 1.4628939 to 1.4853572 across the raw Euler geometry update. The margin remained negative after the centre-regularity stage (C = −1.6900205 × 10^-8, ratio = 1.0000569941); the raw metric already crossed the cone and projection only improved it slightly. Because the old ledger used source base `9eed1cf95c52f001c2b87afbbe6da37faa56d50e`, its exact numbers must not be treated as a paired comparison with the corrected-rate trace. It corroborates the stage ordering: the predictor metric is inadmissible before the lapse rejection.
 
+## Duplicate trigger cross-check
+
+A workflow-only label/comment commit queued a second run of the same frozen-dt trace; this was redundant work, not a new candidate or parameter change. It completed with the same 1,566 accepted steps and the same failure at t = 47.01000000000102, cell 79, r = 79.5.
+
+- Repeat run: [38310237842](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38310237842), same corrected source base `1c63090d4f42396f899421a2379f70320689d5ad` and pinned vendor.
+- Repeat artifact: [artifact 11775230036](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38310237842/artifacts/11775230036)
+- Repeat artifact ZIP SHA-256: `f64298e2819e0dd9c4c2df712a4d1250e4855a5b0e467430fe7aa419a533e49f`
+- Repeat `trace.json` SHA-256: `53a1f9f188e0eea4575da4458d09891f50144b9f89f945c995cd9980221fb619`
+- Repeat failure ratio: 1.00005732838577255 versus 1.00005732835490968 in the first capture; predictor margin −1.6997425987812665 × 10^-8 versus −1.699741681811858 × 10^-8.
+- Repeat central proper time differs by only about 1.5 × 10^-9, and the computed predictor inverse metric by about 3.6 × 10^-9.
+
+This is an independent trigger of essentially the same result, not a scientifically distinct ablation. Do not commission another repetition; next work should be offline analysis of the captured same-step geometry/source and constraint budgets.
+
 ## What this does and does not establish
 
 **Established for the captured frozen configuration:**
