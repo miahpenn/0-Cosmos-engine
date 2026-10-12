@@ -306,3 +306,20 @@ where (\alpha_{solve}(k)) is the production elliptic solution with `target_kdot`
 - Script commit [bc1e0a4c5bdb28f8c3e71967133f8a0923309ed4](https://github.com/miahpenn/0-Cosmos-engine/commit/bc1e0a4c5bdb28f8c3e71967133f8a0923309ed4); workflow trigger commit [ed30da8d41746cdb65a97ca9b666873dc40661b2](https://github.com/miahpenn/0-Cosmos-engine/commit/ed30da8d41746cdb65a97ca9b666873dc40661b2).
 - Expected artifact: `cmc-target-lapse-scalar-closure-scan`.
 - It scans 121 trial Kdot values from the native R80 target minus (10^{-6}) through archived R160 target plus (10^{-6}). For each trial it temporarily fixes the target, solves the production lapse equation, restores the native target callback, and measures (H(k)=\mathrm{target}(\alpha_{solve}(k))-k). This tests sign changes/root brackets without Picard iteration. The diagnostic is frozen-state only; no source equation is changed.
+
+
+## 15. Scalar closure residual scan — completed
+
+- Run [38209945367](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38209945367): successful.
+- Artifact [cmc-target-lapse-scalar-closure-scan, ID 11729211755](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38209945367/artifacts/11729211755).
+- ZIP SHA-256: `1ebb5924f2eea9899b7da3c048400fe11f609338e0e5ad3af211e6c11c65f5b1`.
+- Report SHA-256: `23da7a3f47f0f7046e74583bfbc334ca56c04dd7166b720c50d4a8ae6b2c046b`.
+- Scan: 121 equally spaced trial Kdot values from (6.098841550010288\times10^{-5}) to (6.333524865732698\times10^{-5}), covering both native targets plus a (10^{-6}) margin on each side.
+
+The residual was (H(k)=\mathrm{target\_kdot}(\alpha_{solve}(k))-k). It stayed negative at every sample, between (-8.60824948\times10^{-14}) and (-8.54097609\times10^{-14}), with no exact-zero sample and no sign-change bracket. Its endpoint finite-difference slope was only (-1.7095\times10^{-10}); maximum absolute residual was (8.6083\times10^{-14}), about (1.381\times10^{-9}) of target scale. Direct fixed-target controls at both the native R80 target and archived R160 target gave closure residuals (-8.58105\times10^{-14}) and (-8.58056\times10^{-14}), respectively. The fixed-target elliptic solve remains deterministic.
+
+**Interpretation:** within the scanned target interval, the discrete target/lapse coupling is nearly neutral and shows a tiny, nearly constant closure offset rather than the scalar sign change needed to bracket a root. The same-R80 two-seed test therefore does not establish two exact roots; it establishes distinct, very nearly stationary profiles for a weakly contracting / effectively near-identity iteration. No root is ruled out outside the sampled interval. The residual magnitude is tiny, but systematic and above the strict (10^{-13}) alpha-step threshold's implied map tolerance, so it deserves a pointwise consistency check before any physical interpretation.
+
+## 16. Next diagnostic — pointwise K-RHS/lapse-equation consistency
+
+On the same archived t=0 R80 slice, choose a few trial Kdot values (native R80, archived R160, and midpoint). For each one, freeze that target, solve the production elliptic lapse, restore the target callback, then reconstruct the production pointwise K RHS `l2["K"] + l3["K"]` on the solved alpha. Report per-radius residual (R_i=\dot K_{RHS,i}-k): center and boundary-adjacent values, RMS/max on interior cells excluding the outermost derivative-closure rows, weighted mean over all cells, and its agreement with the scalar (H(k)) residual. This will reveal whether the (~10^{-13}) average offset comes from the pointwise elliptic-vs-K-RHS operator mismatch or cancellation/closure at a few edge cells. It remains a saved-state diagnostic; no evolution or production edit is required.
