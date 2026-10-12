@@ -1,0 +1,126 @@
+{
+  "current_decision": "Archived-state CMC lapse centre row and production lapse operator agree to roundoff, weakening the centre-row-defect hypothesis for those profiles only. CMC target closure is nearly redundant with the interior PDE because the outer normalization cell is included in the target average. Next compare CMC and production lapse operators on the exact uniform-fourth-order quadrature initial profiles N=40/60/80/120/160. No production edit; high-N radiation admissibility remains open; no t=160 campaign.",
+  "diagnostic_artifact_id": 11768515284,
+  "diagnostic_artifact_sha256": "2128028ad4fcd80c4d603107d481a78a1add233d18b35eaa3d1d19a43cae2a91",
+  "diagnostic_run_id": 38294736014,
+  "documentation": {
+    "CMC_lapse_centre_row": "docs/CMC_LAPSE_CENTRE_ROW_AUDIT_2026-10-12.md",
+    "CMC_target_closure_rank": "docs/CMC_TARGET_CLOSURE_RANK_AUDIT_2026-10-12.md",
+    "latest_handoff": "docs/CONTINUATION_HANDOFF_LATEST_2026-10-12.md",
+    "signed_Aa_K_split": "docs/PRODUCTION_AA_K_RHS_CENTRE_SOURCE_SPLIT_2026-10-12.md"
+  },
+  "findings": {
+    "baseline_Aa_rhs_central_is_ricci_dominated": true,
+    "closures": {
+      "Aa_rebuild_max_abs": 2.168404344971009e-19,
+      "K_rebuild_max_abs": 2.168404344971009e-19,
+      "M_geom_rebuild_max_abs": 0.0,
+      "M_source_rebuild_max_abs": 4.0657581468206416e-20,
+      "tangent_Aa_rebuild_max_abs": 1.0842021724855043e-14,
+      "tangent_K_rebuild_max_abs": 1.0842021724855043e-14,
+      "tangent_M_geom_rebuild_max_abs": 0.0,
+      "tangent_M_source_rebuild_max_abs": 2.032879073410321e-15
+    },
+    "uniform_first_cell_components": {
+      "120": {
+        "Aa_hessian_trace_free": 4.075581349044955e-05,
+        "Aa_matter_anisotropic_stress": -3.129599695014127e-07,
+        "Aa_rhs_production": 3.729219906707561e-05,
+        "Aa_ricci_trace_free": -3.150654453872528e-06,
+        "K_lapse_laplacian": -0.00030563442660520764,
+        "K_matter_source": -0.0013029887333074405,
+        "K_rhs_production": -0.0015108601987545618
+      },
+      "160": {
+        "Aa_hessian_trace_free": 4.14856011998486e-05,
+        "Aa_matter_anisotropic_stress": -1.7645153225272424e-07,
+        "Aa_rhs_production": 3.884330747286614e-05,
+        "Aa_ricci_trace_free": -2.4658421947297406e-06,
+        "K_lapse_laplacian": -0.000311122439351715,
+        "K_matter_source": -0.0013056521987196395,
+        "K_rhs_production": -0.001519000883622357
+      },
+      "40": {
+        "Aa_hessian_trace_free": 2.9434822440636438e-05,
+        "Aa_matter_anisotropic_stress": -2.64946106830698e-06,
+        "Aa_rhs_production": 0.0001457013763377239,
+        "Aa_ricci_trace_free": 0.00011891601496539445,
+        "K_lapse_laplacian": -0.00022056186927177092,
+        "K_matter_source": -0.0012553815065698452,
+        "K_rhs_production": -0.0013783677307920102
+      },
+      "60": {
+        "Aa_hessian_trace_free": 3.608125724846463e-05,
+        "Aa_matter_anisotropic_stress": -1.2281841500167734e-06,
+        "Aa_rhs_production": 5.183895815832007e-05,
+        "Aa_ricci_trace_free": 1.6985885059872207e-05,
+        "K_lapse_laplacian": -0.00027049075059606026,
+        "K_matter_source": -0.0012848948077642567,
+        "K_rhs_production": -0.001457695015682842
+      },
+      "80": {
+        "Aa_hessian_trace_free": 3.873974156721286e-05,
+        "Aa_matter_anisotropic_stress": -6.99025946809889e-07,
+        "Aa_rhs_production": 3.8368107710616e-05,
+        "Aa_ricci_trace_free": 3.2739209021303194e-07,
+        "K_lapse_laplacian": -0.0002904752920145995,
+        "K_matter_source": -0.0012954137874527118,
+        "K_rhs_production": -0.0014881566231120514
+      }
+    },
+    "uniform_quadrature_Aa_dot_over_r2": {
+      "120": 0.0003356297916036805,
+      "160": 0.0006214929195658582,
+      "40": 0.0001457013763377239,
+      "60": 0.00011663765585622016,
+      "80": 0.000153472430842464
+    },
+    "uniform_quadrature_Dr_Kdot_over_r": {
+      "120": 0.0048694466310770235,
+      "160": 0.008676657979842598,
+      "40": 0.0005107383370860408,
+      "60": 0.0011950306067315137,
+      "80": 0.0021487823247775847
+    },
+    "uniform_quadrature_lapse_hessian_central_term_persists": true,
+    "uniform_quadrature_reduces_initial_central_ricci": true
+  },
+  "followup_audits": {
+    "cmc_lapse_centre_row": {
+      "R160_first_cell_production_minus_cmc_lapse_term": 1.8518173106052416e-16,
+      "R160_normalization_cell_residual": -6.934447319747322e-14,
+      "R80_first_cell_production_minus_cmc_lapse_term": 1.9613217300262775e-15,
+      "R80_normalization_cell_residual": -4.588278121699964e-12,
+      "artifact_id": 11768278320,
+      "artifact_sha256": "e02c2c0f384d20692fc02bb3ee771409d0743a2479dc39276ee3a14b1156101f",
+      "interpretation": "Archived t=0 R80/R160 profiles only; CMC row and production lapse term agree to roundoff. Uniform-quadrature arm remains untested by this audit.",
+      "max_even_series_fit_residual": 4.48628556526387e-08,
+      "max_pde_residual": 3.869625973818014e-15,
+      "run_id": 38296556473,
+      "url": "https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38296556473"
+    },
+    "cmc_target_closure_rank": {
+      "H_max": -8.56134553441773e-14,
+      "H_min": -8.605133749658989e-14,
+      "artifact_id": 11768056222,
+      "artifact_sha256": "64cc1666a2010d73b462cac48c78706ac48be1a1d02fea7de343bd09172c4e24",
+      "closure_slope": -2.426863537036872e-10,
+      "interpretation": "Near-redundancy of current discrete target closure on frozen R80; no target definition changed.",
+      "max_abs_H_minus_weighted_residual": 1.1367835759637179e-20,
+      "max_pde_row_residual": 3.709313130088876e-15,
+      "outer_normalization_cell_residual": -4.5785172799340385e-12,
+      "outer_normalization_weight_fraction": 0.018629100179086755,
+      "run_id": 38294955148,
+      "target_output_slope": 0.9999999997573141,
+      "url": "https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38294955148"
+    }
+  },
+  "no_evolution": true,
+  "production_main_sha": "809228c380d80af83858412557c78b6329ffa5c8",
+  "repository": "miahpenn/0-Cosmos-engine",
+  "schema": "centre_series_current_findings_snapshot_v1",
+  "source_commit": "6d8b3f2790644591326df57c55908863f994cb0c",
+  "state_count": 17,
+  "updated_utc": "2026-10-12",
+  "vendor_commit": "d6052d605673ce9d82cdc99b0df79855fa2ea215"
+}
