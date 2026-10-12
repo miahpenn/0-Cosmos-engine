@@ -226,7 +226,7 @@ def main():
             "actual_checkpoint_time is the saved integration time"
         ),
         "resolution_count": len({int(item["resolution"]) for item in summaries}),
-        "summaries": sorted(summaries, key=lambda item: (item["resolution"], item["t"])),
+        "summaries": sorted(summaries, key=lambda item: (item["resolution"], item["actual_checkpoint_time"])),
         "limitations": [
             "Profiles are recomputed with the production stress assembly and pinned vendor constraint operators.",
             "This audits spatial localization but is not an independent re-derivation of the continuum Einstein constraints.",
