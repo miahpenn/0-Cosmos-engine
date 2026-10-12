@@ -190,9 +190,18 @@ Semi-discrete tangent:
 - On the initial slice, the source-current tendency is overwhelmingly the local S-field current: d(8pi*j_S)/dt=-2.42151e-4 (N60) and -2.23599e-4 (N80); D, COSMOS-phi and all fluid-current rates are orders smaller. Geometry contributes -1.20974e-4 / -7.48267e-5 respectively, leaving the measured nonzero dM/dt. At N80/t≈10 the geometric rate (+3.06906e-3, mainly D_r Aa and radial-b terms) dominates the current-source rate (+1.10102e-4).
 - Interpretation: no single scalar or geometry term is isolated as the sole error. The defect is a mismatch in the *balance* between the semi-discrete geometric momentum constraint and evolving source current. The fixed-grid CFL refinement hardly changes the early defect, while the N=40/60/80/120 t=2.16 refinement shows a narrowing central spatial layer.
 
-### Current operational decision
+### Spatial refinement of the semi-discrete momentum tangent — completed
 
-**Do not modify production physics or merge PR #3 yet. Do not launch t=160.** Next run only a diagnostic RHS-tangent refinement at shared physical radii for N=40,60,80,120 at t=0 and saved t≈2.16. If dM/dt converges at fixed radii while the first-cell sup norm moves inward, keep the equations fixed and treat the center layer as a spatial discretization/regularity issue. If dM/dt stays non-convergent at fixed radii, inspect discrete consistency between the A/K geometric RHS and the S-field current equation before proposing a tightly scoped numerical-layer repair.
+Workflow: https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38214065011
+Artifact SHA-256: `6c19e84cb197dbd4ed248791e8a06bcc42bd982339d196ea380cf9c58a43884b9`
+
+The RHS tangent audit sampled the initial slice and saved t=2.16 states for N=40,60,80,120. It used the actual production semi-discrete RHS, plus/minus directional perturbations with CMC lapse re-solved, two epsilons, and an actual one-step comparison. It did not advance a trajectory beyond one local step.
+
+At fixed radii r=3,4,5,6,8, the initial-slice ẊM becomes small as resolution increases: for example at r=3 it goes -4.80e-4 (N40), -9.59e-5 (N60), +7.59e-5 (N80), +1.91e-7 (N120); at r=5 it decreases from +8.77e-5 (N40) to +4.84e-7 (N120). At t=2.16, the N120 tangent at r=3,4,5,6,8 is -7.81e-5, -2.01e-5, +1.65e-6, -8.25e-8, +9.25e-8. Coarse resolutions remain non-monotonic and differ in sign at some fixed radii.
+
+The inner r=2 tangent remains the exception: it is non-monotonic and strongly resolution-sensitive at both t=0 and t=2.16. Thus the defect narrows spatially, but pointwise central regularity has not been admitted.
+
+**Operational decision:** keep all production physics, scalar/matter sources, CMC gauge, and boundaries locked. Do not merge PR #3 yet and do not launch t=160. Next diagnostic is an operator-level check of regular-centre parity and discrete derivative compatibility in the first cells, including the directional derivatives of Aa, K, X, a and b and the independently decomposed matter-current tangent. No centre projection, damping, fitted coefficient, or custom Lambda equation should be introduced as a shortcut.
 
 ## Next gates
 
