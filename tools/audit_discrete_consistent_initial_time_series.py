@@ -31,7 +31,7 @@ def summarise(v, r, mask):
         return {"count": 0}
     i = int(inds[np.argmax(np.abs(v[inds]))])
     return {
-        "count": int(inds.size), "max_abs": float(abs(v[i]),
+        "count": int(inds.size), "max_abs": float(abs(v[i])),
         "peak_signed": float(v[i]), "peak_r": float(r[i]), "peak_i": i,
         "rms": float(np.sqrt(np.mean(v[inds]**2))),
     }
