@@ -1,0 +1,60 @@
+name: Diagnostic - manufactured trace-free radial Ricci centre audit
+
+on:
+  push:
+    branches:
+      - diag/manufactured-tracefree-ricci-center-2026-10-12
+    paths:
+      - tools/manufactured_tracefree_ricci_center_audit.py
+      - .github/workflows/manufactured-tracefree-ricci-center-audit.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: manufactured-tracefree-ricci-center-audit
+  cancel-in-progress: true
+
+jobs:
+  ricci-centre-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PYTHONUNBUFFERED: "1"
+
+    steps:
+      - name: Checkout diagnostic branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Checkout exact production source and pinned vendor
+        uses: actions/checkout@v4
+        with:
+          ref: 6d8b3f2790644591326df57c55908863f994cb0c
+          path: source
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install exact production dependencies
+        run: python -m pip install -r source/requirements.txt
+
+      - name: Compile diagnostic
+        run: python -m py_compile tools/manufactured_tracefree_ricci_center_audit.py
+
+      - name: Compare trace-free radial Ricci with exact metric reference
+        run: python tools/manufactured_tracefree_ricci_center_audit.py
+
+      - name: Upload diagnostic report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: manufactured-tracefree-ricci-center-audit
+          path: results/manufactured-tracefree-ricci-center-audit/
+          if-no-files-found: warn
+          retention-days: 90
