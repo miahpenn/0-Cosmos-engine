@@ -212,6 +212,35 @@ At the outer cell this reconstruction differs from the captured post-boundary pr
 
 Across the five captured cells, the algebraically reconstructed correction is exactly zero at (i=75,76,77,78), and all of the boundary correction sits at the imposed outer point (i=79), as expected for the existing boundary routine that assigns only (A_a[-1]). Over the listed ten steps the correction grows by a factor of about 2.27. At (t=46.95), Δ(A_a=5.7554\times10^{-5}), about (0.0365\%) of post-boundary (A_a), and about (1.6\%) of the step's unconditioned primary-predictor (A_a) increment. This is not numerically zero, and it demonstrates a growing boundary-conditioned contribution in the same late window where the radiation cone is eroding.
 
+### The same primary-boundary assignment shifts the discrete momentum-constraint term
+
+This can be quantified without interpreting the boundary law. The pinned vendor's geometric momentum-constraint expression is
+
+[
+M_{\mathrm{geom}}=D_r A_a-\tfrac23 D_r K+6 A_a\chi
++\tfrac32 A_a\left(\tfrac2r+\frac{D_r b}{b}\right),
+\qquad \chi=-\tfrac12\frac{D_r X}{X}.
+]
+
+The production diagnostic uses (M=M_{\mathrm{geom}}-8\pi j_{\mathrm{total}}). The boundary operation assigns only (A_a[-1]); it does not alter the metric or the matter state, so at the same primary-predictor slice the change in the *full* diagnosed (M) is exactly the change in (M_{\mathrm{geom}}). On the pinned fourth-order outer stencil, (Delta(D_r A_a)=25\Delta A_a/(12\Delta r)). Substitution of the recorded same-slice (b,X,K) values yields the following terminal-band change at cell 79:
+
+| Accepted time | Boundary Δ(A_a[-1]) | (M_{\mathrm{geom}}) before boundary | (M_{\mathrm{geom}}) after boundary | Same-slice Δ(M) |
+|---:|---:|---:|---:|---:|
+| 46.680 | +2.53865e−5 | +8.78449e−4 | +9.32432e−4 | +5.39832e−5 |
+| 46.710 | +2.85039e−5 | +9.42838e−4 | +1.00346e−3 | +6.06203e−5 |
+| 46.740 | +3.17962e−5 | +1.01159e−3 | +1.07923e−3 | +6.76311e−5 |
+| 46.770 | +3.52480e−5 | +1.08488e−3 | +1.15987e−3 | +7.49829e−5 |
+| 46.800 | +3.88339e−5 | +1.16285e−3 | +1.24547e−3 | +8.26220e−5 |
+| 46.830 | +4.25264e−5 | +1.24562e−3 | +1.33611e−3 | +9.04894e−5 |
+| 46.860 | +4.62923e−5 | +1.33330e−3 | +1.43182e−3 | +9.85149e−5 |
+| 46.890 | +5.00893e−5 | +1.42598e−3 | +1.53259e−3 | +1.06608e−4 |
+| 46.920 | +5.38647e−5 | +1.52371e−3 | +1.63837e−3 | +1.14657e−4 |
+| 46.950 | +5.75540e−5 | +1.62654e−3 | +1.74907e−3 | +1.22523e−4 |
+
+For all 99 captured completed primary-predictor stages, the formula-based Δ(M) agrees with the directly recomputed geometric-constraint difference to within (4.3\times10^{-17}). At (t=46.95), the boundary raises the geometric momentum term by (1.2252\times10^{-4}), about 7.5% of its pre-boundary value at that cell. This is a *measured same-slice shift in the constraint residual*, not just an arbitrary comparison of (A_a).
+
+The signed effect on the full (M) residual is positive because the matter term is unchanged by this (A_a)-only assignment. Whether that worsens the *absolute* full constraint residual depends on the pre-boundary sign and the exact (-8\pi j_{\mathrm{total}}) value; the ledger does not capture the complete total-(j) term in a way that admits an absolute-residual statement here. Therefore the allowed conclusion is: the frozen primary boundary imposes an increasing, quantitatively non-negligible change on the outer momentum-constraint equation. That warrants a boundary/CMC/constraint compatibility audit, but is **not** proof the P-minus target is invalid and does not establish it caused the later radiation crossing.
+
 ### What this narrows—and what it still cannot prove
 
 This establishes that the outer (P_-) rule materially corrects the outer (A_a) primary predictor and that the correction grows smoothly near the terminal failure. Because (A_a) feeds (dot a=-2\alpha a A_a) at zero shift and also enters the subsequent primary RHS, this is a concrete pathway for a previous boundary condition to affect future metric updates. It strengthens the case for a **boundary/CMC/geometry compatibility audit** rather than simply clearing the boundary because its spatial residual is near roundoff.
