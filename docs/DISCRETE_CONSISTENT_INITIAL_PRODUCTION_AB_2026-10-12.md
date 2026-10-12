@@ -371,3 +371,43 @@ The effect is confined to the central numerical layer. On the fixed annulus 2<=r
 A crucial regularity witness remains unresolved: the candidate first-cell production Aa RHS divided by r^2 grows from about -1.46e-3 (N160) to -3.38e-3 (N240) and -6.07e-3 (N320). Multiplying back by r^2 shows the unscaled first-cell Aa RHS approaches roughly -9.5e-5 rather than zero. The baseline unscaled value approaches about +1.1e-3. Thus the origin correction greatly reduces but does not eliminate the nonzero centre-limit tendency. A regular evolution should give an even trace-free curvature / Aa tendency that vanishes as O(r^2) at the centre.
 
 **Decision:** the origin half-cell error is a real contributor to the initial centre curvature residual, but the remaining finite first-cell Aa tendency shows that the rest of the radial integration/discrete-operator coupling still needs attention. Do not launch a longer trajectory. The next bounded candidate should test a uniformly fourth-order center-to-center quadrature, derived from the cubic interpolant on each interval and combined with the even-in-r origin half-cell rule; audit positivity, H/M/C_lambda and the Aa/r^2 scaling before any evolution.
+
+
+---
+
+## Uniform fourth-order center-to-center quadrature candidate — frozen initial profile complete
+
+**Workflow:** [38291938761](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38291938761)  
+**Artifact:** uniform-radial-quadrature-initial-profile, ID 11767500772  
+**Artifact ZIP SHA-256:** 937a139ffd360ccae753f06572da34a400c26183dbdd0f308f1f8d67ef2bc918
+
+Three initial-data constructions were compared at N=40/60/80/120/160/240/320: the exact pinned baseline, the origin-half-cell-only change, and a candidate using the same r²-exact origin half-cell plus analytically derived cubic Lagrange interval integrals throughout the radial domain. This was a frozen t=0 study; no evolution was taken.
+
+The uniform high-order integral materially improves the central H profile beyond the origin-only fix. Representative formal/admitted-inner H maxima and fixed-annulus H RMS are:
+
+| N | Arm | max |H| on i>=2, r<5 | H RMS for 2<=r<5 |
+|---:|---|---:|---:|
+| 60 | pinned baseline | 1.72e-5 | 1.76e-4 |
+| 60 | origin half-cell only | 7.64e-5 | 1.27e-4 |
+| 60 | uniform fourth-order intervals | 6.04e-6 | 7.61e-6 |
+| 80 | pinned baseline | 1.77e-5 | 1.58e-5 |
+| 80 | origin half-cell only | 5.44e-5 | 3.31e-5 |
+| 80 | uniform fourth-order intervals | 4.27e-6 | 2.74e-6 |
+| 120 | pinned baseline | 5.13e-5 | 6.50e-6 |
+| 120 | origin half-cell only | 2.19e-5 | 7.22e-6 |
+| 120 | uniform fourth-order intervals | 1.31e-6 | 2.10e-7 |
+| 160 | pinned baseline | 6.69e-5 | 3.76e-6 |
+| 160 | origin half-cell only | 1.85e-5 | 3.75e-6 |
+| 160 | uniform fourth-order intervals | 3.80e-7 | 7.90e-8 |
+| 240 | pinned baseline | 7.92e-5 | 1.73e-6 |
+| 240 | origin half-cell only | 2.96e-5 | 1.73e-6 |
+| 240 | uniform fourth-order intervals | 2.21e-7 | 1.58e-8 |
+| 320 | pinned baseline | 8.37e-5 | 9.83e-7 |
+| 320 | origin half-cell only | 3.39e-5 | 9.83e-7 |
+| 320 | uniform fourth-order intervals | 1.60e-7 | 5.01e-9 |
+
+The centre H peak is now much smaller, and the admitted-inner peak moves inward under refinement instead of remaining a large first-cell floor. The fixed-radius H difference is also rapidly shrinking. The initial momentum residual remains roundoff, and the discrete connection constraint is zero because Lambda is built from the same discrete metric-connection formula. The matter source is not modified.
+
+The remaining concern is centre evolution compatibility: the uniform candidate's first-cell raw production A_a RHS appears to approach a small nonzero value (~4e-5) instead of decreasing as r². A lower initial H norm therefore cannot by itself establish a regular, constraint-preserving evolution.
+
+**Decision:** the uniform quadrature is the strongest initial-data candidate so far, but it is not yet admitted. Run one ordinary production step against the pinned baseline and origin-only candidate at matched resolutions; compare H/M/C_lambda, determinant, fixed-radius norms and centre-series/A_a witnesses. No longer trajectory or physics change should be authorized unless that multi-constraint comparison passes.
