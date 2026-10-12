@@ -25,7 +25,7 @@ A new regression test, \`tests/test_scalar_lapse_gradient_metric_contraction.py\
 ## Execution and tests
 
 Initial candidate run: [38282365811](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38282365811)  
-Follow-up run after fixing a syntax typo in the report-comparison helper: [38282790322](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38282790322)
+Follow-up run after fixing a syntax typo in the report-comparison helper: [38282790322](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38282790322); this rerun completed successfully.
 
 The first run reports:
 - full repository regression suite: passed;
@@ -79,3 +79,6 @@ The first two center cells are not the accepted formal Hamiltonian/momentum sten
 4. Continue root-cause diagnosis from the established central spatial layer and geometric momentum-constraint budget, using frozen states and stage-level signed residuals. The dominant failure remains orders of magnitude larger than this correction's trajectory effect.
 
 No change to \`main\`, no new source coefficient, damping, floor, projection, imposed bounce, or other physical intervention was made.
+
+
+The corrected t=12 baseline-comparison workflow completed successfully in [run 38282790322](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38282790322), artifact ID `11762490670`.
