@@ -195,6 +195,33 @@ def run_one(resolution, beta_rad):
         result["status"] = "passed"
     except Exception as exc:
         result["capture_C"] = getattr(exc, "diagnostic", None)
+        # species_rhs extracts a derivative by calling evolve_species(dt=1.0)
+        # and subtracting the input state. Evaluate a separate, observational
+        # dt-scaled candidate to distinguish that unit-step guard probe from
+        # the actual caller timestep. This is not the full PIRK stage result.
+        rejection = result["capture_C"]
+        if rejection is not None:
+            pre = rejection["pre_conserved"]
+            unit = rejection["post_conserved"]
+            dt = float(result["dt"])
+            candidate = {
+                key: float(pre[key]) + dt * (float(unit[key]) - float(pre[key]))
+                for key in ("rest", "energy_t", "momentum_r")
+            }
+            metric = rejection["metric"]
+            sqrt_gamma = float(metric["sqrt_gamma"])
+            E = candidate["energy_t"] / sqrt_gamma
+            S = candidate["momentum_r"] / sqrt_gamma
+            abs_S = math.sqrt(max(float(metric["gamma_rr_inv"]) * S * S, 0.0))
+            rejection["dt_scaled_rhs_candidate"] = {
+                "interpretation": "diagnostic first-stage dt-scaled RHS candidate; not full PIRK state",
+                "dt": dt,
+                "conserved": candidate,
+                "E": E,
+                "abs_S": abs_S,
+                "abs_S_over_E": abs_S / max(abs(E), 1e-300),
+                "admissible_under_existing_bound": bool(E >= 0.0 and abs_S <= E),
+            }
         result["error_type"] = type(exc).__name__
         result["error"] = str(exc)
         result["traceback"] = traceback.format_exc()
