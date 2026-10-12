@@ -18,7 +18,10 @@ def _positive_finite(name: str, value) -> float:
     """Validate a strictly positive finite real-valued campaign parameter."""
     if isinstance(value, bool) or not isinstance(value, Real):
         raise ValueError(f"{name} must be a finite positive real number")
-    numeric = float(value)
+    try:
+        numeric = float(value)
+    except (OverflowError, ValueError) as exc:
+        raise ValueError(f"{name} must be a finite positive real number") from exc
     if not math.isfinite(numeric) or numeric <= 0.0:
         raise ValueError(f"{name} must be a finite positive real number")
     return numeric
