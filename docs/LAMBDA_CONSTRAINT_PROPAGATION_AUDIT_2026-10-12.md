@@ -213,6 +213,30 @@ No generic error has been found in the pinned parity stencil. The evolved centre
 
 The next diagnostic should report the actual regularity series ratios directly on the saved states—`Aa/r²`, `Lambda/r`, `(a/b-1)/r²`, plus `D_r f/r` for the even fields K, X, a, b, S, D and phi—at the first cells for t=0 and t=2.16. Compare these against resolution and the exact production stencil, and report the independent matter-current derivative. That is a narrower test of centre smoothness than fitting one quartic across r<=6. No long run and no physics change is needed.
 
+## Centre regularity and current-derivative product-rule audit — complete
+
+Run: https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38215015337
+Artifact: `center-regularity-current-derivative-audit`
+SHA-256: `6f74bb436227d1e7259509527a6cdb000994557851199d1667681fa42371eaa2`
+
+The audit reloaded the initial and t=2.16 states for N=40,60,80,120, and rebuilt every checkpoint field exactly. It reports the regularity ratios with the production derivative and separately compares a direct odd-parity derivative of each scalar current against the product-rule expression.
+
+For the S current, the maximum absolute direct-vs-product-rule derivative difference at t=2.16 is:
+- N=40: (9.55\times10^{-8})
+- N=60: (3.78\times10^{-8})
+- N=80: (2.56\times10^{-8})
+- N=120: (2.82\times10^{-8})
+
+The corresponding direct S-current derivative magnitude is roughly (1.83\times10^{-6}) to (2.15\times10^{-6}), so this discrete product-rule mismatch is about 1–5% of that derivative, while the momentum residual is (10^{-3})-scale. The D-current product-rule mismatch is about (10^{-22}), and the COSMOS-φ mismatch is about (2.2\times10^{-10}). Geometry/source/current assembly closures are at roundoff.
+
+This is a measurable spatial product-rule discrepancy, but its absolute size is too small to explain the whole late momentum residual. It remains a discretization diagnostic, not grounds to alter the scalar source equations.
+
+One centre signal is striking: at t=2.16 the production-stencil (D_rK/r) values over the first three cells are:
+- N80: (-4.22\times10^{-3}), (-1.196\times10^{-3}), (+1.264\times10^{-4})
+- N120: (-9.558\times10^{-3}), (-2.717\times10^{-3}), (+2.776\times10^{-4})
+
+The first-cell derivative ratio is much larger than both its neighbour and the later cells. At t=0, K is spatially constant and this ratio is zero. This supports an evolved central K-gradient layer; it does not identify whether the lapse Hessian, Ricci terms, or the discrete A/K update creates it. The next RHS-rate split resolves those geometry terms separately.
+
 ## Centre-series ratio audit — complete
 
 Run: https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38214837536
