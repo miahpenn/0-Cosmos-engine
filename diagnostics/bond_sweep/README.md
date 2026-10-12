@@ -31,3 +31,5 @@ For every state, it calculates both Hamiltonian residual definitions on that exa
 This tests the consequences of a *chosen* bond form; it does not establish that the archive requires this term or that it is physical. The earlier provisional commit/branch is not present in current repository refs, so its values cannot be treated as an apples-to-apples comparison. These same-revision paired runs replace that missing control. Hamiltonian/momentum residuals are evolved diagnostics, not automatically zero constraints.
 
 Outputs: `bond_sweep_mode_pair.json`, `bond_sweep_mode_pair.csv`, `bond_sweep_mode_pair_deltas.json`, `bond_sweep_mode_pair_deltas.csv`.
+
+This paired comparison is run from the isolated diagnostic branch using the `[bond-sweep-self-consistent]` workflow gate.
