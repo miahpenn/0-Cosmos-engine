@@ -1,0 +1,58 @@
+name: Strict production admission smoke
+
+on:
+  push:
+    branches:
+      - fix/strict-campaign-admission-2026-10-12
+
+jobs:
+  strict-admission-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout engine and pinned numerical kernel
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Run full repository test suite
+        run: python -m pytest -q
+
+      - name: Run one bounded full-machine production smoke
+        run: |
+          python - <<'PY'
+          from engine.campaign import CampaignConfig
+          from engine.run_production import run_campaign
+
+          config = CampaignConfig(
+              resolutions=(40,),
+              r_max=40.0,
+              cfl=0.03,
+              final_time=1.0,
+              checkpoint_interval=0.5,
+              output_dir="runs/strict-smoke",
+          )
+          results = run_campaign(config=config)
+          print(results)
+          assert len(results) == 1
+          assert results[0].status == "completed"
+          assert abs(results[0].t_final - config.final_time) <= 1.0e-10
+          PY
+
+      - name: Upload smoke outputs even on failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: strict-production-admission-smoke
+          path: runs/strict-smoke/
+          if-no-files-found: warn
