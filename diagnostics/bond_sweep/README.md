@@ -1,29 +1,33 @@
-# Self-consistent S-D bond sweep (diagnostic only)
+# Paired provisional/self-consistent S-D bond sweep (diagnostic only)
 
 This branch is isolated from `main`. No production source file is changed.
 
-## Test
+## Paired test
 - Grid: N=40, Rmax=40
 - CFL: 0.0075
-- Final coordinate time: t=5
+- Checkpoints: initial slice, t=2,3,4,5
 - Initial data: A=0.01, width=7, D amplitude=1e-4, radiation enabled
-- Couplings: g=0, +0.01, -0.01, +0.05, -0.05, +0.10
-- Candidate potential: V_bond = g S D (a diagnostic choice, not derived from the archive)
+- Couplings: g=0, +0.05, -0.05, +0.10
+- Candidate potential: V_bond = g S D (diagnostic choice, not derived from the archive)
 
-## Self-consistency closure
-The in-process wrapper adds the potential gradients to the scalar momentum RHS:
+Each case begins from a deep copy of the same g=0 initialized state. The `rhs_only` comparison adds the candidate potential gradients to the scalar momentum RHS but intentionally omits bond stress from geometry/lapse and the constraints. The `self_consistent` comparison also adds the corresponding stress projections to both consumers. This isolates the consequence of the omission without changing the grid, time step, initial fields, or residual definitions.
+
+## Closure checks
+The in-process wrapper adds:
 - PS_t <- PS_t - alpha g D
 - PD_t <- PD_t - alpha g S
 
-It adds the potential's stress projections in both independent consumers:
+In the self-consistent mode, its stress projection is:
 - delta rho = +g S D
 - delta pr = -g S D
 - delta pt = -g S D
 - delta j = 0
 
-At the initial slice and t=2,3,4,5, it independently reconstructs the original scalar projection and fails closed unless (a) both consumers have precisely the expected bond contribution and (b) the total geometry/lapse source projection agrees with the constraint-diagnostic projection to absolute max error <= 5e-12. The initial slice is logged explicitly so the baseline constraint offset is visible, rather than hidden by evolved-only samples.
+At the initial slice and t=2,3,4,5, the script reconstructs the unbonded scalar stress independently, verifies the expected bond contribution in both geometry/CMC and constraint-diagnostic consumers, and fails closed if either per-consumer projection error or cross-consumer total-source error exceeds 5e-12 (absolute max norm). Non-finite projection checks also fail closed.
+
+For every state, it calculates both Hamiltonian residual definitions on that exact same slice: with bond stress omitted and with the bond stress included. Paired trajectory deltas are reported separately, so the algebraic stress-definition change cannot be confused with evolution/backreaction changes.
 
 ## Interpretation gate
-This run tests the internally consistent consequences of the *chosen* bond form. It does not establish that the archive requires this bond or that it is physical. A prior provisional result was reported with a different baseline, but its cited commit/branch is not present in the current repository refs; therefore the old and current H-center numbers are not yet an apples-to-apples comparison. Read Hamiltonian/momentum residuals as evolved diagnostics, not as automatically zero constraints. Do not admit the bond as physics without an independently justified interaction and convergence/closure checks.
+This tests the consequences of a *chosen* bond form; it does not establish that the archive requires this term or that it is physical. The earlier provisional commit/branch is not present in current repository refs, so its values cannot be treated as an apples-to-apples comparison. These same-revision paired runs replace that missing control. Hamiltonian/momentum residuals are evolved diagnostics, not automatically zero constraints.
 
-Outputs: `bond_sweep_self_consistent.json`, `bond_sweep_self_consistent.csv`.
+Outputs: `bond_sweep_mode_pair.json`, `bond_sweep_mode_pair.csv`, `bond_sweep_mode_pair_deltas.json`, `bond_sweep_mode_pair_deltas.csv`.
