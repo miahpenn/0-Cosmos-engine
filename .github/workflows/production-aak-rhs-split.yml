@@ -1,0 +1,68 @@
+name: Diagnostic - production Aa K RHS centre source split
+
+on:
+  push:
+    branches:
+      - diag/discrete-consistent-initial-production-test-2026-10-12
+    paths:
+      - tools/audit_production_aak_rhs_split.py
+      - .github/workflows/production-aak-rhs-split.yml
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: production-aak-rhs-centre-source-split
+  cancel-in-progress: true
+
+jobs:
+  rhs-split:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      PYTHONUNBUFFERED: "1"
+    steps:
+      - name: Checkout diagnostic branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Checkout exact production source and pinned vendor
+        uses: actions/checkout@v4
+        with:
+          ref: 6d8b3f2790644591326df57c55908863f994cb0c
+          path: source
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install exact production dependencies
+        run: python -m pip install -r source/requirements.txt
+
+      - name: Download paired initial metric A/B checkpoints
+        uses: actions/download-artifact@v4
+        with:
+          name: discrete-consistent-initial-production-ab-t2p16
+          run-id: 38284401548
+          github-token: \${{ github.token }}
+          path: production-ab-artifact
+
+      - name: Compile diagnostic
+        run: python -m py_compile tools/audit_production_aak_rhs_split.py
+
+      - name: Evaluate frozen-state signed RHS and source-current tangents
+        run: python tools/audit_production_aak_rhs_split.py
+
+      - name: Upload frozen-state term budgets
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-Aa-K-centre-source-tangent
+          path: results/production-Aa-K-centre-source-tangent/
+          if-no-files-found: warn
+          retention-days: 90
