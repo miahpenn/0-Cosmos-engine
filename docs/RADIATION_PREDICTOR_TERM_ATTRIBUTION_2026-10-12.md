@@ -429,3 +429,60 @@ The domain comparisons and the metric-driven cone-margin budget support an outer
 - Set a predeclared quantitative diagnostic criterion for boundary compatibility versus residual closure before running anything. The legacy P-minus post-residual alone is not an admission criterion.
 - Keep the outer closure/gauge issue independent from the unresolved centre-series/CMC-row/Hamiltonian and global GEAR \(G\) admission gates. No production merge is authorized.
 
+
+
+## 10. Vendor-derived P-minus is an analytic constraint-combination identity
+
+A further source check exposed the exact mathematical role of P-minus. The pinned vendor includes the derivation script derive_gbc2_pminus_source.py, which constructs the Hamiltonian constraint \(H\), momentum constraint \(M\), conformal-connection defect
+
+\[
+C_\Delta=a(\Lambda-\Lambda_{\mathrm{geometry}}),
+\]
+
+and
+
+\[
+\omega_-= \frac{\sqrt a}{X}\left(A_a-\frac23K\right)
+-\frac23(d_a-d_b-a\Lambda+2\chi).
+\]
+
+The derivation then symbolically simplifies the residual
+
+\[
+\partial_r\omega_-
+-\frac{\sqrt a}{X}M-\frac{a}{6X^2}H
+-\frac12\partial_r C_\Delta
+\]
+
+and returns the exact compact source \(S_-\), with zero symbolic identity residual and no remaining higher derivatives. Equivalently,
+
+\[
+\boxed{\partial_r\omega_- - S_-
+=\frac{\sqrt a}{X}M+\frac{a}{6X^2}H
++\frac12\partial_r C_\Delta.}
+\]
+
+The production vendor function pminus_source implements that compact analytic expression. Thus, in the continuum derivation, setting \(\partial_r\omega_-=S_-\) is not a guarantee that every constraint vanishes individually; it selects a combination of \(M\), \(H\), and the radial derivative of the connection defect whose weighted sum vanishes.
+
+The numerical boundary routine does not evaluate an independent continuum residual. It sets
+
+\[
+\omega_-[-1]=\omega_-[-3]+2\Delta r\,S_-[-2]
+\]
+
+and the saved residual recomputes \((\omega_-[-1]-\omega_-[-3])/(2\Delta r)-S_-[-2]\). Because \(A_a[-1]\) is solved algebraically from this same target and the source is sampled at cell \(-2\), near-roundoff closure is the expected algebraic result. It is not an independent verification of continuum compatibility, nor does it bound the individual H/M/connection residuals. The analytic identity explains why this boundary can affect the same constraints measured in Sections 7–8 without any new matter law being added.
+
+**Important limit:** the symbolic continuum identity is exact, but it does not prove the current discrete boundary is wrong. The production system evaluates metric derivatives, the endpoint P-minus secant, the source at cell \(-2\), and H/M with particular discrete stencils; those discrete operations need a matched-operator test before one can assert a boundary inconsistency. The growing same-slice \(\Delta M\) and \(\Delta H\) remain measured, while their effect on the constraint combination and on the CMC target over a full slice is not yet independently admitted.
+
+### What this changes in the next diagnostic
+
+The next offline calculation should compare, on the same frozen slice and with the actual production stencils:
+
+1. the P-minus secant residual currently enforced;
+2. the independently computed discrete combination \(\sqrt a\,M/X+aH/(6X^2)+\tfrac12 D_r C_\Delta\);
+3. H, M, and \(C_\Delta\) individually before/after endpoint Aa assignment;
+4. the CMC target and lapse solve before/after that same assignment; and
+5. the radiation face flux/cone budget, kept separate from the geometric boundary algebra.
+
+This is now the most discriminating test of the boundary/interface hypothesis. A valid result needs complete fields and source-pinned operator parity; the outer-five-cell ledger alone cannot admit it. The phase-correct ledger recapture is already running as [workflow 38313377947](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38313377947); do not start a duplicate run. No physics, boundary equation, or production branch was changed.
+
