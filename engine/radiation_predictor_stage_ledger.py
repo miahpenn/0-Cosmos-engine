@@ -27,6 +27,15 @@ def _grid_size(grid):
     return len(grid.centers)
 
 
+def _capture_first_geometry_terms_call(step):
+    """Capture only gterms0, not later predictor geometry evaluations."""
+    if float(step.get("t0", 0.0)) < CAPTURE_FROM_T:
+        return False
+    count = int(step.get("ledger_geometry_terms_count", 0))
+    step["ledger_geometry_terms_count"] = count + 1
+    return count == 0 and int(step.get("rhs_count", 0)) == 1
+
+
 def reconstruct_metric_cone(a, X, U_E, U_r):
     """Reconstruct the radial inverse metric and radiation cone invariant."""
     a, X, U_E, U_r = map(float, (a, X, U_E, U_r))
@@ -260,9 +269,7 @@ class RadiationPredictorStageLedger(RadiationStageTrace):
                 grid, geometry, fields, matter, lambda_m=lambda_m
             )
             step = ledger.current_step
-            if (step is not None
-                    and int(step.get("rhs_count", 0)) == 1
-                    and float(step.get("t0", 0.0)) >= CAPTURE_FROM_T):
+            if step is not None and _capture_first_geometry_terms_call(step):
                 row = ledger._row_for_step(step)
                 row["accepted_geometry_and_rhs"] = {
                     "accepted_geometry": ledger._geometry_values(
