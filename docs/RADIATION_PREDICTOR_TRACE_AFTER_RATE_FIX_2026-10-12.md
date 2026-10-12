@@ -41,6 +41,12 @@ The workflow captured 1,566 accepted steps and 66 same-cell radiation predictor 
 
 This is a real finite-dt predictor failure on the corrected-rate source, not the former dt=1 surrogate check. The exception is raised when the first predictor CMC lapse attempts to invert the predictor radiation state, before that predictor’s first CMC solve returns. A successful workflow means expected failure capture and artifact validation succeeded; it is not an evolution pass.
 
+## Exact call path at failure
+
+The stage name can be misleading if read as “the CMC linear solve failed.” On the pinned candidate’s source path, `V55ProductionKernel.step` first forms the explicit predictor geometry (a, b, X) and the first matter predictor from their accepted-state RHS values, then calls `_solve_lapse(grid, g_explicit1, s1, m1)`. Inside `solve_cmc_lapse`, the first operation after building the metric is `total_matter_projection(...)`; that sums the scalar and fluid stress projections. The fluid projection calls radiation primitive recovery, which enforces the exact conservative cone. The failure is thrown there, while constructing the matter source supplied to CMC, before the lapse PDE is assembled/solved to completion. See the pinned [production predictor stage](https://github.com/miahpenn/0-Cosmos-engine/blob/1c63090d4f42396f899421a2379f70320689d5ad/engine/production_kernel.py#L243-L275), [CMC source assembly](https://github.com/miahpenn/0-Cosmos-engine/blob/1c63090d4f42396f899421a2379f70320689d5ad/engine/cmc_gauge.py#L52-L85), and [radiation primitive admissibility check](https://github.com/miahpenn/0-Cosmos-engine/blob/1c63090d4f42396f899421a2379f70320689d5ad/engine/matter_system.py#L145-L183).
+
+The explicit predictor stage does not call the outer light-constraint boundary before this CMC source assembly; the boundary operations occur later in the primary predictor and completed-state sequence. So the boundary is **not a direct operation at the failing substage**. However, the current accepted geometry is the output of prior completed steps, where the boundary has acted on the outer A_a state. Since A_a directly sets the next step's a-dot at zero shift, earlier boundary influence cannot be excluded from this stage-level finding.
+
 ## Same-cell cone-margin budget
 
 The recorded budget separates (1) accepted state plus accepted metric, (2) flux-only matter increment evaluated on the accepted metric, (3) geometric-source increment evaluated on the accepted metric, and (4) the updated conservative state assessed on the predictor metric.
@@ -130,6 +136,14 @@ A workflow-only label/comment commit queued a second run of the same frozen-dt t
 - Repeat central proper time differs by only about 1.5 × 10^-9, and the computed predictor inverse metric by about 3.6 × 10^-9.
 
 This is an independent trigger of essentially the same result, not a scientifically distinct ablation. Do not commission another repetition; next work should be offline analysis of the captured same-step geometry/source and constraint budgets.
+
+## Existing expanded-domain boundary audit (historical source; not a matched A/B)
+
+Before drawing any conclusion that the outer metric behavior is independent of boundary treatment, I inspected the archived [proper-time/domain control run 38028306184](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38028306184), [artifact 11661332148](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38028306184/artifacts/11661332148). Its ZIP SHA-256 is `f4f06a54bf66f0e5eed597efe0b6b0e605e31375edd7303bcb4edd4cdb97fac5`; its trace SHA-256 is `f418a023c44dcd51802696e6468e3e09691d01ea44ecbb5a9463881be6b14e76`. It is the expanded N=120, Rmax=120 run at an older frozen source baseline (`a7170c12ed08b4fdb3c52ca98f02e106a3f39b82)), so all numerical statements here are historical cross-checks, not a quantitatively paired comparison with the current N=80/rate-fixed trace.
+
+That older run captured 174 pre/post boundary updates, with no boundary-instrumentation errors. The post-boundary P-minus target mismatch maxed at 1.0408341 × 10^-17 and the A_a correction-formula error at 1.2397586 × 10^-17, so the implemented correction follows its declared algebraic target to roundoff. The maximum pre-boundary target mismatch was 1.1540766 × 10^-4 at t=60.99000000000155; the completed-state boundary changed outer A_a from 0.1187022562 to 0.1188207695 (delta +1.1851332 × 10^-4). Corrections remained at +6.3026 × 10^-5 at t=61.02000000000155 and +3.2333 × 10^-5 at t=61.03500000000155, then collapsed as the adaptive retries drove dt toward floating-point underflow. At the eventual failure, the accepted state was t=61.046503364247606, central tau=21.9130694389674, and the cone failure was at the new outermost cell r=119.5. Thus expanding the domain relocates the observed failure outward but does not eliminate it.
+
+This does **not** prove the P-minus boundary law is incorrect: the residual audit shows it achieves its stated target. It also does not prove the boundary is innocent: the imposed outer value changes A_a, and that value feeds the next explicit metric RHS. The current N=80 rate-fixed artifact does not record same-step pre/post boundary states, so exact boundary attribution at t≈46.98 is unmeasured. Keep this as an open coupling question rather than a production fix or an exonerated layer.
 
 ## What this does and does not establish
 
