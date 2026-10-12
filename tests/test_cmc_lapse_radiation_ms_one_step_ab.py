@@ -33,6 +33,41 @@ def test_cone_snapshot_reconstructs_known_predictor_crossing():
     assert result["top_five_ratio_cells"][0]["i"] == 0
 
 
+
+def test_species_rhs_does_not_emulate_a_unit_time_update(monkeypatch):
+    """A rate query must not run finite-time radiation cone checks."""
+    import engine.matter_rhs as rhs_module
+    from engine.matter_system import ConservedSpecies, Species
+
+    rates = ConservedSpecies(
+        rest=np.asarray([0.1, 0.2]),
+        energy_t=np.asarray([0.3, 0.4]),
+        momentum_r=np.asarray([0.5, 0.6]),
+    )
+
+    def rate_components(*args, **kwargs):
+        return rates, np.zeros(2), np.zeros(2), np.zeros(2), np.zeros(2)
+
+    def forbidden_finite_update(*args, **kwargs):
+        raise AssertionError(
+            "species_rhs must not emulate an arbitrary unit-time update"
+        )
+
+    # The first patch returns an exact rate sentinel. The second makes the old
+    # evolve-by-one-then-subtract implementation fail this regression test.
+    monkeypatch.setattr(
+        rhs_module, "_species_rhs_components", rate_components, raising=False
+    )
+    monkeypatch.setattr(
+        rhs_module, "evolve_species", forbidden_finite_update, raising=False
+    )
+    result = rhs_module.species_rhs(
+        object(), object(), object(), Species.RADIATION
+    )
+    np.testing.assert_array_equal(result.rest, rates.rest)
+    np.testing.assert_array_equal(result.energy_t, rates.energy_t)
+    np.testing.assert_array_equal(result.momentum_r, rates.momentum_r)
+
 def test_ms_one_step_budget_uses_existing_flux_plus_work_identity():
     initial = {"worldtube_r10": {"M_MS": 1.0, "R_sigma": 10.0, "flux_T": 0.07, "work_pR": 0.03}}
     final = {"worldtube_r10": {"M_MS": 1.02, "R_sigma": 10.01, "flux_T": 0.20, "work_pR": 0.10}}
