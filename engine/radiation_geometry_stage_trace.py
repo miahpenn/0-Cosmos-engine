@@ -1014,6 +1014,41 @@ class RadiationStageTrace:
 
         def traced_solve(grid, geometry, scalars, matter, radiation_recovery_metric=None):
             step = trace.current_step
+            if step is not None and step.get("diagnostic_label"):
+                idx = int(step["solve_count"])
+                step["solve_count"] += 1
+                labels = (
+                    "accepted_start_CMC_lapse", "explicit_predictor_first_CMC_lapse",
+                    "primary_predictor_CMC_lapse", "completed_state_CMC_lapse",
+                )
+                stage = labels[idx] if idx < len(labels) else f"CMC_lapse_call_{idx}"
+                step["failing_stage"] = stage
+                try:
+                    if radiation_recovery_metric is None:
+                        return original_solve(grid, geometry, scalars, matter)
+                    return original_solve(
+                        grid, geometry, scalars, matter,
+                        radiation_recovery_metric=radiation_recovery_metric,
+                    )
+                except Exception as exc:
+                    match = re.search(r"\bcell i=(\d+)", str(exc))
+                    i = int(match.group(1)) if match else len(grid.centers) - 1
+                    try:
+                        cone = trace.cone_values(grid, geometry, matter.radiation)
+                        step["failure_capture"] = {
+                            "stage": stage, "i": i, "r": float(grid.centers[i]),
+                            "C": float(cone["C"][i]),
+                            "ratio_absS_over_E": _safe_float(cone["ratio"][i]),
+                            "gamma_rr_inv": float(cone["gamma_rr_inv"][i]),
+                            "U_E": float(cone["U_E"][i]), "U_r": float(cone["U_r"][i]),
+                            "exception": f"{type(exc).__name__}: {exc}",
+                        }
+                    except Exception as witness_exc:
+                        step["failure_capture"] = {
+                            "stage": stage, "exception": f"{type(exc).__name__}: {exc}",
+                            "witness_error": f"{type(witness_exc).__name__}: {witness_exc}",
+                        }
+                    raise
             t = float(step["t0"]) if step is not None else 0.0
             tau = float(step["tau0"]) if step is not None else 0.0
             idx = int(step["solve_count"]) if step is not None else 0
@@ -1072,7 +1107,7 @@ class RadiationStageTrace:
                 return result
             except Exception as exc:
                 detail = f"{type(exc).__name__}: {exc}"
-                trace.record_stage(
+                failure_row = trace.record_stage(
                     stage + "_failure", grid, geometry, matter, t, tau,
                     trace.step_index, step["dt"] if step is not None else None,
                     force=True, exception=detail,
@@ -1082,10 +1117,50 @@ class RadiationStageTrace:
                     "engine.production_kernel.V55ProductionKernel._solve_lapse",
                     grid, exc,
                 )
+                if step is not None:
+                    try:
+                        cone = trace.cone_values(grid, geometry, matter.radiation)
+                        i = int(step.get("failing_grid_index")
+                                if step.get("failing_grid_index") is not None
+                                else len(grid.centers) - 1)
+                        step["failure_capture"] = {
+                            "stage": stage, "i": i, "r": float(grid.centers[i]),
+                            "C": float(cone["C"][i]),
+                            "ratio_absS_over_E": _safe_float(cone["ratio"][i]),
+                            "gamma_rr_inv": float(cone["gamma_rr_inv"][i]),
+                            "U_E": float(cone["U_E"][i]), "U_r": float(cone["U_r"][i]),
+                            "exception": detail, "failure_stage_row": failure_row,
+                        }
+                    except Exception as witness_exc:
+                        step["failure_capture"] = {
+                            "stage": stage, "exception": detail,
+                            "witness_error": f"{type(witness_exc).__name__}: {witness_exc}",
+                        }
+                    if (not step.get("diagnostic_label")
+                            and stage == "explicit_predictor_first_CMC_lapse"
+                            and trace.latest_state is not None):
+                        try:
+                            trace.write_frozen_snapshot(
+                                trace.latest_state, grid, geometry, scalars, matter,
+                                step, step["failure_capture"],
+                            )
+                        except Exception as snapshot_exc:
+                            trace.instrumentation_errors.append({
+                                "where": "boundary_failure_snapshot", "t": t,
+                                "step_index": trace.step_index,
+                                "error": f"{type(snapshot_exc).__name__}: {snapshot_exc}",
+                            })
                 raise
 
         def traced_rhs(kernel_self, state, radiation_recovery_metric=None):
             step = trace.current_step
+            if step is not None and step.get("diagnostic_label"):
+                if radiation_recovery_metric is None:
+                    return original_rhs(kernel_self, state)
+                return original_rhs(
+                    kernel_self, state,
+                    radiation_recovery_metric=radiation_recovery_metric,
+                )
             t = float(state.t)
             tau = float(state.tau)
             rhs_idx = int(step["rhs_count"]) if step is not None else 0
@@ -1172,11 +1247,24 @@ class RadiationStageTrace:
                     "exception_message": str(exc),
                     "wall_elapsed_seconds": float(time.time() - trace.started_wall),
                 }
+                if trace.current_step.get("failure_capture") is not None:
+                    trace.failure["failure_capture"] = trace.current_step["failure_capture"]
+                if (trace.failure.get("stage") == "explicit_predictor_first_CMC_lapse"
+                        and trace.last_completed_boundary_record is not None):
+                    try:
+                        trace.run_boundary_history_counterfactual(
+                            kernel_self, original_step, state, dt, trace.current_step
+                        )
+                    except Exception as cf_exc:
+                        trace.boundary_history_counterfactual = {
+                            "status": "counterfactual_harness_error",
+                            "exception": f"{type(cf_exc).__name__}: {cf_exc}",
+                        }
                 raise
             finally:
                 trace.current_step = None
 
-        matter_rhs_module._species_rhs_components = traced_species_rhs_components
+        matter_rhs_module.evolve_species = traced_evolve_species
         matter_system_module._radiation_source = traced_radiation_source
         kernel_cls._solve_lapse = staticmethod(traced_solve)
         kernel_cls._rhs = traced_rhs
@@ -1186,7 +1274,7 @@ class RadiationStageTrace:
 
         self._restore_hooks = (
             kernel_cls, original_solve, original_rhs, original_step,
-            original_species_rhs_components, original_radiation_source, original_boundary,
+            original_evolve_species, original_radiation_source, original_boundary,
         )
         self._restore_geometry_stage_terms = original_geometry_stage_terms
 
@@ -1206,6 +1294,10 @@ class RadiationStageTrace:
         self.geometry_predictor_budgets = [
             row for row in self.geometry_predictor_budgets
             if float(row.get("t_attempted", -math.inf)) >= cutoff_t
+        ]
+        self.boundary_records = [
+            row for row in self.boundary_records
+            if float(row.get("coordinate_time", -math.inf)) >= cutoff_t
         ]
 
     def record_progress(self, state):
