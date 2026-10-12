@@ -546,7 +546,37 @@ def evolve_species(
             i = int(bad[0])
             flux_dE = -inv_dr * (face_flux[i + 1, 1] - face_flux[i, 1])
             flux_dS = -inv_dr * (face_flux[i + 1, 2] - face_flux[i, 2])
-            raise ValueError(
+            rejection = {
+                "cell": i,
+                "flux_tendency_E": float(flux_dE),
+                "source_E": float(source_e_diag[i]),
+                "flux_tendency_S": float(flux_dS),
+                "source_S": float(source_s_diag[i]),
+                "E": float(E[i]),
+                "abs_S": float(S_abs[i]),
+                "abs_S_over_E": float(S_abs[i] / max(abs(E[i]), 1.0e-300)),
+                "pre_conserved": {
+                    "rest": float(state.rest[i]), "energy_t": float(state.energy_t[i]),
+                    "momentum_r": float(state.momentum_r[i]),
+                },
+                "post_conserved": {
+                    "rest": float(out.rest[i]), "energy_t": float(out.energy_t[i]),
+                    "momentum_r": float(out.momentum_r[i]),
+                },
+                "metric": {
+                    "alpha": float(metrics[i].alpha), "beta": float(metrics[i].beta),
+                    "gamma_rr": float(metrics[i].gamma_rr),
+                    "gamma_rr_inv": float(metrics[i].gamma_rr_inv),
+                    "sqrt_gamma": float(metrics[i].sqrt_gamma),
+                },
+                "face_flux_left": [float(x) for x in face_flux[i]],
+                "face_flux_right": [float(x) for x in face_flux[i + 1]],
+                "primitive": {
+                    "rho": float(prim[i].rho), "pressure": float(prim[i].pressure),
+                    "v_r": float(prim[i].v_r), "W": float(prim[i].lorentz()),
+                },
+            }
+            rejection_error = ValueError(
                 f"radiation RHS created inadmissible state at cell i={i}: "
                 f"tendency_flux_E={flux_dE:.17e}, source_E={source_e_diag[i]:.17e}, "
                 f"tendency_flux_S={flux_dS:.17e}, source_S={source_s_diag[i]:.17e}; "
@@ -566,6 +596,8 @@ def evolve_species(
                 f"({prim[i].rho:.17e},{prim[i].pressure:.17e},"
                 f"{prim[i].v_r:.17e},{prim[i].lorentz():.17e})"
             )
+            rejection_error.diagnostic = rejection
+            raise rejection_error
 
     return out
 
