@@ -132,6 +132,10 @@ class V55ProductionKernel:
     def _solve_lapse(grid, geometry, scalars, matter):
         return solve_cmc_lapse(grid, geometry, scalars, matter)
 
+    def set_diagnostic_beta_rad(self, value: float) -> None:
+        """Diagnostic-only. Production path must leave this at 0.0."""
+        self._diagnostic_beta_rad = float(value)
+
     def _rhs(self, state: ProductionState):
         metric = metric_slice_from_q(state.grid, state.geometry)
 
@@ -162,9 +166,10 @@ class V55ProductionKernel:
                 md,
                 getattr(state.matter, name),
                 species,
-                dphi_t=dphi_t if species is Species.DARK_MATTER else None,
-                dphi_r=dphi_r if species is Species.DARK_MATTER else None,
+                dphi_t=dphi_t if species in (Species.DARK_MATTER, Species.RADIATION) else None,
+                dphi_r=dphi_r if species in (Species.DARK_MATTER, Species.RADIATION) else None,
                 beta_dm=BETA_DM,
+                beta_rad=getattr(self, "_diagnostic_beta_rad", 0.0),
             )
         return srhs, mrhs, md
 
@@ -211,8 +216,6 @@ class V55ProductionKernel:
         g0.beta.fill(0.0)
         g0.B.fill(0.0)
 
-        # Validate the actual starting radiation state, not a unit-step RHS
-        # extraction intermediate.
         validate_species_admissibility(
             metric_slice_from_q(grid, g0), m0.radiation, Species.RADIATION,
             stage="initial",
@@ -257,7 +260,6 @@ class V55ProductionKernel:
         g_explicit1.alpha = self._solve_lapse(
             grid, g_explicit1, s1, m1
         )[0]
-        # Check the timestep-scaled matter predictor against its solved metric.
         validate_species_admissibility(
             metric_slice_from_q(grid, g_explicit1), m1.radiation,
             Species.RADIATION, stage="explicit-predictor",
@@ -658,6 +660,18 @@ class V55ProductionKernel:
             )
         )
         rad_ratio_outer = rad_Sabs_outer / max(abs(rad_E_outer), 1.0e-300)
+        rad_E_all = state.matter.radiation.energy_t / np.asarray(
+            [m.sqrt_gamma for m in rad_metrics]
+        )
+        rad_S_all = state.matter.radiation.momentum_r / np.asarray(
+            [m.sqrt_gamma for m in rad_metrics]
+        )
+        rad_Sabs_all = np.sqrt(np.maximum(
+            np.asarray([m.gamma_rr_inv for m in rad_metrics]) * rad_S_all * rad_S_all,
+            0.0,
+        ))
+        rad_margin_all = 1.0 - rad_Sabs_all / np.maximum(np.abs(rad_E_all), 1.0e-300)
+        rad_admitted = rad_margin_all[2:] if len(rad_margin_all) > 2 else rad_margin_all
 
         # CMC boundary audit: evaluate the elliptic equation on the solved
         # lapse through the last interior cell. Diagnostic only; no evolution
@@ -808,6 +822,8 @@ class V55ProductionKernel:
             "alpha_r_sigma": float(alpha_r[i_sigma]),
             "alpha_sigma": float(geom.alpha[i_sigma]),
             "radiation_outer_ratio": float(rad_ratio_outer),
+            "radiation_margin_i0": float(rad_margin_all[0]),
+            "radiation_margin_admitted": float(np.min(rad_admitted)),
             "radiation_outer_vhat": float(vhat_rad),
             "radiation_outer_s_minus": float(s_minus_rad),
             "radiation_outer_s_plus": float(s_plus_rad),
