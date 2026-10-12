@@ -97,6 +97,152 @@ def clone_state(template: ProductionState, alpha: np.ndarray) -> ProductionState
     )
 
 
+H_GROUPS = (
+    # Keep the conformal determinant pair together in every hybrid.
+    ("a_b", "geometry", ("a", "b")),
+    ("X", "geometry", ("X",)),
+    ("lapse_shift_gauge", "geometry", ("alpha", "beta", "B")),
+    ("A_a", "geometry", ("Aa",)),
+    ("K", "geometry", ("K",)),
+    ("Lambda", "geometry", ("Lambda",)),
+    ("matter", "matter", ("scalars", "matter")),
+)
+H_FULL_MASK = (1 << len(H_GROUPS)) - 1
+
+
+def _clone_full_state(state: ProductionState) -> ProductionState:
+    return ProductionState(
+        grid=state.grid,
+        geometry=state.geometry.copy(),
+        scalars=state.scalars.copy(),
+        matter=state.matter.copy(),
+        t=state.t,
+        tau=state.tau,
+        e_folds=state.e_folds,
+    )
+
+
+def _hybrid_endpoint_state(old_state: ProductionState, candidate_state: ProductionState, mask: int) -> ProductionState:
+    hybrid = _clone_full_state(old_state)
+    for index, (_, owner, fields) in enumerate(H_GROUPS):
+        if not (mask & (1 << index)):
+            continue
+        if owner == "geometry":
+            for field in fields:
+                setattr(
+                    hybrid.geometry,
+                    field,
+                    np.asarray(getattr(candidate_state.geometry, field), dtype=float).copy(),
+                )
+        else:
+            hybrid.scalars = candidate_state.scalars.copy()
+            hybrid.matter = candidate_state.matter.copy()
+    return hybrid
+
+
+def _hamiltonian_residual(state: ProductionState, vacuum) -> np.ndarray:
+    total = assemble_total_stress_energy(
+        state.grid, state.geometry, state.scalars, state.matter
+    )
+    raw = vacuum.constraints(state.grid, state.geometry)
+    return (
+        np.asarray(raw["hamiltonian"], dtype=float)
+        - 16.0 * math.pi * np.asarray(total.rho, dtype=float)
+    )
+
+
+def attribute_candidate_minus_old_h(old_state: ProductionState, candidate_state: ProductionState) -> dict:
+    """Exact endpoint H difference, Shapley-attributed with ab-preserving hybrids.
+
+    This is an accounting decomposition of the difference between the two
+    one-step endpoints, not proof that a component is the unique cause.
+    """
+    if old_state.grid.n != candidate_state.grid.n or not np.array_equal(
+        old_state.grid.centers, candidate_state.grid.centers
+    ):
+        raise ValueError("A/B endpoints must share the exact grid")
+    _, vacuum, _ = adapter.vendor_modules()
+    values = {}
+    for mask in range(H_FULL_MASK + 1):
+        hybrid = _hybrid_endpoint_state(old_state, candidate_state, mask)
+        values[mask] = _hamiltonian_residual(hybrid, vacuum)
+
+    count = len(H_GROUPS)
+    denom = math.factorial(count)
+    profiles = {}
+    for index, (label, _, _) in enumerate(H_GROUPS):
+        bit = 1 << index
+        contribution = np.zeros_like(values[0])
+        for mask in range(H_FULL_MASK + 1):
+            if mask & bit:
+                continue
+            size = mask.bit_count()
+            weight = (
+                math.factorial(size) * math.factorial(count - size - 1) / denom
+            )
+            contribution += weight * (values[mask | bit] - values[mask])
+        profiles[label] = contribution
+
+    h_old = values[0]
+    h_candidate = values[H_FULL_MASK]
+    delta = h_candidate - h_old
+    sum_profiles = sum(profiles.values(), np.zeros_like(delta))
+    closure = delta - sum_profiles
+    r = np.asarray(old_state.grid.centers, dtype=float)
+    idx = np.arange(r.size)
+    regions = {
+        "first_cell": idx == 0,
+        "first_two_cells": idx < 2,
+        "first_three_cells": idx < 3,
+        "fixed_annulus_2_le_r_lt_5": (r >= 2.0) & (r < 5.0),
+        "full_domain": np.ones(r.size, dtype=bool),
+    }
+    region_summary = {}
+    for region_name, mask in regions.items():
+        ids = np.flatnonzero(mask)
+        if not ids.size:
+            region_summary[region_name] = {"count": 0}
+            continue
+        peak = int(ids[np.argmax(np.abs(delta[ids]))])
+        region_summary[region_name] = {
+            "count": int(ids.size),
+            "delta_H_peak_index": peak,
+            "delta_H_peak_r": float(r[peak]),
+            "delta_H_peak_signed_candidate_minus_old": float(delta[peak]),
+            "max_abs_delta_H": float(abs(delta[peak])),
+            "rms_delta_H": float(np.sqrt(np.mean(delta[ids] ** 2))),
+            "components_at_delta_H_peak": {
+                name: float(profile[peak]) for name, profile in profiles.items()
+            },
+            "component_max_abs": {
+                name: float(np.max(np.abs(profile[ids]))) for name, profile in profiles.items()
+            },
+        }
+    cell_rows = []
+    for i in range(min(5, r.size)):
+        cell_rows.append({
+            "i": i,
+            "r": float(r[i]),
+            "H_old": float(h_old[i]),
+            "H_candidate": float(h_candidate[i]),
+            "delta_H_candidate_minus_old": float(delta[i]),
+            "component_delta_H": {name: float(profile[i]) for name, profile in profiles.items()},
+            "sum_components": float(sum_profiles[i]),
+            "closure_error": float(closure[i]),
+        })
+    return {
+        "method": "seven-group Shapley endpoint attribution; (a,b) kept paired to preserve ab^2=1",
+        "interpretation_limit": "Endpoint accounting decomposition only; not a unique causal assignment to continuum equations.",
+        "max_abs_endpoint_H_delta": float(np.max(np.abs(delta))),
+        "rms_endpoint_H_delta": float(np.sqrt(np.mean(delta ** 2))),
+        "max_abs_shapley_closure_error": float(np.max(np.abs(closure))),
+        "group_order": [item[0] for item in H_GROUPS],
+        "regions": region_summary,
+        "cells_0_to_4": cell_rows,
+        "gauge_direct_H_attribution_max_abs": float(np.max(np.abs(profiles["lapse_shift_gauge"]))),
+    }
+
+
 def _region(values: np.ndarray, r: np.ndarray, mask: np.ndarray) -> dict:
     ids = np.flatnonzero(mask & np.isfinite(values))
     if ids.size == 0:
@@ -265,6 +411,9 @@ def one_case(n: int) -> dict:
         case["old"]["final"] = summarize_state(old_final, old_kernel)
         new_final = candidate_kernel.step(new_state, dt)
         case["candidate"]["final"] = summarize_state(new_final, candidate_kernel)
+        case["hamiltonian_candidate_minus_old_attribution"] = attribute_candidate_minus_old_h(
+            old_final, new_final
+        )
         case["candidate_vs_old_final"] = {
             "H_full_absmax_delta": (
                 case["candidate"]["final"]["constraints"]["H"]["full_domain"]["max_abs"]
@@ -327,6 +476,12 @@ def main() -> None:
             "candidate_M_inner": c.get("candidate", {}).get("final", {}).get("constraints", {}).get("M", {}).get("admitted_inner_i_ge_2_r_lt_5", {}).get("max_abs"),
             "old_Aa_rhs_r2_cell0": c.get("old", {}).get("final", {}).get("centre_cells", {}).get("0", {}).get("Aa_rhs_over_r2"),
             "candidate_Aa_rhs_r2_cell0": c.get("candidate", {}).get("final", {}).get("centre_cells", {}).get("0", {}).get("Aa_rhs_over_r2"),
+            "H_delta_attribution": {
+                "max_abs_delta_H": c.get("hamiltonian_candidate_minus_old_attribution", {}).get("max_abs_endpoint_H_delta"),
+                "closure": c.get("hamiltonian_candidate_minus_old_attribution", {}).get("max_abs_shapley_closure_error"),
+                "full_peak": c.get("hamiltonian_candidate_minus_old_attribution", {}).get("regions", {}).get("full_domain"),
+                "fixed_annulus": c.get("hamiltonian_candidate_minus_old_attribution", {}).get("regions", {}).get("fixed_annulus_2_le_r_lt_5"),
+            },
         } for c in cases],
     }, sort_keys=True))
     if report["status"] != "completed":
