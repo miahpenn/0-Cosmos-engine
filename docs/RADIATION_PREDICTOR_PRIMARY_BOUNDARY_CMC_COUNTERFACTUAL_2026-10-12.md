@@ -2,15 +2,15 @@
 
 **Date:** 12 October 2026 (UTC)  
 **Status:** Diagnostic-only. No production law change or scientific admission is authorized by this result.  
-**Production main:** \`2035acc1210db18da0cededea18750b7ed813260\` (unchanged).  
-**Diagnostic branch:** \`diag/radiation-primary-boundary-cf-2026-10-12\`  
+**Production main:** `2035acc1210db18da0cededea18750b7ed813260` (unchanged).  
+**Diagnostic branch:** `diag/radiation-primary-boundary-cf-2026-10-12`  
 **Matched counterfactual run:** [38321467866](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38321467866) — clean rerun successful.  
 **Artifact:** [11779103151 — radiation-primary-boundary-counterfactual](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38321467866/artifacts/11779103151)  
-**Artifact ZIP SHA-256:** \`0dfd6c51fac78c391cdb0d5f88f64c0919ea517e5ab563c5e0f1cf04e866c51a\`
-**Embedded report SHA-256:** \`248e421e58f0e66fbfd0a6e8ac017730a4cd10377c0ee1ce9f5aae4473422fd7\`
-**Tested instrumentation head:** \`3395b6645ecd2b2e0a480cd67d770b58287f7db7\`
-**Rate-corrected source baseline:** \`1c63090d4f42396f899421a2379f70320689d5ad\`  
-**Pinned vendor:** \`d6052d605673ce9d82cdc99b0df79855fa2ea215\`
+**Artifact ZIP SHA-256:** `0dfd6c51fac78c391cdb0d5f88f64c0919ea517e5ab563c5e0f1cf04e866c51a`
+**Embedded report SHA-256:** `248e421e58f0e66fbfd0a6e8ac017730a4cd10377c0ee1ce9f5aae4473422fd7`
+**Tested instrumentation head:** `3395b6645ecd2b2e0a480cd67d770b58287f7db7`
+**Rate-corrected source baseline:** `1c63090d4f42396f899421a2379f70320689d5ad`  
+**Pinned vendor:** `d6052d605673ce9d82cdc99b0df79855fa2ea215`
 
 ## Question and bounded method
 
@@ -108,4 +108,4 @@ These are finite, non-identical responses. They do not close the joint constrain
 
 **Not established:** this bounded two-step counterfactual is not a long alternate trajectory, and does not prove the boundary formula is universally correct or incorrect. It says this specific primary-predictor correction is not a sufficient explanation or repair for the captured late-time cone crossing. It does not rule out other cumulative effects of the boundary, interior source coupling, centre regularity, or metric/matter stage synchronization.
 
-**Decision:** do not alter or remove the boundary law; do not add a clamp, floor, damping, cone relaxation, or fitted correction. Keep the primary and completed-state boundary hypotheses separate from the independently open centre-series, H/M/\(C_\Lambda\), source reciprocity, and Misner–Sharp tests. The most productive next move is to reconcile this report with the parallel stacked-source boundary-history artifact before asking for another test. No production code, \`main\`, pinned vendor, or canonical GEAR archive was changed.
+**Decision:** do not alter or remove the boundary law; do not add a clamp, floor, damping, cone relaxation, or fitted correction. Keep the primary and completed-state boundary hypotheses separate from the independently open centre-series, H/M/\(C_\Lambda\), source reciprocity, and Misner–Sharp tests. The most productive next move is to reconcile this report with the parallel stacked-source boundary-history artifact before asking for another test. No production code, `main`, pinned vendor, or canonical GEAR archive was changed.
