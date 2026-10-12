@@ -3,7 +3,12 @@ import math
 
 import pytest
 
-from engine.radiation_predictor_stage_ledger import _grid_size, reconstruct_metric_cone, validate_ledger_steps
+from engine.radiation_predictor_stage_ledger import (
+    _attach_radiation_state,
+    _grid_size,
+    reconstruct_metric_cone,
+    validate_ledger_steps,
+)
 
 
 def test_reconstruct_metric_inverse_and_cone_margin_independently():
@@ -94,3 +99,22 @@ def test_geometry_terms_before_capture_window_are_not_counted():
     step = {"t0": 43.98, "rhs_count": 1}
     assert _capture_first_geometry_terms_call(step) is False
     assert "ledger_geometry_terms_count" not in step
+
+
+def test_intermediate_metric_stages_store_conserved_radiation_state():
+    from types import SimpleNamespace
+    import numpy as np
+
+    radiation = SimpleNamespace(
+        energy_t=np.asarray([1.0e-4, 3.0e-4]),
+        momentum_r=np.asarray([2.0e-5, 1.0e-4]),
+    )
+    values = [{"i": 1, "a": 0.8, "X": 0.9}]
+    result = _attach_radiation_state(values, radiation)
+    assert result[0]["U_E"] == float(radiation.energy_t[1])
+    assert result[0]["U_r"] == float(radiation.momentum_r[1])
+    expected = reconstruct_metric_cone(
+        0.8, 0.9, radiation.energy_t[1], radiation.momentum_r[1]
+    )
+    for key, value in expected.items():
+        assert math.isclose(result[0][key], value, rel_tol=0.0, abs_tol=0.0)
