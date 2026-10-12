@@ -4,10 +4,12 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
+from engine.adaptive_step import advance_with_radiation_admissibility_retries
 from engine.matter_rhs import species_rhs
 import engine.production_kernel as production_kernel_module
 from engine.matter_system import (
     ConservedSpecies,
+    RadiationAdmissibilityError,
     Species,
     _metric_arrays,
     evolve_species,
@@ -77,7 +79,7 @@ def test_real_state_validator_enforces_existing_radiation_bound():
     invalid.momentum_r[0] = (
         2.0 * invalid.energy_t[0] / np.sqrt(metric0.gamma_rr_inv)
     )
-    with pytest.raises(ValueError, match="stage='test-predictor'.*ratio="):
+    with pytest.raises(RadiationAdmissibilityError, match="stage='test-predictor'.*ratio="):
         validate_species_admissibility(
             metric, invalid, Species.RADIATION, stage="test-predictor"
         )
@@ -87,7 +89,10 @@ def test_n160_baseline_completes_real_step_with_stage_checks():
     """A baseline N=160 step must pass initial, predictor and final checks."""
     kernel, state, _, _ = _frozen_radiation_rhs(160)
     dt = 0.03 * (state.grid.centers[1] - state.grid.centers[0])
-    advanced = kernel.step(state, dt)
+    outcome = advance_with_radiation_admissibility_retries(kernel, state, dt)
+    advanced = outcome.state
+    assert outcome.accepted_dt == pytest.approx(dt)
+    assert outcome.retry_count == 0
     assert advanced.t == pytest.approx(state.t + dt)
     final_metric = metric_slice_from_q(advanced.grid, advanced.geometry)
     validate_species_admissibility(
