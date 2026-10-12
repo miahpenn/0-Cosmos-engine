@@ -411,3 +411,52 @@ The centre H peak is now much smaller, and the admitted-inner peak moves inward 
 The remaining concern is centre evolution compatibility: the uniform candidate's first-cell raw production A_a RHS appears to approach a small nonzero value (~4e-5) instead of decreasing as r². A lower initial H norm therefore cannot by itself establish a regular, constraint-preserving evolution.
 
 **Decision:** the uniform quadrature is the strongest initial-data candidate so far, but it is not yet admitted. Run one ordinary production step against the pinned baseline and origin-only candidate at matched resolutions; compare H/M/C_lambda, determinant, fixed-radius norms and centre-series/A_a witnesses. No longer trajectory or physics change should be authorized unless that multi-constraint comparison passes.
+
+
+---
+
+## Latest addendum — uniform fourth-order interval quadrature and matched one-step outcome (2026-10-12)
+
+The comprehensive current continuation is now consolidated in [docs/CONTINUATION_HANDOFF_LATEST_2026-10-12.md](https://github.com/miahpenn/0-Cosmos-engine/blob/diag/discrete-consistent-initial-production-test-2026-10-12/docs/CONTINUATION_HANDOFF_LATEST_2026-10-12.md). The following addendum supersedes any earlier statement in this file that the matched uniform-quadrature one-step test was still pending.
+
+### Uniform fourth-order initial profile
+
+Run: [38291938761](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38291938761)  
+Artifact: uniform-radial-quadrature-initial-profile, ID 11767500772  
+Artifact ZIP SHA-256: 937a139ffd360ccae753f06572da34a400c26183dbdd0f308f1f8d67ef2bc918
+
+A diagnostic-only third arm uses the existing r²-exact origin half-cell quadrature plus cubic Lagrange integration on every centre-to-centre interval. Interior interval weights are (-1,13,13,-1)/24, with an even-reflection first-interval rule and one-sided final-interval weights (1,-5,19,9)/24. The six fixed-point source iterations, all matter/scalar definitions and the subsequent CMC solve are otherwise unchanged; no evolution occurs in this audit.
+
+First-cell |H| (baseline → origin-only → uniform intervals):
+- N=40: 3.7692e-3 → 3.9264e-4 → 3.8648e-4
+- N=60: 3.9316e-3 → 1.3137e-4 → 1.0031e-4
+- N=80: 3.9886e-3 → 8.1722e-5 → 3.6766e-5
+- N=120: 4.0281e-3 → 6.5995e-5 → 1.0569e-5
+- N=160: 4.0416e-3 → 6.5061e-5 → 6.8805e-6
+- N=240: 4.0510e-3 → 6.5985e-5 → 1.0699e-6
+- N=320: 4.0543e-3 → 6.6634e-5 → 4.9875e-7
+
+At N=320 the uniform arm's formal-stencil maximum i>=2 is 1.5963e-7; fixed annulus 2<=r<5 max |H| is 7.9453e-9. This confirms a large initial-data quadrature contribution.
+
+The centre-series condition remains open. First-cell uniform-arm Aa_rhs stays near +4.0e-5 at N=80–320, while Aa_rhs/r² grows from 1.5347e-4 (N=80) to 2.6475e-3 (N=320). The initializer therefore improves H but does not demonstrate Aa_dot=O(r²).
+
+### Matched one-step A/B: completed at N=40–160, higher-resolution cases inadmissible
+
+Run: [38292762118](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38292762118)  
+Artifact: uniform-radial-quadrature-one-step, ID 11766972176  
+Artifact ZIP SHA-256: 0faff832630fe189143e2aa178013967e79d30de5c0b1d0276447691fee7993e
+
+The job evaluated one normal production step with dt=0.03*dr for each initializer arm at N=40/60/80/120/160/240/320. All 15 arm/resolution cases at N=40–160 completed. Their uniform-arm post-step full-domain maximum |H| is 3.8469e-4, 1.0089e-4, 3.7756e-5, 1.0191e-5, and 5.9256e-6 for N=40/60/80/120/160, respectively. Uniform-arm post-step maximum |M| is around 5.85e-6–6.19e-6 from N=60–160; post-step |C_lambda| falls to 9.44e-8 at N=160. These are useful one-step results, not long-time admission.
+
+The action is marked failure because the unchanged radiation path rejects all three arms at N=240 and N=320 at the first cell:
+- N=240: E≈8.81887e-9, |S|≈8.9976e-9, |S|/E≈1.0203.
+- N=320: E≈8.81887e-9, |S|≈1.1996e-8, |S|/E≈1.3603.
+
+Treat this as a high-resolution first-cell radiation admissibility failure shared by all initializer variants, not as a quadrature-specific failure and not as a completed one-step pass at N=240/320. No cone bounds were loosened and no primitive was clipped.
+
+### Current decision
+
+- Keep uniform fourth-order quadrature as the best diagnostic initial-H candidate, but do not promote it as a production fix.
+- Next read-only test is a signed component decomposition of the actual Aa and K RHS on baseline and uniform-arm frozen initial states, then on saved t=2.16 states. Record trace-free Ricci, trace-free lapse Hessian, anisotropic stress, nonlinear/extrinsic contributions, and numerical dissipation at i=0,1,2 and fixed r=2,3,4,5.
+- Independently audit the first-cell radiation flux/source cone margin at N=160/240/320. Preserve the existing admissibility criteria.
+- Do not launch t=160; do not change production physics, gauge, source coefficients, centre projection, damping, floors, or clamps.
