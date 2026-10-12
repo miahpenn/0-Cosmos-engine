@@ -32,7 +32,7 @@ jobs:
         run: python -m pip install -r requirements.txt
 
       - name: Run current-main source-pair regression directly
-        run: python -m pytest -q -s tests/test_spatial_beta_exchange_current_main.py
+        run: python -m pytest -q -s tests/test_spatial_beta_exchange_current_main.py tests/test_spatial_homogeneous_cosmos_limit_current_main.py tests/test_covariant_beta_source_one_step_ab.py
 
       - name: Run full repository regression suite
         run: python -m pytest -q
