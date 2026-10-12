@@ -79,6 +79,24 @@ Together with Δ(M=+1.22523\times10^{-4}) at t=46.95 (algebraic formula vs direc
 
 Latest main report: [RADIATION_PREDICTOR_TRACE_AFTER_RATE_FIX_2026-10-12.md](https://github.com/miahpenn/0-Cosmos-engine/blob/research/production-readiness-review-2026-10-12/docs/RADIATION_PREDICTOR_TRACE_AFTER_RATE_FIX_2026-10-12.md), commit `e772d9c6f19440577c932c09e031210a3b2cb61b`. Handoff now records legacy R120 outgoing radiation characteristics, outer-face flux mismatch, CMC outer-layer gradient, and difference from the local GEAR short-domain fill. Repository handoff itself should remain the canonical resume source; the user's Library upload endpoint rejected current uploads due quota throttling, so no claim is made that the latest file version was written there.
 
+
+
+## Newly traced global CMC response path (source-code exact; magnitude not yet admitted)
+
+The P-minus operation also changes the proper-volume-projected global CMC time rate. `engine/cmc_gauge.py::target_kdot` forms `L_K = primary_l2_rhs["K"] + primary_l3["K"]` and computes
+[
+w_i=r_i^2\sqrt{a_i}\,b_i/X_i^3\,\Delta r,qquad
+\dot K_{CMC}=\frac{\sum_i w_iL_K[i]}{\sum_iw_i}.
+]
+The pinned K RHS has the (A_a)-dependent term (alpha A_2=(3/2)\alpha A_a^2), for (A_b=-A_a/2). Therefore, a boundary-only (A_a[-1]) change creates the exact local change
+[
+\Delta L_K[-1]=\tfrac32\alpha[-1](A_{a,post}^2-A_{a,pre}^2),\qquad
+\Delta\dot K_{CMC}=\frac{w_{-1}}{\sum_iw_i}\Delta L_K[-1].
+]
+At t=46.95, the local contribution changes the raw (K) RHS by +2.72321186e−5. The actual global Δ(dot K_{CMC}) has not been numerically evaluated because the admitted stage ledger saves only five outer cells, not all-grid weights and K RHS values; no point estimate is inferred from partial coverage. That global CMC target is then used in `rhs=-kdot/inv` for every interior lapse PDE row, so the boundary can affect the lapse nonlocally and then feed back into later (A_a/K) and metric RHS.
+
+This exact source-derived coupling is now documented in the main report at [RADIATION_PREDICTOR_TRACE_AFTER_RATE_FIX_2026-10-12.md](https://github.com/miahpenn/0-Cosmos-engine/blob/research/production-readiness-review-2026-10-12/docs/RADIATION_PREDICTOR_TRACE_AFTER_RATE_FIX_2026-10-12.md), current update commit `debe363f3ec381cb5697159acee5811b9cdb30e5`. The next offline-first task is to recover full-grid values from an existing admitted checkpoint if available, or precisely specify a minimal read-only same-call recorder for `w_i), (L_K[i]), (dot K_{CMC}), and the change in solved (alpha); do not launch another long trajectory or change either equation before the magnitude is measured.
+
 ## Next steps — offline first, no new trajectory yet
 
 1. Derive the frozen spatial P-minus target's compatibility (or incompatibility) with the actual production CMC and zero-shift evolution equations. Keep algebraic target closure, characteristic transport, momentum/Hamiltonian/connection constraints, and radiation cone margins as separate checks.
