@@ -34,7 +34,7 @@ R_MAX = 80.0
 CFL = 0.03
 OUT = Path("results/cmc-lapse-radiation-ms-one-step-ab")
 VENDOR_COMMIT = "d6052d605673ce9d82cdc99b0df79855fa2ea215"
-CANDIDATE_SOURCE_COMMIT = "9f7ebf1aab2076fe8925737591366b416427305e"
+CANDIDATE_SOURCE_COMMIT = "d7f964657df2cb8aabe4bd30c04eaff9e65d635d"
 
 _SOLVE_LABELS = (
     "step_start_current_slice",
