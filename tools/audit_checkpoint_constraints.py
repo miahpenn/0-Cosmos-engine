@@ -103,43 +103,55 @@ def _restore_checkpoint(path: Path, kernel):
     return state
 
 
-def audit_checkpoint(path: Path, kernel, vacuum):
+def audit_state(state, vacuum, *, label: str, scheduled_time: float, state_source: str):
+    """Recompute constraint and source profiles on a provided, unevolved state."""
     from engine.stress_energy import assemble_total_stress_energy
 
-    state = _restore_checkpoint(path, kernel)
     radii = np.asarray(state.grid.centers, dtype=float)
     total = assemble_total_stress_energy(
         state.grid, state.geometry, state.scalars, state.matter
     )
     raw = vacuum.constraints(state.grid, state.geometry)
+
+    # Keep the geometric sides and the assembled source sides separate so the
+    # residual can be checked as a signed cancellation rather than only a norm.
+    H_geometry = np.asarray(raw["hamiltonian"], dtype=float)
+    H_source_total = 16.0 * np.pi * np.asarray(total.rho, dtype=float)
+    H_source_scalar = 16.0 * np.pi * np.asarray(total.scalar_rho, dtype=float)
+    H_source_fluid = 16.0 * np.pi * np.asarray(total.fluid_rho, dtype=float)
+    M_geometry = np.asarray(raw["momentum"], dtype=float)
+    M_source_total = 8.0 * np.pi * np.asarray(total.j, dtype=float)
+
     profiles = {
-        "hamiltonian": np.asarray(raw["hamiltonian"], dtype=float)
-        - 16.0 * np.pi * np.asarray(total.rho, dtype=float),
-        "momentum": np.asarray(raw["momentum"], dtype=float)
-        - 8.0 * np.pi * np.asarray(total.j, dtype=float),
+        "hamiltonian": H_geometry - H_source_total,
+        "momentum": M_geometry - M_source_total,
         "connection": np.asarray(raw["connection"], dtype=float),
         "determinant_error": (
             np.asarray(state.geometry.a, dtype=float)
             * np.asarray(state.geometry.b, dtype=float) ** 2 - 1.0
         ),
+        "hamiltonian_geometry": H_geometry,
+        "hamiltonian_source_total": H_source_total,
+        "hamiltonian_source_scalar": H_source_scalar,
+        "hamiltonian_source_fluid": H_source_fluid,
+        "momentum_geometry": M_geometry,
+        "momentum_source_total": M_source_total,
     }
     for name, values in profiles.items():
         if values.shape != radii.shape:
-            raise ValueError(f"{path}: {name} profile has unexpected shape {values.shape}")
+            raise ValueError(f"{label}: {name} profile has unexpected shape {values.shape}")
         if not np.all(np.isfinite(values)):
-            raise FloatingPointError(f"{path}: non-finite values in {name} profile")
+            raise FloatingPointError(f"{label}: non-finite values in {name} profile")
 
     inner = radii < R_CUT
     exterior = radii >= R_CUT
-    match = re.fullmatch(r"checkpoint_t([0-9]+\.[0-9]+)\.npz", path.name)
-    if not match:
-        raise ValueError(f"unexpected checkpoint filename: {path.name}")
     summary = {
         "resolution": int(radii.size),
-        "checkpoint_file": path.name,
-        "scheduled_checkpoint_time": float(match.group(1)),
+        "state_source": state_source,
+        "checkpoint_file": label,
+        "scheduled_checkpoint_time": float(scheduled_time),
         "actual_checkpoint_time": float(state.t),
-        "time_offset_from_schedule": float(state.t - float(match.group(1))),
+        "time_offset_from_schedule": float(state.t - float(scheduled_time)),
         "tau": float(state.tau),
         "r_cut": R_CUT,
         "peaks": {
@@ -149,6 +161,7 @@ def audit_checkpoint(path: Path, kernel, vacuum):
                 "full_domain": _peak(values, radii, np.ones_like(radii, dtype=bool)),
             }
             for name, values in profiles.items()
+            if name in ("hamiltonian", "momentum", "connection", "determinant_error")
         },
         "sampled_signed_profiles": {},
     }
@@ -165,6 +178,19 @@ def audit_checkpoint(path: Path, kernel, vacuum):
     arrays.update(profiles)
     return summary, key, arrays
 
+
+def audit_checkpoint(path: Path, kernel, vacuum):
+    state = _restore_checkpoint(path, kernel)
+    match = re.fullmatch(r"checkpoint_t([0-9]+\.[0-9]+)\.npz", path.name)
+    if not match:
+        raise ValueError(f"unexpected checkpoint filename: {path.name}")
+    return audit_state(
+        state,
+        vacuum,
+        label=path.name,
+        scheduled_time=float(match.group(1)),
+        state_source="saved_checkpoint",
+    )
 
 def main():
     parser = argparse.ArgumentParser()
@@ -187,6 +213,28 @@ def main():
 
     summaries = []
     profile_arrays = {}
+
+    # Rebuild the production initial slice at each resolution without taking
+    # an evolution step. This distinguishes defects inherited from initial
+    # data/operator consistency from defects that emerge during evolution.
+    initial_summaries = []
+    for resolution in (40, 60, 80):
+        initial_state = kernel.initialize(
+            resolution=resolution,
+            r_max=80.0,
+            include_radiation=True,
+        )
+        summary, key, arrays = audit_state(
+            initial_state,
+            vacuum,
+            label="INITIAL_SLICE",
+            scheduled_time=0.0,
+            state_source="production_initializer",
+        )
+        initial_summaries.append(summary)
+        for name, values in arrays.items():
+            profile_arrays[f"{key}_{name}"] = values
+
     for path in checkpoints:
         summary, key, arrays = audit_checkpoint(path, kernel, vacuum)
         summaries.append(summary)
@@ -220,13 +268,22 @@ def main():
         "production_run_id": args.run_id,
         "production_source_sha": args.source_sha,
         "r_cut": R_CUT,
-        "checkpoint_count": len(summaries),
+        "checkpoint_count": len(checkpoints),
+        "initial_slice_count": len(initial_summaries),
+        "summary_count_including_initial": len(summaries) + len(initial_summaries),
+        "source_decomposition": (
+            "H = geometric Hamiltonian - 16pi*(scalar_rho + fluid_rho); "
+            "signed geometric and source components are preserved separately"
+        ),
         "checkpoint_time_semantics": (
             "scheduled filename identifies requested checkpoint target; "
             "actual_checkpoint_time is the saved integration time"
         ),
         "resolution_count": len({int(item["resolution"]) for item in summaries}),
-        "summaries": sorted(summaries, key=lambda item: (item["resolution"], item["actual_checkpoint_time"])),
+        "summaries": sorted(
+            initial_summaries + summaries,
+            key=lambda item: (item["resolution"], item["actual_checkpoint_time"]),
+        ),
         "limitations": [
             "Profiles are recomputed with the production stress assembly and pinned vendor constraint operators.",
             "This audits spatial localization but is not an independent re-derivation of the continuum Einstein constraints.",
