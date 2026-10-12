@@ -217,6 +217,19 @@ def main():
         d80_target = d80["full_target"]
         d160_inner = d160["inner_only_target_same_R160_state"]
         d160_full = d160["full_target"]
+        # Lapse-only cross-transplants: hold every other archived field and
+        # the proper-volume weights fixed, replacing only alpha in the shared core.
+        # These are algebraic target-functional sensitivities, not valid evolved states.
+        geom80_alpha160 = geom80.copy()
+        geom80_alpha160.alpha = np.asarray(geom160.alpha[:len(g80.centers)], dtype=float).copy()
+        target80_with_R160_alpha = float(cmc.target_kdot(g80, geom80_alpha160, fields80, matter80))
+
+        geom160_alpha80 = geom160.copy()
+        alpha160_cross = np.asarray(geom160.alpha, dtype=float).copy()
+        alpha160_cross[:len(g80.centers)] = np.asarray(geom80.alpha, dtype=float)
+        geom160_alpha80.alpha = alpha160_cross
+        target160_with_R80_alpha = float(cmc.target_kdot(g160, geom160_alpha80, fields160, matter160))
+
         # Exact additive decomposition:
         # R160_full - R80_native = (R160_full - R160_inner_only)
         #                        + (R160_inner_only - R80_native).
@@ -234,6 +247,12 @@ def main():
             "R160_target_reconstruction_error": float(err160),
             "R80_manual_vs_production_target_abs_error": float(d80["manual_vs_production_target_abs_error"]),
             "R160_manual_vs_production_target_abs_error": float(d160["manual_vs_production_target_abs_error"]),
+            "target_R80_state_with_R160_inner_alpha": target80_with_R160_alpha,
+            "target_R160_state_with_R80_inner_alpha": target160_with_R80_alpha,
+            "R80_target_gap_after_R160_alpha_transplant": float(target80_with_R160_alpha - d160_full),
+            "R160_target_gap_after_R80_alpha_transplant": float(d80_target - target160_with_R80_alpha),
+            "R80_target_change_from_alpha_transplant": float(target80_with_R160_alpha - d80_target),
+            "R160_target_change_from_alpha_transplant": float(target160_with_R80_alpha - d160_full),
             "R80_native_minus_R160_full": float(d80_target - d160_full),
             "R160_full_minus_R160_inner_only_outer_shell_effect": float(shell),
             "R160_inner_only_minus_R80_native_state_difference": float(remainder),
@@ -261,7 +280,7 @@ def main():
         encoding="utf-8",
     )
     report = {
-        "schema": "cmc_kdot_domain_projection_v1",
+        "schema": "cmc_kdot_domain_projection_v2",
         "status": "completed",
         "diagnostic_only": True,
         "production_physics_changed": False,
@@ -278,6 +297,11 @@ def main():
             for r in records
         )),
         "max_abs_split_identity_residual": float(max(abs(r["R160_full_minus_R80_native_decomposition_residual"]) for r in records)),
+        "max_abs_target_gap_after_R160_alpha_transplant": float(max(abs(r["R80_target_gap_after_R160_alpha_transplant"]) for r in records)),
+        "max_abs_target_gap_after_R80_alpha_transplant": float(max(abs(r["R160_target_gap_after_R80_alpha_transplant"]) for r in records)),
+        "t0_target_gap_native_R80_minus_R160": float(records[0]["R80_native_minus_R160_full"]),
+        "t0_target_gap_after_R160_alpha_transplant": float(records[0]["R80_target_gap_after_R160_alpha_transplant"]),
+        "t0_target_gap_after_R80_alpha_transplant": float(records[0]["R160_target_gap_after_R80_alpha_transplant"]),
         "inputs": {
             "R80_profile_path": str(r80_path),
             "R80_profile_sha256": hashlib.sha256(r80_path.read_bytes()).hexdigest(),
@@ -291,8 +315,10 @@ def main():
         "interpretation_limit": (
             "This snapshot-only diagnostic decomposes the global CMC target on an archived "
             "R160 state into inner and outer weighted contributions and compares it with "
-            "the independently archived boundary-matched R80 state. It is not an evolution "
-            "and does not establish a counterfactual spacetime by itself."
+            "the independently archived boundary-matched R80 state. It also transplants only "
+            "the shared-core lapse profile between archived states to measure target-functional "
+            "sensitivity while freezing all other fields. Those lapse-transplanted states are "
+            "algebraic probes, not valid CMC solutions or evolved counterfactual spacetimes."
         ),
     }
     output_report = OUT_DIR / "report.json"
