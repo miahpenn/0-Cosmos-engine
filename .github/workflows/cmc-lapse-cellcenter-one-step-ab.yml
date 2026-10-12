@@ -1,0 +1,40 @@
+name: "[DIAG] CMC lapse centre-row one-step A/B"
+
+on:
+  push:
+    branches:
+      - diag/cmc-lapse-cellcenter-one-step-ab-2026-10-12
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  PYTHONPATH: .
+
+jobs:
+  matched-one-step:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout branch and pinned numerical kernel
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Run matched one-step A/B at N=40/60/80/120/160
+        run: python tools/audit_cmc_lapse_cellcenter_one_step_ab.py
+      - name: Upload A/B report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cmc-lapse-cellcenter-one-step-ab
+          path: results/cmc-lapse-cellcenter-one-step-ab/report.json
+          if-no-files-found: error
+          retention-days: 90
