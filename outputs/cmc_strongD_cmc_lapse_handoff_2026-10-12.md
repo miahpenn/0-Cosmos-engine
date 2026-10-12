@@ -341,3 +341,26 @@ On the same archived t=0 R80 slice, choose a few trial Kdot values (native R80, 
 - Initial targets: R80 (6.198841550010287\times10^{-5}), R160 (6.233524865732698\times10^{-5}), gap (-3.4683315722410597\times10^{-7}). R160 archived target reconstruction error is exactly zero.
 - Interpretation: the simple undamped initial-slice map is stationary to a very small numerical scale, but the declared strict threshold is not met. This audit does not identify the origin of the different initial alpha profiles or prove a unique coupled CMC root. Boundary normalization remains an explicit unresolved factor.
 - Next: compare fixed-target R80 solves under both shared-core boundary-matched alpha and native alpha=1, then evaluate a directly derived coupled discrete residual for the elliptic equation plus target functional. No damping, fitting, or production edits; no additional full trajectory yet.
+
+
+## 17. Pointwise K-RHS/lapse consistency audit — completed
+
+- Run [38210163221](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38210163221) succeeded; artifact [11729296911](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38210163221/artifacts/11729296911).
+- Artifact ZIP SHA-256: `cfb1b7a71d4267c15f2b07dd123ecac2f83195b9be012a4e6a84cf1f86966c33`.
+- Raw report SHA-256: `cb2c576a093975e263279c33d7bc72a060273c4553501c27695c54162286c5fb`.
+- Per-cell profile JSONL SHA-256: `83129b94087efc03806d95cc162bcd17e580c6f465d99892aa1e9d3eddde71db`.
+- Workflow trigger commit: [ff7a14d2e30c9f99a0dadbafe0914bef43511bfd](https://github.com/miahpenn/0-Cosmos-engine/commit/ff7a14d2e30c9f99a0dadbafe0914bef43511bfd).
+
+Three fixed-target lapse solves were checked on the archived t=0 R80 slice: native R80 Kdot, midpoint R80/R160 target, and archived R160 Kdot. The 159 elliptic PDE rows excluding the outermost normalization cell close at about (1.3\!-!1.5\times10^{-15}) RMS and (3.6\!-!5.4\times10^{-15}) max absolute. All three lapse solutions are finite and positive.
+
+| Trial | Kdot trial | Recomputed target | Scalar closure H(k) | Weighted mean pointwise residual |
+|---|---:|---:|---:|---:|
+| Native R80 target | (6.198841550010287\times10^{-5}) | (6.198841541429242\times10^{-5}) | (-8.581045487891792\times10^{-14}) | (-8.581045884335190\times10^{-14}) |
+| Midpoint | (6.216183207871493\times10^{-5}) | (6.216183199288647\times10^{-5}) | (-8.582846618750833\times10^{-14}) | (-8.582846974608617\times10^{-14}) |
+| Archived R160 target | (6.233524865732698\times10^{-5}) | (6.233524857152139\times10^{-5}) | (-8.580558952166889\times10^{-14}) | (-8.580558790364570\times10^{-14}) |
+
+For every trial, the difference between (H(k)) and the weighted mean pointwise residual is only (1.6\!-!4.0\times10^{-21}), i.e. roundoff-level agreement. The largest residual across all cells is the outermost normalization cell, approximately (-4.5882\times10^{-12}). This cell prescribes boundary alpha and is not an elliptic PDE row, yet its pointwise K-RHS enters the global target average. The interior elliptic solve is not the source of the closure offset; the offset is accounted for by this boundary-row/global-average seam.
+
+**Interpretation boundary:** this does not, by itself, establish that the production target definition is incorrect. Whether the normalization cell belongs in the continuum/discrete global target must be checked against the authoritative CMC derivation. Do not alter production code based on this observation alone.
+
+**Next diagnostic:** snapshot-only, no production edit: independently compute target averages using (a) all cells, (b) PDE rows only, and (c) all cells except the outermost normalization cell, using the same stored weights. Verify the target shift equals the exact outer-cell weighted contribution. Then compare scalar closure (H(k)) under these alternate diagnostic probes; do not silently substitute them for the production definition. If confirmed, consult the authoritative CMC derivation before proposing any physics/source patch.
