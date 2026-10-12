@@ -1,4 +1,5 @@
 name: "[0star] Radiation adaptive-step retry candidate"
+# Trigger exact pinned regression gate: [run-radiation-adaptive-step-tests].
 
 on:
   push:
