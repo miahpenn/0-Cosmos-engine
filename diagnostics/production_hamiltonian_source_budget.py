@@ -85,16 +85,26 @@ def restore_checkpoint(kernel: V55ProductionKernel, resolution: int, r_max: floa
     return state
 
 
-def witness(values: np.ndarray, radii: np.ndarray, start: int = 0) -> dict:
-    if start < 0 or start >= values.size:
-        raise ValueError(f"invalid witness start index {start}")
-    local = np.asarray(values[start:], dtype=float)
-    index = start + int(np.argmax(np.abs(local)))
+def witness(values: np.ndarray, radii: np.ndarray) -> dict:
+    index = int(np.argmax(np.abs(values)))
     return {
         "absmax": float(abs(values[index])),
         "signed_value": float(values[index]),
         "radius": float(radii[index]),
-        "index": int(index),
+        "index": index,
+    }
+
+
+def witness_mask(values: np.ndarray, radii: np.ndarray, mask: np.ndarray) -> dict:
+    selected = np.flatnonzero(np.asarray(mask, dtype=bool))
+    if selected.size == 0:
+        raise ValueError("physical-radius mask selects no grid points")
+    index = int(selected[np.argmax(np.abs(values[selected]))])
+    return {
+        "absmax": float(abs(values[index])),
+        "signed_value": float(values[index]),
+        "radius": float(radii[index]),
+        "index": index,
     }
 
 
@@ -136,19 +146,25 @@ def audit_state(state, vacuum) -> tuple[dict, dict]:
     }
     finite_arrays(**arrays)
 
+    inner_mask = r < 5.0
+    exterior_mask = r >= 5.0
     h_full = witness(h_residual, r)
-    h_masked = witness(h_residual, r, start=2)
+    h_inner = witness_mask(h_residual, r, inner_mask)
+    h_exterior = witness_mask(h_residual, r, exterior_mask)
     m_full = witness(m_residual, r)
-    m_masked = witness(m_residual, r, start=2)
+    m_inner = witness_mask(m_residual, r, inner_mask)
+    m_exterior = witness_mask(m_residual, r, exterior_mask)
     summary = {
         "resolution": int(grid.n),
         "t": float(state.t),
         "tau": float(state.tau),
         "dr": float(grid.dr),
+        "fixed_inner_exclusion_radius": 5.0,
         "finite": True,
         "hamiltonian": {
             "full": h_full,
-            "outside_first_two_cells": h_masked,
+            "inside_fixed_radius_r_lt_5": h_inner,
+            "outside_fixed_radius_r_ge_5": h_exterior,
             "geometry_at_full_residual_peak": float(h_geometry[h_full["index"]]),
             "source_at_full_residual_peak": float(h_source[h_full["index"]]),
             "source_scalar_at_full_residual_peak": float(h_source_scalar[h_full["index"]]),
@@ -158,11 +174,13 @@ def audit_state(state, vacuum) -> tuple[dict, dict]:
             "scalar_source_absmax": witness(h_source_scalar, r),
             "fluid_source_absmax": witness(h_source_fluid, r),
             "full_rms": float(np.sqrt(np.mean(h_residual**2))),
-            "outside_first_two_cells_rms": float(np.sqrt(np.mean(h_residual[2:]**2))),
+            "inside_fixed_radius_rms": float(np.sqrt(np.mean(h_residual[inner_mask]**2))),
+            "outside_fixed_radius_rms": float(np.sqrt(np.mean(h_residual[exterior_mask]**2))),
         },
         "momentum": {
             "full": m_full,
-            "outside_first_two_cells": m_masked,
+            "inside_fixed_radius_r_lt_5": m_inner,
+            "outside_fixed_radius_r_ge_5": m_exterior,
             "geometry_at_full_residual_peak": float(m_geometry[m_full["index"]]),
             "source_at_full_residual_peak": float(m_source[m_full["index"]]),
             "source_scalar_at_full_residual_peak": float(m_source_scalar[m_full["index"]]),
@@ -172,7 +190,8 @@ def audit_state(state, vacuum) -> tuple[dict, dict]:
             "scalar_source_absmax": witness(m_source_scalar, r),
             "fluid_source_absmax": witness(m_source_fluid, r),
             "full_rms": float(np.sqrt(np.mean(m_residual**2))),
-            "outside_first_two_cells_rms": float(np.sqrt(np.mean(m_residual[2:]**2))),
+            "inside_fixed_radius_rms": float(np.sqrt(np.mean(m_residual[inner_mask]**2))),
+            "outside_fixed_radius_rms": float(np.sqrt(np.mean(m_residual[exterior_mask]**2))),
         },
     }
     profile = {
@@ -228,6 +247,7 @@ def main() -> None:
     parser.add_argument("--artifact-dir", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--source-run-id", type=int, required=True)
+    parser.add_argument("--source-code-sha", required=True)
     args = parser.parse_args()
     artifact_dir = args.artifact_dir
     output_dir = args.output_dir
@@ -289,6 +309,7 @@ def main() -> None:
         "schema": "v55_hamiltonian_momentum_source_budget_v1",
         "diagnostic_only": True,
         "source_run_id": args.source_run_id,
+        "source_code_commit": args.source_code_sha,
         "source_campaign_summary_sha256": sha256_file(campaign_path),
         "source_campaign_config": config,
         "source_campaign_admission": campaign.get("admission"),
@@ -299,7 +320,7 @@ def main() -> None:
             "hamiltonian_residual": "raw vacuum Hamiltonian constraint - 16*pi*(scalar_rho + fluid_rho)",
             "momentum_residual": "raw vacuum momentum constraint - 8*pi*(scalar_j + fluid_j)",
             "geometry_and_source_terms": "evaluated from the same restored slice using the pinned production operator and stress-energy assembly",
-            "common_radius_comparison": "linear interpolation of N=60 and N=80 profiles onto N=40 cell centers r=1..79; shell comparison uses r>=5",
+            "common_radius_comparison": "linear interpolation of N=60 and N=80 profiles onto N=40 cell centers r=1..79; fixed-radius exterior comparison uses r>=5",
             "production_steps_run": 0,
         },
         "snapshots": summaries,

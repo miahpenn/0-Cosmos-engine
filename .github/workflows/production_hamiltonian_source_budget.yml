@@ -19,9 +19,16 @@ jobs:
     env:
       PYTHONUNBUFFERED: "1"
     steps:
-      - name: Checkout diagnostic code and pinned numerical kernel
+      - name: Checkout diagnostic code
         uses: actions/checkout@v4
         with:
+          fetch-depth: 0
+
+      - name: Checkout exact production source and pinned vendor
+        uses: actions/checkout@v4
+        with:
+          ref: 6d8b3f2790644591326df57c55908863f994cb0c
+          path: source
           submodules: recursive
           fetch-depth: 0
 
@@ -31,14 +38,14 @@ jobs:
           python-version: "3.12"
 
       - name: Install dependencies
-        run: python -m pip install -r requirements.txt
+        run: python -m pip install -r source/requirements.txt
 
       - name: Download the exact admitted t=12 campaign artifact
         uses: actions/download-artifact@v4
         with:
           name: v55-production-t12-n40-n60-n80
-          run-id: 38207937002
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: 38208253687
+          github-token: \${{ secrets.GITHUB_TOKEN }}
           path: source-artifact
 
       - name: Compile offline diagnostic
@@ -46,10 +53,11 @@ jobs:
 
       - name: Audit raw geometric terms against matter-source terms
         run: |
-          python diagnostics/production_hamiltonian_source_budget.py \
-            --artifact-dir source-artifact \
-            --output-dir runs/production-hamiltonian-source-budget \
-            --source-run-id 38207937002
+          PYTHONPATH=source python diagnostics/production_hamiltonian_source_budget.py \\
+            --artifact-dir source-artifact \\
+            --output-dir runs/production-hamiltonian-source-budget \\
+            --source-run-id 38208253687 \\
+            --source-code-sha 6d8b3f2790644591326df57c55908863f994cb0c
 
       - name: Upload source-budget profiles and report
         if: always()
