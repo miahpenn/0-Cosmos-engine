@@ -1,4 +1,4 @@
-name: "[0star] Radiation predictor trace after matter-RHS rate fix"
+name: "[0star] Radiation predictor trace with matched boundary Aa audit"
 
 on:
   push:
