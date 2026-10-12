@@ -195,3 +195,37 @@ The next useful bounded comparison is therefore not a new long campaign:
 4. Make no code change until the source-to-RHS dependency or signed identity that fails has been pinpointed. The scalar inverse-metric candidate remains a separate equation-correction branch, not evidence that centre regularity or physical interface closure is solved.
 
 **Revised bottom line:** one metric-contraction inconsistency is confirmed and the local DM–COSMOS scalar exchange channel is already wired. The more consequential open question is whether the existing coupled source, gauge and geometry updates preserve the required continuum identities at the discrete stages. The early GEAR global-source bridge and anisotropic global completeness remain different, still-open physical-model questions.
+
+
+## 8. Existing parallel-agent result: lapse-weighted scalar–DM source closure (2026-10-10)
+
+A repository search found that the exact candidate described in the prior source audit was already explored by the parallel experimental branch physics/spatial-beta-lapse-source-correction (also mirrored in physics/spatial-beta-covariant-source-closure). This is pre-existing team evidence, not a new edit made in this turn.
+
+### 8.1 Derived mismatch
+
+The archived covariant law is
+\[
+\nabla_\mu T_{DM}^{\mu\nu}=+\beta\rho_{DM}\nabla^\nu\phi,\qquad
+\nabla_\mu T_{\phi}^{\mu\nu}=-\beta\rho_{DM}\nabla^\nu\phi.
+\]
+With the production convention \(\partial_t\phi=\alpha\Pi+\beta^r\partial_r\phi\), the conservative DM source reduces to
+\[
+q_E^{DM}=-\sqrt{\gamma}\,\alpha\,\beta\,\rho_{DM}\,\Pi.
+\]
+The baseline scalar Pi RHS added \(+\beta\rho_{DM}\) without the lapse, giving a source-pair residual
+\[
+\Delta_{exchange}=\sqrt{\gamma}(1-\alpha)\beta\rho_{DM}\Pi.
+\]
+The experimental branch changed the scalar source to \(+\alpha\beta\rho_{DM}\). The correction follows from the archived conservation law and adds no new interaction coefficient.
+
+### 8.2 Existing test and strict limitation
+
+The branch audit, [SPATIAL_BETA_EXCHANGE_LAPSE_ACCOUNTING_AUDIT_2026-10-10.md](https://github.com/miahpenn/0-Cosmos-engine/blob/physics/spatial-beta-lapse-source-correction/docs/SPATIAL_BETA_EXCHANGE_LAPSE_ACCOUNTING_AUDIT_2026-10-10.md), describes a synthetic, unadvanced test with non-unit lapse and nonzero shift. It checks the scalar source increment, actual conservative DM energy-source increment and their sum. After a tolerance correction for roundoff, [run 38060315441](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38060315441) passed 111 tests. The branch report explicitly says no long trajectory was run and no merge to main was authorized.
+
+The corrected source is at [engine/scalar_system.py on the experimental branch](https://github.com/miahpenn/0-Cosmos-engine/blob/physics/spatial-beta-lapse-source-correction/engine/scalar_system.py). October 12 main still contains the unweighted scalar source, so the mismatch remains in the current production snapshot. The candidate test verifies local algebraic cancellation on synthetic states; it does not establish that the current full production trajectory, constraints or radiation gate are repaired.
+
+### 8.3 Next discriminating test
+
+Do not recreate the already-passing synthetic unit test or merge the old branch as a shortcut. Reuse its source-pair calculation on an admitted frozen state from the current main source, then perform source-only A/B evaluation at the actual beginning, predictor and corrector stages. Record local alpha, rho_DM, Pi, scalar source increment, DM conservative source increment, signed source residual, and whether the residual enters the full discrete constraint/current budget. Only if this closes at each real stage should a bounded one-step A/B be considered.
+
+Keep this separate from the inverse-metric lapse-gradient candidate and from the centre Aa/K regularity investigation. The source-pair lapse mismatch is demonstrated in the baseline; its impact on the current full production evolution remains unmeasured. It is not yet established as the dominant centre or radiation defect, and production admission remains open.
