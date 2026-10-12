@@ -25,10 +25,20 @@ def areal_radius(grid, geometry):
     return r * np.sqrt(geometry.b) / geometry.X
 
 
-def invariant_chi(grid, geometry):
-    r = np.asarray(grid.centers)
+def areal_radius_derivative(grid, geometry):
+    """Return dR/dr with the regular-centre parity of the areal radius.
+
+    R = r*sqrt(b)/X is odd under radial reflection when b and X are regular
+    even fields. The derivative stencil must therefore use odd-field ghost
+    parity for R; the resulting derivative is even and regular at the origin.
+    """
     R = areal_radius(grid, geometry)
-    Rr = grid.cell_derivative_fourth(R, parity=1)
+    return grid.cell_derivative_fourth(R, parity=-1)
+
+
+def invariant_chi(grid, geometry):
+    R = areal_radius(grid, geometry)
+    Rr = areal_radius_derivative(grid, geometry)
     Ktheta = geometry.K / 3.0 - geometry.Aa / 2.0
     normal_dR = -R * Ktheta
     return (geometry.X**2 / geometry.a) * Rr**2 - normal_dR**2
