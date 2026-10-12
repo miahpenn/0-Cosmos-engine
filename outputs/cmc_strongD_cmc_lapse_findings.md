@@ -130,3 +130,8 @@ The no-damping t=0 map starts from native archived alpha on each domain and runs
 Thus the archived native alpha profiles are already extremely close to their own self-consistent map states; the no-damping iteration does not contract to the strict tolerance, but the per-iteration changes are tiny compared with the (3.57\times10^{-4}) cross-domain lapse difference. The question is now whether the same frozen R80 operator supports both the native-R80-alpha seed and the restricted R160-alpha seed as separate near-fixed points.
 
 **Next run:** [38209561182](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38209561182), queued at last check. It iterates both seeds under identical R80 non-lapse fields and the same outer-alpha boundary, with no damping or tuning. Distinct residual-small endpoints would support coexisting fixed points; convergence to one profile would argue against that interpretation.
+
+
+### Dual-seed test rerun status (12 October, follow-up)
+
+The first same-R80 dual-seed run [38209561182](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38209561182) failed at Python parse time with an indentation error in the diagnostic report dictionary. No numerical result or artifact was created. Script fix commit [4024007b1fcb248e88b636908fab67354613bfce](https://github.com/miahpenn/0-Cosmos-engine/commit/4024007b1fcb248e88b636908fab67354613bfce); corrected run [38209662328](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38209662328) was in progress at the last check. Do not draw any conclusion about multiple fixed points until this artifact is inspected.
