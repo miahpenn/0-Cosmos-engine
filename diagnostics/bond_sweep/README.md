@@ -10,20 +10,20 @@ This branch is isolated from `main`. No production source file is changed.
 - Couplings: g=0, +0.01, -0.01, +0.05, -0.05, +0.10
 - Candidate potential: V_bond = g S D (a diagnostic choice, not derived from the archive)
 
-## Self-consistency repair
+## Self-consistency closure
 The in-process wrapper adds the potential gradients to the scalar momentum RHS:
 - PS_t <- PS_t - alpha g D
 - PD_t <- PD_t - alpha g S
 
-It also adds the potential's stress projections everywhere the scalar stress projection is consumed:
+It adds the potential's stress projections in both independent consumers:
 - delta rho = +g S D
 - delta pr = -g S D
 - delta pt = -g S D
 - delta j = 0
 
-This includes the total stress assembly used by constraint diagnostics and the scalar projection used by the CMC solve / matter geometry source. The base `scalar_system.py` and production files are untouched.
+At the initial slice and t=2,3,4,5, it independently reconstructs the original scalar projection and fails closed unless (a) both consumers have precisely the expected bond contribution and (b) the total geometry/lapse source projection agrees with the constraint-diagnostic projection to absolute max error <= 5e-12. The initial slice is logged explicitly so the baseline constraint offset is visible, rather than hidden by evolved-only samples.
 
 ## Interpretation gate
-This run tests the internally consistent consequences of the *chosen* bond form. It does not establish that the archive requires this bond or that it is physical. Compare g=0 against the earlier provisional baseline first; differences may indicate source revision or wrapper effects. Read Hamiltonian/momentum residuals as evolved diagnostics, not as automatically zero constraints. No bond result should be admitted as physics without an independently justified interaction and convergence/closure checks.
+This run tests the internally consistent consequences of the *chosen* bond form. It does not establish that the archive requires this bond or that it is physical. A prior provisional result was reported with a different baseline, but its cited commit/branch is not present in the current repository refs; therefore the old and current H-center numbers are not yet an apples-to-apples comparison. Read Hamiltonian/momentum residuals as evolved diagnostics, not as automatically zero constraints. Do not admit the bond as physics without an independently justified interaction and convergence/closure checks.
 
 Outputs: `bond_sweep_self_consistent.json`, `bond_sweep_self_consistent.csv`.
