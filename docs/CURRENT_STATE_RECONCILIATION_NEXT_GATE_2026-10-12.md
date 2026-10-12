@@ -104,3 +104,17 @@ New matched diagnostic evidence is now available in [BOUNDARY_CMC_HISTORY_COUNTE
 - The first counterfactual artifact's stage-label field was stale because the pre-CMC validator fires outside the wrapped lapse solver; the exception string correctly names the explicit-predictor guard. The diagnostic parser has been corrected on the branch in commit `e7e9d4d713633c5de8fc5f6e0e5490b2749ab8cd`.
 
 Disposition: do not patch or disable the boundary from this evidence. Keep the exact E >= |S| admission rule. The remaining active lead is the coupled explicit metric predictor / CMC-stage / near-saturated radiation response, to be investigated by matched stage equations and a bounded timestep/stage comparison before any production change. Main and the canonical GEAR archive remain untouched.
+
+
+### Accounting-complete rerun and next bounded timestep discriminator
+
+The source-aware rerun [38321456272](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38321456272) succeeded as an expected radiation-failure capture and closes the prior completed-state accounting gap. Artifact [11779635426](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38321456272/artifacts/11779635426); trace SHA-256 `06138c2b31db6d6bd2f7807a4cdb655d535eb48ec392c22aaae897ff855391ce`; ZIP SHA-256 `448f8184571a7d0d0e4603e53531ef3148f07c0b565acfa250e31a230a8377d0`.
+
+- 65 source-separated predictor cone budgets, 66 completed-state trapezoidal budgets, 66 geometry predictor budgets.
+- Zero instrumentation errors; no missing source-capture cells.
+- Maximum completed-state cone-margin budget closure error: (5.421010862427522\times10^{-20}).
+- Predictor RHS, completed trapezoidal energy/momentum reconstruction and explicit inverse-metric identity close to stored precision (recorded maximum 0).
+- At accepted t=47.13, the actual one-step state and the arm resetting only prior-boundary pre-update (A_a[-1]) both fail the explicit predictor at i=79/r=79.5. Ratios are 1.0004012501699084 and 1.0004012440766743 respectively. The prior single boundary update is not a sufficient cause.
+- Detailed report: [BOUNDARY_CMC_HISTORY_COUNTERFACTUAL_2026-10-12.md](https://github.com/miahpenn/0-Cosmos-engine/blob/diag/boundary-cmc-coupling-audit-2026-10-12/docs/BOUNDARY_CMC_HISTORY_COUNTERFACTUAL_2026-10-12.md), latest documented accounting commit `938abf66642a25ca4194dc6ac0668b38de908662`.
+
+Next test now running in [workflow 38322337250](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38322337250): three one-step arms from independent deep copies of the same exact accepted state at dt/2, dt/4, and dt/8. It records the actual failing stage/cell and final cone margin without clipping, retries, source changes or physical-parameter changes. This is diagnostic evidence only; a successful smaller step must not automatically become a production adaptive-step policy.
