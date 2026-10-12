@@ -89,6 +89,37 @@ Volume-weighted RMS H over the fixed physical annulus 2<=r<5 is 7.4135e-4 (N40),
 
 **Interpretation:** the residual improves at fixed resolved radii and in a volume-weighted inner annulus, while its maximum follows the first admitted cells inward. This is evidence for a shrinking central numerical layer, not a converged central solution. The momentum constraint is also not uniformly converged at the first admitted cell (at N120, |M| reaches about 9.36e-4 inside r<5), so the momentum-source mechanism remains the next target.
 
+## One-step momentum-constraint term decomposition — complete
+
+Latest stage trace:
+- Run: https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38213136600
+- Artifact: `production-one-step-constraint-stage-trace`
+- SHA-256: `f2097b7c1eecafabcfacb81e796ab0aba07d2468785f1c17731953b0c6749686`
+
+The traced momentum constraint is reconstructed from signed terms:
+`M_geom = D_r Aa - (2/3) D_r K + 6 Aa chi_r + (Aa-Ab)(2/r + D_r b/b)`,
+with `chi_r=-D_r X/(2X)`, `Ab=-Aa/2`. The matter contribution is `8*pi*J`, and `M_residual=M_geom-8*pi*J`. The term closure was exactly zero in every captured stage.
+
+At the first admitted inner cell i=2, the fresh t=0 state begins with M at roundoff. During the Euler predictor, the evolved matter/scalar state changes the current source before the geometric A/K stage responds:
+- N=60: M source changes from approximately zero to `-9.6842e-6`, while M_geom remains approximately zero; temporary predictor M residual is `+9.6842e-6`. After the primary geometric update, M_geom is `-4.8340e-6`, source is `-9.6842e-6`, residual `+4.8502e-6`; returned state residual `+4.8491e-6`.
+- N=80: predictor source `-6.7068e-6` with M_geom still roundoff, temporary predictor residual `+6.7068e-6`. After primary update M_geom is `-2.2424e-6`, residual `+4.4644e-6`; returned residual `+4.4615e-6`.
+
+These are intermediate split stages, not independent physical slices; do not interpret the predictor-only mismatch as a physical violation. They do show that the stage ordering deliberately advances matter and scalar predictors before geometry responds, with only partial compensation at the primary stage.
+
+At the saved t≈10 state:
+- N=60, dt=.04: input M residual `-8.28647e-4`; Euler predictor `-8.33533e-4`; primary stage `-8.41586e-4`; final `-8.41161e-4`. Predictor change is dominated by matter-current source shift (+4.872e-6 in `8πJ`), while M_geom changes only `-1.38e-8`. Across the full step, M_geom worsens by `-7.591e-6` and source moves +`4.924e-6`, giving `ΔM=-1.2514e-5`.
+- N=80, dt=.03: input M residual `-6.78261e-4`; Euler predictor `-6.81649e-4`; primary stage `-5.90502e-4`; final `-5.90190e-4`. The predictor change is again almost entirely the matter-current source shift (+3.376e-6 in `8πJ`) with geometry changing only `-1.09e-8`. But the primary update then makes M_geom less negative by +`9.1473e-5`, mostly through the `D_r Aa` term (+`5.5153e-5`) and the radial b term (+`3.9732e-5`), with `D_r K` contributing -`3.3153e-6`; the source changes only +`3.402e-6` over the full step. Net M improves by +`8.8071e-5`.
+
+The primary update makes the momentum residual slightly worse at N=60 but substantially better at N=80. This resolution-dependent sign is important: there is no single universal “primary stage worsens M” story. The geometric terms show strong cancellation between `D_r Aa`, `D_r K`, and the radial b term. The result is consistent with a centre-localized spatial/derivative compatibility problem, but it is not enough to attribute the problem to any one term or matter sector.
+
+## Immediate next diagnostic: semi-discrete momentum-residual tangent
+
+Compute the instantaneous derivative of the full momentum residual at (a) fresh t=0 states and (b) saved t≈10 and t=12 states, using the actual production semi-discrete RHS without taking an evolution step. Decompose
+`dM/dt = d(M_geom)/dt - 8*pi*dJ/dt`
+into directional derivatives of each signed geometric term plus the scalar/matter-current response. Validate the derivative numerically with a second epsilon and finite-difference control, and compare `dM/dt` against actual one-step ΔM/dt.
+
+This distinguishes a pointwise semi-discrete constraint-propagation defect from time-integrator splitting. No production equation, gauge, boundary or coefficient change is authorized by this diagnostic.
+
 ## Matched-CFL spatial refinement — complete
 
 Run: https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38212879394
