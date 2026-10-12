@@ -212,6 +212,54 @@ def validate_ledger_steps(steps, expected_indices):
     }
 
 
+
+def _primary_source_term_record(grid, geometry, terms, vacuum_l3, call_index):
+    """Serialize existing Aa/K L2/L3 terms for the outer capture cells."""
+    n = len(grid.centers)
+    lo = max(0, n - CELLS)
+    labels = (
+        "accepted_start_gterms0",
+        "explicit_predictor_gterms_pred",
+        "primary_predictor_gterms1",
+    )
+    record = {
+        "call_index": int(call_index),
+        "stage_label": labels[call_index] if call_index < len(labels)
+            else f"geometry_terms_call_{call_index + 1}",
+        "cells": [],
+    }
+    for i in range(lo, n):
+        l2 = terms["primary_l2"]
+        l3 = terms["primary_l3"]
+        row = {
+            "i": i,
+            "r": float(grid.centers[i]),
+            "geometry": {
+                key: float(getattr(geometry, key)[i])
+                for key in ("a", "b", "X", "alpha", "Aa", "K", "Lambda")
+                if hasattr(geometry, key)
+            },
+            "primary_l2": {
+                key: float(np.asarray(l2[key])[i]) for key in ("Aa", "K")
+            },
+            "primary_l3_total": {
+                key: float(np.asarray(l3[key])[i]) for key in ("Aa", "K")
+            },
+            "primary_l3_vacuum": {
+                key: float(np.asarray(vacuum_l3[key])[i]) for key in ("Aa", "K")
+            },
+            "primary_l3_matter_delta": {
+                key: float(np.asarray(l3[key])[i] - np.asarray(vacuum_l3[key])[i])
+                for key in ("Aa", "K")
+            },
+            "explicit_rhs": {
+                key: float(np.asarray(terms["explicit"][key])[i])
+                for key in ("a", "b", "X")
+            },
+        }
+        record["cells"].append(row)
+    return record
+
 class RadiationPredictorStageLedger(RadiationStageTrace):
     """Extend the existing source trace with the missing pre/post-projection stages."""
 
@@ -222,6 +270,10 @@ class RadiationPredictorStageLedger(RadiationStageTrace):
         self._ledger_original_project = kernel_cls._enforce_center_regularity
         self._ledger_original_solve = kernel_cls._solve_lapse
         self._ledger_original_geometry_terms = adapter.geometry_stage_terms
+        _, vacuum, _ = adapter.vendor_modules()
+        self._ledger_vacuum_module = vacuum
+        self._ledger_original_primary_l2 = vacuum.primary_l2_rhs
+        self._ledger_original_primary_l3 = vacuum.primary_l3_rhs
         ledger = self
 
         def capture_project(grid, geometry):
@@ -245,31 +297,86 @@ class RadiationPredictorStageLedger(RadiationStageTrace):
 
         def capture_solve(grid, geometry, scalars, matter):
             step = ledger.current_step
-            if (step is not None
-                    and int(step.get("solve_count", 0)) == 1
-                    and float(step.get("t0", 0.0)) >= CAPTURE_FROM_T):
+            solve_index = int(step.get("solve_count", 0)) if step is not None else -1
+            if step is not None and float(step.get("t0", 0.0)) >= CAPTURE_FROM_T:
                 row = ledger._row_for_step(step)
-                row["first_predictor_cmc_inputs"] = ledger._geometry_values(
-                    grid, geometry, matter.radiation
-                )
-                raw_values = row.get("unprojected_euler_predictor", [])
-                projected_values = row.get("post_regularity_projection", [])
-                accepted_values = row.get("accepted_geometry_and_rhs", {}).get(
-                    "accepted_geometry", []
-                )
-                # The same actual predictor conservative state must accompany
-                # each metric stage; attach U_E/U_r explicitly so the validator
-                # can independently reconstruct every cone witness.
-                for values in (accepted_values, raw_values, projected_values):
-                    if values:
-                        _attach_radiation_state(values, matter.radiation)
+                if solve_index == 1:
+                    row["first_predictor_cmc_inputs"] = ledger._geometry_values(
+                        grid, geometry, matter.radiation
+                    )
+                    raw_values = row.get("unprojected_euler_predictor", [])
+                    projected_values = row.get("post_regularity_projection", [])
+                    accepted_values = row.get("accepted_geometry_and_rhs", {}).get(
+                        "accepted_geometry", []
+                    )
+                    # Keep the actual predictor conservatives paired with every metric.
+                    for values in (accepted_values, raw_values, projected_values):
+                        if values:
+                            _attach_radiation_state(values, matter.radiation)
+                elif solve_index == 2:
+                    row["primary_predictor_after_outer_boundary"] = (
+                        ledger._geometry_values(grid, geometry, matter.radiation)
+                    )
+                elif solve_index == 3:
+                    row["completed_state_after_outer_boundary"] = (
+                        ledger._geometry_values(grid, geometry, matter.radiation)
+                    )
             return ledger._ledger_original_solve(grid, geometry, scalars, matter)
 
-        def capture_geometry_terms(grid, geometry, fields, matter, lambda_m=2.0):
-            terms = ledger._ledger_original_geometry_terms(
-                grid, geometry, fields, matter, lambda_m=lambda_m
-            )
+        def capture_primary_l2(grid, geometry):
+            result = ledger._ledger_original_primary_l2(grid, geometry)
             step = ledger.current_step
+            if (step is not None
+                    and not step.get("ledger_inside_geometry_terms", False)
+                    and float(step.get("t0", 0.0)) >= CAPTURE_FROM_T):
+                row = ledger._row_for_step(step)
+                n = len(grid.centers)
+                lo = max(0, n - CELLS)
+                row["final_explicit_state_primary_l2"] = {
+                    "geometry": [
+                        {
+                            "i": i, "r": float(grid.centers[i]),
+                            **{
+                                key: float(getattr(geometry, key)[i])
+                                for key in ("a", "b", "X", "alpha", "Aa", "K", "Lambda")
+                                if hasattr(geometry, key)
+                            },
+                        }
+                        for i in range(lo, n)
+                    ],
+                    "rhs": {
+                        key: [
+                            {"i": i, "r": float(grid.centers[i]),
+                             "value": float(np.asarray(result[key])[i])}
+                            for i in range(lo, n)
+                        ]
+                        for key in ("Aa", "K")
+                    },
+                }
+            return result
+
+        def capture_geometry_terms(grid, geometry, fields, matter, lambda_m=2.0):
+            step = ledger.current_step
+            active = step is not None and float(step.get("t0", 0.0)) >= CAPTURE_FROM_T
+            if active:
+                step["ledger_inside_geometry_terms"] = True
+            try:
+                terms = ledger._ledger_original_geometry_terms(
+                    grid, geometry, fields, matter, lambda_m=lambda_m
+                )
+            finally:
+                if active:
+                    step["ledger_inside_geometry_terms"] = False
+            if active:
+                row = ledger._row_for_step(step)
+                call_index = int(step.get("ledger_primary_terms_call_count", 0))
+                step["ledger_primary_terms_call_count"] = call_index + 1
+                vacuum_l3 = ledger._ledger_original_primary_l3(grid, geometry)
+                row.setdefault("primary_source_stages", []).append(
+                    _primary_source_term_record(
+                        grid, geometry, terms, vacuum_l3, call_index
+                    )
+                )
             if step is not None and _capture_first_geometry_terms_call(step):
                 row = ledger._row_for_step(step)
                 row["accepted_geometry_and_rhs"] = {
@@ -290,6 +397,7 @@ class RadiationPredictorStageLedger(RadiationStageTrace):
         kernel_cls._enforce_center_regularity = staticmethod(capture_project)
         kernel_cls._solve_lapse = staticmethod(capture_solve)
         adapter.geometry_stage_terms = capture_geometry_terms
+        vacuum.primary_l2_rhs = capture_primary_l2
 
     def _row_for_step(self, step):
         key = str(int(step["step_index"]))
