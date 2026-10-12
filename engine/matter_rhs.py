@@ -36,6 +36,7 @@ def species_rhs(
         dphi_t=dphi_t,
         dphi_r=dphi_r,
         beta_dm=beta_dm,
+        validate_admissibility=False,
     )
     return ConservedSpecies(
         advanced.rest - state.rest,
