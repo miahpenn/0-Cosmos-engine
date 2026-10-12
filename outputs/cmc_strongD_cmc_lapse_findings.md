@@ -216,3 +216,18 @@ Raw output is preserved in the Actions artifact above; a concise local-library h
 - Combined with the undamped map audit, both archived target/lapse pairs are plausible near-stationary candidates under their own targets. This is **not proof of two roots**: the (10^{-13}) map stop was not reached, and the coupled discrete residual/Jacobian has not been independently solved.
 - Pointwise residual context: run [38210163221](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38210163221) found PDE-row residuals near (10^{-15}), but outermost lapse-normalization-cell residual near (-4.5882\times10^{-12}); scalar closure and weighted residual mean agree to roughly (10^{-21}). Audit the exact boundary-row/global-target convention against the authoritative CMC derivation before proposing any production change.
 - Next: directly evaluate the coupled discrete residual/Jacobian on PDE rows plus the global target equation, with the normalization cell handled explicitly. Compare the two near-stationary candidates under the same shared-core boundary. No expensive trajectory and no production edit until this is resolved.
+
+
+## Target-closure flatness across three fixed-target trials
+
+The pointwise residual artifact [11729296911](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38210163221/artifacts/11729296911) provides three fixed-target R80 solves with the same frozen non-lapse state and matched outer boundary. The trial Kdot values span the entire native-R80 to archived-R160 target gap:
+
+| Trial | Kdot trial | H = target_kdot(alpha_solved) − Kdot |
+|---|---:|---:|
+| Native R80 | (6.198841550010287\times10^{-5}) | (-8.581045487891792\times10^{-14}) |
+| Midpoint | (6.216183207871493\times10^{-5}) | (-8.582846618750833\times10^{-14}) |
+| Archived R160 | (6.233524865732698\times10^{-5}) | (-8.580558952166889\times10^{-14}) |
+
+Across a Kdot span of (3.46833157\times10^{-7}), H varies by only (2.28767\times10^{-17}); the endpoint finite-difference slope is about (1.40\times10^{-11}). For every trial, H matches the proper-volume weighted mean of the pointwise K-RHS residual to (1.6\text{–}4.0\times10^{-21}). PDE-row residuals are at ~(10^{-15}); the outermost normalization cell carries a residual of about (-4.5882\times10^{-12}).
+
+**Interpretation:** the coupled target-closure residual is nearly flat with respect to trial Kdot over this interval after solving the lapse equation. This is strong evidence that the global target equation supplies little independent selection of Kdot beyond the elliptic PDE rows and the boundary closure, and it is consistent with distinct near-stationary target/lapse candidates. It is not yet a proof of a continuum of exact roots or of a production defect. The next diagnostic must derive the discrete residual/Jacobian and treat the normalization cell explicitly, then check the authoritative CMC derivation before any production change.
