@@ -105,6 +105,7 @@ class RadiationStageTrace:
         self.boundary_records: list[dict] = []
         self.last_completed_boundary_record: dict | None = None
         self.boundary_history_counterfactual: dict | None = None
+        self.predictor_step_size_sweep: dict | None = None
         self.latest_state = None
         self.latest_dt = None
         self._patch_production_kernel()
@@ -901,6 +902,128 @@ class RadiationStageTrace:
                 "One stored geometry component is changed for one step only; diagnostic counterfactual, not a production alternative or proof of a boundary defect."
             )
         return self.boundary_history_counterfactual
+
+
+    def write_accepted_failure_state(self, state, dt, failure):
+        """Save the exact accepted full state before a rejected production step."""
+        arrays = {}
+        self._snapshot_state_arrays("accepted", state, arrays)
+        path = self.output_dir / "boundary_failure_accepted_state.npz"
+        np.savez_compressed(path, **arrays)
+        metadata = {
+            "schema_name": "0star_accepted_failure_state_v1",
+            "accepted_time": float(state.t),
+            "accepted_tau": float(state.tau),
+            "dt_rejected": float(dt),
+            "attempted_time": float(state.t + dt),
+            "failure": failure,
+            "rate_fix_source_commit": RATE_FIX_SOURCE_COMMIT,
+            "pinned_vendor_commit": PINNED_VENDOR_COMMIT,
+            "preceding_completed_boundary": self.last_completed_boundary_record,
+            "arrays_file": path.name,
+            "array_keys": sorted(arrays),
+        }
+        (self.output_dir / "boundary_failure_accepted_state.json").write_text(
+            json.dumps(metadata, indent=2, allow_nan=False)
+        )
+
+    def run_predictor_step_size_sweep(self, kernel_self, original_step,
+                                      accepted_state, nominal_dt):
+        """Compare smaller one-step candidates from the exact rejected accepted state."""
+        scales = (0.5, 0.25, 0.125)
+        arms = []
+        old_context = self.current_step
+        old_last_boundary = self.last_completed_boundary_record
+        old_sources = dict(self.last_radiation_sources)
+        try:
+            for scale in scales:
+                dt = float(nominal_dt * scale)
+                arm_state = copy.deepcopy(accepted_state)
+                label = f"dt_scale_{scale:.3f}"
+                arm_step = {
+                    "step_index": int(self.step_index),
+                    "t0": float(arm_state.t),
+                    "tau0": float(arm_state.tau),
+                    "dt": dt,
+                    "solve_count": 0,
+                    "rhs_count": 0,
+                    "boundary_count": 0,
+                    "rhs0_record": None,
+                    "rhs1_record": None,
+                    "geometry_terms_count": 0,
+                    "geometry_rhs0_input": None,
+                    "geometry_rhs0_explicit": None,
+                    "failing_stage": None,
+                    "diagnostic_label": "counterfactual_" + label,
+                }
+                self.current_step = arm_step
+                self.last_completed_boundary_record = old_last_boundary
+                self.last_radiation_sources = dict(old_sources)
+                try:
+                    candidate = original_step(kernel_self, arm_state, dt)
+                    cone = self.cone_values(
+                        candidate.grid, candidate.geometry, candidate.matter.radiation
+                    )
+                    finite = cone["ratio"][np.isfinite(cone["ratio"])]
+                    arms.append({
+                        "label": label,
+                        "dt": dt,
+                        "scale": float(scale),
+                        "status": "completed_one_step",
+                        "final_time": float(candidate.t),
+                        "final_min_C": float(np.min(cone["C"])),
+                        "final_max_ratio": float(np.max(finite)) if finite.size else None,
+                        "final_max_ratio_index": int(np.nanargmax(cone["ratio"])) if finite.size else None,
+                        "interpretation_guard": "one frozen-state step only; no physical state clipping, retries, or parameter changes",
+                    })
+                except Exception as exc:
+                    msg = str(exc)
+                    stage_match = re.search(r"stage='([^']+)'", msg)
+                    idx_match = re.search(r"cell i=(\d+)", msg)
+                    ratio_match = re.search(r"ratio=([+\-0-9.eE]+)", msg)
+                    energy_match = re.search(r"E=([+\-0-9.eE]+)", msg)
+                    abs_s_match = re.search(r"\|S\|=([+\-0-9.eE]+)", msg)
+                    validator_stage = stage_match.group(1) if stage_match else None
+                    stage_names = {
+                        "initial": "initial_stage_admissibility_guard",
+                        "explicit-predictor": "explicit_predictor_pre_CMC_admissibility_guard",
+                        "primary-predictor": "primary_predictor_pre_boundary_admissibility_guard",
+                        "final": "final_pre_CMC_admissibility_guard",
+                    }
+                    index = int(idx_match.group(1)) if idx_match else None
+                    arms.append({
+                        "label": label,
+                        "dt": dt,
+                        "scale": float(scale),
+                        "status": "failed_one_step",
+                        "failure_stage": stage_names.get(validator_stage, arm_step.get("failing_stage")),
+                        "validator_stage": validator_stage,
+                        "failure_index": index,
+                        "failure_radius": float(accepted_state.grid.centers[index]) if index is not None else None,
+                        "failure_ratio_absS_over_E": float(ratio_match.group(1)) if ratio_match else None,
+                        "failure_physical_E": float(energy_match.group(1)) if energy_match else None,
+                        "failure_abs_S": float(abs_s_match.group(1)) if abs_s_match else None,
+                        "exception_class": type(exc).__name__,
+                        "exception_message": msg,
+                        "interpretation_guard": "one frozen-state step only; diagnostic result, not an automatic adaptive retry policy",
+                    })
+                finally:
+                    self.current_step = old_context
+                    self.last_completed_boundary_record = old_last_boundary
+                    self.last_radiation_sources = dict(old_sources)
+        finally:
+            self.current_step = old_context
+            self.last_completed_boundary_record = old_last_boundary
+            self.last_radiation_sources = old_sources
+        self.predictor_step_size_sweep = {
+            "accepted_time": float(accepted_state.t),
+            "accepted_tau": float(accepted_state.tau),
+            "nominal_rejected_dt": float(nominal_dt),
+            "nominal_failure_stage": (self.failure or {}).get("stage"),
+            "arms": arms,
+            "interpretation_guard": "all arms start from independent deep copies of the same exact accepted full state. The swept dt affects only this one numerical step; it is not a production fallback, cone relaxation, or physical law.",
+        }
+        return self.predictor_step_size_sweep
 
     def _patch_production_kernel(self):
         kernel_cls = production_kernel_module.V55ProductionKernel
