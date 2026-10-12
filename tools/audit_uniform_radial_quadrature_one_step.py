@@ -143,16 +143,33 @@ def main():
     arms=("pinned_baseline","origin_half_cell_only","uniform_fourth_order_intervals")
     for n in RESOLUTIONS:
       for arm in arms:
-        records.append(run_case(kernel,n,arm))
+        try:
+          records.append(run_case(kernel,n,arm) | {"status":"completed"})
+        except Exception as exc:
+          # Preserve the exact failed arm and continue the diagnostic matrix.
+          # This is not a physics bypass: the failed case remains an admission failure.
+          records.append({"N":n,"arm":arm,"status":"inadmissible_or_error",
+                          "source_commit":SOURCE_COMMIT,"vendor_commit":VENDOR_COMMIT,
+                          "error_type":type(exc).__name__,"error":str(exc)})
     paired=[]
     for n in RESOLUTIONS:
       base=next(v for v in records if v["N"]==n and v["arm"]=="pinned_baseline")
       for arm in arms[1:]:
         cand=next(v for v in records if v["N"]==n and v["arm"]==arm)
-        paired.append({"N":n,"candidate":arm,"initial_candidate_minus_baseline":{f:{region:cand["initial"]["summary"][f][region]["max_abs"]-base["initial"]["summary"][f][region]["max_abs"] for region in base["initial"]["summary"][f]} for f in ("H","M","C_lambda","determinant")},"post_candidate_minus_baseline":{f:{region:cand["after_one_step"]["summary"][f][region]["max_abs"]-base["after_one_step"]["summary"][f][region]["max_abs"] for region in base["after_one_step"]["summary"][f]} for f in ("H","M","C_lambda","determinant")}})
-    report={"schema":"uniform_radial_quadrature_one_step_v1","status":"completed","kind":"matched_one_ordinary_production_step","source_commit":SOURCE_COMMIT,"vendor_commit":VENDOR_COMMIT,"resolutions":list(RESOLUTIONS),"r_max":R_MAX,"cfl":CFL,"arms":list(arms),"records":records,"paired":paired,"guardrails":["Only cumulative radial integration quadrature differs among initializers.","Each state receives exactly one ordinary pinned production step.","No physics terms, clamping, damping, projection, or fitted coefficients are introduced.","This does not admit any arm for a long campaign."]}
+        if base.get("status")!="completed" or cand.get("status")!="completed":
+          paired.append({"N":n,"candidate":arm,"status":"not_comparable_due_to_failed_arm",
+                         "baseline_status":base.get("status"),"baseline_error":base.get("error"),
+                         "candidate_status":cand.get("status"),"candidate_error":cand.get("error")})
+          continue
+        paired.append({"N":n,"candidate":arm,"status":"compared",
+          "initial_candidate_minus_baseline":{f:{region:cand["initial"]["summary"][f][region]["max_abs"]-base["initial"]["summary"][f][region]["max_abs"] for region in base["initial"]["summary"][f]} for f in ("H","M","C_lambda","determinant")},
+          "post_candidate_minus_baseline":{f:{region:cand["after_one_step"]["summary"][f][region]["max_abs"]-base["after_one_step"]["summary"][f][region]["max_abs"] for region in base["after_one_step"]["summary"][f]} for f in ("H","M","C_lambda","determinant")}})
+    has_failures=any(x.get("status")!="completed" for x in records)
+    report={"schema":"uniform_radial_quadrature_one_step_v1","status":"completed_with_case_failures" if has_failures else "completed","kind":"matched_one_ordinary_production_step","source_commit":SOURCE_COMMIT,"vendor_commit":VENDOR_COMMIT,"resolutions":list(RESOLUTIONS),"r_max":R_MAX,"cfl":CFL,"arms":list(arms),"records":records,"paired":paired,"guardrails":["Only cumulative radial integration quadrature differs among initializers.","Each admissible state receives exactly one ordinary pinned production step.","Inadmissible states are recorded verbatim and never repaired, projected, or advanced past the failure.","No physics terms, clamping, damping, projection, or fitted coefficients are introduced.","Any failed arm keeps this diagnostic from passing and does not admit a long campaign."]}
     OUT.mkdir(parents=True,exist_ok=True);(OUT/"report.json").write_text(json.dumps(report,indent=2,sort_keys=True,allow_nan=False)+"\n")
-    print("UNIFORM_RADIAL_QUADRATURE_ONE_STEP "+json.dumps({"status":report["status"],"cases":[{"N":x["N"],"arm":x["arm"],"dt":x["dt"],"initial_H":x["initial"]["summary"]["H"],"post_H":x["after_one_step"]["summary"]["H"],"initial_M":x["initial"]["summary"]["M"],"post_M":x["after_one_step"]["summary"]["M"],"initial_C":x["initial"]["summary"]["C_lambda"],"post_C":x["after_one_step"]["summary"]["C_lambda"],"initial_Aa_rhs":x["initial"]["series_first_cells"]["0"]["Aa_rhs"],"post_Aa_rhs":x["after_one_step"]["series_first_cells"]["0"]["Aa_rhs"]} for x in records]},sort_keys=True))
+    print("UNIFORM_RADIAL_QUADRATURE_ONE_STEP "+json.dumps({"status":report["status"],"cases":[({"N":x["N"],"arm":x["arm"],"status":x["status"],"error_type":x.get("error_type"),"error":x.get("error")} if x.get("status")!="completed" else {"N":x["N"],"arm":x["arm"],"status":x["status"],"dt":x["dt"],"initial_H":x["initial"]["summary"]["H"],"post_H":x["after_one_step"]["summary"]["H"],"initial_M":x["initial"]["summary"]["M"],"post_M":x["after_one_step"]["summary"]["M"],"initial_C":x["initial"]["summary"]["C_lambda"],"post_C":x["after_one_step"]["summary"]["C_lambda"],"initial_Aa_rhs":x["initial"]["series_first_cells"]["0"]["Aa_rhs"],"post_Aa_rhs":x["after_one_step"]["series_first_cells"]["0"]["Aa_rhs"]}) for x in records]},sort_keys=True))
+    if has_failures:
+      raise SystemExit("one or more initializer arms were inadmissible; report artifact retained and gate remains closed")
 
 
 if __name__=="__main__":main()
