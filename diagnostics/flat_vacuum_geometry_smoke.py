@@ -35,7 +35,14 @@ def main():
         getattr(geom, name)[:] = value
 
     zeros = np.zeros(grid.n, dtype=float)
-    fields = ScalarFields(*(zeros.copy() for _ in range(6)))
+    # The COSMOS scalar has V(phi)=V0*(exp(-phi)-0.1), so phi=ln(10)
+    # is the zero-potential point. Setting phi=0 is NOT vacuum: it adds
+    # a nonzero potential and correctly drives K away from zero.
+    phi_zero_potential = np.full(grid.n, np.log(10.0), dtype=float)
+    fields = ScalarFields(
+        zeros.copy(), zeros.copy(), zeros.copy(), zeros.copy(),
+        phi_zero_potential, zeros.copy(),
+    )
     # The current Valencia dust recovery rejects exactly zero rest-current.
     # Use a positive 1e-30 admissible seed so the adapter can evaluate its
     # matter projections; its source contribution is negligible at the
@@ -64,10 +71,10 @@ def main():
     tolerance = 1.0e-12
     passed = finite and overall <= tolerance
     payload = {
-        "test": "near-vacuum flat state through production geometry RHS adapter",
-        "scope": "geometry RHS blocks only; tiny positive fluid seed required by current matter API; does not exercise full production stepper",
+        "test": "true zero-potential flat state through production geometry RHS adapter",
+        "scope": "geometry RHS blocks only; true zero-potential scalar vacuum with tiny positive fluid seed required by current matter API; does not exercise full production stepper",
         "grid": {"resolution": grid.n, "r_max": 32.0, "dr": float(grid.dr)},
-        "state": "a=b=X=alpha=1; beta=B=Aa=K=Lambda=0; scalar fields zero; each fluid species has rest=energy_t=1e-30 and zero momentum (near-vacuum seed required by dust recovery)",
+        "state": "a=b=X=alpha=1; beta=B=Aa=K=Lambda=0; S=PS=D=PD=Pi=0; phi=ln(10) so V(phi)=0; each fluid species has rest=energy_t=1e-30 and zero momentum (near-vacuum seed required by dust recovery)",
         "max_abs_rhs_by_block": maxima,
         "overall_max_abs_rhs": overall,
         "tolerance": tolerance,
@@ -80,8 +87,8 @@ def main():
     )
     print(json.dumps(payload, indent=2, sort_keys=True), flush=True)
     if not passed:
-        raise SystemExit("FAIL: flat vacuum is not stationary under production geometry RHS blocks")
-    print("PASS: exact flat vacuum is stationary under production geometry RHS blocks")
+        raise SystemExit("FAIL: zero-potential flat vacuum is not stationary under production geometry RHS blocks")
+    print("PASS: zero-potential flat vacuum is stationary under production geometry RHS blocks")
 
 
 if __name__ == "__main__":
