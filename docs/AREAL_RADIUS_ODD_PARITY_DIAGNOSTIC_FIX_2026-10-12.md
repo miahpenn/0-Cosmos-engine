@@ -39,3 +39,28 @@ This follows the regular-centre parity treatment required by spherical BSSN/PIRK
 ## Decision
 
 Keep this diagnostic fix isolated until the regression and frozen-checkpoint report pass. Do not change \`main\` or infer that the production constraint problem is solved. Continue the central Hamiltonian/momentum investigation separately, with the corrected invariant diagnostics as the new basis for any trapping or Misner–Sharp interpretation.
+
+
+## Frozen-checkpoint result — completed
+
+Workflow: [38283346865](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38283346865)  
+Artifact: \`areal-radius-odd-parity-audit\`
+
+The full repository test suite and the new dedicated parity regression both passed. The saved-state audit covered all nine checkpoints (N=40/60/80 at t=2,6,12) from the original admitted campaign. For every state, the old/new \(\chi\) values were bitwise identical for all cells \(i\ge2\); the change is confined exactly to the first two centre cells.
+
+At t=12:
+- N=40: the reported \(\min\chi\) changes from \(0.35604\) at r=1 to \(0.78863\) at the outer cell r=79.
+- N=60: it changes from \(0.35635\) at r=2/3 to \(0.78684\) at r=79.333.
+- N=80: it changes from \(0.35619\) at r=0.5 to \(0.78595\) at r=79.5.
+
+The first-cell \(dR/dr\) correction is large and consistent with the parity derivation:
+- N=80 at t=12: old \(R'_0=0.62607\), corrected \(R'_0=1.05840\); old \(\chi_0=0.35619\), corrected \(\chi_0=1.01797\).
+- At the adjacent cell, old \(R'_1=1.15666\) becomes \(1.06937\), and old \(\chi_1=1.14655\) becomes \(0.98001\).
+
+The old first-cell Misner–Sharp mass is also strongly affected: N=80 at t=12 changes from \(0.16859\) to \(-0.00471\). This does not alter the reported worldtube mass around r=10, since that derivative stencil does not use the centre ghosts. Neither old nor corrected profile has a sign-crossing marginal root in these nine saved states.
+
+Thus the previously repeated \(\min\chi\approx0.34\)–0.36 was a centre-stencil artifact. The corrected \(\min\chi\) now occurs near the outer edge of the domain; it is a separate witness that needs interpretation in light of the finite-radius boundary, not evidence for a new trapped surface. No trajectory or constraint equation was changed.
+
+## Updated decision
+
+Use the corrected areal-radius parity for subsequent trapping and full-domain Misner–Sharp profiles. Mark old first-two-cell \(\chi\) minima and masses as superseded diagnostics. Keep the Hamiltonian/momentum root-cause investigation separate: this fix does not change H/M/C profiles at any cell, so it is not their repair.
