@@ -352,3 +352,22 @@ The adjacent-cell witness changes sign and location: at N=60 the next cell H cha
 **Artifact ZIP SHA-256:** 88625901862948db55519f5b888f476927ef8acc857e72b1fd18c1043e830743
 
 A separate diagnostic branch found that R=r*sqrt(b)/X, the areal radius, was differentiated with even parity in two invariant-diagnostic paths, although regular-centre R is odd and dR/dr is even. The flat-space control showed the old first-cell derivative was 7/12, rather than 1, creating a false central trapped-surface indicator chi approximately 0.34. The correction uses odd parity and changes exactly cells i=0/1; all chi values at i>=2 are bitwise identical. This repairs trapping/Misner-Sharp diagnostic interpretation only; H/M/C_lambda constraints are unaffected. Old central min-chi approximately 0.356 claims should be treated as diagnostic artifacts, not physical trapped-surface evidence. Keep this independent of the unresolved evolution-constraint defect.
+
+
+---
+
+## Origin half-cell quadrature refinement through N=320 — completed
+
+**Workflow:** [38291486881](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38291486881)  
+**Artifact:** origin-quadrature-initial-refinement, ID 11767325140  
+**Artifact ZIP SHA-256:** 42d898b6f195bdd823fba35a240cdb58bb557146c828c87f8b3a8b2a58636638
+
+Frozen t=0 initializers were compared at N=40/60/80/120/160/240/320 using the exact pinned source and vendor. Only the origin half-cell integral changed; the six initialization iterations, later center-to-center trapezoids, physical source definitions, CMC solve, and matter initialization were untouched.
+
+The central H residual is consistently reduced: by N=160/240/320 the baseline first-cell values are approximately +4.042e-3, +4.051e-3, +4.054e-3, while the candidate gives +6.506e-5, +6.599e-5, +6.663e-5. On the formally admitted region i>=2, r<5, the H maximum also falls from 6.69e-5/7.92e-5/8.37e-5 to 1.85e-5/2.96e-5/3.39e-5 for N=160/240/320. The peak moves inward as the grid is refined, so this is improvement, not convergence proof.
+
+The effect is confined to the central numerical layer. On the fixed annulus 2<=r<5, baseline and candidate H RMS are indistinguishable to the displayed precision at N=160 (3.76e-6), N=240 (1.73e-6) and N=320 (9.83e-7). The fixed-radius H difference at r=3 decreases from -1.60e-8 at N=160 to -5.69e-10 at N=240 and -6.90e-11 at N=320. The fixed exterior r>=5 is likewise unchanged at fine resolution.
+
+A crucial regularity witness remains unresolved: the candidate first-cell production Aa RHS divided by r^2 grows from about -1.46e-3 (N160) to -3.38e-3 (N240) and -6.07e-3 (N320). Multiplying back by r^2 shows the unscaled first-cell Aa RHS approaches roughly -9.5e-5 rather than zero. The baseline unscaled value approaches about +1.1e-3. Thus the origin correction greatly reduces but does not eliminate the nonzero centre-limit tendency. A regular evolution should give an even trace-free curvature / Aa tendency that vanishes as O(r^2) at the centre.
+
+**Decision:** the origin half-cell error is a real contributor to the initial centre curvature residual, but the remaining finite first-cell Aa tendency shows that the rest of the radial integration/discrete-operator coupling still needs attention. Do not launch a longer trajectory. The next bounded candidate should test a uniformly fourth-order center-to-center quadrature, derived from the cubic interpolant on each interval and combined with the even-in-r origin half-cell rule; audit positivity, H/M/C_lambda and the Aa/r^2 scaling before any evolution.
