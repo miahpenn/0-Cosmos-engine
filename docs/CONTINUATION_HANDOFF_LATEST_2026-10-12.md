@@ -255,3 +255,31 @@ The old baseline's dominant initial central term is Ricci; high-order metric qua
 Next, do a read-only audit of the exact pinned \`_solve_lapse\` centre row: record \(\alpha_i\), even-series defect, row equation residual, and the resulting \(-\Delta\alpha\) for i=0,1,2 and fixed r=2,3,4,5 across N=40–160; compare to independent smooth even lapse profiles. In the same frozen states, reconstruct regular-series identities for trace-free Hessian, trace-free Ricci, \(\dot A_a\) and \(\dot K\). Do not modify the row or project the centre until a discrete identity is shown to fail with term-level closure.
 
 The N=240/320 first-cell radiation inadmissibility discovered by the matched quadrature one-step run remains a separate open blocker. No t=160 campaign; no production physics/source/gauge/boundary changes; \`main\` remains untouched.
+
+
+---
+
+## Latest CMC closure and centre-row checks — 2026-10-12
+
+### Target-closure rank probe
+
+- Run: https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38294955148
+- Artifact ZIP SHA-256: 64cc1666a2010d73b462cac48c78706ac48be1a1d02fea7de343bd09172c4e24
+- Report: https://github.com/miahpenn/0-Cosmos-engine/blob/diag/independent-metric-ricci-audit/docs/CMC_TARGET_CLOSURE_RANK_AUDIT_2026-10-12.md
+
+Nine fixed Kdot targets over 6.12947e-5 to 6.30289e-5 yield a target-output slope of 0.999999999757 and closure residual slope -2.42686e-10. The H residual remains around -8.58e-14; interior PDE rows close to 3.71e-15 max. The outer normalization cell is not a PDE row but its K RHS enters the target average; its residual is around -4.58e-12 and it carries 1.8629% of the R80 projection weight. H equals the weighted mean pointwise residual to about 1.14e-20. This indicates near-redundancy of the current target closure on the frozen slice, not proof of a continuum family or authority to change the target definition.
+
+### Read-only CMC lapse centre-row/operator audit
+
+- Run: https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38296556473
+- Artifact ID: 11768278320
+- Artifact ZIP SHA-256: e02c2c0f384d20692fc02bb3ee771409d0743a2479dc39276ee3a14b1156101f
+- Report: https://github.com/miahpenn/0-Cosmos-engine/blob/diag/independent-metric-ricci-audit/docs/CMC_LAPSE_CENTRE_ROW_AUDIT_2026-10-12.md
+
+On frozen archived t=0 R80/R160 states, both lapse profiles remain positive, alpha fits an even polynomial in r over the first eight cells with max residual 4.49e-8, and the production K-RHS / CMC elliptic rows close to roundoff (max 6.04e-15 / 7.32e-15). Most importantly, the production lapse-geometric K term and the independently reconstructed CMC lapse term agree to around 2e-15 at the first cells and fixed radii r≈2,3,4,5. This weakens the hypothesis that the archived-state CMC centre row is itself faulty. It does not test the uniform-quadrature initializer arm and is not a refinement-order proof.
+
+### Combined interpretation / next gate
+
+The centre-series issue is still open, but the present evidence does not support patching the CMC centre row. Keep the target-closure rank issue separate: compare its discrete derivation with the authoritative CMC condition, including the outer normalization cell. Next run the same CMC-versus-production lapse-operator comparison on the exact uniform-fourth-order quadrature initial profiles N=40/60/80/120/160, then compare trace-free Hessian, Ricci and K source terms on identical frozen states. If those operators agree there too, shift focus to initializer geometry/matter construction and the regular-centre identities for Aa/K/X/a/b. Radiation realizability failures at N=240/320 remain a separate admission blocker. No physics/source/gauge changes, centre projection, damping, floors/clamps, or long campaign until the specific defect and all admission gates are demonstrated.
+
+All work above is diagnostic-only. Production main is unchanged.
