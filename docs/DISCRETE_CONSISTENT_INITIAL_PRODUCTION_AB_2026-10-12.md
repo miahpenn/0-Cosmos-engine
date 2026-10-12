@@ -295,3 +295,60 @@ This is promising initial-data evidence, not an admitted fix. At the fixed physi
 ### Next decision
 
 Run one ordinary production step from the pinned baseline and the corrected origin-quadrature candidate at N=40/60/80/120, using the same dt=CFL*dr. Preserve the same H/M/C_lambda, determinant, and fixed-physical-radius witnesses before and after the step. Do not run a full trajectory yet. If the candidate retains its central improvement after the unmodified RHS step without worsening the rest of the constraint set, it earns a bounded longer validation; if the centre residuals immediately regenerate, the initializer is only a partial fix and the evolved source compatibility remains open. No physics change, fitted coefficient, damping, clamp, centre projection, or t=160 campaign is authorized.
+
+
+---
+
+## Matched ordinary one-step propagation of the origin half-cell quadrature A/B — completed
+
+**Workflow:** [38290654079](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38290654079)  
+**Artifact:** origin-quadrature-one-step-propagation, ID 11766655192  
+**Artifact ZIP SHA-256:** a511f67db4d9a1a12ce27652c82a200dbb4b876266fa3045bf8f995ddc087987  
+**Pinned source:** 6d8b3f2790644591326df57c55908863f994cb0c; vendor d6052d605673ce9d82cdc99b0df79855fa2ea215.
+
+This campaign took one ordinary production kernel.step(dt) from the baseline and origin-quadrature candidate at N=40/60/80/120, with dt=0.03 dr: 0.06, 0.04, 0.03 and 0.02 respectively. Both initializers use the exact pinned CMC-lapse / shift / B sequence. No physical equation, source term, clamp, or projection was changed. All states remained finite and all eight cases reached the one-step target.
+
+### What persists after one production step
+
+The first-cell Hamiltonian defect remains much smaller for the candidate at every resolution:
+- N=40: 3.769e-3 -> 3.747e-3 baseline versus 3.926e-4 -> 3.915e-4 candidate.
+- N=60: 3.932e-3 -> 3.911e-3 baseline versus 1.314e-4 -> 1.331e-4 candidate.
+- N=80: 3.989e-3 -> 3.969e-3 baseline versus 8.172e-5 -> 8.460e-5 candidate.
+- N=120: 4.028e-3 -> 4.009e-3 baseline versus 6.600e-5 -> 6.929e-5 candidate.
+
+Thus the initial central H improvement persists through one actual update; the candidate is not immediately reverting to the baseline error. The one-step update does, however, generate nonzero M and C_lambda in both arms.
+
+### Why this is not yet an admitted initializer repair
+
+The error is redistributed across the adjacent cells rather than reduced uniformly:
+- At N=60, the first formally admitted cell i=2,r=3.333 has |H| 6.25e-6 -> 5.94e-6 baseline but 7.64e-5 -> 7.58e-5 candidate.
+- At N=80, the same witness i=2,r=2.5 has |H| 1.77e-5 -> 1.81e-5 baseline versus 5.44e-5 -> 5.38e-5 candidate.
+- At N=120, i=2,r=1.667 improves: 5.13e-5 -> 5.16e-5 baseline versus 2.19e-5 -> 2.13e-5 candidate.
+
+The first-cell M residual magnitude falls by roughly a factor of 6–17 for the candidate, and the first-cell connection residual also falls. But at the first admitted cell, the post-step M residual is somewhat larger for the candidate at N=60/80/120. Across the fixed annulus 2<=r<5, H improves at N=40/60, worsens at N=80 and is nearly equal at N=120. This fails the preregistered decision condition that the full H/M/C_lambda set must improve without a new admitted-inner regression.
+
+**Decision:** do not advance this quadrature candidate to a longer trajectory. Keep it as a bounded initial-data result and continue isolating the centre/first-admitted-cell compatibility issue.
+
+## Signed initial H budget — completed
+
+**Workflow:** [38291098188](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38291098188)  
+**Artifact:** origin-quadrature-initial-h-budget, ID 11765137827  
+**Artifact ZIP SHA-256:** 92bff9be02569772505794f3f4bad5853bd451c745c32d287db12951a51333c2
+
+The audit evaluates the production geometric Hamiltonian term and 16*pi*rho_total on the same frozen t=0 baseline/candidate profiles. The exact source assembly closes H=H_geometry-16*pi*rho_total to zero residual in stored floating-point arithmetic. The independent decomposition R+(2/3)K²-A_ij A^ij also matches the production geometric term exactly for these states.
+
+The half-cell quadrature change leaves the matter source effectively unchanged: at the centre, the absolute candidate-minus-baseline change in 16*pi*rho_total is only about 5.3e-9 (N=40), 1.8e-9 (N=60), 8.3e-10 (N=80), and 2.5e-10 (N=120). In contrast, the centre geometric term changes from roughly +6.38–6.72e-3 to +2.76–3.00e-3, accounting for essentially the entire H improvement. This is a geometry/initial-integral effect, not a matter-source correction.
+
+The adjacent-cell witness changes sign and location: at N=60 the next cell H changes from -3.05e-4 to +2.05e-4; at N=80 it changes from -2.46e-4 to +2.78e-4; at N=120 it changes from -1.97e-4 to +3.35e-4. At fixed radius r=5, the H change between arms decreases strongly with refinement (about -6.23e-5, +2.87e-6, -1.63e-7, -1.99e-9 from N40 to N120), but that alone does not establish full-profile convergence.
+
+**Interpretation:** the half-cell integral changes the radial metric reconstruction and its discrete curvature, while leaving the density source nearly fixed. It lowers the central H residual but relocates a substantial part of the mismatch into the next cells. The evidence justifies further centre-compatible initial-data analysis, not treating the quadrature alone as a production repair.
+
+---
+
+## Parallel invariant-diagnostic correction: areal-radius parity
+
+**Workflow:** [38283346865](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38283346865)  
+**Artifact:** areal-radius-odd-parity-audit, ID 11762750863  
+**Artifact ZIP SHA-256:** 88625901862948db55519f5b888f476927ef8acc857e72b1fd18c1043e830743
+
+A separate diagnostic branch found that R=r*sqrt(b)/X, the areal radius, was differentiated with even parity in two invariant-diagnostic paths, although regular-centre R is odd and dR/dr is even. The flat-space control showed the old first-cell derivative was 7/12, rather than 1, creating a false central trapped-surface indicator chi approximately 0.34. The correction uses odd parity and changes exactly cells i=0/1; all chi values at i>=2 are bitwise identical. This repairs trapping/Misner-Sharp diagnostic interpretation only; H/M/C_lambda constraints are unaffected. Old central min-chi approximately 0.356 claims should be treated as diagnostic artifacts, not physical trapped-surface evidence. Keep this independent of the unresolved evolution-constraint defect.
