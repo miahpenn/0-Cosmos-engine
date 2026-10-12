@@ -255,6 +255,25 @@ For all 99 captured completed primary-predictor stages, the formula-based Δ(M) 
 
 The signed effect on the full (M) residual is positive because the matter term is unchanged by this (A_a)-only assignment. Whether that worsens the *absolute* full constraint residual depends on the pre-boundary sign and the exact (-8\pi j_{\mathrm{total}}) value; the ledger does not capture the complete total-(j) term in a way that admits an absolute-residual statement here. Therefore the allowed conclusion is: the frozen primary boundary imposes an increasing, quantitatively non-negligible change on the outer momentum-constraint equation. That warrants a boundary/CMC/constraint compatibility audit, but is **not** proof the P-minus target is invalid and does not establish it caused the later radiation crossing.
 
+### The P-minus correction also perturbs the *global* CMC time-rate projection
+
+The pinned production CMC code supplies a third, nonlocal coupling. In `engine/cmc_gauge.py`, `target_kdot` forms the actual (K)-RHS array as `primary_l2_rhs["K"] + primary_l3["K"]), then computes its proper-volume weighted mean using
+[
+w_i=r_i^2\sqrt{a_i}\,b_i/X_i^3\,\Delta r,\qquad
+\dot K_{\rm CMC}=\frac{\sum_i w_i L_K[i]}{\sum_i w_i}.
+]
+In the pinned BSSN (K) RHS, the (A_a)-dependent term is (\alpha A_2=\tfrac32\alpha A_a^2) for (A_b=-A_a/2). Therefore, on the same primary-predictor slice, the (A_a[-1])-only boundary assignment changes the outer (K)-RHS by
+[
+\Delta L_K[-1]=\tfrac32\alpha[-1]
+\left(A_{a,post}^2-A_{a,pre}^2\right),
+\qquad
+\Delta\dot K_{\rm CMC}=
+\frac{w_{-1}}{\sum_i w_i}\,\Delta L_K[-1].
+]
+At (t=46.95), (\alpha[-1]=1) and this local RHS change is (+2.72321186\times10^{-5}). The exact global Δ\(\dot K_{\rm CMC}\) has **not** been assigned a numeric value because this stage ledger stores only the five outer cells, not the full proper-volume weights and full (K)-RHS profile needed for the denominator. A numerical estimate from outer cells alone would be invented.
+
+That global projection is then used in the lapse solve via `rhs = -kdot / inv` on all interior PDE rows. So the P-minus operation is not just a local (A_a) patch or a local H/M residual change: through the proper-volume projection it can also change the CMC lapse solution across the slice, after which α feeds later (A_a/K) and metric RHS evolution. This is a source-code-derived pathway, not a measured magnitude yet. The exact next offline audit should use an artifact that contains full-grid (w_i) and (L_K[i]) (or reconstruct them from an admitted full checkpoint) to calculate Δ\(\dot K_{\rm CMC}\) exactly; if that state is unavailable, a later minimal read-only recorder should capture those full arrays on the same boundary call. Do not change P-minus or the CMC projection before this value and its effect on the lapse are understood.
+
 ### The same boundary assignment also shifts the Hamiltonian constraint directly
 
 The pinned production diagnostic defines the Hamiltonian residual as
