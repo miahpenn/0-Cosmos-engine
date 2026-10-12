@@ -41,7 +41,7 @@ def test_completed_boundary_audit_pairs_and_matches_the_next_accepted_state():
     )
 
     assert abs(record["target_t"] - 46.98) < 1.0e-12
-    assert record["cells"][0]["delta_Aa"] == 0.004
+    assert abs(record["cells"][0]["delta_Aa"] - 0.004) < 1.0e-12
     assert record["cells"][0]["delta_C"] == 0.0
     assert record["cells"][0]["delta_gamma_rr_inv"] == 0.0
 
