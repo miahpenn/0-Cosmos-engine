@@ -1,0 +1,75 @@
+name: Diagnostic - CMC lapse operator on uniform quadrature profiles
+
+on:
+  push:
+    branches:
+      - diag/cmc-uniform-quadrature-operator-2026-10-12
+    paths:
+      - tools/audit_cmc_lapse_uniform_quadrature.py
+      - tools/audit_uniform_radial_quadrature_initial_profile.py
+      - tools/origin_half_cell_quadrature_regularity_ab.py
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cmc-lapse-uniform-quadrature-2026-10-12
+  cancel-in-progress: false
+
+jobs:
+  frozen-uniform-initial:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      PYTHONUNBUFFERED: "1"
+      SOURCE_COMMIT: "6d8b3f2790644591326df57c55908863f994cb0c"
+      VENDOR_COMMIT: "d6052d605673ce9d82cdc99b0df79855fa2ea215"
+    steps:
+      - name: Checkout isolated diagnostic branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Fail closed unless production source equals the frozen source
+        run: |
+          git fetch --no-tags origin "$SOURCE_COMMIT"
+          git diff --exit-code "$SOURCE_COMMIT" HEAD -- engine vendor .gitmodules requirements.txt
+          test "$(git rev-parse HEAD:vendor/bb-palatini-unified-r0)" = "$VENDOR_COMMIT"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install pinned-source dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Compile audit and initializer helpers
+        run: |
+          python -m py_compile tools/audit_cmc_lapse_uniform_quadrature.py
+          python -m py_compile tools/audit_uniform_radial_quadrature_initial_profile.py
+          python -m py_compile tools/origin_half_cell_quadrature_regularity_ab.py
+
+      - name: Compare CMC and production operators on frozen uniform profiles
+        run: python tools/audit_cmc_lapse_uniform_quadrature.py
+
+      - name: Record report and source provenance
+        if: always()
+        run: |
+          mkdir -p results/cmc-lapse-uniform-quadrature-operator-compare
+          printf '%s\n' "$SOURCE_COMMIT" > results/cmc-lapse-uniform-quadrature-operator-compare/SOURCE_COMMIT.txt
+          printf '%s\n' "$VENDOR_COMMIT" > results/cmc-lapse-uniform-quadrature-operator-compare/VENDOR_COMMIT.txt
+          git rev-parse HEAD > results/cmc-lapse-uniform-quadrature-operator-compare/AUDIT_COMMIT.txt
+          if test -f results/cmc-lapse-uniform-quadrature-operator-compare/report.json; then
+            sha256sum results/cmc-lapse-uniform-quadrature-operator-compare/report.json > results/cmc-lapse-uniform-quadrature-operator-compare/SHA256SUMS.txt
+          fi
+
+      - name: Upload operator comparison
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cmc-lapse-uniform-quadrature-operator-compare
+          path: results/cmc-lapse-uniform-quadrature-operator-compare/
+          if-no-files-found: warn
+          retention-days: 90
