@@ -38,6 +38,48 @@ def _attach_radiation_state(values, radiation):
     return values
 
 
+def _store_primary_l2_capture(row, step, grid, geometry, result):
+    """Store non-nested primary-L2 calls under stable, phase-specific keys."""
+    call_index = int(step.get("ledger_non_nested_primary_l2_call_count", 0))
+    step["ledger_non_nested_primary_l2_call_count"] = call_index + 1
+    n = len(grid.centers)
+    lo = max(0, n - CELLS)
+    phase_by_index = {
+        0: "integrator_final_l2_rhs",
+        1: "post_completion_diagnostic_l2_rhs",
+    }
+    record = {
+        "capture_call_index": call_index,
+        "capture_phase": phase_by_index.get(call_index, "unexpected_extra_primary_l2_call"),
+        "geometry": [
+            {
+                "i": i, "r": float(grid.centers[i]),
+                **{
+                    key: float(getattr(geometry, key)[i])
+                    for key in ("a", "b", "X", "alpha", "Aa", "K", "Lambda")
+                    if hasattr(geometry, key)
+                },
+            }
+            for i in range(lo, n)
+        ],
+        "rhs": {
+            key: [
+                {"i": i, "r": float(grid.centers[i]),
+                 "value": float(np.asarray(result[key])[i])}
+                for i in range(lo, n)
+            ]
+            for key in ("Aa", "K")
+        },
+    }
+    if call_index == 0:
+        row["final_explicit_state_primary_l2"] = record
+    elif call_index == 1:
+        row["post_completion_diagnostic_primary_l2"] = record
+    else:
+        row.setdefault("unexpected_primary_l2_calls", []).append(record)
+    return record
+
+
 def _capture_first_geometry_terms_call(step):
     """Capture only gterms0, not later predictor geometry evaluations."""
     if float(step.get("t0", 0.0)) < CAPTURE_FROM_T:
@@ -259,6 +301,8 @@ def validate_primary_source_capture(steps, expected_indices, failure_step_index=
             if not isinstance(final_l2, dict):
                 errors.append(f"step {step_index}: final_explicit_state_primary_l2 missing")
             else:
+                if final_l2.get("capture_call_index") != 0 or final_l2.get("capture_phase") != "integrator_final_l2_rhs":
+                    errors.append(f"step {step_index}: final explicit L2 capture has wrong phase/index")
                 for section in ("geometry",):
                     got = [int(r.get("i", -1)) for r in final_l2.get(section, [])]
                     if got != expected_indices:
@@ -267,6 +311,24 @@ def validate_primary_source_capture(steps, expected_indices, failure_step_index=
                     got = [int(r.get("i", -1)) for r in final_l2.get("rhs", {}).get(key, [])]
                     if got != expected_indices:
                         errors.append(f"step {step_index}/final_explicit_state_primary_l2/{key}: cells {got!r} != {expected_indices!r}")
+            diagnostic_l2 = step.get("post_completion_diagnostic_primary_l2")
+            if not isinstance(diagnostic_l2, dict):
+                errors.append(f"step {step_index}: post_completion_diagnostic_primary_l2 missing")
+            else:
+                if diagnostic_l2.get("capture_call_index") != 1 or diagnostic_l2.get("capture_phase") != "post_completion_diagnostic_l2_rhs":
+                    errors.append(f"step {step_index}: diagnostic L2 capture has wrong phase/index")
+                for section in ("geometry",):
+                    got = [int(r.get("i", -1)) for r in diagnostic_l2.get(section, [])]
+                    if got != expected_indices:
+                        errors.append(f"step {step_index}/post_completion_diagnostic_primary_l2/{section}: cells {got!r} != {expected_indices!r}")
+                for key in ("Aa", "K"):
+                    got = [int(r.get("i", -1)) for r in diagnostic_l2.get("rhs", {}).get(key, [])]
+                    if got != expected_indices:
+                        errors.append(f"step {step_index}/post_completion_diagnostic_primary_l2/{key}: cells {got!r} != {expected_indices!r}")
+            if int(step.get("ledger_non_nested_primary_l2_call_count", -1)) != 2:
+                errors.append(f"step {step_index}: expected exactly two non-nested primary L2 calls")
+            if step.get("unexpected_primary_l2_calls"):
+                errors.append(f"step {step_index}: unexpected extra primary L2 calls")
             for name in ("primary_predictor_after_outer_boundary", "completed_state_after_outer_boundary"):
                 rows = step.get(name)
                 if not isinstance(rows, list) or [int(r.get("i", -1)) for r in rows] != expected_indices:
@@ -417,29 +479,7 @@ class RadiationPredictorStageLedger(RadiationStageTrace):
                     and not step.get("ledger_inside_geometry_terms", False)
                     and float(step.get("t0", 0.0)) >= CAPTURE_FROM_T):
                 row = ledger._row_for_step(step)
-                n = len(grid.centers)
-                lo = max(0, n - CELLS)
-                row["final_explicit_state_primary_l2"] = {
-                    "geometry": [
-                        {
-                            "i": i, "r": float(grid.centers[i]),
-                            **{
-                                key: float(getattr(geometry, key)[i])
-                                for key in ("a", "b", "X", "alpha", "Aa", "K", "Lambda")
-                                if hasattr(geometry, key)
-                            },
-                        }
-                        for i in range(lo, n)
-                    ],
-                    "rhs": {
-                        key: [
-                            {"i": i, "r": float(grid.centers[i]),
-                             "value": float(np.asarray(result[key])[i])}
-                            for i in range(lo, n)
-                        ]
-                        for key in ("Aa", "K")
-                    },
-                }
+                _store_primary_l2_capture(row, step, grid, geometry, result)
             return result
 
         def capture_geometry_terms(grid, geometry, fields, matter, lambda_m=2.0):
