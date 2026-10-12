@@ -61,7 +61,16 @@ def audit(n):
     total=total_matter_projection(grid,geom,state.scalars,state.matter)
     Q=1.5*np.asarray(geom.Aa,float)**2+np.asarray(geom.K,float)**2/3.0+4.0*math.pi*(total["rho"]+total["pr"]+2.0*total["pt"])
     m=Q/inv
+    # The CMC solver has two boundary rows: alpha[0]=alpha[1] at the regular
+    # centre and alpha[-1]=1 at the outer normalization. Neither is an interior PDE row.
     elliptic_residual=alpha_pp+c*alpha_p-m*solved+used/inv
+    solver_row_residual=np.full(n,np.nan,dtype=float)
+    h=float(grid.dr)
+    for i in range(1,n-1):
+        ci=c[i]/(2.0*h)
+        lhs=(1.0/h**2-ci)*solved[i-1]+(-2.0/h**2-m[i])*solved[i]+(1.0/h**2+ci)*solved[i+1]
+        rhs=-used/inv[i]
+        solver_row_residual[i]=lhs-rhs
     l2=vacuum.primary_l2_rhs(grid,geom)
     l3_vac=vacuum.primary_l3_rhs(grid,geom)
     l3=adapter.primary_l3_with_matter(grid,geom,state.scalars,state.matter)
@@ -83,7 +92,7 @@ def audit(n):
           "alpha_saved_minus_solved":float(saved_alpha[i]-solved[i]),
           "alpha_prime":float(alpha_p[i]),"alpha_second":float(alpha_pp[i]),
           "laplace_bracket":float(alpha_pp[i]+c[i]*alpha_p[i]),
-          "Q":float(Q[i]),"elliptic_residual":float(elliptic_residual[i]),
+          "Q":float(Q[i]),"elliptic_residual":float(elliptic_residual[i]),"solver_discrete_row_residual":float(solver_row_residual[i]),
           "production_lapse_K_term":float(k_lapse[i]),
           "cmc_implied_lapse_K_term":float(-inv[i]*(alpha_pp[i]+c[i]*alpha_p[i])),
           "production_minus_cmc_lapse_K_term":float(production_cmc_lapse_diff[i]),
@@ -111,25 +120,28 @@ def audit(n):
       "even_series":{"coefficients_alpha_of_r2_ascending":[float(x) for x in coeff],
         "max_abs_residual":float(np.max(np.abs(fit_res))),"rms_residual":float(np.sqrt(np.mean(fit_res**2))),
         "first_cell_minus_fit":float(solved[0]-fit[0]),"alpha0_extrapolated":float(coeff[0])},
-      "closures":{"max_abs_elliptic_residual_interior":float(np.max(np.abs(elliptic_residual[:-1]))),
-        "max_abs_K_rhs_minus_target_interior":float(np.max(np.abs((k_rhs-used)[:-1]))),
-        "max_abs_production_minus_cmc_lapse_term_interior":float(np.max(np.abs(production_cmc_lapse_diff[:-1]))),
+      "closures":{"max_abs_production_operator_residual_pde_rows":float(np.max(np.abs(elliptic_residual[1:-1]))),
+        "max_abs_K_rhs_minus_target_pde_rows":float(np.max(np.abs((k_rhs-used)[1:-1]))),
+        "max_abs_solver_discrete_row_residual_pde_rows":float(np.nanmax(np.abs(solver_row_residual[1:-1]))),
+        "max_abs_production_minus_cmc_lapse_term_pde_rows":float(np.max(np.abs(production_cmc_lapse_diff[1:-1]))),
+        "centre_regularity_row_alpha0_minus_alpha1":float(solved[0]-solved[1]),
         "normalization_cell_K_rhs_minus_target":float(k_rhs[-1]-used)},
       "centre_cells":center,"fixed_radii":fixed,
-      "admission":{"finite":bool(np.all(np.isfinite(solved)) and np.all(np.isfinite(k_rhs)) and np.all(np.isfinite(elliptic_residual[:-1]))),
+      "admission":{"finite":bool(np.all(np.isfinite(solved)) and np.all(np.isfinite(k_rhs)) and np.all(np.isfinite(elliptic_residual[1:-1])) and np.all(np.isfinite(solver_row_residual[1:-1]))),
         "positive_lapse":bool(np.min(solved)>0),"evolution_run":False,"production_physics_changed":False}}
 
 def main():
     rows=[audit(n) for n in RESOLUTIONS]
-    report={"schema":"cmc_lapse_uniform_quadrature_operator_compare_v1","status":"completed",
+    report={"schema":"cmc_lapse_uniform_quadrature_operator_compare_v2","status":"completed",
       "diagnostic_only":True,"source_commit":SOURCE_COMMIT,"vendor_commit":VENDOR_COMMIT,
       "resolutions":list(RESOLUTIONS),"r_max":R_MAX,"rows":rows,
       "summary":{"all_finite":all(x["admission"]["finite"] for x in rows),
         "all_lapses_positive":all(x["admission"]["positive_lapse"] for x in rows),
-        "max_elliptic_residual":max(x["closures"]["max_abs_elliptic_residual_interior"] for x in rows),
-        "max_production_minus_cmc_lapse_term":max(x["closures"]["max_abs_production_minus_cmc_lapse_term_interior"] for x in rows),
+        "max_production_operator_residual_pde_rows":max(x["closures"]["max_abs_production_operator_residual_pde_rows"] for x in rows),
+        "max_solver_discrete_row_residual_pde_rows":max(x["closures"]["max_abs_solver_discrete_row_residual_pde_rows"] for x in rows),
+        "max_production_minus_cmc_lapse_term_pde_rows":max(x["closures"]["max_abs_production_minus_cmc_lapse_term_pde_rows"] for x in rows),
         "max_even_series_fit_residual":max(x["even_series"]["max_abs_residual"] for x in rows)},
-      "interpretation_limit":"Frozen uniform-quadrature initial profiles only. Operator agreement would not by itself prove continuum regularity or validate evolution. No source, gauge, boundary, centre rule, or radiation-cone rule was changed."}
+      "interpretation_limit":"Frozen uniform-quadrature initial profiles only. The CMC solver uses a tridiagonal interior lapse row and separate centre/outer boundary rows; the production-operator residual is evaluated only on PDE rows i=1..N-2. Compare the two discretizations across resolution and fixed radii. No trajectory was advanced and no source, gauge, boundary, centre rule, or radiation-cone rule was changed."}
     OUT.mkdir(parents=True,exist_ok=True)
     (OUT/"report.json").write_text(json.dumps(report,indent=2,sort_keys=True,allow_nan=False)+"\n",encoding="utf-8")
     print("CMC_LAPSE_UNIFORM_QUADRATURE_OPERATOR_COMPARE "+json.dumps({"status":report["status"],"summary":report["summary"],"rows":[{"N":x["N"],"closures":x["closures"],"even_series":x["even_series"],"first_cells":x["centre_cells"][:3]} for x in rows]},sort_keys=True),flush=True)
