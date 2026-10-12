@@ -96,6 +96,7 @@ class RadiationStageTrace:
         self.predictor_budgets: list[dict] = []
         self.completed_state_budgets: list[dict] = []
         self.geometry_predictor_budgets: list[dict] = []
+        self.boundary_audit_records: list[dict] = []
         self.progress_samples: list[dict] = []
         self.global_geometry_minima: dict[str, dict] = {}
         self.failure: dict | None = None
@@ -396,6 +397,88 @@ class RadiationStageTrace:
         }
 
 
+
+    def capture_boundary_cells(self, grid, geometry, matter):
+        """Capture outer-cell geometry and radiation witnesses around a boundary call."""
+        cone = self.cone_values(grid, geometry, matter.radiation)
+        n = len(cone["U_E"])
+        rows = []
+        for i in range(max(0, n - OUTER_CELLS), n):
+            rows.append({
+                "i": int(i),
+                "r": float(grid.centers[i]),
+                "Aa": float(geometry.Aa[i]),
+                "K": float(geometry.K[i]),
+                "a": float(geometry.a[i]),
+                "b": float(geometry.b[i]),
+                "X": float(geometry.X[i]),
+                "alpha": float(geometry.alpha[i]),
+                "beta": float(geometry.beta[i]),
+                "Lambda": float(geometry.Lambda[i]),
+                "gamma_rr_inv": float(cone["gamma_rr_inv"][i]),
+                "U_E": float(cone["U_E"][i]),
+                "U_r": float(cone["U_r"][i]),
+                "C": float(cone["C"][i]),
+                "ratio_absS_over_E": _safe_float(cone["ratio"][i]),
+            })
+        return rows
+
+    def record_boundary_audit(
+        self, boundary_stage, t_step_start, dt, step_index, call_index,
+        before, after, exception=None,
+    ):
+        """Store paired pre/post values; this function never touches model state."""
+        before_by_i = {int(row["i"]): row for row in before}
+        after_by_i = {int(row["i"]): row for row in after}
+        cells = []
+        fields = (
+            "Aa", "K", "a", "b", "X", "alpha", "beta", "Lambda",
+            "gamma_rr_inv", "U_E", "U_r", "C", "ratio_absS_over_E",
+        )
+        for i in sorted(set(before_by_i) & set(after_by_i)):
+            pre, post = before_by_i[i], after_by_i[i]
+            row = {
+                "i": i,
+                "r": float(post["r"]),
+                "before": {key: pre.get(key) for key in fields},
+                "after": {key: post.get(key) for key in fields},
+                "delta": {
+                    key: (
+                        None if pre.get(key) is None or post.get(key) is None
+                        else float(post[key]) - float(pre[key])
+                    )
+                    for key in fields
+                },
+            }
+            row["delta_Aa"] = row["delta"]["Aa"]
+            row["delta_C"] = row["delta"]["C"]
+            row["delta_gamma_rr_inv"] = row["delta"]["gamma_rr_inv"]
+            cells.append(row)
+        record = {
+            "boundary_stage": str(boundary_stage),
+            "call_index": int(call_index),
+            "step_index": int(step_index),
+            "t_step_start": float(t_step_start),
+            "dt": float(dt),
+            "target_t": float(t_step_start + dt),
+            "exception": exception,
+            "cells": cells,
+        }
+        self.boundary_audit_records.append(record)
+        return record
+
+    def matching_completed_boundary_cell(self, t, i):
+        """Find the final-boundary Aa pair that produced the accepted state at t."""
+        for record in reversed(self.boundary_audit_records):
+            if record.get("boundary_stage") != "completed_state_outer_light_boundary":
+                continue
+            if abs(float(record.get("target_t", math.inf)) - float(t)) > 1.0e-9:
+                continue
+            for cell in record.get("cells", []):
+                if int(cell.get("i", -1)) == int(i):
+                    return record, cell
+        return None, None
+
     def geometry_predictor_budget(
         self, grid, predictor_geometry, predictor_matter, step, t, stage, stage_row
     ):
@@ -459,7 +542,7 @@ class RadiationStageTrace:
                  if int(row.get("i", -1)) == i),
                 None,
             )
-            cells.append({
+            cell_row = {
                 "i": int(i),
                 "r": float(grid.centers[i]),
                 "alpha_accepted": alpha0,
@@ -500,7 +583,79 @@ class RadiationStageTrace:
                 "delta_C_metric_on_same_predictor_matter": C1_predictor_metric - C1_same_metric,
                 "stage_snapshot_C": None if snapshot is None else float(snapshot["C"]),
                 "stage_snapshot_gamma_rr_inv": None if snapshot is None else float(snapshot["gamma_rr_inv"]),
-            })
+            }
+
+            boundary_record, boundary_cell = self.matching_completed_boundary_cell(t, i)
+            if boundary_record is not None and boundary_cell is not None:
+                aa_before = float(boundary_cell["before"]["Aa"])
+                aa_after = float(boundary_cell["after"]["Aa"])
+                aa_match_residual = Aa0 - aa_after
+                aa_matches_accepted = abs(aa_match_residual) <= (
+                    1.0e-12 * max(1.0, abs(aa_after))
+                )
+                influence = {
+                    "boundary_record_stage": boundary_record["boundary_stage"],
+                    "boundary_record_step_index": boundary_record["step_index"],
+                    "boundary_record_target_t": boundary_record["target_t"],
+                    "Aa_before_completed_boundary": aa_before,
+                    "Aa_after_completed_boundary": aa_after,
+                    "delta_Aa_boundary": aa_after - aa_before,
+                    "accepted_Aa_minus_recorded_after": aa_match_residual,
+                    "accepted_Aa_matches_recorded_after": aa_matches_accepted,
+                    "counterfactual_method": (
+                        "hold the accepted alpha, K, X and conservative predictor state "
+                        "fixed; replace only the preceding completed-boundary Aa with its "
+                        "recorded pre-boundary value; retain the measured regularity delta_a"
+                    ),
+                }
+                if aa_matches_accepted:
+                    a_dot_without_boundary = -2.0 * alpha0 * a0 * aa_before
+                    a_without_boundary_raw = a0 + dt * a_dot_without_boundary
+                    a_without_boundary_pred = a_without_boundary_raw + (ap - a_raw)
+                    if a_without_boundary_pred > 0.0:
+                        gamma_without_boundary = Xp * Xp / a_without_boundary_pred
+                        C_without_boundary = float(
+                            U1e[i] - math.sqrt(gamma_without_boundary) * abs(U1r[i])
+                        )
+                        ratio_without_boundary = (
+                            math.sqrt(gamma_without_boundary) * abs(U1r[i]) / U1e[i]
+                            if U1e[i] > 0.0 else None
+                        )
+                        influence.update({
+                            "a_dot_actual": explicit_a,
+                            "a_dot_without_preceding_boundary_Aa": a_dot_without_boundary,
+                            "delta_a_dot_at_fixed_alpha": explicit_a - a_dot_without_boundary,
+                            "delta_a_predictor_at_fixed_alpha": (
+                                dt * (explicit_a - a_dot_without_boundary)
+                            ),
+                            "a_predictor_actual": ap,
+                            "a_predictor_without_preceding_boundary_Aa": a_without_boundary_pred,
+                            "X_predictor_held_fixed": Xp,
+                            "gamma_rr_inv_predictor_actual": gamma_pred,
+                            "gamma_rr_inv_predictor_without_preceding_boundary_Aa": (
+                                gamma_without_boundary
+                            ),
+                            "C_predictor_actual": C1_predictor_metric,
+                            "C_predictor_without_preceding_boundary_Aa": C_without_boundary,
+                            "delta_C_actual_minus_without_boundary": (
+                                C1_predictor_metric - C_without_boundary
+                            ),
+                            "ratio_actual": (
+                                math.sqrt(gamma_pred) * abs(U1r[i]) / U1e[i]
+                                if U1e[i] > 0.0 else None
+                            ),
+                            "ratio_without_preceding_boundary_Aa": ratio_without_boundary,
+                        })
+                    else:
+                        influence["counterfactual_status"] = (
+                            "not_evaluated_nonpositive_counterfactual_a"
+                        )
+                else:
+                    influence["counterfactual_status"] = (
+                        "not_evaluated_boundary_Aa_does_not_match_accepted_state"
+                    )
+                cell_row["preceding_completed_boundary_influence"] = influence
+            cells.append(cell_row)
         return {
             "t": float(t),
             "t_attempted": float(t + dt),
@@ -802,15 +957,33 @@ class RadiationStageTrace:
                             "where": "completed_state_budget",
                             "t": t, "step_index": trace.step_index, "error": error,
                         })
+            pre_boundary_cells = trace.capture_boundary_cells(
+                grid, geometry, matter
+            )
             try:
                 if radiation_recovery_metric is None:
-                    return original_boundary(grid, geometry, scalars, matter)
-                return original_boundary(
-                    grid, geometry, scalars, matter,
-                    radiation_recovery_metric=radiation_recovery_metric,
-                )
+                    result = original_boundary(grid, geometry, scalars, matter)
+                else:
+                    result = original_boundary(
+                        grid, geometry, scalars, matter,
+                        radiation_recovery_metric=radiation_recovery_metric,
+                    )
             except Exception as exc:
                 detail = f"{type(exc).__name__}: {exc}"
+                try:
+                    post_boundary_cells = trace.capture_boundary_cells(
+                        grid, geometry, matter
+                    )
+                    trace.record_boundary_audit(
+                        stage, t, step["dt"], trace.step_index, idx,
+                        pre_boundary_cells, post_boundary_cells, exception=detail,
+                    )
+                except Exception as audit_exc:
+                    trace.instrumentation_errors.append({
+                        "where": "boundary_audit_failure_capture",
+                        "stage": stage, "t": t,
+                        "error": f"{type(audit_exc).__name__}: {audit_exc}",
+                    })
                 trace.record_stage(
                     stage + "_failure", grid, geometry, matter, t, tau,
                     trace.step_index, step["dt"], force=True, exception=detail,
@@ -821,6 +994,21 @@ class RadiationStageTrace:
                     grid, exc,
                 )
                 raise
+            try:
+                post_boundary_cells = trace.capture_boundary_cells(
+                    grid, geometry, matter
+                )
+                trace.record_boundary_audit(
+                    stage, t, step["dt"], trace.step_index, idx,
+                    pre_boundary_cells, post_boundary_cells,
+                )
+            except Exception as audit_exc:
+                trace.instrumentation_errors.append({
+                    "where": "boundary_audit",
+                    "stage": stage, "t": t,
+                    "error": f"{type(audit_exc).__name__}: {audit_exc}",
+                })
+            return result
 
         def traced_species_rhs_components(*args, **kwargs):
             # On the rate-extraction-corrected engine, species_rhs calls this
@@ -1034,6 +1222,10 @@ class RadiationStageTrace:
         self.geometry_predictor_budgets = [
             row for row in self.geometry_predictor_budgets
             if float(row.get("t_attempted", -math.inf)) >= cutoff_t
+        ]
+        self.boundary_audit_records = [
+            row for row in self.boundary_audit_records
+            if float(row.get("target_t", -math.inf)) >= cutoff_t
         ]
 
     def record_progress(self, state):
@@ -1264,6 +1456,7 @@ class RadiationStageTrace:
             "predictor_budgets": self.predictor_budgets,
             "completed_state_budgets": self.completed_state_budgets,
             "geometry_predictor_budgets": self.geometry_predictor_budgets,
+            "boundary_audit_records": self.boundary_audit_records,
             "instrumentation_errors": self.instrumentation_errors,
             "wall_elapsed_seconds": float(time.time() - self.started_wall),
             "notes": [
@@ -1273,6 +1466,8 @@ class RadiationStageTrace:
                 "The cone budget is ordered and uses the accepted spatial metric for the accepted, flux-only, and source-updated stages, then the predictor metric for the final predictor margin.",
                 "Completed-state budgets reconstruct the trapezoidal radiation update from actual RHS0/RHS1 evaluations and close the accepted-to-completed cone-margin change across stage-specific metrics.",
                 "Geometry predictor budgets record the actual first geometry-stage explicit RHS and compare its raw Euler candidate with the predictor geometry after algebraic regularity projection.",
+                "Boundary audit records preserve matched outer-cell Aa and radiation/metric witnesses immediately before and after both production outer-boundary calls; completed-boundary pairs are matched to the next accepted state and tested with a frozen-alpha, fixed-matter counterfactual.",
+                "The preceding-boundary counterfactual is diagnostic-only and replaces only Aa in the local zero-shift a-dot identity; it is not a re-evolution and does not change the accepted state or the radiation cone.",
                 (
                     "Extended-B mode uses the accepted start-of-step metric only for predictor-stage radiation primitive inversion; stage metrics still enter the fluxes, geometric sources, stress projections, and CMC spatial operator."
                     if self.use_accepted_metric_for_predictor_radiation_recovery
@@ -1305,6 +1500,22 @@ class RadiationStageTrace:
             "geometry_predictor_budget_count": len(self.geometry_predictor_budgets),
             "geometry_predictor_budget_error_count": sum(
                 1 for row in self.stage_snapshots if row.get("geometry_predictor_budget_error")
+            ),
+            "boundary_audit_record_count": len(self.boundary_audit_records),
+            "matched_completed_boundary_cell_count": sum(
+                1 for row in self.geometry_predictor_budgets
+                for cell in row.get("cells", [])
+                if cell.get("preceding_completed_boundary_influence", {}).get(
+                    "accepted_Aa_matches_recorded_after"
+                )
+            ),
+            "boundary_Aa_mismatch_count": sum(
+                1 for row in self.geometry_predictor_budgets
+                for cell in row.get("cells", [])
+                if "preceding_completed_boundary_influence" in cell
+                and not cell["preceding_completed_boundary_influence"].get(
+                    "accepted_Aa_matches_recorded_after", False
+                )
             ),
             "progress_sample_count": len(self.progress_samples),
             "rejected_step_attempt_count": len(self.rejected_step_attempts),
