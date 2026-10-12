@@ -1,0 +1,59 @@
+name: Diagnostic - independent regular-center Ricci and Aa RHS identity
+
+on:
+  push:
+    branches:
+      - diag/discrete-consistent-initial-production-test-2026-10-12
+    paths:
+      - tools/regular_center_ricci_aa_rhs_identity.py
+      - .github/workflows/regular-center-ricci-aa-rhs-identity.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: regular-center-ricci-aa-rhs-identity-2026-10-12
+  cancel-in-progress: false
+
+jobs:
+  independent-ricci-aa-identity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      PYTHONPATH: .
+      PYTHONUNBUFFERED: "1"
+
+    steps:
+      - name: Checkout diagnostic branch and pinned vendor
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install production dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Run full repository regression suite
+        run: python -m pytest -q
+
+      - name: Compile independent regular-center identity audit
+        run: python -m py_compile tools/regular_center_ricci_aa_rhs_identity.py
+
+      - name: Compare pinned production RHS against independent analytic Ricci and lapse Hessian
+        run: python tools/regular_center_ricci_aa_rhs_identity.py
+
+      - name: Upload regular-center identity report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: regular-center-ricci-aa-rhs-identity
+          path: results/regular-center-ricci-aa-rhs-identity/
+          if-no-files-found: warn
+          retention-days: 90
