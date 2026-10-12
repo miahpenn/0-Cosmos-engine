@@ -283,3 +283,8 @@ On frozen archived t=0 R80/R160 states, both lapse profiles remain positive, alp
 The centre-series issue is still open, but the present evidence does not support patching the CMC centre row. Keep the target-closure rank issue separate: compare its discrete derivation with the authoritative CMC condition, including the outer normalization cell. Next run the same CMC-versus-production lapse-operator comparison on the exact uniform-fourth-order quadrature initial profiles N=40/60/80/120/160, then compare trace-free Hessian, Ricci and K source terms on identical frozen states. If those operators agree there too, shift focus to initializer geometry/matter construction and the regular-centre identities for Aa/K/X/a/b. Radiation realizability failures at N=240/320 remain a separate admission blocker. No physics/source/gauge changes, centre projection, damping, floors/clamps, or long campaign until the specific defect and all admission gates are demonstrated.
 
 All work above is diagnostic-only. Production main is unchanged.
+
+
+## Main-branch reconciliation (2026-10-12)
+
+Current main HEAD is 87e71c3793d8afd5519ca1099dc69ebff707546b. Compared with the recorded production baseline 809228c380d80af83858412557c78b6329ffa5c8, the only transient difference was the diagnostic workflow .github/workflows/cmc-target-closure-rank-probe.yml, which was added in commit 6d3c508 and removed in the current revert commit. The current main tree has no production source, physics, or kernel changes relative to that recorded baseline. Diagnostic scripts/reports remain on diagnostic branches.
