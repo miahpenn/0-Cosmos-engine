@@ -1,0 +1,70 @@
+name: Diagnostic - Lambda connection propagation budget
+
+on:
+  push:
+    branches:
+      - diag/lambda-connection-budget-2026-10-12
+    paths:
+      - tools/audit_lambda_connection_budget.py
+      - .github/workflows/lambda-connection-budget.yml
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: lambda-connection-budget-diagnostic
+  cancel-in-progress: true
+
+jobs:
+  lambda-connection-budget:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PYTHONUNBUFFERED: "1"
+
+    steps:
+      - name: Checkout diagnostic tools
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Checkout exact production source and pinned vendor
+        uses: actions/checkout@v4
+        with:
+          ref: fix/strict-campaign-admission-2026-10-12
+          path: source
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install production dependencies
+        run: python -m pip install -r source/requirements.txt
+
+      - name: Download admitted t=12 production checkpoints
+        uses: actions/download-artifact@v4
+        with:
+          name: v55-production-t12-n40-n60-n80
+          path: runs/t12
+          repository: miahpenn/0-Cosmos-engine
+          run-id: 38208253687
+          github-token: ${{ github.token }}
+
+      - name: Compile diagnostic
+        run: python -m py_compile tools/audit_lambda_connection_budget.py
+
+      - name: Audit Lambda versus metric connection over one step
+        run: python tools/audit_lambda_connection_budget.py
+
+      - name: Upload rate budget
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lambda-connection-propagation-budget
+          path: results/lambda-connection-budget/
+          if-no-files-found: warn
+          retention-days: 90
