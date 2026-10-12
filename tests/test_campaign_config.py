@@ -66,6 +66,45 @@ def test_valid_campaign_configuration_is_preserved():
     assert config.checkpoint_interval == 2.0
 
 
+def test_subnormal_cfl_that_underflows_nominal_timestep_is_rejected():
+    with pytest.raises(ValueError, match="nominal timestep"):
+        CampaignConfig(
+            resolutions=(40,),
+            r_max=1.0e-300,
+            cfl=5.0e-324,
+            final_time=1.0,
+            checkpoint_interval=1.0,
+        )
+
+
+def test_positive_cfl_too_small_to_advance_float_time_is_rejected():
+    with pytest.raises(ValueError, match="floating-point time progress"):
+        CampaignConfig(
+            resolutions=(80,),
+            r_max=80.0,
+            cfl=1.0e-20,
+            final_time=160.0,
+            checkpoint_interval=2.0,
+        )
+
+
+def test_tiny_positive_checkpoint_interval_is_rejected():
+    with pytest.raises(ValueError, match="checkpoint_interval"):
+        CampaignConfig(checkpoint_interval=1.0e-100)
+
+
+def test_checkpoint_interval_equal_to_largest_nominal_step_is_valid():
+    config = CampaignConfig(
+        resolutions=(40, 80),
+        r_max=80.0,
+        cfl=0.03,
+        final_time=1.0,
+        checkpoint_interval=0.06,
+    )
+
+    assert config.checkpoint_interval == 0.06
+
+
 def test_prepare_campaign_revalidates_non_dataclass_config_before_run():
     kernel = SimpleNamespace(capabilities=REQUIRED)
     config = SimpleNamespace(
@@ -81,6 +120,21 @@ def test_prepare_campaign_revalidates_non_dataclass_config_before_run():
         prepare_campaign(kernel, config)
 
 
+def test_prepare_campaign_revalidates_tiny_positive_step_before_run():
+    kernel = SimpleNamespace(capabilities=REQUIRED)
+    config = SimpleNamespace(
+        resolutions=(80,),
+        r_max=80.0,
+        cfl=1.0e-20,
+        final_time=160.0,
+        checkpoint_interval=2.0,
+        output_dir="runs/invalid",
+    )
+
+    with pytest.raises(ValueError, match="floating-point time progress"):
+        prepare_campaign(kernel, config)
+
+
 def test_prepare_campaign_returns_validated_plan_without_evolution():
     kernel = SimpleNamespace(capabilities=REQUIRED)
     config = CampaignConfig(resolutions=(40, 60), final_time=1.0)
@@ -89,6 +143,7 @@ def test_prepare_campaign_returns_validated_plan_without_evolution():
 
     assert plan["resolutions"] == (40, 60)
     assert plan["status"] == "prepared_not_executed"
+
 
 def test_valid_configuration_normalizes_resolutions_and_path():
     config = CampaignConfig(
