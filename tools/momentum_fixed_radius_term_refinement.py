@@ -84,6 +84,26 @@ def restore_checkpoint(path,kernel):
     return state,sha256_file(path)
 
 
+def radius_sampling_metadata(radius,target):
+    """Record whether a reported physical radius is a grid node or interpolated."""
+    tol=1.0e-12*max(1.0,float(np.max(np.abs(radius))))
+    index=int(np.argmin(np.abs(radius-target)))
+    if abs(float(radius[index])-float(target))<=tol:
+        return {"kind":"exact_cell_center","target_radius":float(target),
+                "cell_index":index,"cell_radius":float(radius[index]),
+                "left_index":index,"right_index":index,"interpolation_weight":0.0,
+                "grid_tolerance":tol}
+    right=int(np.searchsorted(radius,target,side="right"))
+    if right<=0 or right>=len(radius):
+        raise ValueError(f"radius {target} lies outside grid coverage")
+    left=right-1
+    weight=float((target-radius[left])/(radius[right]-radius[left]))
+    return {"kind":"linear_interpolation","target_radius":float(target),
+            "cell_index":None,"cell_radius":None,"left_index":left,"right_index":right,
+            "left_radius":float(radius[left]),"right_radius":float(radius[right]),
+            "interpolation_weight":weight,"grid_tolerance":tol}
+
+
 def build_sample(state,label,input_sha=None):
     summary,profile=momentum_budget(state.grid,state.geometry,state.scalars,state.matter)
     if max(summary["closures"].values())>2.0e-12:
@@ -98,6 +118,7 @@ def build_sample(state,label,input_sha=None):
     w=volume[annulus]
     if w.size==0 or float(np.sum(w))<=0:
         raise ValueError(f"{label}: invalid annulus weights")
+    sample_metadata={f"{r0:.1f}":radius_sampling_metadata(radius,r0) for r0 in FIXED_RADII}
     by_term={}
     for name,arr in arrays.items():
         sampled={f"{r0:.1f}":float(np.interp(r0,radius,arr)) for r0 in FIXED_RADII}
@@ -111,7 +132,7 @@ def build_sample(state,label,input_sha=None):
     return {
       "resolution":int(state.grid.n),"label":label,"t":float(state.t),"tau":float(state.tau),
       "dr":float(state.grid.dr),"input_checkpoint_sha256":input_sha,
-      "closure_maxima":summary["closures"],"terms":by_term,
+      "closure_maxima":summary["closures"],"fixed_radius_sample_metadata":sample_metadata,"terms":by_term,
     },{"resolution":int(state.grid.n),"label":label,"t":float(state.t),"r":radius.tolist(),
        **{name:arr.tolist() for name,arr in arrays.items()}}
 
@@ -137,17 +158,19 @@ def main():
         row,profile=build_sample(state,"T2P16",digest)
         snapshots.append(row); profiles.append(profile)
 
-    # Fixed-radius comparisons are grounded only at radii covered by each grid.
+    # Report the interpolation method at each resolution/radius alongside terms.
     comparison=[]
     for label in ("INITIAL","T2P16"):
       subset=[x for x in snapshots if x["label"]==label]
       for rr in FIXED_RADII:
-        row={"label":label,"radius":rr,"resolutions":{}}
+        key=f"{rr:.1f}"
+        row={"label":label,"radius":rr,"resolutions":{},"sampling_by_resolution":{}}
         for snap in sorted(subset,key=lambda z:z["resolution"]):
           row["resolutions"][str(snap["resolution"])]={
-            term:snap["terms"][term]["fixed_radius_values"][f"{rr:.1f}"]
+            term:snap["terms"][term]["fixed_radius_values"][key]
             for term in TERM_FIELDS
           }
+          row["sampling_by_resolution"][str(snap["resolution"])]=snap["fixed_radius_sample_metadata"][key]
         comparison.append(row)
 
     closure_max={}
