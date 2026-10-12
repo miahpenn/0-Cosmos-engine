@@ -1,0 +1,83 @@
+name: Matched primary-predictor boundary Aa counterfactual
+
+on:
+  push:
+    branches:
+      - diag/radiation-primary-boundary-cf-2026-10-12
+    paths:
+      - tools/audit_radiation_primary_boundary_counterfactual.py
+      - .github/workflows/radiation_primary_boundary_counterfactual.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: radiation-primary-boundary-counterfactual-2026-10-12
+  cancel-in-progress: false
+
+jobs:
+  frozen-window-counterfactual:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout rate-corrected engine and pinned vendor
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Fail closed against the source used by the admitted trace
+        env:
+          RATE_FIX_SOURCE_COMMIT: "1c63090d4f42396f899421a2379f70320689d5ad"
+          VENDOR_COMMIT: "d6052d605673ce9d82cdc99b0df79855fa2ea215"
+        run: |
+          git fetch --no-tags origin "$RATE_FIX_SOURCE_COMMIT"
+          unexpected="$(git diff --name-only "$RATE_FIX_SOURCE_COMMIT" HEAD -- engine vendor requirements.txt .gitmodules | grep -v '^engine/radiation_geometry_stage_trace.py$' || true)"
+          if [ -n "$unexpected" ]; then
+            printf 'Unexpected production-path differences from the frozen source:\n%s\n' "$unexpected"
+            exit 1
+          fi
+          actual_vendor="$(git rev-parse HEAD:vendor/bb-palatini-unified-r0)"
+          test "$actual_vendor" = "$VENDOR_COMMIT"
+          printf 'Source baseline: %s\nVendor pin: %s\nOnly diagnostic recorder changes may differ in engine/.\n' "$RATE_FIX_SOURCE_COMMIT" "$actual_vendor"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install pinned-source dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Compile diagnostic and production modules
+        run: |
+          python -m py_compile tools/audit_radiation_primary_boundary_counterfactual.py
+          python -m py_compile engine/production_kernel.py engine/matter_system.py engine/matter_rhs.py
+
+      - name: Full repository regression suite
+        run: python -m pytest -q
+
+      - name: Replay to frozen accepted state and compare one primary-boundary call
+        run: PYTHONPATH=. python tools/audit_radiation_primary_boundary_counterfactual.py
+
+      - name: Record provenance and checksums
+        if: always()
+        run: |
+          mkdir -p artifacts/radiation-primary-boundary-counterfactual
+          git rev-parse HEAD > artifacts/radiation-primary-boundary-counterfactual/DIAGNOSTIC_HEAD.txt
+          git rev-parse HEAD:vendor/bb-palatini-unified-r0 > artifacts/radiation-primary-boundary-counterfactual/VENDOR_COMMIT.txt
+          git rev-parse 1c63090d4f42396f899421a2379f70320689d5ad > artifacts/radiation-primary-boundary-counterfactual/RATE_FIX_SOURCE_COMMIT.txt
+          if [ -f artifacts/radiation-primary-boundary-counterfactual/report.json ]; then
+            sha256sum artifacts/radiation-primary-boundary-counterfactual/report.json > artifacts/radiation-primary-boundary-counterfactual/TRACE_SHA256SUMS.txt
+          fi
+
+      - name: Upload bounded counterfactual report even if a gate fails
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: radiation-primary-boundary-counterfactual
+          path: artifacts/radiation-primary-boundary-counterfactual/
+          if-no-files-found: warn
+          retention-days: 90
