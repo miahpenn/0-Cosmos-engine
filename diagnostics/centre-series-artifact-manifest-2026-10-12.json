@@ -228,6 +228,60 @@
       "artifact_sha256": "83c738421ca014b781d5a07d1218d3de116ddc43bea5bc4d762233bc1dfb2d77",
       "status": "success",
       "disposition": "generic derivative/parity-sign defect disfavoured by smooth-profile convergence control"
+    },
+    {
+      "id": "production-Aa-K-RHS-centre-source-tangent",
+      "run_id": 38294736014,
+      "url": "https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38294736014",
+      "diagnostic_commit": "58e35a0b64d0f17fc053dfaa2aff737365424d69",
+      "artifact_id": 11768515284,
+      "artifact_name": "production-Aa-K-centre-source-tangent",
+      "artifact_sha256": "2128028ad4fcd80c4d603107d481a78a1add233d18b35eaa3d1d19a43cae2a91",
+      "status": "success",
+      "coverage": "17 frozen states: baseline/candidate initial-metric arms at t=0 and t=2.16 for N=60/80/120, plus uniform-fourth-order t=0 arms for N=40/60/80/120/160; no state evolved",
+      "result": {
+        "base_aa_rhs_reconstruction_max_abs": 2.168404344971009e-19,
+        "base_k_rhs_reconstruction_max_abs": 2.168404344971009e-19,
+        "momentum_geometry_reconstruction_max_abs": 0,
+        "momentum_current_reconstruction_max_abs": 4.0657581468206416e-20,
+        "tangent_aa_reconstruction_max_abs": 1.0842021724855043e-14,
+        "tangent_k_reconstruction_max_abs": 1.0842021724855043e-14,
+        "uniform_first_cell_aa_rhs_over_r2": {
+          "40": 0.0001457013763377239,
+          "60": 0.00011663765585622016,
+          "80": 0.000153472430842464,
+          "120": 0.0003356297916036805,
+          "160": 0.0006214929195658582
+        },
+        "uniform_first_cell_aa_hessian_tf": {
+          "40": 0.000029434822440636438,
+          "60": 0.00003608125724846463,
+          "80": 0.00003873974156721286,
+          "120": 0.00004075581349044955,
+          "160": 0.0000414856011998486
+        },
+        "uniform_first_cell_aa_ricci_tf": {
+          "40": 0.00011891601496539445,
+          "60": 0.000016985885059872207,
+          "80": 3.2739209021303194e-7,
+          "120": -0.000003150654453872528,
+          "160": -0.0000024658421947297406
+        },
+        "uniform_first_cell_k_rhs_over_r_derivative": {
+          "40": 0.0005107383370869056,
+          "60": 0.0011950306067315137,
+          "80": 0.0021487823247775847,
+          "120": 0.0048694466310770235,
+          "160": 0.008676657979842598
+        },
+        "uniform_k_lapse_term_i0_i1": {
+          "N160": {
+            "i0": -0.000311122,
+            "i1": 0.00128561
+          }
+        },
+        "disposition": "Improved initial quadrature suppresses baseline centre Ricci term, but the lapse-Hessian contribution and K centre-row/lapse-Laplacian compatibility remain unresolved; diagnostic lead only"
+      }
     }
   ],
   "current_recommendation": [
@@ -239,6 +293,7 @@
   "documentation": {
     "latest_handoff": "docs/CONTINUATION_HANDOFF_LATEST_2026-10-12.md",
     "centre_regularity_handoff": "docs/CONTINUATION_HANDOFF_CENTRE_REGULARITY_2026-10-12.md",
-    "detailed_A_B_audit": "docs/DISCRETE_CONSISTENT_INITIAL_PRODUCTION_AB_2026-10-12.md"
+    "detailed_A_B_audit": "docs/DISCRETE_CONSISTENT_INITIAL_PRODUCTION_AB_2026-10-12.md",
+    "signed_rhs_split": "docs/PRODUCTION_AA_K_RHS_CENTRE_SOURCE_SPLIT_2026-10-12.md"
   }
 }
