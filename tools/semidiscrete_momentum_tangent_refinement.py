@@ -159,8 +159,12 @@ def audit_case(kernel,state,label,target):
             "actual_step_rate":{k:float(v[i]) for k,v in actual.items()},
             "epsilon_abs_difference":{k:float(abs(fine[k][i]-coarse[k][i])) for k in fine}}
     reg={}
+    tracked=("momentum_residual","momentum_geometric","momentum_dAa","momentum_dK","momentum_chi","momentum_radial_b","momentum_source_8piJ","momentum_source_S","momentum_source_D","momentum_source_phi","momentum_source_dark_matter","momentum_source_baryons","momentum_source_radiation")
     for name,mask in (("inner_r_lt_5",inner),("exterior_r_ge_5",exterior),("full_domain",np.ones_like(r,dtype=bool))):
-        reg[name]={k:peak(v,r,mask) for group in (fine,actual) for k,v in group.items() if k in ("momentum_residual","momentum_geometric","momentum_dAa","momentum_dK","momentum_chi","momentum_radial_b","momentum_source_8piJ","momentum_source_S","momentum_source_D","momentum_source_phi","momentum_source_dark_matter","momentum_source_baryons","momentum_source_radiation") for v in (group[k],)}
+        reg[name]={
+            "rhs_tangent":{k:peak(fine[k],r,mask) for k in tracked},
+            "actual_one_step_rate":{k:peak(actual[k],r,mask) for k in tracked},
+        }
     eps_diff={k:float(np.max(np.abs(fine[k]-coarse[k]))) for k in fine}
     closures={
       "base_geometry_closure":float(np.max(np.abs(base["momentum_geometric_closure"]))),
