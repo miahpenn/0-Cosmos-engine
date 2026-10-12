@@ -15,7 +15,6 @@ permissions:
 
 jobs:
   frozen-centre-row:
-    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[cmc-lapse-centre-row-audit]')
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
