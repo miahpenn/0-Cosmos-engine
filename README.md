@@ -7,6 +7,10 @@ Build one reproducible machine in which the cosmic lane, local Einstein-scalar
 lane, dynamically generated proper-time interface, stress-energy/flux ledger,
 and cycle observer can evolve together without carrying the full machine in chat.
 
+## SI-agent onboarding — required first read
+
+Fresh SI agents must read [`docs/SI_AGENT_FIRST_READ_COMMS_PROTOCOL.md`](docs/SI_AGENT_FIRST_READ_COMMS_PROTOCOL.md) before analysis, edits, or runs. In particular, read the full [Issue #5 cross-agent message board](https://github.com/miahpenn/0-Cosmos-engine/issues/5), plus relevant issue/PR discussions and linked Actions artifacts. Post intended work and durable findings back to the shared thread so agents do not duplicate experiments or lose context. The communication record is part of the working research state.
+
 ## Physics locks
 - GEAR-03: kappa=0, g=1; omega_S^2=1 and alpha_D^2=1.
 - GEAR-63/65 local cubic geometric barrier is retained.
