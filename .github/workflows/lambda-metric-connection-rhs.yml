@@ -1,0 +1,71 @@
+name: Diagnostic - Lambda metric-connection RHS consistency
+
+on:
+  push:
+    branches:
+      - diag/lambda-metric-connection-rhs-2026-10-12
+    paths:
+      - tools/audit_lambda_metric_connection_rhs.py
+      - .github/workflows/lambda-metric-connection-rhs.yml
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: lambda-metric-connection-rhs-2026-10-12
+  cancel-in-progress: false
+
+jobs:
+  frozen-rhs-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PYTHONPATH: .:source
+      PYTHONUNBUFFERED: "1"
+
+    steps:
+      - name: Checkout diagnostic tool
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Checkout exact production source and pinned vendor
+        uses: actions/checkout@v4
+        with:
+          ref: 6d8b3f2790644591326df57c55908863f994cb0c
+          path: source
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install production dependencies
+        run: python -m pip install -r source/requirements.txt
+
+      - name: Download admitted t=12 production checkpoints
+        uses: actions/download-artifact@v4
+        with:
+          name: v55-production-t12-n40-n60-n80
+          path: runs/t12
+          repository: miahpenn/0-Cosmos-engine
+          run-id: 38208253687
+          github-token: ${{ github.token }}
+
+      - name: Compile frozen RHS audit
+        run: python -m py_compile tools/audit_lambda_metric_connection_rhs.py
+
+      - name: Evaluate frozen RHS and one-step consistency
+        run: python tools/audit_lambda_metric_connection_rhs.py
+
+      - name: Upload RHS consistency report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lambda-metric-connection-rhs-audit
+          path: results/lambda-metric-connection-rhs/
+          if-no-files-found: warn
+          retention-days: 90
