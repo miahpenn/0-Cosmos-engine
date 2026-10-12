@@ -1,0 +1,63 @@
+name: Diagnostic - matched origin quadrature one-step propagation
+
+on:
+  push:
+    branches:
+      - diag/discrete-consistent-initial-production-test-2026-10-12
+    paths:
+      - tools/origin_quadrature_one_step_propagation.py
+      - tools/origin_half_cell_quadrature_regularity_ab.py
+      - .github/workflows/origin-quadrature-one-step-propagation.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: origin-quadrature-one-step-propagation-2026-10-12
+  cancel-in-progress: false
+
+jobs:
+  matched-one-step:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      PYTHONUNBUFFERED: "1"
+
+    steps:
+      - name: Checkout diagnostic branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Checkout exact production source and pinned numerical kernel
+        uses: actions/checkout@v4
+        with:
+          ref: 6d8b3f2790644591326df57c55908863f994cb0c
+          path: source
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install exact production dependencies
+        run: python -m pip install -r source/requirements.txt
+
+      - name: Compile one-step diagnostic and reused initializer helper
+        run: |
+          python -m py_compile tools/origin_quadrature_one_step_propagation.py
+          python -m py_compile tools/origin_half_cell_quadrature_regularity_ab.py
+
+      - name: Run matched one ordinary production step
+        run: python tools/origin_quadrature_one_step_propagation.py
+
+      - name: Upload before/after constraint and centre-series witnesses
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: origin-quadrature-one-step-propagation
+          path: results/origin-quadrature-one-step-propagation/
+          if-no-files-found: warn
+          retention-days: 90
