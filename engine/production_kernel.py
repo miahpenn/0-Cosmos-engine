@@ -710,9 +710,17 @@ class V55ProductionKernel:
         # record where the vacuum and explicit geometry RHS are largest and
         # expose the local slice state there so the next run can distinguish
         # a boundary, center, or interior operator failure.
-        def _witness(arr):
+        def _witness(arr, *, start=0, stop=None):
+            """Return argmax witness on an explicit spatial slice."""
             values = np.asarray(arr, dtype=float)
-            idx = int(np.argmax(np.abs(values)))
+            end = len(values) if stop is None else min(int(stop), len(values))
+            begin = int(start)
+            if begin < 0 or end > len(values) or begin >= end:
+                raise ValueError(
+                    f"invalid witness slice [{begin}:{end}] for {len(values)} values"
+                )
+            local = values[begin:end]
+            idx = begin + int(np.argmax(np.abs(local)))
             return idx, float(r[idx]), float(values[idx])
 
         i_vAa, r_vAa, v_vAa = _witness(vacuum_l3["Aa"])
@@ -721,8 +729,22 @@ class V55ProductionKernel:
         i_l2K, r_l2K, v_l2K = _witness(vacuum_l2["K"])
         i_ea, r_ea, v_ea = _witness(explicit["a"] / geom.a)
         i_eb, r_eb, v_eb = _witness(explicit["b"] / geom.b)
-        i_conn, r_conn, v_conn = _witness(raw["connection"])
-        i_H, r_H, v_H = _witness(H)
+
+        # The accepted interior norm excludes the two center cells because
+        # the production constraint stencil is not admitted there. Keep
+        # separate full-domain and center-cell witnesses so this exclusion is
+        # explicit and no reported norm is paired with a different location.
+        i_conn, r_conn, v_conn = _witness(raw["connection"], start=2)
+        i_conn_full, r_conn_full, v_conn_full = _witness(raw["connection"])
+        i_conn_center, r_conn_center, v_conn_center = _witness(
+            raw["connection"], stop=2
+        )
+        i_H, r_H, v_H = _witness(H, start=2)
+        i_H_full, r_H_full, v_H_full = _witness(H)
+        i_H_center, r_H_center, v_H_center = _witness(H, stop=2)
+        i_M, r_M, v_M = _witness(M, start=2)
+        i_M_full, r_M_full, v_M_full = _witness(M)
+        i_M_center, r_M_center, v_M_center = _witness(M, stop=2)
 
         roots = []
         sign_change = chi[:-1] * chi[1:] <= 0.0
@@ -751,11 +773,35 @@ class V55ProductionKernel:
             "p_outer": float(np.mean(total.pr[outer])),
             "j_outer": float(np.mean(total.j[outer])),
             "rho_total_max": float(np.max(total.rho)),
-            "hamiltonian_max": float(np.max(np.abs(H[2:]))),
-            "momentum_max": float(np.max(np.abs(M[2:]))),
-            "connection_max": float(
-                np.max(np.abs(raw["connection"][2:]))
-            ),
+            # These three norms use the same [2:] domain as their
+            # corresponding *_max_r and *_at_max fields below.
+            "hamiltonian_max": float(abs(v_H)),
+            "hamiltonian_max_r": r_H,
+            "hamiltonian_at_max": v_H,
+            "hamiltonian_center_absmax": float(abs(v_H_center)),
+            "hamiltonian_center_max_r": r_H_center,
+            "hamiltonian_center_at_max": v_H_center,
+            "hamiltonian_full_absmax": float(abs(v_H_full)),
+            "hamiltonian_full_max_r": r_H_full,
+            "hamiltonian_full_at_max": v_H_full,
+            "momentum_max": float(abs(v_M)),
+            "momentum_max_r": r_M,
+            "momentum_at_max": v_M,
+            "momentum_center_absmax": float(abs(v_M_center)),
+            "momentum_center_max_r": r_M_center,
+            "momentum_center_at_max": v_M_center,
+            "momentum_full_absmax": float(abs(v_M_full)),
+            "momentum_full_max_r": r_M_full,
+            "momentum_full_at_max": v_M_full,
+            "connection_max": float(abs(v_conn)),
+            "connection_max_r": r_conn,
+            "connection_at_max": v_conn,
+            "connection_center_absmax": float(abs(v_conn_center)),
+            "connection_center_max_r": r_conn_center,
+            "connection_center_at_max": v_conn_center,
+            "connection_full_absmax": float(abs(v_conn_full)),
+            "connection_full_max_r": r_conn_full,
+            "connection_full_at_max": v_conn_full,
             "determinant_min": float(np.min(det)),
             "determinant_constraint_max": float(
                 np.max(np.abs(det - 1.0))
@@ -870,10 +916,6 @@ class V55ProductionKernel:
             "explicit_da_over_a_at_max": v_ea,
             "explicit_db_over_b_max_r": r_eb,
             "explicit_db_over_b_at_max": v_eb,
-            "connection_max_r": r_conn,
-            "connection_at_max": v_conn,
-            "hamiltonian_max_r": r_H,
-            "hamiltonian_at_max": v_H,
         }
 
         if profiles:
