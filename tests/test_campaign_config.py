@@ -77,6 +77,17 @@ def test_subnormal_cfl_that_underflows_nominal_timestep_is_rejected():
         )
 
 
+def test_unrepresentable_resolution_scale_is_rejected_as_value_error():
+    with pytest.raises(ValueError, match="nominal timestep"):
+        CampaignConfig(
+            resolutions=(10**1000,),
+            r_max=80.0,
+            cfl=0.03,
+            final_time=1.0,
+            checkpoint_interval=2.0,
+        )
+
+
 def test_positive_cfl_too_small_to_advance_float_time_is_rejected():
     with pytest.raises(ValueError, match="floating-point time progress"):
         CampaignConfig(
