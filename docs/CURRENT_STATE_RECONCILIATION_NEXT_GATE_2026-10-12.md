@@ -89,3 +89,18 @@ and solves this relation for (A_a[-1]). Its residual is computed from the same (
 - Keep branch-specific test counts branch-specific. A successful diagnostic artifact or unit suite is not full production admission.
 
 **Bottom line:** the software false-positive in high-resolution RHS extraction is isolated and corrected in tested candidates; the real late radiation crossing is a predictor-metric margin loss at a near-saturated state. The cell-centred CMC row issue is independently supported but incomplete. The immediate task is a source-derived boundary/gauge compatibility decision and, only if needed, a matched frozen-state test—not another long evolution.
+
+
+---
+
+## 12 October continuation update — boundary history counterfactual
+
+New matched diagnostic evidence is now available in [BOUNDARY_CMC_HISTORY_COUNTERFACTUAL_2026-10-12.md](https://github.com/miahpenn/0-Cosmos-engine/blob/diag/boundary-cmc-coupling-audit-2026-10-12/docs/BOUNDARY_CMC_HISTORY_COUNTERFACTUAL_2026-10-12.md).
+
+- Run [38321399848](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38321399848), artifact [11778478114](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38321399848/artifacts/11778478114), trace SHA-256 `f0bcfd73b6911b4693e4f43483974b19b036deeed7dd4c2d0d29f3464c7bf5a7`.
+- At accepted t=47.13, the completed P-minus boundary changed outer `Aa[-1]` by +9.110091355e-6 and local zero-shift `dot a[-1]` by -1.079567089e-5. The post-call P-minus residual is near roundoff by construction; that alone does not validate the dynamic boundary.
+- The single-step counterfactual restored only outer `Aa[-1]` to its preceding pre-boundary value. The actual next predictor rejected at i=79, r=79.5 with |S|/E=1.000401250165977; the counterfactual still rejected at that same explicit-predictor guard with |S|/E=1.000401244072738. The delta is only 6.09e-9, around 0.00152% of the ratio excess. The immediately preceding boundary update by itself is not a sufficient explanation of the failure; cumulative prior boundary effects remain untested.
+- Source-separated predictor margin budget closes exactly on the preceding step: C accepted 6.3343e-7, after flux 1.3727e-6, after sources 1.9926e-6, and on predictor metric 2.6631e-7. The predictor-metric contribution is -1.7263e-6 while flux and sources increase the available margin. The next step then crosses the exact cone.
+- The first counterfactual artifact's stage-label field was stale because the pre-CMC validator fires outside the wrapped lapse solver; the exception string correctly names the explicit-predictor guard. The diagnostic parser has been corrected on the branch in commit `e7e9d4d713633c5de8fc5f6e0e5490b2749ab8cd`.
+
+Disposition: do not patch or disable the boundary from this evidence. Keep the exact E >= |S| admission rule. The remaining active lead is the coupled explicit metric predictor / CMC-stage / near-saturated radiation response, to be investigated by matched stage equations and a bounded timestep/stage comparison before any production change. Main and the canonical GEAR archive remain untouched.
