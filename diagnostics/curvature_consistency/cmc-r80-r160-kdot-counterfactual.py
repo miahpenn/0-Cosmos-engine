@@ -46,9 +46,20 @@ OUT_DIR = ROOT / "runs" / "cmc-r80-r160-kdot-counterfactual"
 
 
 class KdotSeries:
-    def __init__(self, rows):
-        self.t = np.asarray([row["t"] for row in rows], dtype=float)
-        self.kdot = np.asarray([row["target_Kdot_full_domain"] for row in rows], dtype=float)
+    def __init__(self, rows, sample_stride: int = 1):
+        if not isinstance(sample_stride, int) or sample_stride < 1:
+            raise ValueError("sample_stride must be a positive integer")
+        if len(rows) < 2:
+            raise ValueError("R160 Kdot series needs at least two archived rows")
+        retained = list(rows[::sample_stride])
+        # Always preserve the final archived endpoint, even when N-1 is not
+        # divisible by sample_stride. This keeps the t=12 boundary anchored.
+        if retained[-1]["t"] != rows[-1]["t"]:
+            retained.append(rows[-1])
+        self.source_sample_count = int(len(rows))
+        self.sample_stride = int(sample_stride)
+        self.t = np.asarray([row["t"] for row in retained], dtype=float)
+        self.kdot = np.asarray([row["target_Kdot_full_domain"] for row in retained], dtype=float)
         if len(self.t) < 2 or not np.all(np.isfinite(self.t)) or not np.all(np.isfinite(self.kdot)):
             raise ValueError("R160 Kdot series is missing or non-finite")
         if not np.all(np.diff(self.t) > 0.0):
@@ -59,12 +70,14 @@ class KdotSeries:
 
     def describe(self):
         return {
+            "source_sample_count": self.source_sample_count,
             "sample_count": int(len(self.t)),
+            "sample_stride": self.sample_stride,
             "t_range": [float(self.t[0]), float(self.t[-1])],
             "kdot_range": [float(np.min(self.kdot)), float(np.max(self.kdot))],
             "kdot_t0": float(self.kdot[0]),
             "kdot_t12": float(self.kdot[-1]),
-            "interpolation": "linear in time, from archived R160 full-domain target_Kdot_full_domain",
+            "interpolation": "linear in time through retained archived R160 full-domain target_Kdot_full_domain samples; first and final endpoints preserved",
         }
 
 
@@ -133,11 +146,17 @@ def write_progress(state, records, accepted_steps, status, failure=None):
 
 
 def main():
-    if len(sys.argv) != 3:
+    if len(sys.argv) not in (3, 4):
         raise SystemExit(
-            "usage: python diagnostics/curvature_consistency/cmc-r80-r160-kdot-counterfactual.py <r80-baseline-profiles.jsonl> <r160-reference-profiles.jsonl>"
+            "usage: python diagnostics/curvature_consistency/cmc-r80-r160-kdot-counterfactual.py <r80-baseline-profiles.jsonl> <r160-reference-profiles.jsonl> [target_sample_stride]"
         )
-    r80_path, r160_path = map(Path, sys.argv[1:])
+    r80_path, r160_path = map(Path, sys.argv[1:3])
+    try:
+        target_sample_stride = int(sys.argv[3]) if len(sys.argv) == 4 else 1
+    except ValueError as exc:
+        raise SystemExit("target_sample_stride must be a positive integer") from exc
+    if target_sample_stride < 1:
+        raise SystemExit("target_sample_stride must be a positive integer")
     r80_rows = helper.read_jsonl(str(r80_path))
     r160_rows = helper.read_jsonl(str(r160_path))
     if not np.allclose(
@@ -152,7 +171,7 @@ def main():
 
     alpha_series = helper.BoundaryAlphaSeries()
     face_series = helper.R80BoundaryFaceSeries(r80_path)
-    kdot_series = KdotSeries(r160_rows)
+    kdot_series = KdotSeries(r160_rows, sample_stride=target_sample_stride)
     kernel = R160TargetKernel(alpha_series, face_series, kdot_series)
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -267,7 +286,7 @@ def main():
             "include_radiation": INCLUDE_RADIATION,
             "evolution_matter_boundary": "archived baseline R80 outer-cell a,b,X,alpha,beta, linearly interpolated",
             "CMC_outer_alpha": "archived R160 alpha at r=79.75, linearly interpolated",
-            "CMC_target_Kdot": "archived R160 full-domain target_Kdot_full_domain, linearly interpolated and prescribed at every CMC lapse solve",
+            "CMC_target_Kdot": f"archived R160 full-domain target_Kdot_full_domain, every-{target_sample_stride}th archived target sample (final endpoint preserved), linearly interpolated and prescribed at every CMC lapse solve",
         },
         "reference_sources": {
             "R80_profile": str(r80_path),
@@ -301,11 +320,12 @@ def main():
         "failure": failure,
         "comparison": comparison,
         "interpretation_limit": (
-            "This is a full evolving gauge-target counterfactual. It holds the R160 "
-            "Kdot history to an interpolation of the archived trajectory and does not "
-            "constitute a self-consistent R160 solution on the R80 domain. Any changed "
-            "tau is causal evidence for sensitivity to the gauge target within this "
-            "counterfactual, not proof that the prescribed target is the unique physical gauge."
+            "This is a full evolving gauge-target counterfactual. It holds an interpolated "
+            "version of the archived R160 Kdot history and does not constitute a self-consistent "
+            "R160 solution on the R80 domain. Any changed tau is causal evidence for sensitivity "
+            "to this prescribed target history within the counterfactual, not proof that it is the "
+            "unique physical gauge. The report records retained/source target samples so interpolation "
+            "resolution can be compared directly across runs."
         ),
     }
     report_path = OUT_DIR / "report.json"
