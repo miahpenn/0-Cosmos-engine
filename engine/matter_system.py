@@ -441,17 +441,21 @@ def _radiation_source(metric, q, K, Aa, dr_alpha, dr_beta, dr_grr, dr_gthth):
     return energy, momentum
 
 
-def evolve_species(
+def _species_rhs_components(
     metric: BSSNMetricSlice,
     metric_derivatives: MetricDerivativeSet,
     state: ConservedSpecies,
     species: Species,
-    dt: float,
     dphi_t: np.ndarray | None = None,
     dphi_r: np.ndarray | None = None,
     beta_dm: float = -0.04,
-) -> ConservedSpecies:
-    """Advance one conservative finite-volume step."""
+) -> tuple[ConservedSpecies, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """Compute conservative matter rates without choosing a timestep.
+
+    Input primitives are recovered from the supplied state, so an inadmissible
+    incoming radiation state still fails at the point it enters the RHS. This
+    routine returns rates only; it never tests a fictitious finite-time update.
+    """
     n = len(metric.r)
     if any(np.shape(x) != (n,) for x in (
         state.rest, state.energy_t, state.momentum_r
@@ -462,8 +466,7 @@ def evolve_species(
     prim = primitives(metrics, state, species)
 
     face_flux = np.zeros((n + 1, 3), dtype=float)
-
-    # Regular center: the integrated spherical flux through r=0 vanishes.
+    # Regular centre: the integrated spherical flux through r=0 vanishes.
     face_flux[0] = 0.0
     for i in range(n - 1):
         m0, m1 = metrics[i], metrics[i + 1]
@@ -483,10 +486,16 @@ def evolve_species(
     # Causal/outflow outer closure: continue the last physical state.
     face_flux[-1] = _valencia_flux(metrics[-1], prim[-1])
 
-    out = state.copy()
     inv_dr = 1.0 / (metric.r[1] - metric.r[0])
+    flux_dR = -inv_dr * (face_flux[1:, 0] - face_flux[:-1, 0])
+    flux_dE = -inv_dr * (face_flux[1:, 1] - face_flux[:-1, 1])
+    flux_dS = -inv_dr * (face_flux[1:, 2] - face_flux[:-1, 2])
+    rhs_rest = flux_dR.copy()
+    rhs_energy = flux_dE.copy()
+    rhs_momentum = flux_dS.copy()
     source_e_diag = np.zeros(n, dtype=float)
     source_s_diag = np.zeros(n, dtype=float)
+
     for i, m in enumerate(metrics):
         source_e, source_s = _valencia_source(
             m, prim[i], float(metric.K[i]), float(metric.Aa[i]),
@@ -495,7 +504,6 @@ def evolve_species(
             float(metric_derivatives.radial["rr"][i]),
             float(metric_derivatives.radial["thth"][i]),
         )
-
         source_e_diag[i] = source_e
         source_s_diag[i] = source_s
 
@@ -509,21 +517,40 @@ def evolve_species(
             q_e = -m.sqrt_gamma * (q_t - m.beta * q_r)
             q_s = m.sqrt_gamma * q_r
 
-        out.rest[i] -= dt * inv_dr * (
-            face_flux[i + 1, 0] - face_flux[i, 0]
+        rhs_energy[i] += source_e + q_e
+        rhs_momentum[i] += source_s + q_s
+
+    rhs = ConservedSpecies(rhs_rest, rhs_energy, rhs_momentum)
+    return rhs, flux_dE, flux_dS, source_e_diag, source_s_diag
+
+
+def evolve_species(
+    metric: BSSNMetricSlice,
+    metric_derivatives: MetricDerivativeSet,
+    state: ConservedSpecies,
+    species: Species,
+    dt: float,
+    dphi_t: np.ndarray | None = None,
+    dphi_r: np.ndarray | None = None,
+    beta_dm: float = -0.04,
+) -> ConservedSpecies:
+    """Advance one conservative finite-volume step by the requested dt."""
+    rhs, flux_dE, flux_dS, source_e_diag, source_s_diag = (
+        _species_rhs_components(
+            metric, metric_derivatives, state, species,
+            dphi_t=dphi_t, dphi_r=dphi_r, beta_dm=beta_dm,
         )
-        out.energy_t[i] -= dt * inv_dr * (
-            face_flux[i + 1, 1] - face_flux[i, 1]
-        )
-        out.momentum_r[i] -= dt * inv_dr * (
-            face_flux[i + 1, 2] - face_flux[i, 2]
-        )
-        out.energy_t[i] += dt * (source_e + q_e)
-        out.momentum_r[i] += dt * (source_s + q_s)
+    )
+    out = ConservedSpecies(
+        state.rest + dt * rhs.rest,
+        state.energy_t + dt * rhs.energy_t,
+        state.momentum_r + dt * rhs.momentum_r,
+    )
 
     if species is Species.RADIATION:
-        # Diagnostic only: expose the transport and metric-source pieces
-        # when this update itself creates an inadmissible state.
+        # Check the actual requested finite-time update, never a unit-step
+        # surrogate used merely to extract the differential RHS.
+        metrics = _metric_arrays(metric)
         sg = np.asarray([m.sqrt_gamma for m in metrics])
         E = out.energy_t / sg
         S_r = out.momentum_r / sg
@@ -533,18 +560,16 @@ def evolve_species(
         bad = np.where((E < 0.0) | (S_abs > E))[0]
         if bad.size:
             i = int(bad[0])
-            flux_dE = -inv_dr * (face_flux[i + 1, 1] - face_flux[i, 1])
-            flux_dS = -inv_dr * (face_flux[i + 1, 2] - face_flux[i, 2])
             raise ValueError(
-                f"radiation RHS created inadmissible state at cell i={i}: "
-                f"tendency_flux_E={flux_dE:.17e}, source_E={source_e_diag[i]:.17e}, "
-                f"tendency_flux_S={flux_dS:.17e}, source_S={source_s_diag[i]:.17e}; "
+                f"radiation finite-time update became inadmissible at cell i={i} "
+                f"for dt={dt:.17e}: "
+                f"tendency_flux_E={flux_dE[i]:.17e}, source_E={source_e_diag[i]:.17e}, "
+                f"tendency_flux_S={flux_dS[i]:.17e}, source_S={source_s_diag[i]:.17e}; "
                 f"E={E[i]:.17e}, |S|={S_abs[i]:.17e}, "
                 f"ratio={S_abs[i] / max(abs(E[i]), 1.0e-300):.17e}"
             )
 
     return out
-
 
 def project_species(
     metric: BSSNMetricSlice,
