@@ -132,8 +132,12 @@ def geometry_only_witnesses(grid, geom):
         dR, normal_dR, np.asarray(geom.X) ** 2 / np.asarray(geom.a)
     )
     mass = production_kernel_module.misner_sharp_mass_from_chi(areal_radius, chi)
+    surface = int(np.argmin(np.abs(r - 10.0)))
     return {
         "raw_geometric_constraint_maxima": raw_summary,
+        "areal_radius_sigma": float(areal_radius[surface]),
+        "chi_sigma": float(chi[surface]),
+        "M_MS_sigma_geometry_only": float(mass[surface]),
         "areal_radius_outer": float(areal_radius[-1]),
         "chi_outer": float(chi[-1]),
         "M_MS_outer": float(mass[-1]),
@@ -312,10 +316,10 @@ def capture_rhs_and_predictor(kernel, base_state, dt):
     if candidate is not None:
         full = kernel.diagnostics(candidate, profiles=False)
         keys = (
-            "hamiltonian_full_absmax", "momentum_full_absmax",
-            "connection_full_absmax", "determinant_constraint_max",
-            "M_MS", "H_eff", "cmc_residual_outer_max",
-            "cmc_residual_last_interior", "radiation_outer_ratio",
+            "hamiltonian_max", "momentum_max", "connection_max",
+            "determinant_constraint_max", "M_MS", "R_sigma", "chi_sigma",
+            "H_eff", "cmc_residual_outer_max", "cmc_residual_last_interior",
+            "radiation_outer_ratio",
         )
         final_diagnostics = {
             key: float(full[key])
@@ -503,10 +507,10 @@ def main():
     kernel, seed = load_state(state_path)
     baseline_full = kernel.diagnostics(seed, profiles=False)
     baseline_keys = (
-        "hamiltonian_full_absmax", "momentum_full_absmax",
-        "connection_full_absmax", "determinant_constraint_max",
-        "M_MS", "H_eff", "cmc_residual_outer_max",
-        "cmc_residual_last_interior", "radiation_outer_ratio",
+        "hamiltonian_max", "momentum_max", "connection_max",
+        "determinant_constraint_max", "M_MS", "R_sigma", "chi_sigma",
+        "H_eff", "cmc_residual_outer_max", "cmc_residual_last_interior",
+        "radiation_outer_ratio",
     )
     baseline = {key: float(baseline_full[key]) for key in baseline_keys
                 if key in baseline_full and np.isscalar(baseline_full[key])}
