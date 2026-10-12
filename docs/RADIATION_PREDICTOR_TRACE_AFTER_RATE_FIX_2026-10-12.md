@@ -503,7 +503,7 @@ The radiation primitive recovery and Einstein stress-energy projection use the r
 
 ## Radiation rest-current dispatch mismatch — bounded same-state A/B, 12 October 2026
 
-**Status:** Diagnostic A/B admitted; minimal code-repair candidate awaiting dedicated CI. This is an internal representation invariant, not an admitted cause of the late radiation-cone crossing.
+**Status:** Diagnostic A/B admitted; minimal representation-repair candidate passed dedicated CI and is tracked as draft stacked [PR #11](https://github.com/miahpenn/0-Cosmos-engine/pull/11). This is an internal representation invariant, not an admitted cause of the late radiation-cone crossing.
 
 ### Diagnostic provenance
 
@@ -537,7 +537,7 @@ The A/B shows that this first component is passive for the tested one-step evolu
 
 I created separate branch [`fix/radiation-rest-current-channel-2026-10-12`](https://github.com/miahpenn/0-Cosmos-engine/tree/fix/radiation-rest-current-channel-2026-10-12), based on PR #10's unmerged radiation RHS/admissibility repair candidate. It changes only species dispatch in `engine/matter_system.py`: radiation HLL conserved/flux entries and the radiation outer-face flux now use the already-existing radiation-specific helpers. No E/S formula, source, metric stage, time integrator, radiation cone gate, boundary law, or physical coupling is changed. New tests assert the helper identities and exact-zero rest slot after real N=80/N=160 kernel steps.
 
-Dedicated gate [38317961532](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38317961532) is running at workflow commit `b9185aa160adaceb5917a9162892e466945ccbd2`. **Do not call the source candidate admitted until this run passes.** `main` remains `2035acc1210db18da0cededea18750b7ed813260`; PR #10, PR #9 and the authoritative GEAR archive are unchanged/unmerged. No long trajectory was launched.
+Dedicated gate [38317961532](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38317961532) passed at tested workflow/code head `b9185aa160adaceb5917a9162892e466945ccbd2` (3 focused rest-channel tests, 4 radiation RHS/admissibility tests and 29 full-suite tests passed). The reviewable candidate is draft stacked [PR #11](https://github.com/miahpenn/0-Cosmos-engine/pull/11), based on draft PR #10. `main` remains `2035acc1210db18da0cededea18750b7ed813260`; PR #10, PR #9 and the authoritative GEAR archive are unchanged/unmerged. No long trajectory was launched.
 
 
 ### Repair-candidate gate completed — zero radiation rest-current regression, 12 October 2026
@@ -553,3 +553,10 @@ The isolated implementation candidate has now passed its dedicated CI; update th
 The candidate dispatches radiation HLL conserved/flux vectors to existing `_radiation_conserved()` / `_radiation_flux()`, and the outer face through `_radiation_flux()`. All non-radiation species retain the generic Valencia path. The regression confirms actual N=80 and N=160 production steps preserve an exact-zero radiation rest slot and still pass the original (E\ge|S|) checks. The earlier matched A/B (run 38317797540) proves these dispatches leave the whole radiation E/S profile, all metric geometry, and H/M/C_Lambda diagnostics bit-identical over one step.
 
 This is a bounded representation-invariant repair, not a correction to the physical radiation equations or a cause established for the late-time cone event. It remains stacked on draft PR #10 and has **not** been merged to main. The corrected-rate late-time outer-cell predictor crossing, full Misner–Sharp balance, convergence, and full production admission remain open.
+
+
+### Checkpoint surface audit for the rest slot
+
+On current `main`, `write_checkpoint_npz()` serializes the `radiation_rest` array alongside the radiation energy/momentum fields. Repository code search found this as a writer field; the radiation-specific primitive recovery and stress-energy projection use energy/momentum and do not use this rest slot. Thus the generic-path drift is observable in saved checkpoints even though the matched one-step A/B shows no change to geometry or the E/S cone witnesses. The candidate's exact-zero invariant prevents that spurious channel from being persisted by new candidate runs. This remains a data-contract cleanup and not evidence that the late-time cone crossing originates here.
+
+Review candidate: [PR #11](https://github.com/miahpenn/0-Cosmos-engine/pull/11), stacked on draft [PR #10](https://github.com/miahpenn/0-Cosmos-engine/pull/10). No merge is performed.
