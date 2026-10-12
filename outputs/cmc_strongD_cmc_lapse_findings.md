@@ -152,3 +152,12 @@ Next isolate the scalar consistency residual (H(k)=\mathrm{target\_kdot}(\alpha_
 - Script commit [bc1e0a4c5bdb28f8c3e71967133f8a0923309ed4](https://github.com/miahpenn/0-Cosmos-engine/commit/bc1e0a4c5bdb28f8c3e71967133f8a0923309ed4); workflow trigger commit [ed30da8d41746cdb65a97ca9b666873dc40661b2](https://github.com/miahpenn/0-Cosmos-engine/commit/ed30da8d41746cdb65a97ca9b666873dc40661b2).
 - Expected artifact: `cmc-target-lapse-scalar-closure-scan`.
 - It scans 121 trial Kdot values from the native R80 target minus (10^{-6}) through archived R160 target plus (10^{-6}). For each trial it temporarily fixes the target, solves the production lapse equation, restores the native target callback, and measures (H(k)=\mathrm{target}(\alpha_{solve}(k))-k). This tests sign changes/root brackets without Picard iteration. The diagnostic is frozen-state only; no source equation is changed.
+
+
+## 12. Scalar target/lapse closure scan — completed, no root bracketed in tested range
+
+Run [38209945367](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38209945367) succeeded; artifact [11729211755](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38209945367/artifacts/11729211755), ZIP SHA-256 `1ebb5924f2eea9899b7da3c048400fe11f609338e0e5ad3af211e6c11c65f5b1`, report SHA-256 `23da7a3f47f0f7046e74583bfbc334ca56c04dd7166b720c50d4a8ae6b2c046b`.
+
+Across 121 trial Kdot values from (6.09884155001\times10^{-5}) to (6.33352486573\times10^{-5}), (H(k)=\mathrm{target\_kdot}(\alpha_{solve}(k))-k) was negative at every sample: range ([-8.60824948\times10^{-14},-8.54097609\times10^{-14}]), no sign changes, no exact-zero sample. Endpoint finite-difference (dH/dk=-1.71\times10^{-10}); max residual is (1.38\times10^{-9}) relative to target scale. Native-R80 and archived-R160 Kdot controls both give about (-8.58\times10^{-14}) closure residual. This does not prove no root exists outside the scanned range. It means there is no bracketed root on the tested interval and the map has a tiny, almost constant closure offset.
+
+The dual-seed profile persistence must therefore be described as near-fixed/noncontracting, not proof of multiple exact roots. Next test the pointwise K RHS minus trial Kdot on fixed-target lapse solutions at native R80, archived R160, and midpoint targets. Check interior and outer boundary-adjacent residuals and their weighted average against (H(k)). This will localize any discrete mismatch between the production lapse solve and the reconstructed production K RHS, without changing physics.
