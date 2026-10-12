@@ -1,8 +1,7 @@
-"""Self-consistent diagnostic-only S-D bond sweep.
+"""Self-consistent diagnostic-only S-D bond sweep with consumer-closure audit.
 
-This does not edit production physics. In-process wrappers add V_bond=g*S*D
-to scalar momentum RHS and its potential stress projection. Run at N=40,
-Rmax=40, CFL=.0075, t=5 for g=0,+/-.01,+/-.05,+.10.
+No production file is modified. The interaction V_bond=g*S*D is a candidate
+diagnostic term, not an archive-derived physical law.
 """
 import csv
 import json
@@ -29,6 +28,11 @@ OUT.mkdir(parents=True, exist_ok=True)
 ORIGINAL_RHS = pk.scalar_rhs_arrays
 ORIGINAL_PROJECTION = scalar_system.scalar_projection
 G_BOND = 0.0
+CLOSURE_TOL = 5.0e-12
+
+
+def maxabs(*arrays):
+    return max((float(np.max(np.abs(np.asarray(a)))) for a in arrays), default=0.0)
 
 
 def rhs_with_bond(grid, geometry, fields, *args, **kwargs):
@@ -53,9 +57,9 @@ def projection_with_bond(grid, geometry, fields):
     return rho + Vbond, pr - Vbond, pt - Vbond, j
 
 
-# Patch every consumer of scalar_projection in this process. v55_matter's
-# total_matter_projection is used by the geometry RHS and CMC lapse target;
-# stress_energy's assembler is used by the Hamiltonian/momentum diagnostics.
+# Geometry/lapse consumers use v55_matter.total_matter_projection; the
+# Hamiltonian/momentum diagnostic uses stress_energy.assemble_total_stress_energy.
+# Patch both module-level aliases so both paths see the same interaction.
 pk.scalar_rhs_arrays = rhs_with_bond
 v55_matter.scalar_projection = projection_with_bond
 stress_energy.scalar_projection = projection_with_bond
@@ -67,6 +71,39 @@ def measure(state):
     total = stress_energy.assemble_total_stress_energy(
         state.grid, state.geometry, state.scalars, state.matter
     )
+    through_geometry = v55_matter.total_matter_projection(
+        state.grid, state.geometry, state.scalars, state.matter
+    )
+
+    # Independently compute the unbonded scalar projection and check that
+    # both actual consumers receive exactly the expected +/- g*S*D term.
+    base_rho, base_pr, base_pt, base_j = ORIGINAL_PROJECTION(
+        state.grid, state.geometry, state.scalars
+    )
+    Vbond = G_BOND * np.asarray(state.scalars.S) * np.asarray(state.scalars.D)
+    projection_error = maxabs(
+        through_geometry["scalar"]["rho"] - (base_rho + Vbond),
+        through_geometry["scalar"]["pr"] - (base_pr - Vbond),
+        through_geometry["scalar"]["pt"] - (base_pt - Vbond),
+        through_geometry["scalar"]["j"] - base_j,
+        total.scalar_rho - (base_rho + Vbond),
+        total.scalar_pr - (base_pr - Vbond),
+        total.scalar_pt - (base_pt - Vbond),
+        total.scalar_j - base_j,
+    )
+    consumer_error = maxabs(
+        through_geometry["rho"] - total.rho,
+        through_geometry["pr"] - total.pr,
+        through_geometry["pt"] - total.pt,
+        through_geometry["j"] - total.j,
+    )
+    if projection_error > CLOSURE_TOL or consumer_error > CLOSURE_TOL:
+        raise RuntimeError(
+            f"bond projection closure failed at t={state.t:.12g}: "
+            f"projection_error={projection_error:.4e}, "
+            f"consumer_error={consumer_error:.4e}"
+        )
+
     H = np.asarray(raw["hamiltonian"]) - 16.0 * math.pi * np.asarray(total.rho)
     M = np.asarray(raw["momentum"]) - 8.0 * math.pi * np.asarray(total.j)
     r = np.asarray(state.grid.centers)
@@ -91,9 +128,26 @@ def measure(state):
         "E_D_kinetic_inside_r10": float(np.sum(
             (0.5 * np.asarray(state.scalars.PD)**2)[mask] * weights[mask]
         )),
-        "bond_V_center": float(G_BOND * S[0] * D[0]),
+        "bond_V_center": float(Vbond[0]),
         "lapse_min": float(np.min(alpha)),
+        "projection_closure_max": projection_error,
+        "geometry_vs_constraint_consumer_max": consumer_error,
     }
+
+
+def log_row(row, stage):
+    print(
+        f"{stage} g={row['g']:+.3f} t={row['t']:.2f} "
+        f"H0={row['H_center']:+.5e} "
+        f"Hmax={row['H_offmax_excluding_first_two']:.5e} "
+        f"Mmax={row['M_offmax_excluding_first_two']:.5e} "
+        f"alpha0={row['lapse_center']:.7f} "
+        f"1-alpha(r=3.25)={row['one_minus_lapse_r3p25']:+.5e} "
+        f"D0={row['D_center']:+.5e} Vbond0={row['bond_V_center']:+.5e} "
+        f"Perr={row['projection_closure_max']:.2e} "
+        f"Cerr={row['geometry_vs_constraint_consumer_max']:.2e}",
+        flush=True,
+    )
 
 
 def run_one(g):
@@ -106,22 +160,15 @@ def run_one(g):
     )
     dt_base = 0.0075 * float(state.grid.dr)
     rows = []
-    # Include the initial slice and common target times.
-    rows.append({"g": G_BOND, **measure(state)})
+    initial = {"g": G_BOND, **measure(state)}
+    rows.append(initial)
+    log_row(initial, "INITIAL")
     for target in (2.0, 3.0, 4.0, 5.0):
         while state.t < target - 1e-12:
             state = kernel.step(state, min(dt_base, target - state.t))
         row = {"g": G_BOND, **measure(state)}
         rows.append(row)
-        print(
-            f"g={G_BOND:+.3f} t={row['t']:.2f} "
-            f"H0={row['H_center']:+.5e} Hmax={row['H_offmax_excluding_first_two']:.5e} "
-            f"Mmax={row['M_offmax_excluding_first_two']:.5e} "
-            f"alpha0={row['lapse_center']:.7f} "
-            f"1-alpha(r=3.25)={row['one_minus_lapse_r3p25']:+.5e} "
-            f"D0={row['D_center']:+.5e} Vbond0={row['bond_V_center']:+.5e}",
-            flush=True,
-        )
+        log_row(row, "SAMPLE")
     return rows
 
 
@@ -138,6 +185,7 @@ def main():
         writer.writerows(all_rows)
     print(f"JSON={json_path} rows={len(all_rows)}")
     print(f"CSV={csv_path} rows={len(all_rows)}")
+    print("PASS: all scalar-projection and cross-consumer closure checks passed")
 
 
 if __name__ == "__main__":
