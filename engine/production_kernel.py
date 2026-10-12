@@ -254,15 +254,14 @@ class V55ProductionKernel:
             )
         )
 
-        # Check the timestep-scaled matter predictor against its provisional metric.
+        g_explicit1.alpha = self._solve_lapse(
+            grid, g_explicit1, s1, m1
+        )[0]
+        # Check the timestep-scaled matter predictor against its solved metric.
         validate_species_admissibility(
             metric_slice_from_q(grid, g_explicit1), m1.radiation,
             Species.RADIATION, stage="explicit-predictor",
         )
-
-        g_explicit1.alpha = self._solve_lapse(
-            grid, g_explicit1, s1, m1
-        )[0]
         gterms_pred = adapter.geometry_stage_terms(
             grid, g_explicit1, s1, m1, lambda_m=LAMBDA_M
         )
