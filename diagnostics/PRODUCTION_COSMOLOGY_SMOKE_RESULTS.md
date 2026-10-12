@@ -24,9 +24,13 @@ This is a positive full-step smoke test, not full validation of the production e
 
 ## Stronger reference comparison added
 
-A follow-up run compares the production step's (H_{eff}) against an independent RK4 integration of `engine.cosmos.cosmos_rhs` from the same archive operating point. It uses a predeclared (10^{-9}) absolute Hubble-rate tolerance. At the time this report was written, that workflow was still running:
-
-https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38202689236
+The follow-up comparison **passed**:
+- Workflow: https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38202689236
+- Production (H_{eff}) after one step: (0.005668705253181093)
+- Independent homogeneous RK4 reference: (0.0056687051274573585)
+- Absolute difference: (1.25724\times10^{-10})
+- Predeclared tolerance: (10^{-9})
+- Result: PASS
 
 ## Scope and caveat
 
