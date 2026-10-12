@@ -1,0 +1,38 @@
+name: Diagnostic - production inhomogeneous scalar pulse smoke
+
+on:
+  push:
+    branches:
+      - "diag/bond-sweep-self-consistent"
+    paths:
+      - "diagnostics/production_inhomogeneous_smoke.py"
+      - ".github/workflows/production-inhomogeneous-smoke.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  production-inhomogeneous:
+    if: contains(github.event.head_commit.message, '[production-inhomogeneous-smoke]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout engine and pinned numerical kernel
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Run production inhomogeneous scalar pulse convergence
+        run: python diagnostics/production_inhomogeneous_smoke.py
+      - name: Upload diagnostic result
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-inhomogeneous-smoke
+          path: runs/production_inhomogeneous_smoke/production_inhomogeneous_smoke.json
+          if-no-files-found: error
