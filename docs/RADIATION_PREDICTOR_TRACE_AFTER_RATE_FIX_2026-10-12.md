@@ -452,3 +452,50 @@ Therefore do not copy a second version of that fix into PR #9 and do not treat t
 This central N=160 failure is the uncorrected unit-step rate-extraction artifact. It is distinct from the corrected-rate N=80 trajectory that reaches about t = 46.98 and then crosses the radiation cone at the outermost cell during the explicit geometry predictor. PR #8 addresses the former contract defect; it has not repaired or explained the latter late-time metric/matter-stage synchronization failure. Both are software/numerical admission issues until independent evidence establishes more. No bounce, turnaround, missing-physics law, or production readiness conclusion follows from this centre probe.
 
 No changes to `main`, the canonical GEAR archive, or production physics were made by this report addendum.
+
+
+## Rate-corrected four-case beta_rad one-step comparison — 12 October 2026
+
+**Status:** Diagnostic-only four-case comparison passed. This is one timestep per case, not physical-law validation, a long trajectory, or production admission.
+
+- Workflow: [38317295748](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38317295748), success.
+- Exact runner commit: `83486b03c0789f571c76e7a5a4287b6afaf13330` on isolated branch `diag/radiation-four-force-ratefix-ab-2026-10-12`.
+- Base repair source: PR #10, head `730d6788bff2b53cf84d0504842f95979953f1bd` at branch creation. PR #10 stays draft/unmerged.
+- Focused RHS/admissibility repair regressions: 4 passed; four-force null-identity tests: 3 passed; full tests suite: 29 passed.
+- Pinned vendor verified: `d6052d605673ce9d82cdc99b0df79855fa2ea215`.
+- Artifact: [11777006845 — radiation-four-force-ratefix-ab](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38317295748/artifacts/11777006845).
+- Artifact ZIP SHA-256: `9d29529a8096b6a3b46b8704ad0901bb2a3e637ad6f5373adbb4767bab227e34`.
+- JSON SHA-256, agrees with the artifact's manifest: `3e2a151895160a2e82caa8c8225f80af9b8721a53e5b7343869dc08eeaebcddb`.
+
+### Four actual finite-time cases
+
+| Resolution | beta_rad | dt | Result | Max post-step |S|/E | Min (1-|S|/E) |
+|---:|---:|---:|---|---:|---:|
+| 80 | 0 | 0.015 | passed | 0.0099086223695 | 0.990091377631 |
+| 80 | -0.04 | 0.015 | passed | 0.0099086123118 | 0.990091387688 |
+| 160 | 0 | 0.0075 | passed | 0.0099068411682 | 0.990093158832 |
+| 160 | -0.04 | 0.0075 | passed | 0.0099068361387 | 0.990093163861 |
+
+All 80 / 160 radiation cells are finite and admissible in the post-step profile. The maximum ratio occurs at the centre; the outer-cell ratio is much smaller. Thus the corrected RHS contract allows both N=160 arms to complete their real timestep; the prior N=160 rejections in [38316415773](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38316415773) were the artificial unit-step extraction guard, not a physical-step rejection.
+
+### Matched candidate-minus-null response
+
+The per-cell conserved profiles give these maximum absolute differences after the one step:
+
+| Witness | N=80 | N=160 |
+|---|---:|---:|
+| Eulerian radiation E | 1.84241e-14 | 9.21454e-15 |
+| (|S|) | 9.33393e-17 | 4.66639e-17 |
+| (|S|/E) | 1.00577e-8 | 5.02955e-9 |
+| Densitized conservative energy (U_E) | 2.87746e-11 | 1.44783e-11 |
+| Densitized radial momentum (U_r) | 1.82071e-15 | 4.55131e-16 |
+
+The global summary changes are also tiny: candidate-minus-null (Delta H_{m eff}) is (-4.51	imes10^{-17}) at N=80 and (-1.30	imes10^{-17}) at N=160; (Deltamax|H|) is about (-3.68	imes10^{-14}) / (-1.95	imes10^{-14}); (Deltamax|M|) is about (-5.11	imes10^{-17}) / (-2.55	imes10^{-16}). These are small one-step counterfactual differences, not an admitted physical effect. The four-force is currently a one-sided diagnostic source in radiation; there is no matching opposite scalar four-force in this candidate, so it is not a demonstrated covariantly closed exchange model. Do not promote (eta_{m rad}=-0.04) from this result.
+
+**Misner–Sharp current/balance remains unavailable** in this harness (reported as NaN, not counted as passing). This run does not address the distinct late-time N=80 outer-cell metric-predictor cone crossing near (t=47).
+
+### Independent follow-up lead: unused radiation rest-current channel
+
+The new post-step profile records a nonzero radiation `rest` slot after evolution despite `initialize_radiation()` initializing it to zero: at the outermost cell it is about (-1.00857	imes10^{-11}) for N=80 and (-5.01262	imes10^{-12}) for N=160. The candidate-minus-null difference is only roundoff-scale. In `engine/matter_system.py`, `_radiation_conserved()` and `_radiation_flux()` explicitly return zero in their first component, but `_hll_flux()` and the outer face currently use the generic `_valencia_conserved()` / `_valencia_flux()` channel for every species. That lets the generic fluid rest-current flux populate the radiation `rest` slot.
+
+The radiation primitive recovery and Einstein stress-energy projection use the radiation energy/momentum variables and ignore this slot, so this observation does not establish a direct effect on (|S|/E) or the late cone failure. It is a separate conservation/representation contract to audit with a regression test before proposing a small species-dispatch correction. No production source is changed here.
