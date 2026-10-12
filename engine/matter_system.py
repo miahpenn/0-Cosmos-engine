@@ -490,6 +490,7 @@ def evolve_species(
     dphi_t: np.ndarray | None = None,
     dphi_r: np.ndarray | None = None,
     beta_dm: float = -0.04,
+    beta_rad: float = 0.0,
     validate_admissibility: bool = True,
 ) -> ConservedSpecies:
     """Apply one finite-volume update.
@@ -552,6 +553,16 @@ def evolve_species(
                 raise ValueError("DM evolution requires dphi_t and dphi_r")
             q_t, q_r = dark_matter_covector_source(
                 beta_dm, prim[i].rho, float(dphi_t[i]), float(dphi_r[i])
+            )
+            q_e = -m.sqrt_gamma * (q_t - m.beta * q_r)
+            q_s = m.sqrt_gamma * q_r
+        elif species == Species.RADIATION and beta_rad != 0.0:
+            if dphi_t is None or dphi_r is None:
+                raise ValueError(
+                    "radiation four-force counterfactual requires dphi_t and dphi_r"
+                )
+            q_t, q_r = dark_matter_covector_source(
+                beta_rad, prim[i].rho, float(dphi_t[i]), float(dphi_r[i])
             )
             q_e = -m.sqrt_gamma * (q_t - m.beta * q_r)
             q_s = m.sqrt_gamma * q_r
