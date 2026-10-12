@@ -265,7 +265,7 @@ The terminal recorded rates match the existing equations: `a_dot=-0.192180007829
 
 | Contribution | `Delta gamma_rr_inv` | Share | `Delta C` |
 |---|---:|---:|---:|
-| Existing `a) channel (controlled by `A_a`) | +0.01398420880 | 62.6273% | -1.40318122e-6 |
+| Existing `a` channel (controlled by `A_a`) | +0.01398420880 | 62.6273% | -1.40318122e-6 |
 | Existing `X` channel (controlled by `K`) | +0.00826604052 | 37.0189% | -8.30224097e-7 |
 | Nonlinear interaction in `X²/a` | +0.00007900833 | 0.3538% | -3.95828120e-9 |
 | **Total** | **+0.02232925766** | **100%** | **-2.23736360e-6** |
