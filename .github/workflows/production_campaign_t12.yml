@@ -5,10 +5,13 @@ on:
     branches:
       - fix/strict-campaign-admission-2026-10-12
     paths:
-      - .github/workflows/production_campaign_t12.yml
       - engine/**
       - tests/**
       - requirements.txt
+
+concurrency:
+  group: v55-production-t12-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   production-t12:
