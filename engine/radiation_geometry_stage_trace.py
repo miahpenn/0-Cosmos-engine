@@ -22,10 +22,23 @@ import numpy as np
 from . import matter_rhs as matter_rhs_module
 from . import matter_system as matter_system_module
 from . import production_kernel as production_kernel_module
-from .adaptive_step import (
-    RadiationStepSizeUnderflow,
-    advance_with_radiation_admissibility_retries,
-)
+try:
+    from .adaptive_step import (
+        RadiationStepSizeUnderflow,
+        advance_with_radiation_admissibility_retries,
+    )
+except ModuleNotFoundError:
+    # Some frozen production candidates predate the optional adaptive-retry
+    # diagnostic. The ordinary fixed-dt trace does not need that helper.
+    class RadiationStepSizeUnderflow(ValueError):
+        pass
+
+    def advance_with_radiation_admissibility_retries(*args, **kwargs):
+        raise RuntimeError(
+            "adaptive-step helper is absent from this frozen candidate; "
+            "run the bounded trace with RADIATION_ADMISSIBILITY_RETRY=0"
+        )
+
 from .matter_system import Species
 
 
