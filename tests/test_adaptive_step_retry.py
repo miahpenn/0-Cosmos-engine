@@ -117,3 +117,26 @@ def test_runner_uses_adaptive_helper_and_writes_retry_ledger(tmp_path):
     retry_path = tmp_path / "N40" / "radiation_step_retries.json"
     assert retry_path.is_file()
     assert retry_path.read_text().strip() == "[]"
+
+
+
+def test_small_positive_dt_is_allowed_when_it_advances_from_zero():
+    state = FakeState(t=0.0, marker=2)
+
+    class AcceptAll:
+        def __init__(self):
+            self.calls = []
+
+        def step(self, source_state, dt):
+            self.calls.append(float(dt))
+            return FakeState(t=source_state.t + dt, marker=source_state.marker + 1)
+
+    kernel = AcceptAll()
+    outcome = advance_with_radiation_admissibility_retries(kernel, state, 1.0e-16)
+
+    assert kernel.calls == [1.0e-16]
+    assert outcome.accepted_dt == 1.0e-16
+    assert outcome.retry_count == 0
+    assert outcome.state.t == 1.0e-16
+    assert state.t == 0.0
+    assert state.marker == 2
