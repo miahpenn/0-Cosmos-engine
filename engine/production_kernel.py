@@ -285,9 +285,16 @@ class V55ProductionKernel:
             + 0.5 * gterms_pred["primary_l2"]["K"]
             + gterms0["primary_l3"]["K"]
         )
+        # Sequential PIRK evaluates Lambda's derivative block only after
+        # the predictor Aa/K fields have been formed.  lambda_l2_rhs depends
+        # on Aa, d_r Aa, and the momentum constraint; reusing
+        # gterms_pred["lambda_l2"] here evaluates that block on stale Aa/K.
+        lambda_l2_stage1 = vacuum.lambda_l2_rhs(
+            grid, g1, lambda_m=LAMBDA_M
+        )
         g1.Lambda = g0.Lambda + dt * (
             0.5 * gterms0["lambda_l2"]
-            + 0.5 * gterms_pred["lambda_l2"]
+            + 0.5 * lambda_l2_stage1
             + gterms0["lambda_l3"]
         )
         # The pinned R0 radial system supplies a parameter-free incoming-light
