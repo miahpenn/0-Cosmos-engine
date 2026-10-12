@@ -7,8 +7,18 @@ shift are exercised. It is not a trajectory or full constraint validation.
 import numpy as np
 
 import engine.production_kernel as production_kernel
-from engine.matter_system import _metric_arrays
+from engine.matter_system import (
+    Species,
+    _metric_arrays,
+    initialize_dust,
+    primitives,
+)
 from engine.v55_matter import dm_density, metric_slice_from_q
+
+
+def _subtraction_roundoff(*arrays, mask):
+    scale = max(float(np.max(np.abs(np.asarray(a)[mask]))) for a in arrays)
+    return max(512.0 * np.finfo(float).eps * scale, 1.0e-24)
 
 
 def test_active_rhs_beta_source_pair_cancels_with_lapse_and_shift(monkeypatch):
@@ -27,10 +37,18 @@ def test_active_rhs_beta_source_pair_cancels_with_lapse_and_shift(monkeypatch):
     state.scalars.phi[:] += 1.0e-3 * np.exp(-(r / 7.0) ** 2)
 
     metric = metric_slice_from_q(state.grid, state.geometry)
-    rho_dm = dm_density(metric, state.matter)
     metrics = _metric_arrays(metric)
+    rho_dm = dm_density(metric, state.matter)
+    # Exercise the rest-current source with genuinely moving dust.
+    v_r = 0.02 * np.sin(r / 5.5)
+    state.matter.dark_matter = initialize_dust(metrics, rho_dm, v_r=v_r)
+    rho_dm = dm_density(metric, state.matter)
+    dm_prim = primitives(metrics, state.matter.dark_matter, Species.DARK_MATTER)
+    dm_W = np.asarray([q.lorentz() for q in dm_prim])
+    dm_v_r = np.asarray([q.v_r for q in dm_prim])
     sqrt_gamma = np.asarray([m.sqrt_gamma for m in metrics])
     alpha = np.asarray(state.geometry.alpha)
+    shift = np.asarray(state.geometry.beta)
     beta_source = -0.04
     pi = np.asarray(state.scalars.Pi)
 
@@ -43,6 +61,10 @@ def test_active_rhs_beta_source_pair_cancels_with_lapse_and_shift(monkeypatch):
         scalar_off, matter_off, _ = kernel._rhs(state)
 
     delta_pi_rhs = scalar_on.Pi - scalar_off.Pi
+    delta_dm_rest_rhs = (
+        matter_on["dark_matter"].rest
+        - matter_off["dark_matter"].rest
+    )
     delta_dm_energy_rhs = (
         matter_on["dark_matter"].energy_t
         - matter_off["dark_matter"].energy_t
@@ -53,6 +75,33 @@ def test_active_rhs_beta_source_pair_cancels_with_lapse_and_shift(monkeypatch):
     )
     dphi_r = state.grid.cell_derivative_fourth(
         state.scalars.phi, parity=1
+    )
+
+    # Contracting the covariant exchange with the dust four-velocity yields
+    # the lapse-weighted rest-current source, including the moving-DM term.
+    expected_rest_source = (
+        -sqrt_gamma * alpha * beta_source * rho_dm
+        * dm_W * (pi + dm_v_r * dphi_r)
+    )
+    mask = (
+        (np.abs(1.0 - alpha) > 1.0e-8)
+        & (np.abs(shift) > 1.0e-8)
+        & (rho_dm > 0.0)
+    )
+    assert np.any(mask), "probe must exercise non-unit lapse and nonzero shift"
+    assert np.any(mask & (np.abs(dm_v_r) > 1.0e-8)), (
+        "probe must exercise nonzero DM radial velocity"
+    )
+    np.testing.assert_allclose(
+        delta_dm_rest_rhs[mask],
+        expected_rest_source[mask],
+        rtol=2.0e-10,
+        atol=_subtraction_roundoff(
+            matter_on["dark_matter"].rest,
+            matter_off["dark_matter"].rest,
+            state.matter.dark_matter.rest,
+            mask=mask,
+        ),
     )
 
     # The archive-locked covariant law and the ADM Pi definition
@@ -80,13 +129,7 @@ def test_active_rhs_beta_source_pair_cancels_with_lapse_and_shift(monkeypatch):
 
     scalar_energy_source = sqrt_gamma * pi * delta_pi_rhs
     observed_pair_residual = scalar_energy_source + delta_dm_energy_rhs
-    mask = (
-        (np.abs(1.0 - alpha) > 1.0e-8)
-        & (np.abs(state.geometry.beta) > 1.0e-8)
-        & (rho_dm > 0.0)
-        & (np.abs(pi) > 0.0)
-    )
-    assert np.any(mask), "probe did not exercise non-unit lapse and nonzero shift"
+    mask = mask & (np.abs(pi) > 0.0)
 
     # delta_dm_energy_rhs is formed by subtracting two full RHS arrays.
     # Bound subtraction roundoff using the magnitudes of those operands too,
@@ -167,6 +210,10 @@ def test_beta_source_pair_cancels_at_actual_step_rhs_stages(monkeypatch):
         )
 
         delta_pi = scalar_on.Pi - scalar_off.Pi
+        delta_rest = (
+            matter_on["dark_matter"].rest
+            - matter_off["dark_matter"].rest
+        )
         delta_energy = (
             matter_on["dark_matter"].energy_t
             - matter_off["dark_matter"].energy_t
@@ -181,6 +228,34 @@ def test_beta_source_pair_cancels_at_actual_step_rhs_stages(monkeypatch):
             geom.alpha * beta_source * rho_dm,
             rtol=2.0e-10,
             atol=2.0e-20,
+        )
+        prim = primitives(
+            _metric_arrays(metric), stage_state.matter.dark_matter,
+            Species.DARK_MATTER,
+        )
+        W = np.asarray([q.lorentz() for q in prim])
+        v_r = np.asarray([q.v_r for q in prim])
+        pi_normal = (scalar_off.phi - geom.beta * dphi_r) / geom.alpha
+        expected_rest = (
+            -geom.alpha * sqrt_gamma * beta_source * rho_dm
+            * W * (pi_normal + v_r * dphi_r)
+        )
+        mask = (
+            (np.abs(1.0 - geom.alpha) > 1.0e-8)
+            & (rho_dm > 0.0)
+            & (np.abs(pi) > 0.0)
+        )
+        assert np.any(mask), "actual stage must exercise non-unit lapse"
+        np.testing.assert_allclose(
+            delta_rest[mask],
+            expected_rest[mask],
+            rtol=2.0e-10,
+            atol=_subtraction_roundoff(
+                matter_on["dark_matter"].rest,
+                matter_off["dark_matter"].rest,
+                stage_state.matter.dark_matter.rest,
+                mask=mask,
+            ),
         )
         q_t = beta_source * rho_dm * scalar_off.phi
         q_r = beta_source * rho_dm * dphi_r
@@ -197,13 +272,7 @@ def test_beta_source_pair_cancels_at_actual_step_rhs_stages(monkeypatch):
             atol=2.0e-20,
         )
 
-        mask = (
-            (np.abs(1.0 - geom.alpha) > 1.0e-8)
-            & (rho_dm > 0.0)
-            & (np.abs(pi) > 0.0)
-        )
         radial_mask = mask & (np.abs(dphi_r) > 0.0)
-        assert np.any(mask), "actual stage must exercise non-unit lapse"
         assert np.any(radial_mask), "actual stage must exercise radial exchange"
 
         scalar_energy_source = sqrt_gamma * pi * delta_pi
@@ -249,6 +318,7 @@ def test_beta_source_pair_cancels_at_actual_step_rhs_stages(monkeypatch):
 
         stage_results.append({
             "alpha_deviation": float(np.max(np.abs(geom.alpha - 1.0))),
+            "max_rest_source_error": float(np.max(np.abs(delta_rest[mask] - expected_rest[mask]))),
             "max_energy_pair_residual": float(np.max(np.abs(energy_residual[mask]))),
             "max_radial_pair_residual": float(np.max(np.abs(radial_residual[radial_mask]))),
         })
@@ -263,6 +333,7 @@ def test_beta_source_pair_cancels_at_actual_step_rhs_stages(monkeypatch):
     for idx, result in enumerate(stage_results):
         print(
             f"[stage-pair {idx}] alpha_deviation={result['alpha_deviation']:.6e} "
+            f"rest_source_error={result['max_rest_source_error']:.6e} "
             f"energy_residual={result['max_energy_pair_residual']:.6e} "
             f"radial_residual={result['max_radial_pair_residual']:.6e}"
         )
