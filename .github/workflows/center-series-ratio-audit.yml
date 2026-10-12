@@ -1,0 +1,61 @@
+name: Diagnostic - centre series ratio audit
+
+on:
+  push:
+    branches:
+      - diag/lambda-connection-budget-2026-10-12
+    paths:
+      - tools/center_series_ratio_audit.py
+      - .github/workflows/center-series-ratio-audit.yml
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: center-series-ratio-audit
+  cancel-in-progress: true
+
+jobs:
+  centre-series-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PYTHONUNBUFFERED: "1"
+    steps:
+      - name: Checkout diagnostic code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Checkout exact production source and pinned vendor
+        uses: actions/checkout@v4
+        with:
+          ref: 6d8b3f2790644591326df57c55908863f994cb0c
+          path: source
+          submodules: recursive
+          fetch-depth: 0
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install exact production dependencies
+        run: python -m pip install -r source/requirements.txt
+      - name: Download N40/N60/N80/N120 t=2.16 checkpoints
+        uses: actions/download-artifact@v4
+        with:
+          name: lambda-spatial-refinement-t2p16
+          run-id: 38212879394
+          github-token: ${{ github.token }}
+          path: spatial-artifact
+      - name: Compile diagnostic
+        run: python -m py_compile tools/center_series_ratio_audit.py
+      - name: Audit centre regularity ratios without evolution
+        run: python tools/center_series_ratio_audit.py
+      - name: Upload centre ratio report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: center-series-ratio-audit
+          path: results/center-series-ratio-audit/
+          if-no-files-found: warn
+          retention-days: 90
