@@ -57,6 +57,41 @@ def _validate_config_values(config) -> dict:
     checkpoint_interval = _positive_finite(
         "checkpoint_interval", config.checkpoint_interval
     )
+
+    # The pinned SphericalCellGrid defines dr = r_max / N. Validate the
+    # smallest and largest nominal steps across the requested resolutions
+    # before the runner can enter a time/checkpoint loop.
+    min_nominal_dt = cfl * (r_max / max(resolutions))
+    max_nominal_dt = cfl * (r_max / min(resolutions))
+    if not math.isfinite(min_nominal_dt) or min_nominal_dt <= 0.0:
+        raise ValueError(
+            "cfl and r_max/resolutions produce a zero or non-finite nominal timestep"
+        )
+    if not math.isfinite(max_nominal_dt) or max_nominal_dt <= 0.0:
+        raise ValueError(
+            "cfl and r_max/resolutions produce a zero or non-finite nominal timestep"
+        )
+
+    # For t < final_time, an increment no larger than half the ULP at the
+    # campaign's time scale can round back to t (including ties-to-even).
+    # Require representable forward progress, not a physics-based CFL floor.
+    if min_nominal_dt <= math.ulp(final_time) / 2.0:
+        raise ValueError(
+            "cfl and resolution produce a nominal timestep too small to guarantee "
+            "floating-point time progress through final_time"
+        )
+
+    # The current runner writes the accepted state for each checkpoint tick
+    # crossed; it does not interpolate states at checkpoint times. Keep the
+    # interval at least as large as the largest nominal step so one accepted
+    # step cannot trigger an unbounded catch-up loop of duplicate snapshots.
+    if checkpoint_interval < max_nominal_dt:
+        raise ValueError(
+            "checkpoint_interval must be at least the largest nominal timestep "
+            "across resolutions; finer checkpoint times cannot produce distinct "
+            "accepted states"
+        )
+
     try:
         output_dir = os.fspath(config.output_dir)
     except TypeError as exc:
