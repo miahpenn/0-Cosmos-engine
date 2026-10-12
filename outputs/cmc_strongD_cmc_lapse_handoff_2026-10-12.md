@@ -268,3 +268,8 @@ The first iteration study only started R80 from its native archived alpha and R1
 - the existing fixed-target repeatability controls remain.
 
 Workflow run [38209561182](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38209561182) was queued at the last check. The code change is [commit 0f7706811df5a9d47cf36ee11c7091e94b79f515](https://github.com/miahpenn/0-Cosmos-engine/commit/0f7706811df5a9d47cf36ee11c7091e94b79f515), and the gated workflow trigger commit is [ec10741991358a4bb87048ec7e050a03f1defcdf](https://github.com/miahpenn/0-Cosmos-engine/commit/ec10741991358a4bb87048ec7e050a03f1defcdf). If the two seeds remain distinct while each map residual stays small, this establishes direct evidence of multiple near-fixed points for the same frozen R80 map; if they converge to the same profile, that rejects the simplest multi-root interpretation. Do not add damping or tune parameters in response.
+
+
+### Dual-seed test rerun status (12 October, follow-up)
+
+The first dual-seed rerun [38209561182](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38209561182) failed before executing diagnostics because a report dictionary in the diagnostic wrapper had one excess closing brace (`IndentationError` at the `fixed_target_control` field). No numerical output or artifact was produced; this is a tooling failure, not a physics result. The correction is commit [4024007b1fcb248e88b636908fab67354613bfce](https://github.com/miahpenn/0-Cosmos-engine/commit/4024007b1fcb248e88b636908fab67354613bfce). Corrected rerun [38209662328](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38209662328) is in progress; at the last status check it was installing dependencies and had not started the diagnostic calculation.
