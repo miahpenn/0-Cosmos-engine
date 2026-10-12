@@ -52,10 +52,10 @@ def test_radiation_rhs_extraction_does_not_guard_unit_step_intermediate():
 
 def test_direct_update_keeps_admissibility_guard_enabled_by_default():
     """The guard remains active for a direct, actual update API call."""
-    _, state, metric, _ = _frozen_radiation_rhs(160)
+    kernel, state, metric, _ = _frozen_radiation_rhs(160)
     derivatives = geometry_metric_derivatives(
         metric,
-        lambda values, parity: V55ProductionKernel()._d1(state.grid, values, parity),
+        lambda values, parity: kernel._d1(state.grid, values, parity),
     )
     with pytest.raises(ValueError, match="radiation state inadmissible"):
         evolve_species(
