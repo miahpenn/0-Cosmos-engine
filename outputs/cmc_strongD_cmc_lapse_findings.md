@@ -240,3 +240,13 @@ In `engine/cmc_gauge.py`, `target_kdot` forms the proper-volume weighted average
 This makes the observed near-flat closure understandable: after solving the lapse for a trial Kdot, re-averaging the same K RHS over the slice almost necessarily returns that Kdot. The global projection may therefore be algebraically dependent on the PDE rows, apart from the normalization-cell contribution, rather than an independent equation selecting Kdot. Across the tested (3.4683\times10^{-7}) target interval, closure H varies only (2.29\times10^{-17}), slope ≈(1.40\times10^{-11}).
 
 **This is a structural hypothesis supported by the discrete residuals, not a declaration that the production gauge is wrong.** The authoritative CMC derivation must decide whether Kdot is meant to be fixed by a separate condition (for example a global preservation/normalization condition) or whether the current projection is intentionally a gauge convention. Next derive the discrete coupled system explicitly and determine whether the target equation adds an independent constraint. Do not patch the target average or remove the normalization cell by intuition.
+
+
+## Nine-point target-closure rank probe — completed
+
+- Report: [`outputs/cmc_target_closure_rank_probe_2026-10-12.md`](cmc_target_closure_rank_probe_2026-10-12.md)
+- Run [38294955148](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38294955148); artifact [11768056222](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38294955148/artifacts/11768056222).
+- ZIP SHA-256 `64cc1666a2010d73b462cac48c78706ac48be1a1d02fea7de343bd09172c4e24`; report JSON SHA-256 `8ce2d07e90f0a760fd0683efb72e0af6530893b13f03776dc1ed67efb240b1ab`.
+- Nine fixed targets span (6.12947\times10^{-5}) to (6.30289\times10^{-5}), wider than the native R80/R160 gap. Solved target output vs input slope is (0.999999999757); H range is (4.37882\times10^{-16}), and fitted (dH/d\dot K=-2.42686\times10^{-10}). Lapse profiles are affine in trial Kdot to RMS (4.48\times10^{-15}).
+- PDE-row residual max is (3.71\times10^{-15}); normalization-cell residual max is (4.60\times10^{-12}); H and weighted pointwise residual mean match within (1.14\times10^{-20}).
+- This strongly supports near-redundancy of the current global target projection with the elliptic PDE rows plus boundary normalization over the tested range. It is not proof of exact multiple roots or a physics defect. The next task is an explicit coupled discrete residual/Jacobian and rank/Schur-complement audit, checked against the authoritative CMC derivation. No production patch or expensive trajectory.
