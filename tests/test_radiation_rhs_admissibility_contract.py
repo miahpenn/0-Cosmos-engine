@@ -5,7 +5,9 @@ import numpy as np
 import pytest
 
 from engine.matter_rhs import species_rhs
+import engine.production_kernel as production_kernel_module
 from engine.matter_system import (
+    ConservedSpecies,
     Species,
     _metric_arrays,
     evolve_species,
@@ -94,3 +96,117 @@ def test_n160_baseline_completes_real_step_with_stage_checks():
         Species.RADIATION,
         stage="test-final",
     )
+
+def test_initial_admissibility_precedes_cmc_source_projection(monkeypatch):
+    """An invalid incoming state is named before CMC primitive recovery."""
+    kernel, state, metric, _ = _frozen_radiation_rhs(40)
+    metric0 = _metric_arrays(metric)[0]
+    state.matter.radiation.momentum_r[0] = (
+        2.0 * state.matter.radiation.energy_t[0]
+        / np.sqrt(metric0.gamma_rr_inv)
+    )
+
+    def forbidden_lapse_solve(*args, **kwargs):
+        raise AssertionError("CMC solve ran before initial radiation admission")
+
+    monkeypatch.setattr(kernel, "_solve_lapse", forbidden_lapse_solve)
+    dt = 0.03 * float(state.grid.centers[1] - state.grid.centers[0])
+    with pytest.raises(ValueError, match="stage='initial'.*ratio="):
+        kernel.step(state, dt)
+
+
+def test_explicit_predictor_admission_precedes_cmc_source_projection(monkeypatch):
+    """The named predictor check must run before lapse recovery consumes it."""
+    kernel, state, _, _ = _frozen_radiation_rhs(40)
+    dr = float(state.grid.centers[1] - state.grid.centers[0])
+    dt = 0.03 * dr
+    original_rhs = production_kernel_module.species_rhs
+
+    def inject_inadmissible_predictor(
+        metric, metric_derivatives, conserved, species,
+        dphi_t=None, dphi_r=None, beta_dm=-0.04,
+    ):
+        rhs = original_rhs(
+            metric, metric_derivatives, conserved, species,
+            dphi_t=dphi_t, dphi_r=dphi_r, beta_dm=beta_dm,
+        )
+        if species is Species.RADIATION:
+            m0 = _metric_arrays(metric)[0]
+            predicted_energy = conserved.energy_t[0] + dt * rhs.energy_t[0]
+            target_momentum = (
+                4.0 * predicted_energy / np.sqrt(m0.gamma_rr_inv)
+            )
+            momentum = rhs.momentum_r.copy()
+            momentum[0] = (target_momentum - conserved.momentum_r[0]) / dt
+            return ConservedSpecies(rhs.rest.copy(), rhs.energy_t.copy(), momentum)
+        return rhs
+
+    monkeypatch.setattr(
+        production_kernel_module, "species_rhs", inject_inadmissible_predictor
+    )
+    original_lapse_solve = kernel._solve_lapse
+    lapse_calls = 0
+
+    def allow_only_current_slice_lapse(grid, geometry, scalars, matter):
+        nonlocal lapse_calls
+        lapse_calls += 1
+        if lapse_calls > 1:
+            raise AssertionError("predictor CMC source projection ran before admission")
+        return original_lapse_solve(grid, geometry, scalars, matter)
+
+    monkeypatch.setattr(kernel, "_solve_lapse", allow_only_current_slice_lapse)
+    with pytest.raises(ValueError, match="stage='explicit-predictor'.*ratio="):
+        kernel.step(state, dt)
+    assert lapse_calls == 1
+
+
+def test_final_admission_precedes_outer_boundary_source_projection(monkeypatch):
+    """An invalid completed state is rejected before final boundary projection."""
+    kernel, state, _, _ = _frozen_radiation_rhs(40)
+    dr = float(state.grid.centers[1] - state.grid.centers[0])
+    dt = 0.03 * dr
+    original_rhs = production_kernel_module.species_rhs
+    radiation_calls = 0
+
+    def inject_inadmissible_completed_state(
+        metric, metric_derivatives, conserved, species,
+        dphi_t=None, dphi_r=None, beta_dm=-0.04,
+    ):
+        nonlocal radiation_calls
+        rhs = original_rhs(
+            metric, metric_derivatives, conserved, species,
+            dphi_t=dphi_t, dphi_r=dphi_r, beta_dm=beta_dm,
+        )
+        if species is Species.RADIATION:
+            radiation_calls += 1
+            if radiation_calls == 2:
+                momentum = rhs.momentum_r.copy()
+                momentum[0] = (
+                    20.0 * abs(state.matter.radiation.energy_t[0]) / dt
+                )
+                return ConservedSpecies(
+                    rhs.rest.copy(), rhs.energy_t.copy(), momentum
+                )
+        return rhs
+
+    monkeypatch.setattr(
+        production_kernel_module, "species_rhs",
+        inject_inadmissible_completed_state,
+    )
+    original_boundary = kernel._apply_outer_light_boundary
+    boundary_calls = 0
+
+    def allow_only_primary_boundary(grid, geometry, scalars, matter):
+        nonlocal boundary_calls
+        boundary_calls += 1
+        if boundary_calls > 1:
+            raise AssertionError("final boundary source projection ran before admission")
+        return original_boundary(grid, geometry, scalars, matter)
+
+    monkeypatch.setattr(
+        kernel, "_apply_outer_light_boundary", allow_only_primary_boundary
+    )
+    with pytest.raises(ValueError, match="stage='final'.*ratio="):
+        kernel.step(state, dt)
+    assert boundary_calls == 1
+
