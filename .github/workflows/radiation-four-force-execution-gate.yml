@@ -3,7 +3,7 @@ name: Radiation four-force execution gate
 on:
   push:
     branches:
-      - diag/radiation-four-force-counterfactual-2026-10-12
+      - verify/post-repair-radiation-counterfactual-2026-10-12
   workflow_dispatch:
 
 permissions:
