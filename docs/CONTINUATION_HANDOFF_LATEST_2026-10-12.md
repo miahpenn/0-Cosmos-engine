@@ -2,7 +2,7 @@
 
 **Updated:** 2026-10-12 (UTC)  
 **Repository:** [miahpenn/0-Cosmos-engine](https://github.com/miahpenn/0-Cosmos-engine)  
-**Production branch status:** \`main\` at \`809228c380d80af83858412557c78b6329ffa5c8\` when this handoff was assembled; no diagnostic result below has been merged into main.  
+**Production branch status:** `main` at `2035acc1210db18da0cededea18750b7ed813260` as of the latest check on 12 October 2026; no diagnostic result in this handoff has been merged into main.  
 **Frozen production source used in the numerical audits:** \`6d8b3f2790644591326df57c55908863f994cb0c\`  
 **Pinned geometry/PIRK vendor:** \`d6052d605673ce9d82cdc99b0df79855fa2ea215\`  
 **Active quadrature/centre-series branch:** \`diag/discrete-consistent-initial-production-test-2026-10-12\`  
@@ -285,9 +285,11 @@ The centre-series issue is still open, but the present evidence does not support
 All work above is diagnostic-only. Production main is unchanged.
 
 
-## Main-branch reconciliation (2026-10-12)
+## Main-branch reconciliation (latest check, 12 October 2026)
 
-Current main HEAD is 87e71c3793d8afd5519ca1099dc69ebff707546b. Compared with the recorded production baseline 809228c380d80af83858412557c78b6329ffa5c8, the only transient difference was the diagnostic workflow .github/workflows/cmc-target-closure-rank-probe.yml, which was added in commit 6d3c508 and removed in the current revert commit. The current main tree has no production source, physics, or kernel changes relative to that recorded baseline. Diagnostic scripts/reports remain on diagnostic branches.
+Current main HEAD is `2035acc1210db18da0cededea18750b7ed813260`. This is the current repo head confirmed from the live GitHub branch endpoint. The radiation rest-current candidate remains draft PR #11, stacked on draft PR #10; neither has been merged. The PIRK Lambda stage-order experiment remains on diagnostic branch `diag/pirk-lambda-predictor-stage-order-2026-10-12`; its bounded A/B and reports are also diagnostic-only. The latest main-based full-trajectory radiation result still has the late outer-cell predictor cone crossing; none of these bounded A/Bs resolves it.
+
+No production source, physics, kernel, or authoritative GEAR change was made to main by the work recorded in this handoff.
 
 
 ## Latest bounded PIRK Lambda stage-order A/B — 12 October 2026
