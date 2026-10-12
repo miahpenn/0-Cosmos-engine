@@ -197,60 +197,74 @@ The next useful bounded comparison is therefore not a new long campaign:
 **Revised bottom line:** one metric-contraction inconsistency is confirmed and the local DM–COSMOS scalar exchange channel is already wired. The more consequential open question is whether the existing coupled source, gauge and geometry updates preserve the required continuum identities at the discrete stages. The early GEAR global-source bridge and anisotropic global completeness remain different, still-open physical-model questions.
 
 
-## 8. Existing parallel-agent result: lapse-weighted scalar–DM source closure (2026-10-10)
+## 8. Scalar–DM exchange audit reconciled across parallel branches
 
-A repository search found that the exact candidate described in the prior source audit was already explored by the parallel experimental branch physics/spatial-beta-lapse-source-correction (also mirrored in physics/spatial-beta-covariant-source-closure). This is pre-existing team evidence, not a new edit made in this turn.
+### 8.1 Governing identity
 
-### 8.1 Derived mismatch
+The archived V5.5 covariant exchange law is
 
-The archived covariant law is
 \[
 \nabla_\mu T_{DM}^{\mu\nu}=+\beta\rho_{DM}\nabla^\nu\phi,\qquad
 \nabla_\mu T_{\phi}^{\mu\nu}=-\beta\rho_{DM}\nabla^\nu\phi.
 \]
-With the production convention \(\partial_t\phi=\alpha\Pi+\beta^r\partial_r\phi\), the conservative DM source reduces to
+
+The spatial scalar kinematics are \(\partial_t\phi=\alpha\Pi+\beta^r\partial_r\phi\). The conservative DM source in the production variable conventions therefore has the source-only energy increment
+
 \[
-q_E^{DM}=-\sqrt{\gamma}\,\alpha\,\beta\,\rho_{DM}\,\Pi.
+\Delta E^{DM}_{cons}=-\sqrt{\gamma}\,\alpha\,\beta\rho_{DM}\Pi,
 \]
-The baseline scalar Pi RHS added \(+\beta\rho_{DM}\) without the lapse, giving a source-pair residual
+
+and the radial momentum increment
+
 \[
-\Delta_{exchange}=\sqrt{\gamma}(1-\alpha)\beta\rho_{DM}\Pi.
+\Delta S^{DM}_{cons}=\sqrt{\gamma}\,\alpha\,\beta\rho_{DM}\,\partial_r\phi.
 \]
-The experimental branch changed the scalar source to \(+\alpha\beta\rho_{DM}\). The correction follows from the archived conservation law and adds no new interaction coefficient.
 
-### 8.2 Existing test and strict limitation
+The reciprocal scalar source in the coordinate-time \(\Pi\) RHS is \(+\alpha\beta\rho_{DM}\). Removing either lapse factor makes the corresponding pointwise source pair fail when \(\alpha\ne1\).
 
-The branch audit, [SPATIAL_BETA_EXCHANGE_LAPSE_ACCOUNTING_AUDIT_2026-10-10.md](https://github.com/miahpenn/0-Cosmos-engine/blob/physics/spatial-beta-lapse-source-correction/docs/SPATIAL_BETA_EXCHANGE_LAPSE_ACCOUNTING_AUDIT_2026-10-10.md), describes a synthetic, unadvanced test with non-unit lapse and nonzero shift. It checks the scalar source increment, actual conservative DM energy-source increment and their sum. After a tolerance correction for roundoff, [run 38060315441](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38060315441) passed 111 tests. The branch report explicitly says no long trajectory was run and no merge to main was authorized.
+### 8.2 What the older October 10 branch did—and did not—close
 
-The corrected source is at [engine/scalar_system.py on the experimental branch](https://github.com/miahpenn/0-Cosmos-engine/blob/physics/spatial-beta-lapse-source-correction/engine/scalar_system.py). October 12 main still contains the unweighted scalar source, so the mismatch remains in the current production snapshot. The candidate test verifies local algebraic cancellation on synthetic states; it does not establish that the current full production trajectory, constraints or radiation gate are repaired.
+The existing [GEAR lapse accounting audit](https://github.com/miahpenn/0-Cosmos-engine/blob/physics/spatial-beta-lapse-source-correction/docs/SPATIAL_BETA_EXCHANGE_LAPSE_ACCOUNTING_AUDIT_2026-10-10.md) derived and corrected the scalar lapse factor. Its test passed 111 tests on [run 38060315441](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38060315441), but checked source-pair energy cancellation only. A later cross-agent review found the dark-matter radial source still used sqrt(gamma) Q_r rather than alpha sqrt(gamma) Q_r. The older test was therefore a useful, but incomplete, source-pair gate.
 
-### 8.3 Next discriminating test
+### 8.3 The concurrent October 12 audit covers both components
 
-Do not recreate the already-passing synthetic unit test or merge the old branch as a shortcut. Reuse its source-pair calculation on an admitted frozen state from the current main source, then perform source-only A/B evaluation at the actual beginning, predictor and corrector stages. Record local alpha, rho_DM, Pi, scalar source increment, DM conservative source increment, signed source residual, and whether the residual enters the full discrete constraint/current budget. Only if this closes at each real stage should a bounded one-step A/B be considered.
+The newer isolated branch [diag/covariant-beta-lapse-source-2026-10-12](https://github.com/miahpenn/0-Cosmos-engine/tree/diag/covariant-beta-lapse-source-2026-10-12) changes both the scalar Pi source and the DM radial source to carry the lapse, and its [audit report](https://github.com/miahpenn/0-Cosmos-engine/blob/diag/covariant-beta-lapse-source-2026-10-12/docs/COVARIANT_BETA_LAPSE_SOURCE_AUDIT_2026-10-12.md) contains a synthetic, frozen-state test of pointwise energy and radial-current cancellation. It did not alter main or run a trajectory.
 
-Keep this separate from the inverse-metric lapse-gradient candidate and from the centre Aa/K regularity investigation. The source-pair lapse mismatch is demonstrated in the baseline; its impact on the current full production evolution remains unmeasured. It is not yet established as the dominant centre or radiation defect, and production admission remains open.
+### 8.4 Current-main source-pair gate: passed
 
+To validate the same source-only candidate against the precise October 12 production snapshot, a second isolated branch was created from main at SHA 2035acc1210db18da0cededea18750b7ed813260:
 
-## 9. Current-main port of the source-pair gate (2026-10-12)
+- Candidate branch: [diag/current-main-beta-source-gate-2026-10-12](https://github.com/miahpenn/0-Cosmos-engine/tree/diag/current-main-beta-source-gate-2026-10-12)
+- Candidate scalar source: [engine/scalar_system.py](https://github.com/miahpenn/0-Cosmos-engine/blob/diag/current-main-beta-source-gate-2026-10-12/engine/scalar_system.py), using alpha * beta_dm * rho_dm
+- Candidate DM radial source: [engine/matter_system.py](https://github.com/miahpenn/0-Cosmos-engine/blob/diag/current-main-beta-source-gate-2026-10-12/engine/matter_system.py), using alpha * sqrt(gamma) * Q_r
+- Current-main regression: [test_spatial_beta_exchange_current_main.py](https://github.com/miahpenn/0-Cosmos-engine/blob/diag/current-main-beta-source-gate-2026-10-12/tests/test_spatial_beta_exchange_current_main.py)
+- Passing workflow: [38302168862](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38302168862), head commit 88e4d2e809c8c4b30ed4e37dd33b84342502e1be
 
-A clean diagnostic candidate is now based on the exact October 12 main snapshot, rather than relying only on the older October 10 experimental branch:
+The regression initializes through the current production kernel and creates an unadvanced diagnostic state with non-unit lapse and nonzero shift. It toggles the beta coupling on/off on the same state, then checks the source increments and their pointwise energy and radial-current cancellation. The observed latest run results are:
 
-- Base main SHA: 2035acc1210db18da0cededea18750b7ed813260
-- Candidate branch: diag/current-main-beta-source-gate-2026-10-12
-- Source-only candidate commit: 11a605d3ba0299ddbcc3f42568bbfd3577099fe9
-- Current-main test commit: cadbdfdab396385b0d0d188d1e9a7282b8759a61
-- Workflow commit: e7e3e8dc05d61745b38ae59e4fce94d27480d8c9
-- Workflow: [38301890834](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38301890834)
-- Source: [candidate scalar_system.py](https://github.com/miahpenn/0-Cosmos-engine/blob/diag/current-main-beta-source-gate-2026-10-12/engine/scalar_system.py)
-- Test: [current-main source-pair test](https://github.com/miahpenn/0-Cosmos-engine/blob/diag/current-main-beta-source-gate-2026-10-12/tests/test_spatial_beta_exchange_current_main.py)
+- Direct current-main source-pair test: **1 passed in 0.34 s**.
+- Full repository suite on this candidate: **80 passed in 7.04 s**.
+- Pinned numerical vendor: d6052d605673ce9d82cdc99b0df79855fa2ea215.
+- No time advance or trajectory campaign was part of this workflow.
 
-The only production expression changed on this candidate branch is the scalar source increment, from the unweighted beta*rho_DM to alpha*beta*rho_DM. The inverse-metric lapse-gradient issue is deliberately unchanged in this candidate so the source-pair effect remains isolated.
+This is a useful result: the exact current-main candidate source pair closes under the synthetic, unadvanced test. It is not evidence that the candidate has been evolved successfully, that the full constraint set is repaired, or that the radiation-admissibility failure is cured. Nothing was merged into main.
 
-The ported test initializes through the current production kernel, constructs a synthetic unadvanced state with non-unit lapse and nonzero shift, evaluates the current-kernel RHS with the coupling enabled and disabled, then checks:
-1. The scalar Pi RHS increment equals alpha*beta*rho_DM.
-2. The conservative DM energy-source increment equals -sqrt(gamma)*alpha*beta*rho_DM*Pi.
-3. The sum of those source contributions is zero within roundoff tolerance scaled to the full RHS operands being subtracted.
+## 9. Coordination outcome and updated next gate
 
-The branch-local workflow runs that test directly and then the full repository test suite. At this report version, the workflow is queued; no test result is claimed until its conclusion/logs are inspected. It performs no time evolution. Even a clean result would establish only source-pair algebra on this current-main code line, not constraint recovery, radiation admissibility or production readiness.
+Coordination thread: [Issue #5 — GEAR dynamic-interface hypothesis and current diagnostics](https://github.com/miahpenn/0-Cosmos-engine/issues/5).
 
-No main-branch source changed. The candidate is not merged. The next physics gate after CI is a bounded comparison using an admitted frozen production state and actual beginning/predictor/corrector stages—not another long campaign.
+The parallel CMC agent reported a bounded frozen uniform-quadrature CMC comparison, run [38301808650](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38301808650). Its workflow **failed closed at the source-provenance guard** because the isolated branch’s checked-out source did not equal the declared frozen production SHA 6d8b3f2790644591326df57c55908863f994cb0c; the scientific comparison steps were skipped. This is a provenance refusal, not a CMC or physics result. Reconcile source/vendor provenance with that agent before re-running it; do not interpret the workflow’s failure as a physical failure.
+
+### Recommended bounded next experiment
+
+The source-pair regression is now complete for both energy and radial-current components on one synthetic state. The next discriminating step is a stage-local source-only comparison on already admitted, frozen production states at the real beginning, predictor and corrector levels. Reuse captured states/artifacts where possible; do not launch a long trajectory.
+
+Record for each stage and cell: alpha, rho_DM, Pi, radial phi gradient, scalar source increments, DM conservative energy and radial-momentum source increments, signed cancellation residuals, and how those increments enter the discrete stress/current and constraint budgets. Distinguish continuum/source algebra from the actual staged update. Then:
+
+1. If the source pair remains pointwise balanced at every actual stage, preserve that result and continue the centre/RHS compatibility and radiation investigations separately.
+2. If it fails only after stage mixing/time-level mismatch, isolate that staging mechanism before making an equation change.
+3. Only after the frozen-stage budget is clear should a bounded one-step A/B be considered; require evaluation of the full implicated H/M/C, centre-series, radiation cone and Misner–Sharp witnesses.
+
+Do not merge either candidate branch, wire the independent homogeneous CosmosState into production, or add a new phenomenological Q law. The current-main beta-source candidate changes only the two derived lapse factors and the test; the separate scalar inverse-metric candidate and the dominant centre/RHS defect remain separate work.
+
+**Updated bottom line:** two concrete spatial scalar–DM source omissions have now been identified—the scalar lapse weight and the DM radial-source lapse weight—and both are corrected on the isolated current-main diagnostic branch. The source-pair and full unit-test gates pass there, but the full evolution impact remains unmeasured. The strongest open numerical question is still whether the complete staged geometry, CMC gauge, scalar and conservative-matter updates preserve all required constraints and admissibility conditions. The original GEAR local-to-global-Q, D-to-matter, clock-ownership and global anisotropic-geometry questions remain separate physical-model gates.
