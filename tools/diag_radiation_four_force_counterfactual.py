@@ -176,7 +176,7 @@ def run_one(resolution, beta_rad):
               "capture_B": {"rhs_entry": None, "faces": [], "first_face": None,
                             "centre_source": None, "grid_centres": [],
                             "centre_flux": [0.0, 0.0, 0.0]},
-              "error_type": None, "error": None, "traceback": None}
+              "capture_C": None, "error_type": None, "error": None, "traceback": None}
     kernel = None
     restore = None
     try:
@@ -194,6 +194,7 @@ def run_one(resolution, beta_rad):
         result["post"] = _snapshot(kernel, state, "t0+dt")
         result["status"] = "passed"
     except Exception as exc:
+        result["capture_C"] = getattr(exc, "diagnostic", None)
         result["error_type"] = type(exc).__name__
         result["error"] = str(exc)
         result["traceback"] = traceback.format_exc()
