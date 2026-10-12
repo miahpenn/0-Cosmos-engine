@@ -44,3 +44,8 @@ Result:
 The isolated source-repair candidate is at [`fix/radiation-rest-current-channel-2026-10-12`](https://github.com/miahpenn/0-Cosmos-engine/tree/fix/radiation-rest-current-channel-2026-10-12). It dispatches radiation HLL and outer-face flux through the existing radiation-specific helpers and adds an actual N=80/N=160 rest-invariant regression. Its dedicated repair gate [38317961532](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38317961532) was queued/running at the time of this handoff update; await its result before calling the code candidate admitted.
 
 This identifies a narrow representation defect and supports the minimum dispatch repair, but its E/S and geometry effects are exactly zero in the captured A/B. It does not explain the late-time cone crossing and is not a physical-law change or full-machine admission.
+
+
+## Follow-on fix candidate
+
+The diagnostic is complete. Its exact A/B showed generic dispatch creates rest drift, while the existing radiation-specific helpers remove the drift with E/S, geometry and H/M/C_Lambda bit-identical. A separate implementation candidate has passed its dedicated gate (3 focused tests, 4 radiation guard tests, 29 full-suite tests): draft stacked [PR #11](https://github.com/miahpenn/0-Cosmos-engine/pull/11), based on [PR #10](https://github.com/miahpenn/0-Cosmos-engine/pull/10). This branch remains diagnostic-only; the repair candidate branch is separate. No merge to main occurred.
