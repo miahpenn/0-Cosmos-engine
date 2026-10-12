@@ -10,9 +10,10 @@ ejection threshold, or phenomenological feedback source.
 from dataclasses import asdict, dataclass
 from pathlib import Path
 import json
+import math
 import numpy as np
 
-from .campaign import CampaignConfig
+from .campaign import CampaignConfig, prepare_campaign
 from .production_contract import require_production_capabilities
 from .production_kernel import V55ProductionKernel
 from .worldtube import current_residual
@@ -34,6 +35,43 @@ class ResolutionResult:
     misner_sharp_current_max: float
     misner_sharp_current_rms: float
     last_diagnostics: dict
+
+
+def campaign_admission_errors(results, config) -> list[str]:
+    """Return fail-closed admission errors for a requested campaign.
+
+    A trajectory counts as completed only if every requested resolution is
+    present, each run reports completed, and each final coordinate time reaches
+    the requested campaign horizon within floating-point endpoint tolerance.
+    """
+    errors: list[str] = []
+    expected = tuple(int(n) for n in config.resolutions)
+    observed = tuple(int(result.resolution) for result in results)
+    if observed != expected:
+        errors.append(
+            f"resolution results do not match request: expected {expected}, got {observed}"
+        )
+
+    target_time = float(config.final_time)
+    if not math.isfinite(target_time) or target_time <= 0.0:
+        errors.append(f"invalid requested final_time={target_time!r}")
+        time_tolerance = 0.0
+    else:
+        time_tolerance = 1.0e-10 * max(1.0, abs(target_time))
+
+    for result in results:
+        label = f"N={result.resolution}"
+        if result.status != "completed":
+            errors.append(f"{label} status is {result.status!r}")
+        final_time = float(result.t_final)
+        if not math.isfinite(final_time):
+            errors.append(f"{label} final time is not finite: {final_time!r}")
+        elif math.isfinite(target_time) and abs(final_time - target_time) > time_tolerance:
+            errors.append(
+                f"{label} ended at t={final_time:.17g}, "
+                f"short of requested t={target_time:.17g}"
+            )
+    return errors
 
 
 def _json_safe(value):
@@ -74,7 +112,9 @@ def run_campaign(
     """Run all requested resolutions after validating the production contract."""
     if kernel is None:
         kernel = V55ProductionKernel()
-    require_production_capabilities(kernel)
+    # Validate the production capability contract and campaign inputs before
+    # any expensive evolution begins.
+    prepare_campaign(kernel, config)
 
     results: list[ResolutionResult] = []
     for resolution in config.resolutions:
@@ -147,15 +187,24 @@ def run_campaign(
         _write_ledgers(state, run_dir, result)
         results.append(result)
 
+    admission_errors = campaign_admission_errors(results, config)
     summary = {
         "campaign": _json_safe(asdict(config)),
         "results": _json_safe([asdict(r) for r in results]),
+        "admission": {
+            "passed": not admission_errors,
+            "errors": admission_errors,
+        },
     }
     out = Path(config.output_dir)
     out.mkdir(parents=True, exist_ok=True)
     (out / "campaign_summary.json").write_text(
         json.dumps(summary, indent=2)
     )
+    if admission_errors:
+        raise RuntimeError(
+            "Production campaign admission failed: " + "; ".join(admission_errors)
+        )
     return results
 
 
