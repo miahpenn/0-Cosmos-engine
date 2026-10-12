@@ -103,18 +103,26 @@ def audit(n):
           "Dr_Krhs_over_r":float(kdot_over_r[i])})
     fixed={}
     for target_r in (2.0,3.0,4.0,5.0):
-        # Compare fixed physical radii only on actual interior PDE rows. On coarse
-        # grids this may map two requested radii to the same cell; report actual r.
-        i=1+int(np.argmin(np.abs(r[1:-1]-target_r)))
-        fixed[str(target_r)]={"i":i,"r":float(r[i]),"alpha":float(solved[i]),
-          "production_operator_residual":float(elliptic_residual[i]),
-          "solver_discrete_row_residual":float(solver_row_residual[i]),
-          "K_rhs_minus_target":float(k_rhs[i]-used),
-          "laplace_bracket":float(alpha_pp[i]+c[i]*alpha_p[i]),
-          "production_minus_cmc_lapse_K_term":float(production_cmc_lapse_diff[i]),
-          "Aa_lapse_hessian_tf":float(aa_lapse[i]),"Aa_ricci_tf":float(aa_ricci[i]),
-          "Aa_rhs":float(aa_rhs[i]),"Aa_rhs_over_r2":float(aa_rhs[i]/r[i]**2),
-          "K_rhs":float(k_rhs[i]),"Dr_Krhs_over_r":float(kdot_over_r[i])}
+        # Compare at the same physical radius by interpolation over interior PDE
+        # cells only. Coarse grids that do not cover the radius report unavailable.
+        if target_r < r[1] or target_r > r[-2]:
+            fixed[str(target_r)]={"available":False,"requested_r":target_r,
+              "reason":"radius outside interior PDE-row coverage"}
+            continue
+        def interp(values):
+            return float(np.interp(target_r,r[1:-1],np.asarray(values)[1:-1]))
+        fixed[str(target_r)]={"available":True,"r":target_r,
+          "alpha":interp(solved),
+          "production_operator_residual":interp(elliptic_residual),
+          "solver_discrete_row_residual":interp(solver_row_residual),
+          "K_rhs_minus_target":interp(k_rhs-used),
+          "laplace_bracket":interp(alpha_pp+c*alpha_p),
+          "production_minus_cmc_lapse_K_term":interp(production_cmc_lapse_diff),
+          "Aa_lapse_hessian_tf":interp(aa_lapse),"Aa_ricci_tf":interp(aa_ricci),
+          "Aa_rhs":interp(aa_rhs),"Aa_rhs_over_r2":interp(aa_rhs/(r**2)),
+          "K_rhs":interp(k_rhs),"Dr_Krhs_over_r":interp(kdot_over_r),
+          "left_cell_r":float(r[max(1,int(np.searchsorted(r,target_r))-1)]),
+          "right_cell_r":float(r[min(n-2,int(np.searchsorted(r,target_r)))])}
     # Fit an even scalar series in r using the first eight half-cell centres.
     fit_n=min(8,n); z=r[:fit_n]**2
     coeff=np.polynomial.polynomial.polyfit(z,solved[:fit_n],deg=min(3,fit_n-1))
@@ -138,7 +146,7 @@ def audit(n):
 
 def main():
     rows=[audit(n) for n in RESOLUTIONS]
-    report={"schema":"cmc_lapse_uniform_quadrature_operator_compare_v3","status":"completed",
+    report={"schema":"cmc_lapse_uniform_quadrature_operator_compare_v4","status":"completed",
       "diagnostic_only":True,"source_commit":SOURCE_COMMIT,"vendor_commit":VENDOR_COMMIT,
       "resolutions":list(RESOLUTIONS),"r_max":R_MAX,"rows":rows,
       "summary":{"all_finite":all(x["admission"]["finite"] for x in rows),
@@ -147,7 +155,7 @@ def main():
         "max_solver_discrete_row_residual_pde_rows":max(x["closures"]["max_abs_solver_discrete_row_residual_pde_rows"] for x in rows),
         "max_production_minus_cmc_lapse_term_pde_rows":max(x["closures"]["max_abs_production_minus_cmc_lapse_term_pde_rows"] for x in rows),
         "max_even_series_fit_residual":max(x["even_series"]["max_abs_residual"] for x in rows)},
-      "interpretation_limit":"Frozen uniform-quadrature initial profiles only. The CMC solver uses a tridiagonal centered interior lapse row and separate centre/outer boundary rows. The production operator uses the grid higher-order derivative operators. Report both the exact solver-row residual and the production-operator residual on PDE rows i=1..N-2, plus nearest interior cells at fixed physical radii; the latter cells report their actual radii. No trajectory was advanced and no source, gauge, boundary, centre rule, or radiation-cone rule was changed."}
+      "interpretation_limit":"Frozen uniform-quadrature initial profiles only. The CMC solver uses a tridiagonal centered interior lapse row and separate centre/outer boundary rows. The production operator uses the grid higher-order derivative operators. Report both the exact solver-row residual and the production-operator residual on PDE rows i=1..N-2, plus interpolated values at exactly fixed physical radii using interior PDE rows only; coverage gaps are reported explicitly. No trajectory was advanced and no source, gauge, boundary, centre rule, or radiation-cone rule was changed."}
     OUT.mkdir(parents=True,exist_ok=True)
     (OUT/"report.json").write_text(json.dumps(report,indent=2,sort_keys=True,allow_nan=False)+"\n",encoding="utf-8")
     print("CMC_LAPSE_UNIFORM_QUADRATURE_OPERATOR_COMPARE "+json.dumps({"status":report["status"],"summary":report["summary"],"rows":[{"N":x["N"],"closures":x["closures"],"even_series":x["even_series"],"first_cells":x["centre_cells"][:3]} for x in rows]},sort_keys=True),flush=True)
