@@ -1,0 +1,61 @@
+name: Diagnostic - production Hamiltonian and momentum source budget
+
+on:
+  push:
+    branches:
+      - fix/strict-campaign-admission-2026-10-12
+    paths:
+      - .github/workflows/production_hamiltonian_source_budget.yml
+      - diagnostics/production_hamiltonian_source_budget.py
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  offline-source-budget:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PYTHONUNBUFFERED: "1"
+    steps:
+      - name: Checkout diagnostic code and pinned numerical kernel
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Download the exact admitted t=12 campaign artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: v55-production-t12-n40-n60-n80
+          run-id: 38207937002
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: source-artifact
+
+      - name: Compile offline diagnostic
+        run: python -m py_compile diagnostics/production_hamiltonian_source_budget.py
+
+      - name: Audit raw geometric terms against matter-source terms
+        run: |
+          python diagnostics/production_hamiltonian_source_budget.py \
+            --artifact-dir source-artifact \
+            --output-dir runs/production-hamiltonian-source-budget \
+            --source-run-id 38207937002
+
+      - name: Upload source-budget profiles and report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v55-production-hamiltonian-source-budget
+          path: runs/production-hamiltonian-source-budget/
+          if-no-files-found: warn
+          retention-days: 90
