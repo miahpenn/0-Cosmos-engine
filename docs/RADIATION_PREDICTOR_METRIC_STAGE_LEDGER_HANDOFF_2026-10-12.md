@@ -138,3 +138,16 @@ The row builder and output serializer call `_grid_size(...grid)`, the regression
 - Corrected run: [38309326002](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38309326002) (queued when this addendum was written)
 
 Do not accept the corrected run until all of the following hold: (1) frozen source/vendor guard passes; (2) full repository test suite passes; (3) capture reaches the target failure and writes `stage_ledger.json` plus its summary; (4) ledger `validation.ok=true`, with all four stages for cells 75–79 and zero stage/Euler/projection mismatches; and (5) artifact hashes verify. A green test suite without a complete ledger is not a successful attribution.
+
+
+### Additional capture-order correction discovered before admission
+
+A focused reread of the frozen `V55ProductionKernel.step` found that after `_rhs` returns, production evaluates `geometry_stage_terms` first on the accepted state (`gterms0`), then again on the explicit predictor (`gterms_pred`), before the next call to `_rhs` increments the RHS counter. Therefore a recorder that keys only on `rhs_count == 1` can overwrite the accepted-state RHS with predictor-state terms. This is instrumentation contamination; it must not be interpreted as a geometry-law discrepancy.
+
+A third, focused recorder guard is now in the branch:
+- `_capture_first_geometry_terms_call(step)` tracks the first geometry-term evaluation during the capture window and accepts only its first call with `rhs_count == 1`.
+- New tests verify the first call records, subsequent predictor/completed-state calls do not, and calls before (t=44) do not consume the counter.
+- Source commit: `4f2e22681bfd086cbd35a22c58ac8e1452adace6`.
+- Regression commit: `1f1f50b5f4d56cbe6297722f6149195e065cb36d`.
+
+The currently running [run 38309326002](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38309326002) was triggered before this last guard. Any ledger it produces must be checked for `validation.ok`; if the RHS identity fails or accepted geometry does not match the real Euler starting state, it is not admitted. The next tagged run must include this guard and its two new tests before any raw-versus-projection conclusion is recorded.
