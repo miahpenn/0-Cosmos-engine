@@ -113,3 +113,49 @@ N=40 has no points in the admitted-inner (i\ge2, r<5) mask. Fixed-exterior H ((r
 The combination of (a) first-step regeneration from a discrete-consistent initial slice, (b) the resolution-dependent central (D_rK/r) layer already present in the centre-series audit, and (c) the earlier finding that changing the CMC center row or using a production-matched fourth-order CMC operator does not improve the full H/M/(C_\Lambda) set, narrows the next test to signed production (K)-RHS attribution.
 
 Audit the exact lapse-Laplacian, nonlinear (K/A_a), and remaining signed terms separately on frozen (t=0) and (t\approx2.16) states at N=40/60/80/120; record the CMC elliptic residual and same-cell (D_rK/r) alongside them, plus fixed-radius witnesses. This is diagnostic-only: no field projection, CMC patch, production equation change, long trajectory, or physical interpretation is authorized by these results. The objective is to determine whether the central layer originates in the lapse solve, the (K)-RHS term balance, or their discrete interface before selecting any repair.
+
+
+---
+
+## Signed production K-RHS attribution — frozen states (2026-10-12)
+
+**Workflow:** [38288404354](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38288404354)  
+**Artifact:** discrete-consistent-initial-signed-k-rhs, ID 11764337761  
+**Artifact ZIP SHA-256:** b68e0a0679674d2e4942003427ce8bbd0d66a58a041f7830035683cb0bdc521e  
+**Source checkpoint artifact:** run [38284401548](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38284401548), exact production source 6d8b3f2790644591326df57c55908863f994cb0c, pinned vendor d6052d605673ce9d82cdc99b0df79855fa2ea215.
+
+This is saved-state post-processing only: 16 frozen checkpoints covering N=40/60/80/120, baseline and discrete-consistent-initial candidate, t=0 and t=2.16. There was no evolution. The signed K RHS decomposition closes to a maximum absolute error of 5.42e-20 or less across the audited records.
+
+### Exact term split
+
+The production K RHS is decomposed into:
+- lapse Laplacian contribution, -D²(alpha), from the pinned fourth-order geometry operator;
+- nonlinear extrinsic-curvature contribution, alpha * (Aa² + 2 Ab² + K²/3);
+- shift advection;
+- KO dissipation;
+- matter source, exactly as added by the production adapter, 4 pi alpha (rho + pr + 2 pt).
+
+The sum reconstructs the exact adapter K RHS to roundoff. Shift advection and KO dissipation are zero in the reported inner slices for this zero-shift CMC branch.
+
+### Main findings
+
+1. **The large lapse and matter pieces cancel strongly near the centre.** At t=2.16 and the first admitted cell i=2:
+   - N=60, r=3.333: lapse term -7.4415e-4, nonlinear A/K +9.4309e-5, matter +6.9525e-4; total K RHS +4.5407e-5 versus recomputed CMC target +6.2224e-5, leaving a signed difference -1.6818e-5.
+   - N=80, r=2.5: lapse -8.9081e-4, nonlinear +9.4200e-5, matter +8.4497e-4; total +4.8349e-5 versus target +6.1858e-5, difference -1.3512e-5.
+   - N=120, r=1.667: lapse -1.0109e-3, nonlinear +9.4144e-5, matter +9.7063e-4; total +5.3856e-5 versus target +6.1592e-5, difference -7.7358e-6.
+
+2. **The discrepancy falls at a fixed physical radius with refinement, but the central K-gradient layer is not uniform.** At fixed r=3, production K RHS minus the recomputed CMC target is:
+   - t=0: +8.305e-5 (N40), +3.168e-5 (N60), +1.325e-5 (N80), +5.967e-6 (N120).
+   - t=2.16: -7.215e-5 (N40), -2.718e-5 (N60), -1.125e-5 (N80), -5.116e-6 (N120).
+
+   The sign reverses during evolution; these are numerical/operator residuals, not evidence of a physical turnaround. On the first cell at t=2.16, D_r K/r changes from about -1.00e-3 (N40) to -2.35e-3 (N60), -4.22e-3 (N80), and -9.56e-3 (N120). At the first admitted cell i=2 it is +7.41e-5 (N60), +1.26e-4 (N80), and +2.78e-4 (N120). The near-centre derivative ratio therefore remains strongly resolution-sensitive.
+
+3. **The stored lapse nearly satisfies its own second-order CMC stencil, while the fourth-order production K RHS does not match that target pointwise.** Re-evaluating the CMC target on the saved state (the historical target passed to the final lapse solve is not serialized) gives an interior second-order elliptic residual of about 1.43e-8, 4.35e-9, 1.85e-9, 5.52e-10 at t=0 for N40/60/80/120, and 1.20e-8, 3.67e-9, 1.57e-9, 4.69e-10 at t=2.16. This is a reproducible frozen-state residual, not an exact replay of the historical solver target. The production fourth-order K-RHS mismatch remains around 10^-5 at admitted inner cells.
+
+4. **The discrete-consistent initial metric does not materially change this K-RHS pattern.** Baseline/candidate term values and target residuals are nearly indistinguishable at matched radii. The initializer removes the initial Hamiltonian defect, but the unchanged evolution and its lapse/K operator interface still regenerate central constraints.
+
+### Decision and next gate
+
+This audit confirms a concrete second-order-CMC versus fourth-order-production-K operator mismatch and a strong lapse/matter cancellation in the centre. It does **not** establish that the mismatch alone causes the H/M constraint drift: earlier one-step CMC-operator counterfactuals did not improve the full original H/M/connection constraint set. Do not patch the CMC solver, replace the K RHS stencil, use a field projection, or launch t=160 from this result alone.
+
+The next decision should reconcile this term budget with the parallel manufactured-momentum-operator audit and any newer stage-level evidence. Only a term-level prediction that survives a frozen-input counterfactual with the original H/M/C diagnostics can justify a numerical-layer change.
