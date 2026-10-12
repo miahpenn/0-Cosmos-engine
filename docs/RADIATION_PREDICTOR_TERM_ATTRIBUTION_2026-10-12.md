@@ -327,3 +327,105 @@ With only \(A_a\) changed,
 At \(t=46.95\), this is \(\Delta H=-2.72321185924\times10^{-5}\), versus \(-9.62685884019\times10^{-6}\) at \(t=46.68\). The \(t=46.95\) increment is 0.07301% of the magnitude of the pre-boundary \(A_a\)-quadratic Hamiltonian contribution. These are signed **increments**, not measurements of the absolute post-boundary residual: without the full pre-boundary H/M profiles in the same captured phase, we cannot say whether \(|H|\) or \(|M|\) locally improved or worsened. No same-slice conformal-connection constraint increment follows from the Aa-only assignment because it leaves the metric unchanged, though later evolution can couple the fields.
 
 This independently confirms that the P-minus operation is an active outer constraint coupling. It does **not** establish that the prescribed target is invalid, that the absolute constraints fail an admission criterion, or that this historical-source correction caused the corrected-rate radiation-cone crossing. The latter still needs source-matched stage data. No new trajectory or physics modification was used for this recomputation.
+
+
+## 9. P-minus / CMC / GEAR compatibility audit (offline derivation; no trajectory)
+
+### What the two current operations actually impose
+
+The pinned P-minus routine defines
+
+\[
+P_-=\frac{\sqrt a}{X}\left(A_a-\frac23 K\right)
+-\frac23\left(d_a-d_b-a\Lambda+2\chi\right),
+\quad
+d_a=\frac{D_ra}{2a},\quad d_b=\frac{D_rb}{2b},\quad
+\chi=-\frac{D_rX}{2X}.
+\]
+
+It computes its endpoint target as
+
+\[
+P_-^{\mathrm{target}}(r_{N-1})
+=P_-(r_{N-3})+2\,\Delta r\,S_-(r_{N-2}),
+\]
+
+then solves this one scalar relation for \(A_a(r_{N-1})\). The associated stored residual is
+
+\[
+\mathcal R_{P_-}
+=\frac{P_-(r_{N-1})-P_-(r_{N-3})}{2\,\Delta r}
+-S_-(r_{N-2}).
+\]
+
+That relation's roundoff-level residual confirms the code set \(A_a[-1]\) to its declared second-order target. It does not independently test whether that target is the correct incoming datum for the full coupled CMC/zero-shift production system.
+
+The CMC operation is a different constraint: it fixes \(\alpha[-1]=1\), solves the lapse PDE on the other cells, and derives the common time-rate \(Kdot\) from a whole-slice proper-volume projection with weights
+
+\[
+w_i=r_i^2\,\frac{\sqrt{a_i}\,b_i}{X_i^3}\,\Delta r,\qquad
+Kdot=\frac{\sum_i w_i(L2_{K,i}+L3_{K,i})}{\sum_i w_i}.
+\]
+
+Thus the two are **not algebraically contradictory boundary conditions on the same field**: P-minus assigns \(A_a[-1]\), while CMC fixes \(\alpha[-1]\). But they are coupled through the evolved geometry and the projected K-RHS. The implementation has not demonstrated joint boundary/constraint compatibility merely by closing each operation's own equation.
+
+### The missing coupling is exact and identifiable
+
+For zero shift, the pinned vacuum split includes
+
+\[
+L3_K=\alpha\left(\frac32 A_a^2+\frac13 K^2\right)
+\]
+
+before the matter contribution that is held fixed in this counterfactual. At fixed metric, \(\alpha\), \(K\), and matter, changing only the endpoint \(A_a\) from \(A_-\) to \(A_+\) therefore changes the local K tendency by
+
+\[
+\Delta L3_{K,N}
+=\frac32\alpha_N(A_+^2-A_-^2).
+\]
+
+Since the CMC target is a weighted mean of this RHS, the exact induced target change at fixed old lapse is
+
+\[
+\Delta Kdot
+=\frac{w_N}{\sum_iw_i}\,
+\frac32\alpha_N(A_+^2-A_-^2).
+\]
+
+This relation follows directly from the pinned RHS and current CMC projection; it does not assume a physical coupling coefficient. The historical stage artifact captures the outer weight numerator but not the full-slice sum of weights or a source-matched full-slice pre/post-boundary re-solve. Therefore the global \(\Delta Kdot\), and the resulting change to the full lapse profile, **cannot be quantified from the saved artifact**. The right next offline task is to obtain/reconstruct a same-source full-slice snapshot and evaluate this exact sensitivity, not to infer it from the tiny P-minus residual.
+
+For the primary predictor created from accepted \(t=46.95\), using the historical source only, the measured values are:
+
+| Quantity from endpoint Aa assignment | Value |
+|---|---:|
+| Pre-/post-boundary \(A_a\) | 0.157690420189 → 0.157747974203 |
+| \(\Delta A_a\) | \(+5.755401388\times10^{-5}\) |
+| Direct local \(\Delta L3_K\) at fixed lapse | \(+2.723211859\times10^{-5}\) |
+| Direct local \(\Delta\dot a=-2\alpha a\Delta A_a\) at fixed metric/lapse | \(-7.010195\times10^{-5}\) |
+| Relative RHS change \(\Delta\dot a/a\) | \(-1.151080278\times10^{-4}\) |
+| Captured endpoint projection weight \(w_N\) | approximately \(7.51637\times10^3\) (with \(\Delta r=1\)) |
+
+These local changes are not integrated error estimates and not values of the global \(\Delta Kdot\): the latter also needs the captured slice's \(\sum_i w_i\). The endpoint Aa assignment can influence (i) the current predictor's following geometry RHS through \(\dot a\), (ii) the global CMC target and thus the next lapse solve through \(L3_K\), (iii) the momentum constraint through the one-sided derivative of \(A_a\), (iv) the Hamiltonian constraint through \(A_a^2\), and (v) later conformal-connection evolution through \(D_rA_a\) and the momentum constraint. The same-slice direct H/M increments are already quantified in Section 8; the full feedback chain remains unquantified.
+
+### Why the GEAR blueprint is not a direct boundary-condition authorization
+
+The archived GEAR_V5_5_EXACT_SPHERICAL_BSSN_v5_geodesic.py is a geodesic-gauge, short-domain prototype with three ghost cells. Its fill_boundaries sets the outer three stored cells to the fourth-from-edge value for all fields, described in that file as an asymptotically constant/smooth fill over the short domain. It does not define this production branch's P-minus/CMC combination. Conversely, the current CMC/P-minus production path uses a cell-centred physical outer cell, a one-sided fourth-order derivative closure, a P-minus endpoint assignment, and global CMC normalization/projection. Those closures belong to different discretization/gauge contexts; neither should be copied across as a physics law without a matched operator/constraint audit.
+
+The blueprint mismatch therefore means the correct outer closure is **not yet established by the archived GEAR source alone**. It does not prove the production P-minus formula is wrong, nor that the older constant fill should replace it.
+
+### Three boundary mechanisms must stay separate
+
+1. **Geometric P-minus/Aa boundary:** its same-slice constraint increments and growing correction are measured in the historical capture.
+2. **Global CMC lapse boundary/projection:** alpha normalization plus the volume-weighted target can transmit a local endpoint Aa change into the lapse profile; this sensitivity is analytically identified above but not numerically evaluated over the full slice here.
+3. **Radiation finite-volume boundary flux:** the R120 capture has all radiation characteristics outgoing, yet reports about 19.74% energy and 11.68% radial-momentum outer-face flux mismatch relative to the adjacent interior HLL face. This is a different closure and must not be attributed to P-minus Aa alone.
+
+The domain comparisons and the metric-driven cone-margin budget support an outer-domain/global-geometry interaction. They do not identify which of these three mechanisms is dominant or whether they act together.
+
+### Admission decision and next offline gate
+
+- Keep the exact radiation cone \(E\ge |S|\); no projection override, clipping, floor, damping, or fitted correction.
+- Do not alter P-minus, CMC normalization or the radiation face flux from current evidence.
+- Before any further trajectory, retrieve/build a phase-correct, source-matched full-slice snapshot at a saved near-terminal time. Preserve pre-boundary and post-boundary \(A_a[-1]\), \(Kdot\), the CMC lapse profile, H/M/connection residual profiles, matter projections, and radiation face fluxes. Compute the exact target sensitivity above from the same frozen arrays and independently recompute all residuals.
+- Set a predeclared quantitative diagnostic criterion for boundary compatibility versus residual closure before running anything. The legacy P-minus post-residual alone is not an admission criterion.
+- Keep the outer closure/gauge issue independent from the unresolved centre-series/CMC-row/Hamiltonian and global GEAR \(G\) admission gates. No production merge is authorized.
+
