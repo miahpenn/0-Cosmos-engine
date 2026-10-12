@@ -10,6 +10,7 @@ from numbers import Integral, Real
 from pathlib import Path
 import json
 import math
+import os
 
 from .production_contract import require_production_capabilities
 
@@ -56,13 +57,19 @@ def _validate_config_values(config) -> dict:
     checkpoint_interval = _positive_finite(
         "checkpoint_interval", config.checkpoint_interval
     )
+    try:
+        output_dir = os.fspath(config.output_dir)
+    except TypeError as exc:
+        raise ValueError("output_dir must be a non-empty string or path") from exc
+    if not isinstance(output_dir, str) or not output_dir.strip():
+        raise ValueError("output_dir must be a non-empty string or path")
     return {
         "resolutions": resolutions,
         "r_max": r_max,
         "cfl": cfl,
         "final_time": final_time,
         "checkpoint_interval": checkpoint_interval,
-        "output_dir": config.output_dir,
+        "output_dir": output_dir,
     }
 
 
@@ -80,7 +87,11 @@ class CampaignConfig:
     def __post_init__(self) -> None:
         # Fail at construction time for settings that could make the evolution
         # or checkpoint loop non-advancing/non-terminating.
-        _validate_config_values(self)
+        values = _validate_config_values(self)
+        # Freeze normalized values too, so a list of resolutions or a Path
+        # cannot mutate/serialize differently after the preflight check.
+        for name, value in values.items():
+            object.__setattr__(self, name, value)
 
 
 def write_checkpoint(path: Path, metadata: dict, trajectory: dict) -> None:
