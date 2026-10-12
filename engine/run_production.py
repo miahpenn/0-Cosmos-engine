@@ -12,6 +12,11 @@ from pathlib import Path
 import json
 import numpy as np
 
+from .adaptive_step import (
+    AdaptiveStepOutcome,
+    RadiationStepSizeUnderflow,
+    advance_with_radiation_admissibility_retries,
+)
 from .campaign import CampaignConfig
 from .production_contract import require_production_capabilities
 from .production_kernel import V55ProductionKernel
@@ -54,6 +59,7 @@ def _write_ledgers(
     state,
     run_dir: Path,
     result: ResolutionResult,
+    radiation_step_retries: list[dict] | None = None,
 ) -> None:
     run_dir.mkdir(parents=True, exist_ok=True)
     payload = {
@@ -61,9 +67,13 @@ def _write_ledgers(
         "cycle_events": [_json_safe(asdict(e)) for e in state.cycle.events],
         "handoffs": [_json_safe(asdict(h)) for h in state.handoffs],
         "history": _json_safe(state.history),
+        "radiation_step_retries": _json_safe(radiation_step_retries or []),
     }
     (run_dir / "ledgers.json").write_text(
         json.dumps(payload, indent=2)
+    )
+    (run_dir / "radiation_step_retries.json").write_text(
+        json.dumps(_json_safe(radiation_step_retries or []), indent=2)
     )
 
 
@@ -86,15 +96,42 @@ def run_campaign(
         dt_nominal = config.cfl * state.grid.dr
         next_checkpoint = config.checkpoint_interval
         checkpoint_count = 0
+        radiation_step_retries: list[dict] = []
         status = "completed"
 
         while state.t < config.final_time:
-            dt = min(dt_nominal, config.final_time - state.t)
+            requested_dt = min(dt_nominal, config.final_time - state.t)
+            state_before_time = float(state.t)
             try:
-                state = kernel.step(state, dt)
-                # This is a numerical validity check, not a physical event.
-                state.geometry.assert_finite_positive()
+                outcome: AdaptiveStepOutcome = advance_with_radiation_admissibility_retries(
+                    kernel, state, requested_dt
+                )
+                candidate_state = outcome.state
+                # This remains a numerical validity check, not a physical event.
+                candidate_state.geometry.assert_finite_positive()
+                state = candidate_state
+                dt = outcome.accepted_dt
+                if outcome.retry_count:
+                    radiation_step_retries.append({
+                        "t_before": state_before_time,
+                        "requested_dt": outcome.requested_dt,
+                        "accepted_dt": outcome.accepted_dt,
+                        "retry_count": outcome.retry_count,
+                        "attempts": list(outcome.attempts),
+                        "reason": "typed_radiation_admissibility_rejection",
+                    })
             except (FloatingPointError, ValueError) as exc:
+                if isinstance(exc, RadiationStepSizeUnderflow):
+                    radiation_step_retries.append({
+                        "t_before": state_before_time,
+                        "requested_dt": requested_dt,
+                        "accepted_dt": None,
+                        "retry_count": exc.attempts.__len__(),
+                        "attempts": list(exc.attempts),
+                        "status": "failed_closed_at_time_precision",
+                        "exception_class": type(exc).__name__,
+                        "exception_message": str(exc),
+                    })
                 status = "numerical_failure:" + str(exc)
                 break
 
@@ -144,7 +181,7 @@ def run_campaign(
             last_diagnostics=_json_safe(last),
         )
         run_dir = Path(config.output_dir) / f"N{resolution}"
-        _write_ledgers(state, run_dir, result)
+        _write_ledgers(state, run_dir, result, radiation_step_retries)
         results.append(result)
 
     summary = {
