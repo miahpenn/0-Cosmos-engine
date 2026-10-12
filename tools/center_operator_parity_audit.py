@@ -136,11 +136,16 @@ def audit_state(state,label,scheduled_t=None):
         fits[name]=fit
 
     Aa=np.asarray(g.Aa,dtype=float); Ab=-0.5*Aa
-    Mgeom_poly=(
+    # Only replace the derivative evaluation on the declared centre region.
+    # Outside r<=5, the probe is exactly the production profile; never
+    # extrapolate the centre fit into the full exterior domain.
+    Mgeom_alt=(
         derivatives["Aa"]-(2.0/3.0)*derivatives["K"]
         +6.0*Aa*(-0.5*derivatives["X"]/np.asarray(g.X,dtype=float))
         +(Aa-Ab)*(2.0/r+derivatives["b"]/np.asarray(g.b,dtype=float))
     )
+    Mgeom_poly=base_geom.copy()
+    Mgeom_poly[report_mask]=Mgeom_alt[report_mask]
 
     # Same conservative fluids, but independently differentiate the three scalar
     # fields in the local current projection.
@@ -152,14 +157,19 @@ def audit_state(state,label,scheduled_t=None):
                 for name,species in (("dark_matter",Species.DARK_MATTER),
                                      ("baryons",Species.BARYON),
                                      ("radiation",Species.RADIATION))),np.zeros_like(r))
-    Msource_poly=8.0*np.pi*(jS_poly+jD_poly+jphi_poly+jfluid)
-    M_poly=Mgeom_poly-Msource_poly
+    Msource_alt=8.0*np.pi*(jS_poly+jD_poly+jphi_poly+jfluid)
+    Msource_poly=base_source.copy()
+    Msource_poly[report_mask]=Msource_alt[report_mask]
+    M_poly=base_M.copy()
+    M_poly[report_mask]=Mgeom_poly[report_mask]-Msource_poly[report_mask]
 
-    C_poly=np.asarray(g.Lambda,dtype=float)-(
+    C_alt=np.asarray(g.Lambda,dtype=float)-(
         derivatives["a"]/(2.0*np.asarray(g.a,dtype=float)**2)
         -derivatives["b"]/(np.asarray(g.a,dtype=float)*np.asarray(g.b,dtype=float))
         +2.0/r*(1.0/np.asarray(g.b,dtype=float)-1.0/np.asarray(g.a,dtype=float))
     )
+    C_poly=base_C.copy()
+    C_poly[report_mask]=C_alt[report_mask]
 
     sample={}
     for rr in SAMPLE_RADII:
