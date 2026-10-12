@@ -853,10 +853,10 @@ class RadiationStageTrace:
         except Exception as exc:
             cap = cf_step.get("failure_capture", {})
             msg = str(exc)
-            match_i = re.search(r"cell i=(\\d+)", msg)
-            match_ratio = re.search(r"ratio=([+\\-0-9.eE]+)", msg)
-            match_energy = re.search(r"E=([+\\-0-9.eE]+)", msg)
-            match_abs_s = re.search(r"\\|S\\|=([+\\-0-9.eE]+)", msg)
+            match_i = re.search(r"cell i=(\d+)", msg)
+            match_ratio = re.search(r"ratio=([+\-0-9.eE]+)", msg)
+            match_energy = re.search(r"E=([+\-0-9.eE]+)", msg)
+            match_abs_s = re.search(r"\|S\|=([+\-0-9.eE]+)", msg)
             failure_index = cap.get("i")
             if failure_index is None and match_i:
                 failure_index = int(match_i.group(1))
@@ -1253,11 +1253,14 @@ class RadiationStageTrace:
                 if (trace.current_step.get("failing_stage") is None
                         and "stage='explicit-predictor'" in msg):
                     trace.current_step["failing_stage"] = "explicit_predictor_pre_CMC_admissibility_guard"
-                    match_i = re.search(r"cell i=(\\d+)", msg)
-                    match_ratio = re.search(r"ratio=([+\\-0-9.eE]+)", msg)
-                    match_energy = re.search(r"E=([+\\-0-9.eE]+)", msg)
-                    match_abs_s = re.search(r"\\|S\\|=([+\\-0-9.eE]+)", msg)
+                    match_i = re.search(r"cell i=(\d+)", msg)
+                    match_ratio = re.search(r"ratio=([+\-0-9.eE]+)", msg)
+                    match_energy = re.search(r"E=([+\-0-9.eE]+)", msg)
+                    match_abs_s = re.search(r"\|S\|=([+\-0-9.eE]+)", msg)
                     idx = int(match_i.group(1)) if match_i else None
+                    if idx is not None:
+                        trace.current_step["failing_grid_index"] = idx
+                        trace.current_step["failing_radius"] = float(state.grid.centers[idx])
                     trace.current_step["failure_capture"] = {
                         "stage": trace.current_step["failing_stage"],
                         "i": idx,
