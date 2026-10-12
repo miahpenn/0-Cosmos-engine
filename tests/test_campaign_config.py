@@ -1,3 +1,4 @@
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -23,6 +24,8 @@ from engine.production_contract import REQUIRED
         ("checkpoint_interval", -1.0),
         ("checkpoint_interval", float("nan")),
         ("checkpoint_interval", float("inf")),
+        ("output_dir", ""),
+        ("output_dir", None),
     ],
 )
 def test_nonpositive_or_nonfinite_campaign_parameters_are_rejected(field, value):
@@ -86,3 +89,12 @@ def test_prepare_campaign_returns_validated_plan_without_evolution():
 
     assert plan["resolutions"] == (40, 60)
     assert plan["status"] == "prepared_not_executed"
+
+def test_valid_configuration_normalizes_resolutions_and_path():
+    config = CampaignConfig(
+        resolutions=[40, 60],
+        output_dir=Path("runs/normalized"),
+    )
+
+    assert config.resolutions == (40, 60)
+    assert config.output_dir == "runs/normalized"
