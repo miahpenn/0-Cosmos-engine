@@ -130,8 +130,13 @@ def snapshot_target(state, alpha):
     return float(cmc.target_kdot(state.grid, geometry, state.scalars, state.matter))
 
 
-def iterate_self_consistent_map(state, outer_alpha: float, domain_name: str):
-    alpha = np.asarray(state.geometry.alpha, dtype=float).copy()
+def iterate_self_consistent_map(state, outer_alpha: float, domain_name: str, initial_alpha=None):
+    alpha = np.asarray(
+        state.geometry.alpha if initial_alpha is None else initial_alpha, dtype=float
+    ).copy()
+    if alpha.shape != np.asarray(state.geometry.alpha).shape or not np.all(np.isfinite(alpha)):
+        raise ValueError(f"{domain_name}: invalid initial lapse seed")
+    initial_seed = alpha.copy()
     previous_delta = None
     records = []
     status = "max_iterations_reached"
@@ -205,11 +210,13 @@ def iterate_self_consistent_map(state, outer_alpha: float, domain_name: str):
         "converged": status == "converged",
         "iteration_count": len(records),
         "outer_alpha_boundary": float(outer_alpha),
-        "initial_alpha_rms": rms(np.asarray(state.geometry.alpha)),
+        "initial_alpha_rms": rms(initial_seed),
+        "initial_alpha_max_abs_difference_from_archived": float(np.max(np.abs(initial_seed - np.asarray(state.geometry.alpha)))),
         "final_alpha_rms": rms(alpha),
         "final_alpha_delta_rms": records[-1].get("alpha_delta_rms") if records else None,
         "final_target": records[-1].get("target_output_alpha") if records else None,
         "failure": failure,
+        "final_alpha_profile": alpha.tolist(),
         "iterations": records,
     }
 
@@ -272,8 +279,27 @@ def main():
     target160_initial = snapshot_target(state160, state160.geometry.alpha)
     target160_archived = float(row160["target_Kdot_full_domain"])
 
-    self80 = iterate_self_consistent_map(state80, outer_alpha80, "R80_boundary_matched")
+    self80 = iterate_self_consistent_map(state80, outer_alpha80, "R80_same_state_native_alpha_seed")
+    alpha160_core_seed = np.asarray(state160.geometry.alpha[:R80_N], dtype=float).copy()
+    self80_alt_seed = iterate_self_consistent_map(
+        state80, outer_alpha80, "R80_same_state_R160_alpha_seed", initial_alpha=alpha160_core_seed
+    )
     self160 = iterate_self_consistent_map(state160, outer_alpha160, "R160_native_boundary")
+
+    r80_native_final = np.asarray(self80.pop("final_alpha_profile"), dtype=float)
+    r80_alt_final = np.asarray(self80_alt_seed.pop("final_alpha_profile"), dtype=float)
+    r160_native_final = np.asarray(self160.pop("final_alpha_profile"), dtype=float)
+    two_seed_same_operator = {
+        "initial_seed_alpha_max_abs_difference": float(np.max(np.abs(np.asarray(state80.geometry.alpha) - alpha160_core_seed))),
+        "initial_seed_alpha_rms_difference": rms(np.asarray(state80.geometry.alpha) - alpha160_core_seed),
+        "final_alpha_max_abs_difference_after_iterations": float(np.max(np.abs(r80_native_final - r80_alt_final))),
+        "final_alpha_rms_difference_after_iterations": rms(r80_native_final - r80_alt_final),
+        "final_Kdot_gap_native_seed_minus_R160_alpha_seed": float(self80["final_target"] - self80_alt_seed["final_target"]),
+        "native_seed_final_target": self80["final_target"],
+        "R160_alpha_seed_final_target": self80_alt_seed["final_target"],
+        "native_seed_status": self80["status"],
+        "R160_alpha_seed_status": self80_alt_seed["status"],
+    }
 
     fixed80 = fixed_target_control(state80, outer_alpha80, target160_archived)
     fixed160 = fixed_target_control(state160, outer_alpha160, target160_archived)
@@ -300,8 +326,11 @@ def main():
             "R160_target_reconstruction_error": float(target160_initial - target160_archived),
         },
         "self_consistent_map": {
-            "R80": self80,
-            "R160": self160,
+            "R80_native_alpha_seed": self80,
+            "R80_R160_alpha_seed_same_operator": self80_alt_seed,
+            "R160_native_alpha_seed": self160,
+        },
+        "same_R80_operator_two_seed_comparison": two_seed_same_operator,
         },
         "fixed_target_control": {
             "target_source": "archived R160 full-domain target on the initial slice",
@@ -326,10 +355,14 @@ def main():
     out.write_text(json.dumps(payload, indent=2, sort_keys=True, allow_nan=False) + "\n", encoding="utf-8")
     print("[CMC_TARGET_LAPSE_FIXED_POINT] FINAL " + json.dumps({
         "status": payload["status"],
-        "R80_map_status": self80["status"],
-        "R160_map_status": self160["status"],
-        "R80_iterations": self80["iteration_count"],
-        "R160_iterations": self160["iteration_count"],
+        "R80_native_seed_map_status": self80["status"],
+        "R80_R160_alpha_seed_map_status": self80_alt_seed["status"],
+        "R160_native_seed_map_status": self160["status"],
+        "R80_native_seed_iterations": self80["iteration_count"],
+        "R80_R160_alpha_seed_iterations": self80_alt_seed["iteration_count"],
+        "R160_native_seed_iterations": self160["iteration_count"],
+        "same_R80_operator_final_alpha_separation_rms": two_seed_same_operator["final_alpha_rms_difference_after_iterations"],
+        "same_R80_operator_final_Kdot_gap": two_seed_same_operator["final_Kdot_gap_native_seed_minus_R160_alpha_seed"],
         "R80_minus_R160_target_gap": payload["initial_targets"]["R80_minus_R160_target_gap"],
         "R80_fixed_target_repeatability": fixed80["repeat_outputs_identical_to_1e-12"],
         "R160_fixed_target_repeatability": fixed160["repeat_outputs_identical_to_1e-12"],
