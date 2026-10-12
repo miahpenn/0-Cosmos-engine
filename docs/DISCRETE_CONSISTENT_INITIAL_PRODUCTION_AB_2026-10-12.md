@@ -250,3 +250,48 @@ The evidence now separates three effects:
 3. **Subsequent Lambda drift:** by t=2.16, C_lambda grows and a Lambda-only RHS counterfactual strongly changes A_a, but its effect is resolution-dependent and does not justify a projection.
 
 The most discriminating next experiment remains the same: repair only the initialization/centre quadrature candidate’s reporting, compare its first-cell series and first-stage A_a/K/connection tendencies with the pinned baseline at matched physical radii, then carry only a justified numerical candidate through one ordinary bounded production step and re-evaluate H/M/C_lambda. No physics change, damping, clamp, centre projection, or long-horizon run is authorized at this point.
+
+
+---
+
+## Independent smooth regular-centre Ricci / full A_a RHS identity — completed (2026-10-12)
+
+**Workflow:** [38290099699](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38290099699)  
+**Artifact:** regular-center-ricci-aa-rhs-identity, ID 11765776185  
+**Artifact ZIP SHA-256:** 345f91141bb19920051935b9c5c516bf1ddc798046012a36583426d9e5e34e97
+
+The diagnostic uses smooth analytic even metric and lapse profiles, with exact analytic Ricci and lapse-Hessian terms derived from proper radial distance and areal radius. It runs N=40/60/80/120, in both analytic-Lambda and production-discrete-connection-Lambda variants. No evolution is taken. The flat-space control returns Ricci trace-free, lapse-Hessian trace-free and total A_a RHS maxima at approximately 6e-16, 6e-16 and 5e-19.
+
+On the fixed physical annulus 3≤r≤6, the measured descriptive error orders are:
+- trace-free Ricci: 4.017 (analytic Lambda) and 4.031 (discrete-constraint Lambda);
+- lapse-Hessian trace-free term: 4.006 in both variants;
+- complete A_a RHS: 4.017 (analytic Lambda) and 4.030 (discrete-constraint Lambda).
+
+The first-cell errors also decrease monotonically. For example, absolute error in (A_a RHS)/r² declines from 3.04e-4 to 4.06e-5 in the analytic-Lambda case, and from 1.45e-4 to 1.44e-5 in the discrete-constraint-Lambda case, from N40 to N120. The connection-matched form is more centre-consistent, but both variants approach the analytic answer as resolution increases.
+
+**Interpretation:** this is a negative control against a generic vendor Ricci/parity-operator defect. It does not validate the production-initialized centre profile; that profile is the observed outlier and must be tested against its required regular-centre series.
+
+---
+
+## Regular-origin half-cell quadrature A/B — initial-slice result only
+
+**Successful workflow:** [38289853406](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38289853406)  
+**Artifact:** origin-half-cell-quadrature-regularity-ab, ID 11764434292  
+**Artifact ZIP SHA-256:** bef576a15cc620803982e7e79c27009018617c3f63a24cb8e90ddb83973d9eca  
+**Exact source:** 6d8b3f2790644591326df57c55908863f994cb0c. At this exact source commit, the production initializer does not call the separate centre-regularity helper present in a newer branch. The successful A/B test follows the pinned commit's actual initialize sequence and changes only the first origin half-cell integral.
+
+The candidate replaces the baseline half-cell rule 0.5*dr*source[0] with a three-node polynomial-in-r² quadrature exact for source terms through r⁴. The pinned six-iteration initialization loop and all later centre-to-centre trapezoids remain unchanged. No evolution step is taken.
+
+The first-cell Hamiltonian residual improves materially:
+- N40: +3.769e-3 → +3.926e-4;
+- N60: +3.932e-3 → +1.314e-4;
+- N80: +3.989e-3 → +8.172e-5;
+- N120: +4.028e-3 → +6.600e-5.
+
+The raw first-cell production A_a RHS falls from approximately +1.09e-3 across N60/N80/N120 to +2.11e-5 (N40), -3.41e-5 (N60), -6.86e-5 (N80) and -8.65e-5 (N120). The first-cell a/b series ratio also falls by roughly a factor of three. Initial momentum remains roundoff and C_lambda remains zero by construction.
+
+This is promising initial-data evidence, not an admitted fix. At the fixed physical annulus, the H RMS improves for N40/N60 but is slightly worse for N80/N120. The candidate's first-cell A_a RHS remains nonzero and does not yet display the required clear O(r²) scaling. A follow-up edit briefly tried to call a centre-regularity helper from a newer, different source version; that run failed with AttributeError and is invalid. It has been reverted. The result retained here is the earlier successful artifact tied to the exact campaign source commit.
+
+### Next decision
+
+Run one ordinary production step from the pinned baseline and the corrected origin-quadrature candidate at N=40/60/80/120, using the same dt=CFL*dr. Preserve the same H/M/C_lambda, determinant, and fixed-physical-radius witnesses before and after the step. Do not run a full trajectory yet. If the candidate retains its central improvement after the unmodified RHS step without worsening the rest of the constraint set, it earns a bounded longer validation; if the centre residuals immediately regenerate, the initializer is only a partial fix and the evolved source compatibility remains open. No physics change, fitted coefficient, damping, clamp, centre projection, or t=160 campaign is authorized.
