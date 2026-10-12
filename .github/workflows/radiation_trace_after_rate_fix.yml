@@ -59,7 +59,8 @@ jobs:
       - name: Full repository regression suite
         run: python -m pytest -q
 
-      - name: Run bounded radiation predictor trace with admissibility retries
+      - name: Run bounded radiation predictor trace at frozen production dt (no retries)
+        # Preserve the exact production dt so the captured predictor is interpretable.
         env:
           EXTENDED_B_ACCEPTED_METRIC_RECOVERY: "0"
           RADIATION_ADMISSIBILITY_RETRY: "0"
