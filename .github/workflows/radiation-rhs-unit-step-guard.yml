@@ -1,0 +1,87 @@
+name: Diagnostic - radiation unit-step RHS guard audit
+
+on:
+  push:
+    branches:
+      - diag/radiation-unit-step-extraction-audit-2026-10-12
+    paths:
+      - tools/audit_radiation_rhs_unit_step_guard.py
+      - tools/audit_uniform_radial_quadrature_initial_profile.py
+      - tools/origin_half_cell_quadrature_regularity_ab.py
+      - .github/workflows/radiation-rhs-unit-step-guard.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: radiation-rhs-unit-step-guard-2026-10-12
+  cancel-in-progress: false
+
+jobs:
+  frozen-state-unit-step-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      PYTHONUNBUFFERED: "1"
+      CMC_CANDIDATE_SOURCE_COMMIT: "9f7ebf1aab2076fe8925737591366b416427305e"
+      FROZEN_PRODUCTION_SOURCE_COMMIT: "6d8b3f2790644591326df57c55908863f994cb0c"
+      VENDOR_COMMIT: "d6052d605673ce9d82cdc99b0df79855fa2ea215"
+    steps:
+      - name: Checkout diagnostic branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Fail closed unless production engine equals the isolated CMC candidate
+        run: |
+          git fetch --no-tags origin "$CMC_CANDIDATE_SOURCE_COMMIT"
+          changed="$(git diff --name-only "$CMC_CANDIDATE_SOURCE_COMMIT" HEAD -- engine vendor .gitmodules requirements.txt)"
+          if [ -n "$changed" ]; then
+            printf 'Unexpected engine/vendor/dependency changes relative to candidate source:\n%s\n' "$changed"
+            exit 1
+          fi
+          test "$(git rev-parse HEAD:vendor/bb-palatini-unified-r0)" = "$VENDOR_COMMIT"
+          printf 'Frozen production base: %s\nCMC candidate source: %s\nVendor: %s\n' \
+            "$FROZEN_PRODUCTION_SOURCE_COMMIT" "$CMC_CANDIDATE_SOURCE_COMMIT" "$VENDOR_COMMIT"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install pinned-source dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Compile diagnostic and initializer
+        run: |
+          python -m py_compile tools/audit_radiation_rhs_unit_step_guard.py
+          python -m py_compile tools/audit_uniform_radial_quadrature_initial_profile.py
+          python -m py_compile tools/origin_half_cell_quadrature_regularity_ab.py
+
+      - name: Run complete repository regression suite
+        run: python -m pytest -q
+
+      - name: Compare unit RHS increment with actual CFL increment
+        run: python tools/audit_radiation_rhs_unit_step_guard.py
+
+      - name: Record provenance and checksums
+        if: always()
+        run: |
+          mkdir -p results/radiation-rhs-unit-step-guard
+          printf '%s\n' "$FROZEN_PRODUCTION_SOURCE_COMMIT" > results/radiation-rhs-unit-step-guard/FROZEN_PRODUCTION_SOURCE_COMMIT.txt
+          printf '%s\n' "$CMC_CANDIDATE_SOURCE_COMMIT" > results/radiation-rhs-unit-step-guard/CMC_CANDIDATE_SOURCE_COMMIT.txt
+          printf '%s\n' "$VENDOR_COMMIT" > results/radiation-rhs-unit-step-guard/VENDOR_COMMIT.txt
+          git rev-parse HEAD > results/radiation-rhs-unit-step-guard/AUDIT_HEAD.txt
+          if test -f results/radiation-rhs-unit-step-guard/report.json; then
+            sha256sum results/radiation-rhs-unit-step-guard/report.json > results/radiation-rhs-unit-step-guard/SHA256SUMS.txt
+          fi
+
+      - name: Upload diagnostic artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: radiation-rhs-unit-step-guard
+          path: results/radiation-rhs-unit-step-guard/
+          if-no-files-found: warn
+          retention-days: 90
