@@ -139,7 +139,9 @@ def audit(state,label,scheduled_t=None):
     return {"label":label,"resolution":len(r),"actual_t":float(state.t),"scheduled_t":scheduled_t,
       "dr":float(grid.dr),"r_max":float(len(r)*grid.dr),"method":"actual production semi-discrete RHS; no evolution step",
       "first_cells":first,"fixed_radius":fixed,"ratio_rate_regional_peaks":regional,
-      "ratio_values":ratio_values,"ratio_rates":ratio_rates,"raw_rates":rates}
+      "ratio_values":{k:v.tolist() for k,v in ratio_values.items()},
+      "ratio_rates":{k:v.tolist() for k,v in ratio_rates.items()},
+      "raw_rates":{k:v.tolist() for k,v in rates.items()}}
 
 
 def main():
