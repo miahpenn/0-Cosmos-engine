@@ -275,3 +275,41 @@ Each isolated channel retains positive cone margin; the combined update crosses.
 ### Admitted conclusion and next discriminator
 
 The immediate crossing is attributed to the **combined existing explicit metric update** acting against the recorded conservative radiation state, with about 62.6% of the inverse-metric increase from the `a/A_a` channel and 37.0% from the `X/K` channel. This does **not** prove either field equation is wrong and does not justify a limiter or physics change. The next bounded task is to trace the already-existing `A_a` and `K` values at cell 79 backward through the primary `L2`/`L3` stage terms for steps 1565 and 1566. Keep all production equations and conservative states unchanged; if required source terms were not captured, add diagnostic-only capture rather than infer missing values. Continue to keep centre regularity, H/M/`C_Lambda`, radiation cone, outer boundary, and Misner–Sharp flux/work gates open.
+
+
+## 11. Cross-agent reconciliation with corrected-rate, same-source trace — 12 October 2026
+
+**Authority for the rate-corrected run:** [same-source term-attribution report](https://github.com/miahpenn/0-Cosmos-engine/blob/research/radiation-predictor-term-attribution-2026-10-12/docs/RADIATION_PREDICTOR_TERM_ATTRIBUTION_2026-10-12.md), including the companion [rate-corrected trace/source-path report](https://github.com/miahpenn/0-Cosmos-engine/blob/research/production-readiness-review-2026-10-12/docs/RADIATION_PREDICTOR_TRACE_AFTER_RATE_FIX_2026-10-12.md). Those reports use the corrected-rate source and the corresponding completed trace. Do not mix their exact numbers with Sections 9–10's historical-source ledger.
+
+### Corrected-rate reproduction
+
+- Workflow [38310237842](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38310237842), artifact [11775230036](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38310237842/artifacts/11775230036); local downloaded ZIP SHA-256 independently checked as `f64298e2819e0dd9c4c2df712a4d1250e4855a5b0e467430fe7aa419a533e49f`.
+- Rate-fix source baseline: `1c63090d4f42396f899421a2379f70320689d5ad`; instrumentation commit `51335a56873d65b8ed28863b7658ce02793ae396`; pinned vendor `d6052d605673ce9d82cdc99b0df79855fa2ea215`.
+- Configuration: (N=80), (R_{max}=80), (dt=0.03), radiation enabled, no accepted-metric recovery override, no retry. 1,566 accepted steps.
+- Failure: last accepted (t=46.98000000000102), (	au=22.01604689460664), attempted (t=47.01000000000102), (i=79, r=79.5); (|S|/E=1.00005732838577255), (C=-1.6997425987812665\times10^{-8}).
+- Local artifact extraction reproduces the report's ZIP/trace digests. Saved trace: `trace.json` SHA-256 `53a1f9f188e0eea4575da4458d09891f50144b9f89f945c995cd9980221fb619`.
+
+### Meaning of the failure stage
+
+The label `explicit_predictor_first_CMC_lapse` is the caller stage, not a finding that the elliptic CMC solve itself failed. Before the CMC matrix can complete, `total_matter_projection` requests radiation primitive recovery on the already-updated predictor metric; that recovery raises the exact (E\ge |S|) violation. The predictor boundary routine for the *attempted* step has not yet run.
+
+For the same corrected-rate source and same captured radiation conservatives at the terminal cell:
+
+| Metric evaluation | (gamma^{rr}=X^2/a) | Cone margin (C) | (|S|/E) |
+|---|---:|---:|---:|
+| Accepted metric | 1.4628938913 | (+2.21975975\times10^{-6}) | 0.9925132639 |
+| a update only | 1.4768744921 | (+8.16949732\times10^{-7}) | 0.9972446175 |
+| X update only | 1.4711576616 | (+1.38976919\times10^{-6}) | 0.9953126300 |
+| Both explicit updates | 1.4852172376 | (-1.69974260\times10^{-8}) | 1.0000573284 |
+
+The cone threshold for those conservative values is (gamma^{rr}_{crit}=1.4850469621); the combined predictor exceeds it by (1.70276\times10^{-4}). Each one-field counterfactual remains admissible; the simultaneous explicit a/X update crosses. The corrected-rate trace shows no a/b/X regularity projection change at this outer cell. Thus both data sets agree on the joint explicit-metric trigger, but the corrected-rate run's projection details differ from the historical-source ledger: retain each result with its own pinned source provenance.
+
+### Boundary and upstream-source caveat
+
+The attempted step's boundary update comes later than the recovery exception, but the accepted (A_a,K) inputs already include the previous completed state's processing. In particular, (A_a) enters (dot a=-2\alpha a A_a) directly at zero shift. A historical expanded-domain artifact found a nonzero completed-state (A_a) boundary correction while matching its own declared target to roundoff; because that run has a different source and configuration, it raises a coupling question rather than establishing causality for this (N=80) run.
+
+**Required next work remains offline-first:** inspect existing source/constraint artifacts and exact stage code for (A_a/K), (H/M/C_\Lambda), and previous boundary-conditioned inputs. Do not rerun the trajectory merely for repeatability. Any new candidate comparison must be preregistered against the existing matched-source witnesses and must gate centre regularity, radiation admissibility, outer-boundary closure, and Misner–Sharp flux/work balance together.
+
+### Separate historical-source Aa/K instrumentation status
+
+A diagnostic-only source-term capture was pushed on this handoff branch at commits `6f603a7aabfed36069d4c9f258fe6f31029431c0`, `5bba82c6a1f8414549b6628283ff9f67db1c6dc2`, `54d84507e2cda4df3f35452c44ff0024bdb759d1`, `f0d394fda39db344ad7f58486d7a715e9edded57`, and trigger commit `b581535f89ad676c54ed3d330bd67e7db10a6661`. It is frozen by its workflow to the **historical** source baseline `9eed1cf95c52f001c2b87afbbe6da37faa56d50e), so its outputs (if the workflow artifact is produced) must be labeled as a historical-source capture, not a matched reproduction of the corrected-rate run. The run/artifact outcome has not been independently verified from accessible workflow-run metadata in this review. No further long trajectory is queued by this handoff; use the already completed corrected-rate artifact for the next offline analysis.
