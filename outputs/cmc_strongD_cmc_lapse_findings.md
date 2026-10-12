@@ -144,3 +144,11 @@ Corrected run [38209662328](https://github.com/miahpenn/0-Cosmos-engine/actions/
 Under the identical frozen R80 operator and matched outer-alpha boundary, native-R80-alpha and cropped-R160-alpha seeds retain a nearly identical separation after 20 undamped iterations: max (3.57126115\times10^{-4}), RMS (2.58353802\times10^{-4}), versus initial max (3.57126092\times10^{-4}), RMS (2.58353785\times10^{-4}). Final target gap is (-3.46833097\times10^{-7}), essentially unchanged. Each iteration has alpha RMS step around (6.4\times10^{-11}), target drift (-8.58\times10^{-14}); neither seed reaches the (10^{-13}) stopping tolerance. Fixed-Kdot solves repeat exactly. This is evidence of two distinct near-fixed profiles under the same map, **not proof of two exact roots**, because the map is nearly neutral/noncontractive at this scale.
 
 Next isolate the scalar consistency residual (H(k)=\mathrm{target\_kdot}(\alpha_{solve}(k))-k) by sampling trial Kdot values over a bracket covering the native R80 and R160 targets. Each lapse solve uses temporarily fixed Kdot, then the production target is restored and evaluated on the returned alpha. Record sign changes/bracketed roots or no root over the searched range. Avoid damping, tuning or production edits.
+
+
+### Scalar closure scan launched (12 October)
+
+- Run [38209945367](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38209945367) is in progress.
+- Script commit [bc1e0a4c5bdb28f8c3e71967133f8a0923309ed4](https://github.com/miahpenn/0-Cosmos-engine/commit/bc1e0a4c5bdb28f8c3e71967133f8a0923309ed4); workflow trigger commit [ed30da8d41746cdb65a97ca9b666873dc40661b2](https://github.com/miahpenn/0-Cosmos-engine/commit/ed30da8d41746cdb65a97ca9b666873dc40661b2).
+- Expected artifact: `cmc-target-lapse-scalar-closure-scan`.
+- It scans 121 trial Kdot values from the native R80 target minus (10^{-6}) through archived R160 target plus (10^{-6}). For each trial it temporarily fixes the target, solves the production lapse equation, restores the native target callback, and measures (H(k)=\mathrm{target}(\alpha_{solve}(k))-k). This tests sign changes/root brackets without Picard iteration. The diagnostic is frozen-state only; no source equation is changed.
