@@ -130,6 +130,12 @@ def target_decomposition(grid, geometry, scalars, matter):
         return total_n / total_w, total_w, total_n
 
     full_target, full_weight, full_numerator = mean(np.ones_like(inner, dtype=bool))
+    interior_rows_mask = np.ones_like(inner, dtype=bool)
+    interior_rows_mask[-1] = False
+    interior_rows_target, interior_rows_weight, interior_rows_numerator = mean(interior_rows_mask)
+    outermost_weight = float(weights[-1])
+    outermost_raw_rhs = float(raw[-1])
+    outermost_shift_vs_interior_target = float(full_target - interior_rows_target)
     inner_target, inner_weight, inner_numerator = mean(inner)
     if n_outer:
         outer_target, outer_weight, outer_numerator = mean(outer)
@@ -144,6 +150,15 @@ def target_decomposition(grid, geometry, scalars, matter):
         "full_target": float(full_target),
         "production_target_api": production_target,
         "manual_vs_production_target_abs_error": float(abs(full_target - production_target)),
+        "target_excluding_outermost_normalization_cell": float(interior_rows_target),
+        "shift_full_vs_excluding_outermost_cell": outermost_shift_vs_interior_target,
+        "outermost_raw_K_rhs": outermost_raw_rhs,
+        "outermost_residual_vs_full_target": float(outermost_raw_rhs - full_target),
+        "outermost_weight_fraction": float(outermost_weight / full_weight),
+        "outermost_raw_rhs_weighted_contribution": float(outermost_weight * outermost_raw_rhs / full_weight),
+        "outermost_cell_weight": outermost_weight,
+        "interior_rows_weight": float(interior_rows_weight),
+        "interior_rows_numerator": float(interior_rows_numerator),
         "inner_only_target_same_R160_state": float(inner_target),
         "outer_only_weighted_mean_diagnostic": (None if outer_target is None else float(outer_target)),
         "outer_shell_effect_on_full_target": float(full_target - inner_target),
@@ -247,6 +262,14 @@ def main():
             "R160_target_reconstruction_error": float(err160),
             "R80_manual_vs_production_target_abs_error": float(d80["manual_vs_production_target_abs_error"]),
             "R160_manual_vs_production_target_abs_error": float(d160["manual_vs_production_target_abs_error"]),
+            "R80_target_excluding_outermost_cell": float(d80["target_excluding_outermost_normalization_cell"]),
+            "R160_target_excluding_outermost_cell": float(d160["target_excluding_outermost_normalization_cell"]),
+            "R80_outermost_cell_target_shift": float(d80["shift_full_vs_excluding_outermost_cell"]),
+            "R160_outermost_cell_target_shift": float(d160["shift_full_vs_excluding_outermost_cell"]),
+            "R80_outermost_cell_weight_fraction": float(d80["outermost_weight_fraction"]),
+            "R160_outermost_cell_weight_fraction": float(d160["outermost_weight_fraction"]),
+            "R80_outermost_K_rhs": float(d80["outermost_raw_K_rhs"]),
+            "R160_outermost_K_rhs": float(d160["outermost_raw_K_rhs"]),
             "target_R80_state_with_R160_inner_alpha": target80_with_R160_alpha,
             "target_R160_state_with_R80_inner_alpha": target160_with_R80_alpha,
             "R80_target_gap_after_R160_alpha_transplant": float(target80_with_R160_alpha - d160_full),
@@ -280,7 +303,7 @@ def main():
         encoding="utf-8",
     )
     report = {
-        "schema": "cmc_kdot_domain_projection_v2",
+        "schema": "cmc_kdot_domain_projection_v3",
         "status": "completed",
         "diagnostic_only": True,
         "production_physics_changed": False,
@@ -295,6 +318,14 @@ def main():
         "max_manual_vs_production_target_abs_error": float(max(
             max(r["R80_manual_vs_production_target_abs_error"], r["R160_manual_vs_production_target_abs_error"])
             for r in records
+        )),
+        "R80_outermost_cell_target_shift_abs_max": float(max(abs(r["R80_outermost_cell_target_shift"]) for r in records)),
+        "R160_outermost_cell_target_shift_abs_max": float(max(abs(r["R160_outermost_cell_target_shift"]) for r in records)),
+        "R80_outermost_cell_target_shift_signed_integral": float(np.trapz(
+            [r["R80_outermost_cell_target_shift"] for r in records], times
+        )),
+        "R160_outermost_cell_target_shift_signed_integral": float(np.trapz(
+            [r["R160_outermost_cell_target_shift"] for r in records], times
         )),
         "max_abs_split_identity_residual": float(max(abs(r["R160_full_minus_R80_native_decomposition_residual"]) for r in records)),
         "max_abs_target_gap_after_R160_alpha_transplant": float(max(abs(r["R80_target_gap_after_R160_alpha_transplant"]) for r in records)),
