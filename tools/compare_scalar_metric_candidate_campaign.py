@@ -138,7 +138,7 @@ def main():
             "candidate_minus_baseline_diagnostic_deltas": c["diagnostic_time_series_deltas"],
             "checkpoint_t12": c["checkpoint_field_deltas"].get("12")
         } for c in result["cases"]
-    }, sort_keys=True))
+        ]}, sort_keys=True))
 
 if __name__ == "__main__":
     main()
