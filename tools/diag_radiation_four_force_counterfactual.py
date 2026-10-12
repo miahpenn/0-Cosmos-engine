@@ -7,12 +7,14 @@ Candidate: beta_rad = -0.04 (same structural form as DM)
 Frozen-state + one ordinary production step. No long campaign, coefficient
 fitting, or merge to main. This runner is executed only by the diagnostic
 branch's gated CI workflow after the focused regression and existing suite
-pass.
+pass. It records each case's exception, writes and hashes the complete
+artifact, then exits nonzero if any case failed.
 """
 from __future__ import annotations
 
 import hashlib
 import json
+import traceback
 from pathlib import Path
 
 import numpy as np
@@ -49,25 +51,39 @@ def _snapshot(kernel, state, label: str) -> dict:
 
 
 def run_one(resolution: int, beta_rad: float) -> dict:
-    kernel = V55ProductionKernel()
-    kernel.set_diagnostic_beta_rad(beta_rad)
-    state = kernel.initialize(
-        resolution=resolution, r_max=40.0, include_radiation=True
-    )
-    dr = state.grid.centers[1] - state.grid.centers[0]
-    dt = CFL * dr
-
-    pre = _snapshot(kernel, state, "t0")
-    state = kernel.step(state, dt)
-    post = _snapshot(kernel, state, "t0+dt")
-
-    return {
+    result = {
         "resolution": resolution,
         "beta_rad": beta_rad,
-        "dt": float(dt),
-        "pre": pre,
-        "post": post,
+        "status": "failed",
+        "dt": None,
+        "pre": None,
+        "post": None,
+        "error_type": None,
+        "error": None,
+        "traceback": None,
     }
+    try:
+        kernel = V55ProductionKernel()
+        kernel.set_diagnostic_beta_rad(beta_rad)
+        state = kernel.initialize(
+            resolution=resolution, r_max=40.0, include_radiation=True
+        )
+        dr = state.grid.centers[1] - state.grid.centers[0]
+        dt = CFL * dr
+        result["dt"] = float(dt)
+        result["pre"] = _snapshot(kernel, state, "t0")
+        state = kernel.step(state, dt)
+        result["post"] = _snapshot(kernel, state, "t0+dt")
+        result["status"] = "passed"
+    except Exception as exc:
+        result["error_type"] = type(exc).__name__
+        result["error"] = str(exc)
+        result["traceback"] = traceback.format_exc()
+        print(
+            f"CASE FAILED N={resolution} beta_rad={beta_rad}: "
+            f"{type(exc).__name__}: {exc}"
+        )
+    return result
 
 
 def main() -> None:
@@ -79,10 +95,15 @@ def main() -> None:
 
     out = Path("artifacts/radiation_four_force_counterfactual.json")
     out.parent.mkdir(parents=True, exist_ok=True)
-    payload = json.dumps(results, indent=2, sort_keys=True)
+    payload = json.dumps(results, indent=2, sort_keys=True, allow_nan=True)
     out.write_text(payload + "\n", encoding="utf-8")
     digest = hashlib.sha256((payload + "\n").encode("utf-8")).hexdigest()
     print(f"Wrote {out} SHA-256={digest}")
+
+    failures = [r for r in results if r["status"] != "passed"]
+    print(f"Counterfactual cases: {len(results) - len(failures)} passed, {len(failures)} failed")
+    if failures:
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":
