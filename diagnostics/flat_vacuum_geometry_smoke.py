@@ -36,7 +36,12 @@ def main():
 
     zeros = np.zeros(grid.n, dtype=float)
     fields = ScalarFields(*(zeros.copy() for _ in range(6)))
-    fluid = ConservedSpecies(zeros.copy(), zeros.copy(), zeros.copy())
+    # The current Valencia dust recovery rejects exactly zero rest-current.
+    # Use a positive 1e-30 admissible seed so the adapter can evaluate its
+    # matter projections; its source contribution is negligible at the
+    # stated 1e-12 RHS tolerance and is explicitly recorded as near-vacuum.
+    tiny = np.full(grid.n, 1.0e-30, dtype=float)
+    fluid = ConservedSpecies(tiny.copy(), tiny.copy(), zeros.copy())
     matter = V55MatterState(fluid.copy(), fluid.copy(), fluid.copy())
     terms = adapter.geometry_stage_terms(grid, geom, fields, matter)
 
@@ -59,10 +64,10 @@ def main():
     tolerance = 1.0e-12
     passed = finite and overall <= tolerance
     payload = {
-        "test": "exact flat vacuum through production geometry RHS adapter",
-        "scope": "geometry RHS blocks only; does not exercise full production stepper",
+        "test": "near-vacuum flat state through production geometry RHS adapter",
+        "scope": "geometry RHS blocks only; tiny positive fluid seed required by current matter API; does not exercise full production stepper",
         "grid": {"resolution": grid.n, "r_max": 32.0, "dr": float(grid.dr)},
-        "state": "a=b=X=alpha=1; beta=B=Aa=K=Lambda=0; all scalar and fluid fields zero",
+        "state": "a=b=X=alpha=1; beta=B=Aa=K=Lambda=0; scalar fields zero; each fluid species has rest=energy_t=1e-30 and zero momentum (near-vacuum seed required by dust recovery)",
         "max_abs_rhs_by_block": maxima,
         "overall_max_abs_rhs": overall,
         "tolerance": tolerance,
