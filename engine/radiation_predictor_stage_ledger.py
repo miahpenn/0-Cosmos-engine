@@ -273,7 +273,7 @@ def validate_primary_source_capture(steps, expected_indices, failure_step_index=
                     errors.append(f"step {step_index}: {name} missing or cell mismatch")
         if previous is not None:
             previous_step, previous_rows = previous
-            if previous_step + 1 == step_index and not is_failure:
+            if previous_step + 1 == step_index:
                 new_accepted = {
                     int(r["i"]): r for r in step.get("accepted_geometry_and_rhs", {}).get("accepted_geometry", [])
                 }
