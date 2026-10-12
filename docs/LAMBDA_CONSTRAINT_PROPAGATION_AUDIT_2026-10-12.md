@@ -77,6 +77,18 @@ At t=2.1:
 
 The same spatial-grid defect is nearly unchanged when halving dt. This strongly argues against simple time-step truncation as the main explanation for early growth, though two CFLs alone are not a formal time-convergence order proof.
 
+## Spatial refinement result details
+
+The fixed physical annulus values clarify that the error is spatially concentrated toward the centre:
+- At r=3, signed H is +7.4135e-4 (N40), -1.8587e-4 (N60), -4.1919e-4 (N80), and +9.2175e-6 (N120).
+- At r=4, signed H is +1.7024e-4, -3.0519e-4, +1.0214e-4, and -1.1709e-5.
+- At r=5, signed H is -4.0086e-4, +1.0104e-4, -1.8623e-5, and -5.4585e-6.
+These are fixed-radius interpolated samples; their signs and non-monotonic intermediate values mean a formal spatial order should not be fitted from this short test. Nevertheless, by N=120 the residual at r=3,4,5 is much smaller than at N40/N60/N80.
+
+Volume-weighted RMS H over the fixed physical annulus 2<=r<5 is 7.4135e-4 (N40), 6.5404e-4 (N60), 4.4980e-4 (N80), and 1.2832e-4 (N120). By contrast, the maximum in admitted cells (index>=2 and r<5) shifts inward from r=3.333 (N60, |H|=7.51e-4) to r=2.5 (N80, |H|=1.071e-3) to r=1.667 (N120, |H|=1.539e-3). The full inner-domain peak including the first two excluded cells falls from 9.27e-3 (N60) to 6.97e-3 (N80) and 4.74e-3 (N120).
+
+**Interpretation:** the residual improves at fixed resolved radii and in a volume-weighted inner annulus, while its maximum follows the first admitted cells inward. This is evidence for a shrinking central numerical layer, not a converged central solution. The momentum constraint is also not uniformly converged at the first admitted cell (at N120, |M| reaches about 9.36e-4 inside r<5), so the momentum-source mechanism remains the next target.
+
 ## Matched-CFL spatial refinement — complete
 
 Run: https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38212879394
