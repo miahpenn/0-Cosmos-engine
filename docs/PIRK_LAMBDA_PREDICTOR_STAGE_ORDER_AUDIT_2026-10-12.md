@@ -68,3 +68,25 @@ The separately archived geometry/matter cone budget remains the stronger local e
 - Keep centre-series, H/M/C\(_\Lambda\), radiation admissibility, and Misner–Sharp criteria independent. No conservation tolerance is inferred by this one-step A/B.
 
 No physical law, damping, floor, clamp, projection, source coefficient, or boundary condition was changed by the candidate.
+
+
+## Final confirmed A/B values and checkpoint — 12 October 2026
+
+The bounded A/B and its checksums are now fully recorded in [the experiment report](https://github.com/miahpenn/0-Cosmos-engine/blob/diag/pirk-lambda-predictor-stage-order-2026-10-12/docs/PIRK_LAMBDA_PREDICTOR_STAGE_ORDER_AB_2026-10-12.md). Exact retained provenance:
+- A/B workflow [38318309196](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38318309196), success at `ce9a49560b04ccbe33d5b51ac86219a5c4a3c2f9`.
+- Stage-order CI [38318119471](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38318119471), success: 1 focused test and 36 full-suite tests passed.
+- Artifact [11777443806](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38318309196/artifacts/11777443806), ZIP SHA-256 `1ec986b7cbbe97ba23184c2d448aba26199257f6ae9d6c4182490c81af3867fe`; report JSON SHA-256 `283c5b337a90670c9a397c9584d19447497017cc44a640ca96bc7303a03186ef`.
+- Exact pinned vendor `d6052d605673ce9d82cdc99b0df79855fa2ea215`; production `main` remains `2035acc1210db18da0cededea18750b7ed813260`.
+
+| Measured difference, corrected minus stale | N=80 | N=160 |
+|---|---:|---:|
+| Predictor Lambda delta | 3.9913029479e-10 | 4.9925153421e-11 |
+| Completed Lambda max-array delta | 6.9388939039e-17 | 2.1684043450e-18 |
+| Completed Aa max-array delta | 1.6329877488e-12 | 1.9526410357e-13 |
+| Completed H max-absolute delta | -2.4286128664e-17 | 0.0 |
+| Completed M max-absolute delta | -4.2540321716e-12 | -1.0631220974e-12 |
+| Completed C_Lambda max-absolute delta | -6.9388939039e-17 | -2.1684043450e-18 |
+
+The raw Lambda-L2 stage arrays differ by 5.3217372642e-8 (N=80) and 1.3313374252e-8 (N=160), confirming the stage-order discrepancy. After the full step, the max `|S|/E` is identical between arms (0.00501354074617448 at N=80; 0.005015096011912016 at N=160), as are the radiation cone margins (2.2067153165e-9 and 5.5163762656e-10 respectively). All four one-step arms completed.
+
+**Decision:** preserve the sequential stage-order correction as a discrete conformance candidate, but do not promote it or infer it fixes the accepted-t≈46.98 outer cone crossing. The full-run causal question, centre regularity, constraint propagation, Misner–Sharp balance, convergence and production admission remain open.
