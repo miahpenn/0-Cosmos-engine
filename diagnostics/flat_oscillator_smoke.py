@@ -94,7 +94,7 @@ def main():
         "pass": passed,
     }
     (OUT / "flat_oscillator_smoke.json").write_text(
-        json.dumps(payload, indent=2, sort_keys=True) + "\\n"
+        json.dumps(payload, indent=2, sort_keys=True) + "\n"
     )
     print(json.dumps(payload, indent=2, sort_keys=True), flush=True)
     if not passed:
