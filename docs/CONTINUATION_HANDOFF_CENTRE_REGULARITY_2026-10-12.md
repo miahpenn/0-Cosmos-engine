@@ -85,14 +85,14 @@ The initial H solve does not make Mdot vanish. Tangent and one-step rates agree 
 - The initial-metric candidate is not admitted as a production repair. Do not claim pointwise centre convergence, covariant source conservation, bounce, turnaround, ejection, or cyclic behavior from these results.
 - No long production trajectory should be launched until the matched uniform-fourth-order one-step test and the signed centre-term audit pass.
 
-## Next work — bounded and decisive
+## Next work — updated after matched uniform-quadrature one-step test
 
-1. **Run the matched one-step propagation test on the uniform-fourth-order initializer** at N=40/60/80/120 with the same CFL, source state, and recorder as the baseline and origin-only arms. Record initial and post-step H, M, C_lambda, determinant, Aa/r², Lambda/r and fixed-radius residuals. Keep all arms paired; no long trajectory.
-2. **Decompose production Aa RHS into signed components** at i=0,1,2 and fixed r=2,3,4,5: trace-free Ricci, trace-free lapse Hessian, anisotropic stress, K/A nonlinear terms and any explicit regularity terms. Compare against independent radial-series expressions on the exact frozen initial states.
-3. Check the K RHS and matter-current continuity independently. Do not infer stress-energy conservation from a residual budget closure.
-4. Verify exact parity/stencil identities for a,b,X,alpha,Aa,K,Lambda and the corresponding odd/even derivatives. Check the actual pinned production call graph for any centre regularity enforcement.
-5. If and only if one discrete identity fails, make one isolated numerical-layer repair on a diagnostic branch, rerun the exact matched tests, and keep the physics lane untouched.
-6. Resume the production campaign only after initial H/M/C_lambda admission, one-step propagation, centre regularity, and balance checks pass at matched resolution. No t=160 campaign before these gates close.
+The matched one-step test is complete: [workflow 38292762118](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38292762118), artifact SHA-256 `0faff832630fe189143e2aa178013967e79d30de5c0b1d0276447691fee7993e`. N=40/60/80/120/160 completed one normal production step and retained much smaller H residuals on the uniform-fourth-order initializer than on the pinned baseline. The first-cell `Aa_rhs` remains about 4.0–4.14e-5 at N=80–320 rather than scaling as O(r²). At N=240 and N=320, every initializer arm failed radiation admissibility at i=0 in the unchanged RHS/step path. Full tables and artifact provenance are in `docs/CONTINUATION_HANDOFF_LATEST_2026-10-12.md`.
+
+1. **Read-only signed production Aa/K RHS decomposition.** On the exact pinned baseline and uniform-initialized t=0 states, then on saved t=2.16 checkpoints, split trace-free Ricci, trace-free lapse Hessian, anisotropic stress, nonlinear/extrinsic terms and numerical dissipation; report each signed term at i=0,1,2 and fixed r=2,3,4,5. Separately inspect the regular-series identities for `r²*Aa_dot`, `Aa_dot/r²`, and `D_r K_dot/r`.
+2. **Radiation first-cell admissibility.** For N=160/240/320, log E, S, E-|S| and the signed flux/source tendencies before and after each actual RHS stage. Keep the original cone/admissibility condition; no clipping, floor or projection.
+3. **One isolated numerical-layer counterfactual only if a discrete identity fails.** Compare H, M, C_lambda, determinant, fixed-radius profiles and Misner–Sharp balance. No physical equation, coefficient, gauge or boundary change unless independently warranted by the exact failed identity.
+4. Resume the production campaign only after centre regularity, one-step constraint propagation, matter admissibility and conservation/balance gates pass at matched resolution. No t=160 campaign yet.
 
 ## Repository state
 
