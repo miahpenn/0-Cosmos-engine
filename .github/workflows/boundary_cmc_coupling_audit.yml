@@ -1,5 +1,6 @@
 name: "[0star] Boundary–CMC radiation coupling audit"
 # Trigger: [run-boundary-cmc-audit] uses an exact stacked-source pin.
+# Latest rerun includes updated guard parsing for the history counterfactual.
 
 on:
   push:
