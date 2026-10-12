@@ -255,6 +255,36 @@ For all 99 captured completed primary-predictor stages, the formula-based Δ(M) 
 
 The signed effect on the full (M) residual is positive because the matter term is unchanged by this (A_a)-only assignment. Whether that worsens the *absolute* full constraint residual depends on the pre-boundary sign and the exact (-8\pi j_{\mathrm{total}}) value; the ledger does not capture the complete total-(j) term in a way that admits an absolute-residual statement here. Therefore the allowed conclusion is: the frozen primary boundary imposes an increasing, quantitatively non-negligible change on the outer momentum-constraint equation. That warrants a boundary/CMC/constraint compatibility audit, but is **not** proof the P-minus target is invalid and does not establish it caused the later radiation crossing.
 
+### The same boundary assignment also shifts the Hamiltonian constraint directly
+
+The pinned production diagnostic defines the Hamiltonian residual as
+[
+H=R-(A_a^2+2A_b^2)+\tfrac23 K^2-16\pi\rho,\qquad A_b=-\tfrac12 A_a.
+]
+On the same primary-predictor slice, (R), (K), and total (ho) are unchanged by the boundary's (A_a[-1])-only assignment. Thus the exact direct Hamiltonian-residual jump is
+[
+\Delta H=-\tfrac32\left[(A_{a,\mathrm{post}})^2-(A_{a,\mathrm{pre}})^2\right].
+]
+
+Using the same accepted historical-source ledger and the cleanly reconstructed pre-/post-boundary primary predictor, the jump is:
+
+| Accepted time | Boundary Δ(A_a[-1]) | (H_{A_a}) term before boundary (-\tfrac32 A_{a,pre}^2) | Exact same-slice Δ(H) |
+|---:|---:|---:|---:|
+| 46.680 | +2.53865e−5 | −2.39620e−2 | −9.62686e−6 |
+| 46.710 | +2.85039e−5 | −2.51860e−2 | −1.10817e−5 |
+| 46.740 | +3.17962e−5 | −2.64698e−2 | −1.26730e−5 |
+| 46.770 | +3.52480e−5 | −2.78155e−2 | −1.44016e−5 |
+| 46.800 | +3.88339e−5 | −2.92252e−2 | −1.62640e−5 |
+| 46.830 | +4.25264e−5 | −3.07008e−2 | −1.82547e−5 |
+| 46.860 | +4.62923e−5 | −3.22442e−2 | −2.03648e−5 |
+| 46.890 | +5.00893e−5 | −3.38573e−2 | −2.25798e−5 |
+| 46.920 | +5.38647e−5 | −3.55418e−2 | −2.48786e−5 |
+| 46.950 | +5.75540e−5 | −3.72994e−2 | −2.72321e−5 |
+
+At (t=46.95), the P-minus correction makes the Hamiltonian residual (2.7232\times10^{-5}) more negative, which is 0.0730% of the pre-boundary (A_a)-quadratic Hamiltonian term. This formula-based delta is exact for the coded diagnostic constraint at fixed state: its derivation changes no curvature, (K), metric, or matter term. It is a measurable same-slice constraint contribution, not a claim that the absolute (H) norm worsens; the pre-boundary full-H sign/value at that exact stage is not present in this artifact in a way that admits that absolute statement.
+
+Because the boundary only changes (A_a), there is no direct same-slice change in the metric-only conformal connection constraint from this assignment alone. The later evolved (Lambda), (A_a), (K), and metric can of course couple across subsequent primary/final stages. Taken together with the separately derived Δ(M), the existing evidence now quantifies direct (H) and (M) footprint at the outer cell without asserting that P-minus is invalid. The boundary target, full constraint propagation, and corrected-source event causation remain separate open questions.
+
 ### What this narrows—and what it still cannot prove
 
 This establishes that the outer (P_-) rule materially corrects the outer (A_a) primary predictor and that the correction grows smoothly near the terminal failure. Because (A_a) feeds (dot a=-2\alpha a A_a) at zero shift and also enters the subsequent primary RHS, this is a concrete pathway for a previous boundary condition to affect future metric updates. It strengthens the case for a **boundary/CMC/geometry compatibility audit** rather than simply clearing the boundary because its spatial residual is near roundoff.
