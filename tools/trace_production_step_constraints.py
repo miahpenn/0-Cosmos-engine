@@ -47,6 +47,18 @@ def metric_connection(grid, geometry):
     return d1(grid, a, +1)/(2*a**2) - d1(grid, b, +1)/(a*b) + 2/r*(1/b - 1/a)
 
 
+def metric_derived_ricci(grid, geometry):
+    r = np.asarray(grid.centers, dtype=float)
+    a = np.asarray(geometry.a, dtype=float)
+    b = np.asarray(geometry.b, dtype=float)
+    X = np.asarray(geometry.X, dtype=float)
+    areal_radius = r * np.sqrt(b) / X
+    d_ell_dr = X / np.sqrt(a)
+    areal_ell = d_ell_dr * d1(grid, areal_radius, -1)
+    areal_ell_ell = d_ell_dr * d1(grid, areal_ell, +1)
+    return -4.0 * areal_ell_ell / areal_radius + 2.0*(1.0-areal_ell**2)/areal_radius**2
+
+
 def peak(values, radius, mask):
     idxs = np.flatnonzero(mask)
     if not idxs.size:
@@ -65,8 +77,10 @@ def state_witness(grid, geom, scalars, matter, *, label, base_t, stage_order, so
     h_geo = np.asarray(raw["hamiltonian"], dtype=float)
     h_source = 16.0*np.pi*np.asarray(total.rho, dtype=float)
     h = h_geo - h_source
+    R_vendor = np.asarray(terms["R"], dtype=float)
+    R_metric = metric_derived_ricci(grid, geom)
     h_metric = (
-        np.asarray(terms["R"], dtype=float)
+        R_metric
         - (np.asarray(geom.Aa, dtype=float)**2
            + 2.0*(-0.5*np.asarray(geom.Aa, dtype=float))**2)
         + (2.0/3.0)*np.asarray(geom.K, dtype=float)**2
@@ -81,6 +95,8 @@ def state_witness(grid, geom, scalars, matter, *, label, base_t, stage_order, so
         "H_residual": h,
         "H_geometry": h_geo,
         "H_source_16pi_rho": h_source,
+        "R_vendor": R_vendor,
+        "R_metric_independent": R_metric,
         "H_metric_ricci_counterfactual": h_metric,
         "momentum_residual": momentum,
         "connection_vendor": C_vendor,
@@ -238,8 +254,8 @@ def trace_one_step(state, case_label):
     record("returned_step_state",result.geometry,result.scalars,result.matter,99,"final_state")
     return {
         "case":case_label,
-        "N":int(grid.n),
-        "r_max":float(grid.r_max),
+        "N":int(len(grid.centers)),
+        "r_max":float(grid.dr * len(grid.centers)),
         "base_t":step_t,
         "dt":dt,
         "reported_final_t":float(result.t),
