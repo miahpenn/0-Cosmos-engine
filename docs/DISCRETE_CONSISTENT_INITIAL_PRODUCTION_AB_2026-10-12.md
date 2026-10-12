@@ -72,3 +72,44 @@ The next test is a one-step comparison from the exact saved baseline and candida
 ## Reference context
 
 Constraint propagation studies emphasize that satisfying the constraints initially is necessary but does not guarantee a discrete evolution preserves them; the continuum BSSN constraint subsystem and its zero-speed modes make the evolution/constraint interface important. See the Living Reviews treatment of Einstein initial-boundary value problems and BSSN constraint propagation ([link](https://link.springer.com/article/10.12942/lrr-2012-9)) and Bernuzzi & Hilditch's comparison of BSSNOK and Z4 constraint propagation in spherical symmetry ([Phys. Rev. D 81, 084003 (2010)](https://doi.org/10.1103/PhysRevD.81.084003)). Neither paper validates this particular coupled CMC/PIRK kernel; they support the decision to test constraint propagation directly rather than infer success from initial residual closure.
+
+
+---
+
+## Continuation addendum — one-step propagation and matched checkpoint time series (2026-10-12)
+
+### Frozen-input one-step propagation
+
+- Workflow: [38285057887](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38285057887)
+- Artifact ID: `11763037058`; GitHub ZIP SHA-256: `6e3321690510089c3e677e90cdcc4af3bac621eeb479c6033b8d50d5d13c5c3b`
+- Exact source: `6d8b3f2790644591326df57c55908863f994cb0c`
+- One unmodified production step was taken from each saved (t=0) baseline/candidate state, at N=40,60,80,120. No production equations or input states were modified by the audit.
+
+The candidate begins with H at roundoff (maximum (2.3\times10^{-15}) to (6.1\times10^{-15})); M and (C_\Lambda) also begin at roundoff. After one normal step, H is already regenerated: the admitted-inner maximum is approximately (5.05\times10^{-7}), (5.14\times10^{-7}), and (5.20\times10^{-7}) for N=60,80,120. At those same resolutions, admitted-inner M reaches (3.48\times10^{-6}), (3.69\times10^{-6}), and (3.80\times10^{-6}), while (C_\Lambda) reaches (1.41\times10^{-7}), (1.12\times10^{-7}), and (7.72\times10^{-8}). (N=40 has no cells in the chosen mask (i\ge2, r<5); its full-domain H after one step is (9.82\times10^{-7}).)
+
+The corresponding candidate constraint-rate maxima increase toward finer resolution: admitted-inner \\(\max|\dot H_{\rm discrete}|\\) rises from (8.47\times10^{-6}) (N=40 formal-stencil region) through (1.26\times10^{-5}) (N=60), (1.71\times10^{-5}) (N=80), to (2.60\times10^{-5}) (N=120); M-rate peaks rise from (6.30\times10^{-5}) (N=40 formal-stencil region) to (8.70\times10^{-5}), (1.23\times10^{-4}), and (1.90\times10^{-4}). This is direct evidence that the existing update regenerates constraints from the discrete-consistent slice on the first step; it does not by itself identify which RHS term is responsible.
+
+### Completed saved-checkpoint time series
+
+- Workflow: [38287772729](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38287772729)
+- Artifact ID: `11764187318`; GitHub ZIP SHA-256: `c9981f1bdb2c5970a3736a8c3571148a6107bc25e26b5837da87472f6ab0ee7c`
+- Script repair commit: [`77cf2e0c4fcdfa8ff33fb6a594921d7d345f1221`](https://github.com/miahpenn/0-Cosmos-engine/commit/77cf2e0c4fcdfa8ff33fb6a594921d7d345f1221). The prior attempt failed only because the audit paired scheduled labels against raw binary floating-point timestamps; the corrected script pairs on checkpoint labels and keeps the stored timestamps in the record.
+- Post-processing only: 80 saved states (10 times from (t=0) through (2.16), both arms, N=40/60/80/120), 40 matched baseline/candidate comparisons; no evolution was performed by this audit.
+
+The candidate’s initial H maximum is roundoff at every resolution. By (t=0.24), admitted-inner H maxima are (1.74\times10^{-5}) (N=60), (3.12\times10^{-5}) (N=80), and (7.01\times10^{-5}) (N=120); M is (1.79\times10^{-5}), (2.41\times10^{-5}), and (3.12\times10^{-5}). Thus the initial H defect is removed, but central H/M/connection residuals regenerate during the first 0.24 coordinate-time units.
+
+At (t=2.16), admitted-inner baseline \(\to\) candidate maximum norms are:
+
+| Resolution | H | M | (C_\Lambda) |
+|---:|---:|---:|---:|
+| N=60 | (7.51\times10^{-4}\to6.19\times10^{-4}) | (5.00\times10^{-5}\to3.40\times10^{-5}) | (4.74\times10^{-4}\to2.61\times10^{-4}) |
+| N=80 | (1.07\times10^{-3}\to1.02\times10^{-3}) | (3.04\times10^{-4}\to2.27\times10^{-4}) | (3.24\times10^{-4}\to2.38\times10^{-4}) |
+| N=120 | (1.54\times10^{-3}\to1.67\times10^{-3}) | (9.36\times10^{-4}\to9.09\times10^{-4}) | (2.56\times10^{-4}\to1.84\times10^{-4}) |
+
+N=40 has no points in the admitted-inner (i\ge2, r<5) mask. Fixed-exterior H ((r\ge5)) improves strongly for the candidate at all resolutions (e.g. (5.46\times10^{-6}\to1.50\times10^{-7}) at N=120), while some exterior M/connection comparisons are mixed. The central response is resolution-dependent: N=60/80 improve some admitted-inner norms, whereas N=120 admitted-inner H is worse for the candidate at (t=2.16). The metric solve therefore addresses a real initial discrete H defect but does not establish a constraint-preserving evolution or justify changing the production initializer.
+
+### Interpretation and next bounded test
+
+The combination of (a) first-step regeneration from a discrete-consistent initial slice, (b) the resolution-dependent central (D_rK/r) layer already present in the centre-series audit, and (c) the earlier finding that changing the CMC center row or using a production-matched fourth-order CMC operator does not improve the full H/M/(C_\Lambda) set, narrows the next test to signed production (K)-RHS attribution.
+
+Audit the exact lapse-Laplacian, nonlinear (K/A_a), and remaining signed terms separately on frozen (t=0) and (t\approx2.16) states at N=40/60/80/120; record the CMC elliptic residual and same-cell (D_rK/r) alongside them, plus fixed-radius witnesses. This is diagnostic-only: no field projection, CMC patch, production equation change, long trajectory, or physical interpretation is authorized by these results. The objective is to determine whether the central layer originates in the lapse solve, the (K)-RHS term balance, or their discrete interface before selecting any repair.
