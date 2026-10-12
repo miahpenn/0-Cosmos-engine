@@ -42,4 +42,4 @@ jobs:
       - name: Preserve actual-state cone-guard regressions
         run: python -m pytest -q tests/test_radiation_rhs_admissibility_contract.py
       - name: Full repository regression suite
-        run: python -m pytest -q tests
+        run: python -m pytest -q
