@@ -158,8 +158,10 @@ def main():
             dt=float(p1["actual_t"]-p0["actual_t"])
             if dt<=0: raise ValueError(f"N={n}: nonpositive checkpoint interval")
             r=np.asarray(p0["r"],dtype=float)
-            if not np.array_equal(r,np.asarray(p1["r"],dtype=float)):
-                raise ValueError("interval grids differ")
+            r1=np.asarray(p1["r"],dtype=float)
+            grid_tolerance=1.0e-12*max(1.0,float(np.max(np.abs(r))))
+            if r.shape!=r1.shape or not np.allclose(r,r1,rtol=0.0,atol=grid_tolerance):
+                raise ValueError(f"N={n}: interval grids differ beyond {grid_tolerance}")
             ann=(r>=INNER_LO)&(r<INNER_HI)
             terms={}
             for key in M_FIELDS:
