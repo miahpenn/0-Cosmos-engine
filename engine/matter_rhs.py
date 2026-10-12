@@ -6,7 +6,7 @@ from .matter_system import (
     ConservedSpecies,
     MetricDerivativeSet,
     Species,
-    evolve_species,
+    _species_rhs_components,
 )
 
 
@@ -20,27 +20,20 @@ def species_rhs(
     beta_dm: float = -0.04,
     beta_rad: float = 0.0,
 ) -> ConservedSpecies:
-    """Return d(state)/dt using the conservative transport operator.
+    """Return the conservative RHS without advancing by an artificial dt.
 
-    The underlying spatial operator is independent of the caller's dt, so a
-    unit-step application is algebraically equivalent to extracting its RHS.
-    Keeping this wrapper separate lets the production PIRK stage synchronize
-    matter with the geometry without introducing a second physical evolution
-    law.
+    Radiation admissibility is checked on the incoming state while primitives
+    are recovered, then on actual finite-time updates in evolve_species().
+    A differential-rate query must not emulate a unit-time physical step.
     """
-    advanced = evolve_species(
+    rhs, _, _, _, _ = _species_rhs_components(
         metric,
         metric_derivatives,
         state,
         species,
-        1.0,
         dphi_t=dphi_t,
         dphi_r=dphi_r,
         beta_dm=beta_dm,
         beta_rad=beta_rad,
     )
-    return ConservedSpecies(
-        advanced.rest - state.rest,
-        advanced.energy_t - state.energy_t,
-        advanced.momentum_r - state.momentum_r,
-    )
+    return rhs
