@@ -20,8 +20,9 @@ sys.path.insert(0,str(Path("source").resolve()))
 
 from engine.production_kernel import V55ProductionKernel, ProductionState, BETA_DM, LAMBDA_M
 from engine.scalar_system import ScalarFields
-from engine.matter_system import ConservedSpecies
-from engine.v55_matter import V55MatterState
+from engine.matter_system import ConservedSpecies, Species, project_species
+from engine.v55_matter import V55MatterState, metric_slice_from_q
+from engine.scalar_system import scalar_projection
 from engine.stress_energy import assemble_total_stress_energy
 from engine import v55_pirk_adapter as adapter
 
@@ -48,6 +49,11 @@ def momentum_terms(grid, geom, scalars, matter):
     X=np.asarray(geom.X,dtype=float)
     b=np.asarray(geom.b,dtype=float)
     total=assemble_total_stress_energy(grid,geom,scalars,matter)
+    metric=metric_slice_from_q(grid,geom)
+    j_scalar=np.asarray(scalar_projection(grid,geom,scalars)[3],dtype=float)
+    j_dm=np.asarray(project_species(metric,matter.dark_matter,Species.DARK_MATTER)["j"],dtype=float)
+    j_baryon=np.asarray(project_species(metric,matter.baryons,Species.BARYON)["j"],dtype=float)
+    j_radiation=np.asarray(project_species(metric,matter.radiation,Species.RADIATION)["j"],dtype=float)
     raw=vacuum.constraints(grid,geom)
     t_dAa=d1(grid,Aa,+1)
     t_dK=-(2.0/3.0)*d1(grid,K,+1)
@@ -56,8 +62,13 @@ def momentum_terms(grid, geom, scalars, matter):
     t_b=(Aa-Ab)*(2.0/r+d1(grid,b,+1)/b)
     Mgeom=np.asarray(raw["momentum"],dtype=float)
     Msource=8.0*np.pi*np.asarray(total.j,dtype=float)
+    Msource_scalar=8.0*np.pi*j_scalar
+    Msource_dm=8.0*np.pi*j_dm
+    Msource_baryon=8.0*np.pi*j_baryon
+    Msource_radiation=8.0*np.pi*j_radiation
     Mres=Mgeom-Msource
     rebuilt=t_dAa+t_dK+t_chi+t_b
+    source_rebuilt=Msource_scalar+Msource_dm+Msource_baryon+Msource_radiation
     return {
         "momentum_dAa":t_dAa,
         "momentum_dK":t_dK,
@@ -65,6 +76,11 @@ def momentum_terms(grid, geom, scalars, matter):
         "momentum_radial_b":t_b,
         "momentum_geometric":Mgeom,
         "momentum_source_8piJ":Msource,
+        "momentum_source_8piJ_scalar":Msource_scalar,
+        "momentum_source_8piJ_dark_matter":Msource_dm,
+        "momentum_source_8piJ_baryons":Msource_baryon,
+        "momentum_source_8piJ_radiation":Msource_radiation,
+        "momentum_source_sector_closure":Msource-source_rebuilt,
         "momentum_residual":Mres,
         "momentum_geometric_rebuilt":rebuilt,
     }
@@ -224,6 +240,7 @@ def audit_case(kernel,state,label,scheduled_t=None):
         "state_interpretation":"RHS tangent is evaluated on the frozen state; actual one-step quotient includes PIRK stage splitting and is only a comparator.",
         "closure_checks":{
             "momentum_geometric_reconstruction_max_abs":geometry_rebuilt_error,
+            "momentum_source_sector_reconstruction_max_abs":float(np.max(np.abs(base["momentum_source_sector_closure"]))),
             "finite_difference_epsilon_sensitivity":epsilon_sensitivity,
             "metric_lapse_plus_minus_solved":True,
         },
