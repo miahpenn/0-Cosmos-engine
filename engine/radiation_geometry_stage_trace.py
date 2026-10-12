@@ -860,9 +860,12 @@ class RadiationStageTrace:
             failure_index = cap.get("i")
             if failure_index is None and match_i:
                 failure_index = int(match_i.group(1))
-            failure_stage = cap.get("stage", cf_step.get("failing_stage"))
-            if failure_stage is None and "explicit-predictor" in msg:
+            if "stage='explicit-predictor'" in msg or 'stage="explicit-predictor"' in msg:
                 failure_stage = "explicit_predictor_pre_CMC_admissibility_guard"
+            else:
+                failure_stage = cap.get("stage", cf_step.get("failing_stage"))
+                if failure_stage is None and "explicit-predictor" in msg:
+                    failure_stage = "explicit_predictor_pre_CMC_admissibility_guard"
             failure_radius = cap.get("r")
             if failure_radius is None and failure_index is not None:
                 failure_radius = float(accepted_state.grid.centers[failure_index])
