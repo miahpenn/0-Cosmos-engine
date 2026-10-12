@@ -128,3 +128,123 @@ def test_active_rhs_beta_source_pair_cancels_with_lapse_and_shift(monkeypatch):
         rtol=0.0,
         atol=max(radial_roundoff_tolerance, 1.0e-24),
     )
+
+
+def test_beta_source_pair_cancels_at_actual_step_rhs_stages(monkeypatch):
+    """Trace source reciprocity at the actual beginning and predictor RHS calls.
+
+    This is one bounded step from a synthetic, unadvanced diagnostic slice.
+    It is not a production-admitted trajectory or a constraint-convergence run.
+    """
+    kernel = production_kernel.V55ProductionKernel()
+    state = kernel.initialize(
+        resolution=32,
+        r_max=16.0,
+        D_amplitude=1.0e-10,
+        include_radiation=True,
+    )
+    r = np.asarray(state.grid.centers)
+    # Add a small spatial phi feature so the radial exchange channel is active.
+    state.scalars.phi[:] += 1.0e-5 * np.exp(-(r / 7.0) ** 2)
+    beta_source = -0.04
+    original_rhs = kernel._rhs
+    stage_results = []
+
+    def audited_rhs(stage_state):
+        with monkeypatch.context() as patch:
+            patch.setattr(production_kernel, "BETA_DM", beta_source)
+            scalar_on, matter_on, _ = original_rhs(stage_state)
+            patch.setattr(production_kernel, "BETA_DM", 0.0)
+            scalar_off, matter_off, _ = original_rhs(stage_state)
+
+        geom = stage_state.geometry
+        metric = metric_slice_from_q(stage_state.grid, geom)
+        rho_dm = dm_density(metric, stage_state.matter)
+        sqrt_gamma = np.asarray([m.sqrt_gamma for m in _metric_arrays(metric)])
+        pi = np.asarray(stage_state.scalars.Pi)
+        dphi_r = stage_state.grid.cell_derivative_fourth(
+            stage_state.scalars.phi, parity=1
+        )
+
+        delta_pi = scalar_on.Pi - scalar_off.Pi
+        delta_energy = (
+            matter_on["dark_matter"].energy_t
+            - matter_off["dark_matter"].energy_t
+        )
+        delta_momentum = (
+            matter_on["dark_matter"].momentum_r
+            - matter_off["dark_matter"].momentum_r
+        )
+
+        np.testing.assert_allclose(
+            delta_pi,
+            geom.alpha * beta_source * rho_dm,
+            rtol=2.0e-10,
+            atol=2.0e-20,
+        )
+        q_t = beta_source * rho_dm * scalar_off.phi
+        q_r = beta_source * rho_dm * dphi_r
+        np.testing.assert_allclose(
+            delta_energy,
+            -sqrt_gamma * (q_t - geom.beta * q_r),
+            rtol=2.0e-10,
+            atol=2.0e-20,
+        )
+        np.testing.assert_allclose(
+            delta_momentum,
+            geom.alpha * sqrt_gamma * q_r,
+            rtol=2.0e-10,
+            atol=2.0e-20,
+        )
+
+        mask = (
+            (np.abs(1.0 - geom.alpha) > 1.0e-8)
+            & (rho_dm > 0.0)
+            & (np.abs(pi) > 0.0)
+        )
+        radial_mask = mask & (np.abs(dphi_r) > 0.0)
+        assert np.any(mask), "actual stage must exercise non-unit lapse"
+        assert np.any(radial_mask), "actual stage must exercise radial exchange"
+
+        scalar_energy_source = sqrt_gamma * pi * delta_pi
+        energy_residual = scalar_energy_source + delta_energy
+        energy_scale = max(
+            float(np.max(np.abs(scalar_energy_source[mask]))),
+            float(np.max(np.abs(matter_on["dark_matter"].energy_t[mask]))),
+            float(np.max(np.abs(matter_off["dark_matter"].energy_t[mask]))),
+            1.0e-30,
+        )
+        energy_tol = 512.0 * np.finfo(float).eps * energy_scale + 1.0e-24
+        assert float(np.max(np.abs(energy_residual[mask]))) <= energy_tol
+
+        scalar_radial_current = -delta_pi * dphi_r
+        fluid_radial_current = delta_momentum / sqrt_gamma
+        radial_residual = scalar_radial_current + fluid_radial_current
+        radial_scale = max(
+            float(np.max(np.abs(scalar_radial_current[radial_mask]))),
+            float(np.max(np.abs(matter_on["dark_matter"].momentum_r[radial_mask]))),
+            float(np.max(np.abs(matter_off["dark_matter"].momentum_r[radial_mask]))),
+            1.0e-30,
+        )
+        radial_tol = 512.0 * np.finfo(float).eps * radial_scale + 1.0e-24
+        assert float(np.max(np.abs(radial_residual[radial_mask]))) <= radial_tol
+
+        stage_results.append({
+            "alpha_deviation": float(np.max(np.abs(geom.alpha - 1.0))),
+            "max_energy_pair_residual": float(np.max(np.abs(energy_residual[mask]))),
+            "max_radial_pair_residual": float(np.max(np.abs(radial_residual[radial_mask]))),
+        })
+        return scalar_on, matter_on, _
+
+    monkeypatch.setattr(kernel, "_rhs", audited_rhs)
+    final_state = kernel.step(state, dt=1.0e-3)
+    assert final_state.t == state.t + 1.0e-3
+    assert len(stage_results) == 2, (
+        "Expected exactly the production beginning and predictor/corrector RHS evaluations"
+    )
+    for idx, result in enumerate(stage_results):
+        print(
+            f"[stage-pair {idx}] alpha_deviation={result['alpha_deviation']:.6e} "
+            f"energy_residual={result['max_energy_pair_residual']:.6e} "
+            f"radial_residual={result['max_radial_pair_residual']:.6e}"
+        )
