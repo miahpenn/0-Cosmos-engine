@@ -61,3 +61,12 @@ def test_invalid_inverse_metric_factor_rejected():
 def test_nonpositive_radiation_energy_rejected():
     with pytest.raises(ValueError):
         reconstruct_metric_cone(1.0, 1.0, 0.0, 0.1)
+
+
+def test_pinned_spherical_grid_uses_center_array_for_cell_count():
+    from engine.v55_pirk_adapter import vendor_modules
+
+    operators, _, _ = vendor_modules()
+    grid = operators.SphericalCellGrid(n=80, r_max=80.0)
+    assert not hasattr(grid, 'resolution')
+    assert len(grid.centers) == 80
