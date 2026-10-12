@@ -4,7 +4,7 @@ Status: diagnostic finding; repair not yet applied
 Branch: `diag/radiation-four-force-counterfactual-2026-10-12`  
 PR: https://github.com/miahpenn/0-Cosmos-engine/pull/9 (must remain draft)  
 Capture run: https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38316101510  
-Structured rejection run: https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38316228960  
+Structured rejection run: https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38316279301\nLatest JSON artifact: https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38316279301/artifacts/11776975591\nLatest JSON SHA-256: `f6ab04a363bfbde8195f278f44445e93638822b1e5139904b6315b1630230a8f`  
 Parent artifact: https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38316101510/artifacts/11776544112
 
 ## Finding
@@ -37,7 +37,7 @@ Using the recorded unit-step operator difference as `L(U)`, and the configured c
 
 `U_candidate = U + dt * (U_unit_step - U)`
 
-has `|S|/E ~= 0.0101314` in both cases, below the existing `|S| <= E` bound. This is an observational, first-stage timestep-scaled estimate using the pre-step metric. It is **not** the completed PIRK predictor or final state, and it does not prove that the complete stage remains admissible.
+has `|S|/E = 0.0101313642296932` for `beta_rad=0` and `0.0101313537021683` for `beta_rad=-0.04`, below the existing `|S| <= E` bound. These structured values are recorded under `capture_C.dt_scaled_rhs_candidate` in the latest artifact. This is an observational, first-stage timestep-scaled estimate using the pre-step metric. It is **not** the completed PIRK predictor or final state, and it does not prove that the complete stage remains admissible.
 
 ## Gate status
 
