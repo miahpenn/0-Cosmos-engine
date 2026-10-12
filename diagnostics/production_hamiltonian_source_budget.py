@@ -408,6 +408,177 @@ def decompose_saved_interval(
     return summary, profile
 
 
+
+
+def d1_metric_audit(grid, values, parity):
+    return np.asarray(grid.cell_derivative_fourth(values, parity=parity), dtype=float)
+
+
+def metric_connection_audit(grid, geometry):
+    r = np.asarray(grid.centers, dtype=float)
+    a = np.asarray(geometry.a, dtype=float)
+    b = np.asarray(geometry.b, dtype=float)
+    ap = d1_metric_audit(grid, a, +1)
+    bp = d1_metric_audit(grid, b, +1)
+    return ap / (2.0 * a**2) - bp / (a * b) + 2.0 / r * (1.0 / b - 1.0 / a)
+
+
+def metric_derived_ricci_audit(grid, geometry):
+    """Independent 3-Ricci from ds^2=dell^2+R_areal(dell)^2 dOmega^2."""
+    r = np.asarray(grid.centers, dtype=float)
+    a = np.asarray(geometry.a, dtype=float)
+    b = np.asarray(geometry.b, dtype=float)
+    X = np.asarray(geometry.X, dtype=float)
+    areal_radius = r * np.sqrt(b) / X
+    d_ell_dr = X / np.sqrt(a)
+    areal_ell = d_ell_dr * d1_metric_audit(grid, areal_radius, -1)
+    areal_ell_ell = d_ell_dr * d1_metric_audit(grid, areal_ell, +1)
+    return (
+        -4.0 * areal_ell_ell / areal_radius
+        + 2.0 * (1.0 - areal_ell**2) / areal_radius**2
+    )
+
+
+def ricci_witness(values: np.ndarray, radii: np.ndarray, mask: np.ndarray | None = None) -> dict:
+    values = np.asarray(values, dtype=float)
+    if mask is None:
+        selected = np.arange(values.size)
+    else:
+        selected = np.flatnonzero(np.asarray(mask, dtype=bool))
+    if selected.size == 0:
+        raise ValueError("Ricci witness mask selects no points")
+    idx = int(selected[np.argmax(np.abs(values[selected]))])
+    return {
+        "absmax": float(abs(values[idx])),
+        "signed_value": float(values[idx]),
+        "radius": float(radii[idx]),
+        "index": int(idx),
+    }
+
+
+def ricci_budget_state(grid, geometry, h_vendor_residual, total, vacuum):
+    """Compare vendor R to an independent metric-derived R on one saved slice."""
+    radius = np.asarray(grid.centers, dtype=float)
+    a = np.asarray(geometry.a, dtype=float)
+    b = np.asarray(geometry.b, dtype=float)
+    X = np.asarray(geometry.X, dtype=float)
+    Aa = np.asarray(geometry.Aa, dtype=float)
+    Ab = -0.5 * Aa
+    K = np.asarray(geometry.K, dtype=float)
+    raw = vacuum.constraints(grid, geometry)
+    R_vendor = np.asarray(vacuum.geometry_terms(grid, geometry)["R"], dtype=float)
+    R_metric = np.asarray(metric_derived_ricci_audit(grid, geometry), dtype=float)
+    Lambda_metric = np.asarray(metric_connection_audit(grid, geometry), dtype=float)
+    Lambda_evolved = np.asarray(geometry.Lambda, dtype=float)
+    C_lambda = Lambda_evolved - Lambda_metric
+
+    metric_lambda_geometry = geometry.copy()
+    metric_lambda_geometry.Lambda = Lambda_metric.copy()
+    R_vendor_metric_lambda = np.asarray(
+        vacuum.geometry_terms(grid, metric_lambda_geometry)["R"], dtype=float
+    )
+    R_connection = R_vendor - R_vendor_metric_lambda
+    R_route = R_vendor_metric_lambda - R_metric
+    R_gap = R_vendor - R_metric
+    R_connection_expected = X**2 * d1_metric_audit(grid, C_lambda, -1)
+    connection_constraint_raw = np.asarray(raw["connection"], dtype=float)
+
+    term_A = -(Aa**2 + 2.0 * Ab**2)
+    term_K = (2.0 / 3.0) * K**2
+    term_matter = -16.0 * math.pi * np.asarray(total.rho, dtype=float)
+    H_vendor_reconstructed = R_vendor + term_A + term_K + term_matter
+    H_metric = R_metric + term_A + term_K + term_matter
+
+    H_vendor_closure = np.asarray(h_vendor_residual, dtype=float) - H_vendor_reconstructed
+    H_gap_closure = (
+        (np.asarray(h_vendor_residual, dtype=float) - H_metric) - R_gap
+    )
+    split_closure = R_gap - (R_connection + R_route)
+    connection_formula_closure = R_connection - R_connection_expected
+    lambda_constraint_closure = C_lambda - connection_constraint_raw
+
+    all_arrays = (
+        R_vendor, R_metric, R_vendor_metric_lambda, R_connection, R_route,
+        R_gap, R_connection_expected, H_vendor_reconstructed, H_metric,
+        H_vendor_closure, H_gap_closure, split_closure,
+        connection_formula_closure, lambda_constraint_closure
+    )
+    finite_arrays(**{f"ricci_{i}": arr for i, arr in enumerate(all_arrays)})
+    scale = max(1.0, *(float(np.max(np.abs(x))) for x in all_arrays[:9]))
+    tolerance = 4096.0 * np.finfo(float).eps * scale
+    closure_values = {
+        "vendor_H_reconstruction": float(np.max(np.abs(H_vendor_closure))),
+        "curvature_replacement_identity": float(np.max(np.abs(H_gap_closure))),
+        "ricci_route_split_identity": float(np.max(np.abs(split_closure))),
+        "lambda_to_Ricci_identity": float(np.max(np.abs(connection_formula_closure))),
+        "connection_constraint_reconstruction": float(np.max(np.abs(lambda_constraint_closure))),
+    }
+    failures = [k for k, v in closure_values.items() if v > tolerance]
+
+    inner = radius < 5.0
+    exterior = radius >= 5.0
+    terms = {
+        "R_vendor_minus_R_metric": R_gap,
+        "R_vendor_Lambda_minus_R_vendor_metric_Lambda": R_connection,
+        "R_vendor_metric_Lambda_minus_R_metric": R_route,
+        "R_connection_formula_prediction": R_connection_expected,
+        "H_vendor": np.asarray(h_vendor_residual, dtype=float),
+        "H_metric_counterfactual": H_metric,
+        "H_vendor_minus_H_metric": np.asarray(h_vendor_residual, dtype=float) - H_metric,
+    }
+    summary = {
+        "finite": True,
+        "lambda_metric_vs_evolved": {
+            "max_abs_C_lambda": float(np.max(np.abs(C_lambda))),
+            "max_abs_connection_identity_difference": float(np.max(np.abs(lambda_constraint_closure))),
+        },
+        "curvature_gap": {
+            name: {
+                "full": ricci_witness(values, radius),
+                "inside_r_lt_5": ricci_witness(values, radius, inner),
+                "outside_r_ge_5": ricci_witness(values, radius, exterior),
+                "full_rms": float(np.sqrt(np.mean(values**2))),
+                "inside_r_lt_5_rms": float(np.sqrt(np.mean(values[inner]**2))),
+                "outside_r_ge_5_rms": float(np.sqrt(np.mean(values[exterior]**2))),
+            }
+            for name, values in terms.items()
+        },
+        "closure": {
+            **closure_values,
+            "tolerance": tolerance,
+            "passed": not failures,
+            "failures": failures,
+        },
+        "central_terms": {
+            "R_vendor": float(R_vendor[0]),
+            "R_metric": float(R_metric[0]),
+            "R_vendor_metric_Lambda": float(R_vendor_metric_lambda[0]),
+            "R_connection_contribution": float(R_connection[0]),
+            "R_metric_route_difference": float(R_route[0]),
+            "R_total_gap": float(R_gap[0]),
+            "H_vendor": float(np.asarray(h_vendor_residual)[0]),
+            "H_metric_counterfactual": float(H_metric[0]),
+            "C_lambda": float(C_lambda[0]),
+            "X": float(X[0]),
+            "a": float(a[0]),
+            "b": float(b[0]),
+            "Lambda_evolved": float(Lambda_evolved[0]),
+            "Lambda_metric": float(Lambda_metric[0]),
+        },
+    }
+    profile = {
+        "r": radius.tolist(),
+        **{name: values.tolist() for name, values in terms.items()},
+        "R_vendor": R_vendor.tolist(),
+        "R_metric": R_metric.tolist(),
+        "R_vendor_metric_Lambda": R_vendor_metric_lambda.tolist(),
+        "C_lambda": C_lambda.tolist(),
+        "Lambda_evolved": Lambda_evolved.tolist(),
+        "Lambda_metric": Lambda_metric.tolist(),
+    }
+    return summary, profile
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--artifact-dir", type=Path, required=True)
@@ -439,6 +610,8 @@ def main() -> None:
     summaries = []
     profiles_by_n_time = {}
     states_by_n_time = {}
+    ricci_summaries = []
+    ricci_profiles = []
     for n in (40, 60, 80):
         # t=0 is initialized at the same production defaults; no evolution step is taken.
         initial = kernel.initialize(
@@ -450,6 +623,22 @@ def main() -> None:
             include_radiation=True,
         )
         summary, profile = audit_state(initial, vacuum)
+        ricci_summary, ricci_profile = ricci_budget_state(
+            initial.grid,
+            initial.geometry,
+            (
+                np.asarray(vacuum.constraints(initial.grid, initial.geometry)["hamiltonian"], dtype=float)
+                - 16.0 * math.pi * np.asarray(assemble_total_stress_energy(
+                    initial.grid, initial.geometry, initial.scalars, initial.matter
+                ).rho, dtype=float)
+            ),
+            assemble_total_stress_energy(initial.grid, initial.geometry, initial.scalars, initial.matter),
+            vacuum,
+        )
+        ricci_summary.update({"resolution": int(n), "t": float(initial.t), "scheduled_checkpoint_time": 0.0})
+        ricci_profile.update({"resolution": int(n), "t": float(initial.t), "scheduled_checkpoint_time": 0.0})
+        ricci_summaries.append(ricci_summary)
+        ricci_profiles.append(ricci_profile)
         summaries.append(summary)
         profiles_by_n_time[(n, 0.0)] = profile
         states_by_n_time[(n, 0.0)] = initial
@@ -469,6 +658,33 @@ def main() -> None:
                     f"tolerance {checkpoint_time_tolerance} around scheduled t={t}"
                 )
             summary, profile = audit_state(state, vacuum)
+            ricci_summary, ricci_profile = ricci_budget_state(
+                state.grid,
+                state.geometry,
+                np.asarray(summary["hamiltonian"]["full"]["signed_value"] * np.ones(state.grid.n))
+                if False else (
+                    np.asarray(vacuum.constraints(state.grid, state.geometry)["hamiltonian"], dtype=float)
+                    - 16.0 * math.pi * np.asarray(assemble_total_stress_energy(
+                        state.grid, state.geometry, state.scalars, state.matter
+                    ).rho, dtype=float)
+                ),
+                assemble_total_stress_energy(state.grid, state.geometry, state.scalars, state.matter),
+                vacuum,
+            )
+            ricci_summary.update({
+                "resolution": int(n),
+                "t": float(state.t),
+                "scheduled_checkpoint_time": float(t),
+                "checkpoint_time_offset": float(state.t - t),
+            })
+            ricci_profile.update({
+                "resolution": int(n),
+                "t": float(state.t),
+                "scheduled_checkpoint_time": float(t),
+                "checkpoint_time_offset": float(state.t - t),
+            })
+            ricci_summaries.append(ricci_summary)
+            ricci_profiles.append(ricci_profile)
             summary["scheduled_checkpoint_time"] = float(t)
             summary["checkpoint_time_offset"] = float(state.t - t)
             summary["input_checkpoint"] = checkpoint.relative_to(artifact_dir).as_posix()
@@ -480,6 +696,19 @@ def main() -> None:
             states_by_n_time[(n, float(t))] = state
 
     comparisons = common_radius_comparison(summaries, profiles_by_n_time)
+    (output_dir / "checkpoint_ricci_route_budget.json").write_text(json.dumps({
+        "schema": "v55_saved_checkpoint_ricci_route_budget_v1",
+        "diagnostic_only": True,
+        "source_run_id": args.source_run_id,
+        "source_code_commit": args.source_code_sha,
+        "source_campaign_summary_sha256": sha256_file(campaign_path),
+        "snapshot_count": len(ricci_summaries),
+        "method": "On each exact t=0 and saved N40/N60/N80 checkpoint, compare vendor R with the independent general-spherical-metric R in proper radial distance. Replace only Lambda by metric-derived Lambda on a copied geometry to split the explicit evolved-connection contribution from remaining metric-route/discretization difference. No production steps.",
+        "snapshots": ricci_summaries,
+    }, indent=2) + "\n")
+    with (output_dir / "checkpoint_ricci_route_profiles.jsonl").open("w") as handle:
+        for item in ricci_profiles:
+            handle.write(json.dumps(item, separators=(",", ":")) + "\n")
     increment_attributions = []
     increment_profiles = []
     for n in (40, 60, 80):
@@ -543,6 +772,7 @@ def main() -> None:
         "snapshots_per_resolution": list(SNAPSHOT_TIMES),
         "snapshot_count": len(summaries),
         "checkpoint_increment_interval_count": len(increment_attributions),
+        "ricci_route_snapshot_count": len(ricci_summaries),
         "method": {
             "hamiltonian_residual": "raw vacuum Hamiltonian constraint - 16*pi*(scalar_rho + fluid_rho)",
             "momentum_residual": "raw vacuum momentum constraint - 8*pi*(scalar_j + fluid_j)",
@@ -561,6 +791,7 @@ def main() -> None:
         "profiles": str(output_dir / "constraint_source_profiles.jsonl"),
         "summary": str(output_dir / "constraint_source_budget_summary.json"),
         "checkpoint_increment_attribution": str(output_dir / "checkpoint_hamiltonian_increment_attribution.json"),
+        "ricci_route_budget": str(output_dir / "checkpoint_ricci_route_budget.json"),
         "checkpoint_increment_interval_count": len(increment_attributions),
         "production_steps_run": 0,
         "finite": all(item["finite"] for item in summaries),
