@@ -888,7 +888,7 @@ class RadiationStageTrace:
         original_rhs = kernel_cls._rhs
         original_step = kernel_cls.step
         original_evolve_species = matter_rhs_module.evolve_species
-        original_radiation_source = matter_system_module._radiation_source
+        original_radiation_source = matter_system_module._valencia_source
         original_boundary = kernel_cls._apply_outer_light_boundary
         original_geometry_stage_terms = production_kernel_module.adapter.geometry_stage_terms
         trace = self
@@ -1265,7 +1265,7 @@ class RadiationStageTrace:
                 trace.current_step = None
 
         matter_rhs_module.evolve_species = traced_evolve_species
-        matter_system_module._radiation_source = traced_radiation_source
+        matter_system_module._valencia_source = traced_radiation_source
         kernel_cls._solve_lapse = staticmethod(traced_solve)
         kernel_cls._rhs = traced_rhs
         kernel_cls._apply_outer_light_boundary = staticmethod(traced_boundary)
@@ -1540,7 +1540,7 @@ class RadiationStageTrace:
             "wall_elapsed_seconds": float(time.time() - self.started_wall),
             "notes": [
                 "The conservative radiation variables remain unmodified by the trace.",
-                "Radiation geometric source arrays are captured by observing the actual finite-volume helper invocation during RHS extraction; no physical equation or source is modified.",
+                "Radiation geometric source arrays are captured by observing the actual Valencia source helper used by the finite-volume RHS during radiation RHS extraction; no physical equation or source is modified.",
                 "Boundary records compare P-minus and local zero-shift metric witnesses immediately before and after each existing production boundary call.",
                 "If the late explicit-predictor cone crossing recurs, one diagnostic arm restores only the preceding completed-boundary pre-update Aa[-1] while keeping other accepted arrays fixed; it is not a production alternative.",
                 "Flux transport rate is reconstructed as the existing total radiation RHS minus that captured source; evolve_species sums only those two components for radiation.",
