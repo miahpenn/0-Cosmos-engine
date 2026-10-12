@@ -77,6 +77,23 @@ def state_witness(grid, geom, scalars, matter, *, label, base_t, stage_order, so
     h_geo = np.asarray(raw["hamiltonian"], dtype=float)
     h_source = 16.0*np.pi*np.asarray(total.rho, dtype=float)
     h = h_geo - h_source
+    # The pinned geometric momentum constraint is
+    # D_r Aa - (2/3) D_r K + 6 Aa chi_r
+    # + (Aa-Ab)*(2/r + D_r b/b), with chi_r=-D_r X/(2X).
+    # Preserve each signed term and the exact total-current source.
+    Aa = np.asarray(geom.Aa, dtype=float)
+    Ab = -0.5 * Aa
+    term_dAa = d1(grid, Aa, +1)
+    term_dK = -(2.0/3.0) * d1(grid, np.asarray(geom.K, dtype=float), +1)
+    chi_r = -0.5 * d1(grid, np.asarray(geom.X, dtype=float), +1) / np.asarray(geom.X, dtype=float)
+    term_chi = 6.0 * Aa * chi_r
+    term_b = (Aa - Ab) * (
+        2.0 / radius + d1(grid, np.asarray(geom.b, dtype=float), +1) / np.asarray(geom.b, dtype=float)
+    )
+    M_geom = np.asarray(raw["momentum"], dtype=float)
+    M_source = 8.0*np.pi*np.asarray(total.j, dtype=float)
+    M_residual = M_geom - M_source
+    M_rebuilt = term_dAa + term_dK + term_chi + term_b
     R_vendor = np.asarray(terms["R"], dtype=float)
     R_metric = metric_derived_ricci(grid, geom)
     h_metric = (
@@ -98,7 +115,14 @@ def state_witness(grid, geom, scalars, matter, *, label, base_t, stage_order, so
         "R_vendor": R_vendor,
         "R_metric_independent": R_metric,
         "H_metric_ricci_counterfactual": h_metric,
-        "momentum_residual": momentum,
+        "momentum_residual": M_residual,
+        "momentum_geometric": M_geom,
+        "momentum_source_8piJ": M_source,
+        "momentum_term_dAa": term_dAa,
+        "momentum_term_dK": term_dK,
+        "momentum_term_chi": term_chi,
+        "momentum_term_radial_b": term_b,
+        "momentum_geometric_rebuilt": M_rebuilt,
         "connection_vendor": C_vendor,
         "connection_metric": C_metric,
         "determinant": determinant,
@@ -152,6 +176,8 @@ def state_witness(grid, geom, scalars, matter, *, label, base_t, stage_order, so
                      + (2.0/3.0)*np.asarray(geom.K, dtype=float)**2
                      - h_source)
             ))),
+            "momentum_geometric_term_reconstruction": float(np.max(np.abs(M_geom - M_rebuilt))),
+            "momentum_source_residual_reconstruction": float(np.max(np.abs(M_residual - (M_rebuilt - M_source)))),
         },
     }
     return summary
@@ -308,7 +334,16 @@ def main():
     print("PRODUCTION_SINGLE_STEP_TRACE "+json.dumps({
         "status":report["status"],
         "cases":[{"case":c["case"],"stage_count":len(c["stages"]),
-                  "dt":c["dt"],"final_t":c["reported_final_t"]} for c in cases]
+                  "dt":c["dt"],"final_t":c["reported_final_t"],
+                  "stages":[{"label":s["label"],"i2_H":s["witness_cells"].get("2",{}).get("H_residual"),
+                             "i2_M":s["witness_cells"].get("2",{}).get("momentum_residual"),
+                             "i2_M_dAa":s["witness_cells"].get("2",{}).get("momentum_term_dAa"),
+                             "i2_M_dK":s["witness_cells"].get("2",{}).get("momentum_term_dK"),
+                             "i2_M_chi":s["witness_cells"].get("2",{}).get("momentum_term_chi"),
+                             "i2_M_b":s["witness_cells"].get("2",{}).get("momentum_term_radial_b"),
+                             "i2_M_source":s["witness_cells"].get("2",{}).get("momentum_source_8piJ"),
+                             "momentum_closure":s["closures"]["momentum_geometric_term_reconstruction"]}
+                            for s in c["stages"]]} for c in cases]
     },sort_keys=True))
 
 
