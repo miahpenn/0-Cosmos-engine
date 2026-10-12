@@ -134,6 +134,67 @@ def geometry_metric_derivatives(
     )
 
 
+def validate_species_admissibility(
+    metric: BSSNMetricSlice,
+    state: ConservedSpecies,
+    species: Species,
+    *,
+    stage: str,
+) -> None:
+    """Validate a real candidate state without modifying or projecting it.
+
+    RHS extraction must not validate a fictitious unit-step update. The
+    production integrator calls this on its actual initial, predictor, and
+    final radiation states using the metric for that stage.
+    """
+    if species is not Species.RADIATION:
+        return
+    metrics = _metric_arrays(metric)
+    sqrt_gamma = np.asarray([m.sqrt_gamma for m in metrics], dtype=float)
+    gamma_rr_inv = np.asarray([m.gamma_rr_inv for m in metrics], dtype=float)
+    energy = state.energy_t / sqrt_gamma
+    momentum = state.momentum_r / sqrt_gamma
+    abs_momentum = np.sqrt(np.maximum(gamma_rr_inv * momentum * momentum, 0.0))
+    bad = np.where(
+        (~np.isfinite(energy))
+        | (~np.isfinite(abs_momentum))
+        | (energy < 0.0)
+        | (abs_momentum > energy)
+    )[0]
+    if bad.size:
+        i = int(bad[0])
+        ratio = abs_momentum[i] / max(abs(energy[i]), 1.0e-300)
+        err = ValueError(
+            f"radiation state inadmissible (finite-time update became inadmissible) "
+            f"at stage={stage!r}, cell i={i}: "
+            f"E={energy[i]:.17e}, |S|={abs_momentum[i]:.17e}, "
+            f"ratio={ratio:.17e}, "
+            f"conserved(rest,energy_t,momentum_r)="
+            f"({state.rest[i]:.17e},{state.energy_t[i]:.17e},"
+            f"{state.momentum_r[i]:.17e})"
+        )
+        err.diagnostic = {
+            "cell": i, "stage": stage,
+            "E": float(energy[i]), "abs_S": float(abs_momentum[i]),
+            "abs_S_over_E": float(ratio),
+            "pre_conserved": {
+                "rest": float(state.rest[i]), "energy_t": float(state.energy_t[i]),
+                "momentum_r": float(state.momentum_r[i]),
+            },
+            "post_conserved": {
+                "rest": float(state.rest[i]), "energy_t": float(state.energy_t[i]),
+                "momentum_r": float(state.momentum_r[i]),
+            },
+            "metric": {
+                "alpha": float(metrics[i].alpha), "beta": float(metrics[i].beta),
+                "gamma_rr": float(metrics[i].gamma_rr),
+                "gamma_rr_inv": float(metrics[i].gamma_rr_inv),
+                "sqrt_gamma": float(metrics[i].sqrt_gamma),
+            },
+        }
+        raise err
+
+
 def _state_at(U: ConservedSpecies, i: int) -> FluidConserved:
     return FluidConserved(
         rest=float(U.rest[i]),
@@ -441,18 +502,22 @@ def _radiation_source(metric, q, K, Aa, dr_alpha, dr_beta, dr_grr, dr_gthth):
     return energy, momentum
 
 
-def evolve_species(
+def _species_rhs_components(
     metric: BSSNMetricSlice,
     metric_derivatives: MetricDerivativeSet,
     state: ConservedSpecies,
     species: Species,
-    dt: float,
     dphi_t: np.ndarray | None = None,
     dphi_r: np.ndarray | None = None,
     beta_dm: float = -0.04,
     beta_rad: float = 0.0,
-) -> ConservedSpecies:
-    """Advance one conservative finite-volume step."""
+) -> tuple[ConservedSpecies, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """Compute conservative matter rates without choosing a timestep.
+
+    Input primitives are recovered from the supplied state, so an inadmissible
+    incoming radiation state still fails at the point it enters the RHS. This
+    routine returns rates only; it never tests a fictitious finite-time update.
+    """
     n = len(metric.r)
     if any(np.shape(x) != (n,) for x in (
         state.rest, state.energy_t, state.momentum_r
@@ -463,8 +528,7 @@ def evolve_species(
     prim = primitives(metrics, state, species)
 
     face_flux = np.zeros((n + 1, 3), dtype=float)
-
-    # Regular center: the integrated spherical flux through r=0 vanishes.
+    # Regular centre: the integrated spherical flux through r=0 vanishes.
     face_flux[0] = 0.0
     for i in range(n - 1):
         m0, m1 = metrics[i], metrics[i + 1]
@@ -484,10 +548,16 @@ def evolve_species(
     # Causal/outflow outer closure: continue the last physical state.
     face_flux[-1] = _valencia_flux(metrics[-1], prim[-1])
 
-    out = state.copy()
     inv_dr = 1.0 / (metric.r[1] - metric.r[0])
+    flux_dR = -inv_dr * (face_flux[1:, 0] - face_flux[:-1, 0])
+    flux_dE = -inv_dr * (face_flux[1:, 1] - face_flux[:-1, 1])
+    flux_dS = -inv_dr * (face_flux[1:, 2] - face_flux[:-1, 2])
+    rhs_rest = flux_dR.copy()
+    rhs_energy = flux_dE.copy()
+    rhs_momentum = flux_dS.copy()
     source_e_diag = np.zeros(n, dtype=float)
     source_s_diag = np.zeros(n, dtype=float)
+
     for i, m in enumerate(metrics):
         source_e, source_s = _valencia_source(
             m, prim[i], float(metric.K[i]), float(metric.Aa[i]),
@@ -496,7 +566,6 @@ def evolve_species(
             float(metric_derivatives.radial["rr"][i]),
             float(metric_derivatives.radial["thth"][i]),
         )
-
         source_e_diag[i] = source_e
         source_s_diag[i] = source_s
 
@@ -520,87 +589,40 @@ def evolve_species(
             q_e = -m.sqrt_gamma * (q_t - m.beta * q_r)
             q_s = m.sqrt_gamma * q_r
 
-        out.rest[i] -= dt * inv_dr * (
-            face_flux[i + 1, 0] - face_flux[i, 0]
-        )
-        out.energy_t[i] -= dt * inv_dr * (
-            face_flux[i + 1, 1] - face_flux[i, 1]
-        )
-        out.momentum_r[i] -= dt * inv_dr * (
-            face_flux[i + 1, 2] - face_flux[i, 2]
-        )
-        out.energy_t[i] += dt * (source_e + q_e)
-        out.momentum_r[i] += dt * (source_s + q_s)
+        rhs_energy[i] += source_e + q_e
+        rhs_momentum[i] += source_s + q_s
 
-    if species is Species.RADIATION:
-        # Diagnostic only: expose the transport and metric-source pieces
-        # when this update itself creates an inadmissible state.
-        sg = np.asarray([m.sqrt_gamma for m in metrics])
-        E = out.energy_t / sg
-        S_r = out.momentum_r / sg
-        S_abs = np.sqrt(np.maximum(
-            np.asarray([m.gamma_rr_inv for m in metrics]) * S_r * S_r, 0.0
-        ))
-        bad = np.where((E < 0.0) | (S_abs > E))[0]
-        if bad.size:
-            i = int(bad[0])
-            flux_dE = -inv_dr * (face_flux[i + 1, 1] - face_flux[i, 1])
-            flux_dS = -inv_dr * (face_flux[i + 1, 2] - face_flux[i, 2])
-            rejection = {
-                "cell": i,
-                "flux_tendency_E": float(flux_dE),
-                "source_E": float(source_e_diag[i]),
-                "flux_tendency_S": float(flux_dS),
-                "source_S": float(source_s_diag[i]),
-                "E": float(E[i]),
-                "abs_S": float(S_abs[i]),
-                "abs_S_over_E": float(S_abs[i] / max(abs(E[i]), 1.0e-300)),
-                "pre_conserved": {
-                    "rest": float(state.rest[i]), "energy_t": float(state.energy_t[i]),
-                    "momentum_r": float(state.momentum_r[i]),
-                },
-                "post_conserved": {
-                    "rest": float(out.rest[i]), "energy_t": float(out.energy_t[i]),
-                    "momentum_r": float(out.momentum_r[i]),
-                },
-                "metric": {
-                    "alpha": float(metrics[i].alpha), "beta": float(metrics[i].beta),
-                    "gamma_rr": float(metrics[i].gamma_rr),
-                    "gamma_rr_inv": float(metrics[i].gamma_rr_inv),
-                    "sqrt_gamma": float(metrics[i].sqrt_gamma),
-                },
-                "face_flux_left": [float(x) for x in face_flux[i]],
-                "face_flux_right": [float(x) for x in face_flux[i + 1]],
-                "primitive": {
-                    "rho": float(prim[i].rho), "pressure": float(prim[i].pressure),
-                    "v_r": float(prim[i].v_r), "W": float(prim[i].lorentz()),
-                },
-            }
-            rejection_error = ValueError(
-                f"radiation RHS created inadmissible state at cell i={i}: "
-                f"tendency_flux_E={flux_dE:.17e}, source_E={source_e_diag[i]:.17e}, "
-                f"tendency_flux_S={flux_dS:.17e}, source_S={source_s_diag[i]:.17e}; "
-                f"E={E[i]:.17e}, |S|={S_abs[i]:.17e}, "
-                f"ratio={S_abs[i] / max(abs(E[i]), 1.0e-300):.17e}; "
-                f"pre_conserved(rest,energy_t,momentum_r)="
-                f"({state.rest[i]:.17e},{state.energy_t[i]:.17e},{state.momentum_r[i]:.17e}); "
-                f"post_conserved(rest,energy_t,momentum_r)="
-                f"({out.rest[i]:.17e},{out.energy_t[i]:.17e},{out.momentum_r[i]:.17e}); "
-                f"metric(alpha,beta,gamma_rr,gamma_rr_inv,sqrt_gamma)="
-                f"({metrics[i].alpha:.17e},{metrics[i].beta:.17e},"
-                f"{metrics[i].gamma_rr:.17e},{metrics[i].gamma_rr_inv:.17e},"
-                f"{metrics[i].sqrt_gamma:.17e}); "
-                f"face_flux_left={face_flux[i].tolist()}; "
-                f"face_flux_right={face_flux[i + 1].tolist()}; "
-                f"primitive(rho,pressure,v_r,W)="
-                f"({prim[i].rho:.17e},{prim[i].pressure:.17e},"
-                f"{prim[i].v_r:.17e},{prim[i].lorentz():.17e})"
-            )
-            rejection_error.diagnostic = rejection
-            raise rejection_error
+    rhs = ConservedSpecies(rhs_rest, rhs_energy, rhs_momentum)
+    return rhs, flux_dE, flux_dS, source_e_diag, source_s_diag
+
+
+def evolve_species(
+    metric: BSSNMetricSlice,
+    metric_derivatives: MetricDerivativeSet,
+    state: ConservedSpecies,
+    species: Species,
+    dt: float,
+    dphi_t: np.ndarray | None = None,
+    dphi_r: np.ndarray | None = None,
+    beta_dm: float = -0.04,
+    beta_rad: float = 0.0,
+) -> ConservedSpecies:
+    """Advance one conservative finite-volume step by the requested dt."""
+    rhs, _, _, _, _ = _species_rhs_components(
+        metric, metric_derivatives, state, species,
+        dphi_t=dphi_t, dphi_r=dphi_r, beta_dm=beta_dm, beta_rad=beta_rad,
+    )
+    out = ConservedSpecies(
+        state.rest + dt * rhs.rest,
+        state.energy_t + dt * rhs.energy_t,
+        state.momentum_r + dt * rhs.momentum_r,
+    )
+
+    validate_species_admissibility(
+        metric, out, species, stage=f"direct-evolve-dt={dt:.17g}"
+    )
 
     return out
-
 
 def project_species(
     metric: BSSNMetricSlice,
