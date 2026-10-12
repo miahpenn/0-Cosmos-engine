@@ -979,6 +979,34 @@ class RadiationStageTrace:
                 "coordinate_time": float(t + step["dt"]), "dt": float(step["dt"]),
                 "pre_Aa_outer": before.get("Aa_outer"), "pre_witness": before,
             }
+            if idx == 1 and trace.latest_state is not None:
+                if step.get("rhs0_record") is None or step.get("rhs1_record") is None:
+                    trace.instrumentation_errors.append({
+                        "where": "completed_state_budget",
+                        "t": t, "step_index": trace.step_index,
+                        "error": "completed-state budget lacks rhs0/rhs1 provenance",
+                    })
+                else:
+                    try:
+                        budget = trace.completed_state_budget(
+                            grid, geometry, matter, step["rhs0_record"],
+                            step["rhs1_record"], step["dt"], t,
+                            trace.step_index, stage,
+                        )
+                        trace.completed_state_budgets.append(budget)
+                        if budget.get("source_capture_missing_cells"):
+                            trace.instrumentation_errors.append({
+                                "where": "completed_state_budget",
+                                "t": t, "step_index": trace.step_index,
+                                "error": "source capture missing at cells "
+                                    + ",".join(map(str, budget["source_capture_missing_cells"])),
+                            })
+                    except Exception as budget_exc:
+                        trace.instrumentation_errors.append({
+                            "where": "completed_state_budget", "t": t,
+                            "step_index": trace.step_index,
+                            "error": f"{type(budget_exc).__name__}: {budget_exc}",
+                        })
             try:
                 if radiation_recovery_metric is None:
                     result = original_boundary(grid, geometry, scalars, matter)
