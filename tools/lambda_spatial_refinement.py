@@ -113,7 +113,7 @@ def main():
                           checkpoint_interval=CHECKPOINT_INTERVAL,output_dir="runs/lambda-spatial-refinement")
     print("LAMBDA_SPATIAL_REFINEMENT_START "+json.dumps({
         "resolutions":RESOLUTIONS,"r_max":R_MAX,"cfl":CFL,"final_time":FINAL_TIME,
-        "checkpoint_interval":CHECKPOINT_INTERVAL,"source_commit":SOURCE_COMMIT},flush=True))
+        "checkpoint_interval":CHECKPOINT_INTERVAL,"source_commit":SOURCE_COMMIT}), flush=True)
     outcomes=run_campaign(config=config)
     if tuple(x.resolution for x in outcomes)!=RESOLUTIONS or any(x.status!="completed" or abs(x.t_final-FINAL_TIME)>1e-10 for x in outcomes):
         raise RuntimeError(f"strict campaign admission failed: {outcomes}")
