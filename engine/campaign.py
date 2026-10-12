@@ -1,14 +1,66 @@
 """Final numerical campaign orchestration contract.
 
-This module can host the complete campaign once the production kernel is
-promoted. It deliberately refuses to run against the incomplete CMC/reference
-driver, preventing an accidental acceptance run during construction.
+This module refuses unsafe campaign settings before an evolution loop can
+begin. It also blocks the incomplete CMC/reference driver from being promoted
+silently into the production campaign path.
 """
+from collections.abc import Sequence
 from dataclasses import dataclass
+from numbers import Integral, Real
 from pathlib import Path
 import json
+import math
 
 from .production_contract import require_production_capabilities
+
+
+def _positive_finite(name: str, value) -> float:
+    """Validate a strictly positive finite real-valued campaign parameter."""
+    if isinstance(value, bool) or not isinstance(value, Real):
+        raise ValueError(f"{name} must be a finite positive real number")
+    numeric = float(value)
+    if not math.isfinite(numeric) or numeric <= 0.0:
+        raise ValueError(f"{name} must be a finite positive real number")
+    return numeric
+
+
+def _validated_resolutions(values) -> tuple[int, ...]:
+    """Require a non-empty, duplicate-free sequence of positive integers."""
+    if isinstance(values, (str, bytes)) or not isinstance(values, Sequence):
+        raise ValueError("resolutions must be a sequence of positive integers")
+    if not values:
+        raise ValueError("at least one resolution is required")
+
+    resolutions = []
+    for value in values:
+        if isinstance(value, bool) or not isinstance(value, Integral):
+            raise ValueError("resolutions must contain only positive integers")
+        if value <= 0:
+            raise ValueError("resolutions must contain only positive integers")
+        resolutions.append(int(value))
+
+    if len(set(resolutions)) != len(resolutions):
+        raise ValueError("resolutions must not contain duplicates")
+    return tuple(resolutions)
+
+
+def _validate_config_values(config) -> dict:
+    """Validate configuration values without running or changing physics."""
+    resolutions = _validated_resolutions(config.resolutions)
+    r_max = _positive_finite("r_max", config.r_max)
+    cfl = _positive_finite("cfl", config.cfl)
+    final_time = _positive_finite("final_time", config.final_time)
+    checkpoint_interval = _positive_finite(
+        "checkpoint_interval", config.checkpoint_interval
+    )
+    return {
+        "resolutions": resolutions,
+        "r_max": r_max,
+        "cfl": cfl,
+        "final_time": final_time,
+        "checkpoint_interval": checkpoint_interval,
+        "output_dir": config.output_dir,
+    }
 
 
 @dataclass(frozen=True)
@@ -22,6 +74,11 @@ class CampaignConfig:
     checkpoint_interval: float = 2.0
     output_dir: str = "runs"
 
+    def __post_init__(self) -> None:
+        # Fail at construction time for settings that could make the evolution
+        # or checkpoint loop non-advancing/non-terminating.
+        _validate_config_values(self)
+
 
 def write_checkpoint(path: Path, metadata: dict, trajectory: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -30,20 +87,10 @@ def write_checkpoint(path: Path, metadata: dict, trajectory: dict) -> None:
 
 
 def prepare_campaign(kernel, config: CampaignConfig = CampaignConfig()):
-    """Validate the production kernel and return an immutable campaign plan."""
+    """Validate inputs/capabilities and return a campaign plan, without running."""
+    values = _validate_config_values(config)
     require_production_capabilities(kernel)
-    if config.final_time <= 0.0:
-        raise ValueError("final_time must be positive")
-    if config.r_max <= 0.0:
-        raise ValueError("r_max must be positive")
-    if not config.resolutions:
-        raise ValueError("at least one resolution is required")
     return {
-        "resolutions": tuple(config.resolutions),
-        "r_max": config.r_max,
-        "cfl": config.cfl,
-        "final_time": config.final_time,
-        "checkpoint_interval": config.checkpoint_interval,
-        "output_dir": config.output_dir,
+        **values,
         "status": "prepared_not_executed",
     }
