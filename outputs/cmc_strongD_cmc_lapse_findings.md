@@ -1,6 +1,6 @@
 # CMC lapse-map and strong-D proper-time investigation
 
-**Status:** diagnostics only; awaiting the full evolving R80 run with the archived R160 global CMC target.  
+**Status:** diagnostic-only full target-forced trajectory completed; coarsened target-history sensitivity run in progress.  
 **Branches:** weak-field Jacobian study on `diag/bond-sweep-self-consistent`; strong-D studies on `diag/independent-metric-ricci-audit`. Production sources were not edited; `main` was not changed by this work (last observed head `7604bd6cc87c48c9dc8e24f2facbfe1458364ca5`).
 
 ## 1. Weak-field fixed-point study
@@ -52,26 +52,33 @@ R80's native target (\dot K) and R160's full-domain target are nearly equal init
 
 Therefore the global target contributes to lapse differences, but transplanting the target onto frozen R80 states does not reproduce the center-lapse history. Its feedback through the evolved geometry/matter must be tested.
 
-## 6. Next decisive run
+## 6. Full evolving target-history counterfactual — completed
 
-[Full R80 trajectory with archived R160 CMC target — run 38206154450](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38206154450) is in progress. It uses the same R80 matter-face and R160 outer-alpha boundary histories, while prescribing the interpolated R160 full-domain (\dot K) history at every CMC lapse solve. This changes no production files and evolves one counterfactual trajectory to determine whether target history alone closes the final τ gap, leaves it unchanged, or triggers a positivity/failure gate.
+[Run 38206154450](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38206154450) completed successfully. Artifact [11727976800](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38206154450/artifacts/11727976800), ZIP SHA-256 `63835669c695f9577d0416a2aa1fb3740aef9d4a90f36aaf9b9dbb94a5783006`.
 
-**Interpretation rule:** the forced-τ result is a gauge-target sensitivity test, not proof that the prescribed target is a self-consistent physical solution on (R=80). Do not change production physics until the full trajectory and admission diagnostics are reviewed.
+The run reached t=12 using 3,200 accepted steps and 49 saved records; failure was null. All 12,801 lapse solves received finite prescribed targets, the maximum prescribed-versus-returned target difference was exactly zero, and the positive-finite geometry gate passed at each accepted step. Production equations/source were not edited.
+
+Against the earlier boundary-matched R80 trajectory using its native R80 target (run [38162318255](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38162318255)), final τ changed from `6.917400377028174` to `6.9067799130064635`; the final gap versus R160 dropped from `+0.010621093774165757` to `+6.297524555165523e-7`, closing `99.9940707%` of the final gap. Maximum saved-slice absolute τ gap declined from `0.0121899232135` to `0.0000121914168` (about `99.90%`). Shared-core central-lapse differences also collapsed: t=12 maximum from about `0.05218827` to `2.0914e-6`, with all-saved-slice lapse RMS dropping from about `0.03028393` to `7.8294e-7`.
+
+**Interpretation:** the full-evolution intervention provides strong causal evidence that the archived R160 global CMC target history drives the R80/R160 lapse and proper-time divergence in this controlled boundary-matched setup. It does not establish that the R160 target is uniquely physically correct or self-consistent on R80, because the R160 target and outer-alpha history and R80 matter-face history are imported archived inputs. This remains diagnostic-only.
+
+Next: run [coarsened target-history sensitivity](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38207554072), which retains every other archived R160 target sample (preserving the final endpoint) and linearly interpolates through them. Compare its τ and lapse history against both the full-sample target-forced run and native-target boundary-matched R80. Do not modify production physics pending that sensitivity result.
 
 
-## 7. 12 October continuation: interpolation audit complete; evolving target swap still pending
+## 7. 12 October continuation: interpolation audit and full target-forced trajectory complete
 
-Detailed dated handoff: [CMC strong-D lapse / global-target handoff](../blob/421dc64cc23b7350208b8e9ac8bb00fe218a432d/outputs/cmc_strongD_cmc_lapse_handoff_2026-10-12.md).
+Detailed dated handoff: [CMC strong-D lapse / global-target handoff](../blob/d29af5977e7958d89a633ef8aa84f5aa67012338/outputs/cmc_strongD_cmc_lapse_handoff_2026-10-12.md).
 
 The first Kdot interpolation audit attempt, [run 38206744317](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38206744317), failed before analysis with `ModuleNotFoundError: No module named 'numpy'`. This was a workflow setup failure, not a numerical finding. Dependency correction: commit [d6142ac81a4bf56905de0fae5298f8fc540f7d98](https://github.com/miahpenn/0-Cosmos-engine/commit/d6142ac81a4bf56905de0fae5298f8fc540f7d98) adds explicit NumPy installation. The corrected run [38206848868](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38206848868) succeeded and uploaded artifact [11727926565](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38206848868/artifacts/11727926565), ZIP SHA-256 `993340f756973e2a0251da03269ea37d38dd1591a0cffa45e9540148c471c39b`.
 
 The held-out interpolation test uses 49 archived target samples over t=0–12, holds out 24 points, and predicts each from adjacent retained values over a doubled interval (about 0.499–0.503). It measured maximum absolute error (5.29437\times10^{-8}), RMS absolute error (1.82802\times10^{-8}), p95 absolute error (4.82885\times10^{-8}), maximum relative error 0.0883%, and RMS relative error 0.0304%. The largest absolute error was near t=6.25125. The target series is smooth at resolved sample scale, but this remains an empirical check—not a formal bound at every internal evolution stage and not a direct bound on accumulated proper-time response.
 
-The full evolving R80 run with the prescribed archived R160 target remains [run 38206154450](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38206154450). At the last check, the evolution step was still running and no artifact had been published. Its outcome remains unknown; inspect its report, comparison, profile JSONL, positivity/finiteness gates, and per-solve target delivery record before interpreting it.
+The full evolving R80 run with the prescribed archived R160 target has completed: [run 38206154450](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38206154450), artifact [11727976800](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38206154450/artifacts/11727976800). It closes 99.9941% of the final τ gap and reduces the maximum saved-slice τ gap by about 99.90% relative to the native-target boundary-matched R80 trajectory. Hashes and admission details are in the dated handoff.
 
 At this checkpoint, the recorded conclusion remains:
 - The 0.18% integral agreement is a proper-time/lapse bookkeeping check, not attribution.
 - Frozen-state lapse re-solve correction is only 2.53e-6 of the observed tau gap.
-- Frozen-state target swap changes radial lapse profiles, but overshoots center history and does not reproduce the observed signed tau gap.
-- The evolving target-history counterfactual is the next decisive test, with interpolation limitation explicitly recorded.
+- Frozen-state target swap changes radial lapse profiles but is insufficient by itself to predict central proper-time history.
+- The full evolving target-forced counterfactual closes 99.9941% of the final τ gap, strongly implicating the global target history in this controlled setup.
+- Coarsened target-history sensitivity is the next decisive test; the interpolation audit measures sample-scale error but does not certify every evolution-stage interpolation.
 - `main` was verified at `7604bd6cc87c48c9dc8e24f2facbfe1458364ca5`; production equations remain unchanged by this diagnostic work.
