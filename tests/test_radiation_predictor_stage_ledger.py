@@ -3,7 +3,7 @@ import math
 
 import pytest
 
-from engine.radiation_predictor_stage_ledger import reconstruct_metric_cone, validate_ledger_steps
+from engine.radiation_predictor_stage_ledger import _grid_size, reconstruct_metric_cone, validate_ledger_steps
 
 
 def test_reconstruct_metric_inverse_and_cone_margin_independently():
@@ -70,5 +70,4 @@ def test_pinned_spherical_grid_uses_center_array_for_cell_count():
     grid = operators.SphericalCellGrid(n=80, r_max=80.0)
     assert not hasattr(grid, 'resolution')
     assert len(grid.centers) == 80
-    # Exercise the same public expression used by the ledger serialization.
-    assert len(grid.centers) == int(len(grid.centers))
+    assert _grid_size(grid) == 80
