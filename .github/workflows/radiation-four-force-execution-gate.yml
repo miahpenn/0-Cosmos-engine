@@ -34,6 +34,8 @@ jobs:
       - name: Existing test suite
         run: python -m pytest -q tests
       - name: Four one-step counterfactual comparisons
+        env:
+          PYTHONPATH: .
         run: python tools/diag_radiation_four_force_counterfactual.py
       - name: Preserve JSON and SHA-256
         if: always()
