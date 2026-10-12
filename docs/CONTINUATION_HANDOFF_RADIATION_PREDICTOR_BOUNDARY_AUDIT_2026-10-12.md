@@ -63,6 +63,22 @@ An additional offline read of the existing Library report `0star_proper_time_bou
 
 These findings reinforce a three-way separation in the next audit: (1) radiation's outer-face HLL/flux balance, (2) the pinned (P_-) assignment of outer (A_a), and (3) the CMC condition `alpha[-1]=1` plus its global lapse projection. Do not fuse these into one generic “boundary bug,” and do not presume they are independent.
 
+
+
+## Additional same-slice constraint budget: direct P-minus effect on H
+
+The primary-boundary correction's direct Hamiltonian footprint has now been derived from the pinned production diagnostic formula:
+[
+H=R-(A_a^2+2A_b^2)+\tfrac23K^2-16\pi\rho
+=R-\tfrac32A_a^2+\tfrac23K^2-16\pi\rho,
+\quad A_b=-\tfrac12A_a.
+]
+Because the P-minus call changes only `Aa[-1]`, the same-slice direct jump is Δ(H=-\tfrac32(A_{a,post}^2-A_{a,pre}^2)). In the historical-source primary-predictor ledger, that is −9.62686e−6 at t=46.68 and −2.72321e−5 at t=46.95. At the latter time the change is 0.0730% of the pre-boundary (A_a)-quadratic H term. It is exact for the coded constraint at fixed metric/K/matter, but does not show that absolute |H| worsens because the full same-stage pre-boundary H value is not admitted in this artifact. There is no immediate same-slice conformal-connection-constraint change from the Aa-only assignment; subsequent evolution may couple.
+
+Together with Δ(M=+1.22523\times10^{-4}) at t=46.95 (algebraic formula vs direct recomputation error below 4.3e−17), the boundary has a quantified, growing signed footprint in both Hamiltonian and momentum constraint equations. These are same-slice historical-source measurements, **not** proof that P-minus is wrong or causes the later cone event. Corrected-source attribution is still missing.
+
+Latest main report: [RADIATION_PREDICTOR_TRACE_AFTER_RATE_FIX_2026-10-12.md](https://github.com/miahpenn/0-Cosmos-engine/blob/research/production-readiness-review-2026-10-12/docs/RADIATION_PREDICTOR_TRACE_AFTER_RATE_FIX_2026-10-12.md), commit `e772d9c6f19440577c932c09e031210a3b2cb61b`. Handoff now records legacy R120 outgoing radiation characteristics, outer-face flux mismatch, CMC outer-layer gradient, and difference from the local GEAR short-domain fill. Repository handoff itself should remain the canonical resume source; the user's Library upload endpoint rejected current uploads due quota throttling, so no claim is made that the latest file version was written there.
+
 ## Next steps — offline first, no new trajectory yet
 
 1. Derive the frozen spatial P-minus target's compatibility (or incompatibility) with the actual production CMC and zero-shift evolution equations. Keep algebraic target closure, characteristic transport, momentum/Hamiltonian/connection constraints, and radiation cone margins as separate checks.
