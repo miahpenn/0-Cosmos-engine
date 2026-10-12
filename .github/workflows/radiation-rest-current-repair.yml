@@ -6,7 +6,9 @@ on:
       - fix/radiation-rest-current-channel-2026-10-12
     paths:
       - engine/matter_system.py
+      - engine/production_kernel.py
       - tests/test_radiation_rest_current_contract.py
+      - tests/test_radiation_rhs_admissibility_contract.py
       - .github/workflows/radiation-rest-current-repair.yml
 
 permissions:
