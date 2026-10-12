@@ -359,9 +359,9 @@ def main():
             "current_Kdot_res_i2": c["variants"]["current_second_order_current_center_row"]["first_cells"]["2"]["Kdot_minus_fixed_target"],
             "parity2_Kdot_res_i2": c["variants"]["second_order_with_cell_centered_even_ghost"]["first_cells"]["2"]["Kdot_minus_fixed_target"],
             "prod4_Kdot_res_i2": c["variants"]["production_matched_fourth_order_all_rows"]["first_cells"]["2"]["Kdot_minus_fixed_target"],
-            "current_inner_max": c["variants"]["current_second_order_current_center_row"]["regions"]["admitted_inner_i_ge_2_r_lt_5"]["max_abs"],
-            "parity2_inner_max": c["variants"]["second_order_with_cell_centered_even_ghost"]["regions"]["admitted_inner_i_ge_2_r_lt_5"]["max_abs"],
-            "prod4_inner_max": c["variants"]["production_matched_fourth_order_all_rows"]["regions"]["admitted_inner_i_ge_2_r_lt_5"]["max_abs"],
+            "current_inner_max": c["variants"]["current_second_order_current_center_row"]["regions"]["admitted_inner_i_ge_2_r_lt_5"].get("max_abs"),
+            "parity2_inner_max": c["variants"]["second_order_with_cell_centered_even_ghost"]["regions"]["admitted_inner_i_ge_2_r_lt_5"].get("max_abs"),
+            "prod4_inner_max": c["variants"]["production_matched_fourth_order_all_rows"]["regions"]["admitted_inner_i_ge_2_r_lt_5"].get("max_abs"),
         } for c in cases]
     }, sort_keys=True))
 
