@@ -45,7 +45,7 @@ jobs:
         with:
           name: v55-production-t12-n40-n60-n80
           run-id: 38208253687
-          github-token: \${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ github.token }}
           path: source-artifact
 
       - name: Compile offline diagnostic
@@ -53,10 +53,10 @@ jobs:
 
       - name: Audit raw geometric terms against matter-source terms
         run: |
-          PYTHONPATH=source python diagnostics/production_hamiltonian_source_budget.py \\
-            --artifact-dir source-artifact \\
-            --output-dir runs/production-hamiltonian-source-budget \\
-            --source-run-id 38208253687 \\
+          PYTHONPATH=source python diagnostics/production_hamiltonian_source_budget.py \
+            --artifact-dir source-artifact \
+            --output-dir runs/production-hamiltonian-source-budget \
+            --source-run-id 38208253687 \
             --source-code-sha 6d8b3f2790644591326df57c55908863f994cb0c
 
       - name: Upload source-budget profiles and report
