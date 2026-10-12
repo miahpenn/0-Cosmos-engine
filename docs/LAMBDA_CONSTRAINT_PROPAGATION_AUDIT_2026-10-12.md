@@ -77,13 +77,23 @@ At t=2.1:
 
 The same spatial-grid defect is nearly unchanged when halving dt. This strongly argues against simple time-step truncation as the main explanation for early growth, though two CFLs alone are not a formal time-convergence order proof.
 
-## Current next test: same-domain spatial refinement
+## Matched-CFL spatial refinement — complete
 
-Run: https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38212665185 (in progress at time of this document update)
+Run: https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38212879394
+Artifact SHA-256: `181e807240a54126db39a35fdd22f865509b96027db0a724853512225dd8b6e8`
 
-Planned configuration: N=40,60,80,120; r_max=80; CFL=.03; radiation enabled; t=2.16; checkpoint interval=.24. Because the nominal steps are .06,.04,.03,.02, all runs reach common sample times without a tiny final step. It reports signed profiles at fixed physical radii and inner/exterior masks using the same r=5 cutoff.
+Configuration: N=40,60,80,120; r_max=80; CFL=.03; radiation enabled; t=2.16; checkpoint interval=.24. All four runs reached exactly t=2.16, with 36,54,72,108 accepted steps respectively; all state and diagnostic values remained finite. The common time targets are exact multiples of each nominal dt (.06,.04,.03,.02).
 
-Decision rules:
-- If the admitted-inner momentum/H/C residual improves predictably with spatial refinement, quantify that order and retain the production equations while improving spatial resolution/stencil compatibility.
-- If it does not improve, inspect the discrete momentum constraint propagation and exact center stencil, not the matter-source coefficients.
-- Do not add the center projection as a repair, alter the Lambda equation, add damping, or launch t=160 until this evidence is reviewed.
+At t=2.16, max `|H|` on the fixed exterior region r>=5 decreased strongly:
+- N=40: 4.0086e-4
+- N=60: 1.6886e-5
+- N=80: 8.9180e-6
+- N=120: 5.4585e-6
+
+For the fixed physical annulus 2<=r<5, the volume-weighted RMS Hamiltonian residual fell from 7.4135e-4 (N40) to 6.5404e-4 (N60), 4.4980e-4 (N80), and 1.2832e-4 (N120). The volume weight uses `sqrt(a)*b/X^3 * r^2 dr` from the saved production metric; this is a norm diagnostic, not an acceptance threshold.
+
+The maximum in the first **admitted** inner cells is not uniformly convergent in the sup norm: H peaks are about 7.51e-4 at r=3.333 (N60), 1.071e-3 at r=2.5 (N80), and 1.539e-3 at r=1.667 (N120). The peak moves inward with grid spacing, whereas the fixed-radius samples and volume-weighted annular norm improve. The full inner peaks, including the first two excluded cells, decline from about 9.27e-3 (N60) to 6.97e-3 (N80) and 4.74e-3 (N120).
+
+This supports a **central error layer that narrows with refinement**, but does not yet establish pointwise regular convergence at the centre. N=40 has no cell with index>=2 and r<5, so it cannot supply the admitted-inner max for that mask.
+
+The exterior convergence is encouraging; central regularity and the momentum-constraint source remain open. Do not add the center projection as a repair, change the Lambda equation, add damping, or launch t=160 based on these results alone. The next step is a one-step signed decomposition of the momentum constraint into its exact geometric derivatives and matter-current source across the existing initial and t≈10 stage captures.
