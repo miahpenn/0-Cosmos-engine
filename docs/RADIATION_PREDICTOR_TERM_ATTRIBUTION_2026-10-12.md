@@ -280,3 +280,50 @@ This capture strengthens a boundary/gauge/constraint compatibility lead but does
 The phase-overwrite defect described here is now repaired in the diagnostic source, after artifact 11774209967 was captured. Commit [430c1fd](https://github.com/miahpenn/0-Cosmos-engine/commit/430c1fd7cb3e936eb96c6871e5204f954725666f) keeps the first non-nested primary-L2 call as the integrator-final RHS and stores the second under a separate post-completion diagnostic key. Both carry explicit zero/one call indices and phase labels. Commit [dde8f6d](https://github.com/miahpenn/0-Cosmos-engine/commit/dde8f6dba3cbb78adf1ffa42b710270ec846b9c8) adds direct recorder tests and upgrades ledger admission to fail closed on wrong phase, missing second record, or extra calls. The full unit/regression suite passed 145 tests at [CI run 38313102283](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38313102283), commit f9ee79b6ae2a409b4b94f741e0ac7708fa2e3dad.
 
 Important distinction: no new predictor-stage artifact was captured after this instrumentation change, to avoid launching a duplicate trajectory. The previously collected stage ledger remains valid for its explicitly captured source terms, geometry snapshots and primary-predictor boundary increments, but its final_explicit_state_primary_l2.rhs field remains ambiguous and must not be used. A future capture triggered after this repair will have phase-separated L2 records. No production equations or main-branch code changed.
+
+
+## 8. Same-slice Hamiltonian and momentum-constraint footprint
+
+As an independent offline cross-check, I recomputed the boundary-induced constraint increments from the captured historical-source stage ledger (artifact 11774209967). At each completed primary predictor stage, reconstruct \(A_a^{\mathrm{preBC}}\) from the saved start/predictor terms and compare it with the captured post-P-minus \(A_a\); the metric and matter fields are held fixed for this same-slice difference.
+
+For the pinned fourth-order outer derivative at \(i=79\),
+
+\[
+\Delta(D_r A_a)=\frac{25}{12\,\Delta r}\Delta A_a,
+\qquad
+\chi=-\frac12\frac{D_r X}{X},
+\]
+
+so the direct same-slice geometric momentum-constraint increment is
+
+\[
+\Delta M=\Delta A_a\left[
+\frac{25}{12\,\Delta r}+6\chi+
+\frac32\left(\frac2r+\frac{D_r b}{b}\right)
+\right].
+\]
+
+The derivative coefficient and metric factors come from the captured outer five-cell snapshot. At accepted \(t=46.95\), the reconstructed pre-boundary value is \(A_a=0.157690420189\), the post-boundary value is \(0.157747974203\), and \(\Delta A_a=+5.755401388\times10^{-5}\). The coefficient in brackets is 2.12884291074, producing
+
+\[
+\Delta M=+1.22523454427\times10^{-4}.
+\]
+
+The same reconstruction gives \(\Delta M=+5.39831532875\times10^{-5}\) at \(t=46.68\). Over the last ten completed primary-predictor stages these signed increments grow monotonically. The cross-agent's direct recomputation of the geometric-M difference agrees with the formula to \(4.3\times10^{-17}\) across the 99 completed primary stages. The boundary changes no metric or matter component on this slice; therefore the difference is a real, signed jump in the full production M residual at fixed matter, not a change induced by reevaluating the stress-energy.
+
+The same assignment also changes the Hamiltonian residual because the pinned system uses \(A_b=-A_a/2\) and
+
+\[
+H=R-\left(A_a^2+2A_b^2\right)+\frac23K^2-16\pi\rho
+=R-\frac32A_a^2+\frac23K^2-16\pi\rho.
+\]
+
+With only \(A_a\) changed,
+
+\[
+\Delta H=-\frac32\left[(A_a^{\mathrm{postBC}})^2-(A_a^{\mathrm{preBC}})^2\right].
+\]
+
+At \(t=46.95\), this is \(\Delta H=-2.72321185924\times10^{-5}\), versus \(-9.62685884019\times10^{-6}\) at \(t=46.68\). The \(t=46.95\) increment is 0.07301% of the magnitude of the pre-boundary \(A_a\)-quadratic Hamiltonian contribution. These are signed **increments**, not measurements of the absolute post-boundary residual: without the full pre-boundary H/M profiles in the same captured phase, we cannot say whether \(|H|\) or \(|M|\) locally improved or worsened. No same-slice conformal-connection constraint increment follows from the Aa-only assignment because it leaves the metric unchanged, though later evolution can couple the fields.
+
+This independently confirms that the P-minus operation is an active outer constraint coupling. It does **not** establish that the prescribed target is invalid, that the absolute constraints fail an admission criterion, or that this historical-source correction caused the corrected-rate radiation-cone crossing. The latter still needs source-matched stage data. No new trajectory or physics modification was used for this recomputation.
