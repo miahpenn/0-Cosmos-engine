@@ -44,6 +44,11 @@ class Species(str, Enum):
     RADIATION = "radiation"
 
 
+class RadiationAdmissibilityError(ValueError):
+    """A real radiation state violates the conservative E >= |S| cone."""
+
+
+
 @dataclass
 class ConservedSpecies:
     rest: np.ndarray
@@ -164,7 +169,7 @@ def validate_species_admissibility(
     if bad.size:
         i = int(bad[0])
         ratio = abs_momentum[i] / max(abs(energy[i]), 1.0e-300)
-        raise ValueError(
+        raise RadiationAdmissibilityError(
             f"radiation state inadmissible at stage={stage!r}, cell i={i}: "
             f"E={energy[i]:.17e}, |S|={abs_momentum[i]:.17e}, "
             f"ratio={ratio:.17e}, "
