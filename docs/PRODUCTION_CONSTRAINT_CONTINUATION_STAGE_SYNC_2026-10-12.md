@@ -72,3 +72,43 @@ The relevant numerical-relativity literature supports the *methodological cautio
 ## Next step
 
 Do not run a longer campaign and do not alter the Lambda equation. The next bounded investigation should split the initial/evolved \(K\) RHS into the *separately signed* lapse-Laplacian and nonlinear/extrinsic-curvature contributions while recording the CMC lapse's own elliptic residual and the same-cell \(D_rK/r\) series. Compare initial and \(t\approx2.16\) saved states at N=40/60/80/120 and fixed physical radii. The purpose is to identify whether the central K-gradient layer originates in the CMC lapse solve, in the \(K\) RHS decomposition, or in their discrete interface. Do not project or edit fields; only a source-localized residual that survives this operator-level test can justify a production change.
+
+
+## New CMC/K-RHS frozen-state finding — center row is inconsistent (2026-10-12)
+
+Workflow: [38279973263](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38279973263), artifact \`cmc-K-rhs-discrete-compatibility\`.  
+Frozen-state center-row comparison: [38280503385](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38280503385), artifact \`cmc-lapse-center-row-counterfactual\`.  
+Counterfactual code is on this branch: \`tools/test_cmc_lapse_center_row_counterfactual.py\`. No production state was advanced in either audit.
+
+### The specific mismatch
+
+The production grid is cell-centered, \(r_i=(i+1/2)\Delta r\). However, \`engine/cmc_gauge.py\` replaces the first CMC equation with \(\alpha_0=\alpha_1\). That equality puts a zero slope across the first *two cell centers*; it is not the regular even-parity ghost rule at the origin.
+
+On the same frozen state, the present CMC solve’s second-order rows close their own discrete equation to roundoff for \(i=1,\ldots,N-2\). But the actual production \(K\) RHS uses the pinned fourth-order BSSN lapse Laplacian. Comparing the production \(K\) RHS to the target \( \dot K_{\rm CMC}\) exposes a much larger first-cell inconsistency:
+
+- Across the initial, \(t=2.16\), and \(t\approx10\) samples, the current first-cell production-\(K\)-RHS residual is approximately \(1.2\)–\(1.6\times10^{-3}\) in magnitude at N=60/80/120.
+- At N=80, it is \(-1.5501\times10^{-3}\) initially, \(+1.3262\times10^{-3}\) at \(t=2.16\), and \(+1.4985\times10^{-3}\) at \(t\approx10\).
+- At \(i=1\), the fourth-vs-second-order operator gap is much smaller but still around \(4\)–\(6\times10^{-5}\); at \(i=2\) it is around \(0.8\)–\(2.0\times10^{-5}\) over these samples. The operator mismatch thus does not end at the special center row.
+
+### Center-row counterfactual
+
+The frozen-state counterfactual held the CMC target \(\dot K\) fixed and changed only the first linear-system row to a cell-centered even-parity ghost, \(\alpha_{-1}=\alpha_0\), while solving the lapse PDE at \(i=0\). It compared that against (a) the existing second-order solve and (b) a full production-matched fourth-order solve.
+
+- For N=80 initially, the first-cell production-\(K\)-RHS residual fell from \(-1.5501\times10^{-3}\) to \(+2.4547\times10^{-5}\) under the even-parity second-order row.
+- At N=80, \(t=2.16\), it fell from \(+1.3262\times10^{-3}\) to \(-1.0868\times10^{-5}\).
+- At N=80, \(t\approx10\), it fell from \(+1.4985\times10^{-3}\) to \(-2.7669\times10^{-6}\).
+- The lapse profile changes by up to roughly \(5\times10^{-4}\)–\(7\times10^{-4}\) for N=80 and about \(1.2\times10^{-3}\) at N=60/t≈10. Yet the admitted \(i\ge2,\ r<5\) K-RHS mismatch remains approximately \(10^{-5}\); the center-row correction alone does not eliminate the interior fourth-/second-order gap.
+- The fully fourth-order lapse solve makes the production K-RHS residual roundoff-sized by construction. Treat this as an operator-consistency control, **not** independent evidence that its gauge evolution is the correct repair.
+
+### Decision
+
+This is the first concrete defect candidate in the active CMC/K-RHS interface: the solver’s first row is not the even-parity boundary closure for the cell-centered grid. It can plausibly seed the narrow center layer, but it is not yet the established cause of the later Hamiltonian/momentum constraint drift. Two cautions remain:
+
+1. Changing the first row does not remove the bulk mismatch between the second-order elliptic operator and the fourth-order evolution RHS.
+2. The first two cells are excluded from the main admitted-inner constraint gate; we need evidence that the revised lapse changes the evolved \(H\), \(M\), and \(C_\Lambda\) at admitted cells/fixed radii, not just \(K\)'s first-cell algebraic residual.
+
+The bounded next test is a single normal production step on identical inputs, with only the CMC center row changed and all output constraints evaluated using the same original production diagnostic. Workflow: [CMC center-even lapse one-step counterfactual](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38280666579). Until that output is reviewed, do not patch \`engine/cmc_gauge.py\`, do not replace the production derivative operator, and do not launch a long campaign.
+
+## Research comparator
+
+Montero & Cordero-Carrión’s spherical BSSN/PIRK implementation uses cell-centered radial grids and careful origin treatment while demonstrating regular evolutions without a separate origin-regularization algorithm ([Phys. Rev. D 85, 124037 (2012)](https://doi.org/10.1103/PhysRevD.85.124037)). The paper supports treating parity and center-row closure as structural parts of the discretization; it does not directly validate the CMC row or matter-coupled split used here. The current counterfactual is therefore a useful interface test, not an imported repair.
