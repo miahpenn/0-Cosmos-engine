@@ -59,7 +59,7 @@ def checkpoint(rows):
     OUT.mkdir(parents=True,exist_ok=True)
     payload={"schema":"initial_slice_radial_quadrature_control_partial_v1","R":RMAX,
       "resolutions":list(N_VALUES),"evolution_performed":False,"rows":rows}
-    (OUT/"partial_rows.json").write_text(json.dumps(payload,indent=2,sort_keys=True)+"\\n")
+    (OUT/"partial_rows.json").write_text(json.dumps(payload,indent=2,sort_keys=True)+"\n")
 
 def run():
     rows=[]; kernel=pk.V55ProductionKernel(); original=pk.build_initial_data
@@ -100,7 +100,7 @@ def run():
       "interpretation_guard":"No automatic attribution or physics admission."}
     (OUT/"report.json").write_text(json.dumps(report,indent=2,sort_keys=True)+"\n")
     with (OUT/"report.csv").open("w",newline="") as f:
-        w=csv.DictWriter(f,fieldnames=list(rows[0]));w.writeheader();w.writerows(rows)
+        w=csv.DictWriter(f,fieldnames=sorted({key for row in rows for key in row}));w.writeheader();w.writerows(rows)
     print("SUMMARY "+json.dumps(comparisons,sort_keys=True),flush=True)
     print("PASS: all initial-slice scans complete; no evolution",flush=True)
 
