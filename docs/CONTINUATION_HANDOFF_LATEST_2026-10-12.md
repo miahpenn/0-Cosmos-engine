@@ -302,3 +302,24 @@ No production source, physics, kernel, or authoritative GEAR change was made to 
 The source-stage difference is real: recomputing Lambda-L2 after predictor Aa/K changes the raw Lambda-L2 array by 5.32e-8 (N=80) and 1.33e-8 (N=160). But its predictor Lambda delta is only 3.99e-10 / 4.99e-11, and the completed-state Lambda difference falls to 6.94e-17 / 2.17e-18. Full-step H/C-Lambda and radiation cone witnesses are unchanged to roundoff/exactly; full-domain max |S|/E is 0.00501354 / 0.00501510 for both arms. This confirms a stage-order mismatch but demotes it as a material cause of the late-time cone crossing under the tested one-step conditions.
 
 Main remains `2035acc1210db18da0cededea18750b7ed813260`. No change from this diagnostic was merged. Do not confuse the stage-order test pass with the outstanding centre-series, high-resolution first-cell radiation admissibility, late outer-cell cone, H/M/C-Lambda propagation, Misner-Sharp, and convergence gates.
+
+## Pause checkpoint — confirmed updates saved, 12 October 2026
+
+This checkpoint consolidates the latest two bounded audits. Do not launch another campaign until the next review identifies a specific missing derivation or a source-matched test that can discriminate competing explanations.
+
+### A. Radiation rest-current representation
+- Diagnostic A/B [38317797540](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38317797540) succeeded; artifact [11777312270](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38317797540/artifacts/11777312270). Generic dispatch populated radiation's otherwise-zero `rest` channel (max magnitude 1.0085731565667868e-11 at N=80; 5.012616800265632e-12 at N=160). Existing radiation-specific helper dispatch kept it exactly zero.
+- Matched one-step E/S, cone profiles, geometry and H/M/C_Lambda witnesses were bit-identical across both dispatch arms. This is a representation/checkpoint-contract defect candidate, not an explanation of the late cone crossing.
+- Candidate gate [38317961532](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38317961532) passed: 3 focused tests, 4 radiation guard tests, 29 full-suite tests, pinned vendor verified. Draft stacked [PR #11](https://github.com/miahpenn/0-Cosmos-engine/pull/11) has since been rebased on latest PR #10 head and its rebased gate [38318631134](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38318631134) passed. PR #11 remains draft/unmerged.
+
+### B. PIRK Lambda predictor stage order
+- Pinned sequential reference order requires Lambda-L2 recomputation after predictor Aa/K are updated. Focused regression plus full suite passed in [run 38318119471](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38318119471): 1 focused test, 36 total tests.
+- Matched stale-vs-sequential A/B [run 38318309196](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38318309196) succeeded at N=80/160. Artifact [11777443806](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38318309196/artifacts/11777443806); ZIP SHA-256 `1ec986b7cbbe97ba23184c2d448aba26199257f6ae9d6c4182490c81af3867fe`; JSON SHA-256 `283c5b337a90670c9a397c9584d19447497017cc44a640ca96bc7303a03186ef`.
+- Raw Lambda-L2 differs by 5.3217372642e-8 / 1.3313374252e-8; predictor Lambda by 3.9913029479e-10 / 4.9925153421e-11; completed Lambda arrays differ only 6.94e-17 / 2.17e-18. Completed E/S cone witnesses are unchanged. This confirms a stage-order conformance mismatch but does not explain the late cone event.
+- Detailed audit: [PIRK_LAMBDA_PREDICTOR_STAGE_ORDER_AUDIT_2026-10-12.md](https://github.com/miahpenn/0-Cosmos-engine/blob/diag/pirk-lambda-predictor-stage-order-2026-10-12/docs/PIRK_LAMBDA_PREDICTOR_STAGE_ORDER_AUDIT_2026-10-12.md) and [A/B report](https://github.com/miahpenn/0-Cosmos-engine/blob/diag/pirk-lambda-predictor-stage-order-2026-10-12/docs/PIRK_LAMBDA_PREDICTOR_STAGE_ORDER_AB_2026-10-12.md).
+
+### Current disposition and handoff
+- `main` remains `2035acc1210db18da0cededea18750b7ed813260`; no diagnostic change was merged.
+- Do not conflate the rest-current representation fix with the Lambda stage-order correction or with the late explicit predictor cone crossing. They have distinct signatures and separate evidence.
+- Production admission remains open: corrected-rate outer predictor cone crossing, exact boundary/CMC/history attribution, centre-series RHS, H/M/C_Lambda propagation, Misner–Sharp balance, convergence and longer-horizon reproducibility are not closed by these one-step gates.
+- No long trajectory was launched in these bounded audits. No physics law, damping, floor, clamp, projection, source coefficient or boundary condition was changed.
