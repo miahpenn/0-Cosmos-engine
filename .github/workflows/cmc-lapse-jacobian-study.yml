@@ -1,0 +1,36 @@
+name: Diagnostic - CMC lapse Jacobian study
+
+on:
+  push:
+    branches:
+      - "diag/bond-sweep-self-consistent"
+    paths:
+      - "diagnostics/cmc_lapse_jacobian_study.py"
+      - ".github/workflows/cmc-lapse-jacobian-study.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  cmc-lapse-jacobian-study:
+    if: contains(github.event.head_commit.message, '[cmc-jacobian-study]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Run lapse-map Jacobian and residual study
+        run: python diagnostics/cmc_lapse_jacobian_study.py
+      - name: Upload study
+        uses: actions/upload-artifact@v4
+        with:
+          name: cmc-lapse-jacobian-study
+          path: runs/cmc_lapse_jacobian_study/cmc_lapse_jacobian_study.json
+          if-no-files-found: error
