@@ -227,3 +227,31 @@ Do not conflate these into a single proven defect or replace the production Ricc
 - Do not fit formal convergence order to sign-changing centre-cell values or compare “first admitted cell” across N as if it were a fixed physical radius.
 - Distinguish workflow success, numerical stage completion, scientific admission and physical interpretation.
 - The authoritative REV16/GEAR archive and the full bidirectional-machine objective are preserved. The current “time-tube” picture remains an interpretive guide, not an extra equation to impose.
+
+
+---
+
+## Latest result — signed production Aa/K RHS component split (2026-10-12)
+
+- Run: [38294736014](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38294736014)
+- Artifact: \`production-Aa-K-centre-source-tangent\`, ID \`11768515284\`
+- Artifact ZIP SHA-256: \`2128028ad4fcd80c4d603107d481a78a1add233d18b35eaa3d1d19a43cae2a91\`
+- Detailed report: [PRODUCTION_AA_K_RHS_CENTRE_SOURCE_SPLIT_2026-10-12.md](https://github.com/miahpenn/0-Cosmos-engine/blob/diag/discrete-consistent-initial-production-test-2026-10-12/docs/PRODUCTION_AA_K_RHS_CENTRE_SOURCE_SPLIT_2026-10-12.md)
+- Frozen production source and vendor remain \`6d8b3f2790644591326df57c55908863f994cb0c\` / \`d6052d605673ce9d82cdc99b0df79855fa2ea215\`.
+
+### What the signed terms show
+
+The audit covers 17 frozen states: baseline and discrete-consistent-initial-metric states at t=0 and saved t=2.16 for N=60/80/120, plus the uniform-fourth-order quadrature t=0 profiles for N=40/60/80/120/160. No state is evolved.
+
+1. In the pinned baseline initial profile at N=60/80/120, first-cell \(\dot A_a\approx1.09\times10^{-3}\) is dominated by the trace-free Ricci contribution \(\alpha(R^r{}_r-R/3)\approx1.05\times10^{-3}\); the trace-free lapse Hessian is only \(3.6\)–\(4.1\times10^{-5}\).
+2. The discrete-consistent metric and uniform-quadrature initial profiles largely remove the first-cell Ricci contribution at these resolutions. Yet the uniform arm's trace-free lapse-Hessian contribution remains \(3.87\)–\(4.15\times10^{-5}\) from N=80–160, and its total \(\dot A_a\) remains \(3.84\)–\(3.88\times10^{-5}\). The quotient \(\dot A_a/r_0^2\) grows from \(1.53\times10^{-4}\) at N=80 to \(6.21\times10^{-4}\) at N=160. The centre-series gate therefore remains open.
+3. On the uniform arm, \(\dot K(r_0)\) is about \(-1.38\) to \(-1.52\times10^{-3}\), while the next cell is about \(+1.0\)–\(1.45\times10^{-4}\). The lapse-Laplacian term changes from negative at i=0 to \(+0.96\)–\(1.29\times10^{-3}\) at i=1, while the matter-source term changes much less. \(D_r\dot K/r\) at i=0 rises from \(5.11\times10^{-4}\) (N=40) to \(8.68\times10^{-3}\) (N=160).
+4. Signed RHS reconstruction closes to roundoff: maximum base Aa/K reconstruction error \(2.17\times10^{-19}\), momentum geometry closure 0, per-sector momentum-current closure \(4.07\times10^{-20}\). The two epsilon tangents agree closely (largest full Aa tangent difference \(2.84\times10^{-10}\); full K tangent difference \(8.54\times10^{-10}\)). This validates accounting of the implemented RHS, not continuum conservation.
+
+### Current interpretation and next gate
+
+The old baseline's dominant initial central term is Ricci; high-order metric quadrature largely suppresses that. The persistent residual is now most directly visible in the trace-free lapse-Hessian term. The \(K\)-RHS central-to-neighbour jump also localizes attention on the CMC lapse solution / central-row compatibility. That is a **lead, not yet a proved faulty equation**: manufactured smooth-profile tests pass the pinned trace-free lapse-Hessian and Ricci operators at approximately fourth order on a fixed annulus, and prior CMC-row counterfactuals improved a local K witness but worsened an admitted-inner momentum witness.
+
+Next, do a read-only audit of the exact pinned \`_solve_lapse\` centre row: record \(\alpha_i\), even-series defect, row equation residual, and the resulting \(-\Delta\alpha\) for i=0,1,2 and fixed r=2,3,4,5 across N=40–160; compare to independent smooth even lapse profiles. In the same frozen states, reconstruct regular-series identities for trace-free Hessian, trace-free Ricci, \(\dot A_a\) and \(\dot K\). Do not modify the row or project the centre until a discrete identity is shown to fail with term-level closure.
+
+The N=240/320 first-cell radiation inadmissibility discovered by the matched quadrature one-step run remains a separate open blocker. No t=160 campaign; no production physics/source/gauge/boundary changes; \`main\` remains untouched.
