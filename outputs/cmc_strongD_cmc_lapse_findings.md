@@ -102,3 +102,16 @@ At t=0, R80 and R160 shared-core state fields other than lapse match to roundoff
 **Current next diagnostic:** lapse-only target-functional cross-transplant, run [38208798160](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38208798160), code commit [ae9d5efea6ae17a22ede1faa5aa6a01fb959526a](https://github.com/miahpenn/0-Cosmos-engine/commit/ae9d5efea6ae17a22ede1faa5aa6a01fb959526a), was queued at the last check. It swaps only shared-core alpha values on frozen archived states to see whether the target mismatch tracks alpha. It is an algebraic target-functional probe, not a CMC-consistent state or an evolution.
 
 Detailed handoff: [CMC strong-D lapse / global-target handoff](../blob/38cf4eef29643fc43020c7002309f0baf1709cc4/outputs/cmc_strongD_cmc_lapse_handoff_2026-10-12.md).
+
+
+## 9. Alpha-only target-functional cross-transplant — completed
+
+Run [38208798160](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38208798160) succeeded, artifact [11728910612](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38208798160/artifacts/11728910612), ZIP SHA-256 `e12ed6af9818c09587754ed76ffc46597701fe49f26a8fc834cdf767b44bbe30`. Report SHA `f189e990a7ef21078a95fbcb29f806237f739469a169f9e423247d4992aa50f4`; records JSONL SHA `c47a36662c2edb638e624b2b557b0aaca4f7823d10d144a4ede6dda05f6e6479`.
+
+Holding all fields/weights fixed and transplanting only shared-core alpha R160→R80 almost eliminates the t=0 target gap: native gap (-3.46833\times10^{-7}), forward-transplant residual (-5.88335\times10^{-14}), ~99.999983% closed. At t=6 it closes ~99.831%; at t=12 ~92.673%, leaving (1.25035\times10^{-5}). Across saved times it reduces target-gap RMS by about 94.28%. The reverse R80→R160 alpha transplant barely changes R160's full target (maximum target change (6.10038\times10^{-7})); it closes only ~0.36% of the target gap at t=12. This asymmetry supports strong alpha–target functional coupling on the R80 state. The probe is frozen and algebraic, not an evolved state or a verified CMC root.
+
+Taken with the completed stride-1/stride-2 evolutions and shell decomposition, the working diagnosis is now an initial lapse/CMC-target self-consistency problem, not a direct outer-shell-average effect. The t=0 non-lapse state matches to roundoff; alpha differs by max (3.57126\times10^{-4}), RMS (2.58354\times10^{-4}). The R160 outer shell has ~87.5% of volume weight but moves its own target by at most (7.1518\times10^{-12}) relative to the inner-only target.
+
+**Next:** a snapshot-only, no-damping fixed-point map test on the t=0 R80 and R160 states: iterate production `target_kdot(alpha)` → production CMC lapse solve with fixed boundary normalization; record per-iteration alpha change, Kdot drift, positivity, and contraction ratio up to a fixed cap. Include a fixed-target repeatability control. Do not force convergence and do not change production physics.
+
+Latest detailed handoff: [CMC strong-D lapse / global-target handoff](../blob/912d56b13d04e2457bdf3c35ac48ea75fb38f4c8/outputs/cmc_strongD_cmc_lapse_handoff_2026-10-12.md).
