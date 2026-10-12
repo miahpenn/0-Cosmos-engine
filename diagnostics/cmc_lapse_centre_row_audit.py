@@ -101,7 +101,7 @@ def audit(path,n,rmax,outer_alpha,domain):
           "elliptic_formula_residual_first_Nminus1":stats(elliptic_residual[:-1]),
           "normalization_cell_K_rhs_residual":float(pde_residual[-1]),
           "normalization_cell_is_pde_row":False},
-      "admission":{"finite":bool(np.all(np.isfinite(alpha)) and np.all(np.isfinite(raw)) and np.all(np.isfinite(elliptic_residual))),
+      "admission":{"finite":bool(np.all(np.isfinite(alpha)) and np.all(np.isfinite(raw)) and np.all(np.isfinite(elliptic_residual[:-1]))),
           "positive_lapse":bool(np.min(alpha)>0),"production_source_changed":False,"evolution_run":False}
     }
 
