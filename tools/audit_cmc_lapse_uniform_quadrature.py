@@ -92,7 +92,7 @@ def audit(n):
           "alpha_saved_minus_solved":float(saved_alpha[i]-solved[i]),
           "alpha_prime":float(alpha_p[i]),"alpha_second":float(alpha_pp[i]),
           "laplace_bracket":float(alpha_pp[i]+c[i]*alpha_p[i]),
-          "Q":float(Q[i]),"elliptic_residual":float(elliptic_residual[i]),"solver_discrete_row_residual":float(solver_row_residual[i]),
+          "Q":float(Q[i]),"elliptic_residual":float(elliptic_residual[i]),"solver_discrete_row_residual":(float(solver_row_residual[i]) if np.isfinite(solver_row_residual[i]) else None),
           "production_lapse_K_term":float(k_lapse[i]),
           "cmc_implied_lapse_K_term":float(-inv[i]*(alpha_pp[i]+c[i]*alpha_p[i])),
           "production_minus_cmc_lapse_K_term":float(production_cmc_lapse_diff[i]),
