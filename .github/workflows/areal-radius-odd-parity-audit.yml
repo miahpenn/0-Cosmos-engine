@@ -1,0 +1,72 @@
+name: Diagnostic - areal-radius center parity
+
+on:
+  push:
+    branches:
+      - fix/areal-radius-odd-parity-2026-10-12
+    paths:
+      - engine/worldtube.py
+      - engine/production_kernel.py
+      - tests/test_areal_radius_odd_parity.py
+      - tools/audit_areal_radius_odd_parity.py
+      - .github/workflows/areal-radius-odd-parity-audit.yml
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: areal-radius-odd-parity-audit
+  cancel-in-progress: false
+
+jobs:
+  invariant-parity-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PYTHONPATH: .:source
+      PYTHONUNBUFFERED: "1"
+
+    steps:
+      - name: Checkout diagnostic branch and pinned kernel
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Run full repository regression suite
+        run: python -m pytest -q
+
+      - name: Run areal-radius center-parity regression explicitly
+        run: python -m pytest -q tests/test_areal_radius_odd_parity.py
+
+      - name: Download immutable baseline t=12 production checkpoints
+        uses: actions/download-artifact@v4
+        with:
+          name: v55-production-t12-n40-n60-n80
+          repository: miahpenn/0-Cosmos-engine
+          run-id: 38208253687
+          github-token: ${{ github.token }}
+          path: baseline
+
+      - name: Compile and run frozen-checkpoint parity audit
+        run: |
+          python -m py_compile tools/audit_areal_radius_odd_parity.py
+          python tools/audit_areal_radius_odd_parity.py
+
+      - name: Upload parity report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: areal-radius-odd-parity-audit
+          path: results/areal-radius-odd-parity-audit/
+          if-no-files-found: warn
+          retention-days: 90
