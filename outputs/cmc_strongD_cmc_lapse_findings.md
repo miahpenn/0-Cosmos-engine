@@ -84,3 +84,18 @@ At this checkpoint, the recorded conclusion remains:
 - The full evolving target-forced counterfactual closes 99.9941% of the final τ gap, strongly implicating the global target history in this controlled setup.
 - Coarsened target-history sensitivity is the next decisive test; the interpolation audit measures sample-scale error but does not certify every evolution-stage interpolation.
 - `main` was verified at `7604bd6cc87c48c9dc8e24f2facbfe1458364ca5`; production equations remain unchanged by this diagnostic work.
+
+
+## 8. Saved-slice domain decomposition launched (no evolution)
+
+The snapshot-only diagnostic `diagnostics/cmc_kdot_domain_projection.py` reconstructs the archived R80 and R160 states, recomputes each full-domain target using the production API, and calculates the R160 target again using only the same R160 state's inner (r<80) cells. It measures the exact additive split
+
+[
+\dot K_{160,\mathrm{full}}-\dot K_{80,\mathrm{native}}
+=(\dot K_{160,\mathrm{full}}-\dot K_{160,\mathrm{inner}})
++(\dot K_{160,\mathrm{inner}}-\dot K_{80,\mathrm{native}}).
+]
+
+This separates the outer shell's direct projection effect from the remainder due to comparing different archived states. The diagnostic verifies target reconstruction against the production API and checks the split identity at all 49 saved times; it does not evolve the engine or modify production physics. Workflow: `.github/workflows/cmc-kdot-domain-projection.yml`. The pinned R80 ZIP SHA-256 was independently verified locally as `decb775cc8d3b72f97ba9c0278aa3e23b8248b51b9c786c4344052e682ed9745`; the R160 ZIP uses `04949c7e0332c495385f6afef231b54270225892b1d124f2c19973c7d5b4872d`.
+
+The workflow is gated by commit text `[cmc-kdot-domain-projection]`; after successful completion, document its artifact ID, target reconstruction errors, outer weight fraction and shell contribution versus state-difference remainder. Do not confuse a target decomposition on archived slices with an evolving causal intervention.
