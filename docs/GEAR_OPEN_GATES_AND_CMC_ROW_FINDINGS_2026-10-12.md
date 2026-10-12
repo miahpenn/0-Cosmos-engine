@@ -116,3 +116,51 @@ The centre curvature witness also changes materially. Post-step (dot A_a/r^2) at
 ### Next gate
 
 Before any promotion, retain this branch as a candidate and run no duplicate CMC row audit. Reconcile the one-step A/B with existing signed RHS and momentum-tangent evidence; specifically determine why the candidate's K/lapse compatibility produces large momentum improvement while H is mixed at N=120/160. Then require all of H, M, (C_\Lambda), centre-series (dot A_a=O(r^2)), radiation admissibility, and Misner–Sharp balance/convergence to pass together. Keep the radiation failure, GEAR D-to-matter gate and force-to-Q/node-population gate separate.
+
+
+---
+
+## 6. Matched one-step Hamiltonian endpoint attribution — 2026-10-12
+
+**Run:** [38304326260](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38304326260) — success  
+**Artifact:** [11771589087](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38304326260/artifacts/11771589087)  
+**Artifact ZIP SHA-256:** `31910170208d4eda43f95660393ebb74b45f262acbc3195bd1a1ef1814b37c07`  
+**Report JSON SHA-256:** `aa88ccacab5825aeeac971db18db052a904714ec36677a69998f130d73921b72`  
+**Diagnostic branch:** [`diag/cmc-lapse-cellcenter-one-step-ab-2026-10-12`](https://github.com/miahpenn/0-Cosmos-engine/tree/diag/cmc-lapse-cellcenter-one-step-ab-2026-10-12)
+
+This extends the already-completed one-step old-vs-candidate A/B with an exact endpoint accounting decomposition. The old and candidate endpoint (H) profiles are compared using a seven-group Shapley attribution. The conformal pair ((a,b)) is kept together in every hybrid so (ab^2=1) remains preserved; scalar fields and conservative fluids are likewise moved as one matter group. The closure error of the component sum is at most (1.1\times10^{-21}). This is endpoint accounting, not a unique causal attribution to continuum equations.
+
+### Centre-cell redistribution explains the mixed full-domain maximum
+
+The signed difference below is (H_{candidate}-H_{old}) at the same physical cell after exactly one ordinary step. Units use the frozen production normalization.
+
+| N | Cell 0, (\Delta H) | Cell 1, (\Delta H) | Cell 2, (\Delta H) | Fixed-annulus max |(\Delta H)|, (2\le r<5) |
+|---:|---:|---:|---:|---:|
+| 40 | (-1.017\times10^{-6}) | (+9.029\times10^{-7}) | (-4.965\times10^{-7}) | (9.029\times10^{-7}) |
+| 60 | (-1.044\times10^{-6}) | (+9.315\times10^{-7}) | (-5.103\times10^{-7}) | (9.315\times10^{-7}) |
+| 80 | (-1.055\times10^{-6}) | (+9.410\times10^{-7}) | (-5.158\times10^{-7}) | (5.158\times10^{-7}) |
+| 120 | (-1.063\times10^{-6}) | (+9.478\times10^{-7}) | (-5.199\times10^{-7}) | (1.276\times10^{-7}) |
+| 160 | (-1.065\times10^{-6}) | (+9.503\times10^{-7}) | (-5.214\times10^{-7}) | (9.191\times10^{-9}) |
+
+At N=120 the old full-domain (|H|) maximum is cell 0 (about (1.019\times10^{-5})); the candidate lowers its cell-0 value to (9.129\times10^{-6}), but cell 1 rises to (1.056\times10^{-5}) and becomes the new maximum. At N=160 the old maximum is cell 1 at (5.926\times10^{-6}); that same cell rises to (6.876\times10^{-6}), while cell 0 improves from (4.661\times10^{-6}) to (3.595\times10^{-6}).
+
+So the slightly worse full-domain maximum at the higher resolutions is a **near-centre residual redistribution**, not evidence that the fixed physical annulus has developed a comparably worse Hamiltonian residual. Its one-step max (|\Delta H|) falls to (1.28\times10^{-7}) at N=120 and (9.19\times10^{-9}) at N=160. This distinction helps localize the remaining centre-series question but does not mean (H) itself has passed.
+
+### What contributes to the endpoint difference
+
+At cell 0, the largest Shapley terms are the conformal metric (X) and the paired ((a,b)) update, with (K) and evolved Λ also contributing. For N=160, the cell-0 component contributions are approximately:
+
+- (X: -3.253\times10^{-6})
+- paired ((a,b): +1.950\times10^{-6})
+- (K: -5.379\times10^{-7})
+- Λ: (+7.759\times10^{-7})
+- matter: about (-1.0\times10^{-11})
+- direct lapse/shift/gauge endpoint contribution to (H): exactly zero in this diagnostic.
+
+The zero direct gauge attribution is expected for the Hamiltonian residual evaluated on an endpoint state: its formula does not directly contain lapse/shift/B. It does **not** show that the lapse has no dynamical influence—the differing lapse solve changes the evolved geometry. The small matter attribution likewise says the H difference here is overwhelmingly in the geometry endpoint, not that matter is universally irrelevant.
+
+At cell 1, the paired ((a,b)) contribution is about (+9.985\times10^{-7}), (X) contributes (+4.957\times10^{-7}), and Λ contributes about (-5.581\times10^{-7}) at N=160. These signs explain why the candidate lowers cell 0 and raises cell 1 at the same time.
+
+### Disposition
+
+This analysis strengthens the numerical diagnosis that the old CMC centre row changes the near-centre geometry update in a way that redistributes (H). It does not establish that the candidate's continuum limit is correct or that constraints are preserved over time. Keep the clean production-based correction in [draft PR #7](https://github.com/miahpenn/0-Cosmos-engine/pull/7), with `main` unchanged. The unresolved gates remain the complete ẊA(_a)=O(r²) centre-series limit, Hamiltonian/momentum/connection propagation, radiation admissibility at N=240/320, Misner–Sharp balance and resolution convergence.
