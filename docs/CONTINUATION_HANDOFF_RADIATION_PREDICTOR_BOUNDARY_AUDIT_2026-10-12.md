@@ -97,6 +97,20 @@ At t=46.95, the local contribution changes the raw (K) RHS by +2.72321186e−5. 
 
 This exact source-derived coupling is now documented in the main report at [RADIATION_PREDICTOR_TRACE_AFTER_RATE_FIX_2026-10-12.md](https://github.com/miahpenn/0-Cosmos-engine/blob/research/production-readiness-review-2026-10-12/docs/RADIATION_PREDICTOR_TRACE_AFTER_RATE_FIX_2026-10-12.md), current update commit `debe363f3ec381cb5697159acee5811b9cdb30e5`. The next offline-first task is to recover full-grid values from an existing admitted checkpoint if available, or precisely specify a minimal read-only same-call recorder for `w_i), (L_K[i]), (dot K_{CMC}), and the change in solved (alpha); do not launch another long trajectory or change either equation before the magnitude is measured.
 
+
+
+## Full-grid canonical checkpoint recovered; CMC boundary-target effect quantified at t≈60
+
+The canonical run [38025979654](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38025979654) uploaded artifact [11659369195](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38025979654/artifacts/11659369195) containing twelve full N=120 .npz checkpoints from t=5 to t=60, plus native ledgers.json. The artifact ZIP SHA-256 is 142d92de51bd89a632c9c53d898a389301248d73d171c082e18c0380618eaf24; ledgers.json SHA d88734d45a6be81e3382aff7b810beed2df8ac63e3f1f80b8d9c328300a369fd; t=60 checkpoint SHA 81b598c635b58ebc6465dd3525a54a53336e6f654fb8f04d51adb96127e5805c. The boundary trace run [38028306184](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38028306184) artifact [11661332148](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38028306184/artifacts/11661332148) has trace SHA f418a023c44dcd51802696e6468e3e09691d01ea44ecbb5a9463881be6b14e76.
+
+The canonical run source commit f4a18444899bf78242a40fc2492a37a5d65187ba and the P-minus trace baseline a7170c12ed08b4fdb3c52ca98f02e106a3f39b82 have identical Git blobs for seven relevant production files (production_kernel.py, cmc_gauge.py, matter_system.py, matter_rhs.py, valencia.py, v55_matter.py, v55_pirk_adapter.py) and use the same pinned vendor. But the trajectory profiles differ at about 0.4–1.3e-9 in outer state values, so keep numerical attribution cross-artifact-qualified.
+
+At canonical t=60.00000000000151, tau=21.60324970604194, full-grid target_kdot weights sum to 954906.55541281728; outer weight is 26653.673999705257, i.e. fraction 0.027912337441418612. The ledger's cmc_kdot is 0.06692678496752487. Aligning the pre-boundary Aa[-1]=0.046751434211626593 from the trace's completed-state boundary call at t=59.97000000000151 with the canonical checkpoint's post-boundary Aa[-1]=0.046754261846389554 gives local delta_LK[-1]=+3.9659993506294643e-7 and whole-grid delta_Kdot_CMC=+1.107003121672167e-8, only 1.65405e-7 of the recorded K rate. Using the trace's own post value gives +1.10724103871e-8. These pairings differ by only 2.4e-12 absolute for the scalar, but are not bitwise same-state.
+
+Thus at t≈60 the direct volume-projection effect of the P-minus correction is quantitatively tiny relative to the current K rate; it does not by itself explain the terminal radiation event. This does not quantify the solved-lapse response or the terminal t≈61 target change. Do not apply the t=60 weights to terminal Aa correction as a cross-time extrapolation. Full checkpoint recovery has made the previous "no full-grid source/checkpoint" blocker narrower, but not entirely removed.
+
+The detailed source-qualified calculation is added to the main report linked above. No new evolution or physics change was run.
+
 ## Next steps — offline first, no new trajectory yet
 
 1. Derive the frozen spatial P-minus target's compatibility (or incompatibility) with the actual production CMC and zero-shift evolution equations. Keep algebraic target closure, characteristic transport, momentum/Hamiltonian/connection constraints, and radiation cone margins as separate checks.
