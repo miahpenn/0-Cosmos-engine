@@ -499,3 +499,42 @@ The global summary changes are also tiny: candidate-minus-null (Delta H_{m eff}
 The new post-step profile records a nonzero radiation `rest` slot after evolution despite `initialize_radiation()` initializing it to zero: at the outermost cell it is about (-1.00857	imes10^{-11}) for N=80 and (-5.01262	imes10^{-12}) for N=160. The candidate-minus-null difference is only roundoff-scale. In `engine/matter_system.py`, `_radiation_conserved()` and `_radiation_flux()` explicitly return zero in their first component, but `_hll_flux()` and the outer face currently use the generic `_valencia_conserved()` / `_valencia_flux()` channel for every species. That lets the generic fluid rest-current flux populate the radiation `rest` slot.
 
 The radiation primitive recovery and Einstein stress-energy projection use the radiation energy/momentum variables and ignore this slot, so this observation does not establish a direct effect on (|S|/E) or the late cone failure. It is a separate conservation/representation contract to audit with a regression test before proposing a small species-dispatch correction. No production source is changed here.
+
+
+## Radiation rest-current dispatch mismatch — bounded same-state A/B, 12 October 2026
+
+**Status:** Diagnostic A/B admitted; minimal code-repair candidate awaiting dedicated CI. This is an internal representation invariant, not an admitted cause of the late radiation-cone crossing.
+
+### Diagnostic provenance
+
+- Audit run: [38317797540](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38317797540) — success.
+- Diagnostic branch: `diag/radiation-rest-current-channel-audit-2026-10-12`; source capture commit `09aa20e37d4f1232815cede89dcfbe2514ad6980`.
+- Artifact: [11777312270 — radiation-rest-current-channel-audit](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38317797540/artifacts/11777312270).
+- Artifact ZIP SHA-256 (locally verified): `e34c99e6b575222f0f8ce5c134f9ac2bdb9a958ece0dc235f593a8a63e38e090`.
+- Embedded JSON SHA-256 (matches its SHA256 file): `566b51387ca3272fa76716b19d5e1128450ef02c6ae784ee851f2759697a785b`.
+- Pinned vendor: `d6052d605673ce9d82cdc99b0df79855fa2ea215`.
+- Test gates: 1 radiation-specific helper-contract test passed; 4 existing radiation RHS/admissibility tests passed; full test suite 27 passed; four diagnostic one-step arms passed.
+
+### Exact isolation result
+
+The one-step diagnostic compares generic all-species HLL dispatch with a diagnostic-process-only dispatch to the existing radiation-specific helpers, at N=80 ((dt=0.015)) and N=160 ((dt=0.0075)).
+
+| Quantity | N=80 generic | N=80 radiation-specific | N=160 generic | N=160 radiation-specific |
+|---|---:|---:|---:|---:|
+| Max (|mathrm{rest}|) after step | (1.0085731566\times10^{-11}) | 0 exactly | (5.0126168003\times10^{-12}) | 0 exactly |
+| Max (|S|/E) after step | 0.0099086223695 | identical exactly | 0.0099068411682 | identical exactly |
+| Min (E-|S|) | (8.7823129289\times10^{-9}) | identical exactly | (8.7838426787\times10^{-9}) | identical exactly |
+
+Across both resolutions, the **entire** post-step radiation (E), (S), (E-|S|), (|S|/E), and (1-|S|/E) profiles are bit-identical between the two arms. All stored geometry fields ((a,b,X,\alpha,A_a,K,\Lambda)) and the H, M, C_Lambda summary witnesses are also bit-identical. All real radiation state checks pass; neither arm creates an inadmissible E/S state.
+
+### Source-level interpretation
+
+The production file initializes radiation's `ConservedSpecies.rest` array as exact zero and provides `_radiation_conserved()` and `_radiation_flux()` helpers whose first component is zero. But `_hll_flux()` and the outer-face closure used generic `_valencia_conserved()` / `_valencia_flux()` for all species. That gives radiation a generic fluid rest-current flux which should not be part of the radiation E/S state contract.
+
+The A/B shows that this first component is passive for the tested one-step evolution: removing it changes no E/S value, cone witness, geometry, or constraint witness. This makes it a clean, separately repairable state-representation bug candidate. It does **not** explain or repair the separate late-time N=80 cone crossing, which is driven by the near-cone predicted matter state evaluated against the explicit a/X predictor metric.
+
+### Minimal repair candidate; admission pending
+
+I created separate branch [`fix/radiation-rest-current-channel-2026-10-12`](https://github.com/miahpenn/0-Cosmos-engine/tree/fix/radiation-rest-current-channel-2026-10-12), based on PR #10's unmerged radiation RHS/admissibility repair candidate. It changes only species dispatch in `engine/matter_system.py`: radiation HLL conserved/flux entries and the radiation outer-face flux now use the already-existing radiation-specific helpers. No E/S formula, source, metric stage, time integrator, radiation cone gate, boundary law, or physical coupling is changed. New tests assert the helper identities and exact-zero rest slot after real N=80/N=160 kernel steps.
+
+Dedicated gate [38317961532](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38317961532) is running at workflow commit `b9185aa160adaceb5917a9162892e466945ccbd2`. **Do not call the source candidate admitted until this run passes.** `main` remains `2035acc1210db18da0cededea18750b7ed813260`; PR #10, PR #9 and the authoritative GEAR archive are unchanged/unmerged. No long trajectory was launched.
