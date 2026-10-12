@@ -1,0 +1,50 @@
+name: Initial-slice radial quadrature control
+
+on:
+  push:
+    branches:
+      - "diag/bond-sweep-self-consistent"
+    paths:
+      - "diagnostics/bond_sweep/radial_quadrature_control.py"
+      - "engine/discrete_consistent_initial.py"
+      - ".github/workflows/radial-quadrature-control.yml"
+      - "engine/**"
+      - "vendor/bb-palatini-unified-r0"
+      - ".gitmodules"
+      - "requirements.txt"
+
+permissions:
+  contents: read
+
+jobs:
+  radial-quadrature-control:
+    if: contains(github.event.head_commit.message, '[run-radial-quadrature-control]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      PYTHONPATH: .
+    steps:
+      - name: Checkout diagnostic branch and pinned vendor
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Record engine and vendor pins
+        run: |
+          git rev-parse HEAD
+          git -C vendor/bb-palatini-unified-r0 rev-parse HEAD
+      - name: Run initial-slice quadrature control
+        run: python diagnostics/bond_sweep/radial_quadrature_control.py
+      - name: Upload initial-slice results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: radial-quadrature-control
+          path: runs/radial_quadrature_control/
+          if-no-files-found: error
