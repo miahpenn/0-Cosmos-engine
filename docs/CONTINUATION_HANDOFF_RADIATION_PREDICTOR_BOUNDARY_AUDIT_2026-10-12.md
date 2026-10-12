@@ -111,6 +111,22 @@ Thus at t≈60 the direct volume-projection effect of the P-minus correction is 
 
 The detailed source-qualified calculation is added to the main report linked above. No new evolution or physics change was run.
 
+
+
+## Frozen CMC lapse sensitivity at t≈60 is now computed offline
+
+Using the native full-grid N=120 t=60 checkpoint and its all-grid geometry/matter profile, I rebuilt the pinned cell-centred CMC operator and solved the linear response to the near-matched delta-Kdot-CMC = +1.107003121672167e-8. The source-form operator was L[delta-alpha] = delta-alpha'' + c delta-alpha' - m delta-alpha, with c = -0.5 D_r(a)/a + D_r(b)/b - D_r(X)/X + 2/r, m = (1.5 Aa^2 + K^2/3 + 4*pi*(rho + pr + 2*pt))/gamma^rr, and boundary condition delta-alpha[-1] = 0. Matter projection's max total density matched the campaign ledger to last displayed digit. Since Aa changes only at the boundary and the outer lapse row is replaced by normalization, all interior operator coefficients remain unchanged; only the interior RHS changes by -delta-Kdot/gamma^rr.
+
+Result: max delta-alpha = 7.03198e-7 at r=102.5; full-grid RMS = 3.04906e-7; outer delta-alpha = 0 by normalization. This is ~1.54e-7 of max stored alpha (4.5649). The alternate trace-side Aa pairing changes max response to 7.03349e-7, only +0.0215%. So at t≈60, the global volume-projected K-rate channel is much too small by itself to explain the large lapse/geometry structure. Direct Aa-to-a-dot, local H/M perturbation, radiation outer-face flux, prior boundary history and all late nonlinear coupling remain open.
+
+Qualification: this is a frozen-operator linear sensitivity, not a full nonlinear replay; the stored checkpoint alpha differs from the exact same-slice linear solution by max ~1.06e-3, and its max CMC residual under reconstructed operator is ~2.1e-5. The calculated delta response is the difference of two solves of the same operator; no claim of exact checkpoint alpha reconstruction. Do not extrapolate the t=60 sensitivity to the terminal event. Main report records the derivation and caveat.
+
+## Quarantined source-stage run 38313377947
+
+The latest redundant instrumentation run [38313377947](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38313377947), artifact [11775996184](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38313377947/artifacts/11775996184), has ordinary stage-ledger admission ok=true, 100 stages captured and all regression tests passing, but primary source-call attribution is not admitted. The detailed source capture expected two non-nested primary L2 calls per step and captured extra calls on every windowed step (1467-1566), so its phase labels cannot be treated as a valid source split. It is pinned to 9eed1cf95c52f001c2b87afbbe6da37faa56d50e, vendor d6052d605673ce9d82cdc99b0df79855fa2ea215; production source blobs for matter_rhs.py, matter_system.py, production_kernel.py and cmc_gauge.py exactly match that historical frozen source, not the rate-fix branch. This trace repeats the already-known late event (ratio 1.000056994154846) but is not a corrected-source experiment and does not add admitted attribution evidence.
+
+Root cause of instrumentation admission failure is likely capture-phase pollution from extra primary L2 calls, not a production/test regression. The wrapper records any non-nested vacuum.primary_l2_rhs call while the window is armed, instead of distinguishing the integrator's final L2 evaluation from the call made by CMC target_kdot and the post-completion diagnostic. Fix only the diagnostic phase labeling before any future use; no rerun needed now. Keep this artifact quarantined for source attribution, though its raw metric-stage ledger is still available as a historical repeated event.
+
 ## Next steps — offline first, no new trajectory yet
 
 1. Derive the frozen spatial P-minus target's compatibility (or incompatibility) with the actual production CMC and zero-shift evolution equations. Keep algebraic target closure, characteristic transport, momentum/Hamiltonian/connection constraints, and radiation cone margins as separate checks.
