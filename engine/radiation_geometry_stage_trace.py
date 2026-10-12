@@ -852,6 +852,20 @@ class RadiationStageTrace:
             }
         except Exception as exc:
             cap = cf_step.get("failure_capture", {})
+            msg = str(exc)
+            match_i = re.search(r"cell i=(\\d+)", msg)
+            match_ratio = re.search(r"ratio=([+\\-0-9.eE]+)", msg)
+            match_energy = re.search(r"E=([+\\-0-9.eE]+)", msg)
+            match_abs_s = re.search(r"\\|S\\|=([+\\-0-9.eE]+)", msg)
+            failure_index = cap.get("i")
+            if failure_index is None and match_i:
+                failure_index = int(match_i.group(1))
+            failure_stage = cap.get("stage", cf_step.get("failing_stage"))
+            if failure_stage is None and "explicit-predictor" in msg:
+                failure_stage = "explicit_predictor_pre_CMC_admissibility_guard"
+            failure_radius = cap.get("r")
+            if failure_radius is None and failure_index is not None:
+                failure_radius = float(accepted_state.grid.centers[failure_index])
             self.boundary_history_counterfactual = {
                 "status": "failed_during_one_step",
                 "hypothesis": "restore accepted Aa[-1] to its pre-boundary value from the preceding completed slice; hold all other accepted arrays fixed before the normal current step",
@@ -861,11 +875,14 @@ class RadiationStageTrace:
                 "preceding_boundary_post_Aa_outer": float(post_aa),
                 "actual_accepted_Aa_outer": current_aa,
                 "counterfactual_initial_Aa_outer": float(cf_state.geometry.Aa[-1]),
-                "failure_stage": cap.get("stage", cf_step.get("failing_stage")),
-                "failure_index": cap.get("i"), "failure_radius": cap.get("r"),
-                "failure_C": cap.get("C"), "failure_ratio_absS_over_E": cap.get("ratio_absS_over_E"),
+                "failure_stage": failure_stage, "failure_index": failure_index,
+                "failure_radius": failure_radius,
+                "failure_C": cap.get("C"),
+                "failure_ratio_absS_over_E": cap.get("ratio_absS_over_E", float(match_ratio.group(1)) if match_ratio else None),
+                "failure_physical_E": cap.get("physical_E", float(match_energy.group(1)) if match_energy else None),
+                "failure_abs_S": cap.get("abs_S", float(match_abs_s.group(1)) if match_abs_s else None),
                 "failure_gamma_rr_inv": cap.get("gamma_rr_inv"),
-                "exception_class": type(exc).__name__, "exception_message": str(exc),
+                "exception_class": type(exc).__name__, "exception_message": msg,
             }
         finally:
             self.current_step = old_context
@@ -1232,6 +1249,25 @@ class RadiationStageTrace:
                 trace.prune_tail(float(candidate.t) - TAIL_WINDOW)
                 return candidate
             except Exception as exc:
+                msg = str(exc)
+                if (trace.current_step.get("failing_stage") is None
+                        and "stage='explicit-predictor'" in msg):
+                    trace.current_step["failing_stage"] = "explicit_predictor_pre_CMC_admissibility_guard"
+                    match_i = re.search(r"cell i=(\\d+)", msg)
+                    match_ratio = re.search(r"ratio=([+\\-0-9.eE]+)", msg)
+                    match_energy = re.search(r"E=([+\\-0-9.eE]+)", msg)
+                    match_abs_s = re.search(r"\\|S\\|=([+\\-0-9.eE]+)", msg)
+                    idx = int(match_i.group(1)) if match_i else None
+                    trace.current_step["failure_capture"] = {
+                        "stage": trace.current_step["failing_stage"],
+                        "i": idx,
+                        "r": float(state.grid.centers[idx]) if idx is not None else None,
+                        "ratio_absS_over_E": float(match_ratio.group(1)) if match_ratio else None,
+                        "physical_E": float(match_energy.group(1)) if match_energy else None,
+                        "abs_S": float(match_abs_s.group(1)) if match_abs_s else None,
+                        "exception": msg,
+                        "capture_method": "parsed from real production stage validator; no metric-dependent C reconstruction in this wrapper",
+                    }
                 trace.failure = {
                     "t_accepted": float(state.t),
                     "tau_accepted": float(state.tau),
@@ -1242,14 +1278,17 @@ class RadiationStageTrace:
                     "stage_name": trace.current_step.get("failing_stage"),
                     "caller": trace.current_step.get("failing_caller"),
                     "grid_index": trace.current_step.get("failing_grid_index"),
-                    "radius": trace.current_step.get("failing_radius"),
+                    "radius": trace.current_step.get("failing_grid_index") is not None and float(state.grid.centers[trace.current_step["failing_grid_index"]]) or trace.current_step.get("failing_radius"),
                     "exception_class": type(exc).__name__,
-                    "exception_message": str(exc),
+                    "exception_message": msg,
                     "wall_elapsed_seconds": float(time.time() - trace.started_wall),
                 }
                 if trace.current_step.get("failure_capture") is not None:
                     trace.failure["failure_capture"] = trace.current_step["failure_capture"]
-                if (trace.failure.get("stage") == "explicit_predictor_first_CMC_lapse"
+                if (trace.failure.get("stage") in (
+                            "explicit_predictor_first_CMC_lapse",
+                            "explicit_predictor_pre_CMC_admissibility_guard",
+                        )
                         and trace.last_completed_boundary_record is not None):
                     try:
                         trace.run_boundary_history_counterfactual(
