@@ -113,7 +113,7 @@ def state_witness(grid, geom, scalars, matter, *, label, base_t, stage_order, so
             key: {
                 "first_four": [
                     {"i": int(i), "r": float(radius[i]), "value": float(v[i])}
-                    for i in range(min(4, radius.size)
+                    for i in range(min(4, radius.size))
                 ],
                 "peak_inner_r_lt_5": peak(v, radius, inner),
                 "peak_exterior_r_ge_5": peak(v, radius, exterior),
