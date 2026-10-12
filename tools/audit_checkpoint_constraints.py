@@ -28,6 +28,35 @@ R_CUT = 5.0
 SAMPLE_RADII = (0.5, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 8.0, 10.0, 15.0, 20.0, 40.0, 60.0, 75.0)
 
 
+def _d1(grid, values, parity):
+    return np.asarray(grid.cell_derivative_fourth(values, parity=parity), dtype=float)
+
+
+def _metric_connection(grid, geometry):
+    r = np.asarray(grid.centers, dtype=float)
+    a = np.asarray(geometry.a, dtype=float)
+    b = np.asarray(geometry.b, dtype=float)
+    ap = _d1(grid, a, +1)
+    bp = _d1(grid, b, +1)
+    return ap / (2.0 * a**2) - bp / (a * b) + 2.0 / r * (1.0 / b - 1.0 / a)
+
+
+def _metric_derived_ricci(grid, geometry):
+    """Independent 3-Ricci from proper radial distance and areal radius."""
+    r = np.asarray(grid.centers, dtype=float)
+    a = np.asarray(geometry.a, dtype=float)
+    b = np.asarray(geometry.b, dtype=float)
+    X = np.asarray(geometry.X, dtype=float)
+    areal_radius = r * np.sqrt(b) / X
+    d_ell_dr = X / np.sqrt(a)
+    areal_ell = d_ell_dr * _d1(grid, areal_radius, -1)
+    areal_ell_ell = d_ell_dr * _d1(grid, areal_ell, +1)
+    return (
+        -4.0 * areal_ell_ell / areal_radius
+        + 2.0 * (1.0 - areal_ell**2) / areal_radius**2
+    )
+
+
 def _peak(values: np.ndarray, radii: np.ndarray, mask: np.ndarray) -> dict:
     indices = np.flatnonzero(mask)
     if indices.size == 0:
@@ -143,6 +172,83 @@ def audit_state(state, vacuum, *, label: str, scheduled_time: float, state_sourc
         if not np.all(np.isfinite(values)):
             raise FloatingPointError(f"{label}: non-finite values in {name} profile")
 
+    # Independent same-state curvature-route audit. The vendor's production
+    # Ricci uses evolved Lambda; the comparator reconstructs R3 from the
+    # physical spatial metric via proper distance and areal radius, without
+    # using Lambda. This is a diagnostic comparator, never an evolution source.
+    geometry_terms = vacuum.geometry_terms(state.grid, state.geometry)
+    R_vendor = np.asarray(geometry_terms["R"], dtype=float)
+    R_metric = _metric_derived_ricci(state.grid, state.geometry)
+    lambda_metric = _metric_connection(state.grid, state.geometry)
+    C_lambda = np.asarray(state.geometry.Lambda, dtype=float) - lambda_metric
+    metric_lambda_geometry = state.geometry.copy()
+    metric_lambda_geometry.Lambda = lambda_metric.copy()
+    R_vendor_metric_lambda = np.asarray(
+        vacuum.geometry_terms(state.grid, metric_lambda_geometry)["R"],
+        dtype=float,
+    )
+    R_conn = R_vendor - R_vendor_metric_lambda
+    R_route = R_vendor_metric_lambda - R_metric
+    R_gap = R_vendor - R_metric
+    R_conn_formula = (
+        np.asarray(state.geometry.X, dtype=float)**2
+        * _d1(state.grid, C_lambda, -1)
+    )
+    H_metric = (
+        R_metric
+        - (
+            np.asarray(state.geometry.Aa, dtype=float)**2
+            + 2.0 * (-0.5 * np.asarray(state.geometry.Aa, dtype=float))**2
+        )
+        + (2.0 / 3.0) * np.asarray(state.geometry.K, dtype=float)**2
+        - 16.0 * np.pi * np.asarray(total.rho, dtype=float)
+    )
+    curvature_profiles = {
+        "R_vendor": R_vendor,
+        "R_metric": R_metric,
+        "R_vendor_minus_R_metric": R_gap,
+        "R_connection_contribution": R_conn,
+        "R_metric_route_difference": R_route,
+        "R_connection_formula": R_conn_formula,
+        "H_metric_counterfactual": H_metric,
+        "C_lambda_metric": C_lambda,
+    }
+    for name, values in curvature_profiles.items():
+        if values.shape != radii.shape or not np.all(np.isfinite(values)):
+            raise FloatingPointError(f"{label}: invalid curvature profile {name}")
+    split_closure = R_gap - (R_conn + R_route)
+    connection_formula_closure = R_conn - R_conn_formula
+    H_gap_closure = (profiles["hamiltonian"] - H_metric) - R_gap
+    curvature_scale = max(
+        1.0,
+        float(np.max(np.abs(R_vendor))),
+        float(np.max(np.abs(R_metric))),
+        float(np.max(np.abs(R_conn_formula))),
+    )
+    curvature_tolerance = 4096.0 * np.finfo(float).eps * curvature_scale
+    curvature_audit = {
+        "method": (
+            "independent metric-derived R3 via R_areal=r*sqrt(b)/X and "
+            "d/dell=(X/sqrt(a))*d/dr; no evolved Lambda in R_metric"
+        ),
+        "connection_identity": "R_vendor(Lambda)-R_vendor(Lambda_metric)=X^2*D(C_lambda,-1)",
+        "curvature_gap_split_closure_max_abs": float(np.max(np.abs(split_closure))),
+        "connection_formula_closure_max_abs": float(np.max(np.abs(connection_formula_closure))),
+        "H_gap_equals_Ricci_gap_closure_max_abs": float(np.max(np.abs(H_gap_closure))),
+        "roundoff_tolerance": curvature_tolerance,
+        "split_closure_pass": bool(np.max(np.abs(split_closure)) <= curvature_tolerance),
+        "connection_formula_pass": bool(np.max(np.abs(connection_formula_closure)) <= curvature_tolerance),
+        "H_gap_closure_pass": bool(np.max(np.abs(H_gap_closure)) <= curvature_tolerance),
+        "profiles": {
+            name: {
+                "inner_r_lt_5": _peak(values, radii, radii < R_CUT),
+                "exterior_r_ge_5": _peak(values, radii, radii >= R_CUT),
+                "full_domain": _peak(values, radii, np.ones_like(radii, dtype=bool)),
+            }
+            for name, values in curvature_profiles.items()
+        },
+    }
+
     # Frozen-slice sensitivity test for the vendor's exact algebraic/spherical
     # center regularity projection. This does not modify the evolved state or
     # feed the projected state back into any trajectory.
@@ -181,6 +287,7 @@ def audit_state(state, vacuum, *, label: str, scheduled_time: float, state_sourc
         "time_offset_from_schedule": float(state.t - float(scheduled_time)),
         "tau": float(state.tau),
         "r_cut": R_CUT,
+        "independent_curvature_audit": curvature_audit,
         "peaks": {
             name: {
                 "inner_r_lt_5": _peak(values, radii, inner),
@@ -240,6 +347,7 @@ def audit_state(state, vacuum, *, label: str, scheduled_time: float, state_sourc
     key = f"N{radii.size}_t{state.t:06.2f}".replace(".", "p")
     arrays = {"r": radii, "t": np.asarray(state.t), "tau": np.asarray(state.tau)}
     arrays.update(profiles)
+    arrays.update({f"curvature_{name}": values for name, values in curvature_profiles.items()})
     return summary, key, arrays
 
 
