@@ -332,6 +332,24 @@ For the historical-source late primary-predictor ledger, a measured P-minus corr
 
 Next work is therefore a **full-grid, same-slice CMC sensitivity reconstruction using an already archived checkpoint if available**: preserve all state fields, calculate each (w_i), (L_K[i]), the exact target change induced by P-minus, and the resulting lapse profile for fixed versus recomputed target. If no suitable full checkpoint exists, write the minimal read-only recorder specification before any matched candidate is run. No change to (P_-), CMC target average, lapse normalization, or radiation cone is justified yet.
 
+## Full-grid checkpoint recovery: quantify the global CMC target channel at t≈60
+
+The full canonical run_campaign artifact contains twelve native N=120 checkpoints (t=5 through t=60), not only the summary ledger. This enables a whole-grid proper-volume weight calculation without another evolution.
+
+- Canonical production run: [38025979654](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38025979654), artifact [11659369195](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38025979654/artifacts/11659369195). Run status is failure because target tau=22.1 was not reached; artifact upload itself succeeded.
+- ZIP SHA-256: 142d92de51bd89a632c9c53d898a389301248d73d171c082e18c0380618eaf24
+- N120/ledgers.json SHA-256: d88734d45a6be81e3382aff7b810beed2df8ac63e3f1f80b8d9c328300a369fd
+- N120/checkpoint_t00060.000000.npz SHA-256: 81b598c635b58ebc6465dd3525a54a53336e6f654fb8f04d51adb96127e5805c
+- Matching boundary trace: [run 38028306184](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38028306184), artifact [11661332148](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38028306184/artifacts/11661332148), trace.json SHA-256 f418a023c44dcd51802696e6468e3e09691d01ea44ecbb5a9463881be6b14e76.
+
+The full-run commit f4a18444899bf78242a40fc2492a37a5d65187ba and boundary-trace baseline a7170c12ed08b4fdb3c52ca98f02e106a3f39b82 have identical Git blob IDs for the relevant production sources (production_kernel.py, cmc_gauge.py, matter_system.py, matter_rhs.py, valencia.py, v55_matter.py, and v55_pirk_adapter.py); the same pinned vendor is used. The terminal/checkpoint states are not bit-identical: corresponding outer values differ by roughly 0.4–1.3e-9, consistent with a small cross-run/runtime trajectory difference. Accordingly, the following CMC perturbation is a near-matched artifact reconstruction, not a bitwise same-state counterfactual.
+
+At canonical checkpoint t=60.00000000000151, tau=21.60324970604194, the native full-grid CMC proper-volume weights are w_i = r_i^2 * sqrt(a_i) * b_i / X_i^3 * dr. Their total is 954906.55541281728; the outer-cell weight is 26653.673999705257, or 2.79123374414% of the slice. The recorded CMC target is Kdot_CMC=0.06692678496752487.
+
+The matching boundary trace's completed-state P-minus row labelled t=59.97000000000151 (the step completing into the t≈60 checkpoint) has Aa_pre[-1]=0.046751434211626593; its post-boundary Aa is 0.046754262454086246. The canonical checkpoint's actual post-boundary value is 0.046754261846389554. Using the canonical checkpoint's post value and the trace's pre value to minimize cross-run mismatch gives local delta_LK[-1] = 1.5*alpha[-1]*(Aa_post^2-Aa_pre^2) = +3.9659993506294643e-7, and delta_Kdot_CMC = (w_outer/sum(w))*delta_LK = +1.107003121672167e-8. That is 1.65405094867e-7 of the recorded K rate. Using the trace's own pre/post pair with the canonical whole-grid weights yields +1.10724103871e-8, so the two artifact pairings agree at 2.4e-12 absolute for this scalar.
+
+This is the first quantified whole-grid CMC-target effect of the P-minus change. At this t≈60 checkpoint, its direct contribution to the proper-volume average is extremely small relative to Kdot_CMC; the evidence does not support claiming this global scalar jump alone explains the radiation-cone failure. It still does not determine the solved-lapse response, the correction at the exact t≈61.0 terminal state, or the total effect of prior boundary history. The boundary correction grows steeply late; applying t=60 weights to the terminal delta_Aa would be an unverified cross-time extrapolation and is not done.
+
 ## What this does and does not establish
 
 **Established for the captured frozen configuration:**
