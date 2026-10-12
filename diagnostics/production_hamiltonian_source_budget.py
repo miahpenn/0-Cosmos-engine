@@ -17,7 +17,7 @@ import numpy as np
 
 from engine import v55_pirk_adapter as adapter
 from engine.matter_system import ConservedSpecies
-from engine.production_kernel import V55ProductionKernel
+from engine.production_kernel import ProductionState, V55ProductionKernel
 from engine.scalar_system import ScalarFields
 from engine.stress_energy import assemble_total_stress_energy
 from engine.v55_matter import V55MatterState
@@ -242,6 +242,167 @@ def common_radius_comparison(summaries_by_n_time, profiles_by_n_time) -> list[di
     return rows
 
 
+H_GROUPS = (
+    ("metric", "geometry", ("a", "b", "X")),
+    ("lapse_shift_gauge", "geometry", ("alpha", "beta", "B")),
+    ("A_a", "geometry", ("Aa",)),
+    ("K", "geometry", ("K",)),
+    ("Lambda", "geometry", ("Lambda",)),
+    ("matter", "matter", ("scalars", "matter")),
+)
+H_GROUP_COUNT = len(H_GROUPS)
+H_FULL_MASK = (1 << H_GROUP_COUNT) - 1
+
+
+def clone_production_state(state: ProductionState) -> ProductionState:
+    """Copy an evolved state while sharing only the immutable spatial grid."""
+    return ProductionState(
+        grid=state.grid,
+        geometry=state.geometry.copy(),
+        scalars=state.scalars.copy(),
+        matter=state.matter.copy(),
+        t=float(state.t),
+        tau=float(state.tau),
+        e_folds=float(state.e_folds),
+    )
+
+
+def hamiltonian_for_state(state: ProductionState, vacuum) -> np.ndarray:
+    total = assemble_total_stress_energy(
+        state.grid, state.geometry, state.scalars, state.matter
+    )
+    raw = vacuum.constraints(state.grid, state.geometry)
+    return (
+        np.asarray(raw["hamiltonian"], dtype=float)
+        - 16.0 * math.pi * np.asarray(total.rho, dtype=float)
+    )
+
+
+def hybrid_production_state(
+    before: ProductionState, after: ProductionState, mask: int
+) -> ProductionState:
+    """Create a fresh pre/post hybrid state for the selected groups."""
+    hybrid = clone_production_state(before)
+    for index, (_, owner, fields) in enumerate(H_GROUPS):
+        if not (mask & (1 << index)):
+            continue
+        if owner == "geometry":
+            for field in fields:
+                setattr(
+                    hybrid.geometry,
+                    field,
+                    np.array(getattr(after.geometry, field), dtype=float, copy=True),
+                )
+        else:
+            hybrid.scalars = after.scalars.copy()
+            hybrid.matter = after.matter.copy()
+    return hybrid
+
+
+def decompose_saved_interval(
+    before: ProductionState, after: ProductionState, vacuum
+) -> tuple[dict, dict]:
+    """Shapley-attribute H(after)-H(before) across six saved-state groups."""
+    if before.grid.n != after.grid.n or not np.array_equal(
+        before.grid.centers, after.grid.centers
+    ):
+        raise ValueError("saved interval endpoints must use identical spatial grids")
+
+    values = {}
+    for mask in range(H_FULL_MASK + 1):
+        hybrid = hybrid_production_state(before, after, mask)
+        values[mask] = hamiltonian_for_state(hybrid, vacuum)
+
+    denominator = math.factorial(H_GROUP_COUNT)
+    component_profiles = {}
+    for index, (label, _, _) in enumerate(H_GROUPS):
+        bit = 1 << index
+        contribution = np.zeros_like(values[0], dtype=float)
+        for mask in range(H_FULL_MASK + 1):
+            if mask & bit:
+                continue
+            size = mask.bit_count()
+            weight = (
+                math.factorial(size)
+                * math.factorial(H_GROUP_COUNT - size - 1)
+                / denominator
+            )
+            contribution += weight * (values[mask | bit] - values[mask])
+        component_profiles[label] = contribution
+
+    h_before = values[0]
+    h_after = values[H_FULL_MASK]
+    delta_h = h_after - h_before
+    component_sum = sum(
+        component_profiles.values(), np.zeros_like(delta_h, dtype=float)
+    )
+    closure = delta_h - component_sum
+    radius = np.asarray(before.grid.centers, dtype=float)
+    inner = radius < 5.0
+    exterior = radius >= 5.0
+    finite = all(
+        np.all(np.isfinite(array))
+        for array in (
+            *values.values(), delta_h, closure, *component_profiles.values()
+        )
+    )
+
+    component_summary = {}
+    for label, profile in component_profiles.items():
+        inner_index = int(np.flatnonzero(inner)[np.argmax(np.abs(profile[inner]))])
+        exterior_index = int(np.flatnonzero(exterior)[np.argmax(np.abs(profile[exterior]))])
+        component_summary[label] = {
+            "cell0_signed_delta_H": float(profile[0]),
+            "max_abs_full": float(np.max(np.abs(profile))),
+            "max_abs_inside_r_lt_5": float(abs(profile[inner_index])),
+            "radius_of_inner_max": float(radius[inner_index]),
+            "max_abs_exterior_r_ge_5": float(abs(profile[exterior_index])),
+            "radius_of_exterior_max": float(radius[exterior_index]),
+            "full_rms": float(np.sqrt(np.mean(profile**2))),
+            "inside_r_lt_5_rms": float(np.sqrt(np.mean(profile[inner]**2))),
+            "exterior_r_ge_5_rms": float(np.sqrt(np.mean(profile[exterior]**2))),
+        }
+
+    cells = []
+    for i in range(min(5, len(radius))):
+        cells.append({
+            "cell": i,
+            "r": float(radius[i]),
+            "H_before": float(h_before[i]),
+            "H_after": float(h_after[i]),
+            "delta_H": float(delta_h[i]),
+            "component_delta_H": {
+                label: float(profile[i])
+                for label, profile in component_profiles.items()
+            },
+            "sum_component_delta_H": float(component_sum[i]),
+            "closure_error": float(closure[i]),
+        })
+
+    summary = {
+        "finite": bool(finite),
+        "max_abs_H_before_full": float(np.max(np.abs(h_before))),
+        "max_abs_H_after_full": float(np.max(np.abs(h_after))),
+        "max_abs_delta_H_full": float(np.max(np.abs(delta_h))),
+        "max_abs_delta_H_inside_r_lt_5": float(np.max(np.abs(delta_h[inner]))),
+        "max_abs_delta_H_exterior_r_ge_5": float(np.max(np.abs(delta_h[exterior]))),
+        "closure_max_abs_full": float(np.max(np.abs(closure))),
+        "components": component_summary,
+        "cells_0_to_4": cells,
+    }
+    profile = {
+        "radius": radius.tolist(),
+        "H_before": h_before.tolist(),
+        "H_after": h_after.tolist(),
+        "delta_H": delta_h.tolist(),
+        "component_delta_H": {
+            label: values.tolist() for label, values in component_profiles.items()
+        },
+        "closure_error": closure.tolist(),
+    }
+    return summary, profile
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--artifact-dir", type=Path, required=True)
@@ -272,6 +433,7 @@ def main() -> None:
     _, vacuum, _ = adapter.vendor_modules()
     summaries = []
     profiles_by_n_time = {}
+    states_by_n_time = {}
     for n in (40, 60, 80):
         # t=0 is initialized at the same production defaults; no evolution step is taken.
         initial = kernel.initialize(
@@ -285,6 +447,7 @@ def main() -> None:
         summary, profile = audit_state(initial, vacuum)
         summaries.append(summary)
         profiles_by_n_time[(n, 0.0)] = profile
+        states_by_n_time[(n, 0.0)] = initial
 
         for t in (2, 4, 6, 8, 10, 12):
             checkpoint = artifact_dir / f"N{n}" / f"checkpoint_t{t:012.6f}.npz"
@@ -309,8 +472,55 @@ def main() -> None:
             profile["scheduled_checkpoint_time"] = float(t)
             profile["checkpoint_time_offset"] = float(state.t - t)
             profiles_by_n_time[(n, float(t))] = profile
+            states_by_n_time[(n, float(t))] = state
 
     comparisons = common_radius_comparison(summaries, profiles_by_n_time)
+    increment_attributions = []
+    increment_profiles = []
+    for n in (40, 60, 80):
+        for t_before, t_after in zip(SNAPSHOT_TIMES[:-1], SNAPSHOT_TIMES[1:]):
+            before = states_by_n_time[(n, float(t_before))]
+            after = states_by_n_time[(n, float(t_after))]
+            interval_summary, interval_profile = decompose_saved_interval(
+                before, after, vacuum
+            )
+            interval_summary.update({
+                "resolution": int(n),
+                "scheduled_t_before": float(t_before),
+                "scheduled_t_after": float(t_after),
+                "actual_t_before": float(before.t),
+                "actual_t_after": float(after.t),
+                "actual_dt": float(after.t - before.t),
+                "tau_before": float(before.tau),
+                "tau_after": float(after.tau),
+            })
+            increment_attributions.append(interval_summary)
+            interval_profile.update({
+                "resolution": int(n),
+                "scheduled_t_before": float(t_before),
+                "scheduled_t_after": float(t_after),
+                "actual_t_before": float(before.t),
+                "actual_t_after": float(after.t),
+                "actual_dt": float(after.t - before.t),
+            })
+            increment_profiles.append(interval_profile)
+
+    (output_dir / "checkpoint_hamiltonian_increment_attribution.json").write_text(
+        json.dumps({
+            "schema": "v55_checkpoint_H_increment_shapley_v1",
+            "diagnostic_only": True,
+            "source_run_id": args.source_run_id,
+            "source_code_commit": args.source_code_sha,
+            "source_campaign_summary_sha256": sha256_file(campaign_path),
+            "interval_count": len(increment_attributions),
+            "method": "Shapley attribution of H(after)-H(before) across metric (a,b,X), lapse/shift gauge (alpha,beta,B), A_a, K, Lambda, and matter (all scalars and fluids); all 64 pre/post hybrids evaluated on the same saved grid; no evolution steps",
+            "intervals": increment_attributions,
+        }, indent=2)
+    )
+    with (output_dir / "checkpoint_hamiltonian_increment_profiles.jsonl").open("w") as handle:
+        for profile in increment_profiles:
+            handle.write(json.dumps(profile, separators=(",", ":")) + "\n")
+
     with (output_dir / "constraint_source_profiles.jsonl").open("w") as handle:
         for n in (40, 60, 80):
             for t in SNAPSHOT_TIMES:
@@ -327,6 +537,7 @@ def main() -> None:
         "input_artifact_root": str(artifact_dir),
         "snapshots_per_resolution": list(SNAPSHOT_TIMES),
         "snapshot_count": len(summaries),
+        "checkpoint_increment_interval_count": len(increment_attributions),
         "method": {
             "hamiltonian_residual": "raw vacuum Hamiltonian constraint - 16*pi*(scalar_rho + fluid_rho)",
             "momentum_residual": "raw vacuum momentum constraint - 8*pi*(scalar_j + fluid_j)",
@@ -344,6 +555,8 @@ def main() -> None:
         "snapshot_count": output["snapshot_count"],
         "profiles": str(output_dir / "constraint_source_profiles.jsonl"),
         "summary": str(output_dir / "constraint_source_budget_summary.json"),
+        "checkpoint_increment_attribution": str(output_dir / "checkpoint_hamiltonian_increment_attribution.json"),
+        "checkpoint_increment_interval_count": len(increment_attributions),
         "production_steps_run": 0,
         "finite": all(item["finite"] for item in summaries),
     }, indent=2))
