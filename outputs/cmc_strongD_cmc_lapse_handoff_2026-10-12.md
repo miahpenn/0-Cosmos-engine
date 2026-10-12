@@ -4,18 +4,18 @@
 **Repository:** `miahpenn/0-Cosmos-engine`  
 **Active diagnostic branch:** `diag/independent-metric-ricci-audit`  
 **Branch head at preparation:** `d6142ac81a4bf56905de0fae5298f8fc540f7d98`  
-**Production/main:** `main` verified at `7604bd6cc87c48c9dc8e24f2facbfe1458364ca5`; untouched by this diagnostic work.  
+**Production/main:** current `main` head is `dcf9752091217f9c9049fc41898678eedd8c2b5f`, a separate user-authored commit removing `tools/audit_checkpoint_constraints.py` before review. Our diagnostic commits remain on `diag/independent-metric-ricci-audit`; no production equation/kernel changes were made by this investigation.  
 **Purpose:** Preserve verified numerical findings, record the interpolation audit and its repaired workflow, and give the next session an exact continuation path without mistaking a diagnostic counterfactual for a physical result.
 
 ## Executive state
 
 The (0.18\%) comparison between the saved-time integral of the central-lapse difference and the R80–R160 final proper-time difference is a **bookkeeping/quadrature check**, not causal attribution. Since (\tau=\int \alpha_c\,dt), the proper-time difference is by definition the integral of the central-lapse-history difference; close agreement checks sampling/integration consistency. The same-slice lapse re-solve correction is negligible at the relevant scale.
 
-The global CMC target (\dot K) is a domain-sensitive gauge mechanism, and the full evolving intervention now strongly implicates it in this boundary-matched comparison: prescribing the archived R160 target history in the R80 evolution closes 99.9941% of the final proper-time gap versus R160. The frozen-state target swap alone did not reproduce the center history; including the target in the full evolution did.
+The full evolving target-history intervention strongly implicates the prescribed CMC target history in the R80/R160 lapse/proper-time divergence: target-forced stride-1 closes 99.9941% of the final gap, and the stride-2 run closes 99.9813%. However, the saved-slice split adds an important qualification: although the outer shell carries about 87.5% of R160 proper-volume weight, its direct change to the full-domain target versus an inner-only average on the same R160 state is at most 7.15e-12. The R80/R160 target mismatch is almost entirely present when comparing the two states over the shared inner region.
 
-In code, `engine/cmc_gauge.py::target_kdot` constructs raw cell RHS values as `raw = l2["K"] + l3["K"]`, applies proper-volume weights `W_i = r_i^2 sqrt(a_i) b_i / X_i^3 * dr`, and returns `sum_i(W_i * raw_i)/sum_i(W_i)`. The common spherical (4\pi) factor cancels. The legacy `outer_frac` argument is explicitly unused; outer-region cells therefore enter both numerator and denominator. This is the direct implementation path by which domain size can change the gauge target.
+At t=0, the archived R80 and R160 shared-core states match to roundoff in a, b, X, K, Aa, scalars and matter; the meaningful discrepancy is the lapse alpha profile (max absolute difference 3.57e-4, RMS 2.58e-4). This points toward an initial gauge/lapse mismatch feeding the target, rather than a large direct outer-shell contribution to the target average. An alpha-only target-functional transplant probe is queued to test that coupling; it freezes all other fields and is algebraic, not an evolved or CMC-consistent state.
 
-The coarsened target-history sensitivity run [38207554072](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38207554072) is the only active expensive trajectory. The offline stride-2 versus stride-1 target input difference is at most (5.29437\times10^{-8}) across accepted-step times, but the coupled trajectory must still be inspected before treating interpolation sensitivity as negligible.
+In code, `engine/cmc_gauge.py::target_kdot` averages `raw = l2["K"] + l3["K"]` with proper-volume weights `W_i = r_i^2 sqrt(a_i) b_i / X_i^3 * dr`; `outer_frac` is unused. Outer cells enter the projection by construction, but the measured outer weighted mean is nearly equal to the inner mean on the R160 states examined, so the direct shell-average term is negligible in this campaign. The next question is how the lapse profile and the gauge target co-determine each other at the start and during evolution.
 
 **New completed result:** the R160 target-history interpolation audit now passes after a workflow dependency correction. Its artifact shows a smooth resolved target curve and a small held-out interpolation error over a deliberately doubled interval. This is empirical evidence only, not a rigorous bound at every evolution stage.
 
@@ -125,47 +125,69 @@ The completed interpolation audit [38206848868](https://github.com/miahpenn/0-Co
 
 ## 4. Next-work order
 
-1. The full-resolution target-forced run is admitted; its result and hashes are recorded above.
-2. Run one coarsened target-history counterfactual: retain every other archived R160 Kdot sample (while retaining the final t=12 endpoint), then linearly interpolate between retained samples. Keep initial data, R160 outer-alpha boundary history, R80 matter-face history, equations, grid, CFL, positivity gate and saved comparison times unchanged.
-3. Compare coarsened-target tau, center-lapse history and lapse-profile errors against both the full-resolution target-forced trajectory and the native-target boundary-matched R80 trajectory. If close, it supports low sensitivity to measured interpolation resolution. If materially different, report the sensitivity range and do not assign the full 99.994% closure to the target alone until resolved.
-4. Keep all work diagnostic-only. Do not alter production equations, add fitted feedback, clamp/floor/damp, or modify main. Do not start another expensive run until the coarsened-target run completes.
+1. Inspect the alpha-only target-functional cross-transplant snapshot run [38208798160](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38208798160). It computes both targets with only the shared-core alpha profile swapped while all other archived fields and proper-volume weights are held fixed. Check whether that changes the native target gap at t=0 and over the saved history.
+2. Treat this strictly as an algebraic sensitivity diagnostic: alpha-transplanted states do not solve the CMC lapse equation and do not define evolved spacetimes. Its role is to test whether the target difference is mediated by alpha when the remainder of the state is frozen.
+3. Use the alpha-probe result with the existing full-trajectory counterfactual and domain decomposition to decide whether the next needed test is a controlled t=0 lapse/gauge solve comparison or another full evolution. Do not initiate another expensive trajectory before this diagnosis is read.
+4. Keep all work diagnostic-only. Do not add fitted feedback, artificial damping/floors/clamps, or alter production physics. Our diagnostic code remains on `diag/independent-metric-ricci-audit`; do not promote it to `main` without review and exact successful CI.
 
 ## 5. Provenance and guardrails
 
 - This handoff is a diagnostic record, not an admission that the engine has passed the broader (0^*\) criterion or established a physical bounce/no-bounce interpretation.
 - The (0.18\%) proper-time/integrated-lapse agreement is a consistency check; it is not causal evidence.
 - The tiny same-slice correction is quantitatively insufficient as the direct source of the proper-time gap.
-- The full evolving counterfactual strongly implicates the global full-domain CMC target history: final proper-time gap closure is 99.9941% and maximum saved-slice gap reduction is 99.90%, conditional on the archived boundary inputs.
-- The interpolation audit is now successful with a setup fix; it measured rather than guaranteed interpolation accuracy.
-- The next run is a coarsened target-history sensitivity test; do not change production physics before reviewing it.
-- The verified `main` head remains `7604bd6cc87c48c9dc8e24f2facbfe1458364ca5`; do not promote diagnostic findings to production without a separate review and exact successful CI.
+- The full target-forced trajectory closes 99.9941% of final proper-time gap at stride 1; at stride 2 it closes 99.9813%. Sample-resolution sensitivity is small relative to the original gap but not zero.
+- The interpolation audit and target-forced runs used fixed archived boundaries; results are conditional on those controls.
+- The R160 outer-shell contribution to the target average is negligible on the 49 saved states despite its ~87.5% volume-weight share; native target gap is almost entirely the inner-state remainder.
+- At t=0, non-lapse fields match to roundoff while alpha differs by max 3.57e-4; alpha-only target-function probe [run 38208798160](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38208798160) is queued/in progress.
+- Current `main` is `dcf9752091217f9c9049fc41898678eedd8c2b5f`, which removes a diagnostic-only tool; production equations/kernel were not changed by the present diagnostic work.
 
 
-## 8. Follow-up started 12 October: target-history stride-2 sensitivity
+## 8. Completed follow-up: target-history sampling and domain-shell decomposition
 
-After the full target-forced result was admitted, the diagnostic script was extended to support an optional integer target sampling stride. The existing default remains stride 1, preserving the full archived target history. The new diagnostic run uses stride 2, retaining every other archived R160 Kdot row and preserving the final endpoint at t=12; the linear interpolation span is therefore about 0.5 time units.
+### 8.1 Full evolving stride-2 target-history sensitivity
 
-- Script update commit: [2657c5d4f13ddee30ed0c446a99bcb60720ebf0f](https://github.com/miahpenn/0-Cosmos-engine/commit/2657c5d4f13ddee30ed0c446a99bcb60720ebf0f).
-- New workflow commit: [7d53a3d78d628aeec1af88b392a43136bd087142](https://github.com/miahpenn/0-Cosmos-engine/commit/7d53a3d78d628aeec1af88b392a43136bd087142).
-- Stride-2 full-evolution workflow: [run 38207554072](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38207554072).
-- Expected artifact name: `cmc-r80-r160-kdot-coarse-counterfactual`.
+- Run [38207554072](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38207554072), successful.
+- Artifact [`cmc-r80-r160-kdot-coarse-counterfactual`, ID `11728271150`](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38207554072/artifacts/11728271150).
+- Artifact ZIP SHA-256: `0c48fc93fb047c80ae4073521d72247a6d5b89e12458c19cd4867ba74ce6f652`.
+- `report.json` SHA-256: `8be0f5ccfe85fa5b0d966122e81242a3a210cba7120418ef9b34c5c5412e207e`.
+- `comparison.json` SHA-256: `88f394f1cfc5a6ba9a58578447e59ab79d7fab369f54bd7bf11efe2adf406dac`.
+- Profiles JSONL SHA-256: `40b2dd66d39fd5d3329d870719d8eadaaba0293833252158fc9d4f9b3f376745`.
 
-A supplementary local interpolation-only comparison has now evaluated both histories at 3,201 accepted-step times and a denser 12,805-point time grid. The maximum absolute difference between the stride-1 and stride-2 prescribed target values was \(5.2943703130\\times10^{-8}\) at about t=6.25125; RMS across accepted-step times was \(1.05494\\times10^{-8}\). This measures the exact target-input perturbation generated by the coarsening on the archived samples; it does not predict the nonlinear evolution response or replace the full coarsened-target run.
+The coarse trajectory reached t=12 in 3,200 accepted steps and emitted 49 records; failure was null, all states passed finite/positive gates. There were 12,801 finite target deliveries and the prescribed-versus-returned target error was exactly zero. The target series used 25 samples (stride 2 out of 49), with both t=0 and t=12 endpoints retained; the same R80 matter-face and R160 outer-alpha histories were used.
 
-At the last status check the workflow was in progress and had not yet been reviewed. The next task is to inspect the artifact and compare:
-1. final \\(\\tau\\) and final gap to R160;
-2. maximum saved-slice absolute \\(\\tau\\) difference;
-3. shared-core center-lapse history and t=12 profile errors;
-4. geometry differences and finite/positive gate;
-5. 12,801 target deliveries, all finite, with zero prescribed-versus-returned target mismatch;
-6. report metadata confirming 25 retained target samples with the t=0 and t=12 endpoints preserved.
+| Comparison | Native R80 target | Full R160 target history (stride 1) | Coarsened R160 target (stride 2) |
+|---|---:|---:|---:|
+| Final proper-time gap vs R160 | +0.0106210937742 | +6.29752456e-7 | +1.98465418e-6 |
+| Final gap closed | — | 99.9940707% | 99.9813140% |
+| Maximum saved-time absolute tau gap | 0.0121899232 | 0.0000121914168 | 0.0000181536568 |
+| Maximum-gap reduction vs native R80 | — | 99.89999% | 99.85108% |
 
-The full-stride-1 reference is artifact `11727976800` from [run 38206154450](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38206154450); its ZIP SHA-256 is `63835669c695f9577d0416a2aa1fb3740aef9d4a90f36aaf9b9dbb94a5783006`. The stride-2 run is the sole new expensive numerical trajectory active for this investigation. Do not launch another trajectory until it completes.
+The stride-2 final tau was 6.906781267908186; stride-1 final tau was 6.9067799130064635, so coarsening changes final tau by +1.35490172e-6. Across saved times the stride-2 and stride-1 tau histories differ by at most 2.39437226e-5 (at t≈6.49875; RMS 9.2999e-6). The center-alpha histories differ by at most 4.08490445e-5 (near t≈5.74875; RMS 9.5536e-6); their final center-alpha difference is -5.08803230e-7. Against R160, stride-2 t=12 shared-core alpha max error is 6.2081e-6 versus 2.0914e-6 for stride 1; all-saved-slice shared-core alpha RMS is 9.3063e-6 versus 7.8294e-7. Thus coarse sampling changes the residual at a measurable level, but the effect is still tiny compared with the original proper-time gap: stride 2 leaves only about 0.0187% of the original final gap. The broad conclusion that target history closes over 99.98% of the gap is robust to this tested coarsening; the last few (10^{-6}) in tau are not.
 
+The offline prescribed-target comparison showed max difference 5.29437e-8 and RMS 1.05494e-8 across accepted-step times for the stride-1 versus stride-2 interpolants. This is an input difference, not a direct bound on nonlinear response.
 
+### 8.2 Saved-slice global target decomposition
 
-### Saved-slice domain decomposition: first attempt and correction
+- Corrected run [38208523930](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38208523930), successful after the first attempt [38208437494](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38208437494) exposed a diagnostic-only assumption error (R80 has no cells at r≥80). The correction treats R80 as the unsplit inner-domain control.
+- Artifact [`cmc-kdot-domain-projection`, ID `11728780407`](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38208523930/artifacts/11728780407).
+- Artifact ZIP SHA-256: `01c35348f0966306a430677999ac57d5c560c8866d09605436f814760f14fe84`.
+- `report.json` SHA-256: `a988fec4e3a4b499870e8307da360be14af73397f6ab58ab6634e16b6e94d95d`.
+- Per-time records SHA-256: `9784ce220557883bd0ec870fda264f094ddfb845fa707db2d98ffe434f162360`.
 
-The first snapshot-only workflow [38208437494](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38208437494) failed before producing numerical results. Its region check incorrectly required a nonempty outer region for the R80 control grid, although all R80 cell centers necessarily satisfy r<80. This was a diagnostic-control-flow bug, not a production or physics failure.
+The snapshot diagnostic recomputed 49 matched-time targets on reconstructed archived states, with manual target versus production API error exactly zero, archived R160 target reconstruction error exactly zero, and maximum additive split residual (2.71\times10^{-20}). At each slice it decomposed
+[
+\dot K_{160,full}-\dot K_{80,native}
+=(\dot K_{160,full}-\dot K_{160,inner})
++(\dot K_{160,inner}-\dot K_{80,native}).
+]
 
-Correction commit [9f54b9c53fe4c4d8e932f687d311a3294cc4eb3b](https://github.com/miahpenn/0-Cosmos-engine/commit/9f54b9c53fe4c4d8e932f687d311a3294cc4eb3b) now treats R80 as the full inner-region control with zero outer weight and performs the inner/outer split only where an outer shell exists (R160). The corrected rerun is [38208523930](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38208523930); it was queued at the last status check because the diagnostic runner was occupied. No shell-decomposition values are available yet.
+The R160 outer shell (r≥80) carried 87.496%–87.558% of the R160 proper-volume weight, but its weighted mean of the raw K RHS was nearly identical to the inner-region mean. Therefore the full-versus-inner-only target shift on the *same R160 state* was at most 7.15179376e-12 over the full t=0–12 record set. At t=12 the native R80 target was 2.45707508e-4 and the R160 full/inner target was 7.50581387e-5: the target gap was +1.70649370e-4 for R80 minus R160, while the outer-shell contribution was only about 7.15e-12. The remaining target difference is almost entirely the difference between the R160 inner-only target and the independently archived R80 state's target. At t=0 this target gap was -3.46833157e-7 and the shell term was about -5.45e-16.
+
+This does **not** contradict the full trajectory target-forcing result: prescribing R160's target history changes the evolving solution dramatically. It does, however, rule out a simple explanation in which the R160 outer shell directly shifts the volume average by an amount comparable to the observed target gap on these saved states. The domain-size dependence appears through the target value evaluated on different evolving/gauge states, rather than direct outer-shell averaging alone.
+
+### 8.3 Initial-state comparison and next diagnostic
+
+At t=0 the shared-core R80/R160 archived states agree to roundoff for the other key fields: max absolute differences are 2.22e-16 for geometry a, 1.11e-16 for b and X, 7.63e-17 for K, 5.38e-17 for Aa; scalar/matter differences are ~1e-25 or ~1e-17. The meaningful difference is the lapse profile: max absolute alpha difference 3.57126e-4, RMS 2.58354e-4. This identifies an initially gauge/lapse-led discrepancy, not a meaningful initial matter/metric mismatch on the shared core.
+
+The next snapshot-only diagnostic now queued is [run 38208798160](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38208798160), code commit [ae9d5efea6ae17a22ede1faa5aa6a01fb959526a](https://github.com/miahpenn/0-Cosmos-engine/commit/ae9d5efea6ae17a22ede1faa5aa6a01fb959526a). It swaps only the shared-core alpha profile in each archived state, freezes all other fields and volume weights, and recomputes the production CMC target. This is an algebraic target-functional probe, not a CMC-consistent state or evolution. Inspect whether the t=0 target mismatch follows the lapse replacement and whether that persists as the archived states diverge.
+
