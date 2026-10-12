@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
+import re
 import sys
 
 import numpy as np
@@ -130,9 +131,15 @@ def audit_checkpoint(path: Path, kernel, vacuum):
 
     inner = radii < R_CUT
     exterior = radii >= R_CUT
+    match = re.fullmatch(r"checkpoint_t([0-9]+\\.[0-9]+)\\.npz", path.name)
+    if not match:
+        raise ValueError(f"unexpected checkpoint filename: {path.name}")
     summary = {
         "resolution": int(radii.size),
-        "t": float(state.t),
+        "checkpoint_file": path.name,
+        "scheduled_checkpoint_time": float(match.group(1)),
+        "actual_checkpoint_time": float(state.t),
+        "time_offset_from_schedule": float(state.t - float(match.group(1))),
         "tau": float(state.tau),
         "r_cut": R_CUT,
         "peaks": {
@@ -186,13 +193,23 @@ def main():
         for name, values in arrays.items():
             profile_arrays[f"{key}_{name}"] = values
 
-    # Ensure the archived campaign is the expected synchronized checkpoint set.
-    expected = {(n, float(t)) for n in (40, 60, 80) for t in (2, 4, 6, 8, 10, 12)}
-    observed = {(int(item["resolution"]), float(item["t"])) for item in summaries}
-    if observed != expected:
+    # Check the scheduled checkpoint file set, but do not assume a file
+    # labelled for target time t contains a state whose integrator time is
+    # exactly t. The campaign writes the nearest accepted step, and the actual
+    # state timestamp is preserved separately in the report.
+    expected_files = {
+        f"N{n}/checkpoint_t{t:012.6f}.npz"
+        for n in (40, 60, 80)
+        for t in (2, 4, 6, 8, 10, 12)
+    }
+    observed_files = {
+        path.relative_to(args.input).as_posix()
+        for path in checkpoints
+    }
+    if observed_files != expected_files:
         raise ValueError(
-            f"checkpoint set mismatch; missing={sorted(expected-observed)}, "
-            f"unexpected={sorted(observed-expected)}"
+            f"checkpoint filename set mismatch; missing={sorted(expected_files-observed_files)}, "
+            f"unexpected={sorted(observed_files-expected_files)}"
         )
 
     args.output.mkdir(parents=True, exist_ok=True)
@@ -204,6 +221,10 @@ def main():
         "production_source_sha": args.source_sha,
         "r_cut": R_CUT,
         "checkpoint_count": len(summaries),
+        "checkpoint_time_semantics": (
+            "scheduled filename identifies requested checkpoint target; "
+            "actual_checkpoint_time is the saved integration time"
+        ),
         "resolution_count": len({int(item["resolution"]) for item in summaries}),
         "summaries": sorted(summaries, key=lambda item: (item["resolution"], item["t"])),
         "limitations": [
