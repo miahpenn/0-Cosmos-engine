@@ -1,0 +1,66 @@
+name: Radiation four-force matched rate-only comparison
+
+on:
+  push:
+    branches:
+      - diag/radiation-four-force-rate-only-match-2026-10-12
+    paths:
+      - engine/matter_system.py
+      - engine/matter_rhs.py
+      - engine/production_kernel.py
+      - tests/test_species_rhs_rate_contract.py
+      - tests/test_radiation_rhs_admissibility_contract.py
+      - tests/test_radiation_four_force_null_identity.py
+      - tools/diag_radiation_four_force_counterfactual.py
+      - .github/workflows/radiation-four-force-rate-only-match.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: radiation-four-force-rate-only-match
+  cancel-in-progress: false
+
+jobs:
+  matched-one-step:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout diagnostic branch and pinned vendor
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install requirements
+        run: python -m pip install -r requirements.txt
+      - name: Verify pinned geometry/PIRK vendor
+        run: |
+          expected="d6052d605673ce9d82cdc99b0df79855fa2ea215"
+          actual="$(git rev-parse HEAD:vendor/bb-palatini-unified-r0)"
+          test "$actual" = "$expected"
+      - name: Compile changed modules and bounded diagnostic
+        run: |
+          python -m py_compile engine/matter_system.py engine/matter_rhs.py engine/production_kernel.py
+          python -m py_compile tests/test_species_rhs_rate_contract.py tests/test_radiation_rhs_admissibility_contract.py tests/test_radiation_four_force_null_identity.py
+          python -m py_compile tools/diag_radiation_four_force_counterfactual.py
+      - name: RHS, admissibility, and four-force identity regressions
+        run: >-
+          python -m pytest -q
+          tests/test_species_rhs_rate_contract.py
+          tests/test_radiation_rhs_admissibility_contract.py
+          tests/test_radiation_four_force_null_identity.py
+      - name: Full repository test suite
+        run: python -m pytest -q tests
+      - name: Matched N=80/160 x beta_rad=0/-0.04 one-step comparison
+        run: python tools/diag_radiation_four_force_counterfactual.py
+      - name: Preserve four-case JSON even if a case fails
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: radiation-four-force-rate-only-match
+          path: artifacts/radiation_four_force_counterfactual.json
+          if-no-files-found: warn
