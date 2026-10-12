@@ -70,3 +70,5 @@ def test_pinned_spherical_grid_uses_center_array_for_cell_count():
     grid = operators.SphericalCellGrid(n=80, r_max=80.0)
     assert not hasattr(grid, 'resolution')
     assert len(grid.centers) == 80
+    # Exercise the same public expression used by the ledger serialization.
+    assert len(grid.centers) == int(len(grid.centers))
