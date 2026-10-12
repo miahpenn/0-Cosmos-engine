@@ -181,3 +181,30 @@ The existing expanded-domain trace [run 38028306184](https://github.com/miahpenn
 
 Therefore the current-step boundary condition is not the direct operation at the failing substage, and the boundary formula's algebraic closure is strong; nevertheless, prior boundary-conditioned \(A_a\) remains a possible contributor to the later explicit metric RHS. The corrected-rate N=80 trace does not record matched pre/post-boundary \(A_a\) snapshots, so no causal boundary attribution is admitted. Any next study should compare those quantities on a matched source and state, while also inspecting \(A_a/K\) constraint/source evolution. The archived boundary trace is not sufficient to justify changing the boundary law.
 
+
+
+## 6. Cumulative near-null approach and the boundary admission distinction
+
+The full corrected-rate trace contains ten completed steps leading into the failed predictor, providing an existing (no-replay) trend:
+
+- At outer cell \(i=79\), \(\gamma^{rr}\) increases monotonically from \(1.278974\) to \(1.462894\), a 14.38% rise.
+- Its accepted densitized cone margin falls from \(3.7051\times10^{-6}\) to \(4.7291\times10^{-7}\), an 87.2% reduction.
+- At every one of those completed steps, flux plus geometric source raise the margin when measured against the accepted metric, but the metric-stage contribution is more negative; the accepted margin therefore decreases step by step.
+- At the attempted terminal predictor, cells \(i=75\ldots78\) remain inside the cone with margins approximately \(4.74, 5.10, 5.78, 8.60\times10^{-6}\), while cell \(i=79\) reaches \(-1.70\times10^{-8}\). Cells 75–78 actually have larger fractional \(\gamma^{rr}\) changes (about 2.06–2.81%) than cell 79 (about 1.53%). The distinguishing condition is the much smaller pre-existing outer-cell radiation margin, not simply the largest metric change.
+
+Source: the existing ten-step table in [RADIATION_PREDICTOR_TRACE_AFTER_RATE_FIX_2026-10-12.md](https://github.com/miahpenn/0-Cosmos-engine/blob/research/production-readiness-review-2026-10-12/docs/RADIATION_PREDICTOR_TRACE_AFTER_RATE_FIX_2026-10-12.md), corrected-rate run [38310216296](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38310216296). All recorded ordered budgets close algebraically. This is evidence for a persistent near-null-state / metric-stage coupling in the captured discretization; it does not establish a singularity, physical null limit, defective continuum geometry equation, or bounce.
+
+### Boundary residual is not boundary admission
+
+The pinned numerical module bssn_characteristic_boundary.py explicitly states that it does **not** implement a complete constraint-preserving boundary. The V5.5 outer routine sets only Aa[-1] using a frozen second-order reconstruction of the incoming \(P_-\) light/constraint characteristic. In addition, the production CMC lapse solve normalizes \(\alpha[-1]=1\) instead of imposing its lapse PDE at that outer row.
+
+The archived \(R_{\max}=120\) boundary artifact reports a post-correction \(P_-\) residual near \(10^{-17}\), but the routine solves for Aa[-1] from its own target, so that residual is an algebraic consistency check, not independent evidence that the target is the correct continuum incoming datum or compatible with the CMC/zero-shift gauge. The archived run also shows a material correction \(\Delta Aa\approx+1.1851\times10^{-4}\) at a late step. Because it is a different source revision and domain, that magnitude cannot be used as a causal replay of the current \(N=80\) failure.
+
+Therefore:
+1. the boundary correction at the *attempted failing step* has not yet run when primitive recovery throws;
+2. previous accepted-step boundary-conditioned Aa still enters the next zero-shift \(\dot a=-2\alpha a Aa\), so upstream boundary influence remains possible;
+3. the current \(N=80\) corrected trace does not record the matched pre-/post-boundary Aa values needed to quantify that pathway;
+4. no boundary-law edit is justified from either a tiny post-residual or the nonzero correction magnitude alone.
+
+The next existing diagnostic capture is on frozen historical source 9eed1cf95c52f001c2b87afbbe6da37faa56d50e, not the corrected-rate source 1c63090d4f42396f899421a2379f70320689d5ad. It may clarify how the historical Aa/K sources feed its predictor, but it must not be presented as a source-matched explanation of the corrected-rate trajectory. Compare formulas and structure, not raw trajectory values.
+
