@@ -18,6 +18,7 @@ def species_rhs(
     dphi_t: np.ndarray | None = None,
     dphi_r: np.ndarray | None = None,
     beta_dm: float = -0.04,
+    beta_rad: float = 0.0,
 ) -> ConservedSpecies:
     """Return d(state)/dt using the conservative transport operator.
 
@@ -36,6 +37,7 @@ def species_rhs(
         dphi_t=dphi_t,
         dphi_r=dphi_r,
         beta_dm=beta_dm,
+        beta_rad=beta_rad,
         validate_admissibility=False,
     )
     return ConservedSpecies(
