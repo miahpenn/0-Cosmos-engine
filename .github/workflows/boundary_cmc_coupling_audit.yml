@@ -1,0 +1,92 @@
+name: "[0star] Boundary–CMC radiation coupling audit"
+
+on:
+  push:
+    branches:
+      - diag/boundary-cmc-coupling-audit-2026-10-12
+    paths:
+      - engine/radiation_geometry_stage_trace.py
+      - .github/workflows/boundary_cmc_coupling_audit.yml
+
+permissions:
+  contents: read
+
+env:
+  PYTHONPATH: .
+
+concurrency:
+  group: boundary-cmc-coupling-audit-2026-10-12
+  cancel-in-progress: false
+
+jobs:
+  corrected-source-boundary-audit:
+    if: contains(github.event.head_commit.message, '[run-boundary-cmc-audit]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout stacked radiation guard/rest-current candidate and pinned numerical operators
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Fail closed against exact stacked candidate and vendor
+        env:
+          BASE_SOURCE_COMMIT: "cdcec8282bff0443f2fe4674b15929822ff38736"
+          VENDOR_COMMIT: "d6052d605673ce9d82cdc99b0df79855fa2ea215"
+        run: |
+          git fetch --no-tags origin "$BASE_SOURCE_COMMIT"
+          unexpected="$(git diff --name-only "$BASE_SOURCE_COMMIT" HEAD -- engine vendor requirements.txt .gitmodules | grep -v '^engine/radiation_geometry_stage_trace.py$' || true)"
+          if [ -n "$unexpected" ]; then
+            printf 'Unexpected engine/vendor/dependency changes relative to stacked candidate:\n%s\n' "$unexpected"
+            exit 1
+          fi
+          actual_vendor="$(git rev-parse HEAD:vendor/bb-palatini-unified-r0)"
+          test "$actual_vendor" = "$VENDOR_COMMIT"
+          printf 'Stacked source: %s\nVendor: %s\nOnly diagnostic tracer differs in engine/.\n' "$BASE_SOURCE_COMMIT" "$VENDOR_COMMIT"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install pinned-source dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Compile boundary audit tracer
+        run: python -m py_compile engine/radiation_geometry_stage_trace.py
+
+      - name: Full repository regression suite
+        run: python -m pytest -q
+
+      - name: Run corrected-source late radiation and boundary-history audit
+        env:
+          EXTENDED_B_ACCEPTED_METRIC_RECOVERY: "0"
+          RADIATION_ADMISSIBILITY_RETRY: "0"
+        run: python -m engine.radiation_geometry_stage_trace
+
+      - name: Record exact provenance and report checksums
+        if: always()
+        env:
+          BASE_SOURCE_COMMIT: "cdcec8282bff0443f2fe4674b15929822ff38736"
+          VENDOR_COMMIT: "d6052d605673ce9d82cdc99b0df79855fa2ea215"
+        run: |
+          mkdir -p runs/radiation-stage-trace
+          printf '%s\n' "$BASE_SOURCE_COMMIT" > runs/radiation-stage-trace/RATE_FIX_SOURCE_COMMIT.txt
+          printf '%s\n' "$VENDOR_COMMIT" > runs/radiation-stage-trace/VENDOR_COMMIT.txt
+          git rev-parse HEAD > runs/radiation-stage-trace/TRACE_HEAD.txt
+          if [ -f runs/radiation-stage-trace/trace.json ]; then
+            sha256sum runs/radiation-stage-trace/trace.json runs/radiation-stage-trace/summary.json > runs/radiation-stage-trace/TRACE_SHA256SUMS.txt
+          fi
+          if [ -f runs/radiation-stage-trace/boundary_failure_snapshot.npz ]; then
+            sha256sum runs/radiation-stage-trace/boundary_failure_snapshot.npz runs/radiation-stage-trace/boundary_failure_snapshot.json >> runs/radiation-stage-trace/TRACE_SHA256SUMS.txt
+          fi
+
+      - name: Upload trace, boundary witnesses, and frozen state (including captured failures)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: boundary-cmc-radiation-audit
+          path: runs/radiation-stage-trace/
+          if-no-files-found: warn
+          retention-days: 90
