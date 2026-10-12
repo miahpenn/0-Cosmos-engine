@@ -6,9 +6,9 @@
 **Diagnostic branch:** \`diag/radiation-primary-boundary-cf-2026-10-12\`  
 **Matched counterfactual run:** [38321467866](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38321467866) — clean rerun successful.  
 **Artifact:** [11779103151 — radiation-primary-boundary-counterfactual](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38321467866/artifacts/11779103151)  
-**Artifact ZIP SHA-256:** \`3edf5a3c8500a904d51fd6b5af7deea459b1ab1a205571f3032034fe5d43fd09\`  
-**Embedded report SHA-256:** \`7077442ccef26aac4a1f16a6f0b9b1bcc3079adb0116b1e7a1146c6b40c90164\`  
-**Tested instrumentation head:** \`667cf399df480b901c72423ada01fa98129506bf\`  
+**Artifact ZIP SHA-256:** \`0dfd6c51fac78c391cdb0d5f88f64c0919ea517e5ab563c5e0f1cf04e866c51a\`
+**Embedded report SHA-256:** \`248e421e58f0e66fbfd0a6e8ac017730a4cd10377c0ee1ce9f5aae4473422fd7\`
+**Tested instrumentation head:** \`3395b6645ecd2b2e0a480cd67d770b58287f7db7\`
 **Rate-corrected source baseline:** \`1c63090d4f42396f899421a2379f70320689d5ad\`  
 **Pinned vendor:** \`d6052d605673ce9d82cdc99b0df79855fa2ea215\`
 
