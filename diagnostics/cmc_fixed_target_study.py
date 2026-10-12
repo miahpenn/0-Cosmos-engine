@@ -111,3 +111,5 @@ def main():
     print("PASS: fixed-target control verified; self-consistency outcome recorded",flush=True)
 
 if __name__=="__main__": main()
+
+# Trigger workflow after diagnostic and workflow files both exist.
