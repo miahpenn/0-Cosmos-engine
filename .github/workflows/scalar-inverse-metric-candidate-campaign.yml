@@ -1,0 +1,97 @@
+name: Candidate - scalar inverse-metric lapse-gradient correction
+
+on:
+  push:
+    branches:
+      - fix/scalar-inverse-metric-lapse-gradient-strict-2026-10-12
+    paths:
+      - engine/scalar_system.py
+      - tests/test_scalar_lapse_gradient_metric_contraction.py
+      - tools/compare_scalar_metric_candidate_campaign.py
+      - .github/workflows/scalar-inverse-metric-candidate-campaign.yml
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: scalar-inverse-metric-candidate-campaign-2026-10-12
+  cancel-in-progress: false
+
+jobs:
+  validated-candidate-campaign:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    env:
+      PYTHONUNBUFFERED: "1"
+
+    steps:
+      - name: Checkout strict-admission candidate and pinned kernel
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install production dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Run full repository regression suite
+        run: python -m pytest -q
+
+      - name: Run scalar metric-contraction regression explicitly
+        run: python -m pytest -q tests/test_scalar_lapse_gradient_metric_contraction.py
+
+      - name: Download strict baseline production checkpoints through t=12
+        uses: actions/download-artifact@v4
+        with:
+          name: v55-production-t12-n40-n60-n80
+          repository: miahpenn/0-Cosmos-engine
+          run-id: 38208253687
+          github-token: ${{ github.token }}
+          path: baseline
+
+      - name: Run bounded candidate production campaign through t=12
+        run: |
+          python - <<'PY'
+          import json
+          from dataclasses import asdict
+          from pathlib import Path
+          from engine.campaign import CampaignConfig
+          from engine.run_production import run_campaign
+
+          config = CampaignConfig(
+              resolutions=(40, 60, 80),
+              r_max=80.0,
+              cfl=0.03,
+              final_time=12.0,
+              checkpoint_interval=2.0,
+              output_dir="runs/scalar-metric-candidate",
+          )
+          results = run_campaign(config=config)
+          for result in results:
+              if result.status != "completed" or abs(result.t_final - 12.0) > 1.0e-9:
+                  raise RuntimeError(f"strict candidate admission failed: {result}")
+              print(json.dumps(asdict(result), sort_keys=True))
+          summary = json.loads(Path(config.output_dir, "campaign_summary.json").read_text())
+          if not summary.get("admission", {}).get("passed", False):
+              raise RuntimeError(f"campaign summary did not pass admission: {summary.get('admission')}")
+          PY
+
+      - name: Compare matched histories and saved fields with strict baseline
+        run: python tools/compare_scalar_metric_candidate_campaign.py baseline runs/scalar-metric-candidate results/scalar-metric-candidate-comparison
+
+      - name: Upload candidate campaign and comparison
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scalar-inverse-metric-candidate-t12
+          path: |
+            runs/scalar-metric-candidate/
+            results/scalar-metric-candidate-comparison/
+          if-no-files-found: warn
+          retention-days: 90
