@@ -1,5 +1,6 @@
 {
   "current_decision": "Archived-state CMC lapse centre row and production lapse operator agree to roundoff, weakening the centre-row-defect hypothesis for those profiles only. CMC target closure is nearly redundant with the interior PDE because the outer normalization cell is included in the target average. Next compare CMC and production lapse operators on the exact uniform-fourth-order quadrature initial profiles N=40/60/80/120/160. No production edit; high-N radiation admissibility remains open; no t=160 campaign.",
+  "current_main_sha": "87e71c3793d8afd5519ca1099dc69ebff707546b",
   "diagnostic_artifact_id": 11768515284,
   "diagnostic_artifact_sha256": "2128028ad4fcd80c4d603107d481a78a1add233d18b35eaa3d1d19a43cae2a91",
   "diagnostic_run_id": 38294736014,
@@ -114,6 +115,13 @@
       "target_output_slope": 0.9999999997573141,
       "url": "https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38294955148"
     }
+  },
+  "main_reconciliation": {
+    "baseline_sha": "809228c380d80af83858412557c78b6329ffa5c8",
+    "current_head_sha": "87e71c3793d8afd5519ca1099dc69ebff707546b",
+    "diff_from_baseline": "Only .github/workflows/cmc-target-closure-rank-probe.yml was added and then removed; no production source, physics, or kernel files differ from the recorded baseline.",
+    "head_commit_message": "revert accidental diagnostic workflow placement on main",
+    "production_physics_tree_unchanged_vs_baseline": true
   },
   "no_evolution": true,
   "production_main_sha": "809228c380d80af83858412557c78b6329ffa5c8",
