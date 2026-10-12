@@ -1,0 +1,60 @@
+name: Diagnostic - production initial trace-free radial Ricci cross-check
+
+on:
+  push:
+    branches:
+      - diag/production-initial-tracefree-ricci-2026-10-12
+    paths:
+      - tools/production_initial_tracefree_ricci_crosscheck.py
+      - .github/workflows/production-initial-tracefree-ricci-crosscheck.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-initial-tracefree-ricci-crosscheck
+  cancel-in-progress: true
+
+jobs:
+  initial-ricci-crosscheck:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PYTHONUNBUFFERED: "1"
+
+    steps:
+      - name: Checkout diagnostic branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Checkout exact production source and pinned vendor
+        uses: actions/checkout@v4
+        with:
+          ref: 6d8b3f2790644591326df57c55908863f994cb0c
+          path: source
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install exact production dependencies
+        run: python -m pip install -r source/requirements.txt
+
+      - name: Compile diagnostic
+        run: python -m py_compile tools/production_initial_tracefree_ricci_crosscheck.py
+
+      - name: Cross-check the unchanged production initial slice
+        run: python tools/production_initial_tracefree_ricci_crosscheck.py
+
+      - name: Upload diagnostic report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-initial-tracefree-ricci-crosscheck
+          path: results/production-initial-tracefree-ricci/
+          if-no-files-found: warn
+          retention-days: 90
