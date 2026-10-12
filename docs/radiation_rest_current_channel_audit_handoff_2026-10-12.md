@@ -30,3 +30,17 @@ Expected isolating signature: the generic arm may produce a nonzero radiation re
 ## Admission rules
 
 A green workflow validates the diagnostic and this one-step identity only. It does not justify a production patch unless the intended invariant is confirmed against the fluid/state contract and a regression test is accepted. No clamp, physical source, radiation cone change, physics-law addition, or long evolution is part of this audit. Keep the late-time outer-cell predictor-cone failure as a separate issue.
+
+
+## Result admitted — 12 October 2026
+
+The generic-versus-radiation-specific one-step comparison completed on run [38317797540](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38317797540): success. Artifact [11777312270](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38317797540/artifacts/11777312270), ZIP SHA-256 `e34c99e6b575222f0f8ce5c134f9ac2bdb9a958ece0dc235f593a8a63e38e090`, JSON SHA-256 `566b51387ca3272fa76716b19d5e1128450ef02c6ae784ee851f2759697a785b`. Vendor pin, compile, 1 helper test, 4 guard tests and 27 full-suite tests passed; all four arms passed.
+
+Result:
+- N=80 generic rest max `1.0085731565667868e-11`; radiation-specific rest max `0.0`.
+- N=160 generic rest max `5.012616800265632e-12`; radiation-specific rest max `0.0`.
+- Full radiation E/S profiles, all derived cone profiles, all geometry fields and H/M/C_Lambda witnesses are bit-identical between arms on both grids.
+
+The isolated source-repair candidate is at [`fix/radiation-rest-current-channel-2026-10-12`](https://github.com/miahpenn/0-Cosmos-engine/tree/fix/radiation-rest-current-channel-2026-10-12). It dispatches radiation HLL and outer-face flux through the existing radiation-specific helpers and adds an actual N=80/N=160 rest-invariant regression. Its dedicated repair gate [38317961532](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38317961532) was queued/running at the time of this handoff update; await its result before calling the code candidate admitted.
+
+This identifies a narrow representation defect and supports the minimum dispatch repair, but its E/S and geometry effects are exactly zero in the captured A/B. It does not explain the late-time cone crossing and is not a physical-law change or full-machine admission.
