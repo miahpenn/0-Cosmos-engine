@@ -50,6 +50,19 @@ An older expanded-domain run (N=120, Rmax=120, historical source) achieved post-
 
 No `main`, production physics, or canonical GEAR archive changes were made. No physical interpretation is admitted: no bounce/turnaround/cycle inference; no full-trajectory or production pass.
 
+
+
+## Legacy R120 geometry/flux cross-check from the GEAR Library
+
+An additional offline read of the existing Library report `0star_proper_time_boundary_result_2026-10-10.md` and `0star_COMPILED_MASTER_REPORT_2026-10-10.md` found several older-source R120 clues relevant to the same audit. They do not constitute a matched A/B with the corrected-rate N=80 run:
+
+- The canonical R120 terminal radiation characteristics were both outgoing (outer `vhat≈0.9999999999999996`; `s_minus≈0.9999999999999984`; `s_plus≈0.9999999999999997`). This weakens a simple inward-radiation-wave explanation, but not a boundary/gauge/operator interaction.
+- Outer-face radiation flux differs from the last interior HLL face by about 19.74% in energy and 11.68% in radial momentum at the final accepted row. Keep radiation outer-face flux closure as a distinct audit path from the P-minus geometry boundary and the CMC lapse boundary.
+- At the same event, CMC fixes `alpha[-1]=1` while `alpha[-2]≈1.456444`, `∂r alpha[-1]≈−0.537565`, and the last-interior CMC residual is approximately `−3.72689e−4`. Outer geometric RHS magnitudes peak near r=106.5, 13 cells inside the r=119.5 edge, while maximum |H| is near r=89.5; the outer structure is broad, not a one-cell-only defect.
+- The local Library file `GEAR_V5_5_EXACT_SPHERICAL_BSSN_v5_geodesic.py` uses a different short-domain outer fill, copying the fourth-from-edge value across the last three entries. It does not independently specify the pinned P-minus condition. Treat the difference as a blueprint/operator reconciliation question, not as proof that either boundary should be copied as a physical law.
+
+These findings reinforce a three-way separation in the next audit: (1) radiation's outer-face HLL/flux balance, (2) the pinned (P_-) assignment of outer (A_a), and (3) the CMC condition `alpha[-1]=1` plus its global lapse projection. Do not fuse these into one generic “boundary bug,” and do not presume they are independent.
+
 ## Next steps — offline first, no new trajectory yet
 
 1. Derive the frozen spatial P-minus target's compatibility (or incompatibility) with the actual production CMC and zero-shift evolution equations. Keep algebraic target closure, characteristic transport, momentum/Hamiltonian/connection constraints, and radiation cone margins as separate checks.
