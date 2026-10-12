@@ -1,12 +1,12 @@
 """Paired provisional-vs-self-consistent S-D bond diagnostic.
 
-Both models start from exact deep copies of the same g=0 initialized state.
-The provisional mode adds gSD only to scalar momentum RHS (intentionally missing
-bond stress); the self-consistent mode also adds its stress projection to both
-geometry/CMC and constraint consumers. This is diagnostic only, not a physics
-claim. All residual definitions are evaluated both ways on each identical slice.
+Both models use the same input parameters and scalar profile. Each is initialized
+under its own stress prescription. The provisional mode adds gSD only to scalar
+momentum RHS (intentionally missing bond stress); the self-consistent mode also
+adds its stress projection to geometry/CMC and constraint consumers. On every
+state, both H-residual definitions are postprocessed using that exact same slice.
+This is diagnostic only, not a physics claim.
 """
-import copy
 import csv
 import json
 import math
@@ -177,12 +177,18 @@ def log_row(row, stage):
     )
 
 
-def integrate_from_seed(seed_state, g, model):
+def run_model(g, model):
     global G_BOND, STRESS_BOND_ENABLED
     G_BOND = float(g)
     STRESS_BOND_ENABLED = model == "self_consistent"
     kernel = pk.V55ProductionKernel()
-    state = copy.deepcopy(seed_state)
+    # Initialize in the selected mode so the self-consistent lapse/geometry
+    # source includes the potential from the first slice. Input scalar profiles
+    # and numerical settings remain the same across modes.
+    state = kernel.initialize(
+        resolution=40, r_max=40.0, amplitude=0.01, width=7.0,
+        D_amplitude=1.0e-4, include_radiation=True,
+    )
     dt_base = 0.0075 * float(state.grid.dr)
     rows = []
     initial = measure(state, model)
@@ -199,20 +205,11 @@ def integrate_from_seed(seed_state, g, model):
 
 def main():
     global G_BOND, STRESS_BOND_ENABLED
-    # One unbonded reference initialization; every run receives a deep copy.
-    G_BOND = 0.0
-    STRESS_BOND_ENABLED = False
-    seed_kernel = pk.V55ProductionKernel()
-    seed = seed_kernel.initialize(
-        resolution=40, r_max=40.0, amplitude=0.01, width=7.0,
-        D_amplitude=1.0e-4, include_radiation=True,
-    )
-
     rows = []
     couplings = (0.0, 0.05, -0.05, 0.10)
     for g in couplings:
         for model in ("rhs_only", "self_consistent"):
-            rows.extend(integrate_from_seed(seed, g, model))
+            rows.extend(run_model(g, model))
 
     # Pair trajectories by coupling/time; residual definitions on each same
     # slice are separately provided in the main rows above.
