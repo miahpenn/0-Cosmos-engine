@@ -73,7 +73,8 @@ def advance_with_radiation_admissibility_retries(
     criterion, sources, and geometry equations remain unchanged.
 
     Retry stops only when a step succeeds or halving dt no longer advances the
-    stored coordinate time in the active floating-point representation.
+    stored coordinate time in the active floating-point representation; no
+    fixed multiple of ULP is imposed as an independent minimum timestep.
     """
     requested_dt = float(dt)
     if not math.isfinite(requested_dt) or requested_dt <= 0.0:
