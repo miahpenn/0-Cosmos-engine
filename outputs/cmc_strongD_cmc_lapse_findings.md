@@ -57,3 +57,21 @@ Therefore the global target contributes to lapse differences, but transplanting 
 [Full R80 trajectory with archived R160 CMC target — run 38206154450](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38206154450) is in progress. It uses the same R80 matter-face and R160 outer-alpha boundary histories, while prescribing the interpolated R160 full-domain (\dot K) history at every CMC lapse solve. This changes no production files and evolves one counterfactual trajectory to determine whether target history alone closes the final τ gap, leaves it unchanged, or triggers a positivity/failure gate.
 
 **Interpretation rule:** the forced-τ result is a gauge-target sensitivity test, not proof that the prescribed target is a self-consistent physical solution on (R=80). Do not change production physics until the full trajectory and admission diagnostics are reviewed.
+
+
+## 7. 12 October continuation: interpolation audit complete; evolving target swap still pending
+
+Detailed dated handoff: [CMC strong-D lapse / global-target handoff](../blob/421dc64cc23b7350208b8e9ac8bb00fe218a432d/outputs/cmc_strongD_cmc_lapse_handoff_2026-10-12.md).
+
+The first Kdot interpolation audit attempt, [run 38206744317](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38206744317), failed before analysis with `ModuleNotFoundError: No module named 'numpy'`. This was a workflow setup failure, not a numerical finding. Dependency correction: commit [d6142ac81a4bf56905de0fae5298f8fc540f7d98](https://github.com/miahpenn/0-Cosmos-engine/commit/d6142ac81a4bf56905de0fae5298f8fc540f7d98) adds explicit NumPy installation. The corrected run [38206848868](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38206848868) succeeded and uploaded artifact [11727926565](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38206848868/artifacts/11727926565), ZIP SHA-256 `993340f756973e2a0251da03269ea37d38dd1591a0cffa45e9540148c471c39b`.
+
+The held-out interpolation test uses 49 archived target samples over t=0–12, holds out 24 points, and predicts each from adjacent retained values over a doubled interval (about 0.499–0.503). It measured maximum absolute error (5.29437\times10^{-8}), RMS absolute error (1.82802\times10^{-8}), p95 absolute error (4.82885\times10^{-8}), maximum relative error 0.0883%, and RMS relative error 0.0304%. The largest absolute error was near t=6.25125. The target series is smooth at resolved sample scale, but this remains an empirical check—not a formal bound at every internal evolution stage and not a direct bound on accumulated proper-time response.
+
+The full evolving R80 run with the prescribed archived R160 target remains [run 38206154450](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38206154450). At the last check, the evolution step was still running and no artifact had been published. Its outcome remains unknown; inspect its report, comparison, profile JSONL, positivity/finiteness gates, and per-solve target delivery record before interpreting it.
+
+At this checkpoint, the recorded conclusion remains:
+- The 0.18% integral agreement is a proper-time/lapse bookkeeping check, not attribution.
+- Frozen-state lapse re-solve correction is only 2.53e-6 of the observed tau gap.
+- Frozen-state target swap changes radial lapse profiles, but overshoots center history and does not reproduce the observed signed tau gap.
+- The evolving target-history counterfactual is the next decisive test, with interpolation limitation explicitly recorded.
+- `main` was verified at `7604bd6cc87c48c9dc8e24f2facbfe1458364ca5`; production equations remain unchanged by this diagnostic work.
