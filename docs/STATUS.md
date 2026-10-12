@@ -203,9 +203,20 @@ The inner r=2 tangent remains the exception: it is non-monotonic and strongly re
 
 **Operational decision:** keep all production physics, scalar/matter sources, CMC gauge, and boundaries locked. Do not merge PR #3 yet and do not launch t=160. Next diagnostic is an operator-level check of regular-centre parity and discrete derivative compatibility in the first cells, including the directional derivatives of Aa, K, X, a and b and the independently decomposed matter-current tangent. No centre projection, damping, fitted coefficient, or custom Lambda equation should be introduced as a shortcut.
 
+## Centre parity / derivative-operator audit (2026-10-12)
+
+Workflow: https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38214547118
+Artifact SHA-256: `dc4959fc117cb428ffcfc180db143b0c74adfd7d60f5e9db0d356361c7191981`
+
+The pinned cell-centred fourth-order derivative was verified against manufactured even/odd regular polynomials at N=40,60,80,120. First-five-cell first- and second-derivative errors are at floating-point scale; the worst is about 2.0e-15. No basic parity sign or polynomial-exactness bug was found in the generic operator.
+
+A frozen-state local even-in-r polynomial probe changes the t=2.16 momentum residual substantially in r<=5, but it is not evidence that the production stencil is wrong: the fit is a diagnostic alternate derivative, its evolved-field fit residuals reach 1e-3 to 2e-3 (especially for K), and its support contains different counts of cells at different N. It must not be promoted into production.
+
+This audit therefore narrows the issue but does not resolve it: production profiles develop a centre-localized spatial layer, and the connection/momentum constraints are sensitive to derivative reconstruction there. The next test is direct evaluation of regular-centre series ratios `Aa/r^2`, `Lambda/r`, `(a/b-1)/r^2`, and `D_r f/r` for the even fields `K,X,a,b,S,D,phi` at t=0 and t=2.16. This will compare regularity at the first cells across resolutions without imposing a replacement stencil.
+
 ## Next gates
 
-1. Run the diagnostic-only semi-discrete momentum-residual tangent at N=40,60,80,120 on the initial slice and saved t≈2.16 states; compare ẊM and each signed geometry/current contribution at common physical radii. Do not take another long trajectory.
+1. Run the diagnostic-only centre-series ratio audit at N=40,60,80,120 on the initial slice and saved t=2.16 states. Report signed first-cell profiles for Aa/r², Lambda/r, (a/b-1)/r², and D_r f/r for the even fields; compare with existing momentum/current witnesses. No long trajectory.
 2. Use the geometric audit to identify whether the admitted inner H drift is tied to the connection/Ricci pathway. Only then design a single bounded numerical-layer intervention with preregistered pass/fail metrics.
 3. Check matter and radiation boundary flux direction and local conservation terms from raw signed terms, not ratios whose denominators may be near zero.
 4. Preserve frozen N=320 reconstruction tolerance 1e-8 and report host/runtime variance; do not relax thresholds after seeing results.
