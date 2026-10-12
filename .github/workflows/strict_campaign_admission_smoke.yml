@@ -4,6 +4,10 @@ on:
   push:
     branches:
       - fix/strict-campaign-admission-2026-10-12
+    paths:
+      - engine/run_production.py
+      - engine/campaign.py
+      - tests/test_campaign_admission.py
 
 jobs:
   strict-admission-smoke:
