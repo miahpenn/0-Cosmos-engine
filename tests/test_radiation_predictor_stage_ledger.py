@@ -7,6 +7,7 @@ from engine.radiation_predictor_stage_ledger import (
     _attach_radiation_state,
     _grid_size,
     _primary_source_term_record,
+    _store_primary_l2_capture,
     reconstruct_metric_cone,
     validate_ledger_steps,
     validate_primary_source_capture,
@@ -164,9 +165,18 @@ def test_primary_source_capture_validates_terminal_failure_and_prior_handoff():
         "step_index": 1565,
         "primary_source_stages": [source_stage(label, i) for i, label in enumerate(labels)],
         "final_explicit_state_primary_l2": {
+            "capture_call_index": 0,
+            "capture_phase": "integrator_final_l2_rhs",
             "geometry": [{"i": i} for i in cells],
             "rhs": {key: [{"i": i, "value": 1.0} for i in cells] for key in ("Aa", "K")},
         },
+        "post_completion_diagnostic_primary_l2": {
+            "capture_call_index": 1,
+            "capture_phase": "post_completion_diagnostic_l2_rhs",
+            "geometry": [{"i": i} for i in cells],
+            "rhs": {key: [{"i": i, "value": 2.0} for i in cells] for key in ("Aa", "K")},
+        },
+        "ledger_non_nested_primary_l2_call_count": 2,
         "primary_predictor_after_outer_boundary": geometry_rows(),
         "completed_state_after_outer_boundary": geometry_rows(),
     }
@@ -201,3 +211,57 @@ def test_intermediate_metric_stages_store_conserved_radiation_state():
     )
     for key, value in expected.items():
         assert math.isclose(result[0][key], value, rel_tol=0.0, abs_tol=0.0)
+
+
+def test_primary_l2_recorder_keeps_integrator_and_diagnostic_phases_separate():
+    from types import SimpleNamespace
+    import numpy as np
+
+    grid = SimpleNamespace(centers=np.asarray([75.5, 79.5]))
+    geometry = SimpleNamespace(
+        a=np.asarray([0.8, 0.6]), b=np.asarray([1.1, 1.3]),
+        X=np.asarray([0.9, 0.95]), alpha=np.ones(2),
+        Aa=np.asarray([0.1, 0.15]), K=np.asarray([0.2, 0.28]),
+        Lambda=np.asarray([0.03, 0.27]),
+    )
+    row = {}
+    step = {}
+    first_rhs = {"Aa": np.asarray([1.0, 2.0]), "K": np.asarray([3.0, 4.0])}
+    first = _store_primary_l2_capture(row, step, grid, geometry, first_rhs)
+
+    geometry.Aa[1] = 0.17
+    second_rhs = {"Aa": np.asarray([10.0, 20.0]), "K": np.asarray([30.0, 40.0])}
+    second = _store_primary_l2_capture(row, step, grid, geometry, second_rhs)
+
+    assert first["capture_call_index"] == 0
+    assert first["capture_phase"] == "integrator_final_l2_rhs"
+    assert first["geometry"][-1]["Aa"] == 0.15
+    assert first["rhs"]["Aa"][-1]["value"] == 2.0
+    assert second["capture_call_index"] == 1
+    assert second["capture_phase"] == "post_completion_diagnostic_l2_rhs"
+    assert second["geometry"][-1]["Aa"] == 0.17
+    assert second["rhs"]["Aa"][-1]["value"] == 20.0
+    assert row["final_explicit_state_primary_l2"] is first
+    assert row["post_completion_diagnostic_primary_l2"] is second
+    assert step["ledger_non_nested_primary_l2_call_count"] == 2
+    assert "unexpected_primary_l2_calls" not in row
+
+
+def test_primary_l2_recorder_fails_closed_on_unexpected_extra_call():
+    from types import SimpleNamespace
+    import numpy as np
+
+    grid = SimpleNamespace(centers=np.asarray([79.5]))
+    geometry = SimpleNamespace(
+        a=np.asarray([0.6]), b=np.asarray([1.3]), X=np.asarray([0.95]),
+        alpha=np.ones(1), Aa=np.asarray([0.15]), K=np.asarray([0.28]),
+        Lambda=np.asarray([0.27]),
+    )
+    result = {"Aa": np.asarray([1.0]), "K": np.asarray([2.0])}
+    row = {}
+    step = {}
+    _store_primary_l2_capture(row, step, grid, geometry, result)
+    _store_primary_l2_capture(row, step, grid, geometry, result)
+    third = _store_primary_l2_capture(row, step, grid, geometry, result)
+    assert third["capture_phase"] == "unexpected_extra_primary_l2_call"
+    assert len(row["unexpected_primary_l2_calls"]) == 1
