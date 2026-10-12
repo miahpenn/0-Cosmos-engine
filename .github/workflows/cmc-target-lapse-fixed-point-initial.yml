@@ -48,7 +48,7 @@ jobs:
           find artifacts/r160 -type f -name 'frozen_state_crop_profiles.jsonl' -print -quit > /tmp/r160/path.txt
           test -s /tmp/r80/path.txt
           test -s /tmp/r160/path.txt
-      - name: Run undamped t=0 target-lapse map iterations and fixed-target control
+      - name: Run undamped t=0 target-lapse map iterations, dual R80 seeds and fixed-target control
         run: |
           python diagnostics/cmc_target_lapse_fixed_point_initial.py \
             "$(cat /tmp/r80/path.txt)" "$(cat /tmp/r160/path.txt)"
