@@ -551,7 +551,20 @@ def evolve_species(
                 f"tendency_flux_E={flux_dE:.17e}, source_E={source_e_diag[i]:.17e}, "
                 f"tendency_flux_S={flux_dS:.17e}, source_S={source_s_diag[i]:.17e}; "
                 f"E={E[i]:.17e}, |S|={S_abs[i]:.17e}, "
-                f"ratio={S_abs[i] / max(abs(E[i]), 1.0e-300):.17e}"
+                f"ratio={S_abs[i] / max(abs(E[i]), 1.0e-300):.17e}; "
+                f"pre_conserved(rest,energy_t,momentum_r)="
+                f"({state.rest[i]:.17e},{state.energy_t[i]:.17e},{state.momentum_r[i]:.17e}); "
+                f"post_conserved(rest,energy_t,momentum_r)="
+                f"({out.rest[i]:.17e},{out.energy_t[i]:.17e},{out.momentum_r[i]:.17e}); "
+                f"metric(alpha,beta,gamma_rr,gamma_rr_inv,sqrt_gamma)="
+                f"({metrics[i].alpha:.17e},{metrics[i].beta:.17e},"
+                f"{metrics[i].gamma_rr:.17e},{metrics[i].gamma_rr_inv:.17e},"
+                f"{metrics[i].sqrt_gamma:.17e}); "
+                f"face_flux_left={face_flux[i].tolist()}; "
+                f"face_flux_right={face_flux[i + 1].tolist()}; "
+                f"primitive(rho,pressure,v_r,W)="
+                f"({prim[i].rho:.17e},{prim[i].pressure:.17e},"
+                f"{prim[i].v_r:.17e},{prim[i].lorentz():.17e})"
             )
 
     return out
