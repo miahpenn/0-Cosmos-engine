@@ -35,6 +35,49 @@ class ResolutionResult:
     misner_sharp_current_max: float
     misner_sharp_current_rms: float
     last_diagnostics: dict
+    endpoint_roundoff_correction: float = 0.0
+
+
+def _assert_finite_payload(value, label: str) -> None:
+    """Fail immediately when an evolved state or saved diagnostic is non-finite."""
+    if isinstance(value, dict):
+        for key, item in value.items():
+            _assert_finite_payload(item, f"{label}.{key}")
+        return
+    if isinstance(value, (list, tuple)):
+        for index, item in enumerate(value):
+            _assert_finite_payload(item, f"{label}[{index}]")
+        return
+    if isinstance(value, (np.ndarray, np.number, int, float, complex)):
+        array = np.asarray(value)
+        if array.dtype.kind in "fciub" and not bool(np.all(np.isfinite(array))):
+            raise FloatingPointError(f"non-finite value detected in {label}")
+        return
+    if hasattr(value, "__dict__"):
+        for key, item in vars(value).items():
+            _assert_finite_payload(item, f"{label}.{key}")
+
+
+def assert_finite_state(state) -> None:
+    """Check all numeric geometry, scalar and conservative-matter state arrays."""
+    for label in ("geometry", "scalars", "matter"):
+        _assert_finite_payload(getattr(state, label), f"state.{label}")
+
+
+def _canonicalize_endpoint_roundoff(state, target_time: float, tolerance: float) -> float:
+    """Snap only an already-computed endpoint within roundoff tolerance.
+
+    This does not take an additional evolution step. It merely normalizes the
+    final coordinate-time label and the matching final history timestamp after
+    the nominal last full step.
+    """
+    correction = float(target_time) - float(state.t)
+    if abs(correction) <= tolerance:
+        state.t = float(target_time)
+        if state.history:
+            state.history[-1]["t"] = float(target_time)
+        return correction
+    return 0.0
 
 
 def campaign_admission_errors(results, config) -> list[str]:
@@ -123,18 +166,62 @@ def run_campaign(
             r_max=config.r_max,
             include_radiation=True,
         )
+        target_time = float(config.final_time)
+        endpoint_tolerance = 1.0e-12 * max(1.0, abs(target_time))
+        endpoint_correction = 0.0
         dt_nominal = config.cfl * state.grid.dr
         next_checkpoint = config.checkpoint_interval
         checkpoint_count = 0
         status = "completed"
 
-        while state.t < config.final_time:
-            dt = min(dt_nominal, config.final_time - state.t)
+        # Include the initial slice so the evolution ledger has an actual t=0
+        # baseline rather than starting at the first post-step sample.
+        try:
+            assert_finite_state(state)
+            initial = kernel.diagnostics(state)
+            if isinstance(initial, dict):
+                initial = {
+                    key: value for key, value in initial.items()
+                    if key not in (
+                        "total_rho", "total_pr", "total_pt", "total_j",
+                        "areal_radius", "chi", "misner_sharp"
+                    )
+                }
+            else:
+                raise TypeError("kernel diagnostics must return a mapping")
+            initial["t"] = float(state.t)
+            initial["tau"] = float(state.tau)
+            initial["cycle_event"] = None
+            _assert_finite_payload(initial, f"initial_diagnostics_N{resolution}")
+            state.history.append(initial)
+        except (FloatingPointError, ValueError, TypeError) as exc:
+            status = "numerical_failure:initial_state:" + str(exc)
+
+        while status == "completed" and state.t < target_time:
+            remaining = target_time - state.t
+            if remaining <= endpoint_tolerance:
+                endpoint_correction = _canonicalize_endpoint_roundoff(
+                    state, target_time, endpoint_tolerance
+                )
+                break
+            dt = min(dt_nominal, remaining)
             try:
                 state = kernel.step(state, dt)
-                # This is a numerical validity check, not a physical event.
+                # These checks cover the geometry, every scalar field, all
+                # conservative matter states, and the newly stored witnesses.
+                assert_finite_state(state)
                 state.geometry.assert_finite_positive()
-            except (FloatingPointError, ValueError) as exc:
+                if not state.history:
+                    raise FloatingPointError("kernel step produced no diagnostic history")
+                _assert_finite_payload(
+                    state.history[-1], f"diagnostics_N{resolution}_t{state.t:.17g}"
+                )
+                correction = _canonicalize_endpoint_roundoff(
+                    state, target_time, endpoint_tolerance
+                )
+                if correction:
+                    endpoint_correction = correction
+            except (FloatingPointError, ValueError, TypeError) as exc:
                 status = "numerical_failure:" + str(exc)
                 break
 
@@ -172,7 +259,8 @@ def run_campaign(
             status=status,
             t_final=float(state.t),
             tau_final=float(state.tau),
-            steps=len(state.history),
+            steps=max(0, len(state.history) - 1),
+            endpoint_roundoff_correction=float(endpoint_correction),
             cycle_events=len(state.cycle.events),
             handoffs=len(state.handoffs),
             checkpoint_count=checkpoint_count,
