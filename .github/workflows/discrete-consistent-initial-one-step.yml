@@ -1,0 +1,64 @@
+name: Diagnostic - discrete-consistent initial one-step propagation
+
+on:
+  push:
+    branches:
+      - diag/discrete-consistent-initial-production-test-2026-10-12
+    paths:
+      - tools/audit_discrete_consistent_initial_one_step.py
+      - .github/workflows/discrete-consistent-initial-one-step.yml
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: discrete-consistent-initial-one-step-2026-10-12
+  cancel-in-progress: false
+
+jobs:
+  one-step-constraint-propagation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      PYTHONPATH: .
+      PYTHONUNBUFFERED: "1"
+
+    steps:
+      - name: Checkout diagnostic branch and pinned kernel
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install production dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Download exact saved baseline/candidate t=0 states from matched A/B run
+        uses: actions/download-artifact@v4
+        with:
+          name: discrete-consistent-initial-production-ab-t2p16
+          repository: miahpenn/0-Cosmos-engine
+          run-id: 38284401548
+          github-token: ${{ github.token }}
+          path: production-ab-artifact
+
+      - name: Compile one-step propagation audit
+        run: python -m py_compile tools/audit_discrete_consistent_initial_one_step.py
+
+      - name: Run exactly one unchanged production step from each frozen t=0 state
+        run: python tools/audit_discrete_consistent_initial_one_step.py
+
+      - name: Upload one-step H/M/C propagation report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: discrete-consistent-initial-one-step-propagation
+          path: results/discrete-consistent-initial-one-step/
+          if-no-files-found: warn
+          retention-days: 90
