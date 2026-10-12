@@ -1,0 +1,50 @@
+name: Diagnostic - strong-D CMC lapse correction time series
+
+on:
+  push:
+    branches:
+      - "diag/independent-metric-ricci-audit"
+    paths:
+      - "diagnostics/cmc_strongD_snapshot_series_audit.py"
+      - ".github/workflows/cmc-strongD-snapshot-series.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  strongD-snapshot-series:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[cmc-strongD-series]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout matching CMC kernel and pinned vendor
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Download admitted full-state strong-D trajectory
+        uses: actions/download-artifact@v4
+        with:
+          name: boundary-matched-cmc-r80-result
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: miahpenn/0-Cosmos-engine
+          run-id: 38162318255
+          path: artifacts/strongD
+      - name: Run per-snapshot CMC re-solve audit
+        run: |
+          test -s artifacts/strongD/boundary_matched_r80_profiles.jsonl
+          python diagnostics/cmc_strongD_snapshot_series_audit.py artifacts/strongD/boundary_matched_r80_profiles.jsonl
+      - name: Upload strong-D time-series audit
+        uses: actions/upload-artifact@v4
+        with:
+          name: cmc-strongD-snapshot-series
+          path: runs/cmc_strongD_snapshot_series/cmc_strongD_snapshot_series.json
+          if-no-files-found: error
