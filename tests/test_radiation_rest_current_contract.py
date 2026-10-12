@@ -29,6 +29,28 @@ def test_radiation_specific_helpers_keep_rest_component_zero_and_match_E_S():
         np.testing.assert_array_equal(specific_f[1:], generic_f[1:])
 
 
+def test_radiation_hll_flux_keeps_rest_component_zero_for_moving_states():
+    """Exercise the actual species-dispatch path with nonzero face velocities."""
+    kernel = V55ProductionKernel()
+    state = kernel.initialize(resolution=40, r_max=40.0, include_radiation=True)
+    metric = ms._metric_arrays(metric_slice_from_q(state.grid, state.geometry))[10]
+
+    left = ms.FluidPrimitive(
+        rho=0.75, pressure=0.25, v_r=0.03, gamma_rr=metric.gamma_rr
+    )
+    right = ms.FluidPrimitive(
+        rho=0.6, pressure=0.2, v_r=-0.02, gamma_rr=metric.gamma_rr
+    )
+
+    radiation_flux = ms._hll_flux(metric, left, right, Species.RADIATION)
+    generic_flux = ms._hll_flux(metric, left, right, Species.DARK_MATTER)
+
+    assert np.all(np.isfinite(radiation_flux))
+    assert radiation_flux[0] == 0.0
+    # Ensure the chosen states exercise a nonzero generic rest-flux channel.
+    assert generic_flux[0] != 0.0
+
+
 @pytest.mark.parametrize("resolution", [80, 160])
 def test_radiation_rest_channel_remains_zero_after_real_kernel_step(resolution):
     """The real production step must not manufacture a radiation rest current."""
