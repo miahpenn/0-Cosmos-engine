@@ -56,7 +56,7 @@ jobs:
       - name: Full repository test suite
         run: python -m pytest -q tests
       - name: Matched N=80/160 x beta_rad=0/-0.04 one-step comparison
-        run: python tools/diag_radiation_four_force_counterfactual.py
+        run: PYTHONPATH=. python tools/diag_radiation_four_force_counterfactual.py
       - name: Preserve four-case JSON even if a case fails
         if: always()
         uses: actions/upload-artifact@v4
