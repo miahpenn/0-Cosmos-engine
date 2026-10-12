@@ -115,7 +115,7 @@ If the intended model is still one global solved spacetime, the V5.5 field-gener
 | Hypothesis | Verdict |
 |---|---|
 | Production forgot to call `cosmos_rhs()` | **Not supported as a wiring bug.** The homogeneous control is separate by design; direct insertion risks duplicate `phi` ownership and would still not supply reciprocal stress-energy closure. |
-| A local-to-global `Q source law is missing | **Open only if the two-region model is restored.** The old archive and GEAR-66 do not give a production-ready fitted-free source coefficient/population closure. |
+| A local-to-global `Q` source law is missing | **Open only if the two-region model is restored.** The old archive and GEAR-66 do not give a production-ready fitted-free source coefficient/population closure. |
 | Coupled semi-discrete RHS/gauge/centre updates violate constraint tangency | **Strongest testable near-term hypothesis.** Evidence supports investigating it, but no single continuum equation has yet been proved wrong. |
 | A global degree of freedom is outside the spherical model | **Known completeness limitation.** It does not by itself explain the current local predictor failures. |
 | The system needs a physical moving worldtube | **Conditional on a two-region architecture.** It should not be inserted into the present single-spacetime kernel without resolving the blueprint choice. |
@@ -143,3 +143,55 @@ This discriminates a missing implemented response from a response that exists bu
 - Current full production admission remains open: constraints, centre regularity, radiation admissibility, Misner–Sharp balance and required convergence gates have not all passed.
 
 **Bottom line:** the Library does identify unresolved interface questions, but the current V5.5 machine is not simply missing a call between two otherwise complete engines. The best immediate test is whether the *existing* coupled RHS, gauge and geometry stages preserve the identities needed for one physical system. That is the cleanest test of the “dynamic interface” hypothesis without forcing the answer.
+
+
+## 7. Cross-agent source reconciliation — verified equation mismatch, not the dominant defect
+
+**Read-only source snapshot:** main at 2035acc1210db18da0cededea18750b7ed813260.  
+**Coordination thread:** [GitHub issue #5](https://github.com/miahpenn/0-Cosmos-engine/issues/5).  
+**Library save:** /0* Cosmos Engine/GEAR_DYNAMIC_INTERFACE_BLUEPRINT_AUDIT_2026-10-12.md.
+
+### 7.1 A real scalar equation mismatch is confirmed
+
+The spatial metric declared by engine/valencia.py and used by the matter kernel is:
+
+\[
+\gamma_{rr}=a/X^2,\qquad \gamma^{rr}=X^2/a.
+\]
+
+In engine/scalar_system.py, the scalar momentum RHS used X**-2 * alphap * fp for the lapse-gradient contraction, despite the same function already defining invr = X**2/a and using it in the scalar Laplacian. The covariant contraction is \(\gamma^{rr}\partial_r\alpha\,\partial_r f\), so invr * alphap * fp is the internally consistent expression.
+
+An isolated candidate changed only this factor and added a regression test:
+- [Candidate assessment](https://github.com/miahpenn/0-Cosmos-engine/blob/fix/scalar-inverse-metric-lapse-gradient-strict-2026-10-12/docs/SCALAR_INVERSE_METRIC_CANDIDATE_ASSESSMENT_2026-10-12.md)
+- [Matched test/campaign run 38282790322](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38282790322), successful; artifact 11762490670, reported SHA-256 a3ede0fd7bb3b74851ccfadb244b5765a000b5e45b5f688131acc20218d5f2e2.
+
+The matched N=40/60/80 histories all reached coordinate time 12, but the trajectory changes were tiny: absolute delta H_eff only about 2.6–3.9e-11, and proper-time endpoint differences about 1.1–1.4e-6. Centre-dominated constraints and Misner–Sharp residuals remained substantially open. Thus this is a demonstrated equation-correctness issue worth keeping isolated, **not** a demonstrated repair of the principal centre/constraint failure. It is not merged into production main.
+
+### 7.2 The DM–COSMOS-scalar source coupling already exists
+
+Source tracing shows a reciprocal beta-coupled channel in the spatial production path:
+- scalar_system.scalar_rhs_arrays() adds + beta_dm * rho_dm to the COSMOS-scalar momentum RHS.
+- production_kernel._rhs() supplies the same-stage spatial phi derivatives and dark-matter density to matter_system.species_rhs().
+- valencia.dark_matter_covector_source() constructs Q_nu = beta rho_DM partial_nu phi, and the dark-matter conservative update includes the corresponding energy and momentum source.
+- The scalar, dark matter, baryons and radiation stress projections are assembled in stress_energy.py and feed the shared geometry RHS through v55_pirk_adapter.py.
+
+This refutes the broad hypothesis that the production kernel has no COSMOS-scalar/DM coupling at all. It does **not** prove same-stage discrete donor/recipient cancellation or full conservation through every PIRK stage. That remains an auditable numerical identity. Nor does this coupling identify inverted D with ordinary matter or solve local-to-global source closure.
+
+### 7.3 The strongest remaining numerical lead is still centre/RHS compatibility
+
+The independent manufactured regular-centre Ricci/Aa controls pass, while the production-initial centre profile does not satisfy the expected bounded Aa_dot/r^2 scaling. The constrained-initial-state momentum tangent also remains nonzero and closely matches the ordinary one-step change. Better initial Hamiltonian closure therefore does not restore full constraint propagation.
+
+The radiation failures remain a separate gate: high-resolution first-cell failures occur in the one-step campaign, while the longer R80 failure is associated with a near-null outer-cell margin and moves outward under larger-domain control. Do not merge these into one presumed cause or weaken the |S|/E <= 1 condition.
+
+### 7.4 Updated next action — reuse active artifacts, then test stagewise reciprocity
+
+Issue #5 is the cross-agent coordination thread. The latest visible active tracks already cover centre-series/RHS tangent, CMC operator/target closure, bond sweep, scalar inverse-metric comparison and radiation predictor/P-minus tracing. No agent response to issue #5 has yet been verified; don't claim a human/agent acknowledgment until it is present.
+
+The next useful bounded comparison is therefore not a new long campaign:
+
+1. On identical admitted frozen states, calculate the beta-coupled scalar and DM source pieces at each actual predictor stage using identical metric, rho_DM, partial_t phi, and partial_r phi. Show the continuum donor/recipient cancellation and the discretized/stagewise budget separately.
+2. On those same states, compare the full discrete constraint tangents with the production geometry/matter RHS and the already archived signed centre-series decomposition. Keep the centre row, first formally admitted cell, and fixed physical radii separate.
+3. Reconcile the radiation predictor artifact before starting a further radiation run; verify whether its exact state/stage is already captured in the current artifact set.
+4. Make no code change until the source-to-RHS dependency or signed identity that fails has been pinpointed. The scalar inverse-metric candidate remains a separate equation-correction branch, not evidence that centre regularity or physical interface closure is solved.
+
+**Revised bottom line:** one metric-contraction inconsistency is confirmed and the local DM–COSMOS scalar exchange channel is already wired. The more consequential open question is whether the existing coupled source, gauge and geometry updates preserve the required continuum identities at the discrete stages. The early GEAR global-source bridge and anisotropic global completeness remain different, still-open physical-model questions.
