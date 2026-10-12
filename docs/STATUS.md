@@ -110,6 +110,6 @@ Run https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38183314088 was can
 3. Check matter and radiation boundary flux direction and local conservation terms from raw signed terms, not ratios whose denominators may be near zero.
 4. Preserve frozen N=320 reconstruction tolerance 1e-8 and report host/runtime variance; do not relax thresholds after seeing results.
 5. Do not launch the t=160 campaign until the t=12 fixed-domain constraint behavior and balance residual are reviewed.
-6. After the code and diagnostics are reviewed, enable same-workflow concurrency control so a sequence of pushes cannot launch overlapping expensive campaigns.
+6. **Completed:** the production t=12 workflow now uses per-branch concurrency cancellation and no longer triggers on edits to its own workflow YAML. It triggers only on engine, tests or dependency changes, preventing documentation/workflow-maintenance pushes from launching a fresh expensive campaign.
 
 A passing unit suite or a completed run does not itself prove physical turnaround, ejection, or multi-cycle behavior. Numerical/gauge failures remain numerical/gauge results unless invariant, independent and resolution-consistent evidence supports a physical interpretation.
