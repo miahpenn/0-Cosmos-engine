@@ -62,7 +62,7 @@ jobs:
       - name: Run bounded radiation predictor trace with admissibility retries
         env:
           EXTENDED_B_ACCEPTED_METRIC_RECOVERY: "0"
-          RADIATION_ADMISSIBILITY_RETRY: "1"
+          RADIATION_ADMISSIBILITY_RETRY: "0"
         run: python -m engine.radiation_geometry_stage_trace
 
       - name: Record exact provenance and report checksums
