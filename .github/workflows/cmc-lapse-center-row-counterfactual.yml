@@ -1,0 +1,80 @@
+name: Diagnostic - CMC lapse center-row counterfactual
+
+on:
+  push:
+    branches:
+      - diag/lambda-metric-connection-rhs-2026-10-12
+    paths:
+      - tools/test_cmc_lapse_center_row_counterfactual.py
+      - .github/workflows/cmc-lapse-center-row-counterfactual.yml
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: cmc-lapse-center-row-counterfactual-2026-10-12
+  cancel-in-progress: false
+
+jobs:
+  frozen-state-counterfactual:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      PYTHONPATH: .:source
+      PYTHONUNBUFFERED: "1"
+
+    steps:
+      - name: Checkout diagnostic tool
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Checkout exact production source and pinned vendor
+        uses: actions/checkout@v4
+        with:
+          ref: 6d8b3f2790644591326df57c55908863f994cb0c
+          path: source
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install production dependencies
+        run: python -m pip install -r source/requirements.txt
+
+      - name: Download matched early spatial-refinement checkpoints
+        uses: actions/download-artifact@v4
+        with:
+          name: lambda-spatial-refinement-t2p16
+          path: spatial-artifact
+          repository: miahpenn/0-Cosmos-engine
+          run-id: 38212879394
+          github-token: ${{ github.token }}
+
+      - name: Download admitted t=12 production checkpoints
+        uses: actions/download-artifact@v4
+        with:
+          name: v55-production-t12-n40-n60-n80
+          path: runs/t12
+          repository: miahpenn/0-Cosmos-engine
+          run-id: 38208253687
+          github-token: ${{ github.token }}
+
+      - name: Compile center-row counterfactual
+        run: python -m py_compile tools/test_cmc_lapse_center_row_counterfactual.py
+
+      - name: Compare current, even-parity, and production-matched CMC operators
+        run: python tools/test_cmc_lapse_center_row_counterfactual.py
+
+      - name: Upload center-row counterfactual report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cmc-lapse-center-row-counterfactual
+          path: results/cmc-lapse-center-row-counterfactual/
+          if-no-files-found: warn
+          retention-days: 90
