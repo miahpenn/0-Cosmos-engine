@@ -103,6 +103,38 @@ The interpolation audit passed 24 held-out times with maximum absolute Kdot inte
 
 Run https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38183314088 was cancelled at the 240-minute limit near t=8.375, short of t=12. Its partial artifact uploaded. Early sign crossings disappeared by about t=5.125; a later residual ridge grew afterward. Term reconstruction closes to roundoff, but this is not independent constraint satisfaction.
 
+## New source-budget and single-step stage localization
+
+### Signed source-budget / Shapley attribution
+
+The post-processing source-budget report ran on the original admitted campaign checkpoints only; it executed zero production steps and made no source or physics edits.
+- Run: https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38209752406
+- Artifact: `v55-production-hamiltonian-source-budget`
+- SHA-256: `358b40fd3c9337ee9010752ed2386a1496b84fb3b6ccfc0ad70f68f86dae9565`
+- It contains 21 source-budget snapshots and 18 interval-by-interval signed Hamiltonian increments. Shapley component attribution reconstructs each ΔH to a maximum error of about `5.5e-17` (roundoff).
+
+At the first admitted inner cell i=2:
+- N=60, t=10→12: ΔH = `-2.7518e-3`. Component contributions: Lambda `-3.6971e-3`, a `+3.0591e-3`, b `-2.1217e-3`, X `-1.63898e-4`, matter `+1.7401e-4`; Aa and K contributions are each below `3e-6`.
+- N=80, t≈9.99→12: ΔH = `-6.8203e-3`. Component contributions: Lambda `-6.6889e-3`, a `+2.2994e-3`, b `-2.3291e-3`, X `-3.2892e-4`, matter `+2.3379e-4`; Aa and K contributions together are only a few `1e-6`.
+- These same-cell contributions show that the matter-source increment is much smaller than the total drift and that the Lambda/connection pathway is strongly implicated in the evolving *constraint residual*. The components are a nonlinear same-state attribution, not independent causes, and do not yet prove why the Lambda equation departs from the metric connection.
+
+### One-step production-stage trace
+
+The trace ran exactly one production step from each of four states: N=60/N=80 production initializer at t=0 and saved N=60/N=80 states near t=10. No campaign-length evolution was performed.
+- Run: https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38209727710
+- Artifact: `production-one-step-constraint-stage-trace`
+- SHA-256: `0c35e93f0279837bb4fb95c2a036c97388b88c59c6072cac485af30c83dbedba`
+
+At N=60, the saved t=10 state (dt=0.04) has i=2 H `-7.96937e-3`. The explicit predictor first moves it slightly toward zero (`-7.95412e-3`); the primary update then moves it to `-8.01458e-3`. During that primary update, a,b,X are unchanged, the metric-derived H counterfactual remains approximately `-5.2008e-3`, while Lambda moves from `-1.16352e-3` to `-1.18921e-3` and the connection residual changes from `-7.63333e-3` to `-7.65902e-3`.
+
+At N=80, saved near t=9.99 (dt=0.03), i=2 H moves from `-1.280465e-2` at input to `-1.280097e-2` at the explicit predictor, then `-1.288246e-2` at the primary stage. During that primary update, a,b,X remain fixed, the metric-derived H counterfactual changes by less than `8e-8`, Lambda changes by `-2.57535e-5`, and the connection residual changes by the same amount (`-1.2237166e-2` to `-1.2262919e-2`). The returned final state is `H=-1.288321e-2`.
+
+At t=0, the one-step control keeps the connection residual near zero (final i=2 values `1.96e-7` at N=60 and `1.36e-7` at N=80). Thus the defect is not injected as a large jump by the first step; it accumulates through evolution. At the later saved state, one sampled step localizes a significant added H defect to the primary `Aa/K/Lambda` update, specifically the Lambda/connection-vs-metric-Ricci channel because the metric-derived H remains essentially fixed there. This is a stage-level numerical association, not yet proof that the continuum Lambda equation is wrong: intermediate PIRK stages are not independent physical slices.
+
+### Next targeted audit
+
+Before touching production evolution, compare the full-step change in `Lambda - Lambda_metric(a,b)` against the change predicted by the metric connection from the explicit a/b rates and the pinned PIRK Lambda RHS, cell-by-cell at the initial and t≈10 states. Report the separate `lambda_l2`, `lambda_l3`, and metric-connection derivative contributions. This should test whether the discrete connection constraint is propagated consistently by the existing split scheme. Keep all physics terms and coefficients unchanged.
+
 ## Next gates
 
 1. Use the completed same-state Ricci decomposition to trace how the geometry/connection residual first grows across a production step, starting from t=0 and then an early evolved checkpoint. Keep the matter/scalar equations unchanged and preserve signed H/connection witnesses at every stage.
