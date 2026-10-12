@@ -22,8 +22,9 @@ def high_order_builder():
             np.r_[0.5 * dr * src[0],
                   0.5 * dr * (src[1:] + src[:-1])]
         )'''
-    new='''xq = np.r_[0.0, r]
-        yq = np.r_[src[0], src]
+    new='''# The radial source is src(r) = 1 + r^2*F(r), so src(0) is exactly 1.
+        xq = np.r_[0.0, r]
+        yq = np.r_[1.0, src]
         integ = cumulative_simpson(yq, x=xq, initial=0.0)[1:]'''
     if old not in source: raise RuntimeError("radial integral source changed; refusing to patch")
     ns=dict(initial_module.__dict__); ns["cumulative_simpson"]=cumulative_simpson
