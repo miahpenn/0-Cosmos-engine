@@ -216,12 +216,12 @@ def main():
 
     # Pair trajectories by coupling/time; residual definitions on each same
     # slice are separately provided in the main rows above.
-    keyed = {(r["g"], r["model"], r["t"]): r for r in rows}
+    keyed = {(r["g"], r["model"], round(r["t"], 8)): r for r in rows}
     deltas = []
     for g in couplings:
         for t in (0.0, 2.0, 3.0, 4.0, 5.0):
-            p = keyed[(float(g), "rhs_only", float(t))]
-            c = keyed[(float(g), "self_consistent", float(t))]
+            p = keyed[(float(g), "rhs_only", round(float(t), 8))]
+            c = keyed[(float(g), "self_consistent", round(float(t), 8))]
             deltas.append({
                 "g": float(g), "t": float(t),
                 "delta_D_center_consistent_minus_rhs_only": c["D_center"] - p["D_center"],
