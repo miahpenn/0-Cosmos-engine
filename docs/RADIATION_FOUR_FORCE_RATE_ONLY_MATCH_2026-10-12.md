@@ -27,7 +27,7 @@ The diagnostic branch starts from the existing four-force instrumentation commit
 2. The existing optional `beta_rad` covector-source path from draft [PR #9](https://github.com/miahpenn/0-Cosmos-engine/pull/9), with default zero unchanged.
 3. Real-state radiation admissibility checks inspired by draft [PR #10](https://github.com/miahpenn/0-Cosmos-engine/pull/10), evaluated against each stage's metric at initial, explicit predictor, primary predictor, and final state; direct finite-time `evolve_species` calls remain guarded as well.
 
-The diagnostic exception handler no longer manufactures a `dt)-scaled estimate by subtracting the artificial `dt=1` rejected state. Any future exception is instead recorded as a rejection from the real production call path. No floors, clipping, projections, retries, damping, boundary edits, or production-physics changes were introduced.
+The diagnostic exception handler no longer manufactures a `dt`-scaled estimate by subtracting the artificial `dt=1` rejected state. Any future exception is instead recorded as a rejection from the real production call path. No floors, clipping, projections, retries, damping, boundary edits, or production-physics changes were introduced.
 
 No changes were made to `main`, the canonical GEAR archive, or the source branches of PRs #8–#10. This branch is not a request to merge any of those PRs.
 
