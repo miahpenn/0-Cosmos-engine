@@ -2,8 +2,8 @@
 
 **Date:** 2026-10-12 (UTC)  
 **Status:** Diagnostic-only. No production equation change or repair is justified by this report.  
-**Repository:** \`miahpenn/0-Cosmos-engine\`  
-**Current production main:** \`2035acc1210db18da0cededea18750b7ed813260\` (verified unchanged during this review).  
+**Repository:** `miahpenn/0-Cosmos-engine`  
+**Current production main:** `2035acc1210db18da0cededea18750b7ed813260` (verified unchanged during this review).  
 **Method:** Offline inspection and calculations from completed GitHub Actions artifacts; no new trajectory was launched for this report.
 
 ## Executive conclusion
@@ -25,11 +25,11 @@ The evidence points to the **explicit metric-predictor / matter-stage synchroniz
 - Workflow: [38310237842](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38310237842)
 - Result: successful diagnostic capture, **not** a successful physical horizon.
 - Artifact: [ZIP artifact 11775230036](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38310237842/artifacts/11775230036)
-- Verified artifact ZIP SHA-256: \`f64298e2819e0dd9c4c2df712a4d1250e4855a5b0e467430fe7aa419a533e49f\`
-- Embedded trace SHA-256: \`53a1f9f188e0eea4575da4458d09891f50144b9f89f945c995cd9980221fb619\`
-- Frozen source used before trace instrumentation: \`1c63090d4f42396f899421a2379f70320689d5ad\`
-- Instrumentation commit: \`51335a56873d65b8ed28863b7658ce02793ae396\`
-- Pinned numerical vendor: \`d6052d605673ce9d82cdc99b0df79855fa2ea215\`
+- Verified artifact ZIP SHA-256: `f64298e2819e0dd9c4c2df712a4d1250e4855a5b0e467430fe7aa419a533e49f`
+- Embedded trace SHA-256: `53a1f9f188e0eea4575da4458d09891f50144b9f89f945c995cd9980221fb619`
+- Frozen source used before trace instrumentation: `1c63090d4f42396f899421a2379f70320689d5ad`
+- Instrumentation commit: `51335a56873d65b8ed28863b7658ce02793ae396`
+- Pinned numerical vendor: `d6052d605673ce9d82cdc99b0df79855fa2ea215`
 
 Configuration: \(N=80\), \(R_{\max}=80\), \(dr=1\), \(CFL=0.03\), nominal \(dt=0.03\), radiation ON, amplitude \(0.01\), width \(7\), D amplitude \(10^{-10}\); accepted-metric recovery OFF, radiation retries OFF.
 
@@ -77,13 +77,13 @@ The captured \(\gamma^{rr}\) rises from \(1.4628938913\) to \(1.4852172376\), a 
 
 - Stage-ledger workflow: [38309949383](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38309949383)
 - Artifact: [ZIP artifact 11773874630](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38309949383/artifacts/11773874630)
-- Artifact ZIP SHA-256: \`356f067a583ec3596c3b15e8b5d17a18058cc7bd7a2bbc7fd379b6b1e2acbe93\`
-- Trace JSON SHA-256: \`d2e9d507f8300598c4dd5ac45b4bcd3f77d205adc388e460e6a75ae614a214c9\`
-- Stage-ledger JSON SHA-256: \`35af5f350fe2888323cc851ab05190c5ddb981ef5042d656f4f45d4a803398bf\`
-- Configuration SHA-256: \`1315fb36f2fd8e0ee3d064bc1d91cb9449829dea75f6f7863ae99e223e4503e7\`
-- Frozen source baseline: \`9eed1cf95c52f001c2b87afbbe6da37faa56d50e\`
-- Instrumentation commit: \`527b44931b059f4d118a86c898b91d79ca4d96f2\`
-- Vendor: \`d6052d605673ce9d82cdc99b0df79855fa2ea215\`
+- Artifact ZIP SHA-256: `356f067a583ec3596c3b15e8b5d17a18058cc7bd7a2bbc7fd379b6b1e2acbe93`
+- Trace JSON SHA-256: `d2e9d507f8300598c4dd5ac45b4bcd3f77d205adc388e460e6a75ae614a214c9`
+- Stage-ledger JSON SHA-256: `35af5f350fe2888323cc851ab05190c5ddb981ef5042d656f4f45d4a803398bf`
+- Configuration SHA-256: `1315fb36f2fd8e0ee3d064bc1d91cb9449829dea75f6f7863ae99e223e4503e7`
+- Frozen source baseline: `9eed1cf95c52f001c2b87afbbe6da37faa56d50e`
+- Instrumentation commit: `527b44931b059f4d118a86c898b91d79ca4d96f2`
+- Vendor: `d6052d605673ce9d82cdc99b0df79855fa2ea215`
 
 The full regression suite reported 141 passed. The ledger captured 100 accepted steps × cells 75–79; its stage-order validation passed with no errors. The captured source snapshot differs from the rate-corrected trace's source revision, so its detailed state values are reported as a separate frozen audit, not silently mixed with the rate-corrected trajectory.
 
