@@ -2,6 +2,7 @@ name: Diagnostic - radiation predictor metric stage ledger
 # Revision 2: record raw Euler metric, post-projection metric and first CMC inputs.
 # Revision 3: retain exactly one accepted-state geometry RHS record per step.
 # Revision 4: carry exact predictor radiation conservatives through every metric stage.
+# Revision 5: capture A_a/K primary L2/L3 terms and completed-to-next-accepted boundary handoff.
 
 on:
   push:
