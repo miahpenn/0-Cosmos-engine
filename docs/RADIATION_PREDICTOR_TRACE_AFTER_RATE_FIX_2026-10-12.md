@@ -560,3 +560,30 @@ This is a bounded representation-invariant repair, not a correction to the physi
 On current `main`, `write_checkpoint_npz()` serializes the `radiation_rest` array alongside the radiation energy/momentum fields. Repository code search found this as a writer field; the radiation-specific primitive recovery and stress-energy projection use energy/momentum and do not use this rest slot. Thus the generic-path drift is observable in saved checkpoints even though the matched one-step A/B shows no change to geometry or the E/S cone witnesses. The candidate's exact-zero invariant prevents that spurious channel from being persisted by new candidate runs. This remains a data-contract cleanup and not evidence that the late-time cone crossing originates here.
 
 Review candidate: [PR #11](https://github.com/miahpenn/0-Cosmos-engine/pull/11), stacked on draft [PR #10](https://github.com/miahpenn/0-Cosmos-engine/pull/10). No merge is performed.
+
+
+## PIRK Lambda predictor stale-vs-sequential A/B — 12 October 2026
+
+**Status:** Completed bounded diagnostic-only comparison; one ordinary step per arm at N=80 and N=160. A discrete stage-order mismatch is confirmed, but the observed full-step state / radiation-cone changes are negligible at this initialization and timestep. Do not label this the cause of the late-time cone crossing.
+
+- Stage-order test run: [38318119471](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38318119471), success.
+- Bounded A/B run: [38318309196](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38318309196), success at audit commit `ce9a49560b04ccbe33d5b51ac86219a5c4a3c2f9`.
+- Artifact [11777443806 — pirk-lambda-predictor-stage-order-ab](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38318309196/artifacts/11777443806). ZIP SHA-256 `1ec986b7cbbe97ba23184c2d448aba26199257f6ae9d6c4182490c81af3867fe`; embedded report SHA-256 `283c5b337a90670c9a397c9584d19447497017cc44a640ca96bc7303a03186ef`, matching `report.sha256`.
+- Pinned geometry/PIRK vendor `d6052d605673ce9d82cdc99b0df79855fa2ea215`; focused stage-order test 1 passed and full suite 36 passed.
+- Full report: [PIRK_LAMBDA_PREDICTOR_STAGE_ORDER_AB_2026-10-12.md](https://github.com/miahpenn/0-Cosmos-engine/blob/diag/pirk-lambda-predictor-stage-order-2026-10-12/docs/PIRK_LAMBDA_PREDICTOR_STAGE_ORDER_AB_2026-10-12.md).
+
+The stale arm substitutes the Lambda-L2 vector computed on explicit U1 before Aa/K are updated. The sequential arm recalculates Lambda-L2 on stage1 after predictor Aa/K assignments, before the boundary and next CMC lapse solve. Both arms started from bit-identical states.
+
+| Witness | N=80 | N=160 |
+|---|---:|---:|
+| Max stale-vs-updated Lambda-L2 array difference | 5.3217372642e-8 | 1.3313374252e-8 |
+| Predictor Lambda delta, observed | 3.9913029479e-10 | 4.9925153421e-11 |
+| Completed-state max Lambda array delta | 6.9388939039e-17 | 2.1684043450e-18 |
+| Completed-state max Aa array delta | 1.6329877488e-12 | 1.9526410357e-13 |
+| Full-domain H max-absolute delta | -2.43e-17 | 0 exactly |
+| Full-domain M max-absolute delta | -4.25e-12 | -1.06e-12 |
+| Full-domain C-Lambda max-absolute delta | -6.94e-17 | -2.17e-18 |
+
+Both legacy and candidate arms completed and remained radiation-admissible. Full-domain max |S|/E was 0.005013540746 at N=80 and 0.005015096012 at N=160 in both arms; the minimum cone margins also match exactly (2.2067153165e-9 and 5.5163762656e-10). All other stored matter/scalar and geometry-array differences are zero except the tiny Aa/Lambda/derived lapse deltas shown above.
+
+**Interpretation:** the sequential stage order is supported by the pinned operator contract and now has a passing regression. In this bounded test, however, the Lambda difference almost disappears by the completed state; the cone witnesses are unchanged. It therefore does not explain or fix the separate accepted-t≈46.98 outer-cell N=80 radiation crossing, nor justify physical changes or promotion. Main remains `2035acc1210db18da0cededea18750b7ed813260`; this remains a diagnostic branch only.
