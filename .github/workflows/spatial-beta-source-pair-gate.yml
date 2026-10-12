@@ -1,0 +1,38 @@
+name: "[DIAG] Current-main scalar-DM lapse source pair"
+
+on:
+  push:
+    branches:
+      - diag/current-main-beta-source-gate-2026-10-12
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  PYTHONPATH: .
+
+jobs:
+  source-pair-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout branch and pinned numerical kernel
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install repository dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Run current-main source-pair regression directly
+        run: python -m pytest -q tests/test_spatial_beta_exchange_current_main.py
+
+      - name: Run full repository regression suite
+        run: python -m pytest -q
