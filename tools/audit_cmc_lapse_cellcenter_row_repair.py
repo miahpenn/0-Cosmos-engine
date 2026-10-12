@@ -22,7 +22,7 @@ from engine.cmc_gauge import solve_cmc_lapse
 from engine.production_kernel import V55ProductionKernel
 from engine.v55_matter import total_matter_projection
 
-RESOLUTIONS = (40, 60, 80, 120, 160)
+RESOLUTIONS = (40, 60, 80, 120, 160, 240, 320)
 R_MAX = 80.0
 OUT = Path("results/cmc-lapse-cellcenter-row-repair")
 
