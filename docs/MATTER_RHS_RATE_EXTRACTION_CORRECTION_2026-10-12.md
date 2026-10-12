@@ -10,7 +10,7 @@
 
 ## Executive result
 
-The archived CMC-row/radiation/Misner–Sharp A/B audit previously captured an apparent first-cell radiation-cone violation at N=240 and N=320, before the first predictor CMC solve. Code review located a false-failure path: the matter RHS wrapper implemented a rate query by advancing the conservative state with an artificial `dt=1.0`, then subtracting the input state. The lower-level `evolve_species` routine checked radiation admissibility on that artificial finite-time result. Thus the captured failure was not the production integrator's requested update (`dt=0.01) at N=240; `dt=0.0075` at N=320).
+The archived CMC-row/radiation/Misner–Sharp A/B audit previously captured an apparent first-cell radiation-cone violation at N=240 and N=320, before the first predictor CMC solve. Code review located a false-failure path: the matter RHS wrapper implemented a rate query by advancing the conservative state with an artificial `dt=1.0`, then subtracting the input state. The lower-level `evolve_species` routine checked radiation admissibility on that artificial finite-time result. Thus the captured failure was not the production integrator's requested update (dt = 0.01 at N=240; dt = 0.0075 at N=320).
 
 An isolated correction now calculates the conservative rate directly from the existing fluxes and source terms. Finite-time radiation checks remain enabled on real updates; primitive recovery still validates incoming radiation states. The original matched audit has been re-run. Both historical and candidate CMC-row arms completed one real step at all seven resolutions (N=40, 60, 80, 120, 160, 240, 320); all recorded radiation states were inside the cone at the four captured stages.
 
@@ -18,7 +18,7 @@ This confirms the earlier N=240/320 *one-step RHS-wrapper* failure was an artefa
 
 ## Root cause and data path
 
-The previous `engine/matter_rhs.py::species_rhs` called `evolve_species(..., 1.0)`, then returned `advanced - state`. In `engine/matter_system.py::evolve_species`, the argument controls a finite-volume state update. After that update the radiation branch verifies (E\geq0) and (|S|\leq E) and raises if the updated state is outside the cone.
+The previous `engine/matter_rhs.py::species_rhs` called `evolve_species(..., 1.0)`, then returned `advanced - state`. In `engine/matter_system.py::evolve_species`, the argument controls a finite-volume state update. After that update the radiation branch verifies $E \geq 0$ and $|S| \leq E$ and raises if the updated state is outside the cone.
 
 A unit-step update is not mathematically identical in floating-point arithmetic to extracting a differential rate: it both advances the state by a physical-sized interval unrelated to the integrator's `dt` and subjects that artificial state to a finite-step admissibility test. At high resolution, the tiny first-cell cone margin was crossed by that synthetic update even though the actual small-`dt` step retained a positive margin.
 
@@ -51,7 +51,7 @@ Artifact provenance:
 
 ### Actual-step radiation-cone witnesses
 
-The following table gives the maximum full-domain (|S|/E) recorded at the first explicit predictor (the maximum among the captured pre-solve stages) and the minimum cone margin over those stages. The cone margin is reported in the audit's densitized conservative variables (C=U_E-\sqrt{X^2/a}\,|U_r|). All old/candidate states, including the completed step, passed the audit's positivity and cone checks.
+The following table gives the maximum full-domain $|S|/E$ recorded at the first explicit predictor (the maximum among the captured pre-solve stages) and the minimum cone margin over those stages. The cone margin is reported in the audit's densitized conservative variables $C=U_E-\sqrt{X^2/a}\,|U_r|$. All old/candidate states, including the completed step, passed the audit's positivity and cone checks.
 
 | N | Actual dt | Max (|S|/E), old row | Max (|S|/E), candidate | Min cone margin, old | Min cone margin, candidate |
 |---:|---:|---:|---:|---:|---:|
@@ -69,7 +69,7 @@ At N=240 and N=320 both arms completed the actual update; neither generated an e
 
 The script evaluates the one-step residual
 [
-\Delta M_{MS} - \Delta t\,\frac{(F_T+W_{pR})_0+(F_T+W_{pR})_1}{2}.
+$\Delta M_{MS} - \Delta t\,\frac{(F_T+W_{pR})_0+(F_T+W_{pR})_1}{2}$.
 ]
 No preregistered acceptance tolerance exists for this witness, so the following normalized residuals are descriptive—not pass/fail results.
 
