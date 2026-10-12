@@ -273,3 +273,28 @@ Workflow run [38209561182](https://github.com/miahpenn/0-Cosmos-engine/actions/r
 ### Dual-seed test rerun status (12 October, follow-up)
 
 The first dual-seed rerun [38209561182](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38209561182) failed before executing diagnostics because a report dictionary in the diagnostic wrapper had one excess closing brace (`IndentationError` at the `fixed_target_control` field). No numerical output or artifact was produced; this is a tooling failure, not a physics result. The correction is commit [4024007b1fcb248e88b636908fab67354613bfce](https://github.com/miahpenn/0-Cosmos-engine/commit/4024007b1fcb248e88b636908fab67354613bfce). Corrected rerun [38209662328](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38209662328) is in progress; at the last status check it was installing dependencies and had not started the diagnostic calculation.
+
+
+## 13. Same-R80 two-seed map test — completed; interpret as near-fixed, not proven multi-root
+
+- Initial attempt [38209561182](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38209561182) failed at parse time from an extra closing brace in the report dictionary; no calculation ran and no artifact existed. Fixed in [commit 4024007b1fcb248e88b636908fab67354613bfce](https://github.com/miahpenn/0-Cosmos-engine/commit/4024007b1fcb248e88b636908fab67354613bfce).
+- Corrected run [38209662328](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38209662328): successful; artifact [11728606897](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38209662328/artifacts/11728606897), ZIP SHA-256 `3b789b1f0709c1695cee7460d49c5aa80b690570c76462e3fd0c65d7a3fb656a`; report SHA-256 `556e2ae618d6ed99fb050d9ac8dd31da400b442cf678bbd4aeb094d2cad50844`.
+
+Both seeds were evolved under the exact same R80 map: same archived R80 spatial geometry/scalars/matter, same outer-alpha boundary (R160 alpha at r=79.75), same target function and same undamped solver. Seed A was the archived native R80 alpha; seed B was the archived R160 alpha cropped to the shared R80 cells. After 20 iterations:
+- Initial seed separation: max (3.57126092\times10^{-4}), RMS (2.58353785\times10^{-4}).
+- Final separation: max (3.57126115\times10^{-4}), RMS (2.58353802\times10^{-4})—essentially unchanged.
+- Native-seed final target: (6.198841378456812\times10^{-5}).
+- R160-alpha-seed final target: (6.233524688200966\times10^{-5}).
+- Final target gap: (-3.4683309744\times10^{-7}), essentially unchanged from the initial gap.
+- Both maps reported `max_iterations_reached`, not convergence to the requested (10^{-13}) alpha-step RMS. The R80 step RMS stayed about (6.4\times10^{-11}); for the R160-alpha seed its first step was (4.45\times10^{-11}) and final step (6.40\times10^{-11}). Output-target drift remained about (-8.58\times10^{-14}) per step.
+- Both fixed-Kdot controls repeated exactly (RMS difference 0); positivity/finiteness gates passed.
+
+This confirms the two distinct profiles persist under the same R80 map over 20 iterations and each has a small map residual. It is **not yet a mathematical proof of two exact roots**: the map is noncontractive/near-neutral at the tested scale, so small persistent drift means seed persistence alone cannot distinguish two roots from a nearly identity map with no nearby exact root.
+
+## 14. Next diagnostic — scan the scalar self-consistency residual
+
+Because `solve_cmc_lapse` is linear for a prescribed scalar `Kdot`, reduce the coupled fixed-point question to
+[
+H(k)=\mathrm{target\_kdot}(\alpha_{solve}(k))-k,
+]
+where (\alpha_{solve}(k)) is the production elliptic solution with `target_kdot` temporarily fixed to (k), then the native target functional is recomputed from the resulting alpha and otherwise frozen R80 state. Sample a bracket covering both native R80 and archived R160 target values (with margins), detect all sign changes, and report roots/brackets or explicitly report that no root was bracketed. This isolates actual scalar self-consistency from the near-identity Picard iteration. Restore the production `target_kdot` after each fixed-target solve, and do not edit production source, add damping, or fit any feedback coefficient.
