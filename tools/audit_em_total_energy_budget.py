@@ -13,6 +13,7 @@ import argparse
 from contextlib import contextmanager
 import json
 import math
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -107,14 +108,34 @@ def verify_source_pins(root: Path) -> dict:
         raise RuntimeError(
             f"vendor gitlink mismatch: expected {VENDOR_PIN}, got {actual_vendor}"
         )
-    head = subprocess.run(
+    # Pull-request Actions jobs normally execute on a synthetic merge commit.
+    # Keep the execution tree distinct from the PR's source branch head.
+    execution_checkout_sha = subprocess.run(
         ["git", "rev-parse", "HEAD"],
         cwd=root,
         check=True,
         capture_output=True,
         text=True,
     ).stdout.strip()
-    return {"candidate_head": head, "production_blob_pins": observed}
+    github_sha = os.environ.get("GITHUB_SHA", "").strip()
+    if github_sha and github_sha != execution_checkout_sha:
+        raise RuntimeError(
+            "GitHub event SHA does not match the actual execution checkout: "
+            f"GITHUB_SHA={github_sha}, checkout={execution_checkout_sha}"
+        )
+    pr_source_head_sha = os.environ.get("PR_SOURCE_HEAD_SHA", "").strip() or None
+    source_head_sha = pr_source_head_sha or github_sha or execution_checkout_sha
+    if len(source_head_sha) != 40 or any(ch not in "0123456789abcdefABCDEF" for ch in source_head_sha):
+        raise RuntimeError(f"invalid source-head SHA for report provenance: {source_head_sha!r}")
+    return {
+        "execution_checkout_sha": execution_checkout_sha,
+        "source_head_sha": source_head_sha,
+        "source_head_kind": (
+            "pull_request.head.sha" if pr_source_head_sha
+            else ("GITHUB_SHA" if github_sha else "execution-checkout fallback (local run)")
+        ),
+        "production_blob_pins": observed,
+    }
 
 
 def field_energy_functional(dr: float, centers, geometry_arrays: dict, charge_faces) -> float:
@@ -149,6 +170,44 @@ def interpolate_at_areal_radius(areal_radii, profile, target: float) -> float:
 
 def _array(value):
     return np.asarray(value, dtype=float).copy()
+
+
+def _reconstruct_energy_rhs_with_roundoff_contract(observed, named_terms, *, label):
+    """Reconstruct a cellwise RHS and fail closed outside a roundoff-scaled bound."""
+    observed = np.asarray(observed, dtype=float)
+    if observed.ndim != 1 or observed.size == 0:
+        raise RuntimeError(f"{label}: observed RHS must be a nonempty one-dimensional array")
+    if not np.all(np.isfinite(observed)):
+        raise RuntimeError(f"{label}: observed RHS contains non-finite values")
+
+    expected = np.zeros_like(observed)
+    scale = np.abs(observed).copy()
+    for term_name, raw_term in named_terms:
+        term = np.asarray(raw_term, dtype=float)
+        if term.shape != observed.shape:
+            raise RuntimeError(
+                f"{label}: {term_name} shape {term.shape} does not match RHS shape {observed.shape}"
+            )
+        if not np.all(np.isfinite(term)):
+            raise RuntimeError(f"{label}: {term_name} contains non-finite values")
+        expected += term
+        scale += np.abs(term)
+
+    if not np.all(np.isfinite(expected)) or not np.all(np.isfinite(scale)):
+        raise RuntimeError(f"{label}: non-finite RHS reconstruction or operand scale")
+    residual = observed - expected
+    bound = 64.0 * np.finfo(np.float64).eps * np.maximum(
+        scale, np.finfo(np.float64).tiny
+    )
+    if not np.all(np.isfinite(residual)) or not np.all(np.abs(residual) <= bound):
+        ratio = np.abs(residual) / bound
+        worst = int(np.argmax(ratio))
+        raise RuntimeError(
+            f"{label}: RHS reconstruction exceeded scale-aware roundoff bound "
+            f"at cell {worst}: residual={residual[worst]:.17g}, "
+            f"bound={bound[worst]:.17g}, ratio={ratio[worst]:.17g}"
+        )
+    return expected, residual, float(np.max(np.abs(residual) / bound))
 
 
 def _state_energy_integrals(state) -> dict[str, float]:
@@ -396,17 +455,23 @@ class AuditedKernel(V55ProductionKernel):
                 force_e = np.zeros_like(components["source_energy"])
                 force_s = np.zeros_like(components["source_momentum"])
             flux = components["face_flux"]
-            expected_energy_rhs = (
-                -np.diff(flux[:, 1]) / dr
-                + components["source_energy"]
-                + components["dm_exchange_energy"]
-                + force_e
+            flux_divergence = -np.diff(flux[:, 1]) / dr
+            expected_energy_rhs, rhs_energy_residual, rhs_energy_bound_ratio_max = (
+                _reconstruct_energy_rhs_with_roundoff_contract(
+                    rhs.energy_t,
+                    (
+                        ("finite-volume energy-flux divergence", flux_divergence),
+                        ("geometric energy source", components["source_energy"]),
+                        ("scalar-exchange energy source", components["dm_exchange_energy"]),
+                        ("Lorentz energy source", force_e),
+                    ),
+                    label=f"{name} {record['stage']} energy RHS",
+                )
             )
             components["rhs_energy_profile"] = _array(rhs.energy_t)
             components["rhs_energy_from_named_terms_profile"] = _array(expected_energy_rhs)
-            components["rhs_energy_component_residual_profile"] = (
-                _array(rhs.energy_t) - _array(expected_energy_rhs)
-            )
+            components["rhs_energy_component_residual_profile"] = _array(rhs_energy_residual)
+            components["rhs_energy_component_roundoff_bound_ratio_max"] = rhs_energy_bound_ratio_max
             components["rhs_energy_integrated_rate"] = (
                 FOUR_PI * dr * float(np.sum(rhs.energy_t))
             )
@@ -578,6 +643,9 @@ def _stage_serializable(stage: dict) -> dict:
             "componentwise_energy_rate_residual": comp["componentwise_energy_rate_residual"],
             "rhs_energy_component_residual_absmax": float(
                 np.max(np.abs(comp["rhs_energy_component_residual_profile"]))
+            ),
+            "rhs_energy_component_roundoff_bound_ratio_max": (
+                comp["rhs_energy_component_roundoff_bound_ratio_max"]
             ),
         }
     return {
@@ -897,6 +965,8 @@ def write_step_summary(report: dict) -> None:
         "",
         "Source-pinned, research-only paired run; q/m=0 versus 0.25; N=24/48/96; t=0.03; Gaussian c=1 convention.",
         "",
+        f"Execution checkout SHA: `{report['provenance']['execution_checkout_sha']}`; source head SHA (`{report['provenance']['source_head_kind']}`): `{report['provenance']['source_head_sha']}`.",
+        "",
         "| N | Neutral steps | Charged steps | Final charged U_EM | Final max Gauss residual | Max R=10 fixed-tube balance remainder |",
         "|---:|---:|---:|---:|---:|---:|",
     ]
@@ -926,7 +996,9 @@ def main() -> int:
     concise = {
         "status": "completed",
         "classification": report["classification"],
-        "candidate_head": report["provenance"]["candidate_head"],
+        "execution_checkout_sha": report["provenance"]["execution_checkout_sha"],
+        "source_head_sha": report["provenance"]["source_head_sha"],
+        "source_head_kind": report["provenance"]["source_head_kind"],
         "source_pins_passed": all(
             value["match"]
             for value in report["provenance"]["production_blob_pins"].values()
