@@ -1,0 +1,78 @@
+name: Diagnostic - manufactured momentum tangent parity audit
+
+on:
+  push:
+    branches:
+      - diag/manufactured-momentum-tangent-parity-audit-2026-10-13
+    paths:
+      - tools/manufactured_momentum_tangent_audit.py
+      - .github/workflows/manufactured-momentum-tangent-parity-audit.yml
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: manufactured-momentum-tangent-parity-audit
+  cancel-in-progress: true
+
+jobs:
+  manufactured-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PYTHONUNBUFFERED: "1"
+    steps:
+      - name: Checkout diagnostic code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Checkout exact current production source and pinned vendor
+        uses: actions/checkout@v4
+        with:
+          ref: 1db7d554ae43e447e8b4859b68ff8d42e224eb61
+          path: source
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Fail closed on source and vendor identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C source rev-parse HEAD)" = "1db7d554ae43e447e8b4859b68ff8d42e224eb61"
+          test "$(git -C source/vendor/bb-palatini-unified-r0 rev-parse HEAD)" = "d6052d605673ce9d82cdc99b0df79855fa2ea215"
+          printf 'PRODUCTION_SOURCE=%s\n' "$(git -C source rev-parse HEAD)"
+          printf 'VENDOR_SOURCE=%s\n' "$(git -C source/vendor/bb-palatini-unified-r0 rev-parse HEAD)"
+          printf 'DIAGNOSTIC_HEAD=%s\n' "$(git rev-parse HEAD)"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install exact production dependencies
+        run: python -m pip install -r source/requirements.txt
+
+      - name: Compile audit script
+        run: python -m py_compile tools/manufactured_momentum_tangent_audit.py
+
+      - name: Evaluate manufactured profile and semi-discrete tangent
+        run: python tools/manufactured_momentum_tangent_audit.py --output-dir results/manufactured-momentum-tangent
+
+      - name: Hash report
+        if: always()
+        shell: bash
+        run: |
+          if test -f results/manufactured-momentum-tangent/report.json; then
+            (cd results/manufactured-momentum-tangent && sha256sum report.json > REPORT_SHA256SUM.txt)
+          fi
+
+      - name: Upload diagnostic evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: manufactured-momentum-tangent-parity-audit
+          path: results/manufactured-momentum-tangent/
+          if-no-files-found: warn
+          retention-days: 90
