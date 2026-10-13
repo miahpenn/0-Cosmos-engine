@@ -123,3 +123,16 @@ jobs:
           path: results/piecewise-even-moment-all-intervals-matched-time/
           if-no-files-found: warn
           retention-days: 90
+
+      - name: Fixed N=320 temporal refinement CFL .03/.015/.0075 (candidate PR only)
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.ref == 'diag/piecewise-even-moment-quadrature-2026-10-13'
+        run: python tools/validate_piecewise_even_moment_temporal_refinement.py
+
+      - name: Preserve fixed-resolution temporal refinement evidence (candidate PR only)
+        if: always() && github.event_name == 'pull_request' && github.event.pull_request.head.ref == 'diag/piecewise-even-moment-quadrature-2026-10-13'
+        uses: actions/upload-artifact@v4
+        with:
+          name: piecewise-even-moment-temporal-refinement
+          path: results/piecewise-even-moment-temporal-refinement/
+          if-no-files-found: warn
+          retention-days: 90
