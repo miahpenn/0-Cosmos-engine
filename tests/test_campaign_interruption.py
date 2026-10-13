@@ -178,6 +178,53 @@ def test_checkpoint_write_interruption_cleans_staging_and_preserves_evidence(
     assert list(run_dir.glob("checkpoint_t*.npz")) == []
     assert list(run_dir.glob(".checkpoint_t*")) == []
 
+def test_pre_replace_interrupt_does_not_count_stale_same_time_checkpoint(
+    tmp_path, monkeypatch
+):
+    # Campaign output paths can be reused. Seed a valid prior-run checkpoint at
+    # the same scheduled time but with a visibly different payload.
+    run_dir = tmp_path / "N40"
+    run_dir.mkdir(parents=True)
+    stale_path = run_dir / "checkpoint_t000000.030000.npz"
+    np.savez_compressed(
+        stale_path,
+        t=np.asarray(0.03),
+        marker=np.asarray("stale-prior-run"),
+        a=np.asarray([-999.0]),
+    )
+    def interrupt_before_replace(path, **arrays):
+        # The atomic writer has created the staging path but must preserve the
+        # old canonical file when serialization is interrupted.
+        Path(path).write_bytes(b"partial staged archive")
+        raise KeyboardInterrupt("injected pre-replace checkpoint interruption")
+
+    monkeypatch.setattr(atomic_io.np, "savez_compressed", interrupt_before_replace)
+    with pytest.raises(KeyboardInterrupt, match="pre-replace checkpoint interruption"):
+        runner.run_campaign(
+            kernel=V55ProductionKernel(),
+            config=_config(
+                tmp_path,
+                resolutions=(40,),
+                final_time=0.06,
+                checkpoint_interval=0.03,
+            ),
+        )
+
+    summary = _strict_json(tmp_path / "campaign_summary.json")
+    ledger = _strict_json(run_dir / "ledgers.json")
+    assert summary["admission"]["passed"] is False
+    assert summary["results"][0]["status"] == "interrupted:checkpoint"
+    assert summary["results"][0]["t_final"] == pytest.approx(0.03)
+    assert summary["results"][0]["checkpoint_count"] == 0
+    assert ledger["result"]["checkpoint_count"] == 0
+    # Atomic failure preserves the old file; it must not be mistaken for this
+    # run's newly committed checkpoint even though its t matches exactly.
+    with np.load(stale_path, allow_pickle=False) as saved:
+        assert float(saved["t"]) == pytest.approx(0.03)
+        assert str(saved["marker"]) == "stale-prior-run"
+    assert list(run_dir.glob(".checkpoint_t*")) == []
+
+
 def test_post_replace_checkpoint_interruption_counts_complete_artifact(
     tmp_path, monkeypatch
 ):
