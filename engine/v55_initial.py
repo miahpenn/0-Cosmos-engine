@@ -53,11 +53,41 @@ def build_initial_data(
     width=7.0,
     D_amplitude=1.0e-10,
     include_radiation=True,
+    *,
+    charged_dust_density=None,
+    radial_maxwell_charge_to_mass=None,
 ):
     r = np.asarray(grid.centers)
     n = len(r)
     dr = float(grid.dr)
     rho_r = RHO_R_PRESENT if include_radiation else 0.0
+
+    # Optional conventional radial-Maxwell experiment: a separate charged
+    # dust sector starts at rest. Its density contributes to the initializer's
+    # matter budget, and its Gaussian electric energy is included in the same
+    # iterative radial Hamiltonian reconstruction.
+    if charged_dust_density is None and radial_maxwell_charge_to_mass is None:
+        rho_charged = np.zeros(n, dtype=float)
+        charge_to_mass = None
+    elif charged_dust_density is None or radial_maxwell_charge_to_mass is None:
+        raise ValueError(
+            "charged_dust_density and radial_maxwell_charge_to_mass must be supplied together"
+        )
+    else:
+        raw_density = np.asarray(charged_dust_density)
+        if raw_density.dtype.kind not in "iuf" or raw_density.shape != (n,):
+            raise ValueError("charged_dust_density must be a real profile matching the grid")
+        rho_charged = np.asarray(raw_density, dtype=float)
+        if not np.all(np.isfinite(rho_charged)) or np.any(rho_charged < 0.0):
+            raise ValueError("charged_dust_density must be finite and nonnegative")
+        if isinstance(radial_maxwell_charge_to_mass, (bool, np.bool_)):
+            raise ValueError("radial_maxwell_charge_to_mass must be finite and real")
+        try:
+            charge_to_mass = float(radial_maxwell_charge_to_mass)
+        except (TypeError, ValueError, OverflowError) as exc:
+            raise ValueError("radial_maxwell_charge_to_mass must be finite and real") from exc
+        if not math.isfinite(charge_to_mass):
+            raise ValueError("radial_maxwell_charge_to_mass must be finite and real")
 
     phi0 = 0.179055
     pi0 = 0.00341913
@@ -90,8 +120,24 @@ def build_initial_data(
         rhoS = 0.5 * (PS**2 + B * Sp**2) + 0.5 * S**2
         rhoD = 0.5 * (PD**2 + B * Dp**2) - 0.5 * D**2
         rhoPhi = (0.5 * Pi**2 + cosmos_potential(phi)) / (8.0 * math.pi)
-        rhoMatter = (dm0 + b0 + rho_r) / (8.0 * math.pi)
-        rho = rhoS + rhoD + rhoPhi + rhoMatter
+        rhoMatter = (dm0 + b0 + rho_r + rho_charged) / (8.0 * math.pi)
+        rho_em = np.zeros(n, dtype=float)
+        if charge_to_mass is not None and np.any(rho_charged != 0.0):
+            # For the initialized isotropic metric, R_areal=r and sqrt(gamma)
+            # per unit solid angle is r^2*A, A=1/sqrt(B). The cumulative Q
+            # follows the exact shell rest-mass budget; u_E=Ehat^2/(8*pi)
+            # is then included in the initial Hamiltonian-source iteration.
+            A_iter = 1.0 / np.sqrt(B)
+            sqrt_gamma_iter = r * r * A_iter
+            shell_charge = (
+                4.0 * math.pi * charge_to_mass
+                * rho_charged * sqrt_gamma_iter * dr
+            )
+            q_faces = np.r_[0.0, np.cumsum(shell_charge)]
+            q_centres = 0.5 * (q_faces[:-1] + q_faces[1:])
+            ehat = q_centres / (r * r)
+            rho_em = ehat * ehat / (8.0 * math.pi)
+        rho = rhoS + rhoD + rhoPhi + rhoMatter + rho_em
         Kr = Kt + r * Ktp + 4.0 * math.pi * r * j
         src = (
             1.0 - 8.0 * math.pi * r * r * rho
@@ -138,6 +184,9 @@ def build_initial_data(
         grid,
         state,
         include_radiation=include_radiation,
+        charged_dust_density=(
+            rho_charged if charge_to_mass is not None else None
+        ),
     )
     return CorrectedInitialData(
         geometry=state,
