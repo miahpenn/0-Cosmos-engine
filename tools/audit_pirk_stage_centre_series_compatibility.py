@@ -446,8 +446,8 @@ def main() -> None:
             )
         if not (np.isfinite(accepted.t) and accepted.t > state.t):
             raise AssertionError(f"N={resolution}: normal production step did not advance time")
-        if not accepted.geometry.assert_finite_positive():
-            raise AssertionError(f"N={resolution}: accepted geometry failed positivity checks")
+        # The geometry contract raises on failure and returns None on success.
+        accepted.geometry.assert_finite_positive()
 
         accepted_record, accepted_profiles = _snapshot(
             name="accepted_final_state",
