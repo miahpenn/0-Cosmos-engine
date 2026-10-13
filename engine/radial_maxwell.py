@@ -121,7 +121,8 @@ class RadialMaxwellState:
             raise ValueError("charge-current face flux is non-finite")
         return result
 
-    def advance(self, dt: float, rest_mass_flux_faces) -> "RadialMaxwellState":
+    @staticmethod
+    def _positive_dt(dt: float) -> float:
         if isinstance(dt, (bool, np.bool_)):
             raise ValueError("dt must be finite and positive")
         try:
@@ -130,10 +131,28 @@ class RadialMaxwellState:
             raise ValueError("dt must be finite and positive") from exc
         if not math.isfinite(step) or step <= 0.0:
             raise ValueError("dt must be finite and positive")
+        return step
+
+    def advance(self, dt: float, rest_mass_flux_faces) -> "RadialMaxwellState":
+        """Forward-Euler stage predictor from one same-stage numerical flux."""
+        step = self._positive_dt(dt)
         current = self.charge_flux_faces(rest_mass_flux_faces)
         updated = self.enclosed_charge_faces - step * current
         if not np.all(np.isfinite(updated)):
             raise ValueError("radial Maxwell charge update produced non-finite values")
+        updated[0] = 0.0
+        return RadialMaxwellState(self.charge_to_rest_mass, updated)
+
+    def advance_trapezoid(
+        self, dt: float, rest_mass_flux_start, rest_mass_flux_predictor
+    ) -> "RadialMaxwellState":
+        """PIRK/RK2 charge update using actual start and predictor fluxes."""
+        step = self._positive_dt(dt)
+        start = self.charge_flux_faces(rest_mass_flux_start)
+        predictor = self.charge_flux_faces(rest_mass_flux_predictor)
+        updated = self.enclosed_charge_faces - 0.5 * step * (start + predictor)
+        if not np.all(np.isfinite(updated)):
+            raise ValueError("radial Maxwell trapezoid update is non-finite")
         updated[0] = 0.0
         return RadialMaxwellState(self.charge_to_rest_mass, updated)
 
