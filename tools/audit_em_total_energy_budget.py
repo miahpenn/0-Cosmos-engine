@@ -170,6 +170,41 @@ def interpolate_at_areal_radius(areal_radii, profile, target: float) -> float:
     return float(np.interp(float(target), R, values))
 
 
+def _fixed_R_composite_flux_work_profiles(R, alpha, gamma_inv, current, Rr, pr, Rdot):
+    """Build signed tube flux/work profiles before interpolation.
+
+    This exposes the interpolation-order ambiguity: product-of-interpolated
+    factors and interpolation-of-the-composite local terms are different
+    discrete operators. Both are reported; neither is selected by its residual.
+    """
+    raw = {
+        "R": R, "alpha": alpha, "gamma_inv": gamma_inv, "current": current,
+        "Rr": Rr, "pr": pr, "Rdot": Rdot,
+    }
+    arrays = {name: np.asarray(value, dtype=float) for name, value in raw.items()}
+    radii = arrays["R"]
+    if radii.ndim != 1 or radii.size < 2:
+        raise RuntimeError("composite fixed-R flux/work needs at least two radial cells")
+    for name, values in arrays.items():
+        if values.shape != radii.shape:
+            raise RuntimeError(
+                f"composite fixed-R {name} shape {values.shape} does not match {radii.shape}"
+            )
+        if not np.all(np.isfinite(values)):
+            raise RuntimeError(f"composite fixed-R {name} contains non-finite values")
+    if not np.all(np.diff(radii) > 0.0):
+        raise RuntimeError("composite fixed-R areal radii must be strictly increasing")
+    area_factor = -FOUR_PI * FIXED_AREAL_RADIUS**2
+    flux_profile = (
+        area_factor * arrays["alpha"] * arrays["gamma_inv"]
+        * arrays["current"] * arrays["Rr"]
+    )
+    pressure_work_profile = area_factor * arrays["pr"] * arrays["Rdot"]
+    if not np.all(np.isfinite(flux_profile)) or not np.all(np.isfinite(pressure_work_profile)):
+        raise RuntimeError("composite fixed-R flux/work profile is non-finite")
+    return flux_profile, pressure_work_profile
+
+
 def _array(value):
     return np.asarray(value, dtype=float).copy()
 
@@ -438,6 +473,13 @@ def _worldtube_sample(kernel, state, *, geometry_stage_capture=None) -> dict:
     )
     tube_sweep = Mr_tube * tube_speed
     predicted_fixed_R_rate = stress_flux + pressure_work + tube_sweep
+    composite_flux_profile, composite_pressure_work_profile = (
+        _fixed_R_composite_flux_work_profiles(
+            R, geom.alpha, gamma_rr_inv, total.j, Rr, total.pr, Rdot
+        )
+    )
+    composite_stress_flux = at(composite_flux_profile)
+    composite_pressure_work = at(composite_pressure_work_profile)
     mass_gradient_rhs = FOUR_PI * FIXED_AREAL_RADIUS**2 * (
         rho_tube * Rr_tube + j_tube * Rdot_tube / alpha_tube
     )
@@ -495,6 +537,15 @@ def _worldtube_sample(kernel, state, *, geometry_stage_capture=None) -> dict:
         interpolant_predicted_fixed_R_rate, interpolant_fixed_R_residual = (
             _fixed_R_interpolant_balance(interpolant_rate, stress_flux, pressure_work)
         )
+        interpolant_composite_coordinate_residual = (
+            interpolant_rate["interpolated_mass_dot_coordinate"]
+            - (composite_stress_flux + composite_pressure_work)
+        )
+        interpolant_composite_predicted_fixed_R_rate, interpolant_composite_fixed_R_residual = (
+            _fixed_R_interpolant_balance(
+                interpolant_rate, composite_stress_flux, composite_pressure_work
+            )
+        )
         chain_rule = {
             "tube_chain_rule_Rdot": at(Rdot),
             "tube_chain_rule_Rr": at(Rr),
@@ -524,6 +575,9 @@ def _worldtube_sample(kernel, state, *, geometry_stage_capture=None) -> dict:
             "tube_interpolant_piecewise_dM_dR": interpolant_rate["piecewise_linear_mass_gradient"],
             "tube_interpolant_fixed_R_sweep": interpolant_rate["fixed_R_sweep"],
             "tube_interpolant_predicted_fixed_R_rate": interpolant_predicted_fixed_R_rate,
+            "tube_interpolant_composite_coordinate_rate_minus_flux_pressure": interpolant_composite_coordinate_residual,
+            "tube_interpolant_composite_predicted_fixed_R_rate": interpolant_composite_predicted_fixed_R_rate,
+            "tube_interpolant_composite_fixed_R_residual": interpolant_composite_fixed_R_residual,
             "tube_interpolant_mass_dot_fixed_R": interpolant_rate["mass_dot_fixed_R"],
             "tube_interpolant_coordinate_rate_minus_flux_pressure": interpolant_coordinate_residual,
             "tube_interpolant_fixed_R_residual": interpolant_fixed_R_residual,
@@ -600,6 +654,8 @@ def _worldtube_sample(kernel, state, *, geometry_stage_capture=None) -> dict:
         "tube_mass_gradient": Mr_tube,
         "tube_stress_flux": stress_flux,
         "tube_radial_pressure_work": pressure_work,
+        "tube_stress_flux_composite_interp": composite_stress_flux,
+        "tube_radial_pressure_work_composite_interp": composite_pressure_work,
         "tube_coordinate_sweep": tube_sweep,
         "tube_predicted_fixed_R_mass_rate": predicted_fixed_R_rate,
         "tube_native_mass_gradient_identity_rhs": mass_gradient_rhs,
@@ -616,6 +672,8 @@ def _fixed_R_rate_snapshot(sample: dict) -> dict:
         "tube_mass_misner_sharp",
         "tube_stress_flux",
         "tube_radial_pressure_work",
+        "tube_stress_flux_composite_interp",
+        "tube_radial_pressure_work_composite_interp",
         "tube_coordinate_sweep",
         "tube_predicted_fixed_R_mass_rate",
         "tube_native_mass_gradient_identity_residual",
@@ -645,6 +703,9 @@ def _fixed_R_rate_snapshot(sample: dict) -> dict:
         "tube_interpolant_piecewise_dM_dR",
         "tube_interpolant_fixed_R_sweep",
         "tube_interpolant_predicted_fixed_R_rate",
+        "tube_interpolant_composite_coordinate_rate_minus_flux_pressure",
+        "tube_interpolant_composite_predicted_fixed_R_rate",
+        "tube_interpolant_composite_fixed_R_residual",
         "tube_interpolant_mass_dot_fixed_R",
         "tube_interpolant_coordinate_rate_minus_flux_pressure",
         "tube_interpolant_fixed_R_residual",
@@ -1097,6 +1158,19 @@ def _accepted_pirk_update_tangent(step: dict, stage_rates: dict) -> dict:
     predicted_with_interpolant_sweep, interpolant_remainder = (
         _fixed_R_interpolant_balance(direct, flux_average, pressure_average)
     )
+    composite_flux_average = 0.5 * (
+        float(stage_rates["start"]["tube_stress_flux_composite_interp"])
+        + float(stage_rates["primary_predictor"]["tube_stress_flux_composite_interp"])
+    )
+    composite_pressure_average = 0.5 * (
+        float(stage_rates["start"]["tube_radial_pressure_work_composite_interp"])
+        + float(stage_rates["primary_predictor"]["tube_radial_pressure_work_composite_interp"])
+    )
+    predicted_with_composite_terms, interpolant_composite_remainder = (
+        _fixed_R_interpolant_balance(
+            direct, composite_flux_average, composite_pressure_average
+        )
+    )
 
     R1 = np.asarray(areal_radius(grid, state1.geometry), dtype=float)
     mass1 = np.asarray(misner_sharp(grid, state1.geometry), dtype=float)
@@ -1131,6 +1205,14 @@ def _accepted_pirk_update_tangent(step: dict, stage_rates: dict) -> dict:
         ),
         "pirk_update_tangent_pointwise_balance_remainder": float(pointwise_remainder),
         "pirk_update_tangent_interpolant_balance_remainder": float(interpolant_remainder),
+        "pirk_update_tangent_composite_interpolated_flux_average": float(composite_flux_average),
+        "pirk_update_tangent_composite_interpolated_pressure_work_average": float(composite_pressure_average),
+        "pirk_update_tangent_predicted_rate_using_composite_interpolated_terms": float(
+            predicted_with_composite_terms
+        ),
+        "pirk_update_tangent_interpolant_balance_remainder_composite_interpolation": float(
+            interpolant_composite_remainder
+        ),
         "pirk_update_tangent_interpolant_coordinate_remainder": float(
             float(direct["interpolated_mass_dot_coordinate"]) - flux_average - pressure_average
         ),
