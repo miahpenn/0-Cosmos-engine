@@ -74,10 +74,13 @@ def lambda_l3_with_matter(
     electromagnetic_projection=None,
 ):
     _, vacuum, _ = vendor_modules()
-    total = vm.total_matter_projection(
-        grid, geometry, fields, matter,
-        electromagnetic_projection=electromagnetic_projection,
-    )
+    if electromagnetic_projection is None:
+        total = vm.total_matter_projection(grid, geometry, fields, matter)
+    else:
+        total = vm.total_matter_projection(
+            grid, geometry, fields, matter,
+            electromagnetic_projection=electromagnetic_projection,
+        )
     return (
         vacuum.lambda_l3_rhs(grid, geometry)
         - 8.0 * np.pi
