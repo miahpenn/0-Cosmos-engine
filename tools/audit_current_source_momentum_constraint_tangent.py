@@ -363,6 +363,19 @@ def fixed_radius_samples(values: Any, r: np.ndarray) -> dict[str, float]:
     }
 
 
+def rhs_rate_witness(values: Any, r: np.ndarray) -> dict[str, Any]:
+    """Compact cell-centred witnesses for an exact RHS rate profile."""
+    arr = finite("RHS rate witness", values)
+    return {
+        "cell_0": float(arr[0]),
+        "cell_1": float(arr[1]) if arr.size > 1 else None,
+        "cell_2": float(arr[2]) if arr.size > 2 else None,
+        "fixed_radius_samples": fixed_radius_samples(arr, r),
+        "first_two_cells_max_abs": float(np.max(np.abs(arr[:2]))),
+        "first_three_cells_max_abs": float(np.max(np.abs(arr[:3]))),
+    }
+
+
 def tangent_for_epsilon(
     kernel: V55ProductionKernel,
     state: ProductionState,
@@ -564,6 +577,27 @@ def audit_resolution(
         "r_max": float(r_max),
         "dr": float(state.grid.dr),
         "initial_state_sha256": original_digest,
+        "initial_rhs_rate_samples": {
+            "geometry_full_rhs": {
+                name: rhs_rate_witness(rates["geometry"][name], r)
+                for name in GEOMETRY_RATE_NAMES
+            },
+            "Aa_primary_l2": rhs_rate_witness(
+                rates["geometry_stage_terms"]["primary_l2"]["Aa"], r
+            ),
+            "Aa_primary_l3_including_matter": rhs_rate_witness(
+                rates["geometry_stage_terms"]["primary_l3"]["Aa"], r
+            ),
+            "Aa_full_over_r_squared": rhs_rate_witness(
+                rates["geometry"]["Aa"] / (r * r), r
+            ),
+            "K_primary_l2": rhs_rate_witness(
+                rates["geometry_stage_terms"]["primary_l2"]["K"], r
+            ),
+            "K_primary_l3_including_matter": rhs_rate_witness(
+                rates["geometry_stage_terms"]["primary_l3"]["K"], r
+            ),
+        },
         "initial_momentum_constraint": regional_summaries(w0["M_total"], r),
         "initial_geometric_momentum_term_closure": {
             "ok": w0["M_geom_closure_ok"],
