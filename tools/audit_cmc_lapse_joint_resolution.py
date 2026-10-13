@@ -116,12 +116,28 @@ def operation_order_audit(
         + np.abs(vendor_lap_direct)
         + np.abs(cmc_lap_rebuilt)
     )
-    term_scale_rhs = (
+    # Keep separate operand scales for each arithmetic path. In particular,
+    # dense matvec forward error scales with sum_j |A_ij| |alpha_j|, not just
+    # the already-cancelled result |A @ alpha|.
+    term_scale_source_rhs = (
         np.abs(direct_rhs)
         + np.abs(vendor_lap_direct)
         + np.abs(l3_total)
-        + np.abs(dense_affine_rhs)
+        + np.abs(exact_order_rhs)
+        + np.abs(cmc_coefficient_rhs)
+    )
+    term_scale_component_rhs = (
+        np.abs(direct_rhs)
+        + np.abs(l2_direct)
+        + np.abs(l3_total)
+        + np.abs(production_components_rhs)
+    )
+    dense_matvec_abs_operands = np.abs(matrix) @ np.abs(alpha)
+    term_scale_dense_affine = (
+        np.abs(direct_rhs)
+        + dense_matvec_abs_operands
         + np.abs(intercept)
+        + np.abs(dense_affine_rhs)
     )
     eps = np.finfo(np.float64).eps
 
@@ -156,10 +172,10 @@ def operation_order_audit(
     scales = {
         "vendor_geometry_lap_minus_exact_order_rebuild": term_scale_lap,
         "vendor_geometry_lap_minus_cmc_coefficient_lap": term_scale_lap,
-        "production_rhs_minus_exact_order_rebuild": term_scale_rhs,
-        "production_rhs_minus_cmc_coefficient_rebuild": term_scale_rhs,
-        "production_rhs_minus_component_reassembly": term_scale_rhs,
-        "production_rhs_minus_dense_affine": term_scale_rhs,
+        "production_rhs_minus_exact_order_rebuild": term_scale_source_rhs,
+        "production_rhs_minus_cmc_coefficient_rebuild": term_scale_source_rhs,
+        "production_rhs_minus_component_reassembly": term_scale_component_rhs,
+        "production_rhs_minus_dense_affine": term_scale_dense_affine,
     }
     stats = {
         "vendor_source_expression": (
@@ -181,6 +197,12 @@ def operation_order_audit(
             np.max(np.abs(np.asarray(direct_rhs) - production_components_rhs))
         ),
         "dense_affine_intercept_is_reference_state_offset": True,
+        "dense_affine_forward_error_scale": "abs(direct_rhs) + abs(A) @ abs(alpha) + abs(intercept) + abs(A @ alpha + intercept)",
+        "max_abs_dense_matvec_sum_absolute_operands": float(
+            np.max(dense_matvec_abs_operands)
+        ),
+        "max_abs_dense_matvec_result": float(np.max(np.abs(matrix @ alpha))),
+        "max_abs_dense_affine_result": float(np.max(np.abs(dense_affine_rhs))),
         "bounds_are_diagnostic_only_not_admission_changes": True,
     }
     arrays = {
@@ -191,6 +213,10 @@ def operation_order_audit(
     arrays["operator_order__vendor_lap_exact_order"] = vendor_lap_rebuilt
     arrays["operator_order__cmc_lap_coefficient_form"] = cmc_lap_rebuilt
     arrays["operator_order__dense_affine_rhs"] = dense_affine_rhs
+    arrays["operator_order__dense_matvec_abs_operands"] = dense_matvec_abs_operands
+    arrays["operator_order__scale_source_rhs"] = term_scale_source_rhs
+    arrays["operator_order__scale_component_rhs"] = term_scale_component_rhs
+    arrays["operator_order__scale_dense_affine"] = term_scale_dense_affine
     return stats, arrays
 
 
