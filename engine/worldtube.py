@@ -28,7 +28,8 @@ def areal_radius(grid, geometry):
 def invariant_chi(grid, geometry):
     r = np.asarray(grid.centers)
     R = areal_radius(grid, geometry)
-    Rr = grid.cell_derivative_fourth(R, parity=1)
+    # R = r*sqrt(b)/X is odd across a regular spherical centre.
+    Rr = grid.cell_derivative_fourth(R, parity=-1)
     Ktheta = geometry.K / 3.0 - geometry.Aa / 2.0
     normal_dR = -R * Ktheta
     return (geometry.X**2 / geometry.a) * Rr**2 - normal_dR**2
