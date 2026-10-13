@@ -1156,9 +1156,6 @@ def _serialize_step(kernel, step: dict) -> dict:
         stage_power_rows[0][key] + stage_power_rows[1][key]
     )
 
-    accepted_pirk_update_tangent = _accepted_pirk_update_tangent(
-        step, fixed_R_stage_rates
-    )
     before = step["state_before"]
     after = step["state_after"]
     dt = float(step["dt"])
@@ -1171,6 +1168,9 @@ def _serialize_step(kernel, step: dict) -> dict:
             kernel, stages[1]["stage_state"], geometry_stage_capture=geometry_stages[2]
         )),
     }
+    accepted_pirk_update_tangent = _accepted_pirk_update_tangent(
+        step, fixed_R_stage_rates
+    )
     matter_before = _state_energy_integrals(before)
     matter_after = _state_energy_integrals(after)
     matter_step_rows = {}
