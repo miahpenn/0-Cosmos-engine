@@ -13,6 +13,7 @@ import math
 import os
 import tempfile
 
+from .atomic_io import atomic_write_text
 from .production_contract import require_production_capabilities
 
 
@@ -152,7 +153,7 @@ class CampaignConfig:
 def write_checkpoint(path: Path, metadata: dict, trajectory: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     payload = {"metadata": metadata, "trajectory": trajectory}
-    path.write_text(json.dumps(payload, indent=2, default=float))
+    atomic_write_text(path, json.dumps(payload, indent=2, default=float))
 
 
 def _preflight_output_directory(output_dir: str | Path) -> None:
