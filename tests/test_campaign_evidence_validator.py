@@ -336,6 +336,30 @@ def test_rejects_history_that_does_not_start_at_zero(tmp_path):
         validate_campaign_evidence(root, (80, 120))
 
 
+def test_rejects_nonzero_initial_time_at_large_campaign_horizon(tmp_path):
+    root = _valid_campaign(tmp_path / "campaign", final_time=1.0e12, tau_final=1.0e12)
+    path = root / "N80" / "ledgers.json"
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    # The horizon-scaled tolerance is 100 here; this must still fail.
+    payload["history"][0]["t"] = 1.0
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(CampaignEvidenceError, match="history does not begin at t=0"):
+        validate_campaign_evidence(root, (80, 120))
+
+
+def test_rejects_nonzero_initial_proper_time_at_large_final_tau(tmp_path):
+    root = _valid_campaign(tmp_path / "campaign", final_time=1.0e12, tau_final=1.0e12)
+    path = root / "N80" / "ledgers.json"
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    # The tau-final-scaled tolerance is also 100; the origin must remain exact.
+    payload["history"][0]["tau"] = 1.0
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(CampaignEvidenceError, match="proper-time history does not begin at tau=0"):
+        validate_campaign_evidence(root, (80, 120))
+
+
 def test_rejects_history_that_does_not_reach_campaign_horizon(tmp_path):
     root = _valid_campaign(tmp_path / "campaign")
     path = root / "N80" / "ledgers.json"
