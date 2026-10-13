@@ -24,6 +24,7 @@ import sys
 
 import numpy as np
 
+# Current-main provenance includes PR #22 direct matter-RHS API and PR #27 mask metadata.
 SOURCE_COMMIT = "0b3994682a60450eef3430fcba1ff73665a09f35"
 VENDOR_COMMIT = "d6052d605673ce9d82cdc99b0df79855fa2ea215"
 EPSILONS = (2.0e-5, 1.0e-5)
