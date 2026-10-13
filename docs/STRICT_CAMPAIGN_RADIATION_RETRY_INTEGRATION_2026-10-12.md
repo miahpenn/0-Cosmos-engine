@@ -77,3 +77,7 @@ The short-campaign JSON output-integrity software gate is therefore closed for t
 - High-resolution radiation N=240/320, Misner–Sharp balance, multiresolution convergence, and long-horizon evolution remain open.
 
 Do not merge this stacked candidate to `main` or launch N=40/60/80 to (t=12) until the exact current-head software workflow is green, the frozen-state and centre-series diagnostic owners have reported, and the relevant scientific-admission gates are independently reviewed. Passing tests and a one-step smoke do not establish turnaround/re-expansion, a bounce, a completed cycle, or production readiness.
+
+## Test-harness warning cleanup
+
+After the combined-head CI passed, the boundary assertion was changed to a raw regex string so Python does not interpret the regex `\\+` as an invalid source-string escape. This is test-only and does not change the radiation criterion, exception behavior, kernel, or outputs. The new test-file commit is `f8b266292de7a7c7182f44c6105336c9b5a2f281`; exact-head validation is required again before handoff.
