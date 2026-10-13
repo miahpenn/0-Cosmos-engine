@@ -241,7 +241,7 @@ class FrozenProductionMetric:
             return 0.0
 
         def integrand(radius: float) -> float:
-            return FOUR_PI * source.charge_density(radius) * self.sqrt_gamma(radius)
+            return 4.0 * math.pi * source.charge_density(radius) * self.sqrt_gamma(radius)
 
         charge = self._integrate_piecewise(integrand, lo, support_hi, order=8)
         if not math.isfinite(charge):
