@@ -253,7 +253,15 @@ def stress_tensor_contravariant(
     grr = metric.gamma_rr_inv - (metric.beta / metric.alpha) ** 2
     Ttt = h * u0 * u0 + q.pressure * gtt
     Ttr = h * u0 * ur + q.pressure * gtr
-    Trr = h * ur * ur + q.pressure * grr
+    # Expand the radial square so a recovered near-null primitive can use
+    # its solved v^2 instead of reconstructing gamma_rr*v_r**2 from rounded v_r.
+    shift_over_alpha = metric.beta / metric.alpha
+    ur_squared = (
+        q.v2 * metric.gamma_rr_inv
+        - 2.0 * shift_over_alpha * q.v_r
+        + shift_over_alpha * shift_over_alpha
+    )
+    Trr = h * W * W * ur_squared + q.pressure * grr
     Tthth = q.pressure * metric.gamma_thth_inv
     return {"tt": Ttt, "tr": Ttr, "rr": Trr, "thth": Tthth}
 
@@ -262,12 +270,20 @@ def mixed_flux(metric: SphericalMetric, q: FluidPrimitive) -> FluidConserved:
     """Return sqrt(-g) times the radial fluxes (J^r,T^r_t,T^r_r)."""
     W = q.lorentz()
     h = q.rho + q.pressure
-    u0 = W / metric.alpha
     ur = W * (q.v_r - metric.beta / metric.alpha)
-    ut, u_r_cov = four_velocity(metric, q)
     Jr = q.rho * ur
-    Tr_t = h * ur * ut
-    Tr_r = h * ur * u_r_cov + q.pressure
+    # Expand the products involving v_r^2 to retain a recovery-solved norm
+    # when present. These are algebraically the original mixed-tensor fluxes.
+    Tr_t = h * W * W * (
+        -metric.alpha * q.v_r
+        + metric.beta
+        + metric.beta * q.v2
+        - (metric.beta / metric.alpha) * metric.shift_cov * q.v_r
+    )
+    Tr_r = h * W * W * (
+        q.v2
+        - (metric.beta / metric.alpha) * metric.gamma_rr * q.v_r
+    ) + q.pressure
     rootg = metric.sqrt_minus_g
     return FluidConserved(
         rest=rootg * Jr,
