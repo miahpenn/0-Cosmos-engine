@@ -1,0 +1,92 @@
+name: Diagnostic - uniform CMC centre-row counterfactual
+
+on:
+  push:
+    branches:
+      - diag/uniform-cmc-centre-row-counterfactual-2026-10-13
+    paths:
+      - "tools/audit_uniform_cmc_centre_row_counterfactual.py"
+      - "tools/audit_uniform_radial_quadrature_initial_profile.py"
+      - ".github/workflows/uniform-cmc-centre-row-counterfactual.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: uniform-cmc-centre-row-counterfactual-2026-10-13
+  cancel-in-progress: false
+
+jobs:
+  frozen-initial-state:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      PYTHONUNBUFFERED: "1"
+      SOURCE_COMMIT: 6d8b3f2790644591326df57c55908863f994cb0c
+      VENDOR_COMMIT: d6052d605673ce9d82cdc99b0df79855fa2ea215
+
+    steps:
+      - name: Checkout isolated diagnostic branch and pinned submodule
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install pinned-source dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Fail closed on production source or vendor drift
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin "$SOURCE_COMMIT"
+          for path in \
+            engine/production_kernel.py \
+            engine/cmc_gauge.py \
+            engine/v55_initial.py \
+            engine/v55_pirk_adapter.py \
+            engine/v55_matter.py \
+            engine/matter_system.py \
+            engine/scalar_system.py \
+            engine/stress_energy.py \
+            engine/valencia.py; do
+            test "$(git rev-parse "HEAD:$path")" = "$(git rev-parse "$SOURCE_COMMIT:$path")"
+            printf 'SOURCE_BLOB_OK %s\n' "$path"
+          done
+          test "$(git rev-parse "HEAD:vendor/bb-palatini-unified-r0")" = "$VENDOR_COMMIT"
+          printf 'SOURCE_COMMIT=%s\nVENDOR_COMMIT=%s\n' "$SOURCE_COMMIT" "$VENDOR_COMMIT"
+
+      - name: Compile diagnostic and initializer
+        run: |
+          python -m py_compile tools/audit_uniform_cmc_centre_row_counterfactual.py
+          python -m py_compile tools/audit_uniform_radial_quadrature_initial_profile.py
+
+      - name: Compare three centre rows on identical frozen profiles
+        run: PYTHONPATH=. python tools/audit_uniform_cmc_centre_row_counterfactual.py
+
+      - name: Record provenance and report digest
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p results/uniform-cmc-centre-row-counterfactual
+          printf '%s\n' "$SOURCE_COMMIT" > results/uniform-cmc-centre-row-counterfactual/SOURCE_COMMIT.txt
+          printf '%s\n' "$VENDOR_COMMIT" > results/uniform-cmc-centre-row-counterfactual/VENDOR_COMMIT.txt
+          git rev-parse HEAD > results/uniform-cmc-centre-row-counterfactual/DIAGNOSTIC_COMMIT.txt
+          if test -f results/uniform-cmc-centre-row-counterfactual/report.json; then
+            (cd results/uniform-cmc-centre-row-counterfactual && sha256sum report.json > REPORT_SHA256SUM.txt)
+          fi
+
+      - name: Upload centre-row evidence even if the diagnostic fails
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: uniform-cmc-centre-row-counterfactual
+          path: results/uniform-cmc-centre-row-counterfactual/
+          if-no-files-found: warn
+          retention-days: 90
