@@ -14,6 +14,7 @@ import json
 import math
 import platform
 import subprocess
+import shutil
 import time
 from pathlib import Path
 
@@ -402,12 +403,18 @@ def main() -> int:
         }
         report["status"] = status
         report["elapsed_seconds"] = time.time() - started
+        # Bundle the exact frozen input alongside the report so every
+        # checksum entry in this result artifact can be independently checked.
+        shutil.copy2(npz_path, args.output_dir / "source_boundary_failure_accepted_state.npz")
+        shutil.copy2(metadata_path, args.output_dir / "source_boundary_failure_accepted_state.json")
         report_path = args.output_dir / "report.json"
         report_path.write_text(json.dumps(report, indent=2, allow_nan=False))
         report_hash = sha256(report_path)
+        metadata_hash = sha256(metadata_path)
         (args.output_dir / "SHA256SUMS.txt").write_text(
             f"{report_hash}  report.json\n"
             f"{npz_hash}  source_boundary_failure_accepted_state.npz\n"
+            f"{metadata_hash}  source_boundary_failure_accepted_state.json\n"
         )
         print(json.dumps({
             "status": report["status"],
