@@ -17,6 +17,7 @@ from engine.matter_system import (
     _species_rhs_components,
     geometry_metric_derivatives,
     primitives as matter_primitives,
+    project_species,
 )
 from engine.scalar_system import KAPPA, ScalarFields
 from engine.stress_energy import assemble_total_stress_energy
@@ -204,28 +205,25 @@ def test_covariant_source_candidate_vs_baseline_one_step_ab():
         )
 
         delta_pi_source = alpha * beta_dm * rho_dm
-        expected_q_energy = (
-            -sqrt_gamma * alpha * beta_dm * rho_primitive * pi_normal
-        )
-        expected_q_radial = (
-            alpha * sqrt_gamma * beta_dm * rho_primitive * phi_r
-        )
+        q_t = beta_dm * rho_primitive * np.asarray(scalar_candidate.phi)
+        q_r = beta_dm * rho_primitive * phi_r
+        # The stored matter energy is U_t = sqrt(-g) T^t_t, so its
+        # covariant source is alpha*sqrt(gamma)*Q_t, not an Eulerian E-dot.
+        expected_q_energy = alpha * sqrt_gamma * q_t
+        expected_q_radial = alpha * sqrt_gamma * q_r
         W = np.asarray([q.lorentz() for q in prim])
         v_r = np.asarray([q.v_r for q in prim])
         expected_q_rest = (
             -alpha * sqrt_gamma * beta_dm * rho_primitive
             * W * (pi_normal + v_r * phi_r)
         )
-        q_t = beta_dm * rho_primitive * np.asarray(scalar_candidate.phi)
-        q_r = beta_dm * rho_primitive * phi_r
         eps = np.finfo(float).eps
         q_energy_error_projected = (
             np.abs(q_energy_direct - expected_q_energy)
             / (sqrt_gamma * KAPPA)
         )
         q_energy_roundoff_bound = (
-            512.0 * eps * (np.abs(q_t) + np.abs(shift * q_r)) / KAPPA
-            + 1.0e-30
+            512.0 * eps * alpha * np.abs(q_t) / KAPPA + 1.0e-30
         )
         q_radial_error_projected = (
             np.abs(q_radial_direct - expected_q_radial)
@@ -239,24 +237,93 @@ def test_covariant_source_candidate_vs_baseline_one_step_ab():
             128.0 * eps * float(np.max(np.abs(expected_q_rest))) + 1.0e-30
         )
         assert np.all(q_energy_error_projected <= q_energy_roundoff_bound), (
-            "covariant q_E is inconsistent with the ADM identity beyond "
-            "operand-scaled floating-point error"
+            "stored U_t source must be sqrt(-g)*Q_t, with the lapse "
+            "and shift carried by d_t(phi)"
         )
         assert np.all(q_radial_error_projected <= q_radial_roundoff_bound), (
-            "covariant q_S is inconsistent with the ADM identity beyond "
-            "operand-scaled floating-point error"
+            "stored U_r source must be sqrt(-g)*Q_r"
         )
         assert float(np.max(np.abs(q_rest_direct - expected_q_rest))) <= (
             q_rest_roundoff_bound
         )
 
-        # Convert both sides to the normalized physical projections consumed by
-        # Einstein. The shared KAPPA is applied once on each side.
+        # Differentiate the actual dust primitive/projection map. For dust
+        # E = sqrt(D^2 + gamma^rr S_r^2), D=U_D/sqrt(gamma), and
+        # S_r=U_r/sqrt(gamma), so E_dot = q_D/(sqrt(gamma)*W)
+        # + v^r*q_Ur/sqrt(gamma). The U_t component is reconstructed from
+        # U_t=-alpha*sqrt(gamma)*E + shift*sqrt(gamma)*S_r.
+        W = np.asarray([q.lorentz() for q in prim])
+        dm_energy_unscaled = (
+            q_rest_direct / (sqrt_gamma * W)
+            + v_r * q_radial_direct / sqrt_gamma
+        )
+        dm_current_unscaled = q_radial_direct / sqrt_gamma
+        q_energy_from_projection_map = (
+            -alpha * sqrt_gamma * dm_energy_unscaled
+            + shift * sqrt_gamma * dm_current_unscaled
+        )
+        map_energy_error = np.abs(
+            q_energy_direct - q_energy_from_projection_map
+        )
+        map_energy_bound = (
+            1024.0 * eps * np.maximum(
+                np.abs(q_energy_direct),
+                np.abs(q_energy_from_projection_map),
+            ) + 1.0e-30
+        )
+        assert np.all(map_energy_error <= map_energy_bound), (
+            "conserved U_t source disagrees with the Eulerian projection-map "
+            "Jacobian induced by (q_rest, q_Ur)"
+        )
+
+        # Confirm the analytic Jacobian against the real projection function
+        # using a small directional perturbation of all three conserved fields.
+        projection_base = project_species(
+            metric, stage_state.matter.dark_matter, Species.DARK_MATTER
+        )
+        probe_dt = 1.0e-5
+        probe_state = stage_state.matter.dark_matter.copy()
+        probe_state.rest += probe_dt * q_rest_direct
+        probe_state.energy_t += probe_dt * q_energy_direct
+        probe_state.momentum_r += probe_dt * q_radial_direct
+        projection_probe = project_species(
+            metric, probe_state, Species.DARK_MATTER
+        )
+        rho_projection_fd = (
+            projection_probe["rho"] - projection_base["rho"]
+        ) / probe_dt
+        j_projection_fd = (
+            projection_probe["j"] - projection_base["j"]
+        ) / probe_dt
+        dm_energy_projected = dm_energy_unscaled / KAPPA
+        dm_current_projected = dm_current_unscaled / KAPPA
+        energy_active = np.abs(dm_energy_projected) > (
+            1.0e-6 * float(np.max(np.abs(dm_energy_projected)))
+        )
+        current_active = np.abs(dm_current_projected) > (
+            1.0e-6 * float(np.max(np.abs(dm_current_projected)))
+        )
+        assert np.any(energy_active), "energy source direction must be nonzero"
+        assert np.any(current_active), "current source direction must be nonzero"
+        np.testing.assert_allclose(
+            rho_projection_fd[energy_active],
+            dm_energy_projected[energy_active],
+            rtol=2.0e-5,
+            atol=1.0e-8 * float(np.max(np.abs(dm_energy_projected))),
+        )
+        np.testing.assert_allclose(
+            j_projection_fd[current_active],
+            dm_current_projected[current_active],
+            rtol=2.0e-5,
+            atol=1.0e-8 * float(np.max(np.abs(dm_current_projected))),
+        )
+
+        # The scalar and dust Eulerian energy/current projection rates must
+        # cancel only after mapping the conserved source vector through that
+        # projection Jacobian; q_Ut itself is not E-dot.
         scalar_energy_projected = pi_state * delta_pi_source / KAPPA
-        dm_energy_projected = q_energy_direct / (sqrt_gamma * KAPPA)
         energy_pair_residual = scalar_energy_projected + dm_energy_projected
         scalar_current_projected = -delta_pi_source * phi_r / KAPPA
-        dm_current_projected = q_radial_direct / (sqrt_gamma * KAPPA)
         current_pair_residual = (
             scalar_current_projected + dm_current_projected
         )
@@ -305,6 +372,7 @@ def test_covariant_source_candidate_vs_baseline_one_step_ab():
         dm_baseline = matter_candidate["dark_matter"].copy()
         rest_delta = np.zeros_like(rho_dm)
         radial_delta = np.zeros_like(rho_dm)
+        energy_delta = np.zeros_like(rho_dm)
         for i, (m, q) in enumerate(zip(metrics, prim)):
             q_t, q_r = dark_matter_covector_source(
                 beta_dm, q.rho, float(scalar_candidate.phi[i]), float(phi_r[i])
@@ -319,8 +387,14 @@ def test_covariant_source_candidate_vs_baseline_one_step_ab():
                 -m.alpha * m.sqrt_gamma * beta_dm * q.rho * u_grad_phi
             )
             radial_delta[i] = (m.alpha - 1.0) * m.sqrt_gamma * q_r
-        # Baseline had no DM rest-current source and omitted alpha from q_s.
+            # Restore the pre-PR40 mixed-U_t source for the matched baseline.
+            candidate_q_ut = m.alpha * m.sqrt_gamma * q_t
+            previous_q_ut = -m.sqrt_gamma * (q_t - m.beta * q_r)
+            energy_delta[i] = candidate_q_ut - previous_q_ut
+        # Baseline had no DM rest-current source, old q_Ut convention, and
+        # omitted alpha from q_Ur.
         dm_baseline.rest -= rest_delta
+        dm_baseline.energy_t -= energy_delta
         dm_baseline.momentum_r -= radial_delta
         matter_baseline = dict(matter_candidate)
         matter_baseline["dark_matter"] = dm_baseline
@@ -331,9 +405,16 @@ def test_covariant_source_candidate_vs_baseline_one_step_ab():
                 np.max(np.abs((geom.alpha - 1.0) * beta_dm * rho_dm))
             ),
             "dm_rest_source_delta_max": float(np.max(np.abs(rest_delta))),
+            "dm_energy_source_delta_max": float(np.max(np.abs(energy_delta))),
             "dm_radial_source_delta_max": float(np.max(np.abs(radial_delta))),
             "direct_q_energy_projected_error_linf": float(
                 np.max(q_energy_error_projected)
+            ),
+            "conserved_energy_from_projection_map_error_linf": float(
+                np.max(map_energy_error)
+            ),
+            "conserved_energy_from_projection_map_bound_linf": float(
+                np.max(map_energy_bound)
             ),
             "direct_q_energy_projected_bound_linf": float(
                 np.max(q_energy_roundoff_bound)
