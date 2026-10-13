@@ -90,8 +90,25 @@ def _project_kdot_from_weights(
     _, vacuum, _ = adapter.vendor_modules()
     l2 = vacuum.primary_l2_rhs(grid, geometry)
     l3 = adapter.primary_l3_with_matter(grid, geometry, scalars, matter)
-    raw = np.asarray(l2["K"] + l3["K"], dtype=float)
-    if raw.shape != weights.shape or not np.all(np.isfinite(raw)):
+    # Validate each source contribution before combining them. Checking only
+    # the sum is insufficient: NumPy can broadcast a malformed singleton
+    # array against the grid-shaped contribution and hide the shape defect.
+    components = []
+    for label, result in (("L2", l2), ("L3", l3)):
+        component = np.asarray(result["K"], dtype=float)
+        if component.shape != weights.shape:
+            raise FloatingPointError(
+                f"CMC proper-volume projection has a mismatched {label} K RHS shape"
+            )
+        if not np.all(np.isfinite(component)):
+            raise FloatingPointError(
+                "CMC proper-volume projection has a non-finite or mismatched K RHS"
+            )
+        components.append(component)
+
+    with np.errstate(over="ignore", invalid="ignore"):
+        raw = components[0] + components[1]
+    if not np.all(np.isfinite(raw)):
         raise FloatingPointError(
             "CMC proper-volume projection has a non-finite or mismatched K RHS"
         )
