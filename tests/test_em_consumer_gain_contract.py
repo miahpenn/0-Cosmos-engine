@@ -95,7 +95,11 @@ def _assert_live_consumer_gain(state, monkeypatch):
 
     alpha = np.asarray(state.geometry.alpha, dtype=float)
     a = np.asarray(state.geometry.a, dtype=float)
+    b = np.asarray(state.geometry.b, dtype=float)
     X = np.asarray(state.geometry.X, dtype=float)
+    assert np.all(np.isfinite(a)) and np.all(a > 0.0)
+    assert np.all(np.isfinite(b)) and np.all(b > 0.0)
+    assert np.all(np.isfinite(X)) and np.all(X > 0.0)
     inv = X * X / a
     u = _radial_e_increment(state.grid)
 
@@ -129,10 +133,8 @@ def _assert_live_consumer_gain(state, monkeypatch):
     # target_kdot projects the K RHS with the current proper-volume weights;
     # the stress increment changes the source K tendency by 8*pi*alpha*u.
     r = np.asarray(state.grid.centers, dtype=float)
-    weights = (
-        r**2 * np.sqrt(np.maximum(a, 0.0))
-        * np.asarray(state.geometry.b, dtype=float) / X**3
-    )
+    weights = r**2 * np.sqrt(a) * b / X**3
+    assert np.all(np.isfinite(weights)) and np.all(weights > 0.0)
     weights *= float(state.grid.dr)
     expected_delta_kdot = float(
         np.sum(weights * (8.0 * math.pi * alpha * u)) / np.sum(weights)
