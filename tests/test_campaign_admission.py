@@ -3,11 +3,14 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from engine.production_kernel import _peak_witness
+from engine.campaign import CampaignConfig
+from engine.production_kernel import V55ProductionKernel, _peak_witness
 from engine.run_production import (
     _canonicalize_endpoint_roundoff,
+    _json_safe,
     assert_finite_state,
     campaign_admission_errors,
+    run_campaign,
 )
 
 
@@ -130,3 +133,87 @@ def test_finite_state_guard_checks_nested_scalar_and_matter_arrays():
     state.scalars.phi[1] = np.nan
     with pytest.raises(FloatingPointError, match=r"state.scalars.phi"):
         assert_finite_state(state)
+
+
+
+def test_peak_witness_marks_empty_fixed_radius_region_unavailable():
+    radii = np.array([0.5, 1.5, 2.5, 3.5])
+    values = np.array([2.0, -4.0, 1.0, 0.25])
+    assert _peak_witness(values, radii, mask=radii >= 5.0) is None
+
+
+def test_production_diagnostics_handles_domain_inside_fixed_radius():
+    kernel = V55ProductionKernel()
+    state = kernel.initialize(resolution=40, r_max=4.0, include_radiation=True)
+    diagnostics = kernel.diagnostics(state)
+
+    assert diagnostics["constraint_exclusion_radius"] == 5.0
+    assert diagnostics["constraint_exterior_witness_available"] is False
+    assert diagnostics["constraint_inner_witness_available"] is True
+    for name in ("hamiltonian", "momentum", "connection"):
+        assert diagnostics[f"{name}_max"] is None
+        assert diagnostics[f"{name}_max_r"] is None
+        assert diagnostics[f"{name}_at_max"] is None
+        assert np.isfinite(diagnostics[f"{name}_inner_absmax"])
+        assert np.isfinite(diagnostics[f"{name}_full_absmax"])
+
+
+def test_json_safe_recursively_normalizes_nonfinite_array_leaves():
+    payload = _json_safe({
+        "array": np.array([1.0, np.nan, np.inf]),
+        "nested": [float("-inf"), np.float64(np.nan)],
+    })
+    raw = json.dumps(payload, allow_nan=False)
+    parsed = json.loads(
+        raw,
+        parse_constant=lambda token: pytest.fail(f"non-standard JSON token: {token}"),
+    )
+    assert parsed == {"array": [1.0, None, None], "nested": [None, None]}
+
+
+def test_invalid_returned_initial_state_still_writes_strict_failure_reports(
+    tmp_path, monkeypatch
+):
+    kernel = V55ProductionKernel()
+    initialize = kernel.initialize
+
+    def return_nonfinite_state(**kwargs):
+        state = initialize(**kwargs)
+        state.scalars.phi[0] = np.nan
+        return state
+
+    monkeypatch.setattr(kernel, "initialize", return_nonfinite_state)
+    diagnostic_calls = []
+
+    def invalid_diagnostics(state):
+        diagnostic_calls.append(state)
+        return {"bad_witness": np.array([np.nan, np.inf])}
+
+    monkeypatch.setattr(kernel, "diagnostics", invalid_diagnostics)
+    config = CampaignConfig(
+        resolutions=(40,),
+        r_max=40.0,
+        cfl=0.03,
+        final_time=0.03,
+        checkpoint_interval=0.1,
+        output_dir=str(tmp_path),
+    )
+
+    with pytest.raises(RuntimeError, match="Production campaign admission failed"):
+        run_campaign(kernel=kernel, config=config)
+
+    assert diagnostic_calls == []
+    parse_strict = lambda path: json.loads(
+        path.read_text(),
+        parse_constant=lambda token: pytest.fail(f"non-standard JSON token: {token}"),
+    )
+    summary = parse_strict(tmp_path / "campaign_summary.json")
+    ledger = parse_strict(tmp_path / "N40" / "ledgers.json")
+    retries = parse_strict(tmp_path / "N40" / "radiation_step_retries.json")
+
+    assert summary["admission"]["passed"] is False
+    assert summary["results"][0]["status"].startswith("numerical_failure:initial_state:")
+    assert summary["results"][0]["last_diagnostics"]["diagnostics_available"] is False
+    assert ledger["result"]["status"] == summary["results"][0]["status"]
+    assert ledger["history"] == []
+    assert retries == []
