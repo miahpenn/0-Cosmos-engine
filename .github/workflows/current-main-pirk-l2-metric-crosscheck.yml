@@ -70,7 +70,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: current-main-pirk-l2-metric-crosscheck
-          path: results/current-main-pirk-l2-metric-crosscheck/
+          name: current-main-pirk-l2-independent-metric-crosscheck
+          path: results/current-main-pirk-l2-independent-metric-crosscheck/
           if-no-files-found: warn
           retention-days: 90
