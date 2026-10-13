@@ -60,6 +60,21 @@ jobs:
       - name: Run complete repository test suite
         run: python -m pytest -q
 
+      - name: Matched frozen-state fluid-stress normalization A/B (PR #50 only)
+        if: github.event_name == 'pull_request' && github.event.pull_request.number == 50
+        run: |
+          mkdir -p artifacts
+          python diagnostics/archive_fluid_stress_normalization_ab.py | tee artifacts/archive-fluid-stress-normalization-ab.json
+
+      - name: Upload bounded fluid-stress normalization A/B evidence (PR #50 only)
+        if: always() && github.event_name == 'pull_request' && github.event.pull_request.number == 50
+        uses: actions/upload-artifact@v4
+        with:
+          name: archive-fluid-stress-normalization-ab
+          path: artifacts/archive-fluid-stress-normalization-ab.json
+          if-no-files-found: warn
+          retention-days: 14
+
       - name: Run control-only smoke
         run: python -m engine.run_controls
 
