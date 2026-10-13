@@ -1,0 +1,65 @@
+name: First-two-centre-moments matched-time diagnostic
+
+on:
+  push:
+    branches:
+      - diag/first-two-centre-moments-2026-10-13
+    paths:
+      - engine/v55_initial.py
+      - tests/test_initial_center_interval_moments.py
+      - tools/validate_first_two_center_moments_matched_time.py
+      - .github/workflows/first-two-centre-moments.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: first-two-centre-moments-2026-10-13
+  cancel-in-progress: false
+
+jobs:
+  moment-and-matched-time:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      PYTHONUNBUFFERED: "1"
+    steps:
+      - name: Check out candidate and pinned vendor
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install repository requirements
+        run: python -m pip install -r requirements.txt
+
+      - name: Compile candidate and diagnostic
+        run: |
+          python -m py_compile engine/v55_initial.py
+          python -m py_compile tools/validate_first_two_center_moments_matched_time.py
+          python -m py_compile tests/test_initial_center_interval_moments.py
+
+      - name: Test exact even-series moments
+        run: python -m pytest -q tests/test_initial_center_interval_moments.py
+
+      - name: Run complete repository regressions
+        run: python -m pytest -q
+
+      - name: Run matched-time full-kernel A/B at N=80/120/160 to t=0.12
+        run: python tools/validate_first_two_center_moments_matched_time.py
+
+      - name: Preserve diagnostic reports and hashes
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: first-two-centre-moments-matched-time
+          path: results/first-two-centre-moments-matched-time/
+          if-no-files-found: warn
+          retention-days: 90
