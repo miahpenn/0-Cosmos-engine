@@ -1,0 +1,97 @@
+name: Diagnostic - uniform CMC centre-row one-step
+
+on:
+  push:
+    branches:
+      - diag/uniform-cmc-centre-row-one-step-2026-10-13
+    paths:
+      - "tools/audit_uniform_cmc_centre_row_one_step.py"
+      - "tools/audit_uniform_cmc_centre_row_counterfactual.py"
+      - "tools/audit_uniform_radial_quadrature_initial_profile.py"
+      - ".github/workflows/uniform-cmc-centre-row-one-step.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: uniform-cmc-centre-row-one-step-2026-10-13
+  cancel-in-progress: false
+
+jobs:
+  bounded-one-step:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      PYTHONUNBUFFERED: "1"
+      SOURCE_COMMIT: 6d8b3f2790644591326df57c55908863f994cb0c
+      VENDOR_COMMIT: d6052d605673ce9d82cdc99b0df79855fa2ea215
+      CENTRE_ROW_HELPER_COMMIT: 77dbf879ccb898282a5dfd97a77afe6c475c1092
+
+    steps:
+      - name: Checkout isolated diagnostic branch and pinned submodule
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install pinned-source dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Fail closed on source and diagnostic helper drift
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin "$SOURCE_COMMIT" "$CENTRE_ROW_HELPER_COMMIT"
+          for path in \
+            engine/production_kernel.py \
+            engine/cmc_gauge.py \
+            engine/v55_initial.py \
+            engine/v55_pirk_adapter.py \
+            engine/v55_matter.py \
+            engine/matter_system.py \
+            engine/scalar_system.py \
+            engine/stress_energy.py \
+            engine/valencia.py; do
+            test "$(git rev-parse "HEAD:$path")" = "$(git rev-parse "$SOURCE_COMMIT:$path")"
+            printf 'SOURCE_BLOB_OK %s\n' "$path"
+          done
+          test "$(git rev-parse "HEAD:vendor/bb-palatini-unified-r0")" = "$VENDOR_COMMIT"
+          test "$(git rev-parse "HEAD:tools/audit_uniform_cmc_centre_row_counterfactual.py")" = "$(git rev-parse "$CENTRE_ROW_HELPER_COMMIT:tools/audit_uniform_cmc_centre_row_counterfactual.py")"
+          printf 'SOURCE_COMMIT=%s\nVENDOR_COMMIT=%s\nCENTRE_ROW_HELPER_COMMIT=%s\n' "$SOURCE_COMMIT" "$VENDOR_COMMIT" "$CENTRE_ROW_HELPER_COMMIT"
+
+      - name: Compile one-step audit and frozen initializer
+        run: |
+          python -m py_compile tools/audit_uniform_cmc_centre_row_one_step.py
+          python -m py_compile tools/audit_uniform_cmc_centre_row_counterfactual.py
+          python -m py_compile tools/audit_uniform_radial_quadrature_initial_profile.py
+
+      - name: Run one normal production step for each centre-row variant
+        run: PYTHONPATH=. python tools/audit_uniform_cmc_centre_row_one_step.py
+
+      - name: Record provenance and report digest
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p results/uniform-cmc-centre-row-one-step
+          printf '%s\n' "$SOURCE_COMMIT" > results/uniform-cmc-centre-row-one-step/SOURCE_COMMIT.txt
+          printf '%s\n' "$VENDOR_COMMIT" > results/uniform-cmc-centre-row-one-step/VENDOR_COMMIT.txt
+          printf '%s\n' "$CENTRE_ROW_HELPER_COMMIT" > results/uniform-cmc-centre-row-one-step/CENTRE_ROW_HELPER_COMMIT.txt
+          git rev-parse HEAD > results/uniform-cmc-centre-row-one-step/DIAGNOSTIC_COMMIT.txt
+          if test -f results/uniform-cmc-centre-row-one-step/report.json; then
+            (cd results/uniform-cmc-centre-row-one-step && sha256sum report.json > REPORT_SHA256SUM.txt)
+          fi
+
+      - name: Upload stage and admission evidence even if a variant fails
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: uniform-cmc-centre-row-one-step
+          path: results/uniform-cmc-centre-row-one-step/
+          if-no-files-found: warn
+          retention-days: 90
