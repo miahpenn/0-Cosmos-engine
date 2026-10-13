@@ -128,3 +128,23 @@ def test_rejects_duplicate_or_empty_expected_resolutions(tmp_path):
         validate_campaign_evidence(root, (80, 80))
     with pytest.raises(CampaignEvidenceError, match="positive and non-empty"):
         validate_campaign_evidence(root, ())
+def test_rejects_admitted_summary_without_explicit_empty_error_list(tmp_path):
+    root = _valid_campaign(tmp_path / "campaign")
+    summary_path = root / "campaign_summary.json"
+    summary = json.loads(summary_path.read_text(encoding="utf-8"))
+    summary["admission"] = {"passed": True}
+    summary_path.write_text(json.dumps(summary), encoding="utf-8")
+
+    with pytest.raises(CampaignEvidenceError, match="empty errors list"):
+        validate_campaign_evidence(root, (80, 120))
+
+
+def test_rejects_non_integer_reported_resolution(tmp_path):
+    root = _valid_campaign(tmp_path / "campaign")
+    summary_path = root / "campaign_summary.json"
+    summary = json.loads(summary_path.read_text(encoding="utf-8"))
+    summary["campaign"]["resolutions"] = [80.5, 120]
+    summary_path.write_text(json.dumps(summary), encoding="utf-8")
+
+    with pytest.raises(CampaignEvidenceError, match="invalid reported resolution list"):
+        validate_campaign_evidence(root, (80, 120))
