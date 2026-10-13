@@ -52,15 +52,15 @@ The radiation face-jump metric remains about 0.50 in this diagnostic. It is a no
 
 ## Corrected matched-coordinate-time short trajectory
 
-- Run [38329305218](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38329305218) completed successfully on candidate head `dbff220a350f177d733b304c86dfc330eb0abc70`, with the same base source and vendor pins. It advanced N=80/120/160 to the same coordinate horizon `t=0.12`: 4, 6 and 8 production steps respectively. The previous run [38329235680](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38329235680) used the earlier determinant-output calculation and is superseded for that witness.
-- Artifact [11781727905](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38329305218/artifacts/11781727905), ZIP SHA-256 `f7c998e4b2c629f946c508932c5b23fbab27f4f3f940e3422ba5264127706c67`.
+- Run [38329573898](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38329573898) completed successfully on candidate head `794c56d6daf0c14854b77d481717bfc4c3fb2581`, with the same base source and vendor pins. It advanced N=80/120/160 to the same coordinate horizon `t=0.12`: 4, 6 and 8 production steps respectively. Earlier matched-time reports [38329235680](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38329235680) and [38329305218](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38329305218) are superseded by this exact candidate-head rerun.
+- Artifact [11781869543](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38329573898/artifacts/11781869543), ZIP SHA-256 `bda165dc82ba755891c49156983bd7246f145125711ccfc969576b043656c57f`.
 - The determinant correction is now `max(abs(constraints["determinant"]))` and the cell-0 residual is reported directly. The pinned vendor's `constraints["determinant"]` is already `a*b**2 - 1`; do not subtract 1 a second time.
 
 | N | Steps to t=0.12 | Full max |H| | Full max |M| | Full max |C_lambda| | Full determinant residual max | Central Aa_rhs/r0² | Lapse even-series fit residual | Max |K_rhs-target| |
 |---:|---:|---:|---:|---:|---:|---:|---:|---:|
 | 80 | 4 | 3.591e-5 | 1.651e-6 | 2.014e-7 | 2.164e-13 | -1.420e-5 | 6.170e-6 | 2.311e-5 |
 | 120 | 6 | 1.047e-5 | 1.784e-6 | 2.318e-7 | 6.384e-14 | -3.737e-5 | 3.657e-7 | 1.055e-5 |
-| 160 | 8 | 6.657e-6 | 1.955e-6 | 2.641e-7 | 2.698e-14 | -3.925e-5 | 4.243e-8 | 5.994e-6 |
+| 160 | 8 | 6.657e-6 | 1.955e-6 | 2.641e-7 | 2.676e-14 | -3.925e-5 | 4.243e-8 | 5.994e-6 |
 
 At this matched horizon, all arms remained finite/positive and radiation-cone admissible. The Hamiltonian maximum decreases with refinement and the lapse even-series fit/CMC target residual improve substantially. The maximum momentum and connection residuals increase mildly across these three resolutions instead of decreasing; their peak location lies in the near-centre region. This prevents a global convergence/admission conclusion and calls for fixed-physical-radius profile comparisons at the next gate.
 
