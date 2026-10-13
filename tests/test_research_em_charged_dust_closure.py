@@ -44,6 +44,32 @@ def test_charge_flux_is_exactly_proportional_to_same_stage_mass_flux(eta):
                                    rest_mass_flux, rtol=0.0, atol=0.0)
 
 
+def test_charge_update_matches_discrete_rest_mass_flux_divergence():
+    # The active Valencia rest store is sqrt(gamma)*D, updated from the
+    # numerical face flux with (F_outer-F_inner)/dr. The enclosed-charge face
+    # update uses that exact same flux times 4*pi*q/m; therefore diff(Q) stays
+    # equal to the charged species' shell rest mass at the next stage.
+    rest_store = np.array([0.5, 0.7, 0.2])
+    mass_flux = np.array([0.0, 0.03, -0.05, 0.2])
+    eta = -0.35
+    dt = 0.1
+    dr = 0.5
+
+    initial_charge_faces = np.concatenate(
+        ([0.0], np.cumsum(4.0 * math.pi * eta * dr * rest_store))
+    )
+    charge_flux = charged_dust_charge_flux_from_mass_flux(mass_flux, eta)
+    updated_charge_faces = initial_charge_faces - dt * charge_flux
+    updated_rest_store = rest_store - (dt / dr) * np.diff(mass_flux)
+
+    np.testing.assert_allclose(
+        np.diff(updated_charge_faces),
+        4.0 * math.pi * eta * dr * updated_rest_store,
+        rtol=0.0,
+        atol=5.0e-16,
+    )
+
+
 def test_positive_and_negative_charge_have_same_mass_lorentz_factor_opposite_current():
     rho0 = [0.3, 0.7]
     velocity = [0.2, -0.4]
