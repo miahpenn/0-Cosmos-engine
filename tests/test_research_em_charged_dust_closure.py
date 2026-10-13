@@ -1,0 +1,86 @@
+"""Tests for the optional, research-only charged-dust current closure."""
+import math
+
+import numpy as np
+import pytest
+
+from tools.research_em_charged_dust_closure import (
+    charged_dust_charge_flux_from_mass_flux,
+    charged_dust_eulerian_current,
+)
+
+
+def test_current_closure_is_charge_to_mass_times_eulerian_rest_current():
+    rho0 = np.array([0.0, 0.4, 0.7, 0.2])
+    velocity = np.array([0.0, 0.2, -0.3, 0.1])
+    gamma_rr = np.array([1.0, 1.2, 0.8, 2.0])
+    eta = 0.6
+
+    current = charged_dust_eulerian_current(rho0, velocity, gamma_rr, eta)
+    W = 1.0 / np.sqrt(1.0 - gamma_rr * velocity**2)
+    expected_rho_e = eta * rho0 * W
+    expected_jr = expected_rho_e * velocity
+
+    np.testing.assert_allclose(current.lorentz_factor, W, rtol=0.0, atol=0.0)
+    np.testing.assert_allclose(current.charge_density, expected_rho_e, rtol=0.0, atol=0.0)
+    np.testing.assert_allclose(current.spatial_current_r, expected_jr, rtol=0.0, atol=0.0)
+
+
+@pytest.mark.parametrize("eta", [0.7, -0.7, 0.0])
+def test_charge_flux_is_exactly_proportional_to_same_stage_mass_flux(eta):
+    # Per-solid-angle flux returned by the charged species' existing numerical
+    # Valencia mass-current path, including its lapse/shift and metric factors.
+    rest_mass_flux = np.array([0.0, -0.04, 0.15, 0.8])
+    charge_flux = charged_dust_charge_flux_from_mass_flux(rest_mass_flux, eta)
+    np.testing.assert_allclose(
+        charge_flux, 4.0 * math.pi * eta * rest_mass_flux,
+        rtol=0.0, atol=0.0,
+    )
+    if eta == 0.0:
+        np.testing.assert_array_equal(charge_flux, np.zeros_like(rest_mass_flux))
+    else:
+        # All shell and total charge fluxes preserve the same signed q/m ratio.
+        np.testing.assert_allclose(charge_flux / (4.0 * math.pi * eta),
+                                   rest_mass_flux, rtol=0.0, atol=0.0)
+
+
+def test_positive_and_negative_charge_have_same_mass_lorentz_factor_opposite_current():
+    rho0 = [0.3, 0.7]
+    velocity = [0.2, -0.4]
+    gamma_rr = [1.0, 1.3]
+    positive = charged_dust_eulerian_current(rho0, velocity, gamma_rr, 0.5)
+    negative = charged_dust_eulerian_current(rho0, velocity, gamma_rr, -0.5)
+    assert positive.lorentz_factor == pytest.approx(negative.lorentz_factor)
+    assert negative.charge_density == pytest.approx(-np.asarray(positive.charge_density))
+    assert negative.spatial_current_r == pytest.approx(-np.asarray(positive.spatial_current_r))
+
+
+@pytest.mark.parametrize(
+    "rho0,velocity,gamma",
+    [
+        ([0.1, -0.2], [0.0, 0.1], [1.0, 1.0]),
+        ([0.1, 0.2], [0.0, 1.0], [1.0, 1.0]),
+        ([0.1, 0.2], [0.0, 0.5], [1.0, 0.0]),
+        ([0.1, math.inf], [0.0, 0.1], [1.0, 1.0]),
+        ([0.1], [0.0, 0.1], [1.0, 1.0]),
+        ([True, False], [0.0, 0.1], [1.0, 1.0]),
+    ],
+)
+def test_invalid_current_primitives_fail_closed(rho0, velocity, gamma):
+    with pytest.raises(ValueError):
+        charged_dust_eulerian_current(rho0, velocity, gamma, 0.5)
+
+
+@pytest.mark.parametrize("eta", [math.nan, math.inf, True, "bad"])
+def test_invalid_charge_to_mass_fails_closed(eta):
+    with pytest.raises(ValueError):
+        charged_dust_eulerian_current([0.2], [0.1], [1.0], eta)
+
+
+def test_charge_flux_conversion_rejects_nonfinite_and_malformed_flux():
+    with pytest.raises(ValueError):
+        charged_dust_charge_flux_from_mass_flux([0.0], 0.2)
+    with pytest.raises(ValueError):
+        charged_dust_charge_flux_from_mass_flux([0.0, math.nan], 0.2)
+    with pytest.raises(ValueError):
+        charged_dust_charge_flux_from_mass_flux([0.0, 0.1], math.inf)
