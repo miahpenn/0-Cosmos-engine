@@ -1,0 +1,114 @@
+name: CMC joint target/lapse frozen-state audit
+
+on:
+  push:
+    branches:
+      - diag/cmc-lapse-joint-target-2026-10-13
+    paths:
+      - tools/audit_cmc_lapse_joint_target.py
+      - tests/test_cmc_lapse_joint_target_audit.py
+      - .github/workflows/cmc-lapse-joint-target-audit.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: cmc-lapse-joint-target-2026-10-13
+  cancel-in-progress: false
+
+jobs:
+  frozen-joint-target:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      PYTHONUNBUFFERED: "1"
+      BASE_MAIN_COMMIT: "c01f2467347e8aebd57d220374fd7bc4e93045bc"
+      PARENT_AUDIT_HEAD: "2400937f913a98723d93afe95a08c3293241d918"
+      VENDOR_COMMIT: "d6052d605673ce9d82cdc99b0df79855fa2ea215"
+      INPUT_REPLAY_RUN_ID: "38337821862"
+      INPUT_REPLAY_HEAD: "a854c3d6eafde1a1bae8066b7cc212bac7511ffd"
+      CMC_BLOB: "b1e6b3e95ff37702509e1b38ec6401d10e2482c3"
+    steps:
+      - name: Checkout diagnostic branch and pinned vendor
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Prove exact source scope and provenance
+        shell: bash
+        run: |
+          set -euo pipefail
+          git cat-file -e "$BASE_MAIN_COMMIT^{commit}"
+          git cat-file -e "$PARENT_AUDIT_HEAD^{commit}"
+
+          parent_delta="$(git diff --name-only "$BASE_MAIN_COMMIT" "$PARENT_AUDIT_HEAD" | sort)"
+          expected_parent_delta="$(printf '%s\n' \
+            '.github/workflows/cmc-lapse-fixed-point-audit.yml' \
+            'tests/test_cmc_lapse_fixed_point_audit.py' \
+            'tools/audit_cmc_lapse_fixed_point.py' \
+            'tools/audit_cmc_lapse_row_counterfactual.py' | sort)"
+          if [ "$parent_delta" != "$expected_parent_delta" ]; then
+            printf 'Unexpected parent diagnostic delta from pinned main:\n%s\n' "$parent_delta"
+            exit 1
+          fi
+
+          own_delta="$(git diff --name-only "$PARENT_AUDIT_HEAD" HEAD | sort)"
+          expected_own_delta="$(printf '%s\n' \
+            '.github/workflows/cmc-lapse-joint-target-audit.yml' \
+            'tests/test_cmc_lapse_joint_target_audit.py' \
+            'tools/audit_cmc_lapse_joint_target.py' | sort)"
+          if [ "$own_delta" != "$expected_own_delta" ]; then
+            printf 'Unexpected joint-counterfactual delta:\n%s\n' "$own_delta"
+            exit 1
+          fi
+
+          git diff --quiet "$BASE_MAIN_COMMIT" HEAD -- engine vendor requirements.txt .gitmodules
+          actual_vendor="$(git rev-parse HEAD:vendor/bb-palatini-unified-r0)"
+          test "$actual_vendor" = "$VENDOR_COMMIT"
+          actual_cmc_blob="$(git rev-parse "$BASE_MAIN_COMMIT:engine/cmc_gauge.py")"
+          test "$actual_cmc_blob" = "$CMC_BLOB"
+          printf 'Pinned main: %s\nParent CMC audit: %s\nJoint audit HEAD: %s\nCMC blob: %s\nVendor: %s\n' \
+            "$BASE_MAIN_COMMIT" "$PARENT_AUDIT_HEAD" "$GITHUB_SHA" "$actual_cmc_blob" "$actual_vendor"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install repository dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+
+      - name: Compile observer and run full repository tests
+        run: |
+          python -m py_compile tools/audit_cmc_lapse_joint_target.py
+          python -m pytest -q
+
+      - name: Download exact archived frozen-state replay artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: current-main-radiation-frozen-state-replay
+          repository: ${{ github.repository }}
+          run-id: 38337821862
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: runs/source-artifact
+
+      - name: Run no-evolution joint K-target/lapse counterfactual
+        run: |
+          mkdir -p artifacts/cmc-joint-target-lapse
+          python tools/audit_cmc_lapse_joint_target.py \
+            --input-dir runs/source-artifact \
+            --output-dir artifacts/cmc-joint-target-lapse
+
+      - name: Upload strict report and full signed profiles
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cmc-joint-target-lapse-counterfactual
+          path: artifacts/cmc-joint-target-lapse/
+          if-no-files-found: warn
+          retention-days: 90
