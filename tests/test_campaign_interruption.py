@@ -226,3 +226,49 @@ def test_post_replace_checkpoint_interruption_counts_complete_artifact(
         assert float(saved["t"]) == pytest.approx(0.03)
     assert list(run_dir.glob(".checkpoint_t*")) == []
 
+
+def test_pre_replace_interruption_does_not_count_stale_same_time_checkpoint(
+    tmp_path, monkeypatch
+):
+    kernel = V55ProductionKernel()
+    run_dir = tmp_path / "N40"
+    run_dir.mkdir(parents=True)
+    checkpoint_path = run_dir / f"checkpoint_t{0.03:012.6f}.npz"
+    # A previous run left a checkpoint with the same time but different state.
+    atomic_io.atomic_savez_compressed(
+        checkpoint_path,
+        t=np.asarray(0.03),
+        a=np.asarray([987.0]),
+    )
+
+    def interrupt_npz_write(path, **arrays):
+        # This exception fires before os.replace(); the old canonical file must
+        # survive, but it must not be credited as a checkpoint from this run.
+        Path(path).write_bytes(b"partial new checkpoint")
+        raise KeyboardInterrupt("injected pre-replace interruption")
+
+    monkeypatch.setattr(atomic_io.np, "savez_compressed", interrupt_npz_write)
+
+    with pytest.raises(KeyboardInterrupt, match="pre-replace interruption"):
+        runner.run_campaign(
+            kernel=kernel,
+            config=_config(
+                tmp_path,
+                resolutions=(40,),
+                final_time=0.06,
+                checkpoint_interval=0.03,
+            ),
+        )
+
+    summary = _strict_json(tmp_path / "campaign_summary.json")
+    ledger = _strict_json(tmp_path / "N40" / "ledgers.json")
+    assert summary["admission"]["passed"] is False
+    assert summary["results"][0]["status"] == "interrupted:checkpoint"
+    assert summary["results"][0]["t_final"] == pytest.approx(0.03)
+    assert summary["results"][0]["checkpoint_count"] == 0
+    assert ledger["result"]["checkpoint_count"] == 0
+    with np.load(checkpoint_path, allow_pickle=False) as previous:
+        assert float(previous["t"]) == pytest.approx(0.03)
+        assert previous["a"].tolist() == [987.0]
+    assert list(run_dir.glob(".checkpoint_t*")) == []
+
