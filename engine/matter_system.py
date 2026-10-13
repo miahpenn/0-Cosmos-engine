@@ -5,6 +5,7 @@ radial momentum (sqrt(gamma)*D, sqrt(gamma)*E, sqrt(gamma)*S_r). It is not the
 separate mixed-component representation returned by valencia.primitive_to_conserved.
 
 For the locked dark-matter covector Q_nu = beta_DM*rho_DM*d_nu(phi), project
+See `docs/SCALAR_DM_EXCHANGE_DERIVATION_2026-10-13.md` for the independent covariant-to-Eulerian projection and the remaining action/parameter-origin limitation.
 the recipient into this active state as:
     q_D = -alpha*sqrt(gamma)*beta_DM*rho_DM*W*(Pi + v^r*d_r(phi))
     q_E = -sqrt(gamma)*(Q_t - beta^r*Q_r)
