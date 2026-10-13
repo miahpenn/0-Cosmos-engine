@@ -61,6 +61,138 @@ def cone_margin(state) -> np.ndarray:
     return energy - np.sqrt(inverse_metric) * np.abs(momentum)
 
 
+def operation_order_audit(
+    state,
+    vacuum,
+    alpha: np.ndarray,
+    direct_rhs: np.ndarray,
+    matrix: np.ndarray,
+    intercept: np.ndarray,
+) -> tuple[dict, dict]:
+    """Compare pinned production K RHS to direct, CMC-grouped, and dense forms."""
+    grid = state.grid
+    geom = state.geometry
+    r = np.asarray(grid.centers, dtype=float)
+    a = np.asarray(geom.a, dtype=float)
+    b = np.asarray(geom.b, dtype=float)
+    X = np.asarray(geom.X, dtype=float)
+    alpha = np.asarray(alpha, dtype=float)
+    inv = X * X / a
+
+    # Reproduce the exact operation order inside pinned vendor geometry_terms().
+    ap = grid.cell_derivative_fourth(a, parity=1)
+    bp = grid.cell_derivative_fourth(b, parity=1)
+    Xp = grid.cell_derivative_fourth(X, parity=1)
+    chip = -0.5 * grid.cell_derivative_fourth(X, parity=1) / X
+    alphap = grid.cell_derivative_fourth(alpha, parity=1)
+    alphapp = grid.cell_second_derivative_fourth(alpha, parity=1)
+    vendor_coefficient = (
+        0.5 * ap / a - bp / b - 2.0 * chip - 2.0 / r
+    )
+    vendor_lap_rebuilt = inv * (alphapp - alphap * vendor_coefficient)
+
+    # Reproduce the coefficient form used by engine/cmc_gauge.py.
+    cmc_c = -0.5 * ap / a + bp / b - Xp / X + 2.0 / r
+    cmc_lap_rebuilt = inv * (alphapp + cmc_c * alphap)
+
+    geometry_terms = vacuum.geometry_terms(grid, geom)
+    vendor_lap_direct = np.asarray(geometry_terms["lap_alpha"], dtype=float)
+    l3_total = np.asarray(
+        adapter.primary_l3_with_matter(
+            grid, geom, state.scalars, state.matter
+        )["K"],
+        dtype=float,
+    )
+    l2_direct = np.asarray(vacuum.primary_l2_rhs(grid, geom)["K"], dtype=float)
+    production_components_rhs = l2_direct + l3_total
+    exact_order_rhs = -vendor_lap_rebuilt + l3_total
+    cmc_coefficient_rhs = -cmc_lap_rebuilt + l3_total
+    dense_affine_rhs = matrix @ alpha + intercept
+
+    term_scale_lap = (
+        np.abs(inv * alphapp)
+        + np.abs(inv * alphap * vendor_coefficient)
+        + np.abs(vendor_lap_direct)
+        + np.abs(cmc_lap_rebuilt)
+    )
+    term_scale_rhs = (
+        np.abs(direct_rhs)
+        + np.abs(vendor_lap_direct)
+        + np.abs(l3_total)
+        + np.abs(dense_affine_rhs)
+        + np.abs(intercept)
+    )
+    eps = np.finfo(np.float64).eps
+
+    def diff_stats(values: np.ndarray, scale: np.ndarray) -> dict:
+        values = np.asarray(values, dtype=float)
+        scale = np.asarray(scale, dtype=float)
+        interior = values[1:-1]
+        interior_scale = np.maximum(scale[1:-1], np.finfo(float).tiny)
+        index = int(np.argmax(np.abs(interior))) + 1
+        with np.errstate(over="ignore", invalid="ignore", divide="ignore"):
+            eps_ratio = np.abs(interior) / (eps * interior_scale)
+        return {
+            "max_abs_full_grid": float(np.max(np.abs(values))),
+            "max_abs_interior_i1_to_iNminus2": float(np.max(np.abs(interior))),
+            "rms_interior": float(np.sqrt(np.mean(interior**2))),
+            "interior_max_signed": float(values[index]),
+            "interior_max_cell": index,
+            "interior_max_radius": float(r[index]),
+            "interior_max_in_machine_eps_times_operand_scale": float(np.max(eps_ratio)),
+            "center_cell_signed": float(values[0]),
+            "outer_cell_signed": float(values[-1]),
+        }
+
+    differences = {
+        "vendor_geometry_lap_minus_exact_order_rebuild": vendor_lap_direct - vendor_lap_rebuilt,
+        "vendor_geometry_lap_minus_cmc_coefficient_lap": vendor_lap_direct - cmc_lap_rebuilt,
+        "production_rhs_minus_exact_order_rebuild": np.asarray(direct_rhs) - exact_order_rhs,
+        "production_rhs_minus_cmc_coefficient_rebuild": np.asarray(direct_rhs) - cmc_coefficient_rhs,
+        "production_rhs_minus_component_reassembly": np.asarray(direct_rhs) - production_components_rhs,
+        "production_rhs_minus_dense_affine": np.asarray(direct_rhs) - dense_affine_rhs,
+    }
+    scales = {
+        "vendor_geometry_lap_minus_exact_order_rebuild": term_scale_lap,
+        "vendor_geometry_lap_minus_cmc_coefficient_lap": term_scale_lap,
+        "production_rhs_minus_exact_order_rebuild": term_scale_rhs,
+        "production_rhs_minus_cmc_coefficient_rebuild": term_scale_rhs,
+        "production_rhs_minus_component_reassembly": term_scale_rhs,
+        "production_rhs_minus_dense_affine": term_scale_rhs,
+    }
+    stats = {
+        "vendor_source_expression": (
+            "inv*(alpha_pp - alpha_p*(0.5*ap/a - bp/b - 2*chip - 2/r)); "
+            "chip=-0.5*X_p/X; uses the pinned vendor grouping"
+        ),
+        "cmc_coefficient_expression": (
+            "inv*(alpha_pp + c_cmc*alpha_p); "
+            "c_cmc=-0.5*ap/a + bp/b - X_p/X + 2/r"
+        ),
+        "operator_difference_profiles": {
+            key: diff_stats(values, scales[key])
+            for key, values in differences.items()
+        },
+        "production_l2_equals_negative_vendor_lap_max_abs": float(
+            np.max(np.abs(l2_direct + vendor_lap_direct))
+        ),
+        "production_rhs_equals_l2_plus_l3_max_abs": float(
+            np.max(np.abs(np.asarray(direct_rhs) - production_components_rhs))
+        ),
+        "dense_affine_intercept_is_reference_state_offset": True,
+        "bounds_are_diagnostic_only_not_admission_changes": True,
+    }
+    arrays = {
+        f"operator_order__{key}": value
+        for key, value in differences.items()
+    }
+    arrays["operator_order__vendor_lap_direct"] = vendor_lap_direct
+    arrays["operator_order__vendor_lap_exact_order"] = vendor_lap_rebuilt
+    arrays["operator_order__cmc_lap_coefficient_form"] = cmc_lap_rebuilt
+    arrays["operator_order__dense_affine_rhs"] = dense_affine_rhs
+    return stats, arrays
+
+
 def solve_joint_target_lapse_high_precision(
     matrix: np.ndarray,
     intercept: np.ndarray,
@@ -289,6 +421,9 @@ def solve_resolution(resolution: int, vacuum) -> tuple[dict, dict]:
             state.grid, state.geometry, state.scalars, state.matter, vacuum
         )[0]
         predicted_rhs = matrix @ alpha + intercept
+        operation_order_stats, operation_order_arrays = operation_order_audit(
+            state, vacuum, alpha, direct_rhs, matrix, intercept
+        )
         rhs_error = direct_rhs - predicted_rhs
         rhs_scale = (
             np.abs(direct_rhs)
@@ -360,11 +495,13 @@ def solve_resolution(resolution: int, vacuum) -> tuple[dict, dict]:
                 np.max(rhs_ratio)
             ),
             "direct_rhs_reconstruction_passed": direct_rhs_passed,
+            "production_operation_order_audit": operation_order_stats,
         }
         arrays = {
             "alpha": alpha,
             "rhs": direct_rhs,
             "rhs_residual": residual,
+            **operation_order_arrays,
         }
         return metrics, arrays
 
@@ -576,6 +713,17 @@ def solve_resolution(resolution: int, vacuum) -> tuple[dict, dict]:
         ),
         f"N{resolution}__proper_volume_weights": weights,
     }
+    for method, candidate_arrays in (
+        ("unscaled", unscaled_arrays),
+        ("equilibrated", balanced_arrays),
+        ("high_precision", high_precision_arrays),
+        ("high_precision_refined", high_precision_refined_arrays),
+    ):
+        if candidate_arrays is None:
+            continue
+        for key, values in candidate_arrays.items():
+            if key.startswith("operator_order__"):
+                profiles[f"N{resolution}__{key}__{method}"] = values
     return row, profiles
 
 def run_resolution_audit(output_dir: Path) -> dict:
