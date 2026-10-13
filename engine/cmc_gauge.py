@@ -20,6 +20,49 @@ def _d1(grid, values, parity):
     return grid.cell_derivative_fourth(values, parity=parity)
 
 
+def _proper_volume_weights(grid, geometry) -> tuple[np.ndarray, float]:
+    """Return validated spherical proper-volume weights and their finite sum.
+
+    The production convention is sqrt(gamma) = r**2*sqrt(a)*b/X**3.
+    Invalid metric coefficients are rejected; they are never projected through
+    a floor because that would silently change the spatial measure.
+    """
+    r = np.asarray(grid.centers, dtype=float)
+    a = np.asarray(geometry.a, dtype=float)
+    b = np.asarray(geometry.b, dtype=float)
+    X = np.asarray(geometry.X, dtype=float)
+    dr = float(grid.dr)
+
+    if r.ndim != 1 or r.size == 0:
+        raise ValueError("CMC radial centres must be a non-empty one-dimensional array")
+    if a.shape != r.shape or b.shape != r.shape or X.shape != r.shape:
+        raise ValueError("CMC metric arrays must match the radial-centre shape")
+    if not math.isfinite(dr) or dr <= 0.0:
+        raise FloatingPointError("CMC radial spacing must be finite and positive")
+    if not np.all(np.isfinite(r)) or np.any(r <= 0.0):
+        raise FloatingPointError("CMC radial centres must be finite and positive")
+    for name, values in (("a", a), ("b", b), ("X", X)):
+        if not np.all(np.isfinite(values)) or np.any(values <= 0.0):
+            raise FloatingPointError(
+                f"CMC proper-volume metric component {name} must be finite and positive"
+            )
+
+    # Derived values can overflow even when all inputs are individually finite.
+    # Suppress only NumPy warnings here; the following contract rejects bad
+    # results explicitly instead of replacing them with a floor or clamp.
+    with np.errstate(over="ignore", divide="ignore", invalid="ignore"):
+        weights = r**2 * np.sqrt(a) * b / X**3
+        weights = weights * dr
+        total_weight = float(np.sum(weights))
+    if not np.all(np.isfinite(weights)) or np.any(weights <= 0.0):
+        raise FloatingPointError(
+            "CMC proper-volume projection has non-finite or nonpositive cell weight"
+        )
+    if not math.isfinite(total_weight) or total_weight <= 0.0:
+        raise FloatingPointError("CMC proper-volume projection has invalid total weight")
+    return weights, total_weight
+
+
 def target_kdot(grid, geometry, scalars, matter, outer_frac: float = 0.20) -> float:
     """Project the actual K RHS onto the CMC mode using proper 3-volume.
 
@@ -29,24 +72,26 @@ def target_kdot(grid, geometry, scalars, matter, outer_frac: float = 0.20) -> fl
     to the current spatial slice.
     """
     del outer_frac
+    # Validate the measure before any geometry/RHS consumer can observe an
+    # invalid spatial metric.
+    weights, total_weight = _proper_volume_weights(grid, geometry)
+
     _, vacuum, _ = adapter.vendor_modules()
     l2 = vacuum.primary_l2_rhs(grid, geometry)
     l3 = adapter.primary_l3_with_matter(grid, geometry, scalars, matter)
     raw = np.asarray(l2["K"] + l3["K"], dtype=float)
+    if raw.shape != weights.shape or not np.all(np.isfinite(raw)):
+        raise FloatingPointError(
+            "CMC proper-volume projection has a non-finite or mismatched K RHS"
+        )
 
-    r = np.asarray(grid.centers)
-    a = np.asarray(geometry.a)
-    b = np.asarray(geometry.b)
-    X = np.asarray(geometry.X)
-
-    # sqrt(gamma) d^3x for the spherical BSSN slice, up to the common 4*pi
-    # factor which cancels in the normalized projection.
-    weights = r**2 * np.sqrt(np.maximum(a, 0.0)) * b / X**3
-    weights *= float(grid.dr)
-    total_weight = float(np.sum(weights))
-    if not np.isfinite(total_weight) or total_weight <= 0.0:
-        raise FloatingPointError("CMC proper-volume projection has invalid weight")
-    return float(np.sum(weights * raw) / total_weight)
+    with np.errstate(over="ignore", invalid="ignore"):
+        weighted_rhs = weights * raw
+        numerator = float(np.sum(weighted_rhs))
+        projected_kdot = numerator / total_weight
+    if not np.all(np.isfinite(weighted_rhs)) or not math.isfinite(projected_kdot):
+        raise FloatingPointError("CMC proper-volume projection produced a non-finite result")
+    return float(projected_kdot)
 
 
 def solve_cmc_lapse(
