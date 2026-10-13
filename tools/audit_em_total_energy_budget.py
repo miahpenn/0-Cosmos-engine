@@ -248,7 +248,70 @@ def _stress_projection(kernel, state):
     )
 
 
-def _worldtube_sample(kernel, state) -> dict:
+def _misner_sharp_chain_rule_rate_profiles(
+    R, Rdot, Rr, Rdot_r, gamma_inv, gamma_inv_dot, Ktheta, Ktheta_dot
+) -> dict[str, np.ndarray]:
+    """Differentiate M_MS=R(1-chi)/2 at fixed coordinate from semidiscrete RHS.
+
+    With chi = gamma^{rr} (D_r R)^2 - (R Ktheta)^2, the derivative uses
+    the supplied live-stage rates for R, D_r R, gamma^{rr}, and Ktheta.
+    The fixed-areal-radius tube sweep is applied separately by the caller.
+    """
+    raw = {
+        "R": R,
+        "Rdot": Rdot,
+        "Rr": Rr,
+        "Rdot_r": Rdot_r,
+        "gamma_inv": gamma_inv,
+        "gamma_inv_dot": gamma_inv_dot,
+        "Ktheta": Ktheta,
+        "Ktheta_dot": Ktheta_dot,
+    }
+    arrays = {name: np.asarray(value, dtype=float) for name, value in raw.items()}
+    first = arrays["R"]
+    if first.ndim != 1 or first.size == 0:
+        raise RuntimeError("Misner-Sharp chain-rule R must be a nonempty 1-D array")
+    for name, value in arrays.items():
+        if value.shape != first.shape:
+            raise RuntimeError(
+                f"Misner-Sharp chain-rule {name} shape {value.shape} does not match {first.shape}"
+            )
+        if not np.all(np.isfinite(value)):
+            raise RuntimeError(f"Misner-Sharp chain-rule {name} contains non-finite values")
+
+    R = arrays["R"]
+    Rdot = arrays["Rdot"]
+    Rr = arrays["Rr"]
+    Rdot_r = arrays["Rdot_r"]
+    gamma_inv = arrays["gamma_inv"]
+    gamma_inv_dot = arrays["gamma_inv_dot"]
+    Ktheta = arrays["Ktheta"]
+    Ktheta_dot = arrays["Ktheta_dot"]
+
+    normal_dR = R * Ktheta
+    normal_dR_dot = Rdot * Ktheta + R * Ktheta_dot
+    chi = gamma_inv * Rr**2 - normal_dR**2
+    chi_dot = (
+        gamma_inv_dot * Rr**2
+        + 2.0 * gamma_inv * Rr * Rdot_r
+        - 2.0 * normal_dR * normal_dR_dot
+    )
+    mass = 0.5 * R * (1.0 - chi)
+    mass_dot_coordinate = 0.5 * (
+        Rdot * (1.0 - chi) - R * chi_dot
+    )
+    outputs = {
+        "chi": chi,
+        "chi_dot": chi_dot,
+        "mass": mass,
+        "mass_dot_coordinate": mass_dot_coordinate,
+    }
+    if not all(np.all(np.isfinite(value)) for value in outputs.values()):
+        raise RuntimeError("Misner-Sharp chain-rule evaluation produced non-finite output")
+    return outputs
+
+
+def _worldtube_sample(kernel, state, *, geometry_stage_capture=None) -> dict:
     """Evaluate native MS and EM-inclusive stress/flux/work on R=10."""
     grid, geom = state.grid, state.geometry
     R = np.asarray(areal_radius(grid, geom), dtype=float)
@@ -259,12 +322,15 @@ def _worldtube_sample(kernel, state) -> dict:
     mass = np.asarray(misner_sharp(grid, geom), dtype=float)
     Mr = np.asarray(grid.cell_derivative_fourth(mass, parity=-1), dtype=float)
 
-    _, _, moving = adapter.vendor_modules()
-    explicit = moving.moving_puncture_explicit_rhs(grid, geom)
-    Rdot = R * (
-        0.5 * np.asarray(explicit["b"], dtype=float) / geom.b
-        - np.asarray(explicit["X"], dtype=float) / geom.X
-    )
+    if geometry_stage_capture is None:
+        _, _, moving = adapter.vendor_modules()
+        explicit = moving.moving_puncture_explicit_rhs(grid, geom)
+    else:
+        explicit = geometry_stage_capture["explicit"]
+    a_dot = np.asarray(explicit["a"], dtype=float)
+    b_dot = np.asarray(explicit["b"], dtype=float)
+    X_dot = np.asarray(explicit["X"], dtype=float)
+    Rdot = R * (0.5 * b_dot / geom.b - X_dot / geom.X)
 
     total = _stress_projection(kernel, state)
     gamma_rr_inv = geom.X**2 / geom.a
@@ -296,6 +362,51 @@ def _worldtube_sample(kernel, state) -> dict:
         rho_tube * Rr_tube + j_tube * Rdot_tube / alpha_tube
     )
     mass_gradient_residual = Mr_tube - mass_gradient_rhs
+
+    chain_rule = None
+    if geometry_stage_capture is not None:
+        split = geometry_stage_capture
+        Aa_dot = (
+            np.asarray(split["primary_l2"]["Aa"], dtype=float)
+            + np.asarray(split["primary_l3"]["Aa"], dtype=float)
+        )
+        K_dot = (
+            np.asarray(split["primary_l2"]["K"], dtype=float)
+            + np.asarray(split["primary_l3"]["K"], dtype=float)
+        )
+        gamma_inv_dot = gamma_rr_inv * (
+            2.0 * X_dot / geom.X - a_dot / geom.a
+        )
+        Ktheta = geom.K / 3.0 - geom.Aa / 2.0
+        Ktheta_dot = K_dot / 3.0 - Aa_dot / 2.0
+        Rdot_r = np.asarray(
+            grid.cell_derivative_fourth(Rdot, parity=-1), dtype=float
+        )
+        chain_profiles = _misner_sharp_chain_rule_rate_profiles(
+            R, Rdot, Rr, Rdot_r, gamma_rr_inv, gamma_inv_dot,
+            Ktheta, Ktheta_dot,
+        )
+        chain_Mr = np.asarray(
+            grid.cell_derivative_fourth(chain_profiles["mass"], parity=-1),
+            dtype=float,
+        )
+        chain_Mdot_coord = at(chain_profiles["mass_dot_coordinate"])
+        chain_Mr_tube = at(chain_Mr)
+        chain_sweep = chain_Mr_tube * tube_speed
+        chain_Mdot_fixed_R = chain_Mdot_coord + chain_sweep
+        chain_coordinate_residual = chain_Mdot_coord - (stress_flux + pressure_work)
+        chain_fixed_R_residual = chain_Mdot_fixed_R - predicted_fixed_R_rate
+        chain_rule = {
+            "tube_chain_rule_chi_dot_absmax": float(np.max(np.abs(chain_profiles["chi_dot"]))),
+            "tube_chain_rule_mass_dot_coordinate": chain_Mdot_coord,
+            "tube_chain_rule_mass_gradient": chain_Mr_tube,
+            "tube_chain_rule_fixed_R_sweep": chain_sweep,
+            "tube_chain_rule_mass_dot_fixed_R": chain_Mdot_fixed_R,
+            "tube_chain_rule_coordinate_rate_minus_flux_pressure": chain_coordinate_residual,
+            "tube_chain_rule_fixed_R_residual": chain_fixed_R_residual,
+            "tube_chain_rule_gamma_inv_dot_absmax": float(np.max(np.abs(gamma_inv_dot))),
+            "tube_chain_rule_Ktheta_dot_absmax": float(np.max(np.abs(Ktheta_dot))),
+        }
 
     em_rho = total.electromagnetic_rho
     em_rho_absmax = (
@@ -366,6 +477,7 @@ def _worldtube_sample(kernel, state) -> dict:
         "tube_predicted_fixed_R_mass_rate": predicted_fixed_R_rate,
         "tube_native_mass_gradient_identity_rhs": mass_gradient_rhs,
         "tube_native_mass_gradient_identity_residual": mass_gradient_residual,
+        **(chain_rule or {}),
         "constraint_witnesses": constraint_witnesses,
     }
 
@@ -380,6 +492,11 @@ def _fixed_R_rate_snapshot(sample: dict) -> dict:
         "tube_coordinate_sweep",
         "tube_predicted_fixed_R_mass_rate",
         "tube_native_mass_gradient_identity_residual",
+        "tube_chain_rule_mass_dot_coordinate",
+        "tube_chain_rule_mass_dot_fixed_R",
+        "tube_chain_rule_coordinate_rate_minus_flux_pressure",
+        "tube_chain_rule_fixed_R_residual",
+        "tube_chain_rule_fixed_R_sweep",
     )
     return {"t": float(sample["t"]), **{key: float(sample[key]) for key in keys}}
 
@@ -524,11 +641,19 @@ class AuditedKernel(V55ProductionKernel):
             self._active_step["geometry_stages"].append({
                 "geometry": {
                     name: _array(getattr(geometry, name))
-                    for name in ("a", "b", "X", "alpha", "beta")
+                    for name in ("a", "b", "X", "alpha", "beta", "Aa", "K")
                 },
                 "explicit": {
                     name: _array(result["explicit"][name])
                     for name in ("a", "b", "X")
+                },
+                "primary_l2": {
+                    name: _array(result["primary_l2"][name])
+                    for name in ("Aa", "K")
+                },
+                "primary_l3": {
+                    name: _array(result["primary_l3"][name])
+                    for name in ("Aa", "K")
                 },
             })
         return result
@@ -707,8 +832,12 @@ def _serialize_step(kernel, step: dict) -> dict:
     dt = float(step["dt"])
     # Preserve rates evaluated on the actual stage states, not only accepted slices.
     fixed_R_stage_rates = {
-        "start": _fixed_R_rate_snapshot(_worldtube_sample(kernel, stages[0]["stage_state"])),
-        "primary_predictor": _fixed_R_rate_snapshot(_worldtube_sample(kernel, stages[1]["stage_state"])),
+        "start": _fixed_R_rate_snapshot(_worldtube_sample(
+            kernel, stages[0]["stage_state"], geometry_stage_capture=geometry_stages[0]
+        )),
+        "primary_predictor": _fixed_R_rate_snapshot(_worldtube_sample(
+            kernel, stages[1]["stage_state"], geometry_stage_capture=geometry_stages[2]
+        )),
     }
     matter_before = _state_energy_integrals(before)
     matter_after = _state_energy_integrals(after)
