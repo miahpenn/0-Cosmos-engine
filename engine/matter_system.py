@@ -23,6 +23,7 @@ from enum import Enum
 import math
 import numpy as np
 
+from .radiation_contract import RadiationAdmissibilityError
 from .valencia import (
     FluidConserved,
     FluidPrimitive,
@@ -42,10 +43,6 @@ class Species(str, Enum):
     DARK_MATTER = "dark_matter"
     BARYON = "baryon"
     RADIATION = "radiation"
-
-
-class RadiationAdmissibilityError(ValueError):
-    """A real radiation state violates the conservative E >= |S| cone."""
 
 
 
@@ -164,18 +161,24 @@ def validate_species_admissibility(
         (~np.isfinite(energy))
         | (~np.isfinite(abs_momentum))
         | (energy < 0.0)
-        | (abs_momentum > energy)
+        # For nonzero flux, equality is the null/cone boundary with v^2=1
+        # at zero pressure; the radiation primitive inversion has no finite
+        # solution there. The exact zero-flux branch remains separately valid.
+        | ((abs_momentum >= energy) & (abs_momentum > 0.0))
     )[0]
     if bad.size:
         i = int(bad[0])
         ratio = abs_momentum[i] / max(abs(energy[i]), 1.0e-300)
+        retryable = stage in {"explicit-predictor", "primary-predictor", "final"}
         raise RadiationAdmissibilityError(
             f"radiation state inadmissible at stage={stage!r}, cell i={i}: "
+            f"requires E > |S| for nonzero flux; "
             f"E={energy[i]:.17e}, |S|={abs_momentum[i]:.17e}, "
             f"ratio={ratio:.17e}, "
             f"conserved(rest,energy_t,momentum_r)="
             f"({state.rest[i]:.17e},{state.energy_t[i]:.17e},"
-            f"{state.momentum_r[i]:.17e})"
+            f"{state.momentum_r[i]:.17e})",
+            retryable=retryable,
         )
 
 
