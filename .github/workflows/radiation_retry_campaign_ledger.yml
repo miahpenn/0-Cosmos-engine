@@ -1,0 +1,107 @@
+name: Radiation campaign retry-ledger verification
+
+on:
+  push:
+    branches:
+      - diag/radiation-retry-campaign-ledger-2026-10-13
+    paths:
+      - tools/audit_radiation_retry_campaign_ledger.py
+      - .github/workflows/radiation_retry_campaign_ledger.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: radiation-retry-campaign-ledger-2026-10-13
+  cancel-in-progress: false
+
+jobs:
+  campaign-retry-ledger:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout adaptive candidate and exact vendor
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Fail closed on source scope and vendor identity
+        env:
+          SOURCE_BASE_COMMIT: "cdcec8282bff0443f2fe4674b15929822ff38736"
+          VENDOR_COMMIT: "d6052d605673ce9d82cdc99b0df79855fa2ea215"
+        run: |
+          git fetch --no-tags origin "$SOURCE_BASE_COMMIT"
+          python - <<'PY'
+          import subprocess
+          import os
+          changed = set(subprocess.check_output(
+              ["git", "diff", "--name-only", os.environ["SOURCE_BASE_COMMIT"], "HEAD"],
+              text=True,
+          ).splitlines())
+          allowed = {
+              ".github/workflows/radiation_adaptive_step_gate.yml",
+              ".github/workflows/radiation_frozen_state_real_retry.yml",
+              "engine/adaptive_step.py",
+              "engine/matter_system.py",
+              "engine/run_production.py",
+              "tests/test_adaptive_step_retry.py",
+              "tests/test_radiation_rhs_admissibility_contract.py",
+              "tools/audit_radiation_frozen_state_real_retry.py",
+              "tools/audit_radiation_retry_campaign_ledger.py",
+              ".github/workflows/radiation_retry_campaign_ledger.yml",
+          }
+          unexpected = sorted(changed - allowed)
+          if unexpected:
+              raise SystemExit("Unexpected source paths: " + ", ".join(unexpected))
+          print("Changed paths allowed:", ", ".join(sorted(changed)))
+          PY
+          actual_vendor="$(git rev-parse HEAD:vendor/bb-palatini-unified-r0)"
+          test "$actual_vendor" = "$VENDOR_COMMIT"
+          printf 'Source base: %s\nVendor: %s\n' "$SOURCE_BASE_COMMIT" "$actual_vendor"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install pinned-source dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Compile bounded ledger gate
+        run: |
+          python -m py_compile tools/audit_radiation_frozen_state_real_retry.py
+          python -m py_compile tools/audit_radiation_retry_campaign_ledger.py
+
+      - name: Full repository regression suite
+        run: python -m pytest -q
+
+      - name: Download exact frozen accepted state (no trajectory replay)
+        uses: actions/download-artifact@v4
+        with:
+          name: boundary-cmc-radiation-audit
+          path: runs/source-artifact
+          repository: ${{ github.repository }}
+          run-id: 38322337250
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Verify accepted-state provenance and checksum
+        run: |
+          echo 'ccd1fa0fbabe65c51c3dd7ac2c9227d6d25aa680c169eef1afd3fca4326294cf  runs/source-artifact/boundary_failure_accepted_state.npz' | sha256sum -c -
+          grep -q '"rate_fix_source_commit": "cdcec8282bff0443f2fe4674b15929822ff38736"' runs/source-artifact/boundary_failure_accepted_state.json
+          grep -q '"pinned_vendor_commit": "d6052d605673ce9d82cdc99b0df79855fa2ea215"' runs/source-artifact/boundary_failure_accepted_state.json
+
+      - name: Exercise campaign runner and verify persisted retry ledger
+        run: PYTHONPATH=. python tools/audit_radiation_retry_campaign_ledger.py --input-dir runs/source-artifact
+
+      - name: Upload ledger report and checksums even on failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: radiation-retry-campaign-ledger
+          path: artifacts/radiation-retry-campaign-ledger/
+          if-no-files-found: warn
+          retention-days: 90
