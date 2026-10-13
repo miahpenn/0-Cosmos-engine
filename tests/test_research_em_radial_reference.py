@@ -3,7 +3,11 @@ import math
 
 import pytest
 
-from tools.research_em_radial_reference import RadialCoulombReference
+from engine.valencia import spherical_metric_from_bssn
+from tools.research_em_radial_reference import (
+    CurvedRadialCoulombReference,
+    RadialCoulombReference,
+)
 
 
 @pytest.fixture
@@ -130,3 +134,118 @@ def test_invalid_shell_order_and_nonfinite_field_fail_closed(reference):
         reference.gauss_shell_residual(1.0, 0.5, 0.0, 0.0)
     with pytest.raises(ValueError, match="E_outer"):
         reference.gauss_shell_residual(0.0, 1.0, 0.0, math.nan)
+
+
+
+@pytest.fixture
+def curved_reference():
+    # psi=1+eta*(r/R0)^2 gives a regular but nontrivial frozen metric.
+    return CurvedRadialCoulombReference(
+        rho0=0.75, source_radius=2.0, metric_strength=0.4
+    )
+
+
+def test_curved_metric_factors_match_production_bssn_mapping(curved_reference):
+    for r in (0.2, 0.74, 1.4, 3.0):
+        psi = curved_reference.conformal_factor(r)
+        metric = spherical_metric_from_bssn(
+            r=r, a=1.0, b=1.0, X=1.0 / psi, alpha=1.0, beta=0.0
+        )
+        assert metric.gamma_rr == pytest.approx(psi**2, rel=2.0e-15)
+        assert metric.gamma_thth == pytest.approx(
+            curved_reference.areal_radius(r) ** 2, rel=2.0e-15
+        )
+        assert metric.sqrt_gamma == pytest.approx(
+            curved_reference.sqrt_gamma(r), rel=2.0e-15
+        )
+
+
+def test_curved_gauss_flux_uses_areal_radius_and_proper_volume(curved_reference):
+    for r in (0.2, 0.6, 1.4, 2.8):
+        q = curved_reference.enclosed_charge(r)
+        field_hat = curved_reference.electric_field(r)
+        field_coordinate = curved_reference.coordinate_electric_field(r)
+        assert curved_reference.areal_radius(r) ** 2 * field_hat == pytest.approx(
+            q, rel=2.0e-15, abs=1.0e-14
+        )
+        assert curved_reference.sqrt_gamma(r) * field_coordinate == pytest.approx(
+            q, rel=2.0e-15, abs=1.0e-14
+        )
+
+
+def test_curved_differential_gauss_identity_includes_metric_volume(curved_reference):
+    r = 0.37 * curved_reference.source_radius
+    h = 1.0e-5 * curved_reference.source_radius
+    dQ_dr = (
+        curved_reference.enclosed_charge(r + h)
+        - curved_reference.enclosed_charge(r - h)
+    ) / (2.0 * h)
+    proper_volume_source = (
+        4.0
+        * math.pi
+        * curved_reference.charge_density(r)
+        * curved_reference.sqrt_gamma(r)
+    )
+    assert dQ_dr == pytest.approx(
+        proper_volume_source, rel=3.0e-9, abs=1.0e-12
+    )
+
+
+def test_curved_field_is_regular_at_center_and_coulomb_in_areal_radius(
+    curved_reference,
+):
+    r = 1.0e-5 * curved_reference.source_radius
+    expected_slope = 4.0 * math.pi * curved_reference.rho0 / 3.0
+    assert curved_reference.electric_field(0.0) == 0.0
+    assert curved_reference.electric_field(r) / r == pytest.approx(
+        expected_slope, rel=3.0e-10
+    )
+    for r_outer in (1.2 * curved_reference.source_radius, 3.0 * curved_reference.source_radius):
+        assert (
+            curved_reference.areal_radius(r_outer) ** 2
+            * curved_reference.electric_field(r_outer)
+        ) == pytest.approx(
+            curved_reference.total_charge, rel=2.0e-15, abs=1.0e-14
+        )
+
+
+def test_curved_finite_volume_gauss_residual_and_negative_control(
+    curved_reference,
+):
+    faces = (
+        0.0,
+        0.25 * curved_reference.source_radius,
+        0.5 * curved_reference.source_radius,
+        curved_reference.source_radius,
+        1.5 * curved_reference.source_radius,
+        3.0 * curved_reference.source_radius,
+    )
+    tolerance = 8.0e-14 * max(1.0, abs(curved_reference.total_charge))
+    for inner, outer in zip(faces, faces[1:]):
+        residual = curved_reference.gauss_shell_residual(
+            inner,
+            outer,
+            curved_reference.coordinate_electric_field(inner),
+            curved_reference.coordinate_electric_field(outer),
+        )
+        assert abs(residual) <= tolerance
+
+    inner = 0.25 * curved_reference.source_radius
+    outer = 0.5 * curved_reference.source_radius
+    residual = curved_reference.gauss_shell_residual(
+        inner,
+        outer,
+        curved_reference.coordinate_electric_field(inner),
+        curved_reference.coordinate_electric_field(outer) + 1.0e-5,
+    )
+    assert abs(residual) > 1.0e-6
+
+
+@pytest.mark.parametrize("metric_strength", [0.0, -0.1, math.nan, math.inf])
+def test_curved_reference_rejects_nonpositive_or_nonfinite_metric_strength(
+    metric_strength,
+):
+    with pytest.raises(ValueError):
+        CurvedRadialCoulombReference(
+            rho0=1.0, source_radius=1.0, metric_strength=metric_strength
+        )
