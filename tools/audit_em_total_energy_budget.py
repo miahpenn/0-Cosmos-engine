@@ -15,9 +15,17 @@ import json
 import math
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 
 import numpy as np
+
+# Running a file under tools/ places that directory first on sys.path. Add the
+# repository root explicitly so "python tools/audit_em_total_energy_budget.py"
+# resolves the in-tree engine package consistently in CI and locally.
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
 
 from engine import matter_rhs as matter_rhs_module
 from engine import v55_pirk_adapter as adapter
@@ -44,13 +52,20 @@ FIXED_AREAL_RADIUS = 10.0
 # review and a new exact-head result, never silently on a moving main branch.
 SOURCE_PINS = {
     "engine/campaign.py": "119942d9debf63b99997cda96c541754e7e8aded",
+    "engine/cmc_gauge.py": "7b49b5751abebd4faf0130208032cd2080b71f64",
+    "engine/cosmology_observables.py": "4d6f39308685bae5e5bad2e17baa9c4043b67b4e",
+    "engine/invariant_diagnostics.py": "4bbcc6174c978b07c4f2175d1dcfeccb2d0c12b1",
     "engine/matter_rhs.py": "f41180efbcff2c72cf36477a765318ab539fac80",
     "engine/matter_system.py": "05e23d2368120ea8a1a6aad3fa438625d5380750",
+    "engine/production_contract.py": "ef1606eb5a01e0f5906a42de77afd35d3b9fffed",
     "engine/production_kernel.py": "4e0bdccc2ac614c48c34521663a6d53b404b6747",
     "engine/radial_maxwell.py": "81269f1d1334c46c4c2f44ba816d792722c0a38e",
     "engine/run_production.py": "726f3fd09d46142862574d348aa0755f83bc0612",
+    "engine/scalar_system.py": "ffc119b1a6f2d495d972323901f76a85783b0a1b",
     "engine/stress_energy.py": "ac3e7518c62bb72e2218a61489fa486bb787809f",
+    "engine/v55_initial.py": "7db2e1a10cf16fb40e4221b0df504fdf39aae611",
     "engine/v55_matter.py": "acc8f8ceae28d82511c9a5ad9d2ca670e09fb0f7",
+    "engine/valencia.py": "03ed86398f424c03d9d6a3e646da9222a34fac5c",
     "engine/v55_pirk_adapter.py": "eeee0492d80889d70e52b0946563eee5054c0f11",
     "engine/worldtube.py": "aea19090cb0fd2ebe5481a8b7af0d26f119a9ad6",
 }
