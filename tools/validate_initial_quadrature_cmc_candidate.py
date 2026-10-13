@@ -57,6 +57,15 @@ def _finite_array(name, values):
     return arr
 
 
+def _determinant_constraint_summary(values):
+    """Summarize vendor determinant residuals, already defined as a*b**2 - 1."""
+    residual = _finite_array("determinant constraint", values)
+    return {
+        "determinant_minus_one": float(residual[0]),
+        "determinant_absmax": float(np.max(np.abs(residual))),
+    }
+
+
 def _summary(kernel, state):
     grid = state.grid
     geom = state.geometry
@@ -71,7 +80,7 @@ def _summary(kernel, state):
         "momentum", np.asarray(constraints["momentum"]) - 8.0 * math.pi * total.j
     )
     C = _finite_array("connection", constraints["connection"])
-    det = _finite_array("determinant", constraints["determinant"])
+    determinant_summary = _determinant_constraint_summary(constraints["determinant"])
 
     l2 = vacuum.primary_l2_rhs(grid, geom)
     l3 = adapter.primary_l3_with_matter(grid, geom, state.scalars, state.matter)
@@ -100,13 +109,13 @@ def _summary(kernel, state):
             "H": float(H[0]),
             "M": float(M[0]),
             "C_lambda": float(C[0]),
-            "determinant_minus_one": float(det[0] - 1.0),
+            "determinant_minus_one": determinant_summary["determinant_minus_one"],
         },
         "constraint_norms": {
             "H_full_absmax": float(np.max(np.abs(H))),
             "M_full_absmax": float(np.max(np.abs(M))),
             "C_lambda_full_absmax": float(np.max(np.abs(C))),
-            "determinant_absmax": float(np.max(np.abs(det - 1.0))),
+            "determinant_absmax": determinant_summary["determinant_absmax"],
             "K_rhs_minus_refreshed_target_max": float(np.max(np.abs(k_rhs[:-1] - k_target))),
             "cmc_residual_last_interior": float(diagnostics["cmc_residual_last_interior"]),
             "cmc_residual_penultimate_interior": float(diagnostics["cmc_residual_penultimate_interior"]),
