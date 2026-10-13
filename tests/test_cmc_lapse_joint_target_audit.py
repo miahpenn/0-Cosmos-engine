@@ -4,6 +4,7 @@ import pytest
 from tools.audit_cmc_lapse_joint_target import (
     solve_joint_target_lapse,
     solve_joint_target_lapse_equilibrated,
+    solve_joint_target_lapse_sparse,
 )
 
 
@@ -67,3 +68,30 @@ def test_equilibrated_joint_target_lapse_solves_same_equations():
     assert abs(alpha[-1] - 1.0) < 2e-8
     assert np.max(np.abs(rhs[1:-1] - target)) < 2e-8
     assert abs(np.average(rhs, weights=weights) - target) < 2e-8
+
+
+@pytest.mark.parametrize("equilibrate", [False, True])
+def test_sparse_joint_target_lapse_preserves_augmented_equations(equilibrate):
+    n = 8
+    alpha_expected = np.array([1.0, 1.0, 0.97, 0.94, 0.92, 0.95, 0.98, 1.0])
+    target_expected = 0.125
+    matrix = np.diag(np.linspace(0.2, 0.9, n))
+    matrix[2, 1] = -0.03
+    matrix[3, 2] = 0.04
+    matrix[5, 4] = -0.02
+    intercept = target_expected - matrix @ alpha_expected
+    weights = np.linspace(0.5, 2.0, n)
+
+    alpha, target, meta = solve_joint_target_lapse_sparse(
+        matrix, intercept, weights, equilibrate=equilibrate
+    )
+    rhs = matrix @ alpha + intercept
+
+    assert meta["original_equations_close"]
+    assert meta["csr_system_roundoff_closed"]
+    assert np.max(np.abs(alpha - alpha_expected)) < 2e-12
+    assert abs(target - target_expected) < 2e-12
+    assert abs(alpha[0] - alpha[1]) < 2e-12
+    assert abs(alpha[-1] - 1.0) < 2e-12
+    assert np.max(np.abs(rhs[1:-1] - target)) < 2e-12
+    assert abs(np.average(rhs, weights=weights) - target) < 2e-12
