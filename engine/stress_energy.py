@@ -1,14 +1,17 @@
 """Single total spherical stress-energy assembly.
 
-All matter sources presented to Einstein are assembled here from the solved
-local scalars, COSMOS scalar, conservative fluids, and their metric
-projection. There is no separate interface reservoir.
+All Einstein/diagnostic/boundary consumers share the canonical scalar+fluid
+projection in :mod:`engine.v55_matter`. Keeping one projection entry point is
+important for compatibility-preserving sector extensions: a future approved
+EM contribution must enter the shared projection once, not be independently
+re-created in a second consumer path. There is no separate interface reservoir.
 """
 from dataclasses import dataclass
 import numpy as np
 
-from .scalar_system import ScalarFields, scalar_projection
-from .v55_matter import V55MatterState, metric_slice_from_q, total_fluid_projection
+from . import v55_matter
+from .scalar_system import ScalarFields
+from .v55_matter import V55MatterState
 
 
 @dataclass(frozen=True)
@@ -42,20 +45,21 @@ class TotalStressEnergy:
 
 def assemble_total_stress_energy(grid, geometry, scalars: ScalarFields,
                                  matter: V55MatterState) -> TotalStressEnergy:
-    scalar_rho, scalar_pr, scalar_pt, scalar_j = scalar_projection(
-        grid, geometry, scalars
+    """Adapt the canonical matter projection to the diagnostic data contract."""
+    projection = v55_matter.total_matter_projection(
+        grid, geometry, scalars, matter
     )
-    metric = metric_slice_from_q(grid, geometry)
-    fluid = total_fluid_projection(metric, matter)
+    scalar = projection["scalar"]
+    fluid = projection["fluid"]
     return TotalStressEnergy(
-        rho=scalar_rho + fluid["rho"],
-        pr=scalar_pr + fluid["pr"],
-        pt=scalar_pt + fluid["pt"],
-        j=scalar_j + fluid["j"],
-        scalar_rho=scalar_rho,
-        scalar_pr=scalar_pr,
-        scalar_pt=scalar_pt,
-        scalar_j=scalar_j,
+        rho=projection["rho"],
+        pr=projection["pr"],
+        pt=projection["pt"],
+        j=projection["j"],
+        scalar_rho=scalar["rho"],
+        scalar_pr=scalar["pr"],
+        scalar_pt=scalar["pt"],
+        scalar_j=scalar["j"],
         fluid_rho=fluid["rho"],
         fluid_pr=fluid["pr"],
         fluid_pt=fluid["pt"],
