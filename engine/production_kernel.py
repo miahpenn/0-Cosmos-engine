@@ -320,8 +320,8 @@ class V55ProductionKernel:
         """Apply the pinned R0 incoming-light constraint at the finite radius.
 
         An optional pre-normalized EM projection follows the canonical total
-        stress path. It is absent from ProductionState and unused by the
-        normal runtime until an approved field/current model is connected.
+        stress path. The feature-gated conventional radial-Maxwell experiment
+        supplies it from the stage-local Q-face state; default runs remain EM-free.
         """
         adapter.vendor_modules()
         from bssn_characteristic_boundary import apply_light_constraint_boundary
@@ -664,9 +664,18 @@ class V55ProductionKernel:
 
         _, vacuum, moving = adapter.vendor_modules()
         metric = metric_slice_from_q(grid, geom)
-        total = assemble_total_stress_energy(
-            grid, geom, state.scalars, state.matter
+        electromagnetic_projection = self._electromagnetic_projection(
+            grid, geom, state.electromagnetic
         )
+        if electromagnetic_projection is None:
+            total = assemble_total_stress_energy(
+                grid, geom, state.scalars, state.matter
+            )
+        else:
+            total = assemble_total_stress_energy(
+                grid, geom, state.scalars, state.matter,
+                electromagnetic_projection=electromagnetic_projection,
+            )
         raw = vacuum.constraints(grid, geom)
 
         H = raw["hamiltonian"] - 16.0 * math.pi * total.rho
@@ -693,7 +702,15 @@ class V55ProductionKernel:
         # Turnaround diagnostic: expose the CMC projection and radial lapse
         # response on the same slice. Diagnostic only; no evolution change.
         from .cmc_gauge import target_kdot
-        cmc_kdot = target_kdot(grid, geom, state.scalars, state.matter)
+        if electromagnetic_projection is None:
+            cmc_kdot = target_kdot(
+                grid, geom, state.scalars, state.matter
+            )
+        else:
+            cmc_kdot = target_kdot(
+                grid, geom, state.scalars, state.matter,
+                electromagnetic_projection=electromagnetic_projection,
+            )
         alpha_r = grid.cell_derivative_fourth(geom.alpha, parity=1)
         i_alpha = int(np.argmax(np.abs(alpha_r)))
 
@@ -920,10 +937,17 @@ class V55ProductionKernel:
         # through the matter projection, without introducing a new source.
         vacuum_l3 = vacuum.primary_l3_rhs(grid, geom)
         vacuum_l2 = vacuum.primary_l2_rhs(grid, geom)
-        matter_l3 = {
-            key: np.asarray(adapter.primary_l3_with_matter(
+        if electromagnetic_projection is None:
+            matter_l3_actual = adapter.primary_l3_with_matter(
                 grid, geom, state.scalars, state.matter
-            )[key]) - np.asarray(vacuum_l3[key])
+            )
+        else:
+            matter_l3_actual = adapter.primary_l3_with_matter(
+                grid, geom, state.scalars, state.matter,
+                electromagnetic_projection=electromagnetic_projection,
+            )
+        matter_l3 = {
+            key: np.asarray(matter_l3_actual[key]) - np.asarray(vacuum_l3[key])
             for key in ("Aa", "K")
         }
 
