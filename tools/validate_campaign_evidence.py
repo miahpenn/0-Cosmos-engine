@@ -18,13 +18,26 @@ class CampaignEvidenceError(ValueError):
     """Successful campaign output is missing, malformed, or inconsistent."""
 
 
+CORE_DIAGNOSTIC_FIELDS = (
+    "H_eff",
+    "M_MS",
+    "chi_sigma",
+    "flux_T",
+    "work_pR",
+    "hamiltonian_full_absmax",
+    "momentum_full_absmax",
+    "connection_full_absmax",
+    "determinant_constraint_max",
+)
+
+
 def _reject_nonstandard_json_constant(token: str) -> None:
     """Reject JavaScript-style non-finite constants that strict JSON forbids."""
     raise ValueError(f"non-standard JSON constant {token!r}")
 
 
 def _json_number(value: Any, error_message: str) -> float:
-    """Require a JSON numeric value; do not coerce booleans or strings to time."""
+    """Require an actual JSON number; do not coerce booleans or strings."""
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         raise CampaignEvidenceError(error_message)
     try:
@@ -110,6 +123,7 @@ def validate_campaign_evidence(
         )
 
     summary_steps_by_resolution: dict[int, int] = {}
+    summary_tau_by_resolution: dict[int, float] = {}
     for item in results:
         resolution = int(item["resolution"])
         if item.get("status") != "completed":
@@ -124,12 +138,21 @@ def validate_campaign_evidence(
             raise CampaignEvidenceError(
                 f"N={resolution} final time {final_time!r} does not match target {target_time:.17g}"
             )
+        tau_final = _json_number(
+            item.get("tau_final"),
+            f"N={resolution} summary has no valid tau_final",
+        )
+        if not math.isfinite(tau_final) or tau_final <= 0.0:
+            raise CampaignEvidenceError(
+                f"N={resolution} summary tau_final must be finite and positive: {tau_final!r}"
+            )
         steps = item.get("steps")
         if isinstance(steps, bool) or not isinstance(steps, int) or steps < 1:
             raise CampaignEvidenceError(
                 f"N={resolution} summary has invalid completed-step count: {steps!r}"
             )
         summary_steps_by_resolution[resolution] = steps
+        summary_tau_by_resolution[resolution] = tau_final
 
     for resolution in expected:
         resolution_dir = root / f"N{resolution}"
@@ -159,6 +182,20 @@ def validate_campaign_evidence(
             raise CampaignEvidenceError(
                 f"N={resolution} ledger final time {ledger_time!r} does not match target {target_time:.17g}"
             )
+        ledger_tau = _json_number(
+            record.get("tau_final"),
+            f"N={resolution} ledger has no valid tau_final",
+        )
+        if not math.isfinite(ledger_tau) or ledger_tau <= 0.0:
+            raise CampaignEvidenceError(
+                f"N={resolution} ledger tau_final must be finite and positive: {ledger_tau!r}"
+            )
+        summary_tau = summary_tau_by_resolution[resolution]
+        tau_tolerance = 1.0e-10 * max(1.0, abs(summary_tau))
+        if abs(ledger_tau - summary_tau) > tau_tolerance:
+            raise CampaignEvidenceError(
+                f"N={resolution} ledger tau_final does not match campaign summary"
+            )
         ledger_steps = record.get("steps")
         if isinstance(ledger_steps, bool) or not isinstance(ledger_steps, int) or ledger_steps < 1:
             raise CampaignEvidenceError(
@@ -178,6 +215,7 @@ def validate_campaign_evidence(
                 f"N={resolution} ledger history length does not match steps + 1"
             )
         history_times: list[float] = []
+        history_taus: list[float] = []
         for index, row in enumerate(history):
             if not isinstance(row, dict):
                 raise CampaignEvidenceError(
@@ -191,11 +229,33 @@ def validate_campaign_evidence(
                 raise CampaignEvidenceError(
                     f"N={resolution} ledger history row {index} has non-finite t"
                 )
+            row_tau = _json_number(
+                row.get("tau"),
+                f"N={resolution} ledger history row {index} has no valid tau",
+            )
+            if not math.isfinite(row_tau):
+                raise CampaignEvidenceError(
+                    f"N={resolution} ledger history row {index} has non-finite tau"
+                )
+            for field in CORE_DIAGNOSTIC_FIELDS:
+                diagnostic = _json_number(
+                    row.get(field),
+                    f"N={resolution} ledger history row {index} has no valid numeric diagnostic {field!r}",
+                )
+                if not math.isfinite(diagnostic):
+                    raise CampaignEvidenceError(
+                        f"N={resolution} ledger history row {index} has non-finite diagnostic {field!r}"
+                    )
             if history_times and row_time <= history_times[-1]:
                 raise CampaignEvidenceError(
                     f"N={resolution} ledger history timestamps are not strictly increasing"
                 )
+            if history_taus and row_tau <= history_taus[-1]:
+                raise CampaignEvidenceError(
+                    f"N={resolution} ledger proper-time history is not strictly increasing"
+                )
             history_times.append(row_time)
+            history_taus.append(row_tau)
         if abs(history_times[0]) > time_tolerance:
             raise CampaignEvidenceError(
                 f"N={resolution} ledger history does not begin at t=0"
@@ -203,6 +263,14 @@ def validate_campaign_evidence(
         if abs(history_times[-1] - target_time) > time_tolerance:
             raise CampaignEvidenceError(
                 f"N={resolution} final history timestamp {history_times[-1]!r} does not match target {target_time:.17g}"
+            )
+        if abs(history_taus[0]) > tau_tolerance:
+            raise CampaignEvidenceError(
+                f"N={resolution} ledger proper-time history does not begin at tau=0"
+            )
+        if abs(history_taus[-1] - ledger_tau) > tau_tolerance:
+            raise CampaignEvidenceError(
+                f"N={resolution} final history proper time {history_taus[-1]!r} does not match ledger tau_final {ledger_tau:.17g}"
             )
         if not isinstance(retries, list):
             raise CampaignEvidenceError(
