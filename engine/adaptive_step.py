@@ -106,6 +106,11 @@ def advance_with_radiation_admissibility_retries(
         try:
             advanced = kernel.step(state, trial_dt)
         except RadiationAdmissibilityError as exc:
+            # A rejected predictor/final trial depends on dt and may be retried.
+            # An inadmissible incoming state does not depend on dt; retrying the
+            # identical accepted input only causes artificial timestep collapse.
+            if not exc.retryable:
+                raise
             last_error = f"{type(exc).__name__}: {exc}"
             attempts.append({
                 "dt": float(trial_dt),
