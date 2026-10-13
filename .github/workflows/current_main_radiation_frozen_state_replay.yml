@@ -1,0 +1,98 @@
+name: Current-main frozen radiation-state replay
+
+on:
+  push:
+    branches:
+      - diag/current-main-radiation-boundary-before-after-2026-10-13
+    paths:
+      - tools/audit_current_main_radiation_frozen_state_replay.py
+      - .github/workflows/current_main_radiation_frozen_state_replay.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: current-main-radiation-frozen-state-replay
+  cancel-in-progress: false
+
+jobs:
+  frozen-state-current-main-replay:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout current-main-based diagnostic and pinned vendor
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Prove the engine tree is unchanged from current main
+        env:
+          BASE_MAIN_COMMIT: "29d828b4d72b017c12a20b6dc90549f2511f025c"
+          VENDOR_COMMIT: "d6052d605673ce9d82cdc99b0df79855fa2ea215"
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin "$BASE_MAIN_COMMIT"
+          changed="$(git diff --name-only "$BASE_MAIN_COMMIT" HEAD)"
+          unexpected="$(printf '%s\n' "$changed" | grep -F -x -v \
+            -e 'tools/audit_current_main_radiation_frozen_state_replay.py' \
+            -e '.github/workflows/current_main_radiation_frozen_state_replay.yml' || true)"
+          if [ -n "$unexpected" ]; then
+            printf 'Unexpected changed paths from exact main base:\n%s\n' "$unexpected"
+            exit 1
+          fi
+          actual_vendor="$(git rev-parse HEAD:vendor/bb-palatini-unified-r0)"
+          test "$actual_vendor" = "$VENDOR_COMMIT"
+          printf 'Pinned base main: %s\nDiagnostic head: %s\nVendor: %s\n' \
+            "$BASE_MAIN_COMMIT" "$(git rev-parse HEAD)" "$actual_vendor"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install pinned-source dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Compile diagnostic and run full repository regression suite
+        run: |
+          python -m py_compile tools/audit_current_main_radiation_frozen_state_replay.py
+          python -m pytest -q
+
+      - name: Download exact archived accepted state (no lead-in replay)
+        uses: actions/download-artifact@v4
+        with:
+          name: boundary-cmc-radiation-audit
+          path: runs/source-artifact
+          repository: ${{ github.repository }}
+          run-id: 38322337250
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Verify archived accepted-state provenance
+        run: |
+          set -euo pipefail
+          echo 'ccd1fa0fbabe65c51c3dd7ac2c9227d6d25aa680c169eef1afd3fca4326294cf  runs/source-artifact/boundary_failure_accepted_state.npz' | sha256sum -c -
+          grep -Fq '"rate_fix_source_commit": "cdcec8282bff0443f2fe4674b15929822ff38736"' runs/source-artifact/boundary_failure_accepted_state.json
+          grep -Fq '"pinned_vendor_commit": "d6052d605673ce9d82cdc99b0df79855fa2ea215"' runs/source-artifact/boundary_failure_accepted_state.json
+
+      - name: Exercise the current strict campaign runner on the frozen state
+        run: |
+          PYTHONPATH=. python tools/audit_current_main_radiation_frozen_state_replay.py \
+            --input-dir runs/source-artifact \
+            --output-dir artifacts/current-main-radiation-frozen-state-replay \
+            --campaign-dir runs/current-main-radiation-frozen-state-replay/campaign
+
+      - name: Upload replay report, strict ledgers, and checksums
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: current-main-radiation-frozen-state-replay
+          path: |
+            artifacts/current-main-radiation-frozen-state-replay/
+            runs/current-main-radiation-frozen-state-replay/campaign/
+          if-no-files-found: warn
+          retention-days: 90
