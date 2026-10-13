@@ -222,12 +222,17 @@ def primitives(
                 neighborhood = [
                     (j, *_ratio(j)) for j in range(lo, hi + 1)
                 ]
-                raise ValueError(
+                message = (
                     f"radiation inversion failure at cell i={i}: "
                     f"alpha={metric.alpha:.17e}, beta={metric.beta:.17e}, "
                     f"gamma_rr={metric.gamma_rr:.17e}; {exc}; "
                     f"neighbors(i,E,|S|,|S|/E)={neighborhood}"
-                ) from exc
+                )
+                if isinstance(exc, RadiationAdmissibilityError):
+                    raise RadiationAdmissibilityError(
+                        message, retryable=exc.retryable
+                    ) from exc
+                raise ValueError(message) from exc
     return out
 
 
