@@ -176,7 +176,8 @@ def recover_radiation(
             "radiation primitive recovery requires strict interior E>|S| "
             "for nonzero flux: "
             f"E={E:.17e}, |S|={S_abs:.17e}, "
-            f"ratio={S_abs / max(E, 1.0e-300):.17e}"
+            f"ratio={S_abs / max(E, 1.0e-300):.17e}",
+            stage="primitive-recovery",
         )
 
     def residual(p: float) -> tuple[float, float]:
