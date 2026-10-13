@@ -4,7 +4,7 @@
 
 ## Current production snapshot — 2026-10-13
 
-**Production ref at this snapshot:** `main` commit `5b7284600d64eaa70772a9c1e47519872a807ac8`.
+**Production ref at this snapshot:** `main` commit `a4183bdb1b10c9ae6953af2a064af8a25415d001`.
 
 **Disposition:** software-contract corrections have been promoted and post-merge smoke validation is green. The engine is **not yet admitted by the full scientific campaign gate**.
 
@@ -18,18 +18,15 @@
 - [PR #11](https://github.com/miahpenn/0-Cosmos-engine/pull/11) — preserves exact-zero radiation rest-current through radiation-specific HLL/outer-face flux dispatch.
 - [PR #20](https://github.com/miahpenn/0-Cosmos-engine/pull/20) — refreshes production status and preserves the scientific-admission boundaries.
 - [PR #23](https://github.com/miahpenn/0-Cosmos-engine/pull/23) — integrates strict campaign admission, typed radiation retries, strict radiation primitive-recovery checks, and standards-compliant result/ledger JSON on current main.
+- [PR #22](https://github.com/miahpenn/0-Cosmos-engine/pull/22) — extracts the semidiscrete matter RHS directly while retaining componentwise finite-step ordering, stage-aware radiation admissibility, and radiation's exact-zero rest-current channel.
 
 These changes close discrete software and equation-consistency defects; they are not evidence of a stable long-horizon solution.
 
 ### Exact post-merge verification
 
-The post-merge lightweight validation workflow [run 38330334325](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38330334325) checked out exact `main` SHA `5b7284600d64eaa70772a9c1e47519872a807ac8` and passed:
+The PR #22 exact updated-head gates all passed at `fad6ea8c5fef7abb0bcecb8e01fdaad9b08387d3`: the direct-RHS contract passed 4 focused + **204 repository tests**; strict JSON passed 204 tests; lightweight validation passed 204 tests plus control smoke and an ordinary N=40 production step; strict retry integration passed 204 tests plus the N=40, `t=0.03` campaign-admission smoke.
 
-- **200 repository tests**;
-- the control-only smoke;
-- one ordinary production step at `N=40`, `r_max=40`, `dt=0.03`, reaching `t=0.03` with finite diagnostics and positive geometry.
-
-The PR #23 exact-head gates also passed 200 tests in strict-JSON validation and strict-retry integration, including the N=40, `t=0.03` campaign-admission smoke. The post-merge workflows for the three long numerical campaigns were skipped by path filters; this remains software/reliability validation, not scientific admission.
+The post-merge lightweight validation for current `main` commit `a4183bdb1b10c9ae6953af2a064af8a25415d001` is [run 38330678114](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38330678114); its final outcome was not yet available when this status edit was prepared. The three long numerical workflows were skipped by path filters. Software CI/smoke is not scientific admission.
 
 ### Remaining blockers to production admission
 
@@ -39,7 +36,7 @@ The PR #23 exact-head gates also passed 200 tests in strict-JSON validation and 
    
    Interpretation remains bounded: this supports the **combined** initializer-quadrature + CMC-row change on the matched short trajectory, but does not isolate each component, prove continuum convergence, close fixed-worldtube time-integrated Misner–Sharp balance, or establish archived radiation continuation. The A/B production source predates the latest PR #18 head `be6926d079a4f8c9c919554fedb2a2a92182e987` by four commits; the only numerical-source change between them is extraction of the same origin half-cell weighted dot product into a guarded helper (same weights/arithmetic expression), with an added exact even-quartic regression. Treat the reported trajectory as matched evidence for that formula, while retaining exact latest-head validation and all scientific gates.
 4. **Conservation and convergence:** full Misner–Sharp current/flux/work balance at a fixed physical worldtube, fixed-time spatial convergence of H/M/connection/determinant and centre-series witnesses, high-resolution radiation continuation beyond one step, and the long-horizon multi-resolution campaign remain open.
-5. **Matter RHS extraction:** the matched finite-`dt` A/B [run 38329555957](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38329555957) passed seven resolutions and 21/21 species updates on identical initialized states and pinned vendor. DM/baryon fields and radiation energy were bit-identical; only tiny radiation-momentum rounding differences appeared. Do not promote [PR #8](https://github.com/miahpenn/0-Cosmos-engine/pull/8) as-is because its generic radiation flux path predates PR #11. Duplicate PR #21 was closed unmerged. Canonical candidate [PR #22](https://github.com/miahpenn/0-Cosmos-engine/pull/22) has passing focused and full-suite smoke checks on head `698ba933e7f9e25fba602acb72b98df871d89fdd` (4 focused tests, 130 repository tests, and the lightweight control/production smoke). However, those checks were run against the pre-PR-23 source lineage. Since PR #23 merged overlapping changes in `engine/matter_system.py`, PR #22 must be reconciled with the current `main` and revalidated at its exact post-reconciliation head before promotion.
+5. **Matter RHS extraction — software refactor now promoted:** [PR #22](https://github.com/miahpenn/0-Cosmos-engine/pull/22) merged at `a4183bdb1b10c9ae6953af2a064af8a25415d001` after reconciliation with PR #23's typed stage-aware radiation retry contract. Exact-head gates passed 204 repository tests in each of direct-RHS, strict-JSON, lightweight/control/production-smoke, and strict-retry integration workflows; the direct-RHS suite also passed 4 focused tests. The prior seven-resolution one-step A/B found only tiny radiation-momentum rounding differences on its pinned source snapshots. This validates the narrow software refactor at the tested level, not long-trajectory equivalence or scientific admission. Do not promote [PR #8](https://github.com/miahpenn/0-Cosmos-engine/pull/8) as-is because its generic radiation flux path predates PR #11; duplicate PR #21 was closed unmerged.
 
 ### Candidate-only diagnostics
 
