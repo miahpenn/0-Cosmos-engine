@@ -29,7 +29,8 @@ class RejectAboveDt:
         self.calls.append(float(dt))
         if dt > self.threshold:
             raise RadiationAdmissibilityError(
-                "radiation state inadmissible at stage='explicit-predictor'"
+                "radiation state inadmissible at stage='explicit-predictor'",
+                stage="explicit-predictor",
             )
         return FakeState(t=state.t + dt, marker=state.marker + 1)
 
@@ -52,6 +53,49 @@ def test_retries_only_the_timestep_and_accepts_first_admissible_step():
     assert [a["status"] for a in outcome.attempts] == [
         "rejected_radiation_admissibility", "accepted"
     ]
+
+
+def test_inadmissible_accepted_input_is_rejected_without_retry():
+    state = FakeState(t=47.13, marker=4)
+
+    class InvalidInputKernel:
+        calls = 0
+
+        def step(self, source_state, dt):
+            self.calls += 1
+            raise RadiationAdmissibilityError(
+                "radiation state inadmissible at stage='initial'",
+                stage="initial",
+            )
+
+    kernel = InvalidInputKernel()
+    with pytest.raises(RadiationAdmissibilityError, match="stage='initial'") as caught:
+        advance_with_radiation_admissibility_retries(kernel, state, 0.03)
+
+    assert caught.value.stage == "initial"
+    assert kernel.calls == 1
+    assert state.t == pytest.approx(47.13)
+    assert state.marker == 4
+
+
+def test_unscoped_primitive_recovery_error_is_not_retried():
+    state = FakeState(t=8.0, marker=2)
+
+    class UnscopedRecoveryKernel:
+        calls = 0
+
+        def step(self, source_state, dt):
+            self.calls += 1
+            raise RadiationAdmissibilityError(
+                "primitive inversion rejection with no trial-stage witness"
+            )
+
+    kernel = UnscopedRecoveryKernel()
+    with pytest.raises(RadiationAdmissibilityError, match="no trial-stage witness"):
+        advance_with_radiation_admissibility_retries(kernel, state, 0.03)
+
+    assert kernel.calls == 1
+    assert state.t == pytest.approx(8.0)
 
 
 def test_unrelated_errors_propagate_without_retry():
@@ -83,7 +127,8 @@ def test_underflow_fails_closed_and_preserves_input_state():
         def step(self, source_state, dt):
             self.calls += 1
             raise RadiationAdmissibilityError(
-                "radiation state inadmissible at stage='explicit-predictor'"
+                "radiation state inadmissible at stage='explicit-predictor'",
+                stage="explicit-predictor",
             )
 
     kernel = AlwaysOutsideCone()
