@@ -64,7 +64,7 @@ jobs:
         if: github.event_name == 'pull_request' && github.event.pull_request.number == 50
         run: |
           mkdir -p artifacts
-          python diagnostics/archive_fluid_stress_normalization_ab.py | tee artifacts/archive-fluid-stress-normalization-ab.json
+          PYTHONPATH=. python diagnostics/archive_fluid_stress_normalization_ab.py | tee artifacts/archive-fluid-stress-normalization-ab.json
 
       - name: Upload bounded fluid-stress normalization A/B evidence (PR #50 only)
         if: always() && github.event_name == 'pull_request' && github.event.pull_request.number == 50
