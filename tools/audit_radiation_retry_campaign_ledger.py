@@ -50,6 +50,9 @@ class FrozenSeedCampaignKernel:
 
     def __init__(self, production_kernel, frozen_seed):
         self.production_kernel = production_kernel
+        # The runner validates the production capability contract on its
+        # injected kernel; forward the real kernel's declaration unchanged.
+        self.capabilities = production_kernel.capabilities
         self.frozen_seed = frozen_seed
         self.initializations = 0
 
