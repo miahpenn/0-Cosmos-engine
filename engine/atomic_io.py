@@ -50,14 +50,21 @@ def atomic_savez_compressed(path: str | Path, **arrays) -> None:
     )
     os.close(fd)
     temporary = Path(temp_name)
+    replacement_completed = False
     try:
         np.savez_compressed(temporary, **arrays)
         with temporary.open("rb+") as stream:
             os.fsync(stream.fileno())
         _preserve_existing_mode(target, temporary)
         os.replace(temporary, target)
+        replacement_completed = True
         _fsync_parent_directory(target.parent)
-    except BaseException:
+    except BaseException as exc:
+        if replacement_completed and isinstance(exc, KeyboardInterrupt):
+            # The NPZ is already atomically visible. Preserve that fact for a
+            # caller recording checkpoint counts if Ctrl-C interrupts the
+            # best-effort directory sync after os.replace().
+            setattr(exc, "_atomic_replace_completed", True)
         try:
             temporary.unlink(missing_ok=True)
         except OSError:
