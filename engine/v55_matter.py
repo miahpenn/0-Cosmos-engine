@@ -22,7 +22,7 @@ from .matter_system import (
     initialize_dust,
     initialize_radiation,
 )
-from .scalar_system import scalar_projection, ScalarFields
+from .scalar_system import scalar_projection, ScalarFields, KAPPA
 from .valencia import spherical_metric_from_bssn
 
 
@@ -122,13 +122,21 @@ def total_fluid_projection(
     metric: BSSNMetricSlice,
     state: V55MatterState,
 ) -> dict[str, np.ndarray]:
+    """Return fluid stress projections in the physical units used by Einstein.
+
+    The conservative species are initialized/evolved in archive-normalized
+    COSMOS units (8*pi*G=1). The unified G=1 geometry consumes physical stress,
+    so every fluid projection must receive the same 1/KAPPA conversion used by
+    the initial-data constraint source and the normalized COSMOS scalar.
+    Keep the state and its RHS archive-normalized; convert only at this boundary.
+    """
     pieces = [
         project_species(metric, state.dark_matter, Species.DARK_MATTER),
         project_species(metric, state.baryons, Species.BARYON),
         project_species(metric, state.radiation, Species.RADIATION),
     ]
     return {
-        key: sum(piece[key] for piece in pieces)
+        key: sum(piece[key] for piece in pieces) / KAPPA
         for key in ("rho", "pr", "pt", "j")
     }
 
