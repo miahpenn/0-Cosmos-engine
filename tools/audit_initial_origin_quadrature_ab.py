@@ -22,6 +22,8 @@ if str(ROOT) not in sys.path:
 from engine.production_kernel import ProductionState, V55ProductionKernel
 from engine.scalar_system import ScalarFields, cosmos_potential
 from engine import v55_pirk_adapter as adapter
+from scipy.linalg import solve_banded
+from engine.cmc_gauge import solve_cmc_lapse
 from engine.stress_energy import assemble_total_stress_energy
 from engine.v55_matter import (
     RHO_DM_PRESENT,
@@ -29,6 +31,7 @@ from engine.v55_matter import (
     RHO_R_PRESENT,
     initialize_from_archive,
     metric_slice_from_q,
+    total_matter_projection,
 )
 from engine.matter_system import Species, validate_species_admissibility
 from tools.audit_initial_centre_series import (
@@ -198,6 +201,89 @@ def build_initial_state(kernel, grid, *, quadrature: str) -> ProductionState:
     return ProductionState(grid=grid, geometry=geometry, scalars=scalars, matter=matter)
 
 
+def solve_even_reflection_centre_pde_lapse(kernel, state) -> tuple[np.ndarray, dict]:
+    """Solve the same frozen CMC target/operator with a second-order even-ghost centre row."""
+    grid = state.grid
+    geometry_input = state.geometry.copy()
+    # Current production initialize() supplies alpha=1 to the CMC solve.
+    geometry_input.alpha[:] = 1.0
+    alpha_current, kdot = solve_cmc_lapse(
+        grid, geometry_input, state.scalars, state.matter
+    )
+    current_match = float(np.max(np.abs(
+        np.asarray(alpha_current) - np.asarray(state.geometry.alpha)
+    )))
+    if current_match > 2.0e-13:
+        raise RuntimeError(
+            f"production CMC reconstruction differs from initialized state: {current_match:.3e}"
+        )
+
+    total = total_matter_projection(
+        metric_slice_from_q(grid, geometry_input), state.matter
+    )
+    a = np.asarray(geometry_input.a, dtype=float)
+    b = np.asarray(geometry_input.b, dtype=float)
+    X = np.asarray(geometry_input.X, dtype=float)
+    r = np.asarray(grid.centers, dtype=float)
+    inv = X * X / a
+    d1 = lambda values, parity=1: grid.cell_derivative_fourth(values, parity=parity)
+    ap, bp, Xp = d1(a, 1), d1(b, 1), d1(X, 1)
+    c = -0.5 * ap / a + bp / b - Xp / X + 2.0 / r
+    Q = (
+        1.5 * geometry_input.Aa * geometry_input.Aa
+        + geometry_input.K * geometry_input.K / 3.0
+        + 4.0 * math.pi * (
+            total["rho"] + total["pr"] + 2.0 * total["pt"]
+        )
+    )
+    m = Q / inv
+    rhs = -float(kdot) / inv
+    n, h = grid.n, float(grid.dr)
+    band = np.zeros((3, n), dtype=float)
+    bvec = np.zeros(n, dtype=float)
+
+    # Same second-order CMC interior and outer normalization as production;
+    # only the first row changes from alpha[0]=alpha[1] to the even-ghost PDE.
+    ci0 = c[0] / (2.0 * h)
+    band[1, 0] = -1.0 / h**2 - ci0 - m[0]
+    band[0, 1] = 1.0 / h**2 + ci0
+    bvec[0] = rhs[0]
+    for i in range(1, n - 1):
+        ci = c[i] / (2.0 * h)
+        band[2, i - 1] = 1.0 / h**2 - ci
+        band[1, i] = -2.0 / h**2 - m[i]
+        band[0, i + 1] = 1.0 / h**2 + ci
+        bvec[i] = rhs[i]
+    band[1, n - 1] = 1.0
+    bvec[n - 1] = 1.0
+
+    alpha_even = solve_banded((1, 1), band, bvec, check_finite=False)
+    if not np.all(np.isfinite(alpha_even)) or float(np.min(alpha_even)) <= 0.0:
+        raise RuntimeError("even-reflection CMC row produced invalid lapse")
+    row_residual = float(np.max(np.abs(
+        band[1] * alpha_even
+        + np.r_[0.0, band[0, 1:] * alpha_even[1:]]
+        + np.r_[band[2, :-1] * alpha_even[:-1], 0.0]
+        - bvec
+    )))
+    return np.asarray(alpha_even, dtype=float), {
+        "incoming_target_kdot": float(kdot),
+        "production_lapse_reconstruction_max_abs": current_match,
+        "current_center_row_alpha0_minus_alpha1": float(alpha_current[0] - alpha_current[1]),
+        "even_pde_center_row_alpha0_minus_alpha1": float(alpha_even[0] - alpha_even[1]),
+        "production_alpha_min": float(np.min(alpha_current)),
+        "even_pde_alpha_min": float(np.min(alpha_even)),
+        "production_alpha_max": float(np.max(alpha_current)),
+        "even_pde_alpha_max": float(np.max(alpha_even)),
+        "max_abs_lapse_difference": float(np.max(np.abs(alpha_even - alpha_current))),
+        "even_pde_row_matrix_residual_max_abs": row_residual,
+        "outer_alpha_production": float(alpha_current[-1]),
+        "outer_alpha_even_pde": float(alpha_even[-1]),
+        "fixed_non_lapse_state": True,
+        "target_held_fixed_from_alpha_one_input": True,
+    }
+
+
 def measure_state(state) -> tuple[dict, dict[str, np.ndarray]]:
     grid, g = state.grid, state.geometry
     r = np.asarray(grid.centers, dtype=float)
@@ -347,11 +433,29 @@ def main() -> None:
         if digest_state(production) != before or baseline_report["state_digest"] != before:
             raise RuntimeError("baseline observer mutated the production initial state")
 
-        # Save every radial profile from both arms for independent signed review.
+        # Apply PR #18's centre-row-only alternative to this same quadrature arm.
+        # All non-lapse fields, conservative matter, and the incoming target stay fixed.
+        alpha_even, row_meta = solve_even_reflection_centre_pde_lapse(kernel, candidate)
+        centre_row_state = ProductionState(
+            grid=grid,
+            geometry=candidate.geometry.copy(),
+            scalars=candidate.scalars,
+            matter=candidate.matter,
+        )
+        centre_row_state.geometry.alpha = alpha_even.copy()
+        centre_row_state.geometry.beta.fill(0.0)
+        centre_row_state.geometry.B.fill(0.0)
+        centre_row_report, centre_row_profiles = measure_state(centre_row_state)
+        if digest_state(candidate) == "" or centre_row_report["time"] != 0.0:
+            raise RuntimeError("invalid centre-row counterfactual state")
+
+        # Save every radial profile from all arms for independent signed review.
         for name, values in baseline_profiles.items():
             profile_archive[f"N{n}__production__{name}"] = values
         for name, values in candidate_profiles.items():
             profile_archive[f"N{n}__even_series__{name}"] = values
+        for name, values in centre_row_profiles.items():
+            profile_archive[f"N{n}__even_series_centre_pde__{name}"] = values
 
         records.append({
             "resolution": n,
@@ -360,10 +464,12 @@ def main() -> None:
             "baseline_reconstruction": {
                 "max_abs_field_difference": trap_max,
                 "field_differences": trap_diffs,
-                "pass": trap_max <= 2.0e-13 * trap_scale,
+                "pass": bool(trap_max <= 2.0e-13 * trap_scale),
             },
             "production_trapezoid": baseline_report,
             "origin_even_series_counterfactual": candidate_report,
+            "origin_even_series_centre_pde_lapse_counterfactual": centre_row_report,
+            "centre_row_counterfactual": row_meta,
             "delta_counterfactual_minus_production": {
                 "H_cell_0": candidate_report["initial_constraints"]["H_cell_0"] - baseline_report["initial_constraints"]["H_cell_0"],
                 "M_cell_0": candidate_report["initial_constraints"]["M_cell_0"] - baseline_report["initial_constraints"]["M_cell_0"],
@@ -373,6 +479,16 @@ def main() -> None:
                 "full_Aa_RHS_cell_0": candidate_report["first_six_cells"][0]["full_Aa_RHS"] - baseline_report["first_six_cells"][0]["full_Aa_RHS"],
                 "full_Aa_RHS_over_r2_cell_0": candidate_report["first_six_cells"][0]["full_Aa_RHS_over_r2"] - baseline_report["first_six_cells"][0]["full_Aa_RHS_over_r2"],
                 "H_full_absmax": candidate_report["initial_constraints"]["H_full_absmax"] - baseline_report["initial_constraints"]["H_full_absmax"],
+            },
+            "delta_centre_pde_lapse_minus_even_series_lapse": {
+                "alpha0": float(alpha_even[0] - candidate.geometry.alpha[0]),
+                "Aa_rhs_cell0": centre_row_report["first_six_cells"][0]["full_Aa_RHS"] - candidate_report["first_six_cells"][0]["full_Aa_RHS"],
+                "Aa_rhs_over_r2_cell0": centre_row_report["first_six_cells"][0]["full_Aa_RHS_over_r2"] - candidate_report["first_six_cells"][0]["full_Aa_RHS_over_r2"],
+                "lapse_hessian_cell0": centre_row_report["first_six_cells"][0]["lapse_hessian_Aa"] - candidate_report["first_six_cells"][0]["lapse_hessian_Aa"],
+                "tracefree_Ricci_cell0": centre_row_report["first_six_cells"][0]["tracefree_Ricci_Aa"] - candidate_report["first_six_cells"][0]["tracefree_Ricci_Aa"],
+                "H_cell0": centre_row_report["initial_constraints"]["H_cell_0"] - candidate_report["initial_constraints"]["H_cell_0"],
+                "M_cell0": centre_row_report["initial_constraints"]["M_cell_0"] - candidate_report["initial_constraints"]["M_cell_0"],
+                "C_cell0": centre_row_report["initial_constraints"]["C_cell_0"] - candidate_report["initial_constraints"]["C_cell_0"],
             },
         })
 
@@ -421,6 +537,10 @@ def main() -> None:
             "candidate_AaDotOverR2_0": x["origin_even_series_counterfactual"]["first_six_cells"][0]["full_Aa_RHS_over_r2"],
             "baseline_C0": x["production_trapezoid"]["initial_constraints"]["C_cell_0"],
             "candidate_C0": x["origin_even_series_counterfactual"]["initial_constraints"]["C_cell_0"],
+            "candidate_AaDotOverR20_even_pde_centre_row": x["origin_even_series_centre_pde_lapse_counterfactual"]["first_six_cells"][0]["full_Aa_RHS_over_r2"],
+            "candidate_Hessian_Aa0_even_pde_centre_row": x["origin_even_series_centre_pde_lapse_counterfactual"]["first_six_cells"][0]["lapse_hessian_Aa"],
+            "candidate_alpha0_minus_alpha1_even_pde_centre_row": x["centre_row_counterfactual"]["even_pde_center_row_alpha0_minus_alpha1"],
+            "centre_row_max_alpha_difference": x["centre_row_counterfactual"]["max_abs_lapse_difference"],
         } for x in records],
         "hashes": {
             report_path.name: sha256_file(report_path),
