@@ -178,6 +178,52 @@ def test_checkpoint_write_interruption_cleans_staging_and_preserves_evidence(
     assert list(run_dir.glob("checkpoint_t*.npz")) == []
     assert list(run_dir.glob(".checkpoint_t*")) == []
 
+def test_pre_replace_interruption_does_not_count_stale_same_time_checkpoint(
+    tmp_path, monkeypatch
+):
+    run_dir = tmp_path / "N40"
+    run_dir.mkdir(parents=True)
+    stale_path = run_dir / f"checkpoint_t{0.03:012.6f}.npz"
+    np.savez_compressed(
+        stale_path,
+        t=np.asarray(0.03),
+        marker=np.asarray("from-prior-campaign"),
+    )
+    stale_bytes = stale_path.read_bytes()
+    kernel = V55ProductionKernel()
+
+    def interrupt_before_replace(path, **arrays):
+        # The atomic writer has a staged temp file, but os.replace has not run.
+        Path(path).write_bytes(b"partial staged checkpoint")
+        raise KeyboardInterrupt("injected pre-replace checkpoint interruption")
+
+    monkeypatch.setattr(atomic_io.np, "savez_compressed", interrupt_before_replace)
+
+    with pytest.raises(KeyboardInterrupt, match="pre-replace checkpoint interruption"):
+        runner.run_campaign(
+            kernel=kernel,
+            config=_config(
+                tmp_path,
+                resolutions=(40,),
+                final_time=0.06,
+                checkpoint_interval=0.03,
+            ),
+        )
+
+    summary = _strict_json(tmp_path / "campaign_summary.json")
+    ledger = _strict_json(run_dir / "ledgers.json")
+    assert summary["admission"]["passed"] is False
+    assert summary["results"][0]["status"] == "interrupted:checkpoint"
+    assert summary["results"][0]["t_final"] == pytest.approx(0.03)
+    assert summary["results"][0]["checkpoint_count"] == 0
+    assert ledger["result"]["checkpoint_count"] == 0
+    assert stale_path.read_bytes() == stale_bytes
+    with np.load(stale_path, allow_pickle=False) as stale:
+        assert float(stale["t"]) == pytest.approx(0.03)
+        assert str(stale["marker"]) == "from-prior-campaign"
+    assert list(run_dir.glob(".checkpoint_t*")) == []
+
+
 def test_post_replace_checkpoint_interruption_counts_complete_artifact(
     tmp_path, monkeypatch
 ):
