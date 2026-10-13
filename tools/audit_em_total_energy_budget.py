@@ -283,6 +283,116 @@ def _stress_projection(kernel, state):
     )
 
 
+
+def _sector_fixed_R_rates(
+    total,
+    *,
+    R,
+    alpha,
+    gamma_rr_inv,
+    Rr,
+    Rdot,
+    target: float,
+) -> dict:
+    """Signed fixed-R stress-flux and pressure-work by TotalStressEnergy sector.
+
+    Sectors are the three additive components already exposed by the canonical
+    projection (scalar, fluid, electromagnetic). The sum of the three sector
+    rates is required to recover the aggregate rate within a 64-epsilon
+    scale-aware bound; any mismatch fails closed.
+    """
+    at = lambda profile: interpolate_at_areal_radius(R, profile, target)
+    area = -FOUR_PI * target ** 2
+    alpha_t = at(alpha)
+    gamma_inv_t = at(gamma_rr_inv)
+    Rr_t = at(Rr)
+    Rdot_t = at(Rdot)
+
+    def _safe_arr(arr):
+        if arr is None:
+            return np.zeros_like(R, dtype=float)
+        out = np.asarray(arr, dtype=float)
+        if out.shape != R.shape:
+            raise RuntimeError("sector array shape does not match areal radius")
+        if not np.all(np.isfinite(out)):
+            raise RuntimeError("sector array contains non-finite values")
+        return out
+
+    def _one(j_arr, pr_arr, label: str) -> dict:
+        present = j_arr is not None and pr_arr is not None
+        j = _safe_arr(j_arr)
+        pr = _safe_arr(pr_arr)
+        j_t = at(j)
+        pr_t = at(pr)
+        flux = area * alpha_t * gamma_inv_t * j_t * Rr_t
+        work = area * pr_t * Rdot_t
+        if not (math.isfinite(flux) and math.isfinite(work)):
+            raise RuntimeError(f"sector {label}: non-finite flux or work")
+        return {
+            "stress_flux": float(flux),
+            "radial_pressure_work": float(work),
+            "present": bool(present),
+        }
+
+    sectors = {
+        "scalar": _one(total.scalar_j, total.scalar_pr, "scalar"),
+        "fluid": _one(total.fluid_j, total.fluid_pr, "fluid"),
+        "electromagnetic": _one(
+            total.electromagnetic_j, total.electromagnetic_pr, "electromagnetic"
+        ),
+    }
+
+    sum_flux = sum(s["stress_flux"] for s in sectors.values())
+    sum_work = sum(s["radial_pressure_work"] for s in sectors.values())
+    agg_j = at(_safe_arr(total.j))
+    agg_pr = at(_safe_arr(total.pr))
+    agg_flux = area * alpha_t * gamma_inv_t * agg_j * Rr_t
+    agg_work = area * agg_pr * Rdot_t
+
+    scale_flux = max(
+        abs(agg_flux) + abs(sum_flux),
+        abs(area) * abs(alpha_t) * abs(gamma_inv_t) * abs(Rr_t) * (
+            abs(agg_j)
+            + abs(at(_safe_arr(total.scalar_j)))
+            + abs(at(_safe_arr(total.fluid_j)))
+            + abs(at(_safe_arr(total.electromagnetic_j)))
+        ),
+        float(np.finfo(np.float64).tiny),
+    )
+    scale_work = max(
+        abs(agg_work) + abs(sum_work),
+        abs(area) * abs(Rdot_t) * (
+            abs(agg_pr)
+            + abs(at(_safe_arr(total.scalar_pr)))
+            + abs(at(_safe_arr(total.fluid_pr)))
+            + abs(at(_safe_arr(total.electromagnetic_pr)))
+        ),
+        float(np.finfo(np.float64).tiny),
+    )
+    bound_flux = 64.0 * np.finfo(np.float64).eps * scale_flux
+    bound_work = 64.0 * np.finfo(np.float64).eps * scale_work
+    residual_flux = sum_flux - agg_flux
+    residual_work = sum_work - agg_work
+    if abs(residual_flux) > bound_flux or abs(residual_work) > bound_work:
+        raise RuntimeError(
+            "sector fixed-R rates failed additive consistency: "
+            f"flux residual={residual_flux:.17g} (bound {bound_flux:.17g}), "
+            f"work residual={residual_work:.17g} (bound {bound_work:.17g})"
+        )
+
+    return {
+        "sectors": sectors,
+        "sum_stress_flux": float(sum_flux),
+        "sum_radial_pressure_work": float(sum_work),
+        "aggregate_stress_flux": float(agg_flux),
+        "aggregate_radial_pressure_work": float(agg_work),
+        "additive_flux_residual": float(residual_flux),
+        "additive_work_residual": float(residual_work),
+        "additive_flux_bound": float(bound_flux),
+        "additive_work_bound": float(bound_work),
+    }
+
+
 def _misner_sharp_chain_rule_rate_profiles(
     R, Rdot, Rr, Rdot_r, gamma_inv, gamma_inv_dot, Ktheta, Ktheta_dot
 ) -> dict[str, np.ndarray]:
@@ -483,6 +593,18 @@ def _worldtube_sample(kernel, state, *, geometry_stage_capture=None) -> dict:
     )
     tube_sweep = Mr_tube * tube_speed
     predicted_fixed_R_rate = stress_flux + pressure_work + tube_sweep
+ 
+    # Component-level attribution (scalar / fluid / electromagnetic).
+    # Fail-closed additive consistency against the aggregate rates above.
+    sector_rates = _sector_fixed_R_rates(
+        total,
+        R=R,
+        alpha=geom.alpha,
+        gamma_rr_inv=gamma_rr_inv,
+        Rr=Rr,
+        Rdot=Rdot,
+        target=FIXED_AREAL_RADIUS,
+    )
     composite_flux_profile, composite_pressure_work_profile = (
         _fixed_R_composite_flux_work_profiles(
             R, geom.alpha, gamma_rr_inv, total.j, Rr, total.pr, Rdot
@@ -670,6 +792,7 @@ def _worldtube_sample(kernel, state, *, geometry_stage_capture=None) -> dict:
         "tube_radial_pressure_work_composite_interp": composite_pressure_work,
         "tube_coordinate_sweep": tube_sweep,
         "tube_predicted_fixed_R_mass_rate": predicted_fixed_R_rate,
+        "tube_sector_rates": sector_rates,
         "tube_native_mass_gradient_identity_rhs": mass_gradient_rhs,
         "tube_native_mass_gradient_identity_residual": mass_gradient_residual,
         **(chain_rule or {}),
@@ -727,6 +850,8 @@ def _fixed_R_rate_snapshot(sample: dict) -> dict:
     snapshot = {"t": float(sample["t"]), **{key: float(sample[key]) for key in keys}}
     if "tube_interpolant_witness_profiles" in sample:
         snapshot["tube_interpolant_witness_profiles"] = sample["tube_interpolant_witness_profiles"]
+    if "tube_sector_rates" in sample:
+        snapshot["tube_sector_rates"] = sample["tube_sector_rates"]
     return snapshot
 
 
