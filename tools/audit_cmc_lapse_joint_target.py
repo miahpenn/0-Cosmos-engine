@@ -74,7 +74,8 @@ def production_affine_operator(state, vacuum) -> tuple[np.ndarray, np.ndarray, n
     The alpha-dependent terms are the pinned vendor fourth-order lapse
     Laplacian and the production L3 coefficient multiplying alpha. The
     intercept is recovered from a direct production RHS evaluation on the
-    archived accepted lapse, retaining alpha-independent shift/KO terms.
+    reference lapse in this frozen diagnostic state, retaining alpha-independent
+    shift/KO terms.
     """
     grid, geometry = state.grid, state.geometry
     r = np.asarray(grid.centers, dtype=float)
@@ -105,20 +106,20 @@ def production_affine_operator(state, vacuum) -> tuple[np.ndarray, np.ndarray, n
     )
     matrix = -lapse_laplacian + np.diag(alpha_coefficient)
 
-    accepted_alpha = np.asarray(geometry.alpha, dtype=float).copy()
-    accepted_rhs = full_k_rhs(
+    reference_alpha = np.asarray(geometry.alpha, dtype=float).copy()
+    reference_rhs = full_k_rhs(
         grid, geometry, state.scalars, state.matter, vacuum
     )[0]
-    intercept = accepted_rhs - matrix @ accepted_alpha
+    intercept = reference_rhs - matrix @ reference_alpha
     meta = {
         "max_abs_alpha_coefficient": float(np.max(np.abs(alpha_coefficient))),
         "alpha_coefficient_rms": float(np.sqrt(np.mean(alpha_coefficient**2))),
-        "accepted_alpha_rhs_max_abs": float(np.max(np.abs(accepted_rhs))),
-        "accepted_lapse_operator_reconstruction_max_abs": float(
-            np.max(np.abs(matrix @ accepted_alpha + intercept - accepted_rhs))
+        "reference_alpha_rhs_max_abs": float(np.max(np.abs(reference_rhs))),
+        "reference_lapse_operator_reconstruction_max_abs": float(
+            np.max(np.abs(matrix @ reference_alpha + intercept - reference_rhs))
         ),
     }
-    return matrix, intercept, accepted_rhs, meta
+    return matrix, intercept, reference_rhs, meta
 
 
 def solve_joint_target_lapse(
@@ -228,7 +229,7 @@ def run_audit(input_root: Path, output_dir: Path) -> dict:
     )[0]
     current_solve_digest = array_sha256(current_solve_rhs)
 
-    matrix, intercept, accepted_recomputed_rhs, operator_meta = production_affine_operator(
+    matrix, intercept, reference_recomputed_rhs, operator_meta = production_affine_operator(
         state, vacuum
     )
     # Verify the affine map at a second, positive lapse profile independently
