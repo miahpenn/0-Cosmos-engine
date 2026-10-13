@@ -63,7 +63,7 @@ def verify_origin_moments() -> dict:
             "unit_dr_moment": actual,
             "exact": expected,
             "absolute_error": error,
-            "pass": error <= bound,
+            "pass": bool(error <= float(bound)),
         })
     return {"moments": records, "passed": all(x["pass"] for x in records)}
 
