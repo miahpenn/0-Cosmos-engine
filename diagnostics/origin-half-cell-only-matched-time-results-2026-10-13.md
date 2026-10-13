@@ -2,8 +2,9 @@
 
 **Disposition:** diagnostic evidence only; no production admission.  
 **Draft PR:** [#79](https://github.com/miahpenn/0-Cosmos-engine/pull/79)  
-**Exact-head run:** [38343269247](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38343269247)  
-**Artifact:** [11787518609](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38343269247/artifacts/11787518609)
+**Latest exact-head run (fixed-R ledger included):** [38343526931](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38343526931)  
+**Latest artifact:** [11787991716](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38343526931/artifacts/11787991716)  
+**Initial coordinate-ledger-only run:** [38343269247](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38343269247)
 
 ## Exact test and provenance
 
@@ -46,9 +47,35 @@ The conservation check uses the production-defined \(dM_{\rm MS}/dt-(F_T+W_{pR})
 
 These differences are tiny compared with the existing residuals, unlike the 4-arm all-interval quadrature candidate which worsened current residuals by factors at some resolutions. Under this short matched horizon the origin-only change does not produce a material worsening of the coordinate-worldtube current or interval defect.
 
-The candidate's absolute \(M_{\rm MS}(r\approx10)\) is lower already at \(t=0\): by \(-5.12320\times10^{-5}\), \(-1.53938\times10^{-5}\), and \(-6.51796\times10^{-6}\) at N=80/120/160. That is an initial-data change, not a time-integrated loss. Over \(0\le t\le0.12\), the \(M_{\rm MS}\) increments agree to about \(10^{-11}\) at each N, so the evolution increment and current budget are essentially unchanged over this window. A production-ready disposition still requires the fixed-areal-radius ledger and longer-horizon/continuum tests; neither is closed here.
+The candidate's absolute \(M_{\rm MS}(r\approx10)\) is lower already at \(t=0\): by \(-5.12320\times10^{-5}\), \(-1.53938\times10^{-5}\), and \(-6.51796\times10^{-6}\) at N=80/120/160. That is an initial-data change, not a time-integrated loss. Over \(0\le t\le0.12\), the \(M_{\rm MS}\) increments agree to about \(10^{-11}\) at each N, so the evolution increment and current budget are essentially unchanged over this window. The later exact-head run also includes the separate moving fixed-areal-radius ledger; results are below. Longer-horizon/continuum tests remain open.
 
 Outer radiation witnesses track closely between arms through \(t=0.12\). This short result does not test the archived late-time radiation continuation failure.
+
+
+## Fixed-areal-radius \(R=10\) ledger — exact-head follow-up
+
+The first run sampled the nearest coordinate cell to \(r=10\), which does not follow a physical-radius tube. The follow-up exact-head run [38343526931](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38343526931), artifact [11787991716](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38343526931/artifacts/11787991716), preserves the same source pins and adds a separate \(R=10\) ledger at every sample over the same matched \(t=0.12\) runs. The full repository regression suite passed again (233 tests); both baseline and candidate reached the horizon at every resolution.
+
+At fixed areal radius the tube's coordinate location moves to approximately \(r=9.99317\) by \(t=0.12\). The predicted rate includes the sweep contribution
+\[
+\left.\frac{dM_{\rm MS}}{dt}\right|_{R=10}
+\approx F_T+W_{pR}+v_r\,M_{,r}^{\rm stress},
+\qquad
+v_r=-\frac{\dot R}{R_{,r}},
+\]
+and compares that against the finite-time derivative of the interpolated \(M_{\rm MS}(R=10,t)\). The independent radial-gradient identity is also measured as \(D_r M_{\rm MS}-4\pi R^2(\rho R_{,r}+j\,\dot R/\alpha)\), using the repository's regular odd-parity \(R_{,r}\) operator. This is still a short finite-difference diagnostic, not an instantaneous conservation proof.
+
+| N | Fixed-\(R\) current residual max, baseline → origin-only | Change | Fixed-\(R\) interval defect max, baseline → origin-only | Change | \(|\mathrm{radial\ identity\ error}|\) at final sample, baseline → origin-only |
+|---:|---:|---:|---:|---:|---:|
+| 80 | 4.24933594e-7 → 4.25639337e-7 | +0.1661% | 1.15505752e-8 → 1.15735285e-8 | +0.1987% | 2.74473654e-5 → 2.74474261e-5 |
+| 120 | 3.45276112e-7 → 3.45256696e-7 | -0.0056% | 6.29092999e-9 → 6.29049948e-9 | -0.0068% | 1.17045455e-5 → 1.17045507e-5 |
+| 160 | 2.53691396e-7 → 2.53688119e-7 | -0.0013% | 3.58901279e-9 → 3.58896532e-9 | -0.0013% | 6.49281626e-6 → 6.49281729e-6 |
+
+The fixed-\(R\) ledger therefore tells the same bounded story as the coordinate-cell ledger: the origin-only candidate produces no material change in outer current/interval balance through \(t=0.12\). The residual changes by less than 0.2% at every resolution. The radial mass-gradient identity at \(R=10\) is also unchanged to \(6.1\times10^{-11}\), \(5.2\times10^{-12}\), and \(1.1\times10^{-12}\) absolute at N=80/120/160. In contrast, the broader all-interval quadrature candidate in PR #18 had larger fixed-\(R\) residual and interval defects at every tested resolution. That contrast supports keeping the origin-only counterfactual separate from PR #18's full radial integration rule.
+
+The fixed-\(R\) residual itself is not zero, and the radial mass-gradient identity error remains around \(2.7\times10^{-5}\), \(1.2\times10^{-5}\), and \(6.5\times10^{-6}\) at the sampled tube. Thus this diagnostic does **not** close the conservation/admission gate. It establishes only that, in a short source-pinned A/B, the central improvement from the origin-only term is not accompanied by the outer fixed-\(R\) balance penalty previously observed for the broader quadrature candidate.
+
+**Updated disposition:** retain draft/unmerged PR #79 as a narrow numerical candidate. Next gates are centre/constraint convergence under matched resolution, more temporal samples / longer bounded horizon, and the existing archived radiation continuation test. Do not promote the broader PR #18 quadrature by association and do not change physics equations or fit weights to balance residuals.
 
 ## Conclusion and next gate
 
@@ -58,6 +85,6 @@ This is the narrowest useful attribution so far:
 - The remaining inter-centre trapezoid is untouched.
 - The short-horizon coordinate-worldtube current residual and interval-integrated mass defect are effectively unchanged.
 - The central \(\dot A_a/r_0^2\) is reduced but not proven convergent; momentum/connection later develop central errors.
-- Fixed-areal-radius conservation, longer-time stability, matched-time spatial convergence, and the archived outer-radiation continuation gate remain open.
+- The fixed-areal-radius ledger has now been compared and is effectively unchanged in the origin-only arm over this short horizon; longer-time stability, matched-time spatial/temporal convergence, and archived outer-radiation continuation remain open.
 
-Keep PR #79 draft. The result supports testing this *specific origin-only numerical ingredient* further; it does not justify merging it yet or replacing the broader PR #18 candidate wholesale. Next, compare this run to the existing fixed-areal-radius A/B infrastructure and extend only if that can be done with the same pinned source, reporting both centre constraints and the full signed mass/flux/work ledger. Do not alter physical equations or fit quadrature weights to current residuals.
+Keep PR #79 draft. The result supports testing this *specific origin-only numerical ingredient* further; it does not justify merging it yet or replacing the broader PR #18 candidate wholesale. Next, reconcile the nearly unchanged fixed-R ledger against the existing PR #35 component-resolved current analysis, then choose a short matched-resolution/time refinement that records both centre constraints and the full signed mass/flux/work ledger. Do not alter physical equations or fit quadrature weights to current residuals.
