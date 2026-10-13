@@ -37,8 +37,8 @@ class ResolutionResult:
     turnaround_events: int
     reexpansion_events: int
     trapped_root_count_max: int
-    misner_sharp_current_max: float
-    misner_sharp_current_rms: float
+    misner_sharp_current_max: float | None
+    misner_sharp_current_rms: float | None
     last_diagnostics: dict
     endpoint_roundoff_correction: float = 0.0
 
