@@ -1,0 +1,112 @@
+name: Lightweight validation
+
+on:
+  pull_request:
+    paths:
+      - "engine/**"
+      - "tests/**"
+      - "vendor/**"
+      - ".github/workflows/**"
+      - "requirements.txt"
+      - "pytest.ini"
+      - ".gitmodules"
+      - "pyproject.toml"
+      - "Makefile"
+  push:
+    branches: [main]
+    paths:
+      - "engine/**"
+      - "tests/**"
+      - "vendor/**"
+      - ".github/workflows/**"
+      - "requirements.txt"
+      - "pytest.ini"
+      - ".gitmodules"
+      - "pyproject.toml"
+      - "Makefile"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lightweight-validation-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test-and-smoke:
+    name: Tests and one-step production smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      PYTHONUNBUFFERED: "1"
+    steps:
+      - name: Check out engine and pinned numerical kernel
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Run complete repository test suite
+        run: python -m pytest -q
+
+      - name: Run control-only smoke
+        run: python -m engine.run_controls
+
+      - name: Initialize and advance the production kernel by one step
+        run: |
+          python - <<'PY'
+          import math
+          import numpy as np
+
+          from engine.production_kernel import V55ProductionKernel
+
+          kernel = V55ProductionKernel()
+          state = kernel.initialize(
+              resolution=40,
+              r_max=40.0,
+              include_radiation=True,
+          )
+          if not math.isclose(state.t, 0.0, rel_tol=0.0, abs_tol=1.0e-15):
+              raise AssertionError(f"initial coordinate time is {state.t!r}")
+
+          dt = 0.03 * state.grid.dr
+          state = kernel.step(state, dt)
+          state.geometry.assert_finite_positive()
+
+          if not state.t > 0.0:
+              raise AssertionError(f"production step did not advance time: {state.t!r}")
+          if not state.history:
+              raise AssertionError("production step did not record diagnostics")
+
+          def assert_finite(value, path="diagnostics"):
+              if isinstance(value, dict):
+                  for key, item in value.items():
+                      assert_finite(item, f"{path}.{key}")
+              elif isinstance(value, (list, tuple)):
+                  for index, item in enumerate(value):
+                      assert_finite(item, f"{path}[{index}]")
+              elif isinstance(value, np.ndarray):
+                  if value.dtype.kind in "fciub" and not bool(np.all(np.isfinite(value))):
+                      raise AssertionError(f"non-finite array in {path}")
+              elif isinstance(value, (np.number, int, float, complex)):
+                  if not bool(np.all(np.isfinite(value))):
+                      raise AssertionError(f"non-finite value in {path}: {value!r}")
+
+          assert_finite(state.history[-1])
+          print(
+              "PRODUCTION_STEP_SMOKE_PASS",
+              f"resolution=40 r_max=40 dt={dt:.17g} t={state.t:.17g}",
+              flush=True,
+          )
+          PY
