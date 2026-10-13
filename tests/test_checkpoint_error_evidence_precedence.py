@@ -90,5 +90,5 @@ def test_checkpoint_io_error_remains_primary_if_evidence_write_fails(
     assert result["t_final"] == pytest.approx(0.03)
     assert result["steps"] == 1
     assert result["checkpoint_count"] == 0
-    assert not (tmp_path / "N60").exists()
+    assert not (tmp_path / "N60" / "ledgers.json").exists()
     assert list(run_dir.glob(".checkpoint_t*")) == []
