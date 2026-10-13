@@ -262,8 +262,8 @@ def solve_even_reflection_centre_pde_lapse(kernel, state) -> tuple[np.ndarray, d
         raise RuntimeError("even-reflection CMC row produced invalid lapse")
     row_residual = float(np.max(np.abs(
         band[1] * alpha_even
-        + np.r_[0.0, band[0, 1:] * alpha_even[1:]]
-        + np.r_[band[2, :-1] * alpha_even[:-1], 0.0]
+        + np.r_[band[0, 1:] * alpha_even[1:], 0.0]
+        + np.r_[0.0, band[2, :-1] * alpha_even[:-1]]
         - bvec
     )))
     return np.asarray(alpha_even, dtype=float), {
@@ -446,8 +446,14 @@ def main() -> None:
         centre_row_state.geometry.beta.fill(0.0)
         centre_row_state.geometry.B.fill(0.0)
         centre_row_report, centre_row_profiles = measure_state(centre_row_state)
-        if digest_state(candidate) == "" or centre_row_report["time"] != 0.0:
-            raise RuntimeError("invalid centre-row counterfactual state")
+        if centre_row_state.t != 0.0 or centre_row_state.history:
+            raise RuntimeError("centre-row counterfactual unexpectedly advanced time")
+        for field in ("a", "b", "X", "Aa", "K", "Lambda", "beta", "B"):
+            if not np.array_equal(
+                np.asarray(getattr(candidate.geometry, field)),
+                np.asarray(getattr(centre_row_state.geometry, field)),
+            ):
+                raise RuntimeError(f"centre-row counterfactual changed non-lapse geometry: {field}")
 
         # Save every radial profile from all arms for independent signed review.
         for name, values in baseline_profiles.items():
