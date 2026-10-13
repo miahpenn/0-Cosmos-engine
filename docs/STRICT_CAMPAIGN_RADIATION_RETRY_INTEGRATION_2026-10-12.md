@@ -1,5 +1,7 @@
 # Strict campaign admission + radiation retry integration candidate
 
+> **Historical integration handoff — 13 October 2026.** This file describes the pre-promotion candidate stack from 12 October. The clean-main strict campaign/retry software integration was subsequently promoted through [PR #23](https://github.com/miahpenn/0-Cosmos-engine/pull/23); this document's branch/head dispositions are historical. Keep its captured failure modes and admission limits as evidence, but use [docs/STATUS.md](STATUS.md) and [Issue #135](https://github.com/miahpenn/0-Cosmos-engine/issues/135) for current status and next steps.
+
 **Date:** 12 October 2026  
 **Disposition:** draft engineering integration; not merged; not scientific admission.
 
