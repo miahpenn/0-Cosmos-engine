@@ -8,6 +8,7 @@ on:
       - "tools/audit_uniform_cmc_centre_row_one_step.py"
       - "tools/audit_uniform_cmc_centre_row_counterfactual.py"
       - "tools/audit_uniform_radial_quadrature_initial_profile.py"
+      - "tools/origin_half_cell_quadrature_regularity_ab.py"
       - ".github/workflows/uniform-cmc-centre-row-one-step.yml"
 
 permissions:
@@ -67,6 +68,7 @@ jobs:
           python -m py_compile tools/audit_uniform_cmc_centre_row_one_step.py
           python -m py_compile tools/audit_uniform_cmc_centre_row_counterfactual.py
           python -m py_compile tools/audit_uniform_radial_quadrature_initial_profile.py
+          python -m py_compile tools/origin_half_cell_quadrature_regularity_ab.py
 
       - name: Run one normal production step for each centre-row variant
         run: PYTHONPATH=. python tools/audit_uniform_cmc_centre_row_one_step.py
@@ -83,6 +85,7 @@ jobs:
           git rev-parse HEAD:tools/audit_uniform_cmc_centre_row_one_step.py > results/uniform-cmc-centre-row-one-step/ONE_STEP_TOOL_BLOB.txt
           git rev-parse HEAD:tools/audit_uniform_cmc_centre_row_counterfactual.py > results/uniform-cmc-centre-row-one-step/CENTRE_ROW_HELPER_BLOB.txt
           git rev-parse HEAD:tools/audit_uniform_radial_quadrature_initial_profile.py > results/uniform-cmc-centre-row-one-step/INITIAL_PROFILE_HELPER_BLOB.txt
+          git rev-parse HEAD:tools/origin_half_cell_quadrature_regularity_ab.py > results/uniform-cmc-centre-row-one-step/ORIGIN_QUADRATURE_HELPER_BLOB.txt
           if test -f results/uniform-cmc-centre-row-one-step/report.json; then
             (cd results/uniform-cmc-centre-row-one-step && sha256sum report.json > REPORT_SHA256SUM.txt)
           fi
