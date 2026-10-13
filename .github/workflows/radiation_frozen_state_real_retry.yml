@@ -1,0 +1,91 @@
+name: Radiation real frozen-state retry validation
+
+on:
+  push:
+    branches:
+      - fix/radiation-adaptive-step-on-cone-2026-10-12
+    paths:
+      - tools/audit_radiation_frozen_state_real_retry.py
+      - .github/workflows/radiation_frozen_state_real_retry.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: radiation-real-frozen-state-retry
+  cancel-in-progress: false
+
+jobs:
+  archived-state-real-retry:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout adaptive-step candidate and pinned vendor
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Fail closed against physics/source and vendor changes
+        env:
+          SOURCE_BASE_COMMIT: "cdcec8282bff0443f2fe4674b15929822ff38736"
+          VENDOR_COMMIT: "d6052d605673ce9d82cdc99b0df79855fa2ea215"
+        run: |
+          git fetch --no-tags origin "$SOURCE_BASE_COMMIT"
+          unexpected="$(git diff --name-only "$SOURCE_BASE_COMMIT" HEAD | grep -v -E '^(engine/adaptive_step\.py|engine/matter_system\.py|engine/run_production\.py|tests/test_adaptive_step_retry\.py|tests/test_radiation_rhs_admissibility_contract\.py|\.github/workflows/radiation_adaptive_step_gate\.yml|tools/audit_radiation_frozen_state_real_retry\.py|\.github/workflows/radiation_frozen_state_real_retry\.yml)$' || true)"
+          if [ -n "$unexpected" ]; then
+            printf 'Unexpected changed files relative to exact stacked source:\n%s\n' "$unexpected"
+            exit 1
+          fi
+          actual_vendor="$(git rev-parse HEAD:vendor/bb-palatini-unified-r0)"
+          test "$actual_vendor" = "$VENDOR_COMMIT"
+          printf 'Source base: %s\nVendor: %s\n' "$SOURCE_BASE_COMMIT" "$actual_vendor"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Compile retry and archived-state audit
+        run: |
+          python -m py_compile engine/adaptive_step.py engine/matter_system.py engine/run_production.py
+          python -m py_compile tools/audit_radiation_frozen_state_real_retry.py
+
+      - name: Focused adaptive and admissibility regressions
+        run: python -m pytest -q tests/test_adaptive_step_retry.py tests/test_radiation_rhs_admissibility_contract.py tests/test_radiation_rest_current_contract.py
+
+      - name: Full repository regression suite
+        run: python -m pytest -q
+
+      - name: Download exact archived state from boundary-CMC audit
+        uses: actions/download-artifact@v4
+        with:
+          name: boundary-cmc-radiation-audit
+          path: runs/source-artifact
+          repository: ${{ github.repository }}
+          run-id: 38322337250
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Verify accepted-state hash and source metadata
+        run: |
+          echo 'ccd1fa0fbabe65c51c3dd7ac2c9227d6d25aa680c169eef1afd3fca4326294cf  runs/source-artifact/boundary_failure_accepted_state.npz' | sha256sum -c -
+          grep -q '"rate_fix_source_commit": "cdcec8282bff0443f2fe4674b15929822ff38736"' runs/source-artifact/boundary_failure_accepted_state.json
+          grep -q '"pinned_vendor_commit": "d6052d605673ce9d82cdc99b0df79855fa2ea215"' runs/source-artifact/boundary_failure_accepted_state.json
+
+      - name: Run one actual radiation retry from the archived failing state
+        run: PYTHONPATH=. python tools/audit_radiation_frozen_state_real_retry.py --input-dir runs/source-artifact
+
+      - name: Upload exact attempts and final state witnesses
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: radiation-frozen-state-real-retry
+          path: artifacts/radiation-frozen-state-real-retry/
+          if-no-files-found: warn
+          retention-days: 90
