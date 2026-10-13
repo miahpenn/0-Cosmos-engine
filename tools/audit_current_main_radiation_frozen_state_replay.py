@@ -861,6 +861,9 @@ class RadiationStageCapture:
                         ),
                         "l3_Aa_actual": np.asarray(result["primary_l3"]["Aa"], dtype=float),
                         "l3_Aa_matter_from_TotalStressEnergy": l3_expected["Aa"],
+                        "l3_TotalStressEnergy_rho": np.asarray(assembled_stress.rho, dtype=float),
+                        "l3_TotalStressEnergy_pr": np.asarray(assembled_stress.pr, dtype=float),
+                        "l3_TotalStressEnergy_pt": np.asarray(assembled_stress.pt, dtype=float),
                         "l3_Aa_matter_identity_residual": l3_Aa_residual,
                         "l3_Aa_matter_operand_scaled_roundoff_bound": l3_Aa_bound,
                         "l3_K_vacuum": np.asarray(vacuum_l3["K"], dtype=float),
@@ -932,6 +935,12 @@ class RadiationStageCapture:
                         "outer_cell_terms": {},
                         "l3_total_stress_projection_oracle": {
                             "assembly": "engine.stress_energy.assemble_total_stress_energy",
+                            "projection_input_profile_keys": {
+                                "alpha": f"{prefix}__metric__alpha",
+                                "rho": f"{prefix}__source__l3_TotalStressEnergy_rho",
+                                "pr": f"{prefix}__source__l3_TotalStressEnergy_pr",
+                                "pt": f"{prefix}__source__l3_TotalStressEnergy_pt",
+                            },
                             "Aa": {
                                 "residual_max_abs_all_cells": float(np.max(np.abs(l3_Aa_residual))),
                                 "operand_scaled_roundoff_bound_max_abs": float(np.max(l3_Aa_bound)),
@@ -1201,6 +1210,35 @@ class RadiationStageCapture:
             and len(set(failed_trial_keys)) == len(failed_trial_keys)
             and failed_trial_rhs_match_count == len(self.failed_trials)
         )
+        l3_projection_profile_error_count = 0
+        for rec in self.geometry_source_records:
+            prefix = rec["prefix"]
+            expected_profile_keys = {
+                "alpha": f"{prefix}__metric__alpha",
+                "rho": f"{prefix}__source__l3_TotalStressEnergy_rho",
+                "pr": f"{prefix}__source__l3_TotalStressEnergy_pr",
+                "pt": f"{prefix}__source__l3_TotalStressEnergy_pt",
+            }
+            actual_profile_keys = rec.get(
+                "l3_total_stress_projection_oracle", {}
+            ).get("projection_input_profile_keys")
+            profile_ok = actual_profile_keys == expected_profile_keys
+            if profile_ok:
+                try:
+                    reference_shape = self.arrays[f"{prefix}__metric__r"].shape
+                    for key in expected_profile_keys.values():
+                        arr = np.asarray(self.arrays[key], dtype=float)
+                        if arr.shape != reference_shape or not np.all(np.isfinite(arr)):
+                            profile_ok = False
+                            break
+                except (KeyError, TypeError, ValueError):
+                    profile_ok = False
+            if not profile_ok:
+                l3_projection_profile_error_count += 1
+        l3_projection_profiles_identity_pass = (
+            bool(self.geometry_source_records)
+            and l3_projection_profile_error_count == 0
+        )
         l3_oracle_stages = [
             {
                 "input_t": rec["input_t"],
@@ -1225,6 +1263,10 @@ class RadiationStageCapture:
                 bool(l3_oracle_stages)
                 and all(stage["K"]["within_bound_all_cells"] for stage in l3_oracle_stages)
             ),
+            "all_captured_stages_have_recomputable_TotalStressEnergy_inputs": (
+                l3_projection_profiles_identity_pass
+            ),
+            "projection_input_profile_error_count": l3_projection_profile_error_count,
             "stages": l3_oracle_stages,
             "interpretation_limit": (
                 "This checks the adapter L3 increment against separate TotalStressEnergy "
@@ -1233,7 +1275,7 @@ class RadiationStageCapture:
             ),
         }
         summary = {
-            "schema": "radiation_explicit_predictor_stage_capture_v4_retry_identity_and_independent_l3",
+            "schema": "radiation_explicit_predictor_stage_capture_v5_retry_identity_and_recomputable_independent_l3",
             "diagnostic_only": True,
             "rhs_capture_identity_pass": bool(rhs_keys_match_index),
             "failed_predictor_rhs_identity_pass": bool(failed_trial_rhs_identity_pass),
@@ -1476,6 +1518,8 @@ def main() -> int:
             raise RuntimeError("independent L3 Aa source increment exceeded its operand-scaled roundoff bound")
         if l3_oracle.get("all_captured_K_stages_within_operand_scaled_roundoff_bound") is not True:
             raise RuntimeError("independent L3 K source increment exceeded its operand-scaled roundoff bound")
+        if l3_oracle.get("all_captured_stages_have_recomputable_TotalStressEnergy_inputs") is not True:
+            raise RuntimeError("independent L3 source projection inputs are missing, non-finite, or mis-keyed in the profile artifact")
 
         run_dir = args.campaign_dir / f"N{RESOLUTION}"
         retries_path = run_dir / "radiation_step_retries.json"
