@@ -39,10 +39,11 @@ def test_radial_maxwell_campaign_inputs_fail_closed():
         CampaignConfig(
             resolutions=(24,),
             r_max=24.0,
-            charged_dust_density_profile=None,
+            cfl=0.01,
+            final_time=0.01,
+            checkpoint_interval=0.01,
+            output_dir="unused",
             radial_maxwell_charge_to_mass=0.25,
-        ) if False else _campaign(
-            pytest.TempPathFactory(),  # replaced below without filesystem use
             charged_dust_density_profile=((1.0, 1.0e-6), (24.0, 1.0e-6)),
         )
 
