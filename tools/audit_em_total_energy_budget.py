@@ -311,6 +311,69 @@ def _misner_sharp_chain_rule_rate_profiles(
     return outputs
 
 
+def _fixed_target_interpolant_rate(
+    R, Rdot, mass, mass_dot_coordinate, *, target: float
+) -> dict:
+    """Differentiate the exact piecewise-linear M(R,t) interpolant at fixed R.
+
+    This is the derivative of the same moving-bracket interpolant used for the
+    accepted-state tube observable, not a separately interpolated continuum
+    chain rule. At an exact interior knot, use the right-hand bracket (and the
+    left-hand bracket at the upper domain edge); the one-sided convention is
+    reported through the active bracket and theta.
+    """
+    raw = {"R": R, "Rdot": Rdot, "mass": mass, "mass_dot_coordinate": mass_dot_coordinate}
+    arrays = {name: np.asarray(value, dtype=float) for name, value in raw.items()}
+    first = arrays["R"]
+    if first.ndim != 1 or first.size < 2:
+        raise RuntimeError("fixed-R interpolant rate R must be a 1-D array with at least two cells")
+    for name, value in arrays.items():
+        if value.shape != first.shape:
+            raise RuntimeError(
+                f"fixed-R interpolant rate {name} shape {value.shape} does not match {first.shape}"
+            )
+        if not np.all(np.isfinite(value)):
+            raise RuntimeError(f"fixed-R interpolant rate {name} contains non-finite values")
+    if not np.all(np.diff(first) > 0.0):
+        raise RuntimeError("fixed-R interpolant rate R must be strictly increasing")
+    target = float(target)
+    if not math.isfinite(target):
+        raise RuntimeError("fixed-R interpolant target must be finite")
+    if target < float(first[0]) or target > float(first[-1]):
+        raise RuntimeError("fixed-R interpolant target is outside the sampled domain")
+
+    # Match np.interp's linear segment and retain the actual moving bracket.
+    left = int(np.searchsorted(first, target, side="right") - 1)
+    left = max(0, min(left, first.size - 2))
+    right = left + 1
+    span = float(first[right] - first[left])
+    theta = float((target - first[left]) / span)
+    blend = lambda values: float((1.0 - theta) * values[left] + theta * values[right])
+    interp_mass = blend(arrays["mass"])
+    interp_Rdot = blend(arrays["Rdot"])
+    interp_mass_dot = blend(arrays["mass_dot_coordinate"])
+    piecewise_gradient = float((arrays["mass"][right] - arrays["mass"][left]) / span)
+    fixed_R_sweep = -interp_Rdot * piecewise_gradient
+    fixed_R_rate = interp_mass_dot + fixed_R_sweep
+    scalars = (
+        interp_mass, interp_Rdot, interp_mass_dot, piecewise_gradient,
+        fixed_R_sweep, fixed_R_rate, theta,
+    )
+    if not all(math.isfinite(value) for value in scalars):
+        raise RuntimeError("fixed-R interpolant rate produced a non-finite result")
+    return {
+        "left_index": left,
+        "right_index": right,
+        "theta": theta,
+        "interpolated_mass": interp_mass,
+        "interpolated_Rdot": interp_Rdot,
+        "interpolated_mass_dot_coordinate": interp_mass_dot,
+        "piecewise_linear_mass_gradient": piecewise_gradient,
+        "fixed_R_sweep": fixed_R_sweep,
+        "mass_dot_fixed_R": fixed_R_rate,
+    }
+
+
 def _worldtube_sample(kernel, state, *, geometry_stage_capture=None) -> dict:
     """Evaluate native MS and EM-inclusive stress/flux/work on R=10."""
     grid, geom = state.grid, state.geometry
@@ -396,6 +459,25 @@ def _worldtube_sample(kernel, state, *, geometry_stage_capture=None) -> dict:
         chain_Mdot_fixed_R = chain_Mdot_coord + chain_sweep
         chain_coordinate_residual = chain_Mdot_coord - (stress_flux + pressure_work)
         chain_fixed_R_residual = chain_Mdot_fixed_R - predicted_fixed_R_rate
+
+        # Direct derivative of the same np.interp(R*=10, R, M) observable used
+        # for accepted-state mass. Preserve all stage profiles and the exact
+        # moving bracket so this can be audited independently of D_r M / D_r R.
+        interpolant_rate = _fixed_target_interpolant_rate(
+            R, Rdot, chain_profiles["mass"],
+            chain_profiles["mass_dot_coordinate"], target=FIXED_AREAL_RADIUS,
+        )
+        if not math.isclose(
+            interpolant_rate["interpolated_mass"], mass_tube,
+            rel_tol=0.0, abs_tol=64.0 * np.finfo(float).eps * max(1.0, abs(mass_tube)),
+        ):
+            raise RuntimeError("direct fixed-R interpolant mass does not match accepted observable")
+        interpolant_coordinate_residual = (
+            interpolant_rate["interpolated_mass_dot_coordinate"] - (stress_flux + pressure_work)
+        )
+        interpolant_fixed_R_residual = (
+            interpolant_rate["mass_dot_fixed_R"] - predicted_fixed_R_rate
+        )
         chain_rule = {
             "tube_chain_rule_Rdot": at(Rdot),
             "tube_chain_rule_Rr": at(Rr),
@@ -416,6 +498,23 @@ def _worldtube_sample(kernel, state, *, geometry_stage_capture=None) -> dict:
             "tube_chain_rule_fixed_R_residual": chain_fixed_R_residual,
             "tube_chain_rule_gamma_inv_dot_absmax": float(np.max(np.abs(gamma_inv_dot))),
             "tube_chain_rule_Ktheta_dot_absmax": float(np.max(np.abs(Ktheta_dot))),
+            "tube_interpolant_bracket_left_index": int(interpolant_rate["left_index"]),
+            "tube_interpolant_bracket_right_index": int(interpolant_rate["right_index"]),
+            "tube_interpolant_theta": interpolant_rate["theta"],
+            "tube_interpolant_interpolated_mass": interpolant_rate["interpolated_mass"],
+            "tube_interpolant_Rdot": interpolant_rate["interpolated_Rdot"],
+            "tube_interpolant_mass_dot_coordinate": interpolant_rate["interpolated_mass_dot_coordinate"],
+            "tube_interpolant_piecewise_dM_dR": interpolant_rate["piecewise_linear_mass_gradient"],
+            "tube_interpolant_fixed_R_sweep": interpolant_rate["fixed_R_sweep"],
+            "tube_interpolant_mass_dot_fixed_R": interpolant_rate["mass_dot_fixed_R"],
+            "tube_interpolant_coordinate_rate_minus_flux_pressure": interpolant_coordinate_residual,
+            "tube_interpolant_fixed_R_residual": interpolant_fixed_R_residual,
+            "tube_interpolant_witness_profiles": {
+                "R": np.asarray(R, dtype=float).copy(),
+                "Rdot": np.asarray(Rdot, dtype=float).copy(),
+                "mass": np.asarray(chain_profiles["mass"], dtype=float).copy(),
+                "mass_dot_coordinate": np.asarray(chain_profiles["mass_dot_coordinate"], dtype=float).copy(),
+            },
         }
 
     em_rho = total.electromagnetic_rho
@@ -519,8 +618,22 @@ def _fixed_R_rate_snapshot(sample: dict) -> dict:
         "tube_chain_rule_coordinate_rate_minus_flux_pressure",
         "tube_chain_rule_fixed_R_residual",
         "tube_chain_rule_fixed_R_sweep",
+        "tube_interpolant_bracket_left_index",
+        "tube_interpolant_bracket_right_index",
+        "tube_interpolant_theta",
+        "tube_interpolant_interpolated_mass",
+        "tube_interpolant_Rdot",
+        "tube_interpolant_mass_dot_coordinate",
+        "tube_interpolant_piecewise_dM_dR",
+        "tube_interpolant_fixed_R_sweep",
+        "tube_interpolant_mass_dot_fixed_R",
+        "tube_interpolant_coordinate_rate_minus_flux_pressure",
+        "tube_interpolant_fixed_R_residual",
     )
-    return {"t": float(sample["t"]), **{key: float(sample[key]) for key in keys}}
+    snapshot = {"t": float(sample["t"]), **{key: float(sample[key]) for key in keys}}
+    if "tube_interpolant_witness_profiles" in sample:
+        snapshot["tube_interpolant_witness_profiles"] = sample["tube_interpolant_witness_profiles"]
+    return snapshot
 
 
 def _species_name(stage_state, species_state) -> str:
@@ -1048,6 +1161,17 @@ def _fixed_R_interval_balance(run: dict, *, label: str = "run") -> list[dict]:
             "tube_chain_rule_coordinate_rate_minus_flux_pressure",
             "tube_chain_rule_fixed_R_residual",
             "tube_chain_rule_fixed_R_sweep",
+            "tube_interpolant_bracket_left_index",
+            "tube_interpolant_bracket_right_index",
+            "tube_interpolant_theta",
+            "tube_interpolant_interpolated_mass",
+            "tube_interpolant_Rdot",
+            "tube_interpolant_mass_dot_coordinate",
+            "tube_interpolant_piecewise_dM_dR",
+            "tube_interpolant_fixed_R_sweep",
+            "tube_interpolant_mass_dot_fixed_R",
+            "tube_interpolant_coordinate_rate_minus_flux_pressure",
+            "tube_interpolant_fixed_R_residual",
         )
         for stage_name in ("start", "primary_predictor"):
             missing = [key for key in stage_chain_fields if key not in stage_rates[stage_name]]
@@ -1120,6 +1244,22 @@ def _pair_fixed_R_interval_rows(charged: list[dict], neutral: list[dict], *, lab
         "primary_predictor_stage_tube_chain_rule_fixed_R_residual",
         "start_stage_tube_chain_rule_fixed_R_sweep",
         "primary_predictor_stage_tube_chain_rule_fixed_R_sweep",
+        "start_stage_tube_interpolant_theta",
+        "primary_predictor_stage_tube_interpolant_theta",
+        "start_stage_tube_interpolant_mass_dot_coordinate",
+        "primary_predictor_stage_tube_interpolant_mass_dot_coordinate",
+        "start_stage_tube_interpolant_Rdot",
+        "primary_predictor_stage_tube_interpolant_Rdot",
+        "start_stage_tube_interpolant_piecewise_dM_dR",
+        "primary_predictor_stage_tube_interpolant_piecewise_dM_dR",
+        "start_stage_tube_interpolant_fixed_R_sweep",
+        "primary_predictor_stage_tube_interpolant_fixed_R_sweep",
+        "start_stage_tube_interpolant_mass_dot_fixed_R",
+        "primary_predictor_stage_tube_interpolant_mass_dot_fixed_R",
+        "start_stage_tube_interpolant_coordinate_rate_minus_flux_pressure",
+        "primary_predictor_stage_tube_interpolant_coordinate_rate_minus_flux_pressure",
+        "start_stage_tube_interpolant_fixed_R_residual",
+        "primary_predictor_stage_tube_interpolant_fixed_R_residual",
     )
     for i, (c, n) in enumerate(zip(charged, neutral)):
         for time_key in ("t_start", "t_end", "dt"):
@@ -1199,6 +1339,9 @@ def _summarize_fixed_N_temporal_refinement(runs: list[dict]) -> dict:
             "final_interval_charged_minus_neutral_mass_rate_minus_stage_pair_average": final["charged_minus_neutral_mass_rate_minus_stage_pair_average_diagnostic_only"],
             "final_interval_charged_minus_neutral_start_chain_fixed_R_residual": final["charged_minus_neutral_start_stage_tube_chain_rule_fixed_R_residual"],
             "final_interval_charged_minus_neutral_predictor_chain_fixed_R_residual": final["charged_minus_neutral_primary_predictor_stage_tube_chain_rule_fixed_R_residual"],
+            "final_interval_charged_minus_neutral_predictor_interpolant_mass_rate": final["charged_minus_neutral_primary_predictor_stage_tube_interpolant_mass_dot_fixed_R"],
+            "final_interval_charged_minus_neutral_predictor_interpolant_coordinate_residual": final["charged_minus_neutral_primary_predictor_stage_tube_interpolant_coordinate_rate_minus_flux_pressure"],
+            "final_interval_charged_minus_neutral_predictor_interpolant_fixed_R_residual": final["charged_minus_neutral_primary_predictor_stage_tube_interpolant_fixed_R_residual"],
             "final_interval_charged_minus_neutral_start_chain_coordinate_rate": final["charged_minus_neutral_start_stage_tube_chain_rule_mass_dot_coordinate"],
             "final_interval_charged_minus_neutral_predictor_chain_coordinate_rate": final["charged_minus_neutral_primary_predictor_stage_tube_chain_rule_mass_dot_coordinate"],
             "paired_interval_rows": paired,
@@ -1214,6 +1357,7 @@ def _summarize_fixed_N_temporal_refinement(runs: list[dict]) -> dict:
             "Accepted-interval secants are compared with trapezoidal endpoint rates and are kept distinct from actual PIRK start/predictor-stage rates.",
             "The average of start/predictor diagnostic rates is not asserted to be the production integrator's exact quadrature.",
             "The semidiscrete Misner-Sharp chain-rule witness differentiates the mass definition using actual captured explicit and primary L2/L3 stage rates; its stress/pressure remainder is a separate diagnostic, not a global conservation proof.",
+            "A second stage witness differentiates the same piecewise-linear np.interp(R*=10, R, M) observable, preserving the active moving bracket, theta, and full R/Rdot/M/Mdot coordinate profiles; it is compared directly with the pointwise chain-rule derivative and stress/pressure terms.",
             "Charged-minus-neutral differences are only a discriminator; no physical/global residual threshold is imposed.",
         ],
         "rows": rows,
@@ -1381,8 +1525,8 @@ def write_step_summary(report: dict) -> None:
         "",
         f"Resolution held at N={temporal['resolution']}; q/m=0 and 0.25 paired at CFL values {temporal['cfl_values']}.",
         "",
-        "| CFL | nominal dt | steps | final Δ interval residual | final Δ measured M rate | final Δ endpoint prediction | Δ chain fixed-R residual (start / predictor) |",
-        "|---:|---:|---:|---:|---:|---:|---:|",
+        "| CFL | nominal dt | steps | final Δ interval residual | Δ measured M rate | Δ endpoint prediction | Δ pointwise chain fixed-R remainder | Δ direct-interpolant fixed-R remainder |",
+        "|---:|---:|---:|---:|---:|---:|---:|---:|",
     ])
     for row in temporal["rows"]:
         lines.append(
@@ -1390,12 +1534,12 @@ def write_step_summary(report: dict) -> None:
             f"{row['final_interval_charged_minus_neutral_residual']:.6e} | "
             f"{row['final_interval_charged_minus_neutral_mass_rate']:.6e} | "
             f"{row['final_interval_charged_minus_neutral_endpoint_prediction']:.6e} | "
-            f"{row['final_interval_charged_minus_neutral_start_chain_fixed_R_residual']:.6e} / "
-            f"{row['final_interval_charged_minus_neutral_predictor_chain_fixed_R_residual']:.6e} |"
+            f"{row['final_interval_charged_minus_neutral_predictor_chain_fixed_R_residual']:.6e} | "
+            f"{row['final_interval_charged_minus_neutral_predictor_interpolant_fixed_R_residual']:.6e} |"
         )
     lines.extend([
         "",
-        "The fixed-N sweep retains adjacent accepted-state interval secants, endpoint-rate trapezoids, and actual start/predictor-stage rates as separate witnesses. This does not identify a missing physics term or establish a global conserved energy.",
+        "The fixed-N sweep retains adjacent accepted-state interval secants, endpoint-rate trapezoids, actual start/predictor-stage rates, the pointwise chain-rule rate, and the derivative of the direct fixed-R piecewise-linear interpolant as separate witnesses. This does not identify a missing physics term or establish a global conserved energy.",
         "",
         "The full signed matter face-flux/source profiles and EM stage terms are in the uploaded JSON artifact. A nonzero fixed-tube remainder is reported as measured, not fitted away. The combined matter-plus-EM remainder is not a global conservation residual because scalar and gravity accounting are not fully assembled.",
         "",
