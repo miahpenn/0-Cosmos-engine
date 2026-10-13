@@ -7,7 +7,8 @@ curved-spacetime donor-plus-field energy balance.
 import numpy as np
 
 from engine import v55_pirk_adapter as adapter
-from engine.matter_system import Species, species_rhs
+from engine.matter_rhs import species_rhs
+from engine.matter_system import Species
 from engine.production_kernel import V55ProductionKernel
 from engine.v55_matter import metric_slice_from_q
 
