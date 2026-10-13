@@ -73,6 +73,31 @@ def test_non_directory_resolution_output_target_fails_before_kernel_initializati
     assert list(output_dir.iterdir()) == [resolution_target]
 
 
+def test_fsync_failure_after_probe_creation_cleans_probe_before_initialization(
+    tmp_path, monkeypatch
+):
+    output_dir = tmp_path / "campaign-output"
+    kernel = V55ProductionKernel()
+    initialize_calls = []
+
+    def forbidden_initialize(**kwargs):
+        initialize_calls.append(kwargs)
+        raise AssertionError("kernel initialization must not run")
+
+    def deny_fsync(_fd):
+        raise OSError("injected fsync failure after probe creation")
+
+    monkeypatch.setattr(kernel, "initialize", forbidden_initialize)
+    monkeypatch.setattr(campaign_module.os, "fsync", deny_fsync)
+
+    with pytest.raises(ValueError, match="injected fsync failure after probe creation"):
+        run_campaign(kernel=kernel, config=_config(output_dir))
+
+    assert initialize_calls == []
+    assert output_dir.is_dir()
+    assert list(output_dir.iterdir()) == []
+
+
 def test_output_write_probe_failure_fails_before_kernel_initialization(tmp_path, monkeypatch):
     output_dir = tmp_path / "campaign-output"
     kernel = V55ProductionKernel()
