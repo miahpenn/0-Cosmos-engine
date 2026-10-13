@@ -50,6 +50,9 @@ jobs:
       - name: Run complete repository test suite
         run: python -m pytest -q
 
+      - name: Emit curved-slice EM exchange discriminator values
+        run: python -m pytest -q -s tests/test_research_em_curved_energy_balance.py
+
       - name: Run control-only smoke
         run: python -m engine.run_controls
 
