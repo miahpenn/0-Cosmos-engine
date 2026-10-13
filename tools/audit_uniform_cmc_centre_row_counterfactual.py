@@ -250,6 +250,7 @@ def audit_one(n, kernel):
     geom = state.geometry
     target = float(target_kdot(grid, geom, state.scalars, state.matter))
     rows = {}
+    current_alpha = None
     for name in (
         "current_alpha0_equals_alpha1",
         "second_order_even_ghost_pde",
@@ -258,6 +259,8 @@ def audit_one(n, kernel):
         alpha, A, rhs_vec, c, inv, m, rhs_pde = _make_matrix(
             grid, geom, state.scalars, state.matter, target, name
         )
+        if name == "current_alpha0_equals_alpha1":
+            current_alpha = np.asarray(alpha, dtype=float).copy()
         rows[name] = _audit_variant(
             state, alpha, A, rhs_vec, c, inv, m, rhs_pde, name, target
         )
@@ -267,15 +270,7 @@ def audit_one(n, kernel):
         grid, geom.copy(), state.scalars, state.matter, outer_frac=1.0
     )
     reference_difference = float(np.max(np.abs(
-        np.asarray(direct_alpha, dtype=float) - rows["current_alpha0_equals_alpha1"]["first_cells"][-1].get("_unused", np.nan)
-    ))) if False else float(np.max(np.abs(
-        np.asarray(direct_alpha, dtype=float) -
-        np.linalg.solve(
-            _make_matrix(grid, geom, state.scalars, state.matter, target,
-                         "current_alpha0_equals_alpha1")[1],
-            _make_matrix(grid, geom, state.scalars, state.matter, target,
-                         "current_alpha0_equals_alpha1")[2],
-        )
+        np.asarray(direct_alpha, dtype=float) - current_alpha
     )))
     if abs(float(direct_target) - target) > 1.0e-13:
         raise AssertionError(f"N={n}: reference CMC target changed unexpectedly")
