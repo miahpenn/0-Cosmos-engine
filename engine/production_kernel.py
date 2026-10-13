@@ -612,6 +612,53 @@ class V55ProductionKernel:
         )
 
         obs = self.diagnostics(candidate, profiles=False)
+        if em0 is not None:
+            # Persist source/current witnesses from the exact start and primary
+            # predictor operands used by this accepted PIRK step. These are
+            # recomputed by the same pure source function on the same stage
+            # states; they are not an integrated energy-balance residual.
+            if (
+                em1 is None or emnew is None
+                or m0.charged_dust is None or m1.charged_dust is None
+                or mnew.charged_dust is None
+            ):
+                raise RuntimeError(
+                    "radial Maxwell step lost its charged-dust or field state"
+                )
+            _, _, em_start = em0.lorentz_source(
+                grid, g0, metric_slice_from_q(grid, g0), m0.charged_dust
+            )
+            _, _, em_predictor = em1.lorentz_source(
+                grid, g1, metric_slice_from_q(grid, g1), m1.charged_dust
+            )
+            for stage_name, trace in (
+                ("start", em_start), ("predictor", em_predictor)
+            ):
+                obs[f"em_{stage_name}_stage_current_absmax"] = float(
+                    np.max(np.abs(trace["j_e_r"]))
+                )
+                obs[f"em_{stage_name}_stage_lorentz_energy_source_absmax"] = float(
+                    np.max(np.abs(trace["source_energy"]))
+                )
+                obs[f"em_{stage_name}_stage_lorentz_momentum_source_absmax"] = float(
+                    np.max(np.abs(trace["source_momentum_r"]))
+                )
+                obs[f"em_{stage_name}_stage_electric_field_absmax"] = float(
+                    np.max(np.abs(trace["Ehat_r"]))
+                )
+            obs["em_predictor_stage_stress_energy_density_absmax"] = float(
+                np.max(np.abs(em1.stress_projection(grid, g1)["rho"]))
+            )
+            obs["em_accepted_charge_change_absmax"] = float(
+                np.max(np.abs(
+                    emnew.enclosed_charge_faces - em0.enclosed_charge_faces
+                ))
+            )
+            obs["em_accepted_gauss_shell_residual_absmax"] = float(
+                np.max(np.abs(
+                    emnew.gauss_shell_residual(grid, mnew.charged_dust)
+                ))
+            )
         candidate.e_folds = append_efolds(
             state.e_folds, obs["H_eff"], dt,
             H_eff_start=H_eff_start,
@@ -1193,6 +1240,46 @@ class V55ProductionKernel:
             "explicit_db_over_b_at_max": v_eb,
         }
 
+        if state.electromagnetic is not None:
+            carrier = state.matter.charged_dust
+            if carrier is None:
+                raise RuntimeError(
+                    "radial Maxwell diagnostics require the separate charged-dust state"
+                )
+            Ehat = state.electromagnetic.electric_field_hat(grid, geom)
+            em_sources = state.electromagnetic.lorentz_source(
+                grid, geom, metric, carrier
+            )[2]
+            em_projection = state.electromagnetic.stress_projection(grid, geom)
+            gauss_residual = state.electromagnetic.gauss_shell_residual(
+                grid, carrier
+            )
+            out.update({
+                "radial_maxwell_enabled": 1.0,
+                "em_charge_to_rest_mass": float(
+                    state.electromagnetic.charge_to_rest_mass
+                ),
+                "em_total_enclosed_charge": float(
+                    state.electromagnetic.enclosed_charge_faces[-1]
+                ),
+                "em_electric_field_absmax": float(np.max(np.abs(Ehat))),
+                "em_stress_energy_density_absmax": float(
+                    np.max(np.abs(em_projection["rho"]))
+                ),
+                "em_current_absmax": float(
+                    np.max(np.abs(em_sources["j_e_r"]))
+                ),
+                "em_lorentz_energy_source_absmax": float(
+                    np.max(np.abs(em_sources["source_energy"]))
+                ),
+                "em_lorentz_momentum_source_absmax": float(
+                    np.max(np.abs(em_sources["source_momentum_r"]))
+                ),
+                "em_gauss_shell_residual_absmax": float(
+                    np.max(np.abs(gauss_residual))
+                ),
+            })
+
         if profiles:
             out.update({
                 "total_rho": total.rho,
@@ -1245,4 +1332,37 @@ def write_checkpoint_npz(
         "radiation_energy_t": state.matter.radiation.energy_t,
         "radiation_momentum_r": state.matter.radiation.momentum_r,
     }
+    if state.electromagnetic is not None:
+        carrier = state.matter.charged_dust
+        if carrier is None:
+            raise ValueError(
+                "radial Maxwell checkpoint requires the separate charged-dust state"
+            )
+        em = state.electromagnetic
+        metric = metric_slice_from_q(state.grid, state.geometry)
+        projection = em.stress_projection(state.grid, state.geometry)
+        source = em.lorentz_source(
+            state.grid, state.geometry, metric, carrier
+        )[2]
+        arrays.update({
+            "charged_dust_rest": carrier.rest,
+            "charged_dust_energy_t": carrier.energy_t,
+            "charged_dust_momentum_r": carrier.momentum_r,
+            "em_charge_to_rest_mass": np.asarray(em.charge_to_rest_mass),
+            "em_enclosed_charge_faces": em.enclosed_charge_faces,
+            "em_electric_field_hat": em.electric_field_hat(
+                state.grid, state.geometry
+            ),
+            "em_stress_rho": projection["rho"],
+            "em_stress_pr": projection["pr"],
+            "em_stress_pt": projection["pt"],
+            "em_stress_j": projection["j"],
+            "em_gauss_shell_residual": em.gauss_shell_residual(
+                state.grid, carrier
+            ),
+            "em_charge_density": source["rho_e"],
+            "em_current_r": source["j_e_r"],
+            "em_lorentz_energy_source": source["source_energy"],
+            "em_lorentz_momentum_source_r": source["source_momentum_r"],
+        })
     atomic_savez_compressed(out, **arrays)
