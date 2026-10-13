@@ -28,7 +28,8 @@ FOUR_PI = 4.0 * math.pi
 
 
 def _finite_real(value: object, name: str) -> float:
-    if isinstance(value, bool) or not isinstance(value, (int, float, np.number)):
+    numeric_types = (int, float, np.integer, np.floating)
+    if isinstance(value, (bool, np.bool_)) or not isinstance(value, numeric_types):
         raise ValueError(f"{name} must be a finite real number")
     result = float(value)
     if not math.isfinite(result):
