@@ -106,6 +106,11 @@ def advance_with_radiation_admissibility_retries(
         try:
             advanced = kernel.step(state, trial_dt)
         except RadiationAdmissibilityError as exc:
+            # Only rejections of dt-dependent candidate stages can improve when
+            # the timestep is reduced. An invalid incoming state is unchanged
+            # across retries, so propagate it immediately instead of collapsing dt.
+            if not exc.retryable:
+                raise
             last_error = f"{type(exc).__name__}: {exc}"
             attempts.append({
                 "dt": float(trial_dt),
