@@ -27,7 +27,7 @@ These changes close discrete software and equation-consistency defects; they are
 
 The PR #22 exact updated-head gates all passed at `fad6ea8c5fef7abb0bcecb8e01fdaad9b08387d3`: the direct-RHS contract passed 4 focused + **204 repository tests**; strict JSON passed 204 tests; lightweight validation passed 204 tests plus control smoke and an ordinary N=40 production step; strict retry integration passed 204 tests plus the N=40, `t=0.03` campaign-admission smoke.
 
-The lightweight validation run on post-PR-22 head `a4183bdb1b10c9ae6953af2a064af8a25415d001` was cancelled after PR #27 advanced main; it is not a passing result. Current `main` at `3e5aedab6c3632d446a8ee4814432d47e14e86fc` is under exact-head lightweight validation in [run 38330718742](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38330718742) while this status update is prepared. The three long numerical workflows were skipped by path filters. Software CI/smoke is not scientific admission.
+The lightweight validation workflow [run 38330718742](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38330718742) checked out exact `main` commit `3e5aedab6c3632d446a8ee4814432d47e14e86fc` and passed **205 repository tests**, the control-only smoke, and one ordinary N=40 production step to `t=0.03`. The earlier run [38330678114](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38330678114) on the superseded pre-PR-27 head was cancelled and is not treated as a result. The three long numerical workflows were skipped by path filters. Software CI/smoke is not scientific admission.
 
 ### Remaining blockers to production admission
 
