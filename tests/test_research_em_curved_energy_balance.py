@@ -258,7 +258,7 @@ def _run_probe(resolution, dt):
     }
 
 
-def test_curved_slice_em_exchange_residual_converges_on_live_pirk_stages(record_property):
+def test_curved_slice_em_exchange_residual_converges_on_live_pirk_stages(record_property, capsys):
     # Keep the same physical domain and reduce dt with dr so both spatial and
     # stage-quadrature errors are bounded. This is one deterministic step per
     # resolution, not a production campaign or trajectory-admission test.
@@ -311,4 +311,5 @@ def test_curved_slice_em_exchange_residual_converges_on_live_pirk_stages(record_
         "em_curved_slice_exchange_evidence_json",
         json.dumps(report, sort_keys=True, separators=(",", ":")),
     )
-    print("EM_CURVED_SLICE_EXCHANGE_EVIDENCE=" + json.dumps(report, sort_keys=True), flush=True)
+    with capsys.disabled():
+        print("EM_CURVED_SLICE_EXCHANGE_EVIDENCE=" + json.dumps(report, sort_keys=True), flush=True)
