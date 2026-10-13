@@ -18,7 +18,7 @@ for signature \((-+++)). Given that locked law and the engine's archived-normali
 
 ## 1. What is authoritative, and what is not
 
-The repository lock `docs/ARCHITECTURE_LOCKS.md` states \(\nabla_\mu T_{\rm DM}^{\mu\nu}=+\beta\rho_{\rm DM}\nabla^\nu\phi\), \(\beta=-0.04\), with the scalar receiving the opposite exchange. The preserved `GEAR_V5_5_STRONGFIELD_CLOSURE_AUDIT_2026-10-05.md`, §§8–9, records the same sign for ((-+++)), gives the homogeneous equations, and specifies the covariant dust four-force as the inhomogeneous production route. Its corrected sign supersedes an earlier draft containing both signs.
+The repository lock `docs/ARCHITECTURE_LOCKS.md` states \(\nabla_\mu T_{\rm DM}^{\mu\nu}=+\beta\rho_{\rm DM}\nabla^\nu\phi\), \(\beta=-0.04\), with the scalar receiving the opposite exchange. The preserved `GEAR_V5_5_STRONGFIELD_CLOSURE_AUDIT_2026-10-05.md`, §§8–9, records the same sign for signature \\((-+++)\\), gives the homogeneous equations, and specifies the covariant dust four-force as the inhomogeneous production route. Its corrected sign supersedes an earlier draft containing both signs.
 
 This audit treats that equation as an **archived model postulate/closure**, not a result newly inferred from the implementation. I did not find an archived interaction action or mass function that derives the coupling form and fixes \(\beta\); this is material because the preserved GEAR-10 stability verdict says verbatim that \(\beta=-0.04\) still has no derivation. The following calculation cannot pay that separate theoretical debt by algebra alone.
 
