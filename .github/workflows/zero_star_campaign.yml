@@ -68,7 +68,7 @@ jobs:
           summary = json.loads(summary_path.read_text(encoding="utf-8"))
           if summary.get("admission", {}).get("passed") is not True:
               raise SystemExit("successful campaign evidence does not record admission.passed=true")
-          expected = [80,120,160]
+          expected = tuple([80,120,160])
           reported = tuple(int(item) for item in summary.get("campaign", {}).get("resolutions", []))
           if reported != expected:
               raise SystemExit(f"campaign resolution provenance mismatch: expected={expected}, reported={reported}")
