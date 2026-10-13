@@ -1,9 +1,10 @@
-name: Diagnostic - uniform CMC centre-row short trajectory
+name: Diagnostic - uniform CMC centre-row twelve-step trajectory
 
 on:
   push:
     branches:
       - diag/uniform-cmc-centre-row-short-trajectory-2026-10-13
+      - diag/uniform-cmc-centre-row-12step-2026-10-13
     paths:
       - "tools/audit_uniform_cmc_centre_row_short_trajectory.py"
       - "tools/audit_uniform_cmc_centre_row_one_step.py"
@@ -15,7 +16,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: uniform-cmc-centre-row-short-trajectory-2026-10-13
+  group: uniform-cmc-centre-row-12step-2026-10-13
   cancel-in-progress: false
 
 jobs:
@@ -67,14 +68,14 @@ jobs:
           test "$(git rev-parse "HEAD:tools/audit_uniform_cmc_centre_row_counterfactual.py")" = "$(git rev-parse "$CENTRE_ROW_COUNTERFACTUAL_COMMIT:tools/audit_uniform_cmc_centre_row_counterfactual.py")"
           printf 'SOURCE_COMMIT=%s\nVENDOR_COMMIT=%s\nCENTRE_ROW_HELPER_COMMIT=%s\nCENTRE_ROW_COUNTERFACTUAL_COMMIT=%s\n' "$SOURCE_COMMIT" "$VENDOR_COMMIT" "$CENTRE_ROW_HELPER_COMMIT" "$CENTRE_ROW_COUNTERFACTUAL_COMMIT"
 
-      - name: Compile short-trajectory audit and frozen initializers
+      - name: Compile twelve-step audit and frozen initializers
         run: |
           python -m py_compile tools/audit_uniform_cmc_centre_row_short_trajectory.py
           python -m py_compile tools/audit_uniform_cmc_centre_row_one_step.py
           python -m py_compile tools/audit_uniform_cmc_centre_row_counterfactual.py
           python -m py_compile tools/audit_uniform_radial_quadrature_initial_profile.py
 
-      - name: Run four ordinary steps per centre-row variant
+      - name: Run twelve ordinary steps per centre-row variant
         run: PYTHONPATH=. python tools/audit_uniform_cmc_centre_row_short_trajectory.py
 
       - name: Record provenance and report digest
@@ -82,7 +83,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p results/uniform-cmc-centre-row-short-trajectory
+          mkdir -p results/uniform-cmc-centre-row-12step
           printf '%s\n' "$SOURCE_COMMIT" > results/uniform-cmc-centre-row-short-trajectory/SOURCE_COMMIT.txt
           printf '%s\n' "$VENDOR_COMMIT" > results/uniform-cmc-centre-row-short-trajectory/VENDOR_COMMIT.txt
           printf '%s\n' "$CENTRE_ROW_HELPER_COMMIT" > results/uniform-cmc-centre-row-short-trajectory/CENTRE_ROW_HELPER_COMMIT.txt
@@ -92,11 +93,11 @@ jobs:
             (cd results/uniform-cmc-centre-row-short-trajectory && sha256sum report.json > REPORT_SHA256SUM.txt)
           fi
 
-      - name: Upload short-trajectory evidence even if an arm fails
+      - name: Upload twelve-step evidence even if an arm fails
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: uniform-cmc-centre-row-short-trajectory
+          name: uniform-cmc-centre-row-12step
           path: results/uniform-cmc-centre-row-short-trajectory/
           if-no-files-found: warn
           retention-days: 90
