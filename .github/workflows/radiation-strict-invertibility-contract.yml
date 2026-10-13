@@ -1,0 +1,89 @@
+name: Radiation strict-invertibility and retry contract
+
+on:
+  push:
+    branches:
+      - fix/radiation-strict-invertibility-contract-2026-10-13
+    paths:
+      - "engine/radiation_contract.py"
+      - "engine/matter_system.py"
+      - "engine/valencia.py"
+      - "engine/adaptive_step.py"
+      - "tests/test_radiation_strict_invertibility_contract.py"
+      - ".github/workflows/radiation-strict-invertibility-contract.yml"
+  pull_request:
+    branches:
+      - integrate/strict-campaign-radiation-retry-2026-10-12
+    paths:
+      - "engine/radiation_contract.py"
+      - "engine/matter_system.py"
+      - "engine/valencia.py"
+      - "engine/adaptive_step.py"
+      - "tests/test_radiation_strict_invertibility_contract.py"
+      - ".github/workflows/radiation-strict-invertibility-contract.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: radiation-strict-contract-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  strict-state-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      PYTHONUNBUFFERED: "1"
+    steps:
+      - name: Check out candidate and pinned vendor
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Run focused strict-boundary regressions
+        run: python -m pytest -q tests/test_radiation_strict_invertibility_contract.py tests/test_strict_radiation_rhs_admissibility_contract.py tests/test_strict_radiation_adaptive_step_retry.py
+
+      - name: Run complete repository suite
+        run: python -m pytest -q
+
+      - name: Run control-only smoke
+        run: python -m engine.run_controls
+
+      - name: Initialize and advance production kernel by one step
+        run: |
+          python - <<'PY'
+          import math
+          import numpy as np
+          from engine.production_kernel import V55ProductionKernel
+          kernel = V55ProductionKernel()
+          state = kernel.initialize(resolution=40, r_max=40.0, include_radiation=True)
+          dt = 0.03 * state.grid.dr
+          state = kernel.step(state, dt)
+          state.geometry.assert_finite_positive()
+          assert state.t > 0.0
+          assert state.history
+          def finite(value):
+              if isinstance(value, dict):
+                  for item in value.values(): finite(item)
+              elif isinstance(value, (list, tuple)):
+                  for item in value: finite(item)
+              elif isinstance(value, np.ndarray):
+                  if value.dtype.kind in "fciub": assert np.all(np.isfinite(value))
+              elif isinstance(value, (np.number, int, float, complex)):
+                  assert bool(np.all(np.isfinite(value))), repr(value)
+          finite(state.history[-1])
+          print(f"PRODUCTION_STEP_SMOKE_PASS resolution=40 r_max=40 dt={dt:.17g} t={state.t:.17g}", flush=True)
+          PY
