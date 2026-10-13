@@ -29,7 +29,7 @@ from engine import v55_pirk_adapter as adapter
 from engine.production_kernel import V55ProductionKernel
 from engine.run_production import assert_finite_state
 from engine.stress_energy import assemble_total_stress_energy
-from engine.worldtube import current_residual
+from engine.worldtube import current_residual, areal_radius_derivative
 
 SOURCE_COMMIT = "c01f2467347e8aebd57d220374fd7bc4e93045bc"
 BASE_INITIAL_BLOB = "4cfbfe4be6ac3ce6ed492f4e435186997d94116a"
@@ -141,7 +141,7 @@ def summarize(kernel: V55ProductionKernel, state, step_index: int) -> dict:
     grid, geom = state.grid, state.geometry
     r = np.asarray(grid.centers, dtype=float)
     before = state_digest(state)
-    diagnostic = kernel.diagnostics(state, profiles=False)
+    diagnostic = kernel.diagnostics(state, profiles=True)
     _, vacuum, _ = adapter.vendor_modules()
     constraints = vacuum.constraints(grid, geom)
     total = assemble_total_stress_energy(grid, geom, state.scalars, state.matter)
@@ -222,6 +222,65 @@ def summarize(kernel: V55ProductionKernel, state, step_index: int) -> dict:
             "trapping_min": float(diagnostic["trapping_min"]),
             "trapped_root_count": int(len(diagnostic["trapped_roots"])),
         },
+    }
+    # Also sample a fixed-areal-radius worldtube R=10. Its coordinate
+    # location moves, so include the tube-sweep contribution v_r * M_,r.
+    stage = adapter.geometry_stage_terms(
+        grid, geom, state.scalars, state.matter,
+        lambda_m=kernel_module.LAMBDA_M,
+    )
+    explicit = stage["explicit"]
+    R_profile = np.asarray(diagnostic["areal_radius"], dtype=float)
+    if not np.all(np.diff(R_profile) > 0.0):
+        raise RuntimeError("areal radius is not strictly increasing; fixed-R interpolation is invalid")
+    Rr_profile = np.asarray(areal_radius_derivative(grid, geom), dtype=float)
+    Rdot_profile = R_profile * (
+        0.5 * np.asarray(explicit["b"], dtype=float) / np.asarray(geom.b, dtype=float)
+        - np.asarray(explicit["X"], dtype=float) / np.asarray(geom.X, dtype=float)
+    )
+    mass_profile = np.asarray(diagnostic["misner_sharp"], dtype=float)
+    mass_r_profile = grid.cell_derivative_fourth(mass_profile, parity=1)
+    rho_profile = np.asarray(diagnostic["total_rho"], dtype=float)
+    pr_profile = np.asarray(diagnostic["total_pr"], dtype=float)
+    j_profile = np.asarray(diagnostic["total_j"], dtype=float)
+    mass_r_stress_profile = 4.0 * math.pi * R_profile**2 * (
+        rho_profile * Rr_profile
+        + j_profile * Rdot_profile / np.asarray(geom.alpha, dtype=float)
+    )
+    mass_gradient_identity_profile = mass_r_profile - mass_r_stress_profile
+    tube_speed_profile = -Rdot_profile / Rr_profile
+    flux_T_profile = 4.0 * math.pi * R_profile**2 * (
+        -np.asarray(geom.alpha, dtype=float)
+        * (np.asarray(geom.X, dtype=float)**2 / np.asarray(geom.a, dtype=float))
+        * j_profile * Rr_profile
+    )
+    work_pR_profile = -4.0 * math.pi * R_profile**2 * (
+        pr_profile * Rdot_profile
+    )
+    moving_sweep_profile = tube_speed_profile * mass_r_stress_profile
+    fixed_R_rhs_profile = flux_T_profile + work_pR_profile + moving_sweep_profile
+    target_R = 10.0
+
+    def at_fixed_areal_radius(values):
+        return float(np.interp(target_R, R_profile, np.asarray(values, dtype=float)))
+
+    if R_profile[0] >= target_R or R_profile[-1] <= target_R:
+        raise RuntimeError("fixed areal radius R=10 lies outside sampled areal-radius domain")
+    report["fixed_areal_radius_R10"] = {
+        "target_R": target_R,
+        "coordinate_r_location": at_fixed_areal_radius(grid.centers),
+        "Rr": at_fixed_areal_radius(Rr_profile),
+        "Rdot": at_fixed_areal_radius(Rdot_profile),
+        "tube_coordinate_speed_dr_dt_at_fixed_R": at_fixed_areal_radius(tube_speed_profile),
+        "M_MS": at_fixed_areal_radius(mass_profile),
+        "flux_T": at_fixed_areal_radius(flux_T_profile),
+        "work_pR": at_fixed_areal_radius(work_pR_profile),
+        "moving_tube_sweep_vr_Mr": at_fixed_areal_radius(moving_sweep_profile),
+        "mass_rate_rhs_fixed_R": at_fixed_areal_radius(fixed_R_rhs_profile),
+        "mass_r_numerical": at_fixed_areal_radius(mass_r_profile),
+        "mass_r_stress_identity": at_fixed_areal_radius(mass_r_stress_profile),
+        "mass_r_identity_signed_error": at_fixed_areal_radius(mass_gradient_identity_profile),
+        "mass_r_identity_abs_error": abs(at_fixed_areal_radius(mass_gradient_identity_profile)),
     }
     _finite_report(report, f"N{grid.n}-step{step_index}")
     return report
@@ -315,6 +374,41 @@ def _current_ledger(row: dict) -> dict:
     }
 
 
+def _fixed_areal_ledger(row: dict) -> dict:
+    samples = row["samples"]
+    times = np.asarray([x["t"] for x in samples], dtype=float)
+    tube = [x["fixed_areal_radius_R10"] for x in samples]
+    masses = np.asarray([x["M_MS"] for x in tube], dtype=float)
+    rhs = np.asarray([x["mass_rate_rhs_fixed_R"] for x in tube], dtype=float)
+    residual = current_residual(times, masses, rhs)
+    interval_defect = np.diff(masses) - 0.5 * np.diff(times) * (rhs[:-1] + rhs[1:])
+    identity = np.asarray([x["mass_r_identity_signed_error"] for x in tube], dtype=float)
+    return {
+        "interpretation": "fixed areal radius R=10; dM_MS(R=10,t)/dt compared with flux_T + work_pR + v_r*M_r(stress); spatial M_r identity uses the odd-parity areal-radius derivative",
+        "times": [float(x) for x in times],
+        "coordinate_r_location": [float(x["coordinate_r_location"]) for x in tube],
+        "M_MS_at_fixed_R10": [float(x) for x in masses],
+        "flux_T": [float(x["flux_T"]) for x in tube],
+        "work_pR": [float(x["work_pR"]) for x in tube],
+        "moving_tube_sweep": [float(x["moving_tube_sweep_vr_Mr"]) for x in tube],
+        "predicted_fixed_R_rate": [float(x) for x in rhs],
+        "mass_r_identity_signed_error": [float(x) for x in identity],
+        "mass_r_identity_max_abs": float(np.max(np.abs(identity))),
+        "current_residual": {
+            "samples_used": int(residual.size),
+            "signed_samples": [float(x) for x in residual],
+            "max_abs": float(np.max(np.abs(residual))) if residual.size else None,
+            "rms": float(np.sqrt(np.mean(residual * residual))) if residual.size else None,
+        },
+        "interval_integrated_mass_defect": {
+            "signed_samples": [float(x) for x in interval_defect],
+            "max_abs": float(np.max(np.abs(interval_defect))) if interval_defect.size else None,
+            "rms": float(np.sqrt(np.mean(interval_defect * interval_defect))) if interval_defect.size else None,
+            "signed_total": float(np.sum(interval_defect)) if interval_defect.size else 0.0,
+        },
+    }
+
+
 def _paired_difference(base: dict, candidate: dict) -> dict:
     b = {x["step"]: x for x in base["samples"]}
     c = {x["step"]: x for x in candidate["samples"]}
@@ -328,6 +422,9 @@ def _paired_difference(base: dict, candidate: dict) -> dict:
             "t": float(y["t"]),
             "delta_M_MS_r10": y["worldtube_r10_nearest_coordinate_cell"]["M_MS"] - x["worldtube_r10_nearest_coordinate_cell"]["M_MS"],
             "delta_flux_T_plus_work_pR": y["worldtube_r10_nearest_coordinate_cell"]["current_rhs_flux_plus_work"] - x["worldtube_r10_nearest_coordinate_cell"]["current_rhs_flux_plus_work"],
+            "delta_M_MS_fixed_areal_R10": y["fixed_areal_radius_R10"]["M_MS"] - x["fixed_areal_radius_R10"]["M_MS"],
+            "delta_fixed_R_current_rhs": y["fixed_areal_radius_R10"]["mass_rate_rhs_fixed_R"] - x["fixed_areal_radius_R10"]["mass_rate_rhs_fixed_R"],
+            "delta_fixed_R_radial_identity_error": y["fixed_areal_radius_R10"]["mass_r_identity_signed_error"] - x["fixed_areal_radius_R10"]["mass_r_identity_signed_error"],
             "delta_Aa_rhs_over_r0_squared": y["central"]["Aa_rhs_over_r0_squared"] - x["central"]["Aa_rhs_over_r0_squared"],
             "delta_H_cell_0": y["central"]["H_cell_0"] - x["central"]["H_cell_0"],
             "delta_H_full_absmax": y["constraints"]["H_full_absmax"] - x["constraints"]["H_full_absmax"],
@@ -354,6 +451,7 @@ def main() -> int:
                 failed.append({"N": n, "arm": row["arm"], "failure": row["failure"]})
             if row["samples"]:
                 row["worldtube_current_ledger"] = _current_ledger(row)
+                row["fixed_areal_radius_current_ledger"] = _fixed_areal_ledger(row)
         records.extend((baseline, candidate))
         if baseline["status"] == "completed" and candidate["status"] == "completed":
             paired.append({
@@ -413,7 +511,11 @@ def main() -> int:
                 "final_Aa_rhs_over_r02": row["samples"][-1]["central"]["Aa_rhs_over_r0_squared"] if row["samples"] else None,
                 "current_residual_max_abs": row.get("worldtube_current_ledger", {}).get("current_residual", {}).get("max_abs"),
                 "interval_mass_defect_max_abs": row.get("worldtube_current_ledger", {}).get("interval_integrated_mass_defect", {}).get("max_abs"),
+                "fixed_R10_current_residual_max_abs": row.get("fixed_areal_radius_current_ledger", {}).get("current_residual", {}).get("max_abs"),
+                "fixed_R10_interval_mass_defect_max_abs": row.get("fixed_areal_radius_current_ledger", {}).get("interval_integrated_mass_defect", {}).get("max_abs"),
+                "fixed_R10_radial_identity_max_abs": row.get("fixed_areal_radius_current_ledger", {}).get("mass_r_identity_max_abs"),
                 "final_M_MS_r10": row["samples"][-1]["worldtube_r10_nearest_coordinate_cell"]["M_MS"] if row["samples"] else None,
+                "final_M_MS_fixed_R10": row["samples"][-1]["fixed_areal_radius_R10"]["M_MS"] if row["samples"] else None,
                 "final_t": row.get("final_t"),
             } for row in records
         ],
