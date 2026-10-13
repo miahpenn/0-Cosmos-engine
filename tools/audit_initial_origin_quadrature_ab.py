@@ -219,7 +219,7 @@ def solve_even_reflection_centre_pde_lapse(kernel, state) -> tuple[np.ndarray, d
         )
 
     total = total_matter_projection(
-        metric_slice_from_q(grid, geometry_input), state.matter
+        grid, geometry_input, state.scalars, state.matter
     )
     a = np.asarray(geometry_input.a, dtype=float)
     b = np.asarray(geometry_input.b, dtype=float)
