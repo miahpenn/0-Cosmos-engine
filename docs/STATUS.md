@@ -2,7 +2,7 @@
 
 ## Current engineering snapshot — 2026-10-13 UTC
 
-**Latest code/test promotion:** `dc89a3ddca71defe1995ce9372b4ae9aa8112f58` ([PR #97](https://github.com/miahpenn/0-Cosmos-engine/pull/97), checkpoint interruption evidence integrity). The exact PR head `383e51a20cb0baaedcec9b18df49f028f176ba8a` passed all three required software workflows, each with **312 tests**. The post-merge current-main lightweight workflow [run 38347647378](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38347647378) also passed. These validate software/evidence handling at the tested scale, not scientific campaign admission.
+**Latest main commit:** `17961bbbbac135132e6ecd0c149d4481f865d38f` ([PR #111](https://github.com/miahpenn/0-Cosmos-engine/pull/111), checkpoint failure precedence when evidence output also fails). The merged change is test-only. Its exact PR head `98e29386c4f3ff3301e510750ff7ea2f97f91d74` passed lightweight validation, strict JSON reporting, and strict campaign/retry integration, with **315 tests** in each run. This verifies the checkpoint/evidence failure contract at the tested scale; it is not scientific campaign admission. A separate post-merge run on merge commit `17961...` has not been recorded in this status snapshot.
 
 ### Reliability and evidence-integrity changes promoted to main
 
@@ -15,14 +15,22 @@
 
 These promotions improve driver bookkeeping, output reliability, and evidence integrity. They do not introduce a bounce law, change physical source terms, modify the vendor evolution operators, or establish a scientific trajectory.
 
-### Exact-current-tree software verification
+### Exact-head software verification and unmerged candidates
 
-The exact PR #97 head `383e51a20cb0baaedcec9b18df49f028f176ba8a` passed all three required workflows:
-- [Lightweight validation — run 38347550898](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38347550898)
-- [Strict JSON residual reporting — run 38347550802](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38347550802)
-- [Integrated campaign/radiation-retry check — run 38347550725](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38347550725)
+The latest merged test-only promotion is PR #111 at main merge commit `17961bbbbac135132e6ecd0c149d4481f865d38f`. Its source head `98e29386c4f3ff3301e510750ff7ea2f97f91d74` passed:
+- [Lightweight validation — run 38351729737](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38351729737)
+- [Strict JSON residual reporting — run 38351729781](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38351729781)
+- [Strict campaign/radiation-retry integration — run 38351729742](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38351729742)
 
-The post-merge current-main [lightweight workflow 38347647378](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38347647378) passed, including repository tests and the bounded control/one-step production smoke. The full V5.5 campaign, worldtube-radius campaign, and 0-star temporal-gauge campaign were skipped by path filters on that push. No long scientific campaign was run as part of these promotions.
+Each exact-head workflow passed **315 repository tests**. The lightweight and integrated workflows also passed their bounded production smoke. These runs occurred on the PR source head before merge; a separate post-merge run for `17961...` is not claimed here.
+
+Latest unmerged, bounded software candidates (all remain research/test-only and do not authorize EM production physics):
+- [PR #110 — E0 source-projection parity](https://github.com/miahpenn/0-Cosmos-engine/pull/110), head `b66452f5393f357554c7b2073709e58318a7fab6`: all three required workflows passed; expanded test compares split/total `rho, pr, pt, j` at initialization, actual RHS entry states, and accepted endpoints with radiation on/off.
+- [PR #113 — symbolic radial-electric consumer gains](https://github.com/miahpenn/0-Cosmos-engine/pull/113), head `5f77fe477a0e9c2cbcf5a7fe1c0d785daa5895a8`: all three required workflows passed; source increment is already in consumer units and is not Maxwell evolution.
+- [PR #114 — scalar–DM active-Valencia source closure](https://github.com/miahpenn/0-Cosmos-engine/pull/114), head `c61162d30cf59d861cc8487c00b164872ddaf2da`: four required workflows passed on the exact candidate head; remains draft pending distinct equation review. The action-level derivation is conditional on the archived mass law and does not derive its microphysical origin or establish long-horizon admission.
+- [PR #115 — open-PR triage](https://github.com/miahpenn/0-Cosmos-engine/pull/115) tracks the live review queue; its contents are a dated first-pass prioritization, not per-PR approval.
+
+These workflows include only bounded software/one-step smoke evidence. They do not demonstrate scientific convergence or a long-horizon admitted trajectory.
 
 ### Production-admission status
 
