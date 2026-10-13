@@ -111,7 +111,7 @@ jobs:
           )
           PY
 
-      - name: Matched-time centre-moment A/B plus signed Ricci cross-check (candidate PR only)
+      - name: Matched-time centre-moment A/B plus signed Ricci cross-check N=80/120/160/240/320 (candidate PR only)
         if: github.event_name == 'pull_request' && github.event.pull_request.head.ref == 'diag/first-two-centre-moments-main-2026-10-13b'
         run: python tools/validate_first_two_center_moments_matched_time.py
 
