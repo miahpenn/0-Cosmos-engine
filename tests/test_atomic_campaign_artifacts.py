@@ -136,3 +136,34 @@ def test_atomic_npz_fsync_failure_preserves_previous_checkpoint_and_cleans_temp(
         assert float(saved["time"]) == pytest.approx(4.0)
         np.testing.assert_array_equal(saved["field"], np.arange(2))
     assert _temp_files(tmp_path, target.stem) == []
+
+
+@pytest.mark.parametrize("kind", ["text", "npz"])
+def test_parent_directory_fsync_is_best_effort_after_replace(tmp_path, monkeypatch, kind):
+    real_fsync = atomic_io.os.fsync
+    calls = []
+
+    def fail_directory_fsync(fd):
+        calls.append(fd)
+        if len(calls) == 2:
+            raise OSError("injected unsupported directory fsync")
+        return real_fsync(fd)
+
+    monkeypatch.setattr(atomic_io.os, "fsync", fail_directory_fsync)
+    if kind == "text":
+        target = tmp_path / "campaign_summary.json"
+        atomic_io.atomic_write_text(target, '{"complete": true}')
+        assert target.read_text(encoding="utf-8") == '{"complete": true}'
+        assert _temp_files(tmp_path, target.name) == []
+    else:
+        target = tmp_path / "checkpoint.npz"
+        atomic_io.atomic_savez_compressed(target, time=np.asarray(4.0), field=np.arange(2))
+        with np.load(target) as saved:
+            assert float(saved["time"]) == pytest.approx(4.0)
+            np.testing.assert_array_equal(saved["field"], np.arange(2))
+        assert _temp_files(tmp_path, target.stem) == []
+
+    # First fsync flushes the staged artifact; the second attempts to flush
+    # the parent directory after os.replace. Unsupported directory fsync must
+    # not turn a completed atomic replacement into a reported write failure.
+    assert len(calls) == 2
