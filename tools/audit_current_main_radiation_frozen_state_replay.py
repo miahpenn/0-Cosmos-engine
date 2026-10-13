@@ -183,6 +183,8 @@ class RadiationStageCapture:
         self._next_state_id = 0
         self._next_rhs_id = 0
         self._next_failed_id = 0
+        self.accepted_step_outputs: list[dict] = []
+        self.kernel = None
 
     @staticmethod
     def _copy_array(value):
@@ -303,18 +305,13 @@ class RadiationStageCapture:
         if float(advanced.t) >= self.start_time - 1.0e-10:
             metric = metric_slice_from_q(advanced.grid, advanced.geometry)
             summary = {
+                "t_before": float(state.t),
                 "t": float(advanced.t),
                 "tau": float(advanced.tau),
                 "dt": float(dt),
                 "cone": self._profile_summary(metric, advanced.matter.radiation),
             }
-            self.state_records.setdefault(float(advanced.t).hex(), {
-                "prefix": None,
-                "t": float(advanced.t),
-                "tau": float(advanced.tau),
-                "output_cone": summary["cone"],
-            })
-            self.state_records[float(advanced.t).hex()]["last_accepted_output"] = summary
+            self.accepted_step_outputs.append(summary)
 
     def begin_rhs(self, stage_state, ordinal):
         self.current_rhs_record = None
@@ -477,6 +474,7 @@ class RadiationStageCapture:
             return result
 
         kernel._rhs = observed_rhs
+        self.kernel = kernel
 
         self.originals["validate"] = production_kernel_module.validate_species_admissibility
         original_validate = production_kernel_module.validate_species_admissibility
@@ -504,16 +502,13 @@ class RadiationStageCapture:
 
     def restore(self):
         if "kernel_rhs" in self.originals:
-            # The bound method originally lived on the instance; replacing its
-            # diagnostic wrapper with the saved bound implementation is exact.
-            self.original_kernel_rhs = self.originals.pop("kernel_rhs")
+            original_rhs = self.originals.pop("kernel_rhs")
+            if self.kernel is not None:
+                self.kernel._rhs = original_rhs
         if "validate" in self.originals:
             production_kernel_module.validate_species_admissibility = self.originals.pop("validate")
         if "components" in self.originals:
             matter_rhs_module._species_rhs_components = self.originals.pop("components")
-        if hasattr(self, "original_kernel_rhs"):
-            # Main owns the same kernel object through the frozen wrapper.
-            pass
 
     def _rhs_summary(self):
         rows = []
@@ -575,6 +570,7 @@ class RadiationStageCapture:
             "captured_rhs_evaluations": len(self.rhs_records),
             "failed_explicit_predictor_candidates": len(self.failed_trials),
             "accepted_state_history": state_history,
+            "accepted_step_outputs": self.accepted_step_outputs,
             "rhs_component_decomposition": self._rhs_summary(),
             "failed_predictor_trials": self.failed_trials,
             "interpretation_limits": [
