@@ -301,8 +301,7 @@ def _valencia_flux(metric: SphericalMetric, q: FluidPrimitive) -> np.ndarray:
         metric.sqrt_gamma * D * (metric.alpha * q.v_r - metric.beta),
         metric.sqrt_gamma * (metric.alpha * S_up - metric.beta * E),
         metric.sqrt_gamma * (
-            metric.alpha * S_r * q.v_r
-            + metric.alpha * q.pressure
+            metric.alpha * (h * W * W * q.v2 + q.pressure)
             - metric.beta * S_r
         ),
     ], dtype=float)
