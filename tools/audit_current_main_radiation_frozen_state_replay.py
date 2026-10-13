@@ -185,6 +185,7 @@ class RadiationStageCapture:
         self._next_failed_id = 0
         self.accepted_step_outputs: list[dict] = []
         self.kernel = None
+        self.radiation_rhs_component_capture_calls = 0
 
     @staticmethod
     def _copy_array(value):
@@ -489,15 +490,33 @@ class RadiationStageCapture:
 
         production_kernel_module.validate_species_admissibility = observed_validate
 
-        self.originals["components"] = matter_rhs_module._species_rhs_components
+        # Tap the exact production_kernel species_rhs call. For radiation
+        # only, reevaluate the same deterministic component helper with exactly
+        # the same stage inputs, then check its flux+source reconstruction
+        # against the actual returned RHS. Neither observer changes a value
+        # passed to the evolution.
+        self.originals["species_rhs"] = production_kernel_module.species_rhs
+        original_species_rhs = production_kernel_module.species_rhs
         original_components = matter_rhs_module._species_rhs_components
 
-        def observed_components(metric, state, species, *args, **kwargs):
-            result = original_components(metric, state, species, *args, **kwargs)
-            self.capture_rhs_components(metric, state, species, result)
+        def observed_species_rhs(
+            metric, metric_derivatives, state, species,
+            dphi_t=None, dphi_r=None, beta_dm=-0.04,
+        ):
+            result = original_species_rhs(
+                metric, metric_derivatives, state, species,
+                dphi_t=dphi_t, dphi_r=dphi_r, beta_dm=beta_dm,
+            )
+            if self.current_rhs_record is not None and species == matter_system_module.Species.RADIATION:
+                components = original_components(
+                    metric, state, species,
+                    dphi_t=dphi_t, dphi_r=dphi_r, beta_dm=beta_dm,
+                )
+                self.capture_rhs_components(metric, state, species, components)
+                self.radiation_rhs_component_capture_calls += 1
             return result
 
-        matter_rhs_module._species_rhs_components = observed_components
+        production_kernel_module.species_rhs = observed_species_rhs
         return self.restore
 
     def restore(self):
@@ -507,8 +526,8 @@ class RadiationStageCapture:
                 self.kernel._rhs = original_rhs
         if "validate" in self.originals:
             production_kernel_module.validate_species_admissibility = self.originals.pop("validate")
-        if "components" in self.originals:
-            matter_rhs_module._species_rhs_components = self.originals.pop("components")
+        if "species_rhs" in self.originals:
+            production_kernel_module.species_rhs = self.originals.pop("species_rhs")
 
     def _rhs_summary(self):
         rows = []
@@ -569,6 +588,7 @@ class RadiationStageCapture:
             "accepted_state_count": len(self.state_records),
             "captured_rhs_evaluations": len(self.rhs_records),
             "failed_explicit_predictor_candidates": len(self.failed_trials),
+            "radiation_rhs_component_capture_calls": self.radiation_rhs_component_capture_calls,
             "accepted_state_history": state_history,
             "accepted_step_outputs": self.accepted_step_outputs,
             "rhs_component_decomposition": self._rhs_summary(),
@@ -835,6 +855,7 @@ def main() -> int:
             "accepted_state_count": capture_summary.get("accepted_state_count"),
             "captured_rhs_evaluations": capture_summary.get("captured_rhs_evaluations"),
             "failed_explicit_predictor_candidates": capture_summary.get("failed_explicit_predictor_candidates"),
+            "radiation_rhs_component_capture_calls": capture_summary.get("radiation_rhs_component_capture_calls"),
             "summary_sha256": sha256(capture.summary_path),
             "profiles_sha256": sha256(capture.profiles_path),
         }
@@ -890,6 +911,7 @@ def main() -> int:
             "archived_seed_unchanged": digest_after == digest_before,
             "captured_rhs_evaluations": capture_summary["captured_rhs_evaluations"],
             "failed_explicit_predictor_candidates": capture_summary["failed_explicit_predictor_candidates"],
+            "radiation_rhs_component_capture_calls": capture_summary["radiation_rhs_component_capture_calls"],
             "stage_capture_sha256": capture_summary_hash,
             "stage_capture_profiles_sha256": capture_profiles_hash,
             "report_sha256": report_hash,
