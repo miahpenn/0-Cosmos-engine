@@ -5,6 +5,7 @@ import numpy as np
 import pytest
 
 from engine.campaign import CampaignConfig
+from engine.handoff import CycleEvent, HandoffPoint
 from engine.production_kernel import V55ProductionKernel, _peak_witness
 from engine.run_production import (
     _canonicalize_endpoint_roundoff,
@@ -97,10 +98,32 @@ def test_fixed_physical_mask_reports_peak_and_radius_from_same_region():
     assert _peak_witness(values, radii) == (0, 1.0, 50.0)
 
 
-def test_endpoint_roundoff_snaps_timestamp_without_an_extra_step():
+def test_endpoint_roundoff_snaps_matching_clock_ledger_records_only():
+    previous_time = 12.0 - 8.0e-14
+    old_handoff = HandoffPoint(
+        t=previous_time - 1.0, tau=10.9, H_eff=0.1, phi=0.2,
+        theta_D=0.3, theta_S=0.4, radius=10.0,
+        misner_sharp_mass=0.5, chi=0.6, flux_T=0.7, work_pR=0.8,
+    )
+    endpoint_handoff = HandoffPoint(
+        t=previous_time, tau=11.9, H_eff=0.1, phi=0.2,
+        theta_D=0.3, theta_S=0.4, radius=10.0,
+        misner_sharp_mass=0.5, chi=0.6, flux_T=0.7, work_pR=0.8,
+    )
+    old_event = CycleEvent(
+        0, previous_time - 1.0, 10.9, "turnaround", 0.1, 0.0
+    )
+    endpoint_event = CycleEvent(
+        1, previous_time, 11.9, "re-expansion_crossing", -0.1, 0.01
+    )
     state = SimpleNamespace(
-        t=12.0 - 8.0e-14,
-        history=[{"t": 12.0 - 8.0e-14, "tau": 11.9}],
+        t=previous_time,
+        history=[
+            {"t": previous_time - 1.0, "tau": 10.9},
+            {"t": previous_time, "tau": 11.9},
+        ],
+        handoffs=[old_handoff, endpoint_handoff],
+        cycle=SimpleNamespace(events=[old_event, endpoint_event]),
     )
 
     correction = _canonicalize_endpoint_roundoff(state, 12.0, 1.0e-12)
@@ -109,6 +132,14 @@ def test_endpoint_roundoff_snaps_timestamp_without_an_extra_step():
     assert state.t == 12.0
     assert state.history[-1]["t"] == 12.0
     assert state.history[-1]["tau"] == 11.9
+    assert state.handoffs[0] is old_handoff
+    assert state.handoffs[-1] is not endpoint_handoff
+    assert state.handoffs[-1].t == 12.0
+    assert state.handoffs[-1].tau == 11.9
+    assert state.cycle.events[0] is old_event
+    assert state.cycle.events[-1] is not endpoint_event
+    assert state.cycle.events[-1].t == 12.0
+    assert state.cycle.events[-1].kind == "re-expansion_crossing"
 
 
 def test_endpoint_roundoff_does_not_snap_a_materially_short_run():
