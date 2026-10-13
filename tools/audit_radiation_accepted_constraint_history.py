@@ -372,7 +372,7 @@ def audit(zip_path: Path, *, allow_other_hash: bool = False):
                 np.abs(diff) / (64.0*np.finfo(float).eps*(np.abs(projection[field])+np.abs(saved)) + np.finfo(float).tiny)
             ))
         }
-        if stress_diffs[field]["max_scaled_to_64eps"] > 64.0:
+        if stress_diffs[field]["max_scaled_to_64eps"] > 1.0:
             raise ValueError(f"stress projection failed roundoff comparison: {field}")
 
     # Cross-check copied Ricci operators through the captured actual primary-L2
