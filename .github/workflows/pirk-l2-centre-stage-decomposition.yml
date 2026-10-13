@@ -1,0 +1,76 @@
+name: Diagnostic - signed PIRK L2 centre-stage decomposition
+
+on:
+  push:
+    branches:
+      - diag/pirk-l2-centre-stage-decomposition-2026-10-13
+    paths:
+      - tools/audit_pirk_l2_centre_stage_decomposition.py
+      - .github/workflows/pirk-l2-centre-stage-decomposition.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pirk-l2-centre-stage-decomposition-2026-10-13
+  cancel-in-progress: false
+
+jobs:
+  l2-centre-stage-decomposition:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      PYTHONUNBUFFERED: "1"
+      SOURCE_COMMIT: "cb22285df4c578b1cf76931fbba7661b501d86e6"
+      SOURCE_KERNEL_BLOB: "2954e7a79656849b5f088053ea0f4ac97d4bb443"
+      VENDOR_COMMIT: "d6052d605673ce9d82cdc99b0df79855fa2ea215"
+    steps:
+      - name: Checkout isolated diagnostic branch and pinned vendor
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install repository requirements
+        run: python -m pip install -r requirements.txt
+
+      - name: Compile diagnostic
+        run: python -m py_compile tools/audit_pirk_l2_centre_stage_decomposition.py
+
+      - name: Fail closed on source/vendor drift and physics edits
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin "$SOURCE_COMMIT"
+          source_blob="$(git rev-parse "$SOURCE_COMMIT:engine/production_kernel.py")"
+          head_blob="$(git rev-parse "HEAD:engine/production_kernel.py")"
+          test "$source_blob" = "$SOURCE_KERNEL_BLOB"
+          test "$head_blob" = "$SOURCE_KERNEL_BLOB"
+          test "$(git rev-parse "HEAD:vendor/bb-palatini-unified-r0")" = "$VENDOR_COMMIT"
+          changed="$(git diff --name-only "$SOURCE_COMMIT" HEAD -- engine vendor .gitmodules requirements.txt)"
+          if [ -n "$changed" ]; then
+            printf 'Unexpected production/vendor/dependency changes:\n%s\n' "$changed"
+            exit 1
+          fi
+          printf 'SOURCE_COMMIT=%s\nSOURCE_KERNEL_BLOB=%s\nVENDOR_COMMIT=%s\n' \
+            "$SOURCE_COMMIT" "$SOURCE_KERNEL_BLOB" "$VENDOR_COMMIT"
+
+      - name: Run full repository regression suite
+        run: python -m pytest -q
+
+      - name: Capture signed L2 terms at actual PIRK stages
+        run: python tools/audit_pirk_l2_centre_stage_decomposition.py
+
+      - name: Upload report and radial profiles
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pirk-l2-centre-stage-decomposition
+          path: results/pirk-l2-centre-stage-decomposition/
+          if-no-files-found: warn
+          retention-days: 90
