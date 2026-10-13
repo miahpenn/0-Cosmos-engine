@@ -59,7 +59,7 @@ def test_continuity_rhs_is_conservative_and_boundary_flux_controls_total_charge(
     closed = np.zeros(5)
     closed[1:-1] = [0.2, -0.1, 0.4]
     rhs = charge_continuity_rhs(closed)
-    assert rhs == pytest.approx([-0.2, 0.3, -0.4, 0.4])
+    assert rhs == pytest.approx([-0.2, 0.3, -0.5, 0.4])
     assert math.fsum(rhs) == pytest.approx(0.0, abs=1.0e-15)
 
     open_boundary = np.array([0.0, 0.2, -0.1, 0.4, 0.25])
@@ -112,7 +112,7 @@ def test_zero_field_gives_zero_stress_and_lorentz_sources():
 @pytest.mark.parametrize(
     "charge, radius, match",
     [
-        ([0.0, 1.0], [0.0, 1.0], "shape"),
+        ([0.0, 1.0, 2.0], [0.0, 1.0], "shape"),
         ([1.0, 2.0], [0.0, 1.0], "regular centre"),
         ([0.0, 1.0], [0.0, 0.0], "increasing"),
         ([0.0, math.inf], [0.0, 1.0], "finite"),
