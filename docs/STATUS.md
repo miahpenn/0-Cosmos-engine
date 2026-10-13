@@ -2,7 +2,7 @@
 
 ## Current engineering snapshot — 2026-10-13 UTC
 
-**Latest code/test promotion:** `f6ab4ddf963821ef7421d008ce43f168151017f5` ([PR #80](https://github.com/miahpenn/0-Cosmos-engine/pull/80), endpoint-ledger consistency). The current `main` code and test files match the exact-head tested tree from commit `17a615fb6869c4c542e71969ce115ea768d7763e`; the repository-wide tree differs only because this status-document refresh updates `docs/STATUS.md`. The tested tree SHA was `4d9c9e6d415e7b9684ebd7bec01e24efaf788f7d`.
+**Latest code/test promotion:** `dc89a3ddca71defe1995ce9372b4ae9aa8112f58` ([PR #97](https://github.com/miahpenn/0-Cosmos-engine/pull/97), checkpoint interruption evidence integrity). The exact PR head `383e51a20cb0baaedcec9b18df49f028f176ba8a` passed all three required software workflows, each with **312 tests**. The post-merge current-main lightweight workflow [run 38347647378](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38347647378) also passed. These validate software/evidence handling at the tested scale, not scientific campaign admission.
 
 ### Reliability and evidence-integrity changes promoted to main
 
@@ -11,17 +11,18 @@
 - **[PR #63 — strict evidence contract](https://github.com/miahpenn/0-Cosmos-engine/pull/63), merge `192932a138382f40b9980ba0a42926dda5ac7a1a`, and [PR #93 — ambiguous JSON/time-origin rejection](https://github.com/miahpenn/0-Cosmos-engine/pull/93), merge `96629652ef0b2a93f37e23479049f7c1f43ad442`.** Evidence parsing rejects nonstandard JSON constants and duplicate member names, validates genuine numeric types and completed-history structure, and requires exact-zero initial coordinate/proper time rather than a horizon-scaled origin tolerance.
 - **[PR #90 — interruption-safe evidence](https://github.com/miahpenn/0-Cosmos-engine/pull/90), merge `39bee040cb8a3dbe59a5971852b992bf40ef0ffd`.** Initialization, initial-diagnostic, adaptive-step, and checkpoint-serialization interruptions produce a fail-closed ledger/summary for the last accepted state before re-raising Ctrl-C, when the evidence destination remains writable.
 - **[PR #80 — endpoint timestamp synchronization](https://github.com/miahpenn/0-Cosmos-engine/pull/80), merge `f6ab4ddf963821ef7421d008ce43f168151017f5`.** If a previously accepted endpoint is normalized for floating-point roundoff, its matching terminal history, handoff, and cycle-event timestamps are synchronized while earlier records remain untouched.
+- **[PR #95 — checkpoint count after committed replacement](https://github.com/miahpenn/0-Cosmos-engine/pull/95), merge `11f3469b7c662f371691b181231eb93e9a6a7c14`, followed by [PR #97 — distinguish committed checkpoints from stale files](https://github.com/miahpenn/0-Cosmos-engine/pull/97), merge `dc89a3ddca71defe1995ce9372b4ae9aa8112f58`.** On Ctrl-C during checkpoint output, the driver counts a checkpoint only when the canonical file identity changed across the write and the committed NPZ is readable with its scalar time exactly matching the last accepted state. Regression coverage includes post-replace interruption and a stale same-time checkpoint preserved by pre-replace interruption.
 
 These promotions improve driver bookkeeping, output reliability, and evidence integrity. They do not introduce a bounce law, change physical source terms, modify the vendor evolution operators, or establish a scientific trajectory.
 
 ### Exact-current-tree software verification
 
-The current tree above passed all three exact-head workflows on `17a615fb6869c4c542e71969ce115ea768d7763e`:
-- [Regression suite](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38346587937/job/115129331866)
-- [Tests and one-step production smoke](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38346587949/job/115129331721)
-- [Integrated campaign/radiation-retry check](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38346587819/job/115129331449)
+The exact PR #97 head `383e51a20cb0baaedcec9b18df49f028f176ba8a` passed all three required workflows:
+- [Lightweight validation — run 38347550898](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38347550898)
+- [Strict JSON residual reporting — run 38347550802](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38347550802)
+- [Integrated campaign/radiation-retry check — run 38347550725](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38347550725)
 
-These workflows include a bounded N=40 production smoke reaching `t=0.03`. Any `admission.passed=true` from that bounded smoke is software-integration evidence only; it is not a long-horizon scientific-admission result. No long scientific campaign was run as part of these promotions.
+The post-merge current-main [lightweight workflow 38347647378](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38347647378) passed, including repository tests and the bounded control/one-step production smoke. The full V5.5 campaign, worldtube-radius campaign, and 0-star temporal-gauge campaign were skipped by path filters on that push. No long scientific campaign was run as part of these promotions.
 
 ### Production-admission status
 
