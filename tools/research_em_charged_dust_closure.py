@@ -88,7 +88,7 @@ def charged_dust_eulerian_current(
         raise ValueError("gamma_rr must be strictly positive")
 
     with np.errstate(over="ignore", divide="ignore", invalid="ignore"):
-        v2 = gamma * velocity * velocity
+        v2 = gamma * np.square(velocity)
         if not np.all(np.isfinite(v2)):
             raise ValueError("Eulerian velocity norm must remain finite")
         if np.any(v2 >= 1.0):
