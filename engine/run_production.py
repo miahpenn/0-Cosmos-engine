@@ -215,6 +215,7 @@ def run_campaign(
     prepare_campaign(kernel, config)
 
     results: list[ResolutionResult] = []
+    interruption: KeyboardInterrupt | None = None
     for resolution in config.resolutions:
         try:
             state = kernel.initialize(
@@ -222,6 +223,33 @@ def run_campaign(
                 r_max=config.r_max,
                 include_radiation=True,
             )
+        except KeyboardInterrupt as exc:
+            # No state is available to continue from; record the interrupted
+            # resolution and stop before beginning another initialization.
+            result = ResolutionResult(
+                resolution=resolution,
+                status="interrupted:initialization",
+                t_final=0.0,
+                tau_final=0.0,
+                steps=0,
+                cycle_events=0,
+                handoffs=0,
+                checkpoint_count=0,
+                turnaround_events=0,
+                reexpansion_events=0,
+                trapped_root_count_max=0,
+                misner_sharp_current_max=None,
+                misner_sharp_current_rms=None,
+                last_diagnostics={
+                    "interruption_class": type(exc).__name__,
+                    "interruption_message": str(exc),
+                },
+            )
+            run_dir = Path(config.output_dir) / f"N{resolution}"
+            _write_ledgers(None, run_dir, result, [])
+            results.append(result)
+            interruption = exc
+            break
         except (FloatingPointError, ValueError, TypeError, RuntimeError) as exc:
             # Initialization can reject an inadmissible radiation seed before
             # a ProductionState exists. Persist that rejection as a failed
@@ -276,6 +304,9 @@ def run_campaign(
             initial["cycle_event"] = None
             _assert_finite_payload(initial, f"initial_diagnostics_N{resolution}")
             state.history.append(initial)
+        except KeyboardInterrupt as exc:
+            status = "interrupted:initial_diagnostics"
+            interruption = exc
         except (FloatingPointError, ValueError, TypeError, RuntimeError) as exc:
             status = "numerical_failure:initial_state:" + str(exc)
 
@@ -319,6 +350,13 @@ def run_campaign(
                 )
                 if correction:
                     endpoint_correction = correction
+            except KeyboardInterrupt as exc:
+                # The candidate is not accepted until the adaptive step call
+                # returns. Keep the last accepted state and persist its ledger
+                # before propagating the interruption to the caller.
+                status = "interrupted:step"
+                interruption = exc
+                break
             except (FloatingPointError, ValueError, TypeError, RuntimeError) as exc:
                 if isinstance(exc, RadiationStepSizeUnderflow):
                     radiation_step_retries.append({
@@ -343,7 +381,15 @@ def run_campaign(
                     / f"N{resolution}"
                     / f"checkpoint_t{checkpoint_time:012.6f}.npz"
                 )
-                kernel.checkpoint(state, path)
+                try:
+                    kernel.checkpoint(state, path)
+                except KeyboardInterrupt as exc:
+                    # The atomic checkpoint writer preserves the previous
+                    # canonical file if staging is interrupted. Still record
+                    # the last accepted state and a fail-closed campaign result.
+                    status = "interrupted:checkpoint"
+                    interruption = exc
+                    break
                 checkpoint_count += 1
 
         if state.history:
@@ -418,6 +464,9 @@ def run_campaign(
         run_dir = Path(config.output_dir) / f"N{resolution}"
         _write_ledgers(state, run_dir, result, radiation_step_retries)
         results.append(result)
+        if interruption is not None:
+            # Do not begin additional resolutions once an operator interrupts.
+            break
 
     admission_errors = campaign_admission_errors(results, config)
     summary = {
@@ -433,6 +482,11 @@ def run_campaign(
     atomic_write_text(
         out / "campaign_summary.json", json.dumps(summary, indent=2, allow_nan=False)
     )
+    if interruption is not None:
+        # The fail-closed summary/ledger has now been written. Preserve normal
+        # Ctrl-C semantics rather than disguising an interruption as a numerical
+        # admission exception.
+        raise interruption
     if admission_errors:
         raise RuntimeError(
             "Production campaign admission failed: " + "; ".join(admission_errors)
