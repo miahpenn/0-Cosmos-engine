@@ -41,11 +41,19 @@ class V55KernelSlice:
     matter: vm.V55MatterState
 
 
-def primary_l3_with_matter(grid, geometry, fields, matter):
+def primary_l3_with_matter(
+    grid, geometry, fields, matter, *, electromagnetic_projection=None
+):
     _, vacuum, _ = vendor_modules()
     out = vacuum.primary_l3_rhs(grid, geometry)
     metric = vm.metric_slice_from_q(grid, geometry)
-    total = vm.total_matter_projection(grid, geometry, fields, matter)
+    if electromagnetic_projection is None:
+        total = vm.total_matter_projection(grid, geometry, fields, matter)
+    else:
+        total = vm.total_matter_projection(
+            grid, geometry, fields, matter,
+            electromagnetic_projection=electromagnetic_projection,
+        )
     out["Aa"] = (
         out["Aa"]
         - (16.0 * np.pi / 3.0)
@@ -61,9 +69,18 @@ def primary_l3_with_matter(grid, geometry, fields, matter):
     return out
 
 
-def lambda_l3_with_matter(grid, geometry, fields, matter, lambda_m=2.0):
+def lambda_l3_with_matter(
+    grid, geometry, fields, matter, lambda_m=2.0, *,
+    electromagnetic_projection=None,
+):
     _, vacuum, _ = vendor_modules()
-    total = vm.total_matter_projection(grid, geometry, fields, matter)
+    if electromagnetic_projection is None:
+        total = vm.total_matter_projection(grid, geometry, fields, matter)
+    else:
+        total = vm.total_matter_projection(
+            grid, geometry, fields, matter,
+            electromagnetic_projection=electromagnetic_projection,
+        )
     return (
         vacuum.lambda_l3_rhs(grid, geometry)
         - 8.0 * np.pi
@@ -74,16 +91,29 @@ def lambda_l3_with_matter(grid, geometry, fields, matter, lambda_m=2.0):
     )
 
 
-def geometry_stage_terms(grid, geometry, fields, matter, lambda_m=2.0):
+def geometry_stage_terms(
+    grid, geometry, fields, matter, lambda_m=2.0, *,
+    electromagnetic_projection=None,
+):
     """Return the full frozen V5.5 geometry stage blocks."""
     _, vacuum, moving = vendor_modules()
     explicit = moving.moving_puncture_explicit_rhs(grid, geometry)
     l2 = vacuum.primary_l2_rhs(grid, geometry)
-    l3 = primary_l3_with_matter(grid, geometry, fields, matter)
+    if electromagnetic_projection is None:
+        l3 = primary_l3_with_matter(grid, geometry, fields, matter)
+        ll3 = lambda_l3_with_matter(
+            grid, geometry, fields, matter, lambda_m=lambda_m
+        )
+    else:
+        l3 = primary_l3_with_matter(
+            grid, geometry, fields, matter,
+            electromagnetic_projection=electromagnetic_projection,
+        )
+        ll3 = lambda_l3_with_matter(
+            grid, geometry, fields, matter, lambda_m=lambda_m,
+            electromagnetic_projection=electromagnetic_projection,
+        )
     ll2 = vacuum.lambda_l2_rhs(grid, geometry, lambda_m=lambda_m)
-    ll3 = lambda_l3_with_matter(
-        grid, geometry, fields, matter, lambda_m=lambda_m
-    )
     return {
         "explicit": explicit,
         "primary_l2": l2,

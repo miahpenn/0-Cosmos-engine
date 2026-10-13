@@ -292,11 +292,33 @@ def run_campaign(
     checkpoint_io_error: OSError | None = None
     for resolution in config.resolutions:
         try:
-            state = kernel.initialize(
-                resolution=resolution,
-                r_max=config.r_max,
-                include_radiation=True,
-            )
+            # Preserve the historical call shape exactly when the extension is
+            # disabled. An enabled research run interpolates the caller-supplied
+            # tabulated rest-density profile onto this resolution's cell centres.
+            if config.radial_maxwell_charge_to_mass is None:
+                state = kernel.initialize(
+                    resolution=resolution,
+                    r_max=config.r_max,
+                    include_radiation=True,
+                )
+            else:
+                profile = np.asarray(
+                    config.charged_dust_density_profile, dtype=float
+                )
+                dr = float(config.r_max) / int(resolution)
+                centers = (np.arange(int(resolution), dtype=float) + 0.5) * dr
+                charged_density = np.interp(
+                    centers, profile[:, 0], profile[:, 1]
+                )
+                state = kernel.initialize(
+                    resolution=resolution,
+                    r_max=config.r_max,
+                    include_radiation=True,
+                    radial_maxwell_charge_to_mass=(
+                        config.radial_maxwell_charge_to_mass
+                    ),
+                    charged_dust_density=charged_density,
+                )
         except KeyboardInterrupt as exc:
             # No state is available to continue from; record the interrupted
             # resolution and stop before beginning another initialization.
@@ -576,8 +598,30 @@ def run_campaign(
             break
 
     admission_errors = campaign_admission_errors(results, config)
+    em_enabled = config.radial_maxwell_charge_to_mass is not None
     summary = {
         "campaign": _json_safe(asdict(config)),
+        "physics_extensions": {
+            "radial_maxwell": {
+                "enabled": em_enabled,
+                "status": (
+                    "research_only_not_admitted" if em_enabled else "disabled"
+                ),
+                "carrier": (
+                    "separate caller-supplied charged-dust sector"
+                    if em_enabled else None
+                ),
+                "open_gates": (
+                    [
+                        "archive-supported carrier/action selection",
+                        "Gaussian-to-engine physical normalization",
+                        "curved-slice donor-plus-field balance",
+                        "initial/outer boundary prescription and convergence",
+                        "independent runtime equation review",
+                    ] if em_enabled else []
+                ),
+            }
+        },
         "results": _json_safe([asdict(r) for r in results]),
         "admission": {
             "passed": not admission_errors,

@@ -44,6 +44,7 @@ from .matter_system import (
     SphericalMetric,
     geometry_metric_derivatives,
     _metric_arrays,
+    _species_rhs_components,
     primitives as matter_primitives,
     _reconstructed_primitive,
     _hll_flux,
@@ -59,6 +60,7 @@ from .v55_matter import (
     metric_slice_from_q,
     total_matter_projection,
 )
+from .radial_maxwell import RadialMaxwellState
 from . import v55_pirk_adapter as adapter
 
 
@@ -98,6 +100,8 @@ class ProductionState:
     cycle: CycleLedger = field(default_factory=CycleLedger)
     history: list[dict] = field(default_factory=list)
     handoffs: list = field(default_factory=list)
+    # Optional feature-gated Maxwell state stays last to preserve positional API.
+    electromagnetic: RadialMaxwellState | None = None
 
 
 class V55ProductionKernel:
@@ -124,6 +128,8 @@ class V55ProductionKernel:
         width: float = 7.0,
         D_amplitude: float = 1.0e-10,
         include_radiation: bool = True,
+        radial_maxwell_charge_to_mass: float | None = None,
+        charged_dust_density: np.ndarray | None = None,
     ) -> ProductionState:
         grid_ops, vacuum, _ = adapter.vendor_modules()
         grid = grid_ops.SphericalCellGrid(resolution, r_max)
@@ -134,15 +140,30 @@ class V55ProductionKernel:
             width=width,
             D_amplitude=D_amplitude,
             include_radiation=include_radiation,
+            charged_dust_density=charged_dust_density,
+            radial_maxwell_charge_to_mass=radial_maxwell_charge_to_mass,
         )
+        electromagnetic = None
+        if radial_maxwell_charge_to_mass is not None:
+            if init.matter.charged_dust is None:
+                raise ValueError(
+                    "radial Maxwell requires a separately initialized charged-dust state"
+                )
+            electromagnetic = RadialMaxwellState.from_charged_dust(
+                grid, init.matter.charged_dust, radial_maxwell_charge_to_mass
+            )
+        elif charged_dust_density is not None:
+            raise ValueError(
+                "charged_dust_density requires radial_maxwell_charge_to_mass"
+            )
         validate_species_admissibility(
             metric_slice_from_q(grid, init.geometry), init.matter.radiation,
             Species.RADIATION, stage="initialization",
         )
         # Initialize the production slice on the same stage-aware CMC gauge
         # that is carried throughout evolution.
-        init.geometry.alpha = self._solve_lapse(
-            grid, init.geometry, init.scalars, init.matter
+        init.geometry.alpha = self._solve_lapse_for_state(
+            grid, init.geometry, init.scalars, init.matter, electromagnetic
         )[0]
         init.geometry.beta.fill(0.0)
         init.geometry.B.fill(0.0)
@@ -151,6 +172,7 @@ class V55ProductionKernel:
             geometry=init.geometry,
             scalars=init.scalars,
             matter=init.matter,
+            electromagnetic=electromagnetic,
             e_folds=0.0,
         )
 
@@ -159,8 +181,82 @@ class V55ProductionKernel:
         return grid.cell_derivative_fourth(values, parity=parity)
 
     @staticmethod
-    def _solve_lapse(grid, geometry, scalars, matter):
-        return solve_cmc_lapse(grid, geometry, scalars, matter)
+    def _solve_lapse(
+        grid, geometry, scalars, matter, *, electromagnetic_projection=None
+    ):
+        if electromagnetic_projection is None:
+            return solve_cmc_lapse(grid, geometry, scalars, matter)
+        return solve_cmc_lapse(
+            grid, geometry, scalars, matter,
+            electromagnetic_projection=electromagnetic_projection,
+        )
+
+    @staticmethod
+    def _electromagnetic_projection(grid, geometry, electromagnetic):
+        if electromagnetic is None:
+            return None
+        return electromagnetic.stress_projection(grid, geometry)
+
+    def _solve_lapse_for_state(
+        self, grid, geometry, scalars, matter, electromagnetic
+    ):
+        projection = self._electromagnetic_projection(
+            grid, geometry, electromagnetic
+        )
+        if projection is None:
+            # Preserve legacy override signatures and the original no-EM path.
+            return self._solve_lapse(grid, geometry, scalars, matter)
+        return self._solve_lapse(
+            grid, geometry, scalars, matter,
+            electromagnetic_projection=projection,
+        )
+
+    def _geometry_stage_terms(
+        self, grid, geometry, scalars, matter, electromagnetic
+    ):
+        projection = self._electromagnetic_projection(
+            grid, geometry, electromagnetic
+        )
+        if projection is None:
+            return adapter.geometry_stage_terms(
+                grid, geometry, scalars, matter, lambda_m=LAMBDA_M
+            )
+        return adapter.geometry_stage_terms(
+            grid, geometry, scalars, matter, lambda_m=LAMBDA_M,
+            electromagnetic_projection=projection,
+        )
+
+    def _charged_dust_mass_flux_faces(self, state: ProductionState) -> np.ndarray:
+        """Return the active same-stage Valencia rest-mass flux for the carrier."""
+        if state.matter.charged_dust is None:
+            raise ValueError("radial Maxwell state requires a separate charged-dust carrier")
+        metric = metric_slice_from_q(state.grid, state.geometry)
+        derivatives = geometry_metric_derivatives(
+            metric,
+            lambda values, parity: self._d1(state.grid, values, parity),
+        )
+        face_flux, _, _, _, _ = _species_rhs_components(
+            metric, derivatives, state.matter.charged_dust, Species.BARYON
+        )
+        mass_flux = np.asarray(face_flux[:, 0], dtype=float)
+        if mass_flux.shape != (state.grid.n + 1,) or not np.all(np.isfinite(mass_flux)):
+            raise FloatingPointError("charged-dust rest-mass face flux is malformed")
+        if mass_flux[0] != 0.0:
+            raise ValueError("charged-dust rest-mass flux must vanish at the regular centre")
+        return mass_flux
+
+    def _apply_outer_boundary_for_state(
+        self, grid, geometry, scalars, matter, electromagnetic
+    ):
+        projection = self._electromagnetic_projection(
+            grid, geometry, electromagnetic
+        )
+        if projection is None:
+            return self._apply_outer_light_boundary(grid, geometry, scalars, matter)
+        return self._apply_outer_light_boundary(
+            grid, geometry, scalars, matter,
+            electromagnetic_projection=projection,
+        )
 
     def _rhs(self, state: ProductionState):
         metric = metric_slice_from_q(state.grid, state.geometry)
@@ -196,22 +292,50 @@ class V55ProductionKernel:
                 dphi_r=dphi_r if species is Species.DARK_MATTER else None,
                 beta_dm=BETA_DM,
             )
+
+        carrier = state.matter.charged_dust
+        if carrier is not None:
+            carrier_rhs = species_rhs(
+                metric, md, carrier, Species.BARYON
+            )
+            if state.electromagnetic is not None:
+                force_energy, force_momentum, _ = state.electromagnetic.lorentz_source(
+                    state.grid, state.geometry, metric, carrier
+                )
+                carrier_rhs = ConservedSpecies(
+                    carrier_rhs.rest,
+                    carrier_rhs.energy_t + force_energy,
+                    carrier_rhs.momentum_r + force_momentum,
+                )
+            mrhs["charged_dust"] = carrier_rhs
+        elif state.electromagnetic is not None:
+            raise ValueError(
+                "radial Maxwell requires a separate charged-dust matter state"
+            )
         return srhs, mrhs, md
 
     @staticmethod
-    def _apply_outer_light_boundary(grid, geometry, scalars, matter) -> None:
+    def _apply_outer_light_boundary(
+        grid, geometry, scalars, matter, *, electromagnetic_projection=None
+    ) -> None:
         """Apply the pinned R0 incoming-light constraint at the finite radius.
 
-        This is a boundary-condition operation only. It uses the already
-        evolved total stress-energy projections; no fitted boundary parameter
-        or new physical source is introduced.
+        An optional pre-normalized EM projection follows the canonical total
+        stress path. The feature-gated conventional radial-Maxwell experiment
+        supplies it from the stage-local Q-face state; default runs remain EM-free.
         """
         adapter.vendor_modules()
         from bssn_characteristic_boundary import apply_light_constraint_boundary
 
-        total = assemble_total_stress_energy(
-            grid, geometry, scalars, matter
-        )
+        if electromagnetic_projection is None:
+            total = assemble_total_stress_energy(
+                grid, geometry, scalars, matter
+            )
+        else:
+            total = assemble_total_stress_energy(
+                grid, geometry, scalars, matter,
+                electromagnetic_projection=electromagnetic_projection,
+            )
         apply_light_constraint_boundary(
             grid, geometry, total.rho, total.j
         )
@@ -232,6 +356,7 @@ class V55ProductionKernel:
         g0 = state.geometry.copy()
         s0 = state.scalars
         m0 = state.matter
+        em0 = state.electromagnetic
 
         # Reject an inadmissible accepted input before CMC source assembly
         # can recover radiation primitives; only this typed rejection retries.
@@ -249,8 +374,8 @@ class V55ProductionKernel:
 
         # The lapse is elliptically determined by the current CMC slice.
         # Spatial shift is zero in the spherical CMC branch.
-        g0.alpha = self._solve_lapse(
-            grid, g0, s0, m0
+        g0.alpha = self._solve_lapse_for_state(
+            grid, g0, s0, m0, em0
         )[0]
         tau_rate_start_refreshed = float(g0.alpha[0])
         g0.beta.fill(0.0)
@@ -260,14 +385,19 @@ class V55ProductionKernel:
             stage="initial",
         )
 
-        srhs0, mrhs0, _ = self._rhs(
-            ProductionState(
-                grid=grid, geometry=g0, scalars=s0, matter=m0,
-                t=state.t, tau=state.tau, e_folds=state.e_folds,
-            )
+        stage0 = ProductionState(
+            grid=grid, geometry=g0, scalars=s0, matter=m0,
+            electromagnetic=em0,
+            t=state.t, tau=state.tau, e_folds=state.e_folds,
         )
-        gterms0 = adapter.geometry_stage_terms(
-            grid, g0, s0, m0, lambda_m=LAMBDA_M
+        srhs0, mrhs0, _ = self._rhs(stage0)
+        flux0 = None
+        em1 = em0
+        if em0 is not None:
+            flux0 = self._charged_dust_mass_flux_faces(stage0)
+            em1 = em0.advance(dt, flux0)
+        gterms0 = self._geometry_stage_terms(
+            grid, g0, s0, m0, em0
         )
 
         # TRUE-PIRK predictor with CMC: advance only the metric's
@@ -289,26 +419,29 @@ class V55ProductionKernel:
                 for name in ("S", "PS", "D", "PD", "phi", "Pi")
             )
         )
-        m1 = V55MatterState(
-            *(
-                self._add_matter(getattr(m0, name), mrhs0[name], dt)
-                for name in ("dark_matter", "baryons", "radiation")
-            )
+        m1_base = tuple(
+            self._add_matter(getattr(m0, name), mrhs0[name], dt)
+            for name in ("dark_matter", "baryons", "radiation")
         )
+        m1_charged = (
+            None if m0.charged_dust is None
+            else self._add_matter(m0.charged_dust, mrhs0["charged_dust"], dt)
+        )
+        m1 = V55MatterState(*m1_base, charged_dust=m1_charged)
 
         validate_species_admissibility(
             metric_slice_from_q(grid, g_explicit1), m1.radiation,
             Species.RADIATION, stage="explicit-predictor",
         )
-        g_explicit1.alpha = self._solve_lapse(
-            grid, g_explicit1, s1, m1
+        g_explicit1.alpha = self._solve_lapse_for_state(
+            grid, g_explicit1, s1, m1, em1
         )[0]
         validate_species_admissibility(
             metric_slice_from_q(grid, g_explicit1), m1.radiation,
             Species.RADIATION, stage="explicit-predictor",
         )
-        gterms_pred = adapter.geometry_stage_terms(
-            grid, g_explicit1, s1, m1, lambda_m=LAMBDA_M
+        gterms_pred = self._geometry_stage_terms(
+            grid, g_explicit1, s1, m1, em1
         )
         _, vacuum, _ = adapter.vendor_modules()
 
@@ -336,11 +469,11 @@ class V55ProductionKernel:
             metric_slice_from_q(grid, g1), m1.radiation,
             Species.RADIATION, stage="primary-predictor",
         )
-        self._apply_outer_light_boundary(grid, g1, s1, m1)
+        self._apply_outer_boundary_for_state(grid, g1, s1, m1, em1)
         # Resolve the CMC lapse on the full primary predictor, then
         # use that gauge state for the second split evaluation.
-        g1.alpha = self._solve_lapse(
-            grid, g1, s1, m1
+        g1.alpha = self._solve_lapse_for_state(
+            grid, g1, s1, m1, em1
         )[0]
         g1.beta.fill(0.0)
         g1.B.fill(0.0)
@@ -353,11 +486,17 @@ class V55ProductionKernel:
         # Re-evaluate the complete split on the primary-updated predictor.
         stage1 = ProductionState(
             grid=grid, geometry=g1, scalars=s1, matter=m1,
+            electromagnetic=em1,
             t=state.t, tau=state.tau, e_folds=state.e_folds,
         )
         srhs1, mrhs1, _ = self._rhs(stage1)
-        gterms1 = adapter.geometry_stage_terms(
-            grid, g1, s1, m1, lambda_m=LAMBDA_M
+        flux1 = None
+        emnew = em0
+        if em0 is not None:
+            flux1 = self._charged_dust_mass_flux_faces(stage1)
+            emnew = em0.advance_trapezoid(dt, flux0, flux1)
+        gterms1 = self._geometry_stage_terms(
+            grid, g1, s1, m1, em1
         )
 
         # Final explicit block uses the TRUE-PIRK trapezoidal pairing with the
@@ -384,22 +523,35 @@ class V55ProductionKernel:
                 for name in ("S", "PS", "D", "PD", "phi", "Pi")
             )
         )
-        mnew = V55MatterState(
-            *(
-                ConservedSpecies(
-                    getattr(m0, name).rest + 0.5 * dt * (
-                        mrhs0[name].rest + mrhs1[name].rest
-                    ),
-                    getattr(m0, name).energy_t + 0.5 * dt * (
-                        mrhs0[name].energy_t + mrhs1[name].energy_t
-                    ),
-                    getattr(m0, name).momentum_r + 0.5 * dt * (
-                        mrhs0[name].momentum_r + mrhs1[name].momentum_r
-                    ),
-                )
-                for name in ("dark_matter", "baryons", "radiation")
+        mnew_base = tuple(
+            ConservedSpecies(
+                getattr(m0, name).rest + 0.5 * dt * (
+                    mrhs0[name].rest + mrhs1[name].rest
+                ),
+                getattr(m0, name).energy_t + 0.5 * dt * (
+                    mrhs0[name].energy_t + mrhs1[name].energy_t
+                ),
+                getattr(m0, name).momentum_r + 0.5 * dt * (
+                    mrhs0[name].momentum_r + mrhs1[name].momentum_r
+                ),
             )
+            for name in ("dark_matter", "baryons", "radiation")
         )
+        if m0.charged_dust is None:
+            mnew_charged = None
+        else:
+            mnew_charged = ConservedSpecies(
+                m0.charged_dust.rest + 0.5 * dt * (
+                    mrhs0["charged_dust"].rest + mrhs1["charged_dust"].rest
+                ),
+                m0.charged_dust.energy_t + 0.5 * dt * (
+                    mrhs0["charged_dust"].energy_t + mrhs1["charged_dust"].energy_t
+                ),
+                m0.charged_dust.momentum_r + 0.5 * dt * (
+                    mrhs0["charged_dust"].momentum_r + mrhs1["charged_dust"].momentum_r
+                ),
+            )
+        mnew = V55MatterState(*mnew_base, charged_dust=mnew_charged)
 
         # Validate the completed radiation state before the final implicit
         # source projection. No variable is clipped or projected on rejection.
@@ -443,22 +595,70 @@ class V55ProductionKernel:
         # Apply the same incoming-light reconstruction after Lambda is current
         # on the completed final slice. This replaces the unconstrained finite-
         # radius boundary mode without altering the interior equations.
-        self._apply_outer_light_boundary(grid, gnew, snew, mnew)
+        self._apply_outer_boundary_for_state(grid, gnew, snew, mnew, emnew)
         # Final stage-aware CMC solve on the completed final A/K/matter slice.
-        gnew.alpha = self._solve_lapse(
-            grid, gnew, snew, mnew
+        gnew.alpha = self._solve_lapse_for_state(
+            grid, gnew, snew, mnew, emnew
         )[0]
         gnew.beta.fill(0.0)
         gnew.B.fill(0.0)
 
         candidate = ProductionState(
             grid=grid, geometry=gnew, scalars=snew, matter=mnew,
+            electromagnetic=emnew,
             t=state.t + dt, tau=state.tau, e_folds=state.e_folds,
             cycle=state.cycle, history=list(state.history),
             handoffs=list(state.handoffs),
         )
 
         obs = self.diagnostics(candidate, profiles=False)
+        if em0 is not None:
+            # Persist source/current witnesses from the exact start and primary
+            # predictor operands used by this accepted PIRK step. These are
+            # recomputed by the same pure source function on the same stage
+            # states; they are not an integrated energy-balance residual.
+            if (
+                em1 is None or emnew is None
+                or m0.charged_dust is None or m1.charged_dust is None
+                or mnew.charged_dust is None
+            ):
+                raise RuntimeError(
+                    "radial Maxwell step lost its charged-dust or field state"
+                )
+            _, _, em_start = em0.lorentz_source(
+                grid, g0, metric_slice_from_q(grid, g0), m0.charged_dust
+            )
+            _, _, em_predictor = em1.lorentz_source(
+                grid, g1, metric_slice_from_q(grid, g1), m1.charged_dust
+            )
+            for stage_name, trace in (
+                ("start", em_start), ("predictor", em_predictor)
+            ):
+                obs[f"em_{stage_name}_stage_current_absmax"] = float(
+                    np.max(np.abs(trace["j_e_r"]))
+                )
+                obs[f"em_{stage_name}_stage_lorentz_energy_source_absmax"] = float(
+                    np.max(np.abs(trace["source_energy"]))
+                )
+                obs[f"em_{stage_name}_stage_lorentz_momentum_source_absmax"] = float(
+                    np.max(np.abs(trace["source_momentum_r"]))
+                )
+                obs[f"em_{stage_name}_stage_electric_field_absmax"] = float(
+                    np.max(np.abs(trace["Ehat_r"]))
+                )
+            obs["em_predictor_stage_stress_energy_density_absmax"] = float(
+                np.max(np.abs(em1.stress_projection(grid, g1)["rho"]))
+            )
+            obs["em_accepted_charge_change_absmax"] = float(
+                np.max(np.abs(
+                    emnew.enclosed_charge_faces - em0.enclosed_charge_faces
+                ))
+            )
+            obs["em_accepted_gauss_shell_residual_absmax"] = float(
+                np.max(np.abs(
+                    emnew.gauss_shell_residual(grid, mnew.charged_dust)
+                ))
+            )
         candidate.e_folds = append_efolds(
             state.e_folds, obs["H_eff"], dt,
             H_eff_start=H_eff_start,
@@ -512,9 +712,18 @@ class V55ProductionKernel:
 
         _, vacuum, moving = adapter.vendor_modules()
         metric = metric_slice_from_q(grid, geom)
-        total = assemble_total_stress_energy(
-            grid, geom, state.scalars, state.matter
+        electromagnetic_projection = self._electromagnetic_projection(
+            grid, geom, state.electromagnetic
         )
+        if electromagnetic_projection is None:
+            total = assemble_total_stress_energy(
+                grid, geom, state.scalars, state.matter
+            )
+        else:
+            total = assemble_total_stress_energy(
+                grid, geom, state.scalars, state.matter,
+                electromagnetic_projection=electromagnetic_projection,
+            )
         raw = vacuum.constraints(grid, geom)
 
         H = raw["hamiltonian"] - 16.0 * math.pi * total.rho
@@ -541,7 +750,15 @@ class V55ProductionKernel:
         # Turnaround diagnostic: expose the CMC projection and radial lapse
         # response on the same slice. Diagnostic only; no evolution change.
         from .cmc_gauge import target_kdot
-        cmc_kdot = target_kdot(grid, geom, state.scalars, state.matter)
+        if electromagnetic_projection is None:
+            cmc_kdot = target_kdot(
+                grid, geom, state.scalars, state.matter
+            )
+        else:
+            cmc_kdot = target_kdot(
+                grid, geom, state.scalars, state.matter,
+                electromagnetic_projection=electromagnetic_projection,
+            )
         alpha_r = grid.cell_derivative_fourth(geom.alpha, parity=1)
         i_alpha = int(np.argmax(np.abs(alpha_r)))
 
@@ -768,10 +985,17 @@ class V55ProductionKernel:
         # through the matter projection, without introducing a new source.
         vacuum_l3 = vacuum.primary_l3_rhs(grid, geom)
         vacuum_l2 = vacuum.primary_l2_rhs(grid, geom)
-        matter_l3 = {
-            key: np.asarray(adapter.primary_l3_with_matter(
+        if electromagnetic_projection is None:
+            matter_l3_actual = adapter.primary_l3_with_matter(
                 grid, geom, state.scalars, state.matter
-            )[key]) - np.asarray(vacuum_l3[key])
+            )
+        else:
+            matter_l3_actual = adapter.primary_l3_with_matter(
+                grid, geom, state.scalars, state.matter,
+                electromagnetic_projection=electromagnetic_projection,
+            )
+        matter_l3 = {
+            key: np.asarray(matter_l3_actual[key]) - np.asarray(vacuum_l3[key])
             for key in ("Aa", "K")
         }
 
@@ -1016,6 +1240,46 @@ class V55ProductionKernel:
             "explicit_db_over_b_at_max": v_eb,
         }
 
+        if state.electromagnetic is not None:
+            carrier = state.matter.charged_dust
+            if carrier is None:
+                raise RuntimeError(
+                    "radial Maxwell diagnostics require the separate charged-dust state"
+                )
+            Ehat = state.electromagnetic.electric_field_hat(grid, geom)
+            em_sources = state.electromagnetic.lorentz_source(
+                grid, geom, metric, carrier
+            )[2]
+            em_projection = state.electromagnetic.stress_projection(grid, geom)
+            gauss_residual = state.electromagnetic.gauss_shell_residual(
+                grid, carrier
+            )
+            out.update({
+                "radial_maxwell_enabled": 1.0,
+                "em_charge_to_rest_mass": float(
+                    state.electromagnetic.charge_to_rest_mass
+                ),
+                "em_total_enclosed_charge": float(
+                    state.electromagnetic.enclosed_charge_faces[-1]
+                ),
+                "em_electric_field_absmax": float(np.max(np.abs(Ehat))),
+                "em_stress_energy_density_absmax": float(
+                    np.max(np.abs(em_projection["rho"]))
+                ),
+                "em_current_absmax": float(
+                    np.max(np.abs(em_sources["j_e_r"]))
+                ),
+                "em_lorentz_energy_source_absmax": float(
+                    np.max(np.abs(em_sources["source_energy"]))
+                ),
+                "em_lorentz_momentum_source_absmax": float(
+                    np.max(np.abs(em_sources["source_momentum_r"]))
+                ),
+                "em_gauss_shell_residual_absmax": float(
+                    np.max(np.abs(gauss_residual))
+                ),
+            })
+
         if profiles:
             out.update({
                 "total_rho": total.rho,
@@ -1068,4 +1332,37 @@ def write_checkpoint_npz(
         "radiation_energy_t": state.matter.radiation.energy_t,
         "radiation_momentum_r": state.matter.radiation.momentum_r,
     }
+    if state.electromagnetic is not None:
+        carrier = state.matter.charged_dust
+        if carrier is None:
+            raise ValueError(
+                "radial Maxwell checkpoint requires the separate charged-dust state"
+            )
+        em = state.electromagnetic
+        metric = metric_slice_from_q(state.grid, state.geometry)
+        projection = em.stress_projection(state.grid, state.geometry)
+        source = em.lorentz_source(
+            state.grid, state.geometry, metric, carrier
+        )[2]
+        arrays.update({
+            "charged_dust_rest": carrier.rest,
+            "charged_dust_energy_t": carrier.energy_t,
+            "charged_dust_momentum_r": carrier.momentum_r,
+            "em_charge_to_rest_mass": np.asarray(em.charge_to_rest_mass),
+            "em_enclosed_charge_faces": em.enclosed_charge_faces,
+            "em_electric_field_hat": em.electric_field_hat(
+                state.grid, state.geometry
+            ),
+            "em_stress_rho": projection["rho"],
+            "em_stress_pr": projection["pr"],
+            "em_stress_pt": projection["pt"],
+            "em_stress_j": projection["j"],
+            "em_gauss_shell_residual": em.gauss_shell_residual(
+                state.grid, carrier
+            ),
+            "em_charge_density": source["rho_e"],
+            "em_current_r": source["j_e_r"],
+            "em_lorentz_energy_source": source["source_energy"],
+            "em_lorentz_momentum_source_r": source["source_momentum_r"],
+        })
     atomic_savez_compressed(out, **arrays)

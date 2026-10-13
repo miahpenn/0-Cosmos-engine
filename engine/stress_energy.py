@@ -28,29 +28,56 @@ class TotalStressEnergy:
     fluid_pr: np.ndarray
     fluid_pt: np.ndarray
     fluid_j: np.ndarray
+    # Defaults preserve construction compatibility for prior scalar+fluid
+    # callers; canonical assembly always fills these with finite arrays.
+    electromagnetic_rho: np.ndarray | None = None
+    electromagnetic_pr: np.ndarray | None = None
+    electromagnetic_pt: np.ndarray | None = None
+    electromagnetic_j: np.ndarray | None = None
 
     def trace_spatial(self) -> np.ndarray:
         return self.pr + 2.0 * self.pt
 
     def finite(self) -> bool:
-        return all(
-            np.all(np.isfinite(x))
-            for x in (
-                self.rho, self.pr, self.pt, self.j,
-                self.scalar_rho, self.scalar_pr, self.scalar_pt, self.scalar_j,
-                self.fluid_rho, self.fluid_pr, self.fluid_pt, self.fluid_j,
-            )
+        required = (
+            self.rho, self.pr, self.pt, self.j,
+            self.scalar_rho, self.scalar_pr, self.scalar_pt, self.scalar_j,
+            self.fluid_rho, self.fluid_pr, self.fluid_pt, self.fluid_j,
+        )
+        optional = (
+            self.electromagnetic_rho, self.electromagnetic_pr,
+            self.electromagnetic_pt, self.electromagnetic_j,
+        )
+        return all(np.all(np.isfinite(x)) for x in required) and all(
+            x is None or np.all(np.isfinite(x)) for x in optional
         )
 
 
-def assemble_total_stress_energy(grid, geometry, scalars: ScalarFields,
-                                 matter: V55MatterState) -> TotalStressEnergy:
-    """Adapt the canonical matter projection to the diagnostic data contract."""
-    projection = v55_matter.total_matter_projection(
-        grid, geometry, scalars, matter
-    )
+def assemble_total_stress_energy(
+    grid,
+    geometry,
+    scalars: ScalarFields,
+    matter: V55MatterState,
+    *,
+    electromagnetic_projection: dict[str, np.ndarray] | None = None,
+) -> TotalStressEnergy:
+    """Adapt the canonical projection to the diagnostic and boundary contract.
+
+    The optional EM arrays must already use consumer-normalized units. None
+    preserves the pre-EM projection exactly.
+    """
+    if electromagnetic_projection is None:
+        projection = v55_matter.total_matter_projection(
+            grid, geometry, scalars, matter
+        )
+    else:
+        projection = v55_matter.total_matter_projection(
+            grid, geometry, scalars, matter,
+            electromagnetic_projection=electromagnetic_projection,
+        )
     scalar = projection["scalar"]
     fluid = projection["fluid"]
+    em = projection["electromagnetic"]
     return TotalStressEnergy(
         rho=projection["rho"],
         pr=projection["pr"],
@@ -64,4 +91,8 @@ def assemble_total_stress_energy(grid, geometry, scalars: ScalarFields,
         fluid_pr=fluid["pr"],
         fluid_pt=fluid["pt"],
         fluid_j=fluid["j"],
+        electromagnetic_rho=em["rho"],
+        electromagnetic_pr=em["pr"],
+        electromagnetic_pt=em["pt"],
+        electromagnetic_j=em["j"],
     )

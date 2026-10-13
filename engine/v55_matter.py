@@ -40,12 +40,15 @@ class V55MatterState:
     dark_matter: ConservedSpecies
     baryons: ConservedSpecies
     radiation: ConservedSpecies
+    # Separate, opt-in conventional carrier. None means the original GEAR state.
+    charged_dust: ConservedSpecies | None = None
 
     def copy(self) -> "V55MatterState":
         return V55MatterState(
             self.dark_matter.copy(),
             self.baryons.copy(),
             self.radiation.copy(),
+            None if self.charged_dust is None else self.charged_dust.copy(),
         )
 
 
@@ -76,8 +79,10 @@ def _metrics(g, s):
     ]
 
 
-def initialize_from_archive(g, s, include_radiation=True) -> V55MatterState:
-    """Initialize the corrected archive matter operating point."""
+def initialize_from_archive(
+    g, s, include_radiation=True, *, charged_dust_density=None
+) -> V55MatterState:
+    """Initialize archive matter and an optional separate charged-dust carrier."""
     metrics = _metrics(g, s)
     dm = initialize_dust(
         metrics, np.full(g.n, RHO_DM_PRESENT, dtype=float)
@@ -89,7 +94,19 @@ def initialize_from_archive(g, s, include_radiation=True) -> V55MatterState:
         metrics,
         np.full(g.n, RHO_R_PRESENT if include_radiation else 0.0, dtype=float),
     )
-    return V55MatterState(dm, baryons, radiation)
+    charged_dust = None
+    if charged_dust_density is not None:
+        density = np.asarray(charged_dust_density)
+        if density.dtype.kind not in "iuf" or density.shape != (g.n,):
+            raise ValueError("charged_dust_density must be a real profile matching the grid")
+        density = np.asarray(density, dtype=float)
+        if not np.all(np.isfinite(density)) or np.any(density < 0.0):
+            raise ValueError("charged_dust_density must be finite and nonnegative")
+        # The first runtime experiment starts at rest so the added initial
+        # momentum density is exactly zero and the radial momentum constraint
+        # remains consistent with the existing initializer.
+        charged_dust = initialize_dust(metrics, density)
+    return V55MatterState(dm, baryons, radiation, charged_dust)
 
 
 def normalized_fluid_densities(
@@ -127,10 +144,49 @@ def total_fluid_projection(
         project_species(metric, state.baryons, Species.BARYON),
         project_species(metric, state.radiation, Species.RADIATION),
     ]
+    if state.charged_dust is not None:
+        # The added carrier is a separate pressureless dust species, not an
+        # alias for the archive baryon/DM/radiation or real scalar sectors.
+        pieces.append(
+            project_species(metric, state.charged_dust, Species.BARYON)
+        )
     return {
         key: sum(piece[key] for piece in pieces)
         for key in ("rho", "pr", "pt", "j")
     }
+
+
+def _electromagnetic_projection_or_zero(
+    projection: dict[str, np.ndarray] | None,
+    shape: tuple[int, ...],
+) -> dict[str, np.ndarray]:
+    """Validate an optional already-normalized radial-EM source projection.
+
+    Values must already be in the active Einstein/CMC consumer-array units.
+    This helper does not accept a raw electric field or choose its physical
+    normalization. None means exactly zero EM contribution.
+    """
+    required = {"rho", "pr", "pt", "j"}
+    if projection is None:
+        return {key: np.zeros(shape, dtype=float) for key in required}
+    if not isinstance(projection, dict) or set(projection) != required:
+        raise ValueError(
+            "electromagnetic_projection must contain exactly rho, pr, pt, j"
+        )
+    out: dict[str, np.ndarray] = {}
+    for key in ("rho", "pr", "pt", "j"):
+        try:
+            value = np.asarray(projection[key], dtype=float)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(
+                f"electromagnetic projection {key} must be a finite grid array"
+            ) from exc
+        if value.shape != shape or not np.all(np.isfinite(value)):
+            raise ValueError(
+                f"electromagnetic projection {key} must be finite with shape {shape}"
+            )
+        out[key] = np.array(value, copy=True)
+    return out
 
 
 def total_matter_projection(
@@ -138,19 +194,45 @@ def total_matter_projection(
     s,
     scalar_fields: ScalarFields,
     matter: V55MatterState,
+    *,
+    electromagnetic_projection: dict[str, np.ndarray] | None = None,
 ) -> dict[str, np.ndarray]:
-    """Combine scalar and conservative-fluid stress projections once each."""
+    """Combine canonical scalar/fluid stress with an optional normalized EM term.
+
+    The optional EM projection must already use the same consumer units as the
+    returned Einstein/CMC arrays. It is absent by default. Charge, field
+    normalization, matter current and Maxwell evolution remain separate gates.
+    """
     metric = metric_slice_from_q(g, s)
     scalar_e, scalar_pr, scalar_pt, scalar_j = scalar_projection(
         g, s, scalar_fields
     )
     fluid = total_fluid_projection(metric, matter)
+    em = _electromagnetic_projection_or_zero(
+        electromagnetic_projection, np.shape(scalar_e)
+    )
+
+    if electromagnetic_projection is None:
+        # Preserve the original scalar+fluid arithmetic path exactly when the
+        # optional sector is absent (including avoiding gratuitous +0 ops).
+        total = {
+            "rho": scalar_e + fluid["rho"],
+            "pr": scalar_pr + fluid["pr"],
+            "pt": scalar_pt + fluid["pt"],
+            "j": scalar_j + fluid["j"],
+        }
+    else:
+        total = {
+            "rho": scalar_e + fluid["rho"] + em["rho"],
+            "pr": scalar_pr + fluid["pr"] + em["pr"],
+            "pt": scalar_pt + fluid["pt"] + em["pt"],
+            "j": scalar_j + fluid["j"] + em["j"],
+        }
+        if not all(np.all(np.isfinite(value)) for value in total.values()):
+            raise ValueError("combined matter/EM projection is non-finite")
 
     return {
-        "rho": scalar_e + fluid["rho"],
-        "pr": scalar_pr + fluid["pr"],
-        "pt": scalar_pt + fluid["pt"],
-        "j": scalar_j + fluid["j"],
+        **total,
         "fluid": fluid,
         "scalar": {
             "rho": scalar_e,
@@ -158,6 +240,7 @@ def total_matter_projection(
             "pt": scalar_pt,
             "j": scalar_j,
         },
+        "electromagnetic": em,
     }
 
 
@@ -199,7 +282,7 @@ def radiation_density_normalized(
 
 def species_states(metric: BSSNMetricSlice, state: V55MatterState):
     metrics = _metrics_from_slice(metric)
-    return {
+    result = {
         "dark_matter": primitives(
             metrics, state.dark_matter, Species.DARK_MATTER
         ),
@@ -210,3 +293,8 @@ def species_states(metric: BSSNMetricSlice, state: V55MatterState):
             metrics, state.radiation, Species.RADIATION
         ),
     }
+    if state.charged_dust is not None:
+        result["charged_dust"] = primitives(
+            metrics, state.charged_dust, Species.BARYON
+        )
+    return result
