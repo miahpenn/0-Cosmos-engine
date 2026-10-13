@@ -305,9 +305,9 @@ def test_beta_source_pair_cancels_at_actual_step_rhs_stages(monkeypatch):
         radial_mask = mask & (np.abs(dphi_r) > 0.0)
         assert np.any(radial_mask), "actual stage must exercise radial exchange"
 
-        # The Eulerian energy projection is reconstructed from the dust
-        # continuity and radial-momentum source via its primitive Jacobian.
-        # The stored mixed U_t source above is not directly E-dot.
+        # Independently reconstruct the dust Eulerian energy-projection
+        # rate from the rest-current and radial-momentum source Jacobian;
+        # dust primitive recovery does not use energy_t directly.
         dm_energy_projection_source = (
             delta_rest / (sqrt_gamma * W)
             + v_r * delta_momentum / sqrt_gamma
