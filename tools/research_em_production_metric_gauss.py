@@ -319,8 +319,24 @@ def solve_discrete_production_metric_gauss(
             continue
         areal = metric.areal_radius(radius)
         sqrt_gamma = metric.sqrt_gamma(radius)
-        fields_hat.append(charge / (areal * areal))
-        fields_r.append(charge / sqrt_gamma)
+        areal_squared = areal * areal
+        if not (
+            math.isfinite(areal)
+            and areal > 0.0
+            and math.isfinite(areal_squared)
+            and areal_squared > 0.0
+            and math.isfinite(sqrt_gamma)
+            and sqrt_gamma > 0.0
+        ):
+            raise ValueError(
+                "areal radius and metric factors must remain finite and positive"
+            )
+        field_hat = charge / areal_squared
+        field_r = charge / sqrt_gamma
+        if not (math.isfinite(field_hat) and math.isfinite(field_r)):
+            raise ValueError("reconstructed electric field must remain finite")
+        fields_hat.append(field_hat)
+        fields_r.append(field_r)
 
     fluxes = tuple(
         metric.sqrt_gamma(radius) * field
