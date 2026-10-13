@@ -277,13 +277,21 @@ def test_discrete_curved_gauss_cell_residual_and_flux_contract(
         assert observed_flux == pytest.approx(
             expected_flux, rel=3.0e-14, abs=3.0e-14 * scale
         )
-        # Charge is approximated from cell-centred rho_e and proper cell
-        # volume; the exact analytic Q is used only as an independent witness.
-        assert result.face_charges[i] == pytest.approx(
-            curved_reference.enclosed_charge(radius),
-            rel=4.0e-2,
-            abs=2.0e-2 * scale / (resolution / 32.0),
-        )
+
+    # The solver cannot read the analytic Q oracle; compare its independently
+    # accumulated finite-volume charge and field against it with explicit
+    # second-order bounds on this smooth, face-aligned manufactured profile.
+    face_charge_error = max(
+        abs(q_num - curved_reference.enclosed_charge(radius))
+        for radius, q_num in zip(result.faces, result.face_charges)
+    )
+    face_field_error = max(
+        abs(e_num - curved_reference.electric_field(radius))
+        for radius, e_num in zip(result.faces, result.face_electric_field_hat)
+    )
+    scale_factor = (32.0 / resolution) ** 2
+    assert face_charge_error <= 0.20 * scale_factor
+    assert face_field_error <= 0.05 * scale_factor
 
 
 def test_discrete_curved_gauss_charge_budget_converges_second_order(
