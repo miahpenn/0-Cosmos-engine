@@ -46,6 +46,23 @@ def _d1(grid, x, parity=1):
     return grid.d1(x, parity)
 
 
+def _integrate_initial_origin_half_cell(src, dr):
+    """Integrate [0, dr/2] using the even source moments 1, r^2, r^4."""
+    values = np.asarray(src, dtype=float)
+    step = float(dr)
+    if values.ndim != 1 or values.size < 3:
+        raise ValueError("origin half-cell rule requires at least three source samples")
+    if not math.isfinite(step) or step <= 0.0:
+        raise ValueError("origin half-cell rule requires finite positive dr")
+    if not np.all(np.isfinite(values)):
+        raise FloatingPointError("origin half-cell source samples are non-finite")
+    weights = (401.0 / 720.0, -31.0 / 480.0, 11.0 / 1440.0)
+    result = step * float(np.dot(np.asarray(weights), values[:3]))
+    if not math.isfinite(result):
+        raise FloatingPointError("origin half-cell rule produced non-finite integral")
+    return result
+
+
 def _integrate_initial_center_interval_moments(src, dr, interval_index):
     """Integrate one of the first two centre intervals from an even r-series.
 
