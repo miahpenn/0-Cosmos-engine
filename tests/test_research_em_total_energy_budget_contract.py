@@ -112,15 +112,43 @@ def _synthetic_fixed_R_run():
         {
             "t_before": 0.0, "t_after": 1.0, "dt": 1.0,
             "fixed_R_stage_rates": {
-                "start": {"tube_predicted_fixed_R_mass_rate": 0.5},
-                "primary_predictor": {"tube_predicted_fixed_R_mass_rate": 1.5},
+                "start": {
+                    "tube_predicted_fixed_R_mass_rate": 0.5,
+                    "tube_chain_rule_mass_dot_coordinate": 1.1,
+                    "tube_chain_rule_mass_dot_fixed_R": 1.0,
+                    "tube_chain_rule_coordinate_rate_minus_flux_pressure": 0.2,
+                    "tube_chain_rule_fixed_R_residual": 0.3,
+                    "tube_chain_rule_fixed_R_sweep": -0.1,
+                },
+                "primary_predictor": {
+                    "tube_predicted_fixed_R_mass_rate": 1.5,
+                    "tube_chain_rule_mass_dot_coordinate": 1.6,
+                    "tube_chain_rule_mass_dot_fixed_R": 1.4,
+                    "tube_chain_rule_coordinate_rate_minus_flux_pressure": 0.25,
+                    "tube_chain_rule_fixed_R_residual": 0.4,
+                    "tube_chain_rule_fixed_R_sweep": -0.2,
+                },
             },
         },
         {
             "t_before": 1.0, "t_after": 2.0, "dt": 1.0,
             "fixed_R_stage_rates": {
-                "start": {"tube_predicted_fixed_R_mass_rate": 2.5},
-                "primary_predictor": {"tube_predicted_fixed_R_mass_rate": 3.5},
+                "start": {
+                    "tube_predicted_fixed_R_mass_rate": 2.5,
+                    "tube_chain_rule_mass_dot_coordinate": 2.1,
+                    "tube_chain_rule_mass_dot_fixed_R": 2.0,
+                    "tube_chain_rule_coordinate_rate_minus_flux_pressure": 0.35,
+                    "tube_chain_rule_fixed_R_residual": 0.5,
+                    "tube_chain_rule_fixed_R_sweep": -0.1,
+                },
+                "primary_predictor": {
+                    "tube_predicted_fixed_R_mass_rate": 3.5,
+                    "tube_chain_rule_mass_dot_coordinate": 3.6,
+                    "tube_chain_rule_mass_dot_fixed_R": 3.4,
+                    "tube_chain_rule_coordinate_rate_minus_flux_pressure": 0.45,
+                    "tube_chain_rule_fixed_R_residual": 0.6,
+                    "tube_chain_rule_fixed_R_sweep": -0.2,
+                },
             },
         },
     ]
@@ -159,10 +187,14 @@ def test_charged_neutral_fixed_R_interval_difference_is_signed():
         row["mass_rate_finite_difference"] -= 0.25
         row["accepted_state_endpoint_trapezoid_prediction"] -= 0.1
         row["accepted_interval_residual"] -= 0.15
+        row["start_stage_tube_chain_rule_fixed_R_residual"] -= 0.2
+        row["primary_predictor_stage_tube_chain_rule_fixed_R_residual"] -= 0.1
     paired = _pair_fixed_R_interval_rows(charged, neutral, label="synthetic paired arms")
     assert [row["charged_minus_neutral_mass_rate_finite_difference"] for row in paired] == pytest.approx([0.25, 0.25])
     assert [row["charged_minus_neutral_accepted_state_endpoint_trapezoid_prediction"] for row in paired] == pytest.approx([0.1, 0.1])
     assert [row["charged_minus_neutral_accepted_interval_residual"] for row in paired] == pytest.approx([0.15, 0.15])
+    assert [row["charged_minus_neutral_start_stage_tube_chain_rule_fixed_R_residual"] for row in paired] == pytest.approx([0.2, 0.2])
+    assert [row["charged_minus_neutral_primary_predictor_stage_tube_chain_rule_fixed_R_residual"] for row in paired] == pytest.approx([0.1, 0.1])
 
 
 def _manufactured_misner_sharp_chain_rule_inputs():
