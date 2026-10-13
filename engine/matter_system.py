@@ -1,22 +1,18 @@
 """Conservative spherical matter transport for the V5.5 production adapter.
 
-This module evolves the covariant mixed-tensor variables defined in the
-Valencia layer. The discretization is conservative finite-volume transport
-with piecewise-linear reconstruction and HLL numerical fluxes.
+The active finite-volume state stores densitized Eulerian rest, energy and
+radial momentum (sqrt(gamma)*D, sqrt(gamma)*E, sqrt(gamma)*S_r). It is not the
+separate mixed-component representation returned by valencia.primitive_to_conserved.
 
-The physical source identity remains
+For the locked dark-matter covector Q_nu = beta_DM*rho_DM*d_nu(phi), project the
+recipient into this active state as below. See `docs/SCALAR_DM_EXCHANGE_DERIVATION_2026-10-13.md`
+for the mass-varying dust derivation, covariant-to-Eulerian projection, and the still-unpaid beta-value/0* microphysical-origin questions:
+    q_D = -alpha*sqrt(gamma)*beta_DM*rho_DM*W*(Pi + v^r*d_r(phi))
+    q_E = -sqrt(gamma)*(Q_t - beta^r*Q_r)
+    q_Sr = alpha*sqrt(gamma)*Q_r
 
-    partial_mu(sqrt(-g) T^mu_nu)
-      = 1/2 sqrt(-g) T^(ab) partial_nu g_ab + sqrt(-g) Q_nu.
-
-For dark matter:
-    Q_nu = beta rho_DM partial_nu phi.
-
-For baryons and radiation:
-    Q_nu = 0.
-
-No interface reservoir, feedback closure, or fitted physical coefficient is
-introduced.
+Baryons and radiation remain uncoupled. No interface reservoir, fitted
+feedback coefficient, or additional physical law is introduced.
 """
 from dataclasses import dataclass
 from enum import Enum
@@ -505,7 +501,7 @@ def _species_rhs_components(
     dphi_t: np.ndarray | None = None,
     dphi_r: np.ndarray | None = None,
     beta_dm: float = -0.04,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """Calculate finite-volume flux/source components without taking a step.
 
     The shared operator retains guarded incoming primitive recovery and is
@@ -548,6 +544,7 @@ def _species_rhs_components(
     source_s_diag = np.zeros(n, dtype=float)
     q_e_diag = np.zeros(n, dtype=float)
     q_s_diag = np.zeros(n, dtype=float)
+    q_rest_diag = np.zeros(n, dtype=float)
     for i, m in enumerate(metrics):
         source_e, source_s = _valencia_source(
             m, prim[i], float(metric.K[i]), float(metric.Aa[i]),
@@ -565,10 +562,30 @@ def _species_rhs_components(
             q_t, q_r = dark_matter_covector_source(
                 beta_dm, prim[i].rho, float(dphi_t[i]), float(dphi_r[i])
             )
-            q_e_diag[i] = -m.sqrt_gamma * (q_t - m.beta * q_r)
-            q_s_diag[i] = m.sqrt_gamma * q_r
+            # Contracting the coupled dust equation with u_nu gives
+            # nabla_mu(rho_DM*u^mu) = -beta_DM*rho_DM*u^mu*d_mu(phi).
+            # Convert the covariant rest-current source to coordinate time.
+            pi_normal = (
+                float(dphi_t[i]) - m.beta * float(dphi_r[i])
+            ) / m.alpha
+            u_grad_phi = prim[i].lorentz() * (
+                pi_normal + prim[i].v_r * float(dphi_r[i])
+            )
+            q_rest_diag[i] = (
+                -m.alpha * m.sqrt_gamma * beta_dm
+                * prim[i].rho * u_grad_phi
+            )
 
-    return face_flux, source_e_diag, source_s_diag, q_e_diag, q_s_diag
+            # Active energy_t stores sqrt(gamma)*E, not sqrt(-g)*T^t_t.
+            # Preserve its Eulerian energy source and lapse-weight the
+            # coordinate-time radial-momentum source independently.
+            q_e_diag[i] = -m.sqrt_gamma * (q_t - m.beta * q_r)
+            q_s_diag[i] = m.alpha * m.sqrt_gamma * q_r
+
+    return (
+        face_flux, source_e_diag, source_s_diag,
+        q_e_diag, q_s_diag, q_rest_diag,
+    )
 
 
 def evolve_species(
@@ -584,11 +601,12 @@ def evolve_species(
 ) -> ConservedSpecies:
     """Apply one finite-volume update with the established operation order."""
     n = len(metric.r)
-    face_flux, source_e_diag, source_s_diag, q_e_diag, q_s_diag = (
-        _species_rhs_components(
-            metric, metric_derivatives, state, species,
-            dphi_t=dphi_t, dphi_r=dphi_r, beta_dm=beta_dm,
-        )
+    (
+        face_flux, source_e_diag, source_s_diag,
+        q_e_diag, q_s_diag, q_rest_diag,
+    ) = _species_rhs_components(
+        metric, metric_derivatives, state, species,
+        dphi_t=dphi_t, dphi_r=dphi_r, beta_dm=beta_dm,
     )
 
     out = state.copy()
@@ -598,6 +616,7 @@ def evolve_species(
         out.rest[i] -= dt * inv_dr * (
             face_flux[i + 1, 0] - face_flux[i, 0]
         )
+        out.rest[i] += dt * q_rest_diag[i]
         out.energy_t[i] -= dt * inv_dr * (
             face_flux[i + 1, 1] - face_flux[i, 1]
         )
