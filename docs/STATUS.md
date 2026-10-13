@@ -4,7 +4,7 @@
 
 ## Current production snapshot — 2026-10-13
 
-**Production ref at this snapshot:** `main` commit `a4183bdb1b10c9ae6953af2a064af8a25415d001`.
+**Production ref at this snapshot:** `main` commit `3e5aedab6c3632d446a8ee4814432d47e14e86fc`.
 
 **Disposition:** software-contract corrections have been promoted and post-merge smoke validation is green. The engine is **not yet admitted by the full scientific campaign gate**.
 
@@ -19,6 +19,7 @@
 - [PR #20](https://github.com/miahpenn/0-Cosmos-engine/pull/20) — refreshes production status and preserves the scientific-admission boundaries.
 - [PR #23](https://github.com/miahpenn/0-Cosmos-engine/pull/23) — integrates strict campaign admission, typed radiation retries, strict radiation primitive-recovery checks, and standards-compliant result/ledger JSON on current main.
 - [PR #22](https://github.com/miahpenn/0-Cosmos-engine/pull/22) — extracts the semidiscrete matter RHS directly while retaining componentwise finite-step ordering, stage-aware radiation admissibility, and radiation's exact-zero rest-current channel.
+- [PR #27](https://github.com/miahpenn/0-Cosmos-engine/pull/27) — makes fixed-radius diagnostics robust when a valid grid does not sample either side of r=5, with explicit coverage flags and an `r_max=4` regression.
 
 These changes close discrete software and equation-consistency defects; they are not evidence of a stable long-horizon solution.
 
@@ -26,7 +27,7 @@ These changes close discrete software and equation-consistency defects; they are
 
 The PR #22 exact updated-head gates all passed at `fad6ea8c5fef7abb0bcecb8e01fdaad9b08387d3`: the direct-RHS contract passed 4 focused + **204 repository tests**; strict JSON passed 204 tests; lightweight validation passed 204 tests plus control smoke and an ordinary N=40 production step; strict retry integration passed 204 tests plus the N=40, `t=0.03` campaign-admission smoke.
 
-The post-merge lightweight validation for current `main` commit `a4183bdb1b10c9ae6953af2a064af8a25415d001` is [run 38330678114](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38330678114); its final outcome was not yet available when this status edit was prepared. The three long numerical workflows were skipped by path filters. Software CI/smoke is not scientific admission.
+The lightweight validation run on post-PR-22 head `a4183bdb1b10c9ae6953af2a064af8a25415d001` was cancelled after PR #27 advanced main; it is not a passing result. Current `main` at `3e5aedab6c3632d446a8ee4814432d47e14e86fc` is under exact-head lightweight validation in [run 38330718742](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38330718742) while this status update is prepared. The three long numerical workflows were skipped by path filters. Software CI/smoke is not scientific admission.
 
 ### Remaining blockers to production admission
 
