@@ -9,7 +9,7 @@ on:
       - "engine/cmc_gauge.py"
       - "tests/test_initial_radial_quadrature.py"
       - "tests/test_cmc_centre_row_contract.py"
-      - "docs/INITIAL_QUADRATURE_AND_CMC_ROW_CANDIDATE-2026-10-13.md"
+      - "docs/INITIAL_QUADRATURE_AND_CMC_ROW_CANDIDATE_2026-10-13.md"
       - ".github/workflows/initial_quadrature_cmc_candidate.yml"
 
 permissions:
