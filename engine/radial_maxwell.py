@@ -173,8 +173,9 @@ class RadialMaxwellState:
         result = r_faces * np.sqrt(bf) / Xf
         if result[0] != 0.0 or not np.all(np.isfinite(result)):
             raise ValueError("areal-radius faces violate centre/finiteness invariant")
-        if np.any(np.diff(result) <= 0.0):
-            raise ValueError("areal radius must be strictly increasing on the face grid")
+        # Do not require R(r) to be monotone: valid strong-field spherical
+        # slices may have non-monotone areal radius while Q/R^2 remains defined
+        # wherever R is nonzero.
         return result
 
     def electric_field_hat(self, grid, geometry) -> np.ndarray:
