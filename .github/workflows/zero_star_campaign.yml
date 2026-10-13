@@ -54,6 +54,10 @@ jobs:
               print(result)
           PY
 
+      - name: Verify successful campaign evidence
+        if: steps.campaign.outcome == 'success'
+        run: python tools/validate_campaign_evidence.py --root runs/0star --resolutions "80,120,160"
+
       - name: Upload 0-star outputs (success requires artifact)
         if: always() && steps.campaign.outcome == 'success'
         uses: actions/upload-artifact@v4
