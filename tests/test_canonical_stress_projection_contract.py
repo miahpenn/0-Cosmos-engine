@@ -31,9 +31,10 @@ def test_total_stress_assembly_uses_canonical_projection_once(monkeypatch):
     )
 
     assert len(calls) == 1, "total stress must be projected through one canonical call"
-    assert calls[0] == (
-        state.grid, state.geometry, state.scalars, state.matter
-    )
+    assert calls[0][0] is state.grid
+    assert calls[0][1] is state.geometry
+    assert calls[0][2] is state.scalars
+    assert calls[0][3] is state.matter
     canonical = projections[0]
     assert assembled.finite()
 
