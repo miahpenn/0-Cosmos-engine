@@ -1012,6 +1012,19 @@ def _fixed_R_interval_balance(run: dict, *, label: str = "run") -> list[dict]:
         start_rate = float(stage_rates["start"]["tube_predicted_fixed_R_mass_rate"])
         predictor_rate = float(stage_rates["primary_predictor"]["tube_predicted_fixed_R_mass_rate"])
         stage_pair_average = 0.5 * (start_rate + predictor_rate)
+        stage_chain_fields = (
+            "tube_chain_rule_mass_dot_coordinate",
+            "tube_chain_rule_mass_dot_fixed_R",
+            "tube_chain_rule_coordinate_rate_minus_flux_pressure",
+            "tube_chain_rule_fixed_R_residual",
+            "tube_chain_rule_fixed_R_sweep",
+        )
+        for stage_name in ("start", "primary_predictor"):
+            missing = [key for key in stage_chain_fields if key not in stage_rates[stage_name]]
+            if missing:
+                raise RuntimeError(
+                    f"{label}: stage {stage_name} is missing chain-rule outputs: {missing}"
+                )
         rows.append({
             "interval_index": i,
             "t_start": float(times[i]),
@@ -1026,6 +1039,14 @@ def _fixed_R_interval_balance(run: dict, *, label: str = "run") -> list[dict]:
             "mass_rate_minus_stage_pair_average_diagnostic_only": mass_rate - stage_pair_average,
             "start_stage_components": stage_rates["start"],
             "primary_predictor_stage_components": stage_rates["primary_predictor"],
+            **{
+                f"start_stage_{key}": float(stage_rates["start"][key])
+                for key in stage_chain_fields
+            },
+            **{
+                f"primary_predictor_stage_{key}": float(stage_rates["primary_predictor"][key])
+                for key in stage_chain_fields
+            },
         })
     return rows
 
@@ -1043,6 +1064,16 @@ def _pair_fixed_R_interval_rows(charged: list[dict], neutral: list[dict], *, lab
         "primary_predictor_stage_predicted_rate",
         "stage_pair_average_prediction_diagnostic_only",
         "mass_rate_minus_stage_pair_average_diagnostic_only",
+        "start_stage_tube_chain_rule_mass_dot_coordinate",
+        "primary_predictor_stage_tube_chain_rule_mass_dot_coordinate",
+        "start_stage_tube_chain_rule_mass_dot_fixed_R",
+        "primary_predictor_stage_tube_chain_rule_mass_dot_fixed_R",
+        "start_stage_tube_chain_rule_coordinate_rate_minus_flux_pressure",
+        "primary_predictor_stage_tube_chain_rule_coordinate_rate_minus_flux_pressure",
+        "start_stage_tube_chain_rule_fixed_R_residual",
+        "primary_predictor_stage_tube_chain_rule_fixed_R_residual",
+        "start_stage_tube_chain_rule_fixed_R_sweep",
+        "primary_predictor_stage_tube_chain_rule_fixed_R_sweep",
     )
     for i, (c, n) in enumerate(zip(charged, neutral)):
         for time_key in ("t_start", "t_end", "dt"):
@@ -1120,6 +1151,10 @@ def _summarize_fixed_N_temporal_refinement(runs: list[dict]) -> dict:
             "final_interval_charged_minus_neutral_predictor_stage_rate": final["charged_minus_neutral_primary_predictor_stage_predicted_rate"],
             "final_interval_charged_minus_neutral_stage_pair_average_diagnostic": final["charged_minus_neutral_stage_pair_average_prediction_diagnostic_only"],
             "final_interval_charged_minus_neutral_mass_rate_minus_stage_pair_average": final["charged_minus_neutral_mass_rate_minus_stage_pair_average_diagnostic_only"],
+            "final_interval_charged_minus_neutral_start_chain_fixed_R_residual": final["charged_minus_neutral_start_stage_tube_chain_rule_fixed_R_residual"],
+            "final_interval_charged_minus_neutral_predictor_chain_fixed_R_residual": final["charged_minus_neutral_primary_predictor_stage_tube_chain_rule_fixed_R_residual"],
+            "final_interval_charged_minus_neutral_start_chain_coordinate_rate": final["charged_minus_neutral_start_stage_tube_chain_rule_mass_dot_coordinate"],
+            "final_interval_charged_minus_neutral_predictor_chain_coordinate_rate": final["charged_minus_neutral_primary_predictor_stage_tube_chain_rule_mass_dot_coordinate"],
             "paired_interval_rows": paired,
         })
     return {
@@ -1299,15 +1334,17 @@ def write_step_summary(report: dict) -> None:
         "",
         f"Resolution held at N={temporal['resolution']}; q/m=0 and 0.25 paired at CFL values {temporal['cfl_values']}.",
         "",
-        "| CFL | nominal dt | steps | final interval Δ(residual) | final interval Δ(measured M rate) | final interval Δ(endpoint prediction) |",
-        "|---:|---:|---:|---:|---:|---:|",
+        "| CFL | nominal dt | steps | final Δ interval residual | final Δ measured M rate | final Δ endpoint prediction | Δ chain fixed-R residual (start / predictor) |",
+        "|---:|---:|---:|---:|---:|---:|---:|",
     ])
     for row in temporal["rows"]:
         lines.append(
             f"| {row['cfl']:.5g} | {row['nominal_dt']:.6e} | {row['charged_steps']} | "
             f"{row['final_interval_charged_minus_neutral_residual']:.6e} | "
             f"{row['final_interval_charged_minus_neutral_mass_rate']:.6e} | "
-            f"{row['final_interval_charged_minus_neutral_endpoint_prediction']:.6e} |"
+            f"{row['final_interval_charged_minus_neutral_endpoint_prediction']:.6e} | "
+            f"{row['final_interval_charged_minus_neutral_start_chain_fixed_R_residual']:.6e} / "
+            f"{row['final_interval_charged_minus_neutral_predictor_chain_fixed_R_residual']:.6e} |"
         )
     lines.extend([
         "",
