@@ -423,6 +423,10 @@ def solve_resolution(resolution: int, vacuum) -> tuple[dict, dict]:
         "target_difference_equilibrated_minus_unscaled": float(
             balanced_target - unscaled_target
         ),
+        "target_difference_high_precision_minus_equilibrated": (
+            float(high_precision_metrics["target"] - balanced_target)
+            if high_precision_metrics is not None else None
+        ),
         "max_abs_lapse_difference_equilibrated_vs_unscaled": float(
             np.max(np.abs(balanced_alpha - unscaled_alpha))
         ),
@@ -468,10 +472,12 @@ def run_resolution_audit(output_dir: Path) -> dict:
         float(row["equilibrated"]["target_to_current_ratio"]) for row in rows
         if row["equilibrated"]["target_to_current_ratio"] is not None
     ]
+    hp_rows = [row for row in rows if row["high_precision"] is not None]
     unscaled_pass_count = sum(bool(row["all_unscaled_checks_passed"]) for row in rows)
     balanced_pass_count = sum(bool(row["all_equilibrated_checks_passed"]) for row in rows)
+    hp_pass_count = sum(bool(row["high_precision"]["all_checks_passed"]) for row in hp_rows)
     report = {
-        "schema": "cmc_joint_discrete_target_lapse_initial_resolution_sweep_v2",
+        "schema": "cmc_joint_discrete_target_lapse_initial_resolution_sweep_v3",
         "status": "completed_diagnostic_only",
         "diagnostic_only": True,
         "no_evolution": True,
@@ -493,8 +499,10 @@ def run_resolution_audit(output_dir: Path) -> dict:
             "include_radiation": True,
             "all_slices_are_independent_initialized_t0_states": True,
             "states_are_not_same_time_late_trajectory_samples": True,
-            "linear_system_comparison": "original augmented solve versus algebraically equivalent row/column-equilibrated solve",
+            "linear_system_comparison": "original double solve, row/column-equilibrated solve, and 80-digit solve of the same float64-defined augmented coefficients at N=120/160",
             "acceptance_bounds_unchanged_between_solvers": True,
+            "high_precision_decimal_digits": 80,
+            "high_precision_slices": [int(row["resolution"]) for row in hp_rows],
         },
         "sweep": {
             "resolution_count": len(rows),
@@ -502,6 +510,27 @@ def run_resolution_audit(output_dir: Path) -> dict:
             "all_unscaled_resolution_checks_passed": unscaled_pass_count == len(rows),
             "equilibrated_resolutions_passing": balanced_pass_count,
             "all_equilibrated_resolution_checks_passed": balanced_pass_count == len(rows),
+            "high_precision_resolutions": [int(row["resolution"]) for row in hp_rows],
+            "high_precision_resolutions_passing": hp_pass_count,
+            "all_high_precision_resolution_checks_passed": bool(hp_rows) and hp_pass_count == len(hp_rows),
+            "max_high_precision_interior_rhs_residual": float(
+                max(float(row["high_precision"]["interior_rhs_residual_max_abs"]) for row in hp_rows)
+            ) if hp_rows else None,
+            "max_high_precision_interior_roundoff_ratio": float(
+                max(float(row["high_precision"]["interior_roundoff_max_ratio"]) for row in hp_rows)
+            ) if hp_rows else None,
+            "max_high_precision_weighted_mean_closure": float(
+                max(abs(float(row["high_precision"]["weighted_mean_minus_target"])) for row in hp_rows)
+            ) if hp_rows else None,
+            "max_abs_high_precision_augmented_residual_before_float_rounding": float(
+                max(float(row["high_precision"]["solver"]["max_abs_augmented_residual_before_float_rounding"]) for row in hp_rows)
+            ) if hp_rows else None,
+            "max_abs_high_precision_augmented_residual_after_float_rounding": float(
+                max(float(row["high_precision"]["solver"]["max_abs_augmented_residual_after_float_rounding"]) for row in hp_rows)
+            ) if hp_rows else None,
+            "max_abs_high_precision_target_minus_equilibrated": float(
+                max(abs(float(row["target_difference_high_precision_minus_equilibrated"])) for row in hp_rows)
+            ) if hp_rows else None,
             "equilibrated_joint_target_min": float(min(balanced_targets)),
             "equilibrated_joint_target_max": float(max(balanced_targets)),
             "equilibrated_target_to_current_ratio_min": float(min(balanced_ratios)),
@@ -533,7 +562,8 @@ def run_resolution_audit(output_dir: Path) -> dict:
             "These are independently initialized t=0 states on the same domain, not the same physical late-time slice remapped across grids.",
             "The sweep probes numerical conditioning of the discrete CMC target/lapse closure on the production initializer only.",
             "Row/column equilibration is an algebraically equivalent linear solve; no equation, boundary condition, or acceptance bound changes.",
-            "The unscaled method's failures remain in the report and are not recategorized as passes even if the equilibrated solve closes.",
+            "The unscaled and equilibrated methods' failures remain in the report and are not recategorized as passes even if the high-precision solve changes the outcome.",
+            "The high-precision solve promotes the already-constructed float64 coefficients; it does not independently reconstruct the operator or remove direct production RHS cancellation.",
             "This cannot establish same-time late-trajectory convergence, a physically preferred gauge, radiation admission, or production readiness.",
             "Every solve freezes all non-lapse fields and records separate centre and outer boundary residuals.",
         ],
@@ -568,6 +598,13 @@ def main() -> int:
         "all_unscaled_resolution_checks_passed": sweep["all_unscaled_resolution_checks_passed"],
         "equilibrated_resolutions_passing": sweep["equilibrated_resolutions_passing"],
         "all_equilibrated_resolution_checks_passed": sweep["all_equilibrated_resolution_checks_passed"],
+        "high_precision_resolutions": sweep["high_precision_resolutions"],
+        "high_precision_resolutions_passing": sweep["high_precision_resolutions_passing"],
+        "all_high_precision_resolution_checks_passed": sweep["all_high_precision_resolution_checks_passed"],
+        "max_high_precision_interior_rhs_residual": sweep["max_high_precision_interior_rhs_residual"],
+        "max_high_precision_interior_roundoff_ratio": sweep["max_high_precision_interior_roundoff_ratio"],
+        "max_abs_high_precision_augmented_residual_before_float_rounding": sweep["max_abs_high_precision_augmented_residual_before_float_rounding"],
+        "max_abs_high_precision_augmented_residual_after_float_rounding": sweep["max_abs_high_precision_augmented_residual_after_float_rounding"],
         "equilibrated_joint_target_min": sweep["equilibrated_joint_target_min"],
         "equilibrated_joint_target_max": sweep["equilibrated_joint_target_max"],
         "equilibrated_target_to_current_ratio_min": sweep["equilibrated_target_to_current_ratio_min"],
