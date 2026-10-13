@@ -45,8 +45,11 @@ jobs:
           VENDOR_SHA="d6052d605673ce9d82cdc99b0df79855fa2ea215"
           git fetch origin refs/heads/main:refs/remotes/origin/main
           git fetch origin refs/heads/fix/matter-rhs-rate-extraction-main-2026-10-12:refs/remotes/origin/fix/matter-rhs-rate-extraction-main-2026-10-12
-          test "$(git rev-parse refs/remotes/origin/main)" = "$BASELINE_SHA"
-          test "$(git rev-parse refs/remotes/origin/fix/matter-rhs-rate-extraction-main-2026-10-12)" = "$DIRECT_RHS_SHA"
+          # main may advance; verify the intended historical baseline commit is retrievable and is an ancestor of the fetched main.
+          git cat-file -e "$BASELINE_SHA^{commit}"
+          git merge-base --is-ancestor "$BASELINE_SHA" refs/remotes/origin/main
+          # Likewise use the exact PR #8 commit, not an assumption about the branch's future head.
+          git cat-file -e "$DIRECT_RHS_SHA^{commit}"
           test "$(git rev-parse "$BASELINE_SHA:vendor/bb-palatini-unified-r0")" = "$VENDOR_SHA"
           test "$(git rev-parse "$DIRECT_RHS_SHA:vendor/bb-palatini-unified-r0")" = "$VENDOR_SHA"
           for path in \
