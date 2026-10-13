@@ -185,3 +185,20 @@ def test_reordered_grid_centres_fail_closed():
         match="radial centres must be uniform and cell-centred",
     ):
         cmc_gauge._proper_volume_weights(grid, geometry)
+
+
+
+def test_solve_cmc_lapse_rejects_invalid_metric_before_geometry_or_matter_consumers(monkeypatch):
+    grid, geometry = _inputs(a=[1.0, -0.25, 1.4])
+
+    def unexpected_consumer(*args, **kwargs):
+        pytest.fail("CMC geometry/matter consumers must not receive an invalid metric")
+
+    monkeypatch.setattr(cmc_gauge, "metric_slice_from_q", unexpected_consumer)
+    monkeypatch.setattr(cmc_gauge, "total_matter_projection", unexpected_consumer)
+
+    with pytest.raises(
+        FloatingPointError,
+        match="metric component a must be finite and positive",
+    ):
+        cmc_gauge.solve_cmc_lapse(grid, geometry, scalars=None, matter=None)
