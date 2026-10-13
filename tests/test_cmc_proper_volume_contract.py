@@ -70,7 +70,8 @@ def test_invalid_metric_component_fails_closed(component, index, bad_value):
 
 def test_finite_inputs_that_overflow_derived_volume_weight_fail_closed():
     grid, geometry = _inputs(
-        centers=[1.0, 2.0, 3.0],
+        centers=[0.5, 1.5, 2.5],
+        dr=1.0,
         a=[1.0e308, 1.0e308, 1.0e308],
         b=[1.0e308, 1.0e308, 1.0e308],
         X=[1.0e-100, 1.0e-100, 1.0e-100],
@@ -98,6 +99,17 @@ def test_invalid_grid_shape_or_spacing_fails_closed():
 
     grid, geometry = _inputs(centers=[0.0, 0.75, 1.25])
     with pytest.raises(FloatingPointError, match="centres must be finite and positive"):
+        cmc_gauge._proper_volume_weights(grid, geometry)
+
+
+def test_off_center_grid_is_rejected_at_its_coordinate_scale():
+    # The middle centre is displaced by 0.05, well above coordinate-scale
+    # roundoff but small enough that it remains inside its nominal cell.
+    grid, geometry = _inputs(centers=[0.25, 0.80, 1.25])
+    with pytest.raises(
+        FloatingPointError,
+        match="radial centres must be uniform and cell-centred",
+    ):
         cmc_gauge._proper_volume_weights(grid, geometry)
 
 
