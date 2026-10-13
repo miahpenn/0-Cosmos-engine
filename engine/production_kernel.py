@@ -62,7 +62,7 @@ CONSTRAINT_INNER_EXCLUSION_RADIUS = 5.0
 
 
 def _peak_witness(values, radii, mask=None):
-    """Return (index, radius, signed value) for the absolute peak on a mask."""
+    """Return a peak witness, or None when a requested mask has no cells."""
     values = np.asarray(values, dtype=float)
     radii = np.asarray(radii, dtype=float)
     if values.ndim != 1 or radii.ndim != 1 or values.shape != radii.shape:
@@ -79,7 +79,7 @@ def _peak_witness(values, radii, mask=None):
         # Report that masked witness as unavailable; do not abort diagnostics.
         if mask is not None:
             return None
-        raise ValueError("peak witness has no grid points")
+        raise ValueError("peak witness mask selects no grid points")
     idx = int(indices[np.argmax(np.abs(values[indices]))])
     return idx, float(radii[idx]), float(values[idx])
 
