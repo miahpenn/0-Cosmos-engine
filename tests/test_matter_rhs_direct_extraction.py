@@ -55,7 +55,8 @@ def components(n=2):
     source_s = np.linspace(-0.03, 0.06, n)
     q_e = np.linspace(0.02, -0.01, n)
     q_s = np.linspace(-0.015, 0.025, n)
-    return face_flux, source_e, source_s, q_e, q_s
+    q_rest = np.linspace(-0.011, 0.024, n)
+    return face_flux, source_e, source_s, q_e, q_s, q_rest
 
 
 def test_species_rhs_uses_components_not_a_fictitious_finite_step(monkeypatch):
@@ -72,12 +73,15 @@ def test_species_rhs_uses_components_not_a_fictitious_finite_step(monkeypatch):
 
     # Protect against accidentally reintroducing the old unit-step wrapper.
     monkeypatch.setattr(matter_rhs_module, "evolve_species", forbidden, raising=False)
-    got = species_rhs(metric, derivatives(), object(), Species.RADIATION)
+    got = species_rhs(
+        metric, derivatives(), object(), Species.DARK_MATTER,
+        dphi_t=np.zeros(2), dphi_r=np.zeros(2),
+    )
 
-    face, se, ss, qe, qs = terms
+    face, se, ss, qe, qs, qd = terms
     inv_dr = 1.0 / (metric.r[1] - metric.r[0])
     np.testing.assert_array_equal(
-        got.rest, -inv_dr * (face[1:, 0] - face[:-1, 0])
+        got.rest, -inv_dr * (face[1:, 0] - face[:-1, 0]) + qd
     )
     np.testing.assert_array_equal(
         got.energy_t,
@@ -98,7 +102,7 @@ def test_finite_update_retains_componentwise_flux_then_source_order(monkeypatch)
         momentum_r=np.array([0.1, -0.08]),
     )
     terms = list(components())
-    face, se, ss, qe, qs = terms
+    face, se, ss, qe, qs, qd = terms
     # Cell 0: separate subtract/add rounds to 1000000000000.0299, while
     # grouping the complete RHS before adding rounds to 1000000000000.03.
     face[:, 1] = np.array([0.0, -1.9, -0.7])
@@ -114,6 +118,7 @@ def test_finite_update_retains_componentwise_flux_then_source_order(monkeypatch)
     inv_dr = 1.0 / (metric.r[1] - metric.r[0])
     for i in range(len(metric.r)):
         expected.rest[i] -= dt * inv_dr * (face[i + 1, 0] - face[i, 0])
+        expected.rest[i] += dt * qd[i]
         expected.energy_t[i] -= dt * inv_dr * (face[i + 1, 1] - face[i, 1])
         expected.momentum_r[i] -= dt * inv_dr * (face[i + 1, 2] - face[i, 2])
         expected.energy_t[i] += dt * (se[i] + qe[i])
@@ -148,11 +153,12 @@ def test_actual_finite_time_radiation_update_still_checks_cone(monkeypatch):
     source_s = np.full(2, 0.2)
     q_e = np.zeros(2)
     q_s = np.zeros(2)
+    q_rest = np.zeros(2)
     monkeypatch.setattr(
         matter_system_module,
         "_species_rhs_components",
         lambda *args, **kwargs: (
-            face, source_e, source_s, q_e, q_s
+            face, source_e, source_s, q_e, q_s, q_rest
         ),
     )
 
@@ -177,7 +183,7 @@ def test_components_helper_preserves_radiation_zero_rest_current_flux():
         energy_t=np.asarray([m.sqrt_gamma for m in metric_arrays]),
         momentum_r=np.zeros(2),
     )
-    face_flux, _, _, _, _ = matter_system_module._species_rhs_components(
+    face_flux, _, _, _, _, _ = matter_system_module._species_rhs_components(
         metric, derivatives(), state, Species.RADIATION
     )
     np.testing.assert_array_equal(face_flux[:, 0], np.zeros(3))
