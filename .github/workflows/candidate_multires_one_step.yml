@@ -1,0 +1,87 @@
+name: Candidate multiresolution one-step — initial quadrature + CMC row
+
+on:
+  push:
+    branches:
+      - fix/initial-quadrature-cmc-centre-row-candidate-2026-10-13
+    paths:
+      - "tools/validate_initial_quadrature_cmc_candidate.py"
+      - ".github/workflows/candidate_multires_one_step.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: candidate-multires-one-step-2026-10-13
+  cancel-in-progress: false
+
+jobs:
+  five-resolution-step:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      PYTHONUNBUFFERED: "1"
+      BASE_SOURCE_COMMIT: 9f0bd16d403ada22a4f21413048c93b37c9924a7
+      VENDOR_COMMIT: d6052d605673ce9d82cdc99b0df79855fa2ea215
+    steps:
+      - name: Checkout candidate and pinned numerical kernel
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Fail closed on source and vendor identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin "$BASE_SOURCE_COMMIT"
+          for path in \
+            engine/production_kernel.py \
+            engine/matter_system.py \
+            engine/v55_pirk_adapter.py \
+            engine/v55_matter.py \
+            engine/scalar_system.py \
+            engine/valencia.py; do
+            test "$(git rev-parse "HEAD:$path")" = "$(git rev-parse "$BASE_SOURCE_COMMIT:$path")"
+            printf 'BASE_SOURCE_BLOB_OK %s\n' "$path"
+          done
+          test "$(git rev-parse HEAD:vendor/bb-palatini-unified-r0)" = "$VENDOR_COMMIT"
+          printf 'BASE_SOURCE_COMMIT=%s\nVENDOR_COMMIT=%s\n' "$BASE_SOURCE_COMMIT" "$VENDOR_COMMIT"
+
+      - name: Compile and run five-resolution production one-step sweep
+        run: |
+          python -m py_compile tools/validate_initial_quadrature_cmc_candidate.py
+          PYTHONPATH=. python tools/validate_initial_quadrature_cmc_candidate.py
+
+      - name: Record artifact provenance
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p results/initial-quadrature-cmc-candidate-multires-step
+          printf '%s\n' "$BASE_SOURCE_COMMIT" > results/initial-quadrature-cmc-candidate-multires-step/BASE_SOURCE_COMMIT.txt
+          printf '%s\n' "$VENDOR_COMMIT" > results/initial-quadrature-cmc-candidate-multires-step/VENDOR_COMMIT.txt
+          git rev-parse HEAD > results/initial-quadrature-cmc-candidate-multires-step/CANDIDATE_COMMIT.txt
+          git rev-parse HEAD:engine/v55_initial.py > results/initial-quadrature-cmc-candidate-multires-step/INITIAL_BUILDER_BLOB.txt
+          git rev-parse HEAD:engine/cmc_gauge.py > results/initial-quadrature-cmc-candidate-multires-step/CMC_GAUGE_BLOB.txt
+          git rev-parse HEAD:tools/validate_initial_quadrature_cmc_candidate.py > results/initial-quadrature-cmc-candidate-multires-step/VALIDATOR_BLOB.txt
+          if test -f results/initial-quadrature-cmc-candidate-multires-step/report.json; then
+            (cd results/initial-quadrature-cmc-candidate-multires-step && sha256sum report.json > REPORT_SHA256SUM.txt)
+          fi
+
+      - name: Upload results even if a resolution fails
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: initial-quadrature-cmc-candidate-multires-step
+          path: results/initial-quadrature-cmc-candidate-multires-step/
+          if-no-files-found: warn
+          retention-days: 90
