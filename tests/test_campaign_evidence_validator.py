@@ -29,6 +29,7 @@ def _valid_campaign(root: Path, resolutions=(80, 120), final_time=2.5) -> Path:
                     "resolution": n,
                     "status": "completed",
                     "t_final": final_time,
+                    "steps": 1,
                 }
                 for n in resolutions
             ],
@@ -42,8 +43,9 @@ def _valid_campaign(root: Path, resolutions=(80, 120), final_time=2.5) -> Path:
                     "resolution": n,
                     "status": "completed",
                     "t_final": final_time,
+                    "steps": 1,
                 },
-                "history": [],
+                "history": [{"t": 0.0}, {"t": final_time}],
             },
         )
         _write_json(root / f"N{n}" / "radiation_step_retries.json", [])
@@ -232,4 +234,91 @@ def test_rejects_boolean_or_string_horizon_evidence(
     path.write_text(json.dumps(payload), encoding="utf-8")
 
     with pytest.raises(CampaignEvidenceError, match=message):
+        validate_campaign_evidence(root, (80, 120))
+
+@pytest.mark.parametrize("history", [[], None, {}])
+def test_rejects_empty_or_malformed_completed_history(tmp_path, history):
+    root = _valid_campaign(tmp_path / "campaign")
+    path = root / "N80" / "ledgers.json"
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload["history"] = history
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(CampaignEvidenceError, match="history must contain initial and final records"):
+        validate_campaign_evidence(root, (80, 120))
+
+
+@pytest.mark.parametrize("bad_steps", [0, True, "1"])
+def test_rejects_invalid_summary_step_count(tmp_path, bad_steps):
+    root = _valid_campaign(tmp_path / "campaign")
+    path = root / "campaign_summary.json"
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload["results"][0]["steps"] = bad_steps
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(CampaignEvidenceError, match="summary has invalid completed-step count"):
+        validate_campaign_evidence(root, (80, 120))
+
+
+def test_rejects_ledger_step_count_mismatched_with_summary(tmp_path):
+    root = _valid_campaign(tmp_path / "campaign")
+    path = root / "N80" / "ledgers.json"
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload["result"]["steps"] = 2
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(CampaignEvidenceError, match="ledger step count does not match campaign summary"):
+        validate_campaign_evidence(root, (80, 120))
+
+
+def test_rejects_history_length_not_equal_to_steps_plus_one(tmp_path):
+    root = _valid_campaign(tmp_path / "campaign")
+    summary_path = root / "campaign_summary.json"
+    summary = json.loads(summary_path.read_text(encoding="utf-8"))
+    summary["results"][0]["steps"] = 2
+    summary_path.write_text(json.dumps(summary), encoding="utf-8")
+    ledger_path = root / "N80" / "ledgers.json"
+    ledger = json.loads(ledger_path.read_text(encoding="utf-8"))
+    ledger["result"]["steps"] = 2
+    ledger_path.write_text(json.dumps(ledger), encoding="utf-8")
+
+    with pytest.raises(CampaignEvidenceError, match=r"history length does not match steps \+ 1"):
+        validate_campaign_evidence(root, (80, 120))
+
+
+def test_rejects_nonincreasing_history_timestamps(tmp_path):
+    root = _valid_campaign(tmp_path / "campaign")
+    summary_path = root / "campaign_summary.json"
+    summary = json.loads(summary_path.read_text(encoding="utf-8"))
+    summary["results"][0]["steps"] = 2
+    summary_path.write_text(json.dumps(summary), encoding="utf-8")
+    ledger_path = root / "N80" / "ledgers.json"
+    ledger = json.loads(ledger_path.read_text(encoding="utf-8"))
+    ledger["result"]["steps"] = 2
+    ledger["history"] = [{"t": 0.0}, {"t": 2.5}, {"t": 2.5}]
+    ledger_path.write_text(json.dumps(ledger), encoding="utf-8")
+
+    with pytest.raises(CampaignEvidenceError, match="timestamps are not strictly increasing"):
+        validate_campaign_evidence(root, (80, 120))
+
+
+def test_rejects_history_that_does_not_start_at_zero(tmp_path):
+    root = _valid_campaign(tmp_path / "campaign")
+    path = root / "N80" / "ledgers.json"
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload["history"][0]["t"] = 0.1
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(CampaignEvidenceError, match="history does not begin at t=0"):
+        validate_campaign_evidence(root, (80, 120))
+
+
+def test_rejects_history_that_does_not_reach_campaign_horizon(tmp_path):
+    root = _valid_campaign(tmp_path / "campaign")
+    path = root / "N80" / "ledgers.json"
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload["history"][-1]["t"] = 2.0
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(CampaignEvidenceError, match="final history timestamp .* does not match target"):
         validate_campaign_evidence(root, (80, 120))
