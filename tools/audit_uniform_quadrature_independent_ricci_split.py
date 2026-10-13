@@ -108,6 +108,24 @@ def audit_one(n, kernel):
         areal_ll / areal + (1.0 - areal_l**2) / areal**2
     )
 
+    # Direct-second-derivative chain-rule form uses the pinned grid's dedicated
+    # D2 operator for R and h, rather than composing D1(D1(R)). The composed
+    # and direct-D2 forms are both reported because centre ghost/stencil choices
+    # can make them differ locally; neither is silently treated as authoritative.
+    metric_factor_r = np.asarray(
+        grid.cell_derivative_fourth(metric_factor, parity=+1), dtype=float
+    )
+    areal_rr = np.asarray(
+        grid.cell_second_derivative_fourth(areal, parity=-1), dtype=float
+    )
+    areal_ll_direct_d2 = (
+        metric_factor**2 * areal_rr
+        + metric_factor * metric_factor_r * areal_r
+    )
+    independent_ricci_tf_direct_d2 = -(2.0 / 3.0) * (
+        areal_ll_direct_d2 / areal + (1.0 - areal_l**2) / areal**2
+    )
+
     alpha_r = np.asarray(
         grid.cell_derivative_fourth(np.asarray(g.alpha, dtype=float), parity=+1),
         dtype=float,
@@ -118,10 +136,29 @@ def audit_one(n, kernel):
     independent_hessian_tf = (2.0 / 3.0) * (
         alpha_ll - (areal_l / areal) * alpha_l
     )
+    alpha_rr = np.asarray(
+        grid.cell_second_derivative_fourth(np.asarray(g.alpha, dtype=float), parity=+1),
+        dtype=float,
+    )
+    alpha_ll_direct_d2 = (
+        metric_factor**2 * alpha_rr
+        + metric_factor * metric_factor_r * alpha_r
+    )
+    independent_hessian_tf_direct_d2 = (2.0 / 3.0) * (
+        alpha_ll_direct_d2 - (areal_l / areal) * alpha_l
+    )
 
     independent_ricci_contribution = np.asarray(g.alpha, dtype=float) * independent_ricci_tf
     independent_hessian_contribution = -independent_hessian_tf
     independent_l2_rhs = independent_hessian_contribution + independent_ricci_contribution
+    independent_ricci_contribution_direct_d2 = (
+        np.asarray(g.alpha, dtype=float) * independent_ricci_tf_direct_d2
+    )
+    independent_hessian_contribution_direct_d2 = -independent_hessian_tf_direct_d2
+    independent_l2_rhs_direct_d2 = (
+        independent_hessian_contribution_direct_d2
+        + independent_ricci_contribution_direct_d2
+    )
 
     # Verify the reported vendor L2 identity separately from the cross-metric test.
     vendor_identity_rhs = vendor_hessian_contribution + vendor_ricci_contribution
@@ -129,17 +166,26 @@ def audit_one(n, kernel):
     ricci_delta = vendor_ricci_tf - independent_ricci_tf
     hessian_delta = vendor_hessian_tf - independent_hessian_tf
     l2_delta = vendor_l2_rhs - independent_l2_rhs
+    ricci_delta_direct_d2 = vendor_ricci_tf - independent_ricci_tf_direct_d2
+    hessian_delta_direct_d2 = vendor_hessian_tf - independent_hessian_tf_direct_d2
+    l2_delta_direct_d2 = vendor_l2_rhs - independent_l2_rhs_direct_d2
     radii = {
         str(target): {
             "vendor_ricci_tf": _interp(vendor_ricci_tf, r, target),
             "independent_metric_ricci_tf": _interp(independent_ricci_tf, r, target),
             "ricci_delta_vendor_minus_metric": _interp(ricci_delta, r, target),
+            "independent_metric_ricci_tf_direct_d2": _interp(independent_ricci_tf_direct_d2, r, target),
+            "ricci_delta_vendor_minus_direct_d2": _interp(ricci_delta_direct_d2, r, target),
             "vendor_hessian_tf": _interp(vendor_hessian_tf, r, target),
             "independent_metric_hessian_tf": _interp(independent_hessian_tf, r, target),
             "hessian_delta_vendor_minus_metric": _interp(hessian_delta, r, target),
+            "independent_metric_hessian_tf_direct_d2": _interp(independent_hessian_tf_direct_d2, r, target),
+            "hessian_delta_vendor_minus_direct_d2": _interp(hessian_delta_direct_d2, r, target),
             "vendor_L2_Aa_rhs": _interp(vendor_l2_rhs, r, target),
             "independent_metric_L2_Aa_rhs": _interp(independent_l2_rhs, r, target),
             "L2_delta_vendor_minus_metric": _interp(l2_delta, r, target),
+            "independent_metric_L2_Aa_rhs_direct_d2": _interp(independent_l2_rhs_direct_d2, r, target),
+            "L2_delta_vendor_minus_direct_d2": _interp(l2_delta_direct_d2, r, target),
             "full_vendor_Aa_rhs_including_L3": _interp(vendor_full_rhs, r, target),
             "full_vendor_Aa_rhs_over_r2": _interp(vendor_full_rhs / r**2, r, target),
         }
@@ -154,14 +200,21 @@ def audit_one(n, kernel):
             "ricci_delta_vendor_minus_metric": float(ricci_delta[i]),
             "vendor_ricci_contribution_alpha_times_Rtf": float(vendor_ricci_contribution[i]),
             "independent_metric_ricci_contribution": float(independent_ricci_contribution[i]),
+            "independent_metric_ricci_tf_direct_d2": float(independent_ricci_tf_direct_d2[i]),
+            "ricci_delta_vendor_minus_direct_d2": float(ricci_delta_direct_d2[i]),
             "vendor_hessian_tf": float(vendor_hessian_tf[i]),
             "independent_metric_hessian_tf": float(independent_hessian_tf[i]),
             "hessian_delta_vendor_minus_metric": float(hessian_delta[i]),
+            "independent_metric_hessian_tf_direct_d2": float(independent_hessian_tf_direct_d2[i]),
+            "hessian_delta_vendor_minus_direct_d2": float(hessian_delta_direct_d2[i]),
             "vendor_hessian_contribution_minus_hessian": float(vendor_hessian_contribution[i]),
             "independent_metric_hessian_contribution": float(independent_hessian_contribution[i]),
+            "independent_metric_hessian_contribution_direct_d2": float(independent_hessian_contribution_direct_d2[i]),
             "vendor_L2_Aa_rhs": float(vendor_l2_rhs[i]),
             "independent_metric_L2_Aa_rhs": float(independent_l2_rhs[i]),
             "L2_delta_vendor_minus_metric": float(l2_delta[i]),
+            "independent_metric_L2_Aa_rhs_direct_d2": float(independent_l2_rhs_direct_d2[i]),
+            "L2_delta_vendor_minus_direct_d2": float(l2_delta_direct_d2[i]),
             "vendor_L3_Aa_rhs": float(vendor_l3_rhs[i]),
             "full_vendor_Aa_rhs_including_L3": float(vendor_full_rhs[i]),
             "full_vendor_Aa_rhs_over_r2": float(vendor_full_rhs[i] / r[i]**2),
@@ -190,21 +243,32 @@ def audit_one(n, kernel):
             "independent_metric_ricci_tf_max_abs": _max_abs(independent_ricci_tf, mask),
             "ricci_delta_max_abs": _max_abs(ricci_delta, mask),
             "ricci_delta_rms": _rms(ricci_delta, mask),
+            "independent_metric_ricci_tf_direct_d2_max_abs": _max_abs(independent_ricci_tf_direct_d2, mask),
+            "ricci_delta_direct_d2_max_abs": _max_abs(ricci_delta_direct_d2, mask),
+            "ricci_delta_direct_d2_rms": _rms(ricci_delta_direct_d2, mask),
             "vendor_hessian_tf_max_abs": _max_abs(vendor_hessian_tf, mask),
             "independent_metric_hessian_tf_max_abs": _max_abs(independent_hessian_tf, mask),
             "hessian_delta_max_abs": _max_abs(hessian_delta, mask),
             "hessian_delta_rms": _rms(hessian_delta, mask),
+            "independent_metric_hessian_tf_direct_d2_max_abs": _max_abs(independent_hessian_tf_direct_d2, mask),
+            "hessian_delta_direct_d2_max_abs": _max_abs(hessian_delta_direct_d2, mask),
+            "hessian_delta_direct_d2_rms": _rms(hessian_delta_direct_d2, mask),
             "vendor_L2_Aa_rhs_max_abs": _max_abs(vendor_l2_rhs, mask),
             "independent_metric_L2_Aa_rhs_max_abs": _max_abs(independent_l2_rhs, mask),
             "L2_delta_max_abs": _max_abs(l2_delta, mask),
             "L2_delta_rms": _rms(l2_delta, mask),
+            "independent_metric_L2_Aa_rhs_direct_d2_max_abs": _max_abs(independent_l2_rhs_direct_d2, mask),
+            "L2_delta_direct_d2_max_abs": _max_abs(l2_delta_direct_d2, mask),
+            "L2_delta_direct_d2_rms": _rms(l2_delta_direct_d2, mask),
             "vendor_identity_closure_max_abs": _max_abs(vendor_identity_closure, mask),
         }
 
     arrays = (
-        vendor_ricci_tf, independent_ricci_tf, ricci_delta, vendor_hessian_tf,
-        independent_hessian_tf, hessian_delta, vendor_l2_rhs, independent_l2_rhs,
-        l2_delta, vendor_full_rhs,
+        vendor_ricci_tf, independent_ricci_tf, independent_ricci_tf_direct_d2,
+        ricci_delta, ricci_delta_direct_d2, vendor_hessian_tf,
+        independent_hessian_tf, independent_hessian_tf_direct_d2, hessian_delta,
+        hessian_delta_direct_d2, vendor_l2_rhs, independent_l2_rhs,
+        independent_l2_rhs_direct_d2, l2_delta, l2_delta_direct_d2, vendor_full_rhs,
     )
     finite = all(bool(np.all(np.isfinite(x))) for x in arrays)
     if not finite:
@@ -257,7 +321,7 @@ def main():
             "Does not modify or evolve the reconstructed states.",
             "No fit, projection, damping, clipping, source change, or physics promotion.",
             "Workflow PASS means finite decomposition and algebraic closure only, not scientific admission.",
-            "The independent metric cross-check shares the radial derivative stencil, so it is not a formal continuum proof.",
+            "Both composed-D1 and direct-D2 chain-rule versions are reported: their centre difference is a stencil-consistency diagnostic, not a formal continuum proof.",
         ],
     }
     OUT.mkdir(parents=True, exist_ok=True)
@@ -276,8 +340,12 @@ def main():
                     "ricci_delta": v["ricci_delta_vendor_minus_metric"],
                     "hessian_vendor": v["vendor_hessian_tf"],
                     "hessian_metric": v["independent_metric_hessian_tf"],
-                    "hessian_delta": v["hessian_delta_vendor_minus_metric"],
-                    "l2_rhs_delta": v["L2_delta_vendor_minus_metric"],
+                    "hessian_delta_composed_d1": v["hessian_delta_vendor_minus_metric"],
+                    "hessian_delta_direct_d2": v["hessian_delta_vendor_minus_direct_d2"],
+                    "ricci_delta_composed_d1": v["ricci_delta_vendor_minus_metric"],
+                    "ricci_delta_direct_d2": v["ricci_delta_vendor_minus_direct_d2"],
+                    "l2_rhs_delta_composed_d1": v["L2_delta_vendor_minus_metric"],
+                    "l2_rhs_delta_direct_d2": v["L2_delta_vendor_minus_direct_d2"],
                     "vendor_rhs_over_r2": v["full_vendor_Aa_rhs_over_r2"],
                 }
                 for k, v in list(rec["first_cells"].items())[:4]
