@@ -43,14 +43,50 @@ class ResolutionResult:
     endpoint_roundoff_correction: float = 0.0
 
 
-def _checkpoint_matches_time(path: str | Path, accepted_time: float) -> bool:
-    """Return whether a committed NPZ checkpoint represents the accepted time.
+def _checkpoint_file_identity(path: str | Path) -> tuple[int, ...] | None:
+    """Snapshot a canonical file so stale same-time checkpoints are not counted.
 
-    Atomic replacement may finish just before Ctrl-C interrupts the directory
-    sync, in which case the writer raises even though a complete canonical
-    checkpoint is already visible. Inspect its scalar time field so the
-    fail-closed ledger can report committed output accurately.
+    None means the path did not exist. An empty tuple means stat failed, which
+    must be treated as unknown rather than as evidence of a new checkpoint.
     """
+    try:
+        info = Path(path).stat()
+    except FileNotFoundError:
+        return None
+    except OSError:
+        return ()
+    return (
+        int(info.st_dev),
+        int(info.st_ino),
+        int(info.st_size),
+        int(info.st_mtime_ns),
+        int(info.st_ctime_ns),
+    )
+
+
+def _checkpoint_matches_time(
+    path: str | Path,
+    accepted_time: float,
+    *,
+    previous_identity: tuple[int, ...] | None,
+) -> bool:
+    """Return whether this write replaced the checkpoint with the accepted state.
+
+    The canonical path may already hold a checkpoint from a prior campaign.
+    A readable NPZ with the right timestamp is not sufficient: the target's
+    file identity must have changed since immediately before this write.
+    Atomic replacement stages a new same-directory file and publishes it with
+    os.replace, so the canonical file has a new identity when replacement
+    completes. Unknown identity or unreadable evidence fails closed.
+    """
+    current_identity = _checkpoint_file_identity(path)
+    if (
+        previous_identity == ()
+        or current_identity is None
+        or not current_identity
+        or current_identity == previous_identity
+    ):
+        return False
     try:
         with np.load(path, allow_pickle=False) as checkpoint:
             if "t" not in checkpoint.files:
@@ -428,13 +464,18 @@ def run_campaign(
                     / f"N{resolution}"
                     / f"checkpoint_t{checkpoint_time:012.6f}.npz"
                 )
+                checkpoint_identity_before = _checkpoint_file_identity(path)
                 try:
                     kernel.checkpoint(state, path)
                 except KeyboardInterrupt as exc:
                     # If replacement committed before Ctrl-C interrupted the
-                    # best-effort directory sync, count only a readable
-                    # checkpoint whose time matches this accepted state.
-                    if _checkpoint_matches_time(path, float(state.t)):
+                    # best-effort directory sync, count only a newly replaced,
+                    # readable checkpoint matching this accepted state.
+                    if _checkpoint_matches_time(
+                        path,
+                        float(state.t),
+                        previous_identity=checkpoint_identity_before,
+                    ):
                         checkpoint_count += 1
                     # Regardless of replacement, persist fail-closed evidence
                     # for the accepted state before re-raising the interruption.
