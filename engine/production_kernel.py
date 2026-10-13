@@ -159,8 +159,13 @@ class V55ProductionKernel:
         return grid.cell_derivative_fourth(values, parity=parity)
 
     @staticmethod
-    def _solve_lapse(grid, geometry, scalars, matter):
-        return solve_cmc_lapse(grid, geometry, scalars, matter)
+    def _solve_lapse(
+        grid, geometry, scalars, matter, *, electromagnetic_projection=None
+    ):
+        return solve_cmc_lapse(
+            grid, geometry, scalars, matter,
+            electromagnetic_projection=electromagnetic_projection,
+        )
 
     def _rhs(self, state: ProductionState):
         metric = metric_slice_from_q(state.grid, state.geometry)
@@ -199,18 +204,21 @@ class V55ProductionKernel:
         return srhs, mrhs, md
 
     @staticmethod
-    def _apply_outer_light_boundary(grid, geometry, scalars, matter) -> None:
+    def _apply_outer_light_boundary(
+        grid, geometry, scalars, matter, *, electromagnetic_projection=None
+    ) -> None:
         """Apply the pinned R0 incoming-light constraint at the finite radius.
 
-        This is a boundary-condition operation only. It uses the already
-        evolved total stress-energy projections; no fitted boundary parameter
-        or new physical source is introduced.
+        An optional pre-normalized EM projection follows the canonical total
+        stress path. It is absent from ProductionState and unused by the
+        normal runtime until an approved field/current model is connected.
         """
         adapter.vendor_modules()
         from bssn_characteristic_boundary import apply_light_constraint_boundary
 
         total = assemble_total_stress_energy(
-            grid, geometry, scalars, matter
+            grid, geometry, scalars, matter,
+            electromagnetic_projection=electromagnetic_projection,
         )
         apply_light_constraint_boundary(
             grid, geometry, total.rho, total.j
