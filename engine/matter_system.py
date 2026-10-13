@@ -604,9 +604,8 @@ def evolve_species(
         face_flux, source_e_diag, source_s_diag,
         q_e_diag, q_s_diag, q_rest_diag,
     ) = _species_rhs_components(
-            metric, metric_derivatives, state, species,
-            dphi_t=dphi_t, dphi_r=dphi_r, beta_dm=beta_dm,
-        )
+        metric, metric_derivatives, state, species,
+        dphi_t=dphi_t, dphi_r=dphi_r, beta_dm=beta_dm,
     )
 
     out = state.copy()
