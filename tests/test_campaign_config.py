@@ -88,6 +88,21 @@ def test_unrepresentable_resolution_scale_is_rejected_as_value_error():
         )
 
 
+def test_power_of_two_final_time_uses_predecessor_float_spacing():
+    # At 8.0, ulp(final_time) is twice the spacing immediately below 8.0.
+    # This timestep exceeds half the predecessor spacing and can advance all
+    # represented t < 8.0, though the coarser ulp(8.0)/2 check rejects it.
+    config = CampaignConfig(
+        resolutions=(80,),
+        r_max=80.0,
+        cfl=5.0e-16,
+        final_time=8.0,
+        checkpoint_interval=1.0,
+    )
+
+    assert config.cfl == 5.0e-16
+
+
 def test_positive_cfl_too_small_to_advance_float_time_is_rejected():
     with pytest.raises(ValueError, match="floating-point time progress"):
         CampaignConfig(
