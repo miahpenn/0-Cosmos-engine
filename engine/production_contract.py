@@ -18,6 +18,8 @@ class KernelCapabilities:
     radiation: bool
     invariant_trapping: bool
     misner_sharp_current: bool
+    # This is intentionally optional: current V5.5 has no Maxwell state/RHS.
+    radial_maxwell: bool = False
 
 
 class ProductionKernel(Protocol):
@@ -37,14 +39,29 @@ REQUIRED = KernelCapabilities(
     radiation=True,
     invariant_trapping=True,
     misner_sharp_current=True,
+    radial_maxwell=False,
 )
 
 
-def require_production_capabilities(kernel: ProductionKernel) -> None:
+def require_production_capabilities(
+    kernel: ProductionKernel,
+    *,
+    require_radial_maxwell: bool = False,
+) -> None:
+    """Check baseline runtime support and any explicitly requested feature.
+
+    The baseline engine does not implement radial Maxwell dynamics. A caller
+    that requires that feature must opt in here and fail closed unless the
+    kernel advertises it; radiation support is not a proxy for Maxwell support.
+    """
     missing = [
         name for name in REQUIRED.__dataclass_fields__
-        if not getattr(kernel.capabilities, name)
+        if getattr(REQUIRED, name) and not getattr(kernel.capabilities, name, False)
     ]
+    if require_radial_maxwell and not getattr(
+        kernel.capabilities, "radial_maxwell", False
+    ):
+        missing.append("radial_maxwell")
     if missing:
         raise RuntimeError(
             "Production kernel is incomplete; missing: " + ", ".join(missing)
