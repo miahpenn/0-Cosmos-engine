@@ -135,6 +135,36 @@ def _finite_report(value, label="report"):
             raise FloatingPointError(f"{label} is non-finite: {value!r}")
 
 
+def proper_radial_tf_ricci(grid, geometry) -> np.ndarray:
+    """Independent spherical TF Ricci from areal radius and proper distance.
+
+    This deliberately avoids the vendor Ricci brackets and evolved Lambda,
+    but uses the same pinned cell-centred D1/D2 grid operators as the other
+    current-main proper-radial audit. It is an independent representation,
+    not an independent discretization.
+    """
+    r = np.asarray(grid.centers, dtype=float)
+    a = np.asarray(geometry.a, dtype=float)
+    b = np.asarray(geometry.b, dtype=float)
+    X = np.asarray(geometry.X, dtype=float)
+    areal = r * np.sqrt(b) / X
+    proper_factor = np.sqrt(a) / X
+    if (not np.all(np.isfinite(areal)) or not np.all(np.isfinite(proper_factor))
+            or np.any(areal <= 0.0) or np.any(proper_factor <= 0.0)):
+        raise FloatingPointError("proper-radial Ricci requires finite positive geometry")
+    areal_r = grid.cell_derivative_fourth(areal, parity=-1)
+    areal_rr = grid.cell_second_derivative_fourth(areal, parity=-1)
+    factor_r = grid.cell_derivative_fourth(proper_factor, parity=1)
+    areal_l = areal_r / proper_factor
+    areal_ll = (areal_rr - areal_r * factor_r / proper_factor) / proper_factor**2
+    ricci_radial = -2.0 * areal_ll / areal
+    ricci_tangential = (1.0 - areal_l**2 - areal * areal_ll) / areal**2
+    trace_free = (2.0 / 3.0) * (ricci_radial - ricci_tangential)
+    if not np.all(np.isfinite(trace_free)):
+        raise FloatingPointError("proper-radial TF Ricci reconstruction is non-finite")
+    return trace_free
+
+
 def summarize(kernel: V55ProductionKernel, state, step_index: int) -> dict:
     grid, geom = state.grid, state.geometry
     r = np.asarray(grid.centers, dtype=float)
@@ -151,6 +181,18 @@ def summarize(kernel: V55ProductionKernel, state, step_index: int) -> dict:
     l2 = vacuum.primary_l2_rhs(grid, geom)
     l3 = adapter.primary_l3_with_matter(grid, geom, state.scalars, state.matter)
     aa_rhs = np.asarray(l2["Aa"], dtype=float) + np.asarray(l3["Aa"], dtype=float)
+
+    # Signed Ricci cross-check: compare the pinned vendor expression against
+    # the direct proper-radial warped-product identity on the exact same state.
+    # This is an independent geometric representation, sharing the pinned D1/D2.
+    vendor_geometry_terms = vacuum.geometry_terms(grid, geom)
+    vendor_tf_ricci = (
+        np.asarray(vendor_geometry_terms["Rr_r"], dtype=float)
+        - np.asarray(vendor_geometry_terms["R"], dtype=float) / 3.0
+    )
+    metric_tf_ricci = proper_radial_tf_ricci(grid, geom)
+    ricci_gap = vendor_tf_ricci - metric_tf_ricci
+    ricci_gap_alpha = np.asarray(geom.alpha, dtype=float) * ricci_gap
 
     count = min(8, len(r))
     coeff = np.polynomial.polynomial.polyfit(r[:count] ** 2, np.asarray(geom.alpha)[:count], deg=min(3, count - 1))
@@ -191,6 +233,19 @@ def summarize(kernel: V55ProductionKernel, state, step_index: int) -> dict:
             "determinant_cell_0": float(determinant[0]),
             "alpha_even_series_fit_max_residual_first8": float(np.max(np.abs(np.asarray(geom.alpha)[:count] - fitted))),
             "Lambda_over_r_cell_0": float(geom.Lambda[0] / r[0]),
+            "vendor_TF_Ricci_cell_0": float(vendor_tf_ricci[0]),
+            "proper_radial_TF_Ricci_cell_0": float(metric_tf_ricci[0]),
+            "vendor_minus_proper_radial_TF_Ricci_cell_0": float(ricci_gap[0]),
+            "alpha_weighted_TF_Ricci_gap_cell_0": float(ricci_gap_alpha[0]),
+            "vendor_minus_proper_radial_TF_Ricci_first6_signed": [
+                float(x) for x in ricci_gap[:min(6, len(r))]
+            ],
+            "vendor_minus_proper_radial_TF_Ricci_first6_absmax": float(
+                np.max(np.abs(ricci_gap[:min(6, len(r))]))
+            ),
+            "alpha_weighted_TF_Ricci_first6_absmax": float(
+                np.max(np.abs(ricci_gap_alpha[:min(6, len(r))]))
+            ),
         },
         "constraints": {
             "H_full_absmax": float(np.max(np.abs(H))),
@@ -460,7 +515,7 @@ def main() -> int:
             })
 
     report = {
-        "schema": "v55_first_two_center_moments_matched_time_v1",
+        "schema": "v55_first_two_center_moments_with_ricci_crosscheck_v1",
         "status": "all_matched_horizon_arms_completed" if not failed else "trajectory_failures_recorded",
         "diagnostic_only": True,
         "scientific_admission": False,
