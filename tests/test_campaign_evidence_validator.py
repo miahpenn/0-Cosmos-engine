@@ -171,3 +171,33 @@ def test_rejects_non_integer_ledger_resolution(tmp_path, bad_resolution):
 
     with pytest.raises(CampaignEvidenceError, match="ledger has invalid resolution"):
         validate_campaign_evidence(root, (80, 120))
+
+@pytest.mark.parametrize(
+    ("artifact", "nonfinite"),
+    [
+        (artifact, value)
+        for artifact in ("summary", "ledger", "retries")
+        for value in (float("nan"), float("inf"), float("-inf"))
+    ],
+)
+def test_rejects_nonstandard_json_constants_in_every_evidence_artifact(
+    tmp_path, artifact, nonfinite
+):
+    root = _valid_campaign(tmp_path / "campaign")
+    if artifact == "summary":
+        path = root / "campaign_summary.json"
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        # This field is deliberately outside the validator's required-field checks.
+        payload["unchecked_diagnostic"] = nonfinite
+        path.write_text(json.dumps(payload), encoding="utf-8")
+    elif artifact == "ledger":
+        path = root / "N80" / "ledgers.json"
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        payload["unchecked_diagnostic"] = nonfinite
+        path.write_text(json.dumps(payload), encoding="utf-8")
+    else:
+        path = root / "N80" / "radiation_step_retries.json"
+        path.write_text(json.dumps([{"unchecked_diagnostic": nonfinite}]), encoding="utf-8")
+
+    with pytest.raises(CampaignEvidenceError, match="invalid JSON evidence file"):
+        validate_campaign_evidence(root, (80, 120))
