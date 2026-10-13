@@ -386,10 +386,20 @@ def solve_discrete_curved_gauss(
         # The proper volume is integrated independently of rho_e*sqrt(gamma)
         # and of reference.enclosed_charge(). The density is the finite-volume
         # cell sample, so the overall source scheme is second-order consistent.
-        spatial_volume = FOUR_PI * _gauss_legendre_8_integral(
-            reference.sqrt_gamma, left, right
-        )
-        cell_charges.append(reference.charge_density(center) * spatial_volume)
+        try:
+            spatial_volume = FOUR_PI * _gauss_legendre_8_integral(
+                reference.sqrt_gamma, left, right
+            )
+        except (OverflowError, ValueError, ZeroDivisionError) as exc:
+            raise ValueError(
+                "proper cell volume must be finite and positive"
+            ) from exc
+        if not math.isfinite(spatial_volume) or spatial_volume <= 0.0:
+            raise ValueError("proper cell volume must be finite and positive")
+        cell_charge = reference.charge_density(center) * spatial_volume
+        if not math.isfinite(cell_charge):
+            raise ValueError("finite-volume cell charge must remain finite")
+        cell_charges.append(cell_charge)
 
     face_charges = [0.0]
     running_total = 0.0
@@ -398,7 +408,12 @@ def solve_discrete_curved_gauss(
         # Kahan summation keeps the cumulative finite-volume charge stable.
         corrected = charge - compensation
         updated = running_total + corrected
-        compensation = (updated - running_total) - corrected
+        if not (math.isfinite(corrected) and math.isfinite(updated)):
+            raise ValueError("cumulative finite-volume charge must remain finite")
+        next_compensation = (updated - running_total) - corrected
+        if not math.isfinite(next_compensation):
+            raise ValueError("finite-volume charge compensation must remain finite")
+        compensation = next_compensation
         running_total = updated
         face_charges.append(running_total)
 
@@ -410,18 +425,39 @@ def solve_discrete_curved_gauss(
             fields_r.append(0.0)
             continue
         areal = reference.areal_radius(radius)
-        field_hat = charge / (areal * areal)
+        psi = reference.conformal_factor(radius)
+        areal_squared = areal * areal
+        if not (
+            math.isfinite(areal)
+            and areal > 0.0
+            and math.isfinite(psi)
+            and psi > 0.0
+            and math.isfinite(areal_squared)
+            and areal_squared > 0.0
+        ):
+            raise ValueError("areal radius and metric factors must remain finite and positive")
+        field_hat = charge / areal_squared
+        field_r = field_hat / psi
+        if not (math.isfinite(field_hat) and math.isfinite(field_r)):
+            raise ValueError("reconstructed electric field must remain finite")
         fields_hat.append(field_hat)
-        fields_r.append(field_hat / reference.conformal_factor(radius))
+        fields_r.append(field_r)
 
-    fluxes = tuple(
-        reference.sqrt_gamma(radius) * field
-        for radius, field in zip(faces, fields_r)
-    )
+    try:
+        fluxes = tuple(
+            reference.sqrt_gamma(radius) * field
+            for radius, field in zip(faces, fields_r)
+        )
+    except (OverflowError, ValueError, ZeroDivisionError) as exc:
+        raise ValueError("reconstructed Gauss fluxes must remain finite") from exc
+    if not all(math.isfinite(value) for value in fluxes):
+        raise ValueError("reconstructed Gauss fluxes must remain finite")
     residuals = tuple(
         fluxes[i + 1] - fluxes[i] - cell_charges[i]
         for i in range(resolution)
     )
+    if not all(math.isfinite(value) for value in residuals):
+        raise ValueError("discrete Gauss residuals must remain finite")
     return DiscreteGaussSolution(
         faces=faces,
         cell_centers=centers,
