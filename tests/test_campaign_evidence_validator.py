@@ -470,3 +470,28 @@ def test_rejects_ledger_tau_final_mismatch_with_summary(tmp_path):
 
     with pytest.raises(CampaignEvidenceError, match="ledger tau_final does not match campaign summary"):
         validate_campaign_evidence(root, (80, 120))
+
+
+def test_accepts_actual_production_runner_evidence(tmp_path):
+    """Exercise the evidence contract against the production writer, not just fixtures."""
+    from engine.campaign import CampaignConfig
+    from engine.production_kernel import V55ProductionKernel
+    from engine.run_production import run_campaign
+
+    output_dir = tmp_path / "production-run"
+    config = CampaignConfig(
+        resolutions=(40,),
+        r_max=40.0,
+        cfl=0.03,
+        final_time=0.03,
+        checkpoint_interval=0.1,
+        output_dir=str(output_dir),
+    )
+    run_campaign(kernel=V55ProductionKernel(), config=config)
+
+    report = validate_campaign_evidence(output_dir, (40,))
+
+    assert report["admission_passed"] is True
+    assert report["resolutions"] == [40]
+    assert report["final_time"] == pytest.approx(0.03)
+    assert report["ledgers_checked"] == 1
