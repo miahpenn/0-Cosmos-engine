@@ -4,7 +4,7 @@
 
 ## Current production snapshot — 2026-10-13
 
-**Production ref at this snapshot:** `main` commit `efd006e33e95a19132af5066df21321f473580fc` (documentation-only status sync). The exact production runtime-source snapshot validated below is `7776a9156c24303c47a57e171a2d5997f6676668`.
+**Production ref at this snapshot:** `main` commit `2454f4094f09f94343a3ba890b69d51bbb2defc4`, including the merged diagnostic odd-parity correction in PR #37. Exact current-main software validation: [run 38332385030](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38332385030).
 
 **Disposition:** software-contract corrections have been promoted and post-merge smoke validation is green. The engine is **not yet admitted by the full scientific campaign gate**.
 
@@ -28,7 +28,9 @@ These changes close discrete software and equation-consistency defects; they are
 
 The PR #22 exact updated-head gates all passed at `fad6ea8c5fef7abb0bcecb8e01fdaad9b08387d3`: the direct-RHS contract passed 4 focused + **204 repository tests**; strict JSON passed 204 tests; lightweight validation passed 204 tests plus control smoke and an ordinary N=40 production step; strict retry integration passed 204 tests plus the N=40, `t=0.03` campaign-admission smoke.
 
-The exact-current-main lightweight validation workflow [run 38331006940](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38331006940) checked out `main` commit `7776a9156c24303c47a57e171a2d5997f6676668` after PR #30 was merged and passed **208 repository tests**, the control-only smoke, and one ordinary N=40 production step to `t=0.03`. The three long numerical workflows were skipped by path filters, so this is software/reliability validation, not scientific admission.
+The post-PR-30 historical validation [run 38331006940](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38331006940) checked out `main` commit `7776a9156c24303c47a57e171a2d5997f6676668` and passed **208 repository tests**, the control-only smoke, and one ordinary N=40 production step to `t=0.03`.
+
+The exact-current-main lightweight workflow [run 38332385030](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38332385030) checked out `main` commit `2454f4094f09f94343a3ba890b69d51bbb2defc4` after PR #37 was merged. It passed **210 repository tests**, the control-only smoke, and one ordinary N=40 production step to `t=0.03`. The three long numerical workflows were skipped by path filters; this validates software/reliability at the tested scale, not the full scientific campaign.
 
 PR #30's exact-head checks also passed at `8f35c1148db76c86bae38d5aba78b4d516f65a53`: strict-JSON [38330896951](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38330896951), lightweight/control/production smoke [38330896913](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38330896913), and strict retry/admission [38330896900](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38330896900). Each workflow passed 208 repository tests; lightweight and integrated workflows also passed their bounded smoke. Duplicate [PR #31](https://github.com/miahpenn/0-Cosmos-engine/pull/31) was closed unmerged because it was based on the pre-PR-30 main tree and omitted the initial-diagnostic `RuntimeError` path/regression included in #30.
 
