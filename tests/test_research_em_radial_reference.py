@@ -304,6 +304,15 @@ def test_discrete_curved_gauss_charge_budget_converges_second_order(
         )
         for solution in solutions
     ]
+    face_field_errors = [
+        max(
+            abs(e_num - curved_reference.electric_field(radius))
+            for radius, e_num in zip(
+                solution.faces, solution.face_electric_field_hat
+            )
+        )
+        for solution in solutions
+    ]
 
     assert total_errors[0] > total_errors[1] > total_errors[2] > 0.0
     assert total_errors[0] / total_errors[1] > 3.5
@@ -311,6 +320,9 @@ def test_discrete_curved_gauss_charge_budget_converges_second_order(
     assert face_charge_errors[0] > face_charge_errors[1] > face_charge_errors[2]
     assert face_charge_errors[0] / face_charge_errors[1] > 3.5
     assert face_charge_errors[1] / face_charge_errors[2] > 3.5
+    assert face_field_errors[0] > face_field_errors[1] > face_field_errors[2]
+    assert face_field_errors[0] / face_field_errors[1] > 3.5
+    assert face_field_errors[1] / face_field_errors[2] > 3.5
 
 
 def test_discrete_curved_gauss_operator_detects_perturbed_face_field(
