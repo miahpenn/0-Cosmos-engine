@@ -17,7 +17,7 @@ Reconcile the tested strict campaign runner and the typed radiation-cone retry m
 ## Integration invariants
 
 1. `prepare_campaign()` validates campaign parameters, the resolution set, timestep progress, checkpoint spacing, and production capability contract before evolution.
-2. The retry helper catches only the typed `RadiationAdmissibilityError`; unrelated geometry, gauge, and runtime errors are not retried. It halves only the trial timestep and fails closed when coordinate-time progress is no longer representable.
+2. The retry helper catches only the typed `RadiationAdmissibilityError` **and retries only dt-dependent trial stages** (`explicit-predictor`, `primary-predictor`, `final`). Stage is structured exception metadata, not parsed from message text. An invalid accepted `initial` state or unscoped primitive-recovery error propagates immediately because reducing dt cannot alter the input state. Geometry, gauge, and other unrelated errors are not retried.
 3. Radiation admissibility is checked at initialization and the actual initial, explicit predictor, primary predictor, and completed radiation states before source recovery can consume inadmissible values.
 4. On a successful retry, whole-state finiteness, positive geometry, diagnostic finiteness, endpoint canonicalization, and checkpoint logic still apply to the accepted state.
 5. Per-resolution `radiation_step_retries.json` and `ledgers.json` preserve retry attempts. `campaign_summary.json` records exact resolution/horizon admission and remains fail-closed on numerical failure or an incomplete horizon.
@@ -53,6 +53,12 @@ The full test suite includes the new injected single-rejection and persistent-re
 
 The parallel frozen-state audit reported a terminal outer-cell state with `E=|S|>0): the previous stage validator accepted equality under the closed dominant-energy cone, while `recover_radiation()` has no finite-pressure bracket at that state because its (p=0) residual has (v^2=1). That is a contract mismatch for this perfect-fluid primitive representation.
 
-The integration candidate now requires strict interior `E>|S|` when momentum is nonzero, while retaining the separate `S=0` path (including `E=S=0)). The shared `RadiationAdmissibilityError` type lives in the primitive-recovery layer and is re-raised unchanged by the vector primitive wrapper; a typed boundary rejection can therefore be recognized without catching unrelated `ValueError` inversion failures. Tests cover validator rejection at equality, typed failure propagation, a finite invertible interior state, and zero-momentum/vacuum states.
+The integration candidate now requires strict interior `E>|S|` when momentum is nonzero, while retaining the separate `S=0` path (including `E=S=0`). The shared `RadiationAdmissibilityError` type lives in the primitive-recovery layer and is re-raised by the vector primitive wrapper with its structured stage metadata preserved. The retry helper now permits retries only for explicit/primary predictor or final-candidate rejection; an invalid accepted input (`stage='initial'`) and an unscoped recovery failure propagate immediately. Tests cover equality, typed propagation, a finite invertible interior state, zero-momentum/vacuum, dt-dependent retry, and no-retry for invalid/unscoped input states.
 
 This is an earlier and more accurate rejection contract, **not a cure for the frozen-run outer-boundary continuation failure**. The actual replay remains owned by the diagnostic lane; strict-interior rejection may simply lead to earlier retry underflow. No clipping, projection, arbitrary floor, or claim of sustained stability is justified.
+
+
+## Review follow-ups retained as separate gates
+
+- The next frozen-state continuation replay is owned by the existing diagnostic lane. This strict-invertibility change may cause an earlier explicit rejection or retry-underflow; it is not a cure for outer-boundary continuation failure. No production stability result is inferred from the bounded smoke.
+- A separate SI agent owns strict JSON serialization of short-campaign output: the N=40 one-step smoke has fewer than three samples for `current_residual()`, so the current runner records `misner_sharp_current_max/rms` as undefined `NaN` and standard `json.dumps()` can emit non-standard JSON tokens. That output-integrity issue is **not addressed by this branch** and must be integrated/tested before the software admission gate is called complete.
