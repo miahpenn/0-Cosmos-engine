@@ -359,3 +359,53 @@ def test_discrete_curved_gauss_fails_closed_if_source_edge_is_not_a_face(
         solve_discrete_curved_gauss(
             curved_reference, r_max=8.0, resolution=30
         )
+
+
+def test_discrete_curved_gauss_respects_charge_sign_and_neutral_limit():
+    positive = CurvedRadialCoulombReference(
+        rho0=0.75, source_radius=2.0, metric_strength=0.4
+    )
+    negative = CurvedRadialCoulombReference(
+        rho0=-0.75, source_radius=2.0, metric_strength=0.4
+    )
+    neutral = CurvedRadialCoulombReference(
+        rho0=0.0, source_radius=2.0, metric_strength=0.4
+    )
+    positive_solution = solve_discrete_curved_gauss(
+        positive, r_max=8.0, resolution=64
+    )
+    negative_solution = solve_discrete_curved_gauss(
+        negative, r_max=8.0, resolution=64
+    )
+    neutral_solution = solve_discrete_curved_gauss(
+        neutral, r_max=8.0, resolution=64
+    )
+
+    for q_pos, q_neg in zip(
+        positive_solution.face_charges, negative_solution.face_charges
+    ):
+        assert q_neg == pytest.approx(-q_pos, rel=2.0e-14, abs=2.0e-14)
+    for e_pos, e_neg in zip(
+        positive_solution.face_electric_field_hat,
+        negative_solution.face_electric_field_hat,
+    ):
+        assert e_neg == pytest.approx(-e_pos, rel=2.0e-14, abs=2.0e-14)
+
+    assert all(value == 0.0 for value in neutral_solution.cell_charges)
+    assert all(value == 0.0 for value in neutral_solution.face_charges)
+    assert all(value == 0.0 for value in neutral_solution.face_electric_field_hat)
+    assert all(value == 0.0 for value in neutral_solution.face_electric_field_r)
+
+    r = 0.75 * positive.source_radius
+    stress_pos = positive.stress_energy(r)
+    stress_neg = negative.stress_energy(r)
+    stress_zero = neutral.stress_energy(r)
+    assert stress_neg.energy_density == pytest.approx(
+        stress_pos.energy_density, rel=2.0e-14, abs=1.0e-15
+    )
+    assert stress_neg.radial_pressure == pytest.approx(
+        stress_pos.radial_pressure, rel=2.0e-14, abs=1.0e-15
+    )
+    assert stress_zero.energy_density == 0.0
+    assert stress_zero.radial_pressure == 0.0
+    assert stress_zero.tangential_pressure == 0.0
