@@ -115,7 +115,7 @@ The sign can also be checked directly against the homogeneous archive equations 
 
 At one frozen ADM state, the local source identities are:
 
-- **Energy:** scalar contribution to the scalar energy rate is \(+\Pi(\alpha\beta\rho)\); the matter Eulerian-energy source is \(-\alpha\sqrt{\gamma}\beta\rho\Pi\), hence the densitized pair cancels after the matching \(\sqrt{\gamma}\) factor.
+- **Energy:** the scalar stress projection is normalized by \\(1/\\kappa\\), so its source is \\( +\\Pi(\\alpha\\beta\\rho)/\\kappa \\). The active matter energy source per unit coordinate volume is \\(q_E=-\\alpha\\sqrt{\\gamma}\\beta\\rho\\Pi\\); the matching matter stress projection divides by \\(\\sqrt{\\gamma}\\kappa\\). Both terms are therefore \\(\\pm\\alpha\\beta\\rho\\Pi/\\kappa\\) and cancel.
 - **Radial current:** scalar momentum-density projection has \(j_\phi=-\Pi\partial_r\phi/\kappa\); its source increment is \(-\alpha\beta\rho\partial_r\phi/\kappa\). The matter radial momentum source contributes \(+\alpha\beta\rho\partial_r\phi/\kappa\) to the same stress projection. These cancel.
 - **Moving dust:** the rest-current source plus the induced change in the dust velocity/energy projection obeys
   \[
