@@ -6,6 +6,8 @@ on:
       - fix/initial-quadrature-cmc-centre-row-candidate-2026-10-13
     paths:
       - "tools/validate_initial_quadrature_cmc_matched_trajectory.py"
+      - "engine/v55_initial.py"
+      - "engine/cmc_gauge.py"
       - ".github/workflows/candidate_matched_short_trajectory.yml"
 
 permissions:
