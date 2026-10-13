@@ -14,9 +14,11 @@ import engine.production_kernel as production_kernel
 from engine.matter_system import (
     Species,
     _metric_arrays,
+    _species_rhs_components,
+    geometry_metric_derivatives,
     primitives as matter_primitives,
 )
-from engine.scalar_system import ScalarFields
+from engine.scalar_system import KAPPA, ScalarFields
 from engine.stress_energy import assemble_total_stress_energy
 from engine.valencia import dark_matter_covector_source
 from engine.v55_matter import dm_density, metric_slice_from_q
@@ -154,6 +156,129 @@ def test_covariant_source_candidate_vs_baseline_one_step_ab():
             metrics, stage_state.matter.dark_matter, Species.DARK_MATTER
         )
         beta_dm = production_kernel.BETA_DM
+
+        # Independent projected-source oracle: read the isolated source
+        # components directly rather than differencing two complete RHS arrays.
+        # This checks the physical Einstein-source units actually returned by
+        # the scalar/fluid projections, at each real beginning/predictor RHS call.
+        metric_derivatives_direct = geometry_metric_derivatives(
+            metric,
+            lambda values, parity: stage_state.grid.cell_derivative_fourth(
+                values, parity=parity
+            ),
+        )
+        (
+            _face_flux,
+            _geometry_energy_source,
+            _geometry_radial_source,
+            q_energy_direct,
+            q_radial_direct,
+            q_rest_direct,
+        ) = _species_rhs_components(
+            metric,
+            metric_derivatives_direct,
+            stage_state.matter.dark_matter,
+            Species.DARK_MATTER,
+            dphi_t=scalar_candidate.phi,
+            dphi_r=phi_r,
+            beta_dm=beta_dm,
+        )
+        alpha = np.asarray(geom.alpha)
+        shift = np.asarray(geom.beta)
+        sqrt_gamma = np.asarray([m.sqrt_gamma for m in metrics])
+        rho_primitive = np.asarray([q.rho for q in prim])
+        pi_state = np.asarray(stage_state.scalars.Pi)
+        pi_normal = (
+            np.asarray(scalar_candidate.phi) - shift * phi_r
+        ) / alpha
+        np.testing.assert_allclose(
+            rho_dm, rho_primitive, rtol=2.0e-14, atol=1.0e-24
+        )
+        pi_consistency_scale = max(
+            float(np.max(np.abs(pi_state))),
+            float(np.max(np.abs(pi_normal))),
+            1.0,
+        )
+        assert float(np.max(np.abs(pi_normal - pi_state))) <= (
+            128.0 * np.finfo(float).eps * pi_consistency_scale
+        )
+
+        delta_pi_source = alpha * beta_dm * rho_dm
+        expected_q_energy = (
+            -sqrt_gamma * alpha * beta_dm * rho_primitive * pi_normal
+        )
+        expected_q_radial = (
+            alpha * sqrt_gamma * beta_dm * rho_primitive * phi_r
+        )
+        W = np.asarray([q.lorentz() for q in prim])
+        v_r = np.asarray([q.v_r for q in prim])
+        expected_q_rest = (
+            -alpha * sqrt_gamma * beta_dm * rho_primitive
+            * W * (pi_normal + v_r * phi_r)
+        )
+        q_t = beta_dm * rho_primitive * np.asarray(scalar_candidate.phi)
+        q_r = beta_dm * rho_primitive * phi_r
+        eps = np.finfo(float).eps
+        q_energy_roundoff_bound = (
+            512.0 * eps
+            * float(np.max((np.abs(q_t) + np.abs(shift * q_r)) / KAPPA))
+            + 1.0e-30
+        )
+        q_radial_roundoff_bound = (
+            128.0 * eps
+            * float(np.max(np.abs(expected_q_radial) / sqrt_gamma / KAPPA))
+            + 1.0e-30
+        )
+        q_rest_roundoff_bound = (
+            128.0 * eps * float(np.max(np.abs(expected_q_rest))) + 1.0e-30
+        )
+        assert float(np.max(np.abs(q_energy_direct - expected_q_energy))) / (
+            float(np.min(sqrt_gamma)) * KAPPA
+        ) <= q_energy_roundoff_bound
+        assert float(np.max(np.abs(q_radial_direct - expected_q_radial))) / (
+            float(np.min(sqrt_gamma)) * KAPPA
+        ) <= q_radial_roundoff_bound
+        assert float(np.max(np.abs(q_rest_direct - expected_q_rest))) <= (
+            q_rest_roundoff_bound
+        )
+
+        # Convert both sides to the normalized physical projections consumed by
+        # Einstein. The shared KAPPA is applied once on each side.
+        scalar_energy_projected = pi_state * delta_pi_source / KAPPA
+        dm_energy_projected = q_energy_direct / (sqrt_gamma * KAPPA)
+        energy_pair_residual = scalar_energy_projected + dm_energy_projected
+        scalar_current_projected = -delta_pi_source * phi_r / KAPPA
+        dm_current_projected = q_radial_direct / (sqrt_gamma * KAPPA)
+        current_pair_residual = (
+            scalar_current_projected + dm_current_projected
+        )
+        energy_pair_bound = (
+            512.0 * eps * max(
+                float(np.max(np.abs(scalar_energy_projected))),
+                float(np.max(np.abs(dm_energy_projected))),
+                float(np.max((np.abs(q_t) + np.abs(shift * q_r)) / KAPPA)),
+                1.0e-30,
+            ) + 1.0e-24
+        )
+        current_pair_bound = (
+            512.0 * eps * max(
+                float(np.max(np.abs(scalar_current_projected))),
+                float(np.max(np.abs(dm_current_projected))),
+                1.0e-30,
+            ) + 1.0e-24
+        )
+        energy_residual_linf = float(np.max(np.abs(energy_pair_residual)))
+        current_residual_linf = float(np.max(np.abs(current_pair_residual)))
+        assert energy_residual_linf <= energy_pair_bound, (
+            "projected source energy pair failed direct-component oracle: "
+            f"residual={energy_residual_linf:.17e}, "
+            f"bound={energy_pair_bound:.17e}"
+        )
+        assert current_residual_linf <= current_pair_bound, (
+            "projected source radial-current pair failed direct-component oracle: "
+            f"residual={current_residual_linf:.17e}, "
+            f"bound={current_pair_bound:.17e}"
+        )
 
         # Revert only the scalar Pi lapse correction:
         # candidate source alpha*beta*rho; old source beta*rho.
