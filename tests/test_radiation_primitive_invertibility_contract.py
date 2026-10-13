@@ -66,7 +66,7 @@ def test_validator_rejects_exact_E_equals_absS_with_nonzero_flux():
     metric = _flat_bssn_slice()
     with pytest.raises(
         RadiationAdmissibilityError,
-        match="stage='exact-boundary'.*ratio=1.00000000000000000e\+00",
+        match=r"stage='exact-boundary'.*ratio=1.00000000000000000e\+00",
     ):
         validate_species_admissibility(
             metric, _state(E=1.0, S=1.0), Species.RADIATION,
