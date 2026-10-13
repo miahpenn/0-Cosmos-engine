@@ -136,6 +136,75 @@ def solve_joint_target_lapse_high_precision(
     return alpha, target, meta
 
 
+def solve_direct_rhs_residual_correction(
+    matrix: np.ndarray,
+    weights: np.ndarray,
+    alpha: np.ndarray,
+    target: float,
+    direct_rhs: np.ndarray,
+    *,
+    dps: int = 80,
+) -> tuple[np.ndarray, float, dict]:
+    """One high-precision linear refinement pass driven by the direct production RHS."""
+    matrix = np.asarray(matrix, dtype=float)
+    weights = np.asarray(weights, dtype=float)
+    alpha = np.asarray(alpha, dtype=float)
+    direct_rhs = np.asarray(direct_rhs, dtype=float)
+    n = int(weights.size)
+    if matrix.shape != (n, n) or alpha.shape != (n,) or direct_rhs.shape != (n,):
+        raise ValueError("residual-correction dimensions do not match")
+    normalized = weights / float(np.sum(weights))
+
+    # Jacobian of the same augmented discrete equations with respect to
+    # (alpha, target). Use the direct production RHS for the residual vector.
+    augmented = np.zeros((n + 1, n + 1), dtype=float)
+    residual = np.zeros(n + 1, dtype=float)
+    augmented[0, 0] = 1.0
+    augmented[0, 1] = -1.0
+    residual[0] = alpha[0] - alpha[1]
+    for i in range(1, n - 1):
+        augmented[i, :n] = matrix[i, :]
+        augmented[i, n] = -1.0
+        residual[i] = direct_rhs[i] - float(target)
+    augmented[n - 1, n - 1] = 1.0
+    residual[n - 1] = alpha[-1] - 1.0
+    augmented[n, :n] = normalized @ matrix
+    augmented[n, n] = -1.0
+    residual[n] = weighted_mean(direct_rhs, weights) - float(target)
+
+    with mp.workdps(int(dps)):
+        mp_matrix = mp.matrix([
+            [mp.mpf(float(value)) for value in row]
+            for row in augmented
+        ])
+        mp_rhs = mp.matrix([-mp.mpf(float(value)) for value in residual])
+        correction = mp.lu_solve(mp_matrix, mp_rhs)
+        solve_residual = mp_matrix * correction - mp_rhs
+        solve_residual_max = max(abs(solve_residual[i]) for i in range(n + 1))
+        delta_alpha = np.asarray(
+            [float(correction[i]) for i in range(n)], dtype=float
+        )
+        delta_target = float(correction[n])
+        delta = np.concatenate((delta_alpha, np.asarray([delta_target], dtype=float)))
+        rounded_residual = augmented @ delta + residual
+    return delta_alpha, delta_target, {
+        "method": "one 80-digit linear correction from direct production K-RHS residual",
+        "max_abs_pre_rounding_correction_equation_residual": float(solve_residual_max),
+        "max_abs_rounded_correction_equation_residual": float(np.max(np.abs(rounded_residual))),
+        "max_abs_alpha_correction": float(np.max(np.abs(delta_alpha))),
+        "max_abs_target_correction": float(abs(delta_target)),
+        "max_abs_alpha_correction_in_ulp_at_candidate": float(
+            np.max(np.abs(delta_alpha) / np.maximum(np.abs(np.spacing(alpha)), np.finfo(float).tiny))
+        ),
+        "center_condition_residual_before": float(alpha[0] - alpha[1]),
+        "outer_condition_residual_before": float(alpha[-1] - 1.0),
+        "weighted_mean_minus_target_before": float(weighted_mean(direct_rhs, weights) - target),
+        "direct_rhs_residual_max_abs_before": float(
+            np.max(np.abs(direct_rhs[1:-1] - target))
+        ),
+    }
+
+
 def solve_resolution(resolution: int, vacuum) -> tuple[dict, dict]:
     kernel = V55ProductionKernel()
     state = kernel.initialize(
@@ -317,6 +386,27 @@ def solve_resolution(resolution: int, vacuum) -> tuple[dict, dict]:
         high_precision_metrics, high_precision_arrays = evaluate_candidate(
             high_precision_alpha, high_precision_target
         )
+    high_precision_refined_metrics = None
+    high_precision_refined_arrays = None
+    high_precision_refinement_meta = None
+    if resolution == 160 and high_precision_metrics is not None:
+        delta_alpha, delta_target, high_precision_refinement_meta = (
+            solve_direct_rhs_residual_correction(
+                matrix,
+                weights,
+                high_precision_alpha,
+                high_precision_target,
+                high_precision_arrays["rhs"],
+                dps=80,
+            )
+        )
+        high_precision_refined_alpha = np.asarray(
+            high_precision_alpha + delta_alpha, dtype=float
+        )
+        high_precision_refined_target = float(high_precision_target + delta_target)
+        high_precision_refined_metrics, high_precision_refined_arrays = (
+            evaluate_candidate(high_precision_refined_alpha, high_precision_refined_target)
+        )
     cone_balanced_digest = array_sha256(cone_margin(state))
 
     state.geometry.alpha = original_alpha.copy()
@@ -420,6 +510,29 @@ def solve_resolution(resolution: int, vacuum) -> tuple[dict, dict]:
             }
             if high_precision_metrics is not None else None
         ),
+        "high_precision_refined": (
+            {
+                **high_precision_refined_metrics,
+                "correction": high_precision_refinement_meta,
+                "target_difference_refined_minus_high_precision": float(
+                    high_precision_refined_metrics["target"] - high_precision_metrics["target"]
+                ),
+                "max_abs_alpha_change_refined_vs_high_precision": float(
+                    np.max(np.abs(
+                        high_precision_refined_arrays["alpha"] - high_precision_arrays["alpha"]
+                    ))
+                ),
+                "all_checks_passed": bool(all((
+                    high_precision_refined_metrics["lapse_positive_finite"],
+                    high_precision_refined_metrics["weighted_mean_closure_passed"],
+                    high_precision_refined_metrics["interior_equations_close"],
+                    high_precision_refined_metrics["direct_rhs_reconstruction_passed"],
+                    affine_passed,
+                    frozen_state_unchanged,
+                ))),
+            }
+            if high_precision_refined_metrics is not None else None
+        ),
         "target_difference_equilibrated_minus_unscaled": float(
             balanced_target - unscaled_target
         ),
@@ -451,6 +564,13 @@ def solve_resolution(resolution: int, vacuum) -> tuple[dict, dict]:
             {
                 f"N{resolution}__alpha_joint_high_precision": high_precision_arrays["alpha"],
                 f"N{resolution}__rhs_residual_high_precision": high_precision_arrays["rhs_residual"],
+                **(
+                    {
+                        f"N{resolution}__alpha_joint_high_precision_refined": high_precision_refined_arrays["alpha"],
+                        f"N{resolution}__rhs_residual_high_precision_refined": high_precision_refined_arrays["rhs_residual"],
+                    }
+                    if high_precision_refined_arrays is not None else {}
+                ),
             }
             if high_precision_arrays is not None else {}
         ),
