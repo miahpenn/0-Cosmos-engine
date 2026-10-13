@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Four-step CMC centre-row comparison with actual production stage guards.
+"""Twelve-step CMC centre-row comparison with actual production stage guards.
 
 Each isolated kernel instance injects one centre-row prescription into every
 CMC lapse solve (uniform initializer + all real CMC calls). Physical sources,
@@ -33,10 +33,10 @@ from tools.audit_uniform_radial_quadrature_initial_profile import (
     candidate_uniform_initial_state,
 )
 
-OUT = Path("results/uniform-cmc-centre-row-short-trajectory")
+OUT = Path("results/uniform-cmc-centre-row-12step")
 grid_ops, vacuum, _ = adapter.vendor_modules()
 RESOLUTIONS = (80, 120, 160)
-STEPS = 4
+STEPS = 12
 DT_COEFFICIENT = 0.03
 VARIANTS = (
     "current_alpha0_equals_alpha1",
@@ -162,7 +162,7 @@ def run_variant(n, variant):
         "initializer_lapse_solve": _solve_witness_compact(solve_records[0]),
         "step_records": step_records,
         "interpretation_limit": (
-            "Four short production steps only. No production source or physics "
+            "Twelve short production steps only. No production source or physics "
             "changed; passing does not establish long-horizon stability, "
             "continuum convergence, conservation, or scientific admission."
         ),
@@ -176,11 +176,11 @@ def main():
             records.append(run_variant(n, variant))
     failed = [x for x in records if x["step_status"] != "completed"]
     report = {
-        "schema": "uniform_cmc_centre_row_short_trajectory_v1",
+        "schema": "uniform_cmc_centre_row_12step_v1",
         "status": "all_four_step_arms_passed" if not failed else "numerical_failures_recorded",
         "production_source_commit": SOURCE_COMMIT,
         "pinned_vendor_commit": VENDOR_COMMIT,
-        "diagnostic_branch": "diag/uniform-cmc-centre-row-short-trajectory-2026-10-13",
+        "diagnostic_branch": "diag/uniform-cmc-centre-row-12step-2026-10-13",
         "resolutions": list(RESOLUTIONS),
         "variants": list(VARIANTS),
         "steps_per_arm": STEPS,
@@ -221,13 +221,13 @@ def main():
                 "failure": s.get("failure"),
             } for s in row["step_records"]],
         })
-    print("UNIFORM_CMC_CENTRE_ROW_SHORT_TRAJECTORY " + json.dumps({
+    print("UNIFORM_CMC_CENTRE_ROW_12STEP " + json.dumps({
         "status": report["status"],
         "failed_arms": report["failed_arms"],
         "records": compact,
     }, sort_keys=True, allow_nan=False), flush=True)
     if failed:
-        raise RuntimeError(f"{len(failed)} short-trajectory arm(s) failed; see artifact")
+        raise RuntimeError(f"{len(failed)} 12-step arm(s) failed; see artifact")
 
 
 if __name__ == "__main__":
