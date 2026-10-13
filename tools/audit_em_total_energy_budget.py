@@ -1392,7 +1392,6 @@ def _fixed_R_interval_balance(run: dict, *, label: str = "run") -> list[dict]:
             "tube_interpolant_mass_dot_coordinate",
             "tube_interpolant_piecewise_dM_dR",
             "tube_interpolant_fixed_R_sweep",
-            "tube_interpolant_predicted_fixed_R_rate",
             "tube_interpolant_mass_dot_fixed_R",
             "tube_interpolant_coordinate_rate_minus_flux_pressure",
             "tube_interpolant_fixed_R_residual",
