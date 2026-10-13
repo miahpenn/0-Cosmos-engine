@@ -1,4 +1,5 @@
 name: CMC joint target/lapse frozen-state audit
+# Keep the report run tied to the exact head after every diagnostic-source edit.
 
 on:
   push:
