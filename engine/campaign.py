@@ -101,6 +101,16 @@ def _validate_config_values(config) -> dict:
             "accepted states"
         )
 
+    # The production runner currently formats checkpoint filenames with
+    # six decimal places. A finer cadence can make distinct scheduled times
+    # resolve to the same path, silently overwriting an earlier snapshot.
+    # This is an output-integrity constraint, not a physical CFL threshold.
+    if checkpoint_interval < 1.0e-6:
+        raise ValueError(
+            "checkpoint_interval must be at least 1e-6 because checkpoint "
+            "filenames preserve only six decimal places"
+        )
+
     try:
         output_dir = os.fspath(config.output_dir)
     except TypeError as exc:
