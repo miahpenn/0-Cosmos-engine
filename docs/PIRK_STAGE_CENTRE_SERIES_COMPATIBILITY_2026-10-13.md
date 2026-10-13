@@ -61,7 +61,7 @@ At the first cell the `Lambda_dot/r` RHS is at roundoff on the initial slice. It
 | 120 | ∼0 | +4.71292e-6 | -1.26914e-4 |
 | 160 | ∼0 | +3.54368e-6 | -1.72407e-4 |
 
-At N=160 on the primary-predictor input, the signed split is approximately (L2=-1.76052\times10^{-4}/r_0) and (L3=+3.64488\times10^{-6}/r_0), leaving a total of (-1.72407\times10^{-4}/r_0). This identifies a second **stage-sensitive** connection-rate term. The measurement does not by itself determine whether its geometrical L2 contribution is wrong, or which coupled term is responsible.
+At N=160 on the primary-predictor input, the signed split is approximately `L2=-1.76052e-4/r0` and `L3=+3.64488e-6/r0`, leaving a total of `-1.72407e-4/r0`. This identifies a second **stage-sensitive** connection-rate term. The measurement does not by itself determine whether its geometrical L2 contribution is wrong, or which coupled term is responsible.
 
 ## Implementation closure and boundary distinction
 
@@ -76,7 +76,7 @@ The code-path weighted-increment reconstruction closes as follows. `Aa`'s full-d
 | Lambda | 1.33e-17 | Roundoff scale |
 | Aa | 3.48e-8 | Outer-most cell at N=40; centre cells i=0..5 are at or below 2.71e-20 |
 
-The `Aa` residual excluding the outer two cells is at or below (2.71\times10^{-20}) for every resolution. Therefore this reconstruction supports that the integrator is applying the coded stage weighting correctly in the interior. It does not certify that the RHS itself is regular or constraint preserving.
+The `Aa` residual excluding the outer two cells is at or below `2.71e-20` for every resolution. Therefore this reconstruction supports that the integrator is applying the coded stage weighting correctly in the interior. It does not certify that the RHS itself is regular or constraint preserving.
 
 ## Interpretation and next discriminating check
 
