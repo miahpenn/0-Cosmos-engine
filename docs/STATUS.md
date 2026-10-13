@@ -1,3 +1,27 @@
+# Current EM disposition — 13 October 2026 UTC (supersedes the historical EM-absent entries below)
+
+## Owner-directed opt-in radial-Maxwell integration now on `main`
+
+**Merged:** [PR #176](https://github.com/miahpenn/0-Cosmos-engine/pull/176), merge commit `0c1d4679bd05b73491c692277127fc091f24dac4`, based on prior `main` `1f868e537d59b3195778fa6fdc6f745da9d339d9`. This adds the explicitly opt-in research radial-Maxwell state, separate charged-dust carrier path, campaign configuration, stage/accepted-state witnesses, checkpoint evidence and multi-step regression. No GEAR archive equation or pre-existing species is assigned charge by inference.
+
+### How to exercise it
+
+Use the canonical `CampaignConfig` with **both** `radial_maxwell_charge_to_mass` and `charged_dust_density_profile` explicitly set. The profile is a sequence of `(radius, rest_density)` knots spanning exactly `[0, r_max]`. The feature uses the declared research convention Gaussian units with `c=1`; `q/m` and the density profile are caller inputs, not values derived from GEAR. When both inputs are omitted, the default campaign/kernel path remains EM-off and preserves its old initialization call shape.
+
+### Exact software evidence
+
+- Candidate head `edf954c5c112ecf1a9b63546d878e32f1217624e` passed the three main-target stable workflows with **381 tests each**: [lightweight run 38470442868](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38470442868), [strict JSON run 38470442894](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38470442894), and [integrated retry run 38470442934](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38470442934).
+- The bounded feature-on N=24 campaign regression reached three accepted steps to `t=0.03`; it wrote checkpoints at `t=0.01/0.02/0.03`, observed nonzero interactions across the charged carrier, other evolved sectors and actual geometry-stage EM consumers, and independently recomputed checkpoint Gauss-shell residuals from saved Q faces, `q/m`, `dr` and carrier rest state.
+- Post-merge main lightweight workflow [38471383842](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38471383842) on merge commit `0c1d4679bd05b73491c692277127fc091f24dac4` was still running when this status entry was prepared; do not count it as passed until GitHub reports completion.
+- The final V5.5 numerical campaign and worldtube-radius scaling workflows were skipped by path filters. They are not evidence of long-horizon EM behavior.
+
+### Research status and admission boundary
+
+The extension is **on `main` and executable only by explicit opt-in**, but it remains `research_only_not_admitted`. No assertion is made that the GEAR archive derives the chosen charged-dust carrier/action or caller-specified `q/m`; field-to-engine normalization and physical initial/boundary prescriptions remain open. The current bounded interaction test is one resolution and a short horizon; it does not establish nonzero-shift coupling, full donor+field+gravity conservation, load-and-resume equivalence, spatial/time convergence, complete initial/evolved H/M/connection/centre closure, the outer-radiation continuation gate, or scientific admission.
+
+Keep all research inputs explicit. Do not make EM a universal default, infer charge on existing GEAR variables, relabel a passing software suite as physics validation, relax radiation guards, or promote a production capability until the separate admission witnesses are closed.
+
+---
 # Build Status — 2026-10-13
 
 ## Current-main snapshot — after canonical stress-projection merge and EM research updates (13 October 2026 UTC)
