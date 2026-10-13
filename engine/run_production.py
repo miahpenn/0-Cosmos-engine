@@ -13,6 +13,7 @@ import json
 import math
 import numpy as np
 
+from .atomic_io import atomic_write_text
 from .adaptive_step import (
     AdaptiveStepOutcome,
     RadiationStepSizeUnderflow,
@@ -172,11 +173,12 @@ def _write_ledgers(
         "history": _json_safe(history),
         "radiation_step_retries": _json_safe(radiation_step_retries or []),
     }
-    (run_dir / "ledgers.json").write_text(
-        json.dumps(payload, indent=2, allow_nan=False)
+    atomic_write_text(
+        run_dir / "ledgers.json", json.dumps(payload, indent=2, allow_nan=False)
     )
-    (run_dir / "radiation_step_retries.json").write_text(
-        json.dumps(_json_safe(radiation_step_retries or []), indent=2, allow_nan=False)
+    atomic_write_text(
+        run_dir / "radiation_step_retries.json",
+        json.dumps(_json_safe(radiation_step_retries or []), indent=2, allow_nan=False),
     )
 
 
@@ -405,8 +407,8 @@ def run_campaign(
     }
     out = Path(config.output_dir)
     out.mkdir(parents=True, exist_ok=True)
-    (out / "campaign_summary.json").write_text(
-        json.dumps(summary, indent=2, allow_nan=False)
+    atomic_write_text(
+        out / "campaign_summary.json", json.dumps(summary, indent=2, allow_nan=False)
     )
     if admission_errors:
         raise RuntimeError(
