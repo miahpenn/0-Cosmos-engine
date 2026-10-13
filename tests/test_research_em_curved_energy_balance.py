@@ -10,6 +10,7 @@ the zero-shift CMC branch, and a complete global budget must also include the
 matter transport flux and the gravitational/geometry source budget. No model,
 normalization, or production capability is authorized by this test.
 """
+import json
 import math
 
 import numpy as np
@@ -222,13 +223,32 @@ def _run_probe(resolution, dt):
     )
     relative_residual = abs(residual_rate) / max(scale, 1.0e-30)
 
+    # Negative control: a reversed reciprocal Lorentz sign should destroy the
+    # matter/field exchange cancellation, while keeping geometry and boundary
+    # terms unchanged. Keep this value separate from the accepted residual.
+    field_energy_rate = (u_end - u_start) / dt
+    wrong_lorentz_sign_rate = (
+        field_energy_rate
+        - avg("metric_power")
+        - avg("matter_lorentz_power")
+        - avg("outer_current_power")
+    )
+    wrong_lorentz_sign_relative = (
+        abs(wrong_lorentz_sign_rate) / max(scale, 1.0e-30)
+    )
+
     assert math.isfinite(residual_rate)
     assert math.isfinite(relative_residual)
+    assert math.isfinite(wrong_lorentz_sign_rate)
+    assert math.isfinite(wrong_lorentz_sign_relative)
     return {
         "resolution": resolution,
         "dt": dt,
+        "field_energy_rate": field_energy_rate,
         "residual_rate": residual_rate,
         "relative_residual": relative_residual,
+        "wrong_lorentz_sign_residual_rate": wrong_lorentz_sign_rate,
+        "wrong_lorentz_sign_relative_residual": wrong_lorentz_sign_relative,
         "metric_power": avg("metric_power"),
         "matter_lorentz_power": avg("matter_lorentz_power"),
         "outer_current_power": avg("outer_current_power"),
@@ -236,7 +256,7 @@ def _run_probe(resolution, dt):
     }
 
 
-def test_curved_slice_em_exchange_residual_converges_on_live_pirk_stages():
+def test_curved_slice_em_exchange_residual_converges_on_live_pirk_stages(record_property):
     # Keep the same physical domain and reduce dt with dr so both spatial and
     # stage-quadrature errors are bounded. This is one deterministic step per
     # resolution, not a production campaign or trajectory-admission test.
@@ -246,7 +266,47 @@ def test_curved_slice_em_exchange_residual_converges_on_live_pirk_stages():
     ]
     errors = [row["relative_residual"] for row in results]
 
+    for row in results:
+        # Scale each named contribution against the largest measured power;
+        # this rejects a vacuous zero term without imposing an arbitrary
+        # absolute unit-dependent cutoff.
+        power_scale = max(
+            abs(row[name])
+            for name in (
+                "field_energy_rate", "charge_power", "metric_power",
+                "matter_lorentz_power", "outer_current_power",
+            )
+        )
+        roundoff_floor = 128.0 * np.finfo(float).eps * max(power_scale, 1.0e-30)
+        assert abs(row["metric_power"]) > roundoff_floor, row
+        assert abs(row["outer_current_power"]) > roundoff_floor, row
+        assert abs(row["matter_lorentz_power"]) > roundoff_floor, row
+        # With the wrong sign, the normalized residual must remain visibly
+        # larger than roundoff and a material fraction of the real Lorentz
+        # work; otherwise this fixture would not discriminate the sign.
+        assert abs(row["wrong_lorentz_sign_residual_rate"]) > max(
+            0.5 * abs(row["matter_lorentz_power"]), roundoff_floor
+        ), row
+
     assert all(math.isfinite(value) for value in errors), results
     assert all(value >= 0.0 for value in errors), results
     assert errors[1] < errors[0], results
     assert errors[2] < errors[1], results
+
+    refinement_ratios = {
+        "N24_to_N48": errors[0] / errors[1],
+        "N48_to_N96": errors[1] / errors[2],
+    }
+    report = {
+        "scope": "research-only; one step; zero shift; not full conservation/admission",
+        "results": results,
+        "refinement_ratios": refinement_ratios,
+    }
+    # Structured output is preserved in the Actions log by the targeted -s
+    # workflow step; record_property also keeps it machine-readable in JUnit
+    # output for runners that enable that report format.
+    record_property(
+        "em_curved_slice_exchange_evidence_json",
+        json.dumps(report, sort_keys=True, separators=(",", ":")),
+    )
+    print("EM_CURVED_SLICE_EXCHANGE_EVIDENCE=" + json.dumps(report, sort_keys=True), flush=True)
