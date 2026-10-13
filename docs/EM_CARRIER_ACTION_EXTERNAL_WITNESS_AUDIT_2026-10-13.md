@@ -1,13 +1,13 @@
 # Electromagnetic carrier and action: source audit with external witnesses
 
 **Date:** 13 October 2026  
-**Repository production tip audited:** \`a758454df6399c0fd4225a986472387d2d99fe73\` (post-PR #148 canonical stress-projection merge)  
+**Repository production tip audited:** `a758454df6399c0fd4225a986472387d2d99fe73` (post-PR #148 canonical stress-projection merge)  
 **Purpose:** derive what is fixed by the archive and standard electromagnetic theory; identify what is not derivable yet.  
 **Status:** research/design record only; not an approved production physics change.
 
 ## Executive decision
 
-**The present GEAR archive does not determine a unique electrically charged carrier or an electromagnetic action.** It contains no explicit Maxwell potential/field tensor, electric four-current, U(1) transformation, Noether charge current, or charged-matter action in the preserved source examined. Its D-energy-to-matter and local-source-to-global-source bridges are explicitly open. GEAR-66 says \`Gamma = H\` only conditionally *if radiation is the carrier* and explicitly does not establish that condition.
+**The present GEAR archive does not determine a unique electrically charged carrier or an electromagnetic action.** It contains no explicit Maxwell potential/field tensor, electric four-current, U(1) transformation, Noether charge current, or charged-matter action in the preserved source examined. Its D-energy-to-matter and local-source-to-global-source bridges are explicitly open. GEAR-66 says `Gamma = H` only conditionally *if radiation is the carrier* and explicitly does not establish that condition.
 
 Published theory provides well-defined actions once a charged field or matter current is chosen. It cannot, by itself, prove that any existing GEAR object carries electric charge. The most defensible project-level result is therefore:
 
