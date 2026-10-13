@@ -134,6 +134,46 @@ def geometry_metric_derivatives(
     )
 
 
+def validate_species_admissibility(
+    metric: BSSNMetricSlice,
+    state: ConservedSpecies,
+    species: Species,
+    *,
+    stage: str,
+) -> None:
+    """Validate a real candidate state without modifying or projecting it.
+
+    RHS extraction must not validate a fictitious unit-step update. The
+    production integrator calls this on its actual initial, predictor, and
+    final radiation states using the metric for that stage.
+    """
+    if species is not Species.RADIATION:
+        return
+    metrics = _metric_arrays(metric)
+    sqrt_gamma = np.asarray([m.sqrt_gamma for m in metrics], dtype=float)
+    gamma_rr_inv = np.asarray([m.gamma_rr_inv for m in metrics], dtype=float)
+    energy = state.energy_t / sqrt_gamma
+    momentum = state.momentum_r / sqrt_gamma
+    abs_momentum = np.sqrt(np.maximum(gamma_rr_inv * momentum * momentum, 0.0))
+    bad = np.where(
+        (~np.isfinite(energy))
+        | (~np.isfinite(abs_momentum))
+        | (energy < 0.0)
+        | (abs_momentum > energy)
+    )[0]
+    if bad.size:
+        i = int(bad[0])
+        ratio = abs_momentum[i] / max(abs(energy[i]), 1.0e-300)
+        raise ValueError(
+            f"radiation state inadmissible at stage={stage!r}, cell i={i}: "
+            f"E={energy[i]:.17e}, |S|={abs_momentum[i]:.17e}, "
+            f"ratio={ratio:.17e}, "
+            f"conserved(rest,energy_t,momentum_r)="
+            f"({state.rest[i]:.17e},{state.energy_t[i]:.17e},"
+            f"{state.momentum_r[i]:.17e})"
+        )
+
+
 def _state_at(U: ConservedSpecies, i: int) -> FluidConserved:
     return FluidConserved(
         rest=float(U.rest[i]),
@@ -450,8 +490,15 @@ def evolve_species(
     dphi_t: np.ndarray | None = None,
     dphi_r: np.ndarray | None = None,
     beta_dm: float = -0.04,
+    validate_admissibility: bool = True,
 ) -> ConservedSpecies:
-    """Advance one conservative finite-volume step."""
+    """Apply one finite-volume update.
+
+    validate_admissibility is retained for direct update callers. The
+    derivative-only species_rhs wrapper disables this check because its
+    unit-step application is an algebraic RHS extraction, not an admitted
+    physical state. Production integration validates its actual states.
+    """
     n = len(metric.r)
     if any(np.shape(x) != (n,) for x in (
         state.rest, state.energy_t, state.momentum_r
@@ -521,27 +568,10 @@ def evolve_species(
         out.energy_t[i] += dt * (source_e + q_e)
         out.momentum_r[i] += dt * (source_s + q_s)
 
-    if species is Species.RADIATION:
-        # Diagnostic only: expose the transport and metric-source pieces
-        # when this update itself creates an inadmissible state.
-        sg = np.asarray([m.sqrt_gamma for m in metrics])
-        E = out.energy_t / sg
-        S_r = out.momentum_r / sg
-        S_abs = np.sqrt(np.maximum(
-            np.asarray([m.gamma_rr_inv for m in metrics]) * S_r * S_r, 0.0
-        ))
-        bad = np.where((E < 0.0) | (S_abs > E))[0]
-        if bad.size:
-            i = int(bad[0])
-            flux_dE = -inv_dr * (face_flux[i + 1, 1] - face_flux[i, 1])
-            flux_dS = -inv_dr * (face_flux[i + 1, 2] - face_flux[i, 2])
-            raise ValueError(
-                f"radiation RHS created inadmissible state at cell i={i}: "
-                f"tendency_flux_E={flux_dE:.17e}, source_E={source_e_diag[i]:.17e}, "
-                f"tendency_flux_S={flux_dS:.17e}, source_S={source_s_diag[i]:.17e}; "
-                f"E={E[i]:.17e}, |S|={S_abs[i]:.17e}, "
-                f"ratio={S_abs[i] / max(abs(E[i]), 1.0e-300):.17e}"
-            )
+    if validate_admissibility:
+        validate_species_admissibility(
+            metric, out, species, stage=f"direct-evolve-dt={dt:.17g}"
+        )
 
     return out
 
