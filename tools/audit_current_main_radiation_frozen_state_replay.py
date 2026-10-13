@@ -29,6 +29,7 @@ from engine.campaign import CampaignConfig
 from engine.production_kernel import V55ProductionKernel
 from engine.run_production import run_campaign
 from engine.scalar_system import ScalarFields
+from engine.stress_energy import assemble_total_stress_energy
 from engine.v55_matter import metric_slice_from_q
 
 BASE_MAIN_COMMIT = "29d828b4d72b017c12a20b6dc90549f2511f025c"
@@ -49,6 +50,7 @@ EXPECTED_DIAGNOSTIC_PATHS = {
     "tools/audit_current_main_radiation_frozen_state_replay.py",
     ".github/workflows/current_main_radiation_frozen_state_replay.yml",
     "tests/test_radiation_replay_rhs_capture_identity.py",
+    "tests/test_radiation_l3_stress_projection.py",
 }
 
 
@@ -94,6 +96,41 @@ def numeric_state_digest(state) -> str:
         digest.update(name.encode("ascii") + b"\0")
         digest.update(float(getattr(state, name)).hex().encode("ascii") + b"\0")
     return digest.hexdigest()
+
+
+def l3_matter_terms_from_projection(alpha, rho, pr, pt) -> dict[str, np.ndarray]:
+    """Compute the explicit L3 source terms from independently assembled projections."""
+    alpha = np.asarray(alpha, dtype=float)
+    rho = np.asarray(rho, dtype=float)
+    pr = np.asarray(pr, dtype=float)
+    pt = np.asarray(pt, dtype=float)
+    return {
+        "Aa": -(16.0 * np.pi / 3.0) * alpha * (pr - pt),
+        "K": 4.0 * np.pi * alpha * (rho + pr + 2.0 * pt),
+    }
+
+
+def source_increment_roundoff_witness(total, vacuum, expected):
+    """Compare total-minus-vacuum with an independent source formula per cell.
+
+    The bound is scaled only by the actual floating-point operands. There is no
+    absolute tolerance floor or fitted feedback factor.
+    """
+    total = np.asarray(total, dtype=float)
+    vacuum = np.asarray(vacuum, dtype=float)
+    expected = np.asarray(expected, dtype=float)
+    residual = (total - vacuum) - expected
+    operand_scale = np.abs(total) + np.abs(vacuum) + np.abs(expected)
+    bound = 32.0 * np.finfo(np.float64).eps * operand_scale
+    residual_abs = np.abs(residual)
+    within = residual_abs <= bound
+    ratios = np.zeros_like(residual_abs)
+    nonzero_bound = bound > 0.0
+    ratios[nonzero_bound] = residual_abs[nonzero_bound] / bound[nonzero_bound]
+    impossible = (~nonzero_bound) & (residual_abs > 0.0)
+    ratios[impossible] = np.finfo(np.float64).max
+    return residual, bound, bool(np.all(within)), float(np.max(ratios))
+
 
 
 def load_frozen_state(npz_path: Path):
@@ -776,6 +813,32 @@ class RadiationStageCapture:
                     _, source_vacuum, _ = adapter_module.vendor_modules()
                     raw_geometry_terms = source_vacuum.geometry_terms(grid, geometry)
                     vacuum_l3 = source_vacuum.primary_l3_rhs(grid, geometry)
+                    # This independently assembles the complete Eulerian stress
+                    # projections at this exact captured stage. It does not
+                    # infer the source from total-minus-vacuum subtraction.
+                    assembled_stress = assemble_total_stress_energy(
+                        grid, geometry, fields, matter
+                    )
+                    l3_expected = l3_matter_terms_from_projection(
+                        geometry.alpha,
+                        assembled_stress.rho,
+                        assembled_stress.pr,
+                        assembled_stress.pt,
+                    )
+                    l3_Aa_residual, l3_Aa_bound, l3_Aa_pass, l3_Aa_ratio = (
+                        source_increment_roundoff_witness(
+                            result["primary_l3"]["Aa"],
+                            vacuum_l3["Aa"],
+                            l3_expected["Aa"],
+                        )
+                    )
+                    l3_K_residual, l3_K_bound, l3_K_pass, l3_K_ratio = (
+                        source_increment_roundoff_witness(
+                            result["primary_l3"]["K"],
+                            vacuum_l3["K"],
+                            l3_expected["K"],
+                        )
+                    )
                     lapse_hessian_Aa = -(
                         np.asarray(raw_geometry_terms["DrDr_alpha"], dtype=float)
                         - np.asarray(raw_geometry_terms["lap_alpha"], dtype=float) / 3.0
@@ -796,12 +859,18 @@ class RadiationStageCapture:
                             - np.asarray(vacuum_l3["Aa"], dtype=float)
                         ),
                         "l3_Aa_actual": np.asarray(result["primary_l3"]["Aa"], dtype=float),
+                        "l3_Aa_matter_from_TotalStressEnergy": l3_expected["Aa"],
+                        "l3_Aa_total_minus_vacuum_residual": l3_Aa_residual,
+                        "l3_Aa_operand_scaled_roundoff_bound": l3_Aa_bound,
                         "l3_K_vacuum": np.asarray(vacuum_l3["K"], dtype=float),
                         "l3_K_matter_difference": (
                             np.asarray(result["primary_l3"]["K"], dtype=float)
                             - np.asarray(vacuum_l3["K"], dtype=float)
                         ),
                         "l3_K_actual": np.asarray(result["primary_l3"]["K"], dtype=float),
+                        "l3_K_matter_from_TotalStressEnergy": l3_expected["K"],
+                        "l3_K_total_minus_vacuum_residual": l3_K_residual,
+                        "l3_K_operand_scaled_roundoff_bound": l3_K_bound,
                     }
                     for name, values in source_arrays.items():
                         copied = self._copy_array(values)
@@ -860,6 +929,21 @@ class RadiationStageCapture:
                             ))),
                         },
                         "outer_cell_terms": {},
+                        "l3_total_stress_projection_oracle": {
+                            "assembly": "engine.stress_energy.assemble_total_stress_energy",
+                            "Aa": {
+                                "residual_max_abs_all_cells": float(np.max(np.abs(l3_Aa_residual))),
+                                "operand_scaled_roundoff_bound_max_abs": float(np.max(l3_Aa_bound)),
+                                "max_residual_over_bound": l3_Aa_ratio,
+                                "within_bound_all_cells": l3_Aa_pass,
+                            },
+                            "K": {
+                                "residual_max_abs_all_cells": float(np.max(np.abs(l3_K_residual))),
+                                "operand_scaled_roundoff_bound_max_abs": float(np.max(l3_K_bound)),
+                                "max_residual_over_bound": l3_K_ratio,
+                                "within_bound_all_cells": l3_K_pass,
+                            },
+                        },
                     }
                     for i in range(low, n):
                         row = {
@@ -1116,8 +1200,39 @@ class RadiationStageCapture:
             and len(set(failed_trial_keys)) == len(failed_trial_keys)
             and failed_trial_rhs_match_count == len(self.failed_trials)
         )
+        l3_oracle_stages = [
+            {
+                "input_t": rec["input_t"],
+                "attempt_id": rec["attempt_id"],
+                "trial_dt": rec["trial_dt"],
+                "ordinal": rec["ordinal"],
+                "stage_state_sha256": rec["stage_state_sha256"],
+                **rec["l3_total_stress_projection_oracle"],
+            }
+            for rec in self.geometry_source_records
+        ]
+        l3_oracle_results = {
+            "assembly": "engine.stress_energy.assemble_total_stress_energy",
+            "expected_Aa_term": "-16*pi*alpha*(TotalStressEnergy.pr-TotalStressEnergy.pt)/3",
+            "expected_K_term": "4*pi*alpha*(TotalStressEnergy.rho+pr+2*pt)",
+            "captured_stage_count": len(l3_oracle_stages),
+            "all_captured_Aa_stages_within_operand_scaled_roundoff_bound": (
+                bool(l3_oracle_stages)
+                and all(stage["Aa"]["within_bound_all_cells"] for stage in l3_oracle_stages)
+            ),
+            "all_captured_K_stages_within_operand_scaled_roundoff_bound": (
+                bool(l3_oracle_stages)
+                and all(stage["K"]["within_bound_all_cells"] for stage in l3_oracle_stages)
+            ),
+            "stages": l3_oracle_stages,
+            "interpretation_limit": (
+                "This compares adapter L3 total-minus-vacuum increments with the "
+                "separate TotalStressEnergy assembly at each captured stage. It is "
+                "not a full trajectory conservation or equation-validity proof."
+            ),
+        }
         summary = {
-            "schema": "radiation_explicit_predictor_stage_capture_v3",
+            "schema": "radiation_explicit_predictor_stage_capture_v4_rhs_and_independent_l3_stress",
             "diagnostic_only": True,
             "rhs_capture_identity_pass": bool(rhs_keys_match_index),
             "failed_predictor_rhs_identity_pass": bool(failed_trial_rhs_identity_pass),
@@ -1135,6 +1250,7 @@ class RadiationStageCapture:
             "geometry_source_term_unique_key_count": len(set(source_record_keys)),
             "geometry_source_capture_identity_pass": bool(source_keys_match_index),
             "geometry_source_term_capture_records": self.geometry_source_records,
+            "l3_total_stress_projection_oracle": l3_oracle_results,
             "outer_boundary_capture_calls": len(self.boundary_records),
             "outer_boundary_records": self.boundary_records,
             "geometry_stage_explicit_rates": [
@@ -1352,6 +1468,11 @@ def main() -> int:
             raise RuntimeError("failed predictor records do not map one-to-one to the RHS for the same attempt and dt")
         if capture_summary.get("geometry_source_capture_identity_pass") is not True:
             raise RuntimeError("geometry source records do not map one-to-one to unique attempt/time/stage keys")
+        l3_oracle = capture_summary.get("l3_total_stress_projection_oracle", {})
+        if l3_oracle.get("all_captured_Aa_stages_within_operand_scaled_roundoff_bound") is not True:
+            raise RuntimeError("independent L3 Aa source projection oracle failed its operand-scaled bound")
+        if l3_oracle.get("all_captured_K_stages_within_operand_scaled_roundoff_bound") is not True:
+            raise RuntimeError("independent L3 K source projection oracle failed its operand-scaled bound")
 
         run_dir = args.campaign_dir / f"N{RESOLUTION}"
         retries_path = run_dir / "radiation_step_retries.json"
@@ -1438,6 +1559,7 @@ def main() -> int:
             "captured_geometry_stage_terms": capture_summary.get("captured_geometry_stage_terms"),
             "geometry_source_term_capture_records": len(capture_summary.get("geometry_source_term_capture_records", [])),
             "geometry_source_capture_identity_pass": capture_summary.get("geometry_source_capture_identity_pass"),
+            "l3_total_stress_projection_oracle": capture_summary.get("l3_total_stress_projection_oracle"),
             "geometry_source_term_unique_key_count": capture_summary.get("geometry_source_term_unique_key_count"),
             "step_attempt_count": capture_summary.get("step_attempt_count"),
             "outer_boundary_capture_calls": capture_summary.get("outer_boundary_capture_calls"),
@@ -1505,6 +1627,7 @@ def main() -> int:
             "radiation_rhs_component_capture_calls": capture_summary["radiation_rhs_component_capture_calls"],
             "captured_geometry_stage_terms": capture_summary["captured_geometry_stage_terms"],
             "geometry_source_term_capture_records": len(capture_summary["geometry_source_term_capture_records"]),
+            "l3_total_stress_projection_oracle": capture_summary["l3_total_stress_projection_oracle"],
             "outer_boundary_capture_calls": capture_summary["outer_boundary_capture_calls"],
             "stage_capture_sha256": capture_summary_hash,
             "stage_capture_profiles_sha256": capture_profiles_hash,
