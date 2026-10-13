@@ -22,12 +22,12 @@ from tools.audit_uniform_cmc_centre_row_counterfactual import (
     VENDOR_COMMIT,
     RESOLUTIONS as ALL_RESOLUTIONS,
     _make_matrix,
-    _state_solve_witness,
     _digest_state,
 )
 from tools.audit_uniform_cmc_centre_row_one_step import (
     DIAGNOSTIC_KEYS,
     _diag_summary,
+    _state_solve_witness,
 )
 from tools.audit_uniform_radial_quadrature_initial_profile import (
     candidate_uniform_initial_state,
