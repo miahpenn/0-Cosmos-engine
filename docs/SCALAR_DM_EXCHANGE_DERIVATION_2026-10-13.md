@@ -21,6 +21,12 @@ The repository lock `docs/ARCHITECTURE_LOCKS.md` states \(\nabla_\mu T_{\rm DM}^
 
 The preserved **GEAR-10 dark-sector solver report (27 August 2026)** supplies the model-level scalar-dependent mass \(m(\phi)=m_0e^{-\beta\phi}\), labelled there as the Amendola coupling. This is a model premise, not a first-principles derivation of why the underlying 0* microphysics should select this mass law, and it does not select the numerical value of \(\beta\). GEAR-10 explicitly leaves \(\beta=-0.04\) without a derivation.
 
+### 1.0.1 Empirical status of the numerical coupling
+
+The later archived verification note \`VERIFICATION-current-Planck-DESI-bound-on-beta-and-both-sign-corrections-witnessed-Sep1-2026\` points to the independent analysis by Gómez-Valent, Zheng & Amendola, [*Constraints on coupled dark energy in the DESI era*](https://doi.org/10.1103/x8kc-zqzl), also available as [arXiv:2604.12032](https://arxiv.org/abs/2604.12032). The peer-reviewed paper was published 24 August 2026 and combines Planck CamSpec/PR4 CMB data, DESI DR2 BAO and Type Ia supernova samples. It reports a posterior peak near \(|\beta|\sim 0.03\), with no-coupling excluded at roughly 95% confidence at most, and little positive/negative-sign asymmetry.
+
+This provides a genuine *external observational benchmark*: \(\beta=-0.04\) is within the reported magnitude range and is not a value chosen solely from this engine's trajectory. It does **not** derive the coupling from 0* microphysics, predict exactly \(\beta=-0.04\), strongly select the negative sign, or constitute a posterior for this engine's exact exponential-offset potential and cycle criterion. Treat it as observational support for the scale of the parameter, not as closure of the first-principles parameter-origin gate.
+
 ### 1.1 Derive the covariant dust exchange from the mass law
 
 Represent cold dark matter by point particles with action
