@@ -44,6 +44,7 @@ jobs:
             -e 'tools/audit_current_main_radiation_frozen_state_replay.py' \
             -e 'tests/test_radiation_replay_rhs_capture_identity.py' \
             -e 'tests/test_radiation_l3_stress_projection.py' \
+            -e 'tests/test_fluid_projection_kappa_contract.py' \
             -e '.github/workflows/current_main_radiation_frozen_state_replay.yml' || true)"
           if [ -n "$unexpected" ]; then
             printf 'Unexpected changed paths from exact main base:\n%s\n' "$unexpected"

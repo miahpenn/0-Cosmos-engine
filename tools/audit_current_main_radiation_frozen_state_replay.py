@@ -51,6 +51,7 @@ EXPECTED_DIAGNOSTIC_PATHS = {
     ".github/workflows/current_main_radiation_frozen_state_replay.yml",
     "tests/test_radiation_replay_rhs_capture_identity.py",
     "tests/test_radiation_l3_stress_projection.py",
+    "tests/test_fluid_projection_kappa_contract.py",
 }
 
 
