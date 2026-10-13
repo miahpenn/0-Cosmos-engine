@@ -3,6 +3,7 @@ import numpy as np
 
 from tools.audit_current_main_radiation_frozen_state_replay import (
     l3_matter_terms_from_projection,
+    l3_projection_profile_capture_witness,
     source_increment_roundoff_witness,
 )
 
@@ -51,3 +52,42 @@ def test_source_identity_uses_operand_scaled_bound_and_rejects_resolved_defect()
     assert not passed_bad
     assert np.any(np.abs(residual_bad) > bound_bad)
     assert ratio_bad > 1.0
+
+
+
+def test_raw_projection_profiles_reproduce_saved_terms_and_fail_closed():
+    alpha = np.asarray([0.71, 0.93, 1.04], dtype=float)
+    rho = np.asarray([2.0e-4, 5.0e-4, 3.0e-5], dtype=float)
+    pr = np.asarray([1.5e-5, -3.0e-6, 8.0e-6], dtype=float)
+    pt = np.asarray([-2.5e-5, 7.0e-6, 2.0e-6], dtype=float)
+    expected = l3_matter_terms_from_projection(alpha, rho, pr, pt)
+
+    witness = l3_projection_profile_capture_witness(
+        alpha, rho, pr, pt, expected["Aa"], expected["K"]
+    )
+    assert witness["raw_inputs_present"]
+    assert witness["profile_shapes_match"]
+    assert witness["profile_values_finite"]
+    assert witness["expected_Aa_recomputed_exactly"]
+    assert witness["expected_K_recomputed_exactly"]
+    assert witness["passed"]
+
+    missing = l3_projection_profile_capture_witness(
+        alpha, None, pr, pt, expected["Aa"], expected["K"]
+    )
+    assert not missing["raw_inputs_present"]
+    assert not missing["passed"]
+
+    mismatched_shape = l3_projection_profile_capture_witness(
+        alpha, rho[:-1], pr, pt, expected["Aa"], expected["K"]
+    )
+    assert not mismatched_shape["profile_shapes_match"]
+    assert not mismatched_shape["passed"]
+
+    tampered_Aa = expected["Aa"].copy()
+    tampered_Aa[0] += 1.0e-10
+    tampered = l3_projection_profile_capture_witness(
+        alpha, rho, pr, pt, tampered_Aa, expected["K"]
+    )
+    assert not tampered["expected_Aa_recomputed_exactly"]
+    assert not tampered["passed"]

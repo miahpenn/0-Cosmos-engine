@@ -133,6 +133,60 @@ def source_increment_roundoff_witness(total, vacuum, expected):
 
 
 
+def l3_projection_profile_capture_witness(
+    alpha, rho, pr, pt, saved_expected_Aa, saved_expected_K
+) -> dict[str, bool]:
+    """Fail closed unless captured raw projection profiles reproduce the saved L3 terms."""
+    raw_profiles = (alpha, rho, pr, pt)
+    raw_inputs_present = all(value is not None for value in raw_profiles)
+    saved_terms_present = saved_expected_Aa is not None and saved_expected_K is not None
+    witness = {
+        "raw_inputs_present": bool(raw_inputs_present and saved_terms_present),
+        "profile_shapes_match": False,
+        "profile_values_finite": False,
+        "expected_Aa_recomputed_exactly": False,
+        "expected_K_recomputed_exactly": False,
+        "passed": False,
+    }
+    if not witness["raw_inputs_present"]:
+        return witness
+
+    try:
+        alpha_array, rho_array, pr_array, pt_array = (
+            np.asarray(value, dtype=float) for value in raw_profiles
+        )
+        saved_Aa = np.asarray(saved_expected_Aa, dtype=float)
+        saved_K = np.asarray(saved_expected_K, dtype=float)
+    except (TypeError, ValueError, OverflowError):
+        return witness
+
+    all_arrays = (alpha_array, rho_array, pr_array, pt_array, saved_Aa, saved_K)
+    witness["profile_shapes_match"] = bool(
+        all(array.shape == alpha_array.shape for array in all_arrays)
+    )
+    witness["profile_values_finite"] = bool(
+        all(np.all(np.isfinite(array)) for array in all_arrays)
+    )
+    if witness["profile_shapes_match"] and witness["profile_values_finite"]:
+        rebuilt = l3_matter_terms_from_projection(
+            alpha_array, rho_array, pr_array, pt_array
+        )
+        witness["expected_Aa_recomputed_exactly"] = bool(
+            np.array_equal(rebuilt["Aa"], saved_Aa)
+        )
+        witness["expected_K_recomputed_exactly"] = bool(
+            np.array_equal(rebuilt["K"], saved_K)
+        )
+    witness["passed"] = bool(
+        witness["raw_inputs_present"]
+        and witness["profile_shapes_match"]
+        and witness["profile_values_finite"]
+        and witness["expected_Aa_recomputed_exactly"]
+        and witness["expected_K_recomputed_exactly"]
+    )
+    return witness
+
+
 def load_frozen_state(npz_path: Path):
     """Build current-main state containers, then replace all numeric profiles."""
     with np.load(npz_path, allow_pickle=False) as data:
@@ -859,6 +913,9 @@ class RadiationStageCapture:
                             - np.asarray(vacuum_l3["Aa"], dtype=float)
                         ),
                         "l3_Aa_actual": np.asarray(result["primary_l3"]["Aa"], dtype=float),
+                        "l3_projection_rho": np.asarray(assembled_stress.rho, dtype=float),
+                        "l3_projection_pr": np.asarray(assembled_stress.pr, dtype=float),
+                        "l3_projection_pt": np.asarray(assembled_stress.pt, dtype=float),
                         "l3_Aa_matter_from_TotalStressEnergy": l3_expected["Aa"],
                         "l3_Aa_total_minus_vacuum_residual": l3_Aa_residual,
                         "l3_Aa_operand_scaled_roundoff_bound": l3_Aa_bound,
@@ -1200,17 +1257,39 @@ class RadiationStageCapture:
             and len(set(failed_trial_keys)) == len(failed_trial_keys)
             and failed_trial_rhs_match_count == len(self.failed_trials)
         )
-        l3_oracle_stages = [
-            {
+        l3_oracle_stages = []
+        for rec in self.geometry_source_records:
+            prefix = rec["prefix"]
+            profile_keys = {
+                "alpha": f"{prefix}__metric__alpha",
+                "rho": f"{prefix}__source__l3_projection_rho",
+                "pr": f"{prefix}__source__l3_projection_pr",
+                "pt": f"{prefix}__source__l3_projection_pt",
+                "expected_Aa": f"{prefix}__source__l3_Aa_matter_from_TotalStressEnergy",
+                "expected_K": f"{prefix}__source__l3_K_matter_from_TotalStressEnergy",
+            }
+            profile_values = {
+                name: self.arrays.get(key) for name, key in profile_keys.items()
+            }
+            profile_witness = l3_projection_profile_capture_witness(
+                profile_values["alpha"],
+                profile_values["rho"],
+                profile_values["pr"],
+                profile_values["pt"],
+                profile_values["expected_Aa"],
+                profile_values["expected_K"],
+            )
+            oracle_record = rec["l3_total_stress_projection_oracle"]
+            oracle_record["raw_projection_profile_keys"] = profile_keys
+            oracle_record["raw_projection_profile_witness"] = profile_witness
+            l3_oracle_stages.append({
                 "input_t": rec["input_t"],
                 "attempt_id": rec["attempt_id"],
                 "trial_dt": rec["trial_dt"],
                 "ordinal": rec["ordinal"],
                 "stage_state_sha256": rec["stage_state_sha256"],
-                **rec["l3_total_stress_projection_oracle"],
-            }
-            for rec in self.geometry_source_records
-        ]
+                **oracle_record,
+            })
         l3_oracle_results = {
             "assembly": "engine.stress_energy.assemble_total_stress_energy",
             "expected_Aa_term": "-16*pi*alpha*(TotalStressEnergy.pr-TotalStressEnergy.pt)/3",
@@ -1224,15 +1303,27 @@ class RadiationStageCapture:
                 bool(l3_oracle_stages)
                 and all(stage["K"]["within_bound_all_cells"] for stage in l3_oracle_stages)
             ),
+            "raw_projection_profile_input_stage_count": sum(
+                stage["raw_projection_profile_witness"]["passed"]
+                for stage in l3_oracle_stages
+            ),
+            "all_captured_raw_projection_profile_inputs_present_shaped_finite_and_exactly_recomputed": (
+                bool(l3_oracle_stages)
+                and all(stage["raw_projection_profile_witness"]["passed"] for stage in l3_oracle_stages)
+            ),
             "stages": l3_oracle_stages,
             "interpretation_limit": (
                 "This compares adapter L3 total-minus-vacuum increments with the "
                 "separate TotalStressEnergy assembly at each captured stage. It is "
                 "not a full trajectory conservation or equation-validity proof."
             ),
+            "raw_profile_reproducibility": (
+                "Raw rho/pr/pt and alpha profiles are preserved with NPZ key references; "
+                "the expected Aa/K vectors are rebuilt exactly from those operands."
+            ),
         }
         summary = {
-            "schema": "radiation_explicit_predictor_stage_capture_v4_rhs_and_independent_l3_stress",
+            "schema": "radiation_explicit_predictor_stage_capture_v5_rhs_retry_l3_raw_projection_profiles",
             "diagnostic_only": True,
             "rhs_capture_identity_pass": bool(rhs_keys_match_index),
             "failed_predictor_rhs_identity_pass": bool(failed_trial_rhs_identity_pass),
@@ -1542,6 +1633,14 @@ def main() -> int:
         elif expected_noncompletion:
             status = "bounded_probe_records_radiation_noncompletion_fail_closed"
         else:
+            status = "unexpected_outcome"
+
+        raw_projection_profiles_pass = (
+            capture_summary.get("l3_total_stress_projection_oracle", {}).get(
+                "all_captured_raw_projection_profile_inputs_present_shaped_finite_and_exactly_recomputed"
+            ) is True
+        )
+        if not raw_projection_profiles_pass:
             status = "unexpected_outcome"
 
         report["stage_capture"] = {
