@@ -113,14 +113,15 @@ def test_active_rhs_beta_source_pair_cancels_with_lapse_and_shift(monkeypatch):
         rtol=2.0e-12, atol=1.0e-18,
     )
 
-    # energy_t stores U_t=sqrt(-g) T^t_t. Its exchange source is
-    # sqrt(-g)*Q_t = alpha*sqrt(gamma)*beta_DM*rho_DM*d_t(phi);
-    # it is not the Eulerian energy-density projection rate.
+    # The active finite-volume state stores sqrt(gamma)*E; its covector
+    # energy source is -sqrt(gamma)*(Q_t-beta^r*Q_r). The mixed-component
+    # helper is a distinct representation and is not used by this update.
     dphi_t = np.asarray(scalar_off.phi)
     q_t = beta_source * rho_dm * dphi_t
-    expected_dm_ut_source = alpha * sqrt_gamma * q_t
+    q_r = beta_source * rho_dm * dphi_r
+    expected_dm_energy_source = -sqrt_gamma * (q_t - shift * q_r)
     np.testing.assert_allclose(
-        delta_dm_energy_rhs, expected_dm_ut_source,
+        delta_dm_energy_rhs, expected_dm_energy_source,
         rtol=2.0e-10, atol=2.0e-20,
     )
 
@@ -288,7 +289,7 @@ def test_beta_source_pair_cancels_at_actual_step_rhs_stages(monkeypatch):
         # The active finite-volume state stores sqrt(gamma)*E. Its
         # energy source is -sqrt(gamma)*(Q_t-beta^r*Q_r); the separate
         # mixed-component helper is not this active update path.
-        expected_energy_source = -sqrt_gamma * (q_t - shift * q_r)
+        expected_energy_source = -sqrt_gamma * (q_t - geom.beta * q_r)
         np.testing.assert_allclose(
             delta_energy,
             expected_energy_source,
