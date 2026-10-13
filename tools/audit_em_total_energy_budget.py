@@ -44,6 +44,8 @@ R_MAX = 24.0
 FINAL_TIME = 0.03
 CFL = 0.01
 CHECKPOINT_INTERVAL = 0.01
+TEMPORAL_REFINEMENT_RESOLUTION = 48
+TIME_STEP_CFL_VALUES = (0.01, 0.005, 0.0025)
 DENSITY_PROFILE = ((0.0, 2.0e-5), (R_MAX, 2.0e-5))
 CHARGE_TO_MASS_ARMS = (0.0, 0.25)
 FIXED_AREAL_RADIUS = 10.0
@@ -368,6 +370,20 @@ def _worldtube_sample(kernel, state) -> dict:
     }
 
 
+def _fixed_R_rate_snapshot(sample: dict) -> dict:
+    """Keep signed fixed-R rate components for one actual PIRK RHS stage."""
+    keys = (
+        "tube_coordinate_r",
+        "tube_mass_misner_sharp",
+        "tube_stress_flux",
+        "tube_radial_pressure_work",
+        "tube_coordinate_sweep",
+        "tube_predicted_fixed_R_mass_rate",
+        "tube_native_mass_gradient_identity_residual",
+    )
+    return {"t": float(sample["t"]), **{key: float(sample[key]) for key in keys}}
+
+
 def _species_name(stage_state, species_state) -> str:
     for name in ("dark_matter", "baryons", "radiation", "charged_dust"):
         current = getattr(stage_state.matter, name, None)
@@ -689,6 +705,11 @@ def _serialize_step(kernel, step: dict) -> dict:
     before = step["state_before"]
     after = step["state_after"]
     dt = float(step["dt"])
+    # Preserve rates evaluated on the actual stage states, not only accepted slices.
+    fixed_R_stage_rates = {
+        "start": _fixed_R_rate_snapshot(_worldtube_sample(kernel, stages[0]["stage_state"])),
+        "primary_predictor": _fixed_R_rate_snapshot(_worldtube_sample(kernel, stages[1]["stage_state"])),
+    }
     matter_before = _state_energy_integrals(before)
     matter_after = _state_energy_integrals(after)
     matter_step_rows = {}
@@ -758,6 +779,7 @@ def _serialize_step(kernel, step: dict) -> dict:
         "t_before": float(step["t_before"]),
         "t_after": float(step["t_after"]),
         "dt": dt,
+        "fixed_R_stage_rates": fixed_R_stage_rates,
         "matter_species": matter_step_rows,
         "em_field_energy_before": em_before,
         "em_field_energy_after": em_after,
@@ -823,6 +845,167 @@ def _finish_run(kernel, run: dict, result, output_dir: Path) -> dict:
         "source_line": "explicit opt-in separate charged dust; Gaussian c=1 research convention",
         "accepted_slice_rows": state_rows,
         "step_rows": steps,
+    }
+
+
+def _fixed_R_interval_balance(run: dict, *, label: str = "run") -> list[dict]:
+    """Compare adjacent accepted-state M_MS rates with endpoint and live-stage rates."""
+    states = run.get("accepted_slice_rows", [])
+    steps = run.get("step_rows", [])
+    if len(states) < 2:
+        raise RuntimeError(f"{label}: need at least two accepted states")
+    if len(steps) != len(states) - 1:
+        raise RuntimeError(f"{label}: expected one recorded PIRK step per accepted-state interval")
+    times = np.asarray([row["t"] for row in states], dtype=float)
+    masses = np.asarray([row["tube_mass_misner_sharp"] for row in states], dtype=float)
+    predicted = np.asarray([row["tube_predicted_fixed_R_mass_rate"] for row in states], dtype=float)
+    if not (np.all(np.isfinite(times)) and np.all(np.isfinite(masses)) and np.all(np.isfinite(predicted))):
+        raise RuntimeError(f"{label}: non-finite accepted-state fixed-R operand")
+    dts = np.diff(times)
+    if np.any(dts <= 0.0):
+        raise RuntimeError(f"{label}: accepted-state times must be strictly increasing")
+
+    rows = []
+    for i, step in enumerate(steps):
+        dt = float(dts[i])
+        if not math.isclose(float(step["t_before"]), float(times[i]), rel_tol=0.0, abs_tol=1e-12):
+            raise RuntimeError(f"{label}: step {i} start time does not match accepted state")
+        if not math.isclose(float(step["t_after"]), float(times[i + 1]), rel_tol=0.0, abs_tol=1e-12):
+            raise RuntimeError(f"{label}: step {i} end time does not match accepted state")
+        if not math.isclose(float(step["dt"]), dt, rel_tol=1e-10, abs_tol=1e-14):
+            raise RuntimeError(f"{label}: step {i} dt does not match accepted interval")
+        stage_rates = step.get("fixed_R_stage_rates")
+        if not isinstance(stage_rates, dict) or not {"start", "primary_predictor"} <= set(stage_rates):
+            raise RuntimeError(f"{label}: step {i} missing start/predictor fixed-R stage rates")
+
+        mass_rate = float((masses[i + 1] - masses[i]) / dt)
+        endpoint_prediction = float(0.5 * (predicted[i] + predicted[i + 1]))
+        start_rate = float(stage_rates["start"]["tube_predicted_fixed_R_mass_rate"])
+        predictor_rate = float(stage_rates["primary_predictor"]["tube_predicted_fixed_R_mass_rate"])
+        stage_pair_average = 0.5 * (start_rate + predictor_rate)
+        rows.append({
+            "interval_index": i,
+            "t_start": float(times[i]),
+            "t_end": float(times[i + 1]),
+            "dt": dt,
+            "mass_rate_finite_difference": mass_rate,
+            "accepted_state_endpoint_trapezoid_prediction": endpoint_prediction,
+            "accepted_interval_residual": mass_rate - endpoint_prediction,
+            "start_stage_predicted_rate": start_rate,
+            "primary_predictor_stage_predicted_rate": predictor_rate,
+            "stage_pair_average_prediction_diagnostic_only": stage_pair_average,
+            "mass_rate_minus_stage_pair_average_diagnostic_only": mass_rate - stage_pair_average,
+            "start_stage_components": stage_rates["start"],
+            "primary_predictor_stage_components": stage_rates["primary_predictor"],
+        })
+    return rows
+
+
+def _pair_fixed_R_interval_rows(charged: list[dict], neutral: list[dict], *, label: str) -> list[dict]:
+    """Pair charged and neutral intervals only when their accepted time grids align."""
+    if len(charged) != len(neutral):
+        raise RuntimeError(f"{label}: charged/neutral interval counts do not match")
+    result = []
+    delta_fields = (
+        "mass_rate_finite_difference",
+        "accepted_state_endpoint_trapezoid_prediction",
+        "accepted_interval_residual",
+        "start_stage_predicted_rate",
+        "primary_predictor_stage_predicted_rate",
+        "stage_pair_average_prediction_diagnostic_only",
+        "mass_rate_minus_stage_pair_average_diagnostic_only",
+    )
+    for i, (c, n) in enumerate(zip(charged, neutral)):
+        for time_key in ("t_start", "t_end", "dt"):
+            if not math.isclose(float(c[time_key]), float(n[time_key]), rel_tol=0.0, abs_tol=1e-12):
+                raise RuntimeError(f"{label}: charged/neutral {time_key} mismatch at interval {i}")
+        row = {"interval_index": i, "t_start": c["t_start"], "t_end": c["t_end"], "dt": c["dt"]}
+        for key in delta_fields:
+            row[f"charged_minus_neutral_{key}"] = float(c[key] - n[key])
+        result.append(row)
+    return result
+
+
+def _run_fixed_N_temporal_refinement(temp_root: Path) -> list[dict]:
+    """Run a paired fixed-N CFL sweep; no production operators are changed."""
+    temporal_runs = []
+    for cfl in TIME_STEP_CFL_VALUES:
+        for eta in CHARGE_TO_MASS_ARMS:
+            arm_dir = temp_root / f"fixed_N_cfl_{cfl:.5f}" / f"q_over_m_{eta:.2f}"
+            config = CampaignConfig(
+                resolutions=(TEMPORAL_REFINEMENT_RESOLUTION,),
+                r_max=R_MAX,
+                cfl=cfl,
+                final_time=FINAL_TIME,
+                checkpoint_interval=CHECKPOINT_INTERVAL,
+                output_dir=str(arm_dir),
+                radial_maxwell_charge_to_mass=eta,
+                charged_dust_density_profile=DENSITY_PROFILE,
+            )
+            kernel = AuditedKernel()
+            with _instrument_rhs(kernel):
+                results = run_campaign(kernel=kernel, config=config)
+            if len(results) != 1 or len(kernel.audit_runs) != 1:
+                raise RuntimeError("fixed-N temporal refinement did not collect exactly one run")
+            run = _finish_run(kernel, kernel.audit_runs[0], results[0], arm_dir)
+            run["cfl"] = float(cfl)
+            run["nominal_dt"] = float(cfl * (R_MAX / TEMPORAL_REFINEMENT_RESOLUTION))
+            run["accepted_interval_balance"] = _fixed_R_interval_balance(
+                run, label=f"N={TEMPORAL_REFINEMENT_RESOLUTION}, CFL={cfl}, q/m={eta}"
+            )
+            temporal_runs.append(run)
+    return temporal_runs
+
+
+def _summarize_fixed_N_temporal_refinement(runs: list[dict]) -> dict:
+    """Summarize matched charged/neutral runs without fitting a physical tolerance."""
+    rows = []
+    for cfl in TIME_STEP_CFL_VALUES:
+        neutral = next(r for r in runs if r["cfl"] == cfl and r["q_over_m"] == 0.0)
+        charged = next(r for r in runs if r["cfl"] == cfl and r["q_over_m"] == 0.25)
+        n_intervals = neutral["accepted_interval_balance"]
+        c_intervals = charged["accepted_interval_balance"]
+        paired = _pair_fixed_R_interval_rows(c_intervals, n_intervals, label=f"fixed-N CFL={cfl}")
+        if not paired:
+            raise RuntimeError(f"fixed-N CFL={cfl}: no accepted intervals to summarize")
+        final = paired[-1]
+        rows.append({
+            "resolution": TEMPORAL_REFINEMENT_RESOLUTION,
+            "cfl": float(cfl),
+            "nominal_dt": float(charged["nominal_dt"]),
+            "neutral_steps": int(neutral["steps"]),
+            "charged_steps": int(charged["steps"]),
+            "charged_final_field_energy": float(charged["accepted_slice_rows"][-1]["em_field_energy"]),
+            "charged_final_outer_charge": float(charged["accepted_slice_rows"][-1]["outer_enclosed_charge"]),
+            "charged_final_gauss_shell_residual": float(charged["accepted_slice_rows"][-1]["gauss_shell_residual_absmax_recomputed"]),
+            "max_abs_charged_interval_residual": max(abs(x["accepted_interval_residual"]) for x in c_intervals),
+            "max_abs_neutral_interval_residual": max(abs(x["accepted_interval_residual"]) for x in n_intervals),
+            "first_interval_charged_minus_neutral_residual": paired[0]["charged_minus_neutral_accepted_interval_residual"],
+            "final_interval_charged_minus_neutral_residual": final["charged_minus_neutral_accepted_interval_residual"],
+            "max_abs_charged_minus_neutral_interval_residual": max(
+                abs(x["charged_minus_neutral_accepted_interval_residual"]) for x in paired
+            ),
+            "final_interval_charged_minus_neutral_mass_rate": final["charged_minus_neutral_mass_rate_finite_difference"],
+            "final_interval_charged_minus_neutral_endpoint_prediction": final["charged_minus_neutral_accepted_state_endpoint_trapezoid_prediction"],
+            "final_interval_charged_minus_neutral_start_stage_rate": final["charged_minus_neutral_start_stage_predicted_rate"],
+            "final_interval_charged_minus_neutral_predictor_stage_rate": final["charged_minus_neutral_primary_predictor_stage_predicted_rate"],
+            "final_interval_charged_minus_neutral_stage_pair_average_diagnostic": final["charged_minus_neutral_stage_pair_average_prediction_diagnostic_only"],
+            "final_interval_charged_minus_neutral_mass_rate_minus_stage_pair_average": final["charged_minus_neutral_mass_rate_minus_stage_pair_average_diagnostic_only"],
+            "paired_interval_rows": paired,
+        })
+    return {
+        "resolution": TEMPORAL_REFINEMENT_RESOLUTION,
+        "r_max": R_MAX,
+        "final_time": FINAL_TIME,
+        "cfl_values": list(TIME_STEP_CFL_VALUES),
+        "q_over_m_arms": list(CHARGE_TO_MASS_ARMS),
+        "interpretation": [
+            "Spatial resolution is fixed while the nominal step decreases by factors of two.",
+            "Accepted-interval secants are compared with trapezoidal endpoint rates and are kept distinct from actual PIRK start/predictor-stage rates.",
+            "The average of start/predictor diagnostic rates is not asserted to be the production integrator's exact quadrature.",
+            "Charged-minus-neutral differences are only a discriminator; no physical/global residual threshold is imposed.",
+        ],
+        "rows": rows,
     }
 
 
@@ -913,6 +1096,7 @@ def run_joined_audit(root: Path, output_path: Path) -> dict:
                 raise RuntimeError("observer did not collect every requested resolution")
             for run, result in zip(kernel.audit_runs, results):
                 all_runs.append(_finish_run(kernel, run, result, arm_dir))
+        temporal_runs = _run_fixed_N_temporal_refinement(temp_root)
 
     # Verify the explicit neutral control, but do not assert a fitted threshold
     # on any physical/global residual.
@@ -943,6 +1127,8 @@ def run_joined_audit(root: Path, output_path: Path) -> dict:
         },
         "runs": all_runs,
         "summary": _summaries(all_runs),
+        "fixed_N_temporal_refinement": _summarize_fixed_N_temporal_refinement(temporal_runs),
+        "fixed_N_temporal_refinement_runs": temporal_runs,
     }
     report = _json_safe(report)
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -977,7 +1163,26 @@ def write_step_summary(report: dict) -> None:
             f"{row['charged_gauss_shell_residual_absmax_final']:.6e} | "
             f"{row['charged_fixed_R_mass_rate_residual_absmax']:.6e} |"
         )
+    temporal = report["fixed_N_temporal_refinement"]
     lines.extend([
+        "",
+        "### Fixed-N time-step discriminator",
+        "",
+        f"Resolution held at N={temporal['resolution']}; q/m=0 and 0.25 paired at CFL values {temporal['cfl_values']}.",
+        "",
+        "| CFL | nominal dt | steps | final interval Δ(residual) | final interval Δ(measured M rate) | final interval Δ(endpoint prediction) |",
+        "|---:|---:|---:|---:|---:|---:|",
+    ])
+    for row in temporal["rows"]:
+        lines.append(
+            f"| {row['cfl']:.5g} | {row['nominal_dt']:.6e} | {row['charged_steps']} | "
+            f"{row['final_interval_charged_minus_neutral_residual']:.6e} | "
+            f"{row['final_interval_charged_minus_neutral_mass_rate']:.6e} | "
+            f"{row['final_interval_charged_minus_neutral_endpoint_prediction']:.6e} |"
+        )
+    lines.extend([
+        "",
+        "The fixed-N sweep retains adjacent accepted-state interval secants, endpoint-rate trapezoids, and actual start/predictor-stage rates as separate witnesses. This does not identify a missing physics term or establish a global conserved energy.",
         "",
         "The full signed matter face-flux/source profiles and EM stage terms are in the uploaded JSON artifact. A nonzero fixed-tube remainder is reported as measured, not fitted away. The combined matter-plus-EM remainder is not a global conservation residual because scalar and gravity accounting are not fully assembled.",
         "",
@@ -1004,6 +1209,7 @@ def main() -> int:
             for value in report["provenance"]["production_blob_pins"].values()
         ),
         "paired_neutral_vs_charged": report["summary"]["paired_neutral_vs_charged"],
+        "fixed_N_temporal_refinement": report["fixed_N_temporal_refinement"],
         "full_report_path": str(args.output.resolve()),
     }
     print("EM_TOTAL_ENERGY_LEDGER_REPORT=" + json.dumps(concise, sort_keys=True, allow_nan=False), flush=True)
