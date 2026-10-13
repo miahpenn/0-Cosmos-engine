@@ -2,7 +2,7 @@
 
 ## Current engineering snapshot — 2026-10-13 UTC
 
-**Current `main` head:** `f6ab4ddf963821ef7421d008ce43f168151017f5` ([PR #80](https://github.com/miahpenn/0-Cosmos-engine/pull/80), endpoint-ledger consistency). The current main tree `4d9c9e6d415e7b9684ebd7bec01e24efaf788f7d` is identical to the exact-head tested tree from commit `17a615fb6869c4c542e71969ce115ea768d7763e`; the squash merge changed the commit ancestry, not the tree contents.
+**Latest code/test promotion:** `f6ab4ddf963821ef7421d008ce43f168151017f5` ([PR #80](https://github.com/miahpenn/0-Cosmos-engine/pull/80), endpoint-ledger consistency). The current `main` code and test files match the exact-head tested tree from commit `17a615fb6869c4c542e71969ce115ea768d7763e`; the repository-wide tree differs only because this status-document refresh updates `docs/STATUS.md`. The tested tree SHA was `4d9c9e6d415e7b9684ebd7bec01e24efaf788f7d`.
 
 ### Reliability and evidence-integrity changes promoted to main
 
