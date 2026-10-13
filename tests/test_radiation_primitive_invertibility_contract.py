@@ -404,7 +404,7 @@ def test_near_cone_flux_regression_distinguishes_rounded_v_squared_product():
     # Homogeneously rescale rho and p at the captured velocity. This preserves
     # the perfect-radiation rho=3p relation and places the advective product at
     # a float64 rounding boundary where the legacy expression is distinguishable.
-    h = 1.1853981428841001e-25
+    h = 1.1861093817698306e-25
     pressure = h / 4.0
     primitive = FluidPrimitive(
         rho=3.0 * pressure,
