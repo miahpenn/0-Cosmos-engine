@@ -1,0 +1,159 @@
+name: Diagnostic - full radial Misner-Sharp direct RHS audit
+
+on:
+  push:
+    branches:
+      - diag/full-radial-ms-direct-rhs-2026-10-13
+    paths:
+      - tools/audit_full_radial_ms_direct_rhs.py
+      - .github/workflows/full-radial-ms-direct-rhs-audit.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: full-radial-ms-direct-rhs-2026-10-13
+  cancel-in-progress: false
+
+jobs:
+  full-radial-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      PYTHONUNBUFFERED: "1"
+      BASE_SOURCE_COMMIT: 7776a9156c24303c47a57e171a2d5997f6676668
+      CANDIDATE_INITIAL_SOURCE_COMMIT: c2379c80ce0d9dbb598b837253291f336d559cda
+      VENDOR_COMMIT: d6052d605673ce9d82cdc99b0df79855fa2ea215
+    steps:
+      - name: Checkout diagnostic harness
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Fail closed on source and initializer identities
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin "$BASE_SOURCE_COMMIT" "$CANDIDATE_INITIAL_SOURCE_COMMIT"
+          test "$(git rev-parse "$BASE_SOURCE_COMMIT:engine/v55_initial.py")" = "4cfbfe4be6ac3ce6ed492f4e435186997d94116a"
+          test "$(git rev-parse "$BASE_SOURCE_COMMIT:engine/cmc_gauge.py")" = "b1e6b3e95ff37702509e1b38ec6401d10e2482c3"
+          test "$(git rev-parse "$CANDIDATE_INITIAL_SOURCE_COMMIT:engine/v55_initial.py")" = "2e5c41c10d4bbb53df3d7299b898e97f3239c120"
+          test "$(git rev-parse "$BASE_SOURCE_COMMIT:engine/production_kernel.py")" = "$(git rev-parse HEAD:engine/production_kernel.py)"
+          test "$(git rev-parse "$BASE_SOURCE_COMMIT:engine/production_kernel.py")" = "$(git rev-parse "$CANDIDATE_INITIAL_SOURCE_COMMIT:engine/production_kernel.py")"
+          test "$(git rev-parse "$BASE_SOURCE_COMMIT:engine/v55_pirk_adapter.py")" = "$(git rev-parse HEAD:engine/v55_pirk_adapter.py)"
+          test "$(git -C vendor/bb-palatini-unified-r0 rev-parse HEAD)" = "$VENDOR_COMMIT"
+          test "$(git rev-parse "$BASE_SOURCE_COMMIT:vendor/bb-palatini-unified-r0")" = "$VENDOR_COMMIT"
+          printf 'BASE_SOURCE_COMMIT=%s\nCANDIDATE_INITIAL_SOURCE_COMMIT=%s\nVENDOR_COMMIT=%s\n' "$BASE_SOURCE_COMMIT" "$CANDIDATE_INITIAL_SOURCE_COMMIT" "$VENDOR_COMMIT"
+          printf 'DIAGNOSTIC_HEAD=%s\n' "$(git rev-parse HEAD)"
+          python -m py_compile tools/audit_full_radial_ms_direct_rhs.py
+
+      - name: Create clean production-source worktree
+        shell: bash
+        run: |
+          set -euo pipefail
+          git worktree add --detach "$RUNNER_TEMP/cosmos-ms-rhs-source" "$BASE_SOURCE_COMMIT"
+          git -C "$RUNNER_TEMP/cosmos-ms-rhs-source" submodule update --init --recursive
+          mkdir -p "$RUNNER_TEMP/cosmos-ms-rhs-source/tools"
+          cp tools/audit_full_radial_ms_direct_rhs.py "$RUNNER_TEMP/cosmos-ms-rhs-source/tools/audit_full_radial_ms_direct_rhs.py"
+          test "$(git -C "$RUNNER_TEMP/cosmos-ms-rhs-source" rev-parse HEAD)" = "$BASE_SOURCE_COMMIT"
+          test "$(git -C "$RUNNER_TEMP/cosmos-ms-rhs-source/vendor/bb-palatini-unified-r0" rev-parse HEAD)" = "$VENDOR_COMMIT"
+
+      - name: Run baseline and quadrature-only one-step profiles
+        shell: bash
+        run: |
+          set -uo pipefail
+          WORKTREE="$RUNNER_TEMP/cosmos-ms-rhs-source"
+          OUT="$GITHUB_WORKSPACE/results/full-radial-ms-direct-rhs"
+          mkdir -p "$OUT"
+          rc_all=0
+
+          run_arm() {
+            local arm="$1"
+            git -C "$WORKTREE" checkout "$BASE_SOURCE_COMMIT" -- engine/v55_initial.py engine/cmc_gauge.py
+            if [[ "$arm" == "quadrature_only" ]]; then
+              git show "$CANDIDATE_INITIAL_SOURCE_COMMIT:engine/v55_initial.py" > "$WORKTREE/engine/v55_initial.py"
+            fi
+            if [[ "$(git -C "$WORKTREE" hash-object engine/v55_initial.py)" != "$(test_blob_for_arm "$arm")" ]]; then
+              echo "initializer blob mismatch for $arm" >&2
+              return 2
+            fi
+            if [[ "$(git -C "$WORKTREE" hash-object engine/cmc_gauge.py)" != "b1e6b3e95ff37702509e1b38ec6401d10e2482c3" ]]; then
+              echo "CMC row unexpectedly changed for $arm" >&2
+              return 2
+            fi
+            echo "ARM=$arm INITIAL_BLOB=$(git -C "$WORKTREE" hash-object engine/v55_initial.py) CMC_BLOB=$(git -C "$WORKTREE" hash-object engine/cmc_gauge.py)"
+            (
+              cd "$WORKTREE"
+              PYTHONPATH=. python tools/audit_full_radial_ms_direct_rhs.py --arm "$arm" --output-dir "$OUT/$arm"
+            )
+            local rc=$?
+            printf '%s\t%s\n' "$arm" "$rc" >> "$OUT/ARM_EXIT_CODES.tsv"
+            return "$rc"
+          }
+
+          test_blob_for_arm() {
+            if [[ "$1" == "baseline" ]]; then
+              printf '%s' "4cfbfe4be6ac3ce6ed492f4e435186997d94116a"
+            else
+              printf '%s' "2e5c41c10d4bbb53df3d7299b898e97f3239c120"
+            fi
+          }
+
+          run_arm baseline || rc_all=1
+          run_arm quadrature_only || rc_all=1
+
+          if [[ -f "$OUT/baseline/report.json" && -f "$OUT/quadrature_only/report.json" ]]; then
+            python - "$OUT" <<'PY'
+          import json, pathlib, sys
+          root = pathlib.Path(sys.argv[1])
+          base = json.loads((root / "baseline/report.json").read_text())
+          quad = json.loads((root / "quadrature_only/report.json").read_text())
+          if base["status"] != "completed" or quad["status"] != "completed":
+              raise SystemExit("one or both arm reports are not completed")
+          if base["resolutions"] != quad["resolutions"]:
+              raise SystemExit("paired resolution contract mismatch")
+          rows = []
+          for b, q in zip(base["records"], quad["records"]):
+              rows.append({
+                  "N": b["N"],
+                  "dt": b["dt"],
+                  "baseline_t0_balance": b["first_step_balance"]["fixed_r10"],
+                  "quadrature_t0_balance": q["first_step_balance"]["fixed_r10"],
+                  "baseline_initialization": b["initializer_trace"]["fixed_r10"],
+                  "quadrature_initialization": q["initializer_trace"]["fixed_r10"],
+              })
+          pair = {
+              "schema": "full_radial_ms_direct_rhs_paired_comparison_v1",
+              "base_source_commit": base["base_source_commit"],
+              "candidate_initializer_blob": quad["candidate_initializer_blob"],
+              "vendor": base["pinned_vendor_commit"],
+              "status": "paired_one_step_arms_completed",
+              "fixed_coordinate_r": 10.0,
+              "rows": rows,
+              "interpretation_limit": "Only one accepted step at each resolution; diagnostic-only, no scientific admission.",
+          }
+          (root / "paired_summary.json").write_text(json.dumps(pair, sort_keys=True, indent=2, allow_nan=False) + "\n")
+          PY
+            (cd "$OUT" && sha256sum baseline/report.json baseline/profiles.npz quadrature_only/report.json quadrature_only/profiles.npz paired_summary.json > SHA256SUMS.txt)
+          else
+            rc_all=1
+          fi
+          exit "$rc_all"
+
+      - name: Upload full radial evidence even on failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: full-radial-ms-direct-rhs-audit
+          path: results/full-radial-ms-direct-rhs/
+          if-no-files-found: warn
+          retention-days: 90
