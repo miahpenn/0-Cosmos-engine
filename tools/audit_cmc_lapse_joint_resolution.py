@@ -797,10 +797,12 @@ def run_resolution_audit(output_dir: Path) -> dict:
     hp_refined_rows = [row for row in rows if row["high_precision_refined"] is not None]
     unscaled_pass_count = sum(bool(row["all_unscaled_checks_passed"]) for row in rows)
     balanced_pass_count = sum(bool(row["all_equilibrated_checks_passed"]) for row in rows)
+    sparse_pass_count = sum(bool(row["sparse"]["all_checks_passed"]) for row in rows)
+    sparse_balanced_pass_count = sum(bool(row["sparse_equilibrated"]["all_checks_passed"]) for row in rows)
     hp_pass_count = sum(bool(row["high_precision"]["all_checks_passed"]) for row in hp_rows)
     hp_refined_pass_count = sum(bool(row["high_precision_refined"]["all_checks_passed"]) for row in hp_refined_rows)
     report = {
-        "schema": "cmc_joint_discrete_target_lapse_initial_resolution_sweep_v3",
+        "schema": "cmc_joint_discrete_target_lapse_initial_resolution_sweep_v4",
         "status": "completed_diagnostic_only",
         "diagnostic_only": True,
         "no_evolution": True,
@@ -822,8 +824,9 @@ def run_resolution_audit(output_dir: Path) -> dict:
             "include_radiation": True,
             "all_slices_are_independent_initialized_t0_states": True,
             "states_are_not_same_time_late_trajectory_samples": True,
-            "linear_system_comparison": "original double solve, row/column-equilibrated solve, and 80-digit solve of the same float64-defined augmented coefficients at N=120/160",
+            "linear_system_comparison": "dense original/equilibrated solves, sparse CSR original/equilibrated solves using the same augmented coefficients, and 80-digit solve at N=120/160",
             "acceptance_bounds_unchanged_between_solvers": True,
+            "sparse_solve_uses_same_augmented_equations_and_rows": True,
             "high_precision_decimal_digits": 80,
             "high_precision_slices": [int(row["resolution"]) for row in hp_rows],
         },
@@ -833,6 +836,34 @@ def run_resolution_audit(output_dir: Path) -> dict:
             "all_unscaled_resolution_checks_passed": unscaled_pass_count == len(rows),
             "equilibrated_resolutions_passing": balanced_pass_count,
             "all_equilibrated_resolution_checks_passed": balanced_pass_count == len(rows),
+            "sparse_resolutions_passing": sparse_pass_count,
+            "all_sparse_resolution_checks_passed": sparse_pass_count == len(rows),
+            "sparse_equilibrated_resolutions_passing": sparse_balanced_pass_count,
+            "all_sparse_equilibrated_resolution_checks_passed": sparse_balanced_pass_count == len(rows),
+            "max_sparse_condition_number_2": float(
+                max(float(row["sparse"]["solver"]["condition_number_2_dense_diagnostic"]) for row in rows)
+            ),
+            "max_sparse_equilibrated_condition_number_2": float(
+                max(float(row["sparse_equilibrated"]["solver"]["condition_number_2_dense_diagnostic"]) for row in rows)
+            ),
+            "worst_sparse_interior_rhs_residual": float(
+                max(float(row["sparse"]["interior_rhs_residual_max_abs"]) for row in rows)
+            ),
+            "worst_sparse_equilibrated_interior_rhs_residual": float(
+                max(float(row["sparse_equilibrated"]["interior_rhs_residual_max_abs"]) for row in rows)
+            ),
+            "worst_sparse_interior_bound_ratio": float(
+                max(float(row["sparse"]["interior_roundoff_max_ratio"]) for row in rows)
+            ),
+            "worst_sparse_equilibrated_interior_bound_ratio": float(
+                max(float(row["sparse_equilibrated"]["interior_roundoff_max_ratio"]) for row in rows)
+            ),
+            "max_abs_sparse_target_minus_dense_unscaled": float(
+                max(abs(float(row["target_difference_sparse_minus_unscaled"])) for row in rows)
+            ),
+            "max_abs_sparse_equilibrated_target_minus_dense_unscaled": float(
+                max(abs(float(row["target_difference_sparse_equilibrated_minus_unscaled"])) for row in rows)
+            ),
             "high_precision_resolutions": [int(row["resolution"]) for row in hp_rows],
             "high_precision_resolutions_passing": hp_pass_count,
             "all_high_precision_resolution_checks_passed": bool(hp_rows) and hp_pass_count == len(hp_rows),
@@ -939,6 +970,16 @@ def main() -> int:
         "all_unscaled_resolution_checks_passed": sweep["all_unscaled_resolution_checks_passed"],
         "equilibrated_resolutions_passing": sweep["equilibrated_resolutions_passing"],
         "all_equilibrated_resolution_checks_passed": sweep["all_equilibrated_resolution_checks_passed"],
+        "sparse_resolutions_passing": sweep["sparse_resolutions_passing"],
+        "all_sparse_resolution_checks_passed": sweep["all_sparse_resolution_checks_passed"],
+        "sparse_equilibrated_resolutions_passing": sweep["sparse_equilibrated_resolutions_passing"],
+        "all_sparse_equilibrated_resolution_checks_passed": sweep["all_sparse_equilibrated_resolution_checks_passed"],
+        "worst_sparse_interior_rhs_residual": sweep["worst_sparse_interior_rhs_residual"],
+        "worst_sparse_equilibrated_interior_rhs_residual": sweep["worst_sparse_equilibrated_interior_rhs_residual"],
+        "worst_sparse_interior_bound_ratio": sweep["worst_sparse_interior_bound_ratio"],
+        "worst_sparse_equilibrated_interior_bound_ratio": sweep["worst_sparse_equilibrated_interior_bound_ratio"],
+        "max_sparse_condition_number_2": sweep["max_sparse_condition_number_2"],
+        "max_sparse_equilibrated_condition_number_2": sweep["max_sparse_equilibrated_condition_number_2"],
         "high_precision_resolutions": sweep["high_precision_resolutions"],
         "high_precision_resolutions_passing": sweep["high_precision_resolutions_passing"],
         "all_high_precision_resolution_checks_passed": sweep["all_high_precision_resolution_checks_passed"],
@@ -968,7 +1009,7 @@ def main() -> int:
     }, indent=2, sort_keys=True))
     # The new numerical method gate is the equilibrated solve; raw unscaled
     # failures are retained as a separate negative result, with no tolerance change.
-    return 0 if sweep["all_equilibrated_resolution_checks_passed"] else 2
+    return 0 if sweep["all_sparse_equilibrated_resolution_checks_passed"] else 2
 
 
 if __name__ == "__main__":
