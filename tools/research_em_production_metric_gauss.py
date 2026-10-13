@@ -216,6 +216,38 @@ class FrozenProductionMetric:
             raise ValueError("proper shell volume must be finite and positive")
         return volume
 
+    def proper_shell_charge(
+        self,
+        source: RadialCoulombReference,
+        lower: float,
+        upper: float,
+    ) -> float:
+        """Integrate 4*pi*rho_e*sqrt(gamma) over one target cell.
+
+        The manufactured source is integrated together with the metric's
+        proper-volume factor instead of sampling rho_e only at the cell centre.
+        Piecewise integration splits at metric sample centres, where the linear
+        interpolant's slope may change. Source support is clipped at R0; the
+        solver separately requires R0 to coincide with a target face.
+        """
+        if not isinstance(source, RadialCoulombReference):
+            raise ValueError("source must be a RadialCoulombReference")
+        lo = self._radius(lower)
+        hi = self._radius(upper)
+        if hi < lo:
+            raise ValueError("upper shell face must not precede lower face")
+        support_hi = min(hi, source.source_radius)
+        if support_hi <= lo:
+            return 0.0
+
+        def integrand(radius: float) -> float:
+            return FOUR_PI * source.charge_density(radius) * self.sqrt_gamma(radius)
+
+        charge = self._integrate_piecewise(integrand, lo, support_hi, order=8)
+        if not math.isfinite(charge):
+            raise ValueError("proper-volume shell charge must be finite")
+        return charge
+
     def reference_enclosed_charge(
         self, source: RadialCoulombReference, radius: float
     ) -> float:
@@ -309,9 +341,11 @@ def solve_discrete_production_metric_gauss(
     faces = tuple(i * dr for i in range(resolution + 1))
     centers = tuple(0.5 * (faces[i] + faces[i + 1]) for i in range(resolution))
     cell_charges = tuple(
-        source.charge_density(center) * metric.proper_shell_volume(left, right)
-        for left, right, center in zip(faces, faces[1:], centers)
+        metric.proper_shell_charge(source, left, right)
+        for left, right in zip(faces, faces[1:])
     )
+    if not all(math.isfinite(value) for value in cell_charges):
+        raise ValueError("finite-volume cell charges must remain finite")
 
     face_charges = [0.0]
     running = 0.0
@@ -319,7 +353,12 @@ def solve_discrete_production_metric_gauss(
     for charge in cell_charges:
         corrected = charge - compensation
         updated = running + corrected
-        compensation = (updated - running) - corrected
+        if not (math.isfinite(corrected) and math.isfinite(updated)):
+            raise ValueError("cumulative finite-volume charge must remain finite")
+        next_compensation = (updated - running) - corrected
+        if not math.isfinite(next_compensation):
+            raise ValueError("finite-volume charge compensation must remain finite")
+        compensation = next_compensation
         running = updated
         face_charges.append(running)
 
@@ -332,21 +371,33 @@ def solve_discrete_production_metric_gauss(
             continue
         areal = metric.areal_radius(radius)
         sqrt_gamma = metric.sqrt_gamma(radius)
-        fields_hat.append(charge / (areal * areal))
-        fields_r.append(charge / sqrt_gamma)
+        areal_squared = areal * areal
+        if not (
+            math.isfinite(areal_squared)
+            and areal_squared > 0.0
+            and math.isfinite(sqrt_gamma)
+            and sqrt_gamma > 0.0
+        ):
+            raise ValueError("production-metric face geometry must remain finite and positive")
+        field_hat = charge / areal_squared
+        field_r = charge / sqrt_gamma
+        if not (math.isfinite(field_hat) and math.isfinite(field_r)):
+            raise ValueError("reconstructed production-metric electric field must remain finite")
+        fields_hat.append(field_hat)
+        fields_r.append(field_r)
 
     fluxes = tuple(
         metric.sqrt_gamma(radius) * field
         for radius, field in zip(faces, fields_r)
     )
+    if not all(math.isfinite(value) for value in fluxes):
+        raise ValueError("production-metric Gauss fluxes must remain finite")
     residuals = tuple(
         fluxes[i + 1] - fluxes[i] - cell_charges[i]
         for i in range(resolution)
     )
-    if any(not math.isfinite(value) for value in (
-        *cell_charges, *face_charges, *fields_hat, *fields_r, *residuals
-    )):
-        raise ValueError("nonfinite production-metric Gauss result")
+    if any(not math.isfinite(value) for value in residuals):
+        raise ValueError("production-metric Gauss residuals must remain finite")
     return ProductionMetricGaussSolution(
         faces=faces,
         cell_centers=centers,
