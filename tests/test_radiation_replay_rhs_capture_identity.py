@@ -89,7 +89,11 @@ def test_rhs_records_and_failed_predictor_lookup_are_attempt_aware(tmp_path: Pat
         RuntimeError("expected test predictor rejection"),
     )
 
-    update = capture.failed_trials[-1]["explicit_predictor_U_update_closure"]
+    failed_trial = capture.failed_trials[-1]
+    assert failed_trial["attempt_id"] == 2
+    assert failed_trial["rhs_capture_key"] == list(retry_key)
+    assert failed_trial["rhs_capture_trial_dt"] == dt_retry
+    update = failed_trial["explicit_predictor_U_update_closure"]
     assert update["energy_t"]["max_abs_predictor_update_closure_all_cells"] < 1.0e-12
     assert update["momentum_r"]["max_abs_predictor_update_closure_all_cells"] < 1.0e-12
     assert update["energy_t"]["cell_79_dt_times_rhs"] == dt_retry * retry_rhs.energy_t[-1]
@@ -99,7 +103,17 @@ def test_rhs_records_and_failed_predictor_lookup_are_attempt_aware(tmp_path: Pat
 
     summary = capture.write()
     assert summary["rhs_capture_identity_pass"] is True
+    assert summary["failed_predictor_rhs_identity_pass"] is True
+    assert summary["failed_predictor_rhs_identity_match_count"] == 1
+    assert summary["failed_predictor_rhs_identity_mismatch_count"] == 0
     assert summary["rhs_capture_record_count"] == 2
+    # If the exported failed-trial attempt is corrupted, the strict identity
+    # gate must fail even though the underlying RHS index remains internally unique.
+    failed_trial["attempt_id"] = 1
+    corrupted_summary = capture.write()
+    assert corrupted_summary["rhs_capture_identity_pass"] is True
+    assert corrupted_summary["failed_predictor_rhs_identity_pass"] is False
+    assert corrupted_summary["failed_predictor_rhs_identity_mismatch_count"] == 1
     assert summary["rhs_capture_unique_key_count"] == 2
     rows = summary["rhs_component_decomposition"]
     assert [(row["attempt_id"], row["trial_dt"], row["rhs_ordinal"]) for row in rows] == [

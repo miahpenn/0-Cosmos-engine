@@ -541,6 +541,7 @@ class RadiationStageCapture:
         trial = {
             "prefix": prefix,
             "input_t": float(self.active_time),
+            "attempt_id": int(self.active_attempt_id),
             "requested_trial_dt": float(self.active_dt),
             "stage": str(stage),
             "exception_class": type(exc).__name__,
@@ -556,9 +557,15 @@ class RadiationStageCapture:
         }
 
         active = self.active_state
+        rhs_key = (
+            float(self.active_time).hex(),
+            int(self.active_attempt_id),
+            0,
+        )
+        rhs_record = self.rhs_records.get(rhs_key)
         input_metric = metric_slice_from_q(active.grid, active.geometry)
         input_radiation = active.matter.radiation
-        cmc_metric = self.rhs_geometry.get((float(self.active_time).hex(), 0))
+        cmc_metric = self.rhs_geometry.get(rhs_key)
         if cmc_metric is not None:
             metric_options = {
                 "accepted_metric": input_metric,
@@ -581,13 +588,10 @@ class RadiationStageCapture:
 
         # Exact algebraic check of the explicit matter predictor against the
         # observed first RHS. This is diagnostic verification, not a projection.
-        rhs_key = (
-            float(self.active_time).hex(),
-            int(self.active_attempt_id),
-            0,
-        )
-        rhs_record = self.rhs_records.get(rhs_key)
         if rhs_record is not None:
+            trial["rhs_capture_key"] = list(rhs_key)
+            trial["rhs_capture_trial_dt"] = float(rhs_record["trial_dt"])
+            trial["rhs_capture_prefix"] = rhs_record["prefix"]
             rhs = rhs_record["radiation_rhs"]
             dt = float(self.active_dt)
             cells = [int(i) for i in range(lo, ratio.size)]
@@ -1081,10 +1085,44 @@ class RadiationStageCapture:
                 for key, rec in self.rhs_records.items()
             )
         )
+        failed_trial_keys = []
+        failed_trial_rhs_match_count = 0
+        for trial in self.failed_trials:
+            try:
+                key = (
+                    float(trial["input_t"]).hex(),
+                    int(trial["attempt_id"]),
+                    0,
+                )
+                requested_dt = float(trial["requested_trial_dt"])
+                rhs_record = self.rhs_records.get(key)
+                matched = (
+                    rhs_record is not None
+                    and int(rhs_record.get("attempt_id", -1)) == key[1]
+                    and float(rhs_record.get("input_t", float("nan"))).hex() == key[0]
+                    and float(rhs_record.get("trial_dt", float("nan"))).hex() == requested_dt.hex()
+                    and trial.get("rhs_capture_key") == list(key)
+                    and float(trial.get("rhs_capture_trial_dt", float("nan"))).hex() == requested_dt.hex()
+                    and trial.get("rhs_capture_prefix") == rhs_record.get("prefix")
+                    and "explicit_predictor_U_update_closure" in trial
+                )
+                failed_trial_keys.append(key)
+                failed_trial_rhs_match_count += int(matched)
+            except (KeyError, TypeError, ValueError, OverflowError):
+                failed_trial_keys.append(None)
+        failed_trial_rhs_identity_pass = (
+            len(failed_trial_keys) == len(self.failed_trials)
+            and None not in failed_trial_keys
+            and len(set(failed_trial_keys)) == len(failed_trial_keys)
+            and failed_trial_rhs_match_count == len(self.failed_trials)
+        )
         summary = {
-            "schema": "radiation_explicit_predictor_stage_capture_v2",
+            "schema": "radiation_explicit_predictor_stage_capture_v3",
             "diagnostic_only": True,
             "rhs_capture_identity_pass": bool(rhs_keys_match_index),
+            "failed_predictor_rhs_identity_pass": bool(failed_trial_rhs_identity_pass),
+            "failed_predictor_rhs_identity_match_count": failed_trial_rhs_match_count,
+            "failed_predictor_rhs_identity_mismatch_count": len(self.failed_trials) - failed_trial_rhs_match_count,
             "rhs_capture_unique_key_count": len(set(rhs_record_keys)),
             "rhs_capture_record_count": len(self.rhs_records),
             "accepted_state_count": len(self.state_records),
@@ -1310,6 +1348,8 @@ def main() -> int:
 
         if capture_summary.get("rhs_capture_identity_pass") is not True:
             raise RuntimeError("RHS records do not map one-to-one to unique attempt/time/ordinal keys")
+        if capture_summary.get("failed_predictor_rhs_identity_pass") is not True:
+            raise RuntimeError("failed predictor records do not map one-to-one to the RHS for the same attempt and dt")
         if capture_summary.get("geometry_source_capture_identity_pass") is not True:
             raise RuntimeError("geometry source records do not map one-to-one to unique attempt/time/stage keys")
 
@@ -1389,6 +1429,9 @@ def main() -> int:
             "captured_rhs_evaluations": capture_summary.get("captured_rhs_evaluations"),
             "rhs_capture_identity_pass": capture_summary.get("rhs_capture_identity_pass"),
             "rhs_capture_unique_key_count": capture_summary.get("rhs_capture_unique_key_count"),
+            "failed_predictor_rhs_identity_pass": capture_summary.get("failed_predictor_rhs_identity_pass"),
+            "failed_predictor_rhs_identity_match_count": capture_summary.get("failed_predictor_rhs_identity_match_count"),
+            "failed_predictor_rhs_identity_mismatch_count": capture_summary.get("failed_predictor_rhs_identity_mismatch_count"),
             "rhs_capture_record_count": capture_summary.get("rhs_capture_record_count"),
             "failed_explicit_predictor_candidates": capture_summary.get("failed_explicit_predictor_candidates"),
             "radiation_rhs_component_capture_calls": capture_summary.get("radiation_rhs_component_capture_calls"),
@@ -1455,6 +1498,9 @@ def main() -> int:
             "rhs_capture_identity_pass": capture_summary["rhs_capture_identity_pass"],
             "rhs_capture_unique_key_count": capture_summary["rhs_capture_unique_key_count"],
             "rhs_capture_record_count": capture_summary["rhs_capture_record_count"],
+            "failed_predictor_rhs_identity_pass": capture_summary["failed_predictor_rhs_identity_pass"],
+            "failed_predictor_rhs_identity_match_count": capture_summary["failed_predictor_rhs_identity_match_count"],
+            "failed_predictor_rhs_identity_mismatch_count": capture_summary["failed_predictor_rhs_identity_mismatch_count"],
             "failed_explicit_predictor_candidates": capture_summary["failed_explicit_predictor_candidates"],
             "radiation_rhs_component_capture_calls": capture_summary["radiation_rhs_component_capture_calls"],
             "captured_geometry_stage_terms": capture_summary["captured_geometry_stage_terms"],
