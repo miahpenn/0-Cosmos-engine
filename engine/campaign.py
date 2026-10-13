@@ -77,10 +77,14 @@ def _validate_config_values(config) -> dict:
             "cfl and r_max/resolutions produce a zero or non-finite nominal timestep"
         )
 
-    # For t < final_time, an increment no larger than half the ULP at the
-    # campaign's time scale can round back to t (including ties-to-even).
-    # Require representable forward progress, not a physics-based CFL floor.
-    if min_nominal_dt <= math.ulp(final_time) / 2.0:
+    # The largest float spacing strictly below final_time is the ULP of
+    # its predecessor (important when final_time is an exact power of two).
+    # A step no larger than half that spacing can round back to the same t,
+    # depending on ties-to-even. Require representable forward progress, not
+    # a physics-based CFL floor.
+    previous_time = math.nextafter(final_time, -math.inf)
+    min_progress_step = math.ulp(previous_time) / 2.0
+    if min_nominal_dt <= min_progress_step:
         raise ValueError(
             "cfl and resolution produce a nominal timestep too small to guarantee "
             "floating-point time progress through final_time"
