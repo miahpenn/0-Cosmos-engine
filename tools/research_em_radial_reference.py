@@ -285,3 +285,149 @@ class CurvedRadialCoulombReference:
         )
         source_charge = self.enclosed_charge(outer) - self.enclosed_charge(inner)
         return flux_difference - source_charge
+
+
+
+# Eight-point Gauss-Legendre nodes/weights on [-1, 1]. Eight points integrate
+# polynomials through degree 15 exactly; here they are used only to integrate
+# the known spatial volume factor, never the analytic enclosed-charge formula.
+_GAUSS_LEGENDRE_8 = (
+    (-0.9602898564975363, 0.1012285362903763),
+    (-0.7966664774136267, 0.2223810344533745),
+    (-0.5255324099163290, 0.3137066458778873),
+    (-0.1834346424956498, 0.3626837833783620),
+    (0.1834346424956498, 0.3626837833783620),
+    (0.5255324099163290, 0.3137066458778873),
+    (0.7966664774136267, 0.2223810344533745),
+    (0.9602898564975363, 0.1012285362903763),
+)
+
+
+def _gauss_legendre_8_integral(function, lower: float, upper: float) -> float:
+    """Integrate a smooth scalar function with fixed 8-point Gauss-Legendre."""
+    midpoint = 0.5 * (lower + upper)
+    half_width = 0.5 * (upper - lower)
+    return half_width * math.fsum(
+        weight * function(midpoint + half_width * node)
+        for node, weight in _GAUSS_LEGENDRE_8
+    )
+
+
+@dataclass(frozen=True)
+class DiscreteGaussSolution:
+    """Cell-centered source and face field from a finite-volume Gauss solve."""
+
+    faces: tuple[float, ...]
+    cell_centers: tuple[float, ...]
+    cell_charges: tuple[float, ...]
+    face_charges: tuple[float, ...]
+    face_electric_field_hat: tuple[float, ...]
+    face_electric_field_r: tuple[float, ...]
+    cell_residuals: tuple[float, ...]
+
+    @property
+    def total_charge(self) -> float:
+        return self.face_charges[-1]
+
+    @property
+    def max_abs_cell_residual(self) -> float:
+        return max((abs(value) for value in self.cell_residuals), default=0.0)
+
+
+def solve_discrete_curved_gauss(
+    reference: CurvedRadialCoulombReference,
+    *,
+    r_max: float,
+    resolution: int,
+) -> DiscreteGaussSolution:
+    """Solve the static radial Gauss constraint on a fixed curved metric.
+
+    The finite-volume source is rho_e evaluated at each cell centre times the
+    independently quadrature-integrated proper cell volume. The solver does
+    NOT use the analytic enclosed-charge function. Face charge is accumulated
+    from the cell source, then E_hat_r=Q/R_areal**2 and E^r=E_hat_r/psi are
+    reconstructed on faces. Thus the discrete flux difference equals its
+    discrete source by construction, while charge/field accuracy against the
+    analytic reference and its resolution convergence remain independent tests.
+
+    The compact support radius must coincide with a cell face. Otherwise this
+    cell-centred source approximation could silently skip part of a source
+    cell; unsupported grids fail closed rather than moving the source edge.
+    This is a static one-dimensional constraint solve, not Maxwell time
+    evolution, current transport, or Einstein-source integration.
+    """
+    if not isinstance(reference, CurvedRadialCoulombReference):
+        raise ValueError("reference must be a CurvedRadialCoulombReference")
+    outer_radius = _finite_real(r_max, "r_max")
+    if outer_radius <= reference.source_radius:
+        raise ValueError("r_max must exceed source_radius")
+    if isinstance(resolution, bool) or not isinstance(resolution, int):
+        raise ValueError("resolution must be a positive integer")
+    if resolution < 2:
+        raise ValueError("resolution must be at least 2")
+
+    dr = outer_radius / resolution
+    source_face_index = round(reference.source_radius / dr)
+    alignment_error = abs(source_face_index * dr - reference.source_radius)
+    if not (
+        1 <= source_face_index < resolution
+        and alignment_error
+        <= 64.0 * math.ulp(max(1.0, abs(reference.source_radius)))
+    ):
+        raise ValueError(
+            "source_radius must align with an interior radial face; "
+            f"source_radius={reference.source_radius:.17e}, dr={dr:.17e}"
+        )
+
+    faces = tuple(i * dr for i in range(resolution + 1))
+    centers = tuple(0.5 * (faces[i] + faces[i + 1]) for i in range(resolution))
+    cell_charges = []
+    for left, right, center in zip(faces, faces[1:], centers):
+        # The proper volume is integrated independently of rho_e*sqrt(gamma)
+        # and of reference.enclosed_charge(). The density is the finite-volume
+        # cell sample, so the overall source scheme is second-order consistent.
+        spatial_volume = FOUR_PI * _gauss_legendre_8_integral(
+            reference.sqrt_gamma, left, right
+        )
+        cell_charges.append(reference.charge_density(center) * spatial_volume)
+
+    face_charges = [0.0]
+    running_total = 0.0
+    compensation = 0.0
+    for charge in cell_charges:
+        # Kahan summation keeps the cumulative finite-volume charge stable.
+        corrected = charge - compensation
+        updated = running_total + corrected
+        compensation = (updated - running_total) - corrected
+        running_total = updated
+        face_charges.append(running_total)
+
+    fields_hat = []
+    fields_r = []
+    for radius, charge in zip(faces, face_charges):
+        if radius == 0.0:
+            fields_hat.append(0.0)
+            fields_r.append(0.0)
+            continue
+        areal = reference.areal_radius(radius)
+        field_hat = charge / (areal * areal)
+        fields_hat.append(field_hat)
+        fields_r.append(field_hat / reference.conformal_factor(radius))
+
+    fluxes = tuple(
+        reference.sqrt_gamma(radius) * field
+        for radius, field in zip(faces, fields_r)
+    )
+    residuals = tuple(
+        fluxes[i + 1] - fluxes[i] - cell_charges[i]
+        for i in range(resolution)
+    )
+    return DiscreteGaussSolution(
+        faces=faces,
+        cell_centers=centers,
+        cell_charges=tuple(cell_charges),
+        face_charges=tuple(face_charges),
+        face_electric_field_hat=tuple(fields_hat),
+        face_electric_field_r=tuple(fields_r),
+        cell_residuals=residuals,
+    )
