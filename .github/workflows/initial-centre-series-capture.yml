@@ -1,0 +1,97 @@
+name: Current-source initialized centre-series capture
+
+on:
+  push:
+    branches:
+      - diag/initial-centre-series-capture-2026-10-13
+    paths:
+      - tools/audit_initial_centre_series.py
+      - .github/workflows/initial-centre-series-capture.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: initial-centre-series-capture-2026-10-13
+  cancel-in-progress: false
+
+jobs:
+  initialized-centre-series:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      PYTHONUNBUFFERED: "1"
+      BASE_MAIN_COMMIT: "c01f2467347e8aebd57d220374fd7bc4e93045bc"
+      VENDOR_COMMIT: "d6052d605673ce9d82cdc99b0df79855fa2ea215"
+    steps:
+      - name: Checkout exact branch and pinned vendor
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Fail closed on engine/vendor provenance and scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          git cat-file -e "$BASE_MAIN_COMMIT^{commit}"
+          changed="$(git diff --name-only "$BASE_MAIN_COMMIT" HEAD | sort)"
+          expected="$(printf '%s\n' \
+            '.github/workflows/initial-centre-series-capture.yml' \
+            'tools/audit_initial_centre_series.py' | sort)"
+          if [ "$changed" != "$expected" ]; then
+            printf 'Unexpected changes relative to exact main:\n%s\n' "$changed"
+            exit 1
+          fi
+          test "$(git rev-parse HEAD:vendor/bb-palatini-unified-r0)" = "$VENDOR_COMMIT"
+          declare -A expected_blobs=(
+            ["engine/cmc_gauge.py"]="b1e6b3e95ff37702509e1b38ec6401d10e2482c3"
+            ["engine/matter_rhs.py"]="f41180efbcff2c72cf36477a765318ab539fac80"
+            ["engine/matter_system.py"]="4f99e3bb61736473d8b9220145aec9e4167a9cff"
+            ["engine/production_kernel.py"]="2954e7a79656849b5f088053ea0f4ac97d4bb443"
+            ["engine/scalar_system.py"]="ffc119b1a6f2d495d972323901f76a85783b0a1b"
+            ["engine/stress_energy.py"]="c31c647f74fab6893254b3dea1366eada15b3110"
+            ["engine/v55_initial.py"]="4cfbfe4be6ac3ce6ed492f4e435186997d94116a"
+            ["engine/v55_matter.py"]="0f71164494e534ca4226c56c10058845d9a14e1d"
+            ["engine/v55_pirk_adapter.py"]="f671b838d9aefd8926702d9c2235209f52cd6815"
+            ["engine/valencia.py"]="9eba0855936e1974a15314eacdc2f6c378072596"
+            ["engine/worldtube.py"]="aea19090cb0fd2ebe5481a8b7af0d26f119a9ad6"
+          )
+          for path in "${!expected_blobs[@]}"; do
+            actual="$(git rev-parse "HEAD:$path")"
+            if [ "$actual" != "${expected_blobs[$path]}" ]; then
+              printf 'Pinned source mismatch for %s: %s\n' "$path" "$actual"
+              exit 1
+            fi
+          done
+          printf 'BASE_MAIN=%s\nHEAD=%s\nVENDOR=%s\n' \
+            "$BASE_MAIN_COMMIT" "$GITHUB_SHA" "$VENDOR_COMMIT"
+          printf '11 current-source production blobs matched; only observer/workflow files differ.\n'
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install repository dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+
+      - name: Compile observer and run repository suite
+        run: |
+          python -m py_compile tools/audit_initial_centre_series.py
+          python -m pytest -q
+
+      - name: Capture initialized profiles only (zero time steps)
+        run: python tools/audit_initial_centre_series.py
+
+      - name: Upload report, full radial profiles, and checksums
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: current-source-initial-centre-series
+          path: artifacts/initial-centre-series/
+          if-no-files-found: warn
+          retention-days: 90
