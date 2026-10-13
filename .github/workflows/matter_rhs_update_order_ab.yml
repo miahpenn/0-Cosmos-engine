@@ -1,0 +1,120 @@
+name: Diagnostic - matter RHS finite-dt update-order A/B
+
+on:
+  push:
+    branches:
+      - diag/matter-rhs-update-order-ab-2026-10-13
+    paths:
+      - tools/audit_matter_rhs_update_order_ab.py
+      - .github/workflows/matter_rhs_update_order_ab.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: matter-rhs-update-order-ab
+  cancel-in-progress: false
+
+jobs:
+  matched-update-order-comparison:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout diagnostic harness
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Verify exact source and vendor pins
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASELINE_SHA="3a87679faf676414d81cd30f0c17e0ae33358a56"
+          DIRECT_RHS_SHA="a4f7319384a8c060de2ceeb1981ee312c9b98bd9"
+          VENDOR_SHA="d6052d605673ce9d82cdc99b0df79855fa2ea215"
+          git fetch origin refs/heads/main:refs/remotes/origin/main
+          git fetch origin refs/heads/fix/matter-rhs-rate-extraction-main-2026-10-12:refs/remotes/origin/fix/matter-rhs-rate-extraction-main-2026-10-12
+          test "$(git rev-parse refs/remotes/origin/main)" = "$BASELINE_SHA"
+          test "$(git rev-parse refs/remotes/origin/fix/matter-rhs-rate-extraction-main-2026-10-12)" = "$DIRECT_RHS_SHA"
+          test "$(git rev-parse "$BASELINE_SHA:vendor/bb-palatini-unified-r0")" = "$VENDOR_SHA"
+          test "$(git rev-parse "$DIRECT_RHS_SHA:vendor/bb-palatini-unified-r0")" = "$VENDOR_SHA"
+          for path in \
+            engine/production_kernel.py \
+            engine/v55_initial.py \
+            engine/v55_matter.py \
+            engine/scalar_system.py \
+            engine/cmc_gauge.py \
+            engine/valencia.py \
+            engine/stress_energy.py
+          do
+            baseline_blob="$(git rev-parse "$BASELINE_SHA:$path")"
+            direct_blob="$(git rev-parse "$DIRECT_RHS_SHA:$path")"
+            test "$baseline_blob" = "$direct_blob" || {
+              echo "Unintended source drift in $path: $baseline_blob != $direct_blob"
+              exit 1
+            }
+          done
+          mkdir -p results/matter-rhs-update-order-ab
+          printf '%s\n' "$BASELINE_SHA" > results/matter-rhs-update-order-ab/EXPECTED_BASELINE_COMMIT.txt
+          printf '%s\n' "$DIRECT_RHS_SHA" > results/matter-rhs-update-order-ab/EXPECTED_DIRECT_RHS_COMMIT.txt
+          printf '%s\n' "$VENDOR_SHA" > results/matter-rhs-update-order-ab/EXPECTED_VENDOR_COMMIT.txt
+
+      - name: Compile the diagnostic harness
+        run: python -m py_compile tools/audit_matter_rhs_update_order_ab.py
+
+      - name: Create detached worktrees and replay identical initial states
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASELINE_SHA="3a87679faf676414d81cd30f0c17e0ae33358a56"
+          DIRECT_RHS_SHA="a4f7319384a8c060de2ceeb1981ee312c9b98bd9"
+          git worktree add --detach /tmp/engine-baseline "$BASELINE_SHA"
+          git worktree add --detach /tmp/engine-direct-rhs "$DIRECT_RHS_SHA"
+          git -C /tmp/engine-baseline submodule update --init --recursive
+          git -C /tmp/engine-direct-rhs submodule update --init --recursive
+          cp tools/audit_matter_rhs_update_order_ab.py /tmp/engine-baseline/tools/
+          cp tools/audit_matter_rhs_update_order_ab.py /tmp/engine-direct-rhs/tools/
+          (cd /tmp/engine-baseline && PYTHONPATH=. python tools/audit_matter_rhs_update_order_ab.py capture --out "$GITHUB_WORKSPACE/results/matter-rhs-update-order-ab/baseline_capture.json")
+          (cd /tmp/engine-direct-rhs && PYTHONPATH=. python tools/audit_matter_rhs_update_order_ab.py capture --out "$GITHUB_WORKSPACE/results/matter-rhs-update-order-ab/direct_rhs_capture.json")
+
+      - name: Compare per-species conserved fields, radiation cone, and ULP deltas
+        run: |
+          python tools/audit_matter_rhs_update_order_ab.py compare \
+            --baseline results/matter-rhs-update-order-ab/baseline_capture.json \
+            --direct results/matter-rhs-update-order-ab/direct_rhs_capture.json \
+            --out results/matter-rhs-update-order-ab/report.json \
+            --markdown results/matter-rhs-update-order-ab/summary.md
+
+      - name: Record report checksums
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          out="results/matter-rhs-update-order-ab"
+          mkdir -p "$out"
+          : > "$out/SHA256SUMS.txt"
+          for name in baseline_capture.json direct_rhs_capture.json report.json summary.md; do
+            if test -f "$out/$name"; then
+              (cd "$out" && sha256sum "$name") >> "$out/SHA256SUMS.txt"
+            fi
+          done
+
+      - name: Upload matched-update evidence even if a case fails
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: matter-rhs-update-order-ab
+          path: results/matter-rhs-update-order-ab/
+          if-no-files-found: warn
+          retention-days: 30
