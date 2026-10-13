@@ -9,6 +9,7 @@ from tools.audit_em_total_energy_budget import (
     field_energy_functional,
     interpolate_at_areal_radius,
     _fixed_target_interpolant_rate,
+    _fixed_R_composite_flux_work_profiles,
     _fixed_R_interpolant_balance,
     _pirk_accepted_update_rate_arrays,
     _reconstruct_energy_rhs_with_roundoff_contract,
@@ -132,6 +133,36 @@ def test_fixed_target_interpolant_rate_uses_documented_knot_brackets():
     assert upper["theta"] == pytest.approx(1.0)
     assert upper["piecewise_linear_mass_gradient"] == pytest.approx(6.0)
     assert upper["mass_dot_fixed_R"] == pytest.approx(-1.1)
+
+
+def test_composite_flux_and_pressure_terms_are_interpolated_after_multiplication():
+    R = np.array([1.0, 2.0, 3.0])
+    alpha = np.array([1.0, 1.8, 2.2])
+    gamma_inv = np.array([1.1, 1.7, 2.0])
+    current = np.array([0.0, 0.3, 1.1])
+    Rr = np.array([0.9, 1.1, 1.5])
+    pr = np.array([-0.1, -0.5, -0.8])
+    Rdot = np.array([0.01, 0.04, 0.09])
+    flux_profile, work_profile = _fixed_R_composite_flux_work_profiles(
+        R, alpha, gamma_inv, current, Rr, pr, Rdot
+    )
+    target = 2.4
+    composite_flux = np.interp(target, R, flux_profile)
+    composite_work = np.interp(target, R, work_profile)
+    product_of_interpolated_factors = (
+        -4.0 * np.pi * 10.0**2
+        * np.interp(target, R, alpha)
+        * np.interp(target, R, gamma_inv)
+        * np.interp(target, R, current)
+        * np.interp(target, R, Rr)
+    )
+    assert composite_flux == pytest.approx(
+        np.interp(target, R, -4.0 * np.pi * 10.0**2 * alpha * gamma_inv * current * Rr)
+    )
+    assert composite_work == pytest.approx(
+        np.interp(target, R, -4.0 * np.pi * 10.0**2 * pr * Rdot)
+    )
+    assert composite_flux != pytest.approx(product_of_interpolated_factors)
 
 
 def test_fixed_R_interpolant_balance_uses_its_own_sweep():
