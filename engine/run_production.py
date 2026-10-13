@@ -13,6 +13,11 @@ import json
 import math
 import numpy as np
 
+from .adaptive_step import (
+    AdaptiveStepOutcome,
+    RadiationStepSizeUnderflow,
+    advance_with_radiation_admissibility_retries,
+)
 from .campaign import CampaignConfig, prepare_campaign
 from .production_contract import require_production_capabilities
 from .production_kernel import V55ProductionKernel
@@ -135,6 +140,7 @@ def _write_ledgers(
     state,
     run_dir: Path,
     result: ResolutionResult,
+    radiation_step_retries: list[dict] | None = None,
 ) -> None:
     run_dir.mkdir(parents=True, exist_ok=True)
     payload = {
@@ -142,9 +148,13 @@ def _write_ledgers(
         "cycle_events": [_json_safe(asdict(e)) for e in state.cycle.events],
         "handoffs": [_json_safe(asdict(h)) for h in state.handoffs],
         "history": _json_safe(state.history),
+        "radiation_step_retries": _json_safe(radiation_step_retries or []),
     }
     (run_dir / "ledgers.json").write_text(
         json.dumps(payload, indent=2)
+    )
+    (run_dir / "radiation_step_retries.json").write_text(
+        json.dumps(_json_safe(radiation_step_retries or []), indent=2)
     )
 
 
@@ -172,6 +182,7 @@ def run_campaign(
         dt_nominal = config.cfl * state.grid.dr
         next_checkpoint = config.checkpoint_interval
         checkpoint_count = 0
+        radiation_step_retries: list[dict] = []
         status = "completed"
 
         # Include the initial slice so the evolution ledger has an actual t=0
@@ -204,24 +215,51 @@ def run_campaign(
                     state, target_time, endpoint_tolerance
                 )
                 break
-            dt = min(dt_nominal, remaining)
+            requested_dt = min(dt_nominal, remaining)
+            state_before_time = float(state.t)
             try:
-                state = kernel.step(state, dt)
-                # These checks cover the geometry, every scalar field, all
-                # conservative matter states, and the newly stored witnesses.
-                assert_finite_state(state)
-                state.geometry.assert_finite_positive()
-                if not state.history:
+                outcome: AdaptiveStepOutcome = advance_with_radiation_admissibility_retries(
+                    kernel, state, requested_dt
+                )
+                candidate_state = outcome.state
+                # A successful cone retry is only a step candidate. Retain the
+                # strict whole-state and diagnostic checks before acceptance.
+                assert_finite_state(candidate_state)
+                candidate_state.geometry.assert_finite_positive()
+                if not candidate_state.history:
                     raise FloatingPointError("kernel step produced no diagnostic history")
                 _assert_finite_payload(
-                    state.history[-1], f"diagnostics_N{resolution}_t{state.t:.17g}"
+                    candidate_state.history[-1],
+                    f"diagnostics_N{resolution}_t{candidate_state.t:.17g}",
                 )
+                state = candidate_state
+                dt = outcome.accepted_dt
+                if outcome.retry_count:
+                    radiation_step_retries.append({
+                        "t_before": state_before_time,
+                        "requested_dt": outcome.requested_dt,
+                        "accepted_dt": outcome.accepted_dt,
+                        "retry_count": outcome.retry_count,
+                        "attempts": list(outcome.attempts),
+                        "reason": "typed_radiation_admissibility_rejection",
+                    })
                 correction = _canonicalize_endpoint_roundoff(
                     state, target_time, endpoint_tolerance
                 )
                 if correction:
                     endpoint_correction = correction
-            except (FloatingPointError, ValueError, TypeError) as exc:
+            except (FloatingPointError, ValueError, TypeError, RuntimeError) as exc:
+                if isinstance(exc, RadiationStepSizeUnderflow):
+                    radiation_step_retries.append({
+                        "t_before": state_before_time,
+                        "requested_dt": requested_dt,
+                        "accepted_dt": None,
+                        "retry_count": len(exc.attempts),
+                        "attempts": list(exc.attempts),
+                        "status": "failed_closed_at_time_precision",
+                        "exception_class": type(exc).__name__,
+                        "exception_message": str(exc),
+                    })
                 status = "numerical_failure:" + str(exc)
                 break
 
@@ -272,7 +310,7 @@ def run_campaign(
             last_diagnostics=_json_safe(last),
         )
         run_dir = Path(config.output_dir) / f"N{resolution}"
-        _write_ledgers(state, run_dir, result)
+        _write_ledgers(state, run_dir, result, radiation_step_retries)
         results.append(result)
 
     admission_errors = campaign_admission_errors(results, config)
