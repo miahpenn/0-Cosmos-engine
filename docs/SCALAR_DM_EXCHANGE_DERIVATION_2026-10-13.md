@@ -128,31 +128,44 @@ This is where the lapse omissions in the prior baseline occurred: both source te
 
 ## 4. Reciprocal scalar source and total exchange
 
-For a canonical scalar, the stress identity (with the archive's scalar normalization kept explicit) is
-
+The action-level tensors before the engine's archive-unit conversion obey
 \[
-\nabla_\mu T_{\phi}^{\mu}{}_{\nu}
-=\frac{1}{\kappa}(\Box\phi-V_{,\phi})\partial_\nu\phi,
-\qquad \kappa=8\pi G.
+\nabla_\mu \widehat T_{\rm DM}^{\mu}{}_{\nu}
+=+\beta\rho_{\rm norm}\partial_\nu\phi,
+\qquad
+\nabla_\mu \widehat T_\phi^{\mu}{}_{\nu}
+=(\Box\phi-V_{,\phi})\partial_\nu\phi.
+\]
+Here \(\widehat T_\phi\) is the canonical scalar tensor, \(\rho_{\rm norm}\) is the dark-matter density in the archive's \(8\pi G=1\) normalization, and \(\widehat T_{\rm DM}=\rho_{\rm norm}u^\mu u^\nu\). Total conservation therefore fixes
+\[
+\Box\phi-V_{,\phi}=-\beta\rho_{\rm norm}.
+\]
+This is equivalent to the GEAR-10 homogeneous equation
+\[
+\ddot\phi+3H\dot\phi+V_{,\phi}=+\beta\rho_{\rm norm}.
 \]
 
-The archived reciprocal law gives \(\nabla_\mu T_{\phi}^{\mu}{}_{\nu}=-Q_\nu\); for a nontrivial scalar gradient its scalar equation is therefore \(\Box\phi-V_{,\phi}=-\kappa\beta\rho_{\rm geom}\), or \(-\beta\rho_{\rm norm}\) when \(\rho_{\rm geom}=\rho_{\rm norm}/\kappa\), as in the engine's archived COSMOS normalization. The ADM coordinate-time normal-momentum source is consequently
-
+The unified production engine converts both scalar and fluid stress projections to Einstein-source units by dividing them by \(\kappa=8\pi G\). Thus the *geometric* stress tensors \(T=\widehat T/\kappa\) have the equal-and-opposite divergences \(+\beta\rho_{\rm norm}\partial_\nu\phi/\kappa\) and \(-\beta\rho_{\rm norm}\partial_\nu\phi/\kappa\). Equivalently, with \(\rho_{\rm geom}=\rho_{\rm norm}/\kappa\), the scalar identity is
 \[
-\boxed{\Delta\dot\Pi=+\alpha\beta\rho_{\rm DM}.}
+\nabla_\mu T_\phi^{\mu}{}_{\nu}
+=\frac{1}{\kappa}(\Box\phi-V_{,\phi})\partial_\nu\phi
+=-\beta\rho_{\rm geom}\partial_\nu\phi.
 \]
+Writing the field as first-order ADM variables then gives the coordinate-time normal-momentum source
+\[
+\boxed{\Delta\dot\Pi=+\alpha\beta\rho_{\rm norm}.}
+\]
+This is the factor of \(\alpha\) in the candidate implementation. No extra lapse or \(\kappa\) belongs inside the normalized scalar RHS increment: the common \(1/\kappa\) appears when stress projections are assembled.
 
-The sign can also be checked directly against the homogeneous archive equations \(\ddot\phi+3H\dot\phi+V_{,\phi}=\beta\rho_{\rm DM}\) and \(\dot\rho_{\rm DM}+3H\rho_{\rm DM}=-\beta\rho_{\rm DM}\dot\phi\): the scalar and DM energy transfer terms are opposites. This comparison fixes the sign but does not derive the value of \(\beta\).
+At one frozen ADM state, the source identities are:
 
-At one frozen ADM state, the local source identities are:
-
-- **Energy:** the scalar stress projection is normalized by \(1/\kappa\), so its source is \(+\Pi(\alpha\beta\rho)/\kappa\). The active matter energy source per unit coordinate volume is \(q_E=-\alpha\sqrt{\gamma}\beta\rho\Pi\); the matching matter stress projection divides by \(\sqrt{\gamma}\kappa\). Both terms are therefore \(\pm\alpha\beta\rho\Pi/\kappa\) and cancel.
-- **Radial current:** scalar momentum-density projection has \(j_\phi=-\Pi\partial_r\phi/\kappa\); its source increment is \(-\alpha\beta\rho\partial_r\phi/\kappa\). The matter radial momentum source contributes \(+\alpha\beta\rho\partial_r\phi/\kappa\) to the same stress projection. These cancel.
+- **Energy:** the scalar stress projection is normalized by \(1/\kappa\), so its source is \(+\Pi(\alpha\beta\rho_{\rm norm})/\kappa\). The active matter energy source per unit coordinate volume is \(q_E=-\alpha\sqrt{\gamma}\beta\rho_{\rm norm}\Pi\); the matching matter stress projection divides by \(\sqrt{\gamma}\kappa\). Both contributions are therefore \(\pm\alpha\beta\rho_{\rm norm}\Pi/\kappa\) and cancel.
+- **Radial current:** scalar momentum-density projection has \(j_\phi=-\Pi\partial_r\phi/\kappa\); its source increment is \(-\alpha\beta\rho_{\rm norm}\partial_r\phi/\kappa\). The matter radial momentum source contributes \(+\alpha\beta\rho_{\rm norm}\partial_r\phi/\kappa\) to the same stress projection. These cancel.
 - **Moving dust:** the rest-current source plus the induced change in the dust velocity/energy projection obeys
   \[
   \frac{q_D}{\sqrt{\gamma}W}+\frac{v^rq_{S_r}}{\sqrt{\gamma}}
-  =-\alpha\beta\rho(\Pi+v^r\phi_r)+\alpha\beta\rho v^r\phi_r
-  =-\alpha\beta\rho\Pi.
+  =-\alpha\beta\rho_{\rm norm}(\Pi+v^r\phi_r)+\alpha\beta\rho_{\rm norm}v^r\phi_r
+  =-\alpha\beta\rho_{\rm norm}\Pi.
   \]
   Thus the energy projection agrees with \(q_E/\sqrt{\gamma}\) without assuming \(v^r=0\).
 
