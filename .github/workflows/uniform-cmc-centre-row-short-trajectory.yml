@@ -5,6 +5,7 @@ on:
     branches:
       - diag/uniform-cmc-centre-row-short-trajectory-2026-10-13
       - diag/uniform-cmc-centre-row-12step-2026-10-13
+      - diag/fix-uniform-cmc-12step-artifacts-2026-10-13
     paths:
       - "tools/audit_uniform_cmc_centre_row_short_trajectory.py"
       - "tools/audit_uniform_cmc_centre_row_one_step.py"
@@ -84,13 +85,13 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p results/uniform-cmc-centre-row-12step
-          printf '%s\n' "$SOURCE_COMMIT" > results/uniform-cmc-centre-row-short-trajectory/SOURCE_COMMIT.txt
-          printf '%s\n' "$VENDOR_COMMIT" > results/uniform-cmc-centre-row-short-trajectory/VENDOR_COMMIT.txt
-          printf '%s\n' "$CENTRE_ROW_HELPER_COMMIT" > results/uniform-cmc-centre-row-short-trajectory/CENTRE_ROW_HELPER_COMMIT.txt
-          printf '%s\n' "$CENTRE_ROW_COUNTERFACTUAL_COMMIT" > results/uniform-cmc-centre-row-short-trajectory/CENTRE_ROW_COUNTERFACTUAL_COMMIT.txt
-          git rev-parse HEAD > results/uniform-cmc-centre-row-short-trajectory/DIAGNOSTIC_COMMIT.txt
-          if test -f results/uniform-cmc-centre-row-short-trajectory/report.json; then
-            (cd results/uniform-cmc-centre-row-short-trajectory && sha256sum report.json > REPORT_SHA256SUM.txt)
+          printf '%s\n' "$SOURCE_COMMIT" > results/uniform-cmc-centre-row-12step/SOURCE_COMMIT.txt
+          printf '%s\n' "$VENDOR_COMMIT" > results/uniform-cmc-centre-row-12step/VENDOR_COMMIT.txt
+          printf '%s\n' "$CENTRE_ROW_HELPER_COMMIT" > results/uniform-cmc-centre-row-12step/CENTRE_ROW_HELPER_COMMIT.txt
+          printf '%s\n' "$CENTRE_ROW_COUNTERFACTUAL_COMMIT" > results/uniform-cmc-centre-row-12step/CENTRE_ROW_COUNTERFACTUAL_COMMIT.txt
+          git rev-parse HEAD > results/uniform-cmc-centre-row-12step/DIAGNOSTIC_COMMIT.txt
+          if test -f results/uniform-cmc-centre-row-12step/report.json; then
+            (cd results/uniform-cmc-centre-row-12step && sha256sum report.json > REPORT_SHA256SUM.txt)
           fi
 
       - name: Upload twelve-step evidence even if an arm fails
@@ -98,6 +99,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: uniform-cmc-centre-row-12step
-          path: results/uniform-cmc-centre-row-short-trajectory/
+          path: results/uniform-cmc-centre-row-12step/
           if-no-files-found: warn
           retention-days: 90
