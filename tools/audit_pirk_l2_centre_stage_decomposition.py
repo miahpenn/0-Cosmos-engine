@@ -150,12 +150,12 @@ def _component_summary(capture: dict) -> dict:
         "vendor_l2_Aa_max_abs": _max_abs(rhs_aa),
         "Aa_reconstruction_closure_max_abs": _max_abs(closure_aa),
         "Aa_roundoff_bound": roundoff_aa,
-        "Aa_closure_within_roundoff_bound": _max_abs(closure_aa) <= roundoff_aa,
+        "Aa_closure_within_roundoff_bound": bool(_max_abs(closure_aa) <= roundoff_aa),
         "K_lapse_laplacian_max_abs": _max_abs(capture["lap_alpha"]),
         "vendor_l2_K_max_abs": _max_abs(capture["rhs_K"]),
         "K_reconstruction_closure_max_abs": _max_abs(closure_k),
         "K_roundoff_bound": roundoff_k,
-        "K_closure_within_roundoff_bound": _max_abs(closure_k) <= roundoff_k,
+        "K_closure_within_roundoff_bound": bool(_max_abs(closure_k) <= roundoff_k),
         "Aa_closure_centre_i0_i5_max_abs": _max_abs(closure_aa[:6]),
         "Aa_closure_excluding_outer_two_max_abs": _max_abs(closure_aa[:-2]),
         "K_closure_centre_i0_i5_max_abs": _max_abs(closure_k[:6]),
@@ -164,10 +164,23 @@ def _component_summary(capture: dict) -> dict:
     }
 
 
+def _json_safe(value):
+    """Normalize NumPy scalar/container types; strict JSON still rejects NaN/Inf."""
+    if isinstance(value, np.ndarray):
+        return _json_safe(value.tolist())
+    if isinstance(value, np.generic):
+        return _json_safe(value.item())
+    if isinstance(value, dict):
+        return {str(key): _json_safe(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_json_safe(item) for item in value]
+    return value
+
+
 def _write_outputs(report: dict, profiles: dict[str, np.ndarray]) -> None:
     OUT.mkdir(parents=True, exist_ok=True)
     report_path = OUT / "report.json"
-    report_path.write_text(json.dumps(report, indent=2, allow_nan=False) + "\n", encoding="utf-8")
+    report_path.write_text(json.dumps(_json_safe(report), indent=2, allow_nan=False) + "\n", encoding="utf-8")
     npz_path = OUT / "profiles.npz"
     np.savez_compressed(npz_path, **profiles)
     csv_path = OUT / "profiles.csv"
@@ -349,8 +362,10 @@ def main() -> int:
         for capture in captures:
             summary = _component_summary(capture)
             stage_reports.append(summary)
-            all_closures_pass = all_closures_pass and summary["finite"] and (
-                summary["Aa_closure_within_roundoff_bound"]
+            all_closures_pass = bool(
+                all_closures_pass
+                and summary["finite"]
+                and summary["Aa_closure_within_roundoff_bound"]
                 and summary["K_closure_within_roundoff_bound"]
             )
             prefix = f"N{resolution}_{capture['stage']}"
@@ -372,7 +387,7 @@ def main() -> int:
             "accepted_time": float(accepted.t),
             "captured_actual_l2_calls": observed_stages,
             "stage_summaries": stage_reports,
-            "all_component_reconstructions_within_roundoff": all_closures_pass,
+            "all_component_reconstructions_within_roundoff": bool(all_closures_pass),
             "step_status": "completed",
         })
         if not all_closures_pass:
