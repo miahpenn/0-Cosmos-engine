@@ -11,6 +11,7 @@ from pathlib import Path
 import json
 import math
 import os
+import tempfile
 
 from .production_contract import require_production_capabilities
 
@@ -154,10 +155,37 @@ def write_checkpoint(path: Path, metadata: dict, trajectory: dict) -> None:
     path.write_text(json.dumps(payload, indent=2, default=float))
 
 
+def _preflight_output_directory(output_dir: str | Path) -> None:
+    """Verify an output directory is writable before campaign evolution."""
+    path = Path(output_dir)
+    try:
+        path.mkdir(parents=True, exist_ok=True)
+        if not path.is_dir():
+            raise OSError(f"{path!s} exists but is not a directory")
+        # Use a unique same-directory probe, flush it, and remove it immediately.
+        # This is an I/O capability check only; no campaign artifacts are written.
+        with tempfile.NamedTemporaryFile(
+            mode="w+b",
+            prefix=".0-cosmos-output-preflight-",
+            dir=path,
+            delete=True,
+        ) as probe:
+            probe.write(b"0-Cosmos campaign output preflight")
+            probe.flush()
+            os.fsync(probe.fileno())
+    except OSError as exc:
+        raise ValueError(
+            f"output_dir {str(path)!r} is not writable for campaign artifacts: {exc}"
+        ) from exc
+
+
 def prepare_campaign(kernel, config: CampaignConfig = CampaignConfig()):
-    """Validate inputs/capabilities and return a campaign plan, without running."""
+    """Validate inputs/capabilities and output writability without evolving state."""
     values = _validate_config_values(config)
     require_production_capabilities(kernel)
+    _preflight_output_directory(values["output_dir"])
+    for resolution in values["resolutions"]:
+        _preflight_output_directory(Path(values["output_dir"]) / f"N{resolution}")
     return {
         **values,
         "status": "prepared_not_executed",
