@@ -39,6 +39,18 @@ def atomic_write_text(path: str | Path, content: str, *, encoding: str = "utf-8"
         raise
 
 
+def _file_identity(path: str | Path) -> tuple[int, int] | None:
+    """Return a usable file identity for detecting a completed same-directory rename."""
+    try:
+        info = Path(path).stat()
+    except OSError:
+        return None
+    # Some filesystems report zero inode numbers; don't treat those as unique.
+    if not info.st_ino:
+        return None
+    return int(info.st_dev), int(info.st_ino)
+
+
 def atomic_savez_compressed(path: str | Path, **arrays) -> None:
     """Atomically replace a NumPy compressed checkpoint."""
     target = Path(path)
@@ -51,20 +63,27 @@ def atomic_savez_compressed(path: str | Path, **arrays) -> None:
     os.close(fd)
     temporary = Path(temp_name)
     replacement_completed = False
+    temporary_identity = None
     try:
         np.savez_compressed(temporary, **arrays)
         with temporary.open("rb+") as stream:
             os.fsync(stream.fileno())
         _preserve_existing_mode(target, temporary)
+        temporary_identity = _file_identity(temporary)
         os.replace(temporary, target)
         replacement_completed = True
         _fsync_parent_directory(target.parent)
     except BaseException as exc:
-        if replacement_completed and isinstance(exc, KeyboardInterrupt):
-            # The NPZ is already atomically visible. Preserve that fact for a
-            # caller recording checkpoint counts if Ctrl-C interrupts the
-            # best-effort directory sync after os.replace().
-            setattr(exc, "_atomic_replace_completed", True)
+        if isinstance(exc, KeyboardInterrupt):
+            # Normally the flag covers interruption during directory sync.
+            # Comparing the staged-file identity also covers Ctrl-C delivered
+            # after the OS rename succeeds but before the next Python assignment.
+            rename_visible = (
+                temporary_identity is not None
+                and _file_identity(target) == temporary_identity
+            )
+            if replacement_completed or rename_visible:
+                setattr(exc, "_atomic_replace_completed", True)
         try:
             temporary.unlink(missing_ok=True)
         except OSError:
