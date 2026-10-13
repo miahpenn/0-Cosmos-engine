@@ -1,6 +1,8 @@
 """Pure contracts for the source-pinned joined EM energy ledger."""
+import math
 import numpy as np
 import pytest
+from types import SimpleNamespace
 
 from tools.audit_em_total_energy_budget import (
     SOURCE_PINS,
@@ -16,6 +18,7 @@ from tools.audit_em_total_energy_budget import (
     _fixed_R_interval_balance,
     _pair_fixed_R_interval_rows,
     _misner_sharp_chain_rule_rate_profiles,
+    _sector_fixed_R_rates,
 )
 
 
@@ -510,3 +513,79 @@ def test_misner_sharp_semidiscrete_chain_rule_fails_closed_on_nonfinite_operand(
     inputs["gamma_inv_dot"][2] = np.nan
     with pytest.raises(RuntimeError, match="gamma_inv_dot contains non-finite"):
         _misner_sharp_chain_rule_rate_profiles(**inputs)
+
+
+def _synthetic_sector_rate_inputs(*, aggregate_j_offset=0.0, include_em=True):
+    R = np.array([1.0, 2.0, 3.0])
+    scalar_j = np.array([0.1, 0.2, 0.3])
+    fluid_j = np.array([0.03, 0.02, 0.01])
+    scalar_pr = np.array([0.04, 0.03, 0.02])
+    fluid_pr = np.array([0.01, 0.015, 0.02])
+    em_j = np.array([0.005, 0.01, 0.015]) if include_em else None
+    em_pr = np.array([0.002, 0.003, 0.004]) if include_em else None
+    total_j = scalar_j + fluid_j
+    total_pr = scalar_pr + fluid_pr
+    if include_em:
+        total_j = total_j + em_j
+        total_pr = total_pr + em_pr
+    total_j = total_j + aggregate_j_offset
+    total = SimpleNamespace(
+        j=total_j,
+        pr=total_pr,
+        scalar_j=scalar_j,
+        scalar_pr=scalar_pr,
+        fluid_j=fluid_j,
+        fluid_pr=fluid_pr,
+        electromagnetic_j=em_j,
+        electromagnetic_pr=em_pr,
+    )
+    kwargs = {
+        "R": R,
+        "alpha": np.array([1.0, 1.2, 1.4]),
+        "gamma_rr_inv": np.array([1.1, 1.15, 1.2]),
+        "Rr": np.array([0.9, 1.0, 1.1]),
+        "Rdot": np.array([0.02, -0.01, 0.03]),
+        "target": 2.5,
+    }
+    return total, kwargs
+
+
+def test_sector_fixed_R_rates_add_components_with_roundoff_contract():
+    total, kwargs = _synthetic_sector_rate_inputs()
+    observed = _sector_fixed_R_rates(total, **kwargs)
+
+    assert set(observed["sectors"]) == {"scalar", "fluid", "electromagnetic"}
+    assert all(row["present"] for row in observed["sectors"].values())
+    assert observed["sum_stress_flux"] == pytest.approx(
+        observed["aggregate_stress_flux"], rel=2.0e-15, abs=1.0e-12
+    )
+    assert observed["sum_radial_pressure_work"] == pytest.approx(
+        observed["aggregate_radial_pressure_work"], rel=2.0e-15, abs=1.0e-12
+    )
+    assert abs(observed["additive_flux_residual"]) <= observed["additive_flux_bound"]
+    assert abs(observed["additive_work_residual"]) <= observed["additive_work_bound"]
+    assert all(
+        math.isfinite(value)
+        for value in (
+            observed["sum_stress_flux"],
+            observed["sum_radial_pressure_work"],
+            observed["additive_flux_residual"],
+            observed["additive_work_residual"],
+        )
+    )
+
+
+def test_sector_fixed_R_rates_fails_closed_when_aggregate_does_not_add_up():
+    total, kwargs = _synthetic_sector_rate_inputs(aggregate_j_offset=0.05)
+    with pytest.raises(RuntimeError, match="failed additive consistency"):
+        _sector_fixed_R_rates(total, **kwargs)
+
+
+def test_sector_fixed_R_rates_marks_absent_electromagnetic_sector():
+    total, kwargs = _synthetic_sector_rate_inputs(include_em=False)
+    observed = _sector_fixed_R_rates(total, **kwargs)
+
+    electromagnetic = observed["sectors"]["electromagnetic"]
+    assert electromagnetic["present"] is False
+    assert electromagnetic["stress_flux"] == 0.0
+    assert electromagnetic["radial_pressure_work"] == 0.0
