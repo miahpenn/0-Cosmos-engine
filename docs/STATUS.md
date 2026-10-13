@@ -12,8 +12,21 @@ Use the canonical `CampaignConfig` with **both** `radial_maxwell_charge_to_mass`
 
 - Candidate head `edf954c5c112ecf1a9b63546d878e32f1217624e` passed the three main-target stable workflows with **381 tests each**: [lightweight run 38470442868](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38470442868), [strict JSON run 38470442894](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38470442894), and [integrated retry run 38470442934](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38470442934).
 - The bounded feature-on N=24 campaign regression reached three accepted steps to `t=0.03`; it wrote checkpoints at `t=0.01/0.02/0.03`, observed nonzero interactions across the charged carrier, other evolved sectors and actual geometry-stage EM consumers, and independently recomputed checkpoint Gauss-shell residuals from saved Q faces, `q/m`, `dr` and carrier rest state.
-- Post-merge main lightweight workflow [38471383842](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38471383842) on merge commit `0c1d4679bd05b73491c692277127fc091f24dac4` was still running when this status entry was prepared; do not count it as passed until GitHub reports completion.
+- Post-merge `main` validation is green after the feature merge and test hardening: [run 38471383842](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38471383842) on merge commit `0c1d4679bd05b73491c692277127fc091f24dac4` passed **381 tests** plus `PRODUCTION_STEP_SMOKE_PASS` at N=40, t=0.03; subsequent current-main test-only hardening [run 38472105378](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38472105378) on `007a92366ad9d6260b2f2db3a22bdfb7954d10a6` also passed **381 tests** and the same smoke.
 - The final V5.5 numerical campaign and worldtube-radius scaling workflows were skipped by path filters. They are not evidence of long-horizon EM behavior.
+
+
+### Quantitative short-horizon behavior probe (test-only, main code path)
+
+Draft report/test PR [#178](https://github.com/miahpenn/0-Cosmos-engine/pull/178), head `4e833eab524b4669d85662a55324e03a1af741bf`, passed all three stable workflows on that exact head: [lightweight 38471791724](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38471791724) (**382 passed** plus baseline smoke), [strict JSON 38471791476](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38471791476), and [integrated retry 38471791693](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38471791693). The test runs matched neutral (`q/m=0`) and charged (`q/m=0.25`) arms at N=24/48/96, r_max=24, t=0.03, using the same explicit separate charged-dust density profile `2e-5` across the radial domain. This is a probe of the current mainline research code; the probe itself is a draft test-only PR and did not change engine physics.
+
+| N | steps to t=0.03 | outer Q, charged | max |E-hat| | max EM energy density | max Lorentz momentum source | max recomputed Gauss-shell residual |
+|---:|---:|---:|---:|---:|---:|---:|
+| 24 | 3 | 0.2903484101 | 4.9406e-4 | 9.7124e-9 | 1.3738e-6 | 1.11e-16 |
+| 48 | 6 | 0.2904428601 | 4.9898e-4 | 9.9067e-9 | 1.4172e-6 | 7.63e-17 |
+| 96 | 12 | 0.2904664731 | 5.0152e-4 | 1.0008e-8 | 1.4395e-6 | 7.20e-17 |
+
+The q/m=0 arm produces exactly zero field, enclosed charge, current and Lorentz sources. The charged arm yields a nonzero field and force with shell Gauss residual at float64 roundoff. At this short horizon, charged-minus-neutral full-grid Hamiltonian maxima differ by `+3.05e-9`, `+1.71e-10`, `-2.08e-9` at N=24/48/96; momentum-max differences are `8.51e-10`, `1.10e-9`, `1.59e-9`. Absolute connection maxima at t=0.03 grow from `4.80e-6` (N=24) to `1.87e-5` (N=96). These are early-time observations only—not evidence of long-time stability, constraint convergence, or full donor+field+gravity conservation. Full structured readings are on [Issue #5](https://github.com/miahpenn/0-Cosmos-engine/issues/5#issuecomment-6155762848) and the [team board #135](https://github.com/miahpenn/0-Cosmos-engine/issues/135#issuecomment-6155763536).
 
 ### Research status and admission boundary
 
