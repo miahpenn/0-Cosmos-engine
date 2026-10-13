@@ -1,0 +1,135 @@
+name: Initial quadrature + CMC row — matched baseline A/B
+
+on:
+  push:
+    branches:
+      - diag/initial-quadrature-cmc-baseline-ab-2026-10-13
+    paths:
+      - "tools/compare_initial_quadrature_cmc_baseline_candidate.py"
+      - ".github/workflows/initial_quadrature_cmc_baseline_ab.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: initial-quadrature-cmc-baseline-ab-2026-10-13
+  cancel-in-progress: false
+
+jobs:
+  matched-ab:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      PYTHONUNBUFFERED: "1"
+      BASE_SOURCE_COMMIT: 9f0bd16d403ada22a4f21413048c93b37c9924a7
+      CANDIDATE_SOURCE_COMMIT: be6926d079a4f8c9c919554fedb2a2a92182e987
+      VENDOR_COMMIT: d6052d605673ce9d82cdc99b0df79855fa2ea215
+    steps:
+      - name: Checkout diagnostics candidate and pinned numerical kernel
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Fail closed on source identity and candidate scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin "$BASE_SOURCE_COMMIT"
+          test "$(git rev-parse "$BASE_SOURCE_COMMIT:vendor/bb-palatini-unified-r0")" = "$VENDOR_COMMIT"
+          test "$(git rev-parse "$CANDIDATE_SOURCE_COMMIT:vendor/bb-palatini-unified-r0")" = "$VENDOR_COMMIT"
+          test "$(git rev-parse HEAD:vendor/bb-palatini-unified-r0)" = "$VENDOR_COMMIT"
+          test "$(git rev-parse "$BASE_SOURCE_COMMIT:requirements.txt")" = "$(git rev-parse "$CANDIDATE_SOURCE_COMMIT:requirements.txt")"
+
+          changed_engine="$(git diff --name-only "$BASE_SOURCE_COMMIT" "$CANDIDATE_SOURCE_COMMIT" -- engine/ | sort)"
+          expected_engine="$(printf '%s\n' engine/cmc_gauge.py engine/v55_initial.py | sort)"
+          test "$changed_engine" = "$expected_engine"
+
+          for path in engine/cmc_gauge.py engine/v55_initial.py; do
+            test "$(git rev-parse "HEAD:$path")" = "$(git rev-parse "$CANDIDATE_SOURCE_COMMIT:$path")"
+            printf 'CANDIDATE_SOURCE_BLOB_OK %s\n' "$path"
+          done
+
+          printf 'BASE_SOURCE_COMMIT=%s\nCANDIDATE_SOURCE_COMMIT=%s\nVENDOR_COMMIT=%s\n' \
+            "$BASE_SOURCE_COMMIT" "$CANDIDATE_SOURCE_COMMIT" "$VENDOR_COMMIT"
+          printf 'ONLY_ENGINE_DIFFERENCES_BEGIN\n%s\nONLY_ENGINE_DIFFERENCES_END\n' "$changed_engine"
+          python -m py_compile tools/compare_initial_quadrature_cmc_baseline_candidate.py
+
+      - name: Create exact baseline worktree and initialize the same vendor
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT_DIR="$GITHUB_WORKSPACE/results/initial-quadrature-cmc-baseline-candidate-ab"
+          mkdir -p "$OUT_DIR"
+          git worktree add --detach "$RUNNER_TEMP/cosmos-baseline" "$BASE_SOURCE_COMMIT"
+          git -C "$RUNNER_TEMP/cosmos-baseline" submodule update --init --recursive
+          mkdir -p "$RUNNER_TEMP/cosmos-baseline/tools"
+          cp tools/compare_initial_quadrature_cmc_baseline_candidate.py \
+            "$RUNNER_TEMP/cosmos-baseline/tools/compare_initial_quadrature_cmc_baseline_candidate.py"
+          test "$(git -C "$RUNNER_TEMP/cosmos-baseline" rev-parse HEAD)" = "$BASE_SOURCE_COMMIT"
+          test "$(git -C "$RUNNER_TEMP/cosmos-baseline" rev-parse HEAD:vendor/bb-palatini-unified-r0)" = "$VENDOR_COMMIT"
+
+      - name: Run baseline arm at matched N and coordinate time
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT_DIR="$GITHUB_WORKSPACE/results/initial-quadrature-cmc-baseline-candidate-ab"
+          cd "$RUNNER_TEMP/cosmos-baseline"
+          ARM_SOURCE_COMMIT="$BASE_SOURCE_COMMIT" PYTHONPATH=. \
+            python tools/compare_initial_quadrature_cmc_baseline_candidate.py \
+            --mode arm --arm baseline --output "$OUT_DIR/baseline.json"
+
+      - name: Run combined candidate arm at identical N, dt, and coordinate time
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT_DIR="$GITHUB_WORKSPACE/results/initial-quadrature-cmc-baseline-candidate-ab"
+          cd "$GITHUB_WORKSPACE"
+          ARM_SOURCE_COMMIT="$CANDIDATE_SOURCE_COMMIT" PYTHONPATH=. \
+            python tools/compare_initial_quadrature_cmc_baseline_candidate.py \
+            --mode arm --arm candidate --output "$OUT_DIR/candidate.json"
+
+      - name: Pair source-pinned arms and calculate deltas
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT_DIR="$GITHUB_WORKSPACE/results/initial-quadrature-cmc-baseline-candidate-ab"
+          PYTHONPATH=. python tools/compare_initial_quadrature_cmc_baseline_candidate.py \
+            --mode combine \
+            --baseline-report "$OUT_DIR/baseline.json" \
+            --candidate-report "$OUT_DIR/candidate.json" \
+            --output "$OUT_DIR/ab_report.json"
+          (cd "$OUT_DIR" && sha256sum baseline.json candidate.json ab_report.json > SHA256SUMS.txt)
+
+      - name: Record provenance even if a gate fails
+        if: always()
+        shell: bash
+        run: |
+          OUT_DIR="$GITHUB_WORKSPACE/results/initial-quadrature-cmc-baseline-candidate-ab"
+          mkdir -p "$OUT_DIR"
+          printf '%s\n' "$BASE_SOURCE_COMMIT" > "$OUT_DIR/BASE_SOURCE_COMMIT.txt"
+          printf '%s\n' "$CANDIDATE_SOURCE_COMMIT" > "$OUT_DIR/CANDIDATE_SOURCE_COMMIT.txt"
+          printf '%s\n' "$VENDOR_COMMIT" > "$OUT_DIR/VENDOR_COMMIT.txt"
+          git rev-parse HEAD > "$OUT_DIR/DIAGNOSTIC_HARNESS_COMMIT.txt"
+          git rev-parse "$CANDIDATE_SOURCE_COMMIT:engine/v55_initial.py" > "$OUT_DIR/CANDIDATE_INITIAL_BUILDER_BLOB.txt"
+          git rev-parse "$CANDIDATE_SOURCE_COMMIT:engine/cmc_gauge.py" > "$OUT_DIR/CANDIDATE_CMC_GAUGE_BLOB.txt"
+          if test -f "$OUT_DIR/ab_report.json"; then
+            (cd "$OUT_DIR" && sha256sum ab_report.json > AB_REPORT_SHA256SUM.txt)
+          fi
+
+      - name: Upload paired evidence even if an arm fails
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: initial-quadrature-cmc-baseline-candidate-ab
+          path: results/initial-quadrature-cmc-baseline-candidate-ab/
+          if-no-files-found: warn
+          retention-days: 90
