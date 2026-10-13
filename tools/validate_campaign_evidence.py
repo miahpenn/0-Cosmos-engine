@@ -18,12 +18,54 @@ class CampaignEvidenceError(ValueError):
     """Successful campaign output is missing, malformed, or inconsistent."""
 
 
+CORE_DIAGNOSTIC_FIELDS = (
+    "H_eff",
+    "M_MS",
+    "chi_sigma",
+    "flux_T",
+    "work_pR",
+    "hamiltonian_full_absmax",
+    "momentum_full_absmax",
+    "connection_full_absmax",
+    "determinant_constraint_max",
+)
+
+
+def _reject_nonstandard_json_constant(token: str) -> None:
+    """Reject JavaScript-style non-finite constants that strict JSON forbids."""
+    raise ValueError(f"non-standard JSON constant {token!r}")
+
+
+def _reject_duplicate_json_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    """Reject duplicate object member names instead of silently taking the last."""
+    result: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError(f"duplicate object key {key!r}")
+        result[key] = value
+    return result
+
+
+def _json_number(value: Any, error_message: str) -> float:
+    """Require an actual JSON number; do not coerce booleans or strings."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise CampaignEvidenceError(error_message)
+    try:
+        return float(value)
+    except (OverflowError, TypeError, ValueError) as exc:
+        raise CampaignEvidenceError(error_message) from exc
+
+
 def _read_json(path: Path) -> Any:
     if not path.is_file() or path.stat().st_size == 0:
         raise CampaignEvidenceError(f"missing or empty evidence file: {path}")
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
+        return json.loads(
+            path.read_text(encoding="utf-8"),
+            object_pairs_hook=_reject_duplicate_json_keys,
+            parse_constant=_reject_nonstandard_json_constant,
+        )
+    except (OSError, ValueError) as exc:
         raise CampaignEvidenceError(f"invalid JSON evidence file {path}: {exc}") from exc
 
 
@@ -68,10 +110,10 @@ def validate_campaign_evidence(
             f"campaign resolution provenance mismatch: expected={expected}, reported={reported}"
         )
 
-    try:
-        target_time = float(campaign["final_time"])
-    except (KeyError, TypeError, ValueError, OverflowError) as exc:
-        raise CampaignEvidenceError("campaign configuration has no valid final_time") from exc
+    target_time = _json_number(
+        campaign.get("final_time"),
+        "campaign configuration has no valid final_time",
+    )
     if not math.isfinite(target_time) or target_time <= 0.0:
         raise CampaignEvidenceError(f"campaign final_time must be finite and positive: {target_time!r}")
     time_tolerance = 1.0e-10 * max(1.0, abs(target_time))
@@ -91,20 +133,37 @@ def validate_campaign_evidence(
             f"campaign result inventory mismatch: expected={expected}, reported={result_resolutions}"
         )
 
+    summary_steps_by_resolution: dict[int, int] = {}
+    summary_tau_by_resolution: dict[int, float] = {}
     for item in results:
         resolution = int(item["resolution"])
         if item.get("status") != "completed":
             raise CampaignEvidenceError(
                 f"N={resolution} summary status is not completed: {item.get('status')!r}"
             )
-        try:
-            final_time = float(item["t_final"])
-        except (KeyError, TypeError, ValueError, OverflowError) as exc:
-            raise CampaignEvidenceError(f"N={resolution} summary has no valid t_final") from exc
+        final_time = _json_number(
+            item.get("t_final"),
+            f"N={resolution} summary has no valid t_final",
+        )
         if not math.isfinite(final_time) or abs(final_time - target_time) > time_tolerance:
             raise CampaignEvidenceError(
                 f"N={resolution} final time {final_time!r} does not match target {target_time:.17g}"
             )
+        tau_final = _json_number(
+            item.get("tau_final"),
+            f"N={resolution} summary has no valid tau_final",
+        )
+        if not math.isfinite(tau_final) or tau_final <= 0.0:
+            raise CampaignEvidenceError(
+                f"N={resolution} summary tau_final must be finite and positive: {tau_final!r}"
+            )
+        steps = item.get("steps")
+        if isinstance(steps, bool) or not isinstance(steps, int) or steps < 1:
+            raise CampaignEvidenceError(
+                f"N={resolution} summary has invalid completed-step count: {steps!r}"
+            )
+        summary_steps_by_resolution[resolution] = steps
+        summary_tau_by_resolution[resolution] = tau_final
 
     for resolution in expected:
         resolution_dir = root / f"N{resolution}"
@@ -126,13 +185,103 @@ def validate_campaign_evidence(
             raise CampaignEvidenceError(
                 f"N={resolution} ledger status is not completed: {record.get('status')!r}"
             )
-        try:
-            ledger_time = float(record["t_final"])
-        except (KeyError, TypeError, ValueError, OverflowError) as exc:
-            raise CampaignEvidenceError(f"N={resolution} ledger has no valid t_final") from exc
+        ledger_time = _json_number(
+            record.get("t_final"),
+            f"N={resolution} ledger has no valid t_final",
+        )
         if not math.isfinite(ledger_time) or abs(ledger_time - target_time) > time_tolerance:
             raise CampaignEvidenceError(
                 f"N={resolution} ledger final time {ledger_time!r} does not match target {target_time:.17g}"
+            )
+        ledger_tau = _json_number(
+            record.get("tau_final"),
+            f"N={resolution} ledger has no valid tau_final",
+        )
+        if not math.isfinite(ledger_tau) or ledger_tau <= 0.0:
+            raise CampaignEvidenceError(
+                f"N={resolution} ledger tau_final must be finite and positive: {ledger_tau!r}"
+            )
+        summary_tau = summary_tau_by_resolution[resolution]
+        tau_tolerance = 1.0e-10 * max(1.0, abs(summary_tau))
+        if abs(ledger_tau - summary_tau) > tau_tolerance:
+            raise CampaignEvidenceError(
+                f"N={resolution} ledger tau_final does not match campaign summary"
+            )
+        ledger_steps = record.get("steps")
+        if isinstance(ledger_steps, bool) or not isinstance(ledger_steps, int) or ledger_steps < 1:
+            raise CampaignEvidenceError(
+                f"N={resolution} ledger has invalid completed-step count: {ledger_steps!r}"
+            )
+        if ledger_steps != summary_steps_by_resolution[resolution]:
+            raise CampaignEvidenceError(
+                f"N={resolution} ledger step count does not match campaign summary"
+            )
+        history = ledger.get("history")
+        if not isinstance(history, list) or len(history) < 2:
+            raise CampaignEvidenceError(
+                f"N={resolution} ledger history must contain initial and final records"
+            )
+        if len(history) != ledger_steps + 1:
+            raise CampaignEvidenceError(
+                f"N={resolution} ledger history length does not match steps + 1"
+            )
+        history_times: list[float] = []
+        history_taus: list[float] = []
+        for index, row in enumerate(history):
+            if not isinstance(row, dict):
+                raise CampaignEvidenceError(
+                    f"N={resolution} ledger history row {index} must be an object"
+                )
+            row_time = _json_number(
+                row.get("t"),
+                f"N={resolution} ledger history row {index} has no valid t",
+            )
+            if not math.isfinite(row_time):
+                raise CampaignEvidenceError(
+                    f"N={resolution} ledger history row {index} has non-finite t"
+                )
+            row_tau = _json_number(
+                row.get("tau"),
+                f"N={resolution} ledger history row {index} has no valid tau",
+            )
+            if not math.isfinite(row_tau):
+                raise CampaignEvidenceError(
+                    f"N={resolution} ledger history row {index} has non-finite tau"
+                )
+            for field in CORE_DIAGNOSTIC_FIELDS:
+                diagnostic = _json_number(
+                    row.get(field),
+                    f"N={resolution} ledger history row {index} has no valid numeric diagnostic {field!r}",
+                )
+                if not math.isfinite(diagnostic):
+                    raise CampaignEvidenceError(
+                        f"N={resolution} ledger history row {index} has non-finite diagnostic {field!r}"
+                    )
+            if history_times and row_time <= history_times[-1]:
+                raise CampaignEvidenceError(
+                    f"N={resolution} ledger history timestamps are not strictly increasing"
+                )
+            if history_taus and row_tau <= history_taus[-1]:
+                raise CampaignEvidenceError(
+                    f"N={resolution} ledger proper-time history is not strictly increasing"
+                )
+            history_times.append(row_time)
+            history_taus.append(row_tau)
+        if abs(history_times[0]) > time_tolerance:
+            raise CampaignEvidenceError(
+                f"N={resolution} ledger history does not begin at t=0"
+            )
+        if abs(history_times[-1] - target_time) > time_tolerance:
+            raise CampaignEvidenceError(
+                f"N={resolution} final history timestamp {history_times[-1]!r} does not match target {target_time:.17g}"
+            )
+        if abs(history_taus[0]) > tau_tolerance:
+            raise CampaignEvidenceError(
+                f"N={resolution} ledger proper-time history does not begin at tau=0"
+            )
+        if abs(history_taus[-1] - ledger_tau) > tau_tolerance:
+            raise CampaignEvidenceError(
+                f"N={resolution} final history proper time {history_taus[-1]!r} does not match ledger tau_final {ledger_tau:.17g}"
             )
         if not isinstance(retries, list):
             raise CampaignEvidenceError(
