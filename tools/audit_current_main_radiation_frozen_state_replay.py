@@ -48,6 +48,7 @@ SPECIES_NAMES = ("dark_matter", "baryons", "radiation")
 EXPECTED_DIAGNOSTIC_PATHS = {
     "tools/audit_current_main_radiation_frozen_state_replay.py",
     ".github/workflows/current_main_radiation_frozen_state_replay.yml",
+    "tests/test_radiation_replay_rhs_capture_identity.py",
 }
 
 
@@ -173,8 +174,8 @@ class RadiationStageCapture:
         self.start_time = float(start_time)
         self.arrays: dict[str, np.ndarray] = {}
         self.state_records: dict[str, dict] = {}
-        self.rhs_records: dict[tuple[str, int], dict] = {}
-        self.rhs_geometry: dict[tuple[str, int], object] = {}
+        self.rhs_records: dict[tuple[str, int, int], dict] = {}
+        self.rhs_geometry: dict[tuple[str, int, int], object] = {}
         self.failed_trials: list[dict] = []
         self.active_state = None
         self.active_time = None
@@ -329,8 +330,14 @@ class RadiationStageCapture:
 
     def begin_rhs(self, stage_state, ordinal):
         self.current_rhs_record = None
-        key = (float(self.active_time).hex(), int(ordinal))
-        if self.active_time is None or self.active_time < self.start_time - 1.0e-10 or key in self.rhs_records:
+        if self.active_time is None or self.active_attempt_id is None:
+            return None
+        key = (
+            float(self.active_time).hex(),
+            int(self.active_attempt_id),
+            int(ordinal),
+        )
+        if self.active_time < self.start_time - 1.0e-10 or key in self.rhs_records:
             return key
         prefix = f"rhs_{self._next_rhs_id:03d}"
         self._next_rhs_id += 1
@@ -338,6 +345,8 @@ class RadiationStageCapture:
             "key": key,
             "prefix": prefix,
             "input_t": float(self.active_time),
+            "attempt_id": int(self.active_attempt_id),
+            "trial_dt": float(self.active_dt),
             "rhs_ordinal": int(ordinal),
             "stage_geometry": self._geometry_metric(stage_state.grid, stage_state.geometry),
             "stage_state": stage_state,
@@ -572,7 +581,11 @@ class RadiationStageCapture:
 
         # Exact algebraic check of the explicit matter predictor against the
         # observed first RHS. This is diagnostic verification, not a projection.
-        rhs_key = (float(self.active_time).hex(), 0)
+        rhs_key = (
+            float(self.active_time).hex(),
+            int(self.active_attempt_id),
+            0,
+        )
         rhs_record = self.rhs_records.get(rhs_key)
         if rhs_record is not None:
             rhs = rhs_record["radiation_rhs"]
@@ -987,9 +1000,14 @@ class RadiationStageCapture:
 
     def _rhs_summary(self):
         rows = []
-        for (time_key, ordinal), rec in sorted(self.rhs_records.items(), key=lambda item: (float.fromhex(item[0][0]), item[0][1])):
+        for (time_key, attempt_id, ordinal), rec in sorted(
+            self.rhs_records.items(),
+            key=lambda item: (float.fromhex(item[0][0]), item[0][1], item[0][2]),
+        ):
             row = {
                 "input_t": rec["input_t"],
+                "attempt_id": rec["attempt_id"],
+                "trial_dt": rec["trial_dt"],
                 "rhs_ordinal": rec["rhs_ordinal"],
                 "prefix": rec["prefix"],
                 "has_components": "components" in rec,
@@ -1048,9 +1066,27 @@ class RadiationStageCapture:
             and source_keys_unique
             and set(source_record_keys) == set(self.geometry_records.keys())
         )
+        rhs_record_keys = [tuple(rec["key"]) for rec in self.rhs_records.values()]
+        rhs_keys_unique = len(rhs_record_keys) == len(set(rhs_record_keys))
+        rhs_keys_match_index = (
+            len(rhs_record_keys) == len(self.rhs_records)
+            and rhs_keys_unique
+            and set(rhs_record_keys) == set(self.rhs_records.keys())
+            and set(self.rhs_geometry.keys()) == set(self.rhs_records.keys())
+            and all(
+                rec.get("attempt_id") == key[1]
+                and rec.get("rhs_ordinal") == key[2]
+                and float(rec["input_t"]).hex() == key[0]
+                and float(rec["trial_dt"]) > 0.0
+                for key, rec in self.rhs_records.items()
+            )
+        )
         summary = {
-            "schema": "radiation_explicit_predictor_stage_capture_v1",
+            "schema": "radiation_explicit_predictor_stage_capture_v2",
             "diagnostic_only": True,
+            "rhs_capture_identity_pass": bool(rhs_keys_match_index),
+            "rhs_capture_unique_key_count": len(set(rhs_record_keys)),
+            "rhs_capture_record_count": len(self.rhs_records),
             "accepted_state_count": len(self.state_records),
             "captured_rhs_evaluations": len(self.rhs_records),
             "failed_explicit_predictor_candidates": len(self.failed_trials),
@@ -1272,6 +1308,8 @@ def main() -> int:
             capture.restore()
             capture_summary = capture.write()
 
+        if capture_summary.get("rhs_capture_identity_pass") is not True:
+            raise RuntimeError("RHS records do not map one-to-one to unique attempt/time/ordinal keys")
         if capture_summary.get("geometry_source_capture_identity_pass") is not True:
             raise RuntimeError("geometry source records do not map one-to-one to unique attempt/time/stage keys")
 
@@ -1349,6 +1387,9 @@ def main() -> int:
             "summary_schema": capture_summary.get("schema"),
             "accepted_state_count": capture_summary.get("accepted_state_count"),
             "captured_rhs_evaluations": capture_summary.get("captured_rhs_evaluations"),
+            "rhs_capture_identity_pass": capture_summary.get("rhs_capture_identity_pass"),
+            "rhs_capture_unique_key_count": capture_summary.get("rhs_capture_unique_key_count"),
+            "rhs_capture_record_count": capture_summary.get("rhs_capture_record_count"),
             "failed_explicit_predictor_candidates": capture_summary.get("failed_explicit_predictor_candidates"),
             "radiation_rhs_component_capture_calls": capture_summary.get("radiation_rhs_component_capture_calls"),
             "captured_geometry_stage_terms": capture_summary.get("captured_geometry_stage_terms"),
@@ -1411,6 +1452,9 @@ def main() -> int:
             "first_nominal_retry_matches": retry_check["first_nominal_retry_matches"],
             "archived_seed_unchanged": digest_after == digest_before,
             "captured_rhs_evaluations": capture_summary["captured_rhs_evaluations"],
+            "rhs_capture_identity_pass": capture_summary["rhs_capture_identity_pass"],
+            "rhs_capture_unique_key_count": capture_summary["rhs_capture_unique_key_count"],
+            "rhs_capture_record_count": capture_summary["rhs_capture_record_count"],
             "failed_explicit_predictor_candidates": capture_summary["failed_explicit_predictor_candidates"],
             "radiation_rhs_component_capture_calls": capture_summary["radiation_rhs_component_capture_calls"],
             "captured_geometry_stage_terms": capture_summary["captured_geometry_stage_terms"],
