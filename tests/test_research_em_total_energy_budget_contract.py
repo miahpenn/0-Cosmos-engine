@@ -8,6 +8,7 @@ from tools.audit_em_total_energy_budget import (
     VENDOR_PIN,
     field_energy_functional,
     interpolate_at_areal_radius,
+    _fixed_target_interpolant_rate,
     _reconstruct_energy_rhs_with_roundoff_contract,
     _fixed_R_interval_balance,
     _pair_fixed_R_interval_rows,
@@ -70,6 +71,42 @@ def test_fixed_areal_radius_interpolation_is_bounded_and_monotone():
         interpolate_at_areal_radius(areal_radii, profile, 7.0)
 
 
+def test_fixed_target_interpolant_rate_matches_directional_derivative_of_np_interp():
+    R = np.array([1.0, 2.0, 3.0, 4.0])
+    Rdot = np.array([0.1, -0.05, 0.03, -0.08])
+    mass = np.array([2.0, 4.5, 5.0, 8.0])
+    mass_dot = np.array([0.2, -0.1, 0.4, 0.05])
+    target = 2.4
+    observed = _fixed_target_interpolant_rate(
+        R, Rdot, mass, mass_dot, target=target
+    )
+    assert observed["left_index"] == 1
+    assert observed["right_index"] == 2
+    assert observed["theta"] == pytest.approx(0.4)
+    assert observed["interpolated_mass"] == pytest.approx(np.interp(target, R, mass))
+
+    epsilon = 1.0e-7
+    initial = np.interp(target, R, mass)
+    moved = np.interp(target, R + epsilon * Rdot, mass + epsilon * mass_dot)
+    directional_difference = (moved - initial) / epsilon
+    assert observed["mass_dot_fixed_R"] == pytest.approx(
+        directional_difference, rel=2.0e-6, abs=2.0e-8
+    )
+
+
+def test_fixed_target_interpolant_rate_fails_closed_on_invalid_profiles():
+    with pytest.raises(RuntimeError, match="does not match"):
+        _fixed_target_interpolant_rate(
+            [1.0, 2.0, 3.0], [0.0, 0.0], [1.0, 2.0, 3.0],
+            [0.0, 0.0, 0.0], target=1.5,
+        )
+    with pytest.raises(RuntimeError, match="outside the sampled domain"):
+        _fixed_target_interpolant_rate(
+            [1.0, 2.0, 3.0], [0.0, 0.0, 0.0], [1.0, 2.0, 3.0],
+            [0.0, 0.0, 0.0], target=4.0,
+        )
+
+
 def test_cellwise_rhs_reconstruction_passes_roundoff_scale_and_reports_ratio():
     terms = (
         ("flux", np.array([1.0e8, 1.0e-10])),
@@ -127,6 +164,17 @@ def _synthetic_fixed_R_run():
                     "tube_chain_rule_coordinate_rate_minus_flux_pressure": 0.2,
                     "tube_chain_rule_fixed_R_residual": 0.3,
                     "tube_chain_rule_fixed_R_sweep": -0.1,
+                    "tube_interpolant_bracket_left_index": 1,
+                    "tube_interpolant_bracket_right_index": 2,
+                    "tube_interpolant_theta": 0.4,
+                    "tube_interpolant_interpolated_mass": 2.2,
+                    "tube_interpolant_Rdot": 0.015,
+                    "tube_interpolant_mass_dot_coordinate": 0.8,
+                    "tube_interpolant_piecewise_dM_dR": 0.5,
+                    "tube_interpolant_fixed_R_sweep": -0.0075,
+                    "tube_interpolant_mass_dot_fixed_R": 0.7925,
+                    "tube_interpolant_coordinate_rate_minus_flux_pressure": 0.1,
+                    "tube_interpolant_fixed_R_residual": 0.2,
                 },
                 "primary_predictor": {
                     "tube_predicted_fixed_R_mass_rate": 1.5,
@@ -143,6 +191,17 @@ def _synthetic_fixed_R_run():
                     "tube_chain_rule_coordinate_rate_minus_flux_pressure": 0.25,
                     "tube_chain_rule_fixed_R_residual": 0.4,
                     "tube_chain_rule_fixed_R_sweep": -0.2,
+                    "tube_interpolant_bracket_left_index": 1,
+                    "tube_interpolant_bracket_right_index": 2,
+                    "tube_interpolant_theta": 0.4,
+                    "tube_interpolant_interpolated_mass": 2.2,
+                    "tube_interpolant_Rdot": 0.015,
+                    "tube_interpolant_mass_dot_coordinate": 0.8,
+                    "tube_interpolant_piecewise_dM_dR": 0.5,
+                    "tube_interpolant_fixed_R_sweep": -0.0075,
+                    "tube_interpolant_mass_dot_fixed_R": 0.7925,
+                    "tube_interpolant_coordinate_rate_minus_flux_pressure": 0.1,
+                    "tube_interpolant_fixed_R_residual": 0.2,
                 },
             },
         },
