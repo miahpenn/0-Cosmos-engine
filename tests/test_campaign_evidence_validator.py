@@ -223,6 +223,32 @@ def test_rejects_nonstandard_json_constants_in_every_evidence_artifact(
     with pytest.raises(CampaignEvidenceError, match="invalid JSON evidence file"):
         validate_campaign_evidence(root, (80, 120))
 
+@pytest.mark.parametrize("artifact", ["summary", "ledger", "retries"])
+@pytest.mark.parametrize("number_token", ["1e999", "-1e999"])
+def test_rejects_json_numbers_that_overflow_float_in_unchecked_fields(
+    tmp_path, artifact, number_token
+):
+    """A valid JSON exponent must not silently become Python inf/-inf."""
+    root = _valid_campaign(tmp_path / "campaign")
+    if artifact == "summary":
+        path = root / "campaign_summary.json"
+    elif artifact == "ledger":
+        path = root / "N80" / "ledgers.json"
+    else:
+        path = root / "N80" / "radiation_step_retries.json"
+
+    if artifact == "retries":
+        raw = f'[{{"unchecked_diagnostic": {number_token}}}]'
+    else:
+        raw = path.read_text(encoding="utf-8").rstrip()
+        assert raw.endswith("}")
+        raw = raw[:-1] + f', "unchecked_diagnostic": {number_token}}}'
+    path.write_text(raw, encoding="utf-8")
+
+    with pytest.raises(CampaignEvidenceError, match="invalid JSON evidence file"):
+        validate_campaign_evidence(root, (80, 120))
+
+
 @pytest.mark.parametrize(
     ("location", "bad_value", "message"),
     [
