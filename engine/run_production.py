@@ -144,11 +144,12 @@ def _json_safe(value):
     if isinstance(value, (list, tuple)):
         return [_json_safe(v) for v in value]
     if isinstance(value, np.ndarray):
-        if value.ndim == 0:
-            return float(value)
-        return value.tolist()
-    if isinstance(value, (np.floating, np.integer)):
-        return value.item()
+        # Recurse through tolist() so non-finite array leaves are normalized too.
+        return _json_safe(value.item() if value.ndim == 0 else value.tolist())
+    if isinstance(value, np.generic):
+        return _json_safe(value.item())
+    if isinstance(value, float) and not math.isfinite(value):
+        return None
     return value
 
 
@@ -252,7 +253,7 @@ def run_campaign(
             initial["cycle_event"] = None
             _assert_finite_payload(initial, f"initial_diagnostics_N{resolution}")
             state.history.append(initial)
-        except (FloatingPointError, ValueError, TypeError) as exc:
+        except (FloatingPointError, ValueError, TypeError, RuntimeError) as exc:
             status = "numerical_failure:initial_state:" + str(exc)
 
         while status == "completed" and state.t < target_time:
@@ -320,7 +321,29 @@ def run_campaign(
                 checkpoint_count += 1
                 next_checkpoint += config.checkpoint_interval
 
-        last = state.history[-1] if state.history else kernel.diagnostics(state)
+        if state.history:
+            last = state.history[-1]
+        elif status != "completed":
+            # The returned initial state or its initial diagnostics already
+            # failed validation. Do not recompute diagnostics on that invalid
+            # state: it could raise again or produce non-finite values before
+            # the fail-closed ledger/summary is written.
+            last = {
+                "diagnostics_available": False,
+                "failure_status": status,
+            }
+        else:
+            try:
+                last = kernel.diagnostics(state)
+                if not isinstance(last, dict):
+                    raise TypeError("kernel diagnostics must return a mapping")
+                _assert_finite_payload(last, f"final_diagnostics_N{resolution}")
+            except (FloatingPointError, ValueError, TypeError, RuntimeError) as exc:
+                status = "numerical_failure:final_diagnostics:" + str(exc)
+                last = {
+                    "diagnostics_available": False,
+                    "diagnostics_error": str(exc),
+                }
         if len(state.history) >= 3:
             times = np.asarray([row["t"] for row in state.history])
             masses = np.asarray([row["M_MS"] for row in state.history])
