@@ -198,7 +198,8 @@ def recover_radiation(
     for _ in range(max_iter):
         mid = 0.5 * (lo + hi)
         f_mid, v2 = residual(mid)
-        if abs(f_mid) <= tol * max(E, 1.0):
+        # The residual scales with E; a unit-sized tolerance floor breaks density-scale invariance.
+        if abs(f_mid) <= tol * E:
             v = math.sqrt(max(v2, 0.0) / metric.gamma_rr)
             return FluidPrimitive(
                 rho=3.0 * mid,
