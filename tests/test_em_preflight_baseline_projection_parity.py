@@ -1,4 +1,4 @@
-""""EM preflight: pin the existing scalar/fluid source-projection baseline.
+"""EM preflight: pin the existing scalar/fluid source-projection baseline.
 
 This deliberately does not define an electromagnetic state, assign charge, or
 alter production equations. It records the equality that a future, separately
