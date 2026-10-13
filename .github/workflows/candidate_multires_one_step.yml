@@ -5,6 +5,7 @@ on:
     branches:
       - fix/initial-quadrature-cmc-centre-row-candidate-2026-10-13
       - diag/harden-candidate-multires-contract-2026-10-13
+      - diag/default-init-combined-candidate-matched-time-ab-2026-10-13
     paths:
       - "tools/validate_initial_quadrature_cmc_candidate.py"
       - ".github/workflows/candidate_multires_one_step.yml"
