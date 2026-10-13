@@ -30,6 +30,7 @@ from .invariant_diagnostics import (
     trapping_indicator_from_areal_radius,
 )
 from .cosmology_observables import effective_hubble, append_efolds
+from .atomic_io import atomic_savez_compressed
 from .stress_energy import assemble_total_stress_energy
 from .worldtube import areal_radius_derivative
 from .matter_rhs import species_rhs
@@ -1043,4 +1044,4 @@ def write_checkpoint_npz(
         "radiation_energy_t": state.matter.radiation.energy_t,
         "radiation_momentum_r": state.matter.radiation.momentum_r,
     }
-    np.savez_compressed(out, **arrays)
+    atomic_savez_compressed(out, **arrays)
