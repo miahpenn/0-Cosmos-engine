@@ -4,9 +4,9 @@ The active finite-volume state stores densitized Eulerian rest, energy and
 radial momentum (sqrt(gamma)*D, sqrt(gamma)*E, sqrt(gamma)*S_r). It is not the
 separate mixed-component representation returned by valencia.primitive_to_conserved.
 
-For the locked dark-matter covector Q_nu = beta_DM*rho_DM*d_nu(phi), project
-See `docs/SCALAR_DM_EXCHANGE_DERIVATION_2026-10-13.md` for the covariant-to-Eulerian projection, audited code revision, and explicit action/parameter-origin limitation.
-the recipient into this active state as:
+For the locked dark-matter covector Q_nu = beta_DM*rho_DM*d_nu(phi), project the
+recipient into this active state as below. See `docs/SCALAR_DM_EXCHANGE_DERIVATION_2026-10-13.md`
+for the covariant-to-Eulerian derivation and the outstanding action/parameter-origin limitation:
     q_D = -alpha*sqrt(gamma)*beta_DM*rho_DM*W*(Pi + v^r*d_r(phi))
     q_E = -sqrt(gamma)*(Q_t - beta^r*Q_r)
     q_Sr = alpha*sqrt(gamma)*Q_r
