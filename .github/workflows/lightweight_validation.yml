@@ -50,6 +50,9 @@ jobs:
       - name: Run complete repository test suite
         run: python -m pytest -q
 
+      - name: Run source-pinned joined EM/matter/quasi-local ledger
+        run: python tools/audit_em_total_energy_budget.py --output "$RUNNER_TEMP/em_total_energy_budget.json"
+
       - name: Run control-only smoke
         run: python -m engine.run_controls
 
@@ -100,3 +103,11 @@ jobs:
               flush=True,
           )
           PY
+
+      - name: Upload joined EM energy ledger report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: em-total-energy-budget-${{ github.sha }}
+          path: ${{ runner.temp }}/em_total_energy_budget.json
+          if-no-files-found: ignore
