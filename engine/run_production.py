@@ -65,6 +65,32 @@ def _checkpoint_matches_time(path: str | Path, accepted_time: float) -> bool:
         return False
 
 
+# If file metadata cannot be observed, interrupted recovery must fail closed.
+_CHECKPOINT_IDENTITY_UNAVAILABLE = object()
+
+
+def _checkpoint_file_identity(path: str | Path):
+    """Return a replacement-sensitive identity for the canonical checkpoint.
+
+    Checkpoint writes use same-directory os.replace(). A post-replace interrupt
+    changes the file identity; a pre-replace interrupt leaves a prior canonical
+    file untouched. An unreadable identity is not evidence of a new commit.
+    """
+    try:
+        stat = Path(path).stat()
+    except FileNotFoundError:
+        return None
+    except OSError:
+        return _CHECKPOINT_IDENTITY_UNAVAILABLE
+    return (
+        stat.st_dev,
+        stat.st_ino,
+        stat.st_size,
+        stat.st_mtime_ns,
+        stat.st_ctime_ns,
+    )
+
+
 def _due_checkpoint_times(
     accepted_time: float,
     next_checkpoint: float,
@@ -428,13 +454,23 @@ def run_campaign(
                     / f"N{resolution}"
                     / f"checkpoint_t{checkpoint_time:012.6f}.npz"
                 )
+                # Snapshot canonical-file identity before writing. The output
+                # directory may be reused, so matching only the timestamp could
+                # miscount a stale checkpoint preserved by a pre-replace abort.
+                checkpoint_identity_before = _checkpoint_file_identity(path)
                 try:
                     kernel.checkpoint(state, path)
                 except KeyboardInterrupt as exc:
-                    # If replacement committed before Ctrl-C interrupted the
-                    # best-effort directory sync, count only a readable
-                    # checkpoint whose time matches this accepted state.
-                    if _checkpoint_matches_time(path, float(state.t)):
+                    identity_after = _checkpoint_file_identity(path)
+                    identity_observed = (
+                        checkpoint_identity_before is not _CHECKPOINT_IDENTITY_UNAVAILABLE
+                        and identity_after is not _CHECKPOINT_IDENTITY_UNAVAILABLE
+                    )
+                    if (
+                        identity_observed
+                        and identity_after != checkpoint_identity_before
+                        and _checkpoint_matches_time(path, float(state.t))
+                    ):
                         checkpoint_count += 1
                     # Regardless of replacement, persist fail-closed evidence
                     # for the accepted state before re-raising the interruption.
