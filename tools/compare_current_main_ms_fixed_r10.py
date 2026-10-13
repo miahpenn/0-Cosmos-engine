@@ -104,6 +104,18 @@ def state_sha256(state):
     return digest.hexdigest()
 
 
+def trapezoid_integral(values, times):
+    """Integrate discrete time samples with the trapezoidal rule."""
+    values = np.asarray(values, dtype=float)
+    times = np.asarray(times, dtype=float)
+    if values.shape != times.shape or values.ndim != 1 or values.size < 2:
+        raise ValueError("trapezoid inputs must be matching one-dimensional arrays")
+    return float(sum(
+        0.5 * (values[i] + values[i + 1]) * (times[i + 1] - times[i])
+        for i in range(values.size - 1)
+    ))
+
+
 def source_integral(values, dr, method):
     """Return the cumulative source integral under the named frozen rule."""
     values = finite_array("initial source samples", values)
@@ -403,11 +415,11 @@ def run_arm(arm, output_path):
                 direct_residual = direct_rates - (fluxes + works)
                 row.setdefault("balance", {})[tag] = {
                     "mass_delta": float(masses[-1] - masses[0]),
-                    "integral_flux_T": float(np.trapezoid(fluxes, times)),
-                    "integral_work_pR": float(np.trapezoid(works, times)),
-                    "integral_flux_plus_work": float(np.trapezoid(fluxes + works, times)),
+                    "integral_flux_T": trapezoid_integral(fluxes, times),
+                    "integral_work_pR": trapezoid_integral(works, times),
+                    "integral_flux_plus_work": trapezoid_integral(fluxes + works, times),
                     "integrated_mass_flux_work_mismatch": float(
-                        masses[-1] - masses[0] - np.trapezoid(fluxes + works, times)
+                        masses[-1] - masses[0] - trapezoid_integral(fluxes + works, times)
                     ),
                     "finite_time_gradient_residual_values": residual.tolist(),
                     "finite_time_gradient_residual_max_abs": float(np.max(np.abs(residual))),
