@@ -593,9 +593,11 @@ def run_resolution_audit(output_dir: Path) -> dict:
         if row["equilibrated"]["target_to_current_ratio"] is not None
     ]
     hp_rows = [row for row in rows if row["high_precision"] is not None]
+    hp_refined_rows = [row for row in rows if row["high_precision_refined"] is not None]
     unscaled_pass_count = sum(bool(row["all_unscaled_checks_passed"]) for row in rows)
     balanced_pass_count = sum(bool(row["all_equilibrated_checks_passed"]) for row in rows)
     hp_pass_count = sum(bool(row["high_precision"]["all_checks_passed"]) for row in hp_rows)
+    hp_refined_pass_count = sum(bool(row["high_precision_refined"]["all_checks_passed"]) for row in hp_refined_rows)
     report = {
         "schema": "cmc_joint_discrete_target_lapse_initial_resolution_sweep_v3",
         "status": "completed_diagnostic_only",
@@ -651,6 +653,24 @@ def run_resolution_audit(output_dir: Path) -> dict:
             "max_abs_high_precision_target_minus_equilibrated": float(
                 max(abs(float(row["target_difference_high_precision_minus_equilibrated"])) for row in hp_rows)
             ) if hp_rows else None,
+            "high_precision_refined_resolutions": [int(row["resolution"]) for row in hp_refined_rows],
+            "high_precision_refined_resolutions_passing": hp_refined_pass_count,
+            "all_high_precision_refined_checks_passed": bool(hp_refined_rows) and hp_refined_pass_count == len(hp_refined_rows),
+            "max_high_precision_refined_interior_rhs_residual": float(
+                max(float(row["high_precision_refined"]["interior_rhs_residual_max_abs"]) for row in hp_refined_rows)
+            ) if hp_refined_rows else None,
+            "max_high_precision_refined_interior_roundoff_ratio": float(
+                max(float(row["high_precision_refined"]["interior_roundoff_max_ratio"]) for row in hp_refined_rows)
+            ) if hp_refined_rows else None,
+            "max_high_precision_refined_weighted_mean_closure": float(
+                max(abs(float(row["high_precision_refined"]["weighted_mean_minus_target"])) for row in hp_refined_rows)
+            ) if hp_refined_rows else None,
+            "max_abs_direct_rhs_refinement_alpha_change": float(
+                max(float(row["high_precision_refined"]["correction"]["max_abs_alpha_correction"]) for row in hp_refined_rows)
+            ) if hp_refined_rows else None,
+            "max_abs_direct_rhs_refinement_target_change": float(
+                max(float(row["high_precision_refined"]["correction"]["max_abs_target_correction"]) for row in hp_refined_rows)
+            ) if hp_refined_rows else None,
             "equilibrated_joint_target_min": float(min(balanced_targets)),
             "equilibrated_joint_target_max": float(max(balanced_targets)),
             "equilibrated_target_to_current_ratio_min": float(min(balanced_ratios)),
@@ -725,6 +745,14 @@ def main() -> int:
         "max_high_precision_interior_roundoff_ratio": sweep["max_high_precision_interior_roundoff_ratio"],
         "max_abs_high_precision_augmented_residual_before_float_rounding": sweep["max_abs_high_precision_augmented_residual_before_float_rounding"],
         "max_abs_high_precision_augmented_residual_after_float_rounding": sweep["max_abs_high_precision_augmented_residual_after_float_rounding"],
+        "high_precision_refined_resolutions": sweep["high_precision_refined_resolutions"],
+        "high_precision_refined_resolutions_passing": sweep["high_precision_refined_resolutions_passing"],
+        "all_high_precision_refined_checks_passed": sweep["all_high_precision_refined_checks_passed"],
+        "max_high_precision_refined_interior_rhs_residual": sweep["max_high_precision_refined_interior_rhs_residual"],
+        "max_high_precision_refined_interior_roundoff_ratio": sweep["max_high_precision_refined_interior_roundoff_ratio"],
+        "max_high_precision_refined_weighted_mean_closure": sweep["max_high_precision_refined_weighted_mean_closure"],
+        "max_abs_direct_rhs_refinement_alpha_change": sweep["max_abs_direct_rhs_refinement_alpha_change"],
+        "max_abs_direct_rhs_refinement_target_change": sweep["max_abs_direct_rhs_refinement_target_change"],
         "equilibrated_joint_target_min": sweep["equilibrated_joint_target_min"],
         "equilibrated_joint_target_max": sweep["equilibrated_joint_target_max"],
         "equilibrated_target_to_current_ratio_min": sweep["equilibrated_target_to_current_ratio_min"],
