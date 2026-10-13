@@ -11,6 +11,7 @@ from tools.audit_em_total_energy_budget import (
     _reconstruct_energy_rhs_with_roundoff_contract,
     _fixed_R_interval_balance,
     _pair_fixed_R_interval_rows,
+    _misner_sharp_chain_rule_rate_profiles,
 )
 
 
@@ -162,3 +163,58 @@ def test_charged_neutral_fixed_R_interval_difference_is_signed():
     assert [row["charged_minus_neutral_mass_rate_finite_difference"] for row in paired] == pytest.approx([0.25, 0.25])
     assert [row["charged_minus_neutral_accepted_state_endpoint_trapezoid_prediction"] for row in paired] == pytest.approx([0.1, 0.1])
     assert [row["charged_minus_neutral_accepted_interval_residual"] for row in paired] == pytest.approx([0.15, 0.15])
+
+
+def _manufactured_misner_sharp_chain_rule_inputs():
+    return {
+        "R": np.array([1.0, 1.4, 1.9, 2.3]),
+        "Rdot": np.array([0.02, -0.015, 0.01, 0.025]),
+        "Rr": np.array([0.95, 1.03, 1.08, 1.12]),
+        "Rdot_r": np.array([-0.01, 0.008, 0.012, 0.02]),
+        "gamma_inv": np.array([1.1, 1.07, 1.03, 0.99]),
+        "gamma_inv_dot": np.array([-0.012, -0.008, 0.003, 0.01]),
+        "Ktheta": np.array([0.01, -0.015, 0.02, 0.025]),
+        "Ktheta_dot": np.array([0.002, -0.001, 0.003, -0.002]),
+    }
+
+
+def _manufactured_misner_sharp_mass(R, Rr, gamma_inv, Ktheta):
+    chi = gamma_inv * Rr**2 - (R * Ktheta)**2
+    return 0.5 * R * (1.0 - chi)
+
+
+def test_misner_sharp_semidiscrete_chain_rule_matches_directional_difference():
+    inputs = _manufactured_misner_sharp_chain_rule_inputs()
+    observed = _misner_sharp_chain_rule_rate_profiles(**inputs)
+    epsilon = 1.0e-6
+    M0 = _manufactured_misner_sharp_mass(
+        inputs["R"], inputs["Rr"], inputs["gamma_inv"], inputs["Ktheta"]
+    )
+    M1 = _manufactured_misner_sharp_mass(
+        inputs["R"] + epsilon * inputs["Rdot"],
+        inputs["Rr"] + epsilon * inputs["Rdot_r"],
+        inputs["gamma_inv"] + epsilon * inputs["gamma_inv_dot"],
+        inputs["Ktheta"] + epsilon * inputs["Ktheta_dot"],
+    )
+    directional_difference = (M1 - M0) / epsilon
+    assert observed["mass"] == pytest.approx(M0)
+    np.testing.assert_allclose(
+        observed["mass_dot_coordinate"],
+        directional_difference,
+        rtol=2.0e-6,
+        atol=2.0e-9,
+    )
+
+
+def test_misner_sharp_semidiscrete_chain_rule_fails_closed_on_shape_mismatch():
+    inputs = _manufactured_misner_sharp_chain_rule_inputs()
+    inputs["Rdot_r"] = np.array([0.0, 1.0])
+    with pytest.raises(RuntimeError, match="Rdot_r shape .* does not match"):
+        _misner_sharp_chain_rule_rate_profiles(**inputs)
+
+
+def test_misner_sharp_semidiscrete_chain_rule_fails_closed_on_nonfinite_operand():
+    inputs = _manufactured_misner_sharp_chain_rule_inputs()
+    inputs["gamma_inv_dot"][2] = np.nan
+    with pytest.raises(RuntimeError, match="gamma_inv_dot contains non-finite"):
+        _misner_sharp_chain_rule_rate_profiles(**inputs)
