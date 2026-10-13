@@ -173,3 +173,15 @@ def test_target_kdot_rejects_nonfinite_raw_rhs(monkeypatch):
 
     with pytest.raises(FloatingPointError, match="non-finite or mismatched K RHS"):
         cmc_gauge.target_kdot(grid, geometry, scalars=None, matter=None)
+
+
+def test_reordered_grid_centres_fail_closed():
+    # All centres remain finite and positive, but the second centre reverses
+    # direction. This pins the explicit monotonicity guard independently of
+    # the uniform-spacing check covered by the off-centre regression.
+    grid, geometry = _inputs(centers=[0.25, 0.15, 1.25])
+    with pytest.raises(
+        FloatingPointError,
+        match="radial centres must be uniform and cell-centred",
+    ):
+        cmc_gauge._proper_volume_weights(grid, geometry)
