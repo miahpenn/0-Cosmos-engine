@@ -172,7 +172,8 @@ def validate_species_admissibility(
             f"ratio={ratio:.17e}, "
             f"conserved(rest,energy_t,momentum_r)="
             f"({state.rest[i]:.17e},{state.energy_t[i]:.17e},"
-            f"{state.momentum_r[i]:.17e})"
+            f"{state.momentum_r[i]:.17e})",
+            stage=stage,
         )
 
 
@@ -223,7 +224,9 @@ def primitives(
                     f"neighbors(i,E,|S|,|S|/E)={neighborhood}"
                 )
                 if isinstance(exc, RadiationAdmissibilityError):
-                    raise RadiationAdmissibilityError(message) from exc
+                    raise RadiationAdmissibilityError(
+                        message, stage=exc.stage
+                    ) from exc
                 raise ValueError(message) from exc
     return out
 
