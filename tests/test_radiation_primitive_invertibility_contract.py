@@ -329,6 +329,17 @@ def test_shifted_near_cone_flux_and_tensor_products_use_preserved_velocity_norm(
     W = primitive.lorentz()
     h = primitive.rho + primitive.pressure
     S_r = h * W * W * metric.gamma_rr * primitive.v_r
+    expected_energy_flux = (
+        metric.alpha * metric.gamma_rr_inv * conserved.momentum_r
+        - metric.beta * conserved.energy_t
+    )
+    assert _radiation_flux(metric, primitive)[1] == pytest.approx(
+        expected_energy_flux, rel=2.0e-14, abs=0.0
+    )
+    assert _valencia_flux(metric, primitive)[1] == pytest.approx(
+        expected_energy_flux, rel=2.0e-14, abs=0.0
+    )
+
     expected_radial_flux = metric.sqrt_gamma * (
         metric.alpha * (h * W * W * primitive.v2 + primitive.pressure)
         - metric.beta * S_r
