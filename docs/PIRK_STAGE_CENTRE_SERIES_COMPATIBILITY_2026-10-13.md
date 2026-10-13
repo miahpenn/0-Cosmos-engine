@@ -15,15 +15,15 @@
 - `profiles.npz` SHA-256: `2ad0806ecbd1ad0a0364fadbbc4ce4185b0a4e26d9c6a2d07e5ee7ee27c2b90e`
 - `profiles.csv` SHA-256: `00a9579e3b17b3e282c75057efe5506add045e77af421951b151eb010789accf`
 
-The diagnostic captured 35 finite field/RHS records across five resolutions. At each of N=40, 60, 80, 120, and 160 it applied **one ordinary production step only**, with (r_{\max}=80), (dt=0.03\,dr), radiation enabled, and the frozen kernel/vendor above. Input-state numerical digests were unchanged; accepted geometry passed the positivity assertion. No physics source, production kernel, coefficient, limiter, projection, or admission threshold was modified.
+The diagnostic captured 35 finite field/RHS records across five resolutions. At N=40, 60, 80, 120, and 160 it applied **one ordinary production step only**, with `r_max=80`, `dt=0.03*dr`, radiation enabled, and the frozen kernel/vendor above. Input-state numerical digests were unchanged; accepted geometry passed the positivity assertion. No physics source, production kernel, coefficient, limiter, projection, or admission threshold was modified.
 
 The report's `PIRK_STAGE_CENTRE_SERIES_AUDIT_PASS` means the pinned instrumentation and one-step capture completed with finite arrays and an internally consistent record. It does **not** mean the center series, constraints, conservation, convergence, or production admission passed.
 
-## Primary finding: the central ẊAₐ/r² RHS witness grows under refinement
+## Primary finding: the central Aa_dot/r² RHS witness grows under refinement
 
-Let (r_0=dr/2=40/N) be the first cell centre. The initial data have (A_a(r_0)=0), but the initial total geometry RHS has a nonzero first-cell ẊAₐ. The table reports the signed RHS quotient ((\partial_t A_a)_{i=0}/r_0^2), the reconstructed un-divided RHS, and the related even-series derivative witness.
+Let `r0 = dr/2 = 40/N` be the first cell centre. The initial data have `Aa(r0)=0`, but the initial total geometry RHS has a nonzero first-cell `Aa_dot`. The table reports `Aa_dot/r0²`, the reconstructed raw `Aa_dot` at the first cell, and the related even-series derivative witness.
 
-| N | (r_0) | ((\partial_t A_a)/r_0^2) at initial RHS | Reconstructed ((\partial_t A_a)_{i=0}) | (D_r(\partial_t K)/r) at (i=0) |
+| N | r0 | `Aa_dot/r0²` at initial RHS | Raw `Aa_dot` at i=0 | `D_r(K_dot)/r` at i=0 |
 |---:|---:|---:|---:|---:|
 | 40 | 1.0000 | +1.104394e-3 | +1.104394e-3 | +5.10704e-4 |
 | 60 | 0.6667 | +2.456064e-3 | +1.091584e-3 | +1.19501e-3 |
@@ -31,13 +31,13 @@ Let (r_0=dr/2=40/N) be the first cell centre. The initial data have (A_a(r_0)=0)
 | 120 | 0.3333 | +9.791530e-3 | +1.087948e-3 | +4.86944e-3 |
 | 160 | 0.2500 | +1.740206e-2 | +1.087629e-3 | +8.67665e-3 |
 
-Across a fourfold refinement from N=40 to N=160, the divided ẊAₐ/r² witness grows by 15.76 times, while the raw first-cell ẊAₐ remains near (+1.09\times10^{-3}). In the captured split, initial (A_a)-L2 contributes about (+1.107\times10^{-3}/r_0^2) at N=40 and (+1.7405\times10^{-2}) at N=160; the L3 contribution remains small, from (-2.65\times10^{-6}) to (-1.76\times10^{-7}) in the same divided quotient.
+Across a fourfold refinement from N=40 to N=160, the divided `Aa_dot/r²` witness grows by 15.76 times, while raw first-cell `Aa_dot` stays near `+1.09e-3`. In the captured split, the initial geometry L2 term contributes `+1.107e-3` to `Aa_dot/r0²` at N=40 and `+1.7405e-2` at N=160; the L3 contribution remains small, from `-2.65e-6` to `-1.76e-7` in the same divided quotient.
 
-The centre-rate witness is present at the initial RHS and changes only slightly in the explicit-predictor and primary-predictor RHS. It persists in the read-only RHS recomputed after the accepted step. This rules against the PIRK time advance suddenly creating the original (A_a) centre mismatch; the nonzero central RHS is already in the initial semi-discrete operator. The (D_r(\partial_t K)/r) witness also grows with N, agreeing with the independently recorded central K-rate series concern.
+The centre-rate witness is present in the initial RHS and changes only slightly in the explicit-predictor and primary-predictor RHS. It persists in the read-only RHS recomputed after the accepted step. This rules against the PIRK time advance suddenly creating the original `Aa` centre mismatch; the nonzero central RHS is already in the initial semi-discrete operator. The `D_r(K_dot)/r` witness also grows with N, agreeing with the independently recorded central K-rate series concern.
 
 ## Fixed physical-radius context
 
-The CSV and JSON reports now interpolate at the requested physical radii rather than choosing a different nearest cell at each resolution. Initial ((\partial_t A_a)/r^2) at fixed (r=3,5,8) is:
+The CSV and JSON reports interpolate at the requested physical radii rather than choosing a different nearest cell at each resolution. Initial `Aa_dot/r²` interpolated to physical radii `r=3,5,8` is:
 
 | N | r=3 | r=5 | r=8 |
 |---:|---:|---:|---:|
@@ -49,11 +49,11 @@ The CSV and JSON reports now interpolate at the requested physical radii rather 
 
 The fixed-radius values settle at finer resolutions while the first-cell divided quotient grows. That is consistent with a localized central non-regular layer rather than a uniformly growing rate across the whole radial domain. This is a descriptive one-step refinement comparison, not a formal convergence proof.
 
-## Second stage-localized witness: ẊΛ/r
+## Second stage-localized witness: Lambda_dot/r
 
-At the first cell the ẊΛ/r RHS is at roundoff on the initial slice. It is already a small positive value at the explicit predictor, then becomes negative at the primary-predictor input and remains at nearly the same value in the post-step read-only RHS.
+At the first cell the `Lambda_dot/r` RHS is at roundoff on the initial slice. It is already a small positive value at the explicit predictor, then becomes negative at the primary-predictor input and remains at nearly the same value in the post-step read-only RHS.
 
-| N | Initial slice ẊΛ/r | Explicit predictor ẊΛ/r | Primary predictor ẊΛ/r |
+| N | Initial slice `Lambda_dot/r` | Explicit predictor `Lambda_dot/r` | Primary predictor `Lambda_dot/r` |
 |---:|---:|---:|---:|
 | 40 | ∼0 | +1.33859e-5 | -2.78868e-5 |
 | 60 | ∼0 | +9.25284e-6 | -5.52506e-5 |
@@ -80,7 +80,7 @@ The `Aa` residual excluding the outer two cells is at or below (2.71\times10^{-2
 
 ## Interpretation and next discriminating check
 
-This diagnostic reinforces the already documented finding that the central ẊAₐ/r² RHS is not regular under this frozen baseline source. The centre mismatch is present before a step, persists across the actual PIRK stages, and is not explained by a failure of the weighted-increment implementation. The L2 term dominates the first-cell ẊAₐ split, but the present hook records the combined L2 value; it does not itself separate all internal Ricci and lapse-Hessian contributions.
+This diagnostic reinforces the already documented finding that the central Aa_dot/r² RHS is not regular under this frozen baseline source. The centre mismatch is present before a step, persists across the actual PIRK stages, and is not explained by a failure of the weighted-increment implementation. The L2 term dominates the first-cell Aa_dot split, but the present hook records the combined L2 value; it does not itself separate all internal Ricci and lapse-Hessian contributions.
 
 Next check should capture a read-only signed split of those individual geometric pieces at the **same actual RHS states** (initial slice, explicit predictor, primary predictor), preserving the original returned sum exactly. Cross-compare the baseline and already-proposed uniform-quadrature arm only if that same-source comparison is still uncovered by the coordination board. Do not fit a coefficient, project the state, edit the production RHS, or run a long campaign on this evidence alone.
 
