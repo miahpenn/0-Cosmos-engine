@@ -82,6 +82,21 @@ The initialized metric identities close to roundoff:
 
 These checks rule out a simple failure of the algebraic conformal metric identities but do not prove centre differentiability/regularity of the initialized sequence, nor do they force two different discrete curvature constructions to obey a continuum product rule.
 
+## Source-level origin half-cell check
+
+The current production initializer's first cumulative-integral entry is \`I_0=(dr/2)\,s_0^{\mathrm{sample}}\), while the first cell centre is \(r_0=dr/2\), and it then forms \(B_0=I_0/r_0\). Thus, for a fixed smooth even source profile
+\[
+s(r)=s_0+s_2 r^2+s_4 r^4+O(r^6),
+\]
+the current first-cell rule gives \(B_0=s(r_0)=s_0+s_2 r_0^2+s_4 r_0^4+\cdots\). The actual origin-to-centre average would be
+\[
+\frac1{r_0}\int_0^{r_0}s(r)\,dr
+=s_0+\frac{s_2}{3}r_0^2+\frac{s_4}{5}r_0^4+O(r_0^6).
+\]
+For a fixed source, the leading first-cell differences are therefore \(+(2/3)s_2 r_0^2\) and \(+(4/5)s_4 r_0^4\). This is a source-derived explanation for why a first-cell profile can carry incorrect centre-series coefficients even while \(a,b,X\) satisfy their algebraic identities. In production, \(s\) is itself coupled to the iterated \(B\), so this identity localizes a plausible numerical mechanism but is not a full nonlinear error budget.
+
+This is **not** approval to switch to the candidate quadrature. Draft PR #18 already has analytic even-series origin weights and four-arm matched-time evidence, but its quadrature arm worsens the production-defined Misner–Sharp current residual at the tested resolutions. The right next experiment is to apply this no-evolution, same-profile Ricci observer to baseline and the existing quadrature-only candidate source profiles (with explicit allowed source diffs) and read that against PR #18's signed centre/flux/work balance findings. Avoid another long trajectory and do not fit quadrature weights to a residual.
+
 ## Interpretation and next discriminator
 
 The supported conclusion is an **inner-centre discrete compatibility failure** on the actual initialized profiles. The analytic constant-curvature control argues against a universal sign or formula mistake in the independent reconstruction. The fixed-radius comparison argues against a general, domain-wide disagreement between the Ricci representations. What remains unresolved is which centre-local layer is responsible: the initializer's origin-to-first-cell radial-source quadrature, the parity/near-origin stencil closure acting on that profile, or their interaction with the BSSN connection formulation.
