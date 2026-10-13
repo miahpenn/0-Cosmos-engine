@@ -46,6 +46,76 @@ def _d1(grid, x, parity=1):
     return grid.d1(x, parity)
 
 
+def _integrate_initial_origin_half_cell_even_moments(src, dr):
+    """Moment-exact integral over [0, dr/2] for the even moments 1,r^2,r^4."""
+    values = np.asarray(src, dtype=float)
+    step = float(dr)
+    if values.ndim != 1 or values.size < 3:
+        raise ValueError("origin half-cell rule requires at least three source samples")
+    if not math.isfinite(step) or step <= 0.0:
+        raise ValueError("origin half-cell rule requires finite positive dr")
+    if not np.all(np.isfinite(values)):
+        raise FloatingPointError("origin half-cell source samples are non-finite")
+    weights = (401.0 / 720.0, -31.0 / 480.0, 11.0 / 1440.0)
+    result = step * float(np.dot(np.asarray(weights), values[:3]))
+    if not math.isfinite(result):
+        raise FloatingPointError("origin half-cell rule produced non-finite integral")
+    return result
+
+
+def _integrate_initial_center_interval_even_moments(src, dr, interval_index):
+    """Integrate one centre interval using a local Lagrange polynomial in r^2.
+
+    The interpolant is quadratic in r^2 (hence quartic in r); three-point
+    Gauss-Legendre integrates it exactly. A forward stencil is used for every
+    interval except the last, where a backward stencil avoids requiring a
+    source sample beyond the outer boundary. This is a diagnostic quadrature
+    scheme, not an admitted production-physics change.
+    """
+    values = np.asarray(src, dtype=float)
+    step = float(dr)
+    if values.ndim != 1 or values.size < 3:
+        raise ValueError("centre-interval moment rule requires at least three source samples")
+    if not math.isfinite(step) or step <= 0.0:
+        raise ValueError("centre-interval moment rule requires finite positive dr")
+    if not isinstance(interval_index, (int, np.integer)):
+        raise ValueError("interval index must be an integer")
+    if interval_index < 0 or interval_index >= values.size - 1:
+        raise ValueError("interval index is outside the inter-centre intervals")
+    if not np.all(np.isfinite(values)):
+        raise FloatingPointError("centre-interval source samples are non-finite")
+
+    if interval_index < values.size - 2:
+        sample_indices = (interval_index, interval_index + 1, interval_index + 2)
+    else:
+        sample_indices = (interval_index - 1, interval_index, interval_index + 1)
+    sample_r = np.asarray(sample_indices, dtype=float) + 0.5
+
+    # Three-point Gauss-Legendre on [k+1/2, k+3/2], using factorized
+    # differences to avoid subtracting large, nearly equal squared radii.
+    gauss_x = (-math.sqrt(3.0 / 5.0), 0.0, math.sqrt(3.0 / 5.0))
+    gauss_w = (5.0 / 9.0, 8.0 / 9.0, 5.0 / 9.0)
+    center = interval_index + 1.0
+    half_width = 0.5
+    weights = np.zeros(3, dtype=float)
+    for gx, gw in zip(gauss_x, gauss_w):
+        x = center + half_width * gx
+        for j in range(3):
+            basis = 1.0
+            for m in range(3):
+                if m == j:
+                    continue
+                denominator = (sample_r[j] - sample_r[m]) * (sample_r[j] + sample_r[m])
+                numerator = (x - sample_r[m]) * (x + sample_r[m])
+                basis *= numerator / denominator
+            weights[j] += half_width * gw * basis
+
+    result = step * float(np.dot(weights, values[list(sample_indices)]))
+    if not math.isfinite(result):
+        raise FloatingPointError("centre-interval moment rule produced non-finite integral")
+    return result
+
+
 def build_initial_data(
     grid,
     vacuum_state_factory,
@@ -98,9 +168,16 @@ def build_initial_data(
             + 2.0 * r * r * Kr * Kt
             + r * r * Kt * Kt
         )
+        # Apply a moment-exact local quadrature on every inter-centre interval.
+        # The outermost interval uses a backward stencil; this avoids a
+        # finite patched-region edge near the origin.
+        intervals = np.empty(n - 1, dtype=float)
+        for interval_index in range(n - 1):
+            intervals[interval_index] = _integrate_initial_center_interval_even_moments(
+                src, dr, interval_index
+            )
         integ = np.cumsum(
-            np.r_[0.5 * dr * src[0],
-                  0.5 * dr * (src[1:] + src[:-1])]
+            np.r_[_integrate_initial_origin_half_cell_even_moments(src, dr), intervals]
         )
         B = integ / r
 
