@@ -7,7 +7,7 @@ A finite final_time is a campaign boundary, not a physical stop condition.
 The evolution equations themselves contain no reset, bounce, branch flip,
 ejection threshold, or phenomenological feedback source.
 """
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, is_dataclass, replace
 from pathlib import Path
 import json
 import math
@@ -91,17 +91,42 @@ def assert_finite_state(state) -> None:
 
 
 def _canonicalize_endpoint_roundoff(state, target_time: float, tolerance: float) -> float:
-    """Snap only an already-computed endpoint within roundoff tolerance.
+    """Snap an accepted endpoint and every ledger record for that same slice.
 
-    This does not take an additional evolution step. It merely normalizes the
-    final coordinate-time label and the matching final history timestamp after
-    the nominal last full step.
+    This does not take an additional evolution step. It normalizes the
+    coordinate-time label after the nominal last step and keeps the matching
+    history, handoff, and cycle-event timestamps synchronized. Older ledger
+    entries are left untouched.
     """
-    correction = float(target_time) - float(state.t)
+    previous_time = float(state.t)
+    correction = float(target_time) - previous_time
     if abs(correction) <= tolerance:
         state.t = float(target_time)
         if state.history:
             state.history[-1]["t"] = float(target_time)
+
+        # The accepted endpoint is recorded independently in immutable
+        # HandoffPoint objects and CycleEvent objects. Snap only a terminal
+        # record whose time exactly matches the pre-correction state time;
+        # never relabel a prior event/handoff.
+        record_lists = (
+            getattr(state, "handoffs", None),
+            getattr(getattr(state, "cycle", None), "events", None),
+        )
+        for records in record_lists:
+            if not records:
+                continue
+            record = records[-1]
+            try:
+                record_time = float(record.t)
+            except (AttributeError, TypeError, ValueError, OverflowError):
+                continue
+            if record_time != previous_time:
+                continue
+            if is_dataclass(record):
+                records[-1] = replace(record, t=float(target_time))
+            else:
+                setattr(record, "t", float(target_time))
         return correction
     return 0.0
 
