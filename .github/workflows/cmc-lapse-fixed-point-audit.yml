@@ -43,7 +43,8 @@ jobs:
           expected="$(printf '%s\n' \
             '.github/workflows/cmc-lapse-fixed-point-audit.yml' \
             'tests/test_cmc_lapse_fixed_point_audit.py' \
-            'tools/audit_cmc_lapse_fixed_point.py' | sort)"
+            'tools/audit_cmc_lapse_fixed_point.py' \
+            'tools/audit_cmc_lapse_row_counterfactual.py' | sort)"
           if [ "$changed" != "$expected" ]; then
             printf 'Unexpected source delta from pinned main:\n%s\n' "$changed"
             exit 1
@@ -85,11 +86,27 @@ jobs:
             --output-dir artifacts/cmc-lapse-fixed-point-audit \
             --iterations 12
 
+      - name: Compare CMC centre and outer rows on the same frozen state
+        run: |
+          mkdir -p artifacts/cmc-lapse-row-counterfactual
+          python tools/audit_cmc_lapse_row_counterfactual.py \
+            --input-dir runs/source-artifact \
+            --output-dir artifacts/cmc-lapse-row-counterfactual
+
       - name: Upload strict CMC audit report, profiles, and hashes
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: cmc-lapse-fixed-point-audit
           path: artifacts/cmc-lapse-fixed-point-audit/
+          if-no-files-found: warn
+          retention-days: 90
+
+      - name: Upload frozen CMC row counterfactual report and profiles
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cmc-lapse-row-counterfactual
+          path: artifacts/cmc-lapse-row-counterfactual/
           if-no-files-found: warn
           retention-days: 90
