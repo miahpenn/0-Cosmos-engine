@@ -68,8 +68,20 @@ def _run_arm(root, eta):
             4.0 * np.pi * saved_eta * dr * final_saved["charged_dust_rest"]
         )
         gauss_absmax = float(np.max(np.abs(recomputed_gauss)))
-        scale = max(1.0, float(np.max(np.abs(q_faces))))
-        assert gauss_absmax <= 5.0e-11 * scale
+        shell_charge = (
+            4.0 * np.pi * saved_eta * dr * final_saved["charged_dust_rest"]
+        )
+        operand_scale = np.maximum.reduce((
+            np.abs(q_faces[:-1]),
+            np.abs(q_faces[1:]),
+            np.abs(np.diff(q_faces)),
+            np.abs(shell_charge),
+        ))
+        roundoff_bound = (
+            64.0 * np.finfo(np.float64).eps
+            * np.maximum(operand_scale, np.finfo(np.float64).tiny)
+        )
+        assert np.all(np.abs(recomputed_gauss) <= roundoff_bound)
 
         row = {
             "q_over_m": eta,
