@@ -1,6 +1,22 @@
 # Build Status — 2026-10-13
 
-## Current engineering snapshot — 2026-10-13 17:20 UTC (radiation/constraint reconciliation merged; source baseline unchanged)
+## Current-main follow-up — after EM reference-test merges, 13 October 2026 UTC
+
+**Current main tip:** `6aa7a9d3107582606b129f6b5ed3d04ea5f27bf3` (PR #144 merge; PR #145 was merged immediately before it). **Last production-source promotion remains** `bfbe59c5dc844ce0ee365fdfcdc963dfd681d403`; #144 and #145 changed tests only, with no production engine, vendor, physical source, campaign, or canonical GEAR changes. The older engineering snapshot below predates these merges and must not be quoted as the current main tip. The live open-PR query now returns **22**.
+
+### Electromagnetic sector — current disposition
+
+- **Present on main:** research-only flat/curved radial Coulomb reference and finite-volume Gauss diagnostic; baseline scalar/fluid projection parity; synthetic pure-radial-electric consumer-gain checks at the true RHS-entry stages. See [PR #136](https://github.com/miahpenn/0-Cosmos-engine/pull/136), [PR #144](https://github.com/miahpenn/0-Cosmos-engine/pull/144), and [PR #145](https://github.com/miahpenn/0-Cosmos-engine/pull/145). The exact-head stable workflows are recorded in each PR discussion. They test reference constraints and existing consumer response, not Maxwell evolution.
+- **Absent from production runtime:** no electromagnetic field/current state, Maxwell evolution, selected charge carrier or continuity law, reciprocal Lorentz-force source, or Maxwell stress-energy assembly. Main contains no approved field-to-engine normalization or physical EM initial/boundary prescription.
+- **Model-origin gate:** the GEAR archive inventory does not specify an electromagnetic sector or charge carrier. The open D-energy-to-matter and local-to-global-source bridges do not authorize charge generation. Do not assign charge to baryons, radiation, S, D, or `phi` by inference. Exact spherical symmetry supports a radial Maxwell/Coulomb first lane, not general propagating EM waves or magnetic topology.
+- **Next gate:** [PR #101](https://github.com/miahpenn/0-Cosmos-engine/pull/101) remains a research-only draft and needs a genuinely distinct convention/index/lapse/shift plus reciprocal-source review. A model owner must select or explicitly defer the carrier/current law, matter action, Gaussian-to-engine field scale, and initial/boundary data before a production implementation is specified. Conditional scalar–DM PR [#143](https://github.com/miahpenn/0-Cosmos-engine/pull/143) is separate and remains unmerged pending refreshed exact-head checks and independent equation review.
+- **Validation boundary:** the #144/#145 exact-head checks do not constitute a new post-merge full-main test run, EM dynamics, trajectory stability, or scientific admission. Do not infer those results; scientific admission remains **NOT ADMITTED**.
+
+Coordination record: [Issue #5](https://github.com/miahpenn/0-Cosmos-engine/issues/5). Canonical task board: [Issue #135](https://github.com/miahpenn/0-Cosmos-engine/issues/135).
+
+---
+
+## Previous engineering snapshot — 2026-10-13 17:20 UTC (superseded by current-main follow-up above) (radiation/constraint reconciliation merged; source baseline unchanged)
 
 **Last non-status main commit before this status refresh:** `f7034cefaa4ca3eb7d3f4fa7eb7281af59cb5211` (merged PR #122; source-pinned radiation/constraint report and CSV evidence only). **Production source baseline:** `bfbe59c5dc844ce0ee365fdfcdc963dfd681d403` (last production-source promotion; PR #131; production engine/vendor/physics source is unchanged by #122/#136/#137/#139/#141). Current-source-tree software validation [run 38437180218](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38437180218) on the immediate parent `592d0fc06654ebd95be78b2b61d71fce23bc4696` passed **320 tests** and the bounded N=40 one-step smoke to `t=0.03`; #122 adds only evidence Markdown/CSVs on top of that tree, so the production/test tree is unchanged. PR #141 removed only `.chatgpt-write-test.md` and two byte-identical duplicate test files (their Git blobs matched retained canonical tests); PR #136 added only research-only EM preflight tests. Campaign/zero-star/worldtube jobs were skipped by the current `push.paths` filters; this is not a scientific-campaign result.
 
