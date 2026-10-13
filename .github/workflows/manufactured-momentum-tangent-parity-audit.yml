@@ -31,7 +31,7 @@ jobs:
       - name: Checkout exact current production source and pinned vendor
         uses: actions/checkout@v4
         with:
-          ref: 1db7d554ae43e447e8b4859b68ff8d42e224eb61
+          ref: 5b7284600d64eaa70772a9c1e47519872a807ac8
           path: source
           submodules: recursive
           fetch-depth: 0
@@ -40,7 +40,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git -C source rev-parse HEAD)" = "1db7d554ae43e447e8b4859b68ff8d42e224eb61"
+          test "$(git -C source rev-parse HEAD)" = "5b7284600d64eaa70772a9c1e47519872a807ac8"
           test "$(git -C source/vendor/bb-palatini-unified-r0 rev-parse HEAD)" = "d6052d605673ce9d82cdc99b0df79855fa2ea215"
           printf 'PRODUCTION_SOURCE=%s\n' "$(git -C source rev-parse HEAD)"
           printf 'VENDOR_SOURCE=%s\n' "$(git -C source/vendor/bb-palatini-unified-r0 rev-parse HEAD)"
