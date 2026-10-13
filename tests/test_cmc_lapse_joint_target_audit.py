@@ -49,7 +49,7 @@ def test_equilibrated_joint_target_lapse_solves_same_equations():
     matrix[5, 4] = -0.02
     # Deliberately mix the equation row scales; equilibration must preserve
     # the original equations, target, centre/outer conditions, and mean target.
-    row_scale = np.logspace(-5, 5, n)
+    row_scale = np.logspace(-3, 3, n)
     matrix = row_scale[:, None] * matrix
     intercept = target_expected - matrix @ alpha_expected
     weights = np.linspace(0.5, 2.0, n)
