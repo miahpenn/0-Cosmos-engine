@@ -6,7 +6,7 @@ from .matter_system import (
     ConservedSpecies,
     MetricDerivativeSet,
     Species,
-    evolve_species,
+    _species_rhs_components,
 )
 
 
@@ -19,27 +19,29 @@ def species_rhs(
     dphi_r: np.ndarray | None = None,
     beta_dm: float = -0.04,
 ) -> ConservedSpecies:
-    """Return d(state)/dt using the conservative transport operator.
+    """Return the semi-discrete conservative RHS without taking a finite step.
 
-    The underlying spatial operator is independent of the caller's dt, so a
-    unit-step application is algebraically equivalent to extracting its RHS.
-    Keeping this wrapper separate lets the production PIRK stage synchronize
-    matter with the geometry without introducing a second physical evolution
-    law.
+    Incoming radiation primitive recovery remains guarded. Actual finite-time
+    and production-stage admissibility checks stay on their existing paths.
     """
-    advanced = evolve_species(
+    face_flux, source_e, source_s, q_e, q_s = _species_rhs_components(
         metric,
         metric_derivatives,
         state,
         species,
-        1.0,
         dphi_t=dphi_t,
         dphi_r=dphi_r,
         beta_dm=beta_dm,
-        validate_admissibility=False,
     )
+    inv_dr = 1.0 / (metric.r[1] - metric.r[0])
     return ConservedSpecies(
-        advanced.rest - state.rest,
-        advanced.energy_t - state.energy_t,
-        advanced.momentum_r - state.momentum_r,
+        rest=-inv_dr * (face_flux[1:, 0] - face_flux[:-1, 0]),
+        energy_t=(
+            -inv_dr * (face_flux[1:, 1] - face_flux[:-1, 1])
+            + (source_e + q_e)
+        ),
+        momentum_r=(
+            -inv_dr * (face_flux[1:, 2] - face_flux[:-1, 2])
+            + (source_s + q_s)
+        ),
     )
