@@ -4,11 +4,6 @@ on:
   pull_request:
     branches:
       - main
-    paths:
-      - "engine/**"
-      - "tests/**"
-      - ".github/workflows/strict_retry_integration.yml"
-      - "docs/STRICT_CAMPAIGN_RADIATION_RETRY_INTEGRATION_2026-10-12.md"
 
 permissions:
   contents: read

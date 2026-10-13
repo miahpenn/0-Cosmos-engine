@@ -7,10 +7,6 @@ on:
   pull_request:
     branches:
       - main
-    paths:
-      - "engine/run_production.py"
-      - "tests/**"
-      - ".github/workflows/strict_json_ledger_contract.yml"
 
 permissions:
   contents: read

@@ -2,16 +2,6 @@ name: Lightweight validation
 
 on:
   pull_request:
-    paths:
-      - "engine/**"
-      - "tests/**"
-      - "vendor/**"
-      - ".github/workflows/**"
-      - "requirements.txt"
-      - "pytest.ini"
-      - ".gitmodules"
-      - "pyproject.toml"
-      - "Makefile"
   push:
     branches: [main]
     paths:
