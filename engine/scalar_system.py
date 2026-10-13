@@ -76,7 +76,7 @@ def scalar_rhs_arrays(grid, geometry, fields, beta_dm=-0.04,
             geometry.beta * _d1(grid, p, 1)
             + geometry.alpha * lap
             + geometry.alpha * geometry.K * p
-            + geometry.X**-2 * alphap * fp
+            + invr * alphap * fp
             - geometry.alpha * Vp
         )
         return field_t, p_t
