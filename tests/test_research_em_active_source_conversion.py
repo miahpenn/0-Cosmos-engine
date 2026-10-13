@@ -1,11 +1,11 @@
-"""Tests for the research-only EM source-to-storage conversion contract."""
+"""Tests for research-only radial EM source-convention identities."""
 import numpy as np
 import pytest
 
 from tools.research_em_active_source_conversion import radial_lorentz_source_map
 
 
-def test_lorentz_map_matches_covector_and_both_active_storage_contracts():
+def test_lorentz_map_matches_covector_eulerian_sources_and_mixed_reference():
     alpha = np.asarray([0.65, 0.9, 1.2, 1.4])
     beta = np.asarray([-0.3, 0.0, 0.2, -0.15])
     sqrt_gamma = np.asarray([0.0, 0.12, 0.7, 2.1])
@@ -43,28 +43,30 @@ def test_lorentz_map_matches_covector_and_both_active_storage_contracts():
         atol=0.0,
     )
 
-    # Mixed dust/baryon/DM storage is U_t=sqrt(gamma)(-alpha E+beta S_r).
-    # Its covariant force source must be the transformed Eulerian pair, not
-    # the Eulerian energy source added directly to U_t.
+    # The production matter arrays use Eulerian Valencia energy/momentum
+    # stores for dust/DM and baryons too, as confirmed by initialize_dust,
+    # _valencia_conserved, _valencia_flux and recover_dust. The following is a
+    # separate covariant mixed-component reference only, not active storage.
     expected_mixed_energy = (
         -alpha * source.eulerian_energy
         + beta * source.eulerian_momentum_r
     )
     np.testing.assert_allclose(
-        source.mixed_energy_t,
+        source.mixed_reference_energy_t,
         expected_mixed_energy,
         rtol=0.0,
         atol=8.0e-16,
     )
     np.testing.assert_allclose(
-        source.mixed_momentum_r,
+        source.mixed_reference_momentum_r,
         source.eulerian_momentum_r,
         rtol=0.0,
         atol=0.0,
     )
 
-    # Same result from the covariant identity sqrt(-g) Q_nu, with
-    # sqrt(-g)=alpha*sqrt(gamma). This explicitly catches lapse/shift signs.
+    # The independent mixed-reference result follows the covariant identity
+    # sqrt(-g) Q_nu, with sqrt(-g)=alpha*sqrt(gamma). This catches sign and
+    # lapse/shift errors without claiming mixed storage is used by production.
     np.testing.assert_allclose(
         source.mixed_energy_t,
         alpha * sqrt_gamma * source.force_covector_t,
