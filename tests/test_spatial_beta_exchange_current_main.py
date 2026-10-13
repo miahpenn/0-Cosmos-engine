@@ -133,9 +133,10 @@ def test_active_rhs_beta_source_pair_cancels_with_lapse_and_shift(monkeypatch):
         rtol=2.0e-10, atol=2.0e-20,
     )
 
-    # Reconstruct the derivative of the actual Eulerian dust energy
-    # projection from U_D and U_r, not from the stored mixed U_t source:
-    # E_dot = q_D/(sqrt(gamma)*W) + v^r*q_Ur/sqrt(gamma).
+    # Independently reconstruct the source-induced Eulerian dust energy
+    # rate from its rest-current and active radial-momentum channels.
+    # Dust primitive recovery depends on rest and momentum, not energy_t:
+    # E_dot = q_D/(sqrt(gamma)*W) + v^r*q_Sr/sqrt(gamma).
     dm_energy_projection_source = (
         delta_dm_rest_rhs / (sqrt_gamma * dm_W)
         + dm_v_r * delta_dm_momentum_rhs / sqrt_gamma
