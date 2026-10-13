@@ -225,6 +225,57 @@ def test_pre_replace_interrupt_does_not_count_stale_same_time_checkpoint(
     assert list(run_dir.glob(".checkpoint_t*")) == []
 
 
+def test_checkpoint_oserror_writes_fail_closed_evidence_then_reraises(
+    tmp_path, monkeypatch
+):
+    kernel = V55ProductionKernel()
+    real_initialize = kernel.initialize
+    initialized_resolutions = []
+
+    def track_initialize(**kwargs):
+        initialized_resolutions.append(kwargs["resolution"])
+        return real_initialize(**kwargs)
+
+    real_replace = atomic_io.os.replace
+
+    def fail_checkpoint_replace(source, destination):
+        # Fail only NPZ checkpoint publication; evidence JSON can still commit.
+        if Path(destination).name.startswith("checkpoint_t"):
+            raise OSError("injected checkpoint replace failure")
+        return real_replace(source, destination)
+
+    monkeypatch.setattr(kernel, "initialize", track_initialize)
+    monkeypatch.setattr(atomic_io.os, "replace", fail_checkpoint_replace)
+
+    with pytest.raises(OSError, match="injected checkpoint replace failure"):
+        runner.run_campaign(
+            kernel=kernel,
+            config=_config(
+                tmp_path,
+                resolutions=(40, 60),
+                final_time=0.06,
+                checkpoint_interval=0.03,
+            ),
+        )
+
+    assert initialized_resolutions == [40]
+    summary = _strict_json(tmp_path / "campaign_summary.json")
+    ledger = _strict_json(tmp_path / "N40" / "ledgers.json")
+    assert summary["admission"]["passed"] is False
+    assert len(summary["results"]) == 1
+    result = summary["results"][0]
+    assert result["status"] == "checkpoint_io_error:injected checkpoint replace failure"
+    assert result["t_final"] == pytest.approx(0.03)
+    assert result["steps"] == 1
+    assert result["checkpoint_count"] == 0
+    assert ledger["result"]["status"] == result["status"]
+    assert [row["t"] for row in ledger["history"]] == pytest.approx([0.0, 0.03])
+    run_dir = tmp_path / "N40"
+    assert list(run_dir.glob("checkpoint_t*.npz")) == []
+    assert list(run_dir.glob(".checkpoint_t*")) == []
+    assert not (tmp_path / "N60" / "ledgers.json").exists()
+
+
 def test_post_replace_checkpoint_interruption_counts_complete_artifact(
     tmp_path, monkeypatch
 ):

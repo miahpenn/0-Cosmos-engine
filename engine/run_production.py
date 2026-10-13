@@ -289,6 +289,7 @@ def run_campaign(
 
     results: list[ResolutionResult] = []
     interruption: KeyboardInterrupt | None = None
+    checkpoint_io_error: OSError | None = None
     for resolution in config.resolutions:
         try:
             state = kernel.initialize(
@@ -477,7 +478,19 @@ def run_campaign(
                     status = "interrupted:checkpoint"
                     interruption = exc
                     break
+                except OSError as exc:
+                    # A checkpoint write failure is not a numerical result.
+                    # Record the accepted state, attempt fail-closed evidence
+                    # writes, then re-raise this original I/O error.
+                    status = "checkpoint_io_error:" + str(exc)
+                    checkpoint_io_error = exc
+                    break
                 checkpoint_count += 1
+
+            if checkpoint_io_error is not None:
+                # Do not evolve or initialize another resolution after an
+                # accepted-state checkpoint cannot be written.
+                break
 
         if state.history:
             last = state.history[-1]
@@ -549,10 +562,17 @@ def run_campaign(
             last_diagnostics=_json_safe(last),
         )
         run_dir = Path(config.output_dir) / f"N{resolution}"
-        _write_ledgers(state, run_dir, result, radiation_step_retries)
+        try:
+            _write_ledgers(state, run_dir, result, radiation_step_retries)
+        except OSError:
+            if checkpoint_io_error is None:
+                raise
+            # The checkpoint error is the primary failure. A secondary output
+            # error must not replace it; campaign-summary persistence is still
+            # attempted below in case the destination remains writable.
         results.append(result)
-        if interruption is not None:
-            # Do not begin additional resolutions once an operator interrupts.
+        if interruption is not None or checkpoint_io_error is not None:
+            # Stop after Ctrl-C or checkpoint I/O failure; never start another resolution.
             break
 
     admission_errors = campaign_admission_errors(results, config)
@@ -565,15 +585,25 @@ def run_campaign(
         },
     }
     out = Path(config.output_dir)
-    out.mkdir(parents=True, exist_ok=True)
-    atomic_write_text(
-        out / "campaign_summary.json", json.dumps(summary, indent=2, allow_nan=False)
-    )
+    try:
+        out.mkdir(parents=True, exist_ok=True)
+        atomic_write_text(
+            out / "campaign_summary.json", json.dumps(summary, indent=2, allow_nan=False)
+        )
+    except OSError:
+        if checkpoint_io_error is None:
+            raise
+        # Preserve the original checkpoint I/O exception. Summary persistence
+        # is best-effort when the checkpoint destination has become unwritable.
     if interruption is not None:
         # The fail-closed summary/ledger has now been written. Preserve normal
         # Ctrl-C semantics rather than disguising an interruption as a numerical
         # admission exception.
         raise interruption
+    if checkpoint_io_error is not None:
+        # Evidence has been attempted; surface the original checkpoint error
+        # rather than disguise it as a numerical/admission exception.
+        raise checkpoint_io_error
     if admission_errors:
         raise RuntimeError(
             "Production campaign admission failed: " + "; ".join(admission_errors)
