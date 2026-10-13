@@ -272,3 +272,47 @@ def test_pre_replace_interruption_does_not_count_stale_same_time_checkpoint(
         assert previous["a"].tolist() == [987.0]
     assert list(run_dir.glob(".checkpoint_t*")) == []
 
+
+def test_interrupt_immediately_after_replace_recognizes_committed_checkpoint(
+    tmp_path, monkeypatch
+):
+    kernel = V55ProductionKernel()
+    real_checkpoint = kernel.checkpoint
+    real_replace = atomic_io.os.replace
+
+    def interrupt_after_replace(state, path):
+        def replace_then_interrupt(source, target):
+            # Restore the real function before raising so evidence finalization
+            # can atomically write the ledger and summary.
+            monkeypatch.setattr(atomic_io.os, "replace", real_replace)
+            real_replace(source, target)
+            raise KeyboardInterrupt("injected immediately after os.replace")
+
+        monkeypatch.setattr(atomic_io.os, "replace", replace_then_interrupt)
+        return real_checkpoint(state, path)
+
+    monkeypatch.setattr(kernel, "checkpoint", interrupt_after_replace)
+
+    with pytest.raises(KeyboardInterrupt, match="immediately after os.replace"):
+        runner.run_campaign(
+            kernel=kernel,
+            config=_config(
+                tmp_path,
+                resolutions=(40,),
+                final_time=0.06,
+                checkpoint_interval=0.03,
+            ),
+        )
+
+    summary = _strict_json(tmp_path / "campaign_summary.json")
+    ledger = _strict_json(tmp_path / "N40" / "ledgers.json")
+    assert summary["admission"]["passed"] is False
+    assert summary["results"][0]["status"] == "interrupted:checkpoint"
+    assert summary["results"][0]["checkpoint_count"] == 1
+    assert ledger["result"]["checkpoint_count"] == 1
+    checkpoints = list((tmp_path / "N40").glob("checkpoint_t*.npz"))
+    assert len(checkpoints) == 1
+    with np.load(checkpoints[0], allow_pickle=False) as saved:
+        assert float(saved["t"]) == pytest.approx(0.03)
+    assert list((tmp_path / "N40").glob(".checkpoint_t*")) == []
+
