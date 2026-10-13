@@ -1,0 +1,61 @@
+name: 0-star temporal-gauge diagnostic campaign
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+jobs:
+  zero-star:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[0star]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+
+    steps:
+      - name: Checkout engine and pinned numerical kernel
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Run repository tests
+        run: python -m pytest -q
+
+      - name: Run 0-star temporal gauge diagnostic
+        run: |
+          python - <<'PY'
+          from engine.campaign import CampaignConfig
+          from engine.production_kernel import V55ProductionKernel
+          from engine.run_production import run_campaign
+          from engine.zero_star_gauge import solve_zero_star_lapse
+
+          class ZeroStarKernel(V55ProductionKernel):
+              def _solve_lapse(self, grid, geometry, scalars, matter):
+                  return solve_zero_star_lapse(grid, geometry, scalars, matter)
+
+          config = CampaignConfig(
+              resolutions=(80, 120, 160),
+              r_max=160.0,
+              cfl=0.03,
+              final_time=80.0,
+              output_dir='runs/0star',
+          )
+          results = run_campaign(kernel=ZeroStarKernel(), config=config)
+          for result in results:
+              print(result)
+          PY
+
+      - name: Upload 0-star outputs
+        uses: actions/upload-artifact@v4
+        with:
+          name: 0star-temporal-gauge-campaign
+          path: runs/0star/
+          if-no-files-found: error

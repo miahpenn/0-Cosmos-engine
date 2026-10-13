@@ -1,0 +1,54 @@
+name: V5.5 worldtube-radius scaling campaign
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  campaign:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[campaign160]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+
+    steps:
+      - name: Checkout engine and pinned numerical kernel
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Run complete repository tests
+        run: python -m pytest -q
+
+      - name: Run Rmax=160 campaign
+        run: |
+          python - <<'PY'
+          from engine.campaign import CampaignConfig
+          from engine.run_production import run_campaign
+
+          config = CampaignConfig(
+              resolutions=(80, 120, 160),
+              r_max=160.0,
+              cfl=0.03,
+              final_time=80.0,
+              output_dir="runs/rmax160",
+          )
+          results = run_campaign(config=config)
+          print(results)
+          PY
+
+      - name: Upload campaign outputs
+        uses: actions/upload-artifact@v4
+        with:
+          name: v55-rmax160-campaign
+          path: runs/rmax160/
+          if-no-files-found: error
