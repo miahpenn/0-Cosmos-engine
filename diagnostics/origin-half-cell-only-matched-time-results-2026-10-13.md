@@ -77,6 +77,23 @@ The fixed-\(R\) residual itself is not zero, and the radial mass-gradient identi
 
 **Updated disposition:** retain draft/unmerged PR #79 as a narrow numerical candidate. Next gates are centre/constraint convergence under matched resolution, more temporal samples / longer bounded horizon, and the existing archived radiation continuation test. Do not promote the broader PR #18 quadrature by association and do not change physics equations or fit weights to balance residuals.
 
+## Higher-resolution matched-time check — \(N=160,240,320\)
+
+The higher-resolution sibling run [38343781776](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38343781776) completed successfully on the same production-source baseline, initializer candidate, and vendor pins. It passed the complete repository suite (**233 passed**) and all six baseline/candidate arms reached \(t=0.12\) with radiation enabled. Artifact [11788575091](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38343781776/artifacts/11788575091), artifact ZIP SHA-256 \`96d03a2f09abb54ca4ed06b852adbabf13952f1964600adaf73dd05697e6d671\`, report JSON SHA-256 \`b678d42b40c234b595206adfe171de8a898538b9891314e0fa9516387e8a7626\`.
+
+| N | Final full-grid \(|H|\) max, baseline → origin-only | Final full-grid \(|M|\) max, baseline → origin-only | Final full-grid \(|C_\Lambda|\) max, baseline → origin-only | Final \( \dot A_a/r_0^2\), baseline → origin-only |
+|---:|---:|---:|---:|---:|
+| 160 | 2.94708e-3 → 2.82793e-4 | 1.05399e-3 → 1.66432e-4 | 1.39283e-4 → 2.22571e-5 | +1.05604e-2 → -1.78030e-4 |
+| 240 | 1.83935e-3 → 4.85100e-4 | 1.26318e-3 → 1.98920e-4 | 1.88580e-4 → 3.04936e-5 | +7.62152e-3 → +2.61484e-3 |
+| 320 | 6.80833e-4 → 7.18254e-4 | 1.16397e-3 → 1.77971e-4 | 2.16770e-4 → 3.48008e-5 | -1.83637e-2 → +1.02814e-2 |
+
+The candidate continues to improve the final momentum and connection maxima by about 84% at N=240/320. However, its Hamiltonian advantage narrows with resolution and reverses at N=320: the candidate final full-grid H maximum is **5.50% higher** than baseline. The central \( \dot A_a/r_0^2\) witness is also not convergent: it changes sign and grows in magnitude across the candidate's refinement sequence (N=160/240/320: \(-1.78\times10^{-4},+2.61\times10^{-3},+1.03\times10^{-2}\)). Initial \(H(r_0)\) remains greatly reduced (\(\approx6.5\text{–}6.7\times10^{-5}\), versus \(\approx4.05\times10^{-3}\) baseline), so the origin-only integration changes the initial constraint but does not by itself produce a regular, stable central evolution.
+
+The fixed-\(R=10\) balance remains nearly identical between arms over the short horizon: candidate-minus-baseline changes in current-residual max are \(-0.00129\%\), \(-0.00510\%\), and \(+0.0128\%\) at N=160/240/320; interval-defect max changes are \(-0.00132\%\), \(-0.00314\%\), and \(+0.00483\%\). This again separates the origin-only candidate from the conservation deterioration of the broader all-interval rule. It does not make the finite residual vanish or certify conservation.
+
+**High-resolution disposition:** the origin-only half-cell correction is a verified way to suppress the *initial* centre constraint/Ricci anomaly, and it does not materially worsen the short-horizon fixed-R ledger. But the residual central RHS and evolved Hamiltonian do not show reliable refinement behavior. Keep it diagnostic-only: the result does not support merging this initializer patch, and the next engineering layer to diagnose is the regular-centre discretization/RHS propagation after initialization, not further adjustment of the quadrature coefficients. No physical equation or coefficient should be changed from these data alone.
+
+
 ## Conclusion and next gate
 
 This is the narrowest useful attribution so far:
@@ -84,7 +101,7 @@ This is the narrowest useful attribution so far:
 - The actual-profile centre-Ricci mismatch and the initial Hamiltonian peak largely disappear when only the origin half-cell integral is corrected.
 - The remaining inter-centre trapezoid is untouched.
 - The short-horizon coordinate-worldtube current residual and interval-integrated mass defect are effectively unchanged.
-- The central \(\dot A_a/r_0^2\) is reduced but not proven convergent; momentum/connection later develop central errors.
+- The central \(\dot A_a/r_0^2\) is reduced on the first slices but is explicitly non-convergent after evolution at N=160/240/320; the Hamiltonian advantage reverses at N=320 even though momentum/connection maxima remain lower.
 - The fixed-areal-radius ledger has now been compared and is effectively unchanged in the origin-only arm over this short horizon; longer-time stability, matched-time spatial/temporal convergence, and archived outer-radiation continuation remain open.
 
 Keep PR #79 draft. The result supports testing this *specific origin-only numerical ingredient* further; it does not justify merging it yet or replacing the broader PR #18 candidate wholesale. Next, reconcile the nearly unchanged fixed-R ledger against the existing PR #35 component-resolved current analysis, then choose a short matched-resolution/time refinement that records both centre constraints and the full signed mass/flux/work ledger. Do not alter physical equations or fit quadrature weights to current residuals.
