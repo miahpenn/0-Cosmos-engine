@@ -54,6 +54,22 @@ _ORIGIN_HALF_CELL_WEIGHTS = (
 )
 
 
+def _integrate_initial_origin_half_cell(src, dr):
+    """Integrate the origin half-cell using even-series quadrature through r^4."""
+    values = np.asarray(src, dtype=float)
+    step = float(dr)
+    if values.ndim != 1 or values.size < 3:
+        raise ValueError("origin half-cell quadrature requires at least three samples")
+    if not np.isfinite(step) or step <= 0.0:
+        raise ValueError("initial radial quadrature requires finite positive dr")
+    if not np.all(np.isfinite(values[:3])):
+        raise FloatingPointError("origin half-cell source samples are non-finite")
+    result = step * float(np.dot(_ORIGIN_HALF_CELL_WEIGHTS, values[:3]))
+    if not np.isfinite(result):
+        raise FloatingPointError("origin half-cell quadrature produced non-finite integral")
+    return result
+
+
 def _integrate_initial_radial_source(src, dr):
     """Integrate an even radial source from the origin to every cell centre.
 
@@ -71,7 +87,7 @@ def _integrate_initial_radial_source(src, dr):
     if not np.all(np.isfinite(values)):
         raise FloatingPointError("initial radial quadrature source is non-finite")
 
-    half_cell = step * float(np.dot(_ORIGIN_HALF_CELL_WEIGHTS, values[:3]))
+    half_cell = _integrate_initial_origin_half_cell(values, step)
     increments = np.empty(values.size - 1, dtype=float)
     # Interval [r_0, r_1]; the even ghost has src[-1] == src[0].
     increments[0] = step * (
