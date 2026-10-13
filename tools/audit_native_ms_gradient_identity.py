@@ -400,7 +400,8 @@ def main() -> int:
             "C0": row["central_constraints"]["C_lambda_cell_0"],
             "Aa_rhs_over_r0_squared": row["central_Aa_rhs_over_r0_squared"],
             "mass_gradient_error_R8_to_12_max_abs": row["native_mass_gradient_identity"]["annulus_R_8_to_12_signed_error_max_abs"],
-            "mass_gradient_error_nearest_R10": row["native_mass_gradient_identity"]["signed_error_at_nearest_R10_cell"],
+            "mass_gradient_error_lower_R10_bracket": row["native_mass_gradient_identity"]["signed_identity_error_lower_R10_bracket_cell"],
+            "mass_gradient_error_upper_R10_bracket": row["native_mass_gradient_identity"]["signed_identity_error_upper_R10_bracket_cell"],
             "stencil_delta_max_abs": row["native_mass_gradient_identity"]["production_vs_independent_centered4"]["max_abs_difference"],
         } for row in records],
     }, indent=2, allow_nan=False), flush=True)
