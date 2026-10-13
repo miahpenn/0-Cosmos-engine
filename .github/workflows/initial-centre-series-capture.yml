@@ -97,6 +97,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: current-source-initial-centre-series
-          path: artifacts/initial-centre-series/
+          path: |
+            artifacts/initial-centre-series/
+            artifacts/initial-origin-quadrature-ab/
           if-no-files-found: warn
           retention-days: 90
