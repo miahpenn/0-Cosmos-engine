@@ -23,6 +23,16 @@ def _reject_nonstandard_json_constant(token: str) -> None:
     raise ValueError(f"non-standard JSON constant {token!r}")
 
 
+def _json_number(value: Any, error_message: str) -> float:
+    """Require a JSON numeric value; do not coerce booleans or strings to time."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise CampaignEvidenceError(error_message)
+    try:
+        return float(value)
+    except (OverflowError, TypeError, ValueError) as exc:
+        raise CampaignEvidenceError(error_message) from exc
+
+
 def _read_json(path: Path) -> Any:
     if not path.is_file() or path.stat().st_size == 0:
         raise CampaignEvidenceError(f"missing or empty evidence file: {path}")
@@ -76,10 +86,10 @@ def validate_campaign_evidence(
             f"campaign resolution provenance mismatch: expected={expected}, reported={reported}"
         )
 
-    try:
-        target_time = float(campaign["final_time"])
-    except (KeyError, TypeError, ValueError, OverflowError) as exc:
-        raise CampaignEvidenceError("campaign configuration has no valid final_time") from exc
+    target_time = _json_number(
+        campaign.get("final_time"),
+        "campaign configuration has no valid final_time",
+    )
     if not math.isfinite(target_time) or target_time <= 0.0:
         raise CampaignEvidenceError(f"campaign final_time must be finite and positive: {target_time!r}")
     time_tolerance = 1.0e-10 * max(1.0, abs(target_time))
@@ -105,10 +115,10 @@ def validate_campaign_evidence(
             raise CampaignEvidenceError(
                 f"N={resolution} summary status is not completed: {item.get('status')!r}"
             )
-        try:
-            final_time = float(item["t_final"])
-        except (KeyError, TypeError, ValueError, OverflowError) as exc:
-            raise CampaignEvidenceError(f"N={resolution} summary has no valid t_final") from exc
+        final_time = _json_number(
+            item.get("t_final"),
+            f"N={resolution} summary has no valid t_final",
+        )
         if not math.isfinite(final_time) or abs(final_time - target_time) > time_tolerance:
             raise CampaignEvidenceError(
                 f"N={resolution} final time {final_time!r} does not match target {target_time:.17g}"
@@ -134,10 +144,10 @@ def validate_campaign_evidence(
             raise CampaignEvidenceError(
                 f"N={resolution} ledger status is not completed: {record.get('status')!r}"
             )
-        try:
-            ledger_time = float(record["t_final"])
-        except (KeyError, TypeError, ValueError, OverflowError) as exc:
-            raise CampaignEvidenceError(f"N={resolution} ledger has no valid t_final") from exc
+        ledger_time = _json_number(
+            record.get("t_final"),
+            f"N={resolution} ledger has no valid t_final",
+        )
         if not math.isfinite(ledger_time) or abs(ledger_time - target_time) > time_tolerance:
             raise CampaignEvidenceError(
                 f"N={resolution} ledger final time {ledger_time!r} does not match target {target_time:.17g}"
