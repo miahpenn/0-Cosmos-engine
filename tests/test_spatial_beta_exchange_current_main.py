@@ -113,9 +113,14 @@ def test_active_rhs_beta_source_pair_cancels_with_lapse_and_shift(monkeypatch):
         rtol=2.0e-12, atol=1.0e-18,
     )
 
-    expected_dm_source = -sqrt_gamma * alpha * beta_source * rho_dm * pi
+    # energy_t stores U_t=sqrt(-g) T^t_t. Its exchange source is
+    # sqrt(-g)*Q_t = alpha*sqrt(gamma)*beta_DM*rho_DM*d_t(phi);
+    # it is not the Eulerian energy-density projection rate.
+    dphi_t = np.asarray(scalar_off.phi)
+    q_t = beta_source * rho_dm * dphi_t
+    expected_dm_ut_source = alpha * sqrt_gamma * q_t
     np.testing.assert_allclose(
-        delta_dm_energy_rhs, expected_dm_source,
+        delta_dm_energy_rhs, expected_dm_ut_source,
         rtol=2.0e-10, atol=2.0e-20,
     )
 
@@ -127,17 +132,38 @@ def test_active_rhs_beta_source_pair_cancels_with_lapse_and_shift(monkeypatch):
         rtol=2.0e-10, atol=2.0e-20,
     )
 
-    scalar_energy_source = sqrt_gamma * pi * delta_pi_rhs
-    observed_pair_residual = scalar_energy_source + delta_dm_energy_rhs
+    # Reconstruct the derivative of the actual Eulerian dust energy
+    # projection from U_D and U_r, not from the stored mixed U_t source:
+    # E_dot = q_D/(sqrt(gamma)*W) + v^r*q_Ur/sqrt(gamma).
+    dm_energy_projection_source = (
+        delta_dm_rest_rhs / (sqrt_gamma * dm_W)
+        + dm_v_r * delta_dm_momentum_rhs / sqrt_gamma
+    )
+    scalar_energy_source = pi * delta_pi_rhs
+    observed_pair_residual = (
+        scalar_energy_source + dm_energy_projection_source
+    )
     mask = mask & (np.abs(pi) > 0.0)
 
-    # delta_dm_energy_rhs is formed by subtracting two full RHS arrays.
-    # Bound subtraction roundoff using the magnitudes of those operands too,
-    # not only the much smaller coupling increment left after cancellation.
+    # Both rest and momentum deltas subtract full RHS arrays; bound the
+    # subtraction error with those operands after applying the same Jacobian.
     scale = max(
         float(np.max(np.abs(scalar_energy_source[mask]))),
-        float(np.max(np.abs(matter_on["dark_matter"].energy_t[mask]))),
-        float(np.max(np.abs(matter_off["dark_matter"].energy_t[mask]))),
+        float(np.max(np.abs(
+            matter_on["dark_matter"].rest[mask] / (sqrt_gamma[mask] * dm_W[mask])
+        ))),
+        float(np.max(np.abs(
+            matter_off["dark_matter"].rest[mask] / (sqrt_gamma[mask] * dm_W[mask])
+        ))),
+        float(np.max(np.abs(
+            dm_v_r[mask] * matter_on["dark_matter"].momentum_r[mask]
+            / sqrt_gamma[mask]
+        ))),
+        float(np.max(np.abs(
+            dm_v_r[mask] * matter_off["dark_matter"].momentum_r[mask]
+            / sqrt_gamma[mask]
+        ))),
+        1.0e-30,
     )
     roundoff_tolerance = 512.0 * np.finfo(float).eps * scale
     np.testing.assert_allclose(
