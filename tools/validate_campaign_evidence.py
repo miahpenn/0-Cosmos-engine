@@ -18,12 +18,20 @@ class CampaignEvidenceError(ValueError):
     """Successful campaign output is missing, malformed, or inconsistent."""
 
 
+def _reject_nonstandard_json_constant(token: str) -> None:
+    """Reject JavaScript-style non-finite constants that strict JSON forbids."""
+    raise ValueError(f"non-standard JSON constant {token!r}")
+
+
 def _read_json(path: Path) -> Any:
     if not path.is_file() or path.stat().st_size == 0:
         raise CampaignEvidenceError(f"missing or empty evidence file: {path}")
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
+        return json.loads(
+            path.read_text(encoding="utf-8"),
+            parse_constant=_reject_nonstandard_json_constant,
+        )
+    except (OSError, ValueError) as exc:
         raise CampaignEvidenceError(f"invalid JSON evidence file {path}: {exc}") from exc
 
 
