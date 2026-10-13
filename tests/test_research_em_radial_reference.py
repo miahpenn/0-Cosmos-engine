@@ -7,6 +7,7 @@ from engine.valencia import spherical_metric_from_bssn
 from tools.research_em_radial_reference import (
     CurvedRadialCoulombReference,
     RadialCoulombReference,
+    solve_discrete_curved_gauss,
 )
 
 
@@ -248,4 +249,93 @@ def test_curved_reference_rejects_nonpositive_or_nonfinite_metric_strength(
     with pytest.raises(ValueError):
         CurvedRadialCoulombReference(
             rho0=1.0, source_radius=1.0, metric_strength=metric_strength
+        )
+
+
+@pytest.mark.parametrize("resolution", [32, 64, 128])
+def test_discrete_curved_gauss_cell_residual_and_flux_contract(
+    curved_reference, resolution
+):
+    result = solve_discrete_curved_gauss(
+        curved_reference, r_max=8.0, resolution=resolution
+    )
+    assert len(result.faces) == resolution + 1
+    assert len(result.cell_charges) == resolution
+    assert result.face_charges[0] == 0.0
+    assert result.face_electric_field_hat[0] == 0.0
+    assert result.face_electric_field_r[0] == 0.0
+
+    scale = max(1.0, abs(result.total_charge))
+    assert result.max_abs_cell_residual <= 2.0e-14 * scale
+
+    for i, radius in enumerate(result.faces):
+        expected_flux = result.face_charges[i]
+        observed_flux = (
+            curved_reference.sqrt_gamma(radius)
+            * result.face_electric_field_r[i]
+        )
+        assert observed_flux == pytest.approx(
+            expected_flux, rel=3.0e-14, abs=3.0e-14 * scale
+        )
+        # Charge is approximated from cell-centred rho_e and proper cell
+        # volume; the exact analytic Q is used only as an independent witness.
+        assert result.face_charges[i] == pytest.approx(
+            curved_reference.enclosed_charge(radius),
+            rel=4.0e-2,
+            abs=2.0e-2 * scale / (resolution / 32.0),
+        )
+
+
+def test_discrete_curved_gauss_charge_budget_converges_second_order(
+    curved_reference,
+):
+    solutions = [
+        solve_discrete_curved_gauss(
+            curved_reference, r_max=8.0, resolution=n
+        )
+        for n in (32, 64, 128)
+    ]
+    exact = curved_reference.total_charge
+    total_errors = [abs(solution.total_charge - exact) for solution in solutions]
+    face_charge_errors = [
+        max(
+            abs(q_num - curved_reference.enclosed_charge(radius))
+            for radius, q_num in zip(solution.faces, solution.face_charges)
+        )
+        for solution in solutions
+    ]
+
+    assert total_errors[0] > total_errors[1] > total_errors[2] > 0.0
+    assert total_errors[0] / total_errors[1] > 3.5
+    assert total_errors[1] / total_errors[2] > 3.5
+    assert face_charge_errors[0] > face_charge_errors[1] > face_charge_errors[2]
+    assert face_charge_errors[0] / face_charge_errors[1] > 3.5
+    assert face_charge_errors[1] / face_charge_errors[2] > 3.5
+
+
+def test_discrete_curved_gauss_operator_detects_perturbed_face_field(
+    curved_reference,
+):
+    result = solve_discrete_curved_gauss(
+        curved_reference, r_max=8.0, resolution=32
+    )
+    cell_index = 2
+    r_inner = result.faces[cell_index]
+    r_outer = result.faces[cell_index + 1]
+    perturbed_outer = result.face_electric_field_r[cell_index + 1] + 1.0e-5
+    residual = (
+        curved_reference.sqrt_gamma(r_outer) * perturbed_outer
+        - curved_reference.sqrt_gamma(r_inner)
+        * result.face_electric_field_r[cell_index]
+        - result.cell_charges[cell_index]
+    )
+    assert abs(residual) > 1.0e-6
+
+
+def test_discrete_curved_gauss_fails_closed_if_source_edge_is_not_a_face(
+    curved_reference,
+):
+    with pytest.raises(ValueError, match="source_radius must align"):
+        solve_discrete_curved_gauss(
+            curved_reference, r_max=8.0, resolution=30
         )
