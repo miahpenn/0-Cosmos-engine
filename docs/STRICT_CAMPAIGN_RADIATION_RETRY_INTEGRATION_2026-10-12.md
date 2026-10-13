@@ -34,3 +34,16 @@ Reconcile the tested strict campaign runner and the typed radiation-cone retry m
 ## Interpretation boundary
 
 Even if the integration workflow passes, it establishes software-level retry and strict campaign-admission compatibility only. It does not demonstrate scientific convergence, conservation, physical turnaround/re-expansion, a bounce, a completed cycle, or production readiness.
+
+
+## CI evidence
+
+At integration head `033e4e6da3c0b8e54009b23becf7b6733b24232f`, workflow [38326208749](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38326208749) completed successfully:
+
+- Complete repository test suite: **140 passed in 12.05 s**.
+- Bounded full-machine smoke: N=40, (r_{max}=40), nominal (dt=0.03), requested horizon (t=0.03); returned `status='completed'`, final (t=0.03), and `campaign_summary.json` reports `admission.passed=true`.
+- Artifact: [strict-retry-integration-smoke, ID 11780493866](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38326208749/artifacts/11780493866), archive SHA-256 `98f564533ce31b69da8732f933505086e70e9ecba73361613a0d8e124a43bc0d`.
+
+The full test suite includes the new injected single-rejection and persistent-rejection integration regressions, both of which passed as part of the 140-test result. The smoke itself is one production step; its constraint values and zero cycle events are diagnostic observations, not a claim of physical/campaign admission. The CI run does not execute N=40/60/80 to (t=12), high-resolution radiation cases, or long-horizon convergence.
+
+**Next gate:** independent review of this stacked integration diff. Only after review should the bounded N=40/60/80 (t=12) campaign be considered, with the existing scientific-admission blocks retained.
