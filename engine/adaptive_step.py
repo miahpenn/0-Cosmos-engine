@@ -84,6 +84,7 @@ def advance_with_radiation_admissibility_retries(
     if not math.isfinite(coordinate_time):
         raise ValueError("coordinate time must be finite")
     trial_dt = requested_dt
+    retryable_stages = {"explicit-predictor", "primary-predictor", "final"}
     attempts: list[dict[str, Any]] = []
     last_error = "no radiation admissibility failure was attempted"
     smallest_attempted_dt: float | None = None
@@ -106,6 +107,11 @@ def advance_with_radiation_admissibility_retries(
         try:
             advanced = kernel.step(state, trial_dt)
         except RadiationAdmissibilityError as exc:
+            # The accepted input state is identical on each attempt. If it is
+            # itself inadmissible (or recovery raised an unscoped error), dt
+            # cannot repair it. Retry only candidate stages built using trial_dt.
+            if exc.stage not in retryable_stages:
+                raise
             last_error = f"{type(exc).__name__}: {exc}"
             attempts.append({
                 "dt": float(trial_dt),
