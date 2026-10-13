@@ -1,0 +1,62 @@
+name: Diagnostic - initial quadrature fixed worldtube and instantaneous Misner-Sharp balance
+
+on:
+  push:
+    branches:
+      - diag/initial-quadrature-worldtube-rhs-2026-10-13
+    paths:
+      - engine/diagnostic_candidate_v55_initial.py
+      - tools/audit_initial_quadrature_worldtube_balance.py
+      - .github/workflows/initial-quadrature-worldtube-balance.yml
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: initial-quadrature-worldtube-balance-2026-10-13
+  cancel-in-progress: false
+
+jobs:
+  fixed-worldtube-discriminator:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      PYTHONPATH: .
+      PYTHONUNBUFFERED: "1"
+    steps:
+      - name: Checkout diagnostic branch and pinned vendor
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Compile diagnostic-only implementation
+        run: |
+          python -m py_compile engine/diagnostic_candidate_v55_initial.py tools/audit_initial_quadrature_worldtube_balance.py
+
+      - name: Verify production and candidate source pins before tests or evolution
+        run: python tools/audit_initial_quadrature_worldtube_balance.py --verify-only
+
+      - name: Run repository regression suite
+        run: python -m pytest -q
+
+      - name: Run bounded fixed-worldtube and direct-RHS audit
+        run: python tools/audit_initial_quadrature_worldtube_balance.py
+
+      - name: Upload full radial profiles and strict report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: initial-quadrature-worldtube-balance
+          path: results/initial-quadrature-worldtube-balance/
+          if-no-files-found: error
+          retention-days: 90
