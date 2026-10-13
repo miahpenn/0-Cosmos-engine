@@ -40,12 +40,15 @@ class V55MatterState:
     dark_matter: ConservedSpecies
     baryons: ConservedSpecies
     radiation: ConservedSpecies
+    # Separate, opt-in conventional carrier. None means the original GEAR state.
+    charged_dust: ConservedSpecies | None = None
 
     def copy(self) -> "V55MatterState":
         return V55MatterState(
             self.dark_matter.copy(),
             self.baryons.copy(),
             self.radiation.copy(),
+            None if self.charged_dust is None else self.charged_dust.copy(),
         )
 
 
@@ -76,8 +79,10 @@ def _metrics(g, s):
     ]
 
 
-def initialize_from_archive(g, s, include_radiation=True) -> V55MatterState:
-    """Initialize the corrected archive matter operating point."""
+def initialize_from_archive(
+    g, s, include_radiation=True, *, charged_dust_density=None
+) -> V55MatterState:
+    """Initialize archive matter and an optional separate charged-dust carrier."""
     metrics = _metrics(g, s)
     dm = initialize_dust(
         metrics, np.full(g.n, RHO_DM_PRESENT, dtype=float)
@@ -89,7 +94,19 @@ def initialize_from_archive(g, s, include_radiation=True) -> V55MatterState:
         metrics,
         np.full(g.n, RHO_R_PRESENT if include_radiation else 0.0, dtype=float),
     )
-    return V55MatterState(dm, baryons, radiation)
+    charged_dust = None
+    if charged_dust_density is not None:
+        density = np.asarray(charged_dust_density)
+        if density.dtype.kind not in "iuf" or density.shape != (g.n,):
+            raise ValueError("charged_dust_density must be a real profile matching the grid")
+        density = np.asarray(density, dtype=float)
+        if not np.all(np.isfinite(density)) or np.any(density < 0.0):
+            raise ValueError("charged_dust_density must be finite and nonnegative")
+        # The first runtime experiment starts at rest so the added initial
+        # momentum density is exactly zero and the radial momentum constraint
+        # remains consistent with the existing initializer.
+        charged_dust = initialize_dust(metrics, density)
+    return V55MatterState(dm, baryons, radiation, charged_dust)
 
 
 def normalized_fluid_densities(
@@ -127,6 +144,12 @@ def total_fluid_projection(
         project_species(metric, state.baryons, Species.BARYON),
         project_species(metric, state.radiation, Species.RADIATION),
     ]
+    if state.charged_dust is not None:
+        # The added carrier is a separate pressureless dust species, not an
+        # alias for the archive baryon/DM/radiation or real scalar sectors.
+        pieces.append(
+            project_species(metric, state.charged_dust, Species.BARYON)
+        )
     return {
         key: sum(piece[key] for piece in pieces)
         for key in ("rho", "pr", "pt", "j")
@@ -259,7 +282,7 @@ def radiation_density_normalized(
 
 def species_states(metric: BSSNMetricSlice, state: V55MatterState):
     metrics = _metrics_from_slice(metric)
-    return {
+    result = {
         "dark_matter": primitives(
             metrics, state.dark_matter, Species.DARK_MATTER
         ),
@@ -270,3 +293,8 @@ def species_states(metric: BSSNMetricSlice, state: V55MatterState):
             metrics, state.radiation, Species.RADIATION
         ),
     }
+    if state.charged_dust is not None:
+        result["charged_dust"] = primitives(
+            metrics, state.charged_dust, Species.BARYON
+        )
+    return result
