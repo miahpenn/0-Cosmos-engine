@@ -69,6 +69,7 @@ jobs:
           WORKTREE="$RUNNER_TEMP/cosmos-factorial"
           git worktree add --detach "$WORKTREE" "$BASE_SOURCE_COMMIT"
           git -C "$WORKTREE" submodule update --init --recursive
+          mkdir -p "$WORKTREE/tools"
           cp tools/compare_initial_quadrature_cmc_factorial.py "$WORKTREE/tools/compare_initial_quadrature_cmc_factorial.py"
           cd "$WORKTREE"
           python -m py_compile tools/compare_initial_quadrature_cmc_factorial.py
