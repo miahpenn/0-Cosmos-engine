@@ -30,15 +30,15 @@ This is a candidate, not a production promotion. Focused polynomial tests and th
 
 ### One-step refinement evidence for the combined candidate
 
-| N | Initial full H max | Final full H max | Final full M max | Final full C_lambda max | Final determinant error | Final central Aa_rhs/r0² | Final lapse even-series fit residual |
-|---:|---:|---:|---:|---:|---:|---:|---:|
-| 40 | 3.865e-4 | 3.837e-4 | 2.068e-5 | 1.266e-6 | 8.8e-13 | +1.043e-4 | 2.811e-4 |
-| 60 | 1.003e-4 | 9.985e-5 | 3.367e-6 | 1.376e-7 | 1.8e-13 | +2.256e-5 | 3.721e-5 |
-| 80 | 3.677e-5 | 3.670e-5 | 4.191e-7 | 1.299e-8 | 5.6e-14 | -1.466e-5 | 6.563e-6 |
-| 120 | 1.057e-5 | 1.056e-5 | 3.340e-7 | 6.748e-9 | 1.1e-14 | -4.452e-5 | 3.911e-7 |
-| 160 | 6.881e-6 | 6.876e-6 | 2.965e-7 | 4.506e-9 | 3.6e-15 | -5.568e-5 | 4.550e-8 |
+| N | Initial full H max | Final full H max | Final full M max | Final full C_lambda max | Final central Aa_rhs/r0² | Final lapse even-series fit residual |
+|---:|---:|---:|---:|---:|---:|---:|
+| 40 | 3.865e-4 | 3.837e-4 | 2.068e-5 | 1.266e-6 | +1.043e-4 | 2.811e-4 |
+| 60 | 1.003e-4 | 9.985e-5 | 3.367e-6 | 1.376e-7 | +2.256e-5 | 3.721e-5 |
+| 80 | 3.677e-5 | 3.670e-5 | 4.191e-7 | 1.299e-8 | -1.466e-5 | 6.563e-6 |
+| 120 | 1.057e-5 | 1.056e-5 | 3.340e-7 | 6.748e-9 | -4.452e-5 | 3.911e-7 |
+| 160 | 6.881e-6 | 6.876e-6 | 2.965e-7 | 4.506e-9 | -5.568e-5 | 4.550e-8 |
 
-The initial/post-step full-domain Hamiltonian maximum decreases monotonically over this refinement arm, and the immediate momentum, connection and determinant witnesses remain small. The centre `Aa_rhs/r0²` also stops growing like the default-initializer row-only control and appears to approach a finite negative value across the upper resolutions. These are encouraging one-step convergence indicators, not yet a proof of continuum convergence: each resolution has evolved for a different coordinate time because `dt=0.03*dr`, and a synchronized fixed-time comparison plus fixed-physical-radius profiles remains required.
+The initial/post-step full-domain Hamiltonian maximum decreases monotonically over this refinement arm, and the immediate momentum and connection witnesses remain small. The centre `Aa_rhs/r0²` also stops growing like the default-initializer row-only control and appears to approach a finite negative value across the upper resolutions. The first version of this sweep's determinant field was misreported: the pinned vendor's `constraints["determinant"]` is already the residual `a*b² - 1`, but the diagnostic subtracted 1 again. Therefore its determinant column was invalid and has been removed from this summary; a corrected report is required before using determinant evidence from the sweep. The engine's separate production diagnostic and the full-machine smoke do report determinant residuals independently. These are encouraging one-step refinement indicators, not yet a proof of continuum convergence: each resolution has evolved for a different coordinate time because `dt=0.03*dr`, and a synchronized fixed-time comparison plus fixed-physical-radius profiles remains required.
 
 The radiation face-jump metric remains about 0.50 in this diagnostic. It is a normalized difference between adjacent-face energy fluxes, not itself a conservation residual; inspect the signed outer/interior divergence and metric-source terms along with it. Same-step Misner–Sharp mass, energy flux and work terms were persisted for every resolution, but their history balance needs multi-step integration. The archived outer-boundary radiation continuation failure remains a separate blocker.
 
