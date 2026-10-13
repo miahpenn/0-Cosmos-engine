@@ -194,7 +194,10 @@ def _fixed_R_composite_flux_work_profiles(R, alpha, gamma_inv, current, Rr, pr, 
             raise RuntimeError(f"composite fixed-R {name} contains non-finite values")
     if not np.all(np.diff(radii) > 0.0):
         raise RuntimeError("composite fixed-R areal radii must be strictly increasing")
-    area_factor = -FOUR_PI * FIXED_AREAL_RADIUS**2
+    # Form the local physical spherical area before interpolation. Using the
+    # target area at every cell would silently revert to product-of-interpolated
+    # factors rather than interpolating the composite local flux/work profiles.
+    area_factor = -FOUR_PI * np.square(radii)
     flux_profile = (
         area_factor * arrays["alpha"] * arrays["gamma_inv"]
         * arrays["current"] * arrays["Rr"]
