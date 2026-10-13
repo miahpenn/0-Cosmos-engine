@@ -172,13 +172,6 @@ def _verify_source_pins() -> dict:
     }
 
 
-def _profile_row(resolution, index, r, arrays):
-    row = {"resolution": resolution, "i": index, "r": float(r[index])}
-    for name, values in arrays.items():
-        row[name] = float(values[index])
-    return row
-
-
 def main() -> int:
     provenance = _verify_source_pins()
 
@@ -188,7 +181,6 @@ def main() -> int:
     _, vacuum, _ = adapter.vendor_modules()
     OUT.mkdir(parents=True, exist_ok=True)
     reports = []
-    csv_rows = []
     profiles: dict[str, np.ndarray] = {}
     problems = []
 
@@ -359,8 +351,6 @@ def main() -> int:
             profiles[prefix + name] = _arr(values)
         for name, result in taylor.items():
             profiles[prefix + name + "_taylor_residual_first6"] = _arr(result["signed_residuals"])
-            for i, r_value in enumerate(r):
-                csv_rows.append(_profile_row(resolution, i, r_value, metric_arrays))
 
     status = "completed_diagnostic_only" if not problems else "observer_integrity_failure"
     result = {
@@ -380,8 +370,6 @@ def main() -> int:
     npz_path = OUT / "profiles.npz"
     np.savez_compressed(npz_path, **profiles)
     csv_path = OUT / "profiles.csv"
-    fieldnames = ["resolution", "i", "r"] + list(reports[0]["resolutions"][0].keys()) if False else None
-    columns = ["resolution", "i", "r"] + list(next(iter(reports))["first_six_cells"][0].keys()) if False else None
     # Export the full signed profiles in a deterministic, flat table.
     all_names = list(reports and [
         "a", "b", "X", "alpha", "Lambda", "a_minus_b_over_r2", "Lambda_over_r",
