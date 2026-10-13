@@ -48,3 +48,20 @@ The radiation face-jump metric remains about 0.50 in this diagnostic. It is a no
 2. Complete matched fixed-physical-radius convergence checks; do not infer convergence from different-time endpoints alone.
 3. Reconcile the archived radiation continuation replay and close Misner–Sharp flux/work conservation with the existing owners.
 4. Only then request independent review of the candidate's source changes. No long synchronized t=12 or t=160 campaign, no merge to production `main`, and no claim of bounce/re-expansion/cycle admission follows from one-step tests.
+
+
+## Corrected matched-coordinate-time short trajectory
+
+- Run [38329305218](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38329305218) completed successfully on candidate head `dbff220a350f177d733b304c86dfc330eb0abc70`, with the same base source and vendor pins. It advanced N=80/120/160 to the same coordinate horizon `t=0.12`: 4, 6 and 8 production steps respectively. The previous run [38329235680](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38329235680) used the earlier determinant-output calculation and is superseded for that witness.
+- Artifact [11781727905](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38329305218/artifacts/11781727905), ZIP SHA-256 `f7c998e4b2c629f946c508932c5b23fbab27f4f3f940e3422ba5264127706c67`.
+- The determinant correction is now `max(abs(constraints["determinant"]))` and the cell-0 residual is reported directly. The pinned vendor's `constraints["determinant"]` is already `a*b**2 - 1`; do not subtract 1 a second time.
+
+| N | Steps to t=0.12 | Full max |H| | Full max |M| | Full max |C_lambda| | Full determinant residual max | Central Aa_rhs/r0² | Lapse even-series fit residual | Max |K_rhs-target| |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 80 | 4 | 3.591e-5 | 1.651e-6 | 2.014e-7 | 2.164e-13 | -1.420e-5 | 6.170e-6 | 2.311e-5 |
+| 120 | 6 | 1.047e-5 | 1.784e-6 | 2.318e-7 | 6.384e-14 | -3.737e-5 | 3.657e-7 | 1.055e-5 |
+| 160 | 8 | 6.657e-6 | 1.955e-6 | 2.641e-7 | 2.698e-14 | -3.925e-5 | 4.243e-8 | 5.994e-6 |
+
+At this matched horizon, all arms remained finite/positive and radiation-cone admissible. The Hamiltonian maximum decreases with refinement and the lapse even-series fit/CMC target residual improve substantially. The maximum momentum and connection residuals increase mildly across these three resolutions instead of decreasing; their peak location lies in the near-centre region. This prevents a global convergence/admission conclusion and calls for fixed-physical-radius profile comparisons at the next gate.
+
+The radiation outer ratio stays around `4.86e-4–4.97e-4`, far inside the cone on this short trajectory. The reported energy-flux face-jump ratio decreases from `0.494` to `0.479`, but this ratio compares adjacent numerical face fluxes and is **not** a conservation residual by itself. The Misner–Sharp mass, coordinate energy flux, `flux_T` and `work_pR` are recorded at the current nearest cell to r=10; those locations differ slightly by resolution, so they must not be treated as a perfectly matched worldtube balance. A time-integrated fixed-radius flux/work closure remains open.
