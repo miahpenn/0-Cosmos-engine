@@ -67,7 +67,7 @@ jobs:
           test "$(git -C "$RUNNER_TEMP/cosmos-ms-rhs-source" rev-parse HEAD)" = "$BASE_SOURCE_COMMIT"
           test "$(git -C "$RUNNER_TEMP/cosmos-ms-rhs-source/vendor/bb-palatini-unified-r0" rev-parse HEAD)" = "$VENDOR_COMMIT"
 
-      - name: Run baseline and quadrature-only one-step profiles
+      - name: Run baseline and quadrature-only two-step profiles
         shell: bash
         run: |
           set -uo pipefail
@@ -126,20 +126,22 @@ jobs:
               rows.append({
                   "N": b["N"],
                   "dt": b["dt"],
-                  "baseline_t0_balance": b["first_step_balance"]["fixed_r10"],
-                  "quadrature_t0_balance": q["first_step_balance"]["fixed_r10"],
+                  "baseline_interval_balances": b["interval_balances"],
+                  "quadrature_interval_balances": q["interval_balances"],
+                  "baseline_time_gradient_balance": b["time_gradient_balance"],
                   "baseline_initialization": b["initializer_trace"]["fixed_r10"],
+                  "quadrature_time_gradient_balance": q["time_gradient_balance"],
                   "quadrature_initialization": q["initializer_trace"]["fixed_r10"],
               })
           pair = {
-              "schema": "full_radial_ms_direct_rhs_paired_comparison_v1",
+              "schema": "full_radial_ms_direct_rhs_paired_comparison_v2",
               "base_source_commit": base["base_source_commit"],
               "candidate_initializer_blob": quad["candidate_initializer_blob"],
               "vendor": base["pinned_vendor_commit"],
-              "status": "paired_one_step_arms_completed",
+              "status": "paired_two_step_arms_completed",
               "fixed_coordinate_r": 10.0,
               "rows": rows,
-              "interpretation_limit": "Only one accepted step at each resolution; diagnostic-only, no scientific admission.",
+              "interpretation_limit": "Two accepted steps / three slices per resolution; diagnostic-only, no scientific admission.",
           }
           (root / "paired_summary.json").write_text(json.dumps(pair, sort_keys=True, indent=2, allow_nan=False) + "\n")
           PY

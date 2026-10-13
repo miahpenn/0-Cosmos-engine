@@ -21,7 +21,7 @@ from engine import v55_pirk_adapter as adapter
 from engine.production_kernel import V55ProductionKernel, ProductionState, LAMBDA_M
 from engine.run_production import assert_finite_state
 from engine.stress_energy import assemble_total_stress_energy
-from engine.worldtube import areal_radius, invariant_chi, misner_sharp
+from engine.worldtube import areal_radius, current_residual, invariant_chi, misner_sharp
 
 BASE_SOURCE_COMMIT = "7776a9156c24303c47a57e171a2d5997f6676668"
 CANDIDATE_INITIAL_SOURCE_COMMIT = "c2379c80ce0d9dbb598b837253291f336d559cda"
@@ -181,13 +181,11 @@ def rhs_projected_state(kernel, state):
 
 
 def rhs_witness(kernel, state):
-    """Full radial direct geometry-RHS tangent of the discrete M_MS formula."""
+    """Full-radial direct geometry-RHS tangent, with a read-only parity counterfactual."""
     grid, geom = state.grid, state.geometry
     r = finite_array("r", grid.centers)
     _, vacuum, moving = adapter.vendor_modules()
-    stage = adapter.geometry_stage_terms(
-        grid, geom, state.scalars, state.matter, lambda_m=LAMBDA_M
-    )
+    stage = adapter.geometry_stage_terms(grid, geom, state.scalars, state.matter, lambda_m=LAMBDA_M)
     explicit = stage["explicit"]
     rates = {
         "a": finite_array("a_dot", explicit["a"]),
@@ -196,26 +194,30 @@ def rhs_witness(kernel, state):
         "Aa": finite_array("Aa_dot", np.asarray(stage["primary_l2"]["Aa"]) + np.asarray(stage["primary_l3"]["Aa"])),
         "K": finite_array("K_dot", np.asarray(stage["primary_l2"]["K"]) + np.asarray(stage["primary_l3"]["K"])),
     }
-
     R = finite_array("R", areal_radius(grid, geom))
-    Rr = finite_array("Rr", grid.cell_derivative_fourth(R, parity=1))
+    # The first set mirrors the current production worldtube observable.
+    Rr = finite_array("Rr_worldtube_even", grid.cell_derivative_fourth(R, parity=+1))
+    chi = finite_array("chi_worldtube_even", invariant_chi(grid, geom))
+    mass = finite_array("M_MS_worldtube_even", misner_sharp(grid, geom))
+    # Counterfactual only: R=r*sqrt(b)/X is odd-regular through r=0.
+    Rr_odd = finite_array("Rr_odd_counterfactual", grid.cell_derivative_fourth(R, parity=-1))
     Ktheta = finite_array("Ktheta", geom.K / 3.0 - geom.Aa / 2.0)
     invrr = finite_array("g^rr", geom.X**2 / geom.a)
-    chi = finite_array("chi", invariant_chi(grid, geom))
-    mass = finite_array("M_MS", misner_sharp(grid, geom))
-
-    # Exact directional derivative of this discrete invariant under the
-    # production semidiscrete metric RHS. D_r is linear, so dot(R_r)=D_r(dot R).
+    chi_odd = finite_array("chi_odd_counterfactual", invrr * Rr_odd**2 - (R * Ktheta)**2)
+    mass_odd = finite_array("M_MS_odd_counterfactual", 0.5 * R * (1.0 - chi_odd))
     Rdot = finite_array("Rdot", R * (0.5 * rates["b"] / geom.b - rates["X"] / geom.X))
-    Rr_dot = finite_array("Rr_dot", grid.cell_derivative_fourth(Rdot, parity=1))
+    # Directionally differentiate the exact discrete mass formula with matching parity.
+    Rr_dot = finite_array("Rr_dot_worldtube_even", grid.cell_derivative_fourth(Rdot, parity=+1))
+    Rr_dot_odd = finite_array("Rr_dot_odd_counterfactual", grid.cell_derivative_fourth(Rdot, parity=-1))
     Ktheta_dot = rates["K"] / 3.0 - rates["Aa"] / 2.0
     invrr_dot = invrr * (2.0 * rates["X"] / geom.X - rates["a"] / geom.a)
     chi_spatial = invrr_dot * Rr**2 + 2.0 * invrr * Rr * Rr_dot
     chi_normal = -2.0 * (R * Ktheta) * (Rdot * Ktheta + R * Ktheta_dot)
     chi_dot = chi_spatial + chi_normal
-    mass_dot_R = 0.5 * Rdot * (1.0 - chi)
-    mass_dot_chi = -0.5 * R * chi_dot
-    direct_mass_dot = mass_dot_R + mass_dot_chi
+    direct_mass_dot = 0.5 * Rdot * (1.0 - chi) - 0.5 * R * chi_dot
+    chi_spatial_odd = invrr_dot * Rr_odd**2 + 2.0 * invrr * Rr_odd * Rr_dot_odd
+    chi_dot_odd = chi_spatial_odd + chi_normal
+    direct_mass_dot_odd = 0.5 * Rdot * (1.0 - chi_odd) - 0.5 * R * chi_dot_odd
 
     total = assemble_total_stress_energy(grid, geom, state.scalars, state.matter)
     alpha = finite_array("alpha", geom.alpha)
@@ -223,29 +225,34 @@ def rhs_witness(kernel, state):
     rho = finite_array("rho", total.rho)
     pressure = finite_array("p_r", total.pr)
     current = finite_array("J", total.j)
-    coordinate_energy_flux = 4.0 * math.pi * R**2 * (
-        alpha * invrr * current - beta * rho
-    )
-    flux_T = 4.0 * math.pi * R**2 * (
-        -alpha * invrr * current * Rr
-    )
+    coordinate_energy_flux = 4.0 * math.pi * R**2 * (alpha * invrr * current - beta * rho)
+    flux_T = 4.0 * math.pi * R**2 * (-alpha * invrr * current * Rr)
+    flux_T_odd = 4.0 * math.pi * R**2 * (-alpha * invrr * current * Rr_odd)
     work_pR = -4.0 * math.pi * R**2 * pressure * Rdot
-    rhs_mass_current = flux_T + work_pR
-    instant_residual = direct_mass_dot - rhs_mass_current
-
+    flux_plus_work = flux_T + work_pR
+    flux_plus_work_odd = flux_T_odd + work_pR
+    residual = direct_mass_dot - flux_plus_work
+    residual_odd = direct_mass_dot_odd - flux_plus_work_odd
+    flat_Rr_even = finite_array("flat_Rr_even", grid.cell_derivative_fourth(r, parity=+1))
+    flat_Rr_odd = finite_array("flat_Rr_odd", grid.cell_derivative_fourth(r, parity=-1))
     arrays = {
-        "R": R, "R_r": Rr, "Rdot": Rdot, "Ktheta": Ktheta,
-        "Ktheta_dot": Ktheta_dot, "chi": chi, "chi_dot": chi_dot,
-        "chi_dot_spatial_metric": chi_spatial, "chi_dot_normal_curvature": chi_normal,
-        "M_MS": mass, "direct_dM_MS_dt": direct_mass_dot,
-        "dMdt_from_R": mass_dot_R, "dMdt_from_chi": mass_dot_chi,
+        "R": R, "R_r_worldtube_even": Rr, "R_r_odd_counterfactual": Rr_odd,
+        "R_r_flat_even_parity": flat_Rr_even, "R_r_flat_odd_parity": flat_Rr_odd,
+        "Rdot": Rdot, "Ktheta": Ktheta, "Ktheta_dot": Ktheta_dot,
+        "chi_worldtube_even": chi, "chi_dot_worldtube_even": chi_dot,
+        "chi_dot_spatial_metric_worldtube_even": chi_spatial, "chi_dot_normal_curvature": chi_normal,
+        "M_MS_worldtube_even": mass, "direct_dM_MS_dt_worldtube_even": direct_mass_dot,
+        "chi_odd_counterfactual": chi_odd, "chi_dot_odd_counterfactual": chi_dot_odd,
+        "M_MS_odd_counterfactual": mass_odd, "direct_dM_MS_dt_odd_counterfactual": direct_mass_dot_odd,
         "rho_total": rho, "p_r_total": pressure, "J_total": current,
-        "coordinate_energy_flux": coordinate_energy_flux, "flux_T": flux_T,
-        "work_pR": work_pR, "flux_plus_work": rhs_mass_current,
-        "instantaneous_balance_residual": instant_residual,
-        "alpha": alpha, "a": finite_array("a", geom.a),
-        "b": finite_array("b", geom.b), "X": finite_array("X", geom.X),
-        "Aa": finite_array("Aa", geom.Aa), "K": finite_array("K", geom.K),
+        "coordinate_energy_flux": coordinate_energy_flux,
+        "flux_T_worldtube_even": flux_T, "flux_T_odd_counterfactual": flux_T_odd,
+        "work_pR": work_pR, "flux_plus_work_worldtube_even": flux_plus_work,
+        "flux_plus_work_odd_counterfactual": flux_plus_work_odd,
+        "instantaneous_balance_residual_worldtube_even": residual,
+        "instantaneous_balance_residual_odd_counterfactual": residual_odd,
+        "alpha": alpha, "a": finite_array("a", geom.a), "b": finite_array("b", geom.b),
+        "X": finite_array("X", geom.X), "Aa": finite_array("Aa", geom.Aa), "K": finite_array("K", geom.K),
         **{f"rhs_{k}": v for k, v in rates.items()},
     }
     constraints = vacuum.constraints(grid, geom)
@@ -257,7 +264,6 @@ def rhs_witness(kernel, state):
         if value.shape != r.shape or not np.all(np.isfinite(value)):
             raise FloatingPointError(f"profile {key} is invalid")
     return arrays
-
 
 def profile_summary(values, r):
     arr = finite_array("profile summary", values)
@@ -379,63 +385,131 @@ def run_arm(arm, outdir: Path):
 
             rhs0 = rhs_projected_state(kernel, raw0)
             w0 = rhs_witness(kernel, rhs0)
+            snapshots = [(rhs0, w0)]
             item["slices"]["t0_rhs_projected"] = {
                 "t": float(rhs0.t), "tau": float(rhs0.tau),
                 "profiles": {k: profile_summary(v, r) for k, v in w0.items()},
                 "fixed_r10": {k: linear_sample(r, v)[0] for k, v in w0.items()},
+                "parity_counterfactual": {
+                    "flat_R_r_even_first_two": w0["R_r_flat_even_parity"][:2].tolist(),
+                    "flat_R_r_odd_first_two": w0["R_r_flat_odd_parity"][:2].tolist(),
+                    "max_abs_flat_odd_derivative_error": float(np.max(np.abs(w0["R_r_flat_odd_parity"] - 1.0))),
+                    "max_abs_worldtube_even_instantaneous_residual": float(np.max(np.abs(w0["instantaneous_balance_residual_worldtube_even"]))),
+                    "max_abs_odd_counterfactual_instantaneous_residual": float(np.max(np.abs(w0["instantaneous_balance_residual_odd_counterfactual"]))),
+                },
             }
             for key, values in w0.items():
                 profile_arrays[f"N{n}_t0_{key}"] = values
 
-            accepted = kernel.step(raw0, dt)
-            assert_finite_state(accepted)
-            if abs(float(accepted.t) - dt) > 1.0e-10 * max(1.0, dt):
-                raise RuntimeError(f"step did not advance to dt: t={accepted.t}, dt={dt}")
-            rhs1 = rhs_projected_state(kernel, accepted)
-            w1 = rhs_witness(kernel, rhs1)
-            item["slices"]["t1_rhs_projected"] = {
-                "t": float(rhs1.t), "tau": float(rhs1.tau),
-                "profiles": {k: profile_summary(v, r) for k, v in w1.items()},
-                "fixed_r10": {k: linear_sample(r, v)[0] for k, v in w1.items()},
-            }
-            for key, values in w1.items():
-                profile_arrays[f"N{n}_t1_{key}"] = values
+            # Two accepted steps give t=0,dt,2dt for the existing edge_order=2 residual.
+            current = raw0
+            for sample_idx in (1, 2):
+                current = kernel.step(current, dt)
+                assert_finite_state(current)
+                target_t = sample_idx * dt
+                if abs(float(current.t) - target_t) > 1.0e-10 * max(1.0, target_t):
+                    raise RuntimeError(f"step {sample_idx} did not reach {target_t}: t={current.t}")
+                projected = rhs_projected_state(kernel, current)
+                witness = rhs_witness(kernel, projected)
+                snapshots.append((projected, witness))
+                label = f"t{sample_idx}_rhs_projected"
+                item["slices"][label] = {
+                    "t": float(projected.t), "tau": float(projected.tau),
+                    "profiles": {k: profile_summary(v, r) for k, v in witness.items()},
+                    "fixed_r10": {k: linear_sample(r, v)[0] for k, v in witness.items()},
+                    "parity_counterfactual": {
+                        "flat_R_r_even_first_two": witness["R_r_flat_even_parity"][:2].tolist(),
+                        "flat_R_r_odd_first_two": witness["R_r_flat_odd_parity"][:2].tolist(),
+                        "max_abs_flat_odd_derivative_error": float(np.max(np.abs(witness["R_r_flat_odd_parity"] - 1.0))),
+                        "max_abs_worldtube_even_instantaneous_residual": float(np.max(np.abs(witness["instantaneous_balance_residual_worldtube_even"]))),
+                        "max_abs_odd_counterfactual_instantaneous_residual": float(np.max(np.abs(witness["instantaneous_balance_residual_odd_counterfactual"]))),
+                    },
+                }
+                for key, values in witness.items():
+                    profile_arrays[f"N{n}_t{sample_idx}_{key}"] = values
 
-            dt_mass_rate = (w1["M_MS"] - w0["M_MS"]) / dt
-            rhs_mean_mass = 0.5 * (w0["direct_dM_MS_dt"] + w1["direct_dM_MS_dt"])
-            flux_mean = 0.5 * (
-                w0["flux_T"] + w0["work_pR"] + w1["flux_T"] + w1["work_pR"]
-            )
-            item["first_step_balance"] = {
-                "fixed_r10": {
-                    "delta_M_MS_over_dt": linear_sample(r, dt_mass_rate)[0],
-                    "mean_direct_dM_MS_dt": linear_sample(r, rhs_mean_mass)[0],
-                    "mean_flux_T_plus_work_pR": linear_sample(r, flux_mean)[0],
-                    "finite_difference_minus_mean_direct_rhs": linear_sample(r, dt_mass_rate - rhs_mean_mass)[0],
-                    "finite_difference_minus_mean_flux_work": linear_sample(r, dt_mass_rate - flux_mean)[0],
-                    "instantaneous_residual_t0": linear_sample(r, w0["instantaneous_balance_residual"])[0],
-                    "instantaneous_residual_t1": linear_sample(r, w1["instantaneous_balance_residual"])[0],
+            times = np.asarray([float(state.t) for state, _ in snapshots], dtype=float)
+            witnesses = [w for _, w in snapshots]
+            m_even = np.stack([w["M_MS_worldtube_even"] for w in witnesses])
+            rhs_even = np.stack([w["flux_plus_work_worldtube_even"] for w in witnesses])
+            m_odd = np.stack([w["M_MS_odd_counterfactual"] for w in witnesses])
+            rhs_odd = np.stack([w["flux_plus_work_odd_counterfactual"] for w in witnesses])
+
+            fixed_m_even = np.asarray([linear_sample(r, w["M_MS_worldtube_even"])[0] for w in witnesses])
+            fixed_rhs_even = np.asarray([linear_sample(r, w["flux_plus_work_worldtube_even"])[0] for w in witnesses])
+            fixed_m_odd = np.asarray([linear_sample(r, w["M_MS_odd_counterfactual"])[0] for w in witnesses])
+            fixed_rhs_odd = np.asarray([linear_sample(r, w["flux_plus_work_odd_counterfactual"])[0] for w in witnesses])
+            residual_r10_even = current_residual(times, fixed_m_even, fixed_rhs_even)
+            residual_r10_odd = current_residual(times, fixed_m_odd, fixed_rhs_odd)
+            item["time_gradient_balance"] = {
+                "fixed_r10_worldtube_even": {
+                    "times": times.tolist(), "masses": fixed_m_even.tolist(),
+                    "flux_plus_work": fixed_rhs_even.tolist(),
+                    "current_residual_edge_order_2": residual_r10_even.tolist(),
                 },
-                "full_domain": {
-                    "max_abs_finite_difference_minus_mean_direct_rhs": float(np.max(np.abs(dt_mass_rate - rhs_mean_mass))),
-                    "max_abs_finite_difference_minus_mean_flux_work": float(np.max(np.abs(dt_mass_rate - flux_mean))),
-                    "max_abs_instantaneous_residual_t0": float(np.max(np.abs(w0["instantaneous_balance_residual"]))),
-                    "max_abs_instantaneous_residual_t1": float(np.max(np.abs(w1["instantaneous_balance_residual"]))),
+                "fixed_r10_odd_counterfactual": {
+                    "times": times.tolist(), "masses": fixed_m_odd.tolist(),
+                    "flux_plus_work": fixed_rhs_odd.tolist(),
+                    "current_residual_edge_order_2": residual_r10_odd.tolist(),
                 },
             }
-            profile_arrays[f"N{n}_fd_dM_MS_dt"] = dt_mass_rate
-            profile_arrays[f"N{n}_fd_minus_mean_direct_rhs"] = dt_mass_rate - rhs_mean_mass
-            profile_arrays[f"N{n}_fd_minus_mean_flux_work"] = dt_mass_rate - flux_mean
+            residual_profile_even = np.stack([
+                current_residual(times, m_even[:, j], rhs_even[:, j]) for j in range(r.size)
+            ], axis=1)
+            residual_profile_odd = np.stack([
+                current_residual(times, m_odd[:, j], rhs_odd[:, j]) for j in range(r.size)
+            ], axis=1)
+            for ti in range(3):
+                profile_arrays[f"N{n}_time_gradient_residual_even_t{ti}"] = residual_profile_even[ti]
+                profile_arrays[f"N{n}_time_gradient_residual_odd_t{ti}"] = residual_profile_odd[ti]
+
+            intervals = {}
+            for i0, i1, interval_name in ((0, 1, "t0_to_t1"), (1, 2, "t1_to_t2")):
+                wa, wb = witnesses[i0], witnesses[i1]
+                delta_t = times[i1] - times[i0]
+                sec_even = (wb["M_MS_worldtube_even"] - wa["M_MS_worldtube_even"]) / delta_t
+                mean_d_even = 0.5 * (wa["direct_dM_MS_dt_worldtube_even"] + wb["direct_dM_MS_dt_worldtube_even"])
+                mean_f_even = 0.5 * (wa["flux_T_worldtube_even"] + wa["work_pR"] + wb["flux_T_worldtube_even"] + wb["work_pR"])
+                sec_odd = (wb["M_MS_odd_counterfactual"] - wa["M_MS_odd_counterfactual"]) / delta_t
+                mean_d_odd = 0.5 * (wa["direct_dM_MS_dt_odd_counterfactual"] + wb["direct_dM_MS_dt_odd_counterfactual"])
+                mean_f_odd = 0.5 * (wa["flux_T_odd_counterfactual"] + wa["work_pR"] + wb["flux_T_odd_counterfactual"] + wb["work_pR"])
+                intervals[interval_name] = {
+                    "dt": float(delta_t),
+                    "fixed_r10_worldtube_even": {
+                        "secant_dMdt": linear_sample(r, sec_even)[0],
+                        "mean_direct_dMdt": linear_sample(r, mean_d_even)[0],
+                        "mean_flux_T_plus_work_pR": linear_sample(r, mean_f_even)[0],
+                        "secant_minus_mean_direct": linear_sample(r, sec_even - mean_d_even)[0],
+                        "secant_minus_mean_flux_work": linear_sample(r, sec_even - mean_f_even)[0],
+                    },
+                    "fixed_r10_odd_counterfactual": {
+                        "secant_dMdt": linear_sample(r, sec_odd)[0],
+                        "mean_direct_dMdt": linear_sample(r, mean_d_odd)[0],
+                        "mean_flux_T_plus_work_pR": linear_sample(r, mean_f_odd)[0],
+                        "secant_minus_mean_direct": linear_sample(r, sec_odd - mean_d_odd)[0],
+                        "secant_minus_mean_flux_work": linear_sample(r, sec_odd - mean_f_odd)[0],
+                    },
+                    "full_domain": {
+                        "max_abs_secant_minus_mean_direct_even": float(np.max(np.abs(sec_even - mean_d_even))),
+                        "max_abs_secant_minus_mean_flux_work_even": float(np.max(np.abs(sec_even - mean_f_even))),
+                        "max_abs_secant_minus_mean_direct_odd": float(np.max(np.abs(sec_odd - mean_d_odd))),
+                        "max_abs_secant_minus_mean_flux_work_odd": float(np.max(np.abs(sec_odd - mean_f_odd))),
+                    },
+                }
+                profile_arrays[f"N{n}_{interval_name}_secant_minus_direct_even"] = sec_even - mean_d_even
+                profile_arrays[f"N{n}_{interval_name}_secant_minus_flux_even"] = sec_even - mean_f_even
+            item["interval_balances"] = intervals
+            item["first_step_balance"] = intervals["t0_to_t1"]["fixed_r10_worldtube_even"]
             item["status"] = "completed"
         except Exception as exc:
             item["failure"] = f"{type(exc).__name__}: {exc}"
         records.append(item)
 
     report = {
-        "schema": "full_radial_initial_quadrature_direct_ms_rhs_audit_v1",
+        "schema": "full_radial_initial_quadrature_direct_ms_rhs_audit_v2",
         "status": "completed" if all(x["status"] == "completed" for x in records) else "failed",
         "diagnostic_only": True, "production_physics_changed": False,
-        "production_steps_per_resolution": 1,
+        "production_steps_per_resolution": 2,
         "base_source_commit": BASE_SOURCE_COMMIT,
         "candidate_initializer_origin_commit": CANDIDATE_INITIAL_SOURCE_COMMIT,
         "base_initializer_blob": BASE_INITIAL_BLOB,
@@ -449,7 +523,8 @@ def run_arm(arm, outdir: Path):
             "The candidate differs only by the initializer file; the CMC row and current production RHS are identical.",
             "The direct semidiscrete dM_MS/dt is the exact directional derivative of the discrete invariant under the assembled instantaneous geometry RHS; it is not the finite-time np.gradient proxy.",
             "The geometry RHS is evaluated on the lapse-projected zero-shift slice that production step() uses at the start of its update.",
-            "The first-step difference is a bounded temporal witness and does not establish long-horizon balance or scientific admission.",
+            "Two accepted steps provide three slices for the existing edge_order=2 current_residual; this remains a short diagnostic, not scientific admission.",
+            "The odd-parity radial derivative for R=r*sqrt(b)/X is included as a counterfactual only; the production worldtube helper is not modified.",
         ],
     }
     ensure_finite_tree(report)
@@ -467,7 +542,9 @@ def run_arm(arm, outdir: Path):
             "N": x["N"], "status": x["status"], "failure": x["failure"],
             "t0": x.get("slices", {}).get("t0_rhs_projected", {}).get("fixed_r10", {}),
             "t1": x.get("slices", {}).get("t1_rhs_projected", {}).get("fixed_r10", {}),
-            "balance": x.get("first_step_balance", {}).get("fixed_r10", {}),
+            "t2": x.get("slices", {}).get("t2_rhs_projected", {}).get("fixed_r10", {}),
+            "time_gradient_balance": x.get("time_gradient_balance", {}),
+            "interval_balances": x.get("interval_balances", {}),
         } for x in records]
     }, sort_keys=True, allow_nan=False), flush=True)
     if report["status"] != "completed":
