@@ -36,6 +36,7 @@ from tools.audit_cmc_lapse_joint_target import (
     array_sha256,
     production_affine_operator,
     solve_joint_target_lapse,
+    solve_joint_target_lapse_equilibrated,
 )
 from engine import v55_pirk_adapter as adapter
 from engine.cmc_gauge import solve_cmc_lapse
@@ -127,55 +128,101 @@ def solve_resolution(resolution: int, vacuum) -> tuple[dict, dict]:
     probe_ratio = np.abs(probe_error) / probe_bound
     affine_passed = bool(np.all(np.abs(probe_error) <= probe_bound))
 
-    joint_alpha, joint_target, solve_meta = solve_joint_target_lapse(
+    # Same augmented equations, solved by the original and row/column-equilibrated
+    # methods. Both are judged against the same original-equation bounds.
+    unscaled_alpha, unscaled_target, unscaled_meta = solve_joint_target_lapse(
         matrix, intercept, weights
     )
-    joint_alpha = np.asarray(joint_alpha, dtype=float)
-    state.geometry.alpha = joint_alpha.copy()
-    direct_joint_rhs = full_k_rhs(
-        state.grid, state.geometry, state.scalars, state.matter, vacuum
-    )[0]
-    predicted_joint_rhs = matrix @ joint_alpha + intercept
-    rhs_error = direct_joint_rhs - predicted_joint_rhs
-    rhs_scale = (
-        np.abs(direct_joint_rhs)
-        + np.abs(matrix) @ np.abs(joint_alpha)
-        + np.abs(intercept)
+    balanced_alpha, balanced_target, balanced_meta = solve_joint_target_lapse_equilibrated(
+        matrix, intercept, weights
     )
-    rhs_bound = 2048.0 * np.finfo(float).eps * np.maximum(
-        rhs_scale, np.finfo(float).tiny
-    )
-    rhs_ratio = np.abs(rhs_error) / rhs_bound
-    direct_rhs_passed = bool(np.all(np.abs(rhs_error) <= rhs_bound))
 
-    joint_residual = direct_joint_rhs - float(joint_target)
-    interior = joint_residual[1:-1]
-    interior_scale = (
-        np.abs(direct_joint_rhs[1:-1])
-        + abs(float(joint_target))
-        + np.abs(predicted_joint_rhs[1:-1])
-    )
-    interior_bound = 4096.0 * np.finfo(float).eps * np.maximum(
-        interior_scale, np.finfo(float).tiny
-    )
-    interior_ratio = np.abs(interior) / interior_bound
-    interior_passed = bool(np.all(np.abs(interior) <= interior_bound))
+    def evaluate_candidate(alpha, target) -> tuple[dict, dict]:
+        alpha = np.asarray(alpha, dtype=float)
+        state.geometry.alpha = alpha.copy()
+        direct_rhs = full_k_rhs(
+            state.grid, state.geometry, state.scalars, state.matter, vacuum
+        )[0]
+        predicted_rhs = matrix @ alpha + intercept
+        rhs_error = direct_rhs - predicted_rhs
+        rhs_scale = (
+            np.abs(direct_rhs)
+            + np.abs(matrix) @ np.abs(alpha)
+            + np.abs(intercept)
+        )
+        rhs_bound = 2048.0 * np.finfo(float).eps * np.maximum(
+            rhs_scale, np.finfo(float).tiny
+        )
+        rhs_ratio = np.abs(rhs_error) / rhs_bound
+        direct_rhs_passed = bool(np.all(np.abs(rhs_error) <= rhs_bound))
 
-    direct_mean_target = weighted_mean(direct_joint_rhs, weights)
-    mean_error = float(direct_mean_target - joint_target)
-    mean_scale = (
-        float(np.sum(weights * np.abs(direct_joint_rhs)))
-        + abs(float(joint_target)) * float(np.sum(weights))
-    )
-    mean_bound = 4096.0 * np.finfo(float).eps * max(
-        mean_scale / float(np.sum(weights)), np.finfo(float).tiny
-    )
-    mean_passed = bool(abs(mean_error) <= mean_bound)
+        residual = direct_rhs - float(target)
+        interior = residual[1:-1]
+        interior_scale = (
+            np.abs(direct_rhs[1:-1])
+            + abs(float(target))
+            + np.abs(predicted_rhs[1:-1])
+        )
+        interior_bound = 4096.0 * np.finfo(float).eps * np.maximum(
+            interior_scale, np.finfo(float).tiny
+        )
+        interior_ratio = np.abs(interior) / interior_bound
+        interior_passed = bool(np.all(np.abs(interior) <= interior_bound))
 
-    positive_lapse = bool(
-        np.all(np.isfinite(joint_alpha)) and float(np.min(joint_alpha)) > 0.0
+        direct_mean_target = weighted_mean(direct_rhs, weights)
+        mean_error = float(direct_mean_target - target)
+        mean_scale = (
+            float(np.sum(weights * np.abs(direct_rhs)))
+            + abs(float(target)) * float(np.sum(weights))
+        )
+        mean_bound = 4096.0 * np.finfo(float).eps * max(
+            mean_scale / float(np.sum(weights)), np.finfo(float).tiny
+        )
+        mean_passed = bool(abs(mean_error) <= mean_bound)
+        positive = bool(
+            np.all(np.isfinite(alpha)) and float(np.min(alpha)) > 0.0
+        )
+        metrics = {
+            "target": float(target),
+            "target_to_current_ratio": (
+                float(target / current_target)
+                if abs(float(current_target)) > np.finfo(float).tiny else None
+            ),
+            "lapse_min": float(np.min(alpha)),
+            "lapse_max": float(np.max(alpha)),
+            "lapse_positive_finite": positive,
+            "max_abs_lapse_change_from_current_solver": float(
+                np.max(np.abs(alpha - current_alpha))
+            ),
+            "interior_rhs_residual_max_abs": float(np.max(np.abs(interior))),
+            "interior_rhs_residual_rms": float(np.sqrt(np.mean(interior**2))),
+            "center_rhs_residual": float(residual[0]),
+            "outer_rhs_residual": float(residual[-1]),
+            "weighted_mean_minus_target": mean_error,
+            "weighted_mean_roundoff_bound": float(mean_bound),
+            "weighted_mean_closure_passed": mean_passed,
+            "interior_roundoff_max_ratio": float(np.max(interior_ratio)),
+            "interior_equations_close": interior_passed,
+            "direct_rhs_reconstruction_roundoff_max_ratio": float(
+                np.max(rhs_ratio)
+            ),
+            "direct_rhs_reconstruction_passed": direct_rhs_passed,
+        }
+        arrays = {
+            "alpha": alpha,
+            "rhs": direct_rhs,
+            "rhs_residual": residual,
+        }
+        return metrics, arrays
+
+    unscaled_metrics, unscaled_arrays = evaluate_candidate(
+        unscaled_alpha, unscaled_target
     )
-    cone_joint_digest = array_sha256(cone_margin(state))
+    balanced_metrics, balanced_arrays = evaluate_candidate(
+        balanced_alpha, balanced_target
+    )
+    cone_balanced_digest = array_sha256(cone_margin(state))
+
     state.geometry.alpha = original_alpha.copy()
     digest_after = physical_state_digest(state)
     cone_after_digest = array_sha256(cone_margin(state))
@@ -188,14 +235,27 @@ def solve_resolution(resolution: int, vacuum) -> tuple[dict, dict]:
     )
     frozen_state_unchanged = (
         original_digest == digest_after
-        and cone_before_digest == cone_joint_digest == cone_after_digest
+        and cone_before_digest == cone_balanced_digest == cone_after_digest
         and radiation_unchanged
     )
 
-    ratio = (
-        float(joint_target / current_target)
-        if abs(float(current_target)) > np.finfo(float).tiny else None
-    )
+    def passes(metrics: dict, meta: dict, *, balanced: bool) -> bool:
+        linear_pass = (
+            meta["original_equations_close"]
+            if balanced else meta["augmented_roundoff_closure_passed"]
+        )
+        return bool(all((
+            metrics["lapse_positive_finite"],
+            metrics["weighted_mean_closure_passed"],
+            metrics["interior_equations_close"],
+            metrics["direct_rhs_reconstruction_passed"],
+            linear_pass,
+            affine_passed,
+            frozen_state_unchanged,
+        )))
+
+    unscaled_pass = passes(unscaled_metrics, unscaled_meta, balanced=False)
+    balanced_pass = passes(balanced_metrics, balanced_meta, balanced=True)
     row = {
         "resolution": int(resolution),
         "r_max": float(R_MAX),
@@ -204,37 +264,57 @@ def solve_resolution(resolution: int, vacuum) -> tuple[dict, dict]:
         "tau": float(state.tau),
         "accepted_input_weighted_target": float(initial_mean_target),
         "current_solver_target": float(current_target),
-        "joint_target": float(joint_target),
-        "joint_to_current_target_ratio": ratio,
-        "joint_target_relative_change": float(
-            (joint_target - current_target)
-            / max(abs(float(current_target)), np.finfo(float).tiny)
-        ),
         "current_lapse_min": float(np.min(current_alpha)),
         "current_lapse_max": float(np.max(current_alpha)),
-        "joint_lapse_min": float(np.min(joint_alpha)),
-        "joint_lapse_max": float(np.max(joint_alpha)),
-        "joint_lapse_positive_finite": positive_lapse,
-        "max_abs_lapse_change": float(np.max(np.abs(joint_alpha - current_alpha))),
         "current_interior_rhs_residual_max_abs": float(
             np.max(np.abs(current_residual[1:-1]))
         ),
-        "joint_interior_rhs_residual_max_abs": float(np.max(np.abs(interior))),
-        "joint_interior_rhs_residual_rms": float(np.sqrt(np.mean(interior**2))),
-        "joint_center_rhs_residual": float(joint_residual[0]),
-        "joint_outer_rhs_residual": float(joint_residual[-1]),
-        "weighted_mean_minus_target": mean_error,
-        "weighted_mean_roundoff_bound": float(mean_bound),
-        "weighted_mean_closure_passed": mean_passed,
-        "interior_equation_roundoff_max_ratio": float(np.max(interior_ratio)),
-        "interior_equations_close": interior_passed,
         "affine_probe_roundoff_max_ratio": float(np.max(probe_ratio)),
         "affine_probe_passed": affine_passed,
-        "joint_rhs_reconstruction_roundoff_max_ratio": float(np.max(rhs_ratio)),
-        "direct_rhs_reconstruction_passed": direct_rhs_passed,
-        "augmented_equation_residual_max_abs": solve_meta["max_abs_augmented_equation_residual"],
-        "augmented_condition_number_2": solve_meta["condition_number_2"],
-        "augmented_roundoff_closure_passed": solve_meta["augmented_roundoff_closure_passed"],
+        "unscaled": {
+            **unscaled_metrics,
+            "augmented_condition_number_2": unscaled_meta["condition_number_2"],
+            "augmented_equation_residual_max_abs": unscaled_meta[
+                "max_abs_augmented_equation_residual"
+            ],
+            "augmented_roundoff_closure_passed": unscaled_meta[
+                "augmented_roundoff_closure_passed"
+            ],
+            "all_checks_passed": unscaled_pass,
+        },
+        "equilibrated": {
+            **balanced_metrics,
+            "raw_equation_condition_number_2": balanced_meta[
+                "raw_condition_number_2"
+            ],
+            "equilibrated_condition_number_2": balanced_meta[
+                "equilibrated_condition_number_2"
+            ],
+            "row_scale_min": balanced_meta["row_scale_min"],
+            "row_scale_max": balanced_meta["row_scale_max"],
+            "column_scale_min": balanced_meta["column_scale_min"],
+            "column_scale_max": balanced_meta["column_scale_max"],
+            "original_augmented_equation_residual_max_abs": balanced_meta[
+                "max_abs_original_equation_residual"
+            ],
+            "original_equations_close": balanced_meta["original_equations_close"],
+            "original_operand_scaled_roundoff_max_ratio": balanced_meta[
+                "max_original_operand_scaled_roundoff_ratio"
+            ],
+            "equilibrated_linear_system_residual_max_abs": balanced_meta[
+                "max_abs_equilibrated_equation_residual"
+            ],
+            "equilibrated_system_roundoff_closed": balanced_meta[
+                "equilibrated_system_roundoff_closed"
+            ],
+            "all_checks_passed": balanced_pass,
+        },
+        "target_difference_equilibrated_minus_unscaled": float(
+            balanced_target - unscaled_target
+        ),
+        "max_abs_lapse_difference_equilibrated_vs_unscaled": float(
+            np.max(np.abs(balanced_alpha - unscaled_alpha))
+        ),
         "physical_digest_before": original_digest,
         "physical_digest_after": digest_after,
         "radiation_cone_digest_before": cone_before_digest,
@@ -242,25 +322,19 @@ def solve_resolution(resolution: int, vacuum) -> tuple[dict, dict]:
         "radiation_profiles_unchanged": radiation_unchanged,
         "frozen_state_unchanged": frozen_state_unchanged,
     }
-    row["all_checks_passed"] = bool(all((
-        positive_lapse,
-        mean_passed,
-        interior_passed,
-        affine_passed,
-        direct_rhs_passed,
-        solve_meta["augmented_roundoff_closure_passed"],
-        frozen_state_unchanged,
-    )))
+    row["all_equilibrated_checks_passed"] = balanced_pass
+    row["all_unscaled_checks_passed"] = unscaled_pass
     profiles = {
         f"N{resolution}__r": np.asarray(state.grid.centers, dtype=float),
         f"N{resolution}__alpha_initialized": original_alpha,
         f"N{resolution}__alpha_current_solver": current_alpha,
-        f"N{resolution}__alpha_joint": joint_alpha,
-        f"N{resolution}__joint_rhs_residual": joint_residual,
+        f"N{resolution}__alpha_joint_unscaled": unscaled_arrays["alpha"],
+        f"N{resolution}__rhs_residual_unscaled": unscaled_arrays["rhs_residual"],
+        f"N{resolution}__alpha_joint_equilibrated": balanced_arrays["alpha"],
+        f"N{resolution}__rhs_residual_equilibrated": balanced_arrays["rhs_residual"],
         f"N{resolution}__proper_volume_weights": weights,
     }
     return row, profiles
-
 
 def run_resolution_audit(output_dir: Path) -> dict:
     _, vacuum, _ = adapter.vendor_modules()
