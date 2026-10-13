@@ -96,7 +96,7 @@ def _summary(kernel, state):
             "H": float(H[0]),
             "M": float(M[0]),
             "C_lambda": float(C[0]),
-            "determinant_minus_one": float(determinant[0] - 1.0),
+            "determinant_residual": float(determinant[0]),
         },
         "constraints": {
             "H_full_absmax": float(np.max(np.abs(H))),
@@ -105,7 +105,7 @@ def _summary(kernel, state):
             "M_full_peak_r": float(r[int(np.argmax(np.abs(M)))]),
             "C_lambda_full_absmax": float(np.max(np.abs(C))),
             "C_lambda_full_peak_r": float(r[int(np.argmax(np.abs(C)))]),
-            "determinant_absmax": float(np.max(np.abs(determinant - 1.0))),
+            "determinant_absmax": float(np.max(np.abs(determinant))),
             "K_rhs_minus_refreshed_target_max_rows_0_to_Nminus2": float(np.max(np.abs(k_rhs[:-1] - k_target))),
             "cmc_residual_last_interior": float(diagnostics["cmc_residual_last_interior"]),
             "cmc_residual_penultimate_interior": float(diagnostics["cmc_residual_penultimate_interior"]),
