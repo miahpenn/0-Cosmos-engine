@@ -185,6 +185,102 @@ def solve_joint_target_lapse(
     }
 
 
+
+def solve_joint_target_lapse_equilibrated(
+    matrix: np.ndarray,
+    intercept: np.ndarray,
+    weights: np.ndarray,
+) -> tuple[np.ndarray, float, dict]:
+    """Solve the same augmented equations after exact row/column equilibration.
+
+    Equilibration changes only the floating-point representation of the linear
+    system, not its equations: R @ A @ C @ y = R @ b, with x = C @ y.
+    Acceptance checks are still evaluated on the original unscaled equations.
+    """
+    matrix = np.asarray(matrix, dtype=float)
+    intercept = np.asarray(intercept, dtype=float)
+    weights = np.asarray(weights, dtype=float)
+    n = int(weights.size)
+    if matrix.shape != (n, n) or intercept.shape != (n,):
+        raise ValueError("operator/offset dimensions do not match weights")
+    if n < 5 or not np.all(np.isfinite(matrix)):
+        raise ValueError("joint solve requires a finite operator with at least five cells")
+    if not np.all(np.isfinite(intercept)) or not np.all(np.isfinite(weights)):
+        raise ValueError("joint solve inputs must be finite")
+    weight_sum = float(np.sum(weights))
+    if not np.isfinite(weight_sum) or weight_sum <= 0.0:
+        raise ValueError("joint solve requires positive finite total proper-volume weight")
+    normalized = weights / weight_sum
+
+    augmented = np.zeros((n + 1, n + 1), dtype=float)
+    rhs = np.zeros(n + 1, dtype=float)
+    augmented[0, 0] = 1.0
+    augmented[0, 1] = -1.0
+    for i in range(1, n - 1):
+        augmented[i, :n] = matrix[i, :]
+        augmented[i, n] = -1.0
+        rhs[i] = -intercept[i]
+    augmented[n - 1, n - 1] = 1.0
+    rhs[n - 1] = 1.0
+    augmented[n, :n] = normalized @ matrix
+    augmented[n, n] = -1.0
+    rhs[n] = -float(normalized @ intercept)
+
+    row_max = np.max(np.abs(augmented), axis=1)
+    if np.any(~np.isfinite(row_max)) or np.any(row_max <= 0.0):
+        raise ValueError("joint solve has a zero or invalid augmented row")
+    row_scale = 1.0 / row_max
+    row_balanced = row_scale[:, None] * augmented
+    rhs_balanced = row_scale * rhs
+
+    col_max = np.max(np.abs(row_balanced), axis=0)
+    if np.any(~np.isfinite(col_max)) or np.any(col_max <= 0.0):
+        raise ValueError("joint solve has a zero or invalid equilibrated column")
+    col_scale = 1.0 / col_max
+    balanced = row_balanced * col_scale[None, :]
+
+    y = np.linalg.solve(balanced, rhs_balanced)
+    solution = col_scale * y
+    alpha = np.asarray(solution[:n], dtype=float)
+    target = float(solution[n])
+
+    # Assess both systems, but base equation admission on the original rows.
+    raw_residual = augmented @ solution - rhs
+    raw_scale = np.abs(augmented) @ np.abs(solution) + np.abs(rhs)
+    raw_bound = 1024.0 * np.finfo(float).eps * np.maximum(
+        raw_scale, np.finfo(float).tiny
+    )
+    raw_ratio = np.abs(raw_residual) / raw_bound
+
+    balanced_residual = balanced @ y - rhs_balanced
+    balanced_scale = np.abs(balanced) @ np.abs(y) + np.abs(rhs_balanced)
+    balanced_bound = 1024.0 * np.finfo(float).eps * np.maximum(
+        balanced_scale, np.finfo(float).tiny
+    )
+    balanced_ratio = np.abs(balanced_residual) / balanced_bound
+    return alpha, target, {
+        "augmented_matrix_shape": [int(n + 1), int(n + 1)],
+        "raw_condition_number_2": float(np.linalg.cond(augmented)),
+        "equilibrated_condition_number_2": float(np.linalg.cond(balanced)),
+        "row_scale_min": float(np.min(row_scale)),
+        "row_scale_max": float(np.max(row_scale)),
+        "column_scale_min": float(np.min(col_scale)),
+        "column_scale_max": float(np.max(col_scale)),
+        "max_abs_original_equation_residual": float(np.max(np.abs(raw_residual))),
+        "max_original_operand_scaled_roundoff_ratio": float(np.max(raw_ratio)),
+        "original_equations_close": bool(np.all(np.abs(raw_residual) <= raw_bound)),
+        "max_abs_equilibrated_equation_residual": float(
+            np.max(np.abs(balanced_residual))
+        ),
+        "max_equilibrated_operand_scaled_roundoff_ratio": float(
+            np.max(balanced_ratio)
+        ),
+        "equilibrated_system_roundoff_closed": bool(
+            np.all(np.abs(balanced_residual) <= balanced_bound)
+        ),
+    }
+
+
 def run_audit(input_root: Path, output_dir: Path) -> dict:
     artifact_dir = find_artifact_dir(input_root)
     verified = verify_artifact(artifact_dir)
