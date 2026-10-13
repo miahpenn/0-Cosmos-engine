@@ -285,7 +285,6 @@ def main() -> None:
     for n in RESOLUTIONS:
         report, profiles = audit_resolution(n, outdir)
         reports.append(report)
-        all_profiles[f"N{n}"] = profiles
         for name, values in profiles.items():
             all_profiles[f"N{n}__{name}"] = values
     archive = outdir / "initial_centre_series_profiles.npz"
