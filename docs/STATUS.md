@@ -2,7 +2,7 @@
 
 ## Current-main snapshot — after canonical stress-projection merge and EM research updates (13 October 2026 UTC)
 
-**Live main tip:** `a758454df6399c0fd4225a986472387d2d99fe73` (squash merge of PR #148). **Physics/numerical-kernel baseline:** `bfbe59c5dc844ce0ee365fdfcdc963dfd681d403`; main additionally carries PR #148's structural adapter change in `engine/stress_energy.py`, but that refactor changes no evolution equation, physical source, gauge, boundary, vendor pin, campaign parameter, or GEAR archive. **Post-merge current-main validation:** [lightweight run 38451114850](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38451114850) completed successfully on this exact main SHA: 371 tests passed and the bounded N=40 production one-step smoke reached `t=0.03`. This is a software/smoke result, not a full scientific campaign.
+**Implementation base audited for this status:** `a758454df6399c0fd4225a986472387d2d99fe73` (main immediately after PR #148 and before this documentation-only status update). **Physics/numerical-kernel baseline:** `bfbe59c5dc844ce0ee365fdfcdc963dfd681d403`; main additionally carries PR #148's structural adapter change in `engine/stress_energy.py`, but that refactor changes no evolution equation, physical source, gauge, boundary, vendor pin, campaign parameter, or GEAR archive. **Post-merge current-main validation:** [lightweight run 38451114850](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38451114850) completed successfully on this exact main SHA: 371 tests passed and the bounded N=40 production one-step smoke reached `t=0.03`. This is a software/smoke result, not a full scientific campaign.
 
 ### Canonical stress projection and branch hygiene
 
