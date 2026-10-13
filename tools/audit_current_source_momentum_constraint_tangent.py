@@ -17,11 +17,14 @@ import hashlib
 import json
 import math
 import subprocess
+import sys
 import traceback
 from pathlib import Path
 from typing import Any
 
 import numpy as np
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from engine.production_kernel import (
     BETA_DM,
