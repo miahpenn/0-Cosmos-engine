@@ -71,28 +71,50 @@ def blob_sha(path: str) -> str:
 
 
 def traced_initialize(kernel, resolution):
-    """Capture exact local src/I/B arrays inside the pinned initializer."""
+    """Capture exact local src/I arrays for each of six initializer iterations."""
+    import inspect
+    import linecache
     import sys
-    captured = {"src": [], "integral": [], "B": []}
+
+    captured = {"src": [], "integral": []}
     mod = __import__("engine.v55_initial", fromlist=["build_initial_data"])
     variant = "candidate" if hasattr(mod, "_integrate_initial_radial_source") else "baseline"
-    # These line numbers are guarded by exact file-blob hashes in the workflow.
-    capture_lines = (
-        {"src": 166, "integral": 167, "B": 169}
-        if variant == "candidate"
-        else {"src": 101, "integral": 105, "B": 107}
+    source_lines, start_line = inspect.getsourcelines(mod.build_initial_data)
+    loop_line = next(
+        start_line + idx for idx, line in enumerate(source_lines)
+        if "for _ in range(6)" in line
     )
+    body_line = next(
+        start_line + idx for idx, line in enumerate(source_lines)
+        if line.strip().startswith("rhoS =")
+    )
+    source_trigger = next(
+        start_line + idx for idx, line in enumerate(source_lines)
+        if line.strip().startswith("integ =")
+    )
+    integral_trigger = next(
+        start_line + idx for idx, line in enumerate(source_lines)
+        if line.strip().startswith("B = integ / r")
+    )
+    iteration = {"index": -1}
+    captured_iterations = {"src": set(), "integral": set()}
 
     def local_trace(frame, event, arg):
-        if event == "line" and frame.f_code.co_name == "build_initial_data":
-            key = next((name for name, line in capture_lines.items() if frame.f_lineno == line), None)
-            if key is not None:
-                value = frame.f_locals.get(key if key != "integral" else "integ")
-                if key == "B":
-                    value = frame.f_locals.get("B")
-                if value is not None:
-                    array = finite_array(f"captured initial {key}", value)
-                    captured[key].append(array.copy())
+        if event != "line" or frame.f_code.co_name != "build_initial_data":
+            return local_trace
+        if frame.f_lineno == body_line:
+            iteration["index"] += 1
+        idx = iteration["index"]
+        if frame.f_lineno == source_trigger and idx >= 0 and idx not in captured_iterations["src"]:
+            value = frame.f_locals.get("src")
+            if value is not None:
+                captured["src"].append(finite_array("captured initial src", value).copy())
+                captured_iterations["src"].add(idx)
+        if frame.f_lineno == integral_trigger and idx >= 0 and idx not in captured_iterations["integral"]:
+            value = frame.f_locals.get("integ")
+            if value is not None:
+                captured["integral"].append(finite_array("captured initial integral", value).copy())
+                captured_iterations["integral"].add(idx)
         return local_trace
 
     def global_trace(frame, event, arg):
@@ -106,16 +128,21 @@ def traced_initialize(kernel, resolution):
     finally:
         sys.settrace(None)
 
-    for name in ("src", "integral", "B"):
+    for name in ("src", "integral"):
         if len(captured[name]) != 6:
             raise RuntimeError(
-                f"initializer trace expected six {name} samples, got {len(captured[name])}"
+                f"initializer trace expected six {name} samples, got {len(captured[name])}; "
+                f"iteration indices={sorted(captured_iterations[name])}, "
+                f"loop_index={iteration['index']}"
             )
         if any(arr.shape != state.grid.centers.shape for arr in captured[name]):
             raise RuntimeError(f"captured {name} shape does not match grid")
+    # Production assigns B = integ / r immediately after each captured integral.
+    # This reproduces that exact operation for every iteration, including the
+    # intermediate iterates that are not separately returned by the initializer.
+    captured["B"] = [integral / state.grid.centers for integral in captured["integral"]]
     captured["variant"] = variant
     return state, captured
-
 
 def linear_sample(r, values, target=SURFACE_R):
     r = finite_array("sample coordinates", r)
