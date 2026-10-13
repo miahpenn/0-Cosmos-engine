@@ -49,9 +49,13 @@ def test_checkpoint_io_error_remains_primary_if_evidence_write_fails(
         return real_replace(source, destination)
 
     real_atomic_write_text = runner.atomic_write_text
+    attempted_evidence_writes = []
 
     def fail_secondary_evidence_write(path, content, *, encoding="utf-8"):
-        if Path(path).name == secondary_failure:
+        filename = Path(path).name
+        if filename in {"ledgers.json", "campaign_summary.json"}:
+            attempted_evidence_writes.append(filename)
+        if filename == secondary_failure:
             raise OSError(f"injected secondary {secondary_failure} failure")
         return real_atomic_write_text(path, content, encoding=encoding)
 
@@ -61,6 +65,11 @@ def test_checkpoint_io_error_remains_primary_if_evidence_write_fails(
 
     with pytest.raises(OSError, match="injected primary checkpoint publication failure"):
         runner.run_campaign(kernel=kernel, config=_config(tmp_path))
+
+    # Assert the summary writer was actually reached, even in the branch where
+    # that writer itself raises. File absence alone does not prove an attempt.
+    assert "campaign_summary.json" in attempted_evidence_writes
+    assert secondary_failure in attempted_evidence_writes
 
     # A failed checkpoint must stop this campaign before the next resolution;
     # an evidence-write failure must not mask the original checkpoint I/O error.
