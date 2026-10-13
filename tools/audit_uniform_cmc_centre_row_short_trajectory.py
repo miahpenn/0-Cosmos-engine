@@ -193,7 +193,7 @@ def main():
             "Selected row is applied at initialization and every actual internal CMC solve.",
             "Current centre row remains a required counterfactual control.",
             "No fitted parameters, clipping, projection, damping, retry, source change or evolution-law change.",
-            "Four-step passing evidence is not long-horizon or scientific admission.",
+            "Twelve-step passing evidence is not long-horizon or scientific admission.",
         ],
     }
     OUT.mkdir(parents=True, exist_ok=True)
