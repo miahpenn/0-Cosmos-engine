@@ -75,7 +75,11 @@ def _peak_witness(values, radii, mask=None):
             raise ValueError("peak witness mask must match the profile shape")
         indices = np.flatnonzero(selected)
     if indices.size == 0:
-        raise ValueError("peak witness mask selects no grid points")
+        # A fixed-physical-radius region may be empty on a valid small domain.
+        # Report that masked witness as unavailable; do not abort diagnostics.
+        if mask is not None:
+            return None
+        raise ValueError("peak witness has no grid points")
     idx = int(indices[np.argmax(np.abs(values[indices]))])
     return idx, float(radii[idx]), float(values[idx])
 
@@ -772,14 +776,16 @@ class V55ProductionKernel:
         constraint_exclusion_radius = CONSTRAINT_INNER_EXCLUSION_RADIUS
         exterior_mask = r >= constraint_exclusion_radius
         inner_mask = ~exterior_mask
-        if not np.any(exterior_mask) or not np.any(inner_mask):
-            raise ValueError(
-                "grid must contain cells both inside and outside the fixed "
-                f"constraint radius r={constraint_exclusion_radius}"
-            )
+        exterior_witness_available = bool(np.any(exterior_mask))
+        inner_witness_available = bool(np.any(inner_mask))
 
         def _witness(arr, mask=None):
             return _peak_witness(arr, r, mask=mask)
+
+        def _witness_parts(witness):
+            # Missing-region peak/radius/value are all JSON null; explicit
+            # availability fields distinguish that from a measured zero.
+            return (None, None, None) if witness is None else witness
 
         i_vAa, r_vAa, v_vAa = _witness(vacuum_l3["Aa"])
         i_vK, r_vK, v_vK = _witness(vacuum_l3["K"])
@@ -792,17 +798,17 @@ class V55ProductionKernel:
         # resolution. Separate inner and full-domain witnesses keep central
         # regularity errors visible rather than hiding them in a resolution-
         # dependent number of excluded cells.
-        i_conn, r_conn, v_conn = _witness(raw["connection"], exterior_mask)
+        i_conn, r_conn, v_conn = _witness_parts(_witness(raw["connection"], exterior_mask))
         i_conn_full, r_conn_full, v_conn_full = _witness(raw["connection"])
-        i_conn_inner, r_conn_inner, v_conn_inner = _witness(
-            raw["connection"], inner_mask
+        i_conn_inner, r_conn_inner, v_conn_inner = _witness_parts(
+            _witness(raw["connection"], inner_mask)
         )
-        i_H, r_H, v_H = _witness(H, exterior_mask)
+        i_H, r_H, v_H = _witness_parts(_witness(H, exterior_mask))
         i_H_full, r_H_full, v_H_full = _witness(H)
-        i_H_inner, r_H_inner, v_H_inner = _witness(H, inner_mask)
-        i_M, r_M, v_M = _witness(M, exterior_mask)
+        i_H_inner, r_H_inner, v_H_inner = _witness_parts(_witness(H, inner_mask))
+        i_M, r_M, v_M = _witness_parts(_witness(M, exterior_mask))
         i_M_full, r_M_full, v_M_full = _witness(M)
-        i_M_inner, r_M_inner, v_M_inner = _witness(M, inner_mask)
+        i_M_inner, r_M_inner, v_M_inner = _witness_parts(_witness(M, inner_mask))
 
         roots = []
         sign_change = chi[:-1] * chi[1:] <= 0.0
@@ -834,31 +840,33 @@ class V55ProductionKernel:
             # Comparable exterior norms use r >= constraint_exclusion_radius;
             # inner and full-domain peaks are reported separately.
             "constraint_exclusion_radius": float(constraint_exclusion_radius),
-            "hamiltonian_max": float(abs(v_H)),
+            "constraint_exterior_witness_available": exterior_witness_available,
+            "constraint_inner_witness_available": inner_witness_available,
+            "hamiltonian_max": None if v_H is None else float(abs(v_H)),
             "hamiltonian_max_r": r_H,
             "hamiltonian_at_max": v_H,
-            "hamiltonian_inner_absmax": float(abs(v_H_inner)),
+            "hamiltonian_inner_absmax": None if v_H_inner is None else float(abs(v_H_inner)),
             "hamiltonian_inner_max_r": r_H_inner,
             "hamiltonian_inner_at_max": v_H_inner,
-            "hamiltonian_full_absmax": float(abs(v_H_full)),
+            "hamiltonian_full_absmax": None if v_H_full is None else float(abs(v_H_full)),
             "hamiltonian_full_max_r": r_H_full,
             "hamiltonian_full_at_max": v_H_full,
-            "momentum_max": float(abs(v_M)),
+            "momentum_max": None if v_M is None else float(abs(v_M)),
             "momentum_max_r": r_M,
             "momentum_at_max": v_M,
-            "momentum_inner_absmax": float(abs(v_M_inner)),
+            "momentum_inner_absmax": None if v_M_inner is None else float(abs(v_M_inner)),
             "momentum_inner_max_r": r_M_inner,
             "momentum_inner_at_max": v_M_inner,
-            "momentum_full_absmax": float(abs(v_M_full)),
+            "momentum_full_absmax": None if v_M_full is None else float(abs(v_M_full)),
             "momentum_full_max_r": r_M_full,
             "momentum_full_at_max": v_M_full,
-            "connection_max": float(abs(v_conn)),
+            "connection_max": None if v_conn is None else float(abs(v_conn)),
             "connection_max_r": r_conn,
             "connection_at_max": v_conn,
-            "connection_inner_absmax": float(abs(v_conn_inner)),
+            "connection_inner_absmax": None if v_conn_inner is None else float(abs(v_conn_inner)),
             "connection_inner_max_r": r_conn_inner,
             "connection_inner_at_max": v_conn_inner,
-            "connection_full_absmax": float(abs(v_conn_full)),
+            "connection_full_absmax": None if v_conn_full is None else float(abs(v_conn_full)),
             "connection_full_max_r": r_conn_full,
             "connection_full_at_max": v_conn_full,
             "determinant_min": float(np.min(det)),
