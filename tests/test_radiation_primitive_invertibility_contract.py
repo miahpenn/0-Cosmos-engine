@@ -13,6 +13,7 @@ from engine.matter_system import (
     _metric_arrays,
     _radiation_conserved,
     _radiation_flux,
+    _valencia_flux,
     _species_rhs_components,
     _valencia_source,
     KAPPA,
@@ -26,6 +27,8 @@ from engine.valencia import (
     SphericalMetric,
     recover_radiation,
     spherical_metric_from_bssn,
+    mixed_flux,
+    stress_tensor_contravariant,
 )
 
 
@@ -302,3 +305,67 @@ def test_near_cone_rhs_assembly_uses_preserved_source_norm_and_outer_flux():
         - metric.beta * state.energy_t[0]
     )
     assert face_flux[-1, 1] == pytest.approx(expected_outer_flux, rel=2.0e-14, abs=0.0)
+
+
+
+def test_shifted_near_cone_flux_and_tensor_products_use_preserved_velocity_norm():
+    """Keep the solved v^2 consistent through radial fluxes and shifted tensor products."""
+    metric = spherical_metric_from_bssn(
+        r=79.5,
+        a=0.5883984147590013,
+        b=1.3036606161142992,
+        X=0.9545747827302261,
+        alpha=0.93,
+        beta=0.12,
+    )
+    conserved = _conserved(
+        E=2.4771114076139816e-4,
+        S=1.990541924362441e-4,
+    )
+    primitive = recover_radiation(metric, conserved)
+    assert primitive.velocity_norm_squared is not None
+    assert primitive.v2 != metric.gamma_rr * primitive.v_r * primitive.v_r
+
+    W = primitive.lorentz()
+    h = primitive.rho + primitive.pressure
+    S_r = h * W * W * metric.gamma_rr * primitive.v_r
+    expected_radial_flux = metric.sqrt_gamma * (
+        metric.alpha * (h * W * W * primitive.v2 + primitive.pressure)
+        - metric.beta * S_r
+    )
+    assert _radiation_flux(metric, primitive)[2] == pytest.approx(
+        expected_radial_flux, rel=2.0e-14, abs=0.0
+    )
+    assert _valencia_flux(metric, primitive)[2] == pytest.approx(
+        expected_radial_flux, rel=2.0e-14, abs=0.0
+    )
+
+    beta_over_alpha = metric.beta / metric.alpha
+    grr = metric.gamma_rr_inv - beta_over_alpha * beta_over_alpha
+    expected_Trr = (
+        h * W * W * (
+            primitive.v2 * metric.gamma_rr_inv
+            - 2.0 * beta_over_alpha * primitive.v_r
+            + beta_over_alpha * beta_over_alpha
+        )
+        + primitive.pressure * grr
+    )
+    tensor = stress_tensor_contravariant(metric, primitive)
+    assert tensor["rr"] == pytest.approx(expected_Trr, rel=2.0e-14, abs=0.0)
+
+    expected_Tr_t = h * W * W * (
+        -metric.alpha * primitive.v_r
+        + metric.beta
+        + metric.beta * primitive.v2
+        - (metric.beta * metric.shift_cov / metric.alpha) * primitive.v_r
+    )
+    expected_Tr_r = h * W * W * (
+        primitive.v2 - (metric.shift_cov / metric.alpha) * primitive.v_r
+    ) + primitive.pressure
+    flux = mixed_flux(metric, primitive)
+    assert flux.energy_t == pytest.approx(
+        metric.sqrt_minus_g * expected_Tr_t, rel=2.0e-14, abs=0.0
+    )
+    assert flux.momentum_r == pytest.approx(
+        metric.sqrt_minus_g * expected_Tr_r, rel=2.0e-14, abs=0.0
+    )
