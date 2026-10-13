@@ -252,7 +252,7 @@ def pde_residual_and_decomposition(grid, geometry, scalars, matter, vacuum,
     # The equation above implies (-lap2 + Q*alpha) == target_kdot up to
     # second_order_residual; actual K RHS differs by the vendor L2 stencil and
     # the KO(K) term in primary_l3_rhs.
-    lapse_stencil_delta = l2_k + lap2
+    lapse_stencil_delta = l2_k + inv * lap2
     actual_minus_target = actual - target_kdot
     decomposition = lapse_stencil_delta + ko_k - second_order_residual
     closure = actual_minus_target - decomposition
