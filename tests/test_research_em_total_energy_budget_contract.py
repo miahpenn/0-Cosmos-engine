@@ -14,13 +14,20 @@ from tools.audit_em_total_energy_budget import (
 def test_observer_is_pinned_to_all_ledger_source_boundaries():
     required = {
         "engine/campaign.py",
+        "engine/cmc_gauge.py",
+        "engine/cosmology_observables.py",
+        "engine/invariant_diagnostics.py",
         "engine/matter_rhs.py",
         "engine/matter_system.py",
+        "engine/production_contract.py",
         "engine/production_kernel.py",
         "engine/radial_maxwell.py",
         "engine/run_production.py",
+        "engine/scalar_system.py",
         "engine/stress_energy.py",
+        "engine/v55_initial.py",
         "engine/v55_matter.py",
+        "engine/valencia.py",
         "engine/v55_pirk_adapter.py",
         "engine/worldtube.py",
     }
