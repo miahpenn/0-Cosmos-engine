@@ -160,3 +160,43 @@ def test_persistent_typed_cone_rejection_fails_campaign_admission_closed(tmp_pat
         item["status"] == "rejected_radiation_admissibility"
         for item in retry_log[0]["attempts"]
     )
+
+
+
+def test_initialization_rejection_is_persisted_and_fails_campaign_closed(
+    tmp_path, monkeypatch
+):
+    kernel = V55ProductionKernel()
+
+    def reject_initialization(**kwargs):
+        raise RadiationAdmissibilityError(
+            "test injection: inadmissible initial radiation seed",
+            stage="initialization",
+        )
+
+    monkeypatch.setattr(kernel, "initialize", reject_initialization)
+    config = _config(tmp_path)
+
+    with pytest.raises(
+        RuntimeError, match="Production campaign admission failed"
+    ):
+        runner.run_campaign(kernel=kernel, config=config)
+
+    summary = _strict_json(tmp_path / "campaign_summary.json")
+    assert summary["admission"]["passed"] is False
+    assert any(
+        "N=40 status is 'numerical_failure:initialization:" in error
+        for error in summary["admission"]["errors"]
+    )
+    result = summary["results"][0]
+    assert result["status"].startswith("numerical_failure:initialization:")
+    assert result["t_final"] == 0.0
+    assert result["steps"] == 0
+    assert result["misner_sharp_current_max"] is None
+    assert result["misner_sharp_current_rms"] is None
+
+    ledger = _strict_json(tmp_path / "N40" / "ledgers.json")
+    retries = _strict_json(tmp_path / "N40" / "radiation_step_retries.json")
+    assert ledger["result"]["status"] == result["status"]
+    assert ledger["history"] == []
+    assert retries == []
