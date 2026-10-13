@@ -497,23 +497,20 @@ def _radiation_source(metric, q, K, Aa, dr_alpha, dr_beta, dr_grr, dr_gthth):
     return energy, momentum
 
 
-def evolve_species(
+def _species_rhs_components(
     metric: BSSNMetricSlice,
     metric_derivatives: MetricDerivativeSet,
     state: ConservedSpecies,
     species: Species,
-    dt: float,
     dphi_t: np.ndarray | None = None,
     dphi_r: np.ndarray | None = None,
     beta_dm: float = -0.04,
-    validate_admissibility: bool = True,
-) -> ConservedSpecies:
-    """Apply one finite-volume update.
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """Calculate finite-volume flux/source components without taking a step.
 
-    validate_admissibility is retained for direct update callers. The
-    derivative-only species_rhs wrapper disables this check because its
-    unit-step application is an algebraic RHS extraction, not an admitted
-    physical state. Production integration validates its actual states.
+    The shared operator retains guarded incoming primitive recovery and is
+    used by both the derivative-only RHS API and finite-time state updates.
+    It does not construct or validate a fictitious unit-timestep state.
     """
     n = len(metric.r)
     if any(np.shape(x) != (n,) for x in (
@@ -523,11 +520,9 @@ def evolve_species(
 
     metrics = _metric_arrays(metric)
     prim = primitives(metrics, state, species)
-
     face_flux = np.zeros((n + 1, 3), dtype=float)
-
-    # Regular center: the integrated spherical flux through r=0 vanishes.
     face_flux[0] = 0.0
+
     for i in range(n - 1):
         m0, m1 = metrics[i], metrics[i + 1]
         mf = SphericalMetric(
@@ -543,17 +538,16 @@ def evolve_species(
         qr = _reconstructed_primitive(prim, i + 1, "left", mf.gamma_rr)
         face_flux[i + 1] = _hll_flux(mf, ql, qr, species)
 
-    # Causal/outflow outer closure: continue the last physical state.
-    # Radiation uses its zero-rest-current flux representation here too.
+    # Preserve radiation's exact zero-rest-current outer-face representation.
     if species is Species.RADIATION:
         face_flux[-1] = _radiation_flux(metrics[-1], prim[-1])
     else:
         face_flux[-1] = _valencia_flux(metrics[-1], prim[-1])
 
-    out = state.copy()
-    inv_dr = 1.0 / (metric.r[1] - metric.r[0])
     source_e_diag = np.zeros(n, dtype=float)
     source_s_diag = np.zeros(n, dtype=float)
+    q_e_diag = np.zeros(n, dtype=float)
+    q_s_diag = np.zeros(n, dtype=float)
     for i, m in enumerate(metrics):
         source_e, source_s = _valencia_source(
             m, prim[i], float(metric.K[i]), float(metric.Aa[i]),
@@ -562,20 +556,45 @@ def evolve_species(
             float(metric_derivatives.radial["rr"][i]),
             float(metric_derivatives.radial["thth"][i]),
         )
-
         source_e_diag[i] = source_e
         source_s_diag[i] = source_s
 
-        q_e = q_s = 0.0
-        if species == Species.DARK_MATTER:
+        if species is Species.DARK_MATTER:
             if dphi_t is None or dphi_r is None:
                 raise ValueError("DM evolution requires dphi_t and dphi_r")
             q_t, q_r = dark_matter_covector_source(
                 beta_dm, prim[i].rho, float(dphi_t[i]), float(dphi_r[i])
             )
-            q_e = -m.sqrt_gamma * (q_t - m.beta * q_r)
-            q_s = m.sqrt_gamma * q_r
+            q_e_diag[i] = -m.sqrt_gamma * (q_t - m.beta * q_r)
+            q_s_diag[i] = m.sqrt_gamma * q_r
 
+    return face_flux, source_e_diag, source_s_diag, q_e_diag, q_s_diag
+
+
+def evolve_species(
+    metric: BSSNMetricSlice,
+    metric_derivatives: MetricDerivativeSet,
+    state: ConservedSpecies,
+    species: Species,
+    dt: float,
+    dphi_t: np.ndarray | None = None,
+    dphi_r: np.ndarray | None = None,
+    beta_dm: float = -0.04,
+    validate_admissibility: bool = True,
+) -> ConservedSpecies:
+    """Apply one finite-volume update with the established operation order."""
+    n = len(metric.r)
+    face_flux, source_e_diag, source_s_diag, q_e_diag, q_s_diag = (
+        _species_rhs_components(
+            metric, metric_derivatives, state, species,
+            dphi_t=dphi_t, dphi_r=dphi_r, beta_dm=beta_dm,
+        )
+    )
+
+    out = state.copy()
+    inv_dr = 1.0 / (metric.r[1] - metric.r[0])
+    for i in range(n):
+        # Preserve current finite-step ordering: flux subtraction, then sources.
         out.rest[i] -= dt * inv_dr * (
             face_flux[i + 1, 0] - face_flux[i, 0]
         )
@@ -585,16 +604,14 @@ def evolve_species(
         out.momentum_r[i] -= dt * inv_dr * (
             face_flux[i + 1, 2] - face_flux[i, 2]
         )
-        out.energy_t[i] += dt * (source_e + q_e)
-        out.momentum_r[i] += dt * (source_s + q_s)
+        out.energy_t[i] += dt * (source_e_diag[i] + q_e_diag[i])
+        out.momentum_r[i] += dt * (source_s_diag[i] + q_s_diag[i])
 
     if validate_admissibility:
         validate_species_admissibility(
             metric, out, species, stage=f"direct-evolve-dt={dt:.17g}"
         )
-
     return out
-
 
 def project_species(
     metric: BSSNMetricSlice,
