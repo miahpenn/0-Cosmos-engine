@@ -45,8 +45,8 @@ def test_step_interruption_persists_last_accepted_state_and_stops_other_resoluti
 
     def interrupt_after_candidate(step_kernel, state, requested_dt):
         attempted.append((state, float(state.t), float(requested_dt)))
-        candidate = real_advance(step_kernel, state, requested_dt)
-        assert candidate.t > state.t
+        outcome = real_advance(step_kernel, state, requested_dt)
+        assert outcome.state.t > state.t
         raise KeyboardInterrupt("injected operator stop after candidate calculation")
 
     monkeypatch.setattr(
