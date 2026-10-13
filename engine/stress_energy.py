@@ -28,6 +28,10 @@ class TotalStressEnergy:
     fluid_pr: np.ndarray
     fluid_pt: np.ndarray
     fluid_j: np.ndarray
+    electromagnetic_rho: np.ndarray
+    electromagnetic_pr: np.ndarray
+    electromagnetic_pt: np.ndarray
+    electromagnetic_j: np.ndarray
 
     def trace_spatial(self) -> np.ndarray:
         return self.pr + 2.0 * self.pt
@@ -39,18 +43,32 @@ class TotalStressEnergy:
                 self.rho, self.pr, self.pt, self.j,
                 self.scalar_rho, self.scalar_pr, self.scalar_pt, self.scalar_j,
                 self.fluid_rho, self.fluid_pr, self.fluid_pt, self.fluid_j,
+                self.electromagnetic_rho, self.electromagnetic_pr,
+                self.electromagnetic_pt, self.electromagnetic_j,
             )
         )
 
 
-def assemble_total_stress_energy(grid, geometry, scalars: ScalarFields,
-                                 matter: V55MatterState) -> TotalStressEnergy:
-    """Adapt the canonical matter projection to the diagnostic data contract."""
+def assemble_total_stress_energy(
+    grid,
+    geometry,
+    scalars: ScalarFields,
+    matter: V55MatterState,
+    *,
+    electromagnetic_projection: dict[str, np.ndarray] | None = None,
+) -> TotalStressEnergy:
+    """Adapt the canonical projection to the diagnostic and boundary contract.
+
+    The optional EM arrays must already use consumer-normalized units. None
+    preserves the pre-EM projection exactly.
+    """
     projection = v55_matter.total_matter_projection(
-        grid, geometry, scalars, matter
+        grid, geometry, scalars, matter,
+        electromagnetic_projection=electromagnetic_projection,
     )
     scalar = projection["scalar"]
     fluid = projection["fluid"]
+    em = projection["electromagnetic"]
     return TotalStressEnergy(
         rho=projection["rho"],
         pr=projection["pr"],
@@ -64,4 +82,8 @@ def assemble_total_stress_energy(grid, geometry, scalars: ScalarFields,
         fluid_pr=fluid["pr"],
         fluid_pt=fluid["pt"],
         fluid_j=fluid["j"],
+        electromagnetic_rho=em["rho"],
+        electromagnetic_pr=em["pr"],
+        electromagnetic_pt=em["pt"],
+        electromagnetic_j=em["j"],
     )
