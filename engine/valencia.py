@@ -32,10 +32,15 @@ KAPPA = 8.0 * math.pi
 class RadiationAdmissibilityError(ValueError):
     """Radiation state is outside the configured perfect-fluid recovery domain.
 
-    When radial momentum is nonzero, this recovery requires the strict interior
-    E > |S| so the reconstructed fluid has subluminal velocity. The separate
-    zero-momentum branch remains valid, including a zero-energy vacuum state.
+    `stage` identifies whether a rejection arose from the accepted input or a
+    dt-dependent candidate. A missing stage is deliberately non-retryable.
+    The finite-pressure closure requires strict E > |S| for nonzero flux; the
+    separate zero-momentum branch remains valid, including zero-energy vacuum.
     """
+
+    def __init__(self, message: str, *, stage: str | None = None) -> None:
+        self.stage = stage
+        super().__init__(message)
 
 
 @dataclass(frozen=True)
