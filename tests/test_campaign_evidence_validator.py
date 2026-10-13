@@ -169,5 +169,5 @@ def test_rejects_non_integer_ledger_resolution(tmp_path, bad_resolution):
     ledger["result"]["resolution"] = bad_resolution
     ledger_path.write_text(json.dumps(ledger), encoding="utf-8")
 
-    with pytest.raises(CampaignEvidenceError, match="N80 ledger has invalid resolution"):
+    with pytest.raises(CampaignEvidenceError, match="N=80 ledger has invalid resolution"):
         validate_campaign_evidence(root, (80, 120))
