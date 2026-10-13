@@ -200,6 +200,46 @@ def test_production_metric_snapshot_is_immutable(production_metric):
 
 
 
+def test_production_metric_gauss_matches_independent_flat_coulomb_oracle():
+    """Flat metric must reproduce the analytic source/field normalization."""
+    metric_resolution = 128
+    r_max = 40.0
+    dr = r_max / metric_resolution
+    centers = tuple((i + 0.5) * dr for i in range(metric_resolution))
+    unit = (1.0,) * metric_resolution
+    flat_metric = FrozenProductionMetric(
+        centers=centers,
+        a=unit,
+        b=unit,
+        X=unit,
+        dr=dr,
+        r_max=r_max,
+    )
+    source = RadialCoulombReference(rho0=0.75, source_radius=10.0)
+    result = solve_discrete_production_metric_gauss(
+        flat_metric, source, resolution=64
+    )
+
+    # This comparison uses the closed-form flat oracle, not another numerical
+    # quadrature order, so a shared error in the proper-volume 4*pi factor
+    # cannot pass merely because both quadrature estimates share it.
+    scale = max(1.0, abs(source.total_charge))
+    for radius, numerical_charge, numerical_field in zip(
+        result.faces, result.face_charges, result.face_electric_field_hat
+    ):
+        exact_charge = source.enclosed_charge(radius)
+        exact_field = source.electric_field(radius)
+        assert numerical_charge == pytest.approx(
+            exact_charge, rel=2.0e-12, abs=2.0e-12 * scale
+        )
+        assert numerical_field == pytest.approx(
+            exact_field, rel=2.0e-12, abs=2.0e-12 * max(1.0, abs(exact_field))
+        )
+    assert result.total_charge == pytest.approx(
+        source.total_charge, rel=2.0e-12, abs=2.0e-12 * scale
+    )
+
+
 def test_tiny_production_metric_rejects_scale_mismatched_source_edge():
     """The face-alignment tolerance must scale with tiny coordinate radii."""
     r_max = 1.0e-18
