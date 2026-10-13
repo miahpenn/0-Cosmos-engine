@@ -4,9 +4,14 @@ on:
   push:
     branches:
       - fix/initial-quadrature-cmc-centre-row-candidate-2026-10-13
+      - diag/harden-candidate-multires-contract-2026-10-13
     paths:
       - "tools/validate_initial_quadrature_cmc_candidate.py"
       - ".github/workflows/candidate_multires_one_step.yml"
+      - "tests/test_candidate_multires_radiation_contract.py"
+      - "tests/test_candidate_multires_determinant_contract.py"
+      - "engine/v55_initial.py"
+      - "engine/cmc_gauge.py"
 
 permissions:
   contents: read
@@ -55,6 +60,9 @@ jobs:
           done
           test "$(git rev-parse HEAD:vendor/bb-palatini-unified-r0)" = "$VENDOR_COMMIT"
           printf 'BASE_SOURCE_COMMIT=%s\nVENDOR_COMMIT=%s\n' "$BASE_SOURCE_COMMIT" "$VENDOR_COMMIT"
+
+      - name: Test complete radiation and determinant witness contracts
+        run: python -m pytest -q tests/test_candidate_multires_radiation_contract.py tests/test_candidate_multires_determinant_contract.py
 
       - name: Compile and run five-resolution production one-step sweep
         run: |
