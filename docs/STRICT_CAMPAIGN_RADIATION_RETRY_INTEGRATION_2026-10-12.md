@@ -1,0 +1,92 @@
+# Strict campaign admission + radiation retry integration candidate
+
+**Date:** 12 October 2026  
+**Disposition:** draft engineering integration; not merged; not scientific admission.
+
+## Objective
+
+Reconcile the tested strict campaign runner and the typed radiation-cone retry mechanism without changing physical equations, coefficients, guards, boundary conditions, or the pinned vendor kernel.
+
+## Source provenance
+
+- Strict runner/diagnostic base: `fix/strict-campaign-admission-2026-10-12`, head `d5a5b97eadcd5c565722e61262a22195baf3c1d5`.
+- Campaign preflight candidate: `fix/campaign-config-preflight-2026-10-12`, head `15a30ee8ad50b2c50cd9cc76dcf85f030b0daea0`.
+- Typed retry helper and radiation state-contract candidate: `fix/radiation-adaptive-step-on-cone-2026-10-12`, head `651dc124484e7c056b784033b69bedba6da0b5a5`.
+- PR #3's strict constraint/centre diagnostic additions in `engine/production_kernel.py` are preserved; the diverged adaptive branch's kernel was not copied wholesale.
+
+## Integration invariants
+
+1. `prepare_campaign()` validates campaign parameters, the resolution set, timestep progress, checkpoint spacing, and production capability contract before evolution.
+2. The retry helper catches only the typed `RadiationAdmissibilityError` **and retries only dt-dependent trial stages** (`explicit-predictor`, `primary-predictor`, `final`). Stage is structured exception metadata, not parsed from message text. An invalid accepted `initial` state or unscoped primitive-recovery error propagates immediately because reducing dt cannot alter the input state. Geometry, gauge, and other unrelated errors are not retried.
+3. Radiation admissibility is checked at initialization and the actual initial, explicit predictor, primary predictor, and completed radiation states before source recovery can consume inadmissible values.
+4. On a successful retry, whole-state finiteness, positive geometry, diagnostic finiteness, endpoint canonicalization, and checkpoint logic still apply to the accepted state.
+5. Per-resolution `radiation_step_retries.json` and `ledgers.json` preserve retry attempts. `campaign_summary.json` records exact resolution/horizon admission and remains fail-closed on numerical failure or an incomplete horizon.
+6. No clipping, projection, retry of non-radiation errors, cone relaxation, new source, fitted coefficient, or physics promotion is introduced.
+
+## Required regression gates
+
+- Retry one injected typed cone rejection, then take real production steps to the full short horizon; require an accepted retry ledger and `admission.passed=true`.
+- Inject persistent typed cone rejection, let the actual retry helper reach its time-progress limit, and require a persisted failure ledger plus `admission.passed=false`.
+- Run the complete repository suite and bounded N=40 production smoke in the integration-specific Actions workflow.
+- Preserve the stage-level radiation-admissibility and zero-rest-current regression suites from the adaptive candidate.
+- After independent integration review and green CI, a bounded N=40/60/80 to t=12 run may be considered. Do not launch a long-horizon campaign until the separate centre-series/Hamiltonian/momentum/connection, radiation N=240/320, Misner–Sharp balance, and convergence gates are reviewed.
+
+## Interpretation boundary
+
+Even if the integration workflow passes, it establishes software-level retry and strict campaign-admission compatibility only. It does not demonstrate scientific convergence, conservation, physical turnaround/re-expansion, a bounce, a completed cycle, or production readiness.
+
+
+## CI evidence
+
+At integration head `033e4e6da3c0b8e54009b23becf7b6733b24232f`, workflow [38326208749](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38326208749) completed successfully:
+
+- Complete repository test suite: **140 passed in 12.05 s**.
+- Bounded full-machine smoke: N=40, (r_{max}=40), nominal (dt=0.03), requested horizon (t=0.03); returned `status='completed'`, final (t=0.03), and `campaign_summary.json` reports `admission.passed=true`.
+- Artifact: [strict-retry-integration-smoke, ID 11780493866](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38326208749/artifacts/11780493866), archive SHA-256 `98f564533ce31b69da8732f933505086e70e9ecba73361613a0d8e124a43bc0d`.
+
+The full test suite includes the new injected single-rejection and persistent-rejection integration regressions, both of which passed as part of the 140-test result. The smoke itself is one production step; its constraint values and zero cycle events are diagnostic observations, not a claim of physical/campaign admission. The CI run does not execute N=40/60/80 to (t=12), high-resolution radiation cases, or long-horizon convergence.
+
+**Next gate:** independent review of this stacked integration diff. Only after review should the bounded N=40/60/80 (t=12) campaign be considered, with the existing scientific-admission blocks retained.
+
+
+## Radiation primitive-invertibility boundary follow-up
+
+The parallel frozen-state audit reported a terminal outer-cell state with `E=|S|>0`: the previous stage validator accepted equality under the closed dominant-energy cone, while `recover_radiation()` has no finite-pressure bracket at that state because its `p=0` residual has `v²=1`. That is a contract mismatch for this perfect-fluid primitive representation.
+
+The integration candidate now distinguishes the closed physical dominant-energy cone from the domain invertible under its selected finite-pressure primitive closure. For nonzero flux, the closure requires strict `E>|S|`; the separate `S=0` path remains valid, including the `E=S=0` vacuum. `RadiationAdmissibilityError` carries structured stage metadata through validator and vector primitive diagnostics. Retries are allowed only at timestep-dependent explicit/primary-predictor or final-candidate stages; an invalid accepted input and an unscoped primitive-recovery failure propagate immediately.
+
+This is an earlier and more accurate rejection contract, **not a cure for the frozen-run outer-boundary continuation failure**. The actual replay remains owned by the diagnostic lane; strict-interior rejection may simply lead to earlier retry underflow. No clipping, projection, arbitrary floor, or claim of sustained stability is justified.
+
+
+## Final combined-head CI evidence
+
+The strict JSON residual-reporting repair from stacked PR #17 was reviewed and integrated into this feature branch by squash commit `19ed1e5e832c3a7ba819afc6da2f24f3c6c82dcd` (not to `main`). On that combined head, workflow [38327160354](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38327160354) succeeded:
+
+- **152 tests passed in 11.91 s**.
+- The full-machine N=40 one-step smoke completed at (t=0.03), `status='completed'`, `admission.passed=true`.
+- Undefined short-history `misner_sharp_current_max/rms` are `None` / JSON `null`; the smoke log contains these `None` values and no `nan` residual tokens.
+- The strict-JSON regression checks the campaign summary, resolution ledger and retry log with a parser that rejects non-standard JSON constants; computed non-finite residuals become a numerical failure and block admission.
+- Artifact: [strict-retry-integration-smoke, ID 11781635008](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38327160354/artifacts/11781635008), SHA-256 `3754dd4b0f5eed131e43e769539ca137b27441c610ea1826885d345953bbb7ba`.
+
+The short-campaign JSON output-integrity software gate is therefore closed for this code head. This remains a bounded one-step software smoke, not scientific admission.
+
+## Remaining admission gates
+
+- The archived N=80 frozen-state continuation remains owned by the diagnostic lane. The strict-interior guard may identify the invalid representation earlier, and stage-aware retries avoid pointless timestep shrinkage for an invalid accepted input; neither establishes that the underlying trajectory continues stably. The exact archived-state replay and matched outer-domain comparison still need disposition.
+- Centre-series / Hamiltonian / momentum / connection attribution remains assigned to its owner. The first-cell radial-scaling defect has not been repaired in production.
+- High-resolution radiation N=240/320, Misner–Sharp balance, multiresolution convergence, and long-horizon evolution remain open.
+
+Do not merge this stacked candidate to `main` or launch N=40/60/80 to (t=12) until the exact current-head software workflow is green, the frozen-state and centre-series diagnostic owners have reported, and the relevant scientific-admission gates are independently reviewed. Passing tests and a one-step smoke do not establish turnaround/re-expansion, a bounce, a completed cycle, or production readiness.
+
+## Test-harness warning cleanup
+
+After the combined-head CI passed, the boundary assertion was changed to a raw regex string so Python does not interpret the regex `\\+` as an invalid source-string escape. This is test-only and does not change the radiation criterion, exception behavior, kernel, or outputs. The new test-file commit is `f8b266292de7a7c7182f44c6105336c9b5a2f281`; exact-head validation is required again before handoff.
+
+
+## Clean-main integration handoff — 13 October 2026 UTC
+
+This integration is being carried by a clean branch rooted at the then-current production `main`, not by merging the stale stacked branch wholesale. The selected source/test set contains the strict runner/admission checks, typed timestep retry helper, radiation strict-interior primitive-recovery contract, stage-before-source guards, and strict JSON serialization. It deliberately omits the old branch's unrelated `outputs/` diagnostic reports and historical production-campaign workflows.
+
+The base includes PR #13's campaign/checkpoint preflight, PR #15's inverse-metric contraction correction, PR #10's guard-placement repair, and PR #11's radiation zero-rest-current invariant. `engine/campaign.py` is unchanged from current `main`; the checkpoint filename precision regression remains in `tests/test_campaign_config.py`.
+
+**Disposition remains software integration only.** Exact-head tests and the N=40 one-step smoke can validate API/admission integration, but the archived N=80 continuation still failed closed near `t=47.1530029329327` against target `t=47.160000000001034`, when the outer radiation state reached the nonzero-flux `E=|S|` primitive boundary after repeated timestep halvings. The central centre-series/H/M/connection witnesses, complete Misner–Sharp balance and resolution convergence also remain open. Do not start the t=12 or t=160 production campaign, and do not promote the initial-quadrature/CMC candidate, based solely on green software checks.

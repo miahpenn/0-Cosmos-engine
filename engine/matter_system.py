@@ -26,6 +26,7 @@ import numpy as np
 from .valencia import (
     FluidConserved,
     FluidPrimitive,
+    RadiationAdmissibilityError,
     SphericalMetric,
     dark_matter_covector_source,
     recover_dust,
@@ -42,6 +43,7 @@ class Species(str, Enum):
     DARK_MATTER = "dark_matter"
     BARYON = "baryon"
     RADIATION = "radiation"
+
 
 
 @dataclass
@@ -159,18 +161,19 @@ def validate_species_admissibility(
         (~np.isfinite(energy))
         | (~np.isfinite(abs_momentum))
         | (energy < 0.0)
-        | (abs_momentum > energy)
+        | ((abs_momentum >= energy) & (abs_momentum > 0.0))
     )[0]
     if bad.size:
         i = int(bad[0])
         ratio = abs_momentum[i] / max(abs(energy[i]), 1.0e-300)
-        raise ValueError(
+        raise RadiationAdmissibilityError(
             f"radiation state inadmissible at stage={stage!r}, cell i={i}: "
             f"E={energy[i]:.17e}, |S|={abs_momentum[i]:.17e}, "
             f"ratio={ratio:.17e}, "
             f"conserved(rest,energy_t,momentum_r)="
             f"({state.rest[i]:.17e},{state.energy_t[i]:.17e},"
-            f"{state.momentum_r[i]:.17e})"
+            f"{state.momentum_r[i]:.17e})",
+            stage=stage,
         )
 
 
@@ -214,12 +217,17 @@ def primitives(
                 neighborhood = [
                     (j, *_ratio(j)) for j in range(lo, hi + 1)
                 ]
-                raise ValueError(
+                message = (
                     f"radiation inversion failure at cell i={i}: "
                     f"alpha={metric.alpha:.17e}, beta={metric.beta:.17e}, "
                     f"gamma_rr={metric.gamma_rr:.17e}; {exc}; "
                     f"neighbors(i,E,|S|,|S|/E)={neighborhood}"
-                ) from exc
+                )
+                if isinstance(exc, RadiationAdmissibilityError):
+                    raise RadiationAdmissibilityError(
+                        message, stage=exc.stage
+                    ) from exc
+                raise ValueError(message) from exc
     return out
 
 
