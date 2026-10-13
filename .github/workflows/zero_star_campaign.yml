@@ -54,8 +54,9 @@ jobs:
           PY
 
       - name: Upload 0-star outputs
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: 0star-temporal-gauge-campaign
           path: runs/0star/
-          if-no-files-found: error
+          if-no-files-found: warn
