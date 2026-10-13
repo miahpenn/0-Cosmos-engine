@@ -109,6 +109,7 @@ def validate_campaign_evidence(
             f"campaign result inventory mismatch: expected={expected}, reported={result_resolutions}"
         )
 
+    summary_steps_by_resolution: dict[int, int] = {}
     for item in results:
         resolution = int(item["resolution"])
         if item.get("status") != "completed":
@@ -123,6 +124,12 @@ def validate_campaign_evidence(
             raise CampaignEvidenceError(
                 f"N={resolution} final time {final_time!r} does not match target {target_time:.17g}"
             )
+        steps = item.get("steps")
+        if isinstance(steps, bool) or not isinstance(steps, int) or steps < 1:
+            raise CampaignEvidenceError(
+                f"N={resolution} summary has invalid completed-step count: {steps!r}"
+            )
+        summary_steps_by_resolution[resolution] = steps
 
     for resolution in expected:
         resolution_dir = root / f"N{resolution}"
@@ -151,6 +158,51 @@ def validate_campaign_evidence(
         if not math.isfinite(ledger_time) or abs(ledger_time - target_time) > time_tolerance:
             raise CampaignEvidenceError(
                 f"N={resolution} ledger final time {ledger_time!r} does not match target {target_time:.17g}"
+            )
+        ledger_steps = record.get("steps")
+        if isinstance(ledger_steps, bool) or not isinstance(ledger_steps, int) or ledger_steps < 1:
+            raise CampaignEvidenceError(
+                f"N={resolution} ledger has invalid completed-step count: {ledger_steps!r}"
+            )
+        if ledger_steps != summary_steps_by_resolution[resolution]:
+            raise CampaignEvidenceError(
+                f"N={resolution} ledger step count does not match campaign summary"
+            )
+        history = ledger.get("history")
+        if not isinstance(history, list) or len(history) < 2:
+            raise CampaignEvidenceError(
+                f"N={resolution} ledger history must contain initial and final records"
+            )
+        if len(history) != ledger_steps + 1:
+            raise CampaignEvidenceError(
+                f"N={resolution} ledger history length does not match steps + 1"
+            )
+        history_times: list[float] = []
+        for index, row in enumerate(history):
+            if not isinstance(row, dict):
+                raise CampaignEvidenceError(
+                    f"N={resolution} ledger history row {index} must be an object"
+                )
+            row_time = _json_number(
+                row.get("t"),
+                f"N={resolution} ledger history row {index} has no valid t",
+            )
+            if not math.isfinite(row_time):
+                raise CampaignEvidenceError(
+                    f"N={resolution} ledger history row {index} has non-finite t"
+                )
+            if history_times and row_time <= history_times[-1]:
+                raise CampaignEvidenceError(
+                    f"N={resolution} ledger history timestamps are not strictly increasing"
+                )
+            history_times.append(row_time)
+        if abs(history_times[0]) > time_tolerance:
+            raise CampaignEvidenceError(
+                f"N={resolution} ledger history does not begin at t=0"
+            )
+        if abs(history_times[-1] - target_time) > time_tolerance:
+            raise CampaignEvidenceError(
+                f"N={resolution} final history timestamp {history_times[-1]!r} does not match target {target_time:.17g}"
             )
         if not isinstance(retries, list):
             raise CampaignEvidenceError(
