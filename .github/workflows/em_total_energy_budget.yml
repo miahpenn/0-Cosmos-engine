@@ -1,13 +1,6 @@
 name: Research - joined EM/matter/Misner-Sharp ledger
 
 on:
-  push:
-    branches:
-      - research/em-total-energy-ledger-2026-10-13
-    paths:
-      - tools/audit_em_total_energy_budget.py
-      - tests/test_research_em_total_energy_budget_contract.py
-      - .github/workflows/em_total_energy_budget.yml
   pull_request:
     branches:
       - main
