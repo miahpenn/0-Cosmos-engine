@@ -83,19 +83,10 @@ def _proper_volume_weights(grid, geometry) -> tuple[np.ndarray, float]:
     return weights, total_weight
 
 
-def target_kdot(grid, geometry, scalars, matter, outer_frac: float = 0.20) -> float:
-    """Project the actual K RHS onto the CMC mode using proper 3-volume.
-
-    outer_frac remains accepted for API compatibility, but is deliberately
-    unused: selecting a fixed outer fraction makes the gauge response depend
-    on a coordinate-region choice. The proper-volume projection is intrinsic
-    to the current spatial slice.
-    """
-    del outer_frac
-    # Validate the measure before any geometry/RHS consumer can observe an
-    # invalid spatial metric.
-    weights, total_weight = _proper_volume_weights(grid, geometry)
-
+def _project_kdot_from_weights(
+    grid, geometry, scalars, matter, weights: np.ndarray, total_weight: float
+) -> float:
+    """Project the actual K RHS using an already-validated proper measure."""
     _, vacuum, _ = adapter.vendor_modules()
     l2 = vacuum.primary_l2_rhs(grid, geometry)
     l3 = adapter.primary_l3_with_matter(grid, geometry, scalars, matter)
@@ -114,6 +105,20 @@ def target_kdot(grid, geometry, scalars, matter, outer_frac: float = 0.20) -> fl
     return float(projected_kdot)
 
 
+def target_kdot(grid, geometry, scalars, matter, outer_frac: float = 0.20) -> float:
+    """Project the actual K RHS onto the CMC mode using proper 3-volume.
+
+    outer_frac remains accepted for API compatibility, but is deliberately
+    unused: selecting a fixed outer fraction makes the gauge response depend
+    on a coordinate-region choice. The proper-volume projection is intrinsic
+    to the current spatial slice.
+    """
+    del outer_frac
+    weights, total_weight = _proper_volume_weights(grid, geometry)
+    return _project_kdot_from_weights(
+        grid, geometry, scalars, matter, weights, total_weight
+    )
+
 def solve_cmc_lapse(
     grid,
     geometry,
@@ -122,6 +127,11 @@ def solve_cmc_lapse(
     outer_frac: float = 0.20,
 ) -> tuple[np.ndarray, float]:
     """Solve the positive CMC lapse equation on the supplied stage."""
+    # Validate the full proper-volume/grid contract before the geometry or
+    # matter projections below can consume an invalid metric. Reuse this
+    # measure for the K-RHS projection so it is formed only once per solve.
+    del outer_frac
+    weights, total_weight = _proper_volume_weights(grid, geometry)
     metric = metric_slice_from_q(grid, geometry)
     total = total_matter_projection(grid, geometry, scalars, matter)
 
@@ -143,7 +153,9 @@ def solve_cmc_lapse(
         + 4.0 * math.pi * (total["rho"] + total["pr"] + 2.0 * total["pt"])
     )
 
-    kdot = target_kdot(grid, geometry, scalars, matter, outer_frac)
+    kdot = _project_kdot_from_weights(
+        grid, geometry, scalars, matter, weights, total_weight
+    )
     m = Q / inv
     rhs = -kdot / inv
 
