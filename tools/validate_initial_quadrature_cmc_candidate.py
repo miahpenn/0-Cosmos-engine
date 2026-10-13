@@ -16,6 +16,33 @@ from engine.stress_energy import assemble_total_stress_energy
 
 BASE_SOURCE_COMMIT = "9f0bd16d403ada22a4f21413048c93b37c9924a7"
 VENDOR_COMMIT = "d6052d605673ce9d82cdc99b0df79855fa2ea215"
+REQUIRED_RADIATION_DIAGNOSTICS = (
+    "radiation_outer_ratio",
+    "radiation_outer_s_minus",
+    "radiation_outer_s_plus",
+    "radiation_boundary_energy_flux_rel_mismatch",
+    "radiation_boundary_momentum_flux_rel_mismatch",
+    "radiation_outer_transport_to_source_E",
+    "radiation_outer_transport_to_source_S",
+)
+
+
+def _required_radiation_summary(diagnostics):
+    """Return every required radiation witness or reject an incomplete record."""
+    missing = [key for key in REQUIRED_RADIATION_DIAGNOSTICS if key not in diagnostics]
+    if missing:
+        raise KeyError(
+            "required radiation diagnostic(s) missing: " + ", ".join(missing)
+        )
+    radiation = {
+        key: float(diagnostics[key]) for key in REQUIRED_RADIATION_DIAGNOSTICS
+    }
+    for key, value in radiation.items():
+        if not math.isfinite(value):
+            raise FloatingPointError(f"radiation diagnostic {key} is non-finite")
+    return radiation
+
+
 RESOLUTIONS = (40, 60, 80, 120, 160)
 R_MAX = 80.0
 CFL = 0.03
@@ -60,19 +87,7 @@ def _summary(kernel, state):
     alpha = _finite_array("lapse", geom.alpha)
     coeff = np.polynomial.polynomial.polyfit(z, alpha[:count], deg=min(3, count - 1))
     residual = alpha[:count] - np.polynomial.polynomial.polyval(z, coeff)
-    rad_keys = (
-        "radiation_outer_ratio",
-        "radiation_outer_s_minus",
-        "radiation_outer_s_plus",
-        "radiation_boundary_energy_flux_rel_mismatch",
-        "radiation_boundary_momentum_flux_rel_mismatch",
-        "radiation_outer_transport_to_source_E",
-        "radiation_outer_transport_to_source_S",
-    )
-    radiation = {key: float(diagnostics[key]) for key in rad_keys if key in diagnostics}
-    for key, value in radiation.items():
-        if not math.isfinite(value):
-            raise FloatingPointError(f"radiation diagnostic {key} is non-finite")
+    radiation = _required_radiation_summary(diagnostics)
 
     return {
         "t": float(state.t),
