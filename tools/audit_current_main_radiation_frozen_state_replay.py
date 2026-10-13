@@ -188,9 +188,11 @@ class RadiationStageCapture:
         self.accepted_step_outputs: list[dict] = []
         self.kernel = None
         self.radiation_rhs_component_capture_calls = 0
-        self.geometry_records: dict[tuple[str, int], dict] = {}
+        self.geometry_records: dict[tuple[str, int, int], dict] = {}
         self.geometry_source_records: list[dict] = []
         self.geometry_counter = 0
+        self.step_attempt_counter = 0
+        self.active_attempt_id = None
         self._next_geometry_id = 0
         self.boundary_records: list[dict] = []
         self._next_boundary_id = 0
@@ -295,6 +297,8 @@ class RadiationStageCapture:
         self.active_state = state
         self.active_time = float(state.t)
         self.active_dt = float(dt)
+        self.step_attempt_counter += 1
+        self.active_attempt_id = self.step_attempt_counter
         self.rhs_counter = 0
         self.geometry_counter = 0
         self.current_rhs_record = None
@@ -408,7 +412,9 @@ class RadiationStageCapture:
 
     def _explicit_metric_rate_budget(self, predictor_metric, predictor_radiation):
         """Exact read-only split of the explicit a/X update at the failing guard."""
-        key = (float(self.active_time).hex(), 0)
+        if self.active_attempt_id is None:
+            return {"available": False, "reason": "no active step-attempt identity"}
+        key = (float(self.active_time).hex(), int(self.active_attempt_id), 0)
         rec = self.geometry_records.get(key)
         if rec is None:
             return {"available": False, "reason": "no captured geometry-stage RHS at ordinal 0"}
@@ -733,7 +739,9 @@ class RadiationStageCapture:
                 grid, geometry, fields, matter, lambda_m=lambda_m
             )
             if self.active_time is not None and self.active_time >= self.start_time - 1.0e-10:
-                key = (float(self.active_time).hex(), ordinal)
+                if self.active_attempt_id is None:
+                    raise RuntimeError("geometry source capture has no active step-attempt identity")
+                key = (float(self.active_time).hex(), int(self.active_attempt_id), ordinal)
                 if key not in self.geometry_records:
                     prefix = f"geometry_{self._next_geometry_id:03d}"
                     self._next_geometry_id += 1
@@ -788,10 +796,22 @@ class RadiationStageCapture:
                     low = max(0, n - 5)
                     def at_cell(values, i):
                         return float(np.asarray(values, dtype=float)[i])
+                    stage_state = SimpleNamespace(
+                        grid=grid,
+                        geometry=geometry,
+                        scalars=fields,
+                        matter=matter,
+                        t=float(self.active_time),
+                        tau=float(self.active_state.tau),
+                        e_folds=float(self.active_state.e_folds),
+                    )
+                    stage_state_sha256 = numeric_state_digest(stage_state)
                     source_record = {
                         "prefix": prefix,
                         "input_t": float(self.active_time),
                         "trial_dt": float(self.active_dt),
+                        "attempt_id": int(self.active_attempt_id),
+                        "stage_state_sha256": stage_state_sha256,
                         "ordinal": int(ordinal),
                         "stage_label": {
                             0: "accepted_input_after_current_CMC_solve",
@@ -840,6 +860,9 @@ class RadiationStageCapture:
                     self.geometry_records[key] = {
                         "prefix": prefix,
                         "input_t": float(self.active_time),
+                        "trial_dt": float(self.active_dt),
+                        "attempt_id": int(self.active_attempt_id),
+                        "stage_state_sha256": stage_state_sha256,
                         "ordinal": ordinal,
                         "stage_metric": stage_metric,
                         "explicit_rates": explicit_rates,
@@ -1015,6 +1038,16 @@ class RadiationStageCapture:
         for rec in ordered_states:
             item = {k: v for k, v in rec.items() if k != "prefix"}
             state_history.append(item)
+        source_record_keys = [
+            (float(rec["input_t"]).hex(), int(rec["attempt_id"]), int(rec["ordinal"]))
+            for rec in self.geometry_source_records
+        ]
+        source_keys_unique = len(source_record_keys) == len(set(source_record_keys))
+        source_keys_match_index = (
+            len(source_record_keys) == len(self.geometry_records)
+            and source_keys_unique
+            and set(source_record_keys) == set(self.geometry_records.keys())
+        )
         summary = {
             "schema": "radiation_explicit_predictor_stage_capture_v1",
             "diagnostic_only": True,
@@ -1023,12 +1056,19 @@ class RadiationStageCapture:
             "failed_explicit_predictor_candidates": len(self.failed_trials),
             "radiation_rhs_component_capture_calls": self.radiation_rhs_component_capture_calls,
             "captured_geometry_stage_terms": len(self.geometry_records),
+            "step_attempt_count": self.step_attempt_counter,
+            "geometry_source_term_record_count": len(self.geometry_source_records),
+            "geometry_source_term_unique_key_count": len(set(source_record_keys)),
+            "geometry_source_capture_identity_pass": bool(source_keys_match_index),
             "geometry_source_term_capture_records": self.geometry_source_records,
             "outer_boundary_capture_calls": len(self.boundary_records),
             "outer_boundary_records": self.boundary_records,
             "geometry_stage_explicit_rates": [
                 {
                     "input_t": rec["input_t"],
+                    "trial_dt": rec["trial_dt"],
+                    "attempt_id": rec["attempt_id"],
+                    "stage_state_sha256": rec["stage_state_sha256"],
                     "ordinal": rec["ordinal"],
                     "prefix": rec["prefix"],
                     "outer_cell": int(rec["stage_metric"].a.size - 1),
@@ -1038,7 +1078,7 @@ class RadiationStageCapture:
                 }
                 for _, rec in sorted(
                     self.geometry_records.items(),
-                    key=lambda item: (float.fromhex(item[0][0]), item[0][1]),
+                    key=lambda item: (float.fromhex(item[0][0]), item[0][1], item[0][2]),
                 )
             ],
             "accepted_state_history": state_history,
@@ -1232,6 +1272,9 @@ def main() -> int:
             capture.restore()
             capture_summary = capture.write()
 
+        if capture_summary.get("geometry_source_capture_identity_pass") is not True:
+            raise RuntimeError("geometry source records do not map one-to-one to unique attempt/time/stage keys")
+
         run_dir = args.campaign_dir / f"N{RESOLUTION}"
         retries_path = run_dir / "radiation_step_retries.json"
         ledgers_path = run_dir / "ledgers.json"
@@ -1310,6 +1353,9 @@ def main() -> int:
             "radiation_rhs_component_capture_calls": capture_summary.get("radiation_rhs_component_capture_calls"),
             "captured_geometry_stage_terms": capture_summary.get("captured_geometry_stage_terms"),
             "geometry_source_term_capture_records": len(capture_summary.get("geometry_source_term_capture_records", [])),
+            "geometry_source_capture_identity_pass": capture_summary.get("geometry_source_capture_identity_pass"),
+            "geometry_source_term_unique_key_count": capture_summary.get("geometry_source_term_unique_key_count"),
+            "step_attempt_count": capture_summary.get("step_attempt_count"),
             "outer_boundary_capture_calls": capture_summary.get("outer_boundary_capture_calls"),
             "summary_sha256": sha256(capture.summary_path),
             "profiles_sha256": sha256(capture.profiles_path),
