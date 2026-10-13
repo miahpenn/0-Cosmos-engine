@@ -1,0 +1,95 @@
+name: Diagnostic - native Misner-Sharp gradient identity
+
+on:
+  push:
+    branches:
+      - diag/current-main-native-ms-gradient-identity-2026-10-13
+    paths:
+      - tools/audit_native_ms_gradient_identity.py
+      - tests/test_native_ms_gradient_identity.py
+      - .github/workflows/native-ms-gradient-identity.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: native-ms-gradient-identity-2026-10-13
+  cancel-in-progress: false
+
+jobs:
+  native-ms-gradient:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      PYTHONUNBUFFERED: "1"
+      SOURCE_COMMIT: "c01f2467347e8aebd57d220374fd7bc4e93045bc"
+      PRODUCTION_KERNEL_BLOB: "2954e7a79656849b5f088053ea0f4ac97d4bb443"
+      INITIALIZER_BLOB: "4cfbfe4be6ac3ce6ed492f4e435186997d94116a"
+      WORLDTUBE_BLOB: "aea19090cb0fd2ebe5481a8b7af0d26f119a9ad6"
+      STRESS_ENERGY_BLOB: "c31c647f74fab6893254b3dea1366eada15b3110"
+      PIRK_ADAPTER_BLOB: "f671b838d9aefd8926702d9c2235209f52cd6815"
+      VENDOR_COMMIT: "d6052d605673ce9d82cdc99b0df79855fa2ea215"
+    steps:
+      - name: Check out the diagnostic and pinned vendor
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install repository requirements
+        run: python -m pip install -r requirements.txt
+
+      - name: Compile diagnostic and focused test
+        run: |
+          python -m py_compile tools/audit_native_ms_gradient_identity.py
+          python -m py_compile tests/test_native_ms_gradient_identity.py
+
+      - name: Fail closed on production, vendor, and dependency drift
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin "$SOURCE_COMMIT"
+          test "$(git rev-parse "$SOURCE_COMMIT:engine/production_kernel.py")" = "$PRODUCTION_KERNEL_BLOB"
+          test "$(git rev-parse "$SOURCE_COMMIT:engine/v55_initial.py")" = "$INITIALIZER_BLOB"
+          test "$(git rev-parse "$SOURCE_COMMIT:engine/worldtube.py")" = "$WORLDTUBE_BLOB"
+          test "$(git rev-parse "$SOURCE_COMMIT:engine/stress_energy.py")" = "$STRESS_ENERGY_BLOB"
+          test "$(git rev-parse "$SOURCE_COMMIT:engine/v55_pirk_adapter.py")" = "$PIRK_ADAPTER_BLOB"
+          test "$(git rev-parse "HEAD:engine/production_kernel.py")" = "$PRODUCTION_KERNEL_BLOB"
+          test "$(git rev-parse "HEAD:engine/v55_initial.py")" = "$INITIALIZER_BLOB"
+          test "$(git rev-parse "HEAD:engine/worldtube.py")" = "$WORLDTUBE_BLOB"
+          test "$(git rev-parse "HEAD:engine/stress_energy.py")" = "$STRESS_ENERGY_BLOB"
+          test "$(git rev-parse "HEAD:engine/v55_pirk_adapter.py")" = "$PIRK_ADAPTER_BLOB"
+          test "$(git rev-parse "HEAD:vendor/bb-palatini-unified-r0")" = "$VENDOR_COMMIT"
+          changed_engine="$(git diff --name-only "$SOURCE_COMMIT" HEAD -- engine)"
+          if [ -n "$changed_engine" ]; then
+            printf 'Unexpected engine diffs:\n%s\n' "$changed_engine"
+            exit 1
+          fi
+          changed_forbidden="$(git diff --name-only "$SOURCE_COMMIT" HEAD -- vendor .gitmodules requirements.txt pyproject.toml)"
+          if [ -n "$changed_forbidden" ]; then
+            printf 'Unexpected vendor/dependency/config diffs:\n%s\n' "$changed_forbidden"
+            exit 1
+          fi
+          printf 'SOURCE_COMMIT=%s\nVENDOR_COMMIT=%s\n' "$SOURCE_COMMIT" "$VENDOR_COMMIT"
+
+      - name: Run full repository regression suite
+        run: python -m pytest -q
+
+      - name: Run zero-evolution native-cell identity audit
+        run: python tools/audit_native_ms_gradient_identity.py
+
+      - name: Preserve audit report and hashes
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-ms-gradient-identity
+          path: results/native-ms-gradient-identity/
+          if-no-files-found: warn
+          retention-days: 90
