@@ -7,6 +7,7 @@ on:
       - diag/cmc-lapse-joint-target-2026-10-13
     paths:
       - tools/audit_cmc_lapse_joint_target.py
+      - tools/audit_cmc_lapse_joint_history.py
       - tests/test_cmc_lapse_joint_target_audit.py
       - .github/workflows/cmc-lapse-joint-target-audit.yml
   workflow_dispatch:
