@@ -99,7 +99,7 @@ def test_finite_update_retains_componentwise_flux_then_source_order(monkeypatch)
         momentum_r=np.array([0.1, -0.08]),
     )
     terms = list(components())
-    face, se, ss, qe, qs = terms
+    face, se, ss, qe, qs, q_rest = terms
     # Cell 0: separate subtract/add rounds to 1000000000000.0299, while
     # grouping the complete RHS before adding rounds to 1000000000000.03.
     face[:, 1] = np.array([0.0, -1.9, -0.7])
