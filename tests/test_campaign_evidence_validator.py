@@ -149,22 +149,24 @@ def test_rejects_non_integer_reported_resolution(tmp_path):
     with pytest.raises(CampaignEvidenceError, match="invalid reported resolution list"):
         validate_campaign_evidence(root, (80, 120))
 
-def test_rejects_non_integer_result_resolution(tmp_path):
+@pytest.mark.parametrize("bad_resolution", [80.5, True])
+def test_rejects_non_integer_result_resolution(tmp_path, bad_resolution):
     root = _valid_campaign(tmp_path / "campaign")
     summary_path = root / "campaign_summary.json"
     summary = json.loads(summary_path.read_text(encoding="utf-8"))
-    summary["results"][0]["resolution"] = 80.5
+    summary["results"][0]["resolution"] = bad_resolution
     summary_path.write_text(json.dumps(summary), encoding="utf-8")
 
     with pytest.raises(CampaignEvidenceError, match="invalid resolution values"):
         validate_campaign_evidence(root, (80, 120))
 
 
-def test_rejects_non_integer_ledger_resolution(tmp_path):
+@pytest.mark.parametrize("bad_resolution", [80.5, True])
+def test_rejects_non_integer_ledger_resolution(tmp_path, bad_resolution):
     root = _valid_campaign(tmp_path / "campaign")
     ledger_path = root / "N80" / "ledgers.json"
     ledger = json.loads(ledger_path.read_text(encoding="utf-8"))
-    ledger["result"]["resolution"] = 80.5
+    ledger["result"]["resolution"] = bad_resolution
     ledger_path.write_text(json.dumps(ledger), encoding="utf-8")
 
     with pytest.raises(CampaignEvidenceError, match="ledger has invalid resolution"):

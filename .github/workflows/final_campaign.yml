@@ -59,6 +59,12 @@ jobs:
           print(results)
           PY
 
+      - name: Verify successful campaign evidence
+        if: steps.campaign.outcome == 'success'
+        env:
+          RESOLUTIONS: ${{ inputs.resolutions || '40,60,80' }}
+        run: python tools/validate_campaign_evidence.py --root runs/final --resolutions "$RESOLUTIONS"
+
       - name: Upload campaign outputs (success requires artifact)
         if: always() && steps.campaign.outcome == 'success'
         uses: actions/upload-artifact@v4
