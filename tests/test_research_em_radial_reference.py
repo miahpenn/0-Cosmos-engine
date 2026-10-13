@@ -22,7 +22,7 @@ def test_charge_density_is_regular_and_compactly_supported(reference):
     assert reference.charge_density(reference.source_radius) == 0.0
     assert reference.charge_density(1.5 * reference.source_radius) == 0.0
     assert reference.charge_density(0.5 * reference.source_radius) == pytest.approx(
-        0.75 * (1.0 - 0.25**2) ** 2
+        0.75 * (1.0 - 0.25) ** 2
     )
 
 
