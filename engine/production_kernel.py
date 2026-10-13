@@ -771,12 +771,15 @@ class V55ProductionKernel:
         # a boundary, center, or interior operator failure.
         constraint_exclusion_radius = CONSTRAINT_INNER_EXCLUSION_RADIUS
         exterior_mask = r >= constraint_exclusion_radius
-        inner_mask = ~exterior_mask
-        if not np.any(exterior_mask) or not np.any(inner_mask):
-            raise ValueError(
-                "grid must contain cells both inside and outside the fixed "
-                f"constraint radius r={constraint_exclusion_radius}"
-            )
+        inner_mask = r < constraint_exclusion_radius
+        exterior_coverage = bool(np.any(exterior_mask))
+        inner_coverage = bool(np.any(inner_mask))
+        # A diagnostic mask must not abort evolution merely because a valid
+        # configured domain does not sample both sides of r=5. When one region
+        # is absent, use the full-domain witness for the legacy scalar fields
+        # and explicitly record that the fixed-radius norm is unavailable.
+        exterior_witness_mask = exterior_mask if exterior_coverage else None
+        inner_witness_mask = inner_mask if inner_coverage else None
 
         def _witness(arr, mask=None):
             return _peak_witness(arr, r, mask=mask)
@@ -792,17 +795,17 @@ class V55ProductionKernel:
         # resolution. Separate inner and full-domain witnesses keep central
         # regularity errors visible rather than hiding them in a resolution-
         # dependent number of excluded cells.
-        i_conn, r_conn, v_conn = _witness(raw["connection"], exterior_mask)
+        i_conn, r_conn, v_conn = _witness(raw["connection"], exterior_witness_mask)
         i_conn_full, r_conn_full, v_conn_full = _witness(raw["connection"])
         i_conn_inner, r_conn_inner, v_conn_inner = _witness(
-            raw["connection"], inner_mask
+            raw["connection"], inner_witness_mask
         )
-        i_H, r_H, v_H = _witness(H, exterior_mask)
+        i_H, r_H, v_H = _witness(H, exterior_witness_mask)
         i_H_full, r_H_full, v_H_full = _witness(H)
-        i_H_inner, r_H_inner, v_H_inner = _witness(H, inner_mask)
-        i_M, r_M, v_M = _witness(M, exterior_mask)
+        i_H_inner, r_H_inner, v_H_inner = _witness(H, inner_witness_mask)
+        i_M, r_M, v_M = _witness(M, exterior_witness_mask)
         i_M_full, r_M_full, v_M_full = _witness(M)
-        i_M_inner, r_M_inner, v_M_inner = _witness(M, inner_mask)
+        i_M_inner, r_M_inner, v_M_inner = _witness(M, inner_witness_mask)
 
         roots = []
         sign_change = chi[:-1] * chi[1:] <= 0.0
@@ -834,6 +837,16 @@ class V55ProductionKernel:
             # Comparable exterior norms use r >= constraint_exclusion_radius;
             # inner and full-domain peaks are reported separately.
             "constraint_exclusion_radius": float(constraint_exclusion_radius),
+            "constraint_exterior_coverage_available": exterior_coverage,
+            "constraint_inner_coverage_available": inner_coverage,
+            "constraint_exterior_norm_region": (
+                "r_ge_cutoff" if exterior_coverage
+                else "full_domain_fallback_no_r_ge_cutoff"
+            ),
+            "constraint_inner_norm_region": (
+                "r_lt_cutoff" if inner_coverage
+                else "full_domain_fallback_no_r_lt_cutoff"
+            ),
             "hamiltonian_max": float(abs(v_H)),
             "hamiltonian_max_r": r_H,
             "hamiltonian_at_max": v_H,
