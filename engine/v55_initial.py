@@ -46,6 +46,71 @@ def _d1(grid, x, parity=1):
     return grid.d1(x, parity)
 
 
+# Origin half-cell weights integrate a smooth even source through r^4 exactly.
+_ORIGIN_HALF_CELL_WEIGHTS = (
+    401.0 / 720.0,
+    -31.0 / 480.0,
+    11.0 / 1440.0,
+)
+
+
+def _integrate_initial_origin_half_cell(src, dr):
+    """Integrate the origin half-cell using even-series quadrature through r^4."""
+    values = np.asarray(src, dtype=float)
+    step = float(dr)
+    if values.ndim != 1 or values.size < 3:
+        raise ValueError("origin half-cell quadrature requires at least three samples")
+    if not np.isfinite(step) or step <= 0.0:
+        raise ValueError("initial radial quadrature requires finite positive dr")
+    if not np.all(np.isfinite(values[:3])):
+        raise FloatingPointError("origin half-cell source samples are non-finite")
+    result = step * float(np.dot(_ORIGIN_HALF_CELL_WEIGHTS, values[:3]))
+    if not np.isfinite(result):
+        raise FloatingPointError("origin half-cell quadrature produced non-finite integral")
+    return result
+
+
+def _integrate_initial_radial_source(src, dr):
+    """Integrate an even radial source from the origin to every cell centre.
+
+    The origin half-cell uses the analytic even-series quadrature. Remaining
+    intervals use cubic Lagrange-integral weights; the first interval uses an
+    even ghost and the final interval a one-sided cubic rule. The source law
+    is unchanged: only its radial integration is made centre-compatible.
+    """
+    values = np.asarray(src, dtype=float)
+    step = float(dr)
+    if values.ndim != 1 or values.size < 4:
+        raise ValueError("initial radial quadrature requires at least four cells")
+    if not np.isfinite(step) or step <= 0.0:
+        raise ValueError("initial radial quadrature requires finite positive dr")
+    if not np.all(np.isfinite(values)):
+        raise FloatingPointError("initial radial quadrature source is non-finite")
+
+    half_cell = _integrate_initial_origin_half_cell(values, step)
+    increments = np.empty(values.size - 1, dtype=float)
+    # Interval [r_0, r_1]; the even ghost has src[-1] == src[0].
+    increments[0] = step * (
+        12.0 * values[0] + 13.0 * values[1] - values[2]
+    ) / 24.0
+    # Interior intervals [r_(i-1), r_i], integrated cubic interpolation.
+    for i in range(2, values.size - 1):
+        increments[i - 1] = step * (
+            -values[i - 2] + 13.0 * values[i - 1]
+            + 13.0 * values[i] - values[i + 1]
+        ) / 24.0
+    # Final interval: one-sided cubic interpolation at the outer edge.
+    increments[-1] = step * (
+        values[-4] - 5.0 * values[-3]
+        + 19.0 * values[-2] + 9.0 * values[-1]
+    ) / 24.0
+
+    integral = np.cumsum(np.concatenate(([half_cell], increments)))
+    if not np.all(np.isfinite(integral)):
+        raise FloatingPointError("initial radial quadrature produced non-finite integral")
+    return integral
+
+
 def build_initial_data(
     grid,
     vacuum_state_factory,
@@ -98,10 +163,7 @@ def build_initial_data(
             + 2.0 * r * r * Kr * Kt
             + r * r * Kt * Kt
         )
-        integ = np.cumsum(
-            np.r_[0.5 * dr * src[0],
-                  0.5 * dr * (src[1:] + src[:-1])]
-        )
+        integ = _integrate_initial_radial_source(src, dr)
         B = integ / r
 
     if np.any(~np.isfinite(B)) or np.any(B <= 0.0):
