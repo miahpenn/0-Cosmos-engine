@@ -4,6 +4,8 @@ import math
 import numpy as np
 import pytest
 
+from engine.matter_system import FluidPrimitive, _valencia_flux
+from engine.valencia import SphericalMetric
 from tools.research_em_charged_dust_closure import (
     charged_dust_charge_flux_from_mass_flux,
     charged_dust_eulerian_current,
@@ -42,6 +44,47 @@ def test_charge_flux_is_exactly_proportional_to_same_stage_mass_flux(eta):
         # All shell and total charge fluxes preserve the same signed q/m ratio.
         np.testing.assert_allclose(charge_flux / (4.0 * math.pi * eta),
                                    rest_mass_flux, rtol=0.0, atol=0.0)
+
+
+def test_current_closure_matches_actual_valencia_face_flux_convention():
+    # Exercise the actual active numerical rest-mass flux formula, not just a
+    # copied analytic expression. The central face is regular and carries zero
+    # flux; the second face has nontrivial lapse, shift and radial metric.
+    center_metric = SphericalMetric(
+        alpha=1.0, beta=0.0, gamma_rr=1.0, gamma_rr_inv=1.0,
+        gamma_thth=0.0, gamma_thth_inv=1.0, sqrt_gamma=0.0,
+    )
+    outer_metric = SphericalMetric(
+        alpha=0.83, beta=-0.17, gamma_rr=1.25, gamma_rr_inv=0.8,
+        gamma_thth=2.4, gamma_thth_inv=1.0 / 2.4, sqrt_gamma=0.62,
+    )
+    center_dust = FluidPrimitive(
+        rho=0.0, pressure=0.0, v_r=0.0, gamma_rr=1.0
+    )
+    outer_dust = FluidPrimitive(
+        rho=0.35, pressure=0.0, v_r=0.21, gamma_rr=1.25
+    )
+    rest_mass_flux = np.array([
+        _valencia_flux(center_metric, center_dust)[0],
+        _valencia_flux(outer_metric, outer_dust)[0],
+    ])
+    eta = -0.4
+    closure = charged_dust_eulerian_current(
+        [0.0, outer_dust.rho], [0.0, outer_dust.v_r],
+        [center_metric.gamma_rr, outer_metric.gamma_rr], eta,
+    )
+    charge_flux = charged_dust_charge_flux_from_mass_flux(rest_mass_flux, eta)
+    direct_flux = 4.0 * math.pi * np.array([
+        center_metric.sqrt_gamma * (
+            center_metric.alpha * closure.spatial_current_r[0]
+            - center_metric.beta * closure.charge_density[0]
+        ),
+        outer_metric.sqrt_gamma * (
+            outer_metric.alpha * closure.spatial_current_r[1]
+            - outer_metric.beta * closure.charge_density[1]
+        ),
+    ])
+    np.testing.assert_allclose(charge_flux, direct_flux, rtol=0.0, atol=8.0e-16)
 
 
 def test_charge_update_matches_discrete_rest_mass_flux_divergence():
