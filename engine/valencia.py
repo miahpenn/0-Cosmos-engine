@@ -29,6 +29,20 @@ import numpy as np
 KAPPA = 8.0 * math.pi
 
 
+class RadiationAdmissibilityError(ValueError):
+    """Radiation state is outside the configured perfect-fluid recovery domain.
+
+    `stage` identifies whether a rejection arose from the accepted input or a
+    dt-dependent candidate. A missing stage is deliberately non-retryable.
+    The finite-pressure closure requires strict E > |S| for nonzero flux; the
+    separate zero-momentum branch remains valid, including zero-energy vacuum.
+    """
+
+    def __init__(self, message: str, *, stage: str | None = None) -> None:
+        self.stage = stage
+        super().__init__(message)
+
+
 @dataclass(frozen=True)
 class SphericalMetric:
     alpha: float
@@ -135,7 +149,10 @@ def recover_radiation(
     """
     E = U.energy_t / metric.sqrt_gamma
     if E < 0.0:
-        raise ValueError("radiation conservative state is nonphysical")
+        raise RadiationAdmissibilityError(
+            "radiation conservative state is nonphysical: "
+            f"E={E:.17e}"
+        )
     S_r = U.momentum_r / metric.sqrt_gamma
     S2 = metric.gamma_rr_inv * S_r * S_r
     S_abs = math.sqrt(max(S2, 0.0))
@@ -145,11 +162,14 @@ def recover_radiation(
             gamma_rr=metric.gamma_rr
         )
 
-    # The dominant-energy bound is a physical admissibility condition.
-    # Report a violation; never clip it away.
-    if S_abs > E:
-        raise ValueError(
-            "radiation conservative state violates E>=|S|: "
+    # The dominant-energy cone is necessary, but this perfect-fluid primitive
+    # recovery also needs a strictly subluminal state when the flux is nonzero.
+    # At E=|S|>0 the p=0 endpoint has v^2=1 and no finite-pressure bracket.
+    # Reject explicitly; never clip or project this state.
+    if S_abs >= E:
+        raise RadiationAdmissibilityError(
+            "radiation primitive recovery requires strict interior E>|S| "
+            "for nonzero flux: "
             f"E={E:.17e}, |S|={S_abs:.17e}, "
             f"ratio={S_abs / max(E, 1.0e-300):.17e}"
         )
