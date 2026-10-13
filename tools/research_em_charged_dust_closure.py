@@ -89,6 +89,8 @@ def charged_dust_eulerian_current(
 
     with np.errstate(over="ignore", divide="ignore", invalid="ignore"):
         v2 = gamma * velocity * velocity
+        if not np.all(np.isfinite(v2)):
+            raise ValueError("Eulerian velocity norm must remain finite")
         if np.any(v2 >= 1.0):
             raise ValueError("charged dust must be subluminal in the Eulerian frame")
         lorentz = 1.0 / np.sqrt(1.0 - v2)
@@ -118,6 +120,8 @@ def charged_dust_charge_flux_from_mass_flux(
     """
     mass_flux = _finite_1d(rest_mass_flux_faces, "rest_mass_flux_faces", minimum_size=2)
     eta = _finite_scalar(charge_to_rest_mass, "charge_to_rest_mass")
+    if mass_flux[0] != 0.0:
+        raise ValueError("regular-centre rest-mass flux must be zero")
     with np.errstate(over="ignore", invalid="ignore"):
         charge_flux = FOUR_PI * eta * mass_flux
     if not np.all(np.isfinite(charge_flux)):
