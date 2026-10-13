@@ -126,8 +126,11 @@ def make_manufactured_state(kernel: V55ProductionKernel) -> ProductionState:
     q = (r / 6.0) ** 2
     e = np.exp(-q)
     g = state.geometry
-    g.a = 1.0 + 2.0e-3 * e
-    g.b = 1.0 - 1.0e-3 * e
+    # A regular spherical metric has equal radial/angular coefficients at r=0.
+    # Let f=O(r^2), then a=exp(f), b=exp(-f/2) also enforce a*b^2=1.
+    f = 2.0e-3 * (r / 6.0) ** 2 * e
+    g.a = np.exp(f)
+    g.b = np.exp(-0.5 * f)
     g.X = 1.0 + 1.5e-3 * e
     g.Aa = 2.0e-6 * r**2 * e
     g.K = -2.0e-2 + 5.0e-4 * e
@@ -383,6 +386,15 @@ def main() -> None:
         profile_arrays[name] = finite(name, arr)
 
     base_summary = state_witness(kernel, state)
+    metric_det_residual = np.asarray(state.geometry.a, dtype=float) * np.asarray(state.geometry.b, dtype=float)**2 - 1.0
+    metric_regularity = {
+        "first_two_cell_abs_a_minus_b": [float(abs(state.geometry.a[i] - state.geometry.b[i])) for i in (0, 1)],
+        "first_two_cell_abs_a_minus_b_over_r2": [float(abs(state.geometry.a[i] - state.geometry.b[i]) / r[i]**2) for i in (0, 1)],
+        "max_abs_determinant_residual": float(np.max(np.abs(metric_det_residual))),
+        "finite": bool(np.all(np.isfinite(metric_det_residual))),
+    }
+    if not metric_regularity["finite"] or metric_regularity["max_abs_determinant_residual"] > 1.0e-12:
+        raise AssertionError(f"manufactured metric regularity/determinant contract failed: {metric_regularity}")
     tangent_summary = {
         "finite_difference_epsilons": list(EPSILONS),
         "finer_epsilon": fine_key,
@@ -433,9 +445,9 @@ def main() -> None:
         "configuration": {"resolution": RESOLUTION, "r_max": R_MAX, "dr": float(grid.dr), "cell_centers": "r=(i+1/2)dr"},
         "manufactured_profile": {
             "constraint_solved": False,
-            "description": "smooth exponential radial profiles assigned to even regular scalar/metric quantities, Aa proportional to r^2, Lambda recomputed from the metric connection, zero shift",
+            "description": "smooth even regular scalar/metric profiles; a=exp(f), b=exp(-f/2), f=2e-3*(r/6)^2*exp(-(r/6)^2), so a-b=O(r^2) and a*b^2=1; Aa proportional to r^2; Lambda recomputed from the metric connection; zero shift",
             "radiation": "conservative radiation retained from the initialized seed and validated on the deformed metric",
-            "amplitude_definitions": {"a_minus_1": "2e-3 exp(-(r/6)^2)", "b_minus_1": "-1e-3 exp(-(r/6)^2)", "X_minus_1": "1.5e-3 exp(-(r/6)^2)", "Aa": "2e-6 r^2 exp(-(r/6)^2)", "K_plus_0.02": "5e-4 exp(-(r/6)^2)"},
+            "amplitude_definitions": {"f": "2e-3 (r/6)^2 exp(-(r/6)^2)", "a": "exp(f)", "b": "exp(-f/2)", "X_minus_1": "1.5e-3 exp(-(r/6)^2)", "Aa": "2e-6 r^2 exp(-(r/6)^2)", "K_plus_0.02": "5e-4 exp(-(r/6)^2)"},
         },
         "identities": {
             "vendor_momentum_constraint": "D_r Aa - (2/3)D_r K + 6 Aa chi_r + (Aa-Ab)(2/r + D_r b/b), chi_r=-D_r X/(2X), Ab=-Aa/2",
@@ -444,6 +456,7 @@ def main() -> None:
             "derivative_operator": "Pinned vendor SphericalCellGrid.cell_derivative_fourth, same parity argument and ghost construction as production",
         },
         "analytic_parity_controls": analytic,
+        "manufactured_metric_regularity": metric_regularity,
         "base_state": base_summary,
         "base_decomposition_closure": base_closure,
         "local_S_budget": {
