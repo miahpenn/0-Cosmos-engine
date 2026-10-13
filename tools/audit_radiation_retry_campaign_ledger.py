@@ -135,7 +135,8 @@ def main() -> int:
     result = results[0]
     if result.status != "completed":
         raise RuntimeError(f"runner did not complete bounded horizon: {result.status}")
-    if abs(float(result.t_final) - target_time) > 1.0e-10:
+    if (not math.isfinite(float(result.t_final))
+            or abs(float(result.t_final) - target_time) > 1.0e-10):
         raise RuntimeError(
             f"runner horizon mismatch: final={result.t_final:.17g}, target={target_time:.17g}"
         )
@@ -182,18 +183,14 @@ def main() -> int:
     summary_result = summary_results[0]
     if summary_result.get("status") != "completed":
         raise RuntimeError("campaign summary status does not match returned result")
-    if abs(float(summary_result.get("t_final", math.nan)) - target_time) > 1.0e-10:
+    summary_final_time = float(summary_result.get("t_final", math.nan))
+    if (not math.isfinite(summary_final_time)
+            or abs(summary_final_time - target_time) > 1.0e-10):
         raise RuntimeError("campaign summary final time does not reach requested horizon")
 
     input_after = numeric_state_digest(seed)
     if input_before != input_after:
         raise RuntimeError("runner changed the archived seed numerical arrays")
-    final_cone = cone_summary(
-        # The last accepted state is written to the ledger; restore it is not
-        # needed to verify file persistence. The runner result reports ratio in
-        # its last diagnostics, while this test is specifically about the ledger.
-        seed
-    )
     strict_admission_present = isinstance(summary.get("admission"), dict)
 
     report = {
