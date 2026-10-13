@@ -41,6 +41,26 @@ def _proper_volume_weights(grid, geometry) -> tuple[np.ndarray, float]:
         raise FloatingPointError("CMC radial spacing must be finite and positive")
     if not np.all(np.isfinite(r)) or np.any(r <= 0.0):
         raise FloatingPointError("CMC radial centres must be finite and positive")
+    # These weights assume uniform cell-centred spacing from the origin. Check
+    # that invariant at the coordinate's own floating-point scale rather than
+    # accepting within-cell offsets under a unit-sized absolute tolerance.
+    with np.errstate(over="ignore", invalid="ignore"):
+        expected_centers = (np.arange(r.size, dtype=float) + 0.5) * dr
+    if not np.all(np.isfinite(expected_centers)):
+        raise FloatingPointError("CMC expected radial centres must remain finite")
+    center_scale = max(
+        float(np.max(np.abs(r))),
+        float(expected_centers[-1]),
+        dr,
+    )
+    center_tolerance = 64.0 * math.ulp(center_scale)
+    if (
+        np.any(np.diff(r) <= 0.0)
+        or float(np.max(np.abs(r - expected_centers))) > center_tolerance
+    ):
+        raise FloatingPointError(
+            "CMC radial centres must be uniform and cell-centred"
+        )
     for name, values in (("a", a), ("b", b), ("X", X)):
         if not np.all(np.isfinite(values)) or np.any(values <= 0.0):
             raise FloatingPointError(
