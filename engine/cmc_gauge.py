@@ -140,7 +140,8 @@ def target_kdot(
     del outer_frac
     weights, total_weight = _proper_volume_weights(grid, geometry)
     return _project_kdot_from_weights(
-        grid, geometry, scalars, matter, weights, total_weight
+        grid, geometry, scalars, matter, weights, total_weight,
+        electromagnetic_projection=electromagnetic_projection,
     )
 
 def solve_cmc_lapse(
