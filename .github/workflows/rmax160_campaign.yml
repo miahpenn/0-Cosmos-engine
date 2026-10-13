@@ -30,6 +30,7 @@ jobs:
         run: python -m pytest -q
 
       - name: Run Rmax=160 campaign
+        id: campaign
         run: |
           python - <<'PY'
           from engine.campaign import CampaignConfig
@@ -46,8 +47,16 @@ jobs:
           print(results)
           PY
 
-      - name: Upload campaign outputs
-        if: always()
+      - name: Upload Rmax=160 outputs (success requires artifact)
+        if: always() && steps.campaign.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: v55-rmax160-campaign
+          path: runs/rmax160/
+          if-no-files-found: error
+
+      - name: Upload Rmax=160 outputs (retain failure diagnostics)
+        if: always() && steps.campaign.outcome != 'success'
         uses: actions/upload-artifact@v4
         with:
           name: v55-rmax160-campaign
