@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Full-radial initializer + direct semi-discrete Misner-Sharp audit.
+# Recovery note: branch tree rehydrated from the pinned complete base tree in 46a84deb.
 
 Diagnostic-only. Runs a baseline initializer and a quadrature-only initializer
 with the same current production RHS, for one accepted step per resolution.
