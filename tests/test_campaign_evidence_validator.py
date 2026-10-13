@@ -201,3 +201,35 @@ def test_rejects_nonstandard_json_constants_in_every_evidence_artifact(
 
     with pytest.raises(CampaignEvidenceError, match="invalid JSON evidence file"):
         validate_campaign_evidence(root, (80, 120))
+
+@pytest.mark.parametrize(
+    ("location", "bad_value", "message"),
+    [
+        ("campaign", True, "campaign configuration has no valid final_time"),
+        ("campaign", "2.5", "campaign configuration has no valid final_time"),
+        ("summary_result", True, "N=80 summary has no valid t_final"),
+        ("summary_result", "2.5", "N=80 summary has no valid t_final"),
+        ("ledger_result", True, "N=80 ledger has no valid t_final"),
+        ("ledger_result", "2.5", "N=80 ledger has no valid t_final"),
+    ],
+)
+def test_rejects_boolean_or_string_horizon_evidence(
+    tmp_path, location, bad_value, message
+):
+    root = _valid_campaign(tmp_path / "campaign")
+    if location == "campaign":
+        path = root / "campaign_summary.json"
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        payload["campaign"]["final_time"] = bad_value
+    elif location == "summary_result":
+        path = root / "campaign_summary.json"
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        payload["results"][0]["t_final"] = bad_value
+    else:
+        path = root / "N80" / "ledgers.json"
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        payload["result"]["t_final"] = bad_value
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(CampaignEvidenceError, match=message):
+        validate_campaign_evidence(root, (80, 120))
