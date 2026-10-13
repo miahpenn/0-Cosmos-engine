@@ -253,7 +253,15 @@ def stress_tensor_contravariant(
     grr = metric.gamma_rr_inv - (metric.beta / metric.alpha) ** 2
     Ttt = h * u0 * u0 + q.pressure * gtt
     Ttr = h * u0 * ur + q.pressure * gtr
-    Trr = h * ur * ur + q.pressure * grr
+    beta_over_alpha = metric.beta / metric.alpha
+    # Expand u^r*u^r using the solver-preserved Eulerian norm instead of
+    # rebuilding gamma_rr*(v^r)^2 from the rounded coordinate velocity.
+    ur_squared = W * W * (
+        q.v2 * metric.gamma_rr_inv
+        - 2.0 * beta_over_alpha * q.v_r
+        + beta_over_alpha * beta_over_alpha
+    )
+    Trr = h * ur_squared + q.pressure * grr
     Tthth = q.pressure * metric.gamma_thth_inv
     return {"tt": Ttt, "tr": Ttr, "rr": Trr, "thth": Tthth}
 
@@ -266,8 +274,16 @@ def mixed_flux(metric: SphericalMetric, q: FluidPrimitive) -> FluidConserved:
     ur = W * (q.v_r - metric.beta / metric.alpha)
     ut, u_r_cov = four_velocity(metric, q)
     Jr = q.rho * ur
-    Tr_t = h * ur * ut
-    Tr_r = h * ur * u_r_cov + q.pressure
+    # Expand the products so their quadratic velocity terms use the saved v^2.
+    Tr_t = h * W * W * (
+        -metric.alpha * q.v_r
+        + metric.beta
+        + metric.beta * q.v2
+        - (metric.beta * metric.shift_cov / metric.alpha) * q.v_r
+    )
+    Tr_r = h * W * W * (
+        q.v2 - (metric.shift_cov / metric.alpha) * q.v_r
+    ) + q.pressure
     rootg = metric.sqrt_minus_g
     return FluidConserved(
         rest=rootg * Jr,
