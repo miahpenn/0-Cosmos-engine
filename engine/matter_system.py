@@ -6,7 +6,7 @@ separate mixed-component representation returned by valencia.primitive_to_conser
 
 For the locked dark-matter covector Q_nu = beta_DM*rho_DM*d_nu(phi), project the
 recipient into this active state as below. See `docs/SCALAR_DM_EXCHANGE_DERIVATION_2026-10-13.md`
-for the covariant-to-Eulerian derivation and the outstanding action/parameter-origin limitation:
+for the mass-varying dust derivation, covariant-to-Eulerian projection, and the still-unpaid beta-value/0* microphysical-origin questions:
     q_D = -alpha*sqrt(gamma)*beta_DM*rho_DM*W*(Pi + v^r*d_r(phi))
     q_E = -sqrt(gamma)*(Q_t - beta^r*Q_r)
     q_Sr = alpha*sqrt(gamma)*Q_r
