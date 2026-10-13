@@ -489,23 +489,19 @@ def _radiation_source(metric, q, K, Aa, dr_alpha, dr_beta, dr_grr, dr_gthth):
     return energy, momentum
 
 
-def evolve_species(
+def _species_operator_components(
     metric: BSSNMetricSlice,
     metric_derivatives: MetricDerivativeSet,
     state: ConservedSpecies,
     species: Species,
-    dt: float,
     dphi_t: np.ndarray | None = None,
     dphi_r: np.ndarray | None = None,
     beta_dm: float = -0.04,
-    validate_admissibility: bool = True,
-) -> ConservedSpecies:
-    """Apply one finite-volume update.
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, float]:
+    """Return spatial fluxes and local source components without advancing state.
 
-    validate_admissibility is retained for direct update callers. The
-    derivative-only species_rhs wrapper disables this check because its
-    unit-step application is an algebraic RHS extraction, not an admitted
-    physical state. Production integration validates its actual states.
+    This helper owns the semidiscrete operator shared by the RHS and finite-step
+    APIs. It does not apply a timestep or validate a fictitious candidate state.
     """
     n = len(metric.r)
     if any(np.shape(x) != (n,) for x in (
@@ -515,7 +511,6 @@ def evolve_species(
 
     metrics = _metric_arrays(metric)
     prim = primitives(metrics, state, species)
-
     face_flux = np.zeros((n + 1, 3), dtype=float)
 
     # Regular center: the integrated spherical flux through r=0 vanishes.
@@ -533,19 +528,20 @@ def evolve_species(
         )
         ql = _reconstructed_primitive(prim, i, "right", mf.gamma_rr)
         qr = _reconstructed_primitive(prim, i + 1, "left", mf.gamma_rr)
+        # _hll_flux preserves the radiation-specific zero-rest-current channel.
         face_flux[i + 1] = _hll_flux(mf, ql, qr, species)
 
-    # Causal/outflow outer closure: continue the last physical state.
-    # Radiation uses its zero-rest-current flux representation here too.
+    # Causal/outflow outer closure uses the species-appropriate flux.
     if species is Species.RADIATION:
         face_flux[-1] = _radiation_flux(metrics[-1], prim[-1])
     else:
         face_flux[-1] = _valencia_flux(metrics[-1], prim[-1])
 
-    out = state.copy()
     inv_dr = 1.0 / (metric.r[1] - metric.r[0])
     source_e_diag = np.zeros(n, dtype=float)
     source_s_diag = np.zeros(n, dtype=float)
+    coupling_e_diag = np.zeros(n, dtype=float)
+    coupling_s_diag = np.zeros(n, dtype=float)
     for i, m in enumerate(metrics):
         source_e, source_s = _valencia_source(
             m, prim[i], float(metric.K[i]), float(metric.Aa[i]),
@@ -554,7 +550,6 @@ def evolve_species(
             float(metric_derivatives.radial["rr"][i]),
             float(metric_derivatives.radial["thth"][i]),
         )
-
         source_e_diag[i] = source_e
         source_s_diag[i] = source_s
 
@@ -567,7 +562,58 @@ def evolve_species(
             )
             q_e = -m.sqrt_gamma * (q_t - m.beta * q_r)
             q_s = m.sqrt_gamma * q_r
+        coupling_e_diag[i] = q_e
+        coupling_s_diag[i] = q_s
 
+    return (
+        face_flux,
+        source_e_diag,
+        source_s_diag,
+        coupling_e_diag,
+        coupling_s_diag,
+        inv_dr,
+    )
+
+
+def evolve_species(
+    metric: BSSNMetricSlice,
+    metric_derivatives: MetricDerivativeSet,
+    state: ConservedSpecies,
+    species: Species,
+    dt: float,
+    dphi_t: np.ndarray | None = None,
+    dphi_r: np.ndarray | None = None,
+    beta_dm: float = -0.04,
+    validate_admissibility: bool = True,
+) -> ConservedSpecies:
+    """Apply one finite-volume update in the established componentwise order.
+
+    Flux divergence is subtracted first and local sources are added second,
+    preserving the prior finite-dt arithmetic. Admissibility is checked on this
+    actual finite-time result when requested; RHS extraction never calls this
+    function or manufactures a unit-step intermediate.
+    """
+    n = len(metric.r)
+    (
+        face_flux,
+        source_e_diag,
+        source_s_diag,
+        coupling_e_diag,
+        coupling_s_diag,
+        inv_dr,
+    ) = _species_operator_components(
+        metric,
+        metric_derivatives,
+        state,
+        species,
+        dphi_t=dphi_t,
+        dphi_r=dphi_r,
+        beta_dm=beta_dm,
+    )
+
+    out = state.copy()
+    for i in range(n):
+        # Keep this sequence identical to the pre-refactor finite-dt update.
         out.rest[i] -= dt * inv_dr * (
             face_flux[i + 1, 0] - face_flux[i, 0]
         )
@@ -577,8 +623,12 @@ def evolve_species(
         out.momentum_r[i] -= dt * inv_dr * (
             face_flux[i + 1, 2] - face_flux[i, 2]
         )
-        out.energy_t[i] += dt * (source_e + q_e)
-        out.momentum_r[i] += dt * (source_s + q_s)
+        out.energy_t[i] += dt * (
+            float(source_e_diag[i]) + float(coupling_e_diag[i])
+        )
+        out.momentum_r[i] += dt * (
+            float(source_s_diag[i]) + float(coupling_s_diag[i])
+        )
 
     if validate_admissibility:
         validate_species_admissibility(
@@ -586,7 +636,6 @@ def evolve_species(
         )
 
     return out
-
 
 def project_species(
     metric: BSSNMetricSlice,
