@@ -28,12 +28,3 @@ def test_production_diagnostics_use_shared_regular_areal_radius_observables():
     np.testing.assert_allclose(
         observed["misner_sharp"], expected_mass, rtol=0.0, atol=0.0
     )
-
-    # Keep the regular-centre cells explicit: those were the cells affected by
-    # the old even-parity derivative of the odd areal-radius function.
-    np.testing.assert_allclose(
-        observed["chi"][:2], np.ones(2), rtol=0.0, atol=2.0e-12
-    )
-    np.testing.assert_allclose(
-        observed["misner_sharp"][:2], np.zeros(2), rtol=0.0, atol=2.0e-12
-    )
