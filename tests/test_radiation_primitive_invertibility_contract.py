@@ -23,6 +23,7 @@ from engine.matter_system import (
 )
 from engine.valencia import (
     FluidConserved,
+    FluidPrimitive,
     RadiationAdmissibilityError as RecoveryAdmissibilityError,
     SphericalMetric,
     recover_radiation,
@@ -308,7 +309,8 @@ def test_near_cone_rhs_assembly_uses_preserved_source_norm_and_outer_flux():
 
 
 
-def test_shifted_near_cone_flux_and_tensor_products_use_preserved_velocity_norm():
+@pytest.mark.parametrize("shift", [0.0, 0.17])
+def test_shifted_near_cone_flux_and_tensor_products_use_preserved_velocity_norm(shift):
     """Keep the solved v^2 consistent through radial fluxes and shifted tensor products."""
     metric = spherical_metric_from_bssn(
         r=79.5,
@@ -316,7 +318,7 @@ def test_shifted_near_cone_flux_and_tensor_products_use_preserved_velocity_norm(
         b=1.3036606161142992,
         X=0.9545747827302261,
         alpha=0.93,
-        beta=0.12,
+        beta=shift,
     )
     conserved = _conserved(
         E=2.4771114076139816e-4,
@@ -379,4 +381,54 @@ def test_shifted_near_cone_flux_and_tensor_products_use_preserved_velocity_norm(
     )
     assert flux.momentum_r == pytest.approx(
         metric.sqrt_minus_g * expected_Tr_r, rel=2.0e-14, abs=0.0
+    )
+
+
+
+def test_near_cone_flux_regression_detects_rounded_v_squared_product():
+    """A small-density fixture must distinguish the legacy and saved-v^2 products."""
+    metric = spherical_metric_from_bssn(
+        r=79.5,
+        a=0.5883984147590013,
+        b=1.3036606161142992,
+        X=0.9545747827302261,
+        alpha=1.0,
+        beta=0.0,
+    )
+    recovered = recover_radiation(
+        metric,
+        _conserved(
+            E=2.4771114076139816e-4,
+            S=1.990541924362441e-4,
+        ),
+    )
+    # Preserve the same near-null velocity while lowering density enough that
+    # the one-ULP quadratic-product difference survives the final float64 flux rounding.
+    h = 1.2e-25
+    pressure = h / 4.0
+    primitive = FluidPrimitive(
+        rho=3.0 * pressure,
+        pressure=pressure,
+        v_r=recovered.v_r,
+        gamma_rr=recovered.gamma_rr,
+        velocity_norm_squared=recovered.v2,
+    )
+    W = primitive.lorentz()
+    S_r = h * W * W * metric.gamma_rr * primitive.v_r
+    legacy = metric.sqrt_gamma * (
+        metric.alpha * S_r * primitive.v_r
+        + metric.alpha * primitive.pressure
+        - metric.beta * S_r
+    )
+    expected = metric.sqrt_gamma * (
+        metric.alpha * h * W * W * primitive.v2
+        + metric.alpha * primitive.pressure
+        - metric.beta * S_r
+    )
+    assert legacy != expected, "fixture must detect the rounded v_r^2 product"
+    assert _radiation_flux(metric, primitive)[2] == pytest.approx(
+        expected, rel=0.0, abs=0.0
+    )
+    assert _valencia_flux(metric, primitive)[2] == pytest.approx(
+        expected, rel=0.0, abs=0.0
     )
