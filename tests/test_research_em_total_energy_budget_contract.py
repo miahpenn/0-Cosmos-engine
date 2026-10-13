@@ -9,6 +9,7 @@ from tools.audit_em_total_energy_budget import (
     field_energy_functional,
     interpolate_at_areal_radius,
     _fixed_target_interpolant_rate,
+    _pirk_accepted_update_rate_arrays,
     _reconstruct_energy_rhs_with_roundoff_contract,
     _fixed_R_interval_balance,
     _pair_fixed_R_interval_rows,
@@ -104,6 +105,91 @@ def test_fixed_target_interpolant_rate_fails_closed_on_invalid_profiles():
         _fixed_target_interpolant_rate(
             [1.0, 2.0, 3.0], [0.0, 0.0, 0.0], [1.0, 2.0, 3.0],
             [0.0, 0.0, 0.0], target=4.0,
+        )
+
+
+def test_fixed_target_interpolant_rate_uses_documented_knot_brackets():
+    R = np.array([1.0, 2.0, 3.0])
+    Rdot = np.array([0.1, 0.2, 0.3])
+    mass = np.array([2.0, 5.0, 11.0])
+    mass_dot = np.array([0.3, 0.5, 0.7])
+
+    # At an exact interior knot, the one-sided convention selects the
+    # right-hand segment. At the upper edge, it selects the final left segment.
+    interior = _fixed_target_interpolant_rate(
+        R, Rdot, mass, mass_dot, target=2.0
+    )
+    assert (interior["left_index"], interior["right_index"]) == (1, 2)
+    assert interior["theta"] == pytest.approx(0.0)
+    assert interior["piecewise_linear_mass_gradient"] == pytest.approx(6.0)
+    assert interior["mass_dot_fixed_R"] == pytest.approx(-0.7)
+
+    upper = _fixed_target_interpolant_rate(
+        R, Rdot, mass, mass_dot, target=3.0
+    )
+    assert (upper["left_index"], upper["right_index"]) == (1, 2)
+    assert upper["theta"] == pytest.approx(1.0)
+    assert upper["piecewise_linear_mass_gradient"] == pytest.approx(6.0)
+    assert upper["mass_dot_fixed_R"] == pytest.approx(-1.1)
+
+
+def test_pirk_accepted_update_rate_arrays_use_production_coefficients():
+    geometry_stages = [
+        {
+            "explicit": {
+                "a": np.array([1.0, 3.0]),
+                "b": np.array([2.0, 4.0]),
+                "X": np.array([3.0, 5.0]),
+            },
+            "primary_l2": {"Aa": np.array([2.0, 4.0]), "K": np.array([6.0, 8.0])},
+            "primary_l3": {"Aa": np.array([10.0, 12.0]), "K": np.array([14.0, 16.0])},
+        },
+        {
+            # The explicit-predictor L2/L3 values are deliberately distinct:
+            # neither is the coefficient combination used in the accepted update.
+            "explicit": {
+                "a": np.array([100.0, 100.0]),
+                "b": np.array([100.0, 100.0]),
+                "X": np.array([100.0, 100.0]),
+            },
+            "primary_l2": {"Aa": np.array([100.0, 100.0]), "K": np.array([100.0, 100.0])},
+            "primary_l3": {"Aa": np.array([100.0, 100.0]), "K": np.array([100.0, 100.0])},
+        },
+        {
+            "explicit": {
+                "a": np.array([5.0, 7.0]),
+                "b": np.array([6.0, 8.0]),
+                "X": np.array([7.0, 9.0]),
+            },
+            "primary_l2": {"Aa": np.array([200.0, 200.0]), "K": np.array([200.0, 200.0])},
+            "primary_l3": {"Aa": np.array([18.0, 20.0]), "K": np.array([22.0, 24.0])},
+        },
+    ]
+    final_primary_l2 = {
+        "Aa": np.array([6.0, 8.0]),
+        "K": np.array([10.0, 12.0]),
+    }
+    rates = _pirk_accepted_update_rate_arrays(geometry_stages, final_primary_l2)
+    assert rates["explicit"]["a"] == pytest.approx([3.0, 5.0])
+    assert rates["explicit"]["b"] == pytest.approx([4.0, 6.0])
+    assert rates["explicit"]["X"] == pytest.approx([5.0, 7.0])
+    assert rates["primary"]["Aa"] == pytest.approx([18.0, 22.0])
+    assert rates["primary"]["K"] == pytest.approx([26.0, 30.0])
+
+
+def test_pirk_accepted_update_rate_arrays_fail_closed_on_shape_mismatch():
+    geometry_stages = [
+        {"explicit": {"a": [1.0, 2.0], "b": [1.0, 2.0], "X": [1.0, 2.0]},
+         "primary_l2": {"Aa": [1.0, 2.0], "K": [1.0, 2.0]},
+         "primary_l3": {"Aa": [1.0, 2.0], "K": [1.0, 2.0]}},
+        {},
+        {"explicit": {"a": [1.0, 2.0], "b": [1.0, 2.0], "X": [1.0]},
+         "primary_l2": {"Aa": [1.0, 2.0], "K": [1.0, 2.0]},
+         "primary_l3": {"Aa": [1.0, 2.0], "K": [1.0, 2.0]}},
+    ]
+    with pytest.raises(RuntimeError, match="different shapes"):
+        _pirk_accepted_update_rate_arrays(
+            geometry_stages, {"Aa": [1.0, 2.0], "K": [1.0, 2.0]}
         )
 
 
