@@ -1,6 +1,7 @@
 """Regression tests for attempt-aware RHS capture in the frozen radiation replay."""
 from __future__ import annotations
 
+import math
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -93,6 +94,21 @@ def test_rhs_records_and_failed_predictor_lookup_are_attempt_aware(tmp_path: Pat
     assert failed_trial["attempt_id"] == 2
     assert failed_trial["rhs_capture_key"] == list(retry_key)
     assert failed_trial["rhs_capture_trial_dt"] == dt_retry
+    # Keep the six accepted/predictor conserved-state x
+    # accepted/CMC-resolved/explicit-predictor metric counterfactuals explicit.
+    expected_counterfactuals = {
+        "accepted_conserved_state_on_accepted_metric",
+        "accepted_conserved_state_on_cmc_resolved_metric",
+        "accepted_conserved_state_on_explicit_predictor_metric",
+        "explicit_predictor_conserved_state_on_accepted_metric",
+        "explicit_predictor_conserved_state_on_cmc_resolved_metric",
+        "explicit_predictor_conserved_state_on_explicit_predictor_metric",
+    }
+    assert set(failed_trial["ratio_counterfactuals"]) == expected_counterfactuals
+    for witness in failed_trial["ratio_counterfactuals"].values():
+        assert math.isfinite(witness["outer_cell_79_ratio"])
+        assert math.isfinite(witness["outer_cell_79_conserved_margin"])
+        assert 0 <= witness["outer_band_max_ratio_cell"] < n
     update = failed_trial["explicit_predictor_U_update_closure"]
     assert update["energy_t"]["max_abs_predictor_update_closure_all_cells"] < 1.0e-12
     assert update["momentum_r"]["max_abs_predictor_update_closure_all_cells"] < 1.0e-12
