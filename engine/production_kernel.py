@@ -355,6 +355,7 @@ class V55ProductionKernel:
         g0 = state.geometry.copy()
         s0 = state.scalars
         m0 = state.matter
+        em0 = state.electromagnetic
 
         # Reject an inadmissible accepted input before CMC source assembly
         # can recover radiation primitives; only this typed rejection retries.
@@ -372,8 +373,8 @@ class V55ProductionKernel:
 
         # The lapse is elliptically determined by the current CMC slice.
         # Spatial shift is zero in the spherical CMC branch.
-        g0.alpha = self._solve_lapse(
-            grid, g0, s0, m0
+        g0.alpha = self._solve_lapse_for_state(
+            grid, g0, s0, m0, em0
         )[0]
         tau_rate_start_refreshed = float(g0.alpha[0])
         g0.beta.fill(0.0)
@@ -383,14 +384,19 @@ class V55ProductionKernel:
             stage="initial",
         )
 
-        srhs0, mrhs0, _ = self._rhs(
-            ProductionState(
-                grid=grid, geometry=g0, scalars=s0, matter=m0,
-                t=state.t, tau=state.tau, e_folds=state.e_folds,
-            )
+        stage0 = ProductionState(
+            grid=grid, geometry=g0, scalars=s0, matter=m0,
+            electromagnetic=em0,
+            t=state.t, tau=state.tau, e_folds=state.e_folds,
         )
-        gterms0 = adapter.geometry_stage_terms(
-            grid, g0, s0, m0, lambda_m=LAMBDA_M
+        srhs0, mrhs0, _ = self._rhs(stage0)
+        flux0 = None
+        em1 = em0
+        if em0 is not None:
+            flux0 = self._charged_dust_mass_flux_faces(stage0)
+            em1 = em0.advance(dt, flux0)
+        gterms0 = self._geometry_stage_terms(
+            grid, g0, s0, m0, em0
         )
 
         # TRUE-PIRK predictor with CMC: advance only the metric's
@@ -412,26 +418,29 @@ class V55ProductionKernel:
                 for name in ("S", "PS", "D", "PD", "phi", "Pi")
             )
         )
-        m1 = V55MatterState(
-            *(
-                self._add_matter(getattr(m0, name), mrhs0[name], dt)
-                for name in ("dark_matter", "baryons", "radiation")
-            )
+        m1_base = tuple(
+            self._add_matter(getattr(m0, name), mrhs0[name], dt)
+            for name in ("dark_matter", "baryons", "radiation")
         )
+        m1_charged = (
+            None if m0.charged_dust is None
+            else self._add_matter(m0.charged_dust, mrhs0["charged_dust"], dt)
+        )
+        m1 = V55MatterState(*m1_base, charged_dust=m1_charged)
 
         validate_species_admissibility(
             metric_slice_from_q(grid, g_explicit1), m1.radiation,
             Species.RADIATION, stage="explicit-predictor",
         )
-        g_explicit1.alpha = self._solve_lapse(
-            grid, g_explicit1, s1, m1
+        g_explicit1.alpha = self._solve_lapse_for_state(
+            grid, g_explicit1, s1, m1, em1
         )[0]
         validate_species_admissibility(
             metric_slice_from_q(grid, g_explicit1), m1.radiation,
             Species.RADIATION, stage="explicit-predictor",
         )
-        gterms_pred = adapter.geometry_stage_terms(
-            grid, g_explicit1, s1, m1, lambda_m=LAMBDA_M
+        gterms_pred = self._geometry_stage_terms(
+            grid, g_explicit1, s1, m1, em1
         )
         _, vacuum, _ = adapter.vendor_modules()
 
@@ -459,11 +468,11 @@ class V55ProductionKernel:
             metric_slice_from_q(grid, g1), m1.radiation,
             Species.RADIATION, stage="primary-predictor",
         )
-        self._apply_outer_light_boundary(grid, g1, s1, m1)
+        self._apply_outer_boundary_for_state(grid, g1, s1, m1, em1)
         # Resolve the CMC lapse on the full primary predictor, then
         # use that gauge state for the second split evaluation.
-        g1.alpha = self._solve_lapse(
-            grid, g1, s1, m1
+        g1.alpha = self._solve_lapse_for_state(
+            grid, g1, s1, m1, em1
         )[0]
         g1.beta.fill(0.0)
         g1.B.fill(0.0)
@@ -476,11 +485,17 @@ class V55ProductionKernel:
         # Re-evaluate the complete split on the primary-updated predictor.
         stage1 = ProductionState(
             grid=grid, geometry=g1, scalars=s1, matter=m1,
+            electromagnetic=em1,
             t=state.t, tau=state.tau, e_folds=state.e_folds,
         )
         srhs1, mrhs1, _ = self._rhs(stage1)
-        gterms1 = adapter.geometry_stage_terms(
-            grid, g1, s1, m1, lambda_m=LAMBDA_M
+        flux1 = None
+        emnew = em0
+        if em0 is not None:
+            flux1 = self._charged_dust_mass_flux_faces(stage1)
+            emnew = em0.advance_trapezoid(dt, flux0, flux1)
+        gterms1 = self._geometry_stage_terms(
+            grid, g1, s1, m1, em1
         )
 
         # Final explicit block uses the TRUE-PIRK trapezoidal pairing with the
@@ -507,22 +522,35 @@ class V55ProductionKernel:
                 for name in ("S", "PS", "D", "PD", "phi", "Pi")
             )
         )
-        mnew = V55MatterState(
-            *(
-                ConservedSpecies(
-                    getattr(m0, name).rest + 0.5 * dt * (
-                        mrhs0[name].rest + mrhs1[name].rest
-                    ),
-                    getattr(m0, name).energy_t + 0.5 * dt * (
-                        mrhs0[name].energy_t + mrhs1[name].energy_t
-                    ),
-                    getattr(m0, name).momentum_r + 0.5 * dt * (
-                        mrhs0[name].momentum_r + mrhs1[name].momentum_r
-                    ),
-                )
-                for name in ("dark_matter", "baryons", "radiation")
+        mnew_base = tuple(
+            ConservedSpecies(
+                getattr(m0, name).rest + 0.5 * dt * (
+                    mrhs0[name].rest + mrhs1[name].rest
+                ),
+                getattr(m0, name).energy_t + 0.5 * dt * (
+                    mrhs0[name].energy_t + mrhs1[name].energy_t
+                ),
+                getattr(m0, name).momentum_r + 0.5 * dt * (
+                    mrhs0[name].momentum_r + mrhs1[name].momentum_r
+                ),
             )
+            for name in ("dark_matter", "baryons", "radiation")
         )
+        if m0.charged_dust is None:
+            mnew_charged = None
+        else:
+            mnew_charged = ConservedSpecies(
+                m0.charged_dust.rest + 0.5 * dt * (
+                    mrhs0["charged_dust"].rest + mrhs1["charged_dust"].rest
+                ),
+                m0.charged_dust.energy_t + 0.5 * dt * (
+                    mrhs0["charged_dust"].energy_t + mrhs1["charged_dust"].energy_t
+                ),
+                m0.charged_dust.momentum_r + 0.5 * dt * (
+                    mrhs0["charged_dust"].momentum_r + mrhs1["charged_dust"].momentum_r
+                ),
+            )
+        mnew = V55MatterState(*mnew_base, charged_dust=mnew_charged)
 
         # Validate the completed radiation state before the final implicit
         # source projection. No variable is clipped or projected on rejection.
@@ -566,16 +594,17 @@ class V55ProductionKernel:
         # Apply the same incoming-light reconstruction after Lambda is current
         # on the completed final slice. This replaces the unconstrained finite-
         # radius boundary mode without altering the interior equations.
-        self._apply_outer_light_boundary(grid, gnew, snew, mnew)
+        self._apply_outer_boundary_for_state(grid, gnew, snew, mnew, emnew)
         # Final stage-aware CMC solve on the completed final A/K/matter slice.
-        gnew.alpha = self._solve_lapse(
-            grid, gnew, snew, mnew
+        gnew.alpha = self._solve_lapse_for_state(
+            grid, gnew, snew, mnew, emnew
         )[0]
         gnew.beta.fill(0.0)
         gnew.B.fill(0.0)
 
         candidate = ProductionState(
             grid=grid, geometry=gnew, scalars=snew, matter=mnew,
+            electromagnetic=emnew,
             t=state.t + dt, tau=state.tau, e_folds=state.e_folds,
             cycle=state.cycle, history=list(state.history),
             handoffs=list(state.handoffs),
