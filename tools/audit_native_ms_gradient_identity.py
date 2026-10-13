@@ -321,9 +321,13 @@ def audit_resolution(n: int, kernel: V55ProductionKernel) -> dict:
             "annulus_R_8_to_12_signed_error_rms": float(
                 np.sqrt(np.mean(annulus_error[annulus]**2))
             ),
-            "signed_error_at_nearest_R10_cell": float(
-                annulus_error[int(np.argmin(np.abs(R - TARGET_AREAL_R)))]
-            ),
+            # Report both native cells bracketing R=10. Do not use argmin:
+            # when R=10 is exactly halfway between cells, last-bit rounding can
+            # select different sides at different resolutions.
+            "lower_bracket_coordinate_r": float(r[lower]),
+            "upper_bracket_coordinate_r": float(r[target_i]),
+            "signed_identity_error_lower_R10_bracket_cell": float(annulus_error[lower]),
+            "signed_identity_error_upper_R10_bracket_cell": float(annulus_error[target_i]),
             "production_vs_independent_centered4": {
                 "interior_cells": int(n - 4),
                 "max_abs_difference": stencil_delta_max,
