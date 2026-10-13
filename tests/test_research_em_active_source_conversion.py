@@ -68,18 +68,18 @@ def test_lorentz_map_matches_covector_eulerian_sources_and_mixed_reference():
     # sqrt(-g) Q_nu, with sqrt(-g)=alpha*sqrt(gamma). This catches sign and
     # lapse/shift errors without claiming mixed storage is used by production.
     np.testing.assert_allclose(
-        source.mixed_energy_t,
+        source.mixed_reference_energy_t,
         alpha * sqrt_gamma * source.force_covector_t,
         rtol=0.0,
         atol=8.0e-16,
     )
     np.testing.assert_allclose(
-        source.mixed_momentum_r,
+        source.mixed_reference_momentum_r,
         alpha * sqrt_gamma * source.force_covector_r,
         rtol=0.0,
         atol=0.0,
     )
-    assert source.mixed_energy_t[1] == pytest.approx(
+    assert source.mixed_reference_energy_t[1] == pytest.approx(
         -alpha[1] * source.eulerian_energy[1], abs=1.0e-16
     )
 
@@ -98,8 +98,8 @@ def test_zero_electric_field_has_zero_force_in_every_representation():
         source.force_covector_r,
         source.eulerian_energy,
         source.eulerian_momentum_r,
-        source.mixed_energy_t,
-        source.mixed_momentum_r,
+        source.mixed_reference_energy_t,
+        source.mixed_reference_momentum_r,
     ):
         np.testing.assert_array_equal(field, np.zeros(2))
 
