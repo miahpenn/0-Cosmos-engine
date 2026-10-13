@@ -38,6 +38,7 @@ from tools.audit_cmc_lapse_joint_target import (
     production_affine_operator,
     solve_joint_target_lapse,
     solve_joint_target_lapse_equilibrated,
+    solve_joint_target_lapse_sparse,
 )
 from engine import v55_pirk_adapter as adapter
 from engine.cmc_gauge import solve_cmc_lapse
@@ -413,6 +414,12 @@ def solve_resolution(resolution: int, vacuum) -> tuple[dict, dict]:
     balanced_alpha, balanced_target, balanced_meta = solve_joint_target_lapse_equilibrated(
         matrix, intercept, weights
     )
+    sparse_alpha, sparse_target, sparse_meta = solve_joint_target_lapse_sparse(
+        matrix, intercept, weights, equilibrate=False
+    )
+    sparse_balanced_alpha, sparse_balanced_target, sparse_balanced_meta = solve_joint_target_lapse_sparse(
+        matrix, intercept, weights, equilibrate=True
+    )
 
     def evaluate_candidate(alpha, target) -> tuple[dict, dict]:
         alpha = np.asarray(alpha, dtype=float)
@@ -510,6 +517,10 @@ def solve_resolution(resolution: int, vacuum) -> tuple[dict, dict]:
     )
     balanced_metrics, balanced_arrays = evaluate_candidate(
         balanced_alpha, balanced_target
+    )
+    sparse_metrics, sparse_arrays = evaluate_candidate(sparse_alpha, sparse_target)
+    sparse_balanced_metrics, sparse_balanced_arrays = evaluate_candidate(
+        sparse_balanced_alpha, sparse_balanced_target
     )
     high_precision_metrics = None
     high_precision_arrays = None
@@ -632,6 +643,34 @@ def solve_resolution(resolution: int, vacuum) -> tuple[dict, dict]:
             ],
             "all_checks_passed": balanced_pass,
         },
+        "sparse": {
+            **sparse_metrics,
+            "solver": sparse_meta,
+            "all_checks_passed": bool(all((
+                sparse_metrics["lapse_positive_finite"],
+                sparse_metrics["weighted_mean_closure_passed"],
+                sparse_metrics["interior_equations_close"],
+                sparse_metrics["direct_rhs_reconstruction_passed"],
+                sparse_meta["original_equations_close"],
+                sparse_meta["csr_system_roundoff_closed"],
+                affine_passed,
+                frozen_state_unchanged,
+            ))),
+        },
+        "sparse_equilibrated": {
+            **sparse_balanced_metrics,
+            "solver": sparse_balanced_meta,
+            "all_checks_passed": bool(all((
+                sparse_balanced_metrics["lapse_positive_finite"],
+                sparse_balanced_metrics["weighted_mean_closure_passed"],
+                sparse_balanced_metrics["interior_equations_close"],
+                sparse_balanced_metrics["direct_rhs_reconstruction_passed"],
+                sparse_balanced_meta["original_equations_close"],
+                sparse_balanced_meta["csr_system_roundoff_closed"],
+                affine_passed,
+                frozen_state_unchanged,
+            ))),
+        },
         "high_precision": (
             {
                 **high_precision_metrics,
@@ -673,6 +712,16 @@ def solve_resolution(resolution: int, vacuum) -> tuple[dict, dict]:
         "target_difference_equilibrated_minus_unscaled": float(
             balanced_target - unscaled_target
         ),
+        "target_difference_sparse_minus_unscaled": float(sparse_target - unscaled_target),
+        "target_difference_sparse_equilibrated_minus_unscaled": float(
+            sparse_balanced_target - unscaled_target
+        ),
+        "max_abs_lapse_difference_sparse_vs_unscaled": float(
+            np.max(np.abs(sparse_alpha - unscaled_alpha))
+        ),
+        "max_abs_lapse_difference_sparse_equilibrated_vs_unscaled": float(
+            np.max(np.abs(sparse_balanced_alpha - unscaled_alpha))
+        ),
         "target_difference_high_precision_minus_equilibrated": (
             float(high_precision_metrics["target"] - balanced_target)
             if high_precision_metrics is not None else None
@@ -697,6 +746,10 @@ def solve_resolution(resolution: int, vacuum) -> tuple[dict, dict]:
         f"N{resolution}__rhs_residual_unscaled": unscaled_arrays["rhs_residual"],
         f"N{resolution}__alpha_joint_equilibrated": balanced_arrays["alpha"],
         f"N{resolution}__rhs_residual_equilibrated": balanced_arrays["rhs_residual"],
+        f"N{resolution}__alpha_joint_sparse": sparse_arrays["alpha"],
+        f"N{resolution}__rhs_residual_sparse": sparse_arrays["rhs_residual"],
+        f"N{resolution}__alpha_joint_sparse_equilibrated": sparse_balanced_arrays["alpha"],
+        f"N{resolution}__rhs_residual_sparse_equilibrated": sparse_balanced_arrays["rhs_residual"],
         **(
             {
                 f"N{resolution}__alpha_joint_high_precision": high_precision_arrays["alpha"],
