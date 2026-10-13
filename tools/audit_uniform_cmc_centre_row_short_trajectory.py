@@ -177,7 +177,7 @@ def main():
     failed = [x for x in records if x["step_status"] != "completed"]
     report = {
         "schema": "uniform_cmc_centre_row_12step_v1",
-        "status": "all_four_step_arms_passed" if not failed else "numerical_failures_recorded",
+        "status": "all_twelve_step_arms_completed" if not failed else "numerical_failures_recorded",
         "production_source_commit": SOURCE_COMMIT,
         "pinned_vendor_commit": VENDOR_COMMIT,
         "diagnostic_branch": "diag/uniform-cmc-centre-row-12step-2026-10-13",
