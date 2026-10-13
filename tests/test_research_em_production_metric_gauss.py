@@ -71,54 +71,45 @@ def test_production_metric_gauss_shell_closure_and_flux_identity(
         )
 
 
-def test_production_metric_gauss_source_budget_converges_on_one_frozen_geometry(
+def test_production_metric_gauss_source_budget_matches_integral_on_one_frozen_geometry(
     production_metric, source
 ):
-    # All three resolutions use the exact same copied production metric
-    # interpolation. Only the source sampling / finite-volume grid is refined.
+    # All three target grids use the exact same frozen production metric.
+    # Cell charge integrates rho_e*sqrt(gamma) rather than midpoint-sampling
+    # rho_e, and is checked against a separate higher-order integral.
     solutions = [
         solve_discrete_production_metric_gauss(
             production_metric, source, resolution=n
         )
         for n in (32, 64, 128)
     ]
-    charge_errors = []
-    field_errors = []
     for result in solutions:
         reference_charge = tuple(
             production_metric.reference_enclosed_charge(source, radius)
             for radius in result.faces
         )
-        charge_errors.append(
-            max(
-                abs(numerical - exact)
-                for numerical, exact in zip(result.face_charges, reference_charge)
-            )
+        scale = max(1.0, abs(reference_charge[-1]))
+        tolerance = 5.0e-11 * scale
+        assert all(math.isfinite(value) for value in result.cell_charges)
+        assert max(
+            abs(numerical - exact)
+            for numerical, exact in zip(result.face_charges, reference_charge)
+        ) <= tolerance
+        assert result.total_charge == pytest.approx(
+            reference_charge[-1], rel=5.0e-11, abs=tolerance
         )
-        field_errors.append(
-            max(
-                abs(
-                    e_numeric
-                    - reference_charge[i]
-                    / production_metric.areal_radius(radius) ** 2
-                )
-                for i, (radius, e_numeric) in enumerate(
-                    zip(result.faces, result.face_electric_field_hat)
-                )
-                if radius > 0.0
+        for i, radius in enumerate(result.faces):
+            if radius == 0.0:
+                continue
+            reference_field = (
+                reference_charge[i]
+                / production_metric.areal_radius(radius) ** 2
             )
-        )
-
-    assert all(math.isfinite(value) and value > 0.0 for value in charge_errors)
-    assert all(math.isfinite(value) and value > 0.0 for value in field_errors)
-    assert charge_errors[0] > charge_errors[1] > charge_errors[2]
-    assert field_errors[0] > field_errors[1] > field_errors[2]
-    # A conservative floor below the ideal factor of four still rejects
-    # non-convergent or merely first-order source budgets.
-    assert charge_errors[0] / charge_errors[1] > 2.5
-    assert charge_errors[1] / charge_errors[2] > 2.5
-    assert field_errors[0] / field_errors[1] > 2.5
-    assert field_errors[1] / field_errors[2] > 2.5
+            assert result.face_electric_field_hat[i] == pytest.approx(
+                reference_field,
+                rel=5.0e-11,
+                abs=5.0e-11 * max(1.0, abs(reference_field)),
+            )
 
 
 def test_production_metric_gauss_has_a_regular_centre_and_detects_field_error(
