@@ -46,6 +46,36 @@ def _d1(grid, x, parity=1):
     return grid.d1(x, parity)
 
 
+def _integrate_initial_center_interval_moments(src, dr, interval_index):
+    """Integrate one of the first two centre intervals from an even r-series.
+
+    Three cell-centred samples interpolate a source polynomial in r^2 through
+    degree two, exactly integrating 1, r^2, and r^4 with respect to dr. The
+    first interval uses cells 0:3; the second uses cells 1:4. Later intervals
+    remain the production trapezoid.
+    """
+    values = np.asarray(src, dtype=float)
+    step = float(dr)
+    if values.ndim != 1 or values.size < 4:
+        raise ValueError("centre-interval moment rule requires at least four samples")
+    if not math.isfinite(step) or step <= 0.0:
+        raise ValueError("centre-interval moment rule requires finite positive dr")
+    if not np.all(np.isfinite(values)):
+        raise FloatingPointError("centre-interval source samples are non-finite")
+    if interval_index == 0:
+        weights = (191.0 / 360.0, 119.0 / 240.0, -19.0 / 720.0)
+        samples = values[0:3]
+    elif interval_index == 1:
+        weights = (571.0 / 1200.0, 409.0 / 720.0, -79.0 / 1800.0)
+        samples = values[1:4]
+    else:
+        raise ValueError("exact centre-interval rule is defined only for intervals 0 and 1")
+    result = step * float(np.dot(np.asarray(weights), samples))
+    if not math.isfinite(result):
+        raise FloatingPointError("centre-interval moment rule produced non-finite integral")
+    return result
+
+
 def build_initial_data(
     grid,
     vacuum_state_factory,
@@ -98,9 +128,15 @@ def build_initial_data(
             + 2.0 * r * r * Kr * Kt
             + r * r * Kt * Kt
         )
+        # Exact even-series moments on the origin half-cell and the first
+        # two centre-to-centre intervals. All later intervals retain the
+        # production trapezoid; this bounded counterfactual is diagnostic-only.
+        intervals = 0.5 * dr * (src[1:] + src[:-1])
+        if n >= 4:
+            intervals[0] = _integrate_initial_center_interval_moments(src, dr, 0)
+            intervals[1] = _integrate_initial_center_interval_moments(src, dr, 1)
         integ = np.cumsum(
-            np.r_[0.5 * dr * src[0],
-                  0.5 * dr * (src[1:] + src[:-1])]
+            np.r_[_integrate_initial_origin_half_cell(src, dr), intervals]
         )
         B = integ / r
 
