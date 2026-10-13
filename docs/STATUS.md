@@ -1,8 +1,37 @@
 # Build Status — 2026-10-13
 
 
+## Current engineering snapshot — 2026-10-13 UTC
 
-## Current production snapshot — 2026-10-13
+**Exact `main` head:** `6c723bb623dbb4280b1f47654702e6d1853b5b5d`. This includes two software-only promotions made after the previous snapshot: [PR #41](https://github.com/miahpenn/0-Cosmos-engine/pull/41) (production areal-radius diagnostic integration regression, merge `85e25bd2bc5e08d6af9f578367caf2d017b88b8f`) and [PR #42](https://github.com/miahpenn/0-Cosmos-engine/pull/42) (retain long-campaign output artifacts when fail-closed campaigns exit nonzero, merge `6c723bb623dbb4280b1f47654702e6d1853b5b5d`).
+
+**Exact-main software gate:** [Lightweight validation run 38333604956](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38333604956) passed on this exact SHA. The final V5.5 campaign [38333604958](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38333604958), worldtube-radius scaling campaign [38333604924](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38333604924), and 0-star diagnostic campaign [38333605046](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38333605046) were **skipped** by workflow path/event conditions. They did not pass and do not constitute scientific admission.
+
+### Current production-readiness disposition
+
+The repository remains **not admitted for production scientific campaigns**. Software validation and failure-report retention have improved; long-horizon physics, convergence, conservation, and archived-state continuation remain separate gates. PR #41 adds a test-only check that production `areal_radius`, `chi`, and Misner–Sharp diagnostic profiles equal the shared canonical helper outputs on the same initialized state. PR #42 changes only three campaign workflow upload steps: uploads run even after a failed campaign step, while the campaign's fail-closed `RuntimeError`/admission decision is unchanged. No production physics equations, coefficients, initializers, vendor operators, or campaign parameters were changed by these two merges.
+
+### Active diagnostic and candidate queue
+
+- **[PR #39 — signed PIRK L2 centre-stage decomposition](https://github.com/miahpenn/0-Cosmos-engine/pull/39), draft/diagnostic-only.** Source-pinned one-step audit [run 38333176932](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38333176932), artifact [11783348300](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38333176932/artifacts/11783348300), ZIP SHA-256 `356887b0c91b25883914902b61a51b558bfcf083850236ab6455726cd212c270`, report SHA-256 `633f903db8b9618a7c72097b58416a316d776c5e1d4401471f4dc77dc3457d44`. At exact diagnostic head `4dda4a5440d2a108a817beca5a00d2cfc1b7aa0d`, the provenance and no-production-diff gate passed, all 210 tests passed, and N=40/60/80/120/160 each took one ordinary step with the four actual L2 inputs captured in order. All 20 signed Aa/K reconstructions close to the recorded vendor outputs in the report. The first-cell trace-free Ricci term dominates the coded initial Aa numerator; the Aa/r² quotient rises about 15.7× between N=40 and N=160. This localizes a regular-centre witness but does **not** identify an incorrect equation/stencil or establish physical validity. The next bounded work is the separately owned regular-centre Ricci operator/parity control; reuse the report before any new evolution.
+
+- **[PR #40 — covariant scalar–DM source factors](https://github.com/miahpenn/0-Cosmos-engine/pull/40), draft/hold.** The newer candidate head is `fb84efe5d20169ad39c0c534f93a368eaea86468`; its lightweight, direct-RHS, strict-JSON, and strict campaign/retry workflows all passed ([38333594675](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38333594675), [38333594658](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38333594658), [38333594735](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38333594735), [38333594792](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38333594792)). Independent review identified an unresolved normalization question: `scalar_projection()` applies `KAPPA=8*pi` to scalar stress-energy projections while the proposed raw scalar/DM cancellation test omits that factor. The coupling identity must be reconciled against the assembled total stress-energy and radial current before any promotion or physics A/B. Do not treat green software checks as conservation evidence.
+
+- **[PR #35 — fixed-worldtube Misner–Sharp/quadrature diagnostic](https://github.com/miahpenn/0-Cosmos-engine/pull/35), draft; [PR #18 — quadrature + CMC centre-row candidate](https://github.com/miahpenn/0-Cosmos-engine/pull/18), draft/unmerged.** Current reviewed evidence does not support promotion: the quadrature rule accounts for nearly all of the fixed-coordinate r=10 cumulative-integral shift, yet the local mass-current and interval balance defects worsen in that arm. The offline fixed-areal-R=10 discriminator is distinct from fixed coordinate r=10; its finite-time balance defects remain worse at all tested resolutions even though the initial radial mass-gradient identity improves. PR #35's stored source pin predates the current status-only mainline changes and its owner is refreshing the source-pin/report; use its existing data with updated parity semantics and do not call it a current-main admission result. PR #18 still lacks fixed-radius conservation, continuum centre/constraint convergence, and archived radiation continuation closure.
+
+- **Archived radiation continuation.** The checksum-pinned current-main replay [run 38333122498](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38333122498) reproduced a fail-closed rejection on the accepted state near `t=47.153`, after source/vendor gates and 210 tests passed. This confirms the current strict runner records the known continuation failure; it does not fix or admit the trajectory. A further read-only frozen-state replay is running at [38333603587](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38333603587) as of this snapshot; its final result must be reported separately.
+
+- **[PR #2 — N=320 reconstruction provenance audit](https://github.com/miahpenn/0-Cosmos-engine/pull/2), draft.** The frozen reconstruction preregistration and cited amendment remain unrecovered. Do not reconstruct or substitute a different document, loosen the frozen tolerance, or promote the reported replay results without the exact source material.
+
+### Promotion rule
+
+Keep numerical/physics candidate PRs isolated from diagnostics, workflow reliability, and documentation. Require exact-head source/vendor identity and CI, then matched numerical witnesses, regular-centre and constraint convergence, fixed-areal-radius current/flux/work closure, and the archived outer-radiation continuation gate before authorizing long physical campaigns or any physical bounce/re-expansion/cycle interpretation. No such admission is established by the current snapshot.
+
+
+
+
+
+## Historical production snapshot — 2026-10-13 (superseded by the current snapshot above)
 
 **Production ref at this snapshot:** `main` commit `2454f4094f09f94343a3ba890b69d51bbb2defc4`, including the merged diagnostic odd-parity correction in PR #37. Exact current-main software validation: [run 38332385030](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38332385030).
 
