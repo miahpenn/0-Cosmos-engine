@@ -9,24 +9,47 @@ carrier, derive units, or admit the experimental model.
 import numpy as np
 
 from engine.matter_rhs import species_rhs
-from engine.matter_system import Species
+from engine.matter_system import Species, _metric_arrays, initialize_dust
 from engine.production_kernel import V55ProductionKernel
 from engine.radial_maxwell import RadialMaxwellState
-from engine.v55_matter import metric_slice_from_q
+from engine.v55_matter import V55MatterState, metric_slice_from_q
 
 
 def test_live_lorentz_arrays_enter_charged_dust_rhs_exactly_once(monkeypatch):
     kernel = V55ProductionKernel()
     resolution = 24
+    density = np.full(resolution, 2.0e-5, dtype=float)
+    charge_to_mass = 0.25
     state = kernel.initialize(
         resolution=resolution,
         r_max=float(resolution),
         include_radiation=True,
-        radial_maxwell_charge_to_mass=0.25,
-        charged_dust_density=np.full(resolution, 2.0e-5, dtype=float),
+        radial_maxwell_charge_to_mass=charge_to_mass,
+        charged_dust_density=density,
     )
     assert state.electromagnetic is not None
     assert state.matter.charged_dust is not None
+
+    # Explicitly excite a current so both the momentum force and reciprocal
+    # energy-work source are tested. Rebuild the charge from this exact rest
+    # state; the existing GEAR species remain unchanged.
+    radius = np.asarray(state.grid.centers, dtype=float)
+    x = radius / float(resolution)
+    velocity = 0.08 * x * (1.0 - x)
+    carrier = initialize_dust(
+        _metric_arrays(metric_slice_from_q(state.grid, state.geometry)),
+        density,
+        velocity,
+    )
+    state.matter = V55MatterState(
+        state.matter.dark_matter,
+        state.matter.baryons,
+        state.matter.radiation,
+        charged_dust=carrier,
+    )
+    state.electromagnetic = RadialMaxwellState.from_charged_dust(
+        state.grid, carrier, charge_to_mass
+    )
 
     lorentz_original = RadialMaxwellState.lorentz_source
     rhs_original = kernel._rhs
