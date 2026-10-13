@@ -460,7 +460,7 @@ def main() -> int:
             })
 
     report = {
-        "schema": "v55_origin_half_cell_only_matched_time_v1",
+        "schema": "v55_first_two_center_moments_matched_time_v1",
         "status": "all_matched_horizon_arms_completed" if not failed else "trajectory_failures_recorded",
         "diagnostic_only": True,
         "scientific_admission": False,
