@@ -206,3 +206,23 @@ def test_production_metric_snapshot_is_immutable(production_metric):
     assert isinstance(production_metric.a, tuple)
     with pytest.raises(FrozenInstanceError):
         production_metric.a = production_metric.b
+
+def test_production_metric_gauss_rejects_overflowed_areal_radius_square():
+    """Finite positive geometry must not turn an overflowed R**2 into E_hat=0."""
+    resolution = 4
+    dr = 10.0
+    metric = FrozenProductionMetric(
+        centers=tuple((i + 0.5) * dr for i in range(resolution)),
+        a=(1.0e-320,) * resolution,
+        b=(1.0e308,) * resolution,
+        X=(1.0,) * resolution,
+        dr=dr,
+        r_max=40.0,
+    )
+    # Source edge is an exact face; the test isolates only the areal-square guard.
+    source = RadialCoulombReference(rho0=0.75, source_radius=20.0)
+    with pytest.raises(ValueError, match="areal radius and metric factors"):
+        solve_discrete_production_metric_gauss(
+            metric, source, resolution=resolution
+        )
+
