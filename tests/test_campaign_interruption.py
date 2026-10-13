@@ -2,6 +2,8 @@
 import json
 from pathlib import Path
 
+import numpy as np
+
 import pytest
 
 from engine import atomic_io
@@ -175,3 +177,52 @@ def test_checkpoint_write_interruption_cleans_staging_and_preserves_evidence(
     run_dir = tmp_path / "N40"
     assert list(run_dir.glob("checkpoint_t*.npz")) == []
     assert list(run_dir.glob(".checkpoint_t*")) == []
+
+def test_post_replace_checkpoint_interruption_counts_complete_artifact(
+    tmp_path, monkeypatch
+):
+    kernel = V55ProductionKernel()
+    real_checkpoint = kernel.checkpoint
+    real_directory_sync = atomic_io._fsync_parent_directory
+
+    def interrupt_after_replace(state, path):
+        def interrupt_directory_sync(parent):
+            # atomic_savez_compressed has already os.replace()d the completed
+            # NPZ before it attempts this best-effort directory sync.
+            monkeypatch.setattr(
+                atomic_io, "_fsync_parent_directory", real_directory_sync
+            )
+            raise KeyboardInterrupt("injected interrupt after checkpoint replace")
+
+        monkeypatch.setattr(
+            atomic_io, "_fsync_parent_directory", interrupt_directory_sync
+        )
+        return real_checkpoint(state, path)
+
+    monkeypatch.setattr(kernel, "checkpoint", interrupt_after_replace)
+
+    with pytest.raises(KeyboardInterrupt, match="after checkpoint replace"):
+        runner.run_campaign(
+            kernel=kernel,
+            config=_config(
+                tmp_path,
+                resolutions=(40,),
+                final_time=0.06,
+                checkpoint_interval=0.03,
+            ),
+        )
+
+    summary = _strict_json(tmp_path / "campaign_summary.json")
+    ledger = _strict_json(tmp_path / "N40" / "ledgers.json")
+    assert summary["admission"]["passed"] is False
+    assert summary["results"][0]["status"] == "interrupted:checkpoint"
+    assert summary["results"][0]["t_final"] == pytest.approx(0.03)
+    assert summary["results"][0]["checkpoint_count"] == 1
+    assert ledger["result"]["checkpoint_count"] == 1
+    run_dir = tmp_path / "N40"
+    checkpoints = list(run_dir.glob("checkpoint_t*.npz"))
+    assert len(checkpoints) == 1
+    with np.load(checkpoints[0], allow_pickle=False) as saved:
+        assert float(saved["t"]) == pytest.approx(0.03)
+    assert list(run_dir.glob(".checkpoint_t*")) == []
+

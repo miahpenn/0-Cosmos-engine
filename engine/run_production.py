@@ -43,6 +43,28 @@ class ResolutionResult:
     endpoint_roundoff_correction: float = 0.0
 
 
+def _checkpoint_matches_time(path: str | Path, accepted_time: float) -> bool:
+    """Return whether a committed NPZ checkpoint represents the accepted time.
+
+    Atomic replacement may finish just before Ctrl-C interrupts the directory
+    sync, in which case the writer raises even though a complete canonical
+    checkpoint is already visible. Inspect its scalar time field so the
+    fail-closed ledger can report committed output accurately.
+    """
+    try:
+        with np.load(path, allow_pickle=False) as checkpoint:
+            if "t" not in checkpoint.files:
+                return False
+            saved_time = np.asarray(checkpoint["t"])
+            if saved_time.shape != ():
+                return False
+            value = float(saved_time)
+            return math.isfinite(value) and value == float(accepted_time)
+    except Exception:
+        # Evidence recovery must not mask the original KeyboardInterrupt.
+        return False
+
+
 def _due_checkpoint_times(
     accepted_time: float,
     next_checkpoint: float,
@@ -409,9 +431,13 @@ def run_campaign(
                 try:
                     kernel.checkpoint(state, path)
                 except KeyboardInterrupt as exc:
-                    # The atomic checkpoint writer preserves the previous
-                    # canonical file if staging is interrupted. Still record
-                    # the last accepted state and a fail-closed campaign result.
+                    # If replacement committed before Ctrl-C interrupted the
+                    # best-effort directory sync, count only a readable
+                    # checkpoint whose time matches this accepted state.
+                    if _checkpoint_matches_time(path, float(state.t)):
+                        checkpoint_count += 1
+                    # Regardless of replacement, persist fail-closed evidence
+                    # for the accepted state before re-raising the interruption.
                     status = "interrupted:checkpoint"
                     interruption = exc
                     break
