@@ -31,7 +31,8 @@ def test_campaign_retries_typed_cone_rejection_and_still_admits_full_horizon(tmp
         attempts.append(float(dt))
         if len(attempts) == 1:
             raise RadiationAdmissibilityError(
-                "test injection: radiation inadmissible at explicit-predictor"
+                "test injection: radiation inadmissible at explicit-predictor",
+                stage="explicit-predictor",
             )
         return real_step(state, dt)
 
@@ -71,7 +72,8 @@ def test_persistent_typed_cone_rejection_fails_campaign_admission_closed(tmp_pat
 
     def always_reject(state, dt):
         raise RadiationAdmissibilityError(
-            "test injection: persistent radiation cone rejection"
+            "test injection: persistent radiation cone rejection",
+            stage="explicit-predictor",
         )
 
     kernel.step = always_reject
