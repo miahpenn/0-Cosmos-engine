@@ -33,7 +33,10 @@ def validate_campaign_evidence(
 ) -> dict[str, Any]:
     """Require successful admission summary and complete per-resolution ledgers."""
     root = Path(root)
-    expected = tuple(int(n) for n in expected_resolutions)
+    expected_values = tuple(expected_resolutions)
+    if any(isinstance(n, bool) or not isinstance(n, int) for n in expected_values):
+        raise CampaignEvidenceError(f"expected resolutions must be integers: {expected_values!r}")
+    expected = tuple(expected_values)
     if not expected or any(n <= 0 for n in expected):
         raise CampaignEvidenceError(f"expected resolutions must be positive and non-empty: {expected}")
     if len(set(expected)) != len(expected):
@@ -48,16 +51,18 @@ def validate_campaign_evidence(
     admission = summary.get("admission")
     if not isinstance(admission, dict) or admission.get("passed") is not True:
         raise CampaignEvidenceError("campaign summary must record admission.passed=true")
-    if admission.get("errors") not in ([], None):
-        raise CampaignEvidenceError(f"admitted campaign summary contains errors: {admission.get('errors')!r}")
+    admission_errors = admission.get("errors")
+    if not isinstance(admission_errors, list) or admission_errors:
+        raise CampaignEvidenceError(
+            f"admitted campaign summary must record an empty errors list: {admission_errors!r}"
+        )
 
     reported_resolutions = campaign.get("resolutions")
     if not isinstance(reported_resolutions, list):
         raise CampaignEvidenceError("campaign configuration must record a resolution list")
-    try:
-        reported = tuple(int(n) for n in reported_resolutions)
-    except (TypeError, ValueError, OverflowError) as exc:
-        raise CampaignEvidenceError(f"invalid reported resolution list: {reported_resolutions!r}") from exc
+    if any(isinstance(n, bool) or not isinstance(n, int) for n in reported_resolutions):
+        raise CampaignEvidenceError(f"invalid reported resolution list: {reported_resolutions!r}")
+    reported = tuple(reported_resolutions)
     if reported != expected:
         raise CampaignEvidenceError(
             f"campaign resolution provenance mismatch: expected={expected}, reported={reported}"
@@ -75,9 +80,12 @@ def validate_campaign_evidence(
     if not isinstance(results, list) or any(not isinstance(item, dict) for item in results):
         raise CampaignEvidenceError("campaign summary results must be a list of objects")
     try:
-        result_resolutions = tuple(int(item["resolution"]) for item in results)
-    except (KeyError, TypeError, ValueError, OverflowError) as exc:
+        result_values = tuple(item["resolution"] for item in results)
+    except KeyError as exc:
         raise CampaignEvidenceError("campaign result entries have invalid resolution values") from exc
+    if any(isinstance(n, bool) or not isinstance(n, int) for n in result_values):
+        raise CampaignEvidenceError("campaign result entries have invalid resolution values")
+    result_resolutions = tuple(result_values)
     if result_resolutions != expected:
         raise CampaignEvidenceError(
             f"campaign result inventory mismatch: expected={expected}, reported={result_resolutions}"
@@ -105,12 +113,11 @@ def validate_campaign_evidence(
         if not isinstance(ledger, dict) or not isinstance(ledger.get("result"), dict):
             raise CampaignEvidenceError(f"N={resolution} ledgers.json has no result object")
         record = ledger["result"]
-        try:
-            ledger_resolution = int(record.get("resolution", -1))
-        except (TypeError, ValueError, OverflowError) as exc:
+        ledger_resolution = record.get("resolution", -1)
+        if isinstance(ledger_resolution, bool) or not isinstance(ledger_resolution, int):
             raise CampaignEvidenceError(
-                f"N={resolution} ledger has invalid resolution: {record.get('resolution')!r}"
-            ) from exc
+                f"N={resolution} ledger has invalid resolution: {ledger_resolution!r}"
+            )
         if ledger_resolution != resolution:
             raise CampaignEvidenceError(
                 f"N={resolution} ledger contains wrong resolution: {record.get('resolution')!r}"
