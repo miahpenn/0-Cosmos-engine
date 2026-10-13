@@ -13,6 +13,7 @@ from engine.matter_system import (
     _metric_arrays,
     _radiation_conserved,
     _radiation_flux,
+    _valencia_flux,
     _species_rhs_components,
     _valencia_source,
     KAPPA,
@@ -302,3 +303,45 @@ def test_near_cone_rhs_assembly_uses_preserved_source_norm_and_outer_flux():
         - metric.beta * state.energy_t[0]
     )
     assert face_flux[-1, 1] == pytest.approx(expected_outer_flux, rel=2.0e-14, abs=0.0)
+
+@pytest.mark.parametrize("shift", [0.0, 0.17])
+def test_near_cone_radial_momentum_flux_uses_preserved_norm_with_shift(shift):
+    """The direct cell flux must not reconstruct v^2 from rounded coordinate v."""
+    metric = spherical_metric_from_bssn(
+        r=79.5,
+        a=0.5883984147590013,
+        b=1.3036606161142992,
+        X=0.9545747827302261,
+        alpha=1.0,
+        beta=shift,
+    )
+    primitive = recover_radiation(
+        metric,
+        _conserved(
+            E=2.4771114076139816e-4,
+            S=1.990541924362441e-4,
+        ),
+    )
+    assert primitive.velocity_norm_squared is not None
+    assert primitive.v2 != metric.gamma_rr * primitive.v_r * primitive.v_r
+
+    W = primitive.lorentz()
+    h = primitive.rho + primitive.pressure
+    S_r = h * W * W * metric.gamma_rr * primitive.v_r
+    expected = metric.sqrt_gamma * (
+        metric.alpha * h * W * W * primitive.v2
+        + metric.alpha * primitive.pressure
+        - metric.beta * S_r
+    )
+
+    # Radiation's active direct-cell outer flux and the shared Valencia
+    # fluid flux use the same radial stress identity. The reconstructed HLL
+    # face primitives have no saved norm override, so their own face norm is
+    # still derived from the face metric and reconstructed coordinate speed.
+    assert _radiation_flux(metric, primitive)[2] == pytest.approx(
+        expected, rel=2.0e-15, abs=0.0
+    )
+    assert _valencia_flux(metric, primitive)[2] == pytest.approx(
+        expected, rel=2.0e-15, abs=0.0
+    )
+
