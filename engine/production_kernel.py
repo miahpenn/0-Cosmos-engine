@@ -162,6 +162,8 @@ class V55ProductionKernel:
     def _solve_lapse(
         grid, geometry, scalars, matter, *, electromagnetic_projection=None
     ):
+        if electromagnetic_projection is None:
+            return solve_cmc_lapse(grid, geometry, scalars, matter)
         return solve_cmc_lapse(
             grid, geometry, scalars, matter,
             electromagnetic_projection=electromagnetic_projection,
@@ -216,10 +218,15 @@ class V55ProductionKernel:
         adapter.vendor_modules()
         from bssn_characteristic_boundary import apply_light_constraint_boundary
 
-        total = assemble_total_stress_energy(
-            grid, geometry, scalars, matter,
-            electromagnetic_projection=electromagnetic_projection,
-        )
+        if electromagnetic_projection is None:
+            total = assemble_total_stress_energy(
+                grid, geometry, scalars, matter
+            )
+        else:
+            total = assemble_total_stress_energy(
+                grid, geometry, scalars, matter,
+                electromagnetic_projection=electromagnetic_projection,
+            )
         apply_light_constraint_boundary(
             grid, geometry, total.rho, total.j
         )
