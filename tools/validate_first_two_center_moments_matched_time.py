@@ -29,9 +29,9 @@ from engine.run_production import assert_finite_state
 from engine.stress_energy import assemble_total_stress_energy
 from engine.worldtube import current_residual, areal_radius_derivative
 
-SOURCE_COMMIT = "4e9cf694df7dad3616a78549995023f1e5c061fe"
+SOURCE_COMMIT = "dc89a3ddca71defe1995ce9372b4ae9aa8112f58"
 BASE_INITIAL_BLOB = "4cfbfe4be6ac3ce6ed492f4e435186997d94116a"
-BASE_KERNEL_BLOB = "2954e7a79656849b5f088053ea0f4ac97d4bb443"
+BASE_KERNEL_BLOB = "bbca746557dd1b5e74bbcf615a2c113a55cb0c57"
 VENDOR_COMMIT = "d6052d605673ce9d82cdc99b0df79855fa2ea215"
 RESOLUTIONS = (80, 120, 160)
 R_MAX = 80.0
