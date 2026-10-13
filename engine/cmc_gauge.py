@@ -20,6 +20,25 @@ def _d1(grid, values, parity):
     return grid.cell_derivative_fourth(values, parity=parity)
 
 
+def _even_ghost_centre_row_coefficients(c0, m0, rhs0, dr):
+    """Return the first-cell CMC PDE row using even reflection at r=0.
+
+    The grid is cell-centred, so alpha[0] and alpha[1] live at distinct
+    positive radii. Reflecting the first value across the origin and applying
+    the second-order PDE stencil gives a tridiagonal row compatible with the
+    solver's existing banded structure.
+    """
+    h = float(dr)
+    if not np.isfinite(h) or h <= 0.0:
+        raise ValueError("CMC centre-row spacing must be finite and positive")
+    if not all(np.isfinite(float(x)) for x in (c0, m0, rhs0)):
+        raise FloatingPointError("CMC centre-row coefficients must be finite")
+    c_half = float(c0) / (2.0 * h)
+    diagonal = -1.0 / h**2 - c_half - float(m0)
+    upper = 1.0 / h**2 + c_half
+    return float(diagonal), float(upper), float(rhs0)
+
+
 def target_kdot(grid, geometry, scalars, matter, outer_frac: float = 0.20) -> float:
     """Project the actual K RHS onto the CMC mode using proper 3-volume.
 
@@ -87,9 +106,15 @@ def solve_cmc_lapse(
     band = np.zeros((3, n), dtype=float)
     bvec = np.zeros(n, dtype=float)
 
-    # Regular center: alpha'(0)=0.
-    band[1, 0] = 1.0
-    band[0, 1] = -1.0
+    # Apply the CMC PDE at the first cell using an even-reflection ghost.
+    # Do not impose alpha[0] = alpha[1]: these are distinct positive radii on
+    # the cell-centred grid and the equality row drops the centre PDE.
+    diag0, upper0, rhs0 = _even_ghost_centre_row_coefficients(
+        c[0], m[0], rhs[0], h
+    )
+    band[1, 0] = diag0
+    band[0, 1] = upper0
+    bvec[0] = rhs0
 
     for i in range(1, n - 1):
         ci = c[i] / (2.0 * h)
