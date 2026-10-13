@@ -19,7 +19,6 @@ from .adaptive_step import (
     advance_with_radiation_admissibility_retries,
 )
 from .campaign import CampaignConfig, prepare_campaign
-from .production_contract import require_production_capabilities
 from .production_kernel import V55ProductionKernel
 from .worldtube import current_residual
 
@@ -160,11 +159,16 @@ def _write_ledgers(
     radiation_step_retries: list[dict] | None = None,
 ) -> None:
     run_dir.mkdir(parents=True, exist_ok=True)
+    # An initialization failure has no physical state to serialize, but it
+    # still needs a durable fail-closed ledger and retry log.
+    events = [] if state is None else state.cycle.events
+    handoffs = [] if state is None else state.handoffs
+    history = [] if state is None else state.history
     payload = {
         "result": _json_safe(asdict(result)),
-        "cycle_events": [_json_safe(asdict(e)) for e in state.cycle.events],
-        "handoffs": [_json_safe(asdict(h)) for h in state.handoffs],
-        "history": _json_safe(state.history),
+        "cycle_events": [_json_safe(asdict(e)) for e in events],
+        "handoffs": [_json_safe(asdict(h)) for h in handoffs],
+        "history": _json_safe(history),
         "radiation_step_retries": _json_safe(radiation_step_retries or []),
     }
     (run_dir / "ledgers.json").write_text(
@@ -188,11 +192,37 @@ def run_campaign(
 
     results: list[ResolutionResult] = []
     for resolution in config.resolutions:
-        state = kernel.initialize(
-            resolution=resolution,
-            r_max=config.r_max,
-            include_radiation=True,
-        )
+        try:
+            state = kernel.initialize(
+                resolution=resolution,
+                r_max=config.r_max,
+                include_radiation=True,
+            )
+        except (FloatingPointError, ValueError, TypeError, RuntimeError) as exc:
+            # Initialization can reject an inadmissible radiation seed before
+            # a ProductionState exists. Persist that rejection as a failed
+            # resolution so the campaign summary is still written fail-closed.
+            result = ResolutionResult(
+                resolution=resolution,
+                status="numerical_failure:initialization:" + str(exc),
+                t_final=0.0,
+                tau_final=0.0,
+                steps=0,
+                cycle_events=0,
+                handoffs=0,
+                checkpoint_count=0,
+                turnaround_events=0,
+                reexpansion_events=0,
+                trapped_root_count_max=0,
+                misner_sharp_current_max=None,
+                misner_sharp_current_rms=None,
+                last_diagnostics={"initialization_error": str(exc)},
+            )
+            run_dir = Path(config.output_dir) / f"N{resolution}"
+            _write_ledgers(None, run_dir, result, [])
+            results.append(result)
+            continue
+
         target_time = float(config.final_time)
         endpoint_tolerance = 1.0e-12 * max(1.0, abs(target_time))
         endpoint_correction = 0.0
