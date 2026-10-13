@@ -40,7 +40,7 @@ Relevance: its charged scalar is a complex Klein-Gordon field coupled with a U(1
 
 ### 4. Conservative relativistic fluid equations (Valencia)
 
-José A. Font, “Numerical Hydrodynamics in General Relativity,” *Living Reviews in Relativity* **11**, 7 (2008). DOI: https://doi.org/10.12942/lrr-2008-7 . Open review: https://link.springer.com/article/10.12942/lrr-2008-7
+José A. Font, “Numerical Hydrodynamics and Magnetohydrodynamics in General Relativity,” *Living Reviews in Relativity* **11**, article 7 (2008). DOI: https://doi.org/10.12942/lrr-2008-7 . Open review: https://link.springer.com/article/10.12942/lrr-2008-7
 
 Relevance: documents the Eulerian Valencia conserved variables and conservative finite-volume approach. The production code evolves densitized quantities; a covariant four-force must be lowered/projected and converted to these exact active variables before entering an RHS. A mixed-component helper or a continuum sign argument is not a substitute for an active-state test.
 
