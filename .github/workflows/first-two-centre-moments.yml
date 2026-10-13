@@ -47,7 +47,7 @@ jobs:
           python -m py_compile tests/test_initial_center_interval_moments.py
 
       - name: Test exact even-series moments
-        run: python -m pytest -q tests/test_initial_center_interval_moments.py tests/test_origin_half_cell_quadrature.py
+        run: python -m pytest -q tests/test_initial_center_interval_moments.py
 
       - name: Run complete repository regressions
         run: python -m pytest -q
