@@ -17,6 +17,9 @@ import sys
 
 import numpy as np
 
+# Running a script by path puts tools/ on sys.path, not the repository root.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
 SOURCE_COMMIT = "6d8b3f2790644591326df57c55908863f994cb0c"
 VENDOR_COMMIT = "d6052d605673ce9d82cdc99b0df79855fa2ea215"
 RESOLUTIONS = (40, 60, 80, 120, 160)
