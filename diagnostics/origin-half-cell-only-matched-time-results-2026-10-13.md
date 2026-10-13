@@ -36,7 +36,7 @@ At \(t=0.12\), the full-grid Hamiltonian maximum is reduced by **90.4–93.0%**,
 
 ## Mass/current/interval ledger
 
-The conservation check uses the production-defined \(dM_{\rm MS}/dt-(F_T+W_{pR})\) at the nearest coordinate cell to \(r=10\) (the cell is \(r=9.5\) at N=80 and \(r=9.75\) at N=120/160). It is **not** the separate fixed-areal-radius worldtube test.
+The conservation check uses the production-defined \(dM_{\rm MS}/dt-(F_T+W_{pR})\) at the nearest coordinate cell to \(r=10\): the selected coordinates are \(r=9.5\) at N=80, \(r=10.333333333333332\) at N=120, and \(r=9.75\) at N=160. At N=120, \(r=10\) is exactly midway between two cell centres; the existing floating-point `argmin` tie-break selects the outer centre. Baseline and candidate use the same selected cell at each N, but this is **not** a matched fixed-coordinate-radius or fixed-areal-radius worldtube test.
 
 | N | Current residual max, baseline → origin-only | Change | Interval mass-defect max, baseline → origin-only | Change |
 |---:|---:|---:|---:|---:|
