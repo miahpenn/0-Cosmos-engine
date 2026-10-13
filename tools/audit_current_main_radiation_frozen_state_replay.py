@@ -189,6 +189,7 @@ class RadiationStageCapture:
         self.kernel = None
         self.radiation_rhs_component_capture_calls = 0
         self.geometry_records: dict[tuple[str, int], dict] = {}
+        self.geometry_source_records: list[dict] = []
         self.geometry_counter = 0
         self._next_geometry_id = 0
         self.boundary_records: list[dict] = []
@@ -743,12 +744,106 @@ class RadiationStageCapture:
                         rate = self._copy_array(result["explicit"][field])
                         explicit_rates[field] = rate
                         self.arrays[f"{prefix}__explicit_rate__{field}"] = rate
+
+                    # Exact production L2 and L3 source split at this real PIRK
+                    # stage. The extra evaluations below are read-only observers:
+                    # their outputs are never passed back to the evolution.
+                    _, source_vacuum, _ = adapter_module.vendor_modules()
+                    raw_geometry_terms = source_vacuum.geometry_terms(grid, geometry)
+                    vacuum_l3 = source_vacuum.primary_l3_rhs(grid, geometry)
+                    lapse_hessian_Aa = -(
+                        np.asarray(raw_geometry_terms["DrDr_alpha"], dtype=float)
+                        - np.asarray(raw_geometry_terms["lap_alpha"], dtype=float) / 3.0
+                    )
+                    ricci_tracefree_Aa = np.asarray(geometry.alpha, dtype=float) * (
+                        np.asarray(raw_geometry_terms["Rr_r"], dtype=float)
+                        - np.asarray(raw_geometry_terms["R"], dtype=float) / 3.0
+                    )
+                    source_arrays = {
+                        "l2_Aa_lapse_hessian": lapse_hessian_Aa,
+                        "l2_Aa_ricci_tracefree": ricci_tracefree_Aa,
+                        "l2_Aa_actual": np.asarray(result["primary_l2"]["Aa"], dtype=float),
+                        "l2_K_minus_lap_alpha": -np.asarray(raw_geometry_terms["lap_alpha"], dtype=float),
+                        "l2_K_actual": np.asarray(result["primary_l2"]["K"], dtype=float),
+                        "l3_Aa_vacuum": np.asarray(vacuum_l3["Aa"], dtype=float),
+                        "l3_Aa_matter_difference": (
+                            np.asarray(result["primary_l3"]["Aa"], dtype=float)
+                            - np.asarray(vacuum_l3["Aa"], dtype=float)
+                        ),
+                        "l3_Aa_actual": np.asarray(result["primary_l3"]["Aa"], dtype=float),
+                        "l3_K_vacuum": np.asarray(vacuum_l3["K"], dtype=float),
+                        "l3_K_matter_difference": (
+                            np.asarray(result["primary_l3"]["K"], dtype=float)
+                            - np.asarray(vacuum_l3["K"], dtype=float)
+                        ),
+                        "l3_K_actual": np.asarray(result["primary_l3"]["K"], dtype=float),
+                    }
+                    for name, values in source_arrays.items():
+                        copied = self._copy_array(values)
+                        source_arrays[name] = copied
+                        self.arrays[f"{prefix}__source__{name}"] = copied
+
+                    n = int(stage_metric.a.size)
+                    outer = n - 1
+                    low = max(0, n - 5)
+                    def at_cell(values, i):
+                        return float(np.asarray(values, dtype=float)[i])
+                    source_record = {
+                        "prefix": prefix,
+                        "input_t": float(self.active_time),
+                        "trial_dt": float(self.active_dt),
+                        "ordinal": int(ordinal),
+                        "stage_label": {
+                            0: "accepted_input_after_current_CMC_solve",
+                            1: "explicit_predictor_before_primary_Aa_K_update",
+                            2: "primary_predictor_after_outer_boundary_and_CMC",
+                        }.get(int(ordinal), "other_geometry_stage"),
+                        "outer_cell": outer,
+                        "outer_radius": float(grid.centers[outer]),
+                        "outer_band": [],
+                        "closure_max_abs_all_cells": {
+                            "L2_Aa_lapse_hessian_plus_Ricci_minus_actual": float(np.max(np.abs(
+                                source_arrays["l2_Aa_lapse_hessian"]
+                                + source_arrays["l2_Aa_ricci_tracefree"]
+                                - source_arrays["l2_Aa_actual"]
+                            ))),
+                            "L2_K_minus_lap_alpha_minus_actual": float(np.max(np.abs(
+                                source_arrays["l2_K_minus_lap_alpha"]
+                                - source_arrays["l2_K_actual"]
+                            ))),
+                            "L3_Aa_vacuum_plus_matter_difference_minus_actual": float(np.max(np.abs(
+                                source_arrays["l3_Aa_vacuum"]
+                                + source_arrays["l3_Aa_matter_difference"]
+                                - source_arrays["l3_Aa_actual"]
+                            ))),
+                            "L3_K_vacuum_plus_matter_difference_minus_actual": float(np.max(np.abs(
+                                source_arrays["l3_K_vacuum"]
+                                + source_arrays["l3_K_matter_difference"]
+                                - source_arrays["l3_K_actual"]
+                            ))),
+                        },
+                        "outer_cell_terms": {},
+                    }
+                    for i in range(low, n):
+                        row = {
+                            "i": int(i),
+                            "r": float(grid.centers[i]),
+                            "Aa": float(stage_metric.Aa[i]),
+                            "K": float(stage_metric.K[i]),
+                            "alpha": float(stage_metric.alpha[i]),
+                        }
+                        row.update({name: at_cell(values, i) for name, values in source_arrays.items()})
+                        source_record["outer_band"].append(row)
+                    source_record["outer_cell_terms"] = source_record["outer_band"][-1]
+                    self.geometry_source_records.append(source_record)
+
                     self.geometry_records[key] = {
                         "prefix": prefix,
                         "input_t": float(self.active_time),
                         "ordinal": ordinal,
                         "stage_metric": stage_metric,
                         "explicit_rates": explicit_rates,
+                        "source_terms": source_arrays,
                     }
             return result
 
@@ -928,6 +1023,7 @@ class RadiationStageCapture:
             "failed_explicit_predictor_candidates": len(self.failed_trials),
             "radiation_rhs_component_capture_calls": self.radiation_rhs_component_capture_calls,
             "captured_geometry_stage_terms": len(self.geometry_records),
+            "geometry_source_term_capture_records": self.geometry_source_records,
             "outer_boundary_capture_calls": len(self.boundary_records),
             "outer_boundary_records": self.boundary_records,
             "geometry_stage_explicit_rates": [
@@ -1213,6 +1309,7 @@ def main() -> int:
             "failed_explicit_predictor_candidates": capture_summary.get("failed_explicit_predictor_candidates"),
             "radiation_rhs_component_capture_calls": capture_summary.get("radiation_rhs_component_capture_calls"),
             "captured_geometry_stage_terms": capture_summary.get("captured_geometry_stage_terms"),
+            "geometry_source_term_capture_records": len(capture_summary.get("geometry_source_term_capture_records", [])),
             "outer_boundary_capture_calls": capture_summary.get("outer_boundary_capture_calls"),
             "summary_sha256": sha256(capture.summary_path),
             "profiles_sha256": sha256(capture.profiles_path),
@@ -1271,6 +1368,7 @@ def main() -> int:
             "failed_explicit_predictor_candidates": capture_summary["failed_explicit_predictor_candidates"],
             "radiation_rhs_component_capture_calls": capture_summary["radiation_rhs_component_capture_calls"],
             "captured_geometry_stage_terms": capture_summary["captured_geometry_stage_terms"],
+            "geometry_source_term_capture_records": len(capture_summary["geometry_source_term_capture_records"]),
             "outer_boundary_capture_calls": capture_summary["outer_boundary_capture_calls"],
             "stage_capture_sha256": capture_summary_hash,
             "stage_capture_profiles_sha256": capture_profiles_hash,
