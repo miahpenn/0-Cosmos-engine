@@ -8,6 +8,7 @@ on:
       - engine/matter_system.py
       - engine/matter_rhs.py
       - tests/test_matter_rhs_direct_extraction.py
+      - tests/test_covariant_beta_source_one_step_ab.py
       - .github/workflows/matter-rhs-direct-extraction.yml
   pull_request:
     branches:
@@ -16,6 +17,7 @@ on:
       - engine/matter_system.py
       - engine/matter_rhs.py
       - tests/test_matter_rhs_direct_extraction.py
+      - tests/test_covariant_beta_source_one_step_ab.py
       - .github/workflows/matter-rhs-direct-extraction.yml
 
 permissions:
@@ -49,8 +51,10 @@ jobs:
       - name: Compile changed modules and tests
         run: |
           python -m py_compile engine/matter_system.py engine/matter_rhs.py
-          python -m py_compile tests/test_matter_rhs_direct_extraction.py
-      - name: Run focused contract tests
+          python -m py_compile tests/test_matter_rhs_direct_extraction.py tests/test_covariant_beta_source_one_step_ab.py
+      - name: Run focused direct-RHS contract tests
         run: python -m pytest -q tests/test_matter_rhs_direct_extraction.py
+      - name: Run matched covariant source A/B witnesses
+        run: python -m pytest -q -s tests/test_covariant_beta_source_one_step_ab.py
       - name: Run complete repository test suite
         run: python -m pytest -q
