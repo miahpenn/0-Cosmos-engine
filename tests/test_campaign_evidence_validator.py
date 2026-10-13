@@ -15,7 +15,24 @@ def _write_json(path: Path, payload) -> None:
     path.write_text(json.dumps(payload), encoding="utf-8")
 
 
-def _valid_campaign(root: Path, resolutions=(80, 120), final_time=2.5) -> Path:
+def _history_row(t: float, tau: float) -> dict:
+    """Minimal valid shape for a production-written diagnostic history row."""
+    return {
+        "t": t,
+        "tau": tau,
+        "H_eff": 0.01,
+        "M_MS": 0.05,
+        "chi_sigma": 0.99,
+        "flux_T": 1.0e-5,
+        "work_pR": 2.0e-4,
+        "hamiltonian_full_absmax": 3.9e-3,
+        "momentum_full_absmax": 1.5e-4,
+        "connection_full_absmax": 4.7e-6,
+        "determinant_constraint_max": 1.0e-12,
+    }
+
+
+def _valid_campaign(root: Path, resolutions=(80, 120), final_time=2.5, tau_final=2.75) -> Path:
     _write_json(
         root / "campaign_summary.json",
         {
@@ -29,6 +46,7 @@ def _valid_campaign(root: Path, resolutions=(80, 120), final_time=2.5) -> Path:
                     "resolution": n,
                     "status": "completed",
                     "t_final": final_time,
+                    "tau_final": tau_final,
                     "steps": 1,
                 }
                 for n in resolutions
@@ -43,9 +61,10 @@ def _valid_campaign(root: Path, resolutions=(80, 120), final_time=2.5) -> Path:
                     "resolution": n,
                     "status": "completed",
                     "t_final": final_time,
+                    "tau_final": tau_final,
                     "steps": 1,
                 },
-                "history": [{"t": 0.0}, {"t": final_time}],
+                "history": [_history_row(0.0, 0.0), _history_row(final_time, tau_final)],
             },
         )
         _write_json(root / f"N{n}" / "radiation_step_retries.json", [])
@@ -295,7 +314,11 @@ def test_rejects_nonincreasing_history_timestamps(tmp_path):
     ledger_path = root / "N80" / "ledgers.json"
     ledger = json.loads(ledger_path.read_text(encoding="utf-8"))
     ledger["result"]["steps"] = 2
-    ledger["history"] = [{"t": 0.0}, {"t": 2.5}, {"t": 2.5}]
+    ledger["history"] = [
+        _history_row(0.0, 0.0),
+        _history_row(2.5, 2.5),
+        _history_row(2.5, 2.75),
+    ]
     ledger_path.write_text(json.dumps(ledger), encoding="utf-8")
 
     with pytest.raises(CampaignEvidenceError, match="timestamps are not strictly increasing"):
@@ -332,4 +355,118 @@ def test_rejects_invalid_ledger_step_count(tmp_path, bad_steps):
     path.write_text(json.dumps(payload), encoding="utf-8")
 
     with pytest.raises(CampaignEvidenceError, match="ledger has invalid completed-step count"):
+        validate_campaign_evidence(root, (80, 120))
+
+@pytest.mark.parametrize(
+    "field",
+    [
+        "H_eff",
+        "M_MS",
+        "chi_sigma",
+        "flux_T",
+        "work_pR",
+        "hamiltonian_full_absmax",
+        "momentum_full_absmax",
+        "connection_full_absmax",
+        "determinant_constraint_max",
+    ],
+)
+def test_rejects_completed_history_without_required_diagnostic_fields(
+    tmp_path, field
+):
+    root = _valid_campaign(tmp_path / "campaign")
+    path = root / "N80" / "ledgers.json"
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    del payload["history"][0][field]
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(CampaignEvidenceError, match=f"no valid numeric diagnostic '{field}'"):
+        validate_campaign_evidence(root, (80, 120))
+
+
+@pytest.mark.parametrize("bad_value", [True, "0.01", None])
+def test_rejects_non_numeric_completed_history_diagnostic(tmp_path, bad_value):
+    root = _valid_campaign(tmp_path / "campaign")
+    path = root / "N80" / "ledgers.json"
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload["history"][0]["H_eff"] = bad_value
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(CampaignEvidenceError, match="no valid numeric diagnostic 'H_eff'"):
+        validate_campaign_evidence(root, (80, 120))
+
+
+@pytest.mark.parametrize("bad_value", [True, "2.75"])
+def test_rejects_non_numeric_summary_or_ledger_tau_final(tmp_path, bad_value):
+    root = _valid_campaign(tmp_path / "campaign")
+    summary_path = root / "campaign_summary.json"
+    summary = json.loads(summary_path.read_text(encoding="utf-8"))
+    summary["results"][0]["tau_final"] = bad_value
+    summary_path.write_text(json.dumps(summary), encoding="utf-8")
+    with pytest.raises(CampaignEvidenceError, match="summary has no valid tau_final"):
+        validate_campaign_evidence(root, (80, 120))
+
+    # Independently exercise the ledger field with a fresh valid campaign.
+    root = _valid_campaign(tmp_path / "ledger_campaign")
+    ledger_path = root / "N80" / "ledgers.json"
+    ledger = json.loads(ledger_path.read_text(encoding="utf-8"))
+    ledger["result"]["tau_final"] = bad_value
+    ledger_path.write_text(json.dumps(ledger), encoding="utf-8")
+    with pytest.raises(CampaignEvidenceError, match="ledger has no valid tau_final"):
+        validate_campaign_evidence(root, (80, 120))
+
+
+@pytest.mark.parametrize("bad_value", [True, "1.0"])
+def test_rejects_non_numeric_history_tau(tmp_path, bad_value):
+    root = _valid_campaign(tmp_path / "campaign")
+    path = root / "N80" / "ledgers.json"
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload["history"][1]["tau"] = bad_value
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(CampaignEvidenceError, match="history row 1 has no valid tau"):
+        validate_campaign_evidence(root, (80, 120))
+
+
+def test_rejects_nonincreasing_proper_time_history(tmp_path):
+    root = _valid_campaign(tmp_path / "campaign")
+    path = root / "N80" / "ledgers.json"
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload["history"][1]["tau"] = 0.0
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(CampaignEvidenceError, match="proper-time history is not strictly increasing"):
+        validate_campaign_evidence(root, (80, 120))
+
+
+def test_rejects_proper_time_history_that_does_not_start_at_zero(tmp_path):
+    root = _valid_campaign(tmp_path / "campaign")
+    path = root / "N80" / "ledgers.json"
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload["history"][0]["tau"] = 0.1
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(CampaignEvidenceError, match="proper-time history does not begin at tau=0"):
+        validate_campaign_evidence(root, (80, 120))
+
+
+def test_rejects_history_proper_time_not_matching_ledger_final(tmp_path):
+    root = _valid_campaign(tmp_path / "campaign")
+    path = root / "N80" / "ledgers.json"
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload["history"][-1]["tau"] = 2.6
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(CampaignEvidenceError, match="final history proper time .* does not match ledger tau_final"):
+        validate_campaign_evidence(root, (80, 120))
+
+
+def test_rejects_ledger_tau_final_mismatch_with_summary(tmp_path):
+    root = _valid_campaign(tmp_path / "campaign")
+    path = root / "N80" / "ledgers.json"
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload["result"]["tau_final"] = 2.6
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(CampaignEvidenceError, match="ledger tau_final does not match campaign summary"):
         validate_campaign_evidence(root, (80, 120))
