@@ -1,7 +1,7 @@
 # Scalar–dark-matter exchange: covariant-to-production derivation
 
-**Date:** 2026-10-13  
-**Scope:** Equation/sign/index/lapse/shift audit for PR #114 at its source convention; not a trajectory or physical-admission report.  
+**Scope:** Equation/sign/index/lapse/shift audit for PR #114 at its source convention; not a trajectory or physical-admission report.
+**Code revision audited:** `c563845eda553c22cdd71386f83e0e0d79b31166`; this document is added to the PR branch. Re-run exact-head regression workflows before promotion.
 **Candidate previously checked:** `c563845eda553c22cdd71386f83e0e0d79b31166` (the documentation commit that adds this file must be tested at its new exact head).
 
 ## Result in one line
@@ -14,11 +14,11 @@ The V5.5 archive locks the exchange-divergence pair
 \nabla_\mu T_{\phi}^{\mu\nu}=-\beta\rho_{\rm DM}\nabla^\nu\phi
 \]
 
-for signature \((-+++)). Given that locked law and the engine's archived-normalized scalar convention, the four source components in PR #114 follow from covariant projection; the moving-dust rest-current term follows from contracting the dust equation with its four-velocity. This closes the *law-to-coordinate-RHS mapping*. It does **not** derive the microscopic action or the numerical value \(\beta=-0.04\): the preserved GEAR-10 report explicitly records that the value of \(\beta\) still has no derivation. PR #114 must therefore remain draft for any gate that requires an action-level or parameter-origin derivation.
+for signature \((-+++)\). Given that locked law and the engine's archived-normalized scalar convention, the four source components in PR #114 follow from covariant projection; the moving-dust rest-current term follows from contracting the dust equation with its four-velocity. This closes the *law-to-coordinate-RHS mapping*. It does **not** derive the microscopic action or the numerical value \(\beta=-0.04\): the preserved GEAR-10 report explicitly records that the value of \(\beta\) still has no derivation. PR #114 must therefore remain draft for any gate that requires an action-level or parameter-origin derivation.
 
 ## 1. What is authoritative, and what is not
 
-The repository lock `docs/ARCHITECTURE_LOCKS.md` states \(\nabla_\mu T_{\rm DM}^{\mu\nu}=+\beta\rho_{\rm DM}\nabla^\nu\phi\), \(\beta=-0.04\), with the scalar receiving the opposite exchange. The preserved `GEAR_V5_5_STRONGFIELD_CLOSURE_AUDIT_2026-10-05.md`, §§8–9, records the same sign for signature \\((-+++)\\), gives the homogeneous equations, and specifies the covariant dust four-force as the inhomogeneous production route. Its corrected sign supersedes an earlier draft containing both signs.
+The repository lock `docs/ARCHITECTURE_LOCKS.md` states \(\nabla_\mu T_{\rm DM}^{\mu\nu}=+\beta\rho_{\rm DM}\nabla^\nu\phi\), \(\beta=-0.04\), with the scalar receiving the opposite exchange. The preserved `GEAR_V5_5_STRONGFIELD_CLOSURE_AUDIT_2026-10-05.md`, §§8–9, records the same sign for signature \((-+++)\), gives the homogeneous equations, and specifies the covariant dust four-force as the inhomogeneous production route. Its corrected sign supersedes an earlier draft containing both signs.
 
 This audit treats that equation as an **archived model postulate/closure**, not a result newly inferred from the implementation. I did not find an archived interaction action or mass function that derives the coupling form and fixes \(\beta\); this is material because the preserved GEAR-10 stability verdict says verbatim that \(\beta=-0.04\) still has no derivation. The following calculation cannot pay that separate theoretical debt by algebra alone.
 
