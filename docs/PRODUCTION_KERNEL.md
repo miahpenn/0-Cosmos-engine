@@ -15,6 +15,13 @@ The local adapter adds only the frozen V5.5 stress-energy projections:
 - baryonic dust;
 - radiation p=rho/3.
 
-The final production engine is not declared complete until the conservative
-matter states are advanced in lockstep with the BSSN stages and the invariant
-witnesses are recorded throughout the strong-field continuation.
+The production path now advances geometry, scalar fields, and conservative
+matter in lockstep through `engine/production_kernel.py`, with capability checks
+in `engine/production_contract.py` and invariant diagnostics in
+`engine/invariant_diagnostics.py`.
+
+That closes the software-integration requirement; it does **not** by itself
+establish scientific admission. Long-horizon radiation continuation, centre
+regularity and constraint propagation, multi-resolution convergence, and
+fixed-areal-radius Misner–Sharp balance remain independently gated. See
+[docs/STATUS.md](STATUS.md) for the current source-pinned status.
