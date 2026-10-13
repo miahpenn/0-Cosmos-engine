@@ -110,3 +110,16 @@ jobs:
               flush=True,
           )
           PY
+
+      - name: Piecewise even-moment full-kernel A/B plus signed Ricci (candidate PR only)
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.ref == 'diag/piecewise-even-moment-quadrature-2026-10-13'
+        run: python tools/validate_piecewise_even_moment_quadrature.py
+
+      - name: Preserve piecewise even-moment A/B evidence (candidate PR only)
+        if: always() && github.event_name == 'pull_request' && github.event.pull_request.head.ref == 'diag/piecewise-even-moment-quadrature-2026-10-13'
+        uses: actions/upload-artifact@v4
+        with:
+          name: piecewise-even-moment-all-intervals
+          path: results/piecewise-even-moment-all-intervals-matched-time/
+          if-no-files-found: warn
+          retention-days: 90
