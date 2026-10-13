@@ -204,7 +204,7 @@ def evaluate_arm(state, alpha: np.ndarray, row_info: dict, target: float,
         center_vendor_pde = None
     else:
         center_condition = None
-        center_pde = float(interior_pde[0])
+        center_pde = None
         d1row = _operator_row(grid, 1, 0)
         d2row = _operator_row(grid, 2, 0)
         center_vendor_pde = float(inv[0] * (d2row @ alpha + c[0]*(d1row @ alpha)) - Q[0]*alpha[0] + target)
@@ -231,7 +231,7 @@ def evaluate_arm(state, alpha: np.ndarray, row_info: dict, target: float,
     alpha_d1 = grid.cell_derivative_fourth(geom.alpha, parity=1)
     alpha_d2 = grid.cell_second_derivative_fourth(geom.alpha, parity=1)
     prod_lapse_minus_solve = np.asarray(l2["K"], dtype=float) + inv * (
-        d2 + c*d1 - alpha_d2 - c*alpha_d1
+        d2 + c*d1
     )
     refreshed_target = float(target_kdot(grid, geom, state.scalars, state.matter))
 
@@ -355,7 +355,7 @@ def run_audit(input_root: Path, output_dir: Path) -> dict:
                 center_row, outer_row
             )
             matrix_delta = float(np.max(np.abs(candidate - alpha)))
-            if matrix_delta > 1e-7:
+            if matrix_delta > 1e-8:
                 raise RuntimeError(f"reassembled current CMC system disagrees with production solve: {matrix_delta}")
             alpha = candidate
         else:
