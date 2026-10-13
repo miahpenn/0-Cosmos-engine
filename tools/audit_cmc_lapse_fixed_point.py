@@ -14,9 +14,14 @@ import argparse
 import hashlib
 import json
 import math
+import sys
 from pathlib import Path
 
 import numpy as np
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
 from engine.cmc_gauge import solve_cmc_lapse
 from engine.production_kernel import V55ProductionKernel
