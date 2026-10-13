@@ -43,6 +43,7 @@ from .matter_system import (
     _hll_flux,
     _valencia_flux,
     _valencia_source,
+    validate_species_admissibility,
 )
 from .scalar_system import ScalarFields, scalar_rhs_arrays
 from .v55_initial import build_initial_data
@@ -127,6 +128,10 @@ class V55ProductionKernel:
             width=width,
             D_amplitude=D_amplitude,
             include_radiation=include_radiation,
+        )
+        validate_species_admissibility(
+            metric_slice_from_q(grid, init.geometry), init.matter.radiation,
+            Species.RADIATION, stage="initialization",
         )
         # Initialize the production slice on the same stage-aware CMC gauge
         # that is carried throughout evolution.
@@ -222,6 +227,13 @@ class V55ProductionKernel:
         s0 = state.scalars
         m0 = state.matter
 
+        # Reject an inadmissible accepted input before CMC source assembly
+        # can recover radiation primitives; only this typed rejection retries.
+        validate_species_admissibility(
+            metric_slice_from_q(grid, g0), m0.radiation, Species.RADIATION,
+            stage="initial",
+        )
+
         # The lapse is elliptically determined by the current CMC slice.
         # Spatial shift is zero in the spherical CMC branch.
         g0.alpha = self._solve_lapse(
@@ -229,6 +241,10 @@ class V55ProductionKernel:
         )[0]
         g0.beta.fill(0.0)
         g0.B.fill(0.0)
+        validate_species_admissibility(
+            metric_slice_from_q(grid, g0), m0.radiation, Species.RADIATION,
+            stage="initial",
+        )
 
         srhs0, mrhs0, _ = self._rhs(
             ProductionState(
@@ -266,9 +282,17 @@ class V55ProductionKernel:
             )
         )
 
+        validate_species_admissibility(
+            metric_slice_from_q(grid, g_explicit1), m1.radiation,
+            Species.RADIATION, stage="explicit-predictor",
+        )
         g_explicit1.alpha = self._solve_lapse(
             grid, g_explicit1, s1, m1
         )[0]
+        validate_species_admissibility(
+            metric_slice_from_q(grid, g_explicit1), m1.radiation,
+            Species.RADIATION, stage="explicit-predictor",
+        )
         gterms_pred = adapter.geometry_stage_terms(
             grid, g_explicit1, s1, m1, lambda_m=LAMBDA_M
         )
@@ -294,6 +318,10 @@ class V55ProductionKernel:
         # characteristic reconstruction for Aa at the finite outer worldtube.
         # Apply it only after Lambda is current, as in the reference PIRK/CPBC
         # sequence. The CMC lapse is then re-solved on the conditioned slice.
+        validate_species_admissibility(
+            metric_slice_from_q(grid, g1), m1.radiation,
+            Species.RADIATION, stage="primary-predictor",
+        )
         self._apply_outer_light_boundary(grid, g1, s1, m1)
         # Resolve the CMC lapse on the full primary predictor, then
         # use that gauge state for the second split evaluation.
@@ -303,6 +331,10 @@ class V55ProductionKernel:
         g1.beta.fill(0.0)
         g1.B.fill(0.0)
         g1.assert_finite_positive()
+        validate_species_admissibility(
+            metric_slice_from_q(grid, g1), m1.radiation,
+            Species.RADIATION, stage="primary-predictor",
+        )
 
         # Re-evaluate the complete split on the primary-updated predictor.
         stage1 = ProductionState(
@@ -353,6 +385,13 @@ class V55ProductionKernel:
                 )
                 for name in ("dark_matter", "baryons", "radiation")
             )
+        )
+
+        # Validate the completed radiation state before the final implicit
+        # source projection. No variable is clipped or projected on rejection.
+        validate_species_admissibility(
+            metric_slice_from_q(grid, gnew), mnew.radiation,
+            Species.RADIATION, stage="final",
         )
 
         # Final implicit evaluation is taken on the final explicit state,
