@@ -189,16 +189,24 @@ def total_matter_projection(
         electromagnetic_projection, np.shape(scalar_e)
     )
 
-    total = {
-        "rho": scalar_e + fluid["rho"] + em["rho"],
-        "pr": scalar_pr + fluid["pr"] + em["pr"],
-        "pt": scalar_pt + fluid["pt"] + em["pt"],
-        "j": scalar_j + fluid["j"] + em["j"],
-    }
-    if electromagnetic_projection is not None and not all(
-        np.all(np.isfinite(value)) for value in total.values()
-    ):
-        raise ValueError("combined matter/EM projection is non-finite")
+    if electromagnetic_projection is None:
+        # Preserve the original scalar+fluid arithmetic path exactly when the
+        # optional sector is absent (including avoiding gratuitous +0 ops).
+        total = {
+            "rho": scalar_e + fluid["rho"],
+            "pr": scalar_pr + fluid["pr"],
+            "pt": scalar_pt + fluid["pt"],
+            "j": scalar_j + fluid["j"],
+        }
+    else:
+        total = {
+            "rho": scalar_e + fluid["rho"] + em["rho"],
+            "pr": scalar_pr + fluid["pr"] + em["pr"],
+            "pt": scalar_pt + fluid["pt"] + em["pt"],
+            "j": scalar_j + fluid["j"] + em["j"],
+        }
+        if not all(np.all(np.isfinite(value)) for value in total.values()):
+            raise ValueError("combined matter/EM projection is non-finite")
 
     return {
         **total,
