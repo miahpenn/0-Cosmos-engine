@@ -46,6 +46,33 @@ def _d1(grid, x, parity=1):
     return grid.d1(x, parity)
 
 
+_ORIGIN_HALF_CELL_WEIGHTS = (
+    401.0 / 720.0,
+    -31.0 / 480.0,
+    11.0 / 1440.0,
+)
+
+
+def _integrate_initial_origin_half_cell(src, dr):
+    """Integrate only [0, dr/2] from three cell-centred samples of an even source.
+
+    The Lagrange interpolant in x=r^2 makes this exact for 1, r^2, r^4.
+    Inter-centre intervals deliberately retain the production trapezoid.
+    """
+    values = np.asarray(src, dtype=float)
+    step = float(dr)
+    if values.ndim != 1 or values.size < 3:
+        raise ValueError("origin half-cell quadrature requires at least three source samples")
+    if not np.isfinite(step) or step <= 0.0:
+        raise ValueError("origin half-cell quadrature requires finite positive dr")
+    if not np.all(np.isfinite(values[:3])):
+        raise FloatingPointError("origin half-cell source samples are non-finite")
+    result = step * float(np.dot(_ORIGIN_HALF_CELL_WEIGHTS, values[:3]))
+    if not np.isfinite(result):
+        raise FloatingPointError("origin half-cell quadrature produced non-finite integral")
+    return result
+
+
 def build_initial_data(
     grid,
     vacuum_state_factory,
@@ -98,8 +125,10 @@ def build_initial_data(
             + 2.0 * r * r * Kr * Kt
             + r * r * Kt * Kt
         )
+        # Only the origin half-cell is integrated using the even-series rule.
+        # Every inter-centre interval remains the original production trapezoid.
         integ = np.cumsum(
-            np.r_[0.5 * dr * src[0],
+            np.r_[_integrate_initial_origin_half_cell(src, dr),
                   0.5 * dr * (src[1:] + src[:-1])]
         )
         B = integ / r
