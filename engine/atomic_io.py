@@ -2,6 +2,8 @@
 
 Writes are staged in the destination directory and made visible with os.replace,
 so readers see either the previous complete artifact or the new complete one.
+When supported, a best-effort parent-directory fsync is attempted after replacement;
+filesystem and hardware behavior still limit power-loss durability guarantees.
 This is output handling only; it does not change campaign or evolution semantics.
 """
 import os
@@ -28,6 +30,7 @@ def atomic_write_text(path: str | Path, content: str, *, encoding: str = "utf-8"
             os.fsync(stream.fileno())
         _preserve_existing_mode(target, temporary)
         os.replace(temporary, target)
+        _fsync_parent_directory(target.parent)
     except BaseException:
         try:
             temporary.unlink(missing_ok=True)
@@ -53,6 +56,7 @@ def atomic_savez_compressed(path: str | Path, **arrays) -> None:
             os.fsync(stream.fileno())
         _preserve_existing_mode(target, temporary)
         os.replace(temporary, target)
+        _fsync_parent_directory(target.parent)
     except BaseException:
         try:
             temporary.unlink(missing_ok=True)
@@ -68,3 +72,22 @@ def _preserve_existing_mode(target: Path, temporary: Path) -> None:
     except FileNotFoundError:
         return
     os.chmod(temporary, mode)
+
+
+def _fsync_parent_directory(parent: Path) -> None:
+    """Best-effort sync of rename metadata on platforms that support it."""
+    flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0)
+    try:
+        directory_fd = os.open(parent, flags)
+    except OSError:
+        return
+    try:
+        os.fsync(directory_fd)
+    except OSError:
+        # Some filesystems/platforms do not permit directory fsync.
+        pass
+    finally:
+        try:
+            os.close(directory_fd)
+        except OSError:
+            pass
