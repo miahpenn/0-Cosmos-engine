@@ -11,11 +11,19 @@ from engine.run_production import (
 )
 
 
-def _result(resolution, status="completed", t_final=1.0):
+def _result(
+    resolution,
+    status="completed",
+    t_final=1.0,
+    misner_sharp_current_max=None,
+    misner_sharp_current_rms=None,
+):
     return SimpleNamespace(
         resolution=resolution,
         status=status,
         t_final=t_final,
+        misner_sharp_current_max=misner_sharp_current_max,
+        misner_sharp_current_rms=misner_sharp_current_rms,
     )
 
 
@@ -59,6 +67,22 @@ def test_campaign_admission_rejects_nonfinite_final_time():
     assert any("N=40 final time is not finite" in error for error in errors)
 
 
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("misner_sharp_current_max", float("nan")),
+        ("misner_sharp_current_max", float("inf")),
+        ("misner_sharp_current_rms", float("-inf")),
+    ],
+)
+def test_campaign_admission_rejects_nonfinite_current_residual_summaries(field, value):
+    result = _result(40, **{field: value})
+
+    errors = campaign_admission_errors([result], _config(resolutions=(40,)))
+
+    assert any(f"N=40 {field} is not finite" in error for error in errors)
 
 def test_fixed_physical_mask_reports_peak_and_radius_from_same_region():
     radii = np.array([1.0, 3.0, 5.0, 7.0])
