@@ -374,6 +374,23 @@ def _fixed_target_interpolant_rate(
     }
 
 
+def _fixed_R_interpolant_balance(interpolant_rate: dict, stress_flux: float, pressure_work: float):
+    """Balance the fixed-R derivative against the *same* interpolant's sweep.
+
+    The native-derivative tube sweep and the piecewise-linear M(R,t)
+    interpolant sweep are distinct discrete operators. A direct-interpolant
+    rate must be compared with flux + pressure work + its own sweep.
+    """
+    fixed_rate = float(interpolant_rate["mass_dot_fixed_R"])
+    sweep = float(interpolant_rate["fixed_R_sweep"])
+    stress_flux = float(stress_flux)
+    pressure_work = float(pressure_work)
+    if not all(math.isfinite(value) for value in (fixed_rate, sweep, stress_flux, pressure_work)):
+        raise RuntimeError("fixed-R interpolant balance contains non-finite inputs")
+    predicted = stress_flux + pressure_work + sweep
+    return predicted, fixed_rate - predicted
+
+
 def _worldtube_sample(kernel, state, *, geometry_stage_capture=None) -> dict:
     """Evaluate native MS and EM-inclusive stress/flux/work on R=10."""
     grid, geom = state.grid, state.geometry
@@ -475,8 +492,8 @@ def _worldtube_sample(kernel, state, *, geometry_stage_capture=None) -> dict:
         interpolant_coordinate_residual = (
             interpolant_rate["interpolated_mass_dot_coordinate"] - (stress_flux + pressure_work)
         )
-        interpolant_fixed_R_residual = (
-            interpolant_rate["mass_dot_fixed_R"] - predicted_fixed_R_rate
+        interpolant_predicted_fixed_R_rate, interpolant_fixed_R_residual = (
+            _fixed_R_interpolant_balance(interpolant_rate, stress_flux, pressure_work)
         )
         chain_rule = {
             "tube_chain_rule_Rdot": at(Rdot),
@@ -506,6 +523,7 @@ def _worldtube_sample(kernel, state, *, geometry_stage_capture=None) -> dict:
             "tube_interpolant_mass_dot_coordinate": interpolant_rate["interpolated_mass_dot_coordinate"],
             "tube_interpolant_piecewise_dM_dR": interpolant_rate["piecewise_linear_mass_gradient"],
             "tube_interpolant_fixed_R_sweep": interpolant_rate["fixed_R_sweep"],
+            "tube_interpolant_predicted_fixed_R_rate": interpolant_predicted_fixed_R_rate,
             "tube_interpolant_mass_dot_fixed_R": interpolant_rate["mass_dot_fixed_R"],
             "tube_interpolant_coordinate_rate_minus_flux_pressure": interpolant_coordinate_residual,
             "tube_interpolant_fixed_R_residual": interpolant_fixed_R_residual,
@@ -626,6 +644,7 @@ def _fixed_R_rate_snapshot(sample: dict) -> dict:
         "tube_interpolant_mass_dot_coordinate",
         "tube_interpolant_piecewise_dM_dR",
         "tube_interpolant_fixed_R_sweep",
+        "tube_interpolant_predicted_fixed_R_rate",
         "tube_interpolant_mass_dot_fixed_R",
         "tube_interpolant_coordinate_rate_minus_flux_pressure",
         "tube_interpolant_fixed_R_residual",
@@ -1075,8 +1094,8 @@ def _accepted_pirk_update_tangent(step: dict, stage_rates: dict) -> dict:
     )
     predicted_with_pointwise_sweep = flux_average + pressure_average + pointwise_sweep
     pointwise_remainder = pointwise_rate - predicted_with_pointwise_sweep
-    interpolant_remainder = (
-        float(direct["mass_dot_fixed_R"]) - predicted_with_pointwise_sweep
+    predicted_with_interpolant_sweep, interpolant_remainder = (
+        _fixed_R_interpolant_balance(direct, flux_average, pressure_average)
     )
 
     R1 = np.asarray(areal_radius(grid, state1.geometry), dtype=float)
@@ -1103,6 +1122,12 @@ def _accepted_pirk_update_tangent(step: dict, stage_rates: dict) -> dict:
         "pirk_update_tangent_interpolant_sweep": float(direct["fixed_R_sweep"]),
         "pirk_update_tangent_predicted_rate_using_pointwise_sweep": float(
             predicted_with_pointwise_sweep
+        ),
+        "pirk_update_tangent_predicted_rate_using_interpolant_sweep": float(
+            predicted_with_interpolant_sweep
+        ),
+        "pirk_update_tangent_interpolant_sweep_difference_from_pointwise": float(
+            float(direct["fixed_R_sweep"]) - pointwise_sweep
         ),
         "pirk_update_tangent_pointwise_balance_remainder": float(pointwise_remainder),
         "pirk_update_tangent_interpolant_balance_remainder": float(interpolant_remainder),
@@ -1367,6 +1392,7 @@ def _fixed_R_interval_balance(run: dict, *, label: str = "run") -> list[dict]:
             "tube_interpolant_mass_dot_coordinate",
             "tube_interpolant_piecewise_dM_dR",
             "tube_interpolant_fixed_R_sweep",
+            "tube_interpolant_predicted_fixed_R_rate",
             "tube_interpolant_mass_dot_fixed_R",
             "tube_interpolant_coordinate_rate_minus_flux_pressure",
             "tube_interpolant_fixed_R_residual",
