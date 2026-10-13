@@ -39,6 +39,7 @@ jobs:
         run: python -m pytest -q
 
       - name: Run production campaign
+        id: campaign
         env:
           FINAL_TIME: ${{ inputs.final_time || '160.0' }}
           RESOLUTIONS: ${{ inputs.resolutions || '40,60,80' }}
@@ -58,8 +59,53 @@ jobs:
           print(results)
           PY
 
-      - name: Upload campaign outputs
-        if: always()
+      - name: Verify successful campaign evidence
+        if: steps.campaign.outcome == 'success'
+        env:
+          RESOLUTIONS: ${{ inputs.resolutions || '40,60,80' }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          root = Path("runs/final")
+          summary_path = root / "campaign_summary.json"
+          if not summary_path.is_file() or summary_path.stat().st_size == 0:
+              raise SystemExit(f"successful campaign missing non-empty {summary_path}")
+          summary = json.loads(summary_path.read_text(encoding="utf-8"))
+          if summary.get("admission", {}).get("passed") is not True:
+              raise SystemExit("successful campaign evidence does not record admission.passed=true")
+          expected = tuple(int(item.strip()) for item in os.environ["RESOLUTIONS"].split(",") if item.strip())
+          reported = tuple(int(item) for item in summary.get("campaign", {}).get("resolutions", []))
+          if reported != expected:
+              raise SystemExit(f"campaign resolution provenance mismatch: expected={expected}, reported={reported}")
+          results = {
+              int(item["resolution"]): item
+              for item in summary.get("results", [])
+              if isinstance(item, dict) and "resolution" in item
+          }
+          if set(results) != set(expected):
+              raise SystemExit(f"campaign result inventory mismatch: expected={expected}, reported={tuple(sorted(results))}")
+          for resolution in expected:
+              resolution_dir = root / f"N{resolution}"
+              for filename in ("ledgers.json", "radiation_step_retries.json"):
+                  evidence_path = resolution_dir / filename
+                  if not evidence_path.is_file() or evidence_path.stat().st_size == 0:
+                      raise SystemExit(f"successful campaign missing non-empty evidence file: {evidence_path}")
+                  json.loads(evidence_path.read_text(encoding="utf-8"))
+          print(f"SUCCESS_PATH_EVIDENCE_VALID summary={summary_path} resolutions={expected}")
+
+      - name: Upload successful campaign evidence
+        if: always() && steps.campaign.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: v55-final-campaign
+          path: runs/final/
+          if-no-files-found: error
+
+      - name: Preserve available outputs after unsuccessful campaign
+        if: always() && steps.campaign.outcome != 'success'
         uses: actions/upload-artifact@v4
         with:
           name: v55-final-campaign
