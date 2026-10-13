@@ -43,3 +43,38 @@ def test_proper_radial_ricci_reconstructs_constant_curvature_geometry():
         atol=2.0e-8,
     )
     assert np.max(np.abs(result["tf_ricci"][interior])) < 5.0e-8
+
+
+def test_vendor_tf_ricci_matches_proper_radial_on_constant_curvature_slice():
+    grid_ops, vacuum, _ = vendor_modules()
+    grid = grid_ops.SphericalCellGrid(160, 8.0)
+    r = np.asarray(grid.centers, dtype=float)
+    curvature = 1.0e-3
+    proper_factor = 1.0 / np.sqrt(1.0 - curvature * r * r)
+
+    # Conformal variables for gamma = f(r)^2 dr^2 + r^2 dOmega^2
+    # with det(conformal gamma)=1 and areal radius R=r.
+    state = vacuum.flat_state(grid)
+    state.a[:] = proper_factor ** (4.0 / 3.0)
+    state.b[:] = proper_factor ** (-2.0 / 3.0)
+    state.X[:] = proper_factor ** (-1.0 / 3.0)
+    state.alpha[:] = 1.0
+    state.beta[:] = 0.0
+    d1 = lambda values, parity: grid.cell_derivative_fourth(values, parity=parity)
+    state.Lambda[:] = (
+        d1(state.a, 1) / (2.0 * state.a * state.a)
+        - d1(state.b, 1) / (state.a * state.b)
+        + 2.0 / r * (1.0 / state.b - 1.0 / state.a)
+    )
+
+    direct = proper_radial_ricci(grid, r, proper_factor)
+    terms = vacuum.geometry_terms(grid, state)
+    vendor_tf = np.asarray(terms["Rr_r"] - terms["R"] / 3.0, dtype=float)
+    interior = r <= 2.0
+
+    # A 3-space of constant curvature has equal radial and tangential Ricci
+    # eigenvalues, so its trace-free Ricci vanishes. Both representations must
+    # reproduce that regular limit on the same pinned radial grid.
+    assert np.max(np.abs(direct["tf_ricci"][interior])) < 5.0e-6
+    assert np.max(np.abs(vendor_tf[interior])) < 5.0e-6
+    assert np.max(np.abs(vendor_tf[interior] - direct["tf_ricci"][interior])) < 5.0e-6
