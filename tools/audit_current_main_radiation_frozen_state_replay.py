@@ -509,7 +509,7 @@ class RadiationStageCapture:
             )
             if self.current_rhs_record is not None and species == matter_system_module.Species.RADIATION:
                 components = original_components(
-                    metric, state, species,
+                    metric, metric_derivatives, state, species,
                     dphi_t=dphi_t, dphi_r=dphi_r, beta_dm=beta_dm,
                 )
                 self.capture_rhs_components(metric, state, species, components)
