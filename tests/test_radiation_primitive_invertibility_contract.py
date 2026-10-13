@@ -404,7 +404,7 @@ def test_near_cone_flux_regression_detects_rounded_v_squared_product():
     )
     # Preserve the same near-null velocity while lowering density enough that
     # the one-ULP quadratic-product difference survives the final float64 flux rounding.
-    h = 1.1853981428841001e-25
+    h = 1.2e-25
     pressure = h / 4.0
     primitive = FluidPrimitive(
         rho=3.0 * pressure,
