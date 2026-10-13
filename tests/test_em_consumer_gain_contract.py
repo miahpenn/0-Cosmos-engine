@@ -152,18 +152,50 @@ def _assert_live_consumer_gain(state, monkeypatch):
     np.testing.assert_allclose(rhs1[-1] - rhs0[-1], 0.0, atol=0.0, rtol=0.0)
 
 
-def test_radial_e_consumer_gains_on_initial_and_accepted_production_slices(
+def test_radial_e_consumer_gains_at_actual_rhs_stages_and_endpoints(
     monkeypatch,
 ):
-    """Pin geometry/CMC consumer response without adding production EM physics."""
+    """Pin consumer response on the real RHS inputs without adding EM physics.
+
+    The synthetic increment is already expressed in the active engine's
+    consumer units. This does not select the Maxwell field scale or add the
+    increment to an evolved state; it checks the consumers against each exact
+    state passed into the production RHS, including the primary predictor.
+    """
     kernel = V55ProductionKernel()
     initial = kernel.initialize(
         resolution=40, r_max=40.0, include_radiation=True
     )
+    assert initial.t == 0.0
+
+    original_rhs = kernel._rhs
+    stage_witnesses = []
+
+    def inspect_rhs_entry(stage_state):
+        # Exercise the true gauge-refreshed start and primary-predictor input.
+        # _assert_live_consumer_gain patches only projection functions inside
+        # its context and restores them before the actual RHS is evaluated.
+        _assert_live_consumer_gain(stage_state, monkeypatch)
+        stage_witnesses.append({
+            "a": np.asarray(stage_state.geometry.a).copy(),
+            "alpha": np.asarray(stage_state.geometry.alpha).copy(),
+            "phi": np.asarray(stage_state.scalars.phi).copy(),
+            "dm_rest": np.asarray(stage_state.matter.dark_matter.rest).copy(),
+        })
+        return original_rhs(stage_state)
+
+    monkeypatch.setattr(kernel, "_rhs", inspect_rhs_entry)
     dt = 0.03 * float(initial.grid.dr)
     accepted = kernel.step(initial, dt)
-    assert initial.t == 0.0
     assert accepted.t > initial.t
+    assert len(stage_witnesses) == 2, (
+        "consumer-gain audit must observe both production RHS entry stages"
+    )
+    assert any(
+        not np.array_equal(stage_witnesses[0][name], stage_witnesses[1][name])
+        for name in ("a", "alpha", "phi", "dm_rest")
+    ), "the primary-predictor source state must differ from the refreshed start"
 
+    # Retain explicit endpoint checks in addition to the exact RHS-stage gates.
     _assert_live_consumer_gain(initial, monkeypatch)
     _assert_live_consumer_gain(accepted, monkeypatch)
