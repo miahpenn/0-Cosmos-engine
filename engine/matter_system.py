@@ -337,10 +337,18 @@ def _hll_flux(
     right: FluidPrimitive,
     species: Species,
 ) -> np.ndarray:
-    fl = _valencia_flux(metric, left)
-    fr = _valencia_flux(metric, right)
-    ul = _valencia_conserved(metric, left)
-    ur = _valencia_conserved(metric, right)
+    if species is Species.RADIATION:
+        # Radiation has no independently evolved rest-current channel. Keep
+        # its conserved/flux first component identically zero at every face.
+        fl = _radiation_flux(metric, left)
+        fr = _radiation_flux(metric, right)
+        ul = _radiation_conserved(metric, left)
+        ur = _radiation_conserved(metric, right)
+    else:
+        fl = _valencia_flux(metric, left)
+        fr = _valencia_flux(metric, right)
+        ul = _valencia_conserved(metric, left)
+        ur = _valencia_conserved(metric, right)
 
     c_s = 0.0 if species != Species.RADIATION else 1.0 / math.sqrt(3.0)
 
@@ -528,7 +536,11 @@ def evolve_species(
         face_flux[i + 1] = _hll_flux(mf, ql, qr, species)
 
     # Causal/outflow outer closure: continue the last physical state.
-    face_flux[-1] = _valencia_flux(metrics[-1], prim[-1])
+    # Radiation uses its zero-rest-current flux representation here too.
+    if species is Species.RADIATION:
+        face_flux[-1] = _radiation_flux(metrics[-1], prim[-1])
+    else:
+        face_flux[-1] = _valencia_flux(metrics[-1], prim[-1])
 
     out = state.copy()
     inv_dr = 1.0 / (metric.r[1] - metric.r[0])
