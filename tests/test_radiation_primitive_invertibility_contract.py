@@ -118,3 +118,33 @@ def test_zero_momentum_branch_remains_valid_including_vacuum(energy):
     assert primitive.rho == energy
     assert primitive.pressure == pytest.approx(energy / 3.0)
     assert primitive.v_r == 0.0
+
+@pytest.mark.parametrize("ratio", [0.5, 0.9999, 0.999999])
+@pytest.mark.parametrize("energy", [3.4091116247062796e-8, 1.0e-10])
+def test_radiation_pressure_recovery_is_invariant_under_density_scaling(ratio, energy):
+    """Scaling E and |S| together must not change the dimensionless pressure."""
+    metric = _flat_spherical_metric()
+    unit_scale = recover_radiation(metric, _conserved(E=1.0, S=ratio))
+    scaled = recover_radiation(
+        metric, _conserved(E=energy, S=energy * ratio)
+    )
+
+    assert scaled.pressure / energy == pytest.approx(
+        unit_scale.pressure, rel=2.0e-10, abs=1.0e-14
+    )
+    assert scaled.rho / energy == pytest.approx(
+        unit_scale.rho, rel=2.0e-10, abs=1.0e-14
+    )
+
+
+@pytest.mark.parametrize("ratio", [0.5, 0.9999, 0.999999])
+def test_low_energy_recovery_meets_relative_pressure_residual(ratio):
+    """A tiny absolute energy scale must not turn the residual test into a loose one."""
+    energy = 3.4091116247062796e-8
+    momentum = energy * ratio
+    pressure = recover_radiation(
+        _flat_spherical_metric(), _conserved(E=energy, S=momentum)
+    ).pressure
+    v2 = (momentum / (energy + pressure)) ** 2
+    residual = (3.0 * pressure - energy) + 4.0 * pressure * v2 / (1.0 - v2)
+    assert abs(residual) / energy <= 2.0e-12
