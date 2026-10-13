@@ -104,9 +104,11 @@ def _run_probe(resolution, dt):
         charged_dust_density=np.full(resolution, DENSITY, dtype=float),
     )
 
-    # Use a smooth, regular, nonzero carrier current that vanishes at both
-    # radial endpoints. Rebuild Q from that exact rest state so Gauss starts
-    # consistent; no existing GEAR species is charged or relabelled.
+    # The analytic velocity profile below vanishes at both radial endpoints.
+    # The finite-volume outer-face flux is nevertheless measured from the actual
+    # last-cell/stage reconstruction; do not force it to zero by assumption.
+    # Rebuild Q from the exact rest state so Gauss starts consistent; no
+    # existing GEAR species is charged or relabelled.
     r = np.asarray(state.grid.centers, dtype=float)
     x = r / R_MAX
     velocity = 0.08 * x * (1.0 - x)
