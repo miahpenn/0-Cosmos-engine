@@ -1,7 +1,9 @@
 # V5.5 Driver Audit — Derived Clock and E-fold Integration
 
+> **Historical audit — 13 October 2026 update.** The defects identified in this report were addressed by [PR #67](https://github.com/miahpenn/0-Cosmos-engine/pull/67), merged as `55b8e576134ea0e9026c335d13f37a143811fcd5`. That promotion added accepted-endpoint trapezoid accumulation for proper time/e-folds, preserved the updated endpoint history value, and corrected first-step H-crossing inputs. The `a0d610...` base and candidate branch recorded below are historical pins, not the current main tip. This report remains for source/evidence provenance; its old “fresh exact-head gates required” note is not a current task status. Use [docs/STATUS.md](STATUS.md) and [team task board #135](https://github.com/miahpenn/0-Cosmos-engine/issues/135) for present engineering/admission status. Scientific admission remains a separate, still-open gate.
+
 **Date:** 2026-10-13 UTC  
-**Refresh base:** current `main` at `a0d610d0f6c0de5587b8331bc3703225bbac425e`  
+**Historical audit refresh base:** `a0d610d0f6c0de5587b8331bc3703225bbac425e` (the `main` tip when this original audit was captured; not the current branch tip).  
 **Original candidate base:** `c01f2467347e8aebd57d220374fd7bc4e93045bc`  
 **Candidate branch:** `diag/driver-v55-clock-ledger-2026-10-13`  
 **Scope:** numerical bookkeeping only; no physics/source or vendor changes.
