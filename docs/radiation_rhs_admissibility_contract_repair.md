@@ -1,5 +1,7 @@
 # Radiation RHS admissibility contract repair
 
+> **Historical candidate note — 13 October 2026.** This document records the PR #10-era guard-placement candidate and its narrow checks. Its embedded statements that PRs #8/#9/#10/#11 remain draft or unmerged are historical and are not the live repository status. Use [docs/STATUS.md](STATUS.md) for current production/admission state and [Issue #135](https://github.com/miahpenn/0-Cosmos-engine/issues/135) for active work. Preserve the failed-run and candidate evidence below; do not use this document as a current implementation or merge-status checklist.
+
 Status: implementation regression gates pass; independent implementation review and admission remain pending.
 
 ## Exact repair validation
