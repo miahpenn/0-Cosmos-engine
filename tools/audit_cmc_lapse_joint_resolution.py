@@ -345,10 +345,15 @@ def run_resolution_audit(output_dir: Path) -> dict:
         rows.append(row)
         profiles.update(arrays)
 
-    ratios = [float(row["joint_to_current_target_ratio"]) for row in rows]
-    targets = [float(row["joint_target"]) for row in rows]
+    balanced_targets = [float(row["equilibrated"]["target"]) for row in rows]
+    balanced_ratios = [
+        float(row["equilibrated"]["target_to_current_ratio"]) for row in rows
+        if row["equilibrated"]["target_to_current_ratio"] is not None
+    ]
+    unscaled_pass_count = sum(bool(row["all_unscaled_checks_passed"]) for row in rows)
+    balanced_pass_count = sum(bool(row["all_equilibrated_checks_passed"]) for row in rows)
     report = {
-        "schema": "cmc_joint_discrete_target_lapse_initial_resolution_sweep_v1",
+        "schema": "cmc_joint_discrete_target_lapse_initial_resolution_sweep_v2",
         "status": "completed_diagnostic_only",
         "diagnostic_only": True,
         "no_evolution": True,
@@ -370,33 +375,48 @@ def run_resolution_audit(output_dir: Path) -> dict:
             "include_radiation": True,
             "all_slices_are_independent_initialized_t0_states": True,
             "states_are_not_same_time_late_trajectory_samples": True,
+            "linear_system_comparison": "original augmented solve versus algebraically equivalent row/column-equilibrated solve",
+            "acceptance_bounds_unchanged_between_solvers": True,
         },
         "sweep": {
             "resolution_count": len(rows),
-            "resolutions_passing": sum(bool(row["all_checks_passed"]) for row in rows),
-            "all_resolution_checks_passed": all(bool(row["all_checks_passed"]) for row in rows),
-            "joint_target_min": float(min(targets)),
-            "joint_target_max": float(max(targets)),
-            "joint_to_current_target_ratio_min": float(min(ratios)),
-            "joint_to_current_target_ratio_max": float(max(ratios)),
+            "unscaled_resolutions_passing": unscaled_pass_count,
+            "all_unscaled_resolution_checks_passed": unscaled_pass_count == len(rows),
+            "equilibrated_resolutions_passing": balanced_pass_count,
+            "all_equilibrated_resolution_checks_passed": balanced_pass_count == len(rows),
+            "equilibrated_joint_target_min": float(min(balanced_targets)),
+            "equilibrated_joint_target_max": float(max(balanced_targets)),
+            "equilibrated_target_to_current_ratio_min": float(min(balanced_ratios)),
+            "equilibrated_target_to_current_ratio_max": float(max(balanced_ratios)),
             "max_abs_lapse_change_over_resolutions": float(
-                max(float(row["max_abs_lapse_change"]) for row in rows)
+                max(float(row["equilibrated"]["max_abs_lapse_change_from_current_solver"]) for row in rows)
             ),
-            "worst_interior_rhs_residual": float(
-                max(float(row["joint_interior_rhs_residual_max_abs"]) for row in rows)
+            "worst_equilibrated_interior_rhs_residual": float(
+                max(float(row["equilibrated"]["interior_rhs_residual_max_abs"]) for row in rows)
             ),
-            "worst_abs_weighted_mean_closure": float(
-                max(abs(float(row["weighted_mean_minus_target"])) for row in rows)
+            "worst_equilibrated_abs_weighted_mean_closure": float(
+                max(abs(float(row["equilibrated"]["weighted_mean_minus_target"])) for row in rows)
             ),
-            "max_augmented_condition_number_2": float(
-                max(float(row["augmented_condition_number_2"]) for row in rows)
+            "max_raw_augmented_condition_number_2": float(
+                max(float(row["equilibrated"]["raw_equation_condition_number_2"]) for row in rows)
+            ),
+            "max_equilibrated_condition_number_2": float(
+                max(float(row["equilibrated"]["equilibrated_condition_number_2"]) for row in rows)
+            ),
+            "max_abs_equilibrated_minus_unscaled_target": float(
+                max(abs(float(row["target_difference_equilibrated_minus_unscaled"])) for row in rows)
+            ),
+            "max_abs_equilibrated_vs_unscaled_lapse_difference": float(
+                max(float(row["max_abs_lapse_difference_equilibrated_vs_unscaled"]) for row in rows)
             ),
         },
         "resolutions": rows,
         "interpretation_limits": [
             "These are independently initialized t=0 states on the same domain, not the same physical late-time slice remapped across grids.",
-            "The sweep probes resolution sensitivity of the discrete CMC target/lapse closure on the production initializer only.",
-            "It cannot establish same-time late-trajectory convergence, a physically preferred gauge, radiation admission, or production readiness.",
+            "The sweep probes numerical conditioning of the discrete CMC target/lapse closure on the production initializer only.",
+            "Row/column equilibration is an algebraically equivalent linear solve; no equation, boundary condition, or acceptance bound changes.",
+            "The unscaled method's failures remain in the report and are not recategorized as passes even if the equilibrated solve closes.",
+            "This cannot establish same-time late-trajectory convergence, a physically preferred gauge, radiation admission, or production readiness.",
             "Every solve freezes all non-lapse fields and records separate centre and outer boundary residuals.",
         ],
     }
@@ -417,7 +437,6 @@ def run_resolution_audit(output_dir: Path) -> dict:
     )
     return report
 
-
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--output-dir", type=Path, required=True)
@@ -427,19 +446,25 @@ def main() -> int:
     print(json.dumps({
         "status": report["status"],
         "resolutions": report["configuration"]["resolutions"],
-        "resolutions_passing": sweep["resolutions_passing"],
-        "all_resolution_checks_passed": sweep["all_resolution_checks_passed"],
-        "joint_to_current_target_ratio_min": sweep["joint_to_current_target_ratio_min"],
-        "joint_to_current_target_ratio_max": sweep["joint_to_current_target_ratio_max"],
-        "joint_target_min": sweep["joint_target_min"],
-        "joint_target_max": sweep["joint_target_max"],
-        "max_abs_lapse_change_over_resolutions": sweep["max_abs_lapse_change_over_resolutions"],
-        "worst_interior_rhs_residual": sweep["worst_interior_rhs_residual"],
-        "worst_abs_weighted_mean_closure": sweep["worst_abs_weighted_mean_closure"],
-        "max_augmented_condition_number_2": sweep["max_augmented_condition_number_2"],
+        "unscaled_resolutions_passing": sweep["unscaled_resolutions_passing"],
+        "all_unscaled_resolution_checks_passed": sweep["all_unscaled_resolution_checks_passed"],
+        "equilibrated_resolutions_passing": sweep["equilibrated_resolutions_passing"],
+        "all_equilibrated_resolution_checks_passed": sweep["all_equilibrated_resolution_checks_passed"],
+        "equilibrated_joint_target_min": sweep["equilibrated_joint_target_min"],
+        "equilibrated_joint_target_max": sweep["equilibrated_joint_target_max"],
+        "equilibrated_target_to_current_ratio_min": sweep["equilibrated_target_to_current_ratio_min"],
+        "equilibrated_target_to_current_ratio_max": sweep["equilibrated_target_to_current_ratio_max"],
+        "worst_equilibrated_interior_rhs_residual": sweep["worst_equilibrated_interior_rhs_residual"],
+        "worst_equilibrated_abs_weighted_mean_closure": sweep["worst_equilibrated_abs_weighted_mean_closure"],
+        "max_raw_augmented_condition_number_2": sweep["max_raw_augmented_condition_number_2"],
+        "max_equilibrated_condition_number_2": sweep["max_equilibrated_condition_number_2"],
+        "max_abs_equilibrated_minus_unscaled_target": sweep["max_abs_equilibrated_minus_unscaled_target"],
+        "max_abs_equilibrated_vs_unscaled_lapse_difference": sweep["max_abs_equilibrated_vs_unscaled_lapse_difference"],
         "artifact_output": str(args.output_dir),
     }, indent=2, sort_keys=True))
-    return 0 if sweep["all_resolution_checks_passed"] else 2
+    # The new numerical method gate is the equilibrated solve; raw unscaled
+    # failures are retained as a separate negative result, with no tolerance change.
+    return 0 if sweep["all_equilibrated_resolution_checks_passed"] else 2
 
 
 if __name__ == "__main__":
