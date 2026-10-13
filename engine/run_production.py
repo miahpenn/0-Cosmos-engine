@@ -42,6 +42,27 @@ class ResolutionResult:
     endpoint_roundoff_correction: float = 0.0
 
 
+def _due_checkpoint_times(
+    accepted_time: float,
+    next_checkpoint: float,
+    checkpoint_interval: float,
+) -> tuple[list[float], float]:
+    """Return checkpoint ticks reached by an accepted endpoint and the next tick.
+
+    Checkpoint files serialize accepted states, not interpolated states at their
+    filename times. A scheduled tick is therefore due only after the accepted
+    endpoint reaches it.
+    """
+    accepted = float(accepted_time)
+    next_tick = float(next_checkpoint)
+    interval = float(checkpoint_interval)
+    due = []
+    while accepted >= next_tick:
+        due.append(next_tick)
+        next_tick += interval
+    return due, next_tick
+
+
 def _assert_finite_payload(value, label: str) -> None:
     """Fail immediately when an evolved state or saved diagnostic is non-finite."""
     if isinstance(value, dict):
@@ -311,15 +332,17 @@ def run_campaign(
                 status = "numerical_failure:" + str(exc)
                 break
 
-            while state.t + 0.5 * dt >= next_checkpoint:
+            due_checkpoints, next_checkpoint = _due_checkpoint_times(
+                float(state.t), next_checkpoint, config.checkpoint_interval
+            )
+            for checkpoint_time in due_checkpoints:
                 path = (
                     Path(config.output_dir)
                     / f"N{resolution}"
-                    / f"checkpoint_t{next_checkpoint:012.6f}.npz"
+                    / f"checkpoint_t{checkpoint_time:012.6f}.npz"
                 )
                 kernel.checkpoint(state, path)
                 checkpoint_count += 1
-                next_checkpoint += config.checkpoint_interval
 
         if state.history:
             last = state.history[-1]
