@@ -7,8 +7,9 @@ projection. There is no separate interface reservoir.
 from dataclasses import dataclass
 import numpy as np
 
-from .scalar_system import ScalarFields, scalar_projection
-from .v55_matter import V55MatterState, metric_slice_from_q, total_fluid_projection
+from .scalar_system import ScalarFields
+from . import v55_matter
+from .v55_matter import V55MatterState
 
 
 @dataclass(frozen=True)
@@ -42,20 +43,23 @@ class TotalStressEnergy:
 
 def assemble_total_stress_energy(grid, geometry, scalars: ScalarFields,
                                  matter: V55MatterState) -> TotalStressEnergy:
-    scalar_rho, scalar_pr, scalar_pt, scalar_j = scalar_projection(
-        grid, geometry, scalars
+    # Keep one projection assembly for geometry/CMC and constraint,
+    # boundary, and diagnostic consumers. Future sector additions (including
+    # any approved EM projection) must enter this shared path once.
+    projection = v55_matter.total_matter_projection(
+        grid, geometry, scalars, matter
     )
-    metric = metric_slice_from_q(grid, geometry)
-    fluid = total_fluid_projection(metric, matter)
+    scalar = projection["scalar"]
+    fluid = projection["fluid"]
     return TotalStressEnergy(
-        rho=scalar_rho + fluid["rho"],
-        pr=scalar_pr + fluid["pr"],
-        pt=scalar_pt + fluid["pt"],
-        j=scalar_j + fluid["j"],
-        scalar_rho=scalar_rho,
-        scalar_pr=scalar_pr,
-        scalar_pt=scalar_pt,
-        scalar_j=scalar_j,
+        rho=projection["rho"],
+        pr=projection["pr"],
+        pt=projection["pt"],
+        j=projection["j"],
+        scalar_rho=scalar["rho"],
+        scalar_pr=scalar["pr"],
+        scalar_pt=scalar["pt"],
+        scalar_j=scalar["j"],
         fluid_rho=fluid["rho"],
         fluid_pr=fluid["pr"],
         fluid_pt=fluid["pt"],
