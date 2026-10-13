@@ -1,0 +1,78 @@
+name: Diagnostic - scalar DM exchange source pair
+
+on:
+  push:
+    branches:
+      - diag/scalar-dm-exchange-source-pair-2026-10-13
+    paths:
+      - tools/audit_scalar_dm_exchange_source_pair.py
+      - .github/workflows/scalar-dm-exchange-source-pair.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: scalar-dm-exchange-source-pair-2026-10-13
+  cancel-in-progress: false
+
+jobs:
+  source-pair-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      PYTHONUNBUFFERED: "1"
+      SOURCE_BASELINE: "c01f2467347e8aebd57d220374fd7bc4e93045bc"
+      VENDOR_COMMIT: "d6052d605673ce9d82cdc99b0df79855fa2ea215"
+    steps:
+      - name: Checkout the source-pinned branch and vendor
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install repository requirements
+        run: python -m pip install -r requirements.txt
+
+      - name: Compile audit
+        run: python -m py_compile tools/audit_scalar_dm_exchange_source_pair.py
+
+      - name: Fail closed on production/vendor/dependency drift
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin "$SOURCE_BASELINE"
+          test "$(git rev-parse HEAD)" != ""
+          test "$(git rev-parse "$SOURCE_BASELINE:engine/production_kernel.py")" = "2954e7a79656849b5f088053ea0f4ac97d4bb443"
+          test "$(git rev-parse HEAD:engine/production_kernel.py)" = "2954e7a79656849b5f088053ea0f4ac97d4bb443"
+          test "$(git rev-parse HEAD:engine/scalar_system.py)" = "ffc119b1a6f2d495d972323901f76a85783b0a1b"
+          test "$(git rev-parse HEAD:engine/matter_system.py)" = "4f99e3bb61736473d8b9220145aec9e4167a9cff"
+          test "$(git rev-parse HEAD:engine/valencia.py)" = "9eba0855936e1974a15314eacdc2f6c378072596"
+          test "$(git rev-parse HEAD:engine/v55_matter.py)" = "0f71164494e534ca4226c56c10058845d9a14e1d"
+          test "$(git rev-parse HEAD:engine/stress_energy.py)" = "c31c647f74fab6893254b3dea1366eada15b3110"
+          test "$(git rev-parse HEAD:vendor/bb-palatini-unified-r0)" = "$VENDOR_COMMIT"
+          changed="$(git diff --name-only "$SOURCE_BASELINE" HEAD -- engine vendor .gitmodules requirements.txt)"
+          if [ -n "$changed" ]; then
+            printf 'Unexpected production/vendor/dependency changes:\n%s\n' "$changed"
+            exit 1
+          fi
+          printf 'SOURCE_BASELINE=%s\nVENDOR_COMMIT=%s\n' "$SOURCE_BASELINE" "$VENDOR_COMMIT"
+
+      - name: Run full repository test suite
+        run: python -m pytest -q
+
+      - name: Evaluate separated scalar-DM sources on frozen t=0 slices
+        run: python tools/audit_scalar_dm_exchange_source_pair.py
+
+      - name: Preserve source-pair report and profiles
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scalar-dm-exchange-source-pair
+          path: results/scalar-dm-exchange-source-pair/
+          if-no-files-found: warn
+          retention-days: 90
