@@ -1,7 +1,7 @@
 # Electromagnetic carrier and action: source audit with external witnesses
 
 **Date:** 13 October 2026  
-**Repository production tip audited:** `a758454df6399c0fd4225a986472387d2d99fe73` (post-PR #148 canonical stress-projection merge)  
+**Production/source-tree baseline audited:** `a758454df6399c0fd4225a986472387d2d99fe73` (post-PR #148 canonical stress-projection merge; the subsequent main advance through `e96c117327ee2de97f0d535e651c5c41a5903bff` was status documentation only).  
 **Purpose:** derive what is fixed by the archive and standard electromagnetic theory; identify what is not derivable yet.  
 **Status:** research/design record only; not an approved production physics change.
 
@@ -71,6 +71,9 @@ These data support two cautions:
 - Ordinary matter's electromagnetic source depends on the *net charge/current* of its constituents. A cosmological baryonic-dust density alone does not determine a charge density or radial current. A realistic fluid description may need positive ions/protons and electrons (or a properly derived plasma/current closure), including their near-neutral cancellation and possible relative drift.
 
 These measurements do **not** rule out every hypothetical charged dark-sector model, nor identify a GEAR field as its carrier. They provide no external observation that S, D, COSMOS \(\phi\), or the D-ejection channel generates electric charge.
+
+
+A newer external witness reinforces the caution around dark-sector charge: Arza et al., “Geomagnetic Constraints on Millicharged Dark Matter,” *Physical Review Letters* 136, 041001 (2026), DOI [10.1103/8xqd-dbrz](https://doi.org/10.1103/8xqd-dbrz), use null results from SuperMAG and SNIPE Hunt to constrain bosonic millicharged dark matter in the ultralight 10^-18–10^-14 eV mass range. This demonstrates that charged-dark-matter models are actively testable hypotheses, not that the GEAR dark-matter fluid carries charge. The constraint is mass/model-specific and should not be generalized to rule out all charged dark sectors.
 
 ## 3. The action and current that can actually be derived
 
