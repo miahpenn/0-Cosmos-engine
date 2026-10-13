@@ -29,7 +29,8 @@ if str(ROOT) not in sys.path:
 
 from engine import production_kernel as kernel_module
 from engine import v55_pirk_adapter as adapter
-from engine.production_kernel import V55ProductionKernel, assert_finite_state
+from engine.production_kernel import V55ProductionKernel
+from engine.run_production import assert_finite_state
 from engine.stress_energy import assemble_total_stress_energy
 from engine.worldtube import areal_radius_derivative
 
