@@ -36,6 +36,14 @@ def _reject_nonstandard_json_constant(token: str) -> None:
     raise ValueError(f"non-standard JSON constant {token!r}")
 
 
+def _parse_finite_json_float(token: str) -> float:
+    """Reject JSON numeric literals that overflow Python's finite float range."""
+    value = float(token)
+    if not math.isfinite(value):
+        raise ValueError(f"JSON number {token!r} is outside finite float range")
+    return value
+
+
 def _reject_duplicate_json_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
     """Reject duplicate object member names instead of silently taking the last."""
     result: dict[str, Any] = {}
@@ -64,6 +72,7 @@ def _read_json(path: Path) -> Any:
             path.read_text(encoding="utf-8"),
             object_pairs_hook=_reject_duplicate_json_keys,
             parse_constant=_reject_nonstandard_json_constant,
+            parse_float=_parse_finite_json_float,
         )
     except (OSError, ValueError) as exc:
         raise CampaignEvidenceError(f"invalid JSON evidence file {path}: {exc}") from exc
