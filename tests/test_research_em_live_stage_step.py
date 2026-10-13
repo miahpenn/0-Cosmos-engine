@@ -6,7 +6,10 @@ a production capability, or scientific admission.
 """
 import numpy as np
 
+from engine.matter_rhs import species_rhs
+from engine.matter_system import Species
 from engine.production_kernel import V55ProductionKernel
+from engine.radial_maxwell import RadialMaxwellState
 from engine.v55_matter import metric_slice_from_q
 
 
@@ -53,25 +56,68 @@ def test_opt_in_radial_maxwell_runs_through_actual_pirk_stages(monkeypatch):
     stage_sources = []
     face_fluxes = []
     geometry_stress_deltas = []
+    rhs_injection = []
 
     rhs_original = kernel._rhs
     flux_original = kernel._charged_dust_mass_flux_faces
     geometry_original = kernel._geometry_stage_terms
+    lorentz_original = RadialMaxwellState.lorentz_source
+    active_lorentz_calls = {"calls": None}
+
+    def record_lorentz_source(em, *args, **kwargs):
+        returned = lorentz_original(em, *args, **kwargs)
+        # Capture the exact return tuple consumed by the production RHS, not
+        # a separately recomputed force that could mask a wiring discrepancy.
+        if active_lorentz_calls["calls"] is not None:
+            active_lorentz_calls["calls"].append((em, returned))
+        return returned
+
+    monkeypatch.setattr(
+        RadialMaxwellState, "lorentz_source", record_lorentz_source
+    )
 
     def record_rhs(stage):
-        result = rhs_original(stage)
+        observed_calls = []
+        active_lorentz_calls["calls"] = observed_calls
+        try:
+            result = rhs_original(stage)
+        finally:
+            active_lorentz_calls["calls"] = None
+
         if stage.electromagnetic is not None:
+            assert len(observed_calls) == 1
+            em_used, returned = observed_calls[0]
+            assert em_used is stage.electromagnetic
+            force_energy, force_momentum, values = returned
+
+            # Re-evaluate only the unforced carrier RHS on the exact same
+            # stage operands. The production RHS must equal that baseline plus
+            # the very same force arrays intercepted above, componentwise.
             metric = metric_slice_from_q(stage.grid, stage.geometry)
-            _, _, values = stage.electromagnetic.lorentz_source(
-                stage.grid,
-                stage.geometry,
-                metric,
-                stage.matter.charged_dust,
+            unforced = species_rhs(
+                metric, result[2], stage.matter.charged_dust, Species.BARYON
             )
+            actual = result[1]["charged_dust"]
+            np.testing.assert_array_equal(actual.rest, unforced.rest)
+            np.testing.assert_array_equal(
+                actual.energy_t, unforced.energy_t + force_energy
+            )
+            np.testing.assert_array_equal(
+                actual.momentum_r, unforced.momentum_r + force_momentum
+            )
+
             stage_sources.append({
                 key: np.asarray(value, dtype=float).copy()
                 for key, value in values.items()
             })
+            rhs_injection.append({
+                "energy_force_max": float(np.max(np.abs(force_energy))),
+                "momentum_force_max": float(np.max(np.abs(force_momentum))),
+                "matter_energy_rhs_max": float(np.max(np.abs(actual.energy_t))),
+                "matter_momentum_rhs_max": float(np.max(np.abs(actual.momentum_r))),
+            })
+        else:
+            assert not observed_calls
         return result
 
     def record_flux(stage):
@@ -113,6 +159,7 @@ def test_opt_in_radial_maxwell_runs_through_actual_pirk_stages(monkeypatch):
     # at the accepted-start and primary-predictor states.
     assert len(stage_sources) == 2
     assert len(face_fluxes) == 2
+    assert len(rhs_injection) == 2
     assert np.max(np.abs(stage_sources[1]["j_e_r"])) > 0.0
     assert np.max(np.abs(stage_sources[1]["source_energy"])) > 0.0
     assert np.max(np.abs(stage_sources[1]["source_momentum_r"])) > 0.0
