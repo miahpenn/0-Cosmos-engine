@@ -322,3 +322,14 @@ def test_rejects_history_that_does_not_reach_campaign_horizon(tmp_path):
 
     with pytest.raises(CampaignEvidenceError, match="final history timestamp .* does not match target"):
         validate_campaign_evidence(root, (80, 120))
+
+@pytest.mark.parametrize("bad_steps", [0, True, "1"])
+def test_rejects_invalid_ledger_step_count(tmp_path, bad_steps):
+    root = _valid_campaign(tmp_path / "campaign")
+    path = root / "N80" / "ledgers.json"
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload["result"]["steps"] = bad_steps
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(CampaignEvidenceError, match="ledger has invalid completed-step count"):
+        validate_campaign_evidence(root, (80, 120))
