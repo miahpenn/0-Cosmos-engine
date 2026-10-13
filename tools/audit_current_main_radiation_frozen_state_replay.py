@@ -48,6 +48,7 @@ SPECIES_NAMES = ("dark_matter", "baryons", "radiation")
 EXPECTED_DIAGNOSTIC_PATHS = {
     "tools/audit_current_main_radiation_frozen_state_replay.py",
     ".github/workflows/current_main_radiation_frozen_state_replay.yml",
+    "tests/test_radiation_stage_capture_retry_keys.py",
 }
 
 
@@ -173,12 +174,15 @@ class RadiationStageCapture:
         self.start_time = float(start_time)
         self.arrays: dict[str, np.ndarray] = {}
         self.state_records: dict[str, dict] = {}
-        self.rhs_records: dict[tuple[str, int], dict] = {}
-        self.rhs_geometry: dict[tuple[str, int], object] = {}
+        self.rhs_records: dict[tuple[str, int, int], dict] = {}
+        self.rhs_geometry: dict[tuple[str, int, int], object] = {}
         self.failed_trials: list[dict] = []
         self.active_state = None
         self.active_time = None
         self.active_dt = None
+        self.active_attempt_id = None
+        self._next_attempt_id = 0
+        self.step_attempt_records: list[dict] = []
         self.rhs_counter = 0
         self.current_rhs_record = None
         self.originals = {}
@@ -188,7 +192,7 @@ class RadiationStageCapture:
         self.accepted_step_outputs: list[dict] = []
         self.kernel = None
         self.radiation_rhs_component_capture_calls = 0
-        self.geometry_records: dict[tuple[str, int], dict] = {}
+        self.geometry_records: dict[tuple[str, int, int], dict] = {}
         self.geometry_source_records: list[dict] = []
         self.geometry_counter = 0
         self._next_geometry_id = 0
@@ -198,6 +202,29 @@ class RadiationStageCapture:
     @staticmethod
     def _copy_array(value):
         return np.ascontiguousarray(np.asarray(value, dtype=np.float64)).copy()
+
+    @staticmethod
+    def _stage_capture_key(input_time: float, attempt_id: int, ordinal: int) -> tuple[str, int, int]:
+        """Key a stage by accepted input time, trial attempt, and stage ordinal."""
+        return (float(input_time).hex(), int(attempt_id), int(ordinal))
+
+    @staticmethod
+    def _stage_profile_digest(grid, geometry, fields, matter) -> str:
+        """Hash every numerical profile at one observed geometry-stage call."""
+        digest = hashlib.sha256()
+        arrays = [("r", grid.centers)]
+        arrays.extend((f"geometry.{name}", getattr(geometry, name)) for name in GEOMETRY_FIELDS)
+        arrays.extend((f"scalars.{name}", getattr(fields, name)) for name in SCALAR_FIELDS)
+        for species_name in SPECIES_NAMES:
+            species = getattr(matter, species_name)
+            arrays.extend((f"matter.{species_name}.{name}", getattr(species, name))
+                          for name in SPECIES_FIELDS)
+        for name, values in arrays:
+            array = np.ascontiguousarray(np.asarray(values, dtype=np.float64))
+            digest.update(name.encode("utf-8") + b"\\0")
+            digest.update(str(array.shape).encode("ascii") + b"\\0")
+            digest.update(array.tobytes())
+        return digest.hexdigest()
 
     def _save_state(self, prefix: str, state):
         self.arrays[f"{prefix}__r"] = self._copy_array(state.grid.centers)
@@ -295,6 +322,13 @@ class RadiationStageCapture:
         self.active_state = state
         self.active_time = float(state.t)
         self.active_dt = float(dt)
+        self.active_attempt_id = self._next_attempt_id
+        self._next_attempt_id += 1
+        self.step_attempt_records.append({
+            "attempt_id": int(self.active_attempt_id),
+            "input_t": float(self.active_time),
+            "trial_dt": float(self.active_dt),
+        })
         self.rhs_counter = 0
         self.geometry_counter = 0
         self.current_rhs_record = None
@@ -315,6 +349,7 @@ class RadiationStageCapture:
         if float(advanced.t) >= self.start_time - 1.0e-10:
             metric = metric_slice_from_q(advanced.grid, advanced.geometry)
             summary = {
+                "attempt_id": int(self.active_attempt_id),
                 "t_before": float(state.t),
                 "t": float(advanced.t),
                 "tau": float(advanced.tau),
@@ -325,7 +360,7 @@ class RadiationStageCapture:
 
     def begin_rhs(self, stage_state, ordinal):
         self.current_rhs_record = None
-        key = (float(self.active_time).hex(), int(ordinal))
+        key = self._stage_capture_key(self.active_time, self.active_attempt_id, ordinal)
         if self.active_time is None or self.active_time < self.start_time - 1.0e-10 or key in self.rhs_records:
             return key
         prefix = f"rhs_{self._next_rhs_id:03d}"
@@ -334,6 +369,8 @@ class RadiationStageCapture:
             "key": key,
             "prefix": prefix,
             "input_t": float(self.active_time),
+            "attempt_id": int(self.active_attempt_id),
+            "trial_dt": float(self.active_dt),
             "rhs_ordinal": int(ordinal),
             "stage_geometry": self._geometry_metric(stage_state.grid, stage_state.geometry),
             "stage_state": stage_state,
@@ -408,7 +445,7 @@ class RadiationStageCapture:
 
     def _explicit_metric_rate_budget(self, predictor_metric, predictor_radiation):
         """Exact read-only split of the explicit a/X update at the failing guard."""
-        key = (float(self.active_time).hex(), 0)
+        key = self._stage_capture_key(self.active_time, self.active_attempt_id, 0)
         rec = self.geometry_records.get(key)
         if rec is None:
             return {"available": False, "reason": "no captured geometry-stage RHS at ordinal 0"}
@@ -473,6 +510,7 @@ class RadiationStageCapture:
             "method": "read-only explicit RHS; exact finite update; symmetric split of q=X^2/a interaction",
             "input_t": float(self.active_time),
             "trial_dt": dt,
+            "attempt_id": int(self.active_attempt_id),
             "geometry_stage_ordinal": 0,
             "geometry_stage_prefix": rec["prefix"],
             "outer_cell": outer,
@@ -526,6 +564,7 @@ class RadiationStageCapture:
         trial = {
             "prefix": prefix,
             "input_t": float(self.active_time),
+            "attempt_id": int(self.active_attempt_id),
             "requested_trial_dt": float(self.active_dt),
             "stage": str(stage),
             "exception_class": type(exc).__name__,
@@ -543,7 +582,7 @@ class RadiationStageCapture:
         active = self.active_state
         input_metric = metric_slice_from_q(active.grid, active.geometry)
         input_radiation = active.matter.radiation
-        cmc_metric = self.rhs_geometry.get((float(self.active_time).hex(), 0))
+        cmc_metric = self.rhs_geometry.get(self._stage_capture_key(self.active_time, self.active_attempt_id, 0))
         if cmc_metric is not None:
             metric_options = {
                 "accepted_metric": input_metric,
@@ -566,7 +605,7 @@ class RadiationStageCapture:
 
         # Exact algebraic check of the explicit matter predictor against the
         # observed first RHS. This is diagnostic verification, not a projection.
-        rhs_key = (float(self.active_time).hex(), 0)
+        rhs_key = self._stage_capture_key(self.active_time, self.active_attempt_id, 0)
         rhs_record = self.rhs_records.get(rhs_key)
         if rhs_record is not None:
             rhs = rhs_record["radiation_rhs"]
@@ -733,11 +772,12 @@ class RadiationStageCapture:
                 grid, geometry, fields, matter, lambda_m=lambda_m
             )
             if self.active_time is not None and self.active_time >= self.start_time - 1.0e-10:
-                key = (float(self.active_time).hex(), ordinal)
+                key = self._stage_capture_key(self.active_time, self.active_attempt_id, ordinal)
                 if key not in self.geometry_records:
                     prefix = f"geometry_{self._next_geometry_id:03d}"
                     self._next_geometry_id += 1
                     stage_metric = self._geometry_metric(grid, geometry)
+                    stage_state_sha256 = self._stage_profile_digest(grid, geometry, fields, matter)
                     self._save_metric(prefix, stage_metric)
                     explicit_rates = {}
                     for field in ("a", "b", "X"):
@@ -791,8 +831,10 @@ class RadiationStageCapture:
                     source_record = {
                         "prefix": prefix,
                         "input_t": float(self.active_time),
+                        "attempt_id": int(self.active_attempt_id),
                         "trial_dt": float(self.active_dt),
                         "ordinal": int(ordinal),
+                        "stage_state_sha256": stage_state_sha256,
                         "stage_label": {
                             0: "accepted_input_after_current_CMC_solve",
                             1: "explicit_predictor_before_primary_Aa_K_update",
@@ -840,7 +882,10 @@ class RadiationStageCapture:
                     self.geometry_records[key] = {
                         "prefix": prefix,
                         "input_t": float(self.active_time),
+                        "attempt_id": int(self.active_attempt_id),
+                        "trial_dt": float(self.active_dt),
                         "ordinal": ordinal,
+                        "stage_state_sha256": stage_state_sha256,
                         "stage_metric": stage_metric,
                         "explicit_rates": explicit_rates,
                         "source_terms": source_arrays,
@@ -857,6 +902,7 @@ class RadiationStageCapture:
             record = {
                 "index": self._next_boundary_id,
                 "input_t": float(self.active_time),
+                "attempt_id": int(self.active_attempt_id),
                 "trial_dt": float(self.active_dt),
                 "diagnostic_only": True,
             }
@@ -964,9 +1010,11 @@ class RadiationStageCapture:
 
     def _rhs_summary(self):
         rows = []
-        for (time_key, ordinal), rec in sorted(self.rhs_records.items(), key=lambda item: (float.fromhex(item[0][0]), item[0][1])):
+        for (time_key, attempt_id, ordinal), rec in sorted(self.rhs_records.items(), key=lambda item: (float.fromhex(item[0][0]), item[0][1], item[0][2])):
             row = {
                 "input_t": rec["input_t"],
+                "attempt_id": rec["attempt_id"],
+                "trial_dt": rec["trial_dt"],
                 "rhs_ordinal": rec["rhs_ordinal"],
                 "prefix": rec["prefix"],
                 "has_components": "components" in rec,
@@ -1015,21 +1063,62 @@ class RadiationStageCapture:
         for rec in ordered_states:
             item = {k: v for k, v in rec.items() if k != "prefix"}
             state_history.append(item)
+        geometry_source_keys = [
+            self._stage_capture_key(item["input_t"], item["attempt_id"], item["ordinal"])
+            for item in self.geometry_source_records
+        ]
+        attempt_ids = [item["attempt_id"] for item in self.step_attempt_records]
+        if len(attempt_ids) != len(set(attempt_ids)):
+            raise RuntimeError("step-attempt IDs are not unique")
+        if len(geometry_source_keys) != len(set(geometry_source_keys)):
+            raise RuntimeError("duplicate geometry-source stage key survived capture")
+        if len(self.geometry_source_records) != len(self.geometry_records):
+            raise RuntimeError("geometry-source records differ from keyed geometry-stage records")
+        attempt_capture_counts = []
+        for attempt in self.step_attempt_records:
+            attempt_id = attempt["attempt_id"]
+            attempt_capture_counts.append({
+                **attempt,
+                "captured_rhs_evaluations": sum(
+                    int(record["attempt_id"] == attempt_id) for record in self.rhs_records.values()
+                ),
+                "captured_geometry_stage_terms": sum(
+                    int(record["attempt_id"] == attempt_id) for record in self.geometry_records.values()
+                ),
+                "failed_explicit_predictor_candidates": sum(
+                    int(record["attempt_id"] == attempt_id) for record in self.failed_trials
+                ),
+            })
         summary = {
-            "schema": "radiation_explicit_predictor_stage_capture_v1",
+            "schema": "radiation_explicit_predictor_stage_capture_v2_attempt_scoped",
             "diagnostic_only": True,
             "accepted_state_count": len(self.state_records),
             "captured_rhs_evaluations": len(self.rhs_records),
             "failed_explicit_predictor_candidates": len(self.failed_trials),
             "radiation_rhs_component_capture_calls": self.radiation_rhs_component_capture_calls,
             "captured_geometry_stage_terms": len(self.geometry_records),
+            "step_attempts": attempt_capture_counts,
+            "capture_integrity": {
+                "attempt_count": len(self.step_attempt_records),
+                "unique_attempt_ids": len(set(attempt_ids)),
+                "geometry_source_record_count": len(geometry_source_keys),
+                "unique_geometry_source_keys": len(set(geometry_source_keys)),
+                "geometry_source_key_collisions": len(geometry_source_keys) - len(set(geometry_source_keys)),
+                "key_schema": "(input_time_hex, attempt_id, stage_ordinal)",
+                "every_stage_has_profile_sha256": all(
+                    bool(item.get("stage_state_sha256")) for item in self.geometry_source_records
+                ),
+            },
             "geometry_source_term_capture_records": self.geometry_source_records,
             "outer_boundary_capture_calls": len(self.boundary_records),
             "outer_boundary_records": self.boundary_records,
             "geometry_stage_explicit_rates": [
                 {
                     "input_t": rec["input_t"],
+                    "attempt_id": rec["attempt_id"],
+                    "trial_dt": rec["trial_dt"],
                     "ordinal": rec["ordinal"],
+                    "stage_state_sha256": rec["stage_state_sha256"],
                     "prefix": rec["prefix"],
                     "outer_cell": int(rec["stage_metric"].a.size - 1),
                     "outer_a_dot": float(rec["explicit_rates"]["a"][-1]),
@@ -1310,6 +1399,8 @@ def main() -> int:
             "radiation_rhs_component_capture_calls": capture_summary.get("radiation_rhs_component_capture_calls"),
             "captured_geometry_stage_terms": capture_summary.get("captured_geometry_stage_terms"),
             "geometry_source_term_capture_records": len(capture_summary.get("geometry_source_term_capture_records", [])),
+            "capture_integrity": capture_summary.get("capture_integrity"),
+            "step_attempts": capture_summary.get("step_attempts"),
             "outer_boundary_capture_calls": capture_summary.get("outer_boundary_capture_calls"),
             "summary_sha256": sha256(capture.summary_path),
             "profiles_sha256": sha256(capture.profiles_path),
@@ -1368,6 +1459,8 @@ def main() -> int:
             "failed_explicit_predictor_candidates": capture_summary["failed_explicit_predictor_candidates"],
             "radiation_rhs_component_capture_calls": capture_summary["radiation_rhs_component_capture_calls"],
             "captured_geometry_stage_terms": capture_summary["captured_geometry_stage_terms"],
+            "capture_integrity": capture_summary["capture_integrity"],
+            "step_attempts": capture_summary["step_attempts"],
             "geometry_source_term_capture_records": len(capture_summary["geometry_source_term_capture_records"]),
             "outer_boundary_capture_calls": capture_summary["outer_boundary_capture_calls"],
             "stage_capture_sha256": capture_summary_hash,
