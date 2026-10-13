@@ -323,7 +323,7 @@ def _valencia_source(
     E = h * W * W - q.pressure
     S_r = h * W * W * metric.gamma_rr * q.v_r
     S_up = metric.gamma_rr_inv * S_r
-    Srr = h * W * W * q.v_r * q.v_r + q.pressure * metric.gamma_rr_inv
+    Srr = h * W * W * q.v2 * metric.gamma_rr_inv + q.pressure * metric.gamma_rr_inv
     Sthth = q.pressure * metric.gamma_thth_inv
     Krr = metric.gamma_rr * (K / 3.0 + Aa)
     Kthth = metric.gamma_thth * (K / 3.0 - Aa / 2.0)
@@ -361,7 +361,7 @@ def _hll_flux(
     c_s = 0.0 if species != Species.RADIATION else 1.0 / math.sqrt(3.0)
 
     def speed(q: FluidPrimitive, sign: float) -> float:
-        vhat = math.sqrt(metric.gamma_rr) * q.v_r
+        vhat = math.copysign(math.sqrt(q.v2), q.v_r)
         denom = 1.0 + sign * vhat * c_s
         num = q.v_r + sign * c_s / math.sqrt(metric.gamma_rr)
         return metric.alpha * num / denom - metric.beta
@@ -392,7 +392,7 @@ def species_projection(
     for i, (m, q) in enumerate(zip(metrics, prim)):
         W = q.lorentz()
         h = q.rho + q.pressure
-        vhat2 = m.gamma_rr * q.v_r * q.v_r
+        vhat2 = q.v2
         rho[i] = (h * W * W - q.pressure) / KAPPA
         pr[i] = (h * W * W * vhat2 + q.pressure) / KAPPA
         pt[i] = q.pressure / KAPPA
@@ -483,7 +483,7 @@ def _radiation_source(metric, q, K, Aa, dr_alpha, dr_beta, dr_grr, dr_gthth):
     E = h * W * W - q.pressure
     S_r = h * W * W * metric.gamma_rr * q.v_r
     S_up = metric.gamma_rr_inv * S_r
-    Srr = h * W * W * q.v_r * q.v_r + q.pressure * metric.gamma_rr_inv
+    Srr = h * W * W * q.v2 * metric.gamma_rr_inv + q.pressure * metric.gamma_rr_inv
     Sthth = q.pressure * metric.gamma_thth_inv
     Krr = metric.gamma_rr * (K / 3.0 + Aa)
     Kthth = metric.gamma_thth * (K / 3.0 - Aa / 2.0)
