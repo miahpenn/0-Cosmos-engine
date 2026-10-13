@@ -237,6 +237,7 @@ def main() -> int:
         input_digest = _state_digest(state)
         captures = []
         active_stage = [None]
+        capture_enabled = [False]
         original_stage_terms = adapter.geometry_stage_terms
         original_geometry_terms = vacuum.geometry_terms
         original_l2 = vacuum.primary_l2_rhs
@@ -246,10 +247,10 @@ def main() -> int:
         def wrapped_geometry_terms(grid, geometry):
             terms = original_geometry_terms(grid, geometry)
             caller = sys._getframe(1)
-            # Only decompose genuine calls made while the vendor's primary L2
-            # routine is evaluating its production RHS, never unrelated users
-            # of the general geometry helper.
-            if caller.f_code.co_name == "primary_l2_rhs":
+            # Observe only primary L2 calls explicitly selected by the actual
+            # stage-split adapter or the direct final implicit update. Other
+            # constraint/diagnostic uses of the same helper remain untouched.
+            if capture_enabled[0] and caller.f_code.co_name == "primary_l2_rhs":
                 radii = _array(grid.centers)
                 alpha = _array(geometry.alpha)
                 captured = {
@@ -271,11 +272,21 @@ def main() -> int:
             return terms
 
         def wrapped_l2(grid, geometry):
+            caller = sys._getframe(1)
+            caller_name = caller.f_code.co_name
+            should_capture = caller_name in ("geometry_stage_terms", "step")
             before = len(captures)
-            result = original_l2(grid, geometry)
+            previous_capture_state = capture_enabled[0]
+            capture_enabled[0] = should_capture
+            try:
+                result = original_l2(grid, geometry)
+            finally:
+                capture_enabled[0] = previous_capture_state
+            if not should_capture:
+                return result
             if len(captures) != before + 1:
                 raise RuntimeError(
-                    "expected one observable geometry_terms call inside primary_l2_rhs; "
+                    f"{caller_name}: expected one geometry_terms call for selected L2 stage; "
                     f"captured {len(captures) - before}"
                 )
             captured = captures[-1]
