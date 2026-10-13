@@ -21,9 +21,30 @@ def effective_hubble(geometry, volumes) -> float:
     ) / 3.0
 
 
-def append_efolds(old_efolds: float, H_eff: float, dt: float) -> float:
-    """Integrate d ln a_eff / dt = H_eff without prescribing a scale factor."""
-    return old_efolds + H_eff * dt
+def integrate_rate_trapezoid(
+    old_value: float,
+    rate_start: float,
+    rate_end: float,
+    dt: float,
+) -> float:
+    """Advance an accumulated observable using endpoint rates over one step."""
+    return old_value + 0.5 * dt * (rate_start + rate_end)
+
+
+def append_efolds(
+    old_efolds: float,
+    H_eff: float,
+    dt: float,
+    *,
+    H_eff_start: float | None = None,
+) -> float:
+    """Integrate d ln a_eff / dt = H_eff without prescribing a scale factor.
+
+    Supplying H_eff_start uses a trapezoidal update. Omitting it preserves the
+    historical one-endpoint update for callers that do not have a start rate.
+    """
+    start = H_eff if H_eff_start is None else H_eff_start
+    return integrate_rate_trapezoid(old_efolds, start, H_eff, dt)
 
 
 def outer_observables(grid, geometry, scalars, total_stress,

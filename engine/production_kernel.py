@@ -29,7 +29,11 @@ from .invariant_diagnostics import (
     misner_sharp_mass_from_chi,
     trapping_indicator_from_areal_radius,
 )
-from .cosmology_observables import effective_hubble, append_efolds
+from .cosmology_observables import (
+    effective_hubble,
+    append_efolds,
+    integrate_rate_trapezoid,
+)
 from .stress_energy import assemble_total_stress_energy
 from .worldtube import areal_radius_derivative
 from .matter_rhs import species_rhs
@@ -235,11 +239,19 @@ class V55ProductionKernel:
             stage="initial",
         )
 
+        # The quadrature left endpoint is the saved accepted slice. Capture
+        # its lapse before the stage-local CMC refresh below; otherwise the
+        # accumulated tau would use a rate different from the tau_rate recorded
+        # for this endpoint in the campaign history.
+        H_eff_start = effective_hubble(state.geometry, grid.volumes)
+        tau_rate_start = float(state.geometry.alpha[0])
+
         # The lapse is elliptically determined by the current CMC slice.
         # Spatial shift is zero in the spherical CMC branch.
         g0.alpha = self._solve_lapse(
             grid, g0, s0, m0
         )[0]
+        tau_rate_start_refreshed = float(g0.alpha[0])
         g0.beta.fill(0.0)
         g0.B.fill(0.0)
         validate_species_admissibility(
@@ -447,13 +459,14 @@ class V55ProductionKernel:
 
         obs = self.diagnostics(candidate, profiles=False)
         candidate.e_folds = append_efolds(
-            state.e_folds, obs["H_eff"], dt
+            state.e_folds, obs["H_eff"], dt,
+            H_eff_start=H_eff_start,
         )
-        previous_H = (
-            state.history[-1]["H_eff"]
-            if state.history else obs["H_eff"]
+        candidate.tau = integrate_rate_trapezoid(
+            state.tau, tau_rate_start, obs["tau_rate"], dt
         )
-        candidate.tau += dt * obs["tau_rate"]
+        # Use the incoming state even on step one, when no history row exists.
+        previous_H = H_eff_start
         event = candidate.cycle.observe(
             len(candidate.history), candidate.t, candidate.tau,
             previous_H, obs["H_eff"],
@@ -476,6 +489,17 @@ class V55ProductionKernel:
         }
         obs["t"] = candidate.t
         obs["tau"] = candidate.tau
+        # diagnostics(candidate) was evaluated before the accumulated value
+        # was advanced; persist the value belonging to this accepted endpoint.
+        obs["e_folds"] = candidate.e_folds
+        # Expose the CMC start-stage refresh separately from the lapse rate
+        # actually attached to the accepted left endpoint and used in tau's
+        # endpoint quadrature. A difference is a gauge-solve witness, not hidden.
+        obs["tau_rate_start_accepted"] = tau_rate_start
+        obs["tau_rate_start_refreshed"] = tau_rate_start_refreshed
+        obs["tau_rate_start_refresh_delta"] = (
+            tau_rate_start_refreshed - tau_rate_start
+        )
         obs["cycle_event"] = event.kind if event else None
         candidate.history.append(obs)
         candidate.handoffs.append(hp)
