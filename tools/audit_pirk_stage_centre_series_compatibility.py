@@ -199,7 +199,8 @@ def _quotients(grid, geometry, scalars, sources, rates) -> dict[str, np.ndarray]
 
 def _series_summary(values, radii) -> dict:
     values = np.asarray(values, dtype=float)
-    finite_mask = np.isfinite(values)
+    radii = np.asarray(radii, dtype=float)
+    finite_mask = np.isfinite(values) & np.isfinite(radii)
     if not bool(np.all(finite_mask)):
         return {"all_finite": False}
     peak = int(np.argmax(np.abs(values)))
@@ -209,10 +210,40 @@ def _series_summary(values, radii) -> dict:
     ]
     fixed = []
     for target in FIXED_RADII:
-        i = int(np.argmin(np.abs(radii - target)))
-        fixed.append(
-            {"target_r": float(target), "i": i, "r": float(radii[i]), "value": float(values[i])}
+        # Interpolate at the requested physical radius instead of comparing
+        # whichever cell centre happens to be nearest at each resolution.
+        if target < float(radii[0]) or target > float(radii[-1]):
+            fixed.append({"target_r": float(target), "in_domain": False})
+            continue
+        right = int(np.searchsorted(radii, target, side="left"))
+        if right < radii.size and math.isclose(
+            float(radii[right]), float(target), rel_tol=0.0, abs_tol=1.0e-14
+        ):
+            left = right
+            weight_right = 0.0
+        else:
+            left = right - 1
+            if left < 0 or right >= radii.size:
+                fixed.append({"target_r": float(target), "in_domain": False})
+                continue
+            weight_right = float(
+                (target - radii[left]) / (radii[right] - radii[left])
+            )
+        value = (
+            (1.0 - weight_right) * float(values[left])
+            + weight_right * float(values[right])
         )
+        fixed.append({
+            "target_r": float(target),
+            "sample_r": float(target),
+            "value": float(value),
+            "method": "linear_interpolation_at_target_radius",
+            "left_i": left,
+            "left_r": float(radii[left]),
+            "right_i": right,
+            "right_r": float(radii[right]),
+            "weight_right": float(weight_right),
+        })
     return {
         "all_finite": True,
         "max_abs": _max_abs(values),
@@ -222,6 +253,22 @@ def _series_summary(values, radii) -> dict:
         "rms": float(np.sqrt(np.mean(values**2))),
         "centre_cells": centres,
         "fixed_radius_samples": fixed,
+    }
+
+
+def _closure_summary(residual, radii) -> dict:
+    """Locate increment-vs-RHS discrepancies without hiding boundary effects."""
+    residual = np.asarray(residual, dtype=float)
+    radii = np.asarray(radii, dtype=float)
+    peak = int(np.argmax(np.abs(residual)))
+    return {
+        "max_abs": _max_abs(residual),
+        "peak_i": peak,
+        "peak_r": float(radii[peak]),
+        "peak_signed": float(residual[peak]),
+        "centre_cells_i0_i5_max_abs": _max_abs(residual[:6]),
+        "interior_excluding_outer_two_max_abs": _max_abs(residual[:-2]),
+        "outer_two_cells_max_abs": _max_abs(residual[-2:]),
     }
 
 
@@ -514,6 +561,14 @@ def main() -> None:
         final_l2 = final_l2_captures[0]["rhs"]
         final_lambda_l2 = final_lambda_captures[0]["rhs"]
         checks = {}
+        closure_details = {}
+        radii = _array(state.grid.centers)
+
+        def record_closure(field, residual):
+            key = f"{field}_weighted_increment_minus_rhs_max_abs"
+            checks[key] = _max_abs(residual)
+            closure_details[field] = _closure_summary(residual, radii)
+
         explicit_fields = ("a", "b", "X")
         for field in explicit_fields:
             expected = 0.5 * (
@@ -522,7 +577,7 @@ def main() -> None:
             measured = (
                 _array(getattr(accepted.geometry, field)) - _array(getattr(state.geometry, field))
             ) / dt
-            checks[f"{field}_weighted_increment_minus_rhs_max_abs"] = _max_abs(measured - expected)
+            record_closure(field, measured - expected)
         for field in ("Aa", "K"):
             l2_final = _array(final_l2[field])
             expected = 0.5 * (
@@ -534,7 +589,7 @@ def main() -> None:
             measured = (
                 _array(getattr(accepted.geometry, field)) - _array(getattr(state.geometry, field))
             ) / dt
-            checks[f"{field}_weighted_increment_minus_rhs_max_abs"] = _max_abs(measured - expected)
+            record_closure(field, measured - expected)
         expected_lambda = 0.5 * (
             _array(t0["lambda_l2"]) + _array(final_lambda_l2)
             + _array(t0["lambda_l3"]) + _array(t_primary["lambda_l3"])
@@ -542,13 +597,16 @@ def main() -> None:
         measured_lambda = (
             _array(accepted.geometry.Lambda) - _array(state.geometry.Lambda)
         ) / dt
-        checks["Lambda_weighted_increment_minus_rhs_max_abs"] = _max_abs(
-            measured_lambda - expected_lambda
-        )
+        record_closure("Lambda", measured_lambda - expected_lambda)
 
         for field in ("a", "b", "X", "Aa", "K", "Lambda"):
             value = checks[f"{field}_weighted_increment_minus_rhs_max_abs"]
-            implementation_closures.append({"N": resolution, "field": field, "max_abs": value})
+            implementation_closures.append({
+                "N": resolution,
+                "field": field,
+                "max_abs": value,
+                "location_details": closure_details[field],
+            })
 
         if not bool(np.all(np.isfinite(np.asarray(list(checks.values()), dtype=float)))):
             raise FloatingPointError(f"N={resolution}: non-finite weighted increment closure")
@@ -585,6 +643,7 @@ def main() -> None:
             "actual_geometry_stage_call_order": [x["record"]["stage"] for x in stage_terms_records],
             "captured_stages": stage_records,
             "weighted_increment_reconstruction": checks,
+            "weighted_increment_reconstruction_details": closure_details,
             "raw_constraint_or_conservation_admission": "NOT_EVALUATED_BY_THIS_DIAGNOSTIC",
             "disposition": (
                 "one ordinary production step completed; stage traces localize numerical "
@@ -624,45 +683,32 @@ def main() -> None:
     npz_path = OUT / "profiles.npz"
     np.savez_compressed(npz_path, **all_profiles)
 
-    # Tabular view of every captured profile array, retaining full radial data.
+    # Tabular view of every captured radial profile array, retaining full data.
     csv_path = OUT / "profiles.csv"
     rows_written = 0
+    stage_prefixes = []
+    for stage_record in all_reports:
+        n_tag = f"N{stage_record['resolution']}_"
+        for stage in stage_record["captured_stages"]:
+            stage_prefixes.append(n_tag + stage["stage"] + "_")
+    stage_prefixes.sort(key=len, reverse=True)
+
     with csv_path.open("w", newline="", encoding="utf-8") as stream:
         writer = csv.writer(stream)
-        columns = ("profile_key", "i", "r", "value")
-        writer.writerow(columns)
+        writer.writerow(("profile_key", "i", "r", "value"))
         for key in sorted(all_profiles):
             values = np.asarray(all_profiles[key])
             if values.ndim != 1:
                 continue
-            if key.endswith("_r"):
+            stage_prefix = next(
+                (prefix for prefix in stage_prefixes if key.startswith(prefix)), None
+            )
+            if stage_prefix is None:
                 continue
-            # Associate every vector with its radial grid from the same N/stage.
-            prefix = key.rsplit("_", 1)[0]
-            # Array names have form N<resolution>_<stage>_<field>. Stage keys can
-            # contain underscores; locate the matching r profile by prefix scan.
-            parts = key.split("_")
-            n_label = parts[0]
-            matching = f"{n_label}_"
-            candidate_rs = [
-                v for k, v in all_profiles.items()
-                if k.startswith(matching) and k.endswith("_r")
-            ]
-            # Canonical r arrays are inserted as stage records' 'r'; their key is
-            # reconstructed from the profile key after stripping its final field.
-            stage_prefixes = []
-            for stage_record in all_reports:
-                n_tag = f"N{stage_record['resolution']}_"
-                for stage in stage_record["captured_stages"]:
-                    if key.startswith(n_tag + stage["stage"] + "_"):
-                        stage_prefixes.append(n_tag + stage["stage"] + "_")
-                for stage_name in ("accepted_final_state", "rhs_poststep_accepted_state",
-                                   "final_l2_explicit_state", "final_lambda_l2_primary_state"):
-                    if key.startswith(n_tag + stage_name + "_"):
-                        stage_prefixes.append(n_tag + stage_name + "_")
-            stage_prefix = max(stage_prefixes, key=len) if stage_prefixes else None
-            r_key = f"{stage_prefix}r" if stage_prefix else None
-            radii = all_profiles.get(r_key) if r_key else None
+            r_key = f"{stage_prefix}r"
+            radii = all_profiles.get(r_key)
+            if key == r_key:
+                continue
             if radii is None or np.asarray(radii).shape != values.shape:
                 # Non-profile metadata arrays are excluded from the radial CSV.
                 continue
