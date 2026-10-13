@@ -26,6 +26,8 @@ from engine.valencia import (
     RadiationAdmissibilityError as RecoveryAdmissibilityError,
     SphericalMetric,
     recover_radiation,
+    stress_tensor_contravariant,
+    mixed_flux,
     spherical_metric_from_bssn,
 )
 
@@ -343,5 +345,57 @@ def test_near_cone_radial_momentum_flux_uses_preserved_norm_with_shift(shift):
     )
     assert _valencia_flux(metric, primitive)[2] == pytest.approx(
         expected, rel=2.0e-15, abs=0.0
+    )
+
+@pytest.mark.parametrize("shift", [0.0, 0.17])
+def test_near_cone_mixed_tensor_helpers_preserve_solved_norm_with_shift(shift):
+    """Shifted mixed-tensor helpers retain the primitive's solved spatial v^2."""
+    metric = spherical_metric_from_bssn(
+        r=79.5,
+        a=0.5883984147590013,
+        b=1.3036606161142992,
+        X=0.9545747827302261,
+        alpha=1.0,
+        beta=shift,
+    )
+    primitive = recover_radiation(
+        metric,
+        _conserved(
+            E=2.4771114076139816e-4,
+            S=1.990541924362441e-4,
+        ),
+    )
+    assert primitive.velocity_norm_squared is not None
+
+    W = primitive.lorentz()
+    h = primitive.rho + primitive.pressure
+    shift_over_alpha = metric.beta / metric.alpha
+    gamma_rr_contravariant = (
+        metric.gamma_rr_inv - shift_over_alpha * shift_over_alpha
+    )
+    expected_Trr = h * W * W * (
+        primitive.v2 * metric.gamma_rr_inv
+        - 2.0 * shift_over_alpha * primitive.v_r
+        + shift_over_alpha * shift_over_alpha
+    ) + primitive.pressure * gamma_rr_contravariant
+    T = stress_tensor_contravariant(metric, primitive)
+    assert T["rr"] == pytest.approx(expected_Trr, rel=2.0e-15, abs=0.0)
+
+    expected_Tr_t = h * W * W * (
+        -metric.alpha * primitive.v_r
+        + metric.beta
+        + metric.beta * primitive.v2
+        - shift_over_alpha * metric.shift_cov * primitive.v_r
+    )
+    expected_Tr_r = h * W * W * (
+        primitive.v2
+        - shift_over_alpha * metric.gamma_rr * primitive.v_r
+    ) + primitive.pressure
+    flux = mixed_flux(metric, primitive)
+    assert flux.energy_t == pytest.approx(
+        metric.sqrt_minus_g * expected_Tr_t, rel=2.0e-15, abs=0.0
+    )
+    assert flux.momentum_r == pytest.approx(
+        metric.sqrt_minus_g * expected_Tr_r, rel=2.0e-15, abs=0.0
     )
 
