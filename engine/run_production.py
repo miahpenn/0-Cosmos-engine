@@ -37,8 +37,8 @@ class ResolutionResult:
     turnaround_events: int
     reexpansion_events: int
     trapped_root_count_max: int
-    misner_sharp_current_max: float
-    misner_sharp_current_rms: float
+    misner_sharp_current_max: float | None
+    misner_sharp_current_rms: float | None
     last_diagnostics: dict
     endpoint_roundoff_correction: float = 0.0
 
@@ -119,6 +119,23 @@ def campaign_admission_errors(results, config) -> list[str]:
                 f"{label} ended at t={final_time:.17g}, "
                 f"short of requested t={target_time:.17g}"
             )
+
+        # None means the current residual is undefined because too few time
+        # samples exist. A numeric value, when supplied, must be finite.
+        for field in (
+            "misner_sharp_current_max",
+            "misner_sharp_current_rms",
+        ):
+            value = getattr(result, field, None)
+            if value is None:
+                continue
+            try:
+                metric = float(value)
+            except (TypeError, ValueError, OverflowError):
+                errors.append(f"{label} {field} is not a finite number: {value!r}")
+                continue
+            if not math.isfinite(metric):
+                errors.append(f"{label} {field} is not finite: {value!r}")
     return errors
 
 
@@ -151,10 +168,10 @@ def _write_ledgers(
         "radiation_step_retries": _json_safe(radiation_step_retries or []),
     }
     (run_dir / "ledgers.json").write_text(
-        json.dumps(payload, indent=2)
+        json.dumps(payload, indent=2, allow_nan=False)
     )
     (run_dir / "radiation_step_retries.json").write_text(
-        json.dumps(_json_safe(radiation_step_retries or []), indent=2)
+        json.dumps(_json_safe(radiation_step_retries or []), indent=2, allow_nan=False)
     )
 
 
@@ -280,12 +297,23 @@ def run_campaign(
             rhs = np.asarray([
                 row["flux_T"] + row["work_pR"] for row in state.history
             ])
-            ms_residual = current_residual(times, masses, rhs)
-            ms_max = float(np.max(np.abs(ms_residual)))
-            ms_rms = float(np.sqrt(np.mean(ms_residual**2)))
+            ms_residual = np.asarray(
+                current_residual(times, masses, rhs), dtype=float
+            )
+            if ms_residual.size == 0 or not bool(np.all(np.isfinite(ms_residual))):
+                # A computed but invalid residual is a numerical failure, not
+                # an undefined metric and never a passing campaign result.
+                status = "numerical_failure:invalid_misner_sharp_current_residual"
+                ms_max = None
+                ms_rms = None
+            else:
+                ms_max = float(np.max(np.abs(ms_residual)))
+                ms_rms = float(np.sqrt(np.mean(ms_residual**2)))
         else:
-            ms_max = float("nan")
-            ms_rms = float("nan")
+            # The discrete current residual needs three distinct time samples.
+            # Use None so output is standard JSON null, not the non-standard NaN.
+            ms_max = None
+            ms_rms = None
         turnaround = sum(e.kind == "turnaround" for e in state.cycle.events)
         reexpansion = sum(e.kind == "re_expansion_crossing" for e in state.cycle.events)
         max_roots = max(
@@ -325,7 +353,7 @@ def run_campaign(
     out = Path(config.output_dir)
     out.mkdir(parents=True, exist_ok=True)
     (out / "campaign_summary.json").write_text(
-        json.dumps(summary, indent=2)
+        json.dumps(summary, indent=2, allow_nan=False)
     )
     if admission_errors:
         raise RuntimeError(
