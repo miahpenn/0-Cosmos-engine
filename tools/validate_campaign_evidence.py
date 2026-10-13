@@ -267,7 +267,9 @@ def validate_campaign_evidence(
                 )
             history_times.append(row_time)
             history_taus.append(row_tau)
-        if abs(history_times[0]) > time_tolerance:
+        # The production writer records its initial coordinate time as exactly
+        # 0.0; do not scale this origin invariant by a potentially huge horizon.
+        if history_times[0] != 0.0:
             raise CampaignEvidenceError(
                 f"N={resolution} ledger history does not begin at t=0"
             )
@@ -275,7 +277,8 @@ def validate_campaign_evidence(
             raise CampaignEvidenceError(
                 f"N={resolution} final history timestamp {history_times[-1]!r} does not match target {target_time:.17g}"
             )
-        if abs(history_taus[0]) > tau_tolerance:
+        # Proper time also has an exact zero origin in the production writer.
+        if history_taus[0] != 0.0:
             raise CampaignEvidenceError(
                 f"N={resolution} ledger proper-time history does not begin at tau=0"
             )
