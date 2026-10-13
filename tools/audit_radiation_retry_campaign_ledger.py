@@ -193,7 +193,7 @@ def main() -> int:
     accepted_dts = [float(item["accepted_dt"]) for item in retries]
     retry_counts = [int(item["retry_count"]) for item in retries]
     if not accepted_dts or min(accepted_dts) >= 1.0e-12:
-        raise RuntimeError("expected repeated-retry trace to reach sub-picosecond dt")
+        raise RuntimeError("expected the captured repeated-retry trace to reach dt below 1e-12 in code time")
     if max(retry_counts) < 20:
         raise RuntimeError(f"expected repeated retry contraction, max retries was {max(retry_counts)}")
     previous_t = -math.inf
@@ -271,7 +271,7 @@ def main() -> int:
         "interpretation_limits": [
             "The exact archived field profiles are restored, but cycle/history bookkeeping is initialized fresh and is not part of the accepted-state artifact.",
             "The runner failed to reach the target: retries drove accepted dt to approximately coordinate-time ulp scale, then radiation primitive inversion failed at the outer cell.",
-            "This candidate runner does not contain PR #3's strict campaign-admission contract; the short completed result must not be described as full campaign admission.",
+            "This candidate runner does not contain PR #3's strict campaign-admission contract; the noncompleted result is not campaign admission.",
             "This report verifies persisted retry-ledger mechanics only, not multi-step stability, convergence, conservation, centre regularity, or physical interpretation.",
             "No physics coefficient, source, boundary law, cone condition, clipping, projection, floor, damping, or production evolution equation is altered by this diagnostic.",
         ],
