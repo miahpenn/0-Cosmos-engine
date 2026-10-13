@@ -69,9 +69,15 @@ class FluidPrimitive:
     pressure: float
     v_r: float
     gamma_rr: float = 1.0
+    # A conservative-to-primitive solve can know v^2 more accurately than it
+    # can encode v_r and recover gamma_rr*v_r**2 near v^2=1. Preserve that
+    # solved norm when available, rather than losing an ulp and O(1) in W^2.
+    velocity_norm_squared: float | None = None
 
     @property
     def v2(self) -> float:
+        if self.velocity_norm_squared is not None:
+            return self.velocity_norm_squared
         return self.gamma_rr * self.v_r * self.v_r
 
     def lorentz(self) -> float:
@@ -206,6 +212,7 @@ def recover_radiation(
                 pressure=mid,
                 v_r=math.copysign(v, S_r),
                 gamma_rr=metric.gamma_rr,
+                velocity_norm_squared=v2,
             )
         if f_mid >= 0.0:
             hi = mid
@@ -222,6 +229,7 @@ def recover_radiation(
         pressure=mid,
         v_r=math.copysign(v, S_r),
         gamma_rr=metric.gamma_rr,
+        velocity_norm_squared=v2,
     )
 
 
