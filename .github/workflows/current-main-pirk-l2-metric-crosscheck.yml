@@ -1,0 +1,76 @@
+name: Diagnostic - current-main PIRK L2 independent metric cross-check
+
+on:
+  push:
+    branches:
+      - diag/current-main-pirk-l2-metric-crosscheck-2026-10-13
+    paths:
+      - tools/audit_current_main_pirk_l2_metric_crosscheck.py
+      - .github/workflows/current-main-pirk-l2-metric-crosscheck.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: current-main-pirk-l2-metric-crosscheck-2026-10-13
+  cancel-in-progress: false
+
+jobs:
+  independent-metric-crosscheck:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      PYTHONUNBUFFERED: "1"
+      SOURCE_COMMIT: "ec6b073ab3e9acb9f9bd76d06a02aa5b30825842"
+      SOURCE_KERNEL_BLOB: "bbca746557dd1b5e74bbcf615a2c113a55cb0c57"
+      VENDOR_COMMIT: "d6052d605673ce9d82cdc99b0df79855fa2ea215"
+    steps:
+      - name: Checkout isolated diagnostic branch and pinned vendor
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install repository requirements
+        run: python -m pip install -r requirements.txt
+
+      - name: Compile diagnostic
+        run: python -m py_compile tools/audit_current_main_pirk_l2_metric_crosscheck.py
+
+      - name: Fail closed on source/vendor drift and physics edits
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin "$SOURCE_COMMIT"
+          source_blob="$(git rev-parse "$SOURCE_COMMIT:engine/production_kernel.py")"
+          head_blob="$(git rev-parse "HEAD:engine/production_kernel.py")"
+          test "$source_blob" = "$SOURCE_KERNEL_BLOB"
+          test "$head_blob" = "$SOURCE_KERNEL_BLOB"
+          test "$(git rev-parse "HEAD:vendor/bb-palatini-unified-r0")" = "$VENDOR_COMMIT"
+          changed="$(git diff --name-only "$SOURCE_COMMIT" HEAD -- engine vendor .gitmodules requirements.txt)"
+          if [ -n "$changed" ]; then
+            printf 'Unexpected production/vendor/dependency changes:\n%s\n' "$changed"
+            exit 1
+          fi
+          printf 'SOURCE_COMMIT=%s\nSOURCE_KERNEL_BLOB=%s\nVENDOR_COMMIT=%s\n' \
+            "$SOURCE_COMMIT" "$SOURCE_KERNEL_BLOB" "$VENDOR_COMMIT"
+
+      - name: Run full repository regression suite
+        run: python -m pytest -q
+
+      - name: Capture independent metric and direct-D2 witnesses at actual PIRK L2 stages
+        run: python tools/audit_current_main_pirk_l2_metric_crosscheck.py
+
+      - name: Upload report and radial profiles
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: current-main-pirk-l2-independent-metric-crosscheck
+          path: results/current-main-pirk-l2-independent-metric-crosscheck/
+          if-no-files-found: warn
+          retention-days: 90
