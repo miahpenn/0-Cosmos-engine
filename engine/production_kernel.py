@@ -94,13 +94,14 @@ class ProductionState:
     geometry: object
     scalars: ScalarFields
     matter: V55MatterState
-    electromagnetic: RadialMaxwellState | None = None
     t: float = 0.0
     tau: float = 0.0
     e_folds: float = 0.0
     cycle: CycleLedger = field(default_factory=CycleLedger)
     history: list[dict] = field(default_factory=list)
     handoffs: list = field(default_factory=list)
+    # Optional feature-gated Maxwell state stays last to preserve positional API.
+    electromagnetic: RadialMaxwellState | None = None
 
 
 class V55ProductionKernel:
