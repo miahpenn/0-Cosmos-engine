@@ -2,7 +2,6 @@
 
 **Scope:** Equation/sign/index/lapse/shift audit for PR #114 at its source convention; not a trajectory or physical-admission report.
 **Code revision audited:** `c563845eda553c22cdd71386f83e0e0d79b31166`; this document is added to the PR branch. Re-run exact-head regression workflows before promotion.
-**Candidate previously checked:** `c563845eda553c22cdd71386f83e0e0d79b31166` (the documentation commit that adds this file must be tested at its new exact head).
 
 ## Result in one line
 
