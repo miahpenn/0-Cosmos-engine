@@ -39,7 +39,8 @@ jobs:
           changed="$(git diff --name-only "$BASE_MAIN_COMMIT" HEAD | sort)"
           expected="$(printf '%s\n' \
             '.github/workflows/initial-centre-series-capture.yml' \
-            'tools/audit_initial_centre_series.py' | sort)"
+            'tools/audit_initial_centre_series.py' \
+            'tools/audit_initial_origin_quadrature_ab.py' | sort)"
           if [ "$changed" != "$expected" ]; then
             printf 'Unexpected changes relative to exact main:\n%s\n' "$changed"
             exit 1
@@ -81,11 +82,14 @@ jobs:
 
       - name: Compile observer and run repository suite
         run: |
-          python -m py_compile tools/audit_initial_centre_series.py
+          python -m py_compile tools/audit_initial_centre_series.py tools/audit_initial_origin_quadrature_ab.py
           python -m pytest -q
 
       - name: Capture initialized profiles only (zero time steps)
         run: python tools/audit_initial_centre_series.py
+
+      - name: Compare production trapezoid and even-series origin quadrature (zero steps)
+        run: python tools/audit_initial_origin_quadrature_ab.py
 
       - name: Upload report, full radial profiles, and checksums
         if: always()
