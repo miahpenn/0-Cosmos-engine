@@ -50,6 +50,72 @@ def _validated_resolutions(values) -> tuple[int, ...]:
     return tuple(resolutions)
 
 
+def _validated_radial_maxwell_config(config, r_max: float):
+    """Validate an explicitly supplied, cross-resolution tabulated carrier profile.
+
+    The profile is caller input, not inferred from an existing GEAR field. Its
+    knots must cover exactly the requested radial domain so interpolation never
+    silently extrapolates physical initial data beyond the caller's prescription.
+    """
+    charge_to_mass = getattr(config, "radial_maxwell_charge_to_mass", None)
+    profile = getattr(config, "charged_dust_density_profile", None)
+    if charge_to_mass is None and profile is None:
+        return None, None
+    if charge_to_mass is None or profile is None:
+        raise ValueError(
+            "radial Maxwell requires both radial_maxwell_charge_to_mass and "
+            "charged_dust_density_profile"
+        )
+    if isinstance(charge_to_mass, bool) or not isinstance(charge_to_mass, Real):
+        raise ValueError("radial_maxwell_charge_to_mass must be a finite real number")
+    try:
+        eta = float(charge_to_mass)
+    except (OverflowError, ValueError) as exc:
+        raise ValueError(
+            "radial_maxwell_charge_to_mass must be a finite real number"
+        ) from exc
+    if not math.isfinite(eta):
+        raise ValueError("radial_maxwell_charge_to_mass must be a finite real number")
+
+    if isinstance(profile, (str, bytes)) or not isinstance(profile, Sequence):
+        raise ValueError(
+            "charged_dust_density_profile must be a sequence of (radius, density) knots"
+        )
+    if len(profile) < 2:
+        raise ValueError("charged_dust_density_profile requires at least two knots")
+    knots = []
+    for index, pair in enumerate(profile):
+        if (
+            isinstance(pair, (str, bytes))
+            or not isinstance(pair, Sequence)
+            or len(pair) != 2
+        ):
+            raise ValueError(
+                "each charged_dust_density_profile knot must be (radius, density)"
+            )
+        radius, density = pair
+        if (
+            isinstance(radius, bool) or not isinstance(radius, Real)
+            or isinstance(density, bool) or not isinstance(density, Real)
+        ):
+            raise ValueError("carrier profile radii and densities must be real numbers")
+        radius, density = float(radius), float(density)
+        if not math.isfinite(radius) or not math.isfinite(density):
+            raise ValueError("carrier profile radii and densities must be finite")
+        if radius < 0.0 or radius > r_max:
+            raise ValueError("carrier profile knot radii must lie within [0, r_max]")
+        if density < 0.0:
+            raise ValueError("carrier density profile must be nonnegative")
+        if knots and radius <= knots[-1][0]:
+            raise ValueError("carrier profile knot radii must be strictly increasing")
+        knots.append((radius, density))
+    if knots[0][0] != 0.0 or knots[-1][0] != r_max:
+        raise ValueError(
+            "carrier profile knots must explicitly include radius 0 and radius r_max"
+        )
+    return eta, tuple(knots)
+
+
 def _validate_config_values(config) -> dict:
     """Validate configuration values without running or changing physics."""
     resolutions = _validated_resolutions(config.resolutions)
@@ -58,6 +124,9 @@ def _validate_config_values(config) -> dict:
     final_time = _positive_finite("final_time", config.final_time)
     checkpoint_interval = _positive_finite(
         "checkpoint_interval", config.checkpoint_interval
+    )
+    charge_to_mass, carrier_profile = _validated_radial_maxwell_config(
+        config, r_max
     )
 
     # The pinned SphericalCellGrid defines dr = r_max / N. Validate the
@@ -126,6 +195,8 @@ def _validate_config_values(config) -> dict:
         "final_time": final_time,
         "checkpoint_interval": checkpoint_interval,
         "output_dir": output_dir,
+        "radial_maxwell_charge_to_mass": charge_to_mass,
+        "charged_dust_density_profile": carrier_profile,
     }
 
 
@@ -139,6 +210,10 @@ class CampaignConfig:
     final_time: float = 160.0
     checkpoint_interval: float = 2.0
     output_dir: str = "runs"
+    # Explicit research-only option. Both values must be supplied together.
+    # Knots are (coordinate radius, rest-frame density) and cover [0, r_max].
+    radial_maxwell_charge_to_mass: float | None = None
+    charged_dust_density_profile: tuple[tuple[float, float], ...] | None = None
 
     def __post_init__(self) -> None:
         # Fail at construction time for settings that could make the evolution
