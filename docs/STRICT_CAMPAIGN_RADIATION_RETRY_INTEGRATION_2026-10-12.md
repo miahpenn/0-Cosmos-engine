@@ -10,7 +10,7 @@ Reconcile the tested strict campaign runner and the typed radiation-cone retry m
 ## Source provenance
 
 - Strict runner/diagnostic base: `fix/strict-campaign-admission-2026-10-12`, head `d5a5b97eadcd5c565722e61262a22195baf3c1d5`.
-- Campaign preflight candidate: `fix/campaign-config-preflight-2026-10-12`, head `c9041799ece39cf64ae64ddf1cb45ae94a4b665c`.
+- Campaign preflight candidate: `fix/campaign-config-preflight-2026-10-12`, head `15a30ee8ad50b2c50cd9cc76dcf85f030b0daea0`.
 - Typed retry helper and radiation state-contract candidate: `fix/radiation-adaptive-step-on-cone-2026-10-12`, head `651dc124484e7c056b784033b69bedba6da0b5a5`.
 - PR #3's strict constraint/centre diagnostic additions in `engine/production_kernel.py` are preserved; the diverged adaptive branch's kernel was not copied wholesale.
 
