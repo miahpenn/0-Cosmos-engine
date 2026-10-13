@@ -155,8 +155,8 @@ def write_checkpoint(path: Path, metadata: dict, trajectory: dict) -> None:
     path.write_text(json.dumps(payload, indent=2, default=float))
 
 
-def _preflight_output_directory(output_dir: str) -> None:
-    """Prove the campaign destination can accept durable output before evolution."""
+def _preflight_output_directory(output_dir: str | Path) -> None:
+    """Verify an output directory is writable before campaign evolution."""
     path = Path(output_dir)
     try:
         path.mkdir(parents=True, exist_ok=True)
@@ -184,6 +184,8 @@ def prepare_campaign(kernel, config: CampaignConfig = CampaignConfig()):
     values = _validate_config_values(config)
     require_production_capabilities(kernel)
     _preflight_output_directory(values["output_dir"])
+    for resolution in values["resolutions"]:
+        _preflight_output_directory(Path(values["output_dir"]) / f"N{resolution}")
     return {
         **values,
         "status": "prepared_not_executed",
