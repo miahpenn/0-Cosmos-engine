@@ -160,10 +160,10 @@ def test_composite_flux_and_pressure_terms_are_interpolated_after_multiplication
         * np.interp(target, R, Rr)
     )
     assert composite_flux == pytest.approx(
-        np.interp(target, R, -4.0 * np.pi * 10.0**2 * alpha * gamma_inv * current * Rr)
+        np.interp(target, R, -4.0 * np.pi * R**2 * alpha * gamma_inv * current * Rr)
     )
     assert composite_work == pytest.approx(
-        np.interp(target, R, -4.0 * np.pi * 10.0**2 * pr * Rdot)
+        np.interp(target, R, -4.0 * np.pi * R**2 * pr * Rdot)
     )
     assert composite_flux != pytest.approx(product_of_interpolated_factors)
 
