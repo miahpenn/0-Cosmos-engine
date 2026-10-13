@@ -332,6 +332,22 @@ def test_covariant_source_candidate_vs_baseline_one_step_ab():
             ),
             "dm_rest_source_delta_max": float(np.max(np.abs(rest_delta))),
             "dm_radial_source_delta_max": float(np.max(np.abs(radial_delta))),
+            "direct_q_energy_projected_error_linf": float(
+                np.max(q_energy_error_projected)
+            ),
+            "direct_q_energy_projected_bound_linf": float(
+                np.max(q_energy_roundoff_bound)
+            ),
+            "direct_q_radial_projected_error_linf": float(
+                np.max(q_radial_error_projected)
+            ),
+            "direct_q_radial_projected_bound_linf": float(
+                np.max(q_radial_roundoff_bound)
+            ),
+            "projected_energy_pair_residual_linf": energy_residual_linf,
+            "projected_energy_pair_bound": energy_pair_bound,
+            "projected_current_pair_residual_linf": current_residual_linf,
+            "projected_current_pair_bound": current_pair_bound,
         })
         return scalar_baseline, matter_baseline, metric_derivatives
 
