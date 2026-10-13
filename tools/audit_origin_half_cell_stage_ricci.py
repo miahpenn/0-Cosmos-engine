@@ -25,6 +25,11 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from engine import production_kernel as kernel_module
+from engine import v55_pirk_adapter as adapter
+from engine.production_kernel import V55ProductionKernel
+from engine.run_production import assert_finite_state
+
 SOURCE_COMMIT = "c01f2467347e8aebd57d220374fd7bc4e93045bc"
 BASE_INITIAL_BLOB = "4cfbfe4be6ac3ce6ed492f4e435186997d94116a"
 CANDIDATE_INITIAL_BLOB = "3be4ec52490bcab9f1d71c5b21c347367c0b89f6"
