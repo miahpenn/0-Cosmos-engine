@@ -90,10 +90,15 @@ def _project_kdot_from_weights(
     """Project the actual K RHS using an already-validated proper measure."""
     _, vacuum, _ = adapter.vendor_modules()
     l2 = vacuum.primary_l2_rhs(grid, geometry)
-    l3 = adapter.primary_l3_with_matter(
-        grid, geometry, scalars, matter,
-        electromagnetic_projection=electromagnetic_projection,
-    )
+    if electromagnetic_projection is None:
+        l3 = adapter.primary_l3_with_matter(
+            grid, geometry, scalars, matter
+        )
+    else:
+        l3 = adapter.primary_l3_with_matter(
+            grid, geometry, scalars, matter,
+            electromagnetic_projection=electromagnetic_projection,
+        )
     # Validate each source contribution before combining them. Checking only
     # the sum is insufficient: NumPy can broadcast a malformed singleton
     # array against the grid-shaped contribution and hide the shape defect.
@@ -139,6 +144,10 @@ def target_kdot(
     """
     del outer_frac
     weights, total_weight = _proper_volume_weights(grid, geometry)
+    if electromagnetic_projection is None:
+        return _project_kdot_from_weights(
+            grid, geometry, scalars, matter, weights, total_weight
+        )
     return _project_kdot_from_weights(
         grid, geometry, scalars, matter, weights, total_weight,
         electromagnetic_projection=electromagnetic_projection,
@@ -160,10 +169,13 @@ def solve_cmc_lapse(
     del outer_frac
     weights, total_weight = _proper_volume_weights(grid, geometry)
     metric = metric_slice_from_q(grid, geometry)
-    total = total_matter_projection(
-        grid, geometry, scalars, matter,
-        electromagnetic_projection=electromagnetic_projection,
-    )
+    if electromagnetic_projection is None:
+        total = total_matter_projection(grid, geometry, scalars, matter)
+    else:
+        total = total_matter_projection(
+            grid, geometry, scalars, matter,
+            electromagnetic_projection=electromagnetic_projection,
+        )
 
     a = np.asarray(geometry.a)
     b = np.asarray(geometry.b)
@@ -183,10 +195,15 @@ def solve_cmc_lapse(
         + 4.0 * math.pi * (total["rho"] + total["pr"] + 2.0 * total["pt"])
     )
 
-    kdot = _project_kdot_from_weights(
-        grid, geometry, scalars, matter, weights, total_weight,
-        electromagnetic_projection=electromagnetic_projection,
-    )
+    if electromagnetic_projection is None:
+        kdot = _project_kdot_from_weights(
+            grid, geometry, scalars, matter, weights, total_weight
+        )
+    else:
+        kdot = _project_kdot_from_weights(
+            grid, geometry, scalars, matter, weights, total_weight,
+            electromagnetic_projection=electromagnetic_projection,
+        )
     m = Q / inv
     rhs = -kdot / inv
 
