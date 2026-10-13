@@ -1,0 +1,82 @@
+name: Initial radial quadrature plus CMC centre-row candidate
+
+on:
+  push:
+    branches:
+      - fix/initial-quadrature-cmc-centre-row-candidate-2026-10-13
+    paths:
+      - "engine/v55_initial.py"
+      - "engine/cmc_gauge.py"
+      - "tests/test_initial_radial_quadrature.py"
+      - "tests/test_cmc_centre_row_contract.py"
+      - "docs/INITIAL_QUADRATURE_AND_CMC_ROW_CANDIDATE-2026-10-13.md"
+      - ".github/workflows/initial_quadrature_cmc_candidate.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: initial-quadrature-cmc-candidate-2026-10-13
+  cancel-in-progress: false
+
+jobs:
+  numerical-candidate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      PYTHONUNBUFFERED: "1"
+    steps:
+      - name: Checkout candidate and pinned numerical kernel
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Run focused numerical contracts
+        run: python -m pytest -q tests/test_initial_radial_quadrature.py tests/test_cmc_centre_row_contract.py
+
+      - name: Run complete repository suite
+        run: python -m pytest -q
+
+      - name: Bounded full-machine production smoke on the candidate
+        run: |
+          python - <<'PY'
+          import json
+          from engine.campaign import CampaignConfig
+          from engine.run_production import run_campaign
+
+          config = CampaignConfig(
+              resolutions=(40,),
+              r_max=40.0,
+              cfl=0.03,
+              final_time=0.03,
+              checkpoint_interval=0.1,
+              output_dir="runs/initial-quadrature-cmc-candidate",
+          )
+          results = run_campaign(config=config)
+          assert len(results) == 1
+          assert results[0].status == "completed"
+          assert abs(results[0].t_final - config.final_time) <= 1.0e-12
+          with open("runs/initial-quadrature-cmc-candidate/campaign_summary.json", encoding="utf-8") as handle:
+              summary = json.load(handle)
+          assert summary["admission"]["passed"] is True
+          json.dumps(summary, allow_nan=False)
+          print("INITIAL_QUADRATURE_CMC_CANDIDATE_SMOKE_PASS", results[0], flush=True)
+          PY
+
+      - name: Preserve smoke output even if a gate fails
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: initial-quadrature-cmc-candidate-smoke
+          path: runs/initial-quadrature-cmc-candidate/
+          if-no-files-found: warn
+          retention-days: 90
