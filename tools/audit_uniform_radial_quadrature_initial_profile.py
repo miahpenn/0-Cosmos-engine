@@ -1,0 +1,173 @@
+#!/usr/bin/env python3
+"""Compare baseline, origin-only and uniformly fourth-order radial quadrature.
+
+The third arm uses a cubic Lagrange integral on every center-to-center
+interval, with an even-reflection ghost value at the first interval and a
+one-sided cubic rule at the final interval. The origin half-cell uses the
+previous exact-in-r^2 quadrature. All physical initial data, source equations,
+six fixed-point iterations, matter initialization, and the later CMC solve are
+unchanged. Frozen t=0 only; no evolution or production source edits.
+"""
+from __future__ import annotations
+import json, math, sys
+from pathlib import Path
+import numpy as np
+
+SOURCE_COMMIT="9f0bd16d403ada22a4f21413048c93b37c9924a7"
+VENDOR_COMMIT="d6052d605673ce9d82cdc99b0df79855fa2ea215"
+RESOLUTIONS=(40,60,80,120,160,240,320)
+R_MAX=80.0
+OUT=Path("results/uniform-radial-quadrature-initial-profile")
+sys.path.insert(0,str(Path(".").resolve()))
+
+from tools.origin_half_cell_quadrature_regularity_ab import (
+    AMPLITUDE, WIDTH, D_AMPLITUDE, ORIGIN_WEIGHTS,
+    counterfactual_build_initial_data,
+)
+from engine import v55_pirk_adapter as adapter
+from engine.production_kernel import ProductionState, V55ProductionKernel
+from engine.scalar_system import ScalarFields, cosmos_potential
+from engine.v55_matter import (
+    RHO_DM_PRESENT, RHO_B_PRESENT, RHO_R_PRESENT, initialize_from_archive,
+)
+from engine.stress_energy import assemble_total_stress_energy
+
+grid_ops,vacuum,_=adapter.vendor_modules()
+
+
+def d1(grid,v,parity=+1):
+    return np.asarray(grid.cell_derivative_fourth(np.asarray(v,dtype=float),parity=parity),dtype=float)
+
+
+def high_order_increments(src,dr):
+    """Integrate from r[i-1] to r[i] with four-point cubic Lagrange rules.
+
+    Interior interval weights are (-1,13,13,-1)/24 at nodes i-2..i+1.
+    The first interval uses the even ghost src[-1]=src[0]. The last interval
+    uses one-sided nodes i-3..i with weights (1,-5,19,9)/24.
+    These weights follow by integrating the interpolating cubic exactly.
+    """
+    n=len(src)
+    if n<4: raise ValueError("fourth-order quadrature requires at least four cells")
+    out=np.empty(n-1,dtype=float)
+    out[0]=dr*(12.0*src[0]+13.0*src[1]-src[2])/24.0
+    for i in range(2,n-1):
+        out[i-1]=dr*(-src[i-2]+13.0*src[i-1]+13.0*src[i]-src[i+1])/24.0
+    out[-1]=dr*(src[-4]-5.0*src[-3]+19.0*src[-2]+9.0*src[-1])/24.0
+    return out
+
+
+def candidate_uniform_initial_state(kernel,grid):
+    r=np.asarray(grid.centers,dtype=float);n=len(r);dr=float(grid.dr)
+    phi0=0.179055;pi0=0.00341913;dm0=RHO_DM_PRESENT;b0=RHO_B_PRESENT;rho_r=RHO_R_PRESENT
+    rho0=0.5*pi0**2+float(cosmos_potential(np.array([phi0]))[0])+dm0+b0+rho_r
+    H0=math.sqrt(max(rho0/3.0,0.0))
+    S=AMPLITUDE*np.exp(-(r/WIDTH)**2);D=D_AMPLITUDE*np.exp(-(r/WIDTH)**2)
+    PS=np.zeros_like(r);PD=D.copy();phi=np.full(n,phi0);Pi=np.full(n,pi0);Kt=np.full(n,-H0)
+    Sp=d1(grid,S,+1);Dp=d1(grid,D,+1);Ktp=d1(grid,Kt,+1);j=-(PD*Dp)
+    B=np.ones_like(r)
+    for _ in range(6):
+        rhoS=0.5*(PS**2+B*Sp**2)+0.5*S**2
+        rhoD=0.5*(PD**2+B*Dp**2)-0.5*D**2
+        rhoPhi=(0.5*Pi**2+cosmos_potential(phi))/(8.0*math.pi)
+        rhoMatter=(dm0+b0+rho_r)/(8.0*math.pi)
+        rho=rhoS+rhoD+rhoPhi+rhoMatter
+        Kr=Kt+r*Ktp+4.0*math.pi*r*j
+        src=1.0-8.0*math.pi*r**2*rho+2.0*r**2*Kr*Kt+r**2*Kt**2
+        half_cell=dr*sum(ORIGIN_WEIGHTS[k]*src[k] for k in range(3))
+        increments=high_order_increments(src,dr)
+        integral=np.cumsum(np.r_[half_cell,increments])
+        B=integral/r
+        if not np.all(np.isfinite(B)) or np.any(B<=0.0):
+            raise FloatingPointError("uniform fourth-order integration produced invalid B")
+    A=1.0/np.sqrt(B)
+    Kr=Kt+r*Ktp+4.0*math.pi*r*j
+    K=Kr+2.0*Kt
+    Aa=Kr-K/3.0
+    a=A**(4.0/3.0);b=A**(-2.0/3.0);X=A**(-1.0/3.0)
+    Lam=(d1(grid,a,+1)/(2.0*a*a)-d1(grid,b,+1)/(a*b)+2.0/r*(1.0/b-1.0/a))
+    geom=vacuum.flat_state(grid)
+    geom.a[:]=a;geom.b[:]=b;geom.X[:]=X;geom.alpha[:]=1.0;geom.beta[:]=0.0
+    geom.Aa[:]=Aa;geom.K[:]=K;geom.Lambda[:]=Lam;geom.B[:]=0.75*Lam
+    scalars=ScalarFields(S,PS,D,PD,phi,Pi)
+    matter=initialize_from_archive(grid,geom,include_radiation=True)
+    geom.alpha=kernel._solve_lapse(grid,geom,scalars,matter)[0]
+    geom.beta.fill(0.0);geom.B.fill(0.0)
+    return ProductionState(grid=grid,geometry=geom,scalars=scalars,matter=matter,t=0.0,tau=0.0,e_folds=0.0)
+
+
+def summarize(values,r,mask):
+    v=np.asarray(values,dtype=float);ids=np.flatnonzero(np.asarray(mask,dtype=bool)&np.isfinite(v))
+    if not ids.size:return {"count":0,"max_abs":None,"peak_signed":None,"peak_r":None,"peak_i":None,"rms":None}
+    i=int(ids[np.argmax(np.abs(v[ids]))])
+    return {"count":int(ids.size),"max_abs":float(abs(v[i])),"peak_signed":float(v[i]),"peak_r":float(r[i]),"peak_i":i,"rms":float(np.sqrt(np.mean(v[ids]**2)))}
+
+
+def audit(state,n,arm):
+    grid,g=state.grid,state.geometry;r=np.asarray(grid.centers,dtype=float)
+    total=assemble_total_stress_energy(grid,g,state.scalars,state.matter)
+    raw=vacuum.constraints(grid,g)
+    values={
+        "H":np.asarray(raw["hamiltonian"],dtype=float)-16.0*math.pi*np.asarray(total.rho,dtype=float),
+        "H_geometry":np.asarray(raw["hamiltonian"],dtype=float),
+        "16pi_rho_total":16.0*math.pi*np.asarray(total.rho,dtype=float),
+        "M":np.asarray(raw["momentum"],dtype=float)-8.0*math.pi*np.asarray(total.j,dtype=float),
+        "C_lambda":np.asarray(raw["connection"],dtype=float),
+        "determinant":np.asarray(raw["determinant"],dtype=float),
+    }
+    geom=vacuum.geometry_terms(grid,g)
+    stages=adapter.geometry_stage_terms(grid,g,state.scalars,state.matter,lambda_m=2.0)
+    aa_rhs=np.asarray(stages["primary_l2"]["Aa"])+np.asarray(stages["primary_l3"]["Aa"])
+    ratios={
+        "Aa_over_r2":np.asarray(g.Aa,dtype=float)/r**2,
+        "Aa_rhs":aa_rhs,
+        "Aa_rhs_over_r2":aa_rhs/r**2,
+        "R_tf_over_r2":(np.asarray(geom["Rr_r"],dtype=float)-np.asarray(geom["R"],dtype=float)/3.0)/r**2,
+        "Lambda_over_r":np.asarray(g.Lambda,dtype=float)/r,
+        "a_over_b_minus1_over_r2":(np.asarray(g.a,dtype=float)/np.asarray(g.b,dtype=float)-1.0)/r**2,
+    }
+    masks={
+        "full_domain":np.ones(n,dtype=bool),
+        "first_two_cells":np.arange(n)<2,
+        "formal_stencil_i_ge_2":np.arange(n)>=2,
+        "admitted_inner_i_ge_2_r_lt_5":(np.arange(n)>=2)&(r<5.0),
+        "fixed_annulus_2_le_r_lt_5":(r>=2.0)&(r<5.0),
+        "r_ge_5":r>=5.0,
+    }
+    allv={**values,**ratios}
+    return {
+        "N":n,"arm":arm,"dr":float(grid.dr),"finite":all(np.all(np.isfinite(v)) for v in allv.values()),
+        "summary":{name:{region:summarize(v,r,mask) for region,mask in masks.items()} for name,v in allv.items()},
+        "first_cells":{str(i):{"r":float(r[i]),**{name:float(v[i]) for name,v in allv.items()}} for i in range(min(8,n))},
+        "fixed_radius":{str(rad):{name:float(np.interp(rad,r,v)) for name,v in allv.items()} for rad in (1.0,1.5,2.0,2.5,3.0,4.0,5.0,6.0,8.0) if r[0]<=rad<=r[-1]},
+    }
+
+
+def main():
+    kernel=V55ProductionKernel();records=[]
+    for n in RESOLUTIONS:
+        base=kernel.initialize(resolution=n,r_max=R_MAX,amplitude=AMPLITUDE,width=WIDTH,D_amplitude=D_AMPLITUDE,include_radiation=True)
+        records.append(audit(base,n,"pinned_baseline"))
+        grid=grid_ops.SphericalCellGrid(n,R_MAX)
+        orig_g,orig_s,orig_m,_,_=counterfactual_build_initial_data(grid,vacuum.flat_state)
+        orig_g.alpha=kernel._solve_lapse(grid,orig_g,orig_s,orig_m)[0];orig_g.beta.fill(0.0);orig_g.B.fill(0.0)
+        records.append(audit(ProductionState(grid=grid,geometry=orig_g,scalars=orig_s,matter=orig_m,t=0.0,tau=0.0,e_folds=0.0),n,"origin_half_cell_only"))
+        try:
+            uniform=candidate_uniform_initial_state(kernel,grid)
+            records.append(audit(uniform,n,"uniform_fourth_order_intervals"))
+        except Exception as exc:
+            records.append({"N":n,"arm":"uniform_fourth_order_intervals","dr":float(grid.dr),"finite":False,"error":f"{type(exc).__name__}: {exc}"})
+
+    paired=[]
+    for n in RESOLUTIONS:
+        b=next(x for x in records if x["N"]==n and x["arm"]=="pinned_baseline")
+        for arm in ("origin_half_cell_only","uniform_fourth_order_intervals"):
+            c=next(x for x in records if x["N"]==n and x["arm"]==arm)
+            if not c.get("finite"):continue
+            paired.append({"N":n,"candidate":arm,"fixed_radius_delta":{rr:{name:c["fixed_radius"][rr][name]-b["fixed_radius"][rr][name] for name in c["fixed_radius"][rr]} for rr in b["fixed_radius"] if rr in c["fixed_radius"]}})
+    report={"schema":"uniform_radial_quadrature_initial_profile_v1","status":"completed","kind":"frozen_t0_initializer_only_no_evolution","source_commit":SOURCE_COMMIT,"vendor_commit":VENDOR_COMMIT,"resolutions":list(RESOLUTIONS),"r_max":R_MAX,"quadrature_definition":{"origin_half_cell":"r^2 polynomial quadrature exact for source terms through r^4","center_intervals":"four-point cubic Lagrange exact interval integration; interior weights (-1,13,13,-1)/24; first interval uses even ghost; last interval uses one-sided weights (1,-5,19,9)/24"},"records":records,"paired_fixed_radius_differences":paired,"guardrails":["The uniform candidate changes only the cumulative radial integral quadrature.","The interval weights are analytic Lagrange-integral weights, not fitted values.","No evolution, physical source change, damping, clamp or projection is performed."]}
+    OUT.mkdir(parents=True,exist_ok=True);(OUT/"report.json").write_text(json.dumps(report,indent=2,sort_keys=True,allow_nan=False)+"\n")
+    print("UNIFORM_RADIAL_QUADRATURE_INITIAL_PROFILE "+json.dumps({"status":report["status"],"cases":[{"N":x["N"],"arm":x["arm"],"finite":x.get("finite"),"error":x.get("error"),"first_cells":{i:x["first_cells"][i] for i in list(x.get("first_cells",{}))[:4]},"H_formal":x.get("summary",{}).get("H",{}).get("formal_stencil_i_ge_2"),"H_inner":x.get("summary",{}).get("H",{}).get("admitted_inner_i_ge_2_r_lt_5"),"H_annulus":x.get("summary",{}).get("H",{}).get("fixed_annulus_2_le_r_lt_5"),"M_inner":x.get("summary",{}).get("M",{}).get("admitted_inner_i_ge_2_r_lt_5"),"C_inner":x.get("summary",{}).get("C_lambda",{}).get("admitted_inner_i_ge_2_r_lt_5"),"Aa_rhs":x.get("summary",{}).get("Aa_rhs",{}).get("full_domain"),"Aa_rhs_over_r2":x.get("first_cells",{}).get("0",{}).get("Aa_rhs_over_r2")} for x in records]},sort_keys=True))
+
+
+if __name__=="__main__": main()
