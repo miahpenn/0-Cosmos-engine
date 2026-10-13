@@ -1107,7 +1107,7 @@ def _accepted_pirk_update_tangent(step: dict, stage_rates: dict) -> dict:
         "pirk_update_tangent_pointwise_balance_remainder": float(pointwise_remainder),
         "pirk_update_tangent_interpolant_balance_remainder": float(interpolant_remainder),
         "pirk_update_tangent_interpolant_coordinate_remainder": float(
-            float(direct["mass_dot_coordinate"]) - flux_average - pressure_average
+            float(direct["interpolated_mass_dot_coordinate"]) - flux_average - pressure_average
         ),
         "interpolant_bracket_left_index": int(direct["left_index"]),
         "interpolant_bracket_right_index": int(direct["right_index"]),
