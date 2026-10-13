@@ -1,5 +1,7 @@
 # Radiation rest-current representation repair — candidate handoff
 
+> **Historical handoff — 13 October 2026.** This note is pinned to an earlier main SHA and a stacked PR #10/#11 candidate. The candidate lineage/status below is retained for provenance, not as a live branch or PR instruction. The promoted code and present admission boundary are recorded in [docs/STATUS.md](STATUS.md); active tasks are tracked in [Issue #135](https://github.com/miahpenn/0-Cosmos-engine/issues/135). Do not repeat its one-step experiment without checking the current board and source SHA first.
+
 **Date:** 12 October 2026  
 **Status:** isolated repair candidate; not merged, not production-admitted.  
 **Branch:** `fix/radiation-rest-current-channel-2026-10-12`  
