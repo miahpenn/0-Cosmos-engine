@@ -58,22 +58,19 @@ def test_frozen_production_metric_gauss_closes_on_actual_initialized_geometry():
     assert result.face_electric_field_hat[0] == 0.0
     assert result.face_areal_radius[0] == 0.0
 
-    # Independently re-evaluate the production metric identities at the faces.
+    # Independently re-evaluate the production metric identities at faces.
+    centers = state.grid.centers
     for index, radius in enumerate(result.faces):
+        def face_value(values):
+            if radius < centers[0]:
+                return float(values[0])
+            if radius > centers[-1]:
+                slope = (values[-1] - values[-2]) / (centers[-1] - centers[-2])
+                return float(values[-1] + slope * (radius - centers[-1]))
+            return float(np.interp(radius, centers, values))
+
         expected_areal = (
-            radius
-            * np.sqrt(
-                np.interp(
-                    radius, state.grid.centers, state.geometry.b,
-                    left=state.geometry.b[0],
-                    right=state.geometry.b[-1],
-                )
-            )
-            / np.interp(
-                radius, state.grid.centers, state.geometry.X,
-                left=state.geometry.X[0],
-                right=state.geometry.X[-1],
-            )
+            radius * np.sqrt(face_value(state.geometry.b)) / face_value(state.geometry.X)
         )
         assert result.face_areal_radius[index] == pytest.approx(
             expected_areal, rel=2.0e-13, abs=1.0e-14
