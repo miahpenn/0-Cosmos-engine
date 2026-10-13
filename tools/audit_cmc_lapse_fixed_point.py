@@ -21,7 +21,6 @@ import numpy as np
 from engine.cmc_gauge import solve_cmc_lapse
 from engine.production_kernel import V55ProductionKernel
 from engine.scalar_system import ScalarFields
-from engine.v55_matter import SCALAR_FIELDS as _UNUSED  # type: ignore[attr-defined]
 from engine.v55_matter import total_matter_projection
 from engine import v55_pirk_adapter as adapter
 
@@ -367,6 +366,9 @@ def run_audit(input_root: Path, output_dir: Path, iterations: int) -> dict:
         profile_arrays[f"alpha_input_{index:03d}"] = input_alpha
         profile_arrays[f"alpha_output_{index:03d}"] = output_alpha
         profile_arrays[f"incoming_K_rhs_{index:03d}"] = input_rhs
+        profile_arrays[f"incoming_lapse_K_rhs_{index:03d}"] = input_l2
+        profile_arrays[f"incoming_vacuum_L3_K_rhs_{index:03d}"] = input_l3_vac
+        profile_arrays[f"incoming_matter_L3_K_difference_{index:03d}"] = input_l3_matter
         profile_arrays[f"output_K_rhs_{index:03d}"] = output_rhs["arrays"]["actual_K_rhs"]
         for name, values in output_rhs["arrays"].items():
             profile_arrays[f"{name}_{index:03d}"] = values
@@ -390,7 +392,7 @@ def run_audit(input_root: Path, output_dir: Path, iterations: int) -> dict:
         },
         "state": {
             "resolution": int(state.grid.n),
-            "r_max": float(state.grid.r_max),
+            "r_max": float(state.grid.centers[-1] + 0.5 * state.grid.dr),
             "t": float(state.t),
             "tau": float(state.tau),
             "accepted_state_count": int(verified["capture"]["accepted_state_count"]),
