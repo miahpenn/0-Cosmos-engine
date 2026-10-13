@@ -14,6 +14,7 @@ import sys
 from pathlib import Path
 
 import numpy as np
+import mpmath as mp
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -58,6 +59,81 @@ def cone_margin(state) -> np.ndarray:
         state.geometry.a, dtype=float
     )
     return energy - np.sqrt(inverse_metric) * np.abs(momentum)
+
+
+def solve_joint_target_lapse_high_precision(
+    matrix: np.ndarray,
+    intercept: np.ndarray,
+    weights: np.ndarray,
+    *,
+    dps: int = 80,
+) -> tuple[np.ndarray, float, dict]:
+    """Solve the same double-defined augmented equations in arbitrary precision."""
+    matrix = np.asarray(matrix, dtype=float)
+    intercept = np.asarray(intercept, dtype=float)
+    weights = np.asarray(weights, dtype=float)
+    n = int(weights.size)
+    if matrix.shape != (n, n) or intercept.shape != (n,):
+        raise ValueError("high-precision operator dimensions do not match weights")
+    weight_sum = float(np.sum(weights))
+    if not np.isfinite(weight_sum) or weight_sum <= 0.0:
+        raise ValueError("high-precision solve requires positive finite total weight")
+    normalized = weights / weight_sum
+
+    # Construct the augmented matrix and RHS using exactly the same float64
+    # products/order as the production double solvers, then promote those
+    # coefficients to arbitrary precision. This isolates solve precision from
+    # any hypothetical reformulation of the discrete operator.
+    augmented = np.zeros((n + 1, n + 1), dtype=float)
+    rhs = np.zeros(n + 1, dtype=float)
+    augmented[0, 0] = 1.0
+    augmented[0, 1] = -1.0
+    for i in range(1, n - 1):
+        augmented[i, :n] = matrix[i, :]
+        augmented[i, n] = -1.0
+        rhs[i] = -intercept[i]
+    augmented[n - 1, n - 1] = 1.0
+    rhs[n - 1] = 1.0
+    augmented[n, :n] = normalized @ matrix
+    augmented[n, n] = -1.0
+    rhs[n] = -float(normalized @ intercept)
+
+    with mp.workdps(int(dps)):
+        mp_matrix = mp.matrix([
+            [mp.mpf(float(value)) for value in row]
+            for row in augmented
+        ])
+        mp_rhs = mp.matrix([mp.mpf(float(value)) for value in rhs])
+        solution = mp.lu_solve(mp_matrix, mp_rhs)
+        residual = mp_matrix * solution - mp_rhs
+        residual_max = max(abs(residual[i]) for i in range(n + 1))
+        solution_alpha_mp = [solution[i] for i in range(n)]
+        solution_target_mp = solution[n]
+        alpha = np.asarray([float(value) for value in solution_alpha_mp], dtype=float)
+        target = float(solution_target_mp)
+        double_solution = np.concatenate((alpha, np.asarray([target], dtype=float)))
+        double_residual = augmented @ double_solution - rhs
+        mp_double_solution = mp.matrix([mp.mpf(float(value)) for value in double_solution])
+        residual_after_float_rounding = mp_matrix * mp_double_solution - mp_rhs
+        residual_after_float_rounding_max = max(
+            abs(residual_after_float_rounding[i]) for i in range(n + 1)
+        )
+        meta = {
+            "method": "mpmath LU solve on exact float64 augmented coefficients",
+            "decimal_working_precision": int(dps),
+            "raw_augmented_condition_number_2_float64_diagnostic": float(
+                np.linalg.cond(augmented)
+            ),
+            "max_abs_augmented_residual_before_float_rounding": float(residual_max),
+            "max_abs_augmented_residual_after_float_rounding": float(
+                residual_after_float_rounding_max
+            ),
+            "max_abs_float64_matvec_residual_after_float_rounding": float(
+                np.max(np.abs(double_residual))
+            ),
+            "all_inputs_promoted_from_float64_coefficients": True,
+        }
+    return alpha, target, meta
 
 
 def solve_resolution(resolution: int, vacuum) -> tuple[dict, dict]:
@@ -168,6 +244,8 @@ def solve_resolution(resolution: int, vacuum) -> tuple[dict, dict]:
         )
         interior_ratio = np.abs(interior) / interior_bound
         interior_passed = bool(np.all(np.abs(interior) <= interior_bound))
+        predicted_interior_residual = predicted_rhs[1:-1] - float(target)
+        predicted_interior_ratio = np.abs(predicted_interior_residual) / interior_bound
 
         direct_mean_target = weighted_mean(direct_rhs, weights)
         mean_error = float(direct_mean_target - target)
@@ -203,6 +281,12 @@ def solve_resolution(resolution: int, vacuum) -> tuple[dict, dict]:
             "weighted_mean_closure_passed": mean_passed,
             "interior_roundoff_max_ratio": float(np.max(interior_ratio)),
             "interior_equations_close": interior_passed,
+            "affine_operator_interior_residual_max_abs": float(
+                np.max(np.abs(predicted_interior_residual))
+            ),
+            "affine_operator_interior_roundoff_max_ratio": float(
+                np.max(predicted_interior_ratio)
+            ),
             "direct_rhs_reconstruction_roundoff_max_ratio": float(
                 np.max(rhs_ratio)
             ),
@@ -221,6 +305,18 @@ def solve_resolution(resolution: int, vacuum) -> tuple[dict, dict]:
     balanced_metrics, balanced_arrays = evaluate_candidate(
         balanced_alpha, balanced_target
     )
+    high_precision_metrics = None
+    high_precision_arrays = None
+    high_precision_meta = None
+    if resolution in (120, 160):
+        high_precision_alpha, high_precision_target, high_precision_meta = (
+            solve_joint_target_lapse_high_precision(
+                matrix, intercept, weights, dps=80
+            )
+        )
+        high_precision_metrics, high_precision_arrays = evaluate_candidate(
+            high_precision_alpha, high_precision_target
+        )
     cone_balanced_digest = array_sha256(cone_margin(state))
 
     state.geometry.alpha = original_alpha.copy()
@@ -309,6 +405,21 @@ def solve_resolution(resolution: int, vacuum) -> tuple[dict, dict]:
             ],
             "all_checks_passed": balanced_pass,
         },
+        "high_precision": (
+            {
+                **high_precision_metrics,
+                "solver": high_precision_meta,
+                "all_checks_passed": bool(all((
+                    high_precision_metrics["lapse_positive_finite"],
+                    high_precision_metrics["weighted_mean_closure_passed"],
+                    high_precision_metrics["interior_equations_close"],
+                    high_precision_metrics["direct_rhs_reconstruction_passed"],
+                    affine_passed,
+                    frozen_state_unchanged,
+                ))),
+            }
+            if high_precision_metrics is not None else None
+        ),
         "target_difference_equilibrated_minus_unscaled": float(
             balanced_target - unscaled_target
         ),
@@ -332,6 +443,13 @@ def solve_resolution(resolution: int, vacuum) -> tuple[dict, dict]:
         f"N{resolution}__rhs_residual_unscaled": unscaled_arrays["rhs_residual"],
         f"N{resolution}__alpha_joint_equilibrated": balanced_arrays["alpha"],
         f"N{resolution}__rhs_residual_equilibrated": balanced_arrays["rhs_residual"],
+        **(
+            {
+                f"N{resolution}__alpha_joint_high_precision": high_precision_arrays["alpha"],
+                f"N{resolution}__rhs_residual_high_precision": high_precision_arrays["rhs_residual"],
+            }
+            if high_precision_arrays is not None else {}
+        ),
         f"N{resolution}__proper_volume_weights": weights,
     }
     return row, profiles
