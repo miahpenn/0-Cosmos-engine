@@ -47,3 +47,12 @@ At integration head `033e4e6da3c0b8e54009b23becf7b6733b24232f`, workflow [383262
 The full test suite includes the new injected single-rejection and persistent-rejection integration regressions, both of which passed as part of the 140-test result. The smoke itself is one production step; its constraint values and zero cycle events are diagnostic observations, not a claim of physical/campaign admission. The CI run does not execute N=40/60/80 to (t=12), high-resolution radiation cases, or long-horizon convergence.
 
 **Next gate:** independent review of this stacked integration diff. Only after review should the bounded N=40/60/80 (t=12) campaign be considered, with the existing scientific-admission blocks retained.
+
+
+## Radiation primitive-invertibility boundary follow-up
+
+The parallel frozen-state audit reported a terminal outer-cell state with `E=|S|>0): the previous stage validator accepted equality under the closed dominant-energy cone, while `recover_radiation()` has no finite-pressure bracket at that state because its (p=0) residual has (v^2=1). That is a contract mismatch for this perfect-fluid primitive representation.
+
+The integration candidate now requires strict interior `E>|S|` when momentum is nonzero, while retaining the separate `S=0` path (including `E=S=0)). The shared `RadiationAdmissibilityError` type lives in the primitive-recovery layer and is re-raised unchanged by the vector primitive wrapper; a typed boundary rejection can therefore be recognized without catching unrelated `ValueError` inversion failures. Tests cover validator rejection at equality, typed failure propagation, a finite invertible interior state, and zero-momentum/vacuum states.
+
+This is an earlier and more accurate rejection contract, **not a cure for the frozen-run outer-boundary continuation failure**. The actual replay remains owned by the diagnostic lane; strict-interior rejection may simply lead to earlier retry underflow. No clipping, projection, arbitrary floor, or claim of sustained stability is justified.
