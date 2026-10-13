@@ -10,9 +10,15 @@ ejection threshold, or phenomenological feedback source.
 from dataclasses import asdict, dataclass
 from pathlib import Path
 import json
+import math
 import numpy as np
 
-from .campaign import CampaignConfig
+from .adaptive_step import (
+    AdaptiveStepOutcome,
+    RadiationStepSizeUnderflow,
+    advance_with_radiation_admissibility_retries,
+)
+from .campaign import CampaignConfig, prepare_campaign
 from .production_contract import require_production_capabilities
 from .production_kernel import V55ProductionKernel
 from .worldtube import current_residual
@@ -31,9 +37,106 @@ class ResolutionResult:
     turnaround_events: int
     reexpansion_events: int
     trapped_root_count_max: int
-    misner_sharp_current_max: float
-    misner_sharp_current_rms: float
+    misner_sharp_current_max: float | None
+    misner_sharp_current_rms: float | None
     last_diagnostics: dict
+    endpoint_roundoff_correction: float = 0.0
+
+
+def _assert_finite_payload(value, label: str) -> None:
+    """Fail immediately when an evolved state or saved diagnostic is non-finite."""
+    if isinstance(value, dict):
+        for key, item in value.items():
+            _assert_finite_payload(item, f"{label}.{key}")
+        return
+    if isinstance(value, (list, tuple)):
+        for index, item in enumerate(value):
+            _assert_finite_payload(item, f"{label}[{index}]")
+        return
+    if isinstance(value, (np.ndarray, np.number, int, float, complex)):
+        array = np.asarray(value)
+        if array.dtype.kind in "fciub" and not bool(np.all(np.isfinite(array))):
+            raise FloatingPointError(f"non-finite value detected in {label}")
+        return
+    if hasattr(value, "__dict__"):
+        for key, item in vars(value).items():
+            _assert_finite_payload(item, f"{label}.{key}")
+
+
+def assert_finite_state(state) -> None:
+    """Check all numeric geometry, scalar and conservative-matter state arrays."""
+    for label in ("geometry", "scalars", "matter"):
+        _assert_finite_payload(getattr(state, label), f"state.{label}")
+
+
+def _canonicalize_endpoint_roundoff(state, target_time: float, tolerance: float) -> float:
+    """Snap only an already-computed endpoint within roundoff tolerance.
+
+    This does not take an additional evolution step. It merely normalizes the
+    final coordinate-time label and the matching final history timestamp after
+    the nominal last full step.
+    """
+    correction = float(target_time) - float(state.t)
+    if abs(correction) <= tolerance:
+        state.t = float(target_time)
+        if state.history:
+            state.history[-1]["t"] = float(target_time)
+        return correction
+    return 0.0
+
+
+def campaign_admission_errors(results, config) -> list[str]:
+    """Return fail-closed admission errors for a requested campaign.
+
+    A trajectory counts as completed only if every requested resolution is
+    present, each run reports completed, and each final coordinate time reaches
+    the requested campaign horizon within floating-point endpoint tolerance.
+    """
+    errors: list[str] = []
+    expected = tuple(int(n) for n in config.resolutions)
+    observed = tuple(int(result.resolution) for result in results)
+    if observed != expected:
+        errors.append(
+            f"resolution results do not match request: expected {expected}, got {observed}"
+        )
+
+    target_time = float(config.final_time)
+    if not math.isfinite(target_time) or target_time <= 0.0:
+        errors.append(f"invalid requested final_time={target_time!r}")
+        time_tolerance = 0.0
+    else:
+        time_tolerance = 1.0e-10 * max(1.0, abs(target_time))
+
+    for result in results:
+        label = f"N={result.resolution}"
+        if result.status != "completed":
+            errors.append(f"{label} status is {result.status!r}")
+        final_time = float(result.t_final)
+        if not math.isfinite(final_time):
+            errors.append(f"{label} final time is not finite: {final_time!r}")
+        elif math.isfinite(target_time) and abs(final_time - target_time) > time_tolerance:
+            errors.append(
+                f"{label} ended at t={final_time:.17g}, "
+                f"short of requested t={target_time:.17g}"
+            )
+
+        # None means the current residual is undefined because too few time
+        # samples exist. A numeric value, when supplied, must be finite.
+        for field in (
+            "misner_sharp_current_max",
+            "misner_sharp_current_rms",
+        ):
+            value = getattr(result, field, None)
+            if value is None:
+                continue
+            try:
+                metric = float(value)
+            except (TypeError, ValueError, OverflowError):
+                errors.append(f"{label} {field} is not a finite number: {value!r}")
+                continue
+            if not math.isfinite(metric):
+                errors.append(f"{label} {field} is not finite: {value!r}")
+    return errors
 
 
 def _json_safe(value):
@@ -54,6 +157,7 @@ def _write_ledgers(
     state,
     run_dir: Path,
     result: ResolutionResult,
+    radiation_step_retries: list[dict] | None = None,
 ) -> None:
     run_dir.mkdir(parents=True, exist_ok=True)
     payload = {
@@ -61,9 +165,13 @@ def _write_ledgers(
         "cycle_events": [_json_safe(asdict(e)) for e in state.cycle.events],
         "handoffs": [_json_safe(asdict(h)) for h in state.handoffs],
         "history": _json_safe(state.history),
+        "radiation_step_retries": _json_safe(radiation_step_retries or []),
     }
     (run_dir / "ledgers.json").write_text(
-        json.dumps(payload, indent=2)
+        json.dumps(payload, indent=2, allow_nan=False)
+    )
+    (run_dir / "radiation_step_retries.json").write_text(
+        json.dumps(_json_safe(radiation_step_retries or []), indent=2, allow_nan=False)
     )
 
 
@@ -74,7 +182,9 @@ def run_campaign(
     """Run all requested resolutions after validating the production contract."""
     if kernel is None:
         kernel = V55ProductionKernel()
-    require_production_capabilities(kernel)
+    # Validate the production capability contract and campaign inputs before
+    # any expensive evolution begins.
+    prepare_campaign(kernel, config)
 
     results: list[ResolutionResult] = []
     for resolution in config.resolutions:
@@ -83,18 +193,90 @@ def run_campaign(
             r_max=config.r_max,
             include_radiation=True,
         )
+        target_time = float(config.final_time)
+        endpoint_tolerance = 1.0e-12 * max(1.0, abs(target_time))
+        endpoint_correction = 0.0
         dt_nominal = config.cfl * state.grid.dr
         next_checkpoint = config.checkpoint_interval
         checkpoint_count = 0
+        radiation_step_retries: list[dict] = []
         status = "completed"
 
-        while state.t < config.final_time:
-            dt = min(dt_nominal, config.final_time - state.t)
+        # Include the initial slice so the evolution ledger has an actual t=0
+        # baseline rather than starting at the first post-step sample.
+        try:
+            assert_finite_state(state)
+            initial = kernel.diagnostics(state)
+            if isinstance(initial, dict):
+                initial = {
+                    key: value for key, value in initial.items()
+                    if key not in (
+                        "total_rho", "total_pr", "total_pt", "total_j",
+                        "areal_radius", "chi", "misner_sharp"
+                    )
+                }
+            else:
+                raise TypeError("kernel diagnostics must return a mapping")
+            initial["t"] = float(state.t)
+            initial["tau"] = float(state.tau)
+            initial["cycle_event"] = None
+            _assert_finite_payload(initial, f"initial_diagnostics_N{resolution}")
+            state.history.append(initial)
+        except (FloatingPointError, ValueError, TypeError) as exc:
+            status = "numerical_failure:initial_state:" + str(exc)
+
+        while status == "completed" and state.t < target_time:
+            remaining = target_time - state.t
+            if remaining <= endpoint_tolerance:
+                endpoint_correction = _canonicalize_endpoint_roundoff(
+                    state, target_time, endpoint_tolerance
+                )
+                break
+            requested_dt = min(dt_nominal, remaining)
+            state_before_time = float(state.t)
             try:
-                state = kernel.step(state, dt)
-                # This is a numerical validity check, not a physical event.
-                state.geometry.assert_finite_positive()
-            except (FloatingPointError, ValueError) as exc:
+                outcome: AdaptiveStepOutcome = advance_with_radiation_admissibility_retries(
+                    kernel, state, requested_dt
+                )
+                candidate_state = outcome.state
+                # A successful cone retry is only a step candidate. Retain the
+                # strict whole-state and diagnostic checks before acceptance.
+                assert_finite_state(candidate_state)
+                candidate_state.geometry.assert_finite_positive()
+                if not candidate_state.history:
+                    raise FloatingPointError("kernel step produced no diagnostic history")
+                _assert_finite_payload(
+                    candidate_state.history[-1],
+                    f"diagnostics_N{resolution}_t{candidate_state.t:.17g}",
+                )
+                state = candidate_state
+                dt = outcome.accepted_dt
+                if outcome.retry_count:
+                    radiation_step_retries.append({
+                        "t_before": state_before_time,
+                        "requested_dt": outcome.requested_dt,
+                        "accepted_dt": outcome.accepted_dt,
+                        "retry_count": outcome.retry_count,
+                        "attempts": list(outcome.attempts),
+                        "reason": "typed_radiation_admissibility_rejection",
+                    })
+                correction = _canonicalize_endpoint_roundoff(
+                    state, target_time, endpoint_tolerance
+                )
+                if correction:
+                    endpoint_correction = correction
+            except (FloatingPointError, ValueError, TypeError, RuntimeError) as exc:
+                if isinstance(exc, RadiationStepSizeUnderflow):
+                    radiation_step_retries.append({
+                        "t_before": state_before_time,
+                        "requested_dt": requested_dt,
+                        "accepted_dt": None,
+                        "retry_count": len(exc.attempts),
+                        "attempts": list(exc.attempts),
+                        "status": "failed_closed_at_time_precision",
+                        "exception_class": type(exc).__name__,
+                        "exception_message": str(exc),
+                    })
                 status = "numerical_failure:" + str(exc)
                 break
 
@@ -115,12 +297,23 @@ def run_campaign(
             rhs = np.asarray([
                 row["flux_T"] + row["work_pR"] for row in state.history
             ])
-            ms_residual = current_residual(times, masses, rhs)
-            ms_max = float(np.max(np.abs(ms_residual)))
-            ms_rms = float(np.sqrt(np.mean(ms_residual**2)))
+            ms_residual = np.asarray(
+                current_residual(times, masses, rhs), dtype=float
+            )
+            if ms_residual.size == 0 or not bool(np.all(np.isfinite(ms_residual))):
+                # A computed but invalid residual is a numerical failure, not
+                # an undefined metric and never a passing campaign result.
+                status = "numerical_failure:invalid_misner_sharp_current_residual"
+                ms_max = None
+                ms_rms = None
+            else:
+                ms_max = float(np.max(np.abs(ms_residual)))
+                ms_rms = float(np.sqrt(np.mean(ms_residual**2)))
         else:
-            ms_max = float("nan")
-            ms_rms = float("nan")
+            # The discrete current residual needs three distinct time samples.
+            # Use None so output is standard JSON null, not the non-standard NaN.
+            ms_max = None
+            ms_rms = None
         turnaround = sum(e.kind == "turnaround" for e in state.cycle.events)
         reexpansion = sum(e.kind == "re_expansion_crossing" for e in state.cycle.events)
         max_roots = max(
@@ -132,7 +325,8 @@ def run_campaign(
             status=status,
             t_final=float(state.t),
             tau_final=float(state.tau),
-            steps=len(state.history),
+            steps=max(0, len(state.history) - 1),
+            endpoint_roundoff_correction=float(endpoint_correction),
             cycle_events=len(state.cycle.events),
             handoffs=len(state.handoffs),
             checkpoint_count=checkpoint_count,
@@ -144,18 +338,27 @@ def run_campaign(
             last_diagnostics=_json_safe(last),
         )
         run_dir = Path(config.output_dir) / f"N{resolution}"
-        _write_ledgers(state, run_dir, result)
+        _write_ledgers(state, run_dir, result, radiation_step_retries)
         results.append(result)
 
+    admission_errors = campaign_admission_errors(results, config)
     summary = {
         "campaign": _json_safe(asdict(config)),
         "results": _json_safe([asdict(r) for r in results]),
+        "admission": {
+            "passed": not admission_errors,
+            "errors": admission_errors,
+        },
     }
     out = Path(config.output_dir)
     out.mkdir(parents=True, exist_ok=True)
     (out / "campaign_summary.json").write_text(
-        json.dumps(summary, indent=2)
+        json.dumps(summary, indent=2, allow_nan=False)
     )
+    if admission_errors:
+        raise RuntimeError(
+            "Production campaign admission failed: " + "; ".join(admission_errors)
+        )
     return results
 
 
