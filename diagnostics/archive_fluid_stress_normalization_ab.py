@@ -280,9 +280,7 @@ def main():
         },
     }
     payload = json.dumps(report, indent=2, sort_keys=True, allow_nan=False)
-    print("ARCHIVE_FLUID_STRESS_NORMALIZATION_AB_JSON_BEGIN", flush=True)
     print(payload, flush=True)
-    print("ARCHIVE_FLUID_STRESS_NORMALIZATION_AB_JSON_END", flush=True)
 
 
 if __name__ == "__main__":
