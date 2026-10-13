@@ -28,24 +28,28 @@ class TotalStressEnergy:
     fluid_pr: np.ndarray
     fluid_pt: np.ndarray
     fluid_j: np.ndarray
-    electromagnetic_rho: np.ndarray
-    electromagnetic_pr: np.ndarray
-    electromagnetic_pt: np.ndarray
-    electromagnetic_j: np.ndarray
+    # Defaults preserve construction compatibility for prior scalar+fluid
+    # callers; canonical assembly always fills these with finite arrays.
+    electromagnetic_rho: np.ndarray | None = None
+    electromagnetic_pr: np.ndarray | None = None
+    electromagnetic_pt: np.ndarray | None = None
+    electromagnetic_j: np.ndarray | None = None
 
     def trace_spatial(self) -> np.ndarray:
         return self.pr + 2.0 * self.pt
 
     def finite(self) -> bool:
-        return all(
-            np.all(np.isfinite(x))
-            for x in (
-                self.rho, self.pr, self.pt, self.j,
-                self.scalar_rho, self.scalar_pr, self.scalar_pt, self.scalar_j,
-                self.fluid_rho, self.fluid_pr, self.fluid_pt, self.fluid_j,
-                self.electromagnetic_rho, self.electromagnetic_pr,
-                self.electromagnetic_pt, self.electromagnetic_j,
-            )
+        required = (
+            self.rho, self.pr, self.pt, self.j,
+            self.scalar_rho, self.scalar_pr, self.scalar_pt, self.scalar_j,
+            self.fluid_rho, self.fluid_pr, self.fluid_pt, self.fluid_j,
+        )
+        optional = (
+            self.electromagnetic_rho, self.electromagnetic_pr,
+            self.electromagnetic_pt, self.electromagnetic_j,
+        )
+        return all(np.all(np.isfinite(x)) for x in required) and all(
+            x is None or np.all(np.isfinite(x)) for x in optional
         )
 
 
