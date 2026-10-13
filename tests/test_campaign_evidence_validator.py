@@ -495,3 +495,38 @@ def test_accepts_actual_production_runner_evidence(tmp_path):
     assert report["resolutions"] == [40]
     assert report["final_time"] == pytest.approx(0.03)
     assert report["ledgers_checked"] == 1
+
+@pytest.mark.parametrize("artifact_kind", ["summary", "ledger", "retry"])
+def test_rejects_duplicate_object_keys_in_every_evidence_artifact(tmp_path, artifact_kind):
+    root = _valid_campaign(tmp_path / artifact_kind)
+
+    if artifact_kind == "summary":
+        path = root / "campaign_summary.json"
+        raw = path.read_text(encoding="utf-8")
+        assert '"passed": true' in raw
+        path.write_text(
+            raw.replace('"passed": true', '"passed": false, "passed": true', 1),
+            encoding="utf-8",
+        )
+    elif artifact_kind == "ledger":
+        path = root / "N80" / "ledgers.json"
+        raw = path.read_text(encoding="utf-8")
+        assert '"status": "completed"' in raw
+        path.write_text(
+            raw.replace(
+                '"status": "completed"',
+                '"status": "numerical_failure", "status": "completed"',
+                1,
+            ),
+            encoding="utf-8",
+        )
+    else:
+        path = root / "N80" / "radiation_step_retries.json"
+        path.write_text(
+            '[{"attempt_id": 1, "attempt_id": 2}]',
+            encoding="utf-8",
+        )
+
+    with pytest.raises(CampaignEvidenceError, match="duplicate object key"):
+        validate_campaign_evidence(root, (80, 120))
+
