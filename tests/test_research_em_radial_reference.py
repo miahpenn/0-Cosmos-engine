@@ -409,3 +409,28 @@ def test_discrete_curved_gauss_respects_charge_sign_and_neutral_limit():
     assert stress_zero.energy_density == 0.0
     assert stress_zero.radial_pressure == 0.0
     assert stress_zero.tangential_pressure == 0.0
+
+
+@pytest.mark.parametrize(
+    "reference, match",
+    [
+        (
+            CurvedRadialCoulombReference(
+                rho0=0.75, source_radius=1.0, metric_strength=1.0e103
+            ),
+            "proper cell volume",
+        ),
+        (
+            CurvedRadialCoulombReference(
+                rho0=1.0e100, source_radius=1.0, metric_strength=1.0e100
+            ),
+            "cell charge",
+        ),
+    ],
+)
+def test_discrete_curved_gauss_rejects_nonfinite_derived_quantities(
+    reference, match
+):
+    """Finite scalar inputs whose derived volume/source overflow must fail closed."""
+    with pytest.raises(ValueError, match=match):
+        solve_discrete_curved_gauss(reference, r_max=4.0, resolution=4)
