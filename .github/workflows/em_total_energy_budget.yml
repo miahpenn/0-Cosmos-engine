@@ -24,6 +24,7 @@ jobs:
       PYTHONUNBUFFERED: "1"
       SOURCE_COMMIT: 5c51bf509504365df394e6cca96bf1d117f4614d
       VENDOR_COMMIT: d6052d605673ce9d82cdc99b0df79855fa2ea215
+      PR_SOURCE_HEAD_SHA: ${{ github.event.pull_request.head.sha || '' }}
     steps:
       - name: Check out candidate with vendor submodule
         uses: actions/checkout@v4
@@ -50,8 +51,8 @@ jobs:
           git diff --exit-code "$SOURCE_COMMIT" HEAD -- engine vendor requirements.txt .gitmodules
           actual_vendor="$(git rev-parse "HEAD:vendor/bb-palatini-unified-r0")"
           test "$actual_vendor" = "$VENDOR_COMMIT"
-          printf 'SOURCE_ANCHOR=%s\nCHECKOUT_HEAD=%s\nVENDOR=%s\n' \
-            "$SOURCE_COMMIT" "$(git rev-parse HEAD)" "$actual_vendor"
+          printf 'SOURCE_ANCHOR=%s\nEXECUTION_CHECKOUT_SHA=%s\nPR_SOURCE_HEAD_SHA=%s\nVENDOR=%s\n' \
+            "$SOURCE_COMMIT" "$(git rev-parse HEAD)" "${PR_SOURCE_HEAD_SHA:-not-a-pull-request-event}" "$actual_vendor"
 
       - name: Run complete repository tests
         run: python -m pytest -q
