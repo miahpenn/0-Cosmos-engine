@@ -202,3 +202,41 @@ def test_solve_cmc_lapse_rejects_invalid_metric_before_geometry_or_matter_consum
         match="metric component a must be finite and positive",
     ):
         cmc_gauge.solve_cmc_lapse(grid, geometry, scalars=None, matter=None)
+
+@pytest.mark.parametrize("bad_component", ["L2", "L3"])
+def test_target_kdot_rejects_broadcastable_component_shape_mismatch(
+    bad_component, monkeypatch
+):
+    grid, geometry = _inputs()
+
+    class FakeVacuum:
+        @staticmethod
+        def primary_l2_rhs(grid, geometry):
+            values = (
+                np.asarray([1.0])
+                if bad_component == "L2"
+                else np.zeros_like(grid.centers)
+            )
+            return {"K": values}
+
+    def fake_l3(*args, **kwargs):
+        values = (
+            np.asarray([0.5])
+            if bad_component == "L3"
+            else np.ones_like(grid.centers)
+        )
+        return {"K": values}
+
+    monkeypatch.setattr(
+        cmc_gauge.adapter, "vendor_modules", lambda: (None, FakeVacuum(), None)
+    )
+    monkeypatch.setattr(cmc_gauge.adapter, "primary_l3_with_matter", fake_l3)
+
+    # Without per-component shape checks, (1,) + (n,) broadcasts to (n,) and
+    # passes a validation that examines only the combined RHS.
+    with pytest.raises(
+        FloatingPointError,
+        match=f"mismatched {bad_component} K RHS shape",
+    ):
+        cmc_gauge.target_kdot(grid, geometry, scalars=None, matter=None)
+
