@@ -390,6 +390,126 @@ class RadiationStageCapture:
                 getattr(stage_state.scalars, name)
             )
 
+    @staticmethod
+    def _cone_ratio_values(a_values, x_values, conserved):
+        a_values = np.asarray(a_values, dtype=float)
+        x_values = np.asarray(x_values, dtype=float)
+        energy_t = np.asarray(conserved.energy_t, dtype=float)
+        momentum_r = np.asarray(conserved.momentum_r, dtype=float)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            root_gamma_inv = np.sqrt(x_values * x_values / a_values)
+            ratio = root_gamma_inv * np.abs(momentum_r) / energy_t
+            margin = energy_t - root_gamma_inv * np.abs(momentum_r)
+        return ratio, margin
+
+    def _explicit_metric_rate_budget(self, predictor_metric, predictor_radiation):
+        """Exact read-only split of the explicit a/X update at the failing guard."""
+        key = (float(self.active_time).hex(), 0)
+        rec = self.geometry_records.get(key)
+        if rec is None:
+            return {"available": False, "reason": "no captured geometry-stage RHS at ordinal 0"}
+        g0 = rec["stage_metric"]
+        explicit = rec["explicit_rates"]
+        a0 = np.asarray(g0.a, dtype=float)
+        x0 = np.asarray(g0.X, dtype=float)
+        b0 = np.asarray(g0.b, dtype=float)
+        a_rate = explicit["a"]
+        x_rate = explicit["X"]
+        b_rate = explicit["b"]
+        dt = float(self.active_dt)
+        ap = a0 + dt * a_rate
+        xp = x0 + dt * x_rate
+        bp = b0 + dt * b_rate
+        actual_a = np.asarray(predictor_metric.a, dtype=float)
+        actual_x = np.asarray(predictor_metric.X, dtype=float)
+        actual_b = np.asarray(predictor_metric.b, dtype=float)
+        outer = int(a0.size - 1)
+        U0 = self.active_state.matter.radiation
+        U1 = predictor_radiation
+
+        # Algebraic cross-pairs are not separately evolved counterfactuals.
+        metric_pairs = {
+            "base": (a0, x0),
+            "a_only": (ap, x0),
+            "X_only": (a0, xp),
+            "a_and_X": (ap, xp),
+            "actual_predictor_metric": (actual_a, actual_x),
+        }
+        ratio_budget = {}
+        for u_name, u_state in (("accepted_U", U0), ("predictor_U", U1)):
+            ratios = {}
+            for metric_name, (aa, xx) in metric_pairs.items():
+                ratio, margin = self._cone_ratio_values(aa, xx, u_state)
+                ratios[metric_name] = {
+                    "outer_cell": outer,
+                    "outer_radius": float(self.active_state.grid.centers[outer]),
+                    "outer_ratio": float(ratio[outer]),
+                    "outer_margin_conserved": float(margin[outer]),
+                    "outer_band_max_ratio": float(np.nanmax(ratio[-5:])),
+                    "outer_band_max_ratio_cell": int(
+                        outer - 4 + np.nanargmax(ratio[-5:])
+                    ),
+                }
+            ratio_budget[u_name] = ratios
+
+        q0 = x0 * x0 / a0
+        qa = x0 * x0 / ap
+        qx = xp * xp / a0
+        qax = xp * xp / ap
+        # Symmetric Shapley split shares the nonlinear a-X interaction equally.
+        a_contribution = 0.5 * ((qa - q0) + (qax - qx))
+        x_contribution = 0.5 * ((qx - q0) + (qax - qa))
+        closure = (qax - q0) - (a_contribution + x_contribution)
+
+        def at_outer(values):
+            return float(np.asarray(values, dtype=float)[outer])
+
+        return {
+            "available": True,
+            "method": "read-only explicit RHS; exact finite update; symmetric split of q=X^2/a interaction",
+            "input_t": float(self.active_time),
+            "trial_dt": dt,
+            "geometry_stage_ordinal": 0,
+            "geometry_stage_prefix": rec["prefix"],
+            "outer_cell": outer,
+            "outer_radius": float(self.active_state.grid.centers[outer]),
+            "outer_cell_fields_before": {
+                "a": at_outer(a0), "X": at_outer(x0), "b": at_outer(b0),
+            },
+            "outer_cell_explicit_rates": {
+                "a_dot": at_outer(a_rate), "X_dot": at_outer(x_rate),
+                "b_dot": at_outer(b_rate),
+            },
+            "outer_cell_fields_expected_predictor": {
+                "a": at_outer(ap), "X": at_outer(xp), "b": at_outer(bp),
+            },
+            "outer_cell_fields_actual_predictor": {
+                "a": at_outer(actual_a), "X": at_outer(actual_x),
+                "b": at_outer(actual_b),
+            },
+            "predictor_update_closure_max_abs_all_cells": {
+                "a": float(np.max(np.abs(actual_a - ap))),
+                "X": float(np.max(np.abs(actual_x - xp))),
+                "b": float(np.max(np.abs(actual_b - bp))),
+            },
+            "predictor_update_closure_outer_cell": {
+                "a": at_outer(actual_a - ap),
+                "X": at_outer(actual_x - xp),
+                "b": at_outer(actual_b - bp),
+            },
+            "outer_cell_gamma_rr_inv": {
+                "base": at_outer(q0), "a_only": at_outer(qa),
+                "X_only": at_outer(qx), "a_and_X": at_outer(qax),
+                "actual_predictor": at_outer(actual_x * actual_x / actual_a),
+                "delta_total": at_outer(qax - q0),
+                "delta_attributed_to_a": at_outer(a_contribution),
+                "delta_attributed_to_X": at_outer(x_contribution),
+                "shapley_closure": at_outer(closure),
+            },
+            "radiation_cone_cross_pairs": ratio_budget,
+            "interpretation_limit": "algebraic decomposition of the immediate predictor update only; not a claim that either field equation or boundary law is wrong",
+        }
+
     def capture_failed_predictor(self, metric, conserved, stage, exc):
         if self.active_state is None or stage != "explicit-predictor":
             return
