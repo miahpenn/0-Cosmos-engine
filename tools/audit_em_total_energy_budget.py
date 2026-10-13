@@ -636,6 +636,54 @@ def _fixed_R_rate_snapshot(sample: dict) -> dict:
     return snapshot
 
 
+def _pirk_accepted_update_rate_arrays(geometry_stages, final_primary_l2) -> dict:
+    """Reconstruct the exact accepted-step coefficient weights for geometry variables.
+
+    V55ProductionKernel.step advances explicit (a,b,X) with start/predictor
+    trapezoid weights. Its accepted (Aa,K) update uses L2(start), L2(final
+    mixed explicit / predictor implicit state), L3(start), and L3(primary
+    predictor), each with weight 1/2. The predictor-only L2 evaluation is
+    intentionally not substituted for the final mixed-state L2 call.
+    """
+    if len(geometry_stages) != 3:
+        raise RuntimeError("accepted PIRK update needs the three captured geometry evaluations")
+    start = geometry_stages[0]
+    predictor = geometry_stages[2]
+
+    def profile(value, *, name):
+        array = np.asarray(value, dtype=float)
+        if array.ndim != 1 or not np.all(np.isfinite(array)):
+            raise RuntimeError(f"accepted PIRK update {name} must be a finite 1-D profile")
+        return array
+
+    explicit = {}
+    for name in ("a", "b", "X"):
+        try:
+            left = profile(start["explicit"][name], name=f"start {name} RHS")
+            right = profile(predictor["explicit"][name], name=f"predictor {name} RHS")
+        except KeyError as exc:
+            raise RuntimeError(f"accepted PIRK update is missing explicit profile: {exc}") from exc
+        if left.shape != right.shape:
+            raise RuntimeError(f"accepted PIRK update explicit {name} profiles have different shapes")
+        explicit[name] = 0.5 * (left + right)
+
+    primary = {}
+    for name in ("Aa", "K"):
+        try:
+            terms = (
+                profile(start["primary_l2"][name], name=f"start L2 {name}"),
+                profile(final_primary_l2[name], name=f"final mixed-state L2 {name}"),
+                profile(start["primary_l3"][name], name=f"start L3 {name}"),
+                profile(predictor["primary_l3"][name], name=f"predictor L3 {name}"),
+            )
+        except KeyError as exc:
+            raise RuntimeError(f"accepted PIRK update is missing primary profile: {exc}") from exc
+        if any(term.shape != terms[0].shape for term in terms[1:]):
+            raise RuntimeError(f"accepted PIRK update primary {name} profiles have different shapes")
+        primary[name] = 0.5 * sum(terms)
+    return {"explicit": explicit, "primary": primary}
+
+
 def _species_name(stage_state, species_state) -> str:
     for name in ("dark_matter", "baryons", "radiation", "charged_dust"):
         current = getattr(stage_state.matter, name, None)
@@ -805,6 +853,8 @@ def _instrument_rhs(kernel: AuditedKernel):
     """Observe component return values and actual Lorentz calls; restore on exit."""
     original_components = matter_rhs_module._species_rhs_components
     original_lorentz = RadialMaxwellState.lorentz_source
+    _, vacuum, _ = adapter.vendor_modules()
+    original_primary_l2 = vacuum.primary_l2_rhs
 
     def components_wrapper(*args, **kwargs):
         result = original_components(*args, **kwargs)
@@ -836,13 +886,36 @@ def _instrument_rhs(kernel: AuditedKernel):
             }
         return result
 
+    def primary_l2_wrapper(grid, geometry, *args, **kwargs):
+        result = original_primary_l2(grid, geometry, *args, **kwargs)
+        active_step = kernel._active_step
+        # The accepted step's fourth primary-L2 call occurs after all three
+        # _geometry_stage_terms observations: its input mixes the final
+        # explicit (a,b,X) update with the primary-predictor implicit fields.
+        if (
+            active_step is not None
+            and len(active_step["geometry_stages"]) == 3
+            and "final_primary_l2" not in active_step
+        ):
+            active_step["final_primary_l2"] = {
+                "geometry": {
+                    name: _array(getattr(geometry, name))
+                    for name in ("a", "b", "X", "Aa", "K", "Lambda")
+                },
+                "Aa": _array(result["Aa"]),
+                "K": _array(result["K"]),
+            }
+        return result
+
     matter_rhs_module._species_rhs_components = components_wrapper
     RadialMaxwellState.lorentz_source = lorentz_wrapper
+    vacuum.primary_l2_rhs = primary_l2_wrapper
     try:
         yield
     finally:
         matter_rhs_module._species_rhs_components = original_components
         RadialMaxwellState.lorentz_source = original_lorentz
+        vacuum.primary_l2_rhs = original_primary_l2
 
 
 def _field_stage_powers(stage: dict, rest_mass_flux, explicit_geometry: dict) -> dict:
@@ -941,6 +1014,127 @@ def _stage_serializable(stage: dict) -> dict:
     }
 
 
+def _accepted_pirk_update_tangent(step: dict, stage_rates: dict) -> dict:
+    """Reconcile the exact accepted-step RHS weights with the fixed-R mass observable."""
+    geometry_stages = step["geometry_stages"]
+    final_l2 = step.get("final_primary_l2")
+    if not isinstance(final_l2, dict) or not {"Aa", "K", "geometry"} <= set(final_l2):
+        raise RuntimeError("PIRK observer missed final mixed-state primary-L2 outputs")
+    update_rates = _pirk_accepted_update_rate_arrays(geometry_stages, final_l2)
+    if not step.get("rhs_stages"):
+        raise RuntimeError("PIRK update tangent is missing the accepted left-endpoint state")
+
+    state0 = step["rhs_stages"][0]["stage_state"]
+    state1 = step["state_after"]
+    grid = state0.grid
+    geom = state0.geometry
+    R = np.asarray(areal_radius(grid, geom), dtype=float)
+    Rr = np.asarray(areal_radius_derivative(grid, geom), dtype=float)
+    mass = np.asarray(misner_sharp(grid, geom), dtype=float)
+
+    a_dot = update_rates["explicit"]["a"]
+    b_dot = update_rates["explicit"]["b"]
+    X_dot = update_rates["explicit"]["X"]
+    Aa_dot = update_rates["primary"]["Aa"]
+    K_dot = update_rates["primary"]["K"]
+    Rdot = R * (0.5 * b_dot / geom.b - X_dot / geom.X)
+    Rdot_r = np.asarray(grid.cell_derivative_fourth(Rdot, parity=-1), dtype=float)
+    gamma_inv = geom.X**2 / geom.a
+    gamma_inv_dot = gamma_inv * (2.0 * X_dot / geom.X - a_dot / geom.a)
+    Ktheta = geom.K / 3.0 - geom.Aa / 2.0
+    Ktheta_dot = K_dot / 3.0 - Aa_dot / 2.0
+    chain_profiles = _misner_sharp_chain_rule_rate_profiles(
+        R, Rdot, Rr, Rdot_r, gamma_inv, gamma_inv_dot, Ktheta, Ktheta_dot
+    )
+    direct = _fixed_target_interpolant_rate(
+        R, Rdot, chain_profiles["mass"],
+        chain_profiles["mass_dot_coordinate"], target=FIXED_AREAL_RADIUS,
+    )
+
+    at = lambda profile: interpolate_at_areal_radius(
+        R, profile, FIXED_AREAL_RADIUS
+    )
+    mass_r = np.asarray(
+        grid.cell_derivative_fourth(mass, parity=-1), dtype=float
+    )
+    Rr_tube = at(Rr)
+    Rdot_tube = at(Rdot)
+    mass_r_tube = at(mass_r)
+    mass_dot_coordinate_tube = at(chain_profiles["mass_dot_coordinate"])
+    tube_speed = -Rdot_tube / Rr_tube
+    pointwise_sweep = mass_r_tube * tube_speed
+    pointwise_rate = mass_dot_coordinate_tube + pointwise_sweep
+
+    flux_average = 0.5 * (
+        float(stage_rates["start"]["tube_stress_flux"])
+        + float(stage_rates["primary_predictor"]["tube_stress_flux"])
+    )
+    pressure_average = 0.5 * (
+        float(stage_rates["start"]["tube_radial_pressure_work"])
+        + float(stage_rates["primary_predictor"]["tube_radial_pressure_work"])
+    )
+    predicted_with_pointwise_sweep = flux_average + pressure_average + pointwise_sweep
+    pointwise_remainder = pointwise_rate - predicted_with_pointwise_sweep
+    interpolant_remainder = (
+        float(direct["mass_dot_fixed_R"]) - predicted_with_pointwise_sweep
+    )
+
+    R1 = np.asarray(areal_radius(grid, state1.geometry), dtype=float)
+    mass1 = np.asarray(misner_sharp(grid, state1.geometry), dtype=float)
+    mass0_tube = interpolate_at_areal_radius(R, mass, FIXED_AREAL_RADIUS)
+    mass1_tube = interpolate_at_areal_radius(R1, mass1, FIXED_AREAL_RADIUS)
+    accepted_secant = (mass1_tube - mass0_tube) / float(step["dt"])
+
+    return {
+        "t_start": float(step["t_before"]),
+        "dt": float(step["dt"]),
+        "accepted_state_tube_mass_before": float(mass0_tube),
+        "accepted_state_tube_mass_after": float(mass1_tube),
+        "accepted_state_secant_mass_rate": float(accepted_secant),
+        "pirk_update_tangent_pointwise_mass_rate": float(pointwise_rate),
+        "pirk_update_tangent_interpolant_mass_rate": float(direct["mass_dot_fixed_R"]),
+        "accepted_secant_minus_pirk_tangent_pointwise_rate": float(accepted_secant - pointwise_rate),
+        "accepted_secant_minus_pirk_tangent_interpolant_rate": float(
+            accepted_secant - float(direct["mass_dot_fixed_R"])
+        ),
+        "stage_average_stress_flux": float(flux_average),
+        "stage_average_radial_pressure_work": float(pressure_average),
+        "pirk_update_tangent_pointwise_sweep": float(pointwise_sweep),
+        "pirk_update_tangent_interpolant_sweep": float(direct["fixed_R_sweep"]),
+        "pirk_update_tangent_predicted_rate_using_pointwise_sweep": float(
+            predicted_with_pointwise_sweep
+        ),
+        "pirk_update_tangent_pointwise_balance_remainder": float(pointwise_remainder),
+        "pirk_update_tangent_interpolant_balance_remainder": float(interpolant_remainder),
+        "pirk_update_tangent_interpolant_coordinate_remainder": float(
+            float(direct["mass_dot_coordinate"]) - flux_average - pressure_average
+        ),
+        "interpolant_bracket_left_index": int(direct["left_index"]),
+        "interpolant_bracket_right_index": int(direct["right_index"]),
+        "interpolant_theta": float(direct["theta"]),
+        "final_primary_l2_input_geometry": final_l2["geometry"],
+        "final_primary_l2_Aa_profile": final_l2["Aa"],
+        "final_primary_l2_K_profile": final_l2["K"],
+        "rate_profiles": {
+            "R": R,
+            "Rr": Rr,
+            "Rdot_from_accepted_pirk_coefficients": Rdot,
+            "Rdot_r_from_accepted_pirk_coefficients": Rdot_r,
+            "a_dot_from_accepted_pirk_coefficients": a_dot,
+            "b_dot_from_accepted_pirk_coefficients": b_dot,
+            "X_dot_from_accepted_pirk_coefficients": X_dot,
+            "Aa_dot_from_accepted_pirk_coefficients": Aa_dot,
+            "K_dot_from_accepted_pirk_coefficients": K_dot,
+            "gamma_inv_dot_from_accepted_pirk_coefficients": gamma_inv_dot,
+            "Ktheta_dot_from_accepted_pirk_coefficients": Ktheta_dot,
+            "mass": chain_profiles["mass"],
+            "mass_dot_coordinate_from_accepted_pirk_coefficients": chain_profiles[
+                "mass_dot_coordinate"
+            ],
+        },
+    }
+
+
 def _serialize_step(kernel, step: dict) -> dict:
     stages = step["rhs_stages"]
     geometry_stages = step["geometry_stages"]
@@ -962,6 +1156,9 @@ def _serialize_step(kernel, step: dict) -> dict:
         stage_power_rows[0][key] + stage_power_rows[1][key]
     )
 
+    accepted_pirk_update_tangent = _accepted_pirk_update_tangent(
+        step, fixed_R_stage_rates
+    )
     before = step["state_before"]
     after = step["state_after"]
     dt = float(step["dt"])
@@ -1070,6 +1267,7 @@ def _serialize_step(kernel, step: dict) -> dict:
         "combined_matter_plus_em_energy_rate_measured": measured_combined_rate,
         "combined_rate_from_named_boundary_and_source_terms": known_combined_terms,
         "unassigned_matter_plus_em_rate_remainder_not_global_conservation_residual": combined_remainder,
+        "accepted_pirk_update_tangent": accepted_pirk_update_tangent,
         "source_stage_rows": [_stage_serializable(stage) for stage in stages],
     }
 
