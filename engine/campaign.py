@@ -171,7 +171,7 @@ def _preflight_output_directory(output_dir: str) -> None:
             dir=path,
             delete=True,
         ) as probe:
-            probe.write(b"0-Cosmos campaign output preflight\\n")
+            probe.write(b"0-Cosmos campaign output preflight")
             probe.flush()
             os.fsync(probe.fileno())
     except OSError as exc:
