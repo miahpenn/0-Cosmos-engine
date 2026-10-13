@@ -133,24 +133,75 @@ def total_fluid_projection(
     }
 
 
+def _electromagnetic_projection_or_zero(
+    projection: dict[str, np.ndarray] | None,
+    shape: tuple[int, ...],
+) -> dict[str, np.ndarray]:
+    """Validate an optional already-normalized radial-EM source projection.
+
+    Values must already be in the active Einstein/CMC consumer-array units.
+    This helper does not accept a raw electric field or choose its physical
+    normalization. None means exactly zero EM contribution.
+    """
+    required = {"rho", "pr", "pt", "j"}
+    if projection is None:
+        return {key: np.zeros(shape, dtype=float) for key in required}
+    if not isinstance(projection, dict) or set(projection) != required:
+        raise ValueError(
+            "electromagnetic_projection must contain exactly rho, pr, pt, j"
+        )
+    out: dict[str, np.ndarray] = {}
+    for key in ("rho", "pr", "pt", "j"):
+        try:
+            value = np.asarray(projection[key], dtype=float)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(
+                f"electromagnetic projection {key} must be a finite grid array"
+            ) from exc
+        if value.shape != shape or not np.all(np.isfinite(value)):
+            raise ValueError(
+                f"electromagnetic projection {key} must be finite with shape {shape}"
+            )
+        out[key] = np.array(value, copy=True)
+    return out
+
+
 def total_matter_projection(
     g,
     s,
     scalar_fields: ScalarFields,
     matter: V55MatterState,
+    *,
+    electromagnetic_projection: dict[str, np.ndarray] | None = None,
 ) -> dict[str, np.ndarray]:
-    """Combine scalar and conservative-fluid stress projections once each."""
+    """Combine canonical scalar/fluid stress with an optional normalized EM term.
+
+    The optional EM projection must already use the same consumer units as the
+    returned Einstein/CMC arrays. It is absent by default. Charge, field
+    normalization, matter current and Maxwell evolution remain separate gates.
+    """
     metric = metric_slice_from_q(g, s)
     scalar_e, scalar_pr, scalar_pt, scalar_j = scalar_projection(
         g, s, scalar_fields
     )
     fluid = total_fluid_projection(metric, matter)
+    em = _electromagnetic_projection_or_zero(
+        electromagnetic_projection, np.shape(scalar_e)
+    )
+
+    total = {
+        "rho": scalar_e + fluid["rho"] + em["rho"],
+        "pr": scalar_pr + fluid["pr"] + em["pr"],
+        "pt": scalar_pt + fluid["pt"] + em["pt"],
+        "j": scalar_j + fluid["j"] + em["j"],
+    }
+    if electromagnetic_projection is not None and not all(
+        np.all(np.isfinite(value)) for value in total.values()
+    ):
+        raise ValueError("combined matter/EM projection is non-finite")
 
     return {
-        "rho": scalar_e + fluid["rho"],
-        "pr": scalar_pr + fluid["pr"],
-        "pt": scalar_pt + fluid["pt"],
-        "j": scalar_j + fluid["j"],
+        **total,
         "fluid": fluid,
         "scalar": {
             "rho": scalar_e,
@@ -158,6 +209,7 @@ def total_matter_projection(
             "pt": scalar_pt,
             "j": scalar_j,
         },
+        "electromagnetic": em,
     }
 
 
