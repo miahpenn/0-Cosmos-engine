@@ -4,6 +4,7 @@ import pytest
 
 from tools.validate_initial_quadrature_cmc_candidate import (
     REQUIRED_RADIATION_DIAGNOSTICS,
+    _determinant_constraint_summary,
     _required_radiation_summary,
 )
 
@@ -40,3 +41,15 @@ def test_radiation_summary_rejects_nonfinite_witness_values(bad_value):
 
     with pytest.raises(FloatingPointError, match="radiation_outer_ratio is non-finite"):
         _required_radiation_summary(diagnostics)
+
+
+def test_determinant_summary_uses_vendor_residual_without_subtracting_one():
+    # The vendor returns a*b**2 - 1 already; treating it as the raw
+    # determinant and subtracting one again creates an O(1) false error.
+    residuals = [1.0e-12, -2.0e-12, 5.0e-13]
+
+    summary = _determinant_constraint_summary(residuals)
+
+    assert summary["determinant_minus_one"] == residuals[0]
+    assert summary["determinant_absmax"] == 2.0e-12
+    assert summary["determinant_absmax"] < 1.0e-10
