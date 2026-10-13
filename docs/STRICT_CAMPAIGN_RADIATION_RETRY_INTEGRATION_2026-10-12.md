@@ -51,14 +51,29 @@ The full test suite includes the new injected single-rejection and persistent-re
 
 ## Radiation primitive-invertibility boundary follow-up
 
-The parallel frozen-state audit reported a terminal outer-cell state with `E=|S|>0): the previous stage validator accepted equality under the closed dominant-energy cone, while `recover_radiation()` has no finite-pressure bracket at that state because its (p=0) residual has (v^2=1). That is a contract mismatch for this perfect-fluid primitive representation.
+The parallel frozen-state audit reported a terminal outer-cell state with `E=|S|>0`: the previous stage validator accepted equality under the closed dominant-energy cone, while `recover_radiation()` has no finite-pressure bracket at that state because its `p=0` residual has `v²=1`. That is a contract mismatch for this perfect-fluid primitive representation.
 
-The integration candidate now requires strict interior `E>|S|` when momentum is nonzero, while retaining the separate `S=0` path (including `E=S=0`). The shared `RadiationAdmissibilityError` type lives in the primitive-recovery layer and is re-raised by the vector primitive wrapper with its structured stage metadata preserved. The retry helper now permits retries only for explicit/primary predictor or final-candidate rejection; an invalid accepted input (`stage='initial'`) and an unscoped recovery failure propagate immediately. Tests cover equality, typed propagation, a finite invertible interior state, zero-momentum/vacuum, dt-dependent retry, and no-retry for invalid/unscoped input states.
+The integration candidate now distinguishes the closed physical dominant-energy cone from the domain invertible under its selected finite-pressure primitive closure. For nonzero flux, the closure requires strict `E>|S|`; the separate `S=0` path remains valid, including the `E=S=0` vacuum. `RadiationAdmissibilityError` carries structured stage metadata through validator and vector primitive diagnostics. Retries are allowed only at timestep-dependent explicit/primary-predictor or final-candidate stages; an invalid accepted input and an unscoped primitive-recovery failure propagate immediately.
 
 This is an earlier and more accurate rejection contract, **not a cure for the frozen-run outer-boundary continuation failure**. The actual replay remains owned by the diagnostic lane; strict-interior rejection may simply lead to earlier retry underflow. No clipping, projection, arbitrary floor, or claim of sustained stability is justified.
 
 
-## Review follow-ups retained as separate gates
+## Final combined-head CI evidence
 
-- The next frozen-state continuation replay is owned by the existing diagnostic lane. This strict-invertibility change may cause an earlier explicit rejection or retry-underflow; it is not a cure for outer-boundary continuation failure. No production stability result is inferred from the bounded smoke.
-- A separate SI agent owns strict JSON serialization of short-campaign output: the N=40 one-step smoke has fewer than three samples for `current_residual()`, so the current runner records `misner_sharp_current_max/rms` as undefined `NaN` and standard `json.dumps()` can emit non-standard JSON tokens. That output-integrity issue is **not addressed by this branch** and must be integrated/tested before the software admission gate is called complete.
+The strict JSON residual-reporting repair from stacked PR #17 was reviewed and integrated into this feature branch by squash commit `19ed1e5e832c3a7ba819afc6da2f24f3c6c82dcd` (not to `main`). On that combined head, workflow [38327160354](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38327160354) succeeded:
+
+- **152 tests passed in 11.91 s**.
+- The full-machine N=40 one-step smoke completed at (t=0.03), `status='completed'`, `admission.passed=true`.
+- Undefined short-history `misner_sharp_current_max/rms` are `None` / JSON `null`; the smoke log contains these `None` values and no `nan` residual tokens.
+- The strict-JSON regression checks the campaign summary, resolution ledger and retry log with a parser that rejects non-standard JSON constants; computed non-finite residuals become a numerical failure and block admission.
+- Artifact: [strict-retry-integration-smoke, ID 11781635008](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38327160354/artifacts/11781635008), SHA-256 `3754dd4b0f5eed131e43e769539ca137b27441c610ea1826885d345953bbb7ba`.
+
+The short-campaign JSON output-integrity software gate is therefore closed for this code head. This remains a bounded one-step software smoke, not scientific admission.
+
+## Remaining admission gates
+
+- The archived N=80 frozen-state continuation remains owned by the diagnostic lane. The strict-interior guard may identify the invalid representation earlier, and stage-aware retries avoid pointless timestep shrinkage for an invalid accepted input; neither establishes that the underlying trajectory continues stably. The exact archived-state replay and matched outer-domain comparison still need disposition.
+- Centre-series / Hamiltonian / momentum / connection attribution remains assigned to its owner. The first-cell radial-scaling defect has not been repaired in production.
+- High-resolution radiation N=240/320, Misner–Sharp balance, multiresolution convergence, and long-horizon evolution remain open.
+
+Do not merge this stacked candidate to `main` or launch N=40/60/80 to (t=12) until the exact current-head software workflow is green, the frozen-state and centre-series diagnostic owners have reported, and the relevant scientific-admission gates are independently reviewed. Passing tests and a one-step smoke do not establish turnaround/re-expansion, a bounce, a completed cycle, or production readiness.
