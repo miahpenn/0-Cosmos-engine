@@ -36,6 +36,16 @@ def _reject_nonstandard_json_constant(token: str) -> None:
     raise ValueError(f"non-standard JSON constant {token!r}")
 
 
+def _reject_duplicate_json_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    """Reject duplicate object member names instead of silently taking the last."""
+    result: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError(f"duplicate object key {key!r}")
+        result[key] = value
+    return result
+
+
 def _json_number(value: Any, error_message: str) -> float:
     """Require an actual JSON number; do not coerce booleans or strings."""
     if isinstance(value, bool) or not isinstance(value, (int, float)):
@@ -52,6 +62,7 @@ def _read_json(path: Path) -> Any:
     try:
         return json.loads(
             path.read_text(encoding="utf-8"),
+            object_pairs_hook=_reject_duplicate_json_keys,
             parse_constant=_reject_nonstandard_json_constant,
         )
     except (OSError, ValueError) as exc:
@@ -256,7 +267,8 @@ def validate_campaign_evidence(
                 )
             history_times.append(row_time)
             history_taus.append(row_tau)
-        if abs(history_times[0]) > time_tolerance:
+        # The production writer records the initial coordinate time as exact zero.
+        if history_times[0] != 0.0:
             raise CampaignEvidenceError(
                 f"N={resolution} ledger history does not begin at t=0"
             )
@@ -264,7 +276,8 @@ def validate_campaign_evidence(
             raise CampaignEvidenceError(
                 f"N={resolution} final history timestamp {history_times[-1]!r} does not match target {target_time:.17g}"
             )
-        if abs(history_taus[0]) > tau_tolerance:
+        # The production writer records the initial proper time as exact zero.
+        if history_taus[0] != 0.0:
             raise CampaignEvidenceError(
                 f"N={resolution} ledger proper-time history does not begin at tau=0"
             )
