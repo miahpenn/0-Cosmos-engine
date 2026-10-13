@@ -68,3 +68,17 @@ At fixed radii, the H tangent is much smaller than the central value and is not 
 4. Do not modify the Ricci operator, K equation, CMC rows, or matter projections based on magnitude alone. The tangent is internally closed; the next discriminator should test the signed H/K/R regular-centre series and its relation to the same-profile M-dot and CMC operator witnesses, without duplicating their active tasks.
 
 No production source, vendor source, physics coefficient, boundary condition, initializer, or campaign parameter was changed. The machine's scientific admission remains false.
+
+
+## Cross-lane context: current-source momentum tangent
+
+The separate exact-current-source M-tangent audit [PR #68, run 38341203283](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38341203283) uses the same 11 production source blobs, vendor pin, N=60/80/120, r_max=80, radiation-enabled initialization, and the same amplitude/width/D-amplitude defaults. Its own report finds initial M at roundoff (`3.56e-19`, `4.71e-19`, `7.02e-19`) while the first-cell M tangent is positive and rises with resolution:
+- N=60: (\dot M=+3.9394\times10^{-3}), geometry (+3.8633\times10^{-3}), local-S current sector (+7.6125\times10^{-5});
+- N=80: (\dot M=+5.2093\times10^{-3}), geometry (+5.1516\times10^{-3}), local-S current sector (+5.7695\times10^{-5});
+- N=120: (\dot M=+7.7744\times10^{-3}), geometry (+7.7357\times10^{-3}), local-S current sector (+3.8729\times10^{-5}).
+
+This creates a useful distinction in the initial constraint picture: H is already nonzero at t=0 but its first-cell tangent is negative and bounded at about (−4.5\times10^{-5}); M starts at roundoff but immediately acquires a positive first-cell tangent that grows approximately with resolution. Thus these two constraint failures should not be conflated into a single generic sign of “constraint runaway.” The H result points first to the initializer's nonzero H residual and a competing Ricci/K-rate budget; the M result points to the already documented current-source geometric tangent/centre-series issue.
+
+**Comparison limit:** the two observer reports use different state-digest serialization conventions, and the archived M artifact contains the digest rather than full initial arrays. Their source blobs, vendor pin and initialization parameters match, but the digest strings are not directly comparable as a bitwise cross-audit. Treat this as a configuration/source-matched synthesis, not a same-array hash proof.
+
+The M-tangent owner is continuing the exact signed geometric-term split on PR #68. This report does not duplicate that decomposition and does not authorize a production equation change.
