@@ -112,6 +112,7 @@ class V55ProductionKernel:
         radiation=True,
         invariant_trapping=True,
         misner_sharp_current=True,
+        radial_maxwell=False,
     )
     validation_state = "implemented_not_campaign_validated"
 
