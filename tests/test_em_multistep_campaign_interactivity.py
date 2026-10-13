@@ -188,8 +188,25 @@ def test_opt_in_em_campaign_remains_interactive_over_three_accepted_steps(
             4.0 * np.pi * charge_to_mass * dr * snap["charged_dust_rest"]
         )
         np.testing.assert_array_equal(snap["em_gauss_shell_residual"], recomputed)
-        residual_scale = max(1.0, float(np.max(np.abs(q_faces))))
-        assert np.max(np.abs(recomputed)) <= 5.0e-11 * residual_scale
+        shell_charge = (
+            4.0 * np.pi * charge_to_mass * dr * snap["charged_dust_rest"]
+        )
+        # The shell difference subtracts adjacent cumulative Q values, so the
+        # roundoff scale must include those operands, not a unit-sized floor.
+        # A conservative 64-epsilon bound covers the cumulative-charge,
+        # stage-update, shell-difference and product roundoff without allowing
+        # a small normalized charge state an unrelated absolute error budget.
+        operand_scale = np.maximum.reduce((
+            np.abs(q_faces[:-1]),
+            np.abs(q_faces[1:]),
+            np.abs(np.diff(q_faces)),
+            np.abs(shell_charge),
+        ))
+        roundoff_bound = (
+            64.0 * np.finfo(np.float64).eps
+            * np.maximum(operand_scale, np.finfo(np.float64).tiny)
+        )
+        assert np.all(np.abs(recomputed) <= roundoff_bound)
 
     # This is specifically a repeated interaction test: the field charge and
     # carrier momentum must not be static copies across all accepted checkpoints.
