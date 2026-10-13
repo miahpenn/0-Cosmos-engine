@@ -9,6 +9,7 @@ from tools.audit_em_total_energy_budget import (
     field_energy_functional,
     interpolate_at_areal_radius,
     _fixed_target_interpolant_rate,
+    _fixed_R_interpolant_balance,
     _pirk_accepted_update_rate_arrays,
     _reconstruct_energy_rhs_with_roundoff_contract,
     _fixed_R_interval_balance,
@@ -131,6 +132,35 @@ def test_fixed_target_interpolant_rate_uses_documented_knot_brackets():
     assert upper["theta"] == pytest.approx(1.0)
     assert upper["piecewise_linear_mass_gradient"] == pytest.approx(6.0)
     assert upper["mass_dot_fixed_R"] == pytest.approx(-1.1)
+
+
+def test_fixed_R_interpolant_balance_uses_its_own_sweep():
+    R = np.array([1.0, 2.0, 3.0])
+    Rdot = np.array([0.1, 0.2, 0.3])
+    mass = np.array([2.0, 5.0, 11.0])
+    mass_dot = np.array([0.3, 0.5, 0.7])
+    direct = _fixed_target_interpolant_rate(
+        R, Rdot, mass, mass_dot, target=2.4
+    )
+    stress_flux = -1.25
+    pressure_work = 0.4
+    predicted, remainder = _fixed_R_interpolant_balance(
+        direct, stress_flux, pressure_work
+    )
+
+    assert predicted == pytest.approx(
+        stress_flux + pressure_work + direct["fixed_R_sweep"]
+    )
+    # The sweep cancels algebraically only when the prediction uses the exact
+    # same piecewise-linear M(R,t) interpolant as the observed fixed-R rate.
+    assert remainder == pytest.approx(
+        direct["interpolated_mass_dot_coordinate"] - stress_flux - pressure_work
+    )
+    native_derivative_sweep = direct["fixed_R_sweep"] + 2.0
+    native_comparison = direct["mass_dot_fixed_R"] - (
+        stress_flux + pressure_work + native_derivative_sweep
+    )
+    assert remainder != pytest.approx(native_comparison)
 
 
 def test_pirk_accepted_update_rate_arrays_use_production_coefficients():
