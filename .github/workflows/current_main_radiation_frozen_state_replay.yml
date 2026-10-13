@@ -4,9 +4,11 @@ on:
   push:
     branches:
       - diag/current-main-radiation-boundary-before-after-2026-10-13
+      - diag/radiation-rhs-capture-retry-key-2026-10-13
     paths:
       - tools/audit_current_main_radiation_frozen_state_replay.py
       - .github/workflows/current_main_radiation_frozen_state_replay.yml
+      - tests/test_radiation_rhs_capture_retry_keys.py
   workflow_dispatch:
 
 permissions:
@@ -39,7 +41,8 @@ jobs:
           changed="$(git diff --name-only "$BASE_MAIN_COMMIT" HEAD)"
           unexpected="$(printf '%s\n' "$changed" | grep -F -x -v \
             -e 'tools/audit_current_main_radiation_frozen_state_replay.py' \
-            -e '.github/workflows/current_main_radiation_frozen_state_replay.yml' || true)"
+            -e '.github/workflows/current_main_radiation_frozen_state_replay.yml' \
+            -e 'tests/test_radiation_rhs_capture_retry_keys.py' || true)"
           if [ -n "$unexpected" ]; then
             printf 'Unexpected changed paths from exact main base:\n%s\n' "$unexpected"
             exit 1
