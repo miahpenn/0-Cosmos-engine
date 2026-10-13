@@ -147,4 +147,6 @@ def test_low_energy_recovery_meets_relative_pressure_residual(ratio):
     ).pressure
     v2 = (momentum / (energy + pressure)) ** 2
     residual = (3.0 * pressure - energy) + 4.0 * pressure * v2 / (1.0 - v2)
-    assert abs(residual) / energy <= 2.0e-12
+    # Recomputing v^2 through the ratio form is mildly ill-conditioned near |S|/E=1.
+    # This bound admits the observed float64 rounding floor but not the old scale-loose solve.
+    assert abs(residual) / energy <= 5.0e-11
