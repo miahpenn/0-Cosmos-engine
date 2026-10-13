@@ -8,6 +8,7 @@ from tools.audit_em_total_energy_budget import (
     VENDOR_PIN,
     field_energy_functional,
     interpolate_at_areal_radius,
+    _reconstruct_energy_rhs_with_roundoff_contract,
 )
 
 
@@ -64,3 +65,35 @@ def test_fixed_areal_radius_interpolation_is_bounded_and_monotone():
         interpolate_at_areal_radius([1.0, 4.0, 3.0], profile, 3.5)
     with pytest.raises(ValueError, match="outside"):
         interpolate_at_areal_radius(areal_radii, profile, 7.0)
+
+
+def test_cellwise_rhs_reconstruction_passes_roundoff_scale_and_reports_ratio():
+    terms = (
+        ("flux", np.array([1.0e8, 1.0e-10])),
+        ("source", np.array([-1.0e8, -2.0e-10])),
+    )
+    observed = np.array([np.nextafter(0.0, 1.0), -1.0e-10])
+    reconstructed, residual, ratio_max = _reconstruct_energy_rhs_with_roundoff_contract(
+        observed, terms, label="test species start energy RHS"
+    )
+    assert reconstructed.shape == observed.shape
+    assert np.all(np.isfinite(residual))
+    assert ratio_max <= 1.0
+
+
+def test_cellwise_rhs_reconstruction_fails_closed_above_roundoff_bound():
+    with pytest.raises(RuntimeError, match="exceeded scale-aware roundoff bound"):
+        _reconstruct_energy_rhs_with_roundoff_contract(
+            np.array([1.0e-3]),
+            (("flux", np.array([0.0])), ("source", np.array([0.0]))),
+            label="charged_dust primary_predictor energy RHS",
+        )
+
+
+def test_cellwise_rhs_reconstruction_fails_closed_on_shape_mismatch():
+    with pytest.raises(RuntimeError, match="does not match RHS shape"):
+        _reconstruct_energy_rhs_with_roundoff_contract(
+            np.array([0.0, 0.0]),
+            (("flux", np.array([0.0])),),
+            label="test RHS",
+        )
