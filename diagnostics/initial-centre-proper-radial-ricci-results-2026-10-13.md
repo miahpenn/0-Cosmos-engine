@@ -97,6 +97,30 @@ For a fixed source, the leading first-cell differences are therefore \(+(2/3)s_2
 
 This is **not** approval to switch to the candidate quadrature. Draft PR #18 already has analytic even-series origin weights and four-arm matched-time evidence, but its quadrature arm worsens the production-defined Misner–Sharp current residual at the tested resolutions. The right next experiment is to apply this no-evolution, same-profile Ricci observer to baseline and the existing quadrature-only candidate source profiles (with explicit allowed source diffs) and read that against PR #18's signed centre/flux/work balance findings. Avoid another long trajectory and do not fit quadrature weights to a residual.
 
+## Cross-check against the team's current-main origin-only A/B
+
+This section uses two separate source-pinned team artifacts rather than a duplicate run:
+
+1. Current-main initialized-profile and origin-only A/B: workflow [38342627215](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38342627215), source capture branch head \`ca81723220bae953d0f281ac3e88b1dfafb2e6f5\`, artifact [11787378026](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38342627215/artifacts/11787378026), ZIP SHA-256 \`c9914bca21722c5060343c7a986de1060e3145047c0c13b8c2be38e8c3cad637\`. The A/B report SHA-256 is \`d15762d1aabbd9ecc7b0e31ef4181757e2553978b86df906d16e06794be6e384\`; profile archive SHA-256 is \`ddf77f43d9a0949ae70c6388bb380e64413e5811ee02cab6283bfcac2a2d49d2\`.
+2. Current-main PIRK L2 independent metric cross-check: workflow [38342662323](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38342662323), source commit \`c01f2467347e8aebd57d220374fd7bc4e93045bc\`, kernel blob \`2954e7a79656849b5f088053ea0f4ac97d4bb443\`, vendor \`d6052d605673ce9d82cdc99b0df79855fa2ea215\`, artifact [11787118604](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38342662323/artifacts/11787118604), ZIP SHA-256 \`38262677ba5bc501d615b3329782de2e88f48754432e24ee65dfad074b8f1c84\`. Its report SHA-256 is \`7ed52f357de4290827d5c2f3e83ff52a1e30804fc8ff1b2a2bc40b67b67e146c\`.
+
+The first artifact's A/B is deliberately narrower than the broader PR #18 radial-integration change: only the origin half-cell treatment is counterfactually changed; inter-centre trapezoid intervals remain intact. The independent geometry comparison was recomputed from its stored \`a,b,X,r\` profiles with the same pinned grid derivative stencil. A second independent metric-route implementation in the L2 artifact applies \(qD_r(qD_rR)\), \(q=X/\sqrt a\), rather than the \(D_{rr}R-D_rR\,D_rf/f\) sequence used above. Both recover the same localization.
+
+| \(N\) | Origin treatment | Vendor TF Ricci, cell 0 | Proper-radial TF Ricci, cell 0 | Vendor minus direct |
+|---:|---|---:|---:|---:|
+| 60 | Production half-cell trapezoid | +1.04291e-3 | -5.71662e-4 | +1.61457e-3 |
+| 60 | Even-series half-cell only | +1.67635e-5 | -1.72906e-5 | +3.40541e-5 |
+| 80 | Production half-cell trapezoid | +1.03688e-3 | -5.65396e-4 | +1.60228e-3 |
+| 80 | Even-series half-cell only | +3.22967e-7 | -4.50507e-6 | +4.82804e-6 |
+| 120 | Production half-cell trapezoid | +1.03303e-3 | -5.61366e-4 | +1.59439e-3 |
+| 120 | Even-series half-cell only | -3.10710e-6 | -9.84612e-8 | -3.00864e-6 |
+
+For the alternate metric-route sequence the post-counterfactual signed gaps are \(+3.41290\times10^{-5}\), \(+4.85652\times10^{-6}\), and \(-3.00225\times10^{-6}\) at \(N=60,80,120\). The close agreement between two derivative sequences is a useful robustness check: the origin-only change lowers the first-cell discrepancy by roughly factors \(47\), \(330\), and \(530\), respectively. This is substantially stronger evidence for a half-cell/initial-data mechanism than the baseline comparison alone, but still a finite-resolution result, not proof of continuum regularity.
+
+The origin-only A/B also reduces the first-cell Hamiltonian residual from \(3.93161\times10^{-3}\) to \(1.00308\times10^{-4}\) at \(N=60\), from \(3.98859\times10^{-3}\) to \(3.67656\times10^{-5}\) at \(N=80\), and from \(4.02811\times10^{-3}\) to \(9.09006\times10^{-6}\) at \(N=120\). The central full \(\dot A_a\) witness falls from \(1.09159\times10^{-3}\), \(1.08913\times10^{-3}\), \(1.08795\times10^{-3}\) to \(5.18390\times10^{-5}\), \(3.83681\times10^{-5}\), \(3.72922\times10^{-5}\). Momentum, connection, and determinant witnesses remain at roundoff in both branches of this *initialization-only* A/B.
+
+These findings narrow, but do not close, attribution: the production origin half-cell treatment is enough to reproduce most of the centre-layer anomaly on the initialized slice. The separate PR #18 four-arm trajectory still warns that the broader quadrature change (including inter-centre interval integration) worsens the Misner–Sharp current residual. The origin-only A/B has not advanced time, so it cannot establish conservation behavior under evolution. The next discriminating candidate is therefore an explicitly isolated **origin-half-cell-only** matched-time run, compared against baseline with the existing fixed-coordinate/worldtube flux-work ledger; do not conflate that result with the broader all-interval quadrature. Check the concurrent centre-series branch before launching, since its workflow may be rerunning after a harness-only change.
+
 ## Interpretation and next discriminator
 
 The supported conclusion is an **inner-centre discrete compatibility failure** on the actual initialized profiles. The analytic constant-curvature control argues against a universal sign or formula mistake in the independent reconstruction. The fixed-radius comparison argues against a general, domain-wide disagreement between the Ricci representations. What remains unresolved is which centre-local layer is responsible: the initializer's origin-to-first-cell radial-source quadrature, the parity/near-origin stencil closure acting on that profile, or their interaction with the BSSN connection formulation.
