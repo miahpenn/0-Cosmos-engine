@@ -80,6 +80,8 @@ def test_invalid_charge_to_mass_fails_closed(eta):
 def test_charge_flux_conversion_rejects_nonfinite_and_malformed_flux():
     with pytest.raises(ValueError):
         charged_dust_charge_flux_from_mass_flux([0.0], 0.2)
+    with pytest.raises(ValueError, match="centre"):
+        charged_dust_charge_flux_from_mass_flux([1.0e-12, 0.1], 0.2)
     with pytest.raises(ValueError):
         charged_dust_charge_flux_from_mass_flux([0.0, math.nan], 0.2)
     with pytest.raises(ValueError):
