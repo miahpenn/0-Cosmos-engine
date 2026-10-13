@@ -6,6 +6,7 @@ on:
       - diag/initial-centre-series-capture-2026-10-13
     paths:
       - tools/audit_initial_centre_series.py
+      - tools/audit_initial_origin_quadrature_ab.py
       - .github/workflows/initial-centre-series-capture.yml
   workflow_dispatch:
 
