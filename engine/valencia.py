@@ -26,6 +26,8 @@ from dataclasses import dataclass
 import math
 import numpy as np
 
+from .radiation_contract import RadiationAdmissibilityError
+
 KAPPA = 8.0 * math.pi
 
 
@@ -145,13 +147,16 @@ def recover_radiation(
             gamma_rr=metric.gamma_rr
         )
 
-    # The dominant-energy bound is a physical admissibility condition.
-    # Report a violation; never clip it away.
-    if S_abs > E:
-        raise ValueError(
-            "radiation conservative state violates E>=|S|: "
+    # Nonzero flux requires the strict interior E > |S| for this
+    # radiation EOS/recovery map. Equality implies v^2=1 at p=0, leaving no
+    # finite primitive bracket; zero flux was handled above and remains valid.
+    # Reject the state explicitly, without clipping or perturbing its values.
+    if S_abs >= E:
+        raise RadiationAdmissibilityError(
+            "radiation primitive recovery requires strict E > |S| for nonzero flux: "
             f"E={E:.17e}, |S|={S_abs:.17e}, "
-            f"ratio={S_abs / max(E, 1.0e-300):.17e}"
+            f"ratio={S_abs / max(E, 1.0e-300):.17e}",
+            retryable=False,
         )
 
     def residual(p: float) -> tuple[float, float]:
