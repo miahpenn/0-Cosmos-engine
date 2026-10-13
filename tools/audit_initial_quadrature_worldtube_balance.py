@@ -334,6 +334,110 @@ def _summary(values: np.ndarray, radius: np.ndarray) -> dict:
     }
 
 
+def baseline_trapezoid_integral(source: np.ndarray, dr: float) -> np.ndarray:
+    """Exact replay of the current-main initializer's cumulative trapezoid."""
+    values = np.asarray(source, dtype=float)
+    step = float(dr)
+    return np.cumsum(np.concatenate((
+        np.asarray([0.5 * step * values[0]]),
+        0.5 * step * (values[1:] + values[:-1]),
+    )))
+
+
+def paired_integral_operator_attribution(resolution: int) -> dict:
+    """Cross-apply both radial integral rules to the two captured final sources.
+
+    The decomposition is exact at the captured final iterates:
+        Q(src_candidate) - T(src_baseline)
+      = [Q(src_candidate) - T(src_candidate)]
+      + [T(src_candidate) - T(src_baseline)].
+    It distinguishes the direct rule difference from source-profile response;
+    it does not claim a fully iterated causal counterfactual.
+    """
+    base_path = OUT / f"N{resolution}_baseline.npz"
+    cand_path = OUT / f"N{resolution}_quadrature_only.npz"
+    with np.load(base_path, allow_pickle=False) as archive:
+        base_data = {key: archive[key].copy() for key in archive.files}
+    with np.load(cand_path, allow_pickle=False) as archive:
+        cand_data = {key: archive[key].copy() for key in archive.files}
+    radius = np.asarray(base_data["t0__r"], dtype=float)
+    dr = float(radius[1] - radius[0])
+    source_base = np.asarray(base_data["initializer_src"][-1], dtype=float)
+    source_cand = np.asarray(cand_data["initializer_src"][-1], dtype=float)
+    actual_integral_base = np.asarray(base_data["initializer_integ"][-1], dtype=float)
+    actual_integral_cand = np.asarray(cand_data["initializer_integ"][-1], dtype=float)
+
+    T_base_source = baseline_trapezoid_integral(source_base, dr)
+    T_cand_source = baseline_trapezoid_integral(source_cand, dr)
+    Q_base_source = candidate_initial._integrate_initial_radial_source(source_base, dr)
+    Q_cand_source = candidate_initial._integrate_initial_radial_source(source_cand, dr)
+
+    scale = max(1.0, float(np.max(np.abs(actual_integral_base))),
+                float(np.max(np.abs(actual_integral_cand))))
+    replay_base_error = float(np.max(np.abs(T_base_source - actual_integral_base)))
+    replay_cand_error = float(np.max(np.abs(Q_cand_source - actual_integral_cand)))
+    if replay_base_error > 2.0e-12 * scale or replay_cand_error > 2.0e-12 * scale:
+        raise RuntimeError(
+            f"N={resolution}: recorded integrals do not replay under their pinned rules: "
+            f"baseline={replay_base_error:.6e}, candidate={replay_cand_error:.6e}"
+        )
+
+    actual_delta = actual_integral_cand - actual_integral_base
+    rule_effect_candidate_source = Q_cand_source - T_cand_source
+    source_response_baseline_rule = T_cand_source - T_base_source
+    closure = actual_delta - (
+        rule_effect_candidate_source + source_response_baseline_rule
+    )
+    max_closure = float(np.max(np.abs(closure)))
+    if max_closure > 3.0e-12 * scale:
+        raise RuntimeError(f"N={resolution}: operator/source decomposition failed by {max_closure:.6e}")
+
+    fixed = {
+        "actual_candidate_minus_baseline_integral": float(np.interp(SURFACE_R, radius, actual_delta)),
+        "quadrature_rule_effect_on_candidate_source": float(np.interp(SURFACE_R, radius, rule_effect_candidate_source)),
+        "source_profile_response_under_baseline_trapezoid": float(np.interp(SURFACE_R, radius, source_response_baseline_rule)),
+        "quadrature_rule_effect_on_baseline_source": float(np.interp(
+            SURFACE_R, radius, Q_base_source - T_base_source
+        )),
+        "decomposition_closure": float(np.interp(SURFACE_R, radius, closure)),
+        "rule_effect_fraction_of_actual_delta": float(
+            np.interp(SURFACE_R, radius, rule_effect_candidate_source)
+            / np.interp(SURFACE_R, radius, actual_delta)
+        ),
+        "source_response_fraction_of_actual_delta": float(
+            np.interp(SURFACE_R, radius, source_response_baseline_rule)
+            / np.interp(SURFACE_R, radius, actual_delta)
+        ),
+        "replay_baseline_integral_max_abs_error": replay_base_error,
+        "replay_candidate_integral_max_abs_error": replay_cand_error,
+    }
+    extra = {
+        "counterfactual_T_baseline_source": T_base_source,
+        "counterfactual_Q_baseline_source": Q_base_source,
+        "counterfactual_T_candidate_source": T_cand_source,
+        "counterfactual_Q_candidate_source": Q_cand_source,
+        "counterfactual_actual_integral_delta": actual_delta,
+        "counterfactual_rule_effect_on_candidate_source": rule_effect_candidate_source,
+        "counterfactual_source_response_under_baseline_rule": source_response_baseline_rule,
+        "counterfactual_operator_source_decomposition_closure": closure,
+    }
+    for path, prior in ((base_path, base_data), (cand_path, cand_data)):
+        prior.update(extra)
+        np.savez_compressed(path, **prior)
+
+    return {
+        "resolution": resolution,
+        "at_fixed_r10": fixed,
+        "full_radial": {
+            "actual_integral_delta": _summary(actual_delta, radius),
+            "rule_effect_on_candidate_source": _summary(rule_effect_candidate_source, radius),
+            "source_response_under_baseline_rule": _summary(source_response_baseline_rule, radius),
+            "decomposition_closure_max_abs": max_closure,
+        },
+        "interpretation_guardrail": "Exact final-source cross-application, not a fully iterated causal counterfactual.",
+    }
+
+
 def moment_controls() -> dict:
     step = 0.17
     r = (np.arange(8, dtype=float) + 0.5) * step
@@ -545,6 +649,13 @@ def main() -> int:
         for arm in ("baseline", "quadrature_only"):
             rows.append(run_case(resolution, arm))
 
+    # Cross-apply both pinned integral operators to both captured final source
+    # profiles. This quantifies the operator difference without altering physics.
+    operator_attribution = {
+        str(resolution): paired_integral_operator_attribution(resolution)
+        for resolution in RESOLUTIONS
+    }
+
     # Paired deltas are diagnostic readouts, not promotion criteria.
     paired = {}
     for resolution in RESOLUTIONS:
@@ -571,6 +682,7 @@ def main() -> int:
             "candidate_minus_baseline_integrated_balance_defect_0_1": (
                 ct["integrated_balance_defect_by_interval"][0] - bt["integrated_balance_defect_by_interval"][0]
             ),
+            "integral_operator_attribution": operator_attribution[str(resolution)],
         }
 
     report = {
@@ -598,6 +710,7 @@ def main() -> int:
         "moment_controls": controls,
         "cases": rows,
         "paired_differences": paired,
+        "integral_operator_attribution": operator_attribution,
         "scientific_limits": [
             "This short diagnostic attributes local semi-discrete versus finite-time mass-current witnesses only; it is not full fixed-worldtube conservation or scientific production admission.",
             "A passing algebraic/source capture and zero-step invariant control do not prove continuum convergence.",
@@ -614,6 +727,7 @@ def main() -> int:
         "source_pins": pins,
         "moment_controls": controls,
         "paired_differences": paired,
+        "integral_operator_attribution": operator_attribution,
     }, indent=2, allow_nan=False))
     return 0
 
