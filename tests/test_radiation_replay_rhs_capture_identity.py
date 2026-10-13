@@ -90,6 +90,25 @@ def test_rhs_records_and_failed_predictor_lookup_are_attempt_aware(tmp_path: Pat
     )
 
     failed_trial = capture.failed_trials[-1]
+    expected_counterfactuals = {
+        "accepted_conserved_state_on_accepted_metric",
+        "accepted_conserved_state_on_cmc_resolved_metric",
+        "accepted_conserved_state_on_explicit_predictor_metric",
+        "explicit_predictor_conserved_state_on_accepted_metric",
+        "explicit_predictor_conserved_state_on_cmc_resolved_metric",
+        "explicit_predictor_conserved_state_on_explicit_predictor_metric",
+    }
+    counterfactuals = failed_trial["ratio_counterfactuals"]
+    assert set(counterfactuals) == expected_counterfactuals
+    for label, witness in counterfactuals.items():
+        assert 0 <= int(witness["outer_band_max_ratio_cell"]) < n, label
+        for field in (
+            "outer_cell_79_ratio",
+            "outer_cell_79_conserved_margin",
+            "outer_band_max_ratio",
+        ):
+            assert np.isfinite(float(witness[field])), (label, field, witness[field])
+
     assert failed_trial["attempt_id"] == 2
     assert failed_trial["rhs_capture_key"] == list(retry_key)
     assert failed_trial["rhs_capture_trial_dt"] == dt_retry
