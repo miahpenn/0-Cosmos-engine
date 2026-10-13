@@ -581,10 +581,11 @@ def _species_rhs_components(
                 * prim[i].rho * u_grad_phi
             )
 
-            # The time component already contains alpha through
-            # d_t(phi)=alpha*Pi+beta^r*partial_r(phi); the radial covector
-            # source needs the explicit sqrt(-g)=alpha*sqrt(gamma) factor.
-            q_e_diag[i] = -m.sqrt_gamma * (q_t - m.beta * q_r)
+            # The stored energy variable is U_t=sqrt(-g) T^t_t, so its
+            # covariant exchange source is sqrt(-g) Q_t=alpha*sqrt(gamma)*Q_t.
+            # Do not insert the Eulerian energy-projection rate directly here;
+            # that rate is recovered from the rest and radial-momentum sources.
+            q_e_diag[i] = m.alpha * m.sqrt_gamma * q_t
             q_s_diag[i] = m.alpha * m.sqrt_gamma * q_r
 
     return face_flux, source_e_diag, source_s_diag, q_e_diag, q_s_diag, q_rest_diag
