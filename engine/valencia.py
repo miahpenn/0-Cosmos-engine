@@ -32,10 +32,20 @@ KAPPA = 8.0 * math.pi
 class RadiationAdmissibilityError(ValueError):
     """Radiation state is outside the configured perfect-fluid recovery domain.
 
-    When radial momentum is nonzero, this recovery requires the strict interior
-    E > |S| so the reconstructed fluid has subluminal velocity. The separate
-    zero-momentum branch remains valid, including a zero-energy vacuum state.
+    ``stage`` identifies the state checked by the production kernel. Only
+    timestep-dependent candidate stages are retryable. ``None`` preserves the
+    legacy constructor behavior for isolated test doubles; production raises
+    always supply a concrete stage.
     """
+
+    _TRIAL_STAGES = frozenset(
+        {"explicit-predictor", "primary-predictor", "final"}
+    )
+
+    def __init__(self, message: str, *, stage: str | None = None) -> None:
+        self.stage = stage
+        self.retryable = stage is None or stage in self._TRIAL_STAGES
+        super().__init__(message)
 
 
 @dataclass(frozen=True)
