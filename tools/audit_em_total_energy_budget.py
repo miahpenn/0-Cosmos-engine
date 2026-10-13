@@ -688,11 +688,12 @@ def _serialize_step(kernel, step: dict) -> dict:
             abs(avg("charge_power")) + abs(em_lorentz) + abs(em_metric) + abs(em_outer),
             np.finfo(float).tiny,
         ),
-        "matter_lorentz_power_cancels_in_matter_plus_em_sum": (
-            0.5 * (sum(
+        "matter_lorentz_power_start_predictor_average": 0.5 * sum(
+            sum(
                 stages[k]["components"][name]["lorentz_energy_rate"]
                 for name in stages[k]["components"]
-            ) for k in (0, 1))
+            )
+            for k in (0, 1)
         ),
         "matter_boundary_energy_rate_average": matter_boundary,
         "matter_geometric_energy_source_rate_average": matter_geometry_source,
@@ -870,9 +871,11 @@ def run_joined_audit(root: Path, output_path: Path) -> dict:
 
 
 def write_step_summary(report: dict) -> None:
-    summary_path = Path(str(__import__("os").environ.get("GITHUB_STEP_SUMMARY", "")))
-    if not str(summary_path):
+    import os
+    summary_raw = os.environ.get("GITHUB_STEP_SUMMARY")
+    if not summary_raw:
         return
+    summary_path = Path(summary_raw)
     summary = report["summary"]
     lines = [
         "## Joined radial-EM / matter / Misner–Sharp ledger",
