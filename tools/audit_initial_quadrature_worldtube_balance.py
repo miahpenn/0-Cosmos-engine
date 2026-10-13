@@ -240,13 +240,27 @@ def direct_mass_balance_profile(state) -> dict[str, np.ndarray]:
     normal_dR = R * Ktheta
     normal_dR_dot = Rdot * Ktheta + R * Ktheta_dot
     chi = inverse_radial_metric * Rr**2 - normal_dR**2
+    chi_dot_inverse_metric = inverse_radial_metric_dot * Rr**2
+    chi_dot_radial_derivative = 2.0 * inverse_radial_metric * Rr * Rr_dot
+    chi_dot_extrinsic_curvature = -2.0 * normal_dR * normal_dR_dot
     chi_dot = (
-        inverse_radial_metric_dot * Rr**2
-        + 2.0 * inverse_radial_metric * Rr * Rr_dot
-        - 2.0 * normal_dR * normal_dR_dot
+        chi_dot_inverse_metric
+        + chi_dot_radial_derivative
+        + chi_dot_extrinsic_curvature
     )
     mass = 0.5 * R * (1.0 - chi)
+    mass_rate_areal_radius = 0.5 * Rdot * (1.0 - chi)
+    mass_rate_inverse_metric = -0.5 * R * chi_dot_inverse_metric
+    mass_rate_radial_derivative = -0.5 * R * chi_dot_radial_derivative
+    mass_rate_extrinsic_curvature = -0.5 * R * chi_dot_extrinsic_curvature
     mass_dot = 0.5 * Rdot * (1.0 - chi) - 0.5 * R * chi_dot
+    mass_rate_decomposition_closure = (
+        mass_rate_areal_radius
+        + mass_rate_inverse_metric
+        + mass_rate_radial_derivative
+        + mass_rate_extrinsic_curvature
+        - mass_dot
+    )
 
     total = stress_energy.assemble_total_stress_energy(
         grid, g, state.scalars, state.matter
@@ -289,7 +303,15 @@ def direct_mass_balance_profile(state) -> dict[str, np.ndarray]:
         "inverse_radial_metric_dot": np.asarray(inverse_radial_metric_dot, dtype=float),
         "chi": np.asarray(chi, dtype=float),
         "chi_dot": np.asarray(chi_dot, dtype=float),
+        "chi_dot_inverse_metric_term": np.asarray(chi_dot_inverse_metric, dtype=float),
+        "chi_dot_radial_derivative_term": np.asarray(chi_dot_radial_derivative, dtype=float),
+        "chi_dot_extrinsic_curvature_term": np.asarray(chi_dot_extrinsic_curvature, dtype=float),
         "M_MS": np.asarray(mass, dtype=float),
+        "dM_MS_dt_areal_radius_term": np.asarray(mass_rate_areal_radius, dtype=float),
+        "dM_MS_dt_inverse_metric_term": np.asarray(mass_rate_inverse_metric, dtype=float),
+        "dM_MS_dt_radial_derivative_term": np.asarray(mass_rate_radial_derivative, dtype=float),
+        "dM_MS_dt_extrinsic_curvature_term": np.asarray(mass_rate_extrinsic_curvature, dtype=float),
+        "dM_MS_dt_decomposition_closure": np.asarray(mass_rate_decomposition_closure, dtype=float),
         "direct_dM_MS_dt": np.asarray(mass_dot, dtype=float),
         "flux_T": np.asarray(flux_T, dtype=float),
         "work_pR": np.asarray(work_pR, dtype=float),
@@ -529,6 +551,28 @@ def run_case(resolution: int, arm: str) -> dict:
         "flux_T": [float(x) for x in flux_tube],
         "work_pR": [float(x) for x in work_tube],
         "flux_plus_work": [float(x) for x in rhs_tube],
+        "direct_rate_term_decomposition": {
+            "areal_radius": [
+                np.interp(SURFACE_R, radius, row["dM_MS_dt_areal_radius_term"]).item()
+                for row in profiles
+            ],
+            "inverse_metric": [
+                np.interp(SURFACE_R, radius, row["dM_MS_dt_inverse_metric_term"]).item()
+                for row in profiles
+            ],
+            "radial_derivative": [
+                np.interp(SURFACE_R, radius, row["dM_MS_dt_radial_derivative_term"]).item()
+                for row in profiles
+            ],
+            "extrinsic_curvature": [
+                np.interp(SURFACE_R, radius, row["dM_MS_dt_extrinsic_curvature_term"]).item()
+                for row in profiles
+            ],
+            "closure": [
+                np.interp(SURFACE_R, radius, row["dM_MS_dt_decomposition_closure"]).item()
+                for row in profiles
+            ],
+        },
         "instantaneous_direct_minus_flux_work": [
             float(x) for x in instantaneous_tube_residual
         ],
@@ -626,6 +670,11 @@ def run_case(resolution: int, arm: str) -> dict:
             "tdt_finite_time_np_gradient_residual": _summary(finite_time_residual[1], radius),
             "t2dt_finite_time_np_gradient_residual": _summary(finite_time_residual[2], radius),
             "t0_direct_dM_MS_dt": _summary(profiles[0]["direct_dM_MS_dt"], radius),
+            "t0_dM_MS_dt_areal_radius_term": _summary(profiles[0]["dM_MS_dt_areal_radius_term"], radius),
+            "t0_dM_MS_dt_inverse_metric_term": _summary(profiles[0]["dM_MS_dt_inverse_metric_term"], radius),
+            "t0_dM_MS_dt_radial_derivative_term": _summary(profiles[0]["dM_MS_dt_radial_derivative_term"], radius),
+            "t0_dM_MS_dt_extrinsic_curvature_term": _summary(profiles[0]["dM_MS_dt_extrinsic_curvature_term"], radius),
+            "t0_dM_MS_dt_decomposition_closure": _summary(profiles[0]["dM_MS_dt_decomposition_closure"], radius),
             "t0_flux_plus_work": _summary(profiles[0]["flux_plus_work"], radius),
         },
         "artifact_npz": str(out_file.relative_to(ROOT)),
@@ -682,6 +731,14 @@ def main() -> int:
             "candidate_minus_baseline_integrated_balance_defect_0_1": (
                 ct["integrated_balance_defect_by_interval"][0] - bt["integrated_balance_defect_by_interval"][0]
             ),
+            "candidate_minus_baseline_t0_direct_rate_component_deltas": {
+                key: ct["direct_rate_term_decomposition"][key][0]
+                     - bt["direct_rate_term_decomposition"][key][0]
+                for key in ("areal_radius", "inverse_metric", "radial_derivative",
+                            "extrinsic_curvature", "closure")
+            },
+            "candidate_minus_baseline_t0_flux_delta": ct["flux_T"][0] - bt["flux_T"][0],
+            "candidate_minus_baseline_t0_work_delta": ct["work_pR"][0] - bt["work_pR"][0],
             "integral_operator_attribution": operator_attribution[str(resolution)],
         }
 
