@@ -1,0 +1,77 @@
+name: Diagnostic - initial centre proper-radial Ricci comparison
+
+on:
+  push:
+    branches:
+      - diag/initial-centre-proper-radial-ricci-2026-10-13
+    paths:
+      - tools/audit_initial_centre_proper_radial_ricci.py
+      - tests/test_initial_centre_proper_radial_ricci.py
+      - .github/workflows/initial-centre-proper-radial-ricci.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: initial-centre-proper-radial-ricci-2026-10-13
+  cancel-in-progress: false
+
+jobs:
+  compare-centre-ricci:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      PYTHONUNBUFFERED: "1"
+      SOURCE_COMMIT: "29d828b4d72b017c12a20b6dc90549f2511f025c"
+      VENDOR_COMMIT: "d6052d605673ce9d82cdc99b0df79855fa2ea215"
+    steps:
+      - name: Check out isolated diagnostic branch and pinned vendor
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install repository requirements
+        run: python -m pip install -r requirements.txt
+
+      - name: Compile observer and regression test
+        run: |
+          python -m py_compile tools/audit_initial_centre_proper_radial_ricci.py
+          python -m py_compile tests/test_initial_centre_proper_radial_ricci.py
+
+      - name: Fail closed on production source, vendor, or dependency drift
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin "$SOURCE_COMMIT"
+          test "$(git rev-parse "$SOURCE_COMMIT:engine/production_kernel.py")" = "2954e7a79656849b5f088053ea0f4ac97d4bb443"
+          test "$(git rev-parse "HEAD:engine/production_kernel.py")" = "2954e7a79656849b5f088053ea0f4ac97d4bb443"
+          test "$(git rev-parse "HEAD:vendor/bb-palatini-unified-r0")" = "$VENDOR_COMMIT"
+          changed="$(git diff --name-only "$SOURCE_COMMIT" HEAD -- engine vendor .gitmodules requirements.txt)"
+          if [ -n "$changed" ]; then
+            printf 'Unexpected production/vendor/dependency changes:\n%s\n' "$changed"
+            exit 1
+          fi
+          printf 'SOURCE_COMMIT=%s\nVENDOR_COMMIT=%s\n' "$SOURCE_COMMIT" "$VENDOR_COMMIT"
+
+      - name: Run full repository regression suite
+        run: python -m pytest -q
+
+      - name: Run no-evolution initialized-profile Ricci comparison
+        run: python tools/audit_initial_centre_proper_radial_ricci.py
+
+      - name: Upload signed profiles, report, and hashes
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: initial-centre-proper-radial-ricci
+          path: results/initial-centre-proper-radial-ricci/
+          if-no-files-found: warn
+          retention-days: 90
