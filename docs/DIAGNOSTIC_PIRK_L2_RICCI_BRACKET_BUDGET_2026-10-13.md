@@ -32,7 +32,7 @@ Each table entry below is the contribution to this final signed \(\mathcal R_{TF
 
 ### Current-main cross-check on the same initial data
 
-| N | max |R (recomputed − PR #39)| | max |Rᵣʳ (recomputed − PR #39)| | max |TF Ricci (recomputed − PR #39)| |
+| N | max absolute ΔR | max absolute ΔRᵣʳ | max absolute ΔTF Ricci |
 |---:|---:|---:|---:|
 | 40 | 3.24e-16 | 2.92e-16 | 1.84e-16 |
 | 60 | 4.51e-15 | 2.17e-15 | 6.70e-16 |
@@ -69,7 +69,7 @@ These are signed contributions to \(\alpha(R^r{}_r-R/3)\), reconstructed from th
 | Explicit \(\chi'/r\) terms | +8.926812e-5 | +9.317792e-5 |
 | \(\chi''\) terms | −8.741140e-5 | −9.265116e-5 |
 | Scalar \(b''/b\) term | −8.740507e-5 | −9.264952e-5 |
-| All remaining grouped terms combined | approximately −1.0e-8 | approximately −1.6e-8 |
+| All remaining grouped terms combined | +6.489832e-8 | +1.765928e-8 |
 | **Net trace-free Ricci contribution** | **+1.051089e-3** | **+1.046320e-3** |
 
 The first-cell residual is the incomplete cancellation of several similarly sized, centre-sensitive terms rather than an immediately isolated single summand. The two biggest positive groups are the connection derivative and the metric-ratio block, offset largely by separate explicit radial-gradient terms. This ranking is descriptive; it does not establish which continuum term, initial-data relation, or discrete operator is at fault.
