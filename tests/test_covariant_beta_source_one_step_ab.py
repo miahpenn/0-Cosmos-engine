@@ -219,25 +219,33 @@ def test_covariant_source_candidate_vs_baseline_one_step_ab():
         q_t = beta_dm * rho_primitive * np.asarray(scalar_candidate.phi)
         q_r = beta_dm * rho_primitive * phi_r
         eps = np.finfo(float).eps
+        q_energy_error_projected = (
+            np.abs(q_energy_direct - expected_q_energy)
+            / (sqrt_gamma * KAPPA)
+        )
         q_energy_roundoff_bound = (
-            512.0 * eps
-            * float(np.max((np.abs(q_t) + np.abs(shift * q_r)) / KAPPA))
+            512.0 * eps * (np.abs(q_t) + np.abs(shift * q_r)) / KAPPA
             + 1.0e-30
         )
+        q_radial_error_projected = (
+            np.abs(q_radial_direct - expected_q_radial)
+            / (sqrt_gamma * KAPPA)
+        )
         q_radial_roundoff_bound = (
-            128.0 * eps
-            * float(np.max(np.abs(expected_q_radial) / sqrt_gamma / KAPPA))
+            128.0 * eps * np.abs(expected_q_radial) / (sqrt_gamma * KAPPA)
             + 1.0e-30
         )
         q_rest_roundoff_bound = (
             128.0 * eps * float(np.max(np.abs(expected_q_rest))) + 1.0e-30
         )
-        assert float(np.max(np.abs(q_energy_direct - expected_q_energy))) / (
-            float(np.min(sqrt_gamma)) * KAPPA
-        ) <= q_energy_roundoff_bound
-        assert float(np.max(np.abs(q_radial_direct - expected_q_radial))) / (
-            float(np.min(sqrt_gamma)) * KAPPA
-        ) <= q_radial_roundoff_bound
+        assert np.all(q_energy_error_projected <= q_energy_roundoff_bound), (
+            "covariant q_E is inconsistent with the ADM identity beyond "
+            "operand-scaled floating-point error"
+        )
+        assert np.all(q_radial_error_projected <= q_radial_roundoff_bound), (
+            "covariant q_S is inconsistent with the ADM identity beyond "
+            "operand-scaled floating-point error"
+        )
         assert float(np.max(np.abs(q_rest_direct - expected_q_rest))) <= (
             q_rest_roundoff_bound
         )
