@@ -9,6 +9,8 @@ from tools.audit_em_total_energy_budget import (
     field_energy_functional,
     interpolate_at_areal_radius,
     _reconstruct_energy_rhs_with_roundoff_contract,
+    _fixed_R_interval_balance,
+    _pair_fixed_R_interval_rows,
 )
 
 
@@ -97,3 +99,66 @@ def test_cellwise_rhs_reconstruction_fails_closed_on_shape_mismatch():
             (("flux", np.array([0.0])),),
             label="test RHS",
         )
+
+
+def _synthetic_fixed_R_run():
+    states = [
+        {"t": 0.0, "tube_mass_misner_sharp": 1.0, "tube_predicted_fixed_R_mass_rate": 1.0},
+        {"t": 1.0, "tube_mass_misner_sharp": 3.0, "tube_predicted_fixed_R_mass_rate": 3.0},
+        {"t": 2.0, "tube_mass_misner_sharp": 9.0, "tube_predicted_fixed_R_mass_rate": 5.0},
+    ]
+    steps = [
+        {
+            "t_before": 0.0, "t_after": 1.0, "dt": 1.0,
+            "fixed_R_stage_rates": {
+                "start": {"tube_predicted_fixed_R_mass_rate": 0.5},
+                "primary_predictor": {"tube_predicted_fixed_R_mass_rate": 1.5},
+            },
+        },
+        {
+            "t_before": 1.0, "t_after": 2.0, "dt": 1.0,
+            "fixed_R_stage_rates": {
+                "start": {"tube_predicted_fixed_R_mass_rate": 2.5},
+                "primary_predictor": {"tube_predicted_fixed_R_mass_rate": 3.5},
+            },
+        },
+    ]
+    return {"accepted_slice_rows": states, "step_rows": steps}
+
+
+def test_fixed_R_interval_balance_keeps_endpoint_and_stage_rates_distinct():
+    run = _synthetic_fixed_R_run()
+    rows = _fixed_R_interval_balance(run, label="synthetic")
+    assert [row["mass_rate_finite_difference"] for row in rows] == pytest.approx([2.0, 6.0])
+    assert [row["accepted_state_endpoint_trapezoid_prediction"] for row in rows] == pytest.approx([2.0, 4.0])
+    assert [row["accepted_interval_residual"] for row in rows] == pytest.approx([0.0, 2.0])
+    assert [row["stage_pair_average_prediction_diagnostic_only"] for row in rows] == pytest.approx([1.0, 3.0])
+    assert [row["mass_rate_minus_stage_pair_average_diagnostic_only"] for row in rows] == pytest.approx([1.0, 3.0])
+
+
+def test_fixed_R_interval_balance_fails_closed_on_step_time_mismatch():
+    run = _synthetic_fixed_R_run()
+    run["step_rows"][1]["t_before"] = 1.25
+    with pytest.raises(RuntimeError, match="start time does not match accepted state"):
+        _fixed_R_interval_balance(run, label="mismatched")
+
+
+def test_charged_neutral_fixed_R_intervals_require_same_time_grid():
+    rows = _fixed_R_interval_balance(_synthetic_fixed_R_run(), label="charged")
+    neutral = [dict(row) for row in rows]
+    neutral[0]["t_end"] = 0.9
+    with pytest.raises(RuntimeError, match="charged/neutral t_end mismatch"):
+        _pair_fixed_R_interval_rows(rows, neutral, label="synthetic paired arms")
+
+
+def test_charged_neutral_fixed_R_interval_difference_is_signed():
+    charged = _fixed_R_interval_balance(_synthetic_fixed_R_run(), label="charged")
+    neutral = [dict(row) for row in charged]
+    for row in neutral:
+        row["mass_rate_finite_difference"] -= 0.25
+        row["accepted_state_endpoint_trapezoid_prediction"] -= 0.1
+        row["accepted_interval_residual"] -= 0.15
+    paired = _pair_fixed_R_interval_rows(charged, neutral, label="synthetic paired arms")
+    assert [row["charged_minus_neutral_mass_rate_finite_difference"] for row in paired] == pytest.approx([0.25, 0.25])
+    assert [row["charged_minus_neutral_accepted_state_endpoint_trapezoid_prediction"] for row in paired] == pytest.approx([0.1, 0.1])
+    assert [row["charged_minus_neutral_accepted_interval_residual"] for row in paired] == pytest.approx([0.15, 0.15])
