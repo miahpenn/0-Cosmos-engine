@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import csv
 import hashlib
+import inspect
 import json
 from pathlib import Path
 import subprocess
@@ -374,7 +375,9 @@ def main() -> None:
 
         def wrapped_primary_l2(grid, geometry):
             result = original_primary_l2(grid, geometry)
-            if not inside_geometry_stage_terms:
+            caller = inspect.currentframe().f_back
+            direct_step_call = caller is not None and caller.f_code.co_name == "step"
+            if not inside_geometry_stage_terms and direct_step_call:
                 record, profiles = _snapshot(
                     name="final_l2_explicit_state",
                     grid=grid,
@@ -403,7 +406,9 @@ def main() -> None:
 
         def wrapped_lambda_l2(grid, geometry, lambda_m=2.0):
             result = original_lambda_l2(grid, geometry, lambda_m=lambda_m)
-            if not inside_geometry_stage_terms:
+            caller = inspect.currentframe().f_back
+            direct_step_call = caller is not None and caller.f_code.co_name == "step"
+            if not inside_geometry_stage_terms and direct_step_call:
                 record, profiles = _snapshot(
                     name="final_lambda_l2_primary_state",
                     grid=grid,
