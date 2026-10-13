@@ -298,10 +298,10 @@ def solve_discrete_production_metric_gauss(
 ) -> ProductionMetricGaussSolution:
     """Solve the static radial Gauss constraint on a frozen real production metric.
 
-    The source density is sampled at target cell centres; proper shell volumes
-    are separately integrated over the frozen production metric. Face charge is
-    accumulated from those source cells, never from the flat or curved analytic
-    enclosed-charge functions. The coordinate field follows
+    The manufactured source is integrated against the frozen metric's proper
+    volume within each target cell, with quadrature split at metric sample
+    centres. Face charge is accumulated from those cell integrals, never from
+    either analytic enclosed-charge oracle. The coordinate field follows
     E^r=Q_h/sqrt(gamma), while E_hat_r=Q_h/R_areal^2. This remains a static
     diagnostic, not field time evolution or Einstein-source coupling.
     """
