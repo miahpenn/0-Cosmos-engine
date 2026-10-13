@@ -241,7 +241,7 @@ def solve_resolution(resolution: int, vacuum) -> tuple[dict, dict]:
 
     def passes(metrics: dict, meta: dict, *, balanced: bool) -> bool:
         linear_pass = (
-            meta["original_equations_close"]
+            meta["original_equations_close"] and meta["equilibrated_system_roundoff_closed"]
             if balanced else meta["augmented_roundoff_closure_passed"]
         )
         return bool(all((
