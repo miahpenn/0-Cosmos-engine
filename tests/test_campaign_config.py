@@ -119,6 +119,20 @@ def test_tiny_positive_checkpoint_interval_is_rejected():
         CampaignConfig(checkpoint_interval=1.0e-100)
 
 
+def test_checkpoint_interval_below_filename_precision_is_rejected():
+    # The runner formats checkpoint paths to six decimal places. With dt equal
+    # to checkpoint_interval, these distinct ticks would alias the same path:
+    # 0.0000002 and 0.0000004 both format as 0.000000.
+    with pytest.raises(ValueError, match="six decimal places"):
+        CampaignConfig(
+            resolutions=(80,),
+            r_max=80.0,
+            cfl=2.0e-7,
+            final_time=0.001,
+            checkpoint_interval=2.0e-7,
+        )
+
+
 def test_checkpoint_interval_equal_to_largest_nominal_step_is_valid():
     config = CampaignConfig(
         resolutions=(40, 80),
