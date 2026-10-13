@@ -105,7 +105,13 @@ def validate_campaign_evidence(
         if not isinstance(ledger, dict) or not isinstance(ledger.get("result"), dict):
             raise CampaignEvidenceError(f"N={resolution} ledgers.json has no result object")
         record = ledger["result"]
-        if int(record.get("resolution", -1)) != resolution:
+        try:
+            ledger_resolution = int(record.get("resolution", -1))
+        except (TypeError, ValueError, OverflowError) as exc:
+            raise CampaignEvidenceError(
+                f"N={resolution} ledger has invalid resolution: {record.get('resolution')!r}"
+            ) from exc
+        if ledger_resolution != resolution:
             raise CampaignEvidenceError(
                 f"N={resolution} ledger contains wrong resolution: {record.get('resolution')!r}"
             )
