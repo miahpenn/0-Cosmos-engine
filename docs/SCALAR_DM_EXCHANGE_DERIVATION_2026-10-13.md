@@ -203,7 +203,7 @@ Relevant implementation references:
 
 **Still open and not to be inferred from this derivation:**
 1. A first-principles 0* / microscopic derivation for why dark matter should have the selected mass function \(m(\phi)=m_0e^{-\beta\phi}\). GEAR-10 supplies it as the model's Amendola-coupling premise, not as a consequence of the local S/D microphysics.
-2. A first-principles derivation or independent physical determination of \(\beta=-0.04\); the preserved GEAR-10 verdict explicitly leaves that value without a derivation.
+2. A first-principles derivation and sign selection for \(\beta\), plus an exact value for this engine. The later Planck/DESI/SNIa study supplies an external magnitude benchmark (posterior peak near \(|\beta|\sim 0.03\)), but not a precise prediction for \(\beta=-0.04\) in this exact potential or from 0* microphysics.
 3. Full discrete exchange/conservation and Einstein-constraint convergence over an admitted multi-resolution trajectory.
 4. Global gates separately recorded by GEAR (including the old two-lane local-to-cosmological source bridge if that architecture is restored).
 
