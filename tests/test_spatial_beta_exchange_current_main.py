@@ -285,9 +285,11 @@ def test_beta_source_pair_cancels_at_actual_step_rhs_stages(monkeypatch):
         )
         q_t = beta_source * rho_dm * scalar_off.phi
         q_r = beta_source * rho_dm * dphi_r
+        # The stored component is U_t=sqrt(-g) T^t_t; its covariant source
+        # is alpha*sqrt(gamma)*Q_t, whereas U_r gets alpha*sqrt(gamma)*Q_r.
         np.testing.assert_allclose(
             delta_energy,
-            -sqrt_gamma * (q_t - geom.beta * q_r),
+            geom.alpha * sqrt_gamma * q_t,
             rtol=2.0e-10,
             atol=2.0e-20,
         )
@@ -301,22 +303,35 @@ def test_beta_source_pair_cancels_at_actual_step_rhs_stages(monkeypatch):
         radial_mask = mask & (np.abs(dphi_r) > 0.0)
         assert np.any(radial_mask), "actual stage must exercise radial exchange"
 
-        scalar_energy_source = sqrt_gamma * pi * delta_pi
-        energy_residual = scalar_energy_source + delta_energy
-        # species_rhs forms its RHS as advanced_conserved - base_conserved,
-        # then this source-only probe differences the on/off RHS. Roundoff
-        # must therefore be bounded by both stored and advanced conserved
-        # operand magnitudes, not only by the much smaller RHS residual.
-        base_energy = stage_state.matter.dark_matter.energy_t
-        advanced_energy_on = base_energy + matter_on["dark_matter"].energy_t
-        advanced_energy_off = base_energy + matter_off["dark_matter"].energy_t
+        # The Eulerian energy projection is reconstructed from the dust
+        # continuity and radial-momentum source via its primitive Jacobian.
+        # The stored mixed U_t source above is not directly E-dot.
+        dm_energy_projection_source = (
+            delta_rest / (sqrt_gamma * W)
+            + v_r * delta_momentum / sqrt_gamma
+        )
+        scalar_energy_source = pi * delta_pi
+        energy_residual = scalar_energy_source + dm_energy_projection_source
+        # The on/off source difference subtracts complete RHS operands. Bound
+        # cancellation error after applying the same projection Jacobian.
         energy_scale = max(
             float(np.max(np.abs(scalar_energy_source[mask]))),
-            float(np.max(np.abs(matter_on["dark_matter"].energy_t[mask]))),
-            float(np.max(np.abs(matter_off["dark_matter"].energy_t[mask]))),
-            float(np.max(np.abs(base_energy[mask]))),
-            float(np.max(np.abs(advanced_energy_on[mask]))),
-            float(np.max(np.abs(advanced_energy_off[mask]))),
+            float(np.max(np.abs(
+                matter_on["dark_matter"].rest[mask]
+                / (sqrt_gamma[mask] * W[mask])
+            ))),
+            float(np.max(np.abs(
+                matter_off["dark_matter"].rest[mask]
+                / (sqrt_gamma[mask] * W[mask])
+            ))),
+            float(np.max(np.abs(
+                v_r[mask] * matter_on["dark_matter"].momentum_r[mask]
+                / sqrt_gamma[mask]
+            ))),
+            float(np.max(np.abs(
+                v_r[mask] * matter_off["dark_matter"].momentum_r[mask]
+                / sqrt_gamma[mask]
+            ))),
             1.0e-30,
         )
         energy_tol = 512.0 * np.finfo(float).eps * energy_scale + 1.0e-24
