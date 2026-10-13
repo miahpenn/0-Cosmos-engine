@@ -66,10 +66,15 @@ def assemble_total_stress_energy(
     The optional EM arrays must already use consumer-normalized units. None
     preserves the pre-EM projection exactly.
     """
-    projection = v55_matter.total_matter_projection(
-        grid, geometry, scalars, matter,
-        electromagnetic_projection=electromagnetic_projection,
-    )
+    if electromagnetic_projection is None:
+        projection = v55_matter.total_matter_projection(
+            grid, geometry, scalars, matter
+        )
+    else:
+        projection = v55_matter.total_matter_projection(
+            grid, geometry, scalars, matter,
+            electromagnetic_projection=electromagnetic_projection,
+        )
     scalar = projection["scalar"]
     fluid = projection["fluid"]
     em = projection["electromagnetic"]
