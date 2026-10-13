@@ -1,0 +1,72 @@
+name: Diagnostic - joined EM matter and Misner-Sharp ledger
+
+on:
+  push:
+    branches:
+      - diag/em-complete-ledger-current-main-2026-10-13
+    paths:
+      - tests/test_research_em_complete_energy_ledger.py
+      - .github/workflows/em-complete-energy-ledger.yml
+  pull_request:
+    branches: [main]
+    paths:
+      - tests/test_research_em_complete_energy_ledger.py
+      - .github/workflows/em-complete-energy-ledger.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: em-complete-energy-ledger-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  joined-energy-ledger:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      PYTHONUNBUFFERED: "1"
+      SOURCE_COMMIT: "5c51bf509504365df394e6cca96bf1d117f4614d"
+      VENDOR_COMMIT: "d6052d605673ce9d82cdc99b0df79855fa2ea215"
+      EM_LEDGER_REPORT_DIR: results/em-complete-ledger
+    steps:
+      - name: Check out source and pinned vendor
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Verify the diagnostic is source-only against the declared base
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin "$SOURCE_COMMIT"
+          git merge-base --is-ancestor "$SOURCE_COMMIT" HEAD
+          git diff --exit-code "$SOURCE_COMMIT" HEAD -- engine vendor requirements.txt .gitmodules
+          test "$(git rev-parse HEAD:vendor/bb-palatini-unified-r0)" = "$VENDOR_COMMIT"
+          printf 'SOURCE_COMMIT=%s\nVENDOR_COMMIT=%s\n' "$SOURCE_COMMIT" "$VENDOR_COMMIT"
+
+      - name: Run repository regressions other than the explicit report test
+        run: python -m pytest -q --ignore=tests/test_research_em_complete_energy_ledger.py
+
+      - name: Run joined stage-energy report with visible measurements
+        run: python -m pytest -q -s tests/test_research_em_complete_energy_ledger.py
+
+      - name: Upload strict JSON and test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: joined-em-matter-misner-sharp-ledger
+          path: results/em-complete-ledger/
+          if-no-files-found: warn
+          retention-days: 90
