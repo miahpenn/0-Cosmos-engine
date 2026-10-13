@@ -110,3 +110,16 @@ jobs:
               flush=True,
           )
           PY
+
+      - name: Matched-time first-two-centre-moment A/B (candidate PR only)
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.ref == 'diag/first-two-centre-moments-current-main-2026-10-13'
+        run: python tools/validate_first_two_center_moments_matched_time.py
+
+      - name: Preserve first-two-centre-moment A/B evidence (candidate PR only)
+        if: always() && github.event_name == 'pull_request' && github.event.pull_request.head.ref == 'diag/first-two-centre-moments-current-main-2026-10-13'
+        uses: actions/upload-artifact@v4
+        with:
+          name: first-two-centre-moments-matched-time
+          path: results/first-two-centre-moments-matched-time/
+          if-no-files-found: warn
+          retention-days: 90
