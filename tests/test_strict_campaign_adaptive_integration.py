@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 
+import numpy as np
 import pytest
 
 import engine.run_production as runner
@@ -11,16 +12,27 @@ from engine.matter_system import RadiationAdmissibilityError
 from engine.production_kernel import V55ProductionKernel
 
 
-def _config(output_dir):
+def _config(output_dir, final_time=0.03):
     return CampaignConfig(
         resolutions=(40,),
         r_max=40.0,
         cfl=0.03,
-        final_time=0.03,
+        final_time=final_time,
         checkpoint_interval=0.1,
         output_dir=str(output_dir),
     )
 
+
+
+def _reject_nonstandard_json_constant(token):
+    raise ValueError(f"non-standard JSON constant: {token}")
+
+
+def _strict_json(path):
+    return json.loads(
+        path.read_text(),
+        parse_constant=_reject_nonstandard_json_constant,
+    )
 
 def test_campaign_retries_typed_cone_rejection_and_still_admits_full_horizon(tmp_path):
     kernel = V55ProductionKernel()
@@ -65,6 +77,53 @@ def test_campaign_retries_typed_cone_rejection_and_still_admits_full_horizon(tmp
     ledger = json.loads((tmp_path / "N40" / "ledgers.json").read_text())
     assert ledger["radiation_step_retries"] == retry_log
 
+
+
+def test_short_campaign_writes_standard_json_with_undefined_current_residual(tmp_path):
+    config = _config(tmp_path)
+    results = runner.run_campaign(kernel=V55ProductionKernel(), config=config)
+
+    assert results[0].steps == 1
+    assert results[0].misner_sharp_current_max is None
+    assert results[0].misner_sharp_current_rms is None
+
+    summary = _strict_json(tmp_path / "campaign_summary.json")
+    ledger = _strict_json(tmp_path / "N40" / "ledgers.json")
+    retry_log = _strict_json(tmp_path / "N40" / "radiation_step_retries.json")
+    assert summary["admission"]["passed"] is True
+    assert summary["results"][0]["misner_sharp_current_max"] is None
+    assert summary["results"][0]["misner_sharp_current_rms"] is None
+    assert ledger["result"]["misner_sharp_current_max"] is None
+    assert ledger["result"]["misner_sharp_current_rms"] is None
+    assert retry_log == []
+
+
+def test_nonfinite_computed_current_residual_fails_closed_with_standard_json(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setattr(
+        runner,
+        "current_residual",
+        lambda times, masses, rhs: np.asarray([np.nan]),
+    )
+    config = _config(tmp_path, final_time=0.06)
+
+    with pytest.raises(RuntimeError, match="Production campaign admission failed"):
+        runner.run_campaign(kernel=V55ProductionKernel(), config=config)
+
+    summary = _strict_json(tmp_path / "campaign_summary.json")
+    ledger = _strict_json(tmp_path / "N40" / "ledgers.json")
+    assert summary["admission"]["passed"] is False
+    assert any(
+        "N=40 status is 'numerical_failure:invalid_misner_sharp_current_residual'"
+        in error
+        for error in summary["admission"]["errors"]
+    )
+    assert summary["results"][0]["misner_sharp_current_max"] is None
+    assert summary["results"][0]["misner_sharp_current_rms"] is None
+    assert ledger["result"]["status"] == (
+        "numerical_failure:invalid_misner_sharp_current_residual"
+    )
 
 def test_persistent_typed_cone_rejection_fails_campaign_admission_closed(tmp_path):
     kernel = V55ProductionKernel()
