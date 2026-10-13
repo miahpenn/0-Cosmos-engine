@@ -448,6 +448,16 @@ def _worldtube_sample(kernel, state, *, geometry_stage_capture=None) -> dict:
     Rdot = R * (0.5 * b_dot / geom.b - X_dot / geom.X)
 
     total = _stress_projection(kernel, state)
+    _, vacuum, _ = adapter.vendor_modules()
+    raw_constraints = vacuum.constraints(grid, geom)
+    hamiltonian_constraint_profile = (
+        np.asarray(raw_constraints["hamiltonian"], dtype=float)
+        - 16.0 * math.pi * np.asarray(total.rho, dtype=float)
+    )
+    momentum_constraint_profile = (
+        np.asarray(raw_constraints["momentum"], dtype=float)
+        - 8.0 * math.pi * np.asarray(total.j, dtype=float)
+    )
     gamma_rr_inv = geom.X**2 / geom.a
     at = lambda profile: interpolate_at_areal_radius(R, profile, FIXED_AREAL_RADIUS)
 
@@ -648,6 +658,8 @@ def _worldtube_sample(kernel, state, *, geometry_stage_capture=None) -> dict:
         "fixed_areal_radius": FIXED_AREAL_RADIUS,
         "tube_coordinate_r": at(grid.centers),
         "tube_mass_misner_sharp": mass_tube,
+        "tube_hamiltonian_constraint_at_R_star": at(hamiltonian_constraint_profile),
+        "tube_momentum_constraint_at_R_star": at(momentum_constraint_profile),
         "tube_Rr": Rr_tube,
         "tube_Rdot_at_fixed_coordinate": Rdot_tube,
         "tube_coordinate_speed_for_fixed_R": tube_speed,
@@ -670,6 +682,8 @@ def _fixed_R_rate_snapshot(sample: dict) -> dict:
     keys = (
         "tube_coordinate_r",
         "tube_mass_misner_sharp",
+        "tube_hamiltonian_constraint_at_R_star",
+        "tube_momentum_constraint_at_R_star",
         "tube_stress_flux",
         "tube_radial_pressure_work",
         "tube_stress_flux_composite_interp",
