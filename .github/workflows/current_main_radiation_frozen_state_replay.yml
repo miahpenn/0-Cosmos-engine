@@ -5,9 +5,11 @@ on:
     branches:
       - diag/current-main-radiation-boundary-before-after-2026-10-13
       - diag/radiation-rhs-retry-key-fix-2026-10-13
+      - diag/radiation-l3-on-rhs-capture-2026-10-13
     paths:
       - tools/audit_current_main_radiation_frozen_state_replay.py
       - tests/test_radiation_replay_rhs_capture_identity.py
+      - tests/test_radiation_l3_stress_projection.py
       - .github/workflows/current_main_radiation_frozen_state_replay.yml
   workflow_dispatch:
 
@@ -42,6 +44,7 @@ jobs:
           unexpected="$(printf '%s\n' "$changed" | grep -F -x -v \
             -e 'tools/audit_current_main_radiation_frozen_state_replay.py' \
             -e 'tests/test_radiation_replay_rhs_capture_identity.py' \
+            -e 'tests/test_radiation_l3_stress_projection.py' \
             -e '.github/workflows/current_main_radiation_frozen_state_replay.yml' || true)"
           if [ -n "$unexpected" ]; then
             printf 'Unexpected changed paths from exact main base:\n%s\n' "$unexpected"
