@@ -255,9 +255,14 @@ def main() -> int:
                 violations.append(f"expected one retry, got {outcome.retry_count}")
             if not math.isclose(outcome.accepted_dt, 0.015, rel_tol=0.0, abs_tol=1.0e-15):
                 violations.append(f"expected accepted_dt=0.015, got {outcome.accepted_dt}")
-            if outcome.state.t != working_state.t + 0.0:
-                # The helper's input object remains at t=47.13; only output t advances.
-                violations.append("internal retry helper unexpectedly advanced its input time")
+            expected_t_final = float(seed.t) + float(outcome.accepted_dt)
+            if outcome.state.t != expected_t_final:
+                violations.append(
+                    f"unexpected output time: expected {expected_t_final:.17g}, "
+                    f"got {outcome.state.t:.17g}"
+                )
+            if working_state.t != seed.t:
+                violations.append("input coordinate time changed during helper execution")
             if not report["outcome"]["input_numeric_arrays_unchanged"]:
                 violations.append("numeric input arrays changed during helper execution")
             if not final_diagnostics["radiation_cone"]["all_finite"]:
