@@ -318,11 +318,47 @@ def test_covariant_source_candidate_vs_baseline_one_step_ab():
             atol=1.0e-8 * float(np.max(np.abs(dm_current_projected))),
         )
 
-        # The scalar and dust Eulerian energy/current projection rates must
-        # cancel only after mapping the conserved source vector through that
-        # projection Jacobian; q_Ut itself is not E-dot.
+        # Independently recover Eulerian E-dot from the stored mixed
+        # component identity: U_t=-alpha*sqrt(gamma)*E+shift*sqrt(gamma)*S_r.
+        # This is distinct from the dust primitive Jacobian above; the latter
+        # alone cannot validate U_t because recover_dust does not read energy_t.
+        dm_energy_projected_from_stored = (
+            (shift * q_radial_direct - q_energy_direct)
+            / (alpha * sqrt_gamma * KAPPA)
+        )
+        dm_energy_projected_from_covector = (shift * q_r - q_t) / KAPPA
+        stored_rate_error = np.abs(
+            dm_energy_projected_from_stored - dm_energy_projected_from_covector
+        )
+        stored_rate_bound = (
+            1024.0 * eps * (
+                np.abs(shift * q_radial_direct)
+                + np.abs(q_energy_direct)
+            ) / (alpha * sqrt_gamma * KAPPA)
+            + 1.0e-30
+        )
+        assert np.all(stored_rate_error <= stored_rate_bound), (
+            "Eulerian energy rate from stored (U_t,U_r) does not match "
+            "the covariant beta*rho*(shift*phi_r-d_t(phi)) transfer"
+        )
+        projection_rate_error = np.abs(
+            dm_energy_projected_from_stored - dm_energy_projected
+        )
+        projection_rate_bound = (
+            stored_rate_bound
+            + 1024.0 * eps * np.abs(dm_energy_projected) + 1.0e-30
+        )
+        assert np.all(projection_rate_error <= projection_rate_bound), (
+            "stored mixed-component source and primitive projection Jacobian "
+            "give different Eulerian energy rates"
+        )
+
+        # The scalar and dust Eulerian energy/current rates then cancel in the
+        # common physical stress projection. q_Ut is not E-dot by itself.
         scalar_energy_projected = pi_state * delta_pi_source / KAPPA
-        energy_pair_residual = scalar_energy_projected + dm_energy_projected
+        energy_pair_residual = (
+            scalar_energy_projected + dm_energy_projected_from_stored
+        )
         scalar_current_projected = -delta_pi_source * phi_r / KAPPA
         current_pair_residual = (
             scalar_current_projected + dm_current_projected
@@ -330,6 +366,7 @@ def test_covariant_source_candidate_vs_baseline_one_step_ab():
         energy_pair_bound = (
             512.0 * eps * max(
                 float(np.max(np.abs(scalar_energy_projected))),
+                float(np.max(np.abs(dm_energy_projected_from_stored))),
                 float(np.max(np.abs(dm_energy_projected))),
                 float(np.max((np.abs(q_t) + np.abs(shift * q_r)) / KAPPA)),
                 1.0e-30,
@@ -412,6 +449,12 @@ def test_covariant_source_candidate_vs_baseline_one_step_ab():
             ),
             "conserved_energy_from_projection_map_error_linf": float(
                 np.max(map_energy_error)
+            ),
+            "stored_vs_primitive_projected_energy_rate_error_linf": float(
+                np.max(projection_rate_error)
+            ),
+            "stored_vs_covector_energy_rate_error_linf": float(
+                np.max(stored_rate_error)
             ),
             "conserved_energy_from_projection_map_bound_linf": float(
                 np.max(map_energy_bound)
