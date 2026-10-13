@@ -17,6 +17,8 @@ import sys
 from pathlib import Path
 
 import numpy as np
+from scipy.sparse import csr_matrix
+from scipy.sparse.linalg import spsolve
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -278,6 +280,101 @@ def solve_joint_target_lapse_equilibrated(
         "equilibrated_system_roundoff_closed": bool(
             np.all(np.abs(balanced_residual) <= balanced_bound)
         ),
+    }
+
+
+def solve_joint_target_lapse_sparse(
+    matrix: np.ndarray,
+    intercept: np.ndarray,
+    weights: np.ndarray,
+    *,
+    equilibrate: bool = False,
+) -> tuple[np.ndarray, float, dict]:
+    """Solve identical augmented equations using sparse row-local matrix action."""
+    matrix = np.asarray(matrix, dtype=float)
+    intercept = np.asarray(intercept, dtype=float)
+    weights = np.asarray(weights, dtype=float)
+    n = int(weights.size)
+    if matrix.shape != (n, n) or intercept.shape != (n,):
+        raise ValueError("sparse joint solve dimensions do not match")
+    if not np.all(np.isfinite(matrix)) or not np.all(np.isfinite(intercept)):
+        raise ValueError("sparse joint solve inputs must be finite")
+    if not np.all(np.isfinite(weights)) or np.any(weights < 0.0):
+        raise ValueError("sparse joint solve weights must be finite and nonnegative")
+    total_weight = float(np.sum(weights))
+    if not np.isfinite(total_weight) or total_weight <= 0.0:
+        raise ValueError("sparse joint solve requires positive finite total weight")
+    normalized = weights / total_weight
+
+    # Same augmented equations; CSR storage/matvec avoids the dense BLAS dot
+    # product for each row-local K stencil. The equations and boundary rows
+    # are unchanged.
+    augmented = np.zeros((n + 1, n + 1), dtype=float)
+    rhs = np.zeros(n + 1, dtype=float)
+    augmented[0, 0] = 1.0
+    augmented[0, 1] = -1.0
+    for i in range(1, n - 1):
+        augmented[i, :n] = matrix[i, :]
+        augmented[i, n] = -1.0
+        rhs[i] = -intercept[i]
+    augmented[n - 1, n - 1] = 1.0
+    rhs[n - 1] = 1.0
+    augmented[n, :n] = normalized @ matrix
+    augmented[n, n] = -1.0
+    rhs[n] = -float(normalized @ intercept)
+
+    sparse = csr_matrix(augmented)
+    row_scale = np.ones(n + 1, dtype=float)
+    col_scale = np.ones(n + 1, dtype=float)
+    solve_matrix = sparse
+    solve_rhs = rhs.copy()
+    if equilibrate:
+        row_max = np.asarray(np.abs(sparse).max(axis=1).toarray()).reshape(-1)
+        if np.any(~np.isfinite(row_max)) or np.any(row_max <= 0.0):
+            raise ValueError("sparse augmented system has zero or invalid row")
+        row_scale = 1.0 / row_max
+        row_balanced = csr_matrix(row_scale[:, None] * sparse.toarray())
+        solve_rhs = row_scale * rhs
+        col_max = np.asarray(np.abs(row_balanced).max(axis=0).toarray()).reshape(-1)
+        if np.any(~np.isfinite(col_max)) or np.any(col_max <= 0.0):
+            raise ValueError("sparse augmented system has zero or invalid column")
+        col_scale = 1.0 / col_max
+        solve_matrix = csr_matrix(row_balanced.toarray() * col_scale[None, :])
+
+    scaled_solution = np.asarray(spsolve(solve_matrix, solve_rhs), dtype=float)
+    solution = col_scale * scaled_solution if equilibrate else scaled_solution
+    alpha = np.asarray(solution[:n], dtype=float)
+    target = float(solution[n])
+
+    raw_residual = augmented @ solution - rhs
+    raw_scale = np.abs(augmented) @ np.abs(solution) + np.abs(rhs)
+    raw_bound = 1024.0 * np.finfo(float).eps * np.maximum(
+        raw_scale, np.finfo(float).tiny
+    )
+    raw_ratio = np.abs(raw_residual) / raw_bound
+
+    csr_residual = np.asarray(sparse @ solution, dtype=float) - rhs
+    csr_scale = np.asarray(np.abs(sparse) @ np.abs(solution)).reshape(-1) + np.abs(rhs)
+    csr_bound = 1024.0 * np.finfo(float).eps * np.maximum(
+        csr_scale, np.finfo(float).tiny
+    )
+    csr_ratio = np.abs(csr_residual) / csr_bound
+    return alpha, target, {
+        "method": "scipy sparse CSR solve of the same augmented coefficient matrix",
+        "equilibrated": bool(equilibrate),
+        "condition_number_2_dense_diagnostic": float(np.linalg.cond(augmented)),
+        "nnz": int(sparse.nnz),
+        "density": float(sparse.nnz / sparse.shape[0] / sparse.shape[1]),
+        "row_scale_min": float(np.min(row_scale)),
+        "row_scale_max": float(np.max(row_scale)),
+        "column_scale_min": float(np.min(col_scale)),
+        "column_scale_max": float(np.max(col_scale)),
+        "max_abs_original_equation_residual": float(np.max(np.abs(raw_residual))),
+        "max_original_operand_scaled_roundoff_ratio": float(np.max(raw_ratio)),
+        "original_equations_close": bool(np.all(np.abs(raw_residual) <= raw_bound)),
+        "max_abs_csr_matvec_residual": float(np.max(np.abs(csr_residual))),
+        "max_csr_operand_scaled_roundoff_ratio": float(np.max(csr_ratio)),
+        "csr_system_roundoff_closed": bool(np.all(np.abs(csr_residual) <= csr_bound)),
     }
 
 
