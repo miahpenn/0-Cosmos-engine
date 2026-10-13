@@ -39,6 +39,7 @@ jobs:
         run: python -m pytest -q
 
       - name: Run production campaign
+        id: campaign
         env:
           FINAL_TIME: ${{ inputs.final_time || '160.0' }}
           RESOLUTIONS: ${{ inputs.resolutions || '40,60,80' }}
@@ -58,8 +59,16 @@ jobs:
           print(results)
           PY
 
-      - name: Upload campaign outputs
-        if: always()
+      - name: Upload campaign outputs (success requires artifact)
+        if: always() && steps.campaign.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: v55-final-campaign
+          path: runs/final/
+          if-no-files-found: error
+
+      - name: Upload campaign outputs (retain failure diagnostics)
+        if: always() && steps.campaign.outcome != 'success'
         uses: actions/upload-artifact@v4
         with:
           name: v55-final-campaign
