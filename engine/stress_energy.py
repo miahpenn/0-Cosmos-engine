@@ -1,4 +1,4 @@
-""""Single total spherical stress-energy assembly.
+"""Single total spherical stress-energy assembly.
 
 All Einstein/diagnostic/boundary consumers share the canonical scalar+fluid
 projection in :mod:`engine.v55_matter`. Keeping one projection entry point is
