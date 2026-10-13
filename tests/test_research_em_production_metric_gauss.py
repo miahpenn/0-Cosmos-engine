@@ -299,3 +299,91 @@ def test_production_metric_gauss_rejects_overflowed_areal_radius_square():
         solve_discrete_production_metric_gauss(
             metric, source, resolution=resolution
         )
+
+
+
+def test_frozen_metric_interpolation_and_derived_geometry_converge_second_order():
+    """Exercise the sampled-metric interpolation, including both half-cell edges."""
+    r_max = 40.0
+    sample_fractions = (0.0, 0.19, 0.5, 0.73, 1.0)
+    metric_errors = []
+    geometry_errors = []
+
+    def exact_components(radius):
+        x = radius / r_max
+        return (
+            1.0 + 0.05 * x * x,
+            1.0 + 0.10 * x * x,
+            1.0 + 0.30 * x * x,
+        )
+
+    for resolution in (32, 64, 128):
+        dr = r_max / resolution
+        centers = tuple((i + 0.5) * dr for i in range(resolution))
+        sampled = tuple(exact_components(radius) for radius in centers)
+        metric = FrozenProductionMetric(
+            centers=centers,
+            a=tuple(values[0] for values in sampled),
+            b=tuple(values[1] for values in sampled),
+            X=tuple(values[2] for values in sampled),
+            dr=dr,
+            r_max=r_max,
+        )
+
+        max_metric_error = 0.0
+        max_geometry_error = 0.0
+        for fraction in sample_fractions:
+            radius = fraction * r_max
+            a_exact, b_exact, x_exact = exact_components(radius)
+            a_interp, b_interp, x_interp = metric.metric_values(radius)
+            for observed, exact in (
+                (a_interp, a_exact),
+                (b_interp, b_exact),
+                (x_interp, x_exact),
+            ):
+                max_metric_error = max(
+                    max_metric_error,
+                    abs(observed - exact) / max(1.0, abs(exact)),
+                )
+
+            sqrt_gamma_exact = (
+                math.sqrt(a_exact) * b_exact * radius * radius / x_exact**3
+            )
+            areal_radius_exact = radius * math.sqrt(b_exact) / x_exact
+            max_geometry_error = max(
+                max_geometry_error,
+                abs(metric.sqrt_gamma(radius) - sqrt_gamma_exact)
+                / max(1.0, abs(sqrt_gamma_exact)),
+                abs(metric.areal_radius(radius) - areal_radius_exact)
+                / max(1.0, abs(areal_radius_exact)),
+            )
+
+        metric_errors.append(max_metric_error)
+        geometry_errors.append(max_geometry_error)
+
+    # Piecewise-linear interpolation and the one-half-cell endpoint rules
+    # should converge quadratically for this smooth, positive analytic metric.
+    assert metric_errors[0] > metric_errors[1] > metric_errors[2] > 0.0
+    assert metric_errors[0] / metric_errors[1] > 3.5
+    assert metric_errors[1] / metric_errors[2] > 3.5
+    assert geometry_errors[0] > geometry_errors[1] > geometry_errors[2] > 0.0
+    assert geometry_errors[0] / geometry_errors[1] > 3.5
+    assert geometry_errors[1] / geometry_errors[2] > 3.5
+
+
+def test_frozen_metric_rejects_nonpositive_outer_half_cell_extrapolation():
+    """Positive samples must not permit an invalid extrapolated boundary metric."""
+    resolution = 4
+    dr = 1.0
+    centers = tuple((i + 0.5) * dr for i in range(resolution))
+    unit = (1.0,) * resolution
+    metric = FrozenProductionMetric(
+        centers=centers,
+        a=unit,
+        b=unit,
+        X=(1.0, 1.0, 1.0, 0.2),
+        dr=dr,
+        r_max=4.0,
+    )
+    with pytest.raises(ValueError, match="finite and positive"):
+        metric.metric_values(4.0)
