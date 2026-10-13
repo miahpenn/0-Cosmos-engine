@@ -3,7 +3,7 @@ name: Diagnostic - native Misner-Sharp gradient identity
 on:
   push:
     branches:
-      - diag/current-main-native-ms-gradient-identity-2026-10-13
+      - diag/native-ms-gradient-identity-current-main-2026-10-13
     paths:
       - tools/audit_native_ms_gradient_identity.py
       - tests/test_native_ms_gradient_identity.py
