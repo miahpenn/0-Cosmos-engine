@@ -10,6 +10,8 @@ from engine.matter_system import (
     RadiationAdmissibilityError,
     Species,
     _metric_arrays,
+    _radiation_conserved,
+    _radiation_flux,
     primitives,
     validate_species_admissibility,
 )
@@ -18,6 +20,7 @@ from engine.valencia import (
     RadiationAdmissibilityError as RecoveryAdmissibilityError,
     SphericalMetric,
     recover_radiation,
+    spherical_metric_from_bssn,
 )
 
 
@@ -150,3 +153,41 @@ def test_low_energy_recovery_meets_relative_pressure_residual(ratio):
     # Recomputing v^2 through the ratio form is mildly ill-conditioned near |S|/E=1.
     # This bound admits the observed float64 rounding floor but not the old scale-loose solve.
     assert abs(residual) / energy <= 5.0e-11
+
+
+def test_near_cone_recovery_preserves_velocity_norm_and_outer_flux_identity():
+    """A captured null-cone-near state must survive primitive/flux round-trip.
+
+    State and metric are from the SHA-verified current-main radiation replay
+    (#61, workflow 38337821862, artifact 11785239489), outer cell r=79.5.
+    """
+    metric = spherical_metric_from_bssn(
+        r=79.5,
+        a=0.5883984147590013,
+        b=1.3036606161142992,
+        X=0.9545747827302261,
+        alpha=1.0,
+        beta=0.0,
+    )
+    conserved = _conserved(
+        E=2.4771114076139816e-4,
+        S=1.990541924362441e-4,
+    )
+
+    primitive = recover_radiation(metric, conserved)
+    rebuilt = _radiation_conserved(metric, primitive)
+    np.testing.assert_allclose(
+        rebuilt[1:],
+        np.asarray([conserved.energy_t, conserved.momentum_r]),
+        rtol=2.0e-14,
+        atol=0.0,
+    )
+
+    # With U_E=sqrt(gamma)E and U_r=sqrt(gamma)S_r, the physical
+    # Valencia energy flux is alpha*gamma^rr*U_r - beta*U_E.
+    face_flux = _radiation_flux(metric, primitive)
+    expected_energy_flux = (
+        metric.alpha * metric.gamma_rr_inv * conserved.momentum_r
+        - metric.beta * conserved.energy_t
+    )
+    assert face_flux[1] == pytest.approx(expected_energy_flux, rel=2.0e-14, abs=0.0)
