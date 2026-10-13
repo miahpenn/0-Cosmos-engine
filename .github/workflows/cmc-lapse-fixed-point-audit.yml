@@ -1,0 +1,95 @@
+name: CMC lapse target/operator frozen-state audit
+
+on:
+  push:
+    branches:
+      - diag/cmc-lapse-fixed-point-audit-2026-10-13
+    paths:
+      - tools/audit_cmc_lapse_fixed_point.py
+      - tests/test_cmc_lapse_fixed_point_audit.py
+      - .github/workflows/cmc-lapse-fixed-point-audit.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: cmc-lapse-fixed-point-audit-2026-10-13
+  cancel-in-progress: false
+
+jobs:
+  frozen-cmc-operator-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      PYTHONUNBUFFERED: "1"
+      BASE_MAIN_COMMIT: "c01f2467347e8aebd57d220374fd7bc4e93045bc"
+      VENDOR_COMMIT: "d6052d605673ce9d82cdc99b0df79855fa2ea215"
+      INPUT_REPLAY_RUN_ID: "38337821862"
+      INPUT_REPLAY_HEAD: "a854c3d6eafde1a1bae8066b7cc212bac7511ffd"
+    steps:
+      - name: Checkout diagnostic and pinned vendor
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Prove exact-main source and vendor provenance
+        shell: bash
+        run: |
+          git cat-file -e "$BASE_MAIN_COMMIT^{commit}"
+          changed="$(git diff --name-only "$BASE_MAIN_COMMIT" HEAD | sort)"
+          expected="$(printf '%s\n' \
+            '.github/workflows/cmc-lapse-fixed-point-audit.yml' \
+            'tests/test_cmc_lapse_fixed_point_audit.py' \
+            'tools/audit_cmc_lapse_fixed_point.py' | sort)"
+          if [ "$changed" != "$expected" ]; then
+            printf 'Unexpected source delta from pinned main:\n%s\n' "$changed"
+            exit 1
+          fi
+          actual_vendor="$(git rev-parse HEAD:vendor/bb-palatini-unified-r0)"
+          test "$actual_vendor" = "$VENDOR_COMMIT"
+          printf 'Pinned main: %s\nDiagnostic HEAD: %s\nVendor: %s\n' \
+            "$BASE_MAIN_COMMIT" "$GITHUB_SHA" "$actual_vendor"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install repository dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+
+      - name: Compile observer and run repository suite
+        run: |
+          python -m py_compile tools/audit_cmc_lapse_fixed_point.py
+          python -m pytest -q
+
+      - name: Download already-audited frozen-state replay artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: current-main-radiation-frozen-state-replay
+          repository: ${{ github.repository }}
+          run-id: 38337821862
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: runs/source-artifact
+
+      - name: Run no-evolution CMC target/operator audit
+        run: |
+          mkdir -p artifacts/cmc-lapse-fixed-point-audit
+          python tools/audit_cmc_lapse_fixed_point.py \
+            --input-dir runs/source-artifact \
+            --output-dir artifacts/cmc-lapse-fixed-point-audit \
+            --iterations 12
+
+      - name: Upload strict CMC audit report, profiles, and hashes
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cmc-lapse-fixed-point-audit
+          path: artifacts/cmc-lapse-fixed-point-audit/
+          if-no-files-found: warn
+          retention-days: 90
