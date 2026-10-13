@@ -34,7 +34,7 @@ from engine.run_production import assert_finite_state
 from engine.stress_energy import assemble_total_stress_energy
 from engine.worldtube import areal_radius_derivative
 
-SOURCE_COMMIT = "c01f2467347e8aebd57d220374fd7bc4e93045bc"
+SOURCE_COMMIT = "6df02e1f91dd4aa414bd760b7ee0d7d86f1605e3"
 SOURCE_BLOBS = {
     "engine/production_kernel.py": "2954e7a79656849b5f088053ea0f4ac97d4bb443",
     "engine/v55_initial.py": "4cfbfe4be6ac3ce6ed492f4e435186997d94116a",
