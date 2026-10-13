@@ -58,6 +58,13 @@ EXPECTED_BLOBS = {
 SCALAR_NAMES = ("S", "PS", "D", "PD", "phi", "Pi")
 GEOMETRY_RATE_NAMES = ("a", "b", "X", "Aa", "K", "Lambda")
 SECTOR_NAMES = ("S", "D", "COSMOS_phi", "dark_matter", "baryons", "radiation")
+GEOMETRIC_M_NAMES = (
+    "D_r_Aa",
+    "minus_2third_D_r_K",
+    "6_Aa_chi_r",
+    "anisotropy_2_over_r",
+    "anisotropy_b_gradient",
+)
 MACHINE_EPS = float(np.finfo(np.float64).eps)
 
 
@@ -144,12 +151,45 @@ def current_pieces(state: ProductionState) -> dict[str, np.ndarray]:
     return {key: finite(f"current {key}", value) for key, value in pieces.items()}
 
 
+def geometric_momentum_pieces(state: ProductionState) -> dict[str, np.ndarray]:
+    """Return signed terms from the exact pinned vendor momentum-constraint formula."""
+    grid, geom = state.grid, state.geometry
+    d1 = lambda f: grid.cell_derivative_fourth(f, parity=1)
+    r = np.asarray(grid.centers, dtype=np.float64)
+    Aa = np.asarray(geom.Aa, dtype=np.float64)
+    Ab = -0.5 * Aa
+    chip = -0.5 * d1(np.asarray(geom.X, dtype=np.float64)) / np.asarray(geom.X)
+    bp = d1(np.asarray(geom.b, dtype=np.float64))
+    return {
+        "D_r_Aa": finite("M geometry D_r Aa", d1(Aa)),
+        "minus_2third_D_r_K": finite(
+            "M geometry -2/3 D_r K",
+            -(2.0 / 3.0) * d1(np.asarray(geom.K, dtype=np.float64)),
+        ),
+        "6_Aa_chi_r": finite("M geometry 6 Aa chi_r", 6.0 * Aa * chip),
+        "anisotropy_2_over_r": finite(
+            "M geometry anisotropy 2/r", (Aa - Ab) * (2.0 / r),
+        ),
+        "anisotropy_b_gradient": finite(
+            "M geometry anisotropy b gradient", (Aa - Ab) * bp / np.asarray(geom.b),
+        ),
+    }
+
+
 def observe_constraint(state: ProductionState) -> dict[str, Any]:
     _, vacuum, _ = adapter.vendor_modules()
     raw = vacuum.constraints(state.grid, state.geometry)
     if "momentum" not in raw:
         raise KeyError("pinned vendor constraints output lacks 'momentum'")
     m_geom = finite("geometric momentum constraint", raw["momentum"])
+    geom_pieces = geometric_momentum_pieces(state)
+    geom_sum = np.zeros_like(m_geom)
+    geom_operand_scale = np.abs(m_geom)
+    for value in geom_pieces.values():
+        geom_sum = geom_sum + value
+        geom_operand_scale = geom_operand_scale + np.abs(value)
+    geom_closure = m_geom - geom_sum
+    geom_closure_bound = 64.0 * MACHINE_EPS * geom_operand_scale
     total = assemble_total_stress_energy(
         state.grid, state.geometry, state.scalars, state.matter
     )
@@ -165,6 +205,10 @@ def observe_constraint(state: ProductionState) -> dict[str, Any]:
     m_total = m_geom - 8.0 * math.pi * j_total
     return {
         "M_geom": m_geom,
+        "M_geom_pieces": geom_pieces,
+        "M_geom_closure_abs": np.abs(geom_closure),
+        "M_geom_closure_bound": geom_closure_bound,
+        "M_geom_closure_ok": bool(np.all(np.abs(geom_closure) <= geom_closure_bound)),
         "J_total": j_total,
         "J_pieces": pieces,
         "M_total": finite("total momentum constraint", m_total),
@@ -331,6 +375,24 @@ def tangent_for_epsilon(
     minus = observe_constraint(minus_state)
     denom = 2.0 * epsilon
     m_geom_dot = (plus["M_geom"] - minus["M_geom"]) / denom
+    geom_term_dots = {
+        key: (plus["M_geom_pieces"][key] - minus["M_geom_pieces"][key]) / denom
+        for key in GEOMETRIC_M_NAMES
+    }
+    geom_term_sum = np.zeros_like(m_geom_dot)
+    geom_term_sum_scale = np.zeros_like(m_geom_dot)
+    geom_operand_scale = np.zeros_like(m_geom_dot)
+    for key in GEOMETRIC_M_NAMES:
+        geom_term_sum = geom_term_sum + geom_term_dots[key]
+        geom_term_sum_scale = geom_term_sum_scale + np.abs(geom_term_dots[key])
+        geom_operand_scale = geom_operand_scale + (
+            np.abs(plus["M_geom_pieces"][key]) + np.abs(minus["M_geom_pieces"][key])
+        )
+    geom_tangent_closure = m_geom_dot - geom_term_sum
+    geom_tangent_bound = (128.0 * MACHINE_EPS / denom) * geom_operand_scale
+    geom_tangent_closure_ok = bool(
+        np.all(np.abs(geom_tangent_closure) <= geom_tangent_bound)
+    )
     j_dot = {
         key: (plus["J_pieces"][key] - minus["J_pieces"][key]) / denom
         for key in SECTOR_NAMES
@@ -369,6 +431,13 @@ def tangent_for_epsilon(
         "epsilon": float(epsilon),
         "Mdot": m_dot,
         "Mdot_geom": m_geom_dot,
+        "Mdot_geom_terms": geom_term_dots,
+        "Mdot_geom_term_reconstructed": geom_term_sum,
+        "Mdot_geom_tangent_closure_abs": np.abs(geom_tangent_closure),
+        "Mdot_geom_tangent_closure_bound": geom_tangent_bound,
+        "Mdot_geom_tangent_closure_ok": geom_tangent_closure_ok,
+        "Mdot_geom_tangent_closure_max_abs": float(np.max(np.abs(geom_tangent_closure))),
+        "Mdot_geom_tangent_closure_max_bound": float(np.max(geom_tangent_bound)),
         "Mdot_sector": sector_terms,
         "Mdot_reconstructed": reconstructed,
         "closure_abs": np.abs(closure),
@@ -399,6 +468,19 @@ def compact_tangent_result(item: dict[str, Any], r: np.ndarray) -> dict[str, Any
         "Mdot_sector_fixed_radius_samples": {
             name: fixed_radius_samples(value, r)
             for name, value in item["Mdot_sector"].items()
+        },
+        "geometric_term_contributions": {
+            name: regional_summaries(value, r)
+            for name, value in item["Mdot_geom_terms"].items()
+        },
+        "geometric_term_fixed_radius_samples": {
+            name: fixed_radius_samples(value, r)
+            for name, value in item["Mdot_geom_terms"].items()
+        },
+        "geometric_term_tangent_closure": {
+            "ok": item["Mdot_geom_tangent_closure_ok"],
+            "max_abs": item["Mdot_geom_tangent_closure_max_abs"],
+            "max_bound": item["Mdot_geom_tangent_closure_max_bound"],
         },
         "closure": {
             "ok": item["closure_ok"],
@@ -474,14 +556,20 @@ def audit_resolution(
     arithmetic_ok = all(
         item["closure_ok"]
         and item["plus_minus_current_projection_closure_ok"]
+        and item["Mdot_geom_tangent_closure_ok"]
         for item in tangent_results
-    ) and bool(w0["J_closure_ok"])
+    ) and bool(w0["J_closure_ok"] and w0["M_geom_closure_ok"])
     return {
         "resolution": int(resolution),
         "r_max": float(r_max),
         "dr": float(state.grid.dr),
         "initial_state_sha256": original_digest,
         "initial_momentum_constraint": regional_summaries(w0["M_total"], r),
+        "initial_geometric_momentum_term_closure": {
+            "ok": w0["M_geom_closure_ok"],
+            "max_abs": float(np.max(w0["M_geom_closure_abs"])),
+            "max_bound": float(np.max(w0["M_geom_closure_bound"])),
+        },
         "initial_current_projection_closure": {
             "ok": w0["J_closure_ok"],
             "max_abs": float(np.max(w0["J_closure_abs"])),
@@ -549,6 +637,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             "This is an initialized-state, semi-discrete tangent audit, not a long trajectory.",
             "The source-sector Mdot terms are total directional derivatives of each projected J sector along the full state and CMC-lapse direction; they are not frozen-metric partial derivatives.",
             "The signed decomposition diagnoses the implemented discrete RHS only. It does not identify a faulty physical equation by itself.",
+            "The geometric subterm budget is a term-by-term derivative of the pinned vendor's exact momentum-constraint expression, with no alternate stencil."
             "The one-step and half-step checks are local finite-step comparisons, not production scientific admission.",
         ],
     }
