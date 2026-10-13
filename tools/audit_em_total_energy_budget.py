@@ -596,7 +596,7 @@ def _worldtube_sample(kernel, state, *, geometry_stage_capture=None) -> dict:
     )
     tube_sweep = Mr_tube * tube_speed
     predicted_fixed_R_rate = stress_flux + pressure_work + tube_sweep
- 
+
     # Component-level attribution (scalar / fluid / electromagnetic).
     # Fail-closed additive consistency against the aggregate rates above.
     sector_rates = _sector_fixed_R_rates(
