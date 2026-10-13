@@ -70,8 +70,11 @@ def test_gauss_reconstruction_uses_areal_radius_and_regular_centre():
 
     field = radial_electric_field_faces(state, areal_radius)
 
-    np.testing.assert_array_equal(
-        field, np.asarray([0.0, 0.08 / 0.16, -0.12 / 0.0625, 0.5])
+    np.testing.assert_allclose(
+        field,
+        np.asarray([0.0, 0.08 / 0.16, -0.12 / 0.0625, 0.5]),
+        rtol=0.0,
+        atol=2.0e-16,
     )
 
 
