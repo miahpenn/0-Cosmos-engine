@@ -192,8 +192,6 @@ def test_pre_replace_interrupt_does_not_count_stale_same_time_checkpoint(
         marker=np.asarray("stale-prior-run"),
         a=np.asarray([-999.0]),
     )
-    real_checkpoint_writer = atomic_io.np.savez_compressed
-
     def interrupt_before_replace(path, **arrays):
         # The atomic writer has created the staging path but must preserve the
         # old canonical file when serialization is interrupted.
