@@ -18,6 +18,8 @@ from tools.audit_em_total_energy_budget import (
     _fixed_R_interval_balance,
     _pair_fixed_R_interval_rows,
     _misner_sharp_chain_rule_rate_profiles,
+    _misner_sharp_chain_rule_bracket_operands,
+    _numeric_tree_difference,
     _mass_gradient_identity_bracket_witness,
     _sector_fixed_R_rates,
     _sector_ktheta_source_rates,
@@ -560,6 +562,69 @@ def test_misner_sharp_expanded_mass_rate_terms_reconstruct_at_roundoff():
         observed["mass_dot_coordinate_decomposition_residual"], residual,
         rtol=0.0, atol=0.0,
     )
+
+
+
+
+def test_misner_sharp_chain_rule_bracket_witness_separates_matter_and_non_matter_terms():
+    R = np.array([1.0, 2.0, 3.0, 4.0])
+    Rdot = np.array([0.10, 0.13, 0.15, 0.18])
+    Rr = np.array([0.90, 1.00, 1.10, 1.20])
+    Rdot_r = np.array([-0.01, 0.02, 0.03, -0.02])
+    gamma_inv = np.array([1.10, 1.20, 1.30, 1.40])
+    gamma_inv_dot = np.array([0.01, -0.02, 0.03, 0.015])
+    Ktheta = np.array([-0.03, -0.04, -0.05, -0.06])
+    Ktheta_dot = np.array([0.002, 0.003, 0.004, 0.005])
+    source = np.array([0.0003, 0.0004, 0.0005, 0.0006])
+
+    observed = _misner_sharp_chain_rule_bracket_operands(
+        R, Rdot, Rr, Rdot_r, gamma_inv, gamma_inv_dot, Ktheta,
+        Ktheta_dot, source, target=2.4,
+    )
+    assert (observed["left_index"], observed["right_index"]) == (1, 2)
+    assert observed["theta"] == pytest.approx(0.4)
+
+    for side, index in (("left_cell", 1), ("right_cell", 2)):
+        cell = observed[side]
+        assert cell["index"] == index
+        assert cell["Rdot_from_production_explicit_rhs"] == pytest.approx(Rdot[index])
+        assert cell["gamma_inv_dot_from_production_explicit_rhs"] == pytest.approx(
+            gamma_inv_dot[index]
+        )
+        assert cell["Rdot_r_from_cell_derivative_fourth_parity_minus_one"] == pytest.approx(
+            Rdot_r[index]
+        )
+        assert cell["Ktheta_dot_matter_source_from_same_stage_live_minus_vacuum_L3"] == pytest.approx(
+            source[index]
+        )
+        assert cell["Ktheta_dot_non_matter_remainder"] == pytest.approx(
+            Ktheta_dot[index] - source[index]
+        )
+        assert cell["mass_dot_coordinate_term_Ktheta_dot_matter_source"] + (
+            cell["mass_dot_coordinate_term_Ktheta_dot_non_matter"]
+        ) == pytest.approx(
+            cell["mass_dot_coordinate_term_Ktheta_dot_total"], rel=1e-14, abs=1e-16
+        )
+        assert abs(cell["mass_dot_coordinate_decomposition_residual"]) <= (
+            cell["mass_dot_coordinate_decomposition_bound"]
+        )
+
+
+def test_numeric_tree_difference_preserves_nested_signed_witness_operands():
+    observed = _numeric_tree_difference(
+        {
+            "left_cell": {"Rdot": 0.8, "label": "charged", "terms": {"matter": 2.0, "non_matter": -4.0}},
+            "theta": 0.4,
+        },
+        {
+            "left_cell": {"Rdot": 0.3, "label": "neutral", "terms": {"matter": 1.0, "non_matter": -2.0}},
+            "theta": 0.2,
+        },
+    )
+    assert observed["left_cell"]["Rdot"] == pytest.approx(0.5)
+    assert observed["left_cell"]["terms"]["matter"] == pytest.approx(1.0)
+    assert observed["left_cell"]["terms"]["non_matter"] == pytest.approx(-2.0)
+    assert observed["theta"] == pytest.approx(0.2)
 
 
 def test_misner_sharp_semidiscrete_chain_rule_fails_closed_on_shape_mismatch():
