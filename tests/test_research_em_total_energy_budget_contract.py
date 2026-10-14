@@ -761,6 +761,76 @@ def test_numeric_tree_difference_omits_per_arm_bound_metadata_from_deltas():
     assert "reconstruction_bound" not in observed
     assert "component_roundoff_bound" not in observed["nested"]
 
+def test_numeric_tree_difference_preserves_r10_witness_identity_metadata():
+    charged = {
+        "target_R": 10.0,
+        "left_index": 19,
+        "right_index": 20,
+        "theta": 0.497,
+        "left_cell": {
+            "index": 19,
+            "R": 9.7517,
+            "mass_gradient_residual_local_composite": 7.0511e-6,
+            "hamiltonian_constraint_contribution_to_mass_gradient_residual": 5.7088e-6,
+            "momentum_constraint_contribution_to_mass_gradient_residual": 2.0732e-9,
+            "constraint_identity_operator_remainder": 1.3403e-6,
+        },
+    }
+    neutral = {
+        "target_R": 10.0,
+        "left_index": 19,
+        "right_index": 20,
+        "theta": 0.4971,
+        "left_cell": {
+            "index": 19,
+            "R": 9.7514,
+            "mass_gradient_residual_local_composite": 7.0441e-6,
+            "hamiltonian_constraint_contribution_to_mass_gradient_residual": 5.7036e-6,
+            "momentum_constraint_contribution_to_mass_gradient_residual": 1.0894e-10,
+            "constraint_identity_operator_remainder": 1.3403e-6,
+        },
+    }
+
+    observed = _numeric_tree_difference(charged, neutral)
+
+    # These identify the physical target and cells, so they are preserved,
+    # not turned into zero-valued differences.
+    assert observed["target_R"] == 10.0
+    assert observed["left_index"] == 19
+    assert observed["right_index"] == 20
+    assert observed["left_cell"]["index"] == 19
+    # Actual observables remain signed charged-minus-neutral differences.
+    assert observed["left_cell"]["R"] == pytest.approx(0.0003)
+    assert observed["left_cell"]["mass_gradient_residual_local_composite"] == pytest.approx(7.0e-9)
+    assert observed["left_cell"]["hamiltonian_constraint_contribution_to_mass_gradient_residual"] == pytest.approx(5.2e-9)
+    assert observed["left_cell"]["momentum_constraint_contribution_to_mass_gradient_residual"] == pytest.approx(1.96426e-9)
+    assert observed["left_cell"]["constraint_identity_operator_remainder"] == pytest.approx(0.0, abs=1e-12)
+    assert observed["theta"] == pytest.approx(-1.0e-4)
+
+
+@pytest.mark.parametrize(
+    ("charged_key", "neutral_key"),
+    [("left_index", "left_index"), ("right_index", "right_index"), ("target_R", "target_R"),
+     ("left_cell", "left_cell")],
+)
+def test_numeric_tree_difference_fails_closed_on_mismatched_witness_identity(charged_key, neutral_key):
+    charged = {
+        "target_R": 10.0, "left_index": 19, "right_index": 20,
+        "left_cell": {"index": 19, "R": 9.75},
+    }
+    neutral = {
+        "target_R": 10.0, "left_index": 19, "right_index": 20,
+        "left_cell": {"index": 19, "R": 9.75},
+    }
+    if charged_key == "target_R":
+        neutral[neutral_key] = 9.0
+    elif charged_key in ("left_index", "right_index"):
+        neutral[neutral_key] += 1
+    else:
+        neutral["left_cell"]["index"] += 1
+    with pytest.raises(RuntimeError, match="identity metadata mismatch"):
+        _numeric_tree_difference(charged, neutral)
+
 
 def test_misner_sharp_semidiscrete_chain_rule_fails_closed_on_shape_mismatch():
     inputs = _manufactured_misner_sharp_chain_rule_inputs()
