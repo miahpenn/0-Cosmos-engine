@@ -1,4 +1,27 @@
-# Current EM disposition — 13 October 2026 UTC (supersedes the historical EM-absent entries below)
+# Current EM disposition — 14 October 2026 UTC (live-main refresh; historical snapshots remain below)
+
+## Live-main update — 14 October 2026 UTC
+
+**Current `main` tip:** `6c3e693adf5f5d8c66428de8c1ac891bd08f128d` (merge commit for [PR #184](https://github.com/miahpenn/0-Cosmos-engine/pull/184)). The opt-in radial-Maxwell research path introduced by [PR #176](https://github.com/miahpenn/0-Cosmos-engine/pull/176) remains explicitly gated: ordinary/default runs stay EM-off unless both `radial_maxwell_charge_to_mass` and the separate `charged_dust_density_profile` are supplied. No existing GEAR species is assigned charge by inference.
+
+### Recent merged EM evidence
+
+- [PR #152](https://github.com/miahpenn/0-Cosmos-engine/pull/152) merged a source-agnostic, stage-local face-enclosed-charge continuity kernel. It is a research helper, not by itself a selected carrier/current law or a proof of a coupled physical trajectory.
+- [PR #180](https://github.com/miahpenn/0-Cosmos-engine/pull/180) merged the curved-slice, same-stage EM exchange discriminator and reports its measurements in CI.
+- [PR #182](https://github.com/miahpenn/0-Cosmos-engine/pull/182) merged a live-RHS regression showing that the actual stage-local Lorentz energy/momentum arrays are injected once into the separate charged-dust RHS at start and predictor stages, while its rest-mass RHS is unchanged.
+- [PR #184](https://github.com/miahpenn/0-Cosmos-engine/pull/184) merged the opt-in joined EM/matter/Misner–Sharp ledger and independent fixed-radius recomputation. Its four exact-source-head workflows passed; the joined-ledger run reported **497 tests passed**. The merge records diagnostic/test evidence, not a complete global conservation law.
+
+### Current follow-on: actual PIRK face/cell pairing
+
+Draft [PR #191](https://github.com/miahpenn/0-Cosmos-engine/pull/191) continues from the merged ledger using saved start and primary-predictor stage operands. Its source head is `fa649209700c7a0e1a12c425d9aa0702f024fe72`; four applicable exact-head workflows succeeded, including [the joined-ledger run](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38639255027), which reports **500 tests passed** and successful source/vendor pin checks. The raw-operand artifact is [11930150204](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38639255027/artifacts/11930150204), ZIP SHA-256 `e3dbe45eadfbb6203d5202358ca0563cfad81fc9f24c24f8727168e199281293`. The workflow's production-source anchor `31a7491bce8076e05a8524d442567cc39ed30d94` and vendor pin `d6052d605673ce9d82cdc99b0df79855fa2ea215` are provenance fields distinct from current `main`.
+
+At N=48 and matched predictor time t=0.02, the signed face/cell pairing is `-5.63362e-13`, `-5.08081e-13`, and `-4.81732e-13` for CFL 0.01 / 0.005 / 0.0025. The HLL-jump-to-pairing ratios are only about `2.0–2.6e-11`, while the maximum cell-current vs adjacent-face-average gap is about 0.345–0.350% of maximum face-current magnitude. At the final N=48 / CFL=0.0025 predictor, the pairing is `-6.81805e-13`. These measurements point to the discrete face/cell work projection as the narrow EM remainder; they do not by themselves establish the physically correct operator or a total-energy closure.
+
+### Admission boundary / next gate
+
+The current outer-current quantity is the outer-face summand of the discrete charge tangent; it is **not** independently derived here as a physical Poynting flux. The current feature is a pure radial-electric sector with no evolved magnetic-field state. The metric-weight tangent, charged-dust outer energy flux, and fixed-areal-radius Misner–Sharp terms must remain separately signed and each be counted exactly once in an independently derived finite-domain law. At the N=48 matched-time witness, charged-minus-neutral fixed-R remainders are O(10^-8), distinct from the O(10^-13) local EM pairing.
+
+**Scientific disposition remains research-only / NOT ADMITTED.** The next gate is an independent, source-traced derivation/review of the stage-local current and face/cell work operator and the full finite-domain Maxwell+matter+geometry identity. Do not change production equations, defaults, carrier assumptions, or physical-residual thresholds from these diagnostics alone.
 
 ## Owner-directed opt-in radial-Maxwell integration now on `main`
 
