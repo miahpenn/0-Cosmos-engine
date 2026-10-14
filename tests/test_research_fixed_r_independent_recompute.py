@@ -4,7 +4,10 @@ import copy
 import numpy as np
 import pytest
 
-from tools.recompute_fixed_r_balance_artifact import recompute_arm
+from tools.recompute_fixed_r_balance_artifact import (
+    recompute_arm,
+    recompute_em_stage_exchange_witness,
+)
 
 
 def _raw_stage():
@@ -144,3 +147,86 @@ def test_independent_fixed_r_reconstruction_fails_on_rhs_stage_mismatch():
     broken["tube_fixed_R_balance_raw_witness"]["rhs_split"]["primary_l3"]["K"][2] += 1.0e-4
     with pytest.raises(RuntimeError, match=r"K dot from primary L2\+L3"):
         recompute_arm(broken)
+
+
+
+def _raw_em_stage_record():
+    centers = np.array([0.5, 1.5, 2.5], dtype=np.float64)
+    dr = 1.0
+    eta = 0.2
+    charge_faces = np.array([0.0, 0.08, 0.19, 0.27], dtype=np.float64)
+    rest_flux = np.array([0.0, 0.01, -0.02, 0.03], dtype=np.float64)
+    current = 4.0 * np.pi * eta * rest_flux
+    qdot = -current
+    qcell = 0.5 * (charge_faces[:-1] + charge_faces[1:])
+    qcelldot = 0.5 * (qdot[:-1] + qdot[1:])
+    X = np.array([1.1, 1.2, 1.3])
+    a = np.array([1.2, 1.1, 1.4])
+    b = np.array([1.0, 1.1, 1.3])
+    Xdot = np.array([0.01, -0.01, 0.02])
+    adot = np.array([0.005, 0.002, -0.003])
+    bdot = np.array([0.01, -0.004, 0.005])
+    weight = X * np.sqrt(a) / (centers**2 * b)
+    log_weight_dot = Xdot / X + 0.5 * adot / a - bdot / b
+    weight_dot = weight * log_weight_dot
+    charge_terms = dr * weight * qcell * qcelldot
+    metric_terms = 0.5 * dr * weight * qcell**2 * log_weight_dot
+    charge_power = float(np.sum(charge_terms))
+    metric_power = float(np.sum(metric_terms))
+    lorentz = np.array([1.0e-5, -2.0e-5, 1.5e-5])
+    lorentz_power = 4.0 * np.pi * dr * float(np.sum(lorentz))
+    outer_power = -0.5 * dr * weight[-1] * qcell[-1] * current[-1]
+    witness = {
+        "grid_dr": dr,
+        "charge_to_rest_mass": eta,
+        "centers": centers.tolist(),
+        "geometry": {"X": X.tolist(), "a": a.tolist(), "b": b.tolist()},
+        "explicit_geometry_rhs": {
+            "X": Xdot.tolist(), "a": adot.tolist(), "b": bdot.tolist()
+        },
+        "charge_faces": charge_faces.tolist(),
+        "rest_mass_flux_faces": rest_flux.tolist(),
+        "charge_current_faces": current.tolist(),
+        "charge_face_dot": qdot.tolist(),
+        "charge_cell_average": qcell.tolist(),
+        "charge_cell_dot_average": qcelldot.tolist(),
+        "field_energy_weight": weight.tolist(),
+        "log_energy_weight_rate": log_weight_dot.tolist(),
+        "energy_weight_dot": weight_dot.tolist(),
+        "charge_current_tangent_cell_terms": charge_terms.tolist(),
+        "metric_tangent_cell_terms": metric_terms.tolist(),
+        "field_energy_at_stage": 0.5 * dr * float(np.sum(weight * qcell**2)),
+        "charge_current_tangent": charge_power,
+        "metric_tangent": metric_power,
+        "total_field_energy_tangent": charge_power + metric_power,
+        "lorentz_energy_source_profile": lorentz.tolist(),
+        "matter_lorentz_power": lorentz_power,
+        "outer_current_power": outer_power,
+    }
+    return {
+        "stage": "start",
+        "t": 0.01,
+        "charge_power": charge_power,
+        "metric_power": metric_power,
+        "matter_lorentz_power": lorentz_power,
+        "outer_current_power": outer_power,
+        "stage_witness": witness,
+    }
+
+
+def test_independent_em_stage_recomputation_rebuilds_face_charge_and_energy_tangent():
+    result = recompute_em_stage_exchange_witness(_raw_em_stage_record())
+    assert result["field_energy_at_stage"] > 0.0
+    assert result["physical_residual_threshold_applied"] is False
+    assert result["total_field_energy_tangent"] == pytest.approx(
+        result["charge_current_tangent"] + result["metric_tangent"], abs=1e-18
+    )
+    assert result["exchange_only_remainder_unthresholded"] != 0.0
+    assert all(check["bound_ratio"] <= 1.0 for check in result["algebraic_roundoff_checks"].values())
+
+
+def test_independent_em_stage_recomputation_fails_closed_on_wrong_charge_tangent():
+    broken = _raw_em_stage_record()
+    broken["stage_witness"]["charge_face_dot"][1] += 1e-4
+    with pytest.raises(RuntimeError, match="charge-face tangent reconstruction"):
+        recompute_em_stage_exchange_witness(broken)
