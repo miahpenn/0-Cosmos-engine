@@ -41,6 +41,7 @@ from tools.audit_em_total_energy_budget import (
     _domain_radius_projection_comparison,
     _observed_refinement_order,
     _summarize_fixed_N_temporal_pairing_refinement,
+    _summarize_fixed_N_stage_pairing_history,
 )
 
 
@@ -1658,6 +1659,129 @@ def test_fixed_N_temporal_pairing_summary_compares_same_predictor_time_across_cf
     )
     assert summary["rows"][0]["hll_jump_abs_over_pairing_abs"] == pytest.approx(1.0e-10)
     assert summary["interpretation_limit"].find("does not by itself prove temporal order") >= 0
+
+
+def test_fixed_N_stage_pairing_history_tracks_start_predictor_and_gravity_separately(monkeypatch):
+    diagnostic = {
+        "grid_dr": 0.5,
+        "inner_cell_current_equivalent": [2.0, 3.0],
+        "inner_face_currents": [1.0, 2.0, 3.0],
+        "inner_cell_pairing_prefactor": [1.0e-4, 2.0e-4],
+        "inner_cell_defect_profile": [5.0e-5, 1.0e-4],
+        "full_pairing_signed_global": 1.5e-4,
+        "cell_defect_l1_inner": 1.5e-4,
+        "hll_jump_charge_tangent_global": 1.5e-10,
+        "roundoff_checks": {
+            "max_abs_cell_pairing_component_residual": 1.0e-19,
+            "max_cell_pairing_component_bound_ratio": 0.01,
+        },
+    }
+
+    def stage_row(stage_name, *, charged, diagnostic_row=None):
+        stage_power = -2.0e-4 if stage_name == "start" else -3.0e-4
+        lorentz_power = stage_power + 1.5e-4
+        row = {
+            "stage": stage_name,
+            "t": 0.02,
+            "charge_power": stage_power,
+            "matter_lorentz_power": lorentz_power,
+            "metric_power": -2.0e-6 if stage_name == "start" else -3.0e-6,
+            "outer_current_power": -4.0e-12,
+            "hll_jump_charge_power": 1.5e-10,
+        }
+        if charged:
+            row["diagnostic"] = diagnostic_row
+        return row
+
+    def gravity_row(stage_name, *, charged):
+        is_start = stage_name == "start"
+        return {
+            "tube_chain_rule_fixed_R_residual": (
+                (-6.0e-7 if is_start else -8.0e-7)
+                if charged else (-4.0e-7 if is_start else -5.0e-7)
+            ),
+            "tube_interpolant_composite_fixed_R_residual": (
+                (-5.0e-7 if is_start else -7.0e-7)
+                if charged else (-3.0e-7 if is_start else -4.0e-7)
+            ),
+            "tube_stress_flux": 1.1e-5 if charged else 1.0e-5,
+            "tube_radial_pressure_work": 2.3e-5 if charged else 2.0e-5,
+        }
+
+    def make_run(cfl, q_over_m):
+        charged = q_over_m == 0.25
+        stages = [
+            stage_row("start", charged=charged, diagnostic_row=diagnostic),
+            stage_row(
+                "primary_predictor", charged=charged, diagnostic_row=diagnostic
+            ),
+        ]
+        return {
+            "resolution": em_budget.TEMPORAL_REFINEMENT_RESOLUTION,
+            "q_over_m": q_over_m,
+            "cfl": cfl,
+            "nominal_dt": cfl * 0.5,
+            "step_rows": [{
+                "em_stage_exchange_witnesses": stages,
+                "fixed_R_stage_rates": {
+                    "start": gravity_row("start", charged=charged),
+                    "primary_predictor": gravity_row(
+                        "primary_predictor", charged=charged
+                    ),
+                },
+            }],
+        }
+
+    def stage_diagnostic(run, stage, *, coordinate_radius_cut):
+        assert run["q_over_m"] == pytest.approx(0.25)
+        assert coordinate_radius_cut == pytest.approx(24.0)
+        return stage["diagnostic"]
+
+    monkeypatch.setattr(em_budget, "_domain_stage_diagnostics", stage_diagnostic)
+    runs = [
+        make_run(cfl, q_over_m)
+        for cfl in em_budget.TIME_STEP_CFL_VALUES
+        for q_over_m in (0.0, 0.25)
+    ]
+
+    summary = _summarize_fixed_N_stage_pairing_history(runs)
+
+    assert summary["stage_order"] == ["start", "primary_predictor"]
+    assert len(summary["rows"]) == 2 * len(em_budget.TIME_STEP_CFL_VALUES)
+    assert [(row["cfl"], row["stage"]) for row in summary["rows"]] == [
+        item
+        for cfl in em_budget.TIME_STEP_CFL_VALUES
+        for item in ((cfl, "start"), (cfl, "primary_predictor"))
+    ]
+    start, predictor = summary["rows"][:2]
+    assert start["full_pairing_signed_global"] == pytest.approx(1.5e-4)
+    assert start["pairing_prefactor_l1"] == pytest.approx(3.0e-4)
+    assert start["current_projection_gap_max_abs"] == pytest.approx(0.5)
+    assert start["current_projection_gap_max_abs_over_max_face_current"] == pytest.approx(
+        1.0 / 6.0
+    )
+    assert start["weighted_gap_signed_sum"] == pytest.approx(1.5e-4)
+    assert start["weighted_gap_l1"] == pytest.approx(1.5e-4)
+    assert start["hll_jump_abs_over_pairing_abs"] == pytest.approx(1.0e-6)
+    assert start["metric_power"] == pytest.approx(-2.0e-6)
+    assert predictor["metric_power"] == pytest.approx(-3.0e-6)
+    assert start["charged_minus_neutral_tube_chain_rule_fixed_R_residual"] == pytest.approx(
+        -2.0e-7
+    )
+    assert predictor["charged_minus_neutral_tube_chain_rule_fixed_R_residual"] == pytest.approx(
+        -3.0e-7
+    )
+    assert start["charged_minus_neutral_tube_interpolant_composite_fixed_R_residual"] == pytest.approx(
+        -2.0e-7
+    )
+    assert start["charged_minus_neutral_tube_stress_flux"] == pytest.approx(1.0e-6)
+    assert start["charged_minus_neutral_tube_radial_pressure_work"] == pytest.approx(
+        3.0e-6
+    )
+    assert (
+        summary["classification"].startswith("actual PIRK start/predictor stage history")
+    )
+    assert "not an asserted production quadrature" in summary["interpretation_limit"]
 
 
 def test_domain_radius_projection_roundoff_bound_scales_to_cancelled_products():
