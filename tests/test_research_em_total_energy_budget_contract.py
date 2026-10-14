@@ -1405,10 +1405,21 @@ def test_domain_stage_diagnostics_reconstructs_signed_cellwise_projection_and_hl
     )
     jump_tangent = float(np.sum(jump_cell_terms))
     weighted_only_tangent = charge_tangent - jump_tangent
-    face_operands = [
-        {"face_index": i + 1, "jump_rest_mass_flux": float(value)}
-        for i, value in enumerate(jump_mass_flux)
-    ]
+    face_operands = []
+    for face_index, jump_flux in enumerate(jump_mass_flux, start=1):
+        actual_rest_mass_flux = current_faces[face_index] / (4.0 * np.pi * eta)
+        weighted_left = actual_rest_mass_flux - float(jump_flux)
+        weighted_right = 0.0
+        split_residual = actual_rest_mass_flux - (
+            weighted_left + weighted_right + float(jump_flux)
+        )
+        face_operands.append({
+            "face_index": face_index,
+            "weighted_left_rest_mass_flux": float(weighted_left),
+            "weighted_right_rest_mass_flux": float(weighted_right),
+            "jump_rest_mass_flux": float(jump_flux),
+            "split_reconstruction_residual": float(split_residual),
+        })
     stage = {
         "stage": "primary_predictor",
         "t": 0.02,
@@ -1482,6 +1493,23 @@ def test_domain_stage_diagnostics_reconstructs_signed_cellwise_projection_and_hl
         float(np.sum(jump_cell_terms[:3]))
     )
     assert observed["roundoff_checks"]["full_pairing_cell_sum"]["roundoff_bound"] > 0.0
+    assert observed["roundoff_checks"]["face_side_pairing_component_split"]["roundoff_bound"] > 0.0
+    assert observed["roundoff_checks"]["max_cell_pairing_component_bound_ratio"] <= 1.0
+    assert (
+        observed["roundoff_checks"]["face_current_component_split"]["max_abs_residual"]
+        <= observed["roundoff_checks"]["face_current_component_split"]["roundoff_bound_max"]
+    )
+    # The independently reconstructed per-cell pieces must sum back to the
+    # same signed pairing, including the small HLL-split/face-conversion term.
+    component_sum = (
+        np.asarray(observed["inner_cell_lorentz_pairing_profile"])
+        + np.asarray(observed["inner_left_face_pairing_profile"])
+        + np.asarray(observed["inner_right_face_pairing_profile"])
+        + np.asarray(observed["inner_hll_jump_pairing_profile"])
+        + np.asarray(observed["inner_non_hll_boundary_pairing_profile"])
+        + np.asarray(observed["inner_hll_split_roundoff_pairing_profile"])
+    )
+    assert component_sum == pytest.approx(expected_defect[:3], rel=0.0, abs=2e-18)
     assert observed["classification"].startswith("signed diagnostic")
 
 
