@@ -287,10 +287,7 @@ def _face_current_projection_decomposition(
     face_pairing_components = {
         name: tangent_terms(faces) for name, faces in face_components.items()
     }
-    reconstructed_cell_pairing = (
-        current_lorentz_terms
-        + math.fsum(()) * np.zeros(n, dtype=np.float64)
-    )
+    reconstructed_cell_pairing = current_lorentz_terms.copy()
     for values in face_pairing_components.values():
         reconstructed_cell_pairing = reconstructed_cell_pairing + values
     component_residual = source_pairing - reconstructed_cell_pairing
@@ -438,6 +435,11 @@ def reconcile_report(report: dict[str, Any], *, input_name: str, input_sha256: s
     max_cellwise_global_reconciliation_bound_ratio = 0.0
     max_lorentz_profile_power_residual = 0.0
     max_lorentz_profile_power_bound_ratio = 0.0
+    max_current_projection_gap_relative = 0.0
+    max_face_current_reconstruction_bound_ratio = 0.0
+    max_current_component_reconstruction_bound_ratio = 0.0
+    max_current_gap_identity_bound_ratio = 0.0
+    max_hll_tangent_reconstruction_bound_ratio = 0.0
 
     for source in iter_stage_witnesses(report):
         witness = source["stage_witness"]
@@ -541,6 +543,36 @@ def reconcile_report(report: dict[str, Any], *, input_name: str, input_sha256: s
                 "charge_tangent_l1": math.fsum(abs(v) for v in radial_charge),
                 "matter_lorentz_power_l1": math.fsum(abs(v) for v in radial_lorentz),
             }
+
+        projection_decomposition = _face_current_projection_decomposition(
+            witness,
+            source,
+            dr=dr,
+            adjoint_result=result,
+            cell_charge_terms=cell_charge_terms,
+            cell_lorentz_terms=lorentz_terms,
+            cell_pairing_terms=cell_pairing_terms,
+        )
+        max_current_projection_gap_relative = max(
+            max_current_projection_gap_relative,
+            projection_decomposition["current_projection_gap_max_abs_over_max_face_current"],
+        )
+        max_face_current_reconstruction_bound_ratio = max(
+            max_face_current_reconstruction_bound_ratio,
+            projection_decomposition["face_current_reconstruction_max_bound_ratio"],
+        )
+        max_current_component_reconstruction_bound_ratio = max(
+            max_current_component_reconstruction_bound_ratio,
+            projection_decomposition["component_reconstruction_max_bound_ratio"],
+        )
+        max_current_gap_identity_bound_ratio = max(
+            max_current_gap_identity_bound_ratio,
+            projection_decomposition["gap_identity_max_bound_ratio"],
+        )
+        max_hll_tangent_reconstruction_bound_ratio = max(
+            max_hll_tangent_reconstruction_bound_ratio,
+            projection_decomposition["hll_tangent_reconstruction"]["max_bound_ratio"],
+        )
 
         outer_power = _finite_float(
             stage_exchange.get("outer_current_power"), "stage outer_current_power"
@@ -667,6 +699,7 @@ def reconcile_report(report: dict[str, Any], *, input_name: str, input_sha256: s
             "matter_lorentz_profile_roundoff_bound": lorentz_profile_bound,
             "matter_lorentz_profile_bound_ratio": lorentz_profile_bound_ratio,
             "radial_band_summary": radial_bands,
+            "face_current_projection_decomposition": projection_decomposition,
             "stored_tangent_roundoff_bound": tangent_bound,
             "stored_tangent_bound_ratio": tangent_bound_ratio,
             "stored_energy_roundoff_bound": energy_bound,
@@ -757,6 +790,13 @@ def reconcile_report(report: dict[str, Any], *, input_name: str, input_sha256: s
             "max_abs_lorentz_profile_power_vs_stored_power_residual": max_lorentz_profile_power_residual,
             "max_lorentz_profile_power_128_epsilon_bound_ratio": max_lorentz_profile_power_bound_ratio,
             "lorentz_profile_power_matches_stored_power": True,
+            "max_current_projection_gap_over_max_face_current": max_current_projection_gap_relative,
+            "max_face_current_component_256_epsilon_bound_ratio": max_face_current_reconstruction_bound_ratio,
+            "max_current_gap_identity_1024_epsilon_bound_ratio": max_current_gap_identity_bound_ratio,
+            "max_current_face_component_2048_epsilon_bound_ratio": max_current_component_reconstruction_bound_ratio,
+            "max_hll_tangent_512_epsilon_bound_ratio": max_hll_tangent_reconstruction_bound_ratio,
+            "current_projection_gap_reconstructed_from_saved_primitive_and_face_operands": True,
+            "weighted_left_right_hll_jump_boundary_and_roundoff_components_reconstruct": True,
             "cellwise_pairing_localization_note": (
                 "Pairing is a bookkeeping localization by matching coordinate-cell index. "
                 "It is not a claim of pointwise local conservation."
