@@ -2651,9 +2651,24 @@ def _accepted_pirk_update_tangent(step: dict, stage_rates: dict) -> dict:
     accepted_tangent_term_bound = 128.0 * np.finfo(np.float64).eps * np.maximum(
         accepted_tangent_term_scale, np.finfo(np.float64).tiny
     )
-    if np.any(np.abs(accepted_tangent_term_reconstruction) > accepted_tangent_term_bound):
+    reconstruction_abs = np.abs(accepted_tangent_term_reconstruction)
+    reconstruction_ratio = np.zeros_like(reconstruction_abs)
+    nonzero_bound = accepted_tangent_term_bound > 0.0
+    np.divide(
+        reconstruction_abs, accepted_tangent_term_bound,
+        out=reconstruction_ratio, where=nonzero_bound,
+    )
+    reconstruction_ratio[(~nonzero_bound) & (reconstruction_abs > 0.0)] = np.inf
+    if np.any(reconstruction_abs > accepted_tangent_term_bound):
+        worst_index = int(np.argmax(reconstruction_ratio))
         raise RuntimeError(
-            "accepted PIRK tangent contributions do not reconstruct coordinate mass-rate"
+            "accepted PIRK tangent contributions do not reconstruct coordinate "
+            f"mass-rate: max_abs={float(reconstruction_abs[worst_index]):.17e}, "
+            f"roundoff_bound={float(accepted_tangent_term_bound[worst_index]):.17e}, "
+            f"bound_ratio={float(reconstruction_ratio[worst_index]):.17e}, "
+            f"cell_index={worst_index}, R={float(R[worst_index]):.17e}, "
+            f"mass_dot_coordinate={float(chain_profiles['mass_dot_coordinate'][worst_index]):.17e}, "
+            f"term_sum={float(accepted_tangent_term_sum_profile[worst_index]):.17e}"
         )
 
     at = lambda profile: interpolate_at_areal_radius(
