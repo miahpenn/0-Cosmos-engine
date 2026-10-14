@@ -116,6 +116,9 @@ class V55ProductionKernel:
         radiation=True,
         invariant_trapping=True,
         misner_sharp_current=True,
+        # The executable opt-in research path is present; admission remains
+        # separately marked research_only_not_admitted by campaign reporting.
+        radial_maxwell=True,
     )
     validation_state = "implemented_not_campaign_validated"
 
