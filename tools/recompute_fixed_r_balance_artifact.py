@@ -1428,6 +1428,18 @@ def recompute_em_stage_exchange_campaign(data: dict[str, Any]) -> dict[str, Any]
                 average_tangent = 0.5 * sum(
                     item["total_field_energy_tangent"] for item in recomputed
                 )
+                # Also preserve the full-functional pairing before the
+                # separately declared outer-face adjustment. The difference
+                # between these candidates is a convention choice, not a
+                # roundoff identity or a physical acceptance threshold.
+                full_exchange_average = 0.5 * sum(
+                    item["full_functional_charge_tangent_plus_lorentz_remainder_unthresholded"]
+                    for item in recomputed
+                )
+                boundary_adjustment_average = 0.5 * sum(
+                    item["boundary_separation_adjustment_unthresholded"]
+                    for item in recomputed
+                )
                 exchange_average = 0.5 * sum(
                     item["exchange_only_remainder_unthresholded"] for item in recomputed
                 )
@@ -1451,6 +1463,15 @@ def recompute_em_stage_exchange_campaign(data: dict[str, Any]) -> dict[str, Any]
                     ),
                     "start_predictor_average_tangent": average_tangent,
                     "field_energy_time_update_remainder_unthresholded": rate_measured - average_tangent,
+                    "full_functional_exchange_start_predictor_average_remainder_unthresholded": (
+                        full_exchange_average
+                    ),
+                    "boundary_separation_adjustment_start_predictor_average_unthresholded": (
+                        boundary_adjustment_average
+                    ),
+                    "full_minus_boundary_separated_interval_remainder_unthresholded": (
+                        full_exchange_average - exchange_average
+                    ),
                     "exchange_only_start_predictor_average_remainder_unthresholded": exchange_average,
                     "physical_residual_threshold_applied": False,
                 })
@@ -1590,6 +1611,26 @@ def _summarize_em_stage_exchange(report: dict[str, Any]) -> dict[str, Any]:
             "worst_exchange_stage_terms": worst_exchange_witness,
             "field_energy_time_update_remainder_absmax_unthresholded": max(
                 (abs(float(row["field_energy_time_update_remainder_unthresholded"])) for row in interval_rows),
+                default=0.0,
+            ),
+            "full_functional_interval_exchange_average_remainder_absmax_unthresholded": max(
+                (
+                    abs(float(row.get(
+                        "full_functional_exchange_start_predictor_average_remainder_unthresholded",
+                        0.0,
+                    )))
+                    for row in interval_rows
+                ),
+                default=0.0,
+            ),
+            "interval_boundary_separation_adjustment_absmax_unthresholded": max(
+                (
+                    abs(float(row.get(
+                        "boundary_separation_adjustment_start_predictor_average_unthresholded",
+                        0.0,
+                    )))
+                    for row in interval_rows
+                ),
                 default=0.0,
             ),
             "interval_exchange_average_remainder_absmax_unthresholded": max(
