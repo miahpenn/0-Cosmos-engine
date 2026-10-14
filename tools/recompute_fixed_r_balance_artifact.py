@@ -1100,8 +1100,19 @@ def recompute_em_stage_exchange_witness(stage_record: Any) -> dict[str, Any]:
             label, observed, expected, *operands
         )
 
-    exchange_remainder = charge_tangent + lorentz_power - outer_power
+    # Keep both candidate accounting conventions visible. The full discrete
+    # charge tangent is the derivative of U_Q and already contains the outer
+    # face summand. The boundary-separated diagnostic removes that term before
+    # comparing with matter work; this is a distinct convention, not
+    # algebraically interchangeable with the full functional pairing.
+    # Neither physical residual is thresholded.
+    full_functional_exchange_remainder = charge_tangent + lorentz_power
+    boundary_separated_exchange_remainder = (
+        full_functional_exchange_remainder - outer_power
+    )
+    exchange_remainder = boundary_separated_exchange_remainder
     exchange_scale = abs(charge_tangent) + abs(lorentz_power) + abs(outer_power)
+    full_exchange_scale = abs(charge_tangent) + abs(lorentz_power)
     return {
         "stage": str(stage_record.get("stage", "unknown")),
         "t": float(stage_record.get("t", math.nan)),
@@ -1125,6 +1136,20 @@ def recompute_em_stage_exchange_witness(stage_record: Any) -> dict[str, Any]:
         "metric_tangent": metric_tangent,
         "total_field_energy_tangent": total_tangent,
         "matter_lorentz_power": lorentz_power,
+        "full_functional_charge_tangent_plus_lorentz_remainder_unthresholded": (
+            full_functional_exchange_remainder
+        ),
+        "boundary_separated_exchange_remainder_unthresholded": (
+            boundary_separated_exchange_remainder
+        ),
+        "boundary_separation_adjustment_unthresholded": float(-outer_power),
+        "full_minus_boundary_separated_remainder_unthresholded": (
+            full_functional_exchange_remainder
+            - boundary_separated_exchange_remainder
+        ),
+        "full_functional_exchange_relative_remainder_unthresholded": (
+            abs(full_functional_exchange_remainder) / max(full_exchange_scale, TINY)
+        ),
         "lorentz_power_cell_terms_unthresholded": lorentz_power_cell_terms.tolist(),
         "cell_centered_current_tangent": cell_current_tangent,
         "cell_current_tangent_terms_unthresholded": cell_current_tangent_terms.tolist(),
