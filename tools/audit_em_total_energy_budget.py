@@ -4326,7 +4326,9 @@ def _domain_stage_diagnostics(
         np.sqrt(geometry["a"]) * geometry["b"] * centers**2
         / geometry["X"]**3
     )
-    cell_current = FOUR_PI * eta * lapse * sqrt_gamma * primitive_current
+    # lorentz_current_r_profile is already the charge current j_e^r=(q/m) rho W v^r;
+    # only the rest-mass face flux needs charge_to_rest_mass conversion above.
+    cell_current = FOUR_PI * lapse * sqrt_gamma * primitive_current
     adjacent_face_current = 0.5 * (current_faces[:-1] + current_faces[1:])
     charge_tangent_cell_terms = -dr * weight * q_cell * adjacent_face_current
     lorentz_power_cell_terms = dr * weight * q_cell * cell_current
