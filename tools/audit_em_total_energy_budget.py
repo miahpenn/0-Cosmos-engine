@@ -977,9 +977,36 @@ def _mass_gradient_identity_bracket_witness(
         rho_at * Rr_at + current_at * Rdot_at / alpha_at
     )
 
+    # Candidate continuum constraint identity, measured rather than enforced:
+    # E_MS = R^2 R_r H/4 + R^2 U M_r/2, U = Rdot/alpha.
+    # Keep the operator remainder visible; discrete product rules/operators
+    # need not close pointwise and this physical residual is never thresholded.
+    normal_velocity = arrays["Rdot"] / arrays["alpha"]
+    hamiltonian_contribution = (
+        np.square(radii) * arrays["Rr"] * arrays["hamiltonian"] / 4.0
+    )
+    momentum_contribution = (
+        np.square(radii) * normal_velocity * arrays["momentum"] / 2.0
+    )
+    constraint_predicted_residual = hamiltonian_contribution + momentum_contribution
+    constraint_identity_remainder = residual - constraint_predicted_residual
+
     def cell(index):
         return {
             "index": int(index),
+            "normal_velocity_Rdot_over_alpha": float(normal_velocity[index]),
+            "hamiltonian_constraint_contribution_to_mass_gradient_residual": float(
+                hamiltonian_contribution[index]
+            ),
+            "momentum_constraint_contribution_to_mass_gradient_residual": float(
+                momentum_contribution[index]
+            ),
+            "constraint_predicted_mass_gradient_residual": float(
+                constraint_predicted_residual[index]
+            ),
+            "constraint_identity_operator_remainder": float(
+                constraint_identity_remainder[index]
+            ),
             "R": float(radii[index]),
             "mass_gradient_discrete": float(arrays["mass_gradient"][index]),
             "mass_gradient_rhs_local_composite": float(local_rhs[index]),
@@ -1003,6 +1030,19 @@ def _mass_gradient_identity_bracket_witness(
         "mass_gradient_discrete_interpolated_at_target": interp(arrays["mass_gradient"]),
         "local_composite_rhs_interpolated_at_target": interp(local_rhs),
         "local_composite_residual_interpolated_at_target": interp(residual),
+        "normal_velocity_Rdot_over_alpha_interpolated_at_target": interp(normal_velocity),
+        "hamiltonian_constraint_contribution_interpolated_at_target": interp(
+            hamiltonian_contribution
+        ),
+        "momentum_constraint_contribution_interpolated_at_target": interp(
+            momentum_contribution
+        ),
+        "constraint_predicted_mass_gradient_residual_interpolated_at_target": interp(
+            constraint_predicted_residual
+        ),
+        "constraint_identity_operator_remainder_interpolated_at_target": interp(
+            constraint_identity_remainder
+        ),
         "factor_interpolated_rhs_at_target": float(factor_rhs),
         "factor_interpolated_residual_at_target": float(
             interp(arrays["mass_gradient"]) - factor_rhs
@@ -1015,6 +1055,11 @@ def _mass_gradient_identity_bracket_witness(
             result["mass_gradient_discrete_interpolated_at_target"],
             result["local_composite_rhs_interpolated_at_target"],
             result["local_composite_residual_interpolated_at_target"],
+            result["normal_velocity_Rdot_over_alpha_interpolated_at_target"],
+            result["hamiltonian_constraint_contribution_interpolated_at_target"],
+            result["momentum_constraint_contribution_interpolated_at_target"],
+            result["constraint_predicted_mass_gradient_residual_interpolated_at_target"],
+            result["constraint_identity_operator_remainder_interpolated_at_target"],
             result["factor_interpolated_rhs_at_target"],
             result["factor_interpolated_residual_at_target"],
             result["factor_product_minus_composite_rhs"],
