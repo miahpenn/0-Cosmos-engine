@@ -1,32 +1,31 @@
 # GEAR Archive Machine v1 — independent-lane build
 
 **Status:** research-only scaffold; not a production or scientific-admission claim  
-**Source branch:** `research/gear-archive-machine-v1-2026-10-13`  
-**Preserved references:** `CYCLIC-COSMOS ENGINE-.docx`, `GEAR_FULL_CYCLIC_COSMOS_ENGINE_ARCHIVE_SNAPSHOT_2026-10-02.md`, and `GEAR_MASTER_ARCHIVE_HOUSEKEEPING_INDEX_2026-10-03_v2.md`.
+**Source branch:** \`research/gear-archive-machine-v1-2026-10-13\`  
+**Preserved references:** \`CYCLIC-COSMOS ENGINE-.docx\`, \`GEAR_FULL_CYCLIC_COSMOS_ENGINE_ARCHIVE_SNAPSHOT_2026-10-02.md\`, and \`GEAR_MASTER_ARCHIVE_HOUSEKEEPING_INDEX_2026-10-03_v2.md\`.
 
 ## Purpose and scope
 
-This starts the older, archive-derived two-lane machine as a versioned runner over the existing source-mapped sector RHSs. It fills the missing orchestration/test seam only. The canonical archived file and the current production kernel are not rewritten, and the local and homogeneous COSMOS sectors remain independent.
+This starts the older, archive-derived two-lane machine as a versioned runner. The default local mode equation is transcribed from the preserved archive DOCX; a named comparison option invokes the current \`engine/local.py\` RHS. The homogeneous COSMOS lane uses the corrected, normalized \`engine/cosmos.py\` equations. This is a deliberate source-crosswalk harness, not a byte-for-byte reproduction of the historical DOCX program.
 
 Run the small deterministic harness with:
 
-```bash
+\`\`\`bash
 pytest -q tests/test_gear_archive_machine_v1.py
-```
+\`\`\`
 
-The Python entry point is `research/gear_archive_machine_v1.py:run_machine`. Its local lane uses `tau_local`; its cosmology lane uses `t_cosmos`. The time axes may be advanced with different final times and step sizes. The runner does not align them, compare equal numerical times as if they were physically simultaneous, or use either clock to rescale the other.
+The Python entry point is \`research/gear_archive_machine_v1.py:run_machine\`. The local lane uses \`tau_local\`; the homogeneous lane uses \`t_cosmos\`. They can use different final times and step sizes. The runner does not align them, compare equal numerical times as if physically simultaneous, or use either clock to rescale the other.
 
 ## Source-to-kernel contract
 
-| Sector / diagnostic | Governing/source map | Current v1 behavior | Interpretation limit |
+| Sector / diagnostic | Archive equation or source map | Current v1 behavior | Interpretation limit |
 |---|---|---|---|
-| Local stable mode S | GEAR-03: \(\omega_S^2=\kappa+g\), \(\ddot S=-\omega_S^2 S\) on this independent local-time lane | Uses `engine.local.local_rhs` with `H=0`; verifies positive \(\kappa+g\) | This is the reduced mode sector, not the full radial Einstein–scalar PDE |
-| Local D mode and geometric barrier | GEAR-03 and GEAR-63/65: \(\alpha_D^2=g-\kappa\), cubic barrier in `engine/local.py` | Uses the existing local RHS; checks \(\alpha_D^2=g-\kappa\) instead of accepting inconsistent inputs | Does not imply D energy has become ordinary matter |
-| Local energy/activity | Archive ledgers distinguish raw D energy from positive kinetic/excursion activity; \(F_{\rm proxy}\sim |D\dot D|\) | Emits \(E_S\), raw \(E_D\), kinetic/excursion proxies, a generated-activity proxy, and a transport-activity proxy | Proxies are not particle abundance, ejection proof, a physical flux, or an exchange source |
-| Homogeneous COSMOS | \(\dot a=Ha\); \(\dot H=-\tfrac12(\rho+p)\); scalar/DM exchange and baryon, radiation, shear dilution in `engine/cosmos.py` | Runs the existing signed-H RHS from archive-reconstructed initial data; records component densities, normalized budgets, and \(H^2-\rho/3\) | This is homogeneous background evolution, not a global solution of the exact spherical geometry |
-| Expansion/contraction | Archive permits distinct branches; current RHS evolves H as a state variable | Branch choice changes only the *initial* sign of \(H\); the subsequent sign and trajectory come from the RHS | No forced turnaround, branch splice, or bounce |
-| Local phase | Archive oscillator phase \(\theta=\operatorname{unwrap}(\operatorname{atan2}(-\dot S/\omega_S,S))\) | Reports local \(\theta\) from the sampled S/Sdot history | This phase is not a mapping to cosmic time or a global cycle coordinate |
-| Cosmic scalar/cycle data | Archive does not establish a complete global cycle-coordinate map | Reports raw \(\phi(t)\) in the COSMOS state | No inferred \(\lambda_{\rm cycle}\) map |
+| Local stable mode S | GEAR-03: \(\omega_S^2=\kappa+g\), \(\ddot S=-\omega_S^2 S\) | Default \`archive_docx\` RHS transcribes the archived reduced mode equation; \`current_source\` calls \`engine.local.local_rhs\` with \(H=0\) | Reduced mode-space system, not the full radial Einstein–scalar PDE |
+| Local D mode and geometric barrier | \(\alpha_D^2=g-\kappa\), \(\ddot D=\alpha_D^2D-\eta_GD^2\dot D-\frac{2\pi}{3}G\alpha_D^2D^3\) in the historical DOCX reduced RHS | Default \`archive_docx\` mode includes the archive's damping term; \`current_source\` intentionally omits it. The runner checks \(\alpha_D^2=g-\kappa\). | A source-version distinction, not evidence for D-to-matter conversion |
+| Local energy/activity | Raw saddle energy \(E_D=\dot D^2/2-\alpha_D^2D^2/2\); positive kinetic/excursion activity are separate diagnostics; \(F_{\rm proxy}\sim|D\dot D|\) | Emits \(E_S\), raw \(E_D\), kinetic/excursion proxies, generated-activity proxy, and transport-activity proxy | Proxies are not particle abundance, ejection proof, a physical flux, or an exchange source |
+| Homogeneous COSMOS | Scalar + coupled DM, baryons, radiation and shear background equations | Uses the corrected normalized \`engine.cosmos\` state and signed-\(H\) RHS; records component density/budget and \(H^2-\rho/3\) witnesses | Not the same as the historical branch-explicit DOCX implementation or a global solution of the spherical spacetime |
+| Expansion/contraction | Historical lane ran expansion and contraction branches separately | Branch selector sets only the initial sign of \(H\); the current signed-\(H\) ODE then evolves the state | No forced turnaround, branch splice, or bounce |
+| Local phase | \(\theta=\operatorname{unwrap}(\operatorname{atan2}(-\dot S/\omega_S,S))\) | Reports local \(\theta\) from sampled S/\(\dot S\) history | Not a local-to-cosmic time map or global cycle coordinate |
 
 ## Explicitly unpaid gates
 
@@ -39,16 +38,16 @@ These gates are returned in every run, not converted to numerical assumptions:
 5. First-principles bounce.
 6. Global anisotropic three-curvature / shear completeness beyond the spherical lane.
 
-There is no cross-lane RHS term. The runner does not call `exchange_from_flux` to synthesize a reciprocal physical source, and does not invent a matter-conversion efficiency, clock scale, friction law, ejection threshold, or bounce prescription.
+There is no cross-lane RHS term. The runner does not call \`exchange_from_flux\` to synthesize a reciprocal physical source and does not invent a matter-conversion efficiency, clock scale, friction law, ejection threshold, or bounce prescription.
 
-## Known source discrepancy to audit before calling this an exact archive reproduction
+## Verified differences retained rather than silently merged
 
-The historic DOCX local-mode listing includes an \(-\eta_G D^2\dot D\) term. The current `engine/local.py` RHS does **not** use its `eta_G` field and does not include that nonlinear damping term. v1 deliberately follows the current source module instead of silently reviving a historic term; this is a source mismatch to resolve through a separate equation/provenance review, not a claim that the two formulations are identical.
+**Local damping:** the preserved DOCX reduced \`local_rhs\` contains \(-\eta_GD^2\dot D\). Current \`engine/local.py\` accepts \`eta_G\` but does not use it, and instead offers an optional \(-3H\dot D\) term. In the runner's comparison lane, \(H=0\), so a direct same-state test isolates the missing historical damping term. This update makes the archived equation the default *in this research harness*; it does not edit or declare the production module wrong.
 
-Likewise, the old DOCX and later corrected COSMOS lane have different potential-normalization histories. This runner uses the current, normalized `engine/cosmos.py` definitions, including its archive-reconstructed \(V_0\), rather than re-running an obsolete source snapshot under a new name.
+**COSMOS potential normalization and state formulation:** the older DOCX potential and branch-explicit \(\pm\sqrt{\rho/3}\) integration differ from the later corrected normalized \`engine/cosmos.py\` potential (including \(V_0\)) and its evolved signed-\(H\) equation. v1 explicitly chooses the corrected current COSMOS module and exposes this as a source-version boundary. It does not claim the old and corrected COSMOS formulations are identical.
 
 ## Validation boundary and next gate
 
-The new tests cover RK4 plumbing, independent clock axes, lane-ledger shape/provenance, initial expansion/contraction sign, the GEAR-03 parameter identity, invalid controls, and open-gate reporting. They are software contracts for short deterministic runs only.
+Tests now cover RK4 plumbing, independent clock axes, ledger shape/provenance, initial expansion/contraction sign, the GEAR-03 parameter identity, signed damping contribution, parity with the current local RHS when \(\eta_G=0\), comparison-mode selection, invalid controls and open-gate reporting. These are small deterministic software contracts only.
 
-They do **not** establish long-horizon stability, the 47.203-e-fold contraction target, the physical validity of the proxy ledgers, conservation across the two lanes, or scientific admission. Before extending the harness, the next narrow task is a source-by-source comparison of the preserved archive equations against the currently canonical local/COSMOS RHS modules, with discrepancies recorded before choosing any physical branch.
+They do **not** establish long-horizon stability, the 47.203-e-fold contraction target, the physical validity of proxy ledgers, conservation across lanes, the full archived run, or scientific admission. Next gate: independent equation review of the archived local damping/barrier and corrected COSMOS normalization/branch choices, then a bounded low-cost run of each lane separately. No coupled campaign should be scheduled before the source/formulation choices are accepted.
