@@ -864,7 +864,7 @@ def test_manufactured_em_donor_recipient_exchange_closes_at_roundoff():
         dtype=np.float64,
     )
     assert float(np.sum(cell_terms)) == pytest.approx(
-        result["full_functional_cellwise_face_plus_lorentz_remainder_unthresholded"],
+        result["full_functional_cellwise_face_plus_lorentz_sum_unthresholded"],
         abs=1e-25,
     )
     assert result["full_functional_cellwise_face_lorentz_vs_defect_gap_unthresholded"] == pytest.approx(
