@@ -24,6 +24,8 @@ from tools.audit_em_total_energy_budget import (
     _pair_fixed_R_interval_rows,
     _misner_sharp_chain_rule_rate_profiles,
     _misner_sharp_chain_rule_bracket_operands,
+    _ktheta_dot_component_profiles,
+    _explicit_metric_rate_profiles,
     _numeric_tree_difference,
     _mass_gradient_identity_bracket_witness,
     _sector_fixed_R_rates,
@@ -634,6 +636,81 @@ def test_misner_sharp_chain_rule_bracket_witness_separates_matter_and_non_matter
         )
 
 
+
+
+
+
+def test_ktheta_dot_component_split_keeps_K_Aa_and_live_minus_vacuum_L3_separate():
+    l2_k = np.array([0.006, 0.009, -0.012])
+    l2_aa = np.array([0.002, 0.004, 0.006])
+    vac_k = np.array([0.003, -0.006, 0.009])
+    vac_aa = np.array([0.002, 0.004, -0.006])
+    source_k = np.array([0.009, 0.006, -0.003])
+    source_aa = np.array([0.004, 0.002, -0.006])
+    expected_l2 = l2_k / 3.0 - l2_aa / 2.0
+    expected_vac = vac_k / 3.0 - vac_aa / 2.0
+    expected_source = source_k / 3.0 - source_aa / 2.0
+
+    observed = _ktheta_dot_component_profiles(
+        l2_k, l2_aa, vac_k, vac_aa, source_k, source_aa,
+        expected_primary_l2=expected_l2,
+        expected_vacuum_l3=expected_vac,
+        expected_einstein_source_l3=expected_source,
+    )
+    np.testing.assert_allclose(observed["primary_l2_from_K"], l2_k / 3.0)
+    np.testing.assert_allclose(observed["primary_l2_from_Aa"], -l2_aa / 2.0)
+    np.testing.assert_allclose(
+        observed["primary_l2_from_K"] + observed["primary_l2_from_Aa"], expected_l2
+    )
+    np.testing.assert_allclose(
+        observed["vacuum_l3_from_K"] + observed["vacuum_l3_from_Aa"], expected_vac
+    )
+    np.testing.assert_allclose(
+        observed["einstein_source_l3_from_K"] + observed["einstein_source_l3_from_Aa"],
+        expected_source,
+    )
+    for group in ("primary_l2", "vacuum_l3", "einstein_source_l3"):
+        assert np.all(
+            np.abs(observed[f"{group}_reconstruction_residual"])
+            <= observed[f"{group}_reconstruction_bound"]
+        )
+    with pytest.raises(RuntimeError, match="K/Aa split failed roundoff reconstruction"):
+        _ktheta_dot_component_profiles(
+            l2_k, l2_aa, vac_k, vac_aa, source_k, source_aa,
+            expected_primary_l2=expected_l2 + 1.0e-5,
+            expected_vacuum_l3=expected_vac,
+            expected_einstein_source_l3=expected_source,
+        )
+
+
+def test_explicit_metric_rate_reconstruction_uses_odd_parity_and_manufactured_signs():
+    R = np.array([1.0, 2.0, 3.0, 4.0])
+    expected_Rdot = np.array([1.0, 3.0, 5.0, 7.0])
+
+    class ManufacturedGrid:
+        parity = None
+
+        def cell_derivative_fourth(self, values, parity):
+            self.parity = parity
+            np.testing.assert_allclose(values, expected_Rdot, rtol=0.0, atol=0.0)
+            # The manufactured profile is linear in cell index: derivative is +2.
+            return np.full_like(values, 2.0, dtype=float)
+
+    grid = ManufacturedGrid()
+    a = np.full(4, 2.0)
+    b = np.ones(4)
+    X = np.ones(4)
+    a_dot = np.array([0.1, 0.2, 0.3, 0.4])
+    b_dot = 2.0 * expected_Rdot / R
+    X_dot = np.zeros(4)
+    observed = _explicit_metric_rate_profiles(
+        grid, R, a, b, X, {"a": a_dot, "b": b_dot, "X": X_dot}
+    )
+    assert grid.parity == -1
+    np.testing.assert_allclose(observed["Rdot"], expected_Rdot, rtol=0.0, atol=0.0)
+    np.testing.assert_allclose(observed["Rdot_r"], np.full(4, 2.0), rtol=0.0, atol=0.0)
+    np.testing.assert_allclose(observed["gamma_inv"], np.full(4, 0.5), rtol=0.0, atol=0.0)
+    np.testing.assert_allclose(observed["gamma_inv_dot"], -a_dot / 4.0, rtol=0.0, atol=0.0)
 
 
 def test_misner_sharp_chain_rule_bracket_witness_fails_closed_on_source_reconstruction_mismatch():
