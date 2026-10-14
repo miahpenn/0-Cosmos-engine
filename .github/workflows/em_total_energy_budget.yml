@@ -6,7 +6,9 @@ on:
       - main
     paths:
       - tools/audit_em_total_energy_budget.py
+      - tools/recompute_fixed_r_balance_artifact.py
       - tests/test_research_em_total_energy_budget_contract.py
+      - tests/test_research_fixed_r_independent_recompute.py
       - .github/workflows/em_total_energy_budget.yml
 
 permissions:
@@ -60,11 +62,19 @@ jobs:
       - name: Run joined neutral/charged EM energy ledger
         run: python tools/audit_em_total_energy_budget.py --output "$RUNNER_TEMP/em_total_energy_budget.json"
 
-      - name: Upload signed joined-ledger JSON
+      - name: Independently recompute fixed-R balance from raw stage operands
+        run: >-
+          python tools/recompute_fixed_r_balance_artifact.py
+          --input "$RUNNER_TEMP/em_total_energy_budget.json"
+          --output "$RUNNER_TEMP/fixed_r_independent_recompute.json"
+
+      - name: Upload signed joined-ledger JSON and independent recomputation
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: em-total-energy-budget-${{ github.sha }}
-          path: ${{ runner.temp }}/em_total_energy_budget.json
+          path: |
+            ${{ runner.temp }}/em_total_energy_budget.json
+            ${{ runner.temp }}/fixed_r_independent_recompute.json
           if-no-files-found: ignore
           retention-days: 90
