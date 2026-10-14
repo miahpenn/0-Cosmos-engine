@@ -12,6 +12,8 @@ on:
       - tests/test_research_fixed_r_independent_recompute.py
       - research/em_adjoint_face_work_v1.py
       - research/reconcile_em_face_work_artifact_v1.py
+      - research/audit_em_fixed_r_momentum_remainder_v1.py
+      - tests/test_research_em_fixed_r_momentum_remainder_v1.py
       - .github/workflows/em_total_energy_budget.yml
 
 permissions:
@@ -71,6 +73,13 @@ jobs:
           --input "$RUNNER_TEMP/em_total_energy_budget.json"
           --output "$RUNNER_TEMP/fixed_r_independent_recompute.json"
 
+      - name: Audit paired fixed-R momentum remainder across saved refinements
+        run: >-
+          python research/audit_em_fixed_r_momentum_remainder_v1.py
+          --input "$RUNNER_TEMP/em_total_energy_budget.json"
+          --fixed-r-input "$RUNNER_TEMP/fixed_r_independent_recompute.json"
+          --output "$RUNNER_TEMP/em_fixed_r_momentum_remainder.json"
+
       - name: Reconcile face-work adjoint across saved EM stages
         run: >-
           python research/reconcile_em_face_work_artifact_v1.py
@@ -85,6 +94,7 @@ jobs:
           path: |
             ${{ runner.temp }}/em_total_energy_budget.json
             ${{ runner.temp }}/fixed_r_independent_recompute.json
+            ${{ runner.temp }}/em_fixed_r_momentum_remainder.json
             ${{ runner.temp }}/em_face_work_adjoint_reconciliation.json
           if-no-files-found: ignore
           retention-days: 90
