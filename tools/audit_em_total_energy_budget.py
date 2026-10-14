@@ -4392,16 +4392,99 @@ def _domain_stage_diagnostics(
     face_operands = hll.get("internal_face_operands")
     if not isinstance(face_operands, list) or len(face_operands) != n - 1:
         raise RuntimeError("domain-sweep HLL face operands do not match the grid")
+    weighted_left_current_faces = np.zeros(n + 1, dtype=np.float64)
+    weighted_right_current_faces = np.zeros(n + 1, dtype=np.float64)
     jump_current_faces = np.zeros(n + 1, dtype=np.float64)
+    hll_operand_roundoff_current_faces = np.zeros(n + 1, dtype=np.float64)
     for face_index, face in enumerate(face_operands, start=1):
         if int(face.get("face_index", -1)) != face_index:
             raise RuntimeError("domain-sweep HLL face indices are not contiguous")
+        weighted_left_current_faces[face_index] = (
+            FOUR_PI * eta * float(face["weighted_left_rest_mass_flux"])
+        )
+        weighted_right_current_faces[face_index] = (
+            FOUR_PI * eta * float(face["weighted_right_rest_mass_flux"])
+        )
         jump_current_faces[face_index] = (
             FOUR_PI * eta * float(face["jump_rest_mass_flux"])
         )
-    jump_cell_terms = -0.5 * dr * weight * q_cell * (
-        jump_current_faces[:-1] + jump_current_faces[1:]
+        hll_operand_roundoff_current_faces[face_index] = (
+            FOUR_PI * eta * float(face["split_reconstruction_residual"])
+        )
+
+    # Centre and outer-face currents are boundary operands rather than HLL
+    # internal-face terms. Preserve both and expose the tiny remainder needed
+    # to rebuild the captured face current after all unit conversions.
+    non_hll_boundary_current_faces = np.zeros(n + 1, dtype=np.float64)
+    non_hll_boundary_current_faces[0] = current_faces[0]
+    non_hll_boundary_current_faces[-1] = current_faces[-1]
+    hll_current_from_operands = (
+        weighted_left_current_faces + weighted_right_current_faces
+        + jump_current_faces + hll_operand_roundoff_current_faces
     )
+    face_current_from_components = hll_current_from_operands + non_hll_boundary_current_faces
+    face_current_split_residual = current_faces - face_current_from_components
+    face_current_split_scale = (
+        np.abs(current_faces) + np.abs(weighted_left_current_faces)
+        + np.abs(weighted_right_current_faces) + np.abs(jump_current_faces)
+        + np.abs(hll_operand_roundoff_current_faces)
+        + np.abs(non_hll_boundary_current_faces)
+    )
+    face_current_split_bound = 256.0 * np.finfo(np.float64).eps * np.maximum(
+        face_current_split_scale, np.finfo(np.float64).tiny
+    )
+    if (
+        not np.all(np.isfinite(face_current_split_residual))
+        or np.any(np.abs(face_current_split_residual) > face_current_split_bound)
+    ):
+        raise RuntimeError(
+            "saved weighted-left/right HLL operands do not reconstruct the "
+            "captured charge-current faces within their operand-scaled roundoff bound"
+        )
+    hll_roundoff_current_faces = (
+        hll_operand_roundoff_current_faces + face_current_split_residual
+    )
+
+    def face_pairing_terms(face_current):
+        return -0.5 * dr * weight * q_cell * (
+            face_current[:-1] + face_current[1:]
+        )
+
+    left_face_pairing_terms = face_pairing_terms(weighted_left_current_faces)
+    right_face_pairing_terms = face_pairing_terms(weighted_right_current_faces)
+    jump_cell_terms = face_pairing_terms(jump_current_faces)
+    boundary_face_pairing_terms = face_pairing_terms(non_hll_boundary_current_faces)
+    hll_roundoff_pairing_terms = face_pairing_terms(hll_roundoff_current_faces)
+    cell_lorentz_pairing_terms = lorentz_power_cell_terms
+    component_defect = (
+        cell_lorentz_pairing_terms + left_face_pairing_terms
+        + right_face_pairing_terms + jump_cell_terms
+        + boundary_face_pairing_terms + hll_roundoff_pairing_terms
+    )
+    component_reconstruction_residual = defect - component_defect
+    component_scale = (
+        np.abs(cell_lorentz_pairing_terms) + np.abs(left_face_pairing_terms)
+        + np.abs(right_face_pairing_terms) + np.abs(jump_cell_terms)
+        + np.abs(boundary_face_pairing_terms) + np.abs(hll_roundoff_pairing_terms)
+    )
+    component_reconstruction_bound = 1024.0 * np.finfo(np.float64).eps * np.maximum(
+        component_scale, np.finfo(np.float64).tiny
+    )
+    if (
+        not np.all(np.isfinite(component_reconstruction_residual))
+        or np.any(np.abs(component_reconstruction_residual) > component_reconstruction_bound)
+    ):
+        raise RuntimeError(
+            "signed cell pairing does not reconstruct from cell Lorentz work, "
+            "weighted left/right face fluxes, HLL jump, boundary current and "
+            "face-split roundoff terms"
+        )
+    face_side_pairing_roundoff = require_roundoff(
+        float(np.sum(component_defect)), float(np.sum(defect)),
+        float(np.sum(component_scale)), "left/right face-side pairing split",
+    )
+
+    jump_cell_terms = face_pairing_terms(jump_current_faces)
     weighted_only_cell_defect = defect - jump_cell_terms
     hll_jump = float(np.sum(jump_cell_terms))
     saved_hll_jump = float(
@@ -4462,8 +4545,32 @@ def _domain_stage_diagnostics(
             weighted_only_cell_defect[inner].tolist()
         ),
         "inner_hll_jump_cell_terms": jump_cell_terms[inner].tolist(),
+        "inner_cell_lorentz_pairing_profile": (
+            cell_lorentz_pairing_terms[inner].tolist()
+        ),
+        "inner_left_face_pairing_profile": left_face_pairing_terms[inner].tolist(),
+        "inner_right_face_pairing_profile": right_face_pairing_terms[inner].tolist(),
+        "inner_hll_jump_pairing_profile": jump_cell_terms[inner].tolist(),
+        "inner_non_hll_boundary_pairing_profile": (
+            boundary_face_pairing_terms[inner].tolist()
+        ),
+        "inner_hll_split_roundoff_pairing_profile": (
+            hll_roundoff_pairing_terms[inner].tolist()
+        ),
+        "inner_pairing_component_reconstruction_residual": (
+            component_reconstruction_residual[inner].tolist()
+        ),
         "inner_face_coordinates": face_coordinates[inner_faces].tolist(),
         "inner_face_currents": current_faces[inner_faces].tolist(),
+        "inner_weighted_left_face_currents": (
+            weighted_left_current_faces[inner_faces].tolist()
+        ),
+        "inner_weighted_right_face_currents": (
+            weighted_right_current_faces[inner_faces].tolist()
+        ),
+        "inner_face_current_split_residual": (
+            face_current_split_residual[inner_faces].tolist()
+        ),
         "inner_cell_current_equivalent": cell_current[inner].tolist(),
         "inner_cell_pairing_prefactor": pairing_prefactor[inner].tolist(),
         "geometry_inner": {
@@ -4481,6 +4588,18 @@ def _domain_stage_diagnostics(
             "hll_jump_tangent": hll_roundoff,
             "weighted_tangent_split": weighted_tangent_roundoff,
             "weighted_pairing_cell_sum": weighted_cell_roundoff,
+            "face_current_component_split": {
+                "max_abs_residual": float(np.max(np.abs(face_current_split_residual))),
+                "roundoff_bound_max": float(np.max(face_current_split_bound)),
+            },
+            "face_side_pairing_component_split": face_side_pairing_roundoff,
+            "max_abs_cell_pairing_component_residual": float(
+                np.max(np.abs(component_reconstruction_residual))
+            ),
+            "max_cell_pairing_component_bound_ratio": float(np.max(
+                np.abs(component_reconstruction_residual)
+                / component_reconstruction_bound
+            )),
         },
     })
     return base
