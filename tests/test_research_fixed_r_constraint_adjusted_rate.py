@@ -38,6 +38,65 @@ def _call(**overrides):
     return _hm_constraint_adjusted_fixed_R_rate(**args)
 
 
+
+def test_piecewise_linear_fixed_R_witness_matches_exact_moving_bracket_tangent():
+    from tools.audit_em_total_energy_budget import (
+        _fixed_target_interpolant_rate,
+        _piecewise_linear_fixed_R_rate_witness,
+    )
+    import numpy as np
+
+    R = np.array([8.0, 9.5, 11.0, 12.5])
+    Rdot = np.array([0.2, -0.1, 0.3, 0.15])
+    mass = 2.0 + 0.4 * R + 0.03 * R**2
+    mdot = -0.2 + 0.01 * R
+    target = 10.0
+    direct = _fixed_target_interpolant_rate(R, Rdot, mass, mdot, target=target)
+    observed = _piecewise_linear_fixed_R_rate_witness(
+        direct, stress_flux=-0.04, pressure_work=0.015, target=target
+    )
+    assert observed["operator"] == "piecewise_linear_bracket_secant"
+    assert (observed["left_index"], observed["right_index"]) == (
+        direct["left_index"], direct["right_index"]
+    )
+    assert observed["theta"] == pytest.approx(direct["theta"])
+    assert observed["piecewise_linear_dM_dR_secant"] == pytest.approx(
+        (mass[direct["right_index"]]-mass[direct["left_index"]]) /
+        (R[direct["right_index"]]-R[direct["left_index"]])
+    )
+    assert observed["piecewise_linear_measured_fixed_R_rate"] == pytest.approx(
+        direct["mass_dot_fixed_R"], abs=1e-14
+    )
+    assert observed["tangent_reconstruction_residual"] == pytest.approx(0.0, abs=1e-14)
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "message"),
+    [
+        ("theta", 0.123, "target/theta mismatch"),
+        ("interpolated_Rdot", float("nan"), "interpolated_Rdot must be finite"),
+        ("piecewise_linear_mass_gradient", 123.0, "secant gradient mismatch"),
+    ],
+)
+def test_piecewise_linear_fixed_R_witness_fails_closed_on_mismatched_operator(field, value, message):
+    from tools.audit_em_total_energy_budget import (
+        _fixed_target_interpolant_rate,
+        _piecewise_linear_fixed_R_rate_witness,
+    )
+    import numpy as np
+
+    R = np.array([8.0, 9.5, 11.0, 12.5])
+    Rdot = np.array([0.2, -0.1, 0.3, 0.15])
+    mass = 2.0 + 0.4 * R + 0.03 * R**2
+    mdot = -0.2 + 0.01 * R
+    direct = _fixed_target_interpolant_rate(R, Rdot, mass, mdot, target=10.0)
+    direct[field] = value
+    with pytest.raises(RuntimeError, match=message):
+        _piecewise_linear_fixed_R_rate_witness(
+            direct, stress_flux=-0.04, pressure_work=0.015, target=10.0
+        )
+
+
 def test_hm_constraint_terms_enter_rate_through_tube_sweep_speed():
     observed = _call()
 
