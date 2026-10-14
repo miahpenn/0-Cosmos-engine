@@ -4,9 +4,10 @@ import math
 import pytest
 
 from engine.cosmos import CosmosParams
-from engine.local import LocalParams
+from engine.local import LocalParams, local_rhs
 from research.gear_archive_machine_v1 import (
     ARCHIVE_OPEN_GATES,
+    archive_docx_local_rhs,
     run_machine,
     rk4_step,
 )
@@ -16,6 +17,50 @@ def test_rk4_step_integrates_a_scalar_rhs_without_hidden_terms():
     result = rk4_step(lambda y: (y[0],), (1.0,), 0.01)
     assert len(result) == 1
     assert result[0] == pytest.approx(math.exp(0.01), rel=1.0e-9)
+
+
+def test_archive_docx_local_rhs_matches_current_rhs_when_eta_is_zero():
+    params = LocalParams(eta_G=0.0)
+    state = (0.02, -0.003, 0.3, 0.4)
+    archive = archive_docx_local_rhs(state, params)
+    current = local_rhs(state, params, H=0.0)
+    assert archive == pytest.approx(current, rel=0.0, abs=1.0e-15)
+
+
+def test_archive_docx_local_rhs_contains_declared_signed_damping_term():
+    params = LocalParams(eta_G=0.05)
+    state = (0.02, -0.003, 0.3, 0.4)
+    archive = archive_docx_local_rhs(state, params)
+    current = local_rhs(state, params, H=0.0)
+    assert archive[:3] == pytest.approx(current[:3])
+    assert archive[3] == pytest.approx(
+        current[3] - params.eta_G * state[2] ** 2 * state[3],
+        rel=0.0,
+        abs=1.0e-15,
+    )
+    assert archive[3] < current[3]
+
+
+def test_runner_defaults_to_archive_local_rhs_and_allows_current_source_comparison():
+    initial = (0.02, 0.0, 0.3, 0.4)
+    archived = run_machine(
+        local_tau_final=0.05,
+        local_dt=0.01,
+        cosmos_t_final=0.0,
+        local_initial_state=initial,
+    )
+    current = run_machine(
+        local_tau_final=0.05,
+        local_dt=0.01,
+        cosmos_t_final=0.0,
+        local_initial_state=initial,
+        local_equation_set="current_source",
+    )
+    assert archived["local"]["equation_set"] == "archive_docx"
+    assert "preserved GEAR archive DOCX" in archived["local"]["equation_source"]
+    assert current["local"]["equation_set"] == "current_source"
+    assert current["local"]["equation_source"].startswith("engine.local.local_rhs")
+    assert archived["local"]["state"][-1]["Dd"] != current["local"]["state"][-1]["Dd"]
 
 
 def test_runner_preserves_two_independent_time_axes_and_ledger_shapes():
@@ -74,6 +119,7 @@ def test_runner_rejects_a_local_parameter_set_that_breaks_gear03_lock():
         {"cosmos_t_final": math.inf},
         {"cosmic_branch": 0},
         {"sample_every": 0},
+        {"local_equation_set": "unknown"},
     ],
 )
 def test_runner_fails_closed_on_invalid_controls(kwargs):
