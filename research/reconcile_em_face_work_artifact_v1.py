@@ -114,6 +114,307 @@ def iter_stage_witnesses(report: dict[str, Any]) -> Iterator[dict[str, Any]]:
                     }
 
 
+
+
+
+def _face_current_projection_decomposition(
+    witness: dict[str, Any],
+    source: dict[str, Any],
+    *,
+    dr: float,
+    adjoint_result: dict[str, Any],
+    cell_charge_terms: list[float],
+    cell_lorentz_terms: list[float],
+    cell_pairing_terms: list[float],
+) -> dict[str, Any]:
+    """Rebuild cell/face current mismatch from saved primitive and HLL operands.
+
+    This is an algebraic source audit. It does not select a physical current law.
+    """
+    eta = _finite_float(witness.get("charge_to_rest_mass"), "charge_to_rest_mass")
+    if eta != _finite_float(source.get("q_over_m"), "run q_over_m"):
+        raise ValueError("stage charge-to-mass ratio disagrees with its run metadata")
+
+    centers = np.asarray(witness.get("centers"), dtype=np.float64)
+    weight = np.asarray(witness.get("field_energy_weight"), dtype=np.float64)
+    q_cell = np.asarray(witness.get("charge_cell_average"), dtype=np.float64)
+    current_faces = np.asarray(witness.get("charge_current_faces"), dtype=np.float64)
+    qdot_faces = np.asarray(witness.get("charge_face_dot"), dtype=np.float64)
+    lapse = np.asarray(witness.get("lapse_profile"), dtype=np.float64)
+    primitive_current = np.asarray(witness.get("lorentz_current_r_profile"), dtype=np.float64)
+    geom = witness.get("geometry")
+    if not isinstance(geom, dict):
+        raise ValueError("stage witness is missing the metric used for current reconstruction")
+    try:
+        metric = {
+            name: np.asarray(geom[name], dtype=np.float64) for name in ("a", "b", "X")
+        }
+    except (KeyError, TypeError) as exc:
+        raise ValueError("stage witness is missing a radial metric profile") from exc
+
+    n = centers.size
+    profiles = {
+        "field_energy_weight": weight,
+        "charge_cell_average": q_cell,
+        "lapse_profile": lapse,
+        "lorentz_current_r_profile": primitive_current,
+        **{f"geometry.{name}": values for name, values in metric.items()},
+    }
+    for name, values in profiles.items():
+        if values.shape != (n,) or not np.all(np.isfinite(values)):
+            raise ValueError(f"{name} must be a finite vector matching cell centres")
+    for name, values in (("charge_current_faces", current_faces), ("charge_face_dot", qdot_faces)):
+        if values.shape != (n + 1,) or not np.all(np.isfinite(values)):
+            raise ValueError(f"{name} must be a finite vector with n+1 face entries")
+    if n < 2 or np.any(centers <= 0.0) or dr <= 0.0:
+        raise ValueError("current projection grid dimensions/radii are invalid")
+    if (
+        np.any(metric["a"] <= 0.0) or np.any(metric["b"] <= 0.0)
+        or np.any(metric["X"] <= 0.0)
+    ):
+        raise ValueError("current projection requires positive radial metric operands")
+
+    tiny = sys.float_info.min
+    eps = sys.float_info.epsilon
+
+    def bound_ratio(residual: float, *operands: float, ulps: float = 128.0) -> tuple[float, float]:
+        scale = math.fsum(abs(float(value)) for value in operands)
+        bound = ulps * eps * max(scale, tiny)
+        return bound, abs(float(residual)) / bound
+
+    qdot_residual = qdot_faces + current_faces
+    qdot_scales = np.abs(qdot_faces) + np.abs(current_faces)
+    qdot_bounds = 128.0 * eps * np.maximum(qdot_scales, tiny)
+    if np.any(~np.isfinite(qdot_residual)) or np.any(np.abs(qdot_residual) > qdot_bounds):
+        raise ArithmeticError("saved charge-face rate does not equal negative face current")
+
+    expected_weight = (
+        np.sqrt(metric["a"]) * metric["X"]
+        / (np.square(centers) * metric["b"])
+    )
+    weight_residual = weight - expected_weight
+    weight_bounds = 128.0 * eps * np.maximum(np.abs(weight) + np.abs(expected_weight), tiny)
+    if np.any(~np.isfinite(weight_residual)) or np.any(np.abs(weight_residual) > weight_bounds):
+        raise ArithmeticError("field-energy weight disagrees with saved geometry")
+
+    sqrt_gamma = (
+        np.sqrt(metric["a"]) * metric["b"] * np.square(centers)
+        / np.power(metric["X"], 3)
+    )
+    cell_current = FOUR_PI * lapse * sqrt_gamma * primitive_current
+    adjacent_current = 0.5 * (current_faces[:-1] + current_faces[1:])
+    projection_gap = cell_current - adjacent_current
+    pairing_prefactor = dr * weight * q_cell
+    weighted_projection_gap = pairing_prefactor * projection_gap
+    current_lorentz_terms = pairing_prefactor * cell_current
+    source_pairing = np.asarray(cell_pairing_terms, dtype=np.float64)
+    if source_pairing.shape != (n,) or not np.all(np.isfinite(source_pairing)):
+        raise ValueError("cellwise source pairing does not match the projection support")
+    gap_identity_residual = source_pairing - weighted_projection_gap
+    gap_identity_scale = (
+        np.abs(source_pairing) + np.abs(weighted_projection_gap)
+        + np.abs(cell_charge_terms) + np.abs(cell_lorentz_terms)
+    )
+    gap_identity_bounds = 1024.0 * eps * np.maximum(gap_identity_scale, tiny)
+    gap_identity_ratios = np.abs(gap_identity_residual) / gap_identity_bounds
+    if (
+        not np.all(np.isfinite(gap_identity_residual))
+        or np.any(gap_identity_ratios > 1.0)
+    ):
+        raise ArithmeticError(
+            "cellwise pairing does not reconstruct from the primitive-current projection gap"
+        )
+
+    hll = witness.get("hll_current_flux_decomposition")
+    if not isinstance(hll, dict):
+        raise ValueError("stage witness is missing HLL current-flux operands")
+    internal = hll.get("internal_face_operands")
+    if not isinstance(internal, list) or len(internal) != n - 1:
+        raise ValueError("HLL internal-face operands do not match the current face grid")
+
+    left_faces = np.zeros(n + 1, dtype=np.float64)
+    right_faces = np.zeros(n + 1, dtype=np.float64)
+    jump_faces = np.zeros(n + 1, dtype=np.float64)
+    split_roundoff_faces = np.zeros(n + 1, dtype=np.float64)
+    for expected_index, operand in enumerate(internal, start=1):
+        if not isinstance(operand, dict) or int(operand.get("face_index", -1)) != expected_index:
+            raise ValueError("HLL face indices must be contiguous and internal")
+        for key in (
+            "weighted_left_rest_mass_flux", "weighted_right_rest_mass_flux",
+            "jump_rest_mass_flux", "split_reconstruction_residual",
+        ):
+            _finite_float(operand.get(key), f"HLL operand {key}")
+        left_faces[expected_index] = FOUR_PI * eta * float(operand["weighted_left_rest_mass_flux"])
+        right_faces[expected_index] = FOUR_PI * eta * float(operand["weighted_right_rest_mass_flux"])
+        jump_faces[expected_index] = FOUR_PI * eta * float(operand["jump_rest_mass_flux"])
+        split_roundoff_faces[expected_index] = (
+            FOUR_PI * eta * float(operand["split_reconstruction_residual"])
+        )
+
+    boundary_faces = np.zeros(n + 1, dtype=np.float64)
+    boundary_faces[0] = current_faces[0]
+    boundary_faces[-1] = current_faces[-1]
+    face_components = {
+        "weighted_left": left_faces,
+        "weighted_right": right_faces,
+        "hll_jump": jump_faces,
+        "boundary": boundary_faces,
+        "hll_split_roundoff": split_roundoff_faces,
+    }
+    reconstructed_faces = np.sum(np.stack(list(face_components.values())), axis=0)
+    face_reconstruction_residual = current_faces - reconstructed_faces
+    face_reconstruction_scale = np.abs(current_faces) + np.sum(
+        np.stack([np.abs(values) for values in face_components.values()]), axis=0
+    )
+    face_reconstruction_bounds = 256.0 * eps * np.maximum(face_reconstruction_scale, tiny)
+    face_reconstruction_ratios = (
+        np.abs(face_reconstruction_residual) / face_reconstruction_bounds
+    )
+    if (
+        not np.all(np.isfinite(face_reconstruction_residual))
+        or np.any(face_reconstruction_ratios > 1.0)
+    ):
+        raise ArithmeticError("HLL left/right/jump/boundary operands do not rebuild face current")
+
+    # Any last-bit discrepancy in the stored faces is explicitly carried by this
+    # residual component; it is not absorbed into a fitted coefficient.
+    split_roundoff_faces = split_roundoff_faces + face_reconstruction_residual
+    face_components["hll_split_roundoff"] = split_roundoff_faces
+
+    def tangent_terms(faces: np.ndarray) -> np.ndarray:
+        return -0.5 * dr * weight * q_cell * (faces[:-1] + faces[1:])
+
+    face_pairing_components = {
+        name: tangent_terms(faces) for name, faces in face_components.items()
+    }
+    reconstructed_cell_pairing = (
+        current_lorentz_terms
+        + math.fsum(()) * np.zeros(n, dtype=np.float64)
+    )
+    for values in face_pairing_components.values():
+        reconstructed_cell_pairing = reconstructed_cell_pairing + values
+    component_residual = source_pairing - reconstructed_cell_pairing
+    component_scale = np.abs(source_pairing) + np.abs(reconstructed_cell_pairing)
+    for values in face_pairing_components.values():
+        component_scale += np.abs(values)
+    component_bounds = 2048.0 * eps * np.maximum(component_scale, tiny)
+    component_ratios = np.abs(component_residual) / component_bounds
+    if (
+        not np.all(np.isfinite(component_residual))
+        or np.any(component_ratios > 1.0)
+    ):
+        raise ArithmeticError("cellwise signed pairing does not rebuild from face/HLL components")
+
+    component_tangent_sums = {
+        name: math.fsum(float(v) for v in values)
+        for name, values in face_pairing_components.items()
+    }
+    actual_tangent = _finite_float(
+        hll.get("actual_charge_current_tangent"), "HLL actual_charge_current_tangent"
+    )
+    saved_jump_tangent = _finite_float(
+        hll.get("hll_jump_charge_current_tangent_contribution"),
+        "HLL hll_jump_charge_current_tangent_contribution",
+    )
+    saved_weighted_tangent = _finite_float(
+        hll.get("weighted_flux_only_charge_current_tangent"),
+        "HLL weighted_flux_only_charge_current_tangent",
+    )
+    jump_tangent = component_tangent_sums["hll_jump"]
+    weighted_only_tangent = math.fsum(
+        component_tangent_sums[name]
+        for name in ("weighted_left", "weighted_right", "boundary", "hll_split_roundoff")
+    )
+    tangent_total_residual = math.fsum(
+        (weighted_only_tangent, jump_tangent, -actual_tangent)
+    )
+    tangent_total_bound, tangent_total_ratio = bound_ratio(
+        tangent_total_residual, weighted_only_tangent, jump_tangent, actual_tangent,
+        ulps=512.0,
+    )
+    jump_residual = jump_tangent - saved_jump_tangent
+    jump_bound, jump_ratio = bound_ratio(
+        jump_residual, jump_tangent, saved_jump_tangent, ulps=512.0
+    )
+    weighted_residual = weighted_only_tangent - saved_weighted_tangent
+    weighted_bound, weighted_ratio = bound_ratio(
+        weighted_residual, weighted_only_tangent, saved_weighted_tangent, ulps=512.0
+    )
+    if max(tangent_total_ratio, jump_ratio, weighted_ratio) > 1.0:
+        raise ArithmeticError("HLL face-current tangent decomposition failed its roundoff contract")
+
+    bands = {
+        "r_lt_2": lambda radius: radius < 2.0,
+        "r_2_to_10": lambda radius: 2.0 <= radius < 10.0,
+        "r_10_to_20": lambda radius: 10.0 <= radius < 20.0,
+        "r_ge_20": lambda radius: radius >= 20.0,
+    }
+    band_rows = {}
+    for name, predicate in bands.items():
+        index = [i for i, radius in enumerate(centers) if predicate(float(radius))]
+        band_rows[name] = {
+            "cells": len(index),
+            "projection_gap_signed_sum": math.fsum(float(projection_gap[i]) for i in index),
+            "projection_gap_l1": math.fsum(abs(float(projection_gap[i])) for i in index),
+            "weighted_projection_gap_signed_sum": math.fsum(float(weighted_projection_gap[i]) for i in index),
+            "weighted_projection_gap_l1": math.fsum(abs(float(weighted_projection_gap[i])) for i in index),
+            "pairing_component_signed_sums": {
+                part: math.fsum(float(values[i]) for i in index)
+                for part, values in face_pairing_components.items()
+            },
+            "current_lorentz_power_signed_sum": math.fsum(float(current_lorentz_terms[i]) for i in index),
+        }
+
+    max_face_current = float(np.max(np.abs(current_faces)))
+    return {
+        "classification": "research-only current projection and HLL component audit",
+        "cell_current_equivalent": cell_current.tolist(),
+        "adjacent_face_current_average": adjacent_current.tolist(),
+        "cell_current_projection_gap": projection_gap.tolist(),
+        "weighted_projection_gap_terms": weighted_projection_gap.tolist(),
+        "weighted_projection_gap_signed_sum": math.fsum(float(v) for v in weighted_projection_gap),
+        "weighted_projection_gap_l1": math.fsum(abs(float(v)) for v in weighted_projection_gap),
+        "weighted_projection_gap_max_abs": float(np.max(np.abs(weighted_projection_gap))),
+        "current_projection_gap_max_abs": float(np.max(np.abs(projection_gap))),
+        "current_projection_gap_max_abs_over_max_face_current": (
+            float(np.max(np.abs(projection_gap))) / max_face_current if max_face_current > 0.0 else 0.0
+        ),
+        "face_current_components": {name: values.tolist() for name, values in face_components.items()},
+        "face_current_reconstruction_residual": face_reconstruction_residual.tolist(),
+        "face_current_reconstruction_bound": face_reconstruction_bounds.tolist(),
+        "face_current_reconstruction_max_bound_ratio": float(np.max(face_reconstruction_ratios)),
+        "face_pairing_component_terms": {
+            name: values.tolist() for name, values in face_pairing_components.items()
+        },
+        "current_based_lorentz_pairing_terms": current_lorentz_terms.tolist(),
+        "component_reconstruction_residual": component_residual.tolist(),
+        "component_reconstruction_bound": component_bounds.tolist(),
+        "component_reconstruction_max_bound_ratio": float(np.max(component_ratios)),
+        "hll_tangent_reconstruction": {
+            "actual_charge_current_tangent": actual_tangent,
+            "weighted_only_from_components": weighted_only_tangent,
+            "saved_weighted_flux_only_tangent": saved_weighted_tangent,
+            "hll_jump_from_components": jump_tangent,
+            "saved_hll_jump_tangent": saved_jump_tangent,
+            "total_residual": tangent_total_residual,
+            "total_roundoff_bound": tangent_total_bound,
+            "total_bound_ratio": tangent_total_ratio,
+            "weighted_only_residual": weighted_residual,
+            "weighted_only_roundoff_bound": weighted_bound,
+            "weighted_only_bound_ratio": weighted_ratio,
+            "jump_residual": jump_residual,
+            "jump_roundoff_bound": jump_bound,
+            "jump_bound_ratio": jump_ratio,
+        },
+        "radial_band_summary": band_rows,
+        "interpretation_limit": (
+            "The cell-current equivalent and adjacent-face mean are numerical operands "
+            "from this captured stage. Their difference is a discrete projection "
+            "diagnostic, not a pointwise conservation law or a selected physical interface."
+        ),
+    }
+
+
 def reconcile_report(report: dict[str, Any], *, input_name: str, input_sha256: str) -> dict[str, Any]:
     provenance = validate_provenance(report)
     output_rows: list[dict[str, Any]] = []
