@@ -4421,15 +4421,16 @@ def _domain_stage_diagnostics(
         "weighted-only plus HLL tangent",
     )
     weighted_pairing = saved_weighted_only + measured_lorentz
-    # This comparison follows the subtraction (full defect - HLL jump) and
-    # a later cell reduction. Scale the roundoff contract by both subtraction
-    # operands as well as the result, so cancellation does not understate the
-    # floating-point work performed.
+    # This pairing contains the weighted-only face-charge tangent and the
+    # cell Lorentz source. Scale it to both uncancelled operands: the combined
+    # defect can be far smaller than either source term when they oppose.
+    weighted_only_charge_scale = float(np.sum(np.abs(
+        charge_tangent_cell_terms - jump_cell_terms
+    )))
+    lorentz_cell_scale = float(np.sum(np.abs(lorentz_power_cell_terms)))
     weighted_cell_roundoff = require_roundoff(
         float(np.sum(weighted_only_cell_defect)), weighted_pairing,
-        float(np.sum(np.abs(defect)))
-        + float(np.sum(np.abs(jump_cell_terms)))
-        + float(np.sum(np.abs(weighted_only_cell_defect))),
+        weighted_only_charge_scale + lorentz_cell_scale,
         "weighted-only per-cell pairing",
     )
 

@@ -1460,6 +1460,17 @@ def test_domain_stage_diagnostics_reconstructs_signed_cellwise_projection_and_hl
     assert observed["weighted_only_pairing_signed_global"] == pytest.approx(
         weighted_only_tangent + lorentz_power
     )
+    weighted_check = observed["roundoff_checks"]["weighted_pairing_cell_sum"]
+    expected_weighted_charge_scale = float(np.sum(np.abs(
+        -dr * weight * q_cell * adjacent_face_current - jump_cell_terms
+    )))
+    expected_lorentz_cell_scale = float(np.sum(np.abs(
+        dr * weight * q_cell * cell_current
+    )))
+    assert weighted_check["roundoff_bound"] >= (
+        256.0 * np.finfo(np.float64).eps
+        * (expected_weighted_charge_scale + expected_lorentz_cell_scale)
+    )
     assert observed["inner_cell_count"] == 3
     assert observed["cell_defect_signed_inner"] == pytest.approx(
         float(np.sum(expected_defect[:3]))
