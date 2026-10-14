@@ -2683,10 +2683,14 @@ def _field_stage_powers(stage: dict, rest_mass_flux, explicit_geometry: dict) ->
     charge_tangent_cell_terms = float(grid.dr) * weight * q_cell * q_cell_dot
     metric_tangent_cell_terms = 0.5 * float(grid.dr) * weight * q_cell**2 * log_weight_dot
     field_energy_at_stage = 0.5 * float(grid.dr) * float(np.sum(weight * q_cell**2))
+    lapse_profile = np.asarray(geom.alpha, dtype=float)
+    lorentz_current_r = np.asarray(lorentz["current_r"], dtype=float)
     stage_witness = {
         "grid_dr": float(grid.dr),
         "charge_to_rest_mass": float(em.charge_to_rest_mass),
         "centers": r.tolist(),
+        "lapse_profile": lapse_profile.tolist(),
+        "lorentz_current_r_profile": lorentz_current_r.tolist(),
         "geometry": {
             "X": np.asarray(geom.X, dtype=float).tolist(),
             "a": np.asarray(geom.a, dtype=float).tolist(),
