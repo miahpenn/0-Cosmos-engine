@@ -2630,6 +2630,7 @@ def _field_stage_powers(stage: dict, rest_mass_flux, explicit_geometry: dict) ->
         return {
             "charge_power": 0.0, "metric_power": 0.0,
             "matter_lorentz_power": 0.0, "outer_current_power": 0.0,
+            "stage_witness": None,
         }
     grid = state.grid
     geom = state.geometry
@@ -2659,11 +2660,49 @@ def _field_stage_powers(stage: dict, rest_mass_flux, explicit_geometry: dict) ->
     outer_current_power = (
         -0.5 * float(grid.dr) * weight[-1] * q_cell[-1] * current_faces[-1]
     )
+    charge_face_dot = -current_faces
+    energy_weight_dot = weight * log_weight_dot
+    charge_tangent_cell_terms = float(grid.dr) * weight * q_cell * q_cell_dot
+    metric_tangent_cell_terms = 0.5 * float(grid.dr) * weight * q_cell**2 * log_weight_dot
+    field_energy_at_stage = 0.5 * float(grid.dr) * float(np.sum(weight * q_cell**2))
+    stage_witness = {
+        "grid_dr": float(grid.dr),
+        "charge_to_rest_mass": float(em.charge_to_rest_mass),
+        "centers": r.tolist(),
+        "geometry": {
+            "X": np.asarray(geom.X, dtype=float).tolist(),
+            "a": np.asarray(geom.a, dtype=float).tolist(),
+            "b": np.asarray(geom.b, dtype=float).tolist(),
+        },
+        "explicit_geometry_rhs": {
+            name: np.asarray(explicit_geometry[name], dtype=float).tolist()
+            for name in ("X", "a", "b")
+        },
+        "charge_faces": q.tolist(),
+        "rest_mass_flux_faces": np.asarray(rest_mass_flux, dtype=float).tolist(),
+        "charge_current_faces": current_faces.tolist(),
+        "charge_face_dot": charge_face_dot.tolist(),
+        "charge_cell_average": q_cell.tolist(),
+        "charge_cell_dot_average": q_cell_dot.tolist(),
+        "field_energy_weight": weight.tolist(),
+        "log_energy_weight_rate": log_weight_dot.tolist(),
+        "energy_weight_dot": energy_weight_dot.tolist(),
+        "charge_current_tangent_cell_terms": charge_tangent_cell_terms.tolist(),
+        "metric_tangent_cell_terms": metric_tangent_cell_terms.tolist(),
+        "field_energy_at_stage": field_energy_at_stage,
+        "charge_current_tangent": charge_power,
+        "metric_tangent": metric_power,
+        "total_field_energy_tangent": charge_power + metric_power,
+        "lorentz_energy_source_profile": np.asarray(lorentz["energy"], dtype=float).tolist(),
+        "matter_lorentz_power": matter_lorentz_power,
+        "outer_current_power": float(outer_current_power),
+    }
     return {
         "charge_power": charge_power,
         "metric_power": metric_power,
         "matter_lorentz_power": matter_lorentz_power,
         "outer_current_power": float(outer_current_power),
+        "stage_witness": stage_witness,
     }
 
 
@@ -3353,6 +3392,14 @@ def _serialize_step(kernel, step: dict):
         "t_after": float(step["t_after"]),
         "dt": dt,
         "fixed_R_stage_rates": fixed_R_stage_rates,
+        "em_stage_exchange_witnesses": [
+            {
+                "stage": str(stages[index]["stage"]),
+                "t": float(stages[index]["t"]),
+                **stage_power_rows[index],
+            }
+            for index in range(2)
+        ],
         "matter_species": matter_step_rows,
         "em_field_energy_before": em_before,
         "em_field_energy_after": em_after,
