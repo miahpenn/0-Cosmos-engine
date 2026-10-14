@@ -715,6 +715,147 @@ def _misner_sharp_chain_rule_rate_profiles(
     return outputs
 
 
+
+def _misner_sharp_chain_rule_bracket_operands(
+    R, Rdot, Rr, Rdot_r, gamma_inv, gamma_inv_dot, Ktheta, Ktheta_dot,
+    Ktheta_dot_matter_source, *, target: float
+) -> dict:
+    """Retain signed stage operands and source/non-source Ktheta-dot terms at R*'s bracket cells."""
+    raw = {
+        "R": R,
+        "Rdot": Rdot,
+        "Rr": Rr,
+        "Rdot_r": Rdot_r,
+        "gamma_inv": gamma_inv,
+        "gamma_inv_dot": gamma_inv_dot,
+        "Ktheta": Ktheta,
+        "Ktheta_dot": Ktheta_dot,
+        "Ktheta_dot_matter_source": Ktheta_dot_matter_source,
+    }
+    arrays = {name: np.asarray(value, dtype=float) for name, value in raw.items()}
+    radii = arrays["R"]
+    if radii.ndim != 1 or radii.size < 2:
+        raise RuntimeError("chain-rule bracket witness R must be 1-D with at least two cells")
+    for name, values in arrays.items():
+        if values.shape != radii.shape:
+            raise RuntimeError(
+                f"chain-rule bracket witness {name} shape {values.shape} does not match {radii.shape}"
+            )
+        if not np.all(np.isfinite(values)):
+            raise RuntimeError(f"chain-rule bracket witness {name} contains non-finite values")
+    if not np.all(np.diff(radii) > 0.0):
+        raise RuntimeError("chain-rule bracket witness R must be strictly increasing")
+    target = float(target)
+    if not math.isfinite(target) or target < radii[0] or target > radii[-1]:
+        raise RuntimeError("chain-rule bracket witness target is outside the sampled domain")
+
+    right = int(np.searchsorted(radii, target, side="right"))
+    right = min(max(right, 1), radii.size - 1)
+    left = right - 1
+    theta = float((target - radii[left]) / (radii[right] - radii[left]))
+
+    normal_dR = radii * arrays["Ktheta"]
+    chi = arrays["gamma_inv"] * arrays["Rr"]**2 - normal_dR**2
+    term_Rdot = 0.5 * arrays["Rdot"] * (1.0 - chi)
+    term_gamma_inv_dot = (
+        -0.5 * radii * arrays["gamma_inv_dot"] * arrays["Rr"]**2
+    )
+    term_Rdot_r = (
+        -radii * arrays["gamma_inv"] * arrays["Rr"] * arrays["Rdot_r"]
+    )
+    term_Ktheta_geometry = (
+        radii**2 * arrays["Rdot"] * arrays["Ktheta"]**2
+    )
+    term_Ktheta_dot_matter_source = (
+        radii**3 * arrays["Ktheta"] * arrays["Ktheta_dot_matter_source"]
+    )
+    term_Ktheta_dot_non_matter = (
+        radii**3 * arrays["Ktheta"]
+        * (arrays["Ktheta_dot"] - arrays["Ktheta_dot_matter_source"])
+    )
+    term_Ktheta_dot_total = radii**3 * arrays["Ktheta"] * arrays["Ktheta_dot"]
+    term_sum = (
+        term_Rdot + term_gamma_inv_dot + term_Rdot_r
+        + term_Ktheta_geometry + term_Ktheta_dot_total
+    )
+    chi_dot = (
+        arrays["gamma_inv_dot"] * arrays["Rr"]**2
+        + 2.0 * arrays["gamma_inv"] * arrays["Rr"] * arrays["Rdot_r"]
+        - 2.0 * normal_dR * (
+            arrays["Rdot"] * arrays["Ktheta"]
+            + radii * arrays["Ktheta_dot"]
+        )
+    )
+    mass_dot_coordinate = 0.5 * (
+        arrays["Rdot"] * (1.0 - chi) - radii * chi_dot
+    )
+    residual = mass_dot_coordinate - term_sum
+    scale = (
+        np.abs(term_Rdot) + np.abs(term_gamma_inv_dot) + np.abs(term_Rdot_r)
+        + np.abs(term_Ktheta_geometry) + np.abs(term_Ktheta_dot_matter_source)
+        + np.abs(term_Ktheta_dot_non_matter) + np.abs(mass_dot_coordinate)
+    )
+    bound = 64.0 * np.finfo(np.float64).eps * np.maximum(
+        scale, np.finfo(np.float64).tiny
+    )
+    if np.any(np.abs(residual) > bound):
+        raise RuntimeError("chain-rule bracket witness failed roundoff decomposition")
+
+    def cell(index):
+        return {
+            "index": int(index),
+            "R": float(radii[index]),
+            "Rdot_from_production_explicit_rhs": float(arrays["Rdot"][index]),
+            "gamma_inv_dot_from_production_explicit_rhs": float(
+                arrays["gamma_inv_dot"][index]
+            ),
+            "Rdot_r_from_cell_derivative_fourth_parity_minus_one": float(
+                arrays["Rdot_r"][index]
+            ),
+            "Ktheta_dot_total_from_primary_L2_plus_L3": float(
+                arrays["Ktheta_dot"][index]
+            ),
+            "Ktheta_dot_matter_source_from_same_stage_live_minus_vacuum_L3": float(
+                arrays["Ktheta_dot_matter_source"][index]
+            ),
+            "Ktheta_dot_non_matter_remainder": float(
+                arrays["Ktheta_dot"][index]
+                - arrays["Ktheta_dot_matter_source"][index]
+            ),
+            "mass_dot_coordinate_term_Rdot": float(term_Rdot[index]),
+            "mass_dot_coordinate_term_gamma_inv_dot": float(
+                term_gamma_inv_dot[index]
+            ),
+            "mass_dot_coordinate_term_Rdot_r": float(term_Rdot_r[index]),
+            "mass_dot_coordinate_term_Ktheta_geometry": float(
+                term_Ktheta_geometry[index]
+            ),
+            "mass_dot_coordinate_term_Ktheta_dot_matter_source": float(
+                term_Ktheta_dot_matter_source[index]
+            ),
+            "mass_dot_coordinate_term_Ktheta_dot_non_matter": float(
+                term_Ktheta_dot_non_matter[index]
+            ),
+            "mass_dot_coordinate_term_Ktheta_dot_total": float(
+                term_Ktheta_dot_total[index]
+            ),
+            "mass_dot_coordinate_from_chain_rule": float(
+                mass_dot_coordinate[index]
+            ),
+            "mass_dot_coordinate_term_sum": float(term_sum[index]),
+            "mass_dot_coordinate_decomposition_residual": float(residual[index]),
+            "mass_dot_coordinate_decomposition_bound": float(bound[index]),
+        }
+
+    return {
+        "target_R": target,
+        "left_index": int(left),
+        "right_index": int(right),
+        "theta": theta,
+        "left_cell": cell(left),
+        "right_cell": cell(right),
+    }
+
 def _mass_gradient_identity_bracket_witness(
     R, mass_gradient, rho, current, Rr, Rdot, alpha,
     hamiltonian, momentum, *, target: float
@@ -1024,6 +1165,57 @@ def _worldtube_sample(kernel, state, *, geometry_stage_capture=None) -> dict:
             grid.cell_derivative_fourth(chain_profiles["mass"], parity=-1),
             dtype=float,
         )
+        source_Ktheta_dot_profile = (
+            (
+                np.asarray(split["primary_l3"]["K"], dtype=float)
+                - np.asarray(vacuum_primary_l3["K"], dtype=float)
+            ) / 3.0
+            - 0.5 * (
+                np.asarray(split["primary_l3"]["Aa"], dtype=float)
+                - np.asarray(vacuum_primary_l3["Aa"], dtype=float)
+            )
+        )
+        chain_bracket_witness = _misner_sharp_chain_rule_bracket_operands(
+            R, Rdot, Rr, Rdot_r, gamma_rr_inv, gamma_inv_dot,
+            Ktheta, Ktheta_dot, source_Ktheta_dot_profile,
+            target=FIXED_AREAL_RADIUS,
+        )
+        # Attach the actual-stage operands and local composite balance to both
+        # cells, keeping their values adjacent to D_r M, H/M, and the RHS operators.
+        for side in ("left_cell", "right_cell"):
+            cell = mass_gradient_witness[side]
+            index = int(cell["index"])
+            cell["stage_chain_rule_operands"] = chain_bracket_witness[side]
+            local_flux = (
+                -FOUR_PI * R[index]**2 * geom.alpha[index]
+                * gamma_rr_inv[index] * total.j[index] * Rr[index]
+            )
+            local_pressure_work = (
+                -FOUR_PI * R[index]**2 * total.pr[index] * Rdot[index]
+            )
+            if Rr[index] == 0.0:
+                raise RuntimeError("fixed-R bracket cell has zero D_r R")
+            native_sweep = -Rdot[index] * Mr[index] / Rr[index]
+            chain_sweep_cell = -Rdot[index] * chain_Mr[index] / Rr[index]
+            coordinate_rate = chain_profiles["mass_dot_coordinate"][index]
+            cell["stage_local_composite_balance"] = {
+                "stress_flux": float(local_flux),
+                "radial_pressure_work": float(local_pressure_work),
+                "coordinate_rate_minus_flux_and_work": float(
+                    coordinate_rate - local_flux - local_pressure_work
+                ),
+                "native_mass_gradient_tube_sweep": float(native_sweep),
+                "chain_mass_gradient_tube_sweep": float(chain_sweep_cell),
+                "native_minus_chain_mass_gradient": float(
+                    Mr[index] - chain_Mr[index]
+                ),
+                "fixed_R_residual_using_native_mass_gradient": float(
+                    coordinate_rate + native_sweep - local_flux - local_pressure_work
+                ),
+                "fixed_R_residual_using_chain_mass_gradient": float(
+                    coordinate_rate + chain_sweep_cell - local_flux - local_pressure_work
+                ),
+            }
         # Attach the same-stage mass-rate tangent terms to the exact cells used
         # by the native D_r M identity witness. This keeps the local constraint
         # operands, mass-gradient residual, and mass-rate decomposition adjacent.
@@ -1138,6 +1330,17 @@ def _worldtube_sample(kernel, state, *, geometry_stage_capture=None) -> dict:
             "tube_chain_rule_mass_dot_fixed_R": chain_Mdot_fixed_R,
             "tube_chain_rule_coordinate_rate_minus_flux_pressure": chain_coordinate_residual,
             "tube_chain_rule_fixed_R_residual": chain_fixed_R_residual,
+            "tube_chain_rule_flux_work_operator_comparison": {
+                "stress_flux_factor_interpolated": float(stress_flux),
+                "stress_flux_local_composite_interpolated": float(composite_stress_flux),
+                "radial_pressure_work_factor_interpolated": float(pressure_work),
+                "radial_pressure_work_local_composite_interpolated": float(composite_pressure_work),
+                "fixed_R_residual_factor_interpolated": float(chain_fixed_R_residual),
+                "fixed_R_residual_local_composite_interpolated": float(
+                    chain_Mdot_fixed_R
+                    - composite_stress_flux - composite_pressure_work - chain_sweep
+                ),
+            },
             "tube_chain_rule_gamma_inv_dot_absmax": float(np.max(np.abs(gamma_inv_dot))),
             "tube_chain_rule_Ktheta_dot_absmax": float(np.max(np.abs(Ktheta_dot))),
             "tube_interpolant_bracket_left_index": int(interpolant_rate["left_index"]),
@@ -1302,6 +1505,12 @@ def _fixed_R_rate_snapshot(sample: dict) -> dict:
     snapshot = {"t": float(sample["t"]), **{key: float(sample[key]) for key in keys}}
     if "tube_interpolant_witness_profiles" in sample:
         snapshot["tube_interpolant_witness_profiles"] = sample["tube_interpolant_witness_profiles"]
+    for key in (
+        "tube_mass_gradient_identity_witness",
+        "tube_chain_rule_flux_work_operator_comparison",
+    ):
+        if key in sample:
+            snapshot[key] = sample[key]
     if "tube_sector_rates" in sample:
         snapshot["tube_sector_rates"] = sample["tube_sector_rates"]
     if "tube_ktheta_matter_source_rates" in sample:
@@ -2215,6 +2424,24 @@ def _fixed_R_interval_balance(run: dict, *, label: str = "run") -> list[dict]:
     return rows
 
 
+def _numeric_tree_difference(charged, neutral):
+    """Subtract matching numeric leaves while preserving nested witness structure."""
+    if isinstance(charged, dict) and isinstance(neutral, dict):
+        out = {}
+        for key in sorted(set(charged) & set(neutral)):
+            value = _numeric_tree_difference(charged[key], neutral[key])
+            if value is not None:
+                out[key] = value
+        return out
+    numeric = (int, float, np.number)
+    if (
+        isinstance(charged, numeric) and not isinstance(charged, (bool, np.bool_))
+        and isinstance(neutral, numeric) and not isinstance(neutral, (bool, np.bool_))
+    ):
+        return float(charged) - float(neutral)
+    return None
+
+
 def _pair_fixed_R_interval_rows(charged: list[dict], neutral: list[dict], *, label: str) -> list[dict]:
     """Pair charged and neutral intervals only when their accepted time grids align."""
     if len(charged) != len(neutral):
@@ -2296,6 +2523,19 @@ def _pair_fixed_R_interval_rows(charged: list[dict], neutral: list[dict], *, lab
         row = {"interval_index": i, "t_start": c["t_start"], "t_end": c["t_end"], "dt": c["dt"]}
         for key in delta_fields:
             row[f"charged_minus_neutral_{key}"] = float(c[key] - n[key])
+        for stage_name in ("start", "primary_predictor"):
+            charged_components = c[f"{stage_name}_stage_components"]
+            neutral_components = n[f"{stage_name}_stage_components"]
+            for witness_key in (
+                "tube_mass_gradient_identity_witness",
+                "tube_chain_rule_flux_work_operator_comparison",
+            ):
+                charged_witness = charged_components.get(witness_key)
+                neutral_witness = neutral_components.get(witness_key)
+                if isinstance(charged_witness, dict) and isinstance(neutral_witness, dict):
+                    row[
+                        f"charged_minus_neutral_{stage_name}_stage_{witness_key}"
+                    ] = _numeric_tree_difference(charged_witness, neutral_witness)
         result.append(row)
     return result
 
