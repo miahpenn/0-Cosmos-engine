@@ -1326,7 +1326,7 @@ def test_stage_exchange_witness_preserves_q_face_tangent_and_metric_weight_rate(
         alpha=np.array([0.98, 0.99]),
     )
     state = SimpleNamespace(
-        grid=SimpleNamespace(dr=dr, centers=centers),
+        grid=SimpleNamespace(dr=dr, centers=centers, n=centers.size),
         geometry=geometry,
         electromagnetic=FakeEM(),
     )
@@ -1335,6 +1335,13 @@ def test_stage_exchange_witness_preserves_q_face_tangent_and_metric_weight_rate(
         "lorentz": {
             "energy": np.array([2e-5, 3e-5]),
             "current_r": np.array([1e-5, 1.5e-5]),
+        },
+        "components": {
+            "charged_dust": {
+                "hll_face_diagnostics": {
+                    "internal_faces": [{"face_index": 1, "jump_rest_mass_flux": 0.001}],
+                },
+            },
         },
     }
     explicit = {
