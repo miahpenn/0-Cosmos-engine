@@ -1,0 +1,80 @@
+name: Research - joined EM/matter/Misner-Sharp ledger
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - tools/audit_em_total_energy_budget.py
+      - tools/recompute_fixed_r_balance_artifact.py
+      - tests/test_research_em_total_energy_budget_contract.py
+      - tests/test_research_fixed_r_independent_recompute.py
+      - .github/workflows/em_total_energy_budget.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: joined-em-ledger-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  joined-energy-ledger:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PYTHONUNBUFFERED: "1"
+      SOURCE_COMMIT: 31a7491bce8076e05a8524d442567cc39ed30d94
+      VENDOR_COMMIT: d6052d605673ce9d82cdc99b0df79855fa2ea215
+      PR_SOURCE_HEAD_SHA: ${{ github.event.pull_request.head.sha || '' }}
+    steps:
+      - name: Check out candidate with vendor submodule
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install locked repository dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Verify production source and vendor boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin "$SOURCE_COMMIT"
+          git merge-base --is-ancestor "$SOURCE_COMMIT" HEAD
+          git diff --exit-code "$SOURCE_COMMIT" HEAD -- engine vendor requirements.txt .gitmodules
+          actual_vendor="$(git rev-parse "HEAD:vendor/bb-palatini-unified-r0")"
+          test "$actual_vendor" = "$VENDOR_COMMIT"
+          printf 'SOURCE_ANCHOR=%s\nEXECUTION_CHECKOUT_SHA=%s\nPR_SOURCE_HEAD_SHA=%s\nVENDOR=%s\n' \
+            "$SOURCE_COMMIT" "$(git rev-parse HEAD)" "${PR_SOURCE_HEAD_SHA:-not-a-pull-request-event}" "$actual_vendor"
+
+      - name: Run complete repository tests
+        run: python -m pytest -q
+
+      - name: Run joined neutral/charged EM energy ledger
+        run: python tools/audit_em_total_energy_budget.py --output "$RUNNER_TEMP/em_total_energy_budget.json"
+
+      - name: Independently recompute fixed-R balance from raw stage operands
+        run: >-
+          python tools/recompute_fixed_r_balance_artifact.py
+          --input "$RUNNER_TEMP/em_total_energy_budget.json"
+          --output "$RUNNER_TEMP/fixed_r_independent_recompute.json"
+
+      - name: Upload signed joined-ledger JSON and independent recomputation
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: em-total-energy-budget-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/em_total_energy_budget.json
+            ${{ runner.temp }}/fixed_r_independent_recompute.json
+          if-no-files-found: ignore
+          retention-days: 90
