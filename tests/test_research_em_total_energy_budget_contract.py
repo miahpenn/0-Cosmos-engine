@@ -26,6 +26,7 @@ from tools.audit_em_total_energy_budget import (
     _misner_sharp_chain_rule_bracket_operands,
     _ktheta_dot_component_profiles,
     _explicit_metric_rate_profiles,
+    _accepted_pirk_tangent_term_profiles,
     _numeric_tree_difference,
     _mass_gradient_identity_bracket_witness,
     _sector_fixed_R_rates,
@@ -638,6 +639,74 @@ def test_misner_sharp_chain_rule_bracket_witness_separates_matter_and_non_matter
 
 
 
+
+
+def test_accepted_pirk_tangent_term_profiles_reconstructs_signed_stage_pieces():
+    R = np.array([1.0, 2.0, 3.0, 4.0])
+    Rr = np.array([1.0, 1.1, 1.2, 1.3])
+    gamma_inv = np.array([1.3, 1.2, 1.1, 1.0])
+    Ktheta = np.array([-0.10, -0.08, -0.05, -0.03])
+    Rdot_parts = {
+        "explicit_start": np.array([0.010, 0.015, 0.020, 0.025]),
+        "explicit_predictor": np.array([0.020, 0.010, 0.005, 0.003]),
+    }
+    gamma_parts = {
+        "explicit_start": np.array([0.0010, -0.0010, 0.0020, 0.0005]),
+        "explicit_predictor": np.array([0.0020, 0.0004, -0.0010, 0.0003]),
+    }
+    ktheta_parts = {
+        "primary_l2_start": np.array([0.0020, 0.0030, -0.0040, 0.0010]),
+        "primary_l2_final_mixed_state": np.array([0.0010, -0.0010, 0.0020, 0.0030]),
+        "vacuum_l3_start": np.array([0.0001, 0.0002, 0.0003, 0.0004]),
+        "vacuum_l3_predictor": np.array([-0.0002, -0.0001, 0.0000, 0.0001]),
+        "einstein_source_l3_start": np.array([0.0030, 0.0020, 0.0010, -0.0010]),
+        "einstein_source_l3_predictor": np.array([-0.0020, -0.0010, 0.0020, 0.0010]),
+    }
+    Rdot = sum(Rdot_parts.values())
+    gamma_inv_dot = sum(gamma_parts.values())
+    Ktheta_dot = sum(ktheta_parts.values())
+
+    class ManufacturedGrid:
+        calls = 0
+        def cell_derivative_fourth(self, values, *, parity):
+            assert parity == -1
+            self.calls += 1
+            return np.gradient(np.asarray(values, dtype=float), edge_order=1)
+
+    grid = ManufacturedGrid()
+    terms = _accepted_pirk_tangent_term_profiles(
+        R=R, Rr=Rr, gamma_inv=gamma_inv, Ktheta=Ktheta,
+        Rdot=Rdot, gamma_inv_dot=gamma_inv_dot, Ktheta_dot=Ktheta_dot,
+        Rdot_contributions=Rdot_parts,
+        gamma_inv_dot_contributions=gamma_parts,
+        Ktheta_dot_contributions=ktheta_parts,
+        grid=grid,
+    )
+    assert len(terms) == 14
+    assert grid.calls == 2
+    term_sum = sum(terms.values())
+    Rdot_r = np.gradient(Rdot, edge_order=1)
+    chi = gamma_inv * Rr**2 - (R * Ktheta)**2
+    expected = (
+        0.5 * Rdot * (1.0 - chi)
+        - 0.5 * R * gamma_inv_dot * Rr**2
+        - R * gamma_inv * Rr * Rdot_r
+        + R**2 * Rdot * Ktheta**2
+        + R**3 * Ktheta * Ktheta_dot
+    )
+    np.testing.assert_allclose(term_sum, expected, rtol=2.0e-14, atol=1.0e-18)
+
+    bad_parts = dict(Rdot_parts)
+    bad_parts["explicit_start"] = bad_parts["explicit_start"] + 1.0e-5
+    with pytest.raises(RuntimeError, match="Rdot components fail roundoff reconstruction"):
+        _accepted_pirk_tangent_term_profiles(
+            R=R, Rr=Rr, gamma_inv=gamma_inv, Ktheta=Ktheta,
+            Rdot=Rdot, gamma_inv_dot=gamma_inv_dot, Ktheta_dot=Ktheta_dot,
+            Rdot_contributions=bad_parts,
+            gamma_inv_dot_contributions=gamma_parts,
+            Ktheta_dot_contributions=ktheta_parts,
+            grid=grid,
+        )
 
 
 def test_ktheta_dot_component_split_keeps_K_Aa_and_live_minus_vacuum_L3_separate():
