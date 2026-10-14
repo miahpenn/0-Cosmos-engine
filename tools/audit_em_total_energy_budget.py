@@ -29,6 +29,7 @@ if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
 from engine import matter_rhs as matter_rhs_module
+from engine import matter_system as matter_system_module
 from engine import v55_pirk_adapter as adapter
 from engine.campaign import CampaignConfig
 from engine.production_kernel import V55ProductionKernel
@@ -2400,6 +2401,183 @@ def _species_name(stage_state, species_state) -> str:
     raise RuntimeError("could not identify the species state at an active RHS stage")
 
 
+def _split_hll_scalar_flux(
+    s_minus: float,
+    s_plus: float,
+    flux_left: float,
+    flux_right: float,
+    conserved_left: float,
+    conserved_right: float,
+    observed_flux: float,
+) -> dict:
+    """Split one scalar HLL flux into weighted physical flux and jump terms.
+
+    This is an algebraic decomposition of the existing HLL result. It is not
+    an alternate evolution update and makes no physical closure assumption.
+    """
+    operands = np.asarray(
+        [s_minus, s_plus, flux_left, flux_right, conserved_left,
+         conserved_right, observed_flux],
+        dtype=np.float64,
+    )
+    if operands.ndim != 1 or not np.all(np.isfinite(operands)):
+        raise RuntimeError("HLL split operands must be finite scalars")
+    s_minus, s_plus, flux_left, flux_right, conserved_left, conserved_right, observed_flux = (
+        float(value) for value in operands
+    )
+    if s_minus > 0.0 or s_plus < 0.0 or s_minus > s_plus:
+        raise RuntimeError("HLL split has invalid signal-speed ordering")
+
+    if s_plus <= 0.0:
+        weighted = flux_right
+        weighted_left = 0.0
+        weighted_right = weighted
+        jump = 0.0
+        branch = "right_upwind"
+    elif s_minus >= 0.0:
+        weighted = flux_left
+        weighted_left = weighted
+        weighted_right = 0.0
+        jump = 0.0
+        branch = "left_upwind"
+    else:
+        denominator = s_plus - s_minus
+        if denominator <= 0.0:
+            raise RuntimeError("HLL transonic split has a nonpositive denominator")
+        weighted_left = s_plus * flux_left / denominator
+        weighted_right = -s_minus * flux_right / denominator
+        weighted = weighted_left + weighted_right
+        jump = (
+            s_minus * s_plus / denominator
+        ) * (conserved_right - conserved_left)
+        branch = "transonic"
+
+    reconstructed = weighted + jump
+    residual = observed_flux - reconstructed
+    scale = (
+        abs(observed_flux) + abs(weighted_left) + abs(weighted_right)
+        + abs(jump) + abs(weighted)
+    )
+    bound = 64.0 * np.finfo(np.float64).eps * max(
+        scale, np.finfo(np.float64).tiny
+    )
+    if abs(residual) > bound:
+        raise RuntimeError(
+            "captured HLL mass flux does not reconstruct from its saved operands: "
+            f"residual={residual:.17g}, bound={bound:.17g}"
+        )
+    return {
+        "hll_branch": branch,
+        "s_minus": s_minus,
+        "s_plus": s_plus,
+        "left_rest_mass_flux": flux_left,
+        "right_rest_mass_flux": flux_right,
+        "left_conserved_rest": conserved_left,
+        "right_conserved_rest": conserved_right,
+        "weighted_left_rest_mass_flux": weighted_left,
+        "weighted_right_rest_mass_flux": weighted_right,
+        "weighted_rest_mass_flux": weighted,
+        "jump_rest_mass_flux": jump,
+        "hll_returned_rest_mass_flux": observed_flux,
+        "split_reconstruction_residual": residual,
+        "split_reconstruction_roundoff_bound": bound,
+    }
+
+
+def _hll_first_component_flux_split(metric, left, right, species, observed_flux) -> dict:
+    """Independently expand the actual charged-dust HLL rest-mass flux."""
+    if species is not matter_system_module.Species.BARYON:
+        raise RuntimeError("HLL current capture expected the charged-dust Valencia channel")
+    flux_left = float(matter_system_module._valencia_flux(metric, left)[0])
+    flux_right = float(matter_system_module._valencia_flux(metric, right)[0])
+    conserved_left = float(matter_system_module._valencia_conserved(metric, left)[0])
+    conserved_right = float(matter_system_module._valencia_conserved(metric, right)[0])
+
+    # This is the production _hll_flux wave-speed formula with c_s=0 for
+    # pressureless dust. Keep both signs explicit to match the implementation.
+    def speed(q, sign):
+        sound_speed = 0.0
+        vhat = math.copysign(math.sqrt(q.v2), q.v_r)
+        denominator = 1.0 + sign * vhat * sound_speed
+        numerator = q.v_r + sign * sound_speed / math.sqrt(metric.gamma_rr)
+        return metric.alpha * numerator / denominator - metric.beta
+
+    s_minus = min(0.0, speed(left, -1.0), speed(right, -1.0))
+    s_plus = max(0.0, speed(left, 1.0), speed(right, 1.0))
+    return _split_hll_scalar_flux(
+        s_minus, s_plus, flux_left, flux_right, conserved_left, conserved_right,
+        float(np.asarray(observed_flux, dtype=float)[0]),
+    )
+
+
+def _hll_charge_tangent_split(
+    dr: float,
+    weight,
+    q_cell,
+    current_faces,
+    jump_rest_mass_flux,
+    charge_to_rest_mass: float,
+) -> dict:
+    """Separate the saved internal HLL jump from the existing field tangent.
+
+    The regular-centre and physical outer-face currents are copied unchanged.
+    The no-jump case is a diagnostic counterfactual only; it never advances a
+    state. All reported values retain their signs and use the live stage data.
+    """
+    weight = np.asarray(weight, dtype=np.float64)
+    q_cell = np.asarray(q_cell, dtype=np.float64)
+    current_faces = np.asarray(current_faces, dtype=np.float64)
+    jump_rest_mass_flux = np.asarray(jump_rest_mass_flux, dtype=np.float64)
+    eta = float(charge_to_rest_mass)
+    step = float(dr)
+    if (
+        weight.ndim != 1 or q_cell.shape != weight.shape
+        or current_faces.shape != (weight.size + 1,)
+        or jump_rest_mass_flux.shape != (weight.size - 1,)
+        or not all(np.all(np.isfinite(value)) for value in (
+            weight, q_cell, current_faces, jump_rest_mass_flux
+        ))
+        or not math.isfinite(eta) or not math.isfinite(step) or step <= 0.0
+    ):
+        raise RuntimeError("HLL charge-tangent split has invalid or non-finite operands")
+
+    jump_current_faces = np.zeros_like(current_faces)
+    jump_current_faces[1:-1] = FOUR_PI * eta * jump_rest_mass_flux
+    weighted_only_current_faces = current_faces - jump_current_faces
+    if (
+        weighted_only_current_faces[0] != current_faces[0]
+        or weighted_only_current_faces[-1] != current_faces[-1]
+    ):
+        raise RuntimeError("HLL counterfactual altered centre or outer-face current")
+
+    def tangent(current):
+        q_cell_dot = -0.5 * (current[:-1] + current[1:])
+        return step * float(np.sum(weight * q_cell * q_cell_dot))
+
+    actual = tangent(current_faces)
+    weighted_only = tangent(weighted_only_current_faces)
+    jump_contribution = tangent(jump_current_faces)
+    residual = actual - (weighted_only + jump_contribution)
+    scale = abs(actual) + abs(weighted_only) + abs(jump_contribution)
+    bound = 64.0 * np.finfo(np.float64).eps * max(
+        scale, np.finfo(np.float64).tiny
+    )
+    if abs(residual) > bound:
+        raise RuntimeError(
+            "HLL charge-tangent split failed its roundoff identity: "
+            f"residual={residual:.17g}, bound={bound:.17g}"
+        )
+    return {
+        "actual_charge_current_tangent": actual,
+        "weighted_flux_only_charge_current_tangent": weighted_only,
+        "hll_jump_charge_current_tangent_contribution": jump_contribution,
+        "tangent_split_reconstruction_residual": residual,
+        "tangent_split_reconstruction_roundoff_bound": bound,
+        "jump_current_faces": jump_current_faces,
+        "weighted_only_current_faces": weighted_only_current_faces,
+    }
+
+
 class AuditedKernel(V55ProductionKernel):
     """Production kernel with passive observers around unchanged stage methods."""
 
@@ -2575,18 +2753,46 @@ class AuditedKernel(V55ProductionKernel):
 def _instrument_rhs(kernel: AuditedKernel):
     """Observe component return values and actual Lorentz calls; restore on exit."""
     original_components = matter_rhs_module._species_rhs_components
+    original_hll_flux = matter_system_module._hll_flux
     original_lorentz = RadialMaxwellState.lorentz_source
     _, vacuum, _ = adapter.vendor_modules()
     original_primary_l2 = vacuum.primary_l2_rhs
 
-    def components_wrapper(*args, **kwargs):
-        result = original_components(*args, **kwargs)
+    original_hll_flux = matter_system_module._hll_flux
+
+    def hll_flux_wrapper(metric, left, right, species):
+        result = original_hll_flux(metric, left, right, species)
         active = kernel._active_rhs
+        if active is not None and active.get("_capture_hll_species") == "charged_dust":
+            split = _hll_first_component_flux_split(
+                metric, left, right, species, result
+            )
+            split["face_index"] = len(active["_captured_hll_internal_faces"]) + 1
+            active["_captured_hll_internal_faces"].append(split)
+        return result
+
+    def components_wrapper(*args, **kwargs):
+        active = kernel._active_rhs
+        name = None
+        capture_hll = False
+        if active is not None:
+            _, _, species_state, _ = args[:4]
+            name = _species_name(active["stage_state"], species_state)
+            capture_hll = name == "charged_dust"
+            if capture_hll:
+                active["_capture_hll_species"] = "charged_dust"
+                active["_captured_hll_internal_faces"] = []
+        try:
+            result = original_components(*args, **kwargs)
+        finally:
+            if capture_hll:
+                captured_hll_faces = active.pop("_captured_hll_internal_faces", [])
+                active.pop("_capture_hll_species", None)
+
         if active is not None:
             metric, metric_derivatives, species_state, species = args[:4]
-            name = _species_name(active["stage_state"], species_state)
             face_flux, source_energy, source_momentum, dm_energy, dm_momentum = result
-            active["components"][name] = {
+            component_record = {
                 "species": str(getattr(species, "value", species)),
                 "face_flux": _array(face_flux),
                 "source_energy": _array(source_energy),
@@ -2594,6 +2800,26 @@ def _instrument_rhs(kernel: AuditedKernel):
                 "dm_exchange_energy": _array(dm_energy),
                 "dm_exchange_momentum": _array(dm_momentum),
             }
+            if capture_hll:
+                expected_faces = int(face_flux.shape[0]) - 2
+                if len(captured_hll_faces) != expected_faces:
+                    raise RuntimeError(
+                        "charged-dust HLL observer captured "
+                        f"{len(captured_hll_faces)} internal faces; expected {expected_faces}"
+                    )
+                for offset, face in enumerate(captured_hll_faces, start=1):
+                    if face["face_index"] != offset:
+                        raise RuntimeError("charged-dust HLL face ordering is not contiguous")
+                    actual_face = float(face_flux[offset, 0])
+                    if actual_face != face["hll_returned_rest_mass_flux"]:
+                        raise RuntimeError(
+                            "captured HLL flux differs from the charged-dust component face flux"
+                        )
+                component_record["hll_face_diagnostics"] = {
+                    "internal_faces": captured_hll_faces,
+                    "actual_internal_rest_mass_flux": _array(face_flux[1:-1, 0]),
+                }
+            active["components"][name] = component_record
         return result
 
     def lorentz_wrapper(self, *args, **kwargs):
@@ -2631,12 +2857,14 @@ def _instrument_rhs(kernel: AuditedKernel):
         return result
 
     matter_rhs_module._species_rhs_components = components_wrapper
+    matter_system_module._hll_flux = hll_flux_wrapper
     RadialMaxwellState.lorentz_source = lorentz_wrapper
     vacuum.primary_l2_rhs = primary_l2_wrapper
     try:
         yield
     finally:
         matter_rhs_module._species_rhs_components = original_components
+        matter_system_module._hll_flux = original_hll_flux
         RadialMaxwellState.lorentz_source = original_lorentz
         vacuum.primary_l2_rhs = original_primary_l2
 
@@ -2648,6 +2876,7 @@ def _field_stage_powers(stage: dict, rest_mass_flux, explicit_geometry: dict) ->
         return {
             "charge_power": 0.0, "metric_power": 0.0,
             "matter_lorentz_power": 0.0, "outer_current_power": 0.0,
+            "weighted_flux_only_charge_power": 0.0, "hll_jump_charge_power": 0.0,
             "stage_witness": None,
         }
     grid = state.grid
@@ -2678,6 +2907,40 @@ def _field_stage_powers(stage: dict, rest_mass_flux, explicit_geometry: dict) ->
     outer_current_power = (
         -0.5 * float(grid.dr) * weight[-1] * q_cell[-1] * current_faces[-1]
     )
+
+    # The actual charged-dust HLL calls above have been passively captured.
+    # Remove only their internal-face jump component for a diagnostic-only
+    # tangent counterfactual; centre and physical outer-face currents stay fixed.
+    dust_components = stage["components"].get("charged_dust")
+    if dust_components is None:
+        raise RuntimeError("charged EM stage is missing its dust RHS components")
+    hll_diagnostics = dust_components.get("hll_face_diagnostics")
+    if hll_diagnostics is None:
+        raise RuntimeError("charged EM stage is missing captured HLL face operands")
+    hll_faces = hll_diagnostics["internal_faces"]
+    if len(hll_faces) != grid.n - 1:
+        raise RuntimeError("captured HLL face count does not match the live grid")
+    jump_mass_flux = np.asarray(
+        [face["jump_rest_mass_flux"] for face in hll_faces], dtype=np.float64
+    )
+    hll_tangent_split = _hll_charge_tangent_split(
+        float(grid.dr), weight, q_cell, current_faces, jump_mass_flux,
+        float(em.charge_to_rest_mass),
+    )
+    if hll_tangent_split["actual_charge_current_tangent"] != charge_power:
+        tangent_agreement = (
+            hll_tangent_split["actual_charge_current_tangent"] - charge_power
+        )
+        tangent_scale = (
+            abs(hll_tangent_split["actual_charge_current_tangent"]) + abs(charge_power)
+        )
+        tangent_bound = 64.0 * np.finfo(np.float64).eps * max(
+            tangent_scale, np.finfo(np.float64).tiny
+        )
+        if abs(tangent_agreement) > tangent_bound:
+            raise RuntimeError(
+                "captured HLL tangent operands do not reproduce the saved field tangent"
+            )
     charge_face_dot = -current_faces
     energy_weight_dot = weight * log_weight_dot
     charge_tangent_cell_terms = float(grid.dr) * weight * q_cell * q_cell_dot
@@ -2718,12 +2981,38 @@ def _field_stage_powers(stage: dict, rest_mass_flux, explicit_geometry: dict) ->
         "lorentz_energy_source_profile": np.asarray(lorentz["energy"], dtype=float).tolist(),
         "matter_lorentz_power": matter_lorentz_power,
         "outer_current_power": float(outer_current_power),
+        "hll_current_flux_decomposition": {
+            "interpretation": "diagnostic-only removal of the internal HLL jump; no state is advanced",
+            "internal_face_count": len(hll_faces),
+            "actual_charge_current_tangent": float(
+                hll_tangent_split["actual_charge_current_tangent"]
+            ),
+            "weighted_flux_only_charge_current_tangent": float(
+                hll_tangent_split["weighted_flux_only_charge_current_tangent"]
+            ),
+            "hll_jump_charge_current_tangent_contribution": float(
+                hll_tangent_split["hll_jump_charge_current_tangent_contribution"]
+            ),
+            "tangent_split_reconstruction_residual": float(
+                hll_tangent_split["tangent_split_reconstruction_residual"]
+            ),
+            "tangent_split_reconstruction_roundoff_bound": float(
+                hll_tangent_split["tangent_split_reconstruction_roundoff_bound"]
+            ),
+            "internal_face_operands": hll_faces,
+        },
     }
     return {
         "charge_power": charge_power,
         "metric_power": metric_power,
         "matter_lorentz_power": matter_lorentz_power,
         "outer_current_power": float(outer_current_power),
+        "weighted_flux_only_charge_power": float(
+            hll_tangent_split["weighted_flux_only_charge_current_tangent"]
+        ),
+        "hll_jump_charge_power": float(
+            hll_tangent_split["hll_jump_charge_current_tangent_contribution"]
+        ),
         "stage_witness": stage_witness,
     }
 
@@ -3439,6 +3728,10 @@ def _serialize_step(kernel, step: dict):
         "em_charge_faces_after": em_charge_faces_after,
         "em_field_energy_rate_measured": em_rate,
         "em_charge_current_power_start_predictor_average": avg("charge_power"),
+        "em_weighted_flux_only_charge_power_start_predictor_average": avg(
+            "weighted_flux_only_charge_power"
+        ),
+        "em_hll_jump_charge_power_start_predictor_average": avg("hll_jump_charge_power"),
         "em_metric_power_start_predictor_average": em_metric,
         "em_matter_lorentz_power_start_predictor_average": em_lorentz,
         "em_outer_current_power_start_predictor_average": em_outer,
