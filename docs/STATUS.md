@@ -2,7 +2,7 @@
 
 ## Live-main update — 14 October 2026 UTC
 
-**Verified current `main` tip:** `ee63d1d195dbdce6962c482e9866528463650e29` ([commit](https://github.com/miahpenn/0-Cosmos-engine/commit/ee63d1d195dbdce6962c482e9866528463650e29)). Current-main software validation [run 38646121743](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38646121743) completed successfully: **575 tests passed**, the explicit curved-slice EM exchange discriminator passed, and the N=40 one-step smoke emitted `PRODUCTION_STEP_SMOKE_PASS`. These are bounded software and diagnostic results, not scientific admission.
+**Engine/test validation baseline for the results below:** `ee63d1d195dbdce6962c482e9866528463650e29` ([commit](https://github.com/miahpenn/0-Cosmos-engine/commit/ee63d1d195dbdce6962c482e9866528463650e29)). Its main-head software validation [run 38646121743](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38646121743) completed successfully: **575 tests passed**, the explicit curved-slice EM exchange discriminator passed, and the N=40 one-step smoke emitted `PRODUCTION_STEP_SMOKE_PASS`. The later [PR #203](https://github.com/miahpenn/0-Cosmos-engine/pull/203) synchronized this status record without changing engine/test/vendor sources. These are bounded software and diagnostic results, not scientific admission.
 
 The opt-in radial-Maxwell research path from [PR #176](https://github.com/miahpenn/0-Cosmos-engine/pull/176) remains explicitly gated: ordinary/default runs stay EM-off unless both `radial_maxwell_charge_to_mass` and the separate `charged_dust_density_profile` are supplied. No existing GEAR species is assigned charge by inference.
 
