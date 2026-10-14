@@ -55,6 +55,9 @@ TIME_STEP_CFL_VALUES = (0.01, 0.005, 0.0025)
 DENSITY_PROFILE = ((0.0, 2.0e-5), (R_MAX, 2.0e-5))
 CHARGE_TO_MASS_ARMS = (0.0, 0.25)
 FIXED_AREAL_RADIUS = 10.0
+DOMAIN_RADIUS_SWEEP_R_MAX = 32.0
+DOMAIN_RADIUS_SWEEP_RESOLUTION = 64
+DOMAIN_RADIUS_SWEEP_OVERLAP_R = 20.0
 
 # Blob IDs from main 31a7491bce8076e05a8524d442567cc39ed30d94. PR #179 added only
 # the opt-in runtime capability contract at this anchor; the audit stays pinned
@@ -4203,6 +4206,445 @@ def _json_safe(value):
     return value
 
 
+
+
+def _find_serialized_stage_at_time(
+    run: dict, *, stage_name: str, target_time: float
+) -> dict:
+    """Find one source-pinned serialized PIRK RHS stage at a named time."""
+    found = []
+    for step in run.get("step_rows", []):
+        for stage in step.get("em_stage_exchange_witnesses", []):
+            if (
+                stage.get("stage") == stage_name
+                and math.isclose(
+                    float(stage.get("t", math.nan)), float(target_time),
+                    rel_tol=0.0, abs_tol=1.0e-10,
+                )
+            ):
+                found.append(stage)
+    if len(found) != 1:
+        raise RuntimeError(
+            f"expected one {stage_name} stage at t={target_time}, found {len(found)} "
+            f"for N={run.get('resolution')} q/m={run.get('q_over_m')}"
+        )
+    return found[0]
+
+
+def _domain_stage_diagnostics(
+    run: dict, stage_row: dict, *, coordinate_radius_cut: float
+) -> dict:
+    """Reconstruct the signed face/cell exchange on one common-stage witness.
+
+    This is a source-pinned diagnostic, not a physical residual threshold. The
+    domain comparison uses a shared coordinate-radius support because the
+    baseline and extended runs have the same dr and cell-centre coordinates.
+    """
+    eta = float(run["q_over_m"])
+    stage_witness = stage_row.get("stage_witness")
+    base = {
+        "q_over_m": eta,
+        "resolution": int(run["resolution"]),
+        "stage": str(stage_row["stage"]),
+        "stage_t": float(stage_row["t"]),
+        "coordinate_radius_cut": float(coordinate_radius_cut),
+        "full_pairing_signed_global": float(
+            stage_row.get("charge_power", 0.0)
+            + stage_row.get("matter_lorentz_power", 0.0)
+        ),
+    }
+    if stage_witness is None:
+        if eta != 0.0:
+            raise RuntimeError("charged domain-sweep stage is missing its field witness")
+        if (
+            base["full_pairing_signed_global"] != 0.0
+            or float(stage_row.get("charge_power", 0.0)) != 0.0
+            or float(stage_row.get("matter_lorentz_power", 0.0)) != 0.0
+        ):
+            raise RuntimeError("neutral control unexpectedly has nonzero EM exchange")
+        base.update({
+            "classification": "neutral_control_exact_zero",
+            "grid_dr": None,
+            "inner_cell_count": 0,
+            "weighted_only_pairing_signed_global": 0.0,
+            "hll_jump_charge_tangent_global": 0.0,
+            "full_pairing_signed_inner": 0.0,
+            "weighted_only_pairing_signed_inner": 0.0,
+            "hll_jump_charge_tangent_inner": 0.0,
+            "cell_defect_l1_inner": 0.0,
+            "cell_defect_signed_inner": 0.0,
+            "inner_cell_centers": [],
+            "inner_cell_defect_profile": [],
+            "inner_hll_jump_cell_terms": [],
+            "inner_face_coordinates": [],
+            "inner_face_currents": [],
+            "geometry_inner": {},
+        })
+        return base
+
+    dr = float(stage_witness["grid_dr"])
+    centers = np.asarray(stage_witness["centers"], dtype=np.float64)
+    weight = np.asarray(stage_witness["field_energy_weight"], dtype=np.float64)
+    q_cell = np.asarray(stage_witness["charge_cell_average"], dtype=np.float64)
+    current_faces = np.asarray(stage_witness["charge_current_faces"], dtype=np.float64)
+    lapse = np.asarray(stage_witness["lapse_profile"], dtype=np.float64)
+    primitive_current = np.asarray(
+        stage_witness["lorentz_current_r_profile"], dtype=np.float64
+    )
+    geometry = {
+        name: np.asarray(stage_witness["geometry"][name], dtype=np.float64)
+        for name in ("a", "b", "X")
+    }
+    n = centers.size
+    profiles = {
+        "centers": centers,
+        "field_energy_weight": weight,
+        "charge_cell_average": q_cell,
+        "charge_current_faces": current_faces,
+        "lapse": lapse,
+        "primitive_current": primitive_current,
+        **{f"geometry_{name}": values for name, values in geometry.items()},
+    }
+    for name, values in profiles.items():
+        expected_shape = (n + 1,) if name == "charge_current_faces" else (n,)
+        if values.shape != expected_shape or not np.all(np.isfinite(values)):
+            raise RuntimeError(
+                f"domain-sweep {name} has invalid shape or non-finite operands"
+            )
+    if n < 2 or dr <= 0.0 or not math.isfinite(dr):
+        raise RuntimeError("domain-sweep stage has invalid grid dimensions")
+    if eta == 0.0:
+        raise RuntimeError("neutral runs must not emit a non-null EM stage witness")
+    if (
+        not math.isclose(float(stage_witness["charge_to_rest_mass"]), eta,
+                         rel_tol=0.0, abs_tol=0.0)
+        or np.any(geometry["a"] <= 0.0)
+        or np.any(geometry["b"] <= 0.0)
+        or np.any(geometry["X"] <= 0.0)
+    ):
+        raise RuntimeError("domain-sweep stage charge or metric identity is invalid")
+
+    sqrt_gamma = (
+        np.sqrt(geometry["a"]) * geometry["b"] * centers**2
+        / geometry["X"]**3
+    )
+    cell_current = FOUR_PI * eta * lapse * sqrt_gamma * primitive_current
+    adjacent_face_current = 0.5 * (current_faces[:-1] + current_faces[1:])
+    charge_tangent_cell_terms = -dr * weight * q_cell * adjacent_face_current
+    lorentz_power_cell_terms = dr * weight * q_cell * cell_current
+    defect = charge_tangent_cell_terms + lorentz_power_cell_terms
+
+    measured_charge = float(stage_row["charge_power"])
+    measured_lorentz = float(stage_row["matter_lorentz_power"])
+    full_pairing = measured_charge + measured_lorentz
+    charge_from_cells = float(np.sum(charge_tangent_cell_terms))
+    lorentz_from_current = float(np.sum(lorentz_power_cell_terms))
+    force_profile = np.asarray(
+        stage_witness["lorentz_energy_source_profile"], dtype=np.float64
+    )
+    if force_profile.shape != (n,) or not np.all(np.isfinite(force_profile)):
+        raise RuntimeError("domain-sweep Lorentz source profile is invalid")
+    lorentz_from_source = FOUR_PI * dr * float(np.sum(force_profile))
+
+    def require_roundoff(observed, expected, scale, label):
+        bound = 256.0 * np.finfo(np.float64).eps * max(
+            float(scale), abs(float(observed)), abs(float(expected)),
+            float(np.finfo(np.float64).tiny),
+        )
+        residual = float(observed) - float(expected)
+        if not math.isfinite(residual) or abs(residual) > bound:
+            raise RuntimeError(
+                f"domain-sweep algebraic reconstruction failed for {label}: "
+                f"residual={residual:.17g}, roundoff_bound={bound:.17g}"
+            )
+        return {"residual": residual, "roundoff_bound": bound}
+
+    charge_roundoff = require_roundoff(
+        charge_from_cells, measured_charge,
+        float(np.sum(np.abs(charge_tangent_cell_terms))),
+        "face charge tangent",
+    )
+    lorentz_current_roundoff = require_roundoff(
+        lorentz_from_current, measured_lorentz,
+        float(np.sum(np.abs(lorentz_power_cell_terms))),
+        "primitive-current Lorentz pairing",
+    )
+    lorentz_source_roundoff = require_roundoff(
+        lorentz_from_source, measured_lorentz,
+        FOUR_PI * dr * float(np.sum(np.abs(force_profile))),
+        "saved Lorentz source integral",
+    )
+    cell_sum_roundoff = require_roundoff(
+        float(np.sum(defect)), full_pairing,
+        float(np.sum(np.abs(charge_tangent_cell_terms)))
+        + float(np.sum(np.abs(lorentz_power_cell_terms))),
+        "signed cell-defect sum versus full pairing",
+    )
+
+    hll = stage_witness.get("hll_current_flux_decomposition")
+    if not isinstance(hll, dict):
+        raise RuntimeError("charged domain-sweep witness is missing its HLL split")
+    face_operands = hll.get("internal_face_operands")
+    if not isinstance(face_operands, list) or len(face_operands) != n - 1:
+        raise RuntimeError("domain-sweep HLL face operands do not match the grid")
+    jump_current_faces = np.zeros(n + 1, dtype=np.float64)
+    for face_index, face in enumerate(face_operands, start=1):
+        if int(face.get("face_index", -1)) != face_index:
+            raise RuntimeError("domain-sweep HLL face indices are not contiguous")
+        jump_current_faces[face_index] = (
+            FOUR_PI * eta * float(face["jump_rest_mass_flux"])
+        )
+    jump_cell_terms = -0.5 * dr * weight * q_cell * (
+        jump_current_faces[:-1] + jump_current_faces[1:]
+    )
+    weighted_only_cell_defect = defect - jump_cell_terms
+    hll_jump = float(np.sum(jump_cell_terms))
+    saved_hll_jump = float(
+        hll["hll_jump_charge_current_tangent_contribution"]
+    )
+    saved_weighted_only = float(
+        hll["weighted_flux_only_charge_current_tangent"]
+    )
+    hll_roundoff = require_roundoff(
+        hll_jump, saved_hll_jump,
+        float(np.sum(np.abs(jump_cell_terms))),
+        "HLL jump tangent",
+    )
+    weighted_tangent_roundoff = require_roundoff(
+        saved_weighted_only + saved_hll_jump, measured_charge,
+        abs(saved_weighted_only) + abs(saved_hll_jump),
+        "weighted-only plus HLL tangent",
+    )
+    weighted_pairing = saved_weighted_only + measured_lorentz
+    weighted_cell_roundoff = require_roundoff(
+        float(np.sum(weighted_only_cell_defect)), weighted_pairing,
+        float(np.sum(np.abs(weighted_only_cell_defect))),
+        "weighted-only per-cell pairing",
+    )
+
+    inner = centers < float(coordinate_radius_cut)
+    if not np.any(inner):
+        raise RuntimeError("domain-sweep overlap cut contains no cell centres")
+    face_coordinates = np.arange(n + 1, dtype=np.float64) * dr
+    inner_faces = face_coordinates <= float(coordinate_radius_cut)
+    areal_radius = centers * np.sqrt(geometry["b"]) / geometry["X"]
+    base.update({
+        "classification": "signed diagnostic; physical residual unthresholded",
+        "grid_dr": dr,
+        "cell_count": int(n),
+        "inner_cell_count": int(np.count_nonzero(inner)),
+        "full_pairing_signed_global": full_pairing,
+        "weighted_only_pairing_signed_global": weighted_pairing,
+        "hll_jump_charge_tangent_global": hll_jump,
+        "full_pairing_signed_inner": float(np.sum(defect[inner])),
+        "weighted_only_pairing_signed_inner": float(
+            np.sum(weighted_only_cell_defect[inner])
+        ),
+        "hll_jump_charge_tangent_inner": float(np.sum(jump_cell_terms[inner])),
+        "cell_defect_l1_inner": float(np.sum(np.abs(defect[inner]))),
+        "cell_defect_signed_inner": float(np.sum(defect[inner])),
+        "inner_cell_centers": centers[inner].tolist(),
+        "inner_areal_radius": areal_radius[inner].tolist(),
+        "inner_cell_defect_profile": defect[inner].tolist(),
+        "inner_weighted_only_cell_defect_profile": (
+            weighted_only_cell_defect[inner].tolist()
+        ),
+        "inner_hll_jump_cell_terms": jump_cell_terms[inner].tolist(),
+        "inner_face_coordinates": face_coordinates[inner_faces].tolist(),
+        "inner_face_currents": current_faces[inner_faces].tolist(),
+        "inner_cell_current_equivalent": cell_current[inner].tolist(),
+        "geometry_inner": {
+            name: values[inner].tolist() for name, values in geometry.items()
+        },
+        "max_abs_cell_current_equivalent": float(np.max(np.abs(cell_current))),
+        "max_abs_current_projection_gap": float(
+            np.max(np.abs(cell_current - adjacent_face_current))
+        ),
+        "roundoff_checks": {
+            "face_charge_tangent": charge_roundoff,
+            "primitive_current_lorentz_pairing": lorentz_current_roundoff,
+            "saved_lorentz_source_integral": lorentz_source_roundoff,
+            "full_pairing_cell_sum": cell_sum_roundoff,
+            "hll_jump_tangent": hll_roundoff,
+            "weighted_tangent_split": weighted_tangent_roundoff,
+            "weighted_pairing_cell_sum": weighted_cell_roundoff,
+        },
+    })
+    return base
+
+
+def _run_domain_radius_extension_runs(temp_root: Path) -> list[dict]:
+    """Extend the outer radius while retaining the baseline coordinate spacing."""
+    runs = []
+    r_max = float(DOMAIN_RADIUS_SWEEP_R_MAX)
+    resolution = int(DOMAIN_RADIUS_SWEEP_RESOLUTION)
+    density_profile = ((0.0, 2.0e-5), (r_max, 2.0e-5))
+    for eta in CHARGE_TO_MASS_ARMS:
+        arm_dir = (
+            temp_root / "domain_radius_sweep_rmax_32"
+            / f"q_over_m_{eta:.2f}"
+        )
+        config = CampaignConfig(
+            resolutions=(resolution,),
+            r_max=r_max,
+            cfl=CFL,
+            final_time=FINAL_TIME,
+            checkpoint_interval=CHECKPOINT_INTERVAL,
+            output_dir=str(arm_dir),
+            radial_maxwell_charge_to_mass=eta,
+            charged_dust_density_profile=density_profile,
+        )
+        kernel = AuditedKernel()
+        with _instrument_rhs(kernel):
+            results = run_campaign(kernel=kernel, config=config)
+        if len(results) != 1 or len(kernel.audit_runs) != 1:
+            raise RuntimeError("domain-radius extension did not collect exactly one run")
+        run = _finish_run(kernel, kernel.audit_runs[0], results[0], arm_dir)
+        run["domain_radius_sweep_r_max"] = r_max
+        run["nominal_dt"] = float(CFL * (r_max / resolution))
+        runs.append(run)
+    return runs
+
+
+def _summarize_domain_radius_sweep(
+    baseline_runs: list[dict], extension_runs: list[dict]
+) -> dict:
+    """Compare Rmax=24/N=48 with Rmax=32/N=64 at the same dr and interior grid."""
+    target_time = 0.02
+    overlap_cut = float(DOMAIN_RADIUS_SWEEP_OVERLAP_R)
+
+    def unique_run(rows, *, resolution, eta):
+        found = [
+            row for row in rows
+            if int(row.get("resolution", -1)) == int(resolution)
+            and float(row.get("q_over_m", math.nan)) == float(eta)
+        ]
+        if len(found) != 1:
+            raise RuntimeError(
+                f"domain-radius sweep expected one N={resolution}, q/m={eta} run; "
+                f"found {len(found)}"
+            )
+        return found[0]
+
+    cases = {}
+    diag_by_arm = {}
+    for eta in CHARGE_TO_MASS_ARMS:
+        base_run = unique_run(baseline_runs, resolution=48, eta=eta)
+        extended_run = unique_run(
+            extension_runs, resolution=DOMAIN_RADIUS_SWEEP_RESOLUTION, eta=eta
+        )
+        base_stage = _find_serialized_stage_at_time(
+            base_run, stage_name="primary_predictor", target_time=target_time
+        )
+        extended_stage = _find_serialized_stage_at_time(
+            extended_run, stage_name="primary_predictor", target_time=target_time
+        )
+        base_diag = _domain_stage_diagnostics(
+            base_run, base_stage, coordinate_radius_cut=overlap_cut
+        )
+        extended_diag = _domain_stage_diagnostics(
+            extended_run, extended_stage, coordinate_radius_cut=overlap_cut
+        )
+        case_key = "neutral_q_over_m_0" if eta == 0.0 else "charged_q_over_m_025"
+        cases[case_key] = {
+            "baseline": {
+                "r_max": float(R_MAX),
+                "nominal_dt": float(CFL * (R_MAX / 48.0)),
+                **base_diag,
+            },
+            "extended": {
+                "r_max": float(DOMAIN_RADIUS_SWEEP_R_MAX),
+                "nominal_dt": float(CFL * (
+                    DOMAIN_RADIUS_SWEEP_R_MAX / DOMAIN_RADIUS_SWEEP_RESOLUTION
+                )),
+                **extended_diag,
+            },
+        }
+        if eta == 0.25:
+            diag_by_arm = {"baseline": base_diag, "extended": extended_diag}
+
+    base = diag_by_arm["baseline"]
+    extended = diag_by_arm["extended"]
+    if base["grid_dr"] != extended["grid_dr"]:
+        raise RuntimeError("domain-radius sweep changed dr; matched-grid comparison invalid")
+    base_centers = np.asarray(base["inner_cell_centers"], dtype=np.float64)
+    extended_centers = np.asarray(extended["inner_cell_centers"], dtype=np.float64)
+    if base_centers.shape != extended_centers.shape or not np.array_equal(
+        base_centers, extended_centers
+    ):
+        raise RuntimeError("domain-radius sweep does not share the intended inner grid")
+    if base["inner_face_coordinates"] != extended["inner_face_coordinates"]:
+        raise RuntimeError("domain-radius sweep face support is not identical")
+    geometry_delta = {}
+    for name in ("a", "b", "X"):
+        left = np.asarray(base["geometry_inner"][name], dtype=np.float64)
+        right = np.asarray(extended["geometry_inner"][name], dtype=np.float64)
+        geometry_delta[name] = float(np.max(np.abs(left - right)))
+    face_delta = np.asarray(base["inner_face_currents"]) - np.asarray(
+        extended["inner_face_currents"]
+    )
+    defect_delta = np.asarray(base["inner_cell_defect_profile"]) - np.asarray(
+        extended["inner_cell_defect_profile"]
+    )
+    weighted_defect_delta = np.asarray(
+        base["inner_weighted_only_cell_defect_profile"]
+    ) - np.asarray(extended["inner_weighted_only_cell_defect_profile"])
+    jump_delta = np.asarray(base["inner_hll_jump_cell_terms"]) - np.asarray(
+        extended["inner_hll_jump_cell_terms"]
+    )
+    overlap = {
+        "coordinate_radius_cut": overlap_cut,
+        "overlap_cell_count": int(base_centers.size),
+        "same_grid_dr": True,
+        "same_nominal_dt": math.isclose(
+            float(CFL * R_MAX / 48.0),
+            float(CFL * DOMAIN_RADIUS_SWEEP_R_MAX / DOMAIN_RADIUS_SWEEP_RESOLUTION),
+            rel_tol=0.0, abs_tol=0.0,
+        ),
+        "geometry_max_abs_delta_on_overlap": geometry_delta,
+        "face_current_max_abs_delta_on_overlap": float(np.max(np.abs(face_delta))),
+        "cell_defect_max_abs_delta_on_overlap": float(np.max(np.abs(defect_delta))),
+        "cell_defect_signed_delta_on_overlap": float(
+            base["cell_defect_signed_inner"] - extended["cell_defect_signed_inner"]
+        ),
+        "cell_defect_l1_baseline": float(base["cell_defect_l1_inner"]),
+        "cell_defect_l1_extended": float(extended["cell_defect_l1_inner"]),
+        "weighted_only_pairing_max_abs_cell_delta": float(
+            np.max(np.abs(weighted_defect_delta))
+        ),
+        "hll_jump_max_abs_cell_delta": float(np.max(np.abs(jump_delta))),
+        "face_current_signed_delta_l1": float(np.sum(np.abs(face_delta))),
+        "cell_defect_signed_sum_baseline": float(base["cell_defect_signed_inner"]),
+        "cell_defect_signed_sum_extended": float(extended["cell_defect_signed_inner"]),
+    }
+    return {
+        "classification": (
+            "matched-dr outer-radius discriminator; signed physical remainders "
+            "are diagnostic and unthresholded"
+        ),
+        "matched_predictor_time": target_time,
+        "stage": "primary_predictor",
+        "resolution_baseline": 48,
+        "resolution_extended": int(DOMAIN_RADIUS_SWEEP_RESOLUTION),
+        "r_max_baseline": float(R_MAX),
+        "r_max_extended": float(DOMAIN_RADIUS_SWEEP_R_MAX),
+        "grid_dr": float(base["grid_dr"]),
+        "cfl": float(CFL),
+        "nominal_dt_baseline": float(CFL * R_MAX / 48.0),
+        "nominal_dt_extended": float(
+            CFL * DOMAIN_RADIUS_SWEEP_R_MAX / DOMAIN_RADIUS_SWEEP_RESOLUTION
+        ),
+        "cases": cases,
+        "charged_arm_overlap_comparison": overlap,
+        "interpretation_limit": (
+            "Changing the outer radius also changes the global initial metric "
+            "reconstruction and later dynamical state. Differences on the common "
+            "interior support therefore measure domain sensitivity; they do not "
+            "isolate a pure outgoing-boundary effect or select a conservation law."
+        ),
+    }
+
+
 def run_joined_audit(root: Path, output_path: Path) -> dict:
     provenance = verify_source_pins(root)
     all_runs = []
@@ -4228,6 +4670,11 @@ def run_joined_audit(root: Path, output_path: Path) -> dict:
             for run, result in zip(kernel.audit_runs, results):
                 all_runs.append(_finish_run(kernel, run, result, arm_dir))
         temporal_runs = _run_fixed_N_temporal_refinement(temp_root)
+        domain_radius_extension_runs = _run_domain_radius_extension_runs(temp_root)
+
+    domain_radius_sweep = _summarize_domain_radius_sweep(
+        all_runs, domain_radius_extension_runs
+    )
 
     # Verify the explicit neutral control, but do not assert a fitted threshold
     # on any physical/global residual.
@@ -4255,11 +4702,23 @@ def run_joined_audit(root: Path, output_path: Path) -> dict:
             "q_over_m_arms": list(CHARGE_TO_MASS_ARMS),
             "fixed_areal_radius": FIXED_AREAL_RADIUS,
             "vendor_gitlink": VENDOR_PIN,
+            "domain_radius_sweep": {
+                "baseline_r_max": R_MAX,
+                "baseline_resolution": 48,
+                "extended_r_max": DOMAIN_RADIUS_SWEEP_R_MAX,
+                "extended_resolution": DOMAIN_RADIUS_SWEEP_RESOLUTION,
+                "overlap_coordinate_radius_cut": DOMAIN_RADIUS_SWEEP_OVERLAP_R,
+                "matched_dr": R_MAX / 48.0,
+                "matched_nominal_dt": CFL * R_MAX / 48.0,
+                "matched_predictor_time": 0.02,
+            },
         },
         "runs": all_runs,
         "summary": _summaries(all_runs),
         "fixed_N_temporal_refinement": _summarize_fixed_N_temporal_refinement(temporal_runs),
         "fixed_N_temporal_refinement_runs": temporal_runs,
+        "domain_radius_sweep_summary": domain_radius_sweep,
+        "domain_radius_sweep_extension_runs": domain_radius_extension_runs,
     }
     report = _json_safe(report)
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -4294,6 +4753,34 @@ def write_step_summary(report: dict) -> None:
             f"{row['charged_gauss_shell_residual_absmax_final']:.6e} | "
             f"{row['charged_fixed_R_mass_rate_residual_absmax']:.6e} |"
         )
+    domain_sweep = report["domain_radius_sweep_summary"]
+    domain_overlap = domain_sweep["charged_arm_overlap_comparison"]
+    domain_baseline = domain_sweep["cases"]["charged_q_over_m_025"]["baseline"]
+    domain_extended = domain_sweep["cases"]["charged_q_over_m_025"]["extended"]
+    lines.extend([
+        "",
+        "### Matched-grid outer-domain discriminator",
+        "",
+        f"Rmax={domain_sweep['r_max_baseline']:.1f}, N={domain_sweep['resolution_baseline']} vs "
+        f"Rmax={domain_sweep['r_max_extended']:.1f}, N={domain_sweep['resolution_extended']}; "
+        f"both use dr={domain_sweep['grid_dr']:.6g}, nominal dt={domain_sweep['nominal_dt_baseline']:.6e}, "
+        f"and the primary predictor at t={domain_sweep['matched_predictor_time']:.3f}.",
+        "",
+        "| Arm | Full pairing on R<20 | HLL jump tangent on R<20 | L1 cell defect on R<20 |",
+        "|---|---:|---:|---:|",
+        f"| baseline | {domain_baseline['full_pairing_signed_inner']:.6e} | "
+        f"{domain_baseline['hll_jump_charge_tangent_inner']:.6e} | "
+        f"{domain_baseline['cell_defect_l1_inner']:.6e} |",
+        f"| extended | {domain_extended['full_pairing_signed_inner']:.6e} | "
+        f"{domain_extended['hll_jump_charge_tangent_inner']:.6e} | "
+        f"{domain_extended['cell_defect_l1_inner']:.6e} |",
+        "",
+        f"Common-interior max |Δ geometry|: {domain_overlap['geometry_max_abs_delta_on_overlap']}; "
+        f"max |Δ face current|={domain_overlap['face_current_max_abs_delta_on_overlap']:.6e}; "
+        f"max |Δ cell defect|={domain_overlap['cell_defect_max_abs_delta_on_overlap']:.6e}.",
+        "This measures outer-domain sensitivity, not a pure boundary-only counterfactual. "
+        "All physical remainders remain unthresholded.",
+    ])
     temporal = report["fixed_N_temporal_refinement"]
     lines.extend([
         "",
@@ -4345,6 +4832,7 @@ def main() -> int:
         ),
         "paired_neutral_vs_charged": report["summary"]["paired_neutral_vs_charged"],
         "fixed_N_temporal_refinement": report["fixed_N_temporal_refinement"],
+        "domain_radius_sweep_summary": report["domain_radius_sweep_summary"],
         "full_report_path": str(args.output.resolve()),
     }
     print("EM_TOTAL_ENERGY_LEDGER_REPORT=" + json.dumps(concise, sort_keys=True, allow_nan=False), flush=True)
