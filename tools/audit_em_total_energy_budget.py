@@ -10,6 +10,7 @@ numbers go to stdout and the GitHub Actions step summary.
 from __future__ import annotations
 
 import argparse
+import copy
 from contextlib import contextmanager
 import json
 import math
@@ -3760,6 +3761,109 @@ def _pirk_accepted_update_einstein_source_arrays(geometry_stages) -> dict:
 
 
 
+def _field_metric_power_from_explicit_rhs(state, explicit_geometry: dict) -> dict:
+    """Recompute the explicit-geometry part of U_EM dot on a frozen stage."""
+    if state.electromagnetic is None:
+        empty = np.zeros(int(state.grid.n), dtype=np.float64)
+        return {"metric_power": 0.0, "log_weight_rate_profile": empty, "metric_tangent_cell_terms": empty}
+    grid, geom = state.grid, state.geometry
+    r = np.asarray(grid.centers, dtype=np.float64)
+    q = np.asarray(state.electromagnetic.enclosed_charge_faces, dtype=np.float64)
+    q_cell = 0.5 * (q[:-1] + q[1:])
+    weight = (
+        np.asarray(geom.X, dtype=np.float64) * np.sqrt(np.asarray(geom.a, dtype=np.float64))
+        / (np.square(r) * np.asarray(geom.b, dtype=np.float64))
+    )
+    log_rate = (
+        np.asarray(explicit_geometry["X"], dtype=np.float64) / geom.X
+        + 0.5 * np.asarray(explicit_geometry["a"], dtype=np.float64) / geom.a
+        - np.asarray(explicit_geometry["b"], dtype=np.float64) / geom.b
+    )
+    if (weight.shape != r.shape or q_cell.shape != r.shape or log_rate.shape != r.shape
+            or not np.all(np.isfinite(weight)) or not np.all(np.isfinite(q_cell))
+            or not np.all(np.isfinite(log_rate))):
+        raise RuntimeError("explicit EM metric tangent has invalid stage profiles")
+    terms = 0.5 * float(grid.dr) * weight * q_cell**2 * log_rate
+    return {
+        "metric_power": float(np.sum(terms)),
+        "log_weight_rate_profile": log_rate,
+        "metric_tangent_cell_terms": terms,
+    }
+
+
+def _metric_feedback_response_to_start_em_source(
+    predictor_state,
+    start_geometry_stage: dict,
+    predictor_explicit: dict,
+    dt: float,
+    captured_metric_power: float,
+) -> dict:
+    """Probe the frozen-predictor response to the dt-weighted start-stage EM L3 source.
+
+    Only the start-stage EM increments to K and Aa are subtracted from the live
+    predictor state. Other predictor fields, matter, scalars, lapse, charge,
+    and the time step stay fixed. This is a local operator response, not a
+    second evolved spacetime.
+    """
+    source_witness = start_geometry_stage.get("electromagnetic_source_witness")
+    if predictor_state.electromagnetic is None or not isinstance(source_witness, dict) or source_witness.get("present") is not True:
+        return {"present": False, "interpretation": "no active EM L3 source at start stage"}
+    source = source_witness["primary_l3_em_source_increment"]
+    source_K = np.asarray(source["K"], dtype=np.float64)
+    source_Aa = np.asarray(source["Aa"], dtype=np.float64)
+    geom = predictor_state.geometry
+    K = np.asarray(geom.K, dtype=np.float64)
+    Aa = np.asarray(geom.Aa, dtype=np.float64)
+    if (source_K.shape != K.shape or source_Aa.shape != Aa.shape
+            or not np.all(np.isfinite(source_K)) or not np.all(np.isfinite(source_Aa))
+            or not math.isfinite(float(dt)) or float(dt) <= 0.0):
+        raise RuntimeError("EM source-to-metric response has invalid K/Aa or dt operands")
+
+    counterfactual_geometry = copy.copy(geom)
+    counterfactual_geometry.K = K - float(dt) * source_K
+    counterfactual_geometry.Aa = Aa - float(dt) * source_Aa
+    _, _, moving = adapter.vendor_modules()
+    without_source_explicit = moving.moving_puncture_explicit_rhs(
+        predictor_state.grid, counterfactual_geometry
+    )
+    full = _field_metric_power_from_explicit_rhs(predictor_state, predictor_explicit)
+    without_source = _field_metric_power_from_explicit_rhs(
+        predictor_state, without_source_explicit
+    )
+    reconstruction_residual = full["metric_power"] - float(captured_metric_power)
+    reconstruction_scale = (
+        abs(full["metric_power"]) + abs(float(captured_metric_power))
+        + float(np.sum(np.abs(full["metric_tangent_cell_terms"])))
+    )
+    reconstruction_bound = 128.0 * np.finfo(np.float64).eps * max(
+        reconstruction_scale, float(np.finfo(np.float64).tiny)
+    )
+    if not math.isfinite(reconstruction_residual) or abs(reconstruction_residual) > reconstruction_bound:
+        raise RuntimeError(
+            "recomputed full predictor metric tangent disagrees with captured value: "
+            f"residual={reconstruction_residual:.17g}, bound={reconstruction_bound:.17g}"
+        )
+    response = full["metric_power"] - without_source["metric_power"]
+    log_rate_delta = (
+        np.asarray(full["log_weight_rate_profile"], dtype=np.float64)
+        - np.asarray(without_source["log_weight_rate_profile"], dtype=np.float64)
+    )
+    return {
+        "present": True,
+        "interpretation": "frozen-predictor local response after removing only dt times the start-stage EM L3 K/Aa increments",
+        "metric_power_with_full_predictor_source": full["metric_power"],
+        "metric_power_without_start_em_source": without_source["metric_power"],
+        "metric_power_response_to_start_em_source": float(response),
+        "response_abs_over_full_metric_power": (
+            abs(float(response)) / abs(float(full["metric_power"]))
+            if float(full["metric_power"]) != 0.0 else None
+        ),
+        "max_abs_delta_log_weight_rate": float(np.max(np.abs(log_rate_delta))),
+        "recomputed_full_metric_power_roundoff_residual": float(reconstruction_residual),
+        "recomputed_full_metric_power_roundoff_bound": float(reconstruction_bound),
+    }
+
+
 def _serialize_step(kernel, step: dict):
     stages = step["rhs_stages"]
     geometry_stages = step["geometry_stages"]
@@ -3784,6 +3888,10 @@ def _serialize_step(kernel, step: dict):
     before = step["state_before"]
     after = step["state_after"]
     dt = float(step["dt"])
+    start_source_metric_response = _metric_feedback_response_to_start_em_source(
+        stages[1]["stage_state"], geometry_stages[0],
+        geometry_stages[2]["explicit"], dt, stage_power_rows[1]["metric_power"],
+    )
     # Keep accepted charge endpoints so the independent reader can check the
     # actual Euler predictor and trapezoidal charge update, not only Qdot.
     em_charge_faces_before = (
@@ -3884,6 +3992,10 @@ def _serialize_step(kernel, step: dict):
                 "geometry_feedback_witness": geometry_stages[geom_index][
                     "electromagnetic_source_witness"
                 ],
+                "geometry_feedback_response_to_start_em_source": (
+                    start_source_metric_response if index == 1
+                    else {"present": False, "interpretation": "evaluated at predictor only"}
+                ),
             }
             for index, geom_index in ((0, 0), (1, 2))
         ],
@@ -4297,6 +4409,11 @@ def _summarize_fixed_N_temporal_pairing_refinement(runs: list[dict]) -> dict:
         em_aa_source = np.asarray(em_source["Aa"], dtype=np.float64)
         source_roundoff = geometry_feedback["roundoff_checks"]
         metric_power = float(stage_row["metric_power"])
+        metric_response = stage_row.get("geometry_feedback_response_to_start_em_source")
+        if not isinstance(metric_response, dict) or metric_response.get("present") is not True:
+            raise RuntimeError(
+                f"charged predictor at CFL={cfl} is missing its EM-source-to-metric response witness"
+            )
         rows.append({
             "resolution": TEMPORAL_REFINEMENT_RESOLUTION,
             "r_max": float(R_MAX),
@@ -4339,6 +4456,21 @@ def _summarize_fixed_N_temporal_pairing_refinement(runs: list[dict]) -> dict:
                 "source_reconstruction_max_bound_ratio": float(max(
                     value["max_bound_ratio"] for value in source_roundoff.values()
                 )),
+                "metric_power_without_start_em_source": float(
+                    metric_response["metric_power_without_start_em_source"]
+                ),
+                "metric_power_response_to_start_em_source": float(
+                    metric_response["metric_power_response_to_start_em_source"]
+                ),
+                "metric_response_abs_over_full_metric_power": (
+                    metric_response["response_abs_over_full_metric_power"]
+                ),
+                "max_abs_delta_log_weight_rate_from_start_em_source": float(
+                    metric_response["max_abs_delta_log_weight_rate"]
+                ),
+                "metric_response_reconstruction_roundoff_bound": float(
+                    metric_response["recomputed_full_metric_power_roundoff_bound"]
+                ),
             },
         })
 
@@ -5716,8 +5848,8 @@ def write_step_summary(report: dict) -> None:
         "",
         "The observer subtracts a frozen-geometry, same-state primary L3 evaluation without EM stress from the actual EM-inclusive primary L3 result. It checks the direct Aa/K source increment against projected electromagnetic (rho, pr, pt) using operand-scaled roundoff bounds. The metric contribution to field-energy change remains a separately measured term; matching this source split does not prove global energy closure.",
         "",
-        "| CFL | max EM rho | max EM K-source | max EM Aa-source | metric part of U_EM tangent | charge-current part | Lorentz power into matter | source split max bound ratio |",
-        "|---:|---:|---:|---:|---:|---:|---:|",
+        "| CFL | max EM rho | max EM K-source | max EM Aa-source | metric tangent | without start EM source | source-only metric response | charge-current part | Lorentz power into matter | source split max bound ratio |",
+        "|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
     ])
     for row in pairing["rows"]:
         feedback = row["electromagnetic_geometry_feedback"]
@@ -5726,13 +5858,15 @@ def write_step_summary(report: dict) -> None:
             f"{feedback['em_K_source_l3_max_abs']:.6e} | "
             f"{feedback['em_Aa_source_l3_max_abs']:.6e} | "
             f"{feedback['metric_part_of_em_field_energy_tangent']:.6e} | "
+            f"{feedback['metric_power_without_start_em_source']:.6e} | "
+            f"{feedback['metric_power_response_to_start_em_source']:.6e} | "
             f"{feedback['charge_current_part_of_em_field_energy_tangent']:.6e} | "
             f"{feedback['lorentz_power_into_matter']:.6e} | "
             f"{feedback['source_reconstruction_max_bound_ratio']:.6e} |"
         )
     lines.extend([
         "",
-        "For the current pure radial-electric sector, rho_EM>0, p_r=-rho_EM, p_t=+rho_EM, giving direct source increments Kdot_EM=8*pi*alpha*rho_EM and Aadot_EM=(32*pi/3)*alpha*rho_EM under the engine's sign conventions. The metric power is the downstream explicit-geometry contribution to field energy; it is not equated algebraically with either L3 source.",
+        "For the current pure radial-electric sector, rho_EM>0, p_r=-rho_EM, p_t=+rho_EM, giving direct source increments Kdot_EM=8*pi*alpha*rho_EM and Aadot_EM=(32*pi/3)*alpha*rho_EM under the engine's sign conventions. The source-only response subtracts dt times the start-stage EM K/Aa increments from the predictor and recomputes the explicit geometry RHS, holding other predictor fields fixed. It is a local frozen-stage response, not a second evolved spacetime or a global causal attribution.",
         "",
         "The fixed-N sweep retains adjacent accepted-state interval secants, endpoint-rate trapezoids, actual start/predictor-stage rates, the pointwise chain-rule rate, and the derivative of the direct fixed-R piecewise-linear interpolant as separate witnesses. This does not identify a missing physics term or establish a global conserved energy.",
         "The live primary-L3 K and Aa matter-source increments are checked against independently reconstructed sector stress sources at a 64-epsilon operand-scaled bound.",
