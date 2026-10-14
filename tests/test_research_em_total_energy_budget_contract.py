@@ -21,6 +21,7 @@ from tools.audit_em_total_energy_budget import (
     _mass_gradient_identity_bracket_witness,
     _sector_fixed_R_rates,
     _sector_ktheta_source_rates,
+    _pirk_accepted_update_einstein_source_arrays,
 )
 
 
@@ -639,6 +640,30 @@ def test_sector_fixed_R_rates_fails_closed_when_aggregate_does_not_add_up():
     total, kwargs = _synthetic_sector_rate_inputs(aggregate_j_offset=0.05)
     with pytest.raises(RuntimeError, match="failed additive consistency"):
         _sector_fixed_R_rates(total, **kwargs)
+
+
+
+
+def test_pirk_accepted_einstein_source_uses_start_and_full_predictor_stages():
+    stages = []
+    for value, scale in ((2.0, 1.0), (100.0, 1000.0), (6.0, 5.0)):
+        stages.append({
+            "einstein_source_l3": {
+                "Aa": np.array([value, value + 1.0]),
+                "K": np.array([2.0 * value, 2.0 * value + 1.0]),
+            },
+            "einstein_source_roundoff_scale": {
+                "Aa": np.array([scale, scale + 1.0]),
+                "K": np.array([2.0 * scale, 2.0 * scale + 1.0]),
+            },
+        })
+    got = _pirk_accepted_update_einstein_source_arrays(stages)
+    np.testing.assert_allclose(got["source_l3"]["Aa"], [4.0, 5.0])
+    np.testing.assert_allclose(got["source_l3"]["K"], [8.0, 9.0])
+    np.testing.assert_allclose(got["roundoff_scale"]["Aa"], [3.0, 4.0])
+    np.testing.assert_allclose(got["roundoff_scale"]["K"], [6.0, 7.0])
+    with pytest.raises(RuntimeError, match="needs three geometry stages"):
+        _pirk_accepted_update_einstein_source_arrays(stages[:2])
 
 
 def test_sector_fixed_R_rates_marks_absent_electromagnetic_sector():

@@ -1006,7 +1006,7 @@ def _worldtube_sample(kernel, state, *, geometry_stage_capture=None) -> dict:
         )
         Ktheta = geom.K / 3.0 - geom.Aa / 2.0
         Ktheta_dot = K_dot / 3.0 - Aa_dot / 2.0
-        vacuum_primary_l3 = vacuum.primary_l3_rhs(grid, geom)
+        vacuum_primary_l3 = split["vacuum_primary_l3"]
         ktheta_source_rates = _sector_ktheta_source_rates(
             total, R=R, alpha=geom.alpha, Ktheta=Ktheta, Rdot=Rdot,
             target=FIXED_AREAL_RADIUS,
@@ -1496,6 +1496,8 @@ class AuditedKernel(V55ProductionKernel):
             grid, geometry, scalars, matter, electromagnetic
         )
         if self._active_step is not None:
+            _, vacuum, _ = adapter.vendor_modules()
+            vacuum_l3 = vacuum.primary_l3_rhs(grid, geometry)
             self._active_step["geometry_stages"].append({
                 "geometry": {
                     name: _array(getattr(geometry, name))
@@ -1511,6 +1513,19 @@ class AuditedKernel(V55ProductionKernel):
                 },
                 "primary_l3": {
                     name: _array(result["primary_l3"][name])
+                    for name in ("Aa", "K")
+                },
+                "vacuum_primary_l3": {
+                    name: _array(vacuum_l3[name]) for name in ("Aa", "K")
+                },
+                "einstein_source_l3": {
+                    name: _array(np.asarray(result["primary_l3"][name], dtype=float)
+                                 - np.asarray(vacuum_l3[name], dtype=float))
+                    for name in ("Aa", "K")
+                },
+                "einstein_source_roundoff_scale": {
+                    name: _array(np.abs(np.asarray(result["primary_l3"][name], dtype=float))
+                                 + np.abs(np.asarray(vacuum_l3[name], dtype=float)))
                     for name in ("Aa", "K")
                 },
             })
@@ -1696,6 +1711,7 @@ def _accepted_pirk_update_tangent(step: dict, stage_rates: dict) -> dict:
     if not isinstance(final_l2, dict) or not {"Aa", "K", "geometry"} <= set(final_l2):
         raise RuntimeError("PIRK observer missed final mixed-state primary-L2 outputs")
     update_rates = _pirk_accepted_update_rate_arrays(geometry_stages, final_l2)
+    update_einstein_source = _pirk_accepted_update_einstein_source_arrays(geometry_stages)
     if not step.get("rhs_stages"):
         raise RuntimeError("PIRK update tangent is missing the accepted left-endpoint state")
 
@@ -1718,6 +1734,12 @@ def _accepted_pirk_update_tangent(step: dict, stage_rates: dict) -> dict:
     gamma_inv_dot = gamma_inv * (2.0 * X_dot / geom.X - a_dot / geom.a)
     Ktheta = geom.K / 3.0 - geom.Aa / 2.0
     Ktheta_dot = K_dot / 3.0 - Aa_dot / 2.0
+    source = update_einstein_source["source_l3"]
+    source_ktheta_dot = source["K"] / 3.0 - source["Aa"] / 2.0
+    source_mass_rate_profile = R**3 * Ktheta * source_ktheta_dot
+    source_mass_rate_accepted_weights = interpolate_at_areal_radius(
+        R, source_mass_rate_profile, FIXED_AREAL_RADIUS
+    )
     chain_profiles = _misner_sharp_chain_rule_rate_profiles(
         R, Rdot, Rr, Rdot_r, gamma_inv, gamma_inv_dot, Ktheta, Ktheta_dot
     )
@@ -1760,6 +1782,40 @@ def _accepted_pirk_update_tangent(step: dict, stage_rates: dict) -> dict:
     composite_pressure_average = 0.5 * (
         float(stage_rates["start"]["tube_radial_pressure_work_composite_interp"])
         + float(stage_rates["primary_predictor"]["tube_radial_pressure_work_composite_interp"])
+    )
+    start_source = stage_rates["start"]["tube_ktheta_matter_source_rates"]
+    predictor_source = stage_rates["primary_predictor"]["tube_ktheta_matter_source_rates"]
+    source_stage_average = 0.5 * (
+        float(start_source["total_mass_source_composite_at_R_star"])
+        + float(predictor_source["total_mass_source_composite_at_R_star"])
+    )
+    pressure_stage_average = 0.5 * (
+        float(start_source["total_radial_pressure_work_composite_at_R_star"])
+        + float(predictor_source["total_radial_pressure_work_composite_at_R_star"])
+    )
+    density_stage_average = 0.5 * (
+        float(start_source["total_density_correction_composite_at_R_star"])
+        + float(predictor_source["total_density_correction_composite_at_R_star"])
+    )
+    identity_stage_average = 0.5 * (
+        float(start_source["total_source_work_density_identity_residual_composite_at_R_star"])
+        + float(predictor_source["total_source_work_density_identity_residual_composite_at_R_star"])
+    )
+    source_factor_stage_average = 0.5 * (
+        float(start_source["total_mass_source_factorized_at_R_star"])
+        + float(predictor_source["total_mass_source_factorized_at_R_star"])
+    )
+    pressure_factor_stage_average = 0.5 * (
+        float(start_source["total_radial_pressure_work_factorized_at_R_star"])
+        + float(predictor_source["total_radial_pressure_work_factorized_at_R_star"])
+    )
+    density_factor_stage_average = 0.5 * (
+        float(start_source["total_density_correction_factorized_at_R_star"])
+        + float(predictor_source["total_density_correction_factorized_at_R_star"])
+    )
+    identity_factor_stage_average = 0.5 * (
+        float(start_source["total_source_work_density_identity_residual_factorized_at_R_star"])
+        + float(predictor_source["total_source_work_density_identity_residual_factorized_at_R_star"])
     )
     predicted_with_composite_terms, interpolant_composite_remainder = (
         _fixed_R_interpolant_balance(
@@ -1811,6 +1867,20 @@ def _accepted_pirk_update_tangent(step: dict, stage_rates: dict) -> dict:
         "pirk_update_tangent_interpolant_coordinate_remainder": float(
             float(direct["interpolated_mass_dot_coordinate"]) - flux_average - pressure_average
         ),
+        "pirk_update_tangent_einstein_source_mass_rate_accepted_weights": float(source_mass_rate_accepted_weights),
+        "pirk_update_tangent_einstein_source_mass_rate_start_predictor_composite_average": float(source_stage_average),
+        "pirk_update_tangent_einstein_pressure_work_start_predictor_composite_average": float(pressure_stage_average),
+        "pirk_update_tangent_einstein_density_correction_start_predictor_composite_average": float(density_stage_average),
+        "pirk_update_tangent_einstein_source_identity_start_predictor_composite_average": float(identity_stage_average),
+        "pirk_update_tangent_einstein_source_mass_rate_start_predictor_factorized_average": float(source_factor_stage_average),
+        "pirk_update_tangent_einstein_pressure_work_start_predictor_factorized_average": float(pressure_factor_stage_average),
+        "pirk_update_tangent_einstein_density_correction_start_predictor_factorized_average": float(density_factor_stage_average),
+        "pirk_update_tangent_einstein_source_identity_start_predictor_factorized_average": float(identity_factor_stage_average),
+        "pirk_update_tangent_einstein_source_update_minus_stage_composite_average_diagnostic_only": float(source_mass_rate_accepted_weights - source_stage_average),
+        "pirk_update_tangent_einstein_source_roundoff_scale_absmax": float(max(
+            np.max(np.abs(update_einstein_source["roundoff_scale"]["Aa"])),
+            np.max(np.abs(update_einstein_source["roundoff_scale"]["K"])),
+        )),
         "interpolant_bracket_left_index": int(direct["left_index"]),
         "interpolant_bracket_right_index": int(direct["right_index"]),
         "interpolant_theta": float(direct["theta"]),
@@ -1837,7 +1907,38 @@ def _accepted_pirk_update_tangent(step: dict, stage_rates: dict) -> dict:
     }
 
 
-def _serialize_step(kernel, step: dict) -> dict:
+
+def _pirk_accepted_update_einstein_source_arrays(geometry_stages) -> dict:
+    """Accepted Aa/K Einstein source = 1/2 start L3 + 1/2 full predictor L3."""
+    if len(geometry_stages) != 3:
+        raise RuntimeError("accepted Einstein source update needs three geometry stages")
+    out = {"source_l3": {}, "roundoff_scale": {}}
+    shape = None
+    for name in ("Aa", "K"):
+        try:
+            left = np.asarray(geometry_stages[0]["einstein_source_l3"][name], dtype=float)
+            right = np.asarray(geometry_stages[2]["einstein_source_l3"][name], dtype=float)
+            left_scale = np.asarray(geometry_stages[0]["einstein_source_roundoff_scale"][name], dtype=float)
+            right_scale = np.asarray(geometry_stages[2]["einstein_source_roundoff_scale"][name], dtype=float)
+        except (KeyError, TypeError) as exc:
+            raise RuntimeError(f"accepted Einstein source update missing start/predictor {name} data") from exc
+        if left.ndim != 1 or right.shape != left.shape or left_scale.shape != left.shape or right_scale.shape != left.shape:
+            raise RuntimeError(f"accepted Einstein source update {name} arrays have incompatible shapes")
+        if not all(np.all(np.isfinite(v)) for v in (left, right, left_scale, right_scale)):
+            raise RuntimeError(f"accepted Einstein source update {name} arrays contain non-finite values")
+        if np.any(left_scale < 0.0) or np.any(right_scale < 0.0):
+            raise RuntimeError(f"accepted Einstein source update {name} has negative operand scale")
+        if shape is None:
+            shape = left.shape
+        elif left.shape != shape:
+            raise RuntimeError("accepted Einstein Aa/K source arrays have different shapes")
+        out["source_l3"][name] = 0.5 * (left + right)
+        out["roundoff_scale"][name] = 0.5 * (left_scale + right_scale)
+    return out
+
+
+
+def _serialize_step(kernel, step: dict):
     stages = step["rhs_stages"]
     geometry_stages = step["geometry_stages"]
     fluxes = step["carrier_rest_fluxes"]
