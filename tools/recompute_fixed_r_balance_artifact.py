@@ -97,6 +97,166 @@ def _centered_fourth(
     return float(result), float(max(scale, TINY))
 
 
+def _centered_second(
+    values: np.ndarray, indices: list[int], global_index: int, dr: float
+) -> tuple[float, float]:
+    """Apply the pinned fourth-order centred second-derivative stencil."""
+    positions = {int(k): j for j, k in enumerate(indices)}
+    needed = [global_index - 2, global_index - 1, global_index, global_index + 1, global_index + 2]
+    if any(k not in positions for k in needed):
+        raise RuntimeError(
+            f"raw stencil does not include the centred second-derivative neighbours "
+            f"for cell {global_index}"
+        )
+    fm2, fm1, f0, fp1, fp2 = (float(values[positions[k]]) for k in needed)
+    denominator = 12.0 * dr * dr
+    result = (-fm2 + 16.0 * fm1 - 30.0 * f0 + 16.0 * fp1 - fp2) / denominator
+    scale = (
+        abs(fm2) + 16.0 * abs(fm1) + 30.0 * abs(f0)
+        + 16.0 * abs(fp1) + abs(fp2)
+    ) / abs(denominator)
+    if not math.isfinite(result) or not math.isfinite(scale):
+        raise RuntimeError("centred second derivative produced non-finite values")
+    return float(result), float(max(scale, TINY))
+
+
+def _momentum_constraint_residual_at_cell(
+    profiles: dict[str, np.ndarray],
+    indices: list[int],
+    global_index: int,
+    dr: float,
+) -> dict[str, float]:
+    """Rebuild the pinned spherical momentum constraint from archived profiles."""
+    pos = indices.index(global_index)
+    r, a, b, X = (float(profiles[name][pos]) for name in ("r", "a", "b", "X"))
+    K, Aa, j = (float(profiles[name][pos]) for name in ("K", "Aa", "j"))
+    if min(r, a, b, X) <= 0.0:
+        raise RuntimeError(f"cell {global_index} has a non-positive momentum-constraint metric factor")
+    Aa_r, _ = _centered_fourth(profiles["Aa"], indices, global_index, dr)
+    K_r, _ = _centered_fourth(profiles["K"], indices, global_index, dr)
+    X_r, _ = _centered_fourth(profiles["X"], indices, global_index, dr)
+    b_r, _ = _centered_fourth(profiles["b"], indices, global_index, dr)
+    chi_p = -0.5 * X_r / X
+    Ab = -0.5 * Aa
+    geometric_constraint = (
+        Aa_r - (2.0 / 3.0) * K_r + 6.0 * Aa * chi_p
+        + (Aa - Ab) * (2.0 / r + b_r / b)
+    )
+    residual = geometric_constraint - 8.0 * math.pi * j
+    return {
+        "Aa_r": Aa_r,
+        "K_r": K_r,
+        "X_r": X_r,
+        "b_r": b_r,
+        "vacuum_momentum_constraint": geometric_constraint,
+        "matter_momentum_subtraction": 8.0 * math.pi * j,
+        "momentum_constraint_residual": residual,
+    }
+
+
+def _geometric_radial_einstein_rr_at_cell(
+    profiles: dict[str, np.ndarray],
+    indices: list[int],
+    global_index: int,
+    dr: float,
+    Kdot_profile: np.ndarray,
+    Aadot_profile: np.ndarray,
+) -> dict[str, float]:
+    """Compute C^r_r=G^r_r-8*pi*p_r from the metric and actual stage rates.
+
+    This is a direct warped-product/3+1 geometric reconstruction. It deliberately
+    does not reuse the observer's BSSN Ricci profiles, mass-rate terms, or stress
+    balance intermediates. The mass-identity form below assumes zero shift, so
+    nonzero beta in the retained stencil is rejected instead of silently ignored.
+    """
+    pos = indices.index(global_index)
+    beta = profiles.get("beta")
+    if beta is None or np.any(beta != 0.0):
+        maximum = math.inf if beta is None else float(np.max(np.abs(beta)))
+        raise RuntimeError(
+            "independent radial Einstein reconstruction requires the exact zero-shift "
+            f"branch; archived stencil max|beta|={maximum:.17g}"
+        )
+    r, a, b, X, alpha = (
+        float(profiles[name][pos]) for name in ("r", "a", "b", "X", "alpha")
+    )
+    K, Aa, pr = (
+        float(profiles[name][pos]) for name in ("K", "Aa", "pr")
+    )
+    Kdot = float(Kdot_profile[pos])
+    Aadot = float(Aadot_profile[pos])
+    if min(r, a, b, X, alpha) <= 0.0:
+        raise RuntimeError(f"cell {global_index} has a non-positive geometric factor")
+
+    # Rebuild areal radius and all spatial derivatives directly from raw metric
+    # profiles. In proper radial distance dl=sqrt(a)/X dr:
+    # R_l=(X/sqrt(a)) R_r and
+    # R_ll=(X/sqrt(a))^2 [R_rr+(X_r/X-a_r/(2a))R_r].
+    areal_profile = profiles["r"] * np.sqrt(profiles["b"]) / profiles["X"]
+    R = float(areal_profile[pos])
+    R_r, R_r_scale = _centered_fourth(areal_profile, indices, global_index, dr)
+    R_rr, R_rr_scale = _centered_second(areal_profile, indices, global_index, dr)
+    a_r, _ = _centered_fourth(profiles["a"], indices, global_index, dr)
+    X_r, _ = _centered_fourth(profiles["X"], indices, global_index, dr)
+    alpha_r, _ = _centered_fourth(profiles["alpha"], indices, global_index, dr)
+    alpha_rr, _ = _centered_second(profiles["alpha"], indices, global_index, dr)
+    inverse_radial_scale = X / math.sqrt(a)
+    log_inverse_radial_scale_r = X_r / X - 0.5 * a_r / a
+    R_l = inverse_radial_scale * R_r
+    R_ll = inverse_radial_scale**2 * (
+        R_rr + log_inverse_radial_scale_r * R_r
+    )
+    Drr_alpha = inverse_radial_scale**2 * (
+        alpha_rr + log_inverse_radial_scale_r * alpha_r
+    )
+    alpha_l = inverse_radial_scale * alpha_r
+    lap_alpha = Drr_alpha + 2.0 * R_l * alpha_l / R
+
+    # For dl^2+R(dl)^2 dOmega^2:
+    # R^(3)r_r=-2 R_ll/R, R^(3)=-4 R_ll/R+2(1-R_l^2)/R^2.
+    spatial_Rr_r = -2.0 * R_ll / R
+    spatial_R = -4.0 * R_ll / R + 2.0 * (1.0 - R_l**2) / R**2
+    K_r = K / 3.0 + Aa
+    K_theta = K / 3.0 - Aa / 2.0
+    K_r_dot = Kdot / 3.0 + Aadot
+    K_squared = K_r**2 + 2.0 * K_theta**2
+
+    # Geometric 4D Ricci projections in zero shift:
+    # R^(4)r_r=R^(3)r_r+K K^r_r-(K^r_r_dot+D^rD_r alpha)/alpha,
+    # R_nn=(K_dot+D^2 alpha)/alpha-K_ij K^ij.
+    spacetime_Rr_r = spatial_Rr_r + K * K_r - (K_r_dot + Drr_alpha) / alpha
+    spacetime_R = (
+        spatial_R + K**2 + K_squared - 2.0 * (Kdot + lap_alpha) / alpha
+    )
+    einstein_Rr_r = spacetime_Rr_r - 0.5 * spacetime_R
+    Crr = einstein_Rr_r - 8.0 * math.pi * pr
+    values = (
+        R, R_r, R_rr, R_l, R_ll, Drr_alpha, lap_alpha, spatial_Rr_r,
+        spatial_R, K_r, K_theta, K_r_dot, spacetime_Rr_r, spacetime_R,
+        einstein_Rr_r, Crr, R_r_scale, R_rr_scale,
+    )
+    if not all(math.isfinite(float(value)) for value in values):
+        raise RuntimeError(f"cell {global_index} radial Einstein reconstruction is non-finite")
+    return {
+        "areal_radius_from_metric": R,
+        "areal_radius_first_derivative": R_r,
+        "areal_radius_second_derivative": R_rr,
+        "proper_radial_areal_derivative": R_l,
+        "proper_radial_areal_second_derivative": R_ll,
+        "spatial_radial_ricci_mixed": spatial_Rr_r,
+        "spatial_ricci_scalar": spatial_R,
+        "lapse_hessian_radial": Drr_alpha,
+        "lapse_laplacian": lap_alpha,
+        "K_radial_mixed": K_r,
+        "K_angular_mixed": K_theta,
+        "K_radial_mixed_dot": K_r_dot,
+        "spacetime_radial_ricci_mixed": spacetime_Rr_r,
+        "spacetime_ricci_scalar": spacetime_R,
+        "einstein_radial_mixed": einstein_Rr_r,
+        "C_radial_mixed_unthresholded": Crr,
+    }
+
+
 def _interpolate_pair(
     x: np.ndarray, y: np.ndarray, target: float, indices: list[int]
 ) -> tuple[float, dict[str, float | int]]:
