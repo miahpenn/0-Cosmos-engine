@@ -472,3 +472,105 @@ def test_independent_fixed_r_reconstruction_requires_signed_constraint_profiles_
     )
     with pytest.raises(RuntimeError, match="raw constraint convention 'momentum_residual'"):
         recompute_arm(stage)
+
+
+def _manufactured_balanced_em_exchange_record():
+    """Build a known-balanced donor/recipient exchange without engine imports.
+
+    The face charge/current and geometry determine the field's charge tangent
+    and the declared outer-face power. The manufactured Lorentz source is then
+    chosen so charge-tangent + matter power - outer power is exactly zero.
+    Its cell-current projection is built from the same source so that the
+    independent checker has a fully self-consistent raw-operand witness.
+    This fixture validates the ledger convention only; it is not production
+    evidence and must never be used to threshold a production residual.
+    """
+    record = _raw_em_stage_record("manufactured_balanced")
+    raw = record["stage_witness"]
+    centers = np.asarray(raw["centers"], dtype=np.float64)
+    dr = float(raw["grid_dr"])
+    q_face = np.asarray(raw["charge_faces"], dtype=np.float64)
+    current = np.asarray(raw["charge_current_faces"], dtype=np.float64)
+    q_cell = 0.5 * (q_face[:-1] + q_face[1:])
+    q_cell_dot = -0.5 * (current[:-1] + current[1:])
+    geometry = raw["geometry"]
+    X = np.asarray(geometry["X"], dtype=np.float64)
+    a = np.asarray(geometry["a"], dtype=np.float64)
+    b = np.asarray(geometry["b"], dtype=np.float64)
+    lapse = np.asarray(raw["lapse_profile"], dtype=np.float64)
+    weight = X * np.sqrt(a) / (centers**2 * b)
+    charge_tangent = dr * float(np.sum(weight * q_cell * q_cell_dot))
+    outer_power = -0.5 * dr * weight[-1] * q_cell[-1] * current[-1]
+
+    # Set recipient gain to the exact opposite of the field charge tangent,
+    # with the independently declared outer-current term retained explicitly.
+    lorentz_power = -charge_tangent + outer_power
+    lorentz_energy = np.zeros_like(q_cell)
+    lorentz_energy[-1] = lorentz_power / (4.0 * np.pi * dr)
+    sqrt_gamma = np.sqrt(a) * b * centers**2 / X**3
+    lorentz_current_r = lorentz_energy / (
+        lapse * sqrt_gamma * weight * q_cell
+    )
+
+    raw["lorentz_energy_source_profile"] = lorentz_energy.tolist()
+    raw["lorentz_current_r_profile"] = lorentz_current_r.tolist()
+    raw["matter_lorentz_power"] = float(lorentz_power)
+    raw["outer_current_power"] = float(outer_power)
+    record["matter_lorentz_power"] = float(lorentz_power)
+    record["outer_current_power"] = float(outer_power)
+    return record
+
+
+def test_manufactured_em_donor_recipient_exchange_closes_at_roundoff():
+    result = recompute_em_stage_exchange_witness(
+        _manufactured_balanced_em_exchange_record()
+    )
+    remainder = result["exchange_only_remainder_unthresholded"]
+    scale = (
+        abs(result["charge_current_tangent"])
+        + abs(result["matter_lorentz_power"])
+        + abs(result["outer_current_power"])
+    )
+    # This roundoff comparison applies only to this manufactured exact-balance
+    # fixture. No such criterion is applied to the measured production ledger.
+    assert abs(remainder) <= 64.0 * np.finfo(np.float64).eps * scale
+    assert result["physical_residual_threshold_applied"] is False
+    assert all(
+        check["bound_ratio"] <= 1.0
+        for check in result["algebraic_roundoff_checks"].values()
+    )
+
+
+def test_manufactured_nonzero_em_exchange_remains_an_unthresholded_measurement():
+    record = _manufactured_balanced_em_exchange_record()
+    raw = record["stage_witness"]
+    injected_power_density = 1.0e-6
+    raw["lorentz_energy_source_profile"][0] += injected_power_density
+    centers = np.asarray(raw["centers"], dtype=np.float64)
+    geometry = raw["geometry"]
+    X = np.asarray(geometry["X"], dtype=np.float64)
+    a = np.asarray(geometry["a"], dtype=np.float64)
+    b = np.asarray(geometry["b"], dtype=np.float64)
+    lapse = np.asarray(raw["lapse_profile"], dtype=np.float64)
+    q_face = np.asarray(raw["charge_faces"], dtype=np.float64)
+    q_cell = 0.5 * (q_face[:-1] + q_face[1:])
+    weight = X * np.sqrt(a) / (centers**2 * b)
+    sqrt_gamma = np.sqrt(a) * b * centers**2 / X**3
+    lorentz_energy = np.asarray(raw["lorentz_energy_source_profile"], dtype=np.float64)
+    lorentz_current_r = lorentz_energy / (
+        lapse * sqrt_gamma * weight * q_cell
+    )
+    raw["lorentz_current_r_profile"] = lorentz_current_r.tolist()
+    power_increment = 4.0 * np.pi * float(raw["grid_dr"]) * injected_power_density
+    raw["matter_lorentz_power"] += power_increment
+    record["matter_lorentz_power"] += power_increment
+
+    result = recompute_em_stage_exchange_witness(record)
+    assert result["exchange_only_remainder_unthresholded"] == pytest.approx(
+        power_increment, rel=1.0e-10, abs=1.0e-18
+    )
+    assert result["physical_residual_threshold_applied"] is False
+    assert all(
+        check["bound_ratio"] <= 1.0
+        for check in result["algebraic_roundoff_checks"].values()
+    )
