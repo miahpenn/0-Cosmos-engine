@@ -975,6 +975,29 @@ def recompute_em_stage_exchange_witness(stage_record: Any) -> dict[str, Any]:
     face_cell_current_tangent_mismatch = charge_tangent - cell_current_tangent
     exchange_from_face_cell_mismatch = face_cell_current_tangent_mismatch - outer_power
 
+    # Independently expand the charge tangent by face. Internal faces touch
+    # both adjacent cell energies; the outer face touches only the last cell.
+    # This is a spatial operator identity, not a physical residual threshold.
+    face_tangent_terms = np.empty_like(current)
+    face_tangent_terms[0] = -0.5 * dr * weight[0] * q_cell[0] * current[0]
+    for face_index in range(1, n):
+        face_tangent_terms[face_index] = -0.5 * dr * (
+            weight[face_index - 1] * q_cell[face_index - 1]
+            + weight[face_index] * q_cell[face_index]
+        ) * current[face_index]
+    face_tangent_terms[-1] = -0.5 * dr * weight[-1] * q_cell[-1] * current[-1]
+    face_tangent_sum = math.fsum(float(value) for value in face_tangent_terms)
+
+    # The cell-centred Eulerian current and the captured Lorentz source should
+    # be paired cellwise under the same volume/field-energy weight. Keep the
+    # signed per-cell terms visible so an integrated cancellation cannot hide
+    # an outermost-cell or face/cell projection defect.
+    cell_current_tangent_terms = -dr * weight * q_cell * current_cell_equivalent
+    lorentz_power_cell_terms = FOUR_PI * dr * lorentz_energy
+    cellwise_current_lorentz_remainder = (
+        cell_current_tangent_terms + lorentz_power_cell_terms
+    )
+
     scales = (q_face, rest_flux, current, q_face_dot)
     checks = {
         "charge_current_faces": _roundoff_check(
@@ -1046,6 +1069,22 @@ def recompute_em_stage_exchange_witness(stage_record: Any) -> dict[str, Any]:
             "EM outer-current power", raw.get("outer_current_power"),
             outer_power, weight[-1], q_cell[-1], current[-1]
         ),
+        "cellwise_current_projection_matches_lorentz_source": _roundoff_check(
+            "EM cellwise current projection vs Lorentz source",
+            cell_current_tangent_terms, -lorentz_power_cell_terms,
+            weight, q_cell, lapse, sqrt_gamma, lorentz_current_r,
+            lorentz_energy,
+        ),
+        "face_sum_reconstructs_cell_charge_tangent": _roundoff_check(
+            "EM face-summed charge tangent vs cell-summed tangent",
+            charge_tangent, face_tangent_sum,
+            face_tangent_terms, charge_cell_terms, current,
+        ),
+        "outer_face_tangent_matches_named_outer_power": _roundoff_check(
+            "EM outer-face tangent convention",
+            face_tangent_terms[-1], outer_power,
+            face_tangent_terms[-1], outer_power,
+        ),
     }
     for label, observed, expected, operands in (
         ("reported charge power", stage_record.get("charge_power"), charge_tangent,
@@ -1069,12 +1108,28 @@ def recompute_em_stage_exchange_witness(stage_record: Any) -> dict[str, Any]:
         "charge_faces": q_face.tolist(),
         "charge_current_faces": current.tolist(),
         "charge_face_dot": q_face_dot.tolist(),
+        "rest_mass_flux_faces": rest_flux.tolist(),
+        "charge_to_rest_mass": eta,
         "field_energy_at_stage": field_energy,
         "charge_current_tangent": charge_tangent,
+        "field_charge_tangent_by_face_unthresholded": face_tangent_terms.tolist(),
+        "field_charge_tangent_interior_faces_unthresholded": face_tangent_terms[1:-1].tolist(),
+        "field_charge_tangent_centre_face_unthresholded": float(face_tangent_terms[0]),
+        "field_charge_tangent_outer_face_unthresholded": float(face_tangent_terms[-1]),
+        "field_charge_tangent_face_sum_unthresholded": float(face_tangent_sum),
+        "field_charge_tangent_face_sum_minus_cell_sum_unthresholded": float(
+            face_tangent_sum - charge_tangent
+        ),
+        "field_charge_tangent_cell_terms_unthresholded": charge_cell_terms.tolist(),
         "metric_tangent": metric_tangent,
         "total_field_energy_tangent": total_tangent,
         "matter_lorentz_power": lorentz_power,
+        "lorentz_power_cell_terms_unthresholded": lorentz_power_cell_terms.tolist(),
         "cell_centered_current_tangent": cell_current_tangent,
+        "cell_current_tangent_terms_unthresholded": cell_current_tangent_terms.tolist(),
+        "cellwise_current_lorentz_pairing_remainder_unthresholded": (
+            cellwise_current_lorentz_remainder.tolist()
+        ),
         "face_minus_cell_current_tangent_mismatch_unthresholded": face_cell_current_tangent_mismatch,
         "outer_current_power": float(outer_power),
         "exchange_only_remainder_unthresholded": exchange_remainder,
@@ -1085,6 +1140,134 @@ def recompute_em_stage_exchange_witness(stage_record: Any) -> dict[str, Any]:
         ),
         "algebraic_roundoff_checks": checks,
         "physical_residual_threshold_applied": False,
+    }
+
+
+def recompute_charged_dust_boundary_witness(
+    em_stage_result: dict[str, Any],
+    source_stage: Any,
+    matter_stage_summary: Any | None = None,
+) -> dict[str, Any]:
+    """Join same-stage EM face current to the actual charged-dust energy flux.
+
+    This checks raw stage alignment, shared rest-mass/charge face flux, and the
+    finite-volume matter energy boundary rate. It does not assume that the EM
+    outer-current power equals the charged-dust energy flux, and it applies no
+    physical closure threshold.
+    """
+    if not isinstance(source_stage, dict):
+        raise RuntimeError("charged-dust boundary witness: source stage must be an object")
+    em_stage = str(em_stage_result.get("stage", "unknown"))
+    matter_stage = str(source_stage.get("stage", "unknown"))
+    if em_stage != matter_stage:
+        raise RuntimeError(
+            "EM and charged-dust source stage labels differ: "
+            f"{em_stage!r} != {matter_stage!r}"
+        )
+    em_time = float(em_stage_result.get("t", math.nan))
+    matter_time = float(source_stage.get("t", math.nan))
+    if not math.isfinite(em_time) or not math.isfinite(matter_time) or not math.isclose(
+        em_time, matter_time, rel_tol=0.0, abs_tol=1.0e-14
+    ):
+        raise RuntimeError(
+            "EM and charged-dust source stage times differ: "
+            f"{em_time:.17g} != {matter_time:.17g}"
+        )
+
+    centers = np.asarray(em_stage_result.get("centers"), dtype=np.float64)
+    n = int(centers.size) if centers.ndim == 1 else 0
+    if n < 2:
+        raise RuntimeError("charged-dust boundary witness: invalid EM center profile")
+    if int(source_stage.get("resolution", -1)) != n:
+        raise RuntimeError(
+            "EM and charged-dust source stage resolutions differ: "
+            f"{n} != {source_stage.get('resolution')!r}"
+        )
+    species = source_stage.get("species")
+    if not isinstance(species, dict) or not isinstance(species.get("charged_dust"), dict):
+        raise RuntimeError("charged-dust boundary witness: missing charged_dust face-flux row")
+    dust = species["charged_dust"]
+    rest_flux = _vector(
+        dust.get("face_flux_rest_mass"), "charged-dust rest-mass face flux", n + 1
+    )
+    energy_flux = _vector(
+        dust.get("face_flux_energy"), "charged-dust energy face flux", n + 1
+    )
+    momentum_flux = _vector(
+        dust.get("face_flux_radial_momentum"),
+        "charged-dust radial-momentum face flux", n + 1,
+    )
+    em_rest_flux = _vector(
+        em_stage_result.get("rest_mass_flux_faces"),
+        "EM carrier rest-mass face flux", n + 1,
+    )
+    current = _vector(
+        em_stage_result.get("charge_current_faces"), "EM charge current faces", n + 1
+    )
+    eta = float(em_stage_result.get("charge_to_rest_mass", math.nan))
+    if not math.isfinite(eta):
+        raise RuntimeError("charged-dust boundary witness: invalid charge-to-mass ratio")
+    if rest_flux[0] != 0.0 or energy_flux[0] != 0.0 or current[0] != 0.0:
+        raise RuntimeError("charged-dust/EM centre-face flux must vanish exactly")
+
+    boundary_energy_rate = FOUR_PI * float(energy_flux[0] - energy_flux[-1])
+    outer_energy_flux_rate = -FOUR_PI * float(energy_flux[-1])
+    outer_current_expected = FOUR_PI * eta * float(rest_flux[-1])
+    saved_boundary_rate = float(dust.get("boundary_energy_rate", math.nan))
+    checks = {
+        "same_stage_rest_mass_face_flux": _roundoff_check(
+            "same-stage charged-dust / Maxwell rest-mass face flux",
+            rest_flux, em_rest_flux, rest_flux, em_rest_flux,
+        ),
+        "same_stage_charge_current_from_rest_mass_flux": _roundoff_check(
+            "same-stage outer charge current from charged-dust rest flux",
+            current[-1], outer_current_expected, current[-1], outer_current_expected,
+        ),
+        "charged_dust_boundary_energy_rate_from_face_flux": _roundoff_check(
+            "charged-dust boundary energy rate reconstruction",
+            saved_boundary_rate, boundary_energy_rate,
+            energy_flux[0], energy_flux[-1], saved_boundary_rate, boundary_energy_rate,
+        ),
+    }
+    if isinstance(matter_stage_summary, dict):
+        summary_boundary = float(matter_stage_summary.get("boundary_energy_rate", math.nan))
+        checks["serialized_matter_stage_boundary_matches_flux"] = _roundoff_check(
+            "charged-dust serialized stage summary vs face-energy flux",
+            summary_boundary, boundary_energy_rate,
+            energy_flux[0], energy_flux[-1], summary_boundary, boundary_energy_rate,
+        )
+
+    return {
+        "stage": em_stage,
+        "t": em_time,
+        "resolution": n,
+        "rest_mass_face_fluxes": rest_flux.tolist(),
+        "energy_face_fluxes": energy_flux.tolist(),
+        "radial_momentum_face_fluxes": momentum_flux.tolist(),
+        "outer_rest_mass_flux": float(rest_flux[-1]),
+        "outer_charge_current_from_face_flux": float(outer_current_expected),
+        "outer_charge_current_used_by_maxwell": float(current[-1]),
+        "outer_charge_current_vs_rest_flux_remainder_unthresholded": float(
+            current[-1] - outer_current_expected
+        ),
+        "outer_energy_face_flux_stored_convention": float(energy_flux[-1]),
+        "outer_energy_flux_rate_stored_convention": float(outer_energy_flux_rate),
+        "centre_energy_face_flux_stored_convention": float(energy_flux[0]),
+        "charged_dust_boundary_energy_rate_from_faces": float(boundary_energy_rate),
+        "charged_dust_boundary_energy_rate_reported": float(saved_boundary_rate),
+        "em_outer_current_power_unthresholded": float(
+            em_stage_result["outer_current_power"]
+        ),
+        "em_field_charge_tangent_outer_face_unthresholded": float(
+            em_stage_result["field_charge_tangent_outer_face_unthresholded"]
+        ),
+        "algebraic_roundoff_checks": checks,
+        "physical_residual_threshold_applied": False,
+        "interpretation": (
+            "Same-stage finite-volume operands are reconciled, but the EM outer-current "
+            "power and charged-dust energy-face flux remain separately named signed terms. "
+            "Their physical combination is not thresholded or inferred from this check."
+        ),
     }
 
 
@@ -1112,6 +1295,43 @@ def recompute_em_stage_exchange_campaign(data: dict[str, Any]) -> dict[str, Any]
                         f"{group_name}[{run_index}] step {interval_index} lacks start/predictor EM witnesses"
                     )
                 recomputed = [recompute_em_stage_exchange_witness(record) for record in records]
+
+                # Join the independent EM reconstruction to the actual
+                # charged-dust face-flux arrays captured by the matter RHS.
+                # Source-pinned production reports must contain both stages;
+                # older tiny synthetic unit fixtures may omit this optional join.
+                source_rows = row.get("source_stage_rows")
+                boundary_witnesses = []
+                if source_rows is None and isinstance(data.get("provenance"), dict):
+                    raise RuntimeError(
+                        f"{group_name}[{run_index}] step {interval_index} lacks raw source_stage_rows"
+                    )
+                if source_rows is not None:
+                    if not isinstance(source_rows, list) or len(source_rows) != 2:
+                        raise RuntimeError(
+                            f"{group_name}[{run_index}] step {interval_index} needs two source stage rows"
+                        )
+                    matter_species = row.get("matter_species", {})
+                    charged_matter = (
+                        matter_species.get("charged_dust", {})
+                        if isinstance(matter_species, dict) else {}
+                    )
+                    stage_summaries = (
+                        charged_matter.get("stage_terms", [])
+                        if isinstance(charged_matter, dict) else []
+                    )
+                    if not isinstance(stage_summaries, list) or len(stage_summaries) != 2:
+                        raise RuntimeError(
+                            f"{group_name}[{run_index}] step {interval_index} lacks two charged-dust matter summaries"
+                        )
+                    for stage_index, stage_result in enumerate(recomputed):
+                        boundary_witness = recompute_charged_dust_boundary_witness(
+                            stage_result,
+                            source_rows[stage_index],
+                            stage_summaries[stage_index],
+                        )
+                        stage_result["charged_dust_boundary_witness"] = boundary_witness
+                        boundary_witnesses.append(boundary_witness)
 
                 # Check the actual state transition as well as the local Qdot
                 # formula: predictor uses start flux; accepted Q uses the
@@ -1196,6 +1416,13 @@ def recompute_em_stage_exchange_campaign(data: dict[str, Any]) -> dict[str, Any]
                     "t_after": float(row.get("t_after", math.nan)),
                     "measured_field_energy_rate": rate_measured,
                     "charge_face_update": charge_update,
+                    "same_stage_charged_dust_boundary_witnesses": boundary_witnesses,
+                    "charged_dust_boundary_energy_rate_start_predictor_average": (
+                        0.5 * sum(
+                            item["charged_dust_boundary_energy_rate_from_faces"]
+                            for item in boundary_witnesses
+                        ) if boundary_witnesses else None
+                    ),
                     "start_predictor_average_tangent": average_tangent,
                     "field_energy_time_update_remainder_unthresholded": rate_measured - average_tangent,
                     "exchange_only_start_predictor_average_remainder_unthresholded": exchange_average,
