@@ -464,9 +464,9 @@ def recompute_arm(stage: dict[str, Any]) -> dict[str, Any]:
                         ("stress_flux", f_local, ("stress_flux",), (f_local,)),
                         ("radial_pressure_work", w_local, ("radial_pressure_work",), (w_local,)),
                         (
-                            "fixed_R_residual_using_native_mass_gradient",
+                            "coordinate_rate_minus_flux_and_work",
                             float(mdot[pos] - f_local - w_local),
-                            ("fixed_R_residual_using_chain_mass_gradient",),
+                            ("coordinate_rate_minus_flux_and_work",),
                             (mdot[pos], f_local, w_local),
                         ),
                     ):
