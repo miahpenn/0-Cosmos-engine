@@ -37,6 +37,7 @@ from tools.audit_em_total_energy_budget import (
     _hll_charge_tangent_split,
     _domain_stage_diagnostics,
     _domain_radius_projection_comparison,
+    _observed_refinement_order,
 )
 
 
@@ -1533,20 +1534,25 @@ def test_domain_radius_projection_comparison_reports_radial_pairing_signal():
     extended_gap = 0.8 * baseline_gap
     baseline_prefactor = np.full(centers.size, -1.0e-3)
     extended_prefactor = np.full(centers.size, -0.8e-3)
+    baseline_faces = np.linspace(2.0e-7, 2.5e-7, centers.size + 1)
+    extended_faces = baseline_faces + np.linspace(
+        2.0e-8, 3.0e-8, centers.size + 1
+    )
 
-    def diagnostic(gap, prefactor):
+    def diagnostic(gap, prefactor, faces):
+        adjacent_face_current = 0.5 * (faces[:-1] + faces[1:])
         return {
             "coordinate_radius_cut": 20.0,
             "inner_cell_centers": centers.tolist(),
-            "inner_cell_current_equivalent": gap.tolist(),
-            "inner_face_currents": np.zeros(centers.size + 1).tolist(),
+            "inner_cell_current_equivalent": (gap + adjacent_face_current).tolist(),
+            "inner_face_currents": faces.tolist(),
             "inner_cell_pairing_prefactor": prefactor.tolist(),
             "inner_cell_defect_profile": (prefactor * gap).tolist(),
         }
 
     result = _domain_radius_projection_comparison(
-        diagnostic(baseline_gap, baseline_prefactor),
-        diagnostic(extended_gap, extended_prefactor),
+        diagnostic(baseline_gap, baseline_prefactor, baseline_faces),
+        diagnostic(extended_gap, extended_prefactor, extended_faces),
     )
     expected_gap_delta = baseline_gap - extended_gap
     expected_prefactor_delta = baseline_prefactor - extended_prefactor
@@ -1561,6 +1567,31 @@ def test_domain_radius_projection_comparison_reports_radial_pairing_signal():
     )
     assert result["current_projection_gap_delta_l1_on_overlap"] == pytest.approx(
         float(np.sum(np.abs(expected_gap_delta)))
+    )
+    current_comparison = result["current_representation_delta_comparison"]
+    baseline_cell_current = baseline_gap + 0.5 * (
+        baseline_faces[:-1] + baseline_faces[1:]
+    )
+    extended_cell_current = extended_gap + 0.5 * (
+        extended_faces[:-1] + extended_faces[1:]
+    )
+    expected_cell_current_delta = baseline_cell_current - extended_cell_current
+    face_delta = baseline_faces - extended_faces
+    expected_adjacent_face_delta = 0.5 * (face_delta[:-1] + face_delta[1:])
+    assert current_comparison["cell_current_domain_delta_l1"] == pytest.approx(
+        float(np.sum(np.abs(expected_cell_current_delta)))
+    )
+    assert current_comparison["adjacent_face_average_current_domain_delta_l1"] == pytest.approx(
+        float(np.sum(np.abs(expected_adjacent_face_delta)))
+    )
+    assert current_comparison["current_projection_gap_domain_delta_l1"] == pytest.approx(
+        float(np.sum(np.abs(expected_gap_delta)))
+    )
+    assert current_comparison["cell_vs_adjacent_face_current_domain_delta_pearson_r"] == (
+        pytest.approx(float(np.corrcoef(expected_cell_current_delta, expected_adjacent_face_delta)[0, 1]))
+    )
+    assert current_comparison["reconstruction_residual_max_abs"] <= (
+        current_comparison["reconstruction_roundoff_bound"]
     )
     assert result["cell_defect_delta_vs_current_projection_gap_delta_pearson_r"] == (
         pytest.approx(-1.0)
@@ -1592,6 +1623,12 @@ def test_domain_radius_projection_comparison_reports_radial_pairing_signal():
     assert bands[-1]["pairing_delta_prefactor_change_contribution_l1"] > (
         bands[0]["pairing_delta_prefactor_change_contribution_l1"]
     )
+
+
+def test_observed_refinement_order_uses_both_grid_spacing_and_timestep_halving():
+    assert _observed_refinement_order(4.0e-12, 1.0e-12, 0.5, 0.25) == pytest.approx(2.0)
+    assert _observed_refinement_order(1.0e-12, 1.0e-12, 0.5, 0.25) == pytest.approx(0.0)
+    assert _observed_refinement_order(0.0, 1.0e-12, 0.5, 0.25) is None
 
 
 @pytest.mark.parametrize(
