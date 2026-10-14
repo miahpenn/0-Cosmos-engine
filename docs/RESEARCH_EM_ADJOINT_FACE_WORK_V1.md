@@ -70,6 +70,8 @@ python research/reconcile_em_face_work_artifact_v1.py \
 
 The reconciler refuses missing/mismatched production-blob or vendor provenance, checks every captured start/predictor record in the base run, fixed-N temporal-refinement, and domain-radius extension sections, and writes a row-wise report that keeps the stored charge tangent, face-adjoint tangent, matter Lorentz power, metric tangent, and outer-current power separate.
 
+The draft PR also wires this command into `.github/workflows/em_total_energy_budget.yml` immediately after the joined ledger runs, then uploads `em_face_work_adjoint_reconciliation.json` alongside the raw ledger and independent fixed-R recomputation. This integration is a research-workflow change only; it does not execute a new evolution or touch production physics.
+
 Applied offline to #198 artifact [11932301923](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38645907990/artifacts/11932301923) (input ZIP SHA-256 `322dbae80692f316b7e87a1cf53219d3534fe985d07f19f3624f1086172aaa68`; inner ledger JSON SHA-256 `7b58aa3ab56e5d50820c7797c69f125e1ba3e399de2855b710c7e01cc64230f1`), the direct cell tangent and face-gradient contraction close across **276 saved stage witnesses**:
 - Base resolution arms: 84 witnesses, maximum residual (1.03398\times10^{-25}), maximum 128-epsilon bound ratio 0.003643.
 - Fixed-N temporal-refinement arms: 168 witnesses, maximum residual (1.03398\times10^{-25}), maximum bound ratio 0.003629.
