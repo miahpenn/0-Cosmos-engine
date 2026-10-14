@@ -6,6 +6,7 @@ import pytest
 
 from tools.recompute_fixed_r_balance_artifact import (
     _geometric_radial_einstein_rr_at_cell,
+    _summarize_em_stage_exchange,
     recompute_arm,
     recompute_em_stage_exchange_campaign,
     recompute_em_stage_exchange_witness,
@@ -342,3 +343,41 @@ def test_independent_metric_radial_einstein_residual_converges_on_static_schwarz
     fine = compute(160)
     assert coarse > 0.0
     assert fine < coarse / 8.0
+
+
+
+def test_em_exchange_cli_summary_keeps_physical_remainders_unthresholded():
+    report = {
+        "stages": [
+            {
+                "run_group": "runs", "run_index": 0, "resolution": 24,
+                "q_over_m": 0.25, "cfl": None,
+                "exchange_only_remainder_unthresholded": -2.0e-8,
+                "exchange_only_relative_remainder_unthresholded": 0.02,
+                "algebraic_roundoff_checks": {"identity": {"bound_ratio": 0.5}},
+            },
+            {
+                "run_group": "runs", "run_index": 0, "resolution": 24,
+                "q_over_m": 0.25, "cfl": None,
+                "exchange_only_remainder_unthresholded": 1.0e-8,
+                "exchange_only_relative_remainder_unthresholded": 0.01,
+                "algebraic_roundoff_checks": {"identity": {"bound_ratio": 0.75}},
+            },
+        ],
+        "intervals": [
+            {
+                "run_group": "runs", "run_index": 0,
+                "field_energy_time_update_remainder_unthresholded": -3.0e-8,
+                "exchange_only_start_predictor_average_remainder_unthresholded": 5.0e-9,
+            }
+        ],
+    }
+    summary = _summarize_em_stage_exchange(report)
+    assert len(summary["groups"]) == 1
+    row = summary["groups"][0]
+    assert row["exchange_only_remainder_absmax_unthresholded"] == pytest.approx(2.0e-8)
+    assert row["exchange_only_relative_remainder_absmax_unthresholded"] == pytest.approx(0.02)
+    assert row["field_energy_time_update_remainder_absmax_unthresholded"] == pytest.approx(3.0e-8)
+    assert row["interval_exchange_average_remainder_absmax_unthresholded"] == pytest.approx(5.0e-9)
+    assert row["algebraic_roundoff_bound_ratio_absmax"] == pytest.approx(0.75)
+    assert row["physical_residual_threshold_applied"] is False
