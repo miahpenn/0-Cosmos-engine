@@ -589,6 +589,115 @@ def _misner_sharp_chain_rule_rate_profiles(
     return outputs
 
 
+def _mass_gradient_identity_bracket_witness(
+    R, mass_gradient, rho, current, Rr, Rdot, alpha,
+    hamiltonian, momentum, *, target: float
+) -> dict:
+    """Expose the native mass-gradient identity at both cells bracketing R=target.
+
+    The cell-local composite RHS is formed before interpolation:
+      D_r M = 4*pi*R**2*(rho*D_r R + j*Rdot/alpha).
+    The existing tube scalar instead interpolates each factor and then forms
+    the RHS at the target radius. Both operators are recorded side-by-side;
+    this helper measures their difference but never thresholds the physical
+    identity residual or chooses an operator based on which closes better.
+    """
+    raw = {
+        "R": R, "mass_gradient": mass_gradient, "rho": rho,
+        "current": current, "Rr": Rr, "Rdot": Rdot, "alpha": alpha,
+        "hamiltonian": hamiltonian, "momentum": momentum,
+    }
+    arrays = {name: np.asarray(value, dtype=float) for name, value in raw.items()}
+    radii = arrays["R"]
+    if radii.ndim != 1 or radii.size < 2:
+        raise RuntimeError("mass-gradient witness R must be a 1-D array with at least two cells")
+    for name, values in arrays.items():
+        if values.shape != radii.shape:
+            raise RuntimeError(
+                f"mass-gradient witness {name} shape {values.shape} does not match {radii.shape}"
+            )
+        if not np.all(np.isfinite(values)):
+            raise RuntimeError(f"mass-gradient witness {name} contains non-finite values")
+    if not np.all(np.diff(radii) > 0.0):
+        raise RuntimeError("mass-gradient witness R must be strictly increasing")
+    if np.any(arrays["alpha"] == 0.0):
+        raise RuntimeError("mass-gradient witness alpha contains zero")
+    target = float(target)
+    if not math.isfinite(target) or target < radii[0] or target > radii[-1]:
+        raise RuntimeError("mass-gradient witness target is outside the sampled areal-radius domain")
+
+    local_rhs = FOUR_PI * np.square(radii) * (
+        arrays["rho"] * arrays["Rr"]
+        + arrays["current"] * arrays["Rdot"] / arrays["alpha"]
+    )
+    residual = arrays["mass_gradient"] - local_rhs
+    right = int(np.searchsorted(radii, target, side="right"))
+    if right >= radii.size:
+        right = radii.size - 1
+    if right == 0:
+        right = 1
+    left = right - 1
+    theta = float((target - radii[left]) / (radii[right] - radii[left]))
+
+    def interp(values):
+        return float((1.0 - theta) * values[left] + theta * values[right])
+
+    rho_at = interp(arrays["rho"])
+    current_at = interp(arrays["current"])
+    Rr_at = interp(arrays["Rr"])
+    Rdot_at = interp(arrays["Rdot"])
+    alpha_at = interp(arrays["alpha"])
+    factor_rhs = FOUR_PI * target**2 * (
+        rho_at * Rr_at + current_at * Rdot_at / alpha_at
+    )
+
+    def cell(index):
+        return {
+            "index": int(index),
+            "R": float(radii[index]),
+            "mass_gradient_discrete": float(arrays["mass_gradient"][index]),
+            "mass_gradient_rhs_local_composite": float(local_rhs[index]),
+            "mass_gradient_residual_local_composite": float(residual[index]),
+            "rho": float(arrays["rho"][index]),
+            "j": float(arrays["current"][index]),
+            "Rr": float(arrays["Rr"][index]),
+            "Rdot": float(arrays["Rdot"][index]),
+            "alpha": float(arrays["alpha"][index]),
+            "hamiltonian_constraint": float(arrays["hamiltonian"][index]),
+            "momentum_constraint": float(arrays["momentum"][index]),
+        }
+
+    result = {
+        "target_R": target,
+        "left_index": int(left),
+        "right_index": int(right),
+        "theta": theta,
+        "left_cell": cell(left),
+        "right_cell": cell(right),
+        "mass_gradient_discrete_interpolated_at_target": interp(arrays["mass_gradient"]),
+        "local_composite_rhs_interpolated_at_target": interp(local_rhs),
+        "local_composite_residual_interpolated_at_target": interp(residual),
+        "factor_interpolated_rhs_at_target": float(factor_rhs),
+        "factor_interpolated_residual_at_target": float(
+            interp(arrays["mass_gradient"]) - factor_rhs
+        ),
+        "factor_product_minus_composite_rhs": float(factor_rhs - interp(local_rhs)),
+    }
+    if not all(
+        math.isfinite(value)
+        for value in (
+            result["mass_gradient_discrete_interpolated_at_target"],
+            result["local_composite_rhs_interpolated_at_target"],
+            result["local_composite_residual_interpolated_at_target"],
+            result["factor_interpolated_rhs_at_target"],
+            result["factor_interpolated_residual_at_target"],
+            result["factor_product_minus_composite_rhs"],
+        )
+    ):
+        raise RuntimeError("mass-gradient witness produced a non-finite result")
+    return result
+
+
 def _fixed_target_interpolant_rate(
     R, Rdot, mass, mass_dot_coordinate, *, target: float
 ) -> dict:
@@ -749,6 +858,11 @@ def _worldtube_sample(kernel, state, *, geometry_stage_capture=None) -> dict:
         rho_tube * Rr_tube + j_tube * Rdot_tube / alpha_tube
     )
     mass_gradient_residual = Mr_tube - mass_gradient_rhs
+    mass_gradient_witness = _mass_gradient_identity_bracket_witness(
+        R, Mr, total.rho, total.j, Rr, Rdot, geom.alpha,
+        hamiltonian_constraint_profile, momentum_constraint_profile,
+        target=FIXED_AREAL_RADIUS,
+    )
 
     chain_rule = None
     if geometry_stage_capture is not None:
@@ -933,6 +1047,7 @@ def _worldtube_sample(kernel, state, *, geometry_stage_capture=None) -> dict:
         "tube_sector_rates": sector_rates,
         "tube_native_mass_gradient_identity_rhs": mass_gradient_rhs,
         "tube_native_mass_gradient_identity_residual": mass_gradient_residual,
+        "tube_mass_gradient_identity_witness": mass_gradient_witness,
         **(chain_rule or {}),
         "constraint_witnesses": constraint_witnesses,
     }
@@ -992,6 +1107,8 @@ def _fixed_R_rate_snapshot(sample: dict) -> dict:
         snapshot["tube_sector_rates"] = sample["tube_sector_rates"]
     if "tube_ktheta_matter_source_rates" in sample:
         snapshot["tube_ktheta_matter_source_rates"] = sample["tube_ktheta_matter_source_rates"]
+    if "tube_mass_gradient_identity_witness" in sample:
+        snapshot["tube_mass_gradient_identity_witness"] = sample["tube_mass_gradient_identity_witness"]
     return snapshot
 
 
