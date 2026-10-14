@@ -287,6 +287,136 @@ def _stress_projection(kernel, state):
 
 
 
+def _sector_ktheta_source_rates(total, *, R, alpha, Ktheta, target: float) -> dict:
+    """Expose the direct sector-sourced Ktheta term in the live Misner-Sharp tangent.
+
+    The production L3 source blocks are K_dot += 4*pi*alpha*(rho+pr+2*pt)
+    and Aa_dot += -(16*pi/3)*alpha*(pr-pt), with Ktheta=K/3-Aa/2.
+    Thus this helper records the explicit matter-source insertion in Ktheta_dot
+    and its algebraic contribution R**3*Ktheta*Ktheta_dot to Mdot|r. This is
+    a diagnostic decomposition, not a complete causal split of the mass rate:
+    the other geometry RHS terms, CMC lapse response, constraints, and discrete
+    radial operators remain in the full live-stage tangent.
+    """
+    raw = {"R": R, "alpha": alpha, "Ktheta": Ktheta}
+    arrays = {name: np.asarray(value, dtype=float) for name, value in raw.items()}
+    radii = arrays["R"]
+    if radii.ndim != 1 or radii.size < 2:
+        raise RuntimeError("Ktheta source audit R must be a 1-D array with at least two cells")
+    for name, values in arrays.items():
+        if values.shape != radii.shape:
+            raise RuntimeError(
+                f"Ktheta source audit {name} shape {values.shape} does not match {radii.shape}"
+            )
+        if not np.all(np.isfinite(values)):
+            raise RuntimeError(f"Ktheta source audit {name} contains non-finite values")
+    if not np.all(np.diff(radii) > 0.0):
+        raise RuntimeError("Ktheta source audit R must be strictly increasing")
+
+    def _profile(name, value):
+        out = np.asarray(value, dtype=float)
+        if out.shape != radii.shape or not np.all(np.isfinite(out)):
+            raise RuntimeError(f"Ktheta source audit {name} must be finite and match R")
+        return out
+
+    alpha_values = arrays["alpha"]
+    Ktheta_values = arrays["Ktheta"]
+    sector_rows = {}
+    for label in ("scalar", "fluid", "electromagnetic"):
+        values = {
+            name: getattr(total, f"{label}_{name}", None)
+            for name in ("rho", "pr", "pt")
+        }
+        if all(value is None for value in values.values()):
+            present = False
+            pieces = {name: np.zeros_like(radii) for name in values}
+        elif any(value is None for value in values.values()):
+            raise RuntimeError(f"Ktheta source audit sector {label} has incomplete rho/pr/pt")
+        else:
+            present = True
+            pieces = {
+                name: _profile(f"{label}_{name}", value)
+                for name, value in values.items()
+            }
+
+        k_dot = FOUR_PI * alpha_values * (
+            pieces["rho"] + pieces["pr"] + 2.0 * pieces["pt"]
+        )
+        aa_dot = -(16.0 * math.pi / 3.0) * alpha_values * (
+            pieces["pr"] - pieces["pt"]
+        )
+        ktheta_dot = k_dot / 3.0 - aa_dot / 2.0
+        mass_dot_from_ktheta = radii**3 * Ktheta_values * ktheta_dot
+        profiles = {
+            "rho": pieces["rho"],
+            "pr": pieces["pr"],
+            "pt": pieces["pt"],
+            "k_dot_matter_source": k_dot,
+            "aa_dot_matter_source": aa_dot,
+            "ktheta_dot_matter_source": ktheta_dot,
+            "mass_dot_coordinate_from_ktheta_source": mass_dot_from_ktheta,
+        }
+        sector_rows[label] = {
+            "present": bool(present),
+            **{
+                f"{name}_at_R_star": interpolate_at_areal_radius(radii, values, target)
+                for name, values in profiles.items()
+            },
+        }
+
+    total_profiles = {
+        name: _profile(f"total_{name}", getattr(total, name))
+        for name in ("rho", "pr", "pt")
+    }
+    aggregate_k_dot = FOUR_PI * alpha_values * (
+        total_profiles["rho"] + total_profiles["pr"] + 2.0 * total_profiles["pt"]
+    )
+    aggregate_aa_dot = -(16.0 * math.pi / 3.0) * alpha_values * (
+        total_profiles["pr"] - total_profiles["pt"]
+    )
+    aggregate_ktheta_dot = aggregate_k_dot / 3.0 - aggregate_aa_dot / 2.0
+    aggregate_profiles = {
+        "k_dot_matter_source": aggregate_k_dot,
+        "aa_dot_matter_source": aggregate_aa_dot,
+        "ktheta_dot_matter_source": aggregate_ktheta_dot,
+        "mass_dot_coordinate_from_ktheta_source": (
+            radii**3 * Ktheta_values * aggregate_ktheta_dot
+        ),
+    }
+    aggregate_at = {
+        name: interpolate_at_areal_radius(radii, values, target)
+        for name, values in aggregate_profiles.items()
+    }
+    additive_residuals = {}
+    additive_bounds = {}
+    sums = {}
+    for name in aggregate_profiles:
+        value = sum(row[f"{name}_at_R_star"] for row in sector_rows.values())
+        residual = value - aggregate_at[name]
+        scale = max(
+            abs(value) + abs(aggregate_at[name]),
+            sum(abs(row[f"{name}_at_R_star"]) for row in sector_rows.values()),
+            float(np.finfo(np.float64).tiny),
+        )
+        bound = 64.0 * np.finfo(np.float64).eps * scale
+        if abs(residual) > bound:
+            raise RuntimeError(
+                f"Ktheta source audit failed additive {name}: "
+                f"residual={residual:.17g} (bound {bound:.17g})"
+            )
+        sums[name] = float(value)
+        additive_residuals[name] = float(residual)
+        additive_bounds[name] = float(bound)
+
+    return {
+        "sectors": sector_rows,
+        "sum_at_R_star": sums,
+        "aggregate_at_R_star": aggregate_at,
+        "additive_residuals": additive_residuals,
+        "additive_bounds": additive_bounds,
+    }
+
+
 def _sector_fixed_R_rates(
     total,
     *,
@@ -636,6 +766,10 @@ def _worldtube_sample(kernel, state, *, geometry_stage_capture=None) -> dict:
         )
         Ktheta = geom.K / 3.0 - geom.Aa / 2.0
         Ktheta_dot = K_dot / 3.0 - Aa_dot / 2.0
+        ktheta_source_rates = _sector_ktheta_source_rates(
+            total, R=R, alpha=geom.alpha, Ktheta=Ktheta,
+            target=FIXED_AREAL_RADIUS,
+        )
         Rdot_r = np.asarray(
             grid.cell_derivative_fourth(Rdot, parity=-1), dtype=float
         )
@@ -689,6 +823,7 @@ def _worldtube_sample(kernel, state, *, geometry_stage_capture=None) -> dict:
             "tube_chain_rule_gamma_inv_dot": at(gamma_inv_dot),
             "tube_chain_rule_Ktheta": at(Ktheta),
             "tube_chain_rule_Ktheta_dot": at(Ktheta_dot),
+            "tube_ktheta_matter_source_rates": ktheta_source_rates,
             "tube_chain_rule_Aa_dot": at(Aa_dot),
             "tube_chain_rule_K_dot": at(K_dot),
             "tube_chain_rule_chi_dot": at(chain_profiles["chi_dot"]),
@@ -855,6 +990,8 @@ def _fixed_R_rate_snapshot(sample: dict) -> dict:
         snapshot["tube_interpolant_witness_profiles"] = sample["tube_interpolant_witness_profiles"]
     if "tube_sector_rates" in sample:
         snapshot["tube_sector_rates"] = sample["tube_sector_rates"]
+    if "tube_ktheta_matter_source_rates" in sample:
+        snapshot["tube_ktheta_matter_source_rates"] = sample["tube_ktheta_matter_source_rates"]
     return snapshot
 
 

@@ -19,6 +19,7 @@ from tools.audit_em_total_energy_budget import (
     _pair_fixed_R_interval_rows,
     _misner_sharp_chain_rule_rate_profiles,
     _sector_fixed_R_rates,
+    _sector_ktheta_source_rates,
 )
 
 
@@ -589,3 +590,57 @@ def test_sector_fixed_R_rates_marks_absent_electromagnetic_sector():
     assert electromagnetic["present"] is False
     assert electromagnetic["stress_flux"] == 0.0
     assert electromagnetic["radial_pressure_work"] == 0.0
+
+
+def test_sector_ktheta_source_rates_reconstruct_live_geometry_source_and_tangent_term():
+    R = np.array([1.0, 2.0, 3.0])
+    alpha = np.array([0.9, 1.0, 1.1])
+    Ktheta = np.array([-0.02, -0.03, -0.04])
+    scalar_rho = np.array([0.010, 0.012, 0.014])
+    scalar_pr = np.array([0.003, 0.004, 0.005])
+    scalar_pt = np.array([0.002, 0.003, 0.004])
+    fluid_rho = np.array([0.020, 0.021, 0.022])
+    fluid_pr = np.array([0.006, 0.006, 0.006])
+    fluid_pt = np.array([0.002, 0.002, 0.002])
+    em_rho = np.array([0.001, 0.002, 0.003])
+    # Pure radial electric stress: p_r=-rho and p_t=+rho.
+    em_pr = -em_rho
+    em_pt = em_rho
+    total = SimpleNamespace(
+        scalar_rho=scalar_rho, scalar_pr=scalar_pr, scalar_pt=scalar_pt,
+        fluid_rho=fluid_rho, fluid_pr=fluid_pr, fluid_pt=fluid_pt,
+        electromagnetic_rho=em_rho, electromagnetic_pr=em_pr,
+        electromagnetic_pt=em_pt,
+        rho=scalar_rho + fluid_rho + em_rho,
+        pr=scalar_pr + fluid_pr + em_pr,
+        pt=scalar_pt + fluid_pt + em_pt,
+    )
+    target = 2.4
+    observed = _sector_ktheta_source_rates(
+        total, R=R, alpha=alpha, Ktheta=Ktheta, target=target
+    )
+    electromagnetic = observed["sectors"]["electromagnetic"]
+
+    em_ktheta_dot_profile = 4.0 * np.pi * alpha * (
+        em_rho / 3.0 + em_pr
+    )
+    expected_ktheta_dot = interpolate_at_areal_radius(
+        R, em_ktheta_dot_profile, target
+    )
+    expected_mass_dot_contribution = interpolate_at_areal_radius(
+        R, R**3 * Ktheta * em_ktheta_dot_profile, target
+    )
+    assert electromagnetic["ktheta_dot_matter_source_at_R_star"] == pytest.approx(
+        expected_ktheta_dot, rel=2.0e-14, abs=1.0e-16
+    )
+    assert electromagnetic["mass_dot_coordinate_from_ktheta_source_at_R_star"] == pytest.approx(
+        expected_mass_dot_contribution, rel=2.0e-14, abs=1.0e-16
+    )
+    assert electromagnetic["ktheta_dot_matter_source_at_R_star"] < 0.0
+    assert electromagnetic["mass_dot_coordinate_from_ktheta_source_at_R_star"] > 0.0
+
+    for name, residual in observed["additive_residuals"].items():
+        assert abs(residual) <= observed["additive_bounds"][name]
+        assert observed["sum_at_R_star"][name] == pytest.approx(
+            observed["aggregate_at_R_star"][name], rel=2.0e-14, abs=1.0e-15
+        )
