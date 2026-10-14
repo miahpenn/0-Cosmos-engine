@@ -8,6 +8,7 @@ from tools.recompute_fixed_r_balance_artifact import (
     _geometric_radial_einstein_rr_at_cell,
     _summarize_em_stage_exchange,
     recompute_arm,
+    recompute_charged_dust_boundary_witness,
     recompute_em_stage_exchange_campaign,
     recompute_em_stage_exchange_witness,
 )
@@ -281,6 +282,131 @@ def test_independent_em_stage_recomputation_rebuilds_face_charge_and_energy_tang
     assert all(check["bound_ratio"] <= 1.0 for check in result["algebraic_roundoff_checks"].values())
 
 
+
+def test_em_charge_tangent_is_reconstructed_face_by_face_including_outermost_face():
+    result = recompute_em_stage_exchange_witness(_raw_em_stage_record("primary_predictor"))
+    face_terms = np.asarray(
+        result["field_charge_tangent_by_face_unthresholded"], dtype=np.float64
+    )
+    cell_terms = np.asarray(
+        result["field_charge_tangent_cell_terms_unthresholded"], dtype=np.float64
+    )
+    assert face_terms.size == cell_terms.size + 1
+    assert face_terms[-1] == pytest.approx(
+        result["outer_current_power"], rel=0.0, abs=1e-28
+    )
+    assert face_terms[1:-1].sum() == pytest.approx(
+        result["field_charge_tangent_interior_faces_unthresholded"] and
+        sum(result["field_charge_tangent_interior_faces_unthresholded"]),
+        rel=1e-14, abs=1e-28,
+    )
+    assert face_terms.sum() == pytest.approx(
+        result["charge_current_tangent"], rel=1e-14, abs=1e-28
+    )
+    assert cell_terms.sum() == pytest.approx(
+        result["charge_current_tangent"], rel=1e-14, abs=1e-28
+    )
+    assert max(
+        check["bound_ratio"]
+        for check in result["algebraic_roundoff_checks"].values()
+    ) <= 1.0
+    assert result["physical_residual_threshold_applied"] is False
+
+
+def test_same_stage_em_witness_joins_actual_charged_dust_energy_boundary_flux():
+    em_stage = _raw_em_stage_record("primary_predictor")
+    em = recompute_em_stage_exchange_witness(em_stage)
+    raw = em_stage["stage_witness"]
+    rest = np.asarray(raw["rest_mass_flux_faces"], dtype=np.float64)
+    energy = np.array([0.0, 1.0e-4, -2.0e-4, 3.0e-4])
+    boundary_rate = 4.0 * np.pi * float(energy[0] - energy[-1])
+    source_stage = {
+        "stage": em_stage["stage"],
+        "t": em_stage["t"],
+        "resolution": len(raw["centers"]),
+        "species": {
+            "charged_dust": {
+                "face_flux_rest_mass": rest.tolist(),
+                "face_flux_energy": energy.tolist(),
+                "face_flux_radial_momentum": [0.0] * len(rest),
+                "boundary_energy_rate": boundary_rate,
+            }
+        },
+    }
+    witness = recompute_charged_dust_boundary_witness(
+        em, source_stage, {"boundary_energy_rate": boundary_rate}
+    )
+    assert witness["outer_charge_current_from_face_flux"] == pytest.approx(
+        witness["outer_charge_current_used_by_maxwell"], rel=0.0, abs=1e-16
+    )
+    assert witness["charged_dust_boundary_energy_rate_from_faces"] == pytest.approx(
+        -4.0 * np.pi * energy[-1], rel=0.0, abs=1e-18
+    )
+    assert witness["charged_dust_boundary_energy_rate_from_faces"] == pytest.approx(
+        witness["charged_dust_boundary_energy_rate_reported"], rel=0.0, abs=1e-18
+    )
+    # Keep the two boundary conventions separately measured, not assumed equal.
+    assert "em_outer_current_power_unthresholded" in witness
+    assert "outer_energy_flux_rate_stored_convention" in witness
+    assert witness["physical_residual_threshold_applied"] is False
+
+
+def test_same_stage_boundary_join_rejects_rest_flux_or_time_mismatch():
+    em_stage = _raw_em_stage_record("start")
+    em = recompute_em_stage_exchange_witness(em_stage)
+    raw = em_stage["stage_witness"]
+    rest = np.asarray(raw["rest_mass_flux_faces"], dtype=np.float64)
+    energy = np.array([0.0, 0.0, 0.0, 2.0e-4])
+    boundary_rate = 4.0 * np.pi * float(energy[0] - energy[-1])
+    base = {
+        "stage": em_stage["stage"],
+        "t": em_stage["t"],
+        "resolution": len(raw["centers"]),
+        "species": {
+            "charged_dust": {
+                "face_flux_rest_mass": rest.tolist(),
+                "face_flux_energy": energy.tolist(),
+                "face_flux_radial_momentum": [0.0] * len(rest),
+                "boundary_energy_rate": boundary_rate,
+            }
+        },
+    }
+    wrong_flux = copy.deepcopy(base)
+    wrong_flux["species"]["charged_dust"]["face_flux_rest_mass"][2] += 1.0e-5
+    with pytest.raises(RuntimeError, match="same-stage charged-dust / Maxwell rest-mass face flux"):
+        recompute_charged_dust_boundary_witness(em, wrong_flux, {"boundary_energy_rate": boundary_rate})
+    wrong_time = copy.deepcopy(base)
+    wrong_time["t"] += 1.0e-6
+    with pytest.raises(RuntimeError, match="stage times differ"):
+        recompute_charged_dust_boundary_witness(em, wrong_time, {"boundary_energy_rate": boundary_rate})
+
+
+def test_same_stage_boundary_join_rejects_mismatched_outer_energy_flux():
+    em_stage = _raw_em_stage_record("primary_predictor")
+    em = recompute_em_stage_exchange_witness(em_stage)
+    raw = em_stage["stage_witness"]
+    rest = np.asarray(raw["rest_mass_flux_faces"], dtype=np.float64)
+    energy = np.array([0.0, 0.0, 0.0, -1.0e-4])
+    boundary_rate = 4.0 * np.pi * float(energy[0] - energy[-1])
+    source_stage = {
+        "stage": em_stage["stage"],
+        "t": em_stage["t"],
+        "resolution": len(raw["centers"]),
+        "species": {
+            "charged_dust": {
+                "face_flux_rest_mass": rest.tolist(),
+                "face_flux_energy": energy.tolist(),
+                "face_flux_radial_momentum": [0.0] * len(rest),
+                "boundary_energy_rate": boundary_rate + 1.0e-8,
+            }
+        },
+    }
+    with pytest.raises(RuntimeError, match="charged-dust boundary energy rate reconstruction"):
+        recompute_charged_dust_boundary_witness(
+            em, source_stage, {"boundary_energy_rate": boundary_rate + 1.0e-8}
+        )
+
+
 def test_independent_em_stage_recomputation_fails_closed_on_wrong_charge_tangent():
     broken = _raw_em_stage_record()
     broken["stage_witness"]["charge_face_dot"][1] += 1e-4
@@ -305,6 +431,33 @@ def _valid_em_charge_transition():
     )
     i_predictor = np.asarray(predictor["stage_witness"]["charge_current_faces"])
     q_after = q_before - 0.5 * dt * (i_start + i_predictor)
+
+    # Preserve a same-stage finite-volume charged-dust boundary witness next
+    # to the Maxwell face-current witness. These synthetic energy fluxes are
+    # intentionally manufactured; they test identity pairing, not physics.
+    source_stage_rows = []
+    charged_dust_stage_summaries = []
+    for idx, em_stage in enumerate((start, predictor)):
+        em_raw = em_stage["stage_witness"]
+        outer_energy_flux = (0.003 if idx == 0 else -0.002)
+        energy_faces = np.array([0.0, 0.0, 0.0, outer_energy_flux])
+        rest_faces = np.asarray(em_raw["rest_mass_flux_faces"], dtype=np.float64)
+        boundary_rate = 4.0 * np.pi * float(energy_faces[0] - energy_faces[-1])
+        source_stage_rows.append({
+            "stage": em_stage["stage"],
+            "t": em_stage["t"],
+            "resolution": len(em_raw["centers"]),
+            "species": {
+                "charged_dust": {
+                    "face_flux_rest_mass": rest_faces.tolist(),
+                    "face_flux_energy": energy_faces.tolist(),
+                    "face_flux_radial_momentum": np.zeros_like(rest_faces).tolist(),
+                    "boundary_energy_rate": boundary_rate,
+                }
+            },
+        })
+        charged_dust_stage_summaries.append({"boundary_energy_rate": boundary_rate})
+
     step = {
         "dt": dt,
         "t_before": 0.01,
@@ -315,6 +468,10 @@ def _valid_em_charge_transition():
         "em_field_energy_after": 0.0101,
         "em_field_energy_rate_measured": 0.005,
         "em_stage_exchange_witnesses": [start, predictor],
+        "source_stage_rows": source_stage_rows,
+        "matter_species": {
+            "charged_dust": {"stage_terms": charged_dust_stage_summaries}
+        },
     }
     run = {"resolution": 3, "q_over_m": 0.2, "step_rows": [step]}
     return {"runs": [run], "fixed_N_temporal_refinement_runs": [dict(run, cfl=0.0025)]}
@@ -331,6 +488,17 @@ def test_independent_em_recompute_verifies_actual_euler_and_accepted_trapezoid_c
             check["bound_ratio"] <= 1.0
             for check in update["roundoff_checks"].values()
         )
+        witnesses = interval["same_stage_charged_dust_boundary_witnesses"]
+        assert len(witnesses) == 2
+        for witness in witnesses:
+            assert witness["physical_residual_threshold_applied"] is False
+            assert witness["charged_dust_boundary_energy_rate_from_faces"] == pytest.approx(
+                witness["charged_dust_boundary_energy_rate_reported"], abs=1e-18
+            )
+            assert all(
+                check["bound_ratio"] <= 1.0
+                for check in witness["algebraic_roundoff_checks"].values()
+            )
 
 
 def test_independent_em_recompute_rejects_accepted_charge_update_mismatch():
