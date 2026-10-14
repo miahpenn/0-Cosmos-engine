@@ -578,14 +578,56 @@ def _misner_sharp_chain_rule_rate_profiles(
     mass_dot_coordinate = 0.5 * (
         Rdot * (1.0 - chi) - R * chi_dot
     )
+
+    # Independently expose the five terms in the expanded derivative
+    # Mdot = 1/2 Rdot(1-chi) - 1/2 R gamma_inv_dot Rr^2
+    #        - R gamma_inv Rr Rdot_r + R^2 Rdot Ktheta^2
+    #        + R^3 Ktheta Ktheta_dot.
+    # These are algebraic witnesses only: the physical flux/work remainder is
+    # deliberately not thresholded or altered by this reconstruction.
+    term_Rdot = 0.5 * Rdot * (1.0 - chi)
+    term_gamma_inv_dot = -0.5 * R * gamma_inv_dot * Rr**2
+    term_Rdot_r = -R * gamma_inv * Rr * Rdot_r
+    term_Ktheta_geometry = R**2 * Rdot * Ktheta**2
+    term_Ktheta_dot = R**3 * Ktheta * Ktheta_dot
+    term_sum = (
+        term_Rdot
+        + term_gamma_inv_dot
+        + term_Rdot_r
+        + term_Ktheta_geometry
+        + term_Ktheta_dot
+    )
+    term_residual = mass_dot_coordinate - term_sum
+    term_scale = (
+        np.abs(term_Rdot)
+        + np.abs(term_gamma_inv_dot)
+        + np.abs(term_Rdot_r)
+        + np.abs(term_Ktheta_geometry)
+        + np.abs(term_Ktheta_dot)
+        + np.abs(mass_dot_coordinate)
+    )
+    term_bound = 64.0 * np.finfo(np.float64).eps * np.maximum(
+        term_scale, np.finfo(np.float64).tiny
+    )
     outputs = {
         "chi": chi,
         "chi_dot": chi_dot,
         "mass": mass,
         "mass_dot_coordinate": mass_dot_coordinate,
+        "mass_dot_coordinate_term_Rdot": term_Rdot,
+        "mass_dot_coordinate_term_gamma_inv_dot": term_gamma_inv_dot,
+        "mass_dot_coordinate_term_Rdot_r": term_Rdot_r,
+        "mass_dot_coordinate_term_Ktheta_geometry": term_Ktheta_geometry,
+        "mass_dot_coordinate_term_Ktheta_dot": term_Ktheta_dot,
+        "mass_dot_coordinate_term_sum": term_sum,
+        "mass_dot_coordinate_decomposition_residual": term_residual,
     }
     if not all(np.all(np.isfinite(value)) for value in outputs.values()):
         raise RuntimeError("Misner-Sharp chain-rule evaluation produced non-finite output")
+    if np.any(np.abs(term_residual) > term_bound):
+        raise RuntimeError(
+            "Misner-Sharp expanded mass-rate terms failed roundoff reconstruction"
+        )
     return outputs
 
 
@@ -895,12 +937,45 @@ def _worldtube_sample(kernel, state, *, geometry_stage_capture=None) -> dict:
             grid.cell_derivative_fourth(chain_profiles["mass"], parity=-1),
             dtype=float,
         )
+        # Attach the same-stage mass-rate tangent terms to the exact cells used
+        # by the native D_r M identity witness. This keeps the local constraint
+        # operands, mass-gradient residual, and mass-rate decomposition adjacent.
+        chain_term_names = (
+            "mass_dot_coordinate_term_Rdot",
+            "mass_dot_coordinate_term_gamma_inv_dot",
+            "mass_dot_coordinate_term_Rdot_r",
+            "mass_dot_coordinate_term_Ktheta_geometry",
+            "mass_dot_coordinate_term_Ktheta_dot",
+        )
+        for side in ("left_cell", "right_cell"):
+            cell = mass_gradient_witness[side]
+            cell_index = int(cell["index"])
+            cell["mass_dot_coordinate_chain_rule"] = float(
+                chain_profiles["mass_dot_coordinate"][cell_index]
+            )
+            cell["mass_dot_coordinate_terms"] = {
+                name.removeprefix("mass_dot_coordinate_term_"): float(
+                    chain_profiles[name][cell_index]
+                )
+                for name in chain_term_names
+            }
+            cell["mass_dot_coordinate_term_sum"] = float(
+                chain_profiles["mass_dot_coordinate_term_sum"][cell_index]
+            )
+            cell["mass_dot_coordinate_decomposition_residual"] = float(
+                chain_profiles["mass_dot_coordinate_decomposition_residual"][cell_index]
+            )
         chain_Mdot_coord = at(chain_profiles["mass_dot_coordinate"])
         chain_Mr_tube = at(chain_Mr)
         chain_sweep = chain_Mr_tube * tube_speed
         chain_Mdot_fixed_R = chain_Mdot_coord + chain_sweep
         chain_coordinate_residual = chain_Mdot_coord - (stress_flux + pressure_work)
         chain_fixed_R_residual = chain_Mdot_fixed_R - predicted_fixed_R_rate
+        ktheta_matter_source_mass_dot = float(
+            ktheta_source_rates["aggregate_at_R_star"][
+                "mass_dot_coordinate_from_ktheta_source"
+            ]
+        )
 
         # Direct derivative of the same np.interp(R*=10, R, M) observable used
         # for accepted-state mass. Preserve all stage profiles and the exact
@@ -943,6 +1018,34 @@ def _worldtube_sample(kernel, state, *, geometry_stage_capture=None) -> dict:
             "tube_chain_rule_chi_dot": at(chain_profiles["chi_dot"]),
             "tube_chain_rule_chi_dot_absmax": float(np.max(np.abs(chain_profiles["chi_dot"]))),
             "tube_chain_rule_mass_dot_coordinate": chain_Mdot_coord,
+            "tube_chain_rule_mass_dot_term_Rdot": at(
+                chain_profiles["mass_dot_coordinate_term_Rdot"]
+            ),
+            "tube_chain_rule_mass_dot_term_gamma_inv_dot": at(
+                chain_profiles["mass_dot_coordinate_term_gamma_inv_dot"]
+            ),
+            "tube_chain_rule_mass_dot_term_Rdot_r": at(
+                chain_profiles["mass_dot_coordinate_term_Rdot_r"]
+            ),
+            "tube_chain_rule_mass_dot_term_Ktheta_geometry": at(
+                chain_profiles["mass_dot_coordinate_term_Ktheta_geometry"]
+            ),
+            "tube_chain_rule_mass_dot_term_Ktheta_dot": at(
+                chain_profiles["mass_dot_coordinate_term_Ktheta_dot"]
+            ),
+            "tube_chain_rule_mass_dot_coordinate_term_sum": at(
+                chain_profiles["mass_dot_coordinate_term_sum"]
+            ),
+            "tube_chain_rule_mass_dot_coordinate_decomposition_residual": at(
+                chain_profiles["mass_dot_coordinate_decomposition_residual"]
+            ),
+            "tube_chain_rule_mass_dot_term_Ktheta_matter_source": (
+                ktheta_matter_source_mass_dot
+            ),
+            "tube_chain_rule_mass_dot_term_Ktheta_dot_minus_explicit_matter_source": (
+                at(chain_profiles["mass_dot_coordinate_term_Ktheta_dot"])
+                - ktheta_matter_source_mass_dot
+            ),
             "tube_chain_rule_mass_gradient": chain_Mr_tube,
             "tube_chain_rule_fixed_R_sweep": chain_sweep,
             "tube_chain_rule_mass_dot_fixed_R": chain_Mdot_fixed_R,
@@ -1079,6 +1182,15 @@ def _fixed_R_rate_snapshot(sample: dict) -> dict:
         "tube_chain_rule_chi_dot",
         "tube_chain_rule_chi_dot_absmax",
         "tube_chain_rule_mass_dot_coordinate",
+        "tube_chain_rule_mass_dot_term_Rdot",
+        "tube_chain_rule_mass_dot_term_gamma_inv_dot",
+        "tube_chain_rule_mass_dot_term_Rdot_r",
+        "tube_chain_rule_mass_dot_term_Ktheta_geometry",
+        "tube_chain_rule_mass_dot_term_Ktheta_dot",
+        "tube_chain_rule_mass_dot_coordinate_term_sum",
+        "tube_chain_rule_mass_dot_coordinate_decomposition_residual",
+        "tube_chain_rule_mass_dot_term_Ktheta_matter_source",
+        "tube_chain_rule_mass_dot_term_Ktheta_dot_minus_explicit_matter_source",
         "tube_chain_rule_mass_gradient",
         "tube_chain_rule_mass_dot_fixed_R",
         "tube_chain_rule_coordinate_rate_minus_flux_pressure",
@@ -1858,6 +1970,15 @@ def _fixed_R_interval_balance(run: dict, *, label: str = "run") -> list[dict]:
             "tube_chain_rule_K_dot",
             "tube_chain_rule_chi_dot",
             "tube_chain_rule_mass_dot_coordinate",
+            "tube_chain_rule_mass_dot_term_Rdot",
+            "tube_chain_rule_mass_dot_term_gamma_inv_dot",
+            "tube_chain_rule_mass_dot_term_Rdot_r",
+            "tube_chain_rule_mass_dot_term_Ktheta_geometry",
+            "tube_chain_rule_mass_dot_term_Ktheta_dot",
+            "tube_chain_rule_mass_dot_coordinate_term_sum",
+            "tube_chain_rule_mass_dot_coordinate_decomposition_residual",
+            "tube_chain_rule_mass_dot_term_Ktheta_matter_source",
+            "tube_chain_rule_mass_dot_term_Ktheta_dot_minus_explicit_matter_source",
             "tube_chain_rule_mass_dot_fixed_R",
             "tube_chain_rule_coordinate_rate_minus_flux_pressure",
             "tube_chain_rule_fixed_R_residual",
@@ -1937,6 +2058,24 @@ def _pair_fixed_R_interval_rows(charged: list[dict], neutral: list[dict], *, lab
         "primary_predictor_stage_tube_chain_rule_chi_dot",
         "start_stage_tube_chain_rule_mass_dot_coordinate",
         "primary_predictor_stage_tube_chain_rule_mass_dot_coordinate",
+        "start_stage_tube_chain_rule_mass_dot_term_Rdot",
+        "primary_predictor_stage_tube_chain_rule_mass_dot_term_Rdot",
+        "start_stage_tube_chain_rule_mass_dot_term_gamma_inv_dot",
+        "primary_predictor_stage_tube_chain_rule_mass_dot_term_gamma_inv_dot",
+        "start_stage_tube_chain_rule_mass_dot_term_Rdot_r",
+        "primary_predictor_stage_tube_chain_rule_mass_dot_term_Rdot_r",
+        "start_stage_tube_chain_rule_mass_dot_term_Ktheta_geometry",
+        "primary_predictor_stage_tube_chain_rule_mass_dot_term_Ktheta_geometry",
+        "start_stage_tube_chain_rule_mass_dot_term_Ktheta_dot",
+        "primary_predictor_stage_tube_chain_rule_mass_dot_term_Ktheta_dot",
+        "start_stage_tube_chain_rule_mass_dot_coordinate_term_sum",
+        "primary_predictor_stage_tube_chain_rule_mass_dot_coordinate_term_sum",
+        "start_stage_tube_chain_rule_mass_dot_coordinate_decomposition_residual",
+        "primary_predictor_stage_tube_chain_rule_mass_dot_coordinate_decomposition_residual",
+        "start_stage_tube_chain_rule_mass_dot_term_Ktheta_matter_source",
+        "primary_predictor_stage_tube_chain_rule_mass_dot_term_Ktheta_matter_source",
+        "start_stage_tube_chain_rule_mass_dot_term_Ktheta_dot_minus_explicit_matter_source",
+        "primary_predictor_stage_tube_chain_rule_mass_dot_term_Ktheta_dot_minus_explicit_matter_source",
         "start_stage_tube_chain_rule_mass_dot_fixed_R",
         "primary_predictor_stage_tube_chain_rule_mass_dot_fixed_R",
         "start_stage_tube_chain_rule_coordinate_rate_minus_flux_pressure",

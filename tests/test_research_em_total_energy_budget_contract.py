@@ -503,6 +503,46 @@ def test_misner_sharp_semidiscrete_chain_rule_matches_directional_difference():
     )
 
 
+def test_misner_sharp_expanded_mass_rate_terms_reconstruct_at_roundoff():
+    inputs = _manufactured_misner_sharp_chain_rule_inputs()
+    observed = _misner_sharp_chain_rule_rate_profiles(**inputs)
+    R = inputs["R"]
+    Rdot = inputs["Rdot"]
+    Rr = inputs["Rr"]
+    gamma_inv = inputs["gamma_inv"]
+    gamma_inv_dot = inputs["gamma_inv_dot"]
+    Ktheta = inputs["Ktheta"]
+    Ktheta_dot = inputs["Ktheta_dot"]
+    chi = gamma_inv * Rr**2 - (R * Ktheta)**2
+
+    expected_terms = {
+        "mass_dot_coordinate_term_Rdot": 0.5 * Rdot * (1.0 - chi),
+        "mass_dot_coordinate_term_gamma_inv_dot": -0.5 * R * gamma_inv_dot * Rr**2,
+        "mass_dot_coordinate_term_Rdot_r": -R * gamma_inv * Rr * inputs["Rdot_r"],
+        "mass_dot_coordinate_term_Ktheta_geometry": R**2 * Rdot * Ktheta**2,
+        "mass_dot_coordinate_term_Ktheta_dot": R**3 * Ktheta * Ktheta_dot,
+    }
+    for name, expected in expected_terms.items():
+        np.testing.assert_allclose(observed[name], expected, rtol=2.0e-15, atol=1.0e-18)
+
+    term_sum = sum(expected_terms.values())
+    np.testing.assert_allclose(
+        observed["mass_dot_coordinate_term_sum"], term_sum, rtol=2.0e-15, atol=1.0e-18
+    )
+    residual = observed["mass_dot_coordinate"] - term_sum
+    scale = sum(np.abs(value) for value in expected_terms.values()) + np.abs(
+        observed["mass_dot_coordinate"]
+    )
+    bound = 64.0 * np.finfo(np.float64).eps * np.maximum(
+        scale, np.finfo(np.float64).tiny
+    )
+    assert np.all(np.abs(residual) <= bound)
+    np.testing.assert_allclose(
+        observed["mass_dot_coordinate_decomposition_residual"], residual,
+        rtol=0.0, atol=0.0,
+    )
+
+
 def test_misner_sharp_semidiscrete_chain_rule_fails_closed_on_shape_mismatch():
     inputs = _manufactured_misner_sharp_chain_rule_inputs()
     inputs["Rdot_r"] = np.array([0.0, 1.0])
