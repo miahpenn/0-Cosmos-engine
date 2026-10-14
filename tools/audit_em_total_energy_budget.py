@@ -1470,19 +1470,72 @@ def _fixed_target_interpolant_rate(
     piecewise_gradient = float((arrays["mass"][right] - arrays["mass"][left]) / span)
     fixed_R_sweep = -interp_Rdot * piecewise_gradient
     fixed_R_rate = interp_mass_dot + fixed_R_sweep
+
+    # Differentiate the moving interpolation weight directly:
+    # w_dot = -[(1-w) Rdot_i + w Rdot_{i+1}] / (R_{i+1}-R_i).
+    # Then dM*/dt = (1-w) Mdot_i + w Mdot_{i+1}
+    #               + w_dot (M_{i+1}-M_i).
+    bracket_span = span
+    left_R, right_R = float(first[left]), float(first[right])
+    left_Rdot, right_Rdot = float(arrays["Rdot"][left]), float(arrays["Rdot"][right])
+    left_mass, right_mass = float(arrays["mass"][left]), float(arrays["mass"][right])
+    left_mass_dot = float(arrays["mass_dot_coordinate"][left])
+    right_mass_dot = float(arrays["mass_dot_coordinate"][right])
+    weight_dot = -interp_Rdot / bracket_span
+    moving_weight_tangent_term = weight_dot * (right_mass - left_mass)
+    mass_dot_fixed_R_from_weight_derivative = (
+        (1.0 - theta) * left_mass_dot + theta * right_mass_dot
+        + moving_weight_tangent_term
+    )
+    weight_formula_residual = mass_dot_fixed_R_from_weight_derivative - fixed_R_rate
+    weight_formula_scale = (
+        abs(mass_dot_fixed_R_from_weight_derivative)
+        + abs(fixed_R_rate)
+        + abs((1.0 - theta) * left_mass_dot)
+        + abs(theta * right_mass_dot)
+        + abs(moving_weight_tangent_term)
+    )
+    weight_formula_roundoff_bound = (
+        128.0 * np.finfo(np.float64).eps
+        * max(weight_formula_scale, float(np.finfo(np.float64).tiny))
+    )
     scalars = (
         interp_mass, interp_Rdot, interp_mass_dot, piecewise_gradient,
-        fixed_R_sweep, fixed_R_rate, theta,
+        fixed_R_sweep, fixed_R_rate, theta, bracket_span, weight_dot,
+        moving_weight_tangent_term, mass_dot_fixed_R_from_weight_derivative,
+        weight_formula_residual, weight_formula_roundoff_bound,
+        left_R, right_R, left_Rdot, right_Rdot, left_mass, right_mass,
+        left_mass_dot, right_mass_dot,
     )
     if not all(math.isfinite(value) for value in scalars):
         raise RuntimeError("fixed-R interpolant rate produced a non-finite result")
+    if abs(weight_formula_residual) > weight_formula_roundoff_bound:
+        raise RuntimeError(
+            "moving-interpolant weight derivative does not reconstruct fixed-R rate: "
+            f"residual={weight_formula_residual:.17g}, "
+            f"bound={weight_formula_roundoff_bound:.17g}"
+        )
     return {
         "left_index": left,
         "right_index": right,
         "theta": theta,
+        "bracket_span": bracket_span,
+        "left_R": left_R,
+        "right_R": right_R,
+        "left_Rdot": left_Rdot,
+        "right_Rdot": right_Rdot,
+        "left_mass": left_mass,
+        "right_mass": right_mass,
+        "left_mass_dot_coordinate": left_mass_dot,
+        "right_mass_dot_coordinate": right_mass_dot,
         "interpolated_mass": interp_mass,
         "interpolated_Rdot": interp_Rdot,
         "interpolated_mass_dot_coordinate": interp_mass_dot,
+        "interpolation_weight_dot": weight_dot,
+        "moving_weight_mass_tangent_term": moving_weight_tangent_term,
+        "mass_dot_fixed_R_from_weight_derivative": mass_dot_fixed_R_from_weight_derivative,
+        "weight_derivative_reconstruction_residual": weight_formula_residual,
+        "weight_derivative_reconstruction_roundoff_bound": weight_formula_roundoff_bound,
         "piecewise_linear_mass_gradient": piecewise_gradient,
         "fixed_R_sweep": fixed_R_sweep,
         "mass_dot_fixed_R": fixed_R_rate,
@@ -2817,6 +2870,21 @@ def _accepted_pirk_update_tangent(step: dict, stage_rates: dict) -> dict:
         "accepted_secant_minus_update_tangent": float(
             accepted_secant - float(direct["mass_dot_fixed_R"])
         ),
+        "moving_interpolant_tangent": {
+            key: direct[key] for key in (
+                "left_index", "right_index", "theta", "bracket_span",
+                "left_R", "right_R", "left_Rdot", "right_Rdot",
+                "left_mass", "right_mass",
+                "left_mass_dot_coordinate", "right_mass_dot_coordinate",
+                "interpolated_mass", "interpolated_Rdot",
+                "interpolated_mass_dot_coordinate",
+                "interpolation_weight_dot", "moving_weight_mass_tangent_term",
+                "mass_dot_fixed_R_from_weight_derivative",
+                "weight_derivative_reconstruction_residual",
+                "weight_derivative_reconstruction_roundoff_bound",
+                "piecewise_linear_mass_gradient", "fixed_R_sweep", "mass_dot_fixed_R",
+            )
+        },
         "R_star": {
             "mass_dot_coordinate_terms": tangent_terms_at_R_star,
             "mass_dot_coordinate_from_terms": float(tangent_coordinate_rate_from_terms),
