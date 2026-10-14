@@ -311,7 +311,7 @@ def run_machine(
             "local_equation_module": "engine/local.py",
             "cosmos_equation_module": "engine/cosmos.py",
             "machine_module": "research/gear_archive_machine_v1.py",
-            "note": "The archived DOCX baseline is preserved; this runner composes the current source-mapped sector RHS modules and does not alter them.",
+            "note": "The archived DOCX baseline is preserved. archive_docx local RHS is transcribed here; COSMOS uses corrected engine.cosmos, and current_source is an explicit comparison mode.",
         },
     }
 
