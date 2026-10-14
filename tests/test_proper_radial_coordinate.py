@@ -22,12 +22,12 @@ def test_flat_slice_proper_radial_coordinate_matches_cell_centres():
 
 
 def test_proper_radial_coordinate_uses_current_bssn_radial_metric():
-    """For constant X=2 and a=1, sqrt(gamma_rr)=X/sqrt(a)=2."""
+    """For constant a=4 and X=1, sqrt(gamma_rr)=sqrt(a)/abs(X)=2."""
     grid_ops, _, _ = adapter.vendor_modules()
     grid = grid_ops.SphericalCellGrid(40, 40.0)
     geometry = SimpleNamespace(
-        a=np.ones(grid.n, dtype=float),
-        X=np.full(grid.n, 2.0, dtype=float),
+        a=np.full(grid.n, 4.0, dtype=float),
+        X=np.ones(grid.n, dtype=float),
     )
 
     ell = proper_radial_coordinate(grid, geometry)
