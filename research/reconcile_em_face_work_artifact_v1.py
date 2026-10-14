@@ -417,6 +417,11 @@ def _face_current_projection_decomposition(
         "weighted_projection_gap_signed_sum": math.fsum(float(v) for v in weighted_projection_gap),
         "weighted_projection_gap_l1": math.fsum(abs(float(v)) for v in weighted_projection_gap),
         "gap_identity_max_bound_ratio": float(np.max(gap_identity_ratios)),
+        "gap_identity_signed_residual": (
+            math.fsum(float(v) for v in weighted_projection_gap)
+            - math.fsum(float(v) for v in source_pairing)
+        ),
+        "gap_identity_roundoff_bound_sum": math.fsum(float(v) for v in gap_identity_bounds),
         "weighted_projection_gap_max_abs": float(np.max(np.abs(weighted_projection_gap))),
         "current_projection_gap_max_abs": float(np.max(np.abs(projection_gap))),
         "current_projection_gap_max_abs_over_max_face_current": (
