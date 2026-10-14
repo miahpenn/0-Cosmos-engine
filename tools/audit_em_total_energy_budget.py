@@ -287,18 +287,23 @@ def _stress_projection(kernel, state):
 
 
 
-def _sector_ktheta_source_rates(total, *, R, alpha, Ktheta, target: float) -> dict:
-    """Expose the direct sector-sourced Ktheta term in the live Misner-Sharp tangent.
+def _sector_ktheta_source_rates(
+    total, *, R, alpha, Ktheta, Rdot, target: float,
+    live_primary_l3=None, vacuum_primary_l3=None,
+) -> dict:
+    """Audit live L3 matter sources and the signed fixed-R work identity.
 
-    The production L3 source blocks are K_dot += 4*pi*alpha*(rho+pr+2*pt)
-    and Aa_dot += -(16*pi/3)*alpha*(pr-pt), with Ktheta=K/3-Aa/2.
-    Thus this helper records the explicit matter-source insertion in Ktheta_dot
-    and its algebraic contribution R**3*Ktheta*Ktheta_dot to Mdot|r. This is
-    a diagnostic decomposition, not a complete causal split of the mass rate:
-    the other geometry RHS terms, CMC lapse response, constraints, and discrete
-    radial operators remain in the full live-stage tangent.
+    Report both interpolate-after-product and multiply-interpolated-factors
+    conventions; these discrete operators need not agree. For zero shift,
+    Rdot = -alpha*R*Ktheta and Ktheta_dot|matter = 4*pi*alpha*(rho/3+pr).
+    With S=R**3*Ktheta*Ktheta_dot|matter, W=-4*pi*R**2*pr*Rdot,
+    and D=(4*pi/3)*R**2*rho*Rdot, the consistent identity is
+    S - W + D = 4*pi*R**2*(Rdot+alpha*R*Ktheta)*(rho/3+pr).
+
+    This validates a source insertion, not a causal split of the complete
+    Misner-Sharp tangent or a global energy-conservation law.
     """
-    raw = {"R": R, "alpha": alpha, "Ktheta": Ktheta}
+    raw = {"R": R, "alpha": alpha, "Ktheta": Ktheta, "Rdot": Rdot}
     arrays = {name: np.asarray(value, dtype=float) for name, value in raw.items()}
     radii = arrays["R"]
     if radii.ndim != 1 or radii.size < 2:
@@ -312,6 +317,9 @@ def _sector_ktheta_source_rates(total, *, R, alpha, Ktheta, target: float) -> di
             raise RuntimeError(f"Ktheta source audit {name} contains non-finite values")
     if not np.all(np.diff(radii) > 0.0):
         raise RuntimeError("Ktheta source audit R must be strictly increasing")
+    target = float(target)
+    if not math.isfinite(target) or target < radii[0] or target > radii[-1]:
+        raise RuntimeError("Ktheta source audit target must be finite and inside the R domain")
 
     def _profile(name, value):
         out = np.asarray(value, dtype=float)
@@ -319,77 +327,92 @@ def _sector_ktheta_source_rates(total, *, R, alpha, Ktheta, target: float) -> di
             raise RuntimeError(f"Ktheta source audit {name} must be finite and match R")
         return out
 
-    alpha_values = arrays["alpha"]
-    Ktheta_values = arrays["Ktheta"]
+    at = lambda profile: interpolate_at_areal_radius(radii, profile, target)
+    alpha_values, Ktheta_values, Rdot_values = (
+        arrays["alpha"], arrays["Ktheta"], arrays["Rdot"]
+    )
+    alpha_t, Ktheta_t, Rdot_t = at(alpha_values), at(Ktheta_values), at(Rdot_values)
+    closure = Rdot_values + alpha_values * radii * Ktheta_values
+    closure_t = at(closure)
+
     sector_rows = {}
     for label in ("scalar", "fluid", "electromagnetic"):
-        values = {
+        raw_sector = {
             name: getattr(total, f"{label}_{name}", None)
             for name in ("rho", "pr", "pt")
         }
-        if all(value is None for value in values.values()):
+        if all(value is None for value in raw_sector.values()):
             present = False
-            pieces = {name: np.zeros_like(radii) for name in values}
-        elif any(value is None for value in values.values()):
+            sector = {name: np.zeros_like(radii) for name in raw_sector}
+        elif any(value is None for value in raw_sector.values()):
             raise RuntimeError(f"Ktheta source audit sector {label} has incomplete rho/pr/pt")
         else:
             present = True
-            pieces = {
+            sector = {
                 name: _profile(f"{label}_{name}", value)
-                for name, value in values.items()
+                for name, value in raw_sector.items()
             }
 
-        k_dot = FOUR_PI * alpha_values * (
-            pieces["rho"] + pieces["pr"] + 2.0 * pieces["pt"]
-        )
-        aa_dot = -(16.0 * math.pi / 3.0) * alpha_values * (
-            pieces["pr"] - pieces["pt"]
-        )
-        ktheta_dot = k_dot / 3.0 - aa_dot / 2.0
-        mass_dot_from_ktheta = radii**3 * Ktheta_values * ktheta_dot
+        rho, pr, pt = sector["rho"], sector["pr"], sector["pt"]
+        k_dot = FOUR_PI * alpha_values * (rho + pr + 2.0 * pt)
+        aa_dot = -(16.0 * math.pi / 3.0) * alpha_values * (pr - pt)
+        kt_dot = k_dot / 3.0 - aa_dot / 2.0
+        source_profile = radii**3 * Ktheta_values * kt_dot
+        work_profile = -FOUR_PI * radii**2 * pr * Rdot_values
+        density_profile = (FOUR_PI / 3.0) * radii**2 * Rdot_values * rho
+        identity_profile = source_profile - work_profile + density_profile
+        identity_rhs_profile = FOUR_PI * radii**2 * closure * (rho / 3.0 + pr)
+
+        rho_t, pr_t, pt_t = at(rho), at(pr), at(pt)
+        factorized_kt_dot = FOUR_PI * alpha_t * (rho_t / 3.0 + pr_t)
+        factorized_source = target**3 * Ktheta_t * factorized_kt_dot
+        factorized_work = -FOUR_PI * target**2 * pr_t * Rdot_t
+        factorized_density = (FOUR_PI / 3.0) * target**2 * Rdot_t * rho_t
+        factorized_identity = factorized_source - factorized_work + factorized_density
+        factorized_identity_rhs = FOUR_PI * target**2 * closure_t * (rho_t / 3.0 + pr_t)
         profiles = {
-            "rho": pieces["rho"],
-            "pr": pieces["pr"],
-            "pt": pieces["pt"],
+            "rho": rho, "pr": pr, "pt": pt,
             "k_dot_matter_source": k_dot,
             "aa_dot_matter_source": aa_dot,
-            "ktheta_dot_matter_source": ktheta_dot,
-            "mass_dot_coordinate_from_ktheta_source": mass_dot_from_ktheta,
+            "ktheta_dot_matter_source": kt_dot,
+            "mass_dot_coordinate_from_ktheta_source": source_profile,
+            "radial_pressure_work_composite": work_profile,
+            "density_correction_composite": density_profile,
+            "source_work_density_identity_residual_composite": identity_profile,
+            "source_work_density_identity_kinematic_rhs_composite": identity_rhs_profile,
+            "source_work_density_identity_algebra_residual_composite": (
+                identity_profile - identity_rhs_profile
+            ),
         }
         sector_rows[label] = {
             "present": bool(present),
-            **{
-                f"{name}_at_R_star": interpolate_at_areal_radius(radii, values, target)
-                for name, values in profiles.items()
-            },
+            **{f"{name}_at_R_star": at(values) for name, values in profiles.items()},
+            "mass_dot_coordinate_from_ktheta_source_factorized_at_R_star": float(factorized_source),
+            "radial_pressure_work_factorized_at_R_star": float(factorized_work),
+            "density_correction_factorized_at_R_star": float(factorized_density),
+            "source_work_density_identity_residual_factorized_at_R_star": float(factorized_identity),
+            "source_work_density_identity_kinematic_rhs_factorized_at_R_star": float(factorized_identity_rhs),
+            "source_work_density_identity_algebra_residual_factorized_at_R_star": float(
+                factorized_identity - factorized_identity_rhs
+            ),
         }
 
     total_profiles = {
         name: _profile(f"total_{name}", getattr(total, name))
         for name in ("rho", "pr", "pt")
     }
-    aggregate_k_dot = FOUR_PI * alpha_values * (
-        total_profiles["rho"] + total_profiles["pr"] + 2.0 * total_profiles["pt"]
-    )
-    aggregate_aa_dot = -(16.0 * math.pi / 3.0) * alpha_values * (
-        total_profiles["pr"] - total_profiles["pt"]
-    )
-    aggregate_ktheta_dot = aggregate_k_dot / 3.0 - aggregate_aa_dot / 2.0
+    rho, pr, pt = total_profiles["rho"], total_profiles["pr"], total_profiles["pt"]
+    total_k_dot = FOUR_PI * alpha_values * (rho + pr + 2.0 * pt)
+    total_aa_dot = -(16.0 * math.pi / 3.0) * alpha_values * (pr - pt)
+    total_kt_dot = total_k_dot / 3.0 - total_aa_dot / 2.0
     aggregate_profiles = {
-        "k_dot_matter_source": aggregate_k_dot,
-        "aa_dot_matter_source": aggregate_aa_dot,
-        "ktheta_dot_matter_source": aggregate_ktheta_dot,
-        "mass_dot_coordinate_from_ktheta_source": (
-            radii**3 * Ktheta_values * aggregate_ktheta_dot
-        ),
+        "k_dot_matter_source": total_k_dot,
+        "aa_dot_matter_source": total_aa_dot,
+        "ktheta_dot_matter_source": total_kt_dot,
+        "mass_dot_coordinate_from_ktheta_source": radii**3 * Ktheta_values * total_kt_dot,
     }
-    aggregate_at = {
-        name: interpolate_at_areal_radius(radii, values, target)
-        for name, values in aggregate_profiles.items()
-    }
-    additive_residuals = {}
-    additive_bounds = {}
-    sums = {}
+    aggregate_at = {name: at(values) for name, values in aggregate_profiles.items()}
+    sums, additive_residuals, additive_bounds = {}, {}, {}
     for name in aggregate_profiles:
         value = sum(row[f"{name}_at_R_star"] for row in sector_rows.values())
         residual = value - aggregate_at[name]
@@ -404,9 +427,51 @@ def _sector_ktheta_source_rates(total, *, R, alpha, Ktheta, target: float) -> di
                 f"Ktheta source audit failed additive {name}: "
                 f"residual={residual:.17g} (bound {bound:.17g})"
             )
-        sums[name] = float(value)
-        additive_residuals[name] = float(residual)
-        additive_bounds[name] = float(bound)
+        sums[name], additive_residuals[name], additive_bounds[name] = (
+            float(value), float(residual), float(bound)
+        )
+
+    live_validation = {}
+    if (live_primary_l3 is None) != (vacuum_primary_l3 is None):
+        raise RuntimeError("Ktheta source audit requires both live and vacuum L3 RHS for source validation")
+    if live_primary_l3 is not None:
+        for field, expected in (("K", total_k_dot), ("Aa", total_aa_dot)):
+            try:
+                live = _profile(f"live_primary_l3_{field}", live_primary_l3[field])
+                vacuum = _profile(f"vacuum_primary_l3_{field}", vacuum_primary_l3[field])
+            except (KeyError, TypeError) as exc:
+                raise RuntimeError(f"Ktheta source audit missing captured L3 field {field}") from exc
+            observed = live - vacuum
+            residual = observed - expected
+            bound = 64.0 * np.finfo(np.float64).eps * np.maximum(
+                np.abs(live) + np.abs(vacuum) + np.abs(expected),
+                float(np.finfo(np.float64).tiny),
+            )
+            ratio_max = float(np.max(np.abs(residual) / bound))
+            if not math.isfinite(ratio_max) or ratio_max > 1.0:
+                raise RuntimeError(
+                    f"live L3 {field} matter source mismatch: max bound ratio={ratio_max:.17g}"
+                )
+            live_validation[field] = {
+                "live_minus_vacuum_at_R_star": float(at(observed)),
+                "reconstructed_matter_source_at_R_star": float(at(expected)),
+                "residual_at_R_star": float(at(residual)),
+                "bound_at_R_star": float(at(bound)),
+                "residual_absmax": float(np.max(np.abs(residual))),
+                "bound_ratio_max": ratio_max,
+            }
+
+    total_work = -FOUR_PI * radii**2 * pr * Rdot_values
+    total_density = (FOUR_PI / 3.0) * radii**2 * Rdot_values * rho
+    total_identity = radii**3 * Ktheta_values * total_kt_dot - total_work + total_density
+    total_identity_rhs = FOUR_PI * radii**2 * closure * (rho / 3.0 + pr)
+    rho_t, pr_t, pt_t = at(rho), at(pr), at(pt)
+    factorized_kt_dot = FOUR_PI * alpha_t * (rho_t / 3.0 + pr_t)
+    factorized_source = target**3 * Ktheta_t * factorized_kt_dot
+    factorized_work = -FOUR_PI * target**2 * pr_t * Rdot_t
+    factorized_density = (FOUR_PI / 3.0) * target**2 * Rdot_t * rho_t
+    factorized_identity = factorized_source - factorized_work + factorized_density
+    factorized_identity_rhs = FOUR_PI * target**2 * closure_t * (rho_t / 3.0 + pr_t)
 
     return {
         "sectors": sector_rows,
@@ -414,8 +479,24 @@ def _sector_ktheta_source_rates(total, *, R, alpha, Ktheta, target: float) -> di
         "aggregate_at_R_star": aggregate_at,
         "additive_residuals": additive_residuals,
         "additive_bounds": additive_bounds,
+        "kinematic_closure_Rdot_plus_alpha_R_Ktheta_at_R_star": float(closure_t),
+        "kinematic_closure_absmax": float(np.max(np.abs(closure))),
+        "total_mass_source_composite_at_R_star": float(at(aggregate_profiles["mass_dot_coordinate_from_ktheta_source"])),
+        "total_mass_source_factorized_at_R_star": float(factorized_source),
+        "total_radial_pressure_work_composite_at_R_star": float(at(total_work)),
+        "total_radial_pressure_work_factorized_at_R_star": float(factorized_work),
+        "total_density_correction_composite_at_R_star": float(at(total_density)),
+        "total_density_correction_factorized_at_R_star": float(factorized_density),
+        "total_source_work_density_identity_residual_composite_at_R_star": float(at(total_identity)),
+        "total_source_work_density_identity_kinematic_rhs_composite_at_R_star": float(at(total_identity_rhs)),
+        "total_source_work_density_identity_algebra_residual_composite_at_R_star": float(at(total_identity - total_identity_rhs)),
+        "total_source_work_density_identity_residual_factorized_at_R_star": float(factorized_identity),
+        "total_source_work_density_identity_kinematic_rhs_factorized_at_R_star": float(factorized_identity_rhs),
+        "total_source_work_density_identity_algebra_residual_factorized_at_R_star": float(
+            factorized_identity - factorized_identity_rhs
+        ),
+        "live_l3_source_validation": live_validation,
     }
-
 
 def _sector_fixed_R_rates(
     total,
@@ -922,9 +1003,12 @@ def _worldtube_sample(kernel, state, *, geometry_stage_capture=None) -> dict:
         )
         Ktheta = geom.K / 3.0 - geom.Aa / 2.0
         Ktheta_dot = K_dot / 3.0 - Aa_dot / 2.0
+        vacuum_primary_l3 = vacuum.primary_l3_rhs(grid, geom)
         ktheta_source_rates = _sector_ktheta_source_rates(
-            total, R=R, alpha=geom.alpha, Ktheta=Ktheta,
+            total, R=R, alpha=geom.alpha, Ktheta=Ktheta, Rdot=Rdot,
             target=FIXED_AREAL_RADIUS,
+            live_primary_l3=split["primary_l3"],
+            vacuum_primary_l3=vacuum_primary_l3,
         )
         Rdot_r = np.asarray(
             grid.cell_derivative_fourth(Rdot, parity=-1), dtype=float
@@ -2380,6 +2464,8 @@ def write_step_summary(report: dict) -> None:
     lines.extend([
         "",
         "The fixed-N sweep retains adjacent accepted-state interval secants, endpoint-rate trapezoids, actual start/predictor-stage rates, the pointwise chain-rule rate, and the derivative of the direct fixed-R piecewise-linear interpolant as separate witnesses. This does not identify a missing physics term or establish a global conserved energy.",
+        "The live primary-L3 K and Aa matter-source increments are checked against independently reconstructed sector stress sources at a 64-epsilon operand-scaled bound.",
+        "The Ktheta-source, radial-pressure-work, and density-correction identity is reported under both interpolate-after-product and multiply-interpolated-factors conventions. These discrete operators can differ; only like-for-like identity residuals and the Rdot + alpha*R*Ktheta closure are interpreted together.",
         "",
         "The full signed matter face-flux/source profiles and EM stage terms are in the uploaded JSON artifact. A nonzero fixed-tube remainder is reported as measured, not fitted away. The combined matter-plus-EM remainder is not a global conservation residual because scalar and gravity accounting are not fully assembled.",
         "",

@@ -675,8 +675,24 @@ def test_sector_ktheta_source_rates_reconstruct_live_geometry_source_and_tangent
         pt=scalar_pt + fluid_pt + em_pt,
     )
     target = 2.4
+    Rdot = -alpha * R * Ktheta
+    total_k_dot = 4.0 * np.pi * alpha * (
+        total.rho + total.pr + 2.0 * total.pt
+    )
+    total_aa_dot = -(16.0 * np.pi / 3.0) * alpha * (
+        total.pr - total.pt
+    )
+    vacuum_l3 = {
+        "K": np.array([1.0e3, -2.0e3, 3.0e3]),
+        "Aa": np.array([-1.0e3, 2.0e3, -3.0e3]),
+    }
+    live_l3 = {
+        "K": vacuum_l3["K"] + total_k_dot,
+        "Aa": vacuum_l3["Aa"] + total_aa_dot,
+    }
     observed = _sector_ktheta_source_rates(
-        total, R=R, alpha=alpha, Ktheta=Ktheta, target=target
+        total, R=R, alpha=alpha, Ktheta=Ktheta, Rdot=Rdot, target=target,
+        live_primary_l3=live_l3, vacuum_primary_l3=vacuum_l3,
     )
     electromagnetic = observed["sectors"]["electromagnetic"]
 
@@ -698,10 +714,67 @@ def test_sector_ktheta_source_rates_reconstruct_live_geometry_source_and_tangent
     assert electromagnetic["ktheta_dot_matter_source_at_R_star"] < 0.0
     assert electromagnetic["mass_dot_coordinate_from_ktheta_source_at_R_star"] > 0.0
 
+    assert electromagnetic["mass_dot_coordinate_from_ktheta_source_at_R_star"] == pytest.approx(
+        expected_mass_dot_contribution, rel=2.0e-14, abs=1.0e-16
+    )
+    Ktheta_t = np.interp(target, R, Ktheta)
+    alpha_t = np.interp(target, R, alpha)
+    rho_t = np.interp(target, R, em_rho)
+    pr_t = np.interp(target, R, em_pr)
+    expected_factorized_source = target**3 * Ktheta_t * (
+        4.0 * np.pi * alpha_t * (rho_t / 3.0 + pr_t)
+    )
+    assert electromagnetic[
+        "mass_dot_coordinate_from_ktheta_source_factorized_at_R_star"
+    ] == pytest.approx(expected_factorized_source, rel=2.0e-14, abs=1.0e-16)
+    expected_work_factorized = (
+        -4.0 * np.pi * target**2 * pr_t * np.interp(target, R, Rdot)
+    )
+    expected_density_factorized = (
+        4.0 * np.pi / 3.0 * target**2 * np.interp(target, R, Rdot) * rho_t
+    )
+    assert electromagnetic["radial_pressure_work_factorized_at_R_star"] == pytest.approx(
+        expected_work_factorized, rel=2.0e-14, abs=1.0e-16
+    )
+    assert electromagnetic["density_correction_factorized_at_R_star"] == pytest.approx(
+        expected_density_factorized, rel=2.0e-14, abs=1.0e-16
+    )
+    assert electromagnetic[
+        "source_work_density_identity_residual_factorized_at_R_star"
+    ] == pytest.approx(
+        electromagnetic["source_work_density_identity_kinematic_rhs_factorized_at_R_star"],
+        rel=2.0e-13, abs=1.0e-14,
+    )
+    assert abs(
+        electromagnetic["source_work_density_identity_algebra_residual_factorized_at_R_star"]
+    ) <= 1.0e-13
+    assert abs(
+        observed["total_source_work_density_identity_residual_composite_at_R_star"]
+    ) <= 1.0e-13
+    assert observed["total_source_work_density_identity_residual_factorized_at_R_star"] == pytest.approx(
+        observed["total_source_work_density_identity_kinematic_rhs_factorized_at_R_star"],
+        rel=2.0e-13, abs=1.0e-13,
+    )
+    assert abs(
+        observed["total_source_work_density_identity_algebra_residual_factorized_at_R_star"]
+    ) <= 1.0e-13
+    assert observed["kinematic_closure_absmax"] <= 1.0e-16
+    assert observed["live_l3_source_validation"]["K"]["bound_ratio_max"] <= 1.0
+    assert observed["live_l3_source_validation"]["Aa"]["bound_ratio_max"] <= 1.0
+
     for name, residual in observed["additive_residuals"].items():
         assert abs(residual) <= observed["additive_bounds"][name]
         assert observed["sum_at_R_star"][name] == pytest.approx(
             observed["aggregate_at_R_star"][name], rel=2.0e-14, abs=1.0e-15
+        )
+
+    bad_live_l3 = dict(live_l3)
+    bad_live_l3["K"] = live_l3["K"].copy()
+    bad_live_l3["K"][1] += 1.0e-6
+    with pytest.raises(RuntimeError, match="live L3 K matter source mismatch"):
+        _sector_ktheta_source_rates(
+            total, R=R, alpha=alpha, Ktheta=Ktheta, Rdot=Rdot, target=target,
+            live_primary_l3=bad_live_l3, vacuum_primary_l3=vacuum_l3,
         )
 
 
