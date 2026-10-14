@@ -6,6 +6,7 @@ import pytest
 
 from tools.recompute_fixed_r_balance_artifact import (
     recompute_arm,
+    recompute_em_stage_exchange_campaign,
     recompute_em_stage_exchange_witness,
 )
 
@@ -150,12 +151,18 @@ def test_independent_fixed_r_reconstruction_fails_on_rhs_stage_mismatch():
 
 
 
-def _raw_em_stage_record():
+def _raw_em_stage_record(stage_name="start", charge_faces=None, rest_flux=None):
     centers = np.array([0.5, 1.5, 2.5], dtype=np.float64)
     dr = 1.0
     eta = 0.2
-    charge_faces = np.array([0.0, 0.08, 0.19, 0.27], dtype=np.float64)
-    rest_flux = np.array([0.0, 0.01, -0.02, 0.03], dtype=np.float64)
+    charge_faces = np.asarray(
+        [0.0, 0.08, 0.19, 0.27] if charge_faces is None else charge_faces,
+        dtype=np.float64,
+    )
+    rest_flux = np.asarray(
+        [0.0, 0.01, -0.02, 0.03] if rest_flux is None else rest_flux,
+        dtype=np.float64,
+    )
     current = 4.0 * np.pi * eta * rest_flux
     qdot = -current
     qcell = 0.5 * (charge_faces[:-1] + charge_faces[1:])
@@ -204,8 +211,8 @@ def _raw_em_stage_record():
         "outer_current_power": outer_power,
     }
     return {
-        "stage": "start",
-        "t": 0.01,
+        "stage": stage_name,
+        "t": 0.01 if stage_name == "start" else 0.02,
         "charge_power": charge_power,
         "metric_power": metric_power,
         "matter_lorentz_power": lorentz_power,
@@ -230,3 +237,72 @@ def test_independent_em_stage_recomputation_fails_closed_on_wrong_charge_tangent
     broken["stage_witness"]["charge_face_dot"][1] += 1e-4
     with pytest.raises(RuntimeError, match="charge-face tangent reconstruction"):
         recompute_em_stage_exchange_witness(broken)
+
+
+
+def _valid_em_charge_transition():
+    dt = 0.02
+    q_before = np.array([0.0, 0.08, 0.19, 0.27])
+    flux_start = np.array([0.0, 0.01, -0.02, 0.03])
+    start, _, _ = _raw_em_stage_record(
+        "start", charge_faces=q_before, rest_flux=flux_start
+    )
+    i_start = np.asarray(start["stage_witness"]["charge_current_faces"])
+    q_predictor = q_before - dt * i_start
+
+    flux_predictor = np.array([0.0, -0.004, 0.012, 0.025])
+    predictor, _, _ = _raw_em_stage_record(
+        "primary_predictor", charge_faces=q_predictor, rest_flux=flux_predictor
+    )
+    i_predictor = np.asarray(predictor["stage_witness"]["charge_current_faces"])
+    q_after = q_before - 0.5 * dt * (i_start + i_predictor)
+    step = {
+        "dt": dt,
+        "t_before": 0.01,
+        "t_after": 0.03,
+        "em_charge_faces_before": q_before.tolist(),
+        "em_charge_faces_after": q_after.tolist(),
+        "em_field_energy_before": 0.01,
+        "em_field_energy_after": 0.0101,
+        "em_field_energy_rate_measured": 0.005,
+        "em_stage_exchange_witnesses": [start, predictor],
+    }
+    run = {"resolution": 3, "q_over_m": 0.2, "step_rows": [step]}
+    return {"runs": [run], "fixed_N_temporal_refinement_runs": [dict(run, cfl=0.0025)]}
+
+
+def test_independent_em_recompute_verifies_actual_euler_and_accepted_trapezoid_charge_updates():
+    report = recompute_em_stage_exchange_campaign(_valid_em_charge_transition())
+    assert report["interval_count"] == 2
+    for interval in report["intervals"]:
+        update = interval["charge_face_update"]
+        assert update["algebraic_update_identity_passed"] is True
+        assert update["scheme"].startswith("Q_after = Q_before")
+        assert all(
+            check["bound_ratio"] <= 1.0
+            for check in update["roundoff_checks"].values()
+        )
+
+
+def test_independent_em_recompute_rejects_accepted_charge_update_mismatch():
+    data = _valid_em_charge_transition()
+    data["runs"][0]["step_rows"][0]["em_charge_faces_after"][2] += 1.0e-8
+    with pytest.raises(RuntimeError, match="EM accepted trapezoidal charge update"):
+        recompute_em_stage_exchange_campaign(data)
+
+
+def test_independent_em_recompute_rejects_predictor_charge_update_mismatch():
+    data = _valid_em_charge_transition()
+    step = data["runs"][0]["step_rows"][0]
+    predictor = step["em_stage_exchange_witnesses"][1]
+    altered_q = np.asarray(predictor["stage_witness"]["charge_faces"], dtype=float)
+    altered_q[2] += 1.0e-8
+    # Regenerate a self-consistent predictor witness so the temporal-state
+    # contract (not a stale local algebraic field) is the failing check.
+    flux = predictor["stage_witness"]["rest_mass_flux_faces"]
+    altered_predictor, _, _ = _raw_em_stage_record(
+        "primary_predictor", charge_faces=altered_q, rest_flux=flux
+    )
+    step["em_stage_exchange_witnesses"][1] = altered_predictor
+    with pytest.raises(RuntimeError, match="EM Euler predictor charge update"):
+        recompute_em_stage_exchange_campaign(data)

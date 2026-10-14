@@ -689,6 +689,9 @@ def recompute_em_stage_exchange_witness(stage_record: Any) -> dict[str, Any]:
     return {
         "stage": str(stage_record.get("stage", "unknown")),
         "t": float(stage_record.get("t", math.nan)),
+        "charge_faces": q_face.tolist(),
+        "charge_current_faces": current.tolist(),
+        "charge_face_dot": q_face_dot.tolist(),
         "field_energy_at_stage": field_energy,
         "charge_current_tangent": charge_tangent,
         "metric_tangent": metric_tangent,
@@ -728,6 +731,60 @@ def recompute_em_stage_exchange_campaign(data: dict[str, Any]) -> dict[str, Any]
                         f"{group_name}[{run_index}] step {interval_index} lacks start/predictor EM witnesses"
                     )
                 recomputed = [recompute_em_stage_exchange_witness(record) for record in records]
+
+                # Check the actual state transition as well as the local Qdot
+                # formula: predictor uses start flux; accepted Q uses the
+                # recorded start/predictor flux pair.
+                dt = float(row.get("dt", math.nan))
+                if not math.isfinite(dt) or dt <= 0.0:
+                    raise RuntimeError(
+                        f"{group_name}[{run_index}] step {interval_index}: dt must be positive"
+                    )
+                n_faces = len(recomputed[0]["charge_faces"])
+                if len(recomputed[1]["charge_faces"]) != n_faces:
+                    raise RuntimeError("EM start/predictor charge-face shapes do not match")
+                q_before = _vector(
+                    row.get("em_charge_faces_before"), "accepted Q faces before step", n_faces
+                )
+                q_after = _vector(
+                    row.get("em_charge_faces_after"), "accepted Q faces after step", n_faces
+                )
+                i_start = _vector(
+                    recomputed[0]["charge_current_faces"], "start-stage charge current", n_faces
+                )
+                i_predictor = _vector(
+                    recomputed[1]["charge_current_faces"], "predictor-stage charge current", n_faces
+                )
+                if q_before[0] != 0.0 or q_after[0] != 0.0:
+                    raise RuntimeError("accepted EM charge faces violate Q(0)=0")
+                q_predictor_expected = q_before - dt * i_start
+                q_accepted_expected = q_before - 0.5 * dt * (i_start + i_predictor)
+                charge_update_checks = {
+                    "start_stage_matches_accepted_before": _roundoff_check(
+                        "EM start-stage charge state", recomputed[0]["charge_faces"],
+                        q_before, q_before
+                    ),
+                    "predictor_matches_euler_update": _roundoff_check(
+                        "EM Euler predictor charge update", recomputed[1]["charge_faces"],
+                        q_predictor_expected, q_before, dt * i_start
+                    ),
+                    "accepted_matches_trapezoidal_update": _roundoff_check(
+                        "EM accepted trapezoidal charge update", q_after,
+                        q_accepted_expected, q_before, 0.5 * dt * (i_start + i_predictor)
+                    ),
+                }
+                charge_update = {
+                    "scheme": "Q_after = Q_before - dt/2 * (I_start + I_primary_predictor)",
+                    "dt": dt,
+                    "charge_faces_before": q_before.tolist(),
+                    "start_stage_charge_faces": recomputed[0]["charge_faces"],
+                    "predictor_stage_charge_faces": recomputed[1]["charge_faces"],
+                    "charge_faces_after": q_after.tolist(),
+                    "euler_predictor_charge_faces_expected": q_predictor_expected.tolist(),
+                    "trapezoidal_charge_faces_expected": q_accepted_expected.tolist(),
+                    "roundoff_checks": charge_update_checks,
+                    "algebraic_update_identity_passed": True,
+                }
                 for stage_result in recomputed:
                     stages_out.append({
                         "run_group": group_name,
@@ -757,6 +814,7 @@ def recompute_em_stage_exchange_campaign(data: dict[str, Any]) -> dict[str, Any]
                     "t_before": float(row.get("t_before", math.nan)),
                     "t_after": float(row.get("t_after", math.nan)),
                     "measured_field_energy_rate": rate_measured,
+                    "charge_face_update": charge_update,
                     "start_predictor_average_tangent": average_tangent,
                     "field_energy_time_update_remainder_unthresholded": rate_measured - average_tangent,
                     "exchange_only_start_predictor_average_remainder_unthresholded": exchange_average,

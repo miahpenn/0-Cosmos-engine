@@ -3310,6 +3310,16 @@ def _serialize_step(kernel, step: dict):
     before = step["state_before"]
     after = step["state_after"]
     dt = float(step["dt"])
+    # Keep accepted charge endpoints so the independent reader can check the
+    # actual Euler predictor and trapezoidal charge update, not only Qdot.
+    em_charge_faces_before = (
+        None if before.electromagnetic is None
+        else np.asarray(before.electromagnetic.enclosed_charge_faces, dtype=float).tolist()
+    )
+    em_charge_faces_after = (
+        None if after.electromagnetic is None
+        else np.asarray(after.electromagnetic.enclosed_charge_faces, dtype=float).tolist()
+    )
     # Preserve rates evaluated on the actual stage states, not only accepted slices.
     fixed_R_stage_rates = {
         "start": _fixed_R_rate_snapshot(_worldtube_sample(
@@ -3403,6 +3413,8 @@ def _serialize_step(kernel, step: dict):
         "matter_species": matter_step_rows,
         "em_field_energy_before": em_before,
         "em_field_energy_after": em_after,
+        "em_charge_faces_before": em_charge_faces_before,
+        "em_charge_faces_after": em_charge_faces_after,
         "em_field_energy_rate_measured": em_rate,
         "em_charge_current_power_start_predictor_average": avg("charge_power"),
         "em_metric_power_start_predictor_average": em_metric,
