@@ -547,6 +547,238 @@ def _select_run(data: dict[str, Any], q_over_m: float) -> dict[str, Any]:
     return matches[0]
 
 
+def recompute_em_stage_exchange_witness(stage_record: Any) -> dict[str, Any]:
+    """Independently rebuild one stage's discrete Q-face / field-energy tangent.
+
+    This reader deliberately consumes serialized operands rather than importing
+    the live observer or the production Maxwell implementation. It checks only
+    algebraic reconstruction; the current/Lorentz exchange remainder is emitted
+    unthresholded and is never used as a pass/fail criterion.
+    """
+    if not isinstance(stage_record, dict):
+        raise RuntimeError("EM stage record must be an object")
+    raw = stage_record.get("stage_witness")
+    if not isinstance(raw, dict):
+        raise RuntimeError("EM stage lacks its stage-local operand witness")
+
+    centers = np.asarray(raw.get("centers"), dtype=np.float64)
+    if centers.ndim != 1 or centers.size < 2 or not np.all(np.isfinite(centers)):
+        raise RuntimeError("EM centers must be a finite one-dimensional profile")
+    n = int(centers.size)
+    dr = float(raw.get("grid_dr", math.nan))
+    eta = float(raw.get("charge_to_rest_mass", math.nan))
+    if not math.isfinite(dr) or dr <= 0.0 or not math.isfinite(eta):
+        raise RuntimeError("EM grid spacing and charge-to-rest-mass ratio must be finite")
+    q_face = _vector(raw.get("charge_faces"), "EM charge_faces", n + 1)
+    rest_flux = _vector(raw.get("rest_mass_flux_faces"), "EM rest_mass_flux_faces", n + 1)
+    current_saved = _vector(raw.get("charge_current_faces"), "EM charge_current_faces", n + 1)
+    qdot_saved = _vector(raw.get("charge_face_dot"), "EM charge_face_dot", n + 1)
+    geometry = raw.get("geometry")
+    explicit = raw.get("explicit_geometry_rhs")
+    if not isinstance(geometry, dict) or not isinstance(explicit, dict):
+        raise RuntimeError("EM stage lacks geometry or explicit geometry RHS operands")
+    X = _vector(geometry.get("X"), "EM geometry X", n)
+    a = _vector(geometry.get("a"), "EM geometry a", n)
+    b = _vector(geometry.get("b"), "EM geometry b", n)
+    Xdot = _vector(explicit.get("X"), "EM explicit X RHS", n)
+    adot = _vector(explicit.get("a"), "EM explicit a RHS", n)
+    bdot = _vector(explicit.get("b"), "EM explicit b RHS", n)
+    lorentz_energy = _vector(
+        raw.get("lorentz_energy_source_profile"), "EM Lorentz energy profile", n
+    )
+    if np.any(centers <= 0.0) or np.any(X <= 0.0) or np.any(a <= 0.0) or np.any(b <= 0.0):
+        raise RuntimeError("EM stage centers and positive metric factors must be strictly positive")
+    if q_face[0] != 0.0 or rest_flux[0] != 0.0:
+        raise RuntimeError("EM stage violates the exact regular-centre charge/flux condition")
+
+    # Re-derive rather than trust the stored current, Qdot, cell averages or
+    # geometry-weight rates.
+    current = FOUR_PI * eta * rest_flux
+    q_face_dot = -current
+    q_cell = 0.5 * (q_face[:-1] + q_face[1:])
+    q_cell_dot = 0.5 * (q_face_dot[:-1] + q_face_dot[1:])
+    weight = X * np.sqrt(a) / (centers**2 * b)
+    log_weight_dot = Xdot / X + 0.5 * adot / a - bdot / b
+    weight_dot = weight * log_weight_dot
+    charge_cell_terms = dr * weight * q_cell * q_cell_dot
+    metric_cell_terms = 0.5 * dr * weight * q_cell**2 * log_weight_dot
+    field_energy = 0.5 * dr * float(np.sum(weight * q_cell**2))
+    charge_tangent = float(np.sum(charge_cell_terms))
+    metric_tangent = float(np.sum(metric_cell_terms))
+    total_tangent = charge_tangent + metric_tangent
+    lorentz_power = FOUR_PI * dr * float(np.sum(lorentz_energy))
+    outer_power = -0.5 * dr * weight[-1] * q_cell[-1] * current[-1]
+
+    scales = (q_face, rest_flux, current, q_face_dot)
+    checks = {
+        "charge_current_faces": _roundoff_check(
+            "EM charge-current face reconstruction", current_saved, current, *scales
+        ),
+        "charge_face_dot": _roundoff_check(
+            "EM charge-face tangent reconstruction", qdot_saved, q_face_dot, *scales
+        ),
+        "charge_cell_average": _roundoff_check(
+            "EM charge-cell averaging", raw.get("charge_cell_average"), q_cell, q_face
+        ),
+        "charge_cell_dot_average": _roundoff_check(
+            "EM charge-cell tangent averaging", raw.get("charge_cell_dot_average"),
+            q_cell_dot, q_face_dot
+        ),
+        "field_energy_weight": _roundoff_check(
+            "EM discrete energy weight", raw.get("field_energy_weight"), weight, X, a, b
+        ),
+        "log_energy_weight_rate": _roundoff_check(
+            "EM log energy-weight rate", raw.get("log_energy_weight_rate"),
+            log_weight_dot, Xdot, adot, bdot
+        ),
+        "energy_weight_dot": _roundoff_check(
+            "EM energy-weight tangent", raw.get("energy_weight_dot"), weight_dot,
+            weight, log_weight_dot
+        ),
+        "charge_current_tangent_cell_terms": _roundoff_check(
+            "EM charge-current tangent cell terms",
+            raw.get("charge_current_tangent_cell_terms"), charge_cell_terms,
+            weight, q_cell, q_cell_dot
+        ),
+        "metric_tangent_cell_terms": _roundoff_check(
+            "EM metric tangent cell terms", raw.get("metric_tangent_cell_terms"),
+            metric_cell_terms, weight, q_cell, log_weight_dot
+        ),
+        "field_energy_at_stage": _roundoff_check(
+            "EM stage field energy", raw.get("field_energy_at_stage"), field_energy,
+            weight, q_cell
+        ),
+        "charge_current_tangent": _roundoff_check(
+            "EM charge-current tangent scalar", raw.get("charge_current_tangent"),
+            charge_tangent, charge_cell_terms
+        ),
+        "metric_tangent": _roundoff_check(
+            "EM metric tangent scalar", raw.get("metric_tangent"), metric_tangent,
+            metric_cell_terms
+        ),
+        "total_field_energy_tangent": _roundoff_check(
+            "EM total field-energy tangent",
+            raw.get("total_field_energy_tangent"), total_tangent,
+            charge_tangent, metric_tangent
+        ),
+        "matter_lorentz_power": _roundoff_check(
+            "EM matter Lorentz power", raw.get("matter_lorentz_power"),
+            lorentz_power, lorentz_energy
+        ),
+        "outer_current_power": _roundoff_check(
+            "EM outer-current power", raw.get("outer_current_power"),
+            outer_power, weight[-1], q_cell[-1], current[-1]
+        ),
+    }
+    for label, observed, expected, operands in (
+        ("reported charge power", stage_record.get("charge_power"), charge_tangent,
+         (charge_tangent,)),
+        ("reported metric power", stage_record.get("metric_power"), metric_tangent,
+         (metric_tangent,)),
+        ("reported Lorentz power", stage_record.get("matter_lorentz_power"), lorentz_power,
+         (lorentz_power,)),
+        ("reported outer-current power", stage_record.get("outer_current_power"), outer_power,
+         (outer_power,)),
+    ):
+        checks[label.replace(" ", "_")] = _roundoff_check(
+            label, observed, expected, *operands
+        )
+
+    exchange_remainder = charge_tangent + lorentz_power - outer_power
+    exchange_scale = abs(charge_tangent) + abs(lorentz_power) + abs(outer_power)
+    return {
+        "stage": str(stage_record.get("stage", "unknown")),
+        "t": float(stage_record.get("t", math.nan)),
+        "field_energy_at_stage": field_energy,
+        "charge_current_tangent": charge_tangent,
+        "metric_tangent": metric_tangent,
+        "total_field_energy_tangent": total_tangent,
+        "matter_lorentz_power": lorentz_power,
+        "outer_current_power": float(outer_power),
+        "exchange_only_remainder_unthresholded": exchange_remainder,
+        "exchange_only_relative_remainder_unthresholded": (
+            abs(exchange_remainder) / max(exchange_scale, TINY)
+        ),
+        "algebraic_roundoff_checks": checks,
+        "physical_residual_threshold_applied": False,
+    }
+
+
+def recompute_em_stage_exchange_campaign(data: dict[str, Any]) -> dict[str, Any]:
+    """Run the independent per-stage EM reader over the exported campaign."""
+    stages_out: list[dict[str, Any]] = []
+    intervals_out: list[dict[str, Any]] = []
+    groups = (
+        ("runs", data.get("runs", [])),
+        ("fixed_N_temporal_refinement_runs", data.get("fixed_N_temporal_refinement_runs", [])),
+    )
+    for group_name, runs in groups:
+        if not isinstance(runs, list):
+            raise RuntimeError(f"{group_name} must be a list")
+        for run_index, run in enumerate(runs):
+            if not isinstance(run, dict):
+                raise RuntimeError(f"{group_name}[{run_index}] must be an object")
+            rows = run.get("step_rows", [])
+            if not isinstance(rows, list) or not rows:
+                raise RuntimeError(f"{group_name}[{run_index}] lacks step rows for EM verification")
+            for interval_index, row in enumerate(rows):
+                records = row.get("em_stage_exchange_witnesses")
+                if not isinstance(records, list) or len(records) != 2:
+                    raise RuntimeError(
+                        f"{group_name}[{run_index}] step {interval_index} lacks start/predictor EM witnesses"
+                    )
+                recomputed = [recompute_em_stage_exchange_witness(record) for record in records]
+                for stage_result in recomputed:
+                    stages_out.append({
+                        "run_group": group_name,
+                        "run_index": run_index,
+                        "resolution": int(run.get("resolution", -1)),
+                        "q_over_m": float(run.get("q_over_m", math.nan)),
+                        "cfl": float(run.get("cfl", math.nan)),
+                        "interval_index": interval_index,
+                        **stage_result,
+                    })
+                rate_measured = float(row.get("em_field_energy_rate_measured", math.nan))
+                if not math.isfinite(rate_measured):
+                    raise RuntimeError("EM interval lacks a finite measured field-energy rate")
+                average_tangent = 0.5 * sum(
+                    item["total_field_energy_tangent"] for item in recomputed
+                )
+                exchange_average = 0.5 * sum(
+                    item["exchange_only_remainder_unthresholded"] for item in recomputed
+                )
+                intervals_out.append({
+                    "run_group": group_name,
+                    "run_index": run_index,
+                    "resolution": int(run.get("resolution", -1)),
+                    "q_over_m": float(run.get("q_over_m", math.nan)),
+                    "cfl": float(run.get("cfl", math.nan)),
+                    "interval_index": interval_index,
+                    "t_before": float(row.get("t_before", math.nan)),
+                    "t_after": float(row.get("t_after", math.nan)),
+                    "measured_field_energy_rate": rate_measured,
+                    "start_predictor_average_tangent": average_tangent,
+                    "field_energy_time_update_remainder_unthresholded": rate_measured - average_tangent,
+                    "exchange_only_start_predictor_average_remainder_unthresholded": exchange_average,
+                    "physical_residual_threshold_applied": False,
+                })
+    if not stages_out:
+        raise RuntimeError("no EM stage exchange witnesses were independently recomputed")
+    return {
+        "stage_count": len(stages_out),
+        "interval_count": len(intervals_out),
+        "stages": stages_out,
+        "intervals": intervals_out,
+        "physical_residual_threshold_applied": False,
+        "interpretation": (
+            "Stage-local charge/current, geometry-weight, field-energy tangent, "
+            "Lorentz and outer-boundary operands are independently recomputed. "
+            "The current/Lorentz mismatch and accepted-interval tangent remainder "
+            "are emitted unthresholded; algebraic roundoff gates do not assert physical closure."
+        ),
+    }
+
+
 def recompute_artifact(data: dict[str, Any]) -> dict[str, Any]:
     provenance = data.get("provenance", {})
     pins = provenance.get("production_blob_pins", {})
@@ -645,6 +877,7 @@ def recompute_artifact(data: dict[str, Any]) -> dict[str, Any]:
         "charged_minus_neutral": delta,
         "charged_minus_neutral_cells": cell_delta,
         "charged_minus_neutral_sector_flux_work": sector_delta,
+        "em_stage_exchange_recomputation": recompute_em_stage_exchange_campaign(data),
         "classification": (
             "independent code-path recomputation from archived local stage operands; "
             "not an external scientific review"
