@@ -2291,6 +2291,87 @@ def _stage_serializable(stage: dict) -> dict:
     }
 
 
+def _accepted_pirk_tangent_term_profiles(
+    *,
+    R, Rr, gamma_inv, Ktheta,
+    Rdot, gamma_inv_dot, Ktheta_dot,
+    Rdot_contributions: dict[str, np.ndarray],
+    gamma_inv_dot_contributions: dict[str, np.ndarray],
+    Ktheta_dot_contributions: dict[str, np.ndarray],
+    grid,
+) -> dict[str, np.ndarray]:
+    """Expand accepted weighted PIRK tangent into signed RHS-piece contributions."""
+    raw = {
+        "R": R, "Rr": Rr, "gamma_inv": gamma_inv, "Ktheta": Ktheta,
+        "Rdot": Rdot, "gamma_inv_dot": gamma_inv_dot, "Ktheta_dot": Ktheta_dot,
+    }
+    arrays = {name: np.asarray(value, dtype=float) for name, value in raw.items()}
+    radius = arrays["R"]
+    if radius.ndim != 1 or radius.size < 2:
+        raise RuntimeError("accepted tangent term split R must be 1-D with at least two cells")
+    for name, values in arrays.items():
+        if values.shape != radius.shape or not np.all(np.isfinite(values)):
+            raise RuntimeError(f"accepted tangent term split {name} has invalid shape or values")
+    expected = {
+        "Rdot": {"explicit_start", "explicit_predictor"},
+        "gamma_inv_dot": {"explicit_start", "explicit_predictor"},
+        "Ktheta_dot": {
+            "primary_l2_start", "primary_l2_final_mixed_state",
+            "vacuum_l3_start", "vacuum_l3_predictor",
+            "einstein_source_l3_start", "einstein_source_l3_predictor",
+        },
+    }
+    groups = {
+        "Rdot": Rdot_contributions,
+        "gamma_inv_dot": gamma_inv_dot_contributions,
+        "Ktheta_dot": Ktheta_dot_contributions,
+    }
+    checked = {}
+    for group, values in groups.items():
+        if not isinstance(values, dict) or set(values) != expected[group]:
+            raise RuntimeError(
+                f"accepted tangent term split {group} requires exactly {sorted(expected[group])}"
+            )
+        checked[group] = {}
+        for name, raw_profile in values.items():
+            profile = np.asarray(raw_profile, dtype=float)
+            if profile.shape != radius.shape or not np.all(np.isfinite(profile)):
+                raise RuntimeError(
+                    f"accepted tangent term split {group}.{name} has invalid shape or values"
+                )
+            checked[group][name] = profile
+        summed = sum(checked[group].values())
+        residual = arrays[group] - summed
+        scale = np.abs(arrays[group]) + sum(np.abs(value) for value in checked[group].values())
+        bound = 128.0 * np.finfo(np.float64).eps * np.maximum(scale, np.finfo(np.float64).tiny)
+        if np.any(np.abs(residual) > bound):
+            raise RuntimeError(f"accepted tangent {group} components fail roundoff reconstruction")
+    chi = arrays["gamma_inv"] * arrays["Rr"]**2 - (radius * arrays["Ktheta"])**2
+    terms: dict[str, np.ndarray] = {}
+    for name, profile in checked["Rdot"].items():
+        terms[f"mass_dot_coordinate_term_Rdot_{name}"] = 0.5 * profile * (1.0 - chi)
+        terms[f"mass_dot_coordinate_term_Ktheta_geometry_{name}"] = (
+            radius**2 * profile * arrays["Ktheta"]**2
+        )
+        derivative = np.asarray(grid.cell_derivative_fourth(profile, parity=-1), dtype=float)
+        if derivative.shape != radius.shape or not np.all(np.isfinite(derivative)):
+            raise RuntimeError(f"accepted tangent D_r(Rdot) component {name} is invalid")
+        terms[f"mass_dot_coordinate_term_Rdot_r_{name}"] = (
+            -radius * arrays["gamma_inv"] * arrays["Rr"] * derivative
+        )
+    for name, profile in checked["gamma_inv_dot"].items():
+        terms[f"mass_dot_coordinate_term_gamma_inv_dot_{name}"] = (
+            -0.5 * radius * profile * arrays["Rr"]**2
+        )
+    for name, profile in checked["Ktheta_dot"].items():
+        terms[f"mass_dot_coordinate_term_Ktheta_dot_{name}"] = (
+            radius**3 * arrays["Ktheta"] * profile
+        )
+    if not terms or not all(np.all(np.isfinite(value)) for value in terms.values()):
+        raise RuntimeError("accepted tangent term split produced non-finite or empty terms")
+    return terms
+
+
 def _accepted_pirk_update_tangent(step: dict, stage_rates: dict) -> dict:
     """Reconcile the exact accepted-step RHS weights with the fixed-R mass observable."""
     geometry_stages = step["geometry_stages"]
@@ -2334,6 +2415,79 @@ def _accepted_pirk_update_tangent(step: dict, stage_rates: dict) -> dict:
         R, Rdot, chain_profiles["mass"],
         chain_profiles["mass_dot_coordinate"], target=FIXED_AREAL_RADIUS,
     )
+
+    start_geometry = geometry_stages[0]
+    predictor_geometry = geometry_stages[2]
+    explicit_contributions = {}
+    for stage_name, stage in (
+        ("explicit_start", start_geometry),
+        ("explicit_predictor", predictor_geometry),
+    ):
+        explicit_contributions[stage_name] = {
+            name: 0.5 * np.asarray(stage["explicit"][name], dtype=float)
+            for name in ("a", "b", "X")
+        }
+    Rdot_contributions = {
+        name: R * (0.5 * piece["b"] / geom.b - piece["X"] / geom.X)
+        for name, piece in explicit_contributions.items()
+    }
+    gamma_inv_contributions = {
+        name: gamma_inv * (2.0 * piece["X"] / geom.X - piece["a"] / geom.a)
+        for name, piece in explicit_contributions.items()
+    }
+
+    def half_ktheta_dot(k_rhs, aa_rhs):
+        return 0.5 * (
+            np.asarray(k_rhs, dtype=float) / 3.0
+            - np.asarray(aa_rhs, dtype=float) / 2.0
+        )
+
+    ktheta_dot_contributions = {
+        "primary_l2_start": half_ktheta_dot(
+            start_geometry["primary_l2"]["K"], start_geometry["primary_l2"]["Aa"]
+        ),
+        "primary_l2_final_mixed_state": half_ktheta_dot(
+            final_l2["K"], final_l2["Aa"]
+        ),
+        "vacuum_l3_start": half_ktheta_dot(
+            start_geometry["vacuum_primary_l3"]["K"],
+            start_geometry["vacuum_primary_l3"]["Aa"],
+        ),
+        "vacuum_l3_predictor": half_ktheta_dot(
+            predictor_geometry["vacuum_primary_l3"]["K"],
+            predictor_geometry["vacuum_primary_l3"]["Aa"],
+        ),
+        "einstein_source_l3_start": half_ktheta_dot(
+            start_geometry["einstein_source_l3"]["K"],
+            start_geometry["einstein_source_l3"]["Aa"],
+        ),
+        "einstein_source_l3_predictor": half_ktheta_dot(
+            predictor_geometry["einstein_source_l3"]["K"],
+            predictor_geometry["einstein_source_l3"]["Aa"],
+        ),
+    }
+    accepted_tangent_term_profiles = _accepted_pirk_tangent_term_profiles(
+        R=R, Rr=Rr, gamma_inv=gamma_inv, Ktheta=Ktheta,
+        Rdot=Rdot, gamma_inv_dot=gamma_inv_dot, Ktheta_dot=Ktheta_dot,
+        Rdot_contributions=Rdot_contributions,
+        gamma_inv_dot_contributions=gamma_inv_contributions,
+        Ktheta_dot_contributions=ktheta_dot_contributions, grid=grid,
+    )
+    accepted_tangent_term_sum_profile = sum(accepted_tangent_term_profiles.values())
+    accepted_tangent_term_reconstruction = (
+        chain_profiles["mass_dot_coordinate"] - accepted_tangent_term_sum_profile
+    )
+    accepted_tangent_term_scale = (
+        np.abs(chain_profiles["mass_dot_coordinate"])
+        + sum(np.abs(value) for value in accepted_tangent_term_profiles.values())
+    )
+    accepted_tangent_term_bound = 128.0 * np.finfo(np.float64).eps * np.maximum(
+        accepted_tangent_term_scale, np.finfo(np.float64).tiny
+    )
+    if np.any(np.abs(accepted_tangent_term_reconstruction) > accepted_tangent_term_bound):
+        raise RuntimeError(
+            "accepted PIRK tangent contributions do not reconstruct coordinate mass-rate"
+        )
 
     at = lambda profile: interpolate_at_areal_radius(
         R, profile, FIXED_AREAL_RADIUS
@@ -2416,6 +2570,88 @@ def _accepted_pirk_update_tangent(step: dict, stage_rates: dict) -> dict:
     mass1_tube = interpolate_at_areal_radius(R1, mass1, FIXED_AREAL_RADIUS)
     accepted_secant = (mass1_tube - mass0_tube) / float(step["dt"])
 
+    tangent_terms_at_R_star = {
+        name: at(profile) for name, profile in accepted_tangent_term_profiles.items()
+    }
+    tangent_coordinate_rate_from_terms = sum(tangent_terms_at_R_star.values())
+    tangent_coordinate_rate_reference = float(direct["interpolated_mass_dot_coordinate"])
+    tangent_coordinate_reconstruction_residual = (
+        tangent_coordinate_rate_reference - tangent_coordinate_rate_from_terms
+    )
+    tangent_coordinate_scale = (
+        abs(tangent_coordinate_rate_reference)
+        + sum(abs(value) for value in tangent_terms_at_R_star.values())
+    )
+    tangent_coordinate_bound = 128.0 * np.finfo(np.float64).eps * max(
+        tangent_coordinate_scale, float(np.finfo(np.float64).tiny)
+    )
+    if abs(tangent_coordinate_reconstruction_residual) > tangent_coordinate_bound:
+        raise RuntimeError(
+            "interpolated accepted tangent pieces do not reconstruct coordinate mass-rate"
+        )
+
+    tangent_fixed_R_prediction_composite = (
+        composite_flux_average + composite_pressure_average + float(direct["fixed_R_sweep"])
+    )
+    tangent_fixed_R_residual_composite = (
+        float(direct["mass_dot_fixed_R"]) - tangent_fixed_R_prediction_composite
+    )
+    tangent_fixed_R_prediction_factorized = (
+        flux_average + pressure_average + float(direct["fixed_R_sweep"])
+    )
+    tangent_fixed_R_residual_factorized = (
+        float(direct["mass_dot_fixed_R"]) - tangent_fixed_R_prediction_factorized
+    )
+    tangent_reconciliation = {
+        "accepted_state_secant_mass_rate": float(accepted_secant),
+        "accepted_update_interpolant_mass_rate": float(direct["mass_dot_fixed_R"]),
+        "accepted_secant_minus_update_tangent": float(
+            accepted_secant - float(direct["mass_dot_fixed_R"])
+        ),
+        "R_star": {
+            "mass_dot_coordinate_terms": tangent_terms_at_R_star,
+            "mass_dot_coordinate_from_terms": float(tangent_coordinate_rate_from_terms),
+            "mass_dot_coordinate_from_direct_interpolant": tangent_coordinate_rate_reference,
+            "coordinate_rate_reconstruction_residual": float(
+                tangent_coordinate_reconstruction_residual
+            ),
+            "coordinate_rate_reconstruction_roundoff_bound": float(tangent_coordinate_bound),
+            "fixed_R_sweep_from_same_interpolant": float(direct["fixed_R_sweep"]),
+            "accepted_update_fixed_R_tangent": float(direct["mass_dot_fixed_R"]),
+            "composite_stage_average_stress_flux": float(composite_flux_average),
+            "composite_stage_average_pressure_work": float(composite_pressure_average),
+            "factorized_stage_average_stress_flux": float(flux_average),
+            "factorized_stage_average_pressure_work": float(pressure_average),
+            "fixed_R_prediction_composite_terms": float(tangent_fixed_R_prediction_composite),
+            "fixed_R_balance_remainder_composite_terms": float(tangent_fixed_R_residual_composite),
+            "stored_fixed_R_residual_composite_interpolation": float(
+                interpolant_composite_remainder
+            ),
+            "fixed_R_prediction_factorized_terms": float(tangent_fixed_R_prediction_factorized),
+            "fixed_R_balance_remainder_factorized_terms": float(tangent_fixed_R_residual_factorized),
+            "stored_fixed_R_residual_factor_interpolation": float(interpolant_remainder),
+        },
+        "bracket_cells": {},
+    }
+    for cell_name, cell_index in (
+        ("left_cell", int(direct["left_index"])),
+        ("right_cell", int(direct["right_index"])),
+    ):
+        cell_terms = {
+            name: float(profile[cell_index])
+            for name, profile in accepted_tangent_term_profiles.items()
+        }
+        cell_coordinate_rate = float(chain_profiles["mass_dot_coordinate"][cell_index])
+        cell_term_sum = sum(cell_terms.values())
+        tangent_reconciliation["bracket_cells"][cell_name] = {
+            "index": cell_index,
+            "R": float(R[cell_index]),
+            "mass_dot_coordinate_terms": cell_terms,
+            "mass_dot_coordinate_from_terms": float(cell_term_sum),
+            "mass_dot_coordinate_from_chain_rule": cell_coordinate_rate,
+            "coordinate_rate_reconstruction_residual": float(cell_coordinate_rate - cell_term_sum),
+        }
+
     return {
         "t_start": float(step["t_before"]),
         "dt": float(step["dt"]),
@@ -2451,6 +2687,7 @@ def _accepted_pirk_update_tangent(step: dict, stage_rates: dict) -> dict:
         "pirk_update_tangent_interpolant_balance_remainder_composite_interpolation": float(
             interpolant_composite_remainder
         ),
+        "accepted_update_tangent_termwise_reconciliation": tangent_reconciliation,
         "pirk_update_tangent_interpolant_coordinate_remainder": float(
             float(direct["interpolated_mass_dot_coordinate"]) - flux_average - pressure_average
         ),
@@ -2776,7 +3013,7 @@ def _fixed_R_interval_balance(run: dict, *, label: str = "run") -> list[dict]:
                 raise RuntimeError(
                     f"{label}: stage {stage_name} is missing chain-rule outputs: {missing}"
                 )
-        rows.append({
+        row = {
             "interval_index": i,
             "t_start": float(times[i]),
             "t_end": float(times[i + 1]),
@@ -2798,7 +3035,15 @@ def _fixed_R_interval_balance(run: dict, *, label: str = "run") -> list[dict]:
                 f"primary_predictor_stage_{key}": float(stage_rates["primary_predictor"][key])
                 for key in stage_chain_fields
             },
-        })
+        }
+        tangent = step.get("accepted_pirk_update_tangent")
+        if isinstance(tangent, dict) and isinstance(
+            tangent.get("accepted_update_tangent_termwise_reconciliation"), dict
+        ):
+            row["accepted_update_tangent_termwise_reconciliation"] = (
+                tangent["accepted_update_tangent_termwise_reconciliation"]
+            )
+        rows.append(row)
     return rows
 
 
@@ -2929,6 +3174,16 @@ def _pair_fixed_R_interval_rows(charged: list[dict], neutral: list[dict], *, lab
                     row[
                         f"charged_minus_neutral_{stage_name}_stage_{witness_key}"
                     ] = _numeric_tree_difference(charged_witness, neutral_witness)
+        charged_tangent = c.get("accepted_update_tangent_termwise_reconciliation")
+        neutral_tangent = n.get("accepted_update_tangent_termwise_reconciliation")
+        if isinstance(charged_tangent, dict) and isinstance(neutral_tangent, dict):
+            row["charged_minus_neutral_accepted_update_tangent_termwise_reconciliation"] = (
+                _numeric_tree_difference(charged_tangent, neutral_tangent)
+            )
+        elif charged_tangent is not None or neutral_tangent is not None:
+            raise RuntimeError(
+                f"{label}: accepted tangent termwise reconciliation missing in one charge arm"
+            )
         result.append(row)
     return result
 
