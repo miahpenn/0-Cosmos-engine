@@ -27,11 +27,19 @@ def _stage(q_over_m, *, scale=1.0, stage="primary_predictor", time=0.02):
         charge[:] = 0.0
         rate[:] = 0.0
     result = face_charge_energy_tangent(dr, weight, charge, rate)
+    matter_power = (
+        0.0 if q_over_m == 0.0 else -result["cell_tangent"] + 1e-14
+    )
+    lorentz_profile = [
+        matter_power / (4.0 * np.pi * dr), 0.0, 0.0
+    ] if matter_power != 0.0 else [0.0, 0.0, 0.0]
     witness = {
         "grid_dr": dr,
+        "centers": [0.5, 1.5, 2.5],
         "field_energy_weight": weight.tolist(),
         "charge_faces": charge.tolist(),
         "charge_face_dot": rate.tolist(),
+        "lorentz_energy_source_profile": lorentz_profile,
         "charge_current_tangent": result["cell_tangent"],
         "field_energy_at_stage": radial_electric_energy(dr, weight, charge),
         "metric_tangent": -2.0e-6 if q_over_m else 0.0,
@@ -41,7 +49,7 @@ def _stage(q_over_m, *, scale=1.0, stage="primary_predictor", time=0.02):
         "stage": stage,
         "t": time,
         "charge_power": result["cell_tangent"],
-        "matter_lorentz_power": -result["cell_tangent"] + 1e-14,
+        "matter_lorentz_power": matter_power,
         "metric_power": witness["metric_tangent"],
         "outer_current_power": result["face_tangent_outer"],
         "stage_witness": witness,
@@ -100,6 +108,13 @@ def test_reconcile_saved_stages_checks_provenance_tangent_and_boundary_terms():
     assert result["summary"]["max_abs_difference_from_stored_charge_current_tangent"] <= 1e-25
     assert result["summary"]["neutral_witnesses_with_nonzero_charge_tangent"] == 0
     assert result["summary"]["charged_witnesses_with_nonzero_outer_face_tangent"] == 2
+    assert result["summary"]["cellwise_pairing_reconstructs_global_signed_pairing"] is True
+    assert result["summary"]["lorentz_profile_power_matches_stored_power"] is True
+    assert result["witnesses"][1]["cellwise_pairing_signed_sum"] == pytest.approx(
+        result["witnesses"][1]["charge_plus_lorentz_signed_pairing"],
+        rel=0.0, abs=result["witnesses"][1]["cellwise_pairing_reconciliation_roundoff_bound"],
+    )
+    assert result["witnesses"][1]["radial_band_summary"]["first_two_cells"]["cells"] == 2
     assert result["witnesses"][0]["metric_weight_tangent"] == 0.0
     assert result["witnesses"][1]["metric_weight_tangent"] == -2.0e-6
     assert result["witnesses"][1]["charge_plus_lorentz_signed_pairing"] == pytest.approx(1e-14)
@@ -161,3 +176,12 @@ def test_reconciler_fails_closed_on_stored_tangent_energy_or_outer_term_mismatch
     ] += 1e-8
     with pytest.raises(ArithmeticError, match="outer-current term"):
         reconcile_report(report, input_name="bad-outer.json", input_sha256="3" * 64)
+
+
+def test_reconciler_fails_closed_when_cell_lorentz_profile_does_not_match_stored_power():
+    report = _report()
+    report["runs"][1]["step_rows"][0]["em_stage_exchange_witnesses"][0][
+        "matter_lorentz_power"
+    ] += 1.0e-6
+    with pytest.raises(ArithmeticError, match="Lorentz source profile disagrees"):
+        reconcile_report(report, input_name="bad-lorentz.json", input_sha256="1" * 64)
