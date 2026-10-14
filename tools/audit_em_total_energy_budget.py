@@ -3867,7 +3867,7 @@ def run_joined_audit(root: Path, output_path: Path) -> dict:
 
     report = {
         "classification": "source-pinned, test/report-only joined EM/matter/quasi-local ledger; research only",
-        "source_anchor": "main source blobs from 5c51bf509504365df394e6cca96bf1d117f4614d",
+        "source_anchor": "main source blobs from 31a7491bce8076e05a8524d442567cc39ed30d94",
         "provenance": provenance,
         "settings": {
             "resolutions": list(RESOLUTIONS),
