@@ -4329,6 +4329,11 @@ def _domain_stage_diagnostics(
     # lorentz_current_r_profile is already the charge current j_e^r=(q/m) rho W v^r;
     # only the rest-mass face flux needs charge_to_rest_mass conversion above.
     cell_current = FOUR_PI * lapse * sqrt_gamma * primitive_current
+    # Exact coefficient in defect_i = (dr * w_i * q_i) *
+    # (cell_current_i - arithmetic_mean(adjacent face currents)).
+    # Export it separately so domain comparisons can distinguish a changing
+    # projection gap from a changing live charge/metric weight.
+    pairing_prefactor = dr * weight * q_cell
     adjacent_face_current = 0.5 * (current_faces[:-1] + current_faces[1:])
     charge_tangent_cell_terms = -dr * weight * q_cell * adjacent_face_current
     lorentz_power_cell_terms = dr * weight * q_cell * cell_current
@@ -4453,6 +4458,7 @@ def _domain_stage_diagnostics(
         "inner_face_coordinates": face_coordinates[inner_faces].tolist(),
         "inner_face_currents": current_faces[inner_faces].tolist(),
         "inner_cell_current_equivalent": cell_current[inner].tolist(),
+        "inner_cell_pairing_prefactor": pairing_prefactor[inner].tolist(),
         "geometry_inner": {
             name: values[inner].tolist() for name, values in geometry.items()
         },
@@ -4526,14 +4532,24 @@ def _domain_radius_projection_comparison(
     extended_cell = np.asarray(
         extended["inner_cell_current_equivalent"], dtype=np.float64
     )
+    baseline_prefactor = np.asarray(
+        baseline["inner_cell_pairing_prefactor"], dtype=np.float64
+    )
+    extended_prefactor = np.asarray(
+        extended["inner_cell_pairing_prefactor"], dtype=np.float64
+    )
     expected_face_shape = (centers.size + 1,)
     if (
         baseline_faces.shape != expected_face_shape
         or extended_faces.shape != expected_face_shape
         or baseline_cell.shape != centers.shape
         or extended_cell.shape != centers.shape
+        or baseline_prefactor.shape != centers.shape
+        or extended_prefactor.shape != centers.shape
+        or not np.all(np.isfinite(baseline_prefactor))
+        or not np.all(np.isfinite(extended_prefactor))
     ):
-        raise RuntimeError("projection comparison has inconsistent face/cell support")
+        raise RuntimeError("projection comparison has inconsistent face/cell/prefactor support")
 
     baseline_gap = baseline_cell - 0.5 * (
         baseline_faces[:-1] + baseline_faces[1:]
@@ -4542,6 +4558,7 @@ def _domain_radius_projection_comparison(
         extended_faces[:-1] + extended_faces[1:]
     )
     gap_delta = baseline_gap - extended_gap
+    prefactor_delta = baseline_prefactor - extended_prefactor
     baseline_defect = np.asarray(
         baseline["inner_cell_defect_profile"], dtype=np.float64
     )
@@ -4551,6 +4568,30 @@ def _domain_radius_projection_comparison(
     defect_delta = baseline_defect - extended_defect
     if baseline_defect.shape != centers.shape or extended_defect.shape != centers.shape:
         raise RuntimeError("projection comparison has inconsistent defect support")
+
+    # Exact symmetric split:
+    # A_b G_b - A_e G_e = mean(A) * (G_b-G_e) + mean(G) * (A_b-A_e),
+    # with A = dr*w*q and G = cell current minus interpolated face current.
+    gap_change_contribution = (
+        0.5 * (baseline_prefactor + extended_prefactor) * gap_delta
+    )
+    prefactor_change_contribution = (
+        0.5 * (baseline_gap + extended_gap) * prefactor_delta
+    )
+    reconstructed_defect_delta = (
+        gap_change_contribution + prefactor_change_contribution
+    )
+    decomposition_residual = defect_delta - reconstructed_defect_delta
+    decomposition_roundoff_bound = 256.0 * np.finfo(np.float64).eps * max(
+        float(np.sum(np.abs(defect_delta)))
+        + float(np.sum(np.abs(reconstructed_defect_delta))),
+        float(np.finfo(np.float64).tiny),
+    )
+    if float(np.max(np.abs(decomposition_residual))) > decomposition_roundoff_bound:
+        raise RuntimeError(
+            "domain-sweep pairing delta does not reconstruct from gap and "
+            "prefactor changes within its operand-scaled roundoff bound"
+        )
 
     if np.std(defect_delta) > 0.0 and np.std(gap_delta) > 0.0:
         correlation = float(np.corrcoef(defect_delta, gap_delta)[0, 1])
@@ -4572,6 +4613,8 @@ def _domain_radius_projection_comparison(
         defect_band_base = baseline_defect[support]
         defect_band_extended = extended_defect[support]
         defect_band_delta = defect_delta[support]
+        gap_contribution_band = gap_change_contribution[support]
+        prefactor_contribution_band = prefactor_change_contribution[support]
         radial_bands.append({
             "coordinate_radius_lower_inclusive": float(lower),
             "coordinate_radius_upper_exclusive": float(upper),
@@ -4582,6 +4625,21 @@ def _domain_radius_projection_comparison(
                 np.sum(defect_band_delta)
             ),
             "cell_defect_delta_l1": float(np.sum(np.abs(defect_band_delta))),
+            "pairing_delta_gap_change_contribution_signed_sum": float(
+                np.sum(gap_contribution_band)
+            ),
+            "pairing_delta_gap_change_contribution_l1": float(
+                np.sum(np.abs(gap_contribution_band))
+            ),
+            "pairing_delta_prefactor_change_contribution_signed_sum": float(
+                np.sum(prefactor_contribution_band)
+            ),
+            "pairing_delta_prefactor_change_contribution_l1": float(
+                np.sum(np.abs(prefactor_contribution_band))
+            ),
+            "pairing_delta_decomposition_max_abs_roundoff_remainder": float(
+                np.max(np.abs(decomposition_residual[support]))
+            ),
             "current_projection_gap_delta_max_abs": float(
                 np.max(np.abs(gap_delta[support]))
             ),
@@ -4604,6 +4662,36 @@ def _domain_radius_projection_comparison(
             np.sum(np.abs(gap_delta))
         ),
         "cell_defect_delta_vs_current_projection_gap_delta_pearson_r": correlation,
+        "correlation_interpretation_limit": (
+            "descriptive only: the cell defect is the projection gap multiplied "
+            "by a live dr*field-energy-weight*cell-charge prefactor; the exact "
+            "symmetric decomposition below separates both changes"
+        ),
+        "pairing_delta_decomposition": {
+            "identity": (
+                "delta_defect = mean(prefactor)*delta_gap + "
+                "mean(gap)*delta_prefactor, baseline minus extended"
+            ),
+            "gap_change_contribution_signed_sum": float(
+                np.sum(gap_change_contribution)
+            ),
+            "gap_change_contribution_l1": float(
+                np.sum(np.abs(gap_change_contribution))
+            ),
+            "prefactor_change_contribution_signed_sum": float(
+                np.sum(prefactor_change_contribution)
+            ),
+            "prefactor_change_contribution_l1": float(
+                np.sum(np.abs(prefactor_change_contribution))
+            ),
+            "reconstruction_residual_signed_sum": float(
+                np.sum(decomposition_residual)
+            ),
+            "reconstruction_residual_max_abs": float(
+                np.max(np.abs(decomposition_residual))
+            ),
+            "reconstruction_roundoff_bound": decomposition_roundoff_bound,
+        },
         "radial_band_comparison": radial_bands,
     }
 
