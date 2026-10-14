@@ -201,7 +201,12 @@ def recompute_arm(stage: dict[str, Any]) -> dict[str, Any]:
     Rr = Rr_capture.copy()
     Rdotr = Rdotr_capture.copy()
     stencil_checks: dict[str, Any] = {}
-    for global_index in (left, right):
+    # Recompute every derivative in the nested mass-gradient stencil. For
+    # the five-point D_r M at cells i,i+1 we need M on i-2...i+3; because
+    # M depends on D_r R, the raw witness therefore carries a two-cell halo
+    # beyond that mass stencil. Reconstruct D_r R and D_r(Rdot) throughout
+    # the usable interior of this archived halo, then build M from those values.
+    for global_index in indices[2:-2]:
         pos = indices.index(global_index)
         dR, scale_R = _centered_fourth(R, indices, global_index, dr)
         dRdot, scale_Rdot = _centered_fourth(Rdot, indices, global_index, dr)
