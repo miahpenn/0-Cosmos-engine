@@ -617,6 +617,9 @@ def test_em_exchange_cli_summary_keeps_physical_remainders_unthresholded():
             {
                 "run_group": "runs", "run_index": 0,
                 "field_energy_time_update_remainder_unthresholded": -3.0e-8,
+                "full_functional_exchange_start_predictor_average_remainder_unthresholded": -5.0e-9,
+                "boundary_separation_adjustment_start_predictor_average_unthresholded": 1.0e-8,
+                "full_minus_boundary_separated_interval_remainder_unthresholded": -1.0e-8,
                 "exchange_only_start_predictor_average_remainder_unthresholded": 5.0e-9,
             }
         ],
@@ -631,6 +634,8 @@ def test_em_exchange_cli_summary_keeps_physical_remainders_unthresholded():
     assert row["exchange_only_relative_remainder_absmax_unthresholded"] == pytest.approx(0.017)
     assert row["field_energy_time_update_remainder_absmax_unthresholded"] == pytest.approx(3.0e-8)
     assert row["interval_exchange_average_remainder_absmax_unthresholded"] == pytest.approx(5.0e-9)
+    assert row["full_functional_interval_exchange_average_remainder_absmax_unthresholded"] == pytest.approx(5.0e-9)
+    assert row["interval_boundary_separation_adjustment_absmax_unthresholded"] == pytest.approx(1.0e-8)
     assert row["algebraic_roundoff_bound_ratio_absmax"] == pytest.approx(0.75)
     assert row["face_minus_cell_current_tangent_mismatch_absmax_unthresholded"] == pytest.approx(2.0e-8)
     assert row["exchange_identity_gap_absmax_unthresholded"] == pytest.approx(1.0e-24)
