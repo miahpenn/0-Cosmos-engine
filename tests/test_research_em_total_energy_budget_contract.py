@@ -417,6 +417,24 @@ def _synthetic_fixed_R_run():
             },
         },
     ]
+    # New algebraic mass-rate witness fields are zero in this interval-fixture
+    # helper unless a test explicitly sets them; live production snapshots must
+    # provide these values and are checked strictly by _fixed_R_interval_balance.
+    expanded_term_fields = (
+        "tube_chain_rule_mass_dot_term_Rdot",
+        "tube_chain_rule_mass_dot_term_gamma_inv_dot",
+        "tube_chain_rule_mass_dot_term_Rdot_r",
+        "tube_chain_rule_mass_dot_term_Ktheta_geometry",
+        "tube_chain_rule_mass_dot_term_Ktheta_dot",
+        "tube_chain_rule_mass_dot_coordinate_term_sum",
+        "tube_chain_rule_mass_dot_coordinate_decomposition_residual",
+        "tube_chain_rule_mass_dot_term_Ktheta_matter_source",
+        "tube_chain_rule_mass_dot_term_Ktheta_dot_minus_explicit_matter_source",
+    )
+    for step in steps:
+        for stage in step["fixed_R_stage_rates"].values():
+            for field in expanded_term_fields:
+                stage.setdefault(field, 0.0)
     return {"accepted_slice_rows": states, "step_rows": steps}
 
 
