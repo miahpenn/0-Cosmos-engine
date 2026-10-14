@@ -4551,12 +4551,14 @@ def _domain_radius_projection_comparison(
     ):
         raise RuntimeError("projection comparison has inconsistent face/cell/prefactor support")
 
-    baseline_gap = baseline_cell - 0.5 * (
+    baseline_face_average = 0.5 * (
         baseline_faces[:-1] + baseline_faces[1:]
     )
-    extended_gap = extended_cell - 0.5 * (
+    extended_face_average = 0.5 * (
         extended_faces[:-1] + extended_faces[1:]
     )
+    baseline_gap = baseline_cell - baseline_face_average
+    extended_gap = extended_cell - extended_face_average
     gap_delta = baseline_gap - extended_gap
     prefactor_delta = baseline_prefactor - extended_prefactor
     baseline_defect = np.asarray(
@@ -4582,16 +4584,44 @@ def _domain_radius_projection_comparison(
         gap_change_contribution + prefactor_change_contribution
     )
     decomposition_residual = defect_delta - reconstructed_defect_delta
-    decomposition_roundoff_bound = 256.0 * np.finfo(np.float64).eps * max(
-        float(np.sum(np.abs(defect_delta)))
-        + float(np.sum(np.abs(reconstructed_defect_delta))),
-        float(np.finfo(np.float64).tiny),
+    # Scale each cell's algebraic check to the uncancelled operands used to
+    # form both domains' defects and the symmetric split. Scaling only to the
+    # already-subtracted domain delta can make a valid near-cancelling split
+    # fail by many orders of magnitude, even when each product is accurate.
+    source_operand_scale = (
+        np.abs(baseline_prefactor * baseline_cell)
+        + np.abs(baseline_prefactor * baseline_face_average)
+        + np.abs(extended_prefactor * extended_cell)
+        + np.abs(extended_prefactor * extended_face_average)
+        + np.abs(baseline_defect)
+        + np.abs(extended_defect)
+        + np.abs(gap_change_contribution)
+        + np.abs(prefactor_change_contribution)
+        + np.abs(defect_delta)
+        + np.abs(reconstructed_defect_delta)
     )
-    if float(np.max(np.abs(decomposition_residual))) > decomposition_roundoff_bound:
+    decomposition_roundoff_bound_profile = (
+        256.0 * np.finfo(np.float64).eps
+        * np.maximum(source_operand_scale, float(np.finfo(np.float64).tiny))
+    )
+    decomposition_roundoff_ratio = (
+        np.abs(decomposition_residual) / decomposition_roundoff_bound_profile
+    )
+    if np.any(decomposition_roundoff_ratio > 1.0):
+        worst = int(np.argmax(decomposition_roundoff_ratio))
         raise RuntimeError(
             "domain-sweep pairing delta does not reconstruct from gap and "
-            "prefactor changes within its operand-scaled roundoff bound"
+            "prefactor changes within its operand-scaled roundoff bound: "
+            f"cell={worst}, residual={decomposition_residual[worst]:.17g}, "
+            f"bound={decomposition_roundoff_bound_profile[worst]:.17g}, "
+            f"ratio={decomposition_roundoff_ratio[worst]:.17g}"
         )
+    decomposition_roundoff_bound = float(
+        np.max(decomposition_roundoff_bound_profile)
+    )
+    decomposition_roundoff_bound_ratio_max = float(
+        np.max(decomposition_roundoff_ratio)
+    )
 
     if np.std(defect_delta) > 0.0 and np.std(gap_delta) > 0.0:
         correlation = float(np.corrcoef(defect_delta, gap_delta)[0, 1])
@@ -4639,6 +4669,9 @@ def _domain_radius_projection_comparison(
             ),
             "pairing_delta_decomposition_max_abs_roundoff_remainder": float(
                 np.max(np.abs(decomposition_residual[support]))
+            ),
+            "pairing_delta_decomposition_max_roundoff_bound_ratio": float(
+                np.max(decomposition_roundoff_ratio[support])
             ),
             "current_projection_gap_delta_max_abs": float(
                 np.max(np.abs(gap_delta[support]))
@@ -4691,6 +4724,9 @@ def _domain_radius_projection_comparison(
                 np.max(np.abs(decomposition_residual))
             ),
             "reconstruction_roundoff_bound": decomposition_roundoff_bound,
+            "reconstruction_roundoff_bound_ratio_max": (
+                decomposition_roundoff_bound_ratio_max
+            ),
         },
         "radial_band_comparison": radial_bands,
     }

@@ -1474,6 +1474,59 @@ def test_domain_stage_diagnostics_reconstructs_signed_cellwise_projection_and_hl
 
 
 
+def test_domain_radius_projection_roundoff_bound_scales_to_cancelled_products():
+    centers = (np.arange(40, dtype=np.float64) + 0.5) * 0.5
+    epsilon = 1.0e-8
+    baseline_gap = np.full(centers.size, 1.0 + epsilon)
+    extended_gap = np.full(centers.size, 1.0 + 2.0 * epsilon)
+    baseline_prefactor = np.full(centers.size, 1.0 + epsilon)
+    extended_prefactor = np.ones(centers.size, dtype=np.float64)
+
+    def diagnostic(gap, prefactor):
+        return {
+            "coordinate_radius_cut": 20.0,
+            "inner_cell_centers": centers.tolist(),
+            "inner_cell_current_equivalent": gap.tolist(),
+            "inner_face_currents": np.zeros(centers.size + 1).tolist(),
+            "inner_cell_pairing_prefactor": prefactor.tolist(),
+            "inner_cell_defect_profile": (prefactor * gap).tolist(),
+        }
+
+    result = _domain_radius_projection_comparison(
+        diagnostic(baseline_gap, baseline_prefactor),
+        diagnostic(extended_gap, extended_prefactor),
+    )
+    decomposition = result["pairing_delta_decomposition"]
+    residual_absmax = decomposition["reconstruction_residual_max_abs"]
+    expected_gap_contribution = (
+        0.5 * (baseline_prefactor + extended_prefactor)
+        * (baseline_gap - extended_gap)
+    )
+    expected_prefactor_contribution = (
+        0.5 * (baseline_gap + extended_gap)
+        * (baseline_prefactor - extended_prefactor)
+    )
+    expected_defect_delta = (
+        baseline_prefactor * baseline_gap - extended_prefactor * extended_gap
+    )
+    old_style_bound = (
+        256.0 * np.finfo(np.float64).eps
+        * max(
+            float(np.sum(np.abs(expected_defect_delta)))
+            + float(np.sum(np.abs(
+                expected_gap_contribution + expected_prefactor_contribution
+            ))),
+            float(np.finfo(np.float64).tiny),
+        )
+    )
+    # The O(1) domain products differ at roundoff scale while the two split
+    # contributions are O(1e-8) and nearly cancel. A bound scaled only to the
+    # final delta is therefore not an appropriate operand-level contract.
+    assert residual_absmax <= decomposition["reconstruction_roundoff_bound"]
+    assert decomposition["reconstruction_roundoff_bound_ratio_max"] <= 1.0
+    assert residual_absmax > old_style_bound
+
+
 def test_domain_radius_projection_comparison_reports_radial_pairing_signal():
     centers = (np.arange(40, dtype=np.float64) + 0.5) * 0.5
     baseline_gap = np.linspace(1.0e-10, 2.0e-10, centers.size)
@@ -1528,6 +1581,7 @@ def test_domain_radius_projection_comparison_reports_radial_pairing_signal():
     assert decomposition["reconstruction_residual_max_abs"] <= (
         decomposition["reconstruction_roundoff_bound"]
     )
+    assert decomposition["reconstruction_roundoff_bound_ratio_max"] <= 1.0
     bands = result["radial_band_comparison"]
     assert [(row["coordinate_radius_lower_inclusive"],
              row["coordinate_radius_upper_exclusive"]) for row in bands] == [
