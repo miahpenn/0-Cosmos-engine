@@ -1270,6 +1270,162 @@ def _mass_gradient_identity_bracket_witness(
     return result
 
 
+
+def _hm_constraint_adjusted_fixed_R_rate(
+    mass_gradient_witness: dict, *, tube_speed: float,
+    composite_stress_flux: float, composite_pressure_work: float,
+    measured_semidiscrete_rate: float, measured_interpolant_rate: float,
+    target: float,
+) -> dict:
+    """Compare native and H/M-substituted tube sweeps at one exact stage.
+
+    H_term and M_term belong to the spatial identity for D_r M_MS. They enter
+    a fixed-R rate through the tube-coordinate speed, not as naked rate terms.
+    Therefore P_HM uses F_composite + W_composite
+    + (G_composite + H_term + M_term) * v_tube, while P_native uses
+    F_composite + W_composite + (D_r M_MS)_native * v_tube.
+    The unassigned operator remainder is retained explicitly; this helper
+    neither thresholds it nor treats it as a new physical source.
+    """
+    if not isinstance(mass_gradient_witness, dict):
+        raise RuntimeError("H/M fixed-R rate witness must be a mapping")
+    required = (
+        "target_R", "left_index", "right_index", "left_cell", "right_cell",
+        "mass_gradient_discrete_interpolated_at_target",
+        "local_composite_rhs_interpolated_at_target",
+        "local_composite_residual_interpolated_at_target",
+        "hamiltonian_constraint_contribution_interpolated_at_target",
+        "momentum_constraint_contribution_interpolated_at_target",
+        "constraint_identity_operator_remainder_interpolated_at_target",
+    )
+    missing = [key for key in required if key not in mass_gradient_witness]
+    if missing:
+        raise RuntimeError(f"H/M fixed-R rate witness missing fields: {missing}")
+
+    def finite(value, label):
+        try:
+            number = float(value)
+        except (TypeError, ValueError, OverflowError) as exc:
+            raise RuntimeError(f"H/M fixed-R rate {label} must be finite numeric") from exc
+        if not math.isfinite(number):
+            raise RuntimeError(f"H/M fixed-R rate {label} must be finite")
+        return number
+
+    target_value = finite(target, "target")
+    target_witness = finite(mass_gradient_witness["target_R"], "witness target")
+    identity_scale = max(1.0, abs(target_value), abs(target_witness))
+    if abs(target_value - target_witness) > 64.0 * np.finfo(float).eps * identity_scale:
+        raise RuntimeError("H/M fixed-R rate target does not match mass-gradient witness")
+
+    left = mass_gradient_witness["left_index"]
+    right = mass_gradient_witness["right_index"]
+    if (
+        isinstance(left, bool) or isinstance(right, bool)
+        or not isinstance(left, (int, np.integer))
+        or not isinstance(right, (int, np.integer))
+        or int(right) != int(left) + 1
+    ):
+        raise RuntimeError("H/M fixed-R rate witness has invalid bracket indices")
+    for side, expected in (("left_cell", int(left)), ("right_cell", int(right))):
+        cell = mass_gradient_witness[side]
+        if not isinstance(cell, dict) or cell.get("index") != expected:
+            raise RuntimeError(
+                f"H/M fixed-R rate {side} identity does not match the bracket"
+            )
+
+    values = {
+        key: finite(mass_gradient_witness[key], key)
+        for key in (
+            "mass_gradient_discrete_interpolated_at_target",
+            "local_composite_rhs_interpolated_at_target",
+            "local_composite_residual_interpolated_at_target",
+            "hamiltonian_constraint_contribution_interpolated_at_target",
+            "momentum_constraint_contribution_interpolated_at_target",
+            "constraint_identity_operator_remainder_interpolated_at_target",
+        )
+    }
+    speed = finite(tube_speed, "tube speed")
+    flux = finite(composite_stress_flux, "composite stress flux")
+    work = finite(composite_pressure_work, "composite radial pressure work")
+    measured_chain = finite(measured_semidiscrete_rate, "semidiscrete measured rate")
+    measured_interp = finite(measured_interpolant_rate, "interpolant measured rate")
+
+    mass_gradient_native = values["mass_gradient_discrete_interpolated_at_target"]
+    gradient_rhs = values["local_composite_rhs_interpolated_at_target"]
+    gradient_residual = values["local_composite_residual_interpolated_at_target"]
+    h_term = values["hamiltonian_constraint_contribution_interpolated_at_target"]
+    m_term = values["momentum_constraint_contribution_interpolated_at_target"]
+    eps_op = values["constraint_identity_operator_remainder_interpolated_at_target"]
+    hm_sum = h_term + m_term
+    gradient_from_hm = gradient_rhs + hm_sum
+    gradient_from_full_identity = gradient_from_hm + eps_op
+    identity_reconstruction_residual = mass_gradient_native - gradient_from_full_identity
+    identity_scale = max(
+        abs(mass_gradient_native), abs(gradient_rhs), abs(h_term), abs(m_term),
+        abs(eps_op), float(np.finfo(float).tiny),
+    )
+    roundoff_bound = 256.0 * np.finfo(float).eps * identity_scale
+    if abs(identity_reconstruction_residual) > roundoff_bound:
+        raise RuntimeError("H/M fixed-R rate gradient identity reconstruction failed")
+
+    base_flux_work = flux + work
+    native_sweep = mass_gradient_native * speed
+    h_sweep = h_term * speed
+    m_sweep = m_term * speed
+    eps_sweep = eps_op * speed
+    constraint_sweep = gradient_from_hm * speed
+    full_identity_sweep = gradient_from_full_identity * speed
+    native_prediction = base_flux_work + native_sweep
+    adjusted_prediction = base_flux_work + constraint_sweep
+    full_identity_prediction = base_flux_work + full_identity_sweep
+    adjusted_delta = adjusted_prediction - native_prediction
+    expected_adjusted_delta = -eps_sweep
+    rate_scale = max(
+        abs(native_prediction), abs(adjusted_prediction), abs(expected_adjusted_delta),
+        abs(base_flux_work), float(np.finfo(float).tiny),
+    )
+    rate_roundoff_bound = 256.0 * np.finfo(float).eps * rate_scale
+    if abs(adjusted_delta - expected_adjusted_delta) > rate_roundoff_bound:
+        raise RuntimeError("H/M fixed-R rate sweep substitution failed reconstruction")
+
+    return {
+        "target_R": target_value,
+        "left_index": int(left),
+        "right_index": int(right),
+        "tube_coordinate_speed_for_fixed_R": speed,
+        "base_composite_flux_plus_work_rate": base_flux_work,
+        "composite_stress_flux_rate": flux,
+        "composite_radial_pressure_work_rate": work,
+        "native_mass_gradient_at_R_star": mass_gradient_native,
+        "composite_mass_gradient_rhs_at_R_star": gradient_rhs,
+        "hamiltonian_mass_gradient_term_at_R_star": h_term,
+        "momentum_mass_gradient_term_at_R_star": m_term,
+        "operator_remainder_mass_gradient_at_R_star": eps_op,
+        "hamiltonian_term_contribution_to_sweep_rate": h_sweep,
+        "momentum_term_contribution_to_sweep_rate": m_sweep,
+        "operator_remainder_contribution_to_sweep_rate": eps_sweep,
+        "constraint_substituted_mass_gradient_at_R_star": gradient_from_hm,
+        "full_identity_reconstructed_mass_gradient_at_R_star": gradient_from_full_identity,
+        "native_sweep_rate": native_sweep,
+        "constraint_substituted_sweep_rate": constraint_sweep,
+        "full_identity_reconstructed_sweep_rate": full_identity_sweep,
+        "native_composite_fixed_R_prediction": native_prediction,
+        "constraint_adjusted_fixed_R_prediction": adjusted_prediction,
+        "full_identity_reconstructed_fixed_R_prediction": full_identity_prediction,
+        "adjusted_minus_native_prediction": adjusted_delta,
+        "expected_adjusted_minus_native_from_epsilon_sweep": expected_adjusted_delta,
+        "measured_semidiscrete_fixed_R_rate": measured_chain,
+        "measured_moving_interpolant_fixed_R_rate": measured_interp,
+        "semidiscrete_measured_minus_native_prediction": measured_chain - native_prediction,
+        "semidiscrete_measured_minus_adjusted_prediction": measured_chain - adjusted_prediction,
+        "interpolant_measured_minus_native_prediction": measured_interp - native_prediction,
+        "interpolant_measured_minus_adjusted_prediction": measured_interp - adjusted_prediction,
+        "gradient_identity_reconstruction_residual": identity_reconstruction_residual,
+        "gradient_identity_roundoff_bound": roundoff_bound,
+        "rate_sweep_reconstruction_residual": adjusted_delta - expected_adjusted_delta,
+        "rate_sweep_roundoff_bound": rate_roundoff_bound,
+    }
+
 def _fixed_target_interpolant_rate(
     R, Rdot, mass, mass_dot_coordinate, *, target: float
 ) -> dict:
@@ -1656,6 +1812,15 @@ def _worldtube_sample(kernel, state, *, geometry_stage_capture=None) -> dict:
                 interpolant_rate, composite_stress_flux, composite_pressure_work
             )
         )
+        hm_constraint_adjusted_rate = _hm_constraint_adjusted_fixed_R_rate(
+            mass_gradient_witness,
+            tube_speed=tube_speed,
+            composite_stress_flux=composite_stress_flux,
+            composite_pressure_work=composite_pressure_work,
+            measured_semidiscrete_rate=chain_Mdot_fixed_R,
+            measured_interpolant_rate=interpolant_rate["mass_dot_fixed_R"],
+            target=FIXED_AREAL_RADIUS,
+        )
         chain_rule = {
             "tube_chain_rule_Rdot": at(Rdot),
             "tube_chain_rule_Rr": at(Rr),
@@ -1737,6 +1902,7 @@ def _worldtube_sample(kernel, state, *, geometry_stage_capture=None) -> dict:
                 "mass": np.asarray(chain_profiles["mass"], dtype=float).copy(),
                 "mass_dot_coordinate": np.asarray(chain_profiles["mass_dot_coordinate"], dtype=float).copy(),
             },
+            "tube_hm_constraint_adjusted_fixed_R_rate": hm_constraint_adjusted_rate,
         }
 
     em_rho = total.electromagnetic_rho
@@ -1883,6 +2049,7 @@ def _fixed_R_rate_snapshot(sample: dict) -> dict:
     for key in (
         "tube_mass_gradient_identity_witness",
         "tube_chain_rule_flux_work_operator_comparison",
+        "tube_hm_constraint_adjusted_fixed_R_rate",
     ):
         if key in sample:
             snapshot[key] = sample[key]
