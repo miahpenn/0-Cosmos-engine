@@ -55,9 +55,9 @@ DENSITY_PROFILE = ((0.0, 2.0e-5), (R_MAX, 2.0e-5))
 CHARGE_TO_MASS_ARMS = (0.0, 0.25)
 FIXED_AREAL_RADIUS = 10.0
 
-# Blob IDs from main 5c51bf509504365df394e6cca96bf1d117f4614d. The audit is
-# deliberately tied to these operators; update the pin only after a new source
-# review and a new exact-head result, never silently on a moving main branch.
+# Blob IDs from main 31a7491bce8076e05a8524d442567cc39ed30d94. PR #179 added only
+# the opt-in runtime capability contract at this anchor; the audit stays pinned
+# to these exact production blobs and the vendor gitlink, not a moving main ref.
 SOURCE_PINS = {
     "engine/campaign.py": "119942d9debf63b99997cda96c541754e7e8aded",
     "engine/cmc_gauge.py": "7b49b5751abebd4faf0130208032cd2080b71f64",
@@ -65,8 +65,8 @@ SOURCE_PINS = {
     "engine/invariant_diagnostics.py": "4bbcc6174c978b07c4f2175d1dcfeccb2d0c12b1",
     "engine/matter_rhs.py": "f41180efbcff2c72cf36477a765318ab539fac80",
     "engine/matter_system.py": "05e23d2368120ea8a1a6aad3fa438625d5380750",
-    "engine/production_contract.py": "ef1606eb5a01e0f5906a42de77afd35d3b9fffed",
-    "engine/production_kernel.py": "4e0bdccc2ac614c48c34521663a6d53b404b6747",
+    "engine/production_contract.py": "0a3b6f0a4223f93a5e33ab30706dc803f69643ca",
+    "engine/production_kernel.py": "9685e76bb5a6f26d6bf383e240de24f37523f265",
     "engine/radial_maxwell.py": "81269f1d1334c46c4c2f44ba816d792722c0a38e",
     "engine/run_production.py": "726f3fd09d46142862574d348aa0755f83bc0612",
     "engine/scalar_system.py": "ffc119b1a6f2d495d972323901f76a85783b0a1b",
