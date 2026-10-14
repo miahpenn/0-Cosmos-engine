@@ -675,8 +675,12 @@ def test_sector_ktheta_source_rates_reconstruct_live_geometry_source_and_tangent
         pt=scalar_pt + fluid_pt + em_pt,
     )
     target = 2.4
+    # Enforce the live zero-shift kinematic identity pointwise in this
+    # algebraic fixture; the factor-interpolation mode should still expose its
+    # distinct interpolation-order residual.
+    Rdot = -alpha * R * Ktheta
     observed = _sector_ktheta_source_rates(
-        total, R=R, alpha=alpha, Ktheta=Ktheta, target=target
+        total, R=R, alpha=alpha, Ktheta=Ktheta, Rdot=Rdot, target=target
     )
     electromagnetic = observed["sectors"]["electromagnetic"]
 
@@ -703,6 +707,35 @@ def test_sector_ktheta_source_rates_reconstruct_live_geometry_source_and_tangent
         assert observed["sum_at_R_star"][name] == pytest.approx(
             observed["aggregate_at_R_star"][name], rel=2.0e-14, abs=1.0e-15
         )
+
+    identity = observed["pressure_work_identity"]
+    composite = identity["composite_profile_then_interpolate"]
+    factor = identity["factor_interpolate_then_multiply"]
+    em_composite = composite["sectors"]["electromagnetic"]
+    em_factor = factor["sectors"]["electromagnetic"]
+
+    # The pointwise composite identity includes the density companion:
+    # S_Ktheta = W_pr - C_rho, not S_Ktheta = W_pr by itself.
+    assert em_composite["source_mass_rate"] == pytest.approx(
+        em_composite["radial_pressure_work"] - em_composite["density_companion"],
+        rel=2.0e-14, abs=1.0e-15,
+    )
+    assert abs(composite["aggregate_at_R_star"]["kinematic_Rdot_closure_residual"]) < 1.0e-14
+    assert abs(composite["aggregate_at_R_star"]["identity_residual"]) <= (
+        composite["identity_vs_kinematic_roundoff_bound"]
+    )
+    for name, residual in composite["additive_residuals"].items():
+        assert abs(residual) <= composite["additive_bounds"][name]
+
+    # Factoring after interpolation is not the same discrete operator. Here the
+    # factors have a nonzero closure defect, and the residual must report it.
+    assert em_factor["identity_residual"] == pytest.approx(
+        em_factor["identity_residual_from_kinematic_closure"],
+        rel=2.0e-14, abs=1.0e-15,
+    )
+    assert abs(factor["aggregate_at_R_star"]["identity_residual"]) > 1.0e-6
+    for name, residual in factor["additive_residuals"].items():
+        assert abs(residual) <= factor["additive_bounds"][name]
 
 
 
