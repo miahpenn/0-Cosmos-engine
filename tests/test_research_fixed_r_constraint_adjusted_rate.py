@@ -3,7 +3,36 @@ import math
 
 import pytest
 
-from tools.audit_em_total_energy_budget import _hm_constraint_adjusted_fixed_R_rate
+import json
+from collections import defaultdict
+
+from tools.audit_em_total_energy_budget import (
+    _fixed_R_rate_snapshot,
+    _hm_constraint_adjusted_fixed_R_rate,
+    _json_safe,
+)
+
+
+def test_piecewise_linear_fixed_R_witness_survives_stage_snapshot_json_round_trip():
+    # defaultdict supplies the unchanged scalar rate fields so this contract
+    # isolates pass-through of the newly added nested witness.
+    sample = defaultdict(float)
+    sample["t"] = 0.0125
+    witness = {
+        "operator": "piecewise_linear_bracket_secant",
+        "left_index": 3,
+        "right_index": 4,
+        "theta": 0.4,
+        "piecewise_linear_dM_dR_secant": 1.75,
+        "tangent_reconstruction_residual": -2.0e-16,
+    }
+    sample["tube_piecewise_linear_fixed_R_rate_witness"] = witness
+
+    snapshot = _fixed_R_rate_snapshot(sample)
+    serialized = json.dumps(_json_safe(snapshot), allow_nan=False)
+    decoded = json.loads(serialized)
+
+    assert decoded["tube_piecewise_linear_fixed_R_rate_witness"] == witness
 
 
 def _witness():
