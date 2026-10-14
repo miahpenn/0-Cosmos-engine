@@ -1510,6 +1510,64 @@ def test_domain_stage_diagnostics_reconstructs_signed_cellwise_projection_and_hl
         + np.asarray(observed["inner_hll_split_roundoff_pairing_profile"])
     )
     assert component_sum == pytest.approx(expected_defect[:3], rel=0.0, abs=2e-18)
+    # The newly exported face-current arrays are part of the research-artifact
+    # contract, not just incidental diagnostics: check each component and the
+    # final reconstruction so a dropped or mislabelled field fails this test.
+    inner_face_mask = (np.arange(n + 1, dtype=np.float64) * dr) <= 1.5
+    expected_left_faces = np.zeros(n + 1, dtype=np.float64)
+    expected_right_faces = np.zeros(n + 1, dtype=np.float64)
+    expected_jump_faces = np.zeros(n + 1, dtype=np.float64)
+    for face_index, face in enumerate(face_operands, start=1):
+        expected_left_faces[face_index] = (
+            4.0 * np.pi * eta * float(face["weighted_left_rest_mass_flux"])
+        )
+        expected_right_faces[face_index] = (
+            4.0 * np.pi * eta * float(face["weighted_right_rest_mass_flux"])
+        )
+        expected_jump_faces[face_index] = (
+            4.0 * np.pi * eta * float(face["jump_rest_mass_flux"])
+        )
+    expected_boundary_faces = np.zeros(n + 1, dtype=np.float64)
+    expected_boundary_faces[0] = current_faces[0]
+    expected_boundary_faces[-1] = current_faces[-1]
+    expected_roundoff_faces = current_faces - (
+        expected_left_faces + expected_right_faces
+        + expected_jump_faces + expected_boundary_faces
+    )
+    assert observed["inner_face_coordinates"] == pytest.approx(
+        (np.arange(n + 1, dtype=np.float64) * dr)[inner_face_mask]
+    )
+    assert observed["inner_face_currents"] == pytest.approx(
+        current_faces[inner_face_mask]
+    )
+    assert observed["inner_weighted_left_face_currents"] == pytest.approx(
+        expected_left_faces[inner_face_mask], rel=0.0, abs=2e-18
+    )
+    assert observed["inner_weighted_right_face_currents"] == pytest.approx(
+        expected_right_faces[inner_face_mask], rel=0.0, abs=2e-18
+    )
+    assert observed["inner_hll_jump_face_currents"] == pytest.approx(
+        expected_jump_faces[inner_face_mask], rel=0.0, abs=2e-18
+    )
+    assert observed["inner_non_hll_boundary_face_currents"] == pytest.approx(
+        expected_boundary_faces[inner_face_mask], rel=0.0, abs=2e-18
+    )
+    assert observed["inner_hll_split_roundoff_face_currents"] == pytest.approx(
+        expected_roundoff_faces[inner_face_mask], rel=0.0, abs=2e-18
+    )
+    saved_face_component_sum = sum((
+        np.asarray(observed[key], dtype=np.float64)
+        for key in (
+            "inner_weighted_left_face_currents",
+            "inner_weighted_right_face_currents",
+            "inner_hll_jump_face_currents",
+            "inner_hll_split_roundoff_face_currents",
+            "inner_non_hll_boundary_face_currents",
+        )
+    ), start=np.zeros(np.count_nonzero(inner_face_mask), dtype=np.float64))
+    assert saved_face_component_sum == pytest.approx(
+        observed["inner_face_currents"], rel=0.0, abs=2e-18
+    )
     assert observed["classification"].startswith("signed diagnostic")
 
 
