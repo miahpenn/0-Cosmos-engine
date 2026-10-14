@@ -17,6 +17,8 @@ import re
 import sys
 from typing import Any, Iterator
 
+import numpy as np
+
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
