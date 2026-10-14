@@ -1,8 +1,8 @@
 # GEAR Proper-Radial Observer v1 — representation-aware diagnostic
 
 **Status:** research-only post-processing utility; no evolution or physics equation changed  
-**Source branch:** \`research/gear-proper-radial-observer-v1-2026-10-14\`  
-**Archive anchor:** \`GEAR_proper_radial_space_experiment_v1_2026-10-03.md\`.
+**Source branch:** `research/gear-proper-radial-observer-v1-2026-10-14`  
+**Archive anchor:** `GEAR_proper_radial_space_experiment_v1_2026-10-03.md`.
 
 ## Why representation matters
 
@@ -10,9 +10,9 @@ The archived radial engine defines proper distance by \(d\ell=a(r)\,dr\), becaus
 
 This observer exposes both operations separately:
 
-- \`archive_proper_radius(r, radial_scale_factor)\` for the historical radial-engine convention \(d\ell=a\,dr\).
-- \`bssn_proper_radius(r, metric_a, X)\` for current BSSN data \(d\ell=\sqrt{a}/X\,dr\).
-- \`profile_on_proper_grid(ell, profile, target_ell)\` for bounded diagnostic interpolation; it refuses extrapolation.
+- `archive_proper_radius(r, radial_scale_factor)` for the historical radial-engine convention \(d\ell=a\,dr\).
+- `bssn_proper_radius(r, metric_a, X)` for current BSSN data \(d\ell=\sqrt{a}/X\,dr\).
+- `profile_on_proper_grid(ell, profile, target_ell)` for bounded diagnostic interpolation; it refuses extrapolation.
 
 ## Quadrature and contracts
 
@@ -26,9 +26,9 @@ The implementation checks dimensions, finiteness, positive metric factors, stric
 
 Run:
 
-\`\`\`bash
+```bash
 pytest -q tests/test_gear_proper_radial_v1.py
-\`\`\`
+```
 
 ## Interpretation boundary
 
