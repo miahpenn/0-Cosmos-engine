@@ -1572,9 +1572,22 @@ def recompute_em_stage_exchange_campaign(data: dict[str, Any]) -> dict[str, Any]
                     item["exchange_only_remainder_unthresholded"] for item in recomputed
                 )
                 combined_candidates = None
-                if source_rows is not None:
+                combined_row_keys = (
+                    "matter_species",
+                    "em_field_energy_before",
+                    "em_field_energy_after",
+                    "combined_matter_plus_em_energy_rate_measured",
+                    "combined_rate_from_named_boundary_and_source_terms",
+                    "unassigned_matter_plus_em_rate_remainder_not_global_conservation_residual",
+                )
+                if source_rows is not None and all(key in row for key in combined_row_keys):
                     combined_candidates = recompute_combined_matter_em_accounting_candidates(
                         row, source_rows, recomputed
+                    )
+                elif isinstance(data.get("provenance"), dict):
+                    raise RuntimeError(
+                        f"{group_name}[{run_index}] step {interval_index} "
+                        "lacks raw operands for combined matter/EM candidate reconstruction"
                     )
                 intervals_out.append({
                     "run_group": group_name,
