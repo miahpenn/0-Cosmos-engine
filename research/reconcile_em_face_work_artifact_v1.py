@@ -139,6 +139,7 @@ def _face_current_projection_decomposition(
     weight = np.asarray(witness.get("field_energy_weight"), dtype=np.float64)
     q_cell = np.asarray(witness.get("charge_cell_average"), dtype=np.float64)
     current_faces = np.asarray(witness.get("charge_current_faces"), dtype=np.float64)
+    rest_flux_faces = np.asarray(witness.get("rest_mass_flux_faces"), dtype=np.float64)
     qdot_faces = np.asarray(witness.get("charge_face_dot"), dtype=np.float64)
     lapse = np.asarray(witness.get("lapse_profile"), dtype=np.float64)
     primitive_current = np.asarray(witness.get("lorentz_current_r_profile"), dtype=np.float64)
@@ -163,7 +164,11 @@ def _face_current_projection_decomposition(
     for name, values in profiles.items():
         if values.shape != (n,) or not np.all(np.isfinite(values)):
             raise ValueError(f"{name} must be a finite vector matching cell centres")
-    for name, values in (("charge_current_faces", current_faces), ("charge_face_dot", qdot_faces)):
+    for name, values in (
+        ("charge_current_faces", current_faces),
+        ("rest_mass_flux_faces", rest_flux_faces),
+        ("charge_face_dot", qdot_faces),
+    ):
         if values.shape != (n + 1,) or not np.all(np.isfinite(values)):
             raise ValueError(f"{name} must be a finite vector with n+1 face entries")
     if n < 2 or np.any(centers <= 0.0) or dr <= 0.0:
@@ -181,6 +186,17 @@ def _face_current_projection_decomposition(
         scale = math.fsum(abs(float(value)) for value in operands)
         bound = ulps * eps * max(scale, tiny)
         return bound, abs(float(residual)) / bound
+
+    charge_flux_expected = FOUR_PI * eta * rest_flux_faces
+    charge_flux_residual = current_faces - charge_flux_expected
+    charge_flux_bounds = 128.0 * eps * np.maximum(
+        np.abs(current_faces) + np.abs(charge_flux_expected), tiny
+    )
+    if (
+        not np.all(np.isfinite(charge_flux_residual))
+        or np.any(np.abs(charge_flux_residual) > charge_flux_bounds)
+    ):
+        raise ArithmeticError("charge face currents disagree with 4*pi*(q/m)*rest-mass flux")
 
     qdot_residual = qdot_faces + current_faces
     qdot_scales = np.abs(qdot_faces) + np.abs(current_faces)
@@ -240,10 +256,21 @@ def _face_current_projection_decomposition(
         if not isinstance(operand, dict) or int(operand.get("face_index", -1)) != expected_index:
             raise ValueError("HLL face indices must be contiguous and internal")
         for key in (
-            "weighted_left_rest_mass_flux", "weighted_right_rest_mass_flux",
-            "jump_rest_mass_flux", "split_reconstruction_residual",
+            "hll_returned_rest_mass_flux", "weighted_left_rest_mass_flux",
+            "weighted_right_rest_mass_flux", "jump_rest_mass_flux",
+            "split_reconstruction_residual",
         ):
             _finite_float(operand.get(key), f"HLL operand {key}")
+        returned_residual = (
+            rest_flux_faces[expected_index] - float(operand["hll_returned_rest_mass_flux"])
+        )
+        returned_bound = 256.0 * eps * max(
+            abs(float(rest_flux_faces[expected_index]))
+            + abs(float(operand["hll_returned_rest_mass_flux"])),
+            tiny,
+        )
+        if abs(returned_residual) > returned_bound:
+            raise ArithmeticError("captured HLL returned flux differs from saved rest-mass face flux")
         left_faces[expected_index] = FOUR_PI * eta * float(operand["weighted_left_rest_mass_flux"])
         right_faces[expected_index] = FOUR_PI * eta * float(operand["weighted_right_rest_mass_flux"])
         jump_faces[expected_index] = FOUR_PI * eta * float(operand["jump_rest_mass_flux"])
@@ -290,6 +317,17 @@ def _face_current_projection_decomposition(
     reconstructed_cell_pairing = current_lorentz_terms.copy()
     for values in face_pairing_components.values():
         reconstructed_cell_pairing = reconstructed_cell_pairing + values
+    source_lorentz_array = np.asarray(cell_lorentz_terms, dtype=np.float64)
+    lorentz_current_residual = source_lorentz_array - current_lorentz_terms
+    lorentz_current_scale = np.abs(source_lorentz_array) + np.abs(current_lorentz_terms)
+    lorentz_current_bounds = 1024.0 * eps * np.maximum(lorentz_current_scale, tiny)
+    lorentz_current_ratios = np.abs(lorentz_current_residual) / lorentz_current_bounds
+    if (
+        not np.all(np.isfinite(lorentz_current_residual))
+        or np.any(lorentz_current_ratios > 1.0)
+    ):
+        raise ArithmeticError("primitive-current Lorentz terms do not reconstruct the saved Lorentz profile")
+
     component_residual = source_pairing - reconstructed_cell_pairing
     component_scale = np.abs(source_pairing) + np.abs(reconstructed_cell_pairing)
     for values in face_pairing_components.values():
@@ -329,6 +367,13 @@ def _face_current_projection_decomposition(
         tangent_total_residual, weighted_only_tangent, jump_tangent, actual_tangent,
         ulps=512.0,
     )
+    adjoint_tangent = _finite_float(
+        adjoint_result.get("face_adjoint_tangent"), "face-adjoint charge tangent"
+    )
+    adjoint_tangent_residual = actual_tangent - adjoint_tangent
+    adjoint_tangent_bound, adjoint_tangent_ratio = bound_ratio(
+        adjoint_tangent_residual, actual_tangent, adjoint_tangent, ulps=512.0
+    )
     jump_residual = jump_tangent - saved_jump_tangent
     jump_bound, jump_ratio = bound_ratio(
         jump_residual, jump_tangent, saved_jump_tangent, ulps=512.0
@@ -337,7 +382,7 @@ def _face_current_projection_decomposition(
     weighted_bound, weighted_ratio = bound_ratio(
         weighted_residual, weighted_only_tangent, saved_weighted_tangent, ulps=512.0
     )
-    if max(tangent_total_ratio, jump_ratio, weighted_ratio) > 1.0:
+    if max(tangent_total_ratio, adjoint_tangent_ratio, jump_ratio, weighted_ratio) > 1.0:
         raise ArithmeticError("HLL face-current tangent decomposition failed its roundoff contract")
 
     bands = {
@@ -380,10 +425,14 @@ def _face_current_projection_decomposition(
         "face_current_reconstruction_residual": face_reconstruction_residual.tolist(),
         "face_current_reconstruction_bound": face_reconstruction_bounds.tolist(),
         "face_current_reconstruction_max_bound_ratio": float(np.max(face_reconstruction_ratios)),
+        "charge_current_vs_rest_flux_max_bound_ratio": float(np.max(np.abs(charge_flux_residual) / charge_flux_bounds)),
+        "charge_rate_vs_negative_face_current_max_bound_ratio": float(np.max(np.abs(qdot_residual) / qdot_bounds)),
         "face_pairing_component_terms": {
             name: values.tolist() for name, values in face_pairing_components.items()
         },
         "current_based_lorentz_pairing_terms": current_lorentz_terms.tolist(),
+        "lorentz_current_vs_saved_profile_terms_residual": lorentz_current_residual.tolist(),
+        "lorentz_current_vs_saved_profile_terms_bound_ratio": float(np.max(lorentz_current_ratios)),
         "component_reconstruction_residual": component_residual.tolist(),
         "component_reconstruction_bound": component_bounds.tolist(),
         "component_reconstruction_max_bound_ratio": float(np.max(component_ratios)),
@@ -396,6 +445,11 @@ def _face_current_projection_decomposition(
             "total_residual": tangent_total_residual,
             "total_roundoff_bound": tangent_total_bound,
             "total_bound_ratio": tangent_total_ratio,
+            "saved_adjoint_tangent": adjoint_tangent,
+            "adjoint_tangent_residual": adjoint_tangent_residual,
+            "adjoint_tangent_roundoff_bound": adjoint_tangent_bound,
+            "adjoint_tangent_bound_ratio": adjoint_tangent_ratio,
+            "max_bound_ratio": max(tangent_total_ratio, adjoint_tangent_ratio, jump_ratio, weighted_ratio),
             "weighted_only_residual": weighted_residual,
             "weighted_only_roundoff_bound": weighted_bound,
             "weighted_only_bound_ratio": weighted_ratio,
