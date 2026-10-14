@@ -398,6 +398,14 @@ def test_em_exchange_cli_summary_keeps_physical_remainders_unthresholded():
             {
                 "run_group": "runs", "run_index": 0, "resolution": 24,
                 "q_over_m": 0.25, "cfl": None,
+                "stage": "predictor", "t": 0.04, "interval_index": 1,
+                "charge_current_tangent": -1.0e-7,
+                "cell_centered_current_tangent": -8.0e-8,
+                "matter_lorentz_power": 8.0e-8,
+                "outer_current_power": -3.0e-9,
+                "face_minus_cell_current_tangent_mismatch_unthresholded": -2.0e-8,
+                "exchange_from_face_cell_current_mismatch_unthresholded": -2.0e-8,
+                "exchange_identity_gap_unthresholded": 1.0e-24,
                 "exchange_only_remainder_unthresholded": -2.0e-8,
                 "exchange_only_relative_remainder_unthresholded": 0.02,
                 "algebraic_roundoff_checks": {"identity": {"bound_ratio": 0.5}},
@@ -405,6 +413,14 @@ def test_em_exchange_cli_summary_keeps_physical_remainders_unthresholded():
             {
                 "run_group": "runs", "run_index": 0, "resolution": 24,
                 "q_over_m": 0.25, "cfl": None,
+                "stage": "start", "t": 0.03, "interval_index": 0,
+                "charge_current_tangent": -5.0e-8,
+                "cell_centered_current_tangent": -4.0e-8,
+                "matter_lorentz_power": 4.0e-8,
+                "outer_current_power": -2.0e-9,
+                "face_minus_cell_current_tangent_mismatch_unthresholded": -1.0e-8,
+                "exchange_from_face_cell_current_mismatch_unthresholded": -1.0e-8,
+                "exchange_identity_gap_unthresholded": 0.0,
                 "exchange_only_remainder_unthresholded": 1.0e-8,
                 "exchange_only_relative_remainder_unthresholded": 0.01,
                 "algebraic_roundoff_checks": {"identity": {"bound_ratio": 0.75}},
@@ -426,6 +442,10 @@ def test_em_exchange_cli_summary_keeps_physical_remainders_unthresholded():
     assert row["field_energy_time_update_remainder_absmax_unthresholded"] == pytest.approx(3.0e-8)
     assert row["interval_exchange_average_remainder_absmax_unthresholded"] == pytest.approx(5.0e-9)
     assert row["algebraic_roundoff_bound_ratio_absmax"] == pytest.approx(0.75)
+    assert row["face_minus_cell_current_tangent_mismatch_absmax_unthresholded"] == pytest.approx(2.0e-8)
+    assert row["exchange_identity_gap_absmax_unthresholded"] == pytest.approx(1.0e-24)
+    assert row["worst_exchange_stage_terms"]["stage"] == "predictor"
+    assert row["worst_exchange_stage_terms"]["exchange_identity_gap_unthresholded"] == pytest.approx(1.0e-24)
     assert row["physical_residual_threshold_applied"] is False
 
 
