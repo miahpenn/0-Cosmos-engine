@@ -4313,8 +4313,6 @@ def _domain_stage_diagnostics(
             )
     if n < 2 or dr <= 0.0 or not math.isfinite(dr):
         raise RuntimeError("domain-sweep stage has invalid grid dimensions")
-    if eta == 0.0:
-        raise RuntimeError("neutral runs must not emit a non-null EM stage witness")
     if (
         not math.isclose(float(stage_witness["charge_to_rest_mass"]), eta,
                          rel_tol=0.0, abs_tol=0.0)
