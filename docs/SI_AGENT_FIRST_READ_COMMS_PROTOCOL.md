@@ -6,12 +6,12 @@ This is a coordinated team effort. The repository's communication record is oper
 
 ## First-read checklist
 
-1. Read the current `README.md`, this document, and the current production/status and handoff documents relevant to your task.
-2. Read the cross-agent message board: [Issue #5 — Cross-agent coordination](https://github.com/miahpenn/0-Cosmos-engine/issues/5). Read the full conversation, including the newest comments, not only the issue description.
-3. Read [Issue #4 — Momentum-constraint propagation](https://github.com/miahpenn/0-Cosmos-engine/issues/4) when touching constraints, geometry, centre regularity, or related diagnostics.
-4. Inspect recent and relevant pull requests and their **conversation comments, review threads, commits, checks, and linked Actions artifacts**. Start with the open PRs/issues linked from the coordination board; do not assume a branch name or PR title tells the full story.
-5. Check the current `main` commit and the exact source SHA used by any reported test. A result from a stale or frozen branch is not automatically evidence about current production source.
-6. Before starting work, post a short coordination note on Issue #5 (or the task's existing shared thread): what you read, the current finding you believe is established, your proposed bounded next step, the branch/run you intend to use, and any overlap you found. If another agent is already doing that exact test or edit, coordinate rather than duplicate it.
+1. Read the current `README.md`, this document, [the canonical research workflow](RESEARCH_WORKFLOW.md), and the relevant current sections of `docs/STATUS.md`.
+2. Read the [cross-agent message board, Issue #5](https://github.com/miahpenn/0-Cosmos-engine/issues/5), beginning with the newest coordination entries and following their links. Because this thread may exceed 1,000 comments, use the scalable history-reading method below; do not rely on the issue body alone or assume the entire thread must be loaded in one pass.
+3. Read the [team task board, Issue #135](https://github.com/miahpenn/0-Cosmos-engine/issues/135) for current ownership, dependencies, existing artifacts, and exit criteria. Read [Issue #4 — Momentum-constraint propagation](https://github.com/miahpenn/0-Cosmos-engine/issues/4) when touching constraints, geometry, centre regularity, or related diagnostics.
+4. Inspect relevant pull requests and their **conversation comments, review threads, commits, checks, and linked Actions artifacts**. Search for the same lane/discriminator and inspect current source SHAs before deciding there is no overlap.
+5. Verify current `main` and the exact source SHA used by any reported test. A result from a stale or frozen branch is not automatically evidence about current production source.
+6. Before starting work, post a coordination claim on Issue #5 (or the task's established shared thread): the bounded action, branch/PR and source SHA, existing evidence, overlap check, and scope exclusions. If another agent is already doing that exact test or edit, coordinate rather than duplicate it.
 
 ## Keep the message board alive
 
@@ -22,6 +22,17 @@ This is a coordinated team effort. The repository's communication record is oper
 - Keep physics changes separate from diagnostics, test harnesses, and campaign orchestration changes. Do not promote a hypothesis to production physics without the required admission evidence and review.
 - Never silently overwrite another agent's branch or assume another agent's task is abandoned. Coordinate first.
 - If a finding changes, post a correction with the affected commit/run and explain what is superseded.
+
+## Scalable history reading for long threads
+
+Issue #5 is the durable board, but with more than 1,000 comments, a full chronological dump is expensive and can obscure the live edge. Read it as an indexed research record:
+
+- Start from the latest coordination entries and follow links to the live PR, exact-head workflow, review, and artifact.
+- Search prior comments for the exact discriminator, issue/PR numbers, branch/source SHA, and the specific residual or hypothesis. Read the matching claim, result, corrections, and superseding result.
+- Cross-check current Issue #135 and `docs/STATUS.md`; board snapshots can lag behind live GitHub state.
+- If two recent notes conflict, report the conflicting SHAs and evidence and resolve the conflict before running anything.
+
+This changes the reading strategy, not the requirement to review relevant context. When in doubt, ask in the existing shared thread rather than opening a duplicate lane.
 
 ## Current communication entry points
 
