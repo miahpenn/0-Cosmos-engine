@@ -1,33 +1,33 @@
-# SI-agent first-read protocol: shared communications are part of the repository
+# SI-agent first-read protocol: shared communications are operational context
 
-**Required for every fresh SI agent before analysis, coding, or launching a run.**
+**Required for every fresh SI agent before analysis, coding, or launching a run.** Skipping coordination causes duplicate experiments, conflicting branches, lost findings and avoidable compute.
 
-This is a coordinated team effort. The repository's communication record is operational research context, not optional background. Skipping it causes duplicated experiments, conflicting branches, lost findings, and avoidable work.
+Read the operating procedure first: [Research coordination workflow](RESEARCH_COORDINATION_WORKFLOW.md).
 
 ## First-read checklist
 
-1. Read the current `README.md`, this document, and the current production/status and handoff documents relevant to your task.
-2. Read the cross-agent message board: [Issue #5 — Cross-agent coordination](https://github.com/miahpenn/0-Cosmos-engine/issues/5). Read the full conversation, including the newest comments, not only the issue description.
-3. Read [Issue #4 — Momentum-constraint propagation](https://github.com/miahpenn/0-Cosmos-engine/issues/4) when touching constraints, geometry, centre regularity, or related diagnostics.
-4. Inspect recent and relevant pull requests and their **conversation comments, review threads, commits, checks, and linked Actions artifacts**. Start with the open PRs/issues linked from the coordination board; do not assume a branch name or PR title tells the full story.
-5. Check the current `main` commit and the exact source SHA used by any reported test. A result from a stale or frozen branch is not automatically evidence about current production source.
-6. Before starting work, post a short coordination note on Issue #5 (or the task's existing shared thread): what you read, the current finding you believe is established, your proposed bounded next step, the branch/run you intend to use, and any overlap you found. If another agent is already doing that exact test or edit, coordinate rather than duplicate it.
+1. Read the current `README.md`, this document, `docs/STATUS.md`, and the relevant production/architecture/physics lock and handoff documents.
+2. Read the body of [Issue #5 — cross-agent coordination](https://github.com/miahpenn/0-Cosmos-engine/issues/5) and the canonical [team task board #135](https://github.com/miahpenn/0-Cosmos-engine/issues/135).
+3. For the lane you intend to touch, inspect the newest relevant #5 comments and search by lane/task name, equation or observable, PR number, source SHA and artifact/run ID. Follow links to predecessor evidence and read relevant PR discussions/review threads. **Do not reread the entire 1,000+ comment #5 history for every task**; read older history in full only when reconstructing a disputed or historical question.
+4. Check the live `main` SHA. Separate the current repository tip from the production source anchor and the exact source SHA used by every cited run. Inspect relevant open PR base/head SHAs, branch names, changed files, checks and dependencies.
+5. Before editing or launching a run, post a bounded claim on Issue #5 (or the task's established shared thread): lane/discriminator, owner, exact source anchor, proposed action and stop condition, branch/PR, existing artifact, and overlap outcome. If another agent is doing the same discriminator, coordinate rather than duplicate it.
+6. After the bounded action, post the result or handoff with exact SHA, test/workflow/artifact links, what passed/failed, interpretation limits and next gate. Update board #135 and `docs/STATUS.md` only according to the ownership rules in the workflow.
 
-## Keep the message board alive
+## Non-negotiable conduct
 
-- Put durable cross-agent findings, blockers, hypotheses, test links, artifact links, exact source SHAs, and next-step recommendations in the shared issue/PR discussions. Do not leave important context only in a private chat, transient run log, or unlinked branch.
-- After a run, report **what was tested, what source it used, what passed/failed, what the evidence does and does not establish, and the next gate**. Link the workflow run and artifacts.
-- Separate observation from interpretation. A unit/synthetic test, lightweight CI pass, or source-only algebraic check is not proof of full-trajectory or physical validity.
-- Preserve negative results and failed hypotheses; they prevent the team from repeating work.
-- Keep physics changes separate from diagnostics, test harnesses, and campaign orchestration changes. Do not promote a hypothesis to production physics without the required admission evidence and review.
-- Never silently overwrite another agent's branch or assume another agent's task is abandoned. Coordinate first.
-- If a finding changes, post a correction with the affected commit/run and explain what is superseded.
+- Treat communications as part of the research record; do not leave durable findings only in a private chat, transient run log or unlinked branch.
+- Preserve negative results and failed hypotheses so the team does not repeat them.
+- Separate observation from interpretation. Synthetic tests, source-only algebra, lightweight CI and short-horizon runs do not prove full-trajectory or physical validity.
+- Keep physics changes separate from diagnostics, tests and campaign orchestration where possible. Do not promote a hypothesis to production physics without the required evidence and review.
+- Never silently overwrite another agent's branch or assume a claim is abandoned. Resolve overlap explicitly; update a claim when its source, scope or owner changes.
+- A passing software suite does not imply scientific admission. Record that boundary clearly.
 
-## Current communication entry points
+## Entry points
 
-- [Issue #5 — Cross-agent coordination / shared message board](https://github.com/miahpenn/0-Cosmos-engine/issues/5)
-- [Issue #4 — Momentum-constraint propagation](https://github.com/miahpenn/0-Cosmos-engine/issues/4)
-- [Pull requests and their full discussions](https://github.com/miahpenn/0-Cosmos-engine/pulls)
+- [Issue #5 — claims and cross-lane messages](https://github.com/miahpenn/0-Cosmos-engine/issues/5)
+- [Issue #135 — canonical task queue and ownership](https://github.com/miahpenn/0-Cosmos-engine/issues/135)
+- [Issue #4 — momentum-constraint propagation](https://github.com/miahpenn/0-Cosmos-engine/issues/4)
+- [Open PRs and their full discussions](https://github.com/miahpenn/0-Cosmos-engine/pulls)
 - [GitHub Actions runs and artifacts](https://github.com/miahpenn/0-Cosmos-engine/actions)
 
-**Definition of done for agent onboarding:** the agent has read the latest shared communications, identified the exact source/run relevant to its task, and posted its intended work or findings where the rest of the team can see them.
+**Definition of done for onboarding:** the agent has located current status, inspected relevant existing claims/artifacts, identified the exact source/run relevant to its task, and posted its intended work where the team can see it.
