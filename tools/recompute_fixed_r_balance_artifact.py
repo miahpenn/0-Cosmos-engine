@@ -1105,6 +1105,7 @@ def recompute_em_stage_exchange_witness(stage_record: Any) -> dict[str, Any]:
     return {
         "stage": str(stage_record.get("stage", "unknown")),
         "t": float(stage_record.get("t", math.nan)),
+        "centers": centers.tolist(),
         "charge_faces": q_face.tolist(),
         "charge_current_faces": current.tolist(),
         "charge_face_dot": q_face_dot.tolist(),
