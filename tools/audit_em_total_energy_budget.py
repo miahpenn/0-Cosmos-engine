@@ -615,6 +615,63 @@ def _sector_fixed_R_rates(
     }
 
 
+def _explicit_metric_rate_profiles(grid, R, a, b, X, explicit_rhs) -> dict[str, np.ndarray]:
+    """Reconstruct explicit metric-rate profiles with the production parity stencil.
+
+    This is an observer-only path: it never advances or modifies geometry.
+    """
+    raw = {
+        "R": R, "a": a, "b": b, "X": X,
+        "a_dot": explicit_rhs["a"], "b_dot": explicit_rhs["b"], "X_dot": explicit_rhs["X"],
+    }
+    arrays = {name: np.asarray(value, dtype=float) for name, value in raw.items()}
+    shape = arrays["R"].shape
+    if arrays["R"].ndim != 1 or arrays["R"].size == 0:
+        raise RuntimeError("explicit metric-rate R must be a nonempty 1-D profile")
+    for name, value in arrays.items():
+        if value.shape != shape:
+            raise RuntimeError(f"explicit metric-rate {name} shape {value.shape} does not match {shape}")
+        if not np.all(np.isfinite(value)):
+            raise RuntimeError(f"explicit metric-rate {name} contains non-finite values")
+    for name in ("a", "b", "X"):
+        if np.any(arrays[name] == 0.0):
+            raise RuntimeError(f"explicit metric-rate denominator {name} contains zero")
+    Rdot = arrays["R"] * (
+        0.5 * arrays["b_dot"] / arrays["b"] - arrays["X_dot"] / arrays["X"]
+    )
+    Rdot_r = np.asarray(grid.cell_derivative_fourth(Rdot, parity=-1), dtype=float)
+    gamma_inv = arrays["X"]**2 / arrays["a"]
+    gamma_inv_dot = gamma_inv * (
+        2.0 * arrays["X_dot"] / arrays["X"] - arrays["a_dot"] / arrays["a"]
+    )
+    result = {
+        "Rdot": Rdot, "Rdot_r": Rdot_r,
+        "gamma_inv": gamma_inv, "gamma_inv_dot": gamma_inv_dot,
+    }
+    for name, value in result.items():
+        if value.shape != shape or not np.all(np.isfinite(value)):
+            raise RuntimeError(f"explicit metric-rate reconstruction {name} is invalid")
+    return result
+
+
+def _profile_roundoff_reconstruction(actual, reconstructed, *, label: str) -> dict[str, np.ndarray]:
+    """Compare two paths with a term-scaled float64 roundoff bound (no absolute floor)."""
+    left = np.asarray(actual, dtype=float)
+    right = np.asarray(reconstructed, dtype=float)
+    if left.ndim != 1 or right.shape != left.shape:
+        raise RuntimeError(f"{label}: profiles have incompatible shapes")
+    if not np.all(np.isfinite(left)) or not np.all(np.isfinite(right)):
+        raise RuntimeError(f"{label}: profiles contain non-finite values")
+    residual = left - right
+    scale = np.abs(left) + np.abs(right)
+    bound = 64.0 * np.finfo(np.float64).eps * np.maximum(
+        scale, np.finfo(np.float64).tiny
+    )
+    if np.any(np.abs(residual) > bound):
+        raise RuntimeError(f"{label}: failed scale-aware roundoff reconstruction")
+    return {"residual": residual, "roundoff_bound": bound}
+
+
 def _misner_sharp_chain_rule_rate_profiles(
     R, Rdot, Rr, Rdot_r, gamma_inv, gamma_inv_dot, Ktheta, Ktheta_dot
 ) -> dict[str, np.ndarray]:
@@ -721,10 +778,74 @@ def _misner_sharp_chain_rule_rate_profiles(
 
 
 
+def _ktheta_dot_component_profiles(
+    primary_l2_K, primary_l2_Aa, vacuum_l3_K, vacuum_l3_Aa,
+    einstein_source_l3_K, einstein_source_l3_Aa, *,
+    expected_primary_l2, expected_vacuum_l3, expected_einstein_source_l3,
+) -> dict[str, np.ndarray]:
+    """Separate K/3 and -Aa/2 operands before recombination for each RHS lane."""
+    raw = {
+        "primary_l2_K": primary_l2_K,
+        "primary_l2_Aa": primary_l2_Aa,
+        "vacuum_l3_K": vacuum_l3_K,
+        "vacuum_l3_Aa": vacuum_l3_Aa,
+        "einstein_source_l3_K": einstein_source_l3_K,
+        "einstein_source_l3_Aa": einstein_source_l3_Aa,
+        "expected_primary_l2": expected_primary_l2,
+        "expected_vacuum_l3": expected_vacuum_l3,
+        "expected_einstein_source_l3": expected_einstein_source_l3,
+    }
+    arrays = {name: np.asarray(value, dtype=float) for name, value in raw.items()}
+    first = arrays["primary_l2_K"]
+    if first.ndim != 1 or first.size == 0:
+        raise RuntimeError("Ktheta-dot component inputs must be nonempty 1-D profiles")
+    for name, values in arrays.items():
+        if values.shape != first.shape:
+            raise RuntimeError(
+                f"Ktheta-dot component {name} shape {values.shape} does not match {first.shape}"
+            )
+        if not np.all(np.isfinite(values)):
+            raise RuntimeError(f"Ktheta-dot component {name} contains non-finite values")
+    components = {
+        "primary_l2_from_K": arrays["primary_l2_K"] / 3.0,
+        "primary_l2_from_Aa": -arrays["primary_l2_Aa"] / 2.0,
+        "vacuum_l3_from_K": arrays["vacuum_l3_K"] / 3.0,
+        "vacuum_l3_from_Aa": -arrays["vacuum_l3_Aa"] / 2.0,
+        "einstein_source_l3_from_K": arrays["einstein_source_l3_K"] / 3.0,
+        "einstein_source_l3_from_Aa": -arrays["einstein_source_l3_Aa"] / 2.0,
+    }
+    groups = {
+        "primary_l2": (
+            "primary_l2_from_K", "primary_l2_from_Aa", arrays["expected_primary_l2"]
+        ),
+        "vacuum_l3": (
+            "vacuum_l3_from_K", "vacuum_l3_from_Aa", arrays["expected_vacuum_l3"]
+        ),
+        "einstein_source_l3": (
+            "einstein_source_l3_from_K", "einstein_source_l3_from_Aa",
+            arrays["expected_einstein_source_l3"],
+        ),
+    }
+    diagnostics = {}
+    for group, (from_K, from_Aa, expected) in groups.items():
+        reconstructed = components[from_K] + components[from_Aa]
+        residual = reconstructed - expected
+        scale = np.abs(components[from_K]) + np.abs(components[from_Aa]) + np.abs(expected)
+        bound = 64.0 * np.finfo(np.float64).eps * np.maximum(
+            scale, np.finfo(np.float64).tiny
+        )
+        if np.any(np.abs(residual) > bound):
+            raise RuntimeError(f"Ktheta-dot {group} K/Aa split failed roundoff reconstruction")
+        diagnostics[f"{group}_reconstruction_residual"] = residual
+        diagnostics[f"{group}_reconstruction_bound"] = bound
+    return {**components, **diagnostics}
+
+
 def _misner_sharp_chain_rule_bracket_operands(
     R, Rdot, Rr, Rdot_r, gamma_inv, gamma_inv_dot, Ktheta, Ktheta_dot,
     Ktheta_dot_primary_l2, Ktheta_dot_vacuum_l3, Ktheta_dot_matter_source,
-    *, target: float
+    *, target: float, ktheta_dot_component_profiles: dict[str, np.ndarray] | None = None,
+    metric_rate_reconstruction_profiles: dict[str, np.ndarray] | None = None
 ) -> dict:
     """Retain signed stage operands and source/non-source Ktheta-dot terms at R*'s bracket cells."""
     raw = {
@@ -811,6 +932,44 @@ def _misner_sharp_chain_rule_bracket_operands(
         * (arrays["Ktheta_dot"] - arrays["Ktheta_dot_matter_source"])
     )
     term_Ktheta_dot_total = radii**3 * arrays["Ktheta"] * arrays["Ktheta_dot"]
+    component_profiles = None
+    if ktheta_dot_component_profiles is not None:
+        component_profiles = {}
+        for name, value in ktheta_dot_component_profiles.items():
+            array = np.asarray(value, dtype=float)
+            if array.shape != radii.shape or not np.all(np.isfinite(array)):
+                raise RuntimeError(
+                    f"chain-rule bracket witness component {name} must be finite and match R"
+                )
+            component_profiles[name] = array
+        required = {
+            "primary_l2_from_K", "primary_l2_from_Aa",
+            "vacuum_l3_from_K", "vacuum_l3_from_Aa",
+            "einstein_source_l3_from_K", "einstein_source_l3_from_Aa",
+            "primary_l2_reconstruction_residual", "primary_l2_reconstruction_bound",
+            "vacuum_l3_reconstruction_residual", "vacuum_l3_reconstruction_bound",
+            "einstein_source_l3_reconstruction_residual", "einstein_source_l3_reconstruction_bound",
+        }
+        if set(component_profiles) != required:
+            raise RuntimeError("chain-rule bracket witness received an incomplete K/Aa split")
+    metric_rate_profiles = None
+    if metric_rate_reconstruction_profiles is not None:
+        metric_rate_profiles = {}
+        for name, value in metric_rate_reconstruction_profiles.items():
+            array = np.asarray(value, dtype=float)
+            if array.shape != radii.shape or not np.all(np.isfinite(array)):
+                raise RuntimeError(
+                    f"chain-rule bracket witness metric-rate {name} must be finite and match R"
+                )
+            metric_rate_profiles[name] = array
+        required_metric = {
+            "Rdot_residual", "Rdot_roundoff_bound",
+            "gamma_inv_dot_residual", "gamma_inv_dot_roundoff_bound",
+            "Rdot_r_residual", "Rdot_r_roundoff_bound",
+        }
+        if set(metric_rate_profiles) != required_metric:
+            raise RuntimeError("chain-rule bracket witness received incomplete metric-rate witnesses")
+
     term_sum = (
         term_Rdot + term_gamma_inv_dot + term_Rdot_r
         + term_Ktheta_geometry + term_Ktheta_dot_total
@@ -904,6 +1063,48 @@ def _misner_sharp_chain_rule_bracket_operands(
             "mass_dot_coordinate_term_sum": float(term_sum[index]),
             "mass_dot_coordinate_decomposition_residual": float(residual[index]),
             "mass_dot_coordinate_decomposition_bound": float(bound[index]),
+            "ktheta_dot_operand_split": (
+                None if component_profiles is None else {
+                    name: float(component_profiles[name][index])
+                    for name in (
+                        "primary_l2_from_K", "primary_l2_from_Aa",
+                        "vacuum_l3_from_K", "vacuum_l3_from_Aa",
+                        "einstein_source_l3_from_K", "einstein_source_l3_from_Aa",
+                    )
+                }
+            ),
+            "mass_dot_coordinate_term_ktheta_dot_operand_split": (
+                None if component_profiles is None else {
+                    name: float(
+                        radii[index]**3 * arrays["Ktheta"][index]
+                        * component_profiles[name][index]
+                    )
+                    for name in (
+                        "primary_l2_from_K", "primary_l2_from_Aa",
+                        "vacuum_l3_from_K", "vacuum_l3_from_Aa",
+                        "einstein_source_l3_from_K", "einstein_source_l3_from_Aa",
+                    )
+                }
+            ),
+            "ktheta_dot_component_reconstruction": (
+                None if component_profiles is None else {
+                    group: {
+                        "residual": float(component_profiles[f"{group}_reconstruction_residual"][index]),
+                        "roundoff_bound": float(component_profiles[f"{group}_reconstruction_bound"][index]),
+                    }
+                    for group in ("primary_l2", "vacuum_l3", "einstein_source_l3")
+                }
+            ),
+            "explicit_metric_rate_reconstruction": (
+                None if metric_rate_profiles is None else {
+                    "Rdot_residual": float(metric_rate_profiles["Rdot_residual"][index]),
+                    "Rdot_roundoff_bound": float(metric_rate_profiles["Rdot_roundoff_bound"][index]),
+                    "gamma_inv_dot_residual": float(metric_rate_profiles["gamma_inv_dot_residual"][index]),
+                    "gamma_inv_dot_roundoff_bound": float(metric_rate_profiles["gamma_inv_dot_roundoff_bound"][index]),
+                    "Rdot_r_residual": float(metric_rate_profiles["Rdot_r_residual"][index]),
+                    "Rdot_r_roundoff_bound": float(metric_rate_profiles["Rdot_r_roundoff_bound"][index]),
+                }
+            ),
         }
 
     return {
@@ -1169,6 +1370,12 @@ def _worldtube_sample(kernel, state, *, geometry_stage_capture=None) -> dict:
     b_dot = np.asarray(explicit["b"], dtype=float)
     X_dot = np.asarray(explicit["X"], dtype=float)
     Rdot = R * (0.5 * b_dot / geom.b - X_dot / geom.X)
+    explicit_metric_rates = _explicit_metric_rate_profiles(
+        grid, R, geom.a, geom.b, geom.X, explicit
+    )
+    Rdot_reconstruction = _profile_roundoff_reconstruction(
+        Rdot, explicit_metric_rates["Rdot"], label="captured explicit Rdot"
+    )
 
     total = _stress_projection(kernel, state)
     _, vacuum, _ = adapter.vendor_modules()
@@ -1277,6 +1484,10 @@ def _worldtube_sample(kernel, state, *, geometry_stage_capture=None) -> dict:
         gamma_inv_dot = gamma_rr_inv * (
             2.0 * X_dot / geom.X - a_dot / geom.a
         )
+        gamma_inv_dot_reconstruction = _profile_roundoff_reconstruction(
+            gamma_inv_dot, explicit_metric_rates["gamma_inv_dot"],
+            label="captured explicit gamma_inv_dot"
+        )
         Ktheta = geom.K / 3.0 - geom.Aa / 2.0
         Ktheta_dot = K_dot / 3.0 - Aa_dot / 2.0
         vacuum_primary_l3 = split["vacuum_primary_l3"]
@@ -1289,6 +1500,18 @@ def _worldtube_sample(kernel, state, *, geometry_stage_capture=None) -> dict:
         Rdot_r = np.asarray(
             grid.cell_derivative_fourth(Rdot, parity=-1), dtype=float
         )
+        Rdot_r_reconstruction = _profile_roundoff_reconstruction(
+            Rdot_r, explicit_metric_rates["Rdot_r"],
+            label="captured explicit D_r(Rdot)"
+        )
+        metric_rate_reconstruction_profiles = {
+            "Rdot_residual": Rdot_reconstruction["residual"],
+            "Rdot_roundoff_bound": Rdot_reconstruction["roundoff_bound"],
+            "gamma_inv_dot_residual": gamma_inv_dot_reconstruction["residual"],
+            "gamma_inv_dot_roundoff_bound": gamma_inv_dot_reconstruction["roundoff_bound"],
+            "Rdot_r_residual": Rdot_r_reconstruction["residual"],
+            "Rdot_r_roundoff_bound": Rdot_r_reconstruction["roundoff_bound"],
+        }
         chain_profiles = _misner_sharp_chain_rule_rate_profiles(
             R, Rdot, Rr, Rdot_r, gamma_rr_inv, gamma_inv_dot,
             Ktheta, Ktheta_dot,
@@ -1305,21 +1528,30 @@ def _worldtube_sample(kernel, state, *, geometry_stage_capture=None) -> dict:
             np.asarray(vacuum_primary_l3["K"], dtype=float) / 3.0
             - np.asarray(vacuum_primary_l3["Aa"], dtype=float) / 2.0
         )
-        source_Ktheta_dot_profile = (
-            (
-                np.asarray(split["primary_l3"]["K"], dtype=float)
-                - np.asarray(vacuum_primary_l3["K"], dtype=float)
-            ) / 3.0
-            - 0.5 * (
-                np.asarray(split["primary_l3"]["Aa"], dtype=float)
-                - np.asarray(vacuum_primary_l3["Aa"], dtype=float)
-            )
+        source_l3_K = (
+            np.asarray(split["primary_l3"]["K"], dtype=float)
+            - np.asarray(vacuum_primary_l3["K"], dtype=float)
+        )
+        source_l3_Aa = (
+            np.asarray(split["primary_l3"]["Aa"], dtype=float)
+            - np.asarray(vacuum_primary_l3["Aa"], dtype=float)
+        )
+        source_Ktheta_dot_profile = source_l3_K / 3.0 - 0.5 * source_l3_Aa
+        ktheta_dot_component_profiles = _ktheta_dot_component_profiles(
+            split["primary_l2"]["K"], split["primary_l2"]["Aa"],
+            vacuum_primary_l3["K"], vacuum_primary_l3["Aa"],
+            source_l3_K, source_l3_Aa,
+            expected_primary_l2=primary_l2_Ktheta_dot_profile,
+            expected_vacuum_l3=vacuum_l3_Ktheta_dot_profile,
+            expected_einstein_source_l3=source_Ktheta_dot_profile,
         )
         chain_bracket_witness = _misner_sharp_chain_rule_bracket_operands(
             R, Rdot, Rr, Rdot_r, gamma_rr_inv, gamma_inv_dot,
             Ktheta, Ktheta_dot, primary_l2_Ktheta_dot_profile,
             vacuum_l3_Ktheta_dot_profile, source_Ktheta_dot_profile,
             target=FIXED_AREAL_RADIUS,
+            ktheta_dot_component_profiles=ktheta_dot_component_profiles,
+            metric_rate_reconstruction_profiles=metric_rate_reconstruction_profiles,
         )
         # Attach the actual-stage operands and local composite balance to both
         # cells, keeping their values adjacent to D_r M, H/M, and the RHS operators.
