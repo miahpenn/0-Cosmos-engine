@@ -6,11 +6,12 @@ Canonical repository for the coupled GEAR/COSMOS research engine. The goal is a 
 
 1. **[Current engineering status](docs/STATUS.md)** — current production SHA, software validation, open scientific-admission gates and evidence provenance.
 2. **[SI-agent communications protocol](docs/SI_AGENT_FIRST_READ_COMMS_PROTOCOL.md)** — required first read for every agent before analysis, edits or runs.
-3. **[Cross-agent board / comms](https://github.com/miahpenn/0-Cosmos-engine/issues/5)** — working research context, ownership claims, experiment coordination and durable findings.
-4. **[Production-readiness task board](https://github.com/miahpenn/0-Cosmos-engine/issues/135)** — canonical task inventory, priorities, PR state and exit criteria.
-5. **[Momentum-constraint propagation](https://github.com/miahpenn/0-Cosmos-engine/issues/4)** and [main-branch governance](https://github.com/miahpenn/0-Cosmos-engine/issues/112) — dedicated blocker threads.
+3. **[Research coordination workflow](docs/RESEARCH_COORDINATION_WORKFLOW.md)** — claims, overlap resolution, run budgeting, evidence records and stale/duplicate PR handling.
+4. **[Cross-agent board / comms](https://github.com/miahpenn/0-Cosmos-engine/issues/5)** — working research context, ownership claims, experiment coordination and durable findings.
+5. **[Production-readiness task board](https://github.com/miahpenn/0-Cosmos-engine/issues/135)** — canonical task inventory, priorities, PR state and exit criteria.
+6. **[Momentum-constraint propagation](https://github.com/miahpenn/0-Cosmos-engine/issues/4)** and [main-branch governance](https://github.com/miahpenn/0-Cosmos-engine/issues/112) — dedicated blocker threads.
 
-Use the status document for the verified engineering snapshot; use Issue #135 for task tracking; use Issue #5 for team coordination. Avoid creating parallel status lists or duplicate diagnostics when an existing task/artifact covers the same question.
+Use the status document for the verified engineering snapshot; use Issue #135 for task tracking; use Issue #5 for claims and cross-lane coordination. Avoid creating parallel status lists or duplicate diagnostics when an existing task/artifact covers the same question. For the detailed operating procedure, follow the coordination workflow rather than copying its rules into a second checklist.
 
 ## Physics and evidence guardrails
 
@@ -55,3 +56,4 @@ Historical/reference modules remain for provenance; consult the status and test 
 - Inspect existing PR discussions, checks and artifacts before re-running tests.
 - Run the applicable exact-head checks after the final change. Do not report a workflow as passing if it did not run on that SHA.
 - Update Issue #135 and the relevant shared thread with result, limits and the next gate.
+- Use `docs/RESEARCH_COORDINATION_WORKFLOW.md` for claim states, collision resolution, stale-base handling and the precise close-out checklist.
