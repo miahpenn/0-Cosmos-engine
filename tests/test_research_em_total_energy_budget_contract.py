@@ -103,6 +103,23 @@ def test_fixed_target_interpolant_rate_matches_directional_derivative_of_np_inte
     assert observed["right_index"] == 2
     assert observed["theta"] == pytest.approx(0.4)
     assert observed["interpolated_mass"] == pytest.approx(np.interp(target, R, mass))
+    assert observed["bracket_span"] == pytest.approx(R[2] - R[1])
+    assert observed["left_R"] == pytest.approx(R[1])
+    assert observed["right_R"] == pytest.approx(R[2])
+    expected_Rdot_interp = (1.0 - 0.4) * Rdot[1] + 0.4 * Rdot[2]
+    expected_weight_dot = -expected_Rdot_interp / (R[2] - R[1])
+    expected_moving_weight_term = expected_weight_dot * (mass[2] - mass[1])
+    expected_Mdot_interp = (1.0 - 0.4) * mass_dot[1] + 0.4 * mass_dot[2]
+    assert observed["interpolation_weight_dot"] == pytest.approx(expected_weight_dot)
+    assert observed["moving_weight_mass_tangent_term"] == pytest.approx(
+        expected_moving_weight_term
+    )
+    assert observed["mass_dot_fixed_R_from_weight_derivative"] == pytest.approx(
+        expected_Mdot_interp + expected_moving_weight_term
+    )
+    assert abs(observed["weight_derivative_reconstruction_residual"]) <= (
+        observed["weight_derivative_reconstruction_roundoff_bound"]
+    )
 
     epsilon = 1.0e-7
     initial = np.interp(target, R, mass)
