@@ -42,7 +42,96 @@ from tools.audit_em_total_energy_budget import (
     _observed_refinement_order,
     _summarize_fixed_N_temporal_pairing_refinement,
     _summarize_fixed_N_stage_pairing_history,
+    _electromagnetic_l3_source_witness,
 )
+
+
+def test_electromagnetic_l3_source_witness_reconstructs_frozen_stage_curvature_sources():
+    alpha = np.asarray([0.8, 1.0, 1.2], dtype=np.float64)
+    rho = np.asarray([2.0e-4, 1.5e-4, 3.0e-4], dtype=np.float64)
+    projection = {"rho": rho, "pr": -rho, "pt": rho}
+    expected = {
+        "K": 4.0 * np.pi * alpha * (
+            projection["rho"] + projection["pr"] + 2.0 * projection["pt"]
+        ),
+        "Aa": -(16.0 * np.pi / 3.0) * alpha * (
+            projection["pr"] - projection["pt"]
+        ),
+    }
+    matter_only = {
+        "K": np.asarray([0.02, -0.03, 0.04], dtype=np.float64),
+        "Aa": np.asarray([-0.01, 0.015, 0.025], dtype=np.float64),
+    }
+    actual = {
+        name: matter_only[name] + expected[name]
+        for name in ("K", "Aa")
+    }
+
+    witness = _electromagnetic_l3_source_witness(
+        actual, matter_only, alpha, projection,
+        matter_only_stress={
+            "rho": np.asarray([0.03, 0.04, 0.05]),
+            "pr": np.asarray([0.01, 0.02, 0.03]),
+            "pt": np.asarray([0.02, 0.01, 0.025]),
+        },
+    )
+
+    assert witness["present"] is True
+    np.testing.assert_allclose(
+        witness["primary_l3_em_source_increment"]["K"], expected["K"],
+        rtol=0.0, atol=2e-17,
+    )
+    np.testing.assert_allclose(
+        witness["primary_l3_em_source_increment"]["Aa"], expected["Aa"],
+        rtol=0.0, atol=2e-17,
+    )
+    np.testing.assert_allclose(
+        witness["primary_l3_em_source_from_stress"]["K"], 8.0 * np.pi * alpha * rho,
+        rtol=2e-15, atol=0.0,
+    )
+    np.testing.assert_allclose(
+        witness["primary_l3_em_source_from_stress"]["Aa"],
+        (32.0 * np.pi / 3.0) * alpha * rho,
+        rtol=2e-15, atol=0.0,
+    )
+    assert witness["max_em_source_reconstruction_bound_ratio"] <= 1.0
+    assert witness["max_abs_electromagnetic_energy_density"] == pytest.approx(
+        float(np.max(rho))
+    )
+
+
+def test_electromagnetic_l3_source_witness_fails_closed_if_live_increment_disagrees():
+    alpha = np.asarray([1.0, 1.1], dtype=np.float64)
+    rho = np.asarray([1.0e-4, 2.0e-4], dtype=np.float64)
+    projection = {"rho": rho, "pr": -rho, "pt": rho}
+    matter_only = {
+        "K": np.asarray([0.01, 0.02]),
+        "Aa": np.asarray([-0.03, 0.04]),
+    }
+    actual = {
+        "K": matter_only["K"] + 8.0 * np.pi * alpha * rho,
+        "Aa": matter_only["Aa"] + (32.0 * np.pi / 3.0) * alpha * rho,
+    }
+    actual["K"] = actual["K"].copy()
+    actual["K"][1] += 1.0e-5
+
+    with pytest.raises(RuntimeError, match="does not reconstruct from projected stress"):
+        _electromagnetic_l3_source_witness(
+            actual, matter_only, alpha, projection,
+            matter_only_stress={
+                "rho": np.asarray([0.03, 0.04]),
+                "pr": np.asarray([0.01, 0.02]),
+                "pt": np.asarray([0.02, 0.01]),
+            },
+        )
+
+
+def test_electromagnetic_l3_source_witness_marks_absent_em_projection():
+    zeros = {"K": np.zeros(2), "Aa": np.zeros(2)}
+    witness = _electromagnetic_l3_source_witness(
+        zeros, zeros, np.ones(2), None
+    )
+    assert witness["present"] is False
 
 
 def test_observer_is_pinned_to_all_ledger_source_boundaries():
@@ -1611,7 +1700,39 @@ def test_fixed_N_temporal_pairing_summary_compares_same_predictor_time_across_cf
         assert stage_name == "primary_predictor"
         assert target_time == pytest.approx(0.02)
         selected.append((run["cfl"], stage_name, target_time))
-        return {"cfl": run["cfl"]}
+        return {
+            "cfl": run["cfl"],
+            "metric_power": -3.0e-10,
+            "charge_power": -4.0e-10,
+            "matter_lorentz_power": 5.0e-10,
+            "geometry_feedback_witness": {
+                "present": True,
+                "electromagnetic_stress_profiles": {
+                    "rho": [1.0e-4, 2.0e-4],
+                    "pr": [-1.0e-4, -2.0e-4],
+                    "pt": [1.0e-4, 2.0e-4],
+                },
+                "primary_l3_em_source_increment": {
+                    "K": [8.0 * math.pi * 1.0e-4, 8.0 * math.pi * 2.0e-4],
+                    "Aa": [
+                        (32.0 * math.pi / 3.0) * 1.0e-4,
+                        (32.0 * math.pi / 3.0) * 2.0e-4,
+                    ],
+                },
+                "roundoff_checks": {
+                    "K": {"max_bound_ratio": 0.2},
+                    "Aa": {"max_bound_ratio": 0.3},
+                },
+            },
+            "geometry_feedback_response_to_start_em_source": {
+                "present": True,
+                "metric_power_without_start_em_source": -2.7e-10,
+                "metric_power_response_to_start_em_source": -3.0e-11,
+                "response_abs_over_full_metric_power": 0.1,
+                "max_abs_delta_log_weight_rate": 4.0e-5,
+                "recomputed_full_metric_power_roundoff_bound": 1.0e-23,
+            },
+        }
 
     def stage_diagnostic(run, stage_row, *, coordinate_radius_cut):
         assert run["cfl"] == stage_row["cfl"]
@@ -1658,6 +1779,21 @@ def test_fixed_N_temporal_pairing_summary_compares_same_predictor_time_across_cf
         expected_gap / 0.3
     )
     assert summary["rows"][0]["hll_jump_abs_over_pairing_abs"] == pytest.approx(1.0e-10)
+    feedback = summary["rows"][0]["electromagnetic_geometry_feedback"]
+    assert feedback["max_abs_em_rho"] == pytest.approx(2.0e-4)
+    assert feedback["em_K_source_l3_max_abs"] == pytest.approx(8.0 * math.pi * 2.0e-4)
+    assert feedback["em_Aa_source_l3_max_abs"] == pytest.approx(
+        (32.0 * math.pi / 3.0) * 2.0e-4
+    )
+    assert feedback["metric_part_of_em_field_energy_tangent"] == pytest.approx(-3.0e-10)
+    assert feedback["charge_current_part_of_em_field_energy_tangent"] == pytest.approx(-4.0e-10)
+    assert feedback["lorentz_power_into_matter"] == pytest.approx(5.0e-10)
+    assert feedback["source_reconstruction_max_bound_ratio"] == pytest.approx(0.3)
+    assert feedback["metric_power_without_start_em_source"] == pytest.approx(-2.7e-10)
+    assert feedback["metric_power_response_to_start_em_source"] == pytest.approx(-3.0e-11)
+    assert feedback["metric_response_abs_over_full_metric_power"] == pytest.approx(0.1)
+    assert feedback["max_abs_delta_log_weight_rate_from_start_em_source"] == pytest.approx(4.0e-5)
+    assert feedback["metric_response_reconstruction_roundoff_bound"] == pytest.approx(1.0e-23)
     assert summary["interpretation_limit"].find("does not by itself prove temporal order") >= 0
 
 
