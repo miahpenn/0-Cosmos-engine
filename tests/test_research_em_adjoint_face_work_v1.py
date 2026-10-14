@@ -19,27 +19,71 @@ SOURCE_SHA = "0123456789abcdef0123456789abcdef01234567"
 
 
 def _stage(q_over_m, *, scale=1.0, stage="primary_predictor", time=0.02):
-    dr = 0.2
-    weight = np.array([1.4, 0.9, 0.45], dtype=np.float64) * scale
+    dr = 0.5
+    centers = np.array([0.25, 0.75, 1.25], dtype=np.float64)
+    weight = 1.0 / centers**2
     charge = np.array([0.0, 0.1, 0.4, 0.7], dtype=np.float64) * scale
     rate = np.array([0.0, -0.02, 0.015, -0.04], dtype=np.float64) * scale
     if q_over_m == 0.0:
         charge[:] = 0.0
         rate[:] = 0.0
     result = face_charge_energy_tangent(dr, weight, charge, rate)
+    current_faces = -rate
+    rest_flux = (
+        current_faces / (4.0 * np.pi * q_over_m)
+        if q_over_m != 0.0 else np.zeros_like(current_faces)
+    )
+    q_cell = 0.5 * (charge[:-1] + charge[1:])
+    sqrt_gamma = centers**2
     matter_power = (
         0.0 if q_over_m == 0.0 else -result["cell_tangent"] + 1e-14
     )
-    lorentz_profile = [
-        matter_power / (4.0 * np.pi * dr), 0.0, 0.0
-    ] if matter_power != 0.0 else [0.0, 0.0, 0.0]
+    denominator = 4.0 * np.pi * dr * float(np.sum(sqrt_gamma * weight * q_cell))
+    primitive_current_value = (
+        matter_power / denominator if denominator != 0.0 else 0.0
+    )
+    primitive_current = np.full(centers.size, primitive_current_value)
+    lorentz_profile = sqrt_gamma * weight * q_cell * primitive_current
+    matter_power = 4.0 * np.pi * dr * float(np.sum(lorentz_profile))
+    internal_face_operands = []
+    for face_index in range(1, centers.size):
+        internal_face_operands.append({
+            "face_index": face_index,
+            "hll_returned_rest_mass_flux": float(rest_flux[face_index]),
+            "weighted_left_rest_mass_flux": float(rest_flux[face_index]),
+            "weighted_right_rest_mass_flux": 0.0,
+            "jump_rest_mass_flux": 0.0,
+            "split_reconstruction_residual": 0.0,
+        })
     witness = {
         "grid_dr": dr,
-        "centers": [0.5, 1.5, 2.5],
+        "centers": centers.tolist(),
         "field_energy_weight": weight.tolist(),
         "charge_faces": charge.tolist(),
         "charge_face_dot": rate.tolist(),
-        "lorentz_energy_source_profile": lorentz_profile,
+        "charge_current_faces": current_faces.tolist(),
+        "rest_mass_flux_faces": rest_flux.tolist(),
+        "charge_cell_average": q_cell.tolist(),
+        "charge_cell_dot_average": (0.5 * (rate[:-1] + rate[1:])).tolist(),
+        "charge_to_rest_mass": q_over_m,
+        "field_energy_weight": weight.tolist(),
+        "lapse_profile": [1.0] * centers.size,
+        "geometry": {
+            "a": [1.0] * centers.size,
+            "b": [1.0] * centers.size,
+            "X": [1.0] * centers.size,
+        },
+        "lorentz_current_r_profile": primitive_current.tolist(),
+        "lorentz_energy_source_profile": lorentz_profile.tolist(),
+        "hll_current_flux_decomposition": {
+            "actual_charge_current_tangent": result["cell_tangent"],
+            "weighted_flux_only_charge_current_tangent": result["cell_tangent"],
+            "hll_jump_charge_current_tangent_contribution": 0.0,
+            "tangent_split_reconstruction_residual": 0.0,
+            "tangent_split_reconstruction_roundoff_bound": 1e-20,
+            "internal_face_count": centers.size - 1,
+            "internal_face_operands": internal_face_operands,
+        },
         "charge_current_tangent": result["cell_tangent"],
         "field_energy_at_stage": radial_electric_energy(dr, weight, charge),
         "metric_tangent": -2.0e-6 if q_over_m else 0.0,
