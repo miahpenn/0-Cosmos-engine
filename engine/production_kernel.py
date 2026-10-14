@@ -36,7 +36,7 @@ from .cosmology_observables import (
 )
 from .atomic_io import atomic_savez_compressed
 from .stress_energy import assemble_total_stress_energy
-from .worldtube import areal_radius_derivative, proper_radial_coordinate
+from .worldtube import areal_radius_derivative
 from .matter_rhs import species_rhs
 from .matter_system import (
     Species,
@@ -734,7 +734,6 @@ class V55ProductionKernel:
 
         r = np.asarray(grid.centers)
         R = r * np.sqrt(geom.b) / geom.X
-        proper_radius = proper_radial_coordinate(grid, geom)
         Rr = areal_radius_derivative(grid, geom)
         Ktheta = geom.K / 3.0 - geom.Aa / 2.0
         normal_dR = -R * Ktheta
@@ -1077,7 +1076,6 @@ class V55ProductionKernel:
             "e_folds": float(state.e_folds),
             "tau_rate": float(geom.alpha[0]),
             "R_sigma": float(R[surface]),
-            "proper_radius_sigma": float(proper_radius[surface]),
             "M_MS": float(mass[surface]),
             "chi_sigma": float(chi[surface]),
             "trapping_min": float(np.min(chi)),
@@ -1292,7 +1290,6 @@ class V55ProductionKernel:
                 "total_pt": total.pt,
                 "total_j": total.j,
                 "areal_radius": R,
-                "proper_radius": proper_radius,
                 "chi": chi,
                 "misner_sharp": mass,
             })
