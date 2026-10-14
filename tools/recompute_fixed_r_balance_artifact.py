@@ -45,15 +45,17 @@ def _roundoff_check(
         np.all(np.isfinite(obs)) and np.all(np.isfinite(exp))
     ):
         raise RuntimeError(f"{label}: non-finite or shape-mismatched reconstruction")
+    # Sum operand magnitudes for a conventional cancellation-aware bound.
+    # This is only for algebraic reconstructions, never for the physical gap.
+    operand_scale = sum(
+        float(np.max(np.abs(np.asarray(s, dtype=np.float64))))
+        for s in operand_scales if np.asarray(s).size
+    )
     scale = max(
-        [float(np.max(np.abs(obs))) if obs.size else 0.0,
-         float(np.max(np.abs(exp))) if exp.size else 0.0]
-        + [
-            float(np.max(np.abs(np.asarray(s, dtype=np.float64))))
-            if np.asarray(s).size else 0.0
-            for s in operand_scales
-        ]
-        + [TINY]
+        float(np.max(np.abs(obs))) if obs.size else 0.0,
+        float(np.max(np.abs(exp))) if exp.size else 0.0,
+        operand_scale,
+        TINY,
     )
     residual = float(np.max(np.abs(obs - exp))) if obs.size else 0.0
     bound = factor * EPS * scale
@@ -157,6 +159,19 @@ def recompute_arm(stage: dict[str, Any]) -> dict[str, Any]:
     )
     Kdot = _vector(l2["K"], "primary_l2.K", n) + _vector(l3["K"], "primary_l3.K", n)
     Aadot = _vector(l2["Aa"], "primary_l2.Aa", n) + _vector(l3["Aa"], "primary_l3.Aa", n)
+    vacuum_l3 = rhs.get("vacuum_primary_l3", {})
+    if not isinstance(vacuum_l3, dict):
+        raise RuntimeError("RHS split lacks the vacuum primary-L3 operands")
+    vacuum_K = _vector(vacuum_l3.get("K"), "vacuum_primary_l3.K", n)
+    vacuum_Aa = _vector(vacuum_l3.get("Aa"), "vacuum_primary_l3.Aa", n)
+    live_l3_K = _vector(l3["K"], "primary_l3.K", n)
+    live_l3_Aa = _vector(l3["Aa"], "primary_l3.Aa", n)
+    # The L3 matter-source piece is reconstructed by subtracting the recorded
+    # vacuum L3 from the same live production-stage L3, not by refitting it.
+    Ktheta_dot_matter_source = (
+        (live_l3_K - vacuum_K) / 3.0
+        - 0.5 * (live_l3_Aa - vacuum_Aa)
+    )
 
     r = p["r"]
     a, b, X = p["a"], p["b"], p["X"]
@@ -321,6 +336,18 @@ def recompute_arm(stage: dict[str, Any]) -> dict[str, Any]:
         sw = interp(-FOUR_PI * R**2 * spr * Rdot)
         sectors_out[name] = {"composite_flux": sf, "composite_pressure_work": sw}
     if sectors_out:
+        # Confirm total stress arrays are the sum of the archived scalar,
+        # fluid, and electromagnetic projections before applying F/W operators.
+        for component in ("rho", "pr", "pt", "j"):
+            sector_profiles = [
+                _vector(sector.get(component), f"sector.{component}", n)
+                for sector in raw["stress_sectors"].values()
+            ]
+            total_from_sectors = sum(sector_profiles, np.zeros(n, dtype=np.float64))
+            algebraic_checks[f"stress_{component}_sector_additivity"] = _roundoff_check(
+                f"sector sum for {component}", total_from_sectors, p[component],
+                *sector_profiles
+            )
         sum_sector_flux = sum(v["composite_flux"] for v in sectors_out.values())
         sum_sector_work = sum(v["composite_pressure_work"] for v in sectors_out.values())
         algebraic_checks["sector_flux_additivity"] = _roundoff_check(
@@ -363,11 +390,24 @@ def recompute_arm(stage: dict[str, Any]) -> dict[str, Any]:
             )
 
     left_report: dict[str, Any] = {}
+    stage_witness = stage.get("tube_mass_gradient_identity_witness", {})
+    stage_cell_checks: dict[str, Any] = {}
     for pos in active_positions:
         ix = indices[pos]
         terms = {key: float(value[pos]) for key, value in mdot_terms.items()}
         f_local = float(flux_profile[pos])
         w_local = float(work_profile[pos])
+        mass_gradient, mass_gradient_scale = _centered_fourth(
+            mass, indices, ix, dr
+        )
+        mass_gradient_rhs = float(
+            FOUR_PI * R[pos]**2
+            * (p["rho"][pos] * Rr[pos] + p["j"][pos] * Rdot[pos] / p["alpha"][pos])
+        )
+        mass_gradient_residual = mass_gradient - mass_gradient_rhs
+        mass_dot_term_matter_source = float(
+            R[pos]**3 * Ktheta[pos] * Ktheta_dot_matter_source[pos]
+        )
         left_report[str(ix)] = {
             "R": float(R[pos]),
             "Rdot": float(Rdot[pos]),
@@ -378,10 +418,73 @@ def recompute_arm(stage: dict[str, Any]) -> dict[str, Any]:
             "mass": float(mass[pos]),
             "mass_dot_coordinate": float(mdot[pos]),
             "mass_dot_terms": terms,
+            "Ktheta_dot_matter_source_from_live_minus_vacuum_L3": float(
+                Ktheta_dot_matter_source[pos]
+            ),
+            "mass_dot_term_from_matter_Ktheta_source": mass_dot_term_matter_source,
+            "mass_gradient_discrete_centered_fourth": float(mass_gradient),
+            "mass_gradient_rhs_Einstein_identity": mass_gradient_rhs,
+            "mass_gradient_identity_residual_unthresholded": float(mass_gradient_residual),
+            "mass_gradient_derivative_scale": float(mass_gradient_scale),
             "composite_stress_flux_local": f_local,
             "composite_pressure_work_local": w_local,
             "coordinate_rate_minus_local_flux_work": float(mdot[pos] - f_local - w_local),
         }
+        if isinstance(stage_witness, dict) and stage_witness:
+            side = "left_cell" if ix == left else "right_cell"
+            stored = stage_witness.get(side, {})
+            if isinstance(stored, dict) and int(stored.get("index", -1)) == ix:
+                checks: dict[str, Any] = {}
+                for name, observed, saved, scales in (
+                    (
+                        "mass_gradient_discrete",
+                        mass_gradient,
+                        stored.get("mass_gradient_discrete", mass_gradient),
+                        (mass_gradient_scale, mass_gradient_rhs),
+                    ),
+                    (
+                        "mass_gradient_rhs_local_composite",
+                        mass_gradient_rhs,
+                        stored.get("mass_gradient_rhs_local_composite", mass_gradient_rhs),
+                        (mass_gradient, mass_gradient_rhs),
+                    ),
+                    (
+                        "mass_gradient_residual_local_composite",
+                        mass_gradient_residual,
+                        stored.get("mass_gradient_residual_local_composite", mass_gradient_residual),
+                        (mass_gradient, mass_gradient_rhs),
+                    ),
+                ):
+                    checks[name] = _roundoff_check(
+                        f"stored cell {ix} {name}", observed, float(saved), *scales
+                    )
+                local_balance = stored.get("stage_local_composite_balance", {})
+                if isinstance(local_balance, dict):
+                    for name, observed, keys, scales in (
+                        ("stress_flux", f_local, ("stress_flux",), (f_local,)),
+                        ("radial_pressure_work", w_local, ("radial_pressure_work",), (w_local,)),
+                        (
+                            "fixed_R_residual_using_native_mass_gradient",
+                            float(mdot[pos] - f_local - w_local),
+                            ("fixed_R_residual_using_chain_mass_gradient",),
+                            (mdot[pos], f_local, w_local),
+                        ),
+                    ):
+                        if keys[0] in local_balance:
+                            checks[name] = _roundoff_check(
+                                f"stored cell {ix} local {name}",
+                                observed, float(local_balance[keys[0]]), *scales
+                            )
+                stage_terms = stored.get("mass_dot_coordinate_terms", {})
+                if isinstance(stage_terms, dict):
+                    for name, observed in terms.items():
+                        if name in stage_terms:
+                            checks[f"mass_dot_term_{name}"] = _roundoff_check(
+                                f"stored cell {ix} mass-dot term {name}",
+                                observed, float(stage_terms[name]),
+                                observed, float(stage_terms[name])
+                            )
+                stage_cell_checks[str(ix)] = checks
 
     return {
         "t": float(stage.get("t", math.nan)),
@@ -411,6 +514,8 @@ def recompute_arm(stage: dict[str, Any]) -> dict[str, Any]:
             "moving_interpolant_residual_unthresholded": sweep_cancelled_residual,
         },
         "sector_flux_work": sectors_out,
+        "stencil_roundoff_checks": stencil_checks,
+        "stored_stage_cell_cross_checks": stage_cell_checks,
         "algebraic_roundoff_checks": algebraic_checks,
         "summary_cross_checks": summary_checks,
         "interpretation": (
@@ -473,6 +578,57 @@ def recompute_artifact(data: dict[str, Any]) -> dict[str, Any]:
             "factor_fixed_R_residual_unthresholded",
         )
     }
+    neutral_cells = arms["q_over_m_0"]["recomputed"]["cells"]
+    charged_cells = arms["q_over_m_0.25"]["recomputed"]["cells"]
+    cell_delta: dict[str, Any] = {}
+    for cell_index in ("19", "20"):
+        ncell, ccell = neutral_cells[cell_index], charged_cells[cell_index]
+        cell_delta[cell_index] = {
+            "mass_dot_coordinate": float(
+                ccell["mass_dot_coordinate"] - ncell["mass_dot_coordinate"]
+            ),
+            "mass_dot_terms": {
+                name: float(
+                    ccell["mass_dot_terms"][name] - ncell["mass_dot_terms"][name]
+                )
+                for name in ncell["mass_dot_terms"]
+            },
+            "matter_Ktheta_source_mass_dot_term": float(
+                ccell["mass_dot_term_from_matter_Ktheta_source"]
+                - ncell["mass_dot_term_from_matter_Ktheta_source"]
+            ),
+            "mass_gradient_discrete": float(
+                ccell["mass_gradient_discrete_centered_fourth"]
+                - ncell["mass_gradient_discrete_centered_fourth"]
+            ),
+            "mass_gradient_rhs": float(
+                ccell["mass_gradient_rhs_Einstein_identity"]
+                - ncell["mass_gradient_rhs_Einstein_identity"]
+            ),
+            "mass_gradient_identity_residual": float(
+                ccell["mass_gradient_identity_residual_unthresholded"]
+                - ncell["mass_gradient_identity_residual_unthresholded"]
+            ),
+            "composite_stress_flux_local": float(
+                ccell["composite_stress_flux_local"] - ncell["composite_stress_flux_local"]
+            ),
+            "composite_pressure_work_local": float(
+                ccell["composite_pressure_work_local"] - ncell["composite_pressure_work_local"]
+            ),
+            "local_fixed_R_residual": float(
+                ccell["coordinate_rate_minus_local_flux_work"]
+                - ncell["coordinate_rate_minus_local_flux_work"]
+            ),
+        }
+    neutral_sectors = arms["q_over_m_0"]["recomputed"]["sector_flux_work"]
+    charged_sectors = arms["q_over_m_0.25"]["recomputed"]["sector_flux_work"]
+    sector_delta = {
+        name: {
+            term: float(charged_sectors[name][term] - neutral_sectors[name][term])
+            for term in ("composite_flux", "composite_pressure_work")
+        }
+        for name in charged_sectors.keys() & neutral_sectors.keys()
+    }
     return {
         "checker": "tools/recompute_fixed_r_balance_artifact.py",
         "schema_version": 1,
@@ -482,6 +638,8 @@ def recompute_artifact(data: dict[str, Any]) -> dict[str, Any]:
         "vendor_gitlink_match": bool(pins.get("vendor/bb-palatini-unified-r0", {}).get("match")),
         "arms": arms,
         "charged_minus_neutral": delta,
+        "charged_minus_neutral_cells": cell_delta,
+        "charged_minus_neutral_sector_flux_work": sector_delta,
         "classification": (
             "independent code-path recomputation from archived local stage operands; "
             "not an external scientific review"
