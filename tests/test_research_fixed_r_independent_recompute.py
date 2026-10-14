@@ -9,6 +9,7 @@ from tools.recompute_fixed_r_balance_artifact import (
     _summarize_em_stage_exchange,
     recompute_arm,
     recompute_charged_dust_boundary_witness,
+    recompute_combined_matter_em_accounting_candidates,
     recompute_em_stage_exchange_campaign,
     recompute_em_stage_exchange_witness,
 )
@@ -569,6 +570,67 @@ def test_independent_metric_radial_einstein_residual_converges_on_static_schwarz
 
 
 
+
+def test_combined_matter_em_candidates_keep_outer_term_choice_explicit():
+    dt = 0.5
+    measured_matter = (2.1 - 2.0) / dt
+    measured_field = (3.2 - 3.0) / dt
+    measured_combined = measured_matter + measured_field
+    boundary, geometry, dm_exchange, metric, outer = 1.5, -0.2, 0.1, 0.3, -0.05
+    known_with_outer = boundary + geometry + dm_exchange + metric + outer
+    row = {
+        "dt": dt,
+        "matter_species": {
+            "charged_dust": {"energy_before": 2.0, "energy_after": 2.1}
+        },
+        "em_field_energy_before": 3.0,
+        "em_field_energy_after": 3.2,
+        "combined_matter_plus_em_energy_rate_measured": measured_combined,
+        "combined_rate_from_named_boundary_and_source_terms": known_with_outer,
+        "unassigned_matter_plus_em_rate_remainder_not_global_conservation_residual": (
+            measured_combined - known_with_outer
+        ),
+    }
+    source_rows = [
+        {
+            "species": {
+                "charged_dust": {
+                    "boundary_energy_rate": 1.4,
+                    "geometric_energy_source_rate": -0.1,
+                    "dm_scalar_exchange_energy_rate": 0.08,
+                }
+            }
+        },
+        {
+            "species": {
+                "charged_dust": {
+                    "boundary_energy_rate": 1.6,
+                    "geometric_energy_source_rate": -0.3,
+                    "dm_scalar_exchange_energy_rate": 0.12,
+                }
+            }
+        },
+    ]
+    em_stage_rows = [
+        {"metric_tangent": 0.2, "outer_current_power": -0.04},
+        {"metric_tangent": 0.4, "outer_current_power": -0.06},
+    ]
+
+    result = recompute_combined_matter_em_accounting_candidates(
+        row, source_rows, em_stage_rows
+    )
+    no_outer = result["remainder_without_separate_em_outer_candidate_unthresholded"]
+    with_outer = result["remainder_with_separate_em_outer_candidate_unthresholded"]
+    assert result["known_terms_without_separate_em_outer_unthresholded"] == pytest.approx(1.7)
+    assert result["known_terms_with_separate_em_outer_unthresholded"] == pytest.approx(1.65)
+    assert no_outer == pytest.approx(measured_combined - 1.7)
+    assert with_outer == pytest.approx(measured_combined - 1.65)
+    assert no_outer - with_outer == pytest.approx(outer)
+    assert result["remainder_candidate_difference_minus_em_outer_unthresholded"] == pytest.approx(0.0)
+    assert result["physical_residual_threshold_applied"] is False
+
+
+
 def test_em_exchange_cli_summary_keeps_physical_remainders_unthresholded():
     report = {
         "stages": [
@@ -621,6 +683,11 @@ def test_em_exchange_cli_summary_keeps_physical_remainders_unthresholded():
                 "boundary_separation_adjustment_start_predictor_average_unthresholded": 1.0e-8,
                 "full_minus_boundary_separated_interval_remainder_unthresholded": -1.0e-8,
                 "exchange_only_start_predictor_average_remainder_unthresholded": 5.0e-9,
+                "combined_matter_em_accounting_candidates": {
+                    "remainder_without_separate_em_outer_candidate_unthresholded": 4.0e-9,
+                    "remainder_with_separate_em_outer_candidate_unthresholded": 5.0e-9,
+                    "em_outer_current_power_start_predictor_average_reconstructed_unthresholded": -1.0e-9,
+                },
             }
         ],
     }
@@ -636,6 +703,10 @@ def test_em_exchange_cli_summary_keeps_physical_remainders_unthresholded():
     assert row["interval_exchange_average_remainder_absmax_unthresholded"] == pytest.approx(5.0e-9)
     assert row["full_functional_interval_exchange_average_remainder_absmax_unthresholded"] == pytest.approx(5.0e-9)
     assert row["interval_boundary_separation_adjustment_absmax_unthresholded"] == pytest.approx(1.0e-8)
+    assert row["combined_matter_em_remainder_without_separate_em_outer_candidate_absmax_unthresholded"] == pytest.approx(4.0e-9)
+    assert row["combined_matter_em_remainder_with_separate_em_outer_candidate_absmax_unthresholded"] == pytest.approx(5.0e-9)
+    assert row["combined_matter_em_outer_current_power_absmax_unthresholded"] == pytest.approx(1.0e-9)
+    assert row["combined_matter_em_candidates_physical_residual_threshold_applied"] is False
     assert row["algebraic_roundoff_bound_ratio_absmax"] == pytest.approx(0.75)
     assert row["face_minus_cell_current_tangent_mismatch_absmax_unthresholded"] == pytest.approx(2.0e-8)
     assert row["exchange_identity_gap_absmax_unthresholded"] == pytest.approx(1.0e-24)
