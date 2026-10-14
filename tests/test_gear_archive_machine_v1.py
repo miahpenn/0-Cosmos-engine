@@ -77,8 +77,10 @@ def test_runner_rejects_a_local_parameter_set_that_breaks_gear03_lock():
     ],
 )
 def test_runner_fails_closed_on_invalid_controls(kwargs):
+    options = {"local_tau_final": 0.0, "cosmos_t_final": 0.0}
+    options.update(kwargs)
     with pytest.raises(ValueError):
-        run_machine(local_tau_final=0.0, cosmos_t_final=0.0, **kwargs)
+        run_machine(**options)
 
 
 def test_zero_length_run_still_reports_starting_state_and_open_gates():
