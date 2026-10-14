@@ -932,6 +932,17 @@ def test_mass_gradient_witness_records_bracket_cells_and_both_interpolation_oper
     assert observed["left_cell"]["mass_gradient_residual_local_composite"] == pytest.approx(
         mass_gradient[1] - local_rhs[1]
     )
+    left = observed["left_cell"]
+    U_left = Rdot[1] / alpha[1]
+    H_left = R[1]**2 * Rr[1] * hamiltonian[1] / 4.0
+    M_left = R[1]**2 * U_left * momentum[1] / 2.0
+    assert left["normal_velocity_Rdot_over_alpha"] == pytest.approx(U_left)
+    assert left["hamiltonian_constraint_contribution_to_mass_gradient_residual"] == pytest.approx(H_left)
+    assert left["momentum_constraint_contribution_to_mass_gradient_residual"] == pytest.approx(M_left)
+    assert left["constraint_predicted_mass_gradient_residual"] == pytest.approx(H_left + M_left)
+    assert left["constraint_identity_operator_remainder"] == pytest.approx(
+        left["mass_gradient_residual_local_composite"] - H_left - M_left
+    )
     assert observed["right_cell"]["hamiltonian_constraint"] == pytest.approx(hamiltonian[2])
     assert observed["left_cell"]["momentum_constraint"] == pytest.approx(momentum[1])
     assert observed["local_composite_rhs_interpolated_at_target"] == pytest.approx(
@@ -940,6 +951,14 @@ def test_mass_gradient_witness_records_bracket_cells_and_both_interpolation_oper
     assert observed["local_composite_residual_interpolated_at_target"] == pytest.approx(
         observed["mass_gradient_discrete_interpolated_at_target"]
         - observed["local_composite_rhs_interpolated_at_target"]
+    )
+    assert observed["constraint_predicted_mass_gradient_residual_interpolated_at_target"] == pytest.approx(
+        observed["hamiltonian_constraint_contribution_interpolated_at_target"]
+        + observed["momentum_constraint_contribution_interpolated_at_target"]
+    )
+    assert observed["constraint_identity_operator_remainder_interpolated_at_target"] == pytest.approx(
+        observed["local_composite_residual_interpolated_at_target"]
+        - observed["constraint_predicted_mass_gradient_residual_interpolated_at_target"]
     )
     # Distinct operators are reported rather than choosing the smaller residual.
     assert abs(observed["factor_product_minus_composite_rhs"]) > 0.0
