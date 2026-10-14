@@ -84,6 +84,22 @@ def _raw_stage():
         key: sum((sector[key] for sector in sectors.values()), np.zeros_like(r))
         for key in ("rho", "pr", "pt", "j")
     }
+    momentum_constraint_residual = np.zeros_like(r)
+    for i in range(2, len(r) - 2):
+        aa_r = d4(Aa, i)
+        k_r = d4(K, i)
+        x_r = d4(X, i)
+        b_r = d4(b, i)
+        chi_p = -0.5 * x_r / X[i]
+        ab = -0.5 * Aa[i]
+        vacuum_momentum = (
+            aa_r - (2.0 / 3.0) * k_r + 6.0 * Aa[i] * chi_p
+            + (Aa[i] - ab) * (2.0 / r[i] + b_r / b[i])
+        )
+        momentum_constraint_residual[i] = (
+            vacuum_momentum - 8.0 * np.pi * aggregate["j"][i]
+        )
+    hamiltonian_constraint_residual = 1.0e-5 + 2.0e-6 * r
     raw = {
         "schema_version": 1,
         "target_areal_radius": 3.0,
@@ -101,7 +117,24 @@ def _raw_stage():
             "Ktheta_dot": Ktheta_dot, "chi": chi,
             "mass_native": mass, "mass_chain_rule": mass,
             "mass_dot_coordinate_chain_rule": mass_dot,
+            "hamiltonian_constraint_residual": hamiltonian_constraint_residual,
+            "momentum_constraint_residual": momentum_constraint_residual,
             **aggregate,
+        },
+        "constraint_conventions": {
+            "hamiltonian_residual": (
+                "vacuum.constraints(grid, geometry)['hamiltonian'] - 16*pi*total.rho"
+            ),
+            "momentum_residual": (
+                "vacuum.constraints(grid, geometry)['momentum'] - 8*pi*total.j"
+            ),
+            "mass_gradient_hamiltonian_term": "R**2 * D_r(R) * H_residual / 4",
+            "mass_gradient_momentum_term": "R**2 * (Rdot/alpha) * M_residual / 2",
+            "radial_mass_rate_identity": (
+                "epsilon_M = -R**2*alpha*gamma_rr_inv*D_r(R)*M_residual/2 "
+                "- R**2*Rdot*C^r_r/2"
+            ),
+            "residual_sign_policy": "signed values retained; no physical residual threshold",
         },
         "rhs_split": {
             "explicit": {"a": a_dot, "b": b_dot, "X": X_dot},
@@ -133,6 +166,14 @@ def test_independent_fixed_r_reconstruction_keeps_operator_conventions_separate(
     assert "Ktheta_dot_matter_source_from_live_minus_vacuum_L3" in result["cells"]["3"]
     assert "stress_j_sector_additivity" in result["algebraic_roundoff_checks"]
     assert "without a pass/fail threshold" in result["interpretation"]
+    assert set(result["constraint_profile_roundoff_checks"]) == {"2", "3"}
+    assert all(
+        item["bound_ratio"] <= 1.0
+        for item in result["constraint_profile_roundoff_checks"].values()
+    )
+    assert "C_radial_mixed_unthresholded" in result["cells"]["2"]["independent_geometric_radial_einstein"]
+    assert "hamiltonian_constraint_residual_signed" in result["cells"]["2"]
+    assert "constraint_identity_operator_remainder_unthresholded" in result["cells"]["2"]
 
 
 def test_independent_fixed_r_reconstruction_fails_on_bad_saved_derivative():
@@ -381,3 +422,28 @@ def test_em_exchange_cli_summary_keeps_physical_remainders_unthresholded():
     assert row["interval_exchange_average_remainder_absmax_unthresholded"] == pytest.approx(5.0e-9)
     assert row["algebraic_roundoff_bound_ratio_absmax"] == pytest.approx(0.75)
     assert row["physical_residual_threshold_applied"] is False
+
+
+
+def test_independent_fixed_r_reconstruction_rejects_changed_archived_momentum_constraint_sign():
+    stage = _raw_stage()
+    broken = copy.deepcopy(stage)
+    broken["tube_fixed_R_balance_raw_witness"]["profiles"][
+        "momentum_constraint_residual"
+    ][2] *= -1.0
+    with pytest.raises(RuntimeError, match="archived signed momentum constraint residual at cell 2"):
+        recompute_arm(broken)
+
+
+def test_independent_fixed_r_reconstruction_requires_signed_constraint_profiles_and_conventions():
+    stage = _raw_stage()
+    del stage["tube_fixed_R_balance_raw_witness"]["profiles"]["hamiltonian_constraint_residual"]
+    with pytest.raises(RuntimeError, match="lacks signed native-cell constraint profiles"):
+        recompute_arm(stage)
+
+    stage = _raw_stage()
+    stage["tube_fixed_R_balance_raw_witness"]["constraint_conventions"]["momentum_residual"] = (
+        "sign-ambiguous momentum residual"
+    )
+    with pytest.raises(RuntimeError, match="raw constraint convention 'momentum_residual'"):
+        recompute_arm(stage)

@@ -2045,6 +2045,23 @@ def _worldtube_sample(kernel, state, *, geometry_stage_capture=None) -> dict:
                 "pr": raw_profile(total.pr),
                 "pt": raw_profile(total.pt),
                 "j": raw_profile(total.j),
+                "hamiltonian_constraint_residual": raw_profile(hamiltonian_constraint_profile),
+                "momentum_constraint_residual": raw_profile(momentum_constraint_profile),
+            },
+            "constraint_conventions": {
+                "hamiltonian_residual": (
+                    "vacuum.constraints(grid, geometry)['hamiltonian'] - 16*pi*total.rho"
+                ),
+                "momentum_residual": (
+                    "vacuum.constraints(grid, geometry)['momentum'] - 8*pi*total.j"
+                ),
+                "mass_gradient_hamiltonian_term": "R**2 * D_r(R) * H_residual / 4",
+                "mass_gradient_momentum_term": "R**2 * (Rdot/alpha) * M_residual / 2",
+                "radial_mass_rate_identity": (
+                    "epsilon_M = -R**2*alpha*gamma_rr_inv*D_r(R)*M_residual/2 "
+                    "- R**2*Rdot*C^r_r/2"
+                ),
+                "residual_sign_policy": "signed values retained; no physical residual threshold",
             },
             "rhs_split": {
                 "explicit": {

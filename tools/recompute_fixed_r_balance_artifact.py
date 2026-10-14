@@ -301,6 +301,35 @@ def recompute_arm(stage: dict[str, Any]) -> dict[str, Any]:
         raise RuntimeError("global cell indices must be contiguous and contain a stencil")
     n = len(indices)
     p = {name: _vector(value, name, n) for name, value in profiles.items()}
+    required_constraint_profiles = (
+        "hamiltonian_constraint_residual", "momentum_constraint_residual",
+    )
+    missing_constraint_profiles = [
+        name for name in required_constraint_profiles if name not in p
+    ]
+    if missing_constraint_profiles:
+        raise RuntimeError(
+            "raw fixed-R witness lacks signed native-cell constraint profiles: "
+            f"{missing_constraint_profiles}"
+        )
+    expected_conventions = {
+        "hamiltonian_residual": (
+            "vacuum.constraints(grid, geometry)['hamiltonian'] - 16*pi*total.rho"
+        ),
+        "momentum_residual": (
+            "vacuum.constraints(grid, geometry)['momentum'] - 8*pi*total.j"
+        ),
+        "mass_gradient_hamiltonian_term": "R**2 * D_r(R) * H_residual / 4",
+        "mass_gradient_momentum_term": "R**2 * (Rdot/alpha) * M_residual / 2",
+    }
+    convention_record = raw.get("constraint_conventions")
+    if not isinstance(convention_record, dict):
+        raise RuntimeError("raw fixed-R witness lacks signed constraint conventions")
+    for convention_name, expected in expected_conventions.items():
+        if convention_record.get(convention_name) != expected:
+            raise RuntimeError(
+                f"raw constraint convention {convention_name!r} is absent or changed"
+            )
     dr = float(raw["grid_dr"])
     target = float(raw["target_areal_radius"])
     if not (math.isfinite(dr) and dr > 0.0 and math.isfinite(target)):
@@ -558,6 +587,11 @@ def recompute_arm(stage: dict[str, Any]) -> dict[str, Any]:
     stage_witness = stage.get("tube_mass_gradient_identity_witness", {})
     stage_cell_checks: dict[str, Any] = {}
     momentum_constraint_profile = np.zeros(n, dtype=np.float64)
+    hamiltonian_mass_gradient_term_profile = np.zeros(n, dtype=np.float64)
+    momentum_mass_gradient_term_profile = np.zeros(n, dtype=np.float64)
+    constraint_predicted_mass_gradient_residual_profile = np.zeros(n, dtype=np.float64)
+    constraint_identity_operator_remainder_profile = np.zeros(n, dtype=np.float64)
+    momentum_constraint_profile_roundoff_checks: dict[str, Any] = {}
     momentum_mass_term_profile = np.zeros(n, dtype=np.float64)
     radial_rr_residual_profile = np.zeros(n, dtype=np.float64)
     radial_rr_mass_term_profile = np.zeros(n, dtype=np.float64)
@@ -587,7 +621,38 @@ def recompute_arm(stage: dict[str, Any]) -> dict[str, Any]:
         radial = _geometric_radial_einstein_rr_at_cell(
             p, indices, ix, dr, Kdot, Aadot
         )
-        momentum_constraint_profile[pos] = momentum["momentum_constraint_residual"]
+        archived_momentum = float(p["momentum_constraint_residual"][pos])
+        momentum_check = _roundoff_check(
+            f"archived signed momentum constraint residual at cell {ix}",
+            momentum["momentum_constraint_residual"],
+            archived_momentum,
+            momentum["vacuum_momentum_constraint"],
+            momentum["matter_momentum_subtraction"],
+        )
+        momentum_constraint_profile_roundoff_checks[str(ix)] = momentum_check
+        hamiltonian_residual = float(p["hamiltonian_constraint_residual"][pos])
+        momentum_residual = float(momentum["momentum_constraint_residual"])
+        hamiltonian_mass_gradient_term = (
+            0.25 * R[pos]**2 * Rr[pos] * hamiltonian_residual
+        )
+        momentum_mass_gradient_term = (
+            0.5 * R[pos]**2 * (Rdot[pos] / p["alpha"][pos]) * momentum_residual
+        )
+        constraint_predicted_mass_gradient_residual = (
+            hamiltonian_mass_gradient_term + momentum_mass_gradient_term
+        )
+        constraint_identity_operator_remainder = (
+            mass_gradient_residual - constraint_predicted_mass_gradient_residual
+        )
+        hamiltonian_mass_gradient_term_profile[pos] = hamiltonian_mass_gradient_term
+        momentum_mass_gradient_term_profile[pos] = momentum_mass_gradient_term
+        constraint_predicted_mass_gradient_residual_profile[pos] = (
+            constraint_predicted_mass_gradient_residual
+        )
+        constraint_identity_operator_remainder_profile[pos] = (
+            constraint_identity_operator_remainder
+        )
+        momentum_constraint_profile[pos] = momentum_residual
         momentum_mass_term_profile[pos] = (
             -0.5 * R[pos]**2 * p["alpha"][pos] * gamma_inv[pos] * Rr[pos]
             * momentum["momentum_constraint_residual"]
@@ -620,6 +685,22 @@ def recompute_arm(stage: dict[str, Any]) -> dict[str, Any]:
             "mass_gradient_discrete_centered_fourth": float(mass_gradient),
             "mass_gradient_rhs_Einstein_identity": mass_gradient_rhs,
             "mass_gradient_identity_residual_unthresholded": float(mass_gradient_residual),
+            "hamiltonian_constraint_residual_signed": hamiltonian_residual,
+            "momentum_constraint_residual_signed_archived": archived_momentum,
+            "momentum_constraint_residual_signed_recomputed": momentum_residual,
+            "hamiltonian_constraint_contribution_to_mass_gradient_residual": (
+                hamiltonian_mass_gradient_term
+            ),
+            "momentum_constraint_contribution_to_mass_gradient_residual": (
+                momentum_mass_gradient_term
+            ),
+            "constraint_predicted_mass_gradient_residual": (
+                constraint_predicted_mass_gradient_residual
+            ),
+            "constraint_identity_operator_remainder_unthresholded": (
+                constraint_identity_operator_remainder
+            ),
+            "momentum_constraint_profile_roundoff_check": momentum_check,
             "mass_gradient_derivative_scale": float(mass_gradient_scale),
             "composite_stress_flux_local": f_local,
             "composite_pressure_work_local": w_local,
@@ -656,6 +737,50 @@ def recompute_arm(stage: dict[str, Any]) -> dict[str, Any]:
                         mass_gradient_residual,
                         stored.get("mass_gradient_residual_local_composite", mass_gradient_residual),
                         (mass_gradient, mass_gradient_rhs),
+                    ),
+                    (
+                        "hamiltonian_constraint_contribution",
+                        hamiltonian_mass_gradient_term,
+                        stored.get(
+                            "hamiltonian_constraint_contribution_to_mass_gradient_residual",
+                            hamiltonian_mass_gradient_term,
+                        ),
+                        (hamiltonian_mass_gradient_term, mass_gradient_residual),
+                    ),
+                    (
+                        "momentum_constraint_contribution",
+                        momentum_mass_gradient_term,
+                        stored.get(
+                            "momentum_constraint_contribution_to_mass_gradient_residual",
+                            momentum_mass_gradient_term,
+                        ),
+                        (momentum_mass_gradient_term, mass_gradient_residual),
+                    ),
+                    (
+                        "constraint_predicted_mass_gradient_residual",
+                        constraint_predicted_mass_gradient_residual,
+                        stored.get(
+                            "constraint_predicted_mass_gradient_residual",
+                            constraint_predicted_mass_gradient_residual,
+                        ),
+                        (
+                            hamiltonian_mass_gradient_term,
+                            momentum_mass_gradient_term,
+                            mass_gradient_residual,
+                        ),
+                    ),
+                    (
+                        "constraint_identity_operator_remainder",
+                        constraint_identity_operator_remainder,
+                        stored.get(
+                            "constraint_identity_operator_remainder",
+                            constraint_identity_operator_remainder,
+                        ),
+                        (
+                            mass_gradient_residual,
+                            hamiltonian_mass_gradient_term,
+                            momentum_mass_gradient_term,
+                        ),
                     ),
                 ):
                     checks[name] = _roundoff_check(
@@ -702,7 +827,26 @@ def recompute_arm(stage: dict[str, Any]) -> dict[str, Any]:
             "R_right": float(R[target_pos_right]),
         },
         "cells": left_report,
+        "constraint_profile_roundoff_checks": momentum_constraint_profile_roundoff_checks,
         "interpolated": {
+            "hamiltonian_constraint_residual_signed_composite_interp": interp(
+                p["hamiltonian_constraint_residual"]
+            ),
+            "momentum_constraint_residual_signed_composite_interp": interp(
+                momentum_constraint_profile
+            ),
+            "hamiltonian_constraint_mass_gradient_term_composite_interp": interp(
+                hamiltonian_mass_gradient_term_profile
+            ),
+            "momentum_constraint_mass_gradient_term_composite_interp": interp(
+                momentum_mass_gradient_term_profile
+            ),
+            "constraint_predicted_mass_gradient_residual_composite_interp": interp(
+                constraint_predicted_mass_gradient_residual_profile
+            ),
+            "constraint_identity_operator_remainder_composite_interp_unthresholded": interp(
+                constraint_identity_operator_remainder_profile
+            ),
             "coordinate_mass_rate": mdot_at_target,
             "composite_flux": flux_composite,
             "composite_pressure_work": work_composite,
