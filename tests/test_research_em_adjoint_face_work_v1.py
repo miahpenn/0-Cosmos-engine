@@ -100,7 +100,8 @@ def test_reconcile_saved_stages_checks_provenance_tangent_and_boundary_terms():
     assert result["summary"]["max_abs_difference_from_stored_charge_current_tangent"] <= 1e-25
     assert result["summary"]["neutral_witnesses_with_nonzero_charge_tangent"] == 0
     assert result["summary"]["charged_witnesses_with_nonzero_outer_face_tangent"] == 2
-    assert result["witnesses"][0]["metric_weight_tangent_and_matter_lorentz_power_are_not_folded_into_the_charge_tangent"] if "metric_weight_tangent_and_matter_lorentz_power_are_not_folded_into_the_charge_tangent" in result["witnesses"][0] else True
+    assert result["witnesses"][0]["metric_weight_tangent"] == 0.0
+    assert result["witnesses"][1]["metric_weight_tangent"] == -2.0e-6
     assert result["witnesses"][1]["charge_plus_lorentz_signed_pairing"] == pytest.approx(1e-14)
 
 
