@@ -557,6 +557,12 @@ def recompute_arm(stage: dict[str, Any]) -> dict[str, Any]:
     left_report: dict[str, Any] = {}
     stage_witness = stage.get("tube_mass_gradient_identity_witness", {})
     stage_cell_checks: dict[str, Any] = {}
+    momentum_constraint_profile = np.zeros(n, dtype=np.float64)
+    momentum_mass_term_profile = np.zeros(n, dtype=np.float64)
+    radial_rr_residual_profile = np.zeros(n, dtype=np.float64)
+    radial_rr_mass_term_profile = np.zeros(n, dtype=np.float64)
+    geometric_balance_prediction_profile = np.zeros(n, dtype=np.float64)
+    geometric_balance_gap_profile = np.zeros(n, dtype=np.float64)
     for pos in active_positions:
         ix = indices[pos]
         terms = {key: float(value[pos]) for key, value in mdot_terms.items()}
@@ -573,6 +579,30 @@ def recompute_arm(stage: dict[str, Any]) -> dict[str, Any]:
         mass_dot_term_matter_source = float(
             R[pos]**3 * Ktheta[pos] * Ktheta_dot_matter_source[pos]
         )
+
+        # Independent spherical mass-identity split:
+        # epsilon_M = -R^2 alpha gamma^rr R_r M_r/2 - R^2 Rdot C^r_r/2.
+        # Rebuild both geometric residuals directly from the archived profiles.
+        momentum = _momentum_constraint_residual_at_cell(p, indices, ix, dr)
+        radial = _geometric_radial_einstein_rr_at_cell(
+            p, indices, ix, dr, Kdot, Aadot
+        )
+        momentum_constraint_profile[pos] = momentum["momentum_constraint_residual"]
+        momentum_mass_term_profile[pos] = (
+            -0.5 * R[pos]**2 * p["alpha"][pos] * gamma_inv[pos] * Rr[pos]
+            * momentum["momentum_constraint_residual"]
+        )
+        radial_rr_residual_profile[pos] = radial["C_radial_mixed_unthresholded"]
+        radial_rr_mass_term_profile[pos] = (
+            -0.5 * R[pos]**2 * Rdot[pos]
+            * radial["C_radial_mixed_unthresholded"]
+        )
+        local_balance = float(mdot[pos] - f_local - w_local)
+        geometric_prediction = float(
+            momentum_mass_term_profile[pos] + radial_rr_mass_term_profile[pos]
+        )
+        geometric_balance_prediction_profile[pos] = geometric_prediction
+        geometric_balance_gap_profile[pos] = local_balance - geometric_prediction
         left_report[str(ix)] = {
             "R": float(R[pos]),
             "Rdot": float(Rdot[pos]),
@@ -593,7 +623,15 @@ def recompute_arm(stage: dict[str, Any]) -> dict[str, Any]:
             "mass_gradient_derivative_scale": float(mass_gradient_scale),
             "composite_stress_flux_local": f_local,
             "composite_pressure_work_local": w_local,
-            "coordinate_rate_minus_local_flux_work": float(mdot[pos] - f_local - w_local),
+            "coordinate_rate_minus_local_flux_work": local_balance,
+            "independent_momentum_constraint": momentum,
+            "independent_geometric_radial_einstein": radial,
+            "momentum_constraint_mass_identity_term": float(momentum_mass_term_profile[pos]),
+            "radial_rr_einstein_mass_identity_term": float(radial_rr_mass_term_profile[pos]),
+            "geometric_identity_predicted_mass_balance_remainder_unthresholded": geometric_prediction,
+            "geometric_identity_minus_observed_mass_balance_remainder_unthresholded": float(
+                geometric_balance_gap_profile[pos]
+            ),
         }
         if isinstance(stage_witness, dict) and stage_witness:
             side = "left_cell" if ix == left else "right_cell"
@@ -677,6 +715,16 @@ def recompute_arm(stage: dict[str, Any]) -> dict[str, Any]:
             "moving_interpolant_rate": moving_observed,
             "moving_interpolant_prediction": moving_predicted,
             "moving_interpolant_residual_unthresholded": sweep_cancelled_residual,
+            "independent_momentum_constraint_residual_composite_interp": interp(momentum_constraint_profile),
+            "momentum_constraint_mass_identity_term_composite_interp": interp(momentum_mass_term_profile),
+            "independent_C_radial_mixed_composite_interp": interp(radial_rr_residual_profile),
+            "radial_rr_einstein_mass_identity_term_composite_interp": interp(radial_rr_mass_term_profile),
+            "geometric_identity_predicted_mass_balance_remainder_composite_interp": interp(
+                geometric_balance_prediction_profile
+            ),
+            "geometric_identity_minus_observed_mass_balance_remainder_composite_interp_unthresholded": interp(
+                geometric_balance_gap_profile
+            ),
         },
         "sector_flux_work": sectors_out,
         "stencil_roundoff_checks": stencil_checks,
