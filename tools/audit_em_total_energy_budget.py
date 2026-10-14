@@ -2640,13 +2640,32 @@ def _accepted_pirk_update_tangent(step: dict, stage_rates: dict) -> dict:
         gamma_inv_dot_contributions=gamma_inv_contributions,
         Ktheta_dot_contributions=ktheta_dot_contributions, grid=grid,
     )
-    accepted_tangent_term_sum_profile = sum(accepted_tangent_term_profiles.values())
+    # Use compensated scalar summation for this independent component ledger.
+    # Keep the existing operand-scaled 128-epsilon admission bound unchanged;
+    # do not let a left-fold sum-order artifact decide the observer contract.
+    tangent_term_profiles = tuple(accepted_tangent_term_profiles.values())
+    accepted_tangent_term_sum_profile = np.fromiter(
+        (
+            math.fsum(float(profile[index]) for profile in tangent_term_profiles)
+            for index in range(R.size)
+        ),
+        dtype=np.float64,
+        count=R.size,
+    )
+    accepted_tangent_term_abs_sum_profile = np.fromiter(
+        (
+            math.fsum(abs(float(profile[index])) for profile in tangent_term_profiles)
+            for index in range(R.size)
+        ),
+        dtype=np.float64,
+        count=R.size,
+    )
     accepted_tangent_term_reconstruction = (
         chain_profiles["mass_dot_coordinate"] - accepted_tangent_term_sum_profile
     )
     accepted_tangent_term_scale = (
         np.abs(chain_profiles["mass_dot_coordinate"])
-        + sum(np.abs(value) for value in accepted_tangent_term_profiles.values())
+        + accepted_tangent_term_abs_sum_profile
     )
     accepted_tangent_term_bound = 128.0 * np.finfo(np.float64).eps * np.maximum(
         accepted_tangent_term_scale, np.finfo(np.float64).tiny
