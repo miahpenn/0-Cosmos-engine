@@ -1728,6 +1728,26 @@ def _summarize_em_stage_exchange(report: dict[str, Any]) -> dict[str, Any]:
             key=lambda row: abs(float(row["exchange_only_remainder_unthresholded"])),
             default=None,
         )
+        worst_cellwise_face_lorentz_stage = max(
+            stage_rows,
+            key=lambda row: abs(float(
+                row.get("full_functional_cellwise_face_lorentz_absmax_unthresholded", 0.0)
+            )),
+            default=None,
+        )
+        worst_cellwise_face_lorentz_witness = None
+        if worst_cellwise_face_lorentz_stage is not None:
+            worst_cellwise_face_lorentz_witness = {
+                key: worst_cellwise_face_lorentz_stage.get(key)
+                for key in (
+                    "stage", "t", "interval_index",
+                    "full_functional_cellwise_face_lorentz_absmax_unthresholded",
+                    "full_functional_cellwise_face_lorentz_absmax_cell",
+                    "full_functional_cellwise_face_plus_lorentz_sum_unthresholded",
+                    "full_functional_cellwise_face_plus_lorentz_sum_minus_scalar_unthresholded",
+                    "full_functional_charge_tangent_plus_lorentz_remainder_unthresholded",
+                )
+            }
         worst_exchange_witness = None
         if worst_exchange_stage is not None:
             worst_exchange_witness = {
@@ -1741,6 +1761,10 @@ def _summarize_em_stage_exchange(report: dict[str, Any]) -> dict[str, Any]:
                     "boundary_separation_adjustment_unthresholded",
                     "full_minus_boundary_separated_remainder_unthresholded",
                     "full_functional_exchange_relative_remainder_unthresholded",
+                    "full_functional_cellwise_face_lorentz_absmax_unthresholded",
+                    "full_functional_cellwise_face_lorentz_absmax_cell",
+                    "full_functional_cellwise_face_plus_lorentz_sum_unthresholded",
+                    "full_functional_cellwise_face_plus_lorentz_sum_minus_scalar_unthresholded",
                     "face_minus_cell_current_tangent_mismatch_unthresholded",
                     "exchange_only_remainder_unthresholded",
                     "exchange_from_face_cell_current_mismatch_unthresholded",
@@ -1783,6 +1807,14 @@ def _summarize_em_stage_exchange(report: dict[str, Any]) -> dict[str, Any]:
                 ),
                 default=0.0,
             ),
+            "full_functional_cellwise_face_lorentz_absmax_unthresholded": max(
+                (
+                    abs(float(row.get("full_functional_cellwise_face_lorentz_absmax_unthresholded", 0.0)))
+                    for row in stage_rows
+                ),
+                default=0.0,
+            ),
+            "worst_cellwise_face_lorentz_stage_terms": worst_cellwise_face_lorentz_witness,
             "boundary_separation_adjustment_absmax_unthresholded": max(
                 (
                     abs(float(row.get(
