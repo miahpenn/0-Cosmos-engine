@@ -162,6 +162,17 @@ def test_reconcile_saved_stages_checks_provenance_tangent_and_boundary_terms():
     assert result["witnesses"][0]["metric_weight_tangent"] == 0.0
     assert result["witnesses"][1]["metric_weight_tangent"] == -2.0e-6
     assert result["witnesses"][1]["charge_plus_lorentz_signed_pairing"] == pytest.approx(1e-14)
+    projection = result["witnesses"][1]["face_current_projection_decomposition"]
+    assert projection["current_projection_gap_max_abs"] > 0.0
+    assert projection["face_current_reconstruction_max_bound_ratio"] <= 1.0
+    assert projection["component_reconstruction_max_bound_ratio"] <= 1.0
+    assert projection["hll_tangent_reconstruction"]["max_bound_ratio"] <= 1.0
+    assert projection["radial_band_summary"]["r_lt_2"]["cells"] == 3
+    assert projection["weighted_projection_gap_signed_sum"] == pytest.approx(
+        result["witnesses"][1]["cellwise_pairing_signed_sum"],
+        rel=0.0,
+        abs=1e-24,
+    )
 
 
 def test_reconciler_enumerates_all_three_run_sections_without_dropping_stages():
@@ -229,3 +240,22 @@ def test_reconciler_fails_closed_when_cell_lorentz_profile_does_not_match_stored
     ] += 1.0e-6
     with pytest.raises(ArithmeticError, match="Lorentz source profile disagrees"):
         reconcile_report(report, input_name="bad-lorentz.json", input_sha256="1" * 64)
+
+
+def test_current_projection_reconciler_fails_closed_on_corrupted_hll_flux_component():
+    report = _report()
+    operand = report["runs"][1]["step_rows"][0]["em_stage_exchange_witnesses"][0][
+        "stage_witness"
+    ]["hll_current_flux_decomposition"]["internal_face_operands"][0]
+    operand["weighted_left_rest_mass_flux"] += 1.0e-5
+    with pytest.raises(ArithmeticError, match="HLL left/right/jump/boundary operands"):
+        reconcile_report(report, input_name="bad-hll-current.json", input_sha256="a" * 64)
+
+
+def test_current_projection_reconciler_fails_closed_on_primitive_current_mismatch():
+    report = _report()
+    report["runs"][1]["step_rows"][0]["em_stage_exchange_witnesses"][0][
+        "stage_witness"
+    ]["lorentz_current_r_profile"][0] += 1.0e-3
+    with pytest.raises(ArithmeticError, match="primitive-current projection gap"):
+        reconcile_report(report, input_name="bad-primitive-current.json", input_sha256="b" * 64)
