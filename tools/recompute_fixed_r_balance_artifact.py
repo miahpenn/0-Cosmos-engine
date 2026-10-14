@@ -1013,6 +1013,9 @@ def recompute_em_stage_exchange_witness(stage_record: Any) -> dict[str, Any]:
     full_pairing_scalar = charge_tangent + lorentz_power
     cellwise_face_lorentz_sum_gap = cellwise_face_lorentz_sum - full_pairing_scalar
     max_defect_cell = int(np.argmax(np.abs(face_cell_current_defect_by_cell)))
+    max_cellwise_face_lorentz_cell = int(
+        np.argmax(np.abs(cellwise_face_lorentz_terms))
+    )
 
     scales = (q_face, rest_flux, current, q_face_dot)
     checks = {
@@ -1177,7 +1180,13 @@ def recompute_em_stage_exchange_witness(stage_record: Any) -> dict[str, Any]:
         "full_functional_cellwise_face_lorentz_absmax_unthresholded": float(
             np.max(np.abs(cellwise_face_lorentz_terms))
         ),
-        "full_functional_cellwise_face_lorentz_absmax_cell": max_defect_cell,
+        "full_functional_cellwise_face_lorentz_absmax_cell": (
+            max_cellwise_face_lorentz_cell
+        ),
+        "face_cell_current_defect_absmax_unthresholded": float(
+            np.max(np.abs(face_cell_current_defect_by_cell))
+        ),
+        "face_cell_current_defect_absmax_cell": max_defect_cell,
         "metric_tangent": metric_tangent,
         "total_field_energy_tangent": total_tangent,
         "matter_lorentz_power": lorentz_power,
