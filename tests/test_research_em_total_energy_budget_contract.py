@@ -14,6 +14,7 @@ from tools.audit_em_total_energy_budget import (
     VENDOR_GITLINK,
     VENDOR_PIN,
     field_energy_functional,
+    _field_stage_powers,
     interpolate_at_areal_radius,
     _fixed_target_interpolant_rate,
     _fixed_R_composite_flux_work_profiles,
@@ -1298,3 +1299,60 @@ def test_pure_sector_discriminator_adds_to_aggregate_at_roundoff():
     assert out["additive_flux_bound"] > 0.0
     assert out["additive_work_bound"] > 0.0
 
+
+
+
+def test_stage_exchange_witness_preserves_q_face_tangent_and_metric_weight_rate():
+    dr = 0.5
+    centers = np.array([0.25, 0.75])
+    eta = 0.25
+    charge_faces = np.array([0.0, 0.4, 0.8])
+    rest_flux = np.array([0.0, 0.03, 0.07])
+
+    class FakeEM:
+        charge_to_rest_mass = eta
+        enclosed_charge_faces = charge_faces
+
+        @staticmethod
+        def charge_flux_faces(flux):
+            return 4.0 * np.pi * eta * np.asarray(flux, dtype=float)
+
+    geometry = SimpleNamespace(
+        X=np.array([1.0, 1.2]),
+        a=np.array([1.1, 1.3]),
+        b=np.array([1.0, 1.1]),
+    )
+    state = SimpleNamespace(
+        grid=SimpleNamespace(dr=dr, centers=centers),
+        geometry=geometry,
+        electromagnetic=FakeEM(),
+    )
+    stage = {
+        "stage_state": state,
+        "lorentz": {"energy": np.array([2e-5, 3e-5])},
+    }
+    explicit = {
+        "X": np.array([0.01, -0.02]),
+        "a": np.array([0.005, 0.003]),
+        "b": np.array([0.004, -0.001]),
+    }
+
+    record = _field_stage_powers(stage, rest_flux, explicit)
+    witness = record["stage_witness"]
+    assert witness["charge_faces"] == charge_faces.tolist()
+    assert witness["charge_current_faces"] == pytest.approx(
+        (4.0 * np.pi * eta * rest_flux).tolist()
+    )
+    assert witness["charge_face_dot"] == pytest.approx(
+        (-4.0 * np.pi * eta * rest_flux).tolist()
+    )
+    expected_log_weight_dot = (
+        explicit["X"] / geometry.X
+        + 0.5 * explicit["a"] / geometry.a
+        - explicit["b"] / geometry.b
+    )
+    assert witness["log_energy_weight_rate"] == pytest.approx(expected_log_weight_dot.tolist())
+    assert witness["total_field_energy_tangent"] == pytest.approx(
+        record["charge_power"] + record["metric_power"], abs=1e-18
+    )
+    assert len(witness["charge_current_tangent_cell_terms"]) == centers.size
