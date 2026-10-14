@@ -932,6 +932,10 @@ def recompute_em_stage_exchange_witness(stage_record: Any) -> dict[str, Any]:
     X = _vector(geometry.get("X"), "EM geometry X", n)
     a = _vector(geometry.get("a"), "EM geometry a", n)
     b = _vector(geometry.get("b"), "EM geometry b", n)
+    lapse = _vector(raw.get("lapse_profile"), "EM lapse profile", n)
+    lorentz_current_r = _vector(
+        raw.get("lorentz_current_r_profile"), "EM Lorentz cell-current profile", n
+    )
     Xdot = _vector(explicit.get("X"), "EM explicit X RHS", n)
     adot = _vector(explicit.get("a"), "EM explicit a RHS", n)
     bdot = _vector(explicit.get("b"), "EM explicit b RHS", n)
@@ -960,6 +964,16 @@ def recompute_em_stage_exchange_witness(stage_record: Any) -> dict[str, Any]:
     total_tangent = charge_tangent + metric_tangent
     lorentz_power = FOUR_PI * dr * float(np.sum(lorentz_energy))
     outer_power = -0.5 * dr * weight[-1] * q_cell[-1] * current[-1]
+
+    # Project the cell-centred primitive current onto the same electric-energy
+    # weight, independently of the numerical rest-mass face flux. For this
+    # spherical metric sqrt(gamma)=sqrt(a)*b*r^2/X^3, and
+    # I_cell = 4*pi*alpha*sqrt(gamma)*j_e^r.
+    sqrt_gamma = np.sqrt(a) * b * centers**2 / X**3
+    current_cell_equivalent = FOUR_PI * lapse * sqrt_gamma * lorentz_current_r
+    cell_current_tangent = -dr * float(np.sum(weight * q_cell * current_cell_equivalent))
+    face_cell_current_tangent_mismatch = charge_tangent - cell_current_tangent
+    exchange_from_face_cell_mismatch = face_cell_current_tangent_mismatch - outer_power
 
     scales = (q_face, rest_flux, current, q_face_dot)
     checks = {
@@ -1017,6 +1031,17 @@ def recompute_em_stage_exchange_witness(stage_record: Any) -> dict[str, Any]:
             "EM matter Lorentz power", raw.get("matter_lorentz_power"),
             lorentz_power, lorentz_energy
         ),
+        "cell_current_tangent_matches_lorentz_power": _roundoff_check(
+            "EM independently projected cell current vs Lorentz power",
+            cell_current_tangent, -lorentz_power,
+            weight, q_cell, lapse, sqrt_gamma, lorentz_current_r, lorentz_energy
+        ),
+        "face_cell_projection_decomposes_exchange": _roundoff_check(
+            "EM face-vs-cell current exchange decomposition",
+            exchange_from_face_cell_mismatch,
+            charge_tangent + lorentz_power - outer_power,
+            charge_tangent, cell_current_tangent, lorentz_power, outer_power
+        ),
         "outer_current_power": _roundoff_check(
             "EM outer-current power", raw.get("outer_current_power"),
             outer_power, weight[-1], q_cell[-1], current[-1]
@@ -1049,8 +1074,12 @@ def recompute_em_stage_exchange_witness(stage_record: Any) -> dict[str, Any]:
         "metric_tangent": metric_tangent,
         "total_field_energy_tangent": total_tangent,
         "matter_lorentz_power": lorentz_power,
+        "cell_centered_current_tangent": cell_current_tangent,
+        "face_minus_cell_current_tangent_mismatch_unthresholded": face_cell_current_tangent_mismatch,
         "outer_current_power": float(outer_power),
         "exchange_only_remainder_unthresholded": exchange_remainder,
+        "exchange_from_face_cell_current_mismatch_unthresholded": exchange_from_face_cell_mismatch,
+        "exchange_identity_gap_unthresholded": exchange_from_face_cell_mismatch - exchange_remainder,
         "exchange_only_relative_remainder_unthresholded": (
             abs(exchange_remainder) / max(exchange_scale, TINY)
         ),
