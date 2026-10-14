@@ -2807,6 +2807,10 @@ def _numeric_tree_difference(charged, neutral):
     if isinstance(charged, dict) and isinstance(neutral, dict):
         out = {}
         for key in sorted(set(charged) & set(neutral)):
+            # Bounds are per-arm metadata, not signed observables: subtracting
+            # them can create meaningless negative values in a delta witness.
+            if key.casefold().endswith("_bound"):
+                continue
             value = _numeric_tree_difference(charged[key], neutral[key])
             if value is not None:
                 out[key] = value
