@@ -997,6 +997,22 @@ def recompute_em_stage_exchange_witness(stage_record: Any) -> dict[str, Any]:
     cellwise_current_lorentz_remainder = (
         cell_current_tangent_terms + lorentz_power_cell_terms
     )
+    # Per-cell face-operator defect against the cell-centred current. Because
+    # the Lorentz source is independently reconstructed from that cell current,
+    # the same defect must also equal face-based Q tangent + Lorentz work.
+    # Keep the signed array; its scalar sum is the full-functional pairing,
+    # with no boundary term removed.
+    face_cell_current_defect_by_cell = charge_cell_terms - cell_current_tangent_terms
+    cellwise_face_lorentz_terms = charge_cell_terms + lorentz_power_cell_terms
+    defect_vs_lorentz_cellwise_gap = (
+        face_cell_current_defect_by_cell - cellwise_face_lorentz_terms
+    )
+    cellwise_face_lorentz_sum = math.fsum(
+        float(value) for value in cellwise_face_lorentz_terms
+    )
+    full_pairing_scalar = charge_tangent + lorentz_power
+    cellwise_face_lorentz_sum_gap = cellwise_face_lorentz_sum - full_pairing_scalar
+    max_defect_cell = int(np.argmax(np.abs(face_cell_current_defect_by_cell)))
 
     scales = (q_face, rest_flux, current, q_face_dot)
     checks = {
@@ -1080,6 +1096,16 @@ def recompute_em_stage_exchange_witness(stage_record: Any) -> dict[str, Any]:
             charge_tangent, face_tangent_sum,
             face_tangent_terms, charge_cell_terms, current,
         ),
+        "per_cell_face_defect_matches_lorentz_pairing": _roundoff_check(
+            "EM per-cell face-current defect vs face-tangent plus Lorentz work",
+            face_cell_current_defect_by_cell, cellwise_face_lorentz_terms,
+            charge_cell_terms, cell_current_tangent_terms, lorentz_power_cell_terms,
+        ),
+        "per_cell_defect_sums_to_full_exchange_remainder": _roundoff_check(
+            "EM per-cell face-current defect sum vs full charge-tangent plus Lorentz",
+            cellwise_face_lorentz_sum, full_pairing_scalar,
+            cellwise_face_lorentz_terms, charge_tangent, lorentz_power,
+        ),
         "outer_face_tangent_matches_named_outer_power": _roundoff_check(
             "EM outer-face tangent convention",
             face_tangent_terms[-1], outer_power,
@@ -1133,6 +1159,25 @@ def recompute_em_stage_exchange_witness(stage_record: Any) -> dict[str, Any]:
             face_tangent_sum - charge_tangent
         ),
         "field_charge_tangent_cell_terms_unthresholded": charge_cell_terms.tolist(),
+        "face_cell_current_defect_by_cell_unthresholded": (
+            face_cell_current_defect_by_cell.tolist()
+        ),
+        "full_functional_cellwise_face_plus_lorentz_terms_unthresholded": (
+            cellwise_face_lorentz_terms.tolist()
+        ),
+        "full_functional_cellwise_face_plus_lorentz_sum_unthresholded": (
+            cellwise_face_lorentz_sum
+        ),
+        "full_functional_cellwise_face_plus_lorentz_sum_minus_scalar_unthresholded": (
+            cellwise_face_lorentz_sum_gap
+        ),
+        "full_functional_cellwise_face_lorentz_vs_defect_gap_unthresholded": (
+            defect_vs_lorentz_cellwise_gap.tolist()
+        ),
+        "full_functional_cellwise_face_lorentz_absmax_unthresholded": float(
+            np.max(np.abs(cellwise_face_lorentz_terms))
+        ),
+        "full_functional_cellwise_face_lorentz_absmax_cell": max_defect_cell,
         "metric_tangent": metric_tangent,
         "total_field_energy_tangent": total_tangent,
         "matter_lorentz_power": lorentz_power,
