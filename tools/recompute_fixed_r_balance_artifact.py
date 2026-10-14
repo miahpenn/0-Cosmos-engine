@@ -667,7 +667,8 @@ def recompute_arm(stage: dict[str, Any]) -> dict[str, Any]:
             momentum_mass_term_profile[pos] + radial_rr_mass_term_profile[pos]
         )
         geometric_balance_prediction_profile[pos] = geometric_prediction
-        geometric_balance_gap_profile[pos] = local_balance - geometric_prediction
+        # The output field is named prediction-minus-observed; preserve that sign.
+        geometric_balance_gap_profile[pos] = geometric_prediction - local_balance
         left_report[str(ix)] = {
             "R": float(R[pos]),
             "Rdot": float(Rdot[pos]),
