@@ -1045,6 +1045,83 @@ def recompute_em_stage_exchange_campaign(data: dict[str, Any]) -> dict[str, Any]
     }
 
 
+def _summarize_em_stage_exchange(report: dict[str, Any]) -> dict[str, Any]:
+    """Compact CLI summary of unthresholded EM exchange diagnostics by run."""
+    stages = report.get("stages")
+    intervals = report.get("intervals")
+    if not isinstance(stages, list) or not isinstance(intervals, list):
+        raise RuntimeError("EM exchange report is missing stage/interval rows")
+
+    groups: list[dict[str, Any]] = []
+    group_keys = sorted(
+        {
+            (
+                str(row["run_group"]), int(row["run_index"]),
+                int(row["resolution"]), row.get("q_over_m"), row.get("cfl"),
+            )
+            for row in stages
+        },
+        key=lambda item: (
+            item[0], item[2],
+            -1.0 if item[3] is None else float(item[3]),
+            -1.0 if item[4] is None else float(item[4]),
+            item[1],
+        ),
+    )
+    for run_group, run_index, resolution, q_over_m, cfl in group_keys:
+        stage_rows = [
+            row for row in stages
+            if row.get("run_group") == run_group
+            and int(row.get("run_index", -1)) == run_index
+        ]
+        interval_rows = [
+            row for row in intervals
+            if row.get("run_group") == run_group
+            and int(row.get("run_index", -1)) == run_index
+        ]
+        roundoff_ratios = [
+            float(check["bound_ratio"])
+            for row in stage_rows
+            for check in row.get("algebraic_roundoff_checks", {}).values()
+        ]
+        groups.append({
+            "run_group": run_group,
+            "run_index": run_index,
+            "resolution": resolution,
+            "q_over_m": q_over_m,
+            "cfl": cfl,
+            "stage_count": len(stage_rows),
+            "interval_count": len(interval_rows),
+            "exchange_only_remainder_absmax_unthresholded": max(
+                (abs(float(row["exchange_only_remainder_unthresholded"])) for row in stage_rows),
+                default=0.0,
+            ),
+            "exchange_only_relative_remainder_absmax_unthresholded": max(
+                (abs(float(row["exchange_only_relative_remainder_unthresholded"])) for row in stage_rows),
+                default=0.0,
+            ),
+            "field_energy_time_update_remainder_absmax_unthresholded": max(
+                (abs(float(row["field_energy_time_update_remainder_unthresholded"])) for row in interval_rows),
+                default=0.0,
+            ),
+            "interval_exchange_average_remainder_absmax_unthresholded": max(
+                (abs(float(row["exchange_only_start_predictor_average_remainder_unthresholded"])) for row in interval_rows),
+                default=0.0,
+            ),
+            "algebraic_roundoff_bound_ratio_absmax": max(roundoff_ratios, default=0.0),
+            "physical_residual_threshold_applied": False,
+        })
+    return {
+        "groups": groups,
+        "interpretation": (
+            "Reported absolute maxima are descriptive only. The current/Lorentz/boundary "
+            "exchange remainder and accepted-interval field-energy tangent remainder are "
+            "not thresholded; algebraic operand-scaled roundoff checks are separate."
+        ),
+        "physical_residual_threshold_applied": False,
+    }
+
+
 def recompute_artifact(data: dict[str, Any]) -> dict[str, Any]:
     provenance = data.get("provenance", {})
     pins = provenance.get("production_blob_pins", {})
@@ -1200,6 +1277,9 @@ def main() -> int:
         "output": str(path),
         "source_head_sha": result["source_head_sha"],
         "charged_minus_neutral": result["charged_minus_neutral"],
+        "em_stage_exchange_summary": _summarize_em_stage_exchange(
+            result["em_stage_exchange_recomputation"]
+        ),
         "physical_residual_threshold_applied": False,
     }, indent=2, allow_nan=False))
     return 0
