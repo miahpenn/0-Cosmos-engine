@@ -3334,6 +3334,7 @@ def _pair_fixed_R_interval_rows(charged: list[dict], neutral: list[dict], *, lab
             for witness_key in (
                 "tube_mass_gradient_identity_witness",
                 "tube_chain_rule_flux_work_operator_comparison",
+                "tube_hm_constraint_adjusted_fixed_R_rate",
             ):
                 charged_witness = charged_components.get(witness_key)
                 neutral_witness = neutral_components.get(witness_key)
