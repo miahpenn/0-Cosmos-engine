@@ -1388,7 +1388,7 @@ def test_domain_stage_diagnostics_reconstructs_signed_cellwise_projection_and_hl
     weight = X * np.sqrt(a) / (centers**2 * b)
     q_cell = np.asarray([0.02, 0.031, 0.027, 0.018])
     primitive_current = np.asarray([0.021, -0.013, 0.016, 0.024])
-    cell_current = 4.0 * np.pi * eta * alpha * sqrt_gamma * primitive_current
+    cell_current = 4.0 * np.pi * alpha * sqrt_gamma * primitive_current
     current_faces = np.asarray([0.0, 0.004, -0.002, 0.005, 0.001])
     adjacent_face_current = 0.5 * (current_faces[:-1] + current_faces[1:])
     charge_tangent = -dr * float(np.sum(weight * q_cell * adjacent_face_current))
