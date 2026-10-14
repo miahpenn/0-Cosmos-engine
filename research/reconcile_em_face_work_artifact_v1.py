@@ -120,7 +120,11 @@ def reconcile_report(report: dict[str, Any], *, input_name: str, input_sha256: s
     max_abs_residual = 0.0
     max_bound_ratio = 0.0
     max_stored_tangent_difference = 0.0
+    max_stored_tangent_bound_ratio = 0.0
     max_stored_energy_difference = 0.0
+    max_stored_energy_bound_ratio = 0.0
+    max_outer_current_difference = 0.0
+    max_outer_current_bound_ratio = 0.0
     max_abs_center_term = 0.0
     max_abs_outer_term = 0.0
     outer_nonzero_charged = 0
@@ -141,15 +145,65 @@ def reconcile_report(report: dict[str, Any], *, input_name: str, input_sha256: s
         stored_energy = _finite_float(
             witness.get("field_energy_at_stage"), "stored field_energy_at_stage"
         )
-        current_difference = result["cell_tangent"] - stored_current
+        stage_exchange = source["stage_exchange"]
+        outer_power = _finite_float(
+            stage_exchange.get("outer_current_power"), "stage outer_current_power"
+        )
+        current_difference = result["face_adjoint_tangent"] - stored_current
         energy_difference = result["field_energy"] - stored_energy
+        outer_difference = result["face_tangent_outer"] - outer_power
+
+        tangent_scale = (
+            math.fsum(abs(float(term)) for term in result["cell_tangent_terms"])
+            + math.fsum(abs(float(term)) for term in result["face_tangent_terms"])
+            + abs(result["face_adjoint_tangent"])
+            + abs(stored_current)
+        )
+        tangent_bound = 128.0 * sys.float_info.epsilon * max(
+            tangent_scale, sys.float_info.min
+        )
+        tangent_bound_ratio = abs(current_difference) / tangent_bound
+
+        energy_terms = (
+            0.5 * dr * float(weight) * float(charge) ** 2
+            for weight, charge in zip(
+                witness["field_energy_weight"], result["cell_charge"]
+            )
+        )
+        energy_scale = (
+            math.fsum(abs(float(term)) for term in energy_terms)
+            + abs(result["field_energy"])
+            + abs(stored_energy)
+        )
+        energy_bound = 128.0 * sys.float_info.epsilon * max(
+            energy_scale, sys.float_info.min
+        )
+        energy_bound_ratio = abs(energy_difference) / energy_bound
+
+        outer_scale = abs(result["face_tangent_outer"]) + abs(outer_power)
+        outer_bound = 128.0 * sys.float_info.epsilon * max(
+            outer_scale, sys.float_info.min
+        )
+        outer_bound_ratio = abs(outer_difference) / outer_bound
         max_abs_residual = max(max_abs_residual, abs(result["closure_residual"]))
         max_bound_ratio = max(max_bound_ratio, result["bound_ratio"])
         max_stored_tangent_difference = max(
             max_stored_tangent_difference, abs(current_difference)
         )
+        max_stored_tangent_bound_ratio = max(
+            max_stored_tangent_bound_ratio, tangent_bound_ratio
+        )
         max_stored_energy_difference = max(
             max_stored_energy_difference, abs(energy_difference)
+        )
+        max_stored_energy_bound_ratio = max(
+            max_stored_energy_bound_ratio, energy_bound_ratio
+        )
+        max_outer_current_difference = max(
+            max_outer_current_difference, abs(outer_difference)
+        )
+        max_outer_current_bound_ratio = max(
+            max_outer_current_bound_ratio, outer_bound_ratio
         )
         max_abs_center_term = max(max_abs_center_term, abs(result["face_tangent_center"]))
         max_abs_outer_term = max(max_abs_outer_term, abs(result["face_tangent_outer"]))
@@ -161,11 +215,9 @@ def reconcile_report(report: dict[str, Any], *, input_name: str, input_sha256: s
         ):
             neutral_nonzero_tangents += 1
 
-        stage_exchange = source["stage_exchange"]
         charge_power = stage_exchange.get("charge_power")
         matter_power = stage_exchange.get("matter_lorentz_power")
         metric_power = stage_exchange.get("metric_power")
-        outer_power = stage_exchange.get("outer_current_power")
         pairing = None
         if charge_power is not None and matter_power is not None:
             pairing = _finite_float(charge_power, "stage charge_power") + _finite_float(
@@ -191,6 +243,13 @@ def reconcile_report(report: dict[str, Any], *, input_name: str, input_sha256: s
             "face_adjoint_charge_tangent": result["face_adjoint_tangent"],
             "stored_charge_current_tangent": stored_current,
             "cell_tangent_minus_stored": current_difference,
+            "stored_tangent_roundoff_bound": tangent_bound,
+            "stored_tangent_bound_ratio": tangent_bound_ratio,
+            "stored_energy_roundoff_bound": energy_bound,
+            "stored_energy_bound_ratio": energy_bound_ratio,
+            "outer_current_power_minus_face_tangent_outer": outer_difference,
+            "outer_current_roundoff_bound": outer_bound,
+            "outer_current_bound_ratio": outer_bound_ratio,
             "metric_weight_tangent": witness.get("metric_tangent"),
             "total_field_energy_tangent": witness.get("total_field_energy_tangent"),
             "matter_lorentz_power": matter_power,
@@ -211,6 +270,21 @@ def reconcile_report(report: dict[str, Any], *, input_name: str, input_sha256: s
         raise ArithmeticError(
             f"face-work adjoint closure failed: max roundoff-bound ratio {max_bound_ratio:.17e}"
         )
+    if max_stored_tangent_bound_ratio > 1.0:
+        raise ArithmeticError(
+            "face-work adjoint disagrees with stored charge tangent outside roundoff: "
+            f"{max_stored_tangent_bound_ratio:.17e} bounds"
+        )
+    if max_stored_energy_bound_ratio > 1.0:
+        raise ArithmeticError(
+            "face-work energy disagrees with stored field energy outside roundoff: "
+            f"{max_stored_energy_bound_ratio:.17e} bounds"
+        )
+    if max_outer_current_bound_ratio > 1.0:
+        raise ArithmeticError(
+            "outer-current term disagrees with face-adjoint boundary term outside roundoff: "
+            f"{max_outer_current_bound_ratio:.17e} bounds"
+        )
     if neutral_nonzero_tangents:
         raise ArithmeticError(
             f"neutral q/m=0 arm has {neutral_nonzero_tangents} nonzero charge tangents"
@@ -228,7 +302,14 @@ def reconcile_report(report: dict[str, Any], *, input_name: str, input_sha256: s
             "max_abs_cell_vs_face_closure_residual": max_abs_residual,
             "max_128_epsilon_operand_scaled_bound_ratio": max_bound_ratio,
             "max_abs_difference_from_stored_charge_current_tangent": max_stored_tangent_difference,
+            "max_stored_charge_tangent_128_epsilon_bound_ratio": max_stored_tangent_bound_ratio,
+            "stored_charge_tangent_matches_within_roundoff": True,
             "max_abs_difference_from_stored_field_energy": max_stored_energy_difference,
+            "max_stored_field_energy_128_epsilon_bound_ratio": max_stored_energy_bound_ratio,
+            "stored_field_energy_matches_within_roundoff": True,
+            "max_abs_difference_between_outer_current_and_face_boundary_term": max_outer_current_difference,
+            "max_outer_current_128_epsilon_bound_ratio": max_outer_current_bound_ratio,
+            "outer_current_matches_face_boundary_term_within_roundoff": True,
             "max_abs_center_face_tangent": max_abs_center_term,
             "max_abs_outer_face_tangent": max_abs_outer_term,
             "charged_witnesses_with_nonzero_outer_face_tangent": outer_nonzero_charged,
