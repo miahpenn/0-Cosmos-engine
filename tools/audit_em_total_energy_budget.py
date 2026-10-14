@@ -4191,6 +4191,208 @@ def _summarize_fixed_N_temporal_pairing_refinement(runs: list[dict]) -> dict:
     }
 
 
+def _summarize_fixed_N_stage_pairing_history(runs: list[dict]) -> dict:
+    """Track current pairing and fixed-R gravity witnesses at actual PIRK start/predictor stages."""
+    stage_names = ("start", "primary_predictor")
+    gravity_fields = (
+        "tube_chain_rule_fixed_R_residual",
+        "tube_interpolant_composite_fixed_R_residual",
+        "tube_stress_flux",
+        "tube_radial_pressure_work",
+    )
+    rows = []
+    for cfl in TIME_STEP_CFL_VALUES:
+        charged_matches = [
+            run for run in runs
+            if float(run.get("cfl", math.nan)) == float(cfl)
+            and float(run.get("q_over_m", math.nan)) == 0.25
+        ]
+        neutral_matches = [
+            run for run in runs
+            if float(run.get("cfl", math.nan)) == float(cfl)
+            and float(run.get("q_over_m", math.nan)) == 0.0
+        ]
+        if len(charged_matches) != 1 or len(neutral_matches) != 1:
+            raise RuntimeError(
+                f"stage-history expected one charged/neutral pair at CFL={cfl}; "
+                f"found {len(charged_matches)}/{len(neutral_matches)}"
+            )
+        charged, neutral = charged_matches[0], neutral_matches[0]
+        if (
+            int(charged.get("resolution", -1)) != int(TEMPORAL_REFINEMENT_RESOLUTION)
+            or int(neutral.get("resolution", -1)) != int(TEMPORAL_REFINEMENT_RESOLUTION)
+        ):
+            raise RuntimeError("stage-history run has the wrong fixed resolution")
+        charged_steps = charged.get("step_rows", [])
+        neutral_steps = neutral.get("step_rows", [])
+        if len(charged_steps) != len(neutral_steps):
+            raise RuntimeError(
+                f"stage-history charged/neutral step counts differ at CFL={cfl}"
+            )
+        for step_index, (charged_step, neutral_step) in enumerate(
+            zip(charged_steps, neutral_steps)
+        ):
+            charged_witnesses = charged_step.get("em_stage_exchange_witnesses", [])
+            neutral_witnesses = neutral_step.get("em_stage_exchange_witnesses", [])
+            for stage_name in stage_names:
+                charged_rows = [
+                    row for row in charged_witnesses
+                    if row.get("stage") == stage_name
+                ]
+                neutral_rows = [
+                    row for row in neutral_witnesses
+                    if row.get("stage") == stage_name
+                ]
+                if len(charged_rows) != 1 or len(neutral_rows) != 1:
+                    raise RuntimeError(
+                        f"stage-history expected one {stage_name} witness for "
+                        f"CFL={cfl}, step={step_index}; found "
+                        f"{len(charged_rows)}/{len(neutral_rows)}"
+                    )
+                charged_stage, neutral_stage = charged_rows[0], neutral_rows[0]
+                stage_time = float(charged_stage.get("t", math.nan))
+                neutral_time = float(neutral_stage.get("t", math.nan))
+                if (
+                    not math.isfinite(stage_time)
+                    or not math.isfinite(neutral_time)
+                    or not math.isclose(
+                        stage_time, neutral_time, rel_tol=0.0, abs_tol=1.0e-10
+                    )
+                ):
+                    raise RuntimeError(
+                        f"stage-history charged/neutral stage times differ at "
+                        f"CFL={cfl}, step={step_index}, stage={stage_name}"
+                    )
+                charged_gravity = charged_step.get(
+                    "fixed_R_stage_rates", {}
+                ).get(stage_name)
+                neutral_gravity = neutral_step.get(
+                    "fixed_R_stage_rates", {}
+                ).get(stage_name)
+                if not isinstance(charged_gravity, dict) or not isinstance(
+                    neutral_gravity, dict
+                ):
+                    raise RuntimeError(
+                        f"stage-history missing fixed-R stage rates for "
+                        f"CFL={cfl}, step={step_index}, stage={stage_name}"
+                    )
+                diagnostic = _domain_stage_diagnostics(
+                    charged, charged_stage, coordinate_radius_cut=float(R_MAX)
+                )
+                cell_current = np.asarray(
+                    diagnostic["inner_cell_current_equivalent"], dtype=np.float64
+                )
+                face_current = np.asarray(
+                    diagnostic["inner_face_currents"], dtype=np.float64
+                )
+                prefactor = np.asarray(
+                    diagnostic["inner_cell_pairing_prefactor"], dtype=np.float64
+                )
+                if (
+                    face_current.shape != (cell_current.size + 1,)
+                    or prefactor.shape != cell_current.shape
+                    or not np.all(np.isfinite(cell_current))
+                    or not np.all(np.isfinite(face_current))
+                    or not np.all(np.isfinite(prefactor))
+                ):
+                    raise RuntimeError(
+                        f"stage-history has invalid face/cell/prefactor support at "
+                        f"CFL={cfl}, step={step_index}, stage={stage_name}"
+                    )
+                projection_gap = cell_current - 0.5 * (
+                    face_current[:-1] + face_current[1:]
+                )
+                weighted_gap = prefactor * projection_gap
+                max_face_current = float(np.max(np.abs(face_current)))
+                max_projection_gap = float(np.max(np.abs(projection_gap)))
+                signed_pairing = float(diagnostic["full_pairing_signed_global"])
+                hll_jump = float(diagnostic["hll_jump_charge_tangent_global"])
+                row = {
+                    "resolution": TEMPORAL_REFINEMENT_RESOLUTION,
+                    "r_max": float(R_MAX),
+                    "cfl": float(cfl),
+                    "nominal_dt": float(charged["nominal_dt"]),
+                    "step_index": step_index,
+                    "stage": stage_name,
+                    "stage_t": stage_time,
+                    "charge_power": float(charged_stage.get("charge_power", 0.0)),
+                    "matter_lorentz_power": float(
+                        charged_stage.get("matter_lorentz_power", 0.0)
+                    ),
+                    "metric_power": float(charged_stage.get("metric_power", 0.0)),
+                    "outer_current_power": float(
+                        charged_stage.get("outer_current_power", 0.0)
+                    ),
+                    "full_pairing_signed_global": signed_pairing,
+                    "cell_defect_l1_full_domain": float(
+                        diagnostic["cell_defect_l1_inner"]
+                    ),
+                    "pairing_prefactor_l1": float(np.sum(np.abs(prefactor))),
+                    "current_projection_gap_max_abs": max_projection_gap,
+                    "current_projection_gap_l1_times_dr": float(
+                        np.sum(np.abs(projection_gap)) * float(diagnostic["grid_dr"])
+                    ),
+                    "max_abs_face_current": max_face_current,
+                    "current_projection_gap_max_abs_over_max_face_current": (
+                        max_projection_gap / max_face_current
+                        if max_face_current > 0.0 else None
+                    ),
+                    "weighted_gap_signed_sum": float(np.sum(weighted_gap)),
+                    "weighted_gap_l1": float(np.sum(np.abs(weighted_gap))),
+                    "hll_jump_charge_tangent_global": hll_jump,
+                    "hll_jump_abs_over_pairing_abs": (
+                        abs(hll_jump) / abs(signed_pairing)
+                        if signed_pairing != 0.0 else None
+                    ),
+                    "cellwise_component_reconstruction_max_abs": float(
+                        diagnostic["roundoff_checks"][
+                            "max_abs_cell_pairing_component_residual"
+                        ]
+                    ),
+                    "cellwise_component_reconstruction_max_bound_ratio": float(
+                        diagnostic["roundoff_checks"][
+                            "max_cell_pairing_component_bound_ratio"
+                        ]
+                    ),
+                }
+                for name in gravity_fields:
+                    charged_value = float(charged_gravity[name])
+                    neutral_value = float(neutral_gravity[name])
+                    if not math.isfinite(charged_value) or not math.isfinite(
+                        neutral_value
+                    ):
+                        raise RuntimeError(
+                            f"stage-history has non-finite {name} at CFL={cfl}, "
+                            f"step={step_index}, stage={stage_name}"
+                        )
+                    row[f"charged_{name}"] = charged_value
+                    row[f"neutral_{name}"] = neutral_value
+                    row[f"charged_minus_neutral_{name}"] = (
+                        charged_value - neutral_value
+                    )
+                rows.append(row)
+    return {
+        "classification": (
+            "actual PIRK start/predictor stage history; signed face/cell pairing, "
+            "live prefactor, metric tangent, HLL contribution, and fixed-R "
+            "gravity witnesses remain separate unthresholded diagnostics"
+        ),
+        "resolution": TEMPORAL_REFINEMENT_RESOLUTION,
+        "r_max": float(R_MAX),
+        "q_over_m": 0.25,
+        "cfl_values": list(TIME_STEP_CFL_VALUES),
+        "stage_order": list(stage_names),
+        "rows": rows,
+        "interpretation_limit": (
+            "Start and primary-predictor rows are actual saved RHS-stage witnesses, "
+            "not an asserted production quadrature. The charged-minus-neutral "
+            "fixed-R rates are discriminators, not a global conservation law; "
+            "the stage history alone does not prove temporal order or isolate a "
+            "unique physical cause. Algebraic roundoff checks remain separate."
+        ),
+    }
+
+
 def _summarize_fixed_N_temporal_refinement(runs: list[dict]) -> dict:
     """Summarize matched charged/neutral runs without fitting a physical tolerance."""
     rows = []
@@ -4250,6 +4452,7 @@ def _summarize_fixed_N_temporal_refinement(runs: list[dict]) -> dict:
         ],
         "rows": rows,
         "predictor_stage_face_cell_pairing": _summarize_fixed_N_temporal_pairing_refinement(runs),
+        "stage_pairing_history": _summarize_fixed_N_stage_pairing_history(runs),
     }
 
 
@@ -5518,7 +5721,32 @@ def write_step_summary(report: dict) -> None:
             f"{row['hll_jump_abs_over_pairing_abs']:.6e} | "
             f"{ratio_text} | {order_text} |"
         )
+    history = temporal["stage_pairing_history"]
     lines.extend([
+        "",
+        "### Actual PIRK start/predictor history: face/cell pairing and fixed-R remainder",
+        "",
+        f"N={history['resolution']}, q/m=0.25; each row uses the saved {history['stage_order']} RHS stage and is paired with the same-time neutral-control gravity witness.",
+        "",
+        "| CFL | step | stage t | stage | signed EM pairing | L1 live prefactor | max gap / max face current | metric tangent | HLL jump / |pair| | Δ chain-rule fixed-R | Δ interpolant fixed-R |",
+        "|---:|---:|---:|---|---:|---:|---:|---:|---:|---:|---:|",
+    ])
+    for row in history["rows"]:
+        gap_ratio = row["current_projection_gap_max_abs_over_max_face_current"]
+        hll_ratio = row["hll_jump_abs_over_pairing_abs"]
+        gap_ratio_text = f"{gap_ratio:.6e}" if gap_ratio is not None else "n/a"
+        hll_ratio_text = f"{hll_ratio:.6e}" if hll_ratio is not None else "n/a"
+        lines.append(
+            f"| {row['cfl']:.5g} | {row['step_index'] + 1} | {row['stage_t']:.6f} | "
+            f"{row['stage']} | {row['full_pairing_signed_global']:.6e} | "
+            f"{row['pairing_prefactor_l1']:.6e} | {gap_ratio_text} | "
+            f"{row['metric_power']:.6e} | {hll_ratio_text} | "
+            f"{row['charged_minus_neutral_tube_chain_rule_fixed_R_residual']:.6e} | "
+            f"{row['charged_minus_neutral_tube_interpolant_composite_fixed_R_residual']:.6e} |"
+        )
+    lines.extend([
+        "",
+        "This compares actual stage witnesses, not a guessed quadrature. The live prefactor and face/cell projection are separate operands; metric tangent and HLL jump are shown separately; the two fixed-R gravitational remainder operators are not merged with the EM pairing or thresholded as closure.",
         "",
         "This compares the instantaneous face/cell projection at a common predictor time while keeping N and the initial domain fixed. The evolved state still depends on CFL, so ratios/orders are descriptive only; neither this split nor the fixed-R remainder is thresholded as a physical closure criterion.",
         "",
