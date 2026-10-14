@@ -18,7 +18,7 @@ A PR touching any of the following must also pass `joined-energy-ledger` on that
 - `tests/test_research_fixed_r_independent_recompute.py`
 - `.github/workflows/em_total_energy_budget.yml`
 
-The workflow checks the latest attempt for each exact check name, rejects missing, queued, running, skipped, cancelled, timed-out, or failed required checks, and requires the GitHub Actions check-run app. A result from an earlier SHA never qualifies a newer SHA.
+The workflow checks the latest attempt for each exact check name, rejects missing, queued, running, skipped, cancelled, timed-out, or failed required checks, and requires the GitHub Actions check-run app. A result from an earlier SHA never qualifies a newer SHA. The check is also cross-linked to the corresponding completed pull-request workflow run and current base SHA; if GitHub omits that PR association, the run must postdate the current main commit. Passing a head check that ran before main advanced is not sufficient.
 
 ## Fast path for diagnostic-only work
 
