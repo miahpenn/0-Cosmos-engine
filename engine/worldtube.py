@@ -24,8 +24,8 @@ class WorldtubeObservation:
 def proper_radial_coordinate(grid, geometry):
     """Return proper radial distance at cell centres on the solved slice.
 
-    The production BSSN radial line element is gamma_rr = X**2 / a, so
-    d ell / dr = sqrt(gamma_rr). On the uniform cell-centred grid, midpoint
+    The production BSSN inverse radial metric is gamma^rr = X**2 / a, so
+    gamma_rr = a / X**2 and d ell / dr = sqrt(a) / abs(X). On the uniform cell-centred grid, midpoint
     quadrature places the first centre at half a cell and subsequent centres
     at cumulative full-cell increments. This is the main-engine counterpart
     of the archived GEAR proper-radius integral, expressed in the current
@@ -48,7 +48,7 @@ def proper_radial_coordinate(grid, geometry):
         or np.any(X == 0.0)
     ):
         raise ValueError("radial metric must be finite and positive definite")
-    radial_factor = np.sqrt((X * X) / a)
+    radial_factor = np.sqrt(a / (X * X))
     if not np.all(np.isfinite(radial_factor)):
         raise ValueError("proper radial metric factor is non-finite")
     return dr * (np.cumsum(radial_factor) - 0.5 * radial_factor)
