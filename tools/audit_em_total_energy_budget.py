@@ -1976,15 +1976,17 @@ def _worldtube_sample(kernel, state, *, geometry_stage_capture=None) -> dict:
             target=FIXED_AREAL_RADIUS,
         )
 
-        # Archive the smallest raw stencil that permits an independent
-        # reconstruction at both cells bracketing R*=10. The active target
-        # cells are interior cells, so the pinned fourth-order operator uses
-        # their centred five-point stencils; retain two neighbours on each side.
+        # Archive a bracket-local raw halo that permits independent
+        # reconstruction of D_r R and D_r(Rdot) over every cell needed by the
+        # five-point D_r M witness at both target cells, not just at R*=10.
         # This is raw source evidence, not a new physical closure assumption.
         raw_left = int(interpolant_rate["left_index"])
         raw_right = int(interpolant_rate["right_index"])
-        raw_start = max(0, raw_left - 2)
-        raw_stop = min(len(R), raw_right + 3)
+        # The mass-gradient check differentiates M with a five-point stencil,
+        # and M itself depends on D_r R. Preserve a second two-cell halo so the
+        # checker can reconstruct D_r R throughout that entire nested stencil.
+        raw_start = max(0, raw_left - 4)
+        raw_stop = min(len(R), raw_right + 5)
         raw_slice = slice(raw_start, raw_stop)
 
         def raw_profile(values):
