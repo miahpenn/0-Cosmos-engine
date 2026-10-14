@@ -679,6 +679,10 @@ def test_em_exchange_cli_summary_keeps_physical_remainders_unthresholded():
                 "boundary_separation_adjustment_unthresholded": 3.0e-9,
                 "full_minus_boundary_separated_remainder_unthresholded": -3.0e-9,
                 "full_functional_exchange_relative_remainder_unthresholded": 2.0e-8 / 1.8e-7,
+                "full_functional_cellwise_face_lorentz_absmax_unthresholded": 4.0e-9,
+                "full_functional_cellwise_face_lorentz_absmax_cell": 7,
+                "full_functional_cellwise_face_plus_lorentz_sum_unthresholded": -2.0e-8,
+                "full_functional_cellwise_face_plus_lorentz_sum_minus_scalar_unthresholded": 2.0e-25,
                 "face_minus_cell_current_tangent_mismatch_unthresholded": -2.0e-8,
                 "exchange_from_face_cell_current_mismatch_unthresholded": -1.7e-8,
                 "exchange_identity_gap_unthresholded": 1.0e-24,
@@ -699,6 +703,10 @@ def test_em_exchange_cli_summary_keeps_physical_remainders_unthresholded():
                 "boundary_separation_adjustment_unthresholded": 2.0e-9,
                 "full_minus_boundary_separated_remainder_unthresholded": -2.0e-9,
                 "full_functional_exchange_relative_remainder_unthresholded": 1.0e-8 / 9.0e-8,
+                "full_functional_cellwise_face_lorentz_absmax_unthresholded": 2.0e-9,
+                "full_functional_cellwise_face_lorentz_absmax_cell": 3,
+                "full_functional_cellwise_face_plus_lorentz_sum_unthresholded": -1.0e-8,
+                "full_functional_cellwise_face_plus_lorentz_sum_minus_scalar_unthresholded": 0.0,
                 "face_minus_cell_current_tangent_mismatch_unthresholded": -1.0e-8,
                 "exchange_from_face_cell_current_mismatch_unthresholded": -8.0e-9,
                 "exchange_identity_gap_unthresholded": 0.0,
@@ -729,6 +737,9 @@ def test_em_exchange_cli_summary_keeps_physical_remainders_unthresholded():
     assert row["exchange_only_remainder_absmax_unthresholded"] == pytest.approx(1.7e-8)
     assert row["full_functional_charge_tangent_plus_lorentz_remainder_absmax_unthresholded"] == pytest.approx(2.0e-8)
     assert row["full_functional_exchange_relative_remainder_absmax_unthresholded"] == pytest.approx(1.0e-8 / 9.0e-8)
+    assert row["full_functional_cellwise_face_lorentz_absmax_unthresholded"] == pytest.approx(4.0e-9)
+    assert row["worst_cellwise_face_lorentz_stage_terms"]["stage"] == "predictor"
+    assert row["worst_cellwise_face_lorentz_stage_terms"]["full_functional_cellwise_face_lorentz_absmax_cell"] == 7
     assert row["boundary_separation_adjustment_absmax_unthresholded"] == pytest.approx(3.0e-9)
     assert row["exchange_only_relative_remainder_absmax_unthresholded"] == pytest.approx(0.017)
     assert row["field_energy_time_update_remainder_absmax_unthresholded"] == pytest.approx(3.0e-8)
