@@ -56,3 +56,24 @@ The regression contracts check:
 Run `pytest -q tests/test_research_em_total_energy_budget_contract.py`.
 
 The geometry-weight tangent (sum_i (partial U/partial w_i)dot w_i), matter Lorentz power, outer charged-matter energy flux, and fixed-areal-radius Misner–Sharp terms remain separate. Do not combine terms twice, call a numerical outer-face current physical Poynting flux without a finite-domain derivation, modify production equations/defaults, relax source/vendor pins, fit a coefficient, or claim global conservation closure. If an independent physical equation requires a different interface, preserve this adjoint as a reference and derive that difference explicitly.
+
+
+## Reproducible saved-artifact application
+
+The helper can be applied to the raw JSON from the joined-ledger workflow without rerunning a simulation:
+
+```bash
+python research/reconcile_em_face_work_artifact_v1.py \
+  --input em_total_energy_budget.json \
+  --output em_face_work_adjoint_reconciliation.json
+```
+
+The reconciler refuses missing/mismatched production-blob or vendor provenance, checks every captured start/predictor record in the base run, fixed-N temporal-refinement, and domain-radius extension sections, and writes a row-wise report that keeps the stored charge tangent, face-adjoint tangent, matter Lorentz power, metric tangent, and outer-current power separate.
+
+Applied offline to #198 artifact [11932301923](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38645907990/artifacts/11932301923) (input ZIP SHA-256 `322dbae80692f316b7e87a1cf53219d3534fe985d07f19f3624f1086172aaa68`; inner ledger JSON SHA-256 `7b58aa3ab56e5d50820c7797c69f125e1ba3e399de2855b710c7e01cc64230f1`), the direct cell tangent and face-gradient contraction close across **276 saved stage witnesses**:
+- Base resolution arms: 84 witnesses, maximum residual (1.03398\times10^{-25}), maximum 128-epsilon bound ratio 0.003643.
+- Fixed-N temporal-refinement arms: 168 witnesses, maximum residual (1.03398\times10^{-25}), maximum bound ratio 0.003629.
+- Domain-radius extension arms: 24 witnesses, maximum residual (2.06795\times10^{-25}), maximum bound ratio 0.001996.
+- No bound failures; zero centre-face tangent in every witness; no nonzero charge tangent in the neutral arm. Charged cases retain nonzero outer-face tangent.
+
+These are three distinct saved-run sections, so the 276 rows are not 276 independent physical realizations. All are post-processing of the same already-run bounded campaigns; no new evolution is performed by the reconciler.
