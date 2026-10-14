@@ -1723,6 +1723,14 @@ def test_fixed_N_temporal_pairing_summary_compares_same_predictor_time_across_cf
                     "Aa": {"max_bound_ratio": 0.3},
                 },
             },
+            "geometry_feedback_response_to_start_em_source": {
+                "present": True,
+                "metric_power_without_start_em_source": -2.7e-10,
+                "metric_power_response_to_start_em_source": -3.0e-11,
+                "response_abs_over_full_metric_power": 0.1,
+                "max_abs_delta_log_weight_rate": 4.0e-5,
+                "recomputed_full_metric_power_roundoff_bound": 1.0e-23,
+            },
         }
 
     def stage_diagnostic(run, stage_row, *, coordinate_radius_cut):
@@ -1780,6 +1788,11 @@ def test_fixed_N_temporal_pairing_summary_compares_same_predictor_time_across_cf
     assert feedback["charge_current_part_of_em_field_energy_tangent"] == pytest.approx(-4.0e-10)
     assert feedback["lorentz_power_into_matter"] == pytest.approx(5.0e-10)
     assert feedback["source_reconstruction_max_bound_ratio"] == pytest.approx(0.3)
+    assert feedback["metric_power_without_start_em_source"] == pytest.approx(-2.7e-10)
+    assert feedback["metric_power_response_to_start_em_source"] == pytest.approx(-3.0e-11)
+    assert feedback["metric_response_abs_over_full_metric_power"] == pytest.approx(0.1)
+    assert feedback["max_abs_delta_log_weight_rate_from_start_em_source"] == pytest.approx(4.0e-5)
+    assert feedback["metric_response_reconstruction_roundoff_bound"] == pytest.approx(1.0e-23)
     assert summary["interpretation_limit"].find("does not by itself prove temporal order") >= 0
 
 
