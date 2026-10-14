@@ -4479,6 +4479,132 @@ def _domain_stage_diagnostics(
     return base
 
 
+
+def _observed_refinement_order(
+    previous_value: float,
+    current_value: float,
+    previous_dr: float,
+    current_dr: float,
+) -> float | None:
+    """Return a two-grid observed order, or None when a magnitude is zero."""
+    previous_magnitude = abs(float(previous_value))
+    current_magnitude = abs(float(current_value))
+    if (
+        previous_magnitude == 0.0
+        or current_magnitude == 0.0
+        or previous_dr <= current_dr
+        or current_dr <= 0.0
+    ):
+        return None
+    return float(
+        math.log(previous_magnitude / current_magnitude)
+        / math.log(float(previous_dr) / float(current_dr))
+    )
+
+
+def _summarize_charge_pairing_resolution_sweep(baseline_runs: list[dict]) -> dict:
+    """Measure charge/Lorentz face-cell pairing at a common predictor time."""
+    target_time = 0.02
+    rows = []
+    for resolution in RESOLUTIONS:
+        found = [
+            row for row in baseline_runs
+            if int(row.get("resolution", -1)) == int(resolution)
+            and float(row.get("q_over_m", math.nan)) == 0.25
+        ]
+        if len(found) != 1:
+            raise RuntimeError(
+                f"pairing refinement expected one charged N={resolution} run; "
+                f"found {len(found)}"
+            )
+        run = found[0]
+        stage_row = _find_serialized_stage_at_time(
+            run, stage_name="primary_predictor", target_time=target_time
+        )
+        diagnostic = _domain_stage_diagnostics(
+            run, stage_row, coordinate_radius_cut=float(R_MAX)
+        )
+        cell_current = np.asarray(
+            diagnostic["inner_cell_current_equivalent"], dtype=np.float64
+        )
+        face_current = np.asarray(
+            diagnostic["inner_face_currents"], dtype=np.float64
+        )
+        if face_current.shape != (cell_current.size + 1,):
+            raise RuntimeError("pairing refinement has inconsistent face/cell support")
+        projection_gap = cell_current - 0.5 * (
+            face_current[:-1] + face_current[1:]
+        )
+        max_face_current = float(np.max(np.abs(face_current)))
+        max_projection_gap = float(np.max(np.abs(projection_gap)))
+        signed_pairing = float(diagnostic["full_pairing_signed_global"])
+        hll_jump = float(diagnostic["hll_jump_charge_tangent_global"])
+        rows.append({
+            "resolution": int(resolution),
+            "r_max": float(R_MAX),
+            "grid_dr": float(diagnostic["grid_dr"]),
+            "nominal_dt": float(CFL * R_MAX / int(resolution)),
+            "stage": "primary_predictor",
+            "stage_t": target_time,
+            "full_pairing_signed_global": signed_pairing,
+            "full_pairing_abs_global": abs(signed_pairing),
+            "cell_defect_l1_full_domain": float(diagnostic["cell_defect_l1_inner"]),
+            "cell_defect_max_abs_full_domain": float(
+                np.max(np.abs(diagnostic["inner_cell_defect_profile"]))
+            ),
+            "current_projection_gap_max_abs": max_projection_gap,
+            "current_projection_gap_l1_times_dr": float(
+                np.sum(np.abs(projection_gap)) * float(diagnostic["grid_dr"])
+            ),
+            "max_abs_face_current": max_face_current,
+            "current_projection_gap_max_abs_over_max_face_current": (
+                max_projection_gap / max_face_current
+                if max_face_current > 0.0 else None
+            ),
+            "hll_jump_charge_tangent_global": hll_jump,
+            "hll_jump_abs_over_pairing_abs": (
+                abs(hll_jump) / abs(signed_pairing)
+                if signed_pairing != 0.0 else None
+            ),
+            "full_pairing_cell_sum_roundoff_bound": float(
+                diagnostic["roundoff_checks"]["full_pairing_cell_sum"]["roundoff_bound"]
+            ),
+        })
+
+    order_metrics = (
+        "full_pairing_abs_global",
+        "cell_defect_l1_full_domain",
+        "current_projection_gap_max_abs",
+        "current_projection_gap_max_abs_over_max_face_current",
+    )
+    for previous, current in zip(rows[:-1], rows[1:]):
+        current["observed_halving_orders_vs_dr_and_dt"] = {
+            name: (
+                _observed_refinement_order(
+                    previous[name], current[name],
+                    previous["grid_dr"], current["grid_dr"],
+                )
+                if previous[name] is not None and current[name] is not None
+                else None
+            )
+            for name in order_metrics
+        }
+    if rows:
+        rows[0]["observed_halving_orders_vs_dr_and_dt"] = None
+
+    return {
+        "classification": (
+            "coupled grid-spacing and CFL-timestep refinement diagnostic; "
+            "observed orders are not a pure spatial-convergence proof"
+        ),
+        "q_over_m": 0.25,
+        "r_max": float(R_MAX),
+        "cfl": float(CFL),
+        "matched_predictor_time": target_time,
+        "stage": "primary_predictor",
+        "runs": rows,
+    }
+
 def _run_domain_radius_extension_runs(temp_root: Path) -> list[dict]:
     """Extend the outer radius while retaining the baseline coordinate spacing."""
     runs = []
@@ -4560,6 +4686,38 @@ def _domain_radius_projection_comparison(
     baseline_gap = baseline_cell - baseline_face_average
     extended_gap = extended_cell - extended_face_average
     gap_delta = baseline_gap - extended_gap
+    cell_current_delta = baseline_cell - extended_cell
+    face_current_delta = baseline_faces - extended_faces
+    adjacent_face_current_delta = 0.5 * (
+        face_current_delta[:-1] + face_current_delta[1:]
+    )
+    reconstructed_gap_delta = cell_current_delta - adjacent_face_current_delta
+    gap_reconstruction_residual = gap_delta - reconstructed_gap_delta
+    gap_reconstruction_roundoff_bound = 256.0 * np.finfo(np.float64).eps * max(
+        float(np.sum(np.abs(gap_delta)))
+        + float(np.sum(np.abs(cell_current_delta)))
+        + float(np.sum(np.abs(adjacent_face_current_delta))),
+        float(np.finfo(np.float64).tiny),
+    )
+    if float(np.max(np.abs(gap_reconstruction_residual))) > gap_reconstruction_roundoff_bound:
+        raise RuntimeError(
+            "current projection-gap domain delta does not reconstruct from cell- "
+            "and adjacent-face-current changes within its roundoff bound"
+        )
+    current_delta_correlation = (
+        float(np.corrcoef(cell_current_delta, adjacent_face_current_delta)[0, 1])
+        if np.std(cell_current_delta) > 0.0
+        and np.std(adjacent_face_current_delta) > 0.0
+        else None
+    )
+    current_delta_component_l1_mean = 0.5 * (
+        float(np.sum(np.abs(cell_current_delta)))
+        + float(np.sum(np.abs(adjacent_face_current_delta)))
+    )
+    current_delta_component_max = max(
+        float(np.max(np.abs(cell_current_delta))),
+        float(np.max(np.abs(adjacent_face_current_delta))),
+    )
     prefactor_delta = baseline_prefactor - extended_prefactor
     baseline_defect = np.asarray(
         baseline["inner_cell_defect_profile"], dtype=np.float64
@@ -4667,6 +4825,15 @@ def _domain_radius_projection_comparison(
             "pairing_delta_prefactor_change_contribution_l1": float(
                 np.sum(np.abs(prefactor_contribution_band))
             ),
+            "cell_current_domain_delta_l1": float(
+                np.sum(np.abs(cell_current_delta[support]))
+            ),
+            "adjacent_face_average_current_domain_delta_l1": float(
+                np.sum(np.abs(adjacent_face_current_delta[support]))
+            ),
+            "current_projection_gap_domain_delta_l1": float(
+                np.sum(np.abs(gap_delta[support]))
+            ),
             "pairing_delta_decomposition_max_abs_roundoff_remainder": float(
                 np.max(np.abs(decomposition_residual[support]))
             ),
@@ -4695,6 +4862,60 @@ def _domain_radius_projection_comparison(
             np.sum(np.abs(gap_delta))
         ),
         "cell_defect_delta_vs_current_projection_gap_delta_pearson_r": correlation,
+        "current_representation_delta_comparison": {
+            "identity": (
+                "delta_projection_gap = delta_cell_current - "
+                "delta_adjacent_face_current_average; baseline minus extended"
+            ),
+            "cell_current_domain_delta_signed_sum": float(
+                np.sum(cell_current_delta)
+            ),
+            "cell_current_domain_delta_l1": float(
+                np.sum(np.abs(cell_current_delta))
+            ),
+            "cell_current_domain_delta_max_abs": float(
+                np.max(np.abs(cell_current_delta))
+            ),
+            "adjacent_face_average_current_domain_delta_signed_sum": float(
+                np.sum(adjacent_face_current_delta)
+            ),
+            "adjacent_face_average_current_domain_delta_l1": float(
+                np.sum(np.abs(adjacent_face_current_delta))
+            ),
+            "adjacent_face_average_current_domain_delta_max_abs": float(
+                np.max(np.abs(adjacent_face_current_delta))
+            ),
+            "current_projection_gap_domain_delta_signed_sum": float(
+                np.sum(gap_delta)
+            ),
+            "current_projection_gap_domain_delta_l1": float(
+                np.sum(np.abs(gap_delta))
+            ),
+            "current_projection_gap_domain_delta_max_abs": float(
+                np.max(np.abs(gap_delta))
+            ),
+            "cell_vs_adjacent_face_current_domain_delta_pearson_r": (
+                current_delta_correlation
+            ),
+            "projection_gap_domain_delta_l1_fraction_of_mean_component_l1": (
+                float(np.sum(np.abs(gap_delta))) / current_delta_component_l1_mean
+                if current_delta_component_l1_mean > 0.0 else None
+            ),
+            "projection_gap_domain_delta_max_fraction_of_larger_component_max": (
+                float(np.max(np.abs(gap_delta))) / current_delta_component_max
+                if current_delta_component_max > 0.0 else None
+            ),
+            "reconstruction_residual_max_abs": float(
+                np.max(np.abs(gap_reconstruction_residual))
+            ),
+            "reconstruction_roundoff_bound": gap_reconstruction_roundoff_bound,
+            "interpretation_limit": (
+                "both cell and face currents can change substantially with the "
+                "domain while their adjacent-average difference is a much smaller "
+                "non-common component; this does not identify which evolution "
+                "mechanism drives either current change"
+            ),
+        },
         "correlation_interpretation_limit": (
             "descriptive only: the cell defect is the projection gap multiplied "
             "by a live dr*field-energy-weight*cell-charge prefactor; the exact "
@@ -4901,6 +5122,9 @@ def run_joined_audit(root: Path, output_path: Path) -> dict:
     domain_radius_sweep = _summarize_domain_radius_sweep(
         all_runs, domain_radius_extension_runs
     )
+    charge_pairing_resolution_sweep = _summarize_charge_pairing_resolution_sweep(
+        all_runs
+    )
 
     # Verify the explicit neutral control, but do not assert a fitted threshold
     # on any physical/global residual.
@@ -4944,6 +5168,7 @@ def run_joined_audit(root: Path, output_path: Path) -> dict:
         "fixed_N_temporal_refinement": _summarize_fixed_N_temporal_refinement(temporal_runs),
         "fixed_N_temporal_refinement_runs": temporal_runs,
         "domain_radius_sweep_summary": domain_radius_sweep,
+        "charge_current_pairing_resolution_sweep": charge_pairing_resolution_sweep,
         "domain_radius_sweep_extension_runs": domain_radius_extension_runs,
     }
     report = _json_safe(report)
