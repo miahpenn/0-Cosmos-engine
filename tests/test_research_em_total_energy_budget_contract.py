@@ -2164,3 +2164,101 @@ def test_hll_charge_tangent_split_is_signed_and_keeps_boundary_currents_fixed():
         rel=0.0,
         abs=split["tangent_split_reconstruction_roundoff_bound"],
     )
+
+
+# Independent discrete face-work adjoint contract (research-only helper).
+def test_face_charge_energy_tangent_reconstructs_direct_and_face_adjoint():
+    from research.em_adjoint_face_work_v1 import (
+        charge_rate_from_rest_mass_flux,
+        face_charge_energy_tangent,
+    )
+
+    dr = 0.2
+    weight = np.array([2.4, 1.2, 0.6, 0.3], dtype=np.float64)
+    charge = np.array([0.0, 0.1, 0.4, 0.9, 1.2], dtype=np.float64)
+    rest_flux = np.array([0.0, 0.03, -0.02, 0.04, 0.05], dtype=np.float64)
+    eta = 0.25
+    charge_rate = charge_rate_from_rest_mass_flux(eta, rest_flux)
+
+    np.testing.assert_allclose(
+        charge_rate, -4.0 * np.pi * eta * rest_flux, rtol=0.0, atol=0.0
+    )
+    observed = face_charge_energy_tangent(dr, weight, charge, charge_rate)
+
+    assert observed["closure_passed"] is True
+    assert observed["bound_ratio"] <= 1.0
+    assert abs(observed["closure_residual"]) <= observed["roundoff_bound"]
+    assert observed["cell_tangent"] == pytest.approx(
+        observed["face_adjoint_tangent"], rel=0.0,
+        abs=observed["roundoff_bound"],
+    )
+    assert observed["face_tangent_center"] == 0.0
+    assert observed["face_tangent_outer"] != 0.0
+    assert observed["face_tangent_interior"] != 0.0
+
+
+def test_face_charge_energy_tangent_matches_directional_energy_derivative():
+    from research.em_adjoint_face_work_v1 import (
+        face_charge_energy_tangent,
+        radial_electric_energy,
+    )
+
+    dr = 0.125
+    weight = np.array([1.9, 1.1, 0.55, 0.24, 0.1], dtype=np.float64)
+    charge = np.array([0.0, 0.08, 0.17, 0.29, 0.34, 0.41], dtype=np.float64)
+    rate = np.array([0.0, -0.02, 0.015, -0.04, 0.01, -0.055], dtype=np.float64)
+    observed = face_charge_energy_tangent(dr, weight, charge, rate)
+
+    eps = 1.0e-7
+    finite_difference = (
+        radial_electric_energy(dr, weight, charge + eps * rate)
+        - radial_electric_energy(dr, weight, charge)
+    ) / eps
+    assert finite_difference == pytest.approx(
+        observed["cell_tangent"], rel=2.0e-6, abs=2.0e-12
+    )
+
+
+def test_face_charge_energy_tangent_negative_controls_detect_dropped_outer_face_and_wrong_average():
+    from research.em_adjoint_face_work_v1 import face_charge_energy_tangent
+
+    dr = 0.2
+    weight = np.array([2.4, 1.2, 0.6, 0.3], dtype=np.float64)
+    charge = np.array([0.0, 0.1, 0.4, 0.9, 1.2], dtype=np.float64)
+    rate = np.array([0.0, -0.094, 0.063, -0.126, -0.157], dtype=np.float64)
+    observed = face_charge_energy_tangent(dr, weight, charge, rate)
+
+    # Deliberately omit the outer-face work contribution.
+    without_outer = (
+        observed["face_tangent_center"] + observed["face_tangent_interior"]
+    )
+    assert abs(without_outer - observed["cell_tangent"]) > (
+        100.0 * observed["roundoff_bound"]
+    )
+
+    # Deliberately replace the adjacent-face average Qdot with the left face rate.
+    q_cell = 0.5 * (charge[:-1] + charge[1:])
+    wrong_left_face_tangent = dr * np.sum(weight * q_cell * rate[:-1])
+    assert abs(wrong_left_face_tangent - observed["cell_tangent"]) > (
+        100.0 * observed["roundoff_bound"]
+    )
+
+
+def test_face_charge_energy_tangent_fails_closed_on_bad_origin_and_nonfinite_operands():
+    from research.em_adjoint_face_work_v1 import (
+        charge_rate_from_rest_mass_flux,
+        face_charge_energy_tangent,
+    )
+
+    weight = np.array([1.0, 0.5], dtype=np.float64)
+    good_charge = np.array([0.0, 0.1, 0.2], dtype=np.float64)
+    good_rate = np.array([0.0, -0.01, -0.02], dtype=np.float64)
+
+    with pytest.raises(ValueError, match="regular-centre enclosed charge"):
+        face_charge_energy_tangent(0.1, weight, np.array([1.0, 0.1, 0.2]), good_rate)
+    with pytest.raises(ValueError, match="regular-centre face-charge rate"):
+        face_charge_energy_tangent(0.1, weight, good_charge, np.array([1e-9, -0.01, -0.02]))
+    with pytest.raises(ValueError, match="regular-centre rest-mass face flux"):
+        charge_rate_from_rest_mass_flux(0.25, np.array([0.1, 0.2, 0.3]))
+    with pytest.raises(ValueError, match="finite values"):
+        face_charge_energy_tangent(0.1, weight, good_charge, np.array([0.0, np.nan, -0.02]))
