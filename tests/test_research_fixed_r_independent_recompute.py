@@ -278,6 +278,15 @@ def test_independent_em_stage_recomputation_rebuilds_face_charge_and_energy_tang
     assert result["total_field_energy_tangent"] == pytest.approx(
         result["charge_current_tangent"] + result["metric_tangent"], abs=1e-18
     )
+    assert result["full_functional_charge_tangent_plus_lorentz_remainder_unthresholded"] == pytest.approx(
+        result["charge_current_tangent"] + result["matter_lorentz_power"], abs=1e-18
+    )
+    assert result["boundary_separated_exchange_remainder_unthresholded"] == pytest.approx(
+        result["exchange_only_remainder_unthresholded"], abs=0.0
+    )
+    assert result["full_minus_boundary_separated_remainder_unthresholded"] == pytest.approx(
+        result["outer_current_power"], abs=1e-18
+    )
     assert result["exchange_only_remainder_unthresholded"] != 0.0
     assert all(check["bound_ratio"] <= 1.0 for check in result["algebraic_roundoff_checks"].values())
 
@@ -571,11 +580,16 @@ def test_em_exchange_cli_summary_keeps_physical_remainders_unthresholded():
                 "cell_centered_current_tangent": -8.0e-8,
                 "matter_lorentz_power": 8.0e-8,
                 "outer_current_power": -3.0e-9,
+                "full_functional_charge_tangent_plus_lorentz_remainder_unthresholded": -2.0e-8,
+                "boundary_separated_exchange_remainder_unthresholded": -1.7e-8,
+                "boundary_separation_adjustment_unthresholded": 3.0e-9,
+                "full_minus_boundary_separated_remainder_unthresholded": -3.0e-9,
+                "full_functional_exchange_relative_remainder_unthresholded": 2.0e-8 / 1.8e-7,
                 "face_minus_cell_current_tangent_mismatch_unthresholded": -2.0e-8,
-                "exchange_from_face_cell_current_mismatch_unthresholded": -2.0e-8,
+                "exchange_from_face_cell_current_mismatch_unthresholded": -1.7e-8,
                 "exchange_identity_gap_unthresholded": 1.0e-24,
-                "exchange_only_remainder_unthresholded": -2.0e-8,
-                "exchange_only_relative_remainder_unthresholded": 0.02,
+                "exchange_only_remainder_unthresholded": -1.7e-8,
+                "exchange_only_relative_remainder_unthresholded": 0.017,
                 "algebraic_roundoff_checks": {"identity": {"bound_ratio": 0.5}},
             },
             {
@@ -586,11 +600,16 @@ def test_em_exchange_cli_summary_keeps_physical_remainders_unthresholded():
                 "cell_centered_current_tangent": -4.0e-8,
                 "matter_lorentz_power": 4.0e-8,
                 "outer_current_power": -2.0e-9,
+                "full_functional_charge_tangent_plus_lorentz_remainder_unthresholded": -1.0e-8,
+                "boundary_separated_exchange_remainder_unthresholded": -8.0e-9,
+                "boundary_separation_adjustment_unthresholded": 2.0e-9,
+                "full_minus_boundary_separated_remainder_unthresholded": -2.0e-9,
+                "full_functional_exchange_relative_remainder_unthresholded": 1.0e-8 / 9.0e-8,
                 "face_minus_cell_current_tangent_mismatch_unthresholded": -1.0e-8,
-                "exchange_from_face_cell_current_mismatch_unthresholded": -1.0e-8,
+                "exchange_from_face_cell_current_mismatch_unthresholded": -8.0e-9,
                 "exchange_identity_gap_unthresholded": 0.0,
-                "exchange_only_remainder_unthresholded": 1.0e-8,
-                "exchange_only_relative_remainder_unthresholded": 0.01,
+                "exchange_only_remainder_unthresholded": -8.0e-9,
+                "exchange_only_relative_remainder_unthresholded": 0.008,
                 "algebraic_roundoff_checks": {"identity": {"bound_ratio": 0.75}},
             },
         ],
@@ -605,8 +624,11 @@ def test_em_exchange_cli_summary_keeps_physical_remainders_unthresholded():
     summary = _summarize_em_stage_exchange(report)
     assert len(summary["groups"]) == 1
     row = summary["groups"][0]
-    assert row["exchange_only_remainder_absmax_unthresholded"] == pytest.approx(2.0e-8)
-    assert row["exchange_only_relative_remainder_absmax_unthresholded"] == pytest.approx(0.02)
+    assert row["exchange_only_remainder_absmax_unthresholded"] == pytest.approx(1.7e-8)
+    assert row["full_functional_charge_tangent_plus_lorentz_remainder_absmax_unthresholded"] == pytest.approx(2.0e-8)
+    assert row["full_functional_exchange_relative_remainder_absmax_unthresholded"] == pytest.approx(1.0e-8 / 9.0e-8)
+    assert row["boundary_separation_adjustment_absmax_unthresholded"] == pytest.approx(3.0e-9)
+    assert row["exchange_only_relative_remainder_absmax_unthresholded"] == pytest.approx(0.017)
     assert row["field_energy_time_update_remainder_absmax_unthresholded"] == pytest.approx(3.0e-8)
     assert row["interval_exchange_average_remainder_absmax_unthresholded"] == pytest.approx(5.0e-9)
     assert row["algebraic_roundoff_bound_ratio_absmax"] == pytest.approx(0.75)
@@ -614,6 +636,7 @@ def test_em_exchange_cli_summary_keeps_physical_remainders_unthresholded():
     assert row["exchange_identity_gap_absmax_unthresholded"] == pytest.approx(1.0e-24)
     assert row["worst_exchange_stage_terms"]["stage"] == "predictor"
     assert row["worst_exchange_stage_terms"]["exchange_identity_gap_unthresholded"] == pytest.approx(1.0e-24)
+    assert row["worst_exchange_stage_terms"]["full_minus_boundary_separated_remainder_unthresholded"] == pytest.approx(-3.0e-9)
     assert row["physical_residual_threshold_applied"] is False
 
 
@@ -702,6 +725,16 @@ def test_manufactured_em_donor_recipient_exchange_closes_at_roundoff():
     # This roundoff comparison applies only to this manufactured exact-balance
     # fixture. No such criterion is applied to the measured production ledger.
     assert abs(remainder) <= 64.0 * np.finfo(np.float64).eps * scale
+    # This fixture is balanced under the boundary-separated convention by
+    # construction. The full-functional pairing differs by the explicit
+    # outer-face summand; the test preserves that distinction rather than
+    # declaring either convention physically correct.
+    assert result["full_functional_charge_tangent_plus_lorentz_remainder_unthresholded"] == pytest.approx(
+        result["outer_current_power"], abs=1e-18
+    )
+    assert result["boundary_separated_exchange_remainder_unthresholded"] == pytest.approx(
+        remainder, abs=0.0
+    )
     assert result["physical_residual_threshold_applied"] is False
     assert all(
         check["bound_ratio"] <= 1.0
