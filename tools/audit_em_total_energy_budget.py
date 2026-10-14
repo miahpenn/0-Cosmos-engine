@@ -4568,6 +4568,13 @@ def _domain_stage_diagnostics(
         "inner_weighted_right_face_currents": (
             weighted_right_current_faces[inner_faces].tolist()
         ),
+        "inner_hll_jump_face_currents": jump_current_faces[inner_faces].tolist(),
+        "inner_hll_split_roundoff_face_currents": (
+            hll_roundoff_current_faces[inner_faces].tolist()
+        ),
+        "inner_non_hll_boundary_face_currents": (
+            non_hll_boundary_current_faces[inner_faces].tolist()
+        ),
         "inner_face_current_split_residual": (
             face_current_split_residual[inner_faces].tolist()
         ),
