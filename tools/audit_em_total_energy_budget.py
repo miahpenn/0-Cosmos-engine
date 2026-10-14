@@ -2586,6 +2586,7 @@ def _electromagnetic_l3_source_witness(
     matter_only_primary_l3: dict,
     alpha,
     electromagnetic_projection: dict[str, np.ndarray] | None,
+    matter_only_stress: dict[str, np.ndarray] | None = None,
 ) -> dict:
     """Reconstruct the direct EM stress contribution to same-stage Aa/K sources.
 
@@ -2611,6 +2612,19 @@ def _electromagnetic_l3_source_witness(
                 f"EM geometry-source witness stress {name} has invalid shape or values"
             )
         profiles[name] = profile
+
+    if not isinstance(matter_only_stress, dict):
+        raise RuntimeError("EM geometry-source witness needs same-stage non-EM stress operands")
+    non_em_profiles = {}
+    for name in ("rho", "pr", "pt"):
+        if name not in matter_only_stress:
+            raise RuntimeError(f"EM geometry-source witness missing non-EM stress operand {name}")
+        profile = np.asarray(matter_only_stress[name], dtype=np.float64)
+        if profile.shape != alpha_values.shape or not np.all(np.isfinite(profile)):
+            raise RuntimeError(
+                f"EM geometry-source witness non-EM stress {name} has invalid shape or values"
+            )
+        non_em_profiles[name] = profile
 
     expected = {
         "K": 4.0 * np.pi * alpha_values * (
@@ -2640,7 +2654,23 @@ def _electromagnetic_l3_source_witness(
             )
         delta = actual - non_em
         residual = delta - expected[name]
-        operand_scale = np.abs(actual) + np.abs(non_em) + np.abs(expected[name])
+        # Near the regular centre the radial/tangential source pieces can
+        # cancel strongly. Scale the software check to the stress operands
+        # used before differencing, not just to the small final source outputs.
+        if name == "K":
+            stress_operand_scale = 4.0 * np.pi * np.abs(alpha_values) * (
+                np.abs(non_em_profiles["rho"]) + np.abs(profiles["rho"])
+                + np.abs(non_em_profiles["pr"]) + np.abs(profiles["pr"])
+                + 2.0 * np.abs(non_em_profiles["pt"]) + 2.0 * np.abs(profiles["pt"])
+            )
+        else:
+            stress_operand_scale = (16.0 * np.pi / 3.0) * np.abs(alpha_values) * (
+                np.abs(non_em_profiles["pr"]) + np.abs(profiles["pr"])
+                + np.abs(non_em_profiles["pt"]) + np.abs(profiles["pt"])
+            )
+        operand_scale = (
+            np.abs(actual) + np.abs(non_em) + np.abs(expected[name]) + stress_operand_scale
+        )
         bound = 128.0 * np.finfo(np.float64).eps * np.maximum(
             operand_scale, np.finfo(np.float64).tiny
         )
@@ -2831,8 +2861,15 @@ class AuditedKernel(V55ProductionKernel):
                 matter_only_l3 = adapter.primary_l3_with_matter(
                     grid, geometry, scalars, matter
                 )
+                matter_only_total = assemble_total_stress_energy(
+                    grid, geometry, scalars, matter
+                )
                 em_source_witness = _electromagnetic_l3_source_witness(
-                    result["primary_l3"], matter_only_l3, geometry.alpha, em_projection
+                    result["primary_l3"], matter_only_l3, geometry.alpha, em_projection,
+                    matter_only_stress={
+                        name: np.asarray(getattr(matter_only_total, name), dtype=np.float64)
+                        for name in ("rho", "pr", "pt")
+                    },
                 )
             self._active_step["geometry_stages"].append({
                 "electromagnetic_source_witness": em_source_witness,
