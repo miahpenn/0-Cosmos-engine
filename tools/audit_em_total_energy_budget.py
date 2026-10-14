@@ -2205,6 +2205,7 @@ def _fixed_R_rate_snapshot(sample: dict) -> dict:
         "tube_mass_gradient_identity_witness",
         "tube_chain_rule_flux_work_operator_comparison",
         "tube_hm_constraint_adjusted_fixed_R_rate",
+        "tube_piecewise_linear_fixed_R_rate_witness",
     ):
         if key in sample:
             snapshot[key] = sample[key]
