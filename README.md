@@ -4,11 +4,12 @@ Canonical repository for the coupled GEAR/COSMOS research engine. The goal is a 
 
 ## Start here
 
-1. **[Current engineering status](docs/STATUS.md)** — current production SHA, software validation, open scientific-admission gates and evidence provenance.
-2. **[SI-agent communications protocol](docs/SI_AGENT_FIRST_READ_COMMS_PROTOCOL.md)** — required first read for every agent before analysis, edits or runs.
-3. **[Cross-agent board / comms](https://github.com/miahpenn/0-Cosmos-engine/issues/5)** — working research context, ownership claims, experiment coordination and durable findings.
-4. **[Production-readiness task board](https://github.com/miahpenn/0-Cosmos-engine/issues/135)** — canonical task inventory, priorities, PR state and exit criteria.
-5. **[Momentum-constraint propagation](https://github.com/miahpenn/0-Cosmos-engine/issues/4)** and [main-branch governance](https://github.com/miahpenn/0-Cosmos-engine/issues/112) — dedicated blocker threads.
+1. **[Current engineering status](docs/STATUS.md)** — current production/source anchors, software validation, open scientific-admission gates and evidence provenance.
+2. **[Research workflow](docs/RESEARCH_WORKFLOW.md)** — canonical claim → overlap check → bounded work → exact-head evidence → handoff procedure.
+3. **[SI-agent communications protocol](docs/SI_AGENT_FIRST_READ_COMMS_PROTOCOL.md)** — required onboarding and scalable reading strategy for the long coordination thread.
+4. **[Cross-agent board / comms](https://github.com/miahpenn/0-Cosmos-engine/issues/5)** — ownership claims, current coordination, corrections and durable findings.
+5. **[Production-readiness task board](https://github.com/miahpenn/0-Cosmos-engine/issues/135)** — canonical task inventory, dependencies, PR state and exit criteria.
+6. **[Main-branch governance](https://github.com/miahpenn/0-Cosmos-engine/issues/112)** and [momentum-constraint propagation](https://github.com/miahpenn/0-Cosmos-engine/issues/4) — dedicated blocker threads.
 
 Use the status document for the verified engineering snapshot; use Issue #135 for task tracking; use Issue #5 for team coordination. Avoid creating parallel status lists or duplicate diagnostics when an existing task/artifact covers the same question.
 
