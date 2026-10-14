@@ -1975,6 +1975,107 @@ def _worldtube_sample(kernel, state, *, geometry_stage_capture=None) -> dict:
             pressure_work=composite_pressure_work,
             target=FIXED_AREAL_RADIUS,
         )
+
+        # Archive the smallest raw stencil that permits an independent
+        # reconstruction at both cells bracketing R*=10. The active target
+        # cells are interior cells, so the pinned fourth-order operator uses
+        # their centred five-point stencils; retain two neighbours on each side.
+        # This is raw source evidence, not a new physical closure assumption.
+        raw_left = int(interpolant_rate["left_index"])
+        raw_right = int(interpolant_rate["right_index"])
+        raw_start = max(0, raw_left - 2)
+        raw_stop = min(len(R), raw_right + 3)
+        raw_slice = slice(raw_start, raw_stop)
+
+        def raw_profile(values):
+            profile = np.asarray(values, dtype=float)
+            if profile.shape != R.shape or not np.all(np.isfinite(profile)):
+                raise RuntimeError(
+                    "fixed-R raw witness requires finite full-grid profiles "
+                    "matching the active areal-radius array"
+                )
+            return np.array(profile[raw_slice], dtype=float, copy=True)
+
+        raw_balance_witness = {
+            "schema_version": 1,
+            "target_areal_radius": float(FIXED_AREAL_RADIUS),
+            "grid_dr": float(grid.dr),
+            "global_cell_indices": list(range(raw_start, raw_stop)),
+            "active_bracket": {
+                "left_index": raw_left,
+                "right_index": raw_right,
+                "theta": float(interpolant_rate["theta"]),
+            },
+            "derivative_operator": (
+                "pinned SphericalCellGrid.cell_derivative_fourth; "
+                "centred five-point stencil at the two active target cells; "
+                "odd parity for R and Rdot"
+            ),
+            "profiles": {
+                "r": raw_profile(grid.centers),
+                "a": raw_profile(geom.a),
+                "b": raw_profile(geom.b),
+                "X": raw_profile(geom.X),
+                "alpha": raw_profile(geom.alpha),
+                "a_dot_explicit": raw_profile(a_dot),
+                "b_dot_explicit": raw_profile(b_dot),
+                "X_dot_explicit": raw_profile(X_dot),
+                "R": raw_profile(R),
+                "Rr_parity_aware": raw_profile(Rr),
+                "Rdot": raw_profile(Rdot),
+                "Rdot_r_parity_aware": raw_profile(Rdot_r),
+                "gamma_inv": raw_profile(gamma_rr_inv),
+                "gamma_inv_dot": raw_profile(gamma_inv_dot),
+                "K": raw_profile(geom.K),
+                "Aa": raw_profile(geom.Aa),
+                "Ktheta": raw_profile(Ktheta),
+                "K_dot_stage_sum": raw_profile(K_dot),
+                "Aa_dot_stage_sum": raw_profile(Aa_dot),
+                "Ktheta_dot": raw_profile(Ktheta_dot),
+                "chi": raw_profile(chi),
+                "mass_native": raw_profile(mass),
+                "mass_chain_rule": raw_profile(chain_profiles["mass"]),
+                "mass_dot_coordinate_chain_rule": raw_profile(
+                    chain_profiles["mass_dot_coordinate"]
+                ),
+                "rho": raw_profile(total.rho),
+                "pr": raw_profile(total.pr),
+                "pt": raw_profile(total.pt),
+                "j": raw_profile(total.j),
+            },
+            "rhs_split": {
+                "explicit": {
+                    name: raw_profile(explicit[name]) for name in ("a", "b", "X")
+                },
+                "primary_l2": {
+                    name: raw_profile(split["primary_l2"][name])
+                    for name in ("K", "Aa")
+                },
+                "primary_l3": {
+                    name: raw_profile(split["primary_l3"][name])
+                    for name in ("K", "Aa")
+                },
+                "vacuum_primary_l3": {
+                    name: raw_profile(vacuum_primary_l3[name])
+                    for name in ("K", "Aa")
+                },
+            },
+            "stress_sectors": {},
+        }
+        for sector_name, prefix in (
+            ("scalar", "scalar"),
+            ("fluid", "fluid"),
+            ("electromagnetic", "electromagnetic"),
+        ):
+            raw_balance_witness["stress_sectors"][sector_name] = {}
+            for component in ("rho", "pr", "pt", "j"):
+                values = getattr(total, f"{prefix}_{component}", None)
+                if values is None:
+                    values = np.zeros_like(R)
+                raw_balance_witness["stress_sectors"][sector_name][component] = (
+                    raw_profile(values)
+                )
+
         chain_rule = {
             "tube_chain_rule_Rdot": at(Rdot),
             "tube_chain_rule_Rr": at(Rr),
@@ -2058,6 +2159,7 @@ def _worldtube_sample(kernel, state, *, geometry_stage_capture=None) -> dict:
             },
             "tube_hm_constraint_adjusted_fixed_R_rate": hm_constraint_adjusted_rate,
             "tube_piecewise_linear_fixed_R_rate_witness": piecewise_linear_rate_witness,
+            "tube_fixed_R_balance_raw_witness": raw_balance_witness,
         }
 
     em_rho = total.electromagnetic_rho
@@ -2206,6 +2308,7 @@ def _fixed_R_rate_snapshot(sample: dict) -> dict:
         "tube_chain_rule_flux_work_operator_comparison",
         "tube_hm_constraint_adjusted_fixed_R_rate",
         "tube_piecewise_linear_fixed_R_rate_witness",
+        "tube_fixed_R_balance_raw_witness",
     ):
         if key in sample:
             snapshot[key] = sample[key]
