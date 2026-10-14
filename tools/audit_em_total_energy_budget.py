@@ -2803,13 +2803,24 @@ def _fixed_R_interval_balance(run: dict, *, label: str = "run") -> list[dict]:
 
 
 def _numeric_tree_difference(charged, neutral):
-    """Subtract matching numeric leaves while preserving nested witness structure."""
+    """Subtract observables while preserving witness identity metadata."""
     if isinstance(charged, dict) and isinstance(neutral, dict):
         out = {}
+        identity_keys = {"target_r", "left_index", "right_index", "index"}
         for key in sorted(set(charged) & set(neutral)):
-            # Bounds are per-arm metadata, not signed observables: subtracting
-            # them can create meaningless negative values in a delta witness.
-            if key.casefold().endswith("_bound"):
+            # Bounds and bracket/cell identifiers are per-arm metadata, not
+            # signed observables. Keep identifiers only when both arms refer
+            # to the same geometric target and the same native bracket cells.
+            key_folded = key.casefold()
+            if key_folded.endswith("_bound"):
+                continue
+            if key_folded in identity_keys:
+                if charged[key] != neutral[key]:
+                    raise RuntimeError(
+                        "paired witness identity metadata mismatch at "
+                        f"{key}: charged={charged[key]!r}, neutral={neutral[key]!r}"
+                    )
+                out[key] = charged[key]
                 continue
             value = _numeric_tree_difference(charged[key], neutral[key])
             if value is not None:
