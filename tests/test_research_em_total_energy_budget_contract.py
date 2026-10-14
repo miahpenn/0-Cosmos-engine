@@ -1679,7 +1679,7 @@ def test_fixed_N_stage_pairing_history_tracks_start_predictor_and_gravity_separa
 
     def stage_row(stage_name, *, charged, diagnostic_row=None):
         stage_power = -2.0e-4 if stage_name == "start" else -3.0e-4
-        lorentz_power = stage_power + 1.5e-4
+        lorentz_power = -stage_power + 1.5e-4
         row = {
             "stage": stage_name,
             "t": 0.02,
