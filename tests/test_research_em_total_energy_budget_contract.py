@@ -617,8 +617,11 @@ def test_sector_ktheta_source_rates_reconstruct_live_geometry_source_and_tangent
         pt=scalar_pt + fluid_pt + em_pt,
     )
     target = 2.4
+    # Use a cellwise kinematic-consistent Rdot. The composite-profile identity
+    # should then close at roundoff; factor interpolation remains a distinct operator.
+    Rdot = -alpha * R * Ktheta
     observed = _sector_ktheta_source_rates(
-        total, R=R, alpha=alpha, Ktheta=Ktheta, target=target
+        total, R=R, alpha=alpha, Ktheta=Ktheta, Rdot=Rdot, target=target
     )
     electromagnetic = observed["sectors"]["electromagnetic"]
 
@@ -645,6 +648,32 @@ def test_sector_ktheta_source_rates_reconstruct_live_geometry_source_and_tangent
         assert observed["sum_at_R_star"][name] == pytest.approx(
             observed["aggregate_at_R_star"][name], rel=2.0e-14, abs=1.0e-15
         )
+
+    identity = observed["pressure_work_identity"]
+    composite = identity["composite_profile_then_interpolate"]
+    factor = identity["factor_interpolate_then_multiply"]
+    em_composite = composite["sectors"]["electromagnetic"]
+    em_factor = factor["sectors"]["electromagnetic"]
+
+    # Same-cell composite profiles preserve S_Ktheta = W_pr - C_rho.
+    assert em_composite["mass_dot_coordinate_from_ktheta_source"] == pytest.approx(
+        em_composite["radial_pressure_work"] - em_composite["density_companion"],
+        rel=2.0e-14, abs=1.0e-15,
+    )
+    assert abs(composite["aggregate_at_R_star"]["kinematic_Rdot_closure_residual"]) < 1.0e-14
+    assert abs(composite["aggregate_at_R_star"]["identity_residual"]) <= (
+        composite["identity_additive_bound"]
+    )
+
+    # Interpolating factors first is a different discrete operator. Its measured
+    # residual must equal the independently exposed factor-level kinematic defect.
+    assert em_factor["identity_residual"] == pytest.approx(
+        em_factor["identity_residual_from_kinematic_closure"],
+        rel=2.0e-14, abs=1.0e-15,
+    )
+    assert abs(factor["aggregate_at_R_star"]["identity_residual"]) > 1.0e-6
+    for name, residual in factor["additive_residuals"].items():
+        assert abs(residual) <= factor["additive_bounds"][name]
 
 
 
