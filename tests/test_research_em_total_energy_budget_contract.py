@@ -36,6 +36,7 @@ from tools.audit_em_total_energy_budget import (
     _split_hll_scalar_flux,
     _hll_charge_tangent_split,
     _domain_stage_diagnostics,
+    _domain_radius_projection_comparison,
 )
 
 
@@ -1470,6 +1471,43 @@ def test_domain_stage_diagnostics_reconstructs_signed_cellwise_projection_and_hl
     )
     assert observed["roundoff_checks"]["full_pairing_cell_sum"]["roundoff_bound"] > 0.0
     assert observed["classification"].startswith("signed diagnostic")
+
+
+
+def test_domain_radius_projection_comparison_reports_radial_pairing_signal():
+    centers = (np.arange(40, dtype=np.float64) + 0.5) * 0.5
+    baseline_gap = np.linspace(1.0e-10, 2.0e-10, centers.size)
+    extended_gap = 0.8 * baseline_gap
+
+    def diagnostic(gap):
+        return {
+            "coordinate_radius_cut": 20.0,
+            "inner_cell_centers": centers.tolist(),
+            "inner_cell_current_equivalent": gap.tolist(),
+            "inner_face_currents": np.zeros(centers.size + 1).tolist(),
+            "inner_cell_defect_profile": (-1.0e-3 * gap).tolist(),
+        }
+
+    result = _domain_radius_projection_comparison(
+        diagnostic(baseline_gap), diagnostic(extended_gap)
+    )
+    expected_gap_delta = baseline_gap - extended_gap
+    assert result["current_projection_gap_delta_max_abs_on_overlap"] == pytest.approx(
+        float(np.max(np.abs(expected_gap_delta)))
+    )
+    assert result["current_projection_gap_delta_l1_on_overlap"] == pytest.approx(
+        float(np.sum(np.abs(expected_gap_delta)))
+    )
+    assert result["cell_defect_delta_vs_current_projection_gap_delta_pearson_r"] == (
+        pytest.approx(-1.0)
+    )
+    bands = result["radial_band_comparison"]
+    assert [(row["coordinate_radius_lower_inclusive"],
+             row["coordinate_radius_upper_exclusive"]) for row in bands] == [
+        (0.0, 5.0), (5.0, 10.0), (10.0, 15.0), (15.0, 20.0)
+    ]
+    assert [row["cell_count"] for row in bands] == [10, 10, 10, 10]
+    assert bands[-1]["cell_defect_delta_l1"] > bands[0]["cell_defect_delta_l1"]
 
 
 @pytest.mark.parametrize(
