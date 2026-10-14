@@ -9,6 +9,8 @@ from tools.fixed_r_discriminators import (
     pure_sector_rates,
 )
 
+import tools.audit_em_total_energy_budget as em_budget
+
 from tools.audit_em_total_energy_budget import (
     SOURCE_PINS,
     VENDOR_GITLINK,
@@ -38,6 +40,7 @@ from tools.audit_em_total_energy_budget import (
     _domain_stage_diagnostics,
     _domain_radius_projection_comparison,
     _observed_refinement_order,
+    _summarize_fixed_N_temporal_pairing_refinement,
 )
 
 
@@ -1408,8 +1411,11 @@ def test_domain_stage_diagnostics_reconstructs_signed_cellwise_projection_and_hl
     face_operands = []
     for face_index, jump_flux in enumerate(jump_mass_flux, start=1):
         actual_rest_mass_flux = current_faces[face_index] / (4.0 * np.pi * eta)
-        weighted_left = actual_rest_mass_flux - float(jump_flux)
-        weighted_right = 0.0
+        # A nontrivial synthetic partition exercises both downstream face-side
+        # pairing arrays; the actual Riemann operands are tested separately below.
+        weighted_total = actual_rest_mass_flux - float(jump_flux)
+        weighted_left = 0.375 * weighted_total
+        weighted_right = weighted_total - weighted_left
         split_residual = actual_rest_mass_flux - (
             weighted_left + weighted_right + float(jump_flux)
         )
@@ -1510,6 +1516,8 @@ def test_domain_stage_diagnostics_reconstructs_signed_cellwise_projection_and_hl
         + np.asarray(observed["inner_hll_split_roundoff_pairing_profile"])
     )
     assert component_sum == pytest.approx(expected_defect[:3], rel=0.0, abs=2e-18)
+    assert np.any(np.asarray(observed["inner_left_face_pairing_profile"]) != 0.0)
+    assert np.any(np.asarray(observed["inner_right_face_pairing_profile"]) != 0.0)
     # The newly exported face-current arrays are part of the research-artifact
     # contract, not just incidental diagnostics: check each component and the
     # final reconstruction so a dropped or mislabelled field fails this test.
@@ -1570,6 +1578,86 @@ def test_domain_stage_diagnostics_reconstructs_signed_cellwise_projection_and_hl
     )
     assert observed["classification"].startswith("signed diagnostic")
 
+
+
+def test_fixed_N_temporal_pairing_summary_compares_same_predictor_time_across_cfl(monkeypatch):
+    diagnostics = {
+        0.01: {
+            "inner_cell_current_equivalent": [0.8, 1.1],
+            "inner_face_currents": [0.1, 0.2, 0.3],
+            "full_pairing_signed_global": -2.0e-12,
+            "cell_defect_l1_inner": 2.5e-12,
+            "hll_jump_charge_tangent_global": 2.0e-22,
+        },
+        0.005: {
+            "inner_cell_current_equivalent": [0.7, 1.0],
+            "inner_face_currents": [0.2, 0.25, 0.3],
+            "full_pairing_signed_global": -8.0e-13,
+            "cell_defect_l1_inner": 1.1e-12,
+            "hll_jump_charge_tangent_global": 8.0e-24,
+        },
+        0.0025: {
+            "inner_cell_current_equivalent": [0.6, 0.9],
+            "inner_face_currents": [0.1, 0.15, 0.2],
+            "full_pairing_signed_global": -2.0e-13,
+            "cell_defect_l1_inner": 3.0e-13,
+            "hll_jump_charge_tangent_global": 2.0e-26,
+        },
+    }
+    selected = []
+
+    def find_stage(run, *, stage_name, target_time):
+        assert stage_name == "primary_predictor"
+        assert target_time == pytest.approx(0.02)
+        selected.append((run["cfl"], stage_name, target_time))
+        return {"cfl": run["cfl"]}
+
+    def stage_diagnostic(run, stage_row, *, coordinate_radius_cut):
+        assert run["cfl"] == stage_row["cfl"]
+        assert coordinate_radius_cut == pytest.approx(24.0)
+        row = diagnostics[run["cfl"]]
+        return {
+            **row,
+            "roundoff_checks": {
+                "max_abs_cell_pairing_component_residual": 1.0e-26,
+                "max_cell_pairing_component_bound_ratio": 0.25,
+            },
+        }
+
+    monkeypatch.setattr(em_budget, "_find_serialized_stage_at_time", find_stage)
+    monkeypatch.setattr(em_budget, "_domain_stage_diagnostics", stage_diagnostic)
+    runs = [
+        {
+            "resolution": 48,
+            "q_over_m": 0.25,
+            "cfl": cfl,
+            "nominal_dt": cfl * 0.5,
+            "step_rows": [],
+        }
+        for cfl in em_budget.TIME_STEP_CFL_VALUES
+    ]
+
+    summary = _summarize_fixed_N_temporal_pairing_refinement(runs)
+
+    assert summary["matched_predictor_time"] == pytest.approx(0.02)
+    assert summary["classification"].startswith("same-time predictor-stage")
+    assert [row["cfl"] for row in summary["rows"]] == list(em_budget.TIME_STEP_CFL_VALUES)
+    assert [item[1] for item in selected] == ["primary_predictor"] * 3
+    assert [item[2] for item in selected] == pytest.approx([0.02] * 3)
+    assert summary["rows"][0]["full_pairing_signed_global"] == pytest.approx(-2.0e-12)
+    assert summary["rows"][1]["pairing_magnitude_ratio_vs_previous_coarser_dt"] == pytest.approx(0.4)
+    assert summary["rows"][2]["pairing_magnitude_ratio_vs_previous_coarser_dt"] == pytest.approx(0.25)
+    assert summary["rows"][0]["observed_pairing_magnitude_order_vs_dt"] is None
+    assert summary["rows"][1]["observed_pairing_magnitude_order_vs_dt"] == pytest.approx(
+        math.log(2.5) / math.log(2.0)
+    )
+    assert summary["rows"][2]["observed_pairing_magnitude_order_vs_dt"] == pytest.approx(2.0)
+    expected_gap = max(abs(0.8 - 0.5 * (0.1 + 0.2)), abs(1.1 - 0.5 * (0.2 + 0.3)))
+    assert summary["rows"][0]["current_projection_gap_max_abs_over_max_face_current"] == pytest.approx(
+        expected_gap / 0.3
+    )
+    assert summary["rows"][0]["hll_jump_abs_over_pairing_abs"] == pytest.approx(1.0e-10)
+    assert summary["interpretation_limit"].find("does not by itself prove temporal order") >= 0
 
 
 def test_domain_radius_projection_roundoff_bound_scales_to_cancelled_products():
