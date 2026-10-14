@@ -121,6 +121,10 @@ def test_independent_fixed_r_reconstruction_keeps_operator_conventions_separate(
         values["factor_fixed_R_residual_unthresholded"], abs=1e-14
     )
     assert set(result["cells"]) == {"2", "3"}
+    assert set(result["stencil_roundoff_checks"]) == {"2", "3"}
+    assert "mass_gradient_identity_residual_unthresholded" in result["cells"]["2"]
+    assert "Ktheta_dot_matter_source_from_live_minus_vacuum_L3" in result["cells"]["3"]
+    assert "stress_j_sector_additivity" in result["algebraic_roundoff_checks"]
     assert "without a pass/fail threshold" in result["interpretation"]
 
 
@@ -130,7 +134,7 @@ def test_independent_fixed_r_reconstruction_fails_on_bad_saved_derivative():
     broken["tube_fixed_R_balance_raw_witness"]["profiles"][
         "Rdot_r_parity_aware"
     ][2] += 1.0e-4
-    with pytest.raises(RuntimeError, match="D_r\(Rdot\)"):
+    with pytest.raises(RuntimeError, match=r"D_r\(Rdot\)"):
         recompute_arm(broken)
 
 
@@ -138,5 +142,5 @@ def test_independent_fixed_r_reconstruction_fails_on_rhs_stage_mismatch():
     stage = _raw_stage()
     broken = copy.deepcopy(stage)
     broken["tube_fixed_R_balance_raw_witness"]["rhs_split"]["primary_l3"]["K"][2] += 1.0e-4
-    with pytest.raises(RuntimeError, match="K dot from primary L2\+L3"):
+    with pytest.raises(RuntimeError, match=r"K dot from primary L2\+L3"):
         recompute_arm(broken)
