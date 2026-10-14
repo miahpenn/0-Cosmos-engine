@@ -18,6 +18,7 @@ from tools.audit_em_total_energy_budget import (
     _fixed_R_interval_balance,
     _pair_fixed_R_interval_rows,
     _misner_sharp_chain_rule_rate_profiles,
+    _mass_gradient_identity_bracket_witness,
     _sector_fixed_R_rates,
     _sector_ktheta_source_rates,
 )
@@ -643,4 +644,85 @@ def test_sector_ktheta_source_rates_reconstruct_live_geometry_source_and_tangent
         assert abs(residual) <= observed["additive_bounds"][name]
         assert observed["sum_at_R_star"][name] == pytest.approx(
             observed["aggregate_at_R_star"][name], rel=2.0e-14, abs=1.0e-15
+        )
+
+
+
+def test_mass_gradient_witness_records_bracket_cells_and_both_interpolation_operators():
+    R = np.array([1.0, 2.0, 4.0])
+    mass_gradient = np.array([0.4, 0.7, 1.3])
+    rho = np.array([0.1, 0.2, 0.4])
+    current = np.array([0.0, 0.5, 1.0])
+    Rr = np.array([0.8, 0.9, 1.1])
+    Rdot = np.array([0.01, 0.02, 0.04])
+    alpha = np.array([1.0, 1.2, 1.4])
+    hamiltonian = np.array([1.0e-5, 2.0e-5, 3.0e-5])
+    momentum = np.array([-1.0e-6, 0.0, 1.0e-6])
+
+    observed = _mass_gradient_identity_bracket_witness(
+        R, mass_gradient, rho, current, Rr, Rdot, alpha,
+        hamiltonian, momentum, target=3.0,
+    )
+    local_rhs = 4.0 * np.pi * R**2 * (rho * Rr + current * Rdot / alpha)
+
+    assert (observed["left_index"], observed["right_index"]) == (1, 2)
+    assert observed["theta"] == pytest.approx(0.5)
+    assert observed["left_cell"]["mass_gradient_rhs_local_composite"] == pytest.approx(local_rhs[1])
+    assert observed["right_cell"]["mass_gradient_rhs_local_composite"] == pytest.approx(local_rhs[2])
+    assert observed["left_cell"]["mass_gradient_residual_local_composite"] == pytest.approx(
+        mass_gradient[1] - local_rhs[1]
+    )
+    assert observed["right_cell"]["hamiltonian_constraint"] == pytest.approx(hamiltonian[2])
+    assert observed["left_cell"]["momentum_constraint"] == pytest.approx(momentum[1])
+    assert observed["local_composite_rhs_interpolated_at_target"] == pytest.approx(
+        0.5 * (local_rhs[1] + local_rhs[2])
+    )
+    assert observed["local_composite_residual_interpolated_at_target"] == pytest.approx(
+        observed["mass_gradient_discrete_interpolated_at_target"]
+        - observed["local_composite_rhs_interpolated_at_target"]
+    )
+    # Distinct operators are reported rather than choosing the smaller residual.
+    assert abs(observed["factor_product_minus_composite_rhs"]) > 0.0
+    assert observed["factor_interpolated_residual_at_target"] == pytest.approx(
+        observed["mass_gradient_discrete_interpolated_at_target"]
+        - observed["factor_interpolated_rhs_at_target"]
+    )
+
+
+@pytest.mark.parametrize("bad_kind", ["shape", "nonfinite", "nonmonotone", "outside", "zero_alpha"])
+def test_mass_gradient_witness_fails_closed_on_invalid_inputs(bad_kind):
+    R = np.array([1.0, 2.0, 4.0])
+    values = {
+        "mass_gradient": np.array([0.4, 0.7, 1.3]),
+        "rho": np.array([0.1, 0.2, 0.4]),
+        "current": np.array([0.0, 0.5, 1.0]),
+        "Rr": np.array([0.8, 0.9, 1.1]),
+        "Rdot": np.array([0.01, 0.02, 0.04]),
+        "alpha": np.array([1.0, 1.2, 1.4]),
+        "hamiltonian": np.array([1.0e-5, 2.0e-5, 3.0e-5]),
+        "momentum": np.array([-1.0e-6, 0.0, 1.0e-6]),
+    }
+    target = 3.0
+    message = "shape|finite|strictly increasing|outside|zero"
+    if bad_kind == "shape":
+        values["rho"] = np.array([0.1, 0.2])
+        message = "shape"
+    elif bad_kind == "nonfinite":
+        values["current"][1] = np.nan
+        message = "non-finite"
+    elif bad_kind == "nonmonotone":
+        R = np.array([1.0, 4.0, 2.0])
+        message = "strictly increasing"
+    elif bad_kind == "outside":
+        target = 5.0
+        message = "outside"
+    elif bad_kind == "zero_alpha":
+        values["alpha"][1] = 0.0
+        message = "alpha contains zero"
+
+    with pytest.raises(RuntimeError, match=message):
+        _mass_gradient_identity_bracket_witness(
+            R, values["mass_gradient"], values["rho"], values["current"],
+            values["Rr"], values["Rdot"], values["alpha"],
+            values["hamiltonian"], values["momentum"], target=target,
         )
