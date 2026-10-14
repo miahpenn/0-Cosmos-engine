@@ -1203,6 +1203,11 @@ def recompute_em_stage_exchange_witness(stage_record: Any) -> dict[str, Any]:
             "legacy field name: outer-face contribution to the discrete Q-charge tangent; "
             "not independently derived here as a physical Poynting flux"
         ),
+        "modeled_poynting_boundary_flux_unthresholded": 0.0,
+        "poynting_boundary_flux_model_assumption": (
+            "zero in this pure-radial-electric sector because no magnetic-field state is evolved; "
+            "the curved-spacetime metric-weight transfer remains separate"
+        ),
         "full_minus_boundary_separated_remainder_unthresholded": (
             full_functional_exchange_remainder
             - boundary_separated_exchange_remainder
@@ -1354,6 +1359,11 @@ def recompute_charged_dust_boundary_witness(
             "legacy field name: outer-face contribution to the discrete Q-charge tangent; "
             "not independently derived here as a physical Poynting flux"
         ),
+        "modeled_poynting_boundary_flux_unthresholded": 0.0,
+        "poynting_boundary_flux_model_assumption": (
+            "zero in this pure-radial-electric sector because no magnetic-field state is evolved; "
+            "the curved-spacetime metric-weight transfer remains separate"
+        ),
         "em_field_charge_tangent_outer_face_unthresholded": float(
             em_stage_result["field_charge_tangent_outer_face_unthresholded"]
         ),
@@ -1479,6 +1489,11 @@ def recompute_combined_matter_em_accounting_candidates(
         "em_outer_current_power_semantics": (
             "legacy field name: outer-face contribution to the discrete Q-charge tangent; "
             "not independently derived here as a physical Poynting flux"
+        ),
+        "modeled_poynting_boundary_flux_start_predictor_average_unthresholded": 0.0,
+        "poynting_boundary_flux_model_assumption": (
+            "zero in this pure-radial-electric sector because no magnetic-field state is evolved; "
+            "the curved-spacetime metric-weight transfer remains separate"
         ),
         "known_terms_without_separate_em_outer_unthresholded": known_without_separate_outer,
         "known_terms_with_separate_em_outer_unthresholded": known_with_separate_outer,
