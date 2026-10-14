@@ -1197,6 +1197,11 @@ def recompute_em_stage_exchange_witness(stage_record: Any) -> dict[str, Any]:
             boundary_separated_exchange_remainder
         ),
         "boundary_separation_adjustment_unthresholded": float(-outer_power),
+        "outer_face_charge_tangent_contribution_unthresholded": float(outer_power),
+        "outer_current_power_semantics": (
+            "legacy field name: outer-face contribution to the discrete Q-charge tangent; "
+            "not independently derived here as a physical Poynting flux"
+        ),
         "full_minus_boundary_separated_remainder_unthresholded": (
             full_functional_exchange_remainder
             - boundary_separated_exchange_remainder
@@ -1338,6 +1343,16 @@ def recompute_charged_dust_boundary_witness(
         "em_outer_current_power_unthresholded": float(
             em_stage_result["outer_current_power"]
         ),
+        "em_outer_face_charge_tangent_contribution_unthresholded": float(
+            em_stage_result.get(
+                "outer_face_charge_tangent_contribution_unthresholded",
+                em_stage_result["outer_current_power"],
+            )
+        ),
+        "em_outer_current_power_semantics": (
+            "legacy field name: outer-face contribution to the discrete Q-charge tangent; "
+            "not independently derived here as a physical Poynting flux"
+        ),
         "em_field_charge_tangent_outer_face_unthresholded": float(
             em_stage_result["field_charge_tangent_outer_face_unthresholded"]
         ),
@@ -1359,9 +1374,10 @@ def recompute_combined_matter_em_accounting_candidates(
 ) -> dict[str, Any]:
     """Rebuild both whole-domain matter+EM bookkeeping candidates from raw stages.
 
-    The two candidates differ only in whether the outer-current summand already
-    contained in the full discrete field-energy tangent is also listed as a
-    separate term. Neither convention is selected as the physical identity here.
+    The two candidates differ only in whether the outer-face contribution to
+    the discrete charge tangent (from Qdot_face=-I_face) is also listed as a
+    separate term. That summand is not independently derived here as a physical
+    Poynting flux. Neither convention is selected as the finite-domain identity.
     The wider gravity/scalar/Killing-energy ledger is incomplete, so neither
     remainder is a global conservation residual.
     """
@@ -1456,6 +1472,13 @@ def recompute_combined_matter_em_accounting_candidates(
         "dm_scalar_exchange_energy_rate_reconstructed": dm_exchange,
         "em_metric_tangent_start_predictor_average_reconstructed": em_metric,
         "em_outer_current_power_start_predictor_average_reconstructed_unthresholded": em_outer,
+        "em_outer_face_charge_tangent_summand_start_predictor_average_unthresholded": (
+            em_outer
+        ),
+        "em_outer_current_power_semantics": (
+            "legacy field name: outer-face contribution to the discrete Q-charge tangent; "
+            "not independently derived here as a physical Poynting flux"
+        ),
         "known_terms_without_separate_em_outer_unthresholded": known_without_separate_outer,
         "known_terms_with_separate_em_outer_unthresholded": known_with_separate_outer,
         "remainder_without_separate_em_outer_candidate_unthresholded": (
