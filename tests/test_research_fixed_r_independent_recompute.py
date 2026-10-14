@@ -158,6 +158,14 @@ def test_independent_fixed_r_reconstruction_keeps_operator_conventions_separate(
     assert values["moving_interpolant_residual_unthresholded"] == pytest.approx(
         values["composite_fixed_R_residual_unthresholded"], abs=2e-17
     )
+    # The report key says prediction minus observed remainder; enforce that sign.
+    assert values[
+        "geometric_identity_minus_observed_mass_balance_remainder_composite_interp_unthresholded"
+    ] == pytest.approx(
+        values["geometric_identity_predicted_mass_balance_remainder_composite_interp"]
+        - values["composite_fixed_R_residual_unthresholded"],
+        abs=2e-17,
+    )
     # Factor- and composite-interpolated products are separate discretizations.
     assert values["composite_fixed_R_residual_unthresholded"] != pytest.approx(
         values["factor_fixed_R_residual_unthresholded"], abs=1e-14
