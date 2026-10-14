@@ -60,7 +60,7 @@ The geometry-weight tangent (sum_i (partial U/partial w_i)dot w_i), matter Loren
 
 ## Reproducible saved-artifact application
 
-The helper can be applied to the raw JSON from the joined-ledger workflow without rerunning a simulation:
+The helper can be applied to the raw JSON from the joined-ledger workflow without rerunning a simulation. The joined-ledger CI now runs this reconciler immediately after the independent fixed-R recomputation and includes the row-wise reconciliation JSON in the uploaded artifact. It fails closed if the adjoint closure, stored charge tangent, stored field-energy value, or outer-current boundary summand disagrees beyond its 128-epsilon operand-scaled bound:
 
 ```bash
 python research/reconcile_em_face_work_artifact_v1.py \
