@@ -60,9 +60,10 @@ DOMAIN_RADIUS_SWEEP_R_MAX = 32.0
 DOMAIN_RADIUS_SWEEP_RESOLUTION = 64
 DOMAIN_RADIUS_SWEEP_OVERLAP_R = 20.0
 
-# Blob IDs from main 31a7491bce8076e05a8524d442567cc39ed30d94. PR #179 added only
-# the opt-in runtime capability contract at this anchor; the audit stays pinned
-# to these exact production blobs and the vendor gitlink, not a moving main ref.
+# Blob IDs are pinned to the audited current-main source anchor
+# 2c58cc3ce07ec7bb3c6540966e355676cd66eea2. This includes only the additive
+# proper-radius observer from PR #195 beyond the previous baseline; evolution
+# equations and the vendor gitlink remain unchanged.
 SOURCE_PINS = {
     "engine/campaign.py": "119942d9debf63b99997cda96c541754e7e8aded",
     "engine/cmc_gauge.py": "7b49b5751abebd4faf0130208032cd2080b71f64",
@@ -71,7 +72,7 @@ SOURCE_PINS = {
     "engine/matter_rhs.py": "f41180efbcff2c72cf36477a765318ab539fac80",
     "engine/matter_system.py": "05e23d2368120ea8a1a6aad3fa438625d5380750",
     "engine/production_contract.py": "0a3b6f0a4223f93a5e33ab30706dc803f69643ca",
-    "engine/production_kernel.py": "9685e76bb5a6f26d6bf383e240de24f37523f265",
+    "engine/production_kernel.py": "86ff39952af938514852cdbeea50af582ed3ebe1",
     "engine/radial_maxwell.py": "81269f1d1334c46c4c2f44ba816d792722c0a38e",
     "engine/run_production.py": "726f3fd09d46142862574d348aa0755f83bc0612",
     "engine/scalar_system.py": "ffc119b1a6f2d495d972323901f76a85783b0a1b",
@@ -80,7 +81,7 @@ SOURCE_PINS = {
     "engine/v55_matter.py": "acc8f8ceae28d82511c9a5ad9d2ca670e09fb0f7",
     "engine/valencia.py": "03ed86398f424c03d9d6a3e646da9222a34fac5c",
     "engine/v55_pirk_adapter.py": "eeee0492d80889d70e52b0946563eee5054c0f11",
-    "engine/worldtube.py": "aea19090cb0fd2ebe5481a8b7af0d26f119a9ad6",
+    "engine/worldtube.py": "a9f14b09432811ed15935862ce28ff02b906ae87",
 }
 VENDOR_GITLINK = "vendor/bb-palatini-unified-r0"
 VENDOR_PIN = "d6052d605673ce9d82cdc99b0df79855fa2ea215"
