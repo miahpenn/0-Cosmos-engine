@@ -5502,7 +5502,7 @@ def write_step_summary(report: dict) -> None:
         f"Spatial resolution is fixed at N={pairing['resolution']} and all charged arms are sampled at "
         f"the {pairing['stage']} time t={pairing['matched_predictor_time']:.3f}.",
         "",
-        "| CFL | nominal dt | signed full pairing | L1 cell defect | max projection gap / max face current | HLL jump / |pairing| | |pairing| ratio vs coarser dt | descriptive dt order |",
+        "| CFL | nominal dt | signed full pairing | L1 cell defect | max projection gap / max face current | HLL jump / pairing magnitude | magnitude ratio vs coarser dt | descriptive dt order |",
         "|---:|---:|---:|---:|---:|---:|---:|---:|",
     ])
     for row in pairing["rows"]:
