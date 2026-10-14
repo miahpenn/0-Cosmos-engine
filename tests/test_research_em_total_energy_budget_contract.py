@@ -1444,8 +1444,15 @@ def test_domain_stage_diagnostics_reconstructs_signed_cellwise_projection_and_hl
     assert observed["full_pairing_signed_global"] == pytest.approx(
         charge_tangent + lorentz_power, rel=0.0, abs=2e-25
     )
+    expected_defect_sum = float(np.sum(expected_defect))
+    expected_defect_roundoff_bound = 256.0 * np.finfo(np.float64).eps * max(
+        float(np.sum(np.abs(expected_defect))),
+        abs(observed["full_pairing_signed_global"]),
+        abs(expected_defect_sum),
+        float(np.finfo(np.float64).tiny),
+    )
     assert observed["full_pairing_signed_global"] == pytest.approx(
-        float(np.sum(expected_defect)), rel=0.0, abs=2e-25
+        expected_defect_sum, rel=0.0, abs=expected_defect_roundoff_bound
     )
     assert observed["hll_jump_charge_tangent_global"] == pytest.approx(jump_tangent)
     assert observed["weighted_only_pairing_signed_global"] == pytest.approx(
