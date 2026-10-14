@@ -334,7 +334,7 @@ def _face_current_projection_decomposition(
     component_scale = np.abs(source_pairing) + np.abs(reconstructed_cell_pairing)
     for values in face_pairing_components.values():
         component_scale += np.abs(values)
-    component_bounds = 2048.0 * eps * np.maximum(component_scale, tiny)
+    component_bounds = 1024.0 * eps * np.maximum(component_scale, tiny)
     component_ratios = np.abs(component_residual) / component_bounds
     if (
         not np.all(np.isfinite(component_residual))
@@ -855,7 +855,7 @@ def reconcile_report(report: dict[str, Any], *, input_name: str, input_sha256: s
             "max_current_projection_gap_over_max_face_current": max_current_projection_gap_relative,
             "max_face_current_component_256_epsilon_bound_ratio": max_face_current_reconstruction_bound_ratio,
             "max_current_gap_identity_1024_epsilon_bound_ratio": max_current_gap_identity_bound_ratio,
-            "max_current_face_component_2048_epsilon_bound_ratio": max_current_component_reconstruction_bound_ratio,
+            "max_current_face_component_1024_epsilon_bound_ratio": max_current_component_reconstruction_bound_ratio,
             "max_hll_tangent_512_epsilon_bound_ratio": max_hll_tangent_reconstruction_bound_ratio,
             "current_projection_gap_reconstructed_from_saved_primitive_and_face_operands": True,
             "weighted_left_right_hll_jump_boundary_and_roundoff_components_reconstruct": True,
