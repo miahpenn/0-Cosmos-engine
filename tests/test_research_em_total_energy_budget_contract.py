@@ -1374,16 +1374,6 @@ def test_stage_exchange_witness_preserves_q_face_tangent_and_metric_weight_rate(
     assert witness["lorentz_current_r_profile"] == stage["lorentz"]["current_r"].tolist()
 
 
-@pytest.mark.parametrize(
-    "s_minus,s_plus,flux_left,flux_right,U_left,U_right,branch",
-    [
-        (-2.0, 3.0, 0.7, -0.4, 1.2, 1.9, "transonic"),
-        (-2.0, 0.0, 0.7, -0.4, 1.2, 1.9, "right_upwind"),
-        (0.0, 2.0, 0.7, -0.4, 1.2, 1.9, "left_upwind"),
-    ],
-)
-
-
 def test_domain_stage_diagnostics_reconstructs_signed_cellwise_projection_and_hll_split():
     n = 4
     dr = 0.5
@@ -1474,6 +1464,15 @@ def test_domain_stage_diagnostics_reconstructs_signed_cellwise_projection_and_hl
     assert observed["roundoff_checks"]["full_pairing_cell_sum"]["roundoff_bound"] > 0.0
     assert observed["classification"].startswith("signed diagnostic")
 
+
+@pytest.mark.parametrize(
+    "s_minus,s_plus,flux_left,flux_right,U_left,U_right,branch",
+    [
+        (-2.0, 3.0, 0.7, -0.4, 1.2, 1.9, "transonic"),
+        (-2.0, 0.0, 0.7, -0.4, 1.2, 1.9, "right_upwind"),
+        (0.0, 2.0, 0.7, -0.4, 1.2, 1.9, "left_upwind"),
+    ],
+)
 
 def test_hll_scalar_flux_split_reconstructs_exact_returned_flux(
     s_minus, s_plus, flux_left, flux_right, U_left, U_right, branch
