@@ -79,3 +79,23 @@ Applied offline to #198 artifact [11932301923](https://github.com/miahpenn/0-Cos
 - No bound failures; zero centre-face tangent in every witness; no nonzero charge tangent in the neutral arm. Charged cases retain nonzero outer-face tangent.
 
 These are three distinct saved-run sections, so the 276 rows are not 276 independent physical realizations. All are post-processing of the same already-run bounded campaigns; no new evolution is performed by the reconciler.
+
+
+## Follow-on: saved face-current projection and HLL component audit
+
+The current reconciler now also reconstructs the current projection gap directly from each saved start/predictor witness:
+
+```
+cell_current_equivalent = 4*pi * alpha * sqrt(gamma) * primitive_current_r
+adjacent_face_current = (I_left + I_right) / 2
+projection_gap = cell_current_equivalent - adjacent_face_current
+weighted_gap_i = dr * w_i * Qbar_i * projection_gap_i
+```
+
+The current profile and face fluxes are taken from the same captured stage. The helper verifies (within operand-scaled roundoff) that the face current follows the stored (4\pi(q/m)F_{\rm rest}) convention, the charge-face rate is its negative, the metric-derived energy weight matches the saved geometry, and each captured HLL return equals its saved rest-mass face flux. It separately rebuilds every face from weighted-left, weighted-right, HLL-jump, centre/outer-boundary, and split-roundoff terms. Their cellwise work contributions must reconstruct both the direct primitive-current projection gap and the stored global charge-plus-Lorentz pairing. Signed per-cell and radial-band outputs are emitted; the HLL jump remains its own term.
+
+This is an implementation-consistency audit, not a new law. A “cell current equivalent” is the exact source-side operand used by the repository's existing Lorentz power; the arithmetic average of adjacent face currents is the existing flux-side projection. A difference between them describes the discrete interface mismatch, not pointwise physical nonconservation. No coefficient is fitted, no face/centre term is absorbed, and the physical carrier/current action remains a separate derivation gate.
+
+### Saved fixed-N sensitivity motivating this split
+
+On the already-run N=48, (q/m=0.25), (t=0.02) predictor witnesses, nominal (\Delta t=0.005,0.0025,0.00125) gives signed pairing (-5.63362,-5.08081,-4.81732\times10^{-13}), normalized cellwise pairing L1/component L1 (0.047912\%,0.047784\%,0.047531\%), and maximum cell/adjacent-face projection gap divided by maximum face current (0.3454\%,0.3469\%,0.3499\%). HLL-jump/pairing magnitude is (2.63,2.18,1.96\times10^{-11}). Because each CFL arm evolves a different state, this is fixed-N sensitivity, not a formal temporal-convergence order. It supports keeping the face/cell projection terms separated for further equation-level derivation.
