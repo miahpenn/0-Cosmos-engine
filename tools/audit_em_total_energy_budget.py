@@ -369,7 +369,8 @@ def _sector_ktheta_source_rates(
         factorized_work = -FOUR_PI * target**2 * pr_t * Rdot_t
         factorized_density = (FOUR_PI / 3.0) * target**2 * Rdot_t * rho_t
         factorized_identity = factorized_source - factorized_work + factorized_density
-        factorized_identity_rhs = FOUR_PI * target**2 * closure_t * (rho_t / 3.0 + pr_t)
+        factorized_closure = Rdot_t + alpha_t * target * Ktheta_t
+        factorized_identity_rhs = FOUR_PI * target**2 * factorized_closure * (rho_t / 3.0 + pr_t)
         profiles = {
             "rho": rho, "pr": pr, "pt": pt,
             "k_dot_matter_source": k_dot,
@@ -471,7 +472,8 @@ def _sector_ktheta_source_rates(
     factorized_work = -FOUR_PI * target**2 * pr_t * Rdot_t
     factorized_density = (FOUR_PI / 3.0) * target**2 * Rdot_t * rho_t
     factorized_identity = factorized_source - factorized_work + factorized_density
-    factorized_identity_rhs = FOUR_PI * target**2 * closure_t * (rho_t / 3.0 + pr_t)
+    factorized_closure = Rdot_t + alpha_t * target * Ktheta_t
+    factorized_identity_rhs = FOUR_PI * target**2 * factorized_closure * (rho_t / 3.0 + pr_t)
 
     return {
         "sectors": sector_rows,
@@ -480,6 +482,7 @@ def _sector_ktheta_source_rates(
         "additive_residuals": additive_residuals,
         "additive_bounds": additive_bounds,
         "kinematic_closure_Rdot_plus_alpha_R_Ktheta_at_R_star": float(closure_t),
+        "factorized_kinematic_closure_Rdot_plus_alpha_R_Ktheta_at_R_star": float(factorized_closure),
         "kinematic_closure_absmax": float(np.max(np.abs(closure))),
         "total_mass_source_composite_at_R_star": float(at(aggregate_profiles["mass_dot_coordinate_from_ktheta_source"])),
         "total_mass_source_factorized_at_R_star": float(factorized_source),
