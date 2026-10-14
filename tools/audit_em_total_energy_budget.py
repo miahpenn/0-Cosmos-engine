@@ -10,6 +10,7 @@ numbers go to stdout and the GitHub Actions step summary.
 from __future__ import annotations
 
 import argparse
+import copy
 from contextlib import contextmanager
 import json
 import math
@@ -59,9 +60,10 @@ DOMAIN_RADIUS_SWEEP_R_MAX = 32.0
 DOMAIN_RADIUS_SWEEP_RESOLUTION = 64
 DOMAIN_RADIUS_SWEEP_OVERLAP_R = 20.0
 
-# Blob IDs from main 31a7491bce8076e05a8524d442567cc39ed30d94. PR #179 added only
-# the opt-in runtime capability contract at this anchor; the audit stays pinned
-# to these exact production blobs and the vendor gitlink, not a moving main ref.
+# Production source blobs are pinned to baseline commit
+# 31a7491bce8076e05a8524d442567cc39ed30d94. Corrective PR #200 restored the
+# kernel and worldtube to that baseline; keep this research audit fail-closed
+# against those exact blobs and the vendor gitlink.
 SOURCE_PINS = {
     "engine/campaign.py": "119942d9debf63b99997cda96c541754e7e8aded",
     "engine/cmc_gauge.py": "7b49b5751abebd4faf0130208032cd2080b71f64",
@@ -2581,6 +2583,142 @@ def _hll_charge_tangent_split(
     }
 
 
+def _electromagnetic_l3_source_witness(
+    actual_primary_l3: dict,
+    matter_only_primary_l3: dict,
+    alpha,
+    electromagnetic_projection: dict[str, np.ndarray] | None,
+    matter_only_stress: dict[str, np.ndarray] | None = None,
+) -> dict:
+    """Reconstruct the direct EM stress contribution to same-stage Aa/K sources.
+
+    The subtraction holds geometry, lapse, scalar fields, and non-EM matter fixed.
+    It is an operator-level counterfactual, not a second evolved spacetime.
+    """
+    if electromagnetic_projection is None:
+        return {
+            "present": False,
+            "interpretation": "no electromagnetic stress projection at this stage",
+        }
+
+    alpha_values = np.asarray(alpha, dtype=np.float64)
+    if alpha_values.ndim != 1 or not np.all(np.isfinite(alpha_values)):
+        raise RuntimeError("EM geometry-source witness lapse must be a finite 1-D profile")
+    profiles = {}
+    for name in ("rho", "pr", "pt"):
+        if name not in electromagnetic_projection:
+            raise RuntimeError(f"EM geometry-source witness missing projected stress {name}")
+        profile = np.asarray(electromagnetic_projection[name], dtype=np.float64)
+        if profile.shape != alpha_values.shape or not np.all(np.isfinite(profile)):
+            raise RuntimeError(
+                f"EM geometry-source witness stress {name} has invalid shape or values"
+            )
+        profiles[name] = profile
+
+    if not isinstance(matter_only_stress, dict):
+        raise RuntimeError("EM geometry-source witness needs same-stage non-EM stress operands")
+    non_em_profiles = {}
+    for name in ("rho", "pr", "pt"):
+        if name not in matter_only_stress:
+            raise RuntimeError(f"EM geometry-source witness missing non-EM stress operand {name}")
+        profile = np.asarray(matter_only_stress[name], dtype=np.float64)
+        if profile.shape != alpha_values.shape or not np.all(np.isfinite(profile)):
+            raise RuntimeError(
+                f"EM geometry-source witness non-EM stress {name} has invalid shape or values"
+            )
+        non_em_profiles[name] = profile
+
+    expected = {
+        "K": 4.0 * np.pi * alpha_values * (
+            profiles["rho"] + profiles["pr"] + 2.0 * profiles["pt"]
+        ),
+        "Aa": -(16.0 * np.pi / 3.0) * alpha_values * (
+            profiles["pr"] - profiles["pt"]
+        ),
+    }
+    observed, checks = {}, {}
+    for name in ("K", "Aa"):
+        try:
+            actual = np.asarray(actual_primary_l3[name], dtype=np.float64)
+            non_em = np.asarray(matter_only_primary_l3[name], dtype=np.float64)
+        except (KeyError, TypeError) as exc:
+            raise RuntimeError(
+                f"EM geometry-source witness missing same-stage primary_l3.{name}"
+            ) from exc
+        if (
+            actual.shape != alpha_values.shape
+            or non_em.shape != alpha_values.shape
+            or not np.all(np.isfinite(actual))
+            or not np.all(np.isfinite(non_em))
+        ):
+            raise RuntimeError(
+                f"EM geometry-source witness primary_l3.{name} has invalid shape or values"
+            )
+        delta = actual - non_em
+        residual = delta - expected[name]
+        # Near the regular centre the radial/tangential source pieces can
+        # cancel strongly. Scale the software check to the stress operands
+        # used before differencing, not just to the small final source outputs.
+        if name == "K":
+            stress_operand_scale = 4.0 * np.pi * np.abs(alpha_values) * (
+                np.abs(non_em_profiles["rho"]) + np.abs(profiles["rho"])
+                + np.abs(non_em_profiles["pr"]) + np.abs(profiles["pr"])
+                + 2.0 * np.abs(non_em_profiles["pt"]) + 2.0 * np.abs(profiles["pt"])
+            )
+        else:
+            stress_operand_scale = (16.0 * np.pi / 3.0) * np.abs(alpha_values) * (
+                np.abs(non_em_profiles["pr"]) + np.abs(profiles["pr"])
+                + np.abs(non_em_profiles["pt"]) + np.abs(profiles["pt"])
+            )
+        operand_scale = (
+            np.abs(actual) + np.abs(non_em) + np.abs(expected[name]) + stress_operand_scale
+        )
+        bound = 128.0 * np.finfo(np.float64).eps * np.maximum(
+            operand_scale, np.finfo(np.float64).tiny
+        )
+        ratio = np.abs(residual) / bound
+        if np.any(~np.isfinite(ratio)) or np.any(ratio > 1.0):
+            worst = int(np.argmax(ratio))
+            raise RuntimeError(
+                "same-stage EM Einstein-source increment does not reconstruct from "
+                f"projected stress for {name}: cell={worst}, "
+                f"residual={residual[worst]:.17g}, bound={bound[worst]:.17g}, "
+                f"ratio={ratio[worst]:.17g}"
+            )
+        observed[name] = delta
+        checks[name] = {
+            "max_abs_residual": float(np.max(np.abs(residual))),
+            "roundoff_bound_max": float(np.max(bound)),
+            "max_bound_ratio": float(np.max(ratio)),
+        }
+
+    return {
+        "present": True,
+        "interpretation": (
+            "same-stage frozen-geometry source split: full primary L3 minus the "
+            "same-stage L3 reevaluated without the EM stress projection"
+        ),
+        "electromagnetic_stress_profiles": {
+            name: profile.tolist() for name, profile in profiles.items()
+        },
+        "primary_l3_em_source_increment": {
+            name: profile.tolist() for name, profile in observed.items()
+        },
+        "primary_l3_em_source_from_stress": {
+            name: profile.tolist() for name, profile in expected.items()
+        },
+        "roundoff_checks": checks,
+        "max_abs_electromagnetic_energy_density": float(
+            np.max(np.abs(profiles["rho"]))
+        ),
+        "max_abs_primary_l3_em_K_source": float(np.max(np.abs(observed["K"]))),
+        "max_abs_primary_l3_em_Aa_source": float(np.max(np.abs(observed["Aa"]))),
+        "max_em_source_reconstruction_bound_ratio": float(max(
+            item["max_bound_ratio"] for item in checks.values()
+        )),
+    }
+
+
 class AuditedKernel(V55ProductionKernel):
     """Production kernel with passive observers around unchanged stage methods."""
 
@@ -2712,7 +2850,31 @@ class AuditedKernel(V55ProductionKernel):
         if self._active_step is not None:
             _, vacuum, _ = adapter.vendor_modules()
             vacuum_l3 = vacuum.primary_l3_rhs(grid, geometry)
+            em_projection = self._electromagnetic_projection(
+                grid, geometry, electromagnetic
+            )
+            if em_projection is None:
+                em_source_witness = _electromagnetic_l3_source_witness(
+                    result["primary_l3"], result["primary_l3"], geometry.alpha, None
+                )
+            else:
+                # Frozen-stage counterfactual: retain the actual geometry,
+                # lapse, scalars, and non-EM matter, and omit only EM stress.
+                matter_only_l3 = adapter.primary_l3_with_matter(
+                    grid, geometry, scalars, matter
+                )
+                matter_only_total = assemble_total_stress_energy(
+                    grid, geometry, scalars, matter
+                )
+                em_source_witness = _electromagnetic_l3_source_witness(
+                    result["primary_l3"], matter_only_l3, geometry.alpha, em_projection,
+                    matter_only_stress={
+                        name: np.asarray(getattr(matter_only_total, name), dtype=np.float64)
+                        for name in ("rho", "pr", "pt")
+                    },
+                )
             self._active_step["geometry_stages"].append({
+                "electromagnetic_source_witness": em_source_witness,
                 "geometry": {
                     name: _array(getattr(geometry, name))
                     for name in ("a", "b", "X", "alpha", "beta", "Aa", "K")
@@ -3600,6 +3762,109 @@ def _pirk_accepted_update_einstein_source_arrays(geometry_stages) -> dict:
 
 
 
+def _field_metric_power_from_explicit_rhs(state, explicit_geometry: dict) -> dict:
+    """Recompute the explicit-geometry part of U_EM dot on a frozen stage."""
+    if state.electromagnetic is None:
+        empty = np.zeros(int(state.grid.n), dtype=np.float64)
+        return {"metric_power": 0.0, "log_weight_rate_profile": empty, "metric_tangent_cell_terms": empty}
+    grid, geom = state.grid, state.geometry
+    r = np.asarray(grid.centers, dtype=np.float64)
+    q = np.asarray(state.electromagnetic.enclosed_charge_faces, dtype=np.float64)
+    q_cell = 0.5 * (q[:-1] + q[1:])
+    weight = (
+        np.asarray(geom.X, dtype=np.float64) * np.sqrt(np.asarray(geom.a, dtype=np.float64))
+        / (np.square(r) * np.asarray(geom.b, dtype=np.float64))
+    )
+    log_rate = (
+        np.asarray(explicit_geometry["X"], dtype=np.float64) / geom.X
+        + 0.5 * np.asarray(explicit_geometry["a"], dtype=np.float64) / geom.a
+        - np.asarray(explicit_geometry["b"], dtype=np.float64) / geom.b
+    )
+    if (weight.shape != r.shape or q_cell.shape != r.shape or log_rate.shape != r.shape
+            or not np.all(np.isfinite(weight)) or not np.all(np.isfinite(q_cell))
+            or not np.all(np.isfinite(log_rate))):
+        raise RuntimeError("explicit EM metric tangent has invalid stage profiles")
+    terms = 0.5 * float(grid.dr) * weight * q_cell**2 * log_rate
+    return {
+        "metric_power": float(np.sum(terms)),
+        "log_weight_rate_profile": log_rate,
+        "metric_tangent_cell_terms": terms,
+    }
+
+
+def _metric_feedback_response_to_start_em_source(
+    predictor_state,
+    start_geometry_stage: dict,
+    predictor_explicit: dict,
+    dt: float,
+    captured_metric_power: float,
+) -> dict:
+    """Probe the frozen-predictor response to the dt-weighted start-stage EM L3 source.
+
+    Only the start-stage EM increments to K and Aa are subtracted from the live
+    predictor state. Other predictor fields, matter, scalars, lapse, charge,
+    and the time step stay fixed. This is a local operator response, not a
+    second evolved spacetime.
+    """
+    source_witness = start_geometry_stage.get("electromagnetic_source_witness")
+    if predictor_state.electromagnetic is None or not isinstance(source_witness, dict) or source_witness.get("present") is not True:
+        return {"present": False, "interpretation": "no active EM L3 source at start stage"}
+    source = source_witness["primary_l3_em_source_increment"]
+    source_K = np.asarray(source["K"], dtype=np.float64)
+    source_Aa = np.asarray(source["Aa"], dtype=np.float64)
+    geom = predictor_state.geometry
+    K = np.asarray(geom.K, dtype=np.float64)
+    Aa = np.asarray(geom.Aa, dtype=np.float64)
+    if (source_K.shape != K.shape or source_Aa.shape != Aa.shape
+            or not np.all(np.isfinite(source_K)) or not np.all(np.isfinite(source_Aa))
+            or not math.isfinite(float(dt)) or float(dt) <= 0.0):
+        raise RuntimeError("EM source-to-metric response has invalid K/Aa or dt operands")
+
+    counterfactual_geometry = copy.copy(geom)
+    counterfactual_geometry.K = K - float(dt) * source_K
+    counterfactual_geometry.Aa = Aa - float(dt) * source_Aa
+    _, _, moving = adapter.vendor_modules()
+    without_source_explicit = moving.moving_puncture_explicit_rhs(
+        predictor_state.grid, counterfactual_geometry
+    )
+    full = _field_metric_power_from_explicit_rhs(predictor_state, predictor_explicit)
+    without_source = _field_metric_power_from_explicit_rhs(
+        predictor_state, without_source_explicit
+    )
+    reconstruction_residual = full["metric_power"] - float(captured_metric_power)
+    reconstruction_scale = (
+        abs(full["metric_power"]) + abs(float(captured_metric_power))
+        + float(np.sum(np.abs(full["metric_tangent_cell_terms"])))
+    )
+    reconstruction_bound = 128.0 * np.finfo(np.float64).eps * max(
+        reconstruction_scale, float(np.finfo(np.float64).tiny)
+    )
+    if not math.isfinite(reconstruction_residual) or abs(reconstruction_residual) > reconstruction_bound:
+        raise RuntimeError(
+            "recomputed full predictor metric tangent disagrees with captured value: "
+            f"residual={reconstruction_residual:.17g}, bound={reconstruction_bound:.17g}"
+        )
+    response = full["metric_power"] - without_source["metric_power"]
+    log_rate_delta = (
+        np.asarray(full["log_weight_rate_profile"], dtype=np.float64)
+        - np.asarray(without_source["log_weight_rate_profile"], dtype=np.float64)
+    )
+    return {
+        "present": True,
+        "interpretation": "frozen-predictor local response after removing only dt times the start-stage EM L3 K/Aa increments",
+        "metric_power_with_full_predictor_source": full["metric_power"],
+        "metric_power_without_start_em_source": without_source["metric_power"],
+        "metric_power_response_to_start_em_source": float(response),
+        "response_abs_over_full_metric_power": (
+            abs(float(response)) / abs(float(full["metric_power"]))
+            if float(full["metric_power"]) != 0.0 else None
+        ),
+        "max_abs_delta_log_weight_rate": float(np.max(np.abs(log_rate_delta))),
+        "recomputed_full_metric_power_roundoff_residual": float(reconstruction_residual),
+        "recomputed_full_metric_power_roundoff_bound": float(reconstruction_bound),
+    }
+
+
 def _serialize_step(kernel, step: dict):
     stages = step["rhs_stages"]
     geometry_stages = step["geometry_stages"]
@@ -3624,6 +3889,10 @@ def _serialize_step(kernel, step: dict):
     before = step["state_before"]
     after = step["state_after"]
     dt = float(step["dt"])
+    start_source_metric_response = _metric_feedback_response_to_start_em_source(
+        stages[1]["stage_state"], geometry_stages[0],
+        geometry_stages[2]["explicit"], dt, stage_power_rows[1]["metric_power"],
+    )
     # Keep accepted charge endpoints so the independent reader can check the
     # actual Euler predictor and trapezoidal charge update, not only Qdot.
     em_charge_faces_before = (
@@ -3721,8 +3990,15 @@ def _serialize_step(kernel, step: dict):
                 "stage": str(stages[index]["stage"]),
                 "t": float(stages[index]["t"]),
                 **stage_power_rows[index],
+                "geometry_feedback_witness": geometry_stages[geom_index][
+                    "electromagnetic_source_witness"
+                ],
+                "geometry_feedback_response_to_start_em_source": (
+                    start_source_metric_response if index == 1
+                    else {"present": False, "interpretation": "evaluated at predictor only"}
+                ),
             }
-            for index in range(2)
+            for index, geom_index in ((0, 0), (1, 2))
         ],
         "matter_species": matter_step_rows,
         "em_field_energy_before": em_before,
@@ -4123,6 +4399,22 @@ def _summarize_fixed_N_temporal_pairing_refinement(runs: list[dict]) -> dict:
         max_projection_gap = float(np.max(np.abs(projection_gap)))
         signed_pairing = float(diagnostic["full_pairing_signed_global"])
         hll_jump = float(diagnostic["hll_jump_charge_tangent_global"])
+        geometry_feedback = stage_row.get("geometry_feedback_witness")
+        if not isinstance(geometry_feedback, dict) or geometry_feedback.get("present") is not True:
+            raise RuntimeError(
+                f"charged predictor at CFL={cfl} is missing its live EM geometry-source witness"
+            )
+        em_stress = geometry_feedback["electromagnetic_stress_profiles"]
+        em_source = geometry_feedback["primary_l3_em_source_increment"]
+        em_k_source = np.asarray(em_source["K"], dtype=np.float64)
+        em_aa_source = np.asarray(em_source["Aa"], dtype=np.float64)
+        source_roundoff = geometry_feedback["roundoff_checks"]
+        metric_power = float(stage_row["metric_power"])
+        metric_response = stage_row.get("geometry_feedback_response_to_start_em_source")
+        if not isinstance(metric_response, dict) or metric_response.get("present") is not True:
+            raise RuntimeError(
+                f"charged predictor at CFL={cfl} is missing its EM-source-to-metric response witness"
+            )
         rows.append({
             "resolution": TEMPORAL_REFINEMENT_RESOLUTION,
             "r_max": float(R_MAX),
@@ -4150,6 +4442,37 @@ def _summarize_fixed_N_temporal_pairing_refinement(runs: list[dict]) -> dict:
             "cellwise_component_reconstruction_max_bound_ratio": float(
                 diagnostic["roundoff_checks"]["max_cell_pairing_component_bound_ratio"]
             ),
+            "electromagnetic_geometry_feedback": {
+                "source_split": "actual same-stage primary L3 minus frozen-geometry no-EM-stress primary L3",
+                "max_abs_em_rho": float(np.max(np.abs(np.asarray(em_stress["rho"], dtype=np.float64)))),
+                "em_K_source_l3_signed_cell_sum": float(np.sum(em_k_source)),
+                "em_K_source_l3_l1_cell_sum": float(np.sum(np.abs(em_k_source))),
+                "em_K_source_l3_max_abs": float(np.max(np.abs(em_k_source))),
+                "em_Aa_source_l3_signed_cell_sum": float(np.sum(em_aa_source)),
+                "em_Aa_source_l3_l1_cell_sum": float(np.sum(np.abs(em_aa_source))),
+                "em_Aa_source_l3_max_abs": float(np.max(np.abs(em_aa_source))),
+                "metric_part_of_em_field_energy_tangent": metric_power,
+                "charge_current_part_of_em_field_energy_tangent": float(stage_row["charge_power"]),
+                "lorentz_power_into_matter": float(stage_row["matter_lorentz_power"]),
+                "source_reconstruction_max_bound_ratio": float(max(
+                    value["max_bound_ratio"] for value in source_roundoff.values()
+                )),
+                "metric_power_without_start_em_source": float(
+                    metric_response["metric_power_without_start_em_source"]
+                ),
+                "metric_power_response_to_start_em_source": float(
+                    metric_response["metric_power_response_to_start_em_source"]
+                ),
+                "metric_response_abs_over_full_metric_power": (
+                    metric_response["response_abs_over_full_metric_power"]
+                ),
+                "max_abs_delta_log_weight_rate_from_start_em_source": float(
+                    metric_response["max_abs_delta_log_weight_rate"]
+                ),
+                "metric_response_reconstruction_roundoff_bound": float(
+                    metric_response["recomputed_full_metric_power_roundoff_bound"]
+                ),
+            },
         })
 
     for previous, current in zip(rows[:-1], rows[1:]):
@@ -5749,6 +6072,30 @@ def write_step_summary(report: dict) -> None:
         "This compares actual stage witnesses, not a guessed quadrature. The live prefactor and face/cell projection are separate operands; metric tangent and HLL jump are shown separately; the two fixed-R gravitational remainder operators are not merged with the EM pairing or thresholded as closure.",
         "",
         "This compares the instantaneous face/cell projection at a common predictor time while keeping N and the initial domain fixed. The evolved state still depends on CFL, so ratios/orders are descriptive only; neither this split nor the fixed-R remainder is thresholded as a physical closure criterion.",
+        "",
+        "### Same-stage electromagnetic stress contribution to curvature",
+        "",
+        "The observer subtracts a frozen-geometry, same-state primary L3 evaluation without EM stress from the actual EM-inclusive primary L3 result. It checks the direct Aa/K source increment against projected electromagnetic (rho, pr, pt) using operand-scaled roundoff bounds. The metric contribution to field-energy change remains a separately measured term; matching this source split does not prove global energy closure.",
+        "",
+        "| CFL | max EM rho | max EM K-source | max EM Aa-source | metric tangent | without start EM source | source-only metric response | charge-current part | Lorentz power into matter | source split max bound ratio |",
+        "|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
+    ])
+    for row in pairing["rows"]:
+        feedback = row["electromagnetic_geometry_feedback"]
+        lines.append(
+            f"| {row['cfl']:.5g} | {feedback['max_abs_em_rho']:.6e} | "
+            f"{feedback['em_K_source_l3_max_abs']:.6e} | "
+            f"{feedback['em_Aa_source_l3_max_abs']:.6e} | "
+            f"{feedback['metric_part_of_em_field_energy_tangent']:.6e} | "
+            f"{feedback['metric_power_without_start_em_source']:.6e} | "
+            f"{feedback['metric_power_response_to_start_em_source']:.6e} | "
+            f"{feedback['charge_current_part_of_em_field_energy_tangent']:.6e} | "
+            f"{feedback['lorentz_power_into_matter']:.6e} | "
+            f"{feedback['source_reconstruction_max_bound_ratio']:.6e} |"
+        )
+    lines.extend([
+        "",
+        "For the current pure radial-electric sector, rho_EM>0, p_r=-rho_EM, p_t=+rho_EM, giving direct source increments Kdot_EM=8*pi*alpha*rho_EM and Aadot_EM=(32*pi/3)*alpha*rho_EM under the engine's sign conventions. The source-only response subtracts dt times the start-stage EM K/Aa increments from the predictor and recomputes the explicit geometry RHS, holding other predictor fields fixed. It is a local frozen-stage response, not a second evolved spacetime or a global causal attribution.",
         "",
         "The fixed-N sweep retains adjacent accepted-state interval secants, endpoint-rate trapezoids, actual start/predictor-stage rates, the pointwise chain-rule rate, and the derivative of the direct fixed-R piecewise-linear interpolant as separate witnesses. This does not identify a missing physics term or establish a global conserved energy.",
         "The live primary-L3 K and Aa matter-source increments are checked against independently reconstructed sector stress sources at a 64-epsilon operand-scaled bound.",
