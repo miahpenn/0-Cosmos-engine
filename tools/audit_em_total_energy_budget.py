@@ -4082,6 +4082,115 @@ def _run_fixed_N_temporal_refinement(temp_root: Path) -> list[dict]:
     return temporal_runs
 
 
+def _summarize_fixed_N_temporal_pairing_refinement(runs: list[dict]) -> dict:
+    """Compare face/cell EM pairing at one predictor time across fixed-N CFL arms."""
+    target_time = 0.02
+    rows = []
+    for cfl in TIME_STEP_CFL_VALUES:
+        found = [
+            run for run in runs
+            if float(run.get("cfl", math.nan)) == float(cfl)
+            and float(run.get("q_over_m", math.nan)) == 0.25
+        ]
+        if len(found) != 1:
+            raise RuntimeError(
+                f"temporal pairing expected one charged N={TEMPORAL_REFINEMENT_RESOLUTION} "
+                f"run at CFL={cfl}; found {len(found)}"
+            )
+        run = found[0]
+        if int(run.get("resolution", -1)) != int(TEMPORAL_REFINEMENT_RESOLUTION):
+            raise RuntimeError("temporal pairing run has the wrong fixed resolution")
+        stage_row = _find_serialized_stage_at_time(
+            run, stage_name="primary_predictor", target_time=target_time
+        )
+        diagnostic = _domain_stage_diagnostics(
+            run, stage_row, coordinate_radius_cut=float(R_MAX)
+        )
+        cell_current = np.asarray(
+            diagnostic["inner_cell_current_equivalent"], dtype=np.float64
+        )
+        face_current = np.asarray(
+            diagnostic["inner_face_currents"], dtype=np.float64
+        )
+        if face_current.shape != (cell_current.size + 1,):
+            raise RuntimeError(
+                f"temporal pairing at CFL={cfl} has inconsistent face/cell support"
+            )
+        projection_gap = cell_current - 0.5 * (
+            face_current[:-1] + face_current[1:]
+        )
+        max_face_current = float(np.max(np.abs(face_current)))
+        max_projection_gap = float(np.max(np.abs(projection_gap)))
+        signed_pairing = float(diagnostic["full_pairing_signed_global"])
+        hll_jump = float(diagnostic["hll_jump_charge_tangent_global"])
+        rows.append({
+            "resolution": TEMPORAL_REFINEMENT_RESOLUTION,
+            "r_max": float(R_MAX),
+            "cfl": float(cfl),
+            "nominal_dt": float(run["nominal_dt"]),
+            "stage": "primary_predictor",
+            "stage_t": target_time,
+            "full_pairing_signed_global": signed_pairing,
+            "full_pairing_abs_global": abs(signed_pairing),
+            "cell_defect_l1_full_domain": float(diagnostic["cell_defect_l1_inner"]),
+            "current_projection_gap_max_abs": max_projection_gap,
+            "max_abs_face_current": max_face_current,
+            "current_projection_gap_max_abs_over_max_face_current": (
+                max_projection_gap / max_face_current
+                if max_face_current > 0.0 else None
+            ),
+            "hll_jump_charge_tangent_global": hll_jump,
+            "hll_jump_abs_over_pairing_abs": (
+                abs(hll_jump) / abs(signed_pairing)
+                if signed_pairing != 0.0 else None
+            ),
+            "cellwise_component_reconstruction_max_abs": float(
+                diagnostic["roundoff_checks"]["max_abs_cell_pairing_component_residual"]
+            ),
+            "cellwise_component_reconstruction_max_bound_ratio": float(
+                diagnostic["roundoff_checks"]["max_cell_pairing_component_bound_ratio"]
+            ),
+        })
+
+    for previous, current in zip(rows[:-1], rows[1:]):
+        previous_abs = float(previous["full_pairing_abs_global"])
+        current_abs = float(current["full_pairing_abs_global"])
+        current["pairing_magnitude_ratio_vs_previous_coarser_dt"] = (
+            current_abs / previous_abs if previous_abs > 0.0 else None
+        )
+        previous_dt = float(previous["nominal_dt"])
+        current_dt = float(current["nominal_dt"])
+        current["observed_pairing_magnitude_order_vs_dt"] = (
+            math.log(previous_abs / current_abs) / math.log(previous_dt / current_dt)
+            if previous_abs > 0.0 and current_abs > 0.0
+            and previous_dt > current_dt > 0.0
+            else None
+        )
+    if rows:
+        rows[0]["pairing_magnitude_ratio_vs_previous_coarser_dt"] = None
+        rows[0]["observed_pairing_magnitude_order_vs_dt"] = None
+
+    return {
+        "classification": (
+            "same-time predictor-stage face/cell pairing at fixed N while CFL dt changes; "
+            "magnitude ratios and orders are descriptive, not a physical closure test"
+        ),
+        "resolution": TEMPORAL_REFINEMENT_RESOLUTION,
+        "r_max": float(R_MAX),
+        "q_over_m": 0.25,
+        "matched_predictor_time": target_time,
+        "stage": "primary_predictor",
+        "cfl_values": list(TIME_STEP_CFL_VALUES),
+        "rows": rows,
+        "interpretation_limit": (
+            "The evolved charged state differs across CFL arms even at the same nominal stage time. "
+            "This separates fixed-grid timestep sensitivity from the coupled grid-and-timestep sweep, "
+            "but does not by itself prove temporal order, identify a missing physics term, or establish "
+            "global finite-domain energy closure. Signed physical remainders remain unthresholded."
+        ),
+    }
+
+
 def _summarize_fixed_N_temporal_refinement(runs: list[dict]) -> dict:
     """Summarize matched charged/neutral runs without fitting a physical tolerance."""
     rows = []
@@ -4140,6 +4249,7 @@ def _summarize_fixed_N_temporal_refinement(runs: list[dict]) -> dict:
             "Charged-minus-neutral differences are only a discriminator; no physical/global residual threshold is imposed.",
         ],
         "rows": rows,
+        "predictor_stage_face_cell_pairing": _summarize_fixed_N_temporal_pairing_refinement(runs),
     }
 
 
@@ -5384,7 +5494,33 @@ def write_step_summary(report: dict) -> None:
             f"{row['final_interval_charged_minus_neutral_predictor_chain_fixed_R_residual']:.6e} | "
             f"{row['final_interval_charged_minus_neutral_predictor_interpolant_fixed_R_residual']:.6e} |"
         )
+    pairing = temporal["predictor_stage_face_cell_pairing"]
     lines.extend([
+        "",
+        "### Same-time predictor-stage face/cell pairing across CFL",
+        "",
+        f"Spatial resolution is fixed at N={pairing['resolution']} and all charged arms are sampled at "
+        f"the {pairing['stage']} time t={pairing['matched_predictor_time']:.3f}.",
+        "",
+        "| CFL | nominal dt | signed full pairing | L1 cell defect | max projection gap / max face current | HLL jump / |pairing| | |pairing| ratio vs coarser dt | descriptive dt order |",
+        "|---:|---:|---:|---:|---:|---:|---:|---:|",
+    ])
+    for row in pairing["rows"]:
+        ratio = row["pairing_magnitude_ratio_vs_previous_coarser_dt"]
+        order = row["observed_pairing_magnitude_order_vs_dt"]
+        ratio_text = f"{ratio:.6e}" if ratio is not None else "n/a"
+        order_text = f"{order:.6e}" if order is not None else "n/a"
+        lines.append(
+            f"| {row['cfl']:.5g} | {row['nominal_dt']:.6e} | "
+            f"{row['full_pairing_signed_global']:.6e} | "
+            f"{row['cell_defect_l1_full_domain']:.6e} | "
+            f"{row['current_projection_gap_max_abs_over_max_face_current']:.6e} | "
+            f"{row['hll_jump_abs_over_pairing_abs']:.6e} | "
+            f"{ratio_text} | {order_text} |"
+        )
+    lines.extend([
+        "",
+        "This compares the instantaneous face/cell projection at a common predictor time while keeping N and the initial domain fixed. The evolved state still depends on CFL, so ratios/orders are descriptive only; neither this split nor the fixed-R remainder is thresholded as a physical closure criterion.",
         "",
         "The fixed-N sweep retains adjacent accepted-state interval secants, endpoint-rate trapezoids, actual start/predictor-stage rates, the pointwise chain-rule rate, and the derivative of the direct fixed-R piecewise-linear interpolant as separate witnesses. This does not identify a missing physics term or establish a global conserved energy.",
         "The live primary-L3 K and Aa matter-source increments are checked against independently reconstructed sector stress sources at a 64-epsilon operand-scaled bound.",
