@@ -1,9 +1,10 @@
 """Research-only top-level runner for the archived two-lane GEAR machine.
 
-This composes the existing local and homogeneous COSMOS RHS modules without
-introducing a cross-lane source. The two clocks are independent: local mode time
-is tau; COSMOS coordinate time is t. This is a bounded research harness, not a
-production campaign or a claim of scientific admission.
+The default local lane follows the reduced local-mode equations in the preserved
+GEAR archive DOCX; an explicit comparison mode calls the current engine.local RHS.
+The homogeneous COSMOS lane uses the corrected, normalized engine.cosmos equations.
+No cross-lane source is introduced. Local time tau and cosmic time t stay separate.
+This is a bounded research harness, not a production or admission claim.
 """
 from __future__ import annotations
 
@@ -32,6 +33,22 @@ ARCHIVE_OPEN_GATES = {
 }
 
 DEFAULT_LOCAL_INITIAL_STATE = (0.02, 0.0, 1.0e-8, 0.0)
+
+
+def archive_docx_local_rhs(y: Sequence[float], p: LocalParams) -> tuple[float, ...]:
+    """Reduced local RHS transcribed from the preserved GEAR archive DOCX.
+
+    This is the archive's mode-space equation, not the full spherical PDE:
+    Sdd = -(kappa+g) S
+    Ddd = (g-kappa) D - eta_G D**2 Ddot
+          - (2*pi/3) G (g-kappa) D**3
+    """
+    S, Sd, D, Dd = _finite_vector(y, name="archive local state", size=4)
+    omega2 = p.kappa + p.g
+    alpha2 = p.g - p.kappa
+    barrier = (2.0 * 3.141592653589793 / 3.0) * p.G * alpha2 * D**3
+    damping = p.eta_G * D**2 * Dd
+    return (Sd, -omega2 * S, Dd, alpha2 * D - damping - barrier)
 
 
 @dataclass(frozen=True)
@@ -189,6 +206,7 @@ def run_machine(
     local_params: LocalParams | None = None,
     cosmos_params: CosmosParams | None = None,
     local_initial_state: Sequence[float] = DEFAULT_LOCAL_INITIAL_STATE,
+    local_equation_set: str = "archive_docx",
 ) -> dict[str, object]:
     """Run the archived local and homogeneous lanes independently.
 
@@ -200,6 +218,8 @@ def run_machine(
     _validate_time_controls(cosmos_t_final, cosmos_dt, sample_every, "COSMOS")
     if isinstance(cosmic_branch, bool) or not isinstance(cosmic_branch, int) or cosmic_branch not in (-1, 1):
         raise ValueError("cosmic_branch must be +1 (expansion) or -1 (contraction)")
+    if local_equation_set not in ("archive_docx", "current_source"):
+        raise ValueError("local_equation_set must be 'archive_docx' or 'current_source'")
 
     lp = local_params or LocalParams()
     cp = cosmos_params or CosmosParams()
@@ -212,9 +232,16 @@ def run_machine(
     if not isclose(lp.alpha_D * lp.alpha_D, alpha2, rel_tol=1.0e-12, abs_tol=1.0e-14):
         raise ValueError("archive GEAR-03 lock requires alpha_D**2 == g-kappa")
 
+    if local_equation_set == "archive_docx":
+        selected_local_rhs = lambda y: archive_docx_local_rhs(y, lp)
+        local_equation_source = "preserved GEAR archive DOCX reduced local_rhs"
+    else:
+        selected_local_rhs = lambda y: local_rhs(y, lp, H=0.0)
+        local_equation_source = "engine.local.local_rhs(..., H=0.0); eta_G unused by source"
+
     local_trace = _integrate_lane(
         y0_local,
-        lambda y: local_rhs(y, lp, H=0.0),
+        selected_local_rhs,
         final_time=local_tau_final,
         dt=local_dt,
         sample_every=sample_every,
@@ -263,12 +290,13 @@ def run_machine(
         },
         "open_gates": dict(ARCHIVE_OPEN_GATES),
         "local": {
+            "equation_set": local_equation_set,
+            "equation_source": local_equation_source,
             "time_name": local_trace.time_name,
             "time": list(local_trace.time),
             "state": local_states,
             "energy_and_activity_ledgers": local_ledgers,
             "oscillator_phase_theta": list(_local_cycle_phase(local_trace, lp)),
-            "equation_source": "engine.local.local_rhs(..., H=0.0)",
         },
         "cosmos": {
             "time_name": cosmos_trace.time_name,
@@ -292,6 +320,7 @@ __all__ = [
     "ARCHIVE_OPEN_GATES",
     "DEFAULT_LOCAL_INITIAL_STATE",
     "LaneTrace",
+    "archive_docx_local_rhs",
     "rk4_step",
     "run_machine",
 ]
