@@ -37,6 +37,11 @@ from engine.run_production import run_campaign
 from engine.stress_energy import assemble_total_stress_energy
 from engine.worldtube import areal_radius, areal_radius_derivative, invariant_chi, misner_sharp
 
+from tools.fixed_r_discriminators import (
+    frozen_geometry_stress_balance,
+    pure_sector_rates,
+)
+
 
 FOUR_PI = 4.0 * math.pi
 RESOLUTIONS = (24, 48, 96)
@@ -1168,6 +1173,34 @@ def _worldtube_sample(kernel, state, *, geometry_stage_capture=None) -> dict:
         Rdot=Rdot,
         target=FIXED_AREAL_RADIUS,
     )
+
+    # Independent named discriminators. The frozen-geometry expression uses
+    # these same supplied snapshot profiles and does not re-evolve geometry.
+    frozen_geometry_balance = frozen_geometry_stress_balance(
+        R=R, alpha=geom.alpha, gamma_rr_inv=gamma_rr_inv, Rr=Rr,
+        Rdot=Rdot, j=total.j, pr=total.pr, rho=total.rho,
+        target_areal_radius=FIXED_AREAL_RADIUS,
+    )
+    sector_discriminator = pure_sector_rates(
+        total, R=R, alpha=geom.alpha, gamma_rr_inv=gamma_rr_inv,
+        Rr=Rr, Rdot=Rdot, target_areal_radius=FIXED_AREAL_RADIUS,
+    )
+    # Keep the legacy sector ledger and the extracted pure helper aligned.
+    # This is an implementation-consistency check, not a physical residual test.
+    for sector_name, legacy in sector_rates["sectors"].items():
+        extracted = sector_discriminator["sectors"][sector_name]
+        for term in ("stress_flux", "radial_pressure_work"):
+            old_value = float(legacy[term])
+            new_value = float(extracted[term])
+            scale = max(abs(old_value) + abs(new_value),
+                        float(np.finfo(np.float64).tiny))
+            if (not math.isfinite(old_value) or not math.isfinite(new_value)
+                    or abs(old_value - new_value)
+                    > 64.0 * np.finfo(np.float64).eps * scale):
+                raise RuntimeError(
+                    "extracted pure-sector discriminator disagrees with legacy "
+                    f"sector ledger: {sector_name}.{term}"
+                )
     composite_flux_profile, composite_pressure_work_profile = (
         _fixed_R_composite_flux_work_profiles(
             R, geom.alpha, gamma_rr_inv, total.j, Rr, total.pr, Rdot
@@ -1501,6 +1534,8 @@ def _worldtube_sample(kernel, state, *, geometry_stage_capture=None) -> dict:
         "tube_coordinate_sweep": tube_sweep,
         "tube_predicted_fixed_R_mass_rate": predicted_fixed_R_rate,
         "tube_sector_rates": sector_rates,
+        "frozen_geometry_balance": frozen_geometry_balance,
+        "pure_sector_rates": sector_discriminator,
         "tube_native_mass_gradient_identity_rhs": mass_gradient_rhs,
         "tube_native_mass_gradient_identity_residual": mass_gradient_residual,
         "tube_mass_gradient_identity_witness": mass_gradient_witness,
@@ -1576,6 +1611,9 @@ def _fixed_R_rate_snapshot(sample: dict) -> dict:
             snapshot[key] = sample[key]
     if "tube_sector_rates" in sample:
         snapshot["tube_sector_rates"] = sample["tube_sector_rates"]
+    for key in ("frozen_geometry_balance", "pure_sector_rates"):
+        if key in sample:
+            snapshot[key] = sample[key]
     if "tube_ktheta_matter_source_rates" in sample:
         snapshot["tube_ktheta_matter_source_rates"] = sample["tube_ktheta_matter_source_rates"]
     if "tube_mass_gradient_identity_witness" in sample:

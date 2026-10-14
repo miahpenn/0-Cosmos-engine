@@ -4,6 +4,11 @@ import numpy as np
 import pytest
 from types import SimpleNamespace
 
+from tools.fixed_r_discriminators import (
+    frozen_geometry_stress_balance,
+    pure_sector_rates,
+)
+
 from tools.audit_em_total_energy_budget import (
     SOURCE_PINS,
     VENDOR_GITLINK,
@@ -981,3 +986,44 @@ def test_mass_gradient_witness_fails_closed_on_invalid_inputs(bad_kind):
             values["Rr"], values["Rdot"], values["alpha"],
             values["hamiltonian"], values["momentum"], target=target,
         )
+
+def test_frozen_geometry_discriminator_returns_finite_zero_balance_and_guards_lapse():
+    R = np.array([8.0, 12.0])
+    zeros = np.zeros_like(R)
+    ones = np.ones_like(R)
+    args = dict(
+        R=R, alpha=ones, gamma_rr_inv=ones, Rr=ones, Rdot=zeros,
+        j=zeros, pr=zeros, rho=zeros, target_areal_radius=10.0,
+    )
+    out = frozen_geometry_stress_balance(**args)
+    assert out["predicted_fixed_R_rate"] == 0.0
+    assert out["stress_flux"] == 0.0
+    assert out["radial_pressure_work"] == 0.0
+    assert math.isfinite(out["mass_gradient_rhs"])
+    for lapse in (np.zeros_like(R), -ones):
+        bad = dict(args)
+        bad["alpha"] = lapse
+        with pytest.raises(RuntimeError, match="strictly positive"):
+            frozen_geometry_stress_balance(**bad)
+
+
+def test_pure_sector_discriminator_adds_to_aggregate_at_roundoff():
+    R = np.array([8.0, 12.0])
+    zeros = np.zeros_like(R)
+    ones = np.ones_like(R)
+    total = SimpleNamespace(
+        j=zeros, pr=zeros,
+        scalar_j=zeros, scalar_pr=zeros,
+        fluid_j=zeros, fluid_pr=zeros,
+        electromagnetic_j=zeros, electromagnetic_pr=zeros,
+    )
+    out = pure_sector_rates(
+        total, R=R, alpha=ones, gamma_rr_inv=ones,
+        Rr=ones, Rdot=ones, target_areal_radius=10.0,
+    )
+    assert set(out["sectors"]) == {"scalar", "fluid", "electromagnetic"}
+    assert out["additive_flux_residual"] == 0.0
+    assert out["additive_work_residual"] == 0.0
+    assert out["additive_flux_bound"] > 0.0
+    assert out["additive_work_bound"] > 0.0
+
