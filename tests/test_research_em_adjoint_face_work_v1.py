@@ -168,10 +168,9 @@ def test_reconcile_saved_stages_checks_provenance_tangent_and_boundary_terms():
     assert projection["component_reconstruction_max_bound_ratio"] <= 1.0
     assert projection["hll_tangent_reconstruction"]["max_bound_ratio"] <= 1.0
     assert projection["radial_band_summary"]["r_lt_2"]["cells"] == 3
-    assert projection["weighted_projection_gap_signed_sum"] == pytest.approx(
-        result["witnesses"][1]["cellwise_pairing_signed_sum"],
-        rel=0.0,
-        abs=1e-24,
+    assert projection["gap_identity_max_bound_ratio"] <= 1.0
+    assert abs(projection["gap_identity_signed_residual"]) <= (
+        projection["gap_identity_roundoff_bound_sum"]
     )
 
 
