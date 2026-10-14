@@ -1523,6 +1523,11 @@ def _summarize_em_stage_exchange(report: dict[str, Any]) -> dict[str, Any]:
                     "stage", "t", "interval_index",
                     "charge_current_tangent", "cell_centered_current_tangent",
                     "matter_lorentz_power", "outer_current_power",
+                    "full_functional_charge_tangent_plus_lorentz_remainder_unthresholded",
+                    "boundary_separated_exchange_remainder_unthresholded",
+                    "boundary_separation_adjustment_unthresholded",
+                    "full_minus_boundary_separated_remainder_unthresholded",
+                    "full_functional_exchange_relative_remainder_unthresholded",
                     "face_minus_cell_current_tangent_mismatch_unthresholded",
                     "exchange_only_remainder_unthresholded",
                     "exchange_from_face_cell_current_mismatch_unthresholded",
@@ -1540,6 +1545,34 @@ def _summarize_em_stage_exchange(report: dict[str, Any]) -> dict[str, Any]:
             "interval_count": len(interval_rows),
             "exchange_only_remainder_absmax_unthresholded": max(
                 (abs(float(row["exchange_only_remainder_unthresholded"])) for row in stage_rows),
+                default=0.0,
+            ),
+            "full_functional_charge_tangent_plus_lorentz_remainder_absmax_unthresholded": max(
+                (
+                    abs(float(row.get(
+                        "full_functional_charge_tangent_plus_lorentz_remainder_unthresholded",
+                        float(row.get("charge_current_tangent", 0.0))
+                        + float(row.get("matter_lorentz_power", 0.0)),
+                    )))
+                    for row in stage_rows
+                ),
+                default=0.0,
+            ),
+            "full_functional_exchange_relative_remainder_absmax_unthresholded": max(
+                (
+                    abs(float(row.get("full_functional_exchange_relative_remainder_unthresholded", 0.0)))
+                    for row in stage_rows
+                ),
+                default=0.0,
+            ),
+            "boundary_separation_adjustment_absmax_unthresholded": max(
+                (
+                    abs(float(row.get(
+                        "boundary_separation_adjustment_unthresholded",
+                        -float(row.get("outer_current_power", 0.0)),
+                    )))
+                    for row in stage_rows
+                ),
                 default=0.0,
             ),
             "exchange_only_relative_remainder_absmax_unthresholded": max(
