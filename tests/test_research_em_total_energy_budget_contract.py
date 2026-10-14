@@ -743,6 +743,25 @@ def test_numeric_tree_difference_preserves_nested_signed_witness_operands():
     assert observed["theta"] == pytest.approx(0.2)
 
 
+def test_numeric_tree_difference_omits_per_arm_bound_metadata_from_deltas():
+    observed = _numeric_tree_difference(
+        {
+            "signed_residual": -2.0,
+            "reconstruction_bound": 1.0e-9,
+            "nested": {"component": 3.0, "component_roundoff_bound": 2.0e-12},
+        },
+        {
+            "signed_residual": -5.0,
+            "reconstruction_bound": 4.0e-9,
+            "nested": {"component": 1.0, "component_roundoff_bound": 3.0e-12},
+        },
+    )
+    assert observed["signed_residual"] == pytest.approx(3.0)
+    assert observed["nested"]["component"] == pytest.approx(2.0)
+    assert "reconstruction_bound" not in observed
+    assert "component_roundoff_bound" not in observed["nested"]
+
+
 def test_misner_sharp_semidiscrete_chain_rule_fails_closed_on_shape_mismatch():
     inputs = _manufactured_misner_sharp_chain_rule_inputs()
     inputs["Rdot_r"] = np.array([0.0, 1.0])
