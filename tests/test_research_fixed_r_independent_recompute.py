@@ -320,6 +320,12 @@ def test_independent_em_stage_recomputation_rebuilds_face_charge_and_energy_tang
     assert result["full_minus_boundary_separated_remainder_unthresholded"] == pytest.approx(
         result["outer_current_power"], abs=1e-18
     )
+    assert result["outer_face_charge_tangent_contribution_unthresholded"] == pytest.approx(
+        result["outer_current_power"], abs=0.0
+    )
+    assert "not independently derived here as a physical Poynting flux" in result[
+        "outer_current_power_semantics"
+    ]
     assert result["exchange_only_remainder_unthresholded"] != 0.0
     assert all(check["bound_ratio"] <= 1.0 for check in result["algebraic_roundoff_checks"].values())
 
@@ -389,6 +395,12 @@ def test_same_stage_em_witness_joins_actual_charged_dust_energy_boundary_flux():
     )
     # Keep the two boundary conventions separately measured, not assumed equal.
     assert "em_outer_current_power_unthresholded" in witness
+    assert witness["em_outer_face_charge_tangent_contribution_unthresholded"] == pytest.approx(
+        witness["em_outer_current_power_unthresholded"], abs=0.0
+    )
+    assert "not independently derived here as a physical Poynting flux" in witness[
+        "em_outer_current_power_semantics"
+    ]
     assert "outer_energy_flux_rate_stored_convention" in witness
     assert witness["physical_residual_threshold_applied"] is False
 
@@ -658,6 +670,10 @@ def test_combined_matter_em_candidates_keep_outer_term_choice_explicit():
     assert no_outer == pytest.approx(measured_combined - 1.7)
     assert with_outer == pytest.approx(measured_combined - 1.65)
     assert no_outer - with_outer == pytest.approx(outer)
+    assert result["em_outer_face_charge_tangent_summand_start_predictor_average_unthresholded"] == pytest.approx(outer)
+    assert "not independently derived here as a physical Poynting flux" in result[
+        "em_outer_current_power_semantics"
+    ]
     assert result["remainder_candidate_difference_minus_em_outer_unthresholded"] == pytest.approx(0.0)
     assert result["physical_residual_threshold_applied"] is False
 
