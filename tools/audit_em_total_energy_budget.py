@@ -2019,6 +2019,7 @@ def _worldtube_sample(kernel, state, *, geometry_stage_capture=None) -> dict:
                 "b": raw_profile(geom.b),
                 "X": raw_profile(geom.X),
                 "alpha": raw_profile(geom.alpha),
+                "beta": raw_profile(geom.beta),
                 "a_dot_explicit": raw_profile(a_dot),
                 "b_dot_explicit": raw_profile(b_dot),
                 "X_dot_explicit": raw_profile(X_dot),
