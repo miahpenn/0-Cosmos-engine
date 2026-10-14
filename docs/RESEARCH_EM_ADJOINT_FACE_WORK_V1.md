@@ -12,29 +12,30 @@ Current production tree at claim time: `ee63d1d195dbdce6962c482e9866528463650e29
 
 At fixed geometry the existing functional is
 
-[
-U_{m EM}(Q)=rac{Delta r}{2}sum_{i=0}^{N-1}w_i,ar Q_i^2,qquad
-ar Q_i=rac{Q_i+Q_{i+1}}{2}.
-]
+\[
+U_{\rm EM}(Q)=\frac{\Delta r}{2}\sum_{i=0}^{N-1}w_i\,\bar Q_i^2,\qquad
+\bar Q_i=\frac{Q_i+Q_{i+1}}{2}.
+\]
 
 Here (Q_k) is enclosed charge on face (k), (ar Q_i) is its adjacent-face average, and (w_i) is the already-computed positive geometry weight. The helper accepts (w_i) as input so it does not quietly introduce a new geometry convention.
 
 Differentiating with respect to every face charge gives
 
-[
-rac{partial U}{partial Q_0}=rac{Delta r}{2}w_0ar Q_0,quad
-rac{partial U}{partial Q_k}=rac{Delta r}{2}
-(w_{k-1}ar Q_{k-1}+w_kar Q_k),quad
-rac{partial U}{partial Q_N}=rac{Delta r}{2}w_{N-1}ar Q_{N-1}.
-]
+\[
+\frac{\partial U}{\partial Q_0}=\frac{\Delta r}{2}w_0\bar Q_0,\quad
+\frac{\partial U}{\partial Q_k}=\frac{\Delta r}{2}
+\left(w_{k-1}\bar Q_{k-1}+w_k\bar Q_k\right),\quad
+\frac{\partial U}{\partial Q_N}=\frac{\Delta r}{2}w_{N-1}\bar Q_{N-1}.
+\]
 
 Therefore the charge/current tangent has two independent exact forms:
 
-[
-dot U_{m charge}
-=Delta rsum_i w_iar Q_irac{dot Q_i+dot Q_{i+1}}2
-=sum_krac{partial U}{partial Q_k}dot Q_k.
-]
+\[
+\dot U_{\rm charge}
+=\Delta r\sum_{i=0}^{N-1}w_i\bar Q_i
+\frac{\dot Q_i+\dot Q_{i+1}}{2}
+=\sum_{k=0}^{N}\frac{\partial U}{\partial Q_k}\dot Q_k.
+\]
 
 The implementation reports both forms and their centre/interior/outer-face decomposition. Its closure check fails closed at a 128-epsilon operand-scaled bound. Under the declared separate charged-dust convention, the software update uses (dot Q_k=-4pi(q/m)F_k); this is recorded as an implementation convention, not a derivation that GEAR selects this carrier/action.
 
