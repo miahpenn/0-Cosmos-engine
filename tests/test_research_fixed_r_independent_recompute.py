@@ -121,7 +121,7 @@ def test_independent_fixed_r_reconstruction_keeps_operator_conventions_separate(
         values["factor_fixed_R_residual_unthresholded"], abs=1e-14
     )
     assert set(result["cells"]) == {"2", "3"}
-    assert "physical residual threshold" in result["interpretation"]
+    assert "without a pass/fail threshold" in result["interpretation"]
 
 
 def test_independent_fixed_r_reconstruction_fails_on_bad_saved_derivative():
