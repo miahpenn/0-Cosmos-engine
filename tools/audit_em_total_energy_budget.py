@@ -718,7 +718,8 @@ def _misner_sharp_chain_rule_rate_profiles(
 
 def _misner_sharp_chain_rule_bracket_operands(
     R, Rdot, Rr, Rdot_r, gamma_inv, gamma_inv_dot, Ktheta, Ktheta_dot,
-    Ktheta_dot_matter_source, *, target: float
+    Ktheta_dot_primary_l2, Ktheta_dot_vacuum_l3, Ktheta_dot_matter_source,
+    *, target: float
 ) -> dict:
     """Retain signed stage operands and source/non-source Ktheta-dot terms at R*'s bracket cells."""
     raw = {
@@ -730,6 +731,8 @@ def _misner_sharp_chain_rule_bracket_operands(
         "gamma_inv_dot": gamma_inv_dot,
         "Ktheta": Ktheta,
         "Ktheta_dot": Ktheta_dot,
+        "Ktheta_dot_primary_l2": Ktheta_dot_primary_l2,
+        "Ktheta_dot_vacuum_l3": Ktheta_dot_vacuum_l3,
         "Ktheta_dot_matter_source": Ktheta_dot_matter_source,
     }
     arrays = {name: np.asarray(value, dtype=float) for name, value in raw.items()}
@@ -766,9 +769,38 @@ def _misner_sharp_chain_rule_bracket_operands(
     term_Ktheta_geometry = (
         radii**2 * arrays["Rdot"] * arrays["Ktheta"]**2
     )
+    term_Ktheta_dot_primary_l2 = (
+        radii**3 * arrays["Ktheta"] * arrays["Ktheta_dot_primary_l2"]
+    )
+    term_Ktheta_dot_vacuum_l3 = (
+        radii**3 * arrays["Ktheta"] * arrays["Ktheta_dot_vacuum_l3"]
+    )
     term_Ktheta_dot_matter_source = (
         radii**3 * arrays["Ktheta"] * arrays["Ktheta_dot_matter_source"]
     )
+    ktheta_dot_from_captured_pieces = (
+        arrays["Ktheta_dot_primary_l2"]
+        + arrays["Ktheta_dot_vacuum_l3"]
+        + arrays["Ktheta_dot_matter_source"]
+    )
+    ktheta_dot_reconstruction_residual = (
+        arrays["Ktheta_dot"] - ktheta_dot_from_captured_pieces
+    )
+    ktheta_dot_reconstruction_scale = (
+        np.abs(arrays["Ktheta_dot"])
+        + np.abs(arrays["Ktheta_dot_primary_l2"])
+        + np.abs(arrays["Ktheta_dot_vacuum_l3"])
+        + np.abs(arrays["Ktheta_dot_matter_source"])
+    )
+    ktheta_dot_reconstruction_bound = (
+        64.0 * np.finfo(np.float64).eps
+        * np.maximum(ktheta_dot_reconstruction_scale, np.finfo(np.float64).tiny)
+    )
+    if np.any(np.abs(ktheta_dot_reconstruction_residual) > ktheta_dot_reconstruction_bound):
+        raise RuntimeError(
+            "captured primary-L2, vacuum-L3 and Einstein source Ktheta-dot pieces "
+            "failed roundoff reconstruction"
+        )
     term_Ktheta_dot_non_matter = (
         radii**3 * arrays["Ktheta"]
         * (arrays["Ktheta_dot"] - arrays["Ktheta_dot_matter_source"])
@@ -815,12 +847,34 @@ def _misner_sharp_chain_rule_bracket_operands(
             "Ktheta_dot_total_from_primary_L2_plus_L3": float(
                 arrays["Ktheta_dot"][index]
             ),
+            "Ktheta_dot_primary_l2_from_captured_production_L2": float(
+                arrays["Ktheta_dot_primary_l2"][index]
+            ),
+            "Ktheta_dot_vacuum_l3_from_captured_vacuum_L3": float(
+                arrays["Ktheta_dot_vacuum_l3"][index]
+            ),
             "Ktheta_dot_matter_source_from_same_stage_live_minus_vacuum_L3": float(
                 arrays["Ktheta_dot_matter_source"][index]
             ),
             "Ktheta_dot_non_matter_remainder": float(
                 arrays["Ktheta_dot"][index]
                 - arrays["Ktheta_dot_matter_source"][index]
+            ),
+            "Ktheta_dot_non_matter_from_L2_plus_vacuum_L3": float(
+                arrays["Ktheta_dot_primary_l2"][index]
+                + arrays["Ktheta_dot_vacuum_l3"][index]
+            ),
+            "Ktheta_dot_reconstruction_residual_total_minus_L2_vacuum_L3_and_source": float(
+                ktheta_dot_reconstruction_residual[index]
+            ),
+            "Ktheta_dot_reconstruction_roundoff_bound": float(
+                ktheta_dot_reconstruction_bound[index]
+            ),
+            "mass_dot_coordinate_term_Ktheta_dot_primary_l2": float(
+                term_Ktheta_dot_primary_l2[index]
+            ),
+            "mass_dot_coordinate_term_Ktheta_dot_vacuum_l3": float(
+                term_Ktheta_dot_vacuum_l3[index]
             ),
             "mass_dot_coordinate_term_Rdot": float(term_Rdot[index]),
             "mass_dot_coordinate_term_gamma_inv_dot": float(
@@ -1165,6 +1219,14 @@ def _worldtube_sample(kernel, state, *, geometry_stage_capture=None) -> dict:
             grid.cell_derivative_fourth(chain_profiles["mass"], parity=-1),
             dtype=float,
         )
+        primary_l2_Ktheta_dot_profile = (
+            np.asarray(split["primary_l2"]["K"], dtype=float) / 3.0
+            - np.asarray(split["primary_l2"]["Aa"], dtype=float) / 2.0
+        )
+        vacuum_l3_Ktheta_dot_profile = (
+            np.asarray(vacuum_primary_l3["K"], dtype=float) / 3.0
+            - np.asarray(vacuum_primary_l3["Aa"], dtype=float) / 2.0
+        )
         source_Ktheta_dot_profile = (
             (
                 np.asarray(split["primary_l3"]["K"], dtype=float)
@@ -1177,7 +1239,8 @@ def _worldtube_sample(kernel, state, *, geometry_stage_capture=None) -> dict:
         )
         chain_bracket_witness = _misner_sharp_chain_rule_bracket_operands(
             R, Rdot, Rr, Rdot_r, gamma_rr_inv, gamma_inv_dot,
-            Ktheta, Ktheta_dot, source_Ktheta_dot_profile,
+            Ktheta, Ktheta_dot, primary_l2_Ktheta_dot_profile,
+            vacuum_l3_Ktheta_dot_profile, source_Ktheta_dot_profile,
             target=FIXED_AREAL_RADIUS,
         )
         # Attach the actual-stage operands and local composite balance to both
