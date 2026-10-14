@@ -1297,6 +1297,134 @@ def recompute_charged_dust_boundary_witness(
     }
 
 
+
+def recompute_combined_matter_em_accounting_candidates(
+    row: dict[str, Any],
+    source_rows: list[dict[str, Any]],
+    em_stage_rows: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Rebuild both whole-domain matter+EM bookkeeping candidates from raw stages.
+
+    The two candidates differ only in whether the outer-current summand already
+    contained in the full discrete field-energy tangent is also listed as a
+    separate term. Neither convention is selected as the physical identity here.
+    The wider gravity/scalar/Killing-energy ledger is incomplete, so neither
+    remainder is a global conservation residual.
+    """
+    dt = float(row.get("dt", math.nan))
+    if not math.isfinite(dt) or dt <= 0.0:
+        raise RuntimeError("combined matter/EM candidates require positive finite dt")
+    if len(source_rows) != 2 or len(em_stage_rows) != 2:
+        raise RuntimeError("combined matter/EM candidates require start and predictor stages")
+
+    species_rows = row.get("matter_species")
+    if not isinstance(species_rows, dict) or not species_rows:
+        raise RuntimeError("combined matter/EM candidates lack matter endpoint energies")
+    measured_matter_rate = 0.0
+    for name, item in species_rows.items():
+        if not isinstance(item, dict):
+            raise RuntimeError(f"combined matter/EM candidates lack energy endpoints for {name}")
+        before = float(item.get("energy_before", math.nan))
+        after = float(item.get("energy_after", math.nan))
+        if not (math.isfinite(before) and math.isfinite(after)):
+            raise RuntimeError(f"combined matter/EM energy endpoints are non-finite for {name}")
+        measured_matter_rate += (after - before) / dt
+
+    field_before = float(row.get("em_field_energy_before", math.nan))
+    field_after = float(row.get("em_field_energy_after", math.nan))
+    if not (math.isfinite(field_before) and math.isfinite(field_after)):
+        raise RuntimeError("combined matter/EM candidates lack finite field-energy endpoints")
+    measured_field_rate = (field_after - field_before) / dt
+    measured_combined_rate = measured_matter_rate + measured_field_rate
+
+    def stage_rate_total(field_name: str) -> float:
+        total = 0.0
+        for stage in source_rows:
+            species = stage.get("species")
+            if not isinstance(species, dict) or not species:
+                raise RuntimeError("combined matter/EM candidates lack raw species stage terms")
+            for species_name, item in species.items():
+                if not isinstance(item, dict):
+                    raise RuntimeError(
+                        f"combined matter/EM {field_name} stage term missing for {species_name}"
+                    )
+                value = float(item.get(field_name, math.nan))
+                if not math.isfinite(value):
+                    raise RuntimeError(
+                        f"combined matter/EM {field_name} is non-finite for {species_name}"
+                    )
+                total += value
+        return 0.5 * total
+
+    matter_boundary = stage_rate_total("boundary_energy_rate")
+    matter_geometry = stage_rate_total("geometric_energy_source_rate")
+    dm_exchange = stage_rate_total("dm_scalar_exchange_energy_rate")
+    em_metric = 0.5 * sum(float(item["metric_tangent"]) for item in em_stage_rows)
+    em_outer = 0.5 * sum(float(item["outer_current_power"]) for item in em_stage_rows)
+    if not all(math.isfinite(value) for value in (
+        measured_combined_rate, matter_boundary, matter_geometry,
+        dm_exchange, em_metric, em_outer,
+    )):
+        raise RuntimeError("combined matter/EM candidate contains a non-finite operand")
+
+    known_without_separate_outer = (
+        matter_boundary + matter_geometry + dm_exchange + em_metric
+    )
+    known_with_separate_outer = known_without_separate_outer + em_outer
+    remainder_without_separate_outer = measured_combined_rate - known_without_separate_outer
+    remainder_with_separate_outer = measured_combined_rate - known_with_separate_outer
+    checks = {
+        "measured_combined_rate_matches_saved_summary": _roundoff_check(
+            "combined matter/EM measured-rate summary",
+            row.get("combined_matter_plus_em_energy_rate_measured"),
+            measured_combined_rate,
+            measured_matter_rate, measured_field_rate,
+        ),
+        "named_terms_with_outer_match_saved_summary": _roundoff_check(
+            "combined matter/EM named-term summary including separate outer current",
+            row.get("combined_rate_from_named_boundary_and_source_terms"),
+            known_with_separate_outer,
+            matter_boundary, matter_geometry, dm_exchange, em_metric, em_outer,
+        ),
+        "existing_unassigned_remainder_matches_raw_reconstruction": _roundoff_check(
+            "combined matter/EM remainder with separately listed outer current",
+            row.get(
+                "unassigned_matter_plus_em_rate_remainder_not_global_conservation_residual"
+            ),
+            remainder_with_separate_outer,
+            measured_combined_rate, known_with_separate_outer,
+        ),
+    }
+    return {
+        "measured_matter_plus_em_rate_reconstructed_unthresholded": measured_combined_rate,
+        "matter_boundary_energy_rate_reconstructed": matter_boundary,
+        "matter_geometric_energy_source_rate_reconstructed": matter_geometry,
+        "dm_scalar_exchange_energy_rate_reconstructed": dm_exchange,
+        "em_metric_tangent_start_predictor_average_reconstructed": em_metric,
+        "em_outer_current_power_start_predictor_average_reconstructed_unthresholded": em_outer,
+        "known_terms_without_separate_em_outer_unthresholded": known_without_separate_outer,
+        "known_terms_with_separate_em_outer_unthresholded": known_with_separate_outer,
+        "remainder_without_separate_em_outer_candidate_unthresholded": (
+            remainder_without_separate_outer
+        ),
+        "remainder_with_separate_em_outer_candidate_unthresholded": (
+            remainder_with_separate_outer
+        ),
+        "remainder_candidate_difference_minus_em_outer_unthresholded": (
+            remainder_without_separate_outer - remainder_with_separate_outer - em_outer
+        ),
+        "algebraic_roundoff_checks": checks,
+        "physical_residual_threshold_applied": False,
+        "interpretation": (
+            "The candidates differ only by whether the outer-current summand, already "
+            "contained in the full discrete field-energy tangent, is also listed as a "
+            "separate term. This checker reports both without selecting a physical "
+            "finite-domain convention. Neither is a global conservation residual because "
+            "the complete scalar/gravity/Killing-energy ledger is not assembled."
+        ),
+    }
+
+
 def recompute_em_stage_exchange_campaign(data: dict[str, Any]) -> dict[str, Any]:
     """Run the independent per-stage EM reader over the exported campaign."""
     stages_out: list[dict[str, Any]] = []
@@ -1443,6 +1571,11 @@ def recompute_em_stage_exchange_campaign(data: dict[str, Any]) -> dict[str, Any]
                 exchange_average = 0.5 * sum(
                     item["exchange_only_remainder_unthresholded"] for item in recomputed
                 )
+                combined_candidates = None
+                if source_rows is not None:
+                    combined_candidates = recompute_combined_matter_em_accounting_candidates(
+                        row, source_rows, recomputed
+                    )
                 intervals_out.append({
                     "run_group": group_name,
                     "run_index": run_index,
@@ -1473,6 +1606,7 @@ def recompute_em_stage_exchange_campaign(data: dict[str, Any]) -> dict[str, Any]
                         full_exchange_average - exchange_average
                     ),
                     "exchange_only_start_predictor_average_remainder_unthresholded": exchange_average,
+                    "combined_matter_em_accounting_candidates": combined_candidates,
                     "physical_residual_threshold_applied": False,
                 })
     if not stages_out:
@@ -1556,6 +1690,11 @@ def _summarize_em_stage_exchange(report: dict[str, Any]) -> dict[str, Any]:
                     "exchange_only_relative_remainder_unthresholded",
                 )
             }
+        combined_budget_rows = [
+            row["combined_matter_em_accounting_candidates"]
+            for row in interval_rows
+            if isinstance(row.get("combined_matter_em_accounting_candidates"), dict)
+        ]
         groups.append({
             "run_group": run_group,
             "run_index": run_index,
@@ -1637,6 +1776,28 @@ def _summarize_em_stage_exchange(report: dict[str, Any]) -> dict[str, Any]:
                 (abs(float(row["exchange_only_start_predictor_average_remainder_unthresholded"])) for row in interval_rows),
                 default=0.0,
             ),
+            "combined_matter_em_remainder_without_separate_em_outer_candidate_absmax_unthresholded": max(
+                (
+                    abs(float(item["remainder_without_separate_em_outer_candidate_unthresholded"]))
+                    for item in combined_budget_rows
+                ),
+                default=0.0,
+            ),
+            "combined_matter_em_remainder_with_separate_em_outer_candidate_absmax_unthresholded": max(
+                (
+                    abs(float(item["remainder_with_separate_em_outer_candidate_unthresholded"]))
+                    for item in combined_budget_rows
+                ),
+                default=0.0,
+            ),
+            "combined_matter_em_outer_current_power_absmax_unthresholded": max(
+                (
+                    abs(float(item["em_outer_current_power_start_predictor_average_reconstructed_unthresholded"]))
+                    for item in combined_budget_rows
+                ),
+                default=0.0,
+            ),
+            "combined_matter_em_candidates_physical_residual_threshold_applied": False,
             "algebraic_roundoff_bound_ratio_absmax": max(roundoff_ratios, default=0.0),
             "physical_residual_threshold_applied": False,
         })
