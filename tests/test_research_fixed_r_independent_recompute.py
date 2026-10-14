@@ -282,6 +282,38 @@ def test_independent_em_stage_recomputation_rebuilds_face_charge_and_energy_tang
     assert result["full_functional_charge_tangent_plus_lorentz_remainder_unthresholded"] == pytest.approx(
         result["charge_current_tangent"] + result["matter_lorentz_power"], abs=1e-18
     )
+    charge_cell_terms = np.asarray(
+        result["field_charge_tangent_cell_terms_unthresholded"], dtype=np.float64
+    )
+    cell_current_terms = np.asarray(
+        result["cell_current_tangent_terms_unthresholded"], dtype=np.float64
+    )
+    lorentz_cell_terms = np.asarray(
+        result["lorentz_power_cell_terms_unthresholded"], dtype=np.float64
+    )
+    observed_cell_defect = np.asarray(
+        result["face_cell_current_defect_by_cell_unthresholded"], dtype=np.float64
+    )
+    full_pairing_terms = np.asarray(
+        result["full_functional_cellwise_face_plus_lorentz_terms_unthresholded"],
+        dtype=np.float64,
+    )
+    assert observed_cell_defect == pytest.approx(
+        charge_cell_terms - cell_current_terms, abs=1e-30
+    )
+    assert full_pairing_terms == pytest.approx(
+        charge_cell_terms + lorentz_cell_terms, abs=1e-30
+    )
+    assert result["full_functional_cellwise_face_plus_lorentz_sum_unthresholded"] == pytest.approx(
+        result["full_functional_charge_tangent_plus_lorentz_remainder_unthresholded"],
+        abs=1e-25,
+    )
+    assert result["full_functional_cellwise_face_lorentz_absmax_cell"] == int(
+        np.argmax(np.abs(full_pairing_terms))
+    )
+    assert result["algebraic_roundoff_checks"][
+        "per_cell_defect_sums_to_full_exchange_remainder"
+    ]["bound_ratio"] <= 1.0
     assert result["boundary_separated_exchange_remainder_unthresholded"] == pytest.approx(
         result["exchange_only_remainder_unthresholded"], abs=0.0
     )
@@ -815,6 +847,17 @@ def test_manufactured_em_donor_recipient_exchange_closes_at_roundoff():
     assert all(
         check["bound_ratio"] <= 1.0
         for check in result["algebraic_roundoff_checks"].values()
+    )
+    cell_terms = np.asarray(
+        result["full_functional_cellwise_face_plus_lorentz_terms_unthresholded"],
+        dtype=np.float64,
+    )
+    assert float(np.sum(cell_terms)) == pytest.approx(
+        result["full_functional_cellwise_face_plus_lorentz_remainder_unthresholded"],
+        abs=1e-25,
+    )
+    assert result["full_functional_cellwise_face_lorentz_vs_defect_gap_unthresholded"] == pytest.approx(
+        np.zeros_like(cell_terms).tolist(), abs=1e-30
     )
 
 
