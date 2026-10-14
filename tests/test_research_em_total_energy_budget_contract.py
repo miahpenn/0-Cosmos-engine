@@ -41,7 +41,84 @@ from tools.audit_em_total_energy_budget import (
     _domain_radius_projection_comparison,
     _observed_refinement_order,
     _summarize_fixed_N_temporal_pairing_refinement,
+    _electromagnetic_l3_source_witness,
 )
+
+
+def test_electromagnetic_l3_source_witness_reconstructs_frozen_stage_curvature_sources():
+    alpha = np.asarray([0.8, 1.0, 1.2], dtype=np.float64)
+    rho = np.asarray([2.0e-4, 1.5e-4, 3.0e-4], dtype=np.float64)
+    projection = {"rho": rho, "pr": -rho, "pt": rho}
+    expected = {
+        "K": 4.0 * np.pi * alpha * (
+            projection["rho"] + projection["pr"] + 2.0 * projection["pt"]
+        ),
+        "Aa": -(16.0 * np.pi / 3.0) * alpha * (
+            projection["pr"] - projection["pt"]
+        ),
+    }
+    matter_only = {
+        "K": np.asarray([0.02, -0.03, 0.04], dtype=np.float64),
+        "Aa": np.asarray([-0.01, 0.015, 0.025], dtype=np.float64),
+    }
+    actual = {
+        name: matter_only[name] + expected[name]
+        for name in ("K", "Aa")
+    }
+
+    witness = _electromagnetic_l3_source_witness(
+        actual, matter_only, alpha, projection
+    )
+
+    assert witness["present"] is True
+    np.testing.assert_allclose(
+        witness["primary_l3_em_source_increment"]["K"], expected["K"],
+        rtol=0.0, atol=2e-17,
+    )
+    np.testing.assert_allclose(
+        witness["primary_l3_em_source_increment"]["Aa"], expected["Aa"],
+        rtol=0.0, atol=2e-17,
+    )
+    np.testing.assert_allclose(
+        witness["primary_l3_em_source_from_stress"]["K"], 8.0 * np.pi * alpha * rho,
+        rtol=2e-15, atol=0.0,
+    )
+    np.testing.assert_allclose(
+        witness["primary_l3_em_source_from_stress"]["Aa"],
+        (32.0 * np.pi / 3.0) * alpha * rho,
+        rtol=2e-15, atol=0.0,
+    )
+    assert witness["max_em_source_reconstruction_bound_ratio"] <= 1.0
+    assert witness["max_abs_electromagnetic_energy_density"] == pytest.approx(
+        float(np.max(rho))
+    )
+
+
+def test_electromagnetic_l3_source_witness_fails_closed_if_live_increment_disagrees():
+    alpha = np.asarray([1.0, 1.1], dtype=np.float64)
+    rho = np.asarray([1.0e-4, 2.0e-4], dtype=np.float64)
+    projection = {"rho": rho, "pr": -rho, "pt": rho}
+    matter_only = {
+        "K": np.asarray([0.01, 0.02]),
+        "Aa": np.asarray([-0.03, 0.04]),
+    }
+    actual = {
+        "K": matter_only["K"] + 8.0 * np.pi * alpha * rho,
+        "Aa": matter_only["Aa"] + (32.0 * np.pi / 3.0) * alpha * rho,
+    }
+    actual["K"] = actual["K"].copy()
+    actual["K"][1] += 1.0e-5
+
+    with pytest.raises(RuntimeError, match="does not reconstruct from projected stress"):
+        _electromagnetic_l3_source_witness(actual, matter_only, alpha, projection)
+
+
+def test_electromagnetic_l3_source_witness_marks_absent_em_projection():
+    zeros = {"K": np.zeros(2), "Aa": np.zeros(2)}
+    witness = _electromagnetic_l3_source_witness(
+        zeros, zeros, np.ones(2), None
+    )
+    assert witness["present"] is False
 
 
 def test_observer_is_pinned_to_all_ledger_source_boundaries():
