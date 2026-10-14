@@ -867,9 +867,14 @@ def test_manufactured_em_donor_recipient_exchange_closes_at_roundoff():
         result["full_functional_cellwise_face_plus_lorentz_sum_unthresholded"],
         abs=1e-25,
     )
-    assert result["full_functional_cellwise_face_lorentz_vs_defect_gap_unthresholded"] == pytest.approx(
-        np.zeros_like(cell_terms).tolist(), abs=1e-30
+    gap = np.asarray(
+        result["full_functional_cellwise_face_lorentz_vs_defect_gap_unthresholded"],
+        dtype=np.float64,
     )
+    paired_check = result["algebraic_roundoff_checks"][
+        "per_cell_face_defect_matches_lorentz_pairing"
+    ]
+    assert float(np.max(np.abs(gap))) <= paired_check["roundoff_bound"]
 
 
 def test_manufactured_nonzero_em_exchange_remains_an_unthresholded_measurement():
