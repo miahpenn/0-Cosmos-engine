@@ -575,11 +575,13 @@ def test_misner_sharp_chain_rule_bracket_witness_separates_matter_and_non_matter
     gamma_inv_dot = np.array([0.01, -0.02, 0.03, 0.015])
     Ktheta = np.array([-0.03, -0.04, -0.05, -0.06])
     Ktheta_dot = np.array([0.002, 0.003, 0.004, 0.005])
+    primary_l2 = np.array([0.0010, 0.0015, 0.0020, 0.0025])
+    vacuum_l3 = np.array([0.0007, 0.0011, 0.0015, 0.0019])
     source = np.array([0.0003, 0.0004, 0.0005, 0.0006])
 
     observed = _misner_sharp_chain_rule_bracket_operands(
         R, Rdot, Rr, Rdot_r, gamma_inv, gamma_inv_dot, Ktheta,
-        Ktheta_dot, source, target=2.4,
+        Ktheta_dot, primary_l2, vacuum_l3, source, target=2.4,
     )
     assert (observed["left_index"], observed["right_index"]) == (1, 2)
     assert observed["theta"] == pytest.approx(0.4)
@@ -597,8 +599,25 @@ def test_misner_sharp_chain_rule_bracket_witness_separates_matter_and_non_matter
         assert cell["Ktheta_dot_matter_source_from_same_stage_live_minus_vacuum_L3"] == pytest.approx(
             source[index]
         )
+        assert cell["Ktheta_dot_primary_l2_from_captured_production_L2"] == pytest.approx(
+            primary_l2[index]
+        )
+        assert cell["Ktheta_dot_vacuum_l3_from_captured_vacuum_L3"] == pytest.approx(
+            vacuum_l3[index]
+        )
         assert cell["Ktheta_dot_non_matter_remainder"] == pytest.approx(
             Ktheta_dot[index] - source[index]
+        )
+        assert cell["Ktheta_dot_non_matter_from_L2_plus_vacuum_L3"] == pytest.approx(
+            primary_l2[index] + vacuum_l3[index]
+        )
+        assert abs(
+            cell["Ktheta_dot_reconstruction_residual_total_minus_L2_vacuum_L3_and_source"]
+        ) <= cell["Ktheta_dot_reconstruction_roundoff_bound"]
+        assert cell["mass_dot_coordinate_term_Ktheta_dot_primary_l2"] + (
+            cell["mass_dot_coordinate_term_Ktheta_dot_vacuum_l3"]
+        ) + cell["mass_dot_coordinate_term_Ktheta_dot_matter_source"] == pytest.approx(
+            cell["mass_dot_coordinate_term_Ktheta_dot_total"], rel=1e-14, abs=1e-16
         )
         assert cell["mass_dot_coordinate_term_Ktheta_dot_matter_source"] + (
             cell["mass_dot_coordinate_term_Ktheta_dot_non_matter"]
@@ -607,6 +626,21 @@ def test_misner_sharp_chain_rule_bracket_witness_separates_matter_and_non_matter
         )
         assert abs(cell["mass_dot_coordinate_decomposition_residual"]) <= (
             cell["mass_dot_coordinate_decomposition_bound"]
+        )
+
+
+
+
+def test_misner_sharp_chain_rule_bracket_witness_fails_closed_on_source_reconstruction_mismatch():
+    R = np.array([1.0, 2.0, 3.0])
+    zeros = np.zeros(3)
+    with pytest.raises(RuntimeError, match="failed roundoff reconstruction"):
+        _misner_sharp_chain_rule_bracket_operands(
+            R=R, Rdot=zeros, Rr=np.ones(3), Rdot_r=zeros,
+            gamma_inv=np.ones(3), gamma_inv_dot=zeros,
+            Ktheta=zeros, Ktheta_dot=np.array([0.01, 0.02, 0.03]),
+            Ktheta_dot_primary_l2=zeros, Ktheta_dot_vacuum_l3=zeros,
+            Ktheta_dot_matter_source=zeros, target=2.5,
         )
 
 
