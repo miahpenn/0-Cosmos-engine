@@ -1079,6 +1079,12 @@ def recompute_artifact(data: dict[str, Any]) -> dict[str, Any]:
             "composite_fixed_R_residual_unthresholded",
             "factor_interpolated_flux", "factor_interpolated_pressure_work",
             "factor_fixed_R_residual_unthresholded",
+            "independent_momentum_constraint_residual_composite_interp",
+            "momentum_constraint_mass_identity_term_composite_interp",
+            "independent_C_radial_mixed_composite_interp",
+            "radial_rr_einstein_mass_identity_term_composite_interp",
+            "geometric_identity_predicted_mass_balance_remainder_composite_interp",
+            "geometric_identity_minus_observed_mass_balance_remainder_composite_interp_unthresholded",
         )
     }
     neutral_cells = arms["q_over_m_0"]["recomputed"]["cells"]
@@ -1121,6 +1127,30 @@ def recompute_artifact(data: dict[str, Any]) -> dict[str, Any]:
             "local_fixed_R_residual": float(
                 ccell["coordinate_rate_minus_local_flux_work"]
                 - ncell["coordinate_rate_minus_local_flux_work"]
+            ),
+            "independent_momentum_constraint_residual": float(
+                ccell["independent_momentum_constraint"]["momentum_constraint_residual"]
+                - ncell["independent_momentum_constraint"]["momentum_constraint_residual"]
+            ),
+            "momentum_constraint_mass_identity_term": float(
+                ccell["momentum_constraint_mass_identity_term"]
+                - ncell["momentum_constraint_mass_identity_term"]
+            ),
+            "independent_C_radial_mixed": float(
+                ccell["independent_geometric_radial_einstein"]["C_radial_mixed_unthresholded"]
+                - ncell["independent_geometric_radial_einstein"]["C_radial_mixed_unthresholded"]
+            ),
+            "radial_rr_einstein_mass_identity_term": float(
+                ccell["radial_rr_einstein_mass_identity_term"]
+                - ncell["radial_rr_einstein_mass_identity_term"]
+            ),
+            "geometric_identity_predicted_mass_balance_remainder": float(
+                ccell["geometric_identity_predicted_mass_balance_remainder_unthresholded"]
+                - ncell["geometric_identity_predicted_mass_balance_remainder_unthresholded"]
+            ),
+            "geometric_identity_minus_observed_mass_balance_remainder": float(
+                ccell["geometric_identity_minus_observed_mass_balance_remainder_unthresholded"]
+                - ncell["geometric_identity_minus_observed_mass_balance_remainder_unthresholded"]
             ),
         }
     neutral_sectors = arms["q_over_m_0"]["recomputed"]["sector_flux_work"]
