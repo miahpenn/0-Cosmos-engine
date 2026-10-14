@@ -67,7 +67,12 @@ def test_electromagnetic_l3_source_witness_reconstructs_frozen_stage_curvature_s
     }
 
     witness = _electromagnetic_l3_source_witness(
-        actual, matter_only, alpha, projection
+        actual, matter_only, alpha, projection,
+        matter_only_stress={
+            "rho": np.asarray([0.03, 0.04, 0.05]),
+            "pr": np.asarray([0.01, 0.02, 0.03]),
+            "pt": np.asarray([0.02, 0.01, 0.025]),
+        },
     )
 
     assert witness["present"] is True
@@ -110,7 +115,14 @@ def test_electromagnetic_l3_source_witness_fails_closed_if_live_increment_disagr
     actual["K"][1] += 1.0e-5
 
     with pytest.raises(RuntimeError, match="does not reconstruct from projected stress"):
-        _electromagnetic_l3_source_witness(actual, matter_only, alpha, projection)
+        _electromagnetic_l3_source_witness(
+            actual, matter_only, alpha, projection,
+            matter_only_stress={
+                "rho": np.asarray([0.03, 0.04]),
+                "pr": np.asarray([0.01, 0.02]),
+                "pt": np.asarray([0.02, 0.01]),
+            },
+        )
 
 
 def test_electromagnetic_l3_source_witness_marks_absent_em_projection():
