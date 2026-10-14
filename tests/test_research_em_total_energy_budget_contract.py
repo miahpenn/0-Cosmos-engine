@@ -1687,7 +1687,31 @@ def test_fixed_N_temporal_pairing_summary_compares_same_predictor_time_across_cf
         assert stage_name == "primary_predictor"
         assert target_time == pytest.approx(0.02)
         selected.append((run["cfl"], stage_name, target_time))
-        return {"cfl": run["cfl"]}
+        return {
+            "cfl": run["cfl"],
+            "metric_power": -3.0e-10,
+            "charge_power": -4.0e-10,
+            "matter_lorentz_power": 5.0e-10,
+            "geometry_feedback_witness": {
+                "present": True,
+                "electromagnetic_stress_profiles": {
+                    "rho": [1.0e-4, 2.0e-4],
+                    "pr": [-1.0e-4, -2.0e-4],
+                    "pt": [1.0e-4, 2.0e-4],
+                },
+                "primary_l3_em_source_increment": {
+                    "K": [8.0 * math.pi * 1.0e-4, 8.0 * math.pi * 2.0e-4],
+                    "Aa": [
+                        (32.0 * math.pi / 3.0) * 1.0e-4,
+                        (32.0 * math.pi / 3.0) * 2.0e-4,
+                    ],
+                },
+                "roundoff_checks": {
+                    "K": {"max_bound_ratio": 0.2},
+                    "Aa": {"max_bound_ratio": 0.3},
+                },
+            },
+        }
 
     def stage_diagnostic(run, stage_row, *, coordinate_radius_cut):
         assert run["cfl"] == stage_row["cfl"]
@@ -1734,6 +1758,16 @@ def test_fixed_N_temporal_pairing_summary_compares_same_predictor_time_across_cf
         expected_gap / 0.3
     )
     assert summary["rows"][0]["hll_jump_abs_over_pairing_abs"] == pytest.approx(1.0e-10)
+    feedback = summary["rows"][0]["electromagnetic_geometry_feedback"]
+    assert feedback["max_abs_em_rho"] == pytest.approx(2.0e-4)
+    assert feedback["em_K_source_l3_max_abs"] == pytest.approx(8.0 * math.pi * 2.0e-4)
+    assert feedback["em_Aa_source_l3_max_abs"] == pytest.approx(
+        (32.0 * math.pi / 3.0) * 2.0e-4
+    )
+    assert feedback["metric_part_of_em_field_energy_tangent"] == pytest.approx(-3.0e-10)
+    assert feedback["charge_current_part_of_em_field_energy_tangent"] == pytest.approx(-4.0e-10)
+    assert feedback["lorentz_power_into_matter"] == pytest.approx(5.0e-10)
+    assert feedback["source_reconstruction_max_bound_ratio"] == pytest.approx(0.3)
     assert summary["interpretation_limit"].find("does not by itself prove temporal order") >= 0
 
 
