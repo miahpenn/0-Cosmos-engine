@@ -12,9 +12,6 @@ on:
       - research/reconcile_em_face_work_artifact_v1.py
       - tests/test_research_em_adjoint_face_work_v1.py
       - tests/test_research_fixed_r_independent_recompute.py
-      - research/em_adjoint_face_work_v1.py
-      - research/reconcile_em_face_work_artifact_v1.py
-      - tests/test_research_em_adjoint_face_work_v1.py
       - .github/workflows/em_total_energy_budget.yml
 
 permissions:
@@ -68,12 +65,6 @@ jobs:
       - name: Run joined neutral/charged EM energy ledger
         run: python tools/audit_em_total_energy_budget.py --output "$RUNNER_TEMP/em_total_energy_budget.json"
 
-      - name: Reconcile discrete EM face-work adjoint on saved stages
-        run: >-
-          python research/reconcile_em_face_work_artifact_v1.py
-          --input "$RUNNER_TEMP/em_total_energy_budget.json"
-          --output "$RUNNER_TEMP/em_face_work_adjoint_reconciliation.json"
-
       - name: Independently recompute fixed-R balance from raw stage operands
         run: >-
           python tools/recompute_fixed_r_balance_artifact.py
@@ -93,7 +84,6 @@ jobs:
           name: em-total-energy-budget-${{ github.sha }}
           path: |
             ${{ runner.temp }}/em_total_energy_budget.json
-            ${{ runner.temp }}/em_face_work_adjoint_reconciliation.json
             ${{ runner.temp }}/fixed_r_independent_recompute.json
             ${{ runner.temp }}/em_face_work_adjoint_reconciliation.json
           if-no-files-found: ignore
