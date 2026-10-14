@@ -287,18 +287,26 @@ def _stress_projection(kernel, state):
 
 
 
-def _sector_ktheta_source_rates(total, *, R, alpha, Ktheta, target: float) -> dict:
-    """Expose the direct sector-sourced Ktheta term in the live Misner-Sharp tangent.
+def _sector_ktheta_source_rates(
+    total, *, R, alpha, Ktheta, Rdot, target: float
+) -> dict:
+    """Reconcile each sector's Ktheta Einstein source with signed pressure work.
 
-    The production L3 source blocks are K_dot += 4*pi*alpha*(rho+pr+2*pt)
-    and Aa_dot += -(16*pi/3)*alpha*(pr-pt), with Ktheta=K/3-Aa/2.
-    Thus this helper records the explicit matter-source insertion in Ktheta_dot
-    and its algebraic contribution R**3*Ktheta*Ktheta_dot to Mdot|r. This is
-    a diagnostic decomposition, not a complete causal split of the mass rate:
-    the other geometry RHS terms, CMC lapse response, constraints, and discrete
-    radial operators remain in the full live-stage tangent.
+    For the production L3 sources,
+      K_dot = 4*pi*alpha*(rho + pr + 2*pt)
+      Aa_dot = -(16*pi/3)*alpha*(pr - pt)
+    and Ktheta=K/3-Aa/2, so Ktheta_dot_source=4*pi*alpha*(rho/3+pr).
+
+    The corresponding Misner-Sharp coordinate-rate insertion is
+      S_Ktheta = R**3*Ktheta*Ktheta_dot_source
+               = W_pr - C_rho
+    when Rdot=-alpha*R*Ktheta, where W_pr=-4*pi*R**2*pr*Rdot and
+    C_rho=(4*pi/3)*R**2*rho*Rdot. We report both composite-profile-then-
+    interpolate and interpolate-factors-then-multiply versions. The live
+    Rdot comes from the paired production explicit geometry RHS; its closure
+    against -alpha*R*Ktheta is measured, never assumed or fitted away.
     """
-    raw = {"R": R, "alpha": alpha, "Ktheta": Ktheta}
+    raw = {"R": R, "alpha": alpha, "Ktheta": Ktheta, "Rdot": Rdot}
     arrays = {name: np.asarray(value, dtype=float) for name, value in raw.items()}
     radii = arrays["R"]
     if radii.ndim != 1 or radii.size < 2:
@@ -312,6 +320,9 @@ def _sector_ktheta_source_rates(total, *, R, alpha, Ktheta, target: float) -> di
             raise RuntimeError(f"Ktheta source audit {name} contains non-finite values")
     if not np.all(np.diff(radii) > 0.0):
         raise RuntimeError("Ktheta source audit R must be strictly increasing")
+    target = float(target)
+    if not math.isfinite(target) or target < radii[0] or target > radii[-1]:
+        raise RuntimeError("Ktheta source audit target is outside the sampled areal-radius domain")
 
     def _profile(name, value):
         out = np.asarray(value, dtype=float)
@@ -319,9 +330,20 @@ def _sector_ktheta_source_rates(total, *, R, alpha, Ktheta, target: float) -> di
             raise RuntimeError(f"Ktheta source audit {name} must be finite and match R")
         return out
 
+    def _at(values):
+        return float(interpolate_at_areal_radius(radii, values, target))
+
     alpha_values = arrays["alpha"]
     Ktheta_values = arrays["Ktheta"]
+    Rdot_values = arrays["Rdot"]
+    alpha_at = _at(alpha_values)
+    Ktheta_at = _at(Ktheta_values)
+    Rdot_at = _at(Rdot_values)
+    kinematic_closure_profile = Rdot_values + alpha_values * radii * Ktheta_values
+    kinematic_closure_at = _at(kinematic_closure_profile)
+
     sector_rows = {}
+    sector_profiles = {}
     for label in ("scalar", "fluid", "electromagnetic"):
         values = {
             name: getattr(total, f"{label}_{name}", None)
@@ -347,6 +369,18 @@ def _sector_ktheta_source_rates(total, *, R, alpha, Ktheta, target: float) -> di
         )
         ktheta_dot = k_dot / 3.0 - aa_dot / 2.0
         mass_dot_from_ktheta = radii**3 * Ktheta_values * ktheta_dot
+        pressure_work_profile = -FOUR_PI * radii**2 * pieces["pr"] * Rdot_values
+        density_companion_profile = (
+            (FOUR_PI / 3.0) * radii**2 * pieces["rho"] * Rdot_values
+        )
+        identity_residual_profile = mass_dot_from_ktheta - (
+            pressure_work_profile - density_companion_profile
+        )
+        identity_from_kinematic_profile = (
+            FOUR_PI * radii**2
+            * (pieces["rho"] / 3.0 + pieces["pr"])
+            * kinematic_closure_profile
+        )
         profiles = {
             "rho": pieces["rho"],
             "pr": pieces["pr"],
@@ -355,14 +389,45 @@ def _sector_ktheta_source_rates(total, *, R, alpha, Ktheta, target: float) -> di
             "aa_dot_matter_source": aa_dot,
             "ktheta_dot_matter_source": ktheta_dot,
             "mass_dot_coordinate_from_ktheta_source": mass_dot_from_ktheta,
+            "radial_pressure_work_for_ktheta_identity": pressure_work_profile,
+            "density_companion_for_ktheta_identity": density_companion_profile,
+        }
+        composite_terms = {
+            "mass_dot_coordinate_from_ktheta_source": _at(mass_dot_from_ktheta),
+            "radial_pressure_work": _at(pressure_work_profile),
+            "density_companion": _at(density_companion_profile),
+            "identity_residual": _at(identity_residual_profile),
+            "identity_residual_from_kinematic_closure": _at(identity_from_kinematic_profile),
+        }
+
+        rho_at = _at(pieces["rho"])
+        pr_at = _at(pieces["pr"])
+        factor_source = (
+            FOUR_PI * target**3 * Ktheta_at * alpha_at * (rho_at / 3.0 + pr_at)
+        )
+        factor_work = -FOUR_PI * target**2 * pr_at * Rdot_at
+        factor_density = (FOUR_PI / 3.0) * target**2 * rho_at * Rdot_at
+        factor_closure = Rdot_at + alpha_at * target * Ktheta_at
+        factor_terms = {
+            "mass_dot_coordinate_from_ktheta_source": float(factor_source),
+            "radial_pressure_work": float(factor_work),
+            "density_companion": float(factor_density),
+            "identity_residual": float(factor_source - (factor_work - factor_density)),
+            "kinematic_Rdot_closure_residual": float(factor_closure),
+            "identity_residual_from_kinematic_closure": float(
+                FOUR_PI * target**2 * (rho_at / 3.0 + pr_at) * factor_closure
+            ),
         }
         sector_rows[label] = {
             "present": bool(present),
             **{
-                f"{name}_at_R_star": interpolate_at_areal_radius(radii, values, target)
-                for name, values in profiles.items()
+                f"{name}_at_R_star": _at(profile)
+                for name, profile in profiles.items()
             },
+            "pressure_work_identity_composite_profile_then_interpolate": composite_terms,
+            "pressure_work_identity_factor_interpolate_then_multiply": factor_terms,
         }
+        sector_profiles[label] = profiles
 
     total_profiles = {
         name: _profile(f"total_{name}", getattr(total, name))
@@ -375,17 +440,21 @@ def _sector_ktheta_source_rates(total, *, R, alpha, Ktheta, target: float) -> di
         total_profiles["pr"] - total_profiles["pt"]
     )
     aggregate_ktheta_dot = aggregate_k_dot / 3.0 - aggregate_aa_dot / 2.0
+    aggregate_mass_dot = radii**3 * Ktheta_values * aggregate_ktheta_dot
+    aggregate_pressure_work = -FOUR_PI * radii**2 * total_profiles["pr"] * Rdot_values
+    aggregate_density_companion = (
+        (FOUR_PI / 3.0) * radii**2 * total_profiles["rho"] * Rdot_values
+    )
     aggregate_profiles = {
         "k_dot_matter_source": aggregate_k_dot,
         "aa_dot_matter_source": aggregate_aa_dot,
         "ktheta_dot_matter_source": aggregate_ktheta_dot,
-        "mass_dot_coordinate_from_ktheta_source": (
-            radii**3 * Ktheta_values * aggregate_ktheta_dot
-        ),
+        "mass_dot_coordinate_from_ktheta_source": aggregate_mass_dot,
+        "radial_pressure_work_for_ktheta_identity": aggregate_pressure_work,
+        "density_companion_for_ktheta_identity": aggregate_density_companion,
     }
     aggregate_at = {
-        name: interpolate_at_areal_radius(radii, values, target)
-        for name, values in aggregate_profiles.items()
+        name: _at(values) for name, values in aggregate_profiles.items()
     }
     additive_residuals = {}
     additive_bounds = {}
@@ -408,14 +477,160 @@ def _sector_ktheta_source_rates(total, *, R, alpha, Ktheta, target: float) -> di
         additive_residuals[name] = float(residual)
         additive_bounds[name] = float(bound)
 
+    composite_sector_rows = {
+        name: row["pressure_work_identity_composite_profile_then_interpolate"]
+        for name, row in sector_rows.items()
+    }
+    composite_sum = {
+        "mass_dot_coordinate_from_ktheta_source": sums["mass_dot_coordinate_from_ktheta_source"],
+        "radial_pressure_work": sums["radial_pressure_work_for_ktheta_identity"],
+        "density_companion": sums["density_companion_for_ktheta_identity"],
+    }
+    composite_aggregate = {
+        "mass_dot_coordinate_from_ktheta_source": aggregate_at["mass_dot_coordinate_from_ktheta_source"],
+        "radial_pressure_work": aggregate_at["radial_pressure_work_for_ktheta_identity"],
+        "density_companion": aggregate_at["density_companion_for_ktheta_identity"],
+    }
+    composite_sum["identity_residual"] = (
+        composite_sum["mass_dot_coordinate_from_ktheta_source"]
+        - (composite_sum["radial_pressure_work"] - composite_sum["density_companion"])
+    )
+    composite_aggregate["identity_residual"] = (
+        composite_aggregate["mass_dot_coordinate_from_ktheta_source"]
+        - (composite_aggregate["radial_pressure_work"] - composite_aggregate["density_companion"])
+    )
+    composite_identity_additive_residual = (
+        sum(row["identity_residual"] for row in composite_sector_rows.values())
+        - composite_aggregate["identity_residual"]
+    )
+    composite_identity_scale = max(
+        abs(composite_sum["mass_dot_coordinate_from_ktheta_source"])
+        + abs(composite_sum["radial_pressure_work"])
+        + abs(composite_sum["density_companion"])
+        + abs(composite_aggregate["mass_dot_coordinate_from_ktheta_source"])
+        + abs(composite_aggregate["radial_pressure_work"])
+        + abs(composite_aggregate["density_companion"]),
+        float(np.finfo(np.float64).tiny),
+    )
+    composite_identity_bound = 64.0 * np.finfo(np.float64).eps * composite_identity_scale
+    if abs(composite_identity_additive_residual) > composite_identity_bound:
+        raise RuntimeError(
+            "Ktheta source audit failed additive composite identity residual: "
+            f"{composite_identity_additive_residual:.17g} "
+            f"(bound {composite_identity_bound:.17g})"
+        )
+    composite_aggregate["kinematic_Rdot_closure_residual"] = kinematic_closure_at
+    composite_aggregate["identity_residual_from_kinematic_closure"] = _at(
+        FOUR_PI * radii**2 * (total_profiles["rho"] / 3.0 + total_profiles["pr"])
+        * kinematic_closure_profile
+    )
+
+    factor_sector_rows = {
+        name: row["pressure_work_identity_factor_interpolate_then_multiply"]
+        for name, row in sector_rows.items()
+    }
+    factor_alpha = alpha_at
+    factor_Ktheta = Ktheta_at
+    factor_rho = _at(total_profiles["rho"])
+    factor_pr = _at(total_profiles["pr"])
+    factor_source = FOUR_PI * target**3 * factor_Ktheta * factor_alpha * (
+        factor_rho / 3.0 + factor_pr
+    )
+    factor_work = -FOUR_PI * target**2 * factor_pr * Rdot_at
+    factor_density = (FOUR_PI / 3.0) * target**2 * factor_rho * Rdot_at
+    factor_closure = Rdot_at + factor_alpha * target * factor_Ktheta
+    factor_aggregate = {
+        "mass_dot_coordinate_from_ktheta_source": float(factor_source),
+        "radial_pressure_work": float(factor_work),
+        "density_companion": float(factor_density),
+        "identity_residual": float(factor_source - (factor_work - factor_density)),
+        "kinematic_Rdot_closure_residual": float(factor_closure),
+        "identity_residual_from_kinematic_closure": float(
+            FOUR_PI * target**2 * (factor_rho / 3.0 + factor_pr) * factor_closure
+        ),
+    }
+    factor_sum = {
+        name: sum(row[name] for row in factor_sector_rows.values())
+        for name in ("mass_dot_coordinate_from_ktheta_source", "radial_pressure_work", "density_companion")
+    }
+    factor_additive_residuals = {}
+    factor_additive_bounds = {}
+    for name in ("mass_dot_coordinate_from_ktheta_source", "radial_pressure_work", "density_companion"):
+        residual = factor_sum[name] - factor_aggregate[name]
+        scale = max(
+            abs(factor_sum[name]) + abs(factor_aggregate[name]),
+            sum(abs(row[name]) for row in factor_sector_rows.values()),
+            float(np.finfo(np.float64).tiny),
+        )
+        bound = 64.0 * np.finfo(np.float64).eps * scale
+        if abs(residual) > bound:
+            raise RuntimeError(
+                f"Ktheta factor-interpolation audit failed additive {name}: "
+                f"residual={residual:.17g} (bound {bound:.17g})"
+            )
+        factor_additive_residuals[name] = float(residual)
+        factor_additive_bounds[name] = float(bound)
+    factor_identity_additive_residual = (
+        sum(row["identity_residual"] for row in factor_sector_rows.values())
+        - factor_aggregate["identity_residual"]
+    )
+    factor_identity_scale = max(
+        sum(abs(factor_sum[name]) + abs(factor_aggregate[name]) for name in factor_sum),
+        float(np.finfo(np.float64).tiny),
+    )
+    factor_identity_bound = 64.0 * np.finfo(np.float64).eps * factor_identity_scale
+    if abs(factor_identity_additive_residual) > factor_identity_bound:
+        raise RuntimeError(
+            "Ktheta factor-interpolation audit failed additive identity residual: "
+            f"{factor_identity_additive_residual:.17g} (bound {factor_identity_bound:.17g})"
+        )
+
+    for label, identity, scale in (
+        ("composite", composite_aggregate, composite_identity_scale),
+        ("factor", factor_aggregate, factor_identity_scale),
+    ):
+        kinematic_residual = (
+            identity["identity_residual"] - identity["identity_residual_from_kinematic_closure"]
+        )
+        bound = 64.0 * np.finfo(np.float64).eps * max(scale, float(np.finfo(np.float64).tiny))
+        if abs(kinematic_residual) > bound:
+            raise RuntimeError(
+                f"Ktheta {label} pressure-work identity disagrees with its kinematic witness: "
+                f"residual={kinematic_residual:.17g} (bound {bound:.17g})"
+            )
+        identity["identity_vs_kinematic_roundoff_residual"] = float(kinematic_residual)
+        identity["identity_vs_kinematic_roundoff_bound"] = float(bound)
+
     return {
         "sectors": sector_rows,
         "sum_at_R_star": sums,
         "aggregate_at_R_star": aggregate_at,
         "additive_residuals": additive_residuals,
         "additive_bounds": additive_bounds,
+        "pressure_work_identity": {
+            "composite_profile_then_interpolate": {
+                "sectors": composite_sector_rows,
+                "sum_at_R_star": composite_sum,
+                "aggregate_at_R_star": composite_aggregate,
+                "identity_additive_residual": float(composite_identity_additive_residual),
+                "identity_additive_bound": float(composite_identity_bound),
+            },
+            "factor_interpolate_then_multiply": {
+                "sectors": factor_sector_rows,
+                "sum_at_R_star": {
+                    **factor_sum,
+                    "identity_residual": float(sum(
+                        row["identity_residual"] for row in factor_sector_rows.values()
+                    )),
+                },
+                "aggregate_at_R_star": factor_aggregate,
+                "additive_residuals": factor_additive_residuals,
+                "additive_bounds": factor_additive_bounds,
+                "identity_additive_residual": float(factor_identity_additive_residual),
+                "identity_additive_bound": float(factor_identity_bound),
+            },
+        },
     }
-
 
 def _sector_fixed_R_rates(
     total,
@@ -881,7 +1096,7 @@ def _worldtube_sample(kernel, state, *, geometry_stage_capture=None) -> dict:
         Ktheta = geom.K / 3.0 - geom.Aa / 2.0
         Ktheta_dot = K_dot / 3.0 - Aa_dot / 2.0
         ktheta_source_rates = _sector_ktheta_source_rates(
-            total, R=R, alpha=geom.alpha, Ktheta=Ktheta,
+            total, R=R, alpha=geom.alpha, Ktheta=Ktheta, Rdot=Rdot,
             target=FIXED_AREAL_RADIUS,
         )
         Rdot_r = np.asarray(
