@@ -5679,7 +5679,7 @@ def write_step_summary(report: dict) -> None:
         "",
         "The observer subtracts a frozen-geometry, same-state primary L3 evaluation without EM stress from the actual EM-inclusive primary L3 result. It checks the direct Aa/K source increment against projected electromagnetic (rho, pr, pt) using operand-scaled roundoff bounds. The metric contribution to field-energy change remains a separately measured term; matching this source split does not prove global energy closure.",
         "",
-        "| CFL | max EM rho | max |EM K-source| | max |EM Aa-source| | metric part of U_EM tangent | charge-current part | Lorentz power into matter | source split max bound ratio |",
+        "| CFL | max EM rho | max EM K-source | max EM Aa-source | metric part of U_EM tangent | charge-current part | Lorentz power into matter | source split max bound ratio |",
         "|---:|---:|---:|---:|---:|---:|---:|",
     ])
     for row in pairing["rows"]:
