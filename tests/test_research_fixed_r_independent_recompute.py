@@ -244,14 +244,14 @@ def _valid_em_charge_transition():
     dt = 0.02
     q_before = np.array([0.0, 0.08, 0.19, 0.27])
     flux_start = np.array([0.0, 0.01, -0.02, 0.03])
-    start, _, _ = _raw_em_stage_record(
+    start = _raw_em_stage_record(
         "start", charge_faces=q_before, rest_flux=flux_start
     )
     i_start = np.asarray(start["stage_witness"]["charge_current_faces"])
     q_predictor = q_before - dt * i_start
 
     flux_predictor = np.array([0.0, -0.004, 0.012, 0.025])
-    predictor, _, _ = _raw_em_stage_record(
+    predictor = _raw_em_stage_record(
         "primary_predictor", charge_faces=q_predictor, rest_flux=flux_predictor
     )
     i_predictor = np.asarray(predictor["stage_witness"]["charge_current_faces"])
@@ -300,7 +300,7 @@ def test_independent_em_recompute_rejects_predictor_charge_update_mismatch():
     # Regenerate a self-consistent predictor witness so the temporal-state
     # contract (not a stale local algebraic field) is the failing check.
     flux = predictor["stage_witness"]["rest_mass_flux_faces"]
-    altered_predictor, _, _ = _raw_em_stage_record(
+    altered_predictor = _raw_em_stage_record(
         "primary_predictor", charge_faces=altered_q, rest_flux=flux
     )
     step["em_stage_exchange_witnesses"][1] = altered_predictor
