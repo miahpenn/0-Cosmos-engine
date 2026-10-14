@@ -43,7 +43,7 @@ def _stage(q_over_m, *, scale=1.0, stage="primary_predictor", time=0.02):
         "charge_power": result["cell_tangent"],
         "matter_lorentz_power": -result["cell_tangent"] + 1e-14,
         "metric_power": witness["metric_tangent"],
-        "outer_current_power": -1e-12 if q_over_m else 0.0,
+        "outer_current_power": result["face_tangent_outer"],
         "stage_witness": witness,
     }
 
@@ -138,3 +138,26 @@ def test_reconciler_fails_closed_without_stage_witnesses():
     report["runs"] = []
     with pytest.raises(ValueError, match="no EM stage exchange witnesses"):
         reconcile_report(report, input_name="empty.json", input_sha256="f" * 64)
+
+
+def test_reconciler_fails_closed_on_stored_tangent_energy_or_outer_term_mismatch():
+    report = _report()
+    report["runs"][1]["step_rows"][0]["em_stage_exchange_witnesses"][0][
+        "stage_witness"
+    ]["charge_current_tangent"] += 1e-8
+    with pytest.raises(ArithmeticError, match="stored charge tangent"):
+        reconcile_report(report, input_name="bad-tangent.json", input_sha256="1" * 64)
+
+    report = _report()
+    report["runs"][1]["step_rows"][0]["em_stage_exchange_witnesses"][0][
+        "stage_witness"
+    ]["field_energy_at_stage"] += 1e-8
+    with pytest.raises(ArithmeticError, match="stored field energy"):
+        reconcile_report(report, input_name="bad-energy.json", input_sha256="2" * 64)
+
+    report = _report()
+    report["runs"][1]["step_rows"][0]["em_stage_exchange_witnesses"][0][
+        "outer_current_power"
+    ] += 1e-8
+    with pytest.raises(ArithmeticError, match="outer-current term"):
+        reconcile_report(report, input_name="bad-outer.json", input_sha256="3" * 64)
