@@ -1257,6 +1257,26 @@ def _summarize_em_stage_exchange(report: dict[str, Any]) -> dict[str, Any]:
             for row in stage_rows
             for check in row.get("algebraic_roundoff_checks", {}).values()
         ]
+        worst_exchange_stage = max(
+            stage_rows,
+            key=lambda row: abs(float(row["exchange_only_remainder_unthresholded"])),
+            default=None,
+        )
+        worst_exchange_witness = None
+        if worst_exchange_stage is not None:
+            worst_exchange_witness = {
+                key: worst_exchange_stage.get(key)
+                for key in (
+                    "stage", "t", "interval_index",
+                    "charge_current_tangent", "cell_centered_current_tangent",
+                    "matter_lorentz_power", "outer_current_power",
+                    "face_minus_cell_current_tangent_mismatch_unthresholded",
+                    "exchange_only_remainder_unthresholded",
+                    "exchange_from_face_cell_current_mismatch_unthresholded",
+                    "exchange_identity_gap_unthresholded",
+                    "exchange_only_relative_remainder_unthresholded",
+                )
+            }
         groups.append({
             "run_group": run_group,
             "run_index": run_index,
@@ -1273,6 +1293,15 @@ def _summarize_em_stage_exchange(report: dict[str, Any]) -> dict[str, Any]:
                 (abs(float(row["exchange_only_relative_remainder_unthresholded"])) for row in stage_rows),
                 default=0.0,
             ),
+            "face_minus_cell_current_tangent_mismatch_absmax_unthresholded": max(
+                (abs(float(row.get("face_minus_cell_current_tangent_mismatch_unthresholded", 0.0))) for row in stage_rows),
+                default=0.0,
+            ),
+            "exchange_identity_gap_absmax_unthresholded": max(
+                (abs(float(row.get("exchange_identity_gap_unthresholded", 0.0))) for row in stage_rows),
+                default=0.0,
+            ),
+            "worst_exchange_stage_terms": worst_exchange_witness,
             "field_energy_time_update_remainder_absmax_unthresholded": max(
                 (abs(float(row["field_energy_time_update_remainder_unthresholded"])) for row in interval_rows),
                 default=0.0,
