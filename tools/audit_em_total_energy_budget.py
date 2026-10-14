@@ -4506,6 +4506,107 @@ def _run_domain_radius_extension_runs(temp_root: Path) -> list[dict]:
     return runs
 
 
+
+def _domain_radius_projection_comparison(
+    baseline: dict, extended: dict
+) -> dict:
+    """Expose how overlap defect changes co-vary with the cell/face-current gap."""
+    centers = np.asarray(baseline["inner_cell_centers"], dtype=np.float64)
+    centers_extended = np.asarray(extended["inner_cell_centers"], dtype=np.float64)
+    if centers.shape != centers_extended.shape or not np.array_equal(
+        centers, centers_extended
+    ):
+        raise RuntimeError("projection comparison requires identical overlap cell centres")
+
+    baseline_faces = np.asarray(baseline["inner_face_currents"], dtype=np.float64)
+    extended_faces = np.asarray(extended["inner_face_currents"], dtype=np.float64)
+    baseline_cell = np.asarray(
+        baseline["inner_cell_current_equivalent"], dtype=np.float64
+    )
+    extended_cell = np.asarray(
+        extended["inner_cell_current_equivalent"], dtype=np.float64
+    )
+    expected_face_shape = (centers.size + 1,)
+    if (
+        baseline_faces.shape != expected_face_shape
+        or extended_faces.shape != expected_face_shape
+        or baseline_cell.shape != centers.shape
+        or extended_cell.shape != centers.shape
+    ):
+        raise RuntimeError("projection comparison has inconsistent face/cell support")
+
+    baseline_gap = baseline_cell - 0.5 * (
+        baseline_faces[:-1] + baseline_faces[1:]
+    )
+    extended_gap = extended_cell - 0.5 * (
+        extended_faces[:-1] + extended_faces[1:]
+    )
+    gap_delta = baseline_gap - extended_gap
+    baseline_defect = np.asarray(
+        baseline["inner_cell_defect_profile"], dtype=np.float64
+    )
+    extended_defect = np.asarray(
+        extended["inner_cell_defect_profile"], dtype=np.float64
+    )
+    defect_delta = baseline_defect - extended_defect
+    if baseline_defect.shape != centers.shape or extended_defect.shape != centers.shape:
+        raise RuntimeError("projection comparison has inconsistent defect support")
+
+    if np.std(defect_delta) > 0.0 and np.std(gap_delta) > 0.0:
+        correlation = float(np.corrcoef(defect_delta, gap_delta)[0, 1])
+    else:
+        correlation = None
+
+    cut = float(baseline["coordinate_radius_cut"])
+    band_edges = [0.0]
+    next_edge = 5.0
+    while next_edge < cut:
+        band_edges.append(next_edge)
+        next_edge += 5.0
+    band_edges.append(cut)
+    radial_bands = []
+    for lower, upper in zip(band_edges[:-1], band_edges[1:]):
+        support = (centers >= lower) & (centers < upper)
+        if not np.any(support):
+            continue
+        defect_band_base = baseline_defect[support]
+        defect_band_extended = extended_defect[support]
+        defect_band_delta = defect_delta[support]
+        radial_bands.append({
+            "coordinate_radius_lower_inclusive": float(lower),
+            "coordinate_radius_upper_exclusive": float(upper),
+            "cell_count": int(np.count_nonzero(support)),
+            "cell_defect_signed_baseline": float(np.sum(defect_band_base)),
+            "cell_defect_signed_extended": float(np.sum(defect_band_extended)),
+            "cell_defect_signed_delta_baseline_minus_extended": float(
+                np.sum(defect_band_delta)
+            ),
+            "cell_defect_delta_l1": float(np.sum(np.abs(defect_band_delta))),
+            "current_projection_gap_delta_max_abs": float(
+                np.max(np.abs(gap_delta[support]))
+            ),
+        })
+
+    return {
+        "current_projection_gap_definition": (
+            "cell_current_equivalent minus arithmetic mean of adjacent face currents"
+        ),
+        "current_projection_gap_max_abs_baseline": float(
+            np.max(np.abs(baseline_gap))
+        ),
+        "current_projection_gap_max_abs_extended": float(
+            np.max(np.abs(extended_gap))
+        ),
+        "current_projection_gap_delta_max_abs_on_overlap": float(
+            np.max(np.abs(gap_delta))
+        ),
+        "current_projection_gap_delta_l1_on_overlap": float(
+            np.sum(np.abs(gap_delta))
+        ),
+        "cell_defect_delta_vs_current_projection_gap_delta_pearson_r": correlation,
+        "radial_band_comparison": radial_bands,
+    }
+
 def _summarize_domain_radius_sweep(
     baseline_runs: list[dict], extension_runs: list[dict]
 ) -> dict:
@@ -4617,6 +4718,7 @@ def _summarize_domain_radius_sweep(
         "cell_defect_signed_sum_baseline": float(base["cell_defect_signed_inner"]),
         "cell_defect_signed_sum_extended": float(extended["cell_defect_signed_inner"]),
     }
+    overlap.update(_domain_radius_projection_comparison(base, extended))
     return {
         "classification": (
             "matched-dr outer-radius discriminator; signed physical remainders "
