@@ -86,34 +86,79 @@ jobs:
               return latestByReviewer;
             }
 
-            async function checkGate(headSha, requiredNames) {
-              const { data } = await github.rest.checks.listForRef({
-                owner, repo, ref: headSha, per_page: 100,
-              });
-              const checkRuns = (data.check_runs || [])
+            const workflowForCheck = {
+              "regression-suite": "Strict JSON residual reporting contract",
+              "Tests and one-step production smoke": "Lightweight validation",
+              "integrated-admission": "Strict campaign plus radiation retry integration",
+              "joined-energy-ledger": "Research - joined EM/matter/Misner-Sharp ledger",
+            };
+
+            async function checkGate(headSha, requiredNames, pullNumber, expectedBaseSha, mainCommitDate) {
+              const [{ data: checks }, { data: workflowData }] = await Promise.all([
+                github.rest.checks.listForRef({ owner, repo, ref: headSha, per_page: 100 }),
+                github.rest.actions.listWorkflowRunsForRepo({
+                  owner, repo, head_sha: headSha, event: "pull_request", per_page: 100,
+                }),
+              ]);
+              const checkRuns = (checks.check_runs || [])
                 .filter(c => c.head_sha === headSha && c.app?.slug === "github-actions");
+              const workflowRuns = workflowData.workflow_runs || [];
 
               const failures = [];
               for (const name of requiredNames) {
-                const latest = checkRuns
+                const latestCheck = checkRuns
                   .filter(c => c.name === name)
                   .sort((a, b) =>
                     (b.run_attempt || 0) - (a.run_attempt || 0) ||
                     Date.parse(b.started_at || b.created_at) - Date.parse(a.started_at || a.created_at) ||
                     b.id - a.id
                   )[0];
-                if (!latest) {
+                if (!latestCheck) {
                   failures.push(`${name}: missing on current head`);
-                } else if (latest.status !== "completed" || latest.conclusion !== "success") {
-                  failures.push(`${name}: ${latest.status}/${latest.conclusion || "no conclusion"}`);
+                  continue;
+                }
+                if (latestCheck.status !== "completed" || latestCheck.conclusion !== "success") {
+                  failures.push(`${name}: ${latestCheck.status}/${latestCheck.conclusion || "no conclusion"}`);
+                  continue;
+                }
+
+                const expectedWorkflow = workflowForCheck[name];
+                const latestWorkflow = workflowRuns
+                  .filter(w => w.name === expectedWorkflow && w.head_sha === headSha && w.event === "pull_request")
+                  .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at))[0];
+
+                if (!latestWorkflow) {
+                  failures.push(`${name}: no matching PR workflow-run evidence`);
+                  continue;
+                }
+                if (latestWorkflow.status !== "completed" || latestWorkflow.conclusion !== "success") {
+                  failures.push(`${name}: latest workflow run is ${latestWorkflow.status}/${latestWorkflow.conclusion || "no conclusion"}`);
+                  continue;
+                }
+
+                const runPulls = latestWorkflow.pull_requests || [];
+                if (runPulls.length > 0) {
+                  const exactBaseRun = runPulls.some(p =>
+                    p.number === pullNumber &&
+                    p.head?.sha === headSha &&
+                    p.base?.ref === "main" &&
+                    p.base?.sha === expectedBaseSha
+                  );
+                  if (!exactBaseRun) {
+                    failures.push(`${name}: workflow run is not linked to this PR at current base ${expectedBaseSha}`);
+                  }
+                } else if (Date.parse(latestWorkflow.created_at) < Date.parse(mainCommitDate)) {
+                  failures.push(`${name}: workflow run predates the current main commit and has no PR/base association`);
                 }
               }
               return failures;
             }
 
-            async function mainSha() {
-              const { data } = await github.rest.git.getRef({ owner, repo, ref: "heads/main" });
-              return data.object.sha;
+            async function mainInfo() {
+              const { data: refData } = await github.rest.git.getRef({ owner, repo, ref: "heads/main" });
+              const sha = refData.object.sha;
+              const { data: commit } = await github.rest.repos.getCommit({ owner, repo, ref: sha });
+              return { sha, committedAt: commit.commit.committer.date };
             }
 
             async function evaluateAndMerge(number) {
@@ -139,7 +184,8 @@ jobs:
 
               const headSha = pr.head.sha;
               const baseSha = pr.base.sha;
-              const liveMainSha = await mainSha();
+              const liveMain = await mainInfo();
+              const liveMainSha = liveMain.sha;
               if (baseSha !== liveMainSha) {
                 core.info(`#${number}: base is stale; PR base=${baseSha}, main=${liveMainSha}.`);
                 return;
@@ -156,7 +202,7 @@ jobs:
                 required.push("joined-energy-ledger");
               }
 
-              const failures = await checkGate(headSha, required);
+              const failures = await checkGate(headSha, required, number, liveMainSha, liveMain.committedAt);
               if (failures.length) {
                 core.info(`#${number}: blocked at head ${headSha}: ${failures.join("; ")}`);
                 return;
@@ -182,7 +228,7 @@ jobs:
               // Recheck head, base, main, review state, and statuses immediately before merge.
               const [{ data: freshPr }, freshMain] = await Promise.all([
                 github.rest.pulls.get({ owner, repo, pull_number: number }),
-                mainSha(),
+                mainInfo(),
               ]);
               if (
                 freshPr.state !== "open" ||
@@ -190,14 +236,14 @@ jobs:
                 freshPr.head.sha !== headSha ||
                 freshPr.base.sha !== baseSha ||
                 freshPr.base.ref !== "main" ||
-                freshMain !== baseSha ||
+                freshMain.sha !== baseSha ||
                 freshPr.mergeable !== true
               ) {
                 core.info(`#${number}: PR/base/head changed during qualification; re-evaluation required.`);
                 return;
               }
 
-              const finalFailures = await checkGate(headSha, required);
+              const finalFailures = await checkGate(headSha, required, number, baseSha, freshMain.committedAt);
               if (finalFailures.length) {
                 core.info(`#${number}: final exact-head check failed: ${finalFailures.join("; ")}`);
                 return;
