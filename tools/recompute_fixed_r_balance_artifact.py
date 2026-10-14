@@ -344,9 +344,22 @@ def recompute_arm(stage: dict[str, Any]) -> dict[str, Any]:
         ("tube_radial_pressure_work", work_factor),
     ):
         if key in stage:
+            # Residual checks must scale against the cancelled operands, not
+            # the small residual itself. This is an algebraic error bound only.
+            if "residual" in key:
+                scales = (
+                    mdot_at_target, flux_composite, work_composite,
+                    moving_observed, moving_predicted, sweep,
+                )
+            elif "mass_dot_coordinate" in key:
+                scales = tuple(np.abs(v[active_positions]) for v in mdot_terms.values())
+            elif "stress_flux" in key:
+                scales = (flux_composite, flux_factor, flux_profile[active_positions])
+            else:
+                scales = (work_composite, work_factor, work_profile[active_positions])
             summary_checks[key] = _roundoff_check(
                 f"independent comparison to {key}", value, float(stage[key]),
-                value, float(stage[key])
+                *scales
             )
 
     left_report: dict[str, Any] = {}
