@@ -5,6 +5,7 @@ import numpy as np
 import pytest
 
 from tools.recompute_fixed_r_balance_artifact import (
+    _geometric_radial_einstein_rr_at_cell,
     recompute_arm,
     recompute_em_stage_exchange_campaign,
     recompute_em_stage_exchange_witness,
@@ -90,6 +91,7 @@ def _raw_stage():
         "active_bracket": {"left_index": 2, "right_index": 3, "theta": 0.5},
         "profiles": {
             "r": r, "a": a, "b": b, "X": X, "alpha": alpha,
+            "beta": np.zeros_like(r),
             "a_dot_explicit": a_dot, "b_dot_explicit": b_dot, "X_dot_explicit": X_dot,
             "R": R, "Rr_parity_aware": Rr, "Rdot": Rdot,
             "Rdot_r_parity_aware": Rdot_r, "gamma_inv": gamma_inv,
@@ -306,3 +308,37 @@ def test_independent_em_recompute_rejects_predictor_charge_update_mismatch():
     step["em_stage_exchange_witnesses"][1] = altered_predictor
     with pytest.raises(RuntimeError, match="EM Euler predictor charge update"):
         recompute_em_stage_exchange_campaign(data)
+
+
+
+def test_independent_metric_radial_einstein_residual_converges_on_static_schwarzschild():
+    def compute(n):
+        r_max = 20.0
+        dr = r_max / n
+        indices = list(range(n))
+        r = (np.arange(n, dtype=float) + 0.5) * dr
+        psi = 1.0 + 0.5 / r
+        X = psi**-2
+        alpha = (1.0 - 0.5 / r) / (1.0 + 0.5 / r)
+        a = np.ones_like(r)
+        b = np.ones_like(r)
+        areal = r * np.sqrt(b) / X
+        # Exact time-independent vacuum Schwarzschild slice in isotropic
+        # coordinates: K=K^r_r=0 and the radial Einstein residual vanishes.
+        profiles = {
+            "r": r, "a": a, "b": b, "X": X, "alpha": alpha,
+            "beta": np.zeros_like(r), "K": np.zeros_like(r),
+            "Aa": np.zeros_like(r), "pr": np.zeros_like(r),
+        }
+        target_r = 8.0
+        index = int(np.argmin(np.abs(r - target_r)))
+        result = _geometric_radial_einstein_rr_at_cell(
+            profiles, indices, index, dr,
+            np.zeros_like(r), np.zeros_like(r),
+        )
+        return abs(result["C_radial_mixed_unthresholded"])
+
+    coarse = compute(80)
+    fine = compute(160)
+    assert coarse > 0.0
+    assert fine < coarse / 8.0
