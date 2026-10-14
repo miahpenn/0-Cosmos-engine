@@ -35,6 +35,7 @@ from tools.audit_em_total_energy_budget import (
     _pirk_accepted_update_einstein_source_arrays,
     _split_hll_scalar_flux,
     _hll_charge_tangent_split,
+    _domain_stage_diagnostics,
 )
 
 
@@ -1381,6 +1382,99 @@ def test_stage_exchange_witness_preserves_q_face_tangent_and_metric_weight_rate(
         (0.0, 2.0, 0.7, -0.4, 1.2, 1.9, "left_upwind"),
     ],
 )
+
+
+def test_domain_stage_diagnostics_reconstructs_signed_cellwise_projection_and_hll_split():
+    n = 4
+    dr = 0.5
+    centers = (np.arange(n, dtype=np.float64) + 0.5) * dr
+    eta = 0.25
+    a = np.full(n, 1.1)
+    b = np.full(n, 0.9)
+    X = np.full(n, 1.02)
+    alpha = np.asarray([0.90, 0.92, 0.95, 0.97])
+    geometry = {"a": a, "b": b, "X": X}
+    sqrt_gamma = np.sqrt(a) * b * centers**2 / X**3
+    weight = X * np.sqrt(a) / (centers**2 * b)
+    q_cell = np.asarray([0.02, 0.031, 0.027, 0.018])
+    primitive_current = np.asarray([0.021, -0.013, 0.016, 0.024])
+    cell_current = 4.0 * np.pi * eta * alpha * sqrt_gamma * primitive_current
+    current_faces = np.asarray([0.0, 0.004, -0.002, 0.005, 0.001])
+    adjacent_face_current = 0.5 * (current_faces[:-1] + current_faces[1:])
+    charge_tangent = -dr * float(np.sum(weight * q_cell * adjacent_face_current))
+    lorentz_source = alpha * sqrt_gamma * (weight * q_cell) * primitive_current
+    lorentz_power = 4.0 * np.pi * dr * float(np.sum(lorentz_source))
+
+    jump_mass_flux = np.asarray([2.0e-4, -1.0e-4, 1.5e-4])
+    jump_current_faces = np.zeros(n + 1)
+    jump_current_faces[1:-1] = 4.0 * np.pi * eta * jump_mass_flux
+    jump_cell_terms = -0.5 * dr * weight * q_cell * (
+        jump_current_faces[:-1] + jump_current_faces[1:]
+    )
+    jump_tangent = float(np.sum(jump_cell_terms))
+    weighted_only_tangent = charge_tangent - jump_tangent
+    face_operands = [
+        {"face_index": i + 1, "jump_rest_mass_flux": float(value)}
+        for i, value in enumerate(jump_mass_flux)
+    ]
+    stage = {
+        "stage": "primary_predictor",
+        "t": 0.02,
+        "charge_power": charge_tangent,
+        "matter_lorentz_power": lorentz_power,
+        "weighted_flux_only_charge_power": weighted_only_tangent,
+        "hll_jump_charge_power": jump_tangent,
+        "stage_witness": {
+            "grid_dr": dr,
+            "charge_to_rest_mass": eta,
+            "centers": centers.tolist(),
+            "lapse_profile": alpha.tolist(),
+            "lorentz_current_r_profile": primitive_current.tolist(),
+            "geometry": {name: values.tolist() for name, values in geometry.items()},
+            "charge_current_faces": current_faces.tolist(),
+            "charge_cell_average": q_cell.tolist(),
+            "field_energy_weight": weight.tolist(),
+            "lorentz_energy_source_profile": lorentz_source.tolist(),
+            "hll_current_flux_decomposition": {
+                "weighted_flux_only_charge_current_tangent": weighted_only_tangent,
+                "hll_jump_charge_current_tangent_contribution": jump_tangent,
+                "internal_face_operands": face_operands,
+            },
+        },
+    }
+
+    observed = _domain_stage_diagnostics(
+        {"resolution": n, "q_over_m": eta},
+        stage,
+        coordinate_radius_cut=1.5,
+    )
+    expected_defect = dr * weight * q_cell * (
+        cell_current - adjacent_face_current
+    )
+    assert observed["full_pairing_signed_global"] == pytest.approx(
+        charge_tangent + lorentz_power, rel=0.0, abs=2e-25
+    )
+    assert observed["full_pairing_signed_global"] == pytest.approx(
+        float(np.sum(expected_defect)), rel=0.0, abs=2e-25
+    )
+    assert observed["hll_jump_charge_tangent_global"] == pytest.approx(jump_tangent)
+    assert observed["weighted_only_pairing_signed_global"] == pytest.approx(
+        weighted_only_tangent + lorentz_power
+    )
+    assert observed["inner_cell_count"] == 3
+    assert observed["cell_defect_signed_inner"] == pytest.approx(
+        float(np.sum(expected_defect[:3]))
+    )
+    assert observed["cell_defect_l1_inner"] == pytest.approx(
+        float(np.sum(np.abs(expected_defect[:3])))
+    )
+    assert observed["hll_jump_charge_tangent_inner"] == pytest.approx(
+        float(np.sum(jump_cell_terms[:3]))
+    )
+    assert observed["roundoff_checks"]["full_pairing_cell_sum"]["roundoff_bound"] > 0.0
+    assert observed["classification"].startswith("signed diagnostic")
+
+
 def test_hll_scalar_flux_split_reconstructs_exact_returned_flux(
     s_minus, s_plus, flux_left, flux_right, U_left, U_right, branch
 ):
