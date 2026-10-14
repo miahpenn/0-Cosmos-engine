@@ -227,10 +227,15 @@ def _raw_em_stage_record(stage_name="start", charge_faces=None, rest_flux=None):
     lorentz = np.array([1.0e-5, -2.0e-5, 1.5e-5])
     lorentz_power = 4.0 * np.pi * dr * float(np.sum(lorentz))
     outer_power = -0.5 * dr * weight[-1] * qcell[-1] * current[-1]
+    lapse = np.array([0.95, 0.97, 0.99])
+    sqrt_gamma = np.sqrt(a) * b * centers**2 / X**3
+    lorentz_current_r = lorentz / (lapse * sqrt_gamma * weight * qcell)
     witness = {
         "grid_dr": dr,
         "charge_to_rest_mass": eta,
         "centers": centers.tolist(),
+        "lapse_profile": lapse.tolist(),
+        "lorentz_current_r_profile": lorentz_current_r.tolist(),
         "geometry": {"X": X.tolist(), "a": a.tolist(), "b": b.tolist()},
         "explicit_geometry_rhs": {
             "X": Xdot.tolist(), "a": adot.tolist(), "b": bdot.tolist()
