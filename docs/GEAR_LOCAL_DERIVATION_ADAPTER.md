@@ -15,20 +15,22 @@ In the archived polar-areal local model, the spatial line element is
 \(d\ell=a_{\rm PA}(t,r)\,dr\), so
 \(\ell(t,r)=\int_0^r a_{\rm PA}(t,r')\,dr'\). The archived cell-centred code uses midpoint quadrature.
 
-The current V5.5 engine is written in different metric variables. Its solved radial spatial metric is
+The current V5.5 engine is written in different metric variables. Its inverse radial spatial metric is
 
 \[
-\gamma_{rr}=\frac{X^2}{a},
+\gamma^{rr}=\frac{X^2}{a},
 \qquad
-d\ell=\sqrt{\gamma_{rr}}\,dr.
+\gamma_{rr}=\frac{a}{X^2},
+\qquad
+d\ell=\frac{\sqrt{a}}{|X|}\,dr.
 \]
 
 Thus the corresponding main-engine diagnostic at uniform cell centres is
 
 \[
 \ell_j=\Delta r\left[
-\sum_{i=0}^{j}\sqrt{\gamma_{rr,i}}
--\frac12\sqrt{\gamma_{rr,j}}
+\sum_{i=0}^{j}\frac{\sqrt{a_i}}{|X_i|}
+-\frac12\frac{\sqrt{a_j}}{|X_j|}
 \right].
 \]
 
