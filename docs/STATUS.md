@@ -25,8 +25,6 @@ The current outer-current quantity is the outer-face summand of the discrete cha
 
 ## Owner-directed opt-in radial-Maxwell integration now on `main`
 
-## Owner-directed opt-in radial-Maxwell integration now on `main`
-
 **Merged:** [PR #176](https://github.com/miahpenn/0-Cosmos-engine/pull/176), merge commit `0c1d4679bd05b73491c692277127fc091f24dac4`, based on prior `main` `1f868e537d59b3195778fa6fdc6f745da9d339d9`. This adds the explicitly opt-in research radial-Maxwell state, separate charged-dust carrier path, campaign configuration, stage/accepted-state witnesses, checkpoint evidence and multi-step regression. No GEAR archive equation or pre-existing species is assigned charge by inference.
 
 ### How to exercise it
