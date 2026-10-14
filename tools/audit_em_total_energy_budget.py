@@ -1271,6 +1271,101 @@ def _mass_gradient_identity_bracket_witness(
 
 
 
+
+def _piecewise_linear_fixed_R_rate_witness(
+    interpolant_rate: dict, *, stress_flux: float, pressure_work: float, target: float
+) -> dict:
+    """Operator-matched witness for the moving piecewise-linear M(R,t) observable.
+
+    The moving-interpolant tangent is Mdot_coord_interp
+    - Rdot_interp * (M[right]-M[left])/(R[right]-R[left]).
+    It is deliberately not reconstructed from the fourth-order D_r M profile.
+    """
+    if not isinstance(interpolant_rate, dict):
+        raise RuntimeError("piecewise-linear fixed-R witness must be a mapping")
+    required = (
+        "left_index", "right_index", "theta", "bracket_span", "left_R",
+        "right_R", "left_Rdot", "right_Rdot", "left_mass", "right_mass",
+        "left_mass_dot_coordinate", "right_mass_dot_coordinate",
+        "interpolated_Rdot", "interpolated_mass_dot_coordinate",
+        "piecewise_linear_mass_gradient", "fixed_R_sweep", "mass_dot_fixed_R",
+    )
+    missing = [key for key in required if key not in interpolant_rate]
+    if missing:
+        raise RuntimeError(f"piecewise-linear fixed-R witness missing fields: {missing}")
+
+    def finite(value, label):
+        try:
+            out = float(value)
+        except (TypeError, ValueError, OverflowError) as exc:
+            raise RuntimeError(f"piecewise-linear fixed-R {label} must be finite") from exc
+        if not math.isfinite(out):
+            raise RuntimeError(f"piecewise-linear fixed-R {label} must be finite")
+        return out
+
+    target = finite(target, "target")
+    flux = finite(stress_flux, "stress flux")
+    work = finite(pressure_work, "pressure work")
+    left, right = interpolant_rate["left_index"], interpolant_rate["right_index"]
+    if (
+        isinstance(left, bool) or isinstance(right, bool)
+        or not isinstance(left, (int, np.integer))
+        or not isinstance(right, (int, np.integer))
+        or int(left) < 0 or int(right) != int(left) + 1
+    ):
+        raise RuntimeError("piecewise-linear fixed-R bracket indices must be adjacent")
+    v = {key: finite(interpolant_rate[key], key) for key in required if key not in ("left_index","right_index")}
+    span = v["right_R"] - v["left_R"]
+    if span <= 0.0 or v["bracket_span"] <= 0.0:
+        raise RuntimeError("piecewise-linear fixed-R bracket span must be positive")
+    if not math.isclose(span, v["bracket_span"], rel_tol=64*np.finfo(float).eps, abs_tol=0.0):
+        raise RuntimeError("piecewise-linear fixed-R bracket span mismatch")
+    theta_from_R = (target - v["left_R"]) / span
+    if not -64*np.finfo(float).eps <= theta_from_R <= 1.0 + 64*np.finfo(float).eps:
+        raise RuntimeError("piecewise-linear fixed-R target is outside the recorded bracket")
+    if not math.isclose(theta_from_R, v["theta"], rel_tol=0.0, abs_tol=64*np.finfo(float).eps):
+        raise RuntimeError("piecewise-linear fixed-R target/theta mismatch")
+    theta = v["theta"]
+    rdot_interp = (1.0-theta)*v["left_Rdot"] + theta*v["right_Rdot"]
+    mdot_interp = (1.0-theta)*v["left_mass_dot_coordinate"] + theta*v["right_mass_dot_coordinate"]
+    dmdr_secant = (v["right_mass"] - v["left_mass"]) / span
+    sweep = -rdot_interp * dmdr_secant
+    rate = mdot_interp + sweep
+    scale = max(
+        abs(rate), abs(v["mass_dot_fixed_R"]), abs(mdot_interp), abs(sweep),
+        abs(v["left_mass_dot_coordinate"]), abs(v["right_mass_dot_coordinate"]),
+        float(np.finfo(float).tiny),
+    )
+    bound = 128.0 * np.finfo(float).eps * scale
+    if not math.isclose(rdot_interp, v["interpolated_Rdot"], rel_tol=0.0,
+                        abs_tol=128*np.finfo(float).eps*max(abs(rdot_interp),abs(v["interpolated_Rdot"]),np.finfo(float).tiny)):
+        raise RuntimeError("piecewise-linear fixed-R interpolated Rdot mismatch")
+    if not math.isclose(dmdr_secant, v["piecewise_linear_mass_gradient"], rel_tol=0.0,
+                        abs_tol=128*np.finfo(float).eps*max(abs(dmdr_secant),abs(v["piecewise_linear_mass_gradient"]),np.finfo(float).tiny)):
+        raise RuntimeError("piecewise-linear fixed-R secant gradient mismatch")
+    reconstruction = rate - v["mass_dot_fixed_R"]
+    if abs(reconstruction) > bound:
+        raise RuntimeError("piecewise-linear fixed-R tangent reconstruction failed")
+    prediction = flux + work + sweep
+    return {
+        "target_R": target,
+        "left_index": int(left), "right_index": int(right), "theta": theta,
+        "bracket_span": span,
+        "interpolated_Rdot": rdot_interp,
+        "interpolated_mass_dot_coordinate": mdot_interp,
+        "piecewise_linear_dM_dR_secant": dmdr_secant,
+        "piecewise_linear_fixed_R_sweep": sweep,
+        "piecewise_linear_measured_fixed_R_rate": rate,
+        "native_interpolant_measured_fixed_R_rate": v["mass_dot_fixed_R"],
+        "tangent_reconstruction_residual": reconstruction,
+        "tangent_reconstruction_roundoff_bound": bound,
+        "stress_flux": flux, "radial_pressure_work": work,
+        "piecewise_linear_predicted_fixed_R_rate": prediction,
+        "piecewise_linear_measured_minus_predicted": rate - prediction,
+        "operator": "piecewise_linear_bracket_secant",
+    }
+
+
 def _hm_constraint_adjusted_fixed_R_rate(
     mass_gradient_witness: dict, *, tube_speed: float,
     composite_stress_flux: float, composite_pressure_work: float,
@@ -1874,6 +1969,12 @@ def _worldtube_sample(kernel, state, *, geometry_stage_capture=None) -> dict:
             measured_interpolant_rate=interpolant_rate["mass_dot_fixed_R"],
             target=FIXED_AREAL_RADIUS,
         )
+        piecewise_linear_rate_witness = _piecewise_linear_fixed_R_rate_witness(
+            interpolant_rate,
+            stress_flux=composite_stress_flux,
+            pressure_work=composite_pressure_work,
+            target=FIXED_AREAL_RADIUS,
+        )
         chain_rule = {
             "tube_chain_rule_Rdot": at(Rdot),
             "tube_chain_rule_Rr": at(Rr),
@@ -1956,6 +2057,7 @@ def _worldtube_sample(kernel, state, *, geometry_stage_capture=None) -> dict:
                 "mass_dot_coordinate": np.asarray(chain_profiles["mass_dot_coordinate"], dtype=float).copy(),
             },
             "tube_hm_constraint_adjusted_fixed_R_rate": hm_constraint_adjusted_rate,
+            "tube_piecewise_linear_fixed_R_rate_witness": piecewise_linear_rate_witness,
         }
 
     em_rho = total.electromagnetic_rho
