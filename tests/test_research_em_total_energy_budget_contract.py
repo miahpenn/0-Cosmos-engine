@@ -1321,6 +1321,7 @@ def test_stage_exchange_witness_preserves_q_face_tangent_and_metric_weight_rate(
         X=np.array([1.0, 1.2]),
         a=np.array([1.1, 1.3]),
         b=np.array([1.0, 1.1]),
+        alpha=np.array([0.98, 0.99]),
     )
     state = SimpleNamespace(
         grid=SimpleNamespace(dr=dr, centers=centers),
@@ -1329,7 +1330,10 @@ def test_stage_exchange_witness_preserves_q_face_tangent_and_metric_weight_rate(
     )
     stage = {
         "stage_state": state,
-        "lorentz": {"energy": np.array([2e-5, 3e-5])},
+        "lorentz": {
+            "energy": np.array([2e-5, 3e-5]),
+            "current_r": np.array([1e-5, 1.5e-5]),
+        },
     }
     explicit = {
         "X": np.array([0.01, -0.02]),
@@ -1356,3 +1360,5 @@ def test_stage_exchange_witness_preserves_q_face_tangent_and_metric_weight_rate(
         record["charge_power"] + record["metric_power"], abs=1e-18
     )
     assert len(witness["charge_current_tangent_cell_terms"]) == centers.size
+    assert witness["lapse_profile"] == geometry.alpha.tolist()
+    assert witness["lorentz_current_r_profile"] == stage["lorentz"]["current_r"].tolist()
