@@ -33,6 +33,8 @@ from tools.audit_em_total_energy_budget import (
     _sector_fixed_R_rates,
     _sector_ktheta_source_rates,
     _pirk_accepted_update_einstein_source_arrays,
+    _split_hll_scalar_flux,
+    _hll_charge_tangent_split,
 )
 
 
@@ -1362,3 +1364,92 @@ def test_stage_exchange_witness_preserves_q_face_tangent_and_metric_weight_rate(
     assert len(witness["charge_current_tangent_cell_terms"]) == centers.size
     assert witness["lapse_profile"] == geometry.alpha.tolist()
     assert witness["lorentz_current_r_profile"] == stage["lorentz"]["current_r"].tolist()
+
+
+@pytest.mark.parametrize(
+    "s_minus,s_plus,flux_left,flux_right,U_left,U_right,branch",
+    [
+        (-2.0, 3.0, 0.7, -0.4, 1.2, 1.9, "transonic"),
+        (-2.0, 0.0, 0.7, -0.4, 1.2, 1.9, "right_upwind"),
+        (0.0, 2.0, 0.7, -0.4, 1.2, 1.9, "left_upwind"),
+    ],
+)
+def test_hll_scalar_flux_split_reconstructs_exact_returned_flux(
+    s_minus, s_plus, flux_left, flux_right, U_left, U_right, branch
+):
+    if s_plus <= 0.0:
+        observed = flux_right
+    elif s_minus >= 0.0:
+        observed = flux_left
+    else:
+        observed = (
+            s_plus * flux_left - s_minus * flux_right
+            + s_minus * s_plus * (U_right - U_left)
+        ) / (s_plus - s_minus)
+
+    split = _split_hll_scalar_flux(
+        s_minus, s_plus, flux_left, flux_right, U_left, U_right, observed
+    )
+    assert split["hll_branch"] == branch
+    assert split["hll_returned_rest_mass_flux"] == observed
+    assert split["weighted_rest_mass_flux"] + split["jump_rest_mass_flux"] == pytest.approx(
+        observed, rel=0.0, abs=split["split_reconstruction_roundoff_bound"]
+    )
+    assert abs(split["split_reconstruction_residual"]) <= (
+        split["split_reconstruction_roundoff_bound"]
+    )
+    if branch != "transonic":
+        assert split["jump_rest_mass_flux"] == 0.0
+
+
+def test_hll_scalar_flux_split_fails_closed_if_saved_operands_do_not_reconstruct():
+    with pytest.raises(RuntimeError, match="does not reconstruct"):
+        _split_hll_scalar_flux(
+            -2.0, 3.0, 0.7, -0.4, 1.2, 1.9, observed_flux=99.0
+        )
+
+
+def test_hll_charge_tangent_split_is_signed_and_keeps_boundary_currents_fixed():
+    dr = 0.25
+    weight = np.array([1.4, 0.9, 0.7, 0.45])
+    q_cell = np.array([0.4, 0.8, 0.9, 1.1])
+    current_faces = np.array([0.0, 0.2, -0.15, 0.07, 0.31])
+    jump_rest_mass_flux = np.array([0.015, -0.02, 0.03])
+    eta = 0.25
+
+    split = _hll_charge_tangent_split(
+        dr, weight, q_cell, current_faces, jump_rest_mass_flux, eta
+    )
+    jump_current = np.zeros_like(current_faces)
+    jump_current[1:-1] = 4.0 * np.pi * eta * jump_rest_mass_flux
+    np.testing.assert_allclose(split["jump_current_faces"], jump_current, rtol=0.0, atol=0.0)
+    np.testing.assert_allclose(
+        split["weighted_only_current_faces"][[0, -1]],
+        current_faces[[0, -1]],
+        rtol=0.0,
+        atol=0.0,
+    )
+
+    def tangent(current):
+        return dr * np.sum(
+            weight * q_cell * (-0.5 * (current[:-1] + current[1:]))
+        )
+
+    assert split["actual_charge_current_tangent"] == pytest.approx(
+        tangent(current_faces), rel=0.0, abs=0.0
+    )
+    assert split["weighted_flux_only_charge_current_tangent"] == pytest.approx(
+        tangent(current_faces - jump_current), rel=0.0, abs=0.0
+    )
+    assert split["hll_jump_charge_current_tangent_contribution"] == pytest.approx(
+        tangent(jump_current), rel=0.0, abs=0.0
+    )
+    assert abs(split["tangent_split_reconstruction_residual"]) <= (
+        split["tangent_split_reconstruction_roundoff_bound"]
+    )
+    assert split["actual_charge_current_tangent"] == pytest.approx(
+        split["weighted_flux_only_charge_current_tangent"]
+        + split["hll_jump_charge_current_tangent_contribution"],
+        rel=0.0,
+        abs=split["tangent_split_reconstruction_roundoff_bound"],
+    )
