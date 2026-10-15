@@ -31,12 +31,25 @@ def test_one_step_lambda_perturbation_keeps_constraints_signed_and_finite():
     assert case["delta_Aa_final_max_abs"] > 0.0
     assert case["actual_Aa_rate_delta_vs_frozen_L2_prediction_relative_rms_error"] < 0.25
 
-    # Initial H/M/determinant should not change when only Lambda is perturbed;
-    # the connection residual should change by precisely that odd mode.
-    for name in ("hamiltonian", "momentum", "determinant"):
+    # The independent metric-only Hamiltonian witness, momentum, and determinant
+    # must be invariant when only the independently evolved Lambda is perturbed.
+    # The BSSN Hamiltonian is different: its scalar-Ricci principal part explicitly
+    # contains D4(Lambda), so its signed response must match that identity instead
+    # of being incorrectly forced to zero.
+    for name in ("hamiltonian_metric_only", "momentum", "determinant"):
         off = profiles[f"initial_constraint_off_mode_{name}"]
         base = profiles[f"initial_constraint_baseline_{name}"]
         assert np.max(np.abs(off - base)) < 2.0e-13
+
+    observed_bssn_h_delta = (
+        profiles["initial_constraint_off_mode_hamiltonian"]
+        - profiles["initial_constraint_baseline_hamiltonian"]
+    )
+    predicted_bssn_h_delta = profiles["predicted_initial_bssn_hamiltonian_delta_from_lambda"]
+    closure = profiles["initial_bssn_hamiltonian_response_closure"]
+    assert np.max(np.abs(observed_bssn_h_delta)) > 1.0e-6
+    assert np.allclose(observed_bssn_h_delta, predicted_bssn_h_delta, rtol=0.0, atol=5.0e-12)
+    assert np.max(np.abs(closure)) < 5.0e-12
     connection_delta = (
         profiles["initial_constraint_off_mode_connection"]
         - profiles["initial_constraint_baseline_connection"]
@@ -46,7 +59,7 @@ def test_one_step_lambda_perturbation_keeps_constraints_signed_and_finite():
         rtol=0.0, atol=5.0e-13,
     )
     for key in (
-        "hamiltonian", "momentum", "connection", "determinant"
+        "hamiltonian", "hamiltonian_metric_only", "momentum", "connection", "determinant"
     ):
         assert np.all(np.isfinite(profiles[f"constraint_delta_{key}"]))
 
