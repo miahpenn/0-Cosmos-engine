@@ -21,7 +21,7 @@ permissions:
   pull-requests: write
 
 concurrency:
-  group: qualified-auto-merge-${{ github.event.pull_request.number || github.event.workflow_run.id || github.run_id }}
+  group: qualified-auto-merge-main # Serialize qualification across all candidate PRs to reduce merge races.
   cancel-in-progress: false
 
 jobs:
