@@ -41,3 +41,14 @@ def test_continuous_source_moment_correction_has_expected_regular_sign():
     result = solve_continuous_moment(0.25)
     assert result["parameters"]["s2"] < 0.0
     assert result["exact_continuous_point_moment_correction"] > 0.0
+
+
+def test_continuous_oracle_samples_requested_support_without_overintegrating():
+    requested = np.array([0.125, 0.25, 1.5], dtype=float)
+    result = solve_continuous_moment(0.125, profile_radii=requested)
+    assert result["continuous_ode_stop_radius"] == float(requested[-1])
+    assert result["continuous_metric_profile_radii"] == requested.tolist()
+    assert len(result["continuous_B_profile_at_radii"]) == requested.size
+    assert len(result["continuous_source_profile_at_radii"]) == requested.size
+    assert np.all(np.asarray(result["continuous_B_profile_at_radii"]) > 0.0)
+    assert np.all(np.isfinite(result["continuous_source_profile_at_radii"]))
