@@ -187,7 +187,7 @@ def _ricci_witness(grid, state, vacuum, arrays, prefix: str) -> tuple[dict, dict
     }
 
 
-def _case_witness(grid, state, vacuum, arrays, prefix: str) -> tuple[dict, dict]:
+def _case_witness(grid, state, vacuum, arrays, prefix: str) -> tuple[dict, dict, dict]:
     ricci, lambda_witness, metric_arrays = _ricci_witness(
         grid, state, vacuum, arrays, prefix
     )
@@ -203,7 +203,7 @@ def _case_witness(grid, state, vacuum, arrays, prefix: str) -> tuple[dict, dict]
                 and all(_finite(v) for v in constraint_profiles.values()),
         },
     }
-    return report, constraint_profiles
+    return report, constraint_profiles, metric_arrays
 
 
 def run_resolution(resolution: int, vacuum) -> dict:
@@ -295,7 +295,7 @@ def run_resolution(resolution: int, vacuum) -> dict:
         if not summary["all_counterfactual_profiles_finite"]:
             raise FloatingPointError(f"N={resolution}/{tag}: non-finite copied profile")
         for stage, prefix in (("six_step", "origin_sc_six"), ("fixed_point", "origin_sc_fixed")):
-            witness, raw_constraint_profiles = _case_witness(
+            witness, raw_constraint_profiles, ricci_metric_profiles = _case_witness(
                 grid, state, vacuum, arrays, prefix
             )
             inv = witness["constraints"]["metric_invariants"]
@@ -336,7 +336,7 @@ def run_resolution(resolution: int, vacuum) -> dict:
             for key, values in raw_constraint_profiles.items():
                 saved_profiles[f"N{resolution}_{tag}_{stage}_constraint_{key}"] = np.asarray(values)
             saved_profiles[f"N{resolution}_{tag}_{stage}_lambda_chain_rule_gap"] = np.asarray(
-                arrays["lambda_lambda_chain_rule_vendor_minus_direct_tf_ricci"]
+                ricci_metric_profiles["lambda_lambda_chain_rule_vendor_minus_direct_tf_ricci"]
             )
         # Explicit fixed-point delta relative to production: retain the sign.
         fixed = results[f"{tag}_fixed_point"]
