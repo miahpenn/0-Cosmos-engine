@@ -1,0 +1,111 @@
+{
+  "schema": "origin_half_cell_continuous_source_oracle_summary_v1",
+  "status": "completed_diagnostic_only",
+  "provenance": {
+    "workflow_run_id": 38790119171,
+    "workflow_url": "https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38790119171",
+    "artifact_id": 12000515321,
+    "artifact_zip_sha256": "652918c69f4b6b3ee4c2d989f8c881e526725d5c598b876106e06e4729ad66bd",
+    "report_json_sha256": "6a738226030b42ddd7948541539eab358d29f3bca967efdc55ac35efa296a4e0",
+    "audit_head": "ed53c0bed2134e2f25172ce25b0cc7980c1164d1",
+    "source_anchor": "285a2ee0c1a3b97cddeb4519d8e749109b115aab",
+    "current_main_base_sha": "6398620b85b7f5a027de0532ded80bdf04a9b53b",
+    "vendor_pin": "d6052d605673ce9d82cdc99b0df79855fa2ea215",
+    "all_eleven_engine_source_blob_pins_match": true,
+    "engine_vendor_dependency_diff_empty": true,
+    "tests_passed": 8,
+    "zero_evolution_steps": true,
+    "production_vendor_files_modified": false,
+    "scientific_admission": false
+  },
+  "continuous_oracle": {
+    "source": "analytic Gaussian S and D profiles with analytic radial derivatives; homogeneous phi/Pi/matter and Kt=-H0, with the exact radial integral-equation metric B(r)",
+    "equation": "d(r B)/dr = s(r,B), B(0)=1",
+    "regularity_coefficients": {
+      "s2": -0.0012566370614359172,
+      "s4": 0.0000492,
+      "interpretation": "s(r)=1+s2*r^2+s4*r^4+s6*r^6+...; the exact computed coefficients are preserved in the full workflow artifact"
+    },
+    "method": "DOP853 solve of continuous metric ODE, independent scipy.quad integration of s(r,B(r)), and regular-centre series-start at epsilon",
+    "maximum_ode_vs_quad_abs_difference": 2.7755575615628914e-17,
+    "maximum_abs_s6_series_moment_residual": 5.2735593669694936e-15,
+    "exact_continuous_production_half_cell_integral_known": false,
+    "formal_rigorous_enclosure_provided": false
+  },
+  "resolutions": [
+    {
+      "N": 160,
+      "dr": 0.5,
+      "r0": 0.25,
+      "continuous_integral": 0.2499934646158785,
+      "continuous_point_moment": 0.24998041303268803,
+      "exact_continuous_point_moment_correction": 0.000013051583823558977,
+      "production_point_moment": 0.24998041303237156,
+      "production_point_moment_error_vs_continuum": -0.000013051583506951125,
+      "production_vs_continuous_point_moment": 3.16607851047479e-13,
+      "fit_errors_vs_continuum": {
+        "fixed_unanchored": -6.797397866797894e-9,
+        "fixed_origin_anchored": 9.89753001778837e-10,
+        "fixed_intercept_only": 1.2840593588414606e-9,
+        "local_six_origin_anchored": 3.6699349392765868e-9
+      },
+      "error_magnitude_reduction_vs_unanchored_percent": {
+        "fixed_origin_anchored": 85.441,
+        "fixed_intercept_only": 81.11,
+        "local_six_origin_anchored": 46.01
+      }
+    },
+    {
+      "N": 240,
+      "dr": 0.3333333333333333,
+      "r0": 0.16666666666666666,
+      "continuous_integral": 0.16666472867682738,
+      "continuous_point_moment": 0.16666085522593943,
+      "exact_continuous_point_moment_correction": 0.0000038734508879534335,
+      "production_point_moment": 0.16666085522595117,
+      "production_point_moment_error_vs_continuum": -0.000003873450876212825,
+      "production_vs_continuous_point_moment": 1.174060848541103e-14,
+      "fit_errors_vs_continuum": {
+        "fixed_unanchored": -1.6835129484915612e-8,
+        "fixed_origin_anchored": 6.909798566656633e-10,
+        "fixed_intercept_only": 9.131393419181677e-10,
+        "local_six_origin_anchored": 1.0326006716354641e-10
+      },
+      "error_magnitude_reduction_vs_unanchored_percent": {
+        "fixed_origin_anchored": 95.896,
+        "fixed_intercept_only": 94.575,
+        "local_six_origin_anchored": 99.387
+      }
+    },
+    {
+      "N": 320,
+      "dr": 0.25,
+      "r0": 0.125,
+      "continuous_integral": 0.12499918217712717,
+      "continuous_point_moment": 0.12499754713168172,
+      "exact_continuous_point_moment_correction": 0.0000016350454483948784,
+      "production_point_moment": 0.12499754713168003,
+      "production_point_moment_error_vs_continuum": -0.0000016350454471458775,
+      "production_vs_continuous_point_moment": 1.2490009027033011e-15,
+      "fit_errors_vs_continuum": {
+        "fixed_unanchored": -8.897706127442007e-9,
+        "fixed_origin_anchored": 2.2085711037789224e-10,
+        "fixed_intercept_only": 2.926725806151609e-10,
+        "local_six_origin_anchored": 7.970527016176732e-12
+      },
+      "error_magnitude_reduction_vs_unanchored_percent": {
+        "fixed_origin_anchored": 97.518,
+        "fixed_intercept_only": 96.71,
+        "local_six_origin_anchored": 99.91
+      }
+    }
+  ],
+  "interpretation": {
+    "key_finding": "The continuous oracle shows that anchoring c0=1 greatly improves the half-cell moment estimate versus the unconstrained fixed-window fit, even though the anchored fit worsens the signed centre Ricci mismatch. Thus moment accuracy and discrete Ricci/geometry closure are separate validation targets.",
+    "source_discretization": "The production source point sample and the continuous-source point value differ by at most 3.2e-13 at the first cell in these profiles, much smaller than the fitted-moment errors.",
+    "limitation": "This is a high-accuracy numerical reference validated by ODE/quadrature agreement and an s2/s4/s6 series residual. It is not a formally rigorous interval bound on the continuous integral."
+  },
+  "no_evolution": true,
+  "production_or_vendor_files_modified": false,
+  "scientific_admission": false
+}
