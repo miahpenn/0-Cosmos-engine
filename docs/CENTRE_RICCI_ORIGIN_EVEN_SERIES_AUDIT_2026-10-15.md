@@ -139,4 +139,25 @@ Lower-order fits over the wider windows are much less stable: a degree-2 source 
 
 
 
+
+### Higher-order fits and leave-one-cell-out check
+
+The next scan expands the family to degrees 1–5 in \(r^2\) and reports leave-one-cell-out (LOO) prediction errors wherever the remaining points determine the fit. Exact/saturated polynomials (no residual degrees of freedom) are labelled and are not used in the overdetermined spread bound.
+
+Run [38775616302](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38775616302), [artifact 11993781423](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38775616302/artifacts/11993781423), regenerated the report on diagnostic head `548003538a0946be2a232d3de8ca7fdcef83cde9`. Artifact ZIP SHA-256: `400b3c17fed510f31e6c15144aa9b7d7b043004fec592e813238ef4a6e04b7c9`; report JSON SHA-256: `8e79fe9c6a2c2a8429face4cf0380f488cb1bbb16ac0136048b9f6319d5afda3`. The exact-head full test suite passed (**673 passed**), source/vendor/dependency pin checks passed, and the audit completed diagnostic-only with `errors=[]`, zero evolution steps, and unchanged input state.
+
+Across **overdetermined** degree-3/4/5 fits and windows ending at \(r\le3.0\), the total span of the fitted half-cell correction, relative to the degree-3 \(r\le2.5\) reference, is:
+
+| Resolution | Correction span across eligible degree-3/4/5 fits, windows \(r\le3\) | Reference correction |
+|---:|---:|---:|
+| N=160 | 0.331% | \(1.304479\times10^{-5}\) |
+| N=240 | 1.181% | \(3.856616\times10^{-6}\) |
+| N=320 | 2.411% | \(1.626148\times10^{-6}\) |
+
+The degree-4/5 estimates on eligible windows are about +0.05% from the reference at N=160, about +0.42–0.44% at N=240, and about +0.50–0.55% at N=320. The larger total spread at N=320 comes from the degree-3 \(r\le3\) fit itself (−1.864%), while the degree-4/5 estimates stay grouped near +0.5%. This is a useful truncation diagnostic; it is not proof that degree 4 or 5 is the correct physical prescription.
+
+LOO source prediction adds a separate check. For the degree-3 \(r\le2.5\) reference fit, the maximum absolute LOO source residual is \(1.775\times10^{-6}\), \(1.642\times10^{-6}\), and \(8.110\times10^{-7}\) at N=160/240/320. For the degree-4 \(r\le3\) fits it is \(3.709\times10^{-7}\), \(1.784\times10^{-7}\), and \(1.203\times10^{-7}\); for degree 5 at \(r\le3\), no overdetermined LOO estimate exists at N=160, while the maxima are \(7.88\times10^{-9}\) and \(4.43\times10^{-9}\) for N=240/320. These errors favour the higher-order local source representation on the sampled profiles, but small in-sample/LOO residuals alone do not establish a continuum error bound.
+
+**Updated numerical conclusion:** degree-1/2 fits are not defensible candidates for this correction on the tested windows; degree-3 to degree-5 fits are much more consistent, with a measured spread around 0.3–2.4% over the admitted window family. That bounds, but does not eliminate, source-fit model uncertainty. The half-cell quadrature hypothesis remains strongly supported; the exact even-series truncation and fit support still need independent numerical-method review before any production change.
+
 **Next gate:** independently justify the even-source truncation/window against the saved source’s signed residuals and smoothness, then bound the half-cell moment over defensible fit families before considering any production patch. No production/vendor/dependency file has changed; scientific admission remains **NOT ADMITTED**.
