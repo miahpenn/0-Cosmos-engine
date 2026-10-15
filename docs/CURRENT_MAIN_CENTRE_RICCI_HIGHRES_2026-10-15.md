@@ -85,6 +85,24 @@ This combined counterfactual reduces the initialized first-two-cell gap from O(1
 
 **Historical-data guardrail:** the local Library's prior [discrete-consistent initial Lambda/Ricci sensitivity run](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38289657512) found that the stored initial Lambda matches the discrete metric-reconstructed Lambda to roundoff at t=0, while on saved t=2.16 states the independently evolved Lambda can depart from that identity and its frozen-RHS substitution can materially change the first-cell A_a RHS. The present chain-rule arm is therefore only an initialized-slice representation diagnostic. It does not authorize changing the evolved BSSN Lambda derivative or promoting the origin quadrature rule. The joint collapse supports a numerical compatibility hypothesis, not a unique cause, self-consistent initializer solution, evolved stability, or scientific admission.
 
+
+## Manufactured Lambda-parity discriminator (new bounded test)
+
+The observer now includes a manufactured, no-evolution operator-sensitivity study using two smooth-even metric profiles
+\[
+q(r)=1+c_3r^2+c_5r^4,\quad a=q^{-4/3},\quad b=q^{2/3},\quad X=q^{-2/3}.
+\]
+These preserve \(ab^2=1\), proper factor \(\sqrt a/X=1\), and areal radius \(R=rq\). For each fixed metric the audit evaluates four connection-field arms:
+
+- **Continuum:** analytic metric-defined contracted connection sampled at cell centres.
+- **Discrete:** initializer-style metric-derived connection formed from the pinned fourth-order derivative operators.
+- **Off-constraint odd:** the discrete connection plus \(\epsilon r\exp[-(r/w)^2]\), which has the expected odd centre parity while keeping the metric fixed.
+- **Parity-breaking negative control:** the discrete connection plus a constant even offset.
+
+Every arm reports signed vendor/direct TF-Ricci differences in cells 0 and 1, their \(r^2\)-scaled values, the fixed \(5\le r\le10\) annulus maximum, and the gap after the same offline metric-chain-rule comparison. The direct metric Ricci must be identical across the four arms because the metric is held fixed; only the supplied connection field changes. The continuum and discrete connections should exhibit bounded \(\Lambda/r\) near the origin, while the even-offset control must stand apart. The off-constraint odd arm is deliberately not a production correction: it tests sensitivity to an independently supplied BSSN connection.
+
+This distinguishes three effects without an evolved trajectory: representation sampling for a regular connection, a regular off-constraint connection perturbation, and a deliberate parity violation. It still cannot validate a production substitution; the operator’s off-constraint behaviour and later-state connection evolution remain review gates. Results are pending the exact-head regression and pinned audit for this addition.
+
 ## Acceptance and limits
 
 A useful result requires all source/vendor pins to match, finite profiles, unchanged state digests, zero evolution steps, and a reproducible checksum manifest. Passing those integrity gates means the diagnostic completed, not that either formula is correct. No production equation, vendor code, coefficient, gauge, boundary, threshold, dependency, or campaign setting is changed. Scientific admission remains **NOT ADMITTED**.
