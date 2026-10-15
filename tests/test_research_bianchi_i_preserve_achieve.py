@@ -123,6 +123,29 @@ def test_slope_gate_rejects_constraint_inconsistent_sample() -> None:
         )
 
 
+def test_slope_gate_is_scale_invariant_for_small_densities() -> None:
+    sigma2, rho = 2.0e-20, 8.0e-20
+    consistent_H = -math.sqrt((sigma2 + rho) / 3.0)
+    got = slope_with_sources_dln_a(
+        sigma2=sigma2,
+        rho=rho,
+        w=0.5,
+        H=consistent_H,
+    )
+    omega = sigma2 / (sigma2 + rho)
+    expected = 3.0 * (0.5 - 1.0) * omega * (1.0 - omega)
+    assert math.isclose(got, expected, rel_tol=0.0, abs_tol=1.0e-14)
+
+    # The same small density inputs with an inconsistent Hubble value must fail.
+    with pytest.raises(ValueError, match="constraint"):
+        slope_with_sources_dln_a(
+            sigma2=sigma2,
+            rho=rho,
+            w=0.5,
+            H=-1.0e-6,
+        )
+
+
 def test_slope_gate_rejects_nonfinite_inputs_and_bad_component_domains() -> None:
     with pytest.raises(ValueError, match="finite"):
         slope_domega_dln_a(float("nan"), 1.0)
