@@ -64,3 +64,9 @@ def test_joined_ledger_gate_paths_match_energy_ledger_trigger():
         f"gate-only={sorted(protected_paths - trigger_paths)}, "
         f"trigger-only={sorted(trigger_paths - protected_paths)}"
     )
+
+
+def test_auto_promotion_serializes_all_candidate_pulls():
+    assert "group: qualified-auto-merge-main" in WORKFLOW
+    assert "github.event.pull_request.number ||" not in WORKFLOW
+    assert "cancel-in-progress: false" in WORKFLOW
