@@ -124,9 +124,19 @@ jobs:
                   continue;
                 }
 
+                if (!latestCheck.check_suite?.id) {
+                  failures.push(`${name}: check run lacks a check-suite association`);
+                  continue;
+                }
+
                 const expectedWorkflow = workflowForCheck[name];
                 const latestWorkflow = workflowRuns
-                  .filter(w => w.name === expectedWorkflow && w.head_sha === headSha && w.event === "pull_request")
+                  .filter(w =>
+                    w.name === expectedWorkflow &&
+                    w.head_sha === headSha &&
+                    w.event === "pull_request" &&
+                    w.check_suite_id === latestCheck.check_suite.id
+                  )
                   .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at))[0];
 
                 if (!latestWorkflow) {
