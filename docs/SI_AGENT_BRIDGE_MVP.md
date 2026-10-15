@@ -19,7 +19,7 @@ Every event passed to `tools/si_agent_bridge_contract.py` must include:
 - `source_url`: an HTTPS issue, PR, workflow/artifact, or commit URL on this repository
 - `summary` and `next_gate`: brief operational text
 
-Optional fields include `evidence_urls`, `work_ref` (branch, PR number, head SHA, base ref and base SHA), and `supersedes_event_id` for a correction. PR/CI notices require complete `work_ref` provenance. Arbitrary hosts, credentials in URLs, query strings, and out-of-scope repository paths are rejected.
+Optional fields include `evidence_urls`, `work_ref` (branch, PR number, head SHA, base ref and base SHA), and `supersedes_event_id` for a correction. PR/CI notices require complete `work_ref` provenance. Arbitrary hosts, credentials in URLs, query strings, fragments, and out-of-scope repository paths are rejected; rejecting fragments prevents untrusted delimiters from breaking Slack mrkdwn link boundaries.
 
 When `requires_preflight` is true, the envelope also needs `preflight_at_utc` and the main SHA seen by that preflight; if a PR is referenced it must include the preflight head and base SHAs. These must still match the envelope and satisfy the 2-minute limit.
 
