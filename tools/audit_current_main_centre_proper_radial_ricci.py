@@ -289,6 +289,14 @@ def _origin_half_cell_frozen_source(grid, state, vacuum) -> tuple[dict[str, np.n
     direct_cf = proper_radial_ricci(grid, areal_cf, proper_factor_cf)
     direct_tf_cf = _arr(direct_cf["tf_ricci"])
     gap_cf = vendor_tf_cf - direct_tf_cf
+
+    vendor_terms_base = vacuum.geometry_terms(grid, geom)
+    vendor_tf_base = _arr(vendor_terms_base["Rr_r"] - vendor_terms_base["R"] / 3.0)
+    areal_base = r * np.sqrt(_arr(geom.b)) / _arr(geom.X)
+    proper_factor_base = np.sqrt(_arr(geom.a)) / _arr(geom.X)
+    direct_base = proper_radial_ricci(grid, areal_base, proper_factor_base)
+    direct_tf_base = _arr(direct_base["tf_ricci"])
+    gap_base = vendor_tf_base - direct_tf_base
     annulus = (r >= 5.0) & (r <= 10.0)
 
     first_two = []
@@ -300,6 +308,10 @@ def _origin_half_cell_frozen_source(grid, state, vacuum) -> tuple[dict[str, np.n
             "B_frozen_source_counterfactual": float(B_cf[i]),
             "X_production": float(geom.X[i]),
             "X_counterfactual": float(X_cf[i]),
+            "vendor_tf_ricci_production": float(vendor_tf_base[i]),
+            "direct_tf_ricci_production": float(direct_tf_base[i]),
+            "signed_gap_production": float(gap_base[i]),
+            "gap_over_r2_production": float(gap_base[i] / (r[i] * r[i])),
             "vendor_tf_ricci_counterfactual": float(vendor_tf_cf[i]),
             "direct_tf_ricci_counterfactual": float(direct_tf_cf[i]),
             "signed_gap_counterfactual": float(gap_cf[i]),
@@ -338,8 +350,12 @@ def _origin_half_cell_frozen_source(grid, state, vacuum) -> tuple[dict[str, np.n
         "first_two_cells": first_two,
         "fixed_annulus_r5_to10": {
             "cells": int(np.count_nonzero(annulus)),
+            "production_gap_max_abs": _max_abs(gap_base[annulus]) if np.any(annulus) else None,
             "counterfactual_gap_max_abs": _max_abs(gap_cf[annulus]) if np.any(annulus) else None,
         },
+        "first_two_cell_gap_reduction_factor": float(
+            _max_abs(gap_base[:2]) / max(_max_abs(gap_cf[:2]), np.finfo(float).tiny)
+        ),
         "counterfactual_profiles_finite": all(_finite(v) for v in arrays.values()),
         "interpretation_limits": [
             "This is a frozen-source counterfactual, not a self-consistent re-solve of the six-step initializer fixed point.",
