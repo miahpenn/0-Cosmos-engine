@@ -204,14 +204,15 @@ def test_untrusted_evidence_link_rejects_entire_envelope():
 
 def test_renderer_neutralizes_mentions_markup_and_line_injection():
     value = envelope(
-        summary="<@here> \\n <https://evil.example|click>",
-        next_gate="review now \\n @channel",
+        summary="<@here> " + chr(10) + " <https://evil.example|click>",
+        next_gate="review now " + chr(10) + " @channel",
     )
     assert validate_event(value, now=NOW)["status"] == DELIVER
     rendered = render_slack_text(value)
     assert "<@here>" not in rendered
     assert "<https://evil.example" not in rendered
-    assert "@channel" in rendered
+    assert "@channel" not in rendered
+    assert "@ channel" in rendered
     assert "GitHub record" in rendered
     assert RUN_URL in rendered
 
