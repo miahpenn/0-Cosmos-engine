@@ -1,6 +1,39 @@
-# Current EM disposition — 14 October 2026 UTC (live-main refresh; historical snapshots remain below)
+# Current EM disposition — live-main refresh 15 October 2026 UTC
 
-## Live-main update — 14 October 2026 UTC
+## Current-main release gate — verified 15 October 2026 UTC
+
+**Current `main`:** `fcb32b6b4025d5674e0560b8fb24581933f7f23c` ([commit](https://github.com/miahpenn/0-Cosmos-engine/commit/fcb32b6b4025d5674e0560b8fb24581933f7f23c)).  
+**Current-main software validation:** [Lightweight validation run 38653201850](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38653201850) completed successfully: **587 tests passed**, the bounded N=40 production step smoke emitted `PRODUCTION_STEP_SMOKE_PASS` at (t=0.03). This is software/one-step evidence, not scientific admission.
+
+**Current-main campaign status:** the [Final V5.5 numerical campaign](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38653201906), [0-star temporal-gauge campaign](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38653201894), and [V5.5 worldtube-radius campaign](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38653201877) were **skipped by workflow path filters** on this push. They have not passed at this main SHA.
+
+### Merged evidence now on main
+
+- [PR #202](https://github.com/miahpenn/0-Cosmos-engine/pull/202) derives a research-only discrete EM face-work adjoint and saved-stage reconciliation. Its numerical identity does not select a physical carrier/current law or admit production coupling.
+- [PR #207](https://github.com/miahpenn/0-Cosmos-engine/pull/207) adds a saved-operand decomposition of the face-to-cell current projection; its exact-head four-workflow evidence checked 276 saved stages and the signed reconstruction. The artifact is [run 38652928119 / artifact 11935641934](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38652928119/artifacts/11935641934), ZIP SHA-256 `94d0653b9b9016b0b2873ed334bea7fd3ae2e7257b3c0bd9ef62ea9ee5206769`. This is interface/accounting evidence, not global energy conservation.
+
+### Current open engineering candidates
+
+- [PR #208](https://github.com/miahpenn/0-Cosmos-engine/pull/208), head `e9781df1325fb35447f2e6567f9676fa61f305c8`, has all three standard exact-head workflows green. It harmonizes the coordinate-volume-weighted `effective_hubble` definition across research drivers, replaces the hardcoded archive output path with `--output-dir`, adds generated-artifact ignores, and removes stale workflow path entries. It does **not** establish the physically preferred proper-volume observable or close observer-radius/mask sensitivity. Independent review remains needed.
+- [PR #209](https://github.com/miahpenn/0-Cosmos-engine/pull/209), head `1494a6ce5cd9af27f356e3e66a558a1a10415ee2`, has all three exact-head workflows green (590 tests each and N=40 smoke). It documents/tests an Einstein-normalized density/Friedmann convention and rejects unsupported non-unit `CosmosParams.G`. It does **not** prove the archive-derived local↔COSMOS source mapping, full scalar–DM exchange identity, or reciprocal source. Independent equation/source review remains required.
+- [PR #211](https://github.com/miahpenn/0-Cosmos-engine/pull/211), current head `5a201ac8f0ed2c3567da56e9419bdadca3769043` on this base, has all three standard workflows green: [lightweight](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38660227940), [strict JSON](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38660227970), and [integrated retry](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38660227995). It narrows qualified auto-merge review bypass to README/docs-only and tests that the required joined-ledger paths exactly match the ledger workflow trigger. It modifies privileged `pull_request_target` code; it is unmerged, needs independent owner/team review, is not active, and is not a substitute for branch protection.
+- [PR #212](https://github.com/miahpenn/0-Cosmos-engine/pull/212), draft head `1aaf73b91d5ff5fe9c78e24b1c46937840c410d1`, refreshes the unattended EM cross-engine soak against this current base. All three standard workflows passed; [lightweight run 38659989158](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38659989158) reported 588 passing tests and replayed the t=0.30 soak: N=24/48 completed 30/60 accepted steps, six checkpoints per arm, 90 accepted steps total, 270 actual geometry-stage EM-feedback observations, and independently recomputed Gauss-shell maxima (2.57\times10^{-16}) / (1.77\times10^{-16}). The explicit charged-dust carrier is a research test input, never an inferred charge for existing GEAR species. This bounded run is not global conservation or scientific admission; PR #212 remains draft pending independent review.
+
+### Release blockers — do not promote physics or claim readiness
+
+- **Scientific admission remains `research_only_not_admitted`.**
+- The radiation-cone / outer inversion trajectory failure is unresolved; negative cone-margin tangent evidence remains on 27/27 saved-state joins. Rejected-step retry alone is not trajectory recovery.
+- Momentum-constraint propagation and centre regularity are unresolved ([Issue #4](https://github.com/miahpenn/0-Cosmos-engine/issues/4)); do not guess a stencil or add a fitted source to force closure.
+- The full field + charged matter + evolving geometry / fixed-areal-radius Misner–Sharp balance remains open. Near-roundoff EM face/cell interface accounting ((O(10^{-13}))) is distinct from the (O(10^{-8})) charged-minus-neutral fixed-(R) remainder; do not merge those into one tolerance or report global conservation.
+- COSMOS/local density normalization and reciprocal exchange remain source/equation gates. Green tests for a declared synthetic Friedmann convention do not authorize a missing physical reverse coupling.
+- Proper-volume versus coordinate-volume averaging, observer-radius/mask sensitivity, the full-horizon campaigns and multi-resolution/time convergence remain open.
+
+### Governance: current live read
+
+The current GitHub branch metadata for `main` reports `protected=false`, `protection.enabled=false`, required-status enforcement off with no required contexts, and `/rulesets` returns an empty list. The connected integration cannot read the classic detailed protection endpoint (403) and cannot configure protection. [PR #211](https://github.com/miahpenn/0-Cosmos-engine/pull/211) is only a proposed merge helper; it is not merged or active, and no effective enforcement or blocked-merge test is claimed. Keep governance open until the owner/admin configuration is actually verified.
+
+Use [Issue #135](https://github.com/miahpenn/0-Cosmos-engine/issues/135) for the task register and [Issue #5](https://github.com/miahpenn/0-Cosmos-engine/issues/5) for current agent coordination. The previous detailed snapshot follows for historical measurements.
+## Detailed evidence snapshot — 14 October 2026 UTC (historical; superseded by current-main release gate above)
 
 **Engine/test validation baseline for the results below:** `ee63d1d195dbdce6962c482e9866528463650e29` ([commit](https://github.com/miahpenn/0-Cosmos-engine/commit/ee63d1d195dbdce6962c482e9866528463650e29)). Its main-head software validation [run 38646121743](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38646121743) completed successfully: **575 tests passed**, the explicit curved-slice EM exchange discriminator passed, and the N=40 one-step smoke emitted `PRODUCTION_STEP_SMOKE_PASS`. The later [PR #203](https://github.com/miahpenn/0-Cosmos-engine/pull/203) synchronized this status record without changing engine/test/vendor sources. These are bounded software and diagnostic results, not scientific admission.
 
