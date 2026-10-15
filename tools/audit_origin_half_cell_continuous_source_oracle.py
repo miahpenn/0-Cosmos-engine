@@ -38,7 +38,9 @@ from tools.audit_current_main_centre_proper_radial_ricci import (
 from tools.audit_origin_anchored_half_cell_ricci_response import (
     FIT_RADIUS,
     LOCAL_WINDOW_CELLS,
+    _baseline_gap,
     _make_source_function,
+    _metric_and_ricci,
     fit_origin_moment,
 )
 
@@ -266,7 +268,7 @@ def run_audit(output_dir: Path = OUT) -> dict[str, Any]:
     pins = _verify_source_pins()
     from engine.production_kernel import V55ProductionKernel
 
-    _, _, _ = adapter.vendor_modules()
+    _, vacuum, _ = adapter.vendor_modules()
     reports = []
     for n in RESOLUTIONS:
         kernel = V55ProductionKernel()
@@ -385,6 +387,43 @@ def run_audit(output_dir: Path = OUT) -> dict[str, Any]:
             }
         point_estimate = production_point_moment
         point_error = point_estimate - cont["continuous_integral_from_rB"]
+
+        # Apply the independent continuous-oracle correction itself, as well
+        # as the estimator corrections, to the same frozen production B/source.
+        # This directly tests whether the best numerical integral improves the
+        # discrete Ricci witness, without refitting the source or iterating B.
+        oracle_delta = float(cont["continuous_integral_from_rB"] - production_point_moment)
+        baseline_gap = _baseline_gap(grid, state, vacuum)
+        annulus = (r >= 5.0) & (r <= 10.0)
+        correction_candidates = {
+            "continuous_oracle_moment": oracle_delta,
+            **{
+                tag: float(row["estimator_correction_vs_production_point_sample"])
+                for tag, row in fit_rows.items()
+            },
+        }
+        frozen_source_ricci = {}
+        for tag, delta_i in correction_candidates.items():
+            Bcandidate = Bprod + delta_i / r
+            arrays, invariants, gap = _metric_and_ricci(
+                grid, state, vacuum, Bcandidate, source_prod,
+                tag=f"N{n}_continuous_oracle_{tag}",
+            )
+            if not invariants["all_profiles_finite"]:
+                raise FloatingPointError(f"N={n}/{tag}: frozen-source oracle response is non-finite")
+            frozen_source_ricci[tag] = {
+                "moment_correction_applied": delta_i,
+                "difference_from_continuous_oracle_moment_correction": float(delta_i - oracle_delta),
+                "first_two_signed_ricci_gaps": [float(v) for v in gap[:2]],
+                "first_two_signed_gap_changes_vs_production": [
+                    float(gap[i] - baseline_gap[i]) for i in range(2)
+                ],
+                "first_six_max_abs_gap": float(_max_abs(gap[:6])),
+                "fixed_annulus_r5_to10_max_abs_gap": float(_max_abs(gap[annulus])),
+                "geometry_invariants": invariants,
+            }
+        if not _finite(baseline_gap):
+            raise FloatingPointError(f"N={n}: production baseline Ricci gap is non-finite")
         reports.append({
             "resolution": int(n),
             "dr": dr,
@@ -403,6 +442,8 @@ def run_audit(output_dir: Path = OUT) -> dict[str, Any]:
             },
             "continuous_oracle": cont,
             "fit_estimates": fit_rows,
+            "production_baseline_signed_ricci_gaps": [float(v) for v in baseline_gap[:2]],
+            "frozen_source_ricci_response": frozen_source_ricci,
         })
         if state_hash != _state_digest(state):
             raise RuntimeError(f"N={n}: input state changed during read-only oracle comparison")
@@ -464,6 +505,11 @@ def main() -> None:
                 "continuous_I": row["continuous_oracle"]["continuous_integral_from_rB"],
                 "continuous_I_quad": row["continuous_oracle"]["continuous_integral_from_independent_quad"],
                 "production_point_moment": row["production_profile"]["point_sampled_half_cell_moment"],
+                "true_continuous_moment_delta": row["frozen_source_ricci_response"]["continuous_oracle_moment"]["moment_correction_applied"],
+                "frozen_source_ricci_cell0_gaps": {
+                    key: val["first_two_signed_ricci_gaps"][0]
+                    for key, val in row["frozen_source_ricci_response"].items()
+                },
                 "estimates": {
                     key: {
                         "moment": val["moment_estimate"],
