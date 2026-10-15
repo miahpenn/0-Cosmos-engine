@@ -245,7 +245,13 @@ def total_matter_projection(
 
 
 def dm_density(metric: BSSNMetricSlice, matter: V55MatterState) -> np.ndarray:
-    """Return archive-normalized DM rest density, not Einstein-normalized rho."""
+    """Return the raw archive-normalized DM rest-density profile.
+
+    This is the conservative-state density used by the coupled scalar/DM RHS,
+    before stress projection. Einstein-source stress arrays are produced by
+    project_species/total_fluid_projection, which apply the single 1/KAPPA
+    conversion covered by test_fluid_projection_kappa_contract.
+    """
     return normalized_fluid_densities(
         metric, matter
     )[0]

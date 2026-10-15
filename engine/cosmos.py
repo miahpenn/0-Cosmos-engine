@@ -1,5 +1,12 @@
 """Archive-locked homogeneous COSMOS background lane.
 
+Densities in this lane are Einstein-normalized, rho_E = 8*pi*G*rho_physical,
+with G fixed to 1 and c=1. Consequently the background equation is
+H**2 = rho_E/3. In the local production lane the matching archive-normalized
+fluid density is divided by KAPPA=8*pi at the stress-projection boundary,
+and the BSSN constraints use the corresponding 16*pi source coefficient.
+See docs/UNITS_CONVENTION.md and its production-path Friedmann regression.
+
 The homogeneous control uses the same beta dark-sector exchange later used
 by the unified spacetime:
 
@@ -11,7 +18,7 @@ background pressure p_shear=rho_shear and evolves as a^-6. It is NOT inserted
 into the exact spherical local stress tensor.
 """
 from dataclasses import dataclass
-from math import exp, sqrt
+from math import exp, isfinite, sqrt
 
 
 @dataclass(frozen=True)
@@ -25,7 +32,23 @@ class CosmosParams:
     f_b: float = 0.157
     n_contract: float = 47.203
     V0: float = 8.242522415500654e-5
+    # Legacy metadata kept for archived parameter payload compatibility.
+    # G is absorbed into rho_E=8*pi*G*rho_physical; this implementation fixes
+    # G=1 rather than supporting an independent gravitational-coupling sweep.
     G: float = 1.0
+
+    def __post_init__(self):
+        if (
+            isinstance(self.G, bool)
+            or not isinstance(self.G, (int, float))
+            or not isfinite(float(self.G))
+            or float(self.G) != 1.0
+        ):
+            raise ValueError(
+                "COSMOS uses Einstein-normalized densities rho_E=8*pi*G*rho_physical "
+                "with G fixed to 1; varying G requires a consistent density "
+                "renormalization and is unsupported"
+            )
 
 
 @dataclass
