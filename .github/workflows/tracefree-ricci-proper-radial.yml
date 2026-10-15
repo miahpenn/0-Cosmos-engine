@@ -13,11 +13,11 @@ permissions:
   contents: read
 
 concurrency:
-  group: pirk-l2-metric-crosscheck-main-007377-2026-10-13
+  group: tracefree-ricci-proper-radial-main-2026-10-15
   cancel-in-progress: false
 
 jobs:
-  independent-metric-crosscheck:
+  tracefree-ricci-proper-radial:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
@@ -81,7 +81,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: current-main-pirk-l2-independent-metric-crosscheck
+          name: tracefree-ricci-proper-radial-2026-10-15
           path: results/tracefree-ricci-proper-radial-2026-10-15/
           if-no-files-found: warn
           retention-days: 90
