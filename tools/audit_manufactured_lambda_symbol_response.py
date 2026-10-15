@@ -68,7 +68,10 @@ def _evaluate_modes(
     *,
     wavelengths=WAVELENGTHS,
     amplitude=PERTURBATION_AMPLITUDE,
-) -> tuple[dict, list[dict], dict[str, np.ndarray]]:
+    background_geometry=None,
+    fields=None,
+    matter=None,
+) -> tuple[dict, dict[str, np.ndarray]]:
     """Sweep smooth odd off-constraint Lambda modes on one fixed metric."""
     r = np.asarray(grid.centers, dtype=float)
     a, b, X = (np.asarray(x, dtype=float) for x in (a, b, X))
@@ -91,17 +94,40 @@ def _evaluate_modes(
     direct_tf = np.asarray(direct["tf_ricci"], dtype=float)
     da = D1(a, 1)
 
-    base = vacuum.flat_state(grid)
+    base = (
+        copy.deepcopy(background_geometry)
+        if background_geometry is not None
+        else vacuum.flat_state(grid)
+    )
     base.a, base.b, base.X = a.copy(), b.copy(), X.copy()
-    base.alpha = np.ones_like(r)
-    base.beta = np.zeros_like(r)
+    if background_geometry is None:
+        base.alpha = np.ones_like(r)
+        base.beta = np.zeros_like(r)
+        base.Aa = np.zeros_like(r)
+        base.K = np.zeros_like(r)
+        base.B = np.zeros_like(r)
     base.Lambda = lambda_metric.copy()
-    base.B = 0.75 * lambda_metric
     base_terms = vacuum.geometry_terms(grid, base)
     base_vendor_tf = np.asarray(
         base_terms["Rr_r"] - base_terms["R"] / 3.0, dtype=float
     )
     base_gap = base_vendor_tf - direct_tf
+
+    from engine.v55_pirk_adapter import (
+        lambda_l3_with_matter,
+        primary_l3_with_matter,
+    )
+    if fields is not None and matter is not None:
+        base_aa_l3_rhs = np.asarray(
+            primary_l3_with_matter(grid, base, fields, matter)["Aa"], dtype=float
+        )
+        base_lambda_l3_rhs = np.asarray(
+            lambda_l3_with_matter(grid, base, fields, matter), dtype=float
+        )
+    else:
+        base_aa_l3_rhs = np.asarray(vacuum.primary_l3_rhs(grid, base)["Aa"], dtype=float)
+        base_lambda_l3_rhs = np.asarray(vacuum.lambda_l3_rhs(grid, base), dtype=float)
+    alpha = np.asarray(base.alpha, dtype=float)
 
     # The separate derivative-only chain-rule view is computed once on the
     # metric-derived connection, then independently for each off-constraint arm.
@@ -148,13 +174,24 @@ def _evaluate_modes(
 
         off = copy.deepcopy(base)
         off.Lambda = lambda_off.copy()
-        off.B = 0.75 * lambda_off
         off_terms = vacuum.geometry_terms(grid, off)
         off_vendor_tf = np.asarray(
             off_terms["Rr_r"] - off_terms["R"] / 3.0, dtype=float
         )
         off_gap = off_vendor_tf - direct_tf
         observed_gap_delta = off_gap - base_gap
+        if fields is not None and matter is not None:
+            off_aa_l3_rhs = np.asarray(
+                primary_l3_with_matter(grid, off, fields, matter)["Aa"], dtype=float
+            )
+            off_lambda_l3_rhs = np.asarray(
+                lambda_l3_with_matter(grid, off, fields, matter), dtype=float
+            )
+        else:
+            off_aa_l3_rhs = np.asarray(vacuum.primary_l3_rhs(grid, off)["Aa"], dtype=float)
+            off_lambda_l3_rhs = np.asarray(vacuum.lambda_l3_rhs(grid, off), dtype=float)
+        observed_aa_l3_rhs_delta = off_aa_l3_rhs - base_aa_l3_rhs
+        observed_lambda_l3_rhs_delta = off_lambda_l3_rhs - base_lambda_l3_rhs
 
         # Exact pinned fixed-metric response: D4(Lambda) derivative channel
         # plus the algebraic Lambda*D1(a) channel. Both terms are linear in
@@ -163,6 +200,14 @@ def _evaluate_modes(
         algebraic_response = 0.5 * X * X * (da / a) * delta_lambda
         predicted_response = derivative_response + algebraic_response
         response_closure = observed_gap_delta - predicted_response
+        predicted_aa_l3_rhs_delta = alpha * predicted_response
+        aa_l3_rhs_response_closure = observed_aa_l3_rhs_delta - predicted_aa_l3_rhs_delta
+        chainrule_adjusted_aa_l3_rhs_delta = (
+            observed_aa_l3_rhs_delta - alpha * derivative_response
+        )
+        chainrule_aa_l3_algebraic_closure = (
+            chainrule_adjusted_aa_l3_rhs_delta - alpha * algebraic_response
+        )
 
         # Replace only the D4(Lambda) derivative by the metric chain-rule
         # derivative, on exactly the same frozen metric. In this arm the
@@ -210,6 +255,9 @@ def _evaluate_modes(
             delta_lambda, exact_derivative, d4_delta, observed_gap_delta,
             derivative_response, algebraic_response, predicted_response,
             response_closure, chain_gap_change, chain_response_closure,
+            observed_aa_l3_rhs_delta, observed_lambda_l3_rhs_delta,
+            predicted_aa_l3_rhs_delta, aa_l3_rhs_response_closure,
+            chainrule_adjusted_aa_l3_rhs_delta, chainrule_aa_l3_algebraic_closure,
         )):
             raise FloatingPointError(f"non-finite Lambda symbol-sweep mode {wavelength}")
 
@@ -231,6 +279,12 @@ def _evaluate_modes(
             "max_abs_response_closure_error": max_response_closure,
             "max_abs_chain_rule_gap_change": _max_abs(chain_gap_change),
             "max_abs_chain_rule_algebraic_only_closure_error": max_chain_closure,
+            "max_abs_Aa_L3_RHS_delta": _max_abs(observed_aa_l3_rhs_delta),
+            "max_abs_predicted_alpha_times_Ricci_response": _max_abs(predicted_aa_l3_rhs_delta),
+            "max_abs_Aa_L3_RHS_response_identity_closure": _max_abs(aa_l3_rhs_response_closure),
+            "max_abs_chainrule_adjusted_Aa_L3_RHS_delta": _max_abs(chainrule_adjusted_aa_l3_rhs_delta),
+            "max_abs_chainrule_Aa_L3_algebraic_only_closure_error": _max_abs(chainrule_aa_l3_algebraic_closure),
+            "max_abs_Lambda_L3_RHS_delta": _max_abs(observed_lambda_l3_rhs_delta),
             "interior_region_cells": int(np.count_nonzero(mask)),
             "underresolved_four_points_or_fewer": bool(point_per_wavelength <= 4.0 + 1.0e-12),
         }
@@ -247,6 +301,12 @@ def _evaluate_modes(
             "response_closure_error": response_closure,
             "chain_rule_gap_change": chain_gap_change,
             "chain_rule_algebraic_only_closure_error": chain_response_closure,
+            "Aa_L3_RHS_delta": observed_aa_l3_rhs_delta,
+            "predicted_alpha_times_Ricci_response": predicted_aa_l3_rhs_delta,
+            "Aa_L3_RHS_response_identity_closure": aa_l3_rhs_response_closure,
+            "chainrule_adjusted_Aa_L3_RHS_delta": chainrule_adjusted_aa_l3_rhs_delta,
+            "chainrule_Aa_L3_algebraic_only_closure_error": chainrule_aa_l3_algebraic_closure,
+            "Lambda_L3_RHS_delta": observed_lambda_l3_rhs_delta,
         }.items():
             profiles[f"{key}_{name}"] = np.asarray(values, dtype=float)
 
@@ -303,9 +363,14 @@ def run_resolution(resolution: int, vacuum) -> tuple[dict, dict]:
         + 2.0 / r * (1.0 / b - 1.0 / a)
     )
     summary, profiles = _evaluate_modes(
-        grid, vacuum, a, b, X, lambda_metric
+        grid, vacuum, a, b, X, lambda_metric,
+        background_geometry=state.geometry,
+        fields=state.scalars, matter=state.matter,
     )
     after = _state_digest(state)
+    summary["production_Lambda_minus_metric_identity_residual_max_abs"] = _max_abs(
+        np.asarray(state.geometry.Lambda, dtype=float) - lambda_metric
+    )
     summary.update({
         "state_sha256_before": before,
         "state_sha256_after": after,
