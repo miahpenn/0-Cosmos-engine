@@ -76,4 +76,4 @@ jobs:
         if: env.SLACK_TOKEN_CONFIGURED != 'true' || env.SLACK_CHANNEL_ID == ''
         run: |
           python -m tools.si_agent_bridge_adapter --dry-run
-          echo "::notice title=Slack bridge disabled::Live GitHub state was preflighted; no Slack post or ledger reservation was attempted. An authorized owner must configure SLACK_BOT_TOKEN and SLACK_CHANNEL_ID."
+          echo "::notice title=Slack bridge disabled::Dry-run completed; inspect its JSON status. UNKNOWN means revalidation is required. No Slack post or ledger reservation was attempted. An authorized owner must configure SLACK_BOT_TOKEN and SLACK_CHANNEL_ID."
