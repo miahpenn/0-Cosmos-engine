@@ -76,13 +76,16 @@ def test_joined_ledger_gate_paths_match_the_ledger_workflow_trigger():
         if line.strip().startswith('"') and line.strip().endswith('",')
     }
 
-    path_start = ledger_source.index("    paths:\\n") + len("    paths:\\n")
-    path_end = ledger_source.index("\\n\\npermissions:", path_start)
-    trigger_paths = {
-        line.strip()[2:]
-        for line in ledger_source[path_start:path_end].splitlines()
-        if line.strip().startswith("- ")
-    }
+    lines = ledger_source.splitlines()
+    paths_index = next(
+        index for index, line in enumerate(lines) if line.strip() == "paths:"
+    )
+    trigger_paths = set()
+    for line in lines[paths_index + 1:]:
+        if line.strip() == "permissions:":
+            break
+        if line.strip().startswith("- "):
+            trigger_paths.add(line.strip()[2:])
 
     assert trigger_paths, "joined-ledger workflow path filter must not be empty"
     assert protected_paths == trigger_paths, (
