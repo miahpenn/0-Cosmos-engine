@@ -65,7 +65,7 @@ def test_longer_length_scales_reduce_absolute_error_without_changing_domain():
 def test_determinant_one_manufactured_metric_identities_are_exact():
     row = analyze_profile(160, 8.0)
     assert row["all_profiles_finite"]
-    # These identities follow from a=q^(-4/3), b=q^(2/3), X=q^(1/3).
+    # These identities follow from a=q^(-4/3), b=q^(2/3), X=q^(-2/3).
     # Unit test exercises their numerically evaluated form on the fixed grid.
     r = (np.arange(160, dtype=float) + 0.5) * (32.0 / 160)
     q = 1.0 + 0.1 * (1.0 - np.exp(-((r / 8.0) ** 2)))
