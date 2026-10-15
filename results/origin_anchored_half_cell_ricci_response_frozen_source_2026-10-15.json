@@ -1,0 +1,290 @@
+{
+  "schema": "origin_anchored_half_cell_frozen_source_ricci_response_v1",
+  "status": "completed_diagnostic_only",
+  "provenance": {
+    "workflow_run_id": 38788699294,
+    "workflow_url": "https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38788699294",
+    "artifact_id": 11998384076,
+    "artifact_zip_sha256": "32378a2ad273622a58870b195304306ea4734eff358c74675daab569b93fcf3e",
+    "report_json_sha256": "4e6dd42a9db967be1a22461bba95ec12258360b4f43b81ad7158158e5d60f410",
+    "profiles_npz_sha256": "54d758cd82c6bfe5453456bd56d4ad64e5d61d9ceb73f86bbbf8e486f537a703",
+    "audit_head": "f8b957da02463ceac2f84f80ab2c4e83f4881bb4",
+    "base_main_sha": "6398620b85b7f5a027de0532ded80bdf04a9b53b",
+    "source_anchor": "285a2ee0c1a3b97cddeb4519d8e749109b115aab",
+    "vendor_pin": "d6052d605673ce9d82cdc99b0df79855fa2ea215",
+    "engine_source_blob_pin_count": 11,
+    "all_source_blob_pins_match": true,
+    "engine_vendor_dependency_diff_empty": true
+  },
+  "method": {
+    "fixed_fit": "degree 3 in z=(r/2.5)^2, r<=2.5 inclusive",
+    "constrained_fit": "same sample window; impose c0=1; refit higher coefficients",
+    "intercept_only_fit": "unconstrained least-squares fit then replace c0 by 1 while retaining higher coefficients",
+    "local_fit": "degree 3 in r^2 with c0=1 using the first six cell centres",
+    "fixed_point": "recompute initializer source for each copied B update; change only first half-cell integral; retain all later trapezoid intervals",
+    "frozen_source": "use one common source sampled on the production baseline; apply delta_I/r once to baseline B and recompute the metric/Ricci",
+    "ricci_witness": "pinned vendor trace-free Ricci minus independent proper-radial warped-product Ricci",
+    "exact_continuous_production_half_cell_integral_known": false
+  },
+  "summary": {
+    "finding": "Anchoring c0=1 increases the magnitude of the remaining centre Ricci gap in this counterfactual. Replacing only c0 gives almost the same Ricci response as constrained least squares, and frozen-source and copied fixed-point values agree to roughly 1e-12–1e-11 at cell zero.",
+    "anchored_gap_magnitude_increase_percent": {
+      "N160": 0.5662909857,
+      "N240": 4.3515018554,
+      "N320": 5.3762636076
+    },
+    "intercept_only_gap_magnitude_increase_percent": {
+      "N160": 0.5876933,
+      "N240": 4.4066611,
+      "N320": 5.4186057
+    },
+    "constrained_vs_intercept_only_gap_difference_percent_of_free_residual": {
+      "N160": 0.0214109,
+      "N240": 0.0551593,
+      "N320": 0.0423421
+    },
+    "limitations": [
+      "Moment correction is estimator moment minus point-sampled moment, not true signed quadrature error.",
+      "The source at the origin is known, but the exact continuous production-source half-cell integral is not.",
+      "Scalar/matter samples are held fixed; source contributions are recomputed from the candidate metric in the iterative counterfactual.",
+      "The frozen-source response is a local geometry sensitivity test, not a full physical counterfactual or evolved-convergence proof.",
+      "No production repair or scientific admission follows from this evidence."
+    ]
+  },
+  "resolutions": [
+    {
+      "resolution": 160,
+      "dr": 0.5,
+      "fixed_point": {
+        "unanchored": {
+          "delta_I": 0.00001304478639951867,
+          "c0_bias": -3.2324717902376676e-8,
+          "gaps": [
+            -0.00018756691690526586,
+            0.00008441167122479722
+          ],
+          "max_gap_first6": 0.00018756691690526586
+        },
+        "constrained_anchored": {
+          "delta_I": 0.000013052573282795743,
+          "gaps": [
+            -0.000188629091447856,
+            0.00008459773788564522
+          ],
+          "max_gap_first6": 0.000188629091447856
+        },
+        "intercept_only": {
+          "delta_I": 0.00001305286757902202,
+          "gaps": [
+            -0.00018866923510266385,
+            0.00008460477006340369
+          ],
+          "max_gap_first6": 0.00018866923510266385
+        },
+        "local_six_anchored": {
+          "delta_I": 0.00001305525344272307,
+          "gaps": [
+            -0.00018899468029239316,
+            0.00008466177999437805
+          ],
+          "max_gap_first6": 0.00018899468029239316
+        }
+      },
+      "frozen_source": {
+        "unanchored": {
+          "delta_I": 0.000013044786108973305,
+          "gaps": [
+            -0.00018756687929961883,
+            0.00008441166523299299
+          ],
+          "max_gap_first6": 0.00018756687929961883,
+          "annulus_max_gap": 8.860333609388398e-8
+        },
+        "constrained_anchored": {
+          "delta_I": 0.000013052573259952904,
+          "gaps": [
+            -0.00018862909035839668,
+            0.00008459773829344361
+          ],
+          "max_gap_first6": 0.00018862909035839668,
+          "annulus_max_gap": 8.860329372959211e-8
+        },
+        "intercept_only": {
+          "delta_I": 0.000013052867566309967,
+          "gaps": [
+            -0.00018866923539460158,
+            0.00008460477070908963
+          ],
+          "max_gap_first6": 0.00018866923539460158,
+          "annulus_max_gap": 8.860329210261123e-8
+        },
+        "local_six_anchored": {
+          "delta_I": 0.000013055253441890402,
+          "gaps": [
+            -0.00018899468220150953,
+            0.00008466178092864728
+          ],
+          "max_gap_first6": 0.00018899468220150953,
+          "annulus_max_gap": 8.86032816821002e-8
+        }
+      }
+    },
+    {
+      "resolution": 240,
+      "dr": 0.3333333333333333,
+      "fixed_point": {
+        "unanchored": {
+          "delta_I": 0.000003856615829050947,
+          "c0_bias": -1.0648909964938724e-7,
+          "gaps": [
+            -0.00018541512132198103,
+            0.00008390511660204894
+          ],
+          "max_gap_first6": 0.00018541512132198103
+        },
+        "constrained_anchored": {
+          "delta_I": 0.000003874141853904556,
+          "gaps": [
+            -0.00019348346376641995,
+            0.0000853185487315129
+          ],
+          "max_gap_first6": 0.00019348346376641995
+        },
+        "intercept_only": {
+          "delta_I": 0.000003874364012335096,
+          "gaps": [
+            -0.00019358573736259443,
+            0.00008533646527735374
+          ],
+          "max_gap_first6": 0.00019358573736259443
+        },
+        "local_six_anchored": {
+          "delta_I": 0.000003873554136529789,
+          "gaps": [
+            -0.00019321290013105805,
+            0.00008527115072907166
+          ],
+          "max_gap_first6": 0.00019321290013105805
+        }
+      },
+      "frozen_source": {
+        "unanchored": {
+          "delta_I": 0.000003856615746727909,
+          "gaps": [
+            -0.00018541508379435202,
+            0.00008390511013768012
+          ],
+          "max_gap_first6": 0.00018541508379435202,
+          "annulus_max_gap": 1.887796383987948e-8
+        },
+        "constrained_anchored": {
+          "delta_I": 0.000003874141856069491,
+          "gaps": [
+            -0.00019348346512837545,
+            0.00008531854908735647
+          ],
+          "max_gap_first6": 0.00019348346512837545,
+          "annulus_max_gap": 1.8877940464711034e-8
+        },
+        "intercept_only": {
+          "delta_I": 0.000003874364015554743,
+          "gaps": [
+            -0.00019358573922186883,
+            0.00008533646570887462
+          ],
+          "max_gap_first6": 0.00019358573922186883,
+          "annulus_max_gap": 1.8877945248495622e-8
+        },
+        "local_six_anchored": {
+          "delta_I": 0.0000038735541362799886,
+          "gaps": [
+            -0.00019321290038786274,
+            0.00008527115088350882
+          ],
+          "max_gap_first6": 0.00019321290038786274,
+          "annulus_max_gap": 1.8877947902771618e-8
+        }
+      }
+    },
+    {
+      "resolution": 320,
+      "dr": 0.25,
+      "fixed_point": {
+        "unanchored": {
+          "delta_I": 0.0000016261477634310628,
+          "c0_bias": -7.352284436823453e-8,
+          "gaps": [
+            -0.00018508024852325944,
+            0.0000838158031470717
+          ],
+          "max_gap_first6": 0.00018508024852325944
+        },
+        "constrained_anchored": {
+          "delta_I": 0.0000016352663036872661,
+          "gaps": [
+            -0.00019503065056940397,
+            0.00008555896445250962
+          ],
+          "max_gap_first6": 0.00019503065056940397
+        },
+        "intercept_only": {
+          "delta_I": 0.0000016353381189632143,
+          "gaps": [
+            -0.00019510901741915445,
+            0.00008557269314767515
+          ],
+          "max_gap_first6": 0.00019510901741915445
+        },
+        "local_six_anchored": {
+          "delta_I": 0.000001635053417714527,
+          "gaps": [
+            -0.0001947983435736966,
+            0.00008551826774591859
+          ],
+          "max_gap_first6": 0.0001947983435736966
+        }
+      },
+      "frozen_source": {
+        "unanchored": {
+          "delta_I": 0.0000016261477409768021,
+          "gaps": [
+            -0.0001850802241162905,
+            0.00008381579888361055
+          ],
+          "max_gap_first6": 0.0001850802241162905,
+          "annulus_max_gap": 6.19030362236097e-9
+        },
+        "constrained_anchored": {
+          "delta_I": 0.0000016352663042562554,
+          "gaps": [
+            -0.0001950306513688366,
+            0.0000855589646203161
+          ],
+          "max_gap_first6": 0.0001950306513688366,
+          "annulus_max_gap": 6.1903009282947546e-9
+        },
+        "intercept_only": {
+          "delta_I": 0.0000016353381197264927,
+          "gaps": [
+            -0.00019510901836193134,
+            0.0000855726933381917
+          ],
+          "max_gap_first6": 0.00019510901836193134,
+          "annulus_max_gap": 6.190298134617464e-9
+        },
+        "local_six_anchored": {
+          "delta_I": 0.0000016350534176728937,
+          "gaps": [
+            -0.00019479834369094657,
+            0.00008551826779252454
+          ],
+          "max_gap_first6": 0.00019479834369094657,
+          "annulus_max_gap": 6.190297296678263e-9
+        }
+      }
+    }
+  ],
+  "production_or_vendor_files_modified": false,
+  "no_evolution": true,
+  "scientific_admission": false
+}
