@@ -17,7 +17,7 @@ V(d)=-\frac12 m^2d^2,
 
 with signature \((-+++ )\), the standard Ricci convention, \(\kappa=8\pi G>0\), a canonical scalar, and no other matter or constant-potential offset. Here \(m^2\) is the positive inverted-quadratic parameter (the \(\alpha^2\) used in the GEAR-63 proposal). This is a *conditional test model*, not a recovered authoritative GEAR/COSMOS action.
 
-The independent reference for the field-equation form is Hrycyna, “The non-minimal coupling constant and the primordial de Sitter state,” *European Physical Journal C* **80**, 817 (2020), especially Eqs. (5)–(9), which state the nonminimal stress tensor, scalar equation, and flat-FLRW constraint/acceleration equations: https://link.springer.com/article/10.1140/epjc/s10052-020-8397-5. The paper uses its own \(\kappa^2=8\pi G\) notation; this note writes \(\kappa=8\pi G\). Its discussion of \(\xi=3/16\) is explicitly the five-dimensional conformal value; the four-dimensional conformal value tested below is \(\xi=1/6\).
+The independent reference for the field-equation form is Hrycyna, “The non-minimal coupling constant and the primordial de Sitter state,” *European Physical Journal C* **80**, 817 (2020), especially Eqs. (5)–(9), which state the nonminimal stress tensor, scalar equation, and flat-FLRW constraint/acceleration equations: https://link.springer.com/article/10.1007/s10052-020-8397-5. The paper uses its own \(\kappa^2=8\pi G\) notation; this note writes \(\kappa=8\pi G\). Its discussion of \(\xi=3/16\) is explicitly the five-dimensional conformal value; the four-dimensional conformal value tested below is \(\xi=1/6\).
 
 ## Algebra under those assumptions
 
@@ -29,7 +29,7 @@ D_{\rm grav}=1-\kappa\xi d^2,
 D_{\rm trace}=1-\kappa\xi(1-6\xi)d^2.
 \]
 
-\(D_{\rm grav}\) is the effective Einstein prefactor. \(D_{\rm trace}\) is the denominator produced when the Einstein trace and scalar equation are combined to eliminate \(\Box d\). They are **not interchangeable**. The regression reports them separately and rejects points at either pole; a negative but nonzero prefactor is reported as a domain warning rather than silently reinterpreted.
+\(D_{\rm grav}\) is the effective Einstein prefactor. \(D_{\rm trace}\) is the denominator produced when the Einstein trace and scalar equation are combined to eliminate \(\Box d\). They are **not interchangeable**. The regression reports them separately and rejects points at either pole. A negative but nonzero prefactor remains explicit in the returned state; nonsingularity alone must not be mistaken for a physically acceptable positive-effective-gravity regime.
 
 For field velocity \(v=\dot d\), elimination gives
 
