@@ -123,3 +123,56 @@ def test_even_half_cell_integral_uses_regular_source_moments():
         for k in range(1, len(coefficients))
     )
     assert abs((sampled_trapezoid - actual) - expected_sampling_bias) < 1.0e-16
+
+
+def test_lambda_chain_rule_counterfactual_reports_only_offline_shift():
+    """Check the algebraic TF-Ricci effect of an offline Lambda-prime substitution."""
+    from tools.audit_current_main_centre_proper_radial_ricci import (
+        _lambda_chain_rule_counterfactual,
+    )
+
+    grid_ops, _, _ = vendor_modules()
+    grid = grid_ops.SphericalCellGrid(48, 8.0)
+    r = np.asarray(grid.centers, dtype=float)
+    d1 = lambda values, parity=1: grid.cell_derivative_fourth(values, parity=parity)
+    a = 1.0 + 1.0e-3 * r**2 + 1.0e-5 * r**4
+    b = 1.0 - 5.0e-4 * r**2 + 2.0e-6 * r**4
+    X = 1.0 + 2.0e-4 * r**2
+    Lambda = (
+        d1(a, 1) / (2.0 * a * a)
+        - d1(b, 1) / (a * b)
+        + 2.0 / r * (1.0 / b - 1.0 / a)
+    )
+    vendor_r = 2.0e-3 + 1.0e-4 * r**2
+    vendor_scalar = -1.0e-3 + 2.0e-4 * r**2
+    direct_tf = 3.0e-4 - 1.0e-5 * r**2
+    vendor_terms = {"Rr_r": vendor_r, "R": vendor_scalar}
+
+    arrays, summary = _lambda_chain_rule_counterfactual(
+        grid, r, a, b, X, Lambda, vendor_terms, direct_tf
+    )
+    delta = arrays["lambda_prime_chain_minus_D4"]
+    expected_shift = (2.0 / 3.0) * X**2 * delta
+    base_tf = vendor_r - vendor_scalar / 3.0
+
+    np.testing.assert_allclose(
+        arrays["lambda_chain_rule_induced_tf_ricci_shift"],
+        expected_shift,
+        rtol=1.0e-14,
+        atol=1.0e-14,
+    )
+    np.testing.assert_allclose(
+        arrays["lambda_chain_rule_vendor_tf_ricci"],
+        base_tf + expected_shift,
+        rtol=1.0e-14,
+        atol=1.0e-14,
+    )
+    np.testing.assert_allclose(
+        arrays["lambda_chain_rule_vendor_minus_direct_tf_ricci"],
+        base_tf + expected_shift - direct_tf,
+        rtol=1.0e-14,
+        atol=1.0e-14,
+    )
+    assert summary["production_or_vendor_code_changed"] is False
+    assert summary["evolution_steps"] == 0
+    assert summary["counterfactual_profiles_finite"] is True
