@@ -1,0 +1,330 @@
+{
+  "schema": "continuous_oracle_lambda_derivative_counterfactual_v1",
+  "status": "completed_diagnostic_only",
+  "provenance": {
+    "workflow_run_id": 38791644820,
+    "workflow_url": "https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38791644820",
+    "artifact_id": 11999874167,
+    "artifact_zip_sha256": "bfd554b76849da1f126c38bf65cb7f509207e32e3abb1fba8987a92f8a4b13fc",
+    "report_json_sha256": "e95f4b97513183031a5fbb4cf97df428f1421f165dfe465b3f50eaf12d4f5620",
+    "audit_head": "a43c2f33fbd5b02674879c4b3e3b31d35b5f74a9",
+    "source_anchor": "285a2ee0c1a3b97cddeb4519d8e749109b115aab",
+    "vendor_pin": "d6052d605673ce9d82cdc99b0df79855fa2ea215",
+    "all_eleven_engine_source_blob_pins_match": true,
+    "engine_vendor_dependency_diff_empty": true,
+    "workflow_tests_passed": true,
+    "zero_evolution_steps": true,
+    "input_state_unchanged": true,
+    "production_or_vendor_files_modified": false,
+    "scientific_admission": false
+  },
+  "method": {
+    "metric_input": "Frozen production metric corrected with high-accuracy continuous-oracle half-cell moment, or alternative fixed/local polynomial moment correction",
+    "derivative_comparison": "Pinned vendor derivative D4(Lambda) versus offline derivative of the displayed metric-to-Lambda relation using the same discrete D1/D2 a,b operands",
+    "observable": "Vendor trace-free Ricci minus independent proper-radial warped-product trace-free Ricci",
+    "changed_channel": "Only the Lambda-prime contribution to the offline Ricci expression is counterfactually substituted; the metric samples are held fixed",
+    "continuous_integral_crosscheck": "DOP853+adaptive quadrature agrees with independent Richardson/implicit trapezoid to <1e-15",
+    "limitation": "This does not reproduce the production evolution operator for independently evolved Lambda."
+  },
+  "summary": {
+    "continuous_oracle_first_two_cell_max_gap_before_lambda_change": [
+      0.00018849408250086594,
+      0.00019316536320152747,
+      0.00019478964591243824
+    ],
+    "continuous_oracle_first_two_cell_max_gap_after_lambda_chain_rule": [
+      1.4915801891139321e-9,
+      6.088914501723927e-10,
+      3.311688864761006e-10
+    ],
+    "continuous_oracle_gap_reduction_factors": [
+      126378.4,
+      317286.9,
+      588354.8
+    ],
+    "conclusion": "On each continuous-moment-corrected frozen geometry, the offline Lambda chain-rule substitution collapses the first-two-cell Ricci mismatch from O(1e-4) to O(1e-9..1e-10), with the outer-annulus maximum similarly reduced to O(1e-12..1e-13). This localizes the dominant residual to the discrete Lambda derivative/geometry representation in this diagnostic, not to remaining half-cell moment uncertainty.",
+    "limits": [
+      "This is a no-evolution, fixed-metric representation counterfactual.",
+      "The vendor BSSN formulation evolves Lambda independently; replacing its production derivative is not authorized.",
+      "The near-cancellation is localization evidence, not scientific admission, continuum convergence proof, or a production correction."
+    ]
+  },
+  "resolutions": [
+    {
+      "resolution": 160,
+      "moment_delta": 0.000013051583506951125,
+      "modes": {
+        "continuous_oracle": {
+          "baseline_gaps": [
+            -0.00018849408250086594,
+            0.00008457408826557198
+          ],
+          "chain_rule_gaps": [
+            -1.4915801891139321e-9,
+            3.2242196632963635e-10
+          ],
+          "baseline_first_two_max": 0.00018849408250086594,
+          "chain_first_two_max": 1.4915801891139321e-9,
+          "annulus_baseline": 8.860330063581087e-8,
+          "annulus_chain": 7.76213891339611e-12,
+          "first_two_gap_reduction_factor": 126372.07431190151,
+          "annulus_absolute_change": -8.859553849689748e-8,
+          "gap_ratio_chain_to_baseline": 0.000007913140663750438
+        },
+        "fixed_unanchored": {
+          "baseline_gaps": [
+            -0.00018756687931688348,
+            0.0000844116652403674
+          ],
+          "chain_rule_gaps": [
+            -1.490856730453874e-9,
+            3.2213321073115697e-10
+          ],
+          "baseline_first_two_max": 0.00018756687931688348,
+          "chain_first_two_max": 1.490856730453874e-9,
+          "annulus_baseline": 8.860333854091474e-8,
+          "annulus_chain": 7.762127962954168e-12,
+          "first_two_gap_reduction_factor": 125811.47167627631,
+          "annulus_absolute_change": -8.859557641295178e-8,
+          "gap_ratio_chain_to_baseline": 0.0000079484007831423
+        },
+        "fixed_origin_anchored": {
+          "baseline_gaps": [
+            -0.0001886290903616369,
+            0.00008459773829633875
+          ],
+          "chain_rule_gaps": [
+            -1.491681924316768e-9,
+            3.224638782245979e-10
+          ],
+          "baseline_first_two_max": 0.0001886290903616369,
+          "chain_first_two_max": 1.491681924316768e-9,
+          "annulus_baseline": 8.86032957984938e-8,
+          "annulus_chain": 7.762266266493796e-12,
+          "first_two_gap_reduction_factor": 126453.96266233789,
+          "annulus_absolute_change": -8.859553353222731e-8,
+          "gap_ratio_chain_to_baseline": 0.000007908016316343028
+        },
+        "fixed_intercept_only": {
+          "baseline_gaps": [
+            -0.00018866923539779192,
+            0.00008460477071060241
+          ],
+          "chain_rule_gaps": [
+            -1.491714661875905e-9,
+            3.2247589996670665e-10
+          ],
+          "baseline_first_two_max": 0.00018866923539779192,
+          "chain_first_two_max": 1.491714661875905e-9,
+          "annulus_baseline": 8.860329435635584e-8,
+          "annulus_chain": 7.762348842041758e-12,
+          "first_two_gap_reduction_factor": 126478.09947817434,
+          "annulus_absolute_change": -8.85955320075138e-8,
+          "gap_ratio_chain_to_baseline": 0.000007906507167057525
+        },
+        "local_six_origin_anchored": {
+          "baseline_gaps": [
+            -0.0001889946822118884,
+            0.00008466178093303114
+          ],
+          "chain_rule_gaps": [
+            -1.4919650053501544e-9,
+            3.225774995765083e-10
+          ],
+          "baseline_first_two_max": 0.0001889946822118884,
+          "chain_first_two_max": 1.4919650053501544e-9,
+          "annulus_baseline": 8.860328296301731e-8,
+          "annulus_chain": 7.76226057443239e-12,
+          "first_two_gap_reduction_factor": 126675.01016053162,
+          "annulus_absolute_change": -8.859552070244288e-8,
+          "gap_ratio_chain_to_baseline": 0.000007894216852500969
+        }
+      }
+    },
+    {
+      "resolution": 240,
+      "moment_delta": 0.000003873450876212825,
+      "modes": {
+        "continuous_oracle": {
+          "baseline_gaps": [
+            -0.00019316536320152747,
+            0.0000852628232032951
+          ],
+          "chain_rule_gaps": [
+            -6.088914501723927e-10,
+            1.9596854419770483e-10
+          ],
+          "baseline_first_two_max": 0.00019316536320152747,
+          "chain_first_two_max": 6.088914501723927e-10,
+          "annulus_baseline": 1.8877947609413615e-8,
+          "annulus_chain": 1.6311377704254781e-12,
+          "first_two_gap_reduction_factor": 317241.0503495121,
+          "annulus_absolute_change": -1.887631647164319e-8,
+          "gap_ratio_chain_to_baseline": 0.000003152177181667618
+        },
+        "fixed_unanchored": {
+          "baseline_gaps": [
+            -0.00018541508379516604,
+            0.00008390511013764348
+          ],
+          "chain_rule_gaps": [
+            -6.062154896585613e-10,
+            1.9487436198149105e-10
+          ],
+          "baseline_first_two_max": 0.00018541508379516604,
+          "chain_first_two_max": 6.062154896585613e-10,
+          "annulus_baseline": 1.8877964158472288e-8,
+          "annulus_chain": 1.6300680694570496e-12,
+          "first_two_gap_reduction_factor": 305856.7241486973,
+          "annulus_absolute_change": -1.887633409040283e-8,
+          "gap_ratio_chain_to_baseline": 0.0000032695047093809635
+        },
+        "fixed_origin_anchored": {
+          "baseline_gaps": [
+            -0.00019348346512837545,
+            0.00008531854908735647
+          ],
+          "chain_rule_gaps": [
+            -6.089974265234056e-10,
+            1.9601553174786743e-10
+          ],
+          "baseline_first_two_max": 0.00019348346512837545,
+          "chain_first_two_max": 6.089974265234056e-10,
+          "annulus_baseline": 1.8877940464711034e-8,
+          "annulus_chain": 1.6299399980754248e-12,
+          "first_two_gap_reduction_factor": 317708.1818439167,
+          "annulus_absolute_change": -1.8876310524712958e-8,
+          "gap_ratio_chain_to_baseline": 0.000003147542484415081
+        },
+        "fixed_intercept_only": {
+          "baseline_gaps": [
+            -0.00019358573923181137,
+            0.00008533646570567193
+          ],
+          "chain_rule_gaps": [
+            -6.090342554956234e-10,
+            1.9602494410672633e-10
+          ],
+          "baseline_first_two_max": 0.00019358573923181137,
+          "chain_first_two_max": 6.090342554956234e-10,
+          "annulus_baseline": 1.8877945248495622e-8,
+          "annulus_chain": 1.6313444600171353e-12,
+          "first_two_gap_reduction_factor": 317856.89800695045,
+          "annulus_absolute_change": -1.8876313904035605e-8,
+          "gap_ratio_chain_to_baseline": 0.0000031460698391957923
+        },
+        "local_six_origin_anchored": {
+          "baseline_gaps": [
+            -0.00019321290038744674,
+            0.0000852711508819596
+          ],
+          "chain_rule_gaps": [
+            -6.089070915912169e-10,
+            1.9597398667577028e-10
+          ],
+          "baseline_first_two_max": 0.00019321290038744674,
+          "chain_first_two_max": 6.089070915912169e-10,
+          "annulus_baseline": 1.887794785108228e-8,
+          "annulus_chain": 1.6309373285488399e-12,
+          "first_two_gap_reduction_factor": 317310.9708453816,
+          "annulus_absolute_change": -1.887631691375373e-8,
+          "gap_ratio_chain_to_baseline": 0.0000031514825892587157
+        }
+      }
+    },
+    {
+      "resolution": 320,
+      "moment_delta": 0.0000016350454471458775,
+      "modes": {
+        "continuous_oracle": {
+          "baseline_gaps": [
+            -0.00019478964591243824,
+            0.00008551674406300655
+          ],
+          "chain_rule_gaps": [
+            -3.311688864761006e-10,
+            1.223545622797335e-10
+          ],
+          "baseline_first_two_max": 0.00019478964591243824,
+          "chain_first_two_max": 3.311688864761006e-10,
+          "annulus_baseline": 6.190295124750261e-9,
+          "annulus_chain": 5.241760665927395e-13,
+          "first_two_gap_reduction_factor": 588188.2443280057,
+          "annulus_absolute_change": -6.189770948683668e-9,
+          "gap_ratio_chain_to_baseline": 0.0000017001359847687566
+        },
+        "fixed_unanchored": {
+          "baseline_gaps": [
+            -0.0001850802240317431,
+            0.00008381579888335146
+          ],
+          "chain_rule_gaps": [
+            -3.292416742478642e-10,
+            1.2158415112990058e-10
+          ],
+          "baseline_first_two_max": 0.0001850802240317431,
+          "chain_first_two_max": 3.292416742478642e-10,
+          "annulus_baseline": 6.190306982750736e-9,
+          "annulus_chain": 5.205570675036186e-13,
+          "first_two_gap_reduction_factor": 562140.9393405297,
+          "annulus_absolute_change": -6.189786425683233e-9,
+          "gap_ratio_chain_to_baseline": 0.0000017789133116209975
+        },
+        "fixed_origin_anchored": {
+          "baseline_gaps": [
+            -0.00019503065124058415,
+            0.0000855589645949868
+          ],
+          "chain_rule_gaps": [
+            -3.3118457097840864e-10,
+            1.2237672214563539e-10
+          ],
+          "baseline_first_two_max": 0.00019503065124058415,
+          "chain_first_two_max": 3.3118457097840864e-10,
+          "annulus_baseline": 6.190304391995435e-9,
+          "annulus_chain": 5.234540014983913e-13,
+          "first_two_gap_reduction_factor": 588888.0954339477,
+          "annulus_absolute_change": -6.189780937993937e-9,
+          "gap_ratio_chain_to_baseline": 0.0000016981154955477689
+        },
+        "fixed_intercept_only": {
+          "baseline_gaps": [
+            -0.00019510901822979005,
+            0.0000855726933160292
+          ],
+          "chain_rule_gaps": [
+            -3.311851722023946e-10,
+            1.2238353302914404e-10
+          ],
+          "baseline_first_two_max": 0.00019510901822979005,
+          "chain_first_two_max": 3.311851722023946e-10,
+          "annulus_baseline": 6.190300557768662e-9,
+          "annulus_chain": 5.206702311053718e-13,
+          "first_two_gap_reduction_factor": 589123.6522828221,
+          "annulus_absolute_change": -6.189779887537557e-9,
+          "gap_ratio_chain_to_baseline": 0.0000016974365162984963
+        },
+        "local_six_origin_anchored": {
+          "baseline_gaps": [
+            -0.00019479834356124669,
+            0.0000855182677683142
+          ],
+          "chain_rule_gaps": [
+            -3.3114974860691407e-10,
+            1.223588479140809e-10
+          ],
+          "baseline_first_two_max": 0.00019479834356124669,
+          "chain_first_two_max": 3.3114974860691407e-10,
+          "annulus_baseline": 6.19029937403673e-9,
+          "annulus_chain": 5.243056558574058e-13,
+          "first_two_gap_reduction_factor": 588248.5020167686,
+          "annulus_absolute_change": -6.189775068380873e-9,
+          "gap_ratio_chain_to_baseline": 0.0000016999618300285857
+        }
+      }
+    }
+  ],
+  "no_evolution": true,
+  "production_or_vendor_files_modified": false,
+  "scientific_admission": false
+}
