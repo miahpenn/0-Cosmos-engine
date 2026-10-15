@@ -81,3 +81,33 @@ def test_origin_fit_refuses_saturated_sample_support():
     r = (np.arange(4, dtype=float)+0.5)*0.5
     with pytest.raises(ValueError, match="at least 5 required"):
         fit_origin_moment(r, np.ones_like(r), 0.5, fit_radius=2.0, degree=3, anchor_origin=False)
+
+
+def test_intercept_only_replacement_changes_only_constant_coefficient():
+    dr = 0.125
+    r = (np.arange(40, dtype=float)+0.5)*dr
+    source = smooth_source(r)
+    free = fit_origin_moment(
+        r, source, dr, fit_radius=2.5, degree=3, anchor_origin=False
+    )
+    replace_c0 = fit_origin_moment(
+        r, source, dr, fit_radius=2.5, degree=3,
+        anchor_origin=True, anchor_strategy="intercept_only",
+    )
+    constrained = fit_origin_moment(
+        r, source, dr, fit_radius=2.5, degree=3,
+        anchor_origin=True, anchor_strategy="constrained",
+    )
+    free_coeff = np.asarray(free["coefficients_scaled_z_basis"])
+    replaced_coeff = np.asarray(replace_c0["coefficients_scaled_z_basis"])
+    constrained_coeff = np.asarray(constrained["coefficients_scaled_z_basis"])
+
+    assert replaced_coeff[0] == 1.0
+    assert np.array_equal(replaced_coeff[1:], free_coeff[1:])
+    assert np.isclose(
+        replace_c0["half_cell_moment_estimate"]-free["half_cell_moment_estimate"],
+        (1.0-free_coeff[0])*(dr/2.0),
+        rtol=2.0e-10,
+        atol=1.0e-15,
+    )
+    assert not np.allclose(constrained_coeff[1:], replaced_coeff[1:], rtol=1.0e-8, atol=1.0e-14)
