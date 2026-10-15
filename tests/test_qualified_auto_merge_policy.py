@@ -26,13 +26,24 @@ def test_no_review_fast_path_is_readme_and_docs_only():
     assert "const documentationOnly = files.every(isDocumentationPath);" in source
 
 
-def test_non_documentation_requires_exact_head_non_author_approval():
+def test_non_documentation_requires_trusted_human_collaborator_approval():
     source = WORKFLOW_PATH.read_text(encoding="utf-8")
     assert "r.commit_id === headSha" in source
-    assert 'login !== pr.user?.login && state === "APPROVED"' in source
+    assert 'userType: r.user.type || "unknown"' in source
+    assert 'review.userType !== "User"' in source
+    assert "github.rest.repos.getCollaboratorPermissionLevel" in source
+    assert '["admin", "maintain", "write"].includes(data.permission)' in source
+    assert "async function hasTrustedIndependentApproval" in source
+    assert "await hasTrustedIndependentApproval(" in source
     assert "if (!documentationOnly && !hasIndependentApproval)" in source
     assert "if (!documentationOnly && !finalApproval)" in source
-    assert "state === \"CHANGES_REQUESTED\"" in source
+    assert 'review.state === "CHANGES_REQUESTED"' in source
+
+
+def test_privileged_github_script_action_is_sha_pinned():
+    source = WORKFLOW_PATH.read_text(encoding="utf-8")
+    assert "uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0" in source
+    assert "uses: actions/github-script@v7" not in source
 
 
 def test_workflow_run_without_exact_pr_base_association_fails_closed():
