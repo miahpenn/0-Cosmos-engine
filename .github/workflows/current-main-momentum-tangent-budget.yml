@@ -103,7 +103,7 @@ jobs:
           if-no-files-found: warn
           retention-days: 90
 
-      - name: Enforce both diagnostic gates
+      - name: Require both diagnostic executions to complete
         if: always()
         shell: bash
         env:
