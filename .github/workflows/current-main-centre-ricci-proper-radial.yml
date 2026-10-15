@@ -3,12 +3,12 @@ name: Diagnostic - current-main centre Ricci/proper-radial reconciliation
 on:
   push:
     branches:
-      - diag/current-main-centre-ricci-proper-radial-2026-10-15
+      - diag/current-main-centre-ricci-highres-2026-10-15
     paths:
       - tools/audit_current_main_centre_proper_radial_ricci.py
       - tests/test_initial_centre_proper_radial_ricci.py
       - .github/workflows/current-main-centre-ricci-proper-radial.yml
-      - docs/CURRENT_MAIN_CENTRE_RICCI_NEXT_GATE_2026-10-15.md
+      - docs/CURRENT_MAIN_CENTRE_RICCI_HIGHRES_2026-10-15.md
 
 permissions:
   contents: read
@@ -90,7 +90,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: current-main-centre-ricci-proper-radial
-          path: results/current-main-centre-proper-radial-ricci/
+          name: current-main-centre-ricci-proper-radial-highres-2026-10-15
+          path: results/current-main-centre-proper-radial-ricci-highres-2026-10-15/
           if-no-files-found: warn
           retention-days: 90
