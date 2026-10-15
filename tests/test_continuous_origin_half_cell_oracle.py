@@ -1,0 +1,97 @@
+import numpy as np
+import pytest
+
+from tools.audit_continuous_origin_half_cell_oracle import (
+    continuous_source_coefficients,
+    fit_even_polynomial_integral,
+    integrate_continuous_half_cell,
+)
+
+
+def test_constant_regular_source_integrates_exactly():
+    result = integrate_continuous_half_cell(
+        0.25,
+        32,
+        lambda r: np.ones_like(r),
+        lambda r: np.zeros_like(r),
+    )
+    assert result["moment"] == pytest.approx(0.25, abs=2.0e-16)
+    assert result["B_at_half_cell"] == pytest.approx(1.0, abs=2.0e-16)
+    assert result["source_at_half_cell"] == pytest.approx(1.0, abs=2.0e-16)
+
+
+def test_richardson_cancels_trapezoid_error_for_quadratic_source():
+    half = 0.2
+    coefficient = -0.37
+    A = lambda r: 1.0 + coefficient * r**2
+    q = lambda r: np.zeros_like(r)
+    coarse = integrate_continuous_half_cell(half, 16, A, q)["moment"]
+    fine = integrate_continuous_half_cell(half, 32, A, q)["moment"]
+    richardson = fine + (fine - coarse) / 3.0
+    exact = half + coefficient * half**3 / 3.0
+    assert abs(fine - exact) > abs(richardson - exact)
+    assert richardson == pytest.approx(exact, abs=2.0e-15)
+
+
+def test_source_coefficients_have_regular_origin_limit():
+    r = np.array([0.0, 1.0e-4, 0.1, 0.25])
+    A, q = continuous_source_coefficients(r)
+    assert A[0] == pytest.approx(1.0, abs=1.0e-15)
+    assert q[0] == 0.0
+    assert np.all(q >= 0.0)
+    assert np.all(np.isfinite(A))
+    assert np.all(np.isfinite(q))
+    # q is O(r^4) for the declared Gaussian S/D fields.
+    assert q[1] <= 1.0e-10 * q[-1]
+
+
+def test_polynomial_fit_integral_is_exact_for_represented_even_source():
+    window = 2.5
+    half = 0.125
+    radii = np.array([0.25, 0.75, 1.25, 1.75, 2.25, 2.75])
+    coeff = np.array([1.0, -0.3, 0.07])
+    z = (radii / window) ** 2
+    source = coeff[0] + coeff[1] * z + coeff[2] * z**2
+    result = fit_even_polynomial_integral(
+        radii,
+        source,
+        half,
+        window=window,
+        degree=2,
+    )
+    exact = sum(
+        coeff[k] * half ** (2 * k + 1) / ((2 * k + 1) * window ** (2 * k))
+        for k in range(3)
+    )
+    assert result["fitted_moment"] == pytest.approx(exact, abs=2.0e-15)
+    assert result["max_abs_sample_residual"] < 2.0e-15
+
+
+def test_origin_anchor_enforces_exact_constant_coefficient():
+    window = 2.5
+    half = 0.125
+    radii = np.array([0.25, 0.75, 1.25, 1.75, 2.25, 2.75])
+    source = 1.0 + 0.4 * (radii / window) ** 2 - 0.02 * (radii / window) ** 4
+    result = fit_even_polynomial_integral(
+        radii,
+        source,
+        half,
+        window=window,
+        degree=2,
+        anchor_origin=True,
+    )
+    assert result["fit_coefficients_z"][0] == 1.0
+    assert result["fitted_moment"] == pytest.approx(
+        half + 0.4 * half**3 / (3.0 * window**2)
+        - 0.02 * half**5 / (5.0 * window**4),
+        abs=2.0e-15,
+    )
+
+
+def test_fit_refuses_saturated_or_underdetermined_window():
+    radii = np.array([0.25, 0.75, 1.25, 1.75])
+    source = 1.0 + radii**2
+    with pytest.raises(ValueError, match="overdetermined"):
+        fit_even_polynomial_integral(
+            radii, source, 0.125, window=2.0, degree=3
+        )
