@@ -506,6 +506,87 @@ def run_audit(output_dir: Path = OUT) -> dict[str, Any]:
                 "fixed_annulus_r5_to10_max_abs_ricci_gap": float(_max_abs(frozen_gap[annulus])),
                 "geometry_invariants": frozen_invariants,
             }
+
+
+        # Split the change from the free fixed-window fit to constrained
+        # anchoring into (a) c0 replacement only and (b) all higher-coefficient
+        # refit contributions. Apply each increment separately on top of the
+        # *same free-fit frozen metric* so the curvature response is isolated.
+        free_same = fit_origin_moment(
+            r, source_baseline, float(grid.dr), fit_radius=FIT_RADIUS,
+            degree=3, anchor_origin=False,
+        )
+        constrained_same = fit_origin_moment(
+            r, source_baseline, float(grid.dr), fit_radius=FIT_RADIUS,
+            degree=3, anchor_origin=True, anchor_strategy="constrained",
+        )
+        coeff_free = np.asarray(free_same["coefficients_scaled_z_basis"], dtype=float)
+        coeff_anchor = np.asarray(constrained_same["coefficients_scaled_z_basis"], dtype=float)
+        r0 = float(r[0])
+        delta_c0 = float((coeff_anchor[0] - coeff_free[0]) * r0)
+        delta_higher_terms = [
+            float((coeff_anchor[k] - coeff_free[k]) * r0
+                  * (r0 / FIT_RADIUS) ** (2 * k) / (2 * k + 1))
+            for k in range(1, 4)
+        ]
+        delta_higher = float(sum(delta_higher_terms))
+        delta_total = float(constrained_same["moment_correction_vs_point_sample"]
+                            - free_same["moment_correction_vs_point_sample"])
+        decomposition_roundoff = float(delta_c0 + delta_higher - delta_total)
+
+        delta_free = float(free_same["moment_correction_vs_point_sample"])
+        B_free_frozen = B_production + delta_free / r
+        intervention_B = {
+            "free_fit_reference": B_free_frozen,
+            "c0_replacement_only": B_free_frozen + delta_c0 / r,
+            "higher_coefficients_only": B_free_frozen + delta_higher / r,
+            "c0_plus_higher_refit": B_free_frozen + (delta_c0 + delta_higher) / r,
+        }
+        coefficient_response = {}
+        coefficient_gaps = {}
+        for tag, Bcandidate in intervention_B.items():
+            arrs, inv, gap = _metric_and_ricci(
+                grid, state, vacuum, Bcandidate, source_baseline,
+                "coefficient_response_" + tag,
+            )
+            if not inv["all_profiles_finite"]:
+                problems.append(f"N={resolution}/coefficient_response_{tag}: non-finite geometry")
+            profiles.update({f"N{resolution}_{name}": _arr(value) for name, value in arrs.items()})
+            coefficient_gaps[tag] = gap
+            coefficient_response[tag] = {
+                "first_two_signed_ricci_gaps": [float(v) for v in gap[:2]],
+                "first_two_gap_change_vs_free_fit": [
+                    float(gap[i] - coefficient_gaps["free_fit_reference"][i])
+                    for i in range(2)
+                ] if "free_fit_reference" in coefficient_gaps else [0.0, 0.0],
+                "first_six_max_abs_gap": float(_max_abs(gap[:6])),
+                "fixed_annulus_r5_to10_max_abs_gap": float(_max_abs(gap[annulus])),
+                "geometry_invariants": inv,
+            }
+        gap_free_c = coefficient_gaps["free_fit_reference"]
+        gap_c0 = coefficient_gaps["c0_replacement_only"]
+        gap_hi = coefficient_gaps["higher_coefficients_only"]
+        gap_both = coefficient_gaps["c0_plus_higher_refit"]
+        interaction = gap_both - gap_c0 - gap_hi + gap_free_c
+        coefficient_response["decomposition_checks"] = {
+            "unanchored_coefficients_scaled_z_basis": [float(v) for v in coeff_free],
+            "constrained_coefficients_scaled_z_basis": [float(v) for v in coeff_anchor],
+            "origin_c0": ORIGIN_SOURCE_VALUE,
+            "delta_integral_from_c0_replacement_only": delta_c0,
+            "delta_integral_by_higher_coefficient": delta_higher_terms,
+            "delta_integral_total_higher_refit": delta_higher,
+            "delta_integral_constrained_minus_free": delta_total,
+            "delta_integral_decomposition_roundoff_residual": decomposition_roundoff,
+            "c0_contribution_percent_of_net_moment_change": (
+                100.0 * delta_c0 / delta_total if delta_total != 0.0 else None
+            ),
+            "higher_contribution_percent_of_net_moment_change": (
+                100.0 * delta_higher / delta_total if delta_total != 0.0 else None
+            ),
+            "nonlinear_ricci_interaction_residual_max_abs_first_two": float(_max_abs(interaction[:2])),
+            "nonlinear_ricci_interaction_residual_max_abs_first_six": float(_max_abs(interaction[:6])),
+            "interpretation": "Moment decomposition is linear in polynomial coefficients; Ricci response is nonlinear in the perturbed metric, so one-at-a-time gap changes need not sum to the combined response.",
+        }
         reports.append({
             "resolution": resolution,
             "r_max": R_MAX,
@@ -521,6 +602,7 @@ def run_audit(output_dir: Path = OUT) -> dict[str, Any]:
             "counterfactual_modes": per_mode,
             "same_source_estimator_contrasts": same_source_contrasts,
             "frozen_source_ricci_contrasts": frozen_source_ricci_contrasts,
+            "coefficient_response_decomposition": coefficient_response,
             "anchoring_effect_same_fixed_window": {
                 "free_fit_fixed_point_moment_correction": delta_free,
                 "anchored_fit_fixed_point_moment_correction": delta_anchor,
