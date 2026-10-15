@@ -347,6 +347,13 @@ def _find_ledger_record(github_token: str, event_id: str) -> dict[str, Any] | No
         for comment in data:
             if not isinstance(comment, dict) or not isinstance(comment.get("body"), str):
                 continue
+            # Issue comments are user-writable, so marker text alone is not
+            # authoritative. Only the workflow's GITHUB_TOKEN actor may mutate
+            # delivery state; otherwise a public commenter could forge DELIVERED
+            # or PREPARED markers and suppress notifications.
+            author = comment.get("user")
+            if not isinstance(author, dict) or author.get("login") != "github-actions[bot]":
+                continue
             match = DELIVERED_RE.search(comment["body"])
             if match and match.group("event_id") == event_id:
                 return {"id": comment.get("id"), "status": match.group("status"), "body": comment["body"]}

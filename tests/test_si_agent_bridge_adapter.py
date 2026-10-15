@@ -402,3 +402,42 @@ def test_missing_live_pr_head_or_base_fails_closed_without_ledger_or_post():
         )
     assert result["status"] == UNKNOWN
     assert "live PR base SHA" in result["reason"]
+
+def test_ledger_ignores_forged_marker_from_public_commenter():
+    from tools.si_agent_bridge_adapter import _find_ledger_record
+
+    event_id = "github:pr:" + "a" * 64
+    forged = {
+        "id": 101,
+        "user": {"login": "outside-contributor"},
+        "body": f"<!-- si-agent-bridge-event:{event_id} status=DELIVERED -->",
+    }
+    with patch("tools.si_agent_bridge_adapter._api_json", return_value=[forged]):
+        found = _find_ledger_record("ghs-test", event_id)
+    assert found is None
+
+
+def test_ledger_uses_only_github_actions_bot_markers():
+    from tools.si_agent_bridge_adapter import _find_ledger_record
+
+    event_id = "github:pr:" + "b" * 64
+    forged = {
+        "id": 102,
+        "user": {"login": "outside-contributor"},
+        "body": f"<!-- si-agent-bridge-event:{event_id} status=DELIVERED -->",
+    }
+    trusted = {
+        "id": 103,
+        "user": {"login": "github-actions[bot]"},
+        "body": f"<!-- si-agent-bridge-event:{event_id} status=PREPARED -->",
+    }
+    # A forged, newer-looking comment must not override the authenticated
+    # automation marker that requires manual reconciliation.
+    with patch("tools.si_agent_bridge_adapter._api_json", return_value=[forged, trusted]):
+        found = _find_ledger_record("ghs-test", event_id)
+    assert found == {
+        "id": 103,
+        "status": "PREPARED",
+        "body": trusted["body"],
+    }
+
