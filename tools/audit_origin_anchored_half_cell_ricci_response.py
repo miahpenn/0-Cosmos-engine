@@ -48,13 +48,15 @@ def fit_origin_moment(
     fit_radius: float,
     degree: int = 3,
     anchor_origin: bool,
+    anchor_strategy: str = "constrained",
 ) -> dict[str, Any]:
     """Fit s(r) in z=(r/fit_radius)^2 and integrate over [0, dr/2].
 
     Requires at least degree+2 samples to leave residual degrees of freedom.
-    Anchored fits impose the regular-centre identity s(0)=1 exactly and fit
-    only the higher powers. This is a constraint from the source equation,
-    not a value inferred from the positive-radius samples.
+    Anchored strategies both impose s(0)=1. "constrained" refits the higher
+    coefficients under that constraint. "intercept_only" fits without the
+    constraint, then replaces only the constant coefficient; it is a pure
+    coefficient-sensitivity control, not the constrained least-squares optimum.
     """
     r = np.asarray(r, dtype=float)
     source = np.asarray(source, dtype=float)
@@ -68,6 +70,8 @@ def fit_origin_moment(
         raise ValueError("fit radius must be finite and positive")
     if not isinstance(degree, int) or degree < 1:
         raise ValueError("degree must be a positive integer")
+    if anchor_strategy not in ("constrained", "intercept_only"):
+        raise ValueError("anchor_strategy must be 'constrained' or 'intercept_only'")
 
     mask = r <= fit_radius + 1.0e-12 * max(1.0, fit_radius)
     x, y = r[mask], source[mask]
@@ -79,18 +83,20 @@ def fit_origin_moment(
         )
     z = (x / fit_radius) ** 2
     design = np.column_stack([z**k for k in range(degree + 1)])
-    if anchor_origin:
+    coeff, _, rank, _ = np.linalg.lstsq(design, y, rcond=None)
+    if rank != degree + 1:
+        raise ValueError("unanchored source-fit design is rank deficient")
+    if anchor_origin and anchor_strategy == "constrained":
         higher = design[:, 1:]
-        higher_coeff, _, rank, _ = np.linalg.lstsq(
+        higher_coeff, _, higher_rank, _ = np.linalg.lstsq(
             higher, y - ORIGIN_SOURCE_VALUE, rcond=None
         )
-        if rank != degree:
+        if higher_rank != degree:
             raise ValueError("anchored higher-coefficient design is rank deficient")
         coeff = np.r_[ORIGIN_SOURCE_VALUE, higher_coeff]
-    else:
-        coeff, _, rank, _ = np.linalg.lstsq(design, y, rcond=None)
-        if rank != degree + 1:
-            raise ValueError("unanchored source-fit design is rank deficient")
+    elif anchor_origin and anchor_strategy == "intercept_only":
+        coeff = coeff.copy()
+        coeff[0] = ORIGIN_SOURCE_VALUE
 
     fitted = design @ coeff
     residual = y - fitted
@@ -113,6 +119,7 @@ def fit_origin_moment(
         "fit_radius": float(fit_radius),
         "degree_in_r_squared": int(degree),
         "origin_anchored": bool(anchor_origin),
+        "anchor_strategy": anchor_strategy if anchor_origin else "unanchored",
         "known_s0": ORIGIN_SOURCE_VALUE if anchor_origin else None,
         "sample_count": nfit,
         "overdetermined": bool(nfit >= degree + 2),
