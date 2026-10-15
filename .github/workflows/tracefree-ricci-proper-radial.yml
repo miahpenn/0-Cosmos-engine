@@ -1,0 +1,88 @@
+name: Diagnostic - trace-free Ricci / proper-radial reconciliation
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - tools/audit_tracefree_ricci_proper_radial.py
+      - tests/test_tracefree_ricci_proper_radial.py
+      - .github/workflows/tracefree-ricci-proper-radial.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tracefree-ricci-proper-radial-current-main-2026-10-15
+  cancel-in-progress: false
+
+jobs:
+  tracefree-ricci-proper-radial:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      PYTHONUNBUFFERED: "1"
+      SOURCE_COMMIT: "fcb32b6b4025d5674e0560b8fb24581933f7f23c"
+      SOURCE_KERNEL_BLOB: "9685e76bb5a6f26d6bf383e240de24f37523f265"
+      VENDOR_COMMIT: "d6052d605673ce9d82cdc99b0df79855fa2ea215"
+    steps:
+      - name: Checkout exact PR head and pinned vendor
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install repository requirements
+        run: python -m pip install -r requirements.txt
+
+      - name: Compile diagnostic
+        run: python -m py_compile tools/audit_tracefree_ricci_proper_radial.py
+
+      - name: Fail closed on source/vendor drift and physics edits
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin "$SOURCE_COMMIT"
+          source_blob="$(git rev-parse "$SOURCE_COMMIT:engine/production_kernel.py")"
+          head_blob="$(git rev-parse "HEAD:engine/production_kernel.py")"
+          test "$source_blob" = "$SOURCE_KERNEL_BLOB"
+          test "$head_blob" = "$SOURCE_KERNEL_BLOB"
+          test "$(git rev-parse "$SOURCE_COMMIT:engine/v55_initial.py")" = "7db2e1a10cf16fb40e4221b0df504fdf39aae611"
+          test "$(git rev-parse "HEAD:engine/v55_initial.py")" = "7db2e1a10cf16fb40e4221b0df504fdf39aae611"
+          test "$(git rev-parse "$SOURCE_COMMIT:engine/v55_pirk_adapter.py")" = "eeee0492d80889d70e52b0946563eee5054c0f11"
+          test "$(git rev-parse "HEAD:engine/v55_pirk_adapter.py")" = "eeee0492d80889d70e52b0946563eee5054c0f11"
+          test "$(git rev-parse "$SOURCE_COMMIT:engine/cmc_gauge.py")" = "7b49b5751abebd4faf0130208032cd2080b71f64"
+          test "$(git rev-parse "HEAD:engine/cmc_gauge.py")" = "7b49b5751abebd4faf0130208032cd2080b71f64"
+          test "$(git rev-parse "$SOURCE_COMMIT:engine/v55_matter.py")" = "acc8f8ceae28d82511c9a5ad9d2ca670e09fb0f7"
+          test "$(git rev-parse "HEAD:engine/v55_matter.py")" = "acc8f8ceae28d82511c9a5ad9d2ca670e09fb0f7"
+          test "$(git rev-parse "$SOURCE_COMMIT:engine/stress_energy.py")" = "ac3e7518c62bb72e2218a61489fa486bb787809f"
+          test "$(git rev-parse "HEAD:engine/stress_energy.py")" = "ac3e7518c62bb72e2218a61489fa486bb787809f"
+          test "$(git rev-parse "HEAD:vendor/bb-palatini-unified-r0")" = "$VENDOR_COMMIT"
+          changed="$(git diff --name-only "$SOURCE_COMMIT" HEAD -- engine vendor .gitmodules requirements.txt)"
+          if [ -n "$changed" ]; then
+            printf 'Unexpected production/vendor/dependency changes:\n%s\n' "$changed"
+            exit 1
+          fi
+          printf 'SOURCE_COMMIT=%s\nSOURCE_KERNEL_BLOB=%s\nVENDOR_COMMIT=%s\n' \
+            "$SOURCE_COMMIT" "$SOURCE_KERNEL_BLOB" "$VENDOR_COMMIT"
+
+      - name: Run full repository regression suite
+        run: python -m pytest -q
+
+      - name: Capture trace-free Ricci / proper-radial witnesses at actual PIRK L2 stages
+        run: python tools/audit_tracefree_ricci_proper_radial.py
+
+      - name: Upload report and radial profiles
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tracefree-ricci-proper-radial-2026-10-15
+          path: results/tracefree-ricci-proper-radial-2026-10-15/
+          if-no-files-found: warn
+          retention-days: 90
