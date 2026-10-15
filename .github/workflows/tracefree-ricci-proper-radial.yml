@@ -7,7 +7,12 @@ on:
     paths:
       - tools/audit_tracefree_ricci_proper_radial.py
       - tests/test_tracefree_ricci_proper_radial.py
+      - diagnostics/tracefree-ricci-proper-radial-refresh-2026-10-15.md
       - .github/workflows/tracefree-ricci-proper-radial.yml
+      - engine/**
+      - vendor/**
+      - .gitmodules
+      - requirements.txt
 
 permissions:
   contents: read
@@ -33,18 +38,40 @@ jobs:
           submodules: recursive
           ref: ${{ github.event.pull_request.head.sha }}
 
+      - name: Decide whether this diff needs the expensive source-pinned diagnostic
+        id: scope
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin "$BASE_SHA"
+          changed="$(git diff --name-only "$BASE_SHA...HEAD")"
+          printf 'Changed paths relative to PR base:\n%s\n' "$changed"
+          if printf '%s\n' "$changed" | grep -Eq '^(tools/audit_tracefree_ricci_proper_radial\.py|diagnostics/tracefree-ricci-proper-radial-refresh-2026-10-15\.md|engine/|vendor/|\.gitmodules$|requirements\.txt$)'; then
+            echo "run_diagnostic=true" >> "$GITHUB_OUTPUT"
+            echo "Diagnostic-affecting paths changed; source-pinned run is required."
+          else
+            echo "run_diagnostic=false" >> "$GITHUB_OUTPUT"
+            echo "No diagnostic-affecting paths changed; standard PR checks cover this test-only/workflow-only diff."
+          fi
+
       - name: Set up Python
+        if: steps.scope.outputs.run_diagnostic == 'true'
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
       - name: Install repository requirements
+        if: steps.scope.outputs.run_diagnostic == 'true'
         run: python -m pip install -r requirements.txt
 
       - name: Compile diagnostic
+        if: steps.scope.outputs.run_diagnostic == 'true'
         run: python -m py_compile tools/audit_tracefree_ricci_proper_radial.py
 
       - name: Fail closed on source/vendor drift and physics edits
+        if: steps.scope.outputs.run_diagnostic == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -73,13 +100,15 @@ jobs:
             "$SOURCE_COMMIT" "$SOURCE_KERNEL_BLOB" "$VENDOR_COMMIT"
 
       - name: Run full repository regression suite
+        if: steps.scope.outputs.run_diagnostic == 'true'
         run: python -m pytest -q
 
       - name: Capture trace-free Ricci / proper-radial witnesses at actual PIRK L2 stages
+        if: steps.scope.outputs.run_diagnostic == 'true'
         run: python tools/audit_tracefree_ricci_proper_radial.py
 
       - name: Upload report and radial profiles
-        if: always()
+        if: always() && steps.scope.outputs.run_diagnostic == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: tracefree-ricci-proper-radial-2026-10-15
