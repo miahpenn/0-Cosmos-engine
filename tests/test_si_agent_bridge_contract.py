@@ -191,7 +191,7 @@ def test_preflight_must_be_no_older_than_two_minutes_and_pin_same_refs():
         preflight_head_sha=HEAD_SHA,
         preflight_base_sha=BASE_SHA,
     )
-    assert validate_event(base, now=NOW, live_main_sha=MAIN_SHA)["status"] == DELIVER
+    assert validate_event(base, now=NOW, live_main_sha=MAIN_SHA, expected_head_sha=HEAD_SHA, expected_base_sha=BASE_SHA)["status"] == DELIVER
 
     stale = dict(base, preflight_at_utc=stamp(NOW - timedelta(seconds=121)))
     mismatch = dict(base, preflight_head_sha="e" * 40)
