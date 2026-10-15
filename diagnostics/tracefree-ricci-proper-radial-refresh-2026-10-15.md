@@ -3,7 +3,7 @@
 **Disposition:** diagnostic-only; scientific admission remains **NOT ADMITTED**. This refresh reuses the earlier closed, unmerged Ricci observer rather than creating a competing implementation.
 
 ## Exact source pins
-- Production source baseline: `fcb32b6b4025d5674e0560b8fb24581933f7f23c`; production-kernel blob: `9685e76bb5a6f26d6bf383e240de24f37523f265`.
+- Production source baseline: `f559012b2f5610e58ac1adbae28eb3ee00d6a828`; production-kernel blob: `9685e76bb5a6f26d6bf383e240de24f37523f265`.
 - Six engine source blobs are checked against both baseline and diagnostic head.
 - Vendor submodule expected: `d6052d605673ce9d82cdc99b0df79855fa2ea215`.
 - Any engine/vendor/dependency diff from the source pin blocks the diagnostic.
