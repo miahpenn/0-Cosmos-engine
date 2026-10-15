@@ -35,6 +35,33 @@ ARCHIVE_OPEN_GATES = {
 DEFAULT_LOCAL_INITIAL_STATE = (0.02, 0.0, 1.0e-8, 0.0)
 
 
+LOCAL_ENERGY_CATEGORY_CONTRACT = {
+    "E_D_raw": (
+        "Signed kinetic-minus-excursion quantity in the reduced archive ledger; "
+        "not certified as the production Einstein-source density."
+    ),
+    "E_D_kinetic": "Positive kinetic component; diagnostic ledger quantity only.",
+    "E_D_excursion": (
+        "Positive excursion magnitude; do not confuse it with the signed "
+        "inverted-potential contribution."
+    ),
+    "generated_activity_proxy": (
+        "E_D_kinetic + E_D_excursion; positive activity proxy, not canonical "
+        "rho_D, localized matter abundance, or a source term."
+    ),
+    "transport_activity_proxy": (
+        "|D * Dd| activity proxy; not a covariant flux, conserved transfer, "
+        "or cross-lane coupling."
+    ),
+    "conditional_stress_energy_note": (
+        "If the signed inverted potential is interpreted with canonical scalar "
+        "stress-energy, E_D_raw vanishes on the homogeneous exact growing "
+        "branch Dd = alpha_D * D. This conditional identity does not resolve "
+        "the missing primary action or production normalization."
+    ),
+}
+
+
 def archive_docx_local_rhs(y: Sequence[float], p: LocalParams) -> tuple[float, ...]:
     """Reduced local RHS transcribed from the preserved GEAR archive DOCX.
 
@@ -282,6 +309,15 @@ def run_machine(
         "schema_version": 1,
         "status": "research_only_independent_lanes",
         "scientific_admission": "not_claimed",
+        "interpretation_contract": {
+            "D_energy_categories": dict(LOCAL_ENERGY_CATEGORY_CONTRACT),
+            "D_mode_to_localized_matter_applied": False,
+            "local_source_to_global_cosmos_Q_applied": False,
+            "stress_energy_normalization": (
+                "OPEN — primary action/metric variation and the S/D source "
+                "prefactor are not resolved"
+            ),
+        },
         "lane_contract": {
             "local_time": "tau_local; evolved independently",
             "cosmos_time": "t_cosmos; evolved independently",
@@ -319,6 +355,7 @@ def run_machine(
 __all__ = [
     "ARCHIVE_OPEN_GATES",
     "DEFAULT_LOCAL_INITIAL_STATE",
+    "LOCAL_ENERGY_CATEGORY_CONTRACT",
     "LaneTrace",
     "archive_docx_local_rhs",
     "rk4_step",
