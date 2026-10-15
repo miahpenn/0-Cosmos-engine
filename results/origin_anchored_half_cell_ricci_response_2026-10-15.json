@@ -1,0 +1,220 @@
+{
+  "schema": "origin_anchored_half_cell_ricci_response_summary_v1",
+  "status": "completed_diagnostic_only",
+  "provenance": {
+    "workflow_run_id": 38787838951,
+    "workflow_url": "https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38787838951",
+    "artifact_id": 11997834796,
+    "artifact_zip_sha256": "62d3e2102c8e759009ad1c8db8e42502e7666a2633c1199bdd5818535afbabe6",
+    "report_json_sha256": "cee8972c3fe3e180f0d60588b5e630766d43e51b13c8deda9edb79089db94ce9",
+    "profiles_npz_sha256": "38af797f7da93c434bcb47b3a6e0a3b680b428c22d80066de6303a8f9cbdb703",
+    "audit_head": "0a4a9f1839d853b874a333d36d2a5025c5bed16b",
+    "current_main_base_sha": "6398620b85b7f5a027de0532ded80bdf04a9b53b",
+    "source_commit": "285a2ee0c1a3b97cddeb4519d8e749109b115aab",
+    "vendor_commit": "d6052d605673ce9d82cdc99b0df79855fa2ea215",
+    "engine_source_blob_pin_count": 11,
+    "all_source_blob_pins_match": true,
+    "engine_vendor_dependency_diff_empty": true
+  },
+  "method": {
+    "origin_value_imposed": 1,
+    "free_fit": "degree 3 in z=(r/2.5)^2, cell centres r<=2.5 inclusive",
+    "anchored_fit": "same fixed support and degree, with c0=1 imposed exactly",
+    "local_fit": "degree 3 in r^2, origin anchored, first six cell centres (fit radius 6*dr)",
+    "self_consistency": "copied source/metric recurrence recomputes the source every update, changes only the first half-cell moment, preserves later trapezoid intervals, captures six-step and converged fixed point",
+    "ricci_gap": "pinned vendor trace-free Ricci minus independent proper-radial warped-product Ricci",
+    "exact_continuous_production_half_cell_integral_known": false
+  },
+  "summary": {
+    "result": "origin anchoring makes the intercept exact but slightly worsens the magnitude of the remaining centre Ricci gap compared with the unconstrained degree-three fit at all three tested resolutions",
+    "centre_gap_magnitude_increase_percent": {
+      "N160": 0.566290985700113,
+      "N240": 4.351501855357265,
+      "N320": 5.376263607563736
+    },
+    "moment_correction_change_percent": {
+      "N160": 0.05969345176368348,
+      "N240": 0.45444051547965525,
+      "N320": 0.5607448757893797
+    },
+    "limitations": [
+      "Moment corrections are estimator differences against point-sampled moments, not true signed quadrature errors.",
+      "Scalar and matter samples remain fixed while their source contribution is reevaluated at candidate metrics.",
+      "A smaller residual in one Ricci channel is not proof of continuum accuracy or evolved convergence.",
+      "The result is a sensitivity comparison; it does not identify a unique production correction."
+    ]
+  },
+  "resolutions": [
+    {
+      "resolution": 160,
+      "grid_spacing": 0.5,
+      "production_baseline_first_two_signed_gaps": [
+        0.0015918130768862826,
+        -0.00022729563898565605
+      ],
+      "free_fixed_fit": {
+        "moment_correction_vs_point_sample": 0.00001304478639951867,
+        "fitted_intercept_bias_vs_s0": -3.2324717902376676e-8,
+        "max_abs_fit_residual": 3.4755594402469114e-8,
+        "fixed_point_first_two_signed_ricci_gaps": [
+          -0.00018756691690526586,
+          0.00008441167122479722
+        ],
+        "fixed_point_first_six_max_abs_gap": 0.00018756691690526586,
+        "annulus_5_to_10_max_abs_gap": 8.860335881526497e-8
+      },
+      "fixed_origin_anchored_fit": {
+        "moment_correction_vs_point_sample": 0.000013052573282795743,
+        "fitted_intercept_bias_vs_s0": 0,
+        "max_abs_fit_residual": 4.196326264249706e-8,
+        "fixed_point_first_two_signed_ricci_gaps": [
+          -0.000188629091447856,
+          0.00008459773788564522
+        ],
+        "fixed_point_first_six_max_abs_gap": 0.000188629091447856,
+        "annulus_5_to_10_max_abs_gap": 8.860331560612211e-8
+      },
+      "local_six_cell_origin_anchored_fit": {
+        "moment_correction_vs_point_sample": 0.00001305525344272307,
+        "fixed_point_first_two_signed_ricci_gaps": [
+          -0.00018899468029239316,
+          0.00008466177999437805
+        ],
+        "fixed_point_first_six_max_abs_gap": 0.00018899468029239316,
+        "annulus_5_to_10_max_abs_gap": 8.860329936009794e-8
+      },
+      "anchoring_effect": {
+        "anchored_minus_free_moment_correction": 7.78688327707222e-9,
+        "moment_correction_change_percent": 0.05969345176368348,
+        "cell0_signed_gap_change": -0.0000010621745425901227,
+        "cell0_gap_magnitude_change_percent": 0.566290985700113,
+        "cell1_signed_gap_change": 1.8606666084799897e-7,
+        "cell1_gap_magnitude_change_percent": 0.2204276472058897,
+        "first_six_max_gap_ratio_anchored_to_free": 1.0056629098570011,
+        "fixed_annulus_gap_absolute_change": -4.32091428609338e-14
+      },
+      "integrity": {
+        "copied_iterations_for_all_modes": 6,
+        "copied_fixed_point_defects_max_abs": 0,
+        "input_state_unchanged": true,
+        "profiles_finite": true,
+        "evolution_steps": 0
+      }
+    },
+    {
+      "resolution": 240,
+      "grid_spacing": 0.3333333333333333,
+      "production_baseline_first_two_signed_gaps": [
+        0.0015900292071663138,
+        -0.00022712338600690306
+      ],
+      "free_fixed_fit": {
+        "moment_correction_vs_point_sample": 0.000003856615829050947,
+        "fitted_intercept_bias_vs_s0": -1.0648909964938724e-7,
+        "max_abs_fit_residual": 1.2531365478629652e-7,
+        "fixed_point_first_two_signed_ricci_gaps": [
+          -0.00018541512132198103,
+          0.00008390511660204894
+        ],
+        "fixed_point_first_six_max_abs_gap": 0.00018541512132198103,
+        "annulus_5_to_10_max_abs_gap": 1.8877963485101424e-8
+      },
+      "fixed_origin_anchored_fit": {
+        "moment_correction_vs_point_sample": 0.000003874141853904556,
+        "fitted_intercept_bias_vs_s0": 0,
+        "max_abs_fit_residual": 1.4932909575549047e-7,
+        "fixed_point_first_two_signed_ricci_gaps": [
+          -0.00019348346376641995,
+          0.0000853185487315129
+        ],
+        "fixed_point_first_six_max_abs_gap": 0.00019348346376641995,
+        "annulus_5_to_10_max_abs_gap": 1.887795087965197e-8
+      },
+      "local_six_cell_origin_anchored_fit": {
+        "moment_correction_vs_point_sample": 0.000003873554136529789,
+        "fixed_point_first_two_signed_ricci_gaps": [
+          -0.00019321290013105805,
+          0.00008527115072907166
+        ],
+        "fixed_point_first_six_max_abs_gap": 0.00019321290013105805,
+        "annulus_5_to_10_max_abs_gap": 1.8877947207093294e-8
+      },
+      "anchoring_effect": {
+        "anchored_minus_free_moment_correction": 1.75260248536091e-8,
+        "moment_correction_change_percent": 0.45444051547965525,
+        "cell0_signed_gap_change": -0.000008068342444438926,
+        "cell0_gap_magnitude_change_percent": 4.351501855357265,
+        "cell1_signed_gap_change": 0.0000014134321294639613,
+        "cell1_gap_magnitude_change_percent": 1.6845601158838486,
+        "first_six_max_gap_ratio_anchored_to_free": 1.0435150185535726,
+        "fixed_annulus_gap_absolute_change": -1.2605449453348405e-14
+      },
+      "integrity": {
+        "copied_iterations_for_all_modes": 6,
+        "copied_fixed_point_defects_max_abs": 0,
+        "input_state_unchanged": true,
+        "profiles_finite": true,
+        "evolution_steps": 0
+      }
+    },
+    {
+      "resolution": 320,
+      "grid_spacing": 0.25,
+      "production_baseline_first_two_signed_gaps": [
+        0.0015894164445510585,
+        -0.00022705042657682428
+      ],
+      "free_fixed_fit": {
+        "moment_correction_vs_point_sample": 0.0000016261477634310628,
+        "fitted_intercept_bias_vs_s0": -7.352284436823453e-8,
+        "max_abs_fit_residual": 1.0908511605123294e-7,
+        "fixed_point_first_two_signed_ricci_gaps": [
+          -0.00018508024852325944,
+          0.0000838158031470717
+        ],
+        "fixed_point_first_six_max_abs_gap": 0.00018508024852325944,
+        "annulus_5_to_10_max_abs_gap": 6.19029746264251e-9
+      },
+      "fixed_origin_anchored_fit": {
+        "moment_correction_vs_point_sample": 0.0000016352663036872661,
+        "fitted_intercept_bias_vs_s0": 0,
+        "max_abs_fit_residual": 1.2633654089544422e-7,
+        "fixed_point_first_two_signed_ricci_gaps": [
+          -0.00019503065056940397,
+          0.00008555896445250962
+        ],
+        "fixed_point_first_six_max_abs_gap": 0.00019503065056940397,
+        "annulus_5_to_10_max_abs_gap": 6.190297449604979e-9
+      },
+      "local_six_cell_origin_anchored_fit": {
+        "moment_correction_vs_point_sample": 0.000001635053417714527,
+        "fixed_point_first_two_signed_ricci_gaps": [
+          -0.0001947983435736966,
+          0.00008551826774591859
+        ],
+        "fixed_point_first_six_max_abs_gap": 0.0001947983435736966,
+        "annulus_5_to_10_max_abs_gap": 6.190300369835768e-9
+      },
+      "anchoring_effect": {
+        "anchored_minus_free_moment_correction": 9.118540256203289e-9,
+        "moment_correction_change_percent": 0.5607448757893797,
+        "cell0_signed_gap_change": -0.00000995040204614453,
+        "cell0_gap_magnitude_change_percent": 5.376263607563736,
+        "cell1_signed_gap_change": 0.0000017431613054379197,
+        "cell1_gap_magnitude_change_percent": 2.079752552605374,
+        "first_six_max_gap_ratio_anchored_to_free": 1.0537626360756374,
+        "fixed_annulus_gap_absolute_change": -1.3037531124138191e-17
+      },
+      "integrity": {
+        "copied_iterations_for_all_modes": 6,
+        "copied_fixed_point_defects_max_abs": 0,
+        "input_state_unchanged": true,
+        "profiles_finite": true,
+        "evolution_steps": 0
+      }
+    }
+  ],
+  "production_or_vendor_files_modified": false,
+  "no_evolution": true,
+  "scientific_admission": false
+}
