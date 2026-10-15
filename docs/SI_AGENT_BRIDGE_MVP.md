@@ -21,6 +21,14 @@ Every event passed to `tools/si_agent_bridge_contract.py` must include:
 
 Optional fields include `evidence_urls`, `work_ref` (branch, PR number, head SHA, base ref and base SHA), and `supersedes_event_id` for a correction. PR/CI notices require complete `work_ref` provenance. Arbitrary hosts, credentials in URLs, query strings, fragments, and out-of-scope repository paths are rejected; rejecting fragments prevents untrusted delimiters from breaking Slack mrkdwn link boundaries.
 
+## Authoritative live-ref pins are mandatory
+
+Every call to `validate_event` must supply `live_main_sha` from a fresh authoritative GitHub read. It is not enough for the event to carry its own `main_sha`; a missing live value returns `UNKNOWN—REVALIDATION REQUIRED` and must never be interpreted as deliverable.
+
+Whenever an event contains `work_ref`—including every `PR_STATE` and `CI_STATE`—the caller must also supply `expected_head_sha` and `expected_base_sha` from fresh authoritative PR metadata. The validator compares both pins against `work_ref.head_sha` and `work_ref.base_sha`. Either missing pin or any mismatch returns `UNKNOWN—REVALIDATION REQUIRED`. PR/CI notices cannot be rendered or sent unless all three current pins have been supplied and matched. For event types without `work_ref`, only `live_main_sha` is required.
+
+The live adapter must read the authoritative main and PR metadata immediately before validation and must not synthesize these arguments from the event envelope itself. If the current refs cannot be fetched, are ambiguous, or move between collection and send, abort notification and revalidate.
+
 When `requires_preflight` is true, the envelope also needs `preflight_at_utc` and the main SHA seen by that preflight; if a PR is referenced it must include the preflight head and base SHAs. These must still match the envelope and satisfy the 2-minute limit.
 
 ## Fail-closed rules
