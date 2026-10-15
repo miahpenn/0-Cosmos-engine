@@ -135,4 +135,8 @@ A separate sensitivity scan on the checksum-pinned corrected-source profile comp
 
 Lower-order fits over the wider windows are much less stable: a degree-2 source fit ending at (r=2.5) shifts the correction by (-5.35\%), (-23.22\%), and (-30.34\%) from the degree-3 reference at N=160/240/320; at (r\le3.0) those differences are (-17.82\%), (-47.45\%), and (-89.59\%). The source-fit degree and support are therefore substantive modeling assumptions, not harmless numerical details.
 
+**Sensitivity scan verification:** The degree/window scan is now included in the regenerated source-pinned report from [workflow run 38775067240](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38775067240), [artifact 11992219877](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38775067240/artifacts/11992219877). Artifact ZIP SHA-256: `690f47afac9ce67ec59909a28fea4863e8947801c7d9c41d816cc0c3183fc600`; report JSON SHA-256: `ba06e662eb15104089bbc82b4f5011e5d83a88a2e8e3e3c648d3cdc09e6e553c`. The exact diagnostic head `1e37fbc762de42579b50129d75fcd784551c6e07` passed compilation, source/vendor/dependency pin validation, the full repository suite (**673 passed**), and the no-evolution profile audit. The new report has `errors=[]`, `scientific_admission=false`, zero evolution steps, and confirms the input initialized state was unchanged.
+
+
+
 **Next gate:** independently justify the even-source truncation/window against the saved source’s signed residuals and smoothness, then bound the half-cell moment over defensible fit families before considering any production patch. No production/vendor/dependency file has changed; scientific admission remains **NOT ADMITTED**.
