@@ -557,6 +557,153 @@ def _combined_origin_and_lambda_counterfactual(
     return arrays, summary
 
 
+
+def _manufactured_lambda_parity_discriminator(grid, vacuum) -> tuple[dict[str, np.ndarray], dict]:
+    """Compare continuum, discrete metric-derived, and off-constraint Lambda arms.
+
+    Two smooth-even manufactured metric profiles are sampled on the existing
+    cell-centred grid. Their radial contracted connection Lambda is odd. For
+    each profile, the same fixed metric is passed through the pinned vendor
+    Ricci route with (A) the analytic continuum metric-derived Lambda sampled
+    on the grid, (B) the initializer-style discrete metric-derived Lambda,
+    (C) an odd off-constraint perturbation of B, and (D) a separate even
+    parity-breaking negative control. This is a no-evolution diagnostic only.
+    """
+    r = _arr(grid.centers)
+    d1 = lambda values, parity=1: grid.cell_derivative_fourth(values, parity=parity)
+    profiles = (
+        {"tag": "manufactured_q1", "c3": 1.0e-5, "c5": 2.0e-8, "epsilon": 2.0e-5, "width": 4.0},
+        {"tag": "manufactured_q2", "c3": -8.0e-6, "c5": 1.0e-8, "epsilon": -1.5e-5, "width": 3.5},
+    )
+    annulus = (r >= 5.0) & (r <= 10.0)
+    arrays: dict[str, np.ndarray] = {}
+    profile_reports = []
+
+    for spec in profiles:
+        tag = spec["tag"]
+        c3 = float(spec["c3"])
+        c5 = float(spec["c5"])
+        epsilon = float(spec["epsilon"])
+        width = float(spec["width"])
+        q = 1.0 + c3 * r * r + c5 * r**4
+        if np.any(~np.isfinite(q)) or np.any(q <= 0.0):
+            raise FloatingPointError(f"{tag}: manufactured q is not finite and positive")
+        qp = 2.0 * c3 * r + 4.0 * c5 * r**3
+        a = q ** (-4.0 / 3.0)
+        b = q ** (2.0 / 3.0)
+        X = q ** (-2.0 / 3.0)
+        ap_cont = (-4.0 / 3.0) * a * qp / q
+        bp_cont = (2.0 / 3.0) * b * qp / q
+        lambda_cont = (
+            ap_cont / (2.0 * a * a)
+            - bp_cont / (a * b)
+            + 2.0 / r * (1.0 / b - 1.0 / a)
+        )
+        lambda_discrete = (
+            d1(a, 1) / (2.0 * a * a)
+            - d1(b, 1) / (a * b)
+            + 2.0 / r * (1.0 / b - 1.0 / a)
+        )
+        odd_perturbation = epsilon * r * np.exp(-((r / width) ** 2))
+        arms = {
+            "continuum": lambda_cont,
+            "discrete": lambda_discrete,
+            "off_constraint_odd": lambda_discrete + odd_perturbation,
+            "negative_control_even": lambda_discrete + epsilon,
+        }
+        areal = r * np.sqrt(b) / X
+        proper_factor = np.sqrt(a) / X
+        direct = proper_radial_ricci(grid, areal, proper_factor)
+        direct_tf = _arr(direct["tf_ricci"])
+        arm_reports = []
+        for arm_name, lambda_values in arms.items():
+            geo = vacuum.flat_state(grid)
+            geo.a[:] = a
+            geo.b[:] = b
+            geo.X[:] = X
+            geo.alpha[:] = 1.0
+            geo.beta[:] = 0.0
+            geo.Lambda[:] = lambda_values
+            vendor_terms = vacuum.geometry_terms(grid, geo)
+            vendor_tf = _arr(vendor_terms["Rr_r"] - vendor_terms["R"] / 3.0)
+            gap = vendor_tf - direct_tf
+            chain_arrays, chain_summary = _lambda_chain_rule_counterfactual(
+                grid, r, a, b, X, _arr(lambda_values), vendor_terms, direct_tf
+            )
+            prefix = f"{tag}_{arm_name}"
+            arrays[prefix + "_Lambda"] = _arr(lambda_values)
+            arrays[prefix + "_Lambda_over_r"] = _arr(lambda_values) / r
+            arrays[prefix + "_vendor_tf_ricci"] = vendor_tf
+            arrays[prefix + "_vendor_tf_ricci_over_r2"] = vendor_tf / (r * r)
+            arrays[prefix + "_signed_gap"] = gap
+            arrays[prefix + "_signed_gap_over_r2"] = gap / (r * r)
+            arrays[prefix + "_chain_rule_gap"] = _arr(
+                chain_arrays["lambda_chain_rule_vendor_minus_direct_tf_ricci"]
+            )
+            arrays[prefix + "_chain_rule_induced_tf_shift"] = _arr(
+                chain_arrays["lambda_chain_rule_induced_tf_ricci_shift"]
+            )
+            arm_reports.append({
+                "arm": arm_name,
+                "lambda_parity_witness_max_abs_first6_lambda_over_r": _max_abs(
+                    (_arr(lambda_values) / r)[:CENTRE_CELLS]
+                ),
+                "lambda_first_two": [float(v) for v in _arr(lambda_values)[:2]],
+                "vendor_tf_ricci_first_two": [float(v) for v in vendor_tf[:2]],
+                "direct_tf_ricci_first_two": [float(v) for v in direct_tf[:2]],
+                "signed_gap_first_two": [float(v) for v in gap[:2]],
+                "signed_gap_over_r2_first_two": [
+                    float(v) for v in (gap / (r * r))[:2]
+                ],
+                "gap_max_abs_first_two": _max_abs(gap[:2]),
+                "gap_max_abs_fixed_annulus_r5_to10": (
+                    _max_abs(gap[annulus]) if np.any(annulus) else None
+                ),
+                "chain_rule_gap_max_abs_full": chain_summary["chain_rule_gap_max_abs_full"],
+                "chain_rule_gap_max_abs_fixed_annulus_r5_to10": (
+                    chain_summary["chain_rule_gap_max_abs_fixed_annulus_r5_to10"]
+                ),
+                "profiles_finite": all(_finite(v) for v in (
+                    lambda_values, vendor_tf, direct_tf, gap,
+                    chain_arrays["lambda_chain_rule_vendor_minus_direct_tf_ricci"],
+                )),
+            })
+        profile_reports.append({
+            "tag": tag,
+            "c3": c3,
+            "c5": c5,
+            "determinant_one_max_abs": _max_abs(a * b * b - 1.0),
+            "proper_factor_minus_one_max_abs": _max_abs(proper_factor - 1.0),
+            "areal_radius_minus_r_max_abs": _max_abs(areal - r * q),
+            "off_constraint_odd_amplitude": epsilon,
+            "off_constraint_width": width,
+            "arms": arm_reports,
+        })
+
+    all_finite = all(_finite(values) for values in arrays.values()) and all(
+        arm["profiles_finite"]
+        for profile in profile_reports
+        for arm in profile["arms"]
+    )
+    summary = {
+        "method": "two smooth-even manufactured determinant-one metric profiles; continuum metric Lambda, discrete metric Lambda, odd off-constraint Lambda perturbation, and separate even-parity negative control; no evolution",
+        "evolution_steps": 0,
+        "production_or_vendor_code_changed": False,
+        "profiles_finite": all_finite,
+        "fixed_annulus_coordinate_r5_to10": {"cells": int(np.count_nonzero(annulus))},
+        "profiles": profile_reports,
+        "interpretation_limits": [
+            "Lambda has odd parity for smooth-even spherical metric components; the off-constraint perturbation is smooth-odd and the parity-breaking control is deliberately separate.",
+            "The metric and proper-radial profile are identical across Lambda arms; only the supplied connection field changes.",
+            "The metric-chain-rule derivative is a diagnostic comparison, not the evolved BSSN Lambda equation and not a production substitution recommendation.",
+            "Manufactured profiles test discrete operator sensitivity and parity, not the cause of the initialized production mismatch or scientific admission.",
+        ],
+    }
+    if not all_finite:
+        raise FloatingPointError("manufactured Lambda parity discriminator produced non-finite values")
+    return arrays, summary
+
+
 def _verify_source_pins() -> dict:
     source_head = _git("rev-parse", "HEAD")
     source_vendor = _git("rev-parse", "HEAD:vendor/bb-palatini-unified-r0")
