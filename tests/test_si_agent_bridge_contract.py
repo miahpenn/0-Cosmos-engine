@@ -188,15 +188,23 @@ def test_correction_must_reference_a_distinct_superseded_event():
         "https://github.com/miahpenn/0-Cosmos-engine/settings/secrets",
         "https://github.com/miahpenn/0-Cosmos-engine/issues/222?token=secret",
         "https://user:pass@github.com/miahpenn/0-Cosmos-engine/issues/222",
+        "https://github.com/miahpenn/0-Cosmos-engine/issues/222#broken|><https://evil.example|click>",
     ],
 )
 def test_untrusted_or_sensitive_urls_are_rejected(url):
     assert validate_event(envelope(source_url=url), now=NOW)["status"] == REJECT
 
 
-def test_untrusted_evidence_link_rejects_entire_envelope():
+@pytest.mark.parametrize(
+    "untrusted_url",
+    [
+        "https://evil.example/collect",
+        "https://github.com/miahpenn/0-Cosmos-engine/issues/222#broken|><https://evil.example|click>",
+    ],
+)
+def test_untrusted_evidence_link_rejects_entire_envelope(untrusted_url):
     result = validate_event(
-        envelope(evidence_urls=[RUN_URL, "https://evil.example/collect"]),
+        envelope(evidence_urls=[RUN_URL, untrusted_url]),
         now=NOW,
     )
     assert result["status"] == REJECT
