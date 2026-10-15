@@ -475,6 +475,121 @@ def _lambda_chain_rule_counterfactual(
     return arrays, summary
 
 
+
+def _lambda_d4_three_channel_decomposition(
+    grid,
+    r: np.ndarray,
+    a: np.ndarray,
+    b: np.ndarray,
+    X: np.ndarray,
+    Lambda: np.ndarray,
+    vendor_terms: dict,
+    direct_tf_ricci: np.ndarray,
+) -> tuple[dict[str, np.ndarray], dict]:
+    """Separate evolved-D4, sampled-metric-D4, and chain-rule stencil channels.
+
+    The decomposition is an offline identity on fixed metric samples. It keeps
+    distinct (1) the baseline using D4 of the evolved Lambda, (2) the shift
+    caused by using D4 of the sampled metric-reconstructed Lambda, and (3) the
+    difference between that D4 result and the analytic chain-rule derivative
+    built from the same discrete D1/D2 metric operands. No state is mutated and
+    no evolution step is taken.
+    """
+    r = _arr(r)
+    a, b, X, Lambda = map(_arr, (a, b, X, Lambda))
+    direct_tf = _arr(direct_tf_ricci)
+    d1 = lambda values, parity=1: grid.cell_derivative_fourth(_arr(values), parity=parity)
+    d2 = lambda values, parity=1: grid.cell_second_derivative_fourth(_arr(values), parity=parity)
+
+    ap = d1(a, 1)
+    bp = d1(b, 1)
+    lambda_metric = (
+        ap / (2.0 * a * a)
+        - bp / (a * b)
+        + 2.0 / r * (1.0 / b - 1.0 / a)
+    )
+    lambda_metric_d4 = d1(lambda_metric, -1)
+
+    # Reuse the established one-operand counterfactual so the chain-rule arm
+    # remains exactly comparable to the existing report/test convention.
+    chain_arrays, chain_summary = _lambda_chain_rule_counterfactual(
+        grid, r, a, b, X, Lambda, vendor_terms, direct_tf
+    )
+    lambda_evolved_d4 = _arr(chain_arrays["lambda_prime_discrete_D4"])
+    lambda_chain = _arr(chain_arrays["lambda_prime_chain_rule"])
+
+    baseline_tf = _arr(vendor_terms["Rr_r"] - _arr(vendor_terms["R"]) / 3.0)
+    baseline_gap = baseline_tf - direct_tf
+    scale = (2.0 / 3.0) * X * X
+    sampled_metric_d4_shift = scale * (lambda_metric_d4 - lambda_evolved_d4)
+    gap_with_metric_d4 = baseline_gap + sampled_metric_d4_shift
+    chain_rule_stencil_shift = scale * (lambda_chain - lambda_metric_d4)
+    gap_recomposed = gap_with_metric_d4 + chain_rule_stencil_shift
+    gap_existing = _arr(
+        chain_arrays["lambda_chain_rule_vendor_minus_direct_tf_ricci"]
+    )
+    closure = gap_recomposed - gap_existing
+
+    arrays = {
+        "lambda_metric_reconstructed": lambda_metric,
+        "lambda_metric_discrete_D4": lambda_metric_d4,
+        "lambda_evolved_discrete_D4": lambda_evolved_d4,
+        "lambda_chain_rule_prime": lambda_chain,
+        "baseline_evolved_D4_minus_direct_tf_ricci": baseline_gap,
+        "sampled_metric_D4_constraint_shift": sampled_metric_d4_shift,
+        "gap_with_metric_lambda_D4": gap_with_metric_d4,
+        "chain_rule_stencil_shift": chain_rule_stencil_shift,
+        "chain_rule_gap_reconstructed": gap_recomposed,
+        "chain_rule_gap_existing": gap_existing,
+        "chain_rule_recomposition_residual": closure,
+    }
+    if not all(_finite(values) for values in arrays.values()):
+        raise FloatingPointError("non-finite three-channel Lambda/Ricci decomposition")
+
+    fixed = (r >= 5.0) & (r <= 10.0)
+    first_two = []
+    for i in range(min(2, len(r))):
+        first_two.append({
+            "i": int(i),
+            "r": float(r[i]),
+            "baseline_evolved_D4_gap": float(baseline_gap[i]),
+            "sampled_metric_D4_constraint_shift": float(sampled_metric_d4_shift[i]),
+            "gap_with_metric_lambda_D4": float(gap_with_metric_d4[i]),
+            "chain_rule_stencil_shift": float(chain_rule_stencil_shift[i]),
+            "chain_rule_gap_reconstructed": float(gap_recomposed[i]),
+            "chain_rule_gap_existing": float(gap_existing[i]),
+            "recomposition_residual": float(closure[i]),
+        })
+    summary = {
+        "method": (
+            "G0 = evolved-D4 Lambda gap; C = (2/3) X^2 "
+            "(D4 Lambda_metric - D4 Lambda_evolved); "
+            "S = (2/3) X^2 (partial_r Lambda_metric from D1/D2 - D4 Lambda_metric); "
+            "Gchain = G0 + C + S"
+        ),
+        "production_or_vendor_code_changed": False,
+        "evolution_steps": 0,
+        "baseline_gap_max_abs_cell0": abs(float(baseline_gap[0])),
+        "sampled_metric_d4_shift_max_abs": _max_abs(sampled_metric_d4_shift),
+        "chain_rule_stencil_shift_max_abs": _max_abs(chain_rule_stencil_shift),
+        "baseline_gap_max_abs_first_two": _max_abs(baseline_gap[:min(2, len(r))]),
+        "sampled_metric_d4_shift_max_abs_first_two": _max_abs(sampled_metric_d4_shift[:min(2, len(r))]),
+        "chain_rule_stencil_shift_max_abs_first_two": _max_abs(chain_rule_stencil_shift[:min(2, len(r))]),
+        "baseline_gap_max_abs_fixed_annulus_r5_to10": _max_abs(baseline_gap[fixed]) if np.any(fixed) else None,
+        "recomposed_gap_max_abs_fixed_annulus_r5_to10": _max_abs(gap_recomposed[fixed]) if np.any(fixed) else None,
+        "recomposition_residual_max_abs": _max_abs(closure),
+        "first_two_cells": first_two,
+        "profiles_finite": all(_finite(values) for values in arrays.values()),
+        "existing_chain_rule_summary": chain_summary,
+        "interpretation_limits": [
+            "This separates discrete representation channels on a fixed sampled metric; it is not a production-fix proposal.",
+            "The analytic chain-rule derivative is not the same operation as applying the grid D4 operator to the reconstructed metric Lambda profile.",
+            "Changing evolved Lambda or its derivative can alter off-constraint BSSN behavior; this result does not authorize production changes or scientific admission.",
+        ],
+    }
+    return arrays, summary
+
+
 def _combined_origin_and_lambda_counterfactual(
     grid,
     r: np.ndarray,
