@@ -14,8 +14,14 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import sys
 
 import numpy as np
+
+# When invoked as `python tools/audit_evolved_centre_ricci_provenance.py`,
+# Python places only tools/ at sys.path[0]; expose the repository root so the
+# shared pinned audit helpers import the same way as they do under pytest.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from tools.audit_current_main_centre_proper_radial_ricci import (
     SOURCE_COMMIT,
