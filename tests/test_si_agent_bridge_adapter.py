@@ -362,3 +362,43 @@ def test_missing_or_invalid_credentials_fail_closed_before_http():
         post_slack_message("xoxb-test", "not-a-channel", "notification")
     with pytest.raises(AdapterError):
         post_slack_message("xoxb-test", "C123ABC", "x" * 4001)
+
+
+def test_missing_live_pr_head_or_base_fails_closed_without_ledger_or_post():
+    payload = make_pr_payload()
+    missing_head = make_live_pr()
+    missing_head["head"] = {"ref": "feature/bridge", "sha": None}
+    with patch("tools.si_agent_bridge_adapter.fetch_live_main_sha", return_value=MAIN_SHA), patch(
+        "tools.si_agent_bridge_adapter.fetch_live_pull_request", return_value=missing_head
+    ), patch("tools.si_agent_bridge_adapter.reserve_ledger") as reserve, patch(
+        "tools.si_agent_bridge_adapter.post_slack_message"
+    ) as post:
+        result = deliver_event(
+            "pull_request_target",
+            payload,
+            repository=REPOSITORY,
+            github_token="ghs-test",
+            slack_token="xoxb-test",
+            channel_id="C123ABC",
+            now=NOW,
+        )
+    assert result["status"] == UNKNOWN
+    assert "live PR head SHA" in result["reason"]
+    reserve.assert_not_called()
+    post.assert_not_called()
+
+    missing_base = make_live_pr()
+    missing_base["base"] = {"ref": "main", "sha": ""}
+    with patch("tools.si_agent_bridge_adapter.fetch_live_main_sha", return_value=MAIN_SHA), patch(
+        "tools.si_agent_bridge_adapter.fetch_live_pull_request", return_value=missing_base
+    ):
+        result = deliver_event(
+            "pull_request_target",
+            payload,
+            repository=REPOSITORY,
+            github_token="ghs-test",
+            dry_run=True,
+            now=NOW,
+        )
+    assert result["status"] == UNKNOWN
+    assert "live PR base SHA" in result["reason"]
