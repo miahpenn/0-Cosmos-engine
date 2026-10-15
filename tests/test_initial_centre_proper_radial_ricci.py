@@ -106,21 +106,20 @@ def test_even_half_cell_integral_uses_regular_source_moments():
     """The origin half-cell integral must integrate an even source, not sample it at r0."""
     from tools.audit_current_main_centre_proper_radial_ricci import _even_half_cell_integral
 
-    coefficients = np.array([1.25, -0.75, 0.2], dtype=float)
+    coefficients = np.array([1.25, -0.75, 0.2, -0.015], dtype=float)
     r0 = 0.125
-    expected = (
-        coefficients[0] * r0
-        + coefficients[1] * r0**3 / 3.0
-        + coefficients[2] * r0**5 / 5.0
+    expected = sum(
+        coefficients[k] * r0 ** (2 * k + 1) / (2 * k + 1)
+        for k in range(len(coefficients))
     )
     actual = _even_half_cell_integral(coefficients, r0)
-    sampled_trapezoid = r0 * (
-        coefficients[0] + coefficients[1] * r0**2 + coefficients[2] * r0**4
+    sampled_trapezoid = r0 * sum(
+        coefficients[k] * r0 ** (2 * k) for k in range(len(coefficients))
     )
 
     assert abs(actual - expected) < 1.0e-16
-    expected_sampling_bias = (
-        (2.0 / 3.0) * coefficients[1] * r0**3
-        + (4.0 / 5.0) * coefficients[2] * r0**5
+    expected_sampling_bias = sum(
+        (2.0 * k / (2.0 * k + 1.0)) * coefficients[k] * r0 ** (2 * k + 1)
+        for k in range(1, len(coefficients))
     )
     assert abs((sampled_trapezoid - actual) - expected_sampling_bias) < 1.0e-16
