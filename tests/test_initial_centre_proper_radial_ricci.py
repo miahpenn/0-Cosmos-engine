@@ -302,3 +302,62 @@ def test_manufactured_lambda_parity_arms_keep_metric_fixed():
         bad_q = arrays[f"{tag}_negative_control_even_Lambda_over_r"][:2]
         assert np.all(np.isfinite(discrete_q))
         assert np.max(np.abs(bad_q)) > 5.0 * max(np.max(np.abs(discrete_q)), 1.0e-12)
+
+def test_three_channel_lambda_decomposition_recomposes_on_manufactured_regular_profiles():
+    """Keep sampled D4, metric-reconstructed D4, and chain-rule channels separate."""
+    from tools.audit_current_main_centre_proper_radial_ricci import (
+        _lambda_d4_three_channel_decomposition,
+    )
+
+    grid_ops, _, _ = vendor_modules()
+    grid = grid_ops.SphericalCellGrid(64, 8.0)
+    r = np.asarray(grid.centers, dtype=float)
+    d1 = lambda values, parity=1: grid.cell_derivative_fourth(values, parity=parity)
+
+    # Smooth even metric profiles and a smooth odd off-constraint Lambda arm.
+    a = 1.0 + 1.0e-3 * r**2 + 1.0e-5 * r**4 + 2.0e-7 * r**6
+    b = 1.0 - 5.0e-4 * r**2 + 2.0e-6 * r**4 - 1.0e-8 * r**6
+    X = 1.0 + 2.0e-4 * r**2 - 1.0e-6 * r**4
+    lambda_metric = (
+        d1(a, 1) / (2.0 * a * a)
+        - d1(b, 1) / (a * b)
+        + 2.0 / r * (1.0 / b - 1.0 / a)
+    )
+    Lambda = lambda_metric + 4.0e-5 * r + 2.0e-6 * r**3
+
+    # Synthetic signed TF-Ricci terms are enough for this offline operator
+    # identity; this test makes no claim about a physical evolution state.
+    vendor_tf = 2.0e-3 + 1.0e-4 * r**2 - 2.0e-7 * r**4
+    vendor_terms = {"Rr_r": vendor_tf, "R": np.zeros_like(r)}
+    direct_tf = 3.0e-4 - 1.0e-5 * r**2 + 2.0e-8 * r**4
+
+    arrays, summary = _lambda_d4_three_channel_decomposition(
+        grid, r, a, b, X, Lambda, vendor_terms, direct_tf
+    )
+
+    np.testing.assert_allclose(
+        arrays["gap_with_metric_lambda_D4"],
+        arrays["baseline_evolved_D4_minus_direct_tf_ricci"]
+        + arrays["sampled_metric_D4_constraint_shift"],
+        rtol=1.0e-13,
+        atol=1.0e-13,
+    )
+    np.testing.assert_allclose(
+        arrays["chain_rule_gap_reconstructed"],
+        arrays["gap_with_metric_lambda_D4"] + arrays["chain_rule_stencil_shift"],
+        rtol=1.0e-13,
+        atol=1.0e-13,
+    )
+    np.testing.assert_allclose(
+        arrays["chain_rule_gap_reconstructed"],
+        arrays["chain_rule_gap_existing"],
+        rtol=1.0e-12,
+        atol=1.0e-12,
+    )
+    assert np.max(np.abs(arrays["sampled_metric_D4_constraint_shift"])) > 0.0
+    assert np.max(np.abs(arrays["chain_rule_stencil_shift"])) > 0.0
+    assert summary["production_or_vendor_code_changed"] is False
+    assert summary["evolution_steps"] == 0
+    assert summary["profiles_finite"] is True
+    assert summary["recomposition_residual_max_abs"] < 1.0e-12
+
