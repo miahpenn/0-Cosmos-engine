@@ -31,12 +31,27 @@ def test_one_step_lambda_perturbation_keeps_constraints_signed_and_finite():
     assert case["delta_Aa_final_max_abs"] > 0.0
     assert case["actual_Aa_rate_delta_vs_frozen_L2_prediction_relative_rms_error"] < 0.25
 
-    # Initial H/M/determinant should not change when only Lambda is perturbed;
-    # the connection residual should change by precisely that odd mode.
-    for name in ("hamiltonian", "momentum", "determinant"):
+    # The metric variables, matter, and extrinsic-curvature inputs are
+    # frozen between the two initial states. Momentum and determinant witnesses
+    # should therefore remain unchanged. The BSSN Hamiltonian witness differs:
+    # its Ricci representation depends on the independently evolved Lambda, so
+    # the off-constraint Lambda mode creates a signed H response. Check this
+    # response against the separately captured scalar-Ricci response instead of
+    # incorrectly demanding Hamiltonian invariance.
+    for name in ("momentum", "determinant"):
         off = profiles[f"initial_constraint_off_mode_{name}"]
         base = profiles[f"initial_constraint_baseline_{name}"]
         assert np.max(np.abs(off - base)) < 2.0e-13
+    h_off = profiles["initial_constraint_off_mode_hamiltonian"]
+    h_base = profiles["initial_constraint_baseline_hamiltonian"]
+    delta_h = h_off - h_base
+    delta_ricci_scalar = (
+        profiles["initial_ricci_scalar_off_mode"]
+        - profiles["initial_ricci_scalar_baseline"]
+    )
+    assert np.all(np.isfinite(delta_h))
+    assert np.max(np.abs(delta_h)) > 1.0e-8
+    assert np.allclose(delta_h, delta_ricci_scalar, rtol=0.0, atol=5.0e-13)
     connection_delta = (
         profiles["initial_constraint_off_mode_connection"]
         - profiles["initial_constraint_baseline_connection"]
