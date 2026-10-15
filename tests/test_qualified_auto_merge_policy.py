@@ -29,18 +29,23 @@ def test_no_review_fast_path_is_readme_and_docs_only():
     assert "const documentationOnly = files.every(isDocumentationPath);" in source
 
 
-def test_non_documentation_requires_trusted_human_collaborator_approval():
+def test_non_documentation_requires_trusted_human_review_for_approval_and_veto():
     source = WORKFLOW_PATH.read_text(encoding="utf-8")
     assert "r.commit_id === headSha" in source
     assert 'userType: r.user.type || "unknown"' in source
     assert 'review.userType !== "User"' in source
     assert "github.rest.repos.getCollaboratorPermissionLevel" in source
     assert '["admin", "maintain", "write"].includes(data.permission)' in source
-    assert "async function hasTrustedIndependentApproval" in source
-    assert "await hasTrustedIndependentApproval(" in source
+    assert "async function hasTrustedIndependentReview(reviewerState, authorLogin, requiredState)" in source
+    assert "review.state !== requiredState" in source
+    assert 'reviewerState, pr.user?.login, "CHANGES_REQUESTED"' in source
+    assert 'reviewerState, pr.user?.login, "APPROVED"' in source
+    assert 'reviewerState, freshPr.user?.login, "CHANGES_REQUESTED"' in source
+    assert 'reviewerState, freshPr.user?.login, "APPROVED"' in source
     assert "if (!documentationOnly && !hasIndependentApproval)" in source
     assert "if (!documentationOnly && !finalApproval)" in source
-    assert 'review.state === "CHANGES_REQUESTED"' in source
+    assert 'const changesRequested = [...reviewerState.entries()]' not in source
+    assert 'reviewerState.values()).some(review => review.state === "CHANGES_REQUESTED")' not in source
 
 
 def test_review_eligibility_helper_rejects_outsiders_bots_and_api_errors():
@@ -53,10 +58,10 @@ def test_review_eligibility_helper_rejects_outsiders_bots_and_api_errors():
     fresh_end = source.index(fresh_end_marker, fresh_start) + len(fresh_end_marker)
     fresh_fn = source[fresh_start:fresh_end]
 
-    approval_start = source.index("async function hasTrustedIndependentApproval(reviewerState, authorLogin) {")
+    review_start = source.index("async function hasTrustedIndependentReview(reviewerState, authorLogin, requiredState) {")
     approval_end_marker = "\n              return false;\n            }"
-    approval_end = source.index(approval_end_marker, approval_start) + len(approval_end_marker)
-    approval_fn = source[approval_start:approval_end]
+    review_end = source.index(approval_end_marker, review_start) + len(approval_end_marker)
+    review_fn = source[review_start:review_end]
 
     # Execute the exact two helpers extracted from the privileged workflow with mocked GitHub API permissions.
     script = """
@@ -69,7 +74,7 @@ const core = { info: () => {} };
 const owner = "owner";
 const repo = "repo";
 const freshReviewState = (__FRESH_FN__);
-const hasTrustedIndependentApproval = (__APPROVAL_FN__);
+const hasTrustedIndependentReview = (__REVIEW_FN__);
 
 const HEAD = "head";
 const review = (login, type, state = "APPROVED", commit = HEAD, when = "2026-10-15T00:00:00Z") => ({
@@ -83,8 +88,9 @@ async function qualifies(reviews, perms = {}, errors = new Set()) {
   permissions = perms;
   apiErrors = errors;
   const state = freshReviewState(reviews, HEAD);
-  const approved = await hasTrustedIndependentApproval(state, "author");
-  return { approved, calls: [...calls], state: Object.fromEntries(state) };
+  const approved = await hasTrustedIndependentReview(state, "author", "APPROVED");
+  const veto = await hasTrustedIndependentReview(state, "author", "CHANGES_REQUESTED");
+  return { approved, veto, calls: [...calls], state: Object.fromEntries(state) };
 }
 (async () => {
   const result = {
@@ -100,12 +106,16 @@ async function qualifies(reviews, perms = {}, errors = new Set()) {
     withdrawnApproval: await qualifies([
       review("reviewer", "User", "APPROVED", HEAD, "2026-10-15T00:00:00Z"),
       review("reviewer", "User", "CHANGES_REQUESTED", HEAD, "2026-10-15T00:01:00Z")
-    ], { reviewer: "write" })
+    ], { reviewer: "write" }),
+    outsiderVeto: await qualifies([review("outsider", "User", "CHANGES_REQUESTED")], { outsider: "read" }),
+    botVeto: await qualifies([review("veto-bot[bot]", "Bot", "CHANGES_REQUESTED")], { "veto-bot[bot]": "write" }),
+    authorVeto: await qualifies([review("author", "User", "CHANGES_REQUESTED")], { author: "admin" }),
+    trustedVeto: await qualifies([review("trusted-veto", "User", "CHANGES_REQUESTED")], { "trusted-veto": "write" })
   };
   process.stdout.write(JSON.stringify(result));
 })().catch(err => { console.error(err); process.exit(2); });
 """
-    script = script.replace("__FRESH_FN__", fresh_fn).replace("__APPROVAL_FN__", approval_fn)
+    script = script.replace("__FRESH_FN__", fresh_fn).replace("__REVIEW_FN__", review_fn)
     completed = subprocess.run(
         [node, "-e", script],
         check=False,
@@ -127,7 +137,13 @@ async function qualifies(reviews, perms = {}, errors = new Set()) {
     assert result["staleHead"]["approved"] is False
     assert result["staleHead"]["calls"] == []
     assert result["withdrawnApproval"]["approved"] is False
+    assert result["withdrawnApproval"]["veto"] is True
     assert result["withdrawnApproval"]["state"]["reviewer"]["state"] == "CHANGES_REQUESTED"
+    assert result["outsiderVeto"]["veto"] is False
+    assert result["botVeto"]["veto"] is False
+    assert result["botVeto"]["calls"] == []
+    assert result["authorVeto"]["veto"] is False
+    assert result["trustedVeto"]["veto"] is True
 
 
 def test_privileged_github_script_action_is_sha_pinned():
