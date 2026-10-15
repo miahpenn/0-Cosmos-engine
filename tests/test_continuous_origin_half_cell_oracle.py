@@ -86,6 +86,9 @@ def test_polynomial_fit_integral_is_exact_for_represented_even_source():
     )
     assert result["fitted_moment"] == pytest.approx(exact, abs=2.0e-15)
     assert result["max_abs_sample_residual"] < 2.0e-15
+    assert result["loo_max_abs_prediction_error"] < 2.0e-14
+    assert result["loo_rms_prediction_error"] < 2.0e-14
+    assert result["loo_max_condition_number"] > 0.0
 
 
 def test_origin_anchor_enforces_exact_constant_coefficient():
@@ -102,6 +105,7 @@ def test_origin_anchor_enforces_exact_constant_coefficient():
         - 0.02 * half**5 / (5.0 * window**4),
         abs=2.0e-15,
     )
+    assert result["loo_max_abs_prediction_error"] < 2.0e-14
 
 
 def test_fit_refuses_saturated_or_underdetermined_window():
