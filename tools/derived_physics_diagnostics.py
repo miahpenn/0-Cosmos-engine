@@ -110,20 +110,27 @@ def heron_discriminant(a: float, b: float, c: float) -> float:
 def bianchi_ix_trace_term(
     volume: float, rho: float, pressures: Sequence[float]
 ) -> float:
-    """Return V**2 * (3 rho - sum_i P_i), the matter term in the GEAR-47 S identity."""
+    """Return V**2 * (3 rho - sum_i P_i), the matter term in the GEAR-47 K-prime/L-double-prime identity."""
     volume = _positive("volume", volume)
     rho = _finite("rho", rho)
     p_i = _triple("pressures", pressures)
     return volume * volume * (3.0 * rho - sum(p_i))
 
 
-def bianchi_ix_S_tau_derivative(
+def bianchi_ix_log_volume_second_derivative(
     scale_factors: Sequence[float], rho: float, pressures: Sequence[float]
 ) -> float:
-    """Return S'=1/2[-T+V**2(3rho-sum P_i)] for stated diagonal Bianchi IX equations.
+    """Return L'' = K' = 1/2[-T + V**2(3 rho - sum_i P_i)].
 
-    Scale factors must be positive. The result is the derivative in the archive's
-    tau-time gauge dt=V d tau. It is not a COSMOS production observable.
+    Use L = sum_i alpha_i = ln(V) and K = L' = sum_i alpha_i'. The returned
+    quantity is L'' (equivalently K'), which is S' only under historical
+    GEAR-42 notation where S = K. It is not L' and must not inherit the later
+    A10/A11 convention that reuses S for L.
+
+    Scale factors must be positive. Primes use the tau-time gauge dt = V d tau.
+    This conditional formula-only helper does not validate the archive's original
+    pressure-sign, metric/Ricci-sign, or density-normalization conventions, and
+    is not a COSMOS production observable.
     """
     a, b, c = _triple("scale_factors", scale_factors)
     a = _positive("a", a)
@@ -135,12 +142,14 @@ def bianchi_ix_S_tau_derivative(
     return 0.5 * (-T + trace_term)
 
 
-def scalar_kasner_exponent_square_sum(phi_prime: float, S: float) -> float:
-    """Return sum(p_i**2)=1-phi_prime**2/S**2 in the declared scalar Bianchi-IX regime.
+def scalar_kasner_exponent_square_sum(phi_prime: float, K: float) -> float:
+    """Return sum(p_i**2)=1-phi_prime**2/K**2 in the declared scalar Bianchi-IX regime.
 
-    Formula-only helper: caller must independently establish that the scalar
-    reduced system and its conserved phi_prime assumptions apply.
+    K = sum_i alpha_i' is the historical GEAR-42 S variable; it is not the
+    log-volume L = sum_i alpha_i used by the later A10/A11 note. Formula-only
+    helper: caller must independently establish the scalar reduction and its
+    conserved phi_prime assumptions.
     """
     phi_prime = _finite("phi_prime", phi_prime)
-    S = _positive("S", S)
-    return 1.0 - (phi_prime / S) ** 2
+    K = _positive("K", K)
+    return 1.0 - (phi_prime / K) ** 2
