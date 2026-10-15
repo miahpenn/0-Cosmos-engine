@@ -11,7 +11,7 @@ The adapter:
 1. Parses an allowlisted event and validates the repository, PR number, full source/base/head SHAs, source URL, workflow/run identity, and timestamp.
 2. Refreshes current `main` and the live PR from GitHub's API immediately before delivery. Stale (>300 seconds), ambiguous, or mismatched provenance is rejected as `UNKNOWN—REVALIDATION REQUIRED`; no Slack post is made.
 3. Passes the envelope to `tools/si_agent_bridge_contract.py` for the shared strict schema, source URL, freshness, and provenance checks.
-4. When configured, reserves the event ID as a durable marker comment on Issue #222 before calling Slack's `chat.postMessage`. After Slack acknowledges acceptance, the same comment is updated to `DELIVERED`. Replayed IDs already marked delivered are suppressed.
+4. When configured, reserves the event ID as a durable marker comment on Issue #222 before calling Slack's `chat.postMessage`. After Slack acknowledges acceptance, the same comment is updated to `DELIVERED`. Replayed IDs already marked delivered are suppressed. Only markers authored by `github-actions[bot]` are trusted; ordinary public issue comments cannot suppress or poison the ledger by copying marker text.
 5. If a prior record remains `PREPARED`, the adapter refuses to resend automatically. That status means the outcome may be ambiguous (e.g. Slack accepted the post but the runner lost its response); an authorized operator must inspect the channel and reconcile the ledger first.
 
 The ledger comment includes the stable event ID, source URL and message SHA-256, not the message body or any credential. Slack text contains the UTC source timestamp, event ID, canonical source link, live main SHA and PR/run provenance. Only fixed repository evidence links are rendered.
