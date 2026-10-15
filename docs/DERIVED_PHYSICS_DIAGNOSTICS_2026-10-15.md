@@ -22,8 +22,14 @@ There are no imports from the production engine, no changed physical parameters,
 | \`raychaudhuri_bounce_margin\` | \(- (\\rho+p)-2\\sigma^2\). Under \(\\dot H=-(\\rho+p)/2-\\sigma^2\), positive margin means \(\\dot H>0\). The helper does not cover an effective-quantum bounce equation. |
 | \`heron_discriminant\` | \(T=(a+b+c)(-a+b+c)(a-b+c)(a+b-c)\) for positive scale factors. Returns a discriminant, not a boolean wall-activity decision. |
 | \`bianchi_ix_trace_term\` | \(V^2(3\\rho-\\sum_iP_i)\), the matter-trace term in the declared GEAR-47 identity. |
-| \`bianchi_ix_S_tau_derivative\` | \(S'=\\tfrac12[-T+V^2(3\\rho-\\sum_iP_i)]\) under the stated diagonal Bianchi IX equations and \(dt=V\\,d\\tau\). |
+| \`bianchi_ix_log_volume_second_derivative\` | \(L''=K'=\\tfrac12[-T+V^2(3\\rho-\\sum_iP_i)]\) under the stated diagonal Bianchi IX equations and \(dt=V\\,d\\tau\). |
 | \`scalar_kasner_exponent_square_sum\` | \(\\sum_i p_i^2=1-\\phi'^2/S^2\), only as a formula helper for the declared scalar Bianchi IX reduction. |
+
+## Notation boundary and provenance limits
+
+Use \(L=\\sum_i\\alpha_i=\\ln V\) for log-volume and \(K=L'=\\sum_i\\alpha_i'\) for the historical Kasner-rate variable; primes are with respect to \\(\\tau\\). The renamed helper returns \(L''=K'=\\tfrac12[-T+V^2(3\\rho-\\sum_iP_i)]\). This is the historical GEAR-42/43 \(S'\) only where \(S=K\); it is not \(L'\). The later A10/A11 note reuses \(S\) for \(L\), so the symbol \(S\) must not cross between these definitions. The scalar Kasner helper's \(K\) input likewise means \\(\\sum_i\\alpha_i'\\), not \(L\).
+
+The formula is unchanged by this clarification. The independent published diagonal Bianchi IX equations support the curvature polynomial in their stated massless-scalar scope, but do not settle the archive's generalized anisotropic-pressure source. GEAR 47 does not spell out the metric signature, Riemann/Ricci sign convention, Einstein coupling \\(\\kappa_E\\), or whether \\(\\rho,p_i,\\mu\\) are physical or Einstein-normalized. Under the conditional convention \\((-+++),\\ G_{\\mu\\nu}=\\kappa_E T_{\\mu\\nu}\\), the printed unit matter coefficient requires \\(\\kappa_E=1\\) or source variables that already absorb it. Do not import the current COSMOS/V5.5 units convention into the historical GEAR lane without a documented bridge; author/primary-source confirmation remains open.
 
 ## Guard behavior
 
@@ -37,7 +43,7 @@ There are no imports from the production engine, no changed physical parameters,
 
 ## Tests
 
-The companion test module checks the exact shear normalization, the expansion/contraction orientation inversion, the signed Raychaudhuri margin, positive/negative/degenerate Heron cases, the trace-term cancellation when the total pressure equals three times the density, plus a nonzero anisotropic-pressure-sum control, the full \(S'\) identity, and the scalar/vacuum limit.
+The companion test module checks the exact shear normalization, the expansion/contraction orientation inversion, the signed Raychaudhuri margin, positive/negative/degenerate Heron cases, the trace-term cancellation when the total pressure equals three times the density, plus a nonzero anisotropic-pressure-sum control, the full \(K'=L''\) identity, and the scalar/vacuum limit.
 
 Local isolated test command:
 
@@ -49,7 +55,7 @@ Result on the authored local copy: **8 tests passed**. This is a unit test of th
 
 ## Follow-up acceptance gate
 
-The diagnostic set must remain research-only until independent review checks the GEAR normalization, Bianchi IX time gauge, and pressure signs. If the helpers are later used on simulation data, the caller must preserve provenance (input source SHA, sign/unit convention, realized shear fraction, branch sign, and excluded \(H\\approx0\) samples) and report constraint/validity failures rather than filtering them away.
+The diagnostic set must remain research-only until independent review checks the GEAR normalization, Bianchi IX time gauge, pressure signs, metric/Ricci-sign convention, Einstein coupling normalization, and physical-versus-Einstein-normalized source variables. If the helpers are later used on simulation data, the caller must preserve provenance (input source SHA, sign/unit convention, realized shear fraction, branch sign, and excluded \(H\\approx0\) samples) and report constraint/validity failures rather than filtering them away.
 
 **No production equations or GEAR archive files are modified by this contribution. Scientific admission remains NOT ADMITTED.**
 
