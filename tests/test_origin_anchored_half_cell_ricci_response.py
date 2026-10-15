@@ -9,14 +9,14 @@ from tools.audit_origin_anchored_half_cell_ricci_response import fit_origin_mome
 
 def smooth_source(r):
     r = np.asarray(r, dtype=float)
-    return 1.0 + 0.3*r**2 - 0.04*r**4 + 0.004*r**6 + 0.001*r**8 + 0.0002*np.exp(-r**2)
+    return 1.0 + 0.3*r**2 - 0.04*r**4 + 0.004*r**6 + 0.001*r**8 + 0.0002*(1.0-np.exp(-r**2))
 
 
 def exact_smooth_moment(r0):
     return (
         r0 + 0.3*r0**3/3.0 - 0.04*r0**5/5.0
         + 0.004*r0**7/7.0 + 0.001*r0**9/9.0
-        + 0.0002*math.sqrt(math.pi)*math.erf(r0)/2.0
+        + 0.0002*(r0-math.sqrt(math.pi)*math.erf(r0)/2.0)
     )
 
 
@@ -51,7 +51,7 @@ def test_origin_anchor_removes_first_order_intercept_term_on_manufactured_source
         free_errors.append(free["half_cell_moment_estimate"]-exact)
         anchored_errors.append(anchored["half_cell_moment_estimate"]-exact)
         assert anchored["fitted_intercept"] == 1.0
-        assert abs(free["fitted_intercept"]-1.0002) > 1.0e-4
+        assert abs(free["fitted_intercept"]-1.0) > 1.0e-4
 
     free_orders = [
         math.log(abs(free_errors[i]/free_errors[i+1]), 2.0)
