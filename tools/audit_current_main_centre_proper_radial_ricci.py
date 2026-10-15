@@ -1257,6 +1257,89 @@ def main() -> int:
             grid, state, vacuum,
             frozen_delta_integral=float(origin_cf_summary["delta_integral_applied"]),
         )
+        # Bound the origin-moment effect on several defensible, overdetermined
+        # source-fit families. Each variant independently re-solves the copied
+        # source/metric recurrence and recomputes its geometry/Ricci witnesses.
+        origin_sc_fit_family_arrays = {}
+        origin_sc_fit_family_summaries = {}
+        fit_family_specs = (
+            ("degree3_r3", 3, 3.0),
+            ("degree4_r3", 4, 3.0),
+            ("degree5_r3p5", 5, 3.5),
+        )
+        for family_tag, family_degree, family_rmax in fit_family_specs:
+            family_arrays, family_summary = _origin_half_cell_self_consistent_counterfactual(
+                grid, state, vacuum,
+                frozen_delta_integral=float(origin_cf_summary["delta_integral_applied"]),
+                source_fit_degree=family_degree,
+                source_fit_r_max=family_rmax,
+                include_fit_scan=False,
+            )
+            if not family_summary["convergence"]["converged"]:
+                problems.append(
+                    f"N={resolution}/{family_tag}: corrected-source fit-family iteration did not converge"
+                )
+            if not family_summary["input_state_unchanged"]:
+                problems.append(
+                    f"N={resolution}/{family_tag}: fit-family counterfactual mutated input state"
+                )
+            if not family_summary["all_counterfactual_profiles_finite"]:
+                problems.append(
+                    f"N={resolution}/{family_tag}: fit-family counterfactual produced non-finite values"
+                )
+            if not family_summary["baseline_six_iteration_reconstruction_matches_production"]:
+                problems.append(
+                    f"N={resolution}/{family_tag}: baseline recurrence failed to reproduce production X^6"
+                )
+            invariant_names = (
+                "a_times_b_squared_minus_one_max_abs", "b_minus_X_squared_max_abs",
+                "a_minus_X_minus_four_max_abs", "X6_minus_B_max_abs",
+                "areal_radius_minus_r_max_abs",
+            )
+            for invariant_stage in ("metric_invariants_six_step", "metric_invariants_fixed_point"):
+                invariants = family_summary[invariant_stage]
+                if not invariants["all_profiles_finite"] or not invariants["source_finite"]:
+                    problems.append(f"N={resolution}/{family_tag}: {invariant_stage} has non-finite values")
+                for invariant_name in invariant_names:
+                    if invariants[invariant_name] > 1.0e-12:
+                        problems.append(
+                            f"N={resolution}/{family_tag}: {invariant_stage}/{invariant_name} "
+                            f"exceeds copied-metric identity tolerance"
+                        )
+            for array_name, values in family_arrays.items():
+                if array_name.startswith("origin_sc_six_"):
+                    output_name = (
+                        f"origin_sc_{family_tag}_six_" +
+                        array_name[len("origin_sc_six_"):]
+                    )
+                elif array_name.startswith("origin_sc_fixed_"):
+                    output_name = (
+                        f"origin_sc_{family_tag}_fixed_" +
+                        array_name[len("origin_sc_fixed_"):]
+                    )
+                else:
+                    output_name = (
+                        f"origin_sc_{family_tag}_" +
+                        array_name[len("origin_sc_"):]
+                    )
+                origin_sc_fit_family_arrays[output_name] = _arr(values)
+            origin_sc_fit_family_summaries[family_tag] = {
+                "source_fit_degree_in_r_squared": family_degree,
+                "source_fit_r_max": family_rmax,
+                "baseline_six_iteration_reconstruction_max_abs":
+                    family_summary["baseline_six_iteration_reconstruction_max_abs"],
+                "convergence": family_summary["convergence"],
+                "corrected_source": family_summary["corrected_source"],
+                "metric_invariants_six_step": family_summary["metric_invariants_six_step"],
+                "metric_invariants_fixed_point": family_summary["metric_invariants_fixed_point"],
+                "production_first_two_cells": family_summary["production_first_two_cells"],
+                "six_step_corrected_first_two_cells": family_summary["six_step_corrected_first_two_cells"],
+                "fixed_point_corrected_first_two_cells": family_summary["fixed_point_corrected_first_two_cells"],
+                "fixed_annulus_r5_to10": family_summary["fixed_annulus_r5_to10"],
+                "first_two_cell_gap_reduction": family_summary["first_two_cell_gap_reduction"],
+                "input_state_unchanged": family_summary["input_state_unchanged"],
+                "all_counterfactual_profiles_finite": family_summary["all_counterfactual_profiles_finite"],
+            }
         # Re-test the independent Lambda derivative counterfactual on the
         # self-consistent origin profile too, rather than inferring it only
         # from the frozen-source metric.
@@ -1354,6 +1437,7 @@ def main() -> int:
         metric_arrays.update({name: _arr(values) for name, values in origin_cf_arrays.items()})
         metric_arrays.update({name: _arr(values) for name, values in combined_cf_arrays.items()})
         metric_arrays.update({name: _arr(values) for name, values in origin_sc_arrays.items()})
+        metric_arrays.update({name: _arr(values) for name, values in origin_sc_fit_family_arrays.items()})
         metric_arrays.update({name: _arr(values) for name, values in combined_sc_arrays.items()})
         metric_arrays.update({
             name: _arr(values) for name, values in manufactured_lambda_arrays.items()
@@ -1520,6 +1604,7 @@ def main() -> int:
             "even_taylor_fits_first_six_cells": taylor,
             "frozen_source_origin_half_cell_counterfactual": origin_cf_summary,
             "self_consistent_origin_half_cell_counterfactual": origin_sc_summary,
+            "self_consistent_origin_fit_family_counterfactuals": origin_sc_fit_family_summaries,
             "self_consistent_origin_and_lambda_chain_rule_counterfactual": combined_sc_summary,
             "lambda_chain_rule_counterfactual": lambda_chain_summary,
             "combined_origin_and_lambda_chain_rule_counterfactual": combined_cf_summary,
