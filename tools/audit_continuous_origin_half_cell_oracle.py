@@ -324,19 +324,46 @@ def fit_even_polynomial_integral(r, source, r_half, window, degree, anchor=False
     z = (rs / window) ** 2
     if anchor:
         design = np.column_stack([z**k for k in range(1, degree + 1)])
-        tail, _, _, _ = np.linalg.lstsq(design, ys - 1.0, rcond=None)
+        shifted_y = ys - 1.0
+        tail, _, rank, _ = np.linalg.lstsq(design, shifted_y, rcond=None)
         c = np.r_[1.0, tail]
+        loo_intercept = 1.0
     else:
         design = np.column_stack([z**k for k in range(degree + 1)])
-        c, _, _, _ = np.linalg.lstsq(design, ys, rcond=None)
+        shifted_y = ys
+        c, _, rank, _ = np.linalg.lstsq(design, shifted_y, rcond=None)
+        loo_intercept = 0.0
+    if rank < design.shape[1]:
+        raise ValueError("fit design is rank deficient")
     pred = sum(c[k] * z**k for k in range(degree + 1))
     moment = sum(
         c[k] * r_half**(2 * k + 1) / ((2 * k + 1) * window**(2 * k))
         for k in range(degree + 1)
     )
     residual = ys - pred
-    if not (_finite(c) and _finite(residual) and np.isfinite(moment)):
-        raise FloatingPointError("non-finite fit output")
+
+    # Leave-one-out prediction: refit on all but one source sample and predict
+    # the omitted sample. Report the worst fold condition number as well as error.
+    loo_residuals = []
+    loo_condition_numbers = []
+    loo_training_residual_dof = []
+    for holdout in range(rs.size):
+        keep = np.ones(rs.size, dtype=bool)
+        keep[holdout] = False
+        train_design = design[keep]
+        train_y = shifted_y[keep]
+        if train_design.shape[0] < design.shape[1]:
+            raise ValueError("leave-one-out training set is underdetermined")
+        loo_coeff, _, loo_rank, _ = np.linalg.lstsq(train_design, train_y, rcond=None)
+        if loo_rank < design.shape[1]:
+            raise ValueError("leave-one-out fit design is rank deficient")
+        held_prediction = loo_intercept + float(design[holdout] @ loo_coeff)
+        loo_residuals.append(float(ys[holdout] - held_prediction))
+        loo_condition_numbers.append(float(np.linalg.cond(train_design)))
+        loo_training_residual_dof.append(int(train_design.shape[0] - design.shape[1]))
+    loo_residuals = np.asarray(loo_residuals, dtype=float)
+    if not (_finite(c) and _finite(residual) and _finite(loo_residuals) and np.isfinite(moment)):
+        raise FloatingPointError("non-finite fit or leave-one-out output")
     return {
         "degree": int(degree), "window": float(window), "anchor_origin": bool(anchor),
         "sample_count": int(rs.size), "coefficient_count": int(degree + 1),
@@ -344,6 +371,11 @@ def fit_even_polynomial_integral(r, source, r_half, window, degree, anchor=False
         "fit_coefficients_z": [float(v) for v in c],
         "max_abs_sample_residual": _max_abs(residual),
         "rms_sample_residual": float(np.sqrt(np.mean(residual**2))),
+        "loo_residuals": [float(v) for v in loo_residuals],
+        "loo_max_abs_prediction_error": _max_abs(loo_residuals),
+        "loo_rms_prediction_error": float(np.sqrt(np.mean(loo_residuals**2))),
+        "loo_max_condition_number": max(loo_condition_numbers),
+        "loo_min_training_residual_dof": min(loo_training_residual_dof),
         "fitted_moment": float(moment),
     }
 
@@ -512,7 +544,8 @@ def main():
                     fit["fitted_moment"], fit["fit_minus_continuous_reference"],
                     fit["fit_error_abs"], fit["fit_error_rel_to_integral"],
                     fit["condition_number"], fit["max_abs_sample_residual"],
-                    fit["rms_sample_residual"],
+                    fit["rms_sample_residual"], fit["loo_max_abs_prediction_error"],
+                    fit["loo_rms_prediction_error"], fit["loo_max_condition_number"],
                     fit["analytic_signed_error_lower_bound"],
                     fit["analytic_signed_error_upper_bound"],
                     fit["analytic_absolute_error_bound"],
@@ -578,7 +611,9 @@ def main():
             "sample_count", "fitted_moment", "fit_minus_Richardson_reference",
             "fit_error_abs_vs_Richardson", "analytic_signed_error_lower",
             "analytic_signed_error_upper", "analytic_absolute_error_bound",
-            "max_abs_sample_residual", "condition_number",
+            "max_abs_sample_residual", "condition_number", "LOO_max_abs_prediction_error",
+            "LOO_rms_prediction_error", "LOO_max_condition_number",
+            "LOO_min_training_residual_dof",
         ])
         for x in rows:
             for fit in x["fit_family"]:
@@ -591,6 +626,10 @@ def main():
                     fit.get("analytic_signed_error_upper_bound"),
                     fit.get("analytic_absolute_error_bound"),
                     fit.get("max_abs_sample_residual"), fit.get("condition_number"),
+                    fit.get("loo_max_abs_prediction_error"),
+                    fit.get("loo_rms_prediction_error"),
+                    fit.get("loo_max_condition_number"),
+                    fit.get("loo_min_training_residual_dof"),
                 ])
     (output / "SHA256SUMS.txt").write_text("\n".join(f"{_sha256(p)}  {p.name}" for p in paths.values()) + "\n", encoding="utf-8")
     print(json.dumps({
