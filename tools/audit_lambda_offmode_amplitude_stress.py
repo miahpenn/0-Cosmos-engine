@@ -245,7 +245,7 @@ def main() -> int:
                     "negative_arm_amplitude": float(-amplitude),
                     "negative_arm_finite": bool(minus_report["finite"]),
                     "negative_arm_bssn_hamiltonian_closure_max_abs": float(
-                        minus_report["initial_bssn_hamiltonian_closure_max_abs"]
+                        minus_report["initial_lambda_only_bssn_hamiltonian_response"]["closure_max_abs"]
                     ),
                     "Aa_even_to_odd_rms_ratio": field_results["Aa_rate"]["even_to_odd_rms_ratio"],
                     "K_odd_to_even_rms_ratio": field_results["K"]["odd_to_even_rms_ratio"],
