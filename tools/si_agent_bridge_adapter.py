@@ -40,6 +40,7 @@ SUPPORTED_PR_ACTIONS = {
 }
 BRIDGE_WORKFLOW_NAME = "SI-agent bridge notifications"
 LEDGER_ISSUE_NUMBER = 222
+LEDGER_ACTOR = "github-actions[bot]"
 LEDGER_MARKER_PREFIX = "<!-- si-agent-bridge-event:"
 EVENT_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}$")
 SHA_RE = re.compile(r"^[0-9a-fA-F]{40}$")
@@ -346,6 +347,11 @@ def _find_ledger_record(github_token: str, event_id: str) -> dict[str, Any] | No
             raise AdapterError("delivery ledger lookup returned an invalid response")
         for comment in data:
             if not isinstance(comment, dict) or not isinstance(comment.get("body"), str):
+                continue
+            # Public Issue #222 comments are user-controlled. Only accept the
+            # GitHub Actions bot's own marker as authoritative replay state.
+            author = comment.get("user")
+            if not isinstance(author, dict) or author.get("login") != LEDGER_ACTOR:
                 continue
             match = DELIVERED_RE.search(comment["body"])
             if match and match.group("event_id") == event_id:
