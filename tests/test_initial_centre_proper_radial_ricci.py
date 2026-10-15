@@ -361,3 +361,104 @@ def test_three_channel_lambda_decomposition_recomposes_on_manufactured_regular_p
     assert summary["profiles_finite"] is True
     assert summary["recomposition_residual_max_abs"] < 1.0e-12
 
+def test_saved_stage_artifact_replay_checks_pins_and_runs_no_evolution(tmp_path):
+    """Exercise the offline ZIP reader with a deterministic synthetic stage profile."""
+    import hashlib
+    import io
+    import json
+    import zipfile
+
+    from tools.audit_current_main_centre_proper_radial_ricci import (
+        SOURCE_COMMIT,
+        VENDOR_COMMIT,
+        _lambda_chain_rule_counterfactual,
+    )
+    from tools.decompose_saved_centre_ricci_profiles import replay_artifact
+
+    grid_ops, _, _ = vendor_modules()
+    resolution = 48
+    r_max = 8.0
+    grid = grid_ops.SphericalCellGrid(resolution, r_max)
+    r = np.asarray(grid.centers, dtype=float)
+    d1 = lambda values, parity=1: grid.cell_derivative_fourth(values, parity=parity)
+    a = 1.0 + 1.0e-3 * r**2 + 1.0e-5 * r**4
+    b = 1.0 - 5.0e-4 * r**2 + 2.0e-6 * r**4
+    X = 1.0 + 2.0e-4 * r**2
+    lambda_metric = (
+        d1(a, 1) / (2.0 * a * a)
+        - d1(b, 1) / (a * b)
+        + 2.0 / r * (1.0 / b - 1.0 / a)
+    )
+    Lambda = lambda_metric + 4.0e-5 * r + 2.0e-6 * r**3
+    vendor_r = 2.0e-3 + 1.0e-4 * r**2
+    vendor_scalar = -1.0e-3 + 2.0e-4 * r**2
+    direct_tf = 3.0e-4 - 1.0e-5 * r**2
+    vendor_terms = {"Rr_r": vendor_r, "R": vendor_scalar}
+    chain_arrays, _ = _lambda_chain_rule_counterfactual(
+        grid, r, a, b, X, Lambda, vendor_terms, direct_tf
+    )
+
+    stage_profiles = {
+        "accepted_input__r": r,
+        "accepted_input__a": a,
+        "accepted_input__b": b,
+        "accepted_input__X": X,
+        "accepted_input__Lambda_evolved": Lambda,
+        "accepted_input__vendor_Rr_r": vendor_r,
+        "accepted_input__vendor_R_scalar": vendor_scalar,
+        "accepted_input__direct_tf_ricci": direct_tf,
+        "accepted_input__chain_rule_minus_direct_tf_ricci": chain_arrays[
+            "lambda_chain_rule_vendor_minus_direct_tf_ricci"
+        ],
+    }
+    npz_buffer = io.BytesIO()
+    np.savez_compressed(npz_buffer, **stage_profiles)
+    npz_raw = npz_buffer.getvalue()
+    report_raw = json.dumps({
+        "schema": "v55_evolved_centre_ricci_stage_budget_v1",
+        "source_pins": {
+            "audit_head": "synthetic-test-input",
+            "source_commit": SOURCE_COMMIT,
+            "vendor_commit": VENDOR_COMMIT,
+            "engine_vendor_dependency_diff_empty": True,
+        },
+        "configuration": {
+            "resolution": resolution,
+            "r_max": r_max,
+            "source_commit": SOURCE_COMMIT,
+            "vendor_commit": VENDOR_COMMIT,
+            "steps": 1,
+            "final_coordinate_time": 0.03,
+        },
+    }, sort_keys=True).encode("utf-8")
+    manifest = (
+        f"{hashlib.sha256(report_raw).hexdigest()}  report.json\n"
+        f"{hashlib.sha256(npz_raw).hexdigest()}  stage_profiles.npz\n"
+    ).encode("utf-8")
+    zip_buffer = io.BytesIO()
+    with zipfile.ZipFile(zip_buffer, "w", compression=zipfile.ZIP_DEFLATED) as bundle:
+        bundle.writestr("report.json", report_raw)
+        bundle.writestr("stage_profiles.npz", npz_raw)
+        bundle.writestr("SHA256SUMS.txt", manifest)
+    artifact_raw = zip_buffer.getvalue()
+    artifact_path = tmp_path / "synthetic-stage-artifact.zip"
+    artifact_path.write_bytes(artifact_raw)
+
+    report = replay_artifact(
+        artifact_path,
+        expected_zip_sha256=hashlib.sha256(artifact_raw).hexdigest(),
+        output_path=tmp_path / "replayed.json",
+    )
+
+    assert report["status"] == "completed_offline_artifact_replay"
+    assert report["evolution_steps_in_this_run"] == 0
+    assert report["scientific_admission"] is False
+    assert tuple(report["stages"]) == ("accepted_input",)
+    stage = report["stages"]["accepted_input"]
+    assert stage["recomposition_residual_max_abs"] < 1.0e-12
+    assert stage["matches_saved_chain_rule_gap_max_abs"] <= stage[
+        "allowed_saved_gap_roundoff_bound"
+    ]
+    assert (tmp_path / "replayed.npz").exists()
+    assert (tmp_path / "replayed.SHA256SUMS.txt").exists()
+
