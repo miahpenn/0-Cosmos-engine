@@ -129,7 +129,7 @@ def _run_pair(kernel, base_state, vacuum, wavelength: float, dt: float) -> tuple
     off_new = kernel.step(off_input, dt)
     if _state_digest(base_state) != base_before:
         raise RuntimeError("step observer mutated original initialized state")
-    if _state_digest(base_input) != _state_digest(base_input):
+    if _state_digest(base_input) != base_before:
         raise RuntimeError("baseline input state changed during evolution")
     if _state_digest(off_input) != off_before:
         raise RuntimeError("step observer mutated perturbed input state")
