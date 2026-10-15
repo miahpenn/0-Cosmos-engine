@@ -8,6 +8,7 @@ on:
       - tools/audit_analytic_origin_half_cell_self_consistent_response.py
       - tools/audit_manufactured_lambda_symbol_response.py
       - tools/audit_coupled_lambda_constraint_propagation.py
+      - tools/audit_lambda_offmode_amplitude_stress.py
       - tests/test_coupled_lambda_constraint_propagation.py
       - tests/test_manufactured_lambda_symbol_response.py
       - tools/audit_current_main_centre_proper_radial_ricci.py
@@ -46,6 +47,7 @@ jobs:
       ANALYTIC_SC_OUT: "results/analytic-origin-half-cell-self-consistent-ricci-2026-10-15"
       LAMBDA_SYMBOL_OUT: "results/manufactured-lambda-symbol-sweep-2026-10-15"
       COUPLED_LAMBDA_OUT: "results/coupled-lambda-constraint-propagation-2026-10-15"
+      LAMBDA_STRESS_OUT: "results/lambda-offmode-amplitude-stress-2026-10-15"
     steps:
       - name: Check out research branch and pinned vendor
         uses: actions/checkout@v4
@@ -82,6 +84,7 @@ jobs:
           python -m py_compile tools/audit_manufactured_lambda_symbol_response.py
           python -m py_compile tests/test_manufactured_lambda_symbol_response.py
           python -m py_compile tools/audit_coupled_lambda_constraint_propagation.py
+          python -m py_compile tools/audit_lambda_offmode_amplitude_stress.py
           python -m py_compile tests/test_coupled_lambda_constraint_propagation.py
           python -m py_compile tools/audit_current_main_centre_proper_radial_ricci.py
           python -m py_compile tools/audit_continuous_origin_half_cell_oracle.py
@@ -101,6 +104,9 @@ jobs:
 
       - name: Run coupled one-step off-constraint Lambda propagation control
         run: python tools/audit_coupled_lambda_constraint_propagation.py
+
+      - name: Run bounded Lambda off-mode amplitude stress sweep
+        run: python tools/audit_lambda_offmode_amplitude_stress.py
 
       - name: Upload signed Ricci and constraint witnesses
         if: always()
@@ -126,5 +132,14 @@ jobs:
         with:
           name: coupled-lambda-constraint-propagation-2026-10-15
           path: results/coupled-lambda-constraint-propagation-2026-10-15/
+          if-no-files-found: warn
+          retention-days: 90
+
+      - name: Upload Lambda off-mode amplitude stress report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lambda-offmode-amplitude-stress-2026-10-15
+          path: results/lambda-offmode-amplitude-stress-2026-10-15/
           if-no-files-found: warn
           retention-days: 90
