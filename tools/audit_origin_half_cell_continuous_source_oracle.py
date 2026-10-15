@@ -312,7 +312,10 @@ def run_audit(output_dir: Path = OUT) -> dict[str, Any]:
         if checks["phi_minus_phi0_max_abs"] > 2.0e-15 or checks["Pi_minus_Pi0_max_abs"] > 2.0e-15:
             raise RuntimeError(f"N={n}: phi/Pi profiles do not match continuous oracle assumptions")
 
-        cont = solve_continuous_moment(r0, profile_radii=r)
+        profile_radius = max(FIT_RADIUS, LOCAL_WINDOW_CELLS * dr)
+        profile_mask = r <= profile_radius + 1.0e-12 * max(1.0, profile_radius)
+        continuous_profile_radii = r[profile_mask]
+        cont = solve_continuous_moment(r0, profile_radii=continuous_profile_radii)
         if cont["ode_vs_quad_integral_abs_difference"] > 2.0e-12:
             raise RuntimeError(
                 f"N={n}: continuous ODE and independent quadrature disagree by "
@@ -347,8 +350,11 @@ def run_audit(output_dir: Path = OUT) -> dict[str, Any]:
             continuous_source_profile = np.asarray(
                 cont["continuous_source_profile_at_radii"], dtype=float
             )
+            continuous_fit_mask = continuous_profile_radii <= radius + 1.0e-12 * max(1.0, radius)
+            continuous_fit_radii = continuous_profile_radii[continuous_fit_mask]
+            continuous_fit_source = continuous_source_profile[continuous_fit_mask]
             continuous_fit = fit_origin_moment(
-                r, continuous_source_profile, dr, fit_radius=radius,
+                continuous_fit_radii, continuous_fit_source, dr, fit_radius=radius,
                 degree=3, anchor_origin=anchored, anchor_strategy=strategy,
             )
             continuous_fit_moment = float(continuous_fit["half_cell_moment_estimate"])
