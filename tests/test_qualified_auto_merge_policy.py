@@ -93,3 +93,17 @@ def test_joined_ledger_gate_paths_match_the_ledger_workflow_trigger():
         f"unprotected={sorted(trigger_paths - protected_paths)}, "
         f"stale={sorted(protected_paths - trigger_paths)}"
     )
+
+def test_missing_or_stale_pr_base_association_fails_closed():
+    source = WORKFLOW.read_text(encoding="utf-8")
+
+    assert "group: qualified-auto-merge-main" in source
+    assert "const runPulls = latestWorkflow.pull_requests || [];" in source
+    assert "if (runPulls.length === 0)" in source
+    assert "workflow run lacks PR/base association; exact-base qualification is unproven" in source
+    assert "p.number === pullNumber" in source
+    assert "p.head?.sha === headSha" in source
+    assert 'p.base?.ref === "main"' in source
+    assert "p.base?.sha === expectedBaseSha" in source
+    assert "workflow run predates the current main commit" not in source
+    assert "mainCommitDate" not in source
