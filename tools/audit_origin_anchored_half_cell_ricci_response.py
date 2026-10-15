@@ -230,7 +230,10 @@ def _metric_and_ricci(grid, state, vacuum, B: np.ndarray, source: np.ndarray, ta
     return arrays, invariants, gap
 
 
-def _solve_fit_mode(grid, state, vacuum, *, tag: str, fit_radius: float, anchored: bool):
+def _solve_fit_mode(
+    grid, state, vacuum, *, tag: str, fit_radius: float, anchored: bool,
+    anchor_strategy: str = "constrained",
+):
     """Run a copied source/metric recurrence, returning step 6 and fixed point."""
     before = _state_digest(state)
     r, source_for_B = _make_source_function(grid, state)
@@ -251,7 +254,8 @@ def _solve_fit_mode(grid, state, vacuum, *, tag: str, fit_radius: float, anchore
     def apply_map(B: np.ndarray):
         src = source_for_B(B)
         fit = fit_origin_moment(
-            r, src, dr, fit_radius=fit_radius, degree=3, anchor_origin=anchored
+            r, src, dr, fit_radius=fit_radius, degree=3, anchor_origin=anchored,
+            anchor_strategy=anchor_strategy,
         )
         Bnext = _integrate_source(src, r, dr, fit["half_cell_moment_estimate"])
         return Bnext, src, fit
@@ -302,6 +306,7 @@ def _solve_fit_mode(grid, state, vacuum, *, tag: str, fit_radius: float, anchore
             "fit_radius": float(fit_radius),
             "sample_count": int(np.count_nonzero(r <= fit_radius + 1.0e-12 * max(1.0, fit_radius))),
             "anchor_origin": bool(anchored),
+            "anchor_strategy": anchor_strategy if anchored else "unanchored",
             "known_s0": ORIGIN_SOURCE_VALUE if anchored else None,
         },
         "copied_recurrence": {
