@@ -49,7 +49,8 @@ jobs:
 
               "tests/test_research_em_adjoint_face_work_v1.py",
               "research/em_adjoint_face_work_v1.py",
-              "research/reconcile_em_face_work_artifact_v1.py",            ]);
+              "research/reconcile_em_face_work_artifact_v1.py",
+            ]);
 
             // Only narrative documentation can bypass a formal review.
             // Research code, tests, tools, workflow policy, and runtime code remain review-gated.
