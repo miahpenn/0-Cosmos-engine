@@ -129,6 +129,60 @@ def profile_summary(values: np.ndarray, r: np.ndarray) -> dict[str, float | None
     }
 
 
+def metric_lambda_term_responses(
+    a: np.ndarray, b: np.ndarray, X: np.ndarray, r: np.ndarray, dr: float,
+) -> tuple[dict[str, np.ndarray], float]:
+    """Split the metric-Lambda chain channel into its three signed terms.
+
+    The returned responses are (2/3) X^2 [D4(term) - d(term)/dr|D1/D2]
+    for the D1(a)/(2 a^2), -D1(b)/(a b), and 2/r(1/b - 1/a) terms.
+    The closure is the max-absolute difference between their sum and the
+    unsplit metric-Lambda D4-minus-chain-rule response.
+    """
+    ap = cell_derivative_fourth(a, dr, +1)
+    bp = cell_derivative_fourth(b, dr, +1)
+    app = cell_second_derivative_fourth(a, dr, +1)
+    bpp = cell_second_derivative_fourth(b, dr, +1)
+
+    term_a = ap / (2.0 * a * a)
+    chain_a = app / (2.0 * a * a) - ap * ap / (a * a * a)
+
+    term_b = -bp / (a * b)
+    chain_b = (
+        -bpp / (a * b)
+        + bp * (ap * b + a * bp) / (a * a * b * b)
+    )
+
+    delta = 1.0 / b - 1.0 / a
+    term_radial = 2.0 * delta / r
+    chain_radial = (
+        -2.0 * delta / (r * r)
+        + 2.0 * (-bp / (b * b) + ap / (a * a)) / r
+    )
+
+    terms = {
+        "D1(a)/(2*a^2)": (term_a, chain_a),
+        "-D1(b)/(a*b)": (term_b, chain_b),
+        "2/r*(1/b-1/a)": (term_radial, chain_radial),
+    }
+    factor = (2.0 / 3.0) * X * X
+    responses = {
+        name: factor * (
+            cell_derivative_fourth(term, dr, -1) - chain
+        )
+        for name, (term, chain) in terms.items()
+    }
+
+    metric_lambda = term_a + term_b + term_radial
+    full_chain = chain_a + chain_b + chain_radial
+    whole_response = factor * (
+        cell_derivative_fourth(metric_lambda, dr, -1) - full_chain
+    )
+    recombined = sum(responses.values())
+    closure = float(np.max(np.abs(recombined - whole_response)))
+    return responses, closure
+
+
 def analyze_stage_artifact(path: Path, label: str, expected_n: int) -> dict[str, Any]:
     source = np.load(path, allow_pickle=False)
     result: dict[str, Any] = {"input_file_sha256": sha256_file(path), "resolution": expected_n, "stages": {}}
@@ -164,8 +218,12 @@ def analyze_stage_artifact(path: Path, label: str, expected_n: int) -> dict[str,
         tf_connection = tf_factor * connection_channel
         tf_stencil_chain = tf_factor * stencil_chain_channel
         tf_total = tf_factor * total_channel
+        metric_term_responses, metric_term_closure = metric_lambda_term_responses(
+            a, b, X, r, dr,
+        )
         saved_tf_shift = get("chain_rule_induced_tf_ricci_shift")
         closure = {
+            "metric_lambda_three_term_channel_recombination_max_abs": metric_term_closure,
             "metric_lambda_reconstruction_max_abs": float(np.max(np.abs(metric_rebuilt-metric))),
             "D4_evolved_vs_saved_max_abs": float(np.max(np.abs(d4_evolved-get("lambda_prime_D4")))),
             "vendor_TF_Ricci_vs_saved_max_abs": float(np.max(np.abs(tf_evolved-get("vendor_tf_ricci")))),
@@ -182,6 +240,7 @@ def analyze_stage_artifact(path: Path, label: str, expected_n: int) -> dict[str,
             "D4_evolved_vs_saved_max_abs", "vendor_TF_Ricci_vs_saved_max_abs",
             "chain_rule_shift_vs_saved_max_abs", "D4_decomposition_max_abs",
             "TF_derivative_response_decomposition_max_abs", "full_vendor_TF_response_identity_max_abs",
+            "metric_lambda_three_term_channel_recombination_max_abs",
         ):
             if closure[key] > 2e-12:
                 raise RuntimeError(f"{label}/{stage}: identity closure failed ({key}={closure[key]:.4e})")
@@ -192,6 +251,10 @@ def analyze_stage_artifact(path: Path, label: str, expected_n: int) -> dict[str,
             "TF_response_evolved_minus_metric_derivative": profile_summary(tf_connection,r),
             "TF_response_metric_derivative_minus_chain_rule": profile_summary(tf_stencil_chain,r),
             "TF_response_evolved_derivative_minus_chain_rule": profile_summary(tf_total,r),
+            "TF_response_metric_lambda_term_decomposition": {
+                name: profile_summary(response, r)
+                for name, response in metric_term_responses.items()
+            },
             "full_vendor_TF_metric_Lambda_minus_evolved_Lambda": profile_summary(tf_metric-tf_evolved,r),
             "closure_max_abs": closure,
         }
