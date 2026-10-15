@@ -31,12 +31,14 @@ def test_one_step_lambda_perturbation_keeps_constraints_signed_and_finite():
     assert case["delta_Aa_final_max_abs"] > 0.0
     assert case["actual_Aa_rate_delta_vs_frozen_L2_prediction_relative_rms_error"] < 0.25
 
-    # Initial H/M/determinant should not change when only Lambda is perturbed;
-    # the connection residual should change by precisely that odd mode.
-    for name in ("hamiltonian", "momentum", "determinant"):
+    # The independently reconstructed metric-only Hamiltonian, momentum, and
+    # determinant remain invariant under a Lambda-only perturbation. The BSSN
+    # Hamiltonian is intentionally Lambda-dependent off the connection surface.
+    for name in ("hamiltonian_metric_only", "momentum", "determinant"):
         off = profiles[f"initial_constraint_off_mode_{name}"]
         base = profiles[f"initial_constraint_baseline_{name}"]
         assert np.max(np.abs(off - base)) < 2.0e-13
+
     connection_delta = (
         profiles["initial_constraint_off_mode_connection"]
         - profiles["initial_constraint_baseline_connection"]
@@ -45,8 +47,28 @@ def test_one_step_lambda_perturbation_keeps_constraints_signed_and_finite():
         connection_delta, profiles["delta_lambda_input"],
         rtol=0.0, atol=5.0e-13,
     )
+
+    # From the pinned BSSN scalar-Ricci definition, changing only Lambda gives
+    # the exact frozen-metric response delta(H_BSSN) = X^2 * D_r(delta Lambda).
+    observed_H_delta = (
+        profiles["initial_constraint_off_mode_hamiltonian"]
+        - profiles["initial_constraint_baseline_hamiltonian"]
+    )
+    expected_H_delta = (
+        np.asarray(state.geometry.X, dtype=float) ** 2
+        * state.grid.cell_derivative_fourth(
+            profiles["delta_lambda_input"], parity=-1
+        )
+    )
+    assert np.max(np.abs(observed_H_delta)) > 0.0
+    assert np.allclose(
+        observed_H_delta, expected_H_delta,
+        rtol=5.0e-11, atol=5.0e-13,
+    )
+
     for key in (
-        "hamiltonian", "momentum", "connection", "determinant"
+        "hamiltonian", "hamiltonian_metric_only", "momentum",
+        "connection", "determinant"
     ):
         assert np.all(np.isfinite(profiles[f"constraint_delta_{key}"]))
 
