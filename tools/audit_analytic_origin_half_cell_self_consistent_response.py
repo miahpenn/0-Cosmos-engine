@@ -441,6 +441,15 @@ def main() -> int:
             )
             for row in rows
         ),
+        "all_integral_endpoint_sensitivities_finite": all(
+            _finite([
+                row["analytic_enclosure_endpoint_sensitivity"]["integral_enclosure_width"],
+                row["analytic_enclosure_endpoint_sensitivity"]["B_first_cell_range_over_integral_enclosure"],
+                row["analytic_enclosure_endpoint_sensitivity"]["B_second_cell_range_over_integral_enclosure"],
+                row["analytic_enclosure_endpoint_sensitivity"]["signed_ricci_gap_first_cell_span"],
+            ])
+            for row in rows
+        ),
         "interpretation_limits": [
             "This changes only the first half-cell integral in the copied initializer recurrence; inter-centre trapezoids remain unchanged.",
             "The source and metric are iterated together on copied states; initialized scalar/matter profiles are not evolved.",
@@ -450,6 +459,12 @@ def main() -> int:
             "These initialized-slice results do not prove long-horizon stability, global conservation, or scientific admission.",
         ],
     }
+    if not report["all_observers_left_state_unchanged"]:
+        raise RuntimeError("one or more input-state hash checks failed")
+    if not report["all_profiles_finite"]:
+        raise FloatingPointError("one or more Ricci or constraint witness profiles are non-finite")
+    if not report["all_integral_endpoint_sensitivities_finite"]:
+        raise FloatingPointError("one or more analytic enclosure sensitivity fields are non-finite")
     OUT.mkdir(parents=True, exist_ok=True)
     report_path = OUT / "report.json"
     report_path.write_text(json.dumps(report, indent=2, allow_nan=False) + "\n", encoding="utf-8")
@@ -518,6 +533,7 @@ def main() -> int:
         } for row in rows],
         "state_unchanged": report["all_observers_left_state_unchanged"],
         "profiles_finite": report["all_profiles_finite"],
+        "integral_endpoint_sensitivities_finite": report["all_integral_endpoint_sensitivities_finite"],
         "errors": [],
     }, indent=2, allow_nan=False), flush=True)
     return 0
