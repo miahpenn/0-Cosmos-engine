@@ -20,10 +20,16 @@ A PR touching any of the following must also pass `joined-energy-ledger` on that
 
 The workflow checks the latest attempt for each exact check name, rejects missing, queued, running, skipped, cancelled, timed-out, or failed required checks, and requires the GitHub Actions check-run app. A result from an earlier SHA never qualifies a newer SHA. The check is cross-linked to the corresponding completed pull-request workflow run and current base SHA. If GitHub omits the PR/base association, qualification fails closed; timestamps are not accepted as a substitute for evidence of which base was tested. Passing a head check that ran before main advanced is not sufficient.
 
-## Fast path for diagnostic-only work
+## Documentation-only no-formal-review fast path
 
-A PR is eligible for the diagnostic fast path only when **every** changed file is in `docs/**`, `research/**`, `tests/test_research_*.py`, `tests/test_diagnostic_*.py`, `tools/audit_*.py`, or `tools/recompute_*_artifact.py`. These PRs do not need a formal approval, but still need all applicable exact-head checks and no current-head `CHANGES_REQUESTED` review.
+Only narrative documentation qualifies for the no-formal-review fast path: files exactly at `README.md` or under `docs/**`. The fast path still requires all applicable exact-head checks, a current `main` base, clean mergeability, and no current-head `CHANGES_REQUESTED` review.
 
+Research code, research/diagnostic tests, audit/recompute tools, engine/vendor code, dependency changes, workflow changes, and every other path require an `APPROVED` review from a reviewer other than the PR author, submitted against the exact current head SHA. Current-head `CHANGES_REQUESTED` reviews block both paths.
+
+## Joined-ledger trigger parity
+
+The `ledgerPaths` set used by the merge helper must match all paths in `.github/workflows/em_total_energy_budget.yml` exactly. A regression test compares the sets; any new path added to the joined-ledger workflow must also be protected by the merge-helper gate before this policy can pass.
+ 
 ## Other changes
 
 Any PR outside that allowlist requires an `APPROVED` review from a reviewer other than the author, submitted against the exact current head SHA. Current-head `CHANGES_REQUESTED` reviews block both paths. Workflow changes, production engine/vendor changes, dependency changes, and general tools/tests therefore do not bypass review.
