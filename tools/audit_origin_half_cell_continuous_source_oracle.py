@@ -154,10 +154,21 @@ def solve_continuous_moment(
     amplitude: float = AMPLITUDE,
     width: float = WIDTH,
     D_amplitude: float = D_AMPLITUDE,
+    profile_radii: np.ndarray | None = None,
 ) -> dict[str, Any]:
-    """Solve d(r B)/dr=s(r,B) and cross-check I(r0) by independent quadrature."""
+    """Solve d(r B)/dr=s(r,B), cross-check I(r0), optionally sample its profile."""
     if not math.isfinite(r0) or r0 <= 0.0:
         raise ValueError("r0 must be finite and positive")
+    profile = None
+    stop_radius = float(r0)
+    if profile_radii is not None:
+        profile = np.asarray(profile_radii, dtype=float)
+        if profile.ndim != 1 or not np.all(np.isfinite(profile)) or np.any(profile < 0.0):
+            raise ValueError("profile_radii must be a finite, nonnegative vector")
+        if profile.size:
+            stop_radius = max(stop_radius, float(np.max(profile)))
+        if np.any(profile < 1.0e-12):
+            raise ValueError("profile_radii must stay above the positive series-start radius")
     p = _continuum_parameters(amplitude, width, D_amplitude)
     eps = min(1.0e-3, r0 / 100.0)
     y0 = p["b2"] * eps**2 + p["b4"] * eps**4 + p["b6"] * eps**6
@@ -183,13 +194,13 @@ def solve_continuous_moment(
 
     solution = solve_ivp(
         rhs,
-        (eps, r0),
+        (eps, stop_radius),
         np.array([y0], dtype=float),
         method="DOP853",
         rtol=ODE_RTOL,
         atol=ODE_ATOL,
         dense_output=True,
-        max_step=max((r0 - eps) / 64.0, 1.0e-6),
+        max_step=max((stop_radius - eps) / 128.0, 1.0e-6),
     )
     if not solution.success or solution.sol is None:
         raise RuntimeError(f"continuous-source ODE did not converge: {solution.message}")
@@ -214,8 +225,21 @@ def solve_continuous_moment(
     series_moment_s6 = float(
         r0 + p["s2"] * r0**3 / 3.0 + p["s4"] * r0**5 / 5.0 + p["s6"] * r0**7 / 7.0
     )
+    sampled_profile = {}
+    if profile is not None:
+        B_profile = 1.0 + np.asarray(solution.sol(profile)[0], dtype=float) if profile.size else np.array([], dtype=float)
+        source_profile = np.asarray(continuous_source(profile, B_profile, params=p), dtype=float)
+        if not _finite(B_profile) or not _finite(source_profile) or np.any(B_profile <= 0.0):
+            raise FloatingPointError("continuous sampled profile is non-finite or invalid")
+        sampled_profile = {
+            "continuous_metric_profile_radii": [float(v) for v in profile],
+            "continuous_B_profile_at_radii": [float(v) for v in B_profile],
+            "continuous_source_profile_at_radii": [float(v) for v in source_profile],
+        }
     return {
         "r0": float(r0),
+        "continuous_ode_stop_radius": float(stop_radius),
+        **sampled_profile,
         "epsilon_start": float(eps),
         "ode_success": bool(solution.success),
         "ode_message": str(solution.message),
@@ -288,7 +312,7 @@ def run_audit(output_dir: Path = OUT) -> dict[str, Any]:
         if checks["phi_minus_phi0_max_abs"] > 2.0e-15 or checks["Pi_minus_Pi0_max_abs"] > 2.0e-15:
             raise RuntimeError(f"N={n}: phi/Pi profiles do not match continuous oracle assumptions")
 
-        cont = solve_continuous_moment(r0)
+        cont = solve_continuous_moment(r0, profile_radii=r)
         if cont["ode_vs_quad_integral_abs_difference"] > 2.0e-12:
             raise RuntimeError(
                 f"N={n}: continuous ODE and independent quadrature disagree by "
@@ -320,6 +344,14 @@ def run_audit(output_dir: Path = OUT) -> dict[str, Any]:
                 + continuous_point_moment
                 - cont["continuous_integral_from_rB"]
             )
+            continuous_source_profile = np.asarray(
+                cont["continuous_source_profile_at_radii"], dtype=float
+            )
+            continuous_fit = fit_origin_moment(
+                r, continuous_source_profile, dr, fit_radius=radius,
+                degree=3, anchor_origin=anchored, anchor_strategy=strategy,
+            )
+            continuous_fit_moment = float(continuous_fit["half_cell_moment_estimate"])
             fit_rows[tag] = {
                 "fit": fit,
                 "moment_estimate": moment_estimate,
@@ -332,6 +364,18 @@ def run_audit(output_dir: Path = OUT) -> dict[str, Any]:
                 "error_decomposition_sum": float(decomposition),
                 "error_decomposition_closure_residual": float(signed_error - decomposition),
                 "signed_error_relative_to_r0": float(signed_error / r0),
+                "fit_on_continuous_source_samples": {
+                    "fit": continuous_fit,
+                    "moment_estimate": continuous_fit_moment,
+                    "signed_moment_error_vs_continuous_oracle": float(
+                        continuous_fit_moment - cont["continuous_integral_from_rB"]
+                    ),
+                    "continuous_sampled_point_moment": float(r0 * continuous_source_profile[0]),
+                    "estimator_correction_vs_continuous_sampled_point": float(
+                        continuous_fit["moment_correction_vs_point_sample"]
+                    ),
+                    "sampled_source_uses_continuum_metric_and_analytic_derivatives": True,
+                },
             }
         point_estimate = production_point_moment
         point_error = point_estimate - cont["continuous_integral_from_rB"]
@@ -419,6 +463,7 @@ def main() -> None:
                         "moment": val["moment_estimate"],
                         "signed_error_vs_continuous_oracle": val["signed_moment_error_vs_continuous_oracle"],
                         "error_decomposition_closure_residual": val["error_decomposition_closure_residual"],
+                        "continuous_source_sample_fit_error": val["fit_on_continuous_source_samples"]["signed_moment_error_vs_continuous_oracle"],
                     }
                     for key, val in row["fit_estimates"].items()
                 },
