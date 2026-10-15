@@ -12,7 +12,7 @@ For amplitude (A=0.1), length (L\in\{4,8,16\}), and fixed domain (0<r<32), defin
 
 \[
 q(r)=1+A\left(1-e^{-(r/L)^2}\right),\qquad
-a=q^{-4/3},\quad b=q^{2/3},\quad X=q^{1/3}.
+a=q^{-4/3},\quad b=q^{2/3},\quad X=q^{-2/3}.
 \]
 
 The parametrization is determinant-consistent ((ab^2=1)) and retains the same proper-radial and areal-radius identity in the conformal representation. The singular-looking radial component is
