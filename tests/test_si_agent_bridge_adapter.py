@@ -12,6 +12,7 @@ from tools.si_agent_bridge_adapter import (
     build_contract_event,
     deliver_event,
     format_slack_message,
+    main,
     reserve_ledger,
 )
 from tools.si_agent_bridge_contract import DELIVER, DUPLICATE, UNKNOWN
@@ -441,3 +442,31 @@ def test_ledger_uses_only_github_actions_bot_markers():
         "body": trusted["body"],
     }
 
+
+
+@pytest.mark.parametrize(("dry_run", "expected_exit"), [(True, 0), (False, 1)])
+def test_unknown_status_is_nonblocking_only_for_dry_run(capsys, monkeypatch, dry_run, expected_exit):
+    monkeypatch.setenv("GITHUB_TOKEN", "ghs-test")
+    monkeypatch.delenv("SLACK_BOT_TOKEN", raising=False)
+    monkeypatch.delenv("SLACK_CHANNEL_ID", raising=False)
+    stale = {
+        "status": UNKNOWN,
+        "reason": "event main_sha differs from live main; refresh source/status",
+        "event_id": "github:pr:synthetic-stale-event",
+    }
+    arguments = [
+        "--event-name", "pull_request_target",
+        "--event-file", "synthetic-event.json",
+    ]
+    if dry_run:
+        arguments.append("--dry-run")
+
+    with patch("tools.si_agent_bridge_adapter._read_json", return_value=make_pr_payload()), patch(
+        "tools.si_agent_bridge_adapter.deliver_event", return_value=stale
+    ) as deliver:
+        exit_code = main(arguments)
+
+    assert exit_code == expected_exit
+    assert "UNKNOWN" in capsys.readouterr().out
+    assert deliver.call_args.kwargs["dry_run"] is dry_run
+    deliver.assert_called_once()

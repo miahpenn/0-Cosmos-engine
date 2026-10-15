@@ -599,7 +599,13 @@ def main(argv: list[str] | None = None) -> int:
     print(json.dumps(result, ensure_ascii=False, sort_keys=True))
     if status == "DELIVERED" or status == DUPLICATE or status == "DISABLED" or status == "DRY_RUN":
         return 0
-    # Surface stale/mismatched/uncertain events as failed workflow evidence.
+    # A disabled bridge's dry-run is observational only. Keep stale/mismatched
+    # provenance explicit in the JSON status, but do not turn an expected
+    # revalidation outcome into a failing PR check when no delivery was enabled.
+    # AdapterError and invalid-envelope failures above still fail closed, and
+    # live delivery (dry_run=False) still exits nonzero for UNKNOWN.
+    if args.dry_run and status == UNKNOWN:
+        return 0
     return 1
 
 
