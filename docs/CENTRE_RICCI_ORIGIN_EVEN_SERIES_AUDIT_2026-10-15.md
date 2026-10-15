@@ -131,7 +131,7 @@ It remains a **two-counterfactual decomposition**, not validation of a productio
 
 ### Important source-fit sensitivity qualification
 
-A separate sensitivity scan on the checksum-pinned corrected-source profile compared fits of degree 1, 2, and 3 in (r^2) over several fixed windows. For the chosen degree-3 even series ((s=s_0+s_2r^2+s_4r^4+s_6r^6)), the half-cell correction varies by at most about 1.01%, 0.75%, and 1.86% across admissible windows ending at (r=3.0) for N=160/240/320 (N=160 has too few samples for a degree-3 fit at (r\le1.5)). If the fitting window is widened to (r\le3.5), the difference from the (r\le2.5) reference rises to about 1.31%, 5.56%, and 7.58%.
+A separate sensitivity scan on the checksum-pinned corrected-source profile compared fits of degree 1, 2, and 3 in (r^2) over several fixed windows. For the chosen degree-3 even series ((s=s_0+s_2r^2+s_4r^4+s_6r^6)), the half-cell correction varies by at most about 0.28%, 0.75%, and 1.86% across admissible windows ending at (r=3.0) for N=160/240/320 (N=160 has too few samples for a degree-3 fit at (r\\le1.5)). If the fitting window is widened to (r\le3.5), the difference from the (r\le2.5) reference rises to about 1.31%, 5.56%, and 7.58%.
 
 Lower-order fits over the wider windows are much less stable: a degree-2 source fit ending at (r=2.5) shifts the correction by (-5.35\%), (-23.22\%), and (-30.34\%) from the degree-3 reference at N=160/240/320; at (r\le3.0) those differences are (-17.82\%), (-47.45\%), and (-89.59\%). The source-fit degree and support are therefore substantive modeling assumptions, not harmless numerical details.
 
