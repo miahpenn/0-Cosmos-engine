@@ -27,6 +27,22 @@ The Python entry point is `research/gear_archive_machine_v1.py:run_machine`. The
 | Expansion/contraction | Historical lane ran expansion and contraction branches separately | Branch selector sets only the initial sign of \(H\); the current signed-\(H\) ODE then evolves the state | No forced turnaround, branch splice, or bounce |
 | Local phase | \(\theta=\operatorname{unwrap}(\operatorname{atan2}(-\dot S/\omega_S,S))\) | Reports local \(\theta\) from sampled S/\(\dot S\) history | Not a local-to-cosmic time map or global cycle coordinate |
 
+## Energy-category labels in the machine report
+
+Each sampled local ledger retains the numerical keys above and the machine now
+also emits a top-level `interpretation_contract`. Its `D_energy_categories`
+labels distinguish the signed raw quantity `E_D_raw` from the positive
+`E_D_kinetic` and `E_D_excursion` magnitudes and the derived activity proxies.
+The homogeneous exact growing-mode regression checks the conditional identity
+\(E_{D,\mathrm{raw}}=\tfrac12\dot D^2-\tfrac12\alpha_D^2D^2=0\) for
+\(\dot D=\alpha_DD\), while the positive activity proxy remains nonzero.
+
+This is a software/reporting contract under the stated signed inverted-potential
+assumption, not a derivation of the production stress-energy normalization.
+The report explicitly keeps both the D-to-localized-matter map and a reciprocal
+local-to-COSMOS \(Q\) term disabled, and marks the primary-action/source-prefactor
+gate OPEN. No evolution equation or physical parameter is changed.
+
 ## Explicitly unpaid gates
 
 These gates are returned in every run, not converted to numerical assumptions:
