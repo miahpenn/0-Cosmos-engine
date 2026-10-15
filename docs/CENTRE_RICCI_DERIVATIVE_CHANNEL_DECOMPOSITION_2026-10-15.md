@@ -83,6 +83,14 @@ The N=40 value at \(r=3\) and N=80 value at \(r=2.5\) differ by under 0.5%, whil
 
 **Next discriminator:** fit the regular even series \(\delta(r)=c_2r^2+c_4r^4+c_6r^6+\cdots\) using source-pinned initialized/stage profiles across at least three refinements, report signed residuals and the parity/stencil treatment, and compare the fitted coefficients across resolutions. Do not infer a smooth continuum profile from two resolutions or replace the production radial term based on this observation alone.
 
+### Follow-up: three-resolution initialized-profile audit
+
+The broader source-pinned initialized profiles from the existing [N=160/240/320 no-evolution artifact](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38690211345/artifacts/11951678234) have now been checked with a fixed-radius even-series fit for \(\delta/r^2\), with \(\delta=1/b-1/a\). The companion report and fail-closed reader are in [the origin-series audit note](CENTRE_RICCI_ORIGIN_EVEN_SERIES_AUDIT_2026-10-15.md) and `tools/audit_centre_ricci_origin_series.py`.
+
+On the production initialized samples, the fixed-\(r\le3\) fit's maximum residual grows from 25.6% to 44.4% of the profile peak between N=160 and N=320; the frozen-source origin half-cell counterfactual gives 6.9–7.3%. The inclusive fitted quadratic coefficient spans 30.6% across resolutions in the production profile but 0.63% in the counterfactual. The actual cell-0 \(\delta/r^2\) stays near \(1.256\times10^{-3}\), while the signed mismatch with the even-series continuation inferred from cells 1 onward grows; the corresponding counterfactual mismatch is smaller by factors 12–24.
+
+This strengthens the origin half-cell integration hypothesis, but the counterfactual holds the initializer source fixed and is not a self-consistent re-solve. Next gate: independently review the fit and perform a diagnostic-only copied-initializer iteration at N=160/240/320, with the same source pins and full invariant/Ricci/constraint checks. No production file is changed; scientific admission remains **NOT ADMITTED**.
+
 ## Accepted-step connection-derivative history (PR #250 saved artifact)
 
 The accepted-step artifact contains Lambda_evolved, Lambda_metric, and the sampled connection residual, but does not include a, b, or X. It therefore supports the exact parity-odd D4 derivative split, but not the analytic chain-rule or X^2 Ricci-response split at each later step.
