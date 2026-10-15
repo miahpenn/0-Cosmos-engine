@@ -40,11 +40,18 @@ from tools.audit_lambda_center_tangent_resolution import (
 
 SOURCE_COMMIT = "285a2ee0c1a3b97cddeb4519d8e749109b115aab"
 VENDOR_COMMIT = "d6052d605673ce9d82cdc99b0df79855fa2ea215"
-PHYSICAL_TIMESTEPS = (0.005, 0.01)
+PHYSICAL_TIMESTEPS = (0.0025, 0.005, 0.01)
+TIMESTEP_COMPARISONS = (
+    (0.01, 0.005),
+    (0.005, 0.0025),
+    (0.01, 0.0025),
+)
 ELAPSED_TIMES = (0.01, 0.02)
 RUN_CONFIGS = (
+    (0.01, 0.0025, 4),
     (0.01, 0.005, 2),
     (0.01, 0.01, 1),
+    (0.02, 0.0025, 8),
     (0.02, 0.005, 4),
     (0.02, 0.01, 2),
 )
@@ -362,29 +369,28 @@ def main() -> int:
             for wavelength in WAVELENGTHS:
                 for amplitude in AMPLITUDE_MAGNITUDES:
                     for field, _ in FIELD_KEYS:
-                        fine_dt = min(PHYSICAL_TIMESTEPS)
-                        coarse_dt = max(PHYSICAL_TIMESTEPS)
-                        fine = summary_lookup[(resolution, float(elapsed_time), float(fine_dt), float(wavelength), float(amplitude), field)]
-                        coarse = summary_lookup[(resolution, float(elapsed_time), float(coarse_dt), float(wavelength), float(amplitude), field)]
-                        row = {
-                            "resolution": resolution,
-                            "elapsed_time": float(elapsed_time),
-                            "wavelength": float(wavelength),
-                            "amplitude_magnitude": float(amplitude),
-                            "fine_dt": float(fine_dt),
-                            "coarse_dt": float(coarse_dt),
-                            "fine_steps": int(round(elapsed_time / fine_dt)),
-                            "coarse_steps": int(round(elapsed_time / coarse_dt)),
-                            "field": field,
-                        }
-                        for component in ("odd_tangent", "even_curvature"):
-                            for region in ("center_shell", "fixed_interior"):
-                                a = fine["components"][component][region]["rms"]
-                                b = coarse["components"][component][region]["rms"]
-                                row[f"{component}_{region}_rms_dt{fine_dt:g}"] = a
-                                row[f"{component}_{region}_rms_dt{coarse_dt:g}"] = b
-                                row[f"{component}_{region}_rms_relative_difference"] = _safe_relative_difference(a, b)
-                        dt_comparisons.append(row)
+                        for coarse_dt, fine_dt in TIMESTEP_COMPARISONS:
+                            fine = summary_lookup[(resolution, float(elapsed_time), float(fine_dt), float(wavelength), float(amplitude), field)]
+                            coarse = summary_lookup[(resolution, float(elapsed_time), float(coarse_dt), float(wavelength), float(amplitude), field)]
+                            row = {
+                                "resolution": resolution,
+                                "elapsed_time": float(elapsed_time),
+                                "wavelength": float(wavelength),
+                                "amplitude_magnitude": float(amplitude),
+                                "fine_dt": float(fine_dt),
+                                "coarse_dt": float(coarse_dt),
+                                "fine_steps": int(round(elapsed_time / fine_dt)),
+                                "coarse_steps": int(round(elapsed_time / coarse_dt)),
+                                "field": field,
+                            }
+                            for component in ("odd_tangent", "even_curvature"):
+                                for region in ("center_shell", "fixed_interior"):
+                                    a = fine["components"][component][region]["rms"]
+                                    b = coarse["components"][component][region]["rms"]
+                                    row[f"{component}_{region}_rms_dt{fine_dt:g}"] = a
+                                    row[f"{component}_{region}_rms_dt{coarse_dt:g}"] = b
+                                    row[f"{component}_{region}_rms_relative_difference"] = _safe_relative_difference(a, b)
+                            dt_comparisons.append(row)
 
     spatial_comparisons = []
     for elapsed_time in ELAPSED_TIMES:
@@ -522,9 +528,9 @@ def main() -> int:
 
     report_path = OUT / "report.json"
     report = {
-        "schema": "lambda_center_multistep_signed_budget_v1",
+        "schema": "lambda_center_multistep_signed_budget_v2",
         "disposition": "RESEARCH_ONLY_NOT_SCIENTIFIC_ADMISSION",
-        "question": "Does the one-step K odd/even timestep sensitivity persist over matched elapsed times and bounded multistep evolution?",
+        "question": "Do K odd/even coefficients approach a limit under three-level timestep refinement at matched elapsed times?",
         "method": {
             "source_commit": SOURCE_COMMIT,
             "vendor_commit": VENDOR_COMMIT,
