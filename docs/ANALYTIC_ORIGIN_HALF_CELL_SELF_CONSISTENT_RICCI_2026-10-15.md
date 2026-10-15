@@ -4,15 +4,15 @@
 
 ## Exact-head validation and provenance
 
-The latest dedicated run, [GitHub Actions 38795244429](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38795244429), succeeded on PR #265 head \`0f18fabe72c92dcc3b0e9076ae86eb449641bad8\). Both focused tests passed, all declared source blobs and the vendor pin matched, the recurrence report was finite, the input state hash was unchanged, and zero evolution steps were taken. [Artifact 12001317982](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38795244429/artifacts/12001317982) includes the report, signed witnesses, full profiles, and checksum manifest.
+The source-pinned counterfactual and manufactured Lambda symbol sweep both passed in [GitHub Actions run 38796154469](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38796154469) on code head afe359e9322f516666214b5817ca325c76431560 (audit checkout head 68f48423ec646fc3a50db767b97c4a40b0c934eb). All four focused tests passed; the lower/nominal/upper self-consistent half-cell arms, derivative-mode sweep, input-state hash checks and finite/response-closure gates succeeded; no evolution steps were taken.
 
-- Engine source anchor: \`285a2ee0c1a3b97cddeb4519d8e749109b115aab\`.
-- Vendor commit: \`d6052d605673ce9d82cdc99b0df79855fa2ea215\`.
-- Audit checkout head: \`596568e3d38d7ba10f12d1850eaa180a5a01a16d\`.
-- Artifact ZIP SHA-256: \`83021bd8e06ca40b8a95c329e7779cd354b1abdf5dfef2521a00edfca973ec51\`.
-- Report JSON SHA-256: \`a41dbfa04293db3eaa99d85f2bbb377ff20f3253f7e18e9d0e82ed5f59066ccf\`.
-- Signed witness CSV SHA-256: \`568e40562454b8c5342a100295c3a5e120846cb794cb326fa791cd14df297285\`.
-- Full profile NPZ SHA-256: \`3db720972c5b480b24b17a9a60d571312425f27b5b9270bc86673da8afd78477\`.
+The [analytic half-cell/constraint artifact 12001559466](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38796154469/artifacts/12001559466) includes signed Ricci/constraint witnesses and all profiles. ZIP SHA-256: 4aa79998226efbec9b90582212c0fe948b6ae06224287fb1681cec33d183f7e5; report.json SHA-256: 109069a2703e92af0277747191d85a00008da51f59709eeedc4aa59b35325cf8; signed_witnesses.csv SHA-256: d26712f1a8b1e115babf965f3eaeba02fb19b58017ddb803c95ce7d7a633af14; profiles.npz SHA-256: 9db4febab5da0c680a3fd4db3f8cb88335a1803f1ec9d9f43055eeb103c7f64a.
+
+The separate [manufactured Lambda symbol artifact 12001124815](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38796154469/artifacts/12001124815) contains the wavelength sweep, full response profiles and checksums. ZIP SHA-256: 7b82033ad349e23db15678a6fb15ecfab679f5e2a4fd37f1c09c1a0f37c32ee6; report.json SHA-256: 771ec4ac1bfa6c665c415f25c625ebb7c8637059217aa03ec9b9164a2fbf8a70; mode_sweep.csv SHA-256: 41d0a489048621746f15f8058f3c1f37334e7a60307574e3a65dc666518de4bb; profiles.npz SHA-256: 0854fbb0d0ea24d3eba8fd97e1917d168272b22debe5500504c5ea37b9449b8d.
+
+- Engine source anchor: 285a2ee0c1a3b97cddeb4519d8e749109b115aab.
+- Vendor commit: d6052d605673ce9d82cdc99b0df79855fa2ea215.
+- No production engine, vendor, or dependency file changed; the pin check confirmed the production/vendor/dependency diff is empty.
 
 ## Method
 
@@ -62,10 +62,27 @@ For the exact same analytic-half-cell candidate geometry, the offline chain-rule
 
 This is a powerful diagnostic discriminator: on these initialized copied metrics, the Lambda derivative representation accounts for nearly all of the *remaining Ricci gap* after analytic half-cell injection. It does **not** authorize replacing the production \(D_4(\Lambda)\) term. Lambda is an independently evolved BSSN variable, and the chain-rule substitution may alter the off-constraint principal structure. Constraint witnesses in this report belong to the primary metric-derived Lambda candidate, not to an evolved run with that operator replacement.
 
+## Result 4 — manufactured odd-Lambda stencil-symbol control
+
+To determine whether the near-zero same-slice chain-rule gap justifies replacing the production D4(Lambda) operator, a separate manufactured test holds the initialized spatial metric fixed and injects smooth odd off-constraint modes delta-Lambda = epsilon sin(k r). It compares the pinned parity-odd fourth-order derivative with the known analytic derivative, and independently checks the fixed-metric vendor Ricci-response identity. It also verifies that the derivative-only chain-rule arm removes the D4(delta-Lambda) response while retaining the algebraic Lambda*D1(a) response.
+
+The measured norm ratio matches the standard fourth-order modified-wavenumber symbol to floating-point precision; the full vendor gap-response identity closes to about 10^-18. As expected for a fourth-order centred derivative, the derivative accuracy depends strongly on the number of cells per mode:
+
+| Resolution | dr | Wavelength 8: cells / relative derivative error | Wavelength 4: cells / relative derivative error | Wavelength 2: cells / relative derivative error |
+|---:|---:|---:|---:|---:|
+| N=160 | 0.5000 | 16 / 0.07783% | 8 / 1.1785% | 4 / 15.1174% |
+| N=240 | 0.3333… | 24 / 0.01553% | 12 / 0.24249% | 6 / 3.51744% |
+| N=320 | 0.2500 | 32 / 0.004932% | 16 / 0.07783% | 8 / 1.17848% |
+
+The fixed physical wavelength-2 derivative error drops from 15.12% at N=160 to 3.52% at N=240 and 1.18% at N=320. At eight cells per wavelength the tested stencil's response is within about 1.18%; four cells per wavelength is plainly under-resolved in this control. Longer wavelength modes have smaller error, consistent with the stencil symbol.
+
+**What this does establish:** the Lambda-response algebra is internally consistent, and D4(Lambda) has the expected, resolution-dependent response to a manufactured off-constraint mode. **What it does not establish:** the cause of the production Ricci residual, stability of the coupled evolved BSSN principal symbol, or that a chain-rule replacement is mathematically or physically admissible. The chain-rule arm removes the imposed off-constraint derivative response by construction; a near-zero residual on this frozen metric is not evidence that this is a valid evolution operator.
+
+
 ## Limits and next gate
 
 The source/vendor pins pass, the observer leaves the initialized state unchanged, all profiles and endpoint sensitivity fields are finite, and the audit takes zero evolution steps. The analytic enclosure is conditional on the default uncharged Gaussian initializer with constant \(\phi,\Pi,K_t\), radiation enabled and \(K_t<0\). Charged-dust/Maxwell alternatives are not covered. The outer grid still uses the pinned discrete derivative/source reconstruction; this is a deliberately hybrid continuum-half-cell/discrete-outer-grid experiment, not a full continuum solution. Enclosure endpoint calculations use float64 rather than directed-rounding interval arithmetic.
 
-The evidence now separates three effects more sharply: (1) the large origin-half-cell sampling contribution, (2) a persistent, sign-reversed Ricci/centre-Hamiltonian residual after that contribution is replaced, and (3) a strong same-slice Lambda derivative-channel response. The next valid step is independent mathematical/numerical review of the chain-rule identity and the signed residual relocations, plus a manufactured off-constraint stability/principal-symbol control before any operator modification is contemplated. Then re-run high-resolution and full-horizon constraint/conservation diagnostics on an explicitly declared hypothesis. Do not combine the two counterfactuals into a production patch based only on the near-zero composed Ricci gap.
+The evidence now separates four matters: (1) the large origin-half-cell sampling contribution; (2) a persistent, sign-reversed Ricci/centre-Hamiltonian residual after that contribution is replaced; (3) a strong same-slice Lambda derivative-channel response; and (4) the expected, resolution-dependent D4 symbol error for manufactured off-constraint modes. The next valid step is independent numerical-method review of the signed residual relocation and chain-rule identity, followed by a manufactured test of the *coupled evolved* off-constraint principal symbol and constraint propagation—not just its spatial derivative. Then run high-resolution and full-horizon constraint/conservation diagnostics under an explicitly reviewed hypothesis. Do not combine the half-cell and Lambda counterfactuals into a production patch based only on the near-zero composed Ricci gap.
 
 No production initializer, engine equation, vendor, dependency or campaign setting was modified. Scientific admission remains **NOT ADMITTED**.
