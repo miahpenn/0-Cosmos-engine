@@ -49,12 +49,12 @@ def test_review_eligibility_helper_rejects_outsiders_bots_and_api_errors():
 
     source = WORKFLOW_PATH.read_text(encoding="utf-8")
     fresh_start = source.index("function freshReviewState(reviews, headSha) {")
-    fresh_end_marker = "\\n              return latestByReviewer;\\n            }"
-    fresh_end = source.index(fresh_end_marker, fresh_start) + len(fresh_end_marker.replace("\\n", "\\n"))
+    fresh_end_marker = "\n              return latestByReviewer;\n            }"
+    fresh_end = source.index(fresh_end_marker, fresh_start) + len(fresh_end_marker)
     fresh_fn = source[fresh_start:fresh_end]
 
     approval_start = source.index("async function hasTrustedIndependentApproval(reviewerState, authorLogin) {")
-    approval_end_marker = "\\n              return false;\\n            }"
+    approval_end_marker = "\n              return false;\n            }"
     approval_end = source.index(approval_end_marker, approval_start) + len(approval_end_marker)
     approval_fn = source[approval_start:approval_end]
 
