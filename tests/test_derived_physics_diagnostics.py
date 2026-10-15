@@ -53,7 +53,7 @@ class BianchiIXDiagnosticsTests(unittest.TestCase):
         self.assertAlmostEqual(heron_discriminant(1.0, 1.0, 3.0), -45.0)
         self.assertEqual(heron_discriminant(1.0, 1.0, 2.0), 0.0)
 
-    def test_stiff_trace_correction_vanishes_even_with_anisotropic_pressures(self):
+    def test_trace_term_cancels_only_when_pressure_sum_matches_three_rho(self):
         self.assertEqual(bianchi_ix_trace_term(1.0, 1.0, (0.0, 2.0, 4.0)), -3.0)
         self.assertEqual(bianchi_ix_trace_term(1.0, 1.0, (1.0, 1.0, 1.0)), 0.0)
 
