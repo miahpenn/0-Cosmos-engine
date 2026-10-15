@@ -10,7 +10,6 @@ on:
       - tools/audit_continuous_origin_half_cell_oracle.py
       - tests/test_analytic_origin_half_cell_self_consistent_response.py
       - .github/workflows/analytic-origin-half-cell-self-consistent-ricci.yml
-      - docs/ANALYTIC_ORIGIN_HALF_CELL_SELF_CONSISTENT_RICCI_2026-10-15.md
   pull_request:
     branches: [main]
     types: [opened, synchronize, reopened, ready_for_review]
