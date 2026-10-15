@@ -91,13 +91,13 @@ jobs:
               return latestByReviewer;
             }
 
-            async function hasTrustedIndependentApproval(reviewerState, authorLogin) {
+            async function hasTrustedIndependentReview(reviewerState, authorLogin, requiredState) {
               // A different username is not sufficient on a public repository.
               // Require a human account and verify collaborator write authority.
               for (const [login, review] of reviewerState) {
                 if (
                   login === authorLogin ||
-                  review.state !== "APPROVED" ||
+                  review.state !== requiredState ||
                   review.userType !== "User"
                 ) {
                   continue;
@@ -254,15 +254,16 @@ jobs:
 
               let reviews = await reviewsFor(number);
               let reviewerState = freshReviewState(reviews, headSha);
-              const changesRequested = [...reviewerState.entries()]
-                .filter(([, review]) => review.state === "CHANGES_REQUESTED");
-              if (changesRequested.length) {
-                core.info(`#${number}: current-head changes requested by ${changesRequested.map(([login]) => login).join(", ")}.`);
+              const hasTrustedChangeRequest = await hasTrustedIndependentReview(
+                reviewerState, pr.user?.login, "CHANGES_REQUESTED"
+              );
+              if (hasTrustedChangeRequest) {
+                core.info(`#${number}: a trusted current-head reviewer requested changes.`);
                 return;
               }
 
-              const hasIndependentApproval = await hasTrustedIndependentApproval(
-                reviewerState, pr.user?.login
+              const hasIndependentApproval = await hasTrustedIndependentReview(
+                reviewerState, pr.user?.login, "APPROVED"
               );
               if (!documentationOnly && !hasIndependentApproval) {
                 core.info(`#${number}: non-documentation paths require approval on exact head ${headSha}.`);
@@ -295,12 +296,15 @@ jobs:
 
               reviews = await reviewsFor(number);
               reviewerState = freshReviewState(reviews, headSha);
-              if ([...reviewerState.values()].some(review => review.state === "CHANGES_REQUESTED")) {
-                core.info(`#${number}: a current-head changes-requested review arrived during qualification.`);
+              const finalChangeRequest = await hasTrustedIndependentReview(
+                reviewerState, freshPr.user?.login, "CHANGES_REQUESTED"
+              );
+              if (finalChangeRequest) {
+                core.info(`#${number}: a trusted current-head changes-requested review arrived during qualification.`);
                 return;
               }
-              const finalApproval = await hasTrustedIndependentApproval(
-                reviewerState, freshPr.user?.login
+              const finalApproval = await hasTrustedIndependentReview(
+                reviewerState, freshPr.user?.login, "APPROVED"
               );
               if (!documentationOnly && !finalApproval) {
                 core.info(`#${number}: current-head approval is no longer present for non-documentation changes.`);
