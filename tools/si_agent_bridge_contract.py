@@ -159,11 +159,12 @@ def validate_event(
     if any(not _is_repo_evidence_url(url) for url in evidence_urls):
         return _result(REJECT, "every evidence URL must be an allowed HTTPS GitHub evidence URL")
 
-    if live_main_sha is not None:
-        if not _sha_is_valid(live_main_sha):
-            return _result(UNKNOWN, "live main SHA is unavailable or malformed")
-        if event["main_sha"].lower() != live_main_sha.lower():
-            return _result(UNKNOWN, "event main_sha differs from live main; refresh source/status")
+    if live_main_sha is None:
+        return _result(UNKNOWN, "live main SHA is required from a fresh GitHub read")
+    if not _sha_is_valid(live_main_sha):
+        return _result(UNKNOWN, "live main SHA is unavailable or malformed")
+    if event["main_sha"].lower() != live_main_sha.lower():
+        return _result(UNKNOWN, "event main_sha differs from live main; refresh source/status")
     if expected_head_sha is not None and not _sha_is_valid(expected_head_sha):
         return _result(UNKNOWN, "expected live head SHA is unavailable or malformed")
     if expected_base_sha is not None and not _sha_is_valid(expected_base_sha):
@@ -191,9 +192,13 @@ def validate_event(
             return _result(REJECT, "work_ref head/base must be full 40-hex commit SHAs")
         if work_ref["base_ref"] != "main":
             return _result(REJECT, "only PRs targeting main are in this bridge contract")
-        if expected_head_sha is not None and work_ref["head_sha"].lower() != expected_head_sha.lower():
+        if expected_head_sha is None:
+            return _result(UNKNOWN, "expected live head SHA is required when work_ref is present")
+        if expected_base_sha is None:
+            return _result(UNKNOWN, "expected live base SHA is required when work_ref is present")
+        if work_ref["head_sha"].lower() != expected_head_sha.lower():
             return _result(UNKNOWN, "work_ref head SHA changed; rerun preflight")
-        if expected_base_sha is not None and work_ref["base_sha"].lower() != expected_base_sha.lower():
+        if work_ref["base_sha"].lower() != expected_base_sha.lower():
             return _result(UNKNOWN, "work_ref base SHA changed; rerun preflight")
 
     current = now or datetime.now(timezone.utc)
