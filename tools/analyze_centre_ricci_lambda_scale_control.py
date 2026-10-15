@@ -59,7 +59,7 @@ def analyze_profile(
     q_prime = 2.0 * amplitude * r / (length_scale**2) * exponential
     a = q ** (-4.0 / 3.0)
     b = q ** (2.0 / 3.0)
-    X = q ** (1.0 / 3.0)
+    X = q ** (-2.0 / 3.0)
     delta = 1.0 / b - 1.0 / a
 
     # Third term in the metric-defined conformal connection.
