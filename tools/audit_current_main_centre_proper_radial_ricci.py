@@ -478,6 +478,8 @@ def _lambda_chain_rule_counterfactual(
 def _origin_half_cell_self_consistent_counterfactual(
     grid, state, vacuum, *, frozen_delta_integral: float,
     max_iterations: int = 100, tolerance: float = 2.0e-14,
+    source_fit_degree: int = 3, source_fit_r_max: float = 2.5,
+    include_fit_scan: bool = True,
 ) -> tuple[dict[str, np.ndarray], dict]:
     """Iterate corrected origin moment and its metric/source map on a copied state.
 
@@ -489,6 +491,8 @@ def _origin_half_cell_self_consistent_counterfactual(
     """
     if max_iterations < 6 or tolerance <= 0.0:
         raise ValueError("invalid self-consistent origin iteration controls")
+    if source_fit_degree not in (3, 4, 5) or source_fit_r_max not in (2.5, 3.0, 3.5):
+        raise ValueError("origin fit-family comparison expects degree 3/4/5 and radius 2.5/3.0/3.5")
     from engine.scalar_system import cosmos_potential
     from engine.v55_matter import RHO_B_PRESENT, RHO_DM_PRESENT, RHO_R_PRESENT
 
@@ -520,33 +524,55 @@ def _origin_half_cell_self_consistent_counterfactual(
             raise FloatingPointError("non-finite source in copied initializer recurrence")
         return source
 
-    def fit_even(source: np.ndarray, fit_r_max: float) -> dict:
+    def fit_even(source: np.ndarray, fit_r_max: float, degree: int = source_fit_degree) -> dict:
         mask = r <= float(fit_r_max)
         x, nfit = r[mask]**2, int(np.count_nonzero(mask))
-        if nfit < 4:
-            raise ValueError("even-source fit needs at least four samples")
-        design = np.column_stack((np.ones(nfit), x, x*x, x*x*x))
+        if nfit < degree + 1:
+            raise ValueError(
+                f"even-source degree-{degree} fit at r<={fit_r_max} has only {nfit} samples"
+            )
+        design = np.column_stack([x**power for power in range(degree + 1)])
         coeff, *_ = np.linalg.lstsq(design, source[mask], rcond=None)
         residual = source[mask] - design@coeff
-        integral = _even_half_cell_integral(coeff, r0)
-        return {
+        integral = float(sum(
+            value * r0 ** (2 * power + 1) / (2 * power + 1)
+            for power, value in enumerate(coeff)
+        ))
+        result = {
             "fit_r_max": float(fit_r_max), "fit_cells": nfit,
-            "coefficients_s0_s2_s4_s6": [float(v) for v in coeff],
+            "degree_in_r_squared": int(degree),
+            "overdetermined": bool(nfit >= degree + 2),
+            "coefficients_s_even": [float(v) for v in coeff],
             "fit_max_abs_residual": _max_abs(residual),
             "fit_rms_residual": float(np.sqrt(np.mean(residual*residual))),
             "half_cell_integral": float(integral),
             "delta_integral_vs_point_sample": float(integral-r0*source[0]),
         }
+        if degree == 3:
+            result["coefficients_s0_s2_s4_s6"] = [float(v) for v in coeff]
+        return result
 
     def integrate_original(source: np.ndarray) -> np.ndarray:
         return np.cumsum(np.r_[r0*source[0], 0.5*dr*(source[1:]+source[:-1])])/r
 
     def integrate_corrected(source: np.ndarray) -> tuple[np.ndarray, dict]:
-        fit25, fit30 = fit_even(source, 2.5), fit_even(source, 3.0)
-        Bnext = np.cumsum(np.r_[fit25["half_cell_integral"], 0.5*dr*(source[1:]+source[:-1])])/r
+        fit25 = fit_even(source, 2.5) if np.count_nonzero(r <= 2.5) >= source_fit_degree + 1 else None
+        fit30 = fit_even(source, 3.0) if np.count_nonzero(r <= 3.0) >= source_fit_degree + 1 else None
+        selected = fit_even(source, source_fit_r_max, source_fit_degree)
+        alternative = fit30 if source_fit_r_max == 2.5 else fit25
+        sensitivity = (
+            abs(fit30["half_cell_integral"] - fit25["half_cell_integral"])
+            if fit25 is not None and fit30 is not None else None
+        )
+        Bnext = np.cumsum(np.r_[
+            selected["half_cell_integral"], 0.5*dr*(source[1:]+source[:-1])
+        ])/r
         return Bnext, {
-            "fit_r_le_2_5": fit25, "fit_r_le_3_0": fit30,
-            "fit_window_integral_sensitivity_abs": float(abs(fit30["half_cell_integral"]-fit25["half_cell_integral"])),
+            "selected_fit": selected,
+            "fit_r_le_2_5": fit25,
+            "fit_r_le_3_0": fit30,
+            "comparison_fit": alternative,
+            "fit_window_integral_sensitivity_abs": float(sensitivity) if sensitivity is not None else None,
         }
 
     # Internal control: reconstruct the production point-sampled recurrence.
@@ -575,9 +601,15 @@ def _origin_half_cell_self_consistent_counterfactual(
         history.append({
             "iteration": iteration, "max_abs_B_update": float(last_update),
             "max_relative_B_update": float(last_update/scale),
-            "delta_integral_applied": float(metadata["fit_r_le_2_5"]["delta_integral_vs_point_sample"]),
-            "fit_r_le_2_5_max_abs_residual": float(metadata["fit_r_le_2_5"]["fit_max_abs_residual"]),
-            "fit_window_integral_sensitivity_abs": float(metadata["fit_window_integral_sensitivity_abs"]),
+            "source_fit_degree_in_r_squared": int(source_fit_degree),
+            "source_fit_r_max": float(source_fit_r_max),
+            "delta_integral_applied": float(metadata["selected_fit"]["delta_integral_vs_point_sample"]),
+            "selected_fit_max_abs_residual": float(metadata["selected_fit"]["fit_max_abs_residual"]),
+            "fit_r_le_2_5_max_abs_residual": (
+                float(metadata["fit_r_le_2_5"]["fit_max_abs_residual"])
+                if metadata["fit_r_le_2_5"] is not None else None
+            ),
+            "fit_window_integral_sensitivity_abs": metadata["fit_window_integral_sensitivity_abs"],
         })
         B = Bnext
         if iteration == 6:
@@ -666,7 +698,7 @@ def _origin_half_cell_self_consistent_counterfactual(
             "loo_qualified_fit_count": int(sum(row["leave_one_cell_out_rms_residual"] is not None for row in rows)),
         }
 
-    fit_scan = fit_sensitivity_scan(src_fixed)
+    fit_scan = fit_sensitivity_scan(src_fixed) if include_fit_scan else None
 
     def make_metric(Bprofile: np.ndarray, tag: str, source_profile: np.ndarray):
         if np.any(~np.isfinite(Bprofile)) or np.any(Bprofile <= 0.0):
@@ -746,9 +778,12 @@ def _origin_half_cell_self_consistent_counterfactual(
             "six_step_history": history[:6], "tail_history": history[-min(5, len(history)):],
         },
         "corrected_source": {
-            "six_step_delta_integral": float(fit_meta_six["fit_r_le_2_5"]["delta_integral_vs_point_sample"]),
-            "fixed_point_delta_integral": float(fixed_meta["fit_r_le_2_5"]["delta_integral_vs_point_sample"]),
-            "fixed_point_fit_window_sensitivity_abs": float(fixed_meta["fit_window_integral_sensitivity_abs"]),
+            "source_fit_degree_in_r_squared": int(source_fit_degree),
+            "source_fit_r_max": float(source_fit_r_max),
+            "six_step_delta_integral": float(fit_meta_six["selected_fit"]["delta_integral_vs_point_sample"]),
+            "fixed_point_delta_integral": float(fixed_meta["selected_fit"]["delta_integral_vs_point_sample"]),
+            "fixed_point_fit_window_sensitivity_abs": fixed_meta["fit_window_integral_sensitivity_abs"],
+            "fixed_point_fit_selected": fixed_meta["selected_fit"],
             "fixed_point_fit_r_le_2_5": fixed_meta["fit_r_le_2_5"],
             "fixed_point_fit_r_le_3_0": fixed_meta["fit_r_le_3_0"],
             "fit_degree_window_sensitivity_scan": fit_scan,
