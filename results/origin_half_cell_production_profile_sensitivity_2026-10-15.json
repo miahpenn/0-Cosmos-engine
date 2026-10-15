@@ -1,0 +1,111 @@
+{
+  "schema": "origin_half_cell_production_profile_sensitivity_summary_v1",
+  "status": "completed_diagnostic_only",
+  "provenance": {
+    "artifact_id": 11993174037,
+    "workflow_run_id": 38776498208,
+    "artifact_zip_sha256": "ff667892633d20c17fda62ceb9752de420f79276d0681ed9e8195dd1cb65f5c2",
+    "report_json_sha256": "f2907932df5d76a0fb3377da7dcdb4e9bc11cf516b83b0769e3143178b4fe64f",
+    "profiles_npz_sha256": "b9d2a849a3f32867dead913ca86eb61e8a6210b7db25629a9590315e67553587",
+    "source_commit": "285a2ee0c1a3b97cddeb4519d8e749109b115aab",
+    "base_main_sha_with_matching_source_blobs": "6398620b85b7f5a027de0532ded80bdf04a9b53b",
+    "vendor_commit": "d6052d605673ce9d82cdc99b0df79855fa2ea215",
+    "audit_head": "95a1e2036736f20ee21bf62497a7b0f08d831346",
+    "source_blob_pin_count": 11,
+    "source_blob_pins_match_expected": true,
+    "resolutions": [
+      160,
+      240,
+      320
+    ],
+    "radial_domain_max": 80,
+    "evolution_steps": 0
+  },
+  "method": {
+    "fixed_window": "degree-3 least squares in r^2 using saved cell-centred source samples with r <= 2.5",
+    "local_window": "degree-3 least squares in r^2 using the first six cell-centred source samples; support radius is 6*dr",
+    "reported_signed_quantity": "fitted half-cell moment minus production point-sampled moment r0*s(r0); correction, not true quadrature error",
+    "production_exact_half_cell_integral_available": false,
+    "first_cell_mapping": "B=I/r0; X^6=B; a=X^-4; b=X^2; algebraic sensitivity only, not a self-consistent initializer re-solve"
+  },
+  "results": [
+    {
+      "resolution": 160,
+      "dr": 0.5,
+      "fixed_sample_count": 5,
+      "fixed_correction_vs_point_moment": 0.000013044786109028816,
+      "fixed_first_cell_B_shift": 0.000052179144436115266,
+      "local_sample_count": 6,
+      "local_correction_vs_point_moment": 0.000013007981638529786,
+      "local_first_cell_B_shift": 0.000052031926554119146,
+      "local_minus_fixed_moment": -3.680447049903e-8,
+      "local_minus_fixed_B_shift": -1.4721788199e-7,
+      "local_minus_fixed_X_shift": -2.453685e-8,
+      "local_minus_fixed_a_shift": 9.8149547e-8,
+      "local_minus_fixed_b_shift": -4.9073486e-8,
+      "local_minus_fixed_as_percent_of_fixed_correction": -0.2821393,
+      "four_fit_family_absolute_correction_span": 4.3576945885e-8,
+      "four_fit_family_span_percent": 0.3340564
+    },
+    {
+      "resolution": 240,
+      "dr": 0.3333333333333333,
+      "fixed_sample_count": 8,
+      "fixed_correction_vs_point_moment": 0.000003856615746727909,
+      "fixed_first_cell_B_shift": 0.000023139694480367456,
+      "local_sample_count": 6,
+      "local_correction_vs_point_moment": 0.000003872216767369929,
+      "local_first_cell_B_shift": 0.000023233300604219576,
+      "local_minus_fixed_moment": 1.5601020642e-8,
+      "local_minus_fixed_B_shift": 9.3606123963e-8,
+      "local_minus_fixed_X_shift": 1.5601173e-8,
+      "local_minus_fixed_a_shift": -6.2405298e-8,
+      "local_minus_fixed_b_shift": 3.1202284e-8,
+      "local_minus_fixed_as_percent_of_fixed_correction": 0.4045262,
+      "four_fit_family_absolute_correction_span": 4.5443049296e-8,
+      "four_fit_family_span_percent": 1.1783142
+    },
+    {
+      "resolution": 320,
+      "dr": 0.25,
+      "fixed_sample_count": 10,
+      "fixed_correction_vs_point_moment": 0.0000016261477410045577,
+      "fixed_first_cell_B_shift": 0.000013009181928036462,
+      "local_sample_count": 6,
+      "local_correction_vs_point_moment": 0.0000016349499936674228,
+      "local_first_cell_B_shift": 0.000013079599949339379,
+      "local_minus_fixed_moment": 8.8022526767e-9,
+      "local_minus_fixed_B_shift": 7.0418021414e-8,
+      "local_minus_fixed_X_shift": 1.1736401e-8,
+      "local_minus_fixed_a_shift": -4.6945862e-8,
+      "local_minus_fixed_b_shift": 2.3472777e-8,
+      "local_minus_fixed_as_percent_of_fixed_correction": 0.5412948,
+      "four_fit_family_absolute_correction_span": 3.9140799643e-8,
+      "four_fit_family_span_percent": 2.4069645
+    }
+  ],
+  "cross_resolution_scaling": [
+    {
+      "coarse_resolution": 160,
+      "fine_resolution": 240,
+      "observed_order_of_fixed_fit_correction": 3.0054336325,
+      "observed_order_of_first_cell_B_shift": 2.0054336325
+    },
+    {
+      "coarse_resolution": 240,
+      "fine_resolution": 320,
+      "observed_order_of_fixed_fit_correction": 3.0018421843,
+      "observed_order_of_first_cell_B_shift": 2.0018421843
+    }
+  ],
+  "interpretation_limits": [
+    "Production-source samples have no independently known exact continuous half-cell integral.",
+    "Fit residuals and leave-one-out residuals are sampled-source diagnostics, not a rigorous continuum error bound.",
+    "Agreement of two fits is sensitivity evidence, not proof that either fit is exact.",
+    "The local support changes physical radius with resolution.",
+    "Algebraic first-cell metric sensitivity is not a self-consistent copied-initializer re-solve."
+  ],
+  "production_or_vendor_files_modified": false,
+  "no_evolution": true,
+  "scientific_admission": false
+}
