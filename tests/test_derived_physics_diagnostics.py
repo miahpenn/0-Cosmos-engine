@@ -2,7 +2,7 @@ import math
 import unittest
 
 from tools.derived_physics_diagnostics import (
-    bianchi_ix_S_tau_derivative,
+    bianchi_ix_log_volume_second_derivative,
     bianchi_ix_trace_term,
     directional_kasner_exponents,
     heron_discriminant,
@@ -57,21 +57,21 @@ class BianchiIXDiagnosticsTests(unittest.TestCase):
         self.assertEqual(bianchi_ix_trace_term(1.0, 1.0, (0.0, 2.0, 4.0)), -3.0)
         self.assertEqual(bianchi_ix_trace_term(1.0, 1.0, (1.0, 1.0, 1.0)), 0.0)
 
-    def test_S_slope_contains_trace_corrected_term(self):
-        # For a=b=c=1, T=3 and V=1. Isotropic stiff pressure makes trace correction zero.
+    def test_log_volume_second_derivative_is_K_prime_with_trace_corrected_term(self):
+        # L=sum(alpha_i), K=L'=sum(alpha_i'); the helper returns K'=L''. For a=b=c=1, T=3 and V=1.
         self.assertAlmostEqual(
-            bianchi_ix_S_tau_derivative((1.0, 1.0, 1.0), 1.0, (1.0, 1.0, 1.0)),
+            bianchi_ix_log_volume_second_derivative((1.0, 1.0, 1.0), 1.0, (1.0, 1.0, 1.0)),
             -1.5,
         )
-        # Pressures (0,2,4) sum to 6; for rho=1 the trace correction is -3 and S'=-3.
+        # Pressures (0,2,4) sum to 6; for rho=1 the trace correction is -3 and K'=L''=-3.
         self.assertAlmostEqual(
-            bianchi_ix_S_tau_derivative((1.0, 1.0, 1.0), 1.0, (0.0, 2.0, 4.0)),
+            bianchi_ix_log_volume_second_derivative((1.0, 1.0, 1.0), 1.0, (0.0, 2.0, 4.0)),
             -3.0,
         )
 
     def test_scalar_kasner_square_sum_formula_and_vacuum_control(self):
         self.assertEqual(scalar_kasner_exponent_square_sum(0.0, 5.0), 1.0)
-        self.assertAlmostEqual(scalar_kasner_exponent_square_sum(0.5, 1.0), 0.75)
+        self.assertAlmostEqual(scalar_kasner_exponent_square_sum(phi_prime=0.5, K=1.0), 0.75)
         with self.assertRaisesRegex(ValueError, "strictly positive"):
             scalar_kasner_exponent_square_sum(0.5, 0.0)
 
