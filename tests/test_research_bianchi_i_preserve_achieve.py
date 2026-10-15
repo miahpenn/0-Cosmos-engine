@@ -8,6 +8,7 @@ import pytest
 from tools.audit_bianchi_i_preserve_achieve import (
     run_benchmark_suite,
     run_unsourced_case,
+    gear45_shear_norm_source,
     slope_domega_dcontraction_efold,
     slope_domega_dln_a,
     slope_with_sources_dln_a,
@@ -64,21 +65,67 @@ def test_source_aware_formula_reduces_to_free_identity() -> None:
     assert math.isclose(got, slope_domega_dln_a(0.2, 2.0), rel_tol=0.0, abs_tol=1.0e-14)
 
 
-def test_anisotropic_shear_source_changes_marginal_preserve_case() -> None:
-    sigma2, rho = 0.2, 0.8
-    H = -math.sqrt((sigma2 + rho) / 3.0)
-    unsourced = slope_with_sources_dln_a(
-        sigma2=sigma2, rho=rho, w=1.0, H=H
+def test_gear45_source_and_opposite_exchange_derive_a6_slope() -> None:
+    # GEAR 45 supplies this gamma_i row (gamma_star=17) and isotropic gamma=5.
+    # It does not pin a unique numerical mu/sigma_i initial state, so this is an
+    # explicit constructed equation-level fixture, not an archived trajectory.
+    gamma_i = (12.0, 18.0, 21.0)
+    gamma_star = sum(gamma_i) / 3.0
+    anisotropic_pressures = tuple(value - gamma_star for value in gamma_i)
+    sigma2 = 0.2
+    sigma_scale = math.sqrt(2.0 * sigma2 / sum(value**2 for value in anisotropic_pressures))
+    sigma_i = tuple(sigma_scale * value for value in anisotropic_pressures)
+    mu = 0.1
+    rho_isotropic = 0.7
+    rho_total = rho_isotropic + mu
+    gamma_isotropic = 5.0
+    w_eff = (
+        (gamma_isotropic - 1.0) * rho_isotropic
+        + (gamma_star - 1.0) * mu
+    ) / rho_total
+    H = -math.sqrt((sigma2 + rho_total) / 3.0)
+
+    sigma2_source = gear45_shear_norm_source(
+        mu=mu, sigma_i=sigma_i, gamma_i=gamma_i
     )
-    sourced = slope_with_sources_dln_a(
+    expected_source = mu * sum(
+        sigma * pressure for sigma, pressure in zip(sigma_i, anisotropic_pressures)
+    )
+    assert math.isclose(sum(sigma_i), 0.0, rel_tol=0.0, abs_tol=1.0e-14)
+    assert math.isclose(0.5 * sum(sigma * sigma for sigma in sigma_i), sigma2, rel_tol=0.0, abs_tol=1.0e-14)
+    assert math.isclose(sigma2_source, expected_source, rel_tol=0.0, abs_tol=1.0e-14)
+    assert math.isclose(sigma2_source, mu * math.sqrt(2.0 * sigma2 * sum(p * p for p in anisotropic_pressures)), rel_tol=0.0, abs_tol=1.0e-14)
+    assert sigma2_source > 0.0
+
+    got = slope_with_sources_dln_a(
         sigma2=sigma2,
-        rho=rho,
-        w=1.0,
+        rho=rho_total,
+        w=w_eff,
         H=H,
-        sigma2_source=0.03,
+        sigma2_source=sigma2_source,
+        rho_exchange=-sigma2_source,
     )
-    assert unsourced == 0.0
-    assert math.isclose(sourced, -0.041569219381653054, rel_tol=0.0, abs_tol=1.0e-14)
+
+    # Independent quotient-rule check using the GEAR-45 component ODEs:
+    # dot(sigma2) = -6 H sigma2 + S_sigma; dot(rho+mu) = -3 H(1+w_eff)(rho+mu) - S_sigma.
+    omega_denominator = sigma2 + rho_total
+    sigma2_dot = -6.0 * H * sigma2 + expected_source
+    rho_total_dot = -3.0 * H * (1.0 + w_eff) * rho_total - expected_source
+    omega_dot = (
+        sigma2_dot * rho_total - sigma2 * rho_total_dot
+    ) / (omega_denominator * omega_denominator)
+    expected_slope = omega_dot / H
+    assert math.isclose(got, expected_slope, rel_tol=0.0, abs_tol=1.0e-14)
+
+    wrong_sign = slope_with_sources_dln_a(
+        sigma2=sigma2,
+        rho=rho_total,
+        w=w_eff,
+        H=H,
+        sigma2_source=-sigma2_source,
+        rho_exchange=sigma2_source,
+    )
+    assert not math.isclose(got, wrong_sign, rel_tol=0.0, abs_tol=1.0e-8)
 
 
 def test_energy_exchange_changes_marginal_preserve_case() -> None:
@@ -165,3 +212,28 @@ def test_deterministic_benchmark_report_is_bounded_and_admission_gated() -> None
     assert report["all_checks_passed"] is True
     assert report["scientific_admission"] == "NOT ADMITTED"
     assert "no production-engine calls" in report["model_scope"]
+
+def test_gear45_source_changes_sign_when_shear_orientation_is_reversed() -> None:
+    gamma_i = (12.0, 18.0, 21.0)
+    sigma_i = (-0.5, 0.1, 0.4)  # trace-free, deliberately not tied to archive initial data
+    source = gear45_shear_norm_source(mu=0.1, sigma_i=sigma_i, gamma_i=gamma_i)
+    reversed_source = gear45_shear_norm_source(
+        mu=0.1,
+        sigma_i=tuple(-value for value in sigma_i),
+        gamma_i=gamma_i,
+    )
+
+    assert source > 0.0
+    assert math.isclose(reversed_source, -source, rel_tol=0.0, abs_tol=1.0e-14)
+
+
+def test_gear45_source_vanishes_for_isotropic_directional_pressure() -> None:
+    sigma_i = (-0.5, 0.1, 0.4)
+    source = gear45_shear_norm_source(
+        mu=0.1,
+        sigma_i=sigma_i,
+        gamma_i=(5.0, 5.0, 5.0),
+    )
+
+    assert source == 0.0
+
