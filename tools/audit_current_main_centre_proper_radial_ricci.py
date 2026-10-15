@@ -477,20 +477,17 @@ def _lambda_chain_rule_counterfactual(
 
 def _origin_half_cell_self_consistent_counterfactual(
     grid, state, vacuum, *, frozen_delta_integral: float,
-    analytic_half_cell_integral: float | None = None,
     max_iterations: int = 100, tolerance: float = 2.0e-14,
     source_fit_degree: int = 3, source_fit_r_max: float = 2.5,
     include_fit_scan: bool = True,
 ) -> tuple[dict[str, np.ndarray], dict]:
     """Iterate corrected origin moment and its metric/source map on a copied state.
 
-    Every iterate recomputes the Hamiltonian source from its current B metric.
-    By default, it fits an even source series on fixed physical support; when
-    analytic_half_cell_integral is supplied, that independently derived
-    continuum first-half-cell integral replaces only the fitted half-cell
-    moment. Inter-centre trapezoids are preserved. Reports both a six-step
-    counterpart to the pinned initializer and a converged fixed point. The
-    initialized engine state is never modified or evolved.
+    Every iterate recomputes the Hamiltonian source from its current B metric,
+    fits an even source series on fixed physical support, corrects only the
+    origin half-cell integral, and preserves inter-centre trapezoids. Reports
+    both a six-step counterpart to the pinned initializer and a converged
+    fixed point. The initialized engine state is never modified or evolved.
     """
     if max_iterations < 6 or tolerance <= 0.0:
         raise ValueError("invalid self-consistent origin iteration controls")
@@ -567,17 +564,8 @@ def _origin_half_cell_self_consistent_counterfactual(
             abs(fit30["half_cell_integral"] - fit25["half_cell_integral"])
             if fit25 is not None and fit30 is not None else None
         )
-        if analytic_half_cell_integral is None:
-            half_cell_integral = float(selected["half_cell_integral"])
-            applied_method = "even_polynomial_fit"
-        else:
-            half_cell_integral = float(analytic_half_cell_integral)
-            if not np.isfinite(half_cell_integral) or half_cell_integral <= 0.0:
-                raise ValueError("analytic half-cell integral must be finite and positive")
-            applied_method = "analytic_continuous_half_cell_integral"
-        delta_applied = float(half_cell_integral-r0*source[0])
         Bnext = np.cumsum(np.r_[
-            half_cell_integral, 0.5*dr*(source[1:]+source[:-1])
+            selected["half_cell_integral"], 0.5*dr*(source[1:]+source[:-1])
         ])/r
         return Bnext, {
             "selected_fit": selected,
@@ -585,9 +573,6 @@ def _origin_half_cell_self_consistent_counterfactual(
             "fit_r_le_3_0": fit30,
             "comparison_fit": alternative,
             "fit_window_integral_sensitivity_abs": float(sensitivity) if sensitivity is not None else None,
-            "half_cell_integral_applied": half_cell_integral,
-            "delta_integral_applied": delta_applied,
-            "applied_method": applied_method,
         }
 
     # Internal control: reconstruct the production point-sampled recurrence.
@@ -618,9 +603,7 @@ def _origin_half_cell_self_consistent_counterfactual(
             "max_relative_B_update": float(last_update/scale),
             "source_fit_degree_in_r_squared": int(source_fit_degree),
             "source_fit_r_max": float(source_fit_r_max),
-            "delta_integral_applied": float(metadata["delta_integral_applied"]),
-            "half_cell_integral_applied": float(metadata["half_cell_integral_applied"]),
-            "half_cell_integral_method": metadata["applied_method"],
+            "delta_integral_applied": float(metadata["selected_fit"]["delta_integral_vs_point_sample"]),
             "selected_fit_max_abs_residual": float(metadata["selected_fit"]["fit_max_abs_residual"]),
             "fit_r_le_2_5_max_abs_residual": (
                 float(metadata["fit_r_le_2_5"]["fit_max_abs_residual"])
@@ -797,14 +780,8 @@ def _origin_half_cell_self_consistent_counterfactual(
         "corrected_source": {
             "source_fit_degree_in_r_squared": int(source_fit_degree),
             "source_fit_r_max": float(source_fit_r_max),
-            "six_step_delta_integral": float(fit_meta_six["delta_integral_applied"]),
-            "fixed_point_delta_integral": float(fixed_meta["delta_integral_applied"]),
-            "half_cell_integral_method": fit_meta_six["applied_method"],
-            "analytic_half_cell_integral_override": (
-                float(analytic_half_cell_integral)
-                if analytic_half_cell_integral is not None else None
-            ),
-            "fixed_point_half_cell_integral_applied": float(fixed_meta["half_cell_integral_applied"]),
+            "six_step_delta_integral": float(fit_meta_six["selected_fit"]["delta_integral_vs_point_sample"]),
+            "fixed_point_delta_integral": float(fixed_meta["selected_fit"]["delta_integral_vs_point_sample"]),
             "fixed_point_fit_window_sensitivity_abs": fixed_meta["fit_window_integral_sensitivity_abs"],
             "fixed_point_fit_selected": fixed_meta["selected_fit"],
             "fixed_point_fit_r_le_2_5": fixed_meta["fit_r_le_2_5"],
