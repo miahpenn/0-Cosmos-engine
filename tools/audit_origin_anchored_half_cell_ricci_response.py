@@ -472,10 +472,14 @@ def run_audit(output_dir: Path = OUT) -> dict[str, Any]:
                 "first_six_max_abs_ricci_gap": float(_max_abs(baseline_gap[:6])),
             },
             "counterfactual_modes": per_mode,
+            "same_source_estimator_contrasts": same_source_contrasts,
             "anchoring_effect_same_fixed_window": {
                 "free_fit_fixed_point_moment_correction": delta_free,
                 "anchored_fit_fixed_point_moment_correction": delta_anchor,
                 "anchored_minus_free_moment_correction": float(delta_anchor - delta_free),
+                "intercept_only_fixed_point_moment_correction": delta_intercept,
+                "intercept_only_minus_free_moment_correction": float(delta_intercept - delta_free),
+                "constrained_anchor_minus_intercept_only_moment_correction": float(delta_anchor - delta_intercept),
                 "moment_change_relative_to_free_correction_percent": float(
                     100.0 * (delta_anchor - delta_free) / delta_free
                 ),
@@ -484,11 +488,27 @@ def run_audit(output_dir: Path = OUT) -> dict[str, Any]:
                 "anchored_minus_free_first_two_signed_gap": [
                     float(a - b) for a, b in zip(gap_anchor, gap_free)
                 ],
+                "intercept_only_fixed_point_first_two_signed_gaps": gap_intercept,
+                "intercept_only_minus_free_first_two_signed_gap": [
+                    float(a - b) for a, b in zip(gap_intercept, gap_free)
+                ],
+                "constrained_anchor_minus_intercept_only_first_two_signed_gap": [
+                    float(a - b) for a, b in zip(gap_anchor, gap_intercept)
+                ],
                 "free_fit_first_six_max_abs_gap": free_fixed["ricci"]["fixed_point_first_six_max_abs_gap"],
                 "anchored_fit_first_six_max_abs_gap": anchored_fixed["ricci"]["fixed_point_first_six_max_abs_gap"],
                 "anchored_fit_to_free_fit_first_six_gap_ratio": float(
                     anchored_fixed["ricci"]["fixed_point_first_six_max_abs_gap"]
                     / max(free_fixed["ricci"]["fixed_point_first_six_max_abs_gap"], np.finfo(float).tiny)
+                ),
+                "intercept_only_first_six_max_abs_gap": intercept_only["ricci"]["fixed_point_first_six_max_abs_gap"],
+                "intercept_only_to_free_first_six_gap_ratio": float(
+                    intercept_only["ricci"]["fixed_point_first_six_max_abs_gap"]
+                    / max(free_fixed["ricci"]["fixed_point_first_six_max_abs_gap"], np.finfo(float).tiny)
+                ),
+                "constrained_to_intercept_only_first_six_gap_ratio": float(
+                    anchored_fixed["ricci"]["fixed_point_first_six_max_abs_gap"]
+                    / max(intercept_only["ricci"]["fixed_point_first_six_max_abs_gap"], np.finfo(float).tiny)
                 ),
                 "local_anchored_moment_correction": delta_local,
                 "local_anchored_minus_fixed_anchored_moment": float(delta_local - delta_anchor),
@@ -510,6 +530,7 @@ def run_audit(output_dir: Path = OUT) -> dict[str, Any]:
             "regularity_basis": "s(r)=1 + O(r^2), since all non-constant source terms are multiplied by r^2",
             "fixed_fit_support": "r <= 2.5 including any cell centre exactly at r=2.5",
             "local_fit_support": "first six cell centres, radius 6*dr",
+            "intercept_only_control": "fit unconstrained, then replace only c0 by 1 while retaining higher coefficients; diagnostic contrast distinct from constrained least-squares fit",
             "fixed_point_iteration": "source recomputed for current B on each copied iterate; only first half-cell moment changes; inter-centre trapezoid intervals remain",
             "ricci_discriminator": "pinned vendor trace-free Ricci minus independent proper-radial warped-product reconstruction using the same pinned grid derivative operator",
         },
