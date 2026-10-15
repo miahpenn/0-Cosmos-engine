@@ -302,3 +302,69 @@ def test_manufactured_lambda_parity_arms_keep_metric_fixed():
         bad_q = arrays[f"{tag}_negative_control_even_Lambda_over_r"][:2]
         assert np.all(np.isfinite(discrete_q))
         assert np.max(np.abs(bad_q)) > 5.0 * max(np.max(np.abs(discrete_q)), 1.0e-12)
+
+
+def test_evolved_lambda_d4_split_closes_and_separates_stencil_channel():
+    """Separate D4(connection residual) from the metric-profile chain-rule shift."""
+    from tools.audit_current_main_centre_proper_radial_ricci import (
+        _lambda_chain_rule_counterfactual,
+    )
+    from tools.audit_evolved_centre_ricci_step_budget import (
+        _lambda_derivative_channel_split,
+    )
+
+    grid_ops, _, _ = vendor_modules()
+    grid = grid_ops.SphericalCellGrid(48, 8.0)
+    r = np.asarray(grid.centers, dtype=float)
+    d1 = lambda values, parity=1: grid.cell_derivative_fourth(values, parity=parity)
+    a = 1.0 + 1.0e-2 * r**2 + 1.0e-4 * r**4
+    b = 1.0 - 2.0e-3 * r**2 + 1.0e-5 * r**4
+    X = 1.0 + 5.0e-4 * r**2
+    Lambda_metric = (
+        d1(a, 1) / (2.0 * a * a)
+        - d1(b, 1) / (a * b)
+        + 2.0 / r * (1.0 / b - 1.0 / a)
+    )
+    # An odd smooth connection-residual perturbation provides an independent
+    # D4(Lambda_evolved)-D4(Lambda_metric) channel.
+    Lambda_evolved = Lambda_metric + 2.0e-4 * r * np.exp(-r * r)
+    vendor_r = 2.0e-3 + 1.0e-4 * r**2
+    vendor_scalar = -1.0e-3 + 2.0e-4 * r**2
+    direct_tf = 3.0e-4 - 1.0e-5 * r**2
+    vendor_terms = {"Rr_r": vendor_r, "R": vendor_scalar}
+    chain_arrays, summary = _lambda_chain_rule_counterfactual(
+        grid, r, a, b, X, Lambda_evolved, vendor_terms, direct_tf
+    )
+    gap_evolved = vendor_r - vendor_scalar / 3.0 - direct_tf
+    gap_chain = chain_arrays["lambda_chain_rule_vendor_minus_direct_tf_ricci"]
+    split = _lambda_derivative_channel_split(
+        grid,
+        X,
+        Lambda_evolved,
+        Lambda_metric,
+        chain_arrays["lambda_prime_chain_rule"],
+        gap_evolved,
+        gap_chain,
+    )
+
+    np.testing.assert_allclose(
+        split["gap_chain_rule_reconstructed_from_two_shifts"],
+        gap_chain,
+        rtol=1.0e-13,
+        atol=2.0e-15,
+    )
+    scale = max(
+        float(np.max(np.abs(gap_evolved))),
+        float(np.max(np.abs(gap_chain))),
+        float(np.max(np.abs(split["ricci_shift_connection_residual_D4"]))),
+        float(np.max(np.abs(split["ricci_shift_metric_stencil_chain_rule"]))),
+        np.finfo(float).tiny,
+    )
+    assert float(np.max(np.abs(split["lambda_derivative_channel_split_closure_error"]))) <= (
+        1024.0 * np.finfo(np.float64).eps * scale
+    )
+    assert np.max(np.abs(split["ricci_shift_connection_residual_D4"])) > 1.0e-10
+    assert np.max(np.abs(split["ricci_shift_metric_stencil_chain_rule"])) > 1.0e-12
+    assert summary["production_or_vendor_code_changed"] is False
+    assert summary["evolution_steps"] == 0
+
