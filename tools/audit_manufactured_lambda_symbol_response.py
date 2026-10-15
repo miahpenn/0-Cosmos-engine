@@ -289,9 +289,10 @@ def _evaluate_modes(
             "max_abs_chain_rule_gap_change": _max_abs(chain_gap_change),
             "max_abs_chain_rule_algebraic_only_closure_error": max_chain_closure,
             "max_abs_Aa_L3_RHS_delta": _max_abs(observed_aa_l3_rhs_delta),
-            "max_abs_predicted_alpha_times_Ricci_response": _max_abs(predicted_aa_l3_rhs_delta),
+            "max_abs_Lambda_L3_RHS_delta": _max_abs(observed_lambda_l3_rhs_delta),
             "max_abs_Aa_L2_RHS_delta": _max_abs(observed_aa_l2_rhs_delta),
             "max_abs_predicted_alpha_times_Ricci_response": _max_abs(predicted_aa_l2_rhs_delta),
+            "max_abs_Lambda_L2_RHS_delta": _max_abs(observed_lambda_l2_rhs_delta),
             "max_abs_Aa_L2_RHS_response_identity_closure": _max_abs(aa_l2_rhs_response_closure),
             "max_abs_chainrule_adjusted_Aa_L2_RHS_delta": _max_abs(chainrule_adjusted_aa_l2_rhs_delta),
             "max_abs_chainrule_Aa_L2_algebraic_only_closure_error": _max_abs(chainrule_aa_l2_algebraic_closure),
@@ -491,9 +492,10 @@ def main() -> int:
             "derivative_Ricci_response_absmax", "algebraic_Ricci_response_absmax",
             "observed_Ricci_gap_delta_absmax", "response_closure_error_absmax",
             "chain_rule_gap_change_absmax", "chain_rule_algebraic_closure_absmax",
-            "Aa_L3_RHS_delta_absmax", "Aa_L2_RHS_identity_closure_absmax",
+            "Aa_L3_RHS_delta_absmax", "Lambda_L3_RHS_delta_absmax",
+            "Aa_L2_RHS_delta_absmax", "Aa_L2_RHS_identity_closure_absmax",
             "chainrule_Aa_L2_delta_absmax", "chainrule_Aa_L2_algebraic_closure_absmax",
-            "Lambda_L3_RHS_delta_absmax",
+            "Lambda_L2_RHS_delta_absmax",
         ])
         for row in rows:
             for mode in row["mode_results"]:
@@ -509,10 +511,12 @@ def main() -> int:
                     mode["max_abs_response_closure_error"], mode["max_abs_chain_rule_gap_change"],
                     mode["max_abs_chain_rule_algebraic_only_closure_error"],
                     mode["max_abs_Aa_L3_RHS_delta"],
+                    mode["max_abs_Lambda_L3_RHS_delta"],
+                    mode["max_abs_Aa_L2_RHS_delta"],
                     mode["max_abs_Aa_L2_RHS_response_identity_closure"],
                     mode["max_abs_chainrule_adjusted_Aa_L2_RHS_delta"],
                     mode["max_abs_chainrule_Aa_L2_algebraic_only_closure_error"],
-                    mode["max_abs_Lambda_L3_RHS_delta"],
+                    mode["max_abs_Lambda_L2_RHS_delta"],
                 ])
     profile_path = OUT / "profiles.npz"
     np.savez_compressed(profile_path, **all_profiles)
