@@ -4,6 +4,11 @@ on:
   pull_request_target:
     types: [opened, reopened, synchronize, ready_for_review, converted_to_draft, closed, assigned, unassigned, labeled, unlabeled, review_requested, review_request_removed]
   workflow_run:
+    workflows:
+      - Lightweight validation
+      - Strict JSON residual reporting contract
+      - Strict campaign plus radiation retry integration
+      - Diagnostic - trace-free Ricci / proper-radial reconciliation
     types: [completed]
   workflow_dispatch:
 
