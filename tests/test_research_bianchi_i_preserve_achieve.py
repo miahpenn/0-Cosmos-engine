@@ -78,8 +78,7 @@ def test_anisotropic_shear_source_changes_marginal_preserve_case() -> None:
         sigma2_source=0.03,
     )
     assert unsourced == 0.0
-    assert math.isfinite(sourced)
-    assert sourced != 0.0
+    assert math.isclose(sourced, -0.041569219381653054, rel_tol=0.0, abs_tol=1.0e-14)
 
 
 def test_energy_exchange_changes_marginal_preserve_case() -> None:
@@ -96,8 +95,7 @@ def test_energy_exchange_changes_marginal_preserve_case() -> None:
         rho_exchange=0.04,
     )
     assert unsourced == 0.0
-    assert math.isfinite(exchanged)
-    assert exchanged != 0.0
+    assert math.isclose(exchanged, 0.013856406460551019, rel_tol=0.0, abs_tol=1.0e-14)
 
 
 @pytest.mark.parametrize("H", [0.0, -1.0e-8])
