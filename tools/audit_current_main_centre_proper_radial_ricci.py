@@ -385,6 +385,96 @@ def _origin_half_cell_frozen_source(grid, state, vacuum) -> tuple[dict[str, np.n
     return arrays, summary
 
 
+
+def _lambda_chain_rule_counterfactual(
+    grid,
+    r: np.ndarray,
+    a: np.ndarray,
+    b: np.ndarray,
+    X: np.ndarray,
+    Lambda: np.ndarray,
+    vendor_terms: dict,
+    direct_tf_ricci: np.ndarray,
+) -> tuple[dict[str, np.ndarray], dict]:
+    """Offline-only Lambda derivative chain-rule comparison at fixed metric samples.
+
+    The pinned vendor BSSN Ricci uses D4(Lambda) because Lambda is an independently
+    evolved variable. This helper computes a counterfactual using the derivative
+    of the displayed metric-to-Lambda relation, with the same discrete D1/D2
+    operands for a and b. It does not alter state.Lambda or production outputs.
+    """
+    d1 = lambda values, parity=1: grid.cell_derivative_fourth(values, parity=parity)
+    d2 = lambda values, parity=1: grid.cell_second_derivative_fourth(values, parity=parity)
+    ap = d1(a, 1)
+    bp = d1(b, 1)
+    app = d2(a, 1)
+    bpp = d2(b, 1)
+    lambda_p_discrete = d1(Lambda, -1)
+    lambda_p_chain = (
+        app / (2.0 * a * a)
+        - ap * ap / (a * a * a)
+        - bpp / (a * b)
+        + bp * (ap * b + a * bp) / (a * a * b * b)
+        - 2.0 * (1.0 / b - 1.0 / a) / (r * r)
+        + 2.0 * (-bp / (b * b) + ap / (a * a)) / r
+    )
+    lambda_p_delta = lambda_p_chain - lambda_p_discrete
+    ricci_scalar_shift = X * X * lambda_p_delta
+    vendor_r_cf = _arr(vendor_terms["Rr_r"]) + ricci_scalar_shift
+    vendor_scalar_cf = _arr(vendor_terms["R"]) + ricci_scalar_shift
+    vendor_tf_cf = vendor_r_cf - vendor_scalar_cf / 3.0
+    direct_tf = _arr(direct_tf_ricci)
+    gap_base = _arr(vendor_terms["Rr_r"] - vendor_terms["R"] / 3.0) - direct_tf
+    gap_cf = vendor_tf_cf - direct_tf
+    fixed = (r >= 5.0) & (r <= 10.0)
+    first_two = []
+    for i in range(min(2, len(r))):
+        first_two.append({
+            "i": int(i),
+            "r": float(r[i]),
+            "lambda_prime_discrete_D4": float(lambda_p_discrete[i]),
+            "lambda_prime_chain_rule": float(lambda_p_chain[i]),
+            "lambda_prime_chain_minus_D4": float(lambda_p_delta[i]),
+            "induced_trace_free_Ricci_shift": float((2.0 / 3.0) * ricci_scalar_shift[i]),
+            "baseline_vendor_minus_direct_tf_ricci": float(gap_base[i]),
+            "chain_rule_vendor_minus_direct_tf_ricci": float(gap_cf[i]),
+            "baseline_gap_over_r2": float(gap_base[i] / (r[i] * r[i])),
+            "chain_rule_gap_over_r2": float(gap_cf[i] / (r[i] * r[i])),
+        })
+    arrays = {
+        "lambda_prime_discrete_D4": lambda_p_discrete,
+        "lambda_prime_chain_rule": lambda_p_chain,
+        "lambda_prime_chain_minus_D4": lambda_p_delta,
+        "lambda_chain_rule_induced_tf_ricci_shift": (2.0 / 3.0) * ricci_scalar_shift,
+        "lambda_chain_rule_vendor_tf_ricci": vendor_tf_cf,
+        "lambda_chain_rule_vendor_minus_direct_tf_ricci": gap_cf,
+        "lambda_chain_rule_vendor_minus_direct_tf_ricci_over_r2": gap_cf / (r * r),
+    }
+    summary = {
+        "method": "offline chain-rule derivative of the displayed metric Lambda relation using the same D1/D2 a,b operands; only the -a*Lambda' Ricci contribution is counterfactually changed",
+        "production_or_vendor_code_changed": False,
+        "evolution_steps": 0,
+        "lambda_prime_D4_max_abs": _max_abs(lambda_p_discrete),
+        "lambda_prime_chain_rule_max_abs": _max_abs(lambda_p_chain),
+        "lambda_prime_chain_minus_D4_max_abs": _max_abs(lambda_p_delta),
+        "induced_tf_ricci_shift_max_abs": _max_abs((2.0 / 3.0) * ricci_scalar_shift),
+        "baseline_gap_max_abs_full": _max_abs(gap_base),
+        "chain_rule_gap_max_abs_full": _max_abs(gap_cf),
+        "baseline_gap_max_abs_first_two": _max_abs(gap_base[:min(2, len(r))]),
+        "chain_rule_gap_max_abs_first_two": _max_abs(gap_cf[:min(2, len(r))]),
+        "baseline_gap_max_abs_fixed_annulus_r5_to10": _max_abs(gap_base[fixed]) if np.any(fixed) else None,
+        "chain_rule_gap_max_abs_fixed_annulus_r5_to10": _max_abs(gap_cf[fixed]) if np.any(fixed) else None,
+        "first_two_cells": first_two,
+        "counterfactual_profiles_finite": all(_finite(v) for v in arrays.values()),
+        "interpretation_limits": [
+            "This is an offline representation counterfactual, not the production BSSN operator.",
+            "Lambda is independently evolved in the vendor BSSN formulation; chain-rule substitution may not preserve its off-constraint principal structure.",
+            "Gap collapse supports discrete product/chain-rule mismatch on this initialized slice, not a production fix or scientific admission.",
+        ],
+    }
+    return arrays, summary
+
+
 def _verify_source_pins() -> dict:
     source_head = _git("rev-parse", "HEAD")
     source_vendor = _git("rev-parse", "HEAD:vendor/bb-palatini-unified-r0")
