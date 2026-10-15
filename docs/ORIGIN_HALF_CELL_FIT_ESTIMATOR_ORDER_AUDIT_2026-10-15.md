@@ -44,6 +44,15 @@ converge to \(s(0)\). If its limiting bias is \(\epsilon_0\), the estimated
 half-cell moment contains an error \(\epsilon_0 h/2+O(h^3)\), i.e. first-order
 moment error instead of the expected third-order behaviour.
 
+This can be more serious in the centre-cell metric than the moment order
+alone suggests. The initializer forms the radial metric source integral
+average as \(B_i=I(r_i)/r_i\). At the first cell, \(r_0=h/2\), so a moment
+error \(\delta I=O(h)\) yields \(\delta B_0=\delta I/r_0=O(1)\). The error may
+still decay at any fixed positive radius while failing to converge uniformly
+as the first cell approaches the origin. This is a structural consequence of
+the formula under a persistent fitted-intercept bias, not proof that the
+production Ricci discrepancy has this cause.
+
 A local window whose physical radius shrinks with \(h\) is a different
 estimator. This audit uses six cell-centre samples for the local window. It
 does not claim that this local fit is automatically the right production
@@ -85,9 +94,12 @@ formula and implementation reproduce their declared polynomial oracle.
 
 The fixed-window fitted-intercept bias approaches approximately
 \(-8.28\times10^{-3}\) relative to the source value at the origin for this
-manufactured source. The local six-cell fit's intercept error falls rapidly
-with refinement. These values are specific to this source and selected fit
-family, not estimates of the production Ricci discrepancy.
+manufactured source. Because the first-cell metric average is the half-cell
+moment divided by \(r_0\), the corresponding first-cell metric bias likewise
+stays finite rather than vanishing in the refinement sequence. The local
+six-cell fit's intercept and first-cell errors fall rapidly with refinement.
+These values are specific to this source and selected fit family, not
+estimates of the production Ricci discrepancy.
 
 ## Interpretation and next gate
 
