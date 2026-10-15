@@ -127,6 +127,8 @@ def _evaluate_modes(
     else:
         base_aa_l3_rhs = np.asarray(vacuum.primary_l3_rhs(grid, base)["Aa"], dtype=float)
         base_lambda_l3_rhs = np.asarray(vacuum.lambda_l3_rhs(grid, base), dtype=float)
+    base_aa_l2_rhs = np.asarray(vacuum.primary_l2_rhs(grid, base)["Aa"], dtype=float)
+    base_lambda_l2_rhs = np.asarray(vacuum.lambda_l2_rhs(grid, base, lambda_m=2.0), dtype=float)
     alpha = np.asarray(base.alpha, dtype=float)
 
     # The separate derivative-only chain-rule view is computed once on the
@@ -192,6 +194,10 @@ def _evaluate_modes(
             off_lambda_l3_rhs = np.asarray(vacuum.lambda_l3_rhs(grid, off), dtype=float)
         observed_aa_l3_rhs_delta = off_aa_l3_rhs - base_aa_l3_rhs
         observed_lambda_l3_rhs_delta = off_lambda_l3_rhs - base_lambda_l3_rhs
+        off_aa_l2_rhs = np.asarray(vacuum.primary_l2_rhs(grid, off)["Aa"], dtype=float)
+        off_lambda_l2_rhs = np.asarray(vacuum.lambda_l2_rhs(grid, off, lambda_m=2.0), dtype=float)
+        observed_aa_l2_rhs_delta = off_aa_l2_rhs - base_aa_l2_rhs
+        observed_lambda_l2_rhs_delta = off_lambda_l2_rhs - base_lambda_l2_rhs
 
         # Exact pinned fixed-metric response: D4(Lambda) derivative channel
         # plus the algebraic Lambda*D1(a) channel. Both terms are linear in
@@ -200,13 +206,15 @@ def _evaluate_modes(
         algebraic_response = 0.5 * X * X * (da / a) * delta_lambda
         predicted_response = derivative_response + algebraic_response
         response_closure = observed_gap_delta - predicted_response
-        predicted_aa_l3_rhs_delta = alpha * predicted_response
-        aa_l3_rhs_response_closure = observed_aa_l3_rhs_delta - predicted_aa_l3_rhs_delta
-        chainrule_adjusted_aa_l3_rhs_delta = (
-            observed_aa_l3_rhs_delta - alpha * derivative_response
+        # Ricci/principal response resides in the PIRK L2 RHS block.
+        # L3 is retained as a separate measured lower-order channel.
+        predicted_aa_l2_rhs_delta = alpha * predicted_response
+        aa_l2_rhs_response_closure = observed_aa_l2_rhs_delta - predicted_aa_l2_rhs_delta
+        chainrule_adjusted_aa_l2_rhs_delta = (
+            observed_aa_l2_rhs_delta - alpha * derivative_response
         )
-        chainrule_aa_l3_algebraic_closure = (
-            chainrule_adjusted_aa_l3_rhs_delta - alpha * algebraic_response
+        chainrule_aa_l2_algebraic_closure = (
+            chainrule_adjusted_aa_l2_rhs_delta - alpha * algebraic_response
         )
 
         # Replace only the D4(Lambda) derivative by the metric chain-rule
@@ -256,8 +264,9 @@ def _evaluate_modes(
             derivative_response, algebraic_response, predicted_response,
             response_closure, chain_gap_change, chain_response_closure,
             observed_aa_l3_rhs_delta, observed_lambda_l3_rhs_delta,
-            predicted_aa_l3_rhs_delta, aa_l3_rhs_response_closure,
-            chainrule_adjusted_aa_l3_rhs_delta, chainrule_aa_l3_algebraic_closure,
+            observed_aa_l2_rhs_delta, observed_lambda_l2_rhs_delta,
+            predicted_aa_l2_rhs_delta, aa_l2_rhs_response_closure,
+            chainrule_adjusted_aa_l2_rhs_delta, chainrule_aa_l2_algebraic_closure,
         )):
             raise FloatingPointError(f"non-finite Lambda symbol-sweep mode {wavelength}")
 
@@ -281,9 +290,11 @@ def _evaluate_modes(
             "max_abs_chain_rule_algebraic_only_closure_error": max_chain_closure,
             "max_abs_Aa_L3_RHS_delta": _max_abs(observed_aa_l3_rhs_delta),
             "max_abs_predicted_alpha_times_Ricci_response": _max_abs(predicted_aa_l3_rhs_delta),
-            "max_abs_Aa_L3_RHS_response_identity_closure": _max_abs(aa_l3_rhs_response_closure),
-            "max_abs_chainrule_adjusted_Aa_L3_RHS_delta": _max_abs(chainrule_adjusted_aa_l3_rhs_delta),
-            "max_abs_chainrule_Aa_L3_algebraic_only_closure_error": _max_abs(chainrule_aa_l3_algebraic_closure),
+            "max_abs_Aa_L2_RHS_delta": _max_abs(observed_aa_l2_rhs_delta),
+            "max_abs_predicted_alpha_times_Ricci_response": _max_abs(predicted_aa_l2_rhs_delta),
+            "max_abs_Aa_L2_RHS_response_identity_closure": _max_abs(aa_l2_rhs_response_closure),
+            "max_abs_chainrule_adjusted_Aa_L2_RHS_delta": _max_abs(chainrule_adjusted_aa_l2_rhs_delta),
+            "max_abs_chainrule_Aa_L2_algebraic_only_closure_error": _max_abs(chainrule_aa_l2_algebraic_closure),
             "max_abs_Lambda_L3_RHS_delta": _max_abs(observed_lambda_l3_rhs_delta),
             "interior_region_cells": int(np.count_nonzero(mask)),
             "underresolved_four_points_or_fewer": bool(point_per_wavelength <= 4.0 + 1.0e-12),
@@ -302,11 +313,13 @@ def _evaluate_modes(
             "chain_rule_gap_change": chain_gap_change,
             "chain_rule_algebraic_only_closure_error": chain_response_closure,
             "Aa_L3_RHS_delta": observed_aa_l3_rhs_delta,
-            "predicted_alpha_times_Ricci_response": predicted_aa_l3_rhs_delta,
-            "Aa_L3_RHS_response_identity_closure": aa_l3_rhs_response_closure,
-            "chainrule_adjusted_Aa_L3_RHS_delta": chainrule_adjusted_aa_l3_rhs_delta,
-            "chainrule_Aa_L3_algebraic_only_closure_error": chainrule_aa_l3_algebraic_closure,
             "Lambda_L3_RHS_delta": observed_lambda_l3_rhs_delta,
+            "Aa_L2_RHS_delta": observed_aa_l2_rhs_delta,
+            "predicted_alpha_times_Ricci_response": predicted_aa_l2_rhs_delta,
+            "Aa_L2_RHS_response_identity_closure": aa_l2_rhs_response_closure,
+            "chainrule_adjusted_Aa_L2_RHS_delta": chainrule_adjusted_aa_l2_rhs_delta,
+            "chainrule_Aa_L2_algebraic_only_closure_error": chainrule_aa_l2_algebraic_closure,
+            "Lambda_L2_RHS_delta": observed_lambda_l2_rhs_delta,
         }.items():
             profiles[f"{key}_{name}"] = np.asarray(values, dtype=float)
 
@@ -330,9 +343,9 @@ def _evaluate_modes(
             and x["max_abs_chain_rule_algebraic_only_closure_error"] <= 5.0e-12
             for x in reports
         ),
-        "all_frozen_Aa_L3_RHS_responses_close": all(
-            x["max_abs_Aa_L3_RHS_response_identity_closure"] <= 5.0e-12
-            and x["max_abs_chainrule_Aa_L3_algebraic_only_closure_error"] <= 5.0e-12
+        "all_frozen_Aa_L2_RHS_responses_close": all(
+            x["max_abs_Aa_L2_RHS_response_identity_closure"] <= 5.0e-12
+            and x["max_abs_chainrule_Aa_L2_algebraic_only_closure_error"] <= 5.0e-12
             for x in reports
         ),
         "interpretation_limits": [
@@ -435,10 +448,10 @@ def main() -> int:
     if not all(
         row["all_profiles_finite"]
         and row["all_response_identities_close"]
-        and row["all_frozen_Aa_L3_RHS_responses_close"]
+        and row["all_frozen_Aa_L2_RHS_responses_close"]
         for row in rows
     ):
-        raise FloatingPointError("one or more mode-response or frozen L3 RHS gates failed")
+        raise FloatingPointError("one or more mode-response or frozen L2 RHS gates failed")
     report = {
         "schema": "v55_manufactured_lambda_symbol_response_v1",
         "status": "completed_research_only_manufactured_lambda_symbol_sweep",
@@ -458,7 +471,7 @@ def main() -> int:
         "all_initialized_states_unchanged": all(row["initialized_state_unchanged"] for row in rows),
         "all_profiles_finite": all(row["all_profiles_finite"] for row in rows),
         "all_response_identities_close": all(row["all_response_identities_close"] for row in rows),
-        "all_frozen_Aa_L3_RHS_responses_close": all(row["all_frozen_Aa_L3_RHS_responses_close"] for row in rows),
+        "all_frozen_Aa_L2_RHS_responses_close": all(row["all_frozen_Aa_L2_RHS_responses_close"] for row in rows),
         "interpretation_limits": [
             "Fixed-metric no-evolution symbol/response diagnostic only; no production operator change is proposed.",
             "The derivative-only chain-rule arm removes the imposed D4(delta Lambda) response; algebraic Lambda*D1(a) response remains.",
@@ -478,8 +491,8 @@ def main() -> int:
             "derivative_Ricci_response_absmax", "algebraic_Ricci_response_absmax",
             "observed_Ricci_gap_delta_absmax", "response_closure_error_absmax",
             "chain_rule_gap_change_absmax", "chain_rule_algebraic_closure_absmax",
-            "Aa_L3_RHS_delta_absmax", "Aa_L3_RHS_identity_closure_absmax",
-            "chainrule_Aa_L3_delta_absmax", "chainrule_Aa_L3_algebraic_closure_absmax",
+            "Aa_L3_RHS_delta_absmax", "Aa_L2_RHS_identity_closure_absmax",
+            "chainrule_Aa_L2_delta_absmax", "chainrule_Aa_L2_algebraic_closure_absmax",
             "Lambda_L3_RHS_delta_absmax",
         ])
         for row in rows:
@@ -496,9 +509,9 @@ def main() -> int:
                     mode["max_abs_response_closure_error"], mode["max_abs_chain_rule_gap_change"],
                     mode["max_abs_chain_rule_algebraic_only_closure_error"],
                     mode["max_abs_Aa_L3_RHS_delta"],
-                    mode["max_abs_Aa_L3_RHS_response_identity_closure"],
-                    mode["max_abs_chainrule_adjusted_Aa_L3_RHS_delta"],
-                    mode["max_abs_chainrule_Aa_L3_algebraic_only_closure_error"],
+                    mode["max_abs_Aa_L2_RHS_response_identity_closure"],
+                    mode["max_abs_chainrule_adjusted_Aa_L2_RHS_delta"],
+                    mode["max_abs_chainrule_Aa_L2_algebraic_only_closure_error"],
                     mode["max_abs_Lambda_L3_RHS_delta"],
                 ])
     profile_path = OUT / "profiles.npz"
@@ -525,9 +538,14 @@ def main() -> int:
                 "max_response_closure_error": mode["max_abs_response_closure_error"],
                 "chain_rule_algebraic_closure_error": mode["max_abs_chain_rule_algebraic_only_closure_error"],
                 "Aa_L3_RHS_delta_absmax": mode["max_abs_Aa_L3_RHS_delta"],
-                "Aa_L3_RHS_response_closure": mode["max_abs_Aa_L3_RHS_response_identity_closure"],
-                "chainrule_Aa_L3_algebraic_closure": mode["max_abs_chainrule_Aa_L3_algebraic_only_closure_error"],
                 "Lambda_L3_RHS_delta_absmax": mode["max_abs_Lambda_L3_RHS_delta"],
+                "Aa_L2_RHS_delta_absmax": mode["max_abs_Aa_L2_RHS_delta"],
+                "Aa_L2_RHS_response_closure": mode["max_abs_Aa_L2_RHS_response_identity_closure"],
+                "chainrule_Aa_L2_algebraic_closure": mode["max_abs_chainrule_Aa_L2_algebraic_only_closure_error"],
+                "Lambda_L3_RHS_delta_absmax": mode["max_abs_Lambda_L3_RHS_delta"],
+                "Aa_L2_RHS_identity_closure_absmax": mode["max_abs_Aa_L2_RHS_response_identity_closure"],
+                "chainrule_Aa_L2_algebraic_closure_absmax": mode["max_abs_chainrule_Aa_L2_algebraic_only_closure_error"],
+                "Lambda_L2_RHS_delta_absmax": mode["max_abs_Lambda_L2_RHS_delta"],
                 "underresolved": mode["underresolved_four_points_or_fewer"],
             } for mode in row["mode_results"]],
         } for row in rows],
