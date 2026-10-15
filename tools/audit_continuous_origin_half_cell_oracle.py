@@ -132,7 +132,8 @@ def continuous_reference(r_half, n_levels=SUBSTEPS):
         "reference_moment": float(ref),
         "reference_B": float(B_ref),
         "reference_endpoint_source": source_end,
-        "estimated_numeric_uncertainty": float(change / 15.0),
+        "estimated_numeric_uncertainty": float(max(change / 15.0, 8.0 * np.finfo(float).eps * abs(ref))),
+        "estimated_roundoff_floor": float(8.0 * np.finfo(float).eps * abs(ref)),
         "change_between_final_extrapolants": float(change),
         "raw_levels": [raw[n] for n in n_levels],
         "richardson_levels": rich,
@@ -306,6 +307,12 @@ def run_resolution(n, r_max=80.0):
 
 def main():
     provenance = _verify_source_pins()
+    if provenance.get("source_commit") != SOURCE_COMMIT or provenance.get("vendor_commit") != VENDOR_COMMIT:
+        raise RuntimeError("source/vendor commit pins differ from declared audit pins")
+    if not provenance.get("engine_vendor_dependency_diff_empty"):
+        raise RuntimeError("engine/vendor/dependency diff is not empty")
+    if not all(item.get("matches") for item in provenance.get("source_blobs", {}).values()):
+        raise RuntimeError("one or more source blob pins failed")
     resolutions = tuple(int(x.strip()) for x in os.environ.get("ORACLE_RESOLUTIONS", "160,240,320").split(",") if x.strip())
     if len(resolutions) < 2 or any(n < 32 for n in resolutions):
         raise ValueError("at least two resolutions of 32 or greater are required")
@@ -328,7 +335,29 @@ def main():
         "resolutions": rows,
         "all_observers_left_state_unchanged": all(x["state_provenance"]["observer_left_state_unchanged"] for x in rows),
         "all_B_replays_match_production": all(x["production_discrete_source"]["B_replay_max_abs_error"] <= 5.0e-12 for x in rows),
-        "all_profiles_finite": all(np.isfinite(x["continuous_reference"]["reference_moment"]) for x in rows),
+        "all_profiles_finite": all(
+            _finite([
+                x["continuous_reference"]["reference_moment"],
+                x["continuous_reference"]["reference_B"],
+                x["continuous_reference"]["reference_endpoint_source"],
+                x["moment_decomposition"]["continuous_quadrature_delta"],
+                x["moment_decomposition"]["continuum_vs_discrete_sampled_source_delta"],
+                x["moment_decomposition"]["total_continuum_minus_production_delta"],
+                x["moment_decomposition"]["decomposition_closure_error"],
+                x["moment_decomposition"]["estimated_reference_uncertainty"],
+            ])
+            and all(
+                fit.get("status") == "not_eligible"
+                or _finite([
+                    fit["fitted_moment"], fit["fit_minus_continuous_reference"],
+                    fit["fit_error_abs"], fit["fit_error_rel_to_integral"],
+                    fit["condition_number"], fit["max_abs_sample_residual"],
+                    fit["rms_sample_residual"],
+                ])
+                for fit in x["fit_family"]
+            )
+            for x in rows
+        ),
         "interpretation_limits": [
             "The continuous source assumes the declared analytic Gaussian S/D fields and constant phi, Pi, K_t.",
             "This is the default uncharged initialization and does not include optional charged-dust or Maxwell source terms.",
@@ -337,6 +366,12 @@ def main():
             "No production or vendor code changed; the audit takes zero evolution steps.",
         ],
     }
+    if not report["all_observers_left_state_unchanged"]:
+        raise RuntimeError("one or more observers changed their initialized state")
+    if not report["all_B_replays_match_production"]:
+        raise RuntimeError("one or more source replays failed against production X^6")
+    if not report["all_profiles_finite"]:
+        raise FloatingPointError("one or more report profiles or fit candidates are non-finite")
     output.mkdir(parents=True, exist_ok=True)
     paths = {}
     paths["report.json"] = output / "report.json"
