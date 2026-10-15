@@ -19,7 +19,7 @@ S_D=\int d^4x\sqrt{-g}\left[-\frac12 g^{\mu\nu}\nabla_\mu D\nabla_\nu D-V_D(D)\r
 \qquad
 V_D(D)=-\frac12\mu^2D^2.
 \]
-Here \(\mu\) is the growth rate (the archive's \(\alpha\)); current V5.5 code uses the dimensionless choice \(\mu=1\) in its signed potential \(V_D=-D^2/2\).
+Here \(\mu\) is the growth rate (the archive's \(\alpha\)); the archive distinguishes finite-dimensional lowercase \\(d\\) from the continuum field \\(D(t,r)\\); comparisons with the curvature candidates below are structural only and do not assert an un-derived identification of those amplitudes. Current V5.5 code uses the dimensionless choice \(\mu=1\) in its signed potential \(V_D=-D^2/2\).
 
 These are declared assumptions for a conditional calculation, not evidence that this action, signature, or curvature-coupling choice is the original archive's intended model. A cosmological constant, other matter, a surface layer, or non-minimal terms would change the complete source/trace.
 
