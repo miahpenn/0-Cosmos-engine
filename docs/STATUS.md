@@ -1,3 +1,42 @@
+# LIVE readiness overlay — 15 October 2026, 20:42 UTC
+
+> This overlay supersedes conflicting readiness/queue claims in the historical status record below. Base/source snapshot: `main` at `53acb61c8f3eeff95e1f56b4001394d5b21d0fa1`, the merge commit for PR #266. The detailed historical record is preserved for provenance, not as a live queue.
+
+## Current engineering state
+
+- **Latest verified main:** `53acb61c8f3eeff95e1f56b4001394d5b21d0fa1` ([PR #266 merge](https://github.com/miahpenn/0-Cosmos-engine/pull/266)).
+- **Scientific admission: NOT ADMITTED.** Passing software tests, diagnostic artifacts, an algebraic identity, or a merge does not close the scientific acceptance gates.
+- **Production-source guardrail:** no production engine equation, coefficient, gauge, boundary, coupling, or radiation/cone rule is to be changed based on the diagnostic-only results below without a demonstrated failing discrete identity, independent review, relevant convergence/constraint evidence, and owner authorization.
+- **No repeated expensive campaigns by default.** Check the active lane and source pins in [Issue #5](https://github.com/miahpenn/0-Cosmos-engine/issues/5) before starting work. Keep the central momentum-tangent lane [Issue #4](https://github.com/miahpenn/0-Cosmos-engine/issues/4) distinct from the accepted-step Lambda/Ricci lane [Issue #248](https://github.com/miahpenn/0-Cosmos-engine/issues/248) / [PR #250](https://github.com/miahpenn/0-Cosmos-engine/pull/250).
+
+## Verified software and diagnostic results
+
+| Work item | Exact-head evidence | Current disposition |
+|---|---|---|
+| [PR #266](https://github.com/miahpenn/0-Cosmos-engine/pull/266) | Head `6c1a1a4ec3b10053aeb9ea4ae419158b7bebd65b`; [lightweight/production smoke](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38800134447), [strict JSON (743 tests)](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38800134483), [integrated retry](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38800136674) passed. | Merged. Repairs separation of metric-only and Lambda-dependent Hamiltonian test contracts. Software/test result only. |
+| [PR #263](https://github.com/miahpenn/0-Cosmos-engine/pull/263) | Head `6108e17c42869d356fa3bd7343f93ffc4b43db6f); [A6 oracle](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38801003677), [strict JSON](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38801003726), [lightweight/smoke](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38801003906), [integrated retry](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38801003872) passed. | Open draft. Needs independent equation, source-normalization, and time-convention review; do not treat the numerical oracle as evidence that its archived physical interpretation is established. |
+| [PR #264](https://github.com/miahpenn/0-Cosmos-engine/pull/264) | Head `799717218744da6ab374e2372d7c0a7648d128d0`; [strict JSON](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38801023436), [lightweight/smoke](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38801023560), [integrated retry](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38801023501) passed. | Open draft. Needs independent check of source conventions, time gauge, and stress/pressure signs. Diagnostic functions do not verify the full underlying claims. |
+| [PR #265](https://github.com/miahpenn/0-Cosmos-engine/pull/265) | Head `9e28a209496c94c1c4cc72e146b3419c33646257`; [lightweight/smoke](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38801099730), [strict JSON](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38801099886), [integrated retry](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38801099894), [specialized half-cell/Lambda audit](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38801099878) passed; specialized run reports 747 repository and 6 focused audit tests passing. | Open draft. The analytic half-cell counterfactual reduces the first-cell residual magnitude by about 8.2–8.5× but reverses its sign and leaves a residual approaching (-1.95\times10^{-4}). This is not a solved Ricci discrepancy or an admitted production fix; independent review is still required. |
+| [PR #244](https://github.com/miahpenn/0-Cosmos-engine/pull/244) / [Issue #246](https://github.com/miahpenn/0-Cosmos-engine/issues/246) | Merged diagnostic/test/workflow/documentation changes; no production engine/vendor/equation change. | Merge trigger remains unreconciled because formal review data is empty. The qualified-auto-merge workflow itself has exact-head trusted review gates. Available evidence does not prove whether the merge used a direct owner path; do not infer intent or misconfiguration. |
+| [PR #250](https://github.com/miahpenn/0-Cosmos-engine/pull/250) | Accepted-step Lambda/Ricci history diagnostic and source-pinned evidence recorded in [Issue #248](https://github.com/miahpenn/0-Cosmos-engine/issues/248). | Merged diagnostic evidence. Do not duplicate the same run; the separate momentum-constraint tangent budget in #4 remains its own question. |
+
+## Outstanding scientific blockers and next discriminators
+
+1. **Central momentum-constraint propagation — [Issue #4](https://github.com/miahpenn/0-Cosmos-engine/issues/4).** The active read-only lane should produce a signed term-by-term discrete tangent budget on identical frozen states; compare production and diagnostic stencils/parity, isolate the first centre-adjacent cells from a fixed annulus, and include a manufactured regular profile. Require algebraic closure and a minimal failing discriminator before any equation edit. Avoid duplicating this lane.
+2. **Source/normalization provenance — [Issue #210](https://github.com/miahpenn/0-Cosmos-engine/issues/210).** The primary historical action/source and the mapping from the bare mode to the gravitational source remain open. An archive cross-check identified a conditional GEAR-61/GEAR-67 coordinate reflection and a factor-of-two cubic-coefficient mapping seam under the documented amplitudes. Correct the archive mapping or label the models distinct; this does not settle the underlying (T_{mu\nu}^{(0*)}\to R[d]\to F_{\rm geom}[d]) question.
+3. **Derived-theorem verification — [Issue #260](https://github.com/miahpenn/0-Cosmos-engine/issues/260).** The 14-item summary is not a complete set of derivations. Obtain the source revision and equation for each claim; document assumptions, units/signs, derivation or counterexample, nearest prior literature, and a bounded independent check where appropriate. Prioritize claims already marked overbroad/unverified instead of blanket validation.
+4. **Radiation, centre, and mass/convergence gates.** Radiation continuation/cone admissibility, regular-centre and constraint convergence, a genuinely fixed-areal-radius Misner–Sharp balance including flux/work, and full multi-resolution/full-horizon convergence remain unadmitted. Do not infer trajectory recovery from a saved-state join or a local residual improvement.
+
+## Governance and review handling
+
+- [Issue #246](https://github.com/miahpenn/0-Cosmos-engine/issues/246): preserve the distinction between the safeguards present in the automated qualification workflow and separate direct merge paths; only change policy when new event evidence identifies a concrete failure.
+- Open research PRs #263–#265 remain drafts for review; green checks are not owner approval, and no research PR is authorized to make production-physics changes by implication.
+- Keep the [canonical team board #135](https://github.com/miahpenn/0-Cosmos-engine/issues/135) and coordination log #5 as the status/index; claim a lane with the live main SHA and exact head/source pins before work. Do not create duplicate task records or report stale checks as current.
+
+---
+
+## Historical status record (preserved below; superseded where it conflicts with the live overlay above)
+
 # Live engineering readiness snapshot — 15 October 2026 UTC
 
 > **LIVE CORRECTION — refreshed 2026-10-15 05:52 UTC against current `main`.** This overlay is the current engineering/readiness record. Detailed text below the historical marker is preserved as provenance only and must not be treated as the live queue.
