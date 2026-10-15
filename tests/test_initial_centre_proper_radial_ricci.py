@@ -302,3 +302,52 @@ def test_manufactured_lambda_parity_arms_keep_metric_fixed():
         bad_q = arrays[f"{tag}_negative_control_even_Lambda_over_r"][:2]
         assert np.all(np.isfinite(discrete_q))
         assert np.max(np.abs(bad_q)) > 5.0 * max(np.max(np.abs(discrete_q)), 1.0e-12)
+
+
+def test_self_consistent_origin_half_cell_counterfactual_is_copy_only_and_closes_invariants():
+    """Exercise source/metric feedback without mutating or evolving production state."""
+    from engine.production_kernel import V55ProductionKernel
+    from engine.v55_pirk_adapter import vendor_modules
+    from tools.audit_current_main_centre_proper_radial_ricci import (
+        _origin_half_cell_frozen_source,
+        _origin_half_cell_self_consistent_counterfactual,
+        _state_digest,
+    )
+
+    kernel = V55ProductionKernel()
+    state = kernel.initialize(
+        resolution=160, r_max=80.0, amplitude=0.01, width=7.0,
+        D_amplitude=1.0e-10, include_radiation=True,
+    )
+    grid_ops, vacuum, _ = vendor_modules()
+    del grid_ops
+    before = _state_digest(state)
+    _, frozen = _origin_half_cell_frozen_source(state.grid, state, vacuum)
+    arrays, summary = _origin_half_cell_self_consistent_counterfactual(
+        state.grid, state, vacuum,
+        frozen_delta_integral=float(frozen["delta_integral_applied"]),
+    )
+    after = _state_digest(state)
+
+    assert summary["evolution_steps"] == 0
+    assert summary["production_or_vendor_code_changed"] is False
+    assert summary["input_state_unchanged"] is True
+    assert before == after == summary["input_state_sha256_before"] == summary["input_state_sha256_after"]
+    assert summary["baseline_six_iteration_reconstruction_matches_production"] is True
+    assert summary["baseline_six_iteration_reconstruction_max_abs"] < 2.0e-12
+    assert summary["convergence"]["iterations_used"] >= 6
+    assert np.isfinite(summary["convergence"]["recomputed_fixed_point_defect_max_abs"])
+    assert summary["all_counterfactual_profiles_finite"] is True
+    assert all(np.all(np.isfinite(values)) for values in arrays.values())
+    for key in ("metric_invariants_six_step", "metric_invariants_fixed_point"):
+        invariants = summary[key]
+        assert invariants["all_profiles_finite"] is True
+        assert invariants["source_finite"] is True
+        for identity in (
+            "a_times_b_squared_minus_one_max_abs",
+            "b_minus_X_squared_max_abs",
+            "a_minus_X_minus_four_max_abs",
+            "X6_minus_B_max_abs",
+            "areal_radius_minus_r_max_abs",
+        ):
+            assert invariants[identity] < 1.0e-12
