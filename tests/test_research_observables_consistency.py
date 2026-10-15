@@ -71,7 +71,9 @@ def test_ledger_observables_uses_shared_volume_weighted_hubble(monkeypatch):
 
 def test_coupled_driver_uses_shared_hubble_for_cycle_observation(monkeypatch):
     old_state = SimpleNamespace(K=np.asarray([-1.0, -3.0]), alpha=np.ones(2))
-    new_state = SimpleNamespace(K=np.asarray([-2.0, -4.0]), alpha=np.asarray([0.9, 0.9]))
+    new_state = SimpleNamespace(
+        K=np.asarray([-2.0, -4.0]), alpha=np.asarray([0.9, 0.9])
+    )
     grid = SimpleNamespace(volumes=np.asarray([1.0, 9.0]))
     calls = []
     previous_rate = 0.123
@@ -99,7 +101,9 @@ def test_coupled_driver_uses_shared_hubble_for_cycle_observation(monkeypatch):
 
     monkeypatch.setattr(coupled_engine, "effective_hubble", fake_effective_hubble)
     monkeypatch.setattr(
-        coupled_engine, "step_true_cmc", lambda _g, _s, current_fields, _dt: (new_state, current_fields)
+        coupled_engine,
+        "step_true_cmc",
+        lambda _g, _s, current_fields, _dt: (new_state, current_fields),
     )
     monkeypatch.setattr(
         coupled_engine,
