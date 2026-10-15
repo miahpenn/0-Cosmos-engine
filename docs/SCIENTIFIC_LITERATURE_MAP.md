@@ -39,13 +39,15 @@ Use journal papers to establish equations and numerical methodology, not to infe
 
 **Limits.** Do not transplant the ideal-fluid Misner–Sharp formula unchanged into a system with radiation, scalar sectors, electromagnetic stress, or a moving coordinate grid. Roundoff closure of a local face/cell pairing is evidence for that local operator only, not global conservation in a dynamical spacetime.
 
-### 4. COSMOS/local density normalization and units — [Issue #210](https://github.com/miahpenn/0-Cosmos-engine/issues/210)
+### 4. COSMOS/local density normalization and source provenance — [Issue #210](https://github.com/miahpenn/0-Cosmos-engine/issues/210)
 
-**Repository premise to verify, not assume.** Issue #210 records that the archival homogeneous lane uses `H^2 = rho/3` and `dH/dt = -(rho+p)/2`, while the local production lane declares `kappa = 8*pi*G`; it also records hardcoded archival densities and an apparently unused `CosmosParams.G`. These expressions can reflect different normalizations, but the intended mapping cannot be selected from numerical convenience.
+**What the current code/documentation already establishes.** [`docs/UNITS_CONVENTION.md`](UNITS_CONVENTION.md) and `engine/cosmos.py` explicitly state the *implemented convention*: `rho_E = 8*pi*G*rho_physical`, with `G=1`; COSMOS evolves Einstein-normalized `rho_E`; the local conventional-fluid projection divides by `kappa=8*pi` once. `CosmosParams.G` is compatibility metadata constrained to 1, not an independently variable gravitational coupling. `tests/test_friedmann_unit_convention.py` checks this algebraic mapping and the homogeneous COSMOS continuity cancellation.
 
-**Relevant journal evidence.** Reviews of modified gravity and explicit matter–geometry coupling show that conservation equations depend on the action and on how matter couples to geometry. Wu et al. (2018) derive non-conservation in a specific Palatini (f(R,T)) theory. That is a model-specific result, not a universal permission to use non-conserved matter or to rescale `rho`.
+**What remains unresolved.** These files and tests record a coherent software convention, but do not establish that the primary GEAR archive/action intended the archived numerical constants to mean `rho_E`, or derive the gravitational prefactor of the continuum S/D fields. The current test constructs `H = sqrt(rho_E/3)` from its chosen density, so it is a useful conditional consistency regression, not independent provenance evidence. The local scalar projection is also not one uniform normalization: current `engine/scalar_system.py` divides the COSMOS `phi` projection by `kappa`, while local S/D projections use scale 1. Do not infer the S/D normalization from the phi/Friedmann lane.
 
-**Next gate.** Trace each archived input to the primary archive/paper/action, state whether `rho` is physical energy density or a rescaled variable, audit dimensions of `G`, `H`, `rho`, and `p`, then derive the conversion to the local Einstein-source convention. Add the two separate homogeneous/Friedmann regressions specified in Issue #210 using an initial state not reconstructed from the hardcoded present-day Hubble value. Do not add a conversion or couple `exchange_Q` before source provenance and independent review.
+**Relevant journal evidence.** The conservation law and stress-energy split depend on the chosen action and matter–geometry coupling. Wu et al. (2018) derive non-conservation in a specific Palatini `f(R,T)` theory. That is a model-specific example, not a universal permission to alter the COSMOS conservation law or rescale an archived density.
+
+**Next gate.** Locate the authoritative GEAR action/solver source or archive revision plus the exact equation/page that fixes the continuum S/D/phi stress-energy and gravitational prefactor. Then derive the units and normalization from that source, reconcile it against `docs/UNITS_CONVENTION.md`, and independently review. Use an independently sourced density/initial state for any provenance-claiming regression; retain the existing Friedmann test as a conditional software contract. No production equation or factor-of-two S/D source normalization should change before that gate.
 
 ### 5. Scalar–dark-matter exchange and full anisotropic-shear completeness — existing GEAR/COSMOS archive research
 
@@ -75,7 +77,7 @@ Use journal papers to establish equations and numerical methodology, not to infe
 
 ## Owner question that blocks a physics decision
 
-**Can you point us to the authoritative primary source for the COSMOS archived homogeneous equations and the S/D-to-matter exchange premise** (paper, derivation, notebook, or archive file with its version)? Specifically, we need the action or defining equations and the meaning/units of `rho`, (G), and (H). Without that provenance, the literature can guide consistency checks but cannot determine the correct density conversion, exchange sign, or whether the archived COSMOS lane is intended as a separate normalized reference model.
+The implementation already documents an Einstein-normalized density mapping and a conditional Friedmann regression. **Can you point to the primary action-bearing GEAR/solver source (or the exact archive file/revision and equation/page) that derives the continuum S/D/phi stress-energy definitions and their gravitational prefactor?** The latest issue history says the available oscillator-saddle note and cosmological dark-sector solver do not contain that local field-theory derivation; the S/D factor-of-two normalization remains unresolved. That source is needed to settle whether the implemented convention follows the intended archive and to derive, rather than infer, any local-to-COSMOS reciprocal source.
 
 ## Safety of interpretation
 
