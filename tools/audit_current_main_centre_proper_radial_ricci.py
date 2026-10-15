@@ -607,7 +607,10 @@ def _origin_half_cell_self_consistent_counterfactual(
                 design = np.column_stack([x**power for power in range(degree + 1)])
                 coeff, *_ = np.linalg.lstsq(design, source[mask], rcond=None)
                 residual = source[mask] - design@coeff
-                integral = _even_half_cell_integral(coeff, r0)
+                integral = float(sum(
+                    value * r0 ** (2 * power + 1) / (2 * power + 1)
+                    for power, value in enumerate(coeff)
+                ))
                 delta_i = float(integral - r0*source[0])
                 rows.append({
                     "fit_r_max": float(fit_r_max), "degree_in_r_squared": int(degree),
