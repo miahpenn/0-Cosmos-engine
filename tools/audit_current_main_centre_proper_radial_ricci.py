@@ -355,7 +355,6 @@ def _origin_half_cell_frozen_source(grid, state, vacuum) -> tuple[dict[str, np.n
         "source_reconstruction_matches_geometry": bool(reconstruction_error <= 2.0e-12 * max(1.0, _max_abs(B_from_geometry))),
         "source_final_iteration_first_two": [float(x) for x in source_last[:2]],
         "even_fit_r_le_2_5": fit25,
-        "even_fit_r_le_2_5": fit25,
         "even_fit_r_le_3_0": fit30,
         "fit_sensitivity_delta_integral_abs": float(abs(fit30["delta_integral"] - fit25["delta_integral"])),
         "production_half_cell_integral": float(r0 * source_last[0]),
