@@ -8,6 +8,13 @@ on:
       - tools/audit_continuous_origin_half_cell_oracle.py
       - tests/test_continuous_origin_half_cell_oracle.py
       - .github/workflows/continuous-origin-half-cell-oracle.yml
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - tools/audit_continuous_origin_half_cell_oracle.py
+      - tests/test_continuous_origin_half_cell_oracle.py
+      - .github/workflows/continuous-origin-half-cell-oracle.yml
 
 permissions:
   contents: read
