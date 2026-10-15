@@ -44,16 +44,18 @@ jobs:
               "tools/audit_em_total_energy_budget.py",
               "tools/recompute_fixed_r_balance_artifact.py",
               "tests/test_research_em_total_energy_budget_contract.py",
+              "tests/test_research_em_adjoint_face_work_v1.py",
+              "research/em_adjoint_face_work_v1.py",
+              "research/reconcile_em_face_work_artifact_v1.py",
               "tests/test_research_fixed_r_independent_recompute.py",
               ".github/workflows/em_total_energy_budget.yml",
             ]);
 
-            const isDiagnosticPath = (path) =>
-              path.startsWith("docs/") ||
-              path.startsWith("research/") ||
-              /^tests\/test_(research|diagnostic)_[^/]*\.py$/.test(path) ||
-              /^tools\/audit_[^/]*\.py$/.test(path) ||
-              /^tools\/recompute_[^/]*_artifact\.py$/.test(path);
+            // Only narrative documentation can bypass a formal review.
+            // Research code, tests, tools, workflow policy, and runtime code remain review-gated.
+            const isDocumentationPath = (path) =>
+              path === "README.md" ||
+              path.startsWith("docs/")
 
             async function changedFiles(number) {
               const all = [];
@@ -196,7 +198,7 @@ jobs:
                 core.info(`#${number}: changed-file list is empty; waiting.`);
                 return;
               }
-              const diagnosticOnly = files.every(isDiagnosticPath);
+              const documentationOnly = files.every(isDocumentationPath);
               const required = [...coreChecks];
               if (files.some(path => ledgerPaths.has(path))) {
                 required.push("joined-energy-ledger");
@@ -220,8 +222,8 @@ jobs:
               const hasIndependentApproval = [...reviewerState.entries()].some(
                 ([login, state]) => login !== pr.user?.login && state === "APPROVED"
               );
-              if (!diagnosticOnly && !hasIndependentApproval) {
-                core.info(`#${number}: sensitive/non-diagnostic paths require an approval on exact head ${headSha}.`);
+              if (!documentationOnly && !hasIndependentApproval) {
+                core.info(`#${number}: non-documentation paths require approval on exact head ${headSha}.`);
                 return;
               }
 
@@ -258,8 +260,8 @@ jobs:
               const finalApproval = [...reviewerState.entries()].some(
                 ([login, state]) => login !== freshPr.user?.login && state === "APPROVED"
               );
-              if (!diagnosticOnly && !finalApproval) {
-                core.info(`#${number}: current-head approval is no longer present.`);
+              if (!documentationOnly && !finalApproval) {
+                core.info(`#${number}: current-head approval is no longer present for non-documentation changes.`);
                 return;
               }
 
