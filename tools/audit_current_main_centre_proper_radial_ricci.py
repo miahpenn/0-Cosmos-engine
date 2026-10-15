@@ -208,10 +208,14 @@ def _origin_half_cell_frozen_source(grid, state, vacuum) -> tuple[dict[str, np.n
     Sp, Dp = d1(S, 1), d1(D, 1)
     j = -(PD * Dp)
 
-    # From the initializer definitions K=Kr+2Kt and Aa=Kr-K/3, so
-    # Kt = K/3 - Aa/2. This recovers the initialized Kt without assuming
-    # the nominal background value.
-    Kt = _arr(geom.K) / 3.0 - 0.5 * _arr(geom.Aa)
+    # Reproduce the initializer's declared homogeneous Kt exactly rather
+    # than recovering it by subtracting K/Aa (which would amplify roundoff in
+    # Ktp on the large-r grid).
+    phi0, pi0 = 0.179055, 0.00341913
+    rho0 = 0.5 * pi0**2 + float(cosmos_potential(np.array([phi0]))[0])
+    rho0 += float(RHO_DM_PRESENT) + float(RHO_B_PRESENT) + float(RHO_R_PRESENT)
+    H0 = math.sqrt(max(rho0 / 3.0, 0.0))
+    Kt = np.full_like(r, -H0)
     Ktp = d1(Kt, 1)
     rho_matter = (
         float(RHO_DM_PRESENT) + float(RHO_B_PRESENT) + float(RHO_R_PRESENT)
