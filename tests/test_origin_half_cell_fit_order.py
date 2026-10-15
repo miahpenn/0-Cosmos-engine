@@ -30,6 +30,8 @@ def test_fixed_physical_window_can_lose_expected_half_cell_order():
     local_errors = []
     fixed_bias = None
     local_bias = None
+    fixed_first_cell_bias = None
+    local_first_cell_bias = None
 
     for dr in dr_values:
         fixed = fit_half_cell_moment(
@@ -39,11 +41,18 @@ def test_fixed_physical_window_can_lose_expected_half_cell_order():
             dr, 6.0 * dr, degree_in_r_squared=3, source=smooth_even_source
         )
         exact = exact_smooth_moment(0.5 * dr)
-        fixed_errors.append(fixed["moment"] - exact)
-        local_errors.append(local["moment"] - exact)
+        fixed_error = fixed["moment"] - exact
+        local_error = local["moment"] - exact
+        fixed_errors.append(fixed_error)
+        local_errors.append(local_error)
         if dr == dr_values[-1]:
             fixed_bias = abs(fixed["fitted_intercept"] - fixed["source_at_origin"])
             local_bias = abs(local["fitted_intercept"] - local["source_at_origin"])
+            # The initializer's first-cell metric average has B_0 = I(r_0)/r_0.
+            # Thus an O(dr) moment error becomes an O(1) first-cell B_0 error.
+            r0 = 0.5 * dr
+            fixed_first_cell_bias = abs(fixed_error / r0)
+            local_first_cell_bias = abs(local_error / r0)
 
     fixed_orders = [
         observed_order(fixed_errors[i], fixed_errors[i + 1])
@@ -58,8 +67,10 @@ def test_fixed_physical_window_can_lose_expected_half_cell_order():
     # its intercept bias leaves an O(dr) term in the half-cell moment.
     assert all(0.8 < order < 1.2 for order in fixed_orders)
     assert fixed_bias is not None and fixed_bias > 5.0e-3
+    assert fixed_first_cell_bias is not None and fixed_first_cell_bias > 5.0e-3
 
     # With a window shrinking in proportion to dr, the first omitted term in
     # this source is O(r^8); its moment error is O(dr^9) in this control.
     assert all(8.5 < order < 9.5 for order in local_orders)
     assert local_bias is not None and local_bias < 1.0e-8
+    assert local_first_cell_bias is not None and local_first_cell_bias < 1.0e-9
