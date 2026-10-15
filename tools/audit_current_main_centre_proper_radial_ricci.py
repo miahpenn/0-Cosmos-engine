@@ -545,6 +545,9 @@ def main() -> int:
         direct_l2_tf = alpha * direct["tf_ricci"]
         tf_delta = vendor_tf - direct["tf_ricci"]
         l2_delta = vendor_l2_tf - direct_l2_tf
+        lambda_chain_arrays, lambda_chain_summary = _lambda_chain_rule_counterfactual(
+            grid, r, a, b, X, Lambda, vendor_terms, direct["tf_ricci"]
+        )
 
         # Signed source budget on the initialized profile; keep each driver
         # separate so a local pole is not hidden by summing unlike terms.
@@ -638,6 +641,7 @@ def main() -> int:
             "lambda_metric_identity_residual": Lambda - lambda_from_metric,
             "areal_radius_minus_coordinate_radius": areal - r,
         }
+        metric_arrays.update({name: _arr(values) for name, values in lambda_chain_arrays.items()})
         metric_arrays.update({name: _arr(values) for name, values in origin_cf_arrays.items()})
 
         taylor = {}
@@ -800,6 +804,7 @@ def main() -> int:
             },
             "even_taylor_fits_first_six_cells": taylor,
             "frozen_source_origin_half_cell_counterfactual": origin_cf_summary,
+            "lambda_chain_rule_counterfactual": lambda_chain_summary,
             "interpretation_limits": [
                 "A successful observer workflow is not scientific admission.",
                 "The direct warped-product reconstruction is independent of evolved Lambda and the vendor Ricci brackets, but shares the pinned radial grid derivative operator.",
@@ -853,6 +858,10 @@ def main() -> int:
         "origin_cf_vendor_tf_ricci", "origin_cf_direct_tf_ricci",
         "origin_cf_tf_ricci_difference", "origin_cf_vendor_tf_ricci_over_r2",
         "origin_cf_direct_tf_ricci_over_r2", "origin_cf_tf_ricci_difference_over_r2",
+        "lambda_prime_discrete_D4", "lambda_prime_chain_rule", "lambda_prime_chain_minus_D4",
+        "lambda_chain_rule_induced_tf_ricci_shift", "lambda_chain_rule_vendor_tf_ricci",
+        "lambda_chain_rule_vendor_minus_direct_tf_ricci",
+        "lambda_chain_rule_vendor_minus_direct_tf_ricci_over_r2",
     ])
     with csv_path.open("w", newline="", encoding="utf-8") as stream:
         writer = csv.writer(stream)
