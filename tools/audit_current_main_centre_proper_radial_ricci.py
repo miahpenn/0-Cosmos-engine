@@ -181,9 +181,12 @@ def even_taylor_fit(r, values, count=CENTRE_CELLS):
 
 
 def _even_half_cell_integral(coefficients: np.ndarray, r0: float) -> float:
-    """Integrate s(r)=c0+c2*r²+c4*r⁴ analytically from 0 to r0."""
-    c0, c2, c4 = (float(x) for x in np.asarray(coefficients, dtype=float))
-    return c0 * r0 + c2 * r0**3 / 3.0 + c4 * r0**5 / 5.0
+    """Integrate an even polynomial in r² analytically from 0 to r0."""
+    coeff = np.asarray(coefficients, dtype=float).reshape(-1)
+    if coeff.size not in (3, 4) or np.any(~np.isfinite(coeff)):
+        raise ValueError("even half-cell integral expects finite s0/s2/s4[/s6] coefficients")
+    return float(sum(value * r0 ** (2 * order + 1) / (2 * order + 1)
+                     for order, value in enumerate(coeff)))
 
 
 def _origin_half_cell_frozen_source(grid, state, vacuum) -> tuple[dict[str, np.ndarray], dict]:
@@ -252,7 +255,7 @@ def _origin_half_cell_frozen_source(grid, state, vacuum) -> tuple[dict[str, np.n
         ncells = int(np.count_nonzero(mask))
         if ncells < 4:
             raise ValueError("even-source fit needs at least four cells inside its fixed-radius support")
-        design = np.column_stack((np.ones(ncells), x, x * x))
+        design = np.column_stack((np.ones(ncells), x, x * x, x * x * x))
         coeff, *_ = np.linalg.lstsq(design, source_last[mask], rcond=None)
         residual = source_last[mask] - design @ coeff
         integral = _even_half_cell_integral(coeff, r0)
@@ -260,7 +263,7 @@ def _origin_half_cell_frozen_source(grid, state, vacuum) -> tuple[dict[str, np.n
         return {
             "fit_r_max": float(fit_r_max),
             "fit_cells": ncells,
-            "coefficients_s0_s2_s4": [float(x) for x in coeff],
+            "coefficients_s0_s2_s4_s6": [float(x) for x in coeff],
             "fit_max_abs_residual": _max_abs(residual),
             "fit_rms_residual": float(np.sqrt(np.mean(residual * residual))),
             "even_series_half_cell_integral": float(integral),
@@ -268,8 +271,8 @@ def _origin_half_cell_frozen_source(grid, state, vacuum) -> tuple[dict[str, np.n
             "delta_integral": delta,
         }
 
-    fit20 = fit_even_source(2.0)
     fit25 = fit_even_source(2.5)
+    fit30 = fit_even_source(3.0)
     delta_integral = float(fit25["delta_integral"])
     B_cf = B_from_geometry + delta_integral / r
     if np.any(~np.isfinite(B_cf)) or np.any(B_cf <= 0.0):
@@ -351,9 +354,10 @@ def _origin_half_cell_frozen_source(grid, state, vacuum) -> tuple[dict[str, np.n
         "source_reconstruction_B_vs_X6_max_abs": float(reconstruction_error),
         "source_reconstruction_matches_geometry": bool(reconstruction_error <= 2.0e-12 * max(1.0, _max_abs(B_from_geometry))),
         "source_final_iteration_first_two": [float(x) for x in source_last[:2]],
-        "even_fit_r_le_2": fit20,
         "even_fit_r_le_2_5": fit25,
-        "fit_sensitivity_delta_integral_abs": float(abs(fit25["delta_integral"] - fit20["delta_integral"])),
+        "even_fit_r_le_2_5": fit25,
+        "even_fit_r_le_3_0": fit30,
+        "fit_sensitivity_delta_integral_abs": float(abs(fit30["delta_integral"] - fit25["delta_integral"])),
         "production_half_cell_integral": float(r0 * source_last[0]),
         "corrected_half_cell_integral": float(fit25["even_series_half_cell_integral"]),
         "delta_integral_applied": delta_integral,
