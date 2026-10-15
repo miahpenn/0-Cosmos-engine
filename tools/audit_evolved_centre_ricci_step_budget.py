@@ -49,6 +49,42 @@ def _cell_pair(values: np.ndarray) -> list[float]:
     return [float(v) for v in _arr(values)[:2]]
 
 
+def _lambda_derivative_channel_split(
+    grid,
+    X: np.ndarray,
+    Lambda_evolved: np.ndarray,
+    Lambda_metric: np.ndarray,
+    lambda_prime_chain_rule: np.ndarray,
+    gap_evolved: np.ndarray,
+    gap_chain_rule: np.ndarray,
+) -> dict[str, np.ndarray]:
+    """Separate connection-residual D4 and metric-stencil chain-rule shifts.
+
+    The algebraic Lambda*D1(a) channel is held fixed here. This is distinct
+    from the full vendor evaluation with Lambda replaced by Lambda_metric,
+    which changes both the derivative and algebraic channels.
+    """
+    d4_evolved = grid.cell_derivative_fourth(Lambda_evolved, parity=-1)
+    d4_metric = grid.cell_derivative_fourth(Lambda_metric, parity=-1)
+    chain = _arr(lambda_prime_chain_rule)
+    factor = (2.0 / 3.0) * _arr(X) ** 2
+    connection_shift = factor * (d4_metric - d4_evolved)
+    stencil_shift = factor * (chain - d4_metric)
+    gap_after_metric_d4 = _arr(gap_evolved) + connection_shift
+    chain_reconstructed = gap_after_metric_d4 + stencil_shift
+    closure = _arr(gap_chain_rule) - chain_reconstructed
+    return {
+        "lambda_prime_evolved_D4": _arr(d4_evolved),
+        "lambda_prime_metric_D4": _arr(d4_metric),
+        "lambda_prime_chain_rule": chain.copy(),
+        "ricci_shift_connection_residual_D4": _arr(connection_shift),
+        "ricci_shift_metric_stencil_chain_rule": _arr(stencil_shift),
+        "gap_after_metric_D4_with_algebraic_Lambda_fixed": _arr(gap_after_metric_d4),
+        "gap_chain_rule_reconstructed_from_two_shifts": _arr(chain_reconstructed),
+        "lambda_derivative_channel_split_closure_error": _arr(closure),
+    }
+
+
 def _observe(kernel, vacuum, state, step_index: int) -> tuple[dict, dict[str, np.ndarray]]:
     digest_before = _state_digest(state)
     grid = state.grid
@@ -85,6 +121,31 @@ def _observe(kernel, vacuum, state, step_index: int) -> tuple[dict, dict[str, np
     gap_evolved = evolved_tf - direct_tf
     gap_metric_lambda = metric_lambda_tf - direct_tf
     gap_chain = _arr(chain_arrays["lambda_chain_rule_vendor_minus_direct_tf_ricci"])
+    derivative_split = _lambda_derivative_channel_split(
+        grid,
+        X,
+        Lambda,
+        lambda_metric,
+        chain_arrays["lambda_prime_chain_rule"],
+        gap_evolved,
+        gap_chain,
+    )
+    derivative_split_scale = max(
+        _max_abs(gap_evolved),
+        _max_abs(gap_chain),
+        _max_abs(derivative_split["ricci_shift_connection_residual_D4"]),
+        _max_abs(derivative_split["ricci_shift_metric_stencil_chain_rule"]),
+        np.finfo(float).tiny,
+    )
+    derivative_split_bound = 1024.0 * np.finfo(np.float64).eps * derivative_split_scale
+    derivative_split_closure = _max_abs(
+        derivative_split["lambda_derivative_channel_split_closure_error"]
+    )
+    if derivative_split_closure > derivative_split_bound:
+        raise RuntimeError(
+            f"Lambda derivative-channel split closure failed at step {step_index}: "
+            f"{derivative_split_closure} > {derivative_split_bound}"
+        )
 
     # Exact pinned production adapter split evaluated read-only on this
     # accepted state. These are not hidden internal predictor-stage values.
@@ -128,6 +189,7 @@ def _observe(kernel, vacuum, state, step_index: int) -> tuple[dict, dict[str, np
         "chain_rule_induced_tf_shift": _arr(
             chain_arrays["lambda_chain_rule_induced_tf_ricci_shift"]
         ).copy(),
+        **{name: _arr(value).copy() for name, value in derivative_split.items()},
         "aa_lapse_hessian_tf": aa_lapse.copy(),
         "aa_ricci_tf": aa_ricci.copy(),
         "aa_l3_vacuum": aa_l3_vacuum.copy(),
@@ -177,6 +239,32 @@ def _observe(kernel, vacuum, state, step_index: int) -> tuple[dict, dict[str, np
         "gap_evolved_cell0_cell1": _cell_pair(gap_evolved),
         "gap_metric_lambda_cell0_cell1": _cell_pair(gap_metric_lambda),
         "gap_chain_rule_cell0_cell1": _cell_pair(gap_chain),
+        "gap_after_metric_D4_cell0_cell1": _cell_pair(
+            derivative_split["gap_after_metric_D4_with_algebraic_Lambda_fixed"]
+        ),
+        "connection_D4_shift_cell0_cell1": _cell_pair(
+            derivative_split["ricci_shift_connection_residual_D4"]
+        ),
+        "metric_stencil_shift_cell0_cell1": _cell_pair(
+            derivative_split["ricci_shift_metric_stencil_chain_rule"]
+        ),
+        "lambda_derivative_channel_split_closure_max_abs": derivative_split_closure,
+        "lambda_derivative_channel_split_roundoff_bound": float(derivative_split_bound),
+        "lambda_derivative_channel_split_closure_bound_ratio": float(
+            derivative_split_closure / max(derivative_split_bound, np.finfo(float).tiny)
+        ),
+        "gap_after_metric_D4_max_abs_fixed_annulus": (
+            _max_abs(derivative_split["gap_after_metric_D4_with_algebraic_Lambda_fixed"][fixed])
+            if np.any(fixed) else None
+        ),
+        "connection_D4_shift_max_abs_fixed_annulus": (
+            _max_abs(derivative_split["ricci_shift_connection_residual_D4"][fixed])
+            if np.any(fixed) else None
+        ),
+        "metric_stencil_shift_max_abs_fixed_annulus": (
+            _max_abs(derivative_split["ricci_shift_metric_stencil_chain_rule"][fixed])
+            if np.any(fixed) else None
+        ),
         "gap_evolved_max_abs_first_two": _max_abs(gap_evolved[first_two]),
         "gap_metric_lambda_max_abs_first_two": _max_abs(gap_metric_lambda[first_two]),
         "gap_chain_rule_max_abs_first_two": _max_abs(gap_chain[first_two]),
@@ -282,6 +370,11 @@ def main() -> int:
         "vendor_metric_lambda_tf_ricci", "vendor_chain_rule_tf_ricci",
         "gap_evolved_minus_direct", "gap_metric_lambda_minus_direct",
         "gap_chain_rule_minus_direct", "chain_rule_induced_tf_shift",
+        "lambda_prime_evolved_D4", "lambda_prime_metric_D4", "lambda_prime_chain_rule",
+        "ricci_shift_connection_residual_D4", "ricci_shift_metric_stencil_chain_rule",
+        "gap_after_metric_D4_with_algebraic_Lambda_fixed",
+        "gap_chain_rule_reconstructed_from_two_shifts",
+        "lambda_derivative_channel_split_closure_error",
         "aa_lapse_hessian_tf", "aa_ricci_tf", "aa_l3_vacuum", "aa_l3_matter",
         "aa_l2_adapter", "aa_l2_closure_error", "aa_rhs_total",
         "lambda_rhs_l2", "lambda_rhs_l3", "lambda_rhs_total",
@@ -302,7 +395,7 @@ def main() -> int:
                 )
 
     report = {
-        "schema": "v55_evolved_lambda_ricci_step_budget_v1",
+        "schema": "v55_evolved_lambda_ricci_step_budget_v2",
         "status": "completed_bounded_step_budget_diagnostic",
         "scientific_admission": False,
         "production_or_vendor_files_modified": False,
@@ -338,6 +431,8 @@ def main() -> int:
             "RHS budgets are read-only accepted-slice decompositions; internal predictor stages are not sampled.",
             "The first threshold crossing is the first accepted saved slice, not necessarily the first internal-stage departure.",
             "The derivative-only chain-rule arm is an offline counterfactual, not a production substitution.",
+            "The Lambda derivative split holds the algebraic Lambda*D1(a) Ricci channel fixed: D4(Lambda_metric)-D4(Lambda_evolved) isolates the sampled connection-residual derivative, while the difference between the metric-profile D4 and analytic chain-rule derivative isolates the discrete stencil/product-rule channel.",
+            "The complete vendor evaluation with Lambda replaced by Lambda_metric is a separate comparison because it changes both derivative and algebraic Lambda channels.",
         ],
     }
     report_path = OUT / "report.json"
@@ -361,6 +456,10 @@ def main() -> int:
         "final_connection_residual_max_abs_first_two": final["connection_residual_max_abs_first_two"],
         "final_gap_evolved_cell0_cell1": final["gap_evolved_cell0_cell1"],
         "final_gap_chain_rule_cell0_cell1": final["gap_chain_rule_cell0_cell1"],
+        "final_gap_after_metric_D4_cell0_cell1": final["gap_after_metric_D4_cell0_cell1"],
+        "final_connection_D4_shift_cell0_cell1": final["connection_D4_shift_cell0_cell1"],
+        "final_metric_stencil_shift_cell0_cell1": final["metric_stencil_shift_cell0_cell1"],
+        "final_lambda_derivative_channel_split_closure_max_abs": final["lambda_derivative_channel_split_closure_max_abs"],
         "final_aa_l2_closure_max_abs": final["aa_l2_closure_max_abs"],
         "observer_left_each_state_unchanged": report["state_provenance"]["observer_left_each_state_unchanged"],
         "all_profiles_finite": report["state_provenance"]["all_profiles_finite"],
