@@ -1,0 +1,78 @@
+name: SI-agent Slack notifications
+
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize, ready_for_review, converted_to_draft, closed]
+  workflow_run:
+    types: [completed]
+  workflow_dispatch:
+
+# This is outbound notification only. Never check out or execute PR-head code here.
+permissions:
+  contents: read
+  pull-requests: read
+  actions: read
+
+concurrency:
+  group: si-agent-slack-${{ github.event.pull_request.number || github.event.workflow_run.id || github.run_id }}-${{ github.event.action || github.event.workflow_run.run_attempt || github.event_name }}
+  cancel-in-progress: false
+
+env:
+  SLACK_CHANNEL_ID: ${{ vars.SLACK_CHANNEL_ID }}
+  SLACK_TOKEN_CONFIGURED: ${{ secrets.SLACK_BOT_TOKEN != '' && 'true' || 'false' }}
+
+jobs:
+  synthetic-contract:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Check out trusted default branch only
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: main
+          persist-credentials: false
+      - name: Run synthetic bridge contract tests (does not post to Slack)
+        run: python -m unittest discover -s tests -p 'test_si_slack_bridge.py' -v
+      - name: Confirm manual run is test-only
+        run: echo "::notice title=Synthetic-only::No Slack message was sent by workflow_dispatch."
+
+  notify:
+    if: github.event_name != 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+      actions: read
+    steps:
+      - name: Check out trusted main only
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: main
+          persist-credentials: false
+
+      - name: Refresh live provenance and prepare notification
+        id: prepare
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: >
+          python tools/si_slack_bridge.py prepare
+          --event-name "$GITHUB_EVENT_NAME"
+          --event-file "$GITHUB_EVENT_PATH"
+          --repository "$GITHUB_REPOSITORY"
+          --output-file "$RUNNER_TEMP/si-slack-notification.json"
+          --github-output "$GITHUB_OUTPUT"
+
+      - name: Post the validated message to Slack
+        if: steps.prepare.outputs.should_post == 'true' && env.SLACK_TOKEN_CONFIGURED == 'true' && env.SLACK_CHANNEL_ID != ''
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+        run: >
+          python tools/si_slack_bridge.py post
+          --input-file "$RUNNER_TEMP/si-slack-notification.json"
+
+      - name: Keep delivery disabled until owner authorization is configured
+        if: steps.prepare.outputs.should_post == 'true' && (env.SLACK_TOKEN_CONFIGURED != 'true' || env.SLACK_CHANNEL_ID == '')
+        run: |
+          echo "::notice title=Slack bridge disabled::A valid event was prepared but not sent. An authorized workspace/repository owner must configure SLACK_BOT_TOKEN as a secret and SLACK_CHANNEL_ID as a repository variable."
