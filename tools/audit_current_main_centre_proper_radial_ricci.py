@@ -1147,6 +1147,25 @@ def main() -> int:
             grid, state, vacuum,
             frozen_delta_integral=float(origin_cf_summary["delta_integral_applied"]),
         )
+        # Re-test the independent Lambda derivative counterfactual on the
+        # self-consistent origin profile too, rather than inferring it only
+        # from the frozen-source metric.
+        self_consistent_metric_as_origin_cf = {
+            "origin_cf_a": origin_sc_arrays["origin_sc_fixed_a"],
+            "origin_cf_b": origin_sc_arrays["origin_sc_fixed_b"],
+            "origin_cf_X": origin_sc_arrays["origin_sc_fixed_X"],
+            "origin_cf_Lambda": origin_sc_arrays["origin_sc_fixed_Lambda"],
+            "origin_cf_vendor_tf_ricci": origin_sc_arrays["origin_sc_fixed_vendor_tf_ricci"],
+            "origin_cf_direct_tf_ricci": origin_sc_arrays["origin_sc_fixed_direct_tf_ricci"],
+            "origin_cf_tf_ricci_difference": origin_sc_arrays["origin_sc_fixed_tf_ricci_difference"],
+        }
+        combined_sc_raw_arrays, combined_sc_summary = _combined_origin_and_lambda_counterfactual(
+            grid, r, self_consistent_metric_as_origin_cf
+        )
+        combined_sc_arrays = {
+            name.replace("combined_origin_lambda_cf_", "combined_origin_sc_lambda_cf_"): values
+            for name, values in combined_sc_raw_arrays.items()
+        }
         if not origin_sc_summary["convergence"]["converged"]:
             problems.append(f"N={resolution}: corrected-source origin iteration did not converge")
         if not origin_sc_summary["all_counterfactual_profiles_finite"]:
@@ -1225,6 +1244,7 @@ def main() -> int:
         metric_arrays.update({name: _arr(values) for name, values in origin_cf_arrays.items()})
         metric_arrays.update({name: _arr(values) for name, values in combined_cf_arrays.items()})
         metric_arrays.update({name: _arr(values) for name, values in origin_sc_arrays.items()})
+        metric_arrays.update({name: _arr(values) for name, values in combined_sc_arrays.items()})
         metric_arrays.update({
             name: _arr(values) for name, values in manufactured_lambda_arrays.items()
         })
@@ -1390,6 +1410,7 @@ def main() -> int:
             "even_taylor_fits_first_six_cells": taylor,
             "frozen_source_origin_half_cell_counterfactual": origin_cf_summary,
             "self_consistent_origin_half_cell_counterfactual": origin_sc_summary,
+            "self_consistent_origin_and_lambda_chain_rule_counterfactual": combined_sc_summary,
             "lambda_chain_rule_counterfactual": lambda_chain_summary,
             "combined_origin_and_lambda_chain_rule_counterfactual": combined_cf_summary,
             "manufactured_lambda_parity_discriminator": manufactured_lambda_summary,
@@ -1459,6 +1480,13 @@ def main() -> int:
         "origin_sc_fixed_delta_over_r2", "origin_sc_fixed_Lambda_over_r",
         "origin_sc_fixed_source_recomputed_at_profile", "origin_sc_baseline_production_B",
         "origin_sc_frozen_source_cf_B", "origin_sc_initializer_source_baseline_final",
+        "combined_origin_sc_lambda_cf_lambda_prime_discrete_D4",
+        "combined_origin_sc_lambda_cf_lambda_prime_chain_rule",
+        "combined_origin_sc_lambda_cf_lambda_prime_chain_minus_D4",
+        "combined_origin_sc_lambda_cf_induced_tf_ricci_shift",
+        "combined_origin_sc_lambda_cf_vendor_tf_ricci",
+        "combined_origin_sc_lambda_cf_vendor_minus_direct_tf_ricci",
+        "combined_origin_sc_lambda_cf_vendor_minus_direct_tf_ricci_over_r2",
         "lambda_prime_discrete_D4", "lambda_prime_chain_rule", "lambda_prime_chain_minus_D4",
         "lambda_chain_rule_induced_tf_ricci_shift", "lambda_chain_rule_vendor_tf_ricci",
         "lambda_chain_rule_vendor_minus_direct_tf_ricci",
