@@ -615,6 +615,18 @@ def _manufactured_lambda_parity_discriminator(grid, vacuum) -> tuple[dict[str, n
         proper_factor = np.sqrt(a) / X
         direct = proper_radial_ricci(grid, areal, proper_factor)
         direct_tf = _arr(direct["tf_ricci"])
+        ap_discrete = _arr(d1(a, 1))
+        # Reference response for the initializer-style discrete Lambda arm.
+        reference_geo = vacuum.flat_state(grid)
+        reference_geo.a[:] = a
+        reference_geo.b[:] = b
+        reference_geo.X[:] = X
+        reference_geo.alpha[:] = 1.0
+        reference_geo.beta[:] = 0.0
+        reference_geo.Lambda[:] = lambda_discrete
+        reference_terms = vacuum.geometry_terms(grid, reference_geo)
+        reference_tf = _arr(reference_terms["Rr_r"] - reference_terms["R"] / 3.0)
+        reference_gap = reference_tf - direct_tf
         arm_reports = []
         for arm_name, lambda_values in arms.items():
             geo = vacuum.flat_state(grid)
@@ -630,9 +642,24 @@ def _manufactured_lambda_parity_discriminator(grid, vacuum) -> tuple[dict[str, n
             chain_arrays, chain_summary = _lambda_chain_rule_counterfactual(
                 grid, r, a, b, X, _arr(lambda_values), vendor_terms, direct_tf
             )
+
+            # Exact fixed-metric response identity of the pinned vendor TF-Ricci:
+            # delta(Rr_r - R/3) = (2/3) X^2 D4(delta Lambda)
+            #   + (1/2) X^2 [D1(a)/a] delta Lambda.
+            # Keep the derivative and algebraic Lambda*a' channels separate.
+            lambda_delta = _arr(lambda_values) - _arr(lambda_discrete)
+            d4_lambda_delta = _arr(d1(lambda_delta, -1))
+            observed_gap_delta = gap - reference_gap
+            derivative_response = (2.0 / 3.0) * X * X * d4_lambda_delta
+            algebraic_response = 0.5 * X * X * (ap_discrete / a) * lambda_delta
+            predicted_response = derivative_response + algebraic_response
+            response_closure_error = observed_gap_delta - predicted_response
+
             prefix = f"{tag}_{arm_name}"
             arrays[prefix + "_Lambda"] = _arr(lambda_values)
             arrays[prefix + "_Lambda_over_r"] = _arr(lambda_values) / r
+            arrays[prefix + "_vendor_Rr_r"] = _arr(vendor_terms["Rr_r"])
+            arrays[prefix + "_vendor_R_scalar"] = _arr(vendor_terms["R"])
             arrays[prefix + "_vendor_tf_ricci"] = vendor_tf
             arrays[prefix + "_vendor_tf_ricci_over_r2"] = vendor_tf / (r * r)
             arrays[prefix + "_signed_gap"] = gap
@@ -643,21 +670,72 @@ def _manufactured_lambda_parity_discriminator(grid, vacuum) -> tuple[dict[str, n
             arrays[prefix + "_chain_rule_induced_tf_shift"] = _arr(
                 chain_arrays["lambda_chain_rule_induced_tf_ricci_shift"]
             )
+            arrays[prefix + "_delta_Lambda_from_discrete"] = lambda_delta.copy()
+            arrays[prefix + "_D4_delta_Lambda_from_discrete"] = d4_lambda_delta.copy()
+            arrays[prefix + "_observed_gap_change_from_discrete"] = observed_gap_delta.copy()
+            arrays[prefix + "_predicted_gap_change_derivative_only"] = derivative_response.copy()
+            arrays[prefix + "_predicted_gap_change_algebraic_Lambda_ap"] = algebraic_response.copy()
+            arrays[prefix + "_predicted_gap_change_total"] = predicted_response.copy()
+            arrays[prefix + "_response_closure_error"] = response_closure_error.copy()
+            annulus_signed = {}
+            for stat_name, stat_values in {
+                "vendor_Rr_r": arrays[prefix + "_vendor_Rr_r"],
+                "vendor_R_scalar": arrays[prefix + "_vendor_R_scalar"],
+                "vendor_tf_ricci": vendor_tf,
+                "direct_tf_ricci": direct_tf,
+                "signed_gap": gap,
+                "signed_gap_over_r2": gap / (r * r),
+                "observed_gap_change_from_discrete": observed_gap_delta,
+                "predicted_gap_change_derivative_only": derivative_response,
+                "predicted_gap_change_algebraic_Lambda_ap": algebraic_response,
+                "predicted_gap_change_total": predicted_response,
+                "response_closure_error": response_closure_error,
+            }.items():
+                selected = _arr(stat_values)[annulus]
+                annulus_signed[stat_name] = {
+                    "signed_min": float(np.min(selected)) if selected.size else None,
+                    "signed_max": float(np.max(selected)) if selected.size else None,
+                    "max_abs": _max_abs(selected) if selected.size else None,
+                    "cells": int(selected.size),
+                }
             arm_reports.append({
                 "arm": arm_name,
                 "lambda_parity_witness_max_abs_first6_lambda_over_r": _max_abs(
                     (_arr(lambda_values) / r)[:CENTRE_CELLS]
                 ),
                 "lambda_first_two": [float(v) for v in _arr(lambda_values)[:2]],
+                "vendor_Rr_r_first_two": [float(v) for v in _arr(vendor_terms["Rr_r"])[:2]],
+                "vendor_R_scalar_first_two": [float(v) for v in _arr(vendor_terms["R"])[:2]],
                 "vendor_tf_ricci_first_two": [float(v) for v in vendor_tf[:2]],
                 "direct_tf_ricci_first_two": [float(v) for v in direct_tf[:2]],
                 "signed_gap_first_two": [float(v) for v in gap[:2]],
                 "signed_gap_over_r2_first_two": [
                     float(v) for v in (gap / (r * r))[:2]
                 ],
+                "observed_gap_change_from_discrete_first_two": [
+                    float(v) for v in observed_gap_delta[:2]
+                ],
+                "predicted_gap_change_derivative_only_first_two": [
+                    float(v) for v in derivative_response[:2]
+                ],
+                "predicted_gap_change_algebraic_Lambda_ap_first_two": [
+                    float(v) for v in algebraic_response[:2]
+                ],
+                "predicted_gap_change_total_first_two": [
+                    float(v) for v in predicted_response[:2]
+                ],
+                "response_closure_error_first_two": [
+                    float(v) for v in response_closure_error[:2]
+                ],
                 "gap_max_abs_first_two": _max_abs(gap[:2]),
                 "gap_max_abs_fixed_annulus_r5_to10": (
                     _max_abs(gap[annulus]) if np.any(annulus) else None
+                ),
+                "fixed_annulus_signed_budget": annulus_signed,
+                "response_closure_error_max_abs_full": _max_abs(response_closure_error),
+                "response_closure_error_max_abs_first_two": _max_abs(response_closure_error[:2]),
+                "response_closure_error_max_abs_fixed_annulus": (
+                    _max_abs(response_closure_error[annulus]) if np.any(annulus) else None
                 ),
                 "chain_rule_gap_max_abs_full": chain_summary["chain_rule_gap_max_abs_full"],
                 "chain_rule_gap_max_abs_fixed_annulus_r5_to10": (
@@ -665,6 +743,9 @@ def _manufactured_lambda_parity_discriminator(grid, vacuum) -> tuple[dict[str, n
                 ),
                 "profiles_finite": all(_finite(v) for v in (
                     lambda_values, vendor_tf, direct_tf, gap,
+                    _arr(vendor_terms["Rr_r"]), _arr(vendor_terms["R"]),
+                    observed_gap_delta, derivative_response, algebraic_response,
+                    predicted_response, response_closure_error,
                     chain_arrays["lambda_chain_rule_vendor_minus_direct_tf_ricci"],
                 )),
             })
@@ -696,6 +777,7 @@ def _manufactured_lambda_parity_discriminator(grid, vacuum) -> tuple[dict[str, n
             "Lambda has odd parity for smooth-even spherical metric components; the off-constraint perturbation is smooth-odd and the parity-breaking control is deliberately separate.",
             "The metric and proper-radial profile are identical across Lambda arms; only the supplied connection field changes.",
             "The metric-chain-rule derivative is a diagnostic comparison, not the evolved BSSN Lambda equation and not a production substitution recommendation.",
+            "The Lambda response closure includes both D4(delta Lambda) and the algebraic Lambda*a' term in the pinned trace-free Ricci expression.",
             "Manufactured profiles test discrete operator sensitivity and parity, not the cause of the initialized production mismatch or scientific admission.",
         ],
     }
@@ -1131,6 +1213,15 @@ def main() -> int:
                 manufactured_prefix + "_signed_gap_over_r2",
                 manufactured_prefix + "_chain_rule_gap",
                 manufactured_prefix + "_chain_rule_induced_tf_shift",
+                manufactured_prefix + "_vendor_Rr_r",
+                manufactured_prefix + "_vendor_R_scalar",
+                manufactured_prefix + "_delta_Lambda_from_discrete",
+                manufactured_prefix + "_D4_delta_Lambda_from_discrete",
+                manufactured_prefix + "_observed_gap_change_from_discrete",
+                manufactured_prefix + "_predicted_gap_change_derivative_only",
+                manufactured_prefix + "_predicted_gap_change_algebraic_Lambda_ap",
+                manufactured_prefix + "_predicted_gap_change_total",
+                manufactured_prefix + "_response_closure_error",
             ])
     with csv_path.open("w", newline="", encoding="utf-8") as stream:
         writer = csv.writer(stream)

@@ -274,6 +274,25 @@ def test_manufactured_lambda_parity_arms_keep_metric_fixed():
         odd_tf = arrays[f"{tag}_off_constraint_odd_vendor_tf_ricci"]
         assert np.max(np.abs(odd_tf[:2] - discrete_tf[:2])) > 1.0e-7
 
+        # For fixed metric samples, the measured vendor TF-Ricci response to
+        # delta-Lambda closes into both D4(delta-Lambda) and Lambda*a' terms.
+        # This is an operator identity; it is not an evolution/stability claim.
+        for arm in arms:
+            prefix = f"{tag}_{arm}"
+            observed = (
+                arrays[f"{prefix}_signed_gap"]
+                - arrays[f"{tag}_discrete_signed_gap"]
+            )
+            derivative = arrays[f"{prefix}_predicted_gap_change_derivative_only"]
+            algebraic = arrays[f"{prefix}_predicted_gap_change_algebraic_Lambda_ap"]
+            total = arrays[f"{prefix}_predicted_gap_change_total"]
+            closure = arrays[f"{prefix}_response_closure_error"]
+            np.testing.assert_allclose(total, derivative + algebraic, rtol=1.0e-13, atol=1.0e-13)
+            np.testing.assert_allclose(observed, total, rtol=5.0e-7, atol=2.0e-12)
+            assert np.max(np.abs(closure)) < 2.0e-10
+            assert np.all(np.isfinite(arrays[f"{prefix}_vendor_Rr_r"]))
+            assert np.all(np.isfinite(arrays[f"{prefix}_vendor_R_scalar"]))
+
         # Smooth-even metrics require an odd Lambda=O(r): Lambda/r stays
         # bounded near the origin. The constant offset is a separate, deliberate
         # parity-breaking control and should stand out in this witness.

@@ -99,9 +99,15 @@ These preserve \(ab^2=1\), proper factor \(\sqrt a/X=1\), and areal radius \(R=r
 - **Off-constraint odd:** the discrete connection plus \(\epsilon r\exp[-(r/w)^2]\), which has the expected odd centre parity while keeping the metric fixed.
 - **Parity-breaking negative control:** the discrete connection plus a constant even offset.
 
-Every arm reports signed vendor/direct TF-Ricci differences in cells 0 and 1, their \(r^2\)-scaled values, the fixed \(5\le r\le10\) annulus maximum, and the gap after the same offline metric-chain-rule comparison. The direct metric Ricci must be identical across the four arms because the metric is held fixed; only the supplied connection field changes. The continuum and discrete connections should exhibit bounded \(\Lambda/r\) near the origin, while the even-offset control must stand apart. The off-constraint odd arm is deliberately not a production correction: it tests sensitivity to an independently supplied BSSN connection.
+Every arm reports signed vendor/direct TF-Ricci differences in cells 0 and 1, their \(r^2\)-scaled values, the fixed \(5\le r\le10\) annulus maximum, and the gap after the same offline metric-chain-rule comparison. The report also exports the individual vendor radial and scalar Ricci components, plus signed annulus minima/maxima for the response budget.
 
-This distinguishes three effects without an evolved trajectory: representation sampling for a regular connection, a regular off-constraint connection perturbation, and a deliberate parity violation. It still cannot validate a production substitution; the operator’s off-constraint behaviour and later-state connection evolution remain review gates. Results are pending the exact-head regression and pinned audit for this addition.
+For fixed metric samples, the pinned vendor expression contains both a derivative dependence through \(D_4(\Lambda)\) and an algebraic dependence through \(\Lambda a'\). The signed TF-Ricci response relative to the discrete-metric-\(\Lambda\) arm is therefore audited as
+\[
+\Delta(R^r{}_r-R/3)=\frac{2}{3}X^2D_4(\Delta\Lambda)+\frac{1}{2}X^2\frac{D_1(a)}{a}\Delta\Lambda.
+\]
+The regression checks that the observed gap change closes against the separate derivative and algebraic terms to roundoff-scaled tolerance. This prevents attributing the full off-constraint response to the chain-rule derivative alone. The direct metric Ricci must be identical across the four arms because the metric is held fixed; only the supplied connection field changes.
+
+This distinguishes three effects without an evolved trajectory: representation sampling for a regular connection, a regular off-constraint connection perturbation, and a deliberate parity violation. It still cannot validate a production substitution; the operator’s off-constraint behaviour and later-state connection evolution remain review gates. The new signed response decomposition and closure checks are included in this diagnostic-only branch; exact-head workflows remain the gate for the amended head.
 
 ## Acceptance and limits
 
