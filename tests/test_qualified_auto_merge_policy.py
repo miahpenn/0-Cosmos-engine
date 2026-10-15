@@ -181,6 +181,45 @@ def test_qualified_merge_runs_are_serialized_and_head_is_rechecked():
     assert "sha: headSha" in source
 
 
+def test_newer_failed_check_run_outranks_older_successful_higher_attempt():
+    node = shutil.which("node")
+    assert node is not None, "Node.js is required to exercise the actual check selector"
+
+    source = WORKFLOW_PATH.read_text(encoding="utf-8")
+    start = source.index("function latestCheckRunForName(checkRuns, name) {")
+    end_marker = "\\n            }"
+    end = source.index(end_marker, start) + len(end_marker.replace("\\\\n", "\\n"))
+
+    # Execute the actual selector from the privileged workflow, not a copied approximation.
+    selector = source[start:end]
+    script = """
+const latestCheckRunForName = (__SELECTOR__);
+const oldGreenRetry = {
+  name: "regression-suite", id: 101, run_attempt: 2,
+  started_at: "2026-10-15T01:00:00Z", created_at: "2026-10-15T00:59:00Z",
+  status: "completed", conclusion: "success"
+};
+const newerFailure = {
+  name: "regression-suite", id: 202, run_attempt: 1,
+  started_at: "2026-10-15T02:00:00Z", created_at: "2026-10-15T01:59:00Z",
+  status: "completed", conclusion: "failure"
+};
+const selected = latestCheckRunForName([oldGreenRetry, newerFailure], "regression-suite");
+process.stdout.write(JSON.stringify({id: selected.id, conclusion: selected.conclusion}));
+"""
+    script = script.replace("__SELECTOR__", selector)
+    completed = subprocess.run(
+        [node, "-e", script],
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=20,
+    )
+    assert completed.returncode == 0, completed.stderr
+    selected = json.loads(completed.stdout)
+    assert selected == {"id": 202, "conclusion": "failure"}
+
+
 def test_joined_ledger_gate_paths_match_the_workflow_trigger_exactly():
     merge_source = WORKFLOW_PATH.read_text(encoding="utf-8")
     ledger_source = LEDGER_WORKFLOW_PATH.read_text(encoding="utf-8")
