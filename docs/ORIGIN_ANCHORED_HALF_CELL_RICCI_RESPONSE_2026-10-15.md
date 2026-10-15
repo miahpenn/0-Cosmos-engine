@@ -81,4 +81,36 @@ These frozen-source values match the fully iterated copied-recurrence cell-0 gap
 
 The present result weakens the claim that a small fitted-intercept bias is the leading cause of the observed residual Ricci gap. The half-cell counterfactual still reduces the much larger baseline centre discrepancy by about eightfold, but the remaining sign-reversed (O(10^{-4})) residual requires a separate explanation—likely another source-fit coefficient, discrete derivative/geometry representation, or both. The next scientific gate is an independent continuous-source/remainder bound and a separate decomposition of the first-two-cell Ricci response by the even-series coefficients while keeping the Lambda derivative channel separate. Do not promote a quadrature rule from this evidence alone.
 
+## Coefficient-by-coefficient response decomposition — exact-head follow-up
+
+The coefficient-level observer completed on [workflow run 38789386881](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38789386881), code head `4546c50de394504a0d2fd7010d70c68e6c1eed7e`, artifact [11999526510](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38789386881). The exact-head run passed the eight manufactured-control tests and the source-pinned copied-initializer/Ricci audit. Artifact ZIP SHA-256: `5a3514910f6ff6d4e2ded2bb5e36a8f2a7601982791f5be4641583a63e52dff0`; report SHA-256: `c083380111177b5756d0745cb394d8f30b556a3dec5dd17eb54c38cd8871dc3e`; profiles SHA-256: `9c2525ac62e0a1a0668860d8fd97220a1806cbea164589b4a1fb7ad7ca8a3fa8`. The report is `completed_diagnostic_only`, has `errors=[]`, all eleven engine source blobs and the vendor pin matched, no production/vendor/dependency diff, zero evolution, unchanged input state, and `scientific_admission=false`.
+
+The free degree-three fit and constrained anchored fit were applied to the **same production-baseline source samples**. Their half-cell-moment difference is then split exactly into the constant replacement and each higher coefficient's refit term. Moment-term decomposition closes to roundoff:
+
+| Resolution | (c_0) replacement (delta I) | (s_2) refit term | (s_4) refit term | (s_6) refit term | Net constrained-minus-free (delta I) |
+|---:|---:|---:|---:|---:|---:|
+| (N=160) | (+8.08145734	imes10^{-9}) | (-2.99019806	imes10^{-10}) | (+4.73790431	imes10^{-12}) | (-2.44551561	imes10^{-14}) | (+7.78715098	imes10^{-9}) |
+| (N=240) | (+1.77482688	imes10^{-8}) | (-2.23386029	imes10^{-10}) | (+1.22877711	imes10^{-12}) | (-2.24829028	imes10^{-15}) | (+1.75261093	imes10^{-8}) |
+| (N=320) | (+9.19037875	imes10^{-9}) | (-7.20628306	imes10^{-11}) | (+2.47647866	imes10^{-13}) | (-2.83934723	imes10^{-16}) | (+9.11856328	imes10^{-9}) |
+
+So the (c_0) replacement contributes 103.78%, 101.27%, and 100.79% of the *net* moment change at (N=160/240/320), while the collective higher-coefficient refit offsets 3.78%, 1.27%, and 0.79%, respectively. The (s_2) term is overwhelmingly the largest higher-coefficient term; (s_4) is much smaller, and (s_6) is negligible at the shown scale.
+
+Each coefficient contribution was also applied separately to the same free-fit frozen metric and the signed Ricci gap recomputed. The table gives the cell-zero gap change relative to that free-fit reference; negative means the signed gap becomes more negative, positive means it moves toward zero.
+
+| Resolution | (c_0) replacement only | (s_2) refit term only | (s_4) refit term only | (s_6) refit term only | Combined anchored change |
+|---:|---:|---:|---:|---:|---:|
+| (N=160) | (-1.10235609	imes10^{-6}) | (+4.07879843	imes10^{-8}) | (-6.46277400	imes10^{-10}) | (+3.32432996	imes10^{-12}) | (-1.06221106	imes10^{-6}) |
+| (N=240) | (-8.17065543	imes10^{-6}) | (+1.02838780	imes10^{-7}) | (-5.65683826	imes10^{-10}) | (+1.02299701	imes10^{-12}) | (-8.06838133	imes10^{-6}) |
+| (N=320) | (-1.00287942	imes10^{-5}) | (+7.86369334	imes10^{-8}) | (-2.70257333	imes10^{-10}) | (+3.28845891	imes10^{-13}) | (-9.95042725	imes10^{-6}) |
+
+The all-term nonlinear Ricci interaction residual—the difference between the combined intervention and the sum of the separately measured (c_0,s_2,s_4,s_6) responses—is (5.0	imes10^{-15}), (2.6	imes10^{-14}), and (2.7	imes10^{-14}) over the first two cells at (N=160/240/320). Those are tiny compared with the (10^{-6})–(10^{-5}) dominant response. In this specific perturbation, the coefficient-level one-at-a-time Ricci responses therefore add to the combined result to high accuracy.
+
+### Research conclusion and next gate
+
+The coefficient split supports the previous interpretation more strongly: imposing (s(0)=1) changes the constant coefficient and pushes the residual centre Ricci gap farther from zero; higher coefficients partly compensate, mainly through the (s_2) term. The (s_4) and (s_6) terms make only small changes. The outer (5le rle10) annulus remains essentially unchanged.
+
+**This is still not an error bound on the production half-cell integral.** The decomposition is exact for the chosen polynomial estimator, not proof that its moment equals the integral of the true continuous initializer source. Next gate: establish an independent continuous-source/remainder bound or a source-pinned interpolation uncertainty interval for (s(r)) near the origin, then propagate that interval through the same no-evolution copied Ricci test. Keep the Lambda derivative channel separate.
+
+No production correction is proposed. Scientific admission remains **NOT ADMITTED**.
+
 No production correction is proposed. Scientific admission remains **NOT ADMITTED**.
