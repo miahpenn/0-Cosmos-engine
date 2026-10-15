@@ -4,6 +4,7 @@ from __future__ import annotations
 import csv
 import hashlib
 import json
+import math
 import os
 from pathlib import Path
 import sys
@@ -63,6 +64,131 @@ def continuous_coefficients(r, amplitude=0.01, width=7.0, D_amplitude=1.0e-10):
     if not (_finite(A) and _finite(q)):
         raise FloatingPointError("non-finite continuous-source coefficients")
     return A, q
+
+
+
+
+def _background_parameters():
+    """Return Kt and the homogeneous coefficient for the declared uncharged setup."""
+    rho_r = RHO_R_PRESENT
+    potential = float(cosmos_potential(np.array([PHI0]))[0])
+    rho_phi = (0.5 * PI0**2 + potential) / (8.0 * PI)
+    rho_matter = (RHO_DM_PRESENT + RHO_B_PRESENT + rho_r) / (8.0 * PI)
+    rho0 = 0.5 * PI0**2 + potential + RHO_DM_PRESENT + RHO_B_PRESENT + rho_r
+    H0 = math.sqrt(max(rho0 / 3.0, 0.0))
+    Kt = -H0
+    c_bg = 3.0 * Kt**2 - 8.0 * PI * (rho_phi + rho_matter)
+    return Kt, c_bg
+
+
+def _gaussian_even_moment_integral(r: float, power: int, a: float) -> float:
+    """Evaluate integral_0^r t**power exp(-a*t**2) dt stably for power 2 or 4."""
+    if power not in (2, 4) or not np.isfinite(r) or r < 0.0 or a <= 0.0:
+        raise ValueError("expected power 2 or 4, r >= 0, and a > 0")
+    if r == 0.0:
+        return 0.0
+    z = a * r * r
+    if z <= 0.5:
+        term = r ** (power + 1) / (power + 1)
+        total = term
+        for n in range(1, 100):
+            term *= (-z / n) * ((power + 2 * n - 1) / (power + 2 * n + 1))
+            total += term
+            if abs(term) <= np.finfo(float).eps * max(abs(total), np.finfo(float).tiny):
+                break
+        return float(total)
+    x = math.sqrt(a) * r
+    erf_term = math.sqrt(math.pi) * math.erf(x)
+    if power == 2:
+        return float(erf_term / (4.0 * a**1.5) - r * math.exp(-z) / (2.0 * a))
+    return float(
+        3.0 * erf_term / (8.0 * a**2.5)
+        - math.exp(-z) * (r**3 / (2.0 * a) + 3.0 * r / (4.0 * a**2))
+    )
+
+
+def analytic_A_integral(r, amplitude=0.01, width=7.0, D_amplitude=1.0e-10):
+    """Closed-form primitive integral_0^r A(t) dt for the declared continuous source."""
+    r = float(r)
+    if not np.isfinite(r) or r < 0.0:
+        raise ValueError("r must be finite and nonnegative")
+    if not np.isfinite(width) or width <= 0.0:
+        raise ValueError("width must be finite and positive")
+    if not np.isfinite(amplitude) or not np.isfinite(D_amplitude):
+        raise ValueError("field amplitudes must be finite")
+    Kt, c_bg = _background_parameters()
+    a = 2.0 / width**2
+    F2 = _gaussian_even_moment_integral(r, 2, a)
+    F4 = _gaussian_even_moment_integral(r, 4, a)
+    return float(
+        r + c_bg * r**3 / 3.0
+        - 4.0 * PI * amplitude**2 * F2
+        + 16.0 * PI * Kt * D_amplitude**2 / width**2 * F4
+    )
+
+
+def analytic_half_cell_envelope(
+    r_half, amplitude=0.01, width=7.0, D_amplitude=1.0e-10
+):
+    """Analytic integral/error enclosure for the declared uncharged Gaussian source.
+
+    With s=A-qB, I=rB, and I'=A-qB, let I_A=integral(A) and
+    Q=integral(qB). Positivity and the bounds B<=A_max and q<=C*r^4
+    imply 0<=Q<=A_max*C*r_half^5/5, hence
+    I_A-Q_max<=I<=I_A. The midpoint defect has a corresponding enclosure.
+    """
+    r_half = float(r_half)
+    if not np.isfinite(r_half) or r_half <= 0.0:
+        raise ValueError("r_half must be finite and positive")
+    if not np.isfinite(width) or width <= 0.0:
+        raise ValueError("width must be finite and positive")
+    if not np.isfinite(amplitude) or not np.isfinite(D_amplitude):
+        raise ValueError("field amplitudes must be finite")
+    Kt, c_bg = _background_parameters()
+    if Kt >= 0.0:
+        raise ValueError("the analytic enclosure assumes the declared Kt < 0 branch")
+    a = 2.0 / width**2
+    A_upper = 1.0 + max(c_bg, 0.0) * r_half**2
+    A_lower = (
+        1.0 + min(c_bg, 0.0) * r_half**2
+        - 4.0 * PI * amplitude**2 * r_half**2
+        - 16.0 * PI * abs(Kt) * D_amplitude**2 * r_half**4 / width**2
+    )
+    if not (np.isfinite(A_lower) and np.isfinite(A_upper) and A_lower > 0.0):
+        raise ValueError("source positivity could not be established on this half-cell")
+    q_coefficient = 16.0 * PI * (amplitude**2 + D_amplitude**2) / width**4
+    q_absorption_bound = A_upper * q_coefficient * r_half**5 / 5.0
+    I_A = analytic_A_integral(
+        r_half, amplitude=amplitude, width=width, D_amplitude=D_amplitude
+    )
+    A_end, q_end = continuous_coefficients(
+        np.array([r_half]), amplitude=amplitude, width=width, D_amplitude=D_amplitude
+    )
+    A_end = float(A_end[0])
+    q_end = float(q_end[0])
+    integral_lower = I_A - q_absorption_bound
+    integral_upper = I_A
+    delta_A = I_A - r_half * A_end
+    defect_lower = delta_A - q_absorption_bound
+    defect_upper = delta_A + r_half * q_end * A_upper
+    return {
+        "A_integral_closed_form": float(I_A),
+        "A_lower_bound_on_half_cell": float(A_lower),
+        "A_upper_bound_on_half_cell": float(A_upper),
+        "q_coefficient_C": float(q_coefficient),
+        "Q_absorption_upper_bound": float(q_absorption_bound),
+        "continuous_integral_lower_bound": float(integral_lower),
+        "continuous_integral_upper_bound": float(integral_upper),
+        "midpoint_defect_A_only": float(delta_A),
+        "continuous_midpoint_defect_lower_bound": float(defect_lower),
+        "continuous_midpoint_defect_upper_bound": float(defect_upper),
+        "assumptions": [
+            "Default uncharged source with the declared analytic Gaussian S and D fields.",
+            "Constant phi, Pi, and Kt; radiation enabled; no charged dust or Maxwell source.",
+            "Kt < 0 and A(r) > 0 on [0, r_half].",
+            "Analytic inequalities are evaluated in float64; no directed-rounding interval arithmetic is used.",
+        ],
+    }
 
 
 def integrate_half_cell(r_half, n, coeff_fn):
@@ -235,7 +361,14 @@ def run_resolution(n, r_max=80.0):
         raise RuntimeError(f"production source replay mismatch at N={n}: {samples['B_replay_max_abs_error']}")
     r_half = 0.5 * float(state.grid.dr)
     ref = continuous_reference(r_half)
+    envelope = analytic_half_cell_envelope(r_half)
     I_cont = ref["reference_moment"]
+    enclosure_pad = 64.0 * np.finfo(float).eps * max(1.0, abs(envelope["A_integral_closed_form"]))
+    if (
+        I_cont < envelope["continuous_integral_lower_bound"] - enclosure_pad
+        or I_cont > envelope["continuous_integral_upper_bound"] + enclosure_pad
+    ):
+        raise RuntimeError(f"Richardson estimate lies outside analytic integral enclosure at N={n}")
     I_mid_cont = r_half * ref["reference_endpoint_source"]
     I_prod = samples["production_point_moment"]
     q_delta = I_cont - I_mid_cont
@@ -264,6 +397,18 @@ def run_resolution(n, r_max=80.0):
             fit["fit_error_abs"] = abs(fit["fit_minus_continuous_reference"])
             fit["fit_error_rel_to_integral"] = fit["fit_error_abs"] / abs(I_cont)
             fit["fit_minus_production_point_moment"] = fit["fitted_moment"] - I_prod
+            err_lo = fit["fitted_moment"] - envelope["A_integral_closed_form"]
+            err_hi = err_lo + envelope["Q_absorption_upper_bound"]
+            fit["analytic_signed_error_lower_bound"] = float(err_lo)
+            fit["analytic_signed_error_upper_bound"] = float(err_hi)
+            fit["analytic_absolute_error_bound"] = float(max(abs(err_lo), abs(err_hi)))
+            estimate_error = fit["fitted_moment"] - I_cont
+            fit["richardson_error_inside_analytic_enclosure"] = bool(
+                estimate_error >= err_lo - enclosure_pad
+                and estimate_error <= err_hi + enclosure_pad
+            )
+            if not fit["richardson_error_inside_analytic_enclosure"]:
+                raise RuntimeError(f"fit error lies outside analytic enclosure for {name} at N={n}")
             fits.append(fit)
         except ValueError as exc:
             fits.append({
@@ -276,6 +421,11 @@ def run_resolution(n, r_max=80.0):
     return {
         "resolution": int(n), "r_max": float(r_max), "dr": float(state.grid.dr),
         "r_half": r_half, "continuous_reference": ref,
+        "analytic_enclosure": {
+            **envelope,
+            "richardson_reference_inside_enclosure": True,
+            "floating_point_enclosure_padding": float(enclosure_pad),
+        },
         "production_discrete_source": {
             "source_last_iteration_cell0": float(samples["source_last_iteration"][0]),
             "production_point_moment": I_prod,
@@ -345,6 +495,12 @@ def main():
                 x["moment_decomposition"]["total_continuum_minus_production_delta"],
                 x["moment_decomposition"]["decomposition_closure_error"],
                 x["moment_decomposition"]["estimated_reference_uncertainty"],
+                x["analytic_enclosure"]["A_integral_closed_form"],
+                x["analytic_enclosure"]["Q_absorption_upper_bound"],
+                x["analytic_enclosure"]["continuous_integral_lower_bound"],
+                x["analytic_enclosure"]["continuous_integral_upper_bound"],
+                x["analytic_enclosure"]["continuous_midpoint_defect_lower_bound"],
+                x["analytic_enclosure"]["continuous_midpoint_defect_upper_bound"],
             ])
             and all(
                 fit.get("status") == "not_eligible"
@@ -360,6 +516,8 @@ def main():
         ),
         "interpretation_limits": [
             "The continuous source assumes the declared analytic Gaussian S/D fields and constant phi, Pi, K_t.",
+            "A closed-form integral of A and a derived analytic inequality enclose the full source integral and any fit estimator error under the declared uncharged model.",
+            "The analytic inequality is evaluated in float64, not directed-rounding interval arithmetic; it is conditional on the declared continuous initialization.",
             "This is the default uncharged initialization and does not include optional charged-dust or Maxwell source terms.",
             "Richardson extrapolation provides a convergence estimate, not a rigorous analytic remainder bound.",
             "Fit-to-continuum errors are conditional on this continuous extension and do not by themselves establish a production correction.",
@@ -402,6 +560,13 @@ def main():
             "delta_sampled_source": x["moment_decomposition"]["continuum_vs_discrete_sampled_source_delta"],
             "B_replay_error": x["production_discrete_source"]["B_replay_max_abs_error"],
             "uncertainty_estimate": x["moment_decomposition"]["estimated_reference_uncertainty"],
+            "analytic_I_A": x["analytic_enclosure"]["A_integral_closed_form"],
+            "analytic_integral_lower": x["analytic_enclosure"]["continuous_integral_lower_bound"],
+            "analytic_integral_upper": x["analytic_enclosure"]["continuous_integral_upper_bound"],
+            "analytic_fit_errors_enclosed": all(
+                fit.get("status") == "not_eligible" or fit["richardson_error_inside_analytic_enclosure"]
+                for fit in x["fit_family"]
+            ),
         } for x in rows],
         "state_unchanged": report["all_observers_left_state_unchanged"],
         "finite": report["all_profiles_finite"], "errors": [],
