@@ -93,7 +93,7 @@ jobs:
               "joined-energy-ledger": "Research - joined EM/matter/Misner-Sharp ledger",
             };
 
-            async function checkGate(headSha, requiredNames, pullNumber, expectedBaseSha, mainCommitDate) {
+            async function checkGate(headSha, requiredNames, pullNumber, expectedBaseSha) {
               const [{ data: checks }, { data: workflowData }] = await Promise.all([
                 github.rest.checks.listForRef({ owner, repo, ref: headSha, per_page: 100 }),
                 github.rest.actions.listWorkflowRunsForRepo({
@@ -149,7 +149,7 @@ jobs:
                   p.base?.sha === expectedBaseSha
                 );
                 if (!exactBaseRun) {
-                  failures.push(`${name}: workflow run is not linked to this PR at current base ${expectedBaseSha`);
+                  failures.push(`${name}: workflow run is not linked to this PR at current base ${expectedBaseSha}`);
                 }
               }
               return failures;
@@ -158,8 +158,7 @@ jobs:
             async function mainInfo() {
               const { data: refData } = await github.rest.git.getRef({ owner, repo, ref: "heads/main" });
               const sha = refData.object.sha;
-              const { data: commit } = await github.rest.repos.getCommit({ owner, repo, ref: sha });
-              return { sha, committedAt: commit.commit.committer.date };
+              return { sha };
             }
 
             async function evaluateAndMerge(number) {
@@ -203,7 +202,7 @@ jobs:
                 required.push("joined-energy-ledger");
               }
 
-              const failures = await checkGate(headSha, required, number, liveMainSha, liveMain.committedAt);
+              const failures = await checkGate(headSha, required, number, liveMainSha);
               if (failures.length) {
                 core.info(`#${number}: blocked at head ${headSha}: ${failures.join("; ")}`);
                 return;
@@ -244,7 +243,7 @@ jobs:
                 return;
               }
 
-              const finalFailures = await checkGate(headSha, required, number, baseSha, freshMain.committedAt);
+              const finalFailures = await checkGate(headSha, required, number, baseSha);
               if (finalFailures.length) {
                 core.info(`#${number}: final exact-head check failed: ${finalFailures.join("; ")}`);
                 return;
