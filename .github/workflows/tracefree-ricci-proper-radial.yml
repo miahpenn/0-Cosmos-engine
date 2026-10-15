@@ -8,6 +8,13 @@ on:
       - tools/audit_tracefree_ricci_proper_radial.py
       - tests/test_tracefree_ricci_proper_radial.py
       - .github/workflows/tracefree-ricci-proper-radial.yml
+  pull_request:
+    branches:
+      - main
+    paths:
+      - tools/audit_tracefree_ricci_proper_radial.py
+      - tests/test_tracefree_ricci_proper_radial.py
+      - .github/workflows/tracefree-ricci-proper-radial.yml
 
 permissions:
   contents: read
@@ -26,9 +33,10 @@ jobs:
       SOURCE_KERNEL_BLOB: "9685e76bb5a6f26d6bf383e240de24f37523f265"
       VENDOR_COMMIT: "d6052d605673ce9d82cdc99b0df79855fa2ea215"
     steps:
-      - name: Checkout isolated diagnostic branch and pinned vendor
+      - name: Checkout exact diagnostic head and pinned vendor
         uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
           submodules: recursive
 
