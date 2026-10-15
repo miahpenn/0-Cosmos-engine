@@ -145,6 +145,12 @@ def _run_pair(kernel, base_state, vacuum, wavelength: float, dt: float) -> tuple
     aa_rate_error = actual_aa_rate - predicted_aa_rate
     constraints_base = _constraint_profiles(base_new, vacuum)
     constraints_off = _constraint_profiles(off_new, vacuum)
+    initial_ricci_scalar_base = np.asarray(
+        vacuum.geometry_terms(grid, base_state.geometry)["R"], dtype=float
+    )
+    initial_ricci_scalar_off = np.asarray(
+        vacuum.geometry_terms(grid, off_input.geometry)["R"], dtype=float
+    )
     constraint_delta = {
         key: constraints_off[key] - constraints_base[key]
         for key in constraints_base
@@ -180,6 +186,9 @@ def _run_pair(kernel, base_state, vacuum, wavelength: float, dt: float) -> tuple
         "actual_Aa_rate_delta_max_abs_fixed_interior": _max_abs(actual_aa_rate[interior]),
         "predicted_Aa_rate_delta_max_abs_fixed_interior": _max_abs(predicted_aa_rate[interior]),
         "delta_Aa_final_max_abs": _max_abs(metric_delta["Aa"]),
+        "initial_lambda_ricci_scalar_response_absmax": _max_abs(
+            initial_ricci_scalar_off - initial_ricci_scalar_base
+        ),
         "delta_K_final_max_abs": _max_abs(metric_delta["K"]),
         "delta_a_final_max_abs": _max_abs(metric_delta["a"]),
         "delta_b_final_max_abs": _max_abs(metric_delta["b"]),
@@ -212,6 +221,8 @@ def _run_pair(kernel, base_state, vacuum, wavelength: float, dt: float) -> tuple
     }
     profiles = {
         "r": r,
+        "initial_ricci_scalar_baseline": initial_ricci_scalar_base,
+        "initial_ricci_scalar_off_mode": initial_ricci_scalar_off,
         "delta_lambda_input": delta_lambda,
         "exact_delta_lambda_prime": exact_delta_lambda_prime,
         "predicted_tf_ricci_response": predicted_tf_response,
