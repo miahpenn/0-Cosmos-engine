@@ -41,7 +41,15 @@ The vendor BSSN Ricci calculation uses a separate (D_4(\Lambda)) term because (\
 ]
 The sole Ricci-term substitution in this counterfactual is (D_4(\Lambda)\mapsto\Lambda'_{\rm chain}); the induced radial trace-free Ricci shift is (	frac23 X^2(\Lambda'_{\rm chain}-D_4(\Lambda))). The new report records both derivatives, their signed difference, the induced shift, and baseline-versus-counterfactual gaps for cells 0/1, the full grid and fixed (5\le r\le10) annulus, with all original source/vendor/state/checksum gates retained.
 
-The team's read-only calculation on the preserved artifact reported a full-grid gap reduction from approximately (1.59\times10^{-3}) at cell 0 to (2.45\times10^{-10}), (5.06\times10^{-11}), and (1.63\times10^{-11}) at N=160/240/320. The refreshed observer must reproduce the decomposition at its exact head before relying on those prior values.
+The refreshed observer reproduced the counterfactual on exact PR head `d99cf6109e3ba76ef8da940bbbef064a25a3a309`: dedicated no-evolution workflow [38687362269](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38687362269), artifact [11950443446](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38687362269/artifacts/11950443446). The ZIP SHA-256 is `0d6be6b33c0d07c7585c22ac273d3f06c0cb7552662f4097e96d8bd9bef5751c`; embedded report, NPZ and CSV checksums all verify. Source anchor `285a2ee0c1a3b97cddeb4519d8e749109b115aab` and vendor `d6052d605673ce9d82cdc99b0df79855fa2ea215` were pinned; source/vendor/dependency diff is empty, the repository regression suite passed, all profiles are finite, initialized-state digests are unchanged, there are zero evolution steps, and the report has no errors.
+
+| N | baseline cell-0 TF-Ricci gap | chain-rule cell-0 gap | maximum full-grid gap after substitution | fixed-annulus gap after substitution |
+|---:|---:|---:|---:|---:|
+| 160 | +1.591813077e-3 | -2.449681397e-10 | 2.449681397e-10 | 7.761541355e-12 |
+| 240 | +1.590029207e-3 | -5.056151277e-11 | 5.056151277e-11 | 1.629645868e-12 |
+| 320 | +1.589416445e-3 | -1.625895577e-11 | 1.625895577e-11 | 5.214383883e-13 |
+
+The cell-1 residuals are (-2.1383\times10^{-10}, -4.7629\times10^{-11}, -1.5717\times10^{-11}), respectively. The run is diagnostic-only; a reduced metric-representation gap does not show that substituting the chain-rule derivative into the evolved production BSSN operator is safe.
 
 **Critical limit:** this is strong evidence of a discrete product/chain-rule closure mismatch between two representations on the initialized slice. It does not authorize replacing the evolved BSSN connection derivative in production. The vendor explicitly relies on independent `Lambda` as part of the BSSN principal structure, and direct metric Ricci need not equal the evolved-connection expression away from the connection-constraint surface. No vendor or production change is part of this PR.
 
