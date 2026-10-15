@@ -1,6 +1,9 @@
 """Policy contract tests for the privileged qualified auto-merge workflow."""
 
 from pathlib import Path
+import json
+import shutil
+import subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
 WORKFLOW_PATH = ROOT / ".github" / "workflows" / "qualified_auto_merge.yml"
@@ -38,6 +41,95 @@ def test_non_documentation_requires_trusted_human_collaborator_approval():
     assert "if (!documentationOnly && !hasIndependentApproval)" in source
     assert "if (!documentationOnly && !finalApproval)" in source
     assert 'review.state === "CHANGES_REQUESTED"' in source
+
+
+def test_review_eligibility_helper_rejects_outsiders_bots_and_api_errors():
+    node = shutil.which("node")
+    assert node is not None, "Node.js is required to exercise the actual inline JavaScript policy helper"
+
+    source = WORKFLOW_PATH.read_text(encoding="utf-8")
+    fresh_start = source.index("function freshReviewState(reviews, headSha) {")
+    fresh_end_marker = "\\n              return latestByReviewer;\\n            }"
+    fresh_end = source.index(fresh_end_marker, fresh_start) + len(fresh_end_marker.replace("\\n", "\\n"))
+    fresh_fn = source[fresh_start:fresh_end]
+
+    approval_start = source.index("async function hasTrustedIndependentApproval(reviewerState, authorLogin) {")
+    approval_end_marker = "\\n              return false;\\n            }"
+    approval_end = source.index(approval_end_marker, approval_start) + len(approval_end_marker)
+    approval_fn = source[approval_start:approval_end]
+
+    # Execute the exact two helpers extracted from the privileged workflow with mocked GitHub API permissions.
+    script = """
+const github = { rest: { repos: { getCollaboratorPermissionLevel: async ({ username }) => {
+  calls.push(username);
+  if (apiErrors.has(username)) throw new Error("permission endpoint unavailable");
+  return { data: { permission: permissions[username] || "unknown" } };
+} } } };
+const core = { info: () => {} };
+const owner = "owner";
+const repo = "repo";
+const helpers = new Function("github", "core", "owner", "repo", `return ({
+  freshReviewState: (__FRESH_FN__),
+  hasTrustedIndependentApproval: (__APPROVAL_FN__)
+});`)(github, core, owner, repo);
+
+const HEAD = "head";
+const review = (login, type, state = "APPROVED", commit = HEAD, when = "2026-10-15T00:00:00Z") => ({
+  commit_id: commit, submitted_at: when, user: { login, type }, state
+});
+let calls = [];
+let permissions = {};
+let apiErrors = new Set();
+async function qualifies(reviews, perms = {}, errors = new Set()) {
+  calls = [];
+  permissions = perms;
+  apiErrors = errors;
+  const state = helpers.freshReviewState(reviews, HEAD);
+  const approved = await helpers.hasTrustedIndependentApproval(state, "author");
+  return { approved, calls: [...calls], state: Object.fromEntries(state) };
+}
+(async () => {
+  const result = {
+    outsider: await qualifies([review("outsider", "User")], { outsider: "read" }),
+    bot: await qualifies([review("review-bot[bot]", "Bot")], { "review-bot[bot]": "write" }),
+    triageOnly: await qualifies([review("triage", "User")], { triage: "triage" }),
+    author: await qualifies([review("author", "User")], { author: "admin" }),
+    permissionError: await qualifies([review("unknown", "User")], {}, new Set(["unknown"])),
+    writer: await qualifies([review("trusted", "User")], { trusted: "write" }),
+    maintainer: await qualifies([review("maintainer", "User")], { maintainer: "maintain" }),
+    admin: await qualifies([review("admin", "User")], { admin: "admin" }),
+    staleHead: await qualifies([review("stale", "User", "APPROVED", "old-head")], { stale: "write" }),
+    withdrawnApproval: await qualifies([
+      review("reviewer", "User", "APPROVED", HEAD, "2026-10-15T00:00:00Z"),
+      review("reviewer", "User", "CHANGES_REQUESTED", HEAD, "2026-10-15T00:01:00Z")
+    ], { reviewer: "write" })
+  };
+  process.stdout.write(JSON.stringify(result));
+})().catch(err => { console.error(err); process.exit(2); });
+"""
+    script = script.replace("__FRESH_FN__", fresh_fn).replace("__APPROVAL_FN__", approval_fn)
+    completed = subprocess.run(
+        [node, "-e", script],
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=20,
+    )
+    assert completed.returncode == 0, completed.stderr
+    result = json.loads(completed.stdout)
+    assert result["outsider"]["approved"] is False
+    assert result["bot"]["approved"] is False
+    assert result["bot"]["calls"] == []
+    assert result["triageOnly"]["approved"] is False
+    assert result["author"]["approved"] is False
+    assert result["permissionError"]["approved"] is False
+    assert result["writer"]["approved"] is True
+    assert result["maintainer"]["approved"] is True
+    assert result["admin"]["approved"] is True
+    assert result["staleHead"]["approved"] is False
+    assert result["staleHead"]["calls"] == []
+    assert result["withdrawnApproval"]["approved"] is False
+    assert result["withdrawnApproval"]["state"]["reviewer"]["state"] == "CHANGES_REQUESTED"
 
 
 def test_privileged_github_script_action_is_sha_pinned():
