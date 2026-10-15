@@ -34,10 +34,10 @@ SOURCE_BLOBS = {
     "engine/valencia.py": "03ed86398f424c03d9d6a3e646da9222a34fac5c",
     "engine/worldtube.py": "aea19090cb0fd2ebe5481a8b7af0d26f119a9ad6",
 }
-RESOLUTIONS = (60, 80, 120)
+RESOLUTIONS = (160, 240, 320)
 R_MAX = 80.0
 CENTRE_CELLS = 6
-OUT = Path("results/current-main-centre-proper-radial-ricci")
+OUT = Path("results/current-main-centre-proper-radial-ricci-highres-2026-10-15")
 
 
 def _git(*args: str) -> str:
