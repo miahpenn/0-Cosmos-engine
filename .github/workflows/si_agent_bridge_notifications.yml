@@ -2,7 +2,7 @@ name: SI-agent bridge notifications
 
 on:
   pull_request_target:
-    types: [opened, reopened, synchronize, ready_for_review, converted_to_draft, closed]
+    types: [opened, reopened, synchronize, ready_for_review, converted_to_draft, closed, assigned, unassigned, labeled, unlabeled, review_requested, review_request_removed]
   workflow_run:
     types: [completed]
   workflow_dispatch:
