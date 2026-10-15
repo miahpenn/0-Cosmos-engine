@@ -77,6 +77,7 @@ def _is_repo_evidence_url(value: Any) -> bool:
         and parsed.password is None
         and port is None
         and not parsed.query
+        and not parsed.fragment
         and bool(_ALLOWED_GITHUB_PATH.fullmatch(parsed.path))
     )
 
