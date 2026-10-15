@@ -54,8 +54,8 @@ def test_review_eligibility_helper_rejects_outsiders_bots_and_api_errors():
 
     source = WORKFLOW_PATH.read_text(encoding="utf-8")
     fresh_start = source.index("function freshReviewState(reviews, headSha) {")
-    end_marker = "\n            }"
-    end = source.index(end_marker, start) + len(end_marker)
+    fresh_end_marker = "\n              return latestByReviewer;\n            }"
+    fresh_end = source.index(fresh_end_marker, fresh_start) + len(fresh_end_marker)
     fresh_fn = source[fresh_start:fresh_end]
 
     review_start = source.index("async function hasTrustedIndependentReview(reviewerState, authorLogin, requiredState) {")
@@ -187,8 +187,8 @@ def test_newer_failed_check_run_outranks_older_successful_higher_attempt():
 
     source = WORKFLOW_PATH.read_text(encoding="utf-8")
     start = source.index("function latestCheckRunForName(checkRuns, name) {")
-    end_marker = "\\n            }"
-    end = source.index(end_marker, start) + len(end_marker.replace("\\\\n", "\\n"))
+    end_marker = "\n            }"
+    end = source.index(end_marker, start) + len(end_marker)
 
     # Execute the actual selector from the privileged workflow, not a copied approximation.
     selector = source[start:end]
