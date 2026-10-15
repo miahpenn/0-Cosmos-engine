@@ -100,3 +100,27 @@ def test_regular_smooth_profile_and_parity_negative_control():
     regular_peak = float(np.max(np.abs(regular["tf_ricci"][:6])))
     nonregular_peak = float(np.max(np.abs(nonregular["tf_ricci"][:6])))
     assert nonregular_peak > 10.0 * regular_peak
+
+
+def test_even_half_cell_integral_uses_regular_source_moments():
+    """The origin half-cell integral must integrate an even source, not sample it at r0."""
+    from tools.audit_current_main_centre_proper_radial_ricci import _even_half_cell_integral
+
+    coefficients = np.array([1.25, -0.75, 0.2], dtype=float)
+    r0 = 0.125
+    expected = (
+        coefficients[0] * r0
+        + coefficients[1] * r0**3 / 3.0
+        + coefficients[2] * r0**5 / 5.0
+    )
+    actual = _even_half_cell_integral(coefficients, r0)
+    sampled_trapezoid = r0 * (
+        coefficients[0] + coefficients[1] * r0**2 + coefficients[2] * r0**4
+    )
+
+    assert abs(actual - expected) < 1.0e-16
+    expected_sampling_bias = (
+        (2.0 / 3.0) * coefficients[1] * r0**3
+        + (4.0 / 5.0) * coefficients[2] * r0**5
+    )
+    assert abs((sampled_trapezoid - actual) - expected_sampling_bias) < 1.0e-16
