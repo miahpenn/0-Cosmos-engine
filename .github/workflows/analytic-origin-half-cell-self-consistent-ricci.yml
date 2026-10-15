@@ -53,7 +53,7 @@ jobs:
       LAMBDA_SYMBOL_OUT: "results/manufactured-lambda-symbol-sweep-2026-10-15"
       COUPLED_LAMBDA_OUT: "results/coupled-lambda-constraint-propagation-2026-10-15"
       LAMBDA_STRESS_OUT: "results/lambda-offmode-amplitude-stress-2026-10-15"
-      LAMBDA_CENTER_OUT: "results/lambda-center-tangent-resolution-2026-10-15"
+      LAMBDA_CENTER_OUT: "results/lambda-center-tangent-space-time-2026-10-15"
     steps:
       - name: Check out research branch and pinned vendor
         uses: actions/checkout@v4
@@ -160,7 +160,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: lambda-center-tangent-resolution-2026-10-15
-          path: results/lambda-center-tangent-resolution-2026-10-15/
+          name: lambda-center-tangent-space-time-2026-10-15
+          path: results/lambda-center-tangent-space-time-2026-10-15/
           if-no-files-found: warn
           retention-days: 90
