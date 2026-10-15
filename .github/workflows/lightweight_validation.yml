@@ -12,8 +12,6 @@ on:
       - "requirements.txt"
       - "pytest.ini"
       - ".gitmodules"
-      - "pyproject.toml"
-      - "Makefile"
   workflow_dispatch:
 
 permissions:

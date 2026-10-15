@@ -4,7 +4,12 @@ There is deliberately NO added interface source term.
 All local/COSMOS feedback is carried by the single metric + total Tmunu.
 This module records the derived exchange ledger only.
 """
+import argparse
+from pathlib import Path
+
 import numpy as np
+
+from .cosmology_observables import effective_hubble
 from . import true_cmc_reference as cmc
 from . import reference_pirk_unified as q
 
@@ -22,7 +27,7 @@ def ledger_observables(g,s,fields,Rcoord=10.0):
     outer=r>=.8*g.r_max
     inner=r<=r[k]
     return {
-        'H_eff':-float(np.mean(s.K))/3.,
+        'H_eff': effective_hubble(s, g.volumes),
         'tau_rate':float(s.alpha[0]),
         'R_sigma':float(R[k]),
         'M_MS':float(M[k]),
@@ -59,7 +64,49 @@ def run(N=40,T=24,cfl=.06,Rcoord=10.):
     }
     return out,meta
 
-if __name__=='__main__':
+def save_ledger_archive(out, N, output_dir):
+    """Save a ledger using its recorded final time in the artifact filename.
+
+    A filename is part of the evidence provenance: never label an arbitrary
+    time span as T24 just because that is the CLI's current default.
+    """
+    if "t" not in out:
+        raise ValueError("ledger output must include its sampled 't' history")
+    times = np.asarray(out["t"])
+    if (
+        times.ndim != 1
+        or times.size == 0
+        or times.dtype.kind not in "iuf"
+        or not np.all(np.isfinite(times))
+    ):
+        raise ValueError("ledger output 't' must be a non-empty finite numeric vector")
+    final_time = float(times[-1])
+    if final_time < 0.0:
+        raise ValueError("ledger final time must be nonnegative")
+    time_tag = f"{final_time:g}".replace("-", "m").replace(".", "p")
+
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    target = output_dir / f"GEAR_V5_5_BIDIRECTIONAL_PRODUCTION_LEDGER_N{N}_T{time_tag}.npz"
+    np.savez_compressed(target, **out)
+    return target
+
+
+if __name__ == "__main__":
     import json
-    for N in (40,60):
-        out,meta=run(N); print(json.dumps(meta,indent=2)); np.savez_compressed(f'/mnt/data/gear_v55/GEAR_V5_5_BIDIRECTIONAL_PRODUCTION_LEDGER_N{N}_T24.npz',**out)
+
+    parser = argparse.ArgumentParser(
+        description="Run the bounded GEAR V5.5 bidirectional research ledger."
+    )
+    parser.add_argument(
+        "--output-dir",
+        type=Path,
+        default=Path("artifacts/gear_v55"),
+        help="directory for NPZ outputs (default: ./artifacts/gear_v55)",
+    )
+    args = parser.parse_args()
+
+    for N in (40, 60):
+        out, meta = run(N)
+        output_path = save_ledger_archive(out, N, args.output_dir)
+        print(json.dumps({**meta, "output_path": str(output_path)}, indent=2))

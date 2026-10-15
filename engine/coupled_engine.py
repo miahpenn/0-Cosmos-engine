@@ -13,6 +13,7 @@ import numpy as np
 from . import reference_pirk_unified as q
 from .true_cmc_reference import cmc_lapse, step_true_cmc
 from .bidirectional_production import ledger_observables
+from .cosmology_observables import effective_hubble
 from .handoff import CycleLedger, handoff_from_ledger
 
 
@@ -39,7 +40,7 @@ def initialize(n=80, rmax=40.0, amplitude=.01, width=7.0):
 
 
 def advance(run, dt):
-    previous_H = -float(np.mean(run.state.K)) / 3.0
+    previous_H = effective_hubble(run.state, run.grid.volumes)
     run.state, run.fields = step_true_cmc(
         run.grid, run.state, run.fields, dt
     )
