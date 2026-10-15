@@ -100,3 +100,17 @@ The source/vendor pins pass, the observer leaves the initialized state unchanged
 The evidence now separates four matters: (1) the large origin-half-cell sampling contribution; (2) a persistent, sign-reversed Ricci/centre-Hamiltonian residual after that contribution is replaced; (3) a strong same-slice Lambda derivative-channel response; and (4) the expected, resolution-dependent D4 symbol error for manufactured off-constraint modes. The next valid step is independent numerical-method review of the signed residual relocation and chain-rule identity, followed by a manufactured test of the *coupled evolved* off-constraint principal symbol and constraint propagation—not just the now-closed frozen-stage L2 RHS identity. Then run high-resolution and full-horizon constraint/conservation diagnostics under an explicitly reviewed hypothesis. Do not combine the half-cell and Lambda counterfactuals into a production patch based only on the near-zero composed Ricci gap.
 
 No production initializer, engine equation, vendor, dependency or campaign setting was modified. Scientific admission remains **NOT ADMITTED**.
+
+
+## Coupled one-step Lambda control — separated Hamiltonian witnesses
+
+The follow-up regression now keeps two Hamiltonian channels separate:
+
+1. **Metric-only witness:** reconstruct the spatial Ricci tensor from areal radius R = r sqrt(b)/X and proper-radial factor sqrt(a)/X, then combine its scalar curvature with the unchanged algebraic K, A^i_j, and matter terms. This witness must not change when only the independent connection field Lambda changes.
+2. **BSSN witness:** retain the production-representation scalar-Ricci/Hamiltonian response. At fixed metric and fixed algebraic fields, the pinned scalar-Ricci bracket gives the signed identity
+
+   ΔH_BSSN = X² D4(ΔLambda).
+
+   The test compares the observed signed delta with this profile, not with zero. This is distinct from the previously audited trace-free Ricci response used in the Aa evolution equation.
+
+The initial connection-residual delta remains a separate channel and is checked against the manufactured odd mode; momentum and determinant invariance checks are retained. No tolerance was broadened to accommodate the failing assumption. The new control is research-only and source-pinned to engine SHA 285a2ee0c1a3b97cddeb4519d8e749109b115aab and vendor SHA d6052d605673ce9d82cdc99b0df79855fa2ea215. It does not change production physics or establish full coupled stability. Exact-head workflows must pass before the diagnostic result is treated as validated; scientific admission remains NOT ADMITTED.
