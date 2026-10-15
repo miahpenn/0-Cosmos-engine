@@ -1,0 +1,71 @@
+name: Diagnostic - source-pinned evolved centre Ricci comparison
+
+on:
+  push:
+    branches:
+      - diag/current-main-centre-ricci-highres-2026-10-15
+    paths:
+      - tools/audit_evolved_centre_ricci_provenance.py
+      - .github/workflows/current-main-centre-evolved-state-ricci.yml
+      - docs/CURRENT_MAIN_CENTRE_RICCI_HIGHRES_2026-10-15.md
+
+permissions:
+  contents: read
+
+concurrency:
+  group: current-main-evolved-centre-ricci-2026-10-15
+  cancel-in-progress: false
+
+jobs:
+  evolved-state-discriminator:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      PYTHONUNBUFFERED: "1"
+      SOURCE_COMMIT: "285a2ee0c1a3b97cddeb4519d8e749109b115aab"
+      VENDOR_COMMIT: "d6052d605673ce9d82cdc99b0df79855fa2ea215"
+      EVOLVED_RESOLUTION: "40"
+      EVOLVED_R_MAX: "80.0"
+      EVOLVED_CFL: "0.03"
+      EVOLVED_STEPS: "8"
+      EVOLVED_OUT: "results/current-main-evolved-centre-ricci-2026-10-15"
+
+    steps:
+      - name: Check out diagnostic branch and pinned vendor
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install repository requirements
+        run: python -m pip install -r requirements.txt
+
+      - name: Fail closed on source/vendor/dependency drift
+        run: |
+          python - <<'PY'
+          import json
+          from tools.audit_current_main_centre_proper_radial_ricci import _verify_source_pins
+          print(json.dumps(_verify_source_pins(), indent=2))
+          PY
+
+      - name: Compile bounded observer
+        run: python -m py_compile tools/audit_evolved_centre_ricci_provenance.py
+
+      - name: Run eight-step source-pinned evolved-state discriminator
+        run: python tools/audit_evolved_centre_ricci_provenance.py
+
+      - name: Upload saved evolved state and signed diagnostic profiles
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: current-main-evolved-centre-ricci-2026-10-15
+          path: results/current-main-evolved-centre-ricci-2026-10-15/
+          if-no-files-found: warn
+          retention-days: 90
