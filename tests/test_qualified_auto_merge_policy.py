@@ -60,3 +60,33 @@ def test_policy_document_matches_the_narrow_review_fast_path():
     assert "documentation-only work" in policy
     assert "README.md" in policy and "docs/**" in policy
     assert "tests, tools, workflow definitions, production engine code" in policy
+
+
+
+def test_joined_ledger_gate_paths_match_the_ledger_workflow_trigger():
+    merge_source = WORKFLOW.read_text(encoding="utf-8")
+    ledger_workflow = ROOT / ".github" / "workflows" / "em_total_energy_budget.yml"
+    ledger_source = ledger_workflow.read_text(encoding="utf-8")
+
+    start = merge_source.index("const ledgerPaths = new Set([")
+    end = merge_source.index("]);", start)
+    protected_paths = {
+        line.strip()[1:-2]
+        for line in merge_source[start:end].splitlines()
+        if line.strip().startswith('"') and line.strip().endswith('",')
+    }
+
+    path_start = ledger_source.index("    paths:\\n") + len("    paths:\\n")
+    path_end = ledger_source.index("\\n\\npermissions:", path_start)
+    trigger_paths = {
+        line.strip()[2:]
+        for line in ledger_source[path_start:path_end].splitlines()
+        if line.strip().startswith("- ")
+    }
+
+    assert trigger_paths, "joined-ledger workflow path filter must not be empty"
+    assert protected_paths == trigger_paths, (
+        f"auto-merge joined-ledger gate drifted from workflow paths: "
+        f"unprotected={sorted(trigger_paths - protected_paths)}, "
+        f"stale={sorted(protected_paths - trigger_paths)}"
+    )
