@@ -13,8 +13,8 @@ def test_manufactured_odd_lambda_sweep_closes_response_and_chain_rule_split():
     assert [x["wavelength"] for x in modes] == [32.0, 16.0, 8.0]
     assert all(x["max_abs_response_closure_error"] < 5.0e-12 for x in modes)
     assert all(x["max_abs_chain_rule_algebraic_only_closure_error"] < 5.0e-12 for x in modes)
-    assert all(x["max_abs_Aa_L3_RHS_response_identity_closure"] < 5.0e-12 for x in modes)
-    assert all(x["max_abs_chainrule_Aa_L3_algebraic_only_closure_error"] < 5.0e-12 for x in modes)
+    assert all(x["max_abs_Aa_L2_RHS_response_identity_closure"] < 5.0e-12 for x in modes)
+    assert all(x["max_abs_chainrule_Aa_L2_algebraic_only_closure_error"] < 5.0e-12 for x in modes)
     assert all(np.isfinite(x["max_abs_Lambda_L3_RHS_delta"]) for x in modes)
 
     # The centred D4 operator's measured response matches its known modified
