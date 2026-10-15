@@ -109,8 +109,16 @@ def fit_origin_moment(
     # For a saturated leave-one-out system the omitted fit has zero residual
     # degrees of freedom. Do not claim a LOO error bound in that case.
     loo_max = None
-    if nfit >= degree + 3:
-        leverages = np.diag(design @ np.linalg.pinv(design))
+    # The standard PRESS identity applies only to an ordinary least-squares
+    # projection. For a constrained refit, use the higher-power design; for
+    # the intercept-only replacement, do not imply a PRESS bound at all.
+    loo_design = None
+    if not anchor_origin:
+        loo_design = design
+    elif anchor_strategy == "constrained":
+        loo_design = design[:, 1:]
+    if loo_design is not None and nfit >= loo_design.shape[1] + 2:
+        leverages = np.diag(loo_design @ np.linalg.pinv(loo_design))
         denominator = 1.0 - leverages
         if np.all(denominator > 1.0e-10):
             loo_max = float(np.max(np.abs(residual / denominator)))
