@@ -475,6 +475,88 @@ def _lambda_chain_rule_counterfactual(
     return arrays, summary
 
 
+def _combined_origin_and_lambda_counterfactual(
+    grid,
+    r: np.ndarray,
+    origin_cf_arrays: dict[str, np.ndarray],
+) -> tuple[dict[str, np.ndarray], dict]:
+    """Compose the two offline discriminators on the copied half-cell metric.
+
+    First use the frozen-source origin half-cell metric from
+    _origin_half_cell_frozen_source; then, on that copied metric only, compare
+    D4(Lambda) with the chain-rule derivative of the metric-to-Lambda relation.
+    No production state, source file, or vendor operator is changed.
+    """
+    r = _arr(r)
+    a = _arr(origin_cf_arrays["origin_cf_a"])
+    b = _arr(origin_cf_arrays["origin_cf_b"])
+    X = _arr(origin_cf_arrays["origin_cf_X"])
+    Lambda = _arr(origin_cf_arrays["origin_cf_Lambda"])
+    vendor_tf_origin = _arr(origin_cf_arrays["origin_cf_vendor_tf_ricci"])
+    direct_tf_origin = _arr(origin_cf_arrays["origin_cf_direct_tf_ricci"])
+    gap_origin = _arr(origin_cf_arrays["origin_cf_tf_ricci_difference"])
+
+    d1 = lambda values, parity=1: grid.cell_derivative_fourth(values, parity=parity)
+    d2 = lambda values, parity=1: grid.cell_second_derivative_fourth(values, parity=parity)
+    ap = d1(a, 1)
+    bp = d1(b, 1)
+    app = d2(a, 1)
+    bpp = d2(b, 1)
+    lambda_p_discrete = d1(Lambda, -1)
+    lambda_p_chain = (
+        app / (2.0 * a * a)
+        - ap * ap / (a * a * a)
+        - bpp / (a * b)
+        + bp * (ap * b + a * bp) / (a * a * b * b)
+        - 2.0 * (1.0 / b - 1.0 / a) / (r * r)
+        + 2.0 * (-bp / (b * b) + ap / (a * a)) / r
+    )
+    lambda_p_delta = lambda_p_chain - lambda_p_discrete
+    induced_tf_shift = (2.0 / 3.0) * X * X * lambda_p_delta
+    combined_vendor_tf = vendor_tf_origin + induced_tf_shift
+    combined_gap = combined_vendor_tf - direct_tf_origin
+    fixed = (r >= 5.0) & (r <= 10.0)
+    first_two = []
+    for i in range(min(2, len(r))):
+        first_two.append({
+            "i": int(i),
+            "r": float(r[i]),
+            "half_cell_only_gap": float(gap_origin[i]),
+            "chain_rule_induced_tf_ricci_shift_on_half_cell_metric": float(induced_tf_shift[i]),
+            "combined_gap": float(combined_gap[i]),
+            "half_cell_only_gap_over_r2": float(gap_origin[i] / (r[i] * r[i])),
+            "combined_gap_over_r2": float(combined_gap[i] / (r[i] * r[i])),
+        })
+    arrays = {
+        "combined_origin_lambda_cf_lambda_prime_discrete_D4": lambda_p_discrete,
+        "combined_origin_lambda_cf_lambda_prime_chain_rule": lambda_p_chain,
+        "combined_origin_lambda_cf_lambda_prime_chain_minus_D4": lambda_p_delta,
+        "combined_origin_lambda_cf_induced_tf_ricci_shift": induced_tf_shift,
+        "combined_origin_lambda_cf_vendor_tf_ricci": combined_vendor_tf,
+        "combined_origin_lambda_cf_vendor_minus_direct_tf_ricci": combined_gap,
+        "combined_origin_lambda_cf_vendor_minus_direct_tf_ricci_over_r2": combined_gap / (r * r),
+    }
+    summary = {
+        "method": "compose the frozen-source half-cell metric counterfactual with an offline Lambda chain-rule derivative comparison; all sampled geometry values and operators remain diagnostic-only",
+        "production_or_vendor_code_changed": False,
+        "evolution_steps": 0,
+        "half_cell_only_gap_max_abs_full": _max_abs(gap_origin),
+        "combined_gap_max_abs_full": _max_abs(combined_gap),
+        "half_cell_only_gap_max_abs_first_two": _max_abs(gap_origin[:min(2, len(r))]),
+        "combined_gap_max_abs_first_two": _max_abs(combined_gap[:min(2, len(r))]),
+        "half_cell_only_gap_max_abs_fixed_annulus_r5_to10": _max_abs(gap_origin[fixed]) if np.any(fixed) else None,
+        "combined_gap_max_abs_fixed_annulus_r5_to10": _max_abs(combined_gap[fixed]) if np.any(fixed) else None,
+        "first_two_cells": first_two,
+        "counterfactual_profiles_finite": all(_finite(v) for v in arrays.values()) and _finite(gap_origin),
+        "interpretation_limits": [
+            "This composes two frozen-slice counterfactuals; it is not a self-consistent initializer re-solve.",
+            "The Lambda chain-rule substitution is not the production BSSN operator and may alter the off-constraint principal structure if promoted to evolution.",
+            "A small combined gap localizes representation compatibility on this initialized slice; it does not prove a unique cause, evolved stability, or scientific admission.",
+        ],
+    }
+    return arrays, summary
+
+
 def _verify_source_pins() -> dict:
     source_head = _git("rev-parse", "HEAD")
     source_vendor = _git("rev-parse", "HEAD:vendor/bb-palatini-unified-r0")
@@ -576,6 +658,11 @@ def main() -> int:
         origin_cf_arrays, origin_cf_summary = _origin_half_cell_frozen_source(
             grid, state, vacuum
         )
+        combined_cf_arrays, combined_cf_summary = _combined_origin_and_lambda_counterfactual(
+            grid, r, origin_cf_arrays
+        )
+        if not combined_cf_summary["counterfactual_profiles_finite"]:
+            problems.append(f"N={resolution}: combined counterfactual produced non-finite profiles")
 
         aa_budget_scale = max(
             _max_abs(aa_l2),
@@ -643,6 +730,7 @@ def main() -> int:
         }
         metric_arrays.update({name: _arr(values) for name, values in lambda_chain_arrays.items()})
         metric_arrays.update({name: _arr(values) for name, values in origin_cf_arrays.items()})
+        metric_arrays.update({name: _arr(values) for name, values in combined_cf_arrays.items()})
 
         taylor = {}
         for name in ("a", "b", "X", "alpha", "a_minus_b_over_r2", "Lambda_over_r"):
@@ -805,6 +893,7 @@ def main() -> int:
             "even_taylor_fits_first_six_cells": taylor,
             "frozen_source_origin_half_cell_counterfactual": origin_cf_summary,
             "lambda_chain_rule_counterfactual": lambda_chain_summary,
+            "combined_origin_and_lambda_chain_rule_counterfactual": combined_cf_summary,
             "interpretation_limits": [
                 "A successful observer workflow is not scientific admission.",
                 "The direct warped-product reconstruction is independent of evolved Lambda and the vendor Ricci brackets, but shares the pinned radial grid derivative operator.",
@@ -862,6 +951,13 @@ def main() -> int:
         "lambda_chain_rule_induced_tf_ricci_shift", "lambda_chain_rule_vendor_tf_ricci",
         "lambda_chain_rule_vendor_minus_direct_tf_ricci",
         "lambda_chain_rule_vendor_minus_direct_tf_ricci_over_r2",
+        "combined_origin_lambda_cf_lambda_prime_discrete_D4",
+        "combined_origin_lambda_cf_lambda_prime_chain_rule",
+        "combined_origin_lambda_cf_lambda_prime_chain_minus_D4",
+        "combined_origin_lambda_cf_induced_tf_ricci_shift",
+        "combined_origin_lambda_cf_vendor_tf_ricci",
+        "combined_origin_lambda_cf_vendor_minus_direct_tf_ricci",
+        "combined_origin_lambda_cf_vendor_minus_direct_tf_ricci_over_r2",
     ])
     with csv_path.open("w", newline="", encoding="utf-8") as stream:
         writer = csv.writer(stream)
