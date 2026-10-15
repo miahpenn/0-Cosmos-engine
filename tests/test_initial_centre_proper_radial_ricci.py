@@ -100,3 +100,205 @@ def test_regular_smooth_profile_and_parity_negative_control():
     regular_peak = float(np.max(np.abs(regular["tf_ricci"][:6])))
     nonregular_peak = float(np.max(np.abs(nonregular["tf_ricci"][:6])))
     assert nonregular_peak > 10.0 * regular_peak
+
+
+def test_even_half_cell_integral_uses_regular_source_moments():
+    """The origin half-cell integral must integrate an even source, not sample it at r0."""
+    from tools.audit_current_main_centre_proper_radial_ricci import _even_half_cell_integral
+
+    coefficients = np.array([1.25, -0.75, 0.2, -0.015], dtype=float)
+    r0 = 0.125
+    expected = sum(
+        coefficients[k] * r0 ** (2 * k + 1) / (2 * k + 1)
+        for k in range(len(coefficients))
+    )
+    actual = _even_half_cell_integral(coefficients, r0)
+    sampled_trapezoid = r0 * sum(
+        coefficients[k] * r0 ** (2 * k) for k in range(len(coefficients))
+    )
+
+    assert abs(actual - expected) < 1.0e-16
+    expected_sampling_bias = sum(
+        (2.0 * k / (2.0 * k + 1.0)) * coefficients[k] * r0 ** (2 * k + 1)
+        for k in range(1, len(coefficients))
+    )
+    assert abs((sampled_trapezoid - actual) - expected_sampling_bias) < 1.0e-16
+
+
+def test_lambda_chain_rule_counterfactual_reports_only_offline_shift():
+    """Check the algebraic TF-Ricci effect of an offline Lambda-prime substitution."""
+    from tools.audit_current_main_centre_proper_radial_ricci import (
+        _lambda_chain_rule_counterfactual,
+    )
+
+    grid_ops, _, _ = vendor_modules()
+    grid = grid_ops.SphericalCellGrid(48, 8.0)
+    r = np.asarray(grid.centers, dtype=float)
+    d1 = lambda values, parity=1: grid.cell_derivative_fourth(values, parity=parity)
+    a = 1.0 + 1.0e-3 * r**2 + 1.0e-5 * r**4
+    b = 1.0 - 5.0e-4 * r**2 + 2.0e-6 * r**4
+    X = 1.0 + 2.0e-4 * r**2
+    Lambda = (
+        d1(a, 1) / (2.0 * a * a)
+        - d1(b, 1) / (a * b)
+        + 2.0 / r * (1.0 / b - 1.0 / a)
+    )
+    vendor_r = 2.0e-3 + 1.0e-4 * r**2
+    vendor_scalar = -1.0e-3 + 2.0e-4 * r**2
+    direct_tf = 3.0e-4 - 1.0e-5 * r**2
+    vendor_terms = {"Rr_r": vendor_r, "R": vendor_scalar}
+
+    arrays, summary = _lambda_chain_rule_counterfactual(
+        grid, r, a, b, X, Lambda, vendor_terms, direct_tf
+    )
+    delta = arrays["lambda_prime_chain_minus_D4"]
+    expected_shift = (2.0 / 3.0) * X**2 * delta
+    base_tf = vendor_r - vendor_scalar / 3.0
+
+    np.testing.assert_allclose(
+        arrays["lambda_chain_rule_induced_tf_ricci_shift"],
+        expected_shift,
+        rtol=1.0e-14,
+        atol=1.0e-14,
+    )
+    np.testing.assert_allclose(
+        arrays["lambda_chain_rule_vendor_tf_ricci"],
+        base_tf + expected_shift,
+        rtol=1.0e-14,
+        atol=1.0e-14,
+    )
+    np.testing.assert_allclose(
+        arrays["lambda_chain_rule_vendor_minus_direct_tf_ricci"],
+        base_tf + expected_shift - direct_tf,
+        rtol=1.0e-14,
+        atol=1.0e-14,
+    )
+    assert summary["production_or_vendor_code_changed"] is False
+    assert summary["evolution_steps"] == 0
+    assert summary["counterfactual_profiles_finite"] is True
+
+
+def test_combined_origin_and_lambda_counterfactual_adds_only_chain_rule_shift():
+    """Check combined frozen-metric counterfactual arithmetic without a state edit."""
+    from tools.audit_current_main_centre_proper_radial_ricci import (
+        _combined_origin_and_lambda_counterfactual,
+    )
+
+    grid_ops, _, _ = vendor_modules()
+    grid = grid_ops.SphericalCellGrid(48, 8.0)
+    r = np.asarray(grid.centers, dtype=float)
+    d1 = lambda values, parity=1: grid.cell_derivative_fourth(values, parity=parity)
+    a = 1.0 + 1.0e-3 * r**2 + 1.0e-5 * r**4
+    b = 1.0 - 5.0e-4 * r**2 + 2.0e-6 * r**4
+    X = 1.0 + 2.0e-4 * r**2
+    Lambda = (
+        d1(a, 1) / (2.0 * a * a)
+        - d1(b, 1) / (a * b)
+        + 2.0 / r * (1.0 / b - 1.0 / a)
+    )
+    direct_tf = 3.0e-4 - 1.0e-5 * r**2
+    origin_gap = 1.0e-3 * np.exp(-r)
+    vendor_tf = direct_tf + origin_gap
+    origin_arrays = {
+        "origin_cf_a": a.copy(),
+        "origin_cf_b": b.copy(),
+        "origin_cf_X": X.copy(),
+        "origin_cf_Lambda": Lambda.copy(),
+        "origin_cf_vendor_tf_ricci": vendor_tf.copy(),
+        "origin_cf_direct_tf_ricci": direct_tf.copy(),
+        "origin_cf_tf_ricci_difference": origin_gap.copy(),
+    }
+    before = {key: value.copy() for key, value in origin_arrays.items()}
+
+    arrays, summary = _combined_origin_and_lambda_counterfactual(grid, r, origin_arrays)
+    expected_shift = (2.0 / 3.0) * X**2 * (
+        arrays["combined_origin_lambda_cf_lambda_prime_chain_rule"]
+        - arrays["combined_origin_lambda_cf_lambda_prime_discrete_D4"]
+    )
+    np.testing.assert_allclose(
+        arrays["combined_origin_lambda_cf_induced_tf_ricci_shift"],
+        expected_shift,
+        rtol=1.0e-14,
+        atol=1.0e-14,
+    )
+    np.testing.assert_allclose(
+        arrays["combined_origin_lambda_cf_vendor_minus_direct_tf_ricci"],
+        origin_gap + expected_shift,
+        rtol=1.0e-14,
+        atol=1.0e-14,
+    )
+    for key in before:
+        np.testing.assert_array_equal(origin_arrays[key], before[key])
+    assert summary["production_or_vendor_code_changed"] is False
+    assert summary["evolution_steps"] == 0
+    assert summary["counterfactual_profiles_finite"] is True
+
+
+def test_manufactured_lambda_parity_arms_keep_metric_fixed():
+    """Exercise Lambda parity and off-constraint sensitivity without evolution."""
+    from tools.audit_current_main_centre_proper_radial_ricci import (
+        _manufactured_lambda_parity_discriminator,
+    )
+
+    grid_ops, vacuum, _ = vendor_modules()
+    grid = grid_ops.SphericalCellGrid(160, 8.0)
+    arrays, summary = _manufactured_lambda_parity_discriminator(grid, vacuum)
+
+    assert summary["evolution_steps"] == 0
+    assert summary["production_or_vendor_code_changed"] is False
+    assert summary["profiles_finite"] is True
+    assert len(summary["profiles"]) == 2
+
+    arms = ("continuum", "discrete", "off_constraint_odd", "negative_control_even")
+    for profile in summary["profiles"]:
+        assert profile["determinant_one_max_abs"] < 1.0e-12
+        assert profile["b_minus_X_squared_max_abs"] < 1.0e-12
+        assert profile["a_minus_X_minus_four_max_abs"] < 1.0e-12
+        assert profile["proper_factor_minus_q_inverse_max_abs"] < 1.0e-12
+        assert profile["areal_radius_minus_r_max_abs"] < 1.0e-12
+        by_name = {arm["arm"]: arm for arm in profile["arms"]}
+        assert tuple(name for name in arms if name in by_name) == arms
+        for arm in arms:
+            assert by_name[arm]["profiles_finite"] is True
+            assert np.all(np.isfinite(by_name[arm]["lambda_first_two"]))
+            assert np.all(np.isfinite(by_name[arm]["signed_gap_first_two"]))
+        # All arms use identical metric samples, so the independent direct
+        # Ricci witness must be unchanged; only the vendor Lambda input varies.
+        reference_direct = np.asarray(by_name["continuum"]["direct_tf_ricci_first_two"])
+        for arm in arms[1:]:
+            np.testing.assert_array_equal(
+                np.asarray(by_name[arm]["direct_tf_ricci_first_two"]),
+                reference_direct,
+            )
+
+        tag = profile["tag"]
+        discrete_tf = arrays[f"{tag}_discrete_vendor_tf_ricci"]
+        odd_tf = arrays[f"{tag}_off_constraint_odd_vendor_tf_ricci"]
+        assert np.max(np.abs(odd_tf[:2] - discrete_tf[:2])) > 1.0e-7
+
+        # For fixed metric samples, the measured vendor TF-Ricci response to
+        # delta-Lambda closes into both D4(delta-Lambda) and Lambda*a' terms.
+        # This is an operator identity; it is not an evolution/stability claim.
+        for arm in arms:
+            prefix = f"{tag}_{arm}"
+            observed = (
+                arrays[f"{prefix}_signed_gap"]
+                - arrays[f"{tag}_discrete_signed_gap"]
+            )
+            derivative = arrays[f"{prefix}_predicted_gap_change_derivative_only"]
+            algebraic = arrays[f"{prefix}_predicted_gap_change_algebraic_Lambda_ap"]
+            total = arrays[f"{prefix}_predicted_gap_change_total"]
+            closure = arrays[f"{prefix}_response_closure_error"]
+            np.testing.assert_allclose(total, derivative + algebraic, rtol=1.0e-13, atol=1.0e-13)
+            np.testing.assert_allclose(observed, total, rtol=5.0e-7, atol=2.0e-12)
+            assert np.max(np.abs(closure)) < 2.0e-10
+            assert np.all(np.isfinite(arrays[f"{prefix}_vendor_Rr_r"]))
+            assert np.all(np.isfinite(arrays[f"{prefix}_vendor_R_scalar"]))
+
+        # Smooth-even metrics require an odd Lambda=O(r): Lambda/r stays
+        # bounded near the origin. The constant offset is a separate, deliberate
+        # parity-breaking control and should stand out in this witness.
+        discrete_q = arrays[f"{tag}_discrete_Lambda_over_r"][:2]
+        bad_q = arrays[f"{tag}_negative_control_even_Lambda_over_r"][:2]
+        assert np.all(np.isfinite(discrete_q))
+        assert np.max(np.abs(bad_q)) > 5.0 * max(np.max(np.abs(discrete_q)), 1.0e-12)

@@ -8,8 +8,10 @@ or imposing a scientific-admission threshold.
 """
 from __future__ import annotations
 
+import copy
 import csv
 import hashlib
+import math
 import json
 from pathlib import Path
 import subprocess
@@ -34,10 +36,10 @@ SOURCE_BLOBS = {
     "engine/valencia.py": "03ed86398f424c03d9d6a3e646da9222a34fac5c",
     "engine/worldtube.py": "aea19090cb0fd2ebe5481a8b7af0d26f119a9ad6",
 }
-RESOLUTIONS = (60, 80, 120)
+RESOLUTIONS = (160, 240, 320)
 R_MAX = 80.0
 CENTRE_CELLS = 6
-OUT = Path("results/current-main-centre-proper-radial-ricci")
+OUT = Path("results/current-main-centre-proper-radial-ricci-highres-2026-10-15")
 
 
 def _git(*args: str) -> str:
@@ -177,6 +179,623 @@ def even_taylor_fit(r, values, count=CENTRE_CELLS):
     }
 
 
+
+def _even_half_cell_integral(coefficients: np.ndarray, r0: float) -> float:
+    """Integrate an even polynomial in r² analytically from 0 to r0."""
+    coeff = np.asarray(coefficients, dtype=float).reshape(-1)
+    if coeff.size not in (3, 4) or np.any(~np.isfinite(coeff)):
+        raise ValueError("even half-cell integral expects finite s0/s2/s4[/s6] coefficients")
+    return float(sum(value * r0 ** (2 * order + 1) / (2 * order + 1)
+                     for order, value in enumerate(coeff)))
+
+
+def _origin_half_cell_frozen_source(grid, state, vacuum) -> tuple[dict[str, np.ndarray], dict]:
+    """Reconstruct the pinned initializer source and apply only an origin-cell moment correction.
+
+    This is a *frozen-source counterfactual*: its source is taken from the final
+    iteration of the production initializer recurrence, and the correction to
+    the half-cell integral is propagated as delta_I/r to each cell. It does not
+    iterate the source after changing B, evolve the machine, or edit production
+    code. All inter-centre trapezoid intervals are preserved.
+    """
+    from engine.scalar_system import cosmos_potential
+    from engine.v55_matter import RHO_B_PRESENT, RHO_DM_PRESENT, RHO_R_PRESENT
+
+    r = _arr(grid.centers)
+    dr = float(grid.dr)
+    geom = state.geometry
+    fields = state.scalars
+    S, PS, D, PD = (_arr(fields.S), _arr(fields.PS), _arr(fields.D), _arr(fields.PD))
+    phi, Pi = _arr(fields.phi), _arr(fields.Pi)
+    d1 = lambda v, parity=1: grid.cell_derivative_fourth(v, parity=parity)
+    Sp, Dp = d1(S, 1), d1(D, 1)
+    j = -(PD * Dp)
+
+    # Reproduce the initializer's declared homogeneous Kt exactly rather
+    # than recovering it by subtracting K/Aa (which would amplify roundoff in
+    # Ktp on the large-r grid).
+    phi0, pi0 = 0.179055, 0.00341913
+    rho0 = 0.5 * pi0**2 + float(cosmos_potential(np.array([phi0]))[0])
+    rho0 += float(RHO_DM_PRESENT) + float(RHO_B_PRESENT) + float(RHO_R_PRESENT)
+    H0 = math.sqrt(max(rho0 / 3.0, 0.0))
+    Kt = np.full_like(r, -H0)
+    Ktp = d1(Kt, 1)
+    rho_matter = (
+        float(RHO_DM_PRESENT) + float(RHO_B_PRESENT) + float(RHO_R_PRESENT)
+    ) / (8.0 * math.pi)
+    rho_phi = (0.5 * Pi * Pi + cosmos_potential(phi)) / (8.0 * math.pi)
+    B_iter = np.ones_like(r)
+    source_last = np.zeros_like(r)
+    for _ in range(6):
+        rhoS = 0.5 * (PS * PS + B_iter * Sp * Sp) + 0.5 * S * S
+        rhoD = 0.5 * (PD * PD + B_iter * Dp * Dp) - 0.5 * D * D
+        rho = rhoS + rhoD + rho_phi + rho_matter
+        Kr = Kt + r * Ktp + 4.0 * math.pi * r * j
+        source_last = (
+            1.0 - 8.0 * math.pi * r * r * rho
+            + 2.0 * r * r * Kr * Kt
+            + r * r * Kt * Kt
+        )
+        # Reproduce the production recurrence: 0.5*dr*src[0] == r0*src[0].
+        integ = np.cumsum(
+            np.r_[0.5 * dr * source_last[0],
+                  0.5 * dr * (source_last[1:] + source_last[:-1])]
+        )
+        B_iter = integ / r
+
+    B_from_geometry = _arr(geom.X) ** 6
+    reconstruction_error = _max_abs(B_iter - B_from_geometry)
+    r0 = float(r[0])
+
+    def fit_even_source(fit_r_max: float) -> dict:
+        # Fix support in physical radius, not cell count, so N=160/240/320
+        # extrapolate the same source interval to the origin.
+        mask = r <= float(fit_r_max)
+        x = r[mask] ** 2
+        ncells = int(np.count_nonzero(mask))
+        if ncells < 4:
+            raise ValueError("even-source fit needs at least four cells inside its fixed-radius support")
+        design = np.column_stack((np.ones(ncells), x, x * x, x * x * x))
+        coeff, *_ = np.linalg.lstsq(design, source_last[mask], rcond=None)
+        residual = source_last[mask] - design @ coeff
+        integral = _even_half_cell_integral(coeff, r0)
+        delta = float(integral - r0 * source_last[0])
+        return {
+            "fit_r_max": float(fit_r_max),
+            "fit_cells": ncells,
+            "coefficients_s0_s2_s4_s6": [float(x) for x in coeff],
+            "fit_max_abs_residual": _max_abs(residual),
+            "fit_rms_residual": float(np.sqrt(np.mean(residual * residual))),
+            "even_series_half_cell_integral": float(integral),
+            "production_half_cell_integral": float(r0 * source_last[0]),
+            "delta_integral": delta,
+        }
+
+    fit25 = fit_even_source(2.5)
+    fit30 = fit_even_source(3.0)
+    delta_integral = float(fit25["delta_integral"])
+    B_cf = B_from_geometry + delta_integral / r
+    if np.any(~np.isfinite(B_cf)) or np.any(B_cf <= 0.0):
+        raise FloatingPointError("origin half-cell frozen-source counterfactual produced invalid B")
+    A_cf = 1.0 / np.sqrt(B_cf)
+    a_cf = A_cf ** (4.0 / 3.0)
+    b_cf = A_cf ** (-2.0 / 3.0)
+    X_cf = A_cf ** (-1.0 / 3.0)
+    Lambda_cf = (
+        d1(a_cf, 1) / (2.0 * a_cf * a_cf)
+        - d1(b_cf, 1) / (a_cf * b_cf)
+        + 2.0 / r * (1.0 / b_cf - 1.0 / a_cf)
+    )
+
+    # Recompute curvature on a deep copy. The production state and its matter,
+    # K/Aa, and every inter-centre integral interval stay untouched.
+    geom_cf = copy.deepcopy(geom)
+    geom_cf.a = a_cf.copy()
+    geom_cf.b = b_cf.copy()
+    geom_cf.X = X_cf.copy()
+    geom_cf.Lambda = Lambda_cf.copy()
+    geom_cf.B = 0.75 * Lambda_cf
+    vendor_terms_cf = vacuum.geometry_terms(grid, geom_cf)
+    vendor_tf_cf = _arr(vendor_terms_cf["Rr_r"] - vendor_terms_cf["R"] / 3.0)
+    areal_cf = r * np.sqrt(b_cf) / X_cf
+    proper_factor_cf = np.sqrt(a_cf) / X_cf
+    direct_cf = proper_radial_ricci(grid, areal_cf, proper_factor_cf)
+    direct_tf_cf = _arr(direct_cf["tf_ricci"])
+    gap_cf = vendor_tf_cf - direct_tf_cf
+
+    vendor_terms_base = vacuum.geometry_terms(grid, geom)
+    vendor_tf_base = _arr(vendor_terms_base["Rr_r"] - vendor_terms_base["R"] / 3.0)
+    areal_base = r * np.sqrt(_arr(geom.b)) / _arr(geom.X)
+    proper_factor_base = np.sqrt(_arr(geom.a)) / _arr(geom.X)
+    direct_base = proper_radial_ricci(grid, areal_base, proper_factor_base)
+    direct_tf_base = _arr(direct_base["tf_ricci"])
+    gap_base = vendor_tf_base - direct_tf_base
+    annulus = (r >= 5.0) & (r <= 10.0)
+
+    first_two = []
+    for i in range(min(2, len(r))):
+        first_two.append({
+            "i": i,
+            "r": float(r[i]),
+            "B_production": float(B_from_geometry[i]),
+            "B_frozen_source_counterfactual": float(B_cf[i]),
+            "X_production": float(geom.X[i]),
+            "X_counterfactual": float(X_cf[i]),
+            "vendor_tf_ricci_production": float(vendor_tf_base[i]),
+            "direct_tf_ricci_production": float(direct_tf_base[i]),
+            "signed_gap_production": float(gap_base[i]),
+            "gap_over_r2_production": float(gap_base[i] / (r[i] * r[i])),
+            "vendor_tf_ricci_counterfactual": float(vendor_tf_cf[i]),
+            "direct_tf_ricci_counterfactual": float(direct_tf_cf[i]),
+            "signed_gap_counterfactual": float(gap_cf[i]),
+            "gap_over_r2_counterfactual": float(gap_cf[i] / (r[i] * r[i])),
+        })
+    arrays = {
+        "initializer_source_final_iteration": source_last,
+        "initializer_B_reconstructed": B_iter,
+        "initializer_B_from_X6": B_from_geometry,
+        "origin_cf_B": B_cf,
+        "origin_cf_a": a_cf,
+        "origin_cf_b": b_cf,
+        "origin_cf_X": X_cf,
+        "origin_cf_Lambda": Lambda_cf,
+        "origin_cf_areal_radius": areal_cf,
+        "origin_cf_proper_factor": proper_factor_cf,
+        "origin_cf_vendor_tf_ricci": vendor_tf_cf,
+        "origin_cf_direct_tf_ricci": direct_tf_cf,
+        "origin_cf_tf_ricci_difference": gap_cf,
+        "origin_cf_vendor_tf_ricci_over_r2": vendor_tf_cf / (r * r),
+        "origin_cf_direct_tf_ricci_over_r2": direct_tf_cf / (r * r),
+        "origin_cf_tf_ricci_difference_over_r2": gap_cf / (r * r),
+    }
+    summary = {
+        "method": "frozen-source analytic even half-cell integral; final pinned initializer source; delta_I/r propagated to every cell; inter-centre trapezoids unchanged",
+        "evolution_steps": 0,
+        "source_reconstruction_B_vs_X6_max_abs": float(reconstruction_error),
+        "source_reconstruction_matches_geometry": bool(reconstruction_error <= 2.0e-12 * max(1.0, _max_abs(B_from_geometry))),
+        "source_final_iteration_first_two": [float(x) for x in source_last[:2]],
+        "even_fit_r_le_2_5": fit25,
+        "even_fit_r_le_3_0": fit30,
+        "fit_sensitivity_delta_integral_abs": float(abs(fit30["delta_integral"] - fit25["delta_integral"])),
+        "production_half_cell_integral": float(r0 * source_last[0]),
+        "corrected_half_cell_integral": float(fit25["even_series_half_cell_integral"]),
+        "delta_integral_applied": delta_integral,
+        "first_two_cells": first_two,
+        "fixed_annulus_r5_to10": {
+            "cells": int(np.count_nonzero(annulus)),
+            "production_gap_max_abs": _max_abs(gap_base[annulus]) if np.any(annulus) else None,
+            "counterfactual_gap_max_abs": _max_abs(gap_cf[annulus]) if np.any(annulus) else None,
+        },
+        "first_two_cell_gap_reduction_factor": float(
+            _max_abs(gap_base[:2]) / max(_max_abs(gap_cf[:2]), np.finfo(float).tiny)
+        ),
+        "counterfactual_profiles_finite": all(_finite(v) for v in arrays.values()),
+        "interpretation_limits": [
+            "This is a frozen-source counterfactual, not a self-consistent re-solve of the six-step initializer fixed point.",
+            "Only the origin half-cell integral is changed; the same delta integral is propagated as delta_I/r, while all inter-centre trapezoid intervals are unchanged.",
+            "Metric, Lambda, and Ricci are recomputed on a copied geometry; no production-state field is mutated and no evolution step is taken.",
+            "A reduced Ricci gap would support the initialization quadrature hypothesis, not authorize promotion of the quadrature rule or prove evolved convergence."
+        ],
+    }
+    if not summary["source_reconstruction_matches_geometry"]:
+        raise RuntimeError(
+            "reconstructed initializer B does not match the actual X^6 profile: "
+            f"{reconstruction_error:.6g}"
+        )
+    return arrays, summary
+
+
+
+def _lambda_chain_rule_counterfactual(
+    grid,
+    r: np.ndarray,
+    a: np.ndarray,
+    b: np.ndarray,
+    X: np.ndarray,
+    Lambda: np.ndarray,
+    vendor_terms: dict,
+    direct_tf_ricci: np.ndarray,
+) -> tuple[dict[str, np.ndarray], dict]:
+    """Offline-only Lambda derivative chain-rule comparison at fixed metric samples.
+
+    The pinned vendor BSSN Ricci uses D4(Lambda) because Lambda is an independently
+    evolved variable. This helper computes a counterfactual using the derivative
+    of the displayed metric-to-Lambda relation, with the same discrete D1/D2
+    operands for a and b. It does not alter state.Lambda or production outputs.
+    """
+    d1 = lambda values, parity=1: grid.cell_derivative_fourth(values, parity=parity)
+    d2 = lambda values, parity=1: grid.cell_second_derivative_fourth(values, parity=parity)
+    ap = d1(a, 1)
+    bp = d1(b, 1)
+    app = d2(a, 1)
+    bpp = d2(b, 1)
+    lambda_p_discrete = d1(Lambda, -1)
+    lambda_p_chain = (
+        app / (2.0 * a * a)
+        - ap * ap / (a * a * a)
+        - bpp / (a * b)
+        + bp * (ap * b + a * bp) / (a * a * b * b)
+        - 2.0 * (1.0 / b - 1.0 / a) / (r * r)
+        + 2.0 * (-bp / (b * b) + ap / (a * a)) / r
+    )
+    lambda_p_delta = lambda_p_chain - lambda_p_discrete
+    ricci_scalar_shift = X * X * lambda_p_delta
+    vendor_r_cf = _arr(vendor_terms["Rr_r"]) + ricci_scalar_shift
+    vendor_scalar_cf = _arr(vendor_terms["R"]) + ricci_scalar_shift
+    vendor_tf_cf = vendor_r_cf - vendor_scalar_cf / 3.0
+    direct_tf = _arr(direct_tf_ricci)
+    gap_base = _arr(vendor_terms["Rr_r"] - vendor_terms["R"] / 3.0) - direct_tf
+    gap_cf = vendor_tf_cf - direct_tf
+    fixed = (r >= 5.0) & (r <= 10.0)
+    first_two = []
+    for i in range(min(2, len(r))):
+        first_two.append({
+            "i": int(i),
+            "r": float(r[i]),
+            "lambda_prime_discrete_D4": float(lambda_p_discrete[i]),
+            "lambda_prime_chain_rule": float(lambda_p_chain[i]),
+            "lambda_prime_chain_minus_D4": float(lambda_p_delta[i]),
+            "induced_trace_free_Ricci_shift": float((2.0 / 3.0) * ricci_scalar_shift[i]),
+            "baseline_vendor_minus_direct_tf_ricci": float(gap_base[i]),
+            "chain_rule_vendor_minus_direct_tf_ricci": float(gap_cf[i]),
+            "baseline_gap_over_r2": float(gap_base[i] / (r[i] * r[i])),
+            "chain_rule_gap_over_r2": float(gap_cf[i] / (r[i] * r[i])),
+        })
+    arrays = {
+        "lambda_prime_discrete_D4": lambda_p_discrete,
+        "lambda_prime_chain_rule": lambda_p_chain,
+        "lambda_prime_chain_minus_D4": lambda_p_delta,
+        "lambda_chain_rule_induced_tf_ricci_shift": (2.0 / 3.0) * ricci_scalar_shift,
+        "lambda_chain_rule_vendor_tf_ricci": vendor_tf_cf,
+        "lambda_chain_rule_vendor_minus_direct_tf_ricci": gap_cf,
+        "lambda_chain_rule_vendor_minus_direct_tf_ricci_over_r2": gap_cf / (r * r),
+    }
+    summary = {
+        "method": "offline chain-rule derivative of the displayed metric Lambda relation using the same D1/D2 a,b operands; only the -a*Lambda' Ricci contribution is counterfactually changed",
+        "production_or_vendor_code_changed": False,
+        "evolution_steps": 0,
+        "lambda_prime_D4_max_abs": _max_abs(lambda_p_discrete),
+        "lambda_prime_chain_rule_max_abs": _max_abs(lambda_p_chain),
+        "lambda_prime_chain_minus_D4_max_abs": _max_abs(lambda_p_delta),
+        "induced_tf_ricci_shift_max_abs": _max_abs((2.0 / 3.0) * ricci_scalar_shift),
+        "baseline_gap_max_abs_full": _max_abs(gap_base),
+        "chain_rule_gap_max_abs_full": _max_abs(gap_cf),
+        "baseline_gap_max_abs_first_two": _max_abs(gap_base[:min(2, len(r))]),
+        "chain_rule_gap_max_abs_first_two": _max_abs(gap_cf[:min(2, len(r))]),
+        "baseline_gap_max_abs_fixed_annulus_r5_to10": _max_abs(gap_base[fixed]) if np.any(fixed) else None,
+        "chain_rule_gap_max_abs_fixed_annulus_r5_to10": _max_abs(gap_cf[fixed]) if np.any(fixed) else None,
+        "first_two_cells": first_two,
+        "counterfactual_profiles_finite": all(_finite(v) for v in arrays.values()),
+        "interpretation_limits": [
+            "This is an offline representation counterfactual, not the production BSSN operator.",
+            "Lambda is independently evolved in the vendor BSSN formulation; chain-rule substitution may not preserve its off-constraint principal structure.",
+            "Gap collapse supports discrete product/chain-rule mismatch on this initialized slice, not a production fix or scientific admission.",
+        ],
+    }
+    return arrays, summary
+
+
+def _combined_origin_and_lambda_counterfactual(
+    grid,
+    r: np.ndarray,
+    origin_cf_arrays: dict[str, np.ndarray],
+) -> tuple[dict[str, np.ndarray], dict]:
+    """Compose the two offline discriminators on the copied half-cell metric.
+
+    First use the frozen-source origin half-cell metric from
+    _origin_half_cell_frozen_source; then, on that copied metric only, compare
+    D4(Lambda) with the chain-rule derivative of the metric-to-Lambda relation.
+    No production state, source file, or vendor operator is changed.
+    """
+    r = _arr(r)
+    a = _arr(origin_cf_arrays["origin_cf_a"])
+    b = _arr(origin_cf_arrays["origin_cf_b"])
+    X = _arr(origin_cf_arrays["origin_cf_X"])
+    Lambda = _arr(origin_cf_arrays["origin_cf_Lambda"])
+    vendor_tf_origin = _arr(origin_cf_arrays["origin_cf_vendor_tf_ricci"])
+    direct_tf_origin = _arr(origin_cf_arrays["origin_cf_direct_tf_ricci"])
+    gap_origin = _arr(origin_cf_arrays["origin_cf_tf_ricci_difference"])
+
+    d1 = lambda values, parity=1: grid.cell_derivative_fourth(values, parity=parity)
+    d2 = lambda values, parity=1: grid.cell_second_derivative_fourth(values, parity=parity)
+    ap = d1(a, 1)
+    bp = d1(b, 1)
+    app = d2(a, 1)
+    bpp = d2(b, 1)
+    lambda_p_discrete = d1(Lambda, -1)
+    lambda_p_chain = (
+        app / (2.0 * a * a)
+        - ap * ap / (a * a * a)
+        - bpp / (a * b)
+        + bp * (ap * b + a * bp) / (a * a * b * b)
+        - 2.0 * (1.0 / b - 1.0 / a) / (r * r)
+        + 2.0 * (-bp / (b * b) + ap / (a * a)) / r
+    )
+    lambda_p_delta = lambda_p_chain - lambda_p_discrete
+    induced_tf_shift = (2.0 / 3.0) * X * X * lambda_p_delta
+    combined_vendor_tf = vendor_tf_origin + induced_tf_shift
+    combined_gap = combined_vendor_tf - direct_tf_origin
+    fixed = (r >= 5.0) & (r <= 10.0)
+    first_two = []
+    for i in range(min(2, len(r))):
+        first_two.append({
+            "i": int(i),
+            "r": float(r[i]),
+            "half_cell_only_gap": float(gap_origin[i]),
+            "chain_rule_induced_tf_ricci_shift_on_half_cell_metric": float(induced_tf_shift[i]),
+            "combined_gap": float(combined_gap[i]),
+            "half_cell_only_gap_over_r2": float(gap_origin[i] / (r[i] * r[i])),
+            "combined_gap_over_r2": float(combined_gap[i] / (r[i] * r[i])),
+        })
+    arrays = {
+        "combined_origin_lambda_cf_lambda_prime_discrete_D4": lambda_p_discrete,
+        "combined_origin_lambda_cf_lambda_prime_chain_rule": lambda_p_chain,
+        "combined_origin_lambda_cf_lambda_prime_chain_minus_D4": lambda_p_delta,
+        "combined_origin_lambda_cf_induced_tf_ricci_shift": induced_tf_shift,
+        "combined_origin_lambda_cf_vendor_tf_ricci": combined_vendor_tf,
+        "combined_origin_lambda_cf_vendor_minus_direct_tf_ricci": combined_gap,
+        "combined_origin_lambda_cf_vendor_minus_direct_tf_ricci_over_r2": combined_gap / (r * r),
+    }
+    summary = {
+        "method": "compose the frozen-source half-cell metric counterfactual with an offline Lambda chain-rule derivative comparison; all sampled geometry values and operators remain diagnostic-only",
+        "production_or_vendor_code_changed": False,
+        "evolution_steps": 0,
+        "half_cell_only_gap_max_abs_full": _max_abs(gap_origin),
+        "combined_gap_max_abs_full": _max_abs(combined_gap),
+        "half_cell_only_gap_max_abs_first_two": _max_abs(gap_origin[:min(2, len(r))]),
+        "combined_gap_max_abs_first_two": _max_abs(combined_gap[:min(2, len(r))]),
+        "half_cell_only_gap_max_abs_fixed_annulus_r5_to10": _max_abs(gap_origin[fixed]) if np.any(fixed) else None,
+        "combined_gap_max_abs_fixed_annulus_r5_to10": _max_abs(combined_gap[fixed]) if np.any(fixed) else None,
+        "first_two_cells": first_two,
+        "counterfactual_profiles_finite": all(_finite(v) for v in arrays.values()) and _finite(gap_origin),
+        "interpretation_limits": [
+            "This composes two frozen-slice counterfactuals; it is not a self-consistent initializer re-solve.",
+            "The Lambda chain-rule substitution is not the production BSSN operator and may alter the off-constraint principal structure if promoted to evolution.",
+            "A small combined gap localizes representation compatibility on this initialized slice; it does not prove a unique cause, evolved stability, or scientific admission.",
+        ],
+    }
+    return arrays, summary
+
+
+
+def _manufactured_lambda_parity_discriminator(grid, vacuum) -> tuple[dict[str, np.ndarray], dict]:
+    """Compare continuum, discrete metric-derived, and off-constraint Lambda arms.
+
+    Two smooth-even manufactured metric profiles are sampled on the existing
+    cell-centred grid. Their radial contracted connection Lambda is odd. For
+    each profile, the same fixed metric is passed through the pinned vendor
+    Ricci route with (A) the analytic continuum metric-derived Lambda sampled
+    on the grid, (B) the initializer-style discrete metric-derived Lambda,
+    (C) an odd off-constraint perturbation of B, and (D) a separate even
+    parity-breaking negative control. This is a no-evolution diagnostic only.
+    """
+    r = _arr(grid.centers)
+    d1 = lambda values, parity=1: grid.cell_derivative_fourth(values, parity=parity)
+    profiles = (
+        {"tag": "manufactured_q1", "c3": 1.0e-5, "c5": 2.0e-8, "epsilon": 2.0e-5, "width": 4.0},
+        {"tag": "manufactured_q2", "c3": -8.0e-6, "c5": 1.0e-8, "epsilon": -1.5e-5, "width": 3.5},
+    )
+    annulus = (r >= 5.0) & (r <= 10.0)
+    arrays: dict[str, np.ndarray] = {}
+    profile_reports = []
+
+    for spec in profiles:
+        tag = spec["tag"]
+        c3 = float(spec["c3"])
+        c5 = float(spec["c5"])
+        epsilon = float(spec["epsilon"])
+        width = float(spec["width"])
+        q = 1.0 + c3 * r * r + c5 * r**4
+        if np.any(~np.isfinite(q)) or np.any(q <= 0.0):
+            raise FloatingPointError(f"{tag}: manufactured q is not finite and positive")
+        qp = 2.0 * c3 * r + 4.0 * c5 * r**3
+        # Preserve the production metric identities on the manufactured slice:
+        # b = X^2, a = X^-4, and a*b^2 = 1.
+        a = q ** (-4.0 / 3.0)
+        b = q ** (2.0 / 3.0)
+        X = q ** (1.0 / 3.0)
+        ap_cont = (-4.0 / 3.0) * a * qp / q
+        bp_cont = (2.0 / 3.0) * b * qp / q
+        lambda_cont = (
+            ap_cont / (2.0 * a * a)
+            - bp_cont / (a * b)
+            + 2.0 / r * (1.0 / b - 1.0 / a)
+        )
+        lambda_discrete = (
+            d1(a, 1) / (2.0 * a * a)
+            - d1(b, 1) / (a * b)
+            + 2.0 / r * (1.0 / b - 1.0 / a)
+        )
+        odd_perturbation = epsilon * r * np.exp(-((r / width) ** 2))
+        arms = {
+            "continuum": lambda_cont,
+            "discrete": lambda_discrete,
+            "off_constraint_odd": lambda_discrete + odd_perturbation,
+            "negative_control_even": lambda_discrete + epsilon,
+        }
+        areal = r * np.sqrt(b) / X
+        proper_factor = np.sqrt(a) / X
+        expected_proper_factor = 1.0 / q
+        direct = proper_radial_ricci(grid, areal, proper_factor)
+        direct_tf = _arr(direct["tf_ricci"])
+        ap_discrete = _arr(d1(a, 1))
+        # Reference response for the initializer-style discrete Lambda arm.
+        reference_geo = vacuum.flat_state(grid)
+        reference_geo.a[:] = a
+        reference_geo.b[:] = b
+        reference_geo.X[:] = X
+        reference_geo.alpha[:] = 1.0
+        reference_geo.beta[:] = 0.0
+        reference_geo.Lambda[:] = lambda_discrete
+        reference_terms = vacuum.geometry_terms(grid, reference_geo)
+        reference_tf = _arr(reference_terms["Rr_r"] - reference_terms["R"] / 3.0)
+        reference_gap = reference_tf - direct_tf
+        arm_reports = []
+        for arm_name, lambda_values in arms.items():
+            geo = vacuum.flat_state(grid)
+            geo.a[:] = a
+            geo.b[:] = b
+            geo.X[:] = X
+            geo.alpha[:] = 1.0
+            geo.beta[:] = 0.0
+            geo.Lambda[:] = lambda_values
+            vendor_terms = vacuum.geometry_terms(grid, geo)
+            vendor_tf = _arr(vendor_terms["Rr_r"] - vendor_terms["R"] / 3.0)
+            gap = vendor_tf - direct_tf
+            chain_arrays, chain_summary = _lambda_chain_rule_counterfactual(
+                grid, r, a, b, X, _arr(lambda_values), vendor_terms, direct_tf
+            )
+
+            # Exact fixed-metric response identity of the pinned vendor TF-Ricci:
+            # delta(Rr_r - R/3) = (2/3) X^2 D4(delta Lambda)
+            #   + (1/2) X^2 [D1(a)/a] delta Lambda.
+            # Keep the derivative and algebraic Lambda*a' channels separate.
+            lambda_delta = _arr(lambda_values) - _arr(lambda_discrete)
+            d4_lambda_delta = _arr(d1(lambda_delta, -1))
+            observed_gap_delta = gap - reference_gap
+            derivative_response = (2.0 / 3.0) * X * X * d4_lambda_delta
+            algebraic_response = 0.5 * X * X * (ap_discrete / a) * lambda_delta
+            predicted_response = derivative_response + algebraic_response
+            response_closure_error = observed_gap_delta - predicted_response
+
+            prefix = f"{tag}_{arm_name}"
+            arrays[prefix + "_a"] = _arr(a).copy()
+            arrays[prefix + "_b"] = _arr(b).copy()
+            arrays[prefix + "_X"] = _arr(X).copy()
+            arrays[prefix + "_areal_radius"] = _arr(areal).copy()
+            arrays[prefix + "_proper_factor"] = _arr(proper_factor).copy()
+            arrays[prefix + "_Lambda"] = _arr(lambda_values)
+            arrays[prefix + "_Lambda_over_r"] = _arr(lambda_values) / r
+            arrays[prefix + "_vendor_Rr_r"] = _arr(vendor_terms["Rr_r"])
+            arrays[prefix + "_vendor_R_scalar"] = _arr(vendor_terms["R"])
+            arrays[prefix + "_vendor_tf_ricci"] = vendor_tf
+            arrays[prefix + "_vendor_tf_ricci_over_r2"] = vendor_tf / (r * r)
+            arrays[prefix + "_signed_gap"] = gap
+            arrays[prefix + "_signed_gap_over_r2"] = gap / (r * r)
+            arrays[prefix + "_chain_rule_gap"] = _arr(
+                chain_arrays["lambda_chain_rule_vendor_minus_direct_tf_ricci"]
+            )
+            arrays[prefix + "_chain_rule_induced_tf_shift"] = _arr(
+                chain_arrays["lambda_chain_rule_induced_tf_ricci_shift"]
+            )
+            arrays[prefix + "_delta_Lambda_from_discrete"] = lambda_delta.copy()
+            arrays[prefix + "_D4_delta_Lambda_from_discrete"] = d4_lambda_delta.copy()
+            arrays[prefix + "_observed_gap_change_from_discrete"] = observed_gap_delta.copy()
+            arrays[prefix + "_predicted_gap_change_derivative_only"] = derivative_response.copy()
+            arrays[prefix + "_predicted_gap_change_algebraic_Lambda_ap"] = algebraic_response.copy()
+            arrays[prefix + "_predicted_gap_change_total"] = predicted_response.copy()
+            arrays[prefix + "_response_closure_error"] = response_closure_error.copy()
+            annulus_signed = {}
+            for stat_name, stat_values in {
+                "vendor_Rr_r": arrays[prefix + "_vendor_Rr_r"],
+                "vendor_R_scalar": arrays[prefix + "_vendor_R_scalar"],
+                "vendor_tf_ricci": vendor_tf,
+                "direct_tf_ricci": direct_tf,
+                "signed_gap": gap,
+                "signed_gap_over_r2": gap / (r * r),
+                "observed_gap_change_from_discrete": observed_gap_delta,
+                "predicted_gap_change_derivative_only": derivative_response,
+                "predicted_gap_change_algebraic_Lambda_ap": algebraic_response,
+                "predicted_gap_change_total": predicted_response,
+                "response_closure_error": response_closure_error,
+            }.items():
+                selected = _arr(stat_values)[annulus]
+                annulus_signed[stat_name] = {
+                    "signed_min": float(np.min(selected)) if selected.size else None,
+                    "signed_max": float(np.max(selected)) if selected.size else None,
+                    "max_abs": _max_abs(selected) if selected.size else None,
+                    "cells": int(selected.size),
+                }
+            arm_reports.append({
+                "arm": arm_name,
+                "lambda_parity_witness_max_abs_first6_lambda_over_r": _max_abs(
+                    (_arr(lambda_values) / r)[:CENTRE_CELLS]
+                ),
+                "lambda_first_two": [float(v) for v in _arr(lambda_values)[:2]],
+                "vendor_Rr_r_first_two": [float(v) for v in _arr(vendor_terms["Rr_r"])[:2]],
+                "vendor_R_scalar_first_two": [float(v) for v in _arr(vendor_terms["R"])[:2]],
+                "vendor_tf_ricci_first_two": [float(v) for v in vendor_tf[:2]],
+                "direct_tf_ricci_first_two": [float(v) for v in direct_tf[:2]],
+                "signed_gap_first_two": [float(v) for v in gap[:2]],
+                "signed_gap_over_r2_first_two": [
+                    float(v) for v in (gap / (r * r))[:2]
+                ],
+                "observed_gap_change_from_discrete_first_two": [
+                    float(v) for v in observed_gap_delta[:2]
+                ],
+                "predicted_gap_change_derivative_only_first_two": [
+                    float(v) for v in derivative_response[:2]
+                ],
+                "predicted_gap_change_algebraic_Lambda_ap_first_two": [
+                    float(v) for v in algebraic_response[:2]
+                ],
+                "predicted_gap_change_total_first_two": [
+                    float(v) for v in predicted_response[:2]
+                ],
+                "response_closure_error_first_two": [
+                    float(v) for v in response_closure_error[:2]
+                ],
+                "gap_max_abs_first_two": _max_abs(gap[:2]),
+                "gap_max_abs_fixed_annulus_r5_to10": (
+                    _max_abs(gap[annulus]) if np.any(annulus) else None
+                ),
+                "fixed_annulus_signed_budget": annulus_signed,
+                "response_closure_error_max_abs_full": _max_abs(response_closure_error),
+                "response_closure_error_max_abs_first_two": _max_abs(response_closure_error[:2]),
+                "response_closure_error_max_abs_fixed_annulus": (
+                    _max_abs(response_closure_error[annulus]) if np.any(annulus) else None
+                ),
+                "chain_rule_gap_max_abs_full": chain_summary["chain_rule_gap_max_abs_full"],
+                "chain_rule_gap_max_abs_fixed_annulus_r5_to10": (
+                    chain_summary["chain_rule_gap_max_abs_fixed_annulus_r5_to10"]
+                ),
+                "profiles_finite": all(_finite(v) for v in (
+                    lambda_values, vendor_tf, direct_tf, gap,
+                    _arr(vendor_terms["Rr_r"]), _arr(vendor_terms["R"]),
+                    observed_gap_delta, derivative_response, algebraic_response,
+                    predicted_response, response_closure_error,
+                    chain_arrays["lambda_chain_rule_vendor_minus_direct_tf_ricci"],
+                )),
+            })
+        profile_reports.append({
+            "tag": tag,
+            "c3": c3,
+            "c5": c5,
+            "determinant_one_max_abs": _max_abs(a * b * b - 1.0),
+            "b_minus_X_squared_max_abs": _max_abs(b - X * X),
+            "a_minus_X_minus_four_max_abs": _max_abs(a - X ** (-4.0)),
+            "proper_factor_minus_q_inverse_max_abs": _max_abs(proper_factor - expected_proper_factor),
+            "areal_radius_minus_r_max_abs": _max_abs(areal - r),
+            "off_constraint_odd_amplitude": epsilon,
+            "off_constraint_width": width,
+            "arms": arm_reports,
+        })
+
+    all_finite = all(_finite(values) for values in arrays.values()) and all(
+        arm["profiles_finite"]
+        for profile in profile_reports
+        for arm in profile["arms"]
+    )
+    summary = {
+        "method": "two smooth-even manufactured determinant-one metric profiles; continuum metric Lambda, discrete metric Lambda, odd off-constraint Lambda perturbation, and separate even-parity negative control; no evolution",
+        "evolution_steps": 0,
+        "production_or_vendor_code_changed": False,
+        "profiles_finite": all_finite,
+        "fixed_annulus_coordinate_r5_to10": {"cells": int(np.count_nonzero(annulus))},
+        "profiles": profile_reports,
+        "interpretation_limits": [
+            "Lambda has odd parity for smooth-even spherical metric components; the off-constraint perturbation is smooth-odd and the parity-breaking control is deliberately separate.",
+            "The metric and proper-radial profile are identical across Lambda arms; only the supplied connection field changes.",
+            "The metric-chain-rule derivative is a diagnostic comparison, not the evolved BSSN Lambda equation and not a production substitution recommendation.",
+            "The Lambda response closure includes both D4(delta Lambda) and the algebraic Lambda*a' term in the pinned trace-free Ricci expression.",
+            "Manufactured profiles test discrete operator sensitivity and parity, not the cause of the initialized production mismatch or scientific admission.",
+        ],
+    }
+    if not all_finite:
+        raise FloatingPointError("manufactured Lambda parity discriminator produced non-finite values")
+    return arrays, summary
+
+
 def _verify_source_pins() -> dict:
     source_head = _git("rev-parse", "HEAD")
     source_vendor = _git("rev-parse", "HEAD:vendor/bb-palatini-unified-r0")
@@ -247,6 +866,16 @@ def main() -> int:
         direct_l2_tf = alpha * direct["tf_ricci"]
         tf_delta = vendor_tf - direct["tf_ricci"]
         l2_delta = vendor_l2_tf - direct_l2_tf
+        lambda_chain_arrays, lambda_chain_summary = _lambda_chain_rule_counterfactual(
+            grid, r, a, b, X, Lambda, vendor_terms, direct["tf_ricci"]
+        )
+        manufactured_lambda_arrays, manufactured_lambda_summary = (
+            _manufactured_lambda_parity_discriminator(grid, vacuum)
+        )
+        if not manufactured_lambda_summary["profiles_finite"]:
+            problems.append(
+                f"N={resolution}: manufactured Lambda parity discriminator is non-finite"
+            )
 
         # Signed source budget on the initialized profile; keep each driver
         # separate so a local pole is not hidden by summing unlike terms.
@@ -269,6 +898,17 @@ def main() -> int:
         vendor_tf_over_r2 = vendor_tf / (r * r)
         direct_tf_over_r2 = _arr(direct["tf_ricci"]) / (r * r)
         tf_delta_over_r2 = tf_delta / (r * r)
+
+        # Reconstruct the origin half-cell moment with a frozen final source.
+        # This counterfactual keeps the actual initialized state read-only.
+        origin_cf_arrays, origin_cf_summary = _origin_half_cell_frozen_source(
+            grid, state, vacuum
+        )
+        combined_cf_arrays, combined_cf_summary = _combined_origin_and_lambda_counterfactual(
+            grid, r, origin_cf_arrays
+        )
+        if not combined_cf_summary["counterfactual_profiles_finite"]:
+            problems.append(f"N={resolution}: combined counterfactual produced non-finite profiles")
 
         aa_budget_scale = max(
             _max_abs(aa_l2),
@@ -334,6 +974,12 @@ def main() -> int:
             "lambda_metric_identity_residual": Lambda - lambda_from_metric,
             "areal_radius_minus_coordinate_radius": areal - r,
         }
+        metric_arrays.update({name: _arr(values) for name, values in lambda_chain_arrays.items()})
+        metric_arrays.update({name: _arr(values) for name, values in origin_cf_arrays.items()})
+        metric_arrays.update({name: _arr(values) for name, values in combined_cf_arrays.items()})
+        metric_arrays.update({
+            name: _arr(values) for name, values in manufactured_lambda_arrays.items()
+        })
 
         taylor = {}
         for name in ("a", "b", "X", "alpha", "a_minus_b_over_r2", "Lambda_over_r"):
@@ -494,6 +1140,10 @@ def main() -> int:
                 "l2_signed_difference_max_abs": _max_abs(l2_delta[:CENTRE_CELLS]),
             },
             "even_taylor_fits_first_six_cells": taylor,
+            "frozen_source_origin_half_cell_counterfactual": origin_cf_summary,
+            "lambda_chain_rule_counterfactual": lambda_chain_summary,
+            "combined_origin_and_lambda_chain_rule_counterfactual": combined_cf_summary,
+            "manufactured_lambda_parity_discriminator": manufactured_lambda_summary,
             "interpretation_limits": [
                 "A successful observer workflow is not scientific admission.",
                 "The direct warped-product reconstruction is independent of evolved Lambda and the vendor Ricci brackets, but shares the pinned radial grid derivative operator.",
@@ -540,8 +1190,54 @@ def main() -> int:
         "aa_rhs", "aa_rhs_over_r2", "R_r", "R_rr", "f_r", "R_l", "R_ll",
         "Ric_l_l", "Ric_theta_theta", "a_prime_over_r", "b_prime_over_r",
         "X_prime_over_r", "alpha_prime_over_r", "lambda_metric_identity_residual",
-        "areal_radius_minus_coordinate_radius",
+        "areal_radius_minus_coordinate_radius", "initializer_source_final_iteration",
+        "initializer_B_reconstructed", "initializer_B_from_X6", "origin_cf_B",
+        "origin_cf_a", "origin_cf_b", "origin_cf_X", "origin_cf_Lambda",
+        "origin_cf_areal_radius", "origin_cf_proper_factor",
+        "origin_cf_vendor_tf_ricci", "origin_cf_direct_tf_ricci",
+        "origin_cf_tf_ricci_difference", "origin_cf_vendor_tf_ricci_over_r2",
+        "origin_cf_direct_tf_ricci_over_r2", "origin_cf_tf_ricci_difference_over_r2",
+        "lambda_prime_discrete_D4", "lambda_prime_chain_rule", "lambda_prime_chain_minus_D4",
+        "lambda_chain_rule_induced_tf_ricci_shift", "lambda_chain_rule_vendor_tf_ricci",
+        "lambda_chain_rule_vendor_minus_direct_tf_ricci",
+        "lambda_chain_rule_vendor_minus_direct_tf_ricci_over_r2",
+        "combined_origin_lambda_cf_lambda_prime_discrete_D4",
+        "combined_origin_lambda_cf_lambda_prime_chain_rule",
+        "combined_origin_lambda_cf_lambda_prime_chain_minus_D4",
+        "combined_origin_lambda_cf_induced_tf_ricci_shift",
+        "combined_origin_lambda_cf_vendor_tf_ricci",
+        "combined_origin_lambda_cf_vendor_minus_direct_tf_ricci",
+        "combined_origin_lambda_cf_vendor_minus_direct_tf_ricci_over_r2",
     ])
+    for manufactured_tag in ("manufactured_q1", "manufactured_q2"):
+        for manufactured_arm in (
+            "continuum", "discrete", "off_constraint_odd", "negative_control_even"
+        ):
+            manufactured_prefix = f"{manufactured_tag}_{manufactured_arm}"
+            all_names.extend([
+                manufactured_prefix + "_a",
+                manufactured_prefix + "_b",
+                manufactured_prefix + "_X",
+                manufactured_prefix + "_areal_radius",
+                manufactured_prefix + "_proper_factor",
+                manufactured_prefix + "_Lambda",
+                manufactured_prefix + "_Lambda_over_r",
+                manufactured_prefix + "_vendor_tf_ricci",
+                manufactured_prefix + "_vendor_tf_ricci_over_r2",
+                manufactured_prefix + "_signed_gap",
+                manufactured_prefix + "_signed_gap_over_r2",
+                manufactured_prefix + "_chain_rule_gap",
+                manufactured_prefix + "_chain_rule_induced_tf_shift",
+                manufactured_prefix + "_vendor_Rr_r",
+                manufactured_prefix + "_vendor_R_scalar",
+                manufactured_prefix + "_delta_Lambda_from_discrete",
+                manufactured_prefix + "_D4_delta_Lambda_from_discrete",
+                manufactured_prefix + "_observed_gap_change_from_discrete",
+                manufactured_prefix + "_predicted_gap_change_derivative_only",
+                manufactured_prefix + "_predicted_gap_change_algebraic_Lambda_ap",
+                manufactured_prefix + "_predicted_gap_change_total",
+                manufactured_prefix + "_response_closure_error",
+            ])
     with csv_path.open("w", newline="", encoding="utf-8") as stream:
         writer = csv.writer(stream)
         writer.writerow(["resolution", "i", "r"] + all_names)
