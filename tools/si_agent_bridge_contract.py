@@ -139,7 +139,7 @@ def validate_event(
         return _result(REJECT, f"missing required provenance/content fields: {', '.join(missing)}")
     if event["schema_version"] != SCHEMA_VERSION:
         return _result(REJECT, "unsupported schema_version")
-    if event["message_type"] not in MESSAGE_TYPES:
+    if not isinstance(event["message_type"], str) or event["message_type"] not in MESSAGE_TYPES:
         return _result(REJECT, "unsupported message_type")
     if event["repository"] != REPOSITORY:
         return _result(REJECT, "repository is outside the configured project")
@@ -163,6 +163,10 @@ def validate_event(
             return _result(UNKNOWN, "live main SHA is unavailable or malformed")
         if event["main_sha"].lower() != live_main_sha.lower():
             return _result(UNKNOWN, "event main_sha differs from live main; refresh source/status")
+    if expected_head_sha is not None and not _sha_is_valid(expected_head_sha):
+        return _result(UNKNOWN, "expected live head SHA is unavailable or malformed")
+    if expected_base_sha is not None and not _sha_is_valid(expected_base_sha):
+        return _result(UNKNOWN, "expected live base SHA is unavailable or malformed")
 
     work_ref = event.get("work_ref")
     if event["message_type"] in {"PR_STATE", "CI_STATE"} and not isinstance(work_ref, Mapping):
@@ -223,13 +227,16 @@ def validate_event(
         )
         if preflight is not None:
             return preflight
-        if event.get("preflight_main_sha", "").lower() != event["main_sha"].lower():
+        preflight_main = event.get("preflight_main_sha")
+        if not _sha_is_valid(preflight_main) or preflight_main.lower() != event["main_sha"].lower():
             return _result(UNKNOWN, "preflight main SHA is absent or differs from message provenance")
         if work_ref is not None:
-            if event.get("preflight_head_sha", "").lower() != work_ref["head_sha"].lower():
-                return _result(UNKNOWN, "preflight head SHA differs from work_ref")
-            if event.get("preflight_base_sha", "").lower() != work_ref["base_sha"].lower():
-                return _result(UNKNOWN, "preflight base SHA differs from work_ref")
+            preflight_head = event.get("preflight_head_sha")
+            preflight_base = event.get("preflight_base_sha")
+            if not _sha_is_valid(preflight_head) or preflight_head.lower() != work_ref["head_sha"].lower():
+                return _result(UNKNOWN, "preflight head SHA is absent or differs from work_ref")
+            if not _sha_is_valid(preflight_base) or preflight_base.lower() != work_ref["base_sha"].lower():
+                return _result(UNKNOWN, "preflight base SHA is absent or differs from work_ref")
 
     return _result(DELIVER, "fresh, provenance-pinned notification envelope")
 
@@ -238,6 +245,7 @@ def _plain_text(value: Any, limit: int) -> str:
     """Collapse layout controls and neutralize Slack markdown/link/mention syntax."""
     raw = re.sub(r"\s+", " ", str(value)).strip()
     raw = escape(raw, quote=False)
+    raw = re.sub(r"@(channel|here|everyone)\b", r"@ \1", raw, flags=re.IGNORECASE)
     return raw[:limit]
 
 
@@ -246,7 +254,7 @@ def render_slack_text(event: Mapping[str, Any]) -> str:
     if not isinstance(event, Mapping) or not _is_repo_evidence_url(event.get("source_url")):
         raise ValueError("rendering requires a validated repository evidence URL")
     message_type = event.get("message_type")
-    if message_type not in MESSAGE_TYPES:
+    if not isinstance(message_type, str) or message_type not in MESSAGE_TYPES:
         raise ValueError("rendering requires a supported message_type")
 
     lines = [
