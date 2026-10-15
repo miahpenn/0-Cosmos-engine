@@ -219,6 +219,7 @@ def test_policy_document_matches_implemented_review_fast_path():
     assert "research/diagnostic tests" in source
     assert "require an `APPROVED` review" in source
     assert "Joined-ledger trigger parity" in source
+    assert "do not independently approve or veto promotion" in source
 
 
 def test_policy_document_lists_exactly_the_joined_ledger_trigger_paths():
