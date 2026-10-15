@@ -36,6 +36,40 @@ The pinned vendor TF-Ricci dependence is linear in the D4-Lambda operand with co
 
 Here “connection channel” means the TF-Ricci response to D4(Lambda_evolved)-D4(Lambda_metric), while “stencil/chain channel” means the response to D4(Lambda_metric)-the analytic chain-rule derivative. The two signed channels add to the total evolved-D4 minus analytic-chain-rule derivative response.
 
+## Three-term signed budget for the metric-Lambda channel
+
+A follow-up pass decomposes the second (stencil/chain-rule) channel into the three terms used to reconstruct
+
+\[
+\Lambda_{\rm metric}=
+\underbrace{\frac{D_1 a}{2a^2}}_{\lambda_a}
+\;\underbrace{-\frac{D_1 b}{ab}}_{\lambda_b}
+\;+\underbrace{\frac{2}{r}\left(\frac1b-\frac1a\right)}_{\lambda_r}.
+\]
+
+For each term the report records the signed derivative-only TF-Ricci response
+\((2/3)X^2[D_4(\lambda_i)-\partial_r\lambda_i|_{D_1/D_2}]\).
+The three pieces are summed before taking any norm; their sum is checked against the unsplit
+metric-Lambda channel on every saved stage.
+
+### Primary-predictor centre values
+
+| Resolution | Total metric-Lambda channel | \(\lambda_a\) response | \(\lambda_b\) response | \(\lambda_r\) response | Recombination max error |
+|---:|---:|---:|---:|---:|---:|
+| N=40 | \(+1.655011946\times10^{-3}\) | \(-8.043721740\times10^{-6}\) | \(-8.055575911\times10^{-6}\) | \(+1.671111244\times10^{-3}\) | \(2.17\times10^{-19}\) |
+| N=80 | \(+1.601732028\times10^{-3}\) | \(-9.708243950\times10^{-7}\) | \(-9.792177506\times10^{-7}\) | \(+1.603682070\times10^{-3}\) | \(2.17\times10^{-19}\) |
+
+### Fixed-annulus maxima
+
+| Resolution | \(\max_{5\le r\le10}|\lambda_a\text{ response}|\) | \(\max_{5\le r\le10}|\lambda_b\text{ response}|\) | \(\max_{5\le r\le10}|\lambda_r\text{ response}|\) |
+|---:|---:|---:|---:|
+| N=40 | \(7.1530\times10^{-6}\) | \(7.1635\times10^{-6}\) | \(2.0655\times10^{-5}\) |
+| N=80 | \(4.7444\times10^{-7}\) | \(4.6991\times10^{-7}\) | \(2.2262\times10^{-7}\) |
+
+On the first cell of these two primary-predictor states, the radial-geometry reconstruction term dominates the signed chain-rule difference; the two derivative-product terms contribute much smaller negative offsets. The fixed-annulus maxima show that this is not a claim of radial-term dominance at every radius or resolution. The diagnostic now emits all three signed profiles and rejects a term-sum closure error above the same \(2\times10^{-12}\) absolute gate.
+
+**Interpretation limit:** this locates the largest first-cell component in the discrete representation comparison; it does not prove that the radial term or either derivative representation is defective. The next numerical-method review should compare the parity/regular-origin expansion of \(\delta=1/b-1/a\) with the sampled profile and the pinned stencil, and assess whether the stage profile resolves that expansion. No production equation or operator is changed.
+
 ## Accepted-step connection-derivative history (PR #250 saved artifact)
 
 The accepted-step artifact contains Lambda_evolved, Lambda_metric, and the sampled connection residual, but does not include a, b, or X. It therefore supports the exact parity-odd D4 derivative split, but not the analytic chain-rule or X^2 Ricci-response split at each later step.
