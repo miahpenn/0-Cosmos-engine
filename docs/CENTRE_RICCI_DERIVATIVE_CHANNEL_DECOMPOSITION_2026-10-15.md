@@ -70,6 +70,19 @@ On the first cell of these two primary-predictor states, the radial-geometry rec
 
 **Interpretation limit:** this locates the largest first-cell component in the discrete representation comparison; it does not prove that the radial term or either derivative representation is defective. The next numerical-method review should compare the parity/regular-origin expansion of \(\delta=1/b-1/a\) with the sampled profile and the pinned stencil, and assess whether the stage profile resolves that expansion. No production equation or operator is changed.
 
+### Origin-profile discriminator from the same pinned stages
+
+For the primary-predictor metric, define \(\delta=1/b-1/a\). A regular even expansion has \(\delta=O(r^2)\), so \(\delta/r^2\) should have a finite, smooth even continuation to the origin. The captured cell samples show a stable order of magnitude but a sharp radial variation across the innermost cells:
+
+| Resolution | Cell-centre radii | \(\delta/r^2\) |
+|---:|---|---|
+| N=40 | \(r=1,3\) | \(1.20883\times10^{-3},\ 3.84309\times10^{-4}\) |
+| N=80 | \(r=0.5,1.5,2.5\) | \(1.24453\times10^{-3},\ 4.75900\times10^{-4},\ 3.82668\times10^{-4}\) |
+
+The N=40 value at \(r=3\) and N=80 value at \(r=2.5\) differ by under 0.5%, while the first-cell values at the two different radii are both about \(1.2\times10^{-3}\). From N=80 \(r=0.5\) to \(r=1.5\), however, \(\delta/r^2\) falls by about 62%. Thus the radial scale of the central variation may be comparable to the grid spacing. Because samples are cell-centred and do not coincide at the innermost radii, this does **not** demonstrate an origin-parity violation or establish that the profile is unresolved.
+
+**Next discriminator:** fit the regular even series \(\delta(r)=c_2r^2+c_4r^4+c_6r^6+\cdots\) using source-pinned initialized/stage profiles across at least three refinements, report signed residuals and the parity/stencil treatment, and compare the fitted coefficients across resolutions. Do not infer a smooth continuum profile from two resolutions or replace the production radial term based on this observation alone.
+
 ## Accepted-step connection-derivative history (PR #250 saved artifact)
 
 The accepted-step artifact contains Lambda_evolved, Lambda_metric, and the sampled connection residual, but does not include a, b, or X. It therefore supports the exact parity-odd D4 derivative split, but not the analytic chain-rule or X^2 Ricci-response split at each later step.
