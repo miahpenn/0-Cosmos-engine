@@ -34,7 +34,10 @@ R_MAX = 80.0
 WAVELENGTHS = (16.0, 8.0)
 AMPLITUDE_MAGNITUDES = (1.0e-4, 1.0e-3)
 REFERENCE_DT_OVER_DR = 0.01
-PHYSICAL_TIMESTEPS = (0.005, 0.01)
+PHYSICAL_TIMESTEPS = (
+    REFERENCE_DT_OVER_DR * R_MAX / RESOLUTIONS[0] / 2.0,
+    REFERENCE_DT_OVER_DR * R_MAX / RESOLUTIONS[0],
+)
 CENTER_SHELL_R_MAX = 2.0
 OUT = Path(os.environ.get(
     "LAMBDA_CENTER_OUT",
@@ -325,8 +328,8 @@ def main() -> int:
         for wavelength in WAVELENGTHS:
             for amplitude in AMPLITUDE_MAGNITUDES:
                 for field, _profile_key in SIGNED_FIELDS:
-                    coarse_dt = min(PHYSICAL_TIMESTEPS)
-                    fine_dt = max(PHYSICAL_TIMESTEPS)
+                    coarse_dt = max(PHYSICAL_TIMESTEPS)
+                    fine_dt = min(PHYSICAL_TIMESTEPS)
                     coarse = summary_lookup[(resolution, float(wavelength), float(amplitude), float(coarse_dt), field)]
                     fine = summary_lookup[(resolution, float(wavelength), float(amplitude), float(fine_dt), field)]
                     row = {
