@@ -40,7 +40,7 @@ from engine import v55_pirk_adapter as adapter
 
 
 SCHEMA = "current_source_signed_momentum_constraint_tangent_v1"
-SOURCE_BASELINE = "d948c7ee692b72abf4cab759b76475e636838a1a"
+SOURCE_BASELINE = "34ad06539c867b2a7ed40c2e1534a3a9d157b82f"
 EXPECTED_VENDOR = "d6052d605673ce9d82cdc99b0df79855fa2ea215"
 EXPECTED_BLOBS = {
     "engine/production_kernel.py": "9685e76bb5a6f26d6bf383e240de24f37523f265",
