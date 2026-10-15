@@ -1,0 +1,102 @@
+"""Policy contract tests for the privileged qualified auto-merge workflow."""
+
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+WORKFLOW_PATH = ROOT / ".github" / "workflows" / "qualified_auto_merge.yml"
+POLICY_PATH = ROOT / "docs" / "QUALIFIED_AUTO_MERGE.md"
+LEDGER_WORKFLOW_PATH = ROOT / ".github" / "workflows" / "em_total_energy_budget.yml"
+
+
+def test_no_review_fast_path_is_readme_and_docs_only():
+    source = WORKFLOW_PATH.read_text(encoding="utf-8")
+    start = source.index("const isDocumentationPath = (path) =>")
+    end = source.index("\n\n            async function changedFiles", start)
+    classifier = source[start:end]
+
+    assert 'path === "README.md"' in classifier
+    assert 'path.startsWith("docs/")' in classifier
+    assert "research/" not in classifier
+    assert "tests/" not in classifier
+    assert "tools/" not in classifier
+    assert ".github/workflows/" not in classifier
+    assert "engine/" not in classifier
+    assert "vendor/" not in classifier
+    assert "const isDiagnosticPath" not in source
+    assert "const documentationOnly = files.every(isDocumentationPath);" in source
+
+
+def test_non_documentation_requires_exact_head_non_author_approval():
+    source = WORKFLOW_PATH.read_text(encoding="utf-8")
+    assert "r.commit_id === headSha" in source
+    assert 'login !== pr.user?.login && state === "APPROVED"' in source
+    assert "if (!documentationOnly && !hasIndependentApproval)" in source
+    assert "if (!documentationOnly && !finalApproval)" in source
+    assert "state === \"CHANGES_REQUESTED\"" in source
+
+
+def test_workflow_run_without_exact_pr_base_association_fails_closed():
+    source = WORKFLOW_PATH.read_text(encoding="utf-8")
+    start = source.index("const runPulls = latestWorkflow.pull_requests || [];")
+    end = source.index("return failures;", start)
+    association_gate = source[start:end]
+
+    assert "if (runPulls.length === 0)" in association_gate
+    assert "workflow run lacks PR/base association" in association_gate
+    assert "const exactBaseRun = runPulls.some(p =>" in association_gate
+    assert "p.number === pullNumber" in association_gate
+    assert "p.head?.sha === headSha" in association_gate
+    assert 'p.base?.ref === "main"' in association_gate
+    assert "p.base?.sha === expectedBaseSha" in association_gate
+    assert "if (!exactBaseRun)" in association_gate
+    assert "mainCommitDate" not in source
+    assert "Date.parse(latestWorkflow.created_at)" not in source
+
+
+def test_qualified_merge_runs_are_serialized_and_head_is_rechecked():
+    source = WORKFLOW_PATH.read_text(encoding="utf-8")
+    assert "group: qualified-auto-merge-main" in source
+    assert "cancel-in-progress: false" in source
+    assert "freshPr.head.sha !== headSha" in source
+    assert "freshMain.sha !== baseSha" in source
+    assert "sha: headSha" in source
+
+
+def test_joined_ledger_gate_paths_match_the_workflow_trigger_exactly():
+    merge_source = WORKFLOW_PATH.read_text(encoding="utf-8")
+    ledger_source = LEDGER_WORKFLOW_PATH.read_text(encoding="utf-8")
+
+    start = merge_source.index("const ledgerPaths = new Set([")
+    end = merge_source.index("]);", start)
+    protected_paths = set()
+    for line in merge_source[start:end].splitlines():
+        line = line.strip()
+        if line.startswith('"') and line.endswith('",'):
+            protected_paths.add(line[1:-2])
+
+    lines = ledger_source.splitlines()
+    paths_index = next(
+        index for index, line in enumerate(lines) if line.strip() == "paths:"
+    )
+    trigger_paths = set()
+    for line in lines[paths_index + 1:]:
+        if line.strip() == "permissions:":
+            break
+        if line.strip().startswith("- "):
+            trigger_paths.add(line.strip()[2:])
+
+    assert trigger_paths, "joined-ledger workflow path filter must not be empty"
+    assert protected_paths == trigger_paths, (
+        f"auto-merge joined-ledger gate drifted from workflow paths: "
+        f"unprotected={sorted(trigger_paths - protected_paths)}, "
+        f"stale={sorted(protected_paths - trigger_paths)}"
+    )
+
+
+def test_policy_document_matches_implemented_review_fast_path():
+    source = POLICY_PATH.read_text(encoding="utf-8")
+    assert "README.md" in source
+    assert "docs/**" in source
+    assert "research/diagnostic tests" in source
+    assert "require an `APPROVED` review" in source
+    assert "Joined-ledger trigger parity" in source
