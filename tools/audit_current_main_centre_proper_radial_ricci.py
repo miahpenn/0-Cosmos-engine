@@ -777,6 +777,13 @@ def main() -> int:
         lambda_chain_arrays, lambda_chain_summary = _lambda_chain_rule_counterfactual(
             grid, r, a, b, X, Lambda, vendor_terms, direct["tf_ricci"]
         )
+        manufactured_lambda_arrays, manufactured_lambda_summary = (
+            _manufactured_lambda_parity_discriminator(grid, vacuum)
+        )
+        if not manufactured_lambda_summary["profiles_finite"]:
+            problems.append(
+                f"N={resolution}: manufactured Lambda parity discriminator is non-finite"
+            )
 
         # Signed source budget on the initialized profile; keep each driver
         # separate so a local pole is not hidden by summing unlike terms.
@@ -878,6 +885,9 @@ def main() -> int:
         metric_arrays.update({name: _arr(values) for name, values in lambda_chain_arrays.items()})
         metric_arrays.update({name: _arr(values) for name, values in origin_cf_arrays.items()})
         metric_arrays.update({name: _arr(values) for name, values in combined_cf_arrays.items()})
+        metric_arrays.update({
+            name: _arr(values) for name, values in manufactured_lambda_arrays.items()
+        })
 
         taylor = {}
         for name in ("a", "b", "X", "alpha", "a_minus_b_over_r2", "Lambda_over_r"):
@@ -1041,6 +1051,7 @@ def main() -> int:
             "frozen_source_origin_half_cell_counterfactual": origin_cf_summary,
             "lambda_chain_rule_counterfactual": lambda_chain_summary,
             "combined_origin_and_lambda_chain_rule_counterfactual": combined_cf_summary,
+            "manufactured_lambda_parity_discriminator": manufactured_lambda_summary,
             "interpretation_limits": [
                 "A successful observer workflow is not scientific admission.",
                 "The direct warped-product reconstruction is independent of evolved Lambda and the vendor Ricci brackets, but shares the pinned radial grid derivative operator.",
@@ -1106,6 +1117,21 @@ def main() -> int:
         "combined_origin_lambda_cf_vendor_minus_direct_tf_ricci",
         "combined_origin_lambda_cf_vendor_minus_direct_tf_ricci_over_r2",
     ])
+    for manufactured_tag in ("manufactured_q1", "manufactured_q2"):
+        for manufactured_arm in (
+            "continuum", "discrete", "off_constraint_odd", "negative_control_even"
+        ):
+            manufactured_prefix = f"{manufactured_tag}_{manufactured_arm}"
+            all_names.extend([
+                manufactured_prefix + "_Lambda",
+                manufactured_prefix + "_Lambda_over_r",
+                manufactured_prefix + "_vendor_tf_ricci",
+                manufactured_prefix + "_vendor_tf_ricci_over_r2",
+                manufactured_prefix + "_signed_gap",
+                manufactured_prefix + "_signed_gap_over_r2",
+                manufactured_prefix + "_chain_rule_gap",
+                manufactured_prefix + "_chain_rule_induced_tf_shift",
+            ])
     with csv_path.open("w", newline="", encoding="utf-8") as stream:
         writer = csv.writer(stream)
         writer.writerow(["resolution", "i", "r"] + all_names)
