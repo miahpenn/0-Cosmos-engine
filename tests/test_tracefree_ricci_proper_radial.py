@@ -102,7 +102,10 @@ def test_manufactured_nonconstant_regular_profile_matches_nonzero_ricci_oracle()
     # TF Ricci = 2*c3^2*r^2/(1+c3*r^2)^2, hence TF Ricci/r^2 -> 2*c3^2.
     tf_ricci_exact = 2.0 * c3**2 * r**2 / (1.0 + c3 * r**2) ** 2
     tf_ricci_over_r2_exact = 2.0 * c3**2 / (1.0 + c3 * r**2) ** 2
-    assert np.allclose(tf_ricci_from_derivatives, tf_ricci_exact, rtol=1.0e-11, atol=1.0e-13)
+    # The unsimplified expression subtracts O(c3) terms to leave O(c3^2*r^2)
+    # at the first cell; allow its ~1e-13 absolute cancellation roundoff. The
+    # centre checks below use the stable expression, not this cancellation path.
+    assert np.allclose(tf_ricci_from_derivatives, tf_ricci_exact, rtol=1.0e-11, atol=2.0e-13)
 
     # Represent the same physical metric with the production BSSN
     # determinant-one conformal parameterization:
