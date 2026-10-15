@@ -100,3 +100,35 @@ def test_policy_document_matches_implemented_review_fast_path():
     assert "research/diagnostic tests" in source
     assert "require an `APPROVED` review" in source
     assert "Joined-ledger trigger parity" in source
+
+
+def test_policy_document_lists_exactly_the_joined_ledger_trigger_paths():
+    workflow = WORKFLOW_PATH.read_text(encoding="utf-8")
+    policy = POLICY_PATH.read_text(encoding="utf-8")
+    ledger_workflow = LEDGER_WORKFLOW_PATH.read_text(encoding="utf-8")
+
+    start = workflow.index("const ledgerPaths = new Set([")
+    end = workflow.index("]);", start)
+    protected_paths = {
+        line.strip()[1:-2]
+        for line in workflow[start:end].splitlines()
+        if line.strip().startswith('"') and line.strip().endswith('",')
+    }
+
+    lines = policy.splitlines()
+    section = "A PR touching any of the following must also pass"
+    section_start = next(index for index, line in enumerate(lines) if section in line)
+    documented_paths = set()
+    for line in lines[section_start + 1:]:
+        line = line.strip()
+        if not line.startswith("- "):
+            if documented_paths:
+                break
+            continue
+        documented_paths.add(line[2:].strip("`"))
+
+    assert protected_paths == documented_paths, (
+        f"documented joined-ledger paths differ from gate: "
+        f"undocumented={sorted(protected_paths - documented_paths)}, "
+        f"stale={sorted(documented_paths - protected_paths)}"
+    )
