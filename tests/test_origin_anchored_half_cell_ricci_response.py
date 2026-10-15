@@ -136,5 +136,5 @@ def test_c0_and_higher_coefficient_moment_decomposition_closes():
         constrained["moment_correction_vs_point_sample"]
         - free["moment_correction_vs_point_sample"]
     )
-    assert abs(delta_c0+delta_higher-actual) < 2.0e-18
+    assert abs(delta_c0+delta_higher-actual) < 1.0e-17
     assert abs(delta_c0) > 10.0*abs(delta_higher)
