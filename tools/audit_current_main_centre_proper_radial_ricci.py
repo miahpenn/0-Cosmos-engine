@@ -475,6 +475,355 @@ def _lambda_chain_rule_counterfactual(
     return arrays, summary
 
 
+def _origin_half_cell_self_consistent_counterfactual(
+    grid, state, vacuum, *, frozen_delta_integral: float,
+    max_iterations: int = 100, tolerance: float = 2.0e-14,
+    source_fit_degree: int = 3, source_fit_r_max: float = 2.5,
+    include_fit_scan: bool = True,
+) -> tuple[dict[str, np.ndarray], dict]:
+    """Iterate corrected origin moment and its metric/source map on a copied state.
+
+    Every iterate recomputes the Hamiltonian source from its current B metric,
+    fits an even source series on fixed physical support, corrects only the
+    origin half-cell integral, and preserves inter-centre trapezoids. Reports
+    both a six-step counterpart to the pinned initializer and a converged
+    fixed point. The initialized engine state is never modified or evolved.
+    """
+    if max_iterations < 6 or tolerance <= 0.0:
+        raise ValueError("invalid self-consistent origin iteration controls")
+    if source_fit_degree not in (3, 4, 5) or source_fit_r_max not in (2.5, 3.0, 3.5):
+        raise ValueError("origin fit-family comparison expects degree 3/4/5 and radius 2.5/3.0/3.5")
+    from engine.scalar_system import cosmos_potential
+    from engine.v55_matter import RHO_B_PRESENT, RHO_DM_PRESENT, RHO_R_PRESENT
+
+    state_before = _state_digest(state)
+    r = _arr(grid.centers)
+    dr, r0 = float(grid.dr), float(grid.centers[0])
+    geom, fields = state.geometry, state.scalars
+    S, PS, D, PD = (_arr(fields.S), _arr(fields.PS), _arr(fields.D), _arr(fields.PD))
+    phi, Pi = _arr(fields.phi), _arr(fields.Pi)
+    d1 = lambda v, parity=1: grid.cell_derivative_fourth(v, parity=parity)
+    Sp, Dp = d1(S, 1), d1(D, 1)
+    current = -(PD * Dp)
+
+    phi0, pi0 = 0.179055, 0.00341913
+    rho0 = 0.5*pi0**2 + float(cosmos_potential(np.array([phi0]))[0])
+    rho0 += float(RHO_DM_PRESENT) + float(RHO_B_PRESENT) + float(RHO_R_PRESENT)
+    H0 = math.sqrt(max(rho0/3.0, 0.0))
+    Kt, Ktp = np.full_like(r, -H0), d1(np.full_like(r, -H0), 1)
+    rho_matter = (float(RHO_DM_PRESENT) + float(RHO_B_PRESENT) + float(RHO_R_PRESENT))/(8.0*math.pi)
+    rho_phi = (0.5*Pi*Pi + cosmos_potential(phi))/(8.0*math.pi)
+
+    def source_for_B(B: np.ndarray) -> np.ndarray:
+        rhoS = 0.5*(PS*PS + B*Sp*Sp) + 0.5*S*S
+        rhoD = 0.5*(PD*PD + B*Dp*Dp) - 0.5*D*D
+        rho = rhoS + rhoD + rho_phi + rho_matter
+        Kr = Kt + r*Ktp + 4.0*math.pi*r*current
+        source = 1.0 - 8.0*math.pi*r*r*rho + 2.0*r*r*Kr*Kt + r*r*Kt*Kt
+        if not _finite(source):
+            raise FloatingPointError("non-finite source in copied initializer recurrence")
+        return source
+
+    def fit_even(source: np.ndarray, fit_r_max: float, degree: int = source_fit_degree) -> dict:
+        mask = r <= float(fit_r_max)
+        x, nfit = r[mask]**2, int(np.count_nonzero(mask))
+        if nfit < degree + 1:
+            raise ValueError(
+                f"even-source degree-{degree} fit at r<={fit_r_max} has only {nfit} samples"
+            )
+        design = np.column_stack([x**power for power in range(degree + 1)])
+        coeff, *_ = np.linalg.lstsq(design, source[mask], rcond=None)
+        residual = source[mask] - design@coeff
+        integral = float(sum(
+            value * r0 ** (2 * power + 1) / (2 * power + 1)
+            for power, value in enumerate(coeff)
+        ))
+        result = {
+            "fit_r_max": float(fit_r_max), "fit_cells": nfit,
+            "degree_in_r_squared": int(degree),
+            "overdetermined": bool(nfit >= degree + 2),
+            "coefficients_s_even": [float(v) for v in coeff],
+            "fit_max_abs_residual": _max_abs(residual),
+            "fit_rms_residual": float(np.sqrt(np.mean(residual*residual))),
+            "half_cell_integral": float(integral),
+            "delta_integral_vs_point_sample": float(integral-r0*source[0]),
+        }
+        if degree == 3:
+            result["coefficients_s0_s2_s4_s6"] = [float(v) for v in coeff]
+        return result
+
+    def integrate_original(source: np.ndarray) -> np.ndarray:
+        return np.cumsum(np.r_[r0*source[0], 0.5*dr*(source[1:]+source[:-1])])/r
+
+    def integrate_corrected(source: np.ndarray) -> tuple[np.ndarray, dict]:
+        fit25 = fit_even(source, 2.5) if np.count_nonzero(r <= 2.5) >= source_fit_degree + 1 else None
+        fit30 = fit_even(source, 3.0) if np.count_nonzero(r <= 3.0) >= source_fit_degree + 1 else None
+        selected = fit_even(source, source_fit_r_max, source_fit_degree)
+        alternative = fit30 if source_fit_r_max == 2.5 else fit25
+        sensitivity = (
+            abs(fit30["half_cell_integral"] - fit25["half_cell_integral"])
+            if fit25 is not None and fit30 is not None else None
+        )
+        Bnext = np.cumsum(np.r_[
+            selected["half_cell_integral"], 0.5*dr*(source[1:]+source[:-1])
+        ])/r
+        return Bnext, {
+            "selected_fit": selected,
+            "fit_r_le_2_5": fit25,
+            "fit_r_le_3_0": fit30,
+            "comparison_fit": alternative,
+            "fit_window_integral_sensitivity_abs": float(sensitivity) if sensitivity is not None else None,
+        }
+
+    # Internal control: reconstruct the production point-sampled recurrence.
+    B_baseline = np.ones_like(r)
+    baseline_updates = []
+    for _ in range(6):
+        Bnext = integrate_original(source_for_B(B_baseline))
+        baseline_updates.append(_max_abs(Bnext-B_baseline))
+        B_baseline = Bnext
+    B_production = _arr(geom.X)**6
+    baseline_error = _max_abs(B_baseline-B_production)
+    baseline_scale = max(1.0, _max_abs(B_production))
+    if baseline_error > 2.0e-12*baseline_scale:
+        raise RuntimeError(f"copied point-sampled recurrence failed production X^6 closure: {baseline_error:.6e}")
+
+    # The corrected iteration starts at B=1 and recomputes the source every pass.
+    B = np.ones_like(r)
+    history: list[dict] = []
+    B_six, fit_meta_six = None, None
+    converged, last_update = False, float("inf")
+    for iteration in range(1, max_iterations+1):
+        src = source_for_B(B)
+        Bnext, metadata = integrate_corrected(src)
+        last_update = _max_abs(Bnext-B)
+        scale = max(1.0, _max_abs(Bnext))
+        history.append({
+            "iteration": iteration, "max_abs_B_update": float(last_update),
+            "max_relative_B_update": float(last_update/scale),
+            "source_fit_degree_in_r_squared": int(source_fit_degree),
+            "source_fit_r_max": float(source_fit_r_max),
+            "delta_integral_applied": float(metadata["selected_fit"]["delta_integral_vs_point_sample"]),
+            "selected_fit_max_abs_residual": float(metadata["selected_fit"]["fit_max_abs_residual"]),
+            "fit_r_le_2_5_max_abs_residual": (
+                float(metadata["fit_r_le_2_5"]["fit_max_abs_residual"])
+                if metadata["fit_r_le_2_5"] is not None else None
+            ),
+            "fit_window_integral_sensitivity_abs": metadata["fit_window_integral_sensitivity_abs"],
+        })
+        B = Bnext
+        if iteration == 6:
+            B_six, fit_meta_six = B.copy(), metadata
+        if iteration >= 6 and last_update <= tolerance*scale:
+            converged = True
+            break
+    if B_six is None or fit_meta_six is None:
+        raise RuntimeError("corrected-source iteration missed the six-step checkpoint")
+
+    # Fresh source evaluations expose the fixed-point defects after iteration.
+    src_six, src_fixed = source_for_B(B_six), source_for_B(B)
+    B_six_map, six_meta = integrate_corrected(src_six)
+    B_fixed_map, fixed_meta = integrate_corrected(src_fixed)
+    six_defect, fixed_defect = _max_abs(B_six_map-B_six), _max_abs(B_fixed_map-B)
+
+    def fit_sensitivity_scan(source: np.ndarray) -> dict:
+        """Show how source-moment delta-I depends on polynomial degree/window."""
+        rows = []
+        for fit_r_max in (1.5, 2.0, 2.5, 3.0, 3.5):
+            mask = r <= fit_r_max
+            x = r[mask]**2
+            nfit = int(np.count_nonzero(mask))
+            for degree in (1, 2, 3, 4, 5):
+                if nfit < degree + 1:
+                    continue
+                design = np.column_stack([x**power for power in range(degree + 1)])
+                coeff, *_ = np.linalg.lstsq(design, source[mask], rcond=None)
+                residual = source[mask] - design@coeff
+                integral = float(sum(
+                    value * r0 ** (2 * power + 1) / (2 * power + 1)
+                    for power, value in enumerate(coeff)
+                ))
+                delta_i = float(integral - r0*source[0])
+                loo = []
+                if nfit >= degree + 2:
+                    for omitted in range(nfit):
+                        keep = np.arange(nfit) != omitted
+                        loo_coeff, *_ = np.linalg.lstsq(design[keep], source[mask][keep], rcond=None)
+                        loo.append(float(source[mask][omitted] - design[omitted]@loo_coeff))
+                rows.append({
+                    "fit_r_max": float(fit_r_max), "degree_in_r_squared": int(degree),
+                    "fit_cells": nfit, "overdetermined": bool(nfit >= degree + 2),
+                    "delta_integral": delta_i,
+                    "fit_max_abs_residual": _max_abs(residual),
+                    "fit_rms_residual": float(np.sqrt(np.mean(residual*residual))),
+                    "leave_one_cell_out_rms_residual": float(np.sqrt(np.mean(np.square(loo)))) if loo else None,
+                    "leave_one_cell_out_max_abs_residual": float(np.max(np.abs(loo))) if loo else None,
+                })
+        reference = next(
+            row["delta_integral"] for row in rows
+            if row["degree_in_r_squared"] == 3 and row["fit_r_max"] == 2.5
+        )
+        for row in rows:
+            row["relative_delta_integral_percent_vs_degree3_r2_5"] = float(
+                100.0*(row["delta_integral"]/reference - 1.0)
+            )
+        stable_degree3 = [
+            row for row in rows
+            if row["degree_in_r_squared"] == 3 and 1.5 <= row["fit_r_max"] <= 3.0
+        ]
+        all_degree3 = [row for row in rows if row["degree_in_r_squared"] == 3]
+        overdetermined_higher = [
+            row for row in rows
+            if row["degree_in_r_squared"] in (3, 4, 5)
+            and row["overdetermined"] and row["fit_r_max"] <= 3.0
+        ]
+        higher_spread = (
+            100.0 * (max(row["delta_integral"] for row in overdetermined_higher)
+                     - min(row["delta_integral"] for row in overdetermined_higher))
+            / abs(reference)
+        ) if overdetermined_higher else None
+        return {
+            "reference_fit": {"degree_in_r_squared": 3, "fit_r_max": 2.5,
+                              "delta_integral": float(reference)},
+            "fits": rows,
+            "degree3_max_abs_delta_percent_over_windows_r1p5_to_r3": float(max(
+                abs(row["relative_delta_integral_percent_vs_degree3_r2_5"])
+                for row in stable_degree3
+            )),
+            "degree3_max_abs_delta_percent_over_windows_r1p5_to_r3p5": float(max(
+                abs(row["relative_delta_integral_percent_vs_degree3_r2_5"])
+                for row in all_degree3
+            )),
+            "degree3_to5_overdetermined_delta_spread_percent_windows_to_r3": higher_spread,
+            "loo_qualified_fit_count": int(sum(row["leave_one_cell_out_rms_residual"] is not None for row in rows)),
+        }
+
+    fit_scan = fit_sensitivity_scan(src_fixed) if include_fit_scan else None
+
+    def make_metric(Bprofile: np.ndarray, tag: str, source_profile: np.ndarray):
+        if np.any(~np.isfinite(Bprofile)) or np.any(Bprofile <= 0.0):
+            raise FloatingPointError(f"{tag}: invalid B profile")
+        A = 1.0/np.sqrt(Bprofile)
+        a, b, X = A**(4.0/3.0), A**(-2.0/3.0), A**(-1.0/3.0)
+        Lambda = d1(a, 1)/(2.0*a*a) - d1(b, 1)/(a*b) + 2.0/r*(1.0/b-1.0/a)
+        copied = copy.deepcopy(geom)
+        copied.a, copied.b, copied.X, copied.Lambda = a.copy(), b.copy(), X.copy(), Lambda.copy()
+        copied.B = 0.75*Lambda
+        vt = vacuum.geometry_terms(grid, copied)
+        vendor_tf = _arr(vt["Rr_r"]-vt["R"]/3.0)
+        areal, proper_factor = r*np.sqrt(b)/X, np.sqrt(a)/X
+        direct_tf = _arr(proper_radial_ricci(grid, areal, proper_factor)["tf_ricci"])
+        gap = vendor_tf-direct_tf
+        arrays = {
+            f"{tag}_B": Bprofile.copy(), f"{tag}_a": a, f"{tag}_b": b, f"{tag}_X": X,
+            f"{tag}_Lambda": Lambda, f"{tag}_areal_radius": areal,
+            f"{tag}_proper_factor": proper_factor, f"{tag}_vendor_tf_ricci": vendor_tf,
+            f"{tag}_direct_tf_ricci": direct_tf, f"{tag}_tf_ricci_difference": gap,
+            f"{tag}_tf_ricci_difference_over_r2": gap/(r*r),
+            f"{tag}_delta_over_r2": (1.0/b-1.0/a)/(r*r),
+            f"{tag}_Lambda_over_r": Lambda/r,
+            f"{tag}_source_recomputed_at_profile": source_profile,
+        }
+        invariants = {
+            "a_times_b_squared_minus_one_max_abs": _max_abs(a*b*b-1.0),
+            "b_minus_X_squared_max_abs": _max_abs(b-X*X),
+            "a_minus_X_minus_four_max_abs": _max_abs(a-X**(-4.0)),
+            "X6_minus_B_max_abs": _max_abs(X**6-Bprofile),
+            "areal_radius_minus_r_max_abs": _max_abs(areal-r),
+            "source_finite": _finite(source_profile),
+            "all_profiles_finite": all(_finite(v) for v in arrays.values()),
+        }
+        cells = []
+        for i in range(min(2, len(r))):
+            cells.append({
+                "i": i, "r": float(r[i]), "B": float(Bprofile[i]),
+                "delta_over_r2": float(arrays[f"{tag}_delta_over_r2"][i]),
+                "Lambda_over_r": float(arrays[f"{tag}_Lambda_over_r"][i]),
+                "vendor_tf_ricci": float(vendor_tf[i]), "direct_tf_ricci": float(direct_tf[i]),
+                "signed_gap": float(gap[i]), "signed_gap_over_r2": float(gap[i]/(r[i]*r[i])),
+                "source_recomputed_at_profile": float(source_profile[i]),
+            })
+        return arrays, invariants, cells
+
+    six_arrays, six_invariants, six_cells = make_metric(B_six, "origin_sc_six", src_six)
+    fixed_arrays, fixed_invariants, fixed_cells = make_metric(B, "origin_sc_fixed", src_fixed)
+    arrays = {**six_arrays, **fixed_arrays}
+    arrays["origin_sc_baseline_production_B"] = B_production
+    arrays["origin_sc_frozen_source_cf_B"] = B_production + float(frozen_delta_integral)/r
+    arrays["origin_sc_initializer_source_baseline_final"] = source_for_B(B_production)
+
+    baseline_vt = vacuum.geometry_terms(grid, geom)
+    baseline_vendor = _arr(baseline_vt["Rr_r"]-baseline_vt["R"]/3.0)
+    baseline_direct = _arr(proper_radial_ricci(
+        grid, r*np.sqrt(_arr(geom.b))/_arr(geom.X), np.sqrt(_arr(geom.a))/_arr(geom.X)
+    )["tf_ricci"])
+    baseline_gap = baseline_vendor-baseline_direct
+    annulus = (r >= 5.0) & (r <= 10.0)
+    state_after = _state_digest(state)
+    summary = {
+        "method": "copied initializer recurrence: re-evaluate source at every B iterate; integrate its fitted even half-cell series; preserve inter-centre trapezoids",
+        "production_or_vendor_code_changed": False, "evolution_steps": 0,
+        "input_state_sha256_before": state_before, "input_state_sha256_after": state_after,
+        "input_state_unchanged": state_before == state_after,
+        "resolutions": {"N": int(len(r)), "r_max": float(r[-1]+dr/2.0), "dr": dr},
+        "source_pins": {"engine_source_anchor": SOURCE_COMMIT, "vendor_pin": VENDOR_COMMIT},
+        "baseline_six_iteration_reconstruction_max_abs": float(baseline_error),
+        "baseline_six_iteration_reconstruction_matches_production": bool(baseline_error <= 2.0e-12*baseline_scale),
+        "baseline_six_iteration_max_abs_updates": [float(v) for v in baseline_updates],
+        "convergence": {
+            "maximum_iterations": max_iterations, "tolerance": tolerance, "converged": converged,
+            "iterations_used": len(history), "last_B_update_max_abs": float(last_update),
+            "recomputed_six_step_fixed_point_defect_max_abs": float(six_defect),
+            "recomputed_fixed_point_defect_max_abs": float(fixed_defect),
+            "six_step_history": history[:6], "tail_history": history[-min(5, len(history)):],
+        },
+        "corrected_source": {
+            "source_fit_degree_in_r_squared": int(source_fit_degree),
+            "source_fit_r_max": float(source_fit_r_max),
+            "six_step_delta_integral": float(fit_meta_six["selected_fit"]["delta_integral_vs_point_sample"]),
+            "fixed_point_delta_integral": float(fixed_meta["selected_fit"]["delta_integral_vs_point_sample"]),
+            "fixed_point_fit_window_sensitivity_abs": fixed_meta["fit_window_integral_sensitivity_abs"],
+            "fixed_point_fit_selected": fixed_meta["selected_fit"],
+            "fixed_point_fit_r_le_2_5": fixed_meta["fit_r_le_2_5"],
+            "fixed_point_fit_r_le_3_0": fixed_meta["fit_r_le_3_0"],
+            "fit_degree_window_sensitivity_scan": fit_scan,
+        },
+        "metric_invariants_six_step": six_invariants,
+        "metric_invariants_fixed_point": fixed_invariants,
+        "production_first_two_cells": [
+            {"i": i, "r": float(r[i]), "B": float(B_production[i]),
+             "delta_over_r2": float((1.0/_arr(geom.b)[i]-1.0/_arr(geom.a)[i])/(r[i]*r[i])),
+             "Lambda_over_r": float(_arr(geom.Lambda)[i]/r[i]), "signed_gap": float(baseline_gap[i]),
+             "signed_gap_over_r2": float(baseline_gap[i]/(r[i]*r[i]))}
+            for i in range(min(2, len(r)))
+        ],
+        "six_step_corrected_first_two_cells": six_cells,
+        "fixed_point_corrected_first_two_cells": fixed_cells,
+        "fixed_annulus_r5_to10": {
+            "production_gap_max_abs": _max_abs(baseline_gap[annulus]) if np.any(annulus) else None,
+            "six_step_corrected_gap_max_abs": _max_abs(six_arrays["origin_sc_six_tf_ricci_difference"][annulus]) if np.any(annulus) else None,
+            "fixed_point_corrected_gap_max_abs": _max_abs(fixed_arrays["origin_sc_fixed_tf_ricci_difference"][annulus]) if np.any(annulus) else None,
+        },
+        "first_two_cell_gap_reduction": {
+            "six_step_vs_production": float(_max_abs(six_arrays["origin_sc_six_tf_ricci_difference"][:2])/max(_max_abs(baseline_gap[:2]), np.finfo(float).tiny)),
+            "fixed_point_vs_production": float(_max_abs(fixed_arrays["origin_sc_fixed_tf_ricci_difference"][:2])/max(_max_abs(baseline_gap[:2]), np.finfo(float).tiny)),
+        },
+        "all_counterfactual_profiles_finite": all(_finite(v) for v in arrays.values()),
+        "interpretation_limits": [
+            "This is a copied-state diagnostic recurrence, not an edited production initializer.",
+            "The baseline recurrence is reconstructed using the original point-sampled half-cell as a consistency control.",
+            "The corrected source is refitted and recomputed from each candidate B; the converged fixed point is separate from the six-step initializer analogue.",
+            "Scalar/matter fields stay at initialized values while their energy/current are reevaluated with the candidate metric. No field is evolved.",
+            "A reduced Ricci mismatch supports an origin-quadrature hypothesis only; it does not authorize a production change or scientific admission.",
+        ],
+    }
+    if not summary["input_state_unchanged"]:
+        raise RuntimeError("self-consistent origin counterfactual mutated the input state")
+    if not summary["all_counterfactual_profiles_finite"]:
+        raise FloatingPointError("self-consistent origin counterfactual produced non-finite arrays")
+    return arrays, summary
+
+
 def _combined_origin_and_lambda_counterfactual(
     grid,
     r: np.ndarray,
@@ -904,6 +1253,116 @@ def main() -> int:
         origin_cf_arrays, origin_cf_summary = _origin_half_cell_frozen_source(
             grid, state, vacuum
         )
+        origin_sc_arrays, origin_sc_summary = _origin_half_cell_self_consistent_counterfactual(
+            grid, state, vacuum,
+            frozen_delta_integral=float(origin_cf_summary["delta_integral_applied"]),
+        )
+        # Bound the origin-moment effect on several defensible, overdetermined
+        # source-fit families. Each variant independently re-solves the copied
+        # source/metric recurrence and recomputes its geometry/Ricci witnesses.
+        origin_sc_fit_family_arrays = {}
+        origin_sc_fit_family_summaries = {}
+        fit_family_specs = (
+            ("degree3_r3", 3, 3.0),
+            ("degree4_r3", 4, 3.0),
+            ("degree5_r3p5", 5, 3.5),
+        )
+        for family_tag, family_degree, family_rmax in fit_family_specs:
+            family_arrays, family_summary = _origin_half_cell_self_consistent_counterfactual(
+                grid, state, vacuum,
+                frozen_delta_integral=float(origin_cf_summary["delta_integral_applied"]),
+                source_fit_degree=family_degree,
+                source_fit_r_max=family_rmax,
+                include_fit_scan=False,
+            )
+            if not family_summary["convergence"]["converged"]:
+                problems.append(
+                    f"N={resolution}/{family_tag}: corrected-source fit-family iteration did not converge"
+                )
+            if not family_summary["input_state_unchanged"]:
+                problems.append(
+                    f"N={resolution}/{family_tag}: fit-family counterfactual mutated input state"
+                )
+            if not family_summary["all_counterfactual_profiles_finite"]:
+                problems.append(
+                    f"N={resolution}/{family_tag}: fit-family counterfactual produced non-finite values"
+                )
+            if not family_summary["baseline_six_iteration_reconstruction_matches_production"]:
+                problems.append(
+                    f"N={resolution}/{family_tag}: baseline recurrence failed to reproduce production X^6"
+                )
+            invariant_names = (
+                "a_times_b_squared_minus_one_max_abs", "b_minus_X_squared_max_abs",
+                "a_minus_X_minus_four_max_abs", "X6_minus_B_max_abs",
+                "areal_radius_minus_r_max_abs",
+            )
+            for invariant_stage in ("metric_invariants_six_step", "metric_invariants_fixed_point"):
+                invariants = family_summary[invariant_stage]
+                if not invariants["all_profiles_finite"] or not invariants["source_finite"]:
+                    problems.append(f"N={resolution}/{family_tag}: {invariant_stage} has non-finite values")
+                for invariant_name in invariant_names:
+                    if invariants[invariant_name] > 1.0e-12:
+                        problems.append(
+                            f"N={resolution}/{family_tag}: {invariant_stage}/{invariant_name} "
+                            f"exceeds copied-metric identity tolerance"
+                        )
+            for array_name, values in family_arrays.items():
+                if array_name.startswith("origin_sc_six_"):
+                    output_name = (
+                        f"origin_sc_{family_tag}_six_" +
+                        array_name[len("origin_sc_six_"):]
+                    )
+                elif array_name.startswith("origin_sc_fixed_"):
+                    output_name = (
+                        f"origin_sc_{family_tag}_fixed_" +
+                        array_name[len("origin_sc_fixed_"):]
+                    )
+                else:
+                    output_name = (
+                        f"origin_sc_{family_tag}_" +
+                        array_name[len("origin_sc_"):]
+                    )
+                origin_sc_fit_family_arrays[output_name] = _arr(values)
+            origin_sc_fit_family_summaries[family_tag] = {
+                "source_fit_degree_in_r_squared": family_degree,
+                "source_fit_r_max": family_rmax,
+                "baseline_six_iteration_reconstruction_max_abs":
+                    family_summary["baseline_six_iteration_reconstruction_max_abs"],
+                "convergence": family_summary["convergence"],
+                "corrected_source": family_summary["corrected_source"],
+                "metric_invariants_six_step": family_summary["metric_invariants_six_step"],
+                "metric_invariants_fixed_point": family_summary["metric_invariants_fixed_point"],
+                "production_first_two_cells": family_summary["production_first_two_cells"],
+                "six_step_corrected_first_two_cells": family_summary["six_step_corrected_first_two_cells"],
+                "fixed_point_corrected_first_two_cells": family_summary["fixed_point_corrected_first_two_cells"],
+                "fixed_annulus_r5_to10": family_summary["fixed_annulus_r5_to10"],
+                "first_two_cell_gap_reduction": family_summary["first_two_cell_gap_reduction"],
+                "input_state_unchanged": family_summary["input_state_unchanged"],
+                "all_counterfactual_profiles_finite": family_summary["all_counterfactual_profiles_finite"],
+            }
+        # Re-test the independent Lambda derivative counterfactual on the
+        # self-consistent origin profile too, rather than inferring it only
+        # from the frozen-source metric.
+        self_consistent_metric_as_origin_cf = {
+            "origin_cf_a": origin_sc_arrays["origin_sc_fixed_a"],
+            "origin_cf_b": origin_sc_arrays["origin_sc_fixed_b"],
+            "origin_cf_X": origin_sc_arrays["origin_sc_fixed_X"],
+            "origin_cf_Lambda": origin_sc_arrays["origin_sc_fixed_Lambda"],
+            "origin_cf_vendor_tf_ricci": origin_sc_arrays["origin_sc_fixed_vendor_tf_ricci"],
+            "origin_cf_direct_tf_ricci": origin_sc_arrays["origin_sc_fixed_direct_tf_ricci"],
+            "origin_cf_tf_ricci_difference": origin_sc_arrays["origin_sc_fixed_tf_ricci_difference"],
+        }
+        combined_sc_raw_arrays, combined_sc_summary = _combined_origin_and_lambda_counterfactual(
+            grid, r, self_consistent_metric_as_origin_cf
+        )
+        combined_sc_arrays = {
+            name.replace("combined_origin_lambda_cf_", "combined_origin_sc_lambda_cf_"): values
+            for name, values in combined_sc_raw_arrays.items()
+        }
+        if not origin_sc_summary["convergence"]["converged"]:
+            problems.append(f"N={resolution}: corrected-source origin iteration did not converge")
+        if not origin_sc_summary["all_counterfactual_profiles_finite"]:
+            problems.append(f"N={resolution}: corrected-source origin counterfactual has non-finite profiles")
         combined_cf_arrays, combined_cf_summary = _combined_origin_and_lambda_counterfactual(
             grid, r, origin_cf_arrays
         )
@@ -977,6 +1436,9 @@ def main() -> int:
         metric_arrays.update({name: _arr(values) for name, values in lambda_chain_arrays.items()})
         metric_arrays.update({name: _arr(values) for name, values in origin_cf_arrays.items()})
         metric_arrays.update({name: _arr(values) for name, values in combined_cf_arrays.items()})
+        metric_arrays.update({name: _arr(values) for name, values in origin_sc_arrays.items()})
+        metric_arrays.update({name: _arr(values) for name, values in origin_sc_fit_family_arrays.items()})
+        metric_arrays.update({name: _arr(values) for name, values in combined_sc_arrays.items()})
         metric_arrays.update({
             name: _arr(values) for name, values in manufactured_lambda_arrays.items()
         })
@@ -1141,6 +1603,9 @@ def main() -> int:
             },
             "even_taylor_fits_first_six_cells": taylor,
             "frozen_source_origin_half_cell_counterfactual": origin_cf_summary,
+            "self_consistent_origin_half_cell_counterfactual": origin_sc_summary,
+            "self_consistent_origin_fit_family_counterfactuals": origin_sc_fit_family_summaries,
+            "self_consistent_origin_and_lambda_chain_rule_counterfactual": combined_sc_summary,
             "lambda_chain_rule_counterfactual": lambda_chain_summary,
             "combined_origin_and_lambda_chain_rule_counterfactual": combined_cf_summary,
             "manufactured_lambda_parity_discriminator": manufactured_lambda_summary,
@@ -1197,6 +1662,26 @@ def main() -> int:
         "origin_cf_vendor_tf_ricci", "origin_cf_direct_tf_ricci",
         "origin_cf_tf_ricci_difference", "origin_cf_vendor_tf_ricci_over_r2",
         "origin_cf_direct_tf_ricci_over_r2", "origin_cf_tf_ricci_difference_over_r2",
+        "origin_sc_six_B", "origin_sc_six_a", "origin_sc_six_b", "origin_sc_six_X",
+        "origin_sc_six_Lambda", "origin_sc_six_areal_radius", "origin_sc_six_proper_factor",
+        "origin_sc_six_vendor_tf_ricci", "origin_sc_six_direct_tf_ricci",
+        "origin_sc_six_tf_ricci_difference", "origin_sc_six_tf_ricci_difference_over_r2",
+        "origin_sc_six_delta_over_r2", "origin_sc_six_Lambda_over_r",
+        "origin_sc_six_source_recomputed_at_profile", "origin_sc_fixed_B", "origin_sc_fixed_a",
+        "origin_sc_fixed_b", "origin_sc_fixed_X", "origin_sc_fixed_Lambda",
+        "origin_sc_fixed_areal_radius", "origin_sc_fixed_proper_factor",
+        "origin_sc_fixed_vendor_tf_ricci", "origin_sc_fixed_direct_tf_ricci",
+        "origin_sc_fixed_tf_ricci_difference", "origin_sc_fixed_tf_ricci_difference_over_r2",
+        "origin_sc_fixed_delta_over_r2", "origin_sc_fixed_Lambda_over_r",
+        "origin_sc_fixed_source_recomputed_at_profile", "origin_sc_baseline_production_B",
+        "origin_sc_frozen_source_cf_B", "origin_sc_initializer_source_baseline_final",
+        "combined_origin_sc_lambda_cf_lambda_prime_discrete_D4",
+        "combined_origin_sc_lambda_cf_lambda_prime_chain_rule",
+        "combined_origin_sc_lambda_cf_lambda_prime_chain_minus_D4",
+        "combined_origin_sc_lambda_cf_induced_tf_ricci_shift",
+        "combined_origin_sc_lambda_cf_vendor_tf_ricci",
+        "combined_origin_sc_lambda_cf_vendor_minus_direct_tf_ricci",
+        "combined_origin_sc_lambda_cf_vendor_minus_direct_tf_ricci_over_r2",
         "lambda_prime_discrete_D4", "lambda_prime_chain_rule", "lambda_prime_chain_minus_D4",
         "lambda_chain_rule_induced_tf_ricci_shift", "lambda_chain_rule_vendor_tf_ricci",
         "lambda_chain_rule_vendor_minus_direct_tf_ricci",
