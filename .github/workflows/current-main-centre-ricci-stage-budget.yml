@@ -71,6 +71,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: current-main-centre-ricci-stage-budget-N80-2026-10-15
-          path: results/current-main-centre-ricci-stage-budget-2026-10-15/
+          path: results/current-main-centre-ricci-stage-budget-N80-2026-10-15/
           if-no-files-found: warn
           retention-days: 90
