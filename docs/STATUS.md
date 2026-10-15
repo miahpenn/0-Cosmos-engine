@@ -1,29 +1,35 @@
 # Live engineering readiness snapshot — 15 October 2026 UTC
 
-> **Current production posture: NOT ADMITTED for production campaigns.** This snapshot is the live engineering/governance overlay; the detailed EM and historical research reports below are preserved for provenance. A green software check or a bounded smoke is not scientific admission.
+**Snapshot timestamp:** 2026-10-15 02:45 UTC. **Live `main`:** `7860d11cd49ea3a3317d01ef1f4f4950c4db80b8` ([commit](https://github.com/miahpenn/0-Cosmos-engine/commit/7860d11cd49ea3a3317d01ef1f4f4950c4db80b8)).
+
+> **Production scientific admission: NOT ADMITTED.** This live engineering/governance overlay precedes the detailed EM and historical research reports, which are preserved below for provenance. Passing software checks or a bounded smoke is not scientific admission.
 
 ## Current source and bounded software evidence
 
-- **Live `main`:** `7860d11cd49ea3a3317d01ef1f4f4950c4db80b8` ([commit](https://github.com/miahpenn/0-Cosmos-engine/commit/7860d11cd49ea3a3317d01ef1f4f4950c4db80b8)).
-- The latest recorded main-head bounded regression + one-step production smoke passed in [run 38665689620](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38665689620). Campaign and zero-star jobs were skipped; this run is not evidence of a full campaign or long-horizon stability.
-- **Qualified promotion helper:** [draft PR #216](https://github.com/miahpenn/0-Cosmos-engine/pull/216), head `dfba45e2cf81aea03044fa62fb6b8b27e4824df7`, based on the exact current main above. Its three exact-head workflows passed, with 597 tests reported by each:
-  - [Lightweight validation + bounded production smoke](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38671777292)
-  - [Strict JSON residual reporting](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38671777288)
-  - [Strict campaign / radiation-retry integration workflow](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38671777276)
-- The promotion candidate now chooses the newest same-name check run by start/creation timestamp before using attempt number as a tie-breaker; a regression executes the real workflow selector and asserts that an older successful attempt 2 cannot outrank a newer failed attempt 1. This fixes the identified freshness-ordering defect at the candidate head; it does not qualify the candidate for merge or activate automation.
+- The latest recorded main-head bounded regression and one-step production smoke passed in [run 38665689620](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38665689620). Campaign and zero-star jobs were skipped; this is not a full campaign or long-horizon result.
+- **Qualified promotion helper:** [draft PR #216](https://github.com/miahpenn/0-Cosmos-engine/pull/216), current candidate head `349940c5cf87b3a1c05d5d465377a281c27af06f`, exact base/main `7860d11cd49ea3a3317d01ef1f4f4950c4db80b8`.
+- All three latest workflows on that exact PR head/base succeeded, with **598 tests in each**:
+  - [Strict JSON residual reporting](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38672229390)
+  - [Integrated retry workflow](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38672229250)
+  - [Lightweight validation + bounded production smoke](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38672229414) — one-step smoke passed.
+- The candidate now tests check-suite/PR/head/base association and selects same-name check runs by latest start/creation timestamp before using attempt number as a tie-breaker. An executable regression asserts that an older successful attempt 2 cannot outrank a newer failed attempt 1. The additional mocked `checkGate` cases are integrated on #216; the older stacked [PR #223](https://github.com/miahpenn/0-Cosmos-engine/pull/223) was closed as superseded. These are software-gate results, not a new numerical campaign.
+- **Automation is not active:** #216 remains draft and unmerged. Exact-head CI does not replace the remaining human and governance gates below.
 
 ## Promotion / governance blockers — do not silently clear
 
-1. **PR #216 remains draft and unmerged.** A distinct human/security review of the privileged `pull_request_target` workflow is still required.
-2. **Native enforcement is not verified.** The latest available governance audit reported no active rulesets / branch protection through the accessible API; the classic protection-details request was not readable by the integration. A repository owner/admin must verify effective settings and record a harmless blocked-merge negative test before relying on automation.
-3. **The helper is not a complete enforcement boundary.** Its final GitHub merge request can assert the expected PR head SHA, but cannot atomically lock the `main` base SHA. The global workflow concurrency group does not serialize manual merges or direct writes. An enforced merge queue / native ruleset covering every writer, or a separately reviewed and explicitly accepted alternative, is needed before activation. Direct writes can bypass a PR-only helper.
-4. **A green check is not physics admission.** Centre regularity and momentum/constraint propagation, radiation-cone/outer-continuation admissibility, fixed-areal-radius Misner–Sharp conservation, the COSMOS/local density convention ([Issue #210](https://github.com/miahpenn/0-Cosmos-engine/issues/210)), and multi-resolution / full-horizon convergence remain open. Keep diagnostic and research-only work separate from production physics.
+1. **Independent security review is outstanding.** A distinct human/security reviewer must review the privileged `pull_request_target` workflow before activation.
+2. **Native enforcement is unverified.** The latest available audit reported no active rulesets/branch protection through the accessible API; the classic protection-details endpoint was not readable by the integration. A repository owner/admin must verify effective settings and record a harmless blocked-merge negative test.
+3. **The helper is not a complete enforcement boundary.** GitHub's merge API can assert the expected PR head SHA but cannot atomically lock the `main` base SHA. The workflow-wide concurrency group does not serialize manual merges or direct writes. Before activation, use effective native protection/merge-queue controls covering all writers, or obtain an explicitly reviewed and accepted alternative; direct writes can bypass a PR-only helper.
+
+## Scientific admission remains blocked
+
+Centre regularity and momentum/constraint propagation, radiation-cone/outer-continuation admissibility, fixed-areal-radius Misner–Sharp conservation, the COSMOS/local density convention ([Issue #210](https://github.com/miahpenn/0-Cosmos-engine/issues/210)), and multi-resolution/full-horizon convergence remain open. Keep diagnostic and research-only work separate from production physics.
 
 ## Next actions
 
-- Keep [PR #216](https://github.com/miahpenn/0-Cosmos-engine/pull/216) draft/inactive until distinct human/security review and owner/admin governance verification are recorded.
-- Resolve the native branch/ruleset and base-race controls; do not describe the qualification helper as equivalent to branch protection.
-- Continue from the existing pinned diagnostic evidence and current ownership in [Issue #135](https://github.com/miahpenn/0-Cosmos-engine/issues/135) and [Issue #5](https://github.com/miahpenn/0-Cosmos-engine/issues/5). Do not rerun expensive campaigns unless an identified, source-pinned discriminator requires it.
+- Keep [PR #216](https://github.com/miahpenn/0-Cosmos-engine/pull/216) draft/inactive until a distinct human/security review and owner/admin governance verification are recorded.
+- Resolve the native branch/ruleset and non-atomic base-SHA controls; do not describe the qualification helper as equivalent to branch protection.
+- Continue from pinned evidence and ownership in [Issue #135](https://github.com/miahpenn/0-Cosmos-engine/issues/135) and [Issue #5](https://github.com/miahpenn/0-Cosmos-engine/issues/5). Do not repeat expensive campaigns absent a specific source-pinned discriminator.
 
 ---
 
