@@ -539,6 +539,9 @@ def run_audit(output_dir: Path = OUT) -> dict[str, Any]:
         intervention_B = {
             "free_fit_reference": B_free_frozen,
             "c0_replacement_only": B_free_frozen + delta_c0 / r,
+            "s2_coefficient_refit_term_only": B_free_frozen + delta_higher_terms[0] / r,
+            "s4_coefficient_refit_term_only": B_free_frozen + delta_higher_terms[1] / r,
+            "s6_coefficient_refit_term_only": B_free_frozen + delta_higher_terms[2] / r,
             "higher_coefficients_only": B_free_frozen + delta_higher / r,
             "c0_plus_higher_refit": B_free_frozen + (delta_c0 + delta_higher) / r,
         }
@@ -568,6 +571,12 @@ def run_audit(output_dir: Path = OUT) -> dict[str, Any]:
         gap_hi = coefficient_gaps["higher_coefficients_only"]
         gap_both = coefficient_gaps["c0_plus_higher_refit"]
         interaction = gap_both - gap_c0 - gap_hi + gap_free_c
+        gap_s2 = coefficient_gaps["s2_coefficient_refit_term_only"]
+        gap_s4 = coefficient_gaps["s4_coefficient_refit_term_only"]
+        gap_s6 = coefficient_gaps["s6_coefficient_refit_term_only"]
+        interaction_all_terms = (
+            gap_both - gap_c0 - gap_s2 - gap_s4 - gap_s6 + 3.0 * gap_free_c
+        )
         coefficient_response["decomposition_checks"] = {
             "unanchored_coefficients_scaled_z_basis": [float(v) for v in coeff_free],
             "constrained_coefficients_scaled_z_basis": [float(v) for v in coeff_anchor],
@@ -585,7 +594,15 @@ def run_audit(output_dir: Path = OUT) -> dict[str, Any]:
             ),
             "nonlinear_ricci_interaction_residual_max_abs_first_two": float(_max_abs(interaction[:2])),
             "nonlinear_ricci_interaction_residual_max_abs_first_six": float(_max_abs(interaction[:6])),
-            "interpretation": "Moment decomposition is linear in polynomial coefficients; Ricci response is nonlinear in the perturbed metric, so one-at-a-time gap changes need not sum to the combined response.",
+            "s2_refit_term_delta_integral": float(delta_higher_terms[0]),
+            "s4_refit_term_delta_integral": float(delta_higher_terms[1]),
+            "s6_refit_term_delta_integral": float(delta_higher_terms[2]),
+            "s2_refit_term_first_two_signed_gap_change_vs_free": [float(v) for v in (gap_s2-gap_free_c)[:2]],
+            "s4_refit_term_first_two_signed_gap_change_vs_free": [float(v) for v in (gap_s4-gap_free_c)[:2]],
+            "s6_refit_term_first_two_signed_gap_change_vs_free": [float(v) for v in (gap_s6-gap_free_c)[:2]],
+            "all_terms_nonlinear_ricci_interaction_residual_max_abs_first_two": float(_max_abs(interaction_all_terms[:2])),
+            "all_terms_nonlinear_ricci_interaction_residual_max_abs_first_six": float(_max_abs(interaction_all_terms[:6])),
+            "interpretation": "The delta-I split by c0/s2/s4/s6 is exact up to roundoff. Ricci responses are one-at-a-time nonlinear metric interventions; compare their sum with the combined intervention using the recorded interaction residual.",
         }
         reports.append({
             "resolution": resolution,
