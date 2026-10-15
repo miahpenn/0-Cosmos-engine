@@ -25,9 +25,9 @@ The privileged `actions/github-script` dependency is pinned to the verified full
 
 ## Documentation-only no-formal-review fast path
 
-Only narrative documentation qualifies for the no-formal-review fast path: files exactly at `README.md` or under `docs/**`. The fast path still requires all applicable exact-head checks, a current `main` base, clean mergeability, and no current-head `CHANGES_REQUESTED` review.
+Only narrative documentation qualifies for the no-formal-review fast path: files exactly at `README.md` or under `docs/**`. The fast path still requires all applicable exact-head checks, a current `main` base, clean mergeability, and no trusted non-author human collaborator's current-head `CHANGES_REQUESTED` review.
 
-Research code, research/diagnostic tests, audit/recompute tools, engine/vendor code, dependency changes, workflow changes, and every other path require an `APPROVED` review on the exact current head from a non-author human account whose repository collaborator permission is verified as `write`, `maintain`, or `admin`. Bot accounts, non-collaborators, read-only/triage-only accounts, and approvals whose permission cannot be verified do not qualify; permission lookup errors fail closed. Current-head `CHANGES_REQUESTED` reviews block both paths.
+Research code, research/diagnostic tests, audit/recompute tools, engine/vendor code, dependency changes, workflow changes, and every other path require an `APPROVED` review on the exact current head from a non-author human account whose repository collaborator permission is verified as `write`, `maintain`, or `admin`. Bot accounts, non-collaborators, read-only/triage-only accounts, and reviews whose permission cannot be verified do not qualify; permission lookup errors fail closed. Only a trusted non-author human collaborator's current-head `CHANGES_REQUESTED` review blocks either path. Untrusted reviews do not independently approve or veto promotion; their feedback remains available for maintainer consideration.
 
 ## Joined-ledger trigger parity
 
@@ -35,7 +35,7 @@ The `ledgerPaths` set used by the merge helper must match all paths in `.github/
  
 ## Other changes
 
-Any PR outside that allowlist requires an `APPROVED` review from a reviewer other than the author, submitted against the exact current head SHA. Current-head `CHANGES_REQUESTED` reviews block both paths. Workflow changes, production engine/vendor changes, dependency changes, and general tools/tests therefore do not bypass review.
+Any PR outside that allowlist requires an `APPROVED` review from a non-author human collaborator with verified `write`, `maintain`, or `admin` permission, submitted against the exact current head SHA. Only trusted non-author human collaborator `CHANGES_REQUESTED` reviews on that exact head block either path. Workflow changes, production engine/vendor changes, dependency changes, and general tools/tests therefore do not bypass review.
 
 ## Freshness and merge safety
 
