@@ -368,3 +368,71 @@ def test_evolved_lambda_d4_split_closes_and_separates_stencil_channel():
     assert summary["production_or_vendor_code_changed"] is False
     assert summary["evolution_steps"] == 0
 
+
+
+def test_self_consistent_origin_fit_family_candidates_converge_without_state_mutation():
+    """Each supported even-source fit family must close on a copied metric."""
+    from engine.production_kernel import V55ProductionKernel
+    from engine.v55_pirk_adapter import vendor_modules
+    from tools.audit_current_main_centre_proper_radial_ricci import (
+        _origin_half_cell_frozen_source,
+        _origin_half_cell_self_consistent_counterfactual,
+        _state_digest,
+    )
+
+    kernel = V55ProductionKernel()
+    state = kernel.initialize(
+        resolution=160, r_max=80.0, amplitude=0.01, width=7.0,
+        D_amplitude=1.0e-10, include_radiation=True,
+    )
+    _, vacuum, _ = vendor_modules()
+    before = _state_digest(state)
+    _, frozen = _origin_half_cell_frozen_source(state.grid, state, vacuum)
+    delta_integral = float(frozen["delta_integral_applied"])
+
+    fit_families = ((3, 2.5), (3, 3.0), (4, 3.0), (5, 3.5))
+    observed_centre_gaps = []
+    for degree, fit_radius in fit_families:
+        arrays, summary = _origin_half_cell_self_consistent_counterfactual(
+            state.grid, state, vacuum,
+            frozen_delta_integral=delta_integral,
+            source_fit_degree=degree,
+            source_fit_r_max=fit_radius,
+            include_fit_scan=False,
+        )
+        after = _state_digest(state)
+        assert summary["evolution_steps"] == 0
+        assert summary["production_or_vendor_code_changed"] is False
+        assert summary["input_state_unchanged"] is True
+        assert before == after == summary["input_state_sha256_before"] == summary["input_state_sha256_after"]
+        assert summary["baseline_six_iteration_reconstruction_matches_production"] is True
+        assert summary["baseline_six_iteration_reconstruction_max_abs"] < 2.0e-12
+        assert summary["convergence"]["converged"] is True
+        assert summary["convergence"]["iterations_used"] == 6
+        assert summary["convergence"]["recomputed_fixed_point_defect_max_abs"] < 2.0e-12
+        assert summary["corrected_source"]["source_fit_degree_in_r_squared"] == degree
+        assert summary["corrected_source"]["source_fit_r_max"] == fit_radius
+        assert summary["all_counterfactual_profiles_finite"] is True
+        assert all(np.all(np.isfinite(values)) for values in arrays.values())
+
+        for invariant_stage in ("metric_invariants_six_step", "metric_invariants_fixed_point"):
+            invariants = summary[invariant_stage]
+            assert invariants["all_profiles_finite"] is True
+            assert invariants["source_finite"] is True
+            for identity in (
+                "a_times_b_squared_minus_one_max_abs",
+                "b_minus_X_squared_max_abs",
+                "a_minus_X_minus_four_max_abs",
+                "X6_minus_B_max_abs",
+                "areal_radius_minus_r_max_abs",
+            ):
+                assert invariants[identity] < 1.0e-12
+
+        observed_centre_gaps.append(
+            summary["fixed_point_corrected_first_two_cells"][0]["signed_gap"]
+        )
+
+    # These are alternative diagnostics, not a claim of a unique preferred fit.
+    assert all(np.isfinite(value) for value in observed_centre_gaps)
+    assert len(set(observed_centre_gaps)) == len(fit_families)
+    assert _state_digest(state) == before
