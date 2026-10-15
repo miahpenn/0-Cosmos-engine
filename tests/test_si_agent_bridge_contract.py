@@ -82,8 +82,8 @@ def test_future_snapshot_beyond_clock_skew_requires_revalidation():
 
 
 def test_naive_or_missing_snapshot_timestamp_is_not_accepted():
-    naive = validate_event(envelope(as_of_utc="2026-10-15T02:43:50"), now=NOW)
-    missing = validate_event(envelope(as_of_utc=None), now=NOW)
+    naive = validate_event(envelope(as_of_utc="2026-10-15T02:43:50"), now=NOW, live_main_sha=MAIN_SHA)
+    missing = validate_event(envelope(as_of_utc=None), now=NOW, live_main_sha=MAIN_SHA)
     assert naive["status"] == UNKNOWN
     assert missing["status"] == UNKNOWN
 
@@ -106,7 +106,7 @@ def test_old_main_sha_is_unknown_not_a_pass():
 
 
 def test_pr_and_ci_events_require_complete_head_base_provenance():
-    missing = validate_event(envelope(message_type="CI_STATE"), now=NOW)
+    missing = validate_event(envelope(message_type="CI_STATE"), now=NOW, live_main_sha=MAIN_SHA)
     good = validate_event(
         envelope(message_type="CI_STATE", work_ref=pr_work_ref()),
         now=NOW,
@@ -117,6 +117,50 @@ def test_pr_and_ci_events_require_complete_head_base_provenance():
     assert missing["status"] == REJECT
     assert good["status"] == DELIVER
 
+
+
+@pytest.mark.parametrize(
+    ("message_type", "extra"),
+    [
+        ("HANDOFF", {}),
+        ("PR_STATE", {"work_ref": pr_work_ref()}),
+        ("CI_STATE", {"work_ref": pr_work_ref()}),
+    ],
+)
+def test_missing_live_main_pin_fails_closed_for_every_event_type(message_type, extra):
+    result = validate_event(
+        envelope(message_type=message_type, **extra),
+        now=NOW,
+        expected_head_sha=HEAD_SHA,
+        expected_base_sha=BASE_SHA,
+    )
+    assert result["status"] == UNKNOWN
+    assert "live main SHA is required" in result["reason"]
+
+
+@pytest.mark.parametrize(
+    ("message_type", "missing_pin"),
+    [
+        ("PR_STATE", "expected_head_sha"),
+        ("PR_STATE", "expected_base_sha"),
+        ("CI_STATE", "expected_head_sha"),
+        ("CI_STATE", "expected_base_sha"),
+    ],
+)
+def test_pr_ci_events_fail_closed_when_live_head_or_base_pin_is_missing(message_type, missing_pin):
+    live_pins = {
+        "live_main_sha": MAIN_SHA,
+        "expected_head_sha": HEAD_SHA,
+        "expected_base_sha": BASE_SHA,
+    }
+    del live_pins[missing_pin]
+    result = validate_event(
+        envelope(message_type=message_type, work_ref=pr_work_ref()),
+        now=NOW,
+        **live_pins,
+    )
+    assert result["status"] == UNKNOWN
+    assert "expected live" in result["reason"]
 
 def test_moved_pr_head_or_base_requires_fresh_preflight():
     stale_head = validate_event(
@@ -153,9 +197,9 @@ def test_preflight_must_be_no_older_than_two_minutes_and_pin_same_refs():
     mismatch = dict(base, preflight_head_sha="e" * 40)
     missing = dict(base)
     missing.pop("preflight_at_utc")
-    assert validate_event(stale, now=NOW)["status"] == UNKNOWN
-    assert validate_event(mismatch, now=NOW)["status"] == UNKNOWN
-    assert validate_event(missing, now=NOW)["status"] == UNKNOWN
+    assert validate_event(stale, now=NOW, live_main_sha=MAIN_SHA, expected_head_sha=HEAD_SHA, expected_base_sha=BASE_SHA)["status"] == UNKNOWN
+    assert validate_event(mismatch, now=NOW, live_main_sha=MAIN_SHA, expected_head_sha=HEAD_SHA, expected_base_sha=BASE_SHA)["status"] == UNKNOWN
+    assert validate_event(missing, now=NOW, live_main_sha=MAIN_SHA, expected_head_sha=HEAD_SHA, expected_base_sha=BASE_SHA)["status"] == UNKNOWN
 
 
 def test_duplicate_delivery_is_suppressed_idempotently():
@@ -165,14 +209,16 @@ def test_duplicate_delivery_is_suppressed_idempotently():
 
 
 def test_correction_must_reference_a_distinct_superseded_event():
-    missing = validate_event(envelope(message_type="CORRECTION"), now=NOW)
+    missing = validate_event(envelope(message_type="CORRECTION"), now=NOW, live_main_sha=MAIN_SHA)
     valid = validate_event(
         envelope(message_type="CORRECTION", supersedes_event_id="github:delivery-old"),
         now=NOW,
+        live_main_sha=MAIN_SHA,
     )
     self_reference = validate_event(
         envelope(message_type="CORRECTION", supersedes_event_id="github:delivery-123"),
         now=NOW,
+        live_main_sha=MAIN_SHA,
     )
     assert missing["status"] == REJECT
     assert valid["status"] == DELIVER
@@ -215,7 +261,7 @@ def test_renderer_neutralizes_mentions_markup_and_line_injection():
         summary="<@here> " + chr(10) + " <https://evil.example|click>",
         next_gate="review now " + chr(10) + " @channel",
     )
-    assert validate_event(value, now=NOW)["status"] == DELIVER
+    assert validate_event(value, now=NOW, live_main_sha=MAIN_SHA)["status"] == DELIVER
     rendered = render_slack_text(value)
     assert "<@here>" not in rendered
     assert "<https://evil.example" not in rendered
