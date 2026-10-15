@@ -37,7 +37,7 @@ There are no imports from the production engine, no changed physical parameters,
 
 ## Tests
 
-The companion test module checks the exact shear normalization, the expansion/contraction orientation inversion, the signed Raychaudhuri margin, positive/negative/degenerate Heron cases, the trace-term cancellation at the stiff value even with anisotropic directional pressures, the full \(S'\) identity, and the scalar/vacuum limit.
+The companion test module checks the exact shear normalization, the expansion/contraction orientation inversion, the signed Raychaudhuri margin, positive/negative/degenerate Heron cases, the trace-term cancellation when the total pressure equals three times the density, plus a nonzero anisotropic-pressure-sum control, the full \(S'\) identity, and the scalar/vacuum limit.
 
 Local isolated test command:
 
