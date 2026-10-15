@@ -43,7 +43,7 @@ GEOMETRY_STAGE_NAMES = (
     "explicit_predictor",
     "primary_predictor",
 )
-L2_CALL_NAMES = GEOMETRY_STAGE_NAMES + ("final_u_old_v",)
+L2_CALL_NAMES = ("final_u_old_v",)
 GEOMETRY_FIELDS = ("a", "b", "X", "alpha", "Lambda", "Aa", "K", "beta", "B")
 
 
@@ -284,15 +284,31 @@ def main() -> int:
 
     def record_primary_l2(grid, geometry):
         nonlocal l2_call_count
-        stage_index = l2_call_count
         l2_call_count += 1
         result = original_l2(grid, geometry)
-        if stage_index < len(L2_CALL_NAMES):
-            name = L2_CALL_NAMES[stage_index]
-            l2_capture[name] = {
-                "geometry": _frozen_geometry(geometry),
-                "terms": _freeze_tree(result),
-            }
+
+        # The CMC lapse solver also calls primary_l2_rhs several times. Those
+        # projections are deliberately not confused with the final PIRK L2
+        # operand. Identify the actual final mixed state by the kernel's
+        # ordering: after all three _geometry_stage_terms calls, Aa/K/Lambda
+        # still equal the primary predictor, while explicit a/b/X have been
+        # replaced by the final trapezoidal block.
+        predictor = geometry_capture.get("primary_predictor")
+        if predictor is not None and "final_u_old_v" not in l2_capture:
+            ref = predictor["geometry"]
+            same_v = all(
+                np.array_equal(_arr(getattr(geometry, name)), _arr(getattr(ref, name)))
+                for name in ("Aa", "K", "Lambda")
+            )
+            changed_u = any(
+                not np.array_equal(_arr(getattr(geometry, name)), _arr(getattr(ref, name)))
+                for name in ("a", "b", "X")
+            )
+            if geometry_call_count == 3 and same_v and changed_u:
+                l2_capture["final_u_old_v"] = {
+                    "geometry": _frozen_geometry(geometry),
+                    "terms": _freeze_tree(result),
+                }
         return result
 
     def record_outer_boundary(grid, geometry, scalars, matter, electromagnetic):
@@ -329,7 +345,10 @@ def main() -> int:
         )
     missing = [name for name in L2_CALL_NAMES if name not in l2_capture]
     if missing:
-        raise RuntimeError(f"missing captured primary L2 stages: {missing}")
+        raise RuntimeError(
+            "could not uniquely identify the final mixed-state L2 call; "
+            f"captured keys={sorted(l2_capture)}, total L2 calls={l2_call_count}"
+        )
 
     final_digest = _state_digest(candidate)
     records: dict[str, dict] = {
