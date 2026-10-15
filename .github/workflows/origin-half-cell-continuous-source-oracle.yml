@@ -1,0 +1,62 @@
+name: Research - continuous origin half-cell source oracle
+
+on:
+  push:
+    branches:
+      - research/origin-half-cell-fit-order-audit-2026-10-15
+    paths:
+      - tools/audit_origin_half_cell_continuous_source_oracle.py
+      - tests/test_origin_half_cell_continuous_source_oracle.py
+      - .github/workflows/origin-half-cell-continuous-source-oracle.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: origin-half-cell-continuous-source-oracle-2026-10-15
+  cancel-in-progress: false
+
+jobs:
+  continuous-oracle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      PYTHONUNBUFFERED: "1"
+    steps:
+      - name: Check out research branch and pinned vendor
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install repository requirements
+        run: python -m pip install -r requirements.txt
+
+      - name: Compile continuous source oracle and tests
+        run: |
+          python -m py_compile tools/audit_origin_half_cell_continuous_source_oracle.py
+          python -m py_compile tests/test_origin_half_cell_continuous_source_oracle.py
+
+      - name: Run homogeneous and Gaussian regular-centre controls
+        run: python -m pytest -q tests/test_origin_half_cell_continuous_source_oracle.py
+
+      - name: Run source-pinned continuous integral comparison
+        run: |
+          python tools/audit_origin_half_cell_continuous_source_oracle.py \
+            --output-dir results/origin-half-cell-continuous-source-oracle-2026-10-15
+
+      - name: Upload oracle and signed estimator comparisons
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: origin-half-cell-continuous-source-oracle-2026-10-15
+          path: results/origin-half-cell-continuous-source-oracle-2026-10-15/
+          if-no-files-found: warn
+          retention-days: 90
