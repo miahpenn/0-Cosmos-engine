@@ -20,7 +20,7 @@ import numpy as np
 
 SOURCE_COMMIT = "285a2ee0c1a3b97cddeb4519d8e749109b115aab"
 VENDOR_COMMIT = "d6052d605673ce9d82cdc99b0df79855fa2ea215"
-VENDOR_OPERATOR_BLOB_SHA = "7f92fd9857981561dc2dff568addae87790c989f"
+VENDOR_OPERATOR_GIT_BLOB_SHA1 = "7f92fd9857981561dc2dff568addae87790c989f"
 STAGES = (
     "accepted_input", "start_lapse_refreshed", "explicit_predictor",
     "primary_predictor", "final_u_old_v", "final_state",
@@ -235,6 +235,15 @@ def analyze_accepted_steps(path: Path, dt: float = 0.06) -> dict[str, Any]:
     }
 
 
+
+def provenance_metadata() -> dict[str, str]:
+    """Return source identifiers with their actual Git hash algorithm named."""
+    return {
+        "engine_source_anchor": SOURCE_COMMIT,
+        "vendor_pin": VENDOR_COMMIT,
+        "vendor_operator_git_blob_sha1": VENDOR_OPERATOR_GIT_BLOB_SHA1,
+    }
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--stage-n40", type=Path, required=True, help="PR #249 N=40 stage_profiles.npz")
@@ -245,11 +254,7 @@ def main() -> int:
     args = parser.parse_args()
     result = {
         "schema":"offline_centre_ricci_derivative_channels_v1",
-        "provenance":{
-            "engine_source_anchor":SOURCE_COMMIT,
-            "vendor_pin":VENDOR_COMMIT,
-            "vendor_operator_blob_sha256":VENDOR_OPERATOR_BLOB_SHA,
-        },
+        "provenance":provenance_metadata(),
         "method":{
             "grid_operator":"Pinned SphericalCellGrid parity-ghost fourth-order cell derivative from r0_operators.py.",
             "decomposition":"D4(Lambda_evolved)-D4(Lambda_metric) + D4(Lambda_metric)-analytic_chain_rule = D4(Lambda_evolved)-analytic_chain_rule.",

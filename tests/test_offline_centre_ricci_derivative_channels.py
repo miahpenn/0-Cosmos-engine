@@ -8,6 +8,7 @@ from analyze_centre_ricci_derivative_channels import (
     cell_derivative_fourth,
     cell_second_derivative_fourth,
     pinned_vendor_tf_ricci,
+    provenance_metadata,
 )
 
 
@@ -43,3 +44,12 @@ def test_pinned_vendor_tf_ricci_derivative_and_algebraic_response_identity():
     response = tf_m - tf_e
     predicted = (2.0/3.0)*X*X*(d4_m-d4_e) + (alg_m-alg_e)
     np.testing.assert_allclose(response, predicted, rtol=0.0, atol=1e-12)
+
+
+
+def test_vendor_operator_provenance_labels_git_blob_sha1_unambiguously():
+    provenance = provenance_metadata()
+    digest = provenance["vendor_operator_git_blob_sha1"]
+    assert len(digest) == 40
+    assert all(character in "0123456789abcdef" for character in digest)
+    assert "vendor_operator_blob_sha256" not in provenance

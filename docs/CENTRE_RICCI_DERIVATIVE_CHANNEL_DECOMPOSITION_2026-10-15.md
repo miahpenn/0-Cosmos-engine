@@ -6,7 +6,7 @@
 
 - Engine source anchor: 285a2ee0c1a3b97cddeb4519d8e749109b115aab
 - Pinned vendor commit: d6052d605673ce9d82cdc99b0df79855fa2ea215
-- Vendor operator source blob: r0_operators.py SHA 7f92fd9857981561dc2dff568addae87790c989f
+- Vendor operator Git blob SHA-1: `r0_operators.py` — `7f92fd9857981561dc2dff568addae87790c989f` (Git object identifier, not a SHA-256 file digest).
 - Source-pinned PR #249 stage-artifact ZIP hashes: N=40 1cd1ea6a07ec59477729b3724df12cab2414e17eb9777efb3f9fdb264878429c; N=80 7f64d7fd15347c25924f83381133a6df4347c692239299ac1f58c2827f43ca0c.
 - Source-pinned PR #250 accepted-step ZIP hash: 2b6486b6159af3a272cb11f2351c9079e835946440726de983ba0cf67011e333.
 - All three ZIP hashes and all embedded report/checkpoint/NPZ/CSV SHA-256 values were checked against the extracted files. No new production step was run.
