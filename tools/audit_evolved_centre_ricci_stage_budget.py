@@ -260,10 +260,12 @@ def main() -> int:
 
     geometry_capture: dict[str, dict] = {}
     l2_capture: dict[str, dict] = {}
+    boundary_capture: list[dict] = []
     geometry_call_count = 0
     l2_call_count = 0
     original_geometry_stage = kernel._geometry_stage_terms
     original_l2 = vacuum.primary_l2_rhs
+    original_boundary = kernel._apply_outer_boundary_for_state
 
     def record_geometry_stage(grid, geometry, scalars, matter, electromagnetic):
         nonlocal geometry_call_count
@@ -293,17 +295,37 @@ def main() -> int:
             }
         return result
 
+    def record_outer_boundary(grid, geometry, scalars, matter, electromagnetic):
+        call_index = len(boundary_capture)
+        before_aa = _arr(geometry.Aa).copy()
+        before_lambda = _arr(geometry.Lambda).copy()
+        result = original_boundary(
+            grid, geometry, scalars, matter, electromagnetic
+        )
+        boundary_capture.append({
+            "name": "primary_predictor" if call_index == 0 else "completed_final_state",
+            "delta_Aa": _arr(geometry.Aa).copy() - before_aa,
+            "delta_Lambda": _arr(geometry.Lambda).copy() - before_lambda,
+        })
+        return result
+
     kernel._geometry_stage_terms = record_geometry_stage
+    kernel._apply_outer_boundary_for_state = record_outer_boundary
     vacuum.primary_l2_rhs = record_primary_l2
     try:
         candidate = kernel.step(state, dt)
     finally:
         kernel._geometry_stage_terms = original_geometry_stage
+        kernel._apply_outer_boundary_for_state = original_boundary
         vacuum.primary_l2_rhs = original_l2
 
     if geometry_call_count != 3:
         raise RuntimeError(
             f"expected three geometry-stage evaluations, observed {geometry_call_count}"
+        )
+    if len(boundary_capture) != 2:
+        raise RuntimeError(
+            f"expected two outer-boundary applications, observed {len(boundary_capture)}"
         )
     missing = [name for name in L2_CALL_NAMES if name not in l2_capture]
     if missing:
@@ -389,12 +411,16 @@ def main() -> int:
     l3_predictor = _arr(gterms1["primary_l3"]["Aa"])
     predicted_delta = 0.5 * dt * (l2_start + l2_final + l3_start + l3_predictor)
     actual_delta = _arr(candidate.geometry.Aa) - _arr(state.geometry.Aa)
-    update_closure = actual_delta - predicted_delta
+    raw_update_closure = actual_delta - predicted_delta
+    final_boundary_delta = _arr(boundary_capture[-1]["delta_Aa"])
+    update_closure = raw_update_closure - final_boundary_delta
     r = _arr(state.grid.centers)
     budget_profiles = {
         "Aa_actual_delta": actual_delta,
         "Aa_predicted_delta_from_captured_PIRK_operands": predicted_delta,
-        "Aa_update_closure_residual": update_closure,
+        "Aa_final_boundary_delta": final_boundary_delta,
+        "Aa_update_closure_raw_before_boundary_accounting": raw_update_closure,
+        "Aa_update_closure_after_boundary_accounting": update_closure,
         "Aa_half_dt_start_l2": 0.5 * dt * l2_start,
         "Aa_half_dt_final_l2": 0.5 * dt * l2_final,
         "Aa_half_dt_start_l3": 0.5 * dt * l3_start,
@@ -413,10 +439,23 @@ def main() -> int:
     # The update closure should be machine-precision small away from the outer
     # boundary. The incoming-light Aa boundary acts at the final cells only.
     interior = r <= 10.0
+    raw_update_closure_inner = _max_abs(raw_update_closure[interior])
+    final_boundary_delta_inner = _max_abs(final_boundary_delta[interior])
     update_closure_inner = _max_abs(update_closure[interior])
+    print(json.dumps({
+        "diagnostic_precheck": {
+            "raw_Aa_update_closure_max_abs_r_le_10": raw_update_closure_inner,
+            "final_boundary_delta_max_abs_r_le_10": final_boundary_delta_inner,
+            "boundary_adjusted_Aa_closure_max_abs_r_le_10": update_closure_inner,
+            "raw_cell0_cell1": [float(v) for v in raw_update_closure[:2]],
+            "final_boundary_cell0_cell1": [float(v) for v in final_boundary_delta[:2]],
+            "adjusted_cell0_cell1": [float(v) for v in update_closure[:2]],
+        }
+    }, indent=2, allow_nan=False), flush=True)
     if update_closure_inner > 2.0e-12:
         raise AssertionError(
-            f"captured PIRK Aa update failed interior closure: {update_closure_inner:.6e}"
+            "captured PIRK Aa update still fails after explicit final-boundary accounting: "
+            f"{update_closure_inner:.6e}"
         )
     decomposition_max = max(
         report["identity_closure"]["max_abs_Aa_L2_reconstruction_residual"]
@@ -475,8 +514,18 @@ def main() -> int:
             for name in records
         ],
         "stage_results": stage_reports,
+        "outer_boundary_adjustments": [
+            {
+                "stage": boundary["name"],
+                "Aa_delta_summary": _region_summary(r, {"Aa_delta": boundary["delta_Aa"]}),
+                "Lambda_delta_summary": _region_summary(r, {"Lambda_delta": boundary["delta_Lambda"]}),
+            }
+            for boundary in boundary_capture
+        ],
         "actual_PIRK_Aa_update_budget": {
-            "formula": "Aa_new-Aa_old = dt/2 * (L2_start + L2_final_mixed_state + L3_start + L3_primary_predictor)",
+            "formula": "Aa_new-Aa_old = dt/2 * (L2_start + L2_final_mixed_state + L3_start + L3_primary_predictor) + final_boundary_delta_Aa",
+            "raw_closure_before_boundary_accounting_max_abs_r_le_10": raw_update_closure_inner,
+            "final_boundary_delta_max_abs_r_le_10": final_boundary_delta_inner,
             "interior_max_abs_closure_residual_r_le_10": update_closure_inner,
             "first_two_cell_closure": {
                 "cell0": float(update_closure[0]),
@@ -486,7 +535,9 @@ def main() -> int:
             "fixed_coordinate_annulus_5_to_10": _region_summary(r, {
                 "actual_delta": actual_delta,
                 "predicted_delta": predicted_delta,
-                "closure_residual": update_closure,
+                "final_boundary_delta": final_boundary_delta,
+                "raw_closure_before_boundary_accounting": raw_update_closure,
+                "closure_after_boundary_accounting": update_closure,
             })["fixed_coordinate_annulus_5_to_10"],
             "captured_operand_max_abs": {
                 "start_L2_Aa": _max_abs(l2_start),
@@ -531,7 +582,9 @@ def main() -> int:
         "dt": dt,
         "final_time": float(candidate.t),
         "captured_stage_names": list(records),
-        "update_closure_max_abs_r_le_10": update_closure_inner,
+        "raw_update_closure_max_abs_r_le_10": raw_update_closure_inner,
+        "final_boundary_delta_max_abs_r_le_10": final_boundary_delta_inner,
+        "update_closure_max_abs_r_le_10_after_boundary_accounting": update_closure_inner,
         "l2_decomposition_max_abs_closure": decomposition_max,
         "connection_residual_first_two": [
             float(v) for v in measured["primary_predictor"]["profiles"]["connection_constraint_residual"][:2]
