@@ -3,9 +3,20 @@
 **Disposition:** diagnostic-only; scientific admission remains **NOT ADMITTED**. This refresh reuses the earlier closed, unmerged Ricci observer rather than creating a competing implementation.
 
 ## Exact source pins
-- Production source baseline: `7860d11cd49ea3a3317d01ef1f4f4950c4db80b8`; production-kernel blob: `9685e76bb5a6f26d6bf383e240de24f37523f265`.
-- Six engine source blobs are checked against both baseline and diagnostic head.
+- Refreshed live-main / PR-base snapshot: `7860d11cd49ea3a3317d01ef1f4f4950c4db80b8`. The recorded production-source baseline used by the diagnostic is `fcb32b6b4025d5674e0560b8fb24581933f7f23c`.
+- The six engine source blobs fetched from live `main` match the recorded pins exactly; no engine-source drift was found:
+
+| Engine file | Expected and observed blob SHA |
+| --- | --- |
+| `engine/production_kernel.py` | `9685e76bb5a6f26d6bf383e240de24f37523f265` |
+| `engine/v55_initial.py` | `7db2e1a10cf16fb40e4221b0df504fdf39aae611` |
+| `engine/v55_pirk_adapter.py` | `eeee0492d80889d70e52b0946563eee5054c0f11` |
+| `engine/cmc_gauge.py` | `7b49b5751abebd4faf0130208032cd2080b71f64` |
+| `engine/v55_matter.py` | `acc8f8ceae28d82511c9a5ad9d2ca670e09fb0f7` |
+| `engine/stress_energy.py` | `ac3e7518c62bb72e2218a61489fa486bb787809f` |
+
 - Vendor submodule expected: `d6052d605673ce9d82cdc99b0df79855fa2ea215`.
+- The workflow checks out the exact PR-head SHA, verifies source/vendor/dependency pins, rejects engine/vendor/dependency drift, runs the full test suite, and archives the signed profiles and machine-readable report.
 - Any engine/vendor/dependency diff from the source pin blocks the diagnostic.
 
 ## Measurement
