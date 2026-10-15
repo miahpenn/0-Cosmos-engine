@@ -35,7 +35,69 @@ The radial metric reconstruction satisfies \(I'(r)=s(r)\) and \(B(r)=I(r)/r\), g
 I'(r)+\frac{q(r)}{r}I(r)=A(r),\qquad I(0)=0,\quad B(0)=1,\quad s(0)=1.
 \]
 
-The audit solves this regular initial-value problem with an implicit trapezoid update and successive halvings of the substep size. Richardson extrapolation estimates the limiting integral. The reported numerical uncertainty is the greater of the final extrapolant-change estimate and an eight-epsilon floating-point floor. Neither is a rigorous analytic remainder bound.
+The audit solves this regular initial-value problem with an implicit trapezoid update and successive halvings of the substep size. Richardson extrapolation gives a convergence estimate; that estimate alone is not an analytic remainder bound.
+
+## Analytic integral and estimator enclosure
+
+The source term independent of the metric feedback is
+
+\[
+A(r)=1+c_{\rm bg}r^2-4\pi A_S^2 r^2e^{-ar^2}
++\frac{16\pi K_tA_D^2}{w^2}r^4e^{-ar^2},\qquad a=2/w^2,
+\]
+
+where \(c_{\rm bg}=3K_t^2-8\pi(\rho_\phi+\rho_{\rm matter})\) cancels algebraically for the initializer's declared Friedmann value of \(H_0\). Its primitive is evaluated in closed form as
+
+\[
+I_A(r)=r+\frac{c_{\rm bg}r^3}{3}
+-4\pi A_S^2F_2(r)
++\frac{16\pi K_tA_D^2}{w^2}F_4(r),
+\]
+
+with \(F_p(r)=\int_0^r t^p e^{-at^2}dt\) for \(p=2,4\), evaluated using a stable small-argument series or the error function. Also,
+\[
+q(r)=C r^4e^{-ar^2}\le Cr^4,\qquad
+C=\frac{16\pi(A_S^2+A_D^2)}{w^4}.
+\]
+
+On each tested half-cell the code bounds \(A\) below by a positive value, and above by \(A_{\max}\). The regular integrating-factor solution therefore has \(0<B(r)\le A_{\max}\). Writing \(Q=\int_0^{r_0}q(r)B(r)dr\) gives the analytic inequalities
+
+\[
+0\le Q\le Q_{\max}=\frac{A_{\max} C r_0^5}{5},\qquad
+I_A-Q_{\max}\le I(r_0)\le I_A.
+\]
+
+Thus any fitted half-cell estimator \(F\) has a **signed estimator-minus-integral error enclosure**
+
+\[
+F-I(r_0)\in[F-I_A,\;F-I_A+Q_{\max}].
+\]
+
+The continuum midpoint defect \(\Delta=I-r_0s(r_0)\) also has the enclosure
+\[
+\Delta_A-Q_{\max}\le\Delta\le\Delta_A+r_0q(r_0)A_{\max},
+\qquad \Delta_A=I_A-r_0A(r_0).
+\]
+
+These are analytic inequalities conditional on the declared uncharged Gaussian source and \(K_t<0\); optional charged-dust/Maxwell terms are excluded. The reported endpoints are evaluated in float64, **not** with directed-rounding interval arithmetic, so this is not yet a formally machine-certified floating-point proof. It does, however, bound the source-specific estimator error independently of the Richardson estimate.
+
+### Analytic enclosure results
+
+| Resolution | Integral lower bound | Integral upper bound | \(Q_{\max}\) | Midpoint-defect lower bound | Midpoint-defect upper bound |
+|---:|---:|---:|---:|---:|---:|
+| 160 | 0.24999346461512656 | 0.24999346502401773 | \(4.089\times10^{-10}\) | \(1.304954388\times10^{-5}\) | \(1.305199202\times10^{-5}\) |
+| 240 | 0.16666472867678334 | 0.16666472873062910 | \(5.385\times10^{-11}\) | \(3.873181923\times10^{-6}\) | \(3.873504693\times10^{-6}\) |
+| 320 | 0.12499918217712129 | 0.12499918218989914 | \(1.278\times10^{-11}\) | \(1.634981594\times10^{-6}\) | \(1.635058221\times10^{-6}\) |
+
+For the selected estimator family, the maximum absolute error allowed by the analytic enclosure is:
+
+| Resolution | Degree 3, unanchored, window 2.5 | Degree 3, origin-anchored, window 2.5 | Degree 4, window 3.0 | Degree 5, window 3.5 |
+|---:|---:|---:|---:|---:|
+| 160 | \(7.206\times10^{-9}\) | \(9.905\times10^{-10}\) | \(7.956\times10^{-10}\) | \(4.331\times10^{-10}\) |
+| 240 | \(1.689\times10^{-8}\) | \(6.911\times10^{-10}\) | \(7.865\times10^{-10}\) | \(1.727\times10^{-10}\) |
+| 320 | \(8.911\times10^{-9}\) | \(2.209\times10^{-10}\) | \(7.421\times10^{-10}\) | \(8.171\times10^{-11}\) |
+
+The signed lower/upper fit-error intervals are written to `fit_family.csv`. This is more informative than treating a tiny in-sample residual as an error bound: for this declared source and these windows, it yields a model-conditional upper bound on the actual integral-estimator error. It does not establish that this continuous extension is the unique physical model, nor bound evolved-trajectory errors.
 
 ## Verified run and provenance
 
@@ -73,7 +135,7 @@ The signed fit error below is the fitted integral minus the continuous numerical
 | 240 | \(-1.6835\times10^{-8}\) | \(+6.9098\times10^{-10}\) | \(-7.3264\times10^{-10}\) | \(-1.1887\times10^{-10}\) |
 | 320 | \(-8.8977\times10^{-9}\) | \(+2.2086\times10^{-10}\) | \(-7.2923\times10^{-10}\) | \(-6.8936\times10^{-11}\) |
 
-For this source and these sample windows, anchoring the known \(s(0)=1\) improves the degree-3 moment estimate. Higher-degree fits are closer still in the recorded family. This is evidence about the estimator under a specified continuous source; it does not make the highest-degree/window choice a proven universal prescription. In-sample residuals and Richardson changes are reported for diagnostics, not promoted to rigorous error bounds.
+For this source and these sample windows, anchoring the known \(s(0)=1\) improves the degree-3 moment estimate. Higher-degree fits are closer still in the recorded family. This is evidence about the estimator under a specified continuous source; it does not make the highest-degree/window choice a proven universal prescription. In-sample residuals and Richardson changes are diagnostics; unlike those quantities, the analytic inequality above bounds the fitted estimator's integral error under the stated continuous-source assumptions.
 
 ## Comparison layers
 
