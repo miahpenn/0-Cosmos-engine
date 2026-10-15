@@ -16,6 +16,9 @@ def test_manufactured_odd_lambda_sweep_closes_response_and_chain_rule_split():
     assert all(x["max_abs_Aa_L2_RHS_response_identity_closure"] < 5.0e-12 for x in modes)
     assert all(x["max_abs_chainrule_Aa_L2_algebraic_only_closure_error"] < 5.0e-12 for x in modes)
     assert all(np.isfinite(x["max_abs_Lambda_L3_RHS_delta"]) for x in modes)
+    assert all(np.isfinite(x["max_abs_Lambda_L2_RHS_delta"]) for x in modes)
+    assert all(np.isfinite(x["max_abs_Aa_L3_RHS_delta"]) for x in modes)
+    assert all(np.isfinite(x["max_abs_Aa_L2_RHS_delta"]) for x in modes)
 
     # The centred D4 operator's measured response matches its known modified
     # wavenumber symbol on interior samples; error grows as the mode is shortened.
