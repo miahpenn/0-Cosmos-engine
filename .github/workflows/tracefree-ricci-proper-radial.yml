@@ -27,7 +27,7 @@ jobs:
     timeout-minutes: 45
     env:
       PYTHONUNBUFFERED: "1"
-      SOURCE_COMMIT: "fcb32b6b4025d5674e0560b8fb24581933f7f23c"
+      SOURCE_COMMIT: "adf8ab834252da66da26908f271c4a75da14b205"
       SOURCE_KERNEL_BLOB: "9685e76bb5a6f26d6bf383e240de24f37523f265"
       VENDOR_COMMIT: "d6052d605673ce9d82cdc99b0df79855fa2ea215"
     steps:
@@ -76,28 +76,33 @@ jobs:
         run: |
           set -euo pipefail
           git fetch --no-tags origin "$SOURCE_COMMIT"
-          source_blob="$(git rev-parse "$SOURCE_COMMIT:engine/production_kernel.py")"
-          head_blob="$(git rev-parse "HEAD:engine/production_kernel.py")"
-          test "$source_blob" = "$SOURCE_KERNEL_BLOB"
-          test "$head_blob" = "$SOURCE_KERNEL_BLOB"
-          test "$(git rev-parse "$SOURCE_COMMIT:engine/v55_initial.py")" = "7db2e1a10cf16fb40e4221b0df504fdf39aae611"
-          test "$(git rev-parse "HEAD:engine/v55_initial.py")" = "7db2e1a10cf16fb40e4221b0df504fdf39aae611"
-          test "$(git rev-parse "$SOURCE_COMMIT:engine/v55_pirk_adapter.py")" = "eeee0492d80889d70e52b0946563eee5054c0f11"
-          test "$(git rev-parse "HEAD:engine/v55_pirk_adapter.py")" = "eeee0492d80889d70e52b0946563eee5054c0f11"
-          test "$(git rev-parse "$SOURCE_COMMIT:engine/cmc_gauge.py")" = "7b49b5751abebd4faf0130208032cd2080b71f64"
-          test "$(git rev-parse "HEAD:engine/cmc_gauge.py")" = "7b49b5751abebd4faf0130208032cd2080b71f64"
-          test "$(git rev-parse "$SOURCE_COMMIT:engine/v55_matter.py")" = "acc8f8ceae28d82511c9a5ad9d2ca670e09fb0f7"
-          test "$(git rev-parse "HEAD:engine/v55_matter.py")" = "acc8f8ceae28d82511c9a5ad9d2ca670e09fb0f7"
-          test "$(git rev-parse "$SOURCE_COMMIT:engine/stress_energy.py")" = "ac3e7518c62bb72e2218a61489fa486bb787809f"
-          test "$(git rev-parse "HEAD:engine/stress_energy.py")" = "ac3e7518c62bb72e2218a61489fa486bb787809f"
+          declare -A blobs=(
+            ["engine/production_kernel.py"]="9685e76bb5a6f26d6bf383e240de24f37523f265"
+            ["engine/matter_system.py"]="05e23d2368120ea8a1a6aad3fa438625d5380750"
+            ["engine/matter_rhs.py"]="f41180efbcff2c72cf36477a765318ab539fac80"
+            ["engine/scalar_system.py"]="ffc119b1a6f2d495d972323901f76a85783b0a1b"
+            ["engine/v55_matter.py"]="0ee3c51fac7dc46c63feba2747a750542bcee3d0"
+            ["engine/v55_pirk_adapter.py"]="eeee0492d80889d70e52b0946563eee5054c0f11"
+            ["engine/cmc_gauge.py"]="7b49b5751abebd4faf0130208032cd2080b71f64"
+            ["engine/v55_initial.py"]="7db2e1a10cf16fb40e4221b0df504fdf39aae611"
+            ["engine/stress_energy.py"]="ac3e7518c62bb72e2218a61489fa486bb787809f"
+            ["engine/valencia.py"]="03ed86398f424c03d9d6a3e646da9222a34fac5c"
+            ["engine/worldtube.py"]="aea19090cb0fd2ebe5481a8b7af0d26f119a9ad6"
+          )
+          for path in "${!blobs[@]}"; do
+            expected="${blobs[$path]}"
+            source_blob="$(git rev-parse "$SOURCE_COMMIT:$path")"
+            head_blob="$(git rev-parse "HEAD:$path")"
+            test "$source_blob" = "$expected"
+            test "$head_blob" = "$expected"
+          done
           test "$(git rev-parse "HEAD:vendor/bb-palatini-unified-r0")" = "$VENDOR_COMMIT"
           changed="$(git diff --name-only "$SOURCE_COMMIT" HEAD -- engine vendor .gitmodules requirements.txt)"
           if [ -n "$changed" ]; then
             printf 'Unexpected production/vendor/dependency changes:\n%s\n' "$changed"
             exit 1
           fi
-          printf 'SOURCE_COMMIT=%s\nSOURCE_KERNEL_BLOB=%s\nVENDOR_COMMIT=%s\n' \
-            "$SOURCE_COMMIT" "$SOURCE_KERNEL_BLOB" "$VENDOR_COMMIT"
+          printf 'SOURCE_COMMIT=%s\nVENDOR_COMMIT=%s\n' "$SOURCE_COMMIT" "$VENDOR_COMMIT"
 
       - name: Run full repository regression suite
         if: steps.scope.outputs.run_diagnostic == 'true'
