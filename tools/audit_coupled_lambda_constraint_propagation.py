@@ -22,7 +22,7 @@ from engine.production_kernel import V55ProductionKernel
 from engine.stress_energy import assemble_total_stress_energy
 from engine.v55_pirk_adapter import vendor_modules
 from tools.audit_current_main_centre_proper_radial_ricci import (
-    _finite, _max_abs, _state_digest, _verify_source_pins,
+    _finite, _max_abs, _state_digest, _verify_source_pins, proper_radial_ricci,
 )
 
 PI = float(np.pi)
@@ -72,17 +72,45 @@ def _profile_summary(values, r, mask, centre_cells=6) -> dict:
 
 
 def _constraint_profiles(state, vacuum) -> dict[str, np.ndarray]:
+    """Return BSSN and independently reconstructed metric-only constraint witnesses."""
     grid, geom = state.grid, state.geometry
     r = np.asarray(grid.centers, dtype=float)
     raw = vacuum.constraints(grid, geom)
     total = assemble_total_stress_energy(grid, geom, state.scalars, state.matter)
-    H = np.asarray(raw["hamiltonian"], dtype=float) - 16.0 * PI * np.asarray(total.rho, dtype=float)
+    # The BSSN Hamiltonian intentionally uses the independently evolved Lambda
+    # inside its Ricci scalar. Keep that Lambda-dependent witness explicit.
+    H_bssn = (
+        np.asarray(raw["hamiltonian"], dtype=float)
+        - 16.0 * PI * np.asarray(total.rho, dtype=float)
+    )
     M = np.asarray(raw["momentum"], dtype=float) - 8.0 * PI * np.asarray(total.j, dtype=float)
     d1 = lambda v, parity=1: grid.cell_derivative_fourth(v, parity=parity)
     a, b = np.asarray(geom.a, dtype=float), np.asarray(geom.b, dtype=float)
+    X = np.asarray(geom.X, dtype=float)
     lambda_metric = d1(a, 1) / (2.0 * a * a) - d1(b, 1) / (a * b) + 2.0 / r * (1.0 / b - 1.0 / a)
+
+    # Independent metric-only Hamiltonian: reconstruct the spatial Ricci scalar
+    # from areal radius and proper radial distance, then add the same algebraic
+    # extrinsic-curvature and matter terms. This channel does not use geom.Lambda.
+    metric_ricci = proper_radial_ricci(
+        grid, r * np.sqrt(b) / X, np.sqrt(a) / X
+    )
+    R_metric = (
+        np.asarray(metric_ricci["Ric_l_l"], dtype=float)
+        + 2.0 * np.asarray(metric_ricci["Ric_theta_theta"], dtype=float)
+    )
+    Aa = np.asarray(geom.Aa, dtype=float)
+    Ab = -0.5 * Aa
+    K = np.asarray(geom.K, dtype=float)
+    H_metric_only = (
+        R_metric - (Aa * Aa + 2.0 * Ab * Ab)
+        + (2.0 / 3.0) * K * K
+        - 16.0 * PI * np.asarray(total.rho, dtype=float)
+    )
+
     result = {
-        "hamiltonian": H,
+        "hamiltonian": H_bssn,
+        "hamiltonian_metric_only": H_metric_only,
         "momentum": M,
         "connection": np.asarray(geom.Lambda, dtype=float) - lambda_metric,
         "determinant": a * b * b - 1.0,
@@ -145,18 +173,36 @@ def _run_pair(kernel, base_state, vacuum, wavelength: float, dt: float) -> tuple
     aa_rate_error = actual_aa_rate - predicted_aa_rate
     constraints_base = _constraint_profiles(base_new, vacuum)
     constraints_off = _constraint_profiles(off_new, vacuum)
-    initial_ricci_scalar_base = np.asarray(
-        vacuum.geometry_terms(grid, base_state.geometry)["R"], dtype=float
-    )
-    initial_ricci_scalar_off = np.asarray(
-        vacuum.geometry_terms(grid, off_input.geometry)["R"], dtype=float
-    )
     constraint_delta = {
         key: constraints_off[key] - constraints_base[key]
         for key in constraints_base
     }
     initial_constraints_base = _constraint_profiles(base_state, vacuum)
     initial_constraints_off = _constraint_profiles(off_input, vacuum)
+
+    # At fixed metric, the pinned BSSN scalar-Ricci bracket gives the signed
+    # identity delta(H_BSSN) = X^2 D4(delta Lambda). The independent metric-only
+    # Hamiltonian must remain unchanged; do not incorrectly require BSSN H to.
+    initial_bssn_h_delta = (
+        initial_constraints_off["hamiltonian"] - initial_constraints_base["hamiltonian"]
+    )
+    predicted_initial_bssn_h_delta = X * X * d4(delta_lambda)
+    initial_bssn_h_closure = (
+        initial_bssn_h_delta - predicted_initial_bssn_h_delta
+    )
+    initial_bssn_h_scale = max(
+        _max_abs(initial_bssn_h_delta),
+        _max_abs(predicted_initial_bssn_h_delta),
+        np.finfo(float).tiny,
+    )
+    initial_bssn_h_tolerance = max(
+        5.0e-12, 2048.0 * np.finfo(float).eps * initial_bssn_h_scale
+    )
+    if _max_abs(initial_bssn_h_closure) > initial_bssn_h_tolerance:
+        raise RuntimeError(
+            "fixed-metric BSSN Hamiltonian/Lambda response identity failed: "
+            f"{_max_abs(initial_bssn_h_closure):.6e}"
+        )
 
     error_rel = _relative_rms(aa_rate_error, predicted_aa_rate, interior)
     actual_rms = float(np.sqrt(np.mean(actual_aa_rate[interior] ** 2)))
@@ -165,6 +211,7 @@ def _run_pair(kernel, base_state, vacuum, wavelength: float, dt: float) -> tuple
         delta_lambda, exact_delta_lambda_prime, predicted_tf_response,
         predicted_aa_rate, actual_aa_rate, aa_rate_error,
         *metric_delta.values(), *constraint_delta.values(),
+        initial_bssn_h_delta, predicted_initial_bssn_h_delta, initial_bssn_h_closure,
     ]
     if not all(_finite(v) for v in all_arrays):
         raise FloatingPointError("non-finite coupled-mode response")
@@ -186,9 +233,6 @@ def _run_pair(kernel, base_state, vacuum, wavelength: float, dt: float) -> tuple
         "actual_Aa_rate_delta_max_abs_fixed_interior": _max_abs(actual_aa_rate[interior]),
         "predicted_Aa_rate_delta_max_abs_fixed_interior": _max_abs(predicted_aa_rate[interior]),
         "delta_Aa_final_max_abs": _max_abs(metric_delta["Aa"]),
-        "initial_lambda_ricci_scalar_response_absmax": _max_abs(
-            initial_ricci_scalar_off - initial_ricci_scalar_base
-        ),
         "delta_K_final_max_abs": _max_abs(metric_delta["K"]),
         "delta_a_final_max_abs": _max_abs(metric_delta["a"]),
         "delta_b_final_max_abs": _max_abs(metric_delta["b"]),
@@ -204,6 +248,17 @@ def _run_pair(kernel, base_state, vacuum, wavelength: float, dt: float) -> tuple
         },
         "initial_constraint_witnesses_off_mode": {
             key: _profile_summary(val, r, interior) for key, val in initial_constraints_off.items()
+        },
+        "initial_lambda_only_bssn_hamiltonian_response": {
+            "identity": "delta_H_BSSN = X^2 * D4(delta_Lambda) at fixed metric and fixed algebraic fields",
+            "observed_delta": _profile_summary(initial_bssn_h_delta, r, interior),
+            "predicted_delta": _profile_summary(predicted_initial_bssn_h_delta, r, interior),
+            "closure": _profile_summary(initial_bssn_h_closure, r, interior),
+            "closure_max_abs": _max_abs(initial_bssn_h_closure),
+            "metric_only_hamiltonian_delta_max_abs": _max_abs(
+                initial_constraints_off["hamiltonian_metric_only"]
+                - initial_constraints_base["hamiltonian_metric_only"]
+            ),
         },
         "final_constraint_witnesses_baseline": {
             key: _profile_summary(val, r, interior) for key, val in constraints_base.items()
@@ -221,8 +276,6 @@ def _run_pair(kernel, base_state, vacuum, wavelength: float, dt: float) -> tuple
     }
     profiles = {
         "r": r,
-        "initial_ricci_scalar_baseline": initial_ricci_scalar_base,
-        "initial_ricci_scalar_off_mode": initial_ricci_scalar_off,
         "delta_lambda_input": delta_lambda,
         "exact_delta_lambda_prime": exact_delta_lambda_prime,
         "predicted_tf_ricci_response": predicted_tf_response,
@@ -233,6 +286,9 @@ def _run_pair(kernel, base_state, vacuum, wavelength: float, dt: float) -> tuple
         **{f"constraint_delta_{key}": val for key, val in constraint_delta.items()},
         **{f"initial_constraint_baseline_{key}": val for key, val in initial_constraints_base.items()},
         **{f"initial_constraint_off_mode_{key}": val for key, val in initial_constraints_off.items()},
+        "initial_bssn_hamiltonian_delta_off_minus_baseline": initial_bssn_h_delta,
+        "predicted_initial_bssn_hamiltonian_delta_from_lambda": predicted_initial_bssn_h_delta,
+        "initial_bssn_hamiltonian_response_closure": initial_bssn_h_closure,
         **{f"final_constraint_baseline_{key}": val for key, val in constraints_base.items()},
         **{f"final_constraint_off_mode_{key}": val for key, val in constraints_off.items()},
     }
@@ -339,8 +395,8 @@ def main() -> int:
             "Aa_rate_relative_RMS_error_vs_frozen_L2", "actual_Aa_rate_RMS",
             "predicted_Aa_rate_RMS", "delta_Aa_absmax", "delta_K_absmax",
             "delta_a_absmax", "delta_b_absmax", "delta_X_absmax", "delta_Lambda_absmax",
-            "Lambda_mode_retention_ratio", "delta_H_absmax", "delta_M_absmax",
-            "delta_connection_absmax", "delta_determinant_absmax",
+            "Lambda_mode_retention_ratio", "delta_H_absmax", "delta_H_metric_only_absmax",
+            "delta_M_absmax", "delta_connection_absmax", "delta_determinant_absmax",
             "final_H_off_absmax", "final_M_off_absmax", "final_connection_off_absmax",
         ])
         for row in rows:
@@ -356,6 +412,7 @@ def main() -> int:
                     case["delta_X_final_max_abs"], case["delta_Lambda_final_max_abs"],
                     case["lambda_mode_retention_ratio_final"],
                     case["fixed_interior_constraint_delta_absmax"]["hamiltonian"],
+                    case["fixed_interior_constraint_delta_absmax"]["hamiltonian_metric_only"],
                     case["fixed_interior_constraint_delta_absmax"]["momentum"],
                     case["fixed_interior_constraint_delta_absmax"]["connection"],
                     case["fixed_interior_constraint_delta_absmax"]["determinant"],
@@ -382,6 +439,7 @@ def main() -> int:
             "delta_K": case["delta_K_final_max_abs"],
             "delta_Lambda": case["delta_Lambda_final_max_abs"],
             "delta_H": case["fixed_interior_constraint_delta_absmax"]["hamiltonian"],
+            "delta_H_metric_only": case["fixed_interior_constraint_delta_absmax"]["hamiltonian_metric_only"],
             "delta_M": case["fixed_interior_constraint_delta_absmax"]["momentum"],
             "delta_connection": case["fixed_interior_constraint_delta_absmax"]["connection"],
         } for row in rows for case in row["cases"]],
