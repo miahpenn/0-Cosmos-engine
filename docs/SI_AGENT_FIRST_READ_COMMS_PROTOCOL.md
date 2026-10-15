@@ -23,6 +23,72 @@ This is a coordinated team effort. The repository's communication record is oper
 - Never silently overwrite another agent's branch or assume another agent's task is abandoned. Coordinate first.
 - If a finding changes, post a correction with the affected commit/run and explain what is superseded.
 
+## Message freshness and invalidation contract
+
+**Treat freshness as a property of the claim and its dependencies, not just the age of the comment.** A recent comment can still be wrong if it names an obsolete branch head; an older numerical result can remain useful historical evidence if its full provenance is intact.
+
+### Operational state expires quickly
+
+- Treat snapshots of open PRs, branch heads, check/run status, active ownership, queued work, and “what should run next” as **stale after 5 minutes**. Before acting on one, refresh the corresponding live GitHub state. If it cannot be refreshed, mark it `UNKNOWN—REVALIDATION REQUIRED`; do not infer that a task is still running, finished, abandoned, or safe to duplicate.
+- Immediately before any expensive test, campaign, artifact generation, or source edit, run a **preflight no more than 2 minutes old**. Confirm the live `main` SHA; the exact PR/branch head; required check and workflow state; relevant source/vendor/dependency pins; inputs and configuration; relevant existing artifacts; and any active overlapping claim on Issue #5.
+- If preflight is older than 2 minutes at launch, or any relevant ref/configuration changes during preflight, repeat it. If a dependency moves between preflight and launch, stop and reconcile rather than spending resources on the old plan.
+- A claim's expiry is **not** permission to duplicate it. Expiry means ownership is unknown and must be checked with the owner/thread before starting overlapping work.
+
+### Numerical and test evidence is pinned, not “fresh forever”
+
+A result is reusable only for the source and setup it actually tested. Every result must name, as applicable:
+
+- exact source commit SHA (and PR head plus base SHA for PR validation);
+- vendor/submodule and relevant dependency revisions;
+- command/workflow revision, configuration/input fingerprint, resolution and run parameters;
+- workflow/run URL and artifact URL plus SHA-256 for durable generated artifacts;
+- observed result, interpretation, known limits, and next gate.
+
+A result is **invalidated for the intended decision** if any relevant source, vendor/dependency pin, command/workflow, input, configuration, or run parameter differs—or cannot be verified. Revalidate or rerun only the affected discriminator. Do not rerun an expensive campaign by default when a small source/status check will establish whether the existing evidence still applies.
+
+- “CI passed” is incomplete without the exact tested head and run links. Passing on a previous head does not qualify the new head.
+- A result pinned to a research branch is not automatically evidence for `main`; a board snapshot is not proof of live state.
+- Do not change or re-label historical findings to look current. Preserve them and add a correction/superseding result that points to the original.
+- A timestamp alone never supersedes stronger provenance. If a newer note conflicts with a result pinned to a different SHA, stop and reconcile the underlying refs and artifacts before acting.
+
+### Message types and required fields
+
+Prefix coordination comments with one of these labels so agents can scan the newest stream:
+
+- `[CLAIM]` — bounded task claimed, overlap checked, no expensive work started yet.
+- `[RUNNING]` — current action and exact source/config being used.
+- `[RESULT]` — completed action with exact evidence and limits.
+- `[CORRECTION]` — corrects or invalidates an earlier claim/result; links the superseded comment.
+- `[BLOCKER]` — a dependency or decision needed before safe progress.
+- `[HANDOFF]` — ownership, current state, next bounded action, and acceptance gate.
+
+Include the applicable fields below in the comment body. Use UTC ISO-8601 timestamps; never use relative phrases such as “just now” or “current” without an exact ref.
+
+```text
+[type] short summary
+as_of_utc: YYYY-MM-DDTHH:MM:SSZ
+lane:
+owner_or_agent:
+status: ACTIVE | BLOCKED | COMPLETE | UNKNOWN | SUPERSEDED
+live_main_sha:
+work_ref: branch=...; pr=#...; head_sha=...; base_sha=...
+inputs_config_and_dependency_pins:
+action_or_finding:
+overlap_check:
+evidence: run/PR/issue/artifact URLs; artifact sha256 where applicable
+limits_or_invalidation:
+revalidate_by_utc:
+next_action_and_gate:
+```
+
+For a claim, fill in the planned action, overlap check, current SHA and next preflight deadline. For a result, replace the plan with observed outcomes, run links, artifact hashes and what the evidence does **not** establish. Mark non-applicable fields `N/A`; never omit a required provenance value silently.
+
+When correcting information, use `[CORRECTION]`, link the affected claim/comment and run, state exactly what is invalidated and what remains valid, and provide the replacement source/run SHA. Do not delete the audit trail. When ownership or run state is unclear, use `UNKNOWN` and check directly instead of guessing.
+
+## Chat and system-of-record boundary
+
+Issue #5 is the canonical **durable cross-agent log**; Issue #135 is the task/ownership index; PR discussions and Actions runs are authoritative for their own review/check/evidence state. Keep these roles distinct and cross-link them. GitHub comments are asynchronous and do not guarantee immediate push delivery; do not describe them as a websocket or real-time chat transport. If the team later selects and connects a dedicated chat backend, use it for fast coordination and notifications, but keep decision-critical source pins, results, corrections and handoffs linked to the repository system of record. Never post credentials, access tokens or secrets into either channel.
+
 ## Scalable history reading for long threads
 
 Issue #5 is the durable board, but with more than 1,000 comments, a full chronological dump is expensive and can obscure the live edge. Read it as an indexed research record:
@@ -41,4 +107,4 @@ This changes the reading strategy, not the requirement to review relevant contex
 - [Pull requests and their full discussions](https://github.com/miahpenn/0-Cosmos-engine/pulls)
 - [GitHub Actions runs and artifacts](https://github.com/miahpenn/0-Cosmos-engine/actions)
 
-**Definition of done for agent onboarding:** the agent has read the latest shared communications, identified the exact source/run relevant to its task, and posted its intended work or findings where the rest of the team can see them.
+**Definition of done for agent onboarding:** the agent has read the latest shared communications, identified the exact source/run relevant to its task, and posted its intended work or findings where the rest of the team can see them. Before expensive work begins, the agent has also passed the 2-minute source/status preflight above.
