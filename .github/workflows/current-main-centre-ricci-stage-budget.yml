@@ -30,10 +30,10 @@ jobs:
       PYTHONUNBUFFERED: "1"
       SOURCE_COMMIT: "285a2ee0c1a3b97cddeb4519d8e749109b115aab"
       VENDOR_COMMIT: "d6052d605673ce9d82cdc99b0df79855fa2ea215"
-      STAGE_RESOLUTION: "40"
+      STAGE_RESOLUTION: "80"
       STAGE_R_MAX: "80.0"
       STAGE_CFL: "0.03"
-      STAGE_OUT: "results/current-main-centre-ricci-stage-budget-2026-10-15"
+      STAGE_OUT: "results/current-main-centre-ricci-stage-budget-N80-2026-10-15"
 
     steps:
       - name: Check out diagnostic branch and pinned vendor
@@ -70,7 +70,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: current-main-centre-ricci-stage-budget-2026-10-15
+          name: current-main-centre-ricci-stage-budget-N80-2026-10-15
           path: results/current-main-centre-ricci-stage-budget-2026-10-15/
           if-no-files-found: warn
           retention-days: 90
