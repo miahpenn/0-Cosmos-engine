@@ -75,7 +75,10 @@ def test_prefactors_are_reported_separately_and_both_poles_are_rejected():
         evaluate_state(1.0, 0.1, 0.7, math.sqrt(10.0), 0.2)
 
     effective, trace = equation_denominators(1.0, 0.1, 5.0)
-    assert effective == pytest.approx(0.5)
+    # At this trace pole the effective-gravity prefactor is negative but nonzero.
+    # The trace pole is distinct and must be rejected independently.
+    assert effective == pytest.approx(-1.5)
+    assert abs(effective) > 1e-12
     assert abs(trace) < 1e-14
     with pytest.raises(ValueError, match="trace-elimination denominator"):
         evaluate_state(1.0, 0.1, 0.7, 5.0, 0.2)
