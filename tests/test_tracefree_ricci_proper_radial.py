@@ -279,10 +279,26 @@ def test_manufactured_regular_centre_series_validates_c5_oracle_and_witnesses():
     assert np.all(np.isfinite(tf_ricci_over_r2_exact))
     assert np.max(np.abs(tf_ricci_exact[annulus])) > 1.0e-3
 
-    # Signed centre values are a diagnostic witness, not an equality gate:
-    # the existing investigation concerns centre-cell stencil compatibility.
-    # The analytic oracle above is checked independently; do not hide a real
-    # centre discrepancy by widening the numerical tolerance.
+    # The five-point first derivative has a known exact truncation term on
+    # this quintic: D4[R] = R' - h^4*R^(5)/30 = R' - 4*c5*h^4.
+    # The five-point second derivative is exact for degree-five R because
+    # its leading error uses R^(6)=0. Predict the discrete metric-route result
+    # independently, rather than incorrectly comparing it to the continuum
+    # oracle alone in the first cells where Ricci/r^2 amplifies this term.
+    delta_prime = -4.0 * c5 * h**4
+    tf_metric_discrete_expected = tf_ricci_exact + (2.0 / 3.0) * (
+        2.0 * areal_prime_exact * delta_prime + delta_prime**2
+    ) / areal_exact**2
+    assert np.allclose(
+        arrays["ricci_tracefree_metric"][centre_first_two],
+        tf_metric_discrete_expected[centre_first_two],
+        rtol=1.0e-8,
+        atol=1.0e-10,
+    )
+
+    # The centre-scaled continuum oracle remains separately inspectable. Signed
+    # centre values are kept as witnesses; the vendor route is not forced to
+    # equal a continuum value when its discrete conversion is still under study.
     for key in ("ricci_tracefree_metric", "ricci_tracefree_vendor"):
         assert np.all(np.isfinite(arrays[key][centre_first_two])), f"{key}: nonfinite centre witness"
         assert np.all(np.isfinite(arrays[key][annulus])), f"{key}: nonfinite annulus witness"
@@ -291,7 +307,6 @@ def test_manufactured_regular_centre_series_validates_c5_oracle_and_witnesses():
         scaled = arrays[key] / r**2
         centre_error = scaled[centre_first_two] - tf_ricci_over_r2_exact[centre_first_two]
         assert np.all(np.isfinite(centre_error)), f"{key}: nonfinite c5 centre comparison"
-        # Keep annulus accuracy separate from the unresolved centre behavior.
         annulus_error = arrays[key][annulus] - tf_ricci_exact[annulus]
         assert np.max(np.abs(annulus_error)) < 2.0e-4, f"{key}: c5 annulus mismatch"
 
