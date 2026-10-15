@@ -161,3 +161,46 @@ LOO source prediction adds a separate check. For the degree-3 \(r\le2.5\) refere
 **Updated numerical conclusion:** degree-1/2 fits are not defensible candidates for this correction on the tested windows; degree-3 to degree-5 fits are much more consistent, with a measured spread around 0.3–2.4% over the admitted window family. That bounds, but does not eliminate, source-fit model uncertainty. The half-cell quadrature hypothesis remains strongly supported; the exact even-series truncation and fit support still need independent numerical-method review before any production change.
 
 **Next gate:** independently review the even-source truncation/window and its signed held-out residuals; define an admissible error tolerance for the half-cell moment and rerun metric/invariant checks across the degree-3/4/5 copied-fit family before considering any production patch. No production/vendor/dependency file has changed; scientific admission remains **NOT ADMITTED**.
+
+
+## Self-consistent fixed-point comparison across source-fit families
+
+The sensitivity scan has now been carried through the whole *copied initializer recurrence*, rather than comparing only the analytical half-cell integral. The source-pinned diagnostic adds three self-consistent alternatives alongside the canonical degree-3, \(r\le2.5\) calculation:
+
+- degree 3 in \(r^2\), fit window \(r\le3.0\);
+- degree 4 in \(r^2\), fit window \(r\le3.0\);
+- degree 5 in \(r^2\), fit window \(r\le3.5\).
+
+Each version iteratively recomputes its source from the current candidate metric, changes only the origin half-cell integral, and holds the sampled scalar/matter profiles fixed. The ordinary point-sampled recurrence reproduces the actual initialized \(X^6\) profile to at most \(6.67\times10^{-16}\). All corrected variants converge in six passes at N=160/240/320; source blobs and vendor pin match, all profiles are finite, input-state SHA-256 is unchanged, and the largest algebraic/areal-radius identity residual is \(1.43\times10^{-14}\). No evolution step is taken.
+
+Pinned run: [38776498208](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38776498208), artifact [11993174037](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38776498208/artifacts/11993174037). Diagnostic head: `95a1e2036736f20ee21bf62497a7b0f08d831346`; source anchor `285a2ee0c1a3b97cddeb4519d8e749109b115aab`; vendor `d6052d605673ce9d82cdc99b0df79855fa2ea215`. Artifact ZIP SHA-256: `ff667892633d20c17fda62ceb9752de420f79276d0681ed9e8195dd1cb65f5c2`; report SHA-256: `f2907932df5d76a0fb3377da7dcdb4e9bc11cf516b83b0769e3143178b4fe64f`; `profiles.npz` SHA-256: `b9d2a849a3f32867dead913ca86eb61e8a6210b7db25629a9590315e67553587`; `profiles.csv` SHA-256: `f363e1b596be2d9d438166c85f86afc409ce2e08f99c3e00d2d641e90cbb3a8d`. The run passed source-pin checks, compile, the full suite (**673 passed**), no-evolution audit, and artifact upload; report status `completed_diagnostic_only`, `errors=[]`, `scientific_admission=false`.
+
+### Fixed-point outputs
+
+Each cell-zero entry below is measured on the converged copied metric. “Gap” is the signed vendor-minus-direct trace-free Ricci difference.
+
+| Resolution | Source fit | \(\Delta I\), origin half-cell | Cell-0 \(\delta/r^2\) | Cell-0 signed Ricci gap |
+|---:|---|---:|---:|---:|
+| N=160 | degree 3, \(r\le2.5\) (canonical) | \(1.304478640\times10^{-5}\) | \(4.187033\times10^{-4}\) | \(-1.87566917\times10^{-4}\) |
+| N=160 | degree 3, \(r\le3.0\) | \(1.300798219\times10^{-5}\) | \(4.210588\times10^{-4}\) | \(-1.82546616\times10^{-4}\) |
+| N=160 | degree 4, \(r\le3.0\) | \(1.305119634\times10^{-5}\) | \(4.182930\times10^{-4}\) | \(-1.88441269\times10^{-4}\) |
+| N=160 | degree 5, \(r\le3.5\) | \(1.305155879\times10^{-5}\) | \(4.182698\times10^{-4}\) | \(-1.88490709\times10^{-4}\) |
+| N=240 | degree 3, \(r\le2.5\) (canonical) | \(3.856615829\times10^{-6}\) | \(4.222438\times10^{-4}\) | \(-1.85415121\times10^{-4}\) |
+| N=240 | degree 3, \(r\le3.0\) | \(3.827889082\times10^{-6}\) | \(4.284489\times10^{-4}\) | \(-1.72190375\times10^{-4}\) |
+| N=240 | degree 4, \(r\le3.0\) | \(3.872718285\times10^{-6}\) | \(4.187657\times10^{-4}\) | \(-1.92828105\times10^{-4}\) |
+| N=240 | degree 5, \(r\le3.5\) | \(3.873332058\times10^{-6}\) | \(4.186331\times10^{-4}\) | \(-1.93110663\times10^{-4}\) |
+| N=320 | degree 3, \(r\le2.5\) (canonical) | \(1.626147763\times10^{-6}\) | \(4.232819\times10^{-4}\) | \(-1.85080248\times10^{-4}\) |
+| N=320 | degree 3, \(r\le3.0\) | \(1.595835753\times10^{-6}\) | \(4.388017\times10^{-4}\) | \(-1.52002949\times10^{-4}\) |
+| N=320 | degree 4, \(r\le3.0\) | \(1.634316231\times10^{-6}\) | \(4.190996\times10^{-4}\) | \(-1.93993905\times10^{-4}\) |
+| N=320 | degree 5, \(r\le3.5\) | \(1.634976528\times10^{-6}\) | \(4.187615\times10^{-4}\) | \(-1.94714439\times10^{-4}\) |
+
+The canonical degree-3 \(r\le2.5\) origin correction remains a large, robust contributor: the centre gap magnitude is reduced by approximately 8.5× versus production, but becomes negative and remains about \(1.85\times10^{-4}\). The fixed annulus \(5\le r\le10\) changes negligibly: maximum gap \(8.86753\times10^{-8}\to8.86034\times10^{-8}\) at N=160, \(1.88824\times10^{-8}\to1.88780\times10^{-8}\) at N=240, and \(6.19092\times10^{-9}\to6.19030\times10^{-9}\) at N=320.
+
+The higher-order, lower-LOO-error variants are fairly close to the canonical result: degree 4 / \(r\le3\) changes the signed gap magnitude by about 0.47%, 4.15%, and 4.82% at N=160/240/320; degree 5 / \(r\le3.5\) changes it by about 0.49%, 4.31%, and 5.21%. By contrast, the broader degree-3 \(r\le3\) variant shifts it by 2.68%, 7.13%, and 17.88%; that variant also has higher fit/held-out errors on the saved source. Across all four choices, the full range of centre-gap magnitudes is 3.17%, 11.28%, and 23.08% of the canonical magnitude at the three resolutions. The rising spread at N=320 is a meaningful model-form uncertainty, not roundoff.
+
+The combined Lambda chain-rule counterfactual that almost cancels the canonical corrected centre gap (residuals \(-1.49\times10^{-9}\), \(-6.06\times10^{-10}\), \(-3.29\times10^{-10}\)) was evaluated on the **canonical degree-3 / \(r\le2.5\)** corrected metric only. It must not be transferred to these other fit-family metrics without a fresh run; it still remains a separate diagnostic substitution, not the production BSSN operator.
+
+### Updated conclusion and next gate
+
+The evidence robustly supports an origin half-cell quadrature contribution on these initialized profiles, but the magnitude and even the detailed residual after correction are measurably affected by source-fit choice. This comparison does not select a uniquely correct continuum half-cell moment. Before proposing any production repair, an independent numerical-method review must justify the source expansion and fit support, assess the signed leave-one-cell-out residuals, set an admissible moment error budget, and review the resulting metric/Ricci/constraint changes. No production/vendor/dependency file changed, no evolution ran, and scientific admission remains **NOT ADMITTED**.
+
