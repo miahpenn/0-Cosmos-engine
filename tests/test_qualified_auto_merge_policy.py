@@ -49,6 +49,8 @@ def test_workflow_run_without_exact_pr_base_association_fails_closed():
     assert 'p.base?.ref === "main"' in association_gate
     assert "p.base?.sha === expectedBaseSha" in association_gate
     assert "if (!exactBaseRun)" in association_gate
+    assert "if (!latestCheck.check_suite?.id)" in source
+    assert "w.check_suite_id === latestCheck.check_suite.id" in source
     assert "mainCommitDate" not in source
     assert "Date.parse(latestWorkflow.created_at)" not in source
 
