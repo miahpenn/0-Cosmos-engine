@@ -10,9 +10,13 @@ on:
       - tools/audit_coupled_lambda_constraint_propagation.py
       - tools/audit_lambda_offmode_amplitude_stress.py
       - tools/audit_lambda_center_tangent_resolution.py
+      - tools/audit_lambda_center_multistep_budget.py
+      - tools/audit_lambda_center_multistep_budget.py
       - tests/test_coupled_lambda_constraint_propagation.py
       - tests/test_lambda_offmode_signed_parity.py
-      - tests/test_lambda_center_tangent_resolution.py
+      - tests/test_lambda_center_tangent_resolution.py tests/test_lambda_center_multistep_budget.py
+      - tests/test_lambda_center_multistep_budget.py
+      - tests/test_lambda_center_multistep_budget.py
       - tests/test_manufactured_lambda_symbol_response.py
       - tools/audit_current_main_centre_proper_radial_ricci.py
       - tools/audit_continuous_origin_half_cell_oracle.py
@@ -54,6 +58,7 @@ jobs:
       COUPLED_LAMBDA_OUT: "results/coupled-lambda-constraint-propagation-2026-10-15"
       LAMBDA_STRESS_OUT: "results/lambda-offmode-amplitude-stress-2026-10-15"
       LAMBDA_CENTER_OUT: "results/lambda-center-tangent-space-time-2026-10-15"
+      LAMBDA_CENTER_MULTISTEP_OUT: "results/lambda-center-multistep-budget-2026-10-15"
     steps:
       - name: Check out research branch and pinned vendor
         uses: actions/checkout@v4
@@ -94,6 +99,8 @@ jobs:
           python -m py_compile tests/test_lambda_offmode_signed_parity.py
           python -m py_compile tools/audit_lambda_center_tangent_resolution.py
           python -m py_compile tests/test_lambda_center_tangent_resolution.py
+          python -m py_compile tools/audit_lambda_center_multistep_budget.py
+          python -m py_compile tests/test_lambda_center_multistep_budget.py
           python -m py_compile tests/test_coupled_lambda_constraint_propagation.py
           python -m py_compile tools/audit_current_main_centre_proper_radial_ricci.py
           python -m py_compile tools/audit_continuous_origin_half_cell_oracle.py
@@ -162,5 +169,17 @@ jobs:
         with:
           name: lambda-center-tangent-space-time-2026-10-15
           path: results/lambda-center-tangent-space-time-2026-10-15/
+          if-no-files-found: warn
+          retention-days: 90
+
+      - name: Run bounded centre-cell Lambda multistep timestep study
+        run: python tools/audit_lambda_center_multistep_budget.py
+
+      - name: Upload centre-cell multistep budget report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lambda-center-multistep-budget-2026-10-15
+          path: results/lambda-center-multistep-budget-2026-10-15/
           if-no-files-found: warn
           retention-days: 90
