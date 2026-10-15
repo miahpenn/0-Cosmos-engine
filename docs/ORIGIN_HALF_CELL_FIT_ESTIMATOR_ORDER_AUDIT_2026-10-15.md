@@ -101,6 +101,65 @@ six-cell fit's intercept and first-cell errors fall rapidly with refinement.
 These values are specific to this source and selected fit family, not
 estimates of the production Ricci discrepancy.
 
+
+## Additional control — exact origin value available
+
+For the production initializer's integrand,
+
+\[
+s(r)=1-8\pi r^2\rho+2r^2K_rK_t+r^2K_t^2,
+\]
+
+regularity and finite source fields give \(s(0)=1\) exactly. This does not make
+the rest of the source known, but it means the constant coefficient need not be
+inferred from a finite-radius fit. The standalone fitter now offers an
+origin-anchored option that fixes \(c_0=s(0)\) and fits only the higher powers.
+
+For the same manufactured smooth source used above (whose exact origin value is
+\(1.0002\)), the anchored results are:
+
+| Grid spacing \(h\) | Fixed window: signed error | Fixed-window order | Local window: signed error | Local-window order |
+|---:|---:|---:|---:|---:|
+| 0.125 | \(+2.8073478\times10^{-6}\) | — | \(+1.3056263\times10^{-9}\) | — |
+| 0.0625 | \(+3.6155624\times10^{-7}\) | 2.957 | \(+2.5526248\times10^{-12}\) | 8.999 |
+| 0.03125 | \(+4.5530052\times10^{-8}\) | 2.989 | \(+4.9925342\times10^{-15}\) | 8.998 |
+
+The exact degree-three polynomial control remains at roundoff for both windows
+with and without anchoring. **Anchoring the origin changes the fixed-window
+asymptotic result from first order to third order on this manufactured source**:
+the remaining leading error comes from the fitted quadratic coefficient, not
+from a fitted constant term. The local six-cell fit remains approximately ninth
+order for this source.
+
+### Offline reconciliation against the existing production-source artifact
+
+This is a post-processed check of the existing source-pinned PR #257 artifact,
+not a new engine run. I downloaded artifact 11993174037 from
+[workflow 38776498208](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38776498208)
+and verified its ZIP SHA-256 as
+`ff667892633d20c17fda62ceb9752de420f79276d0681ed9e8195dd1cb65f5c2`.
+Its production-source anchor is
+`285a2ee0c1a3b97cddeb4519d8e749109b115aab`; the initializer blob
+`7db2e1a10cf16fb40e4221b0df504fdf39aae611` is identical at that anchor and
+current main. Using the artifact's actual last-iteration source samples at
+N=160/240/320 and fitting degree 3 over \(r\le2.5\), the known \(s(0)=1\)
+gives:
+
+| Resolution | Unconstrained fit \(c_0-1\) | Intercept term \((c_0-1)r_0\) | Fit-minus-point moment correction | Intercept term / correction |
+|---:|---:|---:|---:|---:|
+| N=160 | \(-3.233\times10^{-8}\) | \(-8.081\times10^{-9}\) | \(+1.30448\times10^{-5}\) | \(-0.062\%\) |
+| N=240 | \(-3.352\times10^{-8}\) | \(-5.587\times10^{-9}\) | \(+3.86825\times10^{-6}\) | \(-0.144\%\) |
+| N=320 | \(-7.352\times10^{-8}\) | \(-9.190\times10^{-9}\) | \(+1.62615\times10^{-6}\) | \(-0.565\%\) |
+
+These are a decomposition of the **intercept component**, not an exact error in
+the unknown production half-cell integral. The current source-profile intercept
+bias is many orders smaller than the adversarial manufactured example and is
+below 0.6% of the fitted correction even at N=320. This weakens any claim that
+the generic fixed-window O(h) mechanism is the leading explanation of the
+present fit correction. It does not rule out other fit-coefficient or
+operator/geometry errors, and does not quantify the Ricci response to an
+intercept-only perturbation.
+
 ## Interpretation and next gate
 
 **Established:** a smooth even source exists for which fixed-physical-window,
@@ -113,8 +172,11 @@ source/metric fixed point are not substitutes for a quadrature-order test.
 that the local-window method is uniquely preferred, or that changing the
 initializer would fix the entire Ricci/constraint discrepancy.
 
-Next, compare the two estimators on current source-pinned initializer
-profiles at several resolutions, report intercept bias and signed half-cell
-moment, and check held-out regular-source controls before proposing any
-initializer change. Keep the origin-moment and Lambda/Ricci derivative
-channels separate. Scientific admission remains **NOT ADMITTED**.
+The offline source-profile check now bounds the fitted-intercept contribution
+for the available N=160/240/320 profiles, but it does not provide an exact
+production half-cell integral or a Ricci response bound. Next, a source-pinned
+anchored-intercept counterfactual would need to report both the moment and the
+resulting signed centre-Ricci gap on matching profiles, while preserving the
+origin-moment and Lambda/Ricci derivative channels as separate diagnostics.
+Do not select a production fit/window from the manufactured controls alone.
+Scientific admission remains **NOT ADMITTED**.
