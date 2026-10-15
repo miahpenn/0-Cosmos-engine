@@ -40,11 +40,11 @@ For a spatially homogeneous field, \((\nabla D)^2=-\dot D^2\), hence
 p_D=\frac12\dot D^2-V_D,\qquad
 T_D=-\rho_D+3p_D=\dot D^2-4V_D.
 \]
-On the exact growing branch \(\dot D=\mu D\), the signed inverted potential implies
+Evaluate this stress tensor on the archive's homogeneous growing-branch relation \(\dot D=\mu D\), the signed inverted potential implies
 \[
 \rho_D=0,\qquad p_D=\mu^2D^2,\qquad T_D=3\mu^2D^2.
 \]
-Thus zero canonical energy density does **not** mean zero stress-energy or zero curvature: the pressure and trace are nonzero. If D is the only source and there is no cosmological constant, taking the trace of Einstein's equation gives
+This is an algebraic evaluation on that branch relation, not a claim that \\(\\dot D=\\mu D\\) solves the full curved/expanding production scalar equation when extrinsic-curvature, lapse-gradient, or other-background terms are present.\n\nThus zero canonical energy density does **not** mean zero stress-energy or zero curvature: the pressure and trace are nonzero. If D is the only source and there is no cosmological constant, taking the trace of Einstein's equation gives
 \[
 -R=\kappa T_D
 \quad\Longrightarrow\quad
