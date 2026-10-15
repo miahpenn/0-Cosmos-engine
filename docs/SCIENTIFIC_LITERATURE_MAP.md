@@ -41,11 +41,11 @@ Use journal papers to establish equations and numerical methodology, not to infe
 
 ### 4. COSMOS/local density normalization and units — [Issue #210](https://github.com/miahpenn/0-Cosmos-engine/issues/210)
 
-**Repository premise to verify, not assume.** Issue #210 records that the archival homogeneous lane uses (H^2=\rho/3) and `\dot H=-(\rho+p)/2`, while the local production lane declares `\kappa=8\pi G`; it also records hardcoded archival densities and an apparently unused `CosmosParams.G`. These expressions can reflect different normalizations, but the intended mapping cannot be selected from numerical convenience.
+**Repository premise to verify, not assume.** Issue #210 records that the archival homogeneous lane uses `H^2 = rho/3` and `dH/dt = -(rho+p)/2`, while the local production lane declares `kappa = 8*pi*G`; it also records hardcoded archival densities and an apparently unused `CosmosParams.G`. These expressions can reflect different normalizations, but the intended mapping cannot be selected from numerical convenience.
 
-**Relevant journal evidence.** Reviews of modified gravity and explicit matter–geometry coupling show that conservation equations depend on the action and on how matter couples to geometry. Wu et al. (2018) derive non-conservation in a specific Palatini (f(R,T)) theory. That is a model-specific result, not a universal permission to use non-conserved matter or to rescale `\rho`.
+**Relevant journal evidence.** Reviews of modified gravity and explicit matter–geometry coupling show that conservation equations depend on the action and on how matter couples to geometry. Wu et al. (2018) derive non-conservation in a specific Palatini (f(R,T)) theory. That is a model-specific result, not a universal permission to use non-conserved matter or to rescale `rho`.
 
-**Next gate.** Trace each archived input to the primary archive/paper/action, state whether `\rho` is physical energy density or a rescaled variable, audit dimensions of (G), (H), `\rho`, and (p), then derive the conversion to the local Einstein-source convention. Add the two separate homogeneous/Friedmann regressions specified in Issue #210 using an initial state not reconstructed from the hardcoded present-day Hubble value. Do not add a conversion or couple `exchange_Q` before source provenance and independent review.
+**Next gate.** Trace each archived input to the primary archive/paper/action, state whether `rho` is physical energy density or a rescaled variable, audit dimensions of `G`, `H`, `rho`, and `p`, then derive the conversion to the local Einstein-source convention. Add the two separate homogeneous/Friedmann regressions specified in Issue #210 using an initial state not reconstructed from the hardcoded present-day Hubble value. Do not add a conversion or couple `exchange_Q` before source provenance and independent review.
 
 ### 5. Scalar–dark-matter exchange and full anisotropic-shear completeness — existing GEAR/COSMOS archive research
 
@@ -75,7 +75,7 @@ Use journal papers to establish equations and numerical methodology, not to infe
 
 ## Owner question that blocks a physics decision
 
-**Can you point us to the authoritative primary source for the COSMOS archived homogeneous equations and the S/D-to-matter exchange premise** (paper, derivation, notebook, or archive file with its version)? Specifically, we need the action or defining equations and the meaning/units of `\rho`, (G), and (H). Without that provenance, the literature can guide consistency checks but cannot determine the correct density conversion, exchange sign, or whether the archived COSMOS lane is intended as a separate normalized reference model.
+**Can you point us to the authoritative primary source for the COSMOS archived homogeneous equations and the S/D-to-matter exchange premise** (paper, derivation, notebook, or archive file with its version)? Specifically, we need the action or defining equations and the meaning/units of `rho`, (G), and (H). Without that provenance, the literature can guide consistency checks but cannot determine the correct density conversion, exchange sign, or whether the archived COSMOS lane is intended as a separate normalized reference model.
 
 ## Safety of interpretation
 
