@@ -7,6 +7,7 @@ on:
     paths:
       - tools/audit_continuous_origin_half_cell_oracle.py
       - tests/test_continuous_origin_half_cell_oracle.py
+      - docs/CONTINUOUS_ORIGIN_HALF_CELL_ORACLE_2026-10-15.md
       - .github/workflows/continuous-origin-half-cell-oracle.yml
   pull_request:
     branches: [main]
@@ -14,6 +15,7 @@ on:
     paths:
       - tools/audit_continuous_origin_half_cell_oracle.py
       - tests/test_continuous_origin_half_cell_oracle.py
+      - docs/CONTINUOUS_ORIGIN_HALF_CELL_ORACLE_2026-10-15.md
       - .github/workflows/continuous-origin-half-cell-oracle.yml
 
 permissions:
