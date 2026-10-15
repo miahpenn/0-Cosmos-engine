@@ -68,10 +68,8 @@ const github = { rest: { repos: { getCollaboratorPermissionLevel: async ({ usern
 const core = { info: () => {} };
 const owner = "owner";
 const repo = "repo";
-const helpers = new Function("github", "core", "owner", "repo", `return ({
-  freshReviewState: (__FRESH_FN__),
-  hasTrustedIndependentApproval: (__APPROVAL_FN__)
-});`)(github, core, owner, repo);
+const freshReviewState = (__FRESH_FN__);
+const hasTrustedIndependentApproval = (__APPROVAL_FN__);
 
 const HEAD = "head";
 const review = (login, type, state = "APPROVED", commit = HEAD, when = "2026-10-15T00:00:00Z") => ({
@@ -84,8 +82,8 @@ async function qualifies(reviews, perms = {}, errors = new Set()) {
   calls = [];
   permissions = perms;
   apiErrors = errors;
-  const state = helpers.freshReviewState(reviews, HEAD);
-  const approved = await helpers.hasTrustedIndependentApproval(state, "author");
+  const state = freshReviewState(reviews, HEAD);
+  const approved = await hasTrustedIndependentApproval(state, "author");
   return { approved, calls: [...calls], state: Object.fromEntries(state) };
 }
 (async () => {
