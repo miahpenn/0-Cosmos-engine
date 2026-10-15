@@ -101,15 +101,15 @@ The signed lower/upper fit-error intervals are written to `fit_family.csv`. This
 
 ## Verified run and provenance
 
-The successful source-pinned audit run is [GitHub Actions run 38791781635](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38791781635); its [artifact 11999174017](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38791781635/artifacts/11999174017) contains the JSON report, moment CSV, fit-family CSV, and SHA-256 manifest. All eight dedicated analytic-oracle/regression tests passed on that head.
+The successful source-pinned audit run is [GitHub Actions run 38792318422](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38792318422); its [artifact 12000553218](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38792318422/artifacts/12000553218) contains the JSON report, moment CSV, fit-family CSV (including leave-one-out diagnostics and analytic error intervals), and SHA-256 manifest. All eight dedicated analytic-oracle/regression tests passed on that head.
 
 - Engine source anchor: 285a2ee0c1a3b97cddeb4519d8e749109b115aab.
 - Vendor commit: d6052d605673ce9d82cdc99b0df79855fa2ea215.
-- Audited research head: 6a1b6ad3491a81b25f6f966a1818796575faf86c (audit checkout head: 89d61facf205ce352fe7b892e3234c2f1f597725).
-- Artifact ZIP SHA-256: 7e8d8d35354eca93a3a7db394339b382ad054d32c4e0d14b32c2f53009c4f1eb.
-- Report JSON SHA-256: aee25e5e5b9567774c8994d549ffd8c0283c29d7ac1b4885e4b139575e74d4c2.
+- Audited research head: 397f920fc1b3238515717d1067bede5fc2cc48a2 (audit checkout head: 52836b9b4235ee61dc0eca75e6d6e63c916802be).
+- Artifact ZIP SHA-256: 151fa36698c50333a810cf3a3620aa51faa654ec4cb98287db09cdd50d347c2c.
+- Report JSON SHA-256: c9f916205fde3297f0cc44bc57b8dc59d634cc89868877e3fef03e3d8c1bf204.
 - Moment CSV SHA-256: 9c6e07948c0e7c5e2d14c73a229d6b437dc862dfe5746ead5ad06dce0ade22a3.
-- Fit-family CSV SHA-256: d03d7c1e48a33cc4b7465f441e6187ac13a732c47d91f8872abfb8c2190328c6.
+- Fit-family CSV SHA-256: f6cd7910331b03626c38e4203d6e2a0e6912f4a39d4255e8f8ea327036331ee1.
 
 The run verified all declared engine-source blobs and the vendor pin, required an empty engine/vendor/dependency diff, reproduced the initializer's six-pass B profile against \(X^6\), checked the Richardson reference against the analytic integral enclosure and every eligible fit-error interval, confirmed finite output and unchanged initialized-state digests, and took zero evolution steps.
 
@@ -136,6 +136,18 @@ The signed fit error below is the fitted integral minus the continuous numerical
 | 320 | \(-8.8977\times10^{-9}\) | \(+2.2086\times10^{-10}\) | \(-7.2923\times10^{-10}\) | \(-6.8936\times10^{-11}\) |
 
 For this source and these sample windows, anchoring the known \(s(0)=1\) improves the degree-3 moment estimate. Higher-degree fits are closer still in the recorded family. This is evidence about the estimator under a specified continuous source; it does not make the highest-degree/window choice a proven universal prescription. In-sample residuals and Richardson changes are diagnostics; unlike those quantities, the analytic inequality above bounds the fitted estimator's integral error under the stated continuous-source assumptions.
+
+### Leave-one-out source prediction
+
+To avoid using in-sample residuals as the only fit-family discriminator, the audit also refits each candidate after withholding one source sample at a time and predicts the held-out value. The table reports the largest absolute held-out source residual; the CSV additionally preserves RMS error, worst-fold condition number, and the minimum residual degrees of freedom in a training fold.
+
+| Resolution | Degree 3, unanchored, window 2.5 | Degree 3, origin-anchored, window 2.5 | Degree 4, window 3.0 | Degree 5, window 3.5 |
+|---:|---:|---:|---:|---:|
+| 160 | \\(1.775\\times10^{-6}\\) | \\(1.808\\times10^{-6}\\) | \\(3.710\\times10^{-7}\\) | \\(8.906\\times10^{-8}\\) |
+| 240 | \\(1.642\\times10^{-6}\\) | \\(1.745\\times10^{-6}\\) | \\(1.784\\times10^{-7}\\) | \\(5.336\\times10^{-8}\\) |
+| 320 | \\(8.110\\times10^{-7}\\) | \\(8.722\\times10^{-7}\\) | \\(1.203\\times10^{-7}\\) | \\(2.041\\times10^{-8}\\) |
+
+The held-out errors substantially exceed the in-sample residuals. At N=160, several LOO folds have zero residual degrees of freedom, and the degree-5 fit's worst-fold condition number is approximately \\(4.67\\times10^4\\); its LOO prediction error is still much lower than the degree-3 controls, but is not negligible. This means fit-window policy remains a model-selection question. LOO values are prediction diagnostics for sampled source values—not confidence intervals and not substitutes for the analytic half-cell moment-error enclosure. No fit family is promoted to production on this evidence alone.
 
 ## Comparison layers
 
