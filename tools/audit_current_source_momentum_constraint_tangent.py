@@ -226,6 +226,52 @@ def rhs_direction(
         state.grid, state.geometry, state.scalars, state.matter,
         lambda_m=LAMBDA_M,
     )
+
+    # Same-state decomposition of the vendor's primary L2 Aa rate. The
+    # production L2 formula is the sum of the trace-free lapse Hessian and
+    # lapse-weighted trace-free Ricci terms; the split is an accounting check,
+    # not an independent alternative evolution operator.
+    _, vacuum, _ = adapter.vendor_modules()
+    vendor_geometry = vacuum.geometry_terms(state.grid, state.geometry)
+    alpha = finite("Aa L2 split lapse", state.geometry.alpha)
+    aa_lapse_hessian = -(
+        finite("Aa L2 DrDr(alpha)", vendor_geometry["DrDr_alpha"])
+        - finite("Aa L2 lap(alpha)", vendor_geometry["lap_alpha"]) / 3.0
+    )
+    aa_tracefree_ricci = alpha * (
+        finite("Aa L2 Rr_r", vendor_geometry["Rr_r"])
+        - finite("Aa L2 scalar R", vendor_geometry["R"]) / 3.0
+    )
+    aa_l2_operator = finite("Aa primary L2 operator", terms["primary_l2"]["Aa"])
+    aa_l2_reconstructed = aa_lapse_hessian + aa_tracefree_ricci
+    aa_l2_split_residual = aa_l2_operator - aa_l2_reconstructed
+    aa_l2_split_scale = (
+        np.abs(aa_l2_operator)
+        + np.abs(aa_lapse_hessian)
+        + np.abs(aa_tracefree_ricci)
+    )
+    aa_l2_split_bound = 512.0 * MACHINE_EPS * aa_l2_split_scale
+    aa_l2_split = {
+        "lapse_hessian": finite("Aa L2 lapse Hessian contribution", aa_lapse_hessian),
+        "tracefree_ricci": finite("Aa L2 trace-free Ricci contribution", aa_tracefree_ricci),
+        "operator": aa_l2_operator,
+        "reconstructed": finite("Aa L2 reconstructed contribution", aa_l2_reconstructed),
+        "residual": finite("Aa L2 split residual", aa_l2_split_residual),
+        "closure": {
+            "ok": bool(np.all(np.abs(aa_l2_split_residual) <= aa_l2_split_bound)),
+            "max_abs": float(np.max(np.abs(aa_l2_split_residual))),
+            "max_bound": float(np.max(aa_l2_split_bound)),
+            "max_scaled_ratio": float(np.max(
+                np.divide(
+                    np.abs(aa_l2_split_residual),
+                    aa_l2_split_bound,
+                    out=np.zeros_like(aa_l2_split_residual),
+                    where=aa_l2_split_bound > 0.0,
+                )
+            )),
+        },
+    }
+
     geom_rate: dict[str, np.ndarray] = {
         name: finite(f"explicit geometry rate {name}", terms["explicit"][name])
         for name in ("a", "b", "X")
@@ -258,6 +304,7 @@ def rhs_direction(
         "scalars": scalar_rate,
         "matter": matter_rate,
         "geometry_stage_terms": terms,
+        "Aa_l2_split": aa_l2_split,
     }
 
 
@@ -571,7 +618,11 @@ def audit_resolution(
         and item["plus_minus_current_projection_closure_ok"]
         and item["Mdot_geom_tangent_closure_ok"]
         for item in tangent_results
-    ) and bool(w0["J_closure_ok"] and w0["M_geom_closure_ok"])
+    ) and bool(
+        w0["J_closure_ok"]
+        and w0["M_geom_closure_ok"]
+        and rates["Aa_l2_split"]["closure"]["ok"]
+    )
     return {
         "resolution": int(resolution),
         "r_max": float(r_max),
@@ -585,6 +636,14 @@ def audit_resolution(
             "Aa_primary_l2": rhs_rate_witness(
                 rates["geometry_stage_terms"]["primary_l2"]["Aa"], r
             ),
+            "Aa_primary_l2_split": {
+                "lapse_hessian": rhs_rate_witness(rates["Aa_l2_split"]["lapse_hessian"], r),
+                "tracefree_ricci": rhs_rate_witness(rates["Aa_l2_split"]["tracefree_ricci"], r),
+                "operator": rhs_rate_witness(rates["Aa_l2_split"]["operator"], r),
+                "reconstructed": rhs_rate_witness(rates["Aa_l2_split"]["reconstructed"], r),
+                "residual": rhs_rate_witness(rates["Aa_l2_split"]["residual"], r),
+                "closure": rates["Aa_l2_split"]["closure"],
+            },
             "Aa_primary_l3_including_matter": rhs_rate_witness(
                 rates["geometry_stage_terms"]["primary_l3"]["Aa"], r
             ),
