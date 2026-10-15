@@ -537,17 +537,53 @@ def main():
     paths["moments.csv"] = output / "moments.csv"
     with paths["moments.csv"].open("w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
-        w.writerow(["N", "dr", "r_half", "I_cont", "I_mid_cont", "I_prod", "quadrature_delta", "sampled_source_delta", "total_delta", "oracle_uncertainty"])
+        w.writerow([
+            "N", "dr", "r_half", "I_cont_Richardson", "I_prod", "I_A_closed_form",
+            "I_true_lower", "I_true_upper", "Q_absorption_bound",
+            "midpoint_defect_lower", "midpoint_defect_upper",
+            "quadrature_delta_Richardson", "sampled_source_delta", "total_delta",
+            "oracle_uncertainty",
+        ])
         for x in rows:
             m = x["moment_decomposition"]
-            w.writerow([x["resolution"], x["dr"], x["r_half"], m["continuous_half_cell_integral_reference"], m["continuous_midpoint_moment"], m["production_point_sampled_moment"], m["continuous_quadrature_delta"], m["continuum_vs_discrete_sampled_source_delta"], m["total_continuum_minus_production_delta"], m["estimated_reference_uncertainty"]])
+            e = x["analytic_enclosure"]
+            w.writerow([
+                x["resolution"], x["dr"], x["r_half"],
+                m["continuous_half_cell_integral_reference"],
+                m["production_point_sampled_moment"],
+                e["A_integral_closed_form"],
+                e["continuous_integral_lower_bound"],
+                e["continuous_integral_upper_bound"],
+                e["Q_absorption_upper_bound"],
+                e["continuous_midpoint_defect_lower_bound"],
+                e["continuous_midpoint_defect_upper_bound"],
+                m["continuous_quadrature_delta"],
+                m["continuum_vs_discrete_sampled_source_delta"],
+                m["total_continuum_minus_production_delta"],
+                m["estimated_reference_uncertainty"],
+            ])
     paths["fit_family.csv"] = output / "fit_family.csv"
     with paths["fit_family.csv"].open("w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
-        w.writerow(["N", "name", "status", "degree", "window", "anchor_origin", "sample_count", "fitted_moment", "fit_minus_continuous_reference", "fit_error_abs", "max_abs_sample_residual", "condition_number"])
+        w.writerow([
+            "N", "name", "status", "degree", "window", "anchor_origin",
+            "sample_count", "fitted_moment", "fit_minus_Richardson_reference",
+            "fit_error_abs_vs_Richardson", "analytic_signed_error_lower",
+            "analytic_signed_error_upper", "analytic_absolute_error_bound",
+            "max_abs_sample_residual", "condition_number",
+        ])
         for x in rows:
             for fit in x["fit_family"]:
-                w.writerow([x["resolution"], fit["name"], fit.get("status", "ok"), fit["degree"], fit["window"], fit["anchor_origin"], fit.get("sample_count"), fit.get("fitted_moment"), fit.get("fit_minus_continuous_reference"), fit.get("fit_error_abs"), fit.get("max_abs_sample_residual"), fit.get("condition_number")])
+                w.writerow([
+                    x["resolution"], fit["name"], fit.get("status", "ok"),
+                    fit["degree"], fit["window"], fit["anchor_origin"],
+                    fit.get("sample_count"), fit.get("fitted_moment"),
+                    fit.get("fit_minus_continuous_reference"), fit.get("fit_error_abs"),
+                    fit.get("analytic_signed_error_lower_bound"),
+                    fit.get("analytic_signed_error_upper_bound"),
+                    fit.get("analytic_absolute_error_bound"),
+                    fit.get("max_abs_sample_residual"), fit.get("condition_number"),
+                ])
     (output / "SHA256SUMS.txt").write_text("\n".join(f"{_sha256(p)}  {p.name}" for p in paths.values()) + "\n", encoding="utf-8")
     print(json.dumps({
         "status": report["status"], "audit_head": provenance.get("audit_head"),
