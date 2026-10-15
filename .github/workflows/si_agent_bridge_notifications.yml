@@ -1,0 +1,74 @@
+name: SI-agent bridge notifications
+
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize, ready_for_review, converted_to_draft, closed, assigned, unassigned, labeled, unlabeled, review_requested, review_request_removed]
+  workflow_run:
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: si-agent-bridge-${{ github.event_name }}-${{ github.event.action || 'completed' }}-${{ github.event.pull_request.number || github.event.workflow_run.id || github.run_id }}-${{ github.event.pull_request.head.sha || github.event.workflow_run.head_sha || 'unknown' }}
+  cancel-in-progress: false
+
+jobs:
+  synthetic-contract:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Check out the manually selected branch only
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.ref }}
+          persist-credentials: false
+      - name: Install the existing test runner requirement
+        run: python -m pip install "pytest>=8.0"
+      - name: Run contract and adapter fixtures only
+        run: >-
+          python -m pytest -q
+          tests/test_si_agent_bridge_contract.py
+          tests/test_si_agent_bridge_adapter.py
+      - name: Confirm no delivery was attempted
+        run: echo "::notice title=Synthetic-only::workflow_dispatch ran fixtures only and did not contact Slack."
+
+  notify:
+    # Only process PRs that target the canonical main branch. This workflow may
+    # Never check out or execute pull-request head code in this privileged job.
+    if: >-
+      (github.event_name == 'pull_request_target' &&
+       github.event.pull_request.base.ref == 'main') ||
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.pull_requests[0].base.ref == 'main')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+      actions: read
+      issues: write
+    env:
+      SLACK_CHANNEL_ID: ${{ vars.SLACK_CHANNEL_ID }}
+      SLACK_TOKEN_CONFIGURED: ${{ secrets.SLACK_BOT_TOKEN != '' && 'true' || 'false' }}
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Check out only the trusted base main branch
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: main
+          persist-credentials: false
+
+      - name: Preflight and deliver validated event
+        if: env.SLACK_TOKEN_CONFIGURED == 'true' && env.SLACK_CHANNEL_ID != ''
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+        run: python -m tools.si_agent_bridge_adapter
+
+      - name: Preflight only while delivery is disabled
+        if: env.SLACK_TOKEN_CONFIGURED != 'true' || env.SLACK_CHANNEL_ID == ''
+        run: |
+          python -m tools.si_agent_bridge_adapter --dry-run
+          echo "::notice title=Slack bridge disabled::Live GitHub state was preflighted; no Slack post or ledger reservation was attempted. An authorized owner must configure SLACK_BOT_TOKEN and SLACK_CHANNEL_ID."
