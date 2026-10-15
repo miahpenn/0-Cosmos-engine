@@ -389,35 +389,76 @@ def run_audit(output_dir: Path = OUT) -> dict[str, Any]:
         source_r, source_for_B = _make_source_function(grid, state)
         source_baseline = source_for_B(_arr(state.geometry.X) ** 6)
         mode_specs = (
-            ("fixed_unanchored", FIT_RADIUS, False),
-            ("fixed_origin_anchored", FIT_RADIUS, True),
-            ("local_six_origin_anchored", LOCAL_WINDOW_CELLS * float(grid.dr), True),
+            ("fixed_unanchored", FIT_RADIUS, False, "constrained"),
+            ("fixed_origin_anchored", FIT_RADIUS, True, "constrained"),
+            ("fixed_intercept_only", FIT_RADIUS, True, "intercept_only"),
+            ("local_six_origin_anchored", LOCAL_WINDOW_CELLS * float(grid.dr), True, "constrained"),
         )
         per_mode = {}
-        for tag, fit_radius, anchor in mode_specs:
+        mode_arrays = {}
+        for tag, fit_radius, anchor, strategy in mode_specs:
             arrays, summary = _solve_fit_mode(
-                grid, state, vacuum, tag=tag, fit_radius=fit_radius, anchored=anchor
+                grid, state, vacuum, tag=tag, fit_radius=fit_radius, anchored=anchor,
+                anchor_strategy=strategy,
             )
             if not summary["source_moments"]["input_state_unchanged"]:
                 problems.append(f"N={resolution}/{tag}: initialized state changed")
             if not summary["ricci"]["fixed_point_first_six_max_abs_gap"] >= 0.0:
                 problems.append(f"N={resolution}/{tag}: invalid Ricci summary")
             per_mode[tag] = summary
+            mode_arrays[tag] = arrays
             profiles.update({f"N{resolution}_{name}": _arr(value) for name, value in arrays.items()})
 
         free_fixed = per_mode["fixed_unanchored"]
         anchored_fixed = per_mode["fixed_origin_anchored"]
+        intercept_only = per_mode["fixed_intercept_only"]
         anchored_local = per_mode["local_six_origin_anchored"]
         def get_delta(mode):
             return float(mode["source_moments"]["fixed_point_fit"]["moment_correction_vs_point_sample"])
         def get_gap(mode):
             return mode["ricci"]["fixed_point_first_two_signed_gaps"]
-        delta_free, delta_anchor, delta_local = (
-            get_delta(free_fixed), get_delta(anchored_fixed), get_delta(anchored_local)
+        delta_free, delta_anchor, delta_intercept, delta_local = (
+            get_delta(free_fixed), get_delta(anchored_fixed), get_delta(intercept_only), get_delta(anchored_local)
         )
-        gap_free, gap_anchor, gap_local = (
-            get_gap(free_fixed), get_gap(anchored_fixed), get_gap(anchored_local)
+        gap_free, gap_anchor, gap_intercept, gap_local = (
+            get_gap(free_fixed), get_gap(anchored_fixed), get_gap(intercept_only), get_gap(anchored_local)
         )
+
+        # Same-source fits isolate estimator changes from the coupled source/metric feedback.
+        same_source_contrasts = {}
+        source_comparison_profiles = {
+            "production_baseline_source": source_baseline,
+            "unanchored_mode_fixed_point_source": mode_arrays["fixed_unanchored"]["fixed_unanchored_fixed_point_source"],
+            "constrained_anchor_mode_fixed_point_source": mode_arrays["fixed_origin_anchored"]["fixed_origin_anchored_fixed_point_source"],
+            "intercept_only_mode_fixed_point_source": mode_arrays["fixed_intercept_only"]["fixed_intercept_only_fixed_point_source"],
+        }
+        for source_name, source_samples in source_comparison_profiles.items():
+            free_same = fit_origin_moment(
+                r, source_samples, float(grid.dr), fit_radius=FIT_RADIUS,
+                degree=3, anchor_origin=False,
+            )
+            constrained_same = fit_origin_moment(
+                r, source_samples, float(grid.dr), fit_radius=FIT_RADIUS,
+                degree=3, anchor_origin=True, anchor_strategy="constrained",
+            )
+            intercept_same = fit_origin_moment(
+                r, source_samples, float(grid.dr), fit_radius=FIT_RADIUS,
+                degree=3, anchor_origin=True, anchor_strategy="intercept_only",
+            )
+            same_source_contrasts[source_name] = {
+                "unanchored_fit": free_same,
+                "constrained_origin_fit": constrained_same,
+                "intercept_only_replacement": intercept_same,
+                "constrained_minus_unanchored_moment": float(
+                    constrained_same["half_cell_moment_estimate"] - free_same["half_cell_moment_estimate"]
+                ),
+                "intercept_only_minus_unanchored_moment": float(
+                    intercept_same["half_cell_moment_estimate"] - free_same["half_cell_moment_estimate"]
+                ),
+                "constrained_minus_intercept_only_moment": float(
+                    constrained_same["half_cell_moment_estimate"] - intercept_same["half_cell_moment_estimate"]
+                ),
+            }
         reports.append({
             "resolution": resolution,
             "r_max": R_MAX,
