@@ -472,8 +472,8 @@ def main():
     output = Path(os.environ.get("ORACLE_OUT", "results/continuous-origin-half-cell-oracle-2026-10-15"))
     rows = [run_resolution(n, r_max=r_max) for n in resolutions]
     report = {
-        "schema": "v55_continuous_origin_half_cell_oracle_v1",
-        "status": "completed_research_only_continuous_integral_oracle",
+        "schema": "v55_continuous_origin_half_cell_oracle_v2",
+        "status": "completed_research_only_continuous_integral_enclosure",
         "scientific_admission": False, "production_or_vendor_files_modified": False,
         "source_pins": provenance,
         "declared_pins": {"engine_source": SOURCE_COMMIT, "vendor": VENDOR_COMMIT},
@@ -496,9 +496,13 @@ def main():
                 x["moment_decomposition"]["decomposition_closure_error"],
                 x["moment_decomposition"]["estimated_reference_uncertainty"],
                 x["analytic_enclosure"]["A_integral_closed_form"],
+                x["analytic_enclosure"]["A_lower_bound_on_half_cell"],
+                x["analytic_enclosure"]["A_upper_bound_on_half_cell"],
+                x["analytic_enclosure"]["q_coefficient_C"],
                 x["analytic_enclosure"]["Q_absorption_upper_bound"],
                 x["analytic_enclosure"]["continuous_integral_lower_bound"],
                 x["analytic_enclosure"]["continuous_integral_upper_bound"],
+                x["analytic_enclosure"]["midpoint_defect_A_only"],
                 x["analytic_enclosure"]["continuous_midpoint_defect_lower_bound"],
                 x["analytic_enclosure"]["continuous_midpoint_defect_upper_bound"],
             ])
@@ -509,7 +513,11 @@ def main():
                     fit["fit_error_abs"], fit["fit_error_rel_to_integral"],
                     fit["condition_number"], fit["max_abs_sample_residual"],
                     fit["rms_sample_residual"],
+                    fit["analytic_signed_error_lower_bound"],
+                    fit["analytic_signed_error_upper_bound"],
+                    fit["analytic_absolute_error_bound"],
                 ])
+                and fit["richardson_error_inside_analytic_enclosure"]
                 for fit in x["fit_family"]
             )
             for x in rows
