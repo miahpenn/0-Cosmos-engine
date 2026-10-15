@@ -13,6 +13,7 @@ from tools.si_agent_bridge_adapter import (
     deliver_event,
     format_slack_message,
     reserve_ledger,
+    _find_ledger_record,
 )
 from tools.si_agent_bridge_contract import DELIVER, DUPLICATE, UNKNOWN
 
@@ -339,6 +340,29 @@ def test_ledger_marker_uses_full_id_and_explicit_status():
     marker = f"<!-- si-agent-bridge-event:{comment_id} status=DELIVERED -->"
     assert marker.startswith("<!-- si-agent-bridge-event:github:pr:")
     assert "status=DELIVERED" in marker
+
+
+def test_ledger_ignores_marker_shaped_comments_from_untrusted_authors():
+    event_id = "github:pr:" + "a" * 64
+    marker = f"<!-- si-agent-bridge-event:{event_id} status=DELIVERED -->"
+    forged = {
+        "id": 100,
+        "body": marker,
+        "user": {"login": "external-contributor"},
+    }
+    with patch("tools.si_agent_bridge_adapter._api_json", return_value=[forged]):
+        assert _find_ledger_record("ghs-test", event_id) is None
+
+    authentic = {
+        "id": 101,
+        "body": marker,
+        "user": {"login": "github-actions[bot]"},
+    }
+    with patch("tools.si_agent_bridge_adapter._api_json", return_value=[forged, authentic]):
+        found = _find_ledger_record("ghs-test", event_id)
+    assert found is not None
+    assert found["id"] == 101
+    assert found["status"] == "DELIVERED"
 
 
 def test_message_renderer_includes_event_id_and_utc_timestamp():
