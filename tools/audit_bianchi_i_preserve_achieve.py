@@ -65,7 +65,7 @@ def slope_with_sources_dln_a(
 
     friedmann_left = 3.0 * H * H
     friedmann_right = rho + sigma2
-    scale = max(abs(friedmann_left), abs(friedmann_right), 1.0)
+    scale = max(abs(friedmann_left), abs(friedmann_right))
     if abs(friedmann_left - friedmann_right) > constraint_rtol * scale:
         raise ValueError("sample fails the declared 3 H^2 = rho + sigma2 constraint")
 
