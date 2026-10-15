@@ -69,6 +69,22 @@ The expanded observer reconstructs the final source of the pinned six-iteration 
 
 The origin-half-cell mechanism remains a secondary hypothesis. This is deliberately a local mechanism discriminator, not a self-consistent initializer candidate. Earlier origin-half-cell experiments improved initial constraints but did not restore evolved centre convergence; their source blobs differ from this current source anchor. A reduced frozen-source gap therefore supports the quadrature hypothesis but does not authorize a production patch, prove which curvature representation is wrong, or establish scientific admission.
 
+## Combined frozen-source half-cell + Lambda chain-rule counterfactual
+
+The same audit now composes the two candidate mechanisms on the copied origin-half-cell metric: it applies the even-source half-cell moment correction with the source frozen at the final iteration, then recomputes the offline derivative of the metric-to-Lambda relation using the same D1/D2 operands. This new arm does not iterate the initializer again, alter production data, or evolve the state.
+
+The first combined report is [workflow run 38687830131](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38687830131), artifact [11950013978](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38687830131/artifacts/11950013978), artifact ZIP SHA-256 `9c13084da4b8aef3da40a37e2a6c91c5044c7a385d3031362bec5ad1612cb158`. Its internal report/NPZ/CSV hashes match the embedded manifest. All 11 engine-source blobs, vendor pin, state-digest checks and zero-step gates passed; the artifact reports no errors and no production/vendor/dependency changes.
+
+| N | original cell-0 gap | half-cell-only cell-0 gap | Lambda-chain-only cell-0 gap | combined cell-0 gap | combined max gap on fixed 5≤r≤10 |
+|---:|---:|---:|---:|---:|---:|
+| 160 | +1.591813e-3 | −1.875669e-4 | −2.449713e-10 | −1.490857e-9 | 7.762128e-12 |
+| 240 | +1.590029e-3 | −1.854151e-4 | −5.055663e-11 | −6.062155e-10 | 1.630068e-12 |
+| 320 | +1.589416e-3 | −1.850802e-4 | −1.624953e-11 | −3.292417e-10 | 5.205571e-13 |
+
+This combined counterfactual reduces the initialized first-two-cell gap from O(10⁻³) to O(10⁻⁹–10⁻¹⁰). The half-cell-only arm reduces that gap about 8.5× but leaves a residual; the chain-rule arm applied on its own nearly closes the original gap, and the combination leaves a comparably small residual on the changed metric. All combined full-grid profiles are finite, the initialized state digest remains unchanged, and the reported evolution-step count remains zero.
+
+**Historical-data guardrail:** the local Library's prior [discrete-consistent initial Lambda/Ricci sensitivity run](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38289657512) found that the stored initial Lambda matches the discrete metric-reconstructed Lambda to roundoff at t=0, while on saved t=2.16 states the independently evolved Lambda can depart from that identity and its frozen-RHS substitution can materially change the first-cell A_a RHS. The present chain-rule arm is therefore only an initialized-slice representation diagnostic. It does not authorize changing the evolved BSSN Lambda derivative or promoting the origin quadrature rule. The joint collapse supports a numerical compatibility hypothesis, not a unique cause, self-consistent initializer solution, evolved stability, or scientific admission.
+
 ## Acceptance and limits
 
 A useful result requires all source/vendor pins to match, finite profiles, unchanged state digests, zero evolution steps, and a reproducible checksum manifest. Passing those integrity gates means the diagnostic completed, not that either formula is correct. No production equation, vendor code, coefficient, gauge, boundary, threshold, dependency, or campaign setting is changed. Scientific admission remains **NOT ADMITTED**.
