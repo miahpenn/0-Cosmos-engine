@@ -1,0 +1,356 @@
+name: Qualified auto-merge
+
+on:
+  pull_request_target:
+    branches: [main]
+    types: [opened, reopened, synchronize, ready_for_review, edited]
+  workflow_run:
+    workflows:
+      - Lightweight validation
+      - Strict JSON residual reporting contract
+      - Strict campaign plus radiation retry integration
+      - Research - joined EM/matter/Misner-Sharp ledger
+    types: [completed]
+  schedule:
+    - cron: "*/10 * * * *"
+
+permissions:
+  actions: read
+  checks: read
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: qualified-auto-merge-main # Serialize all candidate qualification/merge runs.
+  cancel-in-progress: false
+
+jobs:
+  qualify-and-merge:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      # SECURITY: pull_request_target has write permissions. Never check out or run PR code here.
+      - name: Evaluate exact-head merge qualifications
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const coreChecks = [
+              "regression-suite",
+              "Tests and one-step production smoke",
+              "integrated-admission",
+            ];
+            const ledgerPaths = new Set([
+              "tools/audit_em_total_energy_budget.py",
+              "tools/recompute_fixed_r_balance_artifact.py",
+              "tests/test_research_em_total_energy_budget_contract.py",
+              "tests/test_research_em_adjoint_face_work_v1.py",
+              "research/em_adjoint_face_work_v1.py",
+              "research/reconcile_em_face_work_artifact_v1.py",
+              "tests/test_research_fixed_r_independent_recompute.py",
+              ".github/workflows/em_total_energy_budget.yml",
+            ]);
+
+            // Only narrative documentation can bypass a formal review.
+            // Research code, tests, tools, workflow policy, and runtime code remain review-gated.
+            const isDocumentationPath = (path) =>
+              path === "README.md" ||
+              path.startsWith("docs/")
+
+            async function changedFiles(number) {
+              const all = [];
+              for (let page = 1; ; page++) {
+                const { data } = await github.rest.pulls.listFiles({
+                  owner, repo, pull_number: number, per_page: 100, page,
+                });
+                all.push(...data);
+                if (data.length < 100) return all.map(file => file.filename);
+              }
+            }
+
+            async function reviewsFor(number) {
+              const all = [];
+              for (let page = 1; ; page++) {
+                const { data } = await github.rest.pulls.listReviews({
+                  owner, repo, pull_number: number, per_page: 100, page,
+                });
+                all.push(...data);
+                if (data.length < 100) return all;
+              }
+            }
+
+            function freshReviewState(reviews, headSha) {
+              const latestByReviewer = new Map();
+              reviews
+                .filter(r => r.commit_id === headSha && r.submitted_at && r.user?.login)
+                .sort((a, b) => Date.parse(a.submitted_at) - Date.parse(b.submitted_at))
+                .forEach(r => latestByReviewer.set(r.user.login, {
+                  state: r.state,
+                  userType: r.user.type || "unknown",
+                }));
+              return latestByReviewer;
+            }
+
+            async function hasTrustedIndependentReview(reviewerState, authorLogin, requiredState) {
+              // A different username is not sufficient on a public repository.
+              // Require a human account and verify collaborator write authority.
+              for (const [login, review] of reviewerState) {
+                if (
+                  login === authorLogin ||
+                  review.state !== requiredState ||
+                  review.userType !== "User"
+                ) {
+                  continue;
+                }
+                try {
+                  const { data } = await github.rest.repos.getCollaboratorPermissionLevel({
+                    owner,
+                    repo,
+                    username: login,
+                  });
+                  if (["admin", "maintain", "write"].includes(data.permission)) {
+                    return true;
+                  }
+                  core.info(`Ignoring approval from ${login}: repository permission is ${data.permission || "unknown"}.`);
+                } catch (error) {
+                  // Fail closed when GitHub cannot verify collaborator permissions.
+                  core.info(`Ignoring approval from ${login}: collaborator permission could not be verified.`);
+                }
+              }
+              return false;
+            }
+
+            const workflowForCheck = {
+              "regression-suite": "Strict JSON residual reporting contract",
+              "Tests and one-step production smoke": "Lightweight validation",
+              "integrated-admission": "Strict campaign plus radiation retry integration",
+              "joined-energy-ledger": "Research - joined EM/matter/Misner-Sharp ledger",
+            };
+
+            async function checkGate(headSha, requiredNames, pullNumber, expectedBaseSha) {
+              const [{ data: checks }, { data: workflowData }] = await Promise.all([
+                github.rest.checks.listForRef({ owner, repo, ref: headSha, per_page: 100 }),
+                github.rest.actions.listWorkflowRunsForRepo({
+                  owner, repo, head_sha: headSha, event: "pull_request", per_page: 100,
+                }),
+              ]);
+              const checkRuns = (checks.check_runs || [])
+                .filter(c => c.head_sha === headSha && c.app?.slug === "github-actions");
+              const workflowRuns = workflowData.workflow_runs || [];
+
+              const failures = [];
+              for (const name of requiredNames) {
+                const latestCheck = checkRuns
+                  .filter(c => c.name === name)
+                  .sort((a, b) =>
+                    (b.run_attempt || 0) - (a.run_attempt || 0) ||
+                    Date.parse(b.started_at || b.created_at) - Date.parse(a.started_at || a.created_at) ||
+                    b.id - a.id
+                  )[0];
+                if (!latestCheck) {
+                  failures.push(`${name}: missing on current head`);
+                  continue;
+                }
+                if (latestCheck.status !== "completed" || latestCheck.conclusion !== "success") {
+                  failures.push(`${name}: ${latestCheck.status}/${latestCheck.conclusion || "no conclusion"}`);
+                  continue;
+                }
+
+                if (!latestCheck.check_suite?.id) {
+                  failures.push(`${name}: check run lacks a check-suite association`);
+                  continue;
+                }
+
+                const expectedWorkflow = workflowForCheck[name];
+                const latestWorkflow = workflowRuns
+                  .filter(w =>
+                    w.name === expectedWorkflow &&
+                    w.head_sha === headSha &&
+                    w.event === "pull_request" &&
+                    w.check_suite_id === latestCheck.check_suite.id
+                  )
+                  .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at))[0];
+
+                if (!latestWorkflow) {
+                  failures.push(`${name}: no matching PR workflow-run evidence`);
+                  continue;
+                }
+                if (latestWorkflow.status !== "completed" || latestWorkflow.conclusion !== "success") {
+                  failures.push(`${name}: latest workflow run is ${latestWorkflow.status}/${latestWorkflow.conclusion || "no conclusion"}`);
+                  continue;
+                }
+
+                const runPulls = latestWorkflow.pull_requests || [];
+                // Never substitute timestamps for proof of which PR/base was tested.
+                if (runPulls.length === 0) {
+                  failures.push(`${name}: workflow run lacks PR/base association; exact-base qualification is unproven`);
+                  continue;
+                }
+                const exactBaseRun = runPulls.some(p =>
+                  p.number === pullNumber &&
+                  p.head?.sha === headSha &&
+                  p.base?.ref === "main" &&
+                  p.base?.sha === expectedBaseSha
+                );
+                if (!exactBaseRun) {
+                  failures.push(`${name}: workflow run is not linked to this PR at current base ${expectedBaseSha}`);
+                }
+              }
+              return failures;
+            }
+
+            async function mainInfo() {
+              const { data: refData } = await github.rest.git.getRef({ owner, repo, ref: "heads/main" });
+              const sha = refData.object.sha;
+              return { sha };
+            }
+
+            async function evaluateAndMerge(number) {
+              const { data: pr } = await github.rest.pulls.get({
+                owner, repo, pull_number: number,
+              });
+              if (pr.state !== "open" || pr.base.ref !== "main") {
+                core.info(`#${number}: not an open PR targeting main; skipped.`);
+                return;
+              }
+              if (pr.draft) {
+                core.info(`#${number}: draft; skipped.`);
+                return;
+              }
+              if (pr.head.repo?.full_name !== `${owner}/${repo}`) {
+                core.info(`#${number}: fork/unavailable head repository; manual merge only.`);
+                return;
+              }
+              if (pr.mergeable !== true) {
+                core.info(`#${number}: mergeability is not confirmed clean (mergeable=${pr.mergeable}); waiting.`);
+                return;
+              }
+
+              const headSha = pr.head.sha;
+              const baseSha = pr.base.sha;
+              const liveMain = await mainInfo();
+              const liveMainSha = liveMain.sha;
+              if (baseSha !== liveMainSha) {
+                core.info(`#${number}: base is stale; PR base=${baseSha}, main=${liveMainSha}.`);
+                return;
+              }
+
+              const files = await changedFiles(number);
+              if (files.length === 0) {
+                core.info(`#${number}: changed-file list is empty; waiting.`);
+                return;
+              }
+              const documentationOnly = files.every(isDocumentationPath);
+              const required = [...coreChecks];
+              if (files.some(path => ledgerPaths.has(path))) {
+                required.push("joined-energy-ledger");
+              }
+
+              const failures = await checkGate(headSha, required, number, liveMainSha);
+              if (failures.length) {
+                core.info(`#${number}: blocked at head ${headSha}: ${failures.join("; ")}`);
+                return;
+              }
+
+              let reviews = await reviewsFor(number);
+              let reviewerState = freshReviewState(reviews, headSha);
+              const hasTrustedChangeRequest = await hasTrustedIndependentReview(
+                reviewerState, pr.user?.login, "CHANGES_REQUESTED"
+              );
+              if (hasTrustedChangeRequest) {
+                core.info(`#${number}: a trusted current-head reviewer requested changes.`);
+                return;
+              }
+
+              const hasIndependentApproval = await hasTrustedIndependentReview(
+                reviewerState, pr.user?.login, "APPROVED"
+              );
+              if (!documentationOnly && !hasIndependentApproval) {
+                core.info(`#${number}: non-documentation paths require approval on exact head ${headSha}.`);
+                return;
+              }
+
+              // Recheck head, base, main, review state, and statuses immediately before merge.
+              const [{ data: freshPr }, freshMain] = await Promise.all([
+                github.rest.pulls.get({ owner, repo, pull_number: number }),
+                mainInfo(),
+              ]);
+              if (
+                freshPr.state !== "open" ||
+                freshPr.draft ||
+                freshPr.head.sha !== headSha ||
+                freshPr.base.sha !== baseSha ||
+                freshPr.base.ref !== "main" ||
+                freshMain.sha !== baseSha ||
+                freshPr.mergeable !== true
+              ) {
+                core.info(`#${number}: PR/base/head changed during qualification; re-evaluation required.`);
+                return;
+              }
+
+              const finalFailures = await checkGate(headSha, required, number, baseSha);
+              if (finalFailures.length) {
+                core.info(`#${number}: final exact-head check failed: ${finalFailures.join("; ")}`);
+                return;
+              }
+
+              reviews = await reviewsFor(number);
+              reviewerState = freshReviewState(reviews, headSha);
+              const finalChangeRequest = await hasTrustedIndependentReview(
+                reviewerState, freshPr.user?.login, "CHANGES_REQUESTED"
+              );
+              if (finalChangeRequest) {
+                core.info(`#${number}: a trusted current-head changes-requested review arrived during qualification.`);
+                return;
+              }
+              const finalApproval = await hasTrustedIndependentReview(
+                reviewerState, freshPr.user?.login, "APPROVED"
+              );
+              if (!documentationOnly && !finalApproval) {
+                core.info(`#${number}: current-head approval is no longer present for non-documentation changes.`);
+                return;
+              }
+
+              const result = await github.rest.pulls.merge({
+                owner,
+                repo,
+                pull_number: number,
+                merge_method: "squash",
+                sha: headSha,
+              });
+              if (result.data.merged) {
+                core.notice(`Merged #${number} at qualified head ${headSha}; merge commit ${result.data.sha}.`);
+              } else {
+                core.warning(`#${number}: merge API did not merge: ${result.data.message || "no message"}`);
+              }
+            }
+
+            let numbers = [];
+            if (context.eventName === "pull_request_target") {
+              numbers = [context.payload.pull_request.number];
+            } else if (context.eventName === "workflow_run") {
+              numbers = (context.payload.workflow_run.pull_requests || [])
+                .map(p => p.number)
+                .filter(Number.isInteger);
+              if (numbers.length === 0) {
+                const { data: openPrs } = await github.rest.pulls.list({
+                  owner, repo, state: "open", base: "main", per_page: 100,
+                });
+                numbers = openPrs
+                  .filter(p => p.head.sha === context.payload.workflow_run.head_sha)
+                  .map(p => p.number);
+              }
+            } else {
+              const { data: openPrs } = await github.rest.pulls.list({
+                owner, repo, state: "open", base: "main", per_page: 100,
+              });
+              numbers = openPrs.map(p => p.number);
+            }
+
+            for (const number of [...new Set(numbers)]) {
+              try {
+                await evaluateAndMerge(number);
+              } catch (error) {
+                core.warning(`#${number}: qualification failed closed: ${error.message}`);
+              }
+            }
