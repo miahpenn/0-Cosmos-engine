@@ -8,6 +8,7 @@ from analyze_centre_ricci_derivative_channels import (
     cell_derivative_fourth,
     cell_second_derivative_fourth,
     pinned_vendor_tf_ricci,
+    metric_lambda_term_responses,
     provenance_metadata,
 )
 
@@ -53,3 +54,40 @@ def test_vendor_operator_provenance_labels_git_blob_sha1_unambiguously():
     assert len(digest) == 40
     assert all(character in "0123456789abcdef" for character in digest)
     assert "vendor_operator_blob_sha256" not in provenance
+
+
+
+def test_metric_lambda_three_term_chain_channels_recombine_to_unsplit_response():
+    n, rmax = 40, 80.0
+    dr = rmax / n
+    r = (np.arange(n, dtype=float) + 0.5) * dr
+    q = 1.0 + 3e-5 * r**2 + 2e-8 * r**4
+    a = q ** (-4.0 / 3.0)
+    b = q ** (2.0 / 3.0)
+    X = q ** (1.0 / 3.0)
+
+    term_responses, closure = metric_lambda_term_responses(a, b, X, r, dr)
+    assert set(term_responses) == {
+        "D1(a)/(2*a^2)",
+        "-D1(b)/(a*b)",
+        "2/r*(1/b-1/a)",
+    }
+
+    d1a = cell_derivative_fourth(a, dr, +1)
+    d1b = cell_derivative_fourth(b, dr, +1)
+    d2a = cell_second_derivative_fourth(a, dr, +1)
+    d2b = cell_second_derivative_fourth(b, dr, +1)
+    metric_lambda = d1a / (2 * a * a) - d1b / (a * b) + 2 / r * (1 / b - 1 / a)
+    chain = (
+        d2a / (2 * a * a) - d1a * d1a / (a * a * a)
+        - d2b / (a * b)
+        + d1b * (d1a * b + a * d1b) / (a * a * b * b)
+        - 2 * (1 / b - 1 / a) / (r * r)
+        + 2 * (-d1b / (b * b) + d1a / (a * a)) / r
+    )
+    expected = (2.0 / 3.0) * X * X * (
+        cell_derivative_fourth(metric_lambda, dr, -1) - chain
+    )
+    recombined = sum(term_responses.values())
+    assert closure < 2e-12
+    np.testing.assert_allclose(recombined, expected, rtol=0.0, atol=2e-12)
