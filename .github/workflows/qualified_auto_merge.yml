@@ -31,7 +31,7 @@ jobs:
     steps:
       # SECURITY: pull_request_target has write permissions. Never check out or run PR code here.
       - name: Evaluate exact-head merge qualifications
-        uses: actions/github-script@v7
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
         with:
           script: |
             const { owner, repo } = context.repo;
@@ -84,8 +84,40 @@ jobs:
               reviews
                 .filter(r => r.commit_id === headSha && r.submitted_at && r.user?.login)
                 .sort((a, b) => Date.parse(a.submitted_at) - Date.parse(b.submitted_at))
-                .forEach(r => latestByReviewer.set(r.user.login, r.state));
+                .forEach(r => latestByReviewer.set(r.user.login, {
+                  state: r.state,
+                  userType: r.user.type || "unknown",
+                }));
               return latestByReviewer;
+            }
+
+            async function hasTrustedIndependentApproval(reviewerState, authorLogin) {
+              // A different username is not sufficient on a public repository.
+              // Require a human account and verify collaborator write authority.
+              for (const [login, review] of reviewerState) {
+                if (
+                  login === authorLogin ||
+                  review.state !== "APPROVED" ||
+                  review.userType !== "User"
+                ) {
+                  continue;
+                }
+                try {
+                  const { data } = await github.rest.repos.getCollaboratorPermissionLevel({
+                    owner,
+                    repo,
+                    username: login,
+                  });
+                  if (["admin", "maintain", "write"].includes(data.permission)) {
+                    return true;
+                  }
+                  core.info(`Ignoring approval from ${login}: repository permission is ${data.permission || "unknown"}.`);
+                } catch (error) {
+                  // Fail closed when GitHub cannot verify collaborator permissions.
+                  core.info(`Ignoring approval from ${login}: collaborator permission could not be verified.`);
+                }
+              }
+              return false;
             }
 
             const workflowForCheck = {
@@ -223,14 +255,14 @@ jobs:
               let reviews = await reviewsFor(number);
               let reviewerState = freshReviewState(reviews, headSha);
               const changesRequested = [...reviewerState.entries()]
-                .filter(([, state]) => state === "CHANGES_REQUESTED");
+                .filter(([, review]) => review.state === "CHANGES_REQUESTED");
               if (changesRequested.length) {
                 core.info(`#${number}: current-head changes requested by ${changesRequested.map(([login]) => login).join(", ")}.`);
                 return;
               }
 
-              const hasIndependentApproval = [...reviewerState.entries()].some(
-                ([login, state]) => login !== pr.user?.login && state === "APPROVED"
+              const hasIndependentApproval = await hasTrustedIndependentApproval(
+                reviewerState, pr.user?.login
               );
               if (!documentationOnly && !hasIndependentApproval) {
                 core.info(`#${number}: non-documentation paths require approval on exact head ${headSha}.`);
@@ -263,12 +295,12 @@ jobs:
 
               reviews = await reviewsFor(number);
               reviewerState = freshReviewState(reviews, headSha);
-              if ([...reviewerState.values()].includes("CHANGES_REQUESTED")) {
+              if ([...reviewerState.values()].some(review => review.state === "CHANGES_REQUESTED")) {
                 core.info(`#${number}: a current-head changes-requested review arrived during qualification.`);
                 return;
               }
-              const finalApproval = [...reviewerState.entries()].some(
-                ([login, state]) => login !== freshPr.user?.login && state === "APPROVED"
+              const finalApproval = await hasTrustedIndependentApproval(
+                reviewerState, freshPr.user?.login
               );
               if (!documentationOnly && !finalApproval) {
                 core.info(`#${number}: current-head approval is no longer present for non-documentation changes.`);
