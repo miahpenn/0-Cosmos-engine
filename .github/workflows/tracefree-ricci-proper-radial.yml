@@ -47,8 +47,8 @@ jobs:
           set -euo pipefail
           git fetch --no-tags origin "$BASE_SHA"
           changed="$(git diff --name-only "$BASE_SHA...HEAD")"
-          printf 'Changed paths relative to PR base:\\n%s\\n' "$changed"
-          if printf '%s\\n' "$changed" | grep -Eq '^(tools/audit_tracefree_ricci_proper_radial\\.py|diagnostics/tracefree-ricci-proper-radial-refresh-2026-10-15\\.md|engine/|vendor/|\\.gitmodules$|requirements\\.txt$)'; then
+          printf 'Changed paths relative to PR base:\n%s\n' "$changed"
+          if printf '%s\n' "$changed" | grep -Eq '^(tools/audit_tracefree_ricci_proper_radial\.py|diagnostics/tracefree-ricci-proper-radial-refresh-2026-10-15\.md|engine/|vendor/|\.gitmodules$|requirements\.txt$)'; then
             echo "run_diagnostic=true" >> "$GITHUB_OUTPUT"
             echo "Diagnostic-affecting paths changed; source-pinned run is required."
           else
