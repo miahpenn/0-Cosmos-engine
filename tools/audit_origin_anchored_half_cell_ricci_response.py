@@ -400,7 +400,8 @@ def run_audit(output_dir: Path = OUT) -> dict[str, Any]:
         r = _arr(grid.centers)
         baseline_gap = _baseline_gap(grid, state, vacuum)
         source_r, source_for_B = _make_source_function(grid, state)
-        source_baseline = source_for_B(_arr(state.geometry.X) ** 6)
+        B_production = _arr(state.geometry.X) ** 6
+        source_baseline = source_for_B(B_production)
         mode_specs = (
             ("fixed_unanchored", FIT_RADIUS, False, "constrained"),
             ("fixed_origin_anchored", FIT_RADIUS, True, "constrained"),
@@ -472,6 +473,39 @@ def run_audit(output_dir: Path = OUT) -> dict[str, Any]:
                     constrained_same["half_cell_moment_estimate"] - intercept_same["half_cell_moment_estimate"]
                 ),
             }
+        # Frozen-source counterfactuals use one identical production source array
+        # so the Ricci response isolates the direct moment/metric change before
+        # any copied source/metric feedback can alter the profile.
+        frozen_source_ricci_contrasts = {}
+        annulus = (r >= 5.0) & (r <= 10.0)
+        for tag, fit_radius, anchor, strategy in mode_specs:
+            fit_same_source = fit_origin_moment(
+                r, source_baseline, float(grid.dr), fit_radius=fit_radius,
+                degree=3, anchor_origin=anchor, anchor_strategy=strategy,
+            )
+            delta_i = float(fit_same_source["moment_correction_vs_point_sample"])
+            B_frozen = B_production + delta_i / r
+            frozen_tag = "frozen_source_" + tag
+            frozen_arrays, frozen_invariants, frozen_gap = _metric_and_ricci(
+                grid, state, vacuum, B_frozen, source_baseline, frozen_tag
+            )
+            if not frozen_invariants["all_profiles_finite"]:
+                problems.append(f"N={resolution}/{frozen_tag}: non-finite frozen-source metric")
+            profiles.update({f"N{resolution}_{name}": _arr(value) for name, value in frozen_arrays.items()})
+            frozen_source_ricci_contrasts[tag] = {
+                "source_samples": "identical production-baseline source for all four estimator arms",
+                "fit": fit_same_source,
+                "delta_integral_applied": delta_i,
+                "first_cell_B_production": float(B_production[0]),
+                "first_cell_B_frozen_source": float(B_frozen[0]),
+                "first_two_signed_ricci_gaps": [float(v) for v in frozen_gap[:2]],
+                "first_two_signed_gap_change_vs_production": [
+                    float(frozen_gap[i] - baseline_gap[i]) for i in range(2)
+                ],
+                "first_six_max_abs_ricci_gap": float(_max_abs(frozen_gap[:6])),
+                "fixed_annulus_r5_to10_max_abs_ricci_gap": float(_max_abs(frozen_gap[annulus])),
+                "geometry_invariants": frozen_invariants,
+            }
         reports.append({
             "resolution": resolution,
             "r_max": R_MAX,
@@ -486,6 +520,7 @@ def run_audit(output_dir: Path = OUT) -> dict[str, Any]:
             },
             "counterfactual_modes": per_mode,
             "same_source_estimator_contrasts": same_source_contrasts,
+            "frozen_source_ricci_contrasts": frozen_source_ricci_contrasts,
             "anchoring_effect_same_fixed_window": {
                 "free_fit_fixed_point_moment_correction": delta_free,
                 "anchored_fit_fixed_point_moment_correction": delta_anchor,
