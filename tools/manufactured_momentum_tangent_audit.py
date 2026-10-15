@@ -25,7 +25,7 @@ import sys
 import numpy as np
 
 # Production API imports resolve against the separately checked-out exact source pin.
-SOURCE_COMMIT = "d948c7ee692b72abf4cab759b76475e636838a1a"
+SOURCE_COMMIT = "34ad06539c867b2a7ed40c2e1534a3a9d157b82f"
 VENDOR_COMMIT = "d6052d605673ce9d82cdc99b0df79855fa2ea215"
 EPSILONS = (2.0e-5, 1.0e-5)
 RESOLUTION = 120
