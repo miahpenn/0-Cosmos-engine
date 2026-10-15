@@ -232,3 +232,52 @@ def test_combined_origin_and_lambda_counterfactual_adds_only_chain_rule_shift():
     assert summary["production_or_vendor_code_changed"] is False
     assert summary["evolution_steps"] == 0
     assert summary["counterfactual_profiles_finite"] is True
+
+
+def test_manufactured_lambda_parity_arms_keep_metric_fixed():
+    """Exercise Lambda parity and off-constraint sensitivity without evolution."""
+    from tools.audit_current_main_centre_proper_radial_ricci import (
+        _manufactured_lambda_parity_discriminator,
+    )
+
+    grid_ops, vacuum, _ = vendor_modules()
+    grid = grid_ops.SphericalCellGrid(160, 8.0)
+    arrays, summary = _manufactured_lambda_parity_discriminator(grid, vacuum)
+
+    assert summary["evolution_steps"] == 0
+    assert summary["production_or_vendor_code_changed"] is False
+    assert summary["profiles_finite"] is True
+    assert len(summary["profiles"]) == 2
+
+    arms = ("continuum", "discrete", "off_constraint_odd", "negative_control_even")
+    for profile in summary["profiles"]:
+        assert profile["determinant_one_max_abs"] < 1.0e-12
+        assert profile["proper_factor_minus_one_max_abs"] < 1.0e-12
+        assert profile["areal_radius_minus_r_max_abs"] < 1.0e-12
+        by_name = {arm["arm"]: arm for arm in profile["arms"]}
+        assert tuple(name for name in arms if name in by_name) == arms
+        for arm in arms:
+            assert by_name[arm]["profiles_finite"] is True
+            assert np.all(np.isfinite(by_name[arm]["lambda_first_two"]))
+            assert np.all(np.isfinite(by_name[arm]["signed_gap_first_two"]))
+        # All arms use identical metric samples, so the independent direct
+        # Ricci witness must be unchanged; only the vendor Lambda input varies.
+        reference_direct = np.asarray(by_name["continuum"]["direct_tf_ricci_first_two"])
+        for arm in arms[1:]:
+            np.testing.assert_array_equal(
+                np.asarray(by_name[arm]["direct_tf_ricci_first_two"]),
+                reference_direct,
+            )
+
+        tag = profile["tag"]
+        discrete_tf = arrays[f"{tag}_discrete_vendor_tf_ricci"]
+        odd_tf = arrays[f"{tag}_off_constraint_odd_vendor_tf_ricci"]
+        assert np.max(np.abs(odd_tf[:2] - discrete_tf[:2])) > 1.0e-7
+
+        # Smooth-even metrics require an odd Lambda=O(r): Lambda/r stays
+        # bounded near the origin. The constant offset is a separate, deliberate
+        # parity-breaking control and should stand out in this witness.
+        discrete_q = arrays[f"{tag}_discrete_Lambda_over_r"][:2]
+        bad_q = arrays[f"{tag}_negative_control_even_Lambda_over_r"][:2]
+        assert np.all(np.isfinite(discrete_q))
+        assert np.max(np.abs(bad_q)) > 5.0 * max(np.max(np.abs(discrete_q)), 1.0e-12)
