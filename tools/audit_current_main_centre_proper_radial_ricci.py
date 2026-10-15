@@ -601,7 +601,7 @@ def _origin_half_cell_self_consistent_counterfactual(
             mask = r <= fit_r_max
             x = r[mask]**2
             nfit = int(np.count_nonzero(mask))
-            for degree in (1, 2, 3):
+            for degree in (1, 2, 3, 4, 5):
                 if nfit < degree + 1:
                     continue
                 design = np.column_stack([x**power for power in range(degree + 1)])
@@ -612,11 +612,20 @@ def _origin_half_cell_self_consistent_counterfactual(
                     for power, value in enumerate(coeff)
                 ))
                 delta_i = float(integral - r0*source[0])
+                loo = []
+                if nfit >= degree + 2:
+                    for omitted in range(nfit):
+                        keep = np.arange(nfit) != omitted
+                        loo_coeff, *_ = np.linalg.lstsq(design[keep], source[mask][keep], rcond=None)
+                        loo.append(float(source[mask][omitted] - design[omitted]@loo_coeff))
                 rows.append({
                     "fit_r_max": float(fit_r_max), "degree_in_r_squared": int(degree),
-                    "fit_cells": nfit, "delta_integral": delta_i,
+                    "fit_cells": nfit, "overdetermined": bool(nfit >= degree + 2),
+                    "delta_integral": delta_i,
                     "fit_max_abs_residual": _max_abs(residual),
                     "fit_rms_residual": float(np.sqrt(np.mean(residual*residual))),
+                    "leave_one_cell_out_rms_residual": float(np.sqrt(np.mean(np.square(loo)))) if loo else None,
+                    "leave_one_cell_out_max_abs_residual": float(np.max(np.abs(loo))) if loo else None,
                 })
         reference = next(
             row["delta_integral"] for row in rows
@@ -631,6 +640,16 @@ def _origin_half_cell_self_consistent_counterfactual(
             if row["degree_in_r_squared"] == 3 and 1.5 <= row["fit_r_max"] <= 3.0
         ]
         all_degree3 = [row for row in rows if row["degree_in_r_squared"] == 3]
+        overdetermined_higher = [
+            row for row in rows
+            if row["degree_in_r_squared"] in (3, 4, 5)
+            and row["overdetermined"] and row["fit_r_max"] <= 3.0
+        ]
+        higher_spread = (
+            100.0 * (max(row["delta_integral"] for row in overdetermined_higher)
+                     - min(row["delta_integral"] for row in overdetermined_higher))
+            / abs(reference)
+        ) if overdetermined_higher else None
         return {
             "reference_fit": {"degree_in_r_squared": 3, "fit_r_max": 2.5,
                               "delta_integral": float(reference)},
@@ -643,6 +662,8 @@ def _origin_half_cell_self_consistent_counterfactual(
                 abs(row["relative_delta_integral_percent_vs_degree3_r2_5"])
                 for row in all_degree3
             )),
+            "degree3_to5_overdetermined_delta_spread_percent_windows_to_r3": higher_spread,
+            "loo_qualified_fit_count": int(sum(row["leave_one_cell_out_rms_residual"] is not None for row in rows)),
         }
 
     fit_scan = fit_sensitivity_scan(src_fixed)
