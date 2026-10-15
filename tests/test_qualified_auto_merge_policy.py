@@ -299,7 +299,7 @@ def test_check_gate_behavior_requires_exact_check_suite_and_pr_base_association(
     assert node is not None, "Node.js is required to exercise the actual inline JavaScript gate helper"
 
     workflow = WORKFLOW_PATH.read_text(encoding="utf-8")
-    start = workflow.index("function latestCheckRunForName(checkRuns, name) {")
+    start = workflow.index("const workflowForCheck = {")
     end = workflow.index("async function mainInfo()", start)
     gate_source = workflow[start:end]
 
