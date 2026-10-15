@@ -11,11 +11,9 @@ on:
       - tools/audit_lambda_offmode_amplitude_stress.py
       - tools/audit_lambda_center_tangent_resolution.py
       - tools/audit_lambda_center_multistep_budget.py
-      - tools/audit_lambda_center_multistep_budget.py
       - tests/test_coupled_lambda_constraint_propagation.py
       - tests/test_lambda_offmode_signed_parity.py
-      - tests/test_lambda_center_tangent_resolution.py tests/test_lambda_center_multistep_budget.py
-      - tests/test_lambda_center_multistep_budget.py
+      - tests/test_lambda_center_tangent_resolution.py
       - tests/test_lambda_center_multistep_budget.py
       - tests/test_manufactured_lambda_symbol_response.py
       - tools/audit_current_main_centre_proper_radial_ricci.py
@@ -30,8 +28,12 @@ on:
       - tools/audit_manufactured_lambda_symbol_response.py
       - tools/audit_coupled_lambda_constraint_propagation.py
       - tools/audit_lambda_offmode_amplitude_stress.py
+      - tools/audit_lambda_center_tangent_resolution.py
+      - tools/audit_lambda_center_multistep_budget.py
       - tests/test_coupled_lambda_constraint_propagation.py
       - tests/test_lambda_offmode_signed_parity.py
+      - tests/test_lambda_center_tangent_resolution.py
+      - tests/test_lambda_center_multistep_budget.py
       - tests/test_manufactured_lambda_symbol_response.py
       - tools/audit_current_main_centre_proper_radial_ricci.py
       - tools/audit_continuous_origin_half_cell_oracle.py

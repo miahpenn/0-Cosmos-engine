@@ -203,6 +203,29 @@ def _evolve_pair(
     return report, {"r": radius, **field_values}
 
 
+def _expected_summary_row_count() -> int:
+    return (
+        len(RESOLUTIONS)
+        * len(RUN_CONFIGS)
+        * len(WAVELENGTHS)
+        * len(AMPLITUDE_MAGNITUDES)
+        * len(FIELD_KEYS)
+    )
+
+
+def _expected_profile_row_count() -> int:
+    # sum(RESOLUTIONS) already counts the cells on every grid; do not multiply
+    # by len(RESOLUTIONS) again.
+    return (
+        len(RUN_CONFIGS)
+        * len(WAVELENGTHS)
+        * len(AMPLITUDE_MAGNITUDES)
+        * len(FIELD_KEYS)
+        * 6
+        * sum(RESOLUTIONS)
+    )
+
+
 def main() -> int:
     provenance = _require_source_pins()
     _, vacuum, _ = vendor_modules()
@@ -422,8 +445,8 @@ def main() -> int:
                                 row[f"{component}_{region}_rms_relative_difference"] = _safe_relative_difference(a, b)
                         duration_comparisons.append(row)
 
-    expected_summary_rows = len(RESOLUTIONS) * len(RUN_CONFIGS) * len(WAVELENGTHS) * len(AMPLITUDE_MAGNITUDES) * len(FIELD_KEYS)
-    expected_profile_rows = len(RESOLUTIONS) * len(RUN_CONFIGS) * len(WAVELENGTHS) * len(AMPLITUDE_MAGNITUDES) * len(FIELD_KEYS) * 6 * sum(RESOLUTIONS)
+    expected_summary_rows = _expected_summary_row_count()
+    expected_profile_rows = _expected_profile_row_count()
     if len(summary_rows) != expected_summary_rows:
         raise RuntimeError(f"summary row count mismatch: {len(summary_rows)} != {expected_summary_rows}")
     if len(profile_rows) != expected_profile_rows:
