@@ -454,8 +454,24 @@ def deliver_event(
     )
     live_main_sha = fetch_live_main_sha(repository, github_token)
     live_pr = fetch_live_pull_request(repository, pr_number, github_token)
-    live_head = live_pr.get("head", {}).get("sha") if isinstance(live_pr.get("head"), dict) else None
-    live_base = live_pr.get("base", {}).get("sha") if isinstance(live_pr.get("base"), dict) else None
+    live_head_raw = live_pr.get("head", {}).get("sha") if isinstance(live_pr.get("head"), dict) else None
+    live_base_raw = live_pr.get("base", {}).get("sha") if isinstance(live_pr.get("base"), dict) else None
+    # Passing None to the contract helper means "no comparison requested", so
+    # explicitly reject missing live refs before invoking it.
+    if not isinstance(live_head_raw, str) or not SHA_RE.fullmatch(live_head_raw):
+        return {
+            "status": UNKNOWN,
+            "reason": "live PR head SHA is unavailable or malformed; refusing notification",
+            "event_id": envelope["event_id"],
+        }
+    if not isinstance(live_base_raw, str) or not SHA_RE.fullmatch(live_base_raw):
+        return {
+            "status": UNKNOWN,
+            "reason": "live PR base SHA is unavailable or malformed; refusing notification",
+            "event_id": envelope["event_id"],
+        }
+    live_head = live_head_raw.lower()
+    live_base = live_base_raw.lower()
 
     validation = validate_event(
         envelope,
