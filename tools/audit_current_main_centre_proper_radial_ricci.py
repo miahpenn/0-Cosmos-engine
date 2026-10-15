@@ -8,8 +8,10 @@ or imposing a scientific-admission threshold.
 """
 from __future__ import annotations
 
+import copy
 import csv
 import hashlib
+import math
 import json
 from pathlib import Path
 import subprocess
@@ -175,6 +177,183 @@ def even_taylor_fit(r, values, count=CENTRE_CELLS):
         "signed_residuals": [float(x) for x in residual],
         "fitted_values": [float(x) for x in fitted],
     }
+
+
+
+def _even_half_cell_integral(coefficients: np.ndarray, r0: float) -> float:
+    """Integrate s(r)=c0+c2*r²+c4*r⁴ analytically from 0 to r0."""
+    c0, c2, c4 = (float(x) for x in np.asarray(coefficients, dtype=float))
+    return c0 * r0 + c2 * r0**3 / 3.0 + c4 * r0**5 / 5.0
+
+
+def _origin_half_cell_frozen_source(grid, state, vacuum) -> tuple[dict[str, np.ndarray], dict]:
+    """Reconstruct the pinned initializer source and apply only an origin-cell moment correction.
+
+    This is a *frozen-source counterfactual*: its source is taken from the final
+    iteration of the production initializer recurrence, and the correction to
+    the half-cell integral is propagated as delta_I/r to each cell. It does not
+    iterate the source after changing B, evolve the machine, or edit production
+    code. All inter-centre trapezoid intervals are preserved.
+    """
+    from engine.scalar_system import cosmos_potential
+    from engine.v55_matter import RHO_B_PRESENT, RHO_DM_PRESENT, RHO_R_PRESENT
+
+    r = _arr(grid.centers)
+    dr = float(grid.dr)
+    geom = state.geometry
+    fields = state.scalars
+    S, PS, D, PD = (_arr(fields.S), _arr(fields.PS), _arr(fields.D), _arr(fields.PD))
+    phi, Pi = _arr(fields.phi), _arr(fields.Pi)
+    d1 = lambda v, parity=1: grid.cell_derivative_fourth(v, parity=parity)
+    Sp, Dp = d1(S, 1), d1(D, 1)
+    j = -(PD * Dp)
+
+    # From the initializer definitions K=Kr+2Kt and Aa=Kr-K/3, so
+    # Kt = K/3 - Aa/2. This recovers the initialized Kt without assuming
+    # the nominal background value.
+    Kt = _arr(geom.K) / 3.0 - 0.5 * _arr(geom.Aa)
+    Ktp = d1(Kt, 1)
+    rho_matter = (
+        float(RHO_DM_PRESENT) + float(RHO_B_PRESENT) + float(RHO_R_PRESENT)
+    ) / (8.0 * math.pi)
+    rho_phi = (0.5 * Pi * Pi + cosmos_potential(phi)) / (8.0 * math.pi)
+    B_iter = np.ones_like(r)
+    source_last = np.zeros_like(r)
+    for _ in range(6):
+        rhoS = 0.5 * (PS * PS + B_iter * Sp * Sp) + 0.5 * S * S
+        rhoD = 0.5 * (PD * PD + B_iter * Dp * Dp) - 0.5 * D * D
+        rho = rhoS + rhoD + rho_phi + rho_matter
+        Kr = Kt + r * Ktp + 4.0 * math.pi * r * j
+        source_last = (
+            1.0 - 8.0 * math.pi * r * r * rho
+            + 2.0 * r * r * Kr * Kt
+            + r * r * Kt * Kt
+        )
+        # Reproduce the production recurrence: 0.5*dr*src[0] == r0*src[0].
+        integ = np.cumsum(
+            np.r_[0.5 * dr * source_last[0],
+                  0.5 * dr * (source_last[1:] + source_last[:-1])]
+        )
+        B_iter = integ / r
+
+    B_from_geometry = _arr(geom.X) ** 6
+    reconstruction_error = _max_abs(B_iter - B_from_geometry)
+    r0 = float(r[0])
+
+    def fit_even_source(ncells: int) -> dict:
+        ncells = min(int(ncells), len(r))
+        x = r[:ncells] ** 2
+        design = np.column_stack((np.ones(ncells), x, x * x))
+        coeff, *_ = np.linalg.lstsq(design, source_last[:ncells], rcond=None)
+        residual = source_last[:ncells] - design @ coeff
+        integral = _even_half_cell_integral(coeff, r0)
+        delta = float(integral - r0 * source_last[0])
+        return {
+            "fit_cells": ncells,
+            "coefficients_s0_s2_s4": [float(x) for x in coeff],
+            "fit_max_abs_residual": _max_abs(residual),
+            "fit_rms_residual": float(np.sqrt(np.mean(residual * residual))),
+            "even_series_half_cell_integral": float(integral),
+            "production_half_cell_integral": float(r0 * source_last[0]),
+            "delta_integral": delta,
+        }
+
+    fit6 = fit_even_source(6)
+    fit8 = fit_even_source(8)
+    delta_integral = float(fit8["delta_integral"])
+    B_cf = B_from_geometry + delta_integral / r
+    if np.any(~np.isfinite(B_cf)) or np.any(B_cf <= 0.0):
+        raise FloatingPointError("origin half-cell frozen-source counterfactual produced invalid B")
+    A_cf = 1.0 / np.sqrt(B_cf)
+    a_cf = A_cf ** (4.0 / 3.0)
+    b_cf = A_cf ** (-2.0 / 3.0)
+    X_cf = A_cf ** (-1.0 / 3.0)
+    Lambda_cf = (
+        d1(a_cf, 1) / (2.0 * a_cf * a_cf)
+        - d1(b_cf, 1) / (a_cf * b_cf)
+        + 2.0 / r * (1.0 / b_cf - 1.0 / a_cf)
+    )
+
+    # Recompute curvature on a deep copy. The production state and its matter,
+    # K/Aa, and every inter-centre integral interval stay untouched.
+    geom_cf = copy.deepcopy(geom)
+    geom_cf.a = a_cf.copy()
+    geom_cf.b = b_cf.copy()
+    geom_cf.X = X_cf.copy()
+    geom_cf.Lambda = Lambda_cf.copy()
+    geom_cf.B = 0.75 * Lambda_cf
+    vendor_terms_cf = vacuum.geometry_terms(grid, geom_cf)
+    vendor_tf_cf = _arr(vendor_terms_cf["Rr_r"] - vendor_terms_cf["R"] / 3.0)
+    areal_cf = r * np.sqrt(b_cf) / X_cf
+    proper_factor_cf = np.sqrt(a_cf) / X_cf
+    direct_cf = proper_radial_ricci(grid, areal_cf, proper_factor_cf)
+    direct_tf_cf = _arr(direct_cf["tf_ricci"])
+    gap_cf = vendor_tf_cf - direct_tf_cf
+    annulus = (r >= 5.0) & (r <= 10.0)
+
+    first_two = []
+    for i in range(min(2, len(r))):
+        first_two.append({
+            "i": i,
+            "r": float(r[i]),
+            "B_production": float(B_from_geometry[i]),
+            "B_frozen_source_counterfactual": float(B_cf[i]),
+            "X_production": float(geom.X[i]),
+            "X_counterfactual": float(X_cf[i]),
+            "vendor_tf_ricci_counterfactual": float(vendor_tf_cf[i]),
+            "direct_tf_ricci_counterfactual": float(direct_tf_cf[i]),
+            "signed_gap_counterfactual": float(gap_cf[i]),
+            "gap_over_r2_counterfactual": float(gap_cf[i] / (r[i] * r[i])),
+        })
+    arrays = {
+        "initializer_source_final_iteration": source_last,
+        "initializer_B_reconstructed": B_iter,
+        "initializer_B_from_X6": B_from_geometry,
+        "origin_cf_B": B_cf,
+        "origin_cf_a": a_cf,
+        "origin_cf_b": b_cf,
+        "origin_cf_X": X_cf,
+        "origin_cf_Lambda": Lambda_cf,
+        "origin_cf_areal_radius": areal_cf,
+        "origin_cf_proper_factor": proper_factor_cf,
+        "origin_cf_vendor_tf_ricci": vendor_tf_cf,
+        "origin_cf_direct_tf_ricci": direct_tf_cf,
+        "origin_cf_tf_ricci_difference": gap_cf,
+        "origin_cf_vendor_tf_ricci_over_r2": vendor_tf_cf / (r * r),
+        "origin_cf_direct_tf_ricci_over_r2": direct_tf_cf / (r * r),
+        "origin_cf_tf_ricci_difference_over_r2": gap_cf / (r * r),
+    }
+    summary = {
+        "method": "frozen-source analytic even half-cell integral; final pinned initializer source; delta_I/r propagated to every cell; inter-centre trapezoids unchanged",
+        "evolution_steps": 0,
+        "source_reconstruction_B_vs_X6_max_abs": float(reconstruction_error),
+        "source_reconstruction_matches_geometry": bool(reconstruction_error <= 2.0e-12 * max(1.0, _max_abs(B_from_geometry))),
+        "source_final_iteration_first_two": [float(x) for x in source_last[:2]],
+        "even_fit_6_cells": fit6,
+        "even_fit_8_cells": fit8,
+        "fit_sensitivity_delta_integral_abs": float(abs(fit8["delta_integral"] - fit6["delta_integral"])),
+        "production_half_cell_integral": float(r0 * source_last[0]),
+        "corrected_half_cell_integral": float(fit8["even_series_half_cell_integral"]),
+        "delta_integral_applied": delta_integral,
+        "first_two_cells": first_two,
+        "fixed_annulus_r5_to10": {
+            "cells": int(np.count_nonzero(annulus)),
+            "counterfactual_gap_max_abs": _max_abs(gap_cf[annulus]) if np.any(annulus) else None,
+        },
+        "counterfactual_profiles_finite": all(_finite(v) for v in arrays.values()),
+        "interpretation_limits": [
+            "This is a frozen-source counterfactual, not a self-consistent re-solve of the six-step initializer fixed point.",
+            "Only the origin half-cell integral is changed; the same delta integral is propagated as delta_I/r, while all inter-centre trapezoid intervals are unchanged.",
+            "Metric, Lambda, and Ricci are recomputed on a copied geometry; no production-state field is mutated and no evolution step is taken.",
+            "A reduced Ricci gap would support the initialization quadrature hypothesis, not authorize promotion of the quadrature rule or prove evolved convergence."
+        ],
+    }
+    if not summary["source_reconstruction_matches_geometry"]:
+        raise RuntimeError(
+            "reconstructed initializer B does not match the actual X^6 profile: "
+            f"{reconstruction_error:.6g}"
+        )
+    return arrays, summary
 
 
 def _verify_source_pins() -> dict:
