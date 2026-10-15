@@ -65,10 +65,29 @@ def run(N=40,T=24,cfl=.06,Rcoord=10.):
     return out,meta
 
 def save_ledger_archive(out, N, output_dir):
-    """Write a research ledger archive beneath an explicit, caller-owned directory."""
+    """Save a ledger using its recorded final time in the artifact filename.
+
+    A filename is part of the evidence provenance: never label an arbitrary
+    time span as T24 just because that is the CLI's current default.
+    """
+    if "t" not in out:
+        raise ValueError("ledger output must include its sampled 't' history")
+    times = np.asarray(out["t"])
+    if (
+        times.ndim != 1
+        or times.size == 0
+        or times.dtype.kind not in "iuf"
+        or not np.all(np.isfinite(times))
+    ):
+        raise ValueError("ledger output 't' must be a non-empty finite numeric vector")
+    final_time = float(times[-1])
+    if final_time < 0.0:
+        raise ValueError("ledger final time must be nonnegative")
+    time_tag = f"{final_time:g}".replace("-", "m").replace(".", "p")
+
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
-    target = output_dir / f"GEAR_V5_5_BIDIRECTIONAL_PRODUCTION_LEDGER_N{N}_T24.npz"
+    target = output_dir / f"GEAR_V5_5_BIDIRECTIONAL_PRODUCTION_LEDGER_N{N}_T{time_tag}.npz"
     np.savez_compressed(target, **out)
     return target
 
