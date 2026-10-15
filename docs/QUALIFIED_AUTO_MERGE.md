@@ -16,6 +16,9 @@ A PR touching any of the following must also pass `joined-energy-ledger` on that
 - `tools/recompute_fixed_r_balance_artifact.py`
 - `tests/test_research_em_total_energy_budget_contract.py`
 - `tests/test_research_fixed_r_independent_recompute.py`
+- `tests/test_research_em_adjoint_face_work_v1.py`
+- `research/em_adjoint_face_work_v1.py`
+- `research/reconcile_em_face_work_artifact_v1.py`
 - `.github/workflows/em_total_energy_budget.yml`
 
 A check is not qualified merely because a check-run object is green. The workflow also requires a matching completed pull-request workflow run for the expected workflow, with an explicit association to this PR number, head SHA, base ref `main`, and the exact current base SHA. If GitHub omits that association, the result is ambiguous and the PR stays blocked. Timestamp comparisons are not a substitute for an exact PR/base association.
