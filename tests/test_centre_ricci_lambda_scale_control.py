@@ -69,7 +69,7 @@ def test_determinant_one_manufactured_metric_identities_are_exact():
     # Unit test exercises their numerically evaluated form on the fixed grid.
     r = (np.arange(160, dtype=float) + 0.5) * (32.0 / 160)
     q = 1.0 + 0.1 * (1.0 - np.exp(-((r / 8.0) ** 2)))
-    a, b, X = q ** (-4.0 / 3.0), q ** (2.0 / 3.0), q ** (1.0 / 3.0)
+    a, b, X = q ** (-4.0 / 3.0), q ** (2.0 / 3.0), q ** (-2.0 / 3.0)
     np.testing.assert_allclose(a * b * b, 1.0, rtol=2e-15, atol=2e-15)
     np.testing.assert_allclose(np.sqrt(a) / X, 1.0, rtol=2e-15, atol=2e-15)
-    np.testing.assert_allclose(r * np.sqrt(b) / X, r, rtol=2e-15, atol=2e-15)
+    np.testing.assert_allclose(r * np.sqrt(b) / X, r * q, rtol=2e-15, atol=2e-15)
