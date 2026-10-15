@@ -7,6 +7,7 @@ from engine.cosmos import CosmosParams
 from engine.local import LocalParams, local_rhs
 from research.gear_archive_machine_v1 import (
     ARCHIVE_OPEN_GATES,
+    LOCAL_ENERGY_CATEGORY_CONTRACT,
     archive_docx_local_rhs,
     run_machine,
     rk4_step,
@@ -142,3 +143,31 @@ def test_cosmos_parameters_can_be_injected_without_changing_lane_contract():
     result = run_machine(local_tau_final=0.0, cosmos_t_final=0.0, cosmos_params=params)
     assert result["cosmos"]["state"][0]["phi"] == pytest.approx(0.179055)
     assert result["lane_contract"]["local_time"] != result["lane_contract"]["cosmos_time"]
+
+
+def test_growing_D_mode_separates_signed_energy_from_activity_proxy():
+    """Pin the conditional signed-potential identity without inferring matter."""
+    params = LocalParams(kappa=0.0, g=1.0, alpha_D=1.0)
+    D = 0.3
+    result = run_machine(
+        local_tau_final=0.0,
+        cosmos_t_final=0.0,
+        local_params=params,
+        local_initial_state=(0.0, 0.0, D, params.alpha_D * D),
+    )
+
+    ledger = result["local"]["energy_and_activity_ledgers"][0]
+    # Conditional canonical scalar energy with the signed inverted potential:
+    # 1/2 * Dd**2 - 1/2 * alpha_D**2 * D**2 = 0 on Dd=alpha_D*D.
+    assert ledger["E_D_raw"] == pytest.approx(0.0, abs=1.0e-16)
+    assert ledger["generated_activity_proxy"] == pytest.approx(
+        params.alpha_D**2 * D**2, rel=0.0, abs=1.0e-15
+    )
+    assert ledger["generated_activity_proxy"] > abs(ledger["E_D_raw"])
+
+    contract = result["interpretation_contract"]
+    assert contract["D_energy_categories"] == LOCAL_ENERGY_CATEGORY_CONTRACT
+    assert contract["D_mode_to_localized_matter_applied"] is False
+    assert contract["local_source_to_global_cosmos_Q_applied"] is False
+    assert contract["stress_energy_normalization"].startswith("OPEN")
+    assert "not canonical" in contract["D_energy_categories"]["generated_activity_proxy"]
