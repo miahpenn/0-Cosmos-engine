@@ -594,6 +594,56 @@ def _origin_half_cell_self_consistent_counterfactual(
     B_fixed_map, fixed_meta = integrate_corrected(src_fixed)
     six_defect, fixed_defect = _max_abs(B_six_map-B_six), _max_abs(B_fixed_map-B)
 
+    def fit_sensitivity_scan(source: np.ndarray) -> dict:
+        """Show how source-moment delta-I depends on polynomial degree/window."""
+        rows = []
+        for fit_r_max in (1.5, 2.0, 2.5, 3.0, 3.5):
+            mask = r <= fit_r_max
+            x = r[mask]**2
+            nfit = int(np.count_nonzero(mask))
+            for degree in (1, 2, 3):
+                if nfit < degree + 1:
+                    continue
+                design = np.column_stack([x**power for power in range(degree + 1)])
+                coeff, *_ = np.linalg.lstsq(design, source[mask], rcond=None)
+                residual = source[mask] - design@coeff
+                integral = _even_half_cell_integral(coeff, r0)
+                delta_i = float(integral - r0*source[0])
+                rows.append({
+                    "fit_r_max": float(fit_r_max), "degree_in_r_squared": int(degree),
+                    "fit_cells": nfit, "delta_integral": delta_i,
+                    "fit_max_abs_residual": _max_abs(residual),
+                    "fit_rms_residual": float(np.sqrt(np.mean(residual*residual))),
+                })
+        reference = next(
+            row["delta_integral"] for row in rows
+            if row["degree_in_r_squared"] == 3 and row["fit_r_max"] == 2.5
+        )
+        for row in rows:
+            row["relative_delta_integral_percent_vs_degree3_r2_5"] = float(
+                100.0*(row["delta_integral"]/reference - 1.0)
+            )
+        stable_degree3 = [
+            row for row in rows
+            if row["degree_in_r_squared"] == 3 and 1.5 <= row["fit_r_max"] <= 3.0
+        ]
+        all_degree3 = [row for row in rows if row["degree_in_r_squared"] == 3]
+        return {
+            "reference_fit": {"degree_in_r_squared": 3, "fit_r_max": 2.5,
+                              "delta_integral": float(reference)},
+            "fits": rows,
+            "degree3_max_abs_delta_percent_over_windows_r1p5_to_r3": float(max(
+                abs(row["relative_delta_integral_percent_vs_degree3_r2_5"])
+                for row in stable_degree3
+            )),
+            "degree3_max_abs_delta_percent_over_windows_r1p5_to_r3p5": float(max(
+                abs(row["relative_delta_integral_percent_vs_degree3_r2_5"])
+                for row in all_degree3
+            )),
+        }
+
+    fit_scan = fit_sensitivity_scan(src_fixed)
+
     def make_metric(Bprofile: np.ndarray, tag: str, source_profile: np.ndarray):
         if np.any(~np.isfinite(Bprofile)) or np.any(Bprofile <= 0.0):
             raise FloatingPointError(f"{tag}: invalid B profile")
@@ -677,6 +727,7 @@ def _origin_half_cell_self_consistent_counterfactual(
             "fixed_point_fit_window_sensitivity_abs": float(fixed_meta["fit_window_integral_sensitivity_abs"]),
             "fixed_point_fit_r_le_2_5": fixed_meta["fit_r_le_2_5"],
             "fixed_point_fit_r_le_3_0": fixed_meta["fit_r_le_3_0"],
+            "fit_degree_window_sensitivity_scan": fit_scan,
         },
         "metric_invariants_six_step": six_invariants,
         "metric_invariants_fixed_point": fixed_invariants,
