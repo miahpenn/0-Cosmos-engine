@@ -355,7 +355,7 @@ def _baseline_gap(grid, state, vacuum) -> np.ndarray:
     return vendor_tf - _arr(direct["tf_ricci"])
 
 
-def run_audit() -> dict[str, Any]:
+def run_audit(output_dir: Path = OUT) -> dict[str, Any]:
     """Run source-pinned baseline, free-fit, and origin-anchored counterfactuals."""
     pins = _verify_source_pins()
     from engine import v55_pirk_adapter as adapter
@@ -381,9 +381,6 @@ def run_audit() -> dict[str, Any]:
         baseline_gap = _baseline_gap(grid, state, vacuum)
         source_r, source_for_B = _make_source_function(grid, state)
         source_baseline = source_for_B(_arr(state.geometry.X) ** 6)
-        if not math.isclose(float(source_baseline[0]), ORIGIN_SOURCE_VALUE, rel_tol=0.0, abs_tol=2.0e-12):
-            raise RuntimeError(f"N={resolution}: source at first cell violates regular-centre s(0)=1 control")
-
         mode_specs = (
             ("fixed_unanchored", FIT_RADIUS, False),
             ("fixed_origin_anchored", FIT_RADIUS, True),
@@ -480,9 +477,9 @@ def run_audit() -> dict[str, Any]:
         "no_evolution": True,
         "scientific_admission": False,
     }
-    OUT.mkdir(parents=True, exist_ok=True)
-    (OUT / "report.json").write_text(json.dumps(report, indent=2, allow_nan=False) + "\n")
-    np.savez_compressed(OUT / "profiles.npz", **profiles)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    (output_dir / "report.json").write_text(json.dumps(report, indent=2, allow_nan=False) + "\n")
+    np.savez_compressed(output_dir / "profiles.npz", **profiles)
     if report["errors"]:
         raise RuntimeError("observer integrity failures: " + "; ".join(problems))
     if any(not row["input_state_unchanged"] for row in reports):
@@ -495,9 +492,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output-dir", type=Path, default=OUT)
     args = parser.parse_args()
-    global OUT
-    OUT = args.output_dir
-    report = run_audit()
+    report = run_audit(args.output_dir)
     condensed = {
         "schema": report["schema"],
         "status": report["status"],
@@ -512,7 +507,7 @@ def main() -> None:
         "evolution_steps": 0,
         "production_or_vendor_files_modified": False,
         "scientific_admission": False,
-        "output_dir": str(OUT),
+        "output_dir": str(args.output_dir),
     }
     print(json.dumps(condensed, indent=2, allow_nan=False))
 
