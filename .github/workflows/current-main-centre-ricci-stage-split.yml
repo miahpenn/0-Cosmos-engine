@@ -1,0 +1,68 @@
+name: Diagnostic - current-main centre Ricci first PIRK stage split
+
+on:
+  push:
+    branches:
+      - diag/current-main-centre-ricci-stage-split-2026-10-15
+    paths:
+      - tools/audit_centre_ricci_first_stage_split.py
+      - tests/test_centre_ricci_stage_split.py
+      - .github/workflows/current-main-centre-ricci-stage-split.yml
+  pull_request:
+    paths:
+      - tools/audit_centre_ricci_first_stage_split.py
+      - tests/test_centre_ricci_stage_split.py
+      - .github/workflows/current-main-centre-ricci-stage-split.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: current-main-centre-ricci-stage-split-2026-10-15
+  cancel-in-progress: false
+
+jobs:
+  first-stage-split:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      PYTHONUNBUFFERED: "1"
+      STAGE_SPLIT_RESOLUTION: "40"
+      STAGE_SPLIT_R_MAX: "80.0"
+      STAGE_SPLIT_CFL: "0.03"
+      STAGE_SPLIT_OUT: "results/current-main-centre-ricci-stage-split-2026-10-15"
+    steps:
+      - name: Check out branch and pinned vendor
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.txt
+      - name: Install repository requirements
+        run: python -m pip install -r requirements.txt
+      - name: Fail closed on production-source and vendor drift
+        run: |
+          python - <<'PY'
+          import json
+          from tools.audit_current_main_centre_proper_radial_ricci import _verify_source_pins
+          print(json.dumps(_verify_source_pins(), indent=2))
+          PY
+      - name: Compile observer
+        run: python -m py_compile tools/audit_centre_ricci_first_stage_split.py
+      - name: Run split unit test
+        run: python -m pytest -q tests/test_centre_ricci_stage_split.py
+      - name: Run one-step source-pinned stage capture
+        run: python tools/audit_centre_ricci_first_stage_split.py
+      - name: Upload report, raw profiles and paired checkpoints
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: current-main-centre-ricci-stage-split-2026-10-15
+          path: results/current-main-centre-ricci-stage-split-2026-10-15/
+          if-no-files-found: warn
+          retention-days: 90
