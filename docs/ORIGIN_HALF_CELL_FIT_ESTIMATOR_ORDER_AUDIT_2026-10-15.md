@@ -142,23 +142,26 @@ Its production-source anchor is
 `285a2ee0c1a3b97cddeb4519d8e749109b115aab`; the initializer blob
 `7db2e1a10cf16fb40e4221b0df504fdf39aae611` is identical at that anchor and
 current main. Using the artifact's actual last-iteration source samples at
-N=160/240/320 and fitting degree 3 over \(r\le2.5\), the known \(s(0)=1\)
-gives:
+N=160/240/320 and fitting degree 3 over \(r\le2.5\) with the same
+scaled \(z=(r/2.5)^2\) basis used by the audit gives:
 
-| Resolution | Unconstrained fit \(c_0-1\) | Intercept term \((c_0-1)r_0\) | Fit-minus-point moment correction | Intercept term / correction |
-|---:|---:|---:|---:|---:|
-| N=160 | \(-3.233\times10^{-8}\) | \(-8.081\times10^{-9}\) | \(+1.30448\times10^{-5}\) | \(-0.062\%\) |
-| N=240 | \(-3.352\times10^{-8}\) | \(-5.587\times10^{-9}\) | \(+3.86825\times10^{-6}\) | \(-0.144\%\) |
-| N=320 | \(-7.352\times10^{-8}\) | \(-9.190\times10^{-9}\) | \(+1.62615\times10^{-6}\) | \(-0.565\%\) |
+| Resolution | Fit samples | Unconstrained fit \(c_0-1\) | Intercept term \((c_0-1)r_0\) | Fit-minus-point correction | Intercept term / correction |
+|---:|---:|---:|---:|---:|---:|
+| N=160 | 5 | \(-3.233\times10^{-8}\) | \(-8.081\times10^{-9}\) | \(+1.30448\times10^{-5}\) | \(-0.062\%\) |
+| N=240 | 8 | \(-1.065\times10^{-7}\) | \(-1.775\times10^{-8}\) | \(+3.85662\times10^{-6}\) | \(-0.460\%\) |
+| N=320 | 10 | \(-7.352\times10^{-8}\) | \(-9.190\times10^{-9}\) | \(+1.62615\times10^{-6}\) | \(-0.565\%\) |
 
 These are a decomposition of the **intercept component**, not an exact error in
-the unknown production half-cell integral. The current source-profile intercept
-bias is many orders smaller than the adversarial manufactured example and is
-below 0.6% of the fitted correction even at N=320. This weakens any claim that
-the generic fixed-window O(h) mechanism is the leading explanation of the
-present fit correction. It does not rule out other fit-coefficient or
-operator/geometry errors, and does not quantify the Ricci response to an
-intercept-only perturbation.
+the unknown production half-cell integral. The source-fit correction values
+and their first-cell geometry shifts are also recorded separately in
+[the production-profile sensitivity report](ORIGIN_HALF_CELL_PRODUCTION_PROFILE_SENSITIVITY_2026-10-15.md),
+which includes the four-fit family spread and clearly labels the correction
+as an estimate rather than a true quadrature error. Here the intercept term
+alone is below 0.6% of the fit-minus-point correction at all three resolutions.
+This weakens any claim that a persistent fitted-constant bias is the leading
+explanation of the production correction; it does not rule out other
+fit-coefficient or operator/geometry errors, and does not quantify the Ricci
+response to an intercept-only perturbation.
 
 ## Interpretation and next gate
 
