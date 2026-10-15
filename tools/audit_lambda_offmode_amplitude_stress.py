@@ -104,6 +104,13 @@ def main() -> int:
                 report["predicted_Aa_rate_rms_per_amplitude"] = (
                     report["predicted_Aa_rate_delta_rms_fixed_interior"] / abs(amplitude)
                 )
+                for constraint_name in ("hamiltonian", "momentum", "connection", "determinant"):
+                    summary = report["final_constraint_delta_off_minus_baseline"][constraint_name]
+                    report[f"final_delta_{constraint_name}_cell0_signed"] = summary["cell0_signed"]
+                    report[f"final_delta_{constraint_name}_cell1_signed"] = summary["cell1_signed"]
+                response_summary = report["initial_lambda_only_bssn_hamiltonian_response"]
+                report["initial_bssn_hamiltonian_closure_max_abs"] = response_summary["closure_max_abs"]
+                report["initial_metric_only_hamiltonian_delta_max_abs"] = response_summary["metric_only_hamiltonian_delta_max_abs"]
                 report["source_anchor"] = SOURCE_COMMIT
                 report["vendor_anchor"] = VENDOR_COMMIT
                 reports.append(report)
@@ -155,8 +162,12 @@ def main() -> int:
         "amplitude_normalized_response_ratio_to_1e-4",
         "delta_Aa_final_max_abs", "delta_K_final_max_abs",
         "lambda_mode_retention_ratio_final",
-        "fixed_interior_constraint_delta_absmax",
-        "initial_lambda_only_bssn_hamiltonian_response",
+        "final_delta_hamiltonian_cell0_signed", "final_delta_hamiltonian_cell1_signed",
+        "final_delta_momentum_cell0_signed", "final_delta_momentum_cell1_signed",
+        "final_delta_connection_cell0_signed", "final_delta_connection_cell1_signed",
+        "final_delta_determinant_cell0_signed", "final_delta_determinant_cell1_signed",
+        "initial_bssn_hamiltonian_closure_max_abs",
+        "initial_metric_only_hamiltonian_delta_max_abs",
         "finite",
     ]
     # DictWriter intentionally stores only scalar columns; the full signed
