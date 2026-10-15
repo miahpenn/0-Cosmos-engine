@@ -101,17 +101,17 @@ The signed lower/upper fit-error intervals are written to `fit_family.csv`. This
 
 ## Verified run and provenance
 
-The successful source-pinned audit run is [GitHub Actions run 38790339132](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38790339132); its [artifact 12000470732](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38790339132/artifacts/12000470732) contains the JSON report, moment CSV, fit-family CSV, and SHA-256 manifest.
+The successful source-pinned audit run is [GitHub Actions run 38791781635](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38791781635); its [artifact 11999174017](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38791781635/artifacts/11999174017) contains the JSON report, moment CSV, fit-family CSV, and SHA-256 manifest. All eight dedicated analytic-oracle/regression tests passed on that head.
 
 - Engine source anchor: 285a2ee0c1a3b97cddeb4519d8e749109b115aab.
 - Vendor commit: d6052d605673ce9d82cdc99b0df79855fa2ea215.
-- Audited code head: 7f4c32ac9718e985593d166fa2f1556708528adb.
-- Artifact ZIP SHA-256: 3c261e50c02d753d026ef17517d27fe69452e75ca37d1370186c351cf25efcaa.
-- Report JSON SHA-256: ce9bc124f6401fa7d75c7ffabf30bb9ac48fe2d8c4b0e91bf0a619adf4712ab6.
-- Moment CSV SHA-256: fea5243f4e28642c0fc935fd772e9155c4c7be21cd11f8e696c2aa4ea9c327f5.
-- Fit-family CSV SHA-256: 636d69f2f1756cb89e0463b45ed51907bee59df067c014cef2a0ab6a43c73841.
+- Audited research head: 6a1b6ad3491a81b25f6f966a1818796575faf86c (audit checkout head: 89d61facf205ce352fe7b892e3234c2f1f597725).
+- Artifact ZIP SHA-256: 7e8d8d35354eca93a3a7db394339b382ad054d32c4e0d14b32c2f53009c4f1eb.
+- Report JSON SHA-256: aee25e5e5b9567774c8994d549ffd8c0283c29d7ac1b4885e4b139575e74d4c2.
+- Moment CSV SHA-256: 9c6e07948c0e7c5e2d14c73a229d6b437dc862dfe5746ead5ad06dce0ade22a3.
+- Fit-family CSV SHA-256: d03d7c1e48a33cc4b7465f441e6187ac13a732c47d91f8872abfb8c2190328c6.
 
-The run verified all declared engine-source blobs and the vendor pin, required an empty engine/vendor/dependency diff, reproduced the initializer's six-pass B profile against \(X^6\), confirmed finite output and unchanged initialized-state digests, and took zero evolution steps.
+The run verified all declared engine-source blobs and the vendor pin, required an empty engine/vendor/dependency diff, reproduced the initializer's six-pass B profile against \(X^6\), checked the Richardson reference against the analytic integral enclosure and every eligible fit-error interval, confirmed finite output and unchanged initialized-state digests, and took zero evolution steps.
 
 ## Numerical results
 
