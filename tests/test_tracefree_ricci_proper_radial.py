@@ -4,7 +4,7 @@ import json
 import numpy as np
 import pytest
 
-from tools.audit_tracefree_ricci_proper_radial import _write_strict_json_report, _independent_metric_crosscheck
+from tools.audit_tracefree_ricci_proper_radial import _write_strict_json_report, _independent_metric_crosscheck, _d4
 
 
 def test_nonfinite_diagnostic_failure_still_writes_strict_json(tmp_path):
@@ -94,17 +94,40 @@ def test_manufactured_nonconstant_regular_profile_matches_nonzero_ricci_oracle()
     areal_exact = r * (1.0 + c3 * r * r)
     areal_prime_exact = 1.0 + 3.0 * c3 * r * r
     areal_second_exact = 6.0 * c3 * r
-    tf_ricci_exact = (2.0 / 3.0) * (
+    tf_ricci_from_derivatives = (2.0 / 3.0) * (
         (areal_prime_exact**2 - 1.0) / areal_exact**2
         - areal_second_exact / areal_exact
     )
+    # Algebraically simplify the same oracle to avoid cancellation near r=0:
+    # TF Ricci = 2*c3^2*r^2/(1+c3*r^2)^2, hence TF Ricci/r^2 -> 2*c3^2.
+    tf_ricci_exact = 2.0 * c3**2 * r**2 / (1.0 + c3 * r**2) ** 2
+    tf_ricci_over_r2_exact = 2.0 * c3**2 / (1.0 + c3 * r**2) ** 2
+    assert np.allclose(tf_ricci_from_derivatives, tf_ricci_exact, rtol=1.0e-11, atol=1.0e-13)
 
+    # Represent the same physical metric with the production BSSN
+    # determinant-one conformal parameterization:
+    # q=R/r, a=q^(-4/3), b=q^(2/3), X=q^(-2/3).
+    # This preserves sqrt(a)/X=1, R_areal=r*sqrt(b)/X, and a*b^2=1.
+    q_exact = areal_exact / r
     geometry = vacuum.flat_state(grid)
-    geometry.a[:] = 1.0
-    geometry.b[:] = (areal_exact / r) ** 2
-    geometry.X[:] = 1.0
+    geometry.X[:] = q_exact ** (-2.0 / 3.0)
+    geometry.a[:] = q_exact ** (-4.0 / 3.0)
+    geometry.b[:] = q_exact ** (2.0 / 3.0)
     geometry.alpha[:] = 1.0
     geometry.beta[:] = 0.0
+    assert np.allclose(geometry.a * geometry.b**2, 1.0, rtol=0.0, atol=1.0e-13)
+    assert np.allclose(geometry.a / geometry.X**2, 1.0, rtol=0.0, atol=1.0e-13)
+    assert np.allclose(r * np.sqrt(geometry.b) / geometry.X, areal_exact, rtol=1.0e-13, atol=1.0e-13)
+
+    # Parity control: areal radius is odd, while the radial metric factor is
+    # even. The declared odd parity differentiates the analytic cubic exactly
+    # in the first two cells; deliberately breaking parity must not pass.
+    h = float(grid.dr)
+    proper_parity_areal_prime = _d4(areal_exact, h, -1, 1)
+    broken_parity_areal_prime = _d4(areal_exact, h, +1, 1)
+    centre_first_two = np.arange(r.size) < 2
+    assert np.max(np.abs(proper_parity_areal_prime[centre_first_two] - areal_prime_exact[centre_first_two])) < 1.0e-10
+    assert np.max(np.abs(broken_parity_areal_prime[centre_first_two] - areal_prime_exact[centre_first_two])) > 1.0e-2
 
     d1 = lambda values, parity: grid.cell_derivative_fourth(values, parity=parity)
     geometry.Lambda[:] = (
@@ -133,12 +156,28 @@ def test_manufactured_nonconstant_regular_profile_matches_nonzero_ricci_oracle()
     annulus = (r >= 1.0) & (r <= 2.0)
     assert np.any(centre) and np.any(annulus)
     assert np.all(np.isfinite(tf_ricci_exact))
+    assert np.all(np.isfinite(tf_ricci_over_r2_exact))
     assert np.all(np.isfinite(arrays["ricci_tracefree_metric"]))
     assert np.all(np.isfinite(arrays["ricci_tracefree_vendor"]))
     assert np.max(np.abs(tf_ricci_exact[annulus])) > 1.0e-3
 
+    # Sign control: this profile's radial trace-free Ricci is positive. A
+    # globally sign-flipped implementation must fail, not pass on |Ricci|.
+    assert np.all(tf_ricci_exact[annulus] > 0.0)
+    assert np.all(arrays["ricci_tracefree_metric"][annulus] > 0.0)
+    assert np.all(arrays["ricci_tracefree_vendor"][annulus] > 0.0)
+
+    # Explicitly test the first two centre cells against the analytic oracle
+    # using TF Ricci/r^2, which has the finite nonzero limit 2*c3^2 at r=0.
+    # Keep the signed checks; norms alone would hide a sign error.
+    for key in ("ricci_tracefree_metric", "ricci_tracefree_vendor"):
+        scaled = arrays[key] / r**2
+        centre_error = scaled[centre_first_two] - tf_ricci_over_r2_exact[centre_first_two]
+        assert np.all(arrays[key][centre_first_two] > 0.0), f"{key}: wrong centre sign"
+        assert np.max(np.abs(centre_error)) < 5.0e-4, f"{key}: centre oracle mismatch {centre_error}"
+
     # Fourth-order stencils should reproduce this smooth, analytic profile to
-    # substantially better than 5% on the annulus; this is not a centre claim.
+    # substantially better than 5% on the annulus.
     atol = 2.0e-4
     metric_error = arrays["ricci_tracefree_metric"][annulus] - tf_ricci_exact[annulus]
     vendor_error = arrays["ricci_tracefree_vendor"][annulus] - tf_ricci_exact[annulus]
