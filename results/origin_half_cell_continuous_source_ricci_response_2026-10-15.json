@@ -1,0 +1,243 @@
+{
+  "schema": "continuous_oracle_half_cell_ricci_response_v1",
+  "status": "completed_diagnostic_only",
+  "provenance": {
+    "workflow_run_id": 38791262954,
+    "workflow_url": "https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38791262954",
+    "artifact_id": 12000266806,
+    "artifact_zip_sha256": "99f8315d020af1c70cc306beebb96ce32392b2c47d502fa0660bd9a198d872c9",
+    "report_json_sha256": "a73541328be62805bdcc8913ea68e4b62b9bcb41a5e520c9c18c6088db7e4df4",
+    "audit_head": "6d364655a0f9e7f0edd38c6f9e5d1c3e9a243a8f",
+    "source_anchor": "285a2ee0c1a3b97cddeb4519d8e749109b115aab",
+    "vendor_pin": "d6052d605673ce9d82cdc99b0df79855fa2ea215",
+    "all_eleven_engine_source_blob_pins_match": true,
+    "engine_vendor_dependency_diff_empty": true,
+    "tests_and_observer_passed": true,
+    "zero_evolution_steps": true,
+    "input_state_unchanged": true,
+    "production_or_vendor_files_modified": false,
+    "scientific_admission": false
+  },
+  "continuous_oracle_cross_check": {
+    "comparison_to_independent_Richardson_trapezoid_PR259": {
+      "pr": "https://github.com/miahpenn/0-Cosmos-engine/pull/259",
+      "max_absolute_integral_difference": 9.5e-16,
+      "values_match_to_double_precision": true
+    },
+    "DOP853_vs_adaptive_quadrature_max_abs_difference": 2.7755575615628914e-17,
+    "origin_series_moment_residual_max_abs": 5.2735593669694936e-15,
+    "formal_interval_enclosure": false,
+    "continuous_integral_definition": "Solve d(r*B)/dr = s(r,B), B(0)=1 with analytic Gaussian S/D fields and regular-centre expansion."
+  },
+  "method": {
+    "true_continuous_moment_delta": "continuous_integral_from_rB - production point-sampled first-half-cell moment",
+    "frozen_metric": "B_counterfactual(r) = B_production(r) + delta_I/r; metric-derived Lambda, vendor Ricci and independent proper-radial Ricci recomputed on copied geometry",
+    "source_policy": "The sampled production initializer source is held fixed across all arms; the continuous oracle's exact numerical moment is not a self-consistent discrete-initializer re-solve.",
+    "ricci_gap": "pinned vendor trace-free Ricci minus independent proper-radial warped-product trace-free Ricci"
+  },
+  "key_findings": [
+    "The continuous-oracle correction still reduces the much larger positive production cell-zero Ricci gap by a factor of about 8.2-8.5, but it produces a negative residual near 1.88-1.95e-4.",
+    "Compared with the unconstrained fixed-window fit, the oracle-corrected frozen-source cell-zero gap is slightly larger in magnitude at N=160 and materially larger at N=240/320.",
+    "The fixed r=5..10 annulus maxima change only at around 1e-14 absolute between moment candidates, so the response is centre-localized.",
+    "This separates half-cell quadrature accuracy from discrete Ricci/geometry closure: even the best available numerical continuous moment does not close the signed Ricci representation gap."
+  ],
+  "resolutions": [
+    {
+      "resolution": 160,
+      "dr": 0.5,
+      "r0": 0.25,
+      "continuous_integral": 0.2499934646158785,
+      "production_point_moment": 0.24998041303237156,
+      "oracle_delta_I": 0.000013051583506951125,
+      "production_gap": [
+        0.0015918130768831245,
+        -0.00022729563898591927
+      ],
+      "modes": {
+        "continuous_oracle": {
+          "delta": 0.000013051583506951125,
+          "gap": [
+            -0.00018849408250086594,
+            0.00008457408826557198
+          ],
+          "first6": 0.00018849408250086594,
+          "annulus": 8.860330063581087e-8
+        },
+        "fixed_unanchored": {
+          "delta": 0.000013044786109084328,
+          "gap": [
+            -0.00018756687931688348,
+            0.0000844116652403674
+          ],
+          "first6": 0.00018756687931688348,
+          "annulus": 8.860333854091474e-8
+        },
+        "fixed_origin_anchored": {
+          "delta": 0.000013052573259952904,
+          "gap": [
+            -0.0001886290903616369,
+            0.00008459773829633875
+          ],
+          "first6": 0.0001886290903616369,
+          "annulus": 8.86032957984938e-8
+        },
+        "fixed_intercept_only": {
+          "delta": 0.000013052867566309967,
+          "gap": [
+            -0.00018866923539779192,
+            0.00008460477071060241
+          ],
+          "first6": 0.00018866923539779192,
+          "annulus": 8.860329435635584e-8
+        },
+        "local_six_origin_anchored": {
+          "delta": 0.000013055253441890402,
+          "gap": [
+            -0.0001889946822118884,
+            0.00008466178093303114
+          ],
+          "first6": 0.0001889946822118884,
+          "annulus": 8.860328296301731e-8
+        }
+      },
+      "cell0_gap_magnitude_increase_vs_fixed_unanchored_percent": 0.4943320416479269,
+      "baseline_to_oracle_gap_reduction_factor": 8.444896814603247,
+      "oracle_vs_free_fit_moment_delta_difference": 6.797397866797894e-9,
+      "frozen_source_feedback_note": "Frozen source and geometry counterfactual only; no self-consistent recurrence or evolution in this comparison."
+    },
+    {
+      "resolution": 240,
+      "dr": 0.3333333333333333,
+      "r0": 0.16666666666666666,
+      "continuous_integral": 0.16666472867682738,
+      "production_point_moment": 0.16666085522595117,
+      "oracle_delta_I": 0.000003873450876212825,
+      "production_gap": [
+        0.0015900292071733082,
+        -0.00022712338600642195
+      ],
+      "modes": {
+        "continuous_oracle": {
+          "delta": 0.000003873450876212825,
+          "gap": [
+            -0.00019316536320152747,
+            0.0000852628232032951
+          ],
+          "first6": 0.00019316536320152747,
+          "annulus": 1.8877947609413615e-8
+        },
+        "fixed_unanchored": {
+          "delta": 0.000003856615746727909,
+          "gap": [
+            -0.00018541508379516604,
+            0.00008390511013764348
+          ],
+          "first6": 0.00018541508379516604,
+          "annulus": 1.8877964158472288e-8
+        },
+        "fixed_origin_anchored": {
+          "delta": 0.000003874141856069491,
+          "gap": [
+            -0.00019348346512837545,
+            0.00008531854908735647
+          ],
+          "first6": 0.00019348346512837545,
+          "annulus": 1.8877940464711034e-8
+        },
+        "fixed_intercept_only": {
+          "delta": 0.000003874364015554743,
+          "gap": [
+            -0.00019358573923181137,
+            0.00008533646570567193
+          ],
+          "first6": 0.00019358573923181137,
+          "annulus": 1.8877945248495622e-8
+        },
+        "local_six_origin_anchored": {
+          "delta": 0.0000038735541362799886,
+          "gap": [
+            -0.00019321290038744674,
+            0.0000852711508819596
+          ],
+          "first6": 0.00019321290038744674,
+          "annulus": 1.887794785108228e-8
+        }
+      },
+      "cell0_gap_magnitude_increase_vs_fixed_unanchored_percent": 4.179961655613429,
+      "baseline_to_oracle_gap_reduction_factor": 8.23144056895152,
+      "oracle_vs_free_fit_moment_delta_difference": 1.6835129484915612e-8,
+      "frozen_source_feedback_note": "Frozen source and geometry counterfactual only; no self-consistent recurrence or evolution in this comparison."
+    },
+    {
+      "resolution": 320,
+      "dr": 0.25,
+      "r0": 0.125,
+      "continuous_integral": 0.12499918217712717,
+      "production_point_moment": 0.12499754713168003,
+      "oracle_delta_I": 0.0000016350454471458775,
+      "production_gap": [
+        0.0015894164445613723,
+        -0.00022705042657905256
+      ],
+      "modes": {
+        "continuous_oracle": {
+          "delta": 0.0000016350454471458775,
+          "gap": [
+            -0.00019478964591243824,
+            0.00008551674406300655
+          ],
+          "first6": 0.00019478964591243824,
+          "annulus": 6.190295124750261e-9
+        },
+        "fixed_unanchored": {
+          "delta": 0.0000016261477410184355,
+          "gap": [
+            -0.0001850802240317431,
+            0.00008381579888335146
+          ],
+          "first6": 0.0001850802240317431,
+          "annulus": 6.190306982750736e-9
+        },
+        "fixed_origin_anchored": {
+          "delta": 0.0000016352663042562554,
+          "gap": [
+            -0.00019503065124058415,
+            0.0000855589645949868
+          ],
+          "first6": 0.00019503065124058415,
+          "annulus": 6.190304391995435e-9
+        },
+        "fixed_intercept_only": {
+          "delta": 0.0000016353381197264927,
+          "gap": [
+            -0.00019510901822979005,
+            0.0000855726933160292
+          ],
+          "first6": 0.00019510901822979005,
+          "annulus": 6.190300557768662e-9
+        },
+        "local_six_origin_anchored": {
+          "delta": 0.0000016350534176728937,
+          "gap": [
+            -0.00019479834356124669,
+            0.0000855182677683142
+          ],
+          "first6": 0.00019479834356124669,
+          "annulus": 6.19029937403673e-9
+        }
+      },
+      "cell0_gap_magnitude_increase_vs_fixed_unanchored_percent": 5.246061231820143,
+      "baseline_to_oracle_gap_reduction_factor": 8.15965569995361,
+      "oracle_vs_free_fit_moment_delta_difference": 8.897706127442007e-9,
+      "frozen_source_feedback_note": "Frozen source and geometry counterfactual only; no self-consistent recurrence or evolution in this comparison."
+    }
+  ],
+  "limits": [
+    "The oracle is a high-accuracy numerical reference independently cross-checked by Richardson/trapezoid integration, adaptive quadrature and origin series; it is not a rigorous analytic remainder bound.",
+    "Frozen-source DeltaB=delta_I/r is a geometry/Ricci sensitivity test, not a full re-solve of the continuous or discrete source/metric fixed point.",
+    "No production corrections are proposed; scientific admission remains false."
+  ],
+  "production_or_vendor_files_modified": false,
+  "no_evolution": true,
+  "scientific_admission": false
+}
