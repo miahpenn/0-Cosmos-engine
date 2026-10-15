@@ -147,7 +147,7 @@ def friedmann_constraint_residual(
     state = evaluate_state(kappa, xi, mass_sq, d, velocity)
     potential = -0.5 * mass_sq * d * d
     return (
-        3.0 * hubble * hub * state.effective_gravity_prefactor
+        3.0 * hubble * hubble * state.effective_gravity_prefactor
         - kappa * (0.5 * velocity * velocity + potential + 6.0 * xi * hubble * d * velocity)
     )
 
