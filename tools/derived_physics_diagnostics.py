@@ -78,20 +78,6 @@ def directional_kasner_exponents(
     return tuple(1.0 / 3.0 + component / (3.0 * hubble) for component in shear)  # type: ignore[return-value]
 
 
-def preserve_achieve_slope(w: float, omega_sigma: float) -> float:
-    """Return d Omega_sigma / d ln(a) under the unsourced Bianchi-I assumptions.
-
-    Formula: 3 (w - 1) Omega_sigma (1 - Omega_sigma). Requires the equation
-    of state w=p/rho for a separately conserved, positive non-shear sector,
-    isotropic pressure/no shear source, and 0 <= Omega_sigma < 1. It is invalid
-    at H=0 because ln(a) is not a good time parameter there.
-    """
-    w = _finite("w", w)
-    omega = _finite("omega_sigma", omega_sigma)
-    if not (0.0 <= omega < 1.0):
-        raise ValueError("omega_sigma must satisfy 0 <= omega_sigma < 1")
-    return 3.0 * (w - 1.0) * omega * (1.0 - omega)
-
 
 def raychaudhuri_bounce_margin(rho_plus_p: float, sigma2: float) -> float:
     """Return -(rho+p)-2 sigma^2 for Hdot = -(rho+p)/2 - sigma^2.
