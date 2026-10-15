@@ -1,0 +1,122 @@
+name: Diagnostic - trace-free Ricci / proper-radial reconciliation
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - tools/audit_tracefree_ricci_proper_radial.py
+      - tests/test_tracefree_ricci_proper_radial.py
+      - diagnostics/tracefree-ricci-proper-radial-refresh-2026-10-15.md
+      - .github/workflows/tracefree-ricci-proper-radial.yml
+      - engine/**
+      - vendor/**
+      - .gitmodules
+      - requirements.txt
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tracefree-ricci-proper-radial-current-main-2026-10-15
+  cancel-in-progress: false
+
+jobs:
+  tracefree-ricci-proper-radial:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      PYTHONUNBUFFERED: "1"
+      SOURCE_COMMIT: "adf8ab834252da66da26908f271c4a75da14b205"
+      SOURCE_KERNEL_BLOB: "9685e76bb5a6f26d6bf383e240de24f37523f265"
+      VENDOR_COMMIT: "d6052d605673ce9d82cdc99b0df79855fa2ea215"
+    steps:
+      - name: Checkout exact PR head and pinned vendor
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Decide whether this diff needs the expensive source-pinned diagnostic
+        id: scope
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin "$BASE_SHA"
+          changed="$(git diff --name-only "$BASE_SHA...HEAD")"
+          printf 'Changed paths relative to PR base:\n%s\n' "$changed"
+          if printf '%s\n' "$changed" | grep -Eq '^(tools/audit_tracefree_ricci_proper_radial\.py|diagnostics/tracefree-ricci-proper-radial-refresh-2026-10-15\.md|engine/|vendor/|\.gitmodules$|requirements\.txt$)'; then
+            echo "run_diagnostic=true" >> "$GITHUB_OUTPUT"
+            echo "Diagnostic-affecting paths changed; source-pinned run is required."
+          else
+            echo "run_diagnostic=false" >> "$GITHUB_OUTPUT"
+            echo "No diagnostic-affecting paths changed; standard PR checks cover this test-only/workflow-only diff."
+          fi
+
+      - name: Set up Python
+        if: steps.scope.outputs.run_diagnostic == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install repository requirements
+        if: steps.scope.outputs.run_diagnostic == 'true'
+        run: python -m pip install -r requirements.txt
+
+      - name: Compile diagnostic
+        if: steps.scope.outputs.run_diagnostic == 'true'
+        run: python -m py_compile tools/audit_tracefree_ricci_proper_radial.py
+
+      - name: Fail closed on source/vendor drift and physics edits
+        if: steps.scope.outputs.run_diagnostic == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin "$SOURCE_COMMIT"
+          declare -A blobs=(
+            ["engine/production_kernel.py"]="9685e76bb5a6f26d6bf383e240de24f37523f265"
+            ["engine/matter_system.py"]="05e23d2368120ea8a1a6aad3fa438625d5380750"
+            ["engine/matter_rhs.py"]="f41180efbcff2c72cf36477a765318ab539fac80"
+            ["engine/scalar_system.py"]="ffc119b1a6f2d495d972323901f76a85783b0a1b"
+            ["engine/v55_matter.py"]="0ee3c51fac7dc46c63feba2747a750542bcee3d0"
+            ["engine/v55_pirk_adapter.py"]="eeee0492d80889d70e52b0946563eee5054c0f11"
+            ["engine/cmc_gauge.py"]="7b49b5751abebd4faf0130208032cd2080b71f64"
+            ["engine/v55_initial.py"]="7db2e1a10cf16fb40e4221b0df504fdf39aae611"
+            ["engine/stress_energy.py"]="ac3e7518c62bb72e2218a61489fa486bb787809f"
+            ["engine/valencia.py"]="03ed86398f424c03d9d6a3e646da9222a34fac5c"
+            ["engine/worldtube.py"]="aea19090cb0fd2ebe5481a8b7af0d26f119a9ad6"
+          )
+          for path in "${!blobs[@]}"; do
+            expected="${blobs[$path]}"
+            source_blob="$(git rev-parse "$SOURCE_COMMIT:$path")"
+            head_blob="$(git rev-parse "HEAD:$path")"
+            test "$source_blob" = "$expected"
+            test "$head_blob" = "$expected"
+          done
+          test "$(git rev-parse "HEAD:vendor/bb-palatini-unified-r0")" = "$VENDOR_COMMIT"
+          changed="$(git diff --name-only "$SOURCE_COMMIT" HEAD -- engine vendor .gitmodules requirements.txt)"
+          if [ -n "$changed" ]; then
+            printf 'Unexpected production/vendor/dependency changes:\n%s\n' "$changed"
+            exit 1
+          fi
+          printf 'SOURCE_COMMIT=%s\nVENDOR_COMMIT=%s\n' "$SOURCE_COMMIT" "$VENDOR_COMMIT"
+
+      - name: Run full repository regression suite
+        if: steps.scope.outputs.run_diagnostic == 'true'
+        run: python -m pytest -q
+
+      - name: Capture trace-free Ricci / proper-radial witnesses at actual PIRK L2 stages
+        if: steps.scope.outputs.run_diagnostic == 'true'
+        run: python tools/audit_tracefree_ricci_proper_radial.py
+
+      - name: Upload report and radial profiles
+        if: always() && steps.scope.outputs.run_diagnostic == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: tracefree-ricci-proper-radial-2026-10-15
+          path: results/tracefree-ricci-proper-radial-2026-10-15/
+          if-no-files-found: warn
+          retention-days: 90

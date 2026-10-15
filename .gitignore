@@ -1,0 +1,22 @@
+# Python bytecode and test/tool caches
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Virtual environments and local environment files
+.venv/
+venv/
+.env
+.env.*
+
+# Build and package outputs
+build/
+dist/
+*.egg-info/
+
+# Local diagnostic and campaign artifacts
+artifacts/
