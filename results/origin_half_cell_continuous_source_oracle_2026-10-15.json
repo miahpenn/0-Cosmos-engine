@@ -23,8 +23,9 @@
     "equation": "d(r B)/dr = s(r,B), B(0)=1",
     "regularity_coefficients": {
       "s2": -0.0012566370614359172,
-      "s4": 0.0000492,
-      "interpretation": "s(r)=1+s2*r^2+s4*r^4+s6*r^6+...; the exact computed coefficients are preserved in the full workflow artifact"
+      "s4": 0.00004919778582881142,
+      "interpretation": "s(r)=1+s2*r^2+s4*r^4+s6*r^6+...; the exact computed coefficients are preserved in the full workflow artifact",
+      "s6": -9.604345575785585e-7
     },
     "method": "DOP853 solve of continuous metric ODE, independent scipy.quad integration of s(r,B(r)), and regular-centre series-start at epsilon",
     "maximum_ode_vs_quad_abs_difference": 2.7755575615628914e-17,
@@ -38,7 +39,7 @@
       "dr": 0.5,
       "r0": 0.25,
       "continuous_integral": 0.2499934646158785,
-      "continuous_point_moment": 0.24998041303268803,
+      "continuous_point_moment": 0.24998041303205495,
       "exact_continuous_point_moment_correction": 0.000013051583823558977,
       "production_point_moment": 0.24998041303237156,
       "production_point_moment_error_vs_continuum": -0.000013051583506951125,
@@ -82,7 +83,7 @@
       "dr": 0.25,
       "r0": 0.125,
       "continuous_integral": 0.12499918217712717,
-      "continuous_point_moment": 0.12499754713168172,
+      "continuous_point_moment": 0.12499754713167878,
       "exact_continuous_point_moment_correction": 0.0000016350454483948784,
       "production_point_moment": 0.12499754713168003,
       "production_point_moment_error_vs_continuum": -0.0000016350454471458775,
