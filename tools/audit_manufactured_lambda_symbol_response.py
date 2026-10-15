@@ -330,6 +330,11 @@ def _evaluate_modes(
             and x["max_abs_chain_rule_algebraic_only_closure_error"] <= 5.0e-12
             for x in reports
         ),
+        "all_frozen_Aa_L3_RHS_responses_close": all(
+            x["max_abs_Aa_L3_RHS_response_identity_closure"] <= 5.0e-12
+            and x["max_abs_chainrule_Aa_L3_algebraic_only_closure_error"] <= 5.0e-12
+            for x in reports
+        ),
         "interpretation_limits": [
             "This is a fixed-metric, no-evolution, manufactured odd-Lambda mode sweep, not a stability proof for the evolved BSSN system.",
             "It measures the parity-odd D4 stencil against the analytic derivative and verifies the exact pinned vendor Ricci response identity.",
@@ -427,8 +432,13 @@ def main() -> int:
         })
     if not all(row["initialized_state_unchanged"] and row["evolution_steps"] == 0 for row in rows):
         raise RuntimeError("input-state/no-evolution integrity gate failed")
-    if not all(row["all_profiles_finite"] and row["all_response_identities_close"] for row in rows):
-        raise FloatingPointError("one or more mode-response results failed finite/closure gates")
+    if not all(
+        row["all_profiles_finite"]
+        and row["all_response_identities_close"]
+        and row["all_frozen_Aa_L3_RHS_responses_close"]
+        for row in rows
+    ):
+        raise FloatingPointError("one or more mode-response or frozen L3 RHS gates failed")
     report = {
         "schema": "v55_manufactured_lambda_symbol_response_v1",
         "status": "completed_research_only_manufactured_lambda_symbol_sweep",
@@ -448,6 +458,7 @@ def main() -> int:
         "all_initialized_states_unchanged": all(row["initialized_state_unchanged"] for row in rows),
         "all_profiles_finite": all(row["all_profiles_finite"] for row in rows),
         "all_response_identities_close": all(row["all_response_identities_close"] for row in rows),
+        "all_frozen_Aa_L3_RHS_responses_close": all(row["all_frozen_Aa_L3_RHS_responses_close"] for row in rows),
         "interpretation_limits": [
             "Fixed-metric no-evolution symbol/response diagnostic only; no production operator change is proposed.",
             "The derivative-only chain-rule arm removes the imposed D4(delta Lambda) response; algebraic Lambda*D1(a) response remains.",
@@ -467,6 +478,9 @@ def main() -> int:
             "derivative_Ricci_response_absmax", "algebraic_Ricci_response_absmax",
             "observed_Ricci_gap_delta_absmax", "response_closure_error_absmax",
             "chain_rule_gap_change_absmax", "chain_rule_algebraic_closure_absmax",
+            "Aa_L3_RHS_delta_absmax", "Aa_L3_RHS_identity_closure_absmax",
+            "chainrule_Aa_L3_delta_absmax", "chainrule_Aa_L3_algebraic_closure_absmax",
+            "Lambda_L3_RHS_delta_absmax",
         ])
         for row in rows:
             for mode in row["mode_results"]:
@@ -481,6 +495,11 @@ def main() -> int:
                     mode["max_abs_total_observed_Ricci_gap_delta"],
                     mode["max_abs_response_closure_error"], mode["max_abs_chain_rule_gap_change"],
                     mode["max_abs_chain_rule_algebraic_only_closure_error"],
+                    mode["max_abs_Aa_L3_RHS_delta"],
+                    mode["max_abs_Aa_L3_RHS_response_identity_closure"],
+                    mode["max_abs_chainrule_adjusted_Aa_L3_RHS_delta"],
+                    mode["max_abs_chainrule_Aa_L3_algebraic_only_closure_error"],
+                    mode["max_abs_Lambda_L3_RHS_delta"],
                 ])
     profile_path = OUT / "profiles.npz"
     np.savez_compressed(profile_path, **all_profiles)
@@ -505,6 +524,10 @@ def main() -> int:
                 "relative_derivative_rms_error": mode["D4_analytic_derivative_relative_rms_error_fixed_interior"],
                 "max_response_closure_error": mode["max_abs_response_closure_error"],
                 "chain_rule_algebraic_closure_error": mode["max_abs_chain_rule_algebraic_only_closure_error"],
+                "Aa_L3_RHS_delta_absmax": mode["max_abs_Aa_L3_RHS_delta"],
+                "Aa_L3_RHS_response_closure": mode["max_abs_Aa_L3_RHS_response_identity_closure"],
+                "chainrule_Aa_L3_algebraic_closure": mode["max_abs_chainrule_Aa_L3_algebraic_only_closure_error"],
+                "Lambda_L3_RHS_delta_absmax": mode["max_abs_Lambda_L3_RHS_delta"],
                 "underresolved": mode["underresolved_four_points_or_fewer"],
             } for mode in row["mode_results"]],
         } for row in rows],
