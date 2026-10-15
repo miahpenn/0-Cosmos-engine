@@ -187,14 +187,14 @@ def _ricci_witness(grid, state, vacuum, arrays, prefix: str) -> tuple[dict, dict
     }
 
 
-def _case_witness(grid, state, vacuum, arrays, prefix: str) -> dict:
+def _case_witness(grid, state, vacuum, arrays, prefix: str) -> tuple[dict, dict]:
     ricci, lambda_witness, metric_arrays = _ricci_witness(
         grid, state, vacuum, arrays, prefix
     )
     constraint_witness, constraint_profiles = _metric_constraint_witness(
         grid, state, vacuum, arrays, prefix
     )
-    return {
+    report = {
         "ricci": ricci,
         "constraints": constraint_witness,
         "lambda_derivative_channel_separate": lambda_witness,
@@ -203,6 +203,7 @@ def _case_witness(grid, state, vacuum, arrays, prefix: str) -> dict:
                 and all(_finite(v) for v in constraint_profiles.values()),
         },
     }
+    return report, constraint_profiles
 
 
 def run_resolution(resolution: int, vacuum) -> dict:
@@ -225,47 +226,58 @@ def run_resolution(resolution: int, vacuum) -> dict:
     if I_low <= 0.0 or I_high < I_low:
         raise RuntimeError(f"N={resolution}: invalid analytic half-cell enclosure")
 
-    # The baseline is computed from the same initialized state used by each copied arm.
-    from engine.production_kernel import V55ProductionKernel as _Kernel
-    from engine.v55_pirk_adapter import vendor_modules as _vendor_modules
-    _, _, _ = _vendor_modules()
-    diagnostics = kernel.diagnostics(state, profiles=True)
-    baseline_gap = np.asarray(diagnostics["profiles"]["tf_ricci_difference"], dtype=float)
-    baseline_constraints = {
-        "hamiltonian_constraint_residual": np.asarray(
-            diagnostics["profiles"]["hamiltonian_constraint_residual"], dtype=float
-        ),
-        "momentum_constraint_residual": np.asarray(
-            diagnostics["profiles"]["momentum_constraint_residual"], dtype=float
-        ),
+    # Baseline and counterfactuals use the same independent Ricci and native
+    # constraint witness functions, so signed comparisons share conventions.
+    geom = state.geometry
+    baseline_arrays = {
+        "baseline_a": np.asarray(geom.a, dtype=float),
+        "baseline_b": np.asarray(geom.b, dtype=float),
+        "baseline_X": np.asarray(geom.X, dtype=float),
+        "baseline_Lambda": np.asarray(geom.Lambda, dtype=float),
+        "baseline_B": np.asarray(geom.X, dtype=float)**6,
     }
+    base_ricci, base_lambda, base_metric_arrays = _ricci_witness(
+        grid, state, vacuum, baseline_arrays, "baseline"
+    )
+    base_constraints, baseline_constraint_profiles = _metric_constraint_witness(
+        grid, state, vacuum, baseline_arrays, "baseline"
+    )
     baseline_witness = {
         "state_sha256": before,
         "first_two_cells": [
             {
                 "i": i, "r": float(r[i]),
-                "production_B_X6": float(np.asarray(state.geometry.X)[i]**6),
-                "signed_ricci_gap": float(baseline_gap[i]),
-                "signed_ricci_gap_over_r2": float(baseline_gap[i]/(r[i]*r[i])),
-                "hamiltonian_constraint_residual": float(baseline_constraints["hamiltonian_constraint_residual"][i]),
-                "momentum_constraint_residual": float(baseline_constraints["momentum_constraint_residual"][i]),
+                "production_B_X6": float(np.asarray(geom.X)[i]**6),
+                "signed_ricci_gap": float(base_ricci["first_two_cells"][i]["signed_gap"]),
+                "signed_ricci_gap_over_r2": float(base_ricci["first_two_cells"][i]["signed_gap_over_r2"]),
+                "hamiltonian_constraint_residual": float(base_constraints["signed_constraint_witnesses"]["hamiltonian_constraint_residual"]["first_two_signed"][i]),
+                "momentum_constraint_residual": float(base_constraints["signed_constraint_witnesses"]["momentum_constraint_residual"]["first_two_signed"][i]),
+                "connection_constraint_residual": float(base_constraints["signed_constraint_witnesses"]["connection_constraint_residual"]["first_two_signed"][i]),
+                "determinant_constraint": float(base_constraints["signed_constraint_witnesses"]["determinant_constraint"]["first_two_signed"][i]),
             } for i in range(min(2, r.size))
         ],
-        "signed_ricci_gap_witness": _profile_witness(baseline_gap, r),
-        "hamiltonian_constraint_witness": _profile_witness(
-            baseline_constraints["hamiltonian_constraint_residual"], r
-        ),
-        "momentum_constraint_witness": _profile_witness(
-            baseline_constraints["momentum_constraint_residual"], r
-        ),
+        "ricci": base_ricci,
+        "constraints": base_constraints,
+        "lambda_derivative_channel_separate": base_lambda,
+        "profile_integrity": {
+            "finite": all(_finite(v) for v in base_metric_arrays.values())
+                and all(_finite(v) for v in baseline_constraint_profiles.values()),
+        },
     }
+    saved_profiles = {
+        f"N{resolution}_production_B_X6": np.asarray(geom.X, dtype=float)**6,
+        f"N{resolution}_production_ricci_gap": np.asarray(base_metric_arrays["gap"]),
+        **{f"N{resolution}_production_constraint_{key}": np.asarray(value)
+           for key, value in baseline_constraint_profiles.items()},
+    }
+    baseline_gap = np.asarray(base_metric_arrays["gap"], dtype=float)
 
     cases = [
         ("analytic_lower_endpoint", I_low),
         ("analytic_Richardson_nominal", I_ref),
         ("analytic_upper_endpoint", I_high),
     ]
-    results, saved_profiles = {}, {}
+    results = {}
     for tag, half_cell_integral in cases:
         arrays, summary = _origin_half_cell_self_consistent_counterfactual(
             grid, state, vacuum,
@@ -283,7 +295,9 @@ def run_resolution(resolution: int, vacuum) -> dict:
         if not summary["all_counterfactual_profiles_finite"]:
             raise FloatingPointError(f"N={resolution}/{tag}: non-finite copied profile")
         for stage, prefix in (("six_step", "origin_sc_six"), ("fixed_point", "origin_sc_fixed")):
-            witness = _case_witness(grid, state, vacuum, arrays, prefix)
+            witness, raw_constraint_profiles = _case_witness(
+                grid, state, vacuum, arrays, prefix
+            )
             inv = witness["constraints"]["metric_invariants"]
             if not inv["all_profiles_finite"]:
                 raise FloatingPointError(f"N={resolution}/{tag}/{stage}: non-finite constraint or invariant")
@@ -310,29 +324,20 @@ def run_resolution(resolution: int, vacuum) -> dict:
                     else float(summary["convergence"]["recomputed_fixed_point_defect_max_abs"])
                 ),
                 "selected_fit_diagnostic_not_applied": summary["corrected_source"]["fixed_point_fit_selected"],
+                "fixed_point_B_first_two": [
+                    float(arrays["origin_sc_fixed_B"][i]) for i in range(min(2, r.size))
+                ],
                 **witness,
             }
             saved_profiles[f"N{resolution}_{tag}_{stage}_B"] = np.asarray(arrays[f"{prefix}_B"])
             saved_profiles[f"N{resolution}_{tag}_{stage}_ricci_gap"] = np.asarray(
                 arrays[f"{prefix}_tf_ricci_difference"]
             )
-            for name, values in witness["constraints"]["signed_constraint_witnesses"].items():
-                key = {
-                    "hamiltonian_constraint_residual": "H",
-                    "momentum_constraint_residual": "M",
-                    "connection_constraint_residual": "connection",
-                    "determinant_constraint": "determinant",
-                }[name]
-                # Persist the full signed residual as well as its JSON witness.
-                if key == "H":
-                    raw = _metric_constraint_witness(grid, state, vacuum, arrays, prefix)[1]["H"]
-                elif key == "M":
-                    raw = _metric_constraint_witness(grid, state, vacuum, arrays, prefix)[1]["M"]
-                elif key == "connection":
-                    raw = _metric_constraint_witness(grid, state, vacuum, arrays, prefix)[1]["connection"]
-                else:
-                    raw = _metric_constraint_witness(grid, state, vacuum, arrays, prefix)[1]["determinant"]
-                saved_profiles[f"N{resolution}_{tag}_{stage}_{key}"] = raw
+            for key, values in raw_constraint_profiles.items():
+                saved_profiles[f"N{resolution}_{tag}_{stage}_constraint_{key}"] = np.asarray(values)
+            saved_profiles[f"N{resolution}_{tag}_{stage}_lambda_chain_rule_gap"] = np.asarray(
+                arrays["lambda_lambda_chain_rule_vendor_minus_direct_tf_ricci"]
+            )
         # Explicit fixed-point delta relative to production: retain the sign.
         fixed = results[f"{tag}_fixed_point"]
         fixed["change_vs_production"] = {
@@ -359,9 +364,12 @@ def run_resolution(resolution: int, vacuum) -> dict:
     uncertainty_sensitivity = {
         "integral_enclosure_width": I_high-I_low,
         "B_first_cell_range_over_integral_enclosure": float(
-            max(abs(
-                arrays_dummy := 0.0
-            ), 0.0)
+            max(x["fixed_point_B_first_two"][0] for x in (lower, nominal, upper))
+            - min(x["fixed_point_B_first_two"][0] for x in (lower, nominal, upper))
+        ),
+        "B_second_cell_range_over_integral_enclosure": float(
+            max(x["fixed_point_B_first_two"][1] for x in (lower, nominal, upper))
+            - min(x["fixed_point_B_first_two"][1] for x in (lower, nominal, upper))
         ),
         "signed_ricci_gap_first_cell_lower_nominal_upper": [
             lower["ricci"]["first_two_cells"][0]["signed_gap"],
@@ -382,7 +390,7 @@ def run_resolution(resolution: int, vacuum) -> dict:
         "analytic_enclosure_endpoint_sensitivity": uncertainty_sensitivity,
         "observer_state_unchanged": before == after,
         "zero_evolution_steps": True,
-    }
+    }, saved_profiles
 
 
 def main() -> int:
@@ -396,7 +404,11 @@ def main() -> int:
     if not all(item.get("matches") for item in provenance.get("source_blobs", {}).values()):
         raise RuntimeError("one or more engine source blob pins failed")
     _, vacuum, _ = vendor_modules()
-    rows = [run_resolution(n, vacuum) for n in RESOLUTIONS]
+    run_outputs = [run_resolution(n, vacuum) for n in RESOLUTIONS]
+    rows = [item[0] for item in run_outputs]
+    profiles = {}
+    for _, saved in run_outputs:
+        profiles.update(saved)
     if not all(row["observer_state_unchanged"] and row["zero_evolution_steps"] for row in rows):
         raise RuntimeError("observer integrity gate failed")
     report = {
@@ -420,7 +432,9 @@ def main() -> int:
         "resolutions": rows,
         "all_observers_left_state_unchanged": all(row["observer_state_unchanged"] for row in rows),
         "all_profiles_finite": all(
-            row["production_baseline"]["signed_ricci_gap_witness"]["finite"]
+            row["production_baseline"]["ricci"]["finite"]
+            and row["production_baseline"]["constraints"]["metric_invariants"]["all_profiles_finite"]
+            and row["production_baseline"]["profile_integrity"]["finite"]
             and all(
                 case["profile_integrity"]["finite"]
                 for case in row["cases"].values()
@@ -439,11 +453,8 @@ def main() -> int:
     OUT.mkdir(parents=True, exist_ok=True)
     report_path = OUT / "report.json"
     report_path.write_text(json.dumps(report, indent=2, allow_nan=False) + "\n", encoding="utf-8")
-    profiles = {}
-    for row in rows:
-        n = row["resolution"]
-        for tag, values in ():
-            profiles[f"N{n}_{tag}"] = values
+    npz_path = OUT / "profiles.npz"
+    np.savez_compressed(npz_path, **profiles)
     # Save compact CSV witnesses with all signed first-two-cell and constraint evidence.
     csv_path = OUT / "signed_witnesses.csv"
     with csv_path.open("w", newline="", encoding="utf-8") as stream:
@@ -465,8 +476,9 @@ def main() -> int:
                 prodcells[0]["signed_ricci_gap"], prodcells[1]["signed_ricci_gap"],
                 prodcells[0]["hamiltonian_constraint_residual"], prodcells[1]["hamiltonian_constraint_residual"],
                 prodcells[0]["momentum_constraint_residual"], prodcells[1]["momentum_constraint_residual"],
-                "", "",
-                "", "",
+                prodcells[0]["connection_constraint_residual"], prodcells[1]["connection_constraint_residual"],
+                prod["lambda_derivative_channel_separate"]["first_two_cells"][0]["chain_rule_signed_gap"],
+                prod["lambda_derivative_channel_separate"]["first_two_cells"][1]["chain_rule_signed_gap"],
             ])
             for case_name, case in row["cases"].items():
                 stage = "six_step" if case_name.endswith("_six_step") else "fixed_point"
@@ -486,7 +498,8 @@ def main() -> int:
     checksum_path = OUT / "SHA256SUMS.txt"
     checksum_path.write_text(
         f"{_sha256(report_path)}  {report_path.name}\n"
-        f"{_sha256(csv_path)}  {csv_path.name}\n",
+        f"{_sha256(csv_path)}  {csv_path.name}\n"
+        f"{_sha256(npz_path)}  {npz_path.name}\n",
         encoding="utf-8",
     )
     print(json.dumps({
