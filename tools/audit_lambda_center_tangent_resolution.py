@@ -277,10 +277,6 @@ def main() -> int:
                         ),
                         "fields": field_payload,
                     }
-                    OUT.mkdir(parents=True, exist_ok=True)
-                    pair_path = OUT / "pairs.jsonl"
-                    with pair_path.open("a", encoding="utf-8") as stream:
-                        stream.write(json.dumps(pair_summary, sort_keys=True, allow_nan=False) + "\n")
             if _state_digest(state) != initial_digest:
                 raise RuntimeError(f"N={resolution}: initialized baseline digest changed")
     finally:
@@ -312,7 +308,7 @@ def main() -> int:
 
     if len(summary_rows) != len(RESOLUTIONS) * len(WAVELENGTHS) * len(AMPLITUDE_MAGNITUDES) * len(SIGNED_FIELDS):
         raise RuntimeError("unexpected summary row count")
-    if len(profile_rows) != len(RESOLUTIONS) * len(WAVELENGTHS) * len(AMPLITUDE_MAGNITUDES) * len(SIGNED_FIELDS) * 6 * (RESOLUTIONS[0] + RESOLUTIONS[1]):
+    if len(profile_rows) != len(WAVELENGTHS) * len(AMPLITUDE_MAGNITUDES) * len(SIGNED_FIELDS) * 6 * sum(RESOLUTIONS):
         raise RuntimeError("unexpected profile row count")
 
     OUT.mkdir(parents=True, exist_ok=True)
