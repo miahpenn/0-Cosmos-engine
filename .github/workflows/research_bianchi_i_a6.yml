@@ -1,0 +1,75 @@
+name: Research - Bianchi-I A6 numerical oracle
+
+on:
+  pull_request:
+    paths:
+      - "tools/audit_bianchi_i_preserve_achieve.py"
+      - "tests/test_research_bianchi_i_preserve_achieve.py"
+      - ".github/workflows/research_bianchi_i_a6.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: research-bianchi-i-a6-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  bounded-oracle:
+    name: Focused tests and nine-case numerical report
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out research harness
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install numerical/test dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Run focused A6 regression tests
+        run: python -m pytest -q tests/test_research_bianchi_i_preserve_achieve.py
+
+      - name: Run bounded numerical oracle and preserve JSON report
+        run: |
+          mkdir -p runs/research/bianchi-i-a6
+          python -m tools.audit_bianchi_i_preserve_achieve \
+            --output runs/research/bianchi-i-a6/report.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          report = json.loads(Path("runs/research/bianchi-i-a6/report.json").read_text())
+          assert report["all_checks_passed"] is True
+          assert report["case_count"] == 9
+          assert report["scientific_admission"] == "NOT ADMITTED"
+          print("A6_REPORT_CHECKS_PASS", f"cases={report['case_count']}")
+          for case in report["cases"]:
+              print(
+                  "A6_CASE",
+                  f"w={case['w']:.12g}",
+                  f"omega0={case['omega_sigma_initial']:.6g}",
+                  f"omega_final={case['omega_sigma_final']:.12g}",
+                  f"component_rel_err={case['max_component_relative_error']:.3e}",
+                  f"omega_abs_err={case['max_omega_abs_error']:.3e}",
+                  f"slope_abs_err={case['max_interior_finite_difference_slope_abs_error']:.3e}",
+                  f"trend={case['expected_contraction_trend']}",
+              )
+          PY
+          sha256sum runs/research/bianchi-i-a6/report.json \
+            > runs/research/bianchi-i-a6/report.sha256
+
+      - name: Upload reproducible numerical report
+        uses: actions/upload-artifact@v4
+        with:
+          name: research-bianchi-i-a6-report
+          path: runs/research/bianchi-i-a6/
+          if-no-files-found: error
+          retention-days: 30
