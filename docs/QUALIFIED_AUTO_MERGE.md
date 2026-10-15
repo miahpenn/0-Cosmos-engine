@@ -21,13 +21,13 @@ A PR touching any of the following must also pass `joined-energy-ledger` on that
 - `research/reconcile_em_face_work_artifact_v1.py`
 - `.github/workflows/em_total_energy_budget.yml`
 
-The workflow checks the latest attempt for each exact check name, rejects missing, queued, running, skipped, cancelled, timed-out, or failed required checks, and requires the GitHub Actions check-run app. A result from an earlier SHA never qualifies a newer SHA. The selected check run and the corresponding completed pull-request workflow run must share the same GitHub check-suite ID. The workflow run must also have an explicit association to this PR number, head SHA, base ref `main`, and current base SHA. If either the check-suite or PR/base association is missing or mismatched, qualification fails closed; timestamps are not accepted as a substitute. Passing a head check that ran before main advanced is not sufficient.
+The privileged `actions/github-script` dependency is pinned to the verified full commit SHA for v7.1.0. Reviewer authorization is rechecked on every qualification and immediately before merge. The workflow checks the latest attempt for each exact check name, rejects missing, queued, running, skipped, cancelled, timed-out, or failed required checks, and requires the GitHub Actions check-run app. A result from an earlier SHA never qualifies a newer SHA. The selected check run and the corresponding completed pull-request workflow run must share the same GitHub check-suite ID. The workflow run must also have an explicit association to this PR number, head SHA, base ref `main`, and current base SHA. If either the check-suite or PR/base association is missing or mismatched, qualification fails closed; timestamps are not accepted as a substitute. Passing a head check that ran before main advanced is not sufficient.
 
 ## Documentation-only no-formal-review fast path
 
 Only narrative documentation qualifies for the no-formal-review fast path: files exactly at `README.md` or under `docs/**`. The fast path still requires all applicable exact-head checks, a current `main` base, clean mergeability, and no current-head `CHANGES_REQUESTED` review.
 
-Research code, research/diagnostic tests, audit/recompute tools, engine/vendor code, dependency changes, workflow changes, and every other path require an `APPROVED` review from a reviewer other than the PR author, submitted against the exact current head SHA. Current-head `CHANGES_REQUESTED` reviews block both paths.
+Research code, research/diagnostic tests, audit/recompute tools, engine/vendor code, dependency changes, workflow changes, and every other path require an `APPROVED` review on the exact current head from a non-author human account whose repository collaborator permission is verified as `write`, `maintain`, or `admin`. Bot accounts, non-collaborators, read-only/triage-only accounts, and approvals whose permission cannot be verified do not qualify; permission lookup errors fail closed. Current-head `CHANGES_REQUESTED` reviews block both paths.
 
 ## Joined-ledger trigger parity
 
