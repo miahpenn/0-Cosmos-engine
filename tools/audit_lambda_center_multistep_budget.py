@@ -549,7 +549,8 @@ def main() -> int:
     for filename, rows in outputs:
         path = OUT / filename
         with path.open("w", newline="", encoding="utf-8") as stream:
-            writer = csv.DictWriter(stream, fieldnames=list(rows[0].keys()))
+            fieldnames = list(dict.fromkeys(key for row in rows for key in row.keys()))
+            writer = csv.DictWriter(stream, fieldnames=fieldnames)
             writer.writeheader()
             writer.writerows(rows)
         output_paths[filename] = path
