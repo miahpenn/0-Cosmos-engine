@@ -1,0 +1,96 @@
+name: Diagnostic - current-main centre Ricci/proper-radial reconciliation
+
+on:
+  push:
+    branches:
+      - diag/current-main-centre-ricci-proper-radial-2026-10-15
+    paths:
+      - tools/audit_current_main_centre_proper_radial_ricci.py
+      - tests/test_initial_centre_proper_radial_ricci.py
+      - .github/workflows/current-main-centre-ricci-proper-radial.yml
+      - docs/CURRENT_MAIN_CENTRE_RICCI_NEXT_GATE_2026-10-15.md
+
+permissions:
+  contents: read
+
+concurrency:
+  group: current-main-centre-ricci-proper-radial-2026-10-15
+  cancel-in-progress: false
+
+jobs:
+  compare-centre-ricci:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      PYTHONUNBUFFERED: "1"
+      SOURCE_COMMIT: "285a2ee0c1a3b97cddeb4519d8e749109b115aab"
+      VENDOR_COMMIT: "d6052d605673ce9d82cdc99b0df79855fa2ea215"
+    steps:
+      - name: Check out isolated diagnostic branch and pinned vendor
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install repository requirements
+        run: python -m pip install -r requirements.txt
+
+      - name: Compile observer and regression tests
+        run: |
+          python -m py_compile tools/audit_current_main_centre_proper_radial_ricci.py
+          python -m py_compile tests/test_initial_centre_proper_radial_ricci.py
+
+      - name: Fail closed on production source, vendor, and dependency drift
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin "$SOURCE_COMMIT"
+          declare -A blobs=(
+            ["engine/production_kernel.py"]="9685e76bb5a6f26d6bf383e240de24f37523f265"
+            ["engine/matter_system.py"]="05e23d2368120ea8a1a6aad3fa438625d5380750"
+            ["engine/matter_rhs.py"]="f41180efbcff2c72cf36477a765318ab539fac80"
+            ["engine/scalar_system.py"]="ffc119b1a6f2d495d972323901f76a85783b0a1b"
+            ["engine/v55_matter.py"]="0ee3c51fac7dc46c63feba2747a750542bcee3d0"
+            ["engine/v55_pirk_adapter.py"]="eeee0492d80889d70e52b0946563eee5054c0f11"
+            ["engine/cmc_gauge.py"]="7b49b5751abebd4faf0130208032cd2080b71f64"
+            ["engine/v55_initial.py"]="7db2e1a10cf16fb40e4221b0df504fdf39aae611"
+            ["engine/stress_energy.py"]="ac3e7518c62bb72e2218a61489fa486bb787809f"
+            ["engine/valencia.py"]="03ed86398f424c03d9d6a3e646da9222a34fac5c"
+            ["engine/worldtube.py"]="aea19090cb0fd2ebe5481a8b7af0d26f119a9ad6"
+          )
+          for path in "${!blobs[@]}"; do
+            expected="${blobs[$path]}"
+            base_blob="$(git rev-parse "$SOURCE_COMMIT:$path")"
+            head_blob="$(git rev-parse "HEAD:$path")"
+            test "$base_blob" = "$expected"
+            test "$head_blob" = "$expected"
+          done
+          test "$(git rev-parse "HEAD:vendor/bb-palatini-unified-r0")" = "$VENDOR_COMMIT"
+          changed="$(git diff --name-only "$SOURCE_COMMIT" HEAD -- engine vendor .gitmodules requirements.txt)"
+          if [ -n "$changed" ]; then
+            printf 'Unexpected production/vendor/dependency changes:\n%s\n' "$changed"
+            exit 1
+          fi
+          printf 'SOURCE_COMMIT=%s\nVENDOR_COMMIT=%s\n' "$SOURCE_COMMIT" "$VENDOR_COMMIT"
+
+      - name: Run repository regression suite
+        run: python -m pytest -q
+
+      - name: Run no-evolution current-main profile audit
+        run: python tools/audit_current_main_centre_proper_radial_ricci.py
+
+      - name: Upload report and signed profiles
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: current-main-centre-ricci-proper-radial
+          path: results/current-main-centre-proper-radial-ricci/
+          if-no-files-found: warn
+          retention-days: 90
