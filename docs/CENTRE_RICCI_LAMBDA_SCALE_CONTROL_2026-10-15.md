@@ -15,7 +15,7 @@ q(r)=1+A\left(1-e^{-(r/L)^2}\right),\qquad
 a=q^{-4/3},\quad b=q^{2/3},\quad X=q^{-2/3}.
 \]
 
-The parametrization is determinant-consistent ((ab^2=1)) and retains the same proper-radial and areal-radius identity in the conformal representation. The singular-looking radial component is
+The parametrization is determinant-consistent (\(ab^2=1\)); it gives \(d\ell=(\sqrt{a}/X)dr=dr\) and areal radius \(R=r\sqrt{b}/X=rq\). The singular-looking radial component is
 
 \[
 \Lambda_r=\frac{2}{r}\left(\frac{1}{b}-\frac{1}{a}\right)
