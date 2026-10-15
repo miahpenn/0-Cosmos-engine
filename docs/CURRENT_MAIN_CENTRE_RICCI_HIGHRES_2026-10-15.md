@@ -112,3 +112,8 @@ This distinguishes three effects without an evolved trajectory: representation s
 ## Acceptance and limits
 
 A useful result requires all source/vendor pins to match, finite profiles, unchanged state digests, zero evolution steps, and a reproducible checksum manifest. Passing those integrity gates means the diagnostic completed, not that either formula is correct. No production equation, vendor code, coefficient, gauge, boundary, threshold, dependency, or campaign setting is changed. Scientific admission remains **NOT ADMITTED**.
+
+
+## Manufactured metric consistency correction — 15 October 2026 UTC
+
+A review of the first manufactured-profile artifact found that its metric preserved determinant one but used a conformal-factor sample inconsistent with the production identities \(b=X^2\) and \(a=X^{-4}\). Its manufactured-profile results are superseded and are not used as scientific evidence. The corrected family keeps \(q(r)=1+c_3r^2+c_5r^4\) but sets \(a=q^{-4/3}\), \(b=q^{2/3}\), and \(X=q^{1/3}\), which satisfies \(ab^2=1\), \(b=X^2\), and \(a=X^{-4}\). The independently reconstructed geometry then has areal radius \(R=r\) and proper-radial factor \(f=1/q\). The revised audit exports the manufactured metric samples and checks these identities explicitly. All conclusions await exact-head validation of the corrected artifact; production and vendor code remain unchanged.

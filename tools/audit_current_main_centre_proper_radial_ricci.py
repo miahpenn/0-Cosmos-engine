@@ -589,9 +589,11 @@ def _manufactured_lambda_parity_discriminator(grid, vacuum) -> tuple[dict[str, n
         if np.any(~np.isfinite(q)) or np.any(q <= 0.0):
             raise FloatingPointError(f"{tag}: manufactured q is not finite and positive")
         qp = 2.0 * c3 * r + 4.0 * c5 * r**3
+        # Preserve the production metric identities on the manufactured slice:
+        # b = X^2, a = X^-4, and a*b^2 = 1.
         a = q ** (-4.0 / 3.0)
         b = q ** (2.0 / 3.0)
-        X = q ** (-2.0 / 3.0)
+        X = q ** (1.0 / 3.0)
         ap_cont = (-4.0 / 3.0) * a * qp / q
         bp_cont = (2.0 / 3.0) * b * qp / q
         lambda_cont = (
@@ -613,6 +615,7 @@ def _manufactured_lambda_parity_discriminator(grid, vacuum) -> tuple[dict[str, n
         }
         areal = r * np.sqrt(b) / X
         proper_factor = np.sqrt(a) / X
+        expected_proper_factor = 1.0 / q
         direct = proper_radial_ricci(grid, areal, proper_factor)
         direct_tf = _arr(direct["tf_ricci"])
         ap_discrete = _arr(d1(a, 1))
@@ -656,6 +659,11 @@ def _manufactured_lambda_parity_discriminator(grid, vacuum) -> tuple[dict[str, n
             response_closure_error = observed_gap_delta - predicted_response
 
             prefix = f"{tag}_{arm_name}"
+            arrays[prefix + "_a"] = _arr(a).copy()
+            arrays[prefix + "_b"] = _arr(b).copy()
+            arrays[prefix + "_X"] = _arr(X).copy()
+            arrays[prefix + "_areal_radius"] = _arr(areal).copy()
+            arrays[prefix + "_proper_factor"] = _arr(proper_factor).copy()
             arrays[prefix + "_Lambda"] = _arr(lambda_values)
             arrays[prefix + "_Lambda_over_r"] = _arr(lambda_values) / r
             arrays[prefix + "_vendor_Rr_r"] = _arr(vendor_terms["Rr_r"])
@@ -754,8 +762,10 @@ def _manufactured_lambda_parity_discriminator(grid, vacuum) -> tuple[dict[str, n
             "c3": c3,
             "c5": c5,
             "determinant_one_max_abs": _max_abs(a * b * b - 1.0),
-            "proper_factor_minus_one_max_abs": _max_abs(proper_factor - 1.0),
-            "areal_radius_minus_r_max_abs": _max_abs(areal - r * q),
+            "b_minus_X_squared_max_abs": _max_abs(b - X * X),
+            "a_minus_X_minus_four_max_abs": _max_abs(a - X ** (-4.0)),
+            "proper_factor_minus_q_inverse_max_abs": _max_abs(proper_factor - expected_proper_factor),
+            "areal_radius_minus_r_max_abs": _max_abs(areal - r),
             "off_constraint_odd_amplitude": epsilon,
             "off_constraint_width": width,
             "arms": arm_reports,
@@ -1205,6 +1215,11 @@ def main() -> int:
         ):
             manufactured_prefix = f"{manufactured_tag}_{manufactured_arm}"
             all_names.extend([
+                manufactured_prefix + "_a",
+                manufactured_prefix + "_b",
+                manufactured_prefix + "_X",
+                manufactured_prefix + "_areal_radius",
+                manufactured_prefix + "_proper_factor",
                 manufactured_prefix + "_Lambda",
                 manufactured_prefix + "_Lambda_over_r",
                 manufactured_prefix + "_vendor_tf_ricci",

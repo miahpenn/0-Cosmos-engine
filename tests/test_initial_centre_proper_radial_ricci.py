@@ -252,7 +252,9 @@ def test_manufactured_lambda_parity_arms_keep_metric_fixed():
     arms = ("continuum", "discrete", "off_constraint_odd", "negative_control_even")
     for profile in summary["profiles"]:
         assert profile["determinant_one_max_abs"] < 1.0e-12
-        assert profile["proper_factor_minus_one_max_abs"] < 1.0e-12
+        assert profile["b_minus_X_squared_max_abs"] < 1.0e-12
+        assert profile["a_minus_X_minus_four_max_abs"] < 1.0e-12
+        assert profile["proper_factor_minus_q_inverse_max_abs"] < 1.0e-12
         assert profile["areal_radius_minus_r_max_abs"] < 1.0e-12
         by_name = {arm["arm"]: arm for arm in profile["arms"]}
         assert tuple(name for name in arms if name in by_name) == arms
