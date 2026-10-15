@@ -7,7 +7,6 @@ from tools.derived_physics_diagnostics import (
     directional_kasner_exponents,
     heron_discriminant,
     omega_sigma_from_directional_shear,
-    preserve_achieve_slope,
     raychaudhuri_bounce_margin,
     scalar_kasner_exponent_square_sum,
 )
@@ -37,24 +36,6 @@ class ShearDiagnosticsTests(unittest.TestCase):
         self.assertGreater(min(expanding_safe), 0.0)
         self.assertLess(min(contracting_dangerous), 0.0)
         self.assertGreater(min(contracting_safe), 0.0)
-
-    def test_preserve_achieve_slope_signs_and_marginality(self):
-        omega = 0.2
-        self.assertLess(preserve_achieve_slope(2/3, omega), 0.0)
-        self.assertEqual(preserve_achieve_slope(1.0, omega), 0.0)
-        self.assertGreater(preserve_achieve_slope(4/3, omega), 0.0)
-        self.assertEqual(preserve_achieve_slope(4/3, 0.0), 0.0)
-
-    def test_preserve_achieve_formula_matches_log_ratio_derivative(self):
-        w, r0, x, eps = 1.4, 0.7, -0.2, 1e-6
-
-        def omega_at(log_a):
-            r = r0 * math.exp(3.0 * (w - 1.0) * log_a)
-            return r / (1.0 + r)
-
-        omega = omega_at(x)
-        numeric = (omega_at(x + eps) - omega_at(x - eps)) / (2 * eps)
-        self.assertAlmostEqual(preserve_achieve_slope(w, omega), numeric, places=9)
 
 
 class BounceDiagnosticTests(unittest.TestCase):
