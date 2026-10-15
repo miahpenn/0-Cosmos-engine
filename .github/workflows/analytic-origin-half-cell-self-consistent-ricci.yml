@@ -23,6 +23,7 @@ on:
       - tools/audit_analytic_origin_half_cell_self_consistent_response.py
       - tools/audit_manufactured_lambda_symbol_response.py
       - tools/audit_coupled_lambda_constraint_propagation.py
+      - tools/audit_lambda_offmode_amplitude_stress.py
       - tests/test_coupled_lambda_constraint_propagation.py
       - tests/test_lambda_offmode_signed_parity.py
       - tests/test_manufactured_lambda_symbol_response.py
