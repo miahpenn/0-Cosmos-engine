@@ -9,6 +9,7 @@ It performs no production edit and takes no evolution steps.
 """
 from __future__ import annotations
 
+import copy
 import json
 import math
 from pathlib import Path
@@ -31,9 +32,11 @@ from tools.audit_current_main_centre_proper_radial_ricci import (
     VENDOR_COMMIT,
     _arr,
     _finite,
+    _lambda_chain_rule_counterfactual,
     _max_abs,
     _state_digest,
     _verify_source_pins,
+    proper_radial_ricci,
 )
 from tools.audit_origin_anchored_half_cell_ricci_response import (
     FIT_RADIUS,
@@ -148,6 +151,34 @@ def continuous_source(
     if not np.all(np.isfinite(values)):
         raise FloatingPointError("continuous source generated non-finite values")
     return float(values) if values.ndim == 0 else values
+
+
+def _lambda_chain_rule_on_frozen_metric(grid, state, vacuum, B: np.ndarray) -> tuple[dict[str, np.ndarray], dict]:
+    """Apply only the offline Lambda chain-rule derivative counterfactual to a copied metric."""
+    r = _arr(grid.centers)
+    B = np.asarray(B, dtype=float)
+    if B.shape != r.shape or not _finite(B) or np.any(B <= 0.0):
+        raise ValueError("B must be a finite positive profile matching grid centres")
+    A = 1.0 / np.sqrt(B)
+    a, b, X = A ** (4.0 / 3.0), A ** (-2.0 / 3.0), A ** (-1.0 / 3.0)
+    d1 = lambda values, parity=1: grid.cell_derivative_fourth(values, parity=parity)
+    Lambda = (
+        d1(a, 1) / (2.0 * a * a)
+        - d1(b, 1) / (a * b)
+        + 2.0 / r * (1.0 / b - 1.0 / a)
+    )
+    geom_cf = copy.deepcopy(state.geometry)
+    geom_cf.a, geom_cf.b, geom_cf.X = a.copy(), b.copy(), X.copy()
+    geom_cf.Lambda = Lambda.copy()
+    geom_cf.B = 0.75 * Lambda
+    vendor_terms = vacuum.geometry_terms(grid, geom_cf)
+    areal_radius = r * np.sqrt(b) / X
+    proper_factor = np.sqrt(a) / X
+    direct = proper_radial_ricci(grid, areal_radius, proper_factor)
+    arrays, summary = _lambda_chain_rule_counterfactual(
+        grid, r, a, b, X, Lambda, vendor_terms, _arr(direct["tf_ricci"])
+    )
+    return arrays, summary
 
 
 def solve_continuous_moment(
@@ -411,6 +442,11 @@ def run_audit(output_dir: Path = OUT) -> dict[str, Any]:
             )
             if not invariants["all_profiles_finite"]:
                 raise FloatingPointError(f"N={n}/{tag}: frozen-source oracle response is non-finite")
+            lambda_arrays, lambda_summary = _lambda_chain_rule_on_frozen_metric(
+                grid, state, vacuum, Bcandidate
+            )
+            if not all(_finite(v) for v in lambda_arrays.values()) or not lambda_summary["counterfactual_profiles_finite"]:
+                raise FloatingPointError(f"N={n}/{tag}: Lambda chain-rule counterfactual is non-finite")
             frozen_source_ricci[tag] = {
                 "moment_correction_applied": delta_i,
                 "difference_from_continuous_oracle_moment_correction": float(delta_i - oracle_delta),
@@ -421,6 +457,16 @@ def run_audit(output_dir: Path = OUT) -> dict[str, Any]:
                 "first_six_max_abs_gap": float(_max_abs(gap[:6])),
                 "fixed_annulus_r5_to10_max_abs_gap": float(_max_abs(gap[annulus])),
                 "geometry_invariants": invariants,
+                "lambda_chain_rule_counterfactual": {
+                    "method": lambda_summary["method"],
+                    "baseline_gap_max_abs_first_two": lambda_summary["baseline_gap_max_abs_first_two"],
+                    "chain_rule_gap_max_abs_first_two": lambda_summary["chain_rule_gap_max_abs_first_two"],
+                    "baseline_gap_max_abs_fixed_annulus_r5_to10": lambda_summary["baseline_gap_max_abs_fixed_annulus_r5_to10"],
+                    "chain_rule_gap_max_abs_fixed_annulus_r5_to10": lambda_summary["chain_rule_gap_max_abs_fixed_annulus_r5_to10"],
+                    "first_two_cells": lambda_summary["first_two_cells"],
+                    "counterfactual_profiles_finite": lambda_summary["counterfactual_profiles_finite"],
+                    "interpretation_limits": lambda_summary["interpretation_limits"],
+                },
             }
         if not _finite(baseline_gap):
             raise FloatingPointError(f"N={n}: production baseline Ricci gap is non-finite")
@@ -508,6 +554,13 @@ def main() -> None:
                 "true_continuous_moment_delta": row["frozen_source_ricci_response"]["continuous_oracle_moment"]["moment_correction_applied"],
                 "frozen_source_ricci_cell0_gaps": {
                     key: val["first_two_signed_ricci_gaps"][0]
+                    for key, val in row["frozen_source_ricci_response"].items()
+                },
+                "frozen_source_lambda_chain_rule_cell0_gaps": {
+                    key: {
+                        "baseline_gap": val["lambda_chain_rule_counterfactual"]["first_two_cells"][0]["baseline_vendor_minus_direct_tf_ricci"],
+                        "chain_rule_gap": val["lambda_chain_rule_counterfactual"]["first_two_cells"][0]["chain_rule_vendor_minus_direct_tf_ricci"],
+                    }
                     for key, val in row["frozen_source_ricci_response"].items()
                 },
                 "estimates": {
