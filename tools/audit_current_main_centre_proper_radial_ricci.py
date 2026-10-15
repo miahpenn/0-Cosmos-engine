@@ -8,8 +8,10 @@ or imposing a scientific-admission threshold.
 """
 from __future__ import annotations
 
+import copy
 import csv
 import hashlib
+import math
 import json
 from pathlib import Path
 import subprocess
@@ -34,10 +36,10 @@ SOURCE_BLOBS = {
     "engine/valencia.py": "03ed86398f424c03d9d6a3e646da9222a34fac5c",
     "engine/worldtube.py": "aea19090cb0fd2ebe5481a8b7af0d26f119a9ad6",
 }
-RESOLUTIONS = (60, 80, 120)
+RESOLUTIONS = (160, 240, 320)
 R_MAX = 80.0
 CENTRE_CELLS = 6
-OUT = Path("results/current-main-centre-proper-radial-ricci")
+OUT = Path("results/current-main-centre-proper-radial-ricci-highres-2026-10-15")
 
 
 def _git(*args: str) -> str:
@@ -177,6 +179,305 @@ def even_taylor_fit(r, values, count=CENTRE_CELLS):
     }
 
 
+
+def _even_half_cell_integral(coefficients: np.ndarray, r0: float) -> float:
+    """Integrate an even polynomial in r² analytically from 0 to r0."""
+    coeff = np.asarray(coefficients, dtype=float).reshape(-1)
+    if coeff.size not in (3, 4) or np.any(~np.isfinite(coeff)):
+        raise ValueError("even half-cell integral expects finite s0/s2/s4[/s6] coefficients")
+    return float(sum(value * r0 ** (2 * order + 1) / (2 * order + 1)
+                     for order, value in enumerate(coeff)))
+
+
+def _origin_half_cell_frozen_source(grid, state, vacuum) -> tuple[dict[str, np.ndarray], dict]:
+    """Reconstruct the pinned initializer source and apply only an origin-cell moment correction.
+
+    This is a *frozen-source counterfactual*: its source is taken from the final
+    iteration of the production initializer recurrence, and the correction to
+    the half-cell integral is propagated as delta_I/r to each cell. It does not
+    iterate the source after changing B, evolve the machine, or edit production
+    code. All inter-centre trapezoid intervals are preserved.
+    """
+    from engine.scalar_system import cosmos_potential
+    from engine.v55_matter import RHO_B_PRESENT, RHO_DM_PRESENT, RHO_R_PRESENT
+
+    r = _arr(grid.centers)
+    dr = float(grid.dr)
+    geom = state.geometry
+    fields = state.scalars
+    S, PS, D, PD = (_arr(fields.S), _arr(fields.PS), _arr(fields.D), _arr(fields.PD))
+    phi, Pi = _arr(fields.phi), _arr(fields.Pi)
+    d1 = lambda v, parity=1: grid.cell_derivative_fourth(v, parity=parity)
+    Sp, Dp = d1(S, 1), d1(D, 1)
+    j = -(PD * Dp)
+
+    # Reproduce the initializer's declared homogeneous Kt exactly rather
+    # than recovering it by subtracting K/Aa (which would amplify roundoff in
+    # Ktp on the large-r grid).
+    phi0, pi0 = 0.179055, 0.00341913
+    rho0 = 0.5 * pi0**2 + float(cosmos_potential(np.array([phi0]))[0])
+    rho0 += float(RHO_DM_PRESENT) + float(RHO_B_PRESENT) + float(RHO_R_PRESENT)
+    H0 = math.sqrt(max(rho0 / 3.0, 0.0))
+    Kt = np.full_like(r, -H0)
+    Ktp = d1(Kt, 1)
+    rho_matter = (
+        float(RHO_DM_PRESENT) + float(RHO_B_PRESENT) + float(RHO_R_PRESENT)
+    ) / (8.0 * math.pi)
+    rho_phi = (0.5 * Pi * Pi + cosmos_potential(phi)) / (8.0 * math.pi)
+    B_iter = np.ones_like(r)
+    source_last = np.zeros_like(r)
+    for _ in range(6):
+        rhoS = 0.5 * (PS * PS + B_iter * Sp * Sp) + 0.5 * S * S
+        rhoD = 0.5 * (PD * PD + B_iter * Dp * Dp) - 0.5 * D * D
+        rho = rhoS + rhoD + rho_phi + rho_matter
+        Kr = Kt + r * Ktp + 4.0 * math.pi * r * j
+        source_last = (
+            1.0 - 8.0 * math.pi * r * r * rho
+            + 2.0 * r * r * Kr * Kt
+            + r * r * Kt * Kt
+        )
+        # Reproduce the production recurrence: 0.5*dr*src[0] == r0*src[0].
+        integ = np.cumsum(
+            np.r_[0.5 * dr * source_last[0],
+                  0.5 * dr * (source_last[1:] + source_last[:-1])]
+        )
+        B_iter = integ / r
+
+    B_from_geometry = _arr(geom.X) ** 6
+    reconstruction_error = _max_abs(B_iter - B_from_geometry)
+    r0 = float(r[0])
+
+    def fit_even_source(fit_r_max: float) -> dict:
+        # Fix support in physical radius, not cell count, so N=160/240/320
+        # extrapolate the same source interval to the origin.
+        mask = r <= float(fit_r_max)
+        x = r[mask] ** 2
+        ncells = int(np.count_nonzero(mask))
+        if ncells < 4:
+            raise ValueError("even-source fit needs at least four cells inside its fixed-radius support")
+        design = np.column_stack((np.ones(ncells), x, x * x, x * x * x))
+        coeff, *_ = np.linalg.lstsq(design, source_last[mask], rcond=None)
+        residual = source_last[mask] - design @ coeff
+        integral = _even_half_cell_integral(coeff, r0)
+        delta = float(integral - r0 * source_last[0])
+        return {
+            "fit_r_max": float(fit_r_max),
+            "fit_cells": ncells,
+            "coefficients_s0_s2_s4_s6": [float(x) for x in coeff],
+            "fit_max_abs_residual": _max_abs(residual),
+            "fit_rms_residual": float(np.sqrt(np.mean(residual * residual))),
+            "even_series_half_cell_integral": float(integral),
+            "production_half_cell_integral": float(r0 * source_last[0]),
+            "delta_integral": delta,
+        }
+
+    fit25 = fit_even_source(2.5)
+    fit30 = fit_even_source(3.0)
+    delta_integral = float(fit25["delta_integral"])
+    B_cf = B_from_geometry + delta_integral / r
+    if np.any(~np.isfinite(B_cf)) or np.any(B_cf <= 0.0):
+        raise FloatingPointError("origin half-cell frozen-source counterfactual produced invalid B")
+    A_cf = 1.0 / np.sqrt(B_cf)
+    a_cf = A_cf ** (4.0 / 3.0)
+    b_cf = A_cf ** (-2.0 / 3.0)
+    X_cf = A_cf ** (-1.0 / 3.0)
+    Lambda_cf = (
+        d1(a_cf, 1) / (2.0 * a_cf * a_cf)
+        - d1(b_cf, 1) / (a_cf * b_cf)
+        + 2.0 / r * (1.0 / b_cf - 1.0 / a_cf)
+    )
+
+    # Recompute curvature on a deep copy. The production state and its matter,
+    # K/Aa, and every inter-centre integral interval stay untouched.
+    geom_cf = copy.deepcopy(geom)
+    geom_cf.a = a_cf.copy()
+    geom_cf.b = b_cf.copy()
+    geom_cf.X = X_cf.copy()
+    geom_cf.Lambda = Lambda_cf.copy()
+    geom_cf.B = 0.75 * Lambda_cf
+    vendor_terms_cf = vacuum.geometry_terms(grid, geom_cf)
+    vendor_tf_cf = _arr(vendor_terms_cf["Rr_r"] - vendor_terms_cf["R"] / 3.0)
+    areal_cf = r * np.sqrt(b_cf) / X_cf
+    proper_factor_cf = np.sqrt(a_cf) / X_cf
+    direct_cf = proper_radial_ricci(grid, areal_cf, proper_factor_cf)
+    direct_tf_cf = _arr(direct_cf["tf_ricci"])
+    gap_cf = vendor_tf_cf - direct_tf_cf
+
+    vendor_terms_base = vacuum.geometry_terms(grid, geom)
+    vendor_tf_base = _arr(vendor_terms_base["Rr_r"] - vendor_terms_base["R"] / 3.0)
+    areal_base = r * np.sqrt(_arr(geom.b)) / _arr(geom.X)
+    proper_factor_base = np.sqrt(_arr(geom.a)) / _arr(geom.X)
+    direct_base = proper_radial_ricci(grid, areal_base, proper_factor_base)
+    direct_tf_base = _arr(direct_base["tf_ricci"])
+    gap_base = vendor_tf_base - direct_tf_base
+    annulus = (r >= 5.0) & (r <= 10.0)
+
+    first_two = []
+    for i in range(min(2, len(r))):
+        first_two.append({
+            "i": i,
+            "r": float(r[i]),
+            "B_production": float(B_from_geometry[i]),
+            "B_frozen_source_counterfactual": float(B_cf[i]),
+            "X_production": float(geom.X[i]),
+            "X_counterfactual": float(X_cf[i]),
+            "vendor_tf_ricci_production": float(vendor_tf_base[i]),
+            "direct_tf_ricci_production": float(direct_tf_base[i]),
+            "signed_gap_production": float(gap_base[i]),
+            "gap_over_r2_production": float(gap_base[i] / (r[i] * r[i])),
+            "vendor_tf_ricci_counterfactual": float(vendor_tf_cf[i]),
+            "direct_tf_ricci_counterfactual": float(direct_tf_cf[i]),
+            "signed_gap_counterfactual": float(gap_cf[i]),
+            "gap_over_r2_counterfactual": float(gap_cf[i] / (r[i] * r[i])),
+        })
+    arrays = {
+        "initializer_source_final_iteration": source_last,
+        "initializer_B_reconstructed": B_iter,
+        "initializer_B_from_X6": B_from_geometry,
+        "origin_cf_B": B_cf,
+        "origin_cf_a": a_cf,
+        "origin_cf_b": b_cf,
+        "origin_cf_X": X_cf,
+        "origin_cf_Lambda": Lambda_cf,
+        "origin_cf_areal_radius": areal_cf,
+        "origin_cf_proper_factor": proper_factor_cf,
+        "origin_cf_vendor_tf_ricci": vendor_tf_cf,
+        "origin_cf_direct_tf_ricci": direct_tf_cf,
+        "origin_cf_tf_ricci_difference": gap_cf,
+        "origin_cf_vendor_tf_ricci_over_r2": vendor_tf_cf / (r * r),
+        "origin_cf_direct_tf_ricci_over_r2": direct_tf_cf / (r * r),
+        "origin_cf_tf_ricci_difference_over_r2": gap_cf / (r * r),
+    }
+    summary = {
+        "method": "frozen-source analytic even half-cell integral; final pinned initializer source; delta_I/r propagated to every cell; inter-centre trapezoids unchanged",
+        "evolution_steps": 0,
+        "source_reconstruction_B_vs_X6_max_abs": float(reconstruction_error),
+        "source_reconstruction_matches_geometry": bool(reconstruction_error <= 2.0e-12 * max(1.0, _max_abs(B_from_geometry))),
+        "source_final_iteration_first_two": [float(x) for x in source_last[:2]],
+        "even_fit_r_le_2_5": fit25,
+        "even_fit_r_le_3_0": fit30,
+        "fit_sensitivity_delta_integral_abs": float(abs(fit30["delta_integral"] - fit25["delta_integral"])),
+        "production_half_cell_integral": float(r0 * source_last[0]),
+        "corrected_half_cell_integral": float(fit25["even_series_half_cell_integral"]),
+        "delta_integral_applied": delta_integral,
+        "first_two_cells": first_two,
+        "fixed_annulus_r5_to10": {
+            "cells": int(np.count_nonzero(annulus)),
+            "production_gap_max_abs": _max_abs(gap_base[annulus]) if np.any(annulus) else None,
+            "counterfactual_gap_max_abs": _max_abs(gap_cf[annulus]) if np.any(annulus) else None,
+        },
+        "first_two_cell_gap_reduction_factor": float(
+            _max_abs(gap_base[:2]) / max(_max_abs(gap_cf[:2]), np.finfo(float).tiny)
+        ),
+        "counterfactual_profiles_finite": all(_finite(v) for v in arrays.values()),
+        "interpretation_limits": [
+            "This is a frozen-source counterfactual, not a self-consistent re-solve of the six-step initializer fixed point.",
+            "Only the origin half-cell integral is changed; the same delta integral is propagated as delta_I/r, while all inter-centre trapezoid intervals are unchanged.",
+            "Metric, Lambda, and Ricci are recomputed on a copied geometry; no production-state field is mutated and no evolution step is taken.",
+            "A reduced Ricci gap would support the initialization quadrature hypothesis, not authorize promotion of the quadrature rule or prove evolved convergence."
+        ],
+    }
+    if not summary["source_reconstruction_matches_geometry"]:
+        raise RuntimeError(
+            "reconstructed initializer B does not match the actual X^6 profile: "
+            f"{reconstruction_error:.6g}"
+        )
+    return arrays, summary
+
+
+
+
+def _lambda_chain_rule_witness(
+    grid, a, b, X, Lambda, vendor_tf, direct_tf
+) -> tuple[dict[str, np.ndarray], dict]:
+    """Isolate the initialized-slice D4(Lambda) vs metric-chain-rule difference.
+
+    The vendor's radial and scalar Ricci brackets share the term -a*Lambda'.
+    Replacing only the sampled D4(Lambda) operand by the derivative of the
+    metric reconstruction changes the TF Ricci by (2/3)*X**2*delta(Lambda').
+    This is an offline counterfactual only; it does not redefine evolved BSSN
+    Lambda or invoke a production evolution step.
+    """
+    r = _arr(grid.centers)
+    a = _arr(a)
+    b = _arr(b)
+    X = _arr(X)
+    Lambda = _arr(Lambda)
+    vendor_tf = _arr(vendor_tf)
+    direct_tf = _arr(direct_tf)
+    d1 = lambda v, parity=1: grid.cell_derivative_fourth(v, parity=parity)
+    d2 = lambda v, parity=1: grid.cell_second_derivative_fourth(v, parity=parity)
+
+    ap, bp = d1(a, 1), d1(b, 1)
+    app, bpp = d2(a, 1), d2(b, 1)
+    lambda_p_stencil = d1(Lambda, -1)
+    lambda_p_chain = (
+        app / (2.0 * a**2)
+        - ap**2 / a**3
+        - bpp / (a * b)
+        + bp * (ap * b + a * bp) / (a**2 * b**2)
+        - 2.0 * (1.0 / b - 1.0 / a) / r**2
+        + 2.0 * (-bp / b**2 + ap / a**2) / r
+    )
+    lambda_p_delta = lambda_p_chain - lambda_p_stencil
+    tf_correction = (2.0 / 3.0) * X**2 * lambda_p_delta
+    vendor_tf_chain = vendor_tf + tf_correction
+    gap_base = vendor_tf - direct_tf
+    gap_chain = vendor_tf_chain - direct_tf
+    annulus = (r >= 5.0) & (r <= 10.0)
+
+    first_two = []
+    for i in range(min(2, r.size)):
+        first_two.append({
+            "i": int(i),
+            "r": float(r[i]),
+            "lambda_prime_D4": float(lambda_p_stencil[i]),
+            "lambda_prime_chain_rule": float(lambda_p_chain[i]),
+            "lambda_prime_chain_minus_D4": float(lambda_p_delta[i]),
+            "tf_ricci_correction": float(tf_correction[i]),
+            "vendor_tf_ricci_original": float(vendor_tf[i]),
+            "direct_tf_ricci": float(direct_tf[i]),
+            "gap_original": float(gap_base[i]),
+            "vendor_tf_ricci_chain_rule_counterfactual": float(vendor_tf_chain[i]),
+            "gap_chain_rule_counterfactual": float(gap_chain[i]),
+            "gap_over_r2_original": float(gap_base[i] / r[i]**2),
+            "gap_over_r2_chain_rule_counterfactual": float(gap_chain[i] / r[i]**2),
+        })
+    arrays = {
+        "lambda_prime_D4": lambda_p_stencil,
+        "lambda_prime_chain_rule": lambda_p_chain,
+        "lambda_prime_chain_minus_D4": lambda_p_delta,
+        "lambda_chain_tf_ricci_correction": tf_correction,
+        "vendor_tf_ricci_chain_rule_counterfactual": vendor_tf_chain,
+        "tf_ricci_gap_chain_rule_counterfactual": gap_chain,
+        "tf_ricci_gap_chain_rule_counterfactual_over_r2": gap_chain / r**2,
+    }
+    finite = all(_finite(values) for values in arrays.values())
+    summary = {
+        "method": "offline substitution of metric-chain-rule Lambda derivative for D4(Lambda); all metric values and other Ricci operands held fixed",
+        "formula": "Delta TF Ricci = (2/3)*X^2*(Lambda_prime_chain_rule - D4(Lambda))",
+        "evolution_steps": 0,
+        "all_counterfactual_profiles_finite": bool(finite),
+        "max_abs_lambda_prime_chain_minus_D4_full": _max_abs(lambda_p_delta),
+        "max_abs_tf_ricci_correction_full": _max_abs(tf_correction),
+        "max_abs_gap_original_full": _max_abs(gap_base),
+        "max_abs_gap_chain_rule_counterfactual_full": _max_abs(gap_chain),
+        "first_two_cells": first_two,
+        "fixed_annulus_r5_to10": {
+            "cells": int(np.count_nonzero(annulus)),
+            "max_abs_gap_original": _max_abs(gap_base[annulus]) if np.any(annulus) else None,
+            "max_abs_gap_chain_rule_counterfactual": _max_abs(gap_chain[annulus]) if np.any(annulus) else None,
+            "signed_gap_original_at_max_abs": float(gap_base[annulus][np.argmax(np.abs(gap_base[annulus]))]) if np.any(annulus) else None,
+            "signed_gap_chain_rule_at_max_abs": float(gap_chain[annulus][np.argmax(np.abs(gap_chain[annulus]))]) if np.any(annulus) else None,
+        },
+        "interpretation_limits": [
+            "This changes only an offline Ricci operand; it does not change the independently evolved BSSN connection field.",
+            "The chain-rule derivative shares the sampled metric arrays and pinned D1/D2 derivative operators, so it is not an independent discretization or continuum proof.",
+            "A reduced initialized-slice residual localizes product/chain-rule closure mismatch but does not justify a production formula replacement or establish evolved convergence.",
+        ],
+    }
+    return arrays, summary
+
 def _verify_source_pins() -> dict:
     source_head = _git("rev-parse", "HEAD")
     source_vendor = _git("rev-parse", "HEAD:vendor/bb-palatini-unified-r0")
@@ -269,6 +570,15 @@ def main() -> int:
         vendor_tf_over_r2 = vendor_tf / (r * r)
         direct_tf_over_r2 = _arr(direct["tf_ricci"]) / (r * r)
         tf_delta_over_r2 = tf_delta / (r * r)
+        lambda_chain_arrays, lambda_chain_summary = _lambda_chain_rule_witness(
+            grid, a, b, X, Lambda, vendor_tf, _arr(direct["tf_ricci"])
+        )
+
+        # Reconstruct the origin half-cell moment with a frozen final source.
+        # This counterfactual keeps the actual initialized state read-only.
+        origin_cf_arrays, origin_cf_summary = _origin_half_cell_frozen_source(
+            grid, state, vacuum
+        )
 
         aa_budget_scale = max(
             _max_abs(aa_l2),
@@ -334,6 +644,8 @@ def main() -> int:
             "lambda_metric_identity_residual": Lambda - lambda_from_metric,
             "areal_radius_minus_coordinate_radius": areal - r,
         }
+        metric_arrays.update({name: _arr(values) for name, values in origin_cf_arrays.items()})
+        metric_arrays.update({name: _arr(values) for name, values in lambda_chain_arrays.items()})
 
         taylor = {}
         for name in ("a", "b", "X", "alpha", "a_minus_b_over_r2", "Lambda_over_r"):
@@ -494,6 +806,8 @@ def main() -> int:
                 "l2_signed_difference_max_abs": _max_abs(l2_delta[:CENTRE_CELLS]),
             },
             "even_taylor_fits_first_six_cells": taylor,
+            "frozen_source_origin_half_cell_counterfactual": origin_cf_summary,
+            "lambda_chain_rule_witness": lambda_chain_summary,
             "interpretation_limits": [
                 "A successful observer workflow is not scientific admission.",
                 "The direct warped-product reconstruction is independent of evolved Lambda and the vendor Ricci brackets, but shares the pinned radial grid derivative operator.",
@@ -540,7 +854,16 @@ def main() -> int:
         "aa_rhs", "aa_rhs_over_r2", "R_r", "R_rr", "f_r", "R_l", "R_ll",
         "Ric_l_l", "Ric_theta_theta", "a_prime_over_r", "b_prime_over_r",
         "X_prime_over_r", "alpha_prime_over_r", "lambda_metric_identity_residual",
-        "areal_radius_minus_coordinate_radius",
+        "areal_radius_minus_coordinate_radius", "initializer_source_final_iteration",
+        "initializer_B_reconstructed", "initializer_B_from_X6", "origin_cf_B",
+        "origin_cf_a", "origin_cf_b", "origin_cf_X", "origin_cf_Lambda",
+        "origin_cf_areal_radius", "origin_cf_proper_factor",
+        "origin_cf_vendor_tf_ricci", "origin_cf_direct_tf_ricci",
+        "origin_cf_tf_ricci_difference", "origin_cf_vendor_tf_ricci_over_r2",
+        "origin_cf_direct_tf_ricci_over_r2", "origin_cf_tf_ricci_difference_over_r2",
+        "lambda_prime_D4", "lambda_prime_chain_rule", "lambda_prime_chain_minus_D4",
+        "lambda_chain_tf_ricci_correction", "vendor_tf_ricci_chain_rule_counterfactual",
+        "tf_ricci_gap_chain_rule_counterfactual", "tf_ricci_gap_chain_rule_counterfactual_over_r2",
     ])
     with csv_path.open("w", newline="", encoding="utf-8") as stream:
         writer = csv.writer(stream)
