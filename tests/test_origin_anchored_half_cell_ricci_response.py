@@ -111,3 +111,30 @@ def test_intercept_only_replacement_changes_only_constant_coefficient():
         atol=1.0e-15,
     )
     assert not np.allclose(constrained_coeff[1:], replaced_coeff[1:], rtol=1.0e-8, atol=1.0e-14)
+
+
+def test_c0_and_higher_coefficient_moment_decomposition_closes():
+    dr = 0.125
+    r = (np.arange(80, dtype=float)+0.5)*dr
+    source = smooth_source(r)
+    free = fit_origin_moment(
+        r, source, dr, fit_radius=2.5, degree=3, anchor_origin=False
+    )
+    constrained = fit_origin_moment(
+        r, source, dr, fit_radius=2.5, degree=3,
+        anchor_origin=True, anchor_strategy="constrained",
+    )
+    cf = np.asarray(free["coefficients_scaled_z_basis"])
+    ca = np.asarray(constrained["coefficients_scaled_z_basis"])
+    r0 = dr/2.0
+    delta_c0 = (ca[0]-cf[0])*r0
+    delta_higher = sum(
+        (ca[k]-cf[k])*r0*(r0/2.5)**(2*k)/(2*k+1)
+        for k in range(1, 4)
+    )
+    actual = (
+        constrained["moment_correction_vs_point_sample"]
+        - free["moment_correction_vs_point_sample"]
+    )
+    assert abs(delta_c0+delta_higher-actual) < 2.0e-18
+    assert abs(delta_c0) > 10.0*abs(delta_higher)
