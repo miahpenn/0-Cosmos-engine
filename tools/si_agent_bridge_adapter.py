@@ -189,7 +189,11 @@ def build_contract_event(
     if repository != REPOSITORY:
         raise AdapterError("adapter is hard-scoped to miahpenn/0-Cosmos-engine")
     repo_data = payload.get("repository")
-    if not isinstance(repo_data, dict) or repo_data.get("full_name", "").casefold() != repository.casefold():
+    if (
+        not isinstance(repo_data, dict)
+        or not isinstance(repo_data.get("full_name"), str)
+        or repo_data["full_name"].casefold() != repository.casefold()
+    ):
         raise AdapterError("event repository does not match configured repository")
 
     action, event_pr, run = _pr_snapshot(payload, event_name)
@@ -285,6 +289,13 @@ def build_contract_event(
     return envelope, number, run
 
 
+def _safe_lane_text(value: Any, limit: int = 160) -> str:
+    text = re.sub(r"\s+", " ", str(value if value is not None else "UNKNOWN")).strip()
+    text = text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    text = re.sub(r"@(channel|here|everyone)\b", r"@ \1", text, flags=re.IGNORECASE)
+    return text[:limit]
+
+
 def format_slack_message(envelope: Mapping[str, Any]) -> str:
     event_id = envelope.get("event_id")
     as_of_utc = envelope.get("as_of_utc")
@@ -292,14 +303,33 @@ def format_slack_message(envelope: Mapping[str, Any]) -> str:
         raise AdapterError("cannot render message without a valid event_id")
     if not isinstance(as_of_utc, str):
         raise AdapterError("cannot render message without source timestamp")
-    # Include the stable event key in the human-visible post and audit ledger.
-    # The pure renderer restricts source/evidence links to repository HTTPS URLs.
+    work_ref = envelope.get("work_ref")
+    lane = "UNKNOWN"
+    if isinstance(work_ref, Mapping):
+        lane = (
+            f"PR #{_safe_lane_text(work_ref.get('pr_number'), 12)} / "
+            f"branch {_safe_lane_text(work_ref.get('branch'))}"
+        )
+    message_type = envelope.get("message_type")
+    if message_type == "CI_STATE":
+        pins = (
+            "Input/config/dependency pins: not carried in this workflow event; "
+            "inspect the linked workflow logs/artifacts before reusing its evidence."
+        )
+    else:
+        pins = (
+            "Input/config/dependency pins: no test or experiment was launched by this "
+            "state-change notification."
+        )
+    # Include stable event identity, lane, timestamp and pin availability. The
+    # contract renderer restricts source/evidence links to repository HTTPS URLs.
     return (
         f"Observed UTC: {as_of_utc}\n"
         f"Bridge event ID: {event_id}\n"
-        f"{render_slack_text(envelope)}"
+        f"Lane: {lane}\n"
+        f"{render_slack_text(envelope)}\n"
+        f"{pins}"
     )
-
 
 def _find_ledger_record(github_token: str, event_id: str) -> dict[str, Any] | None:
     """Read the full paginated delivery ledger; comments are the durable replay guard."""
