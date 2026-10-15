@@ -1,0 +1,199 @@
+{
+  "schema": "origin_half_cell_coefficient_ricci_response_v1",
+  "status": "completed_diagnostic_only",
+  "provenance": {
+    "workflow_run_id": 38789386881,
+    "workflow_url": "https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38789386881",
+    "artifact_id": 11999526510,
+    "artifact_zip_sha256": "5a3514910f6ff6d4e2ded2bb5e36a8f2a7601982791f5be4641583a63e52dff0",
+    "report_json_sha256": "c083380111177b5756d0745cb394d8f30b556a3dec5dd17eb54c38cd8871dc3e",
+    "profiles_npz_sha256": "9c2525ac62e0a1a0668860d8fd97220a1806cbea164589b4a1fb7ad7ca8a3fa8",
+    "audit_head": "4546c50de394504a0d2fd7010d70c68e6c1eed7e",
+    "base_main_sha": "6398620b85b7f5a027de0532ded80bdf04a9b53b",
+    "source_anchor": "285a2ee0c1a3b97cddeb4519d8e749109b115aab",
+    "vendor_pin": "d6052d605673ce9d82cdc99b0df79855fa2ea215",
+    "engine_source_blob_pin_count": 11,
+    "all_source_blob_pins_match": true,
+    "engine_vendor_dependency_diff_empty": true,
+    "manufactured_tests_passed": 8,
+    "observer_errors": [],
+    "no_evolution": true,
+    "production_or_vendor_files_modified": false,
+    "scientific_admission": false
+  },
+  "method": {
+    "source_fit": "degree-three least squares in z=(r/2.5)^2, cell centres r<=2.5 inclusive",
+    "coefficient_changes": "compare unconstrained fit coefficients with constrained least-squares fit c0=1",
+    "c0_intervention": "replace only c0, retain all unconstrained higher coefficients",
+    "higher_interventions": "apply each change to c1/c2/c3 separately, matching the s2/s4/s6 even-series terms",
+    "metric_intervention": "apply coefficient-specific delta-I/r to same frozen free-fit metric; recompute pinned vendor Ricci and independent proper-radial Ricci",
+    "ricci_gap_definition": "pinned vendor trace-free Ricci minus independent proper-radial warped-product trace-free Ricci",
+    "exact_continuous_production_half_cell_integral_known": false,
+    "delta_I_is_true_quadrature_error": false
+  },
+  "resolutions": [
+    {
+      "N": 160,
+      "dr": 0.5,
+      "free_fit": {
+        "coefficients_scaled_z_basis": [
+          0.9999999676741707,
+          -0.007852370649564573,
+          0.0019099116666115579,
+          -0.00020754946141473933
+        ],
+        "cell0_signed_ricci_gap": -0.00018756687929961883,
+        "cell1_signed_ricci_gap": 0.00008441166523299299
+      },
+      "constrained_fit": {
+        "coefficients_scaled_z_basis": [
+          1,
+          -0.007852729473331474,
+          0.0019108592474742538,
+          -0.00020823420578421049
+        ],
+        "cell0_signed_ricci_gap": -0.00018862909035839668,
+        "cell1_signed_ricci_gap": 0.00008459773829344361
+      },
+      "moment_change_components": {
+        "c0_replacement": 8.081457336661657e-9,
+        "s2_refit": -2.990198057506907e-10,
+        "s4_refit": 4.7379043134794524e-12,
+        "s6_refit": -2.4455156052541237e-14,
+        "net_constrained_minus_free": 7.787150979599033e-9,
+        "decomposition_roundoff_residual": 4.693604775360641e-19,
+        "c0_percent_of_net_change": 103.77938424249966,
+        "higher_terms_percent_of_net_change": -3.7793842364722954
+      },
+      "ricci_gap_change_vs_free_reference": {
+        "c0_only": -0.000001102356094982742,
+        "s2_only": 4.078798428283799e-8,
+        "s4_only": -6.462774000584159e-10,
+        "s6_only": 3.3243299606133814e-12,
+        "higher_terms_together": 4.0145033597605495e-8,
+        "combined_c0_and_higher": -0.0000010622110587780369,
+        "all_terms_interaction_residual_max_abs_first_two": 4.9918836425577595e-15
+      },
+      "annulus_max_abs_gap": {
+        "free": 8.860333609388398e-8,
+        "c0_only": 8.860329210261123e-8,
+        "s2_only": 8.860333736165514e-8,
+        "s4_only": 8.860333586922374e-8,
+        "s6_only": 8.860333541254423e-8,
+        "combined": 8.860329372959211e-8
+      }
+    },
+    {
+      "N": 240,
+      "dr": 0.3333333333333333,
+      "free_fit": {
+        "coefficients_scaled_z_basis": [
+          0.9999998935103871,
+          -0.007850229947897523,
+          0.0019016276889077342,
+          -0.00020010258878257626
+        ],
+        "cell0_signed_ricci_gap": -0.00018541508379435202,
+        "cell1_signed_ricci_gap": 0.00008390511013768012
+      },
+      "constrained_fit": {
+        "coefficients_scaled_z_basis": [
+          1,
+          -0.007851134661314065,
+          0.0019034938941411453,
+          -0.00020117818490232413
+        ],
+        "cell0_signed_ricci_gap": -0.00019348346512837545,
+        "cell1_signed_ricci_gap": 0.00008531854908735647
+      },
+      "moment_change_components": {
+        "c0_replacement": 1.774826881758192e-8,
+        "s2_refit": -2.2338602877588735e-10,
+        "s4_refit": 1.2287771084188327e-12,
+        "s6_refit": -2.248290275781032e-15,
+        "net_constrained_minus_free": 1.7526109341581275e-8,
+        "decomposition_roundoff_residual": -2.3957099377058856e-17,
+        "c0_percent_of_net_change": 101.2675915211459,
+        "higher_terms_percent_of_net_change": -1.2675916578396753
+      },
+      "ricci_gap_change_vs_free_reference": {
+        "c0_only": -0.000008170655427516864,
+        "s2_only": 1.0283877997560435e-7,
+        "s4_only": -5.656838256823914e-10,
+        "s6_only": 1.0229970082847872e-12,
+        "higher_terms_together": 1.0227413009604404e-7,
+        "combined_c0_and_higher": -0.000008068381334023431,
+        "all_terms_interaction_residual_max_abs_first_two": 2.5653524443614018e-14
+      },
+      "annulus_max_abs_gap": {
+        "free": 1.887796383987948e-8,
+        "c0_only": 1.8877945248495622e-8,
+        "s2_only": 1.887796321276339e-8,
+        "s4_only": 1.8877964082957607e-8,
+        "s6_only": 1.8877965271703974e-8,
+        "combined": 1.8877939852489172e-8
+      }
+    },
+    {
+      "N": 320,
+      "dr": 0.25,
+      "free_fit": {
+        "coefficients_scaled_z_basis": [
+          0.99999992647697,
+          -0.007851146990686031,
+          0.0019050750052374368,
+          -0.00020315329608175305
+        ],
+        "cell0_signed_ricci_gap": -0.0001850802241162905,
+        "cell1_signed_ricci_gap": 0.00008381579888361055
+      },
+      "constrained_fit": {
+        "coefficients_scaled_z_basis": [
+          1,
+          -0.007851838793860259,
+          0.0019066599515768976,
+          -0.0002041709181296932
+        ],
+        "cell0_signed_ricci_gap": -0.0001950306513688366,
+        "cell1_signed_ricci_gap": 0.0000855589646203161
+      },
+      "moment_change_components": {
+        "c0_replacement": 9.190378749690531e-9,
+        "s2_refit": -7.20628306486833e-11,
+        "s4_refit": 2.476478655407487e-13,
+        "s6_refit": -2.8393472319758447e-16,
+        "net_constrained_minus_free": 9.118563279453262e-9,
+        "decomposition_roundoff_residual": 3.519403697868142e-18,
+        "c0_percent_of_net_change": 100.78757440219874,
+        "higher_terms_percent_of_net_change": -0.7875743636027244
+      },
+      "ricci_gap_change_vs_free_reference": {
+        "c0_only": -0.000010028794245640481,
+        "s2_only": 7.863693339419178e-8,
+        "s4_only": -2.7025733278888964e-10,
+        "s6_only": 3.288458914896264e-13,
+        "higher_terms_together": 7.836702161688274e-8,
+        "combined_c0_and_higher": -0.000009950427252545353,
+        "all_terms_interaction_residual_max_abs_first_two": 2.7141104034372754e-14
+      },
+      "annulus_max_abs_gap": {
+        "free": 6.19030362236097e-9,
+        "c0_only": 6.19030227088941e-9,
+        "s2_only": 6.190298087292039e-9,
+        "s4_only": 6.19029773067084e-9,
+        "s6_only": 6.190301318444906e-9,
+        "combined": 6.1903009282947546e-9
+      }
+    }
+  ],
+  "interpretation_limits": [
+    "The exactness shown is the algebraic decomposition of a chosen polynomial fit, not a bound on its error against the true continuous production-source integral.",
+    "Ricci changes are frozen-source single-term interventions about the free-fit metric; scalar/matter samples and source profile are held fixed in these interventions.",
+    "The small nonlinear interaction residual is specific to these perturbation magnitudes and this discretization.",
+    "The correction appears strongly centre-localized; annulus gap barely changes.",
+    "No production patch or scientific admission follows."
+  ],
+  "production_or_vendor_files_modified": false,
+  "no_evolution": true,
+  "scientific_admission": false
+}
