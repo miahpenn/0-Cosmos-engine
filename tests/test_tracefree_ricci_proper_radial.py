@@ -190,3 +190,106 @@ def test_manufactured_nonconstant_regular_profile_matches_nonzero_ricci_oracle()
         np.max(np.abs(arrays["ricci_tracefree_gap"][:2]))
     )
 
+
+
+def test_manufactured_quintic_areal_radius_series_has_correct_centre_curvature_coefficient():
+    """Separate the analytic r^5 centre coefficient from finite-stencil error."""
+    from engine.v55_pirk_adapter import vendor_modules
+
+    grid_ops, vacuum, _ = vendor_modules()
+    grid = grid_ops.SphericalCellGrid(160, 8.0)
+    r = np.asarray(grid.centers, dtype=float)
+    r2 = r * r
+
+    # Proper distance ell=r and areal radius R=r(1+c3*r^2+c5*r^4).
+    # For ds^2=dell^2+R(ell)^2 dOmega^2, the exact radial TF-Ricci is
+    # (2/3)*[(R'^2-1)/R^2 - R''/R]. Its centre expansion begins
+    # [2*c3^2 - (20/3)*c5]*r^2 + O(r^4).
+    c3 = 5.0e-2
+    c5 = 3.0e-4
+    q_exact = 1.0 + c3 * r2 + c5 * r2**2
+    areal_exact = r * q_exact
+    areal_prime_exact = 1.0 + 3.0 * c3 * r2 + 5.0 * c5 * r2**2
+    areal_second_exact = 6.0 * c3 * r + 20.0 * c5 * r**3
+
+    tf_ricci_from_derivatives = (2.0 / 3.0) * (
+        (areal_prime_exact**2 - 1.0) / areal_exact**2
+        - areal_second_exact / areal_exact
+    )
+    # Stable closed form, simplifying the cancellation in the first cells.
+    tf_ricci_exact = (
+        (2.0 * c3**2 - (20.0 / 3.0) * c5) * r2
+        + (8.0 / 3.0) * c3 * c5 * r2**2
+        + (10.0 / 3.0) * c5**2 * r2**3
+    ) / q_exact**2
+    tf_ricci_over_r2_exact = (
+        (2.0 * c3**2 - (20.0 / 3.0) * c5)
+        + (8.0 / 3.0) * c3 * c5 * r2
+        + (10.0 / 3.0) * c5**2 * r2**2
+    ) / q_exact**2
+    centre_limit = 2.0 * c3**2 - (20.0 / 3.0) * c5
+
+    # Validate the exact algebra first, independently of the grid stencil.
+    assert np.allclose(
+        tf_ricci_from_derivatives, tf_ricci_exact, rtol=1.0e-10, atol=2.0e-13
+    )
+    assert centre_limit == pytest.approx(3.0e-3, rel=0.0, abs=1.0e-15)
+    assert np.allclose(
+        tf_ricci_over_r2_exact[:2], centre_limit, rtol=0.0, atol=1.0e-5
+    )
+    assert np.all(tf_ricci_exact > 0.0)
+
+    # Preserve the intended physical metric while satisfying det(conformal gamma)=1:
+    # a=q^(-4/3), b=q^(2/3), X=q^(-2/3), so f=sqrt(a)/X=1 and R_areal=R.
+    geometry = vacuum.flat_state(grid)
+    geometry.X[:] = q_exact ** (-2.0 / 3.0)
+    geometry.a[:] = q_exact ** (-4.0 / 3.0)
+    geometry.b[:] = q_exact ** (2.0 / 3.0)
+    geometry.alpha[:] = 1.0
+    geometry.beta[:] = 0.0
+    assert np.allclose(geometry.a * geometry.b**2, 1.0, rtol=0.0, atol=2.0e-13)
+    assert np.allclose(geometry.a / geometry.X**2, 1.0, rtol=0.0, atol=2.0e-13)
+    assert np.allclose(
+        r * np.sqrt(geometry.b) / geometry.X, areal_exact, rtol=1.0e-13, atol=1.0e-13
+    )
+
+    d1 = lambda values, parity: grid.cell_derivative_fourth(values, parity=parity)
+    geometry.Lambda[:] = (
+        d1(geometry.a, 1) / (2.0 * geometry.a * geometry.a)
+        - d1(geometry.b, 1) / (geometry.a * geometry.b)
+        + 2.0 / r * (1.0 / geometry.b - 1.0 / geometry.a)
+    )
+    terms = vacuum.geometry_terms(grid, geometry)
+    capture = {
+        "r": r,
+        "a": geometry.a,
+        "b": geometry.b,
+        "X": geometry.X,
+        "alpha": geometry.alpha,
+        "Lambda": geometry.Lambda,
+        "R": terms["R"],
+        "Rr_r": terms["Rr_r"],
+        "DrDr_alpha": terms["DrDr_alpha"],
+        "lap_alpha": terms["lap_alpha"],
+    }
+    arrays, _ = _independent_metric_crosscheck(capture, float(grid.dr))
+
+    # The centre samples remain signed, finite witnesses, but are not forced
+    # to equal the continuum coefficient: dividing finite-difference errors by
+    # R^2 and then r^2 magnifies the leading stencil truncation near r=0.
+    first_two = np.arange(r.size) < 2
+    annulus = (r >= 1.0) & (r <= 2.0)
+    assert np.any(first_two) and np.any(annulus)
+    for key in ("ricci_tracefree_metric", "ricci_tracefree_vendor"):
+        values = arrays[key]
+        scaled = values / r2
+        assert np.all(np.isfinite(scaled[first_two])), (
+            f"{key}: nonfinite centre witness {scaled[first_two].tolist()}"
+        )
+        assert np.all(np.isfinite(values[annulus]))
+        assert np.all(values[annulus] > 0.0), f"{key}: wrong annulus sign"
+        annulus_error = values[annulus] - tf_ricci_exact[annulus]
+        assert np.max(np.abs(annulus_error)) < 2.0e-4, (
+            f"{key}: quintic-profile annulus oracle mismatch "
+            f"{np.max(np.abs(annulus_error))}"
+        )
