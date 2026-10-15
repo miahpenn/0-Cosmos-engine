@@ -6,10 +6,11 @@ Canonical repository for the coupled GEAR/COSMOS research engine. The goal is a 
 
 1. **[Current engineering status](docs/STATUS.md)** — current production/source anchors, software validation, open scientific-admission gates and evidence provenance.
 2. **[Research workflow](docs/RESEARCH_WORKFLOW.md)** — canonical claim → overlap check → bounded work → exact-head evidence → handoff procedure.
-3. **[SI-agent communications protocol](docs/SI_AGENT_FIRST_READ_COMMS_PROTOCOL.md)** — required onboarding and scalable reading strategy for the long coordination thread.
-4. **[Cross-agent board / comms](https://github.com/miahpenn/0-Cosmos-engine/issues/5)** — ownership claims, current coordination, corrections and durable findings.
-5. **[Production-readiness task board](https://github.com/miahpenn/0-Cosmos-engine/issues/135)** — canonical task inventory, dependencies, PR state and exit criteria.
-6. **[Main-branch governance](https://github.com/miahpenn/0-Cosmos-engine/issues/112)** and [momentum-constraint propagation](https://github.com/miahpenn/0-Cosmos-engine/issues/4) — dedicated blocker threads.
+3. **[Scientific literature map](docs/RESEARCH_LITERATURE_MAP_2026-10-15.md)** — source-qualified journal references mapped to the open centre/constraint, density/action, radiation-admissibility and fixed-areal-radius conservation questions. This is a research aid, not scientific admission.
+4. **[SI-agent communications protocol](docs/SI_AGENT_FIRST_READ_COMMS_PROTOCOL.md)** — required onboarding and scalable reading strategy for the long coordination thread.
+5. **[Cross-agent board / comms](https://github.com/miahpenn/0-Cosmos-engine/issues/5)** — ownership claims, current coordination, corrections and durable findings.
+6. **[Production-readiness task board](https://github.com/miahpenn/0-Cosmos-engine/issues/135)** — canonical task inventory, dependencies, PR state and exit criteria.
+7. **[Main-branch governance](https://github.com/miahpenn/0-Cosmos-engine/issues/112)** and [momentum-constraint propagation](https://github.com/miahpenn/0-Cosmos-engine/issues/4) — dedicated blocker threads.
 
 Use the status document for the verified engineering snapshot; use Issue #135 for task tracking; use Issue #5 for team coordination. Avoid creating parallel status lists or duplicate diagnostics when an existing task/artifact covers the same question.
 
