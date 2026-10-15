@@ -2,6 +2,8 @@
 
 **Purpose.** A focused literature map for the existing scientific-admission blockers. This is a source guide and research handoff, **not** a new task board, a physics decision, or evidence that a campaign is admitted. Keep ownership and queue state on [Issue #135](https://github.com/miahpenn/0-Cosmos-engine/issues/135), cross-agent findings on [Issue #5](https://github.com/miahpenn/0-Cosmos-engine/issues/5), and technical acceptance criteria in the existing task issue/PR.
 
+**Source-provenance supplement (15 October 2026):** [Research source-evidence crosswalk](RESEARCH_SOURCE_CROSSWALK_2026-10-15.md) compares the local Library blueprints, V5.5 implementation convention, GEAR-69/70B weak-field evidence, the unresolved S/D factor-of-two, and the newest useful spherical-origin literature. It is a documentation-only handoff; it does not update the older snapshot recorded below or change scientific-admission status.
+
 **Repository snapshot used for orientation:** live `main` was `8350f23fc919b5f2129d20f4671769667a86ccb7` (commit timestamp 2026-10-15 03:49:40 UTC). This is a literature-map anchor only, not a verified production-source baseline. At capture, `docs/STATUS.md` identified `7860d11...` and Issue #135 identified `6aa7a9d...`; both are older than this main tip. Treat those as historical snapshots until the canonical status document is refreshed. Verify live refs before launching work.
 
 ## How to use the papers
