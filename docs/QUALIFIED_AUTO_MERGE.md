@@ -21,7 +21,7 @@ A PR touching any of the following must also pass `joined-energy-ledger` on that
 - `research/reconcile_em_face_work_artifact_v1.py`
 - `.github/workflows/em_total_energy_budget.yml`
 
-The workflow checks the latest attempt for each exact check name, rejects missing, queued, running, skipped, cancelled, timed-out, or failed required checks, and requires the GitHub Actions check-run app. A result from an earlier SHA never qualifies a newer SHA. The check is also cross-linked to the corresponding completed pull-request workflow run and current base SHA; if GitHub omits that PR association, the run must postdate the current main commit. Passing a head check that ran before main advanced is not sufficient.
+The workflow checks the latest attempt for each exact check name, rejects missing, queued, running, skipped, cancelled, timed-out, or failed required checks, and requires the GitHub Actions check-run app. A result from an earlier SHA never qualifies a newer SHA. The check is cross-linked to the corresponding completed pull-request workflow run and current base SHA. If GitHub omits the PR/base association, qualification fails closed; timestamps are not accepted as a substitute for evidence of which base was tested. Passing a head check that ran before main advanced is not sufficient.
 
 ## Fast path for documentation-only work
 
@@ -35,6 +35,6 @@ Any PR outside that allowlist requires an `APPROVED` review from a reviewer othe
 
 ## Freshness and merge safety
 
-Before merging, the workflow verifies that the PR is open, not a draft, from this repository (fork PRs are manual), conflict-free, and based on the current `main` SHA. It rechecks the head/base, required checks, and reviews immediately before calling GitHub's squash-merge API with the expected head SHA. PR events, completion of the relevant CI workflows, and a 10-minute safety sweep trigger reevaluation. A failed, missing, stale, or ambiguous qualification never causes a merge.
+Before merging, the workflow verifies that the PR is open, not a draft, from this repository (fork PRs are manual), conflict-free, and based on the current `main` SHA. All candidate qualification/merge runs share one concurrency group to reduce races between competing helper runs. It rechecks the head/base, required checks, and reviews immediately before calling GitHub's squash-merge API with the expected head SHA. PR events, completion of the relevant CI workflows, and a 10-minute safety sweep trigger reevaluation. A failed, missing, stale, or ambiguous qualification never causes a merge.
 
-The automation does not alter equations, widen tolerances, interpret a green smoke test as scientific validation, or mark a numerical model as admitted. Changes to this policy or to workflow definitions remain review-sensitive.
+The automation does not alter equations, widen tolerances, interpret a green smoke test as scientific validation, or mark a numerical model as admitted. It is not a substitute for verified effective branch protection: manual/direct writes can bypass it, and GitHub's expected-head merge check cannot atomically lock the base SHA. Keep governance status separate. Changes to this policy or to workflow definitions remain review-sensitive.
