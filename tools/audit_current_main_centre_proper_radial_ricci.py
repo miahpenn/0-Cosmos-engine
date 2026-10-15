@@ -244,15 +244,21 @@ def _origin_half_cell_frozen_source(grid, state, vacuum) -> tuple[dict[str, np.n
     reconstruction_error = _max_abs(B_iter - B_from_geometry)
     r0 = float(r[0])
 
-    def fit_even_source(ncells: int) -> dict:
-        ncells = min(int(ncells), len(r))
-        x = r[:ncells] ** 2
+    def fit_even_source(fit_r_max: float) -> dict:
+        # Fix support in physical radius, not cell count, so N=160/240/320
+        # extrapolate the same source interval to the origin.
+        mask = r <= float(fit_r_max)
+        x = r[mask] ** 2
+        ncells = int(np.count_nonzero(mask))
+        if ncells < 4:
+            raise ValueError("even-source fit needs at least four cells inside its fixed-radius support")
         design = np.column_stack((np.ones(ncells), x, x * x))
-        coeff, *_ = np.linalg.lstsq(design, source_last[:ncells], rcond=None)
-        residual = source_last[:ncells] - design @ coeff
+        coeff, *_ = np.linalg.lstsq(design, source_last[mask], rcond=None)
+        residual = source_last[mask] - design @ coeff
         integral = _even_half_cell_integral(coeff, r0)
         delta = float(integral - r0 * source_last[0])
         return {
+            "fit_r_max": float(fit_r_max),
             "fit_cells": ncells,
             "coefficients_s0_s2_s4": [float(x) for x in coeff],
             "fit_max_abs_residual": _max_abs(residual),
@@ -262,9 +268,9 @@ def _origin_half_cell_frozen_source(grid, state, vacuum) -> tuple[dict[str, np.n
             "delta_integral": delta,
         }
 
-    fit6 = fit_even_source(6)
-    fit8 = fit_even_source(8)
-    delta_integral = float(fit8["delta_integral"])
+    fit20 = fit_even_source(2.0)
+    fit25 = fit_even_source(2.5)
+    delta_integral = float(fit25["delta_integral"])
     B_cf = B_from_geometry + delta_integral / r
     if np.any(~np.isfinite(B_cf)) or np.any(B_cf <= 0.0):
         raise FloatingPointError("origin half-cell frozen-source counterfactual produced invalid B")
@@ -345,11 +351,11 @@ def _origin_half_cell_frozen_source(grid, state, vacuum) -> tuple[dict[str, np.n
         "source_reconstruction_B_vs_X6_max_abs": float(reconstruction_error),
         "source_reconstruction_matches_geometry": bool(reconstruction_error <= 2.0e-12 * max(1.0, _max_abs(B_from_geometry))),
         "source_final_iteration_first_two": [float(x) for x in source_last[:2]],
-        "even_fit_6_cells": fit6,
-        "even_fit_8_cells": fit8,
-        "fit_sensitivity_delta_integral_abs": float(abs(fit8["delta_integral"] - fit6["delta_integral"])),
+        "even_fit_r_le_2": fit20,
+        "even_fit_r_le_2_5": fit25,
+        "fit_sensitivity_delta_integral_abs": float(abs(fit25["delta_integral"] - fit20["delta_integral"])),
         "production_half_cell_integral": float(r0 * source_last[0]),
-        "corrected_half_cell_integral": float(fit8["even_series_half_cell_integral"]),
+        "corrected_half_cell_integral": float(fit25["even_series_half_cell_integral"]),
         "delta_integral_applied": delta_integral,
         "first_two_cells": first_two,
         "fixed_annulus_r5_to10": {
