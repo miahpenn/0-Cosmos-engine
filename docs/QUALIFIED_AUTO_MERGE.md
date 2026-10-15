@@ -21,7 +21,7 @@ A PR touching any of the following must also pass `joined-energy-ledger` on that
 - `research/reconcile_em_face_work_artifact_v1.py`
 - `.github/workflows/em_total_energy_budget.yml`
 
-The workflow checks the latest attempt for each exact check name, rejects missing, queued, running, skipped, cancelled, timed-out, or failed required checks, and requires the GitHub Actions check-run app. A result from an earlier SHA never qualifies a newer SHA. The check is cross-linked to the corresponding completed pull-request workflow run and current base SHA. If GitHub omits the PR/base association, qualification fails closed; timestamps are not accepted as a substitute for evidence of which base was tested. Passing a head check that ran before main advanced is not sufficient.
+The workflow checks the latest attempt for each exact check name, rejects missing, queued, running, skipped, cancelled, timed-out, or failed required checks, and requires the GitHub Actions check-run app. A result from an earlier SHA never qualifies a newer SHA. The selected check run and the corresponding completed pull-request workflow run must share the same GitHub check-suite ID. The workflow run must also have an explicit association to this PR number, head SHA, base ref `main`, and current base SHA. If either the check-suite or PR/base association is missing or mismatched, qualification fails closed; timestamps are not accepted as a substitute. Passing a head check that ran before main advanced is not sufficient.
 
 ## Documentation-only no-formal-review fast path
 
