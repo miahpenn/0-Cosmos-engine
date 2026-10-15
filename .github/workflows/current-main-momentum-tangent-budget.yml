@@ -92,7 +92,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          find results -type f -print0 | sort -z | xargs -0 -r sha256sum > results/SHA256SUMS.txt
+          find results -type f ! -name SHA256SUMS.txt -print0 | sort -z | xargs -0 -r sha256sum > results/SHA256SUMS.txt
 
       - name: Upload signed budgets and provenance
         if: always()
