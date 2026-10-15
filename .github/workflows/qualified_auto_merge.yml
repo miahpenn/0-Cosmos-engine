@@ -127,6 +127,16 @@ jobs:
               "joined-energy-ledger": "Research - joined EM/matter/Misner-Sharp ledger",
             };
 
+            function latestCheckRunForName(checkRuns, name) {
+              return checkRuns
+                .filter(c => c.name === name)
+                .sort((a, b) =>
+                  Date.parse(b.started_at || b.created_at) - Date.parse(a.started_at || a.created_at) ||
+                  (b.run_attempt || 0) - (a.run_attempt || 0) ||
+                  b.id - a.id
+                )[0];
+            }
+
             async function checkGate(headSha, requiredNames, pullNumber, expectedBaseSha) {
               const [{ data: checks }, { data: workflowData }] = await Promise.all([
                 github.rest.checks.listForRef({ owner, repo, ref: headSha, per_page: 100 }),
@@ -140,13 +150,7 @@ jobs:
 
               const failures = [];
               for (const name of requiredNames) {
-                const latestCheck = checkRuns
-                  .filter(c => c.name === name)
-                  .sort((a, b) =>
-                    (b.run_attempt || 0) - (a.run_attempt || 0) ||
-                    Date.parse(b.started_at || b.created_at) - Date.parse(a.started_at || a.created_at) ||
-                    b.id - a.id
-                  )[0];
+                const latestCheck = latestCheckRunForName(checkRuns, name);
                 if (!latestCheck) {
                   failures.push(`${name}: missing on current head`);
                   continue;
