@@ -96,3 +96,43 @@ python -m pytest -q tests/test_centre_ricci_origin_series.py
 ```
 
 The audit accepts only the exact SHA-256-pinned saved profile/report pair named above, refuses source/vendor pin drift, reports signed fit residuals, and records `scientific_admission=false`.
+
+
+## Follow-up: self-consistent copied-initializer test — 15 October 2026
+
+The next bounded test was run in the isolated diagnostic branch, using the same pinned initialization source and no-evolution setup at (N=160,240,320): [workflow run 38774311507](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38774311507), [artifact 11992384031](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38774311507/artifacts/11992384031).
+
+Artifact ZIP SHA-256: `21a734250db76b2e7f8583661a53066702acc2674d33f64c388bbcbbd3d386d5`.
+- `report.json`: `7b496123539b101ebefa96b151dd649e1be22c696037f22085dbb1e5faca6219`
+- `profiles.npz`: `89fbd6513805988ab13eff5b22cea9b542e0d13ac78507f4696411d3de9dc84d`
+- `profiles.csv`: `99f8d8c092b4e97c7466a16f3bd3158970486b78ea605695ccbf9e672fbe2574`
+
+The run passed the complete repository regression suite, source-pin checks, the copied-initializer audit, and artifact upload. Its audit head is `6c0db3e82dbba707b9d2d7fb23c75fb125444048`; engine source anchor `285a2ee0c1a3b97cddeb4519d8e749109b115aab); vendor `d6052d605673ce9d82cdc99b0df79855fa2ea215). All eleven engine-source blobs and the vendor pin match; production/vendor/dependency diff is empty. All three runs have zero evolution steps and confirm the input state hashes are unchanged.
+
+### Self-consistent source–metric loop
+
+The diagnostic first recreated the ordinary six-pass point-sampled source recurrence. Its (B) profile matches the initialized (X^6) to at most (6.7\times10^{-16}). It then replaced *only* the first half-cell integral with the analytically integrated even-source fit, recomputing the source from each candidate metric on every pass. The fixed point was reached within six passes; recomputed map defects are zero at reported floating-point precision. The metric identities (ab^2=1), (b=X^2), (a=X^{-4}), (X^6=B), and (R=r) close at roundoff, with the largest reported radius identity residual (1.43\times10^{-14}). Scalar/matter fields are held fixed at their initialized samples; their source contributions are reevaluated from the candidate metric. No field is evolved.
+
+| Resolution | Production \(\delta/r^2\), cell 0 | Corrected self-consistent \(\delta/r^2\), cell 0 | Production signed centre TF-Ricci gap | Corrected signed centre gap | Corrected / baseline gap magnitude |
+|---:|---:|---:|---:|---:|---:|
+| 160 | \(+1.253599\times10^{-3}\) | \(+4.187033\times10^{-4}\) | \(+1.591813\times10^{-3}\) | \(-1.875669\times10^{-4}\) | 11.78% |
+| 240 | \(+1.255286\times10^{-3}\) | \(+4.222438\times10^{-4}\) | \(+1.590029\times10^{-3}\) | \(-1.854151\times10^{-4}\) | 11.66% |
+| 320 | \(+1.255877\times10^{-3}\) | \(+4.232819\times10^{-4}\) | \(+1.589416\times10^{-3}\) | \(-1.850802\times10^{-4}\) | 11.64% |
+
+Thus the self-consistent half-cell correction changes the first-cell \(\delta/r^2\) by about a factor of three and reduces the *magnitude* of the first-cell TF-Ricci discrepancy by factors of approximately 8.49, 8.58, and 8.59. The residual changes sign and remains O(\(10^{-4}\)); the half-cell term alone does not close the Ricci gap. In the fixed \(5\le r\le10\) annulus, the maximum gap changes only slightly: (8.8675\times10^{-8}\to8.8603\times10^{-8}) at N=160, (1.88824\times10^{-8}\to1.88780\times10^{-8}) at N=240, and (6.19092\times10^{-9}\to6.19030\times10^{-9}) at N=320.
+
+The corrected fixed-point half-cell integral differs from the frozen-source correction by only (2.91\times10^{-13}), (8.24\times10^{-14}), and (2.24\times10^{-14}), respectively. On these profiles, recomputing source feedback therefore barely shifts the integral relative to the earlier frozen-source counterfactual.
+
+### Combined derivative-representation check on the corrected metric
+
+The previously separated Lambda chain-rule counterfactual was then recomputed on the **self-consistent corrected metric**, not inferred from the frozen-source copy. The first-cell combined vendor-minus-direct TF-Ricci gaps are (-1.491\times10^{-9}), (-6.062\times10^{-10}), and (-3.293\times10^{-10}) for N=160/240/320; the second-cell residuals are (+3.221\times10^{-10}), (+1.949\times10^{-10}), and (+1.216\times10^{-10}). This is a strong algebraic localization result: the origin half-cell counterfactual removes much of the central discrepancy, and the derivative-only Lambda representation shift nearly cancels the remaining central gap on the same copied geometry.
+
+It remains a **two-counterfactual decomposition**, not validation of a production equation change. The Lambda chain-rule derivative is not the production BSSN evolution operator; the tiny combined residual cannot establish that it should replace the evolved-connection representation, nor does it prove evolved-trajectory convergence.
+
+### Important source-fit sensitivity qualification
+
+A separate sensitivity scan on the checksum-pinned corrected-source profile compared fits of degree 1, 2, and 3 in (r^2) over several fixed windows. For the chosen degree-3 even series ((s=s_0+s_2r^2+s_4r^4+s_6r^6)), the half-cell correction varies by at most about 1.01%, 0.75%, and 1.86% across admissible windows ending at (r=3.0) for N=160/240/320 (N=160 has too few samples for a degree-3 fit at (r\le1.5)). If the fitting window is widened to (r\le3.5), the difference from the (r\le2.5) reference rises to about 1.31%, 5.56%, and 7.58%.
+
+Lower-order fits over the wider windows are much less stable: a degree-2 source fit ending at (r=2.5) shifts the correction by (-5.35\%), (-23.22\%), and (-30.34\%) from the degree-3 reference at N=160/240/320; at (r\le3.0) those differences are (-17.82\%), (-47.45\%), and (-89.59\%). The source-fit degree and support are therefore substantive modeling assumptions, not harmless numerical details.
+
+**Next gate:** independently justify the even-source truncation/window against the saved source’s signed residuals and smoothness, then bound the half-cell moment over defensible fit families before considering any production patch. No production/vendor/dependency file has changed; scientific admission remains **NOT ADMITTED**.
