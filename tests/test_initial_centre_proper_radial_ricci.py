@@ -176,3 +176,59 @@ def test_lambda_chain_rule_counterfactual_reports_only_offline_shift():
     assert summary["production_or_vendor_code_changed"] is False
     assert summary["evolution_steps"] == 0
     assert summary["counterfactual_profiles_finite"] is True
+
+
+def test_combined_origin_and_lambda_counterfactual_adds_only_chain_rule_shift():
+    """Check combined frozen-metric counterfactual arithmetic without a state edit."""
+    from tools.audit_current_main_centre_proper_radial_ricci import (
+        _combined_origin_and_lambda_counterfactual,
+    )
+
+    grid_ops, _, _ = vendor_modules()
+    grid = grid_ops.SphericalCellGrid(48, 8.0)
+    r = np.asarray(grid.centers, dtype=float)
+    d1 = lambda values, parity=1: grid.cell_derivative_fourth(values, parity=parity)
+    a = 1.0 + 1.0e-3 * r**2 + 1.0e-5 * r**4
+    b = 1.0 - 5.0e-4 * r**2 + 2.0e-6 * r**4
+    X = 1.0 + 2.0e-4 * r**2
+    Lambda = (
+        d1(a, 1) / (2.0 * a * a)
+        - d1(b, 1) / (a * b)
+        + 2.0 / r * (1.0 / b - 1.0 / a)
+    )
+    direct_tf = 3.0e-4 - 1.0e-5 * r**2
+    origin_gap = 1.0e-3 * np.exp(-r)
+    vendor_tf = direct_tf + origin_gap
+    origin_arrays = {
+        "origin_cf_a": a.copy(),
+        "origin_cf_b": b.copy(),
+        "origin_cf_X": X.copy(),
+        "origin_cf_Lambda": Lambda.copy(),
+        "origin_cf_vendor_tf_ricci": vendor_tf.copy(),
+        "origin_cf_direct_tf_ricci": direct_tf.copy(),
+        "origin_cf_tf_ricci_difference": origin_gap.copy(),
+    }
+    before = {key: value.copy() for key, value in origin_arrays.items()}
+
+    arrays, summary = _combined_origin_and_lambda_counterfactual(grid, r, origin_arrays)
+    expected_shift = (2.0 / 3.0) * X**2 * (
+        arrays["combined_origin_lambda_cf_lambda_prime_chain_rule"]
+        - arrays["combined_origin_lambda_cf_lambda_prime_discrete_D4"]
+    )
+    np.testing.assert_allclose(
+        arrays["combined_origin_lambda_cf_induced_tf_ricci_shift"],
+        expected_shift,
+        rtol=1.0e-14,
+        atol=1.0e-14,
+    )
+    np.testing.assert_allclose(
+        arrays["combined_origin_lambda_cf_vendor_minus_direct_tf_ricci"],
+        origin_gap + expected_shift,
+        rtol=1.0e-14,
+        atol=1.0e-14,
+    )
+    for key in before:
+        np.testing.assert_array_equal(origin_arrays[key], before[key])
+    assert summary["production_or_vendor_code_changed"] is False
+    assert summary["evolution_steps"] == 0
+    assert summary["counterfactual_profiles_finite"] is True
