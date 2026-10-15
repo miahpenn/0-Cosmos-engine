@@ -291,3 +291,88 @@ def test_policy_document_lists_exactly_the_joined_ledger_trigger_paths():
         f"undocumented={sorted(protected_paths - documented_paths)}, "
         f"stale={sorted(documented_paths - protected_paths)}"
     )
+
+
+def test_check_gate_behavior_requires_exact_check_suite_and_pr_base_association():
+    """Execute the real workflow checkGate helper against mocked GitHub API responses."""
+    node = shutil.which("node")
+    assert node is not None, "Node.js is required to exercise the actual inline JavaScript gate helper"
+
+    workflow = WORKFLOW_PATH.read_text(encoding="utf-8")
+    start = workflow.index("function latestCheckRunForName(checkRuns, name) {")
+    end = workflow.index("async function mainInfo()", start)
+    gate_source = workflow[start:end]
+
+    script = r"""
+const owner = "owner";
+const repo = "repo";
+const HEAD = "candidate-head";
+const BASE = "current-main";
+let checkRuns = [];
+let workflowRuns = [];
+const github = {
+  rest: {
+    checks: { listForRef: async () => ({ data: { check_runs: checkRuns } }) },
+    actions: { listWorkflowRunsForRepo: async () => ({ data: { workflow_runs: workflowRuns } }) }
+  }
+};
+
+__GATE_SOURCE__
+
+const goodCheck = (overrides = {}) => ({
+  id: 101, name: "regression-suite", head_sha: HEAD,
+  app: { slug: "github-actions" }, status: "completed", conclusion: "success",
+  run_attempt: 1, started_at: "2026-10-15T01:00:00Z",
+  check_suite: { id: 501 }, ...overrides
+});
+const goodWorkflow = (overrides = {}) => ({
+  name: "Strict JSON residual reporting contract", head_sha: HEAD,
+  event: "pull_request", check_suite_id: 501,
+  status: "completed", conclusion: "success",
+  created_at: "2026-10-15T01:00:00Z",
+  pull_requests: [{ number: 77, head: { sha: HEAD }, base: { ref: "main", sha: BASE } }],
+  ...overrides
+});
+async function runGate(checks, runs) {
+  checkRuns = checks;
+  workflowRuns = runs;
+  return await checkGate(HEAD, ["regression-suite"], 77, BASE);
+}
+(async () => {
+  const result = {};
+  result.valid = await runGate([goodCheck()], [goodWorkflow()]);
+  result.missingSuite = await runGate([goodCheck({ check_suite: {} })], [goodWorkflow()]);
+  result.mismatchedSuite = await runGate([goodCheck()], [goodWorkflow({ check_suite_id: 502 })]);
+  result.noPullAssociation = await runGate([goodCheck()], [goodWorkflow({ pull_requests: [] })]);
+  result.wrongPr = await runGate([goodCheck()], [goodWorkflow({ pull_requests: [{ number: 78, head: { sha: HEAD }, base: { ref: "main", sha: BASE } }] })]);
+  result.wrongHead = await runGate([goodCheck()], [goodWorkflow({ pull_requests: [{ number: 77, head: { sha: "old-head" }, base: { ref: "main", sha: BASE } }] })]);
+  result.wrongBaseRef = await runGate([goodCheck()], [goodWorkflow({ pull_requests: [{ number: 77, head: { sha: HEAD }, base: { ref: "release", sha: BASE } }] })]);
+  result.wrongBaseSha = await runGate([goodCheck()], [goodWorkflow({ pull_requests: [{ number: 77, head: { sha: HEAD }, base: { ref: "main", sha: "old-main" } }] })]);
+  result.nonActionsApp = await runGate([goodCheck({ app: { slug: "untrusted-app" } })], [goodWorkflow()]);
+  result.inProgress = await runGate([goodCheck({ status: "in_progress", conclusion: null })], [goodWorkflow()]);
+  result.crossedOrderingFailure = await runGate([
+    goodCheck({ id: 101, run_attempt: 2, started_at: "2026-10-15T01:00:00Z", conclusion: "success", check_suite: { id: 501 } }),
+    goodCheck({ id: 102, run_attempt: 1, started_at: "2026-10-15T02:00:00Z", conclusion: "failure", check_suite: { id: 502 } })
+  ], [goodWorkflow({ check_suite_id: 502, created_at: "2026-10-15T02:00:00Z", conclusion: "failure" })]);
+  process.stdout.write(JSON.stringify(result));
+})().catch(error => { console.error(error); process.exit(2); });
+"""
+    script = script.replace("__GATE_SOURCE__", gate_source)
+    completed = subprocess.run(
+        [node, "-e", script],
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=20,
+    )
+    assert completed.returncode == 0, completed.stderr
+    result = json.loads(completed.stdout)
+    assert result["valid"] == []
+    assert any("check run lacks a check-suite association" in item for item in result["missingSuite"])
+    assert any("no matching PR workflow-run evidence" in item for item in result["mismatchedSuite"])
+    assert any("workflow run lacks PR/base association" in item for item in result["noPullAssociation"])
+    for case in ("wrongPr", "wrongHead", "wrongBaseRef", "wrongBaseSha"):
+        assert any("not linked to this PR at current base" in item for item in result[case]), case
+    assert any("missing on current head" in item for item in result["nonActionsApp"])
+    assert any("in_progress/no conclusion" in item for item in result["inProgress"])
+    assert any("completed/failure" in item for item in result["crossedOrderingFailure"])
