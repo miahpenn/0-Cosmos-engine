@@ -2,6 +2,8 @@ import numpy as np
 import pytest
 
 from tools.audit_continuous_origin_half_cell_oracle import (
+    analytic_A_integral,
+    analytic_half_cell_envelope,
     continuous_coefficients,
     fit_even_polynomial_integral,
     integrate_half_cell,
@@ -37,6 +39,35 @@ def test_source_coefficients_have_regular_origin_limit():
     assert np.all(np.isfinite(A))
     assert np.all(np.isfinite(q))
     assert q[1] <= 1.0e-10 * q[-1]
+
+
+def test_analytic_A_primitive_matches_dense_quadrature():
+    endpoint = 0.25
+    radii = np.linspace(0.0, endpoint, 10001)
+    A, _ = continuous_coefficients(radii)
+    quadrature = float(np.sum(0.5 * np.diff(radii) * (A[1:] + A[:-1])))
+    closed_form = analytic_A_integral(endpoint)
+    assert closed_form == pytest.approx(quadrature, abs=2.0e-13)
+
+
+def test_analytic_integral_and_midpoint_defect_are_enclosed():
+    for half in (0.125, 1.0 / 6.0, 0.25):
+        envelope = analytic_half_cell_envelope(half)
+        result = integrate_half_cell(half, 16384, continuous_coefficients)
+        assert envelope["A_lower_bound_on_half_cell"] > 0.0
+        assert envelope["A_upper_bound_on_half_cell"] >= 1.0 - 1.0e-14
+        assert (
+            envelope["continuous_integral_lower_bound"] - 1.0e-13
+            <= result["moment"]
+            <= envelope["continuous_integral_upper_bound"] + 1.0e-13
+        )
+        defect = result["moment"] - half * result["source_at_half_cell"]
+        assert (
+            envelope["continuous_midpoint_defect_lower_bound"] - 1.0e-13
+            <= defect
+            <= envelope["continuous_midpoint_defect_upper_bound"] + 1.0e-13
+        )
+        assert envelope["Q_absorption_upper_bound"] > 0.0
 
 
 def test_polynomial_fit_integral_is_exact_for_represented_even_source():
