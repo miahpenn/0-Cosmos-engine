@@ -449,6 +449,12 @@ def main() -> int:
         direct_tf_over_r2 = _arr(direct["tf_ricci"]) / (r * r)
         tf_delta_over_r2 = tf_delta / (r * r)
 
+        # Reconstruct the origin half-cell moment with a frozen final source.
+        # This counterfactual keeps the actual initialized state read-only.
+        origin_cf_arrays, origin_cf_summary = _origin_half_cell_frozen_source(
+            grid, state, vacuum
+        )
+
         aa_budget_scale = max(
             _max_abs(aa_l2),
             _max_abs(aa_l2_contract),
@@ -513,6 +519,7 @@ def main() -> int:
             "lambda_metric_identity_residual": Lambda - lambda_from_metric,
             "areal_radius_minus_coordinate_radius": areal - r,
         }
+        metric_arrays.update({name: _arr(values) for name, values in origin_cf_arrays.items()})
 
         taylor = {}
         for name in ("a", "b", "X", "alpha", "a_minus_b_over_r2", "Lambda_over_r"):
@@ -673,6 +680,7 @@ def main() -> int:
                 "l2_signed_difference_max_abs": _max_abs(l2_delta[:CENTRE_CELLS]),
             },
             "even_taylor_fits_first_six_cells": taylor,
+            "frozen_source_origin_half_cell_counterfactual": origin_cf_summary,
             "interpretation_limits": [
                 "A successful observer workflow is not scientific admission.",
                 "The direct warped-product reconstruction is independent of evolved Lambda and the vendor Ricci brackets, but shares the pinned radial grid derivative operator.",
@@ -719,7 +727,13 @@ def main() -> int:
         "aa_rhs", "aa_rhs_over_r2", "R_r", "R_rr", "f_r", "R_l", "R_ll",
         "Ric_l_l", "Ric_theta_theta", "a_prime_over_r", "b_prime_over_r",
         "X_prime_over_r", "alpha_prime_over_r", "lambda_metric_identity_residual",
-        "areal_radius_minus_coordinate_radius",
+        "areal_radius_minus_coordinate_radius", "initializer_source_final_iteration",
+        "initializer_B_reconstructed", "initializer_B_from_X6", "origin_cf_B",
+        "origin_cf_a", "origin_cf_b", "origin_cf_X", "origin_cf_Lambda",
+        "origin_cf_areal_radius", "origin_cf_proper_factor",
+        "origin_cf_vendor_tf_ricci", "origin_cf_direct_tf_ricci",
+        "origin_cf_tf_ricci_difference", "origin_cf_vendor_tf_ricci_over_r2",
+        "origin_cf_direct_tf_ricci_over_r2", "origin_cf_tf_ricci_difference_over_r2",
     ])
     with csv_path.open("w", newline="", encoding="utf-8") as stream:
         writer = csv.writer(stream)
