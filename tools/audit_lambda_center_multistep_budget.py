@@ -70,6 +70,32 @@ OUT = Path(os.environ.get(
     "results/lambda-center-multistep-budget-2026-10-15",
 ))
 
+OUTPUT_FILENAMES = (
+    "pairs.jsonl",
+    "multistep_signed_budget.csv",
+    "multistep_signed_profiles.csv",
+    "matched_elapsed_dt_comparison.csv",
+    "matched_dt_spatial_comparison.csv",
+    "duration_comparison.csv",
+    "report.json",
+    "manifest.json",
+)
+
+
+def _clear_previous_outputs() -> None:
+    """Prevent a failed rerun from bundling stale outputs from an earlier run."""
+    OUT.mkdir(parents=True, exist_ok=True)
+    for filename in OUTPUT_FILENAMES:
+        (OUT / filename).unlink(missing_ok=True)
+
+
+def _dt_comparison_value_keys(component: str, region: str) -> tuple[str, str]:
+    """Return stable CSV keys; the row metadata carries the actual dt values."""
+    return (
+        f"{component}_{region}_rms_fine",
+        f"{component}_{region}_rms_coarse",
+    )
+
 
 def _require_source_pins() -> dict:
     provenance = _verify_source_pins()
@@ -234,6 +260,7 @@ def _expected_profile_row_count() -> int:
 
 
 def main() -> int:
+    _clear_previous_outputs()
     provenance = _require_source_pins()
     _, vacuum, _ = vendor_modules()
     summary_rows: list[dict] = []
@@ -387,8 +414,9 @@ def main() -> int:
                                 for region in ("center_shell", "fixed_interior"):
                                     a = fine["components"][component][region]["rms"]
                                     b = coarse["components"][component][region]["rms"]
-                                    row[f"{component}_{region}_rms_dt{fine_dt:g}"] = a
-                                    row[f"{component}_{region}_rms_dt{coarse_dt:g}"] = b
+                                    fine_key, coarse_key = _dt_comparison_value_keys(component, region)
+                                    row[fine_key] = a
+                                    row[coarse_key] = b
                                     row[f"{component}_{region}_rms_relative_difference"] = _safe_relative_difference(a, b)
                             dt_comparisons.append(row)
 
