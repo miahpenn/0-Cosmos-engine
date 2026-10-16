@@ -108,8 +108,19 @@ jobs:
           assert report["lambda_hamiltonian_discriminator_passed"] is True
           assert report["acceptance_oracle_satisfied"] is False
           assert report["scientific_admission"] is False
+          assert report["vendor_extension_improves_on_fine_annulus"] is True
+          assert report["wrong_sign_extension_control_detected"] is True
+          assert set(report["configuration"]["profile_variants"]) == {
+              "baseline_zero_shift", "odd_shift_strong_linear_C", "odd_shift_cubic_C"
+          }
+          assert len(report["rows"]) == len(report["configuration"]["resolutions"]) * 3
           for row in report["rows"]:
               assert row["hamiltonian_slot_contract"]["lambda_only_control"]["passed"] is True
               assert all(len(e["residual_regions"]) == 6 for e in row["epsilon_rows"])
-          print("DIAGNOSTIC_CONTROLS_OK; SCIENTIFIC_ADMISSION=NOT_ADMITTED")
+              assert all(len(e["vendor_consistent_residual_regions"]) == 6 for e in row["epsilon_rows"])
+              assert all(len(e["wrong_sign_extension_control"]["residual_regions"]) == 6 for e in row["epsilon_rows"])
+              if row["resolution"] >= 80 and row["profile_variant"] != "baseline_zero_shift":
+                  assert row["vendor_extension_discriminator"]["vendor_extension_improves_on_annulus"] is True
+                  assert row["vendor_extension_discriminator"]["wrong_sign_extension_control_detected"] is True
+          print("VENDOR_EXTENSION_DISCRIMINATOR_OK; SCIENTIFIC_ADMISSION=NOT_ADMITTED")
           PY
