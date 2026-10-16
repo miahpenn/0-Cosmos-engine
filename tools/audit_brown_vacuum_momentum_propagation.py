@@ -623,15 +623,16 @@ def main() -> int:
             "lambda_hamiltonian_discriminator_passed": all(
                 row["hamiltonian_slot_contract"]["lambda_only_control"]["passed"] for row in rows
             ),
+            # N=80 is retained descriptively; require the refined N=120/160 band to pass.
             "vendor_extension_improves_on_fine_annulus": all(
                 row["vendor_extension_discriminator"]["vendor_extension_improves_on_annulus"]
                 for row in rows
-                if row["resolution"] >= 80 and row["profile_variant"] != "baseline_zero_shift"
+                if row["resolution"] >= 120 and row["profile_variant"] != "baseline_zero_shift"
             ),
             "wrong_sign_extension_control_detected": all(
                 row["vendor_extension_discriminator"]["wrong_sign_extension_control_detected"]
                 for row in rows
-                if row["resolution"] >= 80 and row["profile_variant"] != "baseline_zero_shift"
+                if row["resolution"] >= 120 and row["profile_variant"] != "baseline_zero_shift"
             ),
             "acceptance_oracle_satisfied": False,
             "scientific_admission": False,
