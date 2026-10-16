@@ -5,6 +5,7 @@ on:
     paths:
       - "tools/audit_current_source_momentum_constraint_tangent.py"
       - "tests/test_constraint_source_normalization_contract.py"
+      - "tools/audit_brown_vacuum_momentum_propagation.py"
       - "tools/manufactured_momentum_tangent_audit.py"
       - ".github/workflows/current-main-momentum-tangent-budget.yml"
   workflow_dispatch:
@@ -67,11 +68,23 @@ jobs:
         run: |
           python -m py_compile tools/manufactured_momentum_tangent_audit.py
           python -m py_compile tools/audit_current_source_momentum_constraint_tangent.py
+          python -m py_compile tools/audit_brown_vacuum_momentum_propagation.py
 
       - name: Run frozen constraint source sign/consumer-factor contract
         run: |
           python -m pytest -q tests/test_constraint_source_normalization_contract.py
 
+
+      - name: Run independent vacuum Brown propagation discriminator on manufactured regular states
+        id: brown
+        continue-on-error: true
+        run: |
+          mkdir -p results/brown-vacuum-propagation
+          python tools/audit_brown_vacuum_momentum_propagation.py \
+            --resolutions 40 60 80 120 160 \
+            --r-max 40 \
+            --epsilons 0.00002 0.00001 \
+            --output-dir results/brown-vacuum-propagation
 
       - name: Run manufactured regular-profile parity and tangent audit first (zero production steps)
         id: manufactured
@@ -113,8 +126,10 @@ jobs:
         if: always()
         shell: bash
         env:
+          BROWN_OUTCOME: ${{ steps.brown.outcome }}
           MANUFACTURED_OUTCOME: ${{ steps.manufactured.outcome }}
           PRODUCTION_OUTCOME: ${{ steps.production.outcome }}
         run: |
+          test "$BROWN_OUTCOME" = "success"
           test "$MANUFACTURED_OUTCOME" = "success"
           test "$PRODUCTION_OUTCOME" = "success"
