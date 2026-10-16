@@ -5,6 +5,8 @@ on:
     paths:
       - "tools/audit_current_source_momentum_constraint_tangent.py"
       - "tools/manufactured_momentum_tangent_audit.py"
+      - "tools/momentum_constraint_chain_rule.py"
+      - "tests/test_research_momentum_constraint_chain_rule.py"
       - ".github/workflows/current-main-momentum-tangent-budget.yml"
   workflow_dispatch:
 
@@ -62,10 +64,14 @@ jobs:
             test "$(git rev-parse "HEAD:$path")" = "$(git -C source rev-parse "HEAD:$path")"
           done
 
+      - name: Verify discrete chain rule and signed-term negative control
+        run: python -m pytest -q tests/test_research_momentum_constraint_chain_rule.py
+
       - name: Compile both read-only auditors
         run: |
           python -m py_compile tools/manufactured_momentum_tangent_audit.py
           python -m py_compile tools/audit_current_source_momentum_constraint_tangent.py
+          python -m py_compile tools/momentum_constraint_chain_rule.py
 
       - name: Run manufactured regular-profile parity and tangent audit first (zero production steps)
         id: manufactured
