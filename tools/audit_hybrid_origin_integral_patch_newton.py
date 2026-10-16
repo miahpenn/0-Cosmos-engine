@@ -370,7 +370,7 @@ def solve_five_cell_hybrid(
 
 def directional_tangent(
     kernel: V55ProductionKernel, state: ProductionState, vacuum: Any
-) -> dict[str, Any]:
+) -> tuple[dict[str, Any], dict[float, dict[str, np.ndarray]]]:
     """Measure H/M/C_Lambda/det tangents with a fresh CMC lapse per endpoint."""
     original = state_digest(state)
     rates = rhs_direction(kernel, state)
@@ -378,6 +378,7 @@ def directional_tangent(
     baseline = constraints(state, vacuum)
     rows = []
     raw_rows: dict[float, dict[str, np.ndarray]] = {}
+    raw_budget_profiles: dict[float, dict[str, np.ndarray]] = {}
     for eps in DIRECTIONAL_EPSILONS:
         plus_state = shifted_state(kernel, state, rates, eps)
         minus_state = shifted_state(kernel, state, rates, -eps)
@@ -388,10 +389,22 @@ def directional_tangent(
             for name in baseline
         }
         raw_rows[eps] = dot
-        # Independent sector/geometry accounting from the established exact-pin
-        # auditor uses the same endpoint states and explicitly includes the
-        # CMC lapse refresh at both +/- epsilon endpoints.
+        # Use the shared exact-pin momentum observer for a signed decomposition
+        # into geometric terms and all total-current sectors. This observer
+        # independently refreshes CMC alpha at both directional endpoints.
         momentum_budget = momentum_tangent_for_epsilon(kernel, state, rates, eps)
+        raw_budget_profiles[eps] = {
+            "Mdot": finite("signed Mdot profile", momentum_budget["Mdot"]).copy(),
+            "Mdot_geom": finite("signed geometric Mdot profile", momentum_budget["Mdot_geom"]).copy(),
+            **{
+                f"Mdot_geom_term_{name}": finite(f"signed geometric term {name}", values).copy()
+                for name, values in momentum_budget["Mdot_geom_terms"].items()
+            },
+            **{
+                f"Mdot_sector_{name}": finite(f"signed current sector {name}", values).copy()
+                for name, values in momentum_budget["Mdot_sector"].items()
+            },
+        }
         rows.append({
             "epsilon": eps,
             "tangent_witnesses": {name: witness(arr, r) for name, arr in dot.items()},
@@ -400,7 +413,7 @@ def directional_tangent(
     if state_digest(state) != original:
         raise RuntimeError("tangent observer mutated the frozen state")
     coarse, fine = raw_rows[DIRECTIONAL_EPSILONS[0]], raw_rows[DIRECTIONAL_EPSILONS[1]]
-    return {
+    report = {
         "frozen_state_sha256": original,
         "baseline_constraints": {name: witness(arr, r) for name, arr in baseline.items()},
         "tangent_by_epsilon": rows,
@@ -409,11 +422,12 @@ def directional_tangent(
         },
         "state_unchanged": state_digest(state) == original,
         "tangent_scope": (
-            "Measured directional tangent of the implemented semi-discrete RHS; each +/-epsilon endpoint rebuilds the shifted geometry/scalars/matter and re-solves the production CMC lapse. "
-            "The signed M budget separately reports geometric terms and all six total-current sectors. "
+            "Measured directional tangent of the implemented semi-discrete RHS; each +/-epsilon endpoint rebuilds shifted geometry/scalars/matter and re-solves the production CMC lapse. "
+            "The signed M budget reports geometric terms and all six total-current sectors, with raw signed profiles retained in the NPZ. "
             "This remains a measured tangent, not the independent normalized full constraint-propagation prediction."
         ),
     }
+    return report, raw_budget_profiles
 
 def save_state_profiles(
     profile_store: dict[str, np.ndarray],
@@ -422,6 +436,7 @@ def save_state_profiles(
     state: ProductionState,
     B_metric: np.ndarray,
     tangent_report: dict[str, Any],
+    raw_budget_profiles: dict[float, dict[str, np.ndarray]],
 ) -> None:
     prefix = f"N{n}_{arm}"
     profile_store[f"{prefix}_r"] = np.asarray(state.grid.centers, dtype=np.float64)
@@ -437,7 +452,8 @@ def save_state_profiles(
     for item in tangent_report["tangent_by_epsilon"]:
         eps_tag = format(float(item["epsilon"]), ".0e").replace("+", "")
         eps = float(item["epsilon"])
-        # Rebuild raw profiles is deliberately avoided; witness records are in JSON.
+        for name, values in raw_budget_profiles[eps].items():
+            profile_store[f"{prefix}_tangent_epsilon_{eps_tag}_{name}"] = np.asarray(values, dtype=np.float64)
         for key in ("H", "M", "C_Lambda", "determinant"):
             profile_store[f"{prefix}_tangent_epsilon_{eps_tag}_{key}_cell_0_to_4"] = np.asarray(
                 [cell["signed"] for cell in item["tangent_witnesses"][key]["cell_0_to_4"]],
@@ -520,7 +536,7 @@ def run(args: argparse.Namespace) -> tuple[dict[str, Any], dict[str, np.ndarray]
 
         for arm, (st, metric_B) in all_states.items():
             start_digest = state_digest(st)
-            tang = directional_tangent(kernel, st, vacuum)
+            tang, raw_budget_profiles = directional_tangent(kernel, st, vacuum)
             arms[arm] = {
                 "state_sha256": start_digest,
                 "r_cells_0_to_4": [float(v) for v in r[:PATCH_CELLS]],
@@ -534,7 +550,7 @@ def run(args: argparse.Namespace) -> tuple[dict[str, Any], dict[str, np.ndarray]
                 "constraints": {name: witness(arr, r) for name, arr in constraint_arrays[arm].items()},
                 "measured_rhs_tangent": tang,
             }
-            save_state_profiles(profiles, int(n), arm, st, metric_B, tang)
+            save_state_profiles(profiles, int(n), arm, st, metric_B, tang, raw_budget_profiles)
             if state_digest(st) != start_digest:
                 raise RuntimeError(f"N={n}/{arm}: observer mutated the input state")
 
