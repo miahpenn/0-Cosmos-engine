@@ -125,6 +125,26 @@ def provenance() -> dict[str, Any]:
     }
 
 
+def assert_supported_baseline_source_scope(state: ProductionState) -> None:
+    """Fail closed when the six-sector baseline audit would omit opt-in sources.
+
+    The explicit J-piece inventory and state digest cover S, D, COSMOS phi,
+    dark matter, baryons, and radiation only. Charged dust and radial Maxwell
+    must be audited with their own current/stress witnesses; silently passing
+    either state here would make the total-versus-sector closure incomplete.
+    """
+    if getattr(state.matter, "charged_dust", None) is not None:
+        raise RuntimeError(
+            "baseline six-sector tangent audit does not support charged_dust; "
+            "use an audit that includes its projected J/rho/pr/pt and tangent"
+        )
+    if getattr(state, "electromagnetic", None) is not None:
+        raise RuntimeError(
+            "baseline six-sector tangent audit does not support radial EM; "
+            "pass and audit the normalized EM stress/current projection explicitly"
+        )
+
+
 def state_digest(state: ProductionState) -> str:
     h = hashlib.sha256()
     def add(name: str, values: Any) -> None:
@@ -153,6 +173,8 @@ def finite(name: str, values: Any) -> np.ndarray:
 
 def current_pieces(state: ProductionState) -> dict[str, np.ndarray]:
     """Rebuild each signed J contribution using production projection operators."""
+    assert_supported_baseline_source_scope(state)
+    assert_supported_baseline_source_scope(state)
     grid, geom, scalars, matter = (
         state.grid, state.geometry, state.scalars, state.matter
     )
@@ -420,6 +442,8 @@ def shifted_state(
     delta: float,
 ) -> ProductionState:
     """Form a directional state +/- epsilon*RHS and re-solve the CMC lapse."""
+    assert_supported_baseline_source_scope(state)
+    assert_supported_baseline_source_scope(state)
     geom = state.geometry.copy()
     for name in GEOMETRY_RATE_NAMES:
         updated = (
