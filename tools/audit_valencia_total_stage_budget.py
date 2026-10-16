@@ -206,7 +206,9 @@ def main() -> int:
     r = finite("radii", metric.r)
     dr = float(r[1] - r[0])
     # Production derivative operator and its declared origin parity.
-    derivs = geometry_metric_derivatives(metric, grid.cell_derivative_fourth)
+    derivs = geometry_metric_derivatives(
+        metric, lambda values, parity=1: grid.cell_derivative_fourth(values, parity=parity)
+    )
     metric_objects = _metric_arrays(metric)
     n = r.size
 
