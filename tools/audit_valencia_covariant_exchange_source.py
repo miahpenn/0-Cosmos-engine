@@ -18,6 +18,7 @@ import os
 from pathlib import Path
 import subprocess
 import sys
+from types import SimpleNamespace
 
 import numpy as np
 
@@ -185,6 +186,141 @@ def run_components(metric, rho_seed: np.ndarray, velocity: np.ndarray,
     }
 
 
+class AuditGrid:
+    """Uniform cell-centred grid; differencing cancels in paired source calls."""
+    def __init__(self, centers: np.ndarray):
+        self.centers = arr("audit grid centers", centers)
+        if self.centers.size < 3:
+            raise ValueError("audit grid needs at least three centers")
+        spacing = np.diff(self.centers)
+        if not np.allclose(spacing, spacing[0], rtol=2.0e-14, atol=0.0):
+            raise ValueError("audit grid must be uniform")
+        self.dr = float(spacing[0])
+
+    def cell_first_derivative_fourth(self, values, parity=1):
+        # Any deterministic operator is adequate for the *difference* of two
+        # identical scalar RHS calls; use smooth second-order differences here.
+        # This is not the spatial-convergence oracle for scalar evolution.
+        values = arr("AuditGrid D1 values", values)
+        return np.gradient(values, self.dr, edge_order=2)
+
+    def cell_second_derivative_fourth(self, values, parity=1):
+        values = arr("AuditGrid D2 values", values)
+        return np.gradient(np.gradient(values, self.dr, edge_order=2), self.dr, edge_order=2)
+
+
+def audit_scalar_and_total_energy_exchange(metric, rho_dm: np.ndarray,
+                                           velocity: np.ndarray) -> dict:
+    """Pair scalar and fluid exchange increments with a coherent d_t(phi).
+
+    Only RHS differences induced by rho_dm are retained. The same source-pinned
+    scalar RHS is called with and without coupling, so all spatial derivative,
+    gauge, and potential terms cancel. The energy-rate comparison uses the
+    project's Einstein-normalized scalar/fluid projections.
+    """
+    from engine.matter_system import KAPPA as MATTER_KAPPA
+    from engine.scalar_system import ScalarFields, scalar_rhs_arrays
+
+    r = arr("coupled audit radii", metric.r)
+    grid = AuditGrid(r)
+    geometry = SimpleNamespace(
+        a=metric.a, b=metric.b, X=metric.X, alpha=metric.alpha,
+        beta=metric.beta, K=metric.K,
+    )
+    phi = arr("coupled scalar phi", 0.12 * np.exp(-(r * r) / 70.0))
+    Pi = arr("coupled scalar Pi", 0.04 * np.exp(-(r * r) / 40.0))
+    fields = ScalarFields(
+        S=arr("coupled S", 0.010 * np.exp(-(r * r) / 28.0)),
+        PS=arr("coupled PS", 0.003 * np.exp(-(r * r) / 32.0)),
+        D=arr("coupled D", 0.015 * np.exp(-(r * r) / 24.0)),
+        PD=arr("coupled PD", 0.004 * np.exp(-(r * r) / 30.0)),
+        phi=phi,
+        Pi=Pi,
+    )
+    scalar_base = scalar_rhs_arrays(
+        grid, geometry, fields, beta_dm=BETA_DM, rho_dm=None
+    )
+    scalar_full = scalar_rhs_arrays(
+        grid, geometry, fields, beta_dm=BETA_DM, rho_dm=arr("coupled rho_dm", rho_dm)
+    )
+    delta_Pi = arr("scalar exchange increment in Pi RHS", scalar_full.Pi - scalar_base.Pi)
+    expected_delta_Pi = arr(
+        "covariant Klein-Gordon source in Pi RHS", metric.alpha * BETA_DM * rho_dm
+    )
+    scalar_delta_rho = arr(
+        "scalar Einstein-normalized energy-rate exchange",
+        fields.Pi * delta_Pi / MATTER_KAPPA,
+    )
+    expected_scalar_delta_rho = arr(
+        "expected scalar Einstein-normalized energy rate",
+        fields.Pi * expected_delta_Pi / MATTER_KAPPA,
+    )
+
+    # Use exactly the same scalar d_t(phi) and radial derivative to build the
+    # fluid-side Q_t/Q_r source. d_t(phi)=alpha*Pi+beta*D_r(phi) by definition.
+    dphi_r = arr("coupled D_r(phi)", grid.cell_first_derivative_fourth(phi, parity=1))
+    dphi_t = arr("coupled d_t(phi)", scalar_base.phi)
+    fluid = run_components(metric, rho_dm, velocity, dphi_t, dphi_r)
+    fluid_delta_rho = arr(
+        "fluid Einstein-normalized energy-rate exchange",
+        fluid["implemented_q_e"] / fluid["sqrt_gamma"] / MATTER_KAPPA,
+    )
+    net_delta_rho = arr("total exchange energy-rate residual", scalar_delta_rho + fluid_delta_rho)
+    expected_net_delta_rho = arr(
+        "predicted net lapse-only energy-rate residual",
+        (1.0 - metric.alpha) * BETA_DM * rho_dm * fields.Pi / MATTER_KAPPA,
+    )
+
+    metric_one = make_metric(metric.r.size, float(metric.r[-1] + 0.5 * grid.dr), unit_lapse=True)
+    scalar_one_base = scalar_rhs_arrays(
+        grid, metric_one, fields, beta_dm=BETA_DM, rho_dm=None
+    )
+    scalar_one_full = scalar_rhs_arrays(
+        grid, metric_one, fields, beta_dm=BETA_DM, rho_dm=arr("unit-lapse rho_dm", rho_dm)
+    )
+    delta_Pi_one = arr(
+        "unit-lapse scalar exchange increment", scalar_one_full.Pi - scalar_one_base.Pi
+    )
+    expected_delta_Pi_one = arr("unit-lapse expected scalar source", BETA_DM * rho_dm)
+
+    scalar_residual = arr("scalar Pi coefficient residual", delta_Pi - expected_delta_Pi)
+    unit_residual = arr("unit lapse scalar Pi coefficient residual", delta_Pi_one - expected_delta_Pi_one)
+    net_residual = arr("net energy rate residual", net_delta_rho - expected_net_delta_rho)
+    net_scale = max(
+        rms(scalar_delta_rho), rms(fluid_delta_rho), np.finfo(float).tiny
+    )
+    source_scale = max(rms(expected_delta_Pi), np.finfo(float).tiny)
+    return {
+        "scalar_Pi_exchange_conversion": {
+            "production_increment_formula": "delta(Pi_dot)=beta_dm*rho_dm",
+            "covariant_wave_equation_increment": "delta(Pi_dot)=alpha*beta_dm*rho_dm",
+            "closure_passed": bool(float(np.max(np.abs(scalar_residual))) <= TOL),
+            "mismatch_detected": bool(
+                rms(scalar_residual) / source_scale > 1.0e-2
+                and float(np.max(np.abs(scalar_residual))) > 1.0e-12
+            ),
+            "relative_rms_residual": float(rms(scalar_residual) / source_scale),
+            "residual": summary(scalar_residual, r),
+            "implemented_increment": summary(delta_Pi, r),
+            "expected_increment": summary(expected_delta_Pi, r),
+            "unit_lapse_control_closes": bool(float(np.max(np.abs(unit_residual))) <= TOL),
+        },
+        "combined_local_energy_exchange": {
+            "scalar_rate_formula": "Pi*delta(Pi_dot)/(8*pi)",
+            "fluid_rate_formula": "q_e/(sqrt(gamma)*8*pi)",
+            "expected_net_rate_from_pinned_conventions": "(1-alpha)*beta_dm*rho_dm*Pi/(8*pi)",
+            "net_energy_exchange_closes_to_predicted_lapse_defect": bool(
+                np.allclose(net_delta_rho, expected_net_delta_rho, rtol=5.0e-12, atol=5.0e-14)
+            ),
+            "net_rate_relative_rms_to_sector_rates": float(rms(net_delta_rho) / net_scale),
+            "net_rate_residual_after_predicted_lapse_defect": summary(net_residual, r),
+            "actual_net_rate": summary(net_delta_rho, r),
+            "predicted_net_rate": summary(expected_net_delta_rho, r),
+            "interpretation": "The source increments leave a nonzero total local energy-transfer rate for alpha!=1 under the module's declared covector convention; this is source-level evidence, not a full time-evolved Bianchi closure test.",
+        },
+    }
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -258,6 +394,9 @@ def main() -> int:
     predicted_defect_closed = bool(
         np.allclose(qs_error, alpha_error_expected, rtol=5.0e-12, atol=5.0e-14)
     )
+    coupled_energy_audit = audit_scalar_and_total_energy_exchange(
+        metric, result["primitive_rho"], velocity
+    )
     all_finite = all(np.all(np.isfinite(values)) for values in (
         qe_error, qs_error, unit_error, zero_qs, sign_error, alpha_error_expected
     )) and result["face_flux_finite"]
@@ -304,6 +443,8 @@ def main() -> int:
             "predicted_coefficient_difference": summary(alpha_error_expected, r),
             "predicted_difference_closes": predicted_defect_closed,
         },
+        "scalar_coupling": coupled_energy_audit["scalar_Pi_exchange_conversion"],
+        "combined_local_energy_exchange": coupled_energy_audit["combined_local_energy_exchange"],
         "controls": {
             "unit_lapse_control_closes": unit_lapse_closed,
             "zero_radial_exchange_control_closes": zero_qr_closed,
@@ -327,6 +468,8 @@ def main() -> int:
         "predicted_difference_closes": predicted_defect_closed,
         "relative_rms_momentum_mismatch": qs_rel,
         "all_controls_passed": report["gate_result"]["all_controls_passed"],
+        "scalar_coupling_mismatch_detected": report["scalar_coupling"]["mismatch_detected"],
+        "combined_local_energy_lapse_defect_closed": report["combined_local_energy_exchange"]["net_energy_exchange_closes_to_predicted_lapse_defect"],
         "scientific_admission": False,
         "report": str(args.output),
     }, indent=2))
