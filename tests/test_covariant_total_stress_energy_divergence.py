@@ -133,3 +133,9 @@ def test_finite_volume_face_reconstruction_respects_regular_origin_parity():
     expected_odd = 0.4 * dr**3 * (1.0 + 0.02 * dr**2 + 0.001 * dr**4)
     assert np.isclose(odd_faces[1], expected_odd, rtol=0.0, atol=2.0e-14)
 
+    # The radial metric-source density scales as r at a regular origin.
+    source_density = 0.6 * r * (1.0 + 0.015 * r**2 + 0.0005 * r**4)
+    source_faces = AUDIT.spherical_flux_face_values(source_density, dr, origin_power=1)
+    expected_source = 0.6 * dr * (1.0 + 0.015 * dr**2 + 0.0005 * dr**4)
+    assert np.isclose(source_faces[1], expected_source, rtol=0.0, atol=2.0e-14)
+
