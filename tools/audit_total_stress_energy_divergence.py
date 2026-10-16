@@ -304,6 +304,8 @@ def covariant_objects(state) -> dict[str, np.ndarray]:
         "flux_t": -(alpha**2) * sqrt_gamma * j_up,       # sqrt(-g) T^r_t
         "flux_r": alpha * sqrt_gamma * projection["pr"], # sqrt(-g) T^r_r
         "gtt": -(alpha**2),
+        "projection_crosscheck": projection["projection_crosscheck"],
+        "projection_crosscheck_passed": projection["projection_crosscheck_passed"],
     }
 
 
