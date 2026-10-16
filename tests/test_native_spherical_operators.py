@@ -8,7 +8,7 @@ identities are tested independently below.
 import numpy as np
 import pytest
 
-from engine.native_spherical_operators import NativeSphericalCellGrid
+from diagnostics.native_spherical_operators import NativeSphericalCellGrid
 from engine.v55_pirk_adapter import vendor_modules
 
 
