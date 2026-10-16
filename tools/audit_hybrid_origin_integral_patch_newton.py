@@ -421,6 +421,14 @@ def _constraint_propagation_candidate(
     K_dot = finite("geometric K RHS", rates["geometry"]["K"])
     b_dot = finite("geometric b RHS", rates["geometry"]["b"])
     X_dot = finite("geometric X RHS", rates["geometry"]["X"])
+    # Define the shared parity-aware derivative helpers before the chain-rule
+    # calculation below; this function also uses them for the propagation arms.
+    d1 = lambda value, parity=1: finite(
+        "propagation D1", grid.cell_derivative_fourth(value, parity=parity)
+    )
+    d2 = lambda value, parity=-1: finite(
+        "propagation D2", grid.cell_second_derivative_fourth(value, parity=parity)
+    )
     b_prime = d1(b, 1)
     chi_r_base = -0.5 * d1(X, 1) / X
     chi_r_dot = -0.5 * (
@@ -442,12 +450,6 @@ def _constraint_propagation_candidate(
         Mgeom_dot_chain - measured_Mgeom_dot,
     )
     M_up = finite("raised M^r", gamma_rr_inv * M_cov)
-    d1 = lambda value, parity=1: finite(
-        "propagation D1", grid.cell_derivative_fourth(value, parity=parity)
-    )
-    d2 = lambda value, parity=-1: finite(
-        "propagation D2", grid.cell_second_derivative_fourth(value, parity=parity)
-    )
     chi = X * X
     chi_r = d1(chi, 1)
     alpha_r = d1(alpha, 1)
