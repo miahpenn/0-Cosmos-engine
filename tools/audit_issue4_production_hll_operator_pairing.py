@@ -143,10 +143,29 @@ def operator_snapshot(state, coupling: float, rates: dict[str, Any]) -> dict[str
             beta_dm=float(coupling),
         )
         face_flux = finite(f"{name} production HLL face flux", face_flux)
+        if face_flux.shape != (r.size + 1, 3):
+            raise ValueError(
+                f"{name} face flux shape {face_flux.shape} != {(r.size + 1, 3)}"
+            )
+        origin_face_flux_exact_zero = bool(
+            np.array_equal(face_flux[0], np.zeros(3, dtype=np.float64))
+        )
+        if not origin_face_flux_exact_zero:
+            raise RuntimeError(
+                f"{name} production HLL centre-face flux is not exactly zero"
+            )
         source_e = finite(f"{name} geometric energy source", source_e)
         source_s = finite(f"{name} geometric momentum source", source_s)
         q_e = finite(f"{name} interaction energy source", q_e)
         q_s = finite(f"{name} interaction momentum source", q_s)
+        for source_name, source_values in (
+            ("source_e", source_e), ("source_s", source_s),
+            ("q_e", q_e), ("q_s", q_s),
+        ):
+            if source_values.shape != r.shape:
+                raise ValueError(
+                    f"{name} {source_name} shape {source_values.shape} != {r.shape}"
+                )
 
         projection = species_projection(metrics, prim)
         projected_radial_flux_cells = finite(
@@ -222,6 +241,7 @@ def operator_snapshot(state, coupling: float, rates: dict[str, Any]) -> dict[str
 
         out[name] = {
             "species": species.value,
+            "origin_face_flux_exact_zero": origin_face_flux_exact_zero,
             "face_flux_rms_by_channel": {
                 "rest_over_kappa": summarize_faces(face_flux[:, 0] / KAPPA, dr),
                 "energy_over_kappa": summarize_faces(face_flux[:, 1] / KAPPA, dr),
@@ -260,6 +280,13 @@ def operator_snapshot(state, coupling: float, rates: dict[str, Any]) -> dict[str
             ),
         }
         all_raw[name] = {
+            # Preserve the exact five native _species_rhs_components outputs
+            # before scaling, alongside the normalized comparison arrays.
+            "native_hll_face_flux": face_flux.tolist(),
+            "native_geometric_energy_source": source_e.tolist(),
+            "native_geometric_momentum_source": source_s.tolist(),
+            "native_interaction_energy_source": q_e.tolist(),
+            "native_interaction_momentum_source": q_s.tolist(),
             "hll_face_flux_rest_over_kappa": (face_flux[:, 0] / KAPPA).tolist(),
             "hll_face_flux_energy_over_kappa": (face_flux[:, 1] / KAPPA).tolist(),
             "hll_face_flux_momentum_over_kappa": actual_hll_radial_flux.tolist(),
@@ -279,9 +306,23 @@ def operator_snapshot(state, coupling: float, rates: dict[str, Any]) -> dict[str
             "scalar_dphi_r": dphi_r.tolist(),
         }
 
+    required_native_arrays = (
+        "native_hll_face_flux",
+        "native_geometric_energy_source",
+        "native_geometric_momentum_source",
+        "native_interaction_energy_source",
+        "native_interaction_momentum_source",
+    )
     return {
         "beta_dm": float(coupling),
         "zero_shift": True,
+        "origin_face_flux_exact_zero": all(
+            item["origin_face_flux_exact_zero"] for item in out.values()
+        ),
+        "native_component_arrays_preserved": all(
+            all(key in item for key in required_native_arrays)
+            for item in all_raw.values()
+        ),
         "species": out,
         "raw_arrays": all_raw,
         "scalar_sector_projections": scalar_sector_summary,
@@ -466,6 +507,12 @@ def run_resolution(n: int, r_max: float, epsilons: tuple[float, ...]) -> dict[st
                     "minus_state_sha256": AUDIT.state_digest(minus),
                     "species_operator_tangent_summaries": species_tangent,
                     "scalar_sector_projection_tangent_summaries": scalar_tangent,
+                    # Keep raw plus/minus source/flux arrays as well as their
+                    # tangent summaries so directional evidence is reproducible.
+                    "plus_species_operator_arrays": plus_ops["raw_arrays"],
+                    "minus_species_operator_arrays": minus_ops["raw_arrays"],
+                    "plus_scalar_sector_arrays": plus_ops["raw_scalar_arrays"],
+                    "minus_scalar_sector_arrays": minus_ops["raw_scalar_arrays"],
                 }
             arms[label] = base
     finally:
@@ -513,6 +560,20 @@ def run_resolution(n: int, r_max: float, epsilons: tuple[float, ...]) -> dict[st
         "initial_state_sha256": original_hash,
         "base_state_unchanged": state_unchanged,
         "zero_shift_native_slice": True,
+        "origin_face_flux_exact_zero": all(
+            arm["origin_face_flux_exact_zero"] for arm in arms.values()
+        ),
+        "native_component_arrays_preserved": all(
+            arm["native_component_arrays_preserved"] for arm in arms.values()
+        ),
+        "directional_operator_arrays_preserved": all(
+            "plus_species_operator_arrays" in witness
+            and "minus_species_operator_arrays" in witness
+            and "plus_scalar_sector_arrays" in witness
+            and "minus_scalar_sector_arrays" in witness
+            for arm_witnesses in tangent_witnesses.values()
+            for witness in arm_witnesses.values()
+        ),
         "projection_crosscheck_passed": True,
         "all_hll_source_profiles_finite": bool(all_values_finite),
         "production_steps_advanced": 0,
@@ -578,6 +639,9 @@ def run(resolutions: tuple[int, ...], r_max: float, epsilons: tuple[float, ...])
             "all_hll_source_profiles_finite": all_finite,
             "input_states_unchanged": all_unchanged,
             "native_zero_shift_scope_verified": True,
+            "origin_face_flux_exact_zero": all(row["origin_face_flux_exact_zero"] for row in rows),
+            "native_component_arrays_preserved": all(row["native_component_arrays_preserved"] for row in rows),
+            "directional_operator_arrays_preserved": all(row["directional_operator_arrays_preserved"] for row in rows),
             "manufactured_operator_probe_nontrivial": probe_passed,
             "manufactured_probe_negative_controls_nontrivial": probe_passed,
             "scalar_sector_kept_separate": True,
