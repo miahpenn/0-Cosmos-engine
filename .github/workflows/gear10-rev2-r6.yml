@@ -1,0 +1,42 @@
+name: GEAR-10 REV2 rung-6 reproducibility
+
+on:
+  pull_request:
+    paths:
+      - "archive/early_solvers/GEAR10/**"
+      - "tests/test_gear10_rev2_drag_sign_regression.py"
+      - ".github/workflows/gear10-rev2-r6.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  rung6-reproducibility:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install pinned numerical dependencies
+        run: python -m pip install numpy==2.3.5 scipy==1.17.0 pytest
+      - name: Check archived source, harness, and baseline snapshot checksums
+        working-directory: archive/early_solvers/GEAR10
+        run: sha256sum -c SHA256SUMS.txt
+      - name: Compile and run full bounded matrix
+        working-directory: archive/early_solvers/GEAR10
+        run: |
+          python -m py_compile darksector_REV2.py validate_darksector_REV2.py
+          python validate_darksector_REV2.py
+      - name: Run sign-sensitive regression
+        run: python -m pytest -q tests/test_gear10_rev2_drag_sign_regression.py
+      - name: Upload reproducible machine-readable R6 output
+        uses: actions/upload-artifact@v4
+        with:
+          name: gear10-r6-sign-discriminator-${{ github.sha }}
+          path: archive/early_solvers/GEAR10/validation_results_r6_sign_discriminator_2026-10-16.json
+          if-no-files-found: error
+          retention-days: 90

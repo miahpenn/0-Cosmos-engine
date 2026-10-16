@@ -1,0 +1,54 @@
+{
+  "test_date": "2026-10-16",
+  "artifact_scope": "research-only transcription from the corrected REV2 PDF; not full six-rung admission",
+  "source_sha256": "6791f27d898781d825e67458ccb785b2d8ae0b68fe1dcd8e3534e5a91966661a",
+  "python": "3.13.5",
+  "numpy": "2.3.5",
+  "scipy": "1.17.0",
+  "model": {
+    "beta": -0.2,
+    "lambda": 1.0,
+    "D": 0.0,
+    "V0": 2.07,
+    "k_rung6": 1.0,
+    "a_i": 0.0001,
+    "a_f": 1.0
+  },
+  "potential_derivatives": {
+    "max_abs_dV_finite_difference_error": 4.43454162279977e-11,
+    "max_abs_d2V_finite_difference_error": 4.43454162279977e-11,
+    "pass": true
+  },
+  "rhs_and_corrected_euler_signs": {
+    "background_rhs_length": 5,
+    "full_rhs_length": 12,
+    "euler_rhs_abs_error": 0.0,
+    "pass": true
+  },
+  "general_rung6": [
+    {
+      "n": 5000,
+      "normalized_residual": 9.296642857272226e-08,
+      "a_final": 1.0,
+      "tau_final": 2.9588746666001904,
+      "observed_order_from_previous": null
+    },
+    {
+      "n": 20000,
+      "normalized_residual": 5.707215438913104e-09,
+      "a_final": 1.0,
+      "tau_final": 2.9588746666001904,
+      "observed_order_from_previous": 2.012707645991344
+    },
+    {
+      "n": 80000,
+      "normalized_residual": 2.552313843189994e-10,
+      "a_final": 1.0,
+      "tau_final": 2.9588746666001904,
+      "observed_order_from_previous": 2.2413940565519423
+    }
+  ],
+  "full_six_rung_ladder_reproduced": false,
+  "camb_rung2_independently_reproduced": false,
+  "scientific_admission": false
+}
