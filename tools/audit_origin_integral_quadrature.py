@@ -80,6 +80,46 @@ def analytic_halfcell_plus_trapezoids(r: np.ndarray, dr: float) -> np.ndarray:
     return I/r
 
 
+def parity_composite_simpson(r: np.ndarray, dr: float) -> np.ndarray:
+    """Fourth-order cumulative integral using an even extension about r=0.
+
+    For each target centre r_i, integrate s on [-r_i,r_i] using mirrored
+    centre samples, Simpson 1/3 panels plus a final Simpson 3/8 panel, then
+    take one half by regular even parity. The first half-cell uses the known
+    analytic value s(0)=S0 and Simpson's two-panel centre formula.
+    """
+    r = np.asarray(r, dtype=np.float64)
+    s = source(r)
+    integral = np.zeros_like(r)
+    for i in range(r.size):
+        if i == 0:
+            r0 = float(r[0])
+            integral[i] = r0*(s[i] + 2.0*S0)/3.0
+            continue
+
+        # Centre samples at x_j=(j+1/2)dr extend evenly via s[-j-1]=s[j].
+        signed_indices = np.arange(-i-1, i+1, dtype=int)
+        sample_indices = np.where(signed_indices < 0, -signed_indices-1, signed_indices)
+        values = s[sample_indices]
+        intervals = 2*i + 1
+        simpson13_intervals = intervals - 3
+        integral_symmetric = 0.0
+        if simpson13_intervals > 0:
+            first = values[:simpson13_intervals+1]
+            integral_symmetric += (dr/3.0)*(
+                first[0] + first[-1]
+                + 4.0*np.sum(first[1:-1:2])
+                + 2.0*np.sum(first[2:-1:2])
+            )
+        start = simpson13_intervals
+        integral_symmetric += (3.0*dr/8.0)*(
+            values[start] + 3.0*values[start+1]
+            + 3.0*values[start+2] + values[start+3]
+        )
+        integral[i] = 0.5*integral_symmetric
+    return integral/r
+
+
 def _geometry_routes(grid, base_geometry, vacuum, B: np.ndarray):
     r = np.asarray(grid.centers, dtype=np.float64)
     if not np.all(np.isfinite(B)) or np.any(B <= 0.0):
@@ -136,6 +176,7 @@ def _run_one(n: int, vacuum) -> tuple[dict, dict[str, np.ndarray]]:
     profiles = {
         "point_sample_plus_trapezoids": point_sample_plus_trapezoids(r, dr),
         "analytic_halfcell_plus_trapezoids": analytic_halfcell_plus_trapezoids(r, dr),
+        "parity_composite_simpson": parity_composite_simpson(r, dr),
         "exact_cumulative_integral": b_exact.copy(),
     }
     report_profiles = {}
@@ -235,6 +276,7 @@ def main() -> int:
             "arms": [
                 "point_sample_plus_trapezoids",
                 "analytic_halfcell_plus_trapezoids",
+                "parity_composite_simpson",
                 "exact_cumulative_integral",
             ],
             "production_evolution_steps": 0,
