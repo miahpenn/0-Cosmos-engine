@@ -110,6 +110,22 @@ def operator_snapshot(state, coupling: float, rates: dict[str, Any]) -> dict[str
     sqrt_gamma = finite("sqrt gamma", np.asarray([m.sqrt_gamma for m in metrics]))
     dphi_t = finite("partial_t(phi) from the pinned RHS", rates["scalars"]["phi"])
     dphi_r = AUDIT.d1(grid, state.scalars.phi, +1)
+    projection_check = AUDIT.independent_total_projections(state)
+    if not projection_check["projection_crosscheck_passed"]:
+        raise RuntimeError("independent scalar+fluid projection disagrees with canonical assembly")
+    scalar_sector_summary: dict[str, Any] = {}
+    raw_scalar_arrays: dict[str, Any] = {}
+    for scalar_name, scalar_channels in projection_check["scalar_parts"].items():
+        scalar_sector_summary[scalar_name] = {}
+        raw_scalar_arrays[scalar_name] = {}
+        for channel in ("rho", "pr", "pt", "j"):
+            values = finite(
+                f"scalar sector {scalar_name} {channel}",
+                scalar_channels[channel],
+            )
+            scalar_sector_summary[scalar_name][channel] = AUDIT.summarize(values, r)
+            raw_scalar_arrays[scalar_name][channel] = values.tolist()
+
     out: dict[str, Any] = {}
     all_raw: dict[str, Any] = {}
     maximum_geom_gap = 0.0
@@ -147,6 +163,10 @@ def operator_snapshot(state, coupling: float, rates: dict[str, Any]) -> dict[str
         hll_minus_projected = finite(
             f"{name} HLL minus reconstructed stress flux",
             actual_hll_radial_flux - projected_radial_flux_faces,
+        )
+        sign_flipped_hll_gap = finite(
+            f"{name} sign-flipped HLL versus projected momentum flux",
+            -actual_hll_radial_flux - projected_radial_flux_faces,
         )
 
         geometric_expected = np.empty_like(r)
@@ -188,6 +208,14 @@ def operator_snapshot(state, coupling: float, rates: dict[str, Any]) -> dict[str
             f"{name} production interaction source minus conditional covariant source",
             actual_interaction - expected_interaction,
         )
+        omitted_geometric_source_residual = finite(
+            f"{name} residual if geometric momentum source is omitted",
+            -actual_geometric,
+        )
+        omitted_interaction_source_residual = finite(
+            f"{name} residual if interaction momentum source is omitted",
+            -actual_interaction,
+        )
         maximum_geom_gap = max(maximum_geom_gap, float(np.max(np.abs(geom_gap))))
         if name == "dark_matter":
             maximum_source_gap = max(maximum_source_gap, float(np.max(np.abs(source_gap))))
@@ -202,6 +230,17 @@ def operator_snapshot(state, coupling: float, rates: dict[str, Any]) -> dict[str
             "hll_momentum_flux_minus_projected_stress_face_flux": summarize_faces(
                 hll_minus_projected, dr
             ),
+            "negative_controls": {
+                "sign_flipped_hll_minus_projected_momentum_flux": summarize_faces(
+                    sign_flipped_hll_gap, dr
+                ),
+                "omitted_geometric_momentum_source_residual": AUDIT.summarize(
+                    omitted_geometric_source_residual, r
+                ),
+                "omitted_interaction_momentum_source_residual": AUDIT.summarize(
+                    omitted_interaction_source_residual, r
+                ),
+            },
             "geometric_energy_source_actual_over_kappa": AUDIT.summarize(
                 finite(f"{name} normalized geometric energy source", source_e / KAPPA), r
             ),
@@ -226,6 +265,9 @@ def operator_snapshot(state, coupling: float, rates: dict[str, Any]) -> dict[str
             "hll_face_flux_momentum_over_kappa": actual_hll_radial_flux.tolist(),
             "projected_stress_momentum_face_flux_over_kappa": projected_radial_flux_faces.tolist(),
             "hll_minus_projected_momentum_face_flux_over_kappa": hll_minus_projected.tolist(),
+            "negative_control_sign_flipped_hll_minus_projected_momentum_face_flux_over_kappa": sign_flipped_hll_gap.tolist(),
+            "negative_control_omitted_geometric_momentum_source_residual_over_kappa": omitted_geometric_source_residual.tolist(),
+            "negative_control_omitted_interaction_momentum_source_residual_over_kappa": omitted_interaction_source_residual.tolist(),
             "geometric_energy_source_actual_over_kappa": (source_e / KAPPA).tolist(),
             "interaction_energy_source_actual_over_kappa": (q_e / KAPPA).tolist(),
             "geometric_momentum_source_actual_over_kappa": actual_geometric.tolist(),
@@ -242,6 +284,11 @@ def operator_snapshot(state, coupling: float, rates: dict[str, Any]) -> dict[str
         "zero_shift": True,
         "species": out,
         "raw_arrays": all_raw,
+        "scalar_sector_projections": scalar_sector_summary,
+        "raw_scalar_arrays": raw_scalar_arrays,
+        "scalar_sector_note": (
+            "S, D and phi scalar stress projections are recorded separately; the scalar spatial operator is not treated as a fluid HLL face flux."
+        ),
         "max_abs_geometric_source_gap_over_kappa": maximum_geom_gap,
         "max_abs_dark_matter_conditional_interaction_source_gap_over_kappa": maximum_source_gap,
     }
@@ -306,6 +353,24 @@ def summarize_probe(state, coupling: float) -> dict[str, Any]:
     dm_gap = float(np.max(np.abs(np.asarray(
         snapshot["raw_arrays"]["dark_matter"]["interaction_momentum_source_gap_over_kappa"]
     ))))
+    max_sign_flip = max(
+        float(np.max(np.abs(np.asarray(
+            piece["negative_control_sign_flipped_hll_minus_projected_momentum_face_flux_over_kappa"]
+        ))))
+        for piece in snapshot["raw_arrays"].values()
+    )
+    max_omitted_geo = max(
+        float(np.max(np.abs(np.asarray(
+            piece["negative_control_omitted_geometric_momentum_source_residual_over_kappa"]
+        ))))
+        for piece in snapshot["raw_arrays"].values()
+    )
+    max_omitted_interaction = max(
+        float(np.max(np.abs(np.asarray(
+            piece["negative_control_omitted_interaction_momentum_source_residual_over_kappa"]
+        ))))
+        for piece in snapshot["raw_arrays"].values()
+    )
     return {
         "synthetic_discriminator_only": True,
         "native_shift": 0.0,
@@ -314,8 +379,16 @@ def summarize_probe(state, coupling: float) -> dict[str, Any]:
         "projection_crosscheck_passed": True,
         "max_abs_hll_minus_projected_momentum_face_flux_over_kappa": max_hll_projection_gap,
         "max_abs_dark_matter_conditional_qr_source_gap_over_kappa": dm_gap,
+        "max_abs_sign_flipped_hll_gap_over_kappa": max_sign_flip,
+        "max_abs_omitted_geometric_source_residual_over_kappa": max_omitted_geo,
+        "max_abs_omitted_interaction_source_residual_over_kappa": max_omitted_interaction,
         "nontrivial_hll_flux_discriminator": bool(max_hll_projection_gap > 1.0e-14),
         "nontrivial_conditional_qr_discriminator": bool(dm_gap > 1.0e-12) if coupling != 0.0 else True,
+        "nontrivial_negative_controls": bool(
+            max_sign_flip > 1.0e-14
+            and max_omitted_geo > 1.0e-14
+            and (coupling == 0.0 or max_omitted_interaction > 1.0e-12)
+        ),
         "operator_snapshot": snapshot,
     }
 
@@ -373,11 +446,26 @@ def run_resolution(n: int, r_max: float, epsilons: tuple[float, ...]) -> dict[st
                             if "hll_face_flux" in key
                             else AUDIT.summarize(derivative, state.grid.centers)
                         )
+                scalar_tangent = {}
+                for scalar_name, channels in base["raw_scalar_arrays"].items():
+                    scalar_tangent[scalar_name] = {}
+                    for channel in ("rho", "pr", "pt", "j"):
+                        derivative = finite(
+                            f"scalar {scalar_name} {channel} tangent",
+                            (
+                                np.asarray(plus_ops["raw_scalar_arrays"][scalar_name][channel], dtype=np.float64)
+                                - np.asarray(minus_ops["raw_scalar_arrays"][scalar_name][channel], dtype=np.float64)
+                            ) / (2.0 * float(epsilon)),
+                        )
+                        scalar_tangent[scalar_name][channel] = AUDIT.summarize(
+                            derivative, state.grid.centers
+                        )
                 tangent_witnesses[label][f"epsilon_{epsilon:.8g}"] = {
                     "epsilon": float(epsilon),
                     "plus_state_sha256": AUDIT.state_digest(plus),
                     "minus_state_sha256": AUDIT.state_digest(minus),
                     "species_operator_tangent_summaries": species_tangent,
+                    "scalar_sector_projection_tangent_summaries": scalar_tangent,
                 }
             arms[label] = base
     finally:
@@ -391,8 +479,11 @@ def run_resolution(n: int, r_max: float, epsilons: tuple[float, ...]) -> dict[st
         raise RuntimeError("independent total stress projection disagrees with canonical assembly")
     all_values_finite = True
     for arm in arms.values():
-        for species in arm["raw_arrays"].values():
-            for values in species.values():
+        for species_arrays in arm["raw_arrays"].values():
+            for values in species_arrays.values():
+                all_values_finite &= bool(np.all(np.isfinite(np.asarray(values, dtype=float))))
+        for scalar_arrays in arm["raw_scalar_arrays"].values():
+            for values in scalar_arrays.values():
                 all_values_finite &= bool(np.all(np.isfinite(np.asarray(values, dtype=float))))
     # A separate disposable manufactured copy excites nonzero HLL currents and
     # a nonzero radial scalar gradient, avoiding a vacuous zero-profile baseline.
@@ -455,10 +546,9 @@ def run(resolutions: tuple[int, ...], r_max: float, epsilons: tuple[float, ...])
         and all(
             arm["nontrivial_hll_flux_discriminator"]
             and arm["nontrivial_conditional_qr_discriminator"]
-            for name, arm in row["manufactured_operator_probe"]["arms"].items()
-            if name == "coupled_conditional_source"
+            and arm["nontrivial_negative_controls"]
+            for arm in row["manufactured_operator_probe"]["arms"].values()
         )
-        and row["manufactured_operator_probe"]["arms"]["uncoupled_control"]["nontrivial_hll_flux_discriminator"]
         for row in rows
     )
     max_geom = max(
@@ -489,6 +579,8 @@ def run(resolutions: tuple[int, ...], r_max: float, epsilons: tuple[float, ...])
             "input_states_unchanged": all_unchanged,
             "native_zero_shift_scope_verified": True,
             "manufactured_operator_probe_nontrivial": probe_passed,
+            "manufactured_probe_negative_controls_nontrivial": probe_passed,
+            "scalar_sector_kept_separate": True,
             "production_steps_advanced": 0,
             "max_abs_independent_geometric_source_gap_over_kappa": max_geom,
             "max_abs_dark_matter_conditional_interaction_source_gap_over_kappa": max_q_gap,
