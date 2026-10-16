@@ -64,8 +64,8 @@ jobs:
         run: |
           python - <<'PY'
           import json
-          from tools.audit_current_main_centre_proper_radial_ricci import _verify_source_pins
-          print(json.dumps(_verify_source_pins(), indent=2))
+          from tools.audit_evolved_centre_ricci_stage_budget import _verify_stage_source_pins
+          print(json.dumps(_verify_stage_source_pins(), indent=2))
           PY
 
       - name: Test full-grid matter L3 reconstruction and sign-flip control
