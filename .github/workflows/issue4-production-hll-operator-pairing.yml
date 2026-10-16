@@ -103,6 +103,11 @@ jobs:
             and .gate_result.manufactured_probe_negative_controls_nontrivial == true
             and .gate_result.combined_discrete_budget_reported == true
             and .gate_result.combined_budget_tangents_reported == true
+            and .gate_result.matched_total_t_witness_reported == true
+            and .gate_result.matched_total_t_state_hashes_match == true
+            and .gate_result.matched_total_t_profiles_finite == true
+            and .scope.same_process_total_T_directional_witness_available == true
+            and .scope.shared_initial_state_hash_verified == true
             and .gate_result.scalar_sector_kept_separate == true
             and .scope.optional_charged_dust_supported == false
             and .scope.optional_radial_maxwell_supported == false
