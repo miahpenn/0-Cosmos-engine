@@ -155,23 +155,23 @@ def manufactured_state(grid, vacuum):
 
 def lambda_hamiltonian_discriminator(grid, state, vacuum) -> dict:
     """Control that separates metric-only H from the Lambda-dependent BSSN H."""
-    r = finite("Lambda control radii", state.grid.centers)
+    r = finite("Lambda control radii", grid.centers)
     delta_lambda = 1.0e-3 * np.sin((2.0 * math.pi / 8.0) * r)
     probe = state.copy()
     probe.Lambda = finite("Lambda-only probe", state.Lambda + delta_lambda)
 
-    H_metric_base, _ = metric_only_hamiltonian(state.grid, state)
-    H_metric_probe, _ = metric_only_hamiltonian(state.grid, probe)
+    H_metric_base, _ = metric_only_hamiltonian(grid, state)
+    H_metric_probe, _ = metric_only_hamiltonian(grid, probe)
     metric_only_delta = finite(
         "metric-only H response to Lambda mutation", H_metric_probe - H_metric_base
     )
 
-    raw_base = finite("base BSSN H", vacuum.constraints(state.grid, state)["hamiltonian"])
-    raw_probe = finite("probe BSSN H", vacuum.constraints(state.grid, probe)["hamiltonian"])
+    raw_base = finite("base BSSN H", vacuum.constraints(grid, state)["hamiltonian"])
+    raw_probe = finite("probe BSSN H", vacuum.constraints(grid, probe)["hamiltonian"])
     observed_bssn_delta = finite("BSSN H response to Lambda mutation", raw_probe - raw_base)
     predicted_bssn_delta = finite(
         "predicted BSSN H response",
-        state.X * state.X * d1(state.grid, delta_lambda, -1),
+        state.X * state.X * d1(grid, delta_lambda, -1),
     )
     closure = finite(
         "BSSN H/Lambda response closure", observed_bssn_delta - predicted_bssn_delta
