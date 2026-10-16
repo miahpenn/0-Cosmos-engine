@@ -246,12 +246,26 @@ def audit_resolution(resolution: int, r_max: float, epsilons: tuple[float, float
         "epsilon sensitivity",
         measured_rows[0] - measured_rows[1],
     )
-    negative_prediction = predicted.copy()
-    # Negative control: flip the sign of the Hamiltonian-gradient term.
-    negative_prediction = negative_prediction - 2.0 * brown_terms["alpha_DrH_over_6"]
+    # Negative control: flip the sign of the Hamiltonian-gradient term and
+    # require the mutation to exceed a predeclared operand-scaled roundoff bound.
+    negative_prediction = predicted - 2.0 * brown_terms["alpha_DrH_over_6"]
     mutation_residual = finite("negative control residual", measured_rows[0] - negative_prediction)
+    formula_operand_scale = sum(
+        (np.abs(value) for value in brown_terms.values()),
+        np.zeros_like(predicted),
+    )
+    mutation_delta = finite(
+        "negative control predictor mutation",
+        predicted - negative_prediction,
+    )
+    mutation_bound = 128.0 * MACHINE_EPS * formula_operand_scale
+    negative_control_ratio = np.divide(
+        np.abs(mutation_delta), mutation_bound,
+        out=np.zeros_like(mutation_delta), where=mutation_bound > 0.0,
+    )
     negative_control_detected = bool(
-        np.any(np.abs(mutation_residual) > np.abs(measured_rows[0] - predicted))
+        np.all(np.isfinite(mutation_delta))
+        and np.any(np.abs(mutation_delta) > mutation_bound)
     )
 
     return {
@@ -281,6 +295,9 @@ def audit_resolution(resolution: int, r_max: float, epsilons: tuple[float, float
         "negative_control": {
             "mutation": "flip the sign of alpha*D_r(H)/6",
             "detected": negative_control_detected,
+            "roundoff_bound": witness(mutation_bound, r),
+            "mutation_delta": witness(mutation_delta, r),
+            "max_local_scaled_ratio": float(np.max(negative_control_ratio)),
             "residual_after_mutation": witness(mutation_residual, r),
         },
         "interpretation": (
