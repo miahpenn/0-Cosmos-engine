@@ -556,21 +556,32 @@ def audit_resolution(n: int, r_max: float, epsilons: tuple[float, float]) -> dic
     annulus_after_rest_rms = float(np.sqrt(np.mean(delta_t_with_rest_source[annulus] ** 2)))
     # The source-pinned scalar RHS adds beta_dm*rho_dm to Pi_dot, but the
     # covariant Klein-Gordon conversion requires alpha*beta_dm*rho_dm.
-    # The fluid side uses Q_t=beta_dm*rho_dm*d_t(phi)=alpha*beta_dm*rho_dm*Pi
-    # on this zero-shift slice. Thus the derived residual in the mixed
-    # covariant component D_t is (alpha-1)*beta_dm*rho_dm*Pi/KAPPA.
-    # This is a derived discriminator, not a passed conservation gate.
+    # The established conditional source audit writes the resulting local
+    # total-energy defect as (1-alpha)*beta_dm*rho_dm*Pi/KAPPA. Check the
+    # signed profile explicitly; the magnitude alone cannot determine this.
+    # This remains a source-law discriminator, not a passed conservation gate.
     metric_slice = metric_slice_from_q(state.grid, state.geometry)
     raw_rho_dm = finite("lapse-discriminator DM density", dm_density(metric_slice, state.matter))
     predicted_lapse_defect = finite(
         "derived covariant D_t lapse-factor defect",
-        (np.asarray(state.geometry.alpha) - 1.0)
+        (1.0 - np.asarray(state.geometry.alpha))
         * BETA_DM_COUPLED * raw_rho_dm * np.asarray(state.scalars.Pi) / KAPPA,
     )
     lapse_defect_residual = finite(
         "measured coupling increment minus derived lapse defect",
         delta_t - predicted_lapse_defect,
     )
+    joint_residual_same_sign = finite(
+        "post-rest-source D_t increment minus lapse defect",
+        delta_t_with_rest_source - predicted_lapse_defect,
+    )
+    joint_residual_opposite_sign = finite(
+        "post-rest-source D_t increment plus lapse defect",
+        delta_t_with_rest_source + predicted_lapse_defect,
+    )
+    predicted_lapse_rms = float(np.sqrt(np.mean(predicted_lapse_defect[annulus] ** 2)))
+    joint_same_rms = float(np.sqrt(np.mean(joint_residual_same_sign[annulus] ** 2)))
+    joint_opposite_rms = float(np.sqrt(np.mean(joint_residual_opposite_sign[annulus] ** 2)))
     lapse_defect_scale = max(
         float(np.sqrt(np.mean(predicted_lapse_defect[annulus] ** 2))),
         np.finfo(float).tiny,
@@ -603,23 +614,45 @@ def audit_resolution(n: int, r_max: float, epsilons: tuple[float, float]) -> dic
                 "dr_rms_before": float(np.sqrt(np.mean(delta_r[annulus] ** 2))),
                 "dr_rms_after": float(np.sqrt(np.mean(delta_r_with_rest_source[annulus] ** 2))),
             },
+            "joint_conditional_lapse_remainder": {
+                "derived_formula": "(1-alpha)*beta_dm*rho_dm*Pi/KAPPA",
+                "predicted_signed_profile": summarize(predicted_lapse_defect, state.grid.centers),
+                "post_rest_source_coupling_increment": summarize(delta_t_with_rest_source, state.grid.centers),
+                "rms_residual_after_subtracting_prediction": joint_same_rms,
+                "rms_residual_after_adding_prediction": joint_opposite_rms,
+                "predicted_lapse_rms": predicted_lapse_rms,
+                "post_rest_source_d_t_rms": annulus_after_rest_rms,
+                "same_sign_closure_factor": float(predicted_lapse_rms / max(joint_same_rms, np.finfo(float).tiny)),
+                "opposite_sign_closure_factor": float(predicted_lapse_rms / max(joint_opposite_rms, np.finfo(float).tiny)),
+                "candidate_sign_match": bool(joint_same_rms < joint_opposite_rms),
+                "closure_admitted": False,
+            },
             "model_law_accepted": False,
             "match_admitted": False,
         },
         "lapse_factor_exchange_discriminator": {
-            "derived_formula": "(alpha-1)*beta_dm*rho_dm*Pi/KAPPA",
+            "derived_formula": "(1-alpha)*beta_dm*rho_dm*Pi/KAPPA",
             "predicted_Dt": summarize(predicted_lapse_defect, state.grid.centers),
-            "measured_coupling_increment_Dt": summarize(delta_t, state.grid.centers),
-            "residual_after_derived_lapse_defect": summarize(lapse_defect_residual, state.grid.centers),
+            "measured_coupling_increment_Dt_before_rest_source": summarize(delta_t, state.grid.centers),
+            "measured_coupling_increment_Dt_after_rest_source": summarize(delta_t_with_rest_source, state.grid.centers),
+            "residual_after_derived_lapse_defect_before_rest_source": summarize(lapse_defect_residual, state.grid.centers),
             "fixed_annulus_2_to_10": {
                 "predicted_rms": lapse_defect_scale,
-                "measured_rms": float(np.sqrt(np.mean(delta_t[annulus] ** 2))),
-                "residual_rms": float(np.sqrt(np.mean(lapse_defect_residual[annulus] ** 2))),
-                "relative_rms_residual_to_prediction": float(
+                "measured_rms_before_rest_source": float(np.sqrt(np.mean(delta_t[annulus] ** 2))),
+                "measured_rms_after_rest_source": annulus_after_rest_rms,
+                "residual_rms_before_rest_source": float(np.sqrt(np.mean(lapse_defect_residual[annulus] ** 2))),
+                "relative_rms_residual_to_prediction_before_rest_source": float(
                     np.sqrt(np.mean(lapse_defect_residual[annulus] ** 2)) / lapse_defect_scale
                 ),
             },
             "match_admitted": False,
+        },
+        "raw_arrays": {
+            "coupling_increment_Dt_before_rest_source": delta_t.tolist(),
+            "coupling_increment_Dt_after_rest_source": delta_t_with_rest_source.tolist(),
+            "derived_lapse_factor_defect_Dt": predicted_lapse_defect.tolist(),
+            "joint_conditional_residual_same_sign": joint_residual_same_sign.tolist(),
+            "joint_conditional_residual_opposite_sign": joint_residual_opposite_sign.tolist(),
         },
         "limits": [
             "Finite-difference time tangent includes the CMC lapse re-solve and the full frozen semi-discrete RHS direction.",
