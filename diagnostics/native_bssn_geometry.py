@@ -162,7 +162,6 @@ def native_bssn_geometry_terms(grid, state) -> dict[str, np.ndarray]:
     return {
         "R": R_scalar,
         "Rr_r": Rr_r,
-        "Rtheta_theta": Rtheta_theta,
         "R_metric": R_scalar_metric,
         "Rr_r_metric": Rr_metric,
         "Rtheta_theta_metric": Rtheta_metric,
