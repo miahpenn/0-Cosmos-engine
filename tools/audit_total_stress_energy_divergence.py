@@ -556,15 +556,16 @@ def audit_resolution(n: int, r_max: float, epsilons: tuple[float, float]) -> dic
     annulus_after_rest_rms = float(np.sqrt(np.mean(delta_t_with_rest_source[annulus] ** 2)))
     # The source-pinned scalar RHS adds beta_dm*rho_dm to Pi_dot, but the
     # covariant Klein-Gordon conversion requires alpha*beta_dm*rho_dm.
-    # The established conditional source audit writes the resulting local
-    # total-energy defect as (1-alpha)*beta_dm*rho_dm*Pi/KAPPA. Check the
-    # signed profile explicitly; the magnitude alone cannot determine this.
-    # This remains a source-law discriminator, not a passed conservation gate.
+    # The prior source audit gives the conservative local energy-rate defect
+    # (1-alpha)*beta_dm*rho_dm*Pi/KAPPA. Since the diagnostic measures the
+    # covariant mixed component nabla_mu T^mu_t (where T^t_t=-rho), the
+    # predicted divergence residual has the opposite sign, (alpha-1)*... .
+    # Test the signed profile, not only its RMS; this remains conditional.
     metric_slice = metric_slice_from_q(state.grid, state.geometry)
     raw_rho_dm = finite("lapse-discriminator DM density", dm_density(metric_slice, state.matter))
     predicted_lapse_defect = finite(
         "derived covariant D_t lapse-factor defect",
-        (1.0 - np.asarray(state.geometry.alpha))
+        (np.asarray(state.geometry.alpha) - 1.0)
         * BETA_DM_COUPLED * raw_rho_dm * np.asarray(state.scalars.Pi) / KAPPA,
     )
     lapse_defect_residual = finite(
@@ -615,7 +616,7 @@ def audit_resolution(n: int, r_max: float, epsilons: tuple[float, float]) -> dic
                 "dr_rms_after": float(np.sqrt(np.mean(delta_r_with_rest_source[annulus] ** 2))),
             },
             "joint_conditional_lapse_remainder": {
-                "derived_formula": "(1-alpha)*beta_dm*rho_dm*Pi/KAPPA",
+                "derived_formula": "(alpha-1)*beta_dm*rho_dm*Pi/KAPPA (opposite sign to conservative energy-rate defect because T^t_t=-rho)",
                 "predicted_signed_profile": summarize(predicted_lapse_defect, state.grid.centers),
                 "post_rest_source_coupling_increment": summarize(delta_t_with_rest_source, state.grid.centers),
                 "rms_residual_after_subtracting_prediction": joint_same_rms,
@@ -631,7 +632,7 @@ def audit_resolution(n: int, r_max: float, epsilons: tuple[float, float]) -> dic
             "match_admitted": False,
         },
         "lapse_factor_exchange_discriminator": {
-            "derived_formula": "(1-alpha)*beta_dm*rho_dm*Pi/KAPPA",
+            "derived_formula": "(alpha-1)*beta_dm*rho_dm*Pi/KAPPA (opposite sign to conservative energy-rate defect because T^t_t=-rho)",
             "predicted_Dt": summarize(predicted_lapse_defect, state.grid.centers),
             "measured_coupling_increment_Dt_before_rest_source": summarize(delta_t, state.grid.centers),
             "measured_coupling_increment_Dt_after_rest_source": summarize(delta_t_with_rest_source, state.grid.centers),
