@@ -19,6 +19,7 @@ import numpy as np
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from engine.production_kernel import V55ProductionKernel
+from engine import v55_matter as vm
 from engine import v55_pirk_adapter as adapter
 from tools.audit_current_main_centre_proper_radial_ricci import (
     SOURCE_COMMIT,
@@ -82,6 +83,80 @@ def _d1(grid, values, parity=1):
 
 def _d2(grid, values, parity=1):
     return grid.cell_second_derivative_fourth(_arr(values), parity=parity)
+
+
+def _audit_matter_l3_formula(
+    r, alpha, l3_total, l3_vacuum, pressure_r, pressure_t
+) -> dict[str, Any]:
+    """Full-array roundoff audit of the adapter's anisotropic Aa matter L3.
+
+    The observed increment is extracted independently as (captured total L3 -
+    pinned vacuum L3). The predicted increment is rebuilt from the stage-local
+    total stress projection. No production values are modified.
+    """
+    arrays = {
+        "r": _arr(r),
+        "alpha": _arr(alpha),
+        "l3_total": _arr(l3_total),
+        "l3_vacuum": _arr(l3_vacuum),
+        "pressure_r": _arr(pressure_r),
+        "pressure_t": _arr(pressure_t),
+    }
+    shape = arrays["r"].shape
+    if arrays["r"].ndim != 1 or not shape or any(v.shape != shape for v in arrays.values()):
+        raise ValueError("matter-L3 audit arrays must be matching one-dimensional profiles")
+    if not all(_finite(v) for v in arrays.values()):
+        raise FloatingPointError("matter-L3 audit inputs contain non-finite values")
+    coeff = 16.0 * np.pi / 3.0
+    observed = arrays["l3_total"] - arrays["l3_vacuum"]
+    predicted = -coeff * arrays["alpha"] * (arrays["pressure_r"] - arrays["pressure_t"])
+    residual = observed - predicted
+    operand_scale = (
+        np.abs(arrays["l3_total"])
+        + np.abs(arrays["l3_vacuum"])
+        + np.abs(predicted)
+        + coeff * np.abs(arrays["alpha"])
+        * (np.abs(arrays["pressure_r"]) + np.abs(arrays["pressure_t"]))
+    )
+    bound = 128.0 * np.finfo(np.float64).eps * operand_scale
+    abs_residual = np.abs(residual)
+    ratio = np.zeros_like(residual)
+    positive_bound = bound > 0.0
+    ratio[positive_bound] = abs_residual[positive_bound] / bound[positive_bound]
+    zero_bound_mismatch = (~positive_bound) & (abs_residual > 0.0)
+    # Finite sentinel plus an explicit count: never let an unquantified 0/0
+    # bound silently appear to pass in downstream JSON tooling.
+    ratio[zero_bound_mismatch] = np.finfo(np.float64).max
+    max_abs_index = int(np.argmax(abs_residual))
+    max_ratio_index = int(np.argmax(ratio))
+    passed = bool(np.all(abs_residual <= bound))
+    summary = {
+        "formula": "-(16*pi/3)*alpha*(total.pr-total.pt)",
+        "scope": "all grid cells at the captured production-initializer stage",
+        "grid_cells": int(shape[0]),
+        "max_abs_signed_residual": float(abs_residual[max_abs_index]),
+        "signed_residual_at_max_abs": float(residual[max_abs_index]),
+        "max_abs_residual_index": max_abs_index,
+        "max_abs_residual_radius": float(arrays["r"][max_abs_index]),
+        "bound_at_max_abs_residual": float(bound[max_abs_index]),
+        "scaled_ratio_at_max_abs_residual": float(ratio[max_abs_index]),
+        "max_pointwise_scaled_ratio": float(ratio[max_ratio_index]),
+        "max_ratio_index": max_ratio_index,
+        "max_ratio_radius": float(arrays["r"][max_ratio_index]),
+        "bound_at_max_ratio": float(bound[max_ratio_index]),
+        "max_bound_over_grid": float(np.max(bound)),
+        "rms_signed_residual": float(np.sqrt(np.mean(residual * residual))),
+        "zero_bound_nonzero_residual_cells": int(np.count_nonzero(zero_bound_mismatch)),
+        "all_cells_within_operand_scaled_roundoff_bound": passed,
+    }
+    return {
+        "observed_increment": observed,
+        "predicted_increment": predicted,
+        "signed_residual": residual,
+        "operand_scaled_bound": bound,
+        "pointwise_scaled_ratio": ratio,
+        "summary": summary,
+    }
 
 
 def _region_summary(r: np.ndarray, values: dict[str, np.ndarray]) -> dict:
@@ -259,6 +334,7 @@ def main() -> int:
     dt = CFL * R_MAX / RESOLUTION
 
     geometry_capture: dict[str, dict] = {}
+    matter_projection_capture: dict[str, dict] = {}
     l2_capture: dict[str, dict] = {}
     boundary_capture: list[dict] = []
     geometry_call_count = 0
@@ -279,6 +355,25 @@ def main() -> int:
             geometry_capture[name] = {
                 "geometry": _frozen_geometry(geometry),
                 "terms": _freeze_tree(result),
+            }
+            # Independently rebuild the total stage stress projection using the
+            # exact same scalar/matter stage data and optional EM projection.
+            em_projection = kernel._electromagnetic_projection(
+                grid, geometry, electromagnetic
+            )
+            if em_projection is None:
+                total_projection = vm.total_matter_projection(
+                    grid, geometry, scalars, matter
+                )
+            else:
+                total_projection = vm.total_matter_projection(
+                    grid, geometry, scalars, matter,
+                    electromagnetic_projection=em_projection,
+                )
+            matter_projection_capture[name] = {
+                "alpha": _arr(geometry.alpha),
+                "pressure_r": _arr(total_projection["pr"]),
+                "pressure_t": _arr(total_projection["pt"]),
             }
         return result
 
@@ -418,6 +513,30 @@ def main() -> int:
                     "matter_increment": l3_matter,
                 },
             )
+            projection = matter_projection_capture[stage_name]
+            matter_l3_audit = _audit_matter_l3_formula(
+                _arr(state.grid.centers),
+                projection["alpha"],
+                l3_total,
+                l3_vacuum,
+                projection["pressure_r"],
+                projection["pressure_t"],
+            )
+            stage_reports[stage_name]["primary_L3_Aa"][
+                "full_grid_matter_formula_reconstruction"
+            ] = matter_l3_audit["summary"]
+            profiles[f"{stage_name}__Aa_primary_L3_matter_expected"] = matter_l3_audit[
+                "predicted_increment"
+            ]
+            profiles[f"{stage_name}__Aa_primary_L3_matter_observed"] = matter_l3_audit[
+                "observed_increment"
+            ]
+            profiles[f"{stage_name}__Aa_primary_L3_matter_formula_residual"] = matter_l3_audit[
+                "signed_residual"
+            ]
+            profiles[f"{stage_name}__Aa_primary_L3_matter_formula_bound"] = matter_l3_audit[
+                "operand_scaled_bound"
+            ]
 
     # Reconstruct the exact implicit A_a update from the four captured L2/L3
     # operands in V55ProductionKernel.step, and compare against the accepted
@@ -505,6 +624,7 @@ def main() -> int:
         "production_or_vendor_files_modified": False,
         "source_pins": provenance,
         "configuration": {
+            "arm": "production_initializer",
             "resolution": RESOLUTION,
             "r_max": R_MAX,
             "dr": float(state.grid.dr),
@@ -567,6 +687,13 @@ def main() -> int:
         },
         "checks": {
             "all_profile_values_finite": True,
+            "matter_L3_full_grid_reconstruction_passed_all_captured_stages": all(
+                stage_reports[name]["primary_L3_Aa"][
+                    "full_grid_matter_formula_reconstruction"
+                ]["all_cells_within_operand_scaled_roundoff_bound"]
+                for name in GEOMETRY_STAGE_NAMES
+            ),
+            "matter_L3_full_grid_reconstruction_arm_scope": "production_initializer only; no second-arm state is implied",
             "actual_pirk_Aa_update_closed_for_r_le_10": True,
             "max_Aa_L2_decomposition_residual": decomposition_max,
             "geometry_stage_calls": geometry_call_count,
@@ -575,7 +702,8 @@ def main() -> int:
             "production_vendor_dependency_diff_empty": True,
         },
         "interpretation_limits": [
-            "This is one source-pinned step at N=40, not a convergence campaign or scientific admission.",
+            "This is one source-pinned step per configured resolution on the production-initializer arm only, not a two-arm scientific comparison or admission.",
+            "The full-grid matter-L3 audit verifies algebraic reconstruction of the adapter's anisotropic-stress increment; it does not validate total stress-energy conservation or continuum constraint propagation.",
             "The Lambda derivative and algebraic Lambda*D1(a) channels are reported separately; the chain-rule replacement is an offline counterfactual only.",
             "The metric-Ricci remainder is the remainder of the exact pinned vendor expression after removing those two explicit Lambda channels; it is not itself a proof that every remaining term is a metric-only continuum contribution.",
             "The trace records actual split operands and the final implicit mixed state. It does not justify changing the independent evolved BSSN connection equation.",
@@ -616,6 +744,12 @@ def main() -> int:
         ],
         "errors": [],
     }, indent=2, allow_nan=False), flush=True)
+    matter_l3_gate_ok = report["checks"][
+        "matter_L3_full_grid_reconstruction_passed_all_captured_stages"
+    ]
+    if not matter_l3_gate_ok:
+        print("FAIL: full-grid matter-L3 formula reconstruction exceeded its local bound", flush=True)
+        return 2
     return 0
 
 
