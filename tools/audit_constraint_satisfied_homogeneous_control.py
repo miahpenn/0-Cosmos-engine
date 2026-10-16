@@ -27,7 +27,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from engine.production_kernel import ProductionState, V55ProductionKernel
 from engine.scalar_system import ScalarFields
 from engine.stress_energy import assemble_total_stress_energy
-from engine.v55_matter import initialize_from_archive
+from engine.v55_matter import initialize_from_archive, metric_slice_from_q
+from engine.matter_system import Species, _species_rhs_components, geometry_metric_derivatives
 from engine import v55_pirk_adapter as adapter
 from tools.audit_current_source_momentum_constraint_tangent import (
     SOURCE_BASELINE,
@@ -136,6 +137,104 @@ def make_homogeneous_state(
     }
 
 
+def radiation_centre_flux_balance(
+    state: ProductionState,
+    rates: dict[str, Any],
+    fine_tangent: dict[str, Any],
+) -> dict[str, Any]:
+    """Reconstruct the first-cell radiation momentum RHS and exact-face null.
+
+    This diagnostic deliberately does not alter the production flux. For the
+    homogeneous flat control, sqrt(gamma)=r^2 and isotropic radiation pressure
+    gives radial face flux F_Ur=alpha*p*r^2. The production operator averages
+    neighbouring cell-centred sqrt(gamma) values to form the first face metric;
+    the counterfactual evaluates that volume factor at the true face r=dr.
+    """
+    grid, geom = state.grid, state.geometry
+    r = np.asarray(grid.centers, dtype=np.float64)
+    dr = float(grid.dr)
+    if r.size < 2:
+        raise ValueError("radiation face-balance diagnostic requires two cells")
+    if max_abs(np.asarray(geom.a) - 1.0) > 1.0e-12 or max_abs(np.asarray(geom.b) - 1.0) > 1.0e-12 or max_abs(np.asarray(geom.X) - 1.0) > 1.0e-12:
+        raise AssertionError("face-balance formula is restricted to the flat homogeneous metric")
+    if max_abs(np.asarray(geom.beta)) > 1.0e-14:
+        raise AssertionError("face-balance formula requires zero shift")
+
+    metric = metric_slice_from_q(grid, geom)
+    derivatives = geometry_metric_derivatives(metric, grid.cell_derivative_fourth)
+    face_flux, _source_e, source_s, _q_e, q_s = _species_rhs_components(
+        metric, derivatives, state.matter.radiation, Species.RADIATION
+    )
+    sqrt_g0 = float(math.sqrt(max(float(geom.a[0]), 0.0)) * float(geom.b[0]) * r[0]**2 / float(geom.X[0])**3)
+    sqrt_g1 = float(math.sqrt(max(float(geom.a[1]), 0.0)) * float(geom.b[1]) * r[1]**2 / float(geom.X[1])**3)
+    sqrt_g_face_average = 0.5 * (sqrt_g0 + sqrt_g1)
+    alpha_face = 0.5 * (float(geom.alpha[0]) + float(geom.alpha[1]))
+    flux_inner = float(face_flux[0, 2])
+    flux_first_interior = float(face_flux[1, 2])
+    source0 = float(source_s[0])
+    exchange0 = float(q_s[0])
+    flux_divergence0 = -(flux_first_interior - flux_inner) / dr
+    reconstructed_rhs0 = flux_divergence0 + source0 + exchange0
+    production_rhs0 = float(rates["matter"]["radiation"]["momentum_r"][0])
+    exact_face_sqrt_gamma = dr**2  # flat metric, first interior face is at r=dr
+    pressure_from_production_face = (
+        flux_first_interior / (sqrt_g_face_average * alpha_face)
+        if sqrt_g_face_average * alpha_face != 0.0 else 0.0
+    )
+    exact_face_flux = alpha_face * pressure_from_production_face * exact_face_sqrt_gamma
+    exact_face_flux_divergence0 = -(exact_face_flux - flux_inner) / dr
+    exact_face_rhs0 = exact_face_flux_divergence0 + source0 + exchange0
+    exact_face_Mdot0 = -exact_face_rhs0 / sqrt_g0
+    projected_Mdot_from_rhs0 = -production_rhs0 / sqrt_g0
+    measured_sector_Mdot0 = float(np.asarray(fine_tangent["Mdot_sector"]["radiation"])[0])
+
+    return {
+        "interpretation": (
+            "At rest with beta=0 in the flat homogeneous control, the exact-face "
+            "pressure-flux divergence cancels the spherical geometric source. The "
+            "exact-face value is counterfactual only; production is untouched."
+        ),
+        "r0": float(r[0]),
+        "r1": float(r[1]),
+        "dr": dr,
+        "radiation_pressure_from_face_flux": pressure_from_production_face,
+        "sqrt_gamma_centres_0_1": [sqrt_g0, sqrt_g1],
+        "sqrt_gamma_arithmetic_face_average": sqrt_g_face_average,
+        "sqrt_gamma_exact_first_face": exact_face_sqrt_gamma,
+        "face_volume_factor_ratio_average_over_exact": sqrt_g_face_average / exact_face_sqrt_gamma,
+        "production_fluxes": {
+            "inner_face_Ur": flux_inner,
+            "first_interior_face_Ur": flux_first_interior,
+            "flux_divergence_cell0": flux_divergence0,
+        },
+        "source_terms": {
+            "geometric_momentum_source_cell0": source0,
+            "exchange_source_cell0": exchange0,
+        },
+        "momentum_rhs_closure": {
+            "reconstructed_from_flux_source": reconstructed_rhs0,
+            "production_kernel_rhs": production_rhs0,
+            "difference": production_rhs0 - reconstructed_rhs0,
+        },
+        "projected_Mdot_radiation": {
+            "from_production_rhs": projected_Mdot_from_rhs0,
+            "from_signed_tangent_budget": measured_sector_Mdot0,
+            "difference": measured_sector_Mdot0 - projected_Mdot_from_rhs0,
+        },
+        "exact_face_counterfactual": {
+            "first_interior_face_Ur": exact_face_flux,
+            "flux_divergence_cell0": exact_face_flux_divergence0,
+            "same_geometric_source_cell0": source0,
+            "net_momentum_rhs_cell0": exact_face_rhs0,
+            "projected_Mdot_cell0": exact_face_Mdot0,
+        },
+        "expected_regular_null": {
+            "scale": abs(pressure_from_production_face) * dr,
+            "source_minus_exact_face_flux_divergence": exact_face_rhs0,
+        },
+    }
+
+
 def constraint_witness(state: ProductionState) -> dict[str, Any]:
     _, vacuum, _ = adapter.vendor_modules()
     grid, geom = state.grid, state.geometry
@@ -227,6 +326,7 @@ def run_resolution(
     ]
     coarse, fine = tangents
     delta = np.asarray(coarse["Mdot"]) - np.asarray(fine["Mdot"])
+    radiation_balance = radiation_centre_flux_balance(state, rates, fine)
     m0 = observe_constraint(state)["M_total"]
 
     # Each accepted-step check gets an isolated copy: neither the full step nor
@@ -250,6 +350,7 @@ def run_resolution(
         "initial_state_sha256": initial_digest,
         "construction": construction,
         "constraints": constraints,
+        "radiation_centre_flux_balance": radiation_balance,
         "tangent_by_epsilon": [
             {
                 "epsilon": item["epsilon"],
