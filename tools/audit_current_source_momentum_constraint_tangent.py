@@ -743,9 +743,6 @@ def audit_resolution(
                 * _d1_stencil_operand_scale(state.grid, rates["geometry"]["X"])
             + 1.5 * np.abs(state.geometry.Aa / state.geometry.b)
                 * _d1_stencil_operand_scale(state.grid, rates["geometry"]["b"])
-            + 3.0 * np.abs(
-                state.geometry.dot_X if hasattr(state.geometry, "dot_X") else rates["geometry"]["X"]
-            ) * 0.0
         )
         # Extra sensitivity terms for D1(X) and D1(b) inside the product rule.
         dot_aa = np.asarray(rates["geometry"]["Aa"], dtype=np.float64)
