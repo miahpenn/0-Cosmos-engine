@@ -375,15 +375,18 @@ def _constraint_propagation_candidate(
     plus_state: ProductionState,
     minus_state: ProductionState,
     epsilon: float,
-    measured_mdot: np.ndarray,
+    measured_mdot_covariant: np.ndarray,
 ) -> tuple[dict[str, Any], dict[str, np.ndarray]]:
-    """Candidate Brown-spherical BSSN M-propagation law + covariant T-divergence.
+    """Brown Eq. 11b candidate with explicit M^r -> M_r index conversion.
 
-    This is deliberately an independent formula evaluation, not the finite-
-    difference constraint tangent. Because the source contains matter/exchange,
-    compute Q_r = nabla_mu T^mu_r from the projected total stress tensor and
-    the same semi-discrete tangent state. The sign/index mapping is an explicit
-    diagnostic candidate and remains non-admitted until its normalization review.
+    Brown's published propagation equation evolves the contravariant M^r,
+    while the current vendor constraint observer returns the covariant M_r.
+    This function now computes the candidate in the upper-index convention,
+    raises the covariant matter-divergence source, then maps the prediction
+    back to the measured covariant derivative:
+        d_t M_r = gamma_rr d_t M^r + (d_t gamma_rr/gamma_rr) M_r.
+    This index-aware candidate still remains non-admitted; the full source/
+    normalization mapping must be independently reviewed.
     """
     grid, geom = state.grid, state.geometry
     r = finite("propagation radii", grid.centers)
@@ -392,35 +395,41 @@ def _constraint_propagation_candidate(
     b = finite("propagation b", geom.b)
     X = finite("propagation X", geom.X)
     K = finite("propagation K", geom.K)
+    gamma_rr = finite("physical gamma_rr", a / X**2)
+    gamma_rr_inv = finite("physical gamma^rr", X**2 / a)
+    H = finite("propagation H", base_constraints["H"])
+    M_cov = finite("propagation covariant M_r", base_constraints["M"])
+    C_up = finite("propagation connection constraint C^r", base_constraints["C_Lambda"])
+    M_up = finite("raised M^r", gamma_rr_inv * M_cov)
     d1 = lambda value, parity=1: finite(
         "propagation D1", grid.cell_derivative_fourth(value, parity=parity)
     )
     d2 = lambda value, parity=-1: finite(
         "propagation D2", grid.cell_second_derivative_fourth(value, parity=parity)
     )
-    H = finite("propagation H", base_constraints["H"])
-    M = finite("propagation M", base_constraints["M"])
-    C = finite("propagation C_Lambda", base_constraints["C_Lambda"])
-    alpha_r = d1(alpha, 1)
     chi = X * X
     chi_r = d1(chi, 1)
+    alpha_r = d1(alpha, 1)
     H_r = d1(H, 1)
-    C_r = d1(C, -1)
-    C_rr = d2(C, -1)
+    C_r = d1(C_up, -1)
+    C_rr = d2(C_up, -1)
     conformal_angular_log_derivative = d1(b, 1) / b + 2.0 / r
 
-    term_KM = alpha * K * M
-    term_alpha_H = -(alpha_r / 3.0) * H
-    term_H_gradient = (alpha / 6.0) * H_r
-    term_C_second = (2.0 / 3.0) * alpha * chi * C_rr
-    c_first_coeff = (
+    # Brown, BSSN in spherical symmetry, Eq. (11b): this is d_t M^r, not
+    # d_t M_r. Shift is zero in the production CMC branch.
+    term_KM_up = alpha * K * M_up
+    term_alpha_H_up = -(alpha_r / 3.0) * H
+    term_H_gradient_up = (alpha / 6.0) * H_r
+    term_C_second_up = (2.0 / 3.0) * alpha * chi * C_rr
+    c_first_coeff_up = (
         (2.0 / 3.0) * alpha_r * chi
         - (1.0 / 3.0) * alpha * chi_r
         + alpha * chi * conformal_angular_log_derivative
     )
-    term_C_first = c_first_coeff * C_r
-    brown_conserved_source = (
-        term_KM + term_alpha_H + term_H_gradient + term_C_second + term_C_first
+    term_C_first_up = c_first_coeff_up * C_r
+    brown_conserved_source_up = (
+        term_KM_up + term_alpha_H_up + term_H_gradient_up
+        + term_C_second_up + term_C_first_up
     )
 
     total = assemble_total_stress_energy(
@@ -432,12 +441,11 @@ def _constraint_propagation_candidate(
     minus_total = assemble_total_stress_energy(
         grid, minus_state.geometry, minus_state.scalars, minus_state.matter
     )
-    j = finite("total covariant radial momentum", total.j)
-    j_r_dot = finite(
+    j_cov = finite("total covariant radial momentum", total.j)
+    j_cov_dot = finite(
         "radial momentum time tangent",
         (np.asarray(plus_total.j) - np.asarray(minus_total.j)) / (2.0 * epsilon),
     )
-
     a_dot = finite("a RHS for stress divergence", rates["geometry"]["a"])
     b_dot = finite("b RHS for stress divergence", rates["geometry"]["b"])
     X_dot = finite("X RHS for stress divergence", rates["geometry"]["X"])
@@ -445,78 +453,95 @@ def _constraint_propagation_candidate(
     areal_radius_log_dot = 0.5 * b_dot / b - X_dot / X
     areal_radius_log_r = 1.0 / r + 0.5 * d1(b, 1) / b - d1(X, 1) / X
 
-    # For beta=0 and ds^2=-alpha^2 dt^2 + gamma_rr dr^2 + R^2 dOmega^2,
-    # Q_r = nabla_mu T^mu_r. This uses T^t_r=j_r/alpha, T^r_r=p_r.
+    # For beta=0, ds^2=-alpha^2 dt^2+gamma_rr dr^2+R^2 dOmega^2:
+    # Q_r=nabla_mu T^mu_r in terms of the canonical total projections.
+    # The alpha-dot terms cancel when differentiating T^t_r = j_r/alpha.
     Q_r = (
-        j_r_dot / alpha
-        + (j / alpha) * (
-            0.5 * gamma_rr_log_dot + 2.0 * areal_radius_log_dot
-        )
+        j_cov_dot / alpha
+        + (j_cov / alpha) * (0.5 * gamma_rr_log_dot + 2.0 * areal_radius_log_dot)
         + d1(np.asarray(total.pr), 1)
         + (alpha_r / alpha) * (np.asarray(total.rho) + np.asarray(total.pr))
         + 2.0 * areal_radius_log_r * (np.asarray(total.pr) - np.asarray(total.pt))
     )
     Q_r = finite("total stress-energy radial divergence", Q_r)
-    matter_source = -8.0 * math.pi * alpha * Q_r
-    predicted = finite(
-        "candidate predicted M tangent",
-        brown_conserved_source + matter_source,
+
+    # Candidate source is expressed in the same raised-index convention as
+    # Brown's M^r equation. Keep its normalization/sign explicitly provisional.
+    matter_source_up = -8.0 * math.pi * alpha * gamma_rr_inv * Q_r
+    predicted_Mdot_up = finite(
+        "candidate predicted contravariant Mdot",
+        brown_conserved_source_up + matter_source_up,
     )
+    predicted_Mdot_cov = finite(
+        "candidate predicted covariant Mdot",
+        gamma_rr * predicted_Mdot_up + gamma_rr_log_dot * M_cov,
+    )
+    measured = finite("measured covariant Mdot", measured_mdot_covariant)
     residual = finite(
-        "measured-minus-predicted M tangent",
-        np.asarray(measured_mdot, dtype=np.float64) - predicted,
+        "measured-minus-predicted covariant Mdot", measured - predicted_Mdot_cov
     )
     scale = max(
-        float(np.sqrt(np.mean(np.asarray(measured_mdot, dtype=np.float64) ** 2))),
-        float(np.sqrt(np.mean(predicted * predicted))),
+        float(np.sqrt(np.mean(measured * measured))),
+        float(np.sqrt(np.mean(predicted_Mdot_cov * predicted_Mdot_cov))),
+        np.finfo(np.float64).tiny,
+    )
+    outer = r >= 5.0
+    outer_scale = max(
+        float(np.sqrt(np.mean(measured[outer] ** 2))),
+        float(np.sqrt(np.mean(predicted_Mdot_cov[outer] ** 2))),
         np.finfo(np.float64).tiny,
     )
     report = {
         "formula": (
-            "Brown spherical BSSN momentum-constraint propagation (beta=0) "
-            "with H/M replaced by the repository total-stress constraints, "
-            "C by C_Lambda, chi=X^2, and an explicitly computed "
-            "-8*pi*alpha*nabla_mu(T^mu_r) source."
+            "Brown spherical BSSN constraint-propagation Eq. (11b) in its "
+            "published contravariant M^r convention, plus provisional "
+            "-8*pi*alpha*Q^r stress-divergence source, explicitly converted "
+            "back to the vendor's measured covariant M_r derivative."
         ),
-        "normalization_reviewed_for_scientific_admission": False,
-        "matter_conservation_source_sign_and_index_mapping": (
-            "candidate -8*pi*alpha*Q_r; output is a discriminator, not an accepted identity"
-        ),
-        "brown_conserved_source": witness(brown_conserved_source, r),
-        "matter_source_minus_8pi_alpha_Qr": witness(matter_source, r),
+        "brown_reference": "J. David Brown, BSSN in Spherical Symmetry, arXiv:0705.3845, Eq. (11b)",
+        "index_mapping_reviewed_for_scientific_admission": False,
+        "matter_conservation_source_sign_and_normalization_reviewed": False,
+        "covariant_to_contravariant_metric_factor_gamma_rr_inv": witness(gamma_rr_inv, r),
+        "brown_conserved_source_dM_up_dt": witness(brown_conserved_source_up, r),
+        "matter_source_minus_8pi_alpha_Q_up": witness(matter_source_up, r),
         "Q_r_total_stress_divergence": witness(Q_r, r),
-        "predicted_Mdot": witness(predicted, r),
-        "measured_Mdot": witness(measured_mdot, r),
-        "measured_minus_predicted": witness(residual, r),
+        "predicted_Mdot_contravariant": witness(predicted_Mdot_up, r),
+        "gamma_rr_log_dot_times_M_covariant": witness(gamma_rr_log_dot * M_cov, r),
+        "predicted_Mdot_covariant_after_index_conversion": witness(predicted_Mdot_cov, r),
+        "measured_Mdot_covariant": witness(measured, r),
+        "measured_minus_predicted_covariant": witness(residual, r),
         "relative_rms_error_full_domain": float(
             np.sqrt(np.mean(residual * residual)) / scale
         ),
         "relative_rms_error_r_ge_5": float(
-            np.sqrt(np.mean(residual[r >= 5.0] ** 2))
-            / max(
-                float(np.sqrt(np.mean(np.asarray(measured_mdot)[r >= 5.0] ** 2))),
-                float(np.sqrt(np.mean(predicted[r >= 5.0] ** 2))),
-                np.finfo(np.float64).tiny,
-            )
+            np.sqrt(np.mean(residual[outer] ** 2)) / outer_scale
         ),
         "finite": bool(
-            np.all(np.isfinite(predicted))
+            np.all(np.isfinite(predicted_Mdot_up))
+            and np.all(np.isfinite(predicted_Mdot_cov))
             and np.all(np.isfinite(residual))
             and np.all(np.isfinite(Q_r))
         ),
         "acceptance_oracle_satisfied": False,
+        "interpretation": (
+            "Even after an explicit index conversion this is a falsifiable candidate only. "
+            "Reference-metric variable mapping and matter source normalization/sign remain "
+            "unreviewed; no production defect or propagation identity is claimed."
+        ),
     }
     arrays = {
-        "propagation_brown_conserved_source": brown_conserved_source,
+        "propagation_brown_conserved_source_dM_up_dt": brown_conserved_source_up,
         "propagation_Qr_total_stress_divergence": Q_r,
-        "propagation_matter_source_minus_8pi_alpha_Qr": matter_source,
-        "propagation_Mdot_predicted": predicted,
-        "propagation_Mdot_measured_minus_predicted": residual,
-        "propagation_term_KM": term_KM,
-        "propagation_term_alpha_H": term_alpha_H,
-        "propagation_term_H_gradient": term_H_gradient,
-        "propagation_term_connection_second": term_C_second,
-        "propagation_term_connection_first": term_C_first,
+        "propagation_matter_source_minus_8pi_alpha_Q_up": matter_source_up,
+        "propagation_Mdot_predicted_contravariant": predicted_Mdot_up,
+        "propagation_Mdot_predicted_covariant": predicted_Mdot_cov,
+        "propagation_Mdot_measured_minus_predicted_covariant": residual,
+        "propagation_term_KM_raised_M": term_KM_up,
+        "propagation_term_alpha_H": term_alpha_H_up,
+        "propagation_term_H_gradient": term_H_gradient_up,
+        "propagation_term_connection_second": term_C_second_up,
+        "propagation_term_connection_first": term_C_first_up,
+        "propagation_term_index_conversion": gamma_rr_log_dot * M_cov,
     }
     return report, arrays
 
