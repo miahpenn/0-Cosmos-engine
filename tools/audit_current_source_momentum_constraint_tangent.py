@@ -40,11 +40,11 @@ from engine import v55_pirk_adapter as adapter
 
 
 SCHEMA = "current_source_signed_momentum_constraint_tangent_v1"
-SOURCE_BASELINE = "34ad06539c867b2a7ed40c2e1534a3a9d157b82f"
+SOURCE_BASELINE = "7f47669a1c0edfafef9fc5f27b2db80840d3f035"
 EXPECTED_VENDOR = "d6052d605673ce9d82cdc99b0df79855fa2ea215"
 EXPECTED_BLOBS = {
     "engine/production_kernel.py": "9685e76bb5a6f26d6bf383e240de24f37523f265",
-    "engine/matter_system.py": "05e23d2368120ea8a1a6aad3fa438625d5380750",
+    "engine/matter_system.py": "e52a117690253ddad7b24d116145a65474a351d2",
     "engine/matter_rhs.py": "f41180efbcff2c72cf36477a765318ab539fac80",
     "engine/scalar_system.py": "ffc119b1a6f2d495d972323901f76a85783b0a1b",
     "engine/v55_matter.py": "0ee3c51fac7dc46c63feba2747a750542bcee3d0",
@@ -99,7 +99,28 @@ def provenance() -> dict[str, Any]:
     }
 
 
+def assert_supported_baseline_source_scope(state: ProductionState) -> None:
+    """Fail closed when the six-sector baseline audit would omit opt-in sources.
+
+    The explicit J-piece inventory and state digest cover S, D, COSMOS phi,
+    dark matter, baryons, and radiation only. Charged dust and radial Maxwell
+    must be audited with their own current/stress witnesses; silently passing
+    either state here would make the total-versus-sector closure incomplete.
+    """
+    if getattr(state.matter, "charged_dust", None) is not None:
+        raise RuntimeError(
+            "baseline six-sector tangent audit does not support charged_dust; "
+            "use an audit that includes its projected J/rho/pr/pt and tangent"
+        )
+    if getattr(state, "electromagnetic", None) is not None:
+        raise RuntimeError(
+            "baseline six-sector tangent audit does not support radial EM; "
+            "pass and audit the normalized EM stress/current projection explicitly"
+        )
+
+
 def state_digest(state: ProductionState) -> str:
+    assert_supported_baseline_source_scope(state)
     h = hashlib.sha256()
     def add(name: str, values: Any) -> None:
         arr = np.ascontiguousarray(np.asarray(values, dtype=np.float64))
@@ -126,6 +147,7 @@ def finite(name: str, values: Any) -> np.ndarray:
 
 
 def current_pieces(state: ProductionState) -> dict[str, np.ndarray]:
+    assert_supported_baseline_source_scope(state)
     """Rebuild each signed J contribution using production projection operators."""
     grid, geom, scalars, matter = (
         state.grid, state.geometry, state.scalars, state.matter
@@ -177,6 +199,7 @@ def geometric_momentum_pieces(state: ProductionState) -> dict[str, np.ndarray]:
 
 
 def observe_constraint(state: ProductionState) -> dict[str, Any]:
+    assert_supported_baseline_source_scope(state)
     _, vacuum, _ = adapter.vendor_modules()
     raw = vacuum.constraints(state.grid, state.geometry)
     if "momentum" not in raw:
@@ -221,6 +244,7 @@ def observe_constraint(state: ProductionState) -> dict[str, Any]:
 def rhs_direction(
     kernel: V55ProductionKernel, state: ProductionState
 ) -> dict[str, Any]:
+    assert_supported_baseline_source_scope(state)
     srhs, mrhs, _ = kernel._rhs(state)
     terms = adapter.geometry_stage_terms(
         state.grid, state.geometry, state.scalars, state.matter,
