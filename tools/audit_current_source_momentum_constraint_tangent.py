@@ -214,6 +214,19 @@ def _d1_stencil_operand_scale(grid, values: Any, parity: int = 1) -> np.ndarray:
     return finite("D1 stencil operand scale", scale)
 
 
+def _geometric_constraint_stencil_operand_scales_by_field(
+    state: ProductionState,
+) -> dict[str, np.ndarray]:
+    """Expose raw D1 input scales separately for local failure diagnostics."""
+    grid, geom = state.grid, state.geometry
+    return {
+        "Aa": _d1_stencil_operand_scale(grid, geom.Aa),
+        "K": _d1_stencil_operand_scale(grid, geom.K),
+        "b": _d1_stencil_operand_scale(grid, geom.b),
+        "X": _d1_stencil_operand_scale(grid, geom.X),
+    }
+
+
 def _geometric_constraint_operand_scale(state: ProductionState) -> np.ndarray:
     """Estimate roundoff operands for evaluating M_geom at every cell."""
     grid, geom = state.grid, state.geometry
@@ -579,6 +592,19 @@ def tangent_for_epsilon(
         max_ratio: float | None = None
     else:
         max_ratio = float(np.max(ratio))
+    fd_stencil_scales_plus = _geometric_constraint_stencil_operand_scales_by_field(
+        plus_state
+    )
+    fd_stencil_scales_minus = _geometric_constraint_stencil_operand_scales_by_field(
+        minus_state
+    )
+    fd_stencil_scales_by_field = {
+        name: finite(
+            f"finite-difference {name} D1 stencil operand scale",
+            fd_stencil_scales_plus[name] + fd_stencil_scales_minus[name],
+        )
+        for name in ("Aa", "K", "b", "X")
+    }
     return {
         "epsilon": float(epsilon),
         "Mdot": m_dot,
@@ -588,6 +614,7 @@ def tangent_for_epsilon(
             _geometric_constraint_operand_scale(plus_state)
             + _geometric_constraint_operand_scale(minus_state),
         ),
+        "M_geom_fd_stencil_operand_scales_by_field": fd_stencil_scales_by_field,
         "Mdot_geom_terms": geom_term_dots,
         "Mdot_geom_term_reconstructed": geom_term_sum,
         "Mdot_geom_tangent_closure_abs": np.abs(geom_tangent_closure),
@@ -721,6 +748,16 @@ def audit_resolution(
     geom_fd_epsilon_delta = np.abs(
         tangent_results[0]["Mdot_geom"] - tangent_results[1]["Mdot_geom"]
     )
+    analytic_stencil_operand_scales_by_field = {
+        "Aa": _d1_stencil_operand_scale(state.grid, state.geometry.Aa),
+        "K": _d1_stencil_operand_scale(state.grid, state.geometry.K),
+        "b": _d1_stencil_operand_scale(state.grid, state.geometry.b),
+        "X": _d1_stencil_operand_scale(state.grid, state.geometry.X),
+        "dot_Aa": _d1_stencil_operand_scale(state.grid, rates["geometry"]["Aa"]),
+        "dot_K": _d1_stencil_operand_scale(state.grid, rates["geometry"]["K"]),
+        "dot_b": _d1_stencil_operand_scale(state.grid, rates["geometry"]["b"]),
+        "dot_X": _d1_stencil_operand_scale(state.grid, rates["geometry"]["X"]),
+    }
     chain_rule_checks = []
     for item in tangent_results:
         difference = finite(
@@ -762,6 +799,9 @@ def audit_resolution(
         )
         analytic_roundoff_bound = 64.0 * MACHINE_EPS * analytic_operand_scale
         truncation_bound = 4.0 * geom_fd_epsilon_delta
+        fd_stencil_scales_by_field = item[
+            "M_geom_fd_stencil_operand_scales_by_field"
+        ]
         bound = finite(
             "analytic tangent cross-check bound",
             fd_roundoff_bound + analytic_roundoff_bound + truncation_bound,
@@ -779,9 +819,26 @@ def audit_resolution(
             "max_abs_difference": float(np.max(np.abs(difference))),
             "max_bound": float(np.max(bound)),
             "max_scaled_ratio": float(np.max(scaled)),
+            "worst_scaled_ratio": float(scaled[worst_index]),
             "worst_index": worst_index,
+            "worst_radius": float(r[worst_index]),
             "worst_difference": float(difference[worst_index]),
             "worst_bound": float(bound[worst_index]),
+            "worst_fd_roundoff_bound": float(fd_roundoff_bound[worst_index]),
+            "worst_analytic_roundoff_bound": float(analytic_roundoff_bound[worst_index]),
+            "worst_epsilon_sensitivity_bound": float(truncation_bound[worst_index]),
+            "worst_fd_total_operand_scale": float(
+                item["M_geom_fd_roundoff_operand_scale"][worst_index]
+            ),
+            "worst_fd_stencil_operand_scales_by_field": {
+                name: float(values[worst_index])
+                for name, values in fd_stencil_scales_by_field.items()
+            },
+            "worst_analytic_stencil_operand_scales_by_field": {
+                name: float(values[worst_index])
+                for name, values in analytic_stencil_operand_scales_by_field.items()
+            },
+            "worst_analytic_total_operand_scale": float(analytic_operand_scale[worst_index]),
             "ok": bool(np.all(np.abs(difference) <= bound)),
             "_difference": difference,
             "_bound": bound,
