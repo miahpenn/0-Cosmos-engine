@@ -373,6 +373,69 @@ def divergence_tangent(kernel, state, rates, epsilon: float) -> dict[str, Any]:
     }
 
 
+def conditional_rest_current_source(
+    state, rates: dict[str, Any], coupling: float
+) -> tuple[np.ndarray, dict[str, np.ndarray]]:
+    """Derive the rest-current source implied by the declared covector law.
+
+    For pressureless dust T^mu_nu=rho*u^mu*u_nu and
+    nabla_mu T^mu_nu=Q_nu=beta_dm*rho*partial_nu(phi), contraction with u^nu
+    gives nabla_mu(rho*u^mu)=-beta_dm*rho*u^nu*partial_nu(phi).
+
+    The Valencia conserved rest variable here is sqrt(gamma)*rho*W. Hence its
+    conservative RHS source is
+      S_rest = -sqrt(gamma)*beta_dm*rho*W*
+               (partial_t(phi)+(alpha*v^r-beta^r)*partial_r(phi)).
+    This is a conditional model-law discriminator only. It does not modify
+    production rates or infer that this source law has been accepted.
+    """
+    grid = state.grid
+    geom = state.geometry
+    metric_slice = metric_slice_from_q(grid, geom)
+    metrics = _metric_arrays(metric_slice)
+    prims = primitives(metrics, state.matter.dark_matter, Species.DARK_MATTER)
+    rho = finite("conditional rest-source rho", np.asarray([q.rho for q in prims]))
+    W = finite("conditional rest-source Lorentz factor", np.asarray([q.lorentz() for q in prims]))
+    v_r = finite("conditional rest-source radial velocity", np.asarray([q.v_r for q in prims]))
+    sqrt_gamma = finite("conditional rest-source sqrt gamma", np.asarray([m.sqrt_gamma for m in metrics]))
+    alpha = finite("conditional rest-source lapse", geom.alpha)
+    beta_r = finite("conditional rest-source shift", geom.beta)
+    dphi_t = finite("conditional rest-source d_t(phi)", rates["scalars"]["phi"])
+    dphi_r = d1(grid, state.scalars.phi, +1)
+    transport_phi_rate = finite(
+        "conditional rest-source convective phi derivative",
+        dphi_t + (alpha * v_r - beta_r) * dphi_r,
+    )
+    source = finite(
+        "conditional conserved rest-current source",
+        -sqrt_gamma * float(coupling) * rho * W * transport_phi_rate,
+    )
+    parts = {
+        "rho": rho,
+        "W": W,
+        "v_r": v_r,
+        "sqrt_gamma": sqrt_gamma,
+        "dphi_t": dphi_t,
+        "dphi_r": dphi_r,
+        "transport_phi_rate": transport_phi_rate,
+    }
+    return source, parts
+
+
+def copy_rates_with_rest_source(rates: dict[str, Any], source: np.ndarray) -> dict[str, Any]:
+    """Copy only RHS containers needed to add a test-only DM rest source."""
+    copied = dict(rates)
+    copied["matter"] = {
+        species: {
+            name: np.array(value, dtype=np.float64, copy=True)
+            for name, value in channels.items()
+        }
+        for species, channels in rates["matter"].items()
+    }
+    copied["matter"]["dark_matter"]["rest"] += np.asarray(source, dtype=np.float64)
+    return copied
+
+
 def audit_case(kernel, state, coupling: float, epsilons: tuple[float, float]) -> dict[str, Any]:
     original_digest = state_digest(state)
     old_beta = production_kernel_module.BETA_DM
@@ -382,13 +445,22 @@ def audit_case(kernel, state, coupling: float, epsilons: tuple[float, float]) ->
     finally:
         production_kernel_module.BETA_DM = old_beta
     tangent_rows = [divergence_tangent(kernel, state, rates, eps) for eps in epsilons]
+    rest_source, rest_source_parts = conditional_rest_current_source(state, rates, coupling)
+    rates_with_conditional_source = copy_rates_with_rest_source(rates, rest_source)
+    conditional_source_tangent_rows = [
+        divergence_tangent(kernel, state, rates_with_conditional_source, eps)
+        for eps in epsilons
+    ]
     if state_digest(state) != original_digest:
         raise RuntimeError("frozen input state changed during covariant-divergence audit")
-    projections_ok = all(row["projection_crosscheck_passed"] for row in tangent_rows)
+    projections_ok = all(
+        row["projection_crosscheck_passed"]
+        for row in tangent_rows + conditional_source_tangent_rows
+    )
     finite_ok = all(
         np.all(np.isfinite(row["div_T_t"])) and np.all(np.isfinite(row["div_T_r"]))
-        for row in tangent_rows
-    )
+        for row in tangent_rows + conditional_source_tangent_rows
+    ) and bool(np.all(np.isfinite(rest_source)))
     r = np.asarray(state.grid.centers, dtype=np.float64)
     annulus = (r >= 2.0) & (r <= 10.0)
     return {
@@ -401,12 +473,31 @@ def audit_case(kernel, state, coupling: float, epsilons: tuple[float, float]) ->
             {key: value for key, value in row.items() if key not in ("div_T_t", "div_T_r")}
             for row in tangent_rows
         ],
+        "conditional_rest_source_epsilon_rows": [
+            {key: value for key, value in row.items() if key not in ("div_T_t", "div_T_r")}
+            for row in conditional_source_tangent_rows
+        ],
+        "conditional_rest_current_source": {
+            "premise": "nabla_mu T^mu_nu = Q_nu = beta_dm*rho*partial_nu(phi) for pressureless dark matter",
+            "conservative_source_formula": "-sqrt(gamma)*beta_dm*rho*W*(partial_t(phi)+(alpha*v^r-beta^r)*partial_r(phi))",
+            "profile": summarize(rest_source, r),
+            "profile_parts": {name: summarize(value, r) for name, value in rest_source_parts.items()},
+            "model_law_accepted": False,
+        },
         "raw_arrays": {
             f"epsilon_{i}_div_T_t": row["div_T_t"].tolist()
             for i, row in enumerate(tangent_rows)
         } | {
             f"epsilon_{i}_div_T_r": row["div_T_r"].tolist()
             for i, row in enumerate(tangent_rows)
+        } | {
+            f"epsilon_{i}_conditional_rest_source_div_T_t": row["div_T_t"].tolist()
+            for i, row in enumerate(conditional_source_tangent_rows)
+        } | {
+            f"epsilon_{i}_conditional_rest_source_div_T_r": row["div_T_r"].tolist()
+            for i, row in enumerate(conditional_source_tangent_rows)
+        } | {
+            "conditional_rest_current_source": rest_source.tolist()
         },
         "epsilon_sensitivity": {
             "div_T_t_annulus_rms": float(np.sqrt(np.mean((
@@ -414,6 +505,14 @@ def audit_case(kernel, state, coupling: float, epsilons: tuple[float, float]) ->
             )[annulus]**2))),
             "div_T_r_annulus_rms": float(np.sqrt(np.mean((
                 tangent_rows[0]["div_T_r"] - tangent_rows[1]["div_T_r"]
+            )[annulus]**2))),
+        },
+        "conditional_rest_source_epsilon_sensitivity": {
+            "div_T_t_annulus_rms": float(np.sqrt(np.mean((
+                conditional_source_tangent_rows[0]["div_T_t"] - conditional_source_tangent_rows[1]["div_T_t"]
+            )[annulus]**2))),
+            "div_T_r_annulus_rms": float(np.sqrt(np.mean((
+                conditional_source_tangent_rows[0]["div_T_r"] - conditional_source_tangent_rows[1]["div_T_r"]
             )[annulus]**2))),
         },
     }
