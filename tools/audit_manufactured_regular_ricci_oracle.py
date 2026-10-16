@@ -307,8 +307,8 @@ def main() -> int:
             and all(item["matches"] for item in provenance["source_blobs"].values()),
         "all_profiles_finite": all_finite,
         "all_input_states_unchanged": all_input_unchanged,
-        "all_metric_mapping_identities_within_1e-12": all_mapping_invariants,
-        "regular_even_closed_form_series_identity_within_2e-12": all_series_identities,
+        "all_metric_mapping_identities_ok": all_mapping_invariants,
+        "regular_even_closed_form_series_identity_ok": all_series_identities,
         "parity_breaking_negative_control_has_expected_r0_scaling": bool(
             7.0 <= negative_control_growth <= 9.0 and r0_160/r0_320 == 2.0
         ),
@@ -345,8 +345,8 @@ def main() -> int:
         "source_pins_verified",
         "all_profiles_finite",
         "all_input_states_unchanged",
-        "all_metric_mapping_identities_within_1e-12",
-        "regular_even_closed_form_series_identity_within_2e-12",
+        "all_metric_mapping_identities_ok",
+        "regular_even_closed_form_series_identity_ok",
         "parity_breaking_negative_control_has_expected_r0_scaling",
     )) else 1
 
