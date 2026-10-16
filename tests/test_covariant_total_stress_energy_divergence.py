@@ -20,8 +20,24 @@ SPEC.loader.exec_module(AUDIT)
 
 
 def _d1(values: np.ndarray, parity: int) -> np.ndarray:
-    del parity  # These analytic controls are smooth even profiles on the sampled positive half-line.
-    return np.gradient(np.asarray(values, dtype=float), 0.25, edge_order=2)
+    """Polynomial-exact five-point derivative for the analytic test profiles."""
+    del parity  # The test functions are explicit polynomials on the positive half-line.
+    values = np.asarray(values, dtype=np.float64)
+    n = values.size
+    dr = 0.25
+    if values.ndim != 1 or n < 5:
+        raise ValueError("test derivative expects a one-dimensional profile with n>=5")
+    result = np.empty_like(values)
+    target = np.zeros(5, dtype=np.float64)
+    target[1] = 1.0
+    for i in range(n):
+        start = min(max(i - 2, 0), n - 5)
+        indices = np.arange(start, start + 5)
+        offsets = indices.astype(np.float64) - float(i)
+        vandermonde = np.vstack([offsets**power for power in range(5)])
+        weights = np.linalg.solve(vandermonde, target)
+        result[i] = float(weights @ values[indices]) / dr
+    return result
 
 
 def _zero(n: int) -> np.ndarray:
