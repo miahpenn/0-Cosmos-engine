@@ -573,8 +573,35 @@ def operator_compatible_cmc_arm(
             "operator-compatible Kdot minus selected target",
             actual_kdot - float(target_kdot),
         )
+        # Independent gate on the *actual production K RHS*, with a bound
+        # formed from the raw D1/D2 operator operands rather than their
+        # cancellation-prone outputs.
+        lapse_operator_operand_scale = (
+            np.abs(d2_matrix) @ np.abs(alpha)
+            + np.abs(c) * (np.abs(d1_matrix) @ np.abs(alpha))
+        )
+        kdot_operand_scale = finite(
+            "operator-compatible Kdot operand scale",
+            np.abs(inv) * lapse_operator_operand_scale
+            + np.abs(alpha * q) + np.abs(ko_k) + abs(float(target_kdot)),
+        )
+        kdot_bound = 1024.0 * MACHINE_EPS * kdot_operand_scale
+        kdot_ratios = np.divide(
+            np.abs(kdot_error), kdot_bound,
+            out=np.zeros_like(kdot_error), where=kdot_bound > 0.0,
+        )
         interior_error = kdot_error[: n - 1]
         i_kdot = int(np.argmax(np.abs(interior_error)))
+        i_kdot_ratio = int(np.argmax(kdot_ratios[: n - 1]))
+        kdot_closure_ok = bool(
+            np.all(np.abs(interior_error) <= kdot_bound[: n - 1])
+        )
+        if not kdot_closure_ok:
+            raise FloatingPointError(
+                "actual production Kdot does not match the selected CMC target "
+                f"within the raw-operand bound: cell={i_kdot_ratio}, "
+                f"ratio={float(kdot_ratios[i_kdot_ratio]):.17e}"
+            )
         original_digest = tangent.state_digest(state)
         arm = rhs_arm(kernel, diagnostic_state, epsilons)
         if tangent.state_digest(state) != original_digest:
@@ -618,9 +645,14 @@ def operator_compatible_cmc_arm(
             },
             "actual_production_Kdot": compact_profile(actual_kdot, r),
             "Kdot_minus_target": {
+                "closure_ok_in_PDE_rows": kdot_closure_ok,
                 "max_abs_in_PDE_rows": float(np.max(np.abs(interior_error))),
                 "worst_cell_in_PDE_rows": i_kdot,
                 "worst_radius_in_PDE_rows": float(r[i_kdot]),
+                "max_local_raw_operand_scaled_ratio": float(np.max(kdot_ratios[: n - 1])),
+                "worst_scaled_ratio_cell": i_kdot_ratio,
+                "worst_scaled_ratio_radius": float(r[i_kdot_ratio]),
+                "max_roundoff_bound_in_PDE_rows": float(np.max(kdot_bound[: n - 1])),
                 "profile": compact_profile(kdot_error, r),
             },
             "M_tangent": arm,
