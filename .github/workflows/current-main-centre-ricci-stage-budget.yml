@@ -3,7 +3,7 @@ name: Diagnostic - source-pinned one-step centre Ricci PIRK stage budget
 on:
   push:
     branches:
-      - diag/ricci-stage-budget-2026-10-15
+      - diag/issue4-fullgrid-matter-l3-2026-10-15
     paths:
       - tools/audit_evolved_centre_ricci_stage_budget.py
       - tools/audit_current_main_centre_proper_radial_ricci.py
@@ -14,6 +14,8 @@ on:
   pull_request:
     paths:
       - tools/audit_evolved_centre_ricci_stage_budget.py
+      - tools/audit_current_main_centre_proper_radial_ricci.py
+      - tests/test_research_matter_l3_reconstruction.py
       - .github/workflows/current-main-centre-ricci-stage-budget.yml
       - docs/CURRENT_MAIN_CENTRE_RICCI_HIGHRES_2026-10-15.md
 
@@ -34,7 +36,7 @@ jobs:
     timeout-minutes: 30
     env:
       PYTHONUNBUFFERED: "1"
-      SOURCE_COMMIT: "285a2ee0c1a3b97cddeb4519d8e749109b115aab"
+      SOURCE_COMMIT: "7f47669a1c0edfafef9fc5f27b2db80840d3f035"
       VENDOR_COMMIT: "d6052d605673ce9d82cdc99b0df79855fa2ea215"
       STAGE_RESOLUTION: ${{ matrix.resolution }}
       STAGE_R_MAX: "80.0"
