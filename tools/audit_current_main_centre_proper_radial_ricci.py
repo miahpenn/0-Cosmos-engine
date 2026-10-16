@@ -183,10 +183,109 @@ def even_taylor_fit(r, values, count=CENTRE_CELLS):
 def _even_half_cell_integral(coefficients: np.ndarray, r0: float) -> float:
     """Integrate an even polynomial in r² analytically from 0 to r0."""
     coeff = np.asarray(coefficients, dtype=float).reshape(-1)
-    if coeff.size not in (3, 4) or np.any(~np.isfinite(coeff)):
-        raise ValueError("even half-cell integral expects finite s0/s2/s4[/s6] coefficients")
+    if coeff.size not in (3, 4, 5, 6) or np.any(~np.isfinite(coeff)):
+        raise ValueError("even half-cell integral expects finite s0/s2/... coefficients through s8 or s10")
     return float(sum(value * r0 ** (2 * order + 1) / (2 * order + 1)
                      for order, value in enumerate(coeff)))
+
+
+def _fit_even_source_fixed_s0_s2(
+    r: np.ndarray,
+    source: np.ndarray,
+    r0: float,
+    fit_r_max: float,
+    degree: int,
+    fixed_s2: float,
+) -> dict:
+    """Fit only s4 and higher, holding s0=1 and s2 to its analytic value.
+
+    Fit in z=(r/fit_r_max)^2 for conditioning, then convert coefficients to
+    physical powers of r. Leave-one-cell-out folds refit only the higher
+    moments; the two known coefficients remain fixed in every fold.
+    """
+    r = np.asarray(r, dtype=float)
+    source = np.asarray(source, dtype=float)
+    scalars = np.asarray([r0, fit_r_max, fixed_s2], dtype=float)
+    if r.ndim != 1 or source.shape != r.shape or r.size == 0:
+        raise ValueError("r and source must be matching nonempty one-dimensional arrays")
+    if not (np.all(np.isfinite(r)) and np.all(np.isfinite(source)) and np.all(np.isfinite(scalars))):
+        raise ValueError("fixed-coefficient source fit inputs must be finite")
+    if r0 <= 0.0 or fit_r_max <= 0.0 or degree not in (3, 4, 5):
+        raise ValueError("invalid half-cell radius, fit window, or even-polynomial degree")
+
+    mask = r <= fit_r_max + 16.0 * np.finfo(float).eps * max(1.0, fit_r_max)
+    rs, ys = r[mask], source[mask]
+    if rs.size < degree + 1:
+        raise ValueError(
+            f"fixed-s2 degree-{degree} fit has only {rs.size} samples in the fixed physical window"
+        )
+
+    z = (rs / fit_r_max) ** 2
+    fixed_c1 = fixed_s2 * fit_r_max**2
+    known = 1.0 + fixed_c1 * z
+    powers = tuple(range(2, degree + 1))
+    design = np.column_stack([z**power for power in powers])
+    shifted = ys - known
+    tail, _, rank, _ = np.linalg.lstsq(design, shifted, rcond=None)
+    if rank < design.shape[1]:
+        raise ValueError("fixed-s2 even-source fit design is rank deficient")
+    coeff_z = np.r_[1.0, fixed_c1, tail]
+    predicted = known + design @ tail
+    residual = ys - predicted
+    coeff_r = np.asarray(
+        [coeff_z[k] / fit_r_max**(2 * k) for k in range(degree + 1)],
+        dtype=float,
+    )
+    moment = _even_half_cell_integral(coeff_r, r0)
+
+    loo, loo_conditions = [], []
+    for holdout in range(rs.size):
+        keep = np.ones(rs.size, dtype=bool)
+        keep[holdout] = False
+        train_design = design[keep]
+        if train_design.shape[0] < design.shape[1]:
+            raise ValueError("fixed-s2 leave-one-cell-out fit is underdetermined")
+        train_tail, _, train_rank, _ = np.linalg.lstsq(
+            train_design, shifted[keep], rcond=None
+        )
+        if train_rank < train_design.shape[1]:
+            raise ValueError("fixed-s2 leave-one-cell-out design is rank deficient")
+        held_prediction = known[holdout] + float(design[holdout] @ train_tail)
+        loo.append(float(ys[holdout] - held_prediction))
+        loo_conditions.append(float(np.linalg.cond(train_design)))
+    loo = np.asarray(loo, dtype=float)
+    if not (
+        np.all(np.isfinite(coeff_r))
+        and np.all(np.isfinite(residual))
+        and np.all(np.isfinite(loo))
+        and np.isfinite(moment)
+    ):
+        raise FloatingPointError("fixed-s2 source fit produced non-finite output")
+
+    return {
+        "fit_r_max": float(fit_r_max),
+        "fit_cells": int(rs.size),
+        "degree_in_r_squared": int(degree),
+        "overdetermined": bool(rs.size >= degree + 2),
+        "fixed_origin_s0": 1.0,
+        "fixed_origin_s2": float(fixed_s2),
+        "free_even_coefficients": [f"s{2 * power}" for power in powers],
+        "coefficients_s_even": [float(value) for value in coeff_r],
+        "fit_coefficients_z": [float(value) for value in coeff_z],
+        "fixed_coefficients_exact": bool(
+            coeff_z[0] == 1.0
+            and np.isclose(coeff_r[1], fixed_s2, rtol=8.0e-15, atol=8.0e-18)
+        ),
+        "fit_condition_number": float(np.linalg.cond(design)),
+        "fit_max_abs_residual": _max_abs(residual),
+        "fit_rms_residual": float(np.sqrt(np.mean(residual * residual))),
+        "leave_one_cell_out_residuals": [float(value) for value in loo],
+        "leave_one_cell_out_max_abs_residual": _max_abs(loo),
+        "leave_one_cell_out_rms_residual": float(np.sqrt(np.mean(loo * loo))),
+        "leave_one_cell_out_max_condition_number": max(loo_conditions),
+        "half_cell_integral": float(moment),
+        "delta_integral_vs_point_sample": float(moment - r0 * source[0]),
+    }
 
 
 def _origin_half_cell_frozen_source(grid, state, vacuum) -> tuple[dict[str, np.ndarray], dict]:
@@ -478,6 +577,7 @@ def _lambda_chain_rule_counterfactual(
 def _origin_half_cell_self_consistent_counterfactual(
     grid, state, vacuum, *, frozen_delta_integral: float,
     analytic_half_cell_integral: float | None = None,
+    fixed_origin_s2: float | None = None,
     max_iterations: int = 100, tolerance: float = 2.0e-14,
     source_fit_degree: int = 3, source_fit_r_max: float = 2.5,
     include_fit_scan: bool = True,
@@ -496,6 +596,10 @@ def _origin_half_cell_self_consistent_counterfactual(
         raise ValueError("invalid self-consistent origin iteration controls")
     if source_fit_degree not in (3, 4, 5) or source_fit_r_max not in (2.5, 3.0, 3.5):
         raise ValueError("origin fit-family comparison expects degree 3/4/5 and radius 2.5/3.0/3.5")
+    if analytic_half_cell_integral is not None and fixed_origin_s2 is not None:
+        raise ValueError("choose either a fixed analytic half-cell integral or a fixed s2 source fit, not both")
+    if fixed_origin_s2 is not None and not np.isfinite(fixed_origin_s2):
+        raise ValueError("fixed origin s2 coefficient must be finite")
     from engine.scalar_system import cosmos_potential
     from engine.v55_matter import RHO_B_PRESENT, RHO_DM_PRESENT, RHO_R_PRESENT
 
@@ -528,6 +632,10 @@ def _origin_half_cell_self_consistent_counterfactual(
         return source
 
     def fit_even(source: np.ndarray, fit_r_max: float, degree: int = source_fit_degree) -> dict:
+        if fixed_origin_s2 is not None:
+            return _fit_even_source_fixed_s0_s2(
+                r, source, r0, float(fit_r_max), int(degree), float(fixed_origin_s2)
+            )
         mask = r <= float(fit_r_max)
         x, nfit = r[mask]**2, int(np.count_nonzero(mask))
         if nfit < degree + 1:
@@ -569,7 +677,10 @@ def _origin_half_cell_self_consistent_counterfactual(
         )
         if analytic_half_cell_integral is None:
             half_cell_integral = float(selected["half_cell_integral"])
-            applied_method = "even_polynomial_fit"
+            applied_method = (
+                "even_polynomial_fit_fixed_s0_s2"
+                if fixed_origin_s2 is not None else "even_polynomial_fit"
+            )
         else:
             half_cell_integral = float(analytic_half_cell_integral)
             if not np.isfinite(half_cell_integral) or half_cell_integral <= 0.0:
@@ -797,10 +908,14 @@ def _origin_half_cell_self_consistent_counterfactual(
             "source_fit_r_max": float(source_fit_r_max),
             "six_step_delta_integral": float(fit_meta_six["delta_integral_applied"]),
             "fixed_point_delta_integral": float(fixed_meta["delta_integral_applied"]),
+            "six_step_half_cell_integral_applied": float(fit_meta_six["half_cell_integral_applied"]),
             "half_cell_integral_method": fit_meta_six["applied_method"],
             "analytic_half_cell_integral_override": (
                 float(analytic_half_cell_integral)
                 if analytic_half_cell_integral is not None else None
+            ),
+            "fixed_origin_s2": (
+                float(fixed_origin_s2) if fixed_origin_s2 is not None else None
             ),
             "fixed_point_half_cell_integral_applied": float(fixed_meta["half_cell_integral_applied"]),
             "fixed_point_fit_window_sensitivity_abs": fixed_meta["fit_window_integral_sensitivity_abs"],
