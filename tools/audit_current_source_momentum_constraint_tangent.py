@@ -17,6 +17,7 @@ import argparse
 import hashlib
 import json
 import math
+import os
 import subprocess
 import sys
 import traceback
@@ -25,7 +26,18 @@ from typing import Any
 
 import numpy as np
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
+# In CI, import only from the separately checked-out historical source snapshot.
+# Outside that workflow, default to the script's own checkout for importability.
+_default_source_root = REPOSITORY_ROOT / "source"
+PRODUCTION_SOURCE_ROOT = Path(
+    os.environ.get(
+        "COSMOS_PINNED_SOURCE_ROOT",
+        str(_default_source_root if _default_source_root.is_dir() else REPOSITORY_ROOT),
+    )
+).resolve()
+sys.path.insert(0, str(REPOSITORY_ROOT))
+sys.path.insert(0, str(PRODUCTION_SOURCE_ROOT))
 
 from engine.production_kernel import (
     BETA_DM,
@@ -76,7 +88,10 @@ def _git(*args: str) -> str:
 
 def provenance() -> dict[str, Any]:
     actual_blobs = {
-        path: _git("rev-parse", f"HEAD:{path}") for path in EXPECTED_BLOBS
+        path: _git(
+            "-C", str(PRODUCTION_SOURCE_ROOT), "rev-parse", f"HEAD:{path}"
+        )
+        for path in EXPECTED_BLOBS
     }
     wrong = {
         path: {"expected": expected, "actual": actual_blobs[path]}
@@ -88,14 +103,23 @@ def provenance() -> dict[str, Any]:
             "production source blob pin mismatch; refusing non-exact tangent "
             f"measurement: {json.dumps(wrong, sort_keys=True)}"
         )
-    vendor = _git("-C", "vendor/bb-palatini-unified-r0", "rev-parse", "HEAD")
+    vendor = _git(
+        "-C", str(PRODUCTION_SOURCE_ROOT / "vendor" / "bb-palatini-unified-r0"),
+        "rev-parse", "HEAD",
+    )
     if vendor != EXPECTED_VENDOR:
         raise RuntimeError(
             f"vendor pin mismatch: expected {EXPECTED_VENDOR}, got {vendor}"
         )
     return {
-        "repository_commit": _git("rev-parse", "HEAD"),
+        "diagnostic_commit": _git(
+            "-C", str(REPOSITORY_ROOT), "rev-parse", "HEAD"
+        ),
+        "production_source_commit": _git(
+            "-C", str(PRODUCTION_SOURCE_ROOT), "rev-parse", "HEAD"
+        ),
         "production_source_baseline_anchor": SOURCE_BASELINE,
+        "production_source_root": str(PRODUCTION_SOURCE_ROOT),
         "production_source_blobs": actual_blobs,
         "vendor_commit": vendor,
     }
