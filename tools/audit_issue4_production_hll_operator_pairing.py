@@ -46,7 +46,7 @@ from engine.matter_system import (  # noqa: E402
     _species_rhs_components,
     geometry_metric_derivatives,
     primitives,
-    project_species,
+    species_projection,
     initialize_radiation,
 )
 from engine.scalar_system import KAPPA  # noqa: E402
@@ -131,7 +131,7 @@ def operator_snapshot(state, coupling: float, rates: dict[str, Any]) -> dict[str
         q_e = finite(f"{name} interaction energy source", q_e)
         q_s = finite(f"{name} interaction momentum source", q_s)
 
-        projection = project_species(metrics, prim)
+        projection = species_projection(metrics, prim)
         projected_radial_flux_cells = finite(
             f"{name} projected alpha sqrt-gamma p_r",
             alpha * sqrt_gamma * np.asarray(projection["pr"]),
