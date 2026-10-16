@@ -435,7 +435,11 @@ def _metric_witness(grid, state, vacuum, B: np.ndarray) -> tuple[dict, dict[str,
         "a_minus_X_minus_four_max_abs": _max_abs(a - X ** (-4.0)),
         "X6_minus_B_max_abs": _max_abs(X**6 - B),
         "areal_radius_minus_r_max_abs": _max_abs(r * np.sqrt(b) / X - r),
-        "all_metric_profiles_finite": all(_finite(v) for v in (B, a, b, X, Lambda, vendor_tf, direct_tf, gap)),
+        "all_metric_profiles_finite": (
+            all(_finite(v) for v in (B, a, b, X, Lambda, vendor_tf, direct_tf, gap))
+            and all(_finite(v) for v in constraints.values())
+            and _finite(determinant_constraint)
+        ),
     }
     witness = {
         "cell0": float(gap[0]),
