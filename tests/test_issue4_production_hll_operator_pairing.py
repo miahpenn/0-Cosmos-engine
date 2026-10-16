@@ -4,6 +4,8 @@ from __future__ import annotations
 import importlib.util
 import os
 from pathlib import Path
+
+import pytest
 import sys
 
 import numpy as np
@@ -28,6 +30,24 @@ from engine.matter_system import (  # noqa: E402
     geometry_metric_derivatives,
     initialize_radiation,
 )
+
+
+def test_optional_charged_dust_and_em_lanes_fail_closed():
+    kernel = DIAG.AUDIT.V55ProductionKernel()
+    state = kernel.initialize(resolution=24, r_max=24.0, include_radiation=True)
+    n = len(state.grid.centers)
+    rates = {"scalars": {"phi": np.zeros(n, dtype=np.float64)}}
+
+    # These sentinel objects deliberately exercise the scope guard before
+    # projection or helper capture; they are not an EM physics test.
+    state.matter.charged_dust = object()
+    with pytest.raises(ValueError, match="optional charged-dust/Maxwell"):
+        DIAG.operator_snapshot(state, -0.04, rates)
+
+    state.matter.charged_dust = None
+    state.electromagnetic = object()
+    with pytest.raises(ValueError, match="optional charged-dust/Maxwell"):
+        DIAG.operator_snapshot(state, -0.04, rates)
 
 
 def test_flat_uniform_radiation_hll_momentum_flux_matches_exact_face_flux():
