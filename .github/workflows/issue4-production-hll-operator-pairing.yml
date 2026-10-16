@@ -1,0 +1,124 @@
+name: Issue 4 production HLL face/source operator pairing
+
+on:
+  pull_request:
+    paths:
+      - "tools/audit_issue4_production_hll_operator_pairing.py"
+      - "tests/test_issue4_production_hll_operator_pairing.py"
+      - "tools/audit_total_stress_energy_divergence.py"
+      - "tools/audit_current_source_momentum_constraint_tangent.py"
+      - ".github/workflows/issue4-production-hll-operator-pairing.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: issue4-production-hll-pairing-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  bounded-production-operator-pairing:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      PYTHONUNBUFFERED: "1"
+      SOURCE_COMMIT: "7f47669a1c0edfafef9fc5f27b2db80840d3f035"
+      VENDOR_COMMIT: "d6052d605673ce9d82cdc99b0df79855fa2ea215"
+
+    steps:
+      - name: Check out diagnostic branch and pinned vendor
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Check out exact production source as a separate tree
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SOURCE_COMMIT }}
+          path: source
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: source/requirements.txt
+
+      - name: Install pinned production dependencies
+        run: python -m pip install -r source/requirements.txt
+
+      - name: Verify source/vendor pins and unchanged source blobs
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C source rev-parse HEAD)" = "$SOURCE_COMMIT"
+          test "$(git -C source/vendor/bb-palatini-unified-r0 rev-parse HEAD)" = "$VENDOR_COMMIT"
+          test "$(git rev-parse HEAD:vendor/bb-palatini-unified-r0)" = "$VENDOR_COMMIT"
+          for path in engine/production_kernel.py engine/matter_system.py engine/matter_rhs.py engine/scalar_system.py engine/v55_matter.py engine/v55_pirk_adapter.py engine/cmc_gauge.py engine/v55_initial.py engine/stress_energy.py engine/valencia.py engine/worldtube.py; do
+            test "$(git rev-parse "HEAD:$path")" = "$(git -C source rev-parse "HEAD:$path")"
+          done
+          printf 'DIAGNOSTIC_HEAD=%s\n' "$(git rev-parse HEAD)"
+          printf 'PRODUCTION_SOURCE=%s\n' "$(git -C source rev-parse HEAD)"
+          printf 'VENDOR_SOURCE=%s\n' "$(git -C source/vendor/bb-palatini-unified-r0 rev-parse HEAD)"
+
+      - name: Compile diagnostic and focused tests
+        run: |
+          python -m py_compile tools/audit_issue4_production_hll_operator_pairing.py
+          python -m py_compile tests/test_issue4_production_hll_operator_pairing.py
+
+      - name: Run analytic HLL and source-identity controls
+        env:
+          COSMOS_PINNED_SOURCE_ROOT: ${{ github.workspace }}/source
+        run: python -m pytest -q tests/test_issue4_production_hll_operator_pairing.py
+
+      - name: Run frozen-state production HLL/source comparison
+        env:
+          COSMOS_PINNED_SOURCE_ROOT: ${{ github.workspace }}/source
+        run: |
+          mkdir -p results/issue4-production-hll-operator-pairing
+          python tools/audit_issue4_production_hll_operator_pairing.py \
+            --resolutions 60 80 120 160 \
+            --r-max 24 \
+            --epsilons 0.00002 0.00001 \
+            --output results/issue4-production-hll-operator-pairing/report.json
+
+      - name: Assert diagnostic integrity and non-admission
+        run: |
+          jq -e '
+            .status == "completed_diagnostic_only"
+            and .source_provenance.source_blobs_match == true
+            and .gate_result.source_pins_verified == true
+            and .gate_result.independent_total_projection_matches_canonical == true
+            and .gate_result.all_hll_source_profiles_finite == true
+            and .gate_result.input_states_unchanged == true
+            and .gate_result.native_zero_shift_scope_verified == true
+            and .gate_result.origin_face_flux_exact_zero == true
+            and .gate_result.native_component_arrays_preserved == true
+            and .gate_result.directional_operator_arrays_preserved == true
+            and .gate_result.manufactured_operator_probe_nontrivial == true
+            and .gate_result.manufactured_probe_negative_controls_nontrivial == true
+            and .gate_result.combined_discrete_budget_reported == true
+            and .gate_result.combined_budget_tangents_reported == true
+            and .gate_result.scalar_sector_kept_separate == true
+            and .gate_result.production_steps_advanced == 0
+            and .gate_result.independent_total_stress_energy_divergence_closed == false
+            and .gate_result.scientific_admission == false
+          ' results/issue4-production-hll-operator-pairing/report.json
+
+      - name: Hash result files
+        if: always()
+        run: |
+          find results/issue4-production-hll-operator-pairing -type f ! -name SHA256SUMS.txt -print0 | sort -z | xargs -0 -r sha256sum > results/issue4-production-hll-operator-pairing/SHA256SUMS.txt
+
+      - name: Upload HLL/source report and signed arrays
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: issue4-production-hll-operator-pairing-${{ github.sha }}
+          path: results/issue4-production-hll-operator-pairing/
+          if-no-files-found: warn
+          retention-days: 90
