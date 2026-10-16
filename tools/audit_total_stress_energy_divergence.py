@@ -224,90 +224,130 @@ def covariant_divergence_from_profiles(
     dt_gtt: np.ndarray,
     dt_gamma_rr: np.ndarray,
     dt_gamma_thth: np.ndarray,
+    beta_r: np.ndarray | None = None,
+    dt_gtr: np.ndarray | None = None,
 ) -> tuple[np.ndarray, np.ndarray]:
-    """Return (nabla_mu T^mu_t, nabla_mu T^mu_r) for zero shift.
+    """Return (nabla_mu T^mu_t, nabla_mu T^mu_r), including radial shift.
 
-    Mixed-tensor divergence identity:
-      D_nu = (d_t(sqrt(-g) T^t_nu)+d_r(sqrt(-g) T^r_nu))/sqrt(-g)
-             - 1/2 T^{ab} d_nu g_ab.
-    Angular terms are represented by the factor 2*T^{theta theta}*d g_thth.
+    For ADM data ds^2=-alpha^2 dt^2+gamma_rr (dr+beta^r dt)^2
+    +gamma_thth dOmega^2, form the coordinate mixed components before taking
+    the divergence. beta_r=None preserves the original zero-shift call shape;
+    a nonzero shift requires the matching time derivative dt_gtr.
     """
     r = finite("divergence radii", r)
     alpha = finite("divergence lapse", alpha)
+    beta = finite(
+        "divergence radial shift",
+        np.zeros_like(alpha) if beta_r is None else beta_r,
+    )
     grr = finite("divergence gamma_rr", gamma_rr)
     gth = finite("divergence gamma_thth", gamma_thth)
     E = finite("divergence Eulerian rho", rho)
     j = finite("divergence radial current", j)
     pr = finite("divergence radial pressure", pr)
     pt = finite("divergence tangential pressure", pt)
-    sqrt_gamma = np.sqrt(grr) * gth
-    sqrt_minus_g = alpha * sqrt_gamma
+    dt_gtr_arr = (
+        np.zeros_like(alpha) if dt_gtr is None else finite("dt g_tr", dt_gtr)
+    )
+    if dt_gtr is None and np.any(beta != 0.0):
+        raise ValueError("nonzero radial shift requires the matching dt_gtr witness")
     if np.any(alpha <= 0.0) or np.any(grr <= 0.0) or np.any(gth <= 0.0):
         raise ValueError("divergence requires positive lapse and spatial metric")
 
-    Ttt = E / (alpha**2)
-    Trr = pr / grr
-    Tthth = pt / gth
+    sqrt_gamma = np.sqrt(grr) * gth
+    sqrt_minus_g = alpha * sqrt_gamma
     j_up = j / grr
 
-    # Coordinate mixed components for beta^r=0:
-    # T^t_t=-E, T^r_t=-alpha*S^r, T^t_r=j/alpha, T^r_r=p_r.
-    flux_t = -(alpha**2) * sqrt_gamma * j_up
-    flux_r = alpha * sqrt_gamma * pr
-    radial_flux_t = finite("D_r(sqrt(-g) T^r_t)", d1_fn(flux_t, -1))
-    radial_flux_r = finite("D_r(sqrt(-g) T^r_r)", d1_fn(flux_r, +1))
+    # Contravariant stress components used by -1/2 T^{ab} partial_nu g_ab.
+    Ttt = E / alpha**2
+    Ttr = -beta * E / alpha**2 + j_up / alpha
+    Trr = beta**2 * E / alpha**2 - 2.0 * beta * j_up / alpha + pr / grr
+    Tthth = pt / gth
+
+    # Coordinate mixed components. These reduce to the prior expressions at
+    # beta^r=0 but keep the shift/current terms for a general ADM slice.
+    density_t = sqrt_minus_g * (-E + beta * j / alpha)
+    density_r = sqrt_minus_g * (j / alpha)
+    flux_t = sqrt_minus_g * (
+        beta * (E + pr) - alpha * j_up - beta**2 * j / alpha
+    )
+    flux_r = sqrt_minus_g * (pr - beta * j / alpha)
+
+    # Full covariant metric components and their radial derivatives. The
+    # spherical angular contribution includes both theta and phi components.
+    gtt = -alpha**2 + grr * beta**2
+    gtr = grr * beta
+    gtt_r = finite("D_r g_tt", d1_fn(gtt, +1))
+    gtr_r = finite("D_r g_tr", d1_fn(gtr, -1))
+    grr_r = finite("D_r gamma_rr", d1_fn(grr, +1))
+    gth_r = finite("D_r gamma_thth", d1_fn(gth, +1))
 
     source_t = -0.5 * (
         Ttt * finite("dt g_tt", dt_gtt)
+        + 2.0 * Ttr * dt_gtr_arr
         + Trr * finite("dt gamma_rr", dt_gamma_rr)
         + 2.0 * Tthth * finite("dt gamma_thth", dt_gamma_thth)
     )
-    gtt_r = d1_fn(-(alpha**2), +1)
-    grr_r = d1_fn(grr, +1)
-    gth_r = d1_fn(gth, +1)
     source_r = -0.5 * (
-        Ttt * gtt_r + Trr * grr_r + 2.0 * Tthth * gth_r
+        Ttt * gtt_r + 2.0 * Ttr * gtr_r
+        + Trr * grr_r + 2.0 * Tthth * gth_r
     )
     denom = finite("sqrt(-g) divergence denominator", sqrt_minus_g)
     div_t = finite(
         "covariant time-component divergence",
-        (finite("dt sqrt(-g) T^t_t", dt_density_t) + radial_flux_t) / denom + source_t,
+        (
+            finite("dt sqrt(-g) T^t_t", dt_density_t)
+            + finite("D_r sqrt(-g) T^r_t", d1_fn(flux_t, -1))
+        ) / denom + source_t,
     )
     div_r = finite(
         "covariant radial-component divergence",
-        (finite("dt sqrt(-g) T^t_r", dt_density_r) + radial_flux_r) / denom + source_r,
+        (
+            finite("dt sqrt(-g) T^t_r", dt_density_r)
+            + finite("D_r sqrt(-g) T^r_r", d1_fn(flux_r, +1))
+        ) / denom + source_r,
     )
     return div_t, div_r
 
 
 def covariant_objects(state) -> dict[str, np.ndarray]:
+    """Build independent coordinate components from Eulerian stress projections."""
     projection = independent_total_projections(state)
     r = finite("covariant grid radii", state.grid.centers)
     alpha = finite("covariant lapse", state.geometry.alpha)
+    beta = finite("covariant radial shift", state.geometry.beta)
     gamma_rr = finite("gamma_rr", state.geometry.a / state.geometry.X**2)
     gamma_thth = finite("gamma_thth", state.geometry.b * r**2 / state.geometry.X**2)
     sqrt_gamma = np.sqrt(gamma_rr) * gamma_thth
     sqrt_minus_g = alpha * sqrt_gamma
     j_up = projection["j"] / gamma_rr
+
     return {
         "rho": projection["rho"],
         "pr": projection["pr"],
         "pt": projection["pt"],
         "j": projection["j"],
         "alpha": alpha,
+        "beta_r": beta,
         "gamma_rr": gamma_rr,
         "gamma_thth": gamma_thth,
         "sqrt_gamma": sqrt_gamma,
         "sqrt_minus_g": sqrt_minus_g,
-        "density_t": -sqrt_minus_g * projection["rho"],  # sqrt(-g) T^t_t
-        "density_r": sqrt_gamma * projection["j"],       # sqrt(-g) T^t_r
-        "flux_t": -(alpha**2) * sqrt_gamma * j_up,       # sqrt(-g) T^r_t
-        "flux_r": alpha * sqrt_gamma * projection["pr"], # sqrt(-g) T^r_r
-        "gtt": -(alpha**2),
+        # sqrt(-g) times the coordinate mixed components T^mu{}_nu.
+        "density_t": sqrt_minus_g * (-projection["rho"] + beta * projection["j"] / alpha),
+        "density_r": sqrt_minus_g * (projection["j"] / alpha),
+        "flux_t": sqrt_minus_g * (
+            beta * (projection["rho"] + projection["pr"])
+            - alpha * j_up - beta**2 * projection["j"] / alpha
+        ),
+        "flux_r": sqrt_minus_g * (
+            projection["pr"] - beta * projection["j"] / alpha
+        ),
+        "gtt": -alpha**2 + gamma_rr * beta**2,
+        "gtr": gamma_rr * beta,
         "projection_crosscheck": projection["projection_crosscheck"],
         "projection_crosscheck_passed": projection["projection_crosscheck_passed"],
     }
-
 
 def summarize(values: np.ndarray, r: np.ndarray) -> dict[str, Any]:
     x = finite("profile summary", values)
