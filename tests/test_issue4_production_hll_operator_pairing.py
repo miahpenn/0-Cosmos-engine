@@ -67,6 +67,8 @@ def test_flat_uniform_radiation_hll_momentum_flux_matches_exact_face_flux():
     )
     faces = np.arange(n + 1, dtype=np.float64) * dr
     exact = (energy / 3.0) * faces**2
+    assert face_flux.shape == (n + 1, 3)
+    assert np.array_equal(face_flux[0], np.zeros(3, dtype=np.float64))
     assert np.allclose(face_flux[:, 2], exact, rtol=3.0e-13, atol=2.0e-14)
     # A reversed-flux control must be rejected by the exact analytic fixture.
     correct_gap = float(np.sqrt(np.mean((face_flux[:, 2] - exact) ** 2)))
@@ -88,6 +90,32 @@ def test_independent_geometric_source_matches_pinned_covariant_contraction():
     rates = {"scalars": {"phi": np.zeros(n, dtype=np.float64)}}
     snapshot = DIAG.operator_snapshot(state, -0.04, rates)
     assert snapshot["max_abs_geometric_source_gap_over_kappa"] < 2.0e-14
+    assert snapshot["origin_face_flux_exact_zero"]
+    assert snapshot["native_component_arrays_preserved"]
+    raw_radiation = snapshot["raw_arrays"]["radiation"]
+    native_flux = np.asarray(raw_radiation["native_hll_face_flux"], dtype=np.float64)
+    native_source_s = np.asarray(
+        raw_radiation["native_geometric_momentum_source"], dtype=np.float64
+    )
+    assert native_flux.shape == (n + 1, 3)
+    assert np.array_equal(
+        native_flux[:, 2] / DIAG.KAPPA,
+        np.asarray(raw_radiation["hll_face_flux_momentum_over_kappa"]),
+    )
+    assert np.array_equal(
+        native_source_s / DIAG.KAPPA,
+        np.asarray(raw_radiation["geometric_momentum_source_actual_over_kappa"]),
+    )
+    assert all(
+        np.all(np.isfinite(np.asarray(raw_radiation[key], dtype=np.float64)))
+        for key in (
+            "native_hll_face_flux",
+            "native_geometric_energy_source",
+            "native_geometric_momentum_source",
+            "native_interaction_energy_source",
+            "native_interaction_momentum_source",
+        )
+    )
 
 
 def test_conditional_qr_source_discrepancy_is_recorded_not_silently_relabelled():
@@ -121,6 +149,8 @@ def test_manufactured_probe_rejects_sign_flipped_flux_and_omitted_sources():
     snapshot = DIAG.operator_snapshot(
         state, -0.04, {"scalars": {"phi": np.zeros(n, dtype=np.float64)}}
     )
+    assert snapshot["origin_face_flux_exact_zero"]
+    assert snapshot["native_component_arrays_preserved"]
     dm = snapshot["species"]["dark_matter"]
     controls = dm["negative_controls"]
 
