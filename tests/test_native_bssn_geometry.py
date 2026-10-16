@@ -33,8 +33,12 @@ def _state(grid, *, flat_chart=False, alpha_profile=None, lambda_offset=0.0):
         a = X**2 * d_areal**2
         b = X**2 * (areal / r)**2
     else:
-        a = 1.0 + 0.001 * r**2 + 2.0e-5 * r**4
-        b = 1.0 + 0.0008 * r**2 + 1.0e-5 * r**4
+        # A smooth non-flat BSSN profile that preserves the conformal
+        # determinant a*b^2=1, so the vendor comparison tests the intended
+        # reference-metric constraint class.
+        f = 0.001 * r**2 + 2.0e-5 * r**4
+        a = np.exp(2.0 * f)
+        b = np.exp(-f)
         X = 1.0 + 0.0005 * r**2 + 1.0e-5 * r**4
         areal = r * np.sqrt(b) / X
 
