@@ -118,3 +118,40 @@ def test_shift_negative_controls_reject_omitted_cross_terms_and_wrong_flux_sign(
     assert _annulus_rms(wrong_t_cross, r) > 1.0e-5
     assert _annulus_rms(correct_t, r) < 2.0e-14
     assert _annulus_rms(correct_r, r) < 2.0e-14
+
+def test_nonzero_shift_and_current_match_explicit_metric_index_lowering():
+    """Cross-check every mixed component against T^{mu nu} g_{nu lambda}."""
+    rng = np.random.default_rng(29016)
+    n = 64
+    energy = 1.2 + rng.random(n)
+    alpha = 0.75 + 0.45 * rng.random(n)
+    beta = 0.12 * rng.standard_normal(n)
+    grr = 0.8 + 0.8 * rng.random(n)
+    gth = 0.4 + 5.0 * rng.random(n)
+    j = 0.04 * rng.standard_normal(n)
+    pr = 0.1 + 0.3 * rng.random(n)
+    pt = 0.1 + 0.3 * rng.random(n)
+
+    c = eulerian_to_coordinate_components(
+        energy, j, pr, pt, alpha, beta, grr, gth,
+    )
+    for i in range(n):
+        metric = np.array([
+            [c["gtt"][i], c["gtr"][i]],
+            [c["gtr"][i], c["grr"][i]],
+        ])
+        contravariant = np.array([
+            [c["Ttt"][i], c["Ttr"][i]],
+            [c["Ttr"][i], c["Trr"][i]],
+        ])
+        mixed = contravariant @ metric
+        assert np.allclose(
+            mixed,
+            np.array([
+                [c["mixed_t_t"][i], c["mixed_t_r"][i]],
+                [c["mixed_r_t"][i], c["mixed_r_r"][i]],
+            ]),
+            rtol=2.0e-14,
+            atol=2.0e-14,
+        )
+
