@@ -146,6 +146,7 @@ def assert_supported_baseline_source_scope(state: ProductionState) -> None:
 
 
 def state_digest(state: ProductionState) -> str:
+    assert_supported_baseline_source_scope(state)
     h = hashlib.sha256()
     def add(name: str, values: Any) -> None:
         arr = np.ascontiguousarray(np.asarray(values, dtype=np.float64))
