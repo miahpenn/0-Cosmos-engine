@@ -131,6 +131,11 @@ jobs:
               for arm in ("baseline_production_initializer", "principled_origin_integral", "hybrid_five_cell_patch_newton"):
                   assert row["arms"][arm]["B_positive"] is True
                   assert row["arms"][arm]["measured_rhs_tangent"]["state_unchanged"] is True
+                  for tangent in row["arms"][arm]["measured_rhs_tangent"]["tangent_by_epsilon"]:
+                      candidate = tangent["independent_constraint_propagation_candidate"]
+                      assert candidate["finite"] is True
+                      assert candidate["normalization_reviewed_for_scientific_admission"] is False
+                      assert candidate["acceptance_oracle_satisfied"] is False
           for name in ("report.json", "state_profiles.npz", "SHA256SUMS.txt"):
               assert Path("artifacts/hybrid-origin-integral-patch-newton", name).is_file(), name
           print("HYBRID_DIAGNOSTIC_PROVENANCE_AND_NEWTON_GATES_OK")
