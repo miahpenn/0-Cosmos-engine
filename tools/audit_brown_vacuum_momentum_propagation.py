@@ -79,6 +79,48 @@ def d2(grid, values, parity: int) -> np.ndarray:
     return finite("D2", grid.cell_second_derivative_fourth(values, parity=parity))
 
 
+def metric_only_hamiltonian(grid, state) -> tuple[np.ndarray, dict]:
+    """Build Brown's H slot from spatial-metric Ricci, independent of Lambda.
+
+    For areal radius R=r*sqrt(b)/X and proper radial distance dl=(sqrt(a)/X)dr,
+    the warped-product Ricci eigenvalues are R^l_l=-2 R_ll/R and
+    R^theta_theta=(1-R_l^2-R R_ll)/R^2. This does not call the vendor BSSN
+    Hamiltonian, whose Ricci representation depends on evolved Lambda and would
+    overlap Brown's explicit connection-constraint terms.
+    """
+    r = finite("metric-only Hamiltonian radii", grid.centers)
+    a = finite("metric-only a", state.a)
+    b = finite("metric-only b", state.b)
+    X = finite("metric-only X", state.X)
+    Aa = finite("metric-only Aa", state.Aa)
+    K = finite("metric-only K", state.K)
+    areal_radius = r * np.sqrt(b) / X
+    proper_factor = np.sqrt(a) / X
+    if np.any(areal_radius <= 0.0) or np.any(proper_factor <= 0.0):
+        raise ValueError("metric-only Ricci reconstruction requires positive metric factors")
+    R_r = d1(grid, areal_radius, -1)
+    R_rr = d2(grid, areal_radius, -1)
+    f_r = d1(grid, proper_factor, +1)
+    R_l = R_r / proper_factor
+    R_ll = (R_rr - R_r * f_r / proper_factor) / (proper_factor * proper_factor)
+    Ric_l_l = -2.0 * R_ll / areal_radius
+    Ric_theta_theta = (
+        1.0 - R_l * R_l - areal_radius * R_ll
+    ) / (areal_radius * areal_radius)
+    R_metric = Ric_l_l + 2.0 * Ric_theta_theta
+    Ab = -0.5 * Aa
+    H_metric = R_metric - (Aa * Aa + 2.0 * Ab * Ab) + (2.0 / 3.0) * K * K
+    components = {
+        "areal_radius": finite("areal radius", areal_radius),
+        "proper_radial_factor": finite("proper radial factor", proper_factor),
+        "R_metric": finite("metric-only scalar Ricci", R_metric),
+        "Ric_l_l": finite("metric-only radial Ricci eigenvalue", Ric_l_l),
+        "Ric_theta_theta": finite("metric-only angular Ricci eigenvalue", Ric_theta_theta),
+        "H_metric": finite("metric-only Hamiltonian", H_metric),
+    }
+    return components["H_metric"], components
+
+
 def manufactured_state(grid, vacuum):
     """Regular parity-class state with deliberately nonzero H, M, and C."""
     state = vacuum.flat_state(grid)
@@ -111,6 +153,57 @@ def manufactured_state(grid, vacuum):
     return state
 
 
+def lambda_hamiltonian_discriminator(grid, state, vacuum) -> dict:
+    """Control that separates metric-only H from the Lambda-dependent BSSN H."""
+    r = finite("Lambda control radii", grid.centers)
+    delta_lambda = 1.0e-3 * np.sin((2.0 * math.pi / 8.0) * r)
+    probe = state.copy()
+    probe.Lambda = finite("Lambda-only probe", state.Lambda + delta_lambda)
+
+    H_metric_base, _ = metric_only_hamiltonian(grid, state)
+    H_metric_probe, _ = metric_only_hamiltonian(grid, probe)
+    metric_only_delta = finite(
+        "metric-only H response to Lambda mutation", H_metric_probe - H_metric_base
+    )
+
+    raw_base = finite("base BSSN H", vacuum.constraints(grid, state)["hamiltonian"])
+    raw_probe = finite("probe BSSN H", vacuum.constraints(grid, probe)["hamiltonian"])
+    observed_bssn_delta = finite("BSSN H response to Lambda mutation", raw_probe - raw_base)
+    predicted_bssn_delta = finite(
+        "predicted BSSN H response",
+        state.X * state.X * d1(grid, delta_lambda, -1),
+    )
+    closure = finite(
+        "BSSN H/Lambda response closure", observed_bssn_delta - predicted_bssn_delta
+    )
+    closure_max = float(np.max(np.abs(closure)))
+    expected_scale = max(float(np.max(np.abs(predicted_bssn_delta))), np.finfo(float).tiny)
+    tolerance = max(5.0e-12, 2048.0 * MACHINE_EPS * expected_scale)
+    metric_delta_max = float(np.max(np.abs(metric_only_delta)))
+    observed_delta_max = float(np.max(np.abs(observed_bssn_delta)))
+    passed = bool(
+        metric_delta_max == 0.0
+        and observed_delta_max > 1.0e-6
+        and closure_max <= tolerance
+    )
+    if not passed:
+        raise RuntimeError(
+            "Hamiltonian-slot discriminator failed: "
+            f"metric_only_delta_max={metric_delta_max:.6e}, "
+            f"BSSN_delta_max={observed_delta_max:.6e}, "
+            f"closure_max={closure_max:.6e}, tolerance={tolerance:.6e}"
+        )
+    return {
+        "passed": passed,
+        "metric_only_H_lambda_mutation_max_abs": metric_delta_max,
+        "observed_BSSN_H_lambda_mutation_max_abs": observed_delta_max,
+        "predicted_BSSN_H_lambda_mutation_max_abs": float(np.max(np.abs(predicted_bssn_delta))),
+        "BSSN_H_lambda_response_closure_max_abs": closure_max,
+        "closure_tolerance": tolerance,
+        "identity": "delta(H_BSSN)=X^2*D_r(deltaLambda); delta(H_metric_only)=0 at fixed metric",
+    }
+
+
 def brown_lower_momentum_rhs(grid, state, constraints) -> tuple[dict, np.ndarray]:
     """Brown Eq. (11b), with shift/advection terms retained explicitly."""
     r = finite("Brown radii", grid.centers)
@@ -120,7 +213,9 @@ def brown_lower_momentum_rhs(grid, state, constraints) -> tuple[dict, np.ndarray
     X = finite("Brown X", state.X)
     K = finite("Brown K", state.K)
     beta = finite("Brown beta", state.beta)
-    H = finite("Brown geometric H", constraints["hamiltonian"])
+    # Brown Eq. (11b) requires metric-only H in its H/H' slots. The BSSN H
+    # below is retained as a separate witness, not fed into this predictor.
+    H, _ = metric_only_hamiltonian(grid, state)
     M = finite("Brown lower-index M_r", constraints["momentum"])
     C = finite("Brown connection constraint C^r", constraints["connection"])
 
@@ -201,6 +296,35 @@ def witness(values: np.ndarray, r: np.ndarray) -> dict:
     }
 
 
+def residual_region_summary(
+    residual: np.ndarray, measured: np.ndarray, predicted: np.ndarray,
+    r: np.ndarray, mask: np.ndarray,
+) -> dict:
+    indices = np.flatnonzero(np.asarray(mask, dtype=bool))
+    if indices.size == 0:
+        return {"cells": 0}
+    e = finite("regional Brown residual", residual)[indices]
+    m = finite("regional measured tangent", measured)[indices]
+    p = finite("regional Brown predictor", predicted)[indices]
+    local = int(np.argmax(np.abs(e)))
+    reference = max(
+        float(np.sqrt(np.mean(m * m))),
+        float(np.sqrt(np.mean(p * p))),
+        np.finfo(float).tiny,
+    )
+    return {
+        "cells": int(indices.size),
+        "r_min": float(r[indices[0]]),
+        "r_max": float(r[indices[-1]]),
+        "abs_rms": float(np.sqrt(np.mean(e * e))),
+        "max_abs": float(np.abs(e[local])),
+        "max_index": int(indices[local]),
+        "max_radius": float(r[indices[local]]),
+        "signed_at_max_abs": float(e[local]),
+        "relative_rms_to_local_signal": float(np.sqrt(np.mean(e * e)) / reference),
+    }
+
+
 def audit_resolution(resolution: int, r_max: float, epsilons: tuple[float, float]) -> dict:
     grid_ops, vacuum, moving = adapter.vendor_modules()
     grid = grid_ops.SphericalCellGrid(resolution, r_max)
@@ -208,6 +332,8 @@ def audit_resolution(resolution: int, r_max: float, epsilons: tuple[float, float
     r = finite("cell centers", grid.centers)
     base_constraints = vacuum.constraints(grid, state)
     rates = vacuum_rhs_rates(grid, state, vacuum, moving)
+    H_metric, metric_h_components = metric_only_hamiltonian(grid, state)
+    lambda_slot_control = lambda_hamiltonian_discriminator(grid, state, vacuum)
     brown_terms, predicted = brown_lower_momentum_rhs(grid, state, base_constraints)
 
     if float(np.max(np.abs(base_constraints["hamiltonian"]))) <= 0.0:
@@ -227,6 +353,15 @@ def audit_resolution(resolution: int, r_max: float, epsilons: tuple[float, float
             float(np.sqrt(np.mean(predicted**2))),
             np.finfo(np.float64).tiny,
         )
+        cell_index = np.arange(r.size)
+        region_masks = {
+            "centre_first_four_cells": cell_index < min(4, r.size),
+            "fixed_centre_r_le_2": r <= 2.0,
+            "fixed_annulus_2_to_8": (r >= 2.0) & (r <= 8.0),
+            "fixed_annulus_5_to_10": (r >= 5.0) & (r <= 10.0),
+            "interior_r2_to_rmax_minus_4": (r >= 2.0) & (r <= float(r_max) - 4.0),
+            "outer_boundary_last_four_cells": cell_index >= max(0, r.size - 4),
+        }
         epsilon_rows.append({
             "epsilon": float(eps),
             "measured_Mdot": witness(measured, r),
@@ -234,6 +369,10 @@ def audit_resolution(resolution: int, r_max: float, epsilons: tuple[float, float
             "signed_residual": witness(residual, r),
             "relative_rms_residual": float(np.sqrt(np.mean(residual**2)) / scale),
             "max_abs_residual": float(np.max(np.abs(residual))),
+            "residual_regions": {
+                name: residual_region_summary(residual, measured, predicted, r, mask)
+                for name, mask in region_masks.items()
+            },
             "finite": bool(
                 np.all(np.isfinite(measured))
                 and np.all(np.isfinite(predicted))
@@ -277,9 +416,18 @@ def audit_resolution(resolution: int, r_max: float, epsilons: tuple[float, float
             "Aa_is_O_r_squared": True,
             "shift_is_zero": True,
             "C_r_is_manufactured_odd_profile": True,
-            "H_peak": witness(base_constraints["hamiltonian"], r),
+            "H_BSSN_Lambda_dependent_peak_report_only": witness(base_constraints["hamiltonian"], r),
+            "H_metric_only_peak_used_by_Brown": witness(H_metric, r),
             "M_r_peak": witness(base_constraints["momentum"], r),
             "C_r_peak": witness(base_constraints["connection"], r),
+        },
+        "hamiltonian_slot_contract": {
+            "Brown_H_and_DrH_use": "metric-only warped-product Ricci reconstruction",
+            "BSSN_H_use": "report/control only; not substituted into Brown H/H-prime slots",
+            "metric_only_H_formula": "R_metric - (Aa^2 + 2*Ab^2) + 2*K^2/3",
+            "metric_only_Ricci_source": "areal radius R=r*sqrt(b)/X and proper radial factor sqrt(a)/X",
+            "metric_only_Ricci_peak": witness(metric_h_components["R_metric"], r),
+            "lambda_only_control": lambda_slot_control,
         },
         "brown_formula": (
             "beta*D_r(M_r)+(D_r beta)*M_r+alpha*K*M_r-(D_r alpha)*H/3"
@@ -337,11 +485,16 @@ def main() -> int:
             "rows": rows,
             "all_finite": all(all(e["finite"] for e in row["epsilon_rows"]) for row in rows),
             "negative_control_detected": all(row["negative_control"]["detected"] for row in rows),
+            "lambda_hamiltonian_discriminator_passed": all(
+                row["hamiltonian_slot_contract"]["lambda_only_control"]["passed"] for row in rows
+            ),
             "acceptance_oracle_satisfied": False,
             "scientific_admission": False,
         }
         if not summary["all_finite"] or not summary["negative_control_detected"]:
             raise RuntimeError("manufactured Brown audit failed finite/negative-control contract")
+        if not summary["lambda_hamiltonian_discriminator_passed"]:
+            raise RuntimeError("Brown H-slot Lambda-discriminator contract failed")
         report_path = args.output_dir / "report.json"
         report_path.write_text(json.dumps(summary, indent=2, sort_keys=True, allow_nan=False) + "\n", encoding="utf-8")
         arrays_path = args.output_dir / "profiles.npz"
@@ -357,6 +510,8 @@ def main() -> int:
             terms, predicted = brown_lower_momentum_rhs(grid, state, constraints)
             arrays[f"N{n}_r"] = np.asarray(grid.centers, dtype=np.float64)
             arrays[f"N{n}_H"] = np.asarray(constraints["hamiltonian"], dtype=np.float64)
+            arrays[f"N{n}_H_BSSN_Lambda_dependent"] = np.asarray(constraints["hamiltonian"], dtype=np.float64)
+            arrays[f"N{n}_H_metric_only"] = metric_only_hamiltonian(grid, state)[0]
             arrays[f"N{n}_M"] = np.asarray(constraints["momentum"], dtype=np.float64)
             arrays[f"N{n}_C"] = np.asarray(constraints["connection"], dtype=np.float64)
             arrays[f"N{n}_predicted_Mdot"] = predicted
@@ -375,6 +530,7 @@ def main() -> int:
             "provenance": summary["provenance"],
             "all_finite": summary["all_finite"],
             "negative_control_detected": summary["negative_control_detected"],
+            "lambda_hamiltonian_discriminator_passed": summary["lambda_hamiltonian_discriminator_passed"],
             "relative_rms_by_resolution": {
                 str(row["resolution"]): [x["relative_rms_residual"] for x in row["epsilon_rows"]]
                 for row in rows
