@@ -89,6 +89,33 @@ def _metric_arrays(g: BSSNMetricSlice) -> list[SphericalMetric]:
     ]
 
 
+def _face_metric(g: BSSNMetricSlice, i: int) -> SphericalMetric:
+    """Build the interior-face metric from interpolated primary fields.
+
+    The spherical coordinate factor r^2 belongs to the face coordinate, not
+    to the arithmetic mean of adjacent cell-centre sqrt_gamma or gamma_thth
+    values. Interpolate the primary BSSN fields (a, b, X, alpha, beta) and
+    derive the complete SphericalMetric at the midpoint. Outer-boundary flux
+    handling remains unchanged by this interior-face fix.
+    """
+    n = len(g.r)
+    if not isinstance(i, (int, np.integer)) or i < 0 or i >= n - 1:
+        raise IndexError("interior face index must satisfy 0 <= i < n-1")
+    r_face = 0.5 * (float(g.r[i]) + float(g.r[i + 1]))
+
+    def average(values: np.ndarray) -> float:
+        return 0.5 * (float(values[i]) + float(values[i + 1]))
+
+    return spherical_metric_from_bssn(
+        r_face,
+        average(g.a),
+        average(g.b),
+        average(g.X),
+        average(g.alpha),
+        average(g.beta),
+    )
+
+
 def geometry_metric_derivatives(
     g: BSSNMetricSlice,
     d1,
@@ -524,16 +551,13 @@ def _species_rhs_components(
     face_flux[0] = 0.0
 
     for i in range(n - 1):
-        m0, m1 = metrics[i], metrics[i + 1]
-        mf = SphericalMetric(
-            alpha=0.5 * (m0.alpha + m1.alpha),
-            beta=0.5 * (m0.beta + m1.beta),
-            gamma_rr=0.5 * (m0.gamma_rr + m1.gamma_rr),
-            gamma_rr_inv=0.5 * (m0.gamma_rr_inv + m1.gamma_rr_inv),
-            gamma_thth=0.5 * (m0.gamma_thth + m1.gamma_thth),
-            gamma_thth_inv=0.5 * (m0.gamma_thth_inv + m1.gamma_thth_inv),
-            sqrt_gamma=0.5 * (m0.sqrt_gamma + m1.sqrt_gamma),
-        )
+        # Interpolate primary metric fields to the coordinate face, then derive
+        # all physical metric components there. Averaging derived quantities is
+        # not geometrically consistent in spherical coordinates: even for a
+        # flat metric sqrt(gamma)=r^2, so the mean of adjacent cell-centre
+        # volumes is 5/4 times the true face value at the first interior face.
+        # The finite-volume flux needs the face measure evaluated at r_face.
+        mf = _face_metric(metric, i)
         ql = _reconstructed_primitive(prim, i, "right", mf.gamma_rr)
         qr = _reconstructed_primitive(prim, i + 1, "left", mf.gamma_rr)
         face_flux[i + 1] = _hll_flux(mf, ql, qr, species)
