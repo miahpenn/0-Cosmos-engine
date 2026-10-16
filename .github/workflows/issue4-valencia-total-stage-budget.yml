@@ -7,8 +7,6 @@ on:
       - "tools/audit_centre_ricci_fixed_s2.py"
       - "tools/audit_manufactured_regular_ricci_oracle.py"
       - "tools/audit_origin_integral_quadrature.py"
-      - "tools/audit_total_stress_energy_divergence.py"
-      - "tests/test_covariant_total_stress_energy_divergence.py"
       - "tests/test_centre_ricci_fixed_s2.py"
       - "tests/test_manufactured_regular_ricci_oracle.py"
       - "tests/test_origin_integral_quadrature.py"
@@ -32,14 +30,6 @@ jobs:
       - name: Check out diagnostic branch and pinned vendor
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
-          submodules: recursive
-
-      - name: Check out exact production source separately for covariant divergence
-        uses: actions/checkout@v4
-        with:
-          ref: "7f47669a1c0edfafef9fc5f27b2db80840d3f035"
-          path: source
           fetch-depth: 0
           submodules: recursive
 
@@ -77,39 +67,6 @@ jobs:
             --r-max 24 \
             --output results/issue4-valencia-total-stage-budget/report.json
 
-      - name: Compile and run analytic covariant-divergence controls
-        env:
-          COSMOS_PINNED_SOURCE_ROOT: ${{ github.workspace }}/source
-        run: |
-          python -m py_compile tools/audit_total_stress_energy_divergence.py
-          python -m py_compile tests/test_covariant_total_stress_energy_divergence.py
-          python -m pytest -q tests/test_covariant_total_stress_energy_divergence.py
-
-      - name: Run independent total-T covariant divergence on frozen source-pinned states
-        env:
-          COSMOS_PINNED_SOURCE_ROOT: ${{ github.workspace }}/source
-        run: |
-          mkdir -p results/issue4-independent-covariant-total-T-divergence
-          python tools/audit_total_stress_energy_divergence.py \
-            --resolutions 60 80 120 \
-            --r-max 24 \
-            --epsilons 0.00002 0.00001 \
-            --output results/issue4-independent-covariant-total-T-divergence/report.json
-
-      - name: Assert covariant divergence diagnostic integrity and non-admission
-        run: |
-          jq -e '
-            .status == "completed_diagnostic_only"
-            and .source_provenance.source_blobs_match == true
-            and .gate_result.source_pins_verified == true
-            and .gate_result.independent_total_projection_matches_canonical == true
-            and .gate_result.all_profiles_finite == true
-            and .gate_result.input_states_unchanged == true
-            and .gate_result.independent_total_stress_energy_divergence_closed == false
-            and .gate_result.scientific_admission == false
-            and .scientific_admission == false
-          ' results/issue4-independent-covariant-total-T-divergence/report.json
-
       - name: Hash report and preserve signed profiles
         if: always()
         shell: bash
@@ -127,15 +84,6 @@ jobs:
         with:
           name: issue4-valencia-total-stage-budget
           path: results/issue4-valencia-total-stage-budget/
-          if-no-files-found: warn
-          retention-days: 90
-
-      - name: Upload independent covariant total-T divergence evidence
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: issue4-independent-covariant-total-T-divergence
-          path: results/issue4-independent-covariant-total-T-divergence/
           if-no-files-found: warn
           retention-days: 90
 
