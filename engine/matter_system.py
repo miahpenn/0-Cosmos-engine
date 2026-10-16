@@ -524,15 +524,18 @@ def _species_rhs_components(
     face_flux[0] = 0.0
 
     for i in range(n - 1):
-        m0, m1 = metrics[i], metrics[i + 1]
-        mf = SphericalMetric(
-            alpha=0.5 * (m0.alpha + m1.alpha),
-            beta=0.5 * (m0.beta + m1.beta),
-            gamma_rr=0.5 * (m0.gamma_rr + m1.gamma_rr),
-            gamma_rr_inv=0.5 * (m0.gamma_rr_inv + m1.gamma_rr_inv),
-            gamma_thth=0.5 * (m0.gamma_thth + m1.gamma_thth),
-            gamma_thth_inv=0.5 * (m0.gamma_thth_inv + m1.gamma_thth_inv),
-            sqrt_gamma=0.5 * (m0.sqrt_gamma + m1.sqrt_gamma),
+        # The interface lies at the midpoint in coordinate radius, not at the
+        # arithmetic mean of cell-centred derived metric coefficients. Build
+        # the complete face metric from interpolated primary BSSN fields at
+        # that radius so sqrt(gamma) carries the correct spherical face area.
+        r_face = 0.5 * (float(metric.r[i]) + float(metric.r[i + 1]))
+        a_face = 0.5 * (float(metric.a[i]) + float(metric.a[i + 1]))
+        b_face = 0.5 * (float(metric.b[i]) + float(metric.b[i + 1]))
+        X_face = 0.5 * (float(metric.X[i]) + float(metric.X[i + 1]))
+        alpha_face = 0.5 * (float(metric.alpha[i]) + float(metric.alpha[i + 1]))
+        beta_face = 0.5 * (float(metric.beta[i]) + float(metric.beta[i + 1]))
+        mf = spherical_metric_from_bssn(
+            r_face, a_face, b_face, X_face, alpha_face, beta_face
         )
         ql = _reconstructed_primitive(prim, i, "right", mf.gamma_rr)
         qr = _reconstructed_primitive(prim, i + 1, "left", mf.gamma_rr)
