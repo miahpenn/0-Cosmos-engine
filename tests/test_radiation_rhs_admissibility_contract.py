@@ -6,6 +6,7 @@ import pytest
 
 from engine.matter_rhs import species_rhs
 import engine.production_kernel as production_kernel_module
+import engine.matter_system as matter_system_module
 from engine.matter_system import (
     ConservedSpecies,
     Species,
@@ -52,20 +53,33 @@ def test_radiation_rhs_extraction_does_not_guard_unit_step_intermediate():
     )
 
 
-def test_direct_update_keeps_admissibility_guard_enabled_by_default():
-    """An intentionally oversized actual update still exercises the default guard."""
-    kernel, state, metric, _ = _frozen_radiation_rhs(160)
+def test_direct_update_keeps_admissibility_guard_enabled_by_default(monkeypatch):
+    """The default update guard rejects a deliberately inadmissible synthetic RHS."""
+    _, state, metric, _ = _frozen_radiation_rhs(160)
     derivatives = geometry_metric_derivatives(
         metric,
-        lambda values, parity: kernel._d1(state.grid, values, parity),
+        lambda values, parity: V55ProductionKernel()._d1(state.grid, values, parity),
     )
+    n = len(metric.r)
+    face_flux = np.zeros((n + 1, 3), dtype=float)
+    source_e = -2.0 * np.asarray(state.matter.radiation.energy_t, dtype=float)
+    source_s = np.zeros(n, dtype=float)
+    q_e = np.zeros(n, dtype=float)
+    q_s = np.zeros(n, dtype=float)
+    monkeypatch.setattr(
+        matter_system_module,
+        "_species_rhs_components",
+        lambda *args, **kwargs: (face_flux, source_e, source_s, q_e, q_s),
+    )
+    # dt=1 changes positive E to negative E, so the default post-update guard
+    # must reject this controlled inadmissible result.
     with pytest.raises(ValueError, match="radiation state inadmissible"):
         evolve_species(
             metric,
             derivatives,
             state.matter.radiation,
             Species.RADIATION,
-            100.0,
+            1.0,
         )
 
 
