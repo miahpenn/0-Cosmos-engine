@@ -212,14 +212,13 @@ def independent_total_projections(state) -> dict[str, np.ndarray]:
 def spherical_flux_face_values(
     values: np.ndarray, dr: float, *, origin_power: int = 2
 ) -> np.ndarray:
-    """Reconstruct regular spherical profiles from cell centers to faces.
+    """Reconstruct regular spherical profiles to faces in the parity variable r^2.
 
-    The first face uses a parity-constrained fit: F=r^p*g(r^2), with p=1
-    for radial metric-source density, p=2 for volume/time-source/radial-stress
-    flux, and p=3 for radial-current/time-flux density. A quadratic Lagrange
-    fit of g against r^2 through the first three cells respects the known
-    origin behavior. Remaining faces use a four-point cubic interpolant; the
-    outer face is a one-sided cubic extrapolation.
+    For a regular spherical profile F(r)=r^p*g(r^2), divide out its known
+    origin power p, then interpolate g as a cubic polynomial in r^2 using
+    four neighboring cell centers at every face. This honours regular parity
+    at the origin and avoids the lower-order near-origin error of ordinary-r
+    cubic interpolation. The outer face uses a one-sided cubic extrapolation.
     """
     values = finite("finite-volume cell-centered profile", values)
     if values.ndim != 1 or values.size < 4:
@@ -231,25 +230,24 @@ def spherical_flux_face_values(
     n = values.size
     faces = np.zeros(n + 1, dtype=np.float64)
     centers = (np.arange(n, dtype=np.float64) + 0.5) * float(dr)
-    nodes2 = (centers[:3] / float(dr)) ** 2
-    target2 = 1.0
-    weights2 = np.ones(3, dtype=np.float64)
-    for k in range(3):
-        for ell in range(3):
-            if ell != k:
-                weights2[k] *= (target2 - nodes2[ell]) / (nodes2[k] - nodes2[ell])
-    regularized = values[:3] / (centers[:3] ** origin_power)
-    faces[1] = float(dr) ** origin_power * float(weights2 @ regularized)
-    for j in range(2, n + 1):
+    regularized = finite(
+        "finite-volume parity-regularized profile",
+        values / (centers ** origin_power),
+    )
+    # Face 0 is exactly zero for all supported regular powers p>0. At every
+    # positive face, use a 4-point Lagrange interpolant for g(r^2).
+    for j in range(1, n + 1):
         start = min(max(j - 2, 0), n - 4)
-        nodes = np.arange(start, start + 4, dtype=np.float64) + 0.5
-        target = float(j)
+        nodes = centers[start:start + 4] ** 2
+        target = (float(j) * float(dr)) ** 2
         weights = np.ones(4, dtype=np.float64)
         for k in range(4):
             for ell in range(4):
                 if ell != k:
                     weights[k] *= (target - nodes[ell]) / (nodes[k] - nodes[ell])
-        faces[j] = float(weights @ values[start:start + 4])
+        faces[j] = (float(j) * float(dr)) ** origin_power * float(
+            weights @ regularized[start:start + 4]
+        )
     return finite("finite-volume reconstructed face profile", faces)
 
 
