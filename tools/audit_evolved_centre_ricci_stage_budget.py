@@ -709,6 +709,12 @@ def main() -> int:
             "The trace records actual split operands and the final implicit mixed state. It does not justify changing the independent evolved BSSN connection equation.",
         ],
     }
+    matter_l3_gate_ok = report["checks"][
+        "matter_L3_full_grid_reconstruction_passed_all_captured_stages"
+    ]
+    report["errors"] = [] if matter_l3_gate_ok else [
+        "full-grid anisotropic matter-L3 formula reconstruction exceeded its local bound"
+    ]
     report_path = OUT / "report.json"
     report_path.write_text(
         json.dumps(report, indent=2, allow_nan=False) + "\n", encoding="utf-8"
@@ -742,11 +748,8 @@ def main() -> int:
         "chain_rule_gap_first_two": [
             float(v) for v in measured["primary_predictor"]["profiles"]["chain_rule_minus_direct_tf_ricci"][:2]
         ],
-        "errors": [],
+        "errors": report["errors"],
     }, indent=2, allow_nan=False), flush=True)
-    matter_l3_gate_ok = report["checks"][
-        "matter_L3_full_grid_reconstruction_passed_all_captured_stages"
-    ]
     if not matter_l3_gate_ok:
         print("FAIL: full-grid matter-L3 formula reconstruction exceeded its local bound", flush=True)
         return 2
