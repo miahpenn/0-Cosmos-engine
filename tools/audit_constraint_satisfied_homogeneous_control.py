@@ -388,7 +388,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--resolutions", nargs="+", type=int, default=[60, 80, 120, 160])
     parser.add_argument("--r-max", type=float, default=80.0)
-    parser.add_argument("--epsilons", nargs=2, type=float, default=[2.0e-5, 1.0e-5])
+    parser.add_argument("--epsilons", nargs=2, type=float, default=[2.0e-4, 1.0e-4])
     parser.add_argument("--dt", type=float, default=0.015)
     parser.add_argument(
         "--output", type=Path,
