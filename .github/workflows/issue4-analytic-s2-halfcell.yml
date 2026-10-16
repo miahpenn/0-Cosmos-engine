@@ -108,7 +108,7 @@ jobs:
             and .checks.all_values_finite == true
             and .checks["all_metric_invariants_within_1e-12"] == true
             and .checks.all_initialized_states_unchanged == true
-            and .checks.analytic_quadrature_identities_match_within_1e-13 == true
+            and .checks["analytic_quadrature_identities_match_within_1e-13"] == true
           ' results/origin-integral-quadrature-discriminator-2026-10-16/report.json
 
       - name: Assert all required diagnostic gates and preserve scientific non-admission
