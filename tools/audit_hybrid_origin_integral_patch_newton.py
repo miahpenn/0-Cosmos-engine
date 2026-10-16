@@ -397,6 +397,50 @@ def _constraint_propagation_candidate(
     H = finite("propagation H", base_constraints["H"])
     M_cov = finite("propagation covariant M_r", base_constraints["M"])
     C_up = finite("propagation connection constraint C^r", base_constraints["C_Lambda"])
+
+    # Keep the geometric vacuum constraints separate from the matter-inclusive
+    # H_total/M_total used by the engine. Brown's vacuum equation and the
+    # matter-coupled candidate must not silently reuse one convention as another.
+    _, vacuum, _ = adapter.vendor_modules()
+    raw_base = vacuum.constraints(grid, geom)
+    raw_plus = vacuum.constraints(grid, plus_state.geometry)
+    raw_minus = vacuum.constraints(grid, minus_state.geometry)
+    H_geom = finite("geometric Hamiltonian constraint", raw_base["hamiltonian"])
+    M_geom = finite("geometric momentum constraint", raw_base["momentum"])
+    measured_Mgeom_dot = finite(
+        "measured geometric momentum tangent",
+        (np.asarray(raw_plus["momentum"]) - np.asarray(raw_minus["momentum"]))
+        / (2.0 * epsilon),
+    )
+
+    # Differentiate the exact discrete M_geom definition by the chain rule.
+    # This is an operator/implementation identity, not a continuum propagation oracle.
+    Aa = finite("geometric constraint Aa", geom.Aa)
+    Ab = -0.5 * Aa
+    Aa_dot = finite("geometric Aa RHS", rates["geometry"]["Aa"])
+    K_dot = finite("geometric K RHS", rates["geometry"]["K"])
+    b_dot = finite("geometric b RHS", rates["geometry"]["b"])
+    X_dot = finite("geometric X RHS", rates["geometry"]["X"])
+    b_prime = d1(b, 1)
+    chi_r_base = -0.5 * d1(X, 1) / X
+    chi_r_dot = -0.5 * (
+        d1(X_dot, 1) / X - d1(X, 1) * X_dot / (X * X)
+    )
+    radial_bracket = 2.0 / r + b_prime / b
+    radial_bracket_dot = d1(b_dot, 1) / b - b_prime * b_dot / (b * b)
+    Mgeom_dot_chain = finite(
+        "exact discrete Mgeom time derivative by chain rule",
+        d1(Aa_dot, 1)
+        - (2.0 / 3.0) * d1(K_dot, 1)
+        + 6.0 * Aa_dot * chi_r_base
+        + 6.0 * Aa * chi_r_dot
+        + 1.5 * Aa_dot * radial_bracket
+        + 1.5 * Aa * radial_bracket_dot,
+    )
+    Mgeom_chain_residual = finite(
+        "chain-rule minus measured Mgeom tangent",
+        Mgeom_dot_chain - measured_Mgeom_dot,
+    )
     M_up = finite("raised M^r", gamma_rr_inv * M_cov)
     d1 = lambda value, parity=1: finite(
         "propagation D1", grid.cell_derivative_fourth(value, parity=parity)
@@ -442,6 +486,15 @@ def _constraint_propagation_candidate(
     j_cov_dot = finite(
         "radial momentum time tangent",
         (np.asarray(plus_total.j) - np.asarray(minus_total.j)) / (2.0 * epsilon),
+    )
+    Mtotal_reconstructed_from_parts = finite(
+        "measured Mtotal reconstructed from geometric/current tangents",
+        measured_Mgeom_dot - 8.0 * math.pi * j_cov_dot,
+    )
+    Mtotal_decomposition_residual = finite(
+        "measured Mtotal tangent minus geometric/current split",
+        finite("measured Mtotal tangent", measured_mdot_covariant)
+        - Mtotal_reconstructed_from_parts,
     )
     a_dot = finite("a RHS for stress divergence", rates["geometry"]["a"])
     b_dot = finite("b RHS for stress divergence", rates["geometry"]["b"])
@@ -493,8 +546,52 @@ def _constraint_propagation_candidate(
         -8.0 * math.pi * alpha * Q_r,
     )
     predicted_published_Mdot_cov = finite(
-        "direct published-index M_r candidate",
+        "direct published-index M_r candidate using matter-inclusive constraints",
         brown_published_Mr_source + matter_source_cov,
+    )
+
+    # Separate comparator: apply the vacuum Brown geometric propagation law to
+    # geometric H_geom/M_geom, then expose—not assume—the stress source required
+    # to turn it into an evolution for M_total = M_geom - 8*pi*J.
+    term_geom_KM = alpha * K * M_geom
+    term_geom_alpha_H = -(alpha_r / 3.0) * H_geom
+    term_geom_H_gradient = (alpha / 6.0) * d1(H_geom, 1)
+    term_geom_C_second = (2.0 / 3.0) * alpha * chi * C_rr
+    term_geom_C_first = c_first_coeff_up * C_r
+    term_geom_shift = beta_r * d1(M_geom, -1) + d1(beta_r, -1) * M_geom
+    brown_geometric_vacuum_source = finite(
+        "Brown vacuum propagation source from geometric H/M",
+        term_geom_shift + term_geom_KM + term_geom_alpha_H
+        + term_geom_H_gradient + term_geom_C_second + term_geom_C_first,
+    )
+    predicted_Mgeom_dot_brown = brown_geometric_vacuum_source
+    predicted_Mgeom_dot_brown_plus_Q = finite(
+        "geometric prediction plus provisional stress divergence",
+        brown_geometric_vacuum_source + matter_source_cov,
+    )
+    predicted_Mtotal_dot_brown = finite(
+        "total prediction from geometric Brown source minus 8pi Jdot",
+        brown_geometric_vacuum_source - 8.0 * math.pi * j_cov_dot,
+    )
+    predicted_Mtotal_dot_brown_plus_Q = finite(
+        "total prediction from geometric Brown source plus provisional Qr minus 8pi Jdot",
+        brown_geometric_vacuum_source + matter_source_cov - 8.0 * math.pi * j_cov_dot,
+    )
+    residual_geom_brown = finite(
+        "measured-minus-geometric-Brown-vacuum candidate",
+        measured_Mgeom_dot - predicted_Mgeom_dot_brown,
+    )
+    residual_geom_brown_plus_Q = finite(
+        "measured-minus-geometric-Brown-plus-Q candidate",
+        measured_Mgeom_dot - predicted_Mgeom_dot_brown_plus_Q,
+    )
+    residual_total_brown = finite(
+        "measured-minus-total-Brown candidate",
+        measured_mdot_covariant - predicted_Mtotal_dot_brown,
+    )
+    residual_total_brown_plus_Q = finite(
+        "measured-minus-total-Brown-plus-Q candidate",
+        measured_mdot_covariant - predicted_Mtotal_dot_brown_plus_Q,
     )
 
     measured = finite("measured covariant Mdot", measured_mdot_covariant)
@@ -527,6 +624,49 @@ def _constraint_propagation_candidate(
         np.finfo(np.float64).tiny,
     )
     report = {
+        "exact_discrete_chain_rule": {
+            "identity": (
+                "M_geom = D_r Aa - (2/3)D_r K + 6 Aa chi_r "
+                "+ (Aa-Ab)(2/r + D_r b/b), Ab=-Aa/2, chi_r=-D_r X/(2X). "
+                "Differentiate this same discrete expression using the actual production RHS."
+            ),
+            "measured_Mgeom_dot": witness(measured_Mgeom_dot, r),
+            "chain_rule_Mgeom_dot": witness(Mgeom_dot_chain, r),
+            "chain_rule_minus_measured": witness(Mgeom_chain_residual, r),
+            "chain_rule_max_abs_error": float(np.max(np.abs(Mgeom_chain_residual))),
+            "Mtotal_measured": witness(measured_mdot_covariant, r),
+            "Mtotal_from_Mgeom_minus_8pi_Jdot": witness(Mtotal_reconstructed_from_parts, r),
+            "Mtotal_decomposition_max_abs_error": float(np.max(np.abs(Mtotal_decomposition_residual))),
+            "scientific_status": "implementation chain-rule closure only; not a continuum propagation oracle",
+        },
+        "geometric_constraint_propagation_candidate": {
+            "basis": "Brown Eq. (11b) evaluated on vacuum geometric H_geom/M_geom/C; this tests the geometric constraint before subtracting the canonical total current",
+            "H_geom": witness(H_geom, r),
+            "M_geom": witness(M_geom, r),
+            "brown_vacuum_geometric_source": witness(brown_geometric_vacuum_source, r),
+            "measured_Mgeom_dot": witness(measured_Mgeom_dot, r),
+            "measured_minus_brown_vacuum": witness(residual_geom_brown, r),
+            "brown_plus_provisional_Qr": witness(predicted_Mgeom_dot_brown_plus_Q, r),
+            "measured_minus_brown_plus_Qr": witness(residual_geom_brown_plus_Q, r),
+            "predicted_Mtotal_brown_minus_8pi_Jdot": witness(predicted_Mtotal_dot_brown, r),
+            "measured_Mtotal_minus_prediction": witness(residual_total_brown, r),
+            "predicted_Mtotal_brown_plus_Qr_minus_8pi_Jdot": witness(predicted_Mtotal_dot_brown_plus_Q, r),
+            "measured_Mtotal_minus_prediction_plus_Qr": witness(residual_total_brown_plus_Q, r),
+            "full_domain_relative_rms": {
+                "geometric_vacuum": float(np.sqrt(np.mean(residual_geom_brown ** 2)) / max(np.sqrt(np.mean(measured_Mgeom_dot**2)), np.finfo(np.float64).tiny)),
+                "geometric_vacuum_plus_Q": float(np.sqrt(np.mean(residual_geom_brown_plus_Q ** 2)) / max(np.sqrt(np.mean(measured_Mgeom_dot**2)), np.finfo(np.float64).tiny)),
+                "total_vacuum_minus_8pi_Jdot": float(np.sqrt(np.mean(residual_total_brown ** 2)) / max(np.sqrt(np.mean(measured_mdot_covariant**2)), np.finfo(np.float64).tiny)),
+                "total_vacuum_plus_Q_minus_8pi_Jdot": float(np.sqrt(np.mean(residual_total_brown_plus_Q ** 2)) / max(np.sqrt(np.mean(measured_mdot_covariant**2)), np.finfo(np.float64).tiny)),
+            },
+            "matter_source_sign_and_normalization_reviewed": False,
+            "acceptance_oracle_satisfied": False,
+            "finite": bool(
+                np.all(np.isfinite(brown_geometric_vacuum_source))
+                and np.all(np.isfinite(Mgeom_dot_chain))
+                and np.all(np.isfinite(Mtotal_reconstructed_from_parts))
+                and np.all(np.isfinite(residual_total_brown_plus_Q))
+            ),
+        },
         "published_covariant_M_r_candidate": {
             "formula": (
                 "Direct Brown Eq. (11b) M_r form: beta^r D_r M_r + "
@@ -609,6 +749,15 @@ def _constraint_propagation_candidate(
         "propagation_published_Mr_term_H_gradient": term_H_gradient_cov,
         "propagation_published_Mr_term_connection_second": term_C_second_cov,
         "propagation_published_Mr_term_connection_first": term_C_first_cov,
+        "propagation_exact_chain_rule_Mgeom_dot": Mgeom_dot_chain,
+        "propagation_measured_Mgeom_dot": measured_Mgeom_dot,
+        "propagation_exact_chain_rule_residual": Mgeom_chain_residual,
+        "propagation_measured_Mtotal_reconstructed_parts": Mtotal_reconstructed_from_parts,
+        "propagation_Mtotal_decomposition_residual": Mtotal_decomposition_residual,
+        "propagation_geometric_Brown_vacuum_source": brown_geometric_vacuum_source,
+        "propagation_geometric_Brown_plus_Q_source": predicted_Mgeom_dot_brown_plus_Q,
+        "propagation_total_Brown_minus_8pi_Jdot": predicted_Mtotal_dot_brown,
+        "propagation_total_Brown_plus_Q_minus_8pi_Jdot": predicted_Mtotal_dot_brown_plus_Q,
         "propagation_term_KM_raised_M": term_KM_up,
         "propagation_term_alpha_H": term_alpha_H_up,
         "propagation_term_H_gradient": term_H_gradient_up,
@@ -1017,6 +1166,14 @@ def main() -> int:
                             "direct_M_r_relative_rms_full": tangent.get("independent_constraint_propagation_candidate", {})
                                 .get("published_covariant_M_r_candidate", {})
                                 .get("relative_rms_error_full_domain"),
+                            "chain_rule_Mgeom_max_abs_error": tangent.get("independent_constraint_propagation_candidate", {})
+                                .get("exact_discrete_chain_rule", {}).get("chain_rule_max_abs_error"),
+                            "brown_geometric_vacuum_relative_rms": tangent.get("independent_constraint_propagation_candidate", {})
+                                .get("geometric_constraint_propagation_candidate", {}).get("full_domain_relative_rms", {}).get("geometric_vacuum"),
+                            "brown_geometric_plus_Q_relative_rms": tangent.get("independent_constraint_propagation_candidate", {})
+                                .get("geometric_constraint_propagation_candidate", {}).get("full_domain_relative_rms", {}).get("geometric_vacuum_plus_Q"),
+                            "brown_total_rebuilt_relative_rms": tangent.get("independent_constraint_propagation_candidate", {})
+                                .get("geometric_constraint_propagation_candidate", {}).get("full_domain_relative_rms", {}).get("total_vacuum_plus_Q_minus_8pi_Jdot"),
                         }
                         for tangent in armrow.get("measured_rhs_tangent", {}).get("tangent_by_epsilon", [])
                     ]
