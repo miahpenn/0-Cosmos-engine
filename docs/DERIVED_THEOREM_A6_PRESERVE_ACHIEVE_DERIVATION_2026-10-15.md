@@ -167,6 +167,33 @@ Implement an offline diagnostic that reports, separately:
 
 Use exact limiting controls \(w=1\), \(w>1\), \(w<1\), zero shear, and passive radiation. Do not infer \(\Omega_\sigma\) from an initialization fraction such as GEAR 35's \(f_i\); record the realized value, as the GEAR 38 correction requires. No production change is authorized by this note.
 
+## GEAR-45-derived source regression fixture (research-only follow-up)
+
+GEAR 45 states the diagonal Bianchi-I shear law
+
+\[
+\dot\sigma_i=-3H\sigma_i+\mu(\gamma_i-\gamma_*),\qquad
+\gamma_* = \tfrac13\sum_i\gamma_i,\qquad
+\sigma^2=\tfrac12\sum_i\sigma_i^2.
+\]
+
+Differentiating the shear norm gives the source channel without an extra factor of one half:
+
+\[
+\dot\sigma^2=-6H\sigma^2+\mathcal S_\sigma,\qquad
+\mathcal S_\sigma=\mu\sum_i\sigma_i(\gamma_i-\gamma_*).
+\]
+
+The regression now computes \(\mathcal S_\sigma\) from \(\mu\), the trace-free directional shear components and the directional \(\gamma_i\), rather than injecting the former opaque constant \(0.03\). It uses the GEAR-45 row \((\gamma_1,\gamma_2,\gamma_3)=(12,18,21)\), so \(\gamma_*=17\), with the archive's isotropic-fluid \(\gamma=5\) setting. The constructed fixture takes \(\sigma^2=0.2\), \(\mu=0.1\), and \(\rho_{\rm iso}=0.7\); the shear direction is explicitly aligned with \(\gamma_i-\gamma_*\) to provide a signed positive-source control.
+
+For the combined non-shear density \(\rho_{\rm ns}=\rho_{\rm iso}+\mu\), the test uses the effective equation of state
+\[
+w_{\rm eff}=\frac{(\gamma-1)\rho_{\rm iso}+(\gamma_*-1)\mu}{\rho_{\rm ns}}
+\]
+and the energy exchange \(Q_{\rm ns}=-\mathcal S_\sigma\). This retains the GEAR-45 Friedmann form \(3H^2=\rho_{\rm ns}+\sigma^2\) and balances the shear-source term against its opposite matter-sector exchange. The A6 source-aware slope is checked against an independent quotient-rule derivative using the two component evolution equations, and a simultaneous source/exchange sign flip is a negative control.
+
+**Provenance limit:** the recovered GEAR-45 note gives the equations and the \((12,18,21)\) parameter row, but does not pin a unique numerical initial \(\mu\) and \(\sigma_i\) state. The values above are a constructed equation-level test fixture, not claimed archive initial data or a reproduction of the archived integration. This does not reproduce or resolve GEAR 45's separate \(\gamma_i/3\) criterion irregularity. No production equation, archived GEAR file or scientific-admission decision is changed.
+
 ## Provenance and review checklist
 
 - [x] Reconstructed from REV16/GEAR 39 definitions and GEAR 35/45/58 source-scope notes.

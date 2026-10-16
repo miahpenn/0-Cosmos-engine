@@ -32,6 +32,45 @@ def slope_domega_dcontraction_efold(omega_sigma: float, w: float) -> float:
     return -slope_domega_dln_a(omega_sigma, w)
 
 
+def gear45_shear_norm_source(
+    *,
+    mu: float,
+    sigma_i: tuple[float, float, float] | list[float],
+    gamma_i: tuple[float, float, float] | list[float],
+    trace_rtol: float = 1.0e-10,
+) -> float:
+    """Compute the GEAR-45 shear-norm source from a declared Bianchi-I state.
+
+    GEAR 45 uses dot(sigma_i) = -3 H sigma_i + mu (gamma_i - gamma_star),
+    where gamma_star = mean(gamma_i) and sigma^2 = 1/2 sum(sigma_i^2).
+    Differentiating sigma^2 gives dot(sigma^2) = -6 H sigma^2 + S_sigma,
+    with S_sigma = mu * sum(sigma_i * (gamma_i - gamma_star)); there is no
+    extra factor of 1/2.
+
+    The directional shear components must be trace-free and use the same
+    orthonormal/mixed-index frame as gamma_i. The caller supplies mu and sigma_i;
+    the archive note does not specify a unique numeric initial state.
+    """
+    mu = float(mu)
+    trace_rtol = float(trace_rtol)
+    if not math.isfinite(mu) or not math.isfinite(trace_rtol):
+        raise ValueError("mu and trace_rtol must be finite")
+    if trace_rtol < 0.0:
+        raise ValueError("trace_rtol must be non-negative")
+    if len(sigma_i) != 3 or len(gamma_i) != 3:
+        raise ValueError("sigma_i and gamma_i must each contain exactly three values")
+    shear = tuple(float(value) for value in sigma_i)
+    gamma = tuple(float(value) for value in gamma_i)
+    if not all(math.isfinite(value) for value in shear + gamma):
+        raise ValueError("sigma_i and gamma_i values must be finite")
+    shear_scale = max(abs(value) for value in shear)
+    if shear_scale > 0.0 and abs(math.fsum(shear)) > trace_rtol * shear_scale:
+        raise ValueError("directional shear components must sum to zero")
+    gamma_star = math.fsum(gamma) / 3.0
+    anisotropic_pressures = tuple(value - gamma_star for value in gamma)
+    return mu * math.fsum(s * p for s, p in zip(shear, anisotropic_pressures))
+
+
 def slope_with_sources_dln_a(
     *,
     sigma2: float,

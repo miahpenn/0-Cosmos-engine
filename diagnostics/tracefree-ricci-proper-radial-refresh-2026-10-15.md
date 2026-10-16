@@ -2,7 +2,31 @@
 
 **Disposition:** diagnostic-only; scientific admission remains **NOT ADMITTED**. No production-physics or vendor files were changed.
 
-## Exact source pins and configuration
+## Exact-head source snapshot for PR #274 face-metric validation
+
+The previous workflow correctly rejected this PR because the production matter-flux file differs from its historical pin. Instead of relaxing that guard or treating the provenance failure as a numerical failure, the diagnostic is now pinned to the exact PR production snapshot below and rerun against it.
+
+- Source snapshot commit (pre-audit-manifest update): `e6b501fb19c4f2e21ad9c655662840a3d2582d54`.
+- Production-kernel blob: `9685e76bb5a6f26d6bf383e240de24f37523f265`.
+- Vendor submodule gitlink: `d6052d605673ce9d82cdc99b0df79855fa2ea215`.
+
+| Engine file | Required blob SHA at the new snapshot |
+| --- | --- |
+| `engine/production_kernel.py` | `9685e76bb5a6f26d6bf383e240de24f37523f265` |
+| `engine/matter_system.py` | `e52a117690253ddad7b24d116145a65474a351d2` |
+| `engine/matter_rhs.py` | `f41180efbcff2c72cf36477a765318ab539fac80` |
+| `engine/scalar_system.py` | `ffc119b1a6f2d495d972323901f76a85783b0a1b` |
+| `engine/v55_matter.py` | `0ee3c51fac7dc46c63feba2747a750542bcee3d0` |
+| `engine/v55_pirk_adapter.py` | `eeee0492d80889d70e52b0946563eee5054c0f11` |
+| `engine/cmc_gauge.py` | `7b49b5751abebd4faf0130208032cd2080b71f64` |
+| `engine/v55_initial.py` | `7db2e1a10cf16fb40e4221b0df504fdf39aae611` |
+| `engine/stress_energy.py` | `ac3e7518c62bb72e2218a61489fa486bb787809f` |
+| `engine/valencia.py` | `03ed86398f424c03d9d6a3e646da9222a34fac5c` |
+| `engine/worldtube.py` | `aea19090cb0fd2ebe5481a8b7af0d26f119a9ad6` |
+
+The workflow and script use this same source commit, kernel blob, and vendor gitlink. Both retain exact blob checks for the full engine manifest and reject any engine/vendor/dependency edits after the snapshot. This is a provenance refresh so the numerical diagnostic can actually execute on the face-metric implementation; it is not a waiver of a numerical check or a claim of scientific admission.
+
+## Historical source pins and configuration (15 October run)
 
 - Refreshed live-main / PR-base snapshot: `7860d11cd49ea3a3317d01ef1f4f4950c4db80b8`.
 - Recorded production-source comparison baseline: `fcb32b6b4025d5674e0560b8fb24581933f7f23c`.
@@ -22,7 +46,10 @@ All six live-main engine blobs match their recorded hashes exactly:
 
 The diagnostic uses resolutions N = 40, 60, 80, 120, 160; r_max = 80; CFL = 0.03; amplitude = 0.01; width = 7; D amplitude = 1e-10; radiation enabled; and one ordinary production step per resolution. This captures four actual geometry-stage L2 inputs: initial RHS, explicit predictor RHS, primary predictor RHS, and final implicit L2 RHS. The workflow checks out the exact PR-head SHA and fails closed on source, vendor, dependency, finiteness, and same-stage closure discrepancies.
 
-## Measured numerical results
+## Historical measured numerical results (15 October source snapshot)
+
+**Provenance note:** The measurements below belong to workflow run [38666458930](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38666458930) and its historical source pins; they are retained as prior evidence, not as results for the new face-metric snapshot above. Review the regenerated exact-head artifact for the new snapshot separately.
+
 
 The first completed exact-head run was [diagnostic workflow 38666458930](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38666458930), on diagnostic implementation head `d93160349c64aea31b94fb3ef68add0151eff1fc`. It emitted report status `completed_diagnostic_only`, with an empty error list. The full repository regression suite passed **589 tests in 25.74 seconds**. The source/test/workflow code is unchanged by this report-only results addition; exact-head CI and the diagnostic artifact are being rerun for the final documentation-completed candidate.
 
