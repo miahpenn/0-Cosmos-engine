@@ -14,21 +14,19 @@ from the sectional curvatures:
     R^theta_theta = (1 - R_{,l}^2 - R R_{,ll})/R^2,
     R_scalar  = R^r_r + 2 R^theta_theta.
 
-These are metric-derived terms. To recover the BSSN principal part away from
-the conformal-connection constraint, correct the conformal Ricci tensor by
-the difference between the evolved contracted conformal connection Lambda
-and its metric value Lambda_metric. The connection-form Ricci identity adds
+The metric-derived tensor and the reference-metric BSSN connection-form
+witnesses are kept distinct off the connection-constraint surface. Let
+deltaLambda be the difference between the evolved connection variable and its
+metric contraction. The radial reduction of the reference-metric Ricci identity
+gives separate scalar and radial-component corrections:
 
-    delta(R_tilde_ij)
-      = tilde_gamma_{k(i} partial_{j)} delta(Lambda)^k
-        + delta(Lambda)^k tilde_Gamma_{(ij)k}.
+    delta(R_scalar) = X^2 partial_r(deltaLambda),
+    delta(R^r_r) = X^2 [partial_r(deltaLambda) + (a'/2a) deltaLambda].
 
-With only a radial connection component and conformal metric
-diag(a, r^2 b, r^2 b sin(theta)^2), this gives
-
-    delta(R^r_r) = X^2 [deltaLambda' + (a'/2a) deltaLambda],
-    delta(R^theta_theta) = -X^2 deltaLambda [1/r + b'/(2b)].
-
+Do not infer the scalar by tracing the off-constraint radial component: the
+native module preserves the reduced BSSN scalar and radial expressions as
+separate witnesses. The raw metric scalar is also returned for independent
+curvature checks.
 The lapse identities follow from the same warped product:
 
     D_l D_l alpha = [alpha'' - (A'/2A) alpha']/A,
@@ -145,15 +143,13 @@ def native_bssn_geometry_terms(grid, state) -> dict[str, np.ndarray]:
     # Connection-form correction derived from
     # delta R_tilde_ij = gamma_tilde_{k(i} d_{j)} deltaLambda^k
     #                    + deltaLambda^k Gamma_tilde_(ij)k.
+    delta_R_scalar = X**2 * d_deltaLambda
     delta_Rr = X**2 * (
         d_deltaLambda + 0.5 * (d_a / a) * deltaLambda
     )
-    delta_Rtheta = -X**2 * deltaLambda * (
-        1.0 / r + 0.5 * d_b / b
-    )
     Rr_r = Rr_metric + delta_Rr
-    Rtheta_theta = Rtheta_metric + delta_Rtheta
-    R_scalar = Rr_r + 2.0 * Rtheta_theta
+    R_scalar_metric = Rr_metric + 2.0 * Rtheta_metric
+    R_scalar = R_scalar_metric + delta_R_scalar
 
     # Covariant lapse Hessian from the warped-product metric, rather than a
     # copied vendor RHS expression.
@@ -166,11 +162,11 @@ def native_bssn_geometry_terms(grid, state) -> dict[str, np.ndarray]:
         "R": R_scalar,
         "Rr_r": Rr_r,
         "Rtheta_theta": Rtheta_theta,
-        "R_metric": Rr_metric + 2.0 * Rtheta_metric,
+        "R_metric": R_scalar_metric,
         "Rr_r_metric": Rr_metric,
         "Rtheta_theta_metric": Rtheta_metric,
+        "delta_R_scalar_connection": delta_R_scalar,
         "delta_Rr_r_connection": delta_Rr,
-        "delta_Rtheta_theta_connection": delta_Rtheta,
         "Lambda_metric": Lambda_metric,
         "connection_constraint": Lambda - Lambda_metric,
         "areal_radius": areal_radius,
