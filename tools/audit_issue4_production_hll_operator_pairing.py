@@ -547,6 +547,61 @@ def summarize_probe(state, coupling: float) -> dict[str, Any]:
     }
 
 
+def matched_total_t_witness(
+    kernel,
+    state,
+    coupling: float,
+    epsilons: tuple[float, ...],
+    expected_state_hash: str,
+) -> dict[str, Any]:
+    """Run the existing total-T directional/control audit on the HLL observer's exact state.
+
+    Separate workflow artifacts can share source pins and grid settings while
+    still recording different bitwise initial-state hashes. This wrapper makes
+    the relationship explicit by running both observers against this same
+    in-memory state and fail-closing if the digest or epsilon contract differs.
+    """
+    before_hash = AUDIT.state_digest(state)
+    if before_hash != expected_state_hash:
+        raise RuntimeError("shared-state witness received a state different from the HLL base")
+
+    witness = AUDIT.audit_case(kernel, state, float(coupling), epsilons)
+    after_hash = AUDIT.state_digest(state)
+    if after_hash != before_hash:
+        raise RuntimeError("matched total-T witness mutated the shared frozen base state")
+    if witness.get("initial_state_sha256") != before_hash:
+        raise RuntimeError("total-T witness did not retain the shared HLL base-state digest")
+
+    epsilon_rows = witness.get("epsilon_rows", [])
+    if len(epsilon_rows) != len(epsilons) or any(
+        not np.isclose(float(row.get("epsilon", float("nan"))), float(eps),
+                       rtol=0.0, atol=0.0)
+        for row, eps in zip(epsilon_rows, epsilons)
+    ):
+        raise RuntimeError("matched total-T witness epsilon rows do not match the HLL arms")
+
+    raw_arrays = witness.get("raw_arrays", {})
+    raw_arrays_finite = bool(raw_arrays) and all(
+        np.all(np.isfinite(np.asarray(values, dtype=np.float64)))
+        for values in raw_arrays.values()
+    )
+    if not witness.get("all_profiles_finite", False) or not raw_arrays_finite:
+        raise FloatingPointError("matched total-T witness contains a non-finite profile")
+
+    witness["matched_state_contract"] = {
+        "same_in_memory_base_state_as_hll_operator_snapshot": True,
+        "initial_state_sha256": before_hash,
+        "state_digest_unchanged_after_total_t_audit": True,
+        "matched_epsilon_values": [float(value) for value in epsilons],
+        "all_total_t_directional_arrays_finite": raw_arrays_finite,
+        "production_steps_advanced": 0,
+        "conditional_exchange_law_accepted": False,
+        "independent_total_stress_energy_divergence_closed": False,
+        "scientific_admission": False,
+    }
+    return witness
+
+
 def run_resolution(n: int, r_max: float, epsilons: tuple[float, ...]) -> dict[str, Any]:
     kernel = AUDIT.V55ProductionKernel()
     state = kernel.initialize(resolution=n, r_max=r_max, include_radiation=True)
@@ -677,6 +732,25 @@ def run_resolution(n: int, r_max: float, epsilons: tuple[float, ...]) -> dict[st
             f"hll={probe_hll_nontrivial}, conditional_qr={probe_q_nontrivial}"
         )
 
+    # Pair the total-T directional witness with the exact same in-memory state
+    # used for the native HLL/source arrays above. This reuses the reviewed
+    # audit_case and retains its conditional source controls.
+    matched_total_t_witnesses = {
+        "uncoupled_control": matched_total_t_witness(
+            kernel, state, 0.0, epsilons, original_hash
+        ),
+        "coupled_baseline": matched_total_t_witness(
+            kernel, state, BETA_DM_COUPLED, epsilons, original_hash
+        ),
+    }
+    matched_total_t_state_hashes_match = all(
+        item["matched_state_contract"]["initial_state_sha256"] == original_hash
+        and item["initial_state_sha256"] == original_hash
+        for item in matched_total_t_witnesses.values()
+    )
+    if not matched_total_t_state_hashes_match:
+        raise RuntimeError("total-T and HLL/source observers did not retain one shared base-state hash")
+
     return {
         "resolution": int(n),
         "r_max": float(r_max),
@@ -703,6 +777,8 @@ def run_resolution(n: int, r_max: float, epsilons: tuple[float, ...]) -> dict[st
         "production_steps_advanced": 0,
         "arms": arms,
         "directional_epsilon_witnesses": tangent_witnesses,
+        "matched_total_t_witnesses": matched_total_t_witnesses,
+        "matched_total_t_state_hashes_match": matched_total_t_state_hashes_match,
         "manufactured_operator_probe": {
             "state_unchanged": probe_unchanged,
             "synthetic_discriminator_only": True,
@@ -757,6 +833,35 @@ def run(resolutions: tuple[int, ...], r_max: float, epsilons: tuple[float, ...])
     )
     if not combined_budget_reported or not combined_budget_tangents_reported:
         raise RuntimeError("combined signed RHS budget or its epsilon tangents are missing")
+    matched_total_t_witness_reported = all(
+        set(row.get("matched_total_t_witnesses", {})) == {
+            "uncoupled_control", "coupled_baseline"
+        }
+        and all(
+            item.get("matched_state_contract", {}).get(
+                "same_in_memory_base_state_as_hll_operator_snapshot"
+            ) is True
+            for item in row["matched_total_t_witnesses"].values()
+        )
+        for row in rows
+    )
+    matched_total_t_state_hashes_match = all(
+        row.get("matched_total_t_state_hashes_match") is True
+        for row in rows
+    )
+    matched_total_t_profiles_finite = all(
+        item.get("matched_state_contract", {}).get(
+            "all_total_t_directional_arrays_finite"
+        ) is True
+        for row in rows
+        for item in row.get("matched_total_t_witnesses", {}).values()
+    )
+    if not (
+        matched_total_t_witness_reported
+        and matched_total_t_state_hashes_match
+        and matched_total_t_profiles_finite
+    ):
+        raise RuntimeError("same-state total-T witness, hash match, or finite-array gate failed")
     max_geom = max(
         arm["max_abs_geometric_source_gap_over_kappa"]
         for row in rows for arm in row["arms"].values()
@@ -776,6 +881,8 @@ def run(resolutions: tuple[int, ...], r_max: float, epsilons: tuple[float, ...])
             "unsupported_optional_lanes_fail_closed": True,
             "scalar_stress_sectors": ["S", "D", "phi"],
             "scalar_spatial_operator_budget_completed": False,
+            "same_process_total_T_directional_witness_available": matched_total_t_witness_reported,
+            "shared_initial_state_hash_verified": matched_total_t_state_hashes_match,
             "full_cross_sector_total_T_reconciliation_completed": False,
             "interpretation_boundary": (
                 "Per-species HLL/source arrays and combined RHS budgets are "
@@ -808,6 +915,9 @@ def run(resolutions: tuple[int, ...], r_max: float, epsilons: tuple[float, ...])
             "manufactured_probe_negative_controls_nontrivial": probe_passed,
             "combined_discrete_budget_reported": combined_budget_reported,
             "combined_budget_tangents_reported": combined_budget_tangents_reported,
+            "matched_total_t_witness_reported": matched_total_t_witness_reported,
+            "matched_total_t_state_hashes_match": matched_total_t_state_hashes_match,
+            "matched_total_t_profiles_finite": matched_total_t_profiles_finite,
             "scalar_sector_kept_separate": True,
             "unsupported_optional_lanes_fail_closed": True,
             "optional_charged_dust_em_supported": False,
@@ -825,12 +935,12 @@ def run(resolutions: tuple[int, ...], r_max: float, epsilons: tuple[float, ...])
             "geometric_source": "Compare the pinned production momentum geometric source with an independently computed 1/2 sqrt(-g) T^{ab} partial_r g_ab contraction.",
             "hll_flux": "Record actual pinned per-species HLL face fluxes and compare them with face reconstruction of cell-projected radial stress. Differences characterize the operator pair; no exact face equality is presumed for the dissipative HLL scheme.",
             "interaction_source": "Compare actual pinned dark-matter q_s with sqrt(-g) Q_r only under the explicitly conditional covector premise. Preserve any mismatch; do not change production source terms in this diagnostic.",
-            "cross_sector_interpretation": "Per-species HLL/source budgets describe the fluid evolution operator only. S/D/phi stress projections are recorded separately, but their scalar RHS is not assembled here into a matching full covariant stress-divergence/source budget. Consequently, these results cannot by themselves close the total-T witness.",
+            "cross_sector_interpretation": "Per-species HLL/source budgets and the existing total-T directional/control audit are recorded against the same in-memory frozen base state and matching epsilon values, with an asserted shared state digest. This makes their provenance and directional records pairable. S/D/phi stress projections remain separate; their scalar RHS is not independently assembled here into a complete covariant stress-divergence/source budget, so full cross-sector reconciliation and total-T closure remain incomplete.",
             "optional_em_scope": "Optional charged-dust and radial-Maxwell states are rejected before projection/capture because the Lorentz source and EM stress projection are outside the current witness.",
             "limits": [
                 "This is a frozen-state RHS-component readout; no finite production timestep is advanced.",
-                "The scalar-field spatial operator remains separate from the fluid HLL operator.",
-                "It does not close the total stress-energy divergence or accept the physical exchange law.",
+                "The scalar-field spatial operator remains separate from the fluid HLL operator; scalar spatial/source decomposition remains incomplete.",
+                "The paired total-T witness shares the same base-state digest but does not by itself close total stress-energy divergence or accept the physical exchange law.",
             ],
         },
         "resolution_results": rows,
