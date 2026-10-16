@@ -85,3 +85,34 @@ def test_flat_static_anisotropic_stress_matches_independent_radial_identity():
     expected = 0.06 * r + 2.0 * (pr - pt) / r
     assert np.allclose(div_t, 0.0, rtol=0.0, atol=2.0e-12)
     assert np.allclose(div_r, expected, rtol=0.0, atol=2.0e-11)
+
+
+def test_finite_volume_spherical_face_flux_reconstruction_is_exact_for_quadratic_flux():
+    n = 64
+    dr = 0.25
+    r = (np.arange(n, dtype=np.float64) + 0.5) * dr
+    flux = 0.7 * r**2
+    derivative = AUDIT.finite_volume_radial_flux_derivative(flux, dr)
+    expected = 1.4 * r
+    assert np.allclose(derivative, expected, rtol=0.0, atol=2.0e-12)
+
+
+def test_flat_static_isotropic_stress_has_zero_finite_volume_covariant_divergence():
+    n = 128
+    dr = 0.25
+    r = (np.arange(n, dtype=float) + 0.5) * dr
+    alpha = np.ones(n)
+    gamma_rr = np.ones(n)
+    gamma_thth = r**2
+    rho = np.full(n, 2.3)
+    pressure = np.full(n, 0.7)
+    j = _zero(n)
+    zeros = _zero(n)
+    div_t, div_r = AUDIT.covariant_divergence_fv_from_profiles(
+        r, _d1, alpha, gamma_rr, gamma_thth,
+        rho, j, pressure, pressure,
+        zeros, zeros, zeros, zeros, zeros,
+    )
+    assert float(np.max(np.abs(div_t))) < 2.0e-12
+    assert float(np.max(np.abs(div_r))) < 2.0e-11
+
