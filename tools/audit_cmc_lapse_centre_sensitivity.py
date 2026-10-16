@@ -499,16 +499,18 @@ def operator_compatible_cmc_arm(
             (ko_k - float(target_kdot)) / inv,
         )
 
-        # Assemble the PDE matrix via the actual linear stencil action on
-        # each basis vector. This retains the parity ghost at the centre and
-        # the one-sided polynomial rows near the outer boundary.
-        matrix = np.zeros((n, n), dtype=np.float64)
+        # Assemble D1 and D2 matrices independently through the actual
+        # parity-aware stencil action on each basis vector. Keeping the
+        # operators separate lets the roundoff envelope retain their raw
+        # operands even when their outputs nearly cancel in the CMC equation.
+        d1_matrix = np.zeros((n, n), dtype=np.float64)
+        d2_matrix = np.zeros((n, n), dtype=np.float64)
         for j in range(n):
             basis = np.zeros(n, dtype=np.float64)
             basis[j] = 1.0
-            matrix[: n - 1, j] = (
-                d2(basis) + c * d1(basis) - m * basis
-            )[: n - 1]
+            d1_matrix[: n - 1, j] = d1(basis)[: n - 1]
+            d2_matrix[: n - 1, j] = d2(basis)[: n - 1]
+        matrix = d2_matrix + c[:, None] * d1_matrix - np.diag(m)
         matrix[n - 1, :] = 0.0
         matrix[n - 1, n - 1] = 1.0
         rhs_vector = rhs.copy()
@@ -529,24 +531,37 @@ def operator_compatible_cmc_arm(
             "operator-compatible lapse equation LHS",
             d2_alpha + c * d1_alpha - m * alpha,
         )
-        residual = lhs - rhs
-        residual[n - 1] = alpha[n - 1] - 1.0
-        row_scale = (
-            np.abs(d2_alpha) + np.abs(c * d1_alpha)
+        operator_residual = lhs - rhs
+        operator_residual[n - 1] = alpha[n - 1] - 1.0
+        linear_residual = matrix @ alpha - rhs_vector
+        raw_row_scale = (
+            np.abs(d2_matrix) @ np.abs(alpha)
+            + np.abs(c) * (np.abs(d1_matrix) @ np.abs(alpha))
             + np.abs(m * alpha) + np.abs(rhs)
         )
-        row_scale[n - 1] = abs(alpha[n - 1]) + 1.0
-        row_bound = 512.0 * MACHINE_EPS * row_scale
-        ratios = np.divide(
-            np.abs(residual), row_bound,
-            out=np.zeros_like(residual), where=row_bound > 0.0,
+        raw_row_scale[n - 1] = abs(alpha[n - 1]) + 1.0
+        row_bound = 512.0 * MACHINE_EPS * raw_row_scale
+        linear_row_scale = np.abs(matrix) @ np.abs(alpha) + np.abs(rhs_vector)
+        linear_bound = 512.0 * MACHINE_EPS * linear_row_scale
+        operator_ratios = np.divide(
+            np.abs(operator_residual), row_bound,
+            out=np.zeros_like(operator_residual), where=row_bound > 0.0,
         )
-        i_ratio = int(np.argmax(ratios))
-        i_abs = int(np.argmax(np.abs(residual)))
-        if not np.all(np.abs(residual) <= row_bound):
+        linear_ratios = np.divide(
+            np.abs(linear_residual), linear_bound,
+            out=np.zeros_like(linear_residual), where=linear_bound > 0.0,
+        )
+        i_ratio = int(np.argmax(operator_ratios))
+        i_abs = int(np.argmax(np.abs(operator_residual)))
+        i_linear_ratio = int(np.argmax(linear_ratios))
+        if (
+            not np.all(np.abs(operator_residual) <= row_bound)
+            or not np.all(np.abs(linear_residual) <= linear_bound)
+        ):
             raise FloatingPointError(
-                "operator-compatible lapse matrix residual exceeds its local "
-                f"roundoff bound at cell {i_ratio}"
+                "operator-compatible lapse residual exceeds the raw-operand "
+                f"roundoff envelope; operator cell={i_ratio}, "
+                f"linear cell={i_linear_ratio}"
             )
 
         diagnostic_state = with_lapse_profile(state, alpha)
@@ -577,15 +592,22 @@ def operator_compatible_cmc_arm(
             ),
             "target_Kdot_from_existing_CMC_projection": float(target_kdot),
             "matrix_residual": {
-                "max_abs": float(np.max(np.abs(residual))),
-                "max_abs_cell": i_abs,
-                "max_abs_cell_radius": float(r[i_abs]),
-                "max_local_scaled_ratio": float(np.max(ratios)),
-                "worst_ratio_cell": i_ratio,
-                "worst_ratio_radius": float(r[i_ratio]),
-                "bound_all_rows_pass": bool(np.all(np.abs(residual) <= row_bound)),
+                "operator_max_abs": float(np.max(np.abs(operator_residual))),
+                "operator_max_abs_cell": i_abs,
+                "operator_max_abs_cell_radius": float(r[i_abs]),
+                "operator_max_local_scaled_ratio": float(np.max(operator_ratios)),
+                "operator_worst_ratio_cell": i_ratio,
+                "operator_worst_ratio_radius": float(r[i_ratio]),
+                "linear_solve_max_abs": float(np.max(np.abs(linear_residual))),
+                "linear_solve_max_local_scaled_ratio": float(np.max(linear_ratios)),
+                "linear_solve_worst_ratio_cell": i_linear_ratio,
+                "bound_all_rows_pass": bool(
+                    np.all(np.abs(operator_residual) <= row_bound)
+                    and np.all(np.abs(linear_residual) <= linear_bound)
+                ),
                 "pde_rows_count": int(n - 1),
-                "outer_normalization_residual": float(residual[n - 1]),
+                "outer_normalization_residual": float(operator_residual[n - 1]),
+                "roundoff_scale": "512*eps times the sum of absolute D2/D1 matrix operands, potential term, and RHS; linear solve checked separately",
             },
             "lapse": {
                 "minimum": float(np.min(alpha)),
