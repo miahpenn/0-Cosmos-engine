@@ -209,6 +209,42 @@ def independent_total_projections(state) -> dict[str, np.ndarray]:
     }
 
 
+def spherical_flux_face_values(values: np.ndarray, dr: float) -> np.ndarray:
+    """Reconstruct spherical integrated fluxes from cell centers to faces.
+
+    Four cell-center values define a cubic interpolant at each face. The
+    inner face is exactly zero because a regular spherical integrated radial
+    flux carries the r^2 area factor. The outer face is a one-sided cubic
+    extrapolation. This is a diagnostic reconstruction of the already
+    projected total flux, not the production per-species HLL face flux.
+    """
+    flux = finite("finite-volume cell-centered flux", values)
+    if flux.ndim != 1 or flux.size < 4:
+        raise ValueError("finite-volume face reconstruction requires n>=4")
+    if not math.isfinite(float(dr)) or float(dr) <= 0.0:
+        raise ValueError("finite-volume dr must be positive and finite")
+    n = flux.size
+    faces = np.zeros(n + 1, dtype=np.float64)
+    # Uniform spherical-cell centers are x_i=(i+1/2)dr; face j is x=j*dr.
+    for j in range(1, n + 1):
+        start = min(max(j - 2, 0), n - 4)
+        nodes = np.arange(start, start + 4, dtype=np.float64) + 0.5
+        target = float(j)
+        weights = np.ones(4, dtype=np.float64)
+        for k in range(4):
+            for ell in range(4):
+                if ell != k:
+                    weights[k] *= (target - nodes[ell]) / (nodes[k] - nodes[ell])
+        faces[j] = float(weights @ flux[start:start + 4])
+    return finite("finite-volume face flux", faces)
+
+
+def finite_volume_radial_flux_derivative(values: np.ndarray, dr: float) -> np.ndarray:
+    """Cellwise derivative from telescoping reconstructed spherical face fluxes."""
+    faces = spherical_flux_face_values(values, dr)
+    return finite("finite-volume radial flux derivative", np.diff(faces) / float(dr))
+
+
 def covariant_divergence_from_profiles(
     r: np.ndarray,
     d1_fn: Callable[[np.ndarray, int], np.ndarray],
@@ -276,6 +312,85 @@ def covariant_divergence_from_profiles(
     div_r = finite(
         "covariant radial-component divergence",
         (finite("dt sqrt(-g) T^t_r", dt_density_r) + radial_flux_r) / denom + source_r,
+    )
+    return div_t, div_r
+
+
+def covariant_divergence_fv_from_profiles(
+    r: np.ndarray,
+    d1_fn: Callable[[np.ndarray, int], np.ndarray],
+    alpha: np.ndarray,
+    gamma_rr: np.ndarray,
+    gamma_thth: np.ndarray,
+    rho: np.ndarray,
+    j: np.ndarray,
+    pr: np.ndarray,
+    pt: np.ndarray,
+    dt_density_t: np.ndarray,
+    dt_density_r: np.ndarray,
+    dt_gtt: np.ndarray,
+    dt_gamma_rr: np.ndarray,
+    dt_gamma_thth: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Covariant divergence with finite-volume radial flux differences.
+
+    The time tangent and metric-source terms match the cell-centered
+    derivative observer. Only the radial flux derivative changes: the same
+    projected total-T flux is reconstructed to spherical faces with a cubic
+    interpolant and differenced conservatively across each cell. This isolates
+    spatial flux-discretization sensitivity; it is not the production HLL flux.
+    """
+    r = finite("finite-volume divergence radii", r)
+    if r.ndim != 1 or r.size < 4:
+        raise ValueError("finite-volume divergence requires n>=4")
+    spacing = np.diff(r)
+    if not np.all(np.isfinite(spacing)) or np.any(spacing <= 0.0):
+        raise ValueError("finite-volume radii must be increasing and finite")
+    dr = float(spacing[0])
+    if not np.allclose(spacing, dr, rtol=5.0e-13, atol=5.0e-15):
+        raise ValueError("finite-volume divergence requires a uniform grid")
+    if not math.isclose(float(r[0]), 0.5 * dr, rel_tol=5.0e-12, abs_tol=5.0e-14):
+        raise ValueError("finite-volume spherical grid must have first center dr/2")
+
+    alpha = finite("finite-volume lapse", alpha)
+    grr = finite("finite-volume gamma_rr", gamma_rr)
+    gth = finite("finite-volume gamma_thth", gamma_thth)
+    E = finite("finite-volume Eulerian rho", rho)
+    j = finite("finite-volume radial current", j)
+    pr = finite("finite-volume radial pressure", pr)
+    pt = finite("finite-volume tangential pressure", pt)
+    sqrt_gamma = np.sqrt(grr) * gth
+    sqrt_minus_g = alpha * sqrt_gamma
+    if np.any(alpha <= 0.0) or np.any(grr <= 0.0) or np.any(gth <= 0.0):
+        raise ValueError("finite-volume divergence requires positive lapse and spatial metric")
+
+    Ttt = E / (alpha**2)
+    Trr = pr / grr
+    Tthth = pt / gth
+    flux_t = -(alpha**2) * sqrt_gamma * (j / grr)
+    flux_r = alpha * sqrt_gamma * pr
+    radial_flux_t = finite_volume_radial_flux_derivative(flux_t, dr)
+    radial_flux_r = finite_volume_radial_flux_derivative(flux_r, dr)
+
+    source_t = -0.5 * (
+        Ttt * finite("FV dt g_tt", dt_gtt)
+        + Trr * finite("FV dt gamma_rr", dt_gamma_rr)
+        + 2.0 * Tthth * finite("FV dt gamma_thth", dt_gamma_thth)
+    )
+    gtt_r = d1_fn(-(alpha**2), +1)
+    grr_r = d1_fn(grr, +1)
+    gth_r = d1_fn(gth, +1)
+    source_r = -0.5 * (
+        Ttt * gtt_r + Trr * grr_r + 2.0 * Tthth * gth_r
+    )
+    denom = finite("finite-volume sqrt(-g) denominator", sqrt_minus_g)
+    div_t = finite(
+        "finite-volume covariant time-component divergence",
+        (finite("FV dt sqrt(-g) T^t_t", dt_density_t) + radial_flux_t) / denom + source_t,
+    )
+    div_r = finite(
+        "finite-volume covariant radial-component divergence",
+        (finite("FV dt sqrt(-g) T^t_r", dt_density_r) + radial_flux_r) / denom + source_r,
     )
     return div_t, div_r
 
@@ -355,12 +470,25 @@ def divergence_tangent(kernel, state, rates, epsilon: float) -> dict[str, Any]:
         base["rho"], base["j"], base["pr"], base["pt"],
         time_density_t, time_density_r, dt_gtt, dt_grr, dt_gth,
     )
+    div_t_fv, div_r_fv = covariant_divergence_fv_from_profiles(
+        state.grid.centers, d1_fn,
+        base["alpha"], base["gamma_rr"], base["gamma_thth"],
+        base["rho"], base["j"], base["pr"], base["pt"],
+        time_density_t, time_density_r, dt_gtt, dt_grr, dt_gth,
+    )
     return {
         "epsilon": float(epsilon),
         "div_T_t": div_t,
         "div_T_r": div_r,
+        "div_T_t_fv": div_t_fv,
+        "div_T_r_fv": div_r_fv,
         "div_T_t_summary": summarize(div_t, state.grid.centers),
         "div_T_r_summary": summarize(div_r, state.grid.centers),
+        "div_T_t_fv_summary": summarize(div_t_fv, state.grid.centers),
+        "div_T_r_fv_summary": summarize(div_r_fv, state.grid.centers),
+        "fv_minus_cell_centered_div_T_t_summary": summarize(div_t_fv - div_t, state.grid.centers),
+        "fv_minus_cell_centered_div_T_r_summary": summarize(div_r_fv - div_r, state.grid.centers),
+        "fv_face_flux_method": "four-point cubic cell-center-to-face reconstruction; zero inner spherical flux; outer cubic extrapolation",
         "projection_crosscheck": base["projection_crosscheck"],
         "projection_crosscheck_passed": base["projection_crosscheck_passed"],
         "time_derivative_witnesses": {
@@ -493,15 +621,15 @@ def audit_case(kernel, state, coupling: float, epsilons: tuple[float, float]) ->
         "projection_crosscheck_passed": bool(projections_ok),
         "all_profiles_finite": bool(finite_ok),
         "epsilon_rows": [
-            {key: value for key, value in row.items() if key not in ("div_T_t", "div_T_r")}
+            {key: value for key, value in row.items() if key not in ("div_T_t", "div_T_r", "div_T_t_fv", "div_T_r_fv")}
             for row in tangent_rows
         ],
         "conditional_rest_source_epsilon_rows": [
-            {key: value for key, value in row.items() if key not in ("div_T_t", "div_T_r")}
+            {key: value for key, value in row.items() if key not in ("div_T_t", "div_T_r", "div_T_t_fv", "div_T_r_fv")}
             for row in conditional_source_tangent_rows
         ],
         "joint_conditional_source_epsilon_rows": [
-            {key: value for key, value in row.items() if key not in ("div_T_t", "div_T_r")}
+            {key: value for key, value in row.items() if key not in ("div_T_t", "div_T_r", "div_T_t_fv", "div_T_r_fv")}
             for row in joint_source_tangent_rows
         ],
         "conditional_pi_dot_lapse_correction": {
@@ -696,6 +824,24 @@ def audit_resolution(n: int, r_max: float, epsilons: tuple[float, float]) -> dic
             "match_admitted": False,
         },
         "raw_arrays": {
+            "epsilon_0_div_T_t_cell_centered": np.asarray(tangent_rows[0]["div_T_t"]).tolist(),
+            "epsilon_0_div_T_r_cell_centered": np.asarray(tangent_rows[0]["div_T_r"]).tolist(),
+            "epsilon_0_div_T_t_finite_volume": np.asarray(tangent_rows[0]["div_T_t_fv"]).tolist(),
+            "epsilon_0_div_T_r_finite_volume": np.asarray(tangent_rows[0]["div_T_r_fv"]).tolist(),
+            "epsilon_0_div_T_t_fv_minus_cell_centered": (
+                np.asarray(tangent_rows[0]["div_T_t_fv"])
+                - np.asarray(tangent_rows[0]["div_T_t"])
+            ).tolist(),
+            "epsilon_0_div_T_r_fv_minus_cell_centered": (
+                np.asarray(tangent_rows[0]["div_T_r_fv"])
+                - np.asarray(tangent_rows[0]["div_T_r"])
+            ).tolist(),
+            "epsilon_0_conditional_rest_div_T_r_finite_volume": (
+                np.asarray(conditional_source_tangent_rows[0]["div_T_r_fv"])
+            ).tolist(),
+            "epsilon_0_joint_conditional_div_T_r_finite_volume": (
+                np.asarray(joint_source_tangent_rows[0]["div_T_r_fv"])
+            ).tolist(),
             "coupling_increment_Dt_before_rest_source": delta_t.tolist(),
             "coupling_increment_Dt_after_rest_source": delta_t_with_rest_source.tolist(),
             "derived_lapse_factor_defect_Dt": predicted_lapse_defect.tolist(),
