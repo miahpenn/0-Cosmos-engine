@@ -491,9 +491,17 @@ def summarize(values: np.ndarray, r: np.ndarray) -> dict[str, Any]:
     }
 
 
-def divergence_tangent(kernel, state, rates, epsilon: float) -> dict[str, Any]:
-    plus_state = shifted_state(kernel, state, rates, +epsilon)
-    minus_state = shifted_state(kernel, state, rates, -epsilon)
+def divergence_tangent_from_states(
+    state, plus_state, minus_state, epsilon: float
+) -> dict[str, Any]:
+    """Measure the total-T directional witness on an already-created state pair.
+
+    The caller may share these exact plus/minus objects with a second observer,
+    so both operator families use identical perturbed states. This helper only
+    reads the supplied frozen states and does not rebuild or evolve them.
+    """
+    if not math.isfinite(float(epsilon)) or float(epsilon) <= 0.0:
+        raise ValueError("epsilon must be finite and positive")
     assert_supported_baseline_source_scope(plus_state)
     assert_supported_baseline_source_scope(minus_state)
     if np.any(np.asarray(state.geometry.beta) != 0.0):
@@ -502,7 +510,7 @@ def divergence_tangent(kernel, state, rates, epsilon: float) -> dict[str, Any]:
     base = covariant_objects(state)
     plus = covariant_objects(plus_state)
     minus = covariant_objects(minus_state)
-    inv = 1.0 / (2.0 * epsilon)
+    inv = 1.0 / (2.0 * float(epsilon))
     d1_fn = lambda values, parity: d1(state.grid, values, parity)
 
     time_density_t = (plus["density_t"] - minus["density_t"]) * inv
@@ -546,6 +554,12 @@ def divergence_tangent(kernel, state, rates, epsilon: float) -> dict[str, Any]:
         },
     }
 
+
+def divergence_tangent(kernel, state, rates, epsilon: float) -> dict[str, Any]:
+    """Compatibility wrapper that constructs a two-sided pair, then measures it."""
+    plus_state = shifted_state(kernel, state, rates, +epsilon)
+    minus_state = shifted_state(kernel, state, rates, -epsilon)
+    return divergence_tangent_from_states(state, plus_state, minus_state, epsilon)
 
 def conditional_rest_current_source(
     state, rates: dict[str, Any], coupling: float
