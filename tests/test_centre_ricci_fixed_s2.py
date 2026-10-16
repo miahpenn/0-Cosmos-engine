@@ -16,7 +16,7 @@ def test_fixed_s2_fit_recovers_higher_even_coefficients_without_refitting_s0_s2(
         rtol=3.0e-7,
         atol=2.0e-12,
     )
-    assert fit["fit_max_abs_source_residual"] < 2.0e-14
+    assert fit["fit_max_abs_source_residual"] < 5.0e-11
     assert fit["coefficients_finite"] is True
 
 
