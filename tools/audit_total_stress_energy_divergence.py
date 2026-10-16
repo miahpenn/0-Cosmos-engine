@@ -540,6 +540,20 @@ def audit_resolution(n: int, r_max: float, epsilons: tuple[float, float]) -> dic
         np.asarray(coupled["raw_arrays"]["epsilon_0_div_T_r"])
         - np.asarray(uncoupled["raw_arrays"]["epsilon_0_div_T_r"])
     )
+    delta_t_with_rest_source = (
+        np.asarray(coupled["raw_arrays"]["epsilon_0_conditional_rest_source_div_T_t"])
+        - np.asarray(uncoupled["raw_arrays"]["epsilon_0_conditional_rest_source_div_T_t"])
+    )
+    delta_r_with_rest_source = (
+        np.asarray(coupled["raw_arrays"]["epsilon_0_conditional_rest_source_div_T_r"])
+        - np.asarray(uncoupled["raw_arrays"]["epsilon_0_conditional_rest_source_div_T_r"])
+    )
+    delta_t_rest_correction = finite(
+        "change in coupled D_t residual from conditional DM rest source",
+        delta_t_with_rest_source - delta_t,
+    )
+    annulus_before_rest_rms = float(np.sqrt(np.mean(delta_t[annulus] ** 2)))
+    annulus_after_rest_rms = float(np.sqrt(np.mean(delta_t_with_rest_source[annulus] ** 2)))
     # The source-pinned scalar RHS adds beta_dm*rho_dm to Pi_dot, but the
     # covariant Klein-Gordon conversion requires alpha*beta_dm*rho_dm.
     # The fluid side uses Q_t=beta_dm*rho_dm*d_t(phi)=alpha*beta_dm*rho_dm*Pi
@@ -571,6 +585,26 @@ def audit_resolution(n: int, r_max: float, epsilons: tuple[float, float]) -> dic
         "coupling_increment_difference": {
             "div_T_t": summarize(delta_t, state.grid.centers),
             "div_T_r": summarize(delta_r, state.grid.centers),
+        },
+        "conditional_rest_current_source_discriminator": {
+            "premise": "For pressureless dust with nabla_mu T^mu_nu=beta_dm*rho*partial_nu(phi), contraction with u^nu gives nabla_mu(rho*u^mu)=-beta_dm*rho*u^nu*partial_nu(phi).",
+            "production_rest_rhs_has_interaction_source": False,
+            "tested_change": "Add the derived source only to a copied RHS direction for the directional tangent; no production file or state is changed.",
+            "conditional_coupling_increment_Dt_before": summarize(delta_t, state.grid.centers),
+            "conditional_coupling_increment_Dt_after": summarize(delta_t_with_rest_source, state.grid.centers),
+            "conditional_coupling_increment_Dr_before": summarize(delta_r, state.grid.centers),
+            "conditional_coupling_increment_Dr_after": summarize(delta_r_with_rest_source, state.grid.centers),
+            "change_due_to_test_source_Dt": summarize(delta_t_rest_correction, state.grid.centers),
+            "fixed_annulus_2_to_10": {
+                "dt_rms_before": annulus_before_rest_rms,
+                "dt_rms_after": annulus_after_rest_rms,
+                "dt_rms_reduction_factor": float(annulus_before_rest_rms / max(annulus_after_rest_rms, np.finfo(float).tiny)),
+                "conditional_source_reduces_dt_residual": bool(annulus_after_rest_rms < annulus_before_rest_rms),
+                "dr_rms_before": float(np.sqrt(np.mean(delta_r[annulus] ** 2))),
+                "dr_rms_after": float(np.sqrt(np.mean(delta_r_with_rest_source[annulus] ** 2))),
+            },
+            "model_law_accepted": False,
+            "match_admitted": False,
         },
         "lapse_factor_exchange_discriminator": {
             "derived_formula": "(alpha-1)*beta_dm*rho_dm*Pi/KAPPA",
