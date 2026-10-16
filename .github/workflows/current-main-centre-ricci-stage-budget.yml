@@ -3,15 +3,19 @@ name: Diagnostic - source-pinned one-step centre Ricci PIRK stage budget
 on:
   push:
     branches:
-      - diag/ricci-stage-budget-2026-10-15
+      - diag/issue4-fullgrid-matter-l3-2026-10-15
     paths:
       - tools/audit_evolved_centre_ricci_stage_budget.py
+      - tools/audit_current_main_centre_proper_radial_ricci.py
+      - tests/test_research_matter_l3_reconstruction.py
       - .github/workflows/current-main-centre-ricci-stage-budget.yml
       - docs/CURRENT_MAIN_CENTRE_RICCI_HIGHRES_2026-10-15.md
 
   pull_request:
     paths:
       - tools/audit_evolved_centre_ricci_stage_budget.py
+      - tools/audit_current_main_centre_proper_radial_ricci.py
+      - tests/test_research_matter_l3_reconstruction.py
       - .github/workflows/current-main-centre-ricci-stage-budget.yml
       - docs/CURRENT_MAIN_CENTRE_RICCI_HIGHRES_2026-10-15.md
 
@@ -25,15 +29,19 @@ concurrency:
 jobs:
   one-step-stage-budget:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        resolution: [60, 80, 120, 160]
     timeout-minutes: 30
     env:
       PYTHONUNBUFFERED: "1"
-      SOURCE_COMMIT: "285a2ee0c1a3b97cddeb4519d8e749109b115aab"
+      SOURCE_COMMIT: "7f47669a1c0edfafef9fc5f27b2db80840d3f035"
       VENDOR_COMMIT: "d6052d605673ce9d82cdc99b0df79855fa2ea215"
-      STAGE_RESOLUTION: "80"
+      STAGE_RESOLUTION: ${{ matrix.resolution }}
       STAGE_R_MAX: "80.0"
       STAGE_CFL: "0.03"
-      STAGE_OUT: "results/current-main-centre-ricci-stage-budget-N80-2026-10-15"
+      STAGE_OUT: results/current-main-centre-ricci-stage-budget-N${{ matrix.resolution }}-2026-10-16
 
     steps:
       - name: Check out diagnostic branch and pinned vendor
@@ -56,12 +64,17 @@ jobs:
         run: |
           python - <<'PY'
           import json
-          from tools.audit_current_main_centre_proper_radial_ricci import _verify_source_pins
-          print(json.dumps(_verify_source_pins(), indent=2))
+          from tools.audit_evolved_centre_ricci_stage_budget import _verify_stage_source_pins
+          print(json.dumps(_verify_stage_source_pins(), indent=2))
           PY
 
+      - name: Test full-grid matter L3 reconstruction and sign-flip control
+        run: python -m pytest -q tests/test_research_matter_l3_reconstruction.py
+
       - name: Compile stage-budget observer
-        run: python -m py_compile tools/audit_evolved_centre_ricci_stage_budget.py
+        run: |
+          python -m py_compile tools/audit_evolved_centre_ricci_stage_budget.py
+          python -m py_compile tools/audit_current_main_centre_proper_radial_ricci.py
 
       - name: Run one-step signed PIRK stage budget
         run: python tools/audit_evolved_centre_ricci_stage_budget.py
@@ -70,7 +83,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: current-main-centre-ricci-stage-budget-N80-2026-10-15
-          path: results/current-main-centre-ricci-stage-budget-N80-2026-10-15/
+          name: current-main-centre-ricci-stage-budget-N${{ matrix.resolution }}-2026-10-16
+          path: results/current-main-centre-ricci-stage-budget-N${{ matrix.resolution }}-2026-10-16/
           if-no-files-found: warn
           retention-days: 90
