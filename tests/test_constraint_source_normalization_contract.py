@@ -22,11 +22,33 @@ from engine.production_kernel import ProductionState, V55ProductionKernel
 from engine.scalar_system import KAPPA, ScalarFields
 from engine.stress_energy import assemble_total_stress_energy
 from engine.v55_matter import V55MatterState, metric_slice_from_q
-from tools.audit_current_source_momentum_constraint_tangent import (
-    assert_supported_baseline_source_scope,
-    observe_constraint,
-    state_digest,
+# Load the diagnostic under test by its repository path, not by the
+# ambiguous `tools` namespace: CI also checks out a historical production
+# snapshot under source/, which can contain an older module with the same name.
+import importlib.util as _importlib_util
+from pathlib import Path as _Path
+import sys as _sys
+
+_DIAGNOSTIC_AUDIT_PATH = (
+    _Path(__file__).resolve().parents[1]
+    / "tools"
+    / "audit_current_source_momentum_constraint_tangent.py"
 )
+_DIAGNOSTIC_AUDIT_SPEC = _importlib_util.spec_from_file_location(
+    "_diagnostic_current_source_momentum_constraint_tangent",
+    _DIAGNOSTIC_AUDIT_PATH,
+)
+if _DIAGNOSTIC_AUDIT_SPEC is None or _DIAGNOSTIC_AUDIT_SPEC.loader is None:
+    raise ImportError(f"cannot load diagnostic audit: {_DIAGNOSTIC_AUDIT_PATH}")
+_DIAGNOSTIC_AUDIT_MODULE = _importlib_util.module_from_spec(_DIAGNOSTIC_AUDIT_SPEC)
+_sys.modules[_DIAGNOSTIC_AUDIT_SPEC.name] = _DIAGNOSTIC_AUDIT_MODULE
+_DIAGNOSTIC_AUDIT_SPEC.loader.exec_module(_DIAGNOSTIC_AUDIT_MODULE)
+
+assert_supported_baseline_source_scope = (
+    _DIAGNOSTIC_AUDIT_MODULE.assert_supported_baseline_source_scope
+)
+observe_constraint = _DIAGNOSTIC_AUDIT_MODULE.observe_constraint
+state_digest = _DIAGNOSTIC_AUDIT_MODULE.state_digest
 
 
 SECTORS = ("S", "D", "COSMOS_phi", "dark_matter", "baryons", "radiation")
