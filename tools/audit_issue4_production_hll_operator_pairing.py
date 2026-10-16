@@ -138,8 +138,34 @@ def _species_states(state):
     return result
 
 
+def assert_supported_operator_scope(state) -> None:
+    """Fail closed outside the declared DM/baryon/radiation, zero-shift scope.
+
+    The pinned production kernel adds the optional Maxwell Lorentz source
+    outside _species_rhs_components, while the paired total-T projection does
+    not include optional EM stress by default. Capturing the fluid helper alone
+    is therefore insufficient for either charged-dust or EM-enabled states.
+    """
+    matter = getattr(state, "matter", None)
+    charged_dust = getattr(matter, "charged_dust", None)
+    electromagnetic = getattr(state, "electromagnetic", None)
+    if charged_dust is not None or electromagnetic is not None:
+        active = []
+        if charged_dust is not None:
+            active.append("charged_dust")
+        if electromagnetic is not None:
+            active.append("radial Maxwell")
+        raise ValueError(
+            "optional charged-dust/Maxwell state is outside this observer's "
+            "verified scope (" + ", ".join(active) + "); refusing partial RHS "
+            "or total-stress accounting. A separate EM-on observer must capture "
+            "the Maxwell stress projection and Lorentz source."
+        )
+
+
 def operator_snapshot(state, coupling: float, rates: dict[str, Any]) -> dict[str, Any]:
     """Record pinned HLL fluxes and sources plus independent radial contractions."""
+    assert_supported_operator_scope(state)
     if np.any(np.asarray(state.geometry.beta) != 0.0):
         raise ValueError("this production-source witness supports only the native zero-shift slice")
     grid = state.grid
@@ -742,6 +768,23 @@ def run(resolutions: tuple[int, ...], r_max: float, epsilons: tuple[float, ...])
     return {
         "status": "completed_diagnostic_only",
         "title": "Pinned production HLL face-flux and source operator pairing",
+        "scope": {
+            "supported_fluid_species": ["dark_matter", "baryons", "radiation"],
+            "native_shift": 0.0,
+            "optional_charged_dust_supported": False,
+            "optional_radial_maxwell_supported": False,
+            "unsupported_optional_lanes_fail_closed": True,
+            "scalar_stress_sectors": ["S", "D", "phi"],
+            "scalar_spatial_operator_budget_completed": False,
+            "full_cross_sector_total_T_reconciliation_completed": False,
+            "interpretation_boundary": (
+                "Per-species HLL/source arrays and combined RHS budgets are "
+                "constituent-level evolution accounting. S/D/phi stress projections "
+                "remain separate. This observer does not assemble a complete scalar "
+                "stress-divergence/source budget or a closed matter+scalar total-T "
+                "identity; total divergence/source accounting remains open."
+            ),
+        },
         "source_provenance": provenance,
         "configuration": {
             "production_source_commit": SOURCE_COMMIT,
@@ -766,6 +809,10 @@ def run(resolutions: tuple[int, ...], r_max: float, epsilons: tuple[float, ...])
             "combined_discrete_budget_reported": combined_budget_reported,
             "combined_budget_tangents_reported": combined_budget_tangents_reported,
             "scalar_sector_kept_separate": True,
+            "unsupported_optional_lanes_fail_closed": True,
+            "optional_charged_dust_em_supported": False,
+            "scalar_spatial_operator_budget_completed": False,
+            "full_cross_sector_total_T_reconciliation_completed": False,
             "production_steps_advanced": 0,
             "max_abs_independent_geometric_source_gap_over_kappa": max_geom,
             "max_abs_dark_matter_conditional_interaction_source_gap_over_kappa": max_q_gap,
@@ -778,6 +825,8 @@ def run(resolutions: tuple[int, ...], r_max: float, epsilons: tuple[float, ...])
             "geometric_source": "Compare the pinned production momentum geometric source with an independently computed 1/2 sqrt(-g) T^{ab} partial_r g_ab contraction.",
             "hll_flux": "Record actual pinned per-species HLL face fluxes and compare them with face reconstruction of cell-projected radial stress. Differences characterize the operator pair; no exact face equality is presumed for the dissipative HLL scheme.",
             "interaction_source": "Compare actual pinned dark-matter q_s with sqrt(-g) Q_r only under the explicitly conditional covector premise. Preserve any mismatch; do not change production source terms in this diagnostic.",
+            "cross_sector_interpretation": "Per-species HLL/source budgets describe the fluid evolution operator only. S/D/phi stress projections are recorded separately, but their scalar RHS is not assembled here into a matching full covariant stress-divergence/source budget. Consequently, these results cannot by themselves close the total-T witness.",
+            "optional_em_scope": "Optional charged-dust and radial-Maxwell states are rejected before projection/capture because the Lorentz source and EM stress projection are outside the current witness.",
             "limits": [
                 "This is a frozen-state RHS-component readout; no finite production timestep is advanced.",
                 "The scalar-field spatial operator remains separate from the fluid HLL operator.",
