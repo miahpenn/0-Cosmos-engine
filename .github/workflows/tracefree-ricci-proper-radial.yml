@@ -18,7 +18,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: tracefree-ricci-proper-radial-current-main-2026-10-15
+  group: tracefree-ricci-proper-radial-current-main-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: false
 
 jobs:
