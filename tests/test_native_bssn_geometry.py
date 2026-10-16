@@ -74,7 +74,7 @@ def test_native_geometry_flat_spherical_chart_has_zero_curvature_and_constraints
     )
     geometry = native_bssn_geometry_terms(grid, state)
     constraints = native_bssn_constraints(grid, state)
-    for name in ("R", "Rr_r", "Rtheta_theta", "DrDr_alpha", "lap_alpha"):
+    for name in ("R", "R_metric", "Rr_r", "Rtheta_theta_metric", "DrDr_alpha", "lap_alpha"):
         assert np.max(np.abs(geometry[name])) < 2e-10, name
     for name in ("H", "M", "connection", "determinant"):
         assert np.max(np.abs(constraints[name])) < 2e-10, name
@@ -97,7 +97,7 @@ def test_nonlinear_areal_chart_flat_metric_and_lapse_match_analytic_geometry(n):
 
     assert np.max(np.abs(geometry["R"][mask])) < 2e-7
     assert np.max(np.abs(geometry["Rr_r"][mask])) < 2e-7
-    assert np.max(np.abs(geometry["Rtheta_theta"][mask])) < 2e-7
+    assert np.max(np.abs(geometry["Rtheta_theta_metric"][mask])) < 2e-7
     np.testing.assert_allclose(
         geometry["DrDr_alpha"][mask],
         2.0 * q + 12.0 * s * R[mask]**2,
@@ -156,8 +156,12 @@ def test_connection_offset_correction_sign_matches_derived_identity():
         grid.cell_derivative_fourth(delta, parity=-1)
         + 0.5 * (da / base.a) * delta
     )
-    expected_theta = -base.X**2 * delta * (
-        1.0 / grid.centers + 0.5 * db / base.b
+    expected_scalar = base.X**2 * grid.cell_derivative_fourth(delta, parity=-1)
+    np.testing.assert_allclose(
+        (actual["R"] - reference["R"])[mask],
+        expected_scalar[mask],
+        rtol=2e-11,
+        atol=2e-12,
     )
     np.testing.assert_allclose(
         (actual["Rr_r"] - reference["Rr_r"])[mask],
@@ -165,15 +169,11 @@ def test_connection_offset_correction_sign_matches_derived_identity():
         rtol=2e-11,
         atol=2e-12,
     )
-    np.testing.assert_allclose(
-        (actual["Rtheta_theta"] - reference["Rtheta_theta"])[mask],
-        expected_theta[mask],
-        rtol=2e-11,
-        atol=2e-12,
-    )
     assert np.max(np.abs(expected_rr[mask])) > 1.0e-4
-    # Wrong-sign control: the correction must not agree with its negation.
+    # Wrong-sign controls: neither correction may agree with its negation.
     assert np.max(np.abs((actual["Rr_r"] - reference["Rr_r"])[mask] + expected_rr[mask])) > 1.0e-4
+    assert np.max(np.abs(expected_scalar[mask])) > 1.0e-4
+    assert np.max(np.abs((actual["R"] - reference["R"])[mask] + expected_scalar[mask])) > 1.0e-4
 
 
 def test_matter_sources_are_explicit_and_do_not_mutate_frozen_state():
