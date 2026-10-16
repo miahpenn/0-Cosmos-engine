@@ -524,25 +524,46 @@ def _species_rhs_components(
     face_flux[0] = 0.0
 
     for i in range(n - 1):
-        m0, m1 = metrics[i], metrics[i + 1]
-        mf = SphericalMetric(
-            alpha=0.5 * (m0.alpha + m1.alpha),
-            beta=0.5 * (m0.beta + m1.beta),
-            gamma_rr=0.5 * (m0.gamma_rr + m1.gamma_rr),
-            gamma_rr_inv=0.5 * (m0.gamma_rr_inv + m1.gamma_rr_inv),
-            gamma_thth=0.5 * (m0.gamma_thth + m1.gamma_thth),
-            gamma_thth_inv=0.5 * (m0.gamma_thth_inv + m1.gamma_thth_inv),
-            sqrt_gamma=0.5 * (m0.sqrt_gamma + m1.sqrt_gamma),
+        # The interface lies at the midpoint in coordinate radius, not at the
+        # arithmetic mean of cell-centred derived metric coefficients. Build
+        # the complete face metric from interpolated primary BSSN fields at
+        # that radius so sqrt(gamma) carries the correct spherical face area.
+        r_face = 0.5 * (float(metric.r[i]) + float(metric.r[i + 1]))
+        a_face = 0.5 * (float(metric.a[i]) + float(metric.a[i + 1]))
+        b_face = 0.5 * (float(metric.b[i]) + float(metric.b[i + 1]))
+        X_face = 0.5 * (float(metric.X[i]) + float(metric.X[i + 1]))
+        alpha_face = 0.5 * (float(metric.alpha[i]) + float(metric.alpha[i + 1]))
+        beta_face = 0.5 * (float(metric.beta[i]) + float(metric.beta[i + 1]))
+        mf = spherical_metric_from_bssn(
+            r_face, a_face, b_face, X_face, alpha_face, beta_face
         )
         ql = _reconstructed_primitive(prim, i, "right", mf.gamma_rr)
         qr = _reconstructed_primitive(prim, i + 1, "left", mf.gamma_rr)
         face_flux[i + 1] = _hll_flux(mf, ql, qr, species)
 
+    # The outer interface also lies half a cell beyond the last centre.
+    # Extrapolate the primary fields to that face and evaluate the derived
+    # spherical metric there; a one-cell diagnostic slice has no spacing from
+    # which to infer a distinct face radius, so retain its historical fallback.
+    if n > 1:
+        dr = float(metric.r[1] - metric.r[0])
+        r_outer = float(metric.r[-1]) + 0.5 * dr
+        outer_metric = spherical_metric_from_bssn(
+            r_outer,
+            float(metric.a[-1]),
+            float(metric.b[-1]),
+            float(metric.X[-1]),
+            float(metric.alpha[-1]),
+            float(metric.beta[-1]),
+        )
+    else:
+        outer_metric = metrics[-1]
+
     # Preserve radiation's exact zero-rest-current outer-face representation.
     if species is Species.RADIATION:
-        face_flux[-1] = _radiation_flux(metrics[-1], prim[-1])
+        face_flux[-1] = _radiation_flux(outer_metric, prim[-1])
     else:
-        face_flux[-1] = _valencia_flux(metrics[-1], prim[-1])
+        face_flux[-1] = _valencia_flux(outer_metric, prim[-1])
 
     source_e_diag = np.zeros(n, dtype=float)
     source_s_diag = np.zeros(n, dtype=float)
