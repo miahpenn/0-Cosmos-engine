@@ -314,6 +314,16 @@ def test_hll_and_total_t_witness_share_exact_epsilon_state_pair():
                             np.finfo(np.float64).tiny,
                         )
                     )),
+                    "max_gap_index": int(np.argmax(np.abs(np.asarray(channel["sum_minus_total"], dtype=np.float64)))),
+                    "value_at_max_gap": {
+                        "sum_of_sectors": float(sum_values[int(np.argmax(np.abs(np.asarray(channel["sum_minus_total"], dtype=np.float64))))]),
+                        "total": float(total_values[int(np.argmax(np.abs(np.asarray(channel["sum_minus_total"], dtype=np.float64))))]),
+                        "gap": float(np.asarray(channel["sum_minus_total"], dtype=np.float64)[int(np.argmax(np.abs(np.asarray(channel["sum_minus_total"], dtype=np.float64))))]),
+                        "sector_terms": {
+                            name: float(np.asarray(sector["raw_signed_arrays"][channel_name], dtype=np.float64)[int(np.argmax(np.abs(np.asarray(channel["sum_minus_total"], dtype=np.float64))))])
+                            for name, sector in decomposition["sectors"].items()
+                        },
+                    },
                 }
             print("SECTOR_RECON_DEBUG=", reconstruction_debug, flush=True)
             assert decomposition["reconstruction"]["all_sectors_reconstruct_total"] is True, reconstruction_debug
