@@ -10,6 +10,12 @@ on:
       - "tools/momentum_constraint_chain_rule.py"
       - "tests/test_research_momentum_constraint_chain_rule.py"
       - "tools/manufactured_momentum_tangent_audit.py"
+      - "tools/audit_centre_ricci_fixed_s2.py"
+      - "tools/audit_manufactured_regular_ricci_oracle.py"
+      - "tools/audit_origin_integral_quadrature.py"
+      - "tests/test_centre_ricci_fixed_s2.py"
+      - "tests/test_manufactured_regular_ricci_oracle.py"
+      - "tests/test_origin_integral_quadrature.py"
       - ".github/workflows/current-main-momentum-tangent-budget.yml"
   workflow_dispatch:
 
