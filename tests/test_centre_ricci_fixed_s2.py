@@ -1,6 +1,10 @@
 import numpy as np
 
-from tools.audit_centre_ricci_fixed_s2 import _fixed_s2_fit, _moment_from_fit
+from tools.audit_centre_ricci_fixed_s2 import (
+    _fixed_s2_fit,
+    _fitted_even_polynomial,
+    _moment_from_fit,
+)
 
 
 def test_fixed_s2_fit_recovers_higher_even_coefficients_without_refitting_s0_s2():
@@ -45,3 +49,23 @@ def test_fixed_s2_fit_requires_sufficient_cells():
         pass
     else:
         raise AssertionError("under-sampled constrained fit must fail closed")
+
+
+def test_degree5_comparison_retains_s10_and_integrates_all_six_even_coefficients():
+    r = (np.arange(64, dtype=float) + 0.5) * 0.125
+    r_fit = 3.5
+    coefficients = np.array([1.0, -2.0e-4, 1.0e-5, -3.0e-7, 1.0e-8, -2.0e-7])
+    source = sum(value * r ** (2 * power) for power, value in enumerate(coefficients))
+
+    fit = _fitted_even_polynomial(source, r, float(r[0]), r_fit, degree=5)
+    assert fit["coefficient_names"] == ["s0", "s2", "s4", "s6", "s8", "s10"]
+    assert len(fit["coefficients_even_powers"]) == 6
+    np.testing.assert_allclose(fit["coefficients_even_powers"], coefficients, rtol=1.0e-5, atol=5.0e-12)
+
+    r0 = 1.0
+    moment, meta = _moment_from_fit(fit, r0, "fitted")
+    exact = sum(value * r0 ** (2 * power + 1) / (2 * power + 1)
+                for power, value in enumerate(coefficients))
+    assert abs(moment - exact) < 1.0e-11
+    assert meta["integrated_coefficient_names"][-1] == "s10"
+    assert len(meta["integrated_coefficients_even_powers"]) == 6
