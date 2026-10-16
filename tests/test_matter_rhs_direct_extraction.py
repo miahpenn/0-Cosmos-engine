@@ -215,8 +215,10 @@ def test_flat_homogeneous_radiation_pressure_flux_uses_true_face_area():
     assert face_flux[1, 2] == pytest.approx(
         expected_face_pressure_flux, rel=2.0e-14, abs=0.0
     )
-    rhs_cell0 = -(face_flux[1, 2] - face_flux[0, 2]) + source_s[0]
-    assert rhs_cell0 == pytest.approx(0.0, abs=5.0e-15)
+    rhs = -(face_flux[1:, 2] - face_flux[:-1, 2]) + source_s
+    np.testing.assert_allclose(rhs, np.zeros(3), rtol=0.0, atol=5.0e-15)
+    # The outer boundary at r=3 also carries the true spherical area.
+    assert face_flux[-1, 2] == pytest.approx(9.0 / 3.0, rel=2.0e-14, abs=0.0)
 
 
 def test_nontrivial_metric_radiation_flux_uses_interpolated_face_fields():
