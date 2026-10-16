@@ -55,7 +55,7 @@ jobs:
           python tools/audit_constraint_satisfied_homogeneous_control.py \
             --resolutions 60 80 120 160 \
             --r-max 80.0 \
-            --epsilons 2e-5 1e-5 \
+            --epsilons 2e-4 1e-4 \
             --dt 0.015 \
             --output artifacts/issue4-homogeneous-control/report.json
           sha256sum artifacts/issue4-homogeneous-control/report.json \
