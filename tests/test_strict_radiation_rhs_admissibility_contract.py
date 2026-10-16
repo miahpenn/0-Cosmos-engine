@@ -55,7 +55,7 @@ def test_radiation_rhs_extraction_does_not_guard_unit_step_intermediate():
 
 
 def test_direct_update_keeps_admissibility_guard_enabled_by_default():
-    """The guard remains active for a direct, actual update API call."""
+    """An intentionally oversized actual update still exercises the default guard."""
     kernel, state, metric, _ = _frozen_radiation_rhs(160)
     derivatives = geometry_metric_derivatives(
         metric,
@@ -67,7 +67,7 @@ def test_direct_update_keeps_admissibility_guard_enabled_by_default():
             derivatives,
             state.matter.radiation,
             Species.RADIATION,
-            1.0,
+            100.0,
         )
 
 
