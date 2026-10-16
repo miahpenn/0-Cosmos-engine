@@ -83,6 +83,19 @@ def test_fourth_order_derivatives_reproduce_regular_polynomials(parity):
     )
 
 
+def test_fourth_order_second_derivative_has_fourth_order_outer_closure():
+    errors = []
+    for n in (32, 64, 128):
+        grid = NativeSphericalCellGrid(n, 1.0)
+        r = grid.centers
+        # sin(r) is a smooth odd manufactured profile with analytic u''=-sin(r).
+        actual = grid.cell_second_derivative_fourth(np.sin(r), parity=-1)
+        errors.append(float(np.max(np.abs(actual[-2:] + np.sin(r[-2:])))))
+
+    observed_order = np.log2(np.asarray(errors[:-1]) / np.asarray(errors[1:]))
+    assert np.all(observed_order > 3.8), f"outer-cell observed orders: {observed_order}"
+
+
 @pytest.mark.parametrize("n,r_max", [(7, 8.0), (16, 40.0), (37, 19.0)])
 @pytest.mark.parametrize("parity", [-1, 1])
 def test_face_operators_match_pinned_grid_and_preserve_fv_identity(
@@ -150,3 +163,5 @@ def test_native_grid_rejects_invalid_resolution_shapes_and_parity():
         grid.cell_derivative_fourth(np.ones(8), parity=0)
     with pytest.raises(ValueError, match="at least five"):
         NativeSphericalCellGrid(4, 10.0).cell_derivative_fourth(np.ones(4), parity=1)
+    with pytest.raises(ValueError, match="at least six"):
+        NativeSphericalCellGrid(5, 10.0).cell_second_derivative_fourth(np.ones(5), parity=1)
