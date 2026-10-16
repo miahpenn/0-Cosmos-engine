@@ -21,11 +21,11 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-SOURCE_COMMIT = "7f47669a1c0edfafef9fc5f27b2db80840d3f035"
+SOURCE_COMMIT = "285a2ee0c1a3b97cddeb4519d8e749109b115aab"
 VENDOR_COMMIT = "d6052d605673ce9d82cdc99b0df79855fa2ea215"
 SOURCE_BLOBS = {
     "engine/production_kernel.py": "9685e76bb5a6f26d6bf383e240de24f37523f265",
-    "engine/matter_system.py": "e52a117690253ddad7b24d116145a65474a351d2",
+    "engine/matter_system.py": "05e23d2368120ea8a1a6aad3fa438625d5380750",
     "engine/matter_rhs.py": "f41180efbcff2c72cf36477a765318ab539fac80",
     "engine/scalar_system.py": "ffc119b1a6f2d495d972323901f76a85783b0a1b",
     "engine/v55_matter.py": "0ee3c51fac7dc46c63feba2747a750542bcee3d0",
