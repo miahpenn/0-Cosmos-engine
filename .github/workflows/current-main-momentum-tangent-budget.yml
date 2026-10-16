@@ -99,7 +99,7 @@ jobs:
         continue-on-error: true
         run: |
           mkdir -p results/primary-l3-matter-closure
-          COSMOS_PINNED_SOURCE_ROOT="$GITHUB_WORKSPACE/source" python tools/audit_primary_l3_matter_closure.py \\
+          COSMOS_PINNED_SOURCE_ROOT="$GITHUB_WORKSPACE/source" python tools/audit_primary_l3_matter_closure.py \
             --resolutions 40 60 80 120 160 \\
             --r-max 80 \\
             --output-dir results/primary-l3-matter-closure
@@ -120,7 +120,7 @@ jobs:
           if-no-files-found: warn
           retention-days: 90
 
-      - name: Require both diagnostic executions to complete
+      - name: Require all diagnostic executions to complete
         if: always()
         shell: bash
         env:
