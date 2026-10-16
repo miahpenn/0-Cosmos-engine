@@ -8,7 +8,7 @@ into its geometric constraint term and six independently projected current
 sectors. A single small ordinary step and half-step are used only as a local
 tangent consistency check.
 
-A passing arithmetic closure is not physical/scientific admission.
+The analytic geometric chain rule cross-checks the finite-difference tangent.\nA passing arithmetic closure is not physical/scientific admission.
 """
 from __future__ import annotations
 
@@ -37,6 +37,7 @@ from engine.matter_system import ConservedSpecies, Species, project_species
 from engine.v55_matter import V55MatterState, metric_slice_from_q
 from engine.stress_energy import assemble_total_stress_energy
 from engine import v55_pirk_adapter as adapter
+from tools.momentum_constraint_chain_rule import analytic_geometric_momentum_tangent
 
 
 SCHEMA = "current_source_signed_momentum_constraint_tangent_v1"
@@ -606,6 +607,113 @@ def audit_resolution(
         tangent_for_epsilon(kernel, state, rates, eps)
         for eps in epsilons
     ]
+
+    # Independent analytic chain rule for the exact pinned discrete M_geom.
+    # This is deliberately separate from the continuum/Brown propagation oracle.
+    chain_rule = analytic_geometric_momentum_tangent(
+        lambda values: state.grid.cell_derivative_fourth(values, parity=1),
+        r,
+        state.geometry.Aa,
+        state.geometry.K,
+        state.geometry.b,
+        state.geometry.X,
+        rates["geometry"]["Aa"],
+        rates["geometry"]["K"],
+        rates["geometry"]["b"],
+        rates["geometry"]["X"],
+    )
+    geom_fd_epsilon_delta = np.abs(
+        tangent_results[0]["Mdot_geom"] - tangent_results[1]["Mdot_geom"]
+    )
+    chain_rule_checks = []
+    for item in tangent_results:
+        difference = finite(
+            "analytic-vs-directional geometric tangent difference",
+            item["Mdot_geom"] - chain_rule["total"],
+        )
+        # The roundoff term is operand-scaled. The second term is a predeclared
+        # conservative envelope for the observed central-difference epsilon
+        # sensitivity; this is an algebraic cross-check, not a continuum-error bound.
+        roundoff_bound = 4.0 * item["Mdot_geom_tangent_closure_bound"]
+        truncation_bound = 4.0 * geom_fd_epsilon_delta
+        bound = finite(
+            "analytic tangent cross-check bound", roundoff_bound + truncation_bound
+        )
+        scaled = np.divide(
+            np.abs(difference), bound,
+            out=np.full_like(difference, np.inf), where=bound > 0.0,
+        )
+        chain_rule_checks.append({
+            "epsilon": float(item["epsilon"]),
+            "max_abs_difference": float(np.max(np.abs(difference))),
+            "max_bound": float(np.max(bound)),
+            "max_scaled_ratio": float(np.max(scaled)),
+            "ok": bool(np.all(np.abs(difference) <= bound)),
+            "_difference": difference,
+            "_bound": bound,
+        })
+
+    # Negative control: deliberately flip the sign of the largest analytic
+    # signed term. Both measured epsilon tangents must reject that mutation.
+    mutated_term = max(
+        chain_rule["terms"],
+        key=lambda name: float(np.max(np.abs(chain_rule["terms"][name]))),
+    )
+    mutated_terms = dict(chain_rule["terms"])
+    mutated_terms[mutated_term] = -mutated_terms[mutated_term]
+    mutated_prediction = np.zeros_like(chain_rule["total"])
+    for values in mutated_terms.values():
+        mutated_prediction = mutated_prediction + values
+    negative_control_records = []
+    for item, check in zip(tangent_results, chain_rule_checks):
+        mutation_difference = finite(
+            "signed-term negative-control difference",
+            item["Mdot_geom"] - mutated_prediction,
+        )
+        detected = bool(np.any(np.abs(mutation_difference) > check["_bound"]))
+        negative_control_records.append({
+            "epsilon": float(item["epsilon"]),
+            "mutated_term": mutated_term,
+            "max_abs_difference": float(np.max(np.abs(mutation_difference))),
+            "max_bound": float(np.max(check["_bound"])),
+            "detected": detected,
+        })
+    chain_rule_ok = all(check["ok"] for check in chain_rule_checks)
+    negative_control_ok = all(record["detected"] for record in negative_control_records)
+    chain_rule_report = {
+        "basis": (
+            "analytic derivative of the pinned discrete M_geom definition, using "
+            "the same fixed parity-aware D1 for fields and RHS rates"
+        ),
+        "Mdot_geom": regional_summaries(chain_rule["total"], r),
+        "terms": {
+            name: rhs_rate_witness(values, r)
+            for name, values in chain_rule["terms"].items()
+        },
+        "chi_r": rhs_rate_witness(chain_rule["chi_r"], r),
+        "dot_chi_r": rhs_rate_witness(chain_rule["dot_chi_r"], r),
+        "finite_difference_crosscheck": [
+            {key: value for key, value in record.items() if not key.startswith("_")}
+            for record in chain_rule_checks
+        ],
+        "crosscheck_envelope": {
+            "roundoff_bound": "4x the existing operand-scaled finite-difference closure bound",
+            "finite_difference_truncation_bound": "4x pointwise difference between the two directional-epsilon Mdot_geom estimates",
+            "scope_limit": "this envelope checks the algebraic tangent only; it is not a continuum propagation error bound"
+        },
+        "signed_term_negative_control": {
+            "mutated_term": mutated_term,
+            "mutation": "flip the selected analytic signed term",
+            "per_epsilon": negative_control_records,
+            "detected_at_both_epsilons": bool(negative_control_ok),
+        },
+        "arithmetic_gate_passed": bool(chain_rule_ok and negative_control_ok),
+    }
+    # Do not leak arrays through the report structure.
+    for record in chain_rule_checks:
+        record.pop("_difference", None)
+        record.pop("_bound", None)
+
     e0, e1 = tangent_results
     eps_difference = e0["Mdot"] - e1["Mdot"]
     step_full = one_step_check(kernel, state, w0["M_total"], e0["Mdot"], dt)
@@ -622,6 +730,8 @@ def audit_resolution(
         w0["J_closure_ok"]
         and w0["M_geom_closure_ok"]
         and rates["Aa_l2_split"]["closure"]["ok"]
+        and chain_rule_ok
+        and negative_control_ok
     )
     return {
         "resolution": int(resolution),
@@ -668,6 +778,7 @@ def audit_resolution(
             "max_abs": float(np.max(w0["J_closure_abs"])),
             "max_bound": float(np.max(w0["J_closure_bound"])),
         },
+        "semi_discrete_chain_rule": chain_rule_report,
         "tangent_by_epsilon": [
             compact_tangent_result(item, r) for item in tangent_results
         ],
