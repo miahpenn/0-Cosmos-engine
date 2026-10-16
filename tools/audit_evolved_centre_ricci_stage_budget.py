@@ -370,7 +370,7 @@ def _measure_stage(grid, geometry, l2_terms: dict[str, np.ndarray]) -> dict:
 def main() -> int:
     if RESOLUTION < 16 or R_MAX <= 10.0 or CFL <= 0.0:
         raise ValueError("invalid stage-budget configuration")
-    provenance = _verify_source_pins()
+    provenance = _verify_stage_source_pins()
 
     from engine.production_kernel import V55ProductionKernel
 
