@@ -639,10 +639,13 @@ def audit_resolution(
         bound = finite(
             "analytic tangent cross-check bound", roundoff_bound + truncation_bound
         )
-        scaled = np.divide(
-            np.abs(difference), bound,
-            out=np.full_like(difference, np.inf), where=bound > 0.0,
+        scaled = np.zeros_like(difference)
+        positive_bound = bound > 0.0
+        scaled[positive_bound] = (
+            np.abs(difference[positive_bound]) / bound[positive_bound]
         )
+        zero_bound_mismatch = (~positive_bound) & (np.abs(difference) > 0.0)
+        scaled[zero_bound_mismatch] = np.inf
         chain_rule_checks.append({
             "epsilon": float(item["epsilon"]),
             "max_abs_difference": float(np.max(np.abs(difference))),
