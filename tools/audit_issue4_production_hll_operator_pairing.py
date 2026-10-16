@@ -625,10 +625,62 @@ def run_resolution(n: int, r_max: float, epsilons: tuple[float, ...]) -> dict[st
                 AUDIT.assert_supported_baseline_source_scope(minus)
                 if AUDIT.state_digest(state) != original_hash:
                     raise RuntimeError("directional shifted-state construction mutated the frozen base")
+                plus_state_sha256 = AUDIT.state_digest(plus)
+                minus_state_sha256 = AUDIT.state_digest(minus)
                 plus_rates = AUDIT.rhs_direction(kernel, plus)
                 minus_rates = AUDIT.rhs_direction(kernel, minus)
                 plus_ops = operator_snapshot(plus, coupling, plus_rates)
                 minus_ops = operator_snapshot(minus, coupling, minus_rates)
+
+                # Compute the existing covariant total-T witness directly from
+                # these exact perturbed objects, not independently reconstructed
+                # copies. That makes the species and total-T arrays a true paired
+                # observation at this base state, coupling, and epsilon.
+                total_t = AUDIT.divergence_tangent_from_states(
+                    state, plus, minus, float(epsilon)
+                )
+                same_state_pair_verified = bool(
+                    AUDIT.state_digest(state) == original_hash
+                    and AUDIT.state_digest(plus) == plus_state_sha256
+                    and AUDIT.state_digest(minus) == minus_state_sha256
+                )
+                if not same_state_pair_verified:
+                    raise RuntimeError(
+                        "shared HLL/total-T directional state pair changed during read-only observation"
+                    )
+                total_t_arrays = {
+                    key: finite(f"paired total-T {key}", total_t[key])
+                    for key in ("div_T_t", "div_T_r", "div_T_t_fv", "div_T_r_fv")
+                }
+                if any(
+                    values.shape != state.grid.centers.shape
+                    for values in total_t_arrays.values()
+                ):
+                    raise ValueError("paired total-T profiles do not match the frozen cell-centre grid")
+                same_state_total_t = {
+                    "state_pairing_verified": same_state_pair_verified,
+                    "pairing_method": (
+                        "same in-memory plus/minus states passed to the HLL/source observer "
+                        "and the existing total-T directional witness"
+                    ),
+                    "base_state_sha256": original_hash,
+                    "plus_state_sha256": plus_state_sha256,
+                    "minus_state_sha256": minus_state_sha256,
+                    "epsilon": float(epsilon),
+                    "raw_signed_arrays": {
+                        key: values.tolist() for key, values in total_t_arrays.items()
+                    },
+                    "div_T_t_summary": total_t["div_T_t_summary"],
+                    "div_T_r_summary": total_t["div_T_r_summary"],
+                    "div_T_t_fv_summary": total_t["div_T_t_fv_summary"],
+                    "div_T_r_fv_summary": total_t["div_T_r_fv_summary"],
+                    "fv_face_flux_method": total_t["fv_face_flux_method"],
+                    "projection_crosscheck_passed": bool(
+                        total_t["projection_crosscheck_passed"]
+                    ),
+                }
+                if not same_state_total_t["projection_crosscheck_passed"]:
+                    raise RuntimeError("paired total-T projection cross-check failed")
                 species_tangent = {}
                 for species_name in base["raw_arrays"]:
                     plus_arrays = plus_ops["raw_arrays"][species_name]
@@ -682,8 +734,9 @@ def run_resolution(n: int, r_max: float, epsilons: tuple[float, ...]) -> dict[st
                         )
                 tangent_witnesses[label][f"epsilon_{epsilon:.8g}"] = {
                     "epsilon": float(epsilon),
-                    "plus_state_sha256": AUDIT.state_digest(plus),
-                    "minus_state_sha256": AUDIT.state_digest(minus),
+                    "plus_state_sha256": plus_state_sha256,
+                    "minus_state_sha256": minus_state_sha256,
+                    "same_state_total_T_directional_witness": same_state_total_t,
                     "species_operator_tangent_summaries": species_tangent,
                     "scalar_sector_projection_tangent_summaries": scalar_tangent,
                     # Keep raw plus/minus source/flux arrays as well as their
@@ -856,12 +909,48 @@ def run(resolutions: tuple[int, ...], r_max: float, epsilons: tuple[float, ...])
         for row in rows
         for item in row.get("matched_total_t_witnesses", {}).values()
     )
+    same_state_epsilon_witness_reported = all(
+        witness.get("same_state_total_T_directional_witness", {}).get(
+            "state_pairing_verified"
+        ) is True
+        and witness["same_state_total_T_directional_witness"].get(
+            "base_state_sha256"
+        ) == row.get("initial_state_sha256")
+        and witness["same_state_total_T_directional_witness"].get(
+            "plus_state_sha256"
+        ) == witness.get("plus_state_sha256")
+        and witness["same_state_total_T_directional_witness"].get(
+            "minus_state_sha256"
+        ) == witness.get("minus_state_sha256")
+        and witness["same_state_total_T_directional_witness"].get(
+            "epsilon"
+        ) == witness.get("epsilon")
+        and witness["same_state_total_T_directional_witness"].get(
+            "projection_crosscheck_passed"
+        ) is True
+        and all(
+            len(witness["same_state_total_T_directional_witness"].get(
+                "raw_signed_arrays", {}
+            ).get(key, [])) == row["resolution"]
+            and np.all(np.isfinite(np.asarray(
+                witness["same_state_total_T_directional_witness"]["raw_signed_arrays"][key],
+                dtype=np.float64,
+            )))
+            for key in ("div_T_t", "div_T_r", "div_T_t_fv", "div_T_r_fv")
+        )
+        for row in rows
+        for epsilon_arms in row["directional_epsilon_witnesses"].values()
+        for witness in epsilon_arms.values()
+    )
     if not (
         matched_total_t_witness_reported
         and matched_total_t_state_hashes_match
         and matched_total_t_profiles_finite
+        and same_state_epsilon_witness_reported
     ):
-        raise RuntimeError("same-state total-T witness, hash match, or finite-array gate failed")
+        raise RuntimeError(
+            "base-state total-T audit or exact plus/minus state-pair witness gate failed"
+        )
     max_geom = max(
         arm["max_abs_geometric_source_gap_over_kappa"]
         for row in rows for arm in row["arms"].values()
