@@ -3,6 +3,7 @@ import numpy as np
 from tools.audit_centre_ricci_fixed_s2 import (
     _fixed_s2_fit,
     _fitted_even_polynomial,
+    _matter_subtracted_constraint_profiles,
     _moment_from_fit,
     _parity_composite_simpson_integral,
 )
@@ -86,3 +87,33 @@ def test_parity_composite_simpson_integrates_even_quadratic_source():
         np.testing.assert_allclose(
             B[:8], s0+(s2/3.0)*r[:8]**2, rtol=0.0, atol=3.0e-14
         )
+
+
+def test_matter_subtracted_constraint_residual_uses_canonical_16pi_rho_and_8pi_j_once():
+    raw = {
+        "hamiltonian": np.array([2.0, 4.0]),
+        "momentum": np.array([3.0, 5.0]),
+    }
+    rho = np.array([1.0, 2.0]) / (16.0 * np.pi)
+    current = np.array([1.0, 3.0]) / (8.0 * np.pi)
+    parts = _matter_subtracted_constraint_profiles(raw, rho, current)
+
+    np.testing.assert_array_equal(parts["matter_hamiltonian_source_16pi_rho"], [1.0, 2.0])
+    np.testing.assert_array_equal(parts["hamiltonian_total_residual"], [1.0, 2.0])
+    np.testing.assert_array_equal(parts["matter_momentum_source_8pi_j"], [1.0, 3.0])
+    np.testing.assert_array_equal(parts["momentum_total_residual"], [2.0, 2.0])
+
+
+def test_matter_subtracted_constraint_residual_fails_closed_on_shape_mismatch():
+    raw = {
+        "hamiltonian": np.array([1.0, 2.0]),
+        "momentum": np.array([1.0, 2.0]),
+    }
+    try:
+        _matter_subtracted_constraint_profiles(
+            raw, np.array([1.0]), np.array([1.0, 2.0])
+        )
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("mismatched matter/constraint profiles must fail closed")
