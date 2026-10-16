@@ -356,6 +356,7 @@ def audit_resolution(resolution: int, r_max: float, epsilons: tuple[float, float
         cell_index = np.arange(r.size)
         region_masks = {
             "centre_first_four_cells": cell_index < min(4, r.size),
+            "fixed_centre_r_le_2": r <= 2.0,
             "fixed_annulus_2_to_8": (r >= 2.0) & (r <= 8.0),
             "fixed_annulus_5_to_10": (r >= 5.0) & (r <= 10.0),
             "interior_r2_to_rmax_minus_4": (r >= 2.0) & (r <= float(r_max) - 4.0),
