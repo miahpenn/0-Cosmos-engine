@@ -177,6 +177,72 @@ def current_pieces(state: ProductionState) -> dict[str, np.ndarray]:
     return {key: finite(f"current {key}", value) for key, value in pieces.items()}
 
 
+def _d1_stencil_operand_scale(grid, values: Any, parity: int = 1) -> np.ndarray:
+    """Pointwise sum of absolute fourth-order D1 stencil operands.
+
+    The derivative output can be tiny by cancellation even when the values
+    entering its stencil are not. Roundoff budgets therefore use this operand
+    scale, not abs(D1(values)) alone.
+    """
+    u = np.asarray(values, dtype=np.float64)
+    if u.ndim != 1 or u.size < 5 or parity not in (-1, 1):
+        raise ValueError("invalid D1 stencil-scale inputs")
+    dr = float(grid.dr)
+    if not math.isfinite(dr) or dr <= 0.0:
+        raise FloatingPointError("D1 stencil-scale grid spacing must be positive")
+    au = np.abs(u)
+    n = u.size
+    extended = np.empty(n + 4, dtype=np.float64)
+    extended[2:-2] = au
+    extended[1] = au[0]
+    extended[0] = au[1]
+    scale = np.empty_like(u)
+    for i in range(n - 2):
+        stencil = extended[i:i + 5]
+        scale[i] = (
+            stencil[0] + 8.0 * stencil[1]
+            + 8.0 * stencil[3] + stencil[4]
+        ) / (12.0 * dr)
+    indices = np.arange(n - 5, n)
+    for i in (n - 2, n - 1):
+        offsets = indices.astype(float) - float(i)
+        matrix = np.vstack([offsets**power for power in range(5)])
+        target = np.zeros(5, dtype=np.float64)
+        target[1] = 1.0
+        weights = np.linalg.solve(matrix, target)
+        scale[i] = float(np.sum(np.abs(weights) * au[indices])) / dr
+    return finite("D1 stencil operand scale", scale)
+
+
+def _geometric_constraint_operand_scale(state: ProductionState) -> np.ndarray:
+    """Estimate roundoff operands for evaluating M_geom at every cell."""
+    grid, geom = state.grid, state.geometry
+    r = np.asarray(grid.centers, dtype=np.float64)
+    aa = np.asarray(geom.Aa, dtype=np.float64)
+    kk = np.asarray(geom.K, dtype=np.float64)
+    bb = np.asarray(geom.b, dtype=np.float64)
+    xx = np.asarray(geom.X, dtype=np.float64)
+    d_aa = grid.cell_derivative_fourth(aa, parity=1)
+    d_kk = grid.cell_derivative_fourth(kk, parity=1)
+    d_bb = grid.cell_derivative_fourth(bb, parity=1)
+    d_xx = grid.cell_derivative_fourth(xx, parity=1)
+    chi_r = -0.5 * d_xx / xx
+    scale = (
+        _d1_stencil_operand_scale(grid, aa)
+        + (2.0 / 3.0) * _d1_stencil_operand_scale(grid, kk)
+        + 3.0 * np.abs(aa / xx) * _d1_stencil_operand_scale(grid, xx)
+        + 1.5 * np.abs(aa / bb) * _d1_stencil_operand_scale(grid, bb)
+    )
+    # Include post-stencil products/divisions and the sums in M_geom itself.
+    scale = scale + (
+        np.abs(d_aa)
+        + (2.0 / 3.0) * np.abs(d_kk)
+        + 6.0 * np.abs(aa * chi_r)
+        + 1.5 * np.abs(aa * (2.0 / r + d_bb / bb))
+    )
+    return finite("geometric constraint roundoff operand scale", scale)
+
+
 def geometric_momentum_pieces(state: ProductionState) -> dict[str, np.ndarray]:
     """Return signed terms from the exact pinned vendor momentum-constraint formula."""
     grid, geom = state.grid, state.geometry
@@ -517,6 +583,11 @@ def tangent_for_epsilon(
         "epsilon": float(epsilon),
         "Mdot": m_dot,
         "Mdot_geom": m_geom_dot,
+        "M_geom_fd_roundoff_operand_scale": finite(
+            "finite-difference M_geom operand scale",
+            _geometric_constraint_operand_scale(plus_state)
+            + _geometric_constraint_operand_scale(minus_state),
+        ),
         "Mdot_geom_terms": geom_term_dots,
         "Mdot_geom_term_reconstructed": geom_term_sum,
         "Mdot_geom_tangent_closure_abs": np.abs(geom_tangent_closure),
@@ -656,13 +727,47 @@ def audit_resolution(
             "analytic-vs-directional geometric tangent difference",
             item["Mdot_geom"] - chain_rule["total"],
         )
-        # The roundoff term is operand-scaled. The second term is a predeclared
-        # conservative envelope for the observed central-difference epsilon
-        # sensitivity; this is an algebraic cross-check, not a continuum-error bound.
-        roundoff_bound = 4.0 * item["Mdot_geom_tangent_closure_bound"]
+        # Bound D1 roundoff from the raw stencil operands, including cases
+        # where D1(field) is near zero due to cancellation. Then add a separately
+        # reported analytic-evaluation roundoff term and an epsilon-halving
+        # truncation estimate. This envelope is for tangent accounting only.
+        fd_roundoff_bound = (
+            64.0 * MACHINE_EPS
+            / (2.0 * float(item["epsilon"]))
+            * item["M_geom_fd_roundoff_operand_scale"]
+        )
+        analytic_operand_scale = (
+            _d1_stencil_operand_scale(state.grid, rates["geometry"]["Aa"])
+            + (2.0 / 3.0) * _d1_stencil_operand_scale(state.grid, rates["geometry"]["K"])
+            + 3.0 * np.abs(state.geometry.Aa / state.geometry.X)
+                * _d1_stencil_operand_scale(state.grid, rates["geometry"]["X"])
+            + 1.5 * np.abs(state.geometry.Aa / state.geometry.b)
+                * _d1_stencil_operand_scale(state.grid, rates["geometry"]["b"])
+            + 3.0 * np.abs(
+                state.geometry.dot_X if hasattr(state.geometry, "dot_X") else rates["geometry"]["X"]
+            ) * 0.0
+        )
+        # Extra sensitivity terms for D1(X) and D1(b) inside the product rule.
+        dot_aa = np.asarray(rates["geometry"]["Aa"], dtype=np.float64)
+        dot_bb = np.asarray(rates["geometry"]["b"], dtype=np.float64)
+        dot_xx = np.asarray(rates["geometry"]["X"], dtype=np.float64)
+        aa = np.asarray(state.geometry.Aa, dtype=np.float64)
+        bb = np.asarray(state.geometry.b, dtype=np.float64)
+        xx = np.asarray(state.geometry.X, dtype=np.float64)
+        analytic_operand_scale = analytic_operand_scale + (
+            3.0 * np.abs(dot_aa / xx) * _d1_stencil_operand_scale(state.grid, state.geometry.X)
+            + 3.0 * np.abs(aa * dot_xx / (xx * xx))
+                * _d1_stencil_operand_scale(state.grid, state.geometry.X)
+            + 1.5 * np.abs(dot_aa / bb) * _d1_stencil_operand_scale(state.grid, state.geometry.b)
+            + 1.5 * np.abs(aa * dot_bb / (bb * bb))
+                * _d1_stencil_operand_scale(state.grid, state.geometry.b)
+            + sum(np.abs(value) for value in chain_rule["terms"].values())
+        )
+        analytic_roundoff_bound = 64.0 * MACHINE_EPS * analytic_operand_scale
         truncation_bound = 4.0 * geom_fd_epsilon_delta
         bound = finite(
-            "analytic tangent cross-check bound", roundoff_bound + truncation_bound
+            "analytic tangent cross-check bound",
+            fd_roundoff_bound + analytic_roundoff_bound + truncation_bound,
         )
         scaled = np.zeros_like(difference)
         positive_bound = bound > 0.0
@@ -671,11 +776,15 @@ def audit_resolution(
         )
         zero_bound_mismatch = (~positive_bound) & (np.abs(difference) > 0.0)
         scaled[zero_bound_mismatch] = np.inf
+        worst_index = int(np.argmax(scaled))
         chain_rule_checks.append({
             "epsilon": float(item["epsilon"]),
             "max_abs_difference": float(np.max(np.abs(difference))),
             "max_bound": float(np.max(bound)),
             "max_scaled_ratio": float(np.max(scaled)),
+            "worst_index": worst_index,
+            "worst_difference": float(difference[worst_index]),
+            "worst_bound": float(bound[worst_index]),
             "ok": bool(np.all(np.abs(difference) <= bound)),
             "_difference": difference,
             "_bound": bound,
@@ -725,7 +834,8 @@ def audit_resolution(
             for record in chain_rule_checks
         ],
         "crosscheck_envelope": {
-            "roundoff_bound": "4x the existing operand-scaled finite-difference closure bound",
+            "finite_difference_roundoff_bound": "64 machine eps times plus/minus M_geom raw D1 stencil operand scales and post-stencil operation scales, divided by the two-sided epsilon",
+            "analytic_roundoff_bound": "64 machine eps times the analytic tangent term and D1 operand scale",
             "finite_difference_truncation_bound": "4x pointwise difference between the two directional-epsilon Mdot_geom estimates",
             "scope_limit": "this envelope checks the algebraic tangent only; it is not a continuum propagation error bound"
         },
