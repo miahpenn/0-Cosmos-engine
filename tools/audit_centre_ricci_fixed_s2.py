@@ -179,14 +179,14 @@ def _fitted_even_polynomial(source: np.ndarray, r: np.ndarray, r0: float,
         keep = np.arange(rr.size) != omitted
         loo_coeff, *_ = np.linalg.lstsq(design[keep], source[mask][keep], rcond=None)
         loo.append(float(source[mask][omitted] - design[omitted] @ loo_coeff))
-    coeff_full = np.zeros(5, dtype=np.float64)
-    coeff_full[:coeff.size] = coeff
+    coefficient_names = [f"s{2 * power}" for power in range(degree + 1)]
     return {
         "method": "unconstrained even-polynomial fit",
         "fit_r_max": float(r_fit),
         "fit_cells": int(rr.size),
         "degree_in_r_squared": int(degree),
-        "coefficients_s0_s2_s4_s6_s8": [float(v) for v in coeff_full],
+        "coefficient_names": coefficient_names,
+        "coefficients_even_powers": [float(v) for v in coeff],
         "fit_max_abs_source_residual": _max_abs(residual),
         "fit_rms_source_residual": float(np.sqrt(np.mean(residual * residual))),
         "loo_source_rms_residual": float(np.sqrt(np.mean(np.square(loo)))),
@@ -201,13 +201,18 @@ def _moment_from_fit(fit: dict, r0: float, mode: str) -> tuple[float, dict]:
             fit["s6_fitted"], fit["s8_fitted"],
         ]
     else:
-        coeff = fit["coefficients_s0_s2_s4_s6_s8"]
+        coeff = fit["coefficients_even_powers"]
+    coefficient_names = (
+        ["s0", "s2", "s4", "s6", "s8"]
+        if mode == "fixed_s2" else fit["coefficient_names"]
+    )
     moment = float(sum(
         value * r0 ** (2 * power + 1) / (2 * power + 1)
         for power, value in enumerate(coeff)
     ))
     return moment, {
-        "integrated_coefficients_s0_s2_s4_s6_s8": [float(v) for v in coeff],
+        "integrated_coefficient_names": coefficient_names,
+        "integrated_coefficients_even_powers": [float(v) for v in coeff],
         "half_cell_integral": moment,
     }
 
@@ -229,7 +234,7 @@ def _make_fit(source: np.ndarray, r: np.ndarray, r0: float,
             - point_sample_moment
         ),
         "fit_residual_and_coefficients_finite": _finite(
-            [moment, point_sample_moment, *meta["integrated_coefficients_s0_s2_s4_s6_s8"]]
+            [moment, point_sample_moment, *meta["integrated_coefficients_even_powers"]]
         ),
     })
     return moment, meta
