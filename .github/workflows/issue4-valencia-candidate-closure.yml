@@ -1,0 +1,114 @@
+name: Issue 4 candidate scalar-DM exchange source closure
+
+on:
+  pull_request:
+    paths:
+      - "tools/audit_candidate_scalar_dm_exchange.py"
+      - ".github/workflows/issue4-valencia-candidate-closure.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: issue4-valencia-candidate-closure-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  corrected-candidate-source-closure:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      CANDIDATE_COMMIT: "1f142b0b2f3bc832a3030027f139d0d6c0f87095"
+      VENDOR_COMMIT: "d6052d605673ce9d82cdc99b0df79855fa2ea215"
+      PYTHONUNBUFFERED: "1"
+    steps:
+      - name: Check out diagnostic branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Check out the exact proposed PR #280 source head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.CANDIDATE_COMMIT }}
+          path: candidate
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: candidate/requirements.txt
+
+      - name: Install candidate-pinned dependencies
+        run: python -m pip install -r candidate/requirements.txt
+
+      - name: Fail closed on candidate source provenance
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C candidate rev-parse HEAD)" = "$CANDIDATE_COMMIT"
+          test "$(git -C candidate/vendor/bb-palatini-unified-r0 rev-parse HEAD)" = "$VENDOR_COMMIT"
+          test "$(git -C vendor/bb-palatini-unified-r0 rev-parse HEAD)" = "$VENDOR_COMMIT"
+          for path in engine/matter_system.py engine/scalar_system.py engine/matter_rhs.py engine/production_kernel.py engine/v55_matter.py engine/valencia.py; do
+            printf '%s %s\n' "$path" "$(git -C candidate rev-parse "HEAD:$path")"
+          done
+
+      - name: Compile the candidate-only audit
+        run: python -m py_compile tools/audit_candidate_scalar_dm_exchange.py
+
+      - name: Run independent candidate scalar/Valencia source budget
+        id: audit
+        continue-on-error: true
+        run: |
+          mkdir -p results/candidate-source-closure
+          COSMOS_CANDIDATE_SOURCE_ROOT="$GITHUB_WORKSPACE/candidate" python tools/audit_candidate_scalar_dm_exchange.py \
+            --resolution 160 \
+            --r-max 24 \
+            --output results/candidate-source-closure/report.json
+
+      - name: Hash and upload the candidate source budget
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          find results/candidate-source-closure -type f ! -name SHA256SUMS.txt -print0 | sort -z | xargs -0 -r sha256sum > results/candidate-source-closure/SHA256SUMS.txt
+
+      - name: Upload source closure artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: candidate-scalar-dm-exchange-closure
+          path: results/candidate-source-closure/
+          if-no-files-found: warn
+          retention-days: 90
+
+      - name: Enforce local source and finite-volume closure, not scientific admission
+        if: always()
+        shell: bash
+        env:
+          AUDIT_OUTCOME: ${{ steps.audit.outcome }}
+        run: |
+          set -euo pipefail
+          test "$AUDIT_OUTCOME" = "success"
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          report = json.loads(Path("results/candidate-source-closure/report.json").read_text(encoding="utf-8"))
+          assert report["status"] == "completed_diagnostic_only"
+          assert report["scientific_admission"] is False
+          assert report["total_time_evolved_bianchi_gate_closed"] is False
+          assert report["candidate_provenance"]["source_commit_matches"] is True
+          assert report["candidate_provenance"]["vendor_commit_matches"] is True
+          assert report["candidate_provenance"]["source_blobs_match"] is True
+          assert report["gate_result"]["all_four_source_channels_close"] is True
+          assert report["gate_result"]["scalar_fluid_local_energy_exchange_closes"] is True
+          assert report["gate_result"]["scalar_fluid_local_radial_current_exchange_closes"] is True
+          assert report["gate_result"]["finite_volume_telescope_closes"] is True
+          assert report["gate_result"]["all_diagnostic_controls_pass"] is True
+          print("CANDIDATE_SOURCE_BUDGET_CLOSED; FULL_BIANCHI=NOT_VERIFIED; SCIENTIFIC_ADMISSION=NOT_ADMITTED")
+          PY
