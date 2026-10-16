@@ -142,6 +142,14 @@ jobs:
                       assert published_mr["index_mapping_reviewed_for_scientific_admission"] is False
                       assert published_mr["matter_conservation_source_sign_and_normalization_reviewed"] is False
                       assert published_mr["acceptance_oracle_satisfied"] is False
+                      exact_chain = candidate["exact_discrete_chain_rule"]
+                      assert "implementation chain-rule closure only" in exact_chain["scientific_status"]
+                      assert exact_chain["chain_rule_max_abs_error"] >= 0.0
+                      assert exact_chain["Mtotal_decomposition_max_abs_error"] >= 0.0
+                      geom_candidate = candidate["geometric_constraint_propagation_candidate"]
+                      assert geom_candidate["finite"] is True
+                      assert geom_candidate["matter_source_sign_and_normalization_reviewed"] is False
+                      assert geom_candidate["acceptance_oracle_satisfied"] is False
           for name in ("report.json", "state_profiles.npz", "SHA256SUMS.txt"):
               assert Path("artifacts/hybrid-origin-integral-patch-newton", name).is_file(), name
           print("HYBRID_DIAGNOSTIC_PROVENANCE_AND_NEWTON_GATES_OK")
