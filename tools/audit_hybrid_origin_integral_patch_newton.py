@@ -50,10 +50,11 @@ from tools.audit_current_source_momentum_constraint_tangent import (
     SCALAR_NAMES,
     provenance,
     rhs_direction,
+    shifted_state,
+    observe_constraint,
+    tangent_for_epsilon as momentum_tangent_for_epsilon,
+    compact_tangent_result,
     state_digest,
-)
-from tools.audit_cmc_lapse_centre_sensitivity import (
-    directional_state_with_fixed_lapse,
 )
 
 PI = float(math.pi)
@@ -370,6 +371,7 @@ def solve_five_cell_hybrid(
 def directional_tangent(
     kernel: V55ProductionKernel, state: ProductionState, vacuum: Any
 ) -> dict[str, Any]:
+    """Measure H/M/C_Lambda/det tangents with a fresh CMC lapse per endpoint."""
     original = state_digest(state)
     rates = rhs_direction(kernel, state)
     r = np.asarray(state.grid.centers, dtype=np.float64)
@@ -377,15 +379,23 @@ def directional_tangent(
     rows = []
     raw_rows: dict[float, dict[str, np.ndarray]] = {}
     for eps in DIRECTIONAL_EPSILONS:
-        plus_state = directional_state_with_fixed_lapse(state, rates, eps)
-        minus_state = directional_state_with_fixed_lapse(state, rates, -eps)
+        plus_state = shifted_state(kernel, state, rates, eps)
+        minus_state = shifted_state(kernel, state, rates, -eps)
         plus = constraints(plus_state, vacuum)
         minus = constraints(minus_state, vacuum)
-        dot = {name: finite(f"{name} tangent", (plus[name] - minus[name]) / (2.0 * eps)) for name in baseline}
+        dot = {
+            name: finite(f"{name} tangent", (plus[name] - minus[name]) / (2.0 * eps))
+            for name in baseline
+        }
         raw_rows[eps] = dot
+        # Independent sector/geometry accounting from the established exact-pin
+        # auditor uses the same endpoint states and explicitly includes the
+        # CMC lapse refresh at both +/- epsilon endpoints.
+        momentum_budget = momentum_tangent_for_epsilon(kernel, state, rates, eps)
         rows.append({
             "epsilon": eps,
             "tangent_witnesses": {name: witness(arr, r) for name, arr in dot.items()},
+            "signed_momentum_budget": compact_tangent_result(momentum_budget, r),
         })
     if state_digest(state) != original:
         raise RuntimeError("tangent observer mutated the frozen state")
@@ -399,11 +409,11 @@ def directional_tangent(
         },
         "state_unchanged": state_digest(state) == original,
         "tangent_scope": (
-            "Measured directional tangent of the implemented semi-discrete RHS; the same arm's alpha profile is held fixed at +/-epsilon endpoints. "
-            "This is not the independent normalized full constraint-propagation prediction."
+            "Measured directional tangent of the implemented semi-discrete RHS; each +/-epsilon endpoint rebuilds the shifted geometry/scalars/matter and re-solves the production CMC lapse. "
+            "The signed M budget separately reports geometric terms and all six total-current sectors. "
+            "This remains a measured tangent, not the independent normalized full constraint-propagation prediction."
         ),
     }
-
 
 def save_state_profiles(
     profile_store: dict[str, np.ndarray],
