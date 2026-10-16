@@ -1,0 +1,98 @@
+name: Issue 4 analytic-s2 origin half-cell discriminator
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - tools/audit_centre_ricci_fixed_s2.py
+      - tests/test_centre_ricci_fixed_s2.py
+      - .github/workflows/issue4-analytic-s2-halfcell.yml
+  push:
+    branches:
+      - diag/issue4-analytic-s2-origin-halfcell-2026-10-16
+    paths:
+      - tools/audit_centre_ricci_fixed_s2.py
+      - tests/test_centre_ricci_fixed_s2.py
+      - .github/workflows/issue4-analytic-s2-halfcell.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: issue4-analytic-s2-halfcell-\${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  analytic-s2-halfcell:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      PYTHONUNBUFFERED: "1"
+    steps:
+      - name: Checkout exact diagnostic tree and pinned vendor
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install repository requirements
+        run: python -m pip install -r requirements.txt
+
+      - name: Verify exact production-source and vendor pins
+        run: |
+          python - <<'PY'
+          import json
+          from tools.audit_centre_ricci_fixed_s2 import _verify_source_pins
+          result = _verify_source_pins()
+          print(json.dumps(result, indent=2))
+          assert result["source_commit"] == "27da39e1e4d3a37ce0f7ef70b228009323183048"
+          assert result["vendor_commit"] == "d6052d605673ce9d82cdc99b0df79855fa2ea215"
+          assert result["engine_vendor_dependency_diff_empty"] is True
+          assert all(item["matches"] for item in result["source_blobs"].values())
+          PY
+
+      - name: Compile diagnostic and regression tests
+        run: |
+          python -m py_compile tools/audit_centre_ricci_fixed_s2.py tests/test_centre_ricci_fixed_s2.py
+
+      - name: Run focused mathematical controls
+        run: python -m pytest -q tests/test_centre_ricci_fixed_s2.py
+
+      - name: Run full repository regression suite
+        run: python -m pytest -q
+
+      - name: Run source-pinned analytic-s2 copied-initializer discriminator
+        run: python tools/audit_centre_ricci_fixed_s2.py
+
+      - name: Assert all required diagnostic gates and preserve scientific non-admission
+        run: |
+          jq -e '
+            .status == "completed_diagnostic_only"
+            and .scientific_admission == false
+            and .checks.source_pins_verified == true
+            and .checks.production_vendor_dependency_diff_empty == true
+            and .checks.all_fixed_points_converged == true
+            and .checks.all_profiles_finite == true
+            and .checks.all_input_states_unchanged == true
+            and .checks.all_metric_invariants_within_1e-12 == true
+            and .checks.all_production_point_sample_reconstructions_within_2e-12 == true
+            and (.resolutions | keys == ["160","240","320"])
+            and ([.resolutions[].variants.fixed_s0_s2_fit_s4_s6_s8.half_cell.selected_fit.s0_fixed] | all(. == 1.0))
+          ' results/centre-ricci-analytic-s2-halfcell-2026-10-16/report.json
+
+      - name: Upload report, signed profiles, and checksum manifest
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: centre-ricci-analytic-s2-halfcell-\${{ github.sha }}
+          path: results/centre-ricci-analytic-s2-halfcell-2026-10-16/
+          if-no-files-found: warn
+          retention-days: 90
