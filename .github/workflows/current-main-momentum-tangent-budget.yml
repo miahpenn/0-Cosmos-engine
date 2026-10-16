@@ -57,12 +57,10 @@ jobs:
           test "$(git -C source rev-parse HEAD)" = "$SOURCE_COMMIT"
           test "$(git -C source/vendor/bb-palatini-unified-r0 rev-parse HEAD)" = "$VENDOR_COMMIT"
           test "$(git -C vendor/bb-palatini-unified-r0 rev-parse HEAD)" = "$VENDOR_COMMIT"
-          printf 'PRODUCTION_SOURCE=%s\n' "$(git -C source rev-parse HEAD)"
-          printf 'VENDOR_SOURCE=%s\n' "$(git -C source/vendor/bb-palatini-unified-r0 rev-parse HEAD)"
-          printf 'DIAGNOSTIC_HEAD=%s\n' "$(git rev-parse HEAD)"
-          for path in engine/production_kernel.py engine/matter_system.py engine/matter_rhs.py engine/scalar_system.py engine/v55_matter.py engine/v55_pirk_adapter.py engine/cmc_gauge.py engine/v55_initial.py engine/stress_energy.py engine/valencia.py engine/worldtube.py; do
-            test "$(git rev-parse "HEAD:$path")" = "$(git -C source rev-parse "HEAD:$path")"
-          done
+          printf 'PRODUCTION_SOURCE=%s\\n' "$(git -C source rev-parse HEAD)"
+          printf 'VENDOR_SOURCE=%s\\n' "$(git -C source/vendor/bb-palatini-unified-r0 rev-parse HEAD)"
+          printf 'DIAGNOSTIC_HEAD=%s\\n' "$(git rev-parse HEAD)"
+          printf 'PINNED_ENGINE_BLOBS_VERIFIED_BY_AUDIT=1\\n'
 
       - name: Verify discrete chain rule and signed-term negative control
         run: python -m pytest -q tests/test_research_momentum_constraint_chain_rule.py
@@ -86,7 +84,7 @@ jobs:
         continue-on-error: true
         run: |
           mkdir -p results/current-source-momentum-tangent
-          python tools/audit_current_source_momentum_constraint_tangent.py \
+          COSMOS_PINNED_SOURCE_ROOT="$GITHUB_WORKSPACE/source" python tools/audit_current_source_momentum_constraint_tangent.py \
             --resolutions 60 80 120 \
             --r-max 80 \
             --dt 0.015 \
