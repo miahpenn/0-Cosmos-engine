@@ -201,6 +201,12 @@ def operator_snapshot(state, coupling: float, rates: dict[str, Any]) -> dict[str
             "hll_momentum_flux_minus_projected_stress_face_flux": summarize_faces(
                 hll_minus_projected, dr
             ),
+            "geometric_energy_source_actual_over_kappa": AUDIT.summarize(
+                finite(f"{name} normalized geometric energy source", source_e / KAPPA), r
+            ),
+            "interaction_energy_source_actual_over_kappa": AUDIT.summarize(
+                finite(f"{name} normalized interaction energy source", q_e / KAPPA), r
+            ),
             "geometric_momentum_source_actual_over_kappa": AUDIT.summarize(actual_geometric, r),
             "geometric_momentum_source_independent_over_kappa": AUDIT.summarize(expected_geometric, r),
             "geometric_momentum_source_gap_over_kappa": AUDIT.summarize(geom_gap, r),
@@ -219,6 +225,8 @@ def operator_snapshot(state, coupling: float, rates: dict[str, Any]) -> dict[str
             "hll_face_flux_momentum_over_kappa": actual_hll_radial_flux.tolist(),
             "projected_stress_momentum_face_flux_over_kappa": projected_radial_flux_faces.tolist(),
             "hll_minus_projected_momentum_face_flux_over_kappa": hll_minus_projected.tolist(),
+            "geometric_energy_source_actual_over_kappa": (source_e / KAPPA).tolist(),
+            "interaction_energy_source_actual_over_kappa": (q_e / KAPPA).tolist(),
             "geometric_momentum_source_actual_over_kappa": actual_geometric.tolist(),
             "geometric_momentum_source_independent_over_kappa": expected_geometric.tolist(),
             "geometric_momentum_source_gap_over_kappa": geom_gap.tolist(),
@@ -272,6 +280,8 @@ def run_resolution(n: int, r_max: float, epsilons: tuple[float, ...]) -> dict[st
                     species_tangent[species_name] = {}
                     for key in (
                         "hll_face_flux_momentum_over_kappa",
+                        "geometric_energy_source_actual_over_kappa",
+                        "interaction_energy_source_actual_over_kappa",
                         "geometric_momentum_source_actual_over_kappa",
                         "interaction_momentum_source_actual_over_kappa",
                     ):
