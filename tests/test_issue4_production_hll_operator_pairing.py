@@ -239,7 +239,7 @@ def test_combined_discrete_budget_matches_native_flux_source_signs_and_controls(
         assert report["negative_controls"]["radial_momentum_omitted_interaction_source"]["annulus_2_to_10"]["cell_count"] > 0
 
 
-def test_matched_total_t_witness_uses_same_state_and_keeps_admission_closed():
+def test_base_state_total_t_audit_keeps_admission_closed():
     kernel = DIAG.AUDIT.V55ProductionKernel()
     state = kernel.initialize(resolution=24, r_max=24.0, include_radiation=True)
     initial_hash = DIAG.AUDIT.state_digest(state)
@@ -262,7 +262,7 @@ def test_matched_total_t_witness_uses_same_state_and_keeps_admission_closed():
     assert len(witness["epsilon_rows"]) == len(epsilons)
     assert len(witness["raw_arrays"]["epsilon_0_div_T_t"]) == len(state.grid.centers)
     assert len(witness["raw_arrays"]["epsilon_1_div_T_r_fv"]) == len(state.grid.centers)
-    assert witness["conditional_rest_current_source_discriminator"]["model_law_accepted"] is False
+    assert witness["conditional_rest_current_source"]["model_law_accepted"] is False
     assert DIAG.AUDIT.state_digest(state) == initial_hash
 
 
