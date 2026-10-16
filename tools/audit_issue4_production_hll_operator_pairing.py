@@ -79,6 +79,46 @@ def summarize_faces(values: Any, dr: float) -> dict[str, Any]:
     }
 
 
+def summarize_signed_budget(values: Any, radii: Any) -> dict[str, Any]:
+    """Keep signed first-cell, second-cell, and fixed physical-annulus witnesses."""
+    x = finite("signed discrete budget", values)
+    r = finite("signed discrete budget cell radii", radii)
+    if x.shape != r.shape or x.ndim != 1 or x.size < 2:
+        raise ValueError("signed budget and cell-centre radii must be matching 1-D arrays")
+
+    mask = (r >= 2.0) & (r <= 10.0)
+    def cell(i: int) -> dict[str, Any]:
+        return {"index": int(i), "radius": float(r[i]), "signed_value": float(x[i])}
+    if np.any(mask):
+        indices = np.flatnonzero(mask)
+        local = int(indices[int(np.argmax(np.abs(x[mask])))])
+        annulus = {
+            "cell_count": int(indices.size),
+            "r_min": float(np.min(r[mask])),
+            "r_max": float(np.max(r[mask])),
+            "signed_rms": float(np.sqrt(np.mean(x[mask] ** 2))),
+            "max_abs": float(abs(x[local])),
+            "signed_at_max_abs": float(x[local]),
+            "index_at_max_abs": local,
+            "radius_at_max_abs": float(r[local]),
+        }
+    else:
+        annulus = {"cell_count": 0, "signed_rms": None, "max_abs": None}
+    i_max = int(np.argmax(np.abs(x)))
+    return {
+        "cell_0": cell(0),
+        "cell_1": cell(1),
+        "annulus_2_to_10": annulus,
+        "global": {
+            "signed_rms": float(np.sqrt(np.mean(x * x))),
+            "max_abs": float(abs(x[i_max])),
+            "signed_at_max_abs": float(x[i_max]),
+            "index_at_max_abs": i_max,
+            "radius_at_max_abs": float(r[i_max]),
+        },
+    }
+
+
 def _metric_bundle(state):
     metric_slice = AUDIT.metric_slice_from_q(state.grid, state.geometry)
     d1_fn = lambda values, parity: AUDIT.d1(state.grid, values, parity)
@@ -166,6 +206,35 @@ def operator_snapshot(state, coupling: float, rates: dict[str, Any]) -> dict[str
                 raise ValueError(
                     f"{name} {source_name} shape {source_values.shape} != {r.shape}"
                 )
+
+        # Exact semi-discrete convention used by pinned evolve_species: negative
+        # face-flux difference over dr, then geometric and interaction sources.
+        # Apply KAPPA normalization consistently to every term in each channel.
+        rhs_rest_over_kappa = finite(
+            f"{name} combined rest RHS over KAPPA",
+            (-np.diff(face_flux[:, 0]) / dr) / KAPPA,
+        )
+        rhs_energy_over_kappa = finite(
+            f"{name} combined energy RHS over KAPPA",
+            (-np.diff(face_flux[:, 1]) / dr + source_e + q_e) / KAPPA,
+        )
+        rhs_momentum_over_kappa = finite(
+            f"{name} combined radial momentum RHS over KAPPA",
+            (-np.diff(face_flux[:, 2]) / dr + source_s + q_s) / KAPPA,
+        )
+        # Controls perturb one term at a time in this same signed combined RHS.
+        rhs_momentum_sign_flipped_flux_over_kappa = finite(
+            f"{name} sign-flipped-flux momentum RHS control",
+            (np.diff(face_flux[:, 2]) / dr + source_s + q_s) / KAPPA,
+        )
+        rhs_momentum_omitted_geometric_source_over_kappa = finite(
+            f"{name} omitted-geometric-source momentum RHS control",
+            (-np.diff(face_flux[:, 2]) / dr + q_s) / KAPPA,
+        )
+        rhs_momentum_omitted_interaction_source_over_kappa = finite(
+            f"{name} omitted-interaction-source momentum RHS control",
+            (-np.diff(face_flux[:, 2]) / dr + source_s) / KAPPA,
+        )
 
         projection = species_projection(metrics, prim)
         projected_radial_flux_cells = finite(
@@ -278,6 +347,18 @@ def operator_snapshot(state, coupling: float, rates: dict[str, Any]) -> dict[str
                 "under the declared conditional covector premise. A mismatch is reported, "
                 "not admitted as a production repair."
             ),
+            "production_rhs_budget": {
+                "discrete_convention": "rhs_i = -(F[i+1]-F[i])/dr + geometric_source_i + interaction_source_i; rest has no source term; all channels divided by KAPPA=8*pi.",
+                "spatial_measure_note": "This is the native evolve_species semi-discrete update convention, not an extra cell-volume reweighting and not a total-T closure claim.",
+                "rest": summarize_signed_budget(rhs_rest_over_kappa, r),
+                "energy": summarize_signed_budget(rhs_energy_over_kappa, r),
+                "radial_momentum": summarize_signed_budget(rhs_momentum_over_kappa, r),
+                "negative_controls": {
+                    "radial_momentum_sign_flipped_flux": summarize_signed_budget(rhs_momentum_sign_flipped_flux_over_kappa, r),
+                    "radial_momentum_omitted_geometric_source": summarize_signed_budget(rhs_momentum_omitted_geometric_source_over_kappa, r),
+                    "radial_momentum_omitted_interaction_source": summarize_signed_budget(rhs_momentum_omitted_interaction_source_over_kappa, r),
+                },
+            },
         }
         all_raw[name] = {
             # Preserve the exact five native _species_rhs_components outputs
@@ -303,6 +384,12 @@ def operator_snapshot(state, coupling: float, rates: dict[str, Any]) -> dict[str
             "interaction_momentum_source_actual_over_kappa": actual_interaction.tolist(),
             "interaction_momentum_source_conditional_covariant_over_kappa": expected_interaction.tolist(),
             "interaction_momentum_source_gap_over_kappa": source_gap.tolist(),
+            "production_rhs_rest_over_kappa": rhs_rest_over_kappa.tolist(),
+            "production_rhs_energy_over_kappa": rhs_energy_over_kappa.tolist(),
+            "production_rhs_momentum_over_kappa": rhs_momentum_over_kappa.tolist(),
+            "production_rhs_momentum_sign_flipped_flux_control_over_kappa": rhs_momentum_sign_flipped_flux_over_kappa.tolist(),
+            "production_rhs_momentum_omitted_geometric_source_control_over_kappa": rhs_momentum_omitted_geometric_source_over_kappa.tolist(),
+            "production_rhs_momentum_omitted_interaction_source_control_over_kappa": rhs_momentum_omitted_interaction_source_over_kappa.tolist(),
             "scalar_dphi_r": dphi_r.tolist(),
         }
 
@@ -472,6 +559,9 @@ def run_resolution(n: int, r_max: float, epsilons: tuple[float, ...]) -> dict[st
                         "interaction_energy_source_actual_over_kappa",
                         "geometric_momentum_source_actual_over_kappa",
                         "interaction_momentum_source_actual_over_kappa",
+                        "production_rhs_rest_over_kappa",
+                        "production_rhs_energy_over_kappa",
+                        "production_rhs_momentum_over_kappa",
                     ):
                         derivative = finite(
                             f"{species_name} {key} tangent",
@@ -480,13 +570,21 @@ def run_resolution(n: int, r_max: float, epsilons: tuple[float, ...]) -> dict[st
                                 - np.asarray(minus_arrays[key], dtype=np.float64)
                             ) / (2.0 * float(epsilon)),
                         )
-                        # Face arrays and cell source arrays have distinct
-                        # radius coordinates; summarize with their own helper.
-                        species_tangent[species_name][key] = (
-                            summarize_faces(derivative, float(state.grid.dr))
-                            if "hll_face_flux" in key
-                            else AUDIT.summarize(derivative, state.grid.centers)
-                        )
+                        # Face arrays live at faces; combined RHS arrays live
+                        # at cell centres. Keep 0, 1, and the fixed annulus in
+                        # each of the two directional epsilon tangent arms.
+                        if "hll_face_flux" in key:
+                            species_tangent[species_name][key] = summarize_faces(
+                                derivative, float(state.grid.dr)
+                            )
+                        elif key.startswith("production_rhs_"):
+                            species_tangent[species_name][key] = summarize_signed_budget(
+                                derivative, state.grid.centers
+                            )
+                        else:
+                            species_tangent[species_name][key] = AUDIT.summarize(
+                                derivative, state.grid.centers
+                            )
                 scalar_tangent = {}
                 for scalar_name, channels in base["raw_scalar_arrays"].items():
                     scalar_tangent[scalar_name] = {}
@@ -612,6 +710,27 @@ def run(resolutions: tuple[int, ...], r_max: float, epsilons: tuple[float, ...])
         )
         for row in rows
     )
+    budget_keys = (
+        "production_rhs_rest_over_kappa",
+        "production_rhs_energy_over_kappa",
+        "production_rhs_momentum_over_kappa",
+    )
+    combined_budget_reported = all(
+        all(key in species_arrays for key in budget_keys)
+        and all(np.all(np.isfinite(np.asarray(species_arrays[key], dtype=np.float64))) for key in budget_keys)
+        for row in rows
+        for arm in row["arms"].values()
+        for species_arrays in arm["raw_arrays"].values()
+    )
+    combined_budget_tangents_reported = all(
+        all(key in species_tangent for key in budget_keys)
+        for row in rows
+        for epsilon_arms in row["directional_epsilon_witnesses"].values()
+        for witness in epsilon_arms.values()
+        for species_tangent in witness["species_operator_tangent_summaries"].values()
+    )
+    if not combined_budget_reported or not combined_budget_tangents_reported:
+        raise RuntimeError("combined signed RHS budget or its epsilon tangents are missing")
     max_geom = max(
         arm["max_abs_geometric_source_gap_over_kappa"]
         for row in rows for arm in row["arms"].values()
@@ -644,6 +763,8 @@ def run(resolutions: tuple[int, ...], r_max: float, epsilons: tuple[float, ...])
             "directional_operator_arrays_preserved": all(row["directional_operator_arrays_preserved"] for row in rows),
             "manufactured_operator_probe_nontrivial": probe_passed,
             "manufactured_probe_negative_controls_nontrivial": probe_passed,
+            "combined_discrete_budget_reported": combined_budget_reported,
+            "combined_budget_tangents_reported": combined_budget_tangents_reported,
             "scalar_sector_kept_separate": True,
             "production_steps_advanced": 0,
             "max_abs_independent_geometric_source_gap_over_kappa": max_geom,
@@ -653,6 +774,7 @@ def run(resolutions: tuple[int, ...], r_max: float, epsilons: tuple[float, ...])
             "scientific_admission": False,
         },
         "interpretation": {
+            "combined_budget": "Reports the native per-species semi-discrete RHS with pinned face-flux difference and source signs, divided by KAPPA; retains signed cells 0 and 1 and the cell-centre annulus 2<=r<=10 for base arrays and both directional epsilon tangent arms. It is not a claim of total-T closure.",
             "geometric_source": "Compare the pinned production momentum geometric source with an independently computed 1/2 sqrt(-g) T^{ab} partial_r g_ab contraction.",
             "hll_flux": "Record actual pinned per-species HLL face fluxes and compare them with face reconstruction of cell-projected radial stress. Differences characterize the operator pair; no exact face equality is presumed for the dissipative HLL scheme.",
             "interaction_source": "Compare actual pinned dark-matter q_s with sqrt(-g) Q_r only under the explicitly conditional covector premise. Preserve any mismatch; do not change production source terms in this diagnostic.",

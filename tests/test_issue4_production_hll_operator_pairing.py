@@ -164,3 +164,56 @@ def test_manufactured_probe_rejects_sign_flipped_flux_and_omitted_sources():
     assert set(snapshot["scalar_sector_projections"]) == {"S", "D", "phi"}
     assert set(snapshot["raw_scalar_arrays"]["phi"]) == {"rho", "pr", "pt", "j"}
     assert snapshot["raw_scalar_arrays"]["phi"]["rho"]
+
+
+def test_combined_discrete_budget_matches_native_flux_source_signs_and_controls():
+    kernel = DIAG.AUDIT.V55ProductionKernel()
+    state = DIAG.make_manufactured_operator_probe(kernel, n=64, r_max=24.0)
+    n = len(state.grid.centers)
+    snapshot = DIAG.operator_snapshot(
+        state, -0.04, {"scalars": {"phi": np.zeros(n, dtype=np.float64)}}
+    )
+    dr = float(state.grid.dr)
+
+    for species_name, raw in snapshot["raw_arrays"].items():
+        rest = -np.diff(np.asarray(raw["hll_face_flux_rest_over_kappa"], dtype=np.float64)) / dr
+        energy = (
+            -np.diff(np.asarray(raw["hll_face_flux_energy_over_kappa"], dtype=np.float64)) / dr
+            + np.asarray(raw["geometric_energy_source_actual_over_kappa"], dtype=np.float64)
+            + np.asarray(raw["interaction_energy_source_actual_over_kappa"], dtype=np.float64)
+        )
+        momentum = (
+            -np.diff(np.asarray(raw["hll_face_flux_momentum_over_kappa"], dtype=np.float64)) / dr
+            + np.asarray(raw["geometric_momentum_source_actual_over_kappa"], dtype=np.float64)
+            + np.asarray(raw["interaction_momentum_source_actual_over_kappa"], dtype=np.float64)
+        )
+        np.testing.assert_allclose(raw["production_rhs_rest_over_kappa"], rest, rtol=2e-13, atol=2e-14)
+        np.testing.assert_allclose(raw["production_rhs_energy_over_kappa"], energy, rtol=2e-13, atol=2e-14)
+        np.testing.assert_allclose(raw["production_rhs_momentum_over_kappa"], momentum, rtol=2e-13, atol=2e-14)
+
+        flipped = (
+            np.diff(np.asarray(raw["hll_face_flux_momentum_over_kappa"], dtype=np.float64)) / dr
+            + np.asarray(raw["geometric_momentum_source_actual_over_kappa"], dtype=np.float64)
+            + np.asarray(raw["interaction_momentum_source_actual_over_kappa"], dtype=np.float64)
+        )
+        omit_geometric = (
+            -np.diff(np.asarray(raw["hll_face_flux_momentum_over_kappa"], dtype=np.float64)) / dr
+            + np.asarray(raw["interaction_momentum_source_actual_over_kappa"], dtype=np.float64)
+        )
+        omit_interaction = (
+            -np.diff(np.asarray(raw["hll_face_flux_momentum_over_kappa"], dtype=np.float64)) / dr
+            + np.asarray(raw["geometric_momentum_source_actual_over_kappa"], dtype=np.float64)
+        )
+        np.testing.assert_allclose(raw["production_rhs_momentum_sign_flipped_flux_control_over_kappa"], flipped, rtol=2e-13, atol=2e-14)
+        np.testing.assert_allclose(raw["production_rhs_momentum_omitted_geometric_source_control_over_kappa"], omit_geometric, rtol=2e-13, atol=2e-14)
+        np.testing.assert_allclose(raw["production_rhs_momentum_omitted_interaction_source_control_over_kappa"], omit_interaction, rtol=2e-13, atol=2e-14)
+
+        report = snapshot["species"][species_name]["production_rhs_budget"]
+        for channel in ("rest", "energy", "radial_momentum"):
+            assert report[channel]["cell_0"]["index"] == 0
+            assert report[channel]["cell_1"]["index"] == 1
+            assert report[channel]["annulus_2_to_10"]["cell_count"] > 0
+            assert "signed_rms" in report[channel]["annulus_2_to_10"]
+        assert report["negative_controls"]["radial_momentum_sign_flipped_flux"]["cell_0"]["index"] == 0
+        assert report["negative_controls"]["radial_momentum_omitted_geometric_source"]["cell_1"]["index"] == 1
+        assert report["negative_controls"]["radial_momentum_omitted_interaction_source"]["annulus_2_to_10"]["cell_count"] > 0
