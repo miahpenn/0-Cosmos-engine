@@ -22,7 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
-      SOURCE_COMMIT: "34ad06539c867b2a7ed40c2e1534a3a9d157b82f"
+      SOURCE_COMMIT: "7f47669a1c0edfafef9fc5f27b2db80840d3f035"
       VENDOR_COMMIT: "d6052d605673ce9d82cdc99b0df79855fa2ea215"
       PYTHONUNBUFFERED: "1"
     steps:
@@ -116,7 +116,7 @@ jobs:
           assert report["production_or_vendor_files_modified"] is False
           assert report["evolution_steps_advanced"] == 0
           pin = report["source_provenance"]
-          assert pin["production_source_baseline_anchor"] == "34ad06539c867b2a7ed40c2e1534a3a9d157b82f"
+          assert pin["production_source_baseline_anchor"] == "7f47669a1c0edfafef9fc5f27b2db80840d3f035"
           assert pin["vendor_commit"] == "d6052d605673ce9d82cdc99b0df79855fa2ea215"
           assert len(pin["production_source_blobs"]) == 11
           assert len(report["resolutions"]) == 4
