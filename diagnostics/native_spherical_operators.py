@@ -222,7 +222,10 @@ class NativeSphericalCellGrid:
         """Fourth-order cell derivative from a centred stencil and polynomial moments."""
         sign = _parity_sign(parity)
         u = _real_profile(values, (self.n,), "values")
-        if self.n < 5:
+        minimum_cells = 6 if order == 2 else 5
+        if self.n < minimum_cells:
+            if order == 2:
+                raise ValueError("fourth-order second derivative requires at least six cells")
             raise ValueError("fourth-order derivative requires at least five cells")
         if order not in (1, 2):
             raise ValueError("order must be one or two")
@@ -242,10 +245,12 @@ class NativeSphericalCellGrid:
             else:
                 result[i] = (-stencil[0] + 16.0 * stencil[1] - 30.0 * stencil[2] + 16.0 * stencil[3] - stencil[4]) / (12.0 * self.dr**2)
 
-        # The outer two cells use a five-node one-sided polynomial stencil.
-        # Construct weights from coordinates relative to the target cell, so
-        # the equations—not a copied coefficient table—define the closure.
-        indices = np.arange(self.n - 5, self.n, dtype=int)
+        # The outer two cells use one-sided polynomial-moment closures.
+        # Five nodes give fourth-order accuracy for the first derivative. The
+        # second derivative uses six nodes to remove the O(dr**3) boundary term.
+        # The equations—not a copied coefficient table—define the closure.
+        stencil_size = 6 if order == 2 else 5
+        indices = np.arange(self.n - stencil_size, self.n, dtype=int)
         for i in (self.n - 2, self.n - 1):
             weights = self._polynomial_derivative_weights(indices.astype(float) - float(i), order)
             result[i] = float(weights @ u[indices]) / self.dr**order
