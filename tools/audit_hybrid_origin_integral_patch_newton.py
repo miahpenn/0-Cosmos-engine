@@ -515,6 +515,43 @@ def _constraint_propagation_candidate(
     )
     Q_r = finite("total stress-energy radial divergence", Q_r)
 
+    # Explicit source contribution from the actual matter-coupled Aa/K RHS.
+    # The metric variables a,b,X have no direct matter source in their RHS,
+    # so differentiating M_geom with only these Aa/K injections isolates the
+    # matter part of M_geom_dot without changing any production equations.
+    Aa_matter_source_rate = finite(
+        "explicit Aa matter source rate",
+        -(16.0 * math.pi / 3.0) * alpha * (np.asarray(total.pr) - np.asarray(total.pt)),
+    )
+    K_matter_source_rate = finite(
+        "explicit K matter source rate",
+        4.0 * math.pi * alpha
+        * (np.asarray(total.rho) + np.asarray(total.pr) + 2.0 * np.asarray(total.pt)),
+    )
+    Mgeom_dot_matter_injection = finite(
+        "Mgeom tangent from explicit Aa/K matter sources",
+        d1(Aa_matter_source_rate, 1)
+        - (2.0 / 3.0) * d1(K_matter_source_rate, 1)
+        + 6.0 * Aa_matter_source_rate * chi_r_base
+        + 1.5 * Aa_matter_source_rate * radial_bracket,
+    )
+    Mgeom_dot_nonmatter_measured = finite(
+        "measured Mgeom tangent after removing explicit Aa/K matter injection",
+        measured_Mgeom_dot - Mgeom_dot_matter_injection,
+    )
+    matter_source_total_composite = finite(
+        "actual matter contribution to total Mdot: matter Mgeom injection minus 8pi Jdot",
+        Mgeom_dot_matter_injection - 8.0 * math.pi * j_cov_dot,
+    )
+    stress_divergence_source = finite(
+        "provisional -8pi alpha Q_r source",
+        -8.0 * math.pi * alpha * Q_r,
+    )
+    stress_source_mapping_residual = finite(
+        "actual matter source composite minus -8pi alpha Q_r",
+        matter_source_total_composite - stress_divergence_source,
+    )
+
     # Candidate source is expressed in the same raised-index convention as
     # Brown's M^r equation. Keep its normalization/sign explicitly provisional.
     matter_source_up = -8.0 * math.pi * alpha * gamma_rr_inv * Q_r
@@ -593,6 +630,22 @@ def _constraint_propagation_candidate(
         "measured-minus-total-Brown-plus-Q candidate",
         measured_mdot_covariant - predicted_Mtotal_dot_brown_plus_Q,
     )
+    residual_geom_nonmatter_vs_brown = finite(
+        "measured nonmatter Mgeom tangent minus Brown geometric source",
+        Mgeom_dot_nonmatter_measured - brown_geometric_vacuum_source,
+    )
+    predicted_Mtotal_brown_plus_actual_source = finite(
+        "Brown geometric source plus actual matter-source composite",
+        brown_geometric_vacuum_source + matter_source_total_composite,
+    )
+    residual_total_brown_plus_actual_source = finite(
+        "measured total tangent minus Brown plus actual matter-source composite",
+        measured_mdot_covariant - predicted_Mtotal_brown_plus_actual_source,
+    )
+    residual_source_mapping = finite(
+        "source composite minus stress divergence residual (rechecked)",
+        matter_source_total_composite - stress_divergence_source,
+    )
 
     measured = finite("measured covariant Mdot", measured_mdot_covariant)
     residual = finite(
@@ -645,6 +698,16 @@ def _constraint_propagation_candidate(
             "M_geom": witness(M_geom, r),
             "brown_vacuum_geometric_source": witness(brown_geometric_vacuum_source, r),
             "measured_Mgeom_dot": witness(measured_Mgeom_dot, r),
+            "explicit_Aa_matter_source_rate": witness(Aa_matter_source_rate, r),
+            "explicit_K_matter_source_rate": witness(K_matter_source_rate, r),
+            "Mgeom_dot_from_explicit_matter_injection": witness(Mgeom_dot_matter_injection, r),
+            "Mgeom_dot_nonmatter_measured": witness(Mgeom_dot_nonmatter_measured, r),
+            "nonmatter_measured_minus_Brown_vacuum": witness(residual_geom_nonmatter_vs_brown, r),
+            "actual_matter_source_composite_Mgeom_dot_minus_8pi_Jdot": witness(matter_source_total_composite, r),
+            "provisional_stress_divergence_source_minus_8pi_alpha_Qr": witness(stress_divergence_source, r),
+            "matter_source_composite_minus_stress_divergence": witness(stress_source_mapping_residual, r),
+            "Brown_geometric_plus_actual_source_total_prediction": witness(predicted_Mtotal_brown_plus_actual_source, r),
+            "measured_total_minus_Brown_plus_actual_source": witness(residual_total_brown_plus_actual_source, r),
             "measured_minus_brown_vacuum": witness(residual_geom_brown, r),
             "brown_plus_provisional_Qr": witness(predicted_Mgeom_dot_brown_plus_Q, r),
             "measured_minus_brown_plus_Qr": witness(residual_geom_brown_plus_Q, r),
@@ -657,6 +720,9 @@ def _constraint_propagation_candidate(
                 "geometric_vacuum_plus_Q": float(np.sqrt(np.mean(residual_geom_brown_plus_Q ** 2)) / max(np.sqrt(np.mean(measured_Mgeom_dot**2)), np.finfo(np.float64).tiny)),
                 "total_vacuum_minus_8pi_Jdot": float(np.sqrt(np.mean(residual_total_brown ** 2)) / max(np.sqrt(np.mean(measured_mdot_covariant**2)), np.finfo(np.float64).tiny)),
                 "total_vacuum_plus_Q_minus_8pi_Jdot": float(np.sqrt(np.mean(residual_total_brown_plus_Q ** 2)) / max(np.sqrt(np.mean(measured_mdot_covariant**2)), np.finfo(np.float64).tiny)),
+                "nonmatter_geometric_minus_Brown_vacuum": float(np.sqrt(np.mean(residual_geom_nonmatter_vs_brown ** 2)) / max(np.sqrt(np.mean(Mgeom_dot_nonmatter_measured**2)), np.finfo(np.float64).tiny)),
+                "actual_matter_composite_minus_minus8pi_alpha_Qr": float(np.sqrt(np.mean(residual_source_mapping ** 2)) / max(np.sqrt(np.mean(matter_source_total_composite**2)), np.finfo(np.float64).tiny)),
+                "total_Brown_plus_actual_matter_composite": float(np.sqrt(np.mean(residual_total_brown_plus_actual_source ** 2)) / max(np.sqrt(np.mean(measured_mdot_covariant**2)), np.finfo(np.float64).tiny)),
             },
             "matter_source_sign_and_normalization_reviewed": False,
             "acceptance_oracle_satisfied": False,
@@ -758,6 +824,16 @@ def _constraint_propagation_candidate(
         "propagation_geometric_Brown_plus_Q_source": predicted_Mgeom_dot_brown_plus_Q,
         "propagation_total_Brown_minus_8pi_Jdot": predicted_Mtotal_dot_brown,
         "propagation_total_Brown_plus_Q_minus_8pi_Jdot": predicted_Mtotal_dot_brown_plus_Q,
+        "propagation_explicit_Aa_matter_source_rate": Aa_matter_source_rate,
+        "propagation_explicit_K_matter_source_rate": K_matter_source_rate,
+        "propagation_Mgeom_dot_matter_injection": Mgeom_dot_matter_injection,
+        "propagation_Mgeom_dot_nonmatter_measured": Mgeom_dot_nonmatter_measured,
+        "propagation_nonmatter_Mgeom_minus_Brown_vacuum": residual_geom_nonmatter_vs_brown,
+        "propagation_actual_matter_source_composite": matter_source_total_composite,
+        "propagation_stress_divergence_source": stress_divergence_source,
+        "propagation_matter_source_mapping_residual": residual_source_mapping,
+        "propagation_Mtotal_Brown_plus_actual_matter_composite": predicted_Mtotal_brown_plus_actual_source,
+        "propagation_Mtotal_measured_minus_Brown_plus_actual_matter_composite": residual_total_brown_plus_actual_source,
         "propagation_term_KM_raised_M": term_KM_up,
         "propagation_term_alpha_H": term_alpha_H_up,
         "propagation_term_H_gradient": term_H_gradient_up,
@@ -1174,6 +1250,12 @@ def main() -> int:
                                 .get("geometric_constraint_propagation_candidate", {}).get("full_domain_relative_rms", {}).get("geometric_vacuum_plus_Q"),
                             "brown_total_rebuilt_relative_rms": tangent.get("independent_constraint_propagation_candidate", {})
                                 .get("geometric_constraint_propagation_candidate", {}).get("full_domain_relative_rms", {}).get("total_vacuum_plus_Q_minus_8pi_Jdot"),
+                            "nonmatter_geom_minus_Brown_relative_rms": tangent.get("independent_constraint_propagation_candidate", {})
+                                .get("geometric_constraint_propagation_candidate", {}).get("full_domain_relative_rms", {}).get("nonmatter_geometric_minus_Brown_vacuum"),
+                            "matter_composite_minus_Qr_relative_rms": tangent.get("independent_constraint_propagation_candidate", {})
+                                .get("geometric_constraint_propagation_candidate", {}).get("full_domain_relative_rms", {}).get("actual_matter_composite_minus_minus8pi_alpha_Qr"),
+                            "brown_plus_actual_matter_relative_rms": tangent.get("independent_constraint_propagation_candidate", {})
+                                .get("geometric_constraint_propagation_candidate", {}).get("full_domain_relative_rms", {}).get("total_Brown_plus_actual_matter_composite"),
                         }
                         for tangent in armrow.get("measured_rhs_tangent", {}).get("tangent_by_epsilon", [])
                     ]
