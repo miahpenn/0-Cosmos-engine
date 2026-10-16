@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - "tools/audit_current_source_momentum_constraint_tangent.py"
+      - "tools/audit_primary_l3_matter_closure.py"
       - "tools/manufactured_momentum_tangent_audit.py"
       - "tools/momentum_constraint_chain_rule.py"
       - "tests/test_research_momentum_constraint_chain_rule.py"
@@ -69,6 +70,7 @@ jobs:
         run: |
           python -m py_compile tools/manufactured_momentum_tangent_audit.py
           python -m py_compile tools/audit_current_source_momentum_constraint_tangent.py
+          python -m py_compile tools/audit_primary_l3_matter_closure.py
           python -m py_compile tools/momentum_constraint_chain_rule.py
 
       - name: Run manufactured regular-profile parity and tangent audit first (zero production steps)
@@ -90,6 +92,17 @@ jobs:
             --dt 0.015 \
             --epsilons 0.00002 0.00001 \
             --output results/current-source-momentum-tangent/report.json
+
+      - name: Run full-grid matter L3 source closure in both initialization arms
+        id: matter_l3
+        if: always()
+        continue-on-error: true
+        run: |
+          mkdir -p results/primary-l3-matter-closure
+          COSMOS_PINNED_SOURCE_ROOT="$GITHUB_WORKSPACE/source" python tools/audit_primary_l3_matter_closure.py \\
+            --resolutions 40 60 80 120 160 \\
+            --r-max 80 \\
+            --output-dir results/primary-l3-matter-closure
 
       - name: Hash all retained diagnostic outputs
         if: always()
@@ -113,6 +126,8 @@ jobs:
         env:
           MANUFACTURED_OUTCOME: ${{ steps.manufactured.outcome }}
           PRODUCTION_OUTCOME: ${{ steps.production.outcome }}
+          MATTER_L3_OUTCOME: ${{ steps.matter_l3.outcome }}
         run: |
           test "$MANUFACTURED_OUTCOME" = "success"
           test "$PRODUCTION_OUTCOME" = "success"
+          test "$MATTER_L3_OUTCOME" = "success"
