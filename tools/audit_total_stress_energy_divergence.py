@@ -613,12 +613,16 @@ def sector_resolved_divergence_tangent_from_states(
     dt_gth = (plus_all["gamma_thth"] - minus_all["gamma_thth"]) * inv
     channels = ("div_T_t", "div_T_r", "div_T_t_fv", "div_T_r_fv")
     sector_results: dict[str, Any] = {}
+    sector_dt_density_t_sum = np.zeros_like(base_all["rho"], dtype=np.float64)
+    sector_dt_density_r_sum = np.zeros_like(base_all["rho"], dtype=np.float64)
     for name in names:
         b_obj = _covariant_objects_from_components(state, projection_maps[0][name])
         p_obj = _covariant_objects_from_components(plus_state, projection_maps[1][name])
         m_obj = _covariant_objects_from_components(minus_state, projection_maps[2][name])
         dt_rho_t = (p_obj["density_t"] - m_obj["density_t"]) * inv
         dt_rho_r = (p_obj["density_r"] - m_obj["density_r"]) * inv
+        sector_dt_density_t_sum += dt_rho_t
+        sector_dt_density_r_sum += dt_rho_r
         div_t, div_r = covariant_divergence_from_profiles(
             state.grid.centers, d1_fn,
             b_obj["alpha"], b_obj["gamma_rr"], b_obj["gamma_thth"],
@@ -641,6 +645,58 @@ def sector_resolved_divergence_tangent_from_states(
             "raw_signed_arrays": {k: v.tolist() for k, v in arrays.items()},
             "summaries": {k: summarize(v, state.grid.centers) for k, v in arrays.items()},
         }
+    # Isolate the directional density term before interpreting any full-divergence
+    # sector-sum residual. This determines whether the failing time component is
+    # already present in (d_t sqrt(-g) T^t_nu), before spatial flux/source terms.
+    total_dt_density_t = (plus_all["density_t"] - minus_all["density_t"]) * inv
+    total_dt_density_r = (plus_all["density_r"] - minus_all["density_r"]) * inv
+    time_density_gap_t = finite(
+        "time-density sector sum minus total for nu=t",
+        sector_dt_density_t_sum - total_dt_density_t,
+    )
+    time_density_gap_r = finite(
+        "time-density sector sum minus total for nu=r",
+        sector_dt_density_r_sum - total_dt_density_r,
+    )
+    predicted_pointwise_gap_t = finite(
+        "predicted pointwise divergence gap from nu=t time-density term",
+        time_density_gap_t / base_all["sqrt_minus_g"],
+    )
+    predicted_pointwise_gap_r = finite(
+        "predicted pointwise divergence gap from nu=r time-density term",
+        time_density_gap_r / base_all["sqrt_minus_g"],
+    )
+    zero = np.zeros_like(state.grid.centers, dtype=np.float64)
+    d1_fn_for_gap = lambda values, parity: d1(state.grid, values, parity)
+    predicted_fv_gap_t, predicted_fv_gap_r = covariant_divergence_fv_from_profiles(
+        state.grid.centers, d1_fn_for_gap,
+        base_all["alpha"], base_all["gamma_rr"], base_all["gamma_thth"],
+        zero, zero, zero, zero,
+        time_density_gap_t, time_density_gap_r, zero, zero, zero,
+    )
+    time_density_gap_summary = {
+        "term_definition": (
+            "sum of per-sector finite-difference density rates minus the total-projection "
+            "finite-difference density rate, before adding radial flux and metric source terms"
+        ),
+        "raw_signed_arrays": {
+            "time_density_gap_t": time_density_gap_t.tolist(),
+            "time_density_gap_r": time_density_gap_r.tolist(),
+            "predicted_div_T_t_gap_pointwise": predicted_pointwise_gap_t.tolist(),
+            "predicted_div_T_r_gap_pointwise": predicted_pointwise_gap_r.tolist(),
+            "predicted_div_T_t_gap_fv": predicted_fv_gap_t.tolist(),
+            "predicted_div_T_r_gap_fv": predicted_fv_gap_r.tolist(),
+        },
+        "summaries": {
+            "time_density_gap_t": summarize(time_density_gap_t, state.grid.centers),
+            "time_density_gap_r": summarize(time_density_gap_r, state.grid.centers),
+            "predicted_div_T_t_gap_pointwise": summarize(predicted_pointwise_gap_t, state.grid.centers),
+            "predicted_div_T_r_gap_pointwise": summarize(predicted_pointwise_gap_r, state.grid.centers),
+            "predicted_div_T_t_gap_fv": summarize(predicted_fv_gap_t, state.grid.centers),
+            "predicted_div_T_r_gap_fv": summarize(predicted_fv_gap_r, state.grid.centers),
+        },
+    }
+
     atol, rtol = 5.0e-18, 5.0e-10
     recon_channels: dict[str, Any] = {}
     for key in channels:
@@ -669,6 +725,7 @@ def sector_resolved_divergence_tangent_from_states(
             "all_sectors_reconstruct_total": all(x["passed"] for x in recon_channels.values()),
             "channels": recon_channels,
         },
+        "time_density_reconstruction": time_density_gap_summary,
         "state_pairing": {
             "base_state_sha256": state_digest(state),
             "plus_state_sha256": state_digest(plus_state),

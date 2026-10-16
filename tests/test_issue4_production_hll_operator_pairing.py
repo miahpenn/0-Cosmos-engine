@@ -288,6 +288,16 @@ def test_hll_and_total_t_witness_share_exact_epsilon_state_pair():
             expected_sectors = {"dark_matter", "baryons", "radiation", "S", "D", "phi"}
             assert set(decomposition["sectors"]) == expected_sectors
             assert decomposition["state_pairing"]["all_sector_arrays_finite"] is True
+            time_density = decomposition["time_density_reconstruction"]
+            assert set(time_density["raw_signed_arrays"]) == {
+                "time_density_gap_t", "time_density_gap_r",
+                "predicted_div_T_t_gap_pointwise", "predicted_div_T_r_gap_pointwise",
+                "predicted_div_T_t_gap_fv", "predicted_div_T_r_gap_fv",
+            }
+            assert all(
+                np.all(np.isfinite(np.asarray(values, dtype=np.float64)))
+                for values in time_density["raw_signed_arrays"].values()
+            )
             reconstruction_debug = {}
             for channel_name, channel in decomposition["reconstruction"]["channels"].items():
                 sum_values = np.asarray(channel["sum_of_sectors"], dtype=np.float64)
@@ -337,6 +347,7 @@ def test_hll_and_total_t_witness_share_exact_epsilon_state_pair():
                 "epsilon": witness["epsilon"],
                 "reconstruction_contract": reconstruction_contract,
                 "channels": reconstruction_debug,
+                "time_density_reconstruction": time_density["summaries"],
             })
             for key in ("div_T_t", "div_T_r", "div_T_t_fv", "div_T_r_fv"):
                 values = np.asarray(paired["raw_signed_arrays"][key], dtype=np.float64)
