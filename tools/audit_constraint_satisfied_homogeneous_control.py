@@ -161,7 +161,9 @@ def radiation_centre_flux_balance(
         raise AssertionError("face-balance formula requires zero shift")
 
     metric = metric_slice_from_q(grid, geom)
-    derivatives = geometry_metric_derivatives(\n        metric, lambda values, parity: grid.cell_derivative_fourth(values, parity=parity)\n    )
+    derivatives = geometry_metric_derivatives(
+        metric, lambda values, parity: grid.cell_derivative_fourth(values, parity=parity)
+    )
     face_flux, _source_e, source_s, _q_e, q_s = _species_rhs_components(
         metric, derivatives, state.matter.radiation, Species.RADIATION
     )
