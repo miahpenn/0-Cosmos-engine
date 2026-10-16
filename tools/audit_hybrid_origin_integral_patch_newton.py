@@ -412,8 +412,8 @@ def _constraint_propagation_candidate(
     C_rr = d2(C_up, -1)
     conformal_angular_log_derivative = d1(b, 1) / b + 2.0 / r
 
-    # Brown, BSSN in spherical symmetry, Eq. (11b): this is d_t M^r, not
-    # d_t M_r. Shift is zero in the production CMC branch.
+    # Raised-index comparator only; the direct covariant M_r reading of
+    # Brown Eq. (11b) is evaluated separately below. Shift is zero on these arms.
     term_KM_up = alpha * K * M_up
     term_alpha_H_up = -(alpha_r / 3.0) * H
     term_H_gradient_up = (alpha / 6.0) * H_r
@@ -558,10 +558,8 @@ def _constraint_propagation_candidate(
             ),
         },
         "formula": (
-            "Brown spherical BSSN constraint-propagation Eq. (11b) in its "
-            "published contravariant M^r convention, plus provisional "
-            "-8*pi*alpha*Q^r stress-divergence source, explicitly converted "
-            "back to the vendor's measured covariant M_r derivative."
+            "Raised-index transformation comparator, not treated as the published "
+            "index convention; compare with published_covariant_M_r_candidate below."
         ),
         "brown_reference": "J. David Brown, BSSN in Spherical Symmetry, arXiv:0705.3845, Eq. (11b)",
         "index_mapping_reviewed_for_scientific_admission": False,
