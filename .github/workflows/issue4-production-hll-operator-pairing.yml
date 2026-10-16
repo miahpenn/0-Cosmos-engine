@@ -96,6 +96,9 @@ jobs:
             and .gate_result.all_hll_source_profiles_finite == true
             and .gate_result.input_states_unchanged == true
             and .gate_result.native_zero_shift_scope_verified == true
+            and .gate_result.origin_face_flux_exact_zero == true
+            and .gate_result.native_component_arrays_preserved == true
+            and .gate_result.directional_operator_arrays_preserved == true
             and .gate_result.manufactured_operator_probe_nontrivial == true
             and .gate_result.manufactured_probe_negative_controls_nontrivial == true
             and .gate_result.scalar_sector_kept_separate == true
