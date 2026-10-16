@@ -258,3 +258,46 @@ def test_nontrivial_metric_radiation_flux_uses_interpolated_face_fields():
     assert face_flux[1, 2] == pytest.approx(
         expected_flux, rel=3.0e-13, abs=0.0
     )
+
+
+def test_nonzero_shift_radiation_flux_uses_face_metric():
+    """The shared face metric must preserve shift terms with curved geometry."""
+    metric = BSSNMetricSlice(
+        r=np.asarray([0.5, 1.5, 2.5]),
+        a=np.asarray([0.90, 1.00, 1.10]),
+        b=np.asarray([1.10, 1.20, 1.30]),
+        X=np.asarray([0.90, 0.95, 1.00]),
+        alpha=np.asarray([0.80, 0.90, 1.00]),
+        beta=np.asarray([0.02, 0.06, 0.10]),
+        Aa=np.zeros(3),
+        K=np.zeros(3),
+        Lambda=np.zeros(3),
+        B=np.zeros(3),
+    )
+    metric_arrays = matter_system_module._metric_arrays(metric)
+    state = ConservedSpecies(
+        rest=np.zeros(3),
+        energy_t=np.asarray([m.sqrt_gamma for m in metric_arrays]),
+        momentum_r=np.zeros(3),
+    )
+    face_flux, _source_e, _source_s, _q_e, _q_s = (
+        matter_system_module._species_rhs_components(
+            metric, derivatives(n=3), state, Species.RADIATION
+        )
+    )
+
+    r_face = 0.5 * (metric.r[0] + metric.r[1])
+    a_face = 0.5 * (metric.a[0] + metric.a[1])
+    b_face = 0.5 * (metric.b[0] + metric.b[1])
+    X_face = 0.5 * (metric.X[0] + metric.X[1])
+    alpha_face = 0.5 * (metric.alpha[0] + metric.alpha[1])
+    beta_face = 0.5 * (metric.beta[0] + metric.beta[1])
+    sqrt_gamma_face = np.sqrt(a_face) * b_face * r_face**2 / X_face**3
+    # The Eulerian radiation state has E=1 and S_r=0; the energy flux is
+    # -sqrt(gamma)*beta*E, while the radial pressure flux is sqrt(gamma)*alpha*p.
+    assert face_flux[1, 1] == pytest.approx(
+        -sqrt_gamma_face * beta_face, rel=3.0e-13, abs=0.0
+    )
+    assert face_flux[1, 2] == pytest.approx(
+        sqrt_gamma_face * alpha_face / 3.0, rel=3.0e-13, abs=0.0
+    )
