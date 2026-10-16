@@ -11,6 +11,7 @@ on:
       - tests/test_manufactured_regular_ricci_oracle.py
       - tools/audit_origin_integral_quadrature.py
       - tests/test_origin_integral_quadrature.py
+      - docs/ISSUE4_PARITY_SIMPSON_COPY_RECONSTRUCTION_2026-10-16.md
       - .github/workflows/issue4-analytic-s2-halfcell.yml
   push:
     branches:
@@ -22,6 +23,7 @@ on:
       - tests/test_manufactured_regular_ricci_oracle.py
       - tools/audit_origin_integral_quadrature.py
       - tests/test_origin_integral_quadrature.py
+      - docs/ISSUE4_PARITY_SIMPSON_COPY_RECONSTRUCTION_2026-10-16.md
       - .github/workflows/issue4-analytic-s2-halfcell.yml
 
 permissions:
