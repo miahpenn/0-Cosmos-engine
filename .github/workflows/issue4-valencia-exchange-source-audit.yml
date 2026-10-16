@@ -114,6 +114,9 @@ jobs:
           assert report["controls"]["sign_reversal_control_closes"] is True
           assert report["momentum_exchange_conversion"]["predicted_difference_closes"] is True
           assert report["momentum_exchange_conversion"]["mismatch_detected"] is True
+          assert report["scalar_coupling"]["mismatch_detected"] is True
+          assert report["scalar_coupling"]["unit_lapse_control_closes"] is True
+          assert report["combined_local_energy_exchange"]["net_energy_exchange_closes_to_predicted_lapse_defect"] is True
           assert report["gate_result"]["scientific_admission"] is False
           print("SOURCE_COEFFICIENT_CONTROLS_OK; TOTAL_CONSERVATION=NOT_CLOSED; SCIENTIFIC_ADMISSION=NOT_ADMITTED")
           PY
