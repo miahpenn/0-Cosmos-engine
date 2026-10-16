@@ -58,6 +58,7 @@ VARIANTS = (
     ("fit_degree4_r3", "fitted", 4, 3.0),
     ("fit_degree5_r3p5", "fitted", 5, 3.5),
     ("fixed_s0_s2_fit_s4_s6_s8", "fixed_s2", 3, FIT_RADIUS),
+    ("parity_composite_simpson", "parity_simpson", 0, FIT_RADIUS),
 )
 
 
@@ -274,11 +275,72 @@ def _integrate_point_sample(source: np.ndarray, dr: float, r: np.ndarray) -> np.
     return np.cumsum(np.r_[r0 * source[0], 0.5 * dr * (source[1:] + source[:-1])]) / r
 
 
+def _parity_composite_simpson_integral(
+    source: np.ndarray, r: np.ndarray, dr: float, origin_value: float = 1.0
+) -> np.ndarray:
+    """Integrate centre samples through a parity-even Simpson reconstruction.
+
+    For a target centre r_i=(i+1/2)dr, construct the even extension on
+    [-r_i,r_i], integrate with Simpson 1/3 panels plus a final Simpson 3/8
+    panel, and halve the symmetric integral. The first half-cell uses the
+    known origin value and Simpson's two-panel formula. This is diagnostic
+    only; the production initializer remains unchanged.
+    """
+    samples = np.asarray(source, dtype=np.float64)
+    integral = np.zeros_like(samples)
+    for i in range(samples.size):
+        if i == 0:
+            r0 = float(r[0])
+            integral[i] = r0*(samples[i] + 2.0*origin_value)/3.0
+            continue
+        signed_indices = np.arange(-i-1, i+1, dtype=int)
+        sample_indices = np.where(signed_indices < 0, -signed_indices-1, signed_indices)
+        values = samples[sample_indices]
+        intervals = 2*i + 1
+        simpson13_intervals = intervals - 3
+        symmetric_integral = 0.0
+        if simpson13_intervals > 0:
+            first = values[:simpson13_intervals+1]
+            symmetric_integral += (dr/3.0)*(
+                first[0] + first[-1]
+                + 4.0*np.sum(first[1:-1:2])
+                + 2.0*np.sum(first[2:-1:2])
+            )
+        start = simpson13_intervals
+        symmetric_integral += (3.0*dr/8.0)*(
+            values[start] + 3.0*values[start+1]
+            + 3.0*values[start+2] + values[start+3]
+        )
+        integral[i] = 0.5*symmetric_integral
+    return integral
+
+
 def _integrate_variant(source: np.ndarray, r: np.ndarray, dr: float,
                        mode: str, degree: int, fit_r_max: float) -> tuple[np.ndarray, dict]:
     r0 = float(r[0])
-    moment, fit_meta = _make_fit(source, r, r0, mode, degree, fit_r_max)
-    Bnext = np.cumsum(np.r_[moment, 0.5 * dr * (source[1:] + source[:-1])]) / r
+    point_sample_moment = float(r0*source[0])
+    if mode == "parity_simpson":
+        integral = _parity_composite_simpson_integral(source, r, dr, origin_value=1.0)
+        Bnext = integral/r
+        moment = float(integral[0])
+        fit_meta = {
+            "method": "parity-even-extension composite Simpson 1/3 + 3/8",
+            "half_cell_integral": moment,
+            "point_sample_half_cell_integral": point_sample_moment,
+            "delta_integral_vs_point_sample": float(moment-point_sample_moment),
+            "analytic_s0_s2_leading_delta": float(
+                r0 + (-4.0*np.pi*AMPLITUDE**2)*r0**3/3.0 - point_sample_moment
+            ),
+            "fit_applicable": False,
+            "fit_max_abs_source_residual": None,
+            "fit_rms_source_residual": None,
+            "integrated_coefficient_names": [],
+            "integrated_coefficients_even_powers": [],
+            "coefficients_finite": bool(_finite([moment, point_sample_moment])),
+        }
+    else:
+        moment, fit_meta = _make_fit(source, r, r0, mode, degree, fit_r_max)
+        Bnext = np.cumsum(np.r_[moment, 0.5*dr*(source[1:]+source[:-1])])/r
     fit_meta["iteration_B_positive_finite"] = bool(_finite(Bnext) and np.all(Bnext > 0.0))
     return Bnext, fit_meta
 
@@ -286,8 +348,17 @@ def _integrate_variant(source: np.ndarray, r: np.ndarray, dr: float,
 def _fit_rows_for_report(source: np.ndarray, r: np.ndarray) -> dict:
     rows = {}
     for tag, mode, degree, fit_r_max in VARIANTS:
-        _, fit = _make_fit(source, r, float(r[0]), mode, degree, fit_r_max)
-        rows[tag] = fit
+        if mode == "parity_simpson":
+            rows[tag] = {
+                "method": "no source polynomial fit; parity-aware composite Simpson quadrature",
+                "fit_applicable": False,
+                "fit_max_abs_source_residual": None,
+                "fit_rms_source_residual": None,
+                "coefficients_finite": True,
+            }
+        else:
+            _, fit = _make_fit(source, r, float(r[0]), mode, degree, fit_r_max)
+            rows[tag] = fit
     return rows
 
 
