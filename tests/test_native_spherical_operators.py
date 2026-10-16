@@ -53,7 +53,20 @@ def test_cell_derivatives_match_pinned_grid_on_deterministic_profiles(
     ):
         actual = getattr(native, method)(values, parity=parity)
         expected = getattr(reference, method)(values, parity=parity)
-        np.testing.assert_allclose(actual, expected, rtol=2e-13, atol=2e-12)
+        if method == "cell_second_derivative_fourth":
+            # The native closure intentionally upgrades the final two cells
+            # to fourth order; the pinned vendor retains its five-node
+            # O(dr**3) closure. Check the unchanged interior here. The native
+            # boundary accuracy is tested independently by the observed-order
+            # witness above, rather than using vendor output as the oracle.
+            np.testing.assert_allclose(
+                actual[:-2], expected[:-2], rtol=2e-13, atol=2e-12
+            )
+            assert not np.allclose(
+                actual[-2:], expected[-2:], rtol=2e-13, atol=2e-12
+            )
+        else:
+            np.testing.assert_allclose(actual, expected, rtol=2e-13, atol=2e-12)
 
 
 @pytest.mark.parametrize("parity", [1, -1])
