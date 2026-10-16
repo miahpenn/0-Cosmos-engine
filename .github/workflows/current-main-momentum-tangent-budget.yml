@@ -4,10 +4,12 @@ on:
   pull_request:
     paths:
       - "tools/audit_current_source_momentum_constraint_tangent.py"
+      - "tests/test_constraint_source_normalization_contract.py"
+      - "tools/audit_brown_vacuum_momentum_propagation.py"
       - "tools/audit_primary_l3_matter_closure.py"
-      - "tools/manufactured_momentum_tangent_audit.py"
       - "tools/momentum_constraint_chain_rule.py"
       - "tests/test_research_momentum_constraint_chain_rule.py"
+      - "tools/manufactured_momentum_tangent_audit.py"
       - ".github/workflows/current-main-momentum-tangent-budget.yml"
   workflow_dispatch:
 
@@ -58,20 +60,40 @@ jobs:
           test "$(git -C source rev-parse HEAD)" = "$SOURCE_COMMIT"
           test "$(git -C source/vendor/bb-palatini-unified-r0 rev-parse HEAD)" = "$VENDOR_COMMIT"
           test "$(git -C vendor/bb-palatini-unified-r0 rev-parse HEAD)" = "$VENDOR_COMMIT"
-          printf 'PRODUCTION_SOURCE=%s\\n' "$(git -C source rev-parse HEAD)"
-          printf 'VENDOR_SOURCE=%s\\n' "$(git -C source/vendor/bb-palatini-unified-r0 rev-parse HEAD)"
-          printf 'DIAGNOSTIC_HEAD=%s\\n' "$(git rev-parse HEAD)"
-          printf 'PINNED_ENGINE_BLOBS_VERIFIED_BY_AUDIT=1\\n'
-
-      - name: Verify discrete chain rule and signed-term negative control
-        run: python -m pytest -q tests/test_research_momentum_constraint_chain_rule.py
+          printf 'PRODUCTION_SOURCE=%s\n' "$(git -C source rev-parse HEAD)"
+          printf 'VENDOR_SOURCE=%s\n' "$(git -C source/vendor/bb-palatini-unified-r0 rev-parse HEAD)"
+          printf 'DIAGNOSTIC_HEAD=%s\n' "$(git rev-parse HEAD)"
+          for path in engine/production_kernel.py engine/matter_system.py engine/matter_rhs.py engine/scalar_system.py engine/v55_matter.py engine/v55_pirk_adapter.py engine/cmc_gauge.py engine/v55_initial.py engine/stress_energy.py engine/valencia.py engine/worldtube.py; do
+            test "$(git rev-parse "HEAD:$path")" = "$(git -C source rev-parse "HEAD:$path")"
+          done
 
       - name: Compile both read-only auditors
         run: |
           python -m py_compile tools/manufactured_momentum_tangent_audit.py
           python -m py_compile tools/audit_current_source_momentum_constraint_tangent.py
+          python -m py_compile tools/audit_brown_vacuum_momentum_propagation.py
           python -m py_compile tools/audit_primary_l3_matter_closure.py
           python -m py_compile tools/momentum_constraint_chain_rule.py
+          python -m py_compile tests/test_research_momentum_constraint_chain_rule.py
+
+      - name: Run frozen constraint source sign/consumer-factor contract
+        run: |
+          python -m pytest -q tests/test_constraint_source_normalization_contract.py
+
+
+      - name: Verify discrete chain rule and signed-term negative control
+        run: python -m pytest -q tests/test_research_momentum_constraint_chain_rule.py
+
+      - name: Run independent vacuum Brown propagation discriminator on manufactured regular states
+        id: brown
+        continue-on-error: true
+        run: |
+          mkdir -p results/brown-vacuum-propagation
+          python tools/audit_brown_vacuum_momentum_propagation.py \
+            --resolutions 40 60 80 120 160 \
+            --r-max 40 \
+            --epsilons 0.00002 0.00001 \
+            --output-dir results/brown-vacuum-propagation
 
       - name: Run manufactured regular-profile parity and tangent audit first (zero production steps)
         id: manufactured
@@ -86,7 +108,7 @@ jobs:
         continue-on-error: true
         run: |
           mkdir -p results/current-source-momentum-tangent
-          COSMOS_PINNED_SOURCE_ROOT="$GITHUB_WORKSPACE/source" python tools/audit_current_source_momentum_constraint_tangent.py \
+          python tools/audit_current_source_momentum_constraint_tangent.py \
             --resolutions 60 80 120 \
             --r-max 80 \
             --dt 0.015 \
@@ -99,9 +121,9 @@ jobs:
         continue-on-error: true
         run: |
           mkdir -p results/primary-l3-matter-closure
-          COSMOS_PINNED_SOURCE_ROOT="$GITHUB_WORKSPACE/source" python tools/audit_primary_l3_matter_closure.py \
-            --resolutions 40 60 80 120 160 \
-            --r-max 80 \
+          COSMOS_PINNED_SOURCE_ROOT="$GITHUB_WORKSPACE/source" python tools/audit_primary_l3_matter_closure.py \\
+            --resolutions 40 60 80 120 160 \\
+            --r-max 80 \\
             --output-dir results/primary-l3-matter-closure
 
       - name: Hash all retained diagnostic outputs
@@ -124,10 +146,12 @@ jobs:
         if: always()
         shell: bash
         env:
+          BROWN_OUTCOME: ${{ steps.brown.outcome }}
           MANUFACTURED_OUTCOME: ${{ steps.manufactured.outcome }}
           PRODUCTION_OUTCOME: ${{ steps.production.outcome }}
           MATTER_L3_OUTCOME: ${{ steps.matter_l3.outcome }}
         run: |
+          test "$BROWN_OUTCOME" = "success"
           test "$MANUFACTURED_OUTCOME" = "success"
           test "$PRODUCTION_OUTCOME" = "success"
           test "$MATTER_L3_OUTCOME" = "success"
