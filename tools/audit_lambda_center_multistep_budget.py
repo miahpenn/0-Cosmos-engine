@@ -38,7 +38,7 @@ from tools.audit_lambda_center_tangent_resolution import (
     _split_signed_responses,
 )
 
-SOURCE_COMMIT = "285a2ee0c1a3b97cddeb4519d8e749109b115aab"
+SOURCE_COMMIT = "513a0584f31bae761e6fa5fd650585a022f23fad"
 VENDOR_COMMIT = "d6052d605673ce9d82cdc99b0df79855fa2ea215"
 PHYSICAL_TIMESTEPS = (0.0025, 0.005, 0.01)
 TIMESTEP_COMPARISONS = (
