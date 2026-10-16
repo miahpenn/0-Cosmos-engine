@@ -351,10 +351,9 @@ def test_hll_and_total_t_witness_share_exact_epsilon_state_pair():
                     np.max(np.abs(np.asarray(rec["sum_of_sectors"], dtype=np.float64))),
                     np.max(np.abs(values)),
                 ))
-                np.testing.assert_allclose(
-                    np.asarray(rec["sum_of_sectors"], dtype=np.float64),
-                    values, rtol=rec["rtol"], atol=rec["atol"],
-                )
+                # Preserve the signed mismatch but do not fail before the second
+                # epsilon arm is collected. The aggregate contract below still fails
+                # if any sector sum exceeds its fixed tolerance.
                 np.testing.assert_allclose(
                     np.asarray(rec["sum_minus_total"], dtype=np.float64),
                     np.asarray(rec["sum_of_sectors"], dtype=np.float64) - values,
