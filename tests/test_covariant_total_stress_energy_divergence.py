@@ -139,3 +139,29 @@ def test_finite_volume_face_reconstruction_respects_regular_origin_parity():
     expected_source = 0.6 * dr * (1.0 + 0.015 * dr**2 + 0.0005 * dr**4)
     assert np.isclose(source_faces[1], expected_source, rtol=0.0, atol=2.0e-14)
 
+def test_finite_volume_flat_anisotropic_stress_matches_volume_averaged_identity():
+    n = 128
+    dr = 0.25
+    r = (np.arange(n, dtype=np.float64) + 0.5) * dr
+    alpha = np.ones(n)
+    gamma_rr = np.ones(n)
+    gamma_thth = r**2
+    rho = np.full(n, 0.2)
+    pr = 0.4 + 0.03 * r**2
+    pt = 0.4 + 0.02 * r**2
+    j = _zero(n)
+    zeros = _zero(n)
+    div_t, div_r = AUDIT.covariant_divergence_fv_from_profiles(
+        r, _d1, alpha, gamma_rr, gamma_thth,
+        rho, j, pr, pt,
+        zeros, zeros, zeros, zeros, zeros,
+    )
+
+    # Pointwise flat spherical identity is p_r' + 2(p_r-p_t)/r = 0.08 r.
+    # The FV operator returns its exact spherical-volume average per cell.
+    left = np.arange(n, dtype=np.float64) * dr
+    right = left + dr
+    expected = 0.06 * (right**4 - left**4) / (right**3 - left**3)
+    assert np.allclose(div_t, 0.0, rtol=0.0, atol=2.0e-12)
+    assert np.allclose(div_r, expected, rtol=0.0, atol=2.0e-11)
+
