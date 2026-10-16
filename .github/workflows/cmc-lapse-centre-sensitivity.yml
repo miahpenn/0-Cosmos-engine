@@ -112,6 +112,7 @@ jobs:
           assert report.get("status") == "completed_diagnostic_only", report.get("status")
           assert report.get("closures", {}).get("production_CMC_alpha_RHS_tangent") is True
           assert report.get("closures", {}).get("flattened_alpha_RHS_tangent") is True
+          assert report.get("closures", {}).get("operator_compatible_fourth_order_cmc_lapse_constructed") is True, [row.get("arms", {}).get("operator_compatible_fourth_order_cmc_lapse", {}).get("error") for row in report.get("resolutions", [])]
           assert report.get("scientific_admission") is False
           assert all(row.get("input_mutation_check", {}).get("production_state_unchanged") is True for row in report["resolutions"])
           print("DIAGNOSTIC_CLOSURE_OK")
