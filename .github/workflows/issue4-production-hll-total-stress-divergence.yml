@@ -1,0 +1,121 @@
+name: Issue 4 production HLL total-stress-energy divergence
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/issue4-production-hll-total-stress-divergence.yml"
+      - "tools/audit_production_hll_total_stress_divergence.py"
+      - "tests/test_production_hll_total_stress_divergence.py"
+      - "tools/audit_total_stress_energy_divergence.py"
+      - "tools/audit_current_source_momentum_constraint_tangent.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: issue4-production-hll-total-stress-divergence
+  cancel-in-progress: false
+
+jobs:
+  bounded-production-hll-divergence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    env:
+      PYTHONUNBUFFERED: "1"
+      SOURCE_COMMIT: "7f47669a1c0edfafef9fc5f27b2db80840d3f035"
+      VENDOR_COMMIT: "d6052d605673ce9d82cdc99b0df79855fa2ea215"
+      COSMOS_PINNED_SOURCE_ROOT: source
+
+    steps:
+      - name: Check out diagnostic branch and pinned vendor
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Check out exact production source as a separate tree
+        uses: actions/checkout@v4
+        with:
+          ref: 7f47669a1c0edfafef9fc5f27b2db80840d3f035
+          path: source
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: source/requirements.txt
+
+      - name: Install pinned production dependencies
+        run: python -m pip install -r source/requirements.txt
+
+      - name: Verify production/source/vendor pins and unchanged engine files
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C source rev-parse HEAD)" = "$SOURCE_COMMIT"
+          test "$(git -C source/vendor/bb-palatini-unified-r0 rev-parse HEAD)" = "$VENDOR_COMMIT"
+          test "$(git -C vendor/bb-palatini-unified-r0 rev-parse HEAD)" = "$VENDOR_COMMIT"
+          for path in engine/production_kernel.py engine/matter_system.py engine/matter_rhs.py engine/scalar_system.py engine/v55_matter.py engine/v55_pirk_adapter.py engine/cmc_gauge.py engine/v55_initial.py engine/stress_energy.py engine/valencia.py engine/worldtube.py; do
+            test "$(git rev-parse "HEAD:$path")" = "$(git -C source rev-parse "HEAD:$path")"
+          done
+          printf 'PRODUCTION_SOURCE=%s\n' "$(git -C source rev-parse HEAD)"
+          printf 'VENDOR_SOURCE=%s\n' "$(git -C source/vendor/bb-palatini-unified-r0 rev-parse HEAD)"
+
+      - name: Compile observer and focused controls
+        run: |
+          python -m py_compile tools/audit_total_stress_energy_divergence.py
+          python -m py_compile tools/audit_production_hll_total_stress_divergence.py
+          python -m py_compile tests/test_production_hll_total_stress_divergence.py
+
+      - name: Run analytic and operator-contract tests
+        run: |
+          python -m pytest -q \
+            tests/test_covariant_total_stress_energy_divergence.py \
+            tests/test_production_hll_total_stress_divergence.py
+
+      - name: Run bounded frozen-state production-HLL matrix
+        run: |
+          mkdir -p results/issue4-production-hll-total-stress-divergence
+          python tools/audit_production_hll_total_stress_divergence.py \
+            --resolutions 60 80 120 160 \
+            --r-max 24 \
+            --epsilons 0.00002 0.00001 \
+            --output results/issue4-production-hll-total-stress-divergence/report.json
+
+      - name: Assert integrity while preserving non-admission
+        run: |
+          jq -e '
+            .status == "completed_diagnostic_only"
+            and .source_provenance.source_blobs_match == true
+            and .gate_result.source_pins_verified == true
+            and .gate_result.independent_projection_matches_canonical == true
+            and .gate_result.native_species_rhs_decomposition_matches_kernel_rhs == true
+            and .gate_result.all_profiles_finite == true
+            and .gate_result.input_states_unchanged == true
+            and .gate_result.production_steps_advanced == 0
+            and .gate_result.sign_flipped_face_control_changes_operator_balance == true
+            and .gate_result.omitted_geometric_source_control_changes_operator_rhs == true
+            and .gate_result.projected_total_T_crosscheck_matches_custom_FV == true
+            and .gate_result.production_HLL_total_stress_energy_divergence_closed == false
+            and .gate_result.scientific_admission == false
+            and .scientific_admission == false
+          ' results/issue4-production-hll-total-stress-divergence/report.json
+
+      - name: Hash report and provenance
+        if: always()
+        run: |
+          mkdir -p results/issue4-production-hll-total-stress-divergence
+          find results/issue4-production-hll-total-stress-divergence -type f ! -name SHA256SUMS.txt -print0 | sort -z | xargs -0 -r sha256sum > results/issue4-production-hll-total-stress-divergence/SHA256SUMS.txt
+
+      - name: Upload report and signed profiles
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: issue4-production-hll-total-stress-divergence
+          path: results/issue4-production-hll-total-stress-divergence/
+          if-no-files-found: warn
+          retention-days: 90
