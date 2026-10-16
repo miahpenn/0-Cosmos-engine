@@ -451,16 +451,39 @@ def audit_case(kernel, state, coupling: float, epsilons: tuple[float, float]) ->
         divergence_tangent(kernel, state, rates_with_conditional_source, eps)
         for eps in epsilons
     ]
+
+    # Independent companion predicted by the pinned-source exchange audit:
+    # Pi_dot currently includes beta_dm*rho_dm, while the covariant wave-source
+    # conversion under the same Q_nu premise requires alpha*beta_dm*rho_dm.
+    # This is inserted only into another copied RHS direction for comparison.
+    metric_slice = metric_slice_from_q(state.grid, state.geometry)
+    rho_dm = finite("conditional Pi-lapse rho_dm", dm_density(metric_slice, state.matter))
+    scalar_pi_lapse_correction = finite(
+        "conditional Pi-dot lapse correction",
+        (np.asarray(state.geometry.alpha) - 1.0) * float(coupling) * rho_dm,
+    )
+    rates_with_both_conditional_sources = copy_rates_with_rest_source(rates, rest_source)
+    rates_with_both_conditional_sources["scalars"] = {
+        name: np.array(value, dtype=np.float64, copy=True)
+        for name, value in rates["scalars"].items()
+    }
+    rates_with_both_conditional_sources["scalars"]["Pi"] += scalar_pi_lapse_correction
+    joint_source_tangent_rows = [
+        divergence_tangent(kernel, state, rates_with_both_conditional_sources, eps)
+        for eps in epsilons
+    ]
+
     if state_digest(state) != original_digest:
         raise RuntimeError("frozen input state changed during covariant-divergence audit")
-    projections_ok = all(
-        row["projection_crosscheck_passed"]
-        for row in tangent_rows + conditional_source_tangent_rows
-    )
+    all_tangent_rows = tangent_rows + conditional_source_tangent_rows + joint_source_tangent_rows
+    projections_ok = all(row["projection_crosscheck_passed"] for row in all_tangent_rows)
     finite_ok = all(
         np.all(np.isfinite(row["div_T_t"])) and np.all(np.isfinite(row["div_T_r"]))
-        for row in tangent_rows + conditional_source_tangent_rows
-    ) and bool(np.all(np.isfinite(rest_source)))
+        for row in all_tangent_rows
+    ) and bool(
+        np.all(np.isfinite(rest_source))
+        and np.all(np.isfinite(scalar_pi_lapse_correction))
+    )
     r = np.asarray(state.grid.centers, dtype=np.float64)
     annulus = (r >= 2.0) & (r <= 10.0)
     return {
@@ -477,6 +500,15 @@ def audit_case(kernel, state, coupling: float, epsilons: tuple[float, float]) ->
             {key: value for key, value in row.items() if key not in ("div_T_t", "div_T_r")}
             for row in conditional_source_tangent_rows
         ],
+        "joint_conditional_source_epsilon_rows": [
+            {key: value for key, value in row.items() if key not in ("div_T_t", "div_T_r")}
+            for row in joint_source_tangent_rows
+        ],
+        "conditional_pi_dot_lapse_correction": {
+            "formula": "(alpha-1)*beta_dm*rho_dm",
+            "profile": summarize(scalar_pi_lapse_correction, np.asarray(state.grid.centers, dtype=np.float64)),
+            "model_law_accepted": False,
+        },
         "conditional_rest_current_source": {
             "premise": "nabla_mu T^mu_nu = Q_nu = beta_dm*rho*partial_nu(phi) for pressureless dark matter",
             "conservative_source_formula": "-sqrt(gamma)*beta_dm*rho*W*(partial_t(phi)+(alpha*v^r-beta^r)*partial_r(phi))",
@@ -497,7 +529,14 @@ def audit_case(kernel, state, coupling: float, epsilons: tuple[float, float]) ->
             f"epsilon_{i}_conditional_rest_source_div_T_r": row["div_T_r"].tolist()
             for i, row in enumerate(conditional_source_tangent_rows)
         } | {
-            "conditional_rest_current_source": rest_source.tolist()
+            f"epsilon_{i}_joint_conditional_sources_div_T_t": row["div_T_t"].tolist()
+            for i, row in enumerate(joint_source_tangent_rows)
+        } | {
+            f"epsilon_{i}_joint_conditional_sources_div_T_r": row["div_T_r"].tolist()
+            for i, row in enumerate(joint_source_tangent_rows)
+        } | {
+            "conditional_rest_current_source": rest_source.tolist(),
+            "conditional_pi_dot_lapse_correction": scalar_pi_lapse_correction.tolist(),
         },
         "epsilon_sensitivity": {
             "div_T_t_annulus_rms": float(np.sqrt(np.mean((
@@ -513,6 +552,14 @@ def audit_case(kernel, state, coupling: float, epsilons: tuple[float, float]) ->
             )[annulus]**2))),
             "div_T_r_annulus_rms": float(np.sqrt(np.mean((
                 conditional_source_tangent_rows[0]["div_T_r"] - conditional_source_tangent_rows[1]["div_T_r"]
+            )[annulus]**2))),
+        },
+        "joint_conditional_source_epsilon_sensitivity": {
+            "div_T_t_annulus_rms": float(np.sqrt(np.mean((
+                joint_source_tangent_rows[0]["div_T_t"] - joint_source_tangent_rows[1]["div_T_t"]
+            )[annulus]**2))),
+            "div_T_r_annulus_rms": float(np.sqrt(np.mean((
+                joint_source_tangent_rows[0]["div_T_r"] - joint_source_tangent_rows[1]["div_T_r"]
             )[annulus]**2))),
         },
     }
