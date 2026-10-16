@@ -995,6 +995,36 @@ def main() -> int:
                 } if "arms" in row else {},
             } for row in report.get("resolutions", [])
         ],
+        "propagation_candidate_comparison": [
+            {
+                "N": row.get("resolution"),
+                "arms": {
+                    arm: [
+                        {
+                            "epsilon": tangent.get("epsilon"),
+                            "measured_Mdot0": tangent.get("independent_constraint_propagation_candidate", {})
+                                .get("measured_Mdot_covariant", {})
+                                .get("cell_0_to_4", [{}])[0].get("signed"),
+                            "raised_index_predicted_Mdot0": tangent.get("independent_constraint_propagation_candidate", {})
+                                .get("predicted_Mdot_covariant_after_index_conversion", {})
+                                .get("cell_0_to_4", [{}])[0].get("signed"),
+                            "raised_index_relative_rms_full": tangent.get("independent_constraint_propagation_candidate", {})
+                                .get("relative_rms_error_full_domain"),
+                            "direct_M_r_predicted_Mdot0": tangent.get("independent_constraint_propagation_candidate", {})
+                                .get("published_covariant_M_r_candidate", {})
+                                .get("predicted_Mdot_covariant_direct", {})
+                                .get("cell_0_to_4", [{}])[0].get("signed"),
+                            "direct_M_r_relative_rms_full": tangent.get("independent_constraint_propagation_candidate", {})
+                                .get("published_covariant_M_r_candidate", {})
+                                .get("relative_rms_error_full_domain"),
+                        }
+                        for tangent in armrow.get("measured_rhs_tangent", {}).get("tangent_by_epsilon", [])
+                    ]
+                    for arm, armrow in row.get("arms", {}).items()
+                },
+            }
+            for row in report.get("resolutions", [])
+        ],
         "experiment_scope": report.get("experiment_scope"),
         "error_type": report.get("error_type"),
         "error": report.get("error"),
