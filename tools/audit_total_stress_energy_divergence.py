@@ -441,34 +441,36 @@ def covariant_divergence_fv_from_profiles(
     return div_t, div_r
 
 
-def covariant_objects(state) -> dict[str, np.ndarray]:
-    projection = independent_total_projections(state)
+def _covariant_objects_from_components(state, components: dict[str, Any]) -> dict[str, Any]:
+    """Build mixed-tensor density/flux components from one additive stress sector."""
     r = finite("covariant grid radii", state.grid.centers)
     alpha = finite("covariant lapse", state.geometry.alpha)
     gamma_rr = finite("gamma_rr", state.geometry.a / state.geometry.X**2)
     gamma_thth = finite("gamma_thth", state.geometry.b * r**2 / state.geometry.X**2)
+    rho = finite("covariant sector rho", components["rho"])
+    pr = finite("covariant sector radial pressure", components["pr"])
+    pt = finite("covariant sector tangential pressure", components["pt"])
+    j = finite("covariant sector radial current", components["j"])
     sqrt_gamma = np.sqrt(gamma_rr) * gamma_thth
     sqrt_minus_g = alpha * sqrt_gamma
-    j_up = projection["j"] / gamma_rr
+    j_up = j / gamma_rr
     return {
-        "rho": projection["rho"],
-        "pr": projection["pr"],
-        "pt": projection["pt"],
-        "j": projection["j"],
-        "alpha": alpha,
-        "gamma_rr": gamma_rr,
-        "gamma_thth": gamma_thth,
-        "sqrt_gamma": sqrt_gamma,
-        "sqrt_minus_g": sqrt_minus_g,
-        "density_t": -sqrt_minus_g * projection["rho"],  # sqrt(-g) T^t_t
-        "density_r": sqrt_gamma * projection["j"],       # sqrt(-g) T^t_r
-        "flux_t": -(alpha**2) * sqrt_gamma * j_up,       # sqrt(-g) T^r_t
-        "flux_r": alpha * sqrt_gamma * projection["pr"], # sqrt(-g) T^r_r
+        "rho": rho, "pr": pr, "pt": pt, "j": j,
+        "alpha": alpha, "gamma_rr": gamma_rr, "gamma_thth": gamma_thth,
+        "sqrt_gamma": sqrt_gamma, "sqrt_minus_g": sqrt_minus_g,
+        "density_t": -sqrt_minus_g * rho,
+        "density_r": sqrt_gamma * j,
+        "flux_t": -(alpha**2) * sqrt_gamma * j_up,
+        "flux_r": alpha * sqrt_gamma * pr,
         "gtt": -(alpha**2),
-        "projection_crosscheck": projection["projection_crosscheck"],
-        "projection_crosscheck_passed": projection["projection_crosscheck_passed"],
+        "projection_crosscheck": components.get("projection_crosscheck", {}),
+        "projection_crosscheck_passed": bool(components.get("projection_crosscheck_passed", True)),
     }
 
+
+def covariant_objects(state) -> dict[str, Any]:
+    projection = independent_total_projections(state)
+    return _covariant_objects_from_components(state, projection)
 
 def summarize(values: np.ndarray, r: np.ndarray) -> dict[str, Any]:
     x = finite("profile summary", values)
@@ -491,20 +493,16 @@ def summarize(values: np.ndarray, r: np.ndarray) -> dict[str, Any]:
     }
 
 
-def divergence_tangent(kernel, state, rates, epsilon: float) -> dict[str, Any]:
-    plus_state = shifted_state(kernel, state, rates, +epsilon)
-    minus_state = shifted_state(kernel, state, rates, -epsilon)
-    assert_supported_baseline_source_scope(plus_state)
-    assert_supported_baseline_source_scope(minus_state)
+def _divergence_tangent_from_objects(
+    state, base: dict[str, Any], plus: dict[str, Any], minus: dict[str, Any], epsilon: float
+) -> dict[str, Any]:
+    """Apply the existing mixed-tensor divergence to an already-projected state triplet."""
+    if not math.isfinite(float(epsilon)) or float(epsilon) <= 0.0:
+        raise ValueError("epsilon must be finite and positive")
     if np.any(np.asarray(state.geometry.beta) != 0.0):
         raise ValueError("this derivation currently assumes beta^r=0 at the frozen slice")
-
-    base = covariant_objects(state)
-    plus = covariant_objects(plus_state)
-    minus = covariant_objects(minus_state)
-    inv = 1.0 / (2.0 * epsilon)
+    inv = 1.0 / (2.0 * float(epsilon))
     d1_fn = lambda values, parity: d1(state.grid, values, parity)
-
     time_density_t = (plus["density_t"] - minus["density_t"]) * inv
     time_density_r = (plus["density_r"] - minus["density_r"]) * inv
     dt_gtt = (plus["gtt"] - minus["gtt"]) * inv
@@ -524,10 +522,8 @@ def divergence_tangent(kernel, state, rates, epsilon: float) -> dict[str, Any]:
     )
     return {
         "epsilon": float(epsilon),
-        "div_T_t": div_t,
-        "div_T_r": div_r,
-        "div_T_t_fv": div_t_fv,
-        "div_T_r_fv": div_r_fv,
+        "div_T_t": div_t, "div_T_r": div_r,
+        "div_T_t_fv": div_t_fv, "div_T_r_fv": div_r_fv,
         "div_T_t_summary": summarize(div_t, state.grid.centers),
         "div_T_r_summary": summarize(div_r, state.grid.centers),
         "div_T_t_fv_summary": summarize(div_t_fv, state.grid.centers),
@@ -535,8 +531,8 @@ def divergence_tangent(kernel, state, rates, epsilon: float) -> dict[str, Any]:
         "fv_minus_cell_centered_div_T_t_summary": summarize(div_t_fv - div_t, state.grid.centers),
         "fv_minus_cell_centered_div_T_r_summary": summarize(div_r_fv - div_r, state.grid.centers),
         "fv_face_flux_method": "four-point cubic cell-center-to-face reconstruction; zero inner spherical flux; outer cubic extrapolation",
-        "projection_crosscheck": base["projection_crosscheck"],
-        "projection_crosscheck_passed": base["projection_crosscheck_passed"],
+        "projection_crosscheck": base.get("projection_crosscheck", {}),
+        "projection_crosscheck_passed": bool(base.get("projection_crosscheck_passed", True)),
         "time_derivative_witnesses": {
             "d_t(sqrt(-g) T^t_t)": summarize(time_density_t, state.grid.centers),
             "d_t(sqrt(-g) T^t_r)": summarize(time_density_r, state.grid.centers),
@@ -546,6 +542,239 @@ def divergence_tangent(kernel, state, rates, epsilon: float) -> dict[str, Any]:
         },
     }
 
+
+def _divergence_tangent_from_projection_triplet(
+    state, base_projection, plus_projection, minus_projection, epsilon: float
+) -> dict[str, Any]:
+    base = _covariant_objects_from_components(state, base_projection)
+    plus = _covariant_objects_from_components(state, plus_projection)
+    minus = _covariant_objects_from_components(state, minus_projection)
+    return _divergence_tangent_from_objects(state, base, plus, minus, epsilon)
+
+
+def divergence_tangent_from_states(
+    state, plus_state, minus_state, epsilon: float
+) -> dict[str, Any]:
+    """Measure total-T divergence using a supplied plus/minus state pair."""
+    if not math.isfinite(float(epsilon)) or float(epsilon) <= 0.0:
+        raise ValueError("epsilon must be finite and positive")
+    assert_supported_baseline_source_scope(plus_state)
+    assert_supported_baseline_source_scope(minus_state)
+    projections = (
+        independent_total_projections(state),
+        independent_total_projections(plus_state),
+        independent_total_projections(minus_state),
+    )
+    return _divergence_tangent_from_projection_triplet(
+        state, projections[0], projections[1], projections[2], float(epsilon)
+    )
+
+
+def sector_resolved_divergence_tangent_from_states(
+    state, plus_state, minus_state, epsilon: float
+) -> dict[str, Any]:
+    """Resolve the same total-T directional witness into additive fluid/S/D/phi sectors.
+
+    Each sector shares the exact frozen base, plus/minus objects, epsilon, and
+    metric-derivative witnesses of the total projection. This is an accounting
+    decomposition, not acceptance of a physical exchange law.
+    """
+    if not math.isfinite(float(epsilon)) or float(epsilon) <= 0.0:
+        raise ValueError("epsilon must be finite and positive")
+    assert_supported_baseline_source_scope(plus_state)
+    assert_supported_baseline_source_scope(minus_state)
+    if np.any(np.asarray(state.geometry.beta) != 0.0):
+        raise ValueError("sector decomposition currently assumes beta^r=0 at the frozen slice")
+    projections = (
+        independent_total_projections(state),
+        independent_total_projections(plus_state),
+        independent_total_projections(minus_state),
+    )
+    object_triplet = tuple(
+        _covariant_objects_from_components(s, p)
+        for s, p in zip((state, plus_state, minus_state), projections)
+    )
+    base_all, plus_all, minus_all = object_triplet
+    total = _divergence_tangent_from_objects(
+        state, base_all, plus_all, minus_all, float(epsilon)
+    )
+    names = ("dark_matter", "baryons", "radiation", "S", "D", "phi")
+    projection_maps = []
+    for projection in projections:
+        combined = dict(projection.get("fluid_parts", {}))
+        combined.update(projection.get("scalar_parts", {}))
+        projection_maps.append(combined)
+    if any(set(piece) != set(names) for piece in projection_maps):
+        raise RuntimeError("sector projection set differs from the declared DM/baryon/radiation/S/D/phi scope")
+    inv = 1.0 / (2.0 * float(epsilon))
+    d1_fn = lambda values, parity: d1(state.grid, values, parity)
+    dt_gtt = (plus_all["gtt"] - minus_all["gtt"]) * inv
+    dt_grr = (plus_all["gamma_rr"] - minus_all["gamma_rr"]) * inv
+    dt_gth = (plus_all["gamma_thth"] - minus_all["gamma_thth"]) * inv
+    channels = ("div_T_t", "div_T_r", "div_T_t_fv", "div_T_r_fv")
+    sector_results: dict[str, Any] = {}
+    sector_dt_density_t_sum = np.zeros_like(base_all["rho"], dtype=np.float64)
+    sector_dt_density_r_sum = np.zeros_like(base_all["rho"], dtype=np.float64)
+    for name in names:
+        b_obj = _covariant_objects_from_components(state, projection_maps[0][name])
+        p_obj = _covariant_objects_from_components(plus_state, projection_maps[1][name])
+        m_obj = _covariant_objects_from_components(minus_state, projection_maps[2][name])
+        dt_rho_t = (p_obj["density_t"] - m_obj["density_t"]) * inv
+        dt_rho_r = (p_obj["density_r"] - m_obj["density_r"]) * inv
+        sector_dt_density_t_sum += dt_rho_t
+        sector_dt_density_r_sum += dt_rho_r
+        div_t, div_r = covariant_divergence_from_profiles(
+            state.grid.centers, d1_fn,
+            b_obj["alpha"], b_obj["gamma_rr"], b_obj["gamma_thth"],
+            b_obj["rho"], b_obj["j"], b_obj["pr"], b_obj["pt"],
+            dt_rho_t, dt_rho_r, dt_gtt, dt_grr, dt_gth,
+        )
+        div_t_fv, div_r_fv = covariant_divergence_fv_from_profiles(
+            state.grid.centers, d1_fn,
+            b_obj["alpha"], b_obj["gamma_rr"], b_obj["gamma_thth"],
+            b_obj["rho"], b_obj["j"], b_obj["pr"], b_obj["pt"],
+            dt_rho_t, dt_rho_r, dt_gtt, dt_grr, dt_gth,
+        )
+        arrays = {
+            "div_T_t": finite(f"{name} sector div_T_t", div_t),
+            "div_T_r": finite(f"{name} sector div_T_r", div_r),
+            "div_T_t_fv": finite(f"{name} sector div_T_t FV", div_t_fv),
+            "div_T_r_fv": finite(f"{name} sector div_T_r FV", div_r_fv),
+        }
+        sector_results[name] = {
+            "raw_signed_arrays": {k: v.tolist() for k, v in arrays.items()},
+            "summaries": {k: summarize(v, state.grid.centers) for k, v in arrays.items()},
+        }
+    # Isolate the directional density term before interpreting any full-divergence
+    # sector-sum residual. This determines whether the failing time component is
+    # already present in (d_t sqrt(-g) T^t_nu), before spatial flux/source terms.
+    total_dt_density_t = (plus_all["density_t"] - minus_all["density_t"]) * inv
+    total_dt_density_r = (plus_all["density_r"] - minus_all["density_r"]) * inv
+    time_density_gap_t = finite(
+        "time-density sector sum minus total for nu=t",
+        sector_dt_density_t_sum - total_dt_density_t,
+    )
+    time_density_gap_r = finite(
+        "time-density sector sum minus total for nu=r",
+        sector_dt_density_r_sum - total_dt_density_r,
+    )
+    predicted_pointwise_gap_t = finite(
+        "predicted pointwise divergence gap from nu=t time-density term",
+        time_density_gap_t / base_all["sqrt_minus_g"],
+    )
+    predicted_pointwise_gap_r = finite(
+        "predicted pointwise divergence gap from nu=r time-density term",
+        time_density_gap_r / base_all["sqrt_minus_g"],
+    )
+    zero = np.zeros_like(state.grid.centers, dtype=np.float64)
+    d1_fn_for_gap = lambda values, parity: d1(state.grid, values, parity)
+    predicted_fv_gap_t, predicted_fv_gap_r = covariant_divergence_fv_from_profiles(
+        state.grid.centers, d1_fn_for_gap,
+        base_all["alpha"], base_all["gamma_rr"], base_all["gamma_thth"],
+        zero, zero, zero, zero,
+        time_density_gap_t, time_density_gap_r, zero, zero, zero,
+    )
+    time_density_gap_summary = {
+        "term_definition": (
+            "sum of per-sector finite-difference density rates minus the total-projection "
+            "finite-difference density rate, before adding radial flux and metric source terms"
+        ),
+        "raw_signed_arrays": {
+            "time_density_gap_t": time_density_gap_t.tolist(),
+            "time_density_gap_r": time_density_gap_r.tolist(),
+            "predicted_div_T_t_gap_pointwise": predicted_pointwise_gap_t.tolist(),
+            "predicted_div_T_r_gap_pointwise": predicted_pointwise_gap_r.tolist(),
+            "predicted_div_T_t_gap_fv": predicted_fv_gap_t.tolist(),
+            "predicted_div_T_r_gap_fv": predicted_fv_gap_r.tolist(),
+        },
+        "summaries": {
+            "time_density_gap_t": summarize(time_density_gap_t, state.grid.centers),
+            "time_density_gap_r": summarize(time_density_gap_r, state.grid.centers),
+            "predicted_div_T_t_gap_pointwise": summarize(predicted_pointwise_gap_t, state.grid.centers),
+            "predicted_div_T_r_gap_pointwise": summarize(predicted_pointwise_gap_r, state.grid.centers),
+            "predicted_div_T_t_gap_fv": summarize(predicted_fv_gap_t, state.grid.centers),
+            "predicted_div_T_r_gap_fv": summarize(predicted_fv_gap_r, state.grid.centers),
+        },
+    }
+
+    atol, rtol = 5.0e-18, 5.0e-10
+    component_predicted_gaps = {
+        "div_T_t": predicted_pointwise_gap_t,
+        "div_T_r": predicted_pointwise_gap_r,
+        "div_T_t_fv": predicted_fv_gap_t,
+        "div_T_r_fv": predicted_fv_gap_r,
+    }
+    recon_channels: dict[str, Any] = {}
+    for key in channels:
+        sector_sum = np.sum(np.stack([
+            np.asarray(sector_results[n]["raw_signed_arrays"][key], dtype=np.float64)
+            for n in names
+        ], axis=0), axis=0)
+        gap = finite(f"{key} additive sector reconstruction gap",
+                     sector_sum - np.asarray(total[key], dtype=np.float64))
+        passed = bool(np.allclose(sector_sum, np.asarray(total[key], dtype=np.float64),
+                                  rtol=rtol, atol=atol))
+        predicted_gap = finite(
+            f"{key} predicted time-density component gap", component_predicted_gaps[key]
+        )
+        unexplained_gap = finite(
+            f"{key} residual after time-density component accounting", gap - predicted_gap
+        )
+        component_corrected_passed = bool(np.allclose(
+            unexplained_gap, np.zeros_like(unexplained_gap), rtol=rtol, atol=atol
+        ))
+        recon_channels[key] = {
+            "passed": passed,
+            "sum_of_sectors": sector_sum.tolist(),
+            "sum_minus_total": gap.tolist(),
+            "gap_summary": summarize(gap, state.grid.centers),
+            "max_abs_gap": float(np.max(np.abs(gap))),
+            "time_density_component_predicted_gap": predicted_gap.tolist(),
+            "time_density_component_predicted_gap_summary": summarize(predicted_gap, state.grid.centers),
+            "unexplained_gap_after_time_density_accounting": unexplained_gap.tolist(),
+            "unexplained_gap_summary": summarize(unexplained_gap, state.grid.centers),
+            "max_abs_unexplained_gap": float(np.max(np.abs(unexplained_gap))),
+            "component_corrected_passed": component_corrected_passed,
+            "rtol": rtol, "atol": atol,
+        }
+    decomposition = {
+        "status": "sector_resolved_diagnostic_only",
+        "sector_names": list(names),
+        "sectors": sector_results,
+        "reconstruction": {
+            "sector_names": list(names),
+            "all_sectors_reconstruct_total": all(x["passed"] for x in recon_channels.values()),
+            "all_sectors_reconstruct_total_after_time_density_accounting": all(
+                x["component_corrected_passed"] for x in recon_channels.values()
+            ),
+            "time_density_component_accounting_passed": all(
+                x["component_corrected_passed"] for x in recon_channels.values()
+            ),
+            "raw_sum_max_gap": max(x["max_abs_gap"] for x in recon_channels.values()),
+            "unexplained_max_gap": max(x["max_abs_unexplained_gap"] for x in recon_channels.values()),
+            "channels": recon_channels,
+        },
+        "time_density_reconstruction": time_density_gap_summary,
+        "state_pairing": {
+            "base_state_sha256": state_digest(state),
+            "plus_state_sha256": state_digest(plus_state),
+            "minus_state_sha256": state_digest(minus_state),
+            "epsilon": float(epsilon),
+            "all_sector_arrays_finite": all(
+                np.all(np.isfinite(np.asarray(values, dtype=np.float64)))
+                for sector in sector_results.values()
+                for values in sector["raw_signed_arrays"].values()
+            ),
+        },
+    }
+    return {"total": total, "sector_decomposition": decomposition}
+
+
+def divergence_tangent(kernel, state, rates, epsilon: float) -> dict[str, Any]:
+    """Compatibility wrapper that constructs a two-sided pair, then measures it."""
+    plus_state = shifted_state(kernel, state, rates, +epsilon)
+    minus_state = shifted_state(kernel, state, rates, -epsilon)
+    return divergence_tangent_from_states(state, plus_state, minus_state, epsilon)
 
 def conditional_rest_current_source(
     state, rates: dict[str, Any], coupling: float
