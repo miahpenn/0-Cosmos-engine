@@ -8,7 +8,8 @@ into its geometric constraint term and six independently projected current
 sectors. A single small ordinary step and half-step are used only as a local
 tangent consistency check.
 
-The analytic geometric chain rule cross-checks the finite-difference tangent.\nA passing arithmetic closure is not physical/scientific admission.
+The analytic geometric chain rule cross-checks the finite-difference tangent.
+A passing arithmetic closure is not physical/scientific admission.
 """
 from __future__ import annotations
 
