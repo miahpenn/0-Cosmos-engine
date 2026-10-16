@@ -53,7 +53,7 @@ jobs:
     timeout-minutes: 35
     env:
       PYTHONUNBUFFERED: "1"
-      SOURCE_COMMIT: "285a2ee0c1a3b97cddeb4519d8e749109b115aab"
+      SOURCE_COMMIT: "513a0584f31bae761e6fa5fd650585a022f23fad"
       VENDOR_COMMIT: "d6052d605673ce9d82cdc99b0df79855fa2ea215"
       ANALYTIC_SC_OUT: "results/analytic-origin-half-cell-self-consistent-ricci-2026-10-15"
       LAMBDA_SYMBOL_OUT: "results/manufactured-lambda-symbol-sweep-2026-10-15"
@@ -85,7 +85,7 @@ jobs:
           from tools.audit_current_main_centre_proper_radial_ricci import _verify_source_pins
           pins = _verify_source_pins()
           print(json.dumps(pins, indent=2))
-          assert pins["source_commit"] == "285a2ee0c1a3b97cddeb4519d8e749109b115aab"
+          assert pins["source_commit"] == "513a0584f31bae761e6fa5fd650585a022f23fad"
           assert pins["vendor_commit"] == "d6052d605673ce9d82cdc99b0df79855fa2ea215"
           assert pins["engine_vendor_dependency_diff_empty"] is True
           assert all(row["matches"] for row in pins["source_blobs"].values())
