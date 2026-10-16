@@ -606,6 +606,45 @@ def main() -> int:
             )
             for n in args.resolutions for variant in variants
         ]
+        # Retain the measured refinement sequence, and gate only its monotonicity.
+        # The expected order follows the pinned fourth-order interior operators;
+        # no fitted coefficient or observed-error threshold is used.
+        fine_band_convergence = {}
+        for variant in variants:
+            fine_rows = sorted(
+                (
+                    row for row in rows
+                    if row["profile_variant"] == variant and row["resolution"] >= 120
+                ),
+                key=lambda row: row["resolution"],
+            )
+            fine_resolutions = [int(row["resolution"]) for row in fine_rows]
+            corrected_rms = [
+                float(row["epsilon_rows"][0]["vendor_consistent_residual_regions"]
+                      ["fixed_annulus_2_to_8"]["abs_rms"])
+                for row in fine_rows
+            ]
+            literal_rms = [
+                float(row["epsilon_rows"][0]["residual_regions"]
+                      ["fixed_annulus_2_to_8"]["abs_rms"])
+                for row in fine_rows
+            ]
+            observed_orders = [
+                math.log(corrected_rms[i] / corrected_rms[i + 1])
+                / math.log(fine_resolutions[i + 1] / fine_resolutions[i])
+                for i in range(len(corrected_rms) - 1)
+            ]
+            fine_band_convergence[variant] = {
+                "resolutions": fine_resolutions,
+                "literal_brown_annulus_abs_rms": literal_rms,
+                "vendor_consistent_annulus_abs_rms": corrected_rms,
+                "observed_orders_vendor_consistent": observed_orders,
+                "corrected_rms_monotone_decreasing": bool(
+                    len(corrected_rms) >= 2
+                    and all(corrected_rms[i + 1] < corrected_rms[i]
+                            for i in range(len(corrected_rms) - 1))
+                ),
+            }
         summary = {
             "schema": "brown_vacuum_momentum_constraint_propagation_manufactured_v1",
             "status": "completed_diagnostic_only",
@@ -618,6 +657,11 @@ def main() -> int:
                 "profile_variants": variants,
             },
             "rows": rows,
+            "fine_band_convergence": fine_band_convergence,
+            "vendor_extension_monotone_convergence": all(
+                item["corrected_rms_monotone_decreasing"]
+                for item in fine_band_convergence.values()
+            ),
             "all_finite": all(all(e["finite"] for e in row["epsilon_rows"]) for row in rows),
             "negative_control_detected": all(row["negative_control"]["detected"] for row in rows),
             "lambda_hamiltonian_discriminator_passed": all(
@@ -692,6 +736,8 @@ def main() -> int:
                 ] for row in rows
             },
             "vendor_extension_improves_on_fine_annulus": summary["vendor_extension_improves_on_fine_annulus"],
+            "vendor_extension_monotone_convergence": summary["vendor_extension_monotone_convergence"],
+            "fine_band_convergence": summary["fine_band_convergence"],
             "wrong_sign_extension_control_detected": summary["wrong_sign_extension_control_detected"],
             "scientific_admission": False,
         }, indent=2, sort_keys=True), flush=True)
