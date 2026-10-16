@@ -264,3 +264,32 @@ def test_matched_total_t_witness_uses_same_state_and_keeps_admission_closed():
     assert len(witness["raw_arrays"]["epsilon_1_div_T_r_fv"]) == len(state.grid.centers)
     assert witness["conditional_rest_current_source_discriminator"]["model_law_accepted"] is False
     assert DIAG.AUDIT.state_digest(state) == initial_hash
+
+
+def test_hll_and_total_t_witness_share_exact_epsilon_state_pair():
+    row = DIAG.run_resolution(
+        n=24, r_max=24.0, epsilons=(2.0e-5, 1.0e-5)
+    )
+    assert row["production_steps_advanced"] == 0
+    assert row["base_state_unchanged"] is True
+    for coupling_witnesses in row["directional_epsilon_witnesses"].values():
+        assert set(coupling_witnesses) == {"epsilon_2e-05", "epsilon_1e-05"}
+        for witness in coupling_witnesses.values():
+            paired = witness["same_state_total_T_directional_witness"]
+            assert paired["state_pairing_verified"] is True
+            assert paired["base_state_sha256"] == row["initial_state_sha256"]
+            assert paired["plus_state_sha256"] == witness["plus_state_sha256"]
+            assert paired["minus_state_sha256"] == witness["minus_state_sha256"]
+            assert paired["epsilon"] == witness["epsilon"]
+            assert paired["projection_crosscheck_passed"] is True
+            for key in ("div_T_t", "div_T_r", "div_T_t_fv", "div_T_r_fv"):
+                values = np.asarray(paired["raw_signed_arrays"][key], dtype=np.float64)
+                assert values.shape == (24,)
+                assert np.all(np.isfinite(values))
+            for key in ("div_T_t_summary", "div_T_r_summary",
+                        "div_T_t_fv_summary", "div_T_r_fv_summary"):
+                summary = paired[key]
+                assert "cell_0" in summary
+                assert "cell_1" in summary
+                assert "annulus_2_to_10_rms" in summary
+    assert row["matched_total_t_state_hashes_match"] is True
