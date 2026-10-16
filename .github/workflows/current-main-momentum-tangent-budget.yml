@@ -6,6 +6,9 @@ on:
       - "tools/audit_current_source_momentum_constraint_tangent.py"
       - "tests/test_constraint_source_normalization_contract.py"
       - "tools/audit_brown_vacuum_momentum_propagation.py"
+      - "tools/audit_primary_l3_matter_closure.py"
+      - "tools/momentum_constraint_chain_rule.py"
+      - "tests/test_research_momentum_constraint_chain_rule.py"
       - "tools/manufactured_momentum_tangent_audit.py"
       - ".github/workflows/current-main-momentum-tangent-budget.yml"
   workflow_dispatch:
@@ -69,11 +72,17 @@ jobs:
           python -m py_compile tools/manufactured_momentum_tangent_audit.py
           python -m py_compile tools/audit_current_source_momentum_constraint_tangent.py
           python -m py_compile tools/audit_brown_vacuum_momentum_propagation.py
+          python -m py_compile tools/audit_primary_l3_matter_closure.py
+          python -m py_compile tools/momentum_constraint_chain_rule.py
+          python -m py_compile tests/test_research_momentum_constraint_chain_rule.py
 
       - name: Run frozen constraint source sign/consumer-factor contract
         run: |
           python -m pytest -q tests/test_constraint_source_normalization_contract.py
 
+
+      - name: Verify discrete chain rule and signed-term negative control
+        run: python -m pytest -q tests/test_research_momentum_constraint_chain_rule.py
 
       - name: Run independent vacuum Brown propagation discriminator on manufactured regular states
         id: brown
@@ -106,6 +115,17 @@ jobs:
             --epsilons 0.00002 0.00001 \
             --output results/current-source-momentum-tangent/report.json
 
+      - name: Run full-grid matter L3 source closure in both initialization arms
+        id: matter_l3
+        if: always()
+        continue-on-error: true
+        run: |
+          mkdir -p results/primary-l3-matter-closure
+          COSMOS_PINNED_SOURCE_ROOT="$GITHUB_WORKSPACE/source" python tools/audit_primary_l3_matter_closure.py \
+            --resolutions 40 60 80 120 160 \
+            --r-max 80 \
+            --output-dir results/primary-l3-matter-closure
+
       - name: Hash all retained diagnostic outputs
         if: always()
         shell: bash
@@ -122,14 +142,16 @@ jobs:
           if-no-files-found: warn
           retention-days: 90
 
-      - name: Require both diagnostic executions to complete
+      - name: Require all diagnostic executions to complete
         if: always()
         shell: bash
         env:
           BROWN_OUTCOME: ${{ steps.brown.outcome }}
           MANUFACTURED_OUTCOME: ${{ steps.manufactured.outcome }}
           PRODUCTION_OUTCOME: ${{ steps.production.outcome }}
+          MATTER_L3_OUTCOME: ${{ steps.matter_l3.outcome }}
         run: |
           test "$BROWN_OUTCOME" = "success"
           test "$MANUFACTURED_OUTCOME" = "success"
           test "$PRODUCTION_OUTCOME" = "success"
+          test "$MATTER_L3_OUTCOME" = "success"

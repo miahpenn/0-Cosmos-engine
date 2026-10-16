@@ -8,6 +8,7 @@ into its geometric constraint term and six independently projected current
 sectors. A single small ordinary step and half-step are used only as a local
 tangent consistency check.
 
+The analytic geometric chain rule cross-checks the finite-difference tangent.
 A passing arithmetic closure is not physical/scientific admission.
 """
 from __future__ import annotations
@@ -16,6 +17,7 @@ import argparse
 import hashlib
 import json
 import math
+import os
 import subprocess
 import sys
 import traceback
@@ -24,7 +26,18 @@ from typing import Any
 
 import numpy as np
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
+# In CI, import only from the separately checked-out historical source snapshot.
+# Outside that workflow, default to the script's own checkout for importability.
+_default_source_root = REPOSITORY_ROOT / "source"
+PRODUCTION_SOURCE_ROOT = Path(
+    os.environ.get(
+        "COSMOS_PINNED_SOURCE_ROOT",
+        str(_default_source_root if _default_source_root.is_dir() else REPOSITORY_ROOT),
+    )
+).resolve()
+sys.path.insert(0, str(REPOSITORY_ROOT))
+sys.path.insert(0, str(PRODUCTION_SOURCE_ROOT))
 
 from engine.production_kernel import (
     BETA_DM,
@@ -37,6 +50,7 @@ from engine.matter_system import ConservedSpecies, Species, project_species
 from engine.v55_matter import V55MatterState, metric_slice_from_q
 from engine.stress_energy import assemble_total_stress_energy
 from engine import v55_pirk_adapter as adapter
+from tools.momentum_constraint_chain_rule import analytic_geometric_momentum_tangent
 
 
 SCHEMA = "current_source_signed_momentum_constraint_tangent_v1"
@@ -74,7 +88,10 @@ def _git(*args: str) -> str:
 
 def provenance() -> dict[str, Any]:
     actual_blobs = {
-        path: _git("rev-parse", f"HEAD:{path}") for path in EXPECTED_BLOBS
+        path: _git(
+            "-C", str(PRODUCTION_SOURCE_ROOT), "rev-parse", f"HEAD:{path}"
+        )
+        for path in EXPECTED_BLOBS
     }
     wrong = {
         path: {"expected": expected, "actual": actual_blobs[path]}
@@ -86,14 +103,23 @@ def provenance() -> dict[str, Any]:
             "production source blob pin mismatch; refusing non-exact tangent "
             f"measurement: {json.dumps(wrong, sort_keys=True)}"
         )
-    vendor = _git("-C", "vendor/bb-palatini-unified-r0", "rev-parse", "HEAD")
+    vendor = _git(
+        "-C", str(PRODUCTION_SOURCE_ROOT / "vendor" / "bb-palatini-unified-r0"),
+        "rev-parse", "HEAD",
+    )
     if vendor != EXPECTED_VENDOR:
         raise RuntimeError(
             f"vendor pin mismatch: expected {EXPECTED_VENDOR}, got {vendor}"
         )
     return {
-        "repository_commit": _git("rev-parse", "HEAD"),
+        "diagnostic_commit": _git(
+            "-C", str(REPOSITORY_ROOT), "rev-parse", "HEAD"
+        ),
+        "production_source_commit": _git(
+            "-C", str(PRODUCTION_SOURCE_ROOT), "rev-parse", "HEAD"
+        ),
         "production_source_baseline_anchor": SOURCE_BASELINE,
+        "production_source_root": str(PRODUCTION_SOURCE_ROOT),
         "production_source_blobs": actual_blobs,
         "vendor_commit": vendor,
     }
@@ -147,8 +173,9 @@ def finite(name: str, values: Any) -> np.ndarray:
 
 
 def current_pieces(state: ProductionState) -> dict[str, np.ndarray]:
-    assert_supported_baseline_source_scope(state)
     """Rebuild each signed J contribution using production projection operators."""
+    assert_supported_baseline_source_scope(state)
+    assert_supported_baseline_source_scope(state)
     grid, geom, scalars, matter = (
         state.grid, state.geometry, state.scalars, state.matter
     )
@@ -171,6 +198,85 @@ def current_pieces(state: ProductionState) -> dict[str, np.ndarray]:
             dtype=np.float64,
         )
     return {key: finite(f"current {key}", value) for key, value in pieces.items()}
+
+
+def _d1_stencil_operand_scale(grid, values: Any, parity: int = 1) -> np.ndarray:
+    """Pointwise sum of absolute fourth-order D1 stencil operands.
+
+    The derivative output can be tiny by cancellation even when the values
+    entering its stencil are not. Roundoff budgets therefore use this operand
+    scale, not abs(D1(values)) alone.
+    """
+    u = np.asarray(values, dtype=np.float64)
+    if u.ndim != 1 or u.size < 5 or parity not in (-1, 1):
+        raise ValueError("invalid D1 stencil-scale inputs")
+    dr = float(grid.dr)
+    if not math.isfinite(dr) or dr <= 0.0:
+        raise FloatingPointError("D1 stencil-scale grid spacing must be positive")
+    au = np.abs(u)
+    n = u.size
+    extended = np.empty(n + 4, dtype=np.float64)
+    extended[2:-2] = au
+    extended[1] = au[0]
+    extended[0] = au[1]
+    scale = np.empty_like(u)
+    for i in range(n - 2):
+        stencil = extended[i:i + 5]
+        scale[i] = (
+            stencil[0] + 8.0 * stencil[1]
+            + 8.0 * stencil[3] + stencil[4]
+        ) / (12.0 * dr)
+    indices = np.arange(n - 5, n)
+    for i in (n - 2, n - 1):
+        offsets = indices.astype(float) - float(i)
+        matrix = np.vstack([offsets**power for power in range(5)])
+        target = np.zeros(5, dtype=np.float64)
+        target[1] = 1.0
+        weights = np.linalg.solve(matrix, target)
+        scale[i] = float(np.sum(np.abs(weights) * au[indices])) / dr
+    return finite("D1 stencil operand scale", scale)
+
+
+def _geometric_constraint_stencil_operand_scales_by_field(
+    state: ProductionState,
+) -> dict[str, np.ndarray]:
+    """Expose raw D1 input scales separately for local failure diagnostics."""
+    grid, geom = state.grid, state.geometry
+    return {
+        "Aa": _d1_stencil_operand_scale(grid, geom.Aa),
+        "K": _d1_stencil_operand_scale(grid, geom.K),
+        "b": _d1_stencil_operand_scale(grid, geom.b),
+        "X": _d1_stencil_operand_scale(grid, geom.X),
+    }
+
+
+def _geometric_constraint_operand_scale(state: ProductionState) -> np.ndarray:
+    """Estimate roundoff operands for evaluating M_geom at every cell."""
+    grid, geom = state.grid, state.geometry
+    r = np.asarray(grid.centers, dtype=np.float64)
+    aa = np.asarray(geom.Aa, dtype=np.float64)
+    kk = np.asarray(geom.K, dtype=np.float64)
+    bb = np.asarray(geom.b, dtype=np.float64)
+    xx = np.asarray(geom.X, dtype=np.float64)
+    d_aa = grid.cell_derivative_fourth(aa, parity=1)
+    d_kk = grid.cell_derivative_fourth(kk, parity=1)
+    d_bb = grid.cell_derivative_fourth(bb, parity=1)
+    d_xx = grid.cell_derivative_fourth(xx, parity=1)
+    chi_r = -0.5 * d_xx / xx
+    scale = (
+        _d1_stencil_operand_scale(grid, aa)
+        + (2.0 / 3.0) * _d1_stencil_operand_scale(grid, kk)
+        + 3.0 * np.abs(aa / xx) * _d1_stencil_operand_scale(grid, xx)
+        + 1.5 * np.abs(aa / bb) * _d1_stencil_operand_scale(grid, bb)
+    )
+    # Include post-stencil products/divisions and the sums in M_geom itself.
+    scale = scale + (
+        np.abs(d_aa)
+        + (2.0 / 3.0) * np.abs(d_kk)
+        + 6.0 * np.abs(aa * chi_r)
+        + 1.5 * np.abs(aa * (2.0 / r + d_bb / bb))
+    )
+    return finite("geometric constraint roundoff operand scale", scale)
 
 
 def geometric_momentum_pieces(state: ProductionState) -> dict[str, np.ndarray]:
@@ -199,7 +305,6 @@ def geometric_momentum_pieces(state: ProductionState) -> dict[str, np.ndarray]:
 
 
 def observe_constraint(state: ProductionState) -> dict[str, Any]:
-    assert_supported_baseline_source_scope(state)
     _, vacuum, _ = adapter.vendor_modules()
     raw = vacuum.constraints(state.grid, state.geometry)
     if "momentum" not in raw:
@@ -244,7 +349,6 @@ def observe_constraint(state: ProductionState) -> dict[str, Any]:
 def rhs_direction(
     kernel: V55ProductionKernel, state: ProductionState
 ) -> dict[str, Any]:
-    assert_supported_baseline_source_scope(state)
     srhs, mrhs, _ = kernel._rhs(state)
     terms = adapter.geometry_stage_terms(
         state.grid, state.geometry, state.scalars, state.matter,
@@ -339,6 +443,8 @@ def shifted_state(
     delta: float,
 ) -> ProductionState:
     """Form a directional state +/- epsilon*RHS and re-solve the CMC lapse."""
+    assert_supported_baseline_source_scope(state)
+    assert_supported_baseline_source_scope(state)
     geom = state.geometry.copy()
     for name in GEOMETRY_RATE_NAMES:
         updated = (
@@ -511,10 +617,29 @@ def tangent_for_epsilon(
         max_ratio: float | None = None
     else:
         max_ratio = float(np.max(ratio))
+    fd_stencil_scales_plus = _geometric_constraint_stencil_operand_scales_by_field(
+        plus_state
+    )
+    fd_stencil_scales_minus = _geometric_constraint_stencil_operand_scales_by_field(
+        minus_state
+    )
+    fd_stencil_scales_by_field = {
+        name: finite(
+            f"finite-difference {name} D1 stencil operand scale",
+            fd_stencil_scales_plus[name] + fd_stencil_scales_minus[name],
+        )
+        for name in ("Aa", "K", "b", "X")
+    }
     return {
         "epsilon": float(epsilon),
         "Mdot": m_dot,
         "Mdot_geom": m_geom_dot,
+        "M_geom_fd_roundoff_operand_scale": finite(
+            "finite-difference M_geom operand scale",
+            _geometric_constraint_operand_scale(plus_state)
+            + _geometric_constraint_operand_scale(minus_state),
+        ),
+        "M_geom_fd_stencil_operand_scales_by_field": fd_stencil_scales_by_field,
         "Mdot_geom_terms": geom_term_dots,
         "Mdot_geom_term_reconstructed": geom_term_sum,
         "Mdot_geom_tangent_closure_abs": np.abs(geom_tangent_closure),
@@ -630,6 +755,182 @@ def audit_resolution(
         tangent_for_epsilon(kernel, state, rates, eps)
         for eps in epsilons
     ]
+
+    # Independent analytic chain rule for the exact pinned discrete M_geom.
+    # This is deliberately separate from the continuum/Brown propagation oracle.
+    chain_rule = analytic_geometric_momentum_tangent(
+        lambda values: state.grid.cell_derivative_fourth(values, parity=1),
+        r,
+        state.geometry.Aa,
+        state.geometry.K,
+        state.geometry.b,
+        state.geometry.X,
+        rates["geometry"]["Aa"],
+        rates["geometry"]["K"],
+        rates["geometry"]["b"],
+        rates["geometry"]["X"],
+    )
+    geom_fd_epsilon_delta = np.abs(
+        tangent_results[0]["Mdot_geom"] - tangent_results[1]["Mdot_geom"]
+    )
+    analytic_stencil_operand_scales_by_field = {
+        "Aa": _d1_stencil_operand_scale(state.grid, state.geometry.Aa),
+        "K": _d1_stencil_operand_scale(state.grid, state.geometry.K),
+        "b": _d1_stencil_operand_scale(state.grid, state.geometry.b),
+        "X": _d1_stencil_operand_scale(state.grid, state.geometry.X),
+        "dot_Aa": _d1_stencil_operand_scale(state.grid, rates["geometry"]["Aa"]),
+        "dot_K": _d1_stencil_operand_scale(state.grid, rates["geometry"]["K"]),
+        "dot_b": _d1_stencil_operand_scale(state.grid, rates["geometry"]["b"]),
+        "dot_X": _d1_stencil_operand_scale(state.grid, rates["geometry"]["X"]),
+    }
+    chain_rule_checks = []
+    for item in tangent_results:
+        difference = finite(
+            "analytic-vs-directional geometric tangent difference",
+            item["Mdot_geom"] - chain_rule["total"],
+        )
+        # Bound D1 roundoff from the raw stencil operands, including cases
+        # where D1(field) is near zero due to cancellation. Then add a separately
+        # reported analytic-evaluation roundoff term and an epsilon-halving
+        # truncation estimate. This envelope is for tangent accounting only.
+        fd_roundoff_bound = (
+            64.0 * MACHINE_EPS
+            / (2.0 * float(item["epsilon"]))
+            * item["M_geom_fd_roundoff_operand_scale"]
+        )
+        analytic_operand_scale = (
+            _d1_stencil_operand_scale(state.grid, rates["geometry"]["Aa"])
+            + (2.0 / 3.0) * _d1_stencil_operand_scale(state.grid, rates["geometry"]["K"])
+            + 3.0 * np.abs(state.geometry.Aa / state.geometry.X)
+                * _d1_stencil_operand_scale(state.grid, rates["geometry"]["X"])
+            + 1.5 * np.abs(state.geometry.Aa / state.geometry.b)
+                * _d1_stencil_operand_scale(state.grid, rates["geometry"]["b"])
+        )
+        # Extra sensitivity terms for D1(X) and D1(b) inside the product rule.
+        dot_aa = np.asarray(rates["geometry"]["Aa"], dtype=np.float64)
+        dot_bb = np.asarray(rates["geometry"]["b"], dtype=np.float64)
+        dot_xx = np.asarray(rates["geometry"]["X"], dtype=np.float64)
+        aa = np.asarray(state.geometry.Aa, dtype=np.float64)
+        bb = np.asarray(state.geometry.b, dtype=np.float64)
+        xx = np.asarray(state.geometry.X, dtype=np.float64)
+        analytic_operand_scale = analytic_operand_scale + (
+            3.0 * np.abs(dot_aa / xx) * _d1_stencil_operand_scale(state.grid, state.geometry.X)
+            + 3.0 * np.abs(aa * dot_xx / (xx * xx))
+                * _d1_stencil_operand_scale(state.grid, state.geometry.X)
+            + 1.5 * np.abs(dot_aa / bb) * _d1_stencil_operand_scale(state.grid, state.geometry.b)
+            + 1.5 * np.abs(aa * dot_bb / (bb * bb))
+                * _d1_stencil_operand_scale(state.grid, state.geometry.b)
+            + sum(np.abs(value) for value in chain_rule["terms"].values())
+        )
+        analytic_roundoff_bound = 64.0 * MACHINE_EPS * analytic_operand_scale
+        truncation_bound = 4.0 * geom_fd_epsilon_delta
+        fd_stencil_scales_by_field = item[
+            "M_geom_fd_stencil_operand_scales_by_field"
+        ]
+        bound = finite(
+            "analytic tangent cross-check bound",
+            fd_roundoff_bound + analytic_roundoff_bound + truncation_bound,
+        )
+        scaled = np.zeros_like(difference)
+        positive_bound = bound > 0.0
+        scaled[positive_bound] = (
+            np.abs(difference[positive_bound]) / bound[positive_bound]
+        )
+        zero_bound_mismatch = (~positive_bound) & (np.abs(difference) > 0.0)
+        scaled[zero_bound_mismatch] = np.inf
+        worst_index = int(np.argmax(scaled))
+        chain_rule_checks.append({
+            "epsilon": float(item["epsilon"]),
+            "max_abs_difference": float(np.max(np.abs(difference))),
+            "max_bound": float(np.max(bound)),
+            "max_scaled_ratio": float(np.max(scaled)),
+            "worst_scaled_ratio": float(scaled[worst_index]),
+            "worst_index": worst_index,
+            "worst_radius": float(r[worst_index]),
+            "worst_difference": float(difference[worst_index]),
+            "worst_bound": float(bound[worst_index]),
+            "worst_fd_roundoff_bound": float(fd_roundoff_bound[worst_index]),
+            "worst_analytic_roundoff_bound": float(analytic_roundoff_bound[worst_index]),
+            "worst_epsilon_sensitivity_bound": float(truncation_bound[worst_index]),
+            "worst_fd_total_operand_scale": float(
+                item["M_geom_fd_roundoff_operand_scale"][worst_index]
+            ),
+            "worst_fd_stencil_operand_scales_by_field": {
+                name: float(values[worst_index])
+                for name, values in fd_stencil_scales_by_field.items()
+            },
+            "worst_analytic_stencil_operand_scales_by_field": {
+                name: float(values[worst_index])
+                for name, values in analytic_stencil_operand_scales_by_field.items()
+            },
+            "worst_analytic_total_operand_scale": float(analytic_operand_scale[worst_index]),
+            "ok": bool(np.all(np.abs(difference) <= bound)),
+            "_difference": difference,
+            "_bound": bound,
+        })
+
+    # Negative control: deliberately flip the sign of the largest analytic
+    # signed term. Both measured epsilon tangents must reject that mutation.
+    mutated_term = max(
+        chain_rule["terms"],
+        key=lambda name: float(np.max(np.abs(chain_rule["terms"][name]))),
+    )
+    mutated_terms = dict(chain_rule["terms"])
+    mutated_terms[mutated_term] = -mutated_terms[mutated_term]
+    mutated_prediction = np.zeros_like(chain_rule["total"])
+    for values in mutated_terms.values():
+        mutated_prediction = mutated_prediction + values
+    negative_control_records = []
+    for item, check in zip(tangent_results, chain_rule_checks):
+        mutation_difference = finite(
+            "signed-term negative-control difference",
+            item["Mdot_geom"] - mutated_prediction,
+        )
+        detected = bool(np.any(np.abs(mutation_difference) > check["_bound"]))
+        negative_control_records.append({
+            "epsilon": float(item["epsilon"]),
+            "mutated_term": mutated_term,
+            "max_abs_difference": float(np.max(np.abs(mutation_difference))),
+            "max_bound": float(np.max(check["_bound"])),
+            "detected": detected,
+        })
+    chain_rule_ok = all(check["ok"] for check in chain_rule_checks)
+    negative_control_ok = all(record["detected"] for record in negative_control_records)
+    chain_rule_report = {
+        "basis": (
+            "analytic derivative of the pinned discrete M_geom definition, using "
+            "the same fixed parity-aware D1 for fields and RHS rates"
+        ),
+        "Mdot_geom": regional_summaries(chain_rule["total"], r),
+        "terms": {
+            name: rhs_rate_witness(values, r)
+            for name, values in chain_rule["terms"].items()
+        },
+        "chi_r": rhs_rate_witness(chain_rule["chi_r"], r),
+        "dot_chi_r": rhs_rate_witness(chain_rule["dot_chi_r"], r),
+        "finite_difference_crosscheck": [
+            {key: value for key, value in record.items() if not key.startswith("_")}
+            for record in chain_rule_checks
+        ],
+        "crosscheck_envelope": {
+            "finite_difference_roundoff_bound": "64 machine eps times plus/minus M_geom raw D1 stencil operand scales and post-stencil operation scales, divided by the two-sided epsilon",
+            "analytic_roundoff_bound": "64 machine eps times the analytic tangent term and D1 operand scale",
+            "finite_difference_truncation_bound": "4x pointwise difference between the two directional-epsilon Mdot_geom estimates",
+            "scope_limit": "this envelope checks the algebraic tangent only; it is not a continuum propagation error bound"
+        },
+        "signed_term_negative_control": {
+            "mutated_term": mutated_term,
+            "mutation": "flip the selected analytic signed term",
+            "per_epsilon": negative_control_records,
+            "detected_at_both_epsilons": bool(negative_control_ok),
+        },
+        "arithmetic_gate_passed": bool(chain_rule_ok and negative_control_ok),
+    }
+    # Do not leak arrays through the report structure.
+    for record in chain_rule_checks:
+        record.pop("_difference", None)
+        record.pop("_bound", None)
+
     e0, e1 = tangent_results
     eps_difference = e0["Mdot"] - e1["Mdot"]
     step_full = one_step_check(kernel, state, w0["M_total"], e0["Mdot"], dt)
@@ -646,6 +947,8 @@ def audit_resolution(
         w0["J_closure_ok"]
         and w0["M_geom_closure_ok"]
         and rates["Aa_l2_split"]["closure"]["ok"]
+        and chain_rule_ok
+        and negative_control_ok
     )
     return {
         "resolution": int(resolution),
@@ -692,6 +995,7 @@ def audit_resolution(
             "max_abs": float(np.max(w0["J_closure_abs"])),
             "max_bound": float(np.max(w0["J_closure_bound"])),
         },
+        "semi_discrete_chain_rule": chain_rule_report,
         "tangent_by_epsilon": [
             compact_tangent_result(item, r) for item in tangent_results
         ],

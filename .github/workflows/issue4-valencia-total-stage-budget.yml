@@ -1,0 +1,116 @@
+name: Issue 4 bounded total Valencia stage budget
+
+on:
+  pull_request:
+    paths:
+      - "tools/audit_valencia_total_stage_budget.py"
+      - ".github/workflows/issue4-valencia-total-stage-budget.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: issue4-valencia-total-stage-budget-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  signed-stage-budget:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      PYTHONUNBUFFERED: "1"
+      VENDOR_COMMIT: "d6052d605673ce9d82cdc99b0df79855fa2ea215"
+    steps:
+      - name: Check out diagnostic branch and pinned vendor
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install repository-pinned dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Fail closed on production source blobs and vendor pin
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C vendor/bb-palatini-unified-r0 rev-parse HEAD)" = "$VENDOR_COMMIT"
+          test "$(git rev-parse HEAD:engine/production_kernel.py)" = "9685e76bb5a6f26d6bf383e240de24f37523f265"
+          test "$(git rev-parse HEAD:engine/matter_system.py)" = "e52a117690253ddad7b24d116145a65474a351d2"
+          test "$(git rev-parse HEAD:engine/matter_rhs.py)" = "f41180efbcff2c72cf36477a765318ab539fac80"
+          test "$(git rev-parse HEAD:engine/scalar_system.py)" = "ffc119b1a6f2d495d972323901f76a85783b0a1b"
+          test "$(git rev-parse HEAD:engine/v55_matter.py)" = "0ee3c51fac7dc46c63feba2747a750542bcee3d0"
+          test "$(git rev-parse HEAD:engine/valencia.py)" = "03ed86398f424c03d9d6a3e646da9222a34fac5c"
+          python -m py_compile tools/audit_valencia_total_stage_budget.py
+          printf 'PRODUCTION_SOURCE_BLOBS_MATCH=true\nVENDOR_SOURCE=%s\n' "$(git -C vendor/bb-palatini-unified-r0 rev-parse HEAD)"
+
+      - name: Run bounded read-only signed budget on one frozen profile
+        id: audit
+        continue-on-error: true
+        run: |
+          mkdir -p results/issue4-valencia-total-stage-budget
+          python tools/audit_valencia_total_stage_budget.py \
+            --resolution 160 \
+            --r-max 24 \
+            --output results/issue4-valencia-total-stage-budget/report.json
+
+      - name: Hash report and preserve signed profiles
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -d results/issue4-valencia-total-stage-budget ]; then
+            find results/issue4-valencia-total-stage-budget -type f ! -name SHA256SUMS.txt -print0 \
+              | sort -z | xargs -0 -r sha256sum \
+              > results/issue4-valencia-total-stage-budget/SHA256SUMS.txt
+          fi
+
+      - name: Upload audit report and signed per-cell evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: issue4-valencia-total-stage-budget
+          path: results/issue4-valencia-total-stage-budget/
+          if-no-files-found: warn
+          retention-days: 90
+
+      - name: Enforce diagnostic reproducibility but keep science gate closed
+        if: always()
+        shell: bash
+        env:
+          AUDIT_OUTCOME: ${{ steps.audit.outcome }}
+        run: |
+          set -euo pipefail
+          test "$AUDIT_OUTCOME" = "success"
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          report = json.loads(
+              Path("results/issue4-valencia-total-stage-budget/report.json")
+              .read_text(encoding="utf-8")
+          )
+          assert report["status"] == "completed_diagnostic_only"
+          assert report["source_provenance"]["source_blobs_match"] is True
+          assert report["source_provenance"]["vendor_commit_matches"] is True
+          assert report["configuration"]["production_steps_advanced"] == 0
+          gate = report["gate_result"]
+          assert gate["independent_metric_source_formula_matches"] is True
+          assert gate["production_rhs_component_accounting_closes"] is True
+          assert gate["finite_volume_accounting_closes"] is True
+          assert gate["baseline_covariant_exchange_mismatch_reproduced"] is True
+          assert gate["independent_total_stress_energy_divergence_closed"] is False
+          assert gate["brown_bianchi_propagation_gate_closed"] is False
+          assert gate["archive_SD_physical_normalization_closed"] is False
+          assert gate["scientific_admission"] is False
+          print(
+              "SIGNED_STAGE_BUDGET_REPRODUCED; "
+              "TOTAL_DIV_T_NOT_VERIFIED; SCIENTIFIC_ADMISSION=NOT_ADMITTED"
+          )
+          PY
