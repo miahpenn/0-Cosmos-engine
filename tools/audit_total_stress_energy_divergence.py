@@ -212,31 +212,25 @@ def independent_total_projections(state) -> dict[str, np.ndarray]:
 def spherical_flux_face_values(
     values: np.ndarray, dr: float, *, origin_power: int = 2
 ) -> np.ndarray:
-    """Reconstruct integrated spherical fluxes from cell centers to faces.
+    """Reconstruct regular spherical profiles from cell centers to faces.
 
-    At the first face, divide out the known regular-origin power and fit a
-    quadratic in r^2: radial stress flux uses F_r~r^2, while the time-component
-    current flux uses F_t~r^3. This parity-constrained origin treatment avoids
-    a one-sided generic stencil at the origin. Remaining faces use a four-point
-    cubic interpolant; the outer face is a one-sided cubic extrapolation.
-    This is a diagnostic reconstruction of projected total flux, not the
-    production per-species HLL face flux.
+    The first face uses a parity-constrained fit: F=r^p*g(r^2), with p=1
+    for radial metric-source density, p=2 for volume/time-source/radial-stress
+    flux, and p=3 for radial-current/time-flux density. A quadratic Lagrange
+    fit of g against r^2 through the first three cells respects the known
+    origin behavior. Remaining faces use a four-point cubic interpolant; the
+    outer face is a one-sided cubic extrapolation.
     """
-    flux = finite("finite-volume cell-centered flux", values)
-    if flux.ndim != 1 or flux.size < 4:
+    values = finite("finite-volume cell-centered profile", values)
+    if values.ndim != 1 or values.size < 4:
         raise ValueError("finite-volume face reconstruction requires n>=4")
     if not math.isfinite(float(dr)) or float(dr) <= 0.0:
         raise ValueError("finite-volume dr must be positive and finite")
-    if origin_power not in (2, 3):
-        raise ValueError("regular spherical origin power must be 2 or 3")
-    n = flux.size
+    if origin_power not in (1, 2, 3):
+        raise ValueError("regular spherical origin power must be 1, 2 or 3")
+    n = values.size
     faces = np.zeros(n + 1, dtype=np.float64)
-    # Uniform spherical-cell centers are x_i=(i+1/2)dr; face j is x=j*dr.
     centers = (np.arange(n, dtype=np.float64) + 0.5) * float(dr)
-    # For the first nonzero face, F=r^p*g(r^2) with p=2 (even radial
-    # stress flux) or p=3 (odd time-component current flux). A quadratic
-    # Lagrange fit of g against r^2 through the first three cells preserves
-    # any regular polynomial with g degree <=2 exactly at r=dr.
     nodes2 = (centers[:3] / float(dr)) ** 2
     target2 = 1.0
     weights2 = np.ones(3, dtype=np.float64)
@@ -244,7 +238,7 @@ def spherical_flux_face_values(
         for ell in range(3):
             if ell != k:
                 weights2[k] *= (target2 - nodes2[ell]) / (nodes2[k] - nodes2[ell])
-    regularized = flux[:3] / (centers[:3] ** origin_power)
+    regularized = values[:3] / (centers[:3] ** origin_power)
     faces[1] = float(dr) ** origin_power * float(weights2 @ regularized)
     for j in range(2, n + 1):
         start = min(max(j - 2, 0), n - 4)
@@ -255,8 +249,8 @@ def spherical_flux_face_values(
             for ell in range(4):
                 if ell != k:
                     weights[k] *= (target - nodes[ell]) / (nodes[k] - nodes[ell])
-        faces[j] = float(weights @ flux[start:start + 4])
-    return finite("finite-volume face flux", faces)
+        faces[j] = float(weights @ values[start:start + 4])
+    return finite("finite-volume reconstructed face profile", faces)
 
 
 def finite_volume_radial_flux_derivative(
@@ -354,13 +348,14 @@ def covariant_divergence_fv_from_profiles(
     dt_gamma_rr: np.ndarray,
     dt_gamma_thth: np.ndarray,
 ) -> tuple[np.ndarray, np.ndarray]:
-    """Covariant divergence with finite-volume radial flux differences.
+    """Volume-integrated covariant divergence with telescoping face fluxes.
 
-    The time tangent and metric-source terms match the cell-centered
-    derivative observer. Only the radial flux derivative changes: the same
-    projected total-T flux is reconstructed to spherical faces with a cubic
-    interpolant and differenced conservatively across each cell. This isolates
-    spatial flux-discretization sensitivity; it is not the production HLL flux.
+    Unlike the pointwise D1 observer, this companion integrates the time-density
+    and metric-source densities over each spherical cell with Simpson quadrature,
+    divides by the integrated sqrt(-g) measure, and uses a conservative
+    difference of reconstructed total-T radial face fluxes. This is a diagnostic
+    reconstruction from source-pinned cell-centered projections, not the
+    production per-species HLL face flux.
     """
     r = finite("finite-volume divergence radii", r)
     if r.ndim != 1 or r.size < 4:
@@ -382,7 +377,7 @@ def covariant_divergence_fv_from_profiles(
     pr = finite("finite-volume radial pressure", pr)
     pt = finite("finite-volume tangential pressure", pt)
     sqrt_gamma = np.sqrt(grr) * gth
-    sqrt_minus_g = alpha * sqrt_gamma
+    sqrt_minus_g = finite("finite-volume sqrt(-g) measure", alpha * sqrt_gamma)
     if np.any(alpha <= 0.0) or np.any(grr <= 0.0) or np.any(gth <= 0.0):
         raise ValueError("finite-volume divergence requires positive lapse and spatial metric")
 
@@ -391,8 +386,8 @@ def covariant_divergence_fv_from_profiles(
     Tthth = pt / gth
     flux_t = -(alpha**2) * sqrt_gamma * (j / grr)
     flux_r = alpha * sqrt_gamma * pr
-    radial_flux_t = finite_volume_radial_flux_derivative(flux_t, dr, origin_power=3)
-    radial_flux_r = finite_volume_radial_flux_derivative(flux_r, dr, origin_power=2)
+    flux_t_faces = spherical_flux_face_values(flux_t, dr, origin_power=3)
+    flux_r_faces = spherical_flux_face_values(flux_r, dr, origin_power=2)
 
     source_t = -0.5 * (
         Ttt * finite("FV dt g_tt", dt_gtt)
@@ -405,14 +400,45 @@ def covariant_divergence_fv_from_profiles(
     source_r = -0.5 * (
         Ttt * gtt_r + Trr * grr_r + 2.0 * Tthth * gth_r
     )
-    denom = finite("finite-volume sqrt(-g) denominator", sqrt_minus_g)
+
+    # Integrate each cell's conservative densities with Simpson's rule. The
+    # source-density radial component scales as r near the origin because
+    # T^theta_theta*d_r(gamma_theta_theta)~1/r while sqrt(-g)~r^2.
+    dt_t = finite("FV dt density t", dt_density_t)
+    dt_r = finite("FV dt density r", dt_density_r)
+    source_density_t = finite("FV time metric-source density", sqrt_minus_g * source_t)
+    source_density_r = finite("FV radial metric-source density", sqrt_minus_g * source_r)
+
+    volume_faces = spherical_flux_face_values(sqrt_minus_g, dr, origin_power=2)
+    dt_t_faces = spherical_flux_face_values(dt_t, dr, origin_power=2)
+    dt_r_faces = spherical_flux_face_values(dt_r, dr, origin_power=3)
+    source_t_faces = spherical_flux_face_values(source_density_t, dr, origin_power=2)
+    source_r_faces = spherical_flux_face_values(source_density_r, dr, origin_power=1)
+
+    def simpson_cells(centers: np.ndarray, faces: np.ndarray, name: str) -> np.ndarray:
+        profile = finite(f"FV cell-center {name}", centers)
+        face_profile = finite(f"FV face {name}", faces)
+        if face_profile.size != profile.size + 1:
+            raise ValueError(f"FV face/cell shape mismatch for {name}")
+        return finite(f"FV cell integral {name}", (float(dr) / 6.0) * (
+            face_profile[:-1] + 4.0 * profile + face_profile[1:]
+        ))
+
+    cell_volume = simpson_cells(sqrt_minus_g, volume_faces, "sqrt(-g) measure")
+    int_dt_t = simpson_cells(dt_t, dt_t_faces, "time-component density rate")
+    int_dt_r = simpson_cells(dt_r, dt_r_faces, "radial-component density rate")
+    int_source_t = simpson_cells(source_density_t, source_t_faces, "time metric-source density")
+    int_source_r = simpson_cells(source_density_r, source_r_faces, "radial metric-source density")
+    if np.any(cell_volume <= 0.0):
+        raise ValueError("finite-volume spherical cell measures must be positive")
+
     div_t = finite(
-        "finite-volume covariant time-component divergence",
-        (finite("FV dt sqrt(-g) T^t_t", dt_density_t) + radial_flux_t) / denom + source_t,
+        "finite-volume averaged covariant time-component divergence",
+        (int_dt_t + np.diff(flux_t_faces) + int_source_t) / cell_volume,
     )
     div_r = finite(
-        "finite-volume covariant radial-component divergence",
-        (finite("FV dt sqrt(-g) T^t_r", dt_density_r) + radial_flux_r) / denom + source_r,
+        "finite-volume averaged covariant radial-component divergence",
+        (int_dt_r + np.diff(flux_r_faces) + int_source_r) / cell_volume,
     )
     return div_t, div_r
 
@@ -895,7 +921,7 @@ def audit_resolution(n: int, r_max: float, epsilons: tuple[float, float]) -> dic
         },
         "limits": [
             "Finite-difference time tangent includes the CMC lapse re-solve and the full frozen semi-discrete RHS direction.",
-            "Spatial divergence uses the exact pinned parity-aware D1 but cell-centred projected T; finite-volume fluid reconstruction is not identical to that point-sampled covariant operator.",
+            "The FV comparator uses parity-aware total-T face reconstruction and Simpson-integrated time/source densities and spherical cell measure; it is diagnostic-only and is not the production per-species HLL flux.",
             "Any coupled residual is reported, not judged from a conditional interaction law; it requires independent source-law/model review.",
             "The audit has beta^r=0 at the frozen initial slice; nonzero-shift extension is a separate control.",
         ],
