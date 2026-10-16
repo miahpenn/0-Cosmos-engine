@@ -4,6 +4,12 @@ on:
   pull_request:
     paths:
       - "tools/audit_valencia_total_stage_budget.py"
+      - "tools/audit_centre_ricci_fixed_s2.py"
+      - "tools/audit_manufactured_regular_ricci_oracle.py"
+      - "tools/audit_origin_integral_quadrature.py"
+      - "tests/test_centre_ricci_fixed_s2.py"
+      - "tests/test_manufactured_regular_ricci_oracle.py"
+      - "tests/test_origin_integral_quadrature.py"
       - ".github/workflows/issue4-valencia-total-stage-budget.yml"
 
 permissions:
