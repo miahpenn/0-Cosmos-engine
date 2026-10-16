@@ -97,6 +97,8 @@ jobs:
             and .gate_result.input_states_unchanged == true
             and .gate_result.native_zero_shift_scope_verified == true
             and .gate_result.manufactured_operator_probe_nontrivial == true
+            and .gate_result.manufactured_probe_negative_controls_nontrivial == true
+            and .gate_result.scalar_sector_kept_separate == true
             and .gate_result.production_steps_advanced == 0
             and .gate_result.independent_total_stress_energy_divergence_closed == false
             and .gate_result.scientific_admission == false
@@ -105,7 +107,7 @@ jobs:
       - name: Hash result files
         if: always()
         run: |
-          find results -type f ! -name SHA256SUMS.txt -print0 | sort -z | xargs -0 -r sha256sum > results/SHA256SUMS.txt
+          find results/issue4-production-hll-operator-pairing -type f ! -name SHA256SUMS.txt -print0 | sort -z | xargs -0 -r sha256sum > results/issue4-production-hll-operator-pairing/SHA256SUMS.txt
 
       - name: Upload HLL/source report and signed arrays
         if: always()
