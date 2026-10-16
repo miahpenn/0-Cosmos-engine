@@ -131,8 +131,8 @@ def test_flat_chart_lapse_hessian_errors_refine_on_fixed_annulus():
         expected_radial = 2.0 * q + 12.0 * s * R**2
         expected_laplace = 6.0 * q + 20.0 * s * R**2
         err = max(
-            float(np.max(np.abs(geometry["DrDr_alpha"][mask] - expected_radial))),
-            float(np.max(np.abs(geometry["lap_alpha"][mask] - expected_laplace))),
+            float(np.max(np.abs(geometry["DrDr_alpha"][mask] - expected_radial[mask]))),
+            float(np.max(np.abs(geometry["lap_alpha"][mask] - expected_laplace[mask]))),
         )
         errors.append(err)
     assert errors[0] / errors[1] > 5.0
