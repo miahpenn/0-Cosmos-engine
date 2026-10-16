@@ -128,7 +128,7 @@ def manufactured_state(grid, vacuum, variant: str = "baseline_zero_shift"):
     zero shift, and a cubic odd residual with nonzero odd shift.  Both preserve
     the regular spherical parity class; neither evolves a production state.
     """
-    if variant not in ("baseline_zero_shift", "odd_shift_cubic_C"):
+    if variant not in ("baseline_zero_shift", "odd_shift_strong_linear_C", "odd_shift_cubic_C"):
         raise ValueError(f"unsupported manufactured profile variant: {variant}")
     state = vacuum.flat_state(grid)
     r = finite("radii", grid.centers)
@@ -146,10 +146,15 @@ def manufactured_state(grid, vacuum, variant: str = "baseline_zero_shift"):
     if variant == "baseline_zero_shift":
         state.beta.fill(0.0)
         c_manufactured = 2.5e-4 * r / 36.0 * e
-    else:
-        # An odd shift tests beta*D_r(M)+beta'*M; C has a distinct O(r^3) origin series.
+    elif variant == "odd_shift_strong_linear_C":
+        # 290x the baseline C amplitude exposes the omitted term above the
+        # truncation floor, while nonzero odd beta exercises shift transport.
         state.beta = 1.0e-3 * (r / 6.0) * e
-        c_manufactured = 2.5e-4 * (r / 6.0) ** 3 * e
+        c_manufactured = 290.0 * 2.5e-4 * r / 36.0 * e
+    else:
+        # Distinct regular odd C~r^3 profile, also with nonzero odd shift.
+        state.beta = 1.0e-3 * (r / 6.0) * e
+        c_manufactured = 100.0 * 2.5e-4 * (r / 6.0) ** 3 * e
     state.B.fill(0.0)
 
     # Vendor reference-metric connection target plus the manufactured odd C^r.
@@ -588,7 +593,11 @@ def main() -> int:
     args.output_dir.mkdir(parents=True, exist_ok=True)
     try:
         pin = provenance()
-        variants = ["baseline_zero_shift", "odd_shift_cubic_C"]
+        variants = [
+            "baseline_zero_shift",
+            "odd_shift_strong_linear_C",
+            "odd_shift_cubic_C",
+        ]
         rows = [
             audit_resolution(
                 int(n), float(args.r_max),
@@ -616,11 +625,13 @@ def main() -> int:
             ),
             "vendor_extension_improves_on_fine_annulus": all(
                 row["vendor_extension_discriminator"]["vendor_extension_improves_on_annulus"]
-                for row in rows if row["resolution"] >= 80
+                for row in rows
+                if row["resolution"] >= 80 and row["profile_variant"] != "baseline_zero_shift"
             ),
             "wrong_sign_extension_control_detected": all(
                 row["vendor_extension_discriminator"]["wrong_sign_extension_control_detected"]
-                for row in rows if row["resolution"] >= 80
+                for row in rows
+                if row["resolution"] >= 80 and row["profile_variant"] != "baseline_zero_shift"
             ),
             "acceptance_oracle_satisfied": False,
             "scientific_admission": False,
