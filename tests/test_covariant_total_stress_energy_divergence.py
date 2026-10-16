@@ -116,3 +116,20 @@ def test_flat_static_isotropic_stress_has_zero_finite_volume_covariant_divergenc
     assert float(np.max(np.abs(div_t))) < 2.0e-12
     assert float(np.max(np.abs(div_r))) < 2.0e-11
 
+def test_finite_volume_face_reconstruction_respects_regular_origin_parity():
+    n = 32
+    dr = 0.25
+    r = (np.arange(n, dtype=np.float64) + 0.5) * dr
+
+    # F_r = r^2 g(r^2), with quadratic g, is reconstructed exactly at r=dr.
+    even_flux = 0.7 * r**2 * (1.0 + 0.03 * r**2 + 0.002 * r**4)
+    even_faces = AUDIT.spherical_flux_face_values(even_flux, dr, origin_power=2)
+    expected_even = 0.7 * dr**2 * (1.0 + 0.03 * dr**2 + 0.002 * dr**4)
+    assert np.isclose(even_faces[1], expected_even, rtol=0.0, atol=2.0e-14)
+
+    # F_t = r^3 g(r^2) uses the odd regular-origin power.
+    odd_flux = 0.4 * r**3 * (1.0 + 0.02 * r**2 + 0.001 * r**4)
+    odd_faces = AUDIT.spherical_flux_face_values(odd_flux, dr, origin_power=3)
+    expected_odd = 0.4 * dr**3 * (1.0 + 0.02 * dr**2 + 0.001 * dr**4)
+    assert np.isclose(odd_faces[1], expected_odd, rtol=0.0, atol=2.0e-14)
+
