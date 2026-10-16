@@ -106,7 +106,9 @@ jobs:
             and .gate_result.matched_total_t_witness_reported == true
             and .gate_result.matched_total_t_state_hashes_match == true
             and .gate_result.matched_total_t_profiles_finite == true
+            and .gate_result.same_state_epsilon_witness_reported == true
             and .scope.same_process_total_T_directional_witness_available == true
+            and .scope.same_state_epsilon_total_T_witness_available == true
             and .scope.shared_initial_state_hash_verified == true
             and .gate_result.scalar_sector_kept_separate == true
             and .scope.optional_charged_dust_supported == false
