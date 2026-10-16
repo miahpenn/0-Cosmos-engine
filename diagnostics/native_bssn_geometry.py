@@ -80,10 +80,10 @@ def _d2(grid, values: np.ndarray, parity: int) -> np.ndarray:
 
 
 def metric_connection_lambda(grid, state) -> np.ndarray:
-    """Contracted conformal Christoffel Gamma^r for tilde-gamma=diag(a,r^2 b).
+    """Metric value of the evolved reference-metric connection function.
 
-    Contracting the Christoffel symbols analytically gives
-    Gamma^r = a'/(2 a^2) - b'/(a b) + 2(1/b - 1/a)/r.
+    Contracting the spherical connection relative to the flat reference metric
+    gives Lambda_metric = a'/(2 a^2) - b'/(a b) + 2(1/b - 1/a)/r.
     The fields a,b are even; Lambda_metric is odd at the regular origin.
     """
     r = np.asarray(grid.centers, dtype=float)
@@ -126,7 +126,6 @@ def native_bssn_geometry_terms(grid, state) -> dict[str, np.ndarray]:
     dR = _d1(grid, areal_radius, -1)
     d2R = _d2(grid, areal_radius, -1)
     d_a = _d1(grid, a, 1)
-    d_b = _d1(grid, b, 1)
 
     # Radial proper derivatives: d/dl = A^(-1/2) d/dr.
     dR_dl = dR / np.sqrt(A)
