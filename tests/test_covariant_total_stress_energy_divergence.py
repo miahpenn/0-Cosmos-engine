@@ -57,7 +57,7 @@ def test_flat_static_anisotropic_stress_matches_independent_radial_identity():
     gamma_thth = r**2
     rho = np.full(n, 0.2)
     pr = 0.4 + 0.03 * r**2
-    pt = 0.4 + 0.06 * r**2
+    pt = 0.4 + 0.02 * r**2
     j = _zero(n)
     zeros = _zero(n)
     div_t, div_r = AUDIT.covariant_divergence_from_profiles(
