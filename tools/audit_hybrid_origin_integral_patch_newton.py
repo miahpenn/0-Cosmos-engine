@@ -377,16 +377,13 @@ def _constraint_propagation_candidate(
     epsilon: float,
     measured_mdot_covariant: np.ndarray,
 ) -> tuple[dict[str, Any], dict[str, np.ndarray]]:
-    """Brown Eq. 11b candidate with explicit M^r -> M_r index conversion.
+    """Retain the prior raised-index interpretation as a comparison candidate.
 
-    Brown's published propagation equation evolves the contravariant M^r,
-    while the current vendor constraint observer returns the covariant M_r.
-    This function now computes the candidate in the upper-index convention,
-    raises the covariant matter-divergence source, then maps the prediction
-    back to the measured covariant derivative:
-        d_t M_r = gamma_rr d_t M^r + (d_t gamma_rr/gamma_rr) M_r.
-    This index-aware candidate still remains non-admitted; the full source/
-    normalization mapping must be independently reviewed.
+    Brown Eq. (11b) is presented for the covariant component M_r. The earlier
+    implementation interpreted it as an M^r equation, raised M_r, applied the
+    formula and lowered the resulting rate. That variant is retained only for
+    comparison; a direct covariant M_r form is evaluated alongside it.
+    Neither matter-source extension is an admitted acceptance oracle.
     """
     grid, geom = state.grid, state.geometry
     r = finite("propagation radii", grid.centers)
@@ -473,25 +470,93 @@ def _constraint_propagation_candidate(
         brown_conserved_source_up + matter_source_up,
     )
     predicted_Mdot_cov = finite(
-        "candidate predicted covariant Mdot",
+        "raised-index comparator predicted covariant Mdot",
         gamma_rr * predicted_Mdot_up + gamma_rr_log_dot * M_cov,
     )
+
+    # Brown Eq. (11b) in the covariant M_r convention. Include the covector
+    # shift-transport terms explicitly; beta is zero on these CMC hybrid arms.
+    beta_r = finite("propagation beta", geom.beta)
+    term_shift_cov = beta_r * d1(M_cov, -1) + d1(beta_r, -1) * M_cov
+    term_KM_cov = alpha * K * M_cov
+    term_alpha_H_cov = -(alpha_r / 3.0) * H
+    term_H_gradient_cov = (alpha / 6.0) * H_r
+    term_C_second_cov = (2.0 / 3.0) * alpha * chi * C_rr
+    term_C_first_cov = c_first_coeff_up * C_r
+    brown_published_Mr_source = finite(
+        "Brown published covariant M_r source",
+        term_shift_cov + term_KM_cov + term_alpha_H_cov
+        + term_H_gradient_cov + term_C_second_cov + term_C_first_cov,
+    )
+    matter_source_cov = finite(
+        "provisional covariant stress-divergence source",
+        -8.0 * math.pi * alpha * Q_r,
+    )
+    predicted_published_Mdot_cov = finite(
+        "direct published-index M_r candidate",
+        brown_published_Mr_source + matter_source_cov,
+    )
+
     measured = finite("measured covariant Mdot", measured_mdot_covariant)
     residual = finite(
-        "measured-minus-predicted covariant Mdot", measured - predicted_Mdot_cov
+        "measured-minus-raised-index comparator Mdot", measured - predicted_Mdot_cov
+    )
+    residual_published_Mr = finite(
+        "measured-minus-direct-published-M_r candidate Mdot",
+        measured - predicted_published_Mdot_cov,
+    )
+    scale_published_Mr = max(
+        float(np.sqrt(np.mean(measured * measured))),
+        float(np.sqrt(np.mean(predicted_published_Mdot_cov * predicted_published_Mdot_cov))),
+        np.finfo(np.float64).tiny,
+    )
+    outer = r >= 5.0
+    outer_scale_published_Mr = max(
+        float(np.sqrt(np.mean(measured[outer] ** 2))),
+        float(np.sqrt(np.mean(predicted_published_Mdot_cov[outer] ** 2))),
+        np.finfo(np.float64).tiny,
     )
     scale = max(
         float(np.sqrt(np.mean(measured * measured))),
         float(np.sqrt(np.mean(predicted_Mdot_cov * predicted_Mdot_cov))),
         np.finfo(np.float64).tiny,
     )
-    outer = r >= 5.0
     outer_scale = max(
         float(np.sqrt(np.mean(measured[outer] ** 2))),
         float(np.sqrt(np.mean(predicted_Mdot_cov[outer] ** 2))),
         np.finfo(np.float64).tiny,
     )
     report = {
+        "published_covariant_M_r_candidate": {
+            "formula": (
+                "Direct Brown Eq. (11b) M_r form: beta^r D_r M_r + "
+                "(D_r beta^r) M_r + alpha*K*M_r - (D_r alpha)*H/3 "
+                "+ alpha*D_r H/6 + 2*alpha*chi*D_r^2 C^r/3 + "
+                "[2*(D_r alpha)*chi/3 - alpha*(D_r chi)/3 "
+                "+ alpha*chi*D_r ln(b*r^2)]*D_r C^r, "
+                "plus provisional -8*pi*alpha*Q_r."
+            ),
+            "source_index_convention": "covariant M_r, as printed in Brown Eq. 11b",
+            "brown_conserved_source_dM_r_dt": witness(brown_published_Mr_source, r),
+            "matter_source_minus_8pi_alpha_Q_r": witness(matter_source_cov, r),
+            "predicted_Mdot_covariant_direct": witness(predicted_published_Mdot_cov, r),
+            "measured_Mdot_covariant": witness(measured, r),
+            "measured_minus_predicted_covariant": witness(residual_published_Mr, r),
+            "relative_rms_error_full_domain": float(
+                np.sqrt(np.mean(residual_published_Mr * residual_published_Mr)) / scale_published_Mr
+            ),
+            "relative_rms_error_r_ge_5": float(
+                np.sqrt(np.mean(residual_published_Mr[outer] ** 2)) / outer_scale_published_Mr
+            ),
+            "index_mapping_reviewed_for_scientific_admission": False,
+            "matter_conservation_source_sign_and_normalization_reviewed": False,
+            "acceptance_oracle_satisfied": False,
+            "finite": bool(
+                np.all(np.isfinite(predicted_published_Mdot_cov))
+                and np.all(np.isfinite(residual_published_Mr))
+                and np.all(np.isfinite(matter_source_cov))
+            ),
+        },
         "formula": (
             "Brown spherical BSSN constraint-propagation Eq. (11b) in its "
             "published contravariant M^r convention, plus provisional "
@@ -535,7 +600,17 @@ def _constraint_propagation_candidate(
         "propagation_matter_source_minus_8pi_alpha_Q_up": matter_source_up,
         "propagation_Mdot_predicted_contravariant": predicted_Mdot_up,
         "propagation_Mdot_predicted_covariant": predicted_Mdot_cov,
-        "propagation_Mdot_measured_minus_predicted_covariant": residual,
+        "propagation_Mdot_measured_minus_predicted_covariant_raised_comparator": residual,
+        "propagation_Mdot_predicted_covariant_published_Mr": predicted_published_Mdot_cov,
+        "propagation_Mdot_measured_minus_predicted_covariant_published_Mr": residual_published_Mr,
+        "propagation_published_Mr_brown_source": brown_published_Mr_source,
+        "propagation_published_Mr_matter_source": matter_source_cov,
+        "propagation_published_Mr_term_shift_transport": term_shift_cov,
+        "propagation_published_Mr_term_KM": term_KM_cov,
+        "propagation_published_Mr_term_alpha_H": term_alpha_H_cov,
+        "propagation_published_Mr_term_H_gradient": term_H_gradient_cov,
+        "propagation_published_Mr_term_connection_second": term_C_second_cov,
+        "propagation_published_Mr_term_connection_first": term_C_first_cov,
         "propagation_term_KM_raised_M": term_KM_up,
         "propagation_term_alpha_H": term_alpha_H_up,
         "propagation_term_H_gradient": term_H_gradient_up,
