@@ -209,24 +209,44 @@ def independent_total_projections(state) -> dict[str, np.ndarray]:
     }
 
 
-def spherical_flux_face_values(values: np.ndarray, dr: float) -> np.ndarray:
-    """Reconstruct spherical integrated fluxes from cell centers to faces.
+def spherical_flux_face_values(
+    values: np.ndarray, dr: float, *, origin_power: int = 2
+) -> np.ndarray:
+    """Reconstruct integrated spherical fluxes from cell centers to faces.
 
-    Four cell-center values define a cubic interpolant at each face. The
-    inner face is exactly zero because a regular spherical integrated radial
-    flux carries the r^2 area factor. The outer face is a one-sided cubic
-    extrapolation. This is a diagnostic reconstruction of the already
-    projected total flux, not the production per-species HLL face flux.
+    At the first face, divide out the known regular-origin power and fit a
+    quadratic in r^2: radial stress flux uses F_r~r^2, while the time-component
+    current flux uses F_t~r^3. This parity-constrained origin treatment avoids
+    a one-sided generic stencil at the origin. Remaining faces use a four-point
+    cubic interpolant; the outer face is a one-sided cubic extrapolation.
+    This is a diagnostic reconstruction of projected total flux, not the
+    production per-species HLL face flux.
     """
     flux = finite("finite-volume cell-centered flux", values)
     if flux.ndim != 1 or flux.size < 4:
         raise ValueError("finite-volume face reconstruction requires n>=4")
     if not math.isfinite(float(dr)) or float(dr) <= 0.0:
         raise ValueError("finite-volume dr must be positive and finite")
+    if origin_power not in (2, 3):
+        raise ValueError("regular spherical origin power must be 2 or 3")
     n = flux.size
     faces = np.zeros(n + 1, dtype=np.float64)
     # Uniform spherical-cell centers are x_i=(i+1/2)dr; face j is x=j*dr.
-    for j in range(1, n + 1):
+    centers = (np.arange(n, dtype=np.float64) + 0.5) * float(dr)
+    # For the first nonzero face, F=r^p*g(r^2) with p=2 (even radial
+    # stress flux) or p=3 (odd time-component current flux). A quadratic
+    # Lagrange fit of g against r^2 through the first three cells preserves
+    # any regular polynomial with g degree <=2 exactly at r=dr.
+    nodes2 = (centers[:3] / float(dr)) ** 2
+    target2 = 1.0
+    weights2 = np.ones(3, dtype=np.float64)
+    for k in range(3):
+        for ell in range(3):
+            if ell != k:
+                weights2[k] *= (target2 - nodes2[ell]) / (nodes2[k] - nodes2[ell])
+    regularized = flux[:3] / (centers[:3] ** origin_power)
+    faces[1] = float(dr) ** origin_power * float(weights2 @ regularized)
+    for j in range(2, n + 1):
         start = min(max(j - 2, 0), n - 4)
         nodes = np.arange(start, start + 4, dtype=np.float64) + 0.5
         target = float(j)
@@ -239,9 +259,11 @@ def spherical_flux_face_values(values: np.ndarray, dr: float) -> np.ndarray:
     return finite("finite-volume face flux", faces)
 
 
-def finite_volume_radial_flux_derivative(values: np.ndarray, dr: float) -> np.ndarray:
+def finite_volume_radial_flux_derivative(
+    values: np.ndarray, dr: float, *, origin_power: int = 2
+) -> np.ndarray:
     """Cellwise derivative from telescoping reconstructed spherical face fluxes."""
-    faces = spherical_flux_face_values(values, dr)
+    faces = spherical_flux_face_values(values, dr, origin_power=origin_power)
     return finite("finite-volume radial flux derivative", np.diff(faces) / float(dr))
 
 
@@ -369,8 +391,8 @@ def covariant_divergence_fv_from_profiles(
     Tthth = pt / gth
     flux_t = -(alpha**2) * sqrt_gamma * (j / grr)
     flux_r = alpha * sqrt_gamma * pr
-    radial_flux_t = finite_volume_radial_flux_derivative(flux_t, dr)
-    radial_flux_r = finite_volume_radial_flux_derivative(flux_r, dr)
+    radial_flux_t = finite_volume_radial_flux_derivative(flux_t, dr, origin_power=3)
+    radial_flux_r = finite_volume_radial_flux_derivative(flux_r, dr, origin_power=2)
 
     source_t = -0.5 * (
         Ttt * finite("FV dt g_tt", dt_gtt)
