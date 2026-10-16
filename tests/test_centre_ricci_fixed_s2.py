@@ -4,6 +4,7 @@ from tools.audit_centre_ricci_fixed_s2 import (
     _fixed_s2_fit,
     _fitted_even_polynomial,
     _moment_from_fit,
+    _parity_composite_simpson_integral,
 )
 
 
@@ -69,3 +70,19 @@ def test_degree5_comparison_retains_s10_and_integrates_all_six_even_coefficients
     assert abs(moment - exact) < 1.0e-11
     assert meta["integrated_coefficient_names"][-1] == "s10"
     assert len(meta["integrated_coefficients_even_powers"]) == 6
+
+
+
+def test_parity_composite_simpson_integrates_even_quadratic_source():
+    for dr in (0.5, 1.0/3.0, 0.25):
+        r = (np.arange(32, dtype=float) + 0.5)*dr
+        s0 = 1.0
+        s2 = -4.0*np.pi*0.01**2
+        source = s0 + s2*r**2
+        integral = _parity_composite_simpson_integral(
+            source, r, dr, origin_value=s0
+        )
+        B = integral/r
+        np.testing.assert_allclose(
+            B[:8], s0+(s2/3.0)*r[:8]**2, rtol=0.0, atol=3.0e-14
+        )
