@@ -243,7 +243,7 @@ def constraints(state: ProductionState, vacuum: Any) -> dict[str, np.ndarray]:
     return {"H": H, "M": M, "C_Lambda": C, "determinant": determinant}
 
 
-def witness(values: np.ndarray, r: np.ndarray) -> dict[str, Any]:
+def witness(values: np.ndarray, r: np.ndarray, *, index_offset: int = 0) -> dict[str, Any]:
     values = finite("witness profile", values)
     r = finite("witness radii", r)
     if values.shape != r.shape:
@@ -254,7 +254,7 @@ def witness(values: np.ndarray, r: np.ndarray) -> dict[str, Any]:
     peak = int(peaks[0])
     return {
         "cell_0_to_4": [
-            {"i": i, "r": float(r[i]), "signed": float(values[i]), "abs": float(abs(values[i]))}
+            {"i": i + int(index_offset), "r": float(r[i]), "signed": float(values[i]), "abs": float(abs(values[i]))}
             for i in range(n)
         ],
         "fixed_radius_signed": {
@@ -268,6 +268,13 @@ def witness(values: np.ndarray, r: np.ndarray) -> dict[str, Any]:
         "annulus_r5_to10_max_abs": float(np.max(np.abs(values[annulus]))) if np.any(annulus) else None,
         "annulus_r5_to10_rms": float(np.sqrt(np.mean(values[annulus] ** 2))) if np.any(annulus) else None,
     }
+
+
+def exterior_witness(values: np.ndarray, radii: np.ndarray) -> dict[str, Any]:
+    """Witness the untouched cells with their true global cell indices."""
+    out = witness(values, radii, index_offset=PATCH_CELLS)
+    out["cells_5_plus_first_five"] = out.pop("cell_0_to_4")
+    return out
 
 
 def solve_five_cell_hybrid(
@@ -563,7 +570,10 @@ def run(args: argparse.Namespace) -> tuple[dict[str, Any], dict[str, np.ndarray]
                 "final_fully_rebuilt_H_cells_0_to_4_max_abs": final_patch_max,
                 "outside_patch_B_unchanged": bool(np.array_equal(B_hybrid[PATCH_CELLS:], B_principled[PATCH_CELLS:])),
                 "max_abs_B_change_inside_patch": float(np.max(np.abs(B_hybrid[:PATCH_CELLS] - B_principled[:PATCH_CELLS]))),
-                "H_residual_transferred_to_cells_5_plus": witness(constraint_arrays["hybrid_five_cell_patch_newton"]["H"][PATCH_CELLS:], r[PATCH_CELLS:]) if len(r) > PATCH_CELLS else None,
+                "H_residual_outside_patch": exterior_witness(
+                    constraint_arrays["hybrid_five_cell_patch_newton"]["H"][PATCH_CELLS:],
+                    r[PATCH_CELLS:],
+                ) if len(r) > PATCH_CELLS else None,
             },
             "arms": arms,
             "signed_constraint_deltas": delta_rows,
