@@ -300,7 +300,22 @@ def test_hll_and_total_t_witness_share_exact_epsilon_state_pair():
                     "max_gap_allowed_by_global_scale": channel["atol"] + channel["rtol"] * max(
                         float(np.max(np.abs(sum_values))), float(np.max(np.abs(total_values)))
                     ),
+                    "max_abs_sector_l1_scale": float(np.max(np.sum(np.stack([
+                        np.abs(np.asarray(sector["raw_signed_arrays"][channel_name], dtype=np.float64))
+                        for sector in decomposition["sectors"].values()
+                    ], axis=0), axis=0))),
+                    "max_gap_over_sector_l1": float(np.max(
+                        np.abs(np.asarray(channel["sum_minus_total"], dtype=np.float64)) /
+                        np.maximum(
+                            np.sum(np.stack([
+                                np.abs(np.asarray(sector["raw_signed_arrays"][channel_name], dtype=np.float64))
+                                for sector in decomposition["sectors"].values()
+                            ], axis=0), axis=0),
+                            np.finfo(np.float64).tiny,
+                        )
+                    )),
                 }
+            print("SECTOR_RECON_DEBUG=", reconstruction_debug, flush=True)
             assert decomposition["reconstruction"]["all_sectors_reconstruct_total"] is True, reconstruction_debug
             for key in ("div_T_t", "div_T_r", "div_T_t_fv", "div_T_r_fv"):
                 values = np.asarray(paired["raw_signed_arrays"][key], dtype=np.float64)
