@@ -7,7 +7,7 @@ valencia.primitive_to_conserved.
 
 For the locked dark-matter covector Q_nu = beta_DM*rho_DM*d_nu(phi), project the
 recipient into this active state as below. See
-docs/SCALAR_DM_EXCHANGE_CURRENT_MAIN_2026-10-16.md for the mass-varying dust
+docs/scalar_dm_exchange_current_main_note_20261016.md for the mass-varying dust
 derivation and covariant-to-Eulerian projection:
     q_D = -alpha*sqrt(gamma)*beta_DM*rho_DM*W*(Pi + v^r*d_r(phi))
     q_E = -sqrt(gamma)*(Q_t - beta^r*Q_r)
