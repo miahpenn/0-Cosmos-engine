@@ -418,6 +418,201 @@ def rhs_arm(
     return output
 
 
+
+def operator_compatible_cmc_arm(
+    kernel: V55ProductionKernel,
+    state: ProductionState,
+    epsilons: tuple[float, float],
+) -> dict[str, Any]:
+    """Diagnostic-only CMC solve using the exact production D1/D2 operators.
+
+    This copied solver leaves engine/cmc_gauge.py untouched. It solves the
+    CMC equation on cells 0..n-2 with the same parity-aware fourth-order
+    operators used by the production K RHS, includes the actual K-L3
+    dissipation term, and retains alpha[-1]=1 as outer normalization.
+    """
+    try:
+        grid, geom = state.grid, state.geometry
+        r = finite("operator-compatible lapse radii", grid.centers)
+        n = int(r.size)
+        if n < 5:
+            raise ValueError("operator-compatible lapse solve requires at least five cells")
+        if float(np.max(np.abs(np.asarray(geom.beta, dtype=np.float64)))) != 0.0:
+            raise ValueError("operator-compatible lapse probe expects the CMC zero-shift branch")
+
+        # Use the existing production CMC projection's target Kdot on this
+        # frozen state, without mutating the input or changing production.
+        _, target_kdot = solve_cmc_lapse(
+            grid, geom.copy(), state.scalars, state.matter
+        )
+
+        a = finite("operator-compatible metric a", geom.a)
+        b = finite("operator-compatible metric b", geom.b)
+        X = finite("operator-compatible metric X", geom.X)
+        Aa = finite("operator-compatible metric Aa", geom.Aa)
+        K = finite("operator-compatible metric K", geom.K)
+        inv = finite("operator-compatible inverse physical radial metric", X * X / a)
+        if np.any(inv <= 0.0):
+            raise FloatingPointError("operator-compatible inverse radial metric must be positive")
+
+        d1 = lambda values: finite(
+            "operator-compatible D1", grid.cell_derivative_fourth(values, parity=1)
+        )
+        d2 = lambda values: finite(
+            "operator-compatible D2", grid.cell_second_derivative_fourth(values, parity=1)
+        )
+        c = finite(
+            "operator-compatible radial Laplacian coefficient",
+            -0.5 * d1(a) / a + d1(b) / b - d1(X) / X + 2.0 / r,
+        )
+
+        total = total_matter_projection(grid, geom, state.scalars, state.matter)
+        q = finite(
+            "operator-compatible lapse potential",
+            1.5 * Aa * Aa + K * K / 3.0
+            + 4.0 * math.pi * (
+                np.asarray(total["rho"], dtype=np.float64)
+                + np.asarray(total["pr"], dtype=np.float64)
+                + 2.0 * np.asarray(total["pt"], dtype=np.float64)
+            ),
+        )
+        m = finite("operator-compatible scaled lapse potential", q / inv)
+
+        # At zero shift the pinned vendor has K_L3=alpha*(Aa^2+2 Ab^2+
+        # K^2/3)+KO(K). Extract KO from the actual vendor RHS, not a guessed
+        # dissipation stencil, so the copied equation targets the full K RHS.
+        _, vacuum, _ = adapter.vendor_modules()
+        l3_vacuum = vacuum.primary_l3_rhs(grid, geom)
+        quadratic_k = finite(
+            "operator-compatible vacuum quadratic K source",
+            Aa * Aa + 2.0 * (-0.5 * Aa) ** 2 + K * K / 3.0,
+        )
+        ko_k = finite(
+            "operator-compatible K dissipation source",
+            np.asarray(l3_vacuum["K"], dtype=np.float64)
+            - np.asarray(geom.alpha, dtype=np.float64) * quadratic_k,
+        )
+        # Enforce Kdot=target_kdot: D2_h(alpha)+c_h*D1_h(alpha)-m*alpha
+        # = (KO_K-target_kdot)/inv. The last row is outer normalization.
+        rhs = finite(
+            "operator-compatible lapse equation RHS",
+            (ko_k - float(target_kdot)) / inv,
+        )
+
+        # Assemble the PDE matrix via the actual linear stencil action on
+        # each basis vector. This retains the parity ghost at the centre and
+        # the one-sided polynomial rows near the outer boundary.
+        matrix = np.zeros((n, n), dtype=np.float64)
+        for j in range(n):
+            basis = np.zeros(n, dtype=np.float64)
+            basis[j] = 1.0
+            matrix[: n - 1, j] = (
+                d2(basis) + c * d1(basis) - m * basis
+            )[: n - 1]
+        matrix[n - 1, :] = 0.0
+        matrix[n - 1, n - 1] = 1.0
+        rhs_vector = rhs.copy()
+        rhs_vector[n - 1] = 1.0
+        alpha = finite(
+            "operator-compatible lapse solution",
+            np.linalg.solve(matrix, rhs_vector),
+        )
+        if np.any(alpha <= 0.0):
+            raise ValueError(
+                "operator-compatible lapse solution is not positive: "
+                f"min_alpha={float(np.min(alpha)):.17e}"
+            )
+
+        d1_alpha = d1(alpha)
+        d2_alpha = d2(alpha)
+        lhs = finite(
+            "operator-compatible lapse equation LHS",
+            d2_alpha + c * d1_alpha - m * alpha,
+        )
+        residual = lhs - rhs
+        residual[n - 1] = alpha[n - 1] - 1.0
+        row_scale = (
+            np.abs(d2_alpha) + np.abs(c * d1_alpha)
+            + np.abs(m * alpha) + np.abs(rhs)
+        )
+        row_scale[n - 1] = abs(alpha[n - 1]) + 1.0
+        row_bound = 512.0 * MACHINE_EPS * row_scale
+        ratios = np.divide(
+            np.abs(residual), row_bound,
+            out=np.zeros_like(residual), where=row_bound > 0.0,
+        )
+        i_ratio = int(np.argmax(ratios))
+        i_abs = int(np.argmax(np.abs(residual)))
+        if not np.all(np.abs(residual) <= row_bound):
+            raise FloatingPointError(
+                "operator-compatible lapse matrix residual exceeds its local "
+                f"roundoff bound at cell {i_ratio}"
+            )
+
+        diagnostic_state = with_lapse_profile(state, alpha)
+        rates = tangent.rhs_direction(kernel, diagnostic_state)
+        actual_kdot = finite(
+            "operator-compatible production Kdot", rates["geometry"]["K"]
+        )
+        kdot_error = finite(
+            "operator-compatible Kdot minus selected target",
+            actual_kdot - float(target_kdot),
+        )
+        interior_error = kdot_error[: n - 1]
+        i_kdot = int(np.argmax(np.abs(interior_error)))
+        original_digest = tangent.state_digest(state)
+        arm = rhs_arm(kernel, diagnostic_state, epsilons)
+        if tangent.state_digest(state) != original_digest:
+            raise RuntimeError("operator-compatible lapse probe mutated its frozen input")
+
+        return {
+            "status": "completed_diagnostic_only",
+            "production_source_lapse_solver_changed": False,
+            "production_state_mutated": False,
+            "formula": (
+                "D2_h(alpha)+c_h*D1_h(alpha)-(Q/inv)*alpha "
+                "=(KO_K-target_Kdot)/inv on cells 0..n-2; alpha[n-1]=1. "
+                "D1_h and D2_h are the pinned fourth-order parity-aware "
+                "operators; KO_K is extracted from the pinned vendor primary-L3 K RHS."
+            ),
+            "target_Kdot_from_existing_CMC_projection": float(target_kdot),
+            "matrix_residual": {
+                "max_abs": float(np.max(np.abs(residual))),
+                "max_abs_cell": i_abs,
+                "max_abs_cell_radius": float(r[i_abs]),
+                "max_local_scaled_ratio": float(np.max(ratios)),
+                "worst_ratio_cell": i_ratio,
+                "worst_ratio_radius": float(r[i_ratio]),
+                "bound_all_rows_pass": bool(np.all(np.abs(residual) <= row_bound)),
+                "pde_rows_count": int(n - 1),
+                "outer_normalization_residual": float(residual[n - 1]),
+            },
+            "lapse": {
+                "minimum": float(np.min(alpha)),
+                "maximum": float(np.max(alpha)),
+                "max_abs_change_vs_production": float(np.max(np.abs(alpha - geom.alpha))),
+                "profile": compact_profile(alpha, r),
+                "change_vs_production": compact_profile(alpha - geom.alpha, r),
+            },
+            "actual_production_Kdot": compact_profile(actual_kdot, r),
+            "Kdot_minus_target": {
+                "max_abs_in_PDE_rows": float(np.max(np.abs(interior_error))),
+                "worst_cell_in_PDE_rows": i_kdot,
+                "worst_radius_in_PDE_rows": float(r[i_kdot]),
+                "profile": compact_profile(kdot_error, r),
+            },
+            "M_tangent": arm,
+            "scientific_admission": False,
+        }
+    except Exception as exc:
+        return {
+            "status": "failed_closed",
+            "error_type": type(exc).__name__,
+            "error": str(exc),
+            "scientific_admission": False,
+        }
+
+
 def audit_resolution(
     kernel: V55ProductionKernel,
     resolution: int,
@@ -441,6 +636,7 @@ def audit_resolution(
     flat_state = with_lapse_profile(state, flat_alpha)
     base_arm = rhs_arm(kernel, state, epsilons)
     flat_arm = rhs_arm(kernel, flat_state, epsilons)
+    operator_compatible_arm = operator_compatible_cmc_arm(kernel, state, epsilons)
     r = np.asarray(state.grid.centers, dtype=np.float64)
     alpha_delta = flat_alpha - base_alpha
     output = {
@@ -469,6 +665,7 @@ def audit_resolution(
         "arms": {
             "production_initializer_CMC_alpha": base_arm,
             "counterfactual_flattened_centre_alpha": flat_arm,
+            "operator_compatible_fourth_order_cmc_lapse": operator_compatible_arm,
         },
         "input_mutation_check": {
             "production_state_unchanged": tangent.state_digest(state) == initial_digest
@@ -507,6 +704,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         all(item["closure"]["ok"] for item in row["arms"]["counterfactual_flattened_centre_alpha"]["Mdot_by_epsilon"])
         for row in rows
     )
+    operator_compatible_lapse_constructed = all(
+        row["arms"]["operator_compatible_fourth_order_cmc_lapse"].get("status") == "completed_diagnostic_only"
+        for row in rows
+    )
     return {
         "schema": SCHEMA,
         "status": "completed_diagnostic_only",
@@ -533,6 +734,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "closures": {
             "production_CMC_alpha_RHS_tangent": baseline_closure,
             "flattened_alpha_RHS_tangent": flattened_closure,
+            "operator_compatible_fourth_order_cmc_lapse_constructed": operator_compatible_lapse_constructed,
         },
         "resolutions": rows,
         "scientific_admission": False,
@@ -565,6 +767,7 @@ def main() -> int:
         code = 0 if (
             report["closures"]["production_CMC_alpha_RHS_tangent"]
             and report["closures"]["flattened_alpha_RHS_tangent"]
+            and report["closures"]["operator_compatible_fourth_order_cmc_lapse_constructed"]
         ) else 2
     except Exception as exc:
         report = {
