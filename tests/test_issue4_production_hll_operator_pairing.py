@@ -78,7 +78,7 @@ def test_flat_uniform_radiation_hll_momentum_flux_matches_exact_face_flux():
 def test_independent_geometric_source_matches_pinned_covariant_contraction():
     kernel = DIAG.AUDIT.V55ProductionKernel()
     state = kernel.initialize(resolution=48, r_max=24.0, include_radiation=True)
-    n = state.grid.n
+    n = len(state.grid.centers)
     # A smooth manufactured non-unit lapse and regular even scalar profile
     # ensure the conditional Q_r source test is not vacuous. This is a copied
     # analytic/control state, not a production trajectory or step.
@@ -93,7 +93,7 @@ def test_independent_geometric_source_matches_pinned_covariant_contraction():
 def test_conditional_qr_source_discrepancy_is_recorded_not_silently_relabelled():
     kernel = DIAG.AUDIT.V55ProductionKernel()
     state = kernel.initialize(resolution=48, r_max=24.0, include_radiation=True)
-    n = state.grid.n
+    n = len(state.grid.centers)
     r = np.asarray(state.grid.centers, dtype=np.float64)
     alpha = 0.75 + 0.20 * np.exp(-(r / 6.0) ** 2)
     state.geometry.alpha[:] = alpha
