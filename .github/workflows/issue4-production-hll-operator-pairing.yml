@@ -104,6 +104,15 @@ jobs:
             and .gate_result.combined_discrete_budget_reported == true
             and .gate_result.combined_budget_tangents_reported == true
             and .gate_result.scalar_sector_kept_separate == true
+            and .scope.optional_charged_dust_supported == false
+            and .scope.optional_radial_maxwell_supported == false
+            and .scope.unsupported_optional_lanes_fail_closed == true
+            and .scope.scalar_spatial_operator_budget_completed == false
+            and .scope.full_cross_sector_total_T_reconciliation_completed == false
+            and .gate_result.unsupported_optional_lanes_fail_closed == true
+            and .gate_result.optional_charged_dust_em_supported == false
+            and .gate_result.scalar_spatial_operator_budget_completed == false
+            and .gate_result.full_cross_sector_total_T_reconciliation_completed == false
             and .gate_result.production_steps_advanced == 0
             and .gate_result.independent_total_stress_energy_divergence_closed == false
             and .gate_result.scientific_admission == false
