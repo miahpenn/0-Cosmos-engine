@@ -17,21 +17,27 @@ from pathlib import Path
 import subprocess
 import sys
 import math
+import os
 
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-SOURCE_COMMIT = "fcb32b6b4025d5674e0560b8fb24581933f7f23c"
-SOURCE_KERNEL_BLOB = "9685e76bb5a6f26d6bf383e240de24f37523f265"
-VENDOR_COMMIT = "d6052d605673ce9d82cdc99b0df79855fa2ea215"
+SOURCE_COMMIT = os.environ.get("SOURCE_COMMIT", "e6b501fb19c4f2e21ad9c655662840a3d2582d54")
+SOURCE_KERNEL_BLOB = os.environ.get("SOURCE_KERNEL_BLOB", "9685e76bb5a6f26d6bf383e240de24f37523f265")
+VENDOR_COMMIT = os.environ.get("VENDOR_COMMIT", "d6052d605673ce9d82cdc99b0df79855fa2ea215")
 SOURCE_BLOBS = {
- "engine/production_kernel.py": "9685e76bb5a6f26d6bf383e240de24f37523f265",
- "engine/v55_initial.py": "7db2e1a10cf16fb40e4221b0df504fdf39aae611",
- "engine/v55_pirk_adapter.py": "eeee0492d80889d70e52b0946563eee5054c0f11",
- "engine/cmc_gauge.py": "7b49b5751abebd4faf0130208032cd2080b71f64",
- "engine/v55_matter.py": "acc8f8ceae28d82511c9a5ad9d2ca670e09fb0f7",
- "engine/stress_energy.py": "ac3e7518c62bb72e2218a61489fa486bb787809f",
+    "engine/production_kernel.py": "9685e76bb5a6f26d6bf383e240de24f37523f265",
+    "engine/matter_system.py": "e52a117690253ddad7b24d116145a65474a351d2",
+    "engine/matter_rhs.py": "f41180efbcff2c72cf36477a765318ab539fac80",
+    "engine/scalar_system.py": "ffc119b1a6f2d495d972323901f76a85783b0a1b",
+    "engine/v55_matter.py": "0ee3c51fac7dc46c63feba2747a750542bcee3d0",
+    "engine/v55_pirk_adapter.py": "eeee0492d80889d70e52b0946563eee5054c0f11",
+    "engine/cmc_gauge.py": "7b49b5751abebd4faf0130208032cd2080b71f64",
+    "engine/v55_initial.py": "7db2e1a10cf16fb40e4221b0df504fdf39aae611",
+    "engine/stress_energy.py": "ac3e7518c62bb72e2218a61489fa486bb787809f",
+    "engine/valencia.py": "03ed86398f424c03d9d6a3e646da9222a34fac5c",
+    "engine/worldtube.py": "aea19090cb0fd2ebe5481a8b7af0d26f119a9ad6",
 }
 RESOLUTIONS = (40, 60, 80, 120, 160)
 R_MAX = 80.0
