@@ -38,7 +38,7 @@ from tools import audit_current_source_momentum_constraint_tangent as tangent
 
 
 SCHEMA = "cmc_lapse_centre_series_and_profile_sensitivity_v1"
-SOURCE_BASELINE = "34ad06539c867b2a7ed40c2e1534a3a9d157b82f"
+SOURCE_BASELINE = "7f47669a1c0edfafef9fc5f27b2db80840d3f035"
 EXPECTED_VENDOR = "d6052d605673ce9d82cdc99b0df79855fa2ea215"
 DEFAULT_RESOLUTIONS = (60, 80, 120, 160)
 DEFAULT_EPSILONS = (2.0e-5, 1.0e-5)
