@@ -112,3 +112,25 @@ def test_conditional_qr_source_discrepancy_is_recorded_not_silently_relabelled()
     assert np.allclose(gap, actual * (1.0 - alpha), rtol=2.0e-12, atol=2.0e-20)
     assert np.max(np.abs(gap)) > 1.0e-12
     assert np.max(np.abs(expected)) > 1.0e-12
+
+
+def test_manufactured_probe_rejects_sign_flipped_flux_and_omitted_sources():
+    kernel = DIAG.AUDIT.V55ProductionKernel()
+    state = DIAG.make_manufactured_operator_probe(kernel, n=48, r_max=24.0)
+    n = len(state.grid.centers)
+    snapshot = DIAG.operator_snapshot(
+        state, -0.04, {"scalars": {"phi": np.zeros(n, dtype=np.float64)}}
+    )
+    dm = snapshot["species"]["dark_matter"]
+    controls = dm["negative_controls"]
+
+    assert controls["sign_flipped_hll_minus_projected_momentum_flux"]["max_abs"] > (
+        dm["hll_momentum_flux_minus_projected_stress_face_flux"]["max_abs"]
+    )
+    assert controls["sign_flipped_hll_minus_projected_momentum_flux"]["max_abs"] > 1.0e-12
+    assert controls["omitted_geometric_momentum_source_residual"]["max_abs"] > 1.0e-12
+    assert controls["omitted_interaction_momentum_source_residual"]["max_abs"] > 1.0e-12
+
+    assert set(snapshot["scalar_sector_projections"]) == {"S", "D", "phi"}
+    assert set(snapshot["raw_scalar_arrays"]["phi"]) == {"rho", "pr", "pt", "j"}
+    assert snapshot["raw_scalar_arrays"]["phi"]["rho"]
