@@ -165,3 +165,55 @@ def test_finite_volume_flat_anisotropic_stress_matches_volume_averaged_identity(
     assert np.allclose(div_t, 0.0, rtol=0.0, atol=2.0e-12)
     assert np.allclose(div_r, expected, rtol=0.0, atol=2.0e-11)
 
+def test_finite_volume_curved_regular_flat_chart_has_expected_refinement():
+    # Flat Minkowski space in a nonlinear areal-radius coordinate R(r)=r(1+c r^2).
+    # The spatial metric varies, but a static isotropic stress has exact div(T)=0.
+    # Cellwise FV residuals have O(dr^3) origin behavior and O(dr^4) annulus
+    # behavior because the per-cell source-density integral uses Simpson quadrature.
+    def d1_seven(values, _parity):
+        values = np.asarray(values, dtype=np.float64)
+        n = values.size
+        out = np.empty_like(values)
+        target = np.zeros(7, dtype=np.float64)
+        target[1] = 1.0
+        for i in range(n):
+            start = min(max(i - 3, 0), n - 7)
+            indices = np.arange(start, start + 7, dtype=np.float64)
+            offsets = indices - float(i)
+            vandermonde = np.vstack([offsets**power for power in range(7)])
+            weights = np.linalg.solve(vandermonde, target)
+            out[i] = (weights @ values[start:start + 7]) / dr
+        return out
+
+    center_errors = []
+    annulus_errors = []
+    for n in (40, 80, 160):
+        dr = 8.0 / n
+        r = (np.arange(n, dtype=np.float64) + 0.5) * dr
+        c = 1.0e-3
+        areal_radius = r * (1.0 + c * r**2)
+        d_areal_dr = 1.0 + 3.0 * c * r**2
+        alpha = np.ones(n)
+        gamma_rr = d_areal_dr**2
+        gamma_thth = areal_radius**2
+        rho = np.full(n, 2.3)
+        pressure = np.full(n, 0.7)
+        j = _zero(n)
+        zeros = _zero(n)
+        div_t, div_r = AUDIT.covariant_divergence_fv_from_profiles(
+            r, d1_seven, alpha, gamma_rr, gamma_thth,
+            rho, j, pressure, pressure,
+            zeros, zeros, zeros, zeros, zeros,
+        )
+        assert float(np.max(np.abs(div_t))) < 2.0e-12
+        center_errors.append(float(abs(div_r[0])))
+        annulus = (r >= 2.0) & (r <= 6.0)
+        annulus_errors.append(float(np.sqrt(np.mean(div_r[annulus]**2))))
+
+    # Halving dr should reduce the first-cell Simpson-origin error by ~8 and
+    # the fixed-physical-annulus error by ~16; do not fit a production order.
+    for coarse, fine in zip(center_errors[:-1], center_errors[1:]):
+        assert 7.5 < coarse / fine < 8.5
+    for coarse, fine in zip(annulus_errors[:-1], annulus_errors[1:]):
+        assert 14.0 < coarse / fine < 18.0
+
