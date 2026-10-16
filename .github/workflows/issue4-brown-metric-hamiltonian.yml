@@ -110,6 +110,6 @@ jobs:
           assert report["scientific_admission"] is False
           for row in report["rows"]:
               assert row["hamiltonian_slot_contract"]["lambda_only_control"]["passed"] is True
-              assert all(len(e["residual_regions"]) == 5 for e in row["epsilon_rows"])
+              assert all(len(e["residual_regions"]) == 6 for e in row["epsilon_rows"])
           print("DIAGNOSTIC_CONTROLS_OK; SCIENTIFIC_ADMISSION=NOT_ADMITTED")
           PY
