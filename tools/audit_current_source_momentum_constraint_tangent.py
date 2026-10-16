@@ -42,11 +42,11 @@ from tools.momentum_constraint_chain_rule import analytic_geometric_momentum_tan
 
 
 SCHEMA = "current_source_signed_momentum_constraint_tangent_v1"
-SOURCE_BASELINE = "34ad06539c867b2a7ed40c2e1534a3a9d157b82f"
+SOURCE_BASELINE = "7f47669a1c0edfafef9fc5f27b2db80840d3f035"
 EXPECTED_VENDOR = "d6052d605673ce9d82cdc99b0df79855fa2ea215"
 EXPECTED_BLOBS = {
     "engine/production_kernel.py": "9685e76bb5a6f26d6bf383e240de24f37523f265",
-    "engine/matter_system.py": "05e23d2368120ea8a1a6aad3fa438625d5380750",
+    "engine/matter_system.py": "e52a117690253ddad7b24d116145a65474a351d2",
     "engine/matter_rhs.py": "f41180efbcff2c72cf36477a765318ab539fac80",
     "engine/scalar_system.py": "ffc119b1a6f2d495d972323901f76a85783b0a1b",
     "engine/v55_matter.py": "0ee3c51fac7dc46c63feba2747a750542bcee3d0",
