@@ -111,6 +111,10 @@ jobs:
           # N=80 remains in the signed report as a coarse/pre-asymptotic witness.
           # Require the refinement band N=120/160 to pass, without hiding coarse failures.
           assert report["vendor_extension_improves_on_fine_annulus"] is True
+          assert report["vendor_extension_monotone_convergence"] is True
+          for profile, refinement in report["fine_band_convergence"].items():
+              assert len(refinement["resolutions"]) >= 2, profile
+              assert refinement["corrected_rms_monotone_decreasing"] is True, profile
           assert report["wrong_sign_extension_control_detected"] is True
           assert set(report["configuration"]["profile_variants"]) == {
               "baseline_zero_shift", "odd_shift_strong_linear_C", "odd_shift_cubic_C"
