@@ -21,6 +21,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from engine.production_kernel import V55ProductionKernel
+from engine.stress_energy import assemble_total_stress_energy
 from engine.v55_pirk_adapter import vendor_modules
 from engine.scalar_system import cosmos_potential
 from engine.v55_matter import RHO_B_PRESENT, RHO_DM_PRESENT, RHO_R_PRESENT
@@ -362,7 +363,39 @@ def _fit_rows_for_report(source: np.ndarray, r: np.ndarray) -> dict:
     return rows
 
 
-def _metric_witness(grid, original_geometry, vacuum, B: np.ndarray) -> tuple[dict, dict[str, np.ndarray]]:
+def _matter_subtracted_constraint_profiles(
+    raw_constraints: dict,
+    total_rho: np.ndarray,
+    total_j: np.ndarray,
+) -> dict[str, np.ndarray]:
+    """Separate geometric constraint sides from matter-subtracted residuals.
+
+    The pinned vendor's vacuum.constraints() returns the geometry-only sides.
+    In matter-filled data these are not expected to vanish by themselves:
+    the total ADM constraints subtract 16*pi*rho and 8*pi*j using the canonical
+    production stress-energy projection. Record both operands and residuals;
+    this is not an independent stress-energy-conservation proof.
+    """
+    h_metric = np.asarray(raw_constraints["hamiltonian"], dtype=np.float64)
+    m_metric = np.asarray(raw_constraints["momentum"], dtype=np.float64)
+    rho = np.asarray(total_rho, dtype=np.float64)
+    j = np.asarray(total_j, dtype=np.float64)
+    if h_metric.shape != rho.shape or m_metric.shape != j.shape:
+        raise ValueError("metric constraints and projected matter sources must share the grid shape")
+    if not all(_finite(v) for v in (h_metric, m_metric, rho, j)):
+        raise FloatingPointError("non-finite metric constraint or projected matter source")
+    h_source = 16.0 * np.pi * rho
+    m_source = 8.0 * np.pi * j
+    return {
+        "matter_hamiltonian_source_16pi_rho": h_source,
+        "hamiltonian_total_residual": h_metric - h_source,
+        "matter_momentum_source_8pi_j": m_source,
+        "momentum_total_residual": m_metric - m_source,
+    }
+
+
+def _metric_witness(grid, state, vacuum, B: np.ndarray) -> tuple[dict, dict[str, np.ndarray]]:
+    original_geometry = state.geometry
     r = np.asarray(grid.centers, dtype=np.float64)
     A = 1.0 / np.sqrt(B)
     a = A ** (4.0 / 3.0)
@@ -384,6 +417,16 @@ def _metric_witness(grid, original_geometry, vacuum, B: np.ndarray) -> tuple[dic
         for name in ("hamiltonian", "momentum", "connection")
         if name in raw_constraints
     }
+    total = assemble_total_stress_energy(
+        grid, copied, state.scalars, state.matter
+    )
+    constraints.update(
+        _matter_subtracted_constraint_profiles(raw_constraints, total.rho, total.j)
+    )
+    determinant_constraint = np.asarray(raw_constraints["determinant"], dtype=np.float64)
+    metric_only_names = ("hamiltonian", "momentum", "connection")
+    total_residual_names = ("hamiltonian_total_residual", "momentum_total_residual")
+    matter_source_names = ("matter_hamiltonian_source_16pi_rho", "matter_momentum_source_8pi_j")
     annulus = (r >= 5.0) & (r <= 10.0)
     centre = r <= 2.0
     invariants = {
@@ -401,8 +444,19 @@ def _metric_witness(grid, original_geometry, vacuum, B: np.ndarray) -> tuple[dic
         "centre_r_le_2_max_abs": _max_abs(gap[centre]) if np.any(centre) else None,
         "fixed_annulus_r5_to10_max_abs": _max_abs(gap[annulus]) if np.any(annulus) else None,
         "fixed_annulus_r5_to10_signed_at_max": float(gap[annulus][np.argmax(np.abs(gap[annulus]))]) if np.any(annulus) else None,
-        "constraint_max_abs": {k: _max_abs(v) for k, v in constraints.items()},
-        "constraint_first_two": {k: [float(x) for x in v[:2]] for k, v in constraints.items()},
+        "constraint_max_abs": {k: _max_abs(constraints[k]) for k in metric_only_names},
+        "constraint_first_two": {k: [float(x) for x in constraints[k][:2]] for k in metric_only_names},
+        "matter_constraint_source_max_abs": {k: _max_abs(constraints[k]) for k in matter_source_names},
+        "matter_constraint_source_first_two": {k: [float(x) for x in constraints[k][:2]] for k in matter_source_names},
+        "total_constraint_residual_max_abs": {k: _max_abs(constraints[k]) for k in total_residual_names},
+        "total_constraint_residual_first_two": {k: [float(x) for x in constraints[k][:2]] for k in total_residual_names},
+        "determinant_constraint_max_abs": _max_abs(determinant_constraint),
+        "determinant_constraint_first_two": [float(x) for x in determinant_constraint[:2]],
+        "constraint_interpretation": {
+            "hamiltonian": "metric-only vacuum Hamiltonian side; matter source 16*pi*rho is reported separately",
+            "momentum": "metric-only vacuum momentum side; matter source 8*pi*j is reported separately",
+            "total_residuals": "metric-only side minus canonical projected matter source; not a stress-energy conservation test",
+        },
         "invariants": invariants,
     }
     arrays = {
@@ -464,8 +518,8 @@ def _run_variant(state, vacuum, tag: str, mode: str, degree: int, fit_r_max: flo
     if not converged:
         raise RuntimeError(f"{tag}: fixed-point iteration did not converge in {MAX_ITERATIONS} iterations")
     fit_scan = _fit_rows_for_report(source_fixed, r)
-    fixed_witness, fixed_arrays = _metric_witness(grid, state.geometry, vacuum, B)
-    six_witness, six_arrays = _metric_witness(grid, state.geometry, vacuum, B_six)
+    fixed_witness, fixed_arrays = _metric_witness(grid, state, vacuum, B)
+    six_witness, six_arrays = _metric_witness(grid, state, vacuum, B_six)
     fixed_witness.update({
         "convergence": {
             "converged": converged,
@@ -529,6 +583,8 @@ def main() -> int:
             "The exact s2 coefficient is derived for the declared standard uncharged initializer and its current archive normalization.",
             "The metric/Ricci calculation uses the same pinned cell-centred derivative family; it is an independent formula route, not an independent discretization.",
             "A small fit residual or reduced centre gap does not select the continuum solution or authorize a production patch.",
+            "The raw vacuum.constraints Hamiltonian and momentum values are metric-only sides; matter-subtracted total residuals are separately reported using the canonical local projection.",
+            "These same-path matter-subtracted residuals are initial-data witnesses, not independent total stress-energy conservation or source-normalization proof.",
             "The fitted s4/s6/s8 coefficients are model-dependent and are reported with leave-one-out diagnostics.",
             "No production/vendor/dependency file or acceptance tolerance is changed; scientific admission remains false.",
         ],
@@ -580,6 +636,14 @@ def main() -> int:
                 "cell1_gap": witness["cell1"], "first_two_gap_max_abs": witness["first_two_max_abs"],
                 "centre_r_le_2_gap_max_abs": witness["centre_r_le_2_max_abs"],
                 "annulus_r5_to10_gap_max_abs": witness["fixed_annulus_r5_to10_max_abs"],
+                "hamiltonian_metric_only_cell0": witness["constraint_first_two"]["hamiltonian"][0],
+                "hamiltonian_metric_only_cell1": witness["constraint_first_two"]["hamiltonian"][1],
+                "hamiltonian_total_residual_cell0": witness["total_constraint_residual_first_two"]["hamiltonian_total_residual"][0],
+                "hamiltonian_total_residual_cell1": witness["total_constraint_residual_first_two"]["hamiltonian_total_residual"][1],
+                "hamiltonian_total_residual_max_abs": witness["total_constraint_residual_max_abs"]["hamiltonian_total_residual"],
+                "momentum_total_residual_cell0": witness["total_constraint_residual_first_two"]["momentum_total_residual"][0],
+                "momentum_total_residual_cell1": witness["total_constraint_residual_first_two"]["momentum_total_residual"][1],
+                "momentum_total_residual_max_abs": witness["total_constraint_residual_max_abs"]["momentum_total_residual"],
                 "iterations": witness["convergence"]["iterations_used"],
                 "delta_integral": witness["half_cell"]["applied_delta_integral"],
                 "s2_fixed": witness["half_cell"]["selected_fit"].get("s2_fixed"),
