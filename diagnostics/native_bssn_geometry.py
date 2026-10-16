@@ -100,9 +100,11 @@ def metric_connection_lambda(grid, state) -> np.ndarray:
 def native_bssn_geometry_terms(grid, state) -> dict[str, np.ndarray]:
     """Return native physical/BSSN Ricci and lapse-Hessian witnesses.
 
-    Expected state attributes: a, b, X, alpha and Lambda. The returned Ricci
-    components are mixed components (R^r_r and R^theta_theta); R is their trace.
-    State arrays are only read; the function does not mutate the input.
+    Expected state attributes: a, b, X, alpha and Lambda. Returns the raw
+    metric-derived Ricci scalar and mixed components alongside the separate
+    reference-metric BSSN scalar/radial witnesses. Away from the connection
+    constraint, do not assume the latter pair has an exact discrete trace
+    identity. State arrays are only read; the function does not mutate input.
     """
     r = np.asarray(grid.centers, dtype=float)
     n = len(r)
