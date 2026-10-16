@@ -698,6 +698,12 @@ def sector_resolved_divergence_tangent_from_states(
     }
 
     atol, rtol = 5.0e-18, 5.0e-10
+    component_predicted_gaps = {
+        "div_T_t": predicted_pointwise_gap_t,
+        "div_T_r": predicted_pointwise_gap_r,
+        "div_T_t_fv": predicted_fv_gap_t,
+        "div_T_r_fv": predicted_fv_gap_r,
+    }
     recon_channels: dict[str, Any] = {}
     for key in channels:
         sector_sum = np.sum(np.stack([
@@ -708,12 +714,27 @@ def sector_resolved_divergence_tangent_from_states(
                      sector_sum - np.asarray(total[key], dtype=np.float64))
         passed = bool(np.allclose(sector_sum, np.asarray(total[key], dtype=np.float64),
                                   rtol=rtol, atol=atol))
+        predicted_gap = finite(
+            f"{key} predicted time-density component gap", component_predicted_gaps[key]
+        )
+        unexplained_gap = finite(
+            f"{key} residual after time-density component accounting", gap - predicted_gap
+        )
+        component_corrected_passed = bool(np.allclose(
+            unexplained_gap, np.zeros_like(unexplained_gap), rtol=rtol, atol=atol
+        ))
         recon_channels[key] = {
             "passed": passed,
             "sum_of_sectors": sector_sum.tolist(),
             "sum_minus_total": gap.tolist(),
             "gap_summary": summarize(gap, state.grid.centers),
             "max_abs_gap": float(np.max(np.abs(gap))),
+            "time_density_component_predicted_gap": predicted_gap.tolist(),
+            "time_density_component_predicted_gap_summary": summarize(predicted_gap, state.grid.centers),
+            "unexplained_gap_after_time_density_accounting": unexplained_gap.tolist(),
+            "unexplained_gap_summary": summarize(unexplained_gap, state.grid.centers),
+            "max_abs_unexplained_gap": float(np.max(np.abs(unexplained_gap))),
+            "component_corrected_passed": component_corrected_passed,
             "rtol": rtol, "atol": atol,
         }
     decomposition = {
@@ -723,6 +744,14 @@ def sector_resolved_divergence_tangent_from_states(
         "reconstruction": {
             "sector_names": list(names),
             "all_sectors_reconstruct_total": all(x["passed"] for x in recon_channels.values()),
+            "all_sectors_reconstruct_total_after_time_density_accounting": all(
+                x["component_corrected_passed"] for x in recon_channels.values()
+            ),
+            "time_density_component_accounting_passed": all(
+                x["component_corrected_passed"] for x in recon_channels.values()
+            ),
+            "raw_sum_max_gap": max(x["max_abs_gap"] for x in recon_channels.values()),
+            "unexplained_max_gap": max(x["max_abs_unexplained_gap"] for x in recon_channels.values()),
             "channels": recon_channels,
         },
         "time_density_reconstruction": time_density_gap_summary,

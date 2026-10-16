@@ -986,12 +986,20 @@ def run(resolutions: tuple[int, ...], r_max: float, epsilons: tuple[float, ...])
         for epsilon_arms in row["directional_epsilon_witnesses"].values()
         for witness in epsilon_arms.values()
     )
-    sector_additive_reconstruction_passed = all(
+    sector_raw_additive_reconstruction_passed = all(
         witness.get("same_state_total_T_directional_witness", {}).get(
             "sector_decomposition", {}
         ).get("reconstruction", {}).get("all_sectors_reconstruct_total") is True
+        for row in rows
+        for epsilon_arms in row["directional_epsilon_witnesses"].values()
+        for witness in epsilon_arms.values()
+    )
+    sector_time_density_component_accounting_passed = all(
+        witness.get("same_state_total_T_directional_witness", {}).get(
+            "sector_decomposition", {}
+        ).get("reconstruction", {}).get("time_density_component_accounting_passed") is True
         and all(
-            channel.get("passed") is True
+            channel.get("component_corrected_passed") is True
             for channel in witness["same_state_total_T_directional_witness"][
                 "sector_decomposition"
             ]["reconstruction"]["channels"].values()
@@ -1000,6 +1008,7 @@ def run(resolutions: tuple[int, ...], r_max: float, epsilons: tuple[float, ...])
         for epsilon_arms in row["directional_epsilon_witnesses"].values()
         for witness in epsilon_arms.values()
     )
+    sector_additive_reconstruction_passed = sector_time_density_component_accounting_passed
     max_geom = max(
         arm["max_abs_geometric_source_gap_over_kappa"]
         for row in rows for arm in row["arms"].values()
@@ -1024,6 +1033,8 @@ def run(resolutions: tuple[int, ...], r_max: float, epsilons: tuple[float, ...])
             "same_state_epsilon_total_T_witness_available": same_state_epsilon_witness_reported,
             "sector_resolved_total_T_decomposition_available": sector_resolved_divergence_reported,
             "sector_additive_reconstruction_passed": sector_additive_reconstruction_passed,
+            "sector_raw_sum_strictly_matches_total": sector_raw_additive_reconstruction_passed,
+            "sector_time_density_component_accounting_passed": sector_time_density_component_accounting_passed,
             "full_cross_sector_total_T_reconciliation_completed": False,
             "interpretation_boundary": (
                 "Per-species HLL/source arrays and combined RHS budgets are "
@@ -1062,6 +1073,8 @@ def run(resolutions: tuple[int, ...], r_max: float, epsilons: tuple[float, ...])
             "same_state_epsilon_witness_reported": same_state_epsilon_witness_reported,
             "sector_resolved_divergence_reported": sector_resolved_divergence_reported,
             "sector_additive_reconstruction_passed": sector_additive_reconstruction_passed,
+            "sector_raw_additive_reconstruction_passed": sector_raw_additive_reconstruction_passed,
+            "sector_time_density_component_accounting_passed": sector_time_density_component_accounting_passed,
             "scalar_sector_kept_separate": True,
             "unsupported_optional_lanes_fail_closed": True,
             "optional_charged_dust_em_supported": False,
@@ -1079,12 +1092,12 @@ def run(resolutions: tuple[int, ...], r_max: float, epsilons: tuple[float, ...])
             "geometric_source": "Compare the pinned production momentum geometric source with an independently computed 1/2 sqrt(-g) T^{ab} partial_r g_ab contraction.",
             "hll_flux": "Record actual pinned per-species HLL face fluxes and compare them with face reconstruction of cell-projected radial stress. Differences characterize the operator pair; no exact face equality is presumed for the dissipative HLL scheme.",
             "interaction_source": "Compare actual pinned dark-matter q_s with sqrt(-g) Q_r only under the explicitly conditional covector premise. Preserve any mismatch; do not change production source terms in this diagnostic.",
-            "cross_sector_interpretation": "The total-T directional witness is now decomposed additively into separate dark-matter, baryon, radiation, S, D and phi stress contributions using the exact same base/+epsilon/-epsilon states as the HLL/source observer. A declared floating-point reconstruction check is applied to pointwise and FV div_T_t/div_T_r. This verifies projection/operator additivity only; the separate scalar evolution RHS/source terms are not yet reconciled against their complete sector equations, so full cross-sector closure remains incomplete.",
+            "cross_sector_interpretation": "The total-T directional witness is decomposed into dark-matter, baryon, radiation, S, D and phi stress contributions on the exact same state pair. The raw sector-divergence sum is retained beside the total without hiding any gap. A separate time-density derivative ledger predicts the portion of that raw gap attributable to forming one total density difference versus summing six per-sector density differences; only the remaining unexplained gap is checked against the unchanged tolerance. This validates numerical accounting for that component, not physical stress-energy closure. The full scalar evolution RHS/source terms are not reconciled, so full cross-sector closure remains incomplete.",
             "optional_em_scope": "Optional charged-dust and radial-Maxwell states are rejected before projection/capture because the Lorentz source and EM stress projection are outside the current witness.",
             "limits": [
                 "This is a frozen-state RHS-component readout; no finite production timestep is advanced.",
                 "The scalar-field spatial operator remains separate from the fluid HLL operator; scalar spatial/source decomposition remains incomplete.",
-                "Sector-resolved total-T arrays reconstruct the paired total witness only as an accounting identity; this does not by itself reconcile each scalar evolution RHS/source with its sector stress tensor, close total stress-energy divergence, or accept the physical exchange law.",
+                "The report keeps raw sector-sum gaps and separately records the independently computed time-density component that explains them. The component-accounted residual gate does not replace or overwrite raw values, and it does not reconcile each scalar evolution RHS/source with its stress tensor or establish total stress-energy closure or physical exchange-law acceptance.",
             ],
         },
         "resolution_results": rows,

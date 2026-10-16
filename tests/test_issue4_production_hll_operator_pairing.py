@@ -326,6 +326,11 @@ def test_hll_and_total_t_witness_share_exact_epsilon_state_pair():
                             np.finfo(np.float64).tiny,
                         )
                     )),
+                    "component_corrected_passed": channel["component_corrected_passed"],
+                    "max_abs_unexplained_gap": channel["max_abs_unexplained_gap"],
+                    "max_abs_predicted_time_density_gap": float(np.max(np.abs(
+                        np.asarray(channel["time_density_component_predicted_gap"], dtype=np.float64)
+                    ))),
                     "max_gap_index": int(np.argmax(np.abs(np.asarray(channel["sum_minus_total"], dtype=np.float64)))),
                     "value_at_max_gap": {
                         "sum_of_sectors": float(sum_values[int(np.argmax(np.abs(np.asarray(channel["sum_minus_total"], dtype=np.float64))))]),
@@ -338,13 +343,19 @@ def test_hll_and_total_t_witness_share_exact_epsilon_state_pair():
                     },
                 }
             print("SECTOR_RECON_DEBUG=", reconstruction_debug, flush=True)
-            reconstruction_contract = bool(
+            raw_reconstruction_contract = bool(
                 decomposition["reconstruction"]["all_sectors_reconstruct_total"]
+            )
+            reconstruction_contract = bool(
+                decomposition["reconstruction"].get(
+                    "all_sectors_reconstruct_total_after_time_density_accounting"
+                )
             )
             all_reconstruction_contracts_passed &= reconstruction_contract
             all_reconstruction_diagnostics.append({
                 "coupling_arm": coupling_name,
                 "epsilon": witness["epsilon"],
+                "raw_reconstruction_contract": raw_reconstruction_contract,
                 "reconstruction_contract": reconstruction_contract,
                 "channels": reconstruction_debug,
                 "time_density_reconstruction": time_density["summaries"],
@@ -357,11 +368,13 @@ def test_hll_and_total_t_witness_share_exact_epsilon_state_pair():
                 assert "cell_0" in summary and "cell_1" in summary
                 assert "annulus_2_to_10_rms" in summary
                 rec = decomposition["reconstruction"]["channels"][key]
-                all_reconstruction_contracts_passed &= bool(rec["passed"])
-                all_reconstruction_contracts_passed &= bool(rec["max_abs_gap"] <= rec["atol"] + rec["rtol"] * max(
-                    np.max(np.abs(np.asarray(rec["sum_of_sectors"], dtype=np.float64))),
-                    np.max(np.abs(values)),
-                ))
+                all_reconstruction_contracts_passed &= bool(rec["component_corrected_passed"])
+                all_reconstruction_contracts_passed &= bool(
+                    rec["max_abs_unexplained_gap"] <= rec["atol"] + rec["rtol"] * max(
+                        np.max(np.abs(np.asarray(rec["unexplained_gap_after_time_density_accounting"], dtype=np.float64))),
+                        np.max(np.abs(values)),
+                    )
+                )
                 # Preserve the signed mismatch but do not fail before the second
                 # epsilon arm is collected. The aggregate contract below still fails
                 # if any sector sum exceeds its fixed tolerance.
