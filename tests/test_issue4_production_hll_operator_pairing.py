@@ -286,7 +286,22 @@ def test_hll_and_total_t_witness_share_exact_epsilon_state_pair():
             expected_sectors = {"dark_matter", "baryons", "radiation", "S", "D", "phi"}
             assert set(decomposition["sectors"]) == expected_sectors
             assert decomposition["state_pairing"]["all_sector_arrays_finite"] is True
-            assert decomposition["reconstruction"]["all_sectors_reconstruct_total"] is True
+            reconstruction_debug = {}
+            for channel_name, channel in decomposition["reconstruction"]["channels"].items():
+                sum_values = np.asarray(channel["sum_of_sectors"], dtype=np.float64)
+                total_values = np.asarray(paired["raw_signed_arrays"][channel_name], dtype=np.float64)
+                reconstruction_debug[channel_name] = {
+                    "passed": channel["passed"],
+                    "max_abs_gap": channel["max_abs_gap"],
+                    "max_abs_sum": float(np.max(np.abs(sum_values))),
+                    "max_abs_total": float(np.max(np.abs(total_values))),
+                    "atol": channel["atol"],
+                    "rtol": channel["rtol"],
+                    "max_gap_allowed_by_global_scale": channel["atol"] + channel["rtol"] * max(
+                        float(np.max(np.abs(sum_values))), float(np.max(np.abs(total_values)))
+                    ),
+                }
+            assert decomposition["reconstruction"]["all_sectors_reconstruct_total"] is True, reconstruction_debug
             for key in ("div_T_t", "div_T_r", "div_T_t_fv", "div_T_r_fv"):
                 values = np.asarray(paired["raw_signed_arrays"][key], dtype=np.float64)
                 assert values.shape == (24,)
