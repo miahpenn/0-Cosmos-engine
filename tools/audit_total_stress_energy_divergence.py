@@ -1,0 +1,544 @@
+#!/usr/bin/env python3
+"""Independent frozen-state covariant total-stress-energy divergence audit.
+
+This is a diagnostic-only reconstruction of
+    nabla_mu T^mu{}_nu =
+      (1/sqrt(-g)) d_mu(sqrt(-g) T^mu{}_nu)
+      - (1/2) T^{ab} d_nu g_ab
+for spherical ADM data with beta^r=0 on the measured slice. Total stress
+projections are independently rebuilt from scalar fields and fluid primitives,
+then cross-checked against the canonical projection used by the production
+consumers. Directional time derivatives are measured from two-sided
+perturbations along the pinned semidiscrete RHS, including a CMC lapse
+re-solve. We report the coupled result against a beta_DM=0 control; we do not
+declare the physical exchange law accepted and never change production code.
+"""
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import math
+import os
+from pathlib import Path
+import subprocess
+import sys
+import traceback
+from typing import Any, Callable
+
+import numpy as np
+
+ROOT = Path(__file__).resolve().parents[1]
+SOURCE_COMMIT = "7f47669a1c0edfafef9fc5f27b2db80840d3f035"
+VENDOR_COMMIT = "d6052d605673ce9d82cdc99b0df79855fa2ea215"
+SOURCE_BLOBS = {
+    "engine/production_kernel.py": "9685e76bb5a6f26d6bf383e240de24f37523f265",
+    "engine/matter_system.py": "e52a117690253ddad7b24d116145a65474a351d2",
+    "engine/matter_rhs.py": "f41180efbcff2c72cf36477a765318ab539fac80",
+    "engine/scalar_system.py": "ffc119b1a6f2d495d972323901f76a85783b0a1b",
+    "engine/v55_matter.py": "0ee3c51fac7dc46c63feba2747a750542bcee3d0",
+    "engine/v55_pirk_adapter.py": "eeee0492d80889d70e52b0946563eee5054c0f11",
+    "engine/cmc_gauge.py": "7b49b5751abebd4faf0130208032cd2080b71f64",
+    "engine/v55_initial.py": "7db2e1a10cf16fb40e4221b0df504fdf39aae611",
+    "engine/stress_energy.py": "ac3e7518c62bb72e2218a61489fa486bb787809f",
+    "engine/valencia.py": "03ed86398f424c03d9d6a3e646da9222a34fac5c",
+    "engine/worldtube.py": "aea19090cb0fd2ebe5481a8b7af0d26f119a9ad6",
+}
+BETA_DM_COUPLED = -0.04
+
+SOURCE_ROOT_RAW = os.environ.get("COSMOS_PINNED_SOURCE_ROOT")
+if not SOURCE_ROOT_RAW:
+    raise RuntimeError("COSMOS_PINNED_SOURCE_ROOT must point to the exact pinned source checkout")
+SOURCE_ROOT = Path(SOURCE_ROOT_RAW).resolve()
+sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(SOURCE_ROOT))
+
+from engine import production_kernel as production_kernel_module  # noqa: E402
+from engine.production_kernel import V55ProductionKernel  # noqa: E402
+from engine.scalar_system import KAPPA, ScalarFields, cosmos_potential  # noqa: E402
+from engine.matter_system import Species, _metric_arrays, primitives  # noqa: E402
+from engine.stress_energy import assemble_total_stress_energy  # noqa: E402
+from engine.v55_matter import metric_slice_from_q  # noqa: E402
+from tools.audit_current_source_momentum_constraint_tangent import (  # noqa: E402
+    rhs_direction,
+    shifted_state,
+    state_digest,
+    assert_supported_baseline_source_scope,
+)
+
+
+def git(root: Path, *args: str) -> str:
+    return subprocess.check_output(["git", "-C", str(root), *args], text=True).strip()
+
+
+def finite(name: str, value: Any) -> np.ndarray:
+    out = np.asarray(value, dtype=np.float64)
+    if not np.all(np.isfinite(out)):
+        raise FloatingPointError(f"{name} contains non-finite values")
+    return out
+
+
+def verify_provenance() -> dict[str, Any]:
+    commit = git(SOURCE_ROOT, "rev-parse", "HEAD")
+    vendor = git(SOURCE_ROOT / "vendor" / "bb-palatini-unified-r0", "rev-parse", "HEAD")
+    blobs = {path: git(SOURCE_ROOT, "rev-parse", f"HEAD:{path}") for path in SOURCE_BLOBS}
+    mismatches = {
+        path: {"expected": sha, "actual": blobs[path]}
+        for path, sha in SOURCE_BLOBS.items() if blobs[path] != sha
+    }
+    if commit != SOURCE_COMMIT or vendor != VENDOR_COMMIT or mismatches:
+        raise RuntimeError(json.dumps({
+            "source_commit": commit, "expected_source_commit": SOURCE_COMMIT,
+            "vendor_commit": vendor, "expected_vendor_commit": VENDOR_COMMIT,
+            "blob_mismatches": mismatches,
+        }, indent=2))
+    return {
+        "source_commit": commit, "vendor_commit": vendor,
+        "source_blobs": blobs, "source_blobs_match": True,
+        "diagnostic_commit": git(ROOT, "rev-parse", "HEAD"),
+    }
+
+
+def d1(grid, values, parity: int) -> np.ndarray:
+    return finite("radial derivative", grid.cell_derivative_fourth(values, parity=parity))
+
+
+def independent_total_projections(state) -> dict[str, np.ndarray]:
+    """Rebuild E, S_r, p_r and p_t from scalar fields/fluid primitives.
+
+    This intentionally does not call scalar_projection, species_projection or
+    total_matter_projection. It cross-checks its result against the canonical
+    stress_energy assembly after constructing each contribution explicitly.
+    """
+    grid = state.grid
+    geom = state.geometry
+    r = finite("r", grid.centers)
+    invr = finite("X^2/a", geom.X**2 / geom.a)
+    rho = np.zeros_like(r)
+    pr = np.zeros_like(r)
+    pt = np.zeros_like(r)
+    j = np.zeros_like(r)
+
+    scalar_sectors = (
+        (state.scalars.S, state.scalars.PS, 0.5 * state.scalars.S**2, 1.0, "S"),
+        (state.scalars.D, state.scalars.PD, -0.5 * state.scalars.D**2, 1.0, "D"),
+        (state.scalars.phi, state.scalars.Pi, cosmos_potential(state.scalars.phi), KAPPA, "phi"),
+    )
+    scalar_parts = {}
+    for field, momentum, potential, norm, name in scalar_sectors:
+        field = finite(f"{name} field", field)
+        momentum = finite(f"{name} conjugate momentum", momentum)
+        field_r = d1(grid, field, +1)
+        grad2 = invr * field_r**2
+        e_part = (0.5 * momentum**2 + 0.5 * grad2 + potential) / norm
+        pr_part = (0.5 * momentum**2 + 0.5 * grad2 - potential) / norm
+        pt_part = (0.5 * momentum**2 - 0.5 * grad2 - potential) / norm
+        j_part = (-momentum * field_r) / norm
+        rho += e_part
+        pr += pr_part
+        pt += pt_part
+        j += j_part
+        scalar_parts[name] = {
+            "rho": finite(f"{name} rho", e_part),
+            "pr": finite(f"{name} pr", pr_part),
+            "pt": finite(f"{name} pt", pt_part),
+            "j": finite(f"{name} j", j_part),
+        }
+
+    metric = metric_slice_from_q(grid, geom)
+    metrics = _metric_arrays(metric)
+    fluid_parts = {}
+    fluid_states = (
+        ("dark_matter", state.matter.dark_matter, Species.DARK_MATTER),
+        ("baryons", state.matter.baryons, Species.BARYON),
+        ("radiation", state.matter.radiation, Species.RADIATION),
+    )
+    for name, conserved, species in fluid_states:
+        prims = primitives(metrics, conserved, species)
+        arrays = {key: np.empty_like(r) for key in ("rho", "pr", "pt", "j")}
+        for i, (m, q) in enumerate(zip(metrics, prims)):
+            W = q.lorentz()
+            h = q.rho + q.pressure
+            eulerian_E = h * W * W - q.pressure
+            momentum_r = h * W * W * m.gamma_rr * q.v_r
+            arrays["rho"][i] = eulerian_E / KAPPA
+            arrays["pr"][i] = (h * W * W * q.v2 + q.pressure) / KAPPA
+            arrays["pt"][i] = q.pressure / KAPPA
+            arrays["j"][i] = momentum_r / KAPPA
+        for key in arrays:
+            arrays[key] = finite(f"{name} {key}", arrays[key])
+            if key == "rho": rho += arrays[key]
+            elif key == "pr": pr += arrays[key]
+            elif key == "pt": pt += arrays[key]
+            else: j += arrays[key]
+        fluid_parts[name] = arrays
+
+    independent = {
+        "rho": finite("independent total rho", rho),
+        "pr": finite("independent total radial stress", pr),
+        "pt": finite("independent total tangential stress", pt),
+        "j": finite("independent total radial current", j),
+    }
+    canonical = assemble_total_stress_energy(grid, geom, state.scalars, state.matter)
+    comparisons = {}
+    for key in independent:
+        delta = independent[key] - np.asarray(getattr(canonical, key), dtype=np.float64)
+        comparisons[key] = {
+            "max_abs": float(np.max(np.abs(delta))),
+            "rms": float(np.sqrt(np.mean(delta**2))),
+            "matches_canonical": bool(np.allclose(
+                independent[key], np.asarray(getattr(canonical, key)),
+                rtol=5.0e-12, atol=2.0e-20,
+            )),
+        }
+    return {
+        **independent,
+        "scalar_parts": scalar_parts,
+        "fluid_parts": fluid_parts,
+        "projection_crosscheck": comparisons,
+        "projection_crosscheck_passed": all(x["matches_canonical"] for x in comparisons.values()),
+    }
+
+
+def covariant_divergence_from_profiles(
+    r: np.ndarray,
+    d1_fn: Callable[[np.ndarray, int], np.ndarray],
+    alpha: np.ndarray,
+    gamma_rr: np.ndarray,
+    gamma_thth: np.ndarray,
+    rho: np.ndarray,
+    j: np.ndarray,
+    pr: np.ndarray,
+    pt: np.ndarray,
+    dt_density_t: np.ndarray,
+    dt_density_r: np.ndarray,
+    dt_gtt: np.ndarray,
+    dt_gamma_rr: np.ndarray,
+    dt_gamma_thth: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Return (nabla_mu T^mu_t, nabla_mu T^mu_r) for zero shift.
+
+    Mixed-tensor divergence identity:
+      D_nu = (d_t(sqrt(-g) T^t_nu)+d_r(sqrt(-g) T^r_nu))/sqrt(-g)
+             - 1/2 T^{ab} d_nu g_ab.
+    Angular terms are represented by the factor 2*T^{theta theta}*d g_thth.
+    """
+    r = finite("divergence radii", r)
+    alpha = finite("divergence lapse", alpha)
+    grr = finite("divergence gamma_rr", gamma_rr)
+    gth = finite("divergence gamma_thth", gamma_thth)
+    E = finite("divergence Eulerian rho", rho)
+    j = finite("divergence radial current", j)
+    pr = finite("divergence radial pressure", pr)
+    pt = finite("divergence tangential pressure", pt)
+    sqrt_gamma = np.sqrt(grr) * gth
+    sqrt_minus_g = alpha * sqrt_gamma
+    if np.any(alpha <= 0.0) or np.any(grr <= 0.0) or np.any(gth <= 0.0):
+        raise ValueError("divergence requires positive lapse and spatial metric")
+
+    Ttt = E / (alpha**2)
+    Trr = pr / grr
+    Tthth = pt / gth
+    j_up = j / grr
+
+    # Coordinate mixed components for beta^r=0:
+    # T^t_t=-E, T^r_t=-alpha*S^r, T^t_r=j/alpha, T^r_r=p_r.
+    flux_t = -(alpha**2) * sqrt_gamma * j_up
+    flux_r = alpha * sqrt_gamma * pr
+    radial_flux_t = finite("D_r(sqrt(-g) T^r_t)", d1_fn(flux_t, -1))
+    radial_flux_r = finite("D_r(sqrt(-g) T^r_r)", d1_fn(flux_r, +1))
+
+    source_t = -0.5 * (
+        Ttt * finite("dt g_tt", dt_gtt)
+        + Trr * finite("dt gamma_rr", dt_gamma_rr)
+        + 2.0 * Tthth * finite("dt gamma_thth", dt_gamma_thth)
+    )
+    gtt_r = d1_fn(-(alpha**2), +1)
+    grr_r = d1_fn(grr, +1)
+    gth_r = d1_fn(gth, +1)
+    source_r = -0.5 * (
+        Ttt * gtt_r + Trr * grr_r + 2.0 * Tthth * gth_r
+    )
+    denom = finite("sqrt(-g) divergence denominator", sqrt_minus_g)
+    div_t = finite(
+        "covariant time-component divergence",
+        (finite("dt sqrt(-g) T^t_t", dt_density_t) + radial_flux_t) / denom + source_t,
+    )
+    div_r = finite(
+        "covariant radial-component divergence",
+        (finite("dt sqrt(-g) T^t_r", dt_density_r) + radial_flux_r) / denom + source_r,
+    )
+    return div_t, div_r
+
+
+def covariant_objects(state) -> dict[str, np.ndarray]:
+    projection = independent_total_projections(state)
+    r = finite("covariant grid radii", state.grid.centers)
+    alpha = finite("covariant lapse", state.geometry.alpha)
+    gamma_rr = finite("gamma_rr", state.geometry.a / state.geometry.X**2)
+    gamma_thth = finite("gamma_thth", state.geometry.b * r**2 / state.geometry.X**2)
+    sqrt_gamma = np.sqrt(gamma_rr) * gamma_thth
+    sqrt_minus_g = alpha * sqrt_gamma
+    j_up = projection["j"] / gamma_rr
+    return {
+        "rho": projection["rho"],
+        "pr": projection["pr"],
+        "pt": projection["pt"],
+        "j": projection["j"],
+        "alpha": alpha,
+        "gamma_rr": gamma_rr,
+        "gamma_thth": gamma_thth,
+        "sqrt_gamma": sqrt_gamma,
+        "sqrt_minus_g": sqrt_minus_g,
+        "density_t": -sqrt_minus_g * projection["rho"],  # sqrt(-g) T^t_t
+        "density_r": sqrt_gamma * projection["j"],       # sqrt(-g) T^t_r
+        "flux_t": -(alpha**2) * sqrt_gamma * j_up,       # sqrt(-g) T^r_t
+        "flux_r": alpha * sqrt_gamma * projection["pr"], # sqrt(-g) T^r_r
+        "gtt": -(alpha**2),
+    }
+
+
+def summarize(values: np.ndarray, r: np.ndarray) -> dict[str, Any]:
+    x = finite("profile summary", values)
+    i = int(np.argmax(np.abs(x)))
+    annulus = (r >= 2.0) & (r <= 10.0)
+    fixed = {
+        str(target): float(np.interp(target, r, x))
+        for target in (2.0, 3.0, 5.0, 8.0) if r[0] <= target <= r[-1]
+    }
+    return {
+        "max_abs": float(np.abs(x[i])),
+        "signed_at_max_abs": float(x[i]),
+        "max_index": i,
+        "max_radius": float(r[i]),
+        "rms": float(np.sqrt(np.mean(x**2))),
+        "annulus_2_to_10_rms": float(np.sqrt(np.mean(x[annulus]**2))) if np.any(annulus) else None,
+        "cell_0": float(x[0]),
+        "cell_1": float(x[1]) if x.size > 1 else None,
+        "fixed_radius_samples": fixed,
+    }
+
+
+def divergence_tangent(kernel, state, rates, epsilon: float) -> dict[str, Any]:
+    plus_state = shifted_state(kernel, state, rates, +epsilon)
+    minus_state = shifted_state(kernel, state, rates, -epsilon)
+    assert_supported_baseline_source_scope(plus_state)
+    assert_supported_baseline_source_scope(minus_state)
+    if np.any(np.asarray(state.geometry.beta) != 0.0):
+        raise ValueError("this derivation currently assumes beta^r=0 at the frozen slice")
+
+    base = covariant_objects(state)
+    plus = covariant_objects(plus_state)
+    minus = covariant_objects(minus_state)
+    inv = 1.0 / (2.0 * epsilon)
+    d1_fn = lambda values, parity: d1(state.grid, values, parity)
+
+    time_density_t = (plus["density_t"] - minus["density_t"]) * inv
+    time_density_r = (plus["density_r"] - minus["density_r"]) * inv
+    dt_gtt = (plus["gtt"] - minus["gtt"]) * inv
+    dt_grr = (plus["gamma_rr"] - minus["gamma_rr"]) * inv
+    dt_gth = (plus["gamma_thth"] - minus["gamma_thth"]) * inv
+    div_t, div_r = covariant_divergence_from_profiles(
+        state.grid.centers, d1_fn,
+        base["alpha"], base["gamma_rr"], base["gamma_thth"],
+        base["rho"], base["j"], base["pr"], base["pt"],
+        time_density_t, time_density_r, dt_gtt, dt_grr, dt_gth,
+    )
+    return {
+        "epsilon": float(epsilon),
+        "div_T_t": div_t,
+        "div_T_r": div_r,
+        "div_T_t_summary": summarize(div_t, state.grid.centers),
+        "div_T_r_summary": summarize(div_r, state.grid.centers),
+        "projection_crosscheck": base["projection_crosscheck"],
+        "projection_crosscheck_passed": base["projection_crosscheck_passed"],
+        "time_derivative_witnesses": {
+            "d_t(sqrt(-g) T^t_t)": summarize(time_density_t, state.grid.centers),
+            "d_t(sqrt(-g) T^t_r)": summarize(time_density_r, state.grid.centers),
+            "d_t(g_tt)": summarize(dt_gtt, state.grid.centers),
+            "d_t(gamma_rr)": summarize(dt_grr, state.grid.centers),
+            "d_t(gamma_thth)": summarize(dt_gth, state.grid.centers),
+        },
+    }
+
+
+def audit_case(kernel, state, coupling: float, epsilons: tuple[float, float]) -> dict[str, Any]:
+    original_digest = state_digest(state)
+    old_beta = production_kernel_module.BETA_DM
+    try:
+        production_kernel_module.BETA_DM = float(coupling)
+        rates = rhs_direction(kernel, state)
+    finally:
+        production_kernel_module.BETA_DM = old_beta
+    tangent_rows = [divergence_tangent(kernel, state, rates, eps) for eps in epsilons]
+    if state_digest(state) != original_digest:
+        raise RuntimeError("frozen input state changed during covariant-divergence audit")
+    projections_ok = all(row["projection_crosscheck_passed"] for row in tangent_rows)
+    finite_ok = all(
+        np.all(np.isfinite(row["div_T_t"])) and np.all(np.isfinite(row["div_T_r"]))
+        for row in tangent_rows
+    )
+    r = np.asarray(state.grid.centers, dtype=np.float64)
+    annulus = (r >= 2.0) & (r <= 10.0)
+    return {
+        "coupling_beta_dm": float(coupling),
+        "initial_state_sha256": original_digest,
+        "zero_shift_at_frozen_slice": bool(np.all(np.asarray(state.geometry.beta) == 0.0)),
+        "projection_crosscheck_passed": bool(projections_ok),
+        "all_profiles_finite": bool(finite_ok),
+        "epsilon_rows": [
+            {key: value for key, value in row.items() if key not in ("div_T_t", "div_T_r")}
+            for row in tangent_rows
+        ],
+        "raw_arrays": {
+            f"epsilon_{i}_div_T_t": row["div_T_t"].tolist()
+            for i, row in enumerate(tangent_rows)
+        } | {
+            f"epsilon_{i}_div_T_r": row["div_T_r"].tolist()
+            for i, row in enumerate(tangent_rows)
+        },
+        "epsilon_sensitivity": {
+            "div_T_t_annulus_rms": float(np.sqrt(np.mean((
+                tangent_rows[0]["div_T_t"] - tangent_rows[1]["div_T_t"]
+            )[annulus]**2))),
+            "div_T_r_annulus_rms": float(np.sqrt(np.mean((
+                tangent_rows[0]["div_T_r"] - tangent_rows[1]["div_T_r"]
+            )[annulus]**2))),
+        },
+    }
+
+
+def audit_resolution(n: int, r_max: float, epsilons: tuple[float, float]) -> dict[str, Any]:
+    kernel = V55ProductionKernel()
+    state = kernel.initialize(resolution=n, r_max=r_max, include_radiation=True)
+    assert_supported_baseline_source_scope(state)
+    if np.any(np.asarray(state.geometry.beta) != 0.0):
+        raise RuntimeError("expected the standard initialized gauge to have zero shift")
+    input_hash_before = state_digest(state)
+    uncoupled = audit_case(kernel, state, 0.0, epsilons)
+    coupled = audit_case(kernel, state, BETA_DM_COUPLED, epsilons)
+    if state_digest(state) != input_hash_before:
+        raise RuntimeError("audit changed original initialized state")
+    annulus = (state.grid.centers >= 2.0) & (state.grid.centers <= 10.0)
+    # The difference isolates effects of the declared coupling on the same
+    # frozen physical slice; it is not assumed to be a priori zero.
+    delta_t = (
+        np.asarray(coupled["raw_arrays"]["epsilon_0_div_T_t"])
+        - np.asarray(uncoupled["raw_arrays"]["epsilon_0_div_T_t"])
+    )
+    delta_r = (
+        np.asarray(coupled["raw_arrays"]["epsilon_0_div_T_r"])
+        - np.asarray(uncoupled["raw_arrays"]["epsilon_0_div_T_r"])
+    )
+    return {
+        "resolution": int(n),
+        "r_max": float(r_max),
+        "dr": float(state.grid.dr),
+        "initial_state_sha256": input_hash_before,
+        "uncoupled_control": uncoupled,
+        "coupled_baseline": coupled,
+        "coupling_increment_difference": {
+            "div_T_t": summarize(delta_t, state.grid.centers),
+            "div_T_r": summarize(delta_r, state.grid.centers),
+        },
+        "limits": [
+            "Finite-difference time tangent includes the CMC lapse re-solve and the full frozen semi-discrete RHS direction.",
+            "Spatial divergence uses the exact pinned parity-aware D1 but cell-centred projected T; finite-volume fluid reconstruction is not identical to that point-sampled covariant operator.",
+            "Any coupled residual is reported, not judged from a conditional interaction law; it requires independent source-law/model review.",
+            "The audit has beta^r=0 at the frozen initial slice; nonzero-shift extension is a separate control.",
+        ],
+    }
+
+
+def run(args: argparse.Namespace) -> dict[str, Any]:
+    provenance = verify_provenance()
+    if len(args.epsilons) != 2 or any(e <= 0.0 for e in args.epsilons):
+        raise ValueError("provide exactly two positive directional epsilons")
+    if not args.resolutions or any(n < 32 for n in args.resolutions):
+        raise ValueError("resolutions must each be >=32")
+    if not math.isfinite(args.r_max) or args.r_max <= 0.0:
+        raise ValueError("r_max must be positive and finite")
+    per_resolution = [
+        audit_resolution(n, float(args.r_max), (float(args.epsilons[0]), float(args.epsilons[1])))
+        for n in args.resolutions
+    ]
+    return {
+        "schema": "issue4_independent_covariant_total_stress_energy_divergence_v1",
+        "status": "completed_diagnostic_only",
+        "source_provenance": provenance,
+        "configuration": {
+            "resolutions": list(args.resolutions),
+            "r_max": float(args.r_max),
+            "directional_epsilons": list(args.epsilons),
+            "production_steps_advanced": 0,
+            "nonzero_shift_at_frozen_slice": False,
+        },
+        "resolution_results": per_resolution,
+        "gate_result": {
+            "source_pins_verified": True,
+            "independent_total_projection_matches_canonical": all(
+                result["uncoupled_control"]["projection_crosscheck_passed"]
+                and result["coupled_baseline"]["projection_crosscheck_passed"]
+                for result in per_resolution
+            ),
+            "all_profiles_finite": all(
+                result["uncoupled_control"]["all_profiles_finite"]
+                and result["coupled_baseline"]["all_profiles_finite"]
+                for result in per_resolution
+            ),
+            "input_states_unchanged": True,
+            "independent_total_stress_energy_divergence_closed": False,
+            "scientific_admission": False,
+        },
+        "interpretation": (
+            "This first independent covariant-divergence witness separates a zero-coupling "
+            "control from the current beta_DM=-0.04 model on identical initialized states. "
+            "It independently reconstructs total T projections and uses the mixed-tensor "
+            "covariant divergence identity. Residuals are measured diagnostic evidence, "
+            "not automatically attributed to physics: first separate cell-centered versus "
+            "finite-volume spatial discretization, epsilon sensitivity, gauge response, and "
+            "the conditional exchange-law premise. No production equation is modified."
+        ),
+    }
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--resolutions", nargs="+", type=int, default=[60, 80, 120])
+    parser.add_argument("--r-max", type=float, default=24.0)
+    parser.add_argument("--epsilons", nargs=2, type=float, default=[2.0e-5, 1.0e-5])
+    parser.add_argument("--output", type=Path, default=Path(
+        "results/issue4-independent-covariant-total-T-divergence/report.json"
+    ))
+    args = parser.parse_args()
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        report = run(args)
+        code = 0
+    except Exception as exc:
+        report = {
+            "schema": "issue4_independent_covariant_total_stress_energy_divergence_v1",
+            "status": "failed_closed",
+            "scientific_admission": False,
+            "error_type": type(exc).__name__,
+            "error": str(exc),
+            "traceback": traceback.format_exc(),
+        }
+        code = 1
+    args.output.write_text(
+        json.dumps(report, indent=2, sort_keys=True, allow_nan=False) + "
+",
+        encoding="utf-8",
+    )
+    print(json.dumps({
+        "status": report.get("status"),
+        "gate_result": report.get("gate_result"),
+        "configuration": report.get("configuration"),
+        "scientific_admission": False,
+        "artifact": str(args.output),
+    }, sort_keys=True), flush=True)
+    return code
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
