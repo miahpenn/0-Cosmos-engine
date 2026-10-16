@@ -606,7 +606,10 @@ def audit_case(kernel, state, coupling: float, epsilons: tuple[float, float]) ->
     all_tangent_rows = tangent_rows + conditional_source_tangent_rows + joint_source_tangent_rows
     projections_ok = all(row["projection_crosscheck_passed"] for row in all_tangent_rows)
     finite_ok = all(
-        np.all(np.isfinite(row["div_T_t"])) and np.all(np.isfinite(row["div_T_r"]))
+        np.all(np.isfinite(row["div_T_t"]))
+        and np.all(np.isfinite(row["div_T_r"]))
+        and np.all(np.isfinite(row["div_T_t_fv"]))
+        and np.all(np.isfinite(row["div_T_r_fv"]))
         for row in all_tangent_rows
     ) and bool(
         np.all(np.isfinite(rest_source))
@@ -661,6 +664,44 @@ def audit_case(kernel, state, coupling: float, epsilons: tuple[float, float]) ->
             for i, row in enumerate(joint_source_tangent_rows)
         } | {
             f"epsilon_{i}_joint_conditional_sources_div_T_r": row["div_T_r"].tolist()
+            for i, row in enumerate(joint_source_tangent_rows)
+        } | {
+            f"epsilon_{i}_div_T_t_fv": row["div_T_t_fv"].tolist()
+            for i, row in enumerate(tangent_rows)
+        } | {
+            f"epsilon_{i}_div_T_r_fv": row["div_T_r_fv"].tolist()
+            for i, row in enumerate(tangent_rows)
+        } | {
+            f"epsilon_{i}_div_T_t_fv_minus_cell_centered": (
+                row["div_T_t_fv"] - row["div_T_t"]
+            ).tolist()
+            for i, row in enumerate(tangent_rows)
+        } | {
+            f"epsilon_{i}_div_T_r_fv_minus_cell_centered": (
+                row["div_T_r_fv"] - row["div_T_r"]
+            ).tolist()
+            for i, row in enumerate(tangent_rows)
+        } | {
+            f"epsilon_{i}_conditional_rest_source_div_T_t_fv": row["div_T_t_fv"].tolist()
+            for i, row in enumerate(conditional_source_tangent_rows)
+        } | {
+            f"epsilon_{i}_conditional_rest_source_div_T_r_fv": row["div_T_r_fv"].tolist()
+            for i, row in enumerate(conditional_source_tangent_rows)
+        } | {
+            f"epsilon_{i}_conditional_rest_source_div_T_r_fv_minus_cell_centered": (
+                row["div_T_r_fv"] - row["div_T_r"]
+            ).tolist()
+            for i, row in enumerate(conditional_source_tangent_rows)
+        } | {
+            f"epsilon_{i}_joint_conditional_sources_div_T_t_fv": row["div_T_t_fv"].tolist()
+            for i, row in enumerate(joint_source_tangent_rows)
+        } | {
+            f"epsilon_{i}_joint_conditional_sources_div_T_r_fv": row["div_T_r_fv"].tolist()
+            for i, row in enumerate(joint_source_tangent_rows)
+        } | {
+            f"epsilon_{i}_joint_conditional_sources_div_T_r_fv_minus_cell_centered": (
+                row["div_T_r_fv"] - row["div_T_r"]
+            ).tolist()
             for i, row in enumerate(joint_source_tangent_rows)
         } | {
             "conditional_rest_current_source": rest_source.tolist(),
@@ -824,24 +865,6 @@ def audit_resolution(n: int, r_max: float, epsilons: tuple[float, float]) -> dic
             "match_admitted": False,
         },
         "raw_arrays": {
-            "epsilon_0_div_T_t_cell_centered": np.asarray(tangent_rows[0]["div_T_t"]).tolist(),
-            "epsilon_0_div_T_r_cell_centered": np.asarray(tangent_rows[0]["div_T_r"]).tolist(),
-            "epsilon_0_div_T_t_finite_volume": np.asarray(tangent_rows[0]["div_T_t_fv"]).tolist(),
-            "epsilon_0_div_T_r_finite_volume": np.asarray(tangent_rows[0]["div_T_r_fv"]).tolist(),
-            "epsilon_0_div_T_t_fv_minus_cell_centered": (
-                np.asarray(tangent_rows[0]["div_T_t_fv"])
-                - np.asarray(tangent_rows[0]["div_T_t"])
-            ).tolist(),
-            "epsilon_0_div_T_r_fv_minus_cell_centered": (
-                np.asarray(tangent_rows[0]["div_T_r_fv"])
-                - np.asarray(tangent_rows[0]["div_T_r"])
-            ).tolist(),
-            "epsilon_0_conditional_rest_div_T_r_finite_volume": (
-                np.asarray(conditional_source_tangent_rows[0]["div_T_r_fv"])
-            ).tolist(),
-            "epsilon_0_joint_conditional_div_T_r_finite_volume": (
-                np.asarray(joint_source_tangent_rows[0]["div_T_r_fv"])
-            ).tolist(),
             "coupling_increment_Dt_before_rest_source": delta_t.tolist(),
             "coupling_increment_Dt_after_rest_source": delta_t_with_rest_source.tolist(),
             "derived_lapse_factor_defect_Dt": predicted_lapse_defect.tolist(),
