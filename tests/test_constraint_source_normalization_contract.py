@@ -41,8 +41,14 @@ def _zero_state(template: ProductionState) -> ProductionState:
     n = template.grid.n
     z = np.zeros(n, dtype=np.float64)
     scalars = ScalarFields(z.copy(), z.copy(), z.copy(), z.copy(), z.copy(), z.copy())
+    metrics = _metric_arrays(metric_slice_from_q(template.grid, template.geometry))
+    # Valencia dust recovery rejects exactly zero rest-current. Represent an
+    # inactive dust sector by a tiny positive, zero-velocity state instead.
+    rho_floor = np.full(n, 1.0e-20, dtype=np.float64)
     matter = V55MatterState(
-        _zero_conserved(n), _zero_conserved(n), _zero_conserved(n)
+        initialize_dust(metrics, rho_floor),
+        initialize_dust(metrics, rho_floor),
+        initialize_radiation(metrics, np.zeros(n, dtype=np.float64)),
     )
     return ProductionState(
         grid=template.grid,
@@ -110,10 +116,10 @@ def _manufactured_state(
 
     rho = 1.0e-4 * (1.0 + 0.2 * np.exp(-(r / 5.0) ** 2))
     velocity = sign * 0.025 * r / (1.0 + r) * np.exp(-(r / 10.0) ** 2)
-    zero_rho = np.zeros(n, dtype=np.float64)
-    dm = initialize_dust(metrics, rho, velocity) if sector == "dark_matter" else initialize_dust(metrics, zero_rho)
-    baryons = initialize_dust(metrics, rho, velocity) if sector == "baryons" else initialize_dust(metrics, zero_rho)
-    radiation = initialize_radiation(metrics, rho, velocity) if sector == "radiation" else initialize_radiation(metrics, zero_rho)
+    rho_floor = np.full(n, 1.0e-20, dtype=np.float64)
+    dm = initialize_dust(metrics, rho, velocity) if sector == "dark_matter" else initialize_dust(metrics, rho_floor)
+    baryons = initialize_dust(metrics, rho, velocity) if sector == "baryons" else initialize_dust(metrics, rho_floor)
+    radiation = initialize_radiation(metrics, rho, velocity) if sector == "radiation" else initialize_radiation(metrics, np.zeros(n, dtype=np.float64))
     state.matter = V55MatterState(dm, baryons, radiation)
     assert sector in SECTORS
     return state
