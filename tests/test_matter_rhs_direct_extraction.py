@@ -223,11 +223,18 @@ def test_flat_homogeneous_radiation_pressure_flux_uses_true_face_area():
 
 def test_nontrivial_metric_radiation_flux_uses_interpolated_face_fields():
     """Flux geometry is evaluated at the face radius, not averaged after derivation."""
-    metric = flat_metric(n=3)
-    metric.a = np.asarray([0.90, 1.00, 1.10])
-    metric.b = np.asarray([1.10, 1.20, 1.30])
-    metric.X = np.asarray([0.90, 0.95, 1.00])
-    metric.alpha = np.asarray([0.80, 0.90, 1.00])
+    metric = BSSNMetricSlice(
+        r=np.asarray([0.5, 1.5, 2.5]),
+        a=np.asarray([0.90, 1.00, 1.10]),
+        b=np.asarray([1.10, 1.20, 1.30]),
+        X=np.asarray([0.90, 0.95, 1.00]),
+        alpha=np.asarray([0.80, 0.90, 1.00]),
+        beta=np.zeros(3),
+        Aa=np.zeros(3),
+        K=np.zeros(3),
+        Lambda=np.zeros(3),
+        B=np.zeros(3),
+    )
     metric_arrays = matter_system_module._metric_arrays(metric)
     state = ConservedSpecies(
         rest=np.zeros(3),
@@ -246,9 +253,7 @@ def test_nontrivial_metric_radiation_flux_uses_interpolated_face_fields():
     b_face = 0.5 * (metric.b[0] + metric.b[1])
     X_face = 0.5 * (metric.X[0] + metric.X[1])
     alpha_face = 0.5 * (metric.alpha[0] + metric.alpha[1])
-    expected_sqrt_gamma = (
-        np.sqrt(a_face) * b_face * r_face**2 / X_face**3
-    )
+    expected_sqrt_gamma = np.sqrt(a_face) * b_face * r_face**2 / X_face**3
     expected_flux = expected_sqrt_gamma * alpha_face / 3.0
     assert face_flux[1, 2] == pytest.approx(
         expected_flux, rel=3.0e-13, abs=0.0
