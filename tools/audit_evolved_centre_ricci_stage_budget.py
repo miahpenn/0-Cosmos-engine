@@ -9,6 +9,7 @@ import csv
 import hashlib
 import json
 import os
+import subprocess
 from pathlib import Path
 import sys
 from types import SimpleNamespace
@@ -22,16 +23,70 @@ from engine.production_kernel import V55ProductionKernel
 from engine import v55_matter as vm
 from engine import v55_pirk_adapter as adapter
 from tools.audit_current_main_centre_proper_radial_ricci import (
-    SOURCE_COMMIT,
-    VENDOR_COMMIT,
     _arr,
     _finite,
     _lambda_chain_rule_counterfactual,
     _max_abs,
     _state_digest,
-    _verify_source_pins,
     proper_radial_ricci,
 )
+
+SOURCE_COMMIT = "7f47669a1c0edfafef9fc5f27b2db80840d3f035"
+VENDOR_COMMIT = "d6052d605673ce9d82cdc99b0df79855fa2ea215"
+STAGE_SOURCE_BLOBS = {
+    "engine/production_kernel.py": "9685e76bb5a6f26d6bf383e240de24f37523f265",
+    "engine/matter_system.py": "e52a117690253ddad7b24d116145a65474a351d2",
+    "engine/matter_rhs.py": "f41180efbcff2c72cf36477a765318ab539fac80",
+    "engine/scalar_system.py": "ffc119b1a6f2d495d972323901f76a85783b0a1b",
+    "engine/v55_matter.py": "0ee3c51fac7dc46c63feba2747a750542bcee3d0",
+    "engine/v55_pirk_adapter.py": "eeee0492d80889d70e52b0946563eee5054c0f11",
+    "engine/cmc_gauge.py": "7b49b5751abebd4faf0130208032cd2080b71f64",
+    "engine/v55_initial.py": "7db2e1a10cf16fb40e4221b0df504fdf39aae611",
+    "engine/stress_energy.py": "ac3e7518c62bb72e2218a61489fa486bb787809f",
+    "engine/valencia.py": "03ed86398f424c03d9d6a3e646da9222a34fac5c",
+    "engine/worldtube.py": "aea19090cb0fd2ebe5481a8b7af0d26f119a9ad6",
+}
+
+
+def _git(*args: str) -> str:
+    return subprocess.check_output(["git", *args], text=True).strip()
+
+
+def _verify_stage_source_pins() -> dict[str, Any]:
+    """Fail closed against the exact post-PR-#274 source without editing shared pins."""
+    source_head = _git("rev-parse", "HEAD")
+    source_vendor = _git("rev-parse", "HEAD:vendor/bb-palatini-unified-r0")
+    if source_vendor != VENDOR_COMMIT:
+        raise RuntimeError(
+            f"vendor pin mismatch: expected {VENDOR_COMMIT}, found {source_vendor}"
+        )
+    pins = {}
+    for path, expected in STAGE_SOURCE_BLOBS.items():
+        baseline_blob = _git("rev-parse", f"{SOURCE_COMMIT}:{path}")
+        head_blob = _git("rev-parse", f"HEAD:{path}")
+        matches = baseline_blob == expected and head_blob == expected
+        pins[path] = {
+            "expected_blob": expected,
+            "baseline_blob": baseline_blob,
+            "audit_head_blob": head_blob,
+            "matches": matches,
+        }
+        if not matches:
+            raise RuntimeError(f"source blob mismatch for {path}: {pins[path]}")
+    changed = _git(
+        "diff", "--name-only", SOURCE_COMMIT, "HEAD", "--",
+        "engine", "vendor", ".gitmodules", "requirements.txt",
+    )
+    if changed:
+        raise RuntimeError("engine/vendor/dependency paths changed from source pin:\\n" + changed)
+    return {
+        "audit_head": source_head,
+        "source_commit": SOURCE_COMMIT,
+        "vendor_commit": source_vendor,
+        "source_blobs": pins,
+        "engine_vendor_dependency_diff_empty": True,
+    }
+
 
 RESOLUTION = int(os.environ.get("STAGE_RESOLUTION", "40"))
 R_MAX = float(os.environ.get("STAGE_R_MAX", "80.0"))
