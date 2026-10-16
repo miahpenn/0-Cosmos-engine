@@ -368,6 +368,159 @@ def solve_five_cell_hybrid(
     )
 
 
+def _constraint_propagation_candidate(
+    state: ProductionState,
+    rates: dict[str, Any],
+    base_constraints: dict[str, np.ndarray],
+    plus_state: ProductionState,
+    minus_state: ProductionState,
+    epsilon: float,
+    measured_mdot: np.ndarray,
+) -> tuple[dict[str, Any], dict[str, np.ndarray]]:
+    """Candidate Brown-spherical BSSN M-propagation law + covariant T-divergence.
+
+    This is deliberately an independent formula evaluation, not the finite-
+    difference constraint tangent. Because the source contains matter/exchange,
+    compute Q_r = nabla_mu T^mu_r from the projected total stress tensor and
+    the same semi-discrete tangent state. The sign/index mapping is an explicit
+    diagnostic candidate and remains non-admitted until its normalization review.
+    """
+    grid, geom = state.grid, state.geometry
+    r = finite("propagation radii", grid.centers)
+    alpha = finite("propagation alpha", geom.alpha)
+    a = finite("propagation a", geom.a)
+    b = finite("propagation b", geom.b)
+    X = finite("propagation X", geom.X)
+    K = finite("propagation K", geom.K)
+    d1 = lambda value, parity=1: finite(
+        "propagation D1", grid.cell_derivative_fourth(value, parity=parity)
+    )
+    d2 = lambda value, parity=-1: finite(
+        "propagation D2", grid.cell_second_derivative_fourth(value, parity=parity)
+    )
+    H = finite("propagation H", base_constraints["H"])
+    M = finite("propagation M", base_constraints["M"])
+    C = finite("propagation C_Lambda", base_constraints["C_Lambda"])
+    alpha_r = d1(alpha, 1)
+    chi = X * X
+    chi_r = d1(chi, 1)
+    H_r = d1(H, 1)
+    C_r = d1(C, -1)
+    C_rr = d2(C, -1)
+    conformal_angular_log_derivative = d1(b, 1) / b + 2.0 / r
+
+    term_KM = alpha * K * M
+    term_alpha_H = -(alpha_r / 3.0) * H
+    term_H_gradient = (alpha / 6.0) * H_r
+    term_C_second = (2.0 / 3.0) * alpha * chi * C_rr
+    c_first_coeff = (
+        (2.0 / 3.0) * alpha_r * chi
+        - (1.0 / 3.0) * alpha * chi_r
+        + alpha * chi * conformal_angular_log_derivative
+    )
+    term_C_first = c_first_coeff * C_r
+    brown_conserved_source = (
+        term_KM + term_alpha_H + term_H_gradient + term_C_second + term_C_first
+    )
+
+    total = assemble_total_stress_energy(
+        grid, state.geometry, state.scalars, state.matter
+    )
+    plus_total = assemble_total_stress_energy(
+        grid, plus_state.geometry, plus_state.scalars, plus_state.matter
+    )
+    minus_total = assemble_total_stress_energy(
+        grid, minus_state.geometry, minus_state.scalars, minus_state.matter
+    )
+    j = finite("total covariant radial momentum", total.j)
+    j_r_dot = finite(
+        "radial momentum time tangent",
+        (np.asarray(plus_total.j) - np.asarray(minus_total.j)) / (2.0 * epsilon),
+    )
+
+    a_dot = finite("a RHS for stress divergence", rates["geometry"]["a"])
+    b_dot = finite("b RHS for stress divergence", rates["geometry"]["b"])
+    X_dot = finite("X RHS for stress divergence", rates["geometry"]["X"])
+    gamma_rr_log_dot = a_dot / a - 2.0 * X_dot / X
+    areal_radius_log_dot = 0.5 * b_dot / b - X_dot / X
+    areal_radius_log_r = 1.0 / r + 0.5 * d1(b, 1) / b - d1(X, 1) / X
+
+    # For beta=0 and ds^2=-alpha^2 dt^2 + gamma_rr dr^2 + R^2 dOmega^2,
+    # Q_r = nabla_mu T^mu_r. This uses T^t_r=j_r/alpha, T^r_r=p_r.
+    Q_r = (
+        j_r_dot / alpha
+        + (j / alpha) * (
+            0.5 * gamma_rr_log_dot + 2.0 * areal_radius_log_dot
+        )
+        + d1(np.asarray(total.pr), 1)
+        + (alpha_r / alpha) * (np.asarray(total.rho) + np.asarray(total.pr))
+        + 2.0 * areal_radius_log_r * (np.asarray(total.pr) - np.asarray(total.pt))
+    )
+    Q_r = finite("total stress-energy radial divergence", Q_r)
+    matter_source = -8.0 * math.pi * alpha * Q_r
+    predicted = finite(
+        "candidate predicted M tangent",
+        brown_conserved_source + matter_source,
+    )
+    residual = finite(
+        "measured-minus-predicted M tangent",
+        np.asarray(measured_mdot, dtype=np.float64) - predicted,
+    )
+    scale = max(
+        float(np.sqrt(np.mean(np.asarray(measured_mdot, dtype=np.float64) ** 2))),
+        float(np.sqrt(np.mean(predicted * predicted))),
+        np.finfo(np.float64).tiny,
+    )
+    report = {
+        "formula": (
+            "Brown spherical BSSN momentum-constraint propagation (beta=0) "
+            "with H/M replaced by the repository total-stress constraints, "
+            "C by C_Lambda, chi=X^2, and an explicitly computed "
+            "-8*pi*alpha*nabla_mu(T^mu_r) source."
+        ),
+        "normalization_reviewed_for_scientific_admission": False,
+        "matter_conservation_source_sign_and_index_mapping": (
+            "candidate -8*pi*alpha*Q_r; output is a discriminator, not an accepted identity"
+        ),
+        "brown_conserved_source": witness(brown_conserved_source, r),
+        "matter_source_minus_8pi_alpha_Qr": witness(matter_source, r),
+        "Q_r_total_stress_divergence": witness(Q_r, r),
+        "predicted_Mdot": witness(predicted, r),
+        "measured_Mdot": witness(measured_mdot, r),
+        "measured_minus_predicted": witness(residual, r),
+        "relative_rms_error_full_domain": float(
+            np.sqrt(np.mean(residual * residual)) / scale
+        ),
+        "relative_rms_error_r_ge_5": float(
+            np.sqrt(np.mean(residual[r >= 5.0] ** 2))
+            / max(
+                float(np.sqrt(np.mean(np.asarray(measured_mdot)[r >= 5.0] ** 2))),
+                float(np.sqrt(np.mean(predicted[r >= 5.0] ** 2))),
+                np.finfo(np.float64).tiny,
+            )
+        ),
+        "finite": bool(
+            np.all(np.isfinite(predicted))
+            and np.all(np.isfinite(residual))
+            and np.all(np.isfinite(Q_r))
+        ),
+        "acceptance_oracle_satisfied": False,
+    }
+    arrays = {
+        "propagation_brown_conserved_source": brown_conserved_source,
+        "propagation_Qr_total_stress_divergence": Q_r,
+        "propagation_matter_source_minus_8pi_alpha_Qr": matter_source,
+        "propagation_Mdot_predicted": predicted,
+        "propagation_Mdot_measured_minus_predicted": residual,
+        "propagation_term_KM": term_KM,
+        "propagation_term_alpha_H": term_alpha_H,
+        "propagation_term_H_gradient": term_H_gradient,
+        "propagation_term_connection_second": term_C_second,
+        "propagation_term_connection_first": term_C_first,
+    }
+    return report, arrays
+
+
 def directional_tangent(
     kernel: V55ProductionKernel, state: ProductionState, vacuum: Any
 ) -> tuple[dict[str, Any], dict[float, dict[str, np.ndarray]]]:
@@ -393,7 +546,14 @@ def directional_tangent(
         # into geometric terms and all total-current sectors. This observer
         # independently refreshes CMC alpha at both directional endpoints.
         momentum_budget = momentum_tangent_for_epsilon(kernel, state, rates, eps)
+        propagation_report, propagation_arrays = _constraint_propagation_candidate(
+            state, rates, baseline, plus_state, minus_state, eps, dot["M"]
+        )
         raw_budget_profiles[eps] = {
+            **{
+                name: finite(f"saved {name}", values).copy()
+                for name, values in propagation_arrays.items()
+            },
             "Mdot": finite("signed Mdot profile", momentum_budget["Mdot"]).copy(),
             "Mdot_geom": finite("signed geometric Mdot profile", momentum_budget["Mdot_geom"]).copy(),
             **{
@@ -409,6 +569,7 @@ def directional_tangent(
             "epsilon": eps,
             "tangent_witnesses": {name: witness(arr, r) for name, arr in dot.items()},
             "signed_momentum_budget": compact_tangent_result(momentum_budget, r),
+            "independent_constraint_propagation_candidate": propagation_report,
         })
     if state_digest(state) != original:
         raise RuntimeError("tangent observer mutated the frozen state")
