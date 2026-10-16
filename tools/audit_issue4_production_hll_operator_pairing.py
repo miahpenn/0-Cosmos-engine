@@ -47,6 +47,7 @@ from engine.matter_system import (  # noqa: E402
     geometry_metric_derivatives,
     primitives,
     species_projection,
+    initialize_dust,
     initialize_radiation,
 )
 from engine.scalar_system import KAPPA  # noqa: E402
@@ -246,6 +247,79 @@ def operator_snapshot(state, coupling: float, rates: dict[str, Any]) -> dict[str
     }
 
 
+def make_manufactured_operator_probe(kernel, n: int, r_max: float):
+    """Return a copied synthetic state with nontrivial regular fluid/scalar profiles.
+
+    This is an operator-discrimination fixture, not an evolved production state.
+    The native gauge remains zero shift; the profile perturbations exist only in
+    this disposable copy and are hash-checked for immutability.
+    """
+    state = kernel.initialize(resolution=n, r_max=r_max, include_radiation=True)
+    r = finite("probe cell radii", state.grid.centers)
+    state.geometry.alpha[:] = 0.75 + 0.20 * np.exp(-(r / 6.0) ** 2)
+    state.scalars.phi[:] = 0.01 + 0.001 * r**2
+    if np.any(np.asarray(state.geometry.beta) != 0.0):
+        raise RuntimeError("manufactured operator probe must preserve native zero shift")
+
+    metric_slice = AUDIT.metric_slice_from_q(state.grid, state.geometry)
+    metrics = _metric_arrays(metric_slice)
+    dm_prim = primitives(metrics, state.matter.dark_matter, Species.DARK_MATTER)
+    b_prim = primitives(metrics, state.matter.baryons, Species.BARYON)
+    r_prim = primitives(metrics, state.matter.radiation, Species.RADIATION)
+
+    dm_rho = finite("probe dark-matter base rho", np.asarray([q.rho for q in dm_prim]))
+    b_rho = finite("probe baryon base rho", np.asarray([q.rho for q in b_prim]))
+    rad_rho = finite("probe radiation base rho", np.asarray([q.rho for q in r_prim]))
+    v_dm = 0.04 * (r / 6.0) * np.exp(-(r / 6.0) ** 2)
+    v_b = -0.025 * (r / 5.0) * np.exp(-(r / 5.0) ** 2)
+    v_rad = 0.035 * (r / 7.0) * np.exp(-(r / 7.0) ** 2)
+
+    state.matter.dark_matter = initialize_dust(
+        metrics, dm_rho * (1.0 + 0.08 * np.exp(-(r / 5.0) ** 2)), v_dm
+    )
+    state.matter.baryons = initialize_dust(
+        metrics, b_rho * (1.0 + 0.04 * np.exp(-(r / 8.0) ** 2)), v_b
+    )
+    state.matter.radiation = initialize_radiation(
+        metrics, rad_rho * (1.0 + 0.06 * np.exp(-(r / 7.0) ** 2)), v_rad
+    )
+    return state
+
+
+def summarize_probe(state, coupling: float) -> dict[str, Any]:
+    n = len(state.grid.centers)
+    state_hash_before = AUDIT.state_digest(state)
+    zeros = np.zeros(n, dtype=np.float64)
+    # Use explicit d(phi)/dt=0 for this spatially manufactured source control.
+    snapshot = operator_snapshot(state, coupling, {"scalars": {"phi": zeros}})
+    projection = AUDIT.independent_total_projections(state)
+    state_unchanged = AUDIT.state_digest(state) == state_hash_before
+    if not projection["projection_crosscheck_passed"]:
+        raise RuntimeError("manufactured operator probe projection cross-check failed")
+    if not state_unchanged:
+        raise RuntimeError("manufactured operator probe mutated the copied state")
+
+    max_hll_projection_gap = max(
+        float(np.max(np.abs(np.asarray(piece["hll_minus_projected_momentum_face_flux_over_kappa"]))))
+        for piece in snapshot["raw_arrays"].values()
+    )
+    dm_gap = float(np.max(np.abs(np.asarray(
+        snapshot["raw_arrays"]["dark_matter"]["interaction_momentum_source_gap_over_kappa"]
+    ))))
+    return {
+        "synthetic_discriminator_only": True,
+        "native_shift": 0.0,
+        "initial_state_sha256": state_hash_before,
+        "state_unchanged": state_unchanged,
+        "projection_crosscheck_passed": True,
+        "max_abs_hll_minus_projected_momentum_face_flux_over_kappa": max_hll_projection_gap,
+        "max_abs_dark_matter_conditional_qr_source_gap_over_kappa": dm_gap,
+        "nontrivial_hll_flux_discriminator": bool(max_hll_projection_gap > 1.0e-14),
+        "nontrivial_conditional_qr_discriminator": bool(dm_gap > 1.0e-12) if coupling != 0.0 else True,
+        "operator_snapshot": snapshot,
+    }
+
+
 def run_resolution(n: int, r_max: float, epsilons: tuple[float, ...]) -> dict[str, Any]:
     kernel = AUDIT.V55ProductionKernel()
     state = kernel.initialize(resolution=n, r_max=r_max, include_radiation=True)
@@ -320,6 +394,27 @@ def run_resolution(n: int, r_max: float, epsilons: tuple[float, ...]) -> dict[st
         for species in arm["raw_arrays"].values():
             for values in species.values():
                 all_values_finite &= bool(np.all(np.isfinite(np.asarray(values, dtype=float))))
+    # A separate disposable manufactured copy excites nonzero HLL currents and
+    # a nonzero radial scalar gradient, avoiding a vacuous zero-profile baseline.
+    probe_state = make_manufactured_operator_probe(kernel, n, r_max)
+    probe_hash_before = AUDIT.state_digest(probe_state)
+    probe_arms = {
+        "uncoupled_control": summarize_probe(probe_state, 0.0),
+        "coupled_conditional_source": summarize_probe(probe_state, BETA_DM_COUPLED),
+    }
+    probe_unchanged = AUDIT.state_digest(probe_state) == probe_hash_before
+    if not probe_unchanged:
+        raise RuntimeError("manufactured probe changed between source arms")
+    probe_hll_nontrivial = all(
+        arm["nontrivial_hll_flux_discriminator"] for arm in probe_arms.values()
+    )
+    probe_q_nontrivial = probe_arms["coupled_conditional_source"]["nontrivial_conditional_qr_discriminator"]
+    if not probe_hll_nontrivial or not probe_q_nontrivial:
+        raise RuntimeError(
+            "manufactured operator control was vacuous: "
+            f"hll={probe_hll_nontrivial}, conditional_qr={probe_q_nontrivial}"
+        )
+
     return {
         "resolution": int(n),
         "r_max": float(r_max),
@@ -332,6 +427,21 @@ def run_resolution(n: int, r_max: float, epsilons: tuple[float, ...]) -> dict[st
         "production_steps_advanced": 0,
         "arms": arms,
         "directional_epsilon_witnesses": tangent_witnesses,
+        "manufactured_operator_probe": {
+            "state_unchanged": probe_unchanged,
+            "synthetic_discriminator_only": True,
+            "profile": {
+                "alpha": "0.75 + 0.20 exp(-(r/6)^2)",
+                "phi": "0.01 + 0.001 r^2",
+                "dm_rho": "base * (1 + 0.08 exp(-(r/5)^2))",
+                "dm_v_r": "0.04 (r/6) exp(-(r/6)^2)",
+                "baryon_rho": "base * (1 + 0.04 exp(-(r/8)^2)",
+                "baryon_v_r": "-0.025 (r/5) exp(-(r/5)^2)",
+                "radiation_rho": "base * (1 + 0.06 exp(-(r/7)^2))",
+                "radiation_v_r": "0.035 (r/7) exp(-(r/7)^2)",
+            },
+            "arms": probe_arms,
+        },
     }
 
 
@@ -340,6 +450,17 @@ def run(resolutions: tuple[int, ...], r_max: float, epsilons: tuple[float, ...])
     rows = [run_resolution(n, r_max, epsilons) for n in resolutions]
     all_unchanged = all(row["base_state_unchanged"] for row in rows)
     all_finite = all(row["all_hll_source_profiles_finite"] for row in rows)
+    probe_passed = all(
+        row["manufactured_operator_probe"]["state_unchanged"]
+        and all(
+            arm["nontrivial_hll_flux_discriminator"]
+            and arm["nontrivial_conditional_qr_discriminator"]
+            for name, arm in row["manufactured_operator_probe"]["arms"].items()
+            if name == "coupled_conditional_source"
+        )
+        and row["manufactured_operator_probe"]["arms"]["uncoupled_control"]["nontrivial_hll_flux_discriminator"]
+        for row in rows
+    )
     max_geom = max(
         arm["max_abs_geometric_source_gap_over_kappa"]
         for row in rows for arm in row["arms"].values()
@@ -367,6 +488,7 @@ def run(resolutions: tuple[int, ...], r_max: float, epsilons: tuple[float, ...])
             "all_hll_source_profiles_finite": all_finite,
             "input_states_unchanged": all_unchanged,
             "native_zero_shift_scope_verified": True,
+            "manufactured_operator_probe_nontrivial": probe_passed,
             "production_steps_advanced": 0,
             "max_abs_independent_geometric_source_gap_over_kappa": max_geom,
             "max_abs_dark_matter_conditional_interaction_source_gap_over_kappa": max_q_gap,
