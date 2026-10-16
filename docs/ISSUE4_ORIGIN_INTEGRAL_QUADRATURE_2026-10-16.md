@@ -32,7 +32,8 @@ At \(N=160,240,320\), compare:
 
 1. Production-style point-sampled first half-cell \(I_0=r_0s(r_0)\), followed by centre-to-centre trapezoids.
 2. Analytic first half-cell \(I_0=\int_0^{r_0}s\,dr\), followed by the same centre-to-centre trapezoids.
-3. Exact cumulative polynomial integration at every centre.
+3. A parity-aware composite Simpson candidate: use the known regular value at the origin for the first half-cell, then integrate the even extension with Simpson 1/3 panels and a Simpson 3/8 end panel.
+4. Exact cumulative polynomial integration at every centre.
 
 The signed identities provide a priori controls, rather than a tolerance fitted to an observed curvature mismatch. For the point-sampled first cell,
 
@@ -46,7 +47,7 @@ Even after correcting the first half-cell, the first centre-to-centre trapezoid 
 B^{\rm half+trap}_1-B^{\rm exact}_1=\frac{s_2\Delta r^2}{9}.
 \]
 
-This second \(O(\Delta r^2)\) metric error is concentrated in the first few cell-index rows and can become a finite centre-curvature residual when a second-derivative stencil divides it by \(O(\Delta r^2)\). The diagnostic tests whether this predicted mechanism quantitatively reproduces the observed pattern and whether full analytic integration removes it.
+This second \(O(\Delta r^2)\) metric error is concentrated in the first few cell-index rows and can become a finite centre-curvature residual when a second-derivative stencil divides it by \(O(\Delta r^2)\). The diagnostic tests whether this predicted mechanism quantitatively reproduces the observed pattern, whether a practical parity-aware composite-Simpson candidate removes it, and whether full analytic integration removes it.
 
 For each arm, report the signed errors in B at cells 0–2; vendor BSSN and proper-radial \(R_{\rm TF}\) against the analytic zero; and the signed difference between the two curvature routes. Retain source/vendor pins, metric mapping checks, state digests, CSV/NPZ arrays, and SHA-256 manifest. No production step is advanced and no engine/vendor/dependency path or tolerance is changed.
 
