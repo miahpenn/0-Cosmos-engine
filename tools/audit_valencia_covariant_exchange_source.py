@@ -204,6 +204,10 @@ class AuditGrid:
         values = arr("AuditGrid D1 values", values)
         return np.gradient(values, self.dr, edge_order=2)
 
+    def cell_derivative_fourth(self, values, parity=1):
+        # Alias matching the pinned scalar RHS grid protocol.
+        return self.cell_first_derivative_fourth(values, parity=parity)
+
     def cell_second_derivative_fourth(self, values, parity=1):
         values = arr("AuditGrid D2 values", values)
         return np.gradient(np.gradient(values, self.dr, edge_order=2), self.dr, edge_order=2)
