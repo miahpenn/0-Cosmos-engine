@@ -59,12 +59,21 @@ from engine.scalar_system import KAPPA, ScalarFields, cosmos_potential  # noqa: 
 from engine.matter_system import Species, _metric_arrays, primitives  # noqa: E402
 from engine.stress_energy import assemble_total_stress_energy  # noqa: E402
 from engine.v55_matter import metric_slice_from_q  # noqa: E402
-from tools.audit_current_source_momentum_constraint_tangent import (  # noqa: E402
-    rhs_direction,
-    shifted_state,
-    state_digest,
-    assert_supported_baseline_source_scope,
+import importlib.util as importlib_util  # noqa: E402
+
+_HELPER_PATH = ROOT / "tools" / "audit_current_source_momentum_constraint_tangent.py"
+_HELPER_SPEC = importlib_util.spec_from_file_location(
+    "_issue4_pinned_current_source_tangent_helper", _HELPER_PATH
 )
+if _HELPER_SPEC is None or _HELPER_SPEC.loader is None:
+    raise ImportError(f"cannot load pinned tangent helper: {_HELPER_PATH}")
+_HELPER_MODULE = importlib_util.module_from_spec(_HELPER_SPEC)
+sys.modules[_HELPER_SPEC.name] = _HELPER_MODULE
+_HELPER_SPEC.loader.exec_module(_HELPER_MODULE)
+rhs_direction = _HELPER_MODULE.rhs_direction
+shifted_state = _HELPER_MODULE.shifted_state
+state_digest = _HELPER_MODULE.state_digest
+assert_supported_baseline_source_scope = _HELPER_MODULE.assert_supported_baseline_source_scope
 
 
 def git(root: Path, *args: str) -> str:
