@@ -476,6 +476,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     return {
         "schema": "issue4_independent_covariant_total_stress_energy_divergence_v1",
         "status": "completed_diagnostic_only",
+        "scientific_admission": False,
         "source_provenance": provenance,
         "configuration": {
             "resolutions": list(args.resolutions),
