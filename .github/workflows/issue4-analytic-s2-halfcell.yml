@@ -7,6 +7,8 @@ on:
     paths:
       - tools/audit_centre_ricci_fixed_s2.py
       - tests/test_centre_ricci_fixed_s2.py
+      - tools/audit_manufactured_regular_ricci_oracle.py
+      - tests/test_manufactured_regular_ricci_oracle.py
       - .github/workflows/issue4-analytic-s2-halfcell.yml
   push:
     branches:
@@ -14,6 +16,8 @@ on:
     paths:
       - tools/audit_centre_ricci_fixed_s2.py
       - tests/test_centre_ricci_fixed_s2.py
+      - tools/audit_manufactured_regular_ricci_oracle.py
+      - tests/test_manufactured_regular_ricci_oracle.py
       - .github/workflows/issue4-analytic-s2-halfcell.yml
 
 permissions:
@@ -61,16 +65,32 @@ jobs:
 
       - name: Compile diagnostic and regression tests
         run: |
-          python -m py_compile tools/audit_centre_ricci_fixed_s2.py tests/test_centre_ricci_fixed_s2.py
+          python -m py_compile tools/audit_centre_ricci_fixed_s2.py tests/test_centre_ricci_fixed_s2.py tools/audit_manufactured_regular_ricci_oracle.py tests/test_manufactured_regular_ricci_oracle.py
 
       - name: Run focused mathematical controls
-        run: python -m pytest -q tests/test_centre_ricci_fixed_s2.py
+        run: python -m pytest -q tests/test_centre_ricci_fixed_s2.py tests/test_manufactured_regular_ricci_oracle.py
 
       - name: Run full repository regression suite
         run: python -m pytest -q
 
       - name: Run source-pinned analytic-s2 copied-initializer discriminator
         run: python tools/audit_centre_ricci_fixed_s2.py
+
+      - name: Run manufactured regular-centre analytic Ricci oracle
+        run: python tools/audit_manufactured_regular_ricci_oracle.py
+
+      - name: Assert manufactured-centre oracle integrity (not scientific admission)
+        run: |
+          jq -e '
+            .status == "completed_diagnostic_only"
+            and .scientific_admission == false
+            and .checks.source_pins_verified == true
+            and .checks.all_profiles_finite == true
+            and .checks.all_input_states_unchanged == true
+            and .checks.all_metric_mapping_identities_within_1e-12 == true
+            and .checks.regular_even_closed_form_series_identity_within_2e-12 == true
+            and .checks.parity_breaking_negative_control_has_expected_r0_scaling == true
+          ' results/manufactured-regular-ricci-origin-2026-10-16/report.json
 
       - name: Assert all required diagnostic gates and preserve scientific non-admission
         run: |
@@ -93,6 +113,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: centre-ricci-analytic-s2-halfcell-${{ github.sha }}
-          path: results/centre-ricci-analytic-s2-halfcell-2026-10-16/
+          path: |
+            results/centre-ricci-analytic-s2-halfcell-2026-10-16/
+            results/manufactured-regular-ricci-origin-2026-10-16/
           if-no-files-found: warn
           retention-days: 90
