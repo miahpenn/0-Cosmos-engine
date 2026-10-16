@@ -272,7 +272,9 @@ def test_hll_and_total_t_witness_share_exact_epsilon_state_pair():
     )
     assert row["production_steps_advanced"] == 0
     assert row["base_state_unchanged"] is True
-    for coupling_witnesses in row["directional_epsilon_witnesses"].values():
+    all_reconstruction_contracts_passed = True
+    all_reconstruction_diagnostics = []
+    for coupling_name, coupling_witnesses in row["directional_epsilon_witnesses"].items():
         assert set(coupling_witnesses) == {"epsilon_2e-05", "epsilon_1e-05"}
         for witness in coupling_witnesses.values():
             paired = witness["same_state_total_T_directional_witness"]
@@ -326,7 +328,16 @@ def test_hll_and_total_t_witness_share_exact_epsilon_state_pair():
                     },
                 }
             print("SECTOR_RECON_DEBUG=", reconstruction_debug, flush=True)
-            assert decomposition["reconstruction"]["all_sectors_reconstruct_total"] is True, reconstruction_debug
+            reconstruction_contract = bool(
+                decomposition["reconstruction"]["all_sectors_reconstruct_total"]
+            )
+            all_reconstruction_contracts_passed &= reconstruction_contract
+            all_reconstruction_diagnostics.append({
+                "coupling_arm": coupling_name,
+                "epsilon": witness["epsilon"],
+                "reconstruction_contract": reconstruction_contract,
+                "channels": reconstruction_debug,
+            })
             for key in ("div_T_t", "div_T_r", "div_T_t_fv", "div_T_r_fv"):
                 values = np.asarray(paired["raw_signed_arrays"][key], dtype=np.float64)
                 assert values.shape == (24,)
@@ -335,11 +346,11 @@ def test_hll_and_total_t_witness_share_exact_epsilon_state_pair():
                 assert "cell_0" in summary and "cell_1" in summary
                 assert "annulus_2_to_10_rms" in summary
                 rec = decomposition["reconstruction"]["channels"][key]
-                assert rec["passed"] is True
-                assert rec["max_abs_gap"] <= rec["atol"] + rec["rtol"] * max(
+                all_reconstruction_contracts_passed &= bool(rec["passed"])
+                all_reconstruction_contracts_passed &= bool(rec["max_abs_gap"] <= rec["atol"] + rec["rtol"] * max(
                     np.max(np.abs(np.asarray(rec["sum_of_sectors"], dtype=np.float64))),
                     np.max(np.abs(values)),
-                )
+                ))
                 np.testing.assert_allclose(
                     np.asarray(rec["sum_of_sectors"], dtype=np.float64),
                     values, rtol=rec["rtol"], atol=rec["atol"],
@@ -356,4 +367,6 @@ def test_hll_and_total_t_witness_share_exact_epsilon_state_pair():
                     sector_summary = sector["summaries"][key]
                     assert "cell_0" in sector_summary and "cell_1" in sector_summary
                     assert "annulus_2_to_10_rms" in sector_summary
+    print("SECTOR_RECON_ALL_DEBUG=", all_reconstruction_diagnostics, flush=True)
+    assert all_reconstruction_contracts_passed, all_reconstruction_diagnostics
     assert row["matched_total_t_state_hashes_match"] is True
