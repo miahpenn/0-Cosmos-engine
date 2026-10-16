@@ -26,6 +26,7 @@ import sys
 import numpy as np
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
 SOURCE_ANCHOR = "7f47669a1c0edfafef9fc5f27b2db80840d3f035"
 VENDOR_ANCHOR = "d6052d605673ce9d82cdc99b0df79855fa2ea215"
 SOURCE_BLOBS = {
