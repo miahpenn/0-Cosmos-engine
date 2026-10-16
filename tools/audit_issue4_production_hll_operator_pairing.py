@@ -972,6 +972,7 @@ def run(resolutions: tuple[int, ...], r_max: float, epsilons: tuple[float, ...])
             "scalar_spatial_operator_budget_completed": False,
             "same_process_total_T_directional_witness_available": matched_total_t_witness_reported,
             "shared_initial_state_hash_verified": matched_total_t_state_hashes_match,
+            "same_state_epsilon_total_T_witness_available": same_state_epsilon_witness_reported,
             "full_cross_sector_total_T_reconciliation_completed": False,
             "interpretation_boundary": (
                 "Per-species HLL/source arrays and combined RHS budgets are "
@@ -1007,6 +1008,7 @@ def run(resolutions: tuple[int, ...], r_max: float, epsilons: tuple[float, ...])
             "matched_total_t_witness_reported": matched_total_t_witness_reported,
             "matched_total_t_state_hashes_match": matched_total_t_state_hashes_match,
             "matched_total_t_profiles_finite": matched_total_t_profiles_finite,
+            "same_state_epsilon_witness_reported": same_state_epsilon_witness_reported,
             "scalar_sector_kept_separate": True,
             "unsupported_optional_lanes_fail_closed": True,
             "optional_charged_dust_em_supported": False,
