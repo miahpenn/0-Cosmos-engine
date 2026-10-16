@@ -71,28 +71,28 @@ jobs:
         id: audit
         continue-on-error: true
         run: |
-          mkdir -p results/cmc-lapse-centre-sensitivity
+          mkdir -p artifacts/cmc-lapse-centre-sensitivity
           python tools/audit_cmc_lapse_centre_sensitivity.py \
             --resolutions 60 80 120 160 \
             --r-max 80 \
             --epsilons 0.00002 0.00001 \
             --flat-radius 2.0 \
             --taper-radius 5.0 \
-            --output results/cmc-lapse-centre-sensitivity/report.json
+            --output artifacts/cmc-lapse-centre-sensitivity/report.json
 
       - name: Hash retained diagnostic outputs
         if: always()
         shell: bash
         run: |
           set -euo pipefail
-          find results -type f ! -name SHA256SUMS.txt -print0 | sort -z | xargs -0 -r sha256sum > results/SHA256SUMS.txt
+          find artifacts/cmc-lapse-centre-sensitivity -type f ! -name SHA256SUMS.txt -print0 | sort -z | xargs -0 -r sha256sum > artifacts/cmc-lapse-centre-sensitivity/SHA256SUMS.txt
 
       - name: Upload lapse series, signed budgets, and provenance
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: cmc-lapse-centre-sensitivity
-          path: results/
+          path: artifacts/cmc-lapse-centre-sensitivity/
           if-no-files-found: warn
           retention-days: 90
 
@@ -107,7 +107,7 @@ jobs:
           python - <<'PY'
           import json
           from pathlib import Path
-          path = Path("results/cmc-lapse-centre-sensitivity/report.json")
+          path = Path("artifacts/cmc-lapse-centre-sensitivity/report.json")
           report = json.loads(path.read_text(encoding="utf-8"))
           assert report.get("status") == "completed_diagnostic_only", report.get("status")
           assert report.get("closures", {}).get("production_CMC_alpha_RHS_tangent") is True
