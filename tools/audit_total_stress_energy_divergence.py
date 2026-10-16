@@ -535,8 +535,7 @@ def main() -> int:
         }
         code = 1
     args.output.write_text(
-        json.dumps(report, indent=2, sort_keys=True, allow_nan=False) + "
-",
+        json.dumps(report, indent=2, sort_keys=True, allow_nan=False) + "\\n",
         encoding="utf-8",
     )
     print(json.dumps({
