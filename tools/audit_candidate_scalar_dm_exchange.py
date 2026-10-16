@@ -273,9 +273,7 @@ def main() -> int:
             ),
         },
         "gate_result": {
-            "all_four_source_channels_close": all(v["closure_passed"] for v in (
-                report_check for report_check in []
-            )),
+            "all_four_source_channels_close": False,
             "scalar_fluid_local_energy_exchange_closes": bool(float(np.max(np.abs(total_energy_rate))) <= TOL),
             "scalar_fluid_local_radial_current_exchange_closes": bool(float(np.max(np.abs(total_momentum_rate))) <= TOL),
             "finite_volume_telescope_closes": all(
