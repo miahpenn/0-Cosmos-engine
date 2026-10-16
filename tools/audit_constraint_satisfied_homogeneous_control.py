@@ -255,6 +255,26 @@ def run_resolution(
                 "epsilon": item["epsilon"],
                 "Mdot_max_abs": max_abs(item["Mdot"]),
                 "Mdot_cells_0_3": [float(x) for x in np.asarray(item["Mdot"])[:4]],
+                "Mdot_geometric_total_cells_0_3": [
+                    float(x) for x in np.asarray(item["Mdot_geom"])[:4]
+                ],
+                "Mdot_reconstructed_cells_0_3": [
+                    float(x) for x in np.asarray(item["Mdot_reconstructed"])[:4]
+                ],
+                "Mdot_geometry_term_contributions": {
+                    name: {
+                        "cells_0_3": [float(x) for x in np.asarray(values)[:4]],
+                        "fixed_radius_samples": fixed_radius_samples(values, r),
+                    }
+                    for name, values in item["Mdot_geom_terms"].items()
+                },
+                "Mdot_current_sector_contributions": {
+                    name: {
+                        "cells_0_3": [float(x) for x in np.asarray(values)[:4]],
+                        "fixed_radius_samples": fixed_radius_samples(values, r),
+                    }
+                    for name, values in item["Mdot_sector"].items()
+                },
                 "Mdot_fixed_radius_samples": fixed_radius_samples(item["Mdot"], r),
                 "Mdot_regional_summaries": regional_summaries(item["Mdot"], r),
                 "arithmetic_closure": {
