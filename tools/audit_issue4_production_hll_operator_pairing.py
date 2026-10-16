@@ -636,9 +636,10 @@ def run_resolution(n: int, r_max: float, epsilons: tuple[float, ...]) -> dict[st
                 # these exact perturbed objects, not independently reconstructed
                 # copies. That makes the species and total-T arrays a true paired
                 # observation at this base state, coupling, and epsilon.
-                total_t = AUDIT.divergence_tangent_from_states(
+                paired_total_t = AUDIT.sector_resolved_divergence_tangent_from_states(
                     state, plus, minus, float(epsilon)
                 )
+                total_t = paired_total_t["total"]
                 same_state_pair_verified = bool(
                     AUDIT.state_digest(state) == original_hash
                     and AUDIT.state_digest(plus) == plus_state_sha256
@@ -678,6 +679,7 @@ def run_resolution(n: int, r_max: float, epsilons: tuple[float, ...]) -> dict[st
                     "projection_crosscheck_passed": bool(
                         total_t["projection_crosscheck_passed"]
                     ),
+                    "sector_decomposition": paired_total_t["sector_decomposition"],
                 }
                 if not same_state_total_t["projection_crosscheck_passed"]:
                     raise RuntimeError("paired total-T projection cross-check failed")
@@ -951,6 +953,53 @@ def run(resolutions: tuple[int, ...], r_max: float, epsilons: tuple[float, ...])
         raise RuntimeError(
             "base-state total-T audit or exact plus/minus state-pair witness gate failed"
         )
+    expected_sector_names = ["dark_matter", "baryons", "radiation", "S", "D", "phi"]
+    sector_resolved_divergence_reported = all(
+        witness.get("same_state_total_T_directional_witness", {}).get(
+            "sector_decomposition", {}
+        ).get("sector_names") == expected_sector_names
+        and set(witness["same_state_total_T_directional_witness"][
+            "sector_decomposition"
+        ].get("sectors", {})) == set(expected_sector_names)
+        and witness["same_state_total_T_directional_witness"][
+            "sector_decomposition"
+        ].get("state_pairing", {}).get("all_sector_arrays_finite") is True
+        and all(
+            set(sector.get("raw_signed_arrays", {})) == {
+                "div_T_t", "div_T_r", "div_T_t_fv", "div_T_r_fv"
+            }
+            and all(
+                len(values) == row["resolution"]
+                and np.all(np.isfinite(np.asarray(values, dtype=np.float64)))
+                for values in sector["raw_signed_arrays"].values()
+            )
+            and all(
+                "cell_0" in summary and "cell_1" in summary
+                and "annulus_2_to_10_rms" in summary
+                for summary in sector.get("summaries", {}).values()
+            )
+            for sector in witness["same_state_total_T_directional_witness"][
+                "sector_decomposition"
+            ]["sectors"].values()
+        )
+        for row in rows
+        for epsilon_arms in row["directional_epsilon_witnesses"].values()
+        for witness in epsilon_arms.values()
+    )
+    sector_additive_reconstruction_passed = all(
+        witness.get("same_state_total_T_directional_witness", {}).get(
+            "sector_decomposition", {}
+        ).get("reconstruction", {}).get("all_sectors_reconstruct_total") is True
+        and all(
+            channel.get("passed") is True
+            for channel in witness["same_state_total_T_directional_witness"][
+                "sector_decomposition"
+            ]["reconstruction"]["channels"].values()
+        )
+        for row in rows
+        for epsilon_arms in row["directional_epsilon_witnesses"].values()
+        for witness in epsilon_arms.values()
+    )
     max_geom = max(
         arm["max_abs_geometric_source_gap_over_kappa"]
         for row in rows for arm in row["arms"].values()
@@ -973,6 +1022,8 @@ def run(resolutions: tuple[int, ...], r_max: float, epsilons: tuple[float, ...])
             "same_process_total_T_directional_witness_available": matched_total_t_witness_reported,
             "shared_initial_state_hash_verified": matched_total_t_state_hashes_match,
             "same_state_epsilon_total_T_witness_available": same_state_epsilon_witness_reported,
+            "sector_resolved_total_T_decomposition_available": sector_resolved_divergence_reported,
+            "sector_additive_reconstruction_passed": sector_additive_reconstruction_passed,
             "full_cross_sector_total_T_reconciliation_completed": False,
             "interpretation_boundary": (
                 "Per-species HLL/source arrays and combined RHS budgets are "
@@ -1009,6 +1060,8 @@ def run(resolutions: tuple[int, ...], r_max: float, epsilons: tuple[float, ...])
             "matched_total_t_state_hashes_match": matched_total_t_state_hashes_match,
             "matched_total_t_profiles_finite": matched_total_t_profiles_finite,
             "same_state_epsilon_witness_reported": same_state_epsilon_witness_reported,
+            "sector_resolved_divergence_reported": sector_resolved_divergence_reported,
+            "sector_additive_reconstruction_passed": sector_additive_reconstruction_passed,
             "scalar_sector_kept_separate": True,
             "unsupported_optional_lanes_fail_closed": True,
             "optional_charged_dust_em_supported": False,
@@ -1026,12 +1079,12 @@ def run(resolutions: tuple[int, ...], r_max: float, epsilons: tuple[float, ...])
             "geometric_source": "Compare the pinned production momentum geometric source with an independently computed 1/2 sqrt(-g) T^{ab} partial_r g_ab contraction.",
             "hll_flux": "Record actual pinned per-species HLL face fluxes and compare them with face reconstruction of cell-projected radial stress. Differences characterize the operator pair; no exact face equality is presumed for the dissipative HLL scheme.",
             "interaction_source": "Compare actual pinned dark-matter q_s with sqrt(-g) Q_r only under the explicitly conditional covector premise. Preserve any mismatch; do not change production source terms in this diagnostic.",
-            "cross_sector_interpretation": "Per-species HLL/source budgets and the existing total-T directional/control audit are recorded against the same in-memory frozen base state and matching epsilon values, with an asserted shared state digest. This makes their provenance and directional records pairable. S/D/phi stress projections remain separate; their scalar RHS is not independently assembled here into a complete covariant stress-divergence/source budget, so full cross-sector reconciliation and total-T closure remain incomplete.",
+            "cross_sector_interpretation": "The total-T directional witness is now decomposed additively into separate dark-matter, baryon, radiation, S, D and phi stress contributions using the exact same base/+epsilon/-epsilon states as the HLL/source observer. A declared floating-point reconstruction check is applied to pointwise and FV div_T_t/div_T_r. This verifies projection/operator additivity only; the separate scalar evolution RHS/source terms are not yet reconciled against their complete sector equations, so full cross-sector closure remains incomplete.",
             "optional_em_scope": "Optional charged-dust and radial-Maxwell states are rejected before projection/capture because the Lorentz source and EM stress projection are outside the current witness.",
             "limits": [
                 "This is a frozen-state RHS-component readout; no finite production timestep is advanced.",
                 "The scalar-field spatial operator remains separate from the fluid HLL operator; scalar spatial/source decomposition remains incomplete.",
-                "The paired total-T witness shares the same base-state digest but does not by itself close total stress-energy divergence or accept the physical exchange law.",
+                "Sector-resolved total-T arrays reconstruct the paired total witness only as an accounting identity; this does not by itself reconcile each scalar evolution RHS/source with its sector stress tensor, close total stress-energy divergence, or accept the physical exchange law.",
             ],
         },
         "resolution_results": rows,

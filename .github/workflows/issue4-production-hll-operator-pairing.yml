@@ -109,6 +109,10 @@ jobs:
             and .gate_result.same_state_epsilon_witness_reported == true
             and .scope.same_process_total_T_directional_witness_available == true
             and .scope.same_state_epsilon_total_T_witness_available == true
+            and .scope.sector_resolved_total_T_decomposition_available == true
+            and .scope.sector_additive_reconstruction_passed == true
+            and .gate_result.sector_resolved_divergence_reported == true
+            and .gate_result.sector_additive_reconstruction_passed == true
             and .scope.shared_initial_state_hash_verified == true
             and .gate_result.scalar_sector_kept_separate == true
             and .scope.optional_charged_dust_supported == false

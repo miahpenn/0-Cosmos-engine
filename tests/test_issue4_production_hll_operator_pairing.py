@@ -282,14 +282,38 @@ def test_hll_and_total_t_witness_share_exact_epsilon_state_pair():
             assert paired["minus_state_sha256"] == witness["minus_state_sha256"]
             assert paired["epsilon"] == witness["epsilon"]
             assert paired["projection_crosscheck_passed"] is True
+            decomposition = paired["sector_decomposition"]
+            expected_sectors = {"dark_matter", "baryons", "radiation", "S", "D", "phi"}
+            assert set(decomposition["sectors"]) == expected_sectors
+            assert decomposition["state_pairing"]["all_sector_arrays_finite"] is True
+            assert decomposition["reconstruction"]["all_sectors_reconstruct_total"] is True
             for key in ("div_T_t", "div_T_r", "div_T_t_fv", "div_T_r_fv"):
                 values = np.asarray(paired["raw_signed_arrays"][key], dtype=np.float64)
                 assert values.shape == (24,)
                 assert np.all(np.isfinite(values))
-            for key in ("div_T_t_summary", "div_T_r_summary",
-                        "div_T_t_fv_summary", "div_T_r_fv_summary"):
-                summary = paired[key]
-                assert "cell_0" in summary
-                assert "cell_1" in summary
+                summary = paired[f"{key}_summary"]
+                assert "cell_0" in summary and "cell_1" in summary
                 assert "annulus_2_to_10_rms" in summary
+                rec = decomposition["reconstruction"]["channels"][key]
+                assert rec["passed"] is True
+                assert rec["max_abs_gap"] <= rec["atol"] + rec["rtol"] * max(
+                    np.max(np.abs(np.asarray(rec["sum_of_sectors"], dtype=np.float64))),
+                    np.max(np.abs(values)),
+                )
+                np.testing.assert_allclose(
+                    np.asarray(rec["sum_of_sectors"], dtype=np.float64),
+                    values, rtol=rec["rtol"], atol=rec["atol"],
+                )
+                np.testing.assert_allclose(
+                    np.asarray(rec["sum_minus_total"], dtype=np.float64),
+                    np.asarray(rec["sum_of_sectors"], dtype=np.float64) - values,
+                    rtol=0.0, atol=5.0e-25,
+                )
+                for sector in decomposition["sectors"].values():
+                    sector_values = np.asarray(sector["raw_signed_arrays"][key], dtype=np.float64)
+                    assert sector_values.shape == (24,)
+                    assert np.all(np.isfinite(sector_values))
+                    sector_summary = sector["summaries"][key]
+                    assert "cell_0" in sector_summary and "cell_1" in sector_summary
+                    assert "annulus_2_to_10_rms" in sector_summary
     assert row["matched_total_t_state_hashes_match"] is True
