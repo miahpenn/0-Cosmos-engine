@@ -340,3 +340,78 @@ def test_scalar_sector_time_density_budget_splits_rhs_and_geometry_terms_without
     )
     np.testing.assert_allclose(observed, expected, rtol=5.0e-12, atol=5.0e-18)
     assert AUDIT.state_digest(state) == before
+
+
+def test_scalar_sector_divergence_operator_components_reconstruct_existing_observers():
+    """Split existing scalar divergence values without changing the operator result."""
+    kernel = AUDIT.V55ProductionKernel()
+    state = kernel.initialize(resolution=40, r_max=24.0, include_radiation=True)
+    before = AUDIT.state_digest(state)
+    old_beta = AUDIT.production_kernel_module.BETA_DM
+    try:
+        AUDIT.production_kernel_module.BETA_DM = -0.04
+        rates = AUDIT.rhs_direction(kernel, state)
+    finally:
+        AUDIT.production_kernel_module.BETA_DM = old_beta
+
+    epsilon = 2.0e-5
+    plus_state = AUDIT.shifted_state(kernel, state, rates, +epsilon)
+    minus_state = AUDIT.shifted_state(kernel, state, rates, -epsilon)
+    paired = AUDIT.sector_resolved_divergence_tangent_from_states(
+        state, plus_state, minus_state, epsilon
+    )
+    sectors = paired["sector_decomposition"]["sectors"]
+    assert set(sectors) >= {"S", "D", "phi"}
+
+    for name in ("S", "D", "phi"):
+        sector = sectors[name]
+        ledger = sector["operator_component_decomposition"]
+        assert ledger["reported"] is True
+        assert ledger["all_profiles_finite"] is True
+        assert ledger["component_reconstruction_passed"] is True
+        assert "no full conservation" in ledger["interpretation"]
+        for observer_name, total_suffix in (
+            ("pointwise", ""),
+            ("finite_volume", "_fv"),
+        ):
+            observer = ledger[observer_name]
+            assert observer["reported"] is True
+            assert observer["all_profiles_finite"] is True
+            terms = observer["raw_signed_arrays"]
+            for component_name in (
+                "time_density_div_T_t",
+                "radial_flux_div_T_t",
+                "metric_source_div_T_t_gtt",
+                "metric_source_div_T_t_gamma_rr",
+                "metric_source_div_T_t_gamma_theta_theta",
+                "component_sum_div_T_t",
+                "component_sum_gap_div_T_t",
+                "time_density_div_T_r",
+                "radial_flux_div_T_r",
+                "metric_source_div_T_r_gtt",
+                "metric_source_div_T_r_gamma_rr",
+                "metric_source_div_T_r_gamma_theta_theta",
+                "component_sum_div_T_r",
+                "component_sum_gap_div_T_r",
+            ):
+                values = np.asarray(terms[component_name], dtype=np.float64)
+                assert values.shape == state.grid.centers.shape
+                assert np.all(np.isfinite(values))
+            for channel in ("div_T_t", "div_T_r"):
+                expected = np.asarray(
+                    sector["raw_signed_arrays"][channel + total_suffix],
+                    dtype=np.float64,
+                )
+                reconstructed = np.asarray(
+                    terms[f"component_sum_{channel}"], dtype=np.float64
+                )
+                gap = np.asarray(
+                    terms[f"component_sum_gap_{channel}"], dtype=np.float64
+                )
+                np.testing.assert_allclose(
+                    reconstructed, expected, rtol=5.0e-12, atol=5.0e-18
+                )
+                np.testing.assert_allclose(
+                    gap, 0.0, rtol=5.0e-12, atol=5.0e-18
+                )
+    assert AUDIT.state_digest(state) == before
