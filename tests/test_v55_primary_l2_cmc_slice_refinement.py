@@ -40,15 +40,38 @@ def test_primary_l2_aa_residual_refines_on_initialized_cmc_slices(capsys):
         native = native_primary_l2_rhs(native_grid, geometry)
         pinned = vacuum.primary_l2_rhs(accepted.grid, geometry)
         areal = np.asarray(native_geometry["areal_radius"], dtype=float)
-        mask = (areal >= 2.0) & (areal <= 6.0)
+        region_masks = {
+            "centre_R_areal_lt_2": areal < 2.0,
+            "fixed_annulus_2_le_R_areal_le_6": (areal >= 2.0) & (areal <= 6.0),
+            "outer_R_areal_gt_6": areal > 6.0,
+        }
+        mask = region_masks["fixed_annulus_2_le_R_areal_le_6"]
         assert int(np.count_nonzero(mask)) >= 8, f"N={n}: insufficient annulus cells"
 
-        aa_delta = np.asarray(native["Aa"]) - np.asarray(pinned["Aa"])
-        k_delta = np.asarray(native["K"]) - np.asarray(pinned["K"])
+        # Form full signed residual profiles first; region reductions below are
+        # descriptive for centre and outer cells, not additional pass/fail limits.
+        aa_delta = np.asarray(native["Aa"], dtype=float) - np.asarray(pinned["Aa"], dtype=float)
+        k_delta = np.asarray(native["K"], dtype=float) - np.asarray(pinned["K"], dtype=float)
         assert np.all(np.isfinite(aa_delta)), f"N={n}: non-finite Aa difference"
         assert np.all(np.isfinite(k_delta)), f"N={n}: non-finite K difference"
-        aa_rms = float(np.sqrt(np.mean(aa_delta[mask] ** 2)))
-        k_rms = float(np.sqrt(np.mean(k_delta[mask] ** 2)))
+        region_summaries = {}
+        for region, region_mask in region_masks.items():
+            cells = int(np.count_nonzero(region_mask))
+            if cells == 0:
+                raise AssertionError(f"N={n}: empty diagnostic region {region}")
+            aa_region = aa_delta[region_mask]
+            k_region = k_delta[region_mask]
+            region_summaries[region] = {
+                "cells": cells,
+                "r_areal_min": float(np.min(areal[region_mask])),
+                "r_areal_max": float(np.max(areal[region_mask])),
+                "aa_rms_native_minus_pinned": float(np.sqrt(np.mean(aa_region**2))),
+                "aa_max_abs_native_minus_pinned": float(np.max(np.abs(aa_region))),
+                "k_rms_native_minus_pinned": float(np.sqrt(np.mean(k_region**2))),
+                "k_max_abs_native_minus_pinned": float(np.max(np.abs(k_region))),
+            }
+        aa_rms = region_summaries["fixed_annulus_2_le_R_areal_le_6"]["aa_rms_native_minus_pinned"]
+        k_rms = region_summaries["fixed_annulus_2_le_R_areal_le_6"]["k_rms_native_minus_pinned"]
         aa_errors.append(aa_rms)
         k_errors.append(k_rms)
         records.append({
@@ -58,6 +81,7 @@ def test_primary_l2_aa_residual_refines_on_initialized_cmc_slices(capsys):
             "aa_rms_native_minus_pinned": aa_rms,
             "aa_max_abs_native_minus_pinned": float(np.max(np.abs(aa_delta[mask]))),
             "k_rms_native_minus_pinned": k_rms,
+            "regional_residuals": region_summaries,
         })
         for name, values in before.items():
             np.testing.assert_array_equal(getattr(geometry, name), values)
@@ -76,8 +100,8 @@ def test_primary_l2_aa_residual_refines_on_initialized_cmc_slices(capsys):
             "NATIVE_V55_PRIMARY_L2_CMC_REFINEMENT "
             + json.dumps(
                 {
-                    "schema": "v55-primary-l2-cmc-refinement/v1",
-                    "scope": "fixed-physical-areal-annulus; diagnostic RHS only",
+                    "schema": "v55-primary-l2-cmc-refinement/v2",
+                    "scope": "fixed-physical-areal-regions; diagnostic RHS only",
                     "records": records,
                     "aa_monotonic_refinement": True,
                     "k_roundoff_contract": True,
