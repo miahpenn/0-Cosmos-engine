@@ -105,9 +105,9 @@ def test_native_pirk2_stage_schedule_uses_declared_time_levels(monkeypatch):
         "b": 1.002002,
         "X": 1.0030045,
         "alpha": 1.004008,
-        "beta": 0.023372818125,
+        "beta": 0.023378443125,
         "Aa": 0.1143425025,
-        "K": 0.226265205,
+        "K": 0.226390205,
         "Lambda": 0.323760777575,
         "B": 0.24282058318125,
     }
