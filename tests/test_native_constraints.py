@@ -159,3 +159,39 @@ def test_native_constraints_reject_overflow_from_extreme_but_finite_inputs():
             ValueError, match="H constraint witness produced non-finite values"
         ):
             native_bssn_constraints(grid, state)
+
+
+def test_momentum_constraint_matches_regular_flat_chart_profile_and_rejects_omitted_curvature_term():
+    """Check the regular-profile momentum identity on a flat spherical chart.
+
+    With a=b=X=1, R_areal=r and Ab=-Aa/2, the diagnostic definition reduces
+    to M_geometry = dAa/dr - 2/3 dK/dr + 3 Aa/r. For Aa=c*r**2 and
+    K=K0+k*r**2, this is the analytic odd profile (5*c - 4*k/3)*r.
+    This is an operator contract for the native diagnostic, not a production
+    tangent or a claim about matter-source mapping.
+    """
+    grid = NativeSphericalCellGrid(80, 8.0)
+    r = grid.centers
+    c = 0.025
+    K0 = 0.04
+    k = 0.003
+    state = _flat_state(grid, Aa=c * r**2, K=K0 + k * r**2)
+
+    result = native_bssn_constraints(grid, state)
+    mask = (r >= 1.0) & (r <= 6.0)
+    expected = (5.0 * c - (4.0 / 3.0) * k) * r
+    np.testing.assert_allclose(
+        result["M_geometry"][mask], expected[mask], rtol=1.0e-12, atol=1.0e-12
+    )
+    np.testing.assert_allclose(
+        result["M"][mask], expected[mask], rtol=1.0e-12, atol=1.0e-12
+    )
+
+    # Negative control: omitting 2(Aa-Ab) R'/R drops 3*c*r from the
+    # expected result. The profile gap is intentionally well above roundoff.
+    omitted_curvature_term = (2.0 * c - (4.0 / 3.0) * k) * r
+    assert np.min(np.abs(expected[mask] - omitted_curvature_term[mask])) > 0.07
+    assert np.min(
+        np.abs(result["M_geometry"][mask] - omitted_curvature_term[mask])
+    ) > 0.07
+
