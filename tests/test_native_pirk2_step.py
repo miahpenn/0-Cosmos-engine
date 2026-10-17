@@ -77,6 +77,15 @@ def test_native_pirk2_step_is_read_only_and_rejects_invalid_step_contracts():
     before = {name: getattr(state, name).copy() for name in _FIELDS}
 
     result = native_pirk2_step(grid, state, 1.0e-3, lambda_m=1.7)
+
+    # Enforce the source-backed undamped B law over the complete PIRK2 step,
+    # independently of the pinned vendor comparator below.
+    np.testing.assert_allclose(
+        result.B,
+        state.B + 0.75 * (result.Lambda - state.Lambda),
+        rtol=2.0e-14,
+        atol=2.0e-14,
+    )
     for name in _FIELDS:
         np.testing.assert_array_equal(getattr(state, name), before[name])
         assert np.all(np.isfinite(getattr(result, name))), name
