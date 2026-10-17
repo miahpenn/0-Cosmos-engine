@@ -334,3 +334,43 @@ def native_explicit_rhs(grid, state) -> dict[str, np.ndarray]:
             raise ValueError(f"{name} RHS produced non-finite values")
     return result
 
+
+
+def native_gauge_b_rhs(grid, lambda_rhs: np.ndarray) -> np.ndarray:
+    """Return the undamped spherical Gamma-driver RHS for auxiliary B.
+
+    For the gauge variant used with beta_t = B, the independently published
+    spherical convention is B_t = (3/4) * Lambda_t. ``lambda_rhs`` is the
+    already-evaluated Lambda time derivative at the matching stage/time level.
+    Keeping it as an explicit input avoids re-evaluating or implicitly
+    composing the separate Lambda-L2/L3 blocks.
+
+    This is the undamped variant (Montero & Cordero-Carrion, arXiv:1204.5377,
+    Eqs. (2.21)-(2.22)). A damping term such as -eta*B is intentionally not
+    included; a damped convention must be traced and declared separately.
+    """
+    centers = np.asarray(grid.centers, dtype=float)
+    if (
+        centers.ndim != 1
+        or centers.size < 1
+        or not np.all(np.isfinite(centers))
+        or np.any(centers <= 0.0)
+    ):
+        raise ValueError("grid centres must be a finite positive 1-D profile")
+
+    raw = np.asarray(lambda_rhs)
+    if raw.shape != centers.shape:
+        raise ValueError(f"lambda_rhs must have shape {centers.shape}")
+    if raw.dtype.kind not in "iuf":
+        raise ValueError("lambda_rhs must be real numeric data")
+    values = np.asarray(raw, dtype=float)
+    if not np.all(np.isfinite(values)):
+        raise ValueError("lambda_rhs must be finite")
+
+    with np.errstate(over="ignore", invalid="ignore"):
+        result = np.asarray(0.75 * values, dtype=float)
+    if result.shape != centers.shape:
+        raise ValueError(f"B RHS must have shape {centers.shape}")
+    if not np.all(np.isfinite(result)):
+        raise ValueError("B RHS produced non-finite values")
+    return result
