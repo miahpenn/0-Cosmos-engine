@@ -1,4 +1,4 @@
-"""Stage-order and pinned-comparator tests for the isolated native PIRK2 candidate."""
+"""Stage-order tests for the undamped, source-backed native PIRK2 candidate."""
 
 from types import SimpleNamespace
 
@@ -61,7 +61,7 @@ def _vendor_state(vacuum, state):
 def test_flat_zero_state_is_fixed_by_native_pirk2_step():
     grid = NativeSphericalCellGrid(64, 12.0)
     state = _state(grid)
-    result = native_pirk2_step(grid, state, 1.0e-3, eta=0.15)
+    result = native_pirk2_step(grid, state, 1.0e-3)
 
     for name in _FIELDS:
         np.testing.assert_allclose(
@@ -76,7 +76,7 @@ def test_native_pirk2_step_is_read_only_and_rejects_invalid_step_contracts():
     state = _state(grid, curved=True)
     before = {name: getattr(state, name).copy() for name in _FIELDS}
 
-    result = native_pirk2_step(grid, state, 1.0e-3, eta=0.2, lambda_m=1.7)
+    result = native_pirk2_step(grid, state, 1.0e-3, lambda_m=1.7)
     for name in _FIELDS:
         np.testing.assert_array_equal(getattr(state, name), before[name])
         assert np.all(np.isfinite(getattr(result, name))), name
@@ -85,8 +85,6 @@ def test_native_pirk2_step_is_read_only_and_rejects_invalid_step_contracts():
         native_pirk2_step(grid, state, 0.0)
     with pytest.raises(ValueError, match="dt must be finite"):
         native_pirk2_step(grid, state, np.nan)
-    with pytest.raises(ValueError, match="eta must be nonnegative"):
-        native_pirk2_step(grid, state, 1.0e-3, eta=-0.1)
 
 
 def test_native_pirk2_step_matches_pinned_stage_order_on_fixed_areal_annulus():
@@ -98,11 +96,11 @@ def test_native_pirk2_step_matches_pinned_stage_order_on_fixed_areal_annulus():
         vendor_grid = operators.SphericalCellGrid(n, 12.0)
         state = _state(grid, curved=True)
         vendor_state = _vendor_state(vacuum, state)
-        eta = 0.12
         dt = 1.0e-3
-        native = native_pirk2_step(grid, state, dt, eta=eta, lambda_m=2.0)
+        # Only the source-backed undamped Gamma-driver convention is in scope.
+        native = native_pirk2_step(grid, state, dt, lambda_m=2.0)
         reference = moving.damped_moving_puncture_pirk2_step(
-            vendor_grid, vendor_state, dt, eta=eta, ko_epsilon=0.0, lambda_m=2.0
+            vendor_grid, vendor_state, dt, eta=0.0, ko_epsilon=0.0, lambda_m=2.0
         )
         areal = native_bssn_geometry_terms(grid, state)["areal_radius"]
         mask = (areal >= 2.0) & (areal <= 6.0)
