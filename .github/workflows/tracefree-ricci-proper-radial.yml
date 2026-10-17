@@ -99,14 +99,20 @@ jobs:
           test "$(git rev-parse "HEAD:vendor/bb-palatini-unified-r0")" = "$VENDOR_COMMIT"
           changed="$(git diff --name-only "$SOURCE_COMMIT" HEAD -- engine vendor .gitmodules requirements.txt)"
           unexpected=""
-          while IFS= read -r path; do
-            [ -z "$path" ] && continue
-            case "$path" in
-              engine/native_geometry/__init__.py|engine/native_geometry/geometry.py|engine/native_geometry/operators.py)
-                printf 'Allowing isolated native-core candidate path; exact-head implementation tests still apply: %s\n' "$path"
-                ;;
-              *)
-                unexpected="${unexpected}${path}"
+          allowed=""
+          if [ -n "$changed" ]; then
+            unexpected="$(printf '%s\n' "$changed" | grep -Ev '^(engine/native_geometry/__init__\.py|engine/native_geometry/geometry\.py|engine/native_geometry/operators\.py)$' || true)"
+            allowed="$(printf '%s\n' "$changed" | grep -E '^(engine/native_geometry/__init__\.py|engine/native_geometry/geometry\.py|engine/native_geometry/operators\.py)$' || true)"
+          fi
+          if [ -n "$unexpected" ]; then
+            printf 'Unexpected production/vendor/dependency changes:\n%s\n' "$unexpected"
+            exit 1
+          fi
+          if [ -n "$allowed" ]; then
+            printf 'Allowing isolated native-core candidate paths; exact-head implementation tests still apply:\n%s\n' "$allowed"
+          fi
+          printf 'SOURCE_COMMIT=%s\nVENDOR_COMMIT=%s\n' "$SOURCE_COMMIT" "$VENDOR_COMMIT"
+
       - name: Run full repository regression suite
         if: steps.scope.outputs.run_diagnostic == 'true'
         run: python -m pytest -q
