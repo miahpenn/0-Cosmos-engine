@@ -21,7 +21,7 @@ on:
       - engine/stress_energy.py
       - engine/valencia.py
       - engine/worldtube.py
-      - engine/native_geometry/**
+      # Native geometry has separate direct tests; this audit pins an immutable production observer.
       - vendor/**
       - .gitmodules
       - requirements.txt
