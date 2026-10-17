@@ -11,25 +11,23 @@ POLICY_PATH = ROOT / "docs" / "QUALIFIED_AUTO_MERGE.md"
 LEDGER_WORKFLOW_PATH = ROOT / ".github" / "workflows" / "em_total_energy_budget.yml"
 
 
-def test_no_review_fast_path_is_readme_and_docs_only():
+def test_provenance_first_fast_path_keeps_workflow_policy_review_gated():
     source = WORKFLOW_PATH.read_text(encoding="utf-8")
-    start = source.index("const isDocumentationPath = (path) =>")
+    start = source.index("const requiresTrustedApproval = (paths) =>")
     end = source.index("\n\n            async function changedFiles", start)
     classifier = source[start:end]
 
-    assert 'path === "README.md"' in classifier
-    assert 'path.startsWith("docs/")' in classifier
-    assert "research/" not in classifier
-    assert "tests/" not in classifier
-    assert "tools/" not in classifier
-    assert ".github/workflows/" not in classifier
-    assert "engine/" not in classifier
-    assert "vendor/" not in classifier
-    assert "const isDiagnosticPath" not in source
-    assert "const documentationOnly = files.every(isDocumentationPath);" in source
+    assert 'paths.some(path => path.startsWith(".github/workflows/"))' in classifier
+    assert "const approvalRequired = requiresTrustedApproval(files);" in source
+    assert "if (approvalRequired)" in source
+    assert "if (!hasTrustedApproval)" in source
+    assert "if (!finalApproval)" in source
+    assert "const documentationOnly = files.every(isDocumentationPath);" not in source
+    assert "if (!documentationOnly && !hasIndependentApproval)" not in source
+    assert "if (!documentationOnly && !finalApproval)" not in source
 
 
-def test_non_documentation_requires_trusted_human_review_for_approval_and_veto():
+def test_trusted_current_head_veto_and_workflow_change_approval_gates_remain():
     source = WORKFLOW_PATH.read_text(encoding="utf-8")
     assert "r.commit_id === headSha" in source
     assert 'userType: r.user.type || "unknown"' in source
@@ -39,13 +37,15 @@ def test_non_documentation_requires_trusted_human_review_for_approval_and_veto()
     assert "async function hasTrustedIndependentReview(reviewerState, authorLogin, requiredState)" in source
     assert "review.state !== requiredState" in source
     assert 'reviewerState, pr.user?.login, "CHANGES_REQUESTED"' in source
-    assert 'reviewerState, pr.user?.login, "APPROVED"' in source
     assert 'reviewerState, freshPr.user?.login, "CHANGES_REQUESTED"' in source
+    assert "const approvalRequired = requiresTrustedApproval(files);" in source
+    assert "if (approvalRequired)" in source
+    assert 'reviewerState, pr.user?.login, "APPROVED"' in source
     assert 'reviewerState, freshPr.user?.login, "APPROVED"' in source
-    assert "if (!documentationOnly && !hasIndependentApproval)" in source
-    assert "if (!documentationOnly && !finalApproval)" in source
     assert 'const changesRequested = [...reviewerState.entries()]' not in source
     assert 'reviewerState.values()).some(review => review.state === "CHANGES_REQUESTED")' not in source
+    assert "if (!documentationOnly && !hasIndependentApproval)" not in source
+    assert "if (!documentationOnly && !finalApproval)" not in source
 
 
 def test_review_eligibility_helper_rejects_outsiders_bots_and_api_errors():
@@ -253,10 +253,10 @@ def test_joined_ledger_gate_paths_match_the_workflow_trigger_exactly():
 
 def test_policy_document_matches_implemented_review_fast_path():
     source = POLICY_PATH.read_text(encoding="utf-8")
-    assert "README.md" in source
-    assert "docs/**" in source
-    assert "research/diagnostic tests" in source
-    assert "require an `APPROVED` review" in source
+    assert "Research-provenance-first fast path" in source
+    assert "do not require an `APPROVED` review for established research-backed implementation/test work" in source
+    assert "only `.github/workflows/**` changes require an `APPROVED` review" in source
+    assert "current-head `CHANGES_REQUESTED`" in source
     assert "Joined-ledger trigger parity" in source
     assert "do not independently approve or veto promotion" in source
 
