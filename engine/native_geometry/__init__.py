@@ -11,6 +11,7 @@ from .geometry import metric_connection_lambda, native_bssn_geometry_terms
 from .constraints import native_bssn_constraints
 from .evolution import (
     native_explicit_rhs,
+    native_gauge_b_rhs,
     native_lambda_l2_rhs,
     native_lambda_l3_rhs,
     native_primary_l2_rhs,
@@ -24,6 +25,7 @@ __all__ = [
     "native_bssn_geometry_terms",
     "native_bssn_constraints",
     "native_explicit_rhs",
+    "native_gauge_b_rhs",
     "native_lambda_l2_rhs",
     "native_lambda_l3_rhs",
     "native_primary_l2_rhs",
