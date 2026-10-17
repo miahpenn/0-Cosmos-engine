@@ -303,3 +303,37 @@ def test_native_geometry_rejects_invalid_states(bad):
     setattr(state, bad, np.full(grid.n, np.nan))
     with pytest.raises(ValueError, match="finite"):
         native_bssn_geometry_terms(grid, state)
+
+
+def test_metric_connection_lambda_rejects_extreme_finite_output():
+    grid = NativeSphericalCellGrid(16, 12.0)
+    state = _state(grid)
+    state.b = np.full(grid.n, 1.0e-308)
+
+    # Positive finite inputs can still overflow the reciprocal/radial term.
+    assert np.all(np.isfinite(state.b))
+    assert np.all(state.b > 0.0)
+    with np.errstate(over="ignore", invalid="ignore", divide="ignore", under="ignore"):
+        with pytest.raises(
+            ValueError, match="metric connection lambda produced non-finite values"
+        ):
+            metric_connection_lambda(grid, state)
+
+
+def test_native_geometry_rejects_extreme_finite_state_with_nonfinite_witness():
+    grid = NativeSphericalCellGrid(16, 12.0)
+    state = _state(grid)
+    state.X = np.full(grid.n, 1.0e200)
+
+    # The supplied metric profile is finite and positive; derived A=a/X^2
+    # overflows/underflows into a degenerate intermediate and non-finite witnesses.
+    for name in ("a", "b", "X", "alpha", "Lambda"):
+        values = np.asarray(getattr(state, name))
+        assert np.all(np.isfinite(values)), name
+    assert np.all(state.X > 0.0)
+
+    with np.errstate(over="ignore", invalid="ignore", divide="ignore", under="ignore"):
+        with pytest.raises(
+            ValueError, match="geometry witness produced non-finite values"
+        ):
+            native_bssn_geometry_terms(grid, state)
