@@ -1,10 +1,10 @@
 # Native-module migration roadmap and geometry-core contract
 
-**Status:** Draft engineering plan; no runtime switch or scientific-admission change.
+**Status:** Active bounded migration. This review branch proposes the first one-block native production seam; it is not yet merged or approved for deployment. Scientific admission remains unchanged.
 **Coordination:** Issue #5; task inventory on Issue #135.
 **Original roadmap baseline (before the native-module promotion PRs):** main `0dcb86e57baaeaddd772130bbe96c7195f381f81`.
-**Current main after native-module promotion (checked 2026-10-16 CDT):** `83bbdb5bb243e0d0abc05bf08d8e2b9098693709` (PR #303, then PR #302).
-**Current diagnostic production-source anchor:** 7f47669a1c0edfafef9fc5f27b2db80840d3f035.
+**Current main after native stage-contract/parity guards (checked 2026-10-17 CDT):** `85d4a158e631a47c8b16eac74e2afba02e3d12f7` (PR #356; includes merged PR #353 stage observation).
+**Production-source blob on main before this proposal:** `9685e76bb5a6f26d6bf383e240de24f37523f265` (production kernel itself unchanged by the stage-observation PRs).
 **Vendor comparison pin:** RonBibb/bb-palatini-unified-r0, d6052d605673ce9d82cdc99b0df79855fa2ea215.
 
 ## 1. Decision and source-of-truth rule
@@ -21,7 +21,7 @@ This roadmap concerns software implementation fidelity and numerical-operator ve
 
 - .gitmodules pins vendor/bb-palatini-unified-r0 to https://github.com/RonBibb/bb-palatini-unified-r0.git; docs/PRODUCTION_KERNEL.md records commit d6052d605673ce9d82cdc99b0df79855fa2ea215.
 - engine/v55_pirk_adapter.py is the direct adapter boundary. Its vendor_modules() dynamically imports r0_operators, vacuum_bssn, and moving_puncture_pirk.
-- geometry_stage_terms() wires moving-puncture explicit RHS, primary L2/L3 RHS blocks, and Lambda L2/L3 blocks. primary_l3_with_matter() and lambda_l3_with_matter() add local V5.5 matter projections; those local source terms must remain local during the native port.
+- On current main, direct `adapter.geometry_stage_terms()` remains the pinned comparison path for the moving-puncture explicit RHS and primary/Lambda blocks. This review branch proposes that production CMC stage requests supply native explicit RHS values through `explicit_rhs_override`, leaving the adapter's primary L2/L3 and Lambda L2/L3 blocks and local V5.5 matter-source projections unchanged. The moving-puncture explicit routine remains available as the independent test oracle.
 - geometry_constraints() currently delegates to vacuum.constraints(). This is an explicit native-constraint target.
 - engine/production_kernel.py owns ProductionState and synchronizes geometry, scalar fields, conservative matter, and observables. It is the orchestration seam, not the first module to rewrite.
 - engine/production_contract.py defines runtime capability requirements. Do not advertise a new production capability before the corresponding native implementation and tests exist.
@@ -44,9 +44,9 @@ Proposed package boundary (names are provisional until the first focused PR):
 - engine/native_geometry/connection.py — metric-derived connection coefficients and regular-centre limits.
 - engine/native_geometry/ricci.py — independently derived spatial Ricci components and scalar contractions, with signed component/profile outputs.
 - engine/native_geometry/constraints.py — Hamiltonian, momentum, connection, determinant and trace-free witnesses assembled from native geometry and declared sources.
-- engine/native_geometry/evolution.py — native explicit/L2/L3 and gauge stage RHS blocks only after the geometry primitives and signs are traceable to validated derivations and their applicable implementation tests pass.
+- engine/native_geometry/evolution.py — native explicit RHS already has same-input parity evidence for a/b/X on three CMC-aligned stages (#353/#356). This review branch proposes the first production use for those three kinematic fields only; native alpha/beta RHS values are not integrated by the CMC path. Native primary/L2/L3/Lambda, constraints, gauge, and full PIRK2 composition remain separate candidates.
 - engine/native_geometry/pirk.py — native sequential PIRK2 stage composition only after stage-level RHS checks pass.
-- engine/v55_pirk_adapter.py remains the legacy comparison adapter during migration. No production call-site changes are part of this contract task.
+- engine/v55_pirk_adapter.py remains the comparison/compatibility adapter for borrowed primary/Lambda blocks and matter-source wiring. Its optional explicit RHS override supports a bounded native block while direct default calls continue to expose the pinned moving-puncture routine as a differential comparator. No other production call site or full-step composition is changed by this proposal.
 
 The package can start with fewer files if that keeps each reviewed change small; the mathematical ownership boundaries must remain explicit. Native types may be converted to the existing consumer-facing shape in one compatibility adapter, rather than making native modules depend on vendor object types.
 
