@@ -50,6 +50,49 @@ def test_primary_l2_aa_residual_refines_on_initialized_cmc_slices(capsys):
         # metric Ricci and reference-connection correction separately.
         pinned_lambda_p = vacuum._d(accepted.grid, geometry.Lambda, -1)
         pinned_a_p = vacuum._d(accepted.grid, geometry.a, 1)
+        pinned_b_p = vacuum._d(accepted.grid, geometry.b, 1)
+        # Expose the evolved-versus-metric connection split under each
+        # implementation's own derivative closure. These are diagnostic
+        # primitives only; neither derivative convention is silently swapped.
+        native_lambda_metric = np.asarray(native_geometry["Lambda_metric"], dtype=float)
+        native_delta_lambda = np.asarray(
+            native_geometry["connection_constraint"], dtype=float
+        )
+        native_lambda_p = native_grid.cell_derivative_fourth(
+            np.asarray(geometry.Lambda, dtype=float), parity=-1
+        )
+        native_lambda_metric_p = native_grid.cell_derivative_fourth(
+            native_lambda_metric, parity=-1
+        )
+        native_delta_lambda_p = native_grid.cell_derivative_fourth(
+            native_delta_lambda, parity=-1
+        )
+        native_a_p = native_grid.cell_derivative_fourth(
+            np.asarray(geometry.a, dtype=float), parity=1
+        )
+        native_b_p = native_grid.cell_derivative_fourth(
+            np.asarray(geometry.b, dtype=float), parity=1
+        )
+        r_centres = np.asarray(native_grid.centers, dtype=float)
+        a_profile = np.asarray(geometry.a, dtype=float)
+        b_profile = np.asarray(geometry.b, dtype=float)
+        X_profile = np.asarray(geometry.X, dtype=float)
+        Lambda_profile = np.asarray(geometry.Lambda, dtype=float)
+        pinned_lambda_metric = (
+            pinned_a_p / (2.0 * a_profile**2)
+            - pinned_b_p / (a_profile * b_profile)
+            + 2.0 * (1.0 / b_profile - 1.0 / a_profile) / r_centres
+        )
+        pinned_delta_lambda = Lambda_profile - pinned_lambda_metric
+        pinned_lambda_metric_p = vacuum._d(
+            accepted.grid, pinned_lambda_metric, -1
+        )
+        pinned_delta_lambda_p = vacuum._d(
+            accepted.grid, pinned_delta_lambda, -1
+        )
+        pinned_metric_lambda_aux = (
+            1.0 - a_profile / b_profile
+        ) / r_centres**2
         pinned_connection_Rr_r = X**2 * (
             pinned_lambda_p + 0.5 * (pinned_a_p / geometry.a) * geometry.Lambda
         )
@@ -184,6 +227,88 @@ def test_primary_l2_aa_residual_refines_on_initialized_cmc_slices(capsys):
                     "tracefree_Lambda_piece": float(pinned_connection_ricci_tf[index]),
                 },
             })
+        # Emit the first four regular-origin cells' connection/Ricci
+        # primitives side-by-side. This exposes derivative-convention and
+        # metric-vs-evolved-Lambda differences without introducing tolerances.
+        origin_primitive_samples = []
+        for index in origin_indices[:4]:
+            primitive_arrays = {
+                "native_Lambda_metric": native_lambda_metric,
+                "native_deltaLambda": native_delta_lambda,
+                "native_Lambda_prime": native_lambda_p,
+                "native_Lambda_metric_prime": native_lambda_metric_p,
+                "native_deltaLambda_prime": native_delta_lambda_p,
+                "native_a_prime": native_a_p,
+                "native_b_prime": native_b_p,
+                "pinned_Lambda_metric": pinned_lambda_metric,
+                "pinned_deltaLambda": pinned_delta_lambda,
+                "pinned_Lambda_prime": pinned_lambda_p,
+                "pinned_Lambda_metric_prime": pinned_lambda_metric_p,
+                "pinned_deltaLambda_prime": pinned_delta_lambda_p,
+                "pinned_a_prime": pinned_a_p,
+                "pinned_b_prime": pinned_b_p,
+                "pinned_metric_lambda_aux": pinned_metric_lambda_aux,
+                "native_Rr_r_metric": native_geometry["Rr_r_metric"],
+                "native_R_scalar_metric": native_geometry["R_metric"],
+                "native_delta_Rr_r_connection": native_geometry["delta_Rr_r_connection"],
+                "native_delta_R_scalar_connection": native_geometry["delta_R_scalar_connection"],
+                "native_Rr_r_total": native_geometry["Rr_r"],
+                "native_R_scalar_total": native_geometry["R"],
+                "pinned_Rr_r_total": pinned_geometry["Rr_r"],
+                "pinned_R_scalar_total": pinned_geometry["R"],
+                "pinned_Rr_r_metric_remainder": pinned_metric_Rr_r,
+                "pinned_R_scalar_metric_remainder": pinned_metric_R,
+                "pinned_Rr_r_explicit_Lambda_piece": pinned_connection_Rr_r,
+                "pinned_R_scalar_explicit_Lambda_piece": pinned_connection_R,
+            }
+            for name, values in primitive_arrays.items():
+                assert np.all(np.isfinite(np.asarray(values))), (
+                    f"N={n}, cell={index}: non-finite primitive {name}"
+                )
+            origin_primitive_samples.append({
+                "index": int(index),
+                "coordinate_r": float(r_centres[index]),
+                "areal_radius": float(areal[index]),
+                "evolved_Lambda": float(Lambda_profile[index]),
+                "native": {
+                    "Lambda_metric": float(native_lambda_metric[index]),
+                    "deltaLambda": float(native_delta_lambda[index]),
+                    "Lambda_prime": float(native_lambda_p[index]),
+                    "Lambda_metric_prime": float(native_lambda_metric_p[index]),
+                    "deltaLambda_prime": float(native_delta_lambda_p[index]),
+                    "a_prime": float(native_a_p[index]),
+                    "b_prime": float(native_b_p[index]),
+                    "Rr_r_metric": float(native_geometry["Rr_r_metric"][index]),
+                    "R_scalar_metric": float(native_geometry["R_metric"][index]),
+                    "delta_Rr_r_connection": float(native_geometry["delta_Rr_r_connection"][index]),
+                    "delta_R_scalar_connection": float(native_geometry["delta_R_scalar_connection"][index]),
+                    "Rr_r_total": float(native_geometry["Rr_r"][index]),
+                    "R_scalar_total": float(native_geometry["R"][index]),
+                },
+                "pinned": {
+                    "Lambda_metric": float(pinned_lambda_metric[index]),
+                    "deltaLambda": float(pinned_delta_lambda[index]),
+                    "Lambda_prime": float(pinned_lambda_p[index]),
+                    "Lambda_metric_prime": float(pinned_lambda_metric_p[index]),
+                    "deltaLambda_prime": float(pinned_delta_lambda_p[index]),
+                    "a_prime": float(pinned_a_p[index]),
+                    "b_prime": float(pinned_b_p[index]),
+                    "metric_lambda_aux": float(pinned_metric_lambda_aux[index]),
+                    "Rr_r_total": float(pinned_geometry["Rr_r"][index]),
+                    "R_scalar_total": float(pinned_geometry["R"][index]),
+                    "Rr_r_metric_remainder": float(pinned_metric_Rr_r[index]),
+                    "R_scalar_metric_remainder": float(pinned_metric_R[index]),
+                    "Rr_r_explicit_Lambda_piece": float(pinned_connection_Rr_r[index]),
+                    "R_scalar_explicit_Lambda_piece": float(pinned_connection_R[index]),
+                },
+                "native_minus_pinned": {
+                    "Lambda_metric": float(native_lambda_metric[index] - pinned_lambda_metric[index]),
+                    "deltaLambda": float(native_delta_lambda[index] - pinned_delta_lambda[index]),
+                    "deltaLambda_prime": float(native_delta_lambda_p[index] - pinned_delta_lambda_p[index]),
+                    "Rr_r_total": float(native_geometry["Rr_r"][index] - pinned_geometry["Rr_r"][index]),
+                    "R_scalar_total": float(native_geometry["R"][index] - pinned_geometry["R"][index]),
+                },
+            })
         records.append({
             "resolution": n,
             "r_max": 40.0,
@@ -193,6 +318,7 @@ def test_primary_l2_aa_residual_refines_on_initialized_cmc_slices(capsys):
             "k_rms_native_minus_pinned": k_rms,
             "regional_residuals": region_summaries,
             "origin_cell_signed_samples": origin_cell_samples,
+            "origin_primitive_samples_first_four": origin_primitive_samples,
         })
         for name, values in before.items():
             np.testing.assert_array_equal(getattr(geometry, name), values)
@@ -211,8 +337,8 @@ def test_primary_l2_aa_residual_refines_on_initialized_cmc_slices(capsys):
             "NATIVE_V55_PRIMARY_L2_CMC_REFINEMENT "
             + json.dumps(
                 {
-                    "schema": "v55-primary-l2-cmc-refinement/v5",
-                    "scope": "regional residuals and first-eight regular-origin signed term samples; diagnostic RHS only",
+                    "schema": "v55-primary-l2-cmc-refinement/v6",
+                    "scope": "regional residuals, first-eight signed term samples, and first-four Lambda/Ricci primitives; diagnostic RHS only",
                     "records": records,
                     "aa_monotonic_refinement": True,
                     "k_roundoff_contract": True,
