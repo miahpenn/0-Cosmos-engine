@@ -48,6 +48,14 @@ def test_trusted_current_head_veto_and_workflow_change_approval_gates_remain():
     assert "if (!documentationOnly && !finalApproval)" not in source
 
 
+def test_native_geometry_changes_require_the_pinned_source_scope_gate():
+    source = WORKFLOW_PATH.read_text(encoding="utf-8")
+    assert '"tracefree-ricci-proper-radial": "Diagnostic - trace-free Ricci / proper-radial reconciliation"' in source
+    assert 'path.startsWith("engine/native_geometry/")' in source
+    assert 'path === ".github/workflows/tracefree-ricci-proper-radial.yml"' in source
+    assert 'required.push("tracefree-ricci-proper-radial")' in source
+
+
 def test_review_eligibility_helper_rejects_outsiders_bots_and_api_errors():
     node = shutil.which("node")
     assert node is not None, "Node.js is required to exercise the actual inline JavaScript policy helper"
@@ -258,6 +266,7 @@ def test_policy_document_matches_implemented_review_fast_path():
     assert "trusted human review on the exact current head" in source
     assert "Workflow/config changes remain approval-gated as described above." in source
     assert "current-head `CHANGES_REQUESTED`" in source
+    assert "Native geometry source-pinned gate" in source
     assert "Joined-ledger trigger parity" in source
     assert "do not independently approve or veto promotion" in source
 
