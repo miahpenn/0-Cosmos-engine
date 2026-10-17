@@ -217,3 +217,57 @@ def test_finite_volume_curved_regular_flat_chart_has_expected_refinement():
     for coarse, fine in zip(annulus_errors[:-1], annulus_errors[1:]):
         assert 14.0 < coarse / fine < 18.0
 
+
+
+def test_scalar_rhs_term_budget_reconstructs_pinned_scalar_rhs_and_labels_conditional_phi_source():
+    """Lock RHS term bookkeeping and expose the implemented phi source separately."""
+    kernel = AUDIT.V55ProductionKernel()
+    state = kernel.initialize(resolution=40, r_max=24.0, include_radiation=True)
+    before = AUDIT.state_digest(state)
+
+    uncoupled = AUDIT.scalar_rhs_term_budget(state, 0.0)
+    coupled = AUDIT.scalar_rhs_term_budget(state, -0.04)
+
+    for budget in (uncoupled, coupled):
+        assert budget["reported"] is True
+        assert budget["all_profiles_finite"] is True
+        assert budget["reconstruction_passed"] is True
+        assert budget["conditional_exchange_model_law_accepted"] is False
+        assert set(budget["sectors"]) == {"S", "D", "phi"}
+        for sector in budget["sectors"].values():
+            assert sector["reconstruction"]["field_rate_passed"] is True
+            assert sector["reconstruction"]["momentum_rate_passed"] is True
+            np.testing.assert_allclose(
+                sector["reconstructed_rates"]["field_rate"],
+                sector["implementation_rates"]["field_rate"],
+                rtol=5.0e-12, atol=5.0e-18,
+            )
+            np.testing.assert_allclose(
+                sector["reconstructed_rates"]["momentum_rate"],
+                sector["implementation_rates"]["momentum_rate"],
+                rtol=5.0e-12, atol=5.0e-18,
+            )
+
+    rho_dm = AUDIT.dm_density(
+        AUDIT.metric_slice_from_q(state.grid, state.geometry), state.matter
+    )
+    phi_coupling = np.asarray(
+        coupled["sectors"]["phi"]["momentum_rate_terms"]["raw_signed_arrays"][
+            "conditional_dm_exchange"
+        ],
+        dtype=np.float64,
+    )
+    np.testing.assert_allclose(
+        phi_coupling, -0.04 * np.asarray(rho_dm, dtype=np.float64),
+        rtol=5.0e-12, atol=5.0e-18,
+    )
+
+    increment = AUDIT.scalar_rhs_term_coupling_increment(
+        uncoupled, coupled, state.grid.centers
+    )
+    assert increment["reported"] is True
+    assert increment["same_base_state"] is True
+    assert increment["conditional_exchange_model_law_accepted"] is False
+    assert increment["phi_exchange_increment_matches_declared_rhs_term"] is True
+    assert increment["only_declared_phi_exchange_term_changed"] is True
+    assert AUDIT.state_digest(state) == before
