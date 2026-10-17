@@ -62,6 +62,7 @@ from .v55_matter import (
 )
 from .radial_maxwell import RadialMaxwellState
 from . import v55_pirk_adapter as adapter
+from .native_geometry import NativeSphericalCellGrid, native_explicit_rhs
 
 
 BETA_DM = -0.04
@@ -356,6 +357,7 @@ class V55ProductionKernel:
             raise ValueError("dt must be finite and positive")
 
         grid = state.grid
+        native_grid = NativeSphericalCellGrid(grid.n, grid.r_max)
         g0 = state.geometry.copy()
         s0 = state.scalars
         m0 = state.matter
@@ -402,6 +404,11 @@ class V55ProductionKernel:
         gterms0 = self._geometry_stage_terms(
             grid, g0, s0, m0, em0
         )
+        # The CMC contract has exact same-input parity for a/b/X. Route only
+        # those explicit metric fields through the native RHS; the adapter call
+        # above remains available as an independent comparator and still owns
+        # every primary/Lambda and matter-source block below.
+        native_explicit0 = native_explicit_rhs(native_grid, g0)
 
         # TRUE-PIRK predictor with CMC: advance only the metric's
         # explicit variables. Alpha and shift are gauge variables here and are
@@ -411,7 +418,7 @@ class V55ProductionKernel:
             setattr(
                 g_explicit1,
                 name,
-                getattr(g0, name) + dt * gterms0["explicit"][name],
+                getattr(g0, name) + dt * native_explicit0[name],
             )
         g_explicit1.beta.fill(0.0)
         g_explicit1.B.fill(0.0)
@@ -501,6 +508,7 @@ class V55ProductionKernel:
         gterms1 = self._geometry_stage_terms(
             grid, g1, s1, m1, em1
         )
+        native_explicit1 = native_explicit_rhs(native_grid, g1)
 
         # Final explicit block uses the TRUE-PIRK trapezoidal pairing with the
         # second split evaluation above. CMC supplies alpha after the primary
@@ -511,7 +519,7 @@ class V55ProductionKernel:
                 gnew,
                 name,
                 getattr(g0, name) + 0.5 * dt * (
-                    gterms0["explicit"][name] + gterms1["explicit"][name]
+                    native_explicit0[name] + native_explicit1[name]
                 ),
             )
         gnew.beta.fill(0.0)
