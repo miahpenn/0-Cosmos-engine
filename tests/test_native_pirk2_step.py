@@ -12,6 +12,7 @@ from engine.native_geometry import (
     native_pirk2_step,
 )
 from engine.v55_pirk_adapter import vendor_modules
+import engine.native_geometry.evolution as evolution_module
 
 
 _FIELDS = ("a", "b", "X", "alpha", "beta", "Aa", "K", "Lambda", "B")
@@ -77,6 +78,14 @@ def test_native_pirk2_step_is_read_only_and_rejects_invalid_step_contracts():
     before = {name: getattr(state, name).copy() for name in _FIELDS}
 
     result = native_pirk2_step(grid, state, 1.0e-3, lambda_m=1.7)
+    # Whole-step output must preserve the independently sourced undamped
+    # gauge law, not merely the standalone native B RHS.
+    np.testing.assert_allclose(
+        result.B,
+        state.B + 0.75 * (result.Lambda - state.Lambda),
+        rtol=2.0e-14,
+        atol=2.0e-14,
+    )
     for name in _FIELDS:
         np.testing.assert_array_equal(getattr(state, name), before[name])
         assert np.all(np.isfinite(getattr(result, name))), name
@@ -85,6 +94,26 @@ def test_native_pirk2_step_is_read_only_and_rejects_invalid_step_contracts():
         native_pirk2_step(grid, state, 0.0)
     with pytest.raises(ValueError, match="dt must be finite"):
         native_pirk2_step(grid, state, np.nan)
+    with pytest.raises(ValueError, match="dt must be positive"):
+        native_pirk2_step(grid, state, -1.0e-3)
+    with pytest.raises(ValueError, match="dt must be finite"):
+        native_pirk2_step(grid, state, np.inf)
+    with pytest.raises(ValueError, match="dt must be a finite real scalar"):
+        native_pirk2_step(grid, state, True)
+
+    bad_shape = SimpleNamespace(**vars(state))
+    bad_shape.Lambda = np.zeros(grid.n - 1)
+    with pytest.raises(ValueError, match="Lambda must have shape"):
+        native_pirk2_step(grid, bad_shape, 1.0e-3)
+
+    bad_finite = SimpleNamespace(**vars(state))
+    bad_finite.B = np.full(grid.n, np.inf)
+    with pytest.raises(ValueError, match="B must be finite"):
+        native_pirk2_step(grid, bad_finite, 1.0e-3)
+
+    bad_lambda_m = SimpleNamespace(**vars(state))
+    with pytest.raises(ValueError, match="lambda_m must be finite"):
+        native_pirk2_step(grid, bad_lambda_m, 1.0e-3, lambda_m=np.nan)
 
 
 def test_native_pirk2_step_matches_pinned_stage_order_on_fixed_areal_annulus():
@@ -117,3 +146,75 @@ def test_native_pirk2_step_matches_pinned_stage_order_on_fixed_areal_annulus():
     for name, errors in rms_by_field.items():
         assert len(errors) == 3 and np.all(np.isfinite(errors)), name
         assert max(errors) < 1.0e-4, f"{name} native/vendor PIRK2 RMS: {errors}"
+
+def test_native_pirk2_stage_schedule_uses_declared_time_levels(monkeypatch):
+    """Independent scalar witness that discriminates PIRK2 evaluation stages."""
+    grid = NativeSphericalCellGrid(8, 8.0)
+    state = SimpleNamespace(
+        a=np.ones(grid.n),
+        b=np.ones(grid.n),
+        X=np.ones(grid.n),
+        alpha=np.ones(grid.n),
+        beta=np.zeros(grid.n),
+        Aa=np.full(grid.n, 0.1),
+        K=np.full(grid.n, 0.2),
+        Lambda=np.full(grid.n, 0.3),
+        B=np.full(grid.n, 0.225),
+    )
+    n = grid.n
+
+    def explicit(g, s):
+        return {
+            "a": np.full(n, 0.01 * s.a[0]),
+            "b": np.full(n, 0.02 * s.b[0]),
+            "X": np.full(n, 0.03 * s.X[0]),
+            "alpha": np.full(n, 0.04 * s.alpha[0]),
+            "beta": s.B.copy(),
+        }
+
+    def primary_l2(g, s):
+        return {
+            "Aa": np.full(n, 0.1 * s.a[0]),
+            "K": np.full(n, 0.2 * s.alpha[0]),
+        }
+
+    def primary_l3(g, s):
+        return {
+            "Aa": np.full(n, 0.3 * s.beta[0] + 0.04),
+            "K": np.full(n, 0.5 * s.Aa[0] + 0.01),
+        }
+
+    def lambda_l2(g, s, *, lambda_m=2.0):
+        return np.full(n, 0.6 * s.Aa[0] + 0.1 * s.a[0])
+
+    def lambda_l3(g, s):
+        return np.full(n, 0.25 * s.K[0] + 0.02)
+
+    monkeypatch.setattr(evolution_module, "native_explicit_rhs", explicit)
+    monkeypatch.setattr(evolution_module, "native_primary_l2_rhs", primary_l2)
+    monkeypatch.setattr(evolution_module, "native_primary_l3_rhs", primary_l3)
+    monkeypatch.setattr(evolution_module, "native_lambda_l2_rhs", lambda_l2)
+    monkeypatch.setattr(evolution_module, "native_lambda_l3_rhs", lambda_l3)
+
+    result = native_pirk2_step(grid, state, 0.1)
+
+    # Independently evaluated scalar result of the declared u -> v -> Lambda
+    # predictor/corrector. These values discriminate the L2 time levels and
+    # the use of the same Lambda stage rate for the undamped B driver.
+    expected = {
+        "a": 1.0010005,
+        "b": 1.002002,
+        "X": 1.0030045,
+        "alpha": 1.004008,
+        "beta": 0.023378443125,
+        "Aa": 0.1143425025,
+        "K": 0.226390205,
+        "Lambda": 0.323760777575,
+        "B": 0.24282058318125,
+    }
+    for name, value in expected.items():
+        np.testing.assert_allclose(
+            getattr(result, name), np.full(n, value),
+            rtol=0.0, atol=5.0e-14, err_msg=name,
+        )
+
