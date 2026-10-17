@@ -297,6 +297,169 @@ def _primary_l2_term_split_shadow(
     }
 
 
+def _primary_l2_ricci_term_contributions(
+    native_geometry,
+    pinned_geometry,
+    geometry,
+    native_grid,
+    pinned_grid,
+    vacuum,
+):
+    """Compare signed native warped-product and pinned BSSN TF-Ricci contributions.
+
+    The decompositions are deliberately representation-specific: native uses
+    proper-radial / areal-radius curvature terms; pinned uses its expanded
+    radial-minus-one-third-scalar bracket. This is not a one-to-one mapping
+    between physical terms, and component magnitudes are not error diagnoses.
+    """
+    r = np.asarray(native_grid.centers, dtype=float)
+    a = np.asarray(geometry.a, dtype=float)
+    b = np.asarray(geometry.b, dtype=float)
+    X = np.asarray(geometry.X, dtype=float)
+    alpha = np.asarray(geometry.alpha, dtype=float)
+    Lambda = np.asarray(geometry.Lambda, dtype=float)
+    areal = np.asarray(native_geometry["areal_radius"], dtype=float)
+
+    # Native warped-product representation, on its own direct composite
+    # profile derivatives.
+    A = a / X**2
+    R_p = np.asarray(
+        native_grid.cell_derivative_fourth(areal, parity=-1), dtype=float
+    )
+    R_pp = np.asarray(
+        native_grid.cell_second_derivative_fourth(areal, parity=-1), dtype=float
+    )
+    A_p = np.asarray(
+        native_grid.cell_derivative_fourth(A, parity=1), dtype=float
+    )
+    R_l = R_p / np.sqrt(A)
+    R_ll = (R_pp - 0.5 * (A_p / A) * R_p) / A
+    native_components = {
+        "proper_radial_curvature": -(2.0 / 3.0) * alpha * R_ll / areal,
+        "angular_curvature": (2.0 / 3.0) * alpha * (R_l**2 - 1.0) / areal**2,
+    }
+    native_reconstructed = sum(native_components.values())
+    native_direct = alpha * (
+        np.asarray(native_geometry["Rr_r_metric"], dtype=float)
+        - np.asarray(native_geometry["R_metric"], dtype=float) / 3.0
+    )
+
+    # Pinned BSSN representation. Build terms of (radial bracket -
+    # scalar bracket/3), retaining each pinned derivative operation.
+    d1 = lambda values, parity=1: np.asarray(
+        vacuum._d(pinned_grid, values, parity), dtype=float
+    )
+    d2 = lambda values, parity=1: np.asarray(
+        vacuum._d2(pinned_grid, values, parity), dtype=float
+    )
+    ap, bp = d1(a, 1), d1(b, 1)
+    app, bpp = d2(a, 1), d2(b, 1)
+    Xp = d1(X, 1)
+    Xpp = d2(X, 1)
+    chip = -0.5 * Xp / X
+    chipp = -0.5 * (Xpp / X - (Xp / X) ** 2)
+    Lambda_p = d1(Lambda, -1)
+    metric_lambda = (1.0 - a / b) / r**2
+
+    bracket_terms = {
+        "second_derivatives_a_b": app / (3.0 * a) - bpp / (3.0 * b),
+        "evolved_Lambda_prime": -(2.0 / 3.0) * a * Lambda_p,
+        "quadratic_a_b_first_derivatives": (
+            -(5.0 / 12.0) * (ap / a) ** 2
+            + (1.0 / 3.0) * (bp / b) ** 2
+        ),
+        "undifferentiated_Lambda_times_a_prime": -0.5 * Lambda * ap,
+        "radial_a_prime": ap / (r * b),
+        "reference_metric_lambda": (
+            (2.0 / 3.0) * metric_lambda
+            + 2.0 * metric_lambda * r * bp / b
+        ),
+        "scalar_angular_b_prime": (
+            -(2.0 / 3.0) * (3.0 - a / b) * bp / (r * b)
+        ),
+        "chi_second_derivative": (4.0 / 3.0) * chipp,
+        "chi_prime_squared": -(8.0 / 3.0) * chip**2,
+        "chi_prime_first_derivative_coupling": (
+            -(2.0 / 3.0) * chip * (ap / a + bp / b + 2.0 / r)
+        ),
+    }
+    inverse_physical_radial = X**2 / a
+    pinned_components = {
+        name: -alpha * inverse_physical_radial * contribution
+        for name, contribution in bracket_terms.items()
+    }
+    pinned_reconstructed = sum(pinned_components.values())
+    pinned_direct = alpha * (
+        np.asarray(pinned_geometry["Rr_r"], dtype=float)
+        - np.asarray(pinned_geometry["R"], dtype=float) / 3.0
+    )
+
+    profiles = {
+        "native_component_reconstruction_closure": native_reconstructed - native_direct,
+        "pinned_component_reconstruction_closure": pinned_reconstructed - pinned_direct,
+        "total_residual_from_components": native_reconstructed - pinned_reconstructed,
+        "total_residual_direct": native_direct - pinned_direct,
+        "total_residual_component_closure": (
+            (native_reconstructed - pinned_reconstructed)
+            - (native_direct - pinned_direct)
+        ),
+    }
+    profiles.update({
+        "native_" + name: values for name, values in native_components.items()
+    })
+    profiles.update({
+        "pinned_" + name: values for name, values in pinned_components.items()
+    })
+
+    masks = {
+        "centre_R_areal_lt_2": areal < 2.0,
+        "fixed_annulus_2_le_R_areal_le_6": (areal >= 2.0) & (areal <= 6.0),
+        "outer_R_areal_gt_6": areal > 6.0,
+    }
+    report = {}
+    for name, raw in profiles.items():
+        values = np.asarray(raw, dtype=float)
+        assert values.shape == areal.shape, f"{name}: incompatible profile shape"
+        assert np.all(np.isfinite(values)), f"{name}: non-finite term contribution"
+        regions = {}
+        for region_name, mask in masks.items():
+            cells = int(np.count_nonzero(mask))
+            assert cells >= 4, f"{region_name}: expected at least four cells"
+            selected = values[mask]
+            regions[region_name] = {
+                "cells": cells,
+                "signed_mean": float(np.mean(selected)),
+                "rms": float(np.sqrt(np.mean(selected**2))),
+                "max_abs": float(np.max(np.abs(selected))),
+            }
+        report[name] = {
+            "regions": regions,
+            "first_four_signed_values": [float(value) for value in values[:4]],
+        }
+
+    return {
+        "profiles": report,
+        "native_component_definition": (
+            "TF_Ricci = -(2/3)*alpha*R_ll/R + "
+            "(2/3)*alpha*(R_l^2-1)/R^2 from warped-product curvature"
+        ),
+        "pinned_component_definition": (
+            "TF_Ricci = -(alpha*X^2/a)*(radial_bracket - scalar_bracket/3), "
+            "expanded into signed BSSN bracket contributions"
+        ),
+        "pinned_bracket_terms": {
+            name: "alpha*X^2/a with overall minus sign applied to: " + name
+            for name in bracket_terms
+        },
+        "interpretation": (
+            "same-input copied CMC-stage arithmetic attribution only; native and "
+            "pinned components are different representations, not termwise physical "
+            "counterparts. Closures test reconstruction only; no term is designated "
+            "wrong and no scientific-admission or production-correction claim follows."
+        ),
+    }
+
+
 def _primary_l2_ricci_primitive_shadow(
     native_geometry,
     pinned_geometry,
@@ -699,6 +862,14 @@ def _observe_stage(kernel, native_grid, stage, *, evaluate_coupled_rhs):
         stage.grid,
         vacuum,
     )
+    primary_l2_ricci_term_contributions = _primary_l2_ricci_term_contributions(
+        native_geometry_terms,
+        pinned_geometry_terms,
+        geometry,
+        native_grid,
+        stage.grid,
+        vacuum,
+    )
     digest_after = _slice_sha256(geometry, scalars, matter)
     assert digest_after == digest_before, (
         f"{stage.geometry!r}: production helper or RHS evaluation mutated its "
@@ -716,6 +887,7 @@ def _observe_stage(kernel, native_grid, stage, *, evaluate_coupled_rhs):
         "native_minus_adapter_lambda_l2": lambda_l2_shadow,
         "primary_l2_term_split_native_minus_pinned": primary_l2_terms_shadow,
         "primary_l2_ricci_primitive_shadow": primary_l2_ricci_primitives,
+        "primary_l2_ricci_term_contributions": primary_l2_ricci_term_contributions,
         "metric_product_chain_rule_shadow": metric_product_chain_rule_shadow,
         "compared_fields": list(_EXPLICIT_METRIC_FIELDS),
         "primary_l2_fields_compared": ["Aa", "K"],
@@ -897,7 +1069,7 @@ def test_native_explicit_rhs_on_cmc_stage_slices_without_calling_full_step(capsy
 
     source = inspect.getsource(V55ProductionKernel.step).encode("utf-8")
     report = {
-        "schema": "native-cmc-stage-rhs-shadow/v7",
+        "schema": "native-cmc-stage-rhs-shadow/v8",
         "production_step_called": False,
         "stage_build": (
             "copied-state reconstruction using current production-owned lapse/RHS/"
