@@ -29,6 +29,7 @@ from engine.native_geometry import (
 from engine.production_kernel import LAMBDA_M, ProductionState, V55ProductionKernel
 from engine.scalar_system import ScalarFields
 from engine.v55_matter import V55MatterState, metric_slice_from_q
+from engine.v55_pirk_adapter import vendor_modules
 
 
 _GEOMETRY_FIELDS = ("a", "b", "X", "alpha", "beta", "Aa", "K", "Lambda", "B")
@@ -218,6 +219,84 @@ def _regional_lambda_l2_residuals(native_rhs, adapter_rhs, geometry, native_grid
     }
 
 
+def _primary_l2_term_split_shadow(
+    native_geometry_terms,
+    pinned_geometry_terms,
+    native_primary_l2,
+    pinned_primary_l2,
+    geometry,
+    native_grid,
+):
+    """Describe lapse-Hessian and trace-free Ricci contributions on one CMC slice.
+
+    The term definitions are reused from the established #346/#348 primary-L2
+    diagnostic contract. This is report-only; no centre or region threshold is
+    added and the pinned routine is a comparator rather than formula authority.
+    """
+    alpha = np.asarray(geometry.alpha, dtype=float)
+
+    def split(terms):
+        lapse = -(
+            np.asarray(terms["DrDr_alpha"], dtype=float)
+            - np.asarray(terms["lap_alpha"], dtype=float) / 3.0
+        )
+        ricci = alpha * (
+            np.asarray(terms["Rr_r"], dtype=float)
+            - np.asarray(terms["R"], dtype=float) / 3.0
+        )
+        return lapse, ricci, lapse + ricci
+
+    native_lapse, native_ricci, native_total = split(native_geometry_terms)
+    pinned_lapse, pinned_ricci, pinned_total = split(pinned_geometry_terms)
+    terms = {
+        "aa_lapse_hessian_tracefree": native_lapse - pinned_lapse,
+        "aa_tracefree_ricci": native_ricci - pinned_ricci,
+        "aa_reconstructed_from_terms": native_total - pinned_total,
+        "aa_native_rhs_closure": np.asarray(native_primary_l2["Aa"], dtype=float) - native_total,
+        "aa_pinned_rhs_closure": np.asarray(pinned_primary_l2["Aa"], dtype=float) - pinned_total,
+    }
+    areal = np.asarray(
+        native_bssn_geometry_terms(native_grid, geometry)["areal_radius"],
+        dtype=float,
+    )
+    masks = {
+        "centre_R_areal_lt_2": areal < 2.0,
+        "fixed_annulus_2_le_R_areal_le_6": (areal >= 2.0) & (areal <= 6.0),
+        "outer_R_areal_gt_6": areal > 6.0,
+    }
+    regional = {}
+    for term_name, residual in terms.items():
+        residual = np.asarray(residual, dtype=float)
+        assert residual.shape == areal.shape, f"{term_name}: incompatible profile shape"
+        assert np.all(np.isfinite(residual)), f"{term_name}: non-finite term residual"
+        regions = {}
+        for region_name, mask in masks.items():
+            count = int(np.count_nonzero(mask))
+            assert count >= 4, f"{region_name}: expected at least four cells"
+            selected = residual[mask]
+            regions[region_name] = {
+                "cells": count,
+                "signed_mean": float(np.mean(selected)),
+                "rms": float(np.sqrt(np.mean(selected**2))),
+                "max_abs": float(np.max(np.abs(selected))),
+            }
+        regional[term_name] = {
+            "regions": regions,
+            "first_four_signed_values": [float(value) for value in residual[:4]],
+        }
+    return {
+        "component_residuals": regional,
+        "term_definition": (
+            "Aa_L2 = -(D_r D_r alpha - lap(alpha)/3) "
+            "+ alpha*(R^r_r - R/3); use the same CMC slice and local alpha"
+        ),
+        "interpretation": (
+            "test-only term attribution on an already reconstructed CMC stage; "
+            "signed residuals and closure are descriptive, no new acceptance threshold"
+        ),
+    }
+
+
 def _observe_stage(kernel, native_grid, stage, *, evaluate_coupled_rhs):
     geometry = stage.geometry
     scalars = stage.scalars
@@ -245,6 +324,17 @@ def _observe_stage(kernel, native_grid, stage, *, evaluate_coupled_rhs):
     lambda_l2_shadow = _regional_lambda_l2_residuals(
         native_lambda_l2, blocks["lambda_l2"], geometry, native_grid
     )
+    _, vacuum, _ = vendor_modules()
+    native_geometry_terms = native_bssn_geometry_terms(native_grid, geometry)
+    pinned_geometry_terms = vacuum.geometry_terms(stage.grid, geometry)
+    primary_l2_terms_shadow = _primary_l2_term_split_shadow(
+        native_geometry_terms,
+        pinned_geometry_terms,
+        native_primary_l2,
+        blocks["primary_l2"],
+        geometry,
+        native_grid,
+    )
     digest_after = _slice_sha256(geometry, scalars, matter)
     assert digest_after == digest_before, (
         f"{stage.geometry!r}: production helper or RHS evaluation mutated its "
@@ -260,6 +350,7 @@ def _observe_stage(kernel, native_grid, stage, *, evaluate_coupled_rhs):
         ),
         "native_minus_adapter_primary_l2": primary_l2_shadow,
         "native_minus_adapter_lambda_l2": lambda_l2_shadow,
+        "primary_l2_term_split_native_minus_pinned": primary_l2_terms_shadow,
         "compared_fields": list(_EXPLICIT_METRIC_FIELDS),
         "primary_l2_fields_compared": ["Aa", "K"],
         "primary_l2_stage_observation": (
@@ -440,7 +531,7 @@ def test_native_explicit_rhs_on_cmc_stage_slices_without_calling_full_step(capsy
 
     source = inspect.getsource(V55ProductionKernel.step).encode("utf-8")
     report = {
-        "schema": "native-cmc-stage-rhs-shadow/v3",
+        "schema": "native-cmc-stage-rhs-shadow/v4",
         "production_step_called": False,
         "stage_build": (
             "copied-state reconstruction using current production-owned lapse/RHS/"
