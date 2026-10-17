@@ -51,19 +51,20 @@ def _state_sha256(state):
 
 
 def _assert_tree_array_equal(actual, expected, prefix):
-    assert actual.keys() == expected.keys(), (
-        f"{prefix}: block keys differ: {actual.keys()} != {expected.keys()}"
-    )
-    for key in actual:
-        path = f"{prefix}.{key}"
-        if isinstance(actual[key], dict):
-            assert isinstance(expected[key], dict), f"{path}: expected nested block"
-            _assert_tree_array_equal(actual[key], expected[key], path)
-        else:
-            left = np.asarray(actual[key])
-            right = np.asarray(expected[key])
-            assert left.shape == right.shape, f"{path}: shape mismatch"
-            assert np.array_equal(left, right), f"{path}: unchanged adapter block differs"
+    if isinstance(actual, dict) or isinstance(expected, dict):
+        assert isinstance(actual, dict) and isinstance(expected, dict), (
+            f"{prefix}: nested block type differs"
+        )
+        assert actual.keys() == expected.keys(), (
+            f"{prefix}: block keys differ: {actual.keys()} != {expected.keys()}"
+        )
+        for key in actual:
+            _assert_tree_array_equal(actual[key], expected[key], f"{prefix}.{key}")
+        return
+    left = np.asarray(actual)
+    right = np.asarray(expected)
+    assert left.shape == right.shape, f"{prefix}: shape mismatch"
+    assert np.array_equal(left, right), f"{prefix}: unchanged adapter block differs"
 
 
 def test_production_geometry_terms_use_native_explicit_block_only(monkeypatch):
