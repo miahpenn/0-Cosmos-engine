@@ -20,6 +20,7 @@ from tools import audit_current_main_centre_proper_radial_ricci as legacy
 
 SOURCE_COMMIT = "96b077a37b0a5704eac4ef8eb5134af7c54fa949"
 VENDOR_COMMIT = "d6052d605673ce9d82cdc99b0df79855fa2ea215"
+PINNED_OBSERVER_BLOB = "da485d220664269cd52563728acfc9441678cda0"
 CURRENT_SOURCE_BLOBS = {
     "engine/production_kernel.py": "9685e76bb5a6f26d6bf383e240de24f37523f265",
     "engine/matter_system.py": "e52a117690253ddad7b24d116145a65474a351d2",
@@ -80,6 +81,17 @@ def _write_checksums(paths: list[Path], checksum_path: Path) -> None:
     )
 
 
+def _verify_observer_blob() -> None:
+    path = "tools/audit_current_main_centre_proper_radial_ricci.py"
+    baseline = legacy._git("rev-parse", f"{SOURCE_COMMIT}:{path}")
+    head = legacy._git("rev-parse", f"HEAD:{path}")
+    if baseline != PINNED_OBSERVER_BLOB or head != PINNED_OBSERVER_BLOB:
+        raise RuntimeError(
+            f"observer-code pin mismatch: baseline={baseline}, head={head}, "
+            f"expected={PINNED_OBSERVER_BLOB}"
+        )
+
+
 def main() -> int:
     # Apply current-source pins to the reusable observer module; the archived
     # tool itself and its historical source anchor remain unchanged on disk.
@@ -90,6 +102,7 @@ def main() -> int:
     legacy.R_MAX = R_MAX
     legacy.OUT = OUTPUT_DIR
 
+    _verify_observer_blob()
     audit_return_code = legacy.main()
     report_path = OUTPUT_DIR / "report.json"
     profiles_path = OUTPUT_DIR / "profiles.npz"
