@@ -91,6 +91,13 @@ def _regional_rhs_residuals(native_rhs, adapter_rhs, geometry, native_grid):
             assert np.all(np.isfinite(residual)), (
                 f"{region}/{name}: non-finite native-minus-adapter residual"
             )
+            # Exact same-input parity was observed on all three CMC-aligned
+            # stages and all radial regions. Enforce it here rather than letting
+            # bitwise equality remain descriptive-only JSON metadata.
+            assert np.array_equal(native, reference), (
+                f"{region}/{name}: native explicit RHS differs bitwise from the "
+                "pinned adapter on identical CMC stage inputs"
+            )
             selected = residual[mask]
             fields[name] = {
                 "signed_mean_native_minus_adapter": float(np.mean(selected)),
