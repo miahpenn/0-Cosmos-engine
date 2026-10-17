@@ -199,7 +199,7 @@ def operator_snapshot(state, coupling: float, rates: dict[str, Any]) -> dict[str
 
     for name, conserved, species in _species_states(state):
         prim = primitives(metrics, conserved, species)
-        face_flux, source_e, source_s, q_e, q_s = _species_rhs_components(
+        face_flux, source_e, source_s, q_e, q_s, q_rest = _species_rhs_components(
             metric_slice,
             derivatives,
             conserved,
@@ -224,9 +224,10 @@ def operator_snapshot(state, coupling: float, rates: dict[str, Any]) -> dict[str
         source_s = finite(f"{name} geometric momentum source", source_s)
         q_e = finite(f"{name} interaction energy source", q_e)
         q_s = finite(f"{name} interaction momentum source", q_s)
+        q_rest = finite(f"{name} rest-current interaction source", q_rest)
         for source_name, source_values in (
             ("source_e", source_e), ("source_s", source_s),
-            ("q_e", q_e), ("q_s", q_s),
+            ("q_e", q_e), ("q_s", q_s), ("q_rest", q_rest),
         ):
             if source_values.shape != r.shape:
                 raise ValueError(
@@ -238,7 +239,7 @@ def operator_snapshot(state, coupling: float, rates: dict[str, Any]) -> dict[str
         # Apply KAPPA normalization consistently to every term in each channel.
         rhs_rest_over_kappa = finite(
             f"{name} combined rest RHS over KAPPA",
-            (-np.diff(face_flux[:, 0]) / dr) / KAPPA,
+            (-np.diff(face_flux[:, 0]) / dr + q_rest) / KAPPA,
         )
         rhs_energy_over_kappa = finite(
             f"{name} combined energy RHS over KAPPA",
@@ -374,7 +375,7 @@ def operator_snapshot(state, coupling: float, rates: dict[str, Any]) -> dict[str
                 "not admitted as a production repair."
             ),
             "production_rhs_budget": {
-                "discrete_convention": "rhs_i = -(F[i+1]-F[i])/dr + geometric_source_i + interaction_source_i; rest has no source term; all channels divided by KAPPA=8*pi.",
+                "discrete_convention": "rhs_i = -(F[i+1]-F[i])/dr + geometric_source_i + interaction_source_i; rest includes q_rest interaction source; all channels divided by KAPPA=8*pi.",
                 "spatial_measure_note": "This is the native evolve_species semi-discrete update convention, not an extra cell-volume reweighting and not a total-T closure claim.",
                 "rest": summarize_signed_budget(rhs_rest_over_kappa, r),
                 "energy": summarize_signed_budget(rhs_energy_over_kappa, r),
@@ -387,13 +388,14 @@ def operator_snapshot(state, coupling: float, rates: dict[str, Any]) -> dict[str
             },
         }
         all_raw[name] = {
-            # Preserve the exact five native _species_rhs_components outputs
+            # Preserve all six native _species_rhs_components outputs
             # before scaling, alongside the normalized comparison arrays.
             "native_hll_face_flux": face_flux.tolist(),
             "native_geometric_energy_source": source_e.tolist(),
             "native_geometric_momentum_source": source_s.tolist(),
             "native_interaction_energy_source": q_e.tolist(),
             "native_interaction_momentum_source": q_s.tolist(),
+            "native_rest_current_interaction_source": q_rest.tolist(),
             "hll_face_flux_rest_over_kappa": (face_flux[:, 0] / KAPPA).tolist(),
             "hll_face_flux_energy_over_kappa": (face_flux[:, 1] / KAPPA).tolist(),
             "hll_face_flux_momentum_over_kappa": actual_hll_radial_flux.tolist(),
@@ -425,6 +427,7 @@ def operator_snapshot(state, coupling: float, rates: dict[str, Any]) -> dict[str
         "native_geometric_momentum_source",
         "native_interaction_energy_source",
         "native_interaction_momentum_source",
+        "native_rest_current_interaction_source",
     )
     return {
         "beta_dm": float(coupling),
