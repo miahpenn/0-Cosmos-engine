@@ -298,7 +298,7 @@ def test_scalar_sector_time_density_budget_splits_rhs_and_geometry_terms_without
     assert report["conditional_exchange_model_law_accepted"] is False
     assert report["status"] == "scalar_sector_time_density_rhs_ledger_only"
     assert set(report["sectors"]) == {"S", "D", "phi"}
-    assert "no closure tolerance" in report["interpretation"]
+    assert "without a closure tolerance" in report["interpretation"]
 
     for sector_name, sector in report["sectors"].items():
         assert sector["state_pairing"]["base_state_sha256"] == before
