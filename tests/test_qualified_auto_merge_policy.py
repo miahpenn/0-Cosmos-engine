@@ -253,9 +253,10 @@ def test_joined_ledger_gate_paths_match_the_workflow_trigger_exactly():
 
 def test_policy_document_matches_implemented_review_fast_path():
     source = POLICY_PATH.read_text(encoding="utf-8")
-    assert "Research-provenance-first fast path" in source
-    assert "do not require an `APPROVED` review for established research-backed implementation/test work" in source
-    assert "only `.github/workflows/**` changes require an `APPROVED` review" in source
+    assert "Established research-backed implementation, test, and diagnostic changes are merge-eligible by default" in source
+    assert "Do not require a repeated independent scientific review" in source
+    assert "require a trusted human review on the exact current head" in source
+    assert "Workflow/config changes remain approval-gated as described above." in source
     assert "current-head `CHANGES_REQUESTED`" in source
     assert "Joined-ledger trigger parity" in source
     assert "do not independently approve or veto promotion" in source
