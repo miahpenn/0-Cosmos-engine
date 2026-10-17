@@ -336,6 +336,15 @@ def test_source_pin_guard_allows_only_additive_native_core_files():
         "engine/native_geometry/evolution.py (native candidate exists in pinned source)"
     ]
     assert _unexpected_source_pinned_paths(
+        ["engine/native_geometry/lambda_evolution.py"], set()
+    ) == []
+    assert _unexpected_source_pinned_paths(
+        ["engine/native_geometry/lambda_evolution.py"],
+        {"engine/native_geometry/lambda_evolution.py"},
+    ) == [
+        "engine/native_geometry/lambda_evolution.py (native candidate exists in pinned source)"
+    ]
+    assert _unexpected_source_pinned_paths(
         ["engine/native_geometry/geometry.py"],
         {"engine/native_geometry/geometry.py"},
     ) == ["engine/native_geometry/geometry.py (native candidate exists in pinned source)"]
@@ -369,6 +378,7 @@ def test_workflow_shell_allowlist_rejects_unexpected_paths():
         "engine/native_geometry/geometry.py",
         "engine/native_geometry/operators.py",
         "engine/native_geometry/evolution.py",
+        "engine/native_geometry/lambda_evolution.py",
     ]
     unexpected = [
         "engine/native_geometry/extra.py",
