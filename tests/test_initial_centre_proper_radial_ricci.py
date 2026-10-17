@@ -444,15 +444,15 @@ def test_self_consistent_origin_fit_family_candidates_converge_without_state_mut
 
 def test_source_pin_allows_only_the_documented_additive_native_geometry_path():
     allowed, unexpected = _classify_source_changes(
-        "engine/native_geometry/geometry.py\\n"
+        "engine/native_geometry/geometry.py\n"
     )
     assert allowed == ["engine/native_geometry/geometry.py"]
     assert unexpected == []
 
     allowed, unexpected = _classify_source_changes(
-        "engine/native_geometry/geometry.py\\n"
-        "engine/production_kernel.py\\n"
-        "vendor/unexpected.py\\n"
+        "engine/native_geometry/geometry.py\n"
+        "engine/production_kernel.py\n"
+        "vendor/unexpected.py\n"
     )
     assert allowed == ["engine/native_geometry/geometry.py"]
     assert unexpected == ["engine/production_kernel.py", "vendor/unexpected.py"]
