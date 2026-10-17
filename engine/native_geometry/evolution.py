@@ -334,3 +334,147 @@ def native_explicit_rhs(grid, state) -> dict[str, np.ndarray]:
             raise ValueError(f"{name} RHS produced non-finite values")
     return result
 
+
+
+def native_pirk2_step(
+    grid, state, dt: float, *, eta: float = 0.0, lambda_m: float = 2.0
+):
+    """Return a geometry-only native PIRK2 candidate state without mutation.
+
+    This composes the isolated native RHS blocks in the established two-stage
+    order: explicit U=(a,b,X,alpha,beta), primary V=(Aa,K), then Lambda. The
+    first-stage B driver uses B_1 = B_0 + 3/4 (Lambda_1-Lambda_0)-dt*eta*B_0;
+    the corrector uses the matching trapezoidal damping term. Matter sources,
+    KO dissipation, and production wiring are intentionally out of scope.
+
+    The routine returns the same state type when that type supplies copy();
+    otherwise it returns a SimpleNamespace with the required geometry fields.
+    All stage states are finite and keep a,b,X,alpha positive.
+    """
+    centers = np.asarray(grid.centers, dtype=float)
+    if (
+        centers.ndim != 1
+        or centers.size < 6
+        or not np.all(np.isfinite(centers))
+        or np.any(centers <= 0.0)
+    ):
+        raise ValueError(
+            "grid centres must be a finite positive 1-D profile with at least six cells"
+        )
+
+    def finite_scalar(value, name):
+        raw = np.asarray(value)
+        if raw.shape != () or raw.dtype.kind not in "iuf":
+            raise ValueError(f"{name} must be a finite real scalar")
+        out = float(raw)
+        if not math.isfinite(out):
+            raise ValueError(f"{name} must be finite")
+        return out
+
+    dt_value = finite_scalar(dt, "dt")
+    eta_value = finite_scalar(eta, "eta")
+    lambda_m_value = finite_scalar(lambda_m, "lambda_m")
+    if dt_value <= 0.0:
+        raise ValueError("dt must be positive")
+    if eta_value < 0.0:
+        raise ValueError("eta must be nonnegative")
+
+    fields = ("a", "b", "X", "alpha", "beta", "Aa", "K", "Lambda", "B")
+    explicit_names = ("a", "b", "X", "alpha", "beta")
+    primary_names = ("Aa", "K")
+
+    def clone(source, updates=None):
+        values = {
+            name: _evolution_profile(source, name, centers).copy()
+            for name in fields
+        }
+        for name, raw_value in (updates or {}).items():
+            raw = np.asarray(raw_value)
+            if raw.shape != centers.shape:
+                raise ValueError(f"{name} must have shape {centers.shape}")
+            if raw.dtype.kind not in "iuf":
+                raise ValueError(f"{name} must be real numeric data")
+            value = np.asarray(raw, dtype=float).copy()
+            if not np.all(np.isfinite(value)):
+                raise ValueError(f"{name} must be finite")
+            values[name] = value
+
+        copier = getattr(source, "copy", None)
+        if callable(copier):
+            result = copier()
+            for name, value in values.items():
+                setattr(result, name, value)
+        else:
+            result = SimpleNamespace(**values)
+        check_stage(result)
+        return result
+
+    def check_stage(stage):
+        for name in fields:
+            values = _evolution_profile(stage, name, centers)
+            if name in ("a", "b", "X", "alpha") and np.any(values <= 0.0):
+                raise FloatingPointError(f"nonpositive stage field: {name}")
+
+    current = clone(state)
+    l1_0 = native_explicit_rhs(grid, current)
+    u1_updates = {
+        name: getattr(current, name) + dt_value * l1_0[name]
+        for name in explicit_names
+    }
+    u1 = clone(current, u1_updates)
+
+    l2_0 = native_primary_l2_rhs(grid, current)
+    l2_u1 = native_primary_l2_rhs(grid, u1)
+    l3_0 = native_primary_l3_rhs(grid, current)
+    v1_updates = {
+        name: getattr(current, name)
+        + dt_value * (0.5 * l2_0[name] + 0.5 * l2_u1[name] + l3_0[name])
+        for name in primary_names
+    }
+    stage1 = clone(u1, v1_updates)
+
+    lambda_l2_0 = native_lambda_l2_rhs(
+        grid, current, lambda_m=lambda_m_value
+    )
+    lambda_l2_1 = native_lambda_l2_rhs(
+        grid, stage1, lambda_m=lambda_m_value
+    )
+    lambda_l3_0 = native_lambda_l3_rhs(grid, current)
+    lambda1 = current.Lambda + dt_value * (
+        0.5 * lambda_l2_0 + 0.5 * lambda_l2_1 + lambda_l3_0
+    )
+    B1 = current.B + 0.75 * (lambda1 - current.Lambda) - dt_value * eta_value * current.B
+    stage1 = clone(stage1, {"Lambda": lambda1, "B": B1})
+
+    l1_1 = native_explicit_rhs(grid, stage1)
+    unew_updates = {
+        name: getattr(current, name) + 0.5 * dt_value * (l1_0[name] + l1_1[name])
+        for name in explicit_names
+    }
+    final_u_old_v = clone(stage1, unew_updates)
+
+    l2_final_u = native_primary_l2_rhs(grid, final_u_old_v)
+    l3_1 = native_primary_l3_rhs(grid, stage1)
+    vnew_updates = {
+        name: getattr(current, name)
+        + 0.5 * dt_value * (
+            l2_0[name] + l2_final_u[name] + l3_0[name] + l3_1[name]
+        )
+        for name in primary_names
+    }
+    final_primary = clone(final_u_old_v, vnew_updates)
+
+    lambda_l2_final = native_lambda_l2_rhs(
+        grid, final_primary, lambda_m=lambda_m_value
+    )
+    lambda_l3_1 = native_lambda_l3_rhs(grid, stage1)
+    lambda_new = current.Lambda + 0.5 * dt_value * (
+        lambda_l2_0 + lambda_l2_final + lambda_l3_0 + lambda_l3_1
+    )
+    Bnew = (
+        current.B
+        + 0.75 * (lambda_new - current.Lambda)
+        - 0.5 * dt_value * eta_value * (current.B + stage1.B)
+    )
+    return clone(final_primary, {"Lambda": lambda_new, "B": Bnew})
+
