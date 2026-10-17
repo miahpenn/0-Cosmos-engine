@@ -271,7 +271,7 @@ def finite_volume_radial_flux_derivative(
     return finite("finite-volume radial flux derivative", np.diff(faces) / float(dr))
 
 
-def covariant_divergence_from_profiles(
+def covariant_divergence_terms_from_profiles(
     r: np.ndarray,
     d1_fn: Callable[[np.ndarray, int], np.ndarray],
     alpha: np.ndarray,
@@ -286,14 +286,8 @@ def covariant_divergence_from_profiles(
     dt_gtt: np.ndarray,
     dt_gamma_rr: np.ndarray,
     dt_gamma_thth: np.ndarray,
-) -> tuple[np.ndarray, np.ndarray]:
-    """Return (nabla_mu T^mu_t, nabla_mu T^mu_r) for zero shift.
-
-    Mixed-tensor divergence identity:
-      D_nu = (d_t(sqrt(-g) T^t_nu)+d_r(sqrt(-g) T^r_nu))/sqrt(-g)
-             - 1/2 T^{ab} d_nu g_ab.
-    Angular terms are represented by the factor 2*T^{theta theta}*d g_thth.
-    """
+) -> dict[str, Any]:
+    """Return pointwise covariant divergence totals and signed component arrays."""
     r = finite("divergence radii", r)
     alpha = finite("divergence lapse", alpha)
     grr = finite("divergence gamma_rr", gamma_rr)
@@ -302,6 +296,11 @@ def covariant_divergence_from_profiles(
     j = finite("divergence radial current", j)
     pr = finite("divergence radial pressure", pr)
     pt = finite("divergence tangential pressure", pt)
+    dt_density_t = finite("dt sqrt(-g) T^t_t", dt_density_t)
+    dt_density_r = finite("dt sqrt(-g) T^t_r", dt_density_r)
+    dt_gtt = finite("dt g_tt", dt_gtt)
+    dt_gamma_rr = finite("dt gamma_rr", dt_gamma_rr)
+    dt_gamma_thth = finite("dt gamma_thth", dt_gamma_thth)
     sqrt_gamma = np.sqrt(grr) * gth
     sqrt_minus_g = alpha * sqrt_gamma
     if np.any(alpha <= 0.0) or np.any(grr <= 0.0) or np.any(gth <= 0.0):
@@ -319,30 +318,83 @@ def covariant_divergence_from_profiles(
     radial_flux_t = finite("D_r(sqrt(-g) T^r_t)", d1_fn(flux_t, -1))
     radial_flux_r = finite("D_r(sqrt(-g) T^r_r)", d1_fn(flux_r, +1))
 
-    source_t = -0.5 * (
-        Ttt * finite("dt g_tt", dt_gtt)
-        + Trr * finite("dt gamma_rr", dt_gamma_rr)
-        + 2.0 * Tthth * finite("dt gamma_thth", dt_gamma_thth)
+    source_t_gtt = finite("time metric source from g_tt", -0.5 * Ttt * dt_gtt)
+    source_t_gamma_rr = finite(
+        "time metric source from gamma_rr", -0.5 * Trr * dt_gamma_rr
     )
-    gtt_r = d1_fn(-(alpha**2), +1)
-    grr_r = d1_fn(grr, +1)
-    gth_r = d1_fn(gth, +1)
-    source_r = -0.5 * (
-        Ttt * gtt_r + Trr * grr_r + 2.0 * Tthth * gth_r
+    source_t_gamma_thth = finite(
+        "time metric source from gamma_theta_theta",
+        -Tthth * dt_gamma_thth,
+    )
+    # Preserve the established combined expression/order used by this observer.
+    source_t = finite(
+        "time metric source total",
+        -0.5 * (Ttt * dt_gtt + Trr * dt_gamma_rr + 2.0 * Tthth * dt_gamma_thth),
+    )
+    gtt_r = finite("D_r(g_tt)", d1_fn(-(alpha**2), +1))
+    grr_r = finite("D_r(gamma_rr)", d1_fn(grr, +1))
+    gth_r = finite("D_r(gamma_thth)", d1_fn(gth, +1))
+    source_r_gtt = finite("radial metric source from g_tt", -0.5 * Ttt * gtt_r)
+    source_r_gamma_rr = finite(
+        "radial metric source from gamma_rr", -0.5 * Trr * grr_r
+    )
+    source_r_gamma_thth = finite(
+        "radial metric source from gamma_theta_theta", -Tthth * gth_r
+    )
+    source_r = finite(
+        "radial metric source total",
+        -0.5 * (Ttt * gtt_r + Trr * grr_r + 2.0 * Tthth * gth_r),
     )
     denom = finite("sqrt(-g) divergence denominator", sqrt_minus_g)
     div_t = finite(
         "covariant time-component divergence",
-        (finite("dt sqrt(-g) T^t_t", dt_density_t) + radial_flux_t) / denom + source_t,
+        (dt_density_t + radial_flux_t) / denom + source_t,
     )
     div_r = finite(
         "covariant radial-component divergence",
-        (finite("dt sqrt(-g) T^t_r", dt_density_r) + radial_flux_r) / denom + source_r,
+        (dt_density_r + radial_flux_r) / denom + source_r,
     )
-    return div_t, div_r
+
+    time_density_div_t = finite("time-density contribution to div_T_t", dt_density_t / denom)
+    radial_flux_div_t = finite("radial-flux contribution to div_T_t", radial_flux_t / denom)
+    time_density_div_r = finite("time-density contribution to div_T_r", dt_density_r / denom)
+    radial_flux_div_r = finite("radial-flux contribution to div_T_r", radial_flux_r / denom)
+    component_sum_t = finite(
+        "component sum for div_T_t",
+        time_density_div_t + radial_flux_div_t
+        + source_t_gtt + source_t_gamma_rr + source_t_gamma_thth,
+    )
+    component_sum_r = finite(
+        "component sum for div_T_r",
+        time_density_div_r + radial_flux_div_r
+        + source_r_gtt + source_r_gamma_rr + source_r_gamma_thth,
+    )
+    terms = {
+        "time_density_div_T_t": time_density_div_t,
+        "radial_flux_div_T_t": radial_flux_div_t,
+        "metric_source_div_T_t_gtt": source_t_gtt,
+        "metric_source_div_T_t_gamma_rr": source_t_gamma_rr,
+        "metric_source_div_T_t_gamma_theta_theta": source_t_gamma_thth,
+        "metric_source_div_T_t": source_t,
+        "component_sum_div_T_t": component_sum_t,
+        "component_sum_gap_div_T_t": finite(
+            "component sum minus pointwise div_T_t", component_sum_t - div_t
+        ),
+        "time_density_div_T_r": time_density_div_r,
+        "radial_flux_div_T_r": radial_flux_div_r,
+        "metric_source_div_T_r_gtt": source_r_gtt,
+        "metric_source_div_T_r_gamma_rr": source_r_gamma_rr,
+        "metric_source_div_T_r_gamma_theta_theta": source_r_gamma_thth,
+        "metric_source_div_T_r": source_r,
+        "component_sum_div_T_r": component_sum_r,
+        "component_sum_gap_div_T_r": finite(
+            "component sum minus pointwise div_T_r", component_sum_r - div_r
+        ),
+    }
+    return {"div_T_t": div_t, "div_T_r": div_r, "terms": terms}
 
 
-def covariant_divergence_fv_from_profiles(
+def covariant_divergence_from_profiles(
     r: np.ndarray,
     d1_fn: Callable[[np.ndarray, int], np.ndarray],
     alpha: np.ndarray,
@@ -358,14 +410,34 @@ def covariant_divergence_fv_from_profiles(
     dt_gamma_rr: np.ndarray,
     dt_gamma_thth: np.ndarray,
 ) -> tuple[np.ndarray, np.ndarray]:
-    """Volume-integrated covariant divergence with telescoping face fluxes.
+    """Return (nabla_mu T^mu_t, nabla_mu T^mu_r) for zero shift."""
+    terms = covariant_divergence_terms_from_profiles(
+        r, d1_fn, alpha, gamma_rr, gamma_thth, rho, j, pr, pt,
+        dt_density_t, dt_density_r, dt_gtt, dt_gamma_rr, dt_gamma_thth,
+    )
+    return terms["div_T_t"], terms["div_T_r"]
 
-    Unlike the pointwise D1 observer, this companion integrates the time-density
-    and metric-source densities over each spherical cell with Simpson quadrature,
-    divides by the integrated sqrt(-g) measure, and uses a conservative
-    difference of reconstructed total-T radial face fluxes. This is a diagnostic
-    reconstruction from source-pinned cell-centered projections, not the
-    production per-species HLL face flux.
+
+def covariant_divergence_fv_terms_from_profiles(
+    r: np.ndarray,
+    d1_fn: Callable[[np.ndarray, int], np.ndarray],
+    alpha: np.ndarray,
+    gamma_rr: np.ndarray,
+    gamma_thth: np.ndarray,
+    rho: np.ndarray,
+    j: np.ndarray,
+    pr: np.ndarray,
+    pt: np.ndarray,
+    dt_density_t: np.ndarray,
+    dt_density_r: np.ndarray,
+    dt_gtt: np.ndarray,
+    dt_gamma_rr: np.ndarray,
+    dt_gamma_thth: np.ndarray,
+) -> dict[str, Any]:
+    """Return finite-volume covariant divergence totals and signed component arrays.
+
+    Uses the same reconstructed face fluxes, Simpson cell integrations, and
+    combined-source expressions as the established finite-volume observer.
     """
     r = finite("finite-volume divergence radii", r)
     if r.ndim != 1 or r.size < 4:
@@ -386,6 +458,11 @@ def covariant_divergence_fv_from_profiles(
     j = finite("finite-volume radial current", j)
     pr = finite("finite-volume radial pressure", pr)
     pt = finite("finite-volume tangential pressure", pt)
+    dt_density_t = finite("FV dt density t", dt_density_t)
+    dt_density_r = finite("FV dt density r", dt_density_r)
+    dt_gtt = finite("FV dt g_tt", dt_gtt)
+    dt_gamma_rr = finite("FV dt gamma_rr", dt_gamma_rr)
+    dt_gamma_thth = finite("FV dt gamma_thth", dt_gamma_thth)
     sqrt_gamma = np.sqrt(grr) * gth
     sqrt_minus_g = finite("finite-volume sqrt(-g) measure", alpha * sqrt_gamma)
     if np.any(alpha <= 0.0) or np.any(grr <= 0.0) or np.any(gth <= 0.0):
@@ -399,31 +476,75 @@ def covariant_divergence_fv_from_profiles(
     flux_t_faces = spherical_flux_face_values(flux_t, dr, origin_power=3)
     flux_r_faces = spherical_flux_face_values(flux_r, dr, origin_power=2)
 
-    source_t = -0.5 * (
-        Ttt * finite("FV dt g_tt", dt_gtt)
-        + Trr * finite("FV dt gamma_rr", dt_gamma_rr)
-        + 2.0 * Tthth * finite("FV dt gamma_thth", dt_gamma_thth)
+    source_t_gtt = finite("FV time metric source from g_tt", -0.5 * Ttt * dt_gtt)
+    source_t_gamma_rr = finite(
+        "FV time metric source from gamma_rr", -0.5 * Trr * dt_gamma_rr
     )
-    gtt_r = d1_fn(-(alpha**2), +1)
-    grr_r = d1_fn(grr, +1)
-    gth_r = d1_fn(gth, +1)
-    source_r = -0.5 * (
-        Ttt * gtt_r + Trr * grr_r + 2.0 * Tthth * gth_r
+    source_t_gamma_thth = finite(
+        "FV time metric source from gamma_theta_theta",
+        -Tthth * dt_gamma_thth,
+    )
+    source_t = finite(
+        "FV time metric source total",
+        -0.5 * (
+            Ttt * dt_gtt + Trr * dt_gamma_rr + 2.0 * Tthth * dt_gamma_thth
+        ),
+    )
+    gtt_r = finite("FV D_r(g_tt)", d1_fn(-(alpha**2), +1))
+    grr_r = finite("FV D_r(gamma_rr)", d1_fn(grr, +1))
+    gth_r = finite("FV D_r(gamma_thth)", d1_fn(gth, +1))
+    source_r_gtt = finite("FV radial metric source from g_tt", -0.5 * Ttt * gtt_r)
+    source_r_gamma_rr = finite(
+        "FV radial metric source from gamma_rr", -0.5 * Trr * grr_r
+    )
+    source_r_gamma_thth = finite(
+        "FV radial metric source from gamma_theta_theta", -Tthth * gth_r
+    )
+    source_r = finite(
+        "FV radial metric source total",
+        -0.5 * (Ttt * gtt_r + Trr * grr_r + 2.0 * Tthth * gth_r),
     )
 
-    # Integrate each cell's conservative densities with Simpson's rule. The
-    # source-density radial component scales as r near the origin because
-    # T^theta_theta*d_r(gamma_theta_theta)~1/r while sqrt(-g)~r^2.
-    dt_t = finite("FV dt density t", dt_density_t)
-    dt_r = finite("FV dt density r", dt_density_r)
     source_density_t = finite("FV time metric-source density", sqrt_minus_g * source_t)
     source_density_r = finite("FV radial metric-source density", sqrt_minus_g * source_r)
+    source_density_t_gtt = finite(
+        "FV time g_tt metric-source density", sqrt_minus_g * source_t_gtt
+    )
+    source_density_t_gamma_rr = finite(
+        "FV time gamma_rr metric-source density", sqrt_minus_g * source_t_gamma_rr
+    )
+    source_density_t_gamma_thth = finite(
+        "FV time gamma_theta_theta metric-source density", sqrt_minus_g * source_t_gamma_thth
+    )
+    source_density_r_gtt = finite(
+        "FV radial g_tt metric-source density", sqrt_minus_g * source_r_gtt
+    )
+    source_density_r_gamma_rr = finite(
+        "FV radial gamma_rr metric-source density", sqrt_minus_g * source_r_gamma_rr
+    )
+    source_density_r_gamma_thth = finite(
+        "FV radial gamma_theta_theta metric-source density", sqrt_minus_g * source_r_gamma_thth
+    )
 
     volume_faces = spherical_flux_face_values(sqrt_minus_g, dr, origin_power=2)
-    dt_t_faces = spherical_flux_face_values(dt_t, dr, origin_power=2)
-    dt_r_faces = spherical_flux_face_values(dt_r, dr, origin_power=3)
+    dt_t_faces = spherical_flux_face_values(dt_density_t, dr, origin_power=2)
+    dt_r_faces = spherical_flux_face_values(dt_density_r, dr, origin_power=3)
     source_t_faces = spherical_flux_face_values(source_density_t, dr, origin_power=2)
     source_r_faces = spherical_flux_face_values(source_density_r, dr, origin_power=1)
+    source_t_gtt_faces = spherical_flux_face_values(source_density_t_gtt, dr, origin_power=2)
+    source_t_gamma_rr_faces = spherical_flux_face_values(
+        source_density_t_gamma_rr, dr, origin_power=2
+    )
+    source_t_gamma_thth_faces = spherical_flux_face_values(
+        source_density_t_gamma_thth, dr, origin_power=2
+    )
+    source_r_gtt_faces = spherical_flux_face_values(source_density_r_gtt, dr, origin_power=1)
+    source_r_gamma_rr_faces = spherical_flux_face_values(
+        source_density_r_gamma_rr, dr, origin_power=1
+    )
+    source_r_gamma_thth_faces = spherical_flux_face_values(
+        source_density_r_gamma_thth, dr, origin_power=1
+    )
 
     def simpson_cells(centers: np.ndarray, faces: np.ndarray, name: str) -> np.ndarray:
         profile = finite(f"FV cell-center {name}", centers)
@@ -435,22 +556,107 @@ def covariant_divergence_fv_from_profiles(
         ))
 
     cell_volume = simpson_cells(sqrt_minus_g, volume_faces, "sqrt(-g) measure")
-    int_dt_t = simpson_cells(dt_t, dt_t_faces, "time-component density rate")
-    int_dt_r = simpson_cells(dt_r, dt_r_faces, "radial-component density rate")
+    int_dt_t = simpson_cells(dt_density_t, dt_t_faces, "time-component density rate")
+    int_dt_r = simpson_cells(dt_density_r, dt_r_faces, "radial-component density rate")
     int_source_t = simpson_cells(source_density_t, source_t_faces, "time metric-source density")
     int_source_r = simpson_cells(source_density_r, source_r_faces, "radial metric-source density")
+    int_source_t_gtt = simpson_cells(
+        source_density_t_gtt, source_t_gtt_faces, "time g_tt metric-source density"
+    )
+    int_source_t_gamma_rr = simpson_cells(
+        source_density_t_gamma_rr, source_t_gamma_rr_faces, "time gamma_rr metric-source density"
+    )
+    int_source_t_gamma_thth = simpson_cells(
+        source_density_t_gamma_thth, source_t_gamma_thth_faces,
+        "time gamma_theta_theta metric-source density"
+    )
+    int_source_r_gtt = simpson_cells(
+        source_density_r_gtt, source_r_gtt_faces, "radial g_tt metric-source density"
+    )
+    int_source_r_gamma_rr = simpson_cells(
+        source_density_r_gamma_rr, source_r_gamma_rr_faces,
+        "radial gamma_rr metric-source density"
+    )
+    int_source_r_gamma_thth = simpson_cells(
+        source_density_r_gamma_thth, source_r_gamma_thth_faces,
+        "radial gamma_theta_theta metric-source density"
+    )
     if np.any(cell_volume <= 0.0):
         raise ValueError("finite-volume spherical cell measures must be positive")
 
+    flux_derivative_t = finite("FV time-component radial flux derivative", np.diff(flux_t_faces))
+    flux_derivative_r = finite("FV radial-component radial flux derivative", np.diff(flux_r_faces))
     div_t = finite(
         "finite-volume averaged covariant time-component divergence",
-        (int_dt_t + np.diff(flux_t_faces) + int_source_t) / cell_volume,
+        (int_dt_t + flux_derivative_t + int_source_t) / cell_volume,
     )
     div_r = finite(
         "finite-volume averaged covariant radial-component divergence",
-        (int_dt_r + np.diff(flux_r_faces) + int_source_r) / cell_volume,
+        (int_dt_r + flux_derivative_r + int_source_r) / cell_volume,
     )
-    return div_t, div_r
+    time_density_t_contrib = finite("FV time-density contribution div_T_t", int_dt_t / cell_volume)
+    radial_flux_t_contrib = finite("FV radial-flux contribution div_T_t", flux_derivative_t / cell_volume)
+    source_t_gtt_contrib = finite("FV g_tt metric-source contribution div_T_t", int_source_t_gtt / cell_volume)
+    source_t_grr_contrib = finite("FV gamma_rr metric-source contribution div_T_t", int_source_t_gamma_rr / cell_volume)
+    source_t_gth_contrib = finite("FV gamma_theta_theta metric-source contribution div_T_t", int_source_t_gamma_thth / cell_volume)
+    time_density_r_contrib = finite("FV time-density contribution div_T_r", int_dt_r / cell_volume)
+    radial_flux_r_contrib = finite("FV radial-flux contribution div_T_r", flux_derivative_r / cell_volume)
+    source_r_gtt_contrib = finite("FV g_tt metric-source contribution div_T_r", int_source_r_gtt / cell_volume)
+    source_r_grr_contrib = finite("FV gamma_rr metric-source contribution div_T_r", int_source_r_gamma_rr / cell_volume)
+    source_r_gth_contrib = finite("FV gamma_theta_theta metric-source contribution div_T_r", int_source_r_gamma_thth / cell_volume)
+    component_sum_t = finite(
+        "FV component sum for div_T_t",
+        time_density_t_contrib + radial_flux_t_contrib
+        + source_t_gtt_contrib + source_t_grr_contrib + source_t_gth_contrib,
+    )
+    component_sum_r = finite(
+        "FV component sum for div_T_r",
+        time_density_r_contrib + radial_flux_r_contrib
+        + source_r_gtt_contrib + source_r_grr_contrib + source_r_gth_contrib,
+    )
+    terms = {
+        "time_density_div_T_t": time_density_t_contrib,
+        "radial_flux_div_T_t": radial_flux_t_contrib,
+        "metric_source_div_T_t_gtt": source_t_gtt_contrib,
+        "metric_source_div_T_t_gamma_rr": source_t_grr_contrib,
+        "metric_source_div_T_t_gamma_theta_theta": source_t_gth_contrib,
+        "metric_source_div_T_t": finite("FV combined metric-source contribution div_T_t", int_source_t / cell_volume),
+        "component_sum_div_T_t": component_sum_t,
+        "component_sum_gap_div_T_t": finite("FV component sum minus div_T_t", component_sum_t - div_t),
+        "time_density_div_T_r": time_density_r_contrib,
+        "radial_flux_div_T_r": radial_flux_r_contrib,
+        "metric_source_div_T_r_gtt": source_r_gtt_contrib,
+        "metric_source_div_T_r_gamma_rr": source_r_grr_contrib,
+        "metric_source_div_T_r_gamma_theta_theta": source_r_gth_contrib,
+        "metric_source_div_T_r": finite("FV combined metric-source contribution div_T_r", int_source_r / cell_volume),
+        "component_sum_div_T_r": component_sum_r,
+        "component_sum_gap_div_T_r": finite("FV component sum minus div_T_r", component_sum_r - div_r),
+    }
+    return {"div_T_t": div_t, "div_T_r": div_r, "terms": terms}
+
+
+def covariant_divergence_fv_from_profiles(
+    r: np.ndarray,
+    d1_fn: Callable[[np.ndarray, int], np.ndarray],
+    alpha: np.ndarray,
+    gamma_rr: np.ndarray,
+    gamma_thth: np.ndarray,
+    rho: np.ndarray,
+    j: np.ndarray,
+    pr: np.ndarray,
+    pt: np.ndarray,
+    dt_density_t: np.ndarray,
+    dt_density_r: np.ndarray,
+    dt_gtt: np.ndarray,
+    dt_gamma_rr: np.ndarray,
+    dt_gamma_thth: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Return the existing volume-averaged covariant divergence pair."""
+    terms = covariant_divergence_fv_terms_from_profiles(
+        r, d1_fn, alpha, gamma_rr, gamma_thth, rho, j, pr, pt,
+        dt_density_t, dt_density_r, dt_gtt, dt_gamma_rr, dt_gamma_thth,
+    )
+    return terms["div_T_t"], terms["div_T_r"]
 
 
 def _covariant_objects_from_components(state, components: dict[str, Any]) -> dict[str, Any]:
