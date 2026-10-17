@@ -23,6 +23,7 @@ from engine.native_geometry import (
     NativeSphericalCellGrid,
     native_bssn_geometry_terms,
     native_cmc_explicit_metric_rhs,
+    native_primary_l2_rhs,
 )
 from engine.production_kernel import ProductionState, V55ProductionKernel
 from engine.scalar_system import ScalarFields
@@ -109,6 +110,64 @@ def _regional_rhs_residuals(native_rhs, adapter_rhs, geometry, native_grid):
     return summaries
 
 
+def _regional_primary_l2_residuals(native_rhs, adapter_rhs, geometry, native_grid):
+    """Describe native-minus-pinned Aa/K L2 residuals on identical CMC slices.
+
+    This is a diagnostic report only: unlike the established explicit a/b/X
+    parity contract, the primary-L2 residuals have no pass/fail tolerance here.
+    """
+    areal = np.asarray(
+        native_bssn_geometry_terms(native_grid, geometry)["areal_radius"],
+        dtype=float,
+    )
+    masks = {
+        "centre_R_areal_lt_2": areal < 2.0,
+        "fixed_annulus_2_le_R_areal_le_6": (areal >= 2.0) & (areal <= 6.0),
+        "outer_R_areal_gt_6": areal > 6.0,
+    }
+    summaries = {}
+    for region, mask in masks.items():
+        selected_count = int(np.count_nonzero(mask))
+        assert selected_count >= 4, (
+            f"{region}: expected at least four descriptive cells, got {selected_count}"
+        )
+        fields = {}
+        for name in ("Aa", "K"):
+            native = np.asarray(native_rhs[name], dtype=float)
+            reference = np.asarray(adapter_rhs[name], dtype=float)
+            assert native.shape == reference.shape == areal.shape, (
+                f"{region}/{name}: incompatible primary-L2 profile shapes"
+            )
+            residual = native - reference
+            assert np.all(np.isfinite(residual)), (
+                f"{region}/{name}: non-finite native-minus-adapter primary-L2 residual"
+            )
+            selected = residual[mask]
+            fields[name] = {
+                "signed_mean_native_minus_adapter": float(np.mean(selected)),
+                "rms_native_minus_adapter": float(np.sqrt(np.mean(selected**2))),
+                "max_abs_native_minus_adapter": float(np.max(np.abs(selected))),
+            }
+        summaries[region] = {"cells": selected_count, "fields": fields}
+    return {
+        "regions": summaries,
+        "first_four_signed_native_minus_adapter": {
+            name: [
+                float(value)
+                for value in (
+                    np.asarray(native_rhs[name], dtype=float)
+                    - np.asarray(adapter_rhs[name], dtype=float)
+                )[:4]
+            ]
+            for name in ("Aa", "K")
+        },
+        "interpretation": (
+            "same-input CMC-stage software diagnostic; descriptive signed residuals "
+            "only, no added centre/annulus/outer acceptance threshold"
+        ),
+    }
+
+
 def _observe_stage(kernel, native_grid, stage, *, evaluate_coupled_rhs):
     geometry = stage.geometry
     scalars = stage.scalars
@@ -123,9 +182,13 @@ def _observe_stage(kernel, native_grid, stage, *, evaluate_coupled_rhs):
     blocks = kernel._geometry_stage_terms(
         stage.grid, geometry, scalars, matter, stage.electromagnetic
     )
-    # Use the CMC-only public contract: no moving-puncture alpha/beta
-    # RHS or B-driver field is part of this stage's explicit metric update.
+    # The CMC-only explicit metric API returns a/b/X; keep primary-L2
+    # comparison separate because its known centre residual is not a parity gate.
     native_rhs = native_cmc_explicit_metric_rhs(native_grid, geometry)
+    native_primary_l2 = native_primary_l2_rhs(native_grid, geometry)
+    primary_l2_shadow = _regional_primary_l2_residuals(
+        native_primary_l2, blocks["primary_l2"], geometry, native_grid
+    )
     digest_after = _slice_sha256(geometry, scalars, matter)
     assert digest_after == digest_before, (
         f"{stage.geometry!r}: production helper or RHS evaluation mutated its "
@@ -139,6 +202,7 @@ def _observe_stage(kernel, native_grid, stage, *, evaluate_coupled_rhs):
         "native_minus_adapter_explicit_metric_rhs": _regional_rhs_residuals(
             native_rhs, blocks["explicit"], geometry, native_grid
         ),
+        "native_minus_adapter_primary_l2": primary_l2_shadow,
         "compared_fields": list(_EXPLICIT_METRIC_FIELDS),
         "native_interface": "native_cmc_explicit_metric_rhs",
         "native_interface_contract": "returns exactly a/b/X; requires positive CMC lapse and beta=0; has no B-driver dependency",
@@ -310,7 +374,7 @@ def test_native_explicit_rhs_on_cmc_stage_slices_without_calling_full_step(capsy
 
     source = inspect.getsource(V55ProductionKernel.step).encode("utf-8")
     report = {
-        "schema": "native-cmc-explicit-rhs-stage-shadow/v1",
+        "schema": "native-cmc-stage-rhs-shadow/v2",
         "production_step_called": False,
         "stage_build": (
             "copied-state reconstruction using current production-owned lapse/RHS/"
@@ -339,7 +403,7 @@ def test_native_explicit_rhs_on_cmc_stage_slices_without_calling_full_step(capsy
     }
     with capsys.disabled():
         print(
-            "NATIVE_CMC_EXPLICIT_RHS_STAGE_SHADOW "
+            "NATIVE_CMC_STAGE_RHS_SHADOW "
             + json.dumps(report, sort_keys=True, separators=(",", ":"), allow_nan=False),
             flush=True,
         )
