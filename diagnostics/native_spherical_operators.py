@@ -130,8 +130,8 @@ class NativeSphericalCellGrid:
         sign = _parity_sign(parity)
         u = _real_profile(values, (self.n,), "values")
         result = np.empty(self.n + 1, dtype=float)
-        result[0] = inner_flux_gradient
-        result[-1] = outer_flux_gradient
+        result[0] = _finite_scalar(inner_flux_gradient, 'inner_flux_gradient')
+        result[-1] = _finite_scalar(outer_flux_gradient, 'outer_flux_gradient')
         result[1] = (sign * u[0] - 27.0 * u[0] + 27.0 * u[1] - u[2]) / (24.0 * self.dr)
         result[2:-2] = (u[:-3] - 27.0 * u[1:-2] + 27.0 * u[2:-1] - u[3:]) / (24.0 * self.dr)
         result[-2] = (u[-1] - u[-2]) / self.dr
