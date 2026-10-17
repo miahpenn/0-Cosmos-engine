@@ -1,11 +1,12 @@
 # Native-module migration roadmap and geometry-core contract
 
-**Status:** Draft engineering plan; no runtime switch or scientific-admission change.
+**Status (checked 2026-10-17 CDT):** Active native-module migration contract; native CMC explicit-metric API and its CMC-stage observer are merged. No production runtime switch or scientific-admission change is merged.
 **Coordination:** Issue #5; task inventory on Issue #135.
 **Original roadmap baseline (before the native-module promotion PRs):** main `0dcb86e57baaeaddd772130bbe96c7195f381f81`.
-**Current main after native-module promotion (checked 2026-10-16 CDT):** `83bbdb5bb243e0d0abc05bf08d8e2b9098693709` (PR #303, then PR #302).
-**Current diagnostic production-source anchor:** 7f47669a1c0edfafef9fc5f27b2db80840d3f035.
-**Vendor comparison pin:** RonBibb/bb-palatini-unified-r0, d6052d605673ce9d82cdc99b0df79855fa2ea215.
+**Current main after CMC API and observer increments:** `1a34f16333f3409cdaa41a44211cc7e322418bc2` (PR #358 API; PR #360 CMC observer).
+**Pinned diagnostic production-source anchor (historical baseline retained intentionally):** `7f47669a1c0edfafef9fc5f27b2db80840d3f035`. This is not the current main SHA; keep the provenance distinction explicit.
+**Vendor comparison pin:** RonBibb/bb-palatini-unified-r0, `d6052d605673ce9d82cdc99b0df79855fa2ea215`.
+**Production-migration gate:** Draft PR #359 (`9184df9b2928465804ab26578fdbc9c76e4bb75b`) passes the three core functional workflows but its source-pinned trace-free Ricci/proper-radial workflow fails closed on protected production-source changes. Keep it draft until an explicit trusted owner/reviewer authorizes a separate production/source-anchor transition. Do not weaken or bypass the existing pin/allowlist.
 
 ## 1. Decision and source-of-truth rule
 
@@ -21,10 +22,12 @@ This roadmap concerns software implementation fidelity and numerical-operator ve
 
 - .gitmodules pins vendor/bb-palatini-unified-r0 to https://github.com/RonBibb/bb-palatini-unified-r0.git; docs/PRODUCTION_KERNEL.md records commit d6052d605673ce9d82cdc99b0df79855fa2ea215.
 - engine/v55_pirk_adapter.py is the direct adapter boundary. Its vendor_modules() dynamically imports r0_operators, vacuum_bssn, and moving_puncture_pirk.
-- geometry_stage_terms() wires moving-puncture explicit RHS, primary L2/L3 RHS blocks, and Lambda L2/L3 blocks. primary_l3_with_matter() and lambda_l3_with_matter() add local V5.5 matter projections; those local source terms must remain local during the native port.
-- geometry_constraints() currently delegates to vacuum.constraints(). This is an explicit native-constraint target.
-- engine/production_kernel.py owns ProductionState and synchronizes geometry, scalar fields, conservative matter, and observables. It is the orchestration seam, not the first module to rewrite.
-- engine/production_contract.py defines runtime capability requirements. Do not advertise a new production capability before the corresponding native implementation and tests exist.
+- `geometry_stage_terms()` remains the adapter boundary for the pinned explicit RHS and primary/Lambda blocks on current `main`; its local `primary_l3_with_matter()` and `lambda_l3_with_matter()` projections keep V5.5 matter-source ownership local.
+- PR #358 adds `native_cmc_explicit_metric_rhs(grid, state)` in `engine/native_geometry/evolution.py`. It returns exactly `a/b/X`, requires the CMC convention `beta=0`, does not require the B-driver field, and shares its metric formula core with `native_explicit_rhs()`.
+- PR #360 updates the existing CMC-stage observer to call that CMC-only API while comparing directly against the pinned vendor explicit RHS on copied stage inputs; exact array equality and accepted/copied-state immutability remain enforced.
+- `geometry_constraints()` still delegates to `vacuum.constraints()`; this is a separate native target.
+- `engine/production_kernel.py` owns `ProductionState` and orchestrates geometry, scalar fields, conservative matter, and observables. Its production call sites remain protected by the source-pinned diagnostic until a separate explicitly authorized migration path is established.
+- `engine/production_contract.py` defines runtime capability requirements. Do not advertise a new production capability before the corresponding native implementation and tests exist.
 
 ### Existing local contracts and dependencies
 
@@ -44,9 +47,9 @@ Proposed package boundary (names are provisional until the first focused PR):
 - engine/native_geometry/connection.py — metric-derived connection coefficients and regular-centre limits.
 - engine/native_geometry/ricci.py — independently derived spatial Ricci components and scalar contractions, with signed component/profile outputs.
 - engine/native_geometry/constraints.py — Hamiltonian, momentum, connection, determinant and trace-free witnesses assembled from native geometry and declared sources.
-- engine/native_geometry/evolution.py — native explicit/L2/L3 and gauge stage RHS blocks only after the geometry primitives and signs are traceable to validated derivations and their applicable implementation tests pass.
-- engine/native_geometry/pirk.py — native sequential PIRK2 stage composition only after stage-level RHS checks pass.
-- engine/v55_pirk_adapter.py remains the legacy comparison adapter during migration. No production call-site changes are part of this contract task.
+- `engine/native_geometry/evolution.py` — native explicit metric RHS functions exist. The CMC-safe public `native_cmc_explicit_metric_rhs()` API is backed by exact-array, input-immutability, and nonzero-shift rejection tests. Primary/Lambda blocks, constraints, gauge evolution, and full PIRK2 stage composition remain separate candidates.
+- `engine/native_geometry/pirk.py` — native sequential PIRK2 stage composition remains a separate candidate; the existing native moving-puncture step is not a drop-in CMC integrator.
+- `engine/v55_pirk_adapter.py` remains the comparison/compatibility adapter for pinned primary/Lambda blocks and local sources. The proposed PR #359 override path is not merged; keep default direct adapter behavior and production stage behavior unchanged until the explicit owner/reviewer and source-provenance gates are satisfied.
 
 The package can start with fewer files if that keeps each reviewed change small; the mathematical ownership boundaries must remain explicit. Native types may be converted to the existing consumer-facing shape in one compatibility adapter, rather than making native modules depend on vendor object types.
 
@@ -140,7 +143,7 @@ Build H, radial M, Lambda/connection, determinant and trace-free checks on top o
 
 ### Phase 3 — native evolution and gauge RHS blocks
 
-Port explicit, L2 and L3 geometry/gauge blocks one at a time from independent derivations. Keep matter additions as named local source projections. Test each block on frozen copies of a common input state, including zero/nonzero shift and parity-regular manufactured profiles. Do not change stage ordering until each block has passed in isolation.
+The explicit metric `a/b/X` RHS implementation and CMC-specific interface are now present in `engine/native_geometry/evolution.py`; PRs #353/#356/#360 provide copied CMC-stage parity evidence and an exact-array regression contract. This is native-component readiness, not production caller promotion. Continue with bounded implicit/L2/L3 and gauge/source ownership tests only where they add coverage beyond existing evidence. Keep matter additions as named local source projections. Test blocks on frozen, same-input states including parity-regular profiles; do not alter CMC stage ordering or integrate moving-puncture alpha/beta RHS into the CMC path.
 
 ### Phase 4 — native sequential integrator and state ownership
 
@@ -148,11 +151,13 @@ Implement the required sequential PIRK2 stage schedule using native state/RHS da
 
 ### Phase 5 — shadow-mode integration
 
-Run native and legacy paths on identical copied states and pinned inputs without changing the accepted production state. Compare individual RHS blocks, stage intermediates, final one-step deltas, and signed constraints. Differences must be interpreted against independent discrete identities and truncation expectations; do not tune the native result to match vendor output.
+The CMC explicit-metric shadow observer is merged in #353 and uses the CMC-only API after #360. It compares `a/b/X` on source-reconstructed stage0, explicit-predictor, and primary-predictor slices against the direct pinned-vendor explicit RHS; the observed arrays were bitwise equal at the established N=80 fixture, and #356 makes native/adaptor equality a regression assertion. Reuse those records instead of rebuilding the same stage matrix. Any further shadow test should cover a named missing stage/input or interface defect and preserve accepted-state fingerprints. This evidence does not replace the protected source-pin gate for a production caller diff.
 
 ### Phase 6 — explicit runtime switch, then dependency retirement
 
-Only after all earlier gates pass, add a deliberate native-mode selection and require the existing standard tests plus the bounded production smoke on the exact candidate head. Keep the old path available for rollback during the agreed transition. Retire runtime vendor imports in a separate, reviewed change; preserve the pinned vendor as a test-only comparison oracle until the maintainers decide it no longer adds value. Removing the submodule is a separate decision, not a side effect of the first port.
+A first explicit-metric production wiring proposal exists as draft PR #359, head `9184df9b2928465804ab26578fdbc9c76e4bb75b`, based before PR #358/#360. Its lightweight/one-step, strict regression/JSON, and integrated retry/full-machine workflows pass, but the trace-free Ricci/proper-radial source-pinned workflow fails closed because production kernel and adapter source blobs differ from the protected baseline and the allowlist currently accepts only additive native-core candidates. This is an intentional provenance gate, not a numerical mismatch. Do not merge the proposal, update the source pin, or weaken the workflow without the explicit trusted owner/reviewer decision required by the roadmap.
+
+If that separate authorization is granted, start a new runtime candidate from the current main SHA, use `native_cmc_explicit_metric_rhs()` (three fields only), preserve the CMC lapse solve, `beta/B` resets, adapter-owned primary/Lambda and local matter-source blocks, and boundary ordering, and run every applicable exact-head gate. Keep the previous adapter available as an independent test comparator. Retire vendor runtime imports only in a later, separately reviewed change.
 
 ## 6. Required verification gates
 
@@ -178,4 +183,4 @@ A failed gate remains a failure with its signed report preserved. Do not relax t
 
 This migration does not authorize changes to V5.5 physical equations, source laws, coefficients, gauge/initial-data choices, floors or clamps, damping, outer boundary physics, radiation admissibility/cone rules, campaign settings, archive content, or scientific-admission flags. It does not claim that a successful geometry port proves coupled trajectory stability, total stress-energy conservation, convergence of the full physical model, or scientific admission.
 
-The Phase 0 deliverable is complete when source/provenance links, candidate API conventions, known gaps, and applicable implementation gates are documented; blanket reviewer acceptance is not required merely to repeat validated derivations. Any genuinely unresolved convention lacking traceable source support must be named and block only the dependent functionality. The next implementation PR should be limited to Phase 1: native spherical metric/connection/Ricci primitives plus analytic/manufactured tests, with no production call-site switch.
+The native geometry core has progressed beyond the original Phase-0 plan: #358 adds the CMC-safe explicit-metric API, and #360 makes the existing copied CMC-stage observer use that API. Preserve the original scientific archive and vendor pin as provenance/comparison inputs; do not duplicate already-passed same-input matrices. The next production step is not authorized yet: PR #359 remains draft because the protected source-pinned diagnostic rejects production kernel/adapter changes. Resolve that blocker only through an explicit trusted owner/reviewer decision and a separately approved source-provenance transition; do not bypass the guard. Until then, prefer source-safe additive native-core work, exact same-input software checks, and documentation updates. `scientific_admission=false`; no production admission is implied.
