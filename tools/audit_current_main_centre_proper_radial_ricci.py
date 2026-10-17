@@ -1171,6 +1171,18 @@ def _manufactured_lambda_parity_discriminator(grid, vacuum) -> tuple[dict[str, n
     return arrays, summary
 
 
+def _classify_source_changes(changed: str) -> tuple[list[str], list[str]]:
+    """Separate the one explicitly additive native path from protected-source changes."""
+    changed_paths = sorted(path for path in changed.splitlines() if path)
+    allowed = sorted(
+        path for path in changed_paths if path in ADDITIVE_NATIVE_PATH_ALLOWLIST
+    )
+    unexpected = sorted(
+        path for path in changed_paths if path not in ADDITIVE_NATIVE_PATH_ALLOWLIST
+    )
+    return allowed, unexpected
+
+
 def _verify_source_pins() -> dict:
     source_head = _git("rev-parse", "HEAD")
     source_vendor = _git("rev-parse", "HEAD:vendor/bb-palatini-unified-r0")
@@ -1192,13 +1204,8 @@ def _verify_source_pins() -> dict:
         "diff", "--name-only", SOURCE_COMMIT, "HEAD", "--",
         "engine", "vendor", ".gitmodules", "requirements.txt",
     )
-    changed_paths = sorted(path for path in changed.splitlines() if path)
-    allowed_native_paths = sorted(
-        path for path in changed_paths if path in ADDITIVE_NATIVE_PATH_ALLOWLIST
-    )
-    unexpected_paths = sorted(
-        path for path in changed_paths if path not in ADDITIVE_NATIVE_PATH_ALLOWLIST
-    )
+    allowed_native_paths, unexpected_paths = _classify_source_changes(changed)
+    changed_paths = [path for path in changed.splitlines() if path]
     if unexpected_paths:
         raise RuntimeError(
             "unexpected engine/vendor/dependency paths changed from source pin:\n"
