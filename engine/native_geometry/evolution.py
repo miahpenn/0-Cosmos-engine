@@ -15,6 +15,7 @@ production adapter. Pinned-vendor comparisons live only in the test layer.
 from __future__ import annotations
 
 import math
+from types import SimpleNamespace
 import numpy as np
 
 from .constraints import native_bssn_constraints
