@@ -238,7 +238,7 @@ class V55ProductionKernel:
             metric,
             lambda values, parity: self._d1(state.grid, values, parity),
         )
-        face_flux, _, _, _, _ = _species_rhs_components(
+        face_flux, _, _, _, _, _ = _species_rhs_components(
             metric, derivatives, state.matter.charged_dust, Species.BARYON
         )
         mass_flux = np.asarray(face_flux[:, 0], dtype=float)

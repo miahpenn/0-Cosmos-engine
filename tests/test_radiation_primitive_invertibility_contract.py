@@ -282,7 +282,7 @@ def test_near_cone_rhs_assembly_uses_preserved_source_norm_and_outer_flux():
         },
     )
 
-    face_flux, _source_e, source_s, _q_e, _q_s = _species_rhs_components(
+    face_flux, _source_e, source_s, _q_e, _q_s, _q_rest = _species_rhs_components(
         g, derivatives, state, Species.RADIATION
     )
     primitive = recover_radiation(
