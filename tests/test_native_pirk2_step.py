@@ -334,3 +334,168 @@ def test_native_pirk2_stage_schedule_uses_declared_time_levels(monkeypatch):
             rtol=0.0, atol=5.0e-14, err_msg=name,
         )
 
+
+
+
+def _snapshot_native_stage(state):
+    """Freeze one real stage state observed at an RHS call, without changing the stepper."""
+    return SimpleNamespace(**{
+        name: np.asarray(getattr(state, name)).copy()
+        for name in _FIELDS
+    })
+
+
+def test_native_pirk2_actual_stage_states_shadow_against_pinned_vendor(
+    monkeypatch, capsys
+):
+    """Capture real predictor/corrector stage inputs through the existing RHS calls."""
+    operators, vacuum, moving = vendor_modules()
+    native_names = (
+        "native_explicit_rhs",
+        "native_primary_l2_rhs",
+        "native_primary_l3_rhs",
+        "native_lambda_l2_rhs",
+        "native_lambda_l3_rhs",
+    )
+    vendor_names = (
+        "moving_puncture_explicit_rhs",
+        "primary_l2_rhs",
+        "primary_l3_rhs",
+        "lambda_l2_rhs",
+        "lambda_l3_rhs",
+    )
+    native_originals = {
+        name: getattr(evolution_module, name) for name in native_names
+    }
+    vendor_originals = {name: getattr(moving, name) for name in vendor_names}
+    stage_records = []
+
+    def instrument(original, bucket, key):
+        def wrapped(grid, state, *args, **kwargs):
+            bucket[key].append(_snapshot_native_stage(state))
+            return original(grid, state, *args, **kwargs)
+        return wrapped
+
+    for n in (48, 96, 192):
+        grid = NativeSphericalCellGrid(n, 12.0)
+        vendor_grid = operators.SphericalCellGrid(n, 12.0)
+        state = _state(grid, curved=True)
+        vendor_state = _vendor_state(vacuum, state)
+        hashes_before = {
+            "native": _state_fingerprint(state),
+            "legacy_copy": _state_fingerprint(vendor_state),
+        }
+        native_calls = {
+            "explicit": [], "primary_l2": [], "primary_l3": [],
+            "lambda_l2": [], "lambda_l3": [],
+        }
+        vendor_calls = {
+            "explicit": [], "primary_l2": [], "primary_l3": [],
+            "lambda_l2": [], "lambda_l3": [],
+        }
+
+        native_aliases = {
+            "native_explicit_rhs": "explicit",
+            "native_primary_l2_rhs": "primary_l2",
+            "native_primary_l3_rhs": "primary_l3",
+            "native_lambda_l2_rhs": "lambda_l2",
+            "native_lambda_l3_rhs": "lambda_l3",
+        }
+        vendor_aliases = {
+            "moving_puncture_explicit_rhs": "explicit",
+            "primary_l2_rhs": "primary_l2",
+            "primary_l3_rhs": "primary_l3",
+            "lambda_l2_rhs": "lambda_l2",
+            "lambda_l3_rhs": "lambda_l3",
+        }
+        with monkeypatch.context() as patch:
+            for name, key in native_aliases.items():
+                patch.setattr(
+                    evolution_module, name,
+                    instrument(native_originals[name], native_calls, key),
+                )
+            for name, key in vendor_aliases.items():
+                patch.setattr(
+                    moving, name,
+                    instrument(vendor_originals[name], vendor_calls, key),
+                )
+            native_result = native_pirk2_step(grid, state, 1.0e-3, lambda_m=2.0)
+            vendor_result = moving.damped_moving_puncture_pirk2_step(
+                vendor_grid, vendor_state, 1.0e-3,
+                eta=0.0, ko_epsilon=0.0, lambda_m=2.0,
+            )
+
+        hashes_after = {
+            "native": _state_fingerprint(state),
+            "legacy_copy": _state_fingerprint(vendor_state),
+        }
+        assert hashes_after == hashes_before, (
+            f"stage-instrumented step mutated an input at N={n}: "
+            f"before={hashes_before}, after={hashes_after}"
+        )
+
+        # Both steppers invoke these real RHS stages in the same semantic order.
+        # Snapshots are copied inside the wrappers, so later Lambda/B assignments
+        # cannot retroactively alter earlier pre-update stage evidence.
+        stage_pairs = {
+            "U1_predictor": (native_calls["primary_l2"][1], vendor_calls["primary_l2"][1]),
+            "V1_before_Lambda_update": (
+                native_calls["lambda_l2"][1], vendor_calls["lambda_l2"][1]
+            ),
+            "stage1_after_Lambda_B_update": (
+                native_calls["explicit"][1], vendor_calls["explicit"][1]
+            ),
+            "U_corrector_before_V_update": (
+                native_calls["primary_l2"][2], vendor_calls["primary_l2"][2]
+            ),
+            "V_corrector_before_final_Lambda_B_update": (
+                native_calls["lambda_l2"][2], vendor_calls["lambda_l2"][2]
+            ),
+        }
+        expected_counts = {
+            "explicit": 2, "primary_l2": 3, "primary_l3": 2,
+            "lambda_l2": 3, "lambda_l3": 2,
+        }
+        for key, expected_count in expected_counts.items():
+            assert len(native_calls[key]) == expected_count, (
+                f"native {key} call count at N={n}: {len(native_calls[key])}"
+            )
+            assert len(vendor_calls[key]) == expected_count, (
+                f"pinned vendor {key} call count at N={n}: {len(vendor_calls[key])}"
+            )
+
+        areal = native_bssn_geometry_terms(grid, state)["areal_radius"]
+        masks = {
+            "centre_R_areal_lt_2": areal < 2.0,
+            "fixed_annulus_2_le_R_areal_le_6": (areal >= 2.0) & (areal <= 6.0),
+            "outer_R_areal_gt_6": areal > 6.0,
+        }
+        per_stage = {}
+        for stage_name, (native_stage, vendor_stage) in stage_pairs.items():
+            per_stage[stage_name] = _region_residual_summary(
+                native_stage, vendor_stage, masks, _FIELDS
+            )
+        # The return values are included as a stage mapping cross-check. Their
+        # existing acceptance gate lives in the prior shadow-witness test.
+        per_stage["final_output_crosscheck"] = _region_residual_summary(
+            native_result, vendor_result, masks, _FIELDS
+        )
+        stage_records.append({
+            "resolution": n,
+            "physical_regions": list(masks.keys()),
+            "stages": per_stage,
+            "input_sha256_before": hashes_before,
+            "input_sha256_after": hashes_after,
+        })
+
+    with capsys.disabled():
+        print(
+            "NATIVE_PIRK2_ACTUAL_STAGE_WITNESS "
+            + json.dumps(
+                {"schema": "native-pirk2-actual-stage-witness/v1", "records": stage_records},
+                sort_keys=True,
+                separators=(",", ":"),
+                allow_nan=False,
+            ),
+            flush=True,
+        )
