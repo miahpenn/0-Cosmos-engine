@@ -1,9 +1,11 @@
-"""First-party native spherical geometry and isolated evolution candidates.
+"""First-party native spherical geometry and isolated evolution routines.
 
-This package contains independent grid/operator, metric/connection/Ricci,
-constraint, and narrowly scoped evolution RHS routines. It has no vendor
-dependency and is not selected by production evolution; vendor comparisons
-remain in the separate diagnostic/test layer.
+The production CMC kernel consumes native_explicit_rhs for the explicit metric
+fields a/b/X. Its alpha output is not integrated by the CMC stage path; lapse
+remains CMC-solved, and beta/B remain pinned by the production stage contract.
+Native primary/Lambda, constraints, gauge, and full PIRK2 composition remain
+isolated candidates until each has its own bounded integration contract.
+The native package itself has no dependency on the vendor implementation.
 """
 
 from .operators import NativeSphericalCellGrid
