@@ -1718,6 +1718,11 @@ def audit_case(kernel, state, coupling: float, epsilons: tuple[float, float]) ->
                 for row in sector_resolved_epsilon_rows)
         and all(row["all_profiles_finite"]
                 for row in scalar_sector_energy_time_density_rows)
+        and all(
+            row["sectors"][sector]["operator_component_decomposition"]["all_profiles_finite"]
+            for row in sector_resolved_epsilon_rows
+            for sector in ("S", "D", "phi")
+        )
     )
     r = np.asarray(state.grid.centers, dtype=np.float64)
     annulus = (r >= 2.0) & (r <= 10.0)
@@ -2113,6 +2118,33 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             ),
             "scalar_sector_energy_time_density_budget_finite": all(
                 all(row["all_profiles_finite"] for row in result[arm]["scalar_sector_energy_time_density_rows"])
+                for result in per_resolution
+                for arm in ("uncoupled_control", "coupled_baseline")
+            ),
+            "scalar_sector_divergence_operator_terms_reported": all(
+                all(
+                    row["sectors"][sector]["operator_component_decomposition"]["reported"]
+                    for row in result[arm]["sector_resolved_epsilon_rows"]
+                    for sector in ("S", "D", "phi")
+                )
+                for result in per_resolution
+                for arm in ("uncoupled_control", "coupled_baseline")
+            ),
+            "scalar_sector_divergence_operator_terms_finite": all(
+                all(
+                    row["sectors"][sector]["operator_component_decomposition"]["all_profiles_finite"]
+                    for row in result[arm]["sector_resolved_epsilon_rows"]
+                    for sector in ("S", "D", "phi")
+                )
+                for result in per_resolution
+                for arm in ("uncoupled_control", "coupled_baseline")
+            ),
+            "scalar_sector_divergence_operator_component_reconstruction_passed": all(
+                all(
+                    row["sectors"][sector]["operator_component_decomposition"]["component_reconstruction_passed"]
+                    for row in result[arm]["sector_resolved_epsilon_rows"]
+                    for sector in ("S", "D", "phi")
+                )
                 for result in per_resolution
                 for arm in ("uncoupled_control", "coupled_baseline")
             ),
