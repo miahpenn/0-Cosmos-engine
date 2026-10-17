@@ -55,7 +55,9 @@ sys.path.insert(0, str(SOURCE_ROOT))
 
 from engine import production_kernel as production_kernel_module  # noqa: E402
 from engine.production_kernel import V55ProductionKernel  # noqa: E402
-from engine.scalar_system import KAPPA, ScalarFields, cosmos_potential  # noqa: E402
+from engine.scalar_system import (
+    KAPPA, ScalarFields, cosmos_potential, cosmos_potential_prime, scalar_rhs_arrays,
+)  # noqa: E402
 from engine.matter_system import Species, _metric_arrays, primitives  # noqa: E402
 from engine.stress_energy import assemble_total_stress_energy  # noqa: E402
 from engine.v55_matter import dm_density, metric_slice_from_q  # noqa: E402
@@ -110,6 +112,16 @@ def verify_provenance() -> dict[str, Any]:
 
 def d1(grid, values, parity: int) -> np.ndarray:
     return finite("radial derivative", grid.cell_derivative_fourth(values, parity=parity))
+
+
+def d2(grid, values, parity: int) -> np.ndarray:
+    """Use the same grid second-derivative interface as the pinned scalar RHS."""
+    if hasattr(grid, "cell_second_derivative_fourth"):
+        return finite(
+            "radial second derivative",
+            grid.cell_second_derivative_fourth(values, parity=parity),
+        )
+    return finite("radial second derivative", grid.d2(values, parity))
 
 
 def independent_total_projections(state) -> dict[str, np.ndarray]:
@@ -493,6 +505,243 @@ def summarize(values: np.ndarray, r: np.ndarray) -> dict[str, Any]:
     }
 
 
+def scalar_rhs_term_budget(state, coupling: float) -> dict[str, Any]:
+    """Decompose the pinned scalar RHS into signed, reconstructing term profiles.
+
+    This is an implementation/source crosswalk: it records what the pinned RHS
+    computes and does not accept the conditional phi--DM exchange premise.
+    """
+    coupling = float(coupling)
+    if not math.isfinite(coupling):
+        raise ValueError("scalar RHS term budget coupling must be finite")
+
+    grid = state.grid
+    geom = state.geometry
+    fields = state.scalars
+    r = finite("scalar RHS budget radii", grid.centers)
+    alpha = finite("scalar RHS budget lapse", geom.alpha)
+    beta = finite("scalar RHS budget shift", geom.beta)
+    K = finite("scalar RHS budget trace curvature", geom.K)
+    a = finite("scalar RHS budget a", geom.a)
+    b = finite("scalar RHS budget b", geom.b)
+    X = finite("scalar RHS budget X", geom.X)
+    invr = finite("scalar RHS budget inverse radial metric", X**2 / a)
+    ap = d1(grid, a, +1)
+    bp = d1(grid, b, +1)
+    Xp = d1(grid, X, +1)
+    alphap = d1(grid, alpha, +1)
+    metric_bracket = finite(
+        "scalar RHS budget radial Laplacian bracket",
+        0.5 * ap / a - bp / b + Xp / X - 2.0 / r,
+    )
+    metric_slice = metric_slice_from_q(grid, geom)
+    rho_dm = finite(
+        "scalar RHS budget dark-matter density",
+        dm_density(metric_slice, state.matter),
+    )
+    rhs = scalar_rhs_arrays(
+        grid, geom, fields, beta_dm=coupling, rho_dm=rho_dm
+    )
+
+    definitions = (
+        ("S", fields.S, fields.PS, fields.S, "S", "PS"),
+        ("D", fields.D, fields.PD, -fields.D, "D", "PD"),
+        (
+            "phi", fields.phi, fields.Pi,
+            cosmos_potential_prime(fields.phi), "phi", "Pi"
+        ),
+    )
+    sector_reports: dict[str, Any] = {}
+    all_finite = True
+    all_reconstructed = True
+    closure_rtol = 5.0e-12
+    closure_atol = 5.0e-18
+
+    def pack_terms(terms: dict[str, np.ndarray], name: str) -> dict[str, Any]:
+        checked = {
+            key: finite(f"{name} term {key}", value)
+            for key, value in terms.items()
+        }
+        return {
+            "raw_signed_arrays": {key: value.tolist() for key, value in checked.items()},
+            "summaries": {key: summarize(value, r) for key, value in checked.items()},
+        }
+
+    for sector, field, momentum, potential_prime, field_key, momentum_key in definitions:
+        f = finite(f"scalar RHS {sector} field", field)
+        p = finite(f"scalar RHS {sector} momentum", momentum)
+        fp = d1(grid, f, +1)
+        fpp = d2(grid, f, +1)
+        pp = d1(grid, p, +1)
+        zero = np.zeros_like(r, dtype=np.float64)
+
+        field_terms = {
+            "lapse_momentum": alpha * p,
+            "shift_advection": beta * fp,
+        }
+        momentum_terms = {
+            "shift_advection": beta * pp,
+            "lapse_laplacian_second_derivative": alpha * invr * fpp,
+            "lapse_metric_gradient": -alpha * invr * fp * metric_bracket,
+            "trace_curvature": alpha * K * p,
+            "lapse_gradient": invr * alphap * fp,
+            "potential_derivative": -alpha * finite(
+                f"{sector} potential derivative", potential_prime
+            ),
+            "conditional_dm_exchange": coupling * rho_dm if sector == "phi" else zero,
+        }
+
+        field_sum = np.zeros_like(r, dtype=np.float64)
+        for value in field_terms.values():
+            field_sum = field_sum + value
+        momentum_sum = np.zeros_like(r, dtype=np.float64)
+        for value in momentum_terms.values():
+            momentum_sum = momentum_sum + value
+
+        actual_field_rate = finite(
+            f"{sector} implementation field rate", getattr(rhs, field_key)
+        )
+        actual_momentum_rate = finite(
+            f"{sector} implementation momentum rate", getattr(rhs, momentum_key)
+        )
+        field_gap = finite(
+            f"{sector} reconstructed-minus-implementation field rate",
+            field_sum - actual_field_rate,
+        )
+        momentum_gap = finite(
+            f"{sector} reconstructed-minus-implementation momentum rate",
+            momentum_sum - actual_momentum_rate,
+        )
+        field_passed = bool(np.allclose(
+            field_sum, actual_field_rate, rtol=closure_rtol, atol=closure_atol
+        ))
+        momentum_passed = bool(np.allclose(
+            momentum_sum, actual_momentum_rate, rtol=closure_rtol, atol=closure_atol
+        ))
+        all_reconstructed = all_reconstructed and field_passed and momentum_passed
+        sector_reports[sector] = {
+            "field_rate_terms": pack_terms(field_terms, f"{sector} field rate"),
+            "momentum_rate_terms": pack_terms(momentum_terms, f"{sector} momentum rate"),
+            "implementation_rates": {
+                "field_rate": actual_field_rate.tolist(),
+                "momentum_rate": actual_momentum_rate.tolist(),
+            },
+            "reconstructed_rates": {
+                "field_rate": field_sum.tolist(),
+                "momentum_rate": momentum_sum.tolist(),
+            },
+            "reconstruction": {
+                "field_rate_gap": field_gap.tolist(),
+                "momentum_rate_gap": momentum_gap.tolist(),
+                "field_rate_gap_summary": summarize(field_gap, r),
+                "momentum_rate_gap_summary": summarize(momentum_gap, r),
+                "field_rate_passed": field_passed,
+                "momentum_rate_passed": momentum_passed,
+                "rtol": closure_rtol,
+                "atol": closure_atol,
+            },
+        }
+
+    all_finite = all(
+        np.all(np.isfinite(np.asarray(values, dtype=np.float64)))
+        for item in sector_reports.values()
+        for block in (
+            item["field_rate_terms"]["raw_signed_arrays"],
+            item["momentum_rate_terms"]["raw_signed_arrays"],
+            item["implementation_rates"],
+            item["reconstructed_rates"],
+            item["reconstruction"],
+        )
+        for values in block.values()
+        if isinstance(values, (list, tuple, np.ndarray))
+    )
+    return {
+        "status": "scalar_rhs_term_crosswalk_only",
+        "reported": True,
+        "coupling_beta_dm": coupling,
+        "state_sha256": state_digest(state),
+        "conditional_exchange_model_law_accepted": False,
+        "rho_dm_raw_signed_array": rho_dm.tolist(),
+        "rho_dm_summary": summarize(rho_dm, r),
+        "sectors": sector_reports,
+        "all_profiles_finite": bool(all_finite),
+        "reconstruction_passed": bool(all_reconstructed),
+        "reconstruction_rtol": closure_rtol,
+        "reconstruction_atol": closure_atol,
+        "term_convention": {
+            "field_rate": "alpha*p + beta^r*D_r(f)",
+            "momentum_rate": (
+                "beta^r*D_r(p) + alpha*(X^2/a)*D2(f) "
+                "- alpha*(X^2/a)*D_r(f)*(0.5*D_r(a)/a-D_r(b)/b+D_r(X)/X-2/r) "
+                "+ alpha*K*p + (X^2/a)*D_r(alpha)*D_r(f) - alpha*V'(f)"
+            ),
+            "conditional_dm_exchange": (
+                "phi only: beta_DM*rho_DM as implemented in the pinned RHS; "
+                "reported conditionally, not treated as accepted physics"
+            ),
+        },
+    }
+
+
+def scalar_rhs_term_coupling_increment(
+    uncoupled: dict[str, Any], coupled: dict[str, Any], radii: np.ndarray
+) -> dict[str, Any]:
+    """Report coupled-minus-control term changes on the identical base state."""
+    r = finite("scalar coupling-increment radii", radii)
+    permitted_change = ("phi", "momentum_rate_terms", "conditional_dm_exchange")
+    by_sector: dict[str, Any] = {}
+    only_declared_exchange_changed = True
+    for sector in ("S", "D", "phi"):
+        by_sector[sector] = {}
+        for category in ("field_rate_terms", "momentum_rate_terms"):
+            unc_terms = uncoupled["sectors"][sector][category]["raw_signed_arrays"]
+            cou_terms = coupled["sectors"][sector][category]["raw_signed_arrays"]
+            if set(unc_terms) != set(cou_terms):
+                raise RuntimeError(f"scalar RHS term names changed for {sector}/{category}")
+            for term in unc_terms:
+                delta = finite(
+                    f"{sector} {category} {term} coupled-minus-control",
+                    np.asarray(cou_terms[term], dtype=np.float64)
+                    - np.asarray(unc_terms[term], dtype=np.float64),
+                )
+                allowed = (sector, category, term) == permitted_change
+                if not allowed and np.any(delta != 0.0):
+                    only_declared_exchange_changed = False
+                by_sector[sector][f"{category}.{term}"] = {
+                    "raw_signed_array": delta.tolist(),
+                    "summary": summarize(delta, r),
+                    "expected_to_change_only_under_declared_rhs_split": bool(allowed),
+                }
+
+    coupling_delta = float(coupled["coupling_beta_dm"] - uncoupled["coupling_beta_dm"])
+    expected = finite(
+        "expected conditional phi RHS coupling increment",
+        coupling_delta * np.asarray(coupled["rho_dm_raw_signed_array"], dtype=np.float64),
+    )
+    measured = np.asarray(
+        by_sector["phi"]["momentum_rate_terms.conditional_dm_exchange"]["raw_signed_array"],
+        dtype=np.float64,
+    )
+    expected_match = bool(np.allclose(measured, expected, rtol=5.0e-12, atol=5.0e-18))
+    return {
+        "reported": True,
+        "status": "same_base_scalar_rhs_term_difference",
+        "uncoupled_state_sha256": uncoupled["state_sha256"],
+        "coupled_state_sha256": coupled["state_sha256"],
+        "same_base_state": uncoupled["state_sha256"] == coupled["state_sha256"],
+        "conditional_exchange_model_law_accepted": False,
+        "phi_exchange_increment_matches_declared_rhs_term": expected_match,
+        "only_declared_phi_exchange_term_changed": bool(only_declared_exchange_changed),
+        "sectors": by_sector,
+        "conditional_phi_exchange_increment": {
+            "formula": "(beta_DM,coupled - beta_DM,uncoupled)*rho_DM",
+            "raw_signed_array": measured.tolist(),
+            "expected_raw_signed_array": expected.tolist(),
+            "summary": summarize(measured, r),
+        },
+    }
+
+
 def _divergence_tangent_from_objects(
     state, base: dict[str, Any], plus: dict[str, Any], minus: dict[str, Any], epsilon: float
 ) -> dict[str, Any]:
@@ -847,7 +1096,20 @@ def audit_case(kernel, state, coupling: float, epsilons: tuple[float, float]) ->
         rates = rhs_direction(kernel, state)
     finally:
         production_kernel_module.BETA_DM = old_beta
-    tangent_rows = [divergence_tangent(kernel, state, rates, eps) for eps in epsilons]
+    tangent_rows = []
+    sector_resolved_epsilon_rows = []
+    for epsilon in epsilons:
+        # Materialize one shared +/- state pair and reuse it for the total and
+        # six-sector divergence witnesses; no parallel or independently built
+        # state pair is introduced for the scalar budget.
+        plus_state = shifted_state(kernel, state, rates, +float(epsilon))
+        minus_state = shifted_state(kernel, state, rates, -float(epsilon))
+        paired = sector_resolved_divergence_tangent_from_states(
+            state, plus_state, minus_state, float(epsilon)
+        )
+        tangent_rows.append(paired["total"])
+        sector_resolved_epsilon_rows.append(paired["sector_decomposition"])
+    scalar_term_budget = scalar_rhs_term_budget(state, coupling)
     rest_source, rest_source_parts = conditional_rest_current_source(state, rates, coupling)
     rates_with_conditional_source = copy_rates_with_rest_source(rates, rest_source)
     conditional_source_tangent_rows = [
@@ -889,6 +1151,9 @@ def audit_case(kernel, state, coupling: float, epsilons: tuple[float, float]) ->
     ) and bool(
         np.all(np.isfinite(rest_source))
         and np.all(np.isfinite(scalar_pi_lapse_correction))
+        and scalar_term_budget["all_profiles_finite"]
+        and all(row["state_pairing"]["all_sector_arrays_finite"]
+                for row in sector_resolved_epsilon_rows)
     )
     r = np.asarray(state.grid.centers, dtype=np.float64)
     annulus = (r >= 2.0) & (r <= 10.0)
@@ -898,6 +1163,8 @@ def audit_case(kernel, state, coupling: float, epsilons: tuple[float, float]) ->
         "zero_shift_at_frozen_slice": bool(np.all(np.asarray(state.geometry.beta) == 0.0)),
         "projection_crosscheck_passed": bool(projections_ok),
         "all_profiles_finite": bool(finite_ok),
+        "scalar_rhs_term_budget": scalar_term_budget,
+        "sector_resolved_epsilon_rows": sector_resolved_epsilon_rows,
         "epsilon_rows": [
             {key: value for key, value in row.items() if key not in ("div_T_t", "div_T_r", "div_T_t_fv", "div_T_r_fv")}
             for row in tangent_rows
@@ -1009,6 +1276,53 @@ def audit_case(kernel, state, coupling: float, epsilons: tuple[float, float]) ->
     }
 
 
+def sector_divergence_coupling_increment(
+    uncoupled_rows: list[dict[str, Any]],
+    coupled_rows: list[dict[str, Any]],
+    radii: np.ndarray,
+) -> dict[str, Any]:
+    """Compare sector divergence profiles across coupling arms and same epsilons."""
+    r = finite("sector divergence coupling-increment radii", radii)
+    if len(uncoupled_rows) != len(coupled_rows):
+        raise ValueError("coupled/control sector epsilon row counts differ")
+    names = ("dark_matter", "baryons", "radiation", "S", "D", "phi")
+    channels = ("div_T_t", "div_T_r", "div_T_t_fv", "div_T_r_fv")
+    epsilon_rows = []
+    for unc_row, cou_row in zip(uncoupled_rows, coupled_rows):
+        if float(unc_row["state_pairing"]["epsilon"]) != float(cou_row["state_pairing"]["epsilon"]):
+            raise ValueError("coupled/control sector epsilon values differ")
+        by_sector = {}
+        for sector in names:
+            unc_raw = unc_row["sectors"][sector]["raw_signed_arrays"]
+            cou_raw = cou_row["sectors"][sector]["raw_signed_arrays"]
+            by_sector[sector] = {}
+            for channel in channels:
+                delta = finite(
+                    f"{sector} {channel} coupled-minus-control divergence",
+                    np.asarray(cou_raw[channel], dtype=np.float64)
+                    - np.asarray(unc_raw[channel], dtype=np.float64),
+                )
+                by_sector[sector][channel] = {
+                    "raw_signed_array": delta.tolist(),
+                    "summary": summarize(delta, r),
+                }
+        epsilon_rows.append({
+            "epsilon": float(unc_row["state_pairing"]["epsilon"]),
+            "uncoupled_state_pairing": unc_row["state_pairing"],
+            "coupled_state_pairing": cou_row["state_pairing"],
+            "sectors": by_sector,
+        })
+    return {
+        "reported": True,
+        "status": "same_state_pair_sector_coupling_difference",
+        "sector_names": list(names),
+        "channels": list(channels),
+        "epsilon_rows": epsilon_rows,
+        "production_steps_advanced": 0,
+        "scientific_admission": False,
+    }
+
+
 def audit_resolution(n: int, r_max: float, epsilons: tuple[float, float]) -> dict[str, Any]:
     kernel = V55ProductionKernel()
     state = kernel.initialize(resolution=n, r_max=r_max, include_radiation=True)
@@ -1078,6 +1392,16 @@ def audit_resolution(n: int, r_max: float, epsilons: tuple[float, float]) -> dic
         float(np.sqrt(np.mean(predicted_lapse_defect[annulus] ** 2))),
         np.finfo(float).tiny,
     )
+    scalar_term_increment = scalar_rhs_term_coupling_increment(
+        uncoupled["scalar_rhs_term_budget"],
+        coupled["scalar_rhs_term_budget"],
+        state.grid.centers,
+    )
+    sector_divergence_increment = sector_divergence_coupling_increment(
+        uncoupled["sector_resolved_epsilon_rows"],
+        coupled["sector_resolved_epsilon_rows"],
+        state.grid.centers,
+    )
     return {
         "resolution": int(n),
         "r_max": float(r_max),
@@ -1089,6 +1413,8 @@ def audit_resolution(n: int, r_max: float, epsilons: tuple[float, float]) -> dic
             "div_T_t": summarize(delta_t, state.grid.centers),
             "div_T_r": summarize(delta_r, state.grid.centers),
         },
+        "scalar_rhs_term_coupling_increment": scalar_term_increment,
+        "sector_divergence_coupling_increment": sector_divergence_increment,
         "conditional_rest_current_source_discriminator": {
             "premise": "For pressureless dust with nabla_mu T^mu_nu=beta_dm*rho*partial_nu(phi), contraction with u^nu gives nabla_mu(rho*u^mu)=-beta_dm*rho*u^nu*partial_nu(phi).",
             "production_rest_rhs_has_interaction_source": False,
@@ -1190,6 +1516,29 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             "all_profiles_finite": all(
                 result["uncoupled_control"]["all_profiles_finite"]
                 and result["coupled_baseline"]["all_profiles_finite"]
+                for result in per_resolution
+            ),
+            "scalar_rhs_term_budget_reported": all(
+                result["uncoupled_control"]["scalar_rhs_term_budget"]["reported"]
+                and result["coupled_baseline"]["scalar_rhs_term_budget"]["reported"]
+                for result in per_resolution
+            ),
+            "scalar_rhs_term_reconstruction_passed": all(
+                result["uncoupled_control"]["scalar_rhs_term_budget"]["reconstruction_passed"]
+                and result["coupled_baseline"]["scalar_rhs_term_budget"]["reconstruction_passed"]
+                for result in per_resolution
+            ),
+            "sector_resolved_scalar_divergence_reported": all(
+                len(result["uncoupled_control"]["sector_resolved_epsilon_rows"]) == len(args.epsilons)
+                and len(result["coupled_baseline"]["sector_resolved_epsilon_rows"]) == len(args.epsilons)
+                and result["scalar_rhs_term_coupling_increment"]["reported"]
+                and result["sector_divergence_coupling_increment"]["reported"]
+                for result in per_resolution
+            ),
+            "scalar_rhs_coupling_increment_consistent": all(
+                result["scalar_rhs_term_coupling_increment"]["same_base_state"]
+                and result["scalar_rhs_term_coupling_increment"]["phi_exchange_increment_matches_declared_rhs_term"]
+                and result["scalar_rhs_term_coupling_increment"]["only_declared_phi_exchange_term_changed"]
                 for result in per_resolution
             ),
             "input_states_unchanged": True,
