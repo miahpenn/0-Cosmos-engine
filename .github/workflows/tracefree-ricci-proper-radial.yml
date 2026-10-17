@@ -98,8 +98,37 @@ jobs:
           done
           test "$(git rev-parse "HEAD:vendor/bb-palatini-unified-r0")" = "$VENDOR_COMMIT"
           changed="$(git diff --name-only "$SOURCE_COMMIT" HEAD -- engine vendor .gitmodules requirements.txt)"
-          if [ -n "$changed" ]; then
-            printf 'Unexpected production/vendor/dependency changes:\n%s\n' "$changed"
+          unexpected=""
+          while IFS= read -r path; do
+            [ -z "$path" ] && continue
+            case "$path" in
+              engine/native_geometry/__init__.py|engine/native_geometry/geometry.py|engine/native_geometry/operators.py)
+                printf 'Allowing isolated native-core candidate path; exact-head implementation tests still apply: %s\n' "$path"
+                ;;
+              *)
+                unexpected="${unexpected}${path}"
+      - name: Run full repository regression suite
+        if: steps.scope.outputs.run_diagnostic == 'true'
+        run: python -m pytest -q
+
+      - name: Capture trace-free Ricci / proper-radial witnesses at actual PIRK L2 stages
+        if: steps.scope.outputs.run_diagnostic == 'true'
+        run: python tools/audit_tracefree_ricci_proper_radial.py
+
+      - name: Upload report and radial profiles
+        if: always() && steps.scope.outputs.run_diagnostic == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: tracefree-ricci-proper-radial-2026-10-15
+          path: results/tracefree-ricci-proper-radial-2026-10-15/
+          if-no-files-found: warn
+          retention-days: 90
+\n'
+                ;;
+            esac
+          done <<< "$changed"
+          if [ -n "$unexpected" ]; then
+            printf 'Unexpected production/vendor/dependency changes:\n%s' "$unexpected"
             exit 1
           fi
           printf 'SOURCE_COMMIT=%s\nVENDOR_COMMIT=%s\n' "$SOURCE_COMMIT" "$VENDOR_COMMIT"
