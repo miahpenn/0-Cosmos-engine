@@ -39,6 +39,24 @@ def test_primary_l2_aa_residual_refines_on_initialized_cmc_slices(capsys):
         native_geometry = native_bssn_geometry_terms(native_grid, geometry)
         native = native_primary_l2_rhs(native_grid, geometry)
         pinned = vacuum.primary_l2_rhs(accepted.grid, geometry)
+        # Reuse the existing pinned geometry decomposition to attribute the
+        # trace-free Aa RHS residual to its discrete Hessian and Ricci pieces.
+        pinned_geometry = vacuum.geometry_terms(accepted.grid, geometry)
+        alpha = np.asarray(geometry.alpha, dtype=float)
+        native_hessian_tf = -(
+            native_geometry["DrDr_alpha"] - native_geometry["lap_alpha"] / 3.0
+        )
+        pinned_hessian_tf = -(
+            pinned_geometry["DrDr_alpha"] - pinned_geometry["lap_alpha"] / 3.0
+        )
+        native_ricci_tf = alpha * (
+            native_geometry["Rr_r"] - native_geometry["R"] / 3.0
+        )
+        pinned_ricci_tf = alpha * (
+            pinned_geometry["Rr_r"] - pinned_geometry["R"] / 3.0
+        )
+        hessian_delta = native_hessian_tf - pinned_hessian_tf
+        ricci_delta = native_ricci_tf - pinned_ricci_tf
         areal = np.asarray(native_geometry["areal_radius"], dtype=float)
         region_masks = {
             "centre_R_areal_lt_2": areal < 2.0,
@@ -54,6 +72,12 @@ def test_primary_l2_aa_residual_refines_on_initialized_cmc_slices(capsys):
         k_delta = np.asarray(native["K"], dtype=float) - np.asarray(pinned["K"], dtype=float)
         assert np.all(np.isfinite(aa_delta)), f"N={n}: non-finite Aa difference"
         assert np.all(np.isfinite(k_delta)), f"N={n}: non-finite K difference"
+        assert np.all(np.isfinite(hessian_delta)), f"N={n}: non-finite Hessian-piece difference"
+        assert np.all(np.isfinite(ricci_delta)), f"N={n}: non-finite Ricci-piece difference"
+        # This is an algebraic bookkeeping identity for the published RHS form,
+        # not a convergence or scientific-admission threshold.
+        decomposition_remainder = aa_delta - (hessian_delta + ricci_delta)
+        assert np.all(np.isfinite(decomposition_remainder)), f"N={n}: invalid decomposition remainder"
         region_summaries = {}
         for region, region_mask in region_masks.items():
             cells = int(np.count_nonzero(region_mask))
@@ -61,12 +85,20 @@ def test_primary_l2_aa_residual_refines_on_initialized_cmc_slices(capsys):
                 raise AssertionError(f"N={n}: empty diagnostic region {region}")
             aa_region = aa_delta[region_mask]
             k_region = k_delta[region_mask]
+            hessian_region = hessian_delta[region_mask]
+            ricci_region = ricci_delta[region_mask]
+            remainder_region = decomposition_remainder[region_mask]
             region_summaries[region] = {
                 "cells": cells,
                 "r_areal_min": float(np.min(areal[region_mask])),
                 "r_areal_max": float(np.max(areal[region_mask])),
                 "aa_rms_native_minus_pinned": float(np.sqrt(np.mean(aa_region**2))),
                 "aa_max_abs_native_minus_pinned": float(np.max(np.abs(aa_region))),
+                "aa_hessian_tracefree_rms": float(np.sqrt(np.mean(hessian_region**2))),
+                "aa_hessian_tracefree_max_abs": float(np.max(np.abs(hessian_region))),
+                "aa_ricci_tracefree_rms": float(np.sqrt(np.mean(ricci_region**2))),
+                "aa_ricci_tracefree_max_abs": float(np.max(np.abs(ricci_region))),
+                "aa_decomposition_remainder_max_abs": float(np.max(np.abs(remainder_region))),
                 "k_rms_native_minus_pinned": float(np.sqrt(np.mean(k_region**2))),
                 "k_max_abs_native_minus_pinned": float(np.max(np.abs(k_region))),
             }
@@ -100,12 +132,13 @@ def test_primary_l2_aa_residual_refines_on_initialized_cmc_slices(capsys):
             "NATIVE_V55_PRIMARY_L2_CMC_REFINEMENT "
             + json.dumps(
                 {
-                    "schema": "v55-primary-l2-cmc-refinement/v2",
-                    "scope": "fixed-physical-areal-regions; diagnostic RHS only",
+                    "schema": "v55-primary-l2-cmc-refinement/v3",
+                    "scope": "regional residuals plus trace-free Aa term decomposition; diagnostic RHS only",
                     "records": records,
                     "aa_monotonic_refinement": True,
                     "k_roundoff_contract": True,
                     "new_absolute_error_threshold": False,
+                    "termwise_decomposition_is_diagnostic_only": True,
                 },
                 sort_keys=True,
                 separators=(",", ":"),
