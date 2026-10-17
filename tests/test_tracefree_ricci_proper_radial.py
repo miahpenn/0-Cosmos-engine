@@ -324,6 +324,15 @@ def test_source_pin_guard_allows_only_additive_native_core_files():
 
     assert _unexpected_source_pinned_paths(sorted(NATIVE_CANDIDATE_PATHS), set()) == []
     assert _unexpected_source_pinned_paths(
+        ["engine/native_geometry/evolution.py"], set()
+    ) == []
+    assert _unexpected_source_pinned_paths(
+        ["engine/native_geometry/evolution.py"],
+        {"engine/native_geometry/evolution.py"},
+    ) == [
+        "engine/native_geometry/evolution.py (native candidate exists in pinned source)"
+    ]
+    assert _unexpected_source_pinned_paths(
         ["engine/native_geometry/geometry.py"],
         {"engine/native_geometry/geometry.py"},
     ) == ["engine/native_geometry/geometry.py (native candidate exists in pinned source)"]
