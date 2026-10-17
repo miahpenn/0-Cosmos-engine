@@ -1,4 +1,4 @@
-"""First-party native primary-L2 and primary-L3 RHS candidates.
+"""First-party native spherical geometry and evolution RHS candidate blocks.
 
 The L2 block uses independently evaluated native lapse-Hessian and BSSN Ricci
 witnesses; its off-connection-constraint distinction is intentional.
@@ -250,20 +250,10 @@ def native_lambda_l3_rhs(grid, state) -> np.ndarray:
         0.5 * d_a / a + d_b / b + 2.0 / radius
     )
 
-    # Reference default KO_EPSILON=0.0. Keep the stencil formula explicit and
-    # deterministic while avoiding any independently selected damping value.
-    extended = np.empty(grid.n + 4, dtype=float)
-    extended[2:-2] = Lambda
-    extended[1] = -Lambda[0]
-    extended[0] = -Lambda[1]
-    extended[-2] = 2.0 * Lambda[-1] - Lambda[-2]
-    extended[-1] = 3.0 * Lambda[-1] - 2.0 * Lambda[-2]
-    ko_stencil = (
-        extended[:-4] - 4.0 * extended[1:-3] + 6.0 * extended[2:-2]
-        - 4.0 * extended[3:-1] + extended[4:]
-    )
-    ko = -0.0 * ko_stencil / (16.0 * float(grid.dr))
-    ko[-2:] = 0.0
+    # The pinned reference's documented default is KO_EPSILON=0.0.
+    # Preserve that exact zero contribution without evaluating a stencil that
+    # is multiplied by zero (which can still overflow on extreme finite input).
+    ko = np.zeros_like(Lambda)
 
     with np.errstate(over="ignore", divide="ignore", invalid="ignore"):
         rhs = (
