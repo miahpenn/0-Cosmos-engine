@@ -742,6 +742,287 @@ def scalar_rhs_term_coupling_increment(
     }
 
 
+def scalar_sector_energy_time_density_budget(
+    state,
+    plus_state,
+    minus_state,
+    epsilon: float,
+    rhs_budget: dict[str, Any],
+) -> dict[str, Any]:
+    """Decompose each scalar sector's d_t(sqrt(-g) T^t_t) by pinned RHS term.
+
+    The central-difference metric prefactor and volume-factor derivatives use
+    the same plus/minus states as the sector-divergence witness. This is signed
+    implementation bookkeeping; it does not assert a conserved total stress
+    tensor or accept the conditional phi--dark-matter exchange premise.
+    """
+    if not math.isfinite(float(epsilon)) or float(epsilon) <= 0.0:
+        raise ValueError("epsilon must be finite and positive")
+    grid = state.grid
+    r = finite("scalar energy time-density radii", grid.centers)
+    inv = 1.0 / (2.0 * float(epsilon))
+    base_projection = independent_total_projections(state)
+    plus_projection = independent_total_projections(plus_state)
+    minus_projection = independent_total_projections(minus_state)
+    if any(
+        set(projection.get("scalar_parts", {})) != {"S", "D", "phi"}
+        for projection in (base_projection, plus_projection, minus_projection)
+    ):
+        raise RuntimeError("scalar time-density budget requires S/D/phi projection sectors")
+
+    definitions = (
+        ("S", state.scalars.S, state.scalars.PS, np.asarray(state.scalars.S, dtype=np.float64), 1.0),
+        ("D", state.scalars.D, state.scalars.PD, -np.asarray(state.scalars.D, dtype=np.float64), 1.0),
+        (
+            "phi", state.scalars.phi, state.scalars.Pi,
+            cosmos_potential_prime(state.scalars.phi), float(KAPPA),
+        ),
+    )
+    q_base = finite(
+        "base scalar spatial-gradient prefactor",
+        np.asarray(state.geometry.X, dtype=np.float64)**2
+        / np.asarray(state.geometry.a, dtype=np.float64),
+    )
+    q_plus = finite(
+        "plus scalar spatial-gradient prefactor",
+        np.asarray(plus_state.geometry.X, dtype=np.float64)**2
+        / np.asarray(plus_state.geometry.a, dtype=np.float64),
+    )
+    q_minus = finite(
+        "minus scalar spatial-gradient prefactor",
+        np.asarray(minus_state.geometry.X, dtype=np.float64)**2
+        / np.asarray(minus_state.geometry.a, dtype=np.float64),
+    )
+    q_dot = finite("scalar spatial-gradient prefactor time derivative", (q_plus - q_minus) * inv)
+
+    sector_reports: dict[str, Any] = {}
+    all_arrays: list[np.ndarray] = [q_base, q_dot]
+    term_convention = {
+        "density": "(0.5*p^2 + 0.5*(X^2/a)*(D_r f)^2 + V(f))/normalization",
+        "density_t": "-sqrt(-g)*rho",
+        "density_t_rate": "-sqrt(-g)*rho_dot - d_t(sqrt(-g))*rho",
+        "gradient_energy_rate": "(X^2/a)*(D_r f)*D_r(f_dot_term)/normalization",
+        "potential_energy_rate": "V'(f)*f_dot_term/normalization",
+        "kinetic_energy_rate": "p*p_dot_term/normalization",
+        "metric_prefactor_rate": "0.5*d_t(X^2/a)*(D_r f)^2/normalization",
+        "conditional_phi_exchange_density_t_rate": (
+            "-sqrt(-g)*Pi*beta_DM*rho_DM/KAPPA; implementation accounting only, "
+            "not an accepted physical source law"
+        ),
+    }
+
+    def pack(values: np.ndarray, label: str) -> dict[str, Any]:
+        checked = finite(label, values)
+        all_arrays.append(checked)
+        return {
+            "raw_signed_array": checked.tolist(),
+            "summary": summarize(checked, r),
+        }
+
+    for sector, field_raw, momentum_raw, potential_prime_raw, norm in definitions:
+        field = finite(f"{sector} scalar field at base", field_raw)
+        momentum = finite(f"{sector} scalar momentum at base", momentum_raw)
+        potential_prime = finite(f"{sector} scalar potential derivative", potential_prime_raw)
+        field_r = d1(grid, field, +1)
+        base_parts = base_projection["scalar_parts"][sector]
+        plus_parts = plus_projection["scalar_parts"][sector]
+        minus_parts = minus_projection["scalar_parts"][sector]
+        base_obj = _covariant_objects_from_components(state, base_parts)
+        plus_obj = _covariant_objects_from_components(plus_state, plus_parts)
+        minus_obj = _covariant_objects_from_components(minus_state, minus_parts)
+        sqrt_minus_g = finite(f"{sector} base sqrt(-g)", base_obj["sqrt_minus_g"])
+        sqrt_minus_g_dot = finite(
+            f"{sector} sqrt(-g) time derivative",
+            (np.asarray(plus_obj["sqrt_minus_g"]) - np.asarray(minus_obj["sqrt_minus_g"])) * inv,
+        )
+        rho_base = finite(f"{sector} base scalar density", base_obj["rho"])
+        measured_density_t_dot = finite(
+            f"{sector} measured time-density derivative",
+            (np.asarray(plus_obj["density_t"]) - np.asarray(minus_obj["density_t"])) * inv,
+        )
+        rhs_sector = rhs_budget["sectors"][sector]
+        field_terms_raw = rhs_sector["field_rate_terms"]["raw_signed_arrays"]
+        momentum_terms_raw = rhs_sector["momentum_rate_terms"]["raw_signed_arrays"]
+        field_terms: dict[str, Any] = {}
+        momentum_terms: dict[str, Any] = {}
+        density_t_contributions: list[np.ndarray] = []
+
+        for term_name, raw_values in field_terms_raw.items():
+            field_rate_term = finite(
+                f"{sector} field rate term {term_name}",
+                np.asarray(raw_values, dtype=np.float64),
+            )
+            gradient_rate = finite(
+                f"{sector} {term_name} gradient-energy rate",
+                q_base * field_r * d1(grid, field_rate_term, +1) / norm,
+            )
+            potential_rate = finite(
+                f"{sector} {term_name} potential-energy rate",
+                potential_prime * field_rate_term / norm,
+            )
+            density_t_gradient = finite(
+                f"{sector} {term_name} density_t gradient contribution",
+                -sqrt_minus_g * gradient_rate,
+            )
+            density_t_potential = finite(
+                f"{sector} {term_name} density_t potential contribution",
+                -sqrt_minus_g * potential_rate,
+            )
+            combined = finite(
+                f"{sector} {term_name} density_t contribution",
+                density_t_gradient + density_t_potential,
+            )
+            density_t_contributions.append(combined)
+            field_terms[term_name] = {
+                "rhs_rate_term": pack(field_rate_term, f"{sector} {term_name} field RHS term"),
+                "gradient_energy_rate": pack(gradient_rate, f"{sector} {term_name} gradient-energy rate"),
+                "potential_energy_rate": pack(potential_rate, f"{sector} {term_name} potential-energy rate"),
+                "density_t_dot_gradient_contribution": pack(
+                    density_t_gradient, f"{sector} {term_name} density_t gradient contribution"
+                ),
+                "density_t_dot_potential_contribution": pack(
+                    density_t_potential, f"{sector} {term_name} density_t potential contribution"
+                ),
+                "density_t_dot_contribution": pack(
+                    combined, f"{sector} {term_name} total density_t contribution"
+                ),
+            }
+
+        for term_name, raw_values in momentum_terms_raw.items():
+            momentum_rate_term = finite(
+                f"{sector} momentum rate term {term_name}",
+                np.asarray(raw_values, dtype=np.float64),
+            )
+            kinetic_rate = finite(
+                f"{sector} {term_name} kinetic-energy rate",
+                momentum * momentum_rate_term / norm,
+            )
+            density_t_kinetic = finite(
+                f"{sector} {term_name} density_t kinetic contribution",
+                -sqrt_minus_g * kinetic_rate,
+            )
+            density_t_contributions.append(density_t_kinetic)
+            momentum_terms[term_name] = {
+                "rhs_rate_term": pack(
+                    momentum_rate_term, f"{sector} {term_name} momentum RHS term"
+                ),
+                "kinetic_energy_rate": pack(
+                    kinetic_rate, f"{sector} {term_name} kinetic-energy rate"
+                ),
+                "density_t_dot_contribution": pack(
+                    density_t_kinetic, f"{sector} {term_name} density_t kinetic contribution"
+                ),
+            }
+
+        metric_prefactor_rate = finite(
+            f"{sector} spatial-gradient metric-prefactor energy rate",
+            0.5 * q_dot * field_r**2 / norm,
+        )
+        density_t_metric_prefactor = finite(
+            f"{sector} density_t metric-prefactor contribution",
+            -sqrt_minus_g * metric_prefactor_rate,
+        )
+        density_t_volume = finite(
+            f"{sector} density_t volume-factor contribution",
+            -sqrt_minus_g_dot * rho_base,
+        )
+        density_t_contributions.extend((density_t_metric_prefactor, density_t_volume))
+        predicted_density_t_dot = np.zeros_like(r, dtype=np.float64)
+        for contribution in density_t_contributions:
+            predicted_density_t_dot = predicted_density_t_dot + contribution
+        predicted_density_t_dot = finite(
+            f"{sector} predicted time-density derivative", predicted_density_t_dot
+        )
+        residual = finite(
+            f"{sector} measured-minus-predicted time-density residual",
+            measured_density_t_dot - predicted_density_t_dot,
+        )
+        density_t_dot_conditional_exchange = None
+        if sector == "phi":
+            raw_exchange = np.asarray(
+                momentum_terms_raw["conditional_dm_exchange"], dtype=np.float64
+            )
+            density_t_dot_conditional_exchange = finite(
+                "phi conditional-exchange contribution to density_t derivative",
+                -sqrt_minus_g * momentum * raw_exchange / norm,
+            )
+
+        sector_reports[sector] = {
+            "normalization": float(norm),
+            "state_pairing": {
+                "base_state_sha256": state_digest(state),
+                "plus_state_sha256": state_digest(plus_state),
+                "minus_state_sha256": state_digest(minus_state),
+                "epsilon": float(epsilon),
+            },
+            "field_rate_terms": field_terms,
+            "momentum_rate_terms": momentum_terms,
+            "geometry_terms": {
+                "spatial_gradient_metric_prefactor_time_derivative": pack(
+                    q_dot, f"{sector} spatial-gradient prefactor time derivative"
+                ),
+                "spatial_gradient_metric_prefactor_energy_rate": pack(
+                    metric_prefactor_rate, f"{sector} metric-prefactor energy rate"
+                ),
+                "density_t_dot_metric_prefactor_contribution": pack(
+                    density_t_metric_prefactor, f"{sector} density_t metric-prefactor contribution"
+                ),
+                "sqrt_minus_g_time_derivative": pack(
+                    sqrt_minus_g_dot, f"{sector} sqrt(-g) time derivative"
+                ),
+                "density_t_dot_volume_factor_contribution": pack(
+                    density_t_volume, f"{sector} density_t volume contribution"
+                ),
+            },
+            "base_density": pack(rho_base, f"{sector} base density"),
+            "measured_density_t_dot": pack(
+                measured_density_t_dot, f"{sector} measured density_t derivative"
+            ),
+            "predicted_density_t_dot": pack(
+                predicted_density_t_dot, f"{sector} predicted density_t derivative"
+            ),
+            "measured_minus_predicted_residual": pack(
+                residual, f"{sector} time-density ledger residual"
+            ),
+            "conditional_phi_exchange": {
+                "model_law_accepted": False,
+                "density_t_dot_contribution": (
+                    pack(
+                        density_t_dot_conditional_exchange,
+                        "phi conditional exchange density_t contribution",
+                    )
+                    if density_t_dot_conditional_exchange is not None
+                    else None
+                ),
+            },
+            "residual_interpretation": (
+                "finite-difference directional residual only; no acceptance threshold "
+                "or full-divergence closure claim is applied"
+            ),
+        }
+
+    all_finite = all(np.all(np.isfinite(values)) for values in all_arrays)
+    return {
+        "reported": True,
+        "status": "scalar_sector_time_density_rhs_ledger_only",
+        "epsilon": float(epsilon),
+        "base_state_sha256": state_digest(state),
+        "plus_state_sha256": state_digest(plus_state),
+        "minus_state_sha256": state_digest(minus_state),
+        "conditional_exchange_model_law_accepted": False,
+        "all_profiles_finite": bool(all_finite),
+        "term_convention": term_convention,
+        "sectors": sector_reports,
+        "interpretation": (
+            "Signed term-by-term accounting of the scalar sectors' time-density "
+            "component using one existing plus/minus state pair. Geometry-prefactor "
+            "and sqrt(-g) derivatives are measured from that pair. Residuals are "
+            "reported without a closure tolerance; full divergence and physical "
+            "exchange-law admission remain separate questions."
+        ),
+    }
+
+
 def _divergence_tangent_from_objects(
     state, base: dict[str, Any], plus: dict[str, Any], minus: dict[str, Any], epsilon: float
 ) -> dict[str, Any]:
@@ -1096,12 +1377,13 @@ def audit_case(kernel, state, coupling: float, epsilons: tuple[float, float]) ->
         rates = rhs_direction(kernel, state)
     finally:
         production_kernel_module.BETA_DM = old_beta
+    scalar_term_budget = scalar_rhs_term_budget(state, coupling)
     tangent_rows = []
     sector_resolved_epsilon_rows = []
+    scalar_sector_energy_time_density_rows = []
     for epsilon in epsilons:
-        # Materialize one shared +/- state pair and reuse it for the total and
-        # six-sector divergence witnesses; no parallel or independently built
-        # state pair is introduced for the scalar budget.
+        # Materialize one shared +/- state pair and reuse it for the total,
+        # six-sector divergence, and scalar time-density term ledgers.
         plus_state = shifted_state(kernel, state, rates, +float(epsilon))
         minus_state = shifted_state(kernel, state, rates, -float(epsilon))
         paired = sector_resolved_divergence_tangent_from_states(
@@ -1109,7 +1391,11 @@ def audit_case(kernel, state, coupling: float, epsilons: tuple[float, float]) ->
         )
         tangent_rows.append(paired["total"])
         sector_resolved_epsilon_rows.append(paired["sector_decomposition"])
-    scalar_term_budget = scalar_rhs_term_budget(state, coupling)
+        scalar_sector_energy_time_density_rows.append(
+            scalar_sector_energy_time_density_budget(
+                state, plus_state, minus_state, float(epsilon), scalar_term_budget
+            )
+        )
     rest_source, rest_source_parts = conditional_rest_current_source(state, rates, coupling)
     rates_with_conditional_source = copy_rates_with_rest_source(rates, rest_source)
     conditional_source_tangent_rows = [
@@ -1154,6 +1440,8 @@ def audit_case(kernel, state, coupling: float, epsilons: tuple[float, float]) ->
         and scalar_term_budget["all_profiles_finite"]
         and all(row["state_pairing"]["all_sector_arrays_finite"]
                 for row in sector_resolved_epsilon_rows)
+        and all(row["all_profiles_finite"]
+                for row in scalar_sector_energy_time_density_rows)
     )
     r = np.asarray(state.grid.centers, dtype=np.float64)
     annulus = (r >= 2.0) & (r <= 10.0)
@@ -1165,6 +1453,7 @@ def audit_case(kernel, state, coupling: float, epsilons: tuple[float, float]) ->
         "all_profiles_finite": bool(finite_ok),
         "scalar_rhs_term_budget": scalar_term_budget,
         "sector_resolved_epsilon_rows": sector_resolved_epsilon_rows,
+        "scalar_sector_energy_time_density_rows": scalar_sector_energy_time_density_rows,
         "epsilon_rows": [
             {key: value for key, value in row.items() if key not in ("div_T_t", "div_T_r", "div_T_t_fv", "div_T_r_fv")}
             for row in tangent_rows
@@ -1540,6 +1829,16 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                 and result["scalar_rhs_term_coupling_increment"]["phi_exchange_increment_matches_declared_rhs_term"]
                 and result["scalar_rhs_term_coupling_increment"]["only_declared_phi_exchange_term_changed"]
                 for result in per_resolution
+            ),
+            "scalar_sector_energy_time_density_budget_reported": all(
+                all(row["reported"] for row in result[arm]["scalar_sector_energy_time_density_rows"])
+                for result in per_resolution
+                for arm in ("uncoupled_control", "coupled_baseline")
+            ),
+            "scalar_sector_energy_time_density_budget_finite": all(
+                all(row["all_profiles_finite"] for row in result[arm]["scalar_sector_energy_time_density_rows"])
+                for result in per_resolution
+                for arm in ("uncoupled_control", "coupled_baseline")
             ),
             "input_states_unchanged": True,
             "independent_total_stress_energy_divergence_closed": False,
