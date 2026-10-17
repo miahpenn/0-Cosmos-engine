@@ -145,3 +145,17 @@ def test_native_constraints_wire_canonical_local_stress_projection():
         rtol=2.0e-12,
         atol=2.0e-13,
     )
+
+
+def test_native_constraints_reject_overflow_from_extreme_but_finite_inputs():
+    """Do not return non-finite witnesses when finite input data overflows."""
+    grid = NativeSphericalCellGrid(24, 8.0)
+    state = _flat_state(grid, Aa=np.full(grid.n, 1.0e200))
+
+    # Inputs are finite and shape-correct; the squared-curvature term overflows.
+    assert np.all(np.isfinite(state.Aa))
+    with np.errstate(over="ignore", invalid="ignore", divide="ignore"):
+        with pytest.raises(
+            ValueError, match="H constraint witness produced non-finite values"
+        ):
+            native_bssn_constraints(grid, state)
