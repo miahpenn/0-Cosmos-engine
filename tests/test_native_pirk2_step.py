@@ -44,7 +44,8 @@ def _curved_state(grid):
 
 
 def _snapshot(state):
-    return {name: getattr(state, name).copy() for name in ("a", "b", "X", "alpha", "beta", "Aa", "K", "Lambda", "B")}
+    names = ("a", "b", "X", "alpha", "beta", "Aa", "K", "Lambda", "B")
+    return {name: getattr(state, name).copy() for name in names}
 
 
 def test_flat_constant_state_is_stationary_and_return_is_independent():
@@ -63,9 +64,15 @@ def test_flat_constant_state_is_stationary_and_return_is_independent():
 def test_native_pirk2_stage_schedule_uses_declared_time_levels(monkeypatch):
     grid = NativeSphericalCellGrid(8, 8.0)
     state = SimpleNamespace(
-        a=np.ones(grid.n), b=np.ones(grid.n), X=np.ones(grid.n), alpha=np.ones(grid.n),
-        beta=np.zeros(grid.n), Aa=np.full(grid.n, 0.1), K=np.full(grid.n, 0.2),
-        Lambda=np.full(grid.n, 0.3), B=np.full(grid.n, 0.225),
+        a=np.ones(grid.n),
+        b=np.ones(grid.n),
+        X=np.ones(grid.n),
+        alpha=np.ones(grid.n),
+        beta=np.zeros(grid.n),
+        Aa=np.full(grid.n, 0.1),
+        K=np.full(grid.n, 0.2),
+        Lambda=np.full(grid.n, 0.3),
+        B=np.full(grid.n, 0.225),
     )
     n = grid.n
 
@@ -79,10 +86,16 @@ def test_native_pirk2_stage_schedule_uses_declared_time_levels(monkeypatch):
         }
 
     def primary_l2(g, s):
-        return {"Aa": np.full(n, 0.1 * s.a[0]), "K": np.full(n, 0.2 * s.alpha[0])}
+        return {
+            "Aa": np.full(n, 0.1 * s.a[0]),
+            "K": np.full(n, 0.2 * s.alpha[0]),
+        }
 
     def primary_l3(g, s):
-        return {"Aa": np.full(n, 0.3 * s.beta[0] + 0.04), "K": np.full(n, 0.5 * s.Aa[0] + 0.01)}
+        return {
+            "Aa": np.full(n, 0.3 * s.beta[0] + 0.04),
+            "K": np.full(n, 0.5 * s.Aa[0] + 0.01),
+        }
 
     def lambda_l2(g, s, *, lambda_m=2.0):
         return np.full(n, 0.6 * s.Aa[0] + 0.1 * s.a[0])
@@ -112,7 +125,10 @@ def test_native_pirk2_stage_schedule_uses_declared_time_levels(monkeypatch):
         "B": 0.24282058318125,
     }
     for name, value in expected.items():
-        np.testing.assert_allclose(getattr(result, name), np.full(n, value), rtol=0.0, atol=5.0e-14, err_msg=name)
+        np.testing.assert_allclose(
+            getattr(result, name), np.full(n, value),
+            rtol=0.0, atol=5.0e-14, err_msg=name,
+        )
 
 
 def test_native_pirk2_step_is_read_only_and_rejects_invalid_contracts():
@@ -150,16 +166,19 @@ def test_native_pirk2_step_is_read_only_and_rejects_invalid_contracts():
 
 def test_native_pirk2_one_step_is_finite_and_comparable_to_pinned_eta_zero_variant():
     operators, vacuum, moving = vendor_modules()
-    rms_by_field = {name: [] for name in ("a", "b", "X", "alpha", "beta", "Aa", "K", "Lambda", "B")}
+    names = ("a", "b", "X", "alpha", "beta", "Aa", "K", "Lambda", "B")
+    rms_by_field = {name: [] for name in names}
 
     for n in (48, 96, 192):
         grid = NativeSphericalCellGrid(n, 12.0)
         vendor_grid = operators.SphericalCellGrid(n, 12.0)
         native_state = _curved_state(grid)
-        vendor_state = vacuum.VacuumState(**{
-            name: np.asarray(getattr(native_state, name), dtype=float).copy()
-            for name in ("a", "b", "X", "alpha", "beta", "Aa", "K", "Lambda", "B")
-        })
+        vendor_state = vacuum.VacuumState(
+            **{
+                name: np.asarray(getattr(native_state, name), dtype=float).copy()
+                for name in names
+            }
+        )
         dt = 1.0e-5
         native = native_pirk2_step(grid, native_state, dt, lambda_m=2.0)
         reference = moving.damped_moving_puncture_pirk2_step(
