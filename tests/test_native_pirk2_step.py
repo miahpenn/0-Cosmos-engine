@@ -117,3 +117,18 @@ def test_native_pirk2_step_matches_pinned_stage_order_on_fixed_areal_annulus():
     for name, errors in rms_by_field.items():
         assert len(errors) == 3 and np.all(np.isfinite(errors)), name
         assert max(errors) < 1.0e-4, f"{name} native/vendor PIRK2 RMS: {errors}"
+
+def test_native_pirk2_step_preserves_undamped_B_Lambda_increment_identity():
+    grid = NativeSphericalCellGrid(64, 12.0)
+    state = _state(grid, curved=True)
+    result = native_pirk2_step(grid, state, 1.0e-3)
+
+    # The composed step must preserve the same-stage sourced law B_t=3/4 Lambda_t
+    # over the whole predictor/corrector, not only in the isolated RHS unit test.
+    np.testing.assert_allclose(
+        result.B,
+        state.B + 0.75 * (result.Lambda - state.Lambda),
+        rtol=2.0e-14,
+        atol=2.0e-14,
+    )
+
