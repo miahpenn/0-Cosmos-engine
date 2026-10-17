@@ -95,6 +95,9 @@ jobs:
             and .gate_result.scalar_rhs_coupling_increment_consistent == true
             and .gate_result.scalar_sector_energy_time_density_budget_reported == true
             and .gate_result.scalar_sector_energy_time_density_budget_finite == true
+            and .gate_result.scalar_sector_divergence_operator_terms_reported == true
+            and .gate_result.scalar_sector_divergence_operator_terms_finite == true
+            and .gate_result.scalar_sector_divergence_operator_component_reconstruction_passed == true
             and .gate_result.input_states_unchanged == true
             and .gate_result.independent_total_stress_energy_divergence_closed == false
             and .gate_result.scientific_admission == false
