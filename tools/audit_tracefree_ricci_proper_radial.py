@@ -45,6 +45,7 @@ NATIVE_CANDIDATE_PATHS = frozenset({
     "engine/native_geometry/geometry.py",
     "engine/native_geometry/operators.py",
     "engine/native_geometry/evolution.py",
+    "engine/native_geometry/lambda_evolution.py",
 })
 
 RESOLUTIONS = (40, 60, 80, 120, 160)
