@@ -9,7 +9,7 @@ remain in the separate diagnostic/test layer.
 from .operators import NativeSphericalCellGrid
 from .geometry import metric_connection_lambda, native_bssn_geometry_terms
 from .constraints import native_bssn_constraints
-from .evolution import native_primary_l2_rhs
+from .evolution import native_primary_l2_rhs, native_primary_l3_rhs
 
 __all__ = [
     "NativeSphericalCellGrid",
@@ -17,4 +17,5 @@ __all__ = [
     "native_bssn_geometry_terms",
     "native_bssn_constraints",
     "native_primary_l2_rhs",
+    "native_primary_l3_rhs",
 ]

@@ -1,22 +1,15 @@
-"""First-party geometry-only primary-L2 RHS block.
+"""First-party native primary-L2 and primary-L3 RHS candidates.
 
-The mixed radial trace-free curvature component and trace evolve in this block as
+The L2 block uses independently evaluated native lapse-Hessian and BSSN Ricci
+witnesses; its off-connection-constraint distinction is intentional.
 
-    Aa_L2 = -(D_r D_r alpha - (D^2 alpha)/3)
-            + alpha * (R^r_r - R/3)
-    K_L2  = -D^2 alpha
+The L3 block contains the shift-advection and nonlinear vacuum extrinsic-
+curvature terms for the radial trace-free component Aa and trace K. Matter
+projection, explicit/gauge evolution, dissipation, Lambda evolution and PIRK2
+composition are deliberately separate responsibilities.
 
-Here R^r_r is the native reference-metric BSSN radial mixed component returned
-as Rr_r; R is the independently returned BSSN scalar witness. They are not
-reconstructed from the metric-only Ricci fields, because that would erase the
-evolved-Lambda principal-structure distinction off the connection-constraint
-surface.
-
-This is deliberately one RHS block, not a complete evolution stage. It does
-not include primary-L3 terms (shift advection, nonlinear curvature terms,
-matter projection or dissipation), explicit/gauge evolution, Lambda L2/L3, or
-PIRK2 stage composition. It is a pure candidate and is not wired into the
-production adapter.
+These pure candidates do not import vendor modules and are not wired into the
+production adapter. Pinned-vendor comparisons live only in the test layer.
 """
 
 from __future__ import annotations
@@ -29,10 +22,9 @@ from .geometry import native_bssn_geometry_terms
 def native_primary_l2_rhs(grid, state) -> dict[str, np.ndarray]:
     """Return the native Aa and K primary-L2 RHS profiles.
 
-    The function reads a caller-owned state without modifying it and returns
-    new finite cell profiles. The state must expose the native geometry fields
-    a, b, X, alpha and evolved Lambda with shape (n,). The radial trace-free
-    component Aa and trace K are not used as inputs by this L2 block.
+    The state must expose native geometry fields a, b, X, alpha and evolved
+    Lambda with shape (n,). The radial trace-free component Aa and trace K are
+    not used as inputs by this L2 block.
     """
     geometry = native_bssn_geometry_terms(grid, state)
     centers = np.asarray(grid.centers, dtype=float)
@@ -49,6 +41,73 @@ def native_primary_l2_rhs(grid, state) -> dict[str, np.ndarray]:
             geometry["Rr_r"] - geometry["R"] / 3.0
         )
         k_rhs = -geometry["lap_alpha"]
+
+    out = {
+        "Aa": np.asarray(aa_rhs, dtype=float),
+        "K": np.asarray(k_rhs, dtype=float),
+    }
+    for name, values in out.items():
+        if values.shape != centers.shape:
+            raise ValueError(f"{name} RHS must have shape {centers.shape}")
+        if not np.all(np.isfinite(values)):
+            raise ValueError(f"{name} RHS produced non-finite values")
+    return out
+
+
+def _evolution_profile(state, name: str, centers: np.ndarray) -> np.ndarray:
+    """Validate one cell-centred real profile without exposing mutable aliases."""
+    raw = np.asarray(getattr(state, name))
+    if raw.shape != centers.shape:
+        raise ValueError(f"{name} must have shape {centers.shape}")
+    if raw.dtype.kind not in "iuf":
+        raise ValueError(f"{name} must be real numeric data")
+    values = np.asarray(raw, dtype=float)
+    if not np.all(np.isfinite(values)):
+        raise ValueError(f"{name} must be finite")
+    return values
+
+
+def native_primary_l3_rhs(grid, state) -> dict[str, np.ndarray]:
+    """Return the isolated native primary-L3 RHS for Aa and K.
+
+    With Ab=-Aa/2 from spherical trace-freeness, the candidate is
+
+        Aa_L3 = beta * d_r(Aa) + alpha * K * Aa
+        K_L3  = beta * d_r(K)
+                 + alpha * (Aa**2 + 2*Ab**2 + K**2/3).
+
+    The grid's declared even-parity fourth-order cell derivatives are used for
+    Aa and K. This block does not add KO dissipation (the pinned comparator's
+    default epsilon is zero), matter projections, gauge terms or stage updates.
+    The supplied state is read-only from this function's perspective.
+    """
+    centers = np.asarray(grid.centers, dtype=float)
+    if (
+        centers.ndim != 1
+        or centers.size < 5
+        or not np.all(np.isfinite(centers))
+        or np.any(centers <= 0.0)
+    ):
+        raise ValueError(
+            "grid centres must be a finite positive 1-D profile with at least five cells"
+        )
+
+    alpha = _evolution_profile(state, "alpha", centers)
+    beta = _evolution_profile(state, "beta", centers)
+    aa = _evolution_profile(state, "Aa", centers)
+    trace_k = _evolution_profile(state, "K", centers)
+    if np.any(alpha <= 0.0):
+        raise ValueError("alpha must be positive")
+
+    d_aa = np.asarray(grid.cell_derivative_fourth(aa, parity=1), dtype=float)
+    d_k = np.asarray(grid.cell_derivative_fourth(trace_k, parity=1), dtype=float)
+    ab = -0.5 * aa
+
+    with np.errstate(over="ignore", invalid="ignore"):
+        aa_rhs = beta * d_aa + alpha * trace_k * aa
+        k_rhs = beta * d_k + alpha * (
+            aa**2 + 2.0 * ab**2 + trace_k**2 / 3.0
+        )
 
     out = {
         "Aa": np.asarray(aa_rhs, dtype=float),
