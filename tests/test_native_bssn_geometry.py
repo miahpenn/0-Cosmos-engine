@@ -5,10 +5,10 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from diagnostics.native_spherical_operators import NativeSphericalCellGrid
-from diagnostics.native_bssn_geometry import (
+from diagnostics.native_bssn_geometry import native_bssn_constraints
+from engine.native_geometry import (
+    NativeSphericalCellGrid,
     metric_connection_lambda,
-    native_bssn_constraints,
     native_bssn_geometry_terms,
 )
 from engine.v55_pirk_adapter import vendor_modules

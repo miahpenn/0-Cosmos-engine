@@ -314,3 +314,24 @@ def test_manufactured_regular_centre_series_validates_c5_oracle_and_witnesses():
         np.max(np.abs(arrays["ricci_tracefree_gap"][:2]))
     )
 
+
+
+def test_source_pin_guard_allows_only_additive_native_core_files():
+    from tools.audit_tracefree_ricci_proper_radial import (
+        NATIVE_CANDIDATE_PATHS,
+        _unexpected_source_pinned_paths,
+    )
+
+    assert _unexpected_source_pinned_paths(sorted(NATIVE_CANDIDATE_PATHS), set()) == []
+    assert _unexpected_source_pinned_paths(
+        ["engine/native_geometry/geometry.py"],
+        {"engine/native_geometry/geometry.py"},
+    ) == ["engine/native_geometry/geometry.py (native candidate exists in pinned source)"]
+    assert _unexpected_source_pinned_paths(
+        ["engine/native_geometry/extra.py"],
+        set(),
+    ) == ["engine/native_geometry/extra.py"]
+    assert _unexpected_source_pinned_paths(
+        ["engine/production_kernel.py", "vendor/unexpected.py"],
+        set(),
+    ) == ["engine/production_kernel.py", "vendor/unexpected.py"]

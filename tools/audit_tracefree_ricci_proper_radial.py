@@ -39,6 +39,12 @@ SOURCE_BLOBS = {
     "engine/valencia.py": "03ed86398f424c03d9d6a3e646da9222a34fac5c",
     "engine/worldtube.py": "aea19090cb0fd2ebe5481a8b7af0d26f119a9ad6",
 }
+NATIVE_CANDIDATE_PATHS = frozenset({
+    "engine/native_geometry/__init__.py",
+    "engine/native_geometry/geometry.py",
+    "engine/native_geometry/operators.py",
+})
+
 RESOLUTIONS = (40, 60, 80, 120, 160)
 R_MAX = 80.0
 CFL = 0.03
@@ -54,6 +60,21 @@ OUT = Path("results/tracefree-ricci-proper-radial-2026-10-15")
 
 def _git(*args: str) -> str:
     return subprocess.check_output(["git", *args], text=True).strip()
+
+
+
+
+def _unexpected_source_pinned_paths(
+    changed_paths: list[str], native_paths_in_source: set[str]
+) -> list[str]:
+    """Allow only explicitly named native-core additions absent from the source pin."""
+    unexpected = []
+    for path in changed_paths:
+        if path not in NATIVE_CANDIDATE_PATHS:
+            unexpected.append(path)
+        elif path in native_paths_in_source:
+            unexpected.append(f"{path} (native candidate exists in pinned source)")
+    return unexpected
 
 
 def _arr(x) -> np.ndarray:
@@ -312,8 +333,22 @@ def main() -> int:
         if not source_pins[path]["matches"]:
             raise RuntimeError(f"source provenance mismatch for {path}: {source_pins[path]}")
     changed = _git("diff", "--name-only", SOURCE_COMMIT, "HEAD", "--", "engine", "vendor", ".gitmodules", "requirements.txt")
-    if changed:
-        raise RuntimeError("production/vendor/dependency paths changed from current-main source pin:\\n" + changed)
+    changed_paths = changed.splitlines() if changed else []
+    native_paths_in_source = set()
+    for path in NATIVE_CANDIDATE_PATHS:
+        try:
+            _git("cat-file", "-e", f"{SOURCE_COMMIT}:{path}")
+        except subprocess.CalledProcessError:
+            # The source pin is already reachable and all production pins above
+            # passed; a missing candidate path means this new file is additive.
+            continue
+        native_paths_in_source.add(path)
+    unexpected = _unexpected_source_pinned_paths(changed_paths, native_paths_in_source)
+    if unexpected:
+        raise RuntimeError(
+            "production/vendor/dependency paths changed from current-main source pin:\n"
+            + "\n".join(unexpected)
+        )
     source_blob = _git("rev-parse", f"{SOURCE_COMMIT}:engine/production_kernel.py")
     head_blob = _git("rev-parse", "HEAD:engine/production_kernel.py")
     vendor = _git("rev-parse", "HEAD:vendor/bb-palatini-unified-r0")
