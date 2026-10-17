@@ -1,0 +1,75 @@
+name: Research - current-source origin initializer/moment crosswalk
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - tools/audit_current_source_origin_initializer_moment_crosswalk.py
+      - tools/audit_current_main_centre_proper_radial_ricci.py
+      - tests/test_current_source_origin_initializer_moment_crosswalk.py
+      - tests/test_initial_centre_proper_radial_ricci.py
+      - .github/workflows/current-source-origin-initializer-moment-crosswalk.yml
+      - engine/production_kernel.py
+      - engine/matter_system.py
+      - engine/matter_rhs.py
+      - engine/scalar_system.py
+      - engine/v55_matter.py
+      - engine/v55_pirk_adapter.py
+      - engine/cmc_gauge.py
+      - engine/v55_initial.py
+      - engine/stress_energy.py
+      - engine/valencia.py
+      - engine/worldtube.py
+      - engine/native_geometry/**
+      - vendor/**
+      - .gitmodules
+      - requirements.txt
+
+permissions:
+  contents: read
+
+concurrency:
+  group: current-source-origin-initializer-moment-crosswalk
+  cancel-in-progress: false
+
+jobs:
+  audit-current-source-origin:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      PYTHONUNBUFFERED: "1"
+    steps:
+      - name: Check out PR and pinned vendor
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install repository requirements
+        run: python -m pip install -r requirements.txt
+
+      - name: Compile crosswalk and run focused integrity tests
+        run: |
+          python -m py_compile tools/audit_current_source_origin_initializer_moment_crosswalk.py
+          python -m py_compile tests/test_current_source_origin_initializer_moment_crosswalk.py
+          python -m pytest -q tests/test_current_source_origin_initializer_moment_crosswalk.py
+
+      - name: Run one source-pinned no-evolution initializer/moment crosswalk
+        run: python tools/audit_current_source_origin_initializer_moment_crosswalk.py
+
+      - name: Upload source-current signed witnesses and profiles
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: current-source-origin-initializer-moment-crosswalk-2026-10-17
+          path: results/current-source-origin-initializer-moment-crosswalk-2026-10-17/
+          if-no-files-found: warn
+          retention-days: 90
