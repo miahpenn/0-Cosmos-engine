@@ -41,6 +41,7 @@ SOURCE_BLOBS = {
 }
 NATIVE_CANDIDATE_PATHS = frozenset({
     "engine/native_geometry/__init__.py",
+    "engine/native_geometry/constraints.py",
     "engine/native_geometry/geometry.py",
     "engine/native_geometry/operators.py",
 })
