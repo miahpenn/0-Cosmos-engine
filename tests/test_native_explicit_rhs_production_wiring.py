@@ -88,6 +88,11 @@ def test_production_geometry_terms_use_native_explicit_block_only(monkeypatch):
         native_grid.centers, state.grid.centers, rtol=0.0, atol=1.0e-14
     )
     native = native_explicit_rhs(native_grid, state.geometry)
+    for name in ("a", "b", "X"):
+        np.testing.assert_array_equal(
+            native[name], reference_explicit[name],
+            err_msg=f"native/adapter explicit RHS {name} on the accepted CMC slice",
+        )
     accepted_hash_before = _state_sha256(state)
 
     _, _, moving = adapter.vendor_modules()
