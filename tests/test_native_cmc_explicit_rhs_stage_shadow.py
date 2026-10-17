@@ -23,9 +23,10 @@ from engine.native_geometry import (
     NativeSphericalCellGrid,
     native_bssn_geometry_terms,
     native_cmc_explicit_metric_rhs,
+    native_lambda_l2_rhs,
     native_primary_l2_rhs,
 )
-from engine.production_kernel import ProductionState, V55ProductionKernel
+from engine.production_kernel import LAMBDA_M, ProductionState, V55ProductionKernel
 from engine.scalar_system import ScalarFields
 from engine.v55_matter import V55MatterState, metric_slice_from_q
 
@@ -168,6 +169,55 @@ def _regional_primary_l2_residuals(native_rhs, adapter_rhs, geometry, native_gri
     }
 
 
+def _regional_lambda_l2_residuals(native_rhs, adapter_rhs, geometry, native_grid):
+    """Report same-input geometry-only Lambda-L2 residuals by physical region.
+
+    Lambda-L3 advection and the local matter-current source are separate blocks
+    and deliberately excluded. No numerical acceptance threshold is added.
+    """
+    areal = np.asarray(
+        native_bssn_geometry_terms(native_grid, geometry)["areal_radius"],
+        dtype=float,
+    )
+    masks = {
+        "centre_R_areal_lt_2": areal < 2.0,
+        "fixed_annulus_2_le_R_areal_le_6": (areal >= 2.0) & (areal <= 6.0),
+        "outer_R_areal_gt_6": areal > 6.0,
+    }
+    native = np.asarray(native_rhs, dtype=float)
+    reference = np.asarray(adapter_rhs, dtype=float)
+    assert native.shape == reference.shape == areal.shape, (
+        "Lambda-L2: incompatible native/adapter profile shapes"
+    )
+    residual = native - reference
+    assert np.all(np.isfinite(residual)), (
+        "Lambda-L2: non-finite native-minus-adapter residual"
+    )
+    summaries = {}
+    for region, mask in masks.items():
+        selected_count = int(np.count_nonzero(mask))
+        assert selected_count >= 4, (
+            f"{region}: expected at least four descriptive cells, got {selected_count}"
+        )
+        selected = residual[mask]
+        summaries[region] = {
+            "cells": selected_count,
+            "signed_mean_native_minus_adapter": float(np.mean(selected)),
+            "rms_native_minus_adapter": float(np.sqrt(np.mean(selected**2))),
+            "max_abs_native_minus_adapter": float(np.max(np.abs(selected))),
+        }
+    return {
+        "regions": summaries,
+        "first_four_signed_native_minus_adapter": [
+            float(value) for value in residual[:4]
+        ],
+        "interpretation": (
+            "same-input geometry-only Lambda-L2 software diagnostic; Lambda-L3 "
+            "advection and matter-current source are excluded; descriptive only"
+        ),
+    }
+
+
 def _observe_stage(kernel, native_grid, stage, *, evaluate_coupled_rhs):
     geometry = stage.geometry
     scalars = stage.scalars
@@ -189,6 +239,12 @@ def _observe_stage(kernel, native_grid, stage, *, evaluate_coupled_rhs):
     primary_l2_shadow = _regional_primary_l2_residuals(
         native_primary_l2, blocks["primary_l2"], geometry, native_grid
     )
+    native_lambda_l2 = native_lambda_l2_rhs(
+        native_grid, geometry, lambda_m=LAMBDA_M
+    )
+    lambda_l2_shadow = _regional_lambda_l2_residuals(
+        native_lambda_l2, blocks["lambda_l2"], geometry, native_grid
+    )
     digest_after = _slice_sha256(geometry, scalars, matter)
     assert digest_after == digest_before, (
         f"{stage.geometry!r}: production helper or RHS evaluation mutated its "
@@ -203,11 +259,16 @@ def _observe_stage(kernel, native_grid, stage, *, evaluate_coupled_rhs):
             native_rhs, blocks["explicit"], geometry, native_grid
         ),
         "native_minus_adapter_primary_l2": primary_l2_shadow,
+        "native_minus_adapter_lambda_l2": lambda_l2_shadow,
         "compared_fields": list(_EXPLICIT_METRIC_FIELDS),
         "primary_l2_fields_compared": ["Aa", "K"],
         "primary_l2_stage_observation": (
             "same-input geometry-only native-vs-adapter primary-L2 diagnostics; "
             "signed regional residuals only, no equality tolerance or admission gate"
+        ),
+        "lambda_l2_stage_observation": (
+            "same-input geometry-only native-vs-adapter Lambda-L2 diagnostics; "
+            "Lambda-L3 matter-current/advection remains separately owned"
         ),
         "native_interface": "native_cmc_explicit_metric_rhs",
         "native_interface_contract": "returns exactly a/b/X; requires positive CMC lapse and beta=0; has no B-driver dependency",
@@ -379,7 +440,7 @@ def test_native_explicit_rhs_on_cmc_stage_slices_without_calling_full_step(capsy
 
     source = inspect.getsource(V55ProductionKernel.step).encode("utf-8")
     report = {
-        "schema": "native-cmc-stage-rhs-shadow/v2",
+        "schema": "native-cmc-stage-rhs-shadow/v3",
         "production_step_called": False,
         "stage_build": (
             "copied-state reconstruction using current production-owned lapse/RHS/"
