@@ -387,6 +387,48 @@ def _primary_l2_ricci_primitive_shadow(
         np.asarray(pinned_geometry["Rr_r"], dtype=float)
         - np.asarray(pinned_geometry["R"], dtype=float) / 3.0
     )
+
+    # Convention-aligned split: native geometry adds the delta-Lambda
+    # connection correction to its metric Ricci, while the pinned BSSN
+    # expression uses full Lambda inside its principal brackets. Subtracting
+    # the full-Lambda term (the legacy split below) is a different allocation.
+    # Here subtract only the pinned delta-Lambda correction, matching native.
+    aligned_pinned_connection_Rr_r = X**2 * (
+        pinned_delta_lambda_p
+        + 0.5 * (pinned_a_p / a) * pinned_delta_lambda
+    )
+    aligned_pinned_connection_R = X**2 * pinned_delta_lambda_p
+    aligned_pinned_metric_Rr_r = (
+        np.asarray(pinned_geometry["Rr_r"], dtype=float)
+        - aligned_pinned_connection_Rr_r
+    )
+    aligned_pinned_metric_R = (
+        np.asarray(pinned_geometry["R"], dtype=float)
+        - aligned_pinned_connection_R
+    )
+    aligned_pinned_metric_tf = alpha * (
+        aligned_pinned_metric_Rr_r - aligned_pinned_metric_R / 3.0
+    )
+    aligned_pinned_connection_tf = alpha * (
+        aligned_pinned_connection_Rr_r - aligned_pinned_connection_R / 3.0
+    )
+    aligned_residual_profiles = {
+        "metric_tracefree_ricci": native_metric_tf - aligned_pinned_metric_tf,
+        "connection_tracefree_ricci": native_connection_tf - aligned_pinned_connection_tf,
+        "total_tracefree_ricci": native_total_tf - pinned_total_tf,
+        "ricci_component_closure": (
+            (native_metric_tf - aligned_pinned_metric_tf)
+            + (native_connection_tf - aligned_pinned_connection_tf)
+            - (native_total_tf - pinned_total_tf)
+        ),
+        "pinned_delta_lambda_split_closure": pinned_total_tf - (
+            aligned_pinned_metric_tf + aligned_pinned_connection_tf
+        ),
+        "connection_correction_native_minus_pinned_delta_lambda": (
+            native_connection_tf - aligned_pinned_connection_tf
+        ),
+    }
+
     residual_profiles = {
         "metric_tracefree_ricci": native_metric_tf - pinned_metric_tf,
         "connection_tracefree_ricci": native_connection_tf - pinned_connection_tf,
@@ -431,15 +473,45 @@ def _primary_l2_ricci_primitive_shadow(
                 float(value) for value in residual[:4]
             ],
         }
+
+    convention_aligned_report = {}
+    for name, residual_raw in aligned_residual_profiles.items():
+        residual = np.asarray(residual_raw, dtype=float)
+        assert residual.shape == areal.shape, f"aligned {name}: incompatible profile shape"
+        assert np.all(np.isfinite(residual)), f"aligned {name}: non-finite primitive residual"
+        regions = {}
+        for region_name, mask in masks.items():
+            cells = int(np.count_nonzero(mask))
+            assert cells >= 4, f"{region_name}: expected at least four cells"
+            selected = residual[mask]
+            regions[region_name] = {
+                "cells": cells,
+                "signed_mean": float(np.mean(selected)),
+                "rms": float(np.sqrt(np.mean(selected**2))),
+                "max_abs": float(np.max(np.abs(selected))),
+            }
+        convention_aligned_report[name] = {
+            "regions": regions,
+            "first_four_signed_native_minus_pinned": [
+                float(value) for value in residual[:4]
+            ],
+        }
     return {
         "profiles": report,
+        "convention_aligned_profiles": convention_aligned_report,
         "metric_component_definition": (
             "alpha*(Rr_r_metric - R_metric/3), using each implementation's own "
             "metric Ricci primitives"
         ),
         "connection_component_definition": (
-            "alpha*(delta_Rr_r_connection - delta_R_scalar_connection/3); pinned "
-            "connection correction uses the #348 Lambda-prime convention"
+            "legacy PR #367 allocation: alpha*(delta_Rr_r_connection - "
+            "delta_R_scalar_connection/3); pinned side extracts a full-Lambda term"
+        ),
+        "convention_aligned_split_definition": (
+            "native and pinned sides both extract only the deltaLambda connection "
+            "correction: X^2*(D(deltaLambda) + 0.5*(D(a)/a)*deltaLambda) "
+            "for Rr_r and X^2*D(deltaLambda) for R; the pinned metric remainder "
+            "is then obtained by subtraction from pinned total Ricci"
         ),
         "interpretation": (
             "same-input CMC-stage primitive attribution; descriptive residuals only, "
@@ -691,7 +763,7 @@ def test_native_explicit_rhs_on_cmc_stage_slices_without_calling_full_step(capsy
 
     source = inspect.getsource(V55ProductionKernel.step).encode("utf-8")
     report = {
-        "schema": "native-cmc-stage-rhs-shadow/v5",
+        "schema": "native-cmc-stage-rhs-shadow/v6",
         "production_step_called": False,
         "stage_build": (
             "copied-state reconstruction using current production-owned lapse/RHS/"
