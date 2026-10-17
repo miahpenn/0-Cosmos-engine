@@ -359,7 +359,7 @@ def test_workflow_shell_allowlist_rejects_unexpected_paths():
     )
     workflow = workflow_path.read_text(encoding="utf-8")
     line = next(line for line in workflow.splitlines() if "grep -Ev" in line)
-    match = re.search(r"grep -Ev '([^']+)' \\|\\| true", line)
+    match = re.search(r"grep -Ev '([^']+)' \|\| true", line)
     assert match is not None, "allowlist regex must end before the shell fallback"
 
     pattern = match.group(1)
@@ -379,7 +379,7 @@ def test_workflow_shell_allowlist_rejects_unexpected_paths():
 
     allowed_result = subprocess.run(
         ["grep", "-Ev", pattern],
-        input="\\n".join(allowed) + "\\n",
+        input="\n".join(allowed) + "\n",
         capture_output=True,
         text=True,
         check=False,
@@ -388,7 +388,7 @@ def test_workflow_shell_allowlist_rejects_unexpected_paths():
 
     unexpected_result = subprocess.run(
         ["grep", "-Ev", pattern],
-        input="\\n".join(allowed + unexpected) + "\\n",
+        input="\n".join(allowed + unexpected) + "\n",
         capture_output=True,
         text=True,
         check=False,

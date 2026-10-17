@@ -232,3 +232,135 @@ jobs:
           path: results/tracefree-ricci-proper-radial-2026-10-15/
           if-no-files-found: warn
           retention-days: 90
+ || true)"
+          fi
+          if [ -n "$unexpected" ]; then
+            printf 'Unexpected production/vendor/dependency changes:\n%s\n' "$unexpected"
+            exit 1
+          fi
+          for path in engine/native_geometry/__init__.py engine/native_geometry/constraints.py engine/native_geometry/geometry.py engine/native_geometry/operators.py engine/native_geometry/evolution.py; do
+            if printf '%s\n' "$changed" | grep -Fxq "$path"; then
+              if git cat-file -e "$SOURCE_COMMIT:$path" 2>/dev/null; then
+                printf 'Native candidate path is not additive relative to pinned source: %s\n' "$path"
+                exit 1
+              fi
+              printf 'Allowing isolated additive native-core candidate path; exact-head tests still apply: %s\n' "$path"
+            fi
+          done
+          printf 'SOURCE_COMMIT=%s\nVENDOR_COMMIT=%s\n' "$SOURCE_COMMIT" "$VENDOR_COMMIT"
+
+      - name: Run full repository regression suite
+        if: steps.scope.outputs.run_diagnostic == 'true'
+        run: python -m pytest -q
+
+      - name: Capture trace-free Ricci / proper-radial witnesses at actual PIRK L2 stages
+        if: steps.scope.outputs.run_diagnostic == 'true'
+        run: python tools/audit_tracefree_ricci_proper_radial.py
+
+      - name: Upload report and radial profiles
+        if: always() && steps.scope.outputs.run_diagnostic == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: tracefree-ricci-proper-radial-2026-10-15
+          path: results/tracefree-ricci-proper-radial-2026-10-15/
+          if-no-files-found: warn
+          retention-days: 90
+ || true)"
+          fi
+          if [ -n "$unexpected" ]; then
+            printf 'Unexpected production/vendor/dependency changes:\n%s\n' "$unexpected"
+            exit 1
+          fi
+          for path in engine/native_geometry/__init__.py engine/native_geometry/geometry.py engine/native_geometry/operators.py; do
+            if printf '%s\n' "$changed" | grep -Fxq "$path"; then
+              if git cat-file -e "$SOURCE_COMMIT:$path" 2>/dev/null; then
+                printf 'Native candidate path is not additive relative to pinned source: %s\n' "$path"
+                exit 1
+              fi
+              printf 'Allowing isolated additive native-core candidate path; exact-head tests still apply: %s\n' "$path"
+            fi
+          done
+          printf 'SOURCE_COMMIT=%s\nVENDOR_COMMIT=%s\n' "$SOURCE_COMMIT" "$VENDOR_COMMIT"
+
+      - name: Run full repository regression suite
+        if: steps.scope.outputs.run_diagnostic == 'true'
+        run: python -m pytest -q
+
+      - name: Capture trace-free Ricci / proper-radial witnesses at actual PIRK L2 stages
+        if: steps.scope.outputs.run_diagnostic == 'true'
+        run: python tools/audit_tracefree_ricci_proper_radial.py
+
+      - name: Upload report and radial profiles
+        if: always() && steps.scope.outputs.run_diagnostic == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: tracefree-ricci-proper-radial-2026-10-15
+          path: results/tracefree-ricci-proper-radial-2026-10-15/
+          if-no-files-found: warn
+          retention-days: 90
+ || true)"
+          fi
+          if [ -n "$unexpected" ]; then
+            printf 'Unexpected production/vendor/dependency changes:\n%s\n' "$unexpected"
+            exit 1
+          fi
+          for path in engine/native_geometry/__init__.py engine/native_geometry/constraints.py engine/native_geometry/geometry.py engine/native_geometry/operators.py engine/native_geometry/evolution.py; do
+            if printf '%s\n' "$changed" | grep -Fxq "$path"; then
+              if git cat-file -e "$SOURCE_COMMIT:$path" 2>/dev/null; then
+                printf 'Native candidate path is not additive relative to pinned source: %s\n' "$path"
+                exit 1
+              fi
+              printf 'Allowing isolated additive native-core candidate path; exact-head tests still apply: %s\n' "$path"
+            fi
+          done
+          printf 'SOURCE_COMMIT=%s\nVENDOR_COMMIT=%s\n' "$SOURCE_COMMIT" "$VENDOR_COMMIT"
+
+      - name: Run full repository regression suite
+        if: steps.scope.outputs.run_diagnostic == 'true'
+        run: python -m pytest -q
+
+      - name: Capture trace-free Ricci / proper-radial witnesses at actual PIRK L2 stages
+        if: steps.scope.outputs.run_diagnostic == 'true'
+        run: python tools/audit_tracefree_ricci_proper_radial.py
+
+      - name: Upload report and radial profiles
+        if: always() && steps.scope.outputs.run_diagnostic == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: tracefree-ricci-proper-radial-2026-10-15
+          path: results/tracefree-ricci-proper-radial-2026-10-15/
+          if-no-files-found: warn
+          retention-days: 90
+ || true)"
+          fi
+          if [ -n "$unexpected" ]; then
+            printf 'Unexpected production/vendor/dependency changes:\n%s\n' "$unexpected"
+            exit 1
+          fi
+          for path in engine/native_geometry/__init__.py engine/native_geometry/geometry.py engine/native_geometry/operators.py; do
+            if printf '%s\n' "$changed" | grep -Fxq "$path"; then
+              if git cat-file -e "$SOURCE_COMMIT:$path" 2>/dev/null; then
+                printf 'Native candidate path is not additive relative to pinned source: %s\n' "$path"
+                exit 1
+              fi
+              printf 'Allowing isolated additive native-core candidate path; exact-head tests still apply: %s\n' "$path"
+            fi
+          done
+          printf 'SOURCE_COMMIT=%s\nVENDOR_COMMIT=%s\n' "$SOURCE_COMMIT" "$VENDOR_COMMIT"
+
+      - name: Run full repository regression suite
+        if: steps.scope.outputs.run_diagnostic == 'true'
+        run: python -m pytest -q
+
+      - name: Capture trace-free Ricci / proper-radial witnesses at actual PIRK L2 stages
+        if: steps.scope.outputs.run_diagnostic == 'true'
+        run: python tools/audit_tracefree_ricci_proper_radial.py
+
+      - name: Upload report and radial profiles
+        if: always() && steps.scope.outputs.run_diagnostic == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: tracefree-ricci-proper-radial-2026-10-15
+          path: results/tracefree-ricci-proper-radial-2026-10-15/
+          if-no-files-found: warn
+          retention-days: 90
