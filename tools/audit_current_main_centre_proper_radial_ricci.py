@@ -39,6 +39,11 @@ SOURCE_BLOBS = {
 RESOLUTIONS = (160, 240, 320)
 R_MAX = 80.0
 CENTRE_CELLS = 6
+
+# The native geometry module is additive and not imported by this pinned production
+# observer. Permit this exact path while continuing to pin every production source
+# blob and reject every other engine/vendor/dependency change.
+ADDITIVE_NATIVE_PATH_ALLOWLIST = frozenset({"engine/native_geometry/geometry.py"})
 OUT = Path("results/current-main-centre-proper-radial-ricci-highres-2026-10-15")
 
 
@@ -1187,14 +1192,27 @@ def _verify_source_pins() -> dict:
         "diff", "--name-only", SOURCE_COMMIT, "HEAD", "--",
         "engine", "vendor", ".gitmodules", "requirements.txt",
     )
-    if changed:
-        raise RuntimeError("engine/vendor/dependency paths changed from source pin:\n" + changed)
+    changed_paths = sorted(path for path in changed.splitlines() if path)
+    allowed_native_paths = sorted(
+        path for path in changed_paths if path in ADDITIVE_NATIVE_PATH_ALLOWLIST
+    )
+    unexpected_paths = sorted(
+        path for path in changed_paths if path not in ADDITIVE_NATIVE_PATH_ALLOWLIST
+    )
+    if unexpected_paths:
+        raise RuntimeError(
+            "unexpected engine/vendor/dependency paths changed from source pin:\n"
+            + "\n".join(unexpected_paths)
+        )
     return {
         "audit_head": source_head,
         "source_commit": SOURCE_COMMIT,
         "vendor_commit": source_vendor,
         "source_blobs": pins,
-        "engine_vendor_dependency_diff_empty": True,
+        "engine_vendor_dependency_diff_empty": not changed_paths,
+        "allowed_additive_native_paths": allowed_native_paths,
+        "unexpected_engine_vendor_dependency_paths": unexpected_paths,
+        "pinned_production_source_blobs_match": all(item["matches"] for item in pins.values()),
     }
 
 
