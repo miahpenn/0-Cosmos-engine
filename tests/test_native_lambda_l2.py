@@ -8,6 +8,7 @@ import pytest
 from engine.native_geometry import (
     NativeSphericalCellGrid,
     metric_connection_lambda,
+    native_bssn_constraints,
     native_bssn_geometry_terms,
     native_lambda_l2_rhs,
 )
@@ -134,3 +135,41 @@ def test_lambda_l2_native_vendor_difference_refines_on_fixed_areal_annulus():
     assert errors[1] < errors[0], f"Lambda-L2 RMS by resolution: {errors}"
     assert errors[2] < errors[1], f"Lambda-L2 RMS by resolution: {errors}"
     assert errors[2] < 2.0e-3, f"Lambda-L2 finest-annulus RMS: {errors}"
+
+
+def test_linear_odd_shift_has_regular_zero_lambda_l2_response():
+    grid = NativeSphericalCellGrid(64, 12.0)
+    r = grid.centers
+    shift_slope = 3.5e-3
+    state = _state(grid, beta=shift_slope * r)
+
+    rhs = native_lambda_l2_rhs(grid, state)
+
+    # For beta=c*r in flat, constant data, beta''=0, beta/r=c and
+    # div(beta)=3*c. All derivatives in Lambda-L2 therefore vanish.
+    assert np.all(np.isfinite(rhs))
+    assert np.max(np.abs(rhs)) < 5.0e-12
+
+
+def test_lambda_m_term_uses_declared_source_free_geometry_momentum_witness():
+    grid = NativeSphericalCellGrid(80, 12.0)
+    r = grid.centers
+    k0, k2, lambda_m = 0.03, 4.0e-4, 1.75
+    state = _state(grid, K=k0 + k2 * r**2)
+
+    witnesses = native_bssn_constraints(grid, state)
+    expected_momentum = -(4.0 / 3.0) * k2 * r
+    np.testing.assert_allclose(
+        witnesses["M_geometry"], expected_momentum,
+        rtol=2.0e-12, atol=2.0e-12,
+    )
+    rhs = native_lambda_l2_rhs(grid, state, lambda_m=lambda_m)
+    expected_rhs = lambda_m * expected_momentum
+    np.testing.assert_allclose(
+        rhs, expected_rhs, rtol=2.0e-11, atol=3.0e-12
+    )
+    # The geometry-only momentum contribution is an odd, regular profile.
+    np.testing.assert_allclose(
+        rhs / r, np.full(grid.n, -(4.0 / 3.0) * lambda_m * k2),
+        rtol=2.0e-11, atol=3.0e-12,
+    )
