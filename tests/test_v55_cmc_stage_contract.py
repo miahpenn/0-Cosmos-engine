@@ -252,6 +252,7 @@ def test_v55_cmc_stage_contract_is_pinned_without_executing_production_step(
     assert len(primary_l2_calls) == 1
     assert _arg(primary_l2_calls[0], 1) == "final_u_old_v"
     assert _arg(lambda_l2_calls[0], 1) == "final_primary"
+    assert assignments["ll2_final"] == lambda_l2_calls[0].lineno
     gnew_beta_lines = _call_lines(step, "gnew.beta.fill")
     gnew_b_lines = _call_lines(step, "gnew.B.fill")
     assert len(gnew_beta_lines) == len(gnew_b_lines) == 2
@@ -267,7 +268,6 @@ def test_v55_cmc_stage_contract_is_pinned_without_executing_production_step(
         final_primary_aa_line,
         final_primary_k_line,
         lambda_l2_calls[0].lineno,
-        assignments["ll2_final"],
         gnew_lambda_line,
         boundary_calls[1].lineno,
         lapse_calls[3].lineno,
