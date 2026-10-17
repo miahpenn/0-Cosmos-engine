@@ -15,6 +15,7 @@ from .evolution import (
     native_lambda_l3_rhs,
     native_primary_l2_rhs,
     native_primary_l3_rhs,
+    native_pirk2_step,
 )
 
 __all__ = [
@@ -27,4 +28,5 @@ __all__ = [
     "native_lambda_l3_rhs",
     "native_primary_l2_rhs",
     "native_primary_l3_rhs",
+    "native_pirk2_step",
 ]
