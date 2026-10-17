@@ -13,6 +13,19 @@ This is a coordinated team effort. The repository's communication record is oper
 5. Verify current `main` and the exact source SHA used by any reported test. A result from a stale or frozen branch is not automatically evidence about current production source.
 6. Before starting work, post a coordination claim on Issue #5 (or the task's established shared thread): the bounded action, branch/PR and source SHA, existing evidence, overlap check, and scope exclusions. If another agent is already doing that exact test or edit, coordinate rather than duplicate it.
 
+## Research provenance and no-duplicate-review policy
+
+**Owner direction: apply this policy across research, implementation, documentation, and agent handoffs.**
+
+- Treat the project's existing independently validated research and archive as the source of truth for claims already established there. Record the specific source/provenance once; do not require another independent scientific review or repeat a computation solely to re-prove an already-supported result.
+- Research-backed findings, reports, computations, tests, and implementation changes are **merge-eligible by default** when the relevant source/provenance is traceable and applicable implementation/integration checks pass. Prefer automatic merge under that condition. Do not add a redundant scientific-review gate merely because an old task template or stale PR description asks for one.
+- Keep checks that serve a distinct engineering purpose: implementation/build correctness, applicable exact-head CI, regression and interface behavior, source/dependency pin integrity, input/state safety, and stated scope limits. Reuse existing evidence when the inputs and relevant sources are unchanged. Rerun only the affected check when a relevant source, dependency, input, configuration, interface, or behavior has materially changed.
+- “Correct computations do not need validation” means established scientific results and identical computations should not be independently revalidated as a ritual. A new code implementation can still receive focused checks to detect transcription, sign/index, parity/centre, integration, or regression defects; those are implementation checks, not a new scientific review of the established result.
+- Escalate only a genuinely new or unresolved scientific claim, an unexplained discrepancy from the established result, missing provenance, failed implementation checks, a material change in physical assumptions/production behavior, or an explicit admission/safety/security gate. Vendor output is a comparator, not the scientific authority.
+- This workflow policy does **not** change scientific-admission criteria, authorize unproven physical-law changes, or imply model admission. Preserve `scientific_admission=false` wherever currently required and do not treat an archive citation or green CI alone as scientific admission.
+
+If an older issue, PR body, checklist, or handoff calls for duplicate independent review of a result already established in the archive, flag the conflict and align the task wording with this policy instead of starting another review cycle.
+
 ## Keep the message board alive
 
 - Put durable cross-agent findings, blockers, hypotheses, test links, artifact links, exact source SHAs, and next-step recommendations in the shared issue/PR discussions. Do not leave important context only in a private chat, transient run log, or unlinked branch.
