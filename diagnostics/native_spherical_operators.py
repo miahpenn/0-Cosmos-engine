@@ -18,13 +18,27 @@ import numpy as np
 
 
 def _real_profile(values: np.ndarray, shape: tuple[int, ...], name: str) -> np.ndarray:
-    """Return a real numeric array with the exact requested shape."""
+    """Return a finite real numeric array with the exact requested shape."""
     raw = np.asarray(values)
     if raw.shape != shape:
         raise ValueError(f"{name} must have shape {shape}")
     if raw.dtype.kind not in "iuf":
         raise ValueError(f"{name} must contain real numeric values")
-    return np.asarray(raw, dtype=float)
+    out = np.asarray(raw, dtype=float)
+    if not np.all(np.isfinite(out)):
+        raise ValueError(f"{name} must contain only finite values")
+    return out
+
+
+def _finite_scalar(value: float, name: str) -> float:
+    """Return a finite real scalar for an explicit boundary/operator input."""
+    try:
+        result = float(value)
+    except (TypeError, ValueError, OverflowError) as exc:
+        raise ValueError(f"{name} must be a finite real scalar") from exc
+    if not math.isfinite(result):
+        raise ValueError(f"{name} must be finite")
+    return result
 
 
 def _parity_sign(parity: int) -> int:
@@ -94,8 +108,8 @@ class NativeSphericalCellGrid:
         """
         u = _real_profile(values, (self.n,), "values")
         result = np.empty(self.n + 1, dtype=float)
-        result[0] = inner_flux_gradient
-        result[-1] = outer_flux_gradient
+        result[0] = _finite_scalar(inner_flux_gradient, 'inner_flux_gradient')
+        result[-1] = _finite_scalar(outer_flux_gradient, 'outer_flux_gradient')
         result[1:-1] = (u[1:] - u[:-1]) / self.dr
         return result
 
@@ -167,6 +181,8 @@ class NativeSphericalCellGrid:
             coefficient = np.full(self.n + 1, float(coefficient))
         if coefficient.shape != (self.n + 1,):
             raise ValueError("coefficient_faces must be scalar or shape (n+1,)")
+        if not np.all(np.isfinite(coefficient)):
+            raise ValueError("coefficient_faces must contain only finite values")
         return self.divergence_faces(coefficient * gradient)
 
     def integration_by_parts_residual(self, values: np.ndarray, flux: np.ndarray) -> float:
