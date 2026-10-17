@@ -1,4 +1,4 @@
-"""CMC-only native explicit metric RHS shadow on copied stage slices.
+"""Observation-only native CMC stage RHS shadow on copied stage slices.
 
 The stage-transition ordering is pinned by test_native_cmc_stage_contract_preflight.py.
 This witness builds only stage 0, the explicit predictor, and the primary
@@ -204,6 +204,11 @@ def _observe_stage(kernel, native_grid, stage, *, evaluate_coupled_rhs):
         ),
         "native_minus_adapter_primary_l2": primary_l2_shadow,
         "compared_fields": list(_EXPLICIT_METRIC_FIELDS),
+        "primary_l2_fields_compared": ["Aa", "K"],
+        "primary_l2_stage_observation": (
+            "same-input geometry-only native-vs-adapter primary-L2 diagnostics; "
+            "signed regional residuals only, no equality tolerance or admission gate"
+        ),
         "native_interface": "native_cmc_explicit_metric_rhs",
         "native_interface_contract": "returns exactly a/b/X; requires positive CMC lapse and beta=0; has no B-driver dependency",
         "excluded_gauge_rhs_fields": {
