@@ -297,6 +297,216 @@ def _primary_l2_term_split_shadow(
     }
 
 
+def _metric_lambda_chain_shadow(
+    native_geometry,
+    pinned_geometry,
+    geometry,
+    native_grid,
+    pinned_grid,
+    vacuum,
+):
+    """Measure metric-Lambda derivative chain residual on one copied CMC slice.
+
+    This compares D1(Lambda_metric) with the derivative of the explicit
+    metric-to-Lambda relation built from the same D1/D2 operands. Its predicted
+    TF-Ricci response is offline-only and keeps evolved deltaLambda correction
+    separate. No chain-rule substitution is made in the native or pinned RHS.
+    """
+    r = np.asarray(native_grid.centers, dtype=float)
+    a = np.asarray(geometry.a, dtype=float)
+    b = np.asarray(geometry.b, dtype=float)
+    X = np.asarray(geometry.X, dtype=float)
+    alpha = np.asarray(geometry.alpha, dtype=float)
+    Lambda = np.asarray(geometry.Lambda, dtype=float)
+
+    def channels(d1, d2):
+        ap, bp = d1(a, 1), d1(b, 1)
+        app, bpp = d2(a, 1), d2(b, 1)
+        term_a = ap / (2.0 * a**2)
+        term_b = -bp / (a * b)
+        delta = 1.0 / b - 1.0 / a
+        term_radial = 2.0 * delta / r
+        lambda_metric = term_a + term_b + term_radial
+
+        lambda_prime_discrete = d1(lambda_metric, -1)
+        chain_terms = {
+            "a_prime_over_2a_squared": app / (2.0 * a**2) - ap**2 / a**3,
+            "minus_b_prime_over_ab": (
+                -bpp / (a * b)
+                + bp * (ap * b + a * bp) / (a**2 * b**2)
+            ),
+            "radial_inverse_metric_term": (
+                -2.0 * delta / r**2
+                + 2.0 * (-bp / b**2 + ap / a**2) / r
+            ),
+        }
+        discrete_terms = {
+            "a_prime_over_2a_squared": d1(term_a, -1),
+            "minus_b_prime_over_ab": d1(term_b, -1),
+            "radial_inverse_metric_term": d1(term_radial, -1),
+        }
+        residual_terms = {
+            name: chain_terms[name] - discrete_terms[name] for name in chain_terms
+        }
+        chain_total = sum(chain_terms.values())
+        delta_total = chain_total - lambda_prime_discrete
+        term_recombined = sum(residual_terms.values())
+
+        delta_lambda = Lambda - lambda_metric
+        delta_lambda_prime = d1(delta_lambda, -1)
+        evolved_lambda_prime = d1(Lambda, -1)
+
+        return {
+            "lambda_metric": lambda_metric,
+            "lambda_prime_discrete": lambda_prime_discrete,
+            "lambda_prime_chain": chain_total,
+            "lambda_prime_chain_residual": delta_total,
+            "chain_term_residuals": residual_terms,
+            "chain_term_recombined": term_recombined,
+            "lambda_prime_chain_reconstruction_closure": chain_total - sum(chain_terms.values()),
+            "lambda_prime_term_residual_closure": term_recombined - delta_total,
+            "lambda_metric_reconstruction_difference": (
+                lambda_metric - np.asarray(
+                    native_geometry["Lambda_metric"], dtype=float
+                )
+            ),
+            "evolved_lambda_prime": evolved_lambda_prime,
+            "delta_lambda_prime": delta_lambda_prime,
+            "evolved_lambda_derivative_identity_closure": (
+                evolved_lambda_prime - (lambda_prime_discrete + delta_lambda_prime)
+            ),
+        }
+
+    native_d1 = lambda values, parity=1: np.asarray(
+        native_grid.cell_derivative_fourth(values, parity=parity), dtype=float
+    )
+    native_d2 = lambda values, parity=1: np.asarray(
+        native_grid.cell_second_derivative_fourth(values, parity=parity), dtype=float
+    )
+    pinned_d1 = lambda values, parity=1: np.asarray(
+        vacuum._d(pinned_grid, values, parity), dtype=float
+    )
+    pinned_d2 = lambda values, parity=1: np.asarray(
+        vacuum._d2(pinned_grid, values, parity), dtype=float
+    )
+
+    native = channels(native_d1, native_d2)
+    pinned = channels(pinned_d1, pinned_d2)
+
+    # The TF-Ricci response to changing the metric-Lambda prime operand is
+    # +(2/3)*alpha*X^2*delta(Lambda_metric'). Build this only on the pinned
+    # metric-channel remainder after the separately evolved deltaLambda
+    # connection correction has been removed.
+    response_factor = (2.0 / 3.0) * alpha * X**2
+    pinned_response_terms = {
+        name: response_factor * values
+        for name, values in pinned["chain_term_residuals"].items()
+    }
+    pinned_response = sum(pinned_response_terms.values())
+
+    pinned_total_tf = alpha * (
+        np.asarray(pinned_geometry["Rr_r"], dtype=float)
+        - np.asarray(pinned_geometry["R"], dtype=float) / 3.0
+    )
+    pinned_a_prime = pinned_d1(a, 1)
+    pinned_delta_lambda = Lambda - pinned["lambda_metric"]
+    pinned_delta_lambda_prime = pinned_d1(pinned_delta_lambda, -1)
+    pinned_connection_tf = alpha * X**2 * (
+        (2.0 / 3.0) * pinned_delta_lambda_prime
+        + 0.5 * (pinned_a_prime / a) * pinned_delta_lambda
+    )
+    pinned_metric_tf = pinned_total_tf - pinned_connection_tf
+    native_metric_tf = alpha * (
+        np.asarray(native_geometry["Rr_r_metric"], dtype=float)
+        - np.asarray(native_geometry["R_metric"], dtype=float) / 3.0
+    )
+    baseline_metric_residual = native_metric_tf - pinned_metric_tf
+    counterfactual_metric_residual = baseline_metric_residual - pinned_response
+
+    profiles = {
+        "native_lambda_prime_chain_residual": native["lambda_prime_chain_residual"],
+        "pinned_lambda_prime_chain_residual": pinned["lambda_prime_chain_residual"],
+        "native_chain_residual_a_term": native["chain_term_residuals"]["a_prime_over_2a_squared"],
+        "native_chain_residual_b_term": native["chain_term_residuals"]["minus_b_prime_over_ab"],
+        "native_chain_residual_radial_term": native["chain_term_residuals"]["radial_inverse_metric_term"],
+        "pinned_chain_residual_a_term": pinned["chain_term_residuals"]["a_prime_over_2a_squared"],
+        "pinned_chain_residual_b_term": pinned["chain_term_residuals"]["minus_b_prime_over_ab"],
+        "pinned_chain_residual_radial_term": pinned["chain_term_residuals"]["radial_inverse_metric_term"],
+        "pinned_chain_response_a_term": pinned_response_terms["a_prime_over_2a_squared"],
+        "pinned_chain_response_b_term": pinned_response_terms["minus_b_prime_over_ab"],
+        "pinned_chain_response_radial_term": pinned_response_terms["radial_inverse_metric_term"],
+        "pinned_chain_response_total": pinned_response,
+        "metric_tf_residual_before_counterfactual": baseline_metric_residual,
+        "metric_tf_residual_after_chain_counterfactual": counterfactual_metric_residual,
+        "metric_tf_counterfactual_delta": (
+            counterfactual_metric_residual - baseline_metric_residual
+        ),
+        "pinned_lambda_prime_term_reconstruction_closure": (
+            pinned["lambda_prime_chain_residual"] - sum(
+                pinned["chain_term_residuals"].values()
+            )
+        ),
+        "pinned_evolved_lambda_derivative_identity_closure": (
+            pinned["evolved_lambda_derivative_identity_closure"]
+        ),
+        "pinned_lambda_metric_reconstruction_difference": (
+            pinned["lambda_metric_reconstruction_difference"]
+        ),
+        "native_lambda_metric_reconstruction_difference": (
+            native["lambda_metric_reconstruction_difference"]
+        ),
+    }
+
+    areal = np.asarray(native_geometry["areal_radius"], dtype=float)
+    masks = {
+        "centre_R_areal_lt_2": areal < 2.0,
+        "fixed_annulus_2_le_R_areal_le_6": (areal >= 2.0) & (areal <= 6.0),
+        "outer_R_areal_gt_6": areal > 6.0,
+    }
+    report = {}
+    for name, raw in profiles.items():
+        values = np.asarray(raw, dtype=float)
+        assert values.shape == areal.shape, f"{name}: incompatible profile shape"
+        assert np.all(np.isfinite(values)), f"{name}: non-finite Lambda-chain profile"
+        regions = {}
+        for region_name, mask in masks.items():
+            cells = int(np.count_nonzero(mask))
+            assert cells >= 4, f"{region_name}: expected at least four cells"
+            selected = values[mask]
+            regions[region_name] = {
+                "cells": cells,
+                "signed_mean": float(np.mean(selected)),
+                "rms": float(np.sqrt(np.mean(selected**2))),
+                "max_abs": float(np.max(np.abs(selected))),
+            }
+        report[name] = {
+            "regions": regions,
+            "first_four_signed_values": [float(value) for value in values[:4]],
+        }
+
+    return {
+        "profiles": report,
+        "definitions": {
+            "metric_Lambda": "D1(a)/(2*a^2) - D1(b)/(a*b) + 2/r*(1/b-1/a)",
+            "chain_derivative": (
+                "D2(a)/(2*a^2)-D1(a)^2/a^3 - D2(b)/(a*b) "
+                "+ D1(b)*(D1(a)*b+a*D1(b))/(a^2*b^2) "
+                "- 2/r^2*(1/b-1/a) + 2/r*(-D1(b)/b^2+D1(a)/a^2)"
+            ),
+            "TF_Ricci_response": "(2/3)*alpha*X^2*(chain_prime - discrete_D1(Lambda_metric))",
+            "counterfactual": (
+                "subtract this response from the baseline native-minus-pinned "
+                "deltaLambda-aligned metric-channel residual; diagnostic only"
+            ),
+        },
+        "interpretation": (
+            "same-input discrete derivative attribution. An offline chain-rule "
+            "counterfactual is not an evolved BSSN operator and is not a production "
+            "substitution recommendation."
+        ),
+    }
+
+
 def _primary_l2_ricci_term_contributions(
     native_geometry,
     pinned_geometry,
@@ -870,6 +1080,14 @@ def _observe_stage(kernel, native_grid, stage, *, evaluate_coupled_rhs):
         stage.grid,
         vacuum,
     )
+    metric_lambda_chain_shadow = _metric_lambda_chain_shadow(
+        native_geometry_terms,
+        pinned_geometry_terms,
+        geometry,
+        native_grid,
+        stage.grid,
+        vacuum,
+    )
     digest_after = _slice_sha256(geometry, scalars, matter)
     assert digest_after == digest_before, (
         f"{stage.geometry!r}: production helper or RHS evaluation mutated its "
@@ -888,6 +1106,7 @@ def _observe_stage(kernel, native_grid, stage, *, evaluate_coupled_rhs):
         "primary_l2_term_split_native_minus_pinned": primary_l2_terms_shadow,
         "primary_l2_ricci_primitive_shadow": primary_l2_ricci_primitives,
         "primary_l2_ricci_term_contributions": primary_l2_ricci_term_contributions,
+        "metric_lambda_chain_shadow": metric_lambda_chain_shadow,
         "metric_product_chain_rule_shadow": metric_product_chain_rule_shadow,
         "compared_fields": list(_EXPLICIT_METRIC_FIELDS),
         "primary_l2_fields_compared": ["Aa", "K"],
@@ -1069,7 +1288,7 @@ def test_native_explicit_rhs_on_cmc_stage_slices_without_calling_full_step(capsy
 
     source = inspect.getsource(V55ProductionKernel.step).encode("utf-8")
     report = {
-        "schema": "native-cmc-stage-rhs-shadow/v8",
+        "schema": "native-cmc-stage-rhs-shadow/v9",
         "production_step_called": False,
         "stage_build": (
             "copied-state reconstruction using current production-owned lapse/RHS/"
