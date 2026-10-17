@@ -377,14 +377,15 @@ def native_gauge_b_rhs(grid, lambda_rhs: np.ndarray) -> np.ndarray:
     return result
 
 def native_pirk2_step(
-    grid, state, dt: float, *, eta: float = 0.0, lambda_m: float = 2.0
+    grid, state, dt: float, *, lambda_m: float = 2.0
 ):
     """Return a geometry-only native PIRK2 candidate state without mutation.
 
     This composes the isolated native RHS blocks in the established two-stage
     order: explicit U=(a,b,X,alpha,beta), primary V=(Aa,K), then Lambda. The
-    first-stage B driver uses B_1 = B_0 + 3/4 (Lambda_1-Lambda_0)-dt*eta*B_0;
-    the corrector uses the matching trapezoidal damping term. Matter sources,
+    source-backed undamped B driver uses B_t = 3/4 Lambda_t at the matching
+    Lambda stages. Damping is excluded until its convention is supported by
+    the validated archive. Matter sources,
     KO dissipation, and production wiring are intentionally out of scope.
 
     The routine returns the same state type when that type supplies copy();
@@ -412,12 +413,9 @@ def native_pirk2_step(
         return out
 
     dt_value = finite_scalar(dt, "dt")
-    eta_value = finite_scalar(eta, "eta")
     lambda_m_value = finite_scalar(lambda_m, "lambda_m")
     if dt_value <= 0.0:
         raise ValueError("dt must be positive")
-    if eta_value < 0.0:
-        raise ValueError("eta must be nonnegative")
 
     fields = ("a", "b", "X", "alpha", "beta", "Aa", "K", "Lambda", "B")
     explicit_names = ("a", "b", "X", "alpha", "beta")
@@ -480,10 +478,9 @@ def native_pirk2_step(
         grid, stage1, lambda_m=lambda_m_value
     )
     lambda_l3_0 = native_lambda_l3_rhs(grid, current)
-    lambda1 = current.Lambda + dt_value * (
-        0.5 * lambda_l2_0 + 0.5 * lambda_l2_1 + lambda_l3_0
-    )
-    B1 = current.B + 0.75 * (lambda1 - current.Lambda) - dt_value * eta_value * current.B
+    lambda_rhs_stage1 = 0.5 * lambda_l2_0 + 0.5 * lambda_l2_1 + lambda_l3_0
+    lambda1 = current.Lambda + dt_value * lambda_rhs_stage1
+    B1 = current.B + dt_value * native_gauge_b_rhs(grid, lambda_rhs_stage1)
     stage1 = clone(stage1, {"Lambda": lambda1, "B": B1})
 
     l1_1 = native_explicit_rhs(grid, stage1)
@@ -508,12 +505,13 @@ def native_pirk2_step(
         grid, final_primary, lambda_m=lambda_m_value
     )
     lambda_l3_1 = native_lambda_l3_rhs(grid, stage1)
+    lambda_rhs_stage0 = lambda_l2_0 + lambda_l3_0
+    lambda_rhs_stage1 = lambda_l2_final + lambda_l3_1
     lambda_new = current.Lambda + 0.5 * dt_value * (
-        lambda_l2_0 + lambda_l2_final + lambda_l3_0 + lambda_l3_1
+        lambda_rhs_stage0 + lambda_rhs_stage1
     )
-    Bnew = (
-        current.B
-        + 0.75 * (lambda_new - current.Lambda)
-        - 0.5 * dt_value * eta_value * (current.B + stage1.B)
+    Bnew = current.B + 0.5 * dt_value * (
+        native_gauge_b_rhs(grid, lambda_rhs_stage0)
+        + native_gauge_b_rhs(grid, lambda_rhs_stage1)
     )
     return clone(final_primary, {"Lambda": lambda_new, "B": Bnew})
