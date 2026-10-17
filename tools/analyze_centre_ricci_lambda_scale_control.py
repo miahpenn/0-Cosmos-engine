@@ -181,7 +181,7 @@ def analyze_scales() -> dict[str, Any]:
     return {
         "schema": SCHEMA,
         "experiment": "manufactured profile only; no engine initialization, state capture, or evolution",
-        "profile": "q(r)=1+A*(1-exp(-(r/L)^2)); a=q^(-4/3), b=q^(2/3), X=q^(1/3)",
+        "profile": "q(r)=1+A*(1-exp(-(r/L)^2)); a=q^(-4/3), b=q^(2/3), X=q^(-2/3)",
         "amplitude": AMPLITUDE,
         "r_max": R_MAX,
         "resolutions": list(RESOLUTIONS),
