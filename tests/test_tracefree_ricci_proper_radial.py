@@ -1,5 +1,8 @@
 """Regression tests for strict-JSON failure evidence in the PIRK L2 observer."""
 import json
+from pathlib import Path
+import re
+import subprocess
 
 import numpy as np
 import pytest
@@ -344,3 +347,50 @@ def test_source_pin_guard_allows_only_additive_native_core_files():
         ["engine/production_kernel.py", "vendor/unexpected.py"],
         set(),
     ) == ["engine/production_kernel.py", "vendor/unexpected.py"]
+
+
+
+def test_workflow_shell_allowlist_rejects_unexpected_paths():
+    workflow_path = (
+        Path(__file__).resolve().parents[1]
+        / ".github"
+        / "workflows"
+        / "tracefree-ricci-proper-radial.yml"
+    )
+    workflow = workflow_path.read_text(encoding="utf-8")
+    line = next(line for line in workflow.splitlines() if "grep -Ev" in line)
+    match = re.search(r"grep -Ev '([^']+)' \\|\\| true", line)
+    assert match is not None, "allowlist regex must end before the shell fallback"
+
+    pattern = match.group(1)
+    allowed = [
+        "engine/native_geometry/__init__.py",
+        "engine/native_geometry/constraints.py",
+        "engine/native_geometry/geometry.py",
+        "engine/native_geometry/operators.py",
+        "engine/native_geometry/evolution.py",
+    ]
+    unexpected = [
+        "engine/native_geometry/extra.py",
+        "engine/production_kernel.py",
+        "vendor/unexpected.py",
+        "requirements.txt",
+    ]
+
+    allowed_result = subprocess.run(
+        ["grep", "-Ev", pattern],
+        input="\\n".join(allowed) + "\\n",
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert allowed_result.stdout == ""
+
+    unexpected_result = subprocess.run(
+        ["grep", "-Ev", pattern],
+        input="\\n".join(allowed + unexpected) + "\\n",
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert unexpected_result.stdout.splitlines() == unexpected
