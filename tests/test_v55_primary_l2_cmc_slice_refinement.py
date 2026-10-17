@@ -43,6 +43,34 @@ def test_primary_l2_aa_residual_refines_on_initialized_cmc_slices(capsys):
         # trace-free Aa RHS residual to its discrete Hessian and Ricci pieces.
         pinned_geometry = vacuum.geometry_terms(accepted.grid, geometry)
         alpha = np.asarray(geometry.alpha, dtype=float)
+        X = np.asarray(geometry.X, dtype=float)
+        # The pinned BSSN Ricci has explicit evolved-Lambda pieces in addition
+        # to its metric terms. Split those pieces using the pinned RHS's own
+        # derivative conventions, then compare them with the existing native
+        # metric Ricci and reference-connection correction separately.
+        pinned_lambda_p = vacuum._d(accepted.grid, geometry.Lambda, -1)
+        pinned_a_p = vacuum._d(accepted.grid, geometry.a, 1)
+        pinned_connection_Rr_r = X**2 * (
+            pinned_lambda_p + 0.5 * (pinned_a_p / geometry.a) * geometry.Lambda
+        )
+        pinned_connection_R = X**2 * pinned_lambda_p
+        pinned_metric_Rr_r = pinned_geometry["Rr_r"] - pinned_connection_Rr_r
+        pinned_metric_R = pinned_geometry["R"] - pinned_connection_R
+        native_metric_ricci_tf = alpha * (
+            native_geometry["Rr_r_metric"] - native_geometry["R_metric"] / 3.0
+        )
+        pinned_metric_ricci_tf = alpha * (
+            pinned_metric_Rr_r - pinned_metric_R / 3.0
+        )
+        native_connection_ricci_tf = alpha * (
+            native_geometry["delta_Rr_r_connection"]
+            - native_geometry["delta_R_scalar_connection"] / 3.0
+        )
+        pinned_connection_ricci_tf = alpha * (
+            pinned_connection_Rr_r - pinned_connection_R / 3.0
+        )
+        metric_ricci_delta = native_metric_ricci_tf - pinned_metric_ricci_tf
+        connection_ricci_delta = native_connection_ricci_tf - pinned_connection_ricci_tf
         native_hessian_tf = -(
             native_geometry["DrDr_alpha"] - native_geometry["lap_alpha"] / 3.0
         )
@@ -74,10 +102,16 @@ def test_primary_l2_aa_residual_refines_on_initialized_cmc_slices(capsys):
         assert np.all(np.isfinite(k_delta)), f"N={n}: non-finite K difference"
         assert np.all(np.isfinite(hessian_delta)), f"N={n}: non-finite Hessian-piece difference"
         assert np.all(np.isfinite(ricci_delta)), f"N={n}: non-finite Ricci-piece difference"
-        # This is an algebraic bookkeeping identity for the published RHS form,
-        # not a convergence or scientific-admission threshold.
+        assert np.all(np.isfinite(metric_ricci_delta)), f"N={n}: non-finite metric-Ricci difference"
+        assert np.all(np.isfinite(connection_ricci_delta)), f"N={n}: non-finite connection-Ricci difference"
+        # These are algebraic bookkeeping identities of existing RHS terms,
+        # not convergence or scientific-admission thresholds.
         decomposition_remainder = aa_delta - (hessian_delta + ricci_delta)
-        assert np.all(np.isfinite(decomposition_remainder)), f"N={n}: invalid decomposition remainder"
+        ricci_split_remainder = ricci_delta - (
+            metric_ricci_delta + connection_ricci_delta
+        )
+        assert np.all(np.isfinite(decomposition_remainder)), f"N={n}: invalid Aa decomposition remainder"
+        assert np.all(np.isfinite(ricci_split_remainder)), f"N={n}: invalid Ricci split remainder"
         region_summaries = {}
         for region, region_mask in region_masks.items():
             cells = int(np.count_nonzero(region_mask))
@@ -87,7 +121,10 @@ def test_primary_l2_aa_residual_refines_on_initialized_cmc_slices(capsys):
             k_region = k_delta[region_mask]
             hessian_region = hessian_delta[region_mask]
             ricci_region = ricci_delta[region_mask]
+            metric_ricci_region = metric_ricci_delta[region_mask]
+            connection_ricci_region = connection_ricci_delta[region_mask]
             remainder_region = decomposition_remainder[region_mask]
+            ricci_remainder_region = ricci_split_remainder[region_mask]
             region_summaries[region] = {
                 "cells": cells,
                 "r_areal_min": float(np.min(areal[region_mask])),
@@ -98,6 +135,11 @@ def test_primary_l2_aa_residual_refines_on_initialized_cmc_slices(capsys):
                 "aa_hessian_tracefree_max_abs": float(np.max(np.abs(hessian_region))),
                 "aa_ricci_tracefree_rms": float(np.sqrt(np.mean(ricci_region**2))),
                 "aa_ricci_tracefree_max_abs": float(np.max(np.abs(ricci_region))),
+                "aa_ricci_metric_tracefree_rms": float(np.sqrt(np.mean(metric_ricci_region**2))),
+                "aa_ricci_metric_tracefree_max_abs": float(np.max(np.abs(metric_ricci_region))),
+                "aa_ricci_connection_tracefree_rms": float(np.sqrt(np.mean(connection_ricci_region**2))),
+                "aa_ricci_connection_tracefree_max_abs": float(np.max(np.abs(connection_ricci_region))),
+                "aa_ricci_split_remainder_max_abs": float(np.max(np.abs(ricci_remainder_region))),
                 "aa_decomposition_remainder_max_abs": float(np.max(np.abs(remainder_region))),
                 "k_rms_native_minus_pinned": float(np.sqrt(np.mean(k_region**2))),
                 "k_max_abs_native_minus_pinned": float(np.max(np.abs(k_region))),
@@ -132,13 +174,14 @@ def test_primary_l2_aa_residual_refines_on_initialized_cmc_slices(capsys):
             "NATIVE_V55_PRIMARY_L2_CMC_REFINEMENT "
             + json.dumps(
                 {
-                    "schema": "v55-primary-l2-cmc-refinement/v3",
-                    "scope": "regional residuals plus trace-free Aa term decomposition; diagnostic RHS only",
+                    "schema": "v55-primary-l2-cmc-refinement/v4",
+                    "scope": "regional Aa residuals split by Hessian/Ricci and metric/connection Ricci terms; diagnostic RHS only",
                     "records": records,
                     "aa_monotonic_refinement": True,
                     "k_roundoff_contract": True,
                     "new_absolute_error_threshold": False,
                     "termwise_decomposition_is_diagnostic_only": True,
+                    "ricci_metric_connection_split_is_diagnostic_only": True,
                 },
                 sort_keys=True,
                 separators=(",", ":"),
