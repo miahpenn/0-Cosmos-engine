@@ -44,6 +44,7 @@ NATIVE_CANDIDATE_PATHS = frozenset({
     "engine/native_geometry/constraints.py",
     "engine/native_geometry/geometry.py",
     "engine/native_geometry/operators.py",
+    "engine/native_geometry/evolution.py",
 })
 
 RESOLUTIONS = (40, 60, 80, 120, 160)
@@ -68,7 +69,7 @@ def _git(*args: str) -> str:
 def _unexpected_source_pinned_paths(
     changed_paths: list[str], native_paths_in_source: set[str]
 ) -> list[str]:
-    """Allow only explicitly named native-core additions absent from the source pin."""
+    """Allow only explicitly named isolated native candidate additions absent from the source pin."""
     unexpected = []
     for path in changed_paths:
         if path not in NATIVE_CANDIDATE_PATHS:
