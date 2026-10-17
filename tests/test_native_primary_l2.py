@@ -155,7 +155,16 @@ def test_primary_l2_native_vendor_difference_refines_on_fixed_areal_annulus():
 
     for name, errors in signed_errors.items():
         assert np.all(np.isfinite(errors)), f"{name} RMS errors: {errors}"
-        # The independently derived discretizations need not be identical, but
-        # their same-state difference should decrease under smooth refinement.
-        assert errors[1] < errors[0], f"{name} signed native-vendor RMS: {errors}"
-        assert errors[2] < errors[1], f"{name} signed native-vendor RMS: {errors}"
+
+    # Both paths intentionally use the same lapse-Laplacian identity and
+    # compatible fourth-order stencil, so K_L2 should agree to roundoff.
+    assert max(signed_errors["K"]) < 1.0e-12, (
+        f"K signed native-vendor RMS: {signed_errors['K']}"
+    )
+
+    # The independently derived Ricci/Hessian combination for Aa need not be
+    # identical to the vendor formula at finite resolution. Its fixed-annulus
+    # signed-profile RMS must decrease under smooth refinement.
+    aa_errors = signed_errors["Aa"]
+    assert aa_errors[1] < aa_errors[0], f"Aa signed native-vendor RMS: {aa_errors}"
+    assert aa_errors[2] < aa_errors[1], f"Aa signed native-vendor RMS: {aa_errors}"
