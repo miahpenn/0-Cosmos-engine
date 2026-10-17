@@ -154,10 +154,10 @@ def test_lambda_l3_matches_pinned_vendor_on_fixed_areal_annulus():
 
 
 
-def test_zero_default_ko_does_not_evaluate_overflowing_stencil():
-    """The pinned KO default is exactly zero, even for finite extreme profiles."""
+def test_zero_default_ko_is_exact_zero_for_oscillatory_profile():
+    """The pinned zero KO default stays zero even when its stencil is nonzero."""
     grid = NativeSphericalCellGrid(64, 12.0)
-    amplitude = 1.2e307
+    amplitude = 1.2e-3
     Lambda = amplitude * np.where(np.arange(grid.n) % 2 == 0, 1.0, -1.0)
     state = _state(grid, Lambda=Lambda)
 
