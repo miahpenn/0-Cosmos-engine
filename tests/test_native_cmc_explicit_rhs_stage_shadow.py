@@ -297,6 +297,127 @@ def _primary_l2_term_split_shadow(
     }
 
 
+
+def _regular_origin_delta_series_shadow(r, a, b, *, support_radius=3.0):
+    """Report the regular-origin even-series continuation of delta=1/b-1/a.
+
+    This is a descriptive fit on the current copied stage only. It makes no
+    convergence claim and sets no profile-quality threshold. The neighbour-only
+    extrapolation is a discriminator, not assumed to be the true origin value.
+    """
+    r = np.asarray(r, dtype=float)
+    a = np.asarray(a, dtype=float)
+    b = np.asarray(b, dtype=float)
+    if r.ndim != 1 or a.shape != r.shape or b.shape != r.shape or r.size < 6:
+        raise ValueError("origin-series inputs must be matching 1-D profiles with at least six cells")
+    if not (
+        np.all(np.isfinite(r))
+        and np.all(np.isfinite(a))
+        and np.all(np.isfinite(b))
+        and np.all(r > 0.0)
+        and np.all(a > 0.0)
+        and np.all(b > 0.0)
+    ):
+        raise ValueError("origin-series inputs must be finite with positive radii and metric profiles")
+    if not np.isfinite(support_radius) or support_radius <= 0.0:
+        raise ValueError("support_radius must be finite and positive")
+
+    delta = 1.0 / b - 1.0 / a
+    delta_over_r2 = delta / (r * r)
+    radial_lambda_term = 2.0 * delta / r
+    fit_indices = np.flatnonzero(r <= float(support_radius))
+    if fit_indices.size < 5:
+        raise ValueError("origin-series fit requires at least five samples on the fixed support")
+    scale = float(r[fit_indices[-1]])
+    if scale <= 0.0:
+        raise ValueError("origin-series fit scale must be positive")
+
+    def fit(indices):
+        indices = np.asarray(indices, dtype=int)
+        x = (r[indices] / scale) ** 2
+        design = np.column_stack((np.ones_like(x), x, x * x))
+        coefficient_scaled, *_ = np.linalg.lstsq(
+            design, delta_over_r2[indices], rcond=None
+        )
+        fitted = design @ coefficient_scaled
+        residual = delta_over_r2[indices] - fitted
+        coefficient_c2_c4_c6 = [
+            float(coefficient_scaled[0]),
+            float(coefficient_scaled[1] / scale**2),
+            float(coefficient_scaled[2] / scale**4),
+        ]
+        peak = float(np.max(np.abs(delta_over_r2[indices])))
+        return {
+            "cells": int(indices.size),
+            "coefficient_delta_c2_c4_c6": coefficient_c2_c4_c6,
+            "max_abs_signed_residual": float(np.max(np.abs(residual))),
+            "rms_signed_residual": float(np.sqrt(np.mean(residual * residual))),
+            "max_abs_residual_over_profile_peak": (
+                float(np.max(np.abs(residual)) / peak) if peak > 0.0 else 0.0
+            ),
+            "signed_residuals": [
+                {
+                    "index": int(index),
+                    "r": float(r[index]),
+                    "delta_over_r2_observed": float(delta_over_r2[index]),
+                    "delta_over_r2_fitted": float(value),
+                    "signed_observed_minus_fitted": float(resid),
+                }
+                for index, value, resid in zip(indices, fitted, residual)
+            ],
+            "scaled_fit_coordinate": "(r / max_r_in_fixed_support)^2",
+        }
+
+    all_fit = fit(fit_indices)
+    neighbour_indices = fit_indices[fit_indices != 0]
+    neighbour_fit = fit(neighbour_indices)
+    coefficients = neighbour_fit["coefficient_delta_c2_c4_c6"]
+    r0_scaled = (float(r[0]) / scale) ** 2
+    predicted_first_cell = (
+        coefficients[0]
+        + coefficients[1] * float(r[0]) ** 2
+        + coefficients[2] * float(r[0]) ** 4
+    )
+    first_count = min(6, int(r.size))
+    first_samples = [
+        {
+            "index": int(i),
+            "r": float(r[i]),
+            "delta_inverse_metric": float(delta[i]),
+            "delta_over_r2": float(delta_over_r2[i]),
+            "radial_metric_lambda_term_2delta_over_r": float(radial_lambda_term[i]),
+        }
+        for i in range(first_count)
+    ]
+    assert np.all(np.isfinite(delta_over_r2)), "non-finite delta/r^2 profile"
+    assert np.all(np.isfinite(radial_lambda_term)), "non-finite radial Lambda term"
+    assert np.isfinite(predicted_first_cell), "non-finite neighbour continuation"
+    return {
+        "fixed_coordinate_support": f"0 < r <= {float(support_radius):g}",
+        "expected_regular_origin_structure": (
+            "for smooth even a,b, delta=1/b-1/a is O(r^2); delta/r^2 "
+            "should admit a finite even continuation c2+c4*r^2+c6*r^4"
+        ),
+        "first_six_signed_samples": first_samples,
+        "fit_including_first_cell": all_fit,
+        "fit_excluding_first_cell": neighbour_fit,
+        "first_cell_neighbour_continuation": {
+            "r": float(r[0]),
+            "observed_delta_over_r2": float(delta_over_r2[0]),
+            "predicted_delta_over_r2": float(predicted_first_cell),
+            "signed_observed_minus_predicted": float(
+                delta_over_r2[0] - predicted_first_cell
+            ),
+            "scaled_coordinate": float(r0_scaled),
+            "interpretation_limit": (
+                "neighbour-fit extrapolation is a profile discriminator, not an "
+                "assumed exact origin value or convergence proof"
+            ),
+        },
+        "scientific_admission": False,
+    }
+
+
 def _metric_lambda_chain_shadow(
     native_geometry,
     pinned_geometry,
@@ -486,6 +607,9 @@ def _metric_lambda_chain_shadow(
 
     return {
         "profiles": report,
+        "regular_origin_delta_even_series": _regular_origin_delta_series_shadow(
+            r, a, b, support_radius=3.0
+        ),
         "definitions": {
             "metric_Lambda": "D1(a)/(2*a^2) - D1(b)/(a*b) + 2/r*(1/b-1/a)",
             "chain_derivative": (
@@ -505,6 +629,37 @@ def _metric_lambda_chain_shadow(
             "substitution recommendation."
         ),
     }
+
+
+
+def test_regular_origin_delta_series_shadow_recovers_manufactured_even_profile():
+    """The even-series observer must recover a known regular delta/r^2 profile."""
+    from engine.native_geometry import NativeSphericalCellGrid
+
+    grid = NativeSphericalCellGrid(32, 8.0)
+    r = np.asarray(grid.centers, dtype=float)
+    expected = 1.2e-3 + 1.5e-5 * r**2 + 2.5e-7 * r**4
+    delta = r**2 * expected
+    a = np.ones_like(r)
+    b = 1.0 / (1.0 + delta)
+
+    report = _regular_origin_delta_series_shadow(r, a, b, support_radius=3.0)
+    np.testing.assert_allclose(
+        report["fit_including_first_cell"]["coefficient_delta_c2_c4_c6"],
+        [1.2e-3, 1.5e-5, 2.5e-7],
+        rtol=2.0e-10,
+        atol=2.0e-13,
+    )
+    np.testing.assert_allclose(
+        report["fit_excluding_first_cell"]["coefficient_delta_c2_c4_c6"],
+        [1.2e-3, 1.5e-5, 2.5e-7],
+        rtol=2.0e-10,
+        atol=2.0e-13,
+    )
+    assert report["fit_including_first_cell"]["max_abs_signed_residual"] < 2.0e-13
+    assert report["fit_excluding_first_cell"]["max_abs_signed_residual"] < 2.0e-13
+    assert abs(report["first_cell_neighbour_continuation"]["signed_observed_minus_predicted"]) < 2.0e-13
+    assert report["scientific_admission"] is False
 
 
 def _primary_l2_ricci_term_contributions(
@@ -1288,7 +1443,7 @@ def test_native_explicit_rhs_on_cmc_stage_slices_without_calling_full_step(capsy
 
     source = inspect.getsource(V55ProductionKernel.step).encode("utf-8")
     report = {
-        "schema": "native-cmc-stage-rhs-shadow/v9",
+        "schema": "native-cmc-stage-rhs-shadow/v10",
         "production_step_called": False,
         "stage_build": (
             "copied-state reconstruction using current production-owned lapse/RHS/"
