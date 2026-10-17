@@ -270,3 +270,67 @@ def native_lambda_l3_rhs(grid, state) -> np.ndarray:
     if not np.all(np.isfinite(result)):
         raise ValueError("Lambda RHS produced non-finite values")
     return result
+
+
+def native_explicit_rhs(grid, state) -> dict[str, np.ndarray]:
+    """Return the isolated native explicit/gauge RHS for (a, b, X, alpha, beta).
+
+    The metric terms follow the spherical BSSN conformal-metric evolution with
+    Ab=-Aa/2 and the shift divergence. The gauge convention is advective
+    1+log, alpha_t = beta * D_r(alpha) - 2 alpha K, with beta_t = B.
+    This is an RHS-only block: the B-driver update/damping, KO dissipation,
+    primary and Lambda blocks, and PIRK2 stage composition remain separate.
+    All profiles are copied/read as finite real vectors; the supplied state is
+    never mutated. The fixed zero-dissipation baseline adds no KO term.
+    """
+    centers = np.asarray(grid.centers, dtype=float)
+    if (
+        centers.ndim != 1
+        or centers.size < 5
+        or not np.all(np.isfinite(centers))
+        or np.any(centers <= 0.0)
+    ):
+        raise ValueError(
+            "grid centres must be a finite positive 1-D profile with at least five cells"
+        )
+
+    a = _evolution_profile(state, "a", centers)
+    b = _evolution_profile(state, "b", centers)
+    X = _evolution_profile(state, "X", centers)
+    alpha = _evolution_profile(state, "alpha", centers)
+    beta = _evolution_profile(state, "beta", centers)
+    aa = _evolution_profile(state, "Aa", centers)
+    trace_k = _evolution_profile(state, "K", centers)
+    driver = _evolution_profile(state, "B", centers)
+    if np.any(a <= 0.0) or np.any(b <= 0.0) or np.any(X <= 0.0):
+        raise ValueError("a, b and X must be positive")
+    if np.any(alpha <= 0.0):
+        raise ValueError("alpha must be positive")
+
+    da = np.asarray(grid.cell_derivative_fourth(a, parity=1), dtype=float)
+    db = np.asarray(grid.cell_derivative_fourth(b, parity=1), dtype=float)
+    dX = np.asarray(grid.cell_derivative_fourth(X, parity=1), dtype=float)
+    dalpha = np.asarray(grid.cell_derivative_fourth(alpha, parity=1), dtype=float)
+    dbeta = np.asarray(grid.cell_derivative_fourth(beta, parity=-1), dtype=float)
+    div_beta = dbeta + beta * (0.5 * da / a + db / b + 2.0 / centers)
+    ab = -0.5 * aa
+
+    with np.errstate(over="ignore", invalid="ignore"):
+        result = {
+            "a": beta * da + 2.0 * a * dbeta - (2.0 / 3.0) * a * div_beta
+            - 2.0 * alpha * a * aa,
+            "b": beta * db + 2.0 * b * beta / centers
+            - (2.0 / 3.0) * b * div_beta - 2.0 * alpha * b * ab,
+            "X": beta * dX + X * (alpha * trace_k - div_beta) / 3.0,
+            "alpha": beta * dalpha - 2.0 * alpha * trace_k,
+            "beta": driver.copy(),
+        }
+
+    for name, values in result.items():
+        result[name] = np.asarray(values, dtype=float)
+        if result[name].shape != centers.shape:
+            raise ValueError(f"{name} RHS must have shape {centers.shape}")
+        if not np.all(np.isfinite(result[name])):
+            raise ValueError(f"{name} RHS produced non-finite values")
+    return result
+
