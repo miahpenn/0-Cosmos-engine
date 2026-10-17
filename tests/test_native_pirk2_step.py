@@ -482,7 +482,7 @@ def test_native_pirk2_actual_stage_states_shadow_against_pinned_vendor(
         )
         stage_records.append({
             "resolution": n,
-            "physical_regions": masks.keys(),
+            "physical_regions": list(masks.keys()),
             "stages": per_stage,
             "input_sha256_before": hashes_before,
             "input_sha256_after": hashes_after,
