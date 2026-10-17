@@ -271,3 +271,72 @@ def test_scalar_rhs_term_budget_reconstructs_pinned_scalar_rhs_and_labels_condit
     assert increment["phi_exchange_increment_matches_declared_rhs_term"] is True
     assert increment["only_declared_phi_exchange_term_changed"] is True
     assert AUDIT.state_digest(state) == before
+
+
+def test_scalar_sector_time_density_budget_splits_rhs_and_geometry_terms_without_admission():
+    """Report termwise scalar d_t(sqrt(-g) T^t_t) on the same frozen state pair."""
+    kernel = AUDIT.V55ProductionKernel()
+    state = kernel.initialize(resolution=40, r_max=24.0, include_radiation=True)
+    before = AUDIT.state_digest(state)
+    old_beta = AUDIT.production_kernel_module.BETA_DM
+    try:
+        AUDIT.production_kernel_module.BETA_DM = -0.04
+        rates = AUDIT.rhs_direction(kernel, state)
+    finally:
+        AUDIT.production_kernel_module.BETA_DM = old_beta
+
+    epsilon = 2.0e-5
+    plus_state = AUDIT.shifted_state(kernel, state, rates, +epsilon)
+    minus_state = AUDIT.shifted_state(kernel, state, rates, -epsilon)
+    rhs_budget = AUDIT.scalar_rhs_term_budget(state, -0.04)
+    report = AUDIT.scalar_sector_energy_time_density_budget(
+        state, plus_state, minus_state, epsilon, rhs_budget
+    )
+
+    assert report["reported"] is True
+    assert report["all_profiles_finite"] is True
+    assert report["conditional_exchange_model_law_accepted"] is False
+    assert report["status"] == "scalar_sector_time_density_rhs_ledger_only"
+    assert set(report["sectors"]) == {"S", "D", "phi"}
+    assert "no closure tolerance" in report["interpretation"]
+
+    for sector_name, sector in report["sectors"].items():
+        assert sector["state_pairing"]["base_state_sha256"] == before
+        assert sector["state_pairing"]["epsilon"] == epsilon
+        assert set(sector["field_rate_terms"]) == set(
+            rhs_budget["sectors"][sector_name]["field_rate_terms"]["raw_signed_arrays"]
+        )
+        assert set(sector["momentum_rate_terms"]) == set(
+            rhs_budget["sectors"][sector_name]["momentum_rate_terms"]["raw_signed_arrays"]
+        )
+        for key in (
+            "measured_density_t_dot",
+            "predicted_density_t_dot",
+            "measured_minus_predicted_residual",
+        ):
+            values = np.asarray(sector[key]["raw_signed_array"], dtype=np.float64)
+            assert values.shape == state.grid.centers.shape
+            assert np.all(np.isfinite(values))
+        assert "density_t_dot_volume_factor_contribution" in sector["geometry_terms"]
+        assert "density_t_dot_metric_prefactor_contribution" in sector["geometry_terms"]
+
+    # Algebraic implementation accounting for the conditional phi Pi RHS term:
+    # it is visible in the diagnostic ledger but remains unaccepted as a physical law.
+    phi = report["sectors"]["phi"]
+    observed = np.asarray(
+        phi["conditional_phi_exchange"]["density_t_dot_contribution"]["raw_signed_array"],
+        dtype=np.float64,
+    )
+    rho_dm = AUDIT.dm_density(
+        AUDIT.metric_slice_from_q(state.grid, state.geometry), state.matter
+    )
+    r = np.asarray(state.grid.centers, dtype=np.float64)
+    gamma_rr = np.asarray(state.geometry.a) / np.asarray(state.geometry.X)**2
+    gamma_thth = np.asarray(state.geometry.b) * r**2 / np.asarray(state.geometry.X)**2
+    sqrt_minus_g = np.asarray(state.geometry.alpha) * np.sqrt(gamma_rr) * gamma_thth
+    expected = (
+        -sqrt_minus_g * np.asarray(state.scalars.Pi) * (-0.04 * np.asarray(rho_dm))
+        / float(AUDIT.KAPPA)
+    )
+    np.testing.assert_allclose(observed, expected, rtol=5.0e-12, atol=5.0e-18)
+    assert AUDIT.state_digest(state) == before
