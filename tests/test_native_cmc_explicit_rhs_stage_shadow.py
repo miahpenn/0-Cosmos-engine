@@ -813,6 +813,174 @@ def _metric_product_chain_rule_shadow(geometry, native_grid):
     }
 
 
+
+def _lambda_metric_derivative_chain_shadow(
+    native_geometry,
+    pinned_geometry,
+    geometry,
+    native_grid,
+    pinned_grid,
+    vacuum,
+):
+    """Compare D1(Lambda_metric) with its same-operator D1/D2 chain expression.
+
+    The predicted TF-Ricci shift is applied only to the deltaLambda-aligned
+    pinned metric-channel budget. It is an offline derivative counterfactual,
+    not a proposed production substitution.
+    """
+    r = np.asarray(native_grid.centers, dtype=float)
+    a = np.asarray(geometry.a, dtype=float)
+    b = np.asarray(geometry.b, dtype=float)
+    X = np.asarray(geometry.X, dtype=float)
+    Lambda = np.asarray(geometry.Lambda, dtype=float)
+    alpha = np.asarray(geometry.alpha, dtype=float)
+
+    def derivative_operands(grid, d1, d2):
+        ap = np.asarray(d1(a, parity=1), dtype=float)
+        bp = np.asarray(d1(b, parity=1), dtype=float)
+        app = np.asarray(d2(a, parity=1), dtype=float)
+        bpp = np.asarray(d2(b, parity=1), dtype=float)
+        lambda_metric = (
+            ap / (2.0 * a**2)
+            - bp / (a * b)
+            + 2.0 * (1.0 / b - 1.0 / a) / r
+        )
+        lambda_metric_prime_sampled = np.asarray(
+            d1(lambda_metric, parity=-1), dtype=float
+        )
+        lambda_metric_prime_chain = (
+            app / (2.0 * a**2)
+            - ap**2 / a**3
+            - bpp / (a * b)
+            + bp * (ap * b + a * bp) / (a**2 * b**2)
+            - 2.0 * (1.0 / b - 1.0 / a) / r**2
+            + 2.0 * (-bp / b**2 + ap / a**2) / r
+        )
+        return {
+            "lambda_metric": lambda_metric,
+            "lambda_metric_prime_sampled": lambda_metric_prime_sampled,
+            "lambda_metric_prime_chain": lambda_metric_prime_chain,
+            "lambda_metric_prime_chain_minus_sampled": (
+                lambda_metric_prime_chain - lambda_metric_prime_sampled
+            ),
+            "a_prime": ap,
+        }
+
+    native = derivative_operands(
+        native_grid,
+        native_grid.cell_derivative_fourth,
+        native_grid.cell_second_derivative_fourth,
+    )
+    pinned = derivative_operands(
+        pinned_grid,
+        lambda values, parity=1: vacuum._d(pinned_grid, values, parity),
+        lambda values, parity=1: vacuum._d2(pinned_grid, values, parity),
+    )
+
+    # The aligned pinned metric channel removes the D(deltaLambda) connection
+    # piece from the total; its remaining Lambda-prime operand is D(Lambda_metric).
+    # In the pinned TF-Ricci expression the coefficient of D(Lambda) is
+    # +(2/3)*alpha*X^2, so the predicted change is coefficient times the
+    # chain-rule-minus-sampled derivative gap.
+    pinned_delta_lambda = Lambda - pinned["lambda_metric"]
+    pinned_delta_lambda_prime = np.asarray(
+        vacuum._d(pinned_grid, pinned_delta_lambda, -1), dtype=float
+    )
+    aligned_connection_Rr = X**2 * (
+        pinned_delta_lambda_prime
+        + 0.5 * (pinned["a_prime"] / a) * pinned_delta_lambda
+    )
+    aligned_connection_R = X**2 * pinned_delta_lambda_prime
+    aligned_pinned_metric_tf = alpha * (
+        (
+            np.asarray(pinned_geometry["Rr_r"], dtype=float)
+            - aligned_connection_Rr
+        )
+        - (
+            np.asarray(pinned_geometry["R"], dtype=float)
+            - aligned_connection_R
+        ) / 3.0
+    )
+    native_metric_tf = alpha * (
+        np.asarray(native_geometry["Rr_r_metric"], dtype=float)
+        - np.asarray(native_geometry["R_metric"], dtype=float) / 3.0
+    )
+    aligned_metric_residual = native_metric_tf - aligned_pinned_metric_tf
+    predicted_pinned_metric_shift = (
+        (2.0 / 3.0)
+        * alpha
+        * X**2
+        * pinned["lambda_metric_prime_chain_minus_sampled"]
+    )
+    adjusted_aligned_metric_residual = (
+        native_metric_tf - (aligned_pinned_metric_tf + predicted_pinned_metric_shift)
+    )
+    adjustment_closure = adjusted_aligned_metric_residual - (
+        aligned_metric_residual - predicted_pinned_metric_shift
+    )
+
+    profiles = {
+        "native_D1_lambda_metric_sampled": native["lambda_metric_prime_sampled"],
+        "native_lambda_metric_chain_derivative": native["lambda_metric_prime_chain"],
+        "native_chain_minus_sampled_D1": native["lambda_metric_prime_chain_minus_sampled"],
+        "pinned_D1_lambda_metric_sampled": pinned["lambda_metric_prime_sampled"],
+        "pinned_lambda_metric_chain_derivative": pinned["lambda_metric_prime_chain"],
+        "pinned_chain_minus_sampled_D1": pinned["lambda_metric_prime_chain_minus_sampled"],
+        "predicted_pinned_metric_tf_ricci_shift": predicted_pinned_metric_shift,
+        "aligned_metric_tf_residual_before_chain_counterfactual": aligned_metric_residual,
+        "aligned_metric_tf_residual_after_chain_counterfactual": adjusted_aligned_metric_residual,
+        "chain_counterfactual_adjustment_closure": adjustment_closure,
+    }
+    areal = np.asarray(native_geometry["areal_radius"], dtype=float)
+    masks = {
+        "centre_R_areal_lt_2": areal < 2.0,
+        "fixed_annulus_2_le_R_areal_le_6": (areal >= 2.0) & (areal <= 6.0),
+        "outer_R_areal_gt_6": areal > 6.0,
+    }
+    report = {}
+    for name, raw in profiles.items():
+        values = np.asarray(raw, dtype=float)
+        assert values.shape == areal.shape, f"{name}: incompatible profile shape"
+        assert np.all(np.isfinite(values)), f"{name}: non-finite derivative-chain profile"
+        regions = {}
+        for region_name, mask in masks.items():
+            cells = int(np.count_nonzero(mask))
+            assert cells >= 4, f"{region_name}: expected at least four cells"
+            selected = values[mask]
+            regions[region_name] = {
+                "cells": cells,
+                "signed_mean": float(np.mean(selected)),
+                "rms": float(np.sqrt(np.mean(selected**2))),
+                "max_abs": float(np.max(np.abs(selected))),
+            }
+        report[name] = {
+            "regions": regions,
+            "first_four_signed_values": [float(value) for value in values[:4]],
+        }
+
+    return {
+        "profiles": report,
+        "chain_rule_definition": (
+            "d/dr[a'/(2*a^2) - b'/(a*b) + 2*(1/b - 1/a)/r], "
+            "expanded using the same operator's D1(a), D1(b), D2(a), D2(b)"
+        ),
+        "predicted_shift_definition": (
+            "(2/3)*alpha*X^2*(chain-rule D(lambda_metric) - sampled D1(lambda_metric)); "
+            "applied only to the pinned deltaLambda-aligned metric TF-Ricci channel"
+        ),
+        "operator_note": (
+            "native and pinned values are calculated independently with each declared "
+            "parity-aware operator; stage input arrays and production formulas are unchanged"
+        ),
+        "interpretation": (
+            "same-input CMC-stage derivative localization only; even a large shift "
+            "does not authorize replacing the production derivative or identify a "
+            "defective law. A small shift rules out only this isolated channel as a "
+            "complete explanation."
+        ),
+    }
+
+
 def _observe_stage(kernel, native_grid, stage, *, evaluate_coupled_rhs):
     geometry = stage.geometry
     scalars = stage.scalars
@@ -870,6 +1038,14 @@ def _observe_stage(kernel, native_grid, stage, *, evaluate_coupled_rhs):
         stage.grid,
         vacuum,
     )
+    lambda_metric_derivative_chain_shadow = _lambda_metric_derivative_chain_shadow(
+        native_geometry_terms,
+        pinned_geometry_terms,
+        geometry,
+        native_grid,
+        stage.grid,
+        vacuum,
+    )
     digest_after = _slice_sha256(geometry, scalars, matter)
     assert digest_after == digest_before, (
         f"{stage.geometry!r}: production helper or RHS evaluation mutated its "
@@ -888,6 +1064,7 @@ def _observe_stage(kernel, native_grid, stage, *, evaluate_coupled_rhs):
         "primary_l2_term_split_native_minus_pinned": primary_l2_terms_shadow,
         "primary_l2_ricci_primitive_shadow": primary_l2_ricci_primitives,
         "primary_l2_ricci_term_contributions": primary_l2_ricci_term_contributions,
+        "lambda_metric_derivative_chain_shadow": lambda_metric_derivative_chain_shadow,
         "metric_product_chain_rule_shadow": metric_product_chain_rule_shadow,
         "compared_fields": list(_EXPLICIT_METRIC_FIELDS),
         "primary_l2_fields_compared": ["Aa", "K"],
@@ -1069,7 +1246,7 @@ def test_native_explicit_rhs_on_cmc_stage_slices_without_calling_full_step(capsy
 
     source = inspect.getsource(V55ProductionKernel.step).encode("utf-8")
     report = {
-        "schema": "native-cmc-stage-rhs-shadow/v8",
+        "schema": "native-cmc-stage-rhs-shadow/v9",
         "production_step_called": False,
         "stage_build": (
             "copied-state reconstruction using current production-owned lapse/RHS/"
