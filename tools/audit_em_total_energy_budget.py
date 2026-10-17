@@ -2956,7 +2956,10 @@ def _instrument_rhs(kernel: AuditedKernel):
 
         if active is not None:
             metric, metric_derivatives, species_state, species = args[:4]
-            face_flux, source_energy, source_momentum, dm_energy, dm_momentum = result
+            (
+                face_flux, source_energy, source_momentum,
+                dm_energy, dm_momentum, dm_rest,
+            ) = result
             component_record = {
                 "species": str(getattr(species, "value", species)),
                 "face_flux": _array(face_flux),
@@ -2964,6 +2967,7 @@ def _instrument_rhs(kernel: AuditedKernel):
                 "source_momentum": _array(source_momentum),
                 "dm_exchange_energy": _array(dm_energy),
                 "dm_exchange_momentum": _array(dm_momentum),
+                "dm_exchange_rest": _array(dm_rest),
             }
             if capture_hll:
                 expected_faces = int(face_flux.shape[0]) - 2
