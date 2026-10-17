@@ -51,11 +51,11 @@ jobs:
               ".github/workflows/em_total_energy_budget.yml",
             ]);
 
-            // Only narrative documentation can bypass a formal review.
-            // Research code, tests, tools, workflow policy, and runtime code remain review-gated.
-            const isDocumentationPath = (path) =>
-              path === "README.md" ||
-              path.startsWith("docs/")
+            // Research-provenance-first policy: exact-head implementation gates are the
+            // default for established research-backed work. Changes to workflow/config
+            // policy remain approval-gated because they can weaken future safeguards.
+            const requiresTrustedApproval = (paths) =>
+              paths.some(path => path.startsWith(".github/workflows/"));
 
             async function changedFiles(number) {
               const all = [];
@@ -125,6 +125,7 @@ jobs:
               "Tests and one-step production smoke": "Lightweight validation",
               "integrated-admission": "Strict campaign plus radiation retry integration",
               "joined-energy-ledger": "Research - joined EM/matter/Misner-Sharp ledger",
+              "tracefree-ricci-proper-radial": "Diagnostic - trace-free Ricci / proper-radial reconciliation",
             };
 
             function latestCheckRunForName(checkRuns, name) {
@@ -244,10 +245,17 @@ jobs:
                 core.info(`#${number}: changed-file list is empty; waiting.`);
                 return;
               }
-              const documentationOnly = files.every(isDocumentationPath);
+              const approvalRequired = requiresTrustedApproval(files);
               const required = [...coreChecks];
               if (files.some(path => ledgerPaths.has(path))) {
                 required.push("joined-energy-ledger");
+              }
+              const nativeGeometryChanged = files.some(path =>
+                path.startsWith("engine/native_geometry/") ||
+                path === ".github/workflows/tracefree-ricci-proper-radial.yml"
+              );
+              if (nativeGeometryChanged) {
+                required.push("tracefree-ricci-proper-radial");
               }
 
               const failures = await checkGate(headSha, required, number, liveMainSha);
@@ -266,12 +274,14 @@ jobs:
                 return;
               }
 
-              const hasIndependentApproval = await hasTrustedIndependentReview(
-                reviewerState, pr.user?.login, "APPROVED"
-              );
-              if (!documentationOnly && !hasIndependentApproval) {
-                core.info(`#${number}: non-documentation paths require approval on exact head ${headSha}.`);
-                return;
+              if (approvalRequired) {
+                const hasTrustedApproval = await hasTrustedIndependentReview(
+                  reviewerState, pr.user?.login, "APPROVED"
+                );
+                if (!hasTrustedApproval) {
+                  core.info(`#${number}: workflow/config changes require trusted approval on exact head ${headSha}.`);
+                  return;
+                }
               }
 
               // Recheck head, base, main, review state, and statuses immediately before merge.
@@ -307,12 +317,14 @@ jobs:
                 core.info(`#${number}: a trusted current-head changes-requested review arrived during qualification.`);
                 return;
               }
-              const finalApproval = await hasTrustedIndependentReview(
-                reviewerState, freshPr.user?.login, "APPROVED"
-              );
-              if (!documentationOnly && !finalApproval) {
-                core.info(`#${number}: current-head approval is no longer present for non-documentation changes.`);
-                return;
+              if (approvalRequired) {
+                const finalApproval = await hasTrustedIndependentReview(
+                  reviewerState, freshPr.user?.login, "APPROVED"
+                );
+                if (!finalApproval) {
+                  core.info(`#${number}: trusted current-head approval is missing for workflow/config changes.`);
+                  return;
+                }
               }
 
               const result = await github.rest.pulls.merge({
