@@ -206,6 +206,62 @@ def test_matter_sources_are_explicit_and_do_not_mutate_frozen_state():
         np.testing.assert_array_equal(getattr(state, name), before)
 
 
+
+
+def test_constant_positive_curvature_warped_product_has_correct_ricci_sign_and_refines():
+    """Independent sign witness: R(l)=L sin(l/L) has scalar curvature +6/L^2.
+
+    Use proper radial distance l=r (A=gamma_rr=1). Choosing X and a,b so that
+    a/X^2=1, r*sqrt(b)/X=L*sin(r/L), and a*b^2=1 exercises the native metric
+    representation without using vendor outputs as the oracle.
+    """
+    curvature_radius = 5.0
+    errors = []
+    for n in (48, 96, 192):
+        grid = NativeSphericalCellGrid(n, 3.0)
+        r = grid.centers
+        areal = curvature_radius * np.sin(r / curvature_radius)
+        ratio = areal / r
+
+        # These choices give A=a/X^2=1 and R_areal=r*sqrt(b)/X=areal,
+        # while preserving the candidate conformal determinant a*b^2=1.
+        X = (r / areal) ** (2.0 / 3.0)
+        a = X**2
+        b = ratio ** (2.0 / 3.0)
+        state = SimpleNamespace(
+            a=a,
+            b=b,
+            X=X,
+            alpha=np.ones_like(r),
+            beta=np.zeros_like(r),
+            Aa=np.zeros_like(r),
+            K=np.zeros_like(r),
+            Lambda=np.zeros_like(r),
+            B=np.zeros_like(r),
+        )
+        state.Lambda = metric_connection_lambda(grid, state)
+
+        geometry = native_bssn_geometry_terms(grid, state)
+        mask = (r >= 0.5) & (r <= 2.5)
+        expected_radial = 2.0 / curvature_radius**2
+        expected_scalar = 6.0 / curvature_radius**2
+
+        assert np.max(np.abs(a * b**2 - 1.0)) < 3e-14
+        assert np.all(geometry["Rr_r_metric"][mask] > 0.0)
+        assert np.all(geometry["Rtheta_theta_metric"][mask] > 0.0)
+        assert np.all(geometry["R_metric"][mask] > 0.0)
+
+        errors.append(max(
+            float(np.max(np.abs(geometry["Rr_r_metric"][mask] - expected_radial))),
+            float(np.max(np.abs(geometry["Rtheta_theta_metric"][mask] - expected_radial))),
+            float(np.max(np.abs(geometry["R_metric"][mask] - expected_scalar))),
+        ))
+
+    observed_order = np.log2(np.asarray(errors[:-1]) / np.asarray(errors[1:]))
+    assert np.all(observed_order > 3.5), (
+        f"positive-curvature Ricci observed orders: {observed_order}; errors={errors}"
+    )
+
 def test_native_geometry_matches_pinned_vendor_away_from_boundaries_under_refinement(pinned_vacuum):
     errors = []
     for n in (48, 96, 192):
