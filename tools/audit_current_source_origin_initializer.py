@@ -171,16 +171,15 @@ def _state_digest(state: Any) -> str:
             add("electromagnetic." + name, value)
     add("grid.centers", state.grid.centers)
     digest.update(repr((state.grid.n, state.grid.r_max, state.grid.dr,
-                        state.t, state.tau, state.e_folds)).encode("ascii"))
+                        getattr(state, "t", None), getattr(state, "tau", None),
+                        getattr(state, "e_folds", None))).encode("ascii"))
     return digest.hexdigest()
 
 
 def _source_family_checks(state, r: np.ndarray) -> dict[str, Any]:
     """Check field-family premises; do not equate discrete derivatives to exact ones."""
-    from engine.scalar_system import cosmos_potential
     from engine.v55_matter import RHO_B_PRESENT, RHO_DM_PRESENT, RHO_R_PRESENT
 
-    del cosmos_potential  # documented source-family constant; used by the initializer
     geometry, fields, matter = state.geometry, state.scalars, state.matter
     expected_s = AMPLITUDE * np.exp(-((r / WIDTH) ** 2))
     expected_d = D_AMPLITUDE * np.exp(-((r / WIDTH) ** 2))
@@ -542,11 +541,6 @@ def build_report(provenance: dict[str, Any] | None = None) -> tuple[dict[str, An
             "final_production_source_first_six": [float(v) for v in source_last[:6]],
             "discrete_derivative_vs_continuum_field_derivative": {
                 "S_prime_max_abs_difference": _max_abs(
-                    source_last["Sp_discrete"] if isinstance(source_last, dict) else
-                    grid.cell_derivative_fourth(S, parity=1) - (-2.0 * r * S / WIDTH**2)
-                ),
-            } if False else {
-                "S_prime_max_abs_difference": _max_abs(
                     grid.cell_derivative_fourth(S, parity=1) - (-2.0 * r * S / WIDTH**2)
                 ),
                 "D_prime_max_abs_difference": _max_abs(
@@ -582,7 +576,7 @@ def build_report(provenance: dict[str, Any] | None = None) -> tuple[dict[str, An
                 {"index": int(i), "B_production": float(B_production[i]),
                  "B_counterfactual": float(B_counterfactual[i]),
                  "signed_delta_B": float(B_counterfactual[i] - B_production[i])}
-                for i in range(min(6, len(r))
+                for i in range(min(6, len(r)))
             ],
             "signed_witnesses": {
                 "production": baseline_witness,
