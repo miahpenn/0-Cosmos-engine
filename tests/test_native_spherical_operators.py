@@ -178,3 +178,34 @@ def test_native_grid_rejects_invalid_resolution_shapes_and_parity():
         NativeSphericalCellGrid(4, 10.0).cell_derivative_fourth(np.ones(4), parity=1)
     with pytest.raises(ValueError, match="at least six"):
         NativeSphericalCellGrid(5, 10.0).cell_second_derivative_fourth(np.ones(5), parity=1)
+
+
+@pytest.mark.parametrize("bad", [np.nan, np.inf, -np.inf])
+def test_native_grid_rejects_nonfinite_profiles_fluxes_and_coefficients(bad):
+    grid = NativeSphericalCellGrid(8, 10.0)
+    values = np.ones(grid.n)
+    flux = np.ones(grid.n + 1)
+
+    bad_values = values.copy()
+    bad_values[0] = bad
+    with pytest.raises(ValueError, match="finite"):
+        grid.cell_derivative_fourth(bad_values, parity=1)
+
+    bad_flux = flux.copy()
+    bad_flux[2] = bad
+    with pytest.raises(ValueError, match="finite"):
+        grid.divergence_faces(bad_flux)
+    with pytest.raises(ValueError, match="finite"):
+        grid.integration_by_parts_residual(values, bad_flux)
+
+    with pytest.raises(ValueError, match="finite"):
+        grid.gradient_faces(values, inner_flux_gradient=bad)
+    with pytest.raises(ValueError, match="finite"):
+        grid.gradient_faces_fourth(values, parity=1, outer_flux_gradient=bad)
+
+    with pytest.raises(ValueError, match="finite"):
+        grid.diffusion(values, coefficient_faces=bad)
+    bad_coefficient = np.ones(grid.n + 1)
+    bad_coefficient[1] = bad
+    with pytest.raises(ValueError, match="finite"):
+        grid.diffusion(values, coefficient_faces=bad_coefficient)
