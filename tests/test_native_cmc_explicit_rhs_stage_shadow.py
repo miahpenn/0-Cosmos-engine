@@ -1,4 +1,4 @@
-"""Observation-only explicit-RHS shadow on CMC-aligned copied stage slices.
+"""CMC-only native explicit metric RHS shadow on copied stage slices.
 
 The stage-transition ordering is pinned by test_native_cmc_stage_contract_preflight.py.
 This witness builds only stage 0, the explicit predictor, and the primary
@@ -22,7 +22,7 @@ from engine.matter_system import Species, validate_species_admissibility
 from engine.native_geometry import (
     NativeSphericalCellGrid,
     native_bssn_geometry_terms,
-    native_explicit_rhs,
+    native_cmc_explicit_metric_rhs,
 )
 from engine.production_kernel import ProductionState, V55ProductionKernel
 from engine.scalar_system import ScalarFields
@@ -123,7 +123,9 @@ def _observe_stage(kernel, native_grid, stage, *, evaluate_coupled_rhs):
     blocks = kernel._geometry_stage_terms(
         stage.grid, geometry, scalars, matter, stage.electromagnetic
     )
-    native_rhs = native_explicit_rhs(native_grid, geometry)
+    # Use the CMC-only public contract: no moving-puncture alpha/beta
+    # RHS or B-driver field is part of this stage's explicit metric update.
+    native_rhs = native_cmc_explicit_metric_rhs(native_grid, geometry)
     digest_after = _slice_sha256(geometry, scalars, matter)
     assert digest_after == digest_before, (
         f"{stage.geometry!r}: production helper or RHS evaluation mutated its "
@@ -138,6 +140,8 @@ def _observe_stage(kernel, native_grid, stage, *, evaluate_coupled_rhs):
             native_rhs, blocks["explicit"], geometry, native_grid
         ),
         "compared_fields": list(_EXPLICIT_METRIC_FIELDS),
+        "native_interface": "native_cmc_explicit_metric_rhs",
+        "native_interface_contract": "returns exactly a/b/X; requires positive CMC lapse and beta=0; has no B-driver dependency",
         "excluded_gauge_rhs_fields": {
             "alpha": "production CMC lapse is re-solved, not advanced by moving-puncture 1+log RHS",
             "beta": "production CMC branch pins beta/B to zero instead of advancing moving-puncture shift",
