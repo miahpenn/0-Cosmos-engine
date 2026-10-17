@@ -124,6 +124,13 @@ def _observe_stage(kernel, native_grid, stage, *, evaluate_coupled_rhs):
         stage.grid, geometry, scalars, matter, stage.electromagnetic
     )
     native_rhs = native_explicit_rhs(native_grid, geometry)
+    _, _, moving = vendor_modules()
+    adapter_explicit_rhs = moving.moving_puncture_explicit_rhs(stage.grid, geometry)
+    for name in _EXPLICIT_METRIC_FIELDS:
+        assert np.array_equal(
+            np.asarray(blocks["explicit"][name]),
+            np.asarray(native_rhs[name]),
+        ), f"production explicit block did not route native field {name}"
     digest_after = _slice_sha256(geometry, scalars, matter)
     assert digest_after == digest_before, (
         f"{stage.geometry!r}: production helper or RHS evaluation mutated its "
@@ -135,7 +142,7 @@ def _observe_stage(kernel, native_grid, stage, *, evaluate_coupled_rhs):
         "geometry_input_sha256_before": digest_before,
         "geometry_input_sha256_after": digest_after,
         "native_minus_adapter_explicit_metric_rhs": _regional_rhs_residuals(
-            native_rhs, blocks["explicit"], geometry, native_grid
+            native_rhs, adapter_explicit_rhs, geometry, native_grid
         ),
         "compared_fields": list(_EXPLICIT_METRIC_FIELDS),
         "excluded_gauge_rhs_fields": {
