@@ -148,6 +148,42 @@ def test_primary_l2_aa_residual_refines_on_initialized_cmc_slices(capsys):
         k_rms = region_summaries["fixed_annulus_2_le_R_areal_le_6"]["k_rms_native_minus_pinned"]
         aa_errors.append(aa_rms)
         k_errors.append(k_rms)
+        # Keep signed samples for the first regular-origin cells in addition
+        # to regional reductions. These are descriptive only and deliberately
+        # have no per-cell acceptance threshold.
+        origin_indices = np.flatnonzero(areal < 2.0)[:8]
+        origin_cell_samples = []
+        for index in origin_indices:
+            origin_cell_samples.append({
+                "index": int(index),
+                "coordinate_r": float(native_grid.centers[index]),
+                "areal_radius": float(areal[index]),
+                "aa_total_native_minus_pinned": float(aa_delta[index]),
+                "aa_hessian_tracefree_native_minus_pinned": float(hessian_delta[index]),
+                "aa_ricci_tracefree_native_minus_pinned": float(ricci_delta[index]),
+                "aa_ricci_metric_piece_native_minus_pinned": float(metric_ricci_delta[index]),
+                "aa_ricci_connection_piece_native_minus_pinned": float(connection_ricci_delta[index]),
+                "aa_hessian_plus_ricci_remainder": float(decomposition_remainder[index]),
+                "ricci_metric_plus_connection_remainder": float(ricci_split_remainder[index]),
+                "native": {
+                    "Rr_r_metric": float(native_geometry["Rr_r_metric"][index]),
+                    "R_metric": float(native_geometry["R_metric"][index]),
+                    "delta_Rr_r_connection": float(native_geometry["delta_Rr_r_connection"][index]),
+                    "delta_R_scalar_connection": float(native_geometry["delta_R_scalar_connection"][index]),
+                    "tracefree_metric_piece": float(native_metric_ricci_tf[index]),
+                    "tracefree_connection_piece": float(native_connection_ricci_tf[index]),
+                },
+                "pinned": {
+                    "Rr_r_total": float(pinned_geometry["Rr_r"][index]),
+                    "R_scalar_total": float(pinned_geometry["R"][index]),
+                    "Rr_r_metric_remainder": float(pinned_metric_Rr_r[index]),
+                    "R_scalar_metric_remainder": float(pinned_metric_R[index]),
+                    "Rr_r_explicit_Lambda_piece": float(pinned_connection_Rr_r[index]),
+                    "R_scalar_explicit_Lambda_piece": float(pinned_connection_R[index]),
+                    "tracefree_metric_piece": float(pinned_metric_ricci_tf[index]),
+                    "tracefree_Lambda_piece": float(pinned_connection_ricci_tf[index]),
+                },
+            })
         records.append({
             "resolution": n,
             "r_max": 40.0,
@@ -156,6 +192,7 @@ def test_primary_l2_aa_residual_refines_on_initialized_cmc_slices(capsys):
             "aa_max_abs_native_minus_pinned": float(np.max(np.abs(aa_delta[mask]))),
             "k_rms_native_minus_pinned": k_rms,
             "regional_residuals": region_summaries,
+            "origin_cell_signed_samples": origin_cell_samples,
         })
         for name, values in before.items():
             np.testing.assert_array_equal(getattr(geometry, name), values)
@@ -174,14 +211,15 @@ def test_primary_l2_aa_residual_refines_on_initialized_cmc_slices(capsys):
             "NATIVE_V55_PRIMARY_L2_CMC_REFINEMENT "
             + json.dumps(
                 {
-                    "schema": "v55-primary-l2-cmc-refinement/v4",
-                    "scope": "regional Aa residuals split by Hessian/Ricci and metric/connection Ricci terms; diagnostic RHS only",
+                    "schema": "v55-primary-l2-cmc-refinement/v5",
+                    "scope": "regional residuals and first-eight regular-origin signed term samples; diagnostic RHS only",
                     "records": records,
                     "aa_monotonic_refinement": True,
                     "k_roundoff_contract": True,
                     "new_absolute_error_threshold": False,
                     "termwise_decomposition_is_diagnostic_only": True,
                     "ricci_metric_connection_split_is_diagnostic_only": True,
+                    "origin_cell_samples_are_diagnostic_only": True,
                 },
                 sort_keys=True,
                 separators=(",", ":"),
