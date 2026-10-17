@@ -273,6 +273,74 @@ def native_lambda_l3_rhs(grid, state) -> np.ndarray:
     return result
 
 
+def _native_explicit_metric_rhs_from_profiles(
+    grid, centers, a, b, X, alpha, beta, aa, trace_k
+) -> dict[str, np.ndarray]:
+    """Shared native metric RHS core for CMC and full explicit/gauge APIs."""
+    da = np.asarray(grid.cell_derivative_fourth(a, parity=1), dtype=float)
+    db = np.asarray(grid.cell_derivative_fourth(b, parity=1), dtype=float)
+    dX = np.asarray(grid.cell_derivative_fourth(X, parity=1), dtype=float)
+    dbeta = np.asarray(grid.cell_derivative_fourth(beta, parity=-1), dtype=float)
+    div_beta = dbeta + beta * (0.5 * da / a + db / b + 2.0 / centers)
+    ab = -0.5 * aa
+
+    with np.errstate(over="ignore", invalid="ignore"):
+        result = {
+            "a": beta * da + 2.0 * a * dbeta - (2.0 / 3.0) * a * div_beta
+            - 2.0 * alpha * a * aa,
+            "b": beta * db + 2.0 * b * beta / centers
+            - (2.0 / 3.0) * b * div_beta - 2.0 * alpha * b * ab,
+            "X": beta * dX + X * (alpha * trace_k - div_beta) / 3.0,
+        }
+
+    for name, values in result.items():
+        result[name] = np.asarray(values, dtype=float)
+        if result[name].shape != centers.shape:
+            raise ValueError(f"{name} RHS must have shape {centers.shape}")
+        if not np.all(np.isfinite(result[name])):
+            raise ValueError(f"{name} RHS produced non-finite values")
+    return result
+
+
+def native_cmc_explicit_metric_rhs(grid, state) -> dict[str, np.ndarray]:
+    """Return only the native explicit metric RHS (a, b, X) on a CMC slice.
+
+    The slice must already carry its CMC-solved positive lapse and the current
+    production CMC gauge convention beta=0. This interface deliberately does
+    not require or return the moving-puncture alpha/beta RHS or B-driver field.
+    The metric equations share their implementation with native_explicit_rhs,
+    so the CMC projection cannot drift to a separately transcribed formula.
+    """
+    centers = np.asarray(grid.centers, dtype=float)
+    if (
+        centers.ndim != 1
+        or centers.size < 5
+        or not np.all(np.isfinite(centers))
+        or np.any(centers <= 0.0)
+    ):
+        raise ValueError(
+            "grid centres must be a finite positive 1-D profile with at least five cells"
+        )
+
+    a = _evolution_profile(state, "a", centers)
+    b = _evolution_profile(state, "b", centers)
+    X = _evolution_profile(state, "X", centers)
+    alpha = _evolution_profile(state, "alpha", centers)
+    beta = _evolution_profile(state, "beta", centers)
+    aa = _evolution_profile(state, "Aa", centers)
+    trace_k = _evolution_profile(state, "K", centers)
+    if np.any(a <= 0.0) or np.any(b <= 0.0) or np.any(X <= 0.0):
+        raise ValueError("a, b and X must be positive")
+    if np.any(alpha <= 0.0):
+        raise ValueError("alpha must be positive")
+    if np.any(beta != 0.0):
+        raise ValueError("CMC explicit metric RHS requires beta=0")
+
+    return _native_explicit_metric_rhs_from_profiles(
+        grid, centers, a, b, X, alpha, beta, aa, trace_k
+    )
+
+
 def native_explicit_rhs(grid, state) -> dict[str, np.ndarray]:
     """Return the isolated native explicit/gauge RHS for (a, b, X, alpha, beta).
 
@@ -308,21 +376,13 @@ def native_explicit_rhs(grid, state) -> dict[str, np.ndarray]:
     if np.any(alpha <= 0.0):
         raise ValueError("alpha must be positive")
 
-    da = np.asarray(grid.cell_derivative_fourth(a, parity=1), dtype=float)
-    db = np.asarray(grid.cell_derivative_fourth(b, parity=1), dtype=float)
-    dX = np.asarray(grid.cell_derivative_fourth(X, parity=1), dtype=float)
+    metric_rhs = _native_explicit_metric_rhs_from_profiles(
+        grid, centers, a, b, X, alpha, beta, aa, trace_k
+    )
     dalpha = np.asarray(grid.cell_derivative_fourth(alpha, parity=1), dtype=float)
-    dbeta = np.asarray(grid.cell_derivative_fourth(beta, parity=-1), dtype=float)
-    div_beta = dbeta + beta * (0.5 * da / a + db / b + 2.0 / centers)
-    ab = -0.5 * aa
-
     with np.errstate(over="ignore", invalid="ignore"):
         result = {
-            "a": beta * da + 2.0 * a * dbeta - (2.0 / 3.0) * a * div_beta
-            - 2.0 * alpha * a * aa,
-            "b": beta * db + 2.0 * b * beta / centers
-            - (2.0 / 3.0) * b * div_beta - 2.0 * alpha * b * ab,
-            "X": beta * dX + X * (alpha * trace_k - div_beta) / 3.0,
+            **metric_rhs,
             "alpha": beta * dalpha - 2.0 * alpha * trace_k,
             "beta": driver.copy(),
         }
@@ -334,8 +394,6 @@ def native_explicit_rhs(grid, state) -> dict[str, np.ndarray]:
         if not np.all(np.isfinite(result[name])):
             raise ValueError(f"{name} RHS produced non-finite values")
     return result
-
-
 
 def native_gauge_b_rhs(grid, lambda_rhs: np.ndarray) -> np.ndarray:
     """Return the undamped spherical Gamma-driver RHS for auxiliary B.
