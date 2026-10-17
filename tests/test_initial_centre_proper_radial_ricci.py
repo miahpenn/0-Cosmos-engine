@@ -1,7 +1,10 @@
 import numpy as np
 
 from engine.v55_pirk_adapter import vendor_modules
-from tools.audit_current_main_centre_proper_radial_ricci import proper_radial_ricci
+from tools.audit_current_main_centre_proper_radial_ricci import (
+    _classify_source_changes,
+    proper_radial_ricci,
+)
 
 
 def test_proper_radial_ricci_reconstructs_constant_curvature_geometry():
@@ -436,3 +439,20 @@ def test_self_consistent_origin_fit_family_candidates_converge_without_state_mut
     assert all(np.isfinite(value) for value in observed_centre_gaps)
     assert len(set(observed_centre_gaps)) == len(fit_families)
     assert _state_digest(state) == before
+
+
+
+def test_source_pin_allows_only_the_documented_additive_native_geometry_path():
+    allowed, unexpected = _classify_source_changes(
+        "engine/native_geometry/geometry.py\\n"
+    )
+    assert allowed == ["engine/native_geometry/geometry.py"]
+    assert unexpected == []
+
+    allowed, unexpected = _classify_source_changes(
+        "engine/native_geometry/geometry.py\\n"
+        "engine/production_kernel.py\\n"
+        "vendor/unexpected.py\\n"
+    )
+    assert allowed == ["engine/native_geometry/geometry.py"]
+    assert unexpected == ["engine/production_kernel.py", "vendor/unexpected.py"]
