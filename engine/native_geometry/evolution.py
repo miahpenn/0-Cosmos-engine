@@ -69,6 +69,87 @@ def _evolution_profile(state, name: str, centers: np.ndarray) -> np.ndarray:
     return values
 
 
+def native_explicit_rhs(grid, state) -> dict[str, np.ndarray]:
+    """Return the isolated native explicit-stage rates for a, b, X, alpha, beta.
+
+    The conformal metric rates follow the ADM metric kinematics and the
+    declared spherical determinant split. With Ab=-Aa/2, the equations are
+
+        a_t     = beta*D_r(a) + 2*a*D_r(beta) - (2/3)*a*div(beta)
+                  - 2*alpha*a*Aa
+        b_t     = beta*D_r(b) + 2*b*beta/r - (2/3)*b*div(beta)
+                  - 2*alpha*b*Ab
+        X_t     = beta*D_r(X) + X*(alpha*K-div(beta))/3
+        alpha_t = -2*alpha*K + beta*D_r(alpha)
+        beta_t  = B
+
+    Even parity is used for a, b, X, alpha, Aa and K; beta and B are odd.
+    The pinned explicit-stage KO default is exactly zero, so this candidate
+    does not evaluate a dissipation stencil or add a tunable KO parameter.
+    Gauge-driver B_t, matter projections and PIRK2 stage composition are
+    separate increments. The supplied state is not mutated.
+    """
+    centers = np.asarray(grid.centers, dtype=float)
+    if (
+        centers.ndim != 1
+        or centers.size < 5
+        or not np.all(np.isfinite(centers))
+        or np.any(centers <= 0.0)
+    ):
+        raise ValueError(
+            "grid centres must be a finite positive 1-D profile with at least five cells"
+        )
+
+    radius = centers
+    a = _evolution_profile(state, "a", centers)
+    b = _evolution_profile(state, "b", centers)
+    X = _evolution_profile(state, "X", centers)
+    alpha = _evolution_profile(state, "alpha", centers)
+    beta = _evolution_profile(state, "beta", centers)
+    aa = _evolution_profile(state, "Aa", centers)
+    trace_k = _evolution_profile(state, "K", centers)
+    gauge_b = _evolution_profile(state, "B", centers)
+
+    if np.any(a <= 0.0) or np.any(b <= 0.0):
+        raise ValueError("conformal metric coefficients a and b must be positive")
+    if np.any(X <= 0.0):
+        raise ValueError("X must be positive")
+    if np.any(alpha <= 0.0):
+        raise ValueError("alpha must be positive")
+
+    d_a = np.asarray(grid.cell_derivative_fourth(a, parity=1), dtype=float)
+    d_b = np.asarray(grid.cell_derivative_fourth(b, parity=1), dtype=float)
+    d_X = np.asarray(grid.cell_derivative_fourth(X, parity=1), dtype=float)
+    d_alpha = np.asarray(
+        grid.cell_derivative_fourth(alpha, parity=1), dtype=float
+    )
+    d_beta = np.asarray(grid.cell_derivative_fourth(beta, parity=-1), dtype=float)
+    div_beta = d_beta + beta * (
+        0.5 * d_a / a + d_b / b + 2.0 / radius
+    )
+    ab = -0.5 * aa
+
+    with np.errstate(over="ignore", divide="ignore", invalid="ignore"):
+        out = {
+            "a": beta * d_a + 2.0 * a * d_beta
+            - (2.0 / 3.0) * a * div_beta - 2.0 * alpha * a * aa,
+            "b": beta * d_b + 2.0 * b * beta / radius
+            - (2.0 / 3.0) * b * div_beta - 2.0 * alpha * b * ab,
+            "X": beta * d_X + X * (alpha * trace_k - div_beta) / 3.0,
+            "alpha": -2.0 * alpha * trace_k + beta * d_alpha,
+            "beta": gauge_b.copy(),
+        }
+
+    for name, values in out.items():
+        result = np.asarray(values, dtype=float)
+        if result.shape != centers.shape:
+            raise ValueError(f"{name} RHS must have shape {centers.shape}")
+        if not np.all(np.isfinite(result)):
+            raise ValueError(f"{name} RHS produced non-finite values")
+        out[name] = result
+    return out
+
+
 def native_primary_l3_rhs(grid, state) -> dict[str, np.ndarray]:
     """Return the isolated native primary-L3 RHS for Aa and K.
 
