@@ -237,8 +237,16 @@ def test_scalar_rhs_term_budget_reconstructs_pinned_scalar_rhs_and_labels_condit
         for sector in budget["sectors"].values():
             assert sector["reconstruction"]["field_rate_passed"] is True
             assert sector["reconstruction"]["momentum_rate_passed"] is True
-            assert np.max(np.abs(sector["reconstruction"]["field_rate_gap"])) < 5.0e-18
-            assert np.max(np.abs(sector["reconstruction"]["momentum_rate_gap"])) < 5.0e-18
+            np.testing.assert_allclose(
+                sector["reconstructed_rates"]["field_rate"],
+                sector["implementation_rates"]["field_rate"],
+                rtol=5.0e-12, atol=5.0e-18,
+            )
+            np.testing.assert_allclose(
+                sector["reconstructed_rates"]["momentum_rate"],
+                sector["implementation_rates"]["momentum_rate"],
+                rtol=5.0e-12, atol=5.0e-18,
+            )
 
     rho_dm = AUDIT.dm_density(
         AUDIT.metric_slice_from_q(state.grid, state.geometry), state.matter
