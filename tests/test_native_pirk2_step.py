@@ -138,6 +138,15 @@ def test_native_pirk2_step_is_read_only_and_rejects_invalid_contracts():
 
     result = native_pirk2_step(grid, state, 1.0e-5)
 
+    # The undamped gauge contract must be preserved by the whole time step,
+    # not just by the isolated B RHS function.
+    np.testing.assert_allclose(
+        result.B,
+        state.B + 0.75 * (result.Lambda - state.Lambda),
+        rtol=2.0e-14,
+        atol=2.0e-14,
+    )
+
     for name, expected in before.items():
         np.testing.assert_array_equal(getattr(state, name), expected)
     for name in before:
