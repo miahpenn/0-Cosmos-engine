@@ -30,11 +30,7 @@ def _state(grid, *, alpha=None, beta=None, Aa=None, Lambda=None, curved=False):
         a=a,
         b=b,
         X=X,
-        alpha=(
-            np.ones(grid.n, dtype=float)
-            if alpha is None
-            else np.asarray(alpha, dtype=float).copy()
-        ),
+        alpha=np.ones(grid.n, dtype=float) if alpha is None else np.asarray(alpha, dtype=float).copy(),
         beta=zeros.copy() if beta is None else np.asarray(beta, dtype=float).copy(),
         Aa=zeros.copy() if Aa is None else np.asarray(Aa, dtype=float).copy(),
         K=zeros.copy(),
@@ -138,9 +134,7 @@ def test_lambda_l3_matches_pinned_vendor_on_fixed_areal_annulus():
             curved=True,
         )
         native = native_lambda_l3_rhs(grid, state)
-        reference = np.asarray(
-            vacuum.lambda_l3_rhs(vendor_grid, state), dtype=float
-        )
+        reference = np.asarray(vacuum.lambda_l3_rhs(vendor_grid, state), dtype=float)
         geometry = native_bssn_geometry_terms(grid, state)
         mask = (
             (geometry["areal_radius"] >= 2.0)
@@ -157,3 +151,17 @@ def test_lambda_l3_matches_pinned_vendor_on_fixed_areal_annulus():
     assert max(rms_differences) < 2.0e-12, (
         f"Lambda-L3 signed native-vendor RMS: {rms_differences}"
     )
+
+
+
+def test_zero_default_ko_is_exact_zero_for_oscillatory_profile():
+    """The pinned zero KO default stays zero even when its stencil is nonzero."""
+    grid = NativeSphericalCellGrid(64, 12.0)
+    amplitude = 1.2e-3
+    Lambda = amplitude * np.where(np.arange(grid.n) % 2 == 0, 1.0, -1.0)
+    state = _state(grid, Lambda=Lambda)
+
+    rhs = native_lambda_l3_rhs(grid, state)
+
+    assert np.all(np.isfinite(rhs))
+    np.testing.assert_array_equal(rhs, np.zeros(grid.n))
