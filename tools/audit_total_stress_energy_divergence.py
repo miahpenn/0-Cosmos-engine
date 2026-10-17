@@ -1359,18 +1359,86 @@ def sector_resolved_divergence_tangent_from_states(
         dt_rho_r = (p_obj["density_r"] - m_obj["density_r"]) * inv
         sector_dt_density_t_sum += dt_rho_t
         sector_dt_density_r_sum += dt_rho_r
-        div_t, div_r = covariant_divergence_from_profiles(
-            state.grid.centers, d1_fn,
-            b_obj["alpha"], b_obj["gamma_rr"], b_obj["gamma_thth"],
-            b_obj["rho"], b_obj["j"], b_obj["pr"], b_obj["pt"],
-            dt_rho_t, dt_rho_r, dt_gtt, dt_grr, dt_gth,
-        )
-        div_t_fv, div_r_fv = covariant_divergence_fv_from_profiles(
-            state.grid.centers, d1_fn,
-            b_obj["alpha"], b_obj["gamma_rr"], b_obj["gamma_thth"],
-            b_obj["rho"], b_obj["j"], b_obj["pr"], b_obj["pt"],
-            dt_rho_t, dt_rho_r, dt_gtt, dt_grr, dt_gth,
-        )
+        operator_component_decomposition = None
+        if name in ("S", "D", "phi"):
+            pointwise_terms = covariant_divergence_terms_from_profiles(
+                state.grid.centers, d1_fn,
+                b_obj["alpha"], b_obj["gamma_rr"], b_obj["gamma_thth"],
+                b_obj["rho"], b_obj["j"], b_obj["pr"], b_obj["pt"],
+                dt_rho_t, dt_rho_r, dt_gtt, dt_grr, dt_gth,
+            )
+            finite_volume_terms = covariant_divergence_fv_terms_from_profiles(
+                state.grid.centers, d1_fn,
+                b_obj["alpha"], b_obj["gamma_rr"], b_obj["gamma_thth"],
+                b_obj["rho"], b_obj["j"], b_obj["pr"], b_obj["pt"],
+                dt_rho_t, dt_rho_r, dt_gtt, dt_grr, dt_gth,
+            )
+            div_t, div_r = pointwise_terms["div_T_t"], pointwise_terms["div_T_r"]
+            div_t_fv, div_r_fv = finite_volume_terms["div_T_t"], finite_volume_terms["div_T_r"]
+
+            def pack_operator_terms(observer_terms: dict[str, Any], observer_name: str) -> dict[str, Any]:
+                checked_terms = {
+                    key: finite(
+                        f"{name} {observer_name} component {key}",
+                        np.asarray(values, dtype=np.float64),
+                    )
+                    for key, values in observer_terms["terms"].items()
+                }
+                pointwise_t_gap = checked_terms["component_sum_gap_div_T_t"]
+                pointwise_r_gap = checked_terms["component_sum_gap_div_T_r"]
+                return {
+                    "reported": True,
+                    "all_profiles_finite": bool(
+                        all(np.all(np.isfinite(values)) for values in checked_terms.values())
+                    ),
+                    "raw_signed_arrays": {key: values.tolist() for key, values in checked_terms.items()},
+                    "summaries": {
+                        key: summarize(values, state.grid.centers)
+                        for key, values in checked_terms.items()
+                    },
+                    "component_reconstruction_passed": bool(
+                        np.allclose(pointwise_t_gap, 0.0, rtol=5.0e-12, atol=5.0e-18)
+                        and np.allclose(pointwise_r_gap, 0.0, rtol=5.0e-12, atol=5.0e-18)
+                    ),
+                    "component_sum_gap_max_abs": {
+                        "div_T_t": float(np.max(np.abs(pointwise_t_gap))),
+                        "div_T_r": float(np.max(np.abs(pointwise_r_gap))),
+                    },
+                }
+
+            pointwise_report = pack_operator_terms(pointwise_terms, "pointwise")
+            finite_volume_report = pack_operator_terms(finite_volume_terms, "finite_volume")
+            operator_component_decomposition = {
+                "reported": True,
+                "status": "signed_divergence_operator_components_only",
+                "all_profiles_finite": bool(
+                    pointwise_report["all_profiles_finite"]
+                    and finite_volume_report["all_profiles_finite"]
+                ),
+                "component_reconstruction_passed": bool(
+                    pointwise_report["component_reconstruction_passed"]
+                    and finite_volume_report["component_reconstruction_passed"]
+                ),
+                "pointwise": pointwise_report,
+                "finite_volume": finite_volume_report,
+                "interpretation": (
+                    "Operator component reconstruction only; no full conservation, "
+                    "physical exchange-law, or scientific-admission inference."
+                ),
+            }
+        else:
+            div_t, div_r = covariant_divergence_from_profiles(
+                state.grid.centers, d1_fn,
+                b_obj["alpha"], b_obj["gamma_rr"], b_obj["gamma_thth"],
+                b_obj["rho"], b_obj["j"], b_obj["pr"], b_obj["pt"],
+                dt_rho_t, dt_rho_r, dt_gtt, dt_grr, dt_gth,
+            )
+            div_t_fv, div_r_fv = covariant_divergence_fv_from_profiles(
+                state.grid.centers, d1_fn,
+                b_obj["alpha"], b_obj["gamma_rr"], b_obj["gamma_thth"],
+                b_obj["rho"], b_obj["j"], b_obj["pr"], b_obj["pt"],
+                dt_rho_t, dt_rho_r, dt_gtt, dt_grr, dt_gth,
+            )
         arrays = {
             "div_T_t": finite(f"{name} sector div_T_t", div_t),
             "div_T_r": finite(f"{name} sector div_T_r", div_r),
@@ -1381,6 +1449,8 @@ def sector_resolved_divergence_tangent_from_states(
             "raw_signed_arrays": {k: v.tolist() for k, v in arrays.items()},
             "summaries": {k: summarize(v, state.grid.centers) for k, v in arrays.items()},
         }
+        if operator_component_decomposition is not None:
+            sector_results[name]["operator_component_decomposition"] = operator_component_decomposition
     # Isolate the directional density term before interpreting any full-divergence
     # sector-sum residual. This determines whether the failing time component is
     # already present in (d_t sqrt(-g) T^t_nu), before spatial flux/source terms.
