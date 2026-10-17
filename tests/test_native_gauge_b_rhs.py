@@ -1,7 +1,5 @@
 """Contract tests for the source-derived native spherical Gamma-driver B RHS."""
 
-from types import SimpleNamespace
-
 import numpy as np
 import pytest
 
@@ -48,17 +46,12 @@ def test_b_rhs_rejects_wrong_shape_nonfinite_and_nonreal_profiles():
         native_gauge_b_rhs(grid, nonreal)
 
 
-def test_b_rhs_uses_matching_input_without_state_or_eta_mutation():
+def test_b_rhs_does_not_mutate_the_input_profile():
     grid = NativeSphericalCellGrid(64, 12.0)
     lambda_rhs = 3.0e-5 * grid.centers
-    state = SimpleNamespace(B=np.ones(grid.n), Lambda=np.zeros(grid.n))
-    before_b = state.B.copy()
-    before_lambda = state.Lambda.copy()
     input_before = lambda_rhs.copy()
 
     result = native_gauge_b_rhs(grid, lambda_rhs)
 
     np.testing.assert_array_equal(result, 0.75 * input_before)
-    np.testing.assert_array_equal(state.B, before_b)
-    np.testing.assert_array_equal(state.Lambda, before_lambda)
     np.testing.assert_array_equal(lambda_rhs, input_before)
