@@ -62,6 +62,7 @@ from .v55_matter import (
 )
 from .radial_maxwell import RadialMaxwellState
 from . import v55_pirk_adapter as adapter
+from .native_geometry import NativeSphericalCellGrid, native_explicit_rhs
 
 
 BETA_DM = -0.04
@@ -217,16 +218,35 @@ class V55ProductionKernel:
     def _geometry_stage_terms(
         self, grid, geometry, scalars, matter, electromagnetic
     ):
+        """Assemble native explicit metric RHS with pinned implicit/source blocks.
+
+        The CMC integrator consumes only native a/b/X from the explicit block;
+        alpha remains CMC-solved and beta/B remain pinned by the production
+        stage contract. The adapter supplies the unchanged primary/Lambda
+        blocks and local matter-source projections.
+        """
         projection = self._electromagnetic_projection(
             grid, geometry, electromagnetic
         )
-        if projection is None:
-            return adapter.geometry_stage_terms(
-                grid, geometry, scalars, matter, lambda_m=LAMBDA_M
+        native_grid = NativeSphericalCellGrid(grid.n, grid.r_max)
+        native_centers = np.asarray(native_grid.centers, dtype=float)
+        production_centers = np.asarray(grid.centers, dtype=float)
+        if (
+            native_centers.shape != production_centers.shape
+            or not np.allclose(native_centers, production_centers, rtol=0.0, atol=1.0e-14)
+        ):
+            raise ValueError(
+                "native explicit RHS grid centers do not match the production grid"
             )
+        explicit_native = native_explicit_rhs(native_grid, geometry)
+        adapter_kwargs = {
+            "lambda_m": LAMBDA_M,
+            "explicit_rhs_override": explicit_native,
+        }
+        if projection is not None:
+            adapter_kwargs["electromagnetic_projection"] = projection
         return adapter.geometry_stage_terms(
-            grid, geometry, scalars, matter, lambda_m=LAMBDA_M,
-            electromagnetic_projection=projection,
+            grid, geometry, scalars, matter, **adapter_kwargs
         )
 
     def _charged_dust_mass_flux_faces(self, state: ProductionState) -> np.ndarray:
