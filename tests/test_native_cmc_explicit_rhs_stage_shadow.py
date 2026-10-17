@@ -520,6 +520,136 @@ def _primary_l2_ricci_primitive_shadow(
     }
 
 
+def _metric_product_chain_rule_shadow(geometry, native_grid):
+    """Report discrete product/chain-rule residuals on one already-copied CMC slice.
+
+    Composite A=a/X^2 and R=r*sqrt(b)/X are differentiated directly with
+    native D1/D2 operators, then compared against product/chain expressions
+    built from the same operators applied to a, b, and X. These residuals
+    measure finite-discrete noncommutation, not a continuum-law defect.
+    """
+    r = np.asarray(native_grid.centers, dtype=float)
+    a = np.asarray(geometry.a, dtype=float)
+    b = np.asarray(geometry.b, dtype=float)
+    X = np.asarray(geometry.X, dtype=float)
+    A = a / X**2
+    R = r * np.sqrt(b) / X
+
+    d1 = native_grid.cell_derivative_fourth
+    d2 = native_grid.cell_second_derivative_fourth
+
+    # Direct derivatives of the composite profiles used by native geometry.
+    A_p_direct = np.asarray(d1(A, parity=1), dtype=float)
+    A_pp_direct = np.asarray(d2(A, parity=1), dtype=float)
+    R_p_direct = np.asarray(d1(R, parity=-1), dtype=float)
+    R_pp_direct = np.asarray(d2(R, parity=-1), dtype=float)
+
+    # Derivatives of operand profiles on the same grid and with their native
+    # even parity. The expressions below are the continuum product rules,
+    # evaluated discretely using these same operand derivatives.
+    a_p = np.asarray(d1(a, parity=1), dtype=float)
+    a_pp = np.asarray(d2(a, parity=1), dtype=float)
+    b_p = np.asarray(d1(b, parity=1), dtype=float)
+    b_pp = np.asarray(d2(b, parity=1), dtype=float)
+    X_p = np.asarray(d1(X, parity=1), dtype=float)
+    X_pp = np.asarray(d2(X, parity=1), dtype=float)
+
+    log_A_p = a_p / a - 2.0 * X_p / X
+    log_A_pp = (
+        a_pp / a
+        - (a_p / a) ** 2
+        - 2.0 * (X_pp / X - (X_p / X) ** 2)
+    )
+    A_p_chain = A * log_A_p
+    A_pp_chain = A * (log_A_p**2 + log_A_pp)
+
+    q = 1.0 / r + 0.5 * b_p / b - X_p / X
+    q_p = (
+        -1.0 / r**2
+        + 0.5 * (b_pp / b - (b_p / b) ** 2)
+        - (X_pp / X - (X_p / X) ** 2)
+    )
+    R_p_chain = R * q
+    R_pp_chain = R * (q**2 + q_p)
+
+    # Propagate the primitive derivative residuals through the warped-product
+    # conversion to proper radial distance: d/dl=A^(-1/2) d/dr.
+    R_l_direct = R_p_direct / np.sqrt(A)
+    R_l_chain = R_p_chain / np.sqrt(A)
+    R_ll_direct = (
+        R_pp_direct - 0.5 * (A_p_direct / A) * R_p_direct
+    ) / A
+    R_ll_chain = (
+        R_pp_chain - 0.5 * (A_p_chain / A) * R_p_chain
+    ) / A
+
+    residual_profiles = {
+        "A_first_derivative_product_rule": A_p_direct - A_p_chain,
+        "A_second_derivative_product_rule": A_pp_direct - A_pp_chain,
+        "areal_R_first_derivative_chain_rule": R_p_direct - R_p_chain,
+        "areal_R_second_derivative_chain_rule": R_pp_direct - R_pp_chain,
+        "proper_R_l_chain_propagation": R_l_direct - R_l_chain,
+        "proper_R_ll_chain_propagation": R_ll_direct - R_ll_chain,
+    }
+    # The following identity decomposes the R_ll residual into the direct
+    # R'' residual and the A',R' product residuals. It is an algebraic closure
+    # check, not an independent numerical-accuracy threshold.
+    R_ll_from_primitives = (
+        (R_pp_direct - R_pp_chain)
+        - 0.5 * (
+            (A_p_direct / A) * R_p_direct
+            - (A_p_chain / A) * R_p_chain
+        )
+    ) / A
+    residual_profiles["R_ll_primitive_decomposition_closure"] = (
+        residual_profiles["proper_R_ll_chain_propagation"] - R_ll_from_primitives
+    )
+
+    areal = R
+    masks = {
+        "centre_R_areal_lt_2": areal < 2.0,
+        "fixed_annulus_2_le_R_areal_le_6": (areal >= 2.0) & (areal <= 6.0),
+        "outer_R_areal_gt_6": areal > 6.0,
+    }
+    profiles = {}
+    for name, residual_raw in residual_profiles.items():
+        residual = np.asarray(residual_raw, dtype=float)
+        assert residual.shape == areal.shape, f"{name}: incompatible profile shape"
+        assert np.all(np.isfinite(residual)), f"{name}: non-finite chain-rule residual"
+        regions = {}
+        for region_name, mask in masks.items():
+            cells = int(np.count_nonzero(mask))
+            assert cells >= 4, f"{region_name}: expected at least four cells"
+            selected = residual[mask]
+            regions[region_name] = {
+                "cells": cells,
+                "signed_mean": float(np.mean(selected)),
+                "rms": float(np.sqrt(np.mean(selected**2))),
+                "max_abs": float(np.max(np.abs(selected))),
+            }
+        profiles[name] = {
+            "regions": regions,
+            "first_four_signed_values": [
+                float(value) for value in residual[:4]
+            ],
+        }
+    return {
+        "profiles": profiles,
+        "definitions": {
+            "A": "a/X^2; direct D1/D2 minus product-rule expressions from operand D1/D2",
+            "areal_R": "r*sqrt(b)/X; direct D1/D2 minus logarithmic chain-rule expressions",
+            "proper_R_l": "D(R)/sqrt(A)",
+            "proper_R_ll": "(D2(R) - 0.5*(D(A)/A)*D(R))/A",
+            "operator": "native grid fourth-order parity-aware cell D1/D2; even a,b,X,A and odd R",
+        },
+        "interpretation": (
+            "same-input copied CMC-stage discrete derivative attribution only; "
+            "these residuals are not a continuum-law defect, new acceptance "
+            "threshold, physical correction, or scientific-admission witness"
+        ),
+    }
+
+
 def _observe_stage(kernel, native_grid, stage, *, evaluate_coupled_rhs):
     geometry = stage.geometry
     scalars = stage.scalars
@@ -550,6 +680,9 @@ def _observe_stage(kernel, native_grid, stage, *, evaluate_coupled_rhs):
     _, vacuum, _ = vendor_modules()
     native_geometry_terms = native_bssn_geometry_terms(native_grid, geometry)
     pinned_geometry_terms = vacuum.geometry_terms(stage.grid, geometry)
+    metric_product_chain_rule_shadow = _metric_product_chain_rule_shadow(
+        geometry, native_grid
+    )
     primary_l2_terms_shadow = _primary_l2_term_split_shadow(
         native_geometry_terms,
         pinned_geometry_terms,
@@ -583,6 +716,7 @@ def _observe_stage(kernel, native_grid, stage, *, evaluate_coupled_rhs):
         "native_minus_adapter_lambda_l2": lambda_l2_shadow,
         "primary_l2_term_split_native_minus_pinned": primary_l2_terms_shadow,
         "primary_l2_ricci_primitive_shadow": primary_l2_ricci_primitives,
+        "metric_product_chain_rule_shadow": metric_product_chain_rule_shadow,
         "compared_fields": list(_EXPLICIT_METRIC_FIELDS),
         "primary_l2_fields_compared": ["Aa", "K"],
         "primary_l2_stage_observation": (
@@ -763,7 +897,7 @@ def test_native_explicit_rhs_on_cmc_stage_slices_without_calling_full_step(capsy
 
     source = inspect.getsource(V55ProductionKernel.step).encode("utf-8")
     report = {
-        "schema": "native-cmc-stage-rhs-shadow/v6",
+        "schema": "native-cmc-stage-rhs-shadow/v7",
         "production_step_called": False,
         "stage_build": (
             "copied-state reconstruction using current production-owned lapse/RHS/"
