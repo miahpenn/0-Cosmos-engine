@@ -794,7 +794,7 @@ def scalar_rhs_term_budget(state, coupling: float) -> dict[str, Any]:
             "potential_derivative": -alpha * finite(
                 f"{sector} potential derivative", potential_prime
             ),
-            "conditional_dm_exchange": coupling * rho_dm if sector == "phi" else zero,
+            "conditional_dm_exchange": alpha * coupling * rho_dm if sector == "phi" else zero,
         }
 
         field_sum = np.zeros_like(r, dtype=np.float64)
@@ -882,7 +882,7 @@ def scalar_rhs_term_budget(state, coupling: float) -> dict[str, Any]:
                 "+ alpha*K*p + (X^2/a)*D_r(alpha)*D_r(f) - alpha*V'(f)"
             ),
             "conditional_dm_exchange": (
-                "phi only: beta_DM*rho_DM as implemented in the pinned RHS; "
+                "phi only: alpha*beta_DM*rho_DM in coordinate-time Pi RHS; "
                 "reported conditionally, not treated as accepted physics"
             ),
         },
