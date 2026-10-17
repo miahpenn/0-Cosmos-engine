@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - "tools/audit_brown_vacuum_momentum_propagation.py"
+      - "tests/test_brown_vendor_extension_identity.py"
       - ".github/workflows/issue4-brown-metric-hamiltonian.yml"
   workflow_dispatch:
 
@@ -60,8 +61,13 @@ jobs:
             test "$(git rev-parse "HEAD:$path")" = "$(git -C source rev-parse "HEAD:$path")"
           done
 
-      - name: Compile Brown propagation diagnostic
-        run: python -m py_compile tools/audit_brown_vacuum_momentum_propagation.py
+      - name: Compile Brown propagation diagnostic and symbolic identity test
+        run: |
+          python -m py_compile tools/audit_brown_vacuum_momentum_propagation.py
+          python -m py_compile tests/test_brown_vendor_extension_identity.py
+
+      - name: Verify the Brown/vendor C-linear identity symbolically
+        run: python -m pytest -q tests/test_brown_vendor_extension_identity.py
 
       - name: Run corrected metric-only Brown oracle and controls
         id: audit
@@ -69,7 +75,7 @@ jobs:
         run: |
           mkdir -p results/brown-metric-only-propagation
           COSMOS_PINNED_SOURCE_ROOT="$GITHUB_WORKSPACE/source" python tools/audit_brown_vacuum_momentum_propagation.py \
-            --resolutions 40 60 80 120 160 \
+            --resolutions 40 60 80 120 160 240 320 \
             --r-max 40 \
             --epsilons 0.00002 0.00001 \
             --output-dir results/brown-metric-only-propagation
@@ -108,8 +114,25 @@ jobs:
           assert report["lambda_hamiltonian_discriminator_passed"] is True
           assert report["acceptance_oracle_satisfied"] is False
           assert report["scientific_admission"] is False
+          # N=80 remains in the signed report as a coarse/pre-asymptotic witness.
+          # Require the refinement band N=120/160 to pass, without hiding coarse failures.
+          assert report["vendor_extension_improves_on_fine_annulus"] is True
+          assert report["vendor_extension_monotone_convergence"] is True
+          for profile, refinement in report["fine_band_convergence"].items():
+              assert len(refinement["resolutions"]) >= 2, profile
+              assert refinement["corrected_rms_monotone_decreasing"] is True, profile
+          assert report["wrong_sign_extension_control_detected"] is True
+          assert set(report["configuration"]["profile_variants"]) == {
+              "baseline_zero_shift", "odd_shift_strong_linear_C", "odd_shift_cubic_C"
+          }
+          assert len(report["rows"]) == len(report["configuration"]["resolutions"]) * 3
           for row in report["rows"]:
               assert row["hamiltonian_slot_contract"]["lambda_only_control"]["passed"] is True
               assert all(len(e["residual_regions"]) == 6 for e in row["epsilon_rows"])
-          print("DIAGNOSTIC_CONTROLS_OK; SCIENTIFIC_ADMISSION=NOT_ADMITTED")
+              assert all(len(e["vendor_consistent_residual_regions"]) == 6 for e in row["epsilon_rows"])
+              assert all(len(e["wrong_sign_extension_control"]["residual_regions"]) == 6 for e in row["epsilon_rows"])
+              if row["resolution"] >= 120 and row["profile_variant"] != "baseline_zero_shift":
+                  assert row["vendor_extension_discriminator"]["vendor_extension_improves_on_annulus"] is True
+                  assert row["vendor_extension_discriminator"]["wrong_sign_extension_control_detected"] is True
+          print("VENDOR_EXTENSION_DISCRIMINATOR_OK; SCIENTIFIC_ADMISSION=NOT_ADMITTED")
           PY
