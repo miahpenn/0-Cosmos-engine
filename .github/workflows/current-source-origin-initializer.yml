@@ -1,0 +1,69 @@
+name: Diagnostic - current-source origin initializer
+
+on:
+  push:
+    branches:
+      - diag/current-source-origin-audit-80-20261017
+    paths:
+      - tools/audit_current_source_origin_initializer.py
+      - tests/test_current_source_origin_initializer.py
+      - docs/CURRENT_SOURCE_ORIGIN_INITIALIZER_2026-10-17.md
+      - .github/workflows/current-source-origin-initializer.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: current-source-origin-initializer-2026-10-17
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PYTHONUNBUFFERED: "1"
+      SOURCE_COMMIT: "ea2dabc17426b714eb445871c3c6b880638eee38"
+      VENDOR_COMMIT: "d6052d605673ce9d82cdc99b0df79855fa2ea215"
+    steps:
+      - name: Check out exact branch and pinned vendor
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install declared requirements
+        run: python -m pip install -r requirements.txt
+
+      - name: Confirm source anchor is available
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin "$SOURCE_COMMIT"
+          test "$(git rev-parse "$SOURCE_COMMIT")" = "$SOURCE_COMMIT"
+          test "$(git rev-parse "HEAD:vendor/bb-palatini-unified-r0")" = "$VENDOR_COMMIT"
+
+      - name: Compile diagnostic and focused test
+        run: |
+          python -m py_compile tools/audit_current_source_origin_initializer.py
+          python -m py_compile tests/test_current_source_origin_initializer.py
+          python -m pytest -q tests/test_current_source_origin_initializer.py
+
+      - name: Run fail-closed, single-configuration no-evolution audit
+        run: python tools/audit_current_source_origin_initializer.py
+
+      - name: Upload pinned report, signed profiles, CSV and hashes
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: current-source-origin-initializer-2026-10-17
+          path: results/current-source-origin-initializer-2026-10-17/
+          if-no-files-found: warn
+          retention-days: 90
