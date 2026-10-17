@@ -93,6 +93,73 @@ def test_primary_l2_aa_residual_refines_on_initialized_cmc_slices(capsys):
         pinned_metric_lambda_aux = (
             1.0 - a_profile / b_profile
         ) / r_centres**2
+
+        # Expose raw metric-Ricci primitives under each implementation's own
+        # derivative closure. Native geometry differentiates areal radius in
+        # proper-radial form; the pinned BSSN path differentiates a, b and X
+        # in coordinate form. This block is diagnostic only.
+        native_A_profile = a_profile / X_profile**2
+        native_areal_profile = r_centres * np.sqrt(b_profile) / X_profile
+        native_A_p = native_grid.cell_derivative_fourth(native_A_profile, parity=1)
+        native_A_pp = native_grid.cell_second_derivative_fourth(native_A_profile, parity=1)
+        native_R_p = native_grid.cell_derivative_fourth(native_areal_profile, parity=-1)
+        native_R_pp = native_grid.cell_second_derivative_fourth(native_areal_profile, parity=-1)
+        native_a_pp = native_grid.cell_second_derivative_fourth(a_profile, parity=1)
+        native_b_pp = native_grid.cell_second_derivative_fourth(b_profile, parity=1)
+        native_X_p = native_grid.cell_derivative_fourth(X_profile, parity=1)
+        native_X_pp = native_grid.cell_second_derivative_fourth(X_profile, parity=1)
+        native_R_proper_p = native_R_p / np.sqrt(native_A_profile)
+        native_R_proper_pp = (
+            native_R_pp - 0.5 * (native_A_p / native_A_profile) * native_R_p
+        ) / native_A_profile
+
+        pinned_A_profile = a_profile / X_profile**2
+        pinned_areal_profile = r_centres * np.sqrt(b_profile) / X_profile
+        pinned_A_p = vacuum._d(accepted.grid, pinned_A_profile, 1)
+        pinned_A_pp = vacuum._d2(accepted.grid, pinned_A_profile, 1)
+        pinned_R_p = vacuum._d(accepted.grid, pinned_areal_profile, -1)
+        pinned_R_pp = vacuum._d2(accepted.grid, pinned_areal_profile, -1)
+        pinned_a_pp = vacuum._d2(accepted.grid, a_profile, 1)
+        pinned_b_pp = vacuum._d2(accepted.grid, b_profile, 1)
+        pinned_X_p = vacuum._d(accepted.grid, X_profile, 1)
+        pinned_X_pp = vacuum._d2(accepted.grid, X_profile, 1)
+        pinned_R_proper_p = pinned_R_p / np.sqrt(pinned_A_profile)
+        pinned_R_proper_pp = (
+            pinned_R_pp - 0.5 * (pinned_A_p / pinned_A_profile) * pinned_R_p
+        ) / pinned_A_profile
+
+        # Literal expansion of the pinned radial-Ricci bracket, to localize
+        # the origin discrepancy without replacing either implementation.
+        pinned_chi_p = -0.5 * pinned_X_p / X_profile
+        pinned_chi_pp = -0.5 * (
+            pinned_X_pp / X_profile - (pinned_X_p / X_profile) ** 2
+        )
+        pinned_radial_bracket_terms = {
+            "half_a_second_over_a": 0.5 * pinned_a_pp / a_profile,
+            "minus_a_lambda_prime": -a_profile * pinned_lambda_p,
+            "minus_three_quarters_a_logprime_sq": -0.75 * (pinned_a_p / a_profile) ** 2,
+            "half_b_logprime_sq": 0.5 * (pinned_b_p / b_profile) ** 2,
+            "minus_half_lambda_a_prime": -0.5 * Lambda_profile * pinned_a_p,
+            "a_prime_over_r_b": pinned_a_p / (r_centres * b_profile),
+            "metric_lambda_aux": 2.0 * pinned_metric_lambda_aux * (
+                1.0 + r_centres * pinned_b_p / b_profile
+            ),
+            "four_chi_second": 4.0 * pinned_chi_pp,
+            "chi_prime_coupling": -2.0 * pinned_chi_p * (
+                pinned_a_p / a_profile - pinned_b_p / b_profile - 2.0 / r_centres
+            ),
+        }
+        pinned_radial_bracket_total = np.sum(
+            np.stack(tuple(pinned_radial_bracket_terms.values())), axis=0
+        )
+        pinned_radial_bracket_metric = np.sum(
+            np.stack(tuple(
+                values for key, values in pinned_radial_bracket_terms.items()
+                if key not in {"minus_a_lambda_prime", "minus_half_lambda_a_prime"}
+            )), axis=0
+        )
+        pinned_Rr_r_from_bracket = -X_profile**2 / a_profile * pinned_radial_bracket_total
+        pinned_Rr_r_metric_from_bracket = -X_profile**2 / a_profile * pinned_radial_bracket_metric
         pinned_connection_Rr_r = X**2 * (
             pinned_lambda_p + 0.5 * (pinned_a_p / geometry.a) * geometry.Lambda
         )
@@ -248,6 +315,35 @@ def test_primary_l2_aa_residual_refines_on_initialized_cmc_slices(capsys):
                 "pinned_a_prime": pinned_a_p,
                 "pinned_b_prime": pinned_b_p,
                 "pinned_metric_lambda_aux": pinned_metric_lambda_aux,
+                "native_A_profile": native_A_profile,
+                "native_A_prime": native_A_p,
+                "native_A_second": native_A_pp,
+                "native_areal_radius": native_areal_profile,
+                "native_areal_radius_prime": native_R_p,
+                "native_areal_radius_second": native_R_pp,
+                "native_a_second": native_a_pp,
+                "native_b_second": native_b_pp,
+                "native_X_prime": native_X_p,
+                "native_X_second": native_X_pp,
+                "native_R_proper_prime": native_R_proper_p,
+                "native_R_proper_second": native_R_proper_pp,
+                "pinned_A_profile": pinned_A_profile,
+                "pinned_A_prime": pinned_A_p,
+                "pinned_A_second": pinned_A_pp,
+                "pinned_areal_radius": pinned_areal_profile,
+                "pinned_areal_radius_prime": pinned_R_p,
+                "pinned_areal_radius_second": pinned_R_pp,
+                "pinned_a_second": pinned_a_pp,
+                "pinned_b_second": pinned_b_pp,
+                "pinned_X_prime": pinned_X_p,
+                "pinned_X_second": pinned_X_pp,
+                "pinned_chi_prime": pinned_chi_p,
+                "pinned_chi_second": pinned_chi_pp,
+                "pinned_radial_bracket_total": pinned_radial_bracket_total,
+                "pinned_radial_bracket_metric": pinned_radial_bracket_metric,
+                "pinned_Rr_r_from_bracket": pinned_Rr_r_from_bracket,
+                "pinned_Rr_r_metric_from_bracket": pinned_Rr_r_metric_from_bracket,
+                **{f"pinned_radial_term_{key}": values for key, values in pinned_radial_bracket_terms.items()},
                 "native_Rr_r_metric": native_geometry["Rr_r_metric"],
                 "native_R_scalar_metric": native_geometry["R_metric"],
                 "native_delta_Rr_r_connection": native_geometry["delta_Rr_r_connection"],
@@ -277,8 +373,21 @@ def test_primary_l2_aa_residual_refines_on_initialized_cmc_slices(capsys):
                     "Lambda_metric_prime": float(native_lambda_metric_p[index]),
                     "deltaLambda_prime": float(native_delta_lambda_p[index]),
                     "a_prime": float(native_a_p[index]),
+                    "a_second": float(native_a_pp[index]),
                     "b_prime": float(native_b_p[index]),
+                    "b_second": float(native_b_pp[index]),
+                    "X_prime": float(native_X_p[index]),
+                    "X_second": float(native_X_pp[index]),
+                    "A_profile": float(native_A_profile[index]),
+                    "A_prime": float(native_A_p[index]),
+                    "A_second": float(native_A_pp[index]),
+                    "areal_radius_profile": float(native_areal_profile[index]),
+                    "areal_radius_prime": float(native_R_p[index]),
+                    "areal_radius_second": float(native_R_pp[index]),
+                    "areal_radius_proper_prime": float(native_R_proper_p[index]),
+                    "areal_radius_proper_second": float(native_R_proper_pp[index]),
                     "Rr_r_metric": float(native_geometry["Rr_r_metric"][index]),
+                    "Rtheta_theta_metric": float(native_geometry["Rtheta_theta_metric"][index]),
                     "R_scalar_metric": float(native_geometry["R_metric"][index]),
                     "delta_Rr_r_connection": float(native_geometry["delta_Rr_r_connection"][index]),
                     "delta_R_scalar_connection": float(native_geometry["delta_R_scalar_connection"][index]),
@@ -292,7 +401,28 @@ def test_primary_l2_aa_residual_refines_on_initialized_cmc_slices(capsys):
                     "Lambda_metric_prime": float(pinned_lambda_metric_p[index]),
                     "deltaLambda_prime": float(pinned_delta_lambda_p[index]),
                     "a_prime": float(pinned_a_p[index]),
+                    "a_second": float(pinned_a_pp[index]),
                     "b_prime": float(pinned_b_p[index]),
+                    "b_second": float(pinned_b_pp[index]),
+                    "X_prime": float(pinned_X_p[index]),
+                    "X_second": float(pinned_X_pp[index]),
+                    "A_profile": float(pinned_A_profile[index]),
+                    "A_prime": float(pinned_A_p[index]),
+                    "A_second": float(pinned_A_pp[index]),
+                    "areal_radius_profile": float(pinned_areal_profile[index]),
+                    "areal_radius_prime": float(pinned_R_p[index]),
+                    "areal_radius_second": float(pinned_R_pp[index]),
+                    "areal_radius_proper_prime": float(pinned_R_proper_p[index]),
+                    "areal_radius_proper_second": float(pinned_R_proper_pp[index]),
+                    "chi_prime": float(pinned_chi_p[index]),
+                    "chi_second": float(pinned_chi_pp[index]),
+                    "radial_bracket_total": float(pinned_radial_bracket_total[index]),
+                    "radial_bracket_metric": float(pinned_radial_bracket_metric[index]),
+                    "radial_bracket_term_values": {
+                        key: float(values[index]) for key, values in pinned_radial_bracket_terms.items()
+                    },
+                    "Rr_r_from_bracket": float(pinned_Rr_r_from_bracket[index]),
+                    "Rr_r_metric_from_bracket": float(pinned_Rr_r_metric_from_bracket[index]),
                     "metric_lambda_aux": float(pinned_metric_lambda_aux[index]),
                     "Rr_r_total": float(pinned_geometry["Rr_r"][index]),
                     "R_scalar_total": float(pinned_geometry["R"][index]),
@@ -337,7 +467,7 @@ def test_primary_l2_aa_residual_refines_on_initialized_cmc_slices(capsys):
             "NATIVE_V55_PRIMARY_L2_CMC_REFINEMENT "
             + json.dumps(
                 {
-                    "schema": "v55-primary-l2-cmc-refinement/v6",
+                    "schema": "v55-primary-l2-cmc-refinement/v7",
                     "scope": "regional residuals, first-eight signed term samples, and first-four Lambda/Ricci primitives; diagnostic RHS only",
                     "records": records,
                     "aa_monotonic_refinement": True,
