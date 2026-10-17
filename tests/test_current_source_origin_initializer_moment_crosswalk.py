@@ -6,6 +6,7 @@ from tools import audit_current_source_origin_initializer_moment_crosswalk as li
 def test_current_source_pins_are_explicit_and_distinct_from_archive():
     assert live.SOURCE_COMMIT == "96b077a37b0a5704eac4ef8eb5134af7c54fa949"
     assert live.VENDOR_COMMIT == "d6052d605673ce9d82cdc99b0df79855fa2ea215"
+    assert live.PINNED_OBSERVER_BLOB == "da485d220664269cd52563728acfc9441678cda0"
     assert set(live.CURRENT_SOURCE_BLOBS) == set(archived.SOURCE_BLOBS)
     assert live.CURRENT_SOURCE_BLOBS["engine/matter_system.py"] == (
         "e52a117690253ddad7b24d116145a65474a351d2"
