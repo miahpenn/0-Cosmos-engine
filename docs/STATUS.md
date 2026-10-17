@@ -1,4 +1,21 @@
-# LIVE readiness overlay — refreshed 16 October 2026 UTC after PR #286 merge
+# LIVE readiness overlay — refreshed 17 October 2026 UTC after native evolution milestones
+
+> **Current repository main:** `2bc120b7c79b4817aca45f4bc4314897a7a3fa3c` (latest exact base confirmed in the native migration handoff and PR metadata). This overlay supersedes older queue/head statements below; preserve the historical record for provenance.
+
+## Current engineering state
+
+- **Native geometry / evolution milestones merged:** #306 (native geometry core), #310 (native spherical BSSN constraints; merge `cc106a66428c60c0d3f3ccbf362f5b576caa8e9e`), #311 (primary-L2), #312 (primary-L3), #314 (Lambda-L2), and #316 (Lambda-L2 parity/momentum-witness tests).
+- **Production and admission boundary:** the new native candidates remain isolated and are not connected to production runtime call sites. The pinned production-source anchor for the existing diagnostics remains `7f47669a1c0edfafef9fc5f27b2db80840d3f035`; pinned vendor remains `d6052d605673ce9d82cdc99b0df79855fa2ea215`. The vendor is a comparison aid, not equation authority. `scientific_admission=false`; production scientific admission remains **NOT ADMITTED**.
+- **PR #313 — source-pinned guard allowlist:** current head `6548c57dee2d6e9949bf8b196e11d31418bce740`, base `2bc120b7c79b4817aca45f4bc4314897a7a3fa3c`. All four genuine PR-triggered gates pass on this exact head: [lightweight/smoke](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38996551840), [strict JSON regression](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38996551816), [integration](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38996551851), and [source-pinned Ricci/proper-radial diagnostic](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38996551820). The remaining gate is the repository's existing trusted, write-authorized approval for a workflow/configuration change; no review is currently recorded. A connector attempt to arm auto-merge was rejected because repository-level auto-merge is disabled. Do not bypass the trusted approval or weaken the fail-closed source pin.
+- **PR #317 — isolated native Lambda-L3 RHS:** draft head `50bd1a5e2e14b5658b89abd8a426d0135a5f92b1`, base `2bc120b7c79b4817aca45f4bc4314897a7a3fa3c`. All three standard exact-head workflows pass: [lightweight/smoke](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38996216572), [strict JSON regression](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38996216624), and [integration](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/38996216606). The specialized source-pinned diagnostic has **not** yet been evidenced on this head.
+- **Required dependency sequence:** (1) obtain the existing trusted workflow/config approval and merge #313; (2) run the specialized source-pinned diagnostic on the resulting live main; (3) refresh #317 onto that main; (4) run applicable standard workflows and a genuine PR-triggered specialized diagnostic on #317's exact final head. Any relevant head/base movement invalidates prior exact-head evidence. Avoid duplicate runs unless refs move or a prior execution failed before answering the question.
+- **Coordination / workflow:** Issue [#5](https://github.com/miahpenn/0-Cosmos-engine/issues/5) is the cross-agent record and [#135](https://github.com/miahpenn/0-Cosmos-engine/issues/135) the production-readiness task board. Preserve the established archive/derivation as formula authority. Avoid repeated scientific review of unchanged established findings; retain implementation, regression, provenance, integration and scope safeguards. No production runtime switch, vendor change, source-law change, or scientific-admission change is authorized by this migration step.
+
+## Prior readiness snapshot (16 October; retained for provenance only)
+
+> The current overlay above is authoritative for live native-module status. Details below this marker are retained historical context and are superseded where they conflict with the 17 October overlay.
+
+# Prior readiness overlay — snapshot 16 October 2026 UTC (superseded)
 
 > Evidence snapshot reconciled against GitHub main commit `bfcc1b7151f2a1de5997412fa96ac8b43e822b3e` after PR #286 merged. The historical record below the boundary is preserved for provenance; older queue/head/base statements there are historical, not live facts.
 
