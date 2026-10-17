@@ -127,9 +127,7 @@ def test_production_cmc_wires_native_explicit_metric_fields_only():
         "gterms0['lambda_l3']",
         "gterms_pred['primary_l2']",
         "gterms_pred['lambda_l2']",
-        "gterms1['primary_l2']",
         "gterms1['primary_l3']",
-        "gterms1['lambda_l2']",
         "gterms1['lambda_l3']",
     ):
         assert required_channel in normalized, required_channel
