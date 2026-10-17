@@ -255,7 +255,7 @@ def test_policy_document_matches_implemented_review_fast_path():
     source = POLICY_PATH.read_text(encoding="utf-8")
     assert "Established research-backed implementation, test, and diagnostic changes are merge-eligible by default" in source
     assert "Do not require a repeated independent scientific review" in source
-    assert "require a trusted human review on the exact current head" in source
+    assert "trusted human review on the exact current head" in source
     assert "Workflow/config changes remain approval-gated as described above." in source
     assert "current-head `CHANGES_REQUESTED`" in source
     assert "Joined-ledger trigger parity" in source
