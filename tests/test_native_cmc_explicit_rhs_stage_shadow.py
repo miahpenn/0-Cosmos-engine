@@ -297,6 +297,157 @@ def _primary_l2_term_split_shadow(
     }
 
 
+def _primary_l2_ricci_primitive_shadow(
+    native_geometry,
+    pinned_geometry,
+    geometry,
+    native_grid,
+    pinned_grid,
+    vacuum,
+):
+    """Attribute trace-free Ricci residuals to metric and connection pieces.
+
+    This reuses the initialized-slice #346/#348 primitive convention, now on
+    the identical already-copied CMC stage. Native and pinned derivative
+    channels use their own existing stencils; no formula or threshold is tuned.
+    """
+    r = np.asarray(native_grid.centers, dtype=float)
+    a = np.asarray(geometry.a, dtype=float)
+    b = np.asarray(geometry.b, dtype=float)
+    X = np.asarray(geometry.X, dtype=float)
+    alpha = np.asarray(geometry.alpha, dtype=float)
+    Lambda = np.asarray(geometry.Lambda, dtype=float)
+
+    native_lambda_metric = np.asarray(native_geometry["Lambda_metric"], dtype=float)
+    native_delta_lambda = np.asarray(
+        native_geometry["connection_constraint"], dtype=float
+    )
+    native_lambda_p = np.asarray(
+        native_grid.cell_derivative_fourth(Lambda, parity=-1), dtype=float
+    )
+    native_lambda_metric_p = np.asarray(
+        native_grid.cell_derivative_fourth(native_lambda_metric, parity=-1),
+        dtype=float,
+    )
+    native_delta_lambda_p = np.asarray(
+        native_grid.cell_derivative_fourth(native_delta_lambda, parity=-1),
+        dtype=float,
+    )
+
+    # Match the pinned convention already used by the initialized-slice
+    # primitive witness: vendor derivative helpers, not native stencils.
+    pinned_a_p = np.asarray(vacuum._d(pinned_grid, a, 1), dtype=float)
+    pinned_b_p = np.asarray(vacuum._d(pinned_grid, b, 1), dtype=float)
+    pinned_lambda_metric = (
+        pinned_a_p / (2.0 * a**2)
+        - pinned_b_p / (a * b)
+        + 2.0 * (1.0 / b - 1.0 / a) / r
+    )
+    pinned_delta_lambda = Lambda - pinned_lambda_metric
+    pinned_lambda_p = np.asarray(vacuum._d(pinned_grid, Lambda, -1), dtype=float)
+    pinned_lambda_metric_p = np.asarray(
+        vacuum._d(pinned_grid, pinned_lambda_metric, -1), dtype=float
+    )
+    pinned_delta_lambda_p = np.asarray(
+        vacuum._d(pinned_grid, pinned_delta_lambda, -1), dtype=float
+    )
+
+    native_metric_tf = alpha * (
+        np.asarray(native_geometry["Rr_r_metric"], dtype=float)
+        - np.asarray(native_geometry["R_metric"], dtype=float) / 3.0
+    )
+    native_connection_tf = alpha * (
+        np.asarray(native_geometry["delta_Rr_r_connection"], dtype=float)
+        - np.asarray(native_geometry["delta_R_scalar_connection"], dtype=float) / 3.0
+    )
+
+    # The pinned geometry terms expose total Ricci components. Isolate the
+    # existing BSSN connection-form correction with the same primitive formula
+    # documented in #348, then recover the metric-derived remainder by subtraction.
+    pinned_connection_Rr_r = X**2 * (
+        pinned_lambda_p + 0.5 * (pinned_a_p / a) * Lambda
+    )
+    pinned_connection_R = X**2 * pinned_lambda_p
+    pinned_metric_Rr_r = (
+        np.asarray(pinned_geometry["Rr_r"], dtype=float) - pinned_connection_Rr_r
+    )
+    pinned_metric_R = (
+        np.asarray(pinned_geometry["R"], dtype=float) - pinned_connection_R
+    )
+    pinned_metric_tf = alpha * (pinned_metric_Rr_r - pinned_metric_R / 3.0)
+    pinned_connection_tf = alpha * (
+        pinned_connection_Rr_r - pinned_connection_R / 3.0
+    )
+
+    native_total_tf = alpha * (
+        np.asarray(native_geometry["Rr_r"], dtype=float)
+        - np.asarray(native_geometry["R"], dtype=float) / 3.0
+    )
+    pinned_total_tf = alpha * (
+        np.asarray(pinned_geometry["Rr_r"], dtype=float)
+        - np.asarray(pinned_geometry["R"], dtype=float) / 3.0
+    )
+    residual_profiles = {
+        "metric_tracefree_ricci": native_metric_tf - pinned_metric_tf,
+        "connection_tracefree_ricci": native_connection_tf - pinned_connection_tf,
+        "total_tracefree_ricci": native_total_tf - pinned_total_tf,
+        "ricci_component_closure": (
+            (native_metric_tf - pinned_metric_tf)
+            + (native_connection_tf - pinned_connection_tf)
+            - (native_total_tf - pinned_total_tf)
+        ),
+        "lambda_metric": native_lambda_metric - pinned_lambda_metric,
+        "delta_lambda": native_delta_lambda - pinned_delta_lambda,
+        "lambda_prime": native_lambda_p - pinned_lambda_p,
+        "lambda_metric_prime": native_lambda_metric_p - pinned_lambda_metric_p,
+        "delta_lambda_prime": native_delta_lambda_p - pinned_delta_lambda_p,
+    }
+
+    areal = np.asarray(native_geometry["areal_radius"], dtype=float)
+    masks = {
+        "centre_R_areal_lt_2": areal < 2.0,
+        "fixed_annulus_2_le_R_areal_le_6": (areal >= 2.0) & (areal <= 6.0),
+        "outer_R_areal_gt_6": areal > 6.0,
+    }
+    report = {}
+    for name, residual_raw in residual_profiles.items():
+        residual = np.asarray(residual_raw, dtype=float)
+        assert residual.shape == areal.shape, f"{name}: incompatible profile shape"
+        assert np.all(np.isfinite(residual)), f"{name}: non-finite primitive residual"
+        regions = {}
+        for region_name, mask in masks.items():
+            cells = int(np.count_nonzero(mask))
+            assert cells >= 4, f"{region_name}: expected at least four cells"
+            selected = residual[mask]
+            regions[region_name] = {
+                "cells": cells,
+                "signed_mean": float(np.mean(selected)),
+                "rms": float(np.sqrt(np.mean(selected**2))),
+                "max_abs": float(np.max(np.abs(selected))),
+            }
+        report[name] = {
+            "regions": regions,
+            "first_four_signed_native_minus_pinned": [
+                float(value) for value in residual[:4]
+            ],
+        }
+    return {
+        "profiles": report,
+        "metric_component_definition": (
+            "alpha*(Rr_r_metric - R_metric/3), using each implementation's own "
+            "metric Ricci primitives"
+        ),
+        "connection_component_definition": (
+            "alpha*(delta_Rr_r_connection - delta_R_scalar_connection/3); pinned "
+            "connection correction uses the #348 Lambda-prime convention"
+        ),
+        "interpretation": (
+            "same-input CMC-stage primitive attribution; descriptive residuals only, "
+            "no new centre/annulus/outer acceptance threshold"
+        ),
+    }
+
+
 def _observe_stage(kernel, native_grid, stage, *, evaluate_coupled_rhs):
     geometry = stage.geometry
     scalars = stage.scalars
@@ -335,6 +486,14 @@ def _observe_stage(kernel, native_grid, stage, *, evaluate_coupled_rhs):
         geometry,
         native_grid,
     )
+    primary_l2_ricci_primitives = _primary_l2_ricci_primitive_shadow(
+        native_geometry_terms,
+        pinned_geometry_terms,
+        geometry,
+        native_grid,
+        stage.grid,
+        vacuum,
+    )
     digest_after = _slice_sha256(geometry, scalars, matter)
     assert digest_after == digest_before, (
         f"{stage.geometry!r}: production helper or RHS evaluation mutated its "
@@ -351,6 +510,7 @@ def _observe_stage(kernel, native_grid, stage, *, evaluate_coupled_rhs):
         "native_minus_adapter_primary_l2": primary_l2_shadow,
         "native_minus_adapter_lambda_l2": lambda_l2_shadow,
         "primary_l2_term_split_native_minus_pinned": primary_l2_terms_shadow,
+        "primary_l2_ricci_primitive_shadow": primary_l2_ricci_primitives,
         "compared_fields": list(_EXPLICIT_METRIC_FIELDS),
         "primary_l2_fields_compared": ["Aa", "K"],
         "primary_l2_stage_observation": (
@@ -531,7 +691,7 @@ def test_native_explicit_rhs_on_cmc_stage_slices_without_calling_full_step(capsy
 
     source = inspect.getsource(V55ProductionKernel.step).encode("utf-8")
     report = {
-        "schema": "native-cmc-stage-rhs-shadow/v4",
+        "schema": "native-cmc-stage-rhs-shadow/v5",
         "production_step_called": False,
         "stage_build": (
             "copied-state reconstruction using current production-owned lapse/RHS/"
