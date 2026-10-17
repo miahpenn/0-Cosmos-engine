@@ -95,3 +95,53 @@ def test_native_constraint_rejects_bad_extrinsic_curvature_profiles(field):
     setattr(state, field, np.full(grid.n, np.nan))
     with pytest.raises(ValueError, match="finite"):
         native_bssn_constraints(grid, state)
+
+def test_native_constraints_wire_canonical_local_stress_projection():
+    """Lock the local consumer wiring, not cross-lane archive normalization.
+
+    The production-side momentum audit consumes the canonical total j
+    projection as M_geometry - 8*pi*j. This checks that callers can supply
+    the same canonical projections to the native diagnostic without changing
+    its explicit-source API. It does not assert native/vendor geometry parity
+    or settle Issue #210's archive/COSMOS density normalization.
+    """
+    import math
+
+    from engine.production_kernel import V55ProductionKernel
+    from engine.stress_energy import assemble_total_stress_energy
+
+    production = V55ProductionKernel().initialize(
+        resolution=40, r_max=40.0, include_radiation=True
+    )
+    grid = NativeSphericalCellGrid(40, 40.0)
+    np.testing.assert_allclose(
+        grid.centers, production.grid.centers, rtol=0.0, atol=2.0e-14
+    )
+
+    total = assemble_total_stress_energy(
+        production.grid, production.geometry, production.scalars, production.matter
+    )
+    assert np.all(np.isfinite(total.rho))
+    assert np.all(np.isfinite(total.j))
+    assert np.max(np.abs(total.rho)) > 0.0
+    assert np.max(np.abs(total.j)) > 0.0
+
+    geometry_only = native_bssn_constraints(grid, production.geometry)
+    sourced = native_bssn_constraints(
+        grid,
+        production.geometry,
+        rho=total.rho,
+        radial_momentum_source=total.j,
+    )
+    np.testing.assert_allclose(
+        sourced["H"] - geometry_only["H"],
+        -16.0 * math.pi * total.rho,
+        rtol=2.0e-12,
+        atol=2.0e-13,
+    )
+    np.testing.assert_allclose(
+        sourced["M"] - geometry_only["M"],
+        -8.0 * math.pi * total.j,
+        rtol=2.0e-12,
+        atol=2.0e-13,
+    )
