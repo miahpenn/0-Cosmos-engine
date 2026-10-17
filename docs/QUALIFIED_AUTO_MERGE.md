@@ -29,6 +29,10 @@ Established research-backed implementation, test, and diagnostic changes are mer
 
 The workflow retains its checks for a trusted human review on the exact current head when the PR changes `.github/workflows/**`, because workflow/config edits can weaken future validation and merge safeguards. Approval requires a non-author human account whose repository collaborator permission is verified as `write`, `maintain`, or `admin`. Bot accounts, non-collaborators, read-only/triage-only accounts, and reviews whose permission cannot be verified do not qualify; permission lookup errors fail closed. Only a trusted non-author human collaborator's current-head `CHANGES_REQUESTED` review blocks ordinary changes or a workflow/config PR. Untrusted reviews do not independently approve or veto promotion; their feedback remains available for maintainer consideration.
 
+## Native geometry source-pinned gate
+
+A PR that adds or changes files under `engine/native_geometry/**`, or changes `.github/workflows/tracefree-ricci-proper-radial.yml`, must also pass the `tracefree-ricci-proper-radial` check on the exact current head and current `main` base. That workflow verifies the pinned existing production file blobs and vendor SHA; it permits only the explicitly listed native candidate files when they are absent from the pinned production source. Any other engine/vendor/dependency diff fails closed. This prevents the native migration from being confused with a production-runtime switch and prevents that scope guard from being silently bypassed.
+
 ## Joined-ledger trigger parity
 
 The `ledgerPaths` set used by the merge helper must match all paths in `.github/workflows/em_total_energy_budget.yml` exactly. A regression test compares the sets; any new path added to the joined-ledger workflow must also be protected by the merge-helper gate before this policy can pass.
