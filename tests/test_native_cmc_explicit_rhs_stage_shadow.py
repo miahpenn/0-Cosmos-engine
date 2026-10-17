@@ -27,6 +27,7 @@ from engine.native_geometry import (
 from engine.production_kernel import ProductionState, V55ProductionKernel
 from engine.scalar_system import ScalarFields
 from engine.v55_matter import V55MatterState, metric_slice_from_q
+from engine.v55_pirk_adapter import vendor_modules
 
 
 _GEOMETRY_FIELDS = ("a", "b", "X", "alpha", "beta", "Aa", "K", "Lambda", "B")
