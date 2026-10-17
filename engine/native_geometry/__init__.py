@@ -7,7 +7,6 @@ remain in the separate diagnostic/test layer.
 """
 
 from .operators import NativeSphericalCellGrid
-from .pirk import native_pirk2_step
 from .geometry import metric_connection_lambda, native_bssn_geometry_terms
 from .constraints import native_bssn_constraints
 from .evolution import (
@@ -18,6 +17,7 @@ from .evolution import (
     native_primary_l2_rhs,
     native_primary_l3_rhs,
 )
+from .pirk import native_pirk2_step
 
 __all__ = [
     "NativeSphericalCellGrid",
