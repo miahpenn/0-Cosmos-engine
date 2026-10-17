@@ -100,13 +100,13 @@ jobs:
           changed="$(git diff --name-only "$SOURCE_COMMIT" HEAD -- engine vendor .gitmodules requirements.txt)"
           unexpected=""
           if [ -n "$changed" ]; then
-            unexpected="$(printf '%s\n' "$changed" | grep -Ev '^(engine/native_geometry/__init__\.py|engine/native_geometry/constraints\.py|engine/native_geometry/geometry\.py|engine/native_geometry/operators\.py|engine/native_geometry/evolution\.py)$' || true)"
+            unexpected="$(printf '%s\n' "$changed" | grep -Ev '^(engine/native_geometry/__init__\.py|engine/native_geometry/constraints\.py|engine/native_geometry/geometry\.py|engine/native_geometry/operators\.py|engine/native_geometry/evolution\.py|engine/native_geometry/lambda_evolution\.py)$' || true)"
           fi
           if [ -n "$unexpected" ]; then
             printf 'Unexpected production/vendor/dependency changes:\n%s\n' "$unexpected"
             exit 1
           fi
-          for path in engine/native_geometry/__init__.py engine/native_geometry/constraints.py engine/native_geometry/geometry.py engine/native_geometry/operators.py engine/native_geometry/evolution.py; do
+          for path in engine/native_geometry/__init__.py engine/native_geometry/constraints.py engine/native_geometry/geometry.py engine/native_geometry/operators.py engine/native_geometry/evolution.py engine/native_geometry/lambda_evolution.py; do
             if printf '%s\n' "$changed" | grep -Fxq "$path"; then
               if git cat-file -e "$SOURCE_COMMIT:$path" 2>/dev/null; then
                 printf 'Native candidate path is not additive relative to pinned source: %s\n' "$path"
