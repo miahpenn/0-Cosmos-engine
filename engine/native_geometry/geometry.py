@@ -94,7 +94,10 @@ def metric_connection_lambda(grid, state) -> np.ndarray:
         raise ValueError("conformal metric coefficients a and b must be positive")
     da = _d1(grid, a, 1)
     db = _d1(grid, b, 1)
-    return da / (2.0 * a**2) - db / (a * b) + 2.0 * (1.0 / b - 1.0 / a) / r
+    result = da / (2.0 * a**2) - db / (a * b) + 2.0 * (1.0 / b - 1.0 / a) / r
+    if not np.all(np.isfinite(result)):
+        raise ValueError("metric connection lambda produced non-finite values")
+    return result
 
 
 def native_bssn_geometry_terms(grid, state) -> dict[str, np.ndarray]:
@@ -159,7 +162,7 @@ def native_bssn_geometry_terms(grid, state) -> dict[str, np.ndarray]:
     DrDr_alpha = (d2_alpha - 0.5 * (dA / A) * d_alpha) / A
     lap_alpha = DrDr_alpha + 2.0 * dR * d_alpha / (A * areal_radius)
 
-    return {
+    out = {
         "R": R_scalar,
         "Rr_r": Rr_r,
         "R_metric": R_scalar_metric,
@@ -173,4 +176,8 @@ def native_bssn_geometry_terms(grid, state) -> dict[str, np.ndarray]:
         "DrDr_alpha": DrDr_alpha,
         "lap_alpha": lap_alpha,
     }
+    for name, values in out.items():
+        if not np.all(np.isfinite(values)):
+            raise ValueError(f"{name} geometry witness produced non-finite values")
+    return out
 
