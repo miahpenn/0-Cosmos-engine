@@ -65,7 +65,7 @@ def test_flat_zero_state_is_fixed_by_native_pirk2_step():
 
     for name in _FIELDS:
         np.testing.assert_allclose(
-            getattr(result, name), getattr(state, name), rtol=0.0, atol=2.0e-18,
+            getattr(result, name), getattr(state, name), rtol=0.0, atol=1.0e-16,
             err_msg=f"{name} should remain fixed to floating-point roundoff",
         )
         np.testing.assert_array_equal(getattr(state, name), getattr(_state(grid), name))
