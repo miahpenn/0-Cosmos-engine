@@ -58,7 +58,14 @@ jobs:
           printf 'PRODUCTION_SOURCE=%s\n' "$(git -C source rev-parse HEAD)"
           printf 'VENDOR_SOURCE=%s\n' "$(git -C source/vendor/bb-palatini-unified-r0 rev-parse HEAD)"
           printf 'DIAGNOSTIC_HEAD=%s\n' "$(git rev-parse HEAD)"
-          for path in engine/production_kernel.py engine/matter_system.py engine/matter_rhs.py engine/scalar_system.py engine/v55_matter.py engine/v55_pirk_adapter.py engine/cmc_gauge.py engine/v55_initial.py engine/stress_energy.py engine/valencia.py engine/worldtube.py; do
+          # The four owner-authorized candidate blobs are checked against their
+          # exact approved hashes; all other protected production files must
+          # remain byte-identical to the historical pinned source.
+          test "$(git rev-parse HEAD:engine/matter_system.py)" = "0969f4d996e4f8e0fc5b70a7dff147f024907302"
+          test "$(git rev-parse HEAD:engine/matter_rhs.py)" = "0153c232ee15b5a9d3dbac37ea858e4d2d730011"
+          test "$(git rev-parse HEAD:engine/scalar_system.py)" = "e2c2dae9a016b4d6454cf74a9eae8b0167d5733d"
+          test "$(git rev-parse HEAD:engine/production_kernel.py)" = "1720615628a98a8d7cfc9fcadcc984fe28c88be1"
+          for path in engine/v55_matter.py engine/v55_pirk_adapter.py engine/cmc_gauge.py engine/v55_initial.py engine/stress_energy.py engine/valencia.py engine/worldtube.py; do
             test "$(git rev-parse "HEAD:$path")" = "$(git -C source rev-parse "HEAD:$path")"
           done
 
