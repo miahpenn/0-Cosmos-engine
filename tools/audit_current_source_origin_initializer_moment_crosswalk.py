@@ -134,8 +134,8 @@ def _verify_authorized_source_pins() -> dict:
     unexpected = _unexpected_runtime_source_paths(changed_paths)
     if unexpected:
         raise RuntimeError(
-            "engine/vendor/dependency paths changed outside the exact authorized CMC runtime inventory:\\n"
-            + "\\n".join(unexpected)
+            "engine/vendor/dependency paths changed outside the exact authorized CMC runtime inventory:\n"
+            + "\n".join(unexpected)
         )
     for path in changed_paths:
         head_blob = legacy._git("rev-parse", f"HEAD:{path}")
