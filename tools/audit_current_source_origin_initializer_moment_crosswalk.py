@@ -77,7 +77,11 @@ def _source_blob_matches(path: str, expected: str, baseline_blob: str, head_blob
 
 
 def _unexpected_runtime_source_paths(changed_paths: list[str]) -> list[str]:
-    allowed = set(AUTHORIZED_RUNTIME_HEAD_BLOBS) | set(AUTHORIZED_NATIVE_GEOMETRY_TRANSITIONS)
+    allowed = (
+        set(AUTHORIZED_RUNTIME_HEAD_BLOBS)
+        | set(AUTHORIZED_LANE_B_HEAD_BLOBS)
+        | set(AUTHORIZED_NATIVE_GEOMETRY_TRANSITIONS)
+    )
     return [path for path in changed_paths if path not in allowed]
 
 
