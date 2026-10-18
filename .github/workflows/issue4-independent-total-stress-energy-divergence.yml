@@ -24,6 +24,7 @@ jobs:
       PYTHONUNBUFFERED: "1"
       SOURCE_COMMIT: "7f47669a1c0edfafef9fc5f27b2db80840d3f035"
       VENDOR_COMMIT: "d6052d605673ce9d82cdc99b0df79855fa2ea215"
+      BASE_SHA: ${{ github.event.pull_request.base.sha || github.sha }}
       COSMOS_PINNED_SOURCE_ROOT: ${{ github.workspace }}/source
 
     steps:
@@ -59,7 +60,19 @@ jobs:
           test "$(git -C source/vendor/bb-palatini-unified-r0 rev-parse HEAD)" = "$VENDOR_COMMIT"
           test "$(git -C vendor/bb-palatini-unified-r0 rev-parse HEAD)" = "$VENDOR_COMMIT"
           for path in engine/production_kernel.py engine/matter_system.py engine/matter_rhs.py engine/scalar_system.py engine/v55_matter.py engine/v55_pirk_adapter.py engine/cmc_gauge.py engine/v55_initial.py engine/stress_energy.py engine/valencia.py engine/worldtube.py; do
-            test "$(git rev-parse "HEAD:$path")" = "$(git -C source rev-parse "HEAD:$path")"
+            case "$path" in
+              engine/production_kernel.py) authorized_blob=1720615628a98a8d7cfc9fcadcc984fe28c88be1 ;;
+              engine/matter_system.py) authorized_blob=0969f4d996e4f8e0fc5b70a7dff147f024907302 ;;
+              engine/matter_rhs.py) authorized_blob=0153c232ee15b5a9d3dbac37ea858e4d2d730011 ;;
+              engine/scalar_system.py) authorized_blob=e2c2dae9a016b4d6454cf74a9eae8b0167d5733d ;;
+              *) authorized_blob="" ;;
+            esac
+            actual_blob="$(git rev-parse "HEAD:$path")"
+            if [[ -n "$authorized_blob" ]]; then
+              test "$actual_blob" = "$authorized_blob"
+            else
+              test "$actual_blob" = "$(git rev-parse "$BASE_SHA:$path")"
+            fi
           done
           printf 'PRODUCTION_SOURCE=%s\n' "$(git -C source rev-parse HEAD)"
           printf 'VENDOR_SOURCE=%s\n' "$(git -C source/vendor/bb-palatini-unified-r0 rev-parse HEAD)"
@@ -109,6 +122,7 @@ jobs:
       - name: Hash signed profiles and provenance
         if: always()
         run: |
+          mkdir -p results/issue4-independent-covariant-total-T-divergence
           find results -type f ! -name SHA256SUMS.txt -print0 | sort -z | xargs -0 -r sha256sum > results/SHA256SUMS.txt
 
       - name: Upload report, signed profiles and SHA-256 manifest

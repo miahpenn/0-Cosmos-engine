@@ -258,7 +258,7 @@ def test_scalar_rhs_term_budget_reconstructs_pinned_scalar_rhs_and_labels_condit
         dtype=np.float64,
     )
     np.testing.assert_allclose(
-        phi_coupling, -0.04 * np.asarray(rho_dm, dtype=np.float64),
+        phi_coupling, -0.04 * np.asarray(state.geometry.alpha, dtype=np.float64) * np.asarray(rho_dm, dtype=np.float64),
         rtol=5.0e-12, atol=5.0e-18,
     )
 
@@ -335,7 +335,8 @@ def test_scalar_sector_time_density_budget_splits_rhs_and_geometry_terms_without
     gamma_thth = np.asarray(state.geometry.b) * r**2 / np.asarray(state.geometry.X)**2
     sqrt_minus_g = np.asarray(state.geometry.alpha) * np.sqrt(gamma_rr) * gamma_thth
     expected = (
-        -sqrt_minus_g * np.asarray(state.scalars.Pi) * (-0.04 * np.asarray(rho_dm))
+        -sqrt_minus_g * np.asarray(state.scalars.Pi)
+        * (-0.04 * np.asarray(state.geometry.alpha) * np.asarray(rho_dm))
         / float(AUDIT.KAPPA)
     )
     np.testing.assert_allclose(observed, expected, rtol=5.0e-12, atol=5.0e-18)

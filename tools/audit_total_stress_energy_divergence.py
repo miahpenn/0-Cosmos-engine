@@ -50,8 +50,10 @@ SOURCE_ROOT_RAW = os.environ.get("COSMOS_PINNED_SOURCE_ROOT")
 if not SOURCE_ROOT_RAW:
     raise RuntimeError("COSMOS_PINNED_SOURCE_ROOT must point to the exact pinned source checkout")
 SOURCE_ROOT = Path(SOURCE_ROOT_RAW).resolve()
+# Import the candidate implementation from this checkout. SOURCE_ROOT is an
+# independently pinned provenance reference; putting it first silently shadows
+# the authorized candidate blobs and makes the audit test the wrong RHS.
 sys.path.insert(0, str(ROOT))
-sys.path.insert(0, str(SOURCE_ROOT))
 
 from engine import production_kernel as production_kernel_module  # noqa: E402
 from engine.production_kernel import V55ProductionKernel  # noqa: E402
@@ -794,7 +796,7 @@ def scalar_rhs_term_budget(state, coupling: float) -> dict[str, Any]:
             "potential_derivative": -alpha * finite(
                 f"{sector} potential derivative", potential_prime
             ),
-            "conditional_dm_exchange": coupling * rho_dm if sector == "phi" else zero,
+            "conditional_dm_exchange": coupling * alpha * rho_dm if sector == "phi" else zero,
         }
 
         field_sum = np.zeros_like(r, dtype=np.float64)
@@ -868,6 +870,7 @@ def scalar_rhs_term_budget(state, coupling: float) -> dict[str, Any]:
         "state_sha256": state_digest(state),
         "conditional_exchange_model_law_accepted": False,
         "rho_dm_raw_signed_array": rho_dm.tolist(),
+        "alpha_raw_signed_array": alpha.tolist(),
         "rho_dm_summary": summarize(rho_dm, r),
         "sectors": sector_reports,
         "all_profiles_finite": bool(all_finite),
@@ -882,7 +885,7 @@ def scalar_rhs_term_budget(state, coupling: float) -> dict[str, Any]:
                 "+ alpha*K*p + (X^2/a)*D_r(alpha)*D_r(f) - alpha*V'(f)"
             ),
             "conditional_dm_exchange": (
-                "phi only: beta_DM*rho_DM as implemented in the pinned RHS; "
+                "phi only: alpha*beta_DM*rho_DM in coordinate-time evolution; "
                 "reported conditionally, not treated as accepted physics"
             ),
         },
@@ -922,7 +925,9 @@ def scalar_rhs_term_coupling_increment(
     coupling_delta = float(coupled["coupling_beta_dm"] - uncoupled["coupling_beta_dm"])
     expected = finite(
         "expected conditional phi RHS coupling increment",
-        coupling_delta * np.asarray(coupled["rho_dm_raw_signed_array"], dtype=np.float64),
+        coupling_delta
+        * np.asarray(coupled["alpha_raw_signed_array"], dtype=np.float64)
+        * np.asarray(coupled["rho_dm_raw_signed_array"], dtype=np.float64),
     )
     measured = np.asarray(
         by_sector["phi"]["momentum_rate_terms.conditional_dm_exchange"]["raw_signed_array"],
@@ -940,7 +945,7 @@ def scalar_rhs_term_coupling_increment(
         "only_declared_phi_exchange_term_changed": bool(only_declared_exchange_changed),
         "sectors": by_sector,
         "conditional_phi_exchange_increment": {
-            "formula": "(beta_DM,coupled - beta_DM,uncoupled)*rho_DM",
+            "formula": "(beta_DM,coupled - beta_DM,uncoupled)*alpha*rho_DM",
             "raw_signed_array": measured.tolist(),
             "expected_raw_signed_array": expected.tolist(),
             "summary": summarize(measured, r),

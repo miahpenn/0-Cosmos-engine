@@ -199,7 +199,7 @@ def operator_snapshot(state, coupling: float, rates: dict[str, Any]) -> dict[str
 
     for name, conserved, species in _species_states(state):
         prim = primitives(metrics, conserved, species)
-        face_flux, source_e, source_s, q_e, q_s = _species_rhs_components(
+        face_flux, source_e, source_s, q_e, q_s, q_rest = _species_rhs_components(
             metric_slice,
             derivatives,
             conserved,
@@ -285,6 +285,7 @@ def operator_snapshot(state, coupling: float, rates: dict[str, Any]) -> dict[str
 
         geometric_expected = np.empty_like(r)
         interaction_expected = np.zeros_like(r)
+        interaction_lapse_omitted_expected = np.zeros_like(r)
         q_r_profile = np.zeros_like(r)
         for i, (metric, q) in enumerate(zip(metrics, prim)):
             tensor = stress_tensor_contravariant(metric, q)
@@ -302,6 +303,10 @@ def operator_snapshot(state, coupling: float, rates: dict[str, Any]) -> dict[str
                 # implementation is measured separately below; this is not
                 # an assumption that the physical law is accepted.
                 interaction_expected[i] = metric.sqrt_minus_g * q_r_profile[i]
+                # Explicit negative control: omit the lapse from the coordinate
+                # source. This is not the covariant target; it must be distinguishable
+                # from the implemented alpha*sqrt(gamma)*Q_r source.
+                interaction_lapse_omitted_expected[i] = metric.sqrt_gamma * q_r_profile[i]
 
         actual_geometric = finite(f"{name} normalized geometric momentum source", source_s / KAPPA)
         expected_geometric = finite(
@@ -322,6 +327,14 @@ def operator_snapshot(state, coupling: float, rates: dict[str, Any]) -> dict[str
             f"{name} production interaction source minus conditional covariant source",
             actual_interaction - expected_interaction,
         )
+        expected_lapse_omitted_interaction = finite(
+            f"{name} lapse-omitted conditional interaction source",
+            interaction_lapse_omitted_expected / KAPPA,
+        )
+        lapse_omission_gap = finite(
+            f"{name} production interaction source minus lapse-omitted control",
+            actual_interaction - expected_lapse_omitted_interaction,
+        )
         omitted_geometric_source_residual = finite(
             f"{name} residual if geometric momentum source is omitted",
             -actual_geometric,
@@ -332,7 +345,12 @@ def operator_snapshot(state, coupling: float, rates: dict[str, Any]) -> dict[str
         )
         maximum_geom_gap = max(maximum_geom_gap, float(np.max(np.abs(geom_gap))))
         if name == "dark_matter":
-            maximum_source_gap = max(maximum_source_gap, float(np.max(np.abs(source_gap))))
+            # The gate requires a non-vacuous contrast against an intentionally
+            # lapse-omitted negative control, not a discrepancy from the covariant
+            # source that the current implementation is expected to reproduce.
+            maximum_source_gap = max(
+                maximum_source_gap, float(np.max(np.abs(lapse_omission_gap)))
+            )
 
         out[name] = {
             "species": species.value,
@@ -368,6 +386,8 @@ def operator_snapshot(state, coupling: float, rates: dict[str, Any]) -> dict[str
             "interaction_momentum_source_actual_over_kappa": AUDIT.summarize(actual_interaction, r),
             "interaction_momentum_source_conditional_covariant_over_kappa": AUDIT.summarize(expected_interaction, r),
             "interaction_momentum_source_gap_over_kappa": AUDIT.summarize(source_gap, r),
+            "interaction_momentum_source_lapse_omitted_control_over_kappa": AUDIT.summarize(expected_lapse_omitted_interaction, r),
+            "interaction_momentum_source_lapse_omitted_control_gap_over_kappa": AUDIT.summarize(lapse_omission_gap, r),
             "interaction_source_identity_note": (
                 "For dark matter this compares the pinned source with sqrt(-g) Q_r "
                 "under the declared conditional covector premise. A mismatch is reported, "
@@ -410,6 +430,8 @@ def operator_snapshot(state, coupling: float, rates: dict[str, Any]) -> dict[str
             "interaction_momentum_source_actual_over_kappa": actual_interaction.tolist(),
             "interaction_momentum_source_conditional_covariant_over_kappa": expected_interaction.tolist(),
             "interaction_momentum_source_gap_over_kappa": source_gap.tolist(),
+            "interaction_momentum_source_lapse_omitted_control_over_kappa": expected_lapse_omitted_interaction.tolist(),
+            "interaction_momentum_source_lapse_omitted_control_gap_over_kappa": lapse_omission_gap.tolist(),
             "production_rhs_rest_over_kappa": rhs_rest_over_kappa.tolist(),
             "production_rhs_energy_over_kappa": rhs_energy_over_kappa.tolist(),
             "production_rhs_momentum_over_kappa": rhs_momentum_over_kappa.tolist(),
@@ -444,7 +466,7 @@ def operator_snapshot(state, coupling: float, rates: dict[str, Any]) -> dict[str
             "S, D and phi scalar stress projections are recorded separately; the scalar spatial operator is not treated as a fluid HLL face flux."
         ),
         "max_abs_geometric_source_gap_over_kappa": maximum_geom_gap,
-        "max_abs_dark_matter_conditional_interaction_source_gap_over_kappa": maximum_source_gap,
+        "max_abs_dark_matter_lapse_omission_control_gap_over_kappa": maximum_source_gap,
     }
 
 
@@ -505,7 +527,7 @@ def summarize_probe(state, coupling: float) -> dict[str, Any]:
         for piece in snapshot["raw_arrays"].values()
     )
     dm_gap = float(np.max(np.abs(np.asarray(
-        snapshot["raw_arrays"]["dark_matter"]["interaction_momentum_source_gap_over_kappa"]
+        snapshot["raw_arrays"]["dark_matter"]["interaction_momentum_source_lapse_omitted_control_gap_over_kappa"]
     ))))
     max_sign_flip = max(
         float(np.max(np.abs(np.asarray(
@@ -1014,7 +1036,7 @@ def run(resolutions: tuple[int, ...], r_max: float, epsilons: tuple[float, ...])
         for row in rows for arm in row["arms"].values()
     )
     max_q_gap = max(
-        arm["max_abs_dark_matter_conditional_interaction_source_gap_over_kappa"]
+        arm["max_abs_dark_matter_lapse_omission_control_gap_over_kappa"]
         for row in rows for arm in row["arms"].values()
     )
     return {
@@ -1082,7 +1104,7 @@ def run(resolutions: tuple[int, ...], r_max: float, epsilons: tuple[float, ...])
             "full_cross_sector_total_T_reconciliation_completed": False,
             "production_steps_advanced": 0,
             "max_abs_independent_geometric_source_gap_over_kappa": max_geom,
-            "max_abs_dark_matter_conditional_interaction_source_gap_over_kappa": max_q_gap,
+            "max_abs_dark_matter_lapse_omission_control_gap_over_kappa": max_q_gap,
             "conditional_exchange_law_accepted": False,
             "independent_total_stress_energy_divergence_closed": False,
             "scientific_admission": False,
@@ -1091,7 +1113,7 @@ def run(resolutions: tuple[int, ...], r_max: float, epsilons: tuple[float, ...])
             "combined_budget": "Reports the native per-species semi-discrete RHS with pinned face-flux difference and source signs, divided by KAPPA; retains signed cells 0 and 1 and the cell-centre annulus 2<=r<=10 for base arrays and both directional epsilon tangent arms. It is not a claim of total-T closure.",
             "geometric_source": "Compare the pinned production momentum geometric source with an independently computed 1/2 sqrt(-g) T^{ab} partial_r g_ab contraction.",
             "hll_flux": "Record actual pinned per-species HLL face fluxes and compare them with face reconstruction of cell-projected radial stress. Differences characterize the operator pair; no exact face equality is presumed for the dissipative HLL scheme.",
-            "interaction_source": "Compare actual pinned dark-matter q_s with sqrt(-g) Q_r only under the explicitly conditional covector premise. Preserve any mismatch; do not change production source terms in this diagnostic.",
+            "interaction_source": "Compare actual pinned dark-matter q_s with the conditional covariant target sqrt(-g) Q_r, and separately retain a lapse-omitted negative control. The implemented covariant-target gap is not required to be nonzero; the negative-control gap must be nontrivial. Do not change production source terms in this diagnostic.",
             "cross_sector_interpretation": "The total-T directional witness is decomposed into dark-matter, baryon, radiation, S, D and phi stress contributions on the exact same state pair. The raw sector-divergence sum is retained beside the total without hiding any gap. A separate time-density derivative ledger predicts the portion of that raw gap attributable to forming one total density difference versus summing six per-sector density differences; only the remaining unexplained gap is checked against the unchanged tolerance. This validates numerical accounting for that component, not physical stress-energy closure. The full scalar evolution RHS/source terms are not reconciled, so full cross-sector closure remains incomplete.",
             "optional_em_scope": "Optional charged-dust and radial-Maxwell states are rejected before projection/capture because the Lorentz source and EM stress projection are outside the current witness.",
             "limits": [

@@ -76,7 +76,7 @@ def test_flat_uniform_radiation_hll_momentum_flux_matches_exact_face_flux():
     metric_derivatives = geometry_metric_derivatives(
         metric, lambda values, parity: np.zeros_like(values, dtype=np.float64)
     )
-    face_flux, _, _, _, _ = _species_rhs_components(
+    face_flux, _, _, _, _, _ = _species_rhs_components(
         metric,
         metric_derivatives,
         radiation,
@@ -154,11 +154,18 @@ def test_conditional_qr_source_discrepancy_is_recorded_not_silently_relabelled()
         raw["interaction_momentum_source_conditional_covariant_over_kappa"]
     )
     gap = np.asarray(raw["interaction_momentum_source_gap_over_kappa"])
-    # Under the explicitly conditional covector premise, the required source
-    # is sqrt(-g) Q_r. The pinned implementation's measured q_s is compared
-    # against it and must retain the known alpha-weighting discrepancy.
-    assert np.allclose(gap, actual * (1.0 - alpha), rtol=2.0e-12, atol=2.0e-20)
-    assert np.max(np.abs(gap)) > 1.0e-12
+    lapse_omitted = np.asarray(
+        raw["interaction_momentum_source_lapse_omitted_control_gap_over_kappa"]
+    )
+    # The production source now matches the conditional covariant target
+    # alpha*sqrt(gamma)*Q_r. Keep that closure distinct from a deliberately
+    # lapse-omitted negative control, which must remain observably different.
+    assert np.allclose(gap, 0.0, rtol=0.0, atol=2.0e-20)
+    assert np.allclose(
+        lapse_omitted, actual * (1.0 - 1.0 / alpha),
+        rtol=2.0e-12, atol=2.0e-20,
+    )
+    assert np.max(np.abs(lapse_omitted)) > 1.0e-12
     assert np.max(np.abs(expected)) > 1.0e-12
 
 
