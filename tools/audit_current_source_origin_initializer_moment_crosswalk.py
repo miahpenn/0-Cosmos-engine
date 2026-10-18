@@ -45,6 +45,21 @@ AUTHORIZED_RUNTIME_HEAD_BLOBS = {
     "engine/production_kernel.py": "cc4ae0f58dd5df4e05f596f6e677526586956f26",
     "engine/v55_pirk_adapter.py": "be28ceea63fa1b59efc5cc5c460b9df19ae1cbc3",
 }
+# Additive exact-blob authorization for the bounded Lane B source transition.
+AUTHORIZED_LANE_B_HEAD_BLOBS = {
+    "engine/matter_system.py": "0969f4d996e4f8e0fc5b70a7dff147f024907302",
+    "engine/matter_rhs.py": "0153c232ee15b5a9d3dbac37ea858e4d2d730011",
+    "engine/scalar_system.py": "e2c2dae9a016b4d6454cf74a9eae8b0167d5733d",
+    "engine/production_kernel.py": "1720615628a98a8d7cfc9fcadcc984fe28c88be1",
+}
+
+def _authorized_head_blobs(path: str) -> set[str]:
+    return {
+        blob for blob in (
+            AUTHORIZED_RUNTIME_HEAD_BLOBS.get(path),
+            AUTHORIZED_LANE_B_HEAD_BLOBS.get(path),
+        ) if blob is not None
+    }
 # The native geometry implementation has one independently tracked, exact-blob
 # transition relative to this crosswalk's historical anchor.
 AUTHORIZED_NATIVE_GEOMETRY_TRANSITIONS = {
@@ -58,14 +73,15 @@ AUTHORIZED_NATIVE_GEOMETRY_TRANSITIONS = {
 def _source_blob_matches(path: str, expected: str, baseline_blob: str, head_blob: str) -> bool:
     if baseline_blob != expected:
         return False
-    authorized_head = AUTHORIZED_RUNTIME_HEAD_BLOBS.get(path)
-    return head_blob == expected or (
-        authorized_head is not None and head_blob == authorized_head
-    )
+    return head_blob == expected or head_blob in _authorized_head_blobs(path)
 
 
 def _unexpected_runtime_source_paths(changed_paths: list[str]) -> list[str]:
-    allowed = set(AUTHORIZED_RUNTIME_HEAD_BLOBS) | set(AUTHORIZED_NATIVE_GEOMETRY_TRANSITIONS)
+    allowed = (
+        set(AUTHORIZED_RUNTIME_HEAD_BLOBS)
+        | set(AUTHORIZED_LANE_B_HEAD_BLOBS)
+        | set(AUTHORIZED_NATIVE_GEOMETRY_TRANSITIONS)
+    )
     return [path for path in changed_paths if path not in allowed]
 
 
@@ -138,7 +154,7 @@ def _verify_authorized_source_pins() -> dict:
             "historical_expected_blob": expected,
             "baseline_blob": baseline_blob,
             "audit_head_blob": head_blob,
-            "authorized_runtime_head_blob": AUTHORIZED_RUNTIME_HEAD_BLOBS.get(path),
+            "authorized_runtime_head_blobs": sorted(_authorized_head_blobs(path)),
             "matches": _source_blob_matches(path, expected, baseline_blob, head_blob),
         }
         if not pins[path]["matches"]:
@@ -157,10 +173,10 @@ def _verify_authorized_source_pins() -> dict:
         )
     for path in changed_paths:
         head_blob = legacy._git("rev-parse", f"HEAD:{path}")
-        if path in AUTHORIZED_RUNTIME_HEAD_BLOBS:
-            if head_blob != AUTHORIZED_RUNTIME_HEAD_BLOBS[path]:
+        if path in AUTHORIZED_RUNTIME_HEAD_BLOBS or path in AUTHORIZED_LANE_B_HEAD_BLOBS:
+            if head_blob not in _authorized_head_blobs(path):
                 raise RuntimeError(
-                    f"authorized runtime path is not at its exact approved blob: {path}={head_blob}"
+                    f"authorized runtime path is not at an exact approved blob: {path}={head_blob}"
                 )
         elif path in AUTHORIZED_NATIVE_GEOMETRY_TRANSITIONS:
             baseline_blob = legacy._git("rev-parse", f"{SOURCE_COMMIT}:{path}")
@@ -177,10 +193,10 @@ def _verify_authorized_source_pins() -> dict:
         "source_blobs": pins,
         "engine_vendor_dependency_diff_empty": not bool(changed_paths),
         "authorized_runtime_paths_changed": [
-            path for path in changed_paths if path in AUTHORIZED_RUNTIME_HEAD_BLOBS
+            path for path in changed_paths if path in AUTHORIZED_RUNTIME_HEAD_BLOBS or path in AUTHORIZED_LANE_B_HEAD_BLOBS
         ],
         "authorized_runtime_source_transition": any(
-            path in AUTHORIZED_RUNTIME_HEAD_BLOBS for path in changed_paths
+            (path in AUTHORIZED_RUNTIME_HEAD_BLOBS or path in AUTHORIZED_LANE_B_HEAD_BLOBS) for path in changed_paths
         ),
         "authorized_native_transition_paths": [
             path for path in changed_paths if path in AUTHORIZED_NATIVE_GEOMETRY_TRANSITIONS

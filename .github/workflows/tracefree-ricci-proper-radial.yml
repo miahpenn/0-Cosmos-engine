@@ -93,26 +93,29 @@ jobs:
             ["engine/production_kernel.py"]="cc4ae0f58dd5df4e05f596f6e677526586956f26"
             ["engine/v55_pirk_adapter.py"]="be28ceea63fa1b59efc5cc5c460b9df19ae1cbc3"
           )
+          declare -A authorized_lane_b_heads=(
+            ["engine/matter_system.py"]="0969f4d996e4f8e0fc5b70a7dff147f024907302"
+            ["engine/matter_rhs.py"]="0153c232ee15b5a9d3dbac37ea858e4d2d730011"
+            ["engine/scalar_system.py"]="e2c2dae9a016b4d6454cf74a9eae8b0167d5733d"
+            ["engine/production_kernel.py"]="1720615628a98a8d7cfc9fcadcc984fe28c88be1"
+          )
           for path in "${!blobs[@]}"; do
             expected="${blobs[$path]}"
             source_blob="$(git rev-parse "$SOURCE_COMMIT:$path")"
             head_blob="$(git rev-parse "HEAD:$path")"
             test "$source_blob" = "$expected"
             authorized="${authorized_heads[$path]:-}"
-            if [ -n "$authorized" ]; then
-              if [ "$head_blob" != "$expected" ] && [ "$head_blob" != "$authorized" ]; then
-                printf 'Unapproved head blob for protected runtime path %s: %s\n' "$path" "$head_blob"
-                exit 1
-              fi
-            else
-              test "$head_blob" = "$expected"
+            lane_b_authorized="${authorized_lane_b_heads[$path]:-}"
+            if [ "$head_blob" != "$expected" ] && [ "$head_blob" != "$authorized" ] && [ "$head_blob" != "$lane_b_authorized" ]; then
+              printf 'Unapproved head blob for protected runtime path %s: %s\n' "$path" "$head_blob"
+              exit 1
             fi
           done
           test "$(git rev-parse "HEAD:vendor/bb-palatini-unified-r0")" = "$VENDOR_COMMIT"
           changed="$(git diff --name-only "$SOURCE_COMMIT" HEAD -- engine vendor .gitmodules requirements.txt)"
           unexpected=""
           if [ -n "$changed" ]; then
-            unexpected="$(printf '%s\n' "$changed" | grep -Ev '^(engine/native_geometry/__init__\.py|engine/native_geometry/constraints\.py|engine/native_geometry/geometry\.py|engine/native_geometry/operators\.py|engine/native_geometry/evolution\.py|engine/production_kernel\.py|engine/v55_pirk_adapter\.py)$' || true)"
+            unexpected="$(printf '%s\n' "$changed" | grep -Ev '^(engine/native_geometry/__init__\.py|engine/native_geometry/constraints\.py|engine/native_geometry/geometry\.py|engine/native_geometry/operators\.py|engine/native_geometry/evolution\.py|engine/production_kernel\.py|engine/v55_pirk_adapter\.py|engine/matter_system\.py|engine/matter_rhs\.py|engine/scalar_system\.py)$' || true)"
           fi
           if [ -n "$unexpected" ]; then
             printf 'Unexpected production/vendor/dependency changes:\n%s\n' "$unexpected"
