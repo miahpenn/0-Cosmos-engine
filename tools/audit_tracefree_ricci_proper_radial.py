@@ -465,14 +465,17 @@ def main() -> int:
             )
             return result
 
-        def wrapped_stage_terms(grid, geometry, fields, matter, lambda_m=2.0):
+        def wrapped_stage_terms(grid, geometry, fields, matter, lambda_m=2.0, **stage_kwargs):
             index = stage_counter[0]
             if index >= len(stage_names):
                 raise RuntimeError("unexpected additional geometry stage during production step")
             active_stage[0] = stage_names[index]
             before = len(captures)
             try:
-                result = original_stage_terms(grid, geometry, fields, matter, lambda_m=lambda_m)
+                result = original_stage_terms(
+                    grid, geometry, fields, matter,
+                    lambda_m=lambda_m, **stage_kwargs,
+                )
             finally:
                 active_stage[0] = None
             if len(captures) != before + 1:
