@@ -61,6 +61,7 @@ from .v55_matter import (
     total_matter_projection,
 )
 from .radial_maxwell import RadialMaxwellState
+from .native_geometry import NativeSphericalCellGrid, native_cmc_explicit_metric_rhs
 from . import v55_pirk_adapter as adapter
 
 
@@ -217,16 +218,31 @@ class V55ProductionKernel:
     def _geometry_stage_terms(
         self, grid, geometry, scalars, matter, electromagnetic
     ):
+        """Use native CMC a/b/X RHS; retain pinned primary/Lambda/source blocks."""
         projection = self._electromagnetic_projection(
             grid, geometry, electromagnetic
         )
-        if projection is None:
-            return adapter.geometry_stage_terms(
-                grid, geometry, scalars, matter, lambda_m=LAMBDA_M
+        native_grid = NativeSphericalCellGrid(grid.n, grid.r_max)
+        native_centers = np.asarray(native_grid.centers, dtype=float)
+        production_centers = np.asarray(grid.centers, dtype=float)
+        if (
+            native_centers.shape != production_centers.shape
+            or not np.allclose(
+                native_centers, production_centers, rtol=0.0, atol=1.0e-14
             )
+        ):
+            raise ValueError(
+                "native CMC RHS grid centres do not match the production grid"
+            )
+        explicit_native = native_cmc_explicit_metric_rhs(native_grid, geometry)
+        adapter_kwargs = {
+            "lambda_m": LAMBDA_M,
+            "explicit_rhs_override": explicit_native,
+        }
+        if projection is not None:
+            adapter_kwargs["electromagnetic_projection"] = projection
         return adapter.geometry_stage_terms(
-            grid, geometry, scalars, matter, lambda_m=LAMBDA_M,
-            electromagnetic_projection=projection,
+            grid, geometry, scalars, matter, **adapter_kwargs
         )
 
     def _charged_dust_mass_flux_faces(self, state: ProductionState) -> np.ndarray:
