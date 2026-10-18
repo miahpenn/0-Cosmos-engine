@@ -61,7 +61,7 @@ These expressions are algebraically consistent under the stated premise. The arc
 
 ## Current implementation crosswalk
 
-At PR #401 head `66929bc8973aa80b21d7c2d46f2b6063fa091a82`:
+The source crosswalk was inspected at PR #401 head `66929bc8973aa80b21d7c2d46f2b6063fa091a82`; the test/documentation follow-up is now on head `9f9236f6b6899e8758c98cda7c4c46db6375940c`.
 
 - `engine/valencia.py::dark_matter_covector_source` returns \((Q_t,Q_r)=(\beta\rho\partial_t\phi,\beta\rho\partial_r\phi)\).
 - `engine/matter_system.py` reconstructs \(\Pi\), evaluates \(q_D\), and projects \(q_E,q_{S_r}\) with lapse/shift factors as above.
@@ -72,7 +72,7 @@ At PR #401 head `66929bc8973aa80b21d7c2d46f2b6063fa091a82`:
   - `engine/scalar_system.py`: `e2c2dae9a016b4d6454cf74a9eae8b0167d5733d`
   - `engine/production_kernel.py`: `1720615628a98a8d7cfc9fcadcc984fe28c88be1`
 
-A focused nonzero-shift implementation regression is being added alongside this note. It checks nonzero field time derivative, radial gradient, fluid velocity, non-unit lapse, shift, all three matter exchange channels, and sign/factor negative controls.
+The companion regression `tests/test_dark_matter_exchange_source.py` checks the three matter source channels with nonzero shift, non-unit lapse, field time derivative, radial gradient and fluid velocity. Its rest-current expectation uses the coordinate four-velocity contraction independently of the production code's reconstructed-normal-derivative expression; sign, lapse-factor and missing-shift negative controls are included.
 
 ## Evidence boundaries and open gates
 
