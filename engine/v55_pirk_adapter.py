@@ -94,10 +94,26 @@ def lambda_l3_with_matter(
 def geometry_stage_terms(
     grid, geometry, fields, matter, lambda_m=2.0, *,
     electromagnetic_projection=None,
+    explicit_rhs_override=None,
 ):
-    """Return the full frozen V5.5 geometry stage blocks."""
+    """Return geometry stage blocks with an optional bounded explicit RHS.
+
+    The CMC production path may supply only native a/b/X. The default remains
+    the pinned moving-puncture explicit RHS for independent comparisons.
+    Primary/Lambda blocks and local matter-source projections remain unchanged.
+    """
     _, vacuum, moving = vendor_modules()
-    explicit = moving.moving_puncture_explicit_rhs(grid, geometry)
+    if explicit_rhs_override is None:
+        explicit = moving.moving_puncture_explicit_rhs(grid, geometry)
+    else:
+        explicit = dict(explicit_rhs_override)
+        required = {"a", "b", "X"}
+        missing = required.difference(explicit)
+        if missing:
+            raise ValueError(
+                "explicit_rhs_override is missing required fields: "
+                + ", ".join(sorted(missing))
+            )
     l2 = vacuum.primary_l2_rhs(grid, geometry)
     if electromagnetic_projection is None:
         l3 = primary_l3_with_matter(grid, geometry, fields, matter)
