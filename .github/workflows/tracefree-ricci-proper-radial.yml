@@ -115,7 +115,7 @@ jobs:
           changed="$(git diff --name-only "$SOURCE_COMMIT" HEAD -- engine vendor .gitmodules requirements.txt)"
           unexpected=""
           if [ -n "$changed" ]; then
-            unexpected="$(printf '%s\n' "$changed" | grep -Ev '^(engine/native_geometry/__init__\.py|engine/native_geometry/constraints\.py|engine/native_geometry/geometry\.py|engine/native_geometry/operators\.py|engine/native_geometry/evolution\.py|engine/production_kernel\.py|engine/v55_pirk_adapter\.py|engine/matter_system\.py|engine/matter_rhs\.py|engine/scalar_system\.py)
+            unexpected="$(printf '%s\n' "$changed" | grep -Ev '^(engine/native_geometry/__init__\.py|engine/native_geometry/constraints\.py|engine/native_geometry/geometry\.py|engine/native_geometry/operators\.py|engine/native_geometry/evolution\.py|engine/production_kernel\.py|engine/v55_pirk_adapter\.py|engine/matter_system\.py|engine/matter_rhs\.py|engine/scalar_system\.py)$' || true)"
           fi
           if [ -n "$unexpected" ]; then
             printf 'Unexpected production/vendor/dependency changes:\n%s\n' "$unexpected"
