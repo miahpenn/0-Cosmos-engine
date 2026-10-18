@@ -20,6 +20,27 @@ def test_authorized_runtime_source_exception_is_exact_and_narrow():
         "engine/production_kernel.py": "cc4ae0f58dd5df4e05f596f6e677526586956f26",
         "engine/v55_pirk_adapter.py": "be28ceea63fa1b59efc5cc5c460b9df19ae1cbc3",
     }
+    assert live.AUTHORIZED_ADDITIVE_NATIVE_BLOBS == {
+        "engine/native_geometry/geometry.py": "1bf12c1139572ff4597eaec0570aa43f2563fd91",
+    }
+    assert live._additive_native_blob_matches(
+        "engine/native_geometry/geometry.py",
+        "1bf12c1139572ff4597eaec0570aa43f2563fd91",
+        False,
+        "1bf12c1139572ff4597eaec0570aa43f2563fd91",
+    )
+    assert not live._additive_native_blob_matches(
+        "engine/native_geometry/geometry.py",
+        "1bf12c1139572ff4597eaec0570aa43f2563fd91",
+        True,
+        "1bf12c1139572ff4597eaec0570aa43f2563fd91",
+    )
+    assert not live._additive_native_blob_matches(
+        "engine/native_geometry/geometry.py",
+        "1bf12c1139572ff4597eaec0570aa43f2563fd91",
+        False,
+        "f" * 40,
+    )
     for path, approved_head in live.AUTHORIZED_RUNTIME_HEAD_BLOBS.items():
         expected = live.CURRENT_SOURCE_BLOBS[path]
         assert live._source_blob_matches(path, expected, expected, expected)
@@ -27,7 +48,8 @@ def test_authorized_runtime_source_exception_is_exact_and_narrow():
         assert not live._source_blob_matches(path, expected, expected, "f" * 40)
         assert not live._source_blob_matches(path, expected, "f" * 40, approved_head)
     assert live._unexpected_runtime_source_paths(
-        ["engine/production_kernel.py", "engine/v55_pirk_adapter.py"]
+        ["engine/production_kernel.py", "engine/v55_pirk_adapter.py",
+         "engine/native_geometry/geometry.py"]
     ) == []
     assert live._unexpected_runtime_source_paths(
         ["engine/production_kernel.py", "engine/matter_system.py"]
