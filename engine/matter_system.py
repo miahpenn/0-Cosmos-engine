@@ -505,7 +505,7 @@ def _species_rhs_components(
     dphi_t: np.ndarray | None = None,
     dphi_r: np.ndarray | None = None,
     beta_dm: float = -0.04,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """Calculate finite-volume flux/source components without taking a step.
 
     The shared operator retains guarded incoming primitive recovery and is
@@ -569,6 +569,7 @@ def _species_rhs_components(
     source_s_diag = np.zeros(n, dtype=float)
     q_e_diag = np.zeros(n, dtype=float)
     q_s_diag = np.zeros(n, dtype=float)
+    q_rest_diag = np.zeros(n, dtype=float)
     for i, m in enumerate(metrics):
         source_e, source_s = _valencia_source(
             m, prim[i], float(metric.K[i]), float(metric.Aa[i]),
@@ -586,10 +587,25 @@ def _species_rhs_components(
             q_t, q_r = dark_matter_covector_source(
                 beta_dm, prim[i].rho, float(dphi_t[i]), float(dphi_r[i])
             )
+            # Contract the covariant dust equation with u_nu to obtain the
+            # variable-mass rest-current source, then project to coordinate time.
+            pi_normal = (
+                float(dphi_t[i]) - m.beta * float(dphi_r[i])
+            ) / m.alpha
+            u_grad_phi = prim[i].lorentz() * (
+                pi_normal + prim[i].v_r * float(dphi_r[i])
+            )
+            q_rest_diag[i] = (
+                -m.alpha * m.sqrt_gamma * beta_dm
+                * prim[i].rho * u_grad_phi
+            )
             q_e_diag[i] = -m.sqrt_gamma * (q_t - m.beta * q_r)
-            q_s_diag[i] = m.sqrt_gamma * q_r
+            q_s_diag[i] = m.alpha * m.sqrt_gamma * q_r
 
-    return face_flux, source_e_diag, source_s_diag, q_e_diag, q_s_diag
+    return (
+        face_flux, source_e_diag, source_s_diag,
+        q_e_diag, q_s_diag, q_rest_diag,
+    )
 
 
 def evolve_species(
@@ -605,8 +621,10 @@ def evolve_species(
 ) -> ConservedSpecies:
     """Apply one finite-volume update with the established operation order."""
     n = len(metric.r)
-    face_flux, source_e_diag, source_s_diag, q_e_diag, q_s_diag = (
-        _species_rhs_components(
+    (
+        face_flux, source_e_diag, source_s_diag,
+        q_e_diag, q_s_diag, q_rest_diag,
+    ) = _species_rhs_components(
             metric, metric_derivatives, state, species,
             dphi_t=dphi_t, dphi_r=dphi_r, beta_dm=beta_dm,
         )
@@ -619,6 +637,7 @@ def evolve_species(
         out.rest[i] -= dt * inv_dr * (
             face_flux[i + 1, 0] - face_flux[i, 0]
         )
+        out.rest[i] += dt * q_rest_diag[i]
         out.energy_t[i] -= dt * inv_dr * (
             face_flux[i + 1, 1] - face_flux[i, 1]
         )
