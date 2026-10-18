@@ -128,6 +128,54 @@ def first_six_metric_profiles(
     return rows
 
 
+def even_series_first_cell_discriminator(r, a, b, fit_radius: float = 3.0) -> dict:
+    """Compare cell zero with an even-series continuation fitted to cells 1+.
+
+    This is a diagnostic extrapolation, not an assertion that the fitted value
+    is the exact continuum limit. The same formula is applied to the initialized
+    profile and the frozen-source origin counterfactual.
+    """
+    r = np.asarray(r, dtype=float)
+    a = np.asarray(a, dtype=float)
+    b = np.asarray(b, dtype=float)
+    if (r.ndim != 1 or a.shape != r.shape or b.shape != r.shape or r.size < 4
+            or not np.all(np.isfinite(r)) or not np.all(np.isfinite(a))
+            or not np.all(np.isfinite(b)) or np.any(r <= 0.0)
+            or np.any(a <= 0.0) or np.any(b <= 0.0) or fit_radius <= 0.0):
+        raise ValueError("invalid metric profile for origin continuation discriminator")
+    delta_over_r2 = (1.0 / b - 1.0 / a) / (r * r)
+    if not np.all(np.isfinite(delta_over_r2)):
+        raise ValueError("non-finite delta/r^2 profile")
+    selected = np.flatnonzero(
+        (r <= fit_radius + 16.0 * np.finfo(float).eps * fit_radius)
+        & (np.arange(r.size) != 0)
+    )
+    if selected.size < 3:
+        raise ValueError("fewer than three non-first-cell samples in fit support")
+    x = (r[selected] / fit_radius) ** 2
+    design = np.column_stack((np.ones_like(x), x, x * x))
+    scaled, *_ = np.linalg.lstsq(design, delta_over_r2[selected], rcond=None)
+    x0 = (r[0] / fit_radius) ** 2
+    predicted0 = float(scaled @ np.array([1.0, x0, x0 * x0]))
+    observed0 = float(delta_over_r2[0])
+    return {
+        "basis": "delta/r^2 = c0 + c2*r^2 + c4*r^4",
+        "fit_radius": float(fit_radius),
+        "fit_excludes_cell0": True,
+        "fit_cell_indices": [int(i) for i in selected],
+        "fit_cells": int(selected.size),
+        "coefficients": {
+            "c0": float(scaled[0]),
+            "c2": float(scaled[1] / fit_radius**2),
+            "c4": float(scaled[2] / fit_radius**4),
+        },
+        "first_cell_radius": float(r[0]),
+        "first_cell_delta_over_r2": observed0,
+        "fitted_continuation_at_first_cell": predicted0,
+        "signed_observed_minus_fitted": float(observed0 - predicted0),
+    }
+
+
 def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
@@ -252,6 +300,8 @@ def main() -> int:
         source = np.asarray(profiles[prefix + "initializer_source_final_iteration"], dtype=float)
         B_reconstructed = np.asarray(profiles[prefix + "initializer_B_reconstructed"], dtype=float)
         B_from_X6 = np.asarray(profiles[prefix + "initializer_B_from_X6"], dtype=float)
+        origin_cf_a = np.asarray(profiles[prefix + "origin_cf_a"], dtype=float)
+        origin_cf_b = np.asarray(profiles[prefix + "origin_cf_b"], dtype=float)
 
     # Re-initialize deterministically only to emit the declared source-free
     # geometry Hamiltonian witness. Both copies are no-evolution; state hashes
@@ -271,6 +321,56 @@ def main() -> int:
     state_hash_after = legacy._state_digest(state)
     state_matches_primary = state_hash_before == resolution_record["input_state_sha256_before"]
     state_unchanged = state_hash_before == state_hash_after
+
+    # Save the complete named array inventory used by the established state
+    # digest, so a reviewer can independently recompute the digest from the
+    # artifact rather than relying only on a summary hash.
+    state_arrays = {}
+    for name in ("a", "b", "X", "alpha", "beta", "Aa", "K", "Lambda", "B"):
+        state_arrays["geometry." + name] = np.ascontiguousarray(
+            np.asarray(getattr(state.geometry, name))
+        )
+    for name in ("S", "PS", "D", "PD", "phi", "Pi"):
+        state_arrays["scalars." + name] = np.ascontiguousarray(
+            np.asarray(getattr(state.scalars, name))
+        )
+    for sector in ("dark_matter", "baryons", "radiation"):
+        item = getattr(state.matter, sector)
+        for name in ("rest", "energy_t", "momentum_r"):
+            state_arrays["matter." + sector + "." + name] = np.ascontiguousarray(
+                np.asarray(getattr(item, name))
+            )
+    state_capture_path = OUTPUT_DIR / "initialized_state_capture.npz"
+    np.savez_compressed(state_capture_path, **state_arrays)
+    state_capture_sha256 = _sha256(state_capture_path)
+    state_capture_manifest = {
+        "schema": "initialized-production-state-array-capture/v1",
+        "source_commit": SOURCE_COMMIT,
+        "audit_head": result["source_pins"]["audit_head"],
+        "vendor_commit": VENDOR_COMMIT,
+        "source_blob_manifest": result["source_pins"]["source_blobs"],
+        "configuration": {
+            "resolution": RESOLUTIONS[0], "r_max": R_MAX,
+            "include_radiation": True, "evolution_steps": 0,
+        },
+        "state_digest_algorithm": "tools/audit_current_main_centre_proper_radial_ricci.py::_state_digest",
+        "state_digest_before": state_hash_before,
+        "state_digest_after": state_hash_after,
+        "state_matches_primary_observer": state_matches_primary,
+        "state_unchanged": state_unchanged,
+        "captured_arrays": {
+            name: {"shape": list(values.shape), "dtype": str(values.dtype)}
+            for name, values in sorted(state_arrays.items())
+        },
+        "npz_sha256": state_capture_sha256,
+        "scientific_admission": False,
+    }
+    state_capture_manifest_path = OUTPUT_DIR / "initialized_state_capture.json"
+    state_capture_manifest_path.write_text(
+        json.dumps(state_capture_manifest, indent=2, allow_nan=False) + "\\n",
+        encoding="utf-8",
+    )
+    state_capture_manifest_sha256 = _sha256(state_capture_manifest_path)
 
     row_lookup = {row["i"]: row for row in resolution_record["first_six_cells"]}
     first_six = first_six_metric_profiles(
@@ -316,6 +416,14 @@ def main() -> int:
             "evolution_steps": 0,
         },
         "first_six_cells": first_six,
+        "origin_profile_discriminator": {
+            "method": "fit delta/r^2 = c0 + c2*r^2 + c4*r^4 on cells 1+ with r<=3, then evaluate at actual cell-0 radius",
+            "production_initialized": even_series_first_cell_discriminator(r, a, b),
+            "frozen_source_origin_counterfactual": even_series_first_cell_discriminator(
+                r, origin_cf_a, origin_cf_b
+            ),
+            "interpretation": "signed extrapolation diagnostic only; counterfactual is not a self-consistent re-solve",
+        },
         "moment": {
             "production_point_sampled_half_cell_moment": point_sampled_moment,
             "observer_reported_point_sampled_half_cell_moment": reported_point_sampled_moment,
@@ -333,6 +441,11 @@ def main() -> int:
             "secondary_state_sha256_after": state_hash_after,
             "secondary_state_matches_primary_observer": state_matches_primary,
             "secondary_state_unchanged": state_unchanged,
+            "state_capture_npz": state_capture_path.name,
+            "state_capture_npz_sha256": state_capture_sha256,
+            "state_capture_manifest": state_capture_manifest_path.name,
+            "state_capture_manifest_sha256": state_capture_manifest_sha256,
+            "captured_state_array_count": len(state_arrays),
             "all_first_six_reported_profiles_finite": bool(all(
                 np.isfinite(value)
                 for row in first_six
@@ -352,7 +465,7 @@ def main() -> int:
     report_path.write_text(json.dumps(result, indent=2, allow_nan=False) + "\n", encoding="utf-8")
     crosswalk_path = OUTPUT_DIR / "live_crosswalk.json"
     crosswalk_path.write_text(json.dumps(current_crosswalk, indent=2, allow_nan=False) + "\n", encoding="utf-8")
-    _write_checksums([report_path, profiles_path, csv_path, crosswalk_path], OUTPUT_DIR / "SHA256SUMS.txt")
+    _write_checksums([report_path, profiles_path, csv_path, crosswalk_path, state_capture_path, state_capture_manifest_path], OUTPUT_DIR / "SHA256SUMS.txt")
 
     print(json.dumps({
         "status": result["status"],
@@ -361,6 +474,9 @@ def main() -> int:
         "resolution": RESOLUTIONS[0],
         "r_max": R_MAX,
         "first_cell_delta_over_r2": first_six[0]["delta_over_r2"],
+        "origin_profile_discriminator": current_crosswalk["origin_profile_discriminator"],
+        "state_capture_npz_sha256": state_capture_sha256,
+        "captured_state_array_count": len(state_arrays),
         "first_cell_Lambda_over_r": first_six[0]["Lambda_over_r"],
         "production_point_sampled_half_cell_moment": point_sampled_moment,
         "source_reconstruction_matches_B_from_X6": current_crosswalk["moment"]["source_reconstruction_matches_B_from_X6"],
