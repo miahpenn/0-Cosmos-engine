@@ -107,7 +107,7 @@ def independent_momentum_residual(
     """Form R=Mdot-Mdot_geom+8πΣJdot from independent tangent witnesses."""
     measured = _array("measured Mdot", measured_mdot)
     shape = measured.shape
-    geom = _array("analytic geometric Mdot", analytic_mdot, shape)
+    geom = _array("analytic geometric Mdot", analytic_mdot_geom, shape)
     if not sector_jdots:
         raise ValueError("at least one independently reconstructed sector Jdot is required")
     scaled_terms: dict[str, np.ndarray] = {}
