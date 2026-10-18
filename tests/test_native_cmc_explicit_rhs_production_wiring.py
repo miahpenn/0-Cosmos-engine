@@ -134,4 +134,4 @@ def test_native_cmc_override_preserves_non_none_electromagnetic_projection(monke
     for name in ("a", "b", "X"):
         np.testing.assert_array_equal(actual["explicit"][name], native[name])
     _tree_equal(actual["primary_l3"], reference["primary_l3"], "primary_l3")
-    _tree_equal(actual["lambda_l3"], reference["lambda_l3"], "lambda_l3")
+    np.testing.assert_array_equal(actual["lambda_l3"], reference["lambda_l3"], err_msg="lambda_l3")
