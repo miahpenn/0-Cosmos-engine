@@ -199,7 +199,7 @@ def operator_snapshot(state, coupling: float, rates: dict[str, Any]) -> dict[str
 
     for name, conserved, species in _species_states(state):
         prim = primitives(metrics, conserved, species)
-        face_flux, source_e, source_s, q_e, q_s = _species_rhs_components(
+        face_flux, source_e, source_s, q_e, q_s, q_rest = _species_rhs_components(
             metric_slice,
             derivatives,
             conserved,
