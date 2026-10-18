@@ -92,6 +92,16 @@ def _unexpected_source_pinned_paths(
     return unexpected
 
 
+def _source_blob_matches(path: str, expected: str, baseline_blob: str, head_blob: str) -> bool:
+    """Require the immutable historical baseline and either its blob or one exact approved head blob."""
+    if baseline_blob != expected:
+        return False
+    authorized_head = AUTHORIZED_RUNTIME_HEAD_BLOBS.get(path)
+    return head_blob == expected or (
+        authorized_head is not None and head_blob == authorized_head
+    )
+
+
 def _arr(x) -> np.ndarray:
     return np.asarray(x, dtype=float).copy()
 
@@ -345,15 +355,12 @@ def main() -> int:
         baseline_blob = _git("rev-parse", f"{SOURCE_COMMIT}:{path}")
         head_file_blob = _git("rev-parse", f"HEAD:{path}")
         authorized_head = AUTHORIZED_RUNTIME_HEAD_BLOBS.get(path)
-        head_matches = head_file_blob == expected or (
-            authorized_head is not None and head_file_blob == authorized_head
-        )
         source_pins[path] = {
             "historical_expected_blob": expected,
             "baseline_blob": baseline_blob,
             "diagnostic_head_blob": head_file_blob,
             "authorized_runtime_head_blob": authorized_head,
-            "matches": baseline_blob == expected and head_matches,
+            "matches": _source_blob_matches(path, expected, baseline_blob, head_file_blob),
         }
         if not source_pins[path]["matches"]:
             raise RuntimeError(f"source provenance mismatch for {path}: {source_pins[path]}")
