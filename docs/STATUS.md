@@ -1,22 +1,23 @@
-# LIVE readiness overlay — reconciled 18 October 2026 UTC after PR #401
+# LIVE readiness overlay — reconciled 18 October 2026 UTC after PR #404
 
-> **Current main verified:** `9cba72d49f17c84368c52e4bbe5723ada2a90a3c`, merge of PR #401 (`feat: scalar–DM exchange source projection`). This is an implementation checkpoint, not a production-readiness or scientific-admission declaration. `scientific_admission=false`; `acceptance_oracle_satisfied=false`.
+> **Current main verified:** `bc963003c9af4d6b22ced0698d97a5a5643be557`, merge of PR #404 (accepted-state signed momentum-tangent observer). This is a diagnostic/software checkpoint, not a production-readiness or scientific-admission declaration. `scientific_admission=false`; `acceptance_oracle_satisfied=false`.
 
 ## Current implementation transitions
 
 - **PR #400 — merged:** Lane B provenance transition. Preserve its provenance/authorization boundaries; it does not alter scientific-admission status.
 - **PR #401 — merged:** scalar–dark-matter exchange source projection, merge commit `9cba72d49f17c84368c52e4bbe5723ada2a90a3c`. The bounded coordinate-time projection is implementation-consistent under the documented variable-mass dust premise. It does not derive the value or microphysical origin of the coupling, establish evolving-state total stress-energy/Bianchi closure, or authorize scientific admission.
+- **PR #404 — merged:** diagnostic-only one-accepted-step signed momentum observer. Exact-head checks passed; initial cell-0 `M` was roundoff-scale and after one step at N=60, dt=0.015 it was `+5.904983078211256e-5`; accepted-state `Mdot[0]=+3.933697986104052e-3`. Geometry tangent and six-sector current projection close; native/vendor geometry-only difference is explained by the signed discrete product/quotient remainder to `1.0e-21` absolute. This localizes the persistent tendency but does not identify a faulty equation or establish full propagation closure. [Report artifact](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/39138091957/artifacts/12141000249).
 - **Production guardrails:** no speculative equation, coefficient, gauge, boundary, coupling, initializer, floor/clamp, damping, or radiation/cone changes. Software checks do not change admission flags.
 
-## Next gate — Issue #4 discrete momentum-constraint diagnosis
+## Next gate — full source-aware Issue #4 propagation identity
 
 Primary lane: [Issue #4](https://github.com/miahpenn/0-Cosmos-engine/issues/4), coordinated through [Issue #5](https://github.com/miahpenn/0-Cosmos-engine/issues/5) and [task board #135](https://github.com/miahpenn/0-Cosmos-engine/issues/135).
 
-- Reuse the existing signed momentum-tangent/L3 accounting from PR #275, independent total-`T` divergence observer from PR #286, and shift-aware formula/control layer from PR #290.
-- Keep the diagnostic production source pinned to `7f47669a1c0edfafef9fc5f27b2db80840d3f035` and vendor pinned to `d6052d605673ce9d82cdc99b0df79855fa2ea215`; report diagnostic head separately.
-- Compare the exact production and diagnostic derivative stencils, parity treatment, local-`S` current, and corresponding geometry/source terms on identical frozen inputs.
-- Report signed terms and algebraic closure. Keep centre-adjacent cells 0 and 1 distinct from the fixed physical annulus, and include the existing smooth manufactured regular-profile control.
-- Require a reproducible discrete identity failure and minimal distinguishing profile/state before proposing a repair. No duplicate expensive matrix, production edit, or admission-flag change is implied.
+- Reuse the signed momentum-tangent/L3 accounting from PR #275, independent total-`T` divergence observer from PR #286, shift-aware formula/control layer from PR #290, manufactured crosswalk #403, and accepted-state observer #404.
+- The native/vendor representation gap is too small to explain the observed accepted-state tangent. The latest total-`T`/HLL artifacts still report full independent total stress-energy divergence closure as false and the scalar spatial-operator budget incomplete; they are not same-accepted-state propagation proof.
+- The remaining missing witness is a frozen, convention-specific **full matter-coupled momentum-constraint propagation RHS**: normalized Hamiltonian-gradient term, reference-metric connection-constraint derivative/coupling, and all total stress-energy conservation/exchange residuals. Brown Eq. 11b is a vacuum structural cross-check, not a drop-in matter-coupled oracle.
+- Before a new run, reuse the archived literature/source mapping and pin the exact candidate/vendor blobs. Keep centre cells 0/1 separate from fixed physical radii/annuli; calibrate the residual envelope on the existing manufactured controls.
+- No production equation repair until a reproducible signed mismatch against that full source-aware identity is established. No duplicate frozen matrix or long campaign; keep both admission flags false.
 
 ## Snapshot provenance
 
