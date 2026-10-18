@@ -794,7 +794,7 @@ def scalar_rhs_term_budget(state, coupling: float) -> dict[str, Any]:
             "potential_derivative": -alpha * finite(
                 f"{sector} potential derivative", potential_prime
             ),
-            "conditional_dm_exchange": coupling * rho_dm if sector == "phi" else zero,
+            "conditional_dm_exchange": coupling * alpha * rho_dm if sector == "phi" else zero,
         }
 
         field_sum = np.zeros_like(r, dtype=np.float64)
