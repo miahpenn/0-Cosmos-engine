@@ -94,7 +94,7 @@ def main() -> None:
     # parity-aware D1 operator. This should explain native_M - vendor_M up to
     # floating-point roundoff because the shared D1(Aa) and D1(K) cancel.
     areal_radius = finite("areal radius", r * np.sqrt(b) / X)
-    native_log_derivative = d1(areal_radius, +1) / areal_radius
+    native_log_derivative = d1(areal_radius, -1) / areal_radius
     vendor_log_derivative = 1.0 / r + 0.5 * d1(b, +1) / b - d1(X, +1) / X
     delta_expected = finite(
         "predicted discrete product quotient remainder",
