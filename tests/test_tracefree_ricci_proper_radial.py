@@ -322,6 +322,7 @@ def test_manufactured_regular_centre_series_validates_c5_oracle_and_witnesses():
 def test_source_pin_guard_allows_only_additive_native_core_files():
     from tools.audit_tracefree_ricci_proper_radial import (
         AUTHORIZED_RUNTIME_HEAD_BLOBS,
+        AUTHORIZED_LANE_B_HEAD_BLOBS,
         AUTHORIZED_RUNTIME_PATHS,
         NATIVE_CANDIDATE_PATHS,
         SOURCE_BLOBS,
@@ -354,7 +355,13 @@ def test_source_pin_guard_allows_only_additive_native_core_files():
         "engine/production_kernel.py": "cc4ae0f58dd5df4e05f596f6e677526586956f26",
         "engine/v55_pirk_adapter.py": "be28ceea63fa1b59efc5cc5c460b9df19ae1cbc3",
     }
-    for path, authorized_head in AUTHORIZED_RUNTIME_HEAD_BLOBS.items():
+    assert AUTHORIZED_LANE_B_HEAD_BLOBS == {
+        "engine/matter_system.py": "0969f4d996e4f8e0fc5b70a7dff147f024907302",
+        "engine/matter_rhs.py": "0153c232ee15b5a9d3dbac37ea858e4d2d730011",
+        "engine/scalar_system.py": "e2c2dae9a016b4d6454cf74a9eae8b0167d5733d",
+        "engine/production_kernel.py": "1720615628a98a8d7cfc9fcadcc984fe28c88be1",
+    }
+    for path, authorized_head in {**AUTHORIZED_RUNTIME_HEAD_BLOBS, **AUTHORIZED_LANE_B_HEAD_BLOBS}.items():
         historical = SOURCE_BLOBS[path]
         assert _source_blob_matches(path, historical, historical, historical)
         assert _source_blob_matches(path, historical, historical, authorized_head)
@@ -389,10 +396,12 @@ def test_workflow_shell_allowlist_rejects_unexpected_paths():
         "engine/native_geometry/evolution.py",
         "engine/production_kernel.py",
         "engine/v55_pirk_adapter.py",
+        "engine/matter_system.py",
+        "engine/matter_rhs.py",
+        "engine/scalar_system.py",
     ]
     unexpected = [
         "engine/native_geometry/extra.py",
-        "engine/matter_system.py",
         "vendor/unexpected.py",
         "requirements.txt",
     ]
