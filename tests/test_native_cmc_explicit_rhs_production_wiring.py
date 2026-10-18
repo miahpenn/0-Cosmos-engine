@@ -91,3 +91,47 @@ def test_final_cmc_state_copy_keeps_gauge_fields_outside_rhs_key_contract():
 
     source.alpha[:] = -123.0
     assert not np.array_equal(target.alpha, source.alpha)
+
+
+def test_native_cmc_override_preserves_non_none_electromagnetic_projection(monkeypatch):
+    kernel = V55ProductionKernel()
+    state = kernel.initialize(resolution=32, r_max=10.0, include_radiation=True)
+    projection = {
+        "rho": np.full(state.grid.n, 2.0e-5),
+        "pr": np.full(state.grid.n, 3.0e-6),
+        "pt": np.full(state.grid.n, 1.0e-6),
+        "j": np.linspace(-2.0e-7, 2.0e-7, state.grid.n),
+    }
+
+    class ProjectedEM:
+        def stress_projection(self, grid, geometry):
+            assert grid is state.grid
+            return {key: value.copy() for key, value in projection.items()}
+
+    native_grid = NativeSphericalCellGrid(state.grid.n, state.grid.r_max)
+    native = native_cmc_explicit_metric_rhs(native_grid, state.geometry)
+    reference = adapter.geometry_stage_terms(
+        state.grid,
+        state.geometry,
+        state.scalars,
+        state.matter,
+        lambda_m=LAMBDA_M,
+        electromagnetic_projection=projection,
+        explicit_rhs_override=native,
+    )
+
+    _, _, moving = adapter.vendor_modules()
+
+    def forbidden(*_args, **_kwargs):
+        raise AssertionError("CMC production path called pinned explicit RHS")
+
+    monkeypatch.setattr(moving, "moving_puncture_explicit_rhs", forbidden)
+    actual = kernel._geometry_stage_terms(
+        state.grid, state.geometry, state.scalars, state.matter, ProjectedEM()
+    )
+
+    assert set(actual["explicit"]) == {"a", "b", "X"}
+    for name in ("a", "b", "X"):
+        np.testing.assert_array_equal(actual["explicit"][name], native[name])
+    _tree_equal(actual["primary_l3"], reference["primary_l3"], "primary_l3")
+    _tree_equal(actual["lambda_l3"], reference["lambda_l3"], "lambda_l3")
