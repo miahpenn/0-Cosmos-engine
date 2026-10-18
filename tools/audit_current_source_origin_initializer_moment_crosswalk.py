@@ -38,6 +38,44 @@ CURRENT_SOURCE_BLOBS = {
     "engine/valencia.py": "03ed86398f424c03d9d6a3e646da9222a34fac5c",
     "engine/worldtube.py": "aea19090cb0fd2ebe5481a8b7af0d26f119a9ad6",
 }
+
+# Exact, owner-authorized candidate blobs for the bounded CMC a/b/X runtime seam.
+# The historical CURRENT_SOURCE_BLOBS above remain unchanged.
+AUTHORIZED_RUNTIME_HEAD_BLOBS = {
+    "engine/production_kernel.py": "cc4ae0f58dd5df4e05f596f6e677526586956f26",
+    "engine/v55_pirk_adapter.py": "be28ceea63fa1b59efc5cc5c460b9df19ae1cbc3",
+}
+# The native geometry implementation has one independently tracked, exact-blob
+# transition relative to this crosswalk's historical anchor.
+AUTHORIZED_NATIVE_GEOMETRY_TRANSITIONS = {
+    "engine/native_geometry/geometry.py": {
+        "historical_blob": "9e916b562a137ada0a8ba0268a5d2140162654d3",
+        "approved_head_blob": "1bf12c1139572ff4597eaec0570aa43f2563fd91",
+    },
+}
+
+
+def _source_blob_matches(path: str, expected: str, baseline_blob: str, head_blob: str) -> bool:
+    if baseline_blob != expected:
+        return False
+    authorized_head = AUTHORIZED_RUNTIME_HEAD_BLOBS.get(path)
+    return head_blob == expected or (
+        authorized_head is not None and head_blob == authorized_head
+    )
+
+
+def _unexpected_runtime_source_paths(changed_paths: list[str]) -> list[str]:
+    allowed = set(AUTHORIZED_RUNTIME_HEAD_BLOBS) | set(AUTHORIZED_NATIVE_GEOMETRY_TRANSITIONS)
+    return [path for path in changed_paths if path not in allowed]
+
+
+def _native_geometry_transition_matches(path: str, baseline_blob: str, head_blob: str) -> bool:
+    transition = AUTHORIZED_NATIVE_GEOMETRY_TRANSITIONS.get(path)
+    return bool(
+        transition
+        and baseline_blob == transition["historical_blob"]
+        and head_blob == transition["approved_head_blob"]
+    )
 RESOLUTIONS = (80,)
 R_MAX = 40.0
 OUTPUT_DIR = Path("results/current-source-origin-initializer-moment-crosswalk-2026-10-17")
@@ -85,6 +123,71 @@ def _write_checksums(paths: list[Path], checksum_path: Path) -> None:
     )
 
 
+def _verify_authorized_source_pins() -> dict:
+    """Keep historical pins fixed while accepting only exact authorized CMC head blobs."""
+    source_head = legacy._git("rev-parse", "HEAD")
+    source_vendor = legacy._git("rev-parse", "HEAD:vendor/bb-palatini-unified-r0")
+    if source_vendor != VENDOR_COMMIT:
+        raise RuntimeError(f"vendor pin mismatch: expected {VENDOR_COMMIT}, found {source_vendor}")
+
+    pins = {}
+    for path, expected in CURRENT_SOURCE_BLOBS.items():
+        baseline_blob = legacy._git("rev-parse", f"{SOURCE_COMMIT}:{path}")
+        head_blob = legacy._git("rev-parse", f"HEAD:{path}")
+        pins[path] = {
+            "historical_expected_blob": expected,
+            "baseline_blob": baseline_blob,
+            "audit_head_blob": head_blob,
+            "authorized_runtime_head_blob": AUTHORIZED_RUNTIME_HEAD_BLOBS.get(path),
+            "matches": _source_blob_matches(path, expected, baseline_blob, head_blob),
+        }
+        if not pins[path]["matches"]:
+            raise RuntimeError(f"source blob mismatch for {path}: {pins[path]}")
+
+    changed = legacy._git(
+        "diff", "--name-only", SOURCE_COMMIT, "HEAD", "--",
+        "engine", "vendor", ".gitmodules", "requirements.txt",
+    )
+    changed_paths = changed.splitlines() if changed else []
+    unexpected = _unexpected_runtime_source_paths(changed_paths)
+    if unexpected:
+        raise RuntimeError(
+            "engine/vendor/dependency paths changed outside the exact authorized CMC runtime inventory:\n"
+            + "\n".join(unexpected)
+        )
+    for path in changed_paths:
+        head_blob = legacy._git("rev-parse", f"HEAD:{path}")
+        if path in AUTHORIZED_RUNTIME_HEAD_BLOBS:
+            if head_blob != AUTHORIZED_RUNTIME_HEAD_BLOBS[path]:
+                raise RuntimeError(
+                    f"authorized runtime path is not at its exact approved blob: {path}={head_blob}"
+                )
+        elif path in AUTHORIZED_NATIVE_GEOMETRY_TRANSITIONS:
+            baseline_blob = legacy._git("rev-parse", f"{SOURCE_COMMIT}:{path}")
+            if not _native_geometry_transition_matches(path, baseline_blob, head_blob):
+                raise RuntimeError(
+                    f"native geometry transition is not at its exact approved source/head blobs: "
+                    f"{path}; baseline={baseline_blob}; head={head_blob}"
+                )
+
+    return {
+        "audit_head": source_head,
+        "source_commit": SOURCE_COMMIT,
+        "vendor_commit": source_vendor,
+        "source_blobs": pins,
+        "engine_vendor_dependency_diff_empty": not bool(changed_paths),
+        "authorized_runtime_paths_changed": [
+            path for path in changed_paths if path in AUTHORIZED_RUNTIME_HEAD_BLOBS
+        ],
+        "authorized_runtime_source_transition": any(
+            path in AUTHORIZED_RUNTIME_HEAD_BLOBS for path in changed_paths
+        ),
+        "authorized_native_transition_paths": [
+            path for path in changed_paths if path in AUTHORIZED_NATIVE_GEOMETRY_TRANSITIONS
+        ],
+    }
+
+
 def _verify_observer_blob() -> None:
     path = "tools/audit_current_main_centre_proper_radial_ricci.py"
     baseline = legacy._git("rev-parse", f"{SOURCE_COMMIT}:{path}")
@@ -102,6 +205,7 @@ def main() -> int:
     legacy.SOURCE_COMMIT = SOURCE_COMMIT
     legacy.VENDOR_COMMIT = VENDOR_COMMIT
     legacy.SOURCE_BLOBS = dict(CURRENT_SOURCE_BLOBS)
+    legacy._verify_source_pins = _verify_authorized_source_pins
     legacy.RESOLUTIONS = RESOLUTIONS
     legacy.R_MAX = R_MAX
     legacy.OUT = OUTPUT_DIR
@@ -178,6 +282,15 @@ def main() -> int:
         "audit_head": result["source_pins"]["audit_head"],
         "vendor_commit": VENDOR_COMMIT,
         "source_blob_pins": CURRENT_SOURCE_BLOBS,
+        "authorized_runtime_source_transition": bool(
+            result["source_pins"].get("authorized_runtime_source_transition", False)
+        ),
+        "authorized_runtime_paths_changed": result["source_pins"].get(
+            "authorized_runtime_paths_changed", []
+        ),
+        "authorized_native_transition_paths": result["source_pins"].get(
+            "authorized_native_transition_paths", []
+        ),
         "configuration": {
             "resolution": RESOLUTIONS[0],
             "r_max": R_MAX,
@@ -216,7 +329,7 @@ def main() -> int:
             "H_geometry_only_rho_omitted is a source-free candidate geometry witness, not the full matter-sourced Hamiltonian constraint.",
             "The fitted even-source moment is a diagnostic sensitivity, not a measured quadrature error or exact continuous half-cell integral.",
             "The old archived source anchor remains unchanged; this report is pinned to live-main source blobs listed above.",
-            "No source law, derivative stencil, engine, vendor, runtime selector, dependency, acceptance threshold, or production physics was changed.",
+            "No source law, derivative stencil, vendor, dependency, acceptance threshold, or production physics was changed; any bounded CMC runtime source transition is separately exact-blob authorized and reported.",
         ],
     }
     result["current_source_origin_initializer_moment_crosswalk"] = current_crosswalk

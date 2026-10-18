@@ -15,6 +15,47 @@ def test_current_source_pins_are_explicit_and_distinct_from_archive():
     assert live.SOURCE_COMMIT != archived.SOURCE_COMMIT
 
 
+def test_authorized_runtime_source_exception_is_exact_and_narrow():
+    assert live.AUTHORIZED_RUNTIME_HEAD_BLOBS == {
+        "engine/production_kernel.py": "cc4ae0f58dd5df4e05f596f6e677526586956f26",
+        "engine/v55_pirk_adapter.py": "be28ceea63fa1b59efc5cc5c460b9df19ae1cbc3",
+    }
+    assert live.AUTHORIZED_NATIVE_GEOMETRY_TRANSITIONS == {
+        "engine/native_geometry/geometry.py": {
+            "historical_blob": "9e916b562a137ada0a8ba0268a5d2140162654d3",
+            "approved_head_blob": "1bf12c1139572ff4597eaec0570aa43f2563fd91",
+        },
+    }
+    assert live._native_geometry_transition_matches(
+        "engine/native_geometry/geometry.py",
+        "9e916b562a137ada0a8ba0268a5d2140162654d3",
+        "1bf12c1139572ff4597eaec0570aa43f2563fd91",
+    )
+    assert not live._native_geometry_transition_matches(
+        "engine/native_geometry/geometry.py",
+        "f" * 40,
+        "1bf12c1139572ff4597eaec0570aa43f2563fd91",
+    )
+    assert not live._native_geometry_transition_matches(
+        "engine/native_geometry/geometry.py",
+        "9e916b562a137ada0a8ba0268a5d2140162654d3",
+        "f" * 40,
+    )
+    for path, approved_head in live.AUTHORIZED_RUNTIME_HEAD_BLOBS.items():
+        expected = live.CURRENT_SOURCE_BLOBS[path]
+        assert live._source_blob_matches(path, expected, expected, expected)
+        assert live._source_blob_matches(path, expected, expected, approved_head)
+        assert not live._source_blob_matches(path, expected, expected, "f" * 40)
+        assert not live._source_blob_matches(path, expected, "f" * 40, approved_head)
+    assert live._unexpected_runtime_source_paths(
+        ["engine/production_kernel.py", "engine/v55_pirk_adapter.py",
+         "engine/native_geometry/geometry.py"]
+    ) == []
+    assert live._unexpected_runtime_source_paths(
+        ["engine/production_kernel.py", "engine/matter_system.py"]
+    ) == ["engine/matter_system.py"]
+
+
 def test_crosswalk_is_one_no_evolution_grid_and_no_exact_moment_substitution():
     assert live.RESOLUTIONS == (80,)
     assert live.R_MAX == 40.0

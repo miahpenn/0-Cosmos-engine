@@ -184,3 +184,13 @@ A failed gate remains a failure with its signed report preserved. Do not relax t
 This migration does not authorize changes to V5.5 physical equations, source laws, coefficients, gauge/initial-data choices, floors or clamps, damping, outer boundary physics, radiation admissibility/cone rules, campaign settings, archive content, or scientific-admission flags. It does not claim that a successful geometry port proves coupled trajectory stability, total stress-energy conservation, convergence of the full physical model, or scientific admission.
 
 The native geometry core has progressed beyond the original Phase-0 plan: #358 adds the CMC-safe explicit-metric API, and #360 makes the existing copied CMC-stage observer use that API. Preserve the original scientific archive and vendor pin as provenance/comparison inputs; do not duplicate already-passed same-input matrices. The next production step is not authorized yet: PR #359 remains draft because the protected source-pinned diagnostic rejects production kernel/adapter changes. Resolve that blocker only through an explicit trusted owner/reviewer decision and a separately approved source-provenance transition; do not bypass the guard. Until then, prefer source-safe additive native-core work, exact same-input software checks, and documentation updates. `scientific_admission=false`; no production admission is implied.
+
+## Authorized CMC runtime provenance transition — 17 October 2026
+
+The repository owner explicitly authorized a bounded production-source transition in conversation: route only CMC explicit metric fields `a/b/X` through `native_cmc_explicit_metric_rhs(grid, state)`. This does not authorize equation/parameter changes, vendor mutation, scientific admission, or automatic merge.
+
+This provenance PR preserves the historical source commit (`e6b501fb19c4f2e21ad9c655662840a3d2582d54`), its original production blob inventory, and the pinned vendor gitlink. It adds a narrowly scoped exact-head exception for only the two runtime files required by the candidate:
+- `engine/production_kernel.py` authorized head blob: `cc4ae0f58dd5df4e05f596f6e677526586956f26`
+- `engine/v55_pirk_adapter.py` authorized head blob: `be28ceea63fa1b59efc5cc5c460b9df19ae1cbc3`
+
+The diagnostic still fails closed if the historical baseline differs, the vendor pin changes, any other protected path changes, or either authorized file has any other blob. The trace-free Ricci/proper-radial computation and full regression remain required; this is a provenance authorization, not a scientific result. Keep PR #395 draft until exact-head diagnostics and full/integrated checks pass. `acceptance_oracle_satisfied=false`; `scientific_admission=false`.
