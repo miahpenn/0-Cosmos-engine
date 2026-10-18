@@ -20,25 +20,25 @@ def test_authorized_runtime_source_exception_is_exact_and_narrow():
         "engine/production_kernel.py": "cc4ae0f58dd5df4e05f596f6e677526586956f26",
         "engine/v55_pirk_adapter.py": "be28ceea63fa1b59efc5cc5c460b9df19ae1cbc3",
     }
-    assert live.AUTHORIZED_ADDITIVE_NATIVE_BLOBS == {
-        "engine/native_geometry/geometry.py": "1bf12c1139572ff4597eaec0570aa43f2563fd91",
+    assert live.AUTHORIZED_NATIVE_GEOMETRY_TRANSITIONS == {
+        "engine/native_geometry/geometry.py": {
+            "historical_blob": "9e916b562a137ada0a8ba0268a5d2140162654d3",
+            "approved_head_blob": "1bf12c1139572ff4597eaec0570aa43f2563fd91",
+        },
     }
-    assert live._additive_native_blob_matches(
+    assert live._native_geometry_transition_matches(
         "engine/native_geometry/geometry.py",
-        "1bf12c1139572ff4597eaec0570aa43f2563fd91",
-        False,
+        "9e916b562a137ada0a8ba0268a5d2140162654d3",
         "1bf12c1139572ff4597eaec0570aa43f2563fd91",
     )
-    assert not live._additive_native_blob_matches(
+    assert not live._native_geometry_transition_matches(
         "engine/native_geometry/geometry.py",
-        "1bf12c1139572ff4597eaec0570aa43f2563fd91",
-        True,
+        "f" * 40,
         "1bf12c1139572ff4597eaec0570aa43f2563fd91",
     )
-    assert not live._additive_native_blob_matches(
+    assert not live._native_geometry_transition_matches(
         "engine/native_geometry/geometry.py",
-        "1bf12c1139572ff4597eaec0570aa43f2563fd91",
-        False,
+        "9e916b562a137ada0a8ba0268a5d2140162654d3",
         "f" * 40,
     )
     for path, approved_head in live.AUTHORIZED_RUNTIME_HEAD_BLOBS.items():
