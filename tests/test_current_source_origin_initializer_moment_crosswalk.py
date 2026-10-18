@@ -20,6 +20,12 @@ def test_authorized_runtime_source_exception_is_exact_and_narrow():
         "engine/production_kernel.py": "cc4ae0f58dd5df4e05f596f6e677526586956f26",
         "engine/v55_pirk_adapter.py": "be28ceea63fa1b59efc5cc5c460b9df19ae1cbc3",
     }
+    assert live.AUTHORIZED_LANE_B_HEAD_BLOBS == {
+        "engine/matter_system.py": "0969f4d996e4f8e0fc5b70a7dff147f024907302",
+        "engine/matter_rhs.py": "0153c232ee15b5a9d3dbac37ea858e4d2d730011",
+        "engine/scalar_system.py": "e2c2dae9a016b4d6454cf74a9eae8b0167d5733d",
+        "engine/production_kernel.py": "1720615628a98a8d7cfc9fcadcc984fe28c88be1",
+    }
     assert live.AUTHORIZED_NATIVE_GEOMETRY_TRANSITIONS == {
         "engine/native_geometry/geometry.py": {
             "historical_blob": "9e916b562a137ada0a8ba0268a5d2140162654d3",
@@ -52,8 +58,9 @@ def test_authorized_runtime_source_exception_is_exact_and_narrow():
          "engine/native_geometry/geometry.py"]
     ) == []
     assert live._unexpected_runtime_source_paths(
-        ["engine/production_kernel.py", "engine/matter_system.py"]
-    ) == ["engine/matter_system.py"]
+        ["engine/production_kernel.py", "engine/matter_system.py", "engine/matter_rhs.py", "engine/scalar_system.py"]
+    ) == []
+    assert live._unexpected_runtime_source_paths(["engine/production_kernel.py", "engine/unapproved.py"]) == ["engine/unapproved.py"]
 
 
 def test_crosswalk_is_one_no_evolution_grid_and_no_exact_moment_substitution():
