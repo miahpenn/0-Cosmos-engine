@@ -36,8 +36,10 @@ PRODUCTION_SOURCE_ROOT = Path(
         str(_default_source_root if _default_source_root.is_dir() else REPOSITORY_ROOT),
     )
 ).resolve()
+# Import the candidate implementation from this checkout. The separately
+# pinned PRODUCTION_SOURCE_ROOT is retained for provenance checks only; putting
+# it first would silently replace the candidate modules with historical code.
 sys.path.insert(0, str(REPOSITORY_ROOT))
-sys.path.insert(0, str(PRODUCTION_SOURCE_ROOT))
 
 from engine.production_kernel import (
     BETA_DM,
