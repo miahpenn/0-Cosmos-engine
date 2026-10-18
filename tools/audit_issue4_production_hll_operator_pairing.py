@@ -349,7 +349,7 @@ def operator_snapshot(state, coupling: float, rates: dict[str, Any]) -> dict[str
             # lapse-omitted negative control, not a discrepancy from the covariant
             # source that the current implementation is expected to reproduce.
             maximum_source_gap = max(
-                maximum_source_gap, float(np.max(np.abs(lapse_omission_gap))
+                maximum_source_gap, float(np.max(np.abs(lapse_omission_gap)))
             )
 
         out[name] = {
