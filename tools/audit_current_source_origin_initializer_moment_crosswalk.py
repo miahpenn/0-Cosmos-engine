@@ -11,6 +11,7 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
+import subprocess
 import sys
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
@@ -45,6 +46,11 @@ AUTHORIZED_RUNTIME_HEAD_BLOBS = {
     "engine/production_kernel.py": "cc4ae0f58dd5df4e05f596f6e677526586956f26",
     "engine/v55_pirk_adapter.py": "be28ceea63fa1b59efc5cc5c460b9df19ae1cbc3",
 }
+# This native-core file was added after the crosswalk's historical source anchor.
+# It is accepted only at this exact current-main blob and only while absent from the anchor.
+AUTHORIZED_ADDITIVE_NATIVE_BLOBS = {
+    "engine/native_geometry/geometry.py": "1bf12c1139572ff4597eaec0570aa43f2563fd91",
+}
 
 
 def _source_blob_matches(path: str, expected: str, baseline_blob: str, head_blob: str) -> bool:
@@ -57,7 +63,16 @@ def _source_blob_matches(path: str, expected: str, baseline_blob: str, head_blob
 
 
 def _unexpected_runtime_source_paths(changed_paths: list[str]) -> list[str]:
-    return [path for path in changed_paths if path not in AUTHORIZED_RUNTIME_HEAD_BLOBS]
+    allowed = set(AUTHORIZED_RUNTIME_HEAD_BLOBS) | set(AUTHORIZED_ADDITIVE_NATIVE_BLOBS)
+    return [path for path in changed_paths if path not in allowed]
+
+
+def _additive_native_blob_matches(path: str, expected_head: str, exists_in_source: bool, head_blob: str) -> bool:
+    return (
+        path in AUTHORIZED_ADDITIVE_NATIVE_BLOBS
+        and not exists_in_source
+        and head_blob == expected_head == AUTHORIZED_ADDITIVE_NATIVE_BLOBS[path]
+    )
 RESOLUTIONS = (80,)
 R_MAX = 40.0
 OUTPUT_DIR = Path("results/current-source-origin-initializer-moment-crosswalk-2026-10-17")
@@ -139,10 +154,24 @@ def _verify_authorized_source_pins() -> dict:
         )
     for path in changed_paths:
         head_blob = legacy._git("rev-parse", f"HEAD:{path}")
-        if head_blob != AUTHORIZED_RUNTIME_HEAD_BLOBS[path]:
-            raise RuntimeError(
-                f"authorized runtime path is not at its exact approved blob: {path}={head_blob}"
-            )
+        if path in AUTHORIZED_RUNTIME_HEAD_BLOBS:
+            if head_blob != AUTHORIZED_RUNTIME_HEAD_BLOBS[path]:
+                raise RuntimeError(
+                    f"authorized runtime path is not at its exact approved blob: {path}={head_blob}"
+                )
+        elif path in AUTHORIZED_ADDITIVE_NATIVE_BLOBS:
+            try:
+                legacy._git("cat-file", "-e", f"{SOURCE_COMMIT}:{path}")
+                exists_in_source = True
+            except subprocess.CalledProcessError:
+                exists_in_source = False
+            if not _additive_native_blob_matches(
+                path, AUTHORIZED_ADDITIVE_NATIVE_BLOBS[path], exists_in_source, head_blob
+            ):
+                raise RuntimeError(
+                    f"additive native path is not at its exact approved blob or is not additive: "
+                    f"{path}={head_blob}; exists_in_source={exists_in_source}"
+                )
 
     return {
         "audit_head": source_head,
@@ -150,8 +179,15 @@ def _verify_authorized_source_pins() -> dict:
         "vendor_commit": source_vendor,
         "source_blobs": pins,
         "engine_vendor_dependency_diff_empty": not bool(changed_paths),
-        "authorized_runtime_paths_changed": changed_paths,
-        "authorized_runtime_source_transition": bool(changed_paths),
+        "authorized_runtime_paths_changed": [
+            path for path in changed_paths if path in AUTHORIZED_RUNTIME_HEAD_BLOBS
+        ],
+        "authorized_runtime_source_transition": any(
+            path in AUTHORIZED_RUNTIME_HEAD_BLOBS for path in changed_paths
+        ),
+        "authorized_additive_native_paths": [
+            path for path in changed_paths if path in AUTHORIZED_ADDITIVE_NATIVE_BLOBS
+        ],
     }
 
 
@@ -254,6 +290,9 @@ def main() -> int:
         ),
         "authorized_runtime_paths_changed": result["source_pins"].get(
             "authorized_runtime_paths_changed", []
+        ),
+        "authorized_additive_native_paths": result["source_pins"].get(
+            "authorized_additive_native_paths", []
         ),
         "configuration": {
             "resolution": RESOLUTIONS[0],
