@@ -361,7 +361,13 @@ def test_source_pin_guard_allows_only_additive_native_core_files():
         "engine/scalar_system.py": "e2c2dae9a016b4d6454cf74a9eae8b0167d5733d",
         "engine/production_kernel.py": "1720615628a98a8d7cfc9fcadcc984fe28c88be1",
     }
-    for path, authorized_head in {**AUTHORIZED_RUNTIME_HEAD_BLOBS, **AUTHORIZED_LANE_B_HEAD_BLOBS}.items():
+    for path, authorized_head in AUTHORIZED_RUNTIME_HEAD_BLOBS.items():
+        historical = SOURCE_BLOBS[path]
+        assert _source_blob_matches(path, historical, historical, historical)
+        assert _source_blob_matches(path, historical, historical, authorized_head)
+        assert not _source_blob_matches(path, historical, historical, "f" * 40)
+        assert not _source_blob_matches(path, historical, "f" * 40, authorized_head)
+    for path, authorized_head in AUTHORIZED_LANE_B_HEAD_BLOBS.items():
         historical = SOURCE_BLOBS[path]
         assert _source_blob_matches(path, historical, historical, historical)
         assert _source_blob_matches(path, historical, historical, authorized_head)
