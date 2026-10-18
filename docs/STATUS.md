@@ -1,6 +1,26 @@
-# LIVE readiness overlay — reconciled 18 October 2026 UTC after PR #395
+# LIVE readiness overlay — reconciled 18 October 2026 UTC after PR #401
 
-> **Current main verified:** `14c479223e65b4c32a2a6db11c7d68e7a3a61260`, squash merge of PR #395 (`feat: refresh bounded native CMC metric runtime seam`). The bounded native CMC runtime seam is merged as an implementation transition, not a production-readiness or scientific-admission declaration; `scientific_admission=false`; `acceptance_oracle_satisfied=false`.
+> **Current main verified:** `9cba72d49f17c84368c52e4bbe5723ada2a90a3c`, merge of PR #401 (`feat: scalar–DM exchange source projection`). This is an implementation checkpoint, not a production-readiness or scientific-admission declaration. `scientific_admission=false`; `acceptance_oracle_satisfied=false`.
+
+## Current implementation transitions
+
+- **PR #400 — merged:** Lane B provenance transition. Preserve its provenance/authorization boundaries; it does not alter scientific-admission status.
+- **PR #401 — merged:** scalar–dark-matter exchange source projection, merge commit `9cba72d49f17c84368c52e4bbe5723ada2a90a3c`. The bounded coordinate-time projection is implementation-consistent under the documented variable-mass dust premise. It does not derive the value or microphysical origin of the coupling, establish evolving-state total stress-energy/Bianchi closure, or authorize scientific admission.
+- **Production guardrails:** no speculative equation, coefficient, gauge, boundary, coupling, initializer, floor/clamp, damping, or radiation/cone changes. Software checks do not change admission flags.
+
+## Next gate — Issue #4 discrete momentum-constraint diagnosis
+
+Primary lane: [Issue #4](https://github.com/miahpenn/0-Cosmos-engine/issues/4), coordinated through [Issue #5](https://github.com/miahpenn/0-Cosmos-engine/issues/5) and [task board #135](https://github.com/miahpenn/0-Cosmos-engine/issues/135).
+
+- Reuse the existing signed momentum-tangent/L3 accounting from PR #275, independent total-`T` divergence observer from PR #286, and shift-aware formula/control layer from PR #290.
+- Keep the diagnostic production source pinned to `7f47669a1c0edfafef9fc5f27b2db80840d3f035` and vendor pinned to `d6052d605673ce9d82cdc99b0df79855fa2ea215`; report diagnostic head separately.
+- Compare the exact production and diagnostic derivative stencils, parity treatment, local-`S` current, and corresponding geometry/source terms on identical frozen inputs.
+- Report signed terms and algebraic closure. Keep centre-adjacent cells 0 and 1 distinct from the fixed physical annulus, and include the existing smooth manufactured regular-profile control.
+- Require a reproducible discrete identity failure and minimal distinguishing profile/state before proposing a repair. No duplicate expensive matrix, production edit, or admission-flag change is implied.
+
+## Snapshot provenance
+
+The remainder of this file retains the prior post-#395 readiness overlay and earlier snapshots for historical provenance. Where those snapshots conflict with this current overlay, the current post-#401 overlay above is authoritative. Do not treat historical branch heads or check results as current.
 
 ## Current native CMC runtime transition
 
