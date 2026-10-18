@@ -466,7 +466,7 @@ def operator_snapshot(state, coupling: float, rates: dict[str, Any]) -> dict[str
             "S, D and phi scalar stress projections are recorded separately; the scalar spatial operator is not treated as a fluid HLL face flux."
         ),
         "max_abs_geometric_source_gap_over_kappa": maximum_geom_gap,
-        "max_abs_dark_matter_conditional_interaction_source_gap_over_kappa": maximum_source_gap,
+        "max_abs_dark_matter_lapse_omission_control_gap_over_kappa": maximum_source_gap,
     }
 
 
@@ -1036,7 +1036,7 @@ def run(resolutions: tuple[int, ...], r_max: float, epsilons: tuple[float, ...])
         for row in rows for arm in row["arms"].values()
     )
     max_q_gap = max(
-        arm["max_abs_dark_matter_conditional_interaction_source_gap_over_kappa"]
+        arm["max_abs_dark_matter_lapse_omission_control_gap_over_kappa"]
         for row in rows for arm in row["arms"].values()
     )
     return {
@@ -1104,7 +1104,7 @@ def run(resolutions: tuple[int, ...], r_max: float, epsilons: tuple[float, ...])
             "full_cross_sector_total_T_reconciliation_completed": False,
             "production_steps_advanced": 0,
             "max_abs_independent_geometric_source_gap_over_kappa": max_geom,
-            "max_abs_dark_matter_conditional_interaction_source_gap_over_kappa": max_q_gap,
+            "max_abs_dark_matter_lapse_omission_control_gap_over_kappa": max_q_gap,
             "conditional_exchange_law_accepted": False,
             "independent_total_stress_energy_divergence_closed": False,
             "scientific_admission": False,
@@ -1113,7 +1113,7 @@ def run(resolutions: tuple[int, ...], r_max: float, epsilons: tuple[float, ...])
             "combined_budget": "Reports the native per-species semi-discrete RHS with pinned face-flux difference and source signs, divided by KAPPA; retains signed cells 0 and 1 and the cell-centre annulus 2<=r<=10 for base arrays and both directional epsilon tangent arms. It is not a claim of total-T closure.",
             "geometric_source": "Compare the pinned production momentum geometric source with an independently computed 1/2 sqrt(-g) T^{ab} partial_r g_ab contraction.",
             "hll_flux": "Record actual pinned per-species HLL face fluxes and compare them with face reconstruction of cell-projected radial stress. Differences characterize the operator pair; no exact face equality is presumed for the dissipative HLL scheme.",
-            "interaction_source": "Compare actual pinned dark-matter q_s with sqrt(-g) Q_r only under the explicitly conditional covector premise. Preserve any mismatch; do not change production source terms in this diagnostic.",
+            "interaction_source": "Compare actual pinned dark-matter q_s with the conditional covariant target sqrt(-g) Q_r, and separately retain a lapse-omitted negative control. The implemented covariant-target gap is not required to be nonzero; the negative-control gap must be nontrivial. Do not change production source terms in this diagnostic.",
             "cross_sector_interpretation": "The total-T directional witness is decomposed into dark-matter, baryon, radiation, S, D and phi stress contributions on the exact same state pair. The raw sector-divergence sum is retained beside the total without hiding any gap. A separate time-density derivative ledger predicts the portion of that raw gap attributable to forming one total density difference versus summing six per-sector density differences; only the remaining unexplained gap is checked against the unchanged tolerance. This validates numerical accounting for that component, not physical stress-energy closure. The full scalar evolution RHS/source terms are not reconciled, so full cross-sector closure remains incomplete.",
             "optional_em_scope": "Optional charged-dust and radial-Maxwell states are rejected before projection/capture because the Lorentz source and EM stress projection are outside the current witness.",
             "limits": [
