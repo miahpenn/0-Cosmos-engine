@@ -1,6 +1,13 @@
-# LIVE readiness overlay — reconciled 17 October 2026 UTC after PR #380
+# LIVE readiness overlay — reconciled 18 October 2026 UTC after PR #396
 
-> This overlay was prepared on main `28ad327b38f621af03cec60c7c689005ad7b36ef` after PR #380 merged the continuous-to-discrete moment-bridge correction. Engine and observer provenance remains the source-pinned PR #377 lane plus the live schema-v10 observer; the follow-up PRs #379/#380 were documentation-only and did not change engine, native geometry, or vendor code. Historical records start at the marker below and remain byte-for-byte unchanged. This overlay is diagnostic-only; `scientific_admission=false`.
+> **Current main verified:** `84f20840a87206c26a1de17a34dad082d3938f0b`, merge of PR #396 (`ci: authorize exact CMC runtime provenance transition`). This overlay supersedes the stale live-head statement below while preserving the historical evidence records byte-for-byte. The bounded CMC runtime seam remains a candidate, not a production-readiness declaration; `scientific_admission=false`.
+
+## Current native CMC runtime transition
+
+- **PR #396 — merged:** adds exact-blob authorization for the bounded CMC runtime transition while retaining the immutable historical source baseline and pinned vendor identity. The allowlist is narrow and fail-closed; negative controls reject unexpected source versions and paths.
+- **PR #395 — open draft, not promoted:** [bounded native CMC metric runtime seam](https://github.com/miahpenn/0-Cosmos-engine/pull/395), candidate head `628353d061f40737299c50f2b809f456e3385ca2`, based on `467ca3fe2e7291e38567d0296b0768c8bb361694`. The diff is limited to the production kernel, V5.5 adapter, focused wiring test, and trace-free Ricci/proper-radial diagnostic wrapper. Existing handoff records six PR-triggered workflow entries succeeding across five categories, but a trusted reviewer has not submitted a review. Keep draft until review and exact-head checks are current after #396.
+- **Static metric-`Lambda` chain reconciliation — completed without a new run:** the discrete quantity is `D1_odd(Lambda_metric)`; its continuum chain-expanded analogue is not an exact finite-difference identity because the D1/D2 operators do not obey an exact product/chain rule. Retain the existing same-input term observer and saved arrays. No stencil substitution or production equation change is justified by this algebra alone.
+- **Next gate:** trusted review of PR #395's exact diff and stage/state wiring; confirm provenance allowlist fail-closed behavior and exact-head source-pinned workflows/full regression/integrated smoke. Update the task board and this overlay only from verified results. No scientific re-review of archive-backed claims, no duplicate expensive run, no production physics change, and no admission change.
 
 ## Origin profile and initializer provenance — PRs #373, #375 and #377
 
