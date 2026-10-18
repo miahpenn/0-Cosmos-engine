@@ -6,7 +6,7 @@ import numpy as np
 
 from engine import v55_pirk_adapter as adapter
 from engine.native_geometry import NativeSphericalCellGrid, native_cmc_explicit_metric_rhs
-from engine.production_kernel import LAMBDA_M, V55ProductionKernel
+from engine.production_kernel import LAMBDA_M, V55ProductionKernel, _copy_final_cmc_state
 
 
 _GEOMETRY_FIELDS = ("a", "b", "X", "alpha", "beta", "Aa", "K", "Lambda", "B")
@@ -72,3 +72,22 @@ def test_production_cmc_terms_use_native_a_b_x_without_calling_vendor_explicit(m
         else:
             np.testing.assert_array_equal(actual[name], reference[name])
     assert _digest(state.geometry, state.scalars) == before
+
+
+def test_final_cmc_state_copy_keeps_gauge_fields_outside_rhs_key_contract():
+    kernel = V55ProductionKernel()
+    state = kernel.initialize(resolution=24, r_max=8.0, include_radiation=True)
+    target = state.geometry.copy()
+    source = state.geometry.copy()
+    untouched_Aa = target.Aa.copy()
+
+    for offset, name in enumerate(("a", "b", "X", "alpha", "beta"), start=1):
+        setattr(source, name, np.asarray(getattr(source, name), dtype=float) + offset * 1.0e-4)
+
+    _copy_final_cmc_state(target, source)
+    for name in ("a", "b", "X", "alpha", "beta"):
+        np.testing.assert_array_equal(getattr(target, name), getattr(source, name))
+    np.testing.assert_array_equal(target.Aa, untouched_Aa)
+
+    source.alpha[:] = -123.0
+    assert not np.array_equal(target.alpha, source.alpha)
