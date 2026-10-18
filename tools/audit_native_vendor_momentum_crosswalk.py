@@ -7,6 +7,7 @@ A nonzero difference is a representation comparison, not by itself a defect.
 """
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 import sys
@@ -59,6 +60,20 @@ def main() -> None:
     b = finite("b", geometry.b)
     chi_r = -0.5 * d1(X, +1) / X
 
+    # Deterministic digest over every geometry array used by either expression
+    # and the native constraint helper. Include names, dtype, shape, and bytes.
+    def geometry_digest() -> str:
+        digest = hashlib.sha256()
+        for name in ("a", "b", "X", "Aa", "K", "Lambda"):
+            array = np.ascontiguousarray(finite(name, getattr(geometry, name)))
+            digest.update(name.encode("utf-8") + b"\\0")
+            digest.update(array.dtype.str.encode("ascii") + b"\\0")
+            digest.update(repr(array.shape).encode("ascii") + b"\\0")
+            digest.update(array.tobytes(order="C"))
+        return digest.hexdigest()
+
+    geometry_digest_before = geometry_digest()
+
     # Signed vendor-form geometry-only M expression.
     vendor_terms = {
         "dAa": d1(Aa, +1),
@@ -75,6 +90,19 @@ def main() -> None:
     native_M = finite("native M geometry", native["M_geometry"])
     delta = finite("native minus vendor", native_M - vendor_M)
 
+    # Discrete product/quotient-rule remainder predicted from the exact same
+    # parity-aware D1 operator. This should explain native_M - vendor_M up to
+    # floating-point roundoff because the shared D1(Aa) and D1(K) cancel.
+    areal_radius = finite("areal radius", r * np.sqrt(b) / X)
+    native_log_derivative = d1(areal_radius, +1) / areal_radius
+    vendor_log_derivative = 1.0 / r + 0.5 * d1(b, +1) / b - d1(X, +1) / X
+    delta_expected = finite(
+        "predicted discrete product quotient remainder",
+        3.0 * Aa * (native_log_derivative - vendor_log_derivative),
+    )
+    closure = finite("remainder closure", delta - delta_expected)
+    geometry_digest_after = geometry_digest()
+
     def sample(i: int) -> dict:
         return {
             "i": int(i), "r": float(r[i]),
@@ -82,6 +110,8 @@ def main() -> None:
             "vendor_M_geometry": float(vendor_M[i]),
             "native_M_geometry": float(native_M[i]),
             "native_minus_vendor": float(delta[i]),
+            "delta_expected_product_quotient_remainder": float(delta_expected[i]),
+            "closure_residual": float(closure[i]),
         }
 
     report = {
@@ -99,6 +129,10 @@ def main() -> None:
             "grid_class": type(grid).__name__,
             "same_grid_object_used_for_both_forms": True,
             "same_geometry_arrays_used_for_both_forms": True,
+            "geometry_array_digest_algorithm": "sha256 over named contiguous array dtype, shape, and bytes",
+            "geometry_array_digest_before": geometry_digest_before,
+            "geometry_array_digest_after": geometry_digest_after,
+            "geometry_arrays_unchanged": geometry_digest_before == geometry_digest_after,
         },
         "manufactured_profile": {
             "constraint_solved": False,
@@ -114,6 +148,11 @@ def main() -> None:
             "max_abs_native_M_geometry": float(np.max(np.abs(native_M))),
             "max_abs_native_minus_vendor": float(np.max(np.abs(delta))),
             "rms_native_minus_vendor": float(np.sqrt(np.mean(delta**2))),
+            "max_abs_predicted_remainder": float(np.max(np.abs(delta_expected))),
+            "rms_predicted_remainder": float(np.sqrt(np.mean(delta_expected**2))),
+            "max_abs_remainder_closure": float(np.max(np.abs(closure))),
+            "rms_remainder_closure": float(np.sqrt(np.mean(closure**2))),
+            "geometry_arrays_unchanged": geometry_digest_before == geometry_digest_after,
             "all_finite": bool(np.all(np.isfinite(delta))),
         },
         "first_two_cells": [sample(0), sample(1)],
@@ -121,6 +160,8 @@ def main() -> None:
         "interpretation_limits": [
             "The manufactured profile is not constraint-solved; a nonzero residual is not by itself a conservation defect.",
             "The formulas are distinct discrete representations even on the same grid and arrays.",
+            "The predicted product/quotient-rule remainder is compared directly with native-minus-vendor; closure is reported explicitly.",
+            "A deterministic SHA-256 digest checks the named geometry arrays before and after evaluation.",
             "This comparison excludes matter sources and does not establish total stress-energy closure.",
             "No production trajectory was advanced and no production source was modified.",
             "A representation difference alone does not authorize selecting either formula or changing admission status.",
