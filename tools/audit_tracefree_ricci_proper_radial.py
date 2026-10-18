@@ -55,7 +55,22 @@ AUTHORIZED_RUNTIME_HEAD_BLOBS = {
     "engine/production_kernel.py": "cc4ae0f58dd5df4e05f596f6e677526586956f26",
     "engine/v55_pirk_adapter.py": "be28ceea63fa1b59efc5cc5c460b9df19ae1cbc3",
 }
-AUTHORIZED_RUNTIME_PATHS = frozenset(AUTHORIZED_RUNTIME_HEAD_BLOBS)
+# Additive exact-blob authorization for the bounded Lane B source transition.
+AUTHORIZED_LANE_B_HEAD_BLOBS = {
+    "engine/matter_system.py": "0969f4d996e4f8e0fc5b70a7dff147f024907302",
+    "engine/matter_rhs.py": "0153c232ee15b5a9d3dbac37ea858e4d2d730011",
+    "engine/scalar_system.py": "e2c2dae9a016b4d6454cf74a9eae8b0167d5733d",
+    "engine/production_kernel.py": "1720615628a98a8d7cfc9fcadcc984fe28c88be1",
+}
+
+def _authorized_head_blobs(path: str) -> set[str]:
+    return {
+        blob for blob in (
+            AUTHORIZED_RUNTIME_HEAD_BLOBS.get(path),
+            AUTHORIZED_LANE_B_HEAD_BLOBS.get(path),
+        ) if blob is not None
+    }
+AUTHORIZED_RUNTIME_PATHS = frozenset(AUTHORIZED_RUNTIME_HEAD_BLOBS) | frozenset(AUTHORIZED_LANE_B_HEAD_BLOBS)
 
 RESOLUTIONS = (40, 60, 80, 120, 160)
 R_MAX = 80.0
@@ -96,10 +111,7 @@ def _source_blob_matches(path: str, expected: str, baseline_blob: str, head_blob
     """Require the immutable historical baseline and either its blob or one exact approved head blob."""
     if baseline_blob != expected:
         return False
-    authorized_head = AUTHORIZED_RUNTIME_HEAD_BLOBS.get(path)
-    return head_blob == expected or (
-        authorized_head is not None and head_blob == authorized_head
-    )
+    return head_blob == expected or head_blob in _authorized_head_blobs(path)
 
 
 def _arr(x) -> np.ndarray:
@@ -354,12 +366,12 @@ def main() -> int:
     for path, expected in SOURCE_BLOBS.items():
         baseline_blob = _git("rev-parse", f"{SOURCE_COMMIT}:{path}")
         head_file_blob = _git("rev-parse", f"HEAD:{path}")
-        authorized_head = AUTHORIZED_RUNTIME_HEAD_BLOBS.get(path)
+        authorized_heads = sorted(_authorized_head_blobs(path))
         source_pins[path] = {
             "historical_expected_blob": expected,
             "baseline_blob": baseline_blob,
             "diagnostic_head_blob": head_file_blob,
-            "authorized_runtime_head_blob": authorized_head,
+            "authorized_runtime_head_blobs": authorized_heads,
             "matches": _source_blob_matches(path, expected, baseline_blob, head_file_blob),
         }
         if not source_pins[path]["matches"]:
@@ -384,13 +396,13 @@ def main() -> int:
     source_blob = _git("rev-parse", f"{SOURCE_COMMIT}:engine/production_kernel.py")
     head_blob = _git("rev-parse", "HEAD:engine/production_kernel.py")
     vendor = _git("rev-parse", "HEAD:vendor/bb-palatini-unified-r0")
-    authorized_kernel_head = AUTHORIZED_RUNTIME_HEAD_BLOBS.get("engine/production_kernel.py")
-    kernel_head_matches = head_blob == SOURCE_KERNEL_BLOB or head_blob == authorized_kernel_head
+    authorized_kernel_heads = _authorized_head_blobs("engine/production_kernel.py")
+    kernel_head_matches = head_blob == SOURCE_KERNEL_BLOB or head_blob in authorized_kernel_heads
     if source_blob != SOURCE_KERNEL_BLOB or not kernel_head_matches:
         raise RuntimeError(
             f"production kernel provenance mismatch: historical={SOURCE_KERNEL_BLOB}; "
             f"source={source_blob}; diagnostic branch={head_blob}; "
-            f"authorized_head={authorized_kernel_head}"
+            f"authorized_heads={sorted(authorized_kernel_heads)}"
         )
     if vendor != VENDOR_COMMIT:
         raise RuntimeError(f"vendor pin mismatch: expected {VENDOR_COMMIT}, found {vendor}")
@@ -579,7 +591,10 @@ def main() -> int:
         "requested_stage_order": list(STAGE_NAMES),
         "ordinary_production_steps_per_resolution": 1,
         "production_kernel_and_vendor_edited": bool(head_blob != source_blob or vendor != VENDOR_COMMIT),
-        "authorized_runtime_source_transition": bool(head_blob in AUTHORIZED_RUNTIME_HEAD_BLOBS.values()),
+        "authorized_runtime_source_transition": any(
+            _git("rev-parse", f"HEAD:{path}") in _authorized_head_blobs(path)
+            for path in AUTHORIZED_RUNTIME_PATHS
+        ),
         "metric_method": {
             "areal_radius": "R_areal = r*sqrt(b)/X",
             "proper_radial_factor": "q = X/sqrt(a), d/dl = q*d/dr",
