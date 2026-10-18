@@ -47,6 +47,16 @@ NATIVE_CANDIDATE_PATHS = frozenset({
     "engine/native_geometry/evolution.py",
 })
 
+# Owner-authorized, exact-blob exception for the first bounded CMC runtime seam.
+# Historical SOURCE_BLOBS remain immutable and are checked against SOURCE_COMMIT.
+# Only these exact head blobs may replace the historical head copy; any further
+# production edit changes the blob and fails closed until separately authorized.
+AUTHORIZED_RUNTIME_HEAD_BLOBS = {
+    "engine/production_kernel.py": "cc4ae0f58dd5df4e05f596f6e677526586956f26",
+    "engine/v55_pirk_adapter.py": "be28ceea63fa1b59efc5cc5c460b9df19ae1cbc3",
+}
+AUTHORIZED_RUNTIME_PATHS = frozenset(AUTHORIZED_RUNTIME_HEAD_BLOBS)
+
 RESOLUTIONS = (40, 60, 80, 120, 160)
 R_MAX = 80.0
 CFL = 0.03
@@ -69,9 +79,12 @@ def _git(*args: str) -> str:
 def _unexpected_source_pinned_paths(
     changed_paths: list[str], native_paths_in_source: set[str]
 ) -> list[str]:
-    """Allow only explicitly named isolated native candidate additions absent from the source pin."""
+    """Allow additive native files or the two exact-blob authorized runtime paths."""
     unexpected = []
     for path in changed_paths:
+        if path in AUTHORIZED_RUNTIME_PATHS:
+            # Exact candidate blob verification happens independently in main().
+            continue
         if path not in NATIVE_CANDIDATE_PATHS:
             unexpected.append(path)
         elif path in native_paths_in_source:
@@ -331,7 +344,17 @@ def main() -> int:
     for path, expected in SOURCE_BLOBS.items():
         baseline_blob = _git("rev-parse", f"{SOURCE_COMMIT}:{path}")
         head_file_blob = _git("rev-parse", f"HEAD:{path}")
-        source_pins[path] = {"expected_blob": expected, "baseline_blob": baseline_blob, "diagnostic_head_blob": head_file_blob, "matches": baseline_blob == expected and head_file_blob == expected}
+        authorized_head = AUTHORIZED_RUNTIME_HEAD_BLOBS.get(path)
+        head_matches = head_file_blob == expected or (
+            authorized_head is not None and head_file_blob == authorized_head
+        )
+        source_pins[path] = {
+            "historical_expected_blob": expected,
+            "baseline_blob": baseline_blob,
+            "diagnostic_head_blob": head_file_blob,
+            "authorized_runtime_head_blob": authorized_head,
+            "matches": baseline_blob == expected and head_matches,
+        }
         if not source_pins[path]["matches"]:
             raise RuntimeError(f"source provenance mismatch for {path}: {source_pins[path]}")
     changed = _git("diff", "--name-only", SOURCE_COMMIT, "HEAD", "--", "engine", "vendor", ".gitmodules", "requirements.txt")
@@ -354,10 +377,13 @@ def main() -> int:
     source_blob = _git("rev-parse", f"{SOURCE_COMMIT}:engine/production_kernel.py")
     head_blob = _git("rev-parse", "HEAD:engine/production_kernel.py")
     vendor = _git("rev-parse", "HEAD:vendor/bb-palatini-unified-r0")
-    if source_blob != SOURCE_KERNEL_BLOB or head_blob != SOURCE_KERNEL_BLOB:
+    authorized_kernel_head = AUTHORIZED_RUNTIME_HEAD_BLOBS.get("engine/production_kernel.py")
+    kernel_head_matches = head_blob == SOURCE_KERNEL_BLOB or head_blob == authorized_kernel_head
+    if source_blob != SOURCE_KERNEL_BLOB or not kernel_head_matches:
         raise RuntimeError(
-            f"production kernel provenance mismatch: expected {SOURCE_KERNEL_BLOB}; "
-            f"source={source_blob}; diagnostic branch={head_blob}"
+            f"production kernel provenance mismatch: historical={SOURCE_KERNEL_BLOB}; "
+            f"source={source_blob}; diagnostic branch={head_blob}; "
+            f"authorized_head={authorized_kernel_head}"
         )
     if vendor != VENDOR_COMMIT:
         raise RuntimeError(f"vendor pin mismatch: expected {VENDOR_COMMIT}, found {vendor}")
@@ -542,7 +568,8 @@ def main() -> int:
         "resolutions": list(RESOLUTIONS), "r_max": R_MAX, "cfl": CFL,
         "requested_stage_order": list(STAGE_NAMES),
         "ordinary_production_steps_per_resolution": 1,
-        "production_kernel_and_vendor_edited": False,
+        "production_kernel_and_vendor_edited": bool(head_blob != source_blob or vendor != VENDOR_COMMIT),
+        "authorized_runtime_source_transition": bool(head_blob in AUTHORIZED_RUNTIME_HEAD_BLOBS.values()),
         "metric_method": {
             "areal_radius": "R_areal = r*sqrt(b)/X",
             "proper_radial_factor": "q = X/sqrt(a), d/dl = q*d/dr",
@@ -565,7 +592,7 @@ def main() -> int:
             "The cross-check captures the exact a,b,X,Lambda,alpha arrays at the four real L2 input stages.",
             "The independent Ricci discrepancy is retained as evidence and is never forced to vanish.",
             "The independent metric-Ricci route is not substituted into BSSN production.",
-            "No production source, vendor code, physical parameter, gauge, boundary or campaign setting changed.",
+            "Historical production/vendor pins were verified; the report records whether the exact owner-authorized CMC runtime source blobs are active.",
             "One ordinary production step per resolution is not a long campaign or scientific admission.",
         ],
     }
