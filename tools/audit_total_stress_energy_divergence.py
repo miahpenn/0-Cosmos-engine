@@ -50,8 +50,10 @@ SOURCE_ROOT_RAW = os.environ.get("COSMOS_PINNED_SOURCE_ROOT")
 if not SOURCE_ROOT_RAW:
     raise RuntimeError("COSMOS_PINNED_SOURCE_ROOT must point to the exact pinned source checkout")
 SOURCE_ROOT = Path(SOURCE_ROOT_RAW).resolve()
+# Import the candidate implementation from this checkout. SOURCE_ROOT is an
+# independently pinned provenance reference; putting it first silently shadows
+# the authorized candidate blobs and makes the audit test the wrong RHS.
 sys.path.insert(0, str(ROOT))
-sys.path.insert(0, str(SOURCE_ROOT))
 
 from engine import production_kernel as production_kernel_module  # noqa: E402
 from engine.production_kernel import V55ProductionKernel  # noqa: E402
