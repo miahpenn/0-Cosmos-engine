@@ -1,5 +1,17 @@
 # Native-module migration roadmap and geometry-core contract
 
+## LIVE correction — 18 October 2026 UTC (supersedes stale status statements below)
+
+- **Current main at this checkpoint:** `9cba72d49f17c84368c52e4bbe5723ada2a90a3c`, merge commit for PR [#401](https://github.com/miahpenn/0-Cosmos-engine/pull/401).
+- **PR #395 is merged** at `14c479223e65b4c32a2a6db11c7d68e7a3a61260`. The production CMC seam now routes only explicit metric fields `a/b/X` through `native_cmc_explicit_metric_rhs(grid, state)`. The existing CMC lapse solve, `beta/B` handling, adapter-owned primary/Lambda blocks, matter-source projections, and stage ordering remain unchanged. This is a bounded runtime transition, not wholesale vendor retirement or scientific admission.
+- **PR #401 is merged** at `9cba72d49f17c84368c52e4bbe5723ada2a90a3c`. It adds the conditional scalar–dark-matter coordinate-time source projection and its independent regression/research note. The four explicitly authorized production blobs are `engine/matter_system.py` `0969f4d996e4f8e0fc5b70a7dff147f024907302`, `engine/matter_rhs.py` `0153c232ee15b5a9d3dbac37ea858e4d2d730011`, `engine/scalar_system.py` `e2c2dae9a016b4d6454cf74a9eae8b0167d5733d`, and `engine/production_kernel.py` `1720615628a98a8d7cfc9fcadcc984fe28c88be1`. Historical source/vendor pins and the existing fail-closed provenance checks remain in force.
+- Exact-head evidence recorded for #401: 11 reported workflows passed; 949 repository tests passed; `PRODUCTION_STEP_SMOKE_PASS`. This qualifies implementation consistency under the documented conditional premise only. It does **not** establish evolving-state total stress-energy/Bianchi closure, derive the configured `beta_DM=-0.04`, or change admission.
+- **Historical diagnostic pin distinction:** Issue #4 artifacts that explicitly pin production source `7f47669a1c0edfafef9fc5f27b2db80840d3f035` and vendor `d6052d605673ce9d82cdc99b0df79855fa2ea215` remain evidence about those frozen inputs. Do not present them as tests of the live post-#395/#401 production tree without a fresh, appropriately scoped source-pinned check.
+- **Next bounded engineering step:** continue native-module migration from current main with a named stage/API gap, first-party implementation and independent regression, exact-blob authorization, and the full required integration gates. Prefer shadow/copy-state comparison before any further runtime routing. Reuse existing same-input artifacts; do not duplicate expensive audits. Issue #4 production HLL/source operator matching and evolving-state total-stress-energy closure remain separate explicit gates.
+- **Governance:** stale PR #394 was closed as superseded by #401. Do not revive or rerun that branch. Keep `acceptance_oracle_satisfied=false` and `scientific_admission=false`.
+
+---
+
 **Status (checked 2026-10-17 CDT):** Active native-module migration contract; native CMC explicit-metric API and its CMC-stage observer are merged. No production runtime switch or scientific-admission change is merged.
 **Coordination:** Issue #5; task inventory on Issue #135.
 **Original roadmap baseline (before the native-module promotion PRs):** main `0dcb86e57baaeaddd772130bbe96c7195f381f81`.
