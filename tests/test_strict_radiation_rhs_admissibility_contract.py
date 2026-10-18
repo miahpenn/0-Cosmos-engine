@@ -71,7 +71,7 @@ def test_direct_update_keeps_admissibility_guard_enabled_by_default(monkeypatch)
     monkeypatch.setattr(
         matter_system_module,
         "_species_rhs_components",
-        lambda *args, **kwargs: (face_flux, source_e, source_s, q_e, q_s),
+        lambda *args, **kwargs: (face_flux, source_e, source_s, q_e, q_s, np.zeros(n)),
     )
     # dt=1 changes positive E to negative E, so the default post-update guard
     # must reject this controlled inadmissible result.
