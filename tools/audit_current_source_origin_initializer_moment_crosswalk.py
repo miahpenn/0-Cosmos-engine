@@ -367,7 +367,7 @@ def main() -> int:
     }
     state_capture_manifest_path = OUTPUT_DIR / "initialized_state_capture.json"
     state_capture_manifest_path.write_text(
-        json.dumps(state_capture_manifest, indent=2, allow_nan=False) + "\\n",
+        json.dumps(state_capture_manifest, indent=2, allow_nan=False) + "\n",
         encoding="utf-8",
     )
     state_capture_manifest_sha256 = _sha256(state_capture_manifest_path)
