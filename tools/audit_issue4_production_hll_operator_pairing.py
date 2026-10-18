@@ -285,6 +285,7 @@ def operator_snapshot(state, coupling: float, rates: dict[str, Any]) -> dict[str
 
         geometric_expected = np.empty_like(r)
         interaction_expected = np.zeros_like(r)
+        interaction_lapse_omitted_expected = np.zeros_like(r)
         q_r_profile = np.zeros_like(r)
         for i, (metric, q) in enumerate(zip(metrics, prim)):
             tensor = stress_tensor_contravariant(metric, q)
@@ -302,6 +303,10 @@ def operator_snapshot(state, coupling: float, rates: dict[str, Any]) -> dict[str
                 # implementation is measured separately below; this is not
                 # an assumption that the physical law is accepted.
                 interaction_expected[i] = metric.sqrt_minus_g * q_r_profile[i]
+                # Explicit negative control: omit the lapse from the coordinate
+                # source. This is not the covariant target; it must be distinguishable
+                # from the implemented alpha*sqrt(gamma)*Q_r source.
+                interaction_lapse_omitted_expected[i] = metric.sqrt_gamma * q_r_profile[i]
 
         actual_geometric = finite(f"{name} normalized geometric momentum source", source_s / KAPPA)
         expected_geometric = finite(
@@ -322,6 +327,14 @@ def operator_snapshot(state, coupling: float, rates: dict[str, Any]) -> dict[str
             f"{name} production interaction source minus conditional covariant source",
             actual_interaction - expected_interaction,
         )
+        expected_lapse_omitted_interaction = finite(
+            f"{name} lapse-omitted conditional interaction source",
+            interaction_lapse_omitted_expected / KAPPA,
+        )
+        lapse_omission_gap = finite(
+            f"{name} production interaction source minus lapse-omitted control",
+            actual_interaction - expected_lapse_omitted_interaction,
+        )
         omitted_geometric_source_residual = finite(
             f"{name} residual if geometric momentum source is omitted",
             -actual_geometric,
@@ -332,7 +345,12 @@ def operator_snapshot(state, coupling: float, rates: dict[str, Any]) -> dict[str
         )
         maximum_geom_gap = max(maximum_geom_gap, float(np.max(np.abs(geom_gap))))
         if name == "dark_matter":
-            maximum_source_gap = max(maximum_source_gap, float(np.max(np.abs(source_gap))))
+            # The gate requires a non-vacuous contrast against an intentionally
+            # lapse-omitted negative control, not a discrepancy from the covariant
+            # source that the current implementation is expected to reproduce.
+            maximum_source_gap = max(
+                maximum_source_gap, float(np.max(np.abs(lapse_omission_gap))
+            )
 
         out[name] = {
             "species": species.value,
@@ -368,6 +386,8 @@ def operator_snapshot(state, coupling: float, rates: dict[str, Any]) -> dict[str
             "interaction_momentum_source_actual_over_kappa": AUDIT.summarize(actual_interaction, r),
             "interaction_momentum_source_conditional_covariant_over_kappa": AUDIT.summarize(expected_interaction, r),
             "interaction_momentum_source_gap_over_kappa": AUDIT.summarize(source_gap, r),
+            "interaction_momentum_source_lapse_omitted_control_over_kappa": AUDIT.summarize(expected_lapse_omitted_interaction, r),
+            "interaction_momentum_source_lapse_omitted_control_gap_over_kappa": AUDIT.summarize(lapse_omission_gap, r),
             "interaction_source_identity_note": (
                 "For dark matter this compares the pinned source with sqrt(-g) Q_r "
                 "under the declared conditional covector premise. A mismatch is reported, "
@@ -410,6 +430,8 @@ def operator_snapshot(state, coupling: float, rates: dict[str, Any]) -> dict[str
             "interaction_momentum_source_actual_over_kappa": actual_interaction.tolist(),
             "interaction_momentum_source_conditional_covariant_over_kappa": expected_interaction.tolist(),
             "interaction_momentum_source_gap_over_kappa": source_gap.tolist(),
+            "interaction_momentum_source_lapse_omitted_control_over_kappa": expected_lapse_omitted_interaction.tolist(),
+            "interaction_momentum_source_lapse_omitted_control_gap_over_kappa": lapse_omission_gap.tolist(),
             "production_rhs_rest_over_kappa": rhs_rest_over_kappa.tolist(),
             "production_rhs_energy_over_kappa": rhs_energy_over_kappa.tolist(),
             "production_rhs_momentum_over_kappa": rhs_momentum_over_kappa.tolist(),
@@ -505,7 +527,7 @@ def summarize_probe(state, coupling: float) -> dict[str, Any]:
         for piece in snapshot["raw_arrays"].values()
     )
     dm_gap = float(np.max(np.abs(np.asarray(
-        snapshot["raw_arrays"]["dark_matter"]["interaction_momentum_source_gap_over_kappa"]
+        snapshot["raw_arrays"]["dark_matter"]["interaction_momentum_source_lapse_omitted_control_gap_over_kappa"]
     ))))
     max_sign_flip = max(
         float(np.max(np.abs(np.asarray(
