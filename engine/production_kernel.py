@@ -89,6 +89,12 @@ def _peak_witness(values, radii, mask=None):
     return idx, float(radii[idx]), float(values[idx])
 
 
+def _copy_final_cmc_state(target, source):
+    """Copy the full CMC explicit/gauge slice, independent of RHS key shape."""
+    for name in ("a", "b", "X", "alpha", "beta"):
+        setattr(target, name, np.asarray(getattr(source, name)).copy())
+
+
 @dataclass
 class ProductionState:
     grid: object
@@ -582,11 +588,9 @@ class V55ProductionKernel:
         # Final implicit evaluation is taken on the final explicit state,
         # preserving the archived PIRK partition.
         final_u_old_v = g1.copy()
-        # The native CMC explicit RHS intentionally contains only a/b/X.
-        # Copy the full accepted explicit/gauge slice independently of that
-        # three-field RHS contract so alpha/beta do not depend on dict keys.
-        for name in ("a", "b", "X", "alpha", "beta"):
-            setattr(final_u_old_v, name, getattr(gnew, name))
+        # The native CMC explicit RHS contains only a/b/X; the accepted
+        # state copy also carries the separately resolved alpha/beta gauge fields.
+        _copy_final_cmc_state(final_u_old_v, gnew)
 
         l2_final = vacuum.primary_l2_rhs(grid, final_u_old_v)
         gnew.Aa = g0.Aa + 0.5 * dt * (
