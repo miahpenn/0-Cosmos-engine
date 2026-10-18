@@ -582,7 +582,10 @@ class V55ProductionKernel:
         # Final implicit evaluation is taken on the final explicit state,
         # preserving the archived PIRK partition.
         final_u_old_v = g1.copy()
-        for name in gterms0["explicit"]:
+        # The native CMC explicit RHS intentionally contains only a/b/X.
+        # Copy the full accepted explicit/gauge slice independently of that
+        # three-field RHS contract so alpha/beta do not depend on dict keys.
+        for name in ("a", "b", "X", "alpha", "beta"):
             setattr(final_u_old_v, name, getattr(gnew, name))
 
         l2_final = vacuum.primary_l2_rhs(grid, final_u_old_v)
