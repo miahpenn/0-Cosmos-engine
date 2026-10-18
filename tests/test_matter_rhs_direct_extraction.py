@@ -281,7 +281,7 @@ def test_nonzero_shift_radiation_flux_uses_face_metric():
         energy_t=np.asarray([m.sqrt_gamma for m in metric_arrays]),
         momentum_r=np.zeros(3),
     )
-    face_flux, _source_e, _source_s, _q_e, _q_s = (
+    face_flux, _source_e, _source_s, _q_e, _q_s, _q_rest = (
         matter_system_module._species_rhs_components(
             metric, derivatives(n=3), state, Species.RADIATION
         )
