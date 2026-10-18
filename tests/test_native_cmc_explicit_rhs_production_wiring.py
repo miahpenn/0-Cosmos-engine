@@ -9,22 +9,28 @@ from engine.native_geometry import NativeSphericalCellGrid, native_cmc_explicit_
 from engine.production_kernel import LAMBDA_M, V55ProductionKernel
 
 
-def _digest(*objects):
+_GEOMETRY_FIELDS = ("a", "b", "X", "alpha", "beta", "Aa", "K", "Lambda", "B")
+_SCALAR_FIELDS = ("S", "PS", "D", "PD", "phi", "Pi")
+
+
+def _digest(geometry, scalars):
     h = hashlib.sha256()
-    for obj in objects:
-        for name in getattr(obj, "__dataclass_fields__", {}):
-            value = getattr(obj, name)
-            if isinstance(value, np.ndarray):
-                arr = np.ascontiguousarray(value)
-                h.update(name.encode() + b"\0" + arr.dtype.str.encode() + b"\0")
-                h.update(repr(arr.shape).encode() + b"\0" + arr.tobytes())
+    for label, obj, names in (
+        ("geometry", geometry, _GEOMETRY_FIELDS),
+        ("scalars", scalars, _SCALAR_FIELDS),
+    ):
+        for name in names:
+            arr = np.ascontiguousarray(np.asarray(getattr(obj, name)))
+            h.update(label.encode() + b"\0" + name.encode() + b"\0")
+            h.update(arr.dtype.str.encode() + b"\0" + repr(arr.shape).encode() + b"\0")
+            h.update(arr.tobytes())
     return h.hexdigest()
 
 
 def _tree_equal(actual, expected, path="block"):
     assert actual.keys() == expected.keys(), f"{path}: keys differ"
     for key in actual:
-        if isinstance(actual[key], dict):
+        if isinstance(expected[key], dict):
             _tree_equal(actual[key], expected[key], f"{path}.{key}")
         else:
             np.testing.assert_array_equal(actual[key], expected[key], err_msg=f"{path}.{key}")
@@ -48,13 +54,15 @@ def test_production_cmc_terms_use_native_a_b_x_without_calling_vendor_explicit(m
         np.testing.assert_array_equal(native[name], reference["explicit"][name])
 
     _, _, moving = adapter.vendor_modules()
+
     def forbidden(*_args, **_kwargs):
         raise AssertionError("CMC production path called pinned explicit RHS")
-    monkeypatch.setattr(moving, "moving_puncture_explicit_rhs", forbidden)
 
+    monkeypatch.setattr(moving, "moving_puncture_explicit_rhs", forbidden)
     actual = kernel._geometry_stage_terms(
         state.grid, state.geometry, state.scalars, state.matter, state.electromagnetic
     )
+
     assert set(actual["explicit"]) == {"a", "b", "X"}
     for name in ("a", "b", "X"):
         np.testing.assert_array_equal(actual["explicit"][name], native[name])
