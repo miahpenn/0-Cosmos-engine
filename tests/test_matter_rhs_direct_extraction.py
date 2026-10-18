@@ -55,7 +55,8 @@ def components(n=2):
     source_s = np.linspace(-0.03, 0.06, n)
     q_e = np.linspace(0.02, -0.01, n)
     q_s = np.linspace(-0.015, 0.025, n)
-    return face_flux, source_e, source_s, q_e, q_s
+    q_rest = np.zeros(n, dtype=float)
+    return face_flux, source_e, source_s, q_e, q_s, q_rest
 
 
 def test_species_rhs_uses_components_not_a_fictitious_finite_step(monkeypatch):
@@ -74,7 +75,7 @@ def test_species_rhs_uses_components_not_a_fictitious_finite_step(monkeypatch):
     monkeypatch.setattr(matter_rhs_module, "evolve_species", forbidden, raising=False)
     got = species_rhs(metric, derivatives(), object(), Species.RADIATION)
 
-    face, se, ss, qe, qs = terms
+    face, se, ss, qe, qs, qrest = terms
     inv_dr = 1.0 / (metric.r[1] - metric.r[0])
     np.testing.assert_array_equal(
         got.rest, -inv_dr * (face[1:, 0] - face[:-1, 0])
@@ -98,7 +99,7 @@ def test_finite_update_retains_componentwise_flux_then_source_order(monkeypatch)
         momentum_r=np.array([0.1, -0.08]),
     )
     terms = list(components())
-    face, se, ss, qe, qs = terms
+    face, se, ss, qe, qs, qrest = terms
     # Cell 0: separate subtract/add rounds to 1000000000000.0299, while
     # grouping the complete RHS before adding rounds to 1000000000000.03.
     face[:, 1] = np.array([0.0, -1.9, -0.7])
@@ -152,7 +153,7 @@ def test_actual_finite_time_radiation_update_still_checks_cone(monkeypatch):
         matter_system_module,
         "_species_rhs_components",
         lambda *args, **kwargs: (
-            face, source_e, source_s, q_e, q_s
+            face, source_e, source_s, q_e, q_s, np.zeros(2)
         ),
     )
 
@@ -177,7 +178,7 @@ def test_components_helper_preserves_radiation_zero_rest_current_flux():
         energy_t=np.asarray([m.sqrt_gamma for m in metric_arrays]),
         momentum_r=np.zeros(2),
     )
-    face_flux, _, _, _, _ = matter_system_module._species_rhs_components(
+    face_flux, _, _, _, _, _ = matter_system_module._species_rhs_components(
         metric, derivatives(), state, Species.RADIATION
     )
     np.testing.assert_array_equal(face_flux[:, 0], np.zeros(3))
@@ -203,7 +204,7 @@ def test_flat_homogeneous_radiation_pressure_flux_uses_true_face_area():
         },
     )
 
-    face_flux, _source_e, source_s, _q_e, _q_s = (
+    face_flux, _source_e, source_s, _q_e, _q_s, _q_rest = (
         matter_system_module._species_rhs_components(
             metric, terms, state, Species.RADIATION
         )
@@ -242,7 +243,7 @@ def test_nontrivial_metric_radiation_flux_uses_interpolated_face_fields():
         momentum_r=np.zeros(3),
     )
 
-    face_flux, _source_e, _source_s, _q_e, _q_s = (
+    face_flux, _source_e, _source_s, _q_e, _q_s, _q_rest = (
         matter_system_module._species_rhs_components(
             metric, derivatives(n=3), state, Species.RADIATION
         )
