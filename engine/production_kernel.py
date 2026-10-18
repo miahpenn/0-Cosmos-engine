@@ -61,6 +61,7 @@ from .v55_matter import (
     total_matter_projection,
 )
 from .radial_maxwell import RadialMaxwellState
+from .native_geometry import NativeSphericalCellGrid, native_cmc_explicit_metric_rhs
 from . import v55_pirk_adapter as adapter
 
 
@@ -86,6 +87,12 @@ def _peak_witness(values, radii, mask=None):
         raise ValueError("peak witness mask selects no grid points")
     idx = int(indices[np.argmax(np.abs(values[indices]))])
     return idx, float(radii[idx]), float(values[idx])
+
+
+def _copy_final_cmc_state(target, source):
+    """Copy the full CMC explicit/gauge slice, independent of RHS key shape."""
+    for name in ("a", "b", "X", "alpha", "beta"):
+        setattr(target, name, np.asarray(getattr(source, name)).copy())
 
 
 @dataclass
@@ -217,16 +224,31 @@ class V55ProductionKernel:
     def _geometry_stage_terms(
         self, grid, geometry, scalars, matter, electromagnetic
     ):
+        """Use native CMC a/b/X RHS; retain pinned primary/Lambda/source blocks."""
         projection = self._electromagnetic_projection(
             grid, geometry, electromagnetic
         )
-        if projection is None:
-            return adapter.geometry_stage_terms(
-                grid, geometry, scalars, matter, lambda_m=LAMBDA_M
+        native_grid = NativeSphericalCellGrid(grid.n, grid.r_max)
+        native_centers = np.asarray(native_grid.centers, dtype=float)
+        production_centers = np.asarray(grid.centers, dtype=float)
+        if (
+            native_centers.shape != production_centers.shape
+            or not np.allclose(
+                native_centers, production_centers, rtol=0.0, atol=1.0e-14
             )
+        ):
+            raise ValueError(
+                "native CMC RHS grid centres do not match the production grid"
+            )
+        explicit_native = native_cmc_explicit_metric_rhs(native_grid, geometry)
+        adapter_kwargs = {
+            "lambda_m": LAMBDA_M,
+            "explicit_rhs_override": explicit_native,
+        }
+        if projection is not None:
+            adapter_kwargs["electromagnetic_projection"] = projection
         return adapter.geometry_stage_terms(
-            grid, geometry, scalars, matter, lambda_m=LAMBDA_M,
-            electromagnetic_projection=projection,
+            grid, geometry, scalars, matter, **adapter_kwargs
         )
 
     def _charged_dust_mass_flux_faces(self, state: ProductionState) -> np.ndarray:
@@ -566,8 +588,9 @@ class V55ProductionKernel:
         # Final implicit evaluation is taken on the final explicit state,
         # preserving the archived PIRK partition.
         final_u_old_v = g1.copy()
-        for name in gterms0["explicit"]:
-            setattr(final_u_old_v, name, getattr(gnew, name))
+        # The native CMC explicit RHS contains only a/b/X; the accepted
+        # state copy also carries the separately resolved alpha/beta gauge fields.
+        _copy_final_cmc_state(final_u_old_v, gnew)
 
         l2_final = vacuum.primary_l2_rhs(grid, final_u_old_v)
         gnew.Aa = g0.Aa + 0.5 * dt * (
