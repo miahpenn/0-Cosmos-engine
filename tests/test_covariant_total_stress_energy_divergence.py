@@ -258,7 +258,7 @@ def test_scalar_rhs_term_budget_reconstructs_pinned_scalar_rhs_and_labels_condit
         dtype=np.float64,
     )
     np.testing.assert_allclose(
-        phi_coupling, -0.04 * np.asarray(rho_dm, dtype=np.float64),
+        phi_coupling, -0.04 * np.asarray(state.geometry.alpha, dtype=np.float64) * np.asarray(rho_dm, dtype=np.float64),
         rtol=5.0e-12, atol=5.0e-18,
     )
 
