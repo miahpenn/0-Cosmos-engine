@@ -868,6 +868,7 @@ def scalar_rhs_term_budget(state, coupling: float) -> dict[str, Any]:
         "state_sha256": state_digest(state),
         "conditional_exchange_model_law_accepted": False,
         "rho_dm_raw_signed_array": rho_dm.tolist(),
+        "alpha_raw_signed_array": alpha.tolist(),
         "rho_dm_summary": summarize(rho_dm, r),
         "sectors": sector_reports,
         "all_profiles_finite": bool(all_finite),
