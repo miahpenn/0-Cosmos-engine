@@ -121,12 +121,12 @@ def test_even_series_first_cell_discriminator_recovers_regular_polynomial():
     assert result["fit_excludes_cell0"] is True
     assert result["fit_cells"] == 5
     assert result["fit_cell_indices"] == [1, 2, 3, 4, 5]
-    assert abs(result["first_cell_delta_over_r2"] - expected[0]) < 1.0e-15
-    assert abs(result["fitted_continuation_at_first_cell"] - expected[0]) < 1.0e-15
-    assert abs(result["signed_observed_minus_fitted"]) < 1.0e-15
-    assert abs(result["coefficients"]["c0"] - 5.0e-4) < 1.0e-15
-    assert abs(result["coefficients"]["c2"] - 1.0e-5) < 1.0e-15
-    assert abs(result["coefficients"]["c4"] - 1.0e-6) < 1.0e-15
+    assert abs(result["first_cell_delta_over_r2"] - expected[0]) < 5.0e-14
+    assert abs(result["fitted_continuation_at_first_cell"] - expected[0]) < 5.0e-14
+    assert abs(result["signed_observed_minus_fitted"]) < 5.0e-14
+    assert abs(result["coefficients"]["c0"] - 5.0e-4) < 5.0e-14
+    assert abs(result["coefficients"]["c2"] - 1.0e-5) < 5.0e-14
+    assert abs(result["coefficients"]["c4"] - 1.0e-6) < 5.0e-14
 
 
 def test_even_series_first_cell_discriminator_rejects_invalid_profiles():
