@@ -105,3 +105,38 @@ def test_delta_over_r2_uses_the_declared_metric_delta():
         rtol=0.0,
         atol=1.0e-18,
     )
+
+
+
+def test_even_series_first_cell_discriminator_recovers_regular_polynomial():
+    import numpy as np
+
+    r = np.array([0.25, 0.75, 1.25, 1.75, 2.25, 2.75], dtype=float)
+    expected = 5.0e-4 + 1.0e-5 * r**2 + 1.0e-6 * r**4
+    a = np.ones_like(r)
+    b = 1.0 / (1.0 + r**2 * expected)
+
+    result = live.even_series_first_cell_discriminator(r, a, b, fit_radius=3.0)
+
+    assert result["fit_excludes_cell0"] is True
+    assert result["fit_cells"] == 5
+    assert result["fit_cell_indices"] == [1, 2, 3, 4, 5]
+    assert abs(result["first_cell_delta_over_r2"] - expected[0]) < 1.0e-15
+    assert abs(result["fitted_continuation_at_first_cell"] - expected[0]) < 1.0e-15
+    assert abs(result["signed_observed_minus_fitted"]) < 1.0e-15
+    assert abs(result["coefficients"]["c0"] - 5.0e-4) < 1.0e-15
+    assert abs(result["coefficients"]["c2"] - 1.0e-5) < 1.0e-15
+    assert abs(result["coefficients"]["c4"] - 1.0e-6) < 1.0e-15
+
+
+def test_even_series_first_cell_discriminator_rejects_invalid_profiles():
+    import numpy as np
+    import pytest
+
+    r = np.array([0.25, 0.75, 1.25, 1.75], dtype=float)
+    a = np.ones_like(r)
+    b = np.ones_like(r)
+    with pytest.raises(ValueError):
+        live.even_series_first_cell_discriminator(r, a[:-1], b)
+    with pytest.raises(ValueError):
+        live.even_series_first_cell_discriminator(r, a, b, fit_radius=0.1)
