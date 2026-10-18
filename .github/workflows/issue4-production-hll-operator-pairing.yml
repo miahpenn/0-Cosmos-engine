@@ -25,6 +25,7 @@ jobs:
       PYTHONUNBUFFERED: "1"
       SOURCE_COMMIT: "7f47669a1c0edfafef9fc5f27b2db80840d3f035"
       VENDOR_COMMIT: "d6052d605673ce9d82cdc99b0df79855fa2ea215"
+      BASE_SHA: ${{ github.event.pull_request.base.sha || github.sha }}
 
     steps:
       - name: Check out diagnostic branch and pinned vendor
@@ -70,7 +71,7 @@ jobs:
             if [[ -n "$authorized_blob" ]]; then
               test "$actual_blob" = "$authorized_blob"
             else
-              test "$actual_blob" = "$(git -C source rev-parse "HEAD:$path")"
+              test "$actual_blob" = "$(git rev-parse "$BASE_SHA:$path")"
             fi
           done
           printf 'DIAGNOSTIC_HEAD=%s\n' "$(git rev-parse HEAD)"
