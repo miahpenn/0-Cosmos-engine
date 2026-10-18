@@ -6,7 +6,6 @@ on:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - tools/audit_current_source_origin_initializer_moment_crosswalk.py
-      - tools/audit_tracefree_ricci_proper_radial.py
       - tools/audit_current_main_centre_proper_radial_ricci.py
       - tests/test_current_source_origin_initializer_moment_crosswalk.py
       - tests/test_initial_centre_proper_radial_ricci.py
