@@ -53,6 +53,7 @@ from engine.v55_matter import V55MatterState, metric_slice_from_q
 from engine.stress_energy import assemble_total_stress_energy
 from engine import v55_pirk_adapter as adapter
 from tools.momentum_constraint_chain_rule import analytic_geometric_momentum_tangent
+from engine.native_geometry import native_bssn_constraints
 
 
 SCHEMA = "current_source_signed_momentum_constraint_tangent_v1"
@@ -745,6 +746,7 @@ def audit_resolution(
     r_max: float,
     epsilons: tuple[float, float],
     dt: float,
+    include_accepted_state: bool = False,
 ) -> dict[str, Any]:
     state = kernel.initialize(
         resolution=resolution, r_max=r_max, include_radiation=True
@@ -940,6 +942,137 @@ def audit_resolution(
     if state_digest(state) != original_digest:
         raise RuntimeError("frozen initial ProductionState was mutated by observer")
 
+    # One accepted production step only, on the smallest requested resolution.
+    # Reuse the existing signed tangent machinery at that exact accepted state;
+    # this is not a campaign or a new physical-law/closure assumption.
+    accepted_state_report = None
+    if include_accepted_state:
+        accepted_state = kernel.step(state, dt)
+        accepted_state_digest = state_digest(accepted_state)
+        accepted_rates = rhs_direction(kernel, accepted_state)
+        accepted_witness = observe_constraint(accepted_state)
+        accepted_tangents = [
+            tangent_for_epsilon(kernel, accepted_state, accepted_rates, eps)
+            for eps in epsilons
+        ]
+        accepted_r = np.asarray(accepted_state.grid.centers, dtype=np.float64)
+        accepted_geom = accepted_state.geometry
+        native_constraint = native_bssn_constraints(
+            accepted_state.grid, accepted_geom
+        )
+        native_m_geom = finite(
+            "accepted-state native geometric momentum",
+            native_constraint["M_geometry"],
+        )
+        vendor_m_geom = finite(
+            "accepted-state vendor geometric momentum",
+            accepted_witness["M_geom"],
+        )
+        native_vendor_delta = finite(
+            "accepted-state native minus vendor M geometry",
+            native_m_geom - vendor_m_geom,
+        )
+        accepted_aa = finite("accepted-state Aa", accepted_geom.Aa)
+        accepted_b = finite("accepted-state b", accepted_geom.b)
+        accepted_x = finite("accepted-state X", accepted_geom.X)
+        accepted_areal_radius = finite(
+            "accepted-state areal radius",
+            accepted_r * np.sqrt(accepted_b) / accepted_x,
+        )
+        accepted_d1 = lambda values, parity=1: finite(
+            "accepted-state D1",
+            accepted_state.grid.cell_derivative_fourth(values, parity=parity),
+        )
+        native_log_derivative = (
+            accepted_d1(accepted_areal_radius, -1) / accepted_areal_radius
+        )
+        vendor_log_derivative = (
+            1.0 / accepted_r
+            + 0.5 * accepted_d1(accepted_b) / accepted_b
+            - accepted_d1(accepted_x) / accepted_x
+        )
+        predicted_remainder = finite(
+            "accepted-state signed product quotient remainder",
+            3.0 * accepted_aa * (native_log_derivative - vendor_log_derivative),
+        )
+        remainder_closure = finite(
+            "accepted-state remainder closure",
+            native_vendor_delta - predicted_remainder,
+        )
+        closure_scale = (
+            np.abs(native_m_geom) + np.abs(vendor_m_geom)
+            + np.abs(native_vendor_delta) + np.abs(predicted_remainder)
+        )
+        closure_bound = 128.0 * MACHINE_EPS * closure_scale
+        remainder_closure_ok = bool(
+            np.all(np.abs(remainder_closure) <= closure_bound)
+        )
+        accepted_digest_after = state_digest(accepted_state)
+        if accepted_state_digest != accepted_digest_after:
+            raise RuntimeError("accepted ProductionState was mutated by observer")
+        accepted_arithmetic_ok = all(
+            item["closure_ok"]
+            and item["plus_minus_current_projection_closure_ok"]
+            and item["Mdot_geom_tangent_closure_ok"]
+            for item in accepted_tangents
+        ) and bool(
+            accepted_witness["J_closure_ok"]
+            and accepted_witness["M_geom_closure_ok"]
+            and accepted_rates["Aa_l2_split"]["closure"]["ok"]
+            and remainder_closure_ok
+        )
+        accepted_state_report = {
+            "scope": "one ordinary accepted production step from the initialized state; only the smallest requested resolution",
+            "accepted_time": float(accepted_state.t),
+            "accepted_state_sha256_before_observation": accepted_state_digest,
+            "accepted_state_sha256_after_observation": accepted_digest_after,
+            "accepted_state_unchanged": accepted_state_digest == accepted_digest_after,
+            "momentum_constraint_total": regional_summaries(
+                accepted_witness["M_total"], accepted_r
+            ),
+            "native_vendor_geometry_crosswalk": {
+                "native_M_geometry": regional_summaries(native_m_geom, accepted_r),
+                "vendor_M_geometry": regional_summaries(vendor_m_geom, accepted_r),
+                "native_minus_vendor": regional_summaries(native_vendor_delta, accepted_r),
+                "native_minus_vendor_fixed_radius_samples": fixed_radius_samples(
+                    native_vendor_delta, accepted_r
+                ),
+                "predicted_signed_product_quotient_remainder": regional_summaries(
+                    predicted_remainder, accepted_r
+                ),
+                "remainder_closure": {
+                    "ok": remainder_closure_ok,
+                    "max_abs": float(np.max(np.abs(remainder_closure))),
+                    "max_bound": float(np.max(closure_bound)),
+                    "rms": float(np.sqrt(np.mean(remainder_closure**2))),
+                },
+                "parity": {
+                    "native_D_areal_radius": -1,
+                    "vendor_D_b_X": 1,
+                },
+                "source_terms_excluded_from_crosswalk": True,
+            },
+            "tangent_by_epsilon": [
+                compact_tangent_result(item, accepted_r)
+                for item in accepted_tangents
+            ],
+            "geometric_term_signed_tangent_closure": [
+                {
+                    "epsilon": float(item["epsilon"]),
+                    "ok": bool(item["Mdot_geom_tangent_closure_ok"]),
+                    "max_abs": float(item["Mdot_geom_tangent_closure_max_abs"]),
+                    "max_bound": float(item["Mdot_geom_tangent_closure_max_bound"]),
+                }
+                for item in accepted_tangents
+            ],
+            "current_projection_closure": {
+                "ok": bool(accepted_witness["J_closure_ok"]),
+                "max_abs": float(np.max(accepted_witness["J_closure_abs"])),
+                "max_bound": float(np.max(accepted_witness["J_closure_bound"])),
+            },
+            "arithmetic_gate_passed": accepted_arithmetic_ok,
+        }
+
     arithmetic_ok = all(
         item["closure_ok"]
         and item["plus_minus_current_projection_closure_ok"]
@@ -951,6 +1084,10 @@ def audit_resolution(
         and rates["Aa_l2_split"]["closure"]["ok"]
         and chain_rule_ok
         and negative_control_ok
+        and (
+            accepted_state_report is None
+            or accepted_state_report["arithmetic_gate_passed"]
+        )
     )
     return {
         "resolution": int(resolution),
@@ -1015,6 +1152,7 @@ def audit_resolution(
                 "is not by itself a continuum or physics verdict"
             ),
         },
+        "accepted_state_one_step_observer": accepted_state_report,
         "arithmetic_gate_passed": bool(arithmetic_ok),
         "scientific_admission": False,
     }
@@ -1034,6 +1172,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             kernel, n, args.r_max,
             (float(args.epsilons[0]), float(args.epsilons[1])),
             float(args.dt),
+            include_accepted_state=(n == min(args.resolutions)),
         )
         for n in args.resolutions
     ]
@@ -1062,6 +1201,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             "The signed decomposition diagnoses the implemented discrete RHS only. It does not identify a faulty physical equation by itself.",
             "The geometric subterm budget is a term-by-term derivative of the pinned vendor's exact momentum-constraint expression, with no alternate stencil. "
             "The one-step and half-step checks are local finite-step comparisons, not production scientific admission.",
+            "The accepted-state observer, when enabled, evaluates the signed tangent and native/vendor geometry-only remainder after one ordinary step at the smallest requested resolution; it is not a multi-step trajectory or source-law admission test.",
         ],
     }
 
