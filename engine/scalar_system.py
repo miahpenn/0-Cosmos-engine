@@ -87,7 +87,8 @@ def scalar_rhs_arrays(grid, geometry, fields, beta_dm=-0.04,
         fields.phi, fields.Pi, cosmos_potential_prime(fields.phi)
     )
     if rho_dm is not None:
-        Pit = Pit + beta_dm * rho_dm
+        # Pi is a normal derivative, so coordinate-time evolution carries alpha.
+        Pit = Pit + geometry.alpha * beta_dm * rho_dm
     return ScalarFields(St, PSt, Dt, Pdt, phit, Pit)
 
 
