@@ -9,7 +9,11 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+import sys
 import numpy as np
+
+REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(REPOSITORY_ROOT))
 
 from engine.production_kernel import V55ProductionKernel
 from engine.native_geometry import native_bssn_constraints, metric_connection_lambda
