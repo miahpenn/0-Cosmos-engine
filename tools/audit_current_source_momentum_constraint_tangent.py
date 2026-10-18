@@ -999,9 +999,21 @@ def audit_resolution(
             "accepted-state remainder closure",
             native_vendor_delta - predicted_remainder,
         )
+        vendor_term_operand_scale = np.zeros_like(vendor_m_geom)
+        for values in accepted_witness["M_geom_pieces"].values():
+            vendor_term_operand_scale = vendor_term_operand_scale + np.abs(values)
+        native_term_operand_scale = (
+            np.abs(accepted_d1(accepted_geom.Aa))
+            + (2.0 / 3.0) * np.abs(accepted_d1(accepted_geom.K))
+            + 2.0 * np.abs(accepted_geom.Aa - (-0.5 * accepted_geom.Aa))
+                * np.abs(native_log_derivative)
+        )
+        # Bound floating-point cancellation from the actual formula operands,
+        # not only from the small post-cancellation residuals.
         closure_scale = (
             np.abs(native_m_geom) + np.abs(vendor_m_geom)
             + np.abs(native_vendor_delta) + np.abs(predicted_remainder)
+            + vendor_term_operand_scale + native_term_operand_scale
         )
         closure_bound = 128.0 * MACHINE_EPS * closure_scale
         remainder_closure_ok = bool(
