@@ -46,10 +46,13 @@ AUTHORIZED_RUNTIME_HEAD_BLOBS = {
     "engine/production_kernel.py": "cc4ae0f58dd5df4e05f596f6e677526586956f26",
     "engine/v55_pirk_adapter.py": "be28ceea63fa1b59efc5cc5c460b9df19ae1cbc3",
 }
-# This native-core file was added after the crosswalk's historical source anchor.
-# It is accepted only at this exact current-main blob and only while absent from the anchor.
-AUTHORIZED_ADDITIVE_NATIVE_BLOBS = {
-    "engine/native_geometry/geometry.py": "1bf12c1139572ff4597eaec0570aa43f2563fd91",
+# The native geometry implementation has one independently tracked, exact-blob
+# transition relative to this crosswalk's historical anchor.
+AUTHORIZED_NATIVE_GEOMETRY_TRANSITIONS = {
+    "engine/native_geometry/geometry.py": {
+        "historical_blob": "9e916b562a137ada0a8ba0268a5d2140162654d3",
+        "approved_head_blob": "1bf12c1139572ff4597eaec0570aa43f2563fd91",
+    },
 }
 
 
@@ -63,15 +66,16 @@ def _source_blob_matches(path: str, expected: str, baseline_blob: str, head_blob
 
 
 def _unexpected_runtime_source_paths(changed_paths: list[str]) -> list[str]:
-    allowed = set(AUTHORIZED_RUNTIME_HEAD_BLOBS) | set(AUTHORIZED_ADDITIVE_NATIVE_BLOBS)
+    allowed = set(AUTHORIZED_RUNTIME_HEAD_BLOBS) | set(AUTHORIZED_NATIVE_GEOMETRY_TRANSITIONS)
     return [path for path in changed_paths if path not in allowed]
 
 
-def _additive_native_blob_matches(path: str, expected_head: str, exists_in_source: bool, head_blob: str) -> bool:
-    return (
-        path in AUTHORIZED_ADDITIVE_NATIVE_BLOBS
-        and not exists_in_source
-        and head_blob == expected_head == AUTHORIZED_ADDITIVE_NATIVE_BLOBS[path]
+def _native_geometry_transition_matches(path: str, baseline_blob: str, head_blob: str) -> bool:
+    transition = AUTHORIZED_NATIVE_GEOMETRY_TRANSITIONS.get(path)
+    return bool(
+        transition
+        and baseline_blob == transition["historical_blob"]
+        and head_blob == transition["approved_head_blob"]
     )
 RESOLUTIONS = (80,)
 R_MAX = 40.0
@@ -159,18 +163,12 @@ def _verify_authorized_source_pins() -> dict:
                 raise RuntimeError(
                     f"authorized runtime path is not at its exact approved blob: {path}={head_blob}"
                 )
-        elif path in AUTHORIZED_ADDITIVE_NATIVE_BLOBS:
-            try:
-                legacy._git("cat-file", "-e", f"{SOURCE_COMMIT}:{path}")
-                exists_in_source = True
-            except subprocess.CalledProcessError:
-                exists_in_source = False
-            if not _additive_native_blob_matches(
-                path, AUTHORIZED_ADDITIVE_NATIVE_BLOBS[path], exists_in_source, head_blob
-            ):
+        elif path in AUTHORIZED_NATIVE_GEOMETRY_TRANSITIONS:
+            baseline_blob = legacy._git("rev-parse", f"{SOURCE_COMMIT}:{path}")
+            if not _native_geometry_transition_matches(path, baseline_blob, head_blob):
                 raise RuntimeError(
-                    f"additive native path is not at its exact approved blob or is not additive: "
-                    f"{path}={head_blob}; exists_in_source={exists_in_source}"
+                    f"native geometry transition is not at its exact approved source/head blobs: "
+                    f"{path}; baseline={baseline_blob}; head={head_blob}"
                 )
 
     return {
@@ -185,8 +183,8 @@ def _verify_authorized_source_pins() -> dict:
         "authorized_runtime_source_transition": any(
             path in AUTHORIZED_RUNTIME_HEAD_BLOBS for path in changed_paths
         ),
-        "authorized_additive_native_paths": [
-            path for path in changed_paths if path in AUTHORIZED_ADDITIVE_NATIVE_BLOBS
+        "authorized_native_transition_paths": [
+            path for path in changed_paths if path in AUTHORIZED_NATIVE_GEOMETRY_TRANSITIONS
         ],
     }
 
@@ -291,8 +289,8 @@ def main() -> int:
         "authorized_runtime_paths_changed": result["source_pins"].get(
             "authorized_runtime_paths_changed", []
         ),
-        "authorized_additive_native_paths": result["source_pins"].get(
-            "authorized_additive_native_paths", []
+        "authorized_native_transition_paths": result["source_pins"].get(
+            "authorized_native_transition_paths", []
         ),
         "configuration": {
             "resolution": RESOLUTIONS[0],
