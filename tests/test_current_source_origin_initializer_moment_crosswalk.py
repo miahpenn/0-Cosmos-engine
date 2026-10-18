@@ -53,6 +53,12 @@ def test_authorized_runtime_source_exception_is_exact_and_narrow():
         assert live._source_blob_matches(path, expected, expected, approved_head)
         assert not live._source_blob_matches(path, expected, expected, "f" * 40)
         assert not live._source_blob_matches(path, expected, "f" * 40, approved_head)
+    for path, approved_head in live.AUTHORIZED_LANE_B_HEAD_BLOBS.items():
+        expected = live.CURRENT_SOURCE_BLOBS[path]
+        assert live._source_blob_matches(path, expected, expected, expected)
+        assert live._source_blob_matches(path, expected, expected, approved_head)
+        assert not live._source_blob_matches(path, expected, expected, "f" * 40)
+        assert not live._source_blob_matches(path, expected, "f" * 40, approved_head)
     assert live._unexpected_runtime_source_paths(
         ["engine/production_kernel.py", "engine/v55_pirk_adapter.py",
          "engine/native_geometry/geometry.py"]
