@@ -76,7 +76,7 @@ def test_flat_uniform_radiation_hll_momentum_flux_matches_exact_face_flux():
     metric_derivatives = geometry_metric_derivatives(
         metric, lambda values, parity: np.zeros_like(values, dtype=np.float64)
     )
-    face_flux, _, _, _, _ = _species_rhs_components(
+    face_flux, _, _, _, _, _ = _species_rhs_components(
         metric,
         metric_derivatives,
         radiation,
