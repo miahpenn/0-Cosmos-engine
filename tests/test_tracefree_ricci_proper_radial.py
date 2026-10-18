@@ -321,7 +321,11 @@ def test_manufactured_regular_centre_series_validates_c5_oracle_and_witnesses():
 
 def test_source_pin_guard_allows_only_additive_native_core_files():
     from tools.audit_tracefree_ricci_proper_radial import (
+        AUTHORIZED_RUNTIME_HEAD_BLOBS,
+        AUTHORIZED_RUNTIME_PATHS,
         NATIVE_CANDIDATE_PATHS,
+        SOURCE_BLOBS,
+        _source_blob_matches,
         _unexpected_source_pinned_paths,
     )
 
@@ -344,9 +348,23 @@ def test_source_pin_guard_allows_only_additive_native_core_files():
         set(),
     ) == ["engine/native_geometry/extra.py"]
     assert _unexpected_source_pinned_paths(
+        sorted(AUTHORIZED_RUNTIME_PATHS), set()
+    ) == []
+    assert AUTHORIZED_RUNTIME_HEAD_BLOBS == {
+        "engine/production_kernel.py": "cc4ae0f58dd5df4e05f596f6e677526586956f26",
+        "engine/v55_pirk_adapter.py": "be28ceea63fa1b59efc5cc5c460b9df19ae1cbc3",
+    }
+    for path, authorized_head in AUTHORIZED_RUNTIME_HEAD_BLOBS.items():
+        historical = SOURCE_BLOBS[path]
+        assert _source_blob_matches(path, historical, historical, historical)
+        assert _source_blob_matches(path, historical, historical, authorized_head)
+        assert not _source_blob_matches(path, historical, historical, "f" * 40)
+        assert not _source_blob_matches(path, historical, "f" * 40, authorized_head)
+
+    assert _unexpected_source_pinned_paths(
         ["engine/production_kernel.py", "vendor/unexpected.py"],
         set(),
-    ) == ["engine/production_kernel.py", "vendor/unexpected.py"]
+    ) == ["vendor/unexpected.py"]
 
 
 
@@ -369,10 +387,12 @@ def test_workflow_shell_allowlist_rejects_unexpected_paths():
         "engine/native_geometry/geometry.py",
         "engine/native_geometry/operators.py",
         "engine/native_geometry/evolution.py",
+        "engine/production_kernel.py",
+        "engine/v55_pirk_adapter.py",
     ]
     unexpected = [
         "engine/native_geometry/extra.py",
-        "engine/production_kernel.py",
+        "engine/matter_system.py",
         "vendor/unexpected.py",
         "requirements.txt",
     ]
