@@ -4,7 +4,6 @@ This is an implementation test of the archived conditional source law, not
 an admission of the underlying microphysical coupling premise.
 """
 import numpy as np
-import pytest
 
 from engine.matter_system import (
     BSSNMetricSlice,
@@ -59,9 +58,14 @@ def test_dark_matter_rest_current_source_matches_nonzero_shift_projection():
     expected_rest = np.empty(2)
     expected_e = np.empty(2)
     expected_s = np.empty(2)
+    missing_shift = np.empty(2)
     for i, (m, p) in enumerate(zip(metrics, recovered)):
-        pi_normal = (dphi_t[i] - m.beta * dphi_r[i]) / m.alpha
-        u_grad_phi = p.lorentz() * (pi_normal + p.v_r * dphi_r[i])
+        # Independent contraction u^mu d_mu(phi) from coordinate components:
+        # u^t=W/alpha, u^r=W(v^r-beta^r/alpha).
+        W = p.lorentz()
+        u_grad_phi = W / m.alpha * (
+            dphi_t[i] + (m.alpha * p.v_r - m.beta) * dphi_r[i]
+        )
         expected_rest[i] = (
             -m.alpha * m.sqrt_gamma * beta_dm * p.rho * u_grad_phi
         )
@@ -69,6 +73,10 @@ def test_dark_matter_rest_current_source_matches_nonzero_shift_projection():
         q_r = beta_dm * p.rho * dphi_r[i]
         expected_e[i] = -m.sqrt_gamma * (q_t - m.beta * q_r)
         expected_s[i] = m.alpha * m.sqrt_gamma * q_r
+        missing_shift[i] = (
+            -m.alpha * m.sqrt_gamma * beta_dm * p.rho
+            * W / m.alpha * (dphi_t[i] + m.alpha * p.v_r * dphi_r[i])
+        )
 
     assert np.all(np.abs(q_rest) > 0.0)
     np.testing.assert_allclose(q_rest, expected_rest, rtol=2e-14, atol=0.0)
@@ -78,11 +86,5 @@ def test_dark_matter_rest_current_source_matches_nonzero_shift_projection():
     # Signed/factor negative controls: either error must be observable for
     # this deliberately non-degenerate fixture.
     assert not np.allclose(q_rest, -expected_rest, rtol=1e-12, atol=0.0)
-    missing_lapse = expected_rest / metric.alpha
-    assert not np.allclose(q_rest, missing_lapse, rtol=1e-12, atol=0.0)
-    missing_shift_term = np.asarray([
-        -m.alpha * m.sqrt_gamma * beta_dm * p.rho
-        * p.lorentz() * (dphi_t[i] / m.alpha + p.v_r * dphi_r[i])
-        for i, (m, p) in enumerate(zip(metrics, recovered))
-    ])
-    assert not np.allclose(q_rest, missing_shift_term, rtol=1e-12, atol=0.0)
+    assert not np.allclose(q_rest, expected_rest / metric.alpha, rtol=1e-12, atol=0.0)
+    assert not np.allclose(q_rest, missing_shift, rtol=1e-12, atol=0.0)
