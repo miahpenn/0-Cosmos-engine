@@ -151,7 +151,8 @@ def identity_correction_interval(E: float, pressure: float, v2: float,
 
 def interval_certificate(E: float, S2: float, p_trace: float, trace_lo: float,
                          trace_hi: float, pressure: float, v2: float,
-                         gamma_rr: float, Sr: float, observed: float) -> dict:
+                         gamma_rr: float, Sr: float, observed: float,
+                         roundoff_bound: float) -> dict:
     """Fail-closed residual/bracket/pressure-error certificate for one cell."""
     result = {"certified": False, "failure": None}
     try:
@@ -196,6 +197,8 @@ def interval_certificate(E: float, S2: float, p_trace: float, trace_lo: float,
         correction = identity_correction_interval(
             E, pressure, v2, gamma_rr, Sr)
         correction_covers_observed = correction[0] <= observed <= correction[1]
+        correction_covers_with_bound = (
+            correction[0] - roundoff_bound <= observed <= correction[1] + roundoff_bound)
         result.update({
             "certified": True,
             "failure": None,
@@ -218,6 +221,8 @@ def interval_certificate(E: float, S2: float, p_trace: float, trace_lo: float,
             "trace_pressure_delta": pressure - p_trace,
             "identity_correction_interval": list(correction),
             "correction_interval_covers_observed_signed_difference": correction_covers_observed,
+            "correction_interval_covers_observed_with_existing_roundoff_bound": correction_covers_with_bound,
+            "existing_strict_roundoff_bound_used_for_coverage": roundoff_bound,
         })
     except (ValueError, OverflowError, ZeroDivisionError) as exc:
         result["failure"] = str(exc)
@@ -244,7 +249,7 @@ def inspect_state(label, metrics, state, tol: float) -> dict:
         remainder = observed - predicted
         wrong_sign_prediction = -predicted
         roundoff_bound = 128.0 * EPS * (abs(projected) + abs(direct)) + 1.0e-30
-        certificate = interval_certificate(E, S2, p_trace, trace_lo, trace_hi, q.pressure, v2, metric.gamma_rr, Sr, observed)
+        certificate = interval_certificate(E, S2, p_trace, trace_lo, trace_hi, q.pressure, v2, metric.gamma_rr, Sr, observed, roundoff_bound)
         rows.append({
             "cell": i, "E": E, "S_r": Sr, "S2": S2,
             "pressure": float(q.pressure), "v2": v2, "f_p": f_p,
@@ -327,7 +332,8 @@ def main() -> int:
             "certified_cells": sum(row["interval_certificate"]["certified"] for group in paired for row in group["per_cell"]),
             "total_cells": sum(group["cells"] for group in paired),
             "all_cells_certified": all(row["interval_certificate"]["certified"] for group in paired for row in group["per_cell"]),
-            "all_observed_differences_covered": all(row["interval_certificate"].get("correction_interval_covers_observed_signed_difference", False) for group in paired for row in group["per_cell"]),
+            "all_raw_observed_differences_covered": all(row["interval_certificate"].get("correction_interval_covers_observed_signed_difference", False) for group in paired for row in group["per_cell"]),
+            "all_differences_covered_with_existing_roundoff_bound": all(row["interval_certificate"].get("correction_interval_covers_observed_with_existing_roundoff_bound", False) for group in paired for row in group["per_cell"] if row["interval_certificate"]["certified"]),
         },
         "tolerance_trends": trends,
         "gates": {"recovery_error_source_isolated": False, "projection_step_size_plateau_established": False, "independent_full_propagation_identity_closed": False, "scientific_admission": False, "acceptance_oracle_satisfied": False},
