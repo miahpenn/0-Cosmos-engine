@@ -11,6 +11,7 @@ on:
       - "tools/audit_radiation_recovery_current_identity_sweep.py"
       - "tools/audit_current_source_momentum_constraint_tangent.py"
       - "tools/diagnostic_initialization_trace.py"
+      - "tools/diagnostic_initialization_stage_trace.py"
       - ".github/workflows/accepted-state-raw-momentum-witness.yml"
   workflow_dispatch:
 
