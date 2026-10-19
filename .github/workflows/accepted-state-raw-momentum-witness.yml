@@ -67,6 +67,44 @@ jobs:
       - name: Compile the bounded replay
         run: python -m py_compile tools/audit_accepted_state_raw_momentum_witness.py
 
+      - name: Capture runtime, NumPy BLAS, thread pools, and CPU before initialization
+        if: always()
+        run: |
+          mkdir -p results/initial-state-identity-trace
+          {
+            echo '=== UTC timestamp ==='
+            date -u +%Y-%m-%dT%H:%M:%SZ
+            echo '=== runner / kernel ==='
+            uname -a
+            echo '=== CPU topology ==='
+            lscpu || true
+            echo '=== relevant environment ==='
+            env | sort | grep -E '^(BLAS|OMP|OPENBLAS|MKL|NUMEXPR|VECLIB|PYTHON|GITHUB_RUNNER|RUNNER_)' || true
+            echo '=== Python and package versions ==='
+            python - <<'PY'
+          import importlib.metadata as md
+          import platform, sys
+          print("python:", sys.version)
+          print("platform:", platform.platform())
+          for name in ("numpy", "scipy", "sympy", "mpmath", "threadpoolctl"):
+              try:
+                  print(f"{name}:", md.version(name))
+              except md.PackageNotFoundError:
+                  print(f"{name}: NOT INSTALLED")
+          print("=== numpy.show_config() ===")
+          import numpy as np
+          np.show_config()
+          try:
+              from threadpoolctl import threadpool_info
+              print("=== threadpoolctl.threadpool_info() ===")
+              print(threadpool_info())
+          except Exception as exc:
+              print("threadpoolctl unavailable:", repr(exc))
+          PY
+            echo '=== pip freeze ==='
+            python -m pip freeze
+          } > results/initial-state-identity-trace/runtime-environment.txt 2>&1
+
       - name: Capture candidate versus historical initialization identity
         id: init_trace
         continue-on-error: true
