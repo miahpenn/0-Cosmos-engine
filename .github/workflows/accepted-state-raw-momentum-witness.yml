@@ -144,6 +144,8 @@ jobs:
             echo "candidate_status:"
             git status --short --ignored
             echo "historical_commit=$(git -C source rev-parse HEAD)"
+            echo "cpu_topology:"
+            lscpu
             echo "vendor_candidate=$(git -C vendor/bb-palatini-unified-r0 rev-parse HEAD)"
             echo "vendor_historical=$(git -C source/vendor/bb-palatini-unified-r0 rev-parse HEAD)"
             python -m pip freeze
