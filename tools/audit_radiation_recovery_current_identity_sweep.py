@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import math
 from pathlib import Path
+from fractions import Fraction
 import sys
 
 import numpy as np
@@ -118,6 +119,18 @@ def _isqrt(a: tuple[float, float]) -> tuple[float, float]:
             _up(math.sqrt(a[1])))
 
 
+def exact_residual_sign(E: float, S2: float, pressure: float) -> int:
+    """Exact sign of f(p) for the exact rational values represented by binary64 inputs."""
+    e = Fraction.from_float(E)
+    s2 = Fraction.from_float(S2)
+    p = Fraction.from_float(pressure)
+    denominator = (e + p) * (e + p) - s2
+    if denominator <= 0:
+        raise ValueError("exact residual denominator is non-positive")
+    value = 3 * p - e + (4 * p * s2) / denominator
+    return (value > 0) - (value < 0)
+
+
 def residual_interval(E: float, S2: float, pressure: float) -> tuple[float, float]:
     """Outward-rounded enclosure of f(p) for the radiation pressure equation."""
     e, s2, p = _pt(E), _pt(S2), _pt(pressure)
@@ -189,8 +202,13 @@ def interval_certificate(E: float, S2: float, p_trace: float, trace_lo: float,
         trace_lo_residual = residual_interval(E, S2, trace_lo)
         trace_hi_residual = residual_interval(E, S2, trace_hi)
         trace_bracket_certified = trace_lo_residual[1] <= 0.0 and trace_hi_residual[0] >= 0.0
+        trace_lo_exact_sign = exact_residual_sign(E, S2, trace_lo)
+        trace_hi_exact_sign = exact_residual_sign(E, S2, trace_hi)
+        trace_bracket_exact_signs_certified = trace_lo_exact_sign <= 0 and trace_hi_exact_sign >= 0
         trace_analytic_zero_velocity = S2 == 0.0 and trace_lo == E / 3.0 and trace_hi == E / 3.0
-        trace_classification_certified = trace_bracket_certified or trace_analytic_zero_velocity
+        trace_classification_certified = (
+            trace_bracket_certified or trace_bracket_exact_signs_certified
+            or trace_analytic_zero_velocity)
         trace_residual = residual_interval(E, S2, p_trace)
         identity_residual = identity_residual_interval(E, pressure, v2)
         correction = identity_correction_interval(
@@ -216,6 +234,14 @@ def interval_certificate(E: float, S2: float, p_trace: float, trace_lo: float,
             "trace_bracket_lower_residual_interval": list(trace_lo_residual),
             "trace_bracket_upper_residual_interval": list(trace_hi_residual),
             "trace_bracket_signs_certified": trace_classification_certified,
+            "trace_bracket_interval_signs_certified": trace_bracket_certified,
+            "trace_bracket_exact_signs_certified": trace_bracket_exact_signs_certified,
+            "trace_lo_pressure": trace_lo,
+            "trace_hi_pressure": trace_hi,
+            "trace_lo_pressure_hex": trace_lo.hex(),
+            "trace_hi_pressure_hex": trace_hi.hex(),
+            "trace_lo_exact_residual_sign": trace_lo_exact_sign,
+            "trace_hi_exact_residual_sign": trace_hi_exact_sign,
             "trace_analytic_zero_velocity_exception": trace_analytic_zero_velocity,
             "trace_pressure_residual_interval": list(trace_residual),
             "production_identity_residual_interval_using_q_v2": list(identity_residual),
@@ -337,6 +363,8 @@ def main() -> int:
             "all_cells_certified": all(row["interval_certificate"]["certified"] for group in paired for row in group["per_cell"]),
             "all_pressure_roots_certified": all(row["interval_certificate"].get("pressure_root_certified", False) for group in paired for row in group["per_cell"]),
             "all_trace_brackets_certified": all(row["interval_certificate"].get("trace_classification_certified", False) for group in paired for row in group["per_cell"]),
+            "interval_trace_brackets_certified_cells": sum(row["interval_certificate"].get("trace_bracket_interval_signs_certified", False) for group in paired for row in group["per_cell"]),
+            "exact_trace_brackets_certified_cells": sum(row["interval_certificate"].get("trace_bracket_exact_signs_certified", False) for group in paired for row in group["per_cell"]),
             "all_raw_observed_differences_covered": all(row["interval_certificate"].get("correction_interval_covers_observed_signed_difference", False) for group in paired for row in group["per_cell"]),
             "all_differences_covered_with_existing_roundoff_bound": all(row["interval_certificate"].get("correction_interval_covers_observed_with_existing_roundoff_bound", False) for group in paired for row in group["per_cell"] if row["interval_certificate"].get("pressure_root_certified", False)),
         },
