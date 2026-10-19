@@ -10,6 +10,7 @@ on:
       - "tools/audit_radiation_recovery_roundtrip_sweep.py"
       - "tools/audit_radiation_recovery_current_identity_sweep.py"
       - "tools/audit_current_source_momentum_constraint_tangent.py"
+      - "tools/diagnostic_initialization_trace.py"
       - ".github/workflows/accepted-state-raw-momentum-witness.yml"
   workflow_dispatch:
 
@@ -141,10 +142,7 @@ jobs:
             echo "vendor_historical=$(git -C source/vendor/bb-palatini-unified-r0 rev-parse HEAD)"
             python -m pip freeze
             python -m threadpoolctl -i numpy
-            python - <<'PY'
-import numpy as np
-np.show_config()
-PY
+            python -c "import numpy as np; np.show_config()"
           } > results/initial-state-identity-trace/environment.txt 2>&1
 
       - name: Upload initialization trace even after digest failure
