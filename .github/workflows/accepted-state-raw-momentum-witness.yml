@@ -5,6 +5,7 @@ on:
     paths:
       - "tools/audit_accepted_state_raw_momentum_witness.py"
       - "tools/audit_shared_state_momentum_total_stress_divergence.py"
+      - "tools/audit_shared_state_momentum_total_stress_divergence.py"
       - "tools/audit_fluid_current_projection_directional_derivative.py"
       - "tools/audit_fluid_current_conserved_identity.py"
       - "tools/audit_radiation_recovery_roundtrip_sweep.py"
