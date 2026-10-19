@@ -10,6 +10,7 @@ on:
       - "tools/audit_radiation_recovery_roundtrip_sweep.py"
       - "tools/audit_radiation_recovery_current_identity_sweep.py"
       - "tools/audit_current_source_momentum_constraint_tangent.py"
+      - "tools/diagnostic_initialization_trace.py"
       - ".github/workflows/accepted-state-raw-momentum-witness.yml"
   workflow_dispatch:
 
@@ -66,6 +67,15 @@ jobs:
       - name: Compile the bounded replay
         run: python -m py_compile tools/audit_accepted_state_raw_momentum_witness.py
 
+      - name: Capture candidate versus historical initialization identity
+        id: init_trace
+        continue-on-error: true
+        run: |
+          python tools/diagnostic_initialization_trace.py \
+            --engine-root . \
+            --historical-root source \
+            --output results/initial-state-identity-trace/candidate_init_trace.json
+
       - name: Run the single exact accepted-state replay
         env:
           COSMOS_PINNED_SOURCE_ROOT: ${{ github.workspace }}/source
@@ -121,3 +131,19 @@ jobs:
           path: results/accepted-state-raw-momentum-witness/
           if-no-files-found: error
           retention-days: 90
+
+
+      - name: Upload initialization identity trace even on failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: initial-state-identity-trace
+          path: results/initial-state-identity-trace/
+          if-no-files-found: warn
+          retention-days: 90
+
+      - name: Fail job if initialization trace failed
+        if: always() && steps.init_trace.outcome == 'failure'
+        run: |
+          echo "Initialization trace failed; inspect the uploaded initial-state-identity-trace artifact."
+          exit 1
