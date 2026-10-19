@@ -56,6 +56,10 @@ def check_state(label, grid, geometry, matter) -> dict:
             raise FloatingPointError(f"{label}/{name}: non-finite or malformed current")
         difference = projected - direct
         bound = 128.0 * EPS * (np.abs(projected) + np.abs(direct)) + 1.0e-30
+        # First record the strict roundoff-only equivalence without silently
+        # relaxing it. Radiation primitive recovery is iterative (tol=1e-12),
+        # so its discrepancy must be measured before selecting a justified
+        # recovery-aware bound. This pass is measurement-only.
         passed = bool(np.all(np.abs(difference) <= bound))
         records[name] = {
             "passed": passed,
@@ -68,8 +72,6 @@ def check_state(label, grid, geometry, matter) -> dict:
             "cell_1_projected": float(projected[1]),
             "cell_1_direct": float(direct[1]),
         }
-        if not passed:
-            raise AssertionError(f"{label}/{name}: J_r != momentum_r/(KAPPA*sqrt_gamma)")
     return records
 
 
@@ -110,9 +112,15 @@ def run() -> dict:
     if before != after:
         raise RuntimeError("identity diagnostic mutated accepted state")
 
+    identity_roundoff_passed = all(
+        record["passed"]
+        for state_records in (accepted_result, manufactured_result)
+        for record in state_records.values()
+    )
+
     return {
         "schema": "issue4_conserved_momentum_fluid_current_identity_v1",
-        "status": "identity_check_passed_diagnostic_only",
+        "status": "identity_equivalence_measured_diagnostic_only",
         "provenance": provenance,
         "state_identity": {
             "initial_sha256": initial_digest,
@@ -121,7 +129,9 @@ def run() -> dict:
             "accepted_after_sha256": after,
             "accepted_state_unchanged": before == after,
         },
-        "identity": "project_species(...)[\"j\"] = conserved.momentum_r / (KAPPA * sqrt_gamma)",
+        "identity": "candidate: project_species(...)[\"j\"] = conserved.momentum_r / (KAPPA * sqrt_gamma)",
+        "strict_roundoff_equivalence_passed": identity_roundoff_passed,
+        "measurement_note": "The original machine-roundoff bound is retained unchanged. This run records all species/state discrepancies, including radiation primitive-recovery error, without declaring the identity accepted."
         "derivation": [
             "the pinned Valencia conserved momentum is sqrt_gamma * S_r",
             "the pinned Eulerian projection returns j = S_r / KAPPA",
@@ -130,7 +140,7 @@ def run() -> dict:
         "accepted_state": accepted_result,
         "manufactured_admissible_state": manufactured_result,
         "gates": {
-            "identity_check_passed": True,
+            "identity_check_passed": identity_roundoff_passed,
             "projection_step_size_plateau_established": False,
             "independent_full_propagation_identity_closed": False,
             "scientific_admission": False,
@@ -150,6 +160,7 @@ def main() -> int:
     )
     print(json.dumps({
         "status": result["status"],
+        "strict_roundoff_equivalence_passed": result["strict_roundoff_equivalence_passed"],
         "state_identity": result["state_identity"],
         "gates": result["gates"],
         "accepted_state": result["accepted_state"],
