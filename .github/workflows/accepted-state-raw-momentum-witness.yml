@@ -136,6 +136,7 @@ jobs:
             --output-dir results/accepted-state-raw-momentum-witness
 
       - name: Compile and run shared-state momentum / total-stress divergence calculation
+        if: steps.stage_trace.outcome == 'success' && steps.init_trace.outcome == 'success'
         env:
           COSMOS_PINNED_SOURCE_ROOT: ${{ github.workspace }}/source
         run: |
@@ -143,6 +144,7 @@ jobs:
           python tools/audit_shared_state_momentum_total_stress_divergence.py --output-dir results/accepted-state-raw-momentum-witness
 
       - name: Compile and run projection-only fluid-current derivative diagnostic
+        if: steps.stage_trace.outcome == 'success' && steps.init_trace.outcome == 'success'
         env:
           COSMOS_PINNED_SOURCE_ROOT: ${{ github.workspace }}/source
         run: |
@@ -150,6 +152,7 @@ jobs:
           python tools/audit_fluid_current_projection_directional_derivative.py
 
       - name: Compile and run conserved-current identity check
+        if: steps.stage_trace.outcome == 'success' && steps.init_trace.outcome == 'success'
         env:
           COSMOS_PINNED_SOURCE_ROOT: ${{ github.workspace }}/source
         run: |
@@ -157,6 +160,7 @@ jobs:
           python tools/audit_fluid_current_conserved_identity.py
 
       - name: Compile and run radiation recovery round-trip tolerance sweep
+        if: steps.stage_trace.outcome == 'success' && steps.init_trace.outcome == 'success'
         env:
           COSMOS_PINNED_SOURCE_ROOT: ${{ github.workspace }}/source
         run: |
@@ -164,6 +168,7 @@ jobs:
           python tools/audit_radiation_recovery_roundtrip_sweep.py
 
       - name: Compile and run paired radiation recovery/current identity sweep
+        if: steps.stage_trace.outcome == 'success' && steps.init_trace.outcome == 'success'
         env:
           COSMOS_PINNED_SOURCE_ROOT: ${{ github.workspace }}/source
         run: |
@@ -171,12 +176,14 @@ jobs:
           python tools/audit_radiation_recovery_current_identity_sweep.py
 
       - name: Hash replay outputs
+        if: steps.stage_trace.outcome == 'success' && steps.init_trace.outcome == 'success'
         run: |
           set -euo pipefail
           cd results/accepted-state-raw-momentum-witness
           find . -type f ! -name SHA256SUMS.txt -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS.txt
 
       - name: Upload raw witness and provenance
+        if: steps.stage_trace.outcome == 'success' && steps.init_trace.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
           name: accepted-state-raw-momentum-witness
