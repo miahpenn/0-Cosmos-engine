@@ -35,6 +35,44 @@ def require_digest(state, expected: str, label: str) -> str:
     return actual
 
 
+def matter_source_momentum_tangent(state, projections):
+    """Apply the exact M_geom functional derivative to explicit Aa/K matter sources."""
+    grid, geom = state.grid, state.geometry
+    r = np.asarray(grid.centers, dtype=np.float64)
+    d1 = lambda values: np.asarray(grid.cell_derivative_fourth(values, parity=1), dtype=np.float64)
+    x_r = d1(np.asarray(geom.X, dtype=np.float64))
+    b_r = d1(np.asarray(geom.b, dtype=np.float64))
+    coefficient_Aa = -3.0 * x_r / np.asarray(geom.X) + 3.0 / r + 1.5 * b_r / np.asarray(geom.b)
+
+    def contribution(part):
+        rho = np.asarray(part["rho"], dtype=np.float64)
+        pr = np.asarray(part["pr"], dtype=np.float64)
+        pt = np.asarray(part["pt"], dtype=np.float64)
+        aa_source = -(16.0 * np.pi / 3.0) * np.asarray(geom.alpha) * (pr - pt)
+        k_source = 4.0 * np.pi * np.asarray(geom.alpha) * (rho + pr + 2.0 * pt)
+        return d1(aa_source) - (2.0 / 3.0) * d1(k_source) + coefficient_Aa * aa_source
+
+    pieces = {}
+    for name, part in projections["scalar_parts"].items():
+        pieces[name] = contribution(part)
+    for name, part in projections["fluid_parts"].items():
+        pieces[name] = contribution(part)
+    total = contribution({key: projections[key] for key in ("rho", "pr", "pt")})
+    summed = sum(pieces.values(), np.zeros_like(total))
+    operand_scale = sum((np.abs(value) for value in pieces.values()), np.zeros_like(total))
+    decomposition_gap = summed - total
+    bound = 512.0 * np.finfo(np.float64).eps * np.maximum(operand_scale, np.abs(total))
+    if not np.all(np.abs(decomposition_gap) <= bound):
+        raise RuntimeError("sector matter-source tangent decomposition failed")
+    return {
+        "total": total,
+        "pieces": pieces,
+        "sector_sum": summed,
+        "decomposition_gap": decomposition_gap,
+        "decomposition_bound": bound,
+    }
+
+
 def run(output_dir: Path):
     source = momentum.provenance()
     stress_source = stress.verify_provenance()
@@ -95,6 +133,41 @@ def run(output_dir: Path):
     if not negative_control_detected:
         raise RuntimeError("Brown H-gradient wrong-sign negative control was not detected")
 
+    # Separate the explicit matter-source contribution to the geometric
+    # constraint tangent. The projection is independently rebuilt sector by
+    # sector; its summed Aa/K sources are cross-checked against the pinned
+    # production L3-minus-vacuum L3 source delta before use.
+    projections = stress.independent_total_projections(accepted)
+    if not projections["projection_crosscheck_passed"]:
+        raise RuntimeError("independent stress projection failed canonical cross-check")
+    matter_source = matter_source_momentum_tangent(accepted, projections)
+    source_rates = rates["geometry_stage_terms"]["primary_l3"]
+    vacuum_l3 = vacuum.primary_l3_rhs(accepted.grid, accepted.geometry)
+    production_aa_source = np.asarray(source_rates["Aa"]) - np.asarray(vacuum_l3["Aa"])
+    production_k_source = np.asarray(source_rates["K"]) - np.asarray(vacuum_l3["K"])
+    geom = accepted.geometry
+    expected_aa_source = -(16.0 * np.pi / 3.0) * np.asarray(geom.alpha) * (
+        np.asarray(projections["pr"]) - np.asarray(projections["pt"])
+    )
+    expected_k_source = 4.0 * np.pi * np.asarray(geom.alpha) * (
+        np.asarray(projections["rho"]) + np.asarray(projections["pr"])
+        + 2.0 * np.asarray(projections["pt"])
+    )
+    aa_source_delta = production_aa_source - expected_aa_source
+    k_source_delta = production_k_source - expected_k_source
+    source_projection_crosscheck = {
+        "Aa_source_max_abs_delta": float(np.max(np.abs(aa_source_delta))),
+        "K_source_max_abs_delta": float(np.max(np.abs(k_source_delta))),
+        "passed": bool(
+            np.allclose(production_aa_source, expected_aa_source, rtol=5.0e-12, atol=2.0e-16)
+            and np.allclose(production_k_source, expected_k_source, rtol=5.0e-12, atol=2.0e-16)
+        ),
+    }
+    if not source_projection_crosscheck["passed"]:
+        raise RuntimeError("independent Aa/K matter-source cross-check failed")
+    brown_plus_source = brown_prediction + matter_source["total"]
+    residual_after_source = mdot_geom - brown_plus_source
+
     after_digest = momentum.state_digest(accepted)
     if after_digest != base_digest:
         raise RuntimeError("shared accepted state mutated during observation")
@@ -109,6 +182,10 @@ def run(output_dir: Path):
         "brown_structural_residual_signed": np.asarray(brown_residual),
         "brown_H_gradient_term_signed": hgrad,
         "brown_wrong_sign_mutation_signed": wrong_sign_delta,
+        "matter_source_Mdot_signed": matter_source["total"],
+        "brown_plus_matter_source_prediction_signed": brown_plus_source,
+        "residual_after_matter_source_signed": residual_after_source,
+        **{f"matter_source_Mdot_{name}_signed": value for name, value in matter_source["pieces"].items()},
         "div_T_t_signed": np.asarray(div["div_T_t"]),
         "div_T_r_signed": np.asarray(div["div_T_r"]),
         "div_T_t_fv_signed": np.asarray(div["div_T_t_fv"]),
@@ -134,6 +211,11 @@ def run(output_dir: Path):
             "Brown_structural_residual_measured_minus_predicted": summary(brown_residual),
             "Brown_H_gradient_term": summary(hgrad),
             "Brown_wrong_sign_mutation": summary(wrong_sign_delta),
+            "explicit_matter_source_Mdot_geometric": summary(matter_source["total"]),
+            "Brown_plus_matter_source_prediction": summary(brown_plus_source),
+            "residual_after_explicit_matter_source": summary(residual_after_source),
+            "matter_source_Mdot_by_sector": {name: summary(value) for name, value in matter_source["pieces"].items()},
+            "matter_source_sector_decomposition_gap": summary(matter_source["decomposition_gap"]),
             "div_T_t_cell_centered": summary(div["div_T_t"]),
             "div_T_r_cell_centered": summary(div["div_T_r"]),
             "div_T_t_finite_volume": summary(div["div_T_t_fv"]),
@@ -147,8 +229,17 @@ def run(output_dir: Path):
                        "+alpha*D_r ln(g_theta_theta)]*D_r(C)",
             "hamiltonian_slot": "independent metric-only warped-product Ricci reconstruction",
             "wrong_sign_H_gradient_control_detected": negative_control_detected,
-            "scope": "vacuum structural terms only; matter-source and discrete residual remain explicit",
+            "scope": "vacuum structural terms plus separately measured explicit matter source; discrete product-rule/operator residual remains",
             "full_matter_coupled_identity": False,
+        },
+        "matter_source_crosscheck": {
+            **source_projection_crosscheck,
+            "independent_projection_crosscheck_passed": projections["projection_crosscheck_passed"],
+            "sector_decomposition_passed": bool(np.all(
+                np.abs(matter_source["decomposition_gap"]) <= matter_source["decomposition_bound"]
+            )),
+            "formula": "D_r(Aa_source) - 2/3 D_r(K_source) + [6 chi_r + 3/r + 3/2 D_r(b)/b]*Aa_source",
+            "source_terms": "Aa_source=-(16*pi/3)*alpha*(pr-pt); K_source=4*pi*alpha*(rho+pr+2*pt)",
         },
         "raw_arrays": {"file": "shared_state_signed_arrays.npz",
                        "names": sorted(arrays), "all_finite": True},
@@ -156,6 +247,10 @@ def run(output_dir: Path):
                   "wrong_digest_negative_control_passed": wrong_digest_rejected,
                   "observer_immutability_passed": True,
                   "brown_wrong_sign_negative_control_passed": negative_control_detected,
+                  "matter_source_crosscheck_passed": source_projection_crosscheck["passed"],
+                  "matter_source_sector_decomposition_passed": bool(np.all(
+                      np.abs(matter_source["decomposition_gap"]) <= matter_source["decomposition_bound"]
+                  )),
                   "independent_full_propagation_identity_closed": False,
                   "scientific_admission": False, "acceptance_oracle_satisfied": False},
         "interpretation": (
