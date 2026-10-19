@@ -346,9 +346,20 @@ def main() -> int:
     }
     out = Path("results/accepted-state-raw-momentum-witness/radiation-recovery-current-identity")
     out.mkdir(parents=True, exist_ok=True)
-    (out / "report.json").write_text(json.dumps(report, indent=2, sort_keys=True, allow_nan=False) + "\n", encoding="utf-8")
+    (out / "report.json").write_text(json.dumps(_json_safe(report), indent=2, sort_keys=True, allow_nan=False) + "\n", encoding="utf-8")
     print(json.dumps({"status": report["status"], "state_identity": report["state_identity"], "trends": trends, "gates": report["gates"]}, sort_keys=True), flush=True)
     return 0
+
+
+def _json_safe(value):
+    """Normalize nested NumPy scalars before strict JSON serialization."""
+    if isinstance(value, dict):
+        return {key: _json_safe(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_json_safe(item) for item in value]
+    if isinstance(value, np.generic):
+        return _json_safe(value.item())
+    return value
 
 
 if __name__ == "__main__":
