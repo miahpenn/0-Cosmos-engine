@@ -141,7 +141,7 @@ jobs:
             echo "vendor_candidate=$(git -C vendor/bb-palatini-unified-r0 rev-parse HEAD)"
             echo "vendor_historical=$(git -C source/vendor/bb-palatini-unified-r0 rev-parse HEAD)"
             python -m pip freeze
-            python -m threadpoolctl -i numpy
+            python -m threadpoolctl -i numpy || true
             python -c "import numpy as np; np.show_config()"
           } > results/initial-state-identity-trace/environment.txt 2>&1
 
