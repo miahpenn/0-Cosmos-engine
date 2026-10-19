@@ -38,7 +38,7 @@ def main():
     def snap(stage, values):
         item = {"stage":stage, "arrays":{}}
         for key in ("S","D","PS","PD","phi","Pi","Sp","Dp","Kt","Ktp","j",
-                    "rhoS","rhoD","rhoPhi","rhoMatter","rho_em","rho","Kr","src","integ","B","A","K","Aa","a","b","X","Lambda"):
+                    "rhoS","rhoD","rhoPhi","rhoMatter","rho_em","rho","Kr","src","integ","B","A","K","Aa","a","b","X","alpha","beta","Lambda"):
             v = values.get(key)
             if isinstance(v, np.ndarray) and v.ndim > 0:
                 item["arrays"][key] = describe(v)
@@ -63,7 +63,7 @@ def main():
             if state is not None:
                 snap("build_initial_data_return", {
                     **loc, "a":state.a, "b":state.b, "X":state.X, "alpha":state.alpha,
-                    "beta":state.beta, "Aa":state.Aa, "K":state.K, "Lambda":state.Lambda, "B":state.B
+                    "beta":state.beta, "alpha":state.alpha, "Aa":state.Aa, "K":state.K, "Lambda":state.Lambda, "B":state.B
                 })
         return tracer
 
