@@ -69,6 +69,58 @@ def matter_source_momentum_tangent(state, projections):
             out=np.full_like(decomposition_gap, np.inf), where=bound > 0.0,
         )
         worst = int(np.argmax(ratio))
+        # Diagnostic-only signed breakdown. Preserve the assertion and bound;
+        # expose per-sector operator pieces at the worst cell and centre controls.
+        def sector_terms(part):
+            rho = np.asarray(part["rho"], dtype=np.float64)
+            pr = np.asarray(part["pr"], dtype=np.float64)
+            pt = np.asarray(part["pt"], dtype=np.float64)
+            aa_source = -(16.0 * np.pi / 3.0) * np.asarray(geom.alpha) * (pr - pt)
+            k_source = 4.0 * np.pi * np.asarray(geom.alpha) * (rho + pr + 2.0 * pt)
+            aa_derivative = d1(aa_source)
+            k_derivative = -(2.0 / 3.0) * d1(k_source)
+            coefficient_term = coefficient_Aa * aa_source
+            return {
+                "Aa_source": aa_source,
+                "K_source": k_source,
+                "Aa_derivative_term": aa_derivative,
+                "K_derivative_term": k_derivative,
+                "geometric_coefficient_term": coefficient_term,
+                "combined": aa_derivative + k_derivative + coefficient_term,
+            }
+        term_arrays = {name: sector_terms(part) for name, part in {
+            **projections["scalar_parts"], **projections["fluid_parts"]
+        }.items()}
+        total_terms = sector_terms({key: projections[key] for key in ("rho", "pr", "pt")})
+        diagnostic_cells = sorted(set([worst, 0, 1]))
+        detail = []
+        for idx in diagnostic_cells:
+            sectors = {
+                name: {key: float(arr[idx]) for key, arr in terms.items()}
+                for name, terms in term_arrays.items()
+            }
+            total_detail = {key: float(arr[idx]) for key, arr in total_terms.items()}
+            abs_intermediate_scale = float(sum(
+                abs(sectors[name][term])
+                for name in sectors
+                for term in ("Aa_derivative_term", "K_derivative_term", "geometric_coefficient_term")
+            ))
+            signed_sector_sum = float(sum(sectors[name]["combined"] for name in sectors))
+            detail.append({
+                "cell": idx,
+                "sector_terms": sectors,
+                "total_terms": total_detail,
+                "signed_sector_sum": signed_sector_sum,
+                "independent_total": float(total[idx]),
+                "gap": float(decomposition_gap[idx]),
+                "bound": float(bound[idx]),
+                "gap_over_bound": float(ratio[idx]),
+                "abs_intermediate_operand_scale": abs_intermediate_scale,
+                "gap_over_intermediate_scale": (
+                    float(abs(decomposition_gap[idx]) / abs_intermediate_scale)
+                    if abs_intermediate_scale else None
+                ),
+            })
         raise RuntimeError(
             "sector matter-source tangent decomposition failed: "
             f"failed_cells={int(np.count_nonzero(failed))}/{failed.size}, "
@@ -79,7 +131,8 @@ def matter_source_momentum_tangent(state, projections):
             f"bound_at_worst={float(bound[worst]):.17g}, "
             f"summed_at_worst={float(summed[worst]):.17g}, "
             f"total_at_worst={float(total[worst]):.17g}, "
-            f"operand_scale_at_worst={float(operand_scale[worst]):.17g}"
+            f"operand_scale_at_worst={float(operand_scale[worst]):.17g}, "
+            f"diagnostic_cells={json.dumps(detail, sort_keys=True, separators=(',', ':'))}"
         )
     return {
         "total": total,
