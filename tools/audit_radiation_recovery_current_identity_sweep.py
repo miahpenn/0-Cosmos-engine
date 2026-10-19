@@ -190,8 +190,7 @@ def interval_certificate(E: float, S2: float, p_trace: float, trace_lo: float,
         trace_hi_residual = residual_interval(E, S2, trace_hi)
         trace_bracket_certified = trace_lo_residual[1] <= 0.0 and trace_hi_residual[0] >= 0.0
         trace_analytic_zero_velocity = S2 == 0.0 and trace_lo == E / 3.0 and trace_hi == E / 3.0
-        if not trace_bracket_certified and not trace_analytic_zero_velocity:
-            raise ValueError("traced solver endpoint signs not certified")
+        trace_classification_certified = trace_bracket_certified or trace_analytic_zero_velocity
         trace_residual = residual_interval(E, S2, p_trace)
         identity_residual = identity_residual_interval(E, pressure, v2)
         correction = identity_correction_interval(
@@ -200,8 +199,10 @@ def interval_certificate(E: float, S2: float, p_trace: float, trace_lo: float,
         correction_covers_with_bound = (
             correction[0] - roundoff_bound <= observed <= correction[1] + roundoff_bound)
         result.update({
-            "certified": True,
-            "failure": None,
+            "certified": trace_classification_certified,
+            "pressure_root_certified": True,
+            "trace_classification_certified": trace_classification_certified,
+            "failure": None if trace_classification_certified else "traced solver endpoint signs not certified",
             "endpoint_residual_at_zero": list(f_lo),
             "endpoint_residual_at_upper": list(f_hi),
             "upper_endpoint_branch": upper_branch,
@@ -214,7 +215,7 @@ def interval_certificate(E: float, S2: float, p_trace: float, trace_lo: float,
             "pressure_error_bound_rho_over_3": pressure_error_bound,
             "trace_bracket_lower_residual_interval": list(trace_lo_residual),
             "trace_bracket_upper_residual_interval": list(trace_hi_residual),
-            "trace_bracket_signs_certified": trace_bracket_certified or trace_analytic_zero_velocity,
+            "trace_bracket_signs_certified": trace_classification_certified,
             "trace_analytic_zero_velocity_exception": trace_analytic_zero_velocity,
             "trace_pressure_residual_interval": list(trace_residual),
             "production_identity_residual_interval_using_q_v2": list(identity_residual),
@@ -330,10 +331,14 @@ def main() -> int:
         "paired_results": paired,
         "interval_certificate_summary": {
             "certified_cells": sum(row["interval_certificate"]["certified"] for group in paired for row in group["per_cell"]),
+            "pressure_root_certified_cells": sum(row["interval_certificate"].get("pressure_root_certified", False) for group in paired for row in group["per_cell"]),
+            "trace_bracket_certified_cells": sum(row["interval_certificate"].get("trace_classification_certified", False) for group in paired for row in group["per_cell"]),
             "total_cells": sum(group["cells"] for group in paired),
             "all_cells_certified": all(row["interval_certificate"]["certified"] for group in paired for row in group["per_cell"]),
+            "all_pressure_roots_certified": all(row["interval_certificate"].get("pressure_root_certified", False) for group in paired for row in group["per_cell"]),
+            "all_trace_brackets_certified": all(row["interval_certificate"].get("trace_classification_certified", False) for group in paired for row in group["per_cell"]),
             "all_raw_observed_differences_covered": all(row["interval_certificate"].get("correction_interval_covers_observed_signed_difference", False) for group in paired for row in group["per_cell"]),
-            "all_differences_covered_with_existing_roundoff_bound": all(row["interval_certificate"].get("correction_interval_covers_observed_with_existing_roundoff_bound", False) for group in paired for row in group["per_cell"] if row["interval_certificate"]["certified"]),
+            "all_differences_covered_with_existing_roundoff_bound": all(row["interval_certificate"].get("correction_interval_covers_observed_with_existing_roundoff_bound", False) for group in paired for row in group["per_cell"] if row["interval_certificate"].get("pressure_root_certified", False)),
         },
         "tolerance_trends": trends,
         "gates": {"recovery_error_source_isolated": False, "projection_step_size_plateau_established": False, "independent_full_propagation_identity_closed": False, "scientific_admission": False, "acceptance_oracle_satisfied": False},
