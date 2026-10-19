@@ -93,6 +93,28 @@ def matter_source_momentum_tangent(state, projections):
         }.items()}
         total_terms = sector_terms({key: projections[key] for key in ("rho", "pr", "pt")})
         diagnostic_cells = sorted(set([worst, 0, 1]))
+        # Fourth-order cell derivative uses a local stencil. Record source
+        # assembly identities before D1 across a conservative +/-3-cell window
+        # around the worst cell, without changing the derivative or its bound.
+        source_neighborhood = []
+        source_lo, source_hi = max(0, worst - 3), min(total.size, worst + 4)
+        for j in range(source_lo, source_hi):
+            source_entry = {"cell": j}
+            for source_name in ("Aa_source", "K_source"):
+                sector_sum = float(sum(
+                    terms[source_name][j] for terms in term_arrays.values()
+                ))
+                independent = float(total_terms[source_name][j])
+                source_entry[source_name] = {
+                    "sector_sum": sector_sum,
+                    "independent_total": independent,
+                    "gap": sector_sum - independent,
+                    "abs_sector_sum_scale": float(sum(
+                        abs(terms[source_name][j]) for terms in term_arrays.values()
+                    )),
+                }
+            source_neighborhood.append(source_entry)
+        diagnostic_cells = sorted(set([worst, 0, 1]))
         detail = []
         for idx in diagnostic_cells:
             sectors = {
@@ -132,6 +154,7 @@ def matter_source_momentum_tangent(state, projections):
             f"summed_at_worst={float(summed[worst]):.17g}, "
             f"total_at_worst={float(total[worst]):.17g}, "
             f"operand_scale_at_worst={float(operand_scale[worst]):.17g}, "
+            f"source_neighborhood={json.dumps(source_neighborhood, sort_keys=True, separators=(',', ':'))}, "
             f"diagnostic_cells={json.dumps(detail, sort_keys=True, separators=(',', ':'))}"
         )
     return {
