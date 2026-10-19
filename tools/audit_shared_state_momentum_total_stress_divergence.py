@@ -62,8 +62,25 @@ def matter_source_momentum_tangent(state, projections):
     operand_scale = sum((np.abs(value) for value in pieces.values()), np.zeros_like(total))
     decomposition_gap = summed - total
     bound = 512.0 * np.finfo(np.float64).eps * np.maximum(operand_scale, np.abs(total))
-    if not np.all(np.abs(decomposition_gap) <= bound):
-        raise RuntimeError("sector matter-source tangent decomposition failed")
+    failed = np.abs(decomposition_gap) > bound
+    if not np.all(~failed):
+        ratio = np.divide(
+            np.abs(decomposition_gap), bound,
+            out=np.full_like(decomposition_gap, np.inf), where=bound > 0.0,
+        )
+        worst = int(np.argmax(ratio))
+        raise RuntimeError(
+            "sector matter-source tangent decomposition failed: "
+            f"failed_cells={int(np.count_nonzero(failed))}/{failed.size}, "
+            f"max_abs_gap={float(np.max(np.abs(decomposition_gap))):.17g}, "
+            f"max_bound={float(np.max(bound)):.17g}, "
+            f"worst_ratio={float(ratio[worst]):.17g}, worst_index={worst}, "
+            f"gap_at_worst={float(decomposition_gap[worst]):.17g}, "
+            f"bound_at_worst={float(bound[worst]):.17g}, "
+            f"summed_at_worst={float(summed[worst]):.17g}, "
+            f"total_at_worst={float(total[worst]):.17g}, "
+            f"operand_scale_at_worst={float(operand_scale[worst]):.17g}"
+        )
     return {
         "total": total,
         "pieces": pieces,
