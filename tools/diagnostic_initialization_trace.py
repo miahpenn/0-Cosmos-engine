@@ -103,10 +103,16 @@ def main():
     if args.historical_root:
         try:
             hist_path = output.parent / "historical_init_trace.json"
-            subprocess.run([sys.executable, str(Path(__file__).resolve()), "--engine-root", args.historical_root,
-                            "--output", str(hist_path), "--role", "historical-child"],
-                           check=True, capture_output=True, text=True, timeout=600)
-            report["historical"] = json.loads(hist_path.read_text(encoding="utf-8"))
+            child = subprocess.run([sys.executable, str(Path(__file__).resolve()), "--engine-root", args.historical_root,
+                                    "--output", str(hist_path), "--role", "historical-child"],
+                                   check=False, capture_output=True, text=True, timeout=600)
+            if hist_path.exists():
+                report["historical"] = json.loads(hist_path.read_text(encoding="utf-8"))
+                report["historical_child_exit_code"] = child.returncode
+                report["historical_child_stdout"] = child.stdout[-4000:]
+                report["historical_child_stderr"] = child.stderr[-4000:]
+            else:
+                raise RuntimeError("historical trace child produced no trace JSON: " + child.stderr[-4000:])
         except BaseException as exc:
             report["errors"].append({"role":"historical", "error":repr(exc), "traceback":traceback.format_exc()})
     cand, hist = report["candidate"], report["historical"]
