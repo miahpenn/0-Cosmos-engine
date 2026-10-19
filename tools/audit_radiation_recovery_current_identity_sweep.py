@@ -22,12 +22,12 @@ TOLS = (1.0e-8, 1.0e-10, 1.0e-12, 1.0e-13, 1.0e-14)
 EPS = np.finfo(np.float64).eps
 
 
-def traced_pressure(E: float, S2: float, tol: float) -> tuple[float, int, str]:
+def traced_pressure(E: float, S2: float, tol: float) -> tuple[float, int, str, float, float]:
     """Mirror the pinned recovery bisection to expose iteration/exit class."""
     if E < 0.0:
         raise ValueError("negative energy")
     if S2 == 0.0:
-        return E / 3.0, 0, "zero_velocity_analytic"
+        return E / 3.0, 0, "zero_velocity_analytic", E / 3.0, E / 3.0
     if math.sqrt(max(S2, 0.0)) >= E:
         raise ValueError("radiation state outside strict E>|S| cone")
 
@@ -50,7 +50,7 @@ def traced_pressure(E: float, S2: float, tol: float) -> tuple[float, int, str]:
         mid = 0.5 * (lo + hi)
         f_mid, v2 = residual(mid)
         if abs(f_mid) <= tol * E:
-            return mid, iteration, "converged"
+            return mid, iteration, "converged", lo, hi
         if f_mid >= 0.0:
             hi = mid
         else:
@@ -59,7 +59,7 @@ def traced_pressure(E: float, S2: float, tol: float) -> tuple[float, int, str]:
     f_mid, v2 = residual(mid)
     if not math.isfinite(f_mid) or v2 >= 1.0:
         raise ValueError("iteration-limit invalid endpoint")
-    return mid, 80, "iteration_limit_return"
+    return mid, 80, "iteration_limit_return", lo, hi
 
 
 
@@ -129,14 +129,19 @@ def residual_interval(E: float, S2: float, pressure: float) -> tuple[float, floa
     return _iadd(first, second)
 
 
-def identity_correction_interval(E: float, pressure: float, v2: float,
-                                 gamma_rr: float, Sr: float) -> tuple[float, float]:
-    """Enclose the signed correction using the production result's p and v2."""
+def identity_residual_interval(E: float, pressure: float, v2: float) -> tuple[float, float]:
+    """Enclose the production identity residual using q.pressure and q.v2."""
     e, p, vv = _pt(E), _pt(pressure), _pt(v2)
     first = _isub(_imul(_pt(3.0), p), e)
     second = _idiv(_imul(_imul(_pt(4.0), p), vv),
                    _isub(_pt(1.0), vv))
-    f_value = _iadd(first, second)
+    return _iadd(first, second)
+
+
+def identity_correction_interval(E: float, pressure: float, v2: float,
+                                 gamma_rr: float, Sr: float) -> tuple[float, float]:
+    """Enclose the signed correction using the production result's p and v2."""
+    f_value = identity_residual_interval(E, pressure, v2)
     root_metric = _isqrt(_pt(gamma_rr))
     root_v2 = _isqrt(vv)
     sign = -1.0 if Sr < 0.0 else (1.0 if Sr > 0.0 else 0.0)
@@ -144,14 +149,14 @@ def identity_correction_interval(E: float, pressure: float, v2: float,
                        root_v2), _pt(KAPPA))
 
 
-def interval_certificate(E: float, S2: float, p_trace: float, pressure: float,
-                         v2: float, gamma_rr: float, Sr: float,
-                         observed: float) -> dict:
+def interval_certificate(E: float, S2: float, p_trace: float, trace_lo: float,
+                         trace_hi: float, pressure: float, v2: float,
+                         gamma_rr: float, Sr: float, observed: float) -> dict:
     """Fail-closed residual/bracket/pressure-error certificate for one cell."""
     result = {"certified": False, "failure": None}
     try:
         if not all(math.isfinite(x) for x in
-                   (E, S2, p_trace, pressure, v2, gamma_rr, Sr, observed)):
+                   (E, S2, p_trace, trace_lo, trace_hi, pressure, v2, gamma_rr, Sr, observed)):
             raise ValueError("non-finite input")
         if E <= 0.0 or S2 < 0.0 or gamma_rr <= 0.0 or not (0.0 <= v2 < 1.0):
             raise ValueError("outside physical certificate domain")
@@ -180,7 +185,11 @@ def interval_certificate(E: float, S2: float, p_trace: float, pressure: float,
         root_residual = residual_interval(E, S2, pressure)
         rho_f = max(abs(root_residual[0]), abs(root_residual[1]))
         pressure_error_bound = _up(rho_f / 3.0)
+        trace_lo_residual = residual_interval(E, S2, trace_lo)
+        trace_hi_residual = residual_interval(E, S2, trace_hi)
+        trace_bracket_certified = trace_lo_residual[1] <= 0.0 and trace_hi_residual[0] >= 0.0
         trace_residual = residual_interval(E, S2, p_trace)
+        identity_residual = identity_residual_interval(E, pressure, v2)
         correction = identity_correction_interval(
             E, pressure, v2, gamma_rr, Sr)
         correction_covers_observed = correction[0] <= observed <= correction[1]
@@ -197,7 +206,11 @@ def interval_certificate(E: float, S2: float, p_trace: float, pressure: float,
             "production_pressure_residual_interval": list(root_residual),
             "rho_f": rho_f,
             "pressure_error_bound_rho_over_3": pressure_error_bound,
+            "trace_bracket_lower_residual_interval": list(trace_lo_residual),
+            "trace_bracket_upper_residual_interval": list(trace_hi_residual),
+            "trace_bracket_signs_certified": trace_bracket_certified,
             "trace_pressure_residual_interval": list(trace_residual),
+            "production_identity_residual_interval_using_q_v2": list(identity_residual),
             "trace_pressure_delta": pressure - p_trace,
             "identity_correction_interval": list(correction),
             "correction_interval_covers_observed_signed_difference": correction_covers_observed,
@@ -214,7 +227,7 @@ def inspect_state(label, metrics, state, tol: float) -> dict:
         E = float(U.energy_t / metric.sqrt_gamma)
         Sr = float(U.momentum_r / metric.sqrt_gamma)
         S2 = float(metric.gamma_rr_inv * Sr * Sr)
-        p_trace, iterations, exit_class = traced_pressure(E, S2, tol)
+        p_trace, iterations, exit_class, trace_lo, trace_hi = traced_pressure(E, S2, tol)
         q = recover_radiation(metric, U, tol=tol)
         pressure_delta = float(q.pressure - p_trace)
         v2 = float(q.v2)
@@ -227,7 +240,7 @@ def inspect_state(label, metrics, state, tol: float) -> dict:
         remainder = observed - predicted
         wrong_sign_prediction = -predicted
         roundoff_bound = 128.0 * EPS * (abs(projected) + abs(direct)) + 1.0e-30
-        certificate = interval_certificate(E, S2, p_trace, q.pressure, v2, metric.gamma_rr, Sr, observed)
+        certificate = interval_certificate(E, S2, p_trace, trace_lo, trace_hi, q.pressure, v2, metric.gamma_rr, Sr, observed)
         rows.append({
             "cell": i, "E": E, "S_r": Sr, "S2": S2,
             "pressure": float(q.pressure), "v2": v2, "f_p": f_p,
