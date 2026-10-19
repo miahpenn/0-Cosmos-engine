@@ -20,10 +20,14 @@ FIELD_SPECS = [
 ]
 
 def sha256_array(value):
+    original = np.asarray(value)
     arr = np.ascontiguousarray(np.asarray(value, dtype=np.float64))
-    return {"shape": list(arr.shape), "dtype": str(arr.dtype), "byteorder": arr.dtype.byteorder,
-            "c_contiguous": bool(arr.flags.c_contiguous),
-            "sha256": hashlib.sha256(arr.tobytes(order="C")).hexdigest()}
+    return {"shape": list(original.shape), "source_dtype": str(original.dtype),
+            "source_byteorder": original.dtype.byteorder,
+            "source_c_contiguous": bool(original.flags.c_contiguous),
+            "canonical_dtype": str(arr.dtype), "canonical_byteorder": arr.dtype.byteorder,
+            "canonical_sha256": hashlib.sha256(arr.tobytes(order="C")).hexdigest(),
+            "source_raw_sha256": hashlib.sha256(np.ascontiguousarray(original).tobytes(order="C")).hexdigest()}
 
 def resolve_field(state, path):
     obj = state
@@ -57,7 +61,7 @@ def collect(engine_root, output_path, role):
         "expected_accepted_digest_not_checked_by_init_trace": EXPECTED_ACCEPTED,
         "fields": fields,
         "boundary_values": {
-            "geometry.Ktp_not_available_in_initial_state": True,
+            
             "geometry.Aa_outer_3": np.asarray(state.geometry.Aa, dtype=float)[-3:].tolist(),
             "geometry.Lambda_outer_3": np.asarray(state.geometry.Lambda, dtype=float)[-3:].tolist(),
             "geometry.alpha_outer_3": np.asarray(state.geometry.alpha, dtype=float)[-3:].tolist(),
