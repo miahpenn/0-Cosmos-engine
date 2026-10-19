@@ -27,11 +27,9 @@ jobs:
     timeout-minutes: 25
     env:
       PYTHONUNBUFFERED: "1"
-      # Controlled diagnostic probe: known-good digest came from AMD EPYC 9V74;
-      # drifted replay ran on EPYC 9V45. Packages/pins match, but tiny last-cell
-      # derivative differences remain after AVX-512 disables. Force NumPy's X86_V2
-      # baseline for one comparison; never retarget the immutable digest.
-      NPY_DISABLE_CPU_FEATURES: "X86_V3,X86_V4,AVX512_ICL,AVX512_SPR"
+      # Do not force a SIMD dispatch override: the known-good replay used NumPy's
+      # default dispatch. Record the effective runner/dispatch and fail closed if
+      # the immutable digest cannot be reproduced on the assigned hardware.
       # Preserve the runtime environment used by the previously successful exact replay.
       # Do not force BLAS/OpenMP thread counts: the experiment changed the pinned state digest.
       SOURCE_COMMIT: "7f47669a1c0edfafef9fc5f27b2db80840d3f035"
