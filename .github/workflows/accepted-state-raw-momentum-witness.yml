@@ -10,6 +10,7 @@ on:
       - "tools/audit_radiation_recovery_roundtrip_sweep.py"
       - "tools/audit_radiation_recovery_current_identity_sweep.py"
       - "tools/audit_current_source_momentum_constraint_tangent.py"
+      - "tools/diagnostic_initialization_trace.py"
       - ".github/workflows/accepted-state-raw-momentum-witness.yml"
   workflow_dispatch:
 
@@ -66,6 +67,18 @@ jobs:
       - name: Compile the bounded replay
         run: python -m py_compile tools/audit_accepted_state_raw_momentum_witness.py
 
+      - name: Capture candidate versus historical initial-state identity
+        id: init-trace
+        continue-on-error: true
+        env:
+          COSMOS_PINNED_SOURCE_ROOT: ${{ github.workspace }}/source
+        run: |
+          mkdir -p results/initial-state-identity-trace
+          python tools/diagnostic_initialization_trace.py \
+            --engine-root "${{ github.workspace }}" \
+            --historical-root "${{ github.workspace }}/source" \
+            --output "${{ github.workspace }}/results/initial-state-identity-trace/candidate_init_trace.json"
+
       - name: Run the single exact accepted-state replay
         env:
           COSMOS_PINNED_SOURCE_ROOT: ${{ github.workspace }}/source
@@ -74,6 +87,7 @@ jobs:
             --output-dir results/accepted-state-raw-momentum-witness
 
       - name: Compile and run shared-state momentum / total-stress divergence calculation
+        if: success() && steps.init-trace.outcome == 'success'
         env:
           COSMOS_PINNED_SOURCE_ROOT: ${{ github.workspace }}/source
         run: |
@@ -81,6 +95,7 @@ jobs:
           python tools/audit_shared_state_momentum_total_stress_divergence.py --output-dir results/accepted-state-raw-momentum-witness
 
       - name: Compile and run projection-only fluid-current derivative diagnostic
+        if: success() && steps.init-trace.outcome == 'success'
         env:
           COSMOS_PINNED_SOURCE_ROOT: ${{ github.workspace }}/source
         run: |
@@ -88,6 +103,7 @@ jobs:
           python tools/audit_fluid_current_projection_directional_derivative.py
 
       - name: Compile and run conserved-current identity check
+        if: success() && steps.init-trace.outcome == 'success'
         env:
           COSMOS_PINNED_SOURCE_ROOT: ${{ github.workspace }}/source
         run: |
@@ -95,6 +111,7 @@ jobs:
           python tools/audit_fluid_current_conserved_identity.py
 
       - name: Compile and run radiation recovery round-trip tolerance sweep
+        if: success() && steps.init-trace.outcome == 'success'
         env:
           COSMOS_PINNED_SOURCE_ROOT: ${{ github.workspace }}/source
         run: |
@@ -102,6 +119,7 @@ jobs:
           python tools/audit_radiation_recovery_roundtrip_sweep.py
 
       - name: Compile and run paired radiation recovery/current identity sweep
+        if: success() && steps.init-trace.outcome == 'success'
         env:
           COSMOS_PINNED_SOURCE_ROOT: ${{ github.workspace }}/source
         run: |
@@ -109,10 +127,40 @@ jobs:
           python tools/audit_radiation_recovery_current_identity_sweep.py
 
       - name: Hash replay outputs
+        if: success() && steps.init-trace.outcome == 'success'
         run: |
           set -euo pipefail
           cd results/accepted-state-raw-momentum-witness
           find . -type f ! -name SHA256SUMS.txt -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS.txt
+
+      - name: Record trace environment and git provenance
+        if: always()
+        continue-on-error: true
+        shell: bash
+        run: |
+          mkdir -p results/initial-state-identity-trace
+          {
+            echo "candidate_commit=$(git rev-parse HEAD)"
+            echo "candidate_status:"
+            git status --short --ignored
+            echo "historical_commit=$(git -C source rev-parse HEAD)"
+            echo "cpu_topology:"
+            lscpu
+            echo "vendor_candidate=$(git -C vendor/bb-palatini-unified-r0 rev-parse HEAD)"
+            echo "vendor_historical=$(git -C source/vendor/bb-palatini-unified-r0 rev-parse HEAD)"
+            python -m pip freeze
+            python -m threadpoolctl -i numpy || true
+            python -c "import numpy as np; np.show_config()"
+          } > results/initial-state-identity-trace/environment.txt 2>&1
+
+      - name: Upload initialization trace even after digest failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: initial-state-identity-trace
+          path: results/initial-state-identity-trace/
+          if-no-files-found: warn
+          retention-days: 90
 
       - name: Upload raw witness and provenance
         uses: actions/upload-artifact@v4
