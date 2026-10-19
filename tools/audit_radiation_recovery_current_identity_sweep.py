@@ -157,7 +157,7 @@ def interval_certificate(E: float, S2: float, p_trace: float, trace_lo: float,
     result = {"certified": False, "failure": None}
     try:
         if not all(math.isfinite(x) for x in
-                   (E, S2, p_trace, trace_lo, trace_hi, pressure, v2, gamma_rr, Sr, observed)):
+                   (E, S2, p_trace, trace_lo, trace_hi, pressure, v2, gamma_rr, Sr, observed, roundoff_bound)):
             raise ValueError("non-finite input")
         if E <= 0.0 or S2 < 0.0 or gamma_rr <= 0.0 or not (0.0 <= v2 < 1.0):
             raise ValueError("outside physical certificate domain")
