@@ -143,7 +143,7 @@ def identity_correction_interval(E: float, pressure: float, v2: float,
     """Enclose the signed correction using the production result's p and v2."""
     f_value = identity_residual_interval(E, pressure, v2)
     root_metric = _isqrt(_pt(gamma_rr))
-    root_v2 = _isqrt(vv)
+    root_v2 = _isqrt(_pt(v2))
     sign = -1.0 if Sr < 0.0 else (1.0 if Sr > 0.0 else 0.0)
     return _idiv(_imul(_imul(_imul(f_value, root_metric), _pt(sign)),
                        root_v2), _pt(KAPPA))
