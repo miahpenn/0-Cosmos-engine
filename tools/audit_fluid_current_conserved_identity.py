@@ -122,6 +122,13 @@ def run() -> dict:
         "schema": "issue4_conserved_momentum_fluid_current_identity_v1",
         "status": "identity_equivalence_measured_diagnostic_only",
         "provenance": provenance,
+        "runtime_reproducibility": {
+            key: __import__("os").environ.get(key)
+            for key in (
+                "OPENBLAS_NUM_THREADS", "OMP_NUM_THREADS", "MKL_NUM_THREADS",
+                "VECLIB_MAXIMUM_THREADS", "NUMEXPR_NUM_THREADS",
+            )
+        },
         "state_identity": {
             "initial_sha256": initial_digest,
             "accepted_expected_sha256": EXPECTED_ACCEPTED,
