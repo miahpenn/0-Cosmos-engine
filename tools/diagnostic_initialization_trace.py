@@ -46,7 +46,6 @@ def collect(engine_root, output_path, role):
     for name, *_ in FIELD_SPECS:
         spec = fields[name]
         h.update(name.encode("utf-8")); h.update(str(tuple(spec["shape"])).encode("ascii"))
-        arr = np.ascontiguousarray(np.asarray(resolve_field(state, name), dtype=np.float64)) if False else None
         # Rebuild the historical state digest's canonical bytes by resolving the
         # explicit object path below (the named field key is already stable).
         path = next(".".join(rest) for field_name, *rest in FIELD_SPECS if field_name == name)
@@ -113,7 +112,7 @@ def main():
     cand, hist = report["candidate"], report["historical"]
     if cand and hist and cand.get("fields") and hist.get("fields"):
         for name, *_ in FIELD_SPECS:
-            if cand["fields"].get(name, {}).get("sha256") != hist["fields"].get(name, {}).get("sha256"):
+            if cand["fields"].get(name, {}).get("canonical_sha256") != hist["fields"].get(name, {}).get("canonical_sha256"):
                 report["first_divergent_field"] = {
                     "field": name, "candidate": cand["fields"][name], "historical": hist["fields"][name]
                 }
