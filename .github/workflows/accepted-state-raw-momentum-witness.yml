@@ -29,7 +29,7 @@ jobs:
       PYTHONUNBUFFERED: "1"
       # Diagnostic only: match the previously observed NumPy dispatch set (X86_V3).
       # Do not alter pinned digests or production arithmetic; verify np.show_runtime() in the trace.
-      NPY_DISABLE_CPU_FEATURES: "X86_V4,AVX512_ICL"
+      NPY_DISABLE_CPU_FEATURES: "X86_V4,AVX512_ICL,AVX512_SPR"
       # Preserve the runtime environment used by the previously successful exact replay.
       # Do not force BLAS/OpenMP thread counts: the experiment changed the pinned state digest.
       SOURCE_COMMIT: "7f47669a1c0edfafef9fc5f27b2db80840d3f035"
@@ -82,7 +82,7 @@ jobs:
             echo '=== CPU topology ==='
             lscpu || true
             echo '=== relevant environment ==='
-            env | sort | grep -E '^(BLAS|OMP|OPENBLAS|MKL|NUMEXPR|VECLIB|PYTHON|GITHUB_RUNNER|RUNNER_)' || true
+            env | sort | grep -E '^(BLAS|OMP|OPENBLAS|MKL|NUMEXPR|VECLIB|PYTHON|GITHUB_RUNNER|RUNNER_|NPY_DISABLE_CPU_FEATURES=)' || true
             echo '=== Python and package versions ==='
             python - <<'PY'
           import importlib.metadata as md
