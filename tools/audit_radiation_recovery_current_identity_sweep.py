@@ -94,7 +94,7 @@ def inspect_state(label, metrics, state, tol: float) -> dict:
             "wrong_sign_prediction": wrong_sign_prediction,
             "wrong_sign_remainder": observed - wrong_sign_prediction,
             "strict_roundoff_bound": roundoff_bound,
-            "strict_identity_passed": abs(observed) <= roundoff_bound,
+            "strict_identity_passed": bool(abs(observed) <= roundoff_bound),
         })
     finite = all(all(math.isfinite(v) for k, v in row.items() if isinstance(v, (int, float))) for row in rows)
     wrong_sign_detected = all(
