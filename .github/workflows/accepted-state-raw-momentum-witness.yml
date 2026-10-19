@@ -108,6 +108,16 @@ jobs:
             python -m pip freeze
           } > results/initial-state-identity-trace/runtime-environment.txt 2>&1
 
+      - name: Capture stage-level initialization intermediates
+        id: stage_trace
+        continue-on-error: true
+        run: |
+          python -m py_compile tools/diagnostic_initialization_stage_trace.py
+          python tools/diagnostic_initialization_stage_trace.py \
+            --engine-root . \
+            --historical-root source \
+            --output results/initial-state-identity-trace/stage_trace.json
+
       - name: Capture candidate versus historical initialization identity
         id: init_trace
         continue-on-error: true
@@ -118,6 +128,7 @@ jobs:
             --output results/initial-state-identity-trace/candidate_init_trace.json
 
       - name: Run the single exact accepted-state replay
+        if: steps.stage_trace.outcome == 'success' && steps.init_trace.outcome == 'success'
         env:
           COSMOS_PINNED_SOURCE_ROOT: ${{ github.workspace }}/source
         run: |
@@ -183,8 +194,8 @@ jobs:
           if-no-files-found: warn
           retention-days: 90
 
-      - name: Fail job if initialization trace failed
-        if: always() && steps.init_trace.outcome == 'failure'
+      - name: Fail job if either initialization identity trace failed
+        if: always() && (steps.init_trace.outcome == 'failure' || steps.stage_trace.outcome == 'failure')
         run: |
-          echo "Initialization trace failed; inspect the uploaded initial-state-identity-trace artifact."
+          echo "Initialization identity failed or stage trace found a mismatch; inspect the uploaded initial-state-identity-trace artifact."
           exit 1
