@@ -5,6 +5,7 @@ on:
     paths:
       - "tools/audit_accepted_state_raw_momentum_witness.py"
       - "tools/audit_fluid_current_projection_directional_derivative.py"
+      - "tools/audit_fluid_current_conserved_identity.py"
       - "tools/audit_current_source_momentum_constraint_tangent.py"
       - ".github/workflows/accepted-state-raw-momentum-witness.yml"
   workflow_dispatch:
@@ -73,6 +74,13 @@ jobs:
         run: |
           python -m py_compile tools/audit_fluid_current_projection_directional_derivative.py
           python tools/audit_fluid_current_projection_directional_derivative.py
+
+      - name: Compile and run conserved-current identity check
+        env:
+          COSMOS_PINNED_SOURCE_ROOT: ${{ github.workspace }}/source
+        run: |
+          python -m py_compile tools/audit_fluid_current_conserved_identity.py
+          python tools/audit_fluid_current_conserved_identity.py
 
       - name: Hash replay outputs
         run: |
