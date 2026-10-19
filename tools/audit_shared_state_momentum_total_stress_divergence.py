@@ -25,26 +25,36 @@ def summary(x):
             "index": i, "rms": float(np.sqrt(np.mean(a*a))),
             "cell_0": float(a[0]), "cell_1": float(a[1])}
 
+def require_digest(state, expected: str, label: str) -> str:
+    actual = momentum.state_digest(state)
+    if actual != expected:
+        raise RuntimeError(f"{label} digest mismatch: expected {expected}, got {actual}")
+    return actual
+
 def run(output_dir: Path):
     source = momentum.provenance()
     stress_source = stress.verify_provenance()
     kernel = momentum.V55ProductionKernel()
     initial = kernel.initialize(resolution=RESOLUTION, r_max=R_MAX, include_radiation=True)
-    initial_digest = momentum.state_digest(initial)
-    if initial_digest != INITIAL_SHA256:
-        raise RuntimeError(f"initial-state digest mismatch: {initial_digest}")
+    initial_digest = require_digest(initial, INITIAL_SHA256, "initial-state")
     accepted = kernel.step(initial, DT)
-    accepted_digest = momentum.state_digest(accepted)
-    if accepted_digest != ACCEPTED_SHA256:
-        raise RuntimeError(f"accepted-state digest mismatch: {accepted_digest}")
+    accepted_digest = require_digest(accepted, ACCEPTED_SHA256, "accepted-state")
     rates = momentum.rhs_direction(kernel, accepted)
     plus = momentum.shifted_state(kernel, accepted, rates, EPSILON)
     minus = momentum.shifted_state(kernel, accepted, rates, -EPSILON)
     base_digest = momentum.state_digest(accepted)
     plus_digest = momentum.state_digest(plus)
     minus_digest = momentum.state_digest(minus)
-    if base_digest != ACCEPTED_SHA256:
-        raise RuntimeError("shared base state digest mismatch")
+    require_digest(accepted, ACCEPTED_SHA256, "shared base state")
+    # Negative control: the exact same state must be rejected against a wrong digest.
+    try:
+        require_digest(accepted, "0" * 64, "negative-control")
+    except RuntimeError:
+        wrong_digest_rejected = True
+    else:
+        wrong_digest_rejected = False
+    if not wrong_digest_rejected:
+        raise RuntimeError("negative control failed: mismatched state digest was accepted")
     if plus_digest == base_digest or minus_digest == base_digest:
         raise RuntimeError("directional states unexpectedly equal the accepted base state")
     if not np.all(np.asarray(accepted.geometry.beta) == 0.0):
@@ -82,7 +92,8 @@ def run(output_dir: Path):
                           "plus_sha256": plus_digest, "minus_sha256": minus_digest,
                           "accepted_after_observation_sha256": after_digest,
                           "accepted_unchanged": after_digest == base_digest,
-                          "all_observers_used_same_state_objects": True},
+                          "all_observers_used_same_state_objects": True,
+                          "wrong_digest_negative_control_rejected": wrong_digest_rejected},
         "signed_residuals": {
             "Mdot_total_constraint": summary(mdot),
             "div_T_t_cell_centered": summary(div["div_T_t"]),
@@ -94,6 +105,7 @@ def run(output_dir: Path):
         "raw_arrays": {"file": "shared_state_signed_arrays.npz",
                        "names": sorted(arrays), "all_finite": True},
         "gates": {"shared_state_digest_match": True,
+                  "wrong_digest_negative_control_passed": wrong_digest_rejected,
                   "observer_immutability_passed": True,
                   "independent_full_propagation_identity_closed": False,
                   "scientific_admission": False, "acceptance_oracle_satisfied": False},
