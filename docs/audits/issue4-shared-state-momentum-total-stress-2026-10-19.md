@@ -49,3 +49,30 @@ The six-sector raw divergence sum does **not** reconstruct the total time-compon
 ### Decision
 
 The same-state calculation and its negative control passed. The measured momentum tangent and independently observed total-`T` divergence are now available from one exact state pair, but they are distinct diagnostics with different units/roles and are not expected to be equated directly. The independent normalized Hamiltonian-gradient plus connection-constraint propagation assembly, complete enabled-sector/exchange coverage, and manufactured signed controls remain the next gate. Both admission flags remain false; PR #408 stays draft.
+
+
+## Increment 2 — Brown structural cross-check on the same accepted state
+
+- Commit: `11bbf8455a3cf6dec7d80d7adb217147877b4c4a`.
+- Exact-head workflow: [run #39194181923](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/39194181923) — **success**, all 15 substantive steps passed.
+- Artifact ID: `12161615073`; archive SHA-256: `20f257bbdb0dc432c0f504ba1be4a901538627650a87df7ffc35ae35241baba3`.
+- Shared report SHA-256: `005764de4fea3f8aa4e4ab667df867f211e2c00923d047aa496e43e81c334fe3`.
+
+The adapter now computes the measured geometric momentum tangent separately from the total momentum tangent, evaluates the independent Brown Eq. 11b vacuum structural predictor on the same accepted geometry, records the signed difference, and requires a wrong-sign Hamiltonian-gradient control to be detected. The exact initial/accepted digests still match; plus/minus states differ; the accepted state remains unchanged; the digest-mismatch control is rejected.
+
+### Signed centre-cell comparison
+
+| Quantity | Cell 0 | Cell 1 |
+|---|---:|---:|
+| Measured geometric momentum tangent | +3.8576351315e-3 | -9.4250659294e-4 |
+| Brown vacuum structural prediction | -1.4702616878e-4 | -1.7039909435e-4 |
+| Measured minus Brown prediction | +4.0046613003e-3 | -7.7210749859e-4 |
+| Brown Hamiltonian-gradient term | -1.4565991903e-4 | -1.7112785312e-4 |
+
+Global max/RMS for the structural residual: max absolute `4.0046613003e-3`, RMS `5.2717981054e-4`. The wrong-sign H-gradient mutation was detected. Total-T divergence results and six-sector reconstruction remain as recorded above.
+
+### Interpretation and next action
+
+The vacuum structural terms do **not** account for the observed matter-coupled geometric tangent at this state: the signed residual is much larger than the Brown prediction. That is the useful result, not a pass/fail verdict on production physics. The remaining residual mixes explicit matter/source contributions with finite-difference product-rule/operator effects. Next, separate the pinned production RHS source terms from the geometric stencil/discretization remainder, preserving signed cell-0/cell-1 and annular profiles, and add a manufactured control that distinguishes the two. No tuning or admission-gate changes.
+
+The exact replay and strict JSON residual contract are green. Lightweight validation and strict campaign/radiation retry integration were still in progress at the time this note was updated.
