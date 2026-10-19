@@ -104,7 +104,7 @@ jobs:
         run: |
           set -euo pipefail
           cd results/accepted-state-raw-momentum-witness
-          sha256sum report.json accepted_state_raw_arrays.npz > SHA256SUMS.txt
+          find . -type f ! -name SHA256SUMS.txt -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS.txt
 
       - name: Upload raw witness and provenance
         uses: actions/upload-artifact@v4
