@@ -66,13 +66,19 @@ def traced_pressure(E: float, S2: float, tol: float) -> tuple[float, int, str]:
 def _down(x: float) -> float:
     if not math.isfinite(x):
         raise ValueError("non-finite interval endpoint")
-    return math.nextafter(x, -math.inf)
+    y = math.nextafter(x, -math.inf)
+    if not math.isfinite(y):
+        raise ValueError("outward rounding overflow")
+    return y
 
 
 def _up(x: float) -> float:
     if not math.isfinite(x):
         raise ValueError("non-finite interval endpoint")
-    return math.nextafter(x, math.inf)
+    y = math.nextafter(x, math.inf)
+    if not math.isfinite(y):
+        raise ValueError("outward rounding overflow")
+    return y
 
 
 def _pt(x: float) -> tuple[float, float]:
