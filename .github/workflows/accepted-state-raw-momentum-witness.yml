@@ -28,11 +28,10 @@ jobs:
     timeout-minutes: 25
     env:
       PYTHONUNBUFFERED: "1"
-      # Reproduce the recorded known-good NumPy dispatch setting. In the successful
-      # witness, X86_V4 and AVX512_ICL were disabled and AVX512_SPR was not detected;
-      # log np.show_runtime() to verify this runner actually matches that setting.
+      # Reproduce the recorded known-good NumPy dispatch setting. The successful reference had X86_V4, AVX512_ICL, and AVX512_SPR unavailable;
+      # disable all three explicitly and log np.show_runtime() to verify effective dispatch.
       # Never retarget the immutable digest.
-      NPY_DISABLE_CPU_FEATURES: "X86_V4,AVX512_ICL"
+      NPY_DISABLE_CPU_FEATURES: "X86_V4,AVX512_ICL,AVX512_SPR"
       # Preserve the runtime environment used by the previously successful exact replay.
       # Do not force BLAS/OpenMP thread counts: the experiment changed the pinned state digest.
       SOURCE_COMMIT: "7f47669a1c0edfafef9fc5f27b2db80840d3f035"
