@@ -188,6 +188,9 @@ def interval_certificate(E: float, S2: float, p_trace: float, trace_lo: float,
         trace_lo_residual = residual_interval(E, S2, trace_lo)
         trace_hi_residual = residual_interval(E, S2, trace_hi)
         trace_bracket_certified = trace_lo_residual[1] <= 0.0 and trace_hi_residual[0] >= 0.0
+        trace_analytic_zero_velocity = S2 == 0.0 and trace_lo == E / 3.0 and trace_hi == E / 3.0
+        if not trace_bracket_certified and not trace_analytic_zero_velocity:
+            raise ValueError("traced solver endpoint signs not certified")
         trace_residual = residual_interval(E, S2, p_trace)
         identity_residual = identity_residual_interval(E, pressure, v2)
         correction = identity_correction_interval(
@@ -208,7 +211,7 @@ def interval_certificate(E: float, S2: float, p_trace: float, trace_lo: float,
             "pressure_error_bound_rho_over_3": pressure_error_bound,
             "trace_bracket_lower_residual_interval": list(trace_lo_residual),
             "trace_bracket_upper_residual_interval": list(trace_hi_residual),
-            "trace_bracket_signs_certified": trace_bracket_certified,
+            "trace_bracket_signs_certified": trace_bracket_certified or trace_analytic_zero_velocity,\n            "trace_analytic_zero_velocity_exception": trace_analytic_zero_velocity,
             "trace_pressure_residual_interval": list(trace_residual),
             "production_identity_residual_interval_using_q_v2": list(identity_residual),
             "trace_pressure_delta": pressure - p_trace,
