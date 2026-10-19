@@ -66,6 +66,18 @@ jobs:
       - name: Compile the bounded replay
         run: python -m py_compile tools/audit_accepted_state_raw_momentum_witness.py
 
+      - name: Capture candidate versus historical initial-state identity
+        id: init-trace
+        continue-on-error: true
+        env:
+          COSMOS_PINNED_SOURCE_ROOT: ${{ github.workspace }}/source
+        run: |
+          mkdir -p results/initial-state-identity-trace
+          python tools/diagnostic_initialization_trace.py \
+            --engine-root "${{ github.workspace }}" \
+            --historical-root "${{ github.workspace }}/source" \
+            --output "${{ github.workspace }}/results/initial-state-identity-trace/candidate_init_trace.json"
+
       - name: Run the single exact accepted-state replay
         env:
           COSMOS_PINNED_SOURCE_ROOT: ${{ github.workspace }}/source
@@ -113,6 +125,15 @@ jobs:
           set -euo pipefail
           cd results/accepted-state-raw-momentum-witness
           find . -type f ! -name SHA256SUMS.txt -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS.txt
+
+      - name: Upload initialization trace even after digest failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: initial-state-identity-trace
+          path: results/initial-state-identity-trace/
+          if-no-files-found: warn
+          retention-days: 90
 
       - name: Upload raw witness and provenance
         uses: actions/upload-artifact@v4
