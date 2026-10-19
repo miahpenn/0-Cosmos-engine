@@ -27,6 +27,9 @@ jobs:
     timeout-minutes: 25
     env:
       PYTHONUNBUFFERED: "1"
+      # Diagnostic only: match the previously observed NumPy dispatch set (X86_V3).
+      # Do not alter pinned digests or production arithmetic; verify np.show_runtime() in the trace.
+      NPY_DISABLE_CPU_FEATURES: "X86_V4,AVX512_ICL"
       # Preserve the runtime environment used by the previously successful exact replay.
       # Do not force BLAS/OpenMP thread counts: the experiment changed the pinned state digest.
       SOURCE_COMMIT: "7f47669a1c0edfafef9fc5f27b2db80840d3f035"
