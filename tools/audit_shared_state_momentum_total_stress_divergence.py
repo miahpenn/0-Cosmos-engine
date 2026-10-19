@@ -93,25 +93,41 @@ def matter_source_momentum_tangent(state, projections):
         }.items()}
         total_terms = sector_terms({key: projections[key] for key in ("rho", "pr", "pt")})
         diagnostic_cells = sorted(set([worst, 0, 1]))
-        # Fourth-order cell derivative uses a local stencil. Record source
-        # assembly identities before D1 across a conservative +/-3-cell window
-        # around the worst cell, without changing the derivative or its bound.
+        # Cell 58 is the second-to-last cell on the fixed 60-cell grid.
+        # The pinned fourth-order D1 outer closure uses the final five cells
+        # for i=n-2; record that exact support, not a window around 'worst'.
+        target_cell = 58
+        if total.size != 60 or target_cell != total.size - 2:
+            raise RuntimeError("Cell-58 diagnostic requires the pinned 60-cell grid")
+        d1_stencil_indices = list(range(total.size - 5, total.size))
+        d1_method = getattr(grid.cell_derivative_fourth, "__func__", grid.cell_derivative_fourth)
+        d1_implementation = (
+            f"{getattr(d1_method, '__module__', type(grid).__module__)}."
+            f"{getattr(d1_method, '__qualname__', type(grid).__qualname__)}"
+        )
         source_neighborhood = []
-        source_lo, source_hi = max(0, worst - 3), min(total.size, worst + 4)
-        for j in range(source_lo, source_hi):
+        source_roundoff_factor = 512.0 * np.finfo(np.float64).eps
+        for j in d1_stencil_indices:
             source_entry = {"cell": j}
-            for source_name in ("Aa_source", "K_source"):
-                sector_sum = float(sum(
-                    terms[source_name][j] for terms in term_arrays.values()
-                ))
+            for source_name in ("K_source", "Aa_source"):
+                sector_values = {
+                    name: float(terms[source_name][j])
+                    for name, terms in term_arrays.items()
+                }
+                sector_sum = float(sum(sector_values.values()))
                 independent = float(total_terms[source_name][j])
+                operand_scale = float(sum(abs(value) for value in sector_values.values()))
+                local_bound = source_roundoff_factor * max(operand_scale, abs(independent))
                 source_entry[source_name] = {
+                    "sector_values": sector_values,
                     "sector_sum": sector_sum,
                     "independent_total": independent,
-                    "gap": sector_sum - independent,
-                    "abs_sector_sum_scale": float(sum(
-                        abs(terms[source_name][j]) for terms in term_arrays.values()
-                    )),
+                    "signed_gap": sector_sum - independent,
+                    "local_bound": local_bound,
+                    "operand_scale": operand_scale,
+                    "gap_over_bound": (
+                        abs(sector_sum - independent) / local_bound if local_bound else None
+                    ),
                 }
             source_neighborhood.append(source_entry)
         diagnostic_cells = sorted(set([worst, 0, 1]))
