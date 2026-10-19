@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - "tools/audit_accepted_state_raw_momentum_witness.py"
+      - "tools/audit_shared_state_momentum_total_stress_divergence.py"
       - "tools/audit_fluid_current_projection_directional_derivative.py"
       - "tools/audit_fluid_current_conserved_identity.py"
       - "tools/audit_radiation_recovery_roundtrip_sweep.py"
@@ -70,6 +71,14 @@ jobs:
           COSMOS_PINNED_SOURCE_ROOT: ${{ github.workspace }}/source
         run: |
           python tools/audit_accepted_state_raw_momentum_witness.py \
+            --output-dir results/accepted-state-raw-momentum-witness
+
+      - name: Compile and run shared-state momentum / total-stress divergence calculation
+        env:
+          COSMOS_PINNED_SOURCE_ROOT: ${{ github.workspace }}/source
+        run: |
+          python -m py_compile tools/audit_shared_state_momentum_total_stress_divergence.py
+          python tools/audit_shared_state_momentum_total_stress_divergence.py \\
             --output-dir results/accepted-state-raw-momentum-witness
 
       - name: Compile and run projection-only fluid-current derivative diagnostic
