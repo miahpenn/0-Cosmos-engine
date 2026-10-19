@@ -61,7 +61,42 @@ def matter_source_momentum_tangent(state, projections):
     summed = sum(pieces.values(), np.zeros_like(total))
     operand_scale = sum((np.abs(value) for value in pieces.values()), np.zeros_like(total))
     decomposition_gap = summed - total
-    bound = 512.0 * np.finfo(np.float64).eps * np.maximum(operand_scale, np.abs(total))
+    # Bound cancellation from the primitive stress operands, not only the
+    # already-cancelled tangent outputs. In the outer cells pr and pt can be
+    # nearly equal, so forming (pr - pt) loses digits before D1 is applied.
+    # Propagate the same 512*eps roundoff factor through the actual pinned D1
+    # stencil's absolute weights; this changes the error estimate, not physics
+    # tolerances or any scientific-admission gate.
+    all_parts = tuple(projections["scalar_parts"].values()) + tuple(projections["fluid_parts"].values())
+    sum_abs_rho = sum((np.abs(np.asarray(part["rho"], dtype=np.float64)) for part in all_parts),
+                      np.zeros_like(total))
+    sum_abs_pr = sum((np.abs(np.asarray(part["pr"], dtype=np.float64)) for part in all_parts),
+                     np.zeros_like(total))
+    sum_abs_pt = sum((np.abs(np.asarray(part["pt"], dtype=np.float64)) for part in all_parts),
+                     np.zeros_like(total))
+    alpha_abs = np.abs(np.asarray(geom.alpha, dtype=np.float64))
+    aa_source_operand_scale = (16.0 * np.pi / 3.0) * alpha_abs * (
+        sum_abs_pr + sum_abs_pt + np.abs(np.asarray(projections["pr"], dtype=np.float64))
+        + np.abs(np.asarray(projections["pt"], dtype=np.float64))
+    )
+    k_source_operand_scale = 4.0 * np.pi * alpha_abs * (
+        sum_abs_rho + sum_abs_pr + 2.0 * sum_abs_pt
+        + np.abs(np.asarray(projections["rho"], dtype=np.float64))
+        + np.abs(np.asarray(projections["pr"], dtype=np.float64))
+        + 2.0 * np.abs(np.asarray(projections["pt"], dtype=np.float64))
+    )
+    # Recover the actual linear D1 stencil row weights by applying it to basis
+    # vectors. The grid has only 60 cells here; this is a cheap diagnostic-only
+    # construction and avoids assuming a generic boundary stencil norm.
+    basis = np.eye(total.size, dtype=np.float64)
+    d1_abs = np.abs(np.column_stack([d1(basis[:, j]) for j in range(total.size)]))
+    propagated_source_scale = (
+        d1_abs @ aa_source_operand_scale
+        + (2.0 / 3.0) * (d1_abs @ k_source_operand_scale)
+        + np.abs(coefficient_Aa) * aa_source_operand_scale
+    )
+    bound_scale = operand_scale + np.abs(total) + propagated_source_scale
+    bound = 512.0 * np.finfo(np.float64).eps * bound_scale
     failed = np.abs(decomposition_gap) > bound
     if not np.all(~failed):
         ratio = np.divide(
