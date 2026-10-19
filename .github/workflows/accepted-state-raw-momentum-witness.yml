@@ -87,6 +87,7 @@ jobs:
             --output-dir results/accepted-state-raw-momentum-witness
 
       - name: Compile and run shared-state momentum / total-stress divergence calculation
+        if: success() && steps.init-trace.outcome == 'success'
         env:
           COSMOS_PINNED_SOURCE_ROOT: ${{ github.workspace }}/source
         run: |
@@ -94,6 +95,7 @@ jobs:
           python tools/audit_shared_state_momentum_total_stress_divergence.py --output-dir results/accepted-state-raw-momentum-witness
 
       - name: Compile and run projection-only fluid-current derivative diagnostic
+        if: success() && steps.init-trace.outcome == 'success'
         env:
           COSMOS_PINNED_SOURCE_ROOT: ${{ github.workspace }}/source
         run: |
@@ -101,6 +103,7 @@ jobs:
           python tools/audit_fluid_current_projection_directional_derivative.py
 
       - name: Compile and run conserved-current identity check
+        if: success() && steps.init-trace.outcome == 'success'
         env:
           COSMOS_PINNED_SOURCE_ROOT: ${{ github.workspace }}/source
         run: |
@@ -108,6 +111,7 @@ jobs:
           python tools/audit_fluid_current_conserved_identity.py
 
       - name: Compile and run radiation recovery round-trip tolerance sweep
+        if: success() && steps.init-trace.outcome == 'success'
         env:
           COSMOS_PINNED_SOURCE_ROOT: ${{ github.workspace }}/source
         run: |
@@ -115,6 +119,7 @@ jobs:
           python tools/audit_radiation_recovery_roundtrip_sweep.py
 
       - name: Compile and run paired radiation recovery/current identity sweep
+        if: success() && steps.init-trace.outcome == 'success'
         env:
           COSMOS_PINNED_SOURCE_ROOT: ${{ github.workspace }}/source
         run: |
@@ -122,6 +127,7 @@ jobs:
           python tools/audit_radiation_recovery_current_identity_sweep.py
 
       - name: Hash replay outputs
+        if: success() && steps.init-trace.outcome == 'success'
         run: |
           set -euo pipefail
           cd results/accepted-state-raw-momentum-witness
