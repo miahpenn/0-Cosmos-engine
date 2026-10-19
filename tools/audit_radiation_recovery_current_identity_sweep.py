@@ -300,7 +300,13 @@ def main() -> int:
         "identity": "j_projected - j_direct = f(p) * sqrt(gamma_rr) * sign(S_r) * sqrt(v2) / KAPPA",
         "bound_policy": "unchanged strict bound: 128*eps*(abs(j_projected)+abs(j_direct))+1e-30; no recovery-aware relaxation",
         "paired_results": paired,
-        "interval_certificate_summary": {\n            "certified_cells": sum(row["interval_certificate"]["certified"] for group in paired for row in group["per_cell"]),\n            "total_cells": sum(group["cells"] for group in paired),\n            "all_cells_certified": all(row["interval_certificate"]["certified"] for group in paired for row in group["per_cell"]),\n            "all_observed_differences_covered": all(row["interval_certificate"].get("correction_interval_covers_observed_signed_difference", False) for group in paired for row in group["per_cell"]),\n        },\n        "tolerance_trends": trends,
+        "interval_certificate_summary": {
+            "certified_cells": sum(row["interval_certificate"]["certified"] for group in paired for row in group["per_cell"]),
+            "total_cells": sum(group["cells"] for group in paired),
+            "all_cells_certified": all(row["interval_certificate"]["certified"] for group in paired for row in group["per_cell"]),
+            "all_observed_differences_covered": all(row["interval_certificate"].get("correction_interval_covers_observed_signed_difference", False) for group in paired for row in group["per_cell"]),
+        },
+        "tolerance_trends": trends,
         "gates": {"recovery_error_source_isolated": False, "projection_step_size_plateau_established": False, "independent_full_propagation_identity_closed": False, "scientific_admission": False, "acceptance_oracle_satisfied": False},
         "interpretation_limit": "The pressure-residual identity is a diagnostic decomposition, not by itself proof that recovery causes the strict discrepancy or that full momentum propagation closes. Solver classification and negative control are retained; all scientific gates remain false.",
     }
