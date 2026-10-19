@@ -116,15 +116,15 @@ def matter_source_momentum_tangent(state, projections):
                 }
                 sector_sum = float(sum(sector_values.values()))
                 independent = float(total_terms[source_name][j])
-                operand_scale = float(sum(abs(value) for value in sector_values.values()))
-                local_bound = source_roundoff_factor * max(operand_scale, abs(independent))
+                local_operand_scale = float(sum(abs(value) for value in sector_values.values()))
+                local_bound = source_roundoff_factor * max(local_operand_scale, abs(independent))
                 source_entry[source_name] = {
                     "sector_values": sector_values,
                     "sector_sum": sector_sum,
                     "independent_total": independent,
                     "signed_gap": sector_sum - independent,
                     "local_bound": local_bound,
-                    "operand_scale": operand_scale,
+                    "operand_scale": local_operand_scale,
                     "gap_over_bound": (
                         abs(sector_sum - independent) / local_bound if local_bound else None
                     ),
