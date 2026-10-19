@@ -138,7 +138,7 @@ def run() -> dict:
         },
         "identity": "candidate: project_species(...)[\"j\"] = conserved.momentum_r / (KAPPA * sqrt_gamma)",
         "strict_roundoff_equivalence_passed": identity_roundoff_passed,
-        "measurement_note": "The original machine-roundoff bound is retained unchanged. This run records all species/state discrepancies, including radiation primitive-recovery error, without declaring the identity accepted."
+        "measurement_note": "The original machine-roundoff bound is retained unchanged. This run records all species/state discrepancies, including radiation primitive-recovery error, without declaring the identity accepted.",
         "derivation": [
             "the pinned Valencia conserved momentum is sqrt_gamma * S_r",
             "the pinned Eulerian projection returns j = S_r / KAPPA",
