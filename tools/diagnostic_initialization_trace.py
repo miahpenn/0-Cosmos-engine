@@ -6,7 +6,7 @@ It never changes expected digests or production code. A digest mismatch is repor
 and returns nonzero only after the JSON evidence has been written.
 """
 from __future__ import annotations
-import argparse, hashlib, json, os, platform, subprocess, sys, traceback
+import argparse, contextlib, hashlib, io, json, os, platform, subprocess, sys, traceback
 from pathlib import Path
 import numpy as np
 
@@ -78,6 +78,16 @@ def collect(engine_root, output_path, role):
     output_path.write_text(json.dumps(trace, indent=2, sort_keys=True, allow_nan=False)+"\n", encoding="utf-8")
     return trace
 
+def numpy_runtime_report():
+    """Capture NumPy's effective SIMD dispatch report without changing it."""
+    stream = io.StringIO()
+    try:
+        with contextlib.redirect_stdout(stream):
+            np.show_runtime()
+        return {"available": True, "report": stream.getvalue().strip()}
+    except Exception as exc:
+        return {"available": False, "error": repr(exc), "report": stream.getvalue().strip()}
+
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--engine-root", required=True)
@@ -95,6 +105,8 @@ def main():
         "environment": {
             "python": sys.version, "numpy": np.__version__, "platform": platform.platform(),
             "machine": platform.machine(), "processor": platform.processor(),
+            "npy_disable_cpu_features": os.environ.get("NPY_DISABLE_CPU_FEATURES"),
+            "numpy_runtime": numpy_runtime_report(),
             "cwd": os.getcwd(), "python_executable": sys.executable,
             "cpuinfo_model_lines": [line.strip() for line in Path("/proc/cpuinfo").read_text(errors="replace").splitlines()
                                     if line.lower().startswith(("model name", "flags", "microcode"))][:12]
