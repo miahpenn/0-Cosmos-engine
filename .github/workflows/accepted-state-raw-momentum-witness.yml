@@ -23,6 +23,13 @@ jobs:
     timeout-minutes: 25
     env:
       PYTHONUNBUFFERED: "1"
+      # Stabilize linear-algebra execution for the byte-exact state replay.
+      # This changes execution scheduling only; equations, data, and pins are unchanged.
+      OPENBLAS_NUM_THREADS: "1"
+      OMP_NUM_THREADS: "1"
+      MKL_NUM_THREADS: "1"
+      VECLIB_MAXIMUM_THREADS: "1"
+      NUMEXPR_NUM_THREADS: "1"
       SOURCE_COMMIT: "7f47669a1c0edfafef9fc5f27b2db80840d3f035"
       VENDOR_COMMIT: "d6052d605673ce9d82cdc99b0df79855fa2ea215"
     steps:
