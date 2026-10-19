@@ -27,7 +27,13 @@ def sha256_array(value):
             "source_c_contiguous": bool(original.flags.c_contiguous),
             "canonical_dtype": str(arr.dtype), "canonical_byteorder": arr.dtype.byteorder,
             "canonical_sha256": hashlib.sha256(arr.tobytes(order="C")).hexdigest(),
-            "source_raw_sha256": hashlib.sha256(np.ascontiguousarray(original).tobytes(order="C")).hexdigest()}
+            "source_raw_sha256": hashlib.sha256(np.ascontiguousarray(original).tobytes(order="C")).hexdigest(),
+            "min": float(np.min(arr)) if arr.size else None,
+            "max": float(np.max(arr)) if arr.size else None,
+            "max_abs": float(np.max(np.abs(arr))) if arr.size else None,
+            "sum": float(np.sum(arr, dtype=np.float64)) if arr.size else 0.0,
+            "first_5": arr.reshape(-1)[:5].tolist(),
+            "last_5": arr.reshape(-1)[-5:].tolist()}
 
 def resolve_field(state, path):
     obj = state
@@ -40,8 +46,10 @@ def collect(engine_root, output_path, role):
     sys.path.insert(0, str(root))
     from engine.production_kernel import V55ProductionKernel
     state = V55ProductionKernel().initialize(resolution=60, r_max=80.0, include_radiation=True)
-    fields = {name: sha256_array(resolve_field(state, path)) for name, *rest in FIELD_SPECS
-              for path in [".".join(rest)]}
+    arrays = {name: np.ascontiguousarray(np.asarray(resolve_field(state, ".".join(rest)), dtype=np.float64))
+              for name, *rest in FIELD_SPECS}
+    np.savez_compressed(output_path.with_suffix(".npz"), **arrays)
+    fields = {name: sha256_array(arrays[name]) for name, *_ in FIELD_SPECS}
     h = hashlib.sha256()
     for name, *_ in FIELD_SPECS:
         spec = fields[name]
@@ -88,6 +96,9 @@ def main():
             "python": sys.version, "numpy": np.__version__, "platform": platform.platform(),
             "machine": platform.machine(), "processor": platform.processor(),
             "cwd": os.getcwd(), "python_executable": sys.executable,
+            "cpuinfo_model_lines": [line.strip() for line in Path("/proc/cpuinfo").read_text(errors="replace").splitlines()
+                                    if line.lower().startswith(("model name", "flags", "microcode"))][:12]
+                                    if Path("/proc/cpuinfo").exists() else [],
             "env": {k:v for k,v in os.environ.items() if any(s in k.upper() for s in
                     ("BLAS","OPENBLAS","OMP","MKL","NUMEXPR","VECLIB","PYTHONHASHSEED"))},
         },
