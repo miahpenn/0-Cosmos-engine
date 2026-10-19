@@ -170,6 +170,7 @@ def matter_source_momentum_tangent(state, projections):
             f"summed_at_worst={float(summed[worst]):.17g}, "
             f"total_at_worst={float(total[worst]):.17g}, "
             f"operand_scale_at_worst={float(operand_scale[worst]):.17g}, "
+            f"d1_stencil={json.dumps({'target_cell': target_cell, 'indices': d1_stencil_indices, 'implementation': d1_implementation, 'order': 1, 'parity': 1, 'closure': 'outer one-sided polynomial-moment five-node closure'}, sort_keys=True, separators=(',', ':'))}, "
             f"source_neighborhood={json.dumps(source_neighborhood, sort_keys=True, separators=(',', ':'))}, "
             f"diagnostic_cells={json.dumps(detail, sort_keys=True, separators=(',', ':'))}"
         )
