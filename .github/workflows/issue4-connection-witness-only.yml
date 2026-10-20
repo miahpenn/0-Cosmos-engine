@@ -1,6 +1,11 @@
 name: Issue4 connection witness only
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - diagnostic/accepted-state-raw-momentum-witness
+    paths:
+      - .github/workflows/issue4-connection-witness-only.yml
 permissions:
   contents: read
 jobs:
