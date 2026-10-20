@@ -134,13 +134,13 @@ jobs:
     timeout-minutes: 25
     env:
       PYTHONUNBUFFERED: "1"
-      # Diagnostic only: report the selected OpenBLAS core without changing dispatch.
+      # Diagnostic-only controlled replay: the dispatch matrix showed that
+      # disabling NumPy X86_V4/AVX-512 restores the immutable initializer digest
+      # while leaving X86_V3 enabled. This tests whether downstream radiation
+      # diagnostics can run under that exact discriminator; it does not change
+      # production code, the immutable digest, or the strict identity gate.
       OPENBLAS_VERBOSE: "2"
-      # Do not override NumPy CPU dispatch here. The prior forced disables were
-      # measured to reproduce the drifted acaabd9f... digest exactly; they are not
-      # evidence for the immutable a256b57f... witness environment. Capture the
-      # effective dispatch in the trace and keep the identity gate fail-closed.
-      # Never retarget the immutable digest.
+      NPY_DISABLE_CPU_FEATURES: "X86_V4,AVX512_ICL,AVX512_SPR"
       SOURCE_COMMIT: "7f47669a1c0edfafef9fc5f27b2db80840d3f035"
       VENDOR_COMMIT: "d6052d605673ce9d82cdc99b0df79855fa2ea215"
     steps:
