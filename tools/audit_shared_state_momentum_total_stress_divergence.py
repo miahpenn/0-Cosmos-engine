@@ -242,6 +242,7 @@ def connection_correction(state):
     lambda_metric = da / (2.0*a*a) - db/(a*b) + 2.0/r*(1.0/b - 1.0/a)
     C = lam - lambda_metric
     dC = d1_odd_input(C)
+    d2C = np.asarray(grid.cell_second_derivative_fourth(C, parity=-1), dtype=np.float64)
     chi = x*x
     eta = alpha*chi*da/(2.0*a)
     deta = d1_odd_input(eta)
@@ -249,19 +250,26 @@ def connection_correction(state):
     # C and eta are odd; eta*C is even and needs the even-input stencil.
     d_etaC = d1_even_input(etaC)
     gamma_m = -3.0*dx/x + 3.0/r + 1.5*db/b
-    direct = d_etaC + gamma_m*etaC
-    expanded = eta*dC + (deta + gamma_m*eta)*C
+    eta_dC = eta*dC
+    d_eta_plus_gamma_eta_times_C = (deta + gamma_m*eta)*C
+    gamma_etaC = gamma_m*etaC
+    direct = d_etaC + gamma_etaC
+    expanded = eta_dC + d_eta_plus_gamma_eta_times_C
     product_remainder = direct - expanded
     # Keep this source-derived overlap candidate visible; its relation to Brown's scaffold still needs an equation-level reconciliation.
     brown_connection_d1c = (2.0/3.0)*alpha*chi*dC
     arrays = {
         "connection_C_signed": C,
         "connection_D1C_signed": dC,
+        "connection_D2C_signed": d2C,
         "connection_eta_signed": eta,
         "connection_D1eta_signed": deta,
         "connection_etaC_signed": etaC,
         "connection_D1_etaC_signed": d_etaC,
         "connection_GammaM_signed": gamma_m,
+        "connection_eta_D1C_signed": eta_dC,
+        "connection_D1eta_plus_GammaM_eta_times_C_signed": d_eta_plus_gamma_eta_times_C,
+        "connection_GammaM_etaC_signed": gamma_etaC,
         "connection_correction_direct_signed": direct,
         "connection_correction_expanded_signed": expanded,
         "connection_product_rule_remainder_signed": product_remainder,
@@ -404,6 +412,54 @@ def run(output_dir: Path):
     brown_plus_source = brown_prediction + matter_source["total"]
     residual_after_source = mdot_geom - brown_plus_source
     connection = connection_correction(accepted)
+    # Diagnostic-only candidate: retain the vendor-derived correction as a
+    # separate signed addition. The Brown-overlap candidate is NOT subtracted
+    # or folded in until its equation-level relationship is reconciled.
+    connection_candidate = brown_prediction + connection["arrays"]["connection_correction_direct_signed"]
+    connection_candidate_residual = mdot_geom - connection_candidate
+    matter_connection_candidate = brown_plus_source + connection["arrays"]["connection_correction_direct_signed"]
+    matter_connection_candidate_residual = mdot_geom - matter_connection_candidate
+    connection["report"]["scaffold_comparison"] = {
+        "original_brown_scaffold_signed": summary(brown_prediction),
+        "measured_geometric_tangent_signed": summary(mdot_geom),
+        "original_brown_residual_measured_minus_scaffold_signed": summary(brown_residual),
+        "brown_plus_connection_correction_candidate_signed": summary(connection_candidate),
+        "residual_after_connection_candidate_signed": summary(connection_candidate_residual),
+        "brown_plus_explicit_matter_source_plus_connection_candidate_signed": summary(matter_connection_candidate),
+        "residual_after_matter_and_connection_candidate_signed": summary(matter_connection_candidate_residual),
+        "cells_0_1_2": {
+            str(i): {
+                "radius": float(accepted.grid.centers[i]),
+                "measured_geometric_tangent": float(mdot_geom[i]),
+                "original_brown_scaffold": float(brown_prediction[i]),
+                "original_residual": float(brown_residual[i]),
+                "connection_direct": float(connection["arrays"]["connection_correction_direct_signed"][i]),
+                "connection_expanded": float(connection["arrays"]["connection_correction_expanded_signed"][i]),
+                "connection_product_rule_remainder": float(connection["arrays"]["connection_product_rule_remainder_signed"][i]),
+                "overlap_candidate": float(connection["arrays"]["connection_overlap_candidate_2over3_alpha_chi_D1C_signed"][i]),
+                "brown_plus_connection_candidate": float(connection_candidate[i]),
+                "residual_after_connection_candidate": float(connection_candidate_residual[i]),
+                "brown_plus_matter_and_connection_candidate": float(matter_connection_candidate[i]),
+                "residual_after_matter_and_connection_candidate": float(matter_connection_candidate_residual[i]),
+            } for i in (0, 1, 2)
+        },
+        "nearest_fixed_radii": {
+            str(target): {
+                "cell": int(np.argmin(np.abs(r - target))),
+                "grid_radius": float(r[int(np.argmin(np.abs(r - target)))]),
+                "measured_geometric_tangent": float(mdot_geom[int(np.argmin(np.abs(r - target)))]),
+                "original_brown_scaffold": float(brown_prediction[int(np.argmin(np.abs(r - target)))]),
+                "original_residual": float(brown_residual[int(np.argmin(np.abs(r - target)))]),
+                "connection_direct": float(connection["arrays"]["connection_correction_direct_signed"][int(np.argmin(np.abs(r - target)))]),
+                "connection_expanded": float(connection["arrays"]["connection_correction_expanded_signed"][int(np.argmin(np.abs(r - target)))]),
+                "connection_product_rule_remainder": float(connection["arrays"]["connection_product_rule_remainder_signed"][int(np.argmin(np.abs(r - target)))]),
+                "overlap_candidate": float(connection["arrays"]["connection_overlap_candidate_2over3_alpha_chi_D1C_signed"][int(np.argmin(np.abs(r - target)))]),
+                "residual_after_connection_candidate": float(connection_candidate_residual[int(np.argmin(np.abs(r - target)))]),
+            } for target in (2.0, 3.0, 5.0, 8.0)
+        },
+        "overlap_policy": "overlap candidate remains separate; candidate residuals are diagnostic and are not closure or acceptance claims",
+        "closure_claim": False,
+    }
 
     after_digest = momentum.state_digest(accepted)
     if after_digest != base_digest:
@@ -422,6 +478,10 @@ def run(output_dir: Path):
         "matter_source_Mdot_signed": matter_source["total"],
         "brown_plus_matter_source_prediction_signed": brown_plus_source,
         "residual_after_matter_source_signed": residual_after_source,
+        "brown_plus_connection_correction_candidate_signed": connection_candidate,
+        "residual_after_connection_candidate_signed": connection_candidate_residual,
+        "brown_plus_matter_source_plus_connection_candidate_signed": matter_connection_candidate,
+        "residual_after_matter_and_connection_candidate_signed": matter_connection_candidate_residual,
         **connection["arrays"],
         **{f"matter_source_Mdot_{name}_signed": value for name, value in matter_source["pieces"].items()},
         "div_T_t_signed": np.asarray(div["div_T_t"]),
@@ -431,7 +491,7 @@ def run(output_dir: Path):
     }
     np.savez_compressed(output_dir / "shared_state_signed_arrays.npz", **arrays)
     report = {
-        "schema": "issue4_shared_state_momentum_total_stress_divergence_v2",
+        "schema": "issue4_shared_state_momentum_total_stress_divergence_v3",
         "status": "completed_diagnostic_only",
         "provenance": {"momentum_observer": source, "total_stress_observer": stress_source},
         "configuration": {"resolution": RESOLUTION, "r_max": R_MAX, "dt": DT,
