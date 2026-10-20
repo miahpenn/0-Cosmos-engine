@@ -346,6 +346,67 @@ def main() -> int:
             "remainder_maxima": [x["max_abs_arithmetic_remainder"] for x in group],
             "strict_identity_pass": [x["strict_identity_passed_all_cells"] for x in group],
         }
+    # Explicit same-state production-path A/B: compare the existing default
+    # tolerance with a tighter diagnostic tolerance without changing the default.
+    accepted_default = next(x for x in paired if x["state"] == "accepted" and x["tol"] == 1.0e-12)
+    accepted_tight = next(x for x in paired if x["state"] == "accepted" and x["tol"] == 1.0e-14)
+    tight_by_cell = {row["cell"]: row for row in accepted_tight["per_cell"]}
+    ab_rows = []
+    for default_row in accepted_default["per_cell"]:
+        tight_row = tight_by_cell[default_row["cell"]]
+        bound = default_row["strict_roundoff_bound"]
+        ab_rows.append({
+            "cell": default_row["cell"],
+            "default_tol": 1.0e-12,
+            "tight_tol": 1.0e-14,
+            "default_pressure": default_row["pressure"],
+            "tight_pressure": tight_row["pressure"],
+            "pressure_change_tight_minus_default": tight_row["pressure"] - default_row["pressure"],
+            "default_v2": default_row["v2"],
+            "tight_v2": tight_row["v2"],
+            "default_j_direct": default_row["j_direct"],
+            "tight_j_direct": tight_row["j_direct"],
+            "default_j_projected": default_row["j_projected"],
+            "tight_j_projected": tight_row["j_projected"],
+            "default_signed_difference": default_row["observed_signed_difference"],
+            "tight_signed_difference": tight_row["observed_signed_difference"],
+            "default_predicted_signed_difference": default_row["predicted_signed_difference"],
+            "tight_predicted_signed_difference": tight_row["predicted_signed_difference"],
+            "default_remainder": default_row["arithmetic_remainder"],
+            "tight_remainder": tight_row["arithmetic_remainder"],
+            "unchanged_strict_roundoff_bound": bound,
+            "default_fails_strict_bound": not default_row["strict_identity_passed"],
+            "tight_passes_strict_bound": tight_row["strict_identity_passed"],
+            "default_pressure_residual": default_row["f_p"],
+            "tight_pressure_residual": tight_row["f_p"],
+            "default_wrong_sign_control_detected": abs(default_row["wrong_sign_remainder"]) > abs(default_row["arithmetic_remainder"]),
+            "tight_wrong_sign_control_detected": abs(tight_row["wrong_sign_remainder"]) > abs(tight_row["arithmetic_remainder"]),
+        })
+    ab_all_default_fail = all(row["default_fails_strict_bound"] for row in ab_rows)
+    ab_all_tight_pass = all(row["tight_passes_strict_bound"] for row in ab_rows)
+    ab_controls_detected = all(row["default_wrong_sign_control_detected"] and row["tight_wrong_sign_control_detected"] for row in ab_rows)
+    ab_pressure_correction_accounted = all(
+        abs(row["default_remainder"]) <= row["unchanged_strict_roundoff_bound"]
+        and abs(row["tight_remainder"]) <= row["unchanged_strict_roundoff_bound"]
+        for row in ab_rows
+    )
+    production_path_ab = {
+        "status": "diagnostic_only",
+        "same_accepted_state": True,
+        "arms": {"default": 1.0e-12, "tight_diagnostic": 1.0e-14},
+        "cell_count": len(ab_rows),
+        "per_cell": ab_rows,
+        "summary": {
+            "all_default_cells_fail_unchanged_strict_bound": ab_all_default_fail,
+            "all_tight_cells_pass_unchanged_strict_bound": ab_all_tight_pass,
+            "both_wrong_sign_controls_detected_in_both_arms": ab_controls_detected,
+            "pressure_residual_correction_accounts_within_bound_in_both_arms": ab_pressure_correction_accounted,
+            "tolerance_cause_supported_by_preregistered_rule": bool(
+                ab_all_default_fail and ab_all_tight_pass and ab_controls_detected and ab_pressure_correction_accounted
+            ),
+        },
+        "decision_rule": "Support tolerance as cause only if default fails, tight passes the unchanged bound, per-cell signed correction accounts for the observed discrepancy within that bound in both arms, and wrong-sign negative controls remain detected in both arms. Otherwise tolerance alone is not established.",
+    }
     report = {
         "schema": "issue4_radiation_recovery_paired_current_identity_v1",
         "status": "diagnostic_only",
@@ -354,7 +415,7 @@ def main() -> int:
         "state_identity": {"initial_sha256": initial_digest, "accepted_expected_sha256": EXPECTED_ACCEPTED, "accepted_before_sha256": accepted_before, "accepted_after_sha256": accepted_after, "accepted_state_unchanged": accepted_before == accepted_after},
         "identity": "j_projected - j_direct = f(p) * sqrt(gamma_rr) * sign(S_r) * sqrt(v2) / KAPPA",
         "bound_policy": "unchanged strict bound: 128*eps*(abs(j_projected)+abs(j_direct))+1e-30; no recovery-aware relaxation",
-        "paired_results": paired,
+        "paired_results": paired,\n        "production_path_ab": production_path_ab,
         "interval_certificate_summary": {
             "certified_cells": sum(row["interval_certificate"]["certified"] for group in paired for row in group["per_cell"]),
             "pressure_root_certified_cells": sum(row["interval_certificate"].get("pressure_root_certified", False) for group in paired for row in group["per_cell"]),
