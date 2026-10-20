@@ -129,6 +129,43 @@ The shared-state adapter source is [`tools/audit_shared_state_momentum_total_str
 
 A missing quantity is not a request to repeat replay #87. First use the exact existing #408 artifact and branch code. Only if the required accepted base profiles are absent from every already-existing artifact should the team propose a narrowly scoped artifact extension, naming the exact fields to preserve.
  
+## 5A. What the already-executed shared-state artifact says
+
+The existing shared-state artifact from [run #39330970473](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/39330970473) was inspected directly; no workflow was rerun. The state digest matches the #408 accepted digest, all observers use the same in-memory state objects, the accepted state remains unchanged, and the wrong-digest and Brown wrong-sign controls pass. The independent full propagation gate and scientific admission remain false.
+
+The decisive signed values are:
+
+| Witness | Cell 0 (r=0.667) | Cell 1 (r=2.0) | Cell 3 (r=4.667) | Annulus RMS, r=2–10 |
+|---|---:|---:|---:|---:|
+| Measured geometric \(\dot M_{\rm geom}\) | +3.857635e-3 | -9.425066e-4 | -2.118465e-4 | — |
+| Brown vacuum structural prediction | -1.470262e-4 | -1.703991e-4 | -6.242451e-5 | — |
+| Measured minus Brown | +4.004661e-3 | -7.721075e-4 | -1.494220e-4 | 3.018498e-4 |
+| Explicit \(A_a/K\) matter-source tangent | -5.391174e-5 | -1.390962e-4 | -1.501833e-4 | — |
+| Measured minus (Brown + explicit matter source) | +4.058573e-3 | -6.330113e-4 | +7.613507e-7 | 2.428118e-4 |
+
+At cell 3, adding the independently cross-checked matter-source term reduces the signed residual magnitude by about **196×** (from \(1.4942\times10^{-4}\) to \(7.61\times10^{-7}\)); at cell 4 (r=6) it reduces it by about **57×**. At cell 2 (r=3.333), it overshoots and leaves +1.095e-4. The two centre cells remain dominant: after adding the explicit matter term, cell 0 is +4.059e-3 and cell 1 is -6.330e-4. The radial cell-centred total-stress residual has RMS 5.30e-7, while the finite-volume radial comparison has RMS 1.10e-8; the total-stress decomposition reconstructs after the documented time-density accounting, but the full conservation gate remains false.
+
+**Interpretation:** this is not “the solver is fixed.” It shows the explicit matter-source tangent is a necessary, quantitatively important contribution off-centre, while a large inner-cell remainder remains. The next test should not re-run the radiation matrix or change bounds. It should evaluate the already source-derived vendor off-constraint connection correction below on this same accepted state, with cells 0/1 reported separately.
+
+### Existing source-level result that narrows the remaining geometric mismatch
+
+Issue #4's source review [comment 6220035422](https://github.com/miahpenn/0-Cosmos-engine/issues/4#issuecomment-6220035422) establishes the continuum variable map \(C^r_{vendor}=G^r_{Brown}\) under \(\Gamma^r_{Brown}=\Lambda-2/(br)\); a simple naming/background-connection offset is not the cause. The pinned vendor's radial Ricci bracket contains both \(-aD_r\Lambda\) and \(-\frac12\Lambda D_ra\), while its scalar-Ricci bracket contains the derivative term but not the undifferentiated-\(\Lambda\) term. A source-level expansion gives the off-constraint response
+\[
+\delta R^r{}_r=\chi D_rC^r+\chi\frac{D_ra}{2a}C^r,\qquad
+\delta R=\chi D_rC^r,
+\]
+\[
+\delta\dot A_a=\frac23\alpha\chi D_rC^r
++\alpha\chi\frac{D_ra}{2a}C^r.
+\]
+Propagating this through the exact momentum functional adds to the Brown scaffold the signed terms
+\[
+\eta D_rC^r + \left[D_r\eta+\Gamma_M\eta\right]C^r,
+\quad \eta=\alpha\chi\frac{D_ra}{2a},
+\quad \Gamma_M=-3\frac{D_rX}{X}+\frac3r+\frac32\frac{D_rb}{b}.
+\]
+This was a symbolic source-derived result, not a runtime closure test. The current shared-state NPZ does **not** store \(C^r,D_rC^r,D_r^2C^r,D_ra,\eta\) or the two extra signed correction arrays, so the correction cannot be evaluated from the saved arrays alone. The existing shared-state adapter has the accepted state in memory and is the correct place to add those output arrays if a new bounded diagnostic is authorized; do not create a parallel observer.
+
 ## 6. Residual classification and acceptance language
 
 Every later comparison must report these separately:
