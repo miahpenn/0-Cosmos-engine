@@ -412,6 +412,7 @@ def run(output_dir: Path):
     brown_plus_source = brown_prediction + matter_source["total"]
     residual_after_source = mdot_geom - brown_plus_source
     connection = connection_correction(accepted)
+    r = np.asarray(accepted.grid.centers, dtype=np.float64)
     # Diagnostic-only candidate: retain the vendor-derived correction as a
     # separate signed addition. The Brown-overlap candidate is NOT subtracted
     # or folded in until its equation-level relationship is reconciled.
