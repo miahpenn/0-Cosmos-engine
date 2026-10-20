@@ -218,6 +218,90 @@ def matter_source_momentum_tangent(state, projections):
     }
 
 
+def connection_correction(state):
+    """Evaluate the source-derived off-constraint C^r correction on this exact state.
+
+    Diagnostic decomposition only: do not fold this into Brown's predictor
+    until the overlapping connection contribution is reconciled.
+    """
+    grid, geom = state.grid, state.geometry
+    r = np.asarray(grid.centers, dtype=np.float64)
+    d1_odd = lambda values: np.asarray(grid.cell_derivative_fourth(values, parity=1), dtype=np.float64)
+    d1_even = lambda values: np.asarray(grid.cell_derivative_fourth(values, parity=0), dtype=np.float64)
+    a, b, x = (np.asarray(getattr(geom, key), dtype=np.float64) for key in ("a", "b", "X"))
+    alpha = np.asarray(geom.alpha, dtype=np.float64)
+    lam = np.asarray(geom.Lambda, dtype=np.float64)
+    da, db, dx = d1_odd(a), d1_odd(b), d1_odd(x)
+    lambda_metric = da / (2.0*a*a) - db/(a*b) + 2.0/r*(1.0/b - 1.0/a)
+    C = lam - lambda_metric
+    dC = d1_odd(C)
+    chi = x*x
+    eta = alpha*chi*da/(2.0*a)
+    deta = d1_odd(eta)
+    etaC = eta*C
+    # C and eta are odd; eta*C is even and needs the even parity stencil.
+    d_etaC = d1_even(etaC)
+    gamma_m = -3.0*dx/x + 3.0/r + 1.5*db/b
+    direct = d_etaC + gamma_m*etaC
+    expanded = eta*dC + (deta + gamma_m*eta)*C
+    product_remainder = direct - expanded
+    # Keep this source-derived overlap visible but do not add it twice.
+    brown_connection_d1c = (2.0/3.0)*alpha*chi*dC
+    arrays = {
+        "connection_C_signed": C,
+        "connection_D1C_signed": dC,
+        "connection_eta_signed": eta,
+        "connection_D1eta_signed": deta,
+        "connection_etaC_signed": etaC,
+        "connection_D1_etaC_signed": d_etaC,
+        "connection_GammaM_signed": gamma_m,
+        "connection_correction_direct_signed": direct,
+        "connection_correction_expanded_signed": expanded,
+        "connection_product_rule_remainder_signed": product_remainder,
+        "connection_Brown_overlap_2over3_alpha_chi_D1C_signed": brown_connection_d1c,
+    }
+    if not all(np.all(np.isfinite(v)) for v in arrays.values()):
+        raise FloatingPointError("non-finite connection-correction array")
+    def cell_record(idx):
+        return {"cell": idx, "radius": float(r[idx]),
+                **{name: float(values[idx]) for name, values in arrays.items()}}
+    cells = {str(idx): cell_record(idx) for idx in (0, 1, 2)}
+    fixed_radius = {}
+    for target in (2.0, 3.0, 5.0, 8.0):
+        idx = int(np.argmin(np.abs(r-target)))
+        fixed_radius[str(target)] = {
+            "cell": idx, "grid_radius": float(r[idx]),
+            **{name: float(arrays[name][idx]) for name in (
+                "connection_correction_direct_signed",
+                "connection_correction_expanded_signed",
+                "connection_product_rule_remainder_signed",
+                "connection_Brown_overlap_2over3_alpha_chi_D1C_signed")}
+        }
+    return {
+        "arrays": arrays,
+        "report": {
+            "formula": "F=eta*C; direct=D1_even(F)+GammaM*F; expanded=eta*D1_odd(C)+(D1_odd(eta)+GammaM*eta)*C",
+            "definitions": {
+                "C": "Lambda - [D1_odd(a)/(2*a^2) - D1_odd(b)/(a*b) + 2/r*(1/b - 1/a)]",
+                "eta": "alpha*X^2*D1_odd(a)/(2*a)",
+                "GammaM": "-3*D1_odd(X)/X + 3/r + 3/2*D1_odd(b)/b",
+                "product_remainder": "direct - expanded = D1_even(eta*C) - eta*D1_odd(C) - C*D1_odd(eta)"
+            },
+            "parity": {"C": "odd", "eta": "odd", "eta_times_C": "even",
+                       "D1C_and_D1eta": "odd stencil", "D1_etaC": "even stencil"},
+            "signed_summary": {name: summary(arrays[name]) for name in (
+                "connection_correction_direct_signed",
+                "connection_correction_expanded_signed",
+                "connection_product_rule_remainder_signed",
+                "connection_Brown_overlap_2over3_alpha_chi_D1C_signed")},
+            "cells_0_1_2": cells,
+            "nearest_fixed_radii": fixed_radius,
+            "Brown_overlap_policy": "report separately; do not add to Brown predictor until the source derivation and existing scaffold are reconciled",
+            "closure_claim": False
+        }
+    }
+
+
 def run(output_dir: Path):
     source = momentum.provenance()
     stress_source = stress.verify_provenance()
@@ -312,6 +396,7 @@ def run(output_dir: Path):
         raise RuntimeError("independent Aa/K matter-source cross-check failed")
     brown_plus_source = brown_prediction + matter_source["total"]
     residual_after_source = mdot_geom - brown_plus_source
+    connection = connection_correction(accepted)
 
     after_digest = momentum.state_digest(accepted)
     if after_digest != base_digest:
@@ -330,6 +415,7 @@ def run(output_dir: Path):
         "matter_source_Mdot_signed": matter_source["total"],
         "brown_plus_matter_source_prediction_signed": brown_plus_source,
         "residual_after_matter_source_signed": residual_after_source,
+        **connection["arrays"],
         **{f"matter_source_Mdot_{name}_signed": value for name, value in matter_source["pieces"].items()},
         "div_T_t_signed": np.asarray(div["div_T_t"]),
         "div_T_r_signed": np.asarray(div["div_T_r"]),
@@ -377,6 +463,7 @@ def run(output_dir: Path):
             "scope": "vacuum structural terms plus separately measured explicit matter source; discrete product-rule/operator residual remains",
             "full_matter_coupled_identity": False,
         },
+        "connection_correction": connection["report"],
         "matter_source_crosscheck": {
             **source_projection_crosscheck,
             "independent_projection_crosscheck_passed": projections["projection_crosscheck_passed"],
@@ -403,7 +490,9 @@ def run(output_dir: Path):
             "independent total-stress divergence, and Brown vacuum structural terms are now "
             "evaluated on the same accepted state and directional pair. The Brown residual is "
             "not a closure claim: matter-source terms and discrete operator/product-rule terms "
-            "remain to be independently separated."
+            "remain to be independently separated. Signed connection-correction and product-rule "
+            "remainder arrays are now emitted separately; the correction is not folded into the "
+            "predictor pending Brown-overlap reconciliation."
         )
     }
     (output_dir / "shared_state_report.json").write_text(
