@@ -6,6 +6,7 @@ on:
       - diagnostic/accepted-state-raw-momentum-witness
     paths:
       - .github/workflows/issue4-connection-witness-only.yml
+      - tools/audit_shared_state_momentum_total_stress_divergence.py
 permissions:
   contents: read
 jobs:
@@ -19,7 +20,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: 08cd3f7a5c585c52a79b5034c033db8dbf12949a
+          ref: ${{ github.sha }}
           fetch-depth: 0
           submodules: recursive
       - uses: actions/checkout@v4
@@ -36,7 +37,7 @@ jobs:
       - name: Verify source tree and correction implementation
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD)" = 08cd3f7a5c585c52a79b5034c033db8dbf12949a
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
           test "$(git -C source rev-parse HEAD)" = 7f47669a1c0edfafef9fc5f27b2db80840d3f035
           test "$(git -C vendor/bb-palatini-unified-r0 rev-parse HEAD)" = d6052d605673ce9d82cdc99b0df79855fa2ea215
           test "$(git -C source/vendor/bb-palatini-unified-r0 rev-parse HEAD)" = d6052d605673ce9d82cdc99b0df79855fa2ea215
