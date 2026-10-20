@@ -381,6 +381,13 @@ def main() -> int:
             "tight_pressure_residual": tight_row["f_p"],
             "default_wrong_sign_control_detected": abs(default_row["wrong_sign_remainder"]) > abs(default_row["arithmetic_remainder"]),
             "tight_wrong_sign_control_detected": abs(tight_row["wrong_sign_remainder"]) > abs(tight_row["arithmetic_remainder"]),
+            # Keep relative-discrimination separate from rejection by the unchanged bound.
+            "default_wrong_sign_remainder": default_row["wrong_sign_remainder"],
+            "tight_wrong_sign_remainder": tight_row["wrong_sign_remainder"],
+            "default_wrong_sign_error_over_unchanged_bound": abs(default_row["wrong_sign_remainder"]) / bound,
+            "tight_wrong_sign_error_over_unchanged_bound": abs(tight_row["wrong_sign_remainder"]) / bound,
+            "default_wrong_sign_rejected_by_unchanged_bound": abs(default_row["wrong_sign_remainder"]) > bound,
+            "tight_wrong_sign_rejected_by_unchanged_bound": abs(tight_row["wrong_sign_remainder"]) > bound,
         })
     ab_all_default_fail = all(row["default_fails_strict_bound"] for row in ab_rows)
     ab_all_tight_pass = all(row["tight_passes_strict_bound"] for row in ab_rows)
@@ -400,6 +407,15 @@ def main() -> int:
             "all_default_cells_fail_unchanged_strict_bound": ab_all_default_fail,
             "all_tight_cells_pass_unchanged_strict_bound": ab_all_tight_pass,
             "both_wrong_sign_controls_detected_in_both_arms": ab_controls_detected,
+            "wrong_sign_control_detection_definition": "relative discrimination only: wrong-sign residual magnitude exceeds correct-sign arithmetic remainder; this is not the unchanged-bound rejection test",
+            "wrong_sign_rejected_by_unchanged_bound_cell_counts": {
+                "default": sum(row["default_wrong_sign_rejected_by_unchanged_bound"] for row in ab_rows),
+                "tight": sum(row["tight_wrong_sign_rejected_by_unchanged_bound"] for row in ab_rows),
+            },
+            "wrong_sign_not_rejected_by_unchanged_bound_cells": {
+                "default": [row["cell"] for row in ab_rows if not row["default_wrong_sign_rejected_by_unchanged_bound"]],
+                "tight": [row["cell"] for row in ab_rows if not row["tight_wrong_sign_rejected_by_unchanged_bound"]],
+            },
             "pressure_residual_correction_accounts_within_bound_in_both_arms": ab_pressure_correction_accounted,
             "tolerance_cause_supported_by_preregistered_rule": bool(
                 ab_all_default_fail and ab_all_tight_pass and ab_controls_detected and ab_pressure_correction_accounted
