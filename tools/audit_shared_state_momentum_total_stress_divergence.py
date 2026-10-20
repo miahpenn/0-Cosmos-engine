@@ -226,21 +226,28 @@ def connection_correction(state):
     """
     grid, geom = state.grid, state.geometry
     r = np.asarray(grid.centers, dtype=np.float64)
-    d1_odd = lambda values: np.asarray(grid.cell_derivative_fourth(values, parity=1), dtype=np.float64)
-    d1_even = lambda values: np.asarray(grid.cell_derivative_fourth(values, parity=0), dtype=np.float64)
+    # The pinned API's parity argument describes the INPUT profile:
+    # +1 for even input, -1 for odd input.  The derivative output has opposite
+    # parity; do not pass 0 or infer the argument from the output parity.
+    d1_even_input = lambda values: np.asarray(
+        grid.cell_derivative_fourth(values, parity=+1), dtype=np.float64
+    )
+    d1_odd_input = lambda values: np.asarray(
+        grid.cell_derivative_fourth(values, parity=-1), dtype=np.float64
+    )
     a, b, x = (np.asarray(getattr(geom, key), dtype=np.float64) for key in ("a", "b", "X"))
     alpha = np.asarray(geom.alpha, dtype=np.float64)
     lam = np.asarray(geom.Lambda, dtype=np.float64)
-    da, db, dx = d1_odd(a), d1_odd(b), d1_odd(x)
+    da, db, dx = d1_even_input(a), d1_even_input(b), d1_even_input(x)
     lambda_metric = da / (2.0*a*a) - db/(a*b) + 2.0/r*(1.0/b - 1.0/a)
     C = lam - lambda_metric
-    dC = d1_odd(C)
+    dC = d1_odd_input(C)
     chi = x*x
     eta = alpha*chi*da/(2.0*a)
-    deta = d1_odd(eta)
+    deta = d1_odd_input(eta)
     etaC = eta*C
-    # C and eta are odd; eta*C is even and needs the even parity stencil.
-    d_etaC = d1_even(etaC)
+    # C and eta are odd; eta*C is even and needs the even-input stencil.
+    d_etaC = d1_even_input(etaC)
     gamma_m = -3.0*dx/x + 3.0/r + 1.5*db/b
     direct = d_etaC + gamma_m*etaC
     expanded = eta*dC + (deta + gamma_m*eta)*C
