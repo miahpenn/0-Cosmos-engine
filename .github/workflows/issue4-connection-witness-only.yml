@@ -1,0 +1,70 @@
+name: Issue4 connection witness only
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  connection-witness:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      PYTHONUNBUFFERED: '1'
+      OPENBLAS_VERBOSE: '2'
+      NPY_DISABLE_CPU_FEATURES: X86_V4,AVX512_ICL,AVX512_SPR
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 08cd3f7a5c585c52a79b5034c033db8dbf12949a
+          fetch-depth: 0
+          submodules: recursive
+      - uses: actions/checkout@v4
+        with:
+          ref: 7f47669a1c0edfafef9fc5f27b2db80840d3f035
+          path: source
+          fetch-depth: 0
+          submodules: recursive
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12.15'
+      - name: Install recorded numerical dependencies
+        run: python -m pip install -r source/requirements.txt numpy==2.5.4 scipy==1.18.1 sympy==1.14.0 mpmath==1.3.0 pytest==9.1.1 threadpoolctl==3.6.0
+      - name: Verify source tree and correction implementation
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = 08cd3f7a5c585c52a79b5034c033db8dbf12949a
+          test "$(git -C source rev-parse HEAD)" = 7f47669a1c0edfafef9fc5f27b2db80840d3f035
+          test "$(git -C vendor/bb-palatini-unified-r0 rev-parse HEAD)" = d6052d605673ce9d82cdc99b0df79855fa2ea215
+          test "$(git -C source/vendor/bb-palatini-unified-r0 rev-parse HEAD)" = d6052d605673ce9d82cdc99b0df79855fa2ea215
+          grep -q 'def connection_correction(' tools/audit_shared_state_momentum_total_stress_divergence.py
+      - name: Capture execution provenance
+        run: |
+          mkdir -p results/connection-witness
+          {
+            git rev-parse HEAD
+            git rev-parse HEAD:tools/audit_shared_state_momentum_total_stress_divergence.py
+            uname -a
+            lscpu
+            env | sort | grep -E '^(NPY_|OPENBLAS|OMP|MKL|RUNNER_)' || true
+            python -m pip freeze
+            python -c 'import numpy as n; import scipy; from threadpoolctl import threadpool_info; n.dot(n.ones(2),n.ones(2)); n.show_runtime(); print(threadpool_info()); print(n._core._multiarray_umath.__cpu_features__)'
+          } > results/connection-witness/runtime.txt 2>&1
+      - name: Execute existing shared-state calculation only
+        env:
+          COSMOS_PINNED_SOURCE_ROOT: ${{ github.workspace }}/source
+        run: |
+          set -euo pipefail
+          python -m py_compile tools/audit_shared_state_momentum_total_stress_divergence.py
+          python tools/audit_shared_state_momentum_total_stress_divergence.py --output-dir results/connection-witness 2>&1 | tee results/connection-witness/execution.log
+      - name: Hash preserved outputs
+        if: always()
+        run: |
+          mkdir -p results/connection-witness
+          cd results/connection-witness
+          find . -type f ! -name SHA256SUMS.txt -print0 | sort -z | xargs -0 -r sha256sum > SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: issue4-connection-witness-only
+          path: results/connection-witness/
+          if-no-files-found: error
+          retention-days: 90
