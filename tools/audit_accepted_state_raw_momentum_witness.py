@@ -77,6 +77,24 @@ def run(output_dir: Path) -> dict[str, Any]:
         "radius": np.asarray(accepted.grid.centers, dtype=np.float64),
         "accepted_time": np.asarray(accepted.t, dtype=np.float64),
     }
+    # Preserve the accepted base profiles, not only their RHS rates. Independent
+    # current-tangent reconstruction needs the same-state scalar fields and
+    # conservative fluid variables used by projection/recovery. This is a
+    # diagnostic serialization change only; the state and its digest are fixed.
+    for name in ("a", "b", "X", "Aa", "K", "Lambda", "alpha", "beta", "B"):
+        arrays[f"accepted_state__geometry__{name}"] = np.asarray(
+            getattr(accepted.geometry, name), dtype=np.float64
+        )
+    for name in audit.SCALAR_NAMES:
+        arrays[f"accepted_state__scalars__{name}"] = np.asarray(
+            getattr(accepted.scalars, name), dtype=np.float64
+        )
+    for species_name in ("dark_matter", "baryons", "radiation"):
+        species = getattr(accepted.matter, species_name)
+        for name in ("rest", "energy_t", "momentum_r"):
+            arrays[f"accepted_state__matter__{species_name}__{name}"] = np.asarray(
+                getattr(species, name), dtype=np.float64
+            )
     add_arrays(arrays, "accepted_rhs", rates)
     add_arrays(arrays, "accepted_constraint", witness)
     for index, tangent in enumerate(tangents):
@@ -121,8 +139,10 @@ def run(output_dir: Path) -> dict[str, Any]:
             "acceptance_oracle_satisfied": False,
         },
         "scope_limit": (
-            "Raw arrays expose the existing directional tangent and accepted RHS. "
-            "The directional Mdot still uses finite differences of the constraint "
+            "Raw arrays expose the accepted base geometry/scalar/conservative-fluid profiles, "
+            "the accepted RHS, and the existing directional tangent. The added base profiles "
+            "enable independent reconstruction of current derivatives without changing the "
+            "accepted state. The directional Mdot still uses finite differences of the constraint "
             "observer; this artifact is not an independent full propagation oracle."
         ),
     }
