@@ -415,7 +415,8 @@ def main() -> int:
         "state_identity": {"initial_sha256": initial_digest, "accepted_expected_sha256": EXPECTED_ACCEPTED, "accepted_before_sha256": accepted_before, "accepted_after_sha256": accepted_after, "accepted_state_unchanged": accepted_before == accepted_after},
         "identity": "j_projected - j_direct = f(p) * sqrt(gamma_rr) * sign(S_r) * sqrt(v2) / KAPPA",
         "bound_policy": "unchanged strict bound: 128*eps*(abs(j_projected)+abs(j_direct))+1e-30; no recovery-aware relaxation",
-        "paired_results": paired,\n        "production_path_ab": production_path_ab,
+        "paired_results": paired,
+        "production_path_ab": production_path_ab,
         "interval_certificate_summary": {
             "certified_cells": sum(row["interval_certificate"]["certified"] for group in paired for row in group["per_cell"]),
             "pressure_root_certified_cells": sum(row["interval_certificate"].get("pressure_root_certified", False) for group in paired for row in group["per_cell"]),
