@@ -88,25 +88,47 @@ Here the observer explicitly builds the Hamiltonian slot from a metric-only prop
 | Per-sector exchange/source conversion | `tools/audit_valencia_covariant_exchange_source.py:140-185, 216-320` distinguishes (Q_t,Q_r), energy conversion (-\sqrt\gamma(Q_t-\beta^rQ_r)), and Valencia momentum conversion (\alpha\sqrt\gamma Q_r). | This is a source-coefficient audit, not total scalar+fluid conservation. Reconcile every sector and sign under the declared (J_r) convention, then sum the residuals. |
 | Fluid face-flux/operator mismatch | `tools/audit_issue4_production_hll_operator_pairing.py:260-430` records per-species HLL face fluxes, projected stress face fluxes, source terms, and signed gaps/negative controls. | Scalar sectors are not HLL fluid face fluxes; the scalar spatial-operator budget remains incomplete. Separate face/cell operator remainder from a true source/conservation residual. |
 
-### Why the matter source term is not filled with a guessed coefficient
+### Independent geometric and explicit matter-source derivative already derived
 
-The saved diagnostics do not, by themselves, establish a convention-complete identity that converts every component of νμ (T^{\mu}{}_{\nu}) and each exchange four-force into the exact lower-index (M_r) propagation source. Filling that row by differentiating the same production tangent would be circular; filling it by treating the vacuum Brown formula as a matter oracle would be unsupported. The correct next static step is to recover the archive-backed ADM/BSSN matter-coupled derivation, align its definitions of (H), (M_r), (C^r), (S_r), (j_r), and (Q_\nu), and write the source term from that derivation before any numerical comparison.
+PR #408's branch contains [the independent momentum-propagation derivation note](https://github.com/miahpenn/0-Cosmos-engine/blob/diagnostic/accepted-state-raw-momentum-witness/docs/audits/issue4-independent-momentum-propagation-derivation-2026-10-19.md). It gives the independent geometric chain rule and analytic scalar-current chain rules, and explicitly requires the conservative-fluid current derivative to include species RHS rates plus the metric dependence of primitive recovery/projection. The measured finite-difference \(\dot M_r\) remains comparison data, not the independent prediction.
 
-## 5. Existing same-state data inventory
+The shared-state adapter on that branch also derives and checks the explicit matter contribution to the *geometric* tangent from primary \(A_a/K\) sources:
+\[
+\dot A_a^{\rm matter}=-\frac{16\pi}{3}\alpha(p_r-p_t),\qquad
+\dot K^{\rm matter}=4\pi\alpha(\rho+p_r+2p_t),
+\]
+\[
+\dot M_{\rm geom}^{\rm matter}=D_1\dot A_a^{\rm matter}-\frac23D_1\dot K^{\rm matter}
++\left[-3\frac{D_1X}{X}+\frac3r+\frac32\frac{D_1b}{b}\right]\dot A_a^{\rm matter}.
+\]
+That term is cross-checked against production L3-minus-vacuum-L3 source deltas and decomposed by sector. It is an independently checked partial term, **not** the full matter-coupled propagation RHS: it does not replace the independent \(\dot J_r\), total conservation/exchange residual terms, or discrete operator remainder.
 
-| Input needed by the independent RHS | Existing saved observer/data | Availability for the exact accepted state needed by Issue #4 |
+### What remains genuinely missing
+
+The required equation is \(\dot M_r^{\rm pred}=\dot M_{\rm geom}^{\rm RHS}-8\pi\dot J_r^{\rm RHS}\). The geometric formula and scalar \(\dot J\) chain-rule formulas exist in the #408 derivation note; the independent fluid \(\dot J\) derivative through `project_species`, including metric dependence, is explicitly still required. The saved #408 tangent arrays contain six sector-wise \(\dot J\) *measurements* from plus/minus constraint-observer evaluations, not independent chain-rule predictions. Relabeling them would be circular.
+
+The code-level matter-source formula is therefore a useful partial witness, but the full independent RHS and its convention-complete source/exchange mapping are still missing. A second convention issue is already recorded in [Issue #4 source-normalization map](https://github.com/miahpenn/0-Cosmos-engine/issues/4#issuecomment-6206825385): S/D scalar projections have no explicit \(1/(8\pi)\), while COSMOS-\(\phi\) and fluid projections do; EM must arrive pre-normalized. The archive-backed interpretation of S/D units and the covariant-to-ADM source mapping remain unresolved. Do not silently apply one global rescaling or infer physical normalization from \(\kappa\) alone.
+
+## 5. Existing accepted-state artifact: exact inventory, not a vague “missing state”
+
+PR #408's existing artifact [run #39191199364](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/39191199364) is named `accepted-state-raw-momentum-witness` (artifact SHA-256 `82632b5d7dfbede44ff2e3de08c65d94335edc351c07fd533bf59ae4f5e702cd`). It records initial digest `a256b57f274ee120b55c0f805ed488d91382a9799647c8f9811d7df82aa337c0`, accepted digest `c6acb3711d59a85c804a88208c9bc0356e8227a806c0684ae3a8afac72c9091a`, one step at N=60 / r_max=80 / dt=0.015, and 131 finite arrays. It includes accepted RHS rates for geometry, scalar variables, and dark-matter/baryon/radiation conservative components; accepted \(M_{\rm geom}\), its five signed pieces, \(J_{\rm total}\), six current projections and \(M_{\rm total}\); plus two epsilon (2e-5, 1e-5) measured tangents and six per-sector current-tangent arrays. State identity and immutability pass; full propagation and admission flags remain false.
+
+| Input needed by the independent RHS | Existing saved data | Availability / exact limitation |
 |---|---|---|
-| (a,b,X,\alpha,\beta,A_a,K,\Lambda), parity-aware D1/D2 and radii | Tangent observer reconstructs these on its initialized/frozen slice; Brown observer stores manufactured profiles and cell/fixed-radius summaries. | **Partial.** Frozen/initialized arrays exist; this does not establish that all arrays are saved for the exact accepted state of PR #404. |
-| (\dot a,\dot b,\dot X,\dot A_a,\dot K,\dot\Lambda) from production RHS | Tangent observer records signed rate decomposition and finite-difference (\dot M_r) on its own state. | **Partial.** Existing local tangent is already implemented and must not be duplicated; exact accepted-state full RHS array set not proven present. |
-| Total (\rho,J_r,p_r,p_t) and sector decompositions | Tangent and total-(T) observers rebuild total projections from scalar/fluid state; source accounting is available by sector. | **Partial.** Sector projections exist in diagnostic execution; saved report availability must be checked field-by-field before claiming a same-state join. |
-| (\partial_t(\sqrt{-g}T^t{}_t)), (\partial_t(\sqrt{-g}T^t{}_r)) | Total-(T) observer obtains directional derivatives from plus/minus perturbations along its pinned RHS. | **Partial.** Available for the observer's frozen state/supported shift scope; not evidence of the required accepted-state nonzero-shift join. |
-| (D_r(\sqrt{-g}T^r{}_r)), metric derivatives and signed radial divergence components | Total-(T) observer stores component terms; HLL observer stores species face fluxes and projected-face differences. | **Partial.** Component arrays exist in those audit paths; cross-observer state identity and complete scalar spatial operator are not established. |
-| (C^r,D_rC^r,D_r^2C^r) on the same accepted state | Brown observer computes these on manufactured vacuum states. | **Missing for the target same-state join** unless the accepted-state artifact explicitly contains them; the vacuum artifact is not the accepted matter state. |
-| Independent matter-coupled RHS residual after applying all signed terms | No current observer has this complete formula; STATUS says the witness is missing. | **Missing.** This is the target deliverable, not something recoverable by relabeling the current tangent closure. |
-| Archived derivation tying source convention to (M_r) and the total conservation/exchange residual | Existing source map is described as provisional where provenance is absent. | **Missing/uncited in the current code artifacts.** Must cite exact archive record and equation before numerical work. |
+| Accepted RHS rates \((\dot a,\dot b,\dot X,\dot A_a,\dot K,\dot\Lambda)\) and scalar/fluid conservative rates | Present in `accepted_state_raw_arrays.npz` under `accepted_rhs__...`; source/vendor pins and accepted digest are in `report.json`. | **Present.** Reuse; do not rerun to regenerate these rates. |
+| Accepted base geometry and scalar/fluid conserved profiles | NPZ stores radius, RHS-rate profiles, constraint/current projections and tangent summaries, but not all base \(S,P_S,D,P_D,\phi,\Pi\) and conservative species profiles needed for independent \(\dot J_r\). | **Missing from this saved NPZ.** The digest is not an invertible encoding of the profiles. |
+| \(\dot M_{\rm geom}\), \(\dot M_{\rm total}\), and six per-sector \(\dot J\) witnesses | Present at both tangent epsilons. | **Present as comparison measurements only:** the per-sector terms come from plus/minus constraint-observer evaluations, not independent current-chain-rule predictions. |
+| Independent geometric chain rule | Exact formulas in the #408 derivation note; rates and base variables are required. | **Formula present; artifact base profiles incomplete for offline evaluation.** |
+| Explicit matter contribution from primary \(A_a/K\) source | Shared-state adapter derives it from independently rebuilt sector \((\rho,p_r,p_t)\) and cross-checks against production L3-minus-vacuum-L3 deltas. | **Implemented in #408 branch code, but not present in the run #39191199364 report/NPZ.** |
+| Same-state \(C^r,D_rC^r,D_r^2C^r\), Brown terms and total \(\nabla_\mu T^\mu{}_\nu\) | The shared-state adapter source computes these on one in-memory accepted state and plus/minus pair; it asserts zero shift and writes `shared_state_signed_arrays.npz` plus a v2 report when executed. | **Code exists; a matching executed artifact was not verified in this pass.** The accepted slice is explicitly \(\beta^r=0\), so it cannot certify nonzero-shift propagation. |
+| Independent \(\dot J_S,\dot J_D,\dot J_\phi\) | Analytic formula in the #408 derivation note. | **Not saved as independent arrays.** Requires accepted base fields plus rates. |
+| Independent fluid \(\dot J\) for dark matter, baryons and radiation | Derivation note identifies required conservative rates and metric dependence of `project_species`. | **Not derived/recorded yet.** A projection Jacobian, if used, must be separately specified and error-bounded. |
+| Full matter-coupled propagation residual | No report claims this gate closed. | **Missing.** This is the actual remaining gate. |
 
-A missing quantity is not a request to launch a new run. First check whether the exact accepted-state artifact contains the needed array. If it does not, name the array, required state identity, and why the existing frozen-state observers cannot reconstruct it without a new RHS evaluation.
+The shared-state adapter source is [`tools/audit_shared_state_momentum_total_stress_divergence.py`](https://github.com/miahpenn/0-Cosmos-engine/blob/diagnostic/accepted-state-raw-momentum-witness/tools/audit_shared_state_momentum_total_stress_divergence.py). It already joins the measured tangent, Brown vacuum scaffold, explicit \(A_a/K\) matter-source contribution and total-stress divergence on one in-memory state, but declares `full_matter_coupled_identity=false`. Reuse this code; do not create a second observer. The current raw artifact and the later shared-state adapter must not be conflated.
 
+A missing quantity is not a request to repeat replay #87. First use the exact existing #408 artifact and branch code. Only if the required accepted base profiles are absent from every already-existing artifact should the team propose a narrowly scoped artifact extension, naming the exact fields to preserve.
+ 
 ## 6. Residual classification and acceptance language
 
 Every later comparison must report these separately:
