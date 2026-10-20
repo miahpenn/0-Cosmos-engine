@@ -256,6 +256,29 @@ def connection_correction(state):
     direct = d_etaC + gamma_etaC
     expanded = eta_dC + d_eta_plus_gamma_eta_times_C
     product_remainder = direct - expanded
+    # Check arithmetic assembly closure separately from the product-rule
+    # remainder itself. The latter is the measured discrete operator defect
+    # and must not be forced to roundoff.
+    direct_assembly_remainder = direct - (d_etaC + gamma_etaC)
+    expanded_assembly_remainder = expanded - (eta_dC + d_eta_plus_gamma_eta_times_C)
+    eps_scale = 128.0 * np.finfo(np.float64).eps
+    direct_assembly_bound = eps_scale * (
+        np.abs(d_etaC) + np.abs(gamma_etaC) + np.abs(direct)
+    )
+    expanded_assembly_bound = eps_scale * (
+        np.abs(eta_dC) + np.abs(d_eta_plus_gamma_eta_times_C) + np.abs(expanded)
+    )
+    arithmetic_closure = {
+        "direct_assembly_remainder_max_abs": float(np.max(np.abs(direct_assembly_remainder))),
+        "direct_assembly_bound_max": float(np.max(direct_assembly_bound)),
+        "direct_assembly_passed": bool(np.all(np.abs(direct_assembly_remainder) <= direct_assembly_bound)),
+        "expanded_assembly_remainder_max_abs": float(np.max(np.abs(expanded_assembly_remainder))),
+        "expanded_assembly_bound_max": float(np.max(expanded_assembly_bound)),
+        "expanded_assembly_passed": bool(np.all(np.abs(expanded_assembly_remainder) <= expanded_assembly_bound)),
+        "bound_definition": "128*float64_eps*sum(abs(assembled operands)); applies only to arithmetic assembly, not direct-minus-expanded product-rule remainder",
+    }
+    if not arithmetic_closure["direct_assembly_passed"] or not arithmetic_closure["expanded_assembly_passed"]:
+        raise ArithmeticError("connection-correction arithmetic assembly failed operand-scaled closure")
     # Keep this source-derived overlap candidate visible; its relation to Brown's scaffold still needs an equation-level reconciliation.
     brown_connection_d1c = (2.0/3.0)*alpha*chi*dC
     arrays = {
@@ -273,6 +296,10 @@ def connection_correction(state):
         "connection_correction_direct_signed": direct,
         "connection_correction_expanded_signed": expanded,
         "connection_product_rule_remainder_signed": product_remainder,
+        "connection_direct_assembly_remainder_signed": direct_assembly_remainder,
+        "connection_direct_assembly_bound_signed": direct_assembly_bound,
+        "connection_expanded_assembly_remainder_signed": expanded_assembly_remainder,
+        "connection_expanded_assembly_bound_signed": expanded_assembly_bound,
         "connection_overlap_candidate_2over3_alpha_chi_D1C_signed": brown_connection_d1c,
     }
     if not all(np.all(np.isfinite(v)) for v in arrays.values()):
@@ -304,6 +331,7 @@ def connection_correction(state):
             },
             "parity": {"C": "odd", "eta": "odd", "eta_times_C": "even",
                        "D1C_and_D1eta": "odd stencil", "D1_etaC": "even stencil"},
+            "arithmetic_closure": arithmetic_closure,
             "signed_summary": {name: summary(arrays[name]) for name in (
                 "connection_correction_direct_signed",
                 "connection_correction_expanded_signed",
