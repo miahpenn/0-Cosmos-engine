@@ -218,6 +218,73 @@ def matter_source_momentum_tangent(state, projections):
     }
 
 
+def fluid_current_tangent(state, rates):
+    """Independent analytic Jdot for baseline fluid species on the accepted state."""
+    geom = state.geometry
+    r = np.asarray(state.grid.centers, dtype=np.float64)
+    a = np.asarray(geom.a, dtype=np.float64)
+    b = np.asarray(geom.b, dtype=np.float64)
+    x = np.asarray(geom.X, dtype=np.float64)
+    if np.any(a <= 0.0) or np.any(b <= 0.0) or np.any(x <= 0.0):
+        raise FloatingPointError("non-positive metric profile in fluid-current tangent")
+    sqrt_gamma = np.sqrt(a) * b * r**2 / x**3
+    dlog_sqrt_gamma = (
+        np.asarray(rates["geometry"]["a"], dtype=np.float64) / (2.0*a)
+        + np.asarray(rates["geometry"]["b"], dtype=np.float64) / b
+        - 3.0*np.asarray(rates["geometry"]["X"], dtype=np.float64) / x
+    )
+    projected = momentum.current_pieces(state)
+    arrays = {
+        "base_geometry_a_signed": a,
+        "base_geometry_b_signed": b,
+        "base_geometry_X_signed": x,
+        "base_sqrt_gamma_signed": sqrt_gamma,
+        "geometry_dlog_sqrt_gamma_signed": dlog_sqrt_gamma,
+    }
+    species_report = {}
+    for name in ("dark_matter", "baryons", "radiation"):
+        species = getattr(state.matter, name)
+        U = np.asarray(species.momentum_r, dtype=np.float64)
+        Udot = np.asarray(rates["matter"][name]["momentum_r"], dtype=np.float64)
+        j_identity = U / (momentum.KAPPA * sqrt_gamma)
+        jdot = (Udot - U*dlog_sqrt_gamma) / (momentum.KAPPA * sqrt_gamma)
+        gap = j_identity - np.asarray(projected[name], dtype=np.float64)
+        scale = np.abs(j_identity) + np.abs(projected[name])
+        bound = 512.0*np.finfo(np.float64).eps*scale
+        passed = bool(np.all(np.abs(gap) <= bound))
+        if not passed:
+            idx = int(np.argmax(np.divide(np.abs(gap), bound,
+                out=np.full_like(gap, np.inf), where=bound > 0.0)))
+            raise RuntimeError(
+                f"{name} projected-current/conserved-identity cross-check failed "
+                f"at cell {idx}: gap={gap[idx]:.17g}, bound={bound[idx]:.17g}"
+            )
+        arrays[f"fluid_{name}_momentum_r_base_signed"] = U
+        arrays[f"fluid_{name}_momentum_r_rhs_signed"] = Udot
+        arrays[f"fluid_{name}_current_base_signed"] = j_identity
+        arrays[f"fluid_{name}_current_tangent_signed"] = jdot
+        arrays[f"fluid_{name}_current_identity_gap_signed"] = gap
+        species_report[name] = {
+            "base_current": summary(j_identity),
+            "analytic_current_tangent": summary(jdot),
+            "projected_current_identity_gap": summary(gap),
+            "identity_roundoff_bound_max": float(np.max(bound)),
+            "identity_crosscheck_passed": passed,
+            "formula": "(U_momentum_r_dot - U_momentum_r*(adot/(2a)+bdot/b-3*Xdot/X))/(8*pi*sqrt_gamma)",
+        }
+    if not all(np.all(np.isfinite(v)) for v in arrays.values()):
+        raise FloatingPointError("non-finite fluid-current tangent array")
+    return {"arrays": arrays, "report": {
+        "sqrt_gamma_formula": "sqrt(a)*b*r^2/X^3",
+        "species": species_report,
+        "all_projected_current_identity_crosschecks_passed": all(
+            item["identity_crosscheck_passed"] for item in species_report.values()
+        ),
+        "independent_tangent": True,
+        "closure_claim": False,
+    }}
+
+
 def connection_correction(state):
     """Evaluate the source-derived off-constraint C^r correction on this exact state.
 
@@ -404,6 +471,7 @@ def run(output_dir: Path):
     brown_plus_source = brown_prediction + matter_source["total"]
     residual_after_source = mdot_geom - brown_plus_source
     connection = connection_correction(accepted)
+    fluid_tangent = fluid_current_tangent(accepted, rates)
 
     after_digest = momentum.state_digest(accepted)
     if after_digest != base_digest:
@@ -423,6 +491,7 @@ def run(output_dir: Path):
         "brown_plus_matter_source_prediction_signed": brown_plus_source,
         "residual_after_matter_source_signed": residual_after_source,
         **connection["arrays"],
+        **fluid_tangent["arrays"],
         **{f"matter_source_Mdot_{name}_signed": value for name, value in matter_source["pieces"].items()},
         "div_T_t_signed": np.asarray(div["div_T_t"]),
         "div_T_r_signed": np.asarray(div["div_T_r"]),
@@ -471,6 +540,7 @@ def run(output_dir: Path):
             "full_matter_coupled_identity": False,
         },
         "connection_correction": connection["report"],
+        "fluid_current_tangent": fluid_tangent["report"],
         "matter_source_crosscheck": {
             **source_projection_crosscheck,
             "independent_projection_crosscheck_passed": projections["projection_crosscheck_passed"],
