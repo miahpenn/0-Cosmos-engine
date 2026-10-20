@@ -28,14 +28,11 @@ jobs:
     timeout-minutes: 25
     env:
       PYTHONUNBUFFERED: "1"
-      # Reproduce the recorded known-good NumPy dispatch setting. The successful reference had X86_V3 available, but different hosted CPU families still drift;
-      # diagnostic isolation probe disables X86_V3 as well as AVX-512 to test whether its
-      # CPU-specific dispatch causes the outer-boundary initialization artifact. This does
-      # not change production code or the immutable digest.
+      # Do not override NumPy CPU dispatch here. The prior forced disables were
+      # measured to reproduce the drifted acaabd9f... digest exactly; they are not
+      # evidence for the immutable a256b57f... witness environment. Capture the
+      # effective dispatch in the trace and keep the identity gate fail-closed.
       # Never retarget the immutable digest.
-      NPY_DISABLE_CPU_FEATURES: "X86_V3,X86_V4,AVX512_ICL,AVX512_SPR"
-      # Preserve the runtime environment used by the previously successful exact replay.
-      # Do not force BLAS/OpenMP thread counts: the experiment changed the pinned state digest.
       SOURCE_COMMIT: "7f47669a1c0edfafef9fc5f27b2db80840d3f035"
       VENDOR_COMMIT: "d6052d605673ce9d82cdc99b0df79855fa2ea215"
     steps:
