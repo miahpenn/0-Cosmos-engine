@@ -245,7 +245,7 @@ def connection_correction(state):
     direct = d_etaC + gamma_m*etaC
     expanded = eta*dC + (deta + gamma_m*eta)*C
     product_remainder = direct - expanded
-    # Keep this source-derived overlap visible but do not add it twice.
+    # Keep this source-derived overlap candidate visible; its relation to Brown's scaffold still needs an equation-level reconciliation.
     brown_connection_d1c = (2.0/3.0)*alpha*chi*dC
     arrays = {
         "connection_C_signed": C,
@@ -258,7 +258,7 @@ def connection_correction(state):
         "connection_correction_direct_signed": direct,
         "connection_correction_expanded_signed": expanded,
         "connection_product_rule_remainder_signed": product_remainder,
-        "connection_Brown_overlap_2over3_alpha_chi_D1C_signed": brown_connection_d1c,
+        "connection_overlap_candidate_2over3_alpha_chi_D1C_signed": brown_connection_d1c,
     }
     if not all(np.all(np.isfinite(v)) for v in arrays.values()):
         raise FloatingPointError("non-finite connection-correction array")
@@ -275,7 +275,7 @@ def connection_correction(state):
                 "connection_correction_direct_signed",
                 "connection_correction_expanded_signed",
                 "connection_product_rule_remainder_signed",
-                "connection_Brown_overlap_2over3_alpha_chi_D1C_signed")}
+                "connection_overlap_candidate_2over3_alpha_chi_D1C_signed")}
         }
     return {
         "arrays": arrays,
@@ -293,10 +293,10 @@ def connection_correction(state):
                 "connection_correction_direct_signed",
                 "connection_correction_expanded_signed",
                 "connection_product_rule_remainder_signed",
-                "connection_Brown_overlap_2over3_alpha_chi_D1C_signed")},
+                "connection_overlap_candidate_2over3_alpha_chi_D1C_signed")},
             "cells_0_1_2": cells,
             "nearest_fixed_radii": fixed_radius,
-            "Brown_overlap_policy": "report separately; do not add to Brown predictor until the source derivation and existing scaffold are reconciled",
+            "overlap_policy": "report separately; compare against Brown scaffold equation before any combined prediction",
             "closure_claim": False
         }
     }
