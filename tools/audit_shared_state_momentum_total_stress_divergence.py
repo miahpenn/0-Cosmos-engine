@@ -15,6 +15,8 @@ from tools import audit_brown_vacuum_momentum_propagation as brown
 from engine.matter_system import _metric_arrays, _species_rhs_components, geometry_metric_derivatives, primitives
 from engine.valencia import dark_matter_covector_source
 
+# These are immutable identity gates, not tunable targets. Runtime dispatch stays host-native.
+# A mismatch must stop before the joined diagnostic; never force a BLAS/CPU override to make it pass.
 INITIAL_SHA256 = "a256b57f274ee120b55c0f805ed488d91382a9799647c8f9811d7df82aa337c0"
 ACCEPTED_SHA256 = "c6acb3711d59a85c804a88208c9bc0356e8227a806c0684ae3a8afac72c9091a"
 RESOLUTION, R_MAX, DT, EPSILON = 60, 80.0, 0.015, 1.0e-5
