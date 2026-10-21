@@ -49,6 +49,26 @@ def regional_signed_summary(values, radii):
             "max_abs":float(np.max(np.abs(values)))}
 
 
+def signed_cell_snapshot(radii, grouped_terms):
+    """Return raw signed term-by-term rows at centre cells and fixed-radius samples."""
+    r=np.asarray(radii,dtype=np.float64)
+    indices={0,1,2}
+    for target in (5.0,8.0,10.0):
+        indices.add(int(np.argmin(np.abs(r-target))))
+    rows=[]
+    for i in sorted(indices):
+        row={"cell":int(i),"radius":float(r[i]),"groups":{}}
+        for group, terms in grouped_terms.items():
+            vals={}
+            for name, profile in terms.items():
+                arr=np.asarray(profile,dtype=np.float64)
+                if arr.shape==r.shape:
+                    vals[name]=float(arr[i])
+            row["groups"][group]=vals
+        rows.append(row)
+    return rows
+
+
 
 def matter_source_momentum_tangent(state, projections):
     """Apply the exact M_geom functional derivative to explicit Aa/K matter sources."""
@@ -272,7 +292,6 @@ def fluid_current_tangent(state, rates, current_maps, epsilon: float):
     base,plus,minus=current_maps
     arrays={"base_geometry_a_signed":a,"base_geometry_b_signed":b,"base_geometry_X_signed":x,
             "base_sqrt_gamma_signed":sg,"geometry_dlog_sqrt_gamma_signed":dlog}
-    rep={}, 
     species_report={}; atotal=np.zeros_like(r); ptotal=np.zeros_like(r)
     for name in ("dark_matter","baryons","radiation"):
         st=getattr(state.matter,name); U=np.asarray(st.momentum_r,dtype=np.float64)
@@ -679,6 +698,46 @@ def run(output_dir: Path):
         "geometric_chain_rule": geometric_tangent["report"],
         "valencia_exchange_ledger": valencia["report"],
         "joined_current_and_momentum_budget": {
+            "four_way_signed_ledger_rows": signed_cell_snapshot(r, {
+                "geometry_Brown_scaffold": {
+                    "Brown_vacuum_prediction": brown_prediction,
+                    **{f"Brown_term__{name}": value for name, value in brown_terms.items()},
+                    "explicit_AaK_matter_source_tangent": matter_source["total"],
+                },
+                "connection_correction_not_summed_pending_overlap_mapping": {
+                    "direct": connection["arrays"]["connection_correction_direct_signed"],
+                    "expanded": connection["arrays"]["connection_correction_expanded_signed"],
+                    "D2C": connection["arrays"]["connection_D2C_signed"],
+                    "Brown_overlap_candidate": connection["arrays"]["connection_overlap_candidate_2over3_alpha_chi_D1C_signed"],
+                    "product_rule_remainder": connection["arrays"]["connection_product_rule_remainder_signed"],
+                },
+                "independent_current_and_exchange": {
+                    "Jdot_scalar_total_analytic": scalar_tangent["analytic_total"],
+                    "Jdot_fluid_total_conserved_identity": fluid_tangent["analytic_total"],
+                    "minus_8pi_Jdot_total_candidate": -momentum.KAPPA*jdot_conserved_candidate,
+                    "div_T_r_cell_centred": div["div_T_r"],
+                    "div_T_r_finite_volume": div["div_T_r_fv"],
+                    "Valencia_Qe_DM": valencia["arrays"]["valencia_exchange__Qe_conservative_signed"],
+                    "Valencia_Qs_DM": valencia["arrays"]["valencia_exchange__Qs_conservative_signed"],
+                    "scalar_Pi_source_normalization_conditional": valencia["arrays"]["valencia_exchange__phi_energy_proxy_normalized_by_kappa_signed"],
+                },
+                "discrete_operator_and_comparison_remainders": {
+                    "observed_minus_conserved_identity_candidate": joined_candidate_residual,
+                    "observed_minus_projected_map_FD_candidate": projected_candidate_residual,
+                    "observed_geometric_tangent_minus_chain_rule": np.asarray(mdot_geom)-geometric_tangent["total"],
+                    "scalar_current_projection_operator_sum": sum(
+                        (scalar_tangent["arrays"][f"scalar_{key}_current_operator_remainder_signed"]
+                         for key in ("S","D","COSMOS_phi")), np.zeros_like(r)),
+                    "fluid_current_projection_operator_sum": sum(
+                        (fluid_tangent["arrays"][f"fluid_{key}_current_tangent_projection_gap_signed"]
+                         for key in ("dark_matter","baryons","radiation")), np.zeros_like(r)),
+                },
+            }),
+            "term_combination_policy": (
+                "Raw signed terms only. Do not arithmetically fold the Brown-overlap candidate into the connection correction, "
+                "or reinterpret Qe/Qs and the scalar Pi source proxy as cancelling exchange terms, until the archive-backed "
+                "convention mapping is derived. Every row separates cells 0/1/2 from nearest fixed-radius samples."
+            ),
             "Jdot_RHS_conserved_identity_candidate": regional_signed_summary(jdot_conserved_candidate,r),
             "Jdot_RHS_projected_map_fd": regional_signed_summary(jdot_projected_map_fd,r),
             "Mdot_total_chain_rule_conserved_candidate": regional_signed_summary(mdot_total_conserved_candidate,r),
