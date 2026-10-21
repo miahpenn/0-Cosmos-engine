@@ -373,10 +373,10 @@ def valencia_exchange_ledger(state, rates):
     invdr=1.0/float(grid.dr); arrays={}; reports={}
     specs=(("dark_matter",momentum.Species.DARK_MATTER),("baryons",momentum.Species.BARYON),("radiation",momentum.Species.RADIATION))
     for name,sp in specs:
-        face,se,sr,qe,qs=_species_rhs_components(metric,mder,getattr(state.matter,name),sp,
+        face,se,sr,qe,qs,qrest=_species_rhs_components(metric,mder,getattr(state.matter,name),sp,
                                                 dphi_t=phit,dphi_r=phir,beta_dm=beta_dm)
         fluxes=(-invdr*np.diff(face[:,0]),-invdr*np.diff(face[:,1]),-invdr*np.diff(face[:,2]))
-        recon={"rest":fluxes[0],"energy_t":fluxes[1]+se+qe,"momentum_r":fluxes[2]+sr+qs}; gaps={}
+        recon={"rest":fluxes[0]+qrest,"energy_t":fluxes[1]+se+qe,"momentum_r":fluxes[2]+sr+qs}; gaps={}
         for field,val in recon.items():
             recorded=np.asarray(rates["matter"][name][field],dtype=np.float64); gap=np.asarray(val)-recorded; gaps[field]=gap
             arrays[f"valencia_{name}_reconstructed_rhs__{field}_signed"]=np.asarray(val)
@@ -384,12 +384,14 @@ def valencia_exchange_ledger(state, rates):
             arrays[f"valencia_{name}_rhs_reconstruction_gap__{field}_signed"]=gap
         for col,label in enumerate(("rest","energy_t","momentum_r")): arrays[f"valencia_{name}_face_flux__{label}_signed"]=np.asarray(face[:,col])
         for label,val in (("geometric_energy_source",se),("geometric_momentum_source",sr),
-                          ("exchange_energy_source",qe),("exchange_momentum_source",qs)):
+                          ("exchange_energy_source",qe),("exchange_momentum_source",qs),
+                          ("exchange_rest_source",qrest)):
             arrays[f"valencia_{name}_{label}_signed"]=np.asarray(val)
         reports[name]={"rhs_reconstruction_gaps":{k:summary(v) for k,v in gaps.items()},
             "rhs_reconstruction_max_abs":max(float(np.max(np.abs(v))) for v in gaps.values()),
             "geometric_energy_source":summary(se),"geometric_momentum_source":summary(sr),
-            "exchange_energy_source":summary(qe),"exchange_momentum_source":summary(qs)}
+            "exchange_energy_source":summary(qe),"exchange_momentum_source":summary(qs),
+            "exchange_rest_source":summary(qrest)}
     metrics=_metric_arrays(metric); dmprim=primitives(metrics,state.matter.dark_matter,momentum.Species.DARK_MATTER)
     rho=np.asarray([q.rho for q in dmprim]); W=np.asarray([q.lorentz() for q in dmprim]); vr=np.asarray([q.v_r for q in dmprim])
     sg=np.asarray([m.sqrt_gamma for m in metrics]); qt=np.empty_like(rho); qr=np.empty_like(rho)
