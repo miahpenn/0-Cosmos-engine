@@ -12,6 +12,8 @@ sys.path.insert(0, str(ROOT))
 from tools import audit_current_source_momentum_constraint_tangent as momentum
 from tools import audit_total_stress_energy_divergence as stress
 from tools import audit_brown_vacuum_momentum_propagation as brown
+from engine.matter_system import _metric_arrays, _species_rhs_components, geometry_metric_derivatives, primitives
+from engine.valencia import dark_matter_covector_source
 
 INITIAL_SHA256 = "a256b57f274ee120b55c0f805ed488d91382a9799647c8f9811d7df82aa337c0"
 ACCEPTED_SHA256 = "c6acb3711d59a85c804a88208c9bc0356e8227a806c0684ae3a8afac72c9091a"
@@ -33,6 +35,19 @@ def require_digest(state, expected: str, label: str) -> str:
     if actual != expected:
         raise RuntimeError(f"{label} digest mismatch: expected {expected}, got {actual}")
     return actual
+
+
+def regional_signed_summary(values, radii):
+    values,radii=np.asarray(values,dtype=np.float64),np.asarray(radii,dtype=np.float64)
+    fixed={}
+    for target in (2.0,3.0,5.0,8.0,10.0):
+        if radii[0]<=target<=radii[-1]:
+            i=int(np.argmin(np.abs(radii-target))); fixed[str(target)]={"cell":i,"radius":float(radii[i]),"signed":float(values[i])}
+    ann=(radii>=5.0)&(radii<=10.0)
+    return {"cells_0_1_2":[{"cell":i,"radius":float(radii[i]),"signed":float(values[i])} for i in range(min(3,values.size))],
+            "nearest_fixed_radii":fixed,"r5_to10_rms":float(np.sqrt(np.mean(values[ann]**2)) ) if np.any(ann) else None,
+            "max_abs":float(np.max(np.abs(values)))}
+
 
 
 def matter_source_momentum_tangent(state, projections):
@@ -218,71 +233,166 @@ def matter_source_momentum_tangent(state, projections):
     }
 
 
-def fluid_current_tangent(state, rates):
-    """Independent analytic Jdot for baseline fluid species on the accepted state."""
-    geom = state.geometry
-    r = np.asarray(state.grid.centers, dtype=np.float64)
-    a = np.asarray(geom.a, dtype=np.float64)
-    b = np.asarray(geom.b, dtype=np.float64)
-    x = np.asarray(geom.X, dtype=np.float64)
-    if np.any(a <= 0.0) or np.any(b <= 0.0) or np.any(x <= 0.0):
-        raise FloatingPointError("non-positive metric profile in fluid-current tangent")
-    sqrt_gamma = np.sqrt(a) * b * r**2 / x**3
-    dlog_sqrt_gamma = (
-        np.asarray(rates["geometry"]["a"], dtype=np.float64) / (2.0*a)
-        + np.asarray(rates["geometry"]["b"], dtype=np.float64) / b
-        - 3.0*np.asarray(rates["geometry"]["X"], dtype=np.float64) / x
-    )
-    projected = momentum.current_pieces(state)
-    arrays = {
-        "base_geometry_a_signed": a,
-        "base_geometry_b_signed": b,
-        "base_geometry_X_signed": x,
-        "base_sqrt_gamma_signed": sqrt_gamma,
-        "geometry_dlog_sqrt_gamma_signed": dlog_sqrt_gamma,
-    }
-    species_report = {}
-    for name in ("dark_matter", "baryons", "radiation"):
-        species = getattr(state.matter, name)
-        U = np.asarray(species.momentum_r, dtype=np.float64)
-        Udot = np.asarray(rates["matter"][name]["momentum_r"], dtype=np.float64)
-        j_identity = U / (momentum.KAPPA * sqrt_gamma)
-        jdot = (Udot - U*dlog_sqrt_gamma) / (momentum.KAPPA * sqrt_gamma)
-        gap = j_identity - np.asarray(projected[name], dtype=np.float64)
-        scale = np.abs(j_identity) + np.abs(projected[name])
-        bound = 512.0*np.finfo(np.float64).eps*scale
-        passed = bool(np.all(np.abs(gap) <= bound))
-        if not passed:
-            idx = int(np.argmax(np.divide(np.abs(gap), bound,
-                out=np.full_like(gap, np.inf), where=bound > 0.0)))
-            raise RuntimeError(
-                f"{name} projected-current/conserved-identity cross-check failed "
-                f"at cell {idx}: gap={gap[idx]:.17g}, bound={bound[idx]:.17g}"
-            )
-        arrays[f"fluid_{name}_momentum_r_base_signed"] = U
-        arrays[f"fluid_{name}_momentum_r_rhs_signed"] = Udot
-        arrays[f"fluid_{name}_current_base_signed"] = j_identity
-        arrays[f"fluid_{name}_current_tangent_signed"] = jdot
-        arrays[f"fluid_{name}_current_identity_gap_signed"] = gap
-        species_report[name] = {
-            "base_current": summary(j_identity),
-            "analytic_current_tangent": summary(jdot),
-            "projected_current_identity_gap": summary(gap),
-            "identity_roundoff_bound_max": float(np.max(bound)),
-            "identity_crosscheck_passed": passed,
-            "formula": "(U_momentum_r_dot - U_momentum_r*(adot/(2a)+bdot/b-3*Xdot/X))/(8*pi*sqrt_gamma)",
-        }
-    if not all(np.all(np.isfinite(v)) for v in arrays.values()):
-        raise FloatingPointError("non-finite fluid-current tangent array")
-    return {"arrays": arrays, "report": {
-        "sqrt_gamma_formula": "sqrt(a)*b*r^2/X^3",
-        "species": species_report,
-        "all_projected_current_identity_crosschecks_passed": all(
-            item["identity_crosscheck_passed"] for item in species_report.values()
-        ),
-        "independent_tangent": True,
-        "closure_claim": False,
-    }}
+def scalar_current_tangent(state, rates, current_maps, epsilon: float):
+    """Analytic scalar-current RHS derivatives plus a separate projection-map FD witness."""
+    grid, fields = state.grid, state.scalars
+    d1 = lambda v: np.asarray(grid.cell_derivative_fourth(v, parity=+1), dtype=np.float64)
+    base, plus, minus = current_maps
+    specs = (("S","S","PS",1.0),("D","D","PD",1.0),("COSMOS_phi","phi","Pi",momentum.KAPPA))
+    arrays, report = {}, {}
+    atotal=np.zeros_like(np.asarray(grid.centers,dtype=np.float64)); ptotal=np.zeros_like(atotal)
+    for jname,fname,pname,norm in specs:
+        fv=np.asarray(getattr(fields,fname),dtype=np.float64); pv=np.asarray(getattr(fields,pname),dtype=np.float64)
+        fdot=np.asarray(rates["scalars"][fname],dtype=np.float64); pdot=np.asarray(rates["scalars"][pname],dtype=np.float64)
+        analytic=-(pdot*d1(fv)+pv*d1(fdot))/norm
+        projected=(np.asarray(plus[jname])-np.asarray(minus[jname]))/(2.0*float(epsilon))
+        gap=projected-analytic
+        arrays[f"scalar_{jname}_current_base_projected_signed"]=np.asarray(base[jname],dtype=np.float64)
+        arrays[f"scalar_{jname}_current_tangent_analytic_signed"]=analytic
+        arrays[f"scalar_{jname}_current_tangent_projected_fd_signed"]=projected
+        arrays[f"scalar_{jname}_current_operator_remainder_signed"]=gap
+        atotal+=analytic; ptotal+=projected
+        report[jname]={"base_current":summary(base[jname]),"analytic_current_tangent":summary(analytic),
+                       "projected_map_fd_tangent":summary(projected),"projected_fd_minus_analytic":summary(gap),
+                       "epsilon":float(epsilon)}
+    if not all(np.all(np.isfinite(v)) for v in arrays.values()): raise FloatingPointError("non-finite scalar current arrays")
+    return {"arrays":arrays,"analytic_total":atotal,"projected_total":ptotal,
+            "report":{"formula":"Jdot=-Pdot*D1(f)-P*D1(fdot), archived sector normalization retained",
+                      "sectors":report,"analytic_total":summary(atotal),"projected_map_fd_total":summary(ptotal),
+                      "epsilon":float(epsilon),"closure_claim":False}}
+
+
+def fluid_current_tangent(state, rates, current_maps, epsilon: float):
+    """Separate conservative-identity current tangents from the nonlinear projection-map FD."""
+    geom=state.geometry; r=np.asarray(state.grid.centers,dtype=np.float64)
+    a,b,x=(np.asarray(getattr(geom,k),dtype=np.float64) for k in ("a","b","X"))
+    if np.any(a<=0.0) or np.any(b<=0.0) or np.any(x<=0.0): raise FloatingPointError("non-positive metric profile")
+    sg=np.sqrt(a)*b*r**2/x**3
+    dlog=np.asarray(rates["geometry"]["a"])/(2*a)+np.asarray(rates["geometry"]["b"])/b-3*np.asarray(rates["geometry"]["X"])/x
+    base,plus,minus=current_maps
+    arrays={"base_geometry_a_signed":a,"base_geometry_b_signed":b,"base_geometry_X_signed":x,
+            "base_sqrt_gamma_signed":sg,"geometry_dlog_sqrt_gamma_signed":dlog}
+    rep={}, 
+    species_report={}; atotal=np.zeros_like(r); ptotal=np.zeros_like(r)
+    for name in ("dark_matter","baryons","radiation"):
+        st=getattr(state.matter,name); U=np.asarray(st.momentum_r,dtype=np.float64)
+        Ud=np.asarray(rates["matter"][name]["momentum_r"],dtype=np.float64)
+        jc=U/(momentum.KAPPA*sg); jcd=(Ud-U*dlog)/(momentum.KAPPA*sg)
+        jp=np.asarray(base[name],dtype=np.float64); igap=jc-jp
+        ibound=512*np.finfo(np.float64).eps*(np.abs(jc)+np.abs(jp))
+        jfd=(np.asarray(plus[name])-np.asarray(minus[name]))/(2*float(epsilon)); tgap=jfd-jcd
+        for k,v in ((f"fluid_{name}_momentum_r_base_signed",U),(f"fluid_{name}_momentum_r_rhs_signed",Ud),
+                    (f"fluid_{name}_current_base_conserved_identity_signed",jc),
+                    (f"fluid_{name}_current_base_projected_signed",jp),
+                    (f"fluid_{name}_current_tangent_conserved_identity_signed",jcd),
+                    (f"fluid_{name}_current_tangent_projected_fd_signed",jfd),
+                    (f"fluid_{name}_current_identity_gap_signed",igap),
+                    (f"fluid_{name}_current_tangent_projection_gap_signed",tgap),
+                    (f"fluid_{name}_current_identity_roundoff_bound_signed",ibound)):
+            arrays[k]=np.asarray(v,dtype=np.float64)
+        atotal+=jcd; ptotal+=jfd
+        ratio=np.divide(np.abs(igap),ibound,out=np.full_like(igap,np.inf),where=ibound>0)
+        species_report[name]={"base_current_conserved_identity":summary(jc),"base_current_projected":summary(jp),
+            "analytic_conserved_current_tangent":summary(jcd),"projected_map_fd_tangent":summary(jfd),
+            "projected_fd_minus_conserved_identity_tangent":summary(tgap),"base_projection_identity_gap":summary(igap),
+            "identity_roundoff_bound_max":float(np.max(ibound)),"identity_gap_max_over_roundoff_bound":float(np.max(ratio)),
+            "identity_roundoff_check_passed":bool(np.all(np.abs(igap)<=ibound)),"epsilon":float(epsilon),
+            "interpretation":"Recovery/projection mismatch is reported separately; no roundoff-only hard failure or forced pass."}
+    if not all(np.all(np.isfinite(v)) for v in arrays.values()): raise FloatingPointError("non-finite fluid current arrays")
+    return {"arrays":arrays,"analytic_total":atotal,"projected_total":ptotal,
+            "report":{"sqrt_gamma_formula":"sqrt(a)*b*r^2/X^3","species":species_report,
+                      "conserved_identity_is_independent_candidate":True,"projection_map_fd_is_comparison_only":True,
+                      "epsilon":float(epsilon),"closure_claim":False}}
+
+
+def analytic_geometric_momentum_tangent(state, rates):
+    """Differentiate the pinned discrete M_geom functional along accepted RHS rates."""
+    grid,g=state.grid,state.geometry; r=np.asarray(grid.centers,dtype=np.float64)
+    d1=lambda v:np.asarray(grid.cell_derivative_fourth(v,parity=+1),dtype=np.float64)
+    aa,kk,bb,xx=(np.asarray(getattr(g,k),dtype=np.float64) for k in ("Aa","K","b","X"))
+    ad=np.asarray(rates["geometry"]["Aa"]); kd=np.asarray(rates["geometry"]["K"])
+    bd=np.asarray(rates["geometry"]["b"]); xd=np.asarray(rates["geometry"]["X"])
+    xr,br=d1(xx),d1(bb); chi=-.5*xr/xx; chidot=-.5*(d1(xd)/xx-xr*xd/(xx*xx))
+    t1=d1(ad); t2=-(2/3)*d1(kd); t3=6*(ad*chi+aa*chidot)
+    t4=1.5*ad*(2/r+br/bb); t5=1.5*aa*(d1(bd)/bb-br*bd/(bb*bb))
+    total=t1+t2+t3+t4+t5
+    arrays={"geometric_Mdot_RHS_D1_Aa_signed":t1,"geometric_Mdot_RHS_minus_2third_D1_K_signed":t2,
+            "geometric_Mdot_RHS_chi_product_signed":t3,"geometric_Mdot_RHS_anisotropy_Aa_signed":t4,
+            "geometric_Mdot_RHS_anisotropy_b_signed":t5,"geometric_Mdot_RHS_chain_rule_candidate_signed":total}
+    if not all(np.all(np.isfinite(v)) for v in arrays.values()): raise FloatingPointError("non-finite geometric tangent")
+    return {"arrays":arrays,"total":total,"report":{"formula":"exact discrete chain rule for M_geom from accepted RHS rates",
+        "term_summaries":{k:summary(v) for k,v in arrays.items()},"independent_of_constraint_finite_difference":True,"closure_claim":False}}
+
+
+def frozen_state_arrays(state, rates, projections):
+    """Capture every base geometry/scalar/conservative profile and accepted RHS rate."""
+    arrays={"accepted_state__radius_signed":np.asarray(state.grid.centers,dtype=np.float64)}
+    for name in ("a","b","X","Aa","K","Lambda","alpha","beta","B"):
+        arrays[f"accepted_state__geometry__{name}_signed"]=np.asarray(getattr(state.geometry,name),dtype=np.float64)
+        if name in rates["geometry"]: arrays[f"accepted_rhs__geometry__{name}_signed"]=np.asarray(rates["geometry"][name],dtype=np.float64)
+    for name in ("S","PS","D","PD","phi","Pi"):
+        arrays[f"accepted_state__scalars__{name}_signed"]=np.asarray(getattr(state.scalars,name),dtype=np.float64)
+        arrays[f"accepted_rhs__scalars__{name}_signed"]=np.asarray(rates["scalars"][name],dtype=np.float64)
+    for sp in ("dark_matter","baryons","radiation"):
+        st=getattr(state.matter,sp)
+        for field in ("rest","energy_t","momentum_r"):
+            arrays[f"accepted_state__matter__{sp}__{field}_signed"]=np.asarray(getattr(st,field),dtype=np.float64)
+            arrays[f"accepted_rhs__matter__{sp}__{field}_signed"]=np.asarray(rates["matter"][sp][field],dtype=np.float64)
+    for mapname in ("scalar_parts","fluid_parts"):
+        for sector,part in projections[mapname].items():
+            for field in ("rho","pr","pt","j"):
+                arrays[f"accepted_projection__{sector}__{field}_signed"]=np.asarray(part[field],dtype=np.float64)
+    return arrays
+
+
+def valencia_exchange_ledger(state, rates):
+    """Capture the actual Valencia flux/source/exchange split and same-state Q_t/Q_r."""
+    grid,g=state.grid,state.geometry; metric=momentum.metric_slice_from_q(grid,g)
+    d1=lambda v,parity:np.asarray(grid.cell_derivative_fourth(v,parity=parity),dtype=np.float64)
+    mder=geometry_metric_derivatives(metric,d1); phir=d1(state.scalars.phi,+1)
+    phit=np.asarray(rates["scalars"]["phi"],dtype=np.float64); beta_dm=float(momentum.BETA_DM)
+    invdr=1.0/float(grid.dr); arrays={}; reports={}
+    specs=(("dark_matter",momentum.Species.DARK_MATTER),("baryons",momentum.Species.BARYON),("radiation",momentum.Species.RADIATION))
+    for name,sp in specs:
+        face,se,sr,qe,qs=_species_rhs_components(metric,mder,getattr(state.matter,name),sp,
+                                                dphi_t=phit,dphi_r=phir,beta_dm=beta_dm)
+        fluxes=(-invdr*np.diff(face[:,0]),-invdr*np.diff(face[:,1]),-invdr*np.diff(face[:,2]))
+        recon={"rest":fluxes[0],"energy_t":fluxes[1]+se+qe,"momentum_r":fluxes[2]+sr+qs}; gaps={}
+        for field,val in recon.items():
+            recorded=np.asarray(rates["matter"][name][field],dtype=np.float64); gap=np.asarray(val)-recorded; gaps[field]=gap
+            arrays[f"valencia_{name}_reconstructed_rhs__{field}_signed"]=np.asarray(val)
+            arrays[f"valencia_{name}_recorded_rhs__{field}_signed"]=recorded
+            arrays[f"valencia_{name}_rhs_reconstruction_gap__{field}_signed"]=gap
+        for col,label in enumerate(("rest","energy_t","momentum_r")): arrays[f"valencia_{name}_face_flux__{label}_signed"]=np.asarray(face[:,col])
+        for label,val in (("geometric_energy_source",se),("geometric_momentum_source",sr),
+                          ("exchange_energy_source",qe),("exchange_momentum_source",qs)):
+            arrays[f"valencia_{name}_{label}_signed"]=np.asarray(val)
+        reports[name]={"rhs_reconstruction_gaps":{k:summary(v) for k,v in gaps.items()},
+            "rhs_reconstruction_max_abs":max(float(np.max(np.abs(v))) for v in gaps.values()),
+            "geometric_energy_source":summary(se),"geometric_momentum_source":summary(sr),
+            "exchange_energy_source":summary(qe),"exchange_momentum_source":summary(qs)}
+    metrics=_metric_arrays(metric); dmprim=primitives(metrics,state.matter.dark_matter,momentum.Species.DARK_MATTER)
+    rho=np.asarray([q.rho for q in dmprim]); W=np.asarray([q.lorentz() for q in dmprim]); vr=np.asarray([q.v_r for q in dmprim])
+    sg=np.asarray([m.sqrt_gamma for m in metrics]); qt=np.empty_like(rho); qr=np.empty_like(rho)
+    for i in range(rho.size): qt[i],qr[i]=dark_matter_covector_source(beta_dm,float(rho[i]),float(phit[i]),float(phir[i]))
+    qe=-sg*(qt-np.asarray(g.beta)*qr); qs=sg*qr
+    qe_gap=qe-arrays["valencia_dark_matter_exchange_energy_source_signed"]
+    qs_gap=qs-arrays["valencia_dark_matter_exchange_momentum_source_signed"]
+    pi_src=beta_dm*rho; phi_energy_proxy=np.asarray(state.scalars.Pi)*pi_src/momentum.KAPPA
+    arrays.update({"valencia_exchange__dm_primitive_rho_signed":rho,"valencia_exchange__dm_lorentz_W_signed":W,
+        "valencia_exchange__dm_velocity_r_signed":vr,"valencia_exchange__phi_dt_signed":phit,
+        "valencia_exchange__phi_dr_signed":phir,"valencia_exchange__Q_t_signed":qt,"valencia_exchange__Q_r_signed":qr,
+        "valencia_exchange__Qe_conservative_signed":qe,"valencia_exchange__Qs_conservative_signed":qs,
+        "valencia_exchange__Qe_formula_gap_signed":qe_gap,"valencia_exchange__Qs_formula_gap_signed":qs_gap,
+        "valencia_exchange__phi_Pi_rhs_source_signed":pi_src,
+        "valencia_exchange__phi_energy_proxy_normalized_by_kappa_signed":phi_energy_proxy})
+    if not all(np.all(np.isfinite(v)) for v in arrays.values()): raise FloatingPointError("non-finite Valencia exchange arrays")
+    reports["exchange_covector"]={"Q_t":summary(qt),"Q_r":summary(qr),"Qe":summary(qe),"Qs":summary(qs),
+        "Qe_formula_reconstruction_gap":summary(qe_gap),"Qs_formula_reconstruction_gap":summary(qs_gap),
+        "phi_Pi_rhs_source":summary(pi_src),"phi_energy_proxy_normalized_by_kappa":summary(phi_energy_proxy),
+        "normalization_interpretation":"Comparison only; no global rescaling or scalar-fluid exchange cancellation is presumed."}
+    return {"arrays":arrays,"report":{"beta_dm":beta_dm,"species":reports,
+        "all_arrays_finite":True,"exchange_closure_claim":False}}
 
 
 def connection_correction(state):
@@ -309,6 +419,7 @@ def connection_correction(state):
     lambda_metric = da / (2.0*a*a) - db/(a*b) + 2.0/r*(1.0/b - 1.0/a)
     C = lam - lambda_metric
     dC = d1_odd_input(C)
+    d2C = np.asarray(grid.cell_second_derivative_fourth(C, parity=-1), dtype=np.float64)
     chi = x*x
     eta = alpha*chi*da/(2.0*a)
     deta = d1_odd_input(eta)
@@ -324,6 +435,7 @@ def connection_correction(state):
     arrays = {
         "connection_C_signed": C,
         "connection_D1C_signed": dC,
+        "connection_D2C_signed": d2C,
         "connection_eta_signed": eta,
         "connection_D1eta_signed": deta,
         "connection_etaC_signed": etaC,
@@ -471,7 +583,17 @@ def run(output_dir: Path):
     brown_plus_source = brown_prediction + matter_source["total"]
     residual_after_source = mdot_geom - brown_plus_source
     connection = connection_correction(accepted)
-    fluid_tangent = fluid_current_tangent(accepted, rates)
+    current_maps=(momentum.current_pieces(accepted),momentum.current_pieces(plus),momentum.current_pieces(minus))
+    scalar_tangent=scalar_current_tangent(accepted,rates,current_maps,EPSILON)
+    fluid_tangent=fluid_current_tangent(accepted,rates,current_maps,EPSILON)
+    geometric_tangent=analytic_geometric_momentum_tangent(accepted,rates)
+    valencia=valencia_exchange_ledger(accepted,rates)
+    jdot_conserved_candidate=scalar_tangent["analytic_total"]+fluid_tangent["analytic_total"]
+    jdot_projected_map_fd=scalar_tangent["projected_total"]+fluid_tangent["projected_total"]
+    mdot_total_conserved_candidate=geometric_tangent["total"]-momentum.KAPPA*jdot_conserved_candidate
+    mdot_total_projected_map_fd=geometric_tangent["total"]-momentum.KAPPA*jdot_projected_map_fd
+    joined_candidate_residual=np.asarray(mdot_total)-mdot_total_conserved_candidate
+    projected_candidate_residual=np.asarray(mdot_total)-mdot_total_projected_map_fd
 
     after_digest = momentum.state_digest(accepted)
     if after_digest != base_digest:
@@ -490,17 +612,29 @@ def run(output_dir: Path):
         "matter_source_Mdot_signed": matter_source["total"],
         "brown_plus_matter_source_prediction_signed": brown_plus_source,
         "residual_after_matter_source_signed": residual_after_source,
-        **connection["arrays"],
-        **fluid_tangent["arrays"],
+        **connection["arrays"], **fluid_tangent["arrays"], **scalar_tangent["arrays"],
+        **geometric_tangent["arrays"], **valencia["arrays"], **frozen_state_arrays(accepted,rates,projections),
+        **{f"brown_term_{name}_signed":np.asarray(value,dtype=np.float64) for name,value in brown_terms.items()},
         **{f"matter_source_Mdot_{name}_signed": value for name, value in matter_source["pieces"].items()},
-        "div_T_t_signed": np.asarray(div["div_T_t"]),
-        "div_T_r_signed": np.asarray(div["div_T_r"]),
-        "div_T_t_fv_signed": np.asarray(div["div_T_t_fv"]),
-        "div_T_r_fv_signed": np.asarray(div["div_T_r_fv"]),
+        "Jdot_RHS_conserved_identity_candidate_signed":jdot_conserved_candidate,
+        "Jdot_RHS_projected_map_fd_signed":jdot_projected_map_fd,
+        "Mdot_total_chain_rule_conserved_candidate_signed":mdot_total_conserved_candidate,
+        "Mdot_total_chain_rule_projected_map_fd_signed":mdot_total_projected_map_fd,
+        "Mdot_total_observed_minus_conserved_candidate_signed":joined_candidate_residual,
+        "Mdot_total_observed_minus_projected_map_fd_signed":projected_candidate_residual,
+        "Mdot_total_observed_minus_geometric_chain_rule_signed":np.asarray(mdot_geom)-geometric_tangent["total"],
+        "div_T_t_signed":np.asarray(div["div_T_t"]),"div_T_r_signed":np.asarray(div["div_T_r"]),
+        "div_T_t_fv_signed":np.asarray(div["div_T_fv"]),"div_T_r_fv_signed":np.asarray(div["div_T_r_fv"]),
     }
+    for sn, spayload in sector["sector_decomposition"]["sectors"].items():
+        for ch, vals in spayload["raw_signed_arrays"].items(): arrays[f"div_T_sector__{sn}__{ch}_signed"]=np.asarray(vals,dtype=np.float64)
+    for ch, cpayload in sector["sector_decomposition"]["reconstruction"]["channels"].items():
+        arrays[f"div_T_sector_sum_minus_total__{ch}_signed"]=np.asarray(cpayload["sum_minus_total"],dtype=np.float64)
+        arrays[f"div_T_sector_unexplained_gap__{ch}_signed"]=np.asarray(cpayload["unexplained_gap_after_time_density_accounting"],dtype=np.float64)
+    if not all(np.all(np.isfinite(np.asarray(v))) for v in arrays.values()): raise FloatingPointError("joined NPZ contains non-finite values")
     np.savez_compressed(output_dir / "shared_state_signed_arrays.npz", **arrays)
     report = {
-        "schema": "issue4_shared_state_momentum_total_stress_divergence_v2",
+        "schema": "issue4_shared_state_momentum_total_stress_divergence_v3_joined",
         "status": "completed_diagnostic_only",
         "provenance": {"momentum_observer": source, "total_stress_observer": stress_source},
         "configuration": {"resolution": RESOLUTION, "r_max": R_MAX, "dt": DT,
@@ -540,7 +674,21 @@ def run(output_dir: Path):
             "full_matter_coupled_identity": False,
         },
         "connection_correction": connection["report"],
+        "scalar_current_tangent": scalar_tangent["report"],
         "fluid_current_tangent": fluid_tangent["report"],
+        "geometric_chain_rule": geometric_tangent["report"],
+        "valencia_exchange_ledger": valencia["report"],
+        "joined_current_and_momentum_budget": {
+            "Jdot_RHS_conserved_identity_candidate": regional_signed_summary(jdot_conserved_candidate,r),
+            "Jdot_RHS_projected_map_fd": regional_signed_summary(jdot_projected_map_fd,r),
+            "Mdot_total_chain_rule_conserved_candidate": regional_signed_summary(mdot_total_conserved_candidate,r),
+            "Mdot_total_chain_rule_projected_map_fd": regional_signed_summary(mdot_total_projected_map_fd,r),
+            "observed_minus_conserved_candidate": regional_signed_summary(joined_candidate_residual,r),
+            "observed_minus_projected_map_fd": regional_signed_summary(projected_candidate_residual,r),
+            "observed_geometric_tangent_minus_analytic_chain_rule": regional_signed_summary(np.asarray(mdot_geom)-geometric_tangent["total"],r),
+            "interpretation": "Conserved-fluid identity is the independent analytic candidate; projected-map FD is separate. Brown/connection overlap and scalar-fluid exchange normalization are not presumed closed.",
+            "independent_full_propagation_identity_closed": False,
+        },
         "matter_source_crosscheck": {
             **source_projection_crosscheck,
             "independent_projection_crosscheck_passed": projections["projection_crosscheck_passed"],
@@ -551,7 +699,11 @@ def run(output_dir: Path):
             "source_terms": "Aa_source=-(16*pi/3)*alpha*(pr-pt); K_source=4*pi*alpha*(rho+pr+2*pt)",
         },
         "raw_arrays": {"file": "shared_state_signed_arrays.npz",
-                       "names": sorted(arrays), "all_finite": True},
+                       "names": sorted(arrays), "count": len(arrays),
+                       "all_finite": all(np.all(np.isfinite(np.asarray(v))) for v in arrays.values()),
+                       "joined_base_profiles_and_rates": True,
+                       "valencia_flux_source_exchange_terms": True,
+                       "sector_resolved_total_T_terms": True},
         "gates": {"shared_state_digest_match": True,
                   "wrong_digest_negative_control_passed": wrong_digest_rejected,
                   "observer_immutability_passed": True,
@@ -563,13 +715,10 @@ def run(output_dir: Path):
                   "independent_full_propagation_identity_closed": False,
                   "scientific_admission": False, "acceptance_oracle_satisfied": False},
         "interpretation": (
-            "Shared-state extension: signed measured geometric and total momentum tangents, "
-            "independent total-stress divergence, and Brown vacuum structural terms are now "
-            "evaluated on the same accepted state and directional pair. The Brown residual is "
-            "not a closure claim: matter-source terms and discrete operator/product-rule terms "
-            "remain to be independently separated. Signed connection-correction and product-rule "
-            "remainder arrays are now emitted separately; the correction is not folded into the "
-            "predictor pending Brown-overlap reconciliation."
+            "Joined NPZ preserves the accepted base geometry/scalar/conservative fields, accepted RHS rates, analytic scalar and "
+            "conservative-identity fluid current tangents, independent projection-map FD comparisons, Valencia face-flux/source/"
+            "exchange ledgers, per-sector total-T divergence terms, Brown scaffold operands, and connection product-rule remainder. "
+            "Brown/connection overlap and archive-backed scalar exchange normalization remain open; no admission claim is made."
         )
     }
     (output_dir / "shared_state_report.json").write_text(
