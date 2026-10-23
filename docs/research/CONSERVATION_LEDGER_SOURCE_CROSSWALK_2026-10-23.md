@@ -103,6 +103,8 @@ The corresponding fixed-\(R\) chain rule is therefore already encoded in the his
 
 The code keeps two distinct routes for the sweep: the sampled spatial derivative of \(m_{\rm MS}\), and the exact piecewise-linear secant implied by its interpolation bracket. Their difference is meaningful operator evidence, not permission to select whichever closes the flux ledger.
 
+For the exchange algebra, reuse the pinned research note [conditional scalar–dark-matter exchange projection](./conditional_scalar_dm_exchange_projection.md) (blob `e793fc304908e118256adda832beba08e9876ea1`). It already records the conditional mass/action premise, \(Q_\nu\), the three matter source channels \(q_D,q_E,q_{S_r}\), and the reciprocal \(+\alpha\beta_{\rm DM}\rho_{\rm DM}\) scalar source. Its regression includes nonzero shift and non-unit lapse. This work should consume that derivation as a conditional source contract, not duplicate it or elevate it to proof of the action premise, physical coupling, or global evolving-state closure.
+
 **Fail-closed provenance comparison for this fixed-\(R\) audit:** its own declared `SOURCE_PINS` were checked read-only against the exact crosswalk base `4aec88d0e3ff028e0a65a8ac36b30948625df792`. Eleven of the 17 pinned engine blobs match. Six differ:
 
 | Pinned source | Audit-expected blob | Observed blob at crosswalk base |
