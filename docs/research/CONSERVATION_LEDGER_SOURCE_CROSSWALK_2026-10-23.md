@@ -132,6 +132,23 @@ A separate research-only tool now applies the crosswalk without altering the his
 
 This is a real engineering application of the source map, but its matter RHS reconstructions are operator bookkeeping—not independent integrated conservation proofs. The scalar-source check verifies the conditional implementation—not the action premise. The fixed-\(R\) remainder is an observation, not a pass/fail target. This witness does not close Issue #210, the total-\(T\) gate, or Issue #4.
 
+### 2D. First current-source artifact — observed, not admitted
+
+The current-source witness was executed on PR #414's merge checkout \`e636deec2ba744ad40e38f599f8e1cf895e96d78\` with source/vendor pins verified. Exact-head CI for PR head \`b46912666d1847f453ae73cdf65c0c09f331f4f1\` passed the 952-test repository suite, the bounded witness contract, the one-step production smoke, and all three PR workflows. The signed JSON is retained as [artifact \`current-source-fixed-r-ledger-e636deec2ba744ad40e38f599f8e1cf895e96d78\`](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/40038594192/artifacts/12537759261) (14-day retention at upload).
+
+**Observed internal checks**
+- Three species were captured (\`dark_matter\`, \`baryons\`, \`radiation\`): all nine rest/energy/momentum RHS reconstructions passed; each reconstructed profile had zero observed arithmetic residual in this run.
+- The live scalar exchange difference matched the conditional \(+\alpha\beta_{\rm DM}\rho_{\rm DM}\) source within its operand-scaled roundoff bound: maximum absolute difference \`8.470329472543003e-22\`, bound \`6.481289684017647e-19\`.
+- All seven saved stage-geometry arrays (\`a,b,X,alpha,beta,Aa,K\`) matched the RHS stage arrays exactly.
+- This particular initial state has \`max |beta| = 0\`, radial Maxwell disabled, and one accepted step at \`t=0\` for the captured start RHS. It is **not** a shift-sensitive or active-EM witness.
+
+**Signed fixed-areal-radius results at \`R=10\`**
+- Factorized interpolation: flux \`−4.846324899808471e−19\`, radial-pressure work \`2.1020774473368874e−4\`, coordinate sweep \`−3.4869686256279903e−4\`, fixed-\`R\` mass rate \`−1.4094452669647614e−4\`, residual \`−2.455408867365369e−6\`.
+- Composite interpolation: flux \`−4.827228557047549e−19\`, radial-pressure work \`2.0848819518718583e−4\`, composite fixed-\`R\` residual \`−7.358593208624318e−7\`.
+- The two physical remainders differ by about \`1.72e−6\`. Neither is zeroed, thresholded, or selected as the answer. The report also retains the signed Hamiltonian residual at the tube (\`3.570668042581941e−7\`) and momentum residual (\`7.563650701049904e−19\`).
+
+These results establish **stage-aligned operand traceability and local source assembly**, not total stress-energy conservation. In particular, the algebraic mass-rate decomposition closes at \`−2.51e−18\`, but that identity only checks the expansion of the chain rule; it does not make either physical flux/work remainder acceptable. The fixed-\`R\` continuum law and the stress normalization remain independent obligations.
+
 ### Structural pattern visible in the five changed blobs
 
 The source changes cluster along two coupled paths rather than five unrelated locations:
@@ -145,7 +162,7 @@ One caution: v55_matter.exchange_pair() returns opposite dm_* and phi_* entries 
 
 ### Bounded next action from this map
 
-Run the new single-step witness contract in CI and review its artifact for (1) exact source/vendor pins, (2) state-stage geometry identity, (3) roundoff-level reconstruction of the three matter RHS channels and conditional scalar source, and (4) signed factorized-versus-composite fixed-\(R\) balance remainders. If an operator reconstruction fails, stop at that first discrepancy and preserve the raw operand profiles; do not respond by relaxing a bound or choosing the interpolation with the smaller physical residual. If the checks pass, this demonstrates only internal operand traceability on the named source snapshot—not physical conservation or scientific admission.
+The first current-source artifact is now captured and its operator checks pass. Do not repeat that run just to obtain a smaller residual. The next scientific task is a convention-pinned derivation of the fixed-areal-radius continuum mass/flux/work identity from the archived covariant balance, including the moving-tube orientation and metric/index signs. Then map each derived term to the already captured discrete operands and explicitly identify any continuum term that the present projection does not supply. Keep both interpolation operators as diagnostics; do not use their difference as a fit target.
 
 No broad campaign rerun, historical-pin update, production-equation edit, runtime-default change, scientific-admission promotion, or Issue #4 status change is authorized by this step.
 
