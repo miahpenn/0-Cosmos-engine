@@ -372,6 +372,14 @@ def run_current_source_witness(root: Path, output_path: Path | None = None) -> d
         stage_state = stage["stage_state"]
         geometry_match = _assert_stage_geometry_matches(stage, geometry_stage)
 
+        beta_absmax = float(np.max(np.abs(_arr(stage_state.geometry.beta))))
+        if beta_absmax != 0.0:
+            raise RuntimeError(
+                "archived fixed-coordinate Misner-Sharp flux/work identity is pinned "
+                "to beta=0; refusing to apply it to a nonzero-shift stage without "
+                "a separately derived T^r_t/T^r_r identity"
+            )
+
         if not math.isclose(float(stage_state.t), float(step["t_before"]), rel_tol=0.0, abs_tol=0.0):
             raise RuntimeError("captured start RHS time differs from the accepted-step start time")
 
