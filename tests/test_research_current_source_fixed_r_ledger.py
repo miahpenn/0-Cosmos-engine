@@ -15,6 +15,8 @@ def test_one_step_current_source_ledger_keeps_live_terms_and_unclosed_residuals(
     assert round_tripped["classification"] == report["classification"]
     assert round_tripped["physical_fixed_R_residual_threshold_applied"] is False
     assert report["run_settings"]["accepted_steps"] == 1
+    # The archived fixed-coordinate flux/work identity is only authorized for beta=0.
+    assert report["run_settings"]["actual_shift_absmax"] == 0.0
     assert report["run_settings"]["stage_used_for_joint_ledger"] == (
         "start RHS at accepted-step t_before"
     )
