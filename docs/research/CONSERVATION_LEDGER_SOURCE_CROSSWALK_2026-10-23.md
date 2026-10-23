@@ -120,6 +120,18 @@ The vendor gitlink still matches the audit's expected pin `d6052d605673ce9d82cdc
 
 **What the crosswalk establishes now:** every major fixed-\(R\) geometric operand has an existing implementation or explicit reconstruction, and the fluid/scalar exchange components are separately recoverable from the current source path. **What it does not establish:** that the old audit's historical vendor/source pins, its stress normalization, the current captured geometry tangent, and the actual matter/scalar RHS all describe one identical stage and convention. That requires a separately named current-source witness after pin and operand reconciliation. Do not run or reinterpret the old numerical residual as that witness.
 
+### 2C. Applying the map: one-step current-source witness
+
+A separate research-only tool now applies the crosswalk without altering the historical audit:
+
+- [\`tools/audit_current_source_fixed_r_ledger.py\`](../../tools/audit_current_source_fixed_r_ledger.py) has its own current-source blob manifest and vendor gitlink check. It records the actual checkout/runtime identity and runs exactly one \(N=24\), \(R_{\max}=24\), CFL \(=0.01\), \(t_{\rm final}=0.01\) step with the optional Maxwell carrier disabled.
+- It reuses the existing fixed-\(R\) mass/flux/work and passive geometry-stage observation functions, while capturing the actual **start RHS stage**. It verifies exact array equality between the stage geometry and the saved geometry operands before computing the joint witness.
+- The current observer adapts to the six returned matter components: face flux, geometric energy source, geometric momentum source, exchange energy, exchange momentum, and the separate rest-current \(q_D\). This matters because the historical observer's instrumentation destructures the earlier five-value interface. The historical audit and its old source pins remain unchanged.
+- It reconstructs the live rest, energy, and momentum RHS channels from their named discrete terms, and checks the conditional scalar \(\Pi\) exchange using the same stage state against a no-exchange evaluation. It preserves the factorized and composite-interpolated fixed-\(R\) flux/work operators and reports both physical balance remainders **signed and unthresholded**.
+- [The bounded witness contract test](../../tests/test_research_current_source_fixed_r_ledger.py) exercises that one-step path, checks the source pins and stage match, and asserts that neither scientific admission nor the acceptance oracle is promoted.
+
+This is a real engineering application of the source map, but its matter RHS reconstructions are operator bookkeeping—not independent integrated conservation proofs. The scalar-source check verifies the conditional implementation—not the action premise. The fixed-\(R\) remainder is an observation, not a pass/fail target. This witness does not close Issue #210, the total-\(T\) gate, or Issue #4.
+
 ### Structural pattern visible in the five changed blobs
 
 The source changes cluster along two coupled paths rather than five unrelated locations:
@@ -133,9 +145,9 @@ One caution: v55_matter.exchange_pair() returns opposite dm_* and phi_* entries 
 
 ### Bounded next action from this map
 
-Do not repeat the broad sweep and do not update historical source pins. First write down, for one existing pinned state, the signed operand list needed to compare the actual matter RHS (each face term, metric source, exchange term and \(q_D\)), the matching scalar-source contribution, total stress projection and the geometry-derived \(d_t m_{\rm MS}\). In parallel, derive the fixed-\(R\) continuum identity from the archived fixed-coordinate identity. Only after the conventions and operand pairing agree should a separately named current-source witness be specified.
+Run the new single-step witness contract in CI and review its artifact for (1) exact source/vendor pins, (2) state-stage geometry identity, (3) roundoff-level reconstruction of the three matter RHS channels and conditional scalar source, and (4) signed factorized-versus-composite fixed-\(R\) balance remainders. If an operator reconstruction fails, stop at that first discrepancy and preserve the raw operand profiles; do not respond by relaxing a bound or choosing the interpolation with the smaller physical residual. If the checks pass, this demonstrates only internal operand traceability on the named source snapshot—not physical conservation or scientific admission.
 
-This remains research-only. No production equation, runtime default, scientific-admission flag, or Issue #4 status changes.
+No broad campaign rerun, historical-pin update, production-equation edit, runtime-default change, scientific-admission promotion, or Issue #4 status change is authorized by this step.
 
 ## 3. Spherical mass identity: exact scope matters
 
