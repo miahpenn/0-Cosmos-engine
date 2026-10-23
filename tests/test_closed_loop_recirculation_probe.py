@@ -35,6 +35,19 @@ def test_late_shell_tail_is_small_with_bounded_absolute_grid_error():
     ) < 5e-4
 
 
+def test_boundary_tail_measure_is_domain_sensitive_and_not_a_flux():
+    # Same shell time and grid resolution, but a larger outer domain moves the
+    # 75%-domain cutoff and changes how much of the shell is counted as "tail".
+    compact = StationaryRecirculationProbe(
+        r_max=24.0, resolution=192
+    ).evaluate_slice(tau_local=0.0, t_cosmos=8.0)
+    extended = StationaryRecirculationProbe(
+        r_max=36.0, resolution=192
+    ).evaluate_slice(tau_local=0.0, t_cosmos=8.0)
+    assert compact["boundary_tail_integral"] > 20.0 * extended["boundary_tail_integral"]
+    assert compact["boundary_measure"] == extended["boundary_measure"]
+
+
 def test_recirc_term_scales_with_fixed_feedback_gain():
     base = StationaryRecirculationProbe(resolution=48, feedback_gain=0.15)
     doubled = StationaryRecirculationProbe(resolution=48, feedback_gain=0.30)
