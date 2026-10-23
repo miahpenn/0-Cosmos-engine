@@ -9,6 +9,11 @@ def test_one_step_current_source_ledger_keeps_live_terms_and_unclosed_residuals(
     report = run_current_source_witness(Path(__file__).resolve().parents[1], output)
 
     assert output.is_file()
+    serialized = output.read_text(encoding="utf-8")
+    import json
+    round_tripped = json.loads(serialized)
+    assert round_tripped["classification"] == report["classification"]
+    assert round_tripped["physical_fixed_R_residual_threshold_applied"] is False
     assert report["run_settings"]["accepted_steps"] == 1
     assert report["run_settings"]["stage_used_for_joint_ledger"] == (
         "start RHS at accepted-step t_before"
