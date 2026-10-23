@@ -31,6 +31,29 @@ A passing result in one lane does not prove the other two. In particular, the ex
 | Library archive note `GEAR_V5_5_CMC_BRIDGE_GATE_2026-10-05.md` and companion `GEAR_V5_5_CMC_BRIDGE_GATE_2026-10-05_v2.md` | Record an actual V5.5 stress projection `(rho, p_r, p_t, j_r)`, geometric Misner–Sharp mass, and a beta=0 spherical balance evaluated on the same state; report residuals at N=40/60/80. | These are valuable archived witnesses, not a substitute for rerunning/rehashing their artifacts against the current pinned source or resolving the fixed-coordinate versus fixed-areal-radius surface definition. |
 | Issue #210 | Specifies the missing provenance/dimensional mapping between archive COSMOS densities and local `κ=8πG` Einstein equations. | Open. Do not infer the conversion from a convenient factor or wire in a reciprocal exchange source to make the ledger close. |
 
+
+## 2A. Historical audit pin versus crosswalk-base source check
+
+A read-only blob comparison was made against the exact crosswalk base `main` snapshot `4aec88d0e3ff028e0a65a8ac36b30948625df792`. The comparison uses the source blob pins declared by `tools/audit_total_stress_energy_divergence.py`; it is a provenance check, not a numerical replay.
+
+| Pinned path | Historical audit blob | Blob at crosswalk base | Result |
+|---|---|---|---|
+| `engine/production_kernel.py` | `9685e76bb5a6f26d6bf383e240de24f37523f265` | `1720615628a98a8d7cfc9fcadcc984fe28c88be1` | changed |
+| `engine/matter_system.py` | `e52a117690253ddad7b24d116145a65474a351d2` | `0969f4d996e4f8e0fc5b70a7dff147f024907302` | changed |
+| `engine/matter_rhs.py` | `f41180efbcff2c72cf36477a765318ab539fac80` | `0153c232ee15b5a9d3dbac37ea858e4d2d730011` | changed |
+| `engine/scalar_system.py` | `ffc119b1a6f2d495d972323901f76a85783b0a1b` | `e2c2dae9a016b4d6454cf74a9eae8b0167d5733d` | changed |
+| `engine/v55_matter.py` | `0ee3c51fac7dc46c63feba2747a750542bcee3d0` | `0ee3c51fac7dc46c63feba2747a750542bcee3d0` | match |
+| `engine/v55_pirk_adapter.py` | `eeee0492d80889d70e52b0946563eee5054c0f11` | `be28ceea63fa1b59efc5cc5c460b9df19ae1cbc3` | changed |
+| `engine/cmc_gauge.py` | `7b49b5751abebd4faf0130208032cd2080b71f64` | `7b49b5751abebd4faf0130208032cd2080b71f64` | match |
+| `engine/v55_initial.py` | `7db2e1a10cf16fb40e4221b0df504fdf39aae611` | `7db2e1a10cf16fb40e4221b0df504fdf39aae611` | match |
+| `engine/stress_energy.py` | `ac3e7518c62bb72e2218a61489fa486bb787809f` | `ac3e7518c62bb72e2218a61489fa486bb787809f` | match |
+| `engine/valencia.py` | `03ed86398f424c03d9d6a3e646da9222a34fac5c` | `03ed86398f424c03d9d6a3e646da9222a34fac5c` | match |
+| `engine/worldtube.py` | `aea19090cb0fd2ebe5481a8b7af0d26f119a9ad6` | `aea19090cb0fd2ebe5481a8b7af0d26f119a9ad6` | match |
+
+**Interpretation:** five of eleven source blobs differ at the crosswalk base. This does not show that the newer sources are incorrect, nor that the old residuals are invalid for their original source. It does mean that the old audit's strict provenance guard will not accept the current tree as the historical experiment. Do not silently update the old pins or describe a run against changed sources as a reproduction.
+
+**Bounded next action:** inspect the five file diffs between the historical pinned commit `7f47669a1c0edfafef9fc5f27b2db80840d3f035` and the crosswalk base, and classify each change by whether it affects (a) stress projections, (b) RHS/time derivatives, (c) metric/CMC evolution, or (d) diagnostic-only behavior. Then either replay the archived witness in its exact historical environment, or create a separately named current-source witness with its own full source/vendor/runtime pins. Keep these two evidence records distinct.
+
 ## 3. Spherical mass identity: exact scope matters
 
 The archived CMC bridge defines the areal radius `R(t,r)` and Misner–Sharp mass
