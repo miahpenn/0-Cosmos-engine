@@ -149,6 +149,55 @@ The current-source witness was executed on PR #414's merge checkout \`e636deec2b
 
 These results establish **stage-aligned operand traceability and local source assembly**, not total stress-energy conservation. In particular, the algebraic mass-rate decomposition closes at \`−2.51e−18\`, but that identity only checks the expansion of the chain rule; it does not make either physical flux/work remainder acceptable. The fixed-\`R\` continuum law and the stress normalization remain independent obligations.
 
+### 2E. Fixed-\(R\) continuum identity from the archived coordinate-worldtube balance
+
+This is a **conditional continuum derivation** under the archived spherical CMC convention, \(G=c=1\), \(\beta^r_{\rm shift}=0\), coordinate time \(t\), a consistent total stress projection, and \(R_r\ne0\). It derives the moving-tube chain rule from the existing fixed-coordinate identity; it does not resolve the missing primary action/normalization provenance.
+
+The in-repository Valencia covector balance is
+
+\[
+\partial_\mu(\sqrt{-g}\,T^\mu{}_\nu)
+=\frac12\sqrt{-g}\,T^{ab}\partial_\nu g_{ab}
++\sqrt{-g}\,Q_\nu .
+\]
+
+For the total tensor, an ordinary zero-source conservation equation follows only if the sector exchange terms cancel under one authorized source law and compatible normalizations. The archived CMC bridge records, for its **fixed-coordinate-\(r\)** spherical worldtube,
+
+\[
+\left.\partial_t m_{\rm MS}\right|_r
+=4\pi R^2\left(T^r{}_t\,R_r-T^r{}_r\,R_t\right)
+=F_r+W_r ,
+\]
+where, using that archived projection/sign convention,
+\[
+F_r=-4\pi R^2\alpha\gamma^{rr}j_r R_r,\qquad
+W_r=-4\pi R^2p_r R_t,\qquad p_r\equiv T^r{}_r .
+\]
+
+Here \(R_t=(\partial_t R)|_r\), \(R_r=\partial_rR\), and \(j_r\) is the signed radial momentum projection for which the archived relation is \(T^r{}_t=-\alpha\gamma^{rr}j_r\). \(p_r\) is the **radial stress projection** in the same tensor convention, not automatically the fluid rest-frame pressure. The index placement and signs are essential; if the source projection differs, the equation must be re-derived rather than repaired by choosing a sign that reduces the residual.
+
+A fixed-areal-radius tube is the coordinate curve \(r=r_*(t)\) satisfying \(R(t,r_*(t))=R_*\). Differentiating that defining equation gives
+\[
+v_R\equiv\frac{dr_*}{dt}=-\frac{R_t}{R_r},
+\quad (R_r\ne0).
+\]
+Applying the scalar chain rule to \(m_{\rm MS}\) along the curve, then substituting the archived fixed-coordinate balance, gives
+\[
+\left.\frac{dm_{\rm MS}}{dt}\right|_R
+=\left.\partial_t m_{\rm MS}\right|_r
++v_R\,\partial_r m_{\rm MS}
+=F_r+W_r+S_R ,
+\]
+with the signed moving-surface/sweep term
+\[
+S_R=v_R\,\partial_r m_{\rm MS}
+=-\frac{R_t}{R_r}\,\partial_r m_{\rm MS}.
+\]
+
+This derivation fixes the **continuum term structure and signs**, conditional on the stated archived identity. It also explains why setting \(R_t=0\) inside \(W_r\) while leaving \(\partial_t m|_r\) on the left would mix two different worldtubes. \(F_r\), \(W_r\), and \(S_R\) must be evaluated at the same stage and surface; at \(R_r=0\), this coordinate parameterization fails and requires separate treatment.
+
+The current witness already records all three terms, their operands, and both discrete interpolation orders. Its observed difference between factorized and composite physical remainder is almost entirely the radial-pressure-work interpolation difference, while the stress-flux values themselves are both about \(5\times10^{-19}\) for this zero-shift/EM-off start stage. That is evidence of discrete-operator sensitivity, **not** a criterion for selecting the composite operator. The remaining physical remainder is still signed and unthresholded. A next source-level review should now answer, term by term: (a) does the archive's continuum convention authorize the same \(j_r,p_r\) as the live total projection; (b) what spatial operator defines \(\partial_r m_{\rm MS}\) for the intended discrete fixed-\(R\) observable; and (c) which difference is truncation/operator remainder versus a genuinely missing continuum term? No source factor or operator is selected by fitting the residual.
+
 ### Structural pattern visible in the five changed blobs
 
 The source changes cluster along two coupled paths rather than five unrelated locations:
