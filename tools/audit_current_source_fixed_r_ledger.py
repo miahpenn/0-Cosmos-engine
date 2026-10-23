@@ -491,6 +491,19 @@ def main() -> int:
             for check in row["operator_reconstruction_checks"].values()
         ),
         "scalar_exchange_check_passed": scalar["within_roundoff_bound"],
+        "factorized_stress_flux": fixed["tube_stress_flux"],
+        "composite_interpolated_stress_flux": fixed["tube_stress_flux_composite_interp"],
+        "factorized_radial_pressure_work": fixed["tube_radial_pressure_work"],
+        "composite_interpolated_radial_pressure_work": fixed["tube_radial_pressure_work_composite_interp"],
+        "fixed_R_mass_rate": fixed["tube_chain_rule_mass_dot_fixed_R"],
+        "fixed_R_sweep_term": fixed["tube_chain_rule_fixed_R_sweep"],
+        "factorized_flux_plus_work": (
+            fixed["tube_stress_flux"] + fixed["tube_radial_pressure_work"]
+        ),
+        "composite_interpolated_flux_plus_work": (
+            fixed["tube_stress_flux_composite_interp"]
+            + fixed["tube_radial_pressure_work_composite_interp"]
+        ),
         "factorized_fixed_R_residual": fixed["tube_chain_rule_fixed_R_residual"],
         "composite_fixed_R_residual": fixed["tube_chain_rule_flux_work_operator_comparison"][
             "fixed_R_residual_local_composite_interpolated"
