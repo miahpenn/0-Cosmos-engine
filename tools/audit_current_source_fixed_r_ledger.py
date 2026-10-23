@@ -375,6 +375,13 @@ def run_current_source_witness(root: Path, output_path: Path | None = None) -> d
         if not math.isclose(float(stage_state.t), float(step["t_before"]), rel_tol=0.0, abs_tol=0.0):
             raise RuntimeError("captured start RHS time differs from the accepted-step start time")
 
+        observed_species = set(stage.get("components", {}))
+        rhs_species = set(stage.get("matter_rhs", {}))
+        if not observed_species or observed_species != rhs_species:
+            raise RuntimeError(
+                "current-source matter observer did not capture every live species: "
+                f"captured={sorted(observed_species)}, rhs={sorted(rhs_species)}"
+            )
         component_ledger = _matter_component_ledger(stage, float(stage_state.grid.dr))
         all_component_checks = [
             item
