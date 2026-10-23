@@ -50,7 +50,7 @@ Use the second line only with the same stress-projection, index, metric, sign, a
 
 ### Fixed coordinate versus fixed areal radius
 
-The repository's admission lane explicitly requires a **fixed-areal-radius** measurement surface. A fixed coordinate `r` generally has (partial_t R\ne0), so it is a different worldtube. To compare mass on a constant-`R` surface, first derive the moving coordinate location:
+The repository's admission lane explicitly requires a **fixed-areal-radius** measurement surface. A fixed coordinate `r` generally has `∂ₜR ≠ 0`, so it is a different worldtube. To compare mass on a constant-`R` surface, first derive the moving coordinate location:
 
 ```text
 dr/dt |_R = -(∂_t R)/(∂_r R),     provided `∂ᵣR ≠ 0`
