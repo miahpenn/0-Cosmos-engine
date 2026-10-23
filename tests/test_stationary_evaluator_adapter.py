@@ -47,6 +47,36 @@ def test_metric_slice_adapter_reads_existing_grid_and_lapse():
     np.testing.assert_array_equal(metric.alpha, alpha)
 
 
+def test_adapter_accepts_real_bssn_metric_slice_without_mutating_metric():
+    # Exercise the repository's real metric contract rather than only a mock.
+    from engine.matter_system import BSSNMetricSlice
+
+    r = np.array([0.0, 0.5, 1.5, 4.0])
+    arrays = {
+        "a": np.array([1.0, 1.01, 1.02, 1.03]),
+        "b": np.array([1.0, 0.99, 0.98, 0.97]),
+        "X": np.array([1.0, 0.98, 0.96, 0.94]),
+        "alpha": np.array([1.0, 0.97, 0.93, 0.90]),
+        "beta": np.array([0.0, 0.01, 0.02, 0.03]),
+        "Aa": np.array([0.0, 0.001, 0.002, 0.003]),
+        "K": np.array([-0.01, -0.011, -0.012, -0.013]),
+        "Lambda": np.array([0.0, 0.001, 0.002, 0.003]),
+        "B": np.array([0.0, 0.0, 0.001, 0.001]),
+    }
+    before = {name: values.copy() for name, values in arrays.items()}
+    metric = BSSNMetricSlice(r=r.copy(), **arrays)
+
+    state = StationaryEvaluatorAdapter().evaluate_metric_slice(
+        metric, tau_local=2.0, t_cosmos=4.0
+    )
+
+    np.testing.assert_array_equal(state["r"], r)
+    np.testing.assert_array_equal(state["lapse"], before["alpha"])
+    for name, expected in before.items():
+        np.testing.assert_array_equal(getattr(metric, name), expected)
+    assert state["model_status"] == "illustrative_profile_not_field_equation_solution"
+
+
 @pytest.mark.parametrize(
     "kwargs",
     [
