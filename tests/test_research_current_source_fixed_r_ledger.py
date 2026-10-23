@@ -28,6 +28,14 @@ def test_one_step_current_source_ledger_keeps_live_terms_and_unclosed_residuals(
         for fields in report["same_stage_geometry_match"].values()
     )
 
+    assert set(report["live_matter_rhs_component_ledger"]) == {
+        "dark_matter", "baryons", "radiation"
+    }
+    assert sum(
+        len(row["operator_reconstruction_checks"])
+        for row in report["live_matter_rhs_component_ledger"].values()
+    ) == 9
+
     for species_row in report["live_matter_rhs_component_ledger"].values():
         checks = species_row["operator_reconstruction_checks"]
         assert set(checks) == {"rest", "energy_t", "momentum_r"}
