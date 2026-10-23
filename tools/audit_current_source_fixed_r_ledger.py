@@ -155,10 +155,6 @@ class CurrentSourceLedgerKernel(fixed_r.AuditedKernel):
         return scalar_rhs, matter_rhs, metric_derivatives
 
 
-class _CurrentSixTermObserver:
-    """Context manager implemented below to adapt only observer arity."""
-
-
 from contextlib import contextmanager
 
 
@@ -284,10 +280,22 @@ def _scalar_exchange_contract(stage: dict, state) -> dict:
     baseline_pi = _arr(baseline.Pi)
     expected = _arr(state.geometry.alpha) * beta_dm * rho_dm
     observed = actual_pi - baseline_pi
-    check = _profile_check(
-        observed, [expected],
-        label="live scalar Pi RHS minus same-state no-exchange RHS = alpha beta_DM rho_DM",
+    residual = observed - expected
+    # Subtracting two full Pi RHS profiles can lose precision when the
+    # exchange is much smaller than the uncoupled scalar evolution. Bound that
+    # reconstruction using the actual operands, not only their small difference.
+    scale = np.abs(actual_pi) + np.abs(baseline_pi) + np.abs(observed) + np.abs(expected)
+    bound = ROUND_OFF_MULTIPLIER * np.finfo(np.float64).eps * np.maximum(
+        scale, np.finfo(np.float64).tiny
     )
+    ratio = np.abs(residual) / bound
+    check = {
+        "label": "live scalar Pi RHS minus same-state no-exchange RHS = alpha beta_DM rho_DM",
+        "max_abs_residual": float(np.max(np.abs(residual))),
+        "max_roundoff_bound": float(np.max(bound)),
+        "max_bound_ratio": float(np.max(ratio)),
+        "within_roundoff_bound": bool(np.all(np.abs(residual) <= bound)),
+    }
     return {
         "status": "conditional source algebra only; action premise and sector normalization remain unresolved",
         "beta_dm": beta_dm,
@@ -296,11 +304,8 @@ def _scalar_exchange_contract(stage: dict, state) -> dict:
         "same_state_pi_rhs_without_exchange": baseline_pi,
         "observed_exchange_difference": observed,
         "expected_lapse_weighted_exchange_source": expected,
-        "reconstruction_check": {
-            key: value for key, value in check.items()
-            if key not in ("residual_profile", "roundoff_bound_profile")
-        },
-        "difference_from_expected_profile": check["residual_profile"],
+        "reconstruction_check": check,
+        "difference_from_expected_profile": residual,
     }
 
 
