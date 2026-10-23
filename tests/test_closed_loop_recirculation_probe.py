@@ -20,6 +20,21 @@ def test_weighted_boundary_tail_integral_converges_with_resolution(t_cosmos):
     ) < 0.01
 
 
+def test_late_shell_tail_is_small_with_bounded_absolute_grid_error():
+    coarse = StationaryRecirculationProbe(resolution=48).evaluate_slice(
+        tau_local=0.0, t_cosmos=20.0
+    )
+    fine = StationaryRecirculationProbe(resolution=96).evaluate_slice(
+        tau_local=0.0, t_cosmos=20.0
+    )
+    # The relative discrepancy grows when the tail is nearly zero; bound the
+    # absolute error instead of misrepresenting this as 1% relative convergence.
+    assert fine["boundary_tail_integral"] < 0.01
+    assert abs(
+        coarse["boundary_tail_integral"] - fine["boundary_tail_integral"]
+    ) < 5e-4
+
+
 def test_recirc_term_scales_with_fixed_feedback_gain():
     base = StationaryRecirculationProbe(resolution=48, feedback_gain=0.15)
     doubled = StationaryRecirculationProbe(resolution=48, feedback_gain=0.30)
@@ -63,6 +78,8 @@ def test_invalid_query_domains_fail_closed(kwargs):
     "kwargs",
     [
         {"resolution": 1},
+        {"resolution": 2.5},
+        {"resolution": 24.0},
         {"r_min": 24.0, "r_max": 0.0},
         {"core_scale": 0.0},
         {"shell_width": -1.0},
