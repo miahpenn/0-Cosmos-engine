@@ -103,6 +103,19 @@ The corresponding fixed-\(R\) chain rule is therefore already encoded in the his
 
 The code keeps two distinct routes for the sweep: the sampled spatial derivative of \(m_{\rm MS}\), and the exact piecewise-linear secant implied by its interpolation bracket. Their difference is meaningful operator evidence, not permission to select whichever closes the flux ledger.
 
+**Fail-closed provenance comparison for this fixed-\(R\) audit:** its own declared `SOURCE_PINS` were checked read-only against the exact crosswalk base `4aec88d0e3ff028e0a65a8ac36b30948625df792`. Eleven of the 17 pinned engine blobs match. Six differ:
+
+| Pinned source | Audit-expected blob | Observed blob at crosswalk base |
+|---|---|---|
+| engine/matter_rhs.py | `f41180efbcff2c72cf36477a765318ab539fac80` | `0153c232ee15b5a9d3dbac37ea858e4d2d730011` |
+| engine/matter_system.py | `05e23d2368120ea8a1a6aad3fa438625d5380750` | `0969f4d996e4f8e0fc5b70a7dff147f024907302` |
+| engine/production_kernel.py | `9685e76bb5a6f26d6bf383e240de24f37523f265` | `1720615628a98a8d7cfc9fcadcc984fe28c88be1` |
+| engine/scalar_system.py | `ffc119b1a6f2d495d972323901f76a85783b0a1b` | `e2c2dae9a016b4d6454cf74a9eae8b0167d5733d` |
+| engine/v55_matter.py | `acc8f8ceae28d82511c9a5ad9d2ca670e09fb0f7` | `0ee3c51fac7dc46c63feba2747a750542bcee3d0` |
+| engine/v55_pirk_adapter.py | `eeee0492d80889d70e52b0946563eee5054c0f11` | `be28ceea63fa1b59efc5cc5c460b9df19ae1cbc3` |
+
+The vendor gitlink still matches the audit's expected pin `d6052d605673ce9d82cdc99b0df79855fa2ea215`. Thus the known provenance break is localized to the six listed source files, not the vendor pin. This was a blob/pin comparison only: no simulation or numerical audit was run, and the six expected pins must not be overwritten to make the old audit accept a newer source state.
+
 **What the crosswalk establishes now:** every major fixed-\(R\) geometric operand has an existing implementation or explicit reconstruction, and the fluid/scalar exchange components are separately recoverable from the current source path. **What it does not establish:** that the old audit's historical vendor/source pins, its stress normalization, the current captured geometry tangent, and the actual matter/scalar RHS all describe one identical stage and convention. That requires a separately named current-source witness after pin and operand reconciliation. Do not run or reinterpret the old numerical residual as that witness.
 
 ### Structural pattern visible in the five changed blobs
