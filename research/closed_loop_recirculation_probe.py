@@ -31,6 +31,10 @@ class StationaryRecirculationProbe:
                 raise ValueError(f"{name} must be finite")
         if self.r_max <= self.r_min:
             raise ValueError("r_max must be greater than r_min")
+        if isinstance(self.resolution, (bool, np.bool_)) or not isinstance(
+            self.resolution, (int, np.integer)
+        ):
+            raise ValueError("resolution must be an integer")
         if self.resolution < 2:
             raise ValueError("resolution must be at least 2")
         if self.core_scale <= 0.0 or self.shell_width <= 0.0:
