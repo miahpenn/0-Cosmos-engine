@@ -103,6 +103,8 @@ jobs:
           PY
 
       - name: Emit current-source fixed-R ledger report
+        env:
+          PR_SOURCE_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           mkdir -p artifacts
           python tools/audit_current_source_fixed_r_ledger.py \
