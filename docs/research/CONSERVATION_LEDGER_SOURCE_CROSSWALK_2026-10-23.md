@@ -52,7 +52,15 @@ A read-only blob comparison was made against the exact crosswalk base `main` sna
 
 **Interpretation:** five of eleven source blobs differ at the crosswalk base. This does not show that the newer sources are incorrect, nor that the old residuals are invalid for their original source. It does mean that the old audit's strict provenance guard will not accept the current tree as the historical experiment. Do not silently update the old pins or describe a run against changed sources as a reproduction.
 
-**Bounded next action:** inspect the five file diffs between the historical pinned commit `7f47669a1c0edfafef9fc5f27b2db80840d3f035` and the crosswalk base, and classify each change by whether it affects (a) stress projections, (b) RHS/time derivatives, (c) metric/CMC evolution, or (d) diagnostic-only behavior. Then either replay the archived witness in its exact historical environment, or create a separately named current-source witness with its own full source/vendor/runtime pins. Keep these two evidence records distinct.
+**Initial semantic triage of those diffs:**
+
+- `engine/matter_system.py` and `engine/matter_rhs.py`: the matter RHS now includes a variable-mass rest-current source `q_rest`; the momentum exchange projection also carries an explicit lapse factor. These directly affect conservative source bookkeeping.
+- `engine/scalar_system.py`: the scalar–DM source contribution to coordinate-time evolution now includes `geometry.alpha`, changing the pinned RHS relative to the historical audit.
+- `engine/production_kernel.py` and `engine/v55_pirk_adapter.py`: the production geometry stage now supplies a native CMC explicit metric RHS for `a/b/X`, while retaining other source blocks. This changes the geometry/time-derivative path used by a current-source witness.
+
+These are equation/RHS or geometry-path changes, not merely report-format differences. The hash comparison alone cannot determine whether they improve or worsen physical closure; that requires a like-for-like term audit.
+
+**Bounded next action:** preserve the old witness in its exact historical source/runtime environment and create a separately named current-source witness only after mapping these changed terms into the continuum balance. Give each witness its own full source/vendor/runtime pins. Keep the historical and current-source evidence records distinct.
 
 ## 3. Spherical mass identity: exact scope matters
 
