@@ -194,6 +194,22 @@ dr/dt |_R = -(∂_t R)/(∂_r R),     provided `∂ᵣR ≠ 0`
 
 This chain rule specifies the surface derivative; it does **not** by itself finish the physical flux law. The flux through the moving worldtube, its orientation, and all work/geometry terms must be transformed consistently from the same continuum identity. Do not set `∂t R=0` in the fixed-coordinate formula while retaining the fixed-coordinate derivative on the left. At points where `∂ᵣR = 0`, this coordinate conversion is not valid and needs a separate treatment.
 
+### Conditional fixed-\(R\) identity available from the archive
+
+The archived CMC bridge explicitly assumes \(\beta^r=0\) and states the fixed-coordinate balance
+\[
+\left.\partial_t M\right|_r=-4\pi R^2\left(\alpha\gamma^{rr}j_r\,\partial_rR+p_r\,\partial_tR\right).
+\]
+Combining that exact archived identity with the surface chain rule gives, only under those same conventions,
+\[
+\left.\frac{dM}{dt}\right|_R=
+-4\pi R^2\left(\alpha\gamma^{rr}j_r\,\partial_rR+p_r\,\partial_tR\right)
+-\frac{\partial_tR}{\partial_rR}\,\partial_rM.
+\]
+The last term is the moving-coordinate sweep, not a new matter source. It must use the mass gradient from the same state and a consistent interpolation at the target \(R\). The implementation already reports the flux, pressure-work, sweep, left-hand-side mass tangent, and their signed remainder under both factorized and composite interpolation.
+
+**Convention gate:** this expression is not licensed for nonzero shift. The archived source fixes \(\beta^r=0\); for a nonzero-shift state, derive the balance directly from the correctly indexed \(T^r{}_t\) and \(T^r{}_r\), including shift terms, before evaluating a physical residual. The current-source witness therefore now fails closed if the captured stage has any nonzero shift. Its zero-shift artifact is a source-aligned diagnostic, not a general-shift conservation proof.
+
 ## 4. Derivation and implementation sequence
 
 1. **Pin the source convention.** Record metric signature, units, index placement, `T^μ{}_ν` versus `T_μν`, definitions/sign of `j_r`, lapse/shift, and whether the derivative is coordinate-time or proper-time.
