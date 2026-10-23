@@ -101,3 +101,18 @@ jobs:
               flush=True,
           )
           PY
+
+      - name: Emit current-source fixed-R ledger report
+        run: |
+          mkdir -p artifacts
+          python tools/audit_current_source_fixed_r_ledger.py \
+            --repo-root "$GITHUB_WORKSPACE" \
+            --output artifacts/current-source-fixed-r-ledger.json
+
+      - name: Preserve signed current-source fixed-R ledger
+        uses: actions/upload-artifact@v4
+        with:
+          name: current-source-fixed-r-ledger-${{ github.sha }}
+          path: artifacts/current-source-fixed-r-ledger.json
+          if-no-files-found: error
+          retention-days: 14
