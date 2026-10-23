@@ -33,7 +33,7 @@ A passing result in one lane does not prove the other two. In particular, the ex
 
 ## 3. Spherical mass identity: exact scope matters
 
-The archived CMC bridge defines the areal radius (R(t,r)) and Misner–Sharp mass
+The archived CMC bridge defines the areal radius `R(t,r)` and Misner–Sharp mass
 
 ```text
 m(t,r) = R/2 [1 - g^{ab} (∂_a R)(∂_b R)]     (G = c = 1 convention)
@@ -46,22 +46,22 @@ For its **spherically symmetric, beta=0, fixed-coordinate-r worldtube**, the rec
            = 4π R² [-α γ^rr j_r (∂_r R) - p_r (∂_t R)].
 ```
 
-Use the second line only with the same stress-projection, index, metric, sign, and time conventions as the source derivation. The `-p_r ∂_t R` term is part of the balance; dropping it changes the observable. This formula is not a universal flat-space flux `4πr²J_r`, and (r) must not be silently identified with areal radius (R).
+Use the second line only with the same stress-projection, index, metric, sign, and time conventions as the source derivation. The `-p_r ∂_t R` term is part of the balance; dropping it changes the observable. This formula is not a universal flat-space flux `4πr²J_r`, and `r` must not be silently identified with areal radius `R`.
 
 ### Fixed coordinate versus fixed areal radius
 
-The repository's admission lane explicitly requires a **fixed-areal-radius** measurement surface. A fixed coordinate (r) generally has (partial_t R\ne0), so it is a different worldtube. To compare mass on a constant-(R) surface, first derive the moving coordinate location:
+The repository's admission lane explicitly requires a **fixed-areal-radius** measurement surface. A fixed coordinate `r` generally has (partial_t R\ne0), so it is a different worldtube. To compare mass on a constant-`R` surface, first derive the moving coordinate location:
 
 ```text
-dr/dt |_R = -(∂_t R)/(∂_r R),     provided ∂_r R ≠ 0
+dr/dt |_R = -(∂_t R)/(∂_r R),     provided `∂ᵣR ≠ 0`
 (dm/dt)|_R = (∂_t m)|_r + (dr/dt)|_R (∂_r m).
 ```
 
-This chain rule specifies the surface derivative; it does **not** by itself finish the physical flux law. The flux through the moving worldtube, its orientation, and all work/geometry terms must be transformed consistently from the same continuum identity. Do not set `∂t R=0` in the fixed-coordinate formula while retaining the fixed-coordinate derivative on the left. At points where `∂r R=0`, this coordinate conversion is not valid and needs a separate treatment.
+This chain rule specifies the surface derivative; it does **not** by itself finish the physical flux law. The flux through the moving worldtube, its orientation, and all work/geometry terms must be transformed consistently from the same continuum identity. Do not set `∂t R=0` in the fixed-coordinate formula while retaining the fixed-coordinate derivative on the left. At points where `∂ᵣR = 0`, this coordinate conversion is not valid and needs a separate treatment.
 
 ## 4. Derivation and implementation sequence
 
-1. **Pin the source convention.** Record metric signature, units, index placement, (T^\mu{}_\nu) versus (T_{\mu\nu}), definitions/sign of (j_r), lapse/shift, and whether the derivative is coordinate-time or proper-time.
+1. **Pin the source convention.** Record metric signature, units, index placement, `T^μ{}_ν` versus `T_μν`, definitions/sign of `j_r`, lapse/shift, and whether the derivative is coordinate-time or proper-time.
 2. **Recover the archive equation, not just its implementation.** For each matter/scalar sector, locate the exact source equation and its provenance. Keep the unresolved S/D/φ action and density-normalization issue visible; a normalized archive model may be the most specific justified claim.
 3. **Derive the continuum identities independently.** (a) total covariant stress-energy divergence and any conditional exchange law; (b) the matter conservative-variable equation; (c) Misner–Sharp mass/worldtube balance. Show which source terms cancel only after summing sectors and which represent external/non-conservative sources.
 4. **Choose the physical measurement surface.** Specify constant areal radius, its coordinate trajectory, orientation, and time parameter before calculating a flux.
