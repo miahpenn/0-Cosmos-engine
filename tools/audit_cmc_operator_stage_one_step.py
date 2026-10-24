@@ -103,6 +103,13 @@ def _ricci_channel_summary(grid: Any, geometry: Any, aa_l2: Any = None) -> dict:
     )
     chain_tf = _arr(chain_arrays["lambda_chain_rule_vendor_tf_ricci"])
     chain_gap = _arr(chain_arrays["lambda_chain_rule_vendor_minus_direct_tf_ricci"])
+    lambda_prime_evolved = d1(Lambda, -1)
+    lambda_prime_metric_d4 = d1(lambda_metric, -1)
+    lambda_prime_chain = _arr(chain_arrays["lambda_prime_chain_rule"])
+    tf_factor = (2.0/3.0) * X**2
+    connection_d4_response = tf_factor * (lambda_prime_evolved - lambda_prime_metric_d4)
+    metric_stencil_chain_response = tf_factor * (lambda_prime_metric_d4 - lambda_prime_chain)
+    total_d4_chain_response = tf_factor * (lambda_prime_evolved - lambda_prime_chain)
     lapse_hessian = -(
         _arr(vendor_terms["DrDr_alpha"]) - _arr(vendor_terms["lap_alpha"])/3.0
     )
@@ -127,6 +134,11 @@ def _ricci_channel_summary(grid: Any, geometry: Any, aa_l2: Any = None) -> dict:
         "vendor_tf_ricci_minus_direct_proper_radial": signed_summary(vendor_tf - direct_tf),
         "chain_rule_counterfactual_tf_ricci_minus_direct_proper_radial": signed_summary(chain_gap),
         "chain_rule_induced_tf_ricci_shift": signed_summary(chain_tf - vendor_tf),
+        "lambda_D4_derivative_split": {
+            "evolved_D4_minus_metric_D4_connection_response": signed_summary(connection_d4_response),
+            "metric_D4_minus_metric_chain_rule_response": signed_summary(metric_stencil_chain_response),
+            "evolved_D4_minus_chain_rule_total_response": signed_summary(total_d4_chain_response),
+        },
         "tf_ricci_vendor_components": {
             "lambda_D4_derivative": signed_summary(tf_lambda_derivative),
             "lambda_algebraic": signed_summary(tf_lambda_algebraic),
@@ -151,6 +163,12 @@ def _ricci_channel_summary(grid: Any, geometry: Any, aa_l2: Any = None) -> dict:
                 lambda_metric - (
                     d1(a, 1)/(2.0*a**2) - d1(b, 1)/(a*b) + 2.0/r*(1.0/b - 1.0/a)
                 )
+            ),
+            "max_abs_D4_lambda_connection_plus_stencil_chain_reconstruction": _max_abs(
+                connection_d4_response + metric_stencil_chain_response - total_d4_chain_response
+            ),
+            "max_abs_vendor_gap_minus_chain_gap_identity": _max_abs(
+                (vendor_tf - direct_tf) - chain_gap - total_d4_chain_response
             ),
         },
         "centre_connection_residual": signed_summary(connection_residual),
