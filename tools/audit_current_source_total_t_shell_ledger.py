@@ -338,6 +338,11 @@ def _one_shell_tangent(base_state, plus_state, minus_state, epsilon: float,
             and base["r"][0] <= _coordinate_for_R(base, upper_R) <= base["r"][-1]):
         raise ValueError("fixed-R surface lies outside the coordinate grid")
     inv = 1.0 / (2.0 * float(epsilon))
+    Rdot = finite("areal-radius directional rate", (plus["R"] - minus["R"]) * inv)
+    Rr = finite(
+        "radial areal-radius derivative",
+        WORLD_TUBE.areal_radius_derivative(base_state.grid, base_state.geometry),
+    )
     boundaries = {}
     for name, target in (("inner", lower_R), ("outer", upper_R)):
         r0 = _coordinate_for_R(base, target)
@@ -363,11 +368,6 @@ def _one_shell_tangent(base_state, plus_state, minus_state, epsilon: float,
     mass_gradient_coordinate = finite(
         "radial Misner-Sharp mass gradient",
         base_state.grid.cell_derivative_fourth(mass_base, parity=-1),
-    )
-    Rdot = finite("areal-radius directional rate", (plus["R"] - minus["R"]) * inv)
-    Rr = finite(
-        "radial areal-radius derivative",
-        WORLD_TUBE.areal_radius_derivative(base_state.grid, base_state.geometry),
     )
     work_integrals = {
         "t": _full_integral(base, work["time"], lower_R, upper_R),
