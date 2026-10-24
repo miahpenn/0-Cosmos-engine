@@ -110,6 +110,45 @@ def _compact_total_t_divergence(kernel, state, rates, epsilon: float) -> dict:
     r = _arr(state.grid.centers)
     total = full["total"]
     decomposition = full["sector_decomposition"]
+
+    # Join the existing scalar-RHS budget to the exact same accepted-state
+    # +/- pair. This gives a term-by-term candidate source for the observed
+    # S/D/phi time-density residual, without pretending scalar-sector T is
+    # separately conserved when exchange terms have not been derived.
+    scalar_rhs_budget = total_t_audit.scalar_rhs_term_budget(
+        state, total_t_audit.BETA_DM_COUPLED
+    )
+    scalar_density_budget = total_t_audit.scalar_sector_energy_time_density_budget(
+        state, plus_state, minus_state, epsilon, scalar_rhs_budget
+    )
+
+    def density_term_summaries(block: dict) -> dict:
+        return {
+            name: _signed_samples(term["density_t_dot_contribution"]["raw_signed_array"], r)
+            for name, term in block.items()
+        }
+
+    scalar_density_channels = {}
+    for sector_name, record in scalar_density_budget["sectors"].items():
+        scalar_density_channels[sector_name] = {
+            "field_rate_contributions": density_term_summaries(record["field_rate_terms"]),
+            "momentum_rate_contributions": density_term_summaries(record["momentum_rate_terms"]),
+            "geometry_prefactor_contribution": _signed_samples(
+                record["geometry_terms"]["density_t_dot_metric_prefactor_contribution"]["raw_signed_array"], r
+            ),
+            "volume_factor_contribution": _signed_samples(
+                record["geometry_terms"]["density_t_dot_volume_factor_contribution"]["raw_signed_array"], r
+            ),
+            "measured_density_t_rate": _signed_samples(
+                record["measured_density_t_dot"]["raw_signed_array"], r
+            ),
+            "predicted_density_t_rate": _signed_samples(
+                record["predicted_density_t_dot"]["raw_signed_array"], r
+            ),
+            "measured_minus_predicted_residual": _signed_samples(
+                record["measured_minus_predicted_residual"]["raw_signed_array"], r
+            ),
+        }
     total_channels = {
         name: _signed_samples(total[name], r)
         for name in ("div_T_t", "div_T_r", "div_T_t_fv", "div_T_r_fv")
@@ -129,6 +168,16 @@ def _compact_total_t_divergence(kernel, state, rates, epsilon: float) -> dict:
         "total_projection_crosschecks": total.get("projection_crosscheck", {}),
         "total_stress_energy_divergence": total_channels,
         "time_derivative_witnesses": total.get("time_derivative_witnesses", {}),
+        "scalar_time_density_rhs_budget": {
+            "status": scalar_density_budget["status"],
+            "term_convention": scalar_density_budget["term_convention"],
+            "all_profiles_finite": scalar_density_budget["all_profiles_finite"],
+            "conditional_exchange_model_law_accepted": scalar_density_budget[
+                "conditional_exchange_model_law_accepted"
+            ],
+            "sectors": scalar_density_channels,
+            "interpretation_limit": scalar_density_budget["interpretation"],
+        },
         "sector_resolved_divergence": sectors,
         "sector_reconstruction": {
             "all_sectors_reconstruct_total": reconstruction["all_sectors_reconstruct_total"],
