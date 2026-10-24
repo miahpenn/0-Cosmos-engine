@@ -15,8 +15,11 @@ import os
 import platform
 import subprocess
 from pathlib import Path
+import sys
 
 import numpy as np
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 SOURCE_COMMIT = "4aec88d0e3ff028e0a65a8ac36b30948625df792"
 VENDOR_COMMIT = "d6052d605673ce9d82cdc99b0df79855fa2ea215"
