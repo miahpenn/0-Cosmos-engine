@@ -95,7 +95,7 @@ jobs:
         run: |
           mkdir -p results/issue4-current-source-covariant-total-T-divergence
           python tools/audit_current_source_total_stress_energy_divergence.py \
-            --resolutions 60 \
+            --resolutions 32 64 128 \
             --r-max 24 \
             --epsilons 0.00002 0.00001 \
             --output results/issue4-current-source-covariant-total-T-divergence/report.json
@@ -111,7 +111,9 @@ jobs:
             and .source_witness.source_blob_count == 11
             and .source_witness.source_blob_pins_all_match == true
             and .source_witness.production_steps_advanced == 0
-            and .configuration.resolutions == [60]
+            and .configuration.resolutions == [32,64,128]
+            and (.resolution_results | map(.resolution)) == [32,64,128]
+            and (.resolution_results | length) == 3
             and .configuration.production_steps_advanced == 0
             and .gate_result.source_pins_verified == true
             and .gate_result.independent_total_projection_matches_canonical == true
@@ -122,6 +124,102 @@ jobs:
             and .gate_result.scientific_admission == false
             and .scientific_admission == false
           ' results/issue4-current-source-covariant-total-T-divergence/report.json
+
+      - name: Summarize radial divergence operator refinement without admission
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          import numpy as np
+
+          report_path = Path("results/issue4-current-source-covariant-total-T-divergence/report.json")
+          report = json.loads(report_path.read_text(encoding="utf-8"))
+          expected = [32, 64, 128]
+          if [row["resolution"] for row in report["resolution_results"]] != expected:
+              raise SystemExit("unexpected current-source refinement resolution set")
+
+          results = []
+          fixed_radii = (1.0, 2.0, 3.0, 5.0, 8.0)
+          for row in report["resolution_results"]:
+              n = int(row["resolution"])
+              dr = float(row["dr"])
+              r = (np.arange(n, dtype=np.float64) + 0.5) * dr
+              annulus = (r >= 2.0) & (r <= 10.0)
+              for arm in ("uncoupled_control", "coupled_baseline"):
+                  raw = row[arm]["raw_arrays"]
+                  pointwise = np.asarray(raw["epsilon_0_div_T_r"], dtype=np.float64)
+                  volume_average = np.asarray(raw["epsilon_0_div_T_r_fv"], dtype=np.float64)
+                  if pointwise.shape != (n,) or volume_average.shape != (n,):
+                      raise SystemExit(f"unexpected divergence array shape at N={n}, arm={arm}")
+                  if not (np.all(np.isfinite(pointwise)) and np.all(np.isfinite(volume_average))):
+                      raise SystemExit(f"nonfinite divergence profile at N={n}, arm={arm}")
+                  delta = volume_average - pointwise
+                  results.append({
+                      "resolution": n,
+                      "dr": dr,
+                      "coupling_arm": arm,
+                      "cell_centered_pointwise": {
+                          "cell0_signed": float(pointwise[0]),
+                          "cell1_signed": float(pointwise[1]),
+                          "cell2_signed": float(pointwise[2]),
+                          "annulus_2_to_10_rms": float(np.sqrt(np.mean(pointwise[annulus]**2))),
+                          "fixed_coordinate_radius_samples": {
+                              str(radius): float(np.interp(radius, r, pointwise))
+                              for radius in fixed_radii
+                          },
+                      },
+                      "spherical_finite_volume_cell_average": {
+                          "cell0_signed": float(volume_average[0]),
+                          "cell1_signed": float(volume_average[1]),
+                          "cell2_signed": float(volume_average[2]),
+                          "annulus_2_to_10_rms": float(np.sqrt(np.mean(volume_average[annulus]**2))),
+                          "fixed_coordinate_radius_samples": {
+                              str(radius): float(np.interp(radius, r, volume_average))
+                              for radius in fixed_radii
+                          },
+                      },
+                      "fv_minus_pointwise_operator_difference": {
+                          "cell0_signed": float(delta[0]),
+                          "cell1_signed": float(delta[1]),
+                          "cell2_signed": float(delta[2]),
+                          "annulus_2_to_10_rms": float(np.sqrt(np.mean(delta[annulus]**2))),
+                          "fixed_coordinate_radius_samples": {
+                              str(radius): float(np.interp(radius, r, delta))
+                              for radius in fixed_radii
+                          },
+                      },
+                  })
+
+          summary = {
+              "classification": "diagnostic operator-refinement summary; not conservation admission",
+              "source_commit": report["source_witness"]["source_commit"],
+              "vendor_commit": report["source_provenance"]["vendor_commit"],
+              "resolutions": expected,
+              "r_max": report["configuration"]["r_max"],
+              "directional_epsilons": report["configuration"]["directional_epsilons"],
+              "operator_definitions": {
+                  "cell_centered_pointwise": "pointwise covariant-divergence identity using the pinned cell-centered fourth-order radial derivative",
+                  "spherical_finite_volume_cell_average": "spherical face-flux reconstruction with Simpson-integrated time/source densities and cell measure",
+              },
+              "interpretation_guard": "These are distinct discrete observables. This report preserves both; it does not select an operator by residual size or claim which operator is physically authorized.",
+              "production_steps_advanced": report["configuration"]["production_steps_advanced"],
+              "scientific_admission": False,
+              "independent_total_stress_energy_divergence_closed": False,
+              "physical_residual_threshold_applied": False,
+              "results": results,
+          }
+          output = Path("results/issue4-current-source-covariant-total-T-divergence/operator-refinement-summary.json")
+          output.write_text(json.dumps(summary, indent=2, sort_keys=True, allow_nan=False) + "\n", encoding="utf-8")
+          print(json.dumps({
+              "classification": summary["classification"],
+              "resolutions": summary["resolutions"],
+              "arms": sorted({r["coupling_arm"] for r in results}),
+              "production_steps_advanced": summary["production_steps_advanced"],
+              "scientific_admission": summary["scientific_admission"],
+              "physical_residual_threshold_applied": summary["physical_residual_threshold_applied"],
+              "summary_artifact": str(output),
+          }, sort_keys=True), flush=True)
+          PY
 
       - name: Hash current-source witness
         if: always()
