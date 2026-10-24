@@ -1,0 +1,311 @@
+#!/usr/bin/env python3
+"""Accepted-checkpoint momentum-tangent crosswalk for Issue #4.
+
+This is a diagnostic-only read of already archived complete t=0.6 checkpoints.
+It evaluates the exact engine geometry-stage interface, then reuses the signed
+six-sector momentum-tangent observer with two directional epsilons. No campaign
+is advanced; only copied +/- tangent states are formed for the finite difference.
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import math
+from pathlib import Path
+import sys
+from typing import Any
+
+import numpy as np
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+
+from engine.production_kernel import V55ProductionKernel
+from tools import audit_current_source_momentum_constraint_tangent as tangent
+from tools import audit_evolved_origin_aa_regularity as source_audit
+from tools.audit_cmc_center_row_saved_state_counterfactual import (
+    _load_bundle,
+    _restore_state,
+)
+
+R_MAX = 80.0
+EXPECTED_TIME = 0.6
+EPSILONS = (2.0e-5, 1.0e-5)
+CENTRE_CELLS = (0, 1, 2, 6)
+
+
+def _arr(value: Any) -> np.ndarray:
+    return np.asarray(value, dtype=np.float64)
+
+
+def _max_abs(value: Any) -> float:
+    arr = _arr(value)
+    return float(np.max(np.abs(arr))) if arr.size else 0.0
+
+
+def _signed_samples(values: Any, r: np.ndarray) -> dict:
+    arr = _arr(values)
+    return {
+        "cells_0_1_2_6": {
+            str(i): float(arr[i]) for i in CENTRE_CELLS if i < arr.size
+        },
+        "max_abs_cells_0_to_6": _max_abs(arr[:min(7, arr.size)]),
+        "max_abs_full_grid": _max_abs(arr),
+        "max_abs_fixed_annulus_r5_to10": _max_abs(
+            arr[(r >= 5.0) & (r <= 10.0)]
+        ),
+        "fixed_radius_samples": tangent.fixed_radius_samples(arr, r),
+    }
+
+
+def _lambda_metric_and_rate(state: Any, rates: dict) -> tuple[np.ndarray, np.ndarray]:
+    """Discrete Lambda_metric and its exact chain-rule directional derivative."""
+    grid, g = state.grid, state.geometry
+    r = _arr(grid.centers)
+    a, b = _arr(g.a), _arr(g.b)
+    adot, bdot = _arr(rates["geometry"]["a"]), _arr(rates["geometry"]["b"])
+    d1 = lambda f, parity=1: _arr(grid.cell_derivative_fourth(f, parity=parity))
+    ap, bp = d1(a, 1), d1(b, 1)
+    lambda_metric = ap/(2.0*a*a) - bp/(a*b) + 2.0/r*(1.0/b - 1.0/a)
+    lambda_metric_dot = (
+        d1(adot, 1)/(2.0*a*a)
+        - ap*adot/(a*a*a)
+        - d1(bdot, 1)/(a*b)
+        + bp*(adot*b + a*bdot)/(a*a*b*b)
+        + 2.0/r*(-bdot/(b*b) + adot/(a*a))
+    )
+    return lambda_metric, lambda_metric_dot
+
+
+def _region_error(values: Any, r: np.ndarray) -> dict:
+    arr = _arr(values)
+    annulus = (r >= 5.0) & (r <= 10.0)
+    return {
+        "max_abs_first_seven": _max_abs(arr[:min(7, arr.size)]),
+        "max_abs_full_grid": _max_abs(arr),
+        "max_abs_fixed_annulus_r5_to10": _max_abs(arr[annulus]),
+        "signed_cells_0_1_2_6": {
+            str(i): float(arr[i]) for i in CENTRE_CELLS if i < arr.size
+        },
+    }
+
+
+def _audit_state(kernel: V55ProductionKernel, bundle: dict, n: int, lineage: str) -> dict:
+    state = _restore_state(kernel, bundle, n)
+    if not math.isclose(float(state.t), EXPECTED_TIME, rel_tol=0.0, abs_tol=1e-12):
+        raise RuntimeError(f"{lineage}: expected complete t=0.6 checkpoint; got t={state.t}")
+    if state.electromagnetic is not None or getattr(state.matter, "charged_dust", None) is not None:
+        raise RuntimeError(f"{lineage}: baseline six-sector tangent observer cannot silently omit EM/charged dust")
+
+    input_digest_full = source_audit._state_digest(state)
+    input_digest_tangent = tangent.state_digest(state)
+    grid, g = state.grid, state.geometry
+    r = _arr(grid.centers)
+
+    # Critical: use the production kernel's stage method, including its explicit
+    # native a/b/X override. The historical tangent audit default remains intact;
+    # this accepted-state path explicitly supplies exact production stage terms.
+    exact_terms = kernel._geometry_stage_terms(
+        grid, g, state.scalars, state.matter, state.electromagnetic
+    )
+    rates = tangent.rhs_direction(
+        kernel, state, geometry_terms_override=exact_terms
+    )
+    initial = tangent.observe_constraint(state)
+    lambda_metric, lambda_metric_dot = _lambda_metric_and_rate(state, rates)
+    connection = _arr(g.Lambda) - lambda_metric
+    connection_dot = _arr(rates["geometry"]["Lambda"]) - lambda_metric_dot
+
+    # The archived audit records the known 2 alpha/a coupling. Preserve both signs
+    # as explicit residuals; do not choose a sign by assumption if a state does not close.
+    coupling = 2.0 * _arr(g.alpha) / _arr(g.a)
+    predicted_connection_dot = coupling * _arr(initial["M_total"])
+    connection_relation_plus = connection_dot - predicted_connection_dot
+    connection_relation_minus = connection_dot + predicted_connection_dot
+
+    tangent_results = [
+        tangent.tangent_for_epsilon(kernel, state, rates, eps)
+        for eps in EPSILONS
+    ]
+    analytic = tangent.analytic_geometric_momentum_tangent(
+        lambda values: grid.cell_derivative_fourth(values, parity=1),
+        r,
+        g.Aa, g.K, g.b, g.X,
+        rates["geometry"]["Aa"],
+        rates["geometry"]["K"],
+        rates["geometry"]["b"],
+        rates["geometry"]["X"],
+    )
+    geometric_analytic_delta = [
+        _arr(item["Mdot_geom"]) - _arr(analytic["total"])
+        for item in tangent_results
+    ]
+    epsilon_sensitivity = _arr(tangent_results[0]["Mdot"]) - _arr(tangent_results[1]["Mdot"])
+
+    eps_reports = []
+    for item, analytic_delta in zip(tangent_results, geometric_analytic_delta):
+        eps_reports.append({
+            "epsilon": float(item["epsilon"]),
+            "Mdot_total": _signed_samples(item["Mdot"], r),
+            "Mdot_geometric_constraint": _signed_samples(item["Mdot_geom"], r),
+            "Mdot_geometric_term_contributions": {
+                key: _signed_samples(value, r)
+                for key, value in item["Mdot_geom_terms"].items()
+            },
+            "Mdot_current_sector_contributions_to_total_M": {
+                key: _signed_samples(value, r)
+                for key, value in item["Mdot_sector"].items()
+            },
+            "closure": {
+                "total_tangent_from_geom_plus_sector_current": {
+                    "ok": bool(item["closure_ok"]),
+                    "max_abs": float(item["closure_max_abs"]),
+                    "max_bound": float(item["closure_max_bound"]),
+                    "max_scaled_ratio": item["closure_max_scaled_ratio"],
+                },
+                "geometric_five_term_tangent": {
+                    "ok": bool(item["Mdot_geom_tangent_closure_ok"]),
+                    "max_abs": float(item["Mdot_geom_tangent_closure_max_abs"]),
+                    "max_bound": float(item["Mdot_geom_tangent_closure_max_bound"]),
+                },
+                "current_projection": {
+                    "ok": bool(item["plus_minus_current_projection_closure_ok"]),
+                    "max_abs": float(item["plus_minus_current_projection_closure_max_abs"]),
+                },
+                "finite_difference_vs_analytic_geometric_tangent": {
+                    "signed_residual": _signed_samples(analytic_delta, r),
+                    "epsilon_sensitivity_vs_other_epsilon": _region_error(
+                        epsilon_sensitivity, r
+                    ),
+                    "scope": "reported with the archived epsilon-sensitivity envelope; not a continuum error bound",
+                },
+            },
+        })
+
+    hessian = _arr(rates["Aa_l2_split"]["lapse_hessian"])
+    ricci = _arr(rates["Aa_l2_split"]["tracefree_ricci"])
+    aa_l2 = _arr(rates["Aa_l2_split"]["operator"])
+    if source_audit._state_digest(state) != input_digest_full:
+        raise RuntimeError(f"{lineage}: exact accepted checkpoint mutated by observation")
+    if tangent.state_digest(state) != input_digest_tangent:
+        raise RuntimeError(f"{lineage}: tangent observer mutated accepted checkpoint")
+
+    return {
+        "lineage": lineage,
+        "resolution": n,
+        "accepted_time": float(state.t),
+        "input_state_sha256": input_digest_full,
+        "input_tangent_digest": input_digest_tangent,
+        "input_state_unchanged": True,
+        "exact_kernel_geometry_stage_interface_used": True,
+        "initial_momentum_constraint": _signed_samples(initial["M_total"], r),
+        "initial_geometric_momentum_constraint": _signed_samples(initial["M_geom"], r),
+        "initial_projected_current_sectors": {
+            key: _signed_samples(value, r) for key, value in initial["J_pieces"].items()
+        },
+        "initial_Aa_L2_channels": {
+            "lapse_hessian": _signed_samples(hessian, r),
+            "tracefree_Ricci": _signed_samples(ricci, r),
+            "operator": _signed_samples(aa_l2, r),
+            "reconstruction_closure": rates["Aa_l2_split"]["closure"],
+        },
+        "connection_constraint": {
+            "C_lambda_minus_metric": _signed_samples(connection, r),
+            "Cdot_from_exact_rhs": _signed_samples(connection_dot, r),
+            "candidate_relation_Cdot_minus_2alpha_over_a_M": _signed_samples(connection_relation_plus, r),
+            "candidate_relation_Cdot_plus_2alpha_over_a_M": _signed_samples(connection_relation_minus, r),
+            "coupling_2alpha_over_a_times_M": _signed_samples(predicted_connection_dot, r),
+            "interpretation": "The two signed candidates are both retained; this audit does not assume a propagation sign or treat closure as proof of the complete matter-coupled identity.",
+        },
+        "semi_discrete_momentum_tangent_by_epsilon": eps_reports,
+        "epsilon_sensitivity_total_Mdot": _region_error(epsilon_sensitivity, r),
+        "analytic_geometric_tangent": {
+            "total": _signed_samples(analytic["total"], r),
+            "terms": {key: _signed_samples(value, r) for key, value in analytic["terms"].items()},
+            "chi_r": _signed_samples(analytic["chi_r"], r),
+            "dot_chi_r": _signed_samples(analytic["dot_chi_r"], r),
+        },
+        "scope_limit": [
+            "Uses a complete archived accepted t=0.6 state; it does not re-evolve the t=0.6 campaign.",
+            "Directional epsilon states are disposable copies and re-solve the CMC lapse.",
+            "The six current sectors close the projected-J tangent, but this does not close the independent total stress-energy divergence/Bianchi identity.",
+            "Brown's vacuum propagation identity is not used as a matter-coupled oracle.",
+            "No production equation, initializer, vendor, or dependency is changed.",
+        ],
+    }
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--resolution", type=int, choices=(120, 240), required=True)
+    parser.add_argument("--baseline", required=True)
+    parser.add_argument("--candidate", required=True)
+    parser.add_argument("--out", required=True)
+    args = parser.parse_args()
+
+    provenance = tangent.provenance()
+    source_pins = source_audit.verify_source_pins()
+    if provenance["vendor_commit"] != source_pins["vendor_commit"]:
+        raise RuntimeError("tangent and saved-state vendor pins disagree")
+    n = args.resolution
+    baseline = _load_bundle(args.baseline, n, "baseline")
+    candidate = _load_bundle(args.candidate, n, "origin_half_cell_candidate")
+    kernel = V55ProductionKernel()
+    reports = [
+        _audit_state(kernel, baseline, n, "baseline"),
+        _audit_state(kernel, candidate, n, "origin_half_cell_candidate"),
+    ]
+    report = {
+        "schema": "accepted_checkpoint_source_aware_momentum_tangent_v1",
+        "status": "completed_saved_state_directional_tangent_diagnostic",
+        "scientific_admission": False,
+        "production_or_vendor_files_modified": False,
+        "source_pins": {
+            "momentum_tangent": provenance,
+            "saved_checkpoint_loader": source_pins,
+        },
+        "configuration": {
+            "resolution": n,
+            "r_max": R_MAX,
+            "accepted_time": EXPECTED_TIME,
+            "epsilons": list(EPSILONS),
+            "baseline_checkpoint_sha256": baseline["checkpoint_sha256"],
+            "candidate_checkpoint_sha256": candidate["checkpoint_sha256"],
+            "baseline_member_sha256": baseline["member_hashes"]["final_state.npz"],
+            "candidate_member_sha256": candidate["member_hashes"]["final_state.npz"],
+            "new_campaign_evolution_steps": 0,
+            "production_direction_uses_exact_kernel_geometry_terms": True,
+        },
+        "states": reports,
+        "decision_limits": [
+            "A small residual against either signed 2 alpha/a candidate is not accepted as full propagation closure without the frozen convention derivation and total-T exchange/divergence ledger.",
+            "The accepted-state momentum tangent is a semi-discrete derivative of the implemented RHS, not a continuum propagation proof.",
+            "All signed contributions are retained at cells 0/1/2/6 and fixed physical radii; no global fit replaces centre-cell evidence.",
+        ],
+    }
+    out = Path(args.out)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(report, indent=2, allow_nan=False) + "\n", encoding="utf-8")
+    print(json.dumps({
+        "status": report["status"],
+        "resolution": n,
+        "states": [
+            {
+                "lineage": item["lineage"],
+                "input_unchanged": item["input_state_unchanged"],
+                "epsilon_closures": [eps["closure"]["total_tangent_from_geom_plus_sector_current"]["ok"]
+                                     for eps in item["semi_discrete_momentum_tangent_by_epsilon"]],
+                "geometric_term_closures": [eps["closure"]["geometric_five_term_tangent"]["ok"]
+                                            for eps in item["semi_discrete_momentum_tangent_by_epsilon"]],
+                "Cdot_plus_closure_max": item["connection_constraint"]["candidate_relation_Cdot_plus_2alpha_over_a_M"]["max_abs_full_grid"],
+                "Cdot_minus_closure_max": item["connection_constraint"]["candidate_relation_Cdot_minus_2alpha_over_a_M"]["max_abs_full_grid"],
+            } for item in reports
+        ],
+        "scientific_admission": False,
+        "out": str(out),
+    }, indent=2), flush=True)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
