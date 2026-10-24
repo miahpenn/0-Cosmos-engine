@@ -135,6 +135,58 @@ The decomposition does not identify one universally dominant term. The metric-st
 **Next diagnostic gate:** preserve both signed channels in the stage contract and compare them with `Lambda_evolved - Lambda_metric`, H/M/connection propagation, and A_a source terms on the same named PIRK operands. Any candidate native kernel should expose these operands and their identities rather than silently setting `Lambda_evolved = Lambda_metric` or substituting the chain rule. Only after an independently derived propagation identity closes on the exact accepted state should we infer which source term or closure needs a physical change.
 
 
+## Accepted-step Lambda update and connection-residual budget
+
+The next experiment asks whether a one-step change in the connection residual
+`C = Lambda_evolved - Lambda_metric(a,b)`
+is carried by the evolved-`Lambda` source, the metric update, or both. This uses the same four copied t=0.6 checkpoint arms at N=120/240; it does not chain a counterfactual step.
+
+The observer independently reconstructs the actual accepted Lambda update on the interior `r <= 10`:
+[
+Lambda_{n+1}=Lambda_n+rac{Delta t}{2}
+left(L_{2,mathrm{start}}+L_{2,mathrm{final}}+
+L_{3,mathrm{start}}+L_{3,mathrm{primary}}ight).
+]
+The final L2 source is reevaluated on the exact final mixed state, with accepted A_a and K operands, matching the production split. The outer characteristic boundary is excluded from this arithmetic comparison because it separately updates the finite-radius boundary mode.
+
+**All four arms pass.** The maximum absolute Lambda-update reconstruction residual over `r <= 10` is between `1.38e-19` and `2.16e-19`, against raw-operand-scaled bounds of approximately `7.73e-16`–`7.78e-16`. The independent identity
+`delta(C) = delta(Lambda_evolved) - delta(Lambda_metric)`
+closes exactly or within `4.1e-20`. All original saved inputs remain unchanged. This is arithmetic closure of the implemented update, not proof that its source terms are physically correct.
+
+### Signed cell-0 movement across the accepted step
+
+| Resolution / lineage | C at input | delta Lambda evolved | delta Lambda metric from a,b | delta C | C at output |
+|---|---:|---:|---:|---:|---:|
+| N=120 baseline, production | +7.11697e-4 | -1.44802e-5 | +3.05539e-5 | -4.50342e-5 | +6.66663e-4 |
+| N=120 baseline, operator-compatible lapse | +7.11697e-4 | -1.45586e-5 | +3.04940e-5 | -4.50526e-5 | +6.66645e-4 |
+| N=120 half-cell, production | -9.77600e-5 | -1.44771e-5 | -1.91146e-5 | +4.63751e-6 | -9.31225e-5 |
+| N=120 half-cell, operator-compatible lapse | -9.77600e-5 | -1.45557e-5 | -1.91724e-5 | +4.61671e-6 | -9.31433e-5 |
+| N=240 baseline, production | -8.58895e-4 | -1.50865e-5 | -3.77644e-6 | -1.13100e-5 | -8.70205e-4 |
+| N=240 baseline, operator-compatible lapse | -8.58895e-4 | -1.51227e-5 | -3.80326e-6 | -1.13194e-5 | -8.70214e-4 |
+| N=240 half-cell, production | -3.60770e-4 | -1.50859e-5 | +1.83253e-5 | -3.34111e-5 | -3.94181e-4 |
+| N=240 half-cell, operator-compatible lapse | -3.60770e-4 | -1.51221e-5 | +1.82982e-5 | -3.34203e-5 | -3.94190e-4 |
+
+The `Lambda` source movement at cell 0 is consistently negative (about `-1.45e-5` at N=120 and `-1.51e-5` at N=240), while the independently calculated metric-derived-`Lambda` movement changes sign across lineage/resolution. Thus neither source lane alone explains the residual change:
+
+- On the N=120 baseline, the metric-derived connection moves positive by about `3.06e-5`, opposing the negative evolved-`Lambda` change; the residual decreases by `4.50e-5`.
+- On the N=120 half-cell lineage, both changes are negative, with the metric-derived change more negative, so the residual moves toward zero by about `4.64e-6`.
+- On the N=240 baseline, the evolved-`Lambda` change dominates, producing a `-1.13e-5` residual change.
+- On the N=240 half-cell lineage, the metric-derived connection moves positive by `1.83e-5` against the negative evolved-`Lambda` change; their difference pushes the residual more negative by `3.34e-5`.
+
+The copied operator-compatible lapse changes these `delta C` values only marginally (at most about `9.4e-9` at cell 0 in these comparisons); it repairs the K-RHS/CMC-target row consistency, but is not the cause or cure of the Lambda-connection residual. Cell 1/2/6 source and residual increments are retained in the signed per-arm artifact JSON.
+
+This evidence points to a stage-coupled response between the metric update and the independently evolved connection variable, with a balance that depends on the saved state and resolution. It argues for an operator interface that captures `Lambda_evolved`, metric-derived `Lambda`, their separate source/update operands, and the accepted `delta C` in the same ledger. Do not enforce the constraint by setting the two Lambda profiles equal; expose the propagation defect and derive its full matter-coupled identity.
+
+### Artifact provenance
+
+Workflow [40137296859](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/40137296859) completed successfully for N=120 and N=240 from the saved t=0.6 artifacts.
+
+- N=120 artifact [12577357052](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/40137296859/artifacts/12577357052), ZIP SHA-256: `d1f52473efd61b90459b221068070954b7dd6ff586ede0b5021024a04a5f5e9b`.
+- N=240 artifact [12577886263](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/40137296859/artifacts/12577886263), ZIP SHA-256: `13d9c493127d7fbc14adb7479def9f981b8021fb2768aad9dbbea063f7e92b5f`.
+
+The report has `scientific_admission=false`; no production, initializer, vendor, or dependency path changed.
+
+
 Decision: if the K-row benefit disappears at a specific stage, that identifies a stage interaction to isolate. If it persists but Aa/Ricci and constraints remain unchanged or worsen, retain the two defect channels as separate. If the copied step cannot be reconstructed exactly, stop and fix the observer rather than interpreting the result.
 
 ## Guardrails
