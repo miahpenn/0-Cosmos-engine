@@ -177,6 +177,22 @@ The copied operator-compatible lapse changes these `delta C` values only margina
 
 This evidence points to a stage-coupled response between the metric update and the independently evolved connection variable, with a balance that depends on the saved state and resolution. It argues for an operator interface that captures `Lambda_evolved`, metric-derived `Lambda`, their separate source/update operands, and the accepted `delta C` in the same ledger. Do not enforce the constraint by setting the two Lambda profiles equal; expose the propagation defect and derive its full matter-coupled identity.
 
+At cell 0, splitting the Lambda update into its two integration lanes shows that L2 drives the negative evolved-`Lambda` movement, while L3 offsets it positively:
+
+| Resolution / lineage | delta Lambda from L2 | delta Lambda from L3 | net delta Lambda |
+|---|---:|---:|---:|
+| N=120 baseline, production | -1.51561e-5 | +6.75858e-7 | -1.44802e-5 |
+| N=120 baseline, operator-compatible lapse | -1.52345e-5 | +6.75842e-7 | -1.45586e-5 |
+| N=120 half-cell, production | -1.51559e-5 | +6.78784e-7 | -1.44771e-5 |
+| N=120 half-cell, operator-compatible lapse | -1.52344e-5 | +6.78766e-7 | -1.45557e-5 |
+| N=240 baseline, production | -1.52563e-5 | +1.69815e-7 | -1.50865e-5 |
+| N=240 baseline, operator-compatible lapse | -1.52925e-5 | +1.69815e-7 | -1.51227e-5 |
+| N=240 half-cell, production | -1.52561e-5 | +1.70265e-7 | -1.50859e-5 |
+| N=240 half-cell, operator-compatible lapse | -1.52923e-5 | +1.70265e-7 | -1.51221e-5 |
+
+Here each contribution is formed from the actual accepted trapezoidal split, `0.5*dt*(L2_start+L2_final)` and `0.5*dt*(L3_start+L3_primary)`. L3 offsets the L2 decrease by approximately 4.5% at N=120 and 1.1% at N=240. The lapse-row counterfactual slightly changes the L2 contribution but not the L3 term meaningfully; the resulting difference in `delta Lambda` is still small compared with the lineage-dependent metric-derived Lambda movement.
+
+
 ### Artifact provenance
 
 Workflow [40137296859](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/40137296859) completed successfully for N=120 and N=240 from the saved t=0.6 artifacts.
