@@ -131,13 +131,10 @@ def _compact_total_t_divergence(kernel, state, rates, epsilon: float) -> dict:
         "minus_state_sha256": total_t_audit.state_digest(minus_state),
     }
     base_projection = total_t_audit.independent_total_projections(state)
-    inv_sqrt_minus_g = 1.0 / _arr(state.geometry.alpha * np.sqrt(
-        state.geometry.a / state.geometry.X**2
-    ) * (state.geometry.b * _arr(state.grid.centers)**2 / state.geometry.X**2))
     r_profile = _arr(state.grid.centers)
     dr = float(state.grid.dr)
 
-    def flux_operator_crosswalk(components: dict) -> dict:
+    def flux_operator_crosswalk(sector_name: str, components: dict) -> dict:
         """Compare pointwise D1 and finite-volume flux derivatives on identical fields."""
         objects = total_t_audit._covariant_objects_from_components(state, components)
         alpha = _arr(objects["alpha"])
@@ -261,7 +258,7 @@ def _compact_total_t_divergence(kernel, state, rates, epsilon: float) -> dict:
         }
 
     scalar_flux_operator_crosswalk = {
-        sector: flux_operator_crosswalk(components)
+        sector: flux_operator_crosswalk(sector, components)
         for sector, components in base_projection["scalar_parts"].items()
     }
     for key, expected_digest in expected_pair.items():
