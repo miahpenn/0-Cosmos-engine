@@ -4,6 +4,7 @@ import numpy as np
 import pytest
 
 from tools.audit_current_source_total_t_shell_ledger import (
+    _piecewise_slope,
     integrate_profile,
     signed_shell_balance,
 )
@@ -82,3 +83,12 @@ def test_flux_orientation_negative_control_does_not_close():
         metric_work_integral=source,
     )
     assert abs(wrong_sign_balance) > 1.0
+
+
+def test_piecewise_areal_mass_slope_preserves_signed_linear_gradient():
+    areal_radius = np.linspace(0.0, 12.0, 49)
+    mass = -0.3 * areal_radius + 2.0
+    slope, left = _piecewise_slope(areal_radius, mass, 7.25)
+
+    assert slope == pytest.approx(-0.3, abs=2e-14)
+    assert areal_radius[left] <= 7.25 <= areal_radius[left + 1]
