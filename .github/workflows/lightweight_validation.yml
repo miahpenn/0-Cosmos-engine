@@ -118,3 +118,28 @@ jobs:
           path: artifacts/current-source-fixed-r-ledger.json
           if-no-files-found: error
           retention-days: 14
+
+      - name: Emit bounded current-source fixed-R refinement reports
+        if: github.event_name == 'pull_request'
+        env:
+          PR_SOURCE_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          mkdir -p artifacts/current-source-fixed-r-refinement
+          cp artifacts/current-source-fixed-r-ledger.json artifacts/current-source-fixed-r-refinement/N24.json
+          python tools/audit_current_source_fixed_r_ledger.py \
+            --repo-root "$GITHUB_WORKSPACE" \
+            --resolution 48 \
+            --output artifacts/current-source-fixed-r-refinement/N48.json
+          python tools/audit_current_source_fixed_r_ledger.py \
+            --repo-root "$GITHUB_WORKSPACE" \
+            --resolution 96 \
+            --output artifacts/current-source-fixed-r-refinement/N96.json
+
+      - name: Preserve bounded current-source fixed-R refinement reports
+        if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: current-source-fixed-r-refinement-${{ github.sha }}
+          path: artifacts/current-source-fixed-r-refinement/*.json
+          if-no-files-found: error
+          retention-days: 14
