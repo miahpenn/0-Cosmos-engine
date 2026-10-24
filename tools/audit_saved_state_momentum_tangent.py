@@ -323,6 +323,7 @@ def main() -> int:
     # this current-source observer validates the active PR source via its exact
     # source_audit pins and separately locks the reused helper's own Git blob.
     source_pins = source_audit.verify_source_pins()
+    total_t_source_pins = total_t_audit.verify_provenance()
     tangent_helper_blob = subprocess.check_output(
         ["git", "rev-parse", f"HEAD:{TANGENT_HELPER_PATH}"], text=True
     ).strip()
@@ -354,6 +355,7 @@ def main() -> int:
         "production_or_vendor_files_modified": False,
         "source_pins": {
             "current_engine_vendor_dependencies": source_pins,
+            "total_T_audit_historical_source_reference": total_t_source_pins,
             "reused_tangent_helper": {
                 "path": TANGENT_HELPER_PATH,
                 "git_blob_sha1": tangent_helper_blob,
