@@ -389,6 +389,41 @@ A related operator caution remains: the archived geometry formula is continuum-e
 
 **Bounded follow-through.** The source normalization and \(K/A_a\) insertion are now cross-checked against the captured stage. The next step is a diagnostic-only operator comparison of the existing trapezoidal initial-\(B\) reconstruction with the pinned production Hamiltonian evaluator, preserving \(\mathcal H\), \(\epsilon_{\rm op}\), and the fixed-\(R\) rate remainder as separate signed quantities. Do not alter initialization, production equations, source normalization, historical pins, thresholds, or admission flags without that comparison and archive-authorized justification.
 
+
+### 2I. Independent radial-Einstein identity for the signed mass-rate remainder — 24 October 2026
+
+This check reuses the same raw N=24/48/96 stage profiles in [workflow 40116802445 / artifact 12569395563](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/40116802445/artifacts/12569395563). No production evolution was rerun for this reconstruction. It follows the existing independent source implementation in tools/recompute_fixed_r_balance_artifact.py, which reconstructs \(C^r{}_r=G^r{}_r-8\pi p_r\) from the saved metric profiles and actual stage rates, rather than reusing the production mass-rate tangent or BSSN Ricci intermediates.
+
+At each of the two cells bracketing \(R=10\), the local fixed-coordinate mass-balance remainder is defined with matched cell-local operators,
+\[
+\epsilon_{\rm cell}=\dot m_{\rm MS}\big|_r
+- \left[-4\pi R^2\alpha\gamma^{rr}j_r\,R_r
+        -4\pi R^2p_r\,\dot R\right].
+\]
+The independent spherical identity predicts
+\[
+\epsilon_{\rm geom}
+=-\frac12R^2\alpha\gamma^{rr}R_r\,\mathcal M_r
+-\frac12R^2\dot R\,C^r{}_r,
+\]
+where \(\mathcal M_r=M_{\rm geom}-8\pi j_r\) is reconstructed directly from the same saved metric and matter-current profiles. This is a separate radial Einstein projection, not the Hamiltonian mass-gradient term and not an added matter source.
+
+**Interpolated to the same active \(R=10\) bracket, with signs retained:**
+
+| \(N\) | Observed composite coordinate-rate remainder \(\epsilon_{\rm cell}\) | Independent \(C^r{}_r\) | Momentum-constraint rate term | \(C^r{}_r\) rate term | Identity prediction | Prediction minus observed |
+|---:|---:|---:|---:|---:|---:|---:|
+| 24 | \(-7.35859321\times10^{-7}\) | \(+2.65121040\times10^{-7}\) | \(-3.82\times10^{-17}\) | \(-7.11500362\times10^{-7}\) | \(-7.11500362\times10^{-7}\) | \(+2.43589590\times10^{-8}\) |
+| 48 | \(+4.10208893\times10^{-8}\) | \(-1.47259317\times10^{-8}\) | \(-1.16\times10^{-17}\) | \(+4.23048950\times10^{-8}\) | \(+4.23048950\times10^{-8}\) | \(+1.28400569\times10^{-9}\) |
+| 96 | \(+2.50290952\times10^{-8}\) | \(-8.83741775\times10^{-9}\) | \(-7.46\times10^{-17}\) | \(+2.51059007\times10^{-8}\) | \(+2.51059007\times10^{-8}\) | \(+7.68055086\times10^{-11}\) |
+
+The momentum term is negligible in this zero-shift start state. The independently reconstructed radial Einstein term accounts for the observed signed remainder to within about 3.3% at \(N=24\), 3.1% at \(N=48\), and 0.31% at \(N=96\). The remaining prediction-minus-observation gap falls by factors of about 18.97 and 16.72 across the successive grid halvings, consistent with a fourth-order metric-operator remainder on this bracket. This explains why the composite fixed-\(R\) remainder at \(N=96\) is small but not exactly closed: its leading signed value is the captured \(C^r{}_r\) projection, while the independent reconstruction mismatch is declining at a higher order.
+
+This identity is not a declaration that the radial Einstein equation has been fully admitted or that the total stress tensor is conserved over an evolution. It shows that the local mass-rate remainder has a specific geometric counterpart under the archived zero-shift spherical convention. It should not be repaired by adding a source or by subtracting \(C^r{}_r\) from production. The rate remainder and the Hamiltonian mass-gradient remainder remain distinct observables. The factorized interpolation operator also remains separately signed; it is not swapped for the composite operator because the latter has a smaller remainder.
+
+**Updated source-level disposition:** two separate finite-grid effects are now visible from the already captured profile set. (1) The dominant Hamiltonian mass-gradient contribution traces to the difference between the initial trapezoidal \(B\)-constraint reconstruction and the runtime BSSN curvature operator; the source projection itself is additively consistent. (2) The fixed-\(R\) mass-rate remainder is tracked by the independently reconstructed radial Einstein residual \(C^r{}_r\), with the leftover operator gap declining at approximately fourth order. This is substantially more specific than treating either residual as an unexplained scalar discrepancy, but it is still local, single-start-stage evidence: it does not replace a convention-authorized evolving-state total-\(T^{\mu\nu}\) conservation proof.
+
+No production equations, source normalizations, historical pins, thresholds, or scientific-admission flags change as a result of this source-only reconciliation.
+
 ## 3. Spherical mass identity: exact scope matters
 
 The archived CMC bridge defines the areal radius `R(t,r)` and Misner–Sharp mass
