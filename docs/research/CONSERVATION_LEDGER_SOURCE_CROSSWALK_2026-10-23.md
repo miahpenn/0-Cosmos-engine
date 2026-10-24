@@ -274,6 +274,33 @@ At the target, the composite-profile kinematic closure is \(-3.469446951953608\t
 
 **Next bounded action:** specify and test the discrete operator for the mass-gradient identity from the archived continuum derivation and the chosen fixed-\(R\) observable, using operator-matched manufactured profiles and refinement evidence. Keep both product orders visible until the discretization is justified independently of residual size. Then map the resulting signed identity to the already captured total-stress projection and geometry tangent. No production equation, source normalization, historical pin, or admission flag changes follow from this report.
 
+
+### 2G. One-step current-source fixed-\(R\) refinement — 24 October 2026
+
+The bounded three-resolution current-source report completed on exact PR source head \`e7339e89aa7241ff549f3bcdd2d9e01dd7b873f4\`. Workflow [40114701026](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/40114701026) preserved the three-report artifact [12568460374](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/40114701026/artifacts/12568460374). The synthetic execution checkout recorded in all reports is \`5781daf0c406b80e4c6a7c59578b9cae4c979821\`; all 25 current production-file blob pins and the vendor gitlink match in every report.
+
+Each resolution performs exactly one accepted step and measures the start RHS at \(t=0\), with \(R_{\max}=24\), CFL \(=0.01\), \(R_*=10\), zero shift, and radial Maxwell disabled. The final time is \(0.01,0.005,0.0025\) for \(N=24,48,96\), respectively, so each step uses the corresponding \(dt=\mathrm{CFL}\,\Delta r\). All three runs report nine of nine matter RHS reconstructions within their operand-scaled roundoff checks, the conditional scalar-exchange reconstruction within its roundoff bound, and exact stage identity for \((a,b,X,\alpha,\beta,A_a,K)\). All reports retain \`scientific_admission=false\`, \`acceptance_oracle_satisfied=false\`, and \`physical_fixed_R_residual_threshold_applied=false\).
+
+**Matched discrete mass-gradient identity at \(R_*=10\).** Define the measured composite residual as the sampled fourth-order mass gradient interpolated to the target minus the cell-local composite continuum RHS interpolated to that same target. Results are signed:
+
+| \(N\) | \(\Delta r\) | Composite mass-gradient residual | Hamiltonian contribution | Momentum contribution | Remaining operator term |
+|---:|---:|---:|---:|---:|---:|
+| 24 | 1.00 | \(+2.73992597\times10^{-5}\) | \(+9.01333221\times10^{-6}\) | \(+2.20\times10^{-18}\) | \(+1.83859275\times10^{-5}\) |
+| 48 | 0.50 | \(+6.46311726\times10^{-6}\) | \(+5.26292778\times10^{-6}\) | \(+6.59\times10^{-19}\) | \(+1.20018948\times10^{-6}\) |
+| 96 | 0.25 | \(+1.59180115\times10^{-6}\) | \(+1.51607041\times10^{-6}\) | \(+4.25\times10^{-18}\) | \(+7.57307377\times10^{-8}\) |
+
+The total composite mass-gradient residual decreases by factors \(4.239\) and \(4.060\) when the grid spacing halves, an approximately second-order trend over these three grids. The remaining operator term decreases by factors \(15.319\) and \(15.848\), consistent with the fourth-order spatial derivative used by the pinned production operator. Its share of the full residual declines from about \(67.1\%\) at \(N=24\), to \(18.6\%\) at \(N=48\), to \(4.8\%\) at \(N=96\). At the finest grid the recorded Hamiltonian contribution accounts for about \(95.2\%\) of the composite residual, while the momentum contribution is negligible at this stage.
+
+This is the key discriminator so far: the unassigned discrete operator remainder displays the expected fourth-order trend, while the remaining full identity residual is increasingly dominated by the separately recorded Hamiltonian-constraint contribution. It does **not** establish that the physical Hamiltonian constraint is acceptable, nor does it by itself establish global stress-energy conservation. No term is fitted or dropped.
+
+**Factorized versus composite target evaluation.** The alternative factor-interpolated mass-gradient residuals are \(-6.72154033\times10^{-6}\), \(-1.96033140\times10^{-6}\), and \(-5.07411507\times10^{-7}\) for \(N=24,48,96\). The factorized-minus-composite RHS gap is \(3.41208000\times10^{-5}\), \(8.42344866\times10^{-6}\), and \(2.09921266\times10^{-6}\): this gap decreases by factors \(4.051\) and \(4.013\), consistent with second-order interpolation. The sign difference at a given finite resolution therefore reflects noncommuting discrete evaluation order, not by itself evidence for or against a missing continuum term.
+
+**The fixed-\(R\) mass-rate balance remains open.** The factorized signed residuals are \(-2.45540887\times10^{-6}\), \(-3.82257016\times10^{-7}\), and \(-8.03733469\times10^{-8}\). The composite signed residuals are \(-7.35859321\times10^{-7}\), \(+4.10208893\times10^{-8}\), and \(+2.50290952\times10^{-8}\). The factorized magnitudes decrease over the three grids; the composite residual changes sign between \(N=24\) and \(N=48\) and does not yet show a clean refinement ratio between the last two grids. Neither operator is authorized by residual size, and neither result is treated as a conservation pass.
+
+The source/work identity evaluated from the same composite profiles continues to reconstruct algebraically near floating-point roundoff; the factorized kinematic mismatch decreases at approximately second order. These are internal identity/operator checks, not an integrated evolving-state total-\(T^{\mu\nu}\) closure.
+
+**Disposition / next bounded step.** Keep this three-grid trend as the current-source operator evidence. Do not launch another fixed-R grid sweep just to improve a residual. The next substantive step is to reconcile the Hamiltonian contribution and its constraint convention against the archive-backed mass-gradient identity and the exact stress projection, while keeping the fixed-\(R\) mass-rate remainder signed. Issue #210 normalization provenance, full evolving total-stress-energy closure, and Issue #4 remain open; production equations and scientific admission remain unchanged.
+
 ## 3. Spherical mass identity: exact scope matters
 
 The archived CMC bridge defines the areal radius `R(t,r)` and Misner–Sharp mass
