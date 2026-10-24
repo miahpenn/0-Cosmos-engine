@@ -378,9 +378,21 @@ def main() -> int:
 
     def wrapped_primary_l2(grid, geometry):
         result = original_primary_l2(grid, geometry)
-        if active["enabled"] and not active["inside_geometry_stage"]:
+        # CMC lapse projection also calls primary_l2_rhs outside the geometry
+        # stage. Only the exact production step() call is the final implicit
+        # A_a/K operand needed by the accepted-state update reconstruction.
+        caller = sys._getframe(1)
+        is_production_step_operand = (
+            caller.f_code.co_name == "step"
+            and caller.f_code.co_filename.endswith("/engine/production_kernel.py")
+        )
+        if (
+            active["enabled"]
+            and not active["inside_geometry_stage"]
+            and is_production_step_operand
+        ):
             if active["final_l2_record"] is not None:
-                raise RuntimeError("more than one out-of-stage primary_l2 call in a production step")
+                raise RuntimeError("duplicate production-step final primary_l2 operand")
             rec, arrays = capture(
                 "step%03d_final_u_old_v" % active["step_index"],
                 geometry,
