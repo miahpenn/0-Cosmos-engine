@@ -109,6 +109,32 @@ The input checkpoint SHA-256 values are reproduced in each report; baseline/cand
 **Interpretation:** current evolved-state data do not support treating the derivative representation counterfactual as a universal cure, despite its strong initialized-slice effect in the archive. The defensible next step is to keep the `D4(Lambda)`/metric-bracket mismatch, the origin half-cell/regularity behavior, the CMC lapse/K compatibility, and the coupled H/M/connection propagation budgets independently observable under one shared native operator contract. Do not promote any one counterfactual into production on this evidence.
 
 
+### Separate the evolved-connection and metric-stencil responses
+
+The latest saved-state observer further splits the change to the TF-Ricci derivative channel into two signed responses:
+
+`connection response = (2/3) X^2 [D4(Lambda_evolved) - D4(Lambda_metric)]`
+
+`metric-stencil/chain response = (2/3) X^2 [D4(Lambda_metric) - d_chain(Lambda_metric)]`
+
+Their sum is the total `D4(Lambda_evolved) - d_chain(Lambda_metric)` response. Here `Lambda_metric` is the established discrete metric reconstruction, while `d_chain` is the existing analytic chain-rule derivative built from the same D1/D2 metric operands. This is a decomposition, not a claim that either operator should replace the evolved connection in production.
+
+Accepted-output cell-0 signed TF-Ricci responses:
+
+| Resolution / saved lineage | Evolved-connection response | Metric-stencil/chain response | Sum (evolved D4 minus chain rule) |
+|---|---:|---:|---:|
+| N=120 baseline | +2.41318e-4 | -2.09458e-3 | -1.85326e-3 |
+| N=120 origin-half-cell candidate | -1.84870e-5 | +1.17093e-4 | +9.86057e-5 |
+| N=240 baseline | -1.53235e-3 | +3.98159e-3 | +2.44924e-3 |
+| N=240 origin-half-cell candidate | -6.35024e-4 | +3.60822e-4 | -2.74202e-4 |
+
+The two response pieces sum to the total within at most `8.7e-19`; the independent identity `raw vendor-minus-direct gap - chain-rule gap = total D4/chain response` closes within `4.4e-19`. The algebra is therefore accounted for; the varying signs and amplitudes are features of the captured discrete states, not ledger non-closure.
+
+The decomposition does not identify one universally dominant term. The metric-stencil/chain response is larger in magnitude on both N=120 lineages and on the N=240 baseline, but the evolved-connection response is larger on the N=240 half-cell lineage. At cell 1 the terms can oppose each other differently again. This is consistent with the prior observed centre-localized derivative representation issue, while also demonstrating that the evolved connection response cannot be assumed negligible on every accepted state.
+
+**Next diagnostic gate:** preserve both signed channels in the stage contract and compare them with `Lambda_evolved - Lambda_metric`, H/M/connection propagation, and A_a source terms on the same named PIRK operands. Any candidate native kernel should expose these operands and their identities rather than silently setting `Lambda_evolved = Lambda_metric` or substituting the chain rule. Only after an independently derived propagation identity closes on the exact accepted state should we infer which source term or closure needs a physical change.
+
+
 Decision: if the K-row benefit disappears at a specific stage, that identifies a stage interaction to isolate. If it persists but Aa/Ricci and constraints remain unchanged or worsen, retain the two defect channels as separate. If the copied step cannot be reconstructed exactly, stop and fix the observer rather than interpreting the result.
 
 ## Guardrails
