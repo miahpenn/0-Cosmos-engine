@@ -192,6 +192,12 @@ def audit(n: int, baseline: dict, candidate: dict, grid) -> dict:
         gap_rms_c = float(np.sqrt(np.mean(gap_c[first8] ** 2)))
         source_rms_b = float(np.sqrt(np.mean(source_b[first8] ** 2)))
         source_rms_c = float(np.sqrt(np.mean(source_c[first8] ** 2)))
+        gap_max10_b = float(np.max(np.abs(gap_b[r_le_10])))
+        gap_max10_c = float(np.max(np.abs(gap_c[r_le_10])))
+        gap_rms10_b = float(np.sqrt(np.mean(gap_b[r_le_10] ** 2)))
+        gap_rms10_c = float(np.sqrt(np.mean(gap_c[r_le_10] ** 2)))
+        source_rms10_b = float(np.sqrt(np.mean(source_b[r_le_10] ** 2)))
+        source_rms10_c = float(np.sqrt(np.mean(source_c[r_le_10] ** 2)))
         max_index_b = int(np.argmax(np.abs(gap_b[first8])))
         max_index_c = int(np.argmax(np.abs(gap_c[first8])))
         label_kind = "accepted" if label.startswith("accepted_") else "pirk_stage"
@@ -201,10 +207,9 @@ def audit(n: int, baseline: dict, candidate: dict, grid) -> dict:
             "profile_prefix_candidate": cr["profile_prefix"],
             "first8_gap_max_abs_ratio_candidate_over_baseline": gap_max_c / gap_max_b if gap_max_b else None,
             "first8_gap_rms_ratio_candidate_over_baseline": gap_rms_c / gap_rms_b if gap_rms_b else None,
-            "r_le_10_gap_rms_ratio_candidate_over_baseline": (
-                float(np.sqrt(np.mean(gap_c[r_le_10] ** 2)) / np.sqrt(np.mean(gap_b[r_le_10] ** 2)))
-                if np.any(r_le_10) and np.any(gap_b[r_le_10]) else None
-            ),
+            "r_le_10_gap_max_abs_ratio_candidate_over_baseline": gap_max10_c / gap_max10_b if gap_max10_b else None,
+            "r_le_10_gap_rms_ratio_candidate_over_baseline": gap_rms10_c / gap_rms10_b if gap_rms10_b else None,
+            "r_le_10_source_rms_ratio_candidate_over_baseline": source_rms10_c / source_rms10_b if source_rms10_b else None,
             "first8_source_rms_ratio_candidate_over_baseline": source_rms_c / source_rms_b if source_rms_b else None,
             "cell0_source_abs_ratio_candidate_over_baseline": abs(float(source_c[0])) / abs(float(source_b[0])) if source_b[0] else None,
             "cell0_source_signed": {"baseline": float(source_b[0]), "candidate": float(source_c[0])},
@@ -232,8 +237,11 @@ def audit(n: int, baseline: dict, candidate: dict, grid) -> dict:
 
     source_cell0 = _first_evidence(rows, "cell0_source_abs_ratio_candidate_over_baseline", 1.0)
     source_first8 = _first_evidence(rows, "first8_source_rms_ratio_candidate_over_baseline", 1.0)
+    source_r10 = _first_evidence(rows, "r_le_10_source_rms_ratio_candidate_over_baseline", 1.0)
     gap_max = _first_evidence(rows, "first8_gap_max_abs_ratio_candidate_over_baseline", 0.5)
     gap_rms = _first_evidence(rows, "first8_gap_rms_ratio_candidate_over_baseline", 0.5)
+    gap_max_r10 = _first_evidence(rows, "r_le_10_gap_max_abs_ratio_candidate_over_baseline", 0.5)
+    gap_rms_r10 = _first_evidence(rows, "r_le_10_gap_rms_ratio_candidate_over_baseline", 0.5)
     return {
         "resolution": n, "source_commit": SOURCE_COMMIT, "vendor_commit": VENDOR_COMMIT,
         "baseline_archive_sha256": baseline["archive_sha256"],
@@ -242,8 +250,11 @@ def audit(n: int, baseline: dict, candidate: dict, grid) -> dict:
         "candidate_internal_sha256s": candidate["internal_sha256s"],
         "captured_profile_count": len(rows),
         "earliest_explicit_predictor_crossings": {
+            "fixed_r_le_10_Aa_L2_source_RMS_candidate_at_least_baseline": source_r10,
             "first8_Aa_L2_source_RMS_candidate_at_least_baseline": source_first8,
             "cell0_Aa_L2_source_absolute_value_candidate_at_least_baseline": source_cell0,
+            "fixed_r_le_10_Ricci_gap_max_candidate_at_least_0_5_baseline": gap_max_r10,
+            "fixed_r_le_10_Ricci_gap_RMS_candidate_at_least_0_5_baseline": gap_rms_r10,
             "first8_Ricci_gap_max_candidate_at_least_0_5_baseline": gap_max,
             "first8_Ricci_gap_RMS_candidate_at_least_0_5_baseline": gap_rms,
         },
