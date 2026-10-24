@@ -616,3 +616,32 @@ In the current CMC path, \(R=r\sqrt b/X\) generally evolves at fixed coordinate 
 **Normalization boundary.** This comparison is made for the archive's raw canonical S/D fields with the matching local stress convention. It does not authorize the still-unresolved mapping of the archive S/D source against the COSMOS \(\phi\) sector, the local \(\kappa=8\pi G\) Einstein projection, or the conditional scalar–DM exchange law (Issue #210). The finite-dimensional pair coordinates \(s,d\) must also not be silently identified with the continuum fields \(S,D\); the archive itself requires a stated projection. Keep both historical and current-source pins unchanged.
 
 **Consequence for the ledger:** retain the archived signed S/D flux as a reference-model control; retain the current-source covariant total-T and fixed-\(R\) Misner–Sharp witnesses as separate lanes. A full-sector ledger may combine them only after the source projection, normalization, time coordinate, surface definition, and sector set are reconciled from the authoritative derivation. No production equation or admission flag changes under this crosswalk.
+
+### 2N. First current-source moving-fixed-R shell ledger — 24 October 2026
+
+**Exact-head evidence:** [workflow run 40123960104](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/40123960104), [artifact 12571464721](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/40123960104/artifacts/12571464721), PR head \`8142170f4c9b68a5ed970c75671a0c445fbbf6f3\`. The run verified the source/vendor pins, the new shell helper/analytic tests passed as part of the 17-test focused contract set, the shell JSON integrity assertion passed, and the artifact was uploaded. No production step was advanced; every base state remained unchanged. \`scientific_admission=false\`, \`total_T_conservation_closed=false\`, \`Q_nu_source_law_assigned=false\`, and no physical residual threshold was applied.
+
+The controlled shell was fixed in areal radius at \(R_i=2\), \(R_o=10\), while the coordinate location of each face was re-solved in the plus/minus directional-tangent states. The boundary speed estimated by differentiating those root locations agreed with the independent \(-R_t/R_r\) estimate within approximately \(10^{-11}\)–\(10^{-10}\) for this run. That is a geometry/interpolation consistency check, not a mass-balance closure test.
+
+#### Signed remainder
+
+The table below reports the raw signed value
+\[
+\mathcal R_\nu=\frac{dI_\nu}{dt}
++\mathcal F_{\nu,\mathrm{outer}}
+-\mathcal F_{\nu,\mathrm{inner}}
+-\mathcal W_\nu,
+\]
+where \(\mathcal W_\nu\) is the integrated metric-work contribution. The remainder is explicitly **unassigned**: it comprises any true shell-integrated \(Q_\nu\) plus directional finite-difference, surface-root and quadrature errors. Do not label it a conserved-flux residual without resolving those contributions.
+
+| \(N\) | \(\mathcal R_t\), uncoupled control | \(\mathcal R_r\), uncoupled control |
+|---:|---:|---:|
+| 32 | \(+1.0959\times10^{-9}\) | \(-7.5931\times10^{-6}\) |
+| 64 | \(+1.3532\times10^{-10}\) | \(+1.2456\times10^{-6}\) |
+| 128 | \(+1.6869\times10^{-11}\) | \(-1.0128\times10^{-7}\) |
+
+The \(t\)-component remainder falls by approximately \(8\times\) with each grid halving, consistent with a third-order-leading error in this specific integrated diagnostic; this alone does not identify the source of that error. The radial component alternates sign and falls in magnitude unevenly (about \(6.1\times\), then \(12.3\times\)). It is not monotone in sign or cleanly established as asymptotic convergence. Keep both patterns as evidence, not as acceptance criteria.
+
+At this initial slice, the \(\beta_{\rm DM}=0\) control and the conditional \(\beta_{\rm DM}=-0.04\) arm are numerically indistinguishable at the recorded precision: the radial remainder differences are roughly \(3.5\times10^{-18}\) and the time-component differences are at or below a few \(10^{-14}\). This is a frozen initial-state discriminator only; it neither validates the conditional exchange law nor tests later-state conservation.
+
+**Next discriminant, without gain fitting:** preserve the raw report, then compare the integrated ledger’s \(R\)-fixed stored-rate/face-flux/work pieces with the existing same-stage Misner–Sharp fixed-\(R\) witness on the same state and faces. Only after matching the two independently defined quantities should we isolate finite-difference and quadrature error with manufactured controls and refinement. Do not fold the total-T remainder into Issue #4 momentum propagation, and do not close Issue #210 source normalization from these numbers.
