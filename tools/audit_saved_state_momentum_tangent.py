@@ -24,7 +24,6 @@ sys.path.insert(0, str(ROOT))
 from engine.production_kernel import V55ProductionKernel
 from tools import audit_current_source_momentum_constraint_tangent as tangent
 from tools import audit_evolved_origin_aa_regularity as source_audit
-from tools import audit_total_stress_energy_divergence as total_t_audit
 from tools.audit_cmc_center_row_saved_state_counterfactual import (
     _load_bundle,
     _restore_state,
@@ -98,6 +97,11 @@ def _region_error(values: Any, r: np.ndarray) -> dict:
 
 def _compact_total_t_divergence(kernel, state, rates, epsilon: float) -> dict:
     """Rebuild independent sector stress projections on the exact same directional pair."""
+    # Import lazily: the total-T audit intentionally requires an explicit
+    # pinned historical source checkout. Lightweight consumers of this module
+    # must not bypass or fake that provenance environment.
+    from tools import audit_total_stress_energy_divergence as total_t_audit
+
     plus_state = tangent.shifted_state(kernel, state, rates, +epsilon)
     minus_state = tangent.shifted_state(kernel, state, rates, -epsilon)
     full = total_t_audit.sector_resolved_divergence_tangent_from_states(
@@ -323,6 +327,7 @@ def main() -> int:
     # this current-source observer validates the active PR source via its exact
     # source_audit pins and separately locks the reused helper's own Git blob.
     source_pins = source_audit.verify_source_pins()
+    from tools import audit_total_stress_energy_divergence as total_t_audit
     total_t_source_pins = total_t_audit.verify_provenance()
     tangent_helper_blob = subprocess.check_output(
         ["git", "rev-parse", f"HEAD:{TANGENT_HELPER_PATH}"], text=True
