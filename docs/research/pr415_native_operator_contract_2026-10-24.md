@@ -32,7 +32,9 @@ This is a specification emerging from observed interfaces, not a request to repl
 
 ## Next falsifiable experiment
 
-Using the existing baseline and half-cell saved histories at N=120 and N=240, run a *copied-state one-step* comparison at a small set of captured times bracketing the known predictor crossover (N=120: t≈0.22; N=240: t≈0.10), plus the common t=0.6 checkpoint:
+Artifact availability correction (2026-10-24): the verified baseline/candidate bundles include complete coupled state checkpoints only at t=0.6. The histories near the predictor crossover (N=120: t≈0.22; N=240: t≈0.10) contain stage/profile diagnostics but not the full scalar and conserved-matter fields needed to restart a faithful coupled step. Therefore the first executable one-step comparison is deliberately limited to the complete t=0.6 checkpoints. We will not synthesize missing state from plotted profiles or rerun the long campaign merely to recreate these snapshots. A full checkpoint at a crossover stage remains a separate evidence gap.
+
+Using the existing baseline and half-cell complete t=0.6 checkpoints at N=120 and N=240, run a *copied-state one-step* comparison:
 
 - Arm A: reproduce the current production step exactly.
 - Arm B: in a copy only, replace the lapse row with the parity-aware D1/D2 row at every CMC refresh within that one PIRK step; leave the CMC target projection and all other equations unchanged.
