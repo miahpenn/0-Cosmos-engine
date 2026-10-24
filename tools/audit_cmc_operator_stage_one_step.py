@@ -24,7 +24,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from engine import v55_pirk_adapter as adapter
-from engine.production_kernel import ProductionState, V55ProductionKernel
+from engine.production_kernel import LAMBDA_M, ProductionState, V55ProductionKernel
 from tools import audit_evolved_origin_aa_regularity as source_audit
 from tools.audit_cmc_center_row_saved_state_counterfactual import (
     _load_bundle,
@@ -220,6 +220,12 @@ def _profile_summary(grid: Any, geometry: Any, terms: dict | None = None) -> dic
         captured_aa_l2 = terms["primary_l2"]["Aa"]
     result = {
         "alpha_cells_0_to_6": [float(x) for x in _arr(geometry.alpha)[:7]],
+        "lambda_evolved_cells_0_1_2_6": {
+            str(i): float(_arr(geometry.Lambda)[i]) for i in (0, 1, 2, 6) if i < len(r)
+        },
+        "lambda_metric_cells_0_1_2_6": {
+            str(i): float(lambda_metric[i]) for i in (0, 1, 2, 6) if i < len(r)
+        },
         "geometry_constraint_residuals": {
             str(name): residual_summary(value) for name, value in constraints.items()
         },
@@ -325,6 +331,102 @@ def _update_closure(
             str(i): float(residual[i]) for i in (0, 1, 2, 6) if i < residual.size
         },
         "raw_operand_scaled_roundoff_pass": True,
+    }
+
+
+def _lambda_metric(grid: Any, geometry: Any) -> np.ndarray:
+    r = _arr(grid.centers)
+    a, b = _arr(geometry.a), _arr(geometry.b)
+    d1 = lambda values, parity=1: grid.cell_derivative_fourth(_arr(values), parity=parity)
+    return d1(a, 1)/(2.0*a**2) - d1(b, 1)/(a*b) + 2.0/r*(1.0/b - 1.0/a)
+
+
+def _lambda_update_closure(
+    grid: Any,
+    old_geometry: Any,
+    new_geometry: Any,
+    start_terms: dict,
+    final_l2_lambda: np.ndarray,
+    primary_terms: dict,
+    dt: float,
+) -> dict:
+    """Reconstruct the accepted Lambda PIRK update and separate its metric response."""
+    r = _arr(grid.centers)
+    old_lambda = _arr(old_geometry.Lambda)
+    new_lambda = _arr(new_geometry.Lambda)
+    l2_start = _arr(start_terms["lambda_l2"])
+    l2_final = _arr(final_l2_lambda)
+    l3_start = _arr(start_terms["lambda_l3"])
+    l3_primary = _arr(primary_terms["lambda_l3"])
+    predicted_delta = 0.5*dt*(l2_start + l2_final + l3_start + l3_primary)
+    actual_delta = new_lambda - old_lambda
+    residual = actual_delta - predicted_delta
+    raw_scale = (
+        np.abs(old_lambda) + np.abs(new_lambda)
+        + 0.5*dt*(np.abs(l2_start) + np.abs(l2_final)
+                  + np.abs(l3_start) + np.abs(l3_primary))
+    )
+    bound = 512.0*ROUND_EPS*np.maximum(raw_scale, np.finfo(np.float64).tiny)
+    interior = r <= 10.0
+    ratio = np.abs(residual)/bound
+    if not np.all(np.abs(residual[interior]) <= bound[interior]):
+        idxs = np.flatnonzero(interior)
+        worst = int(idxs[np.argmax(ratio[interior])])
+        raise FloatingPointError(
+            "Lambda single-step update did not close at raw-operand-scaled roundoff: "
+            f"cell={worst}, residual={residual[worst]:.17e}, bound={bound[worst]:.17e}"
+        )
+
+    old_metric_lambda = _lambda_metric(grid, old_geometry)
+    new_metric_lambda = _lambda_metric(grid, new_geometry)
+    old_connection = old_lambda - old_metric_lambda
+    new_connection = new_lambda - new_metric_lambda
+    delta_metric_lambda = new_metric_lambda - old_metric_lambda
+    delta_connection = new_connection - old_connection
+    connection_identity_residual = delta_connection - (actual_delta - delta_metric_lambda)
+
+    def signed_summary(values: Any) -> dict:
+        values = _arr(values)
+        return {
+            "cells_0_1_2_6": {
+                str(i): float(values[i]) for i in (0, 1, 2, 6) if i < len(r)
+            },
+            "max_abs_cells_0_to_6": _max_abs(values[:min(7, values.size)]),
+            "max_abs_full_grid": _max_abs(values),
+            "max_abs_r_le_10": _max_abs(values[interior]),
+        }
+
+    closure_idx = int(np.argmax(np.abs(residual[interior])/bound[interior]))
+    interior_indices = np.flatnonzero(interior)
+    worst_closure_cell = int(interior_indices[closure_idx])
+    return {
+        "update_formula": (
+            "Lambda_new = Lambda_old + 0.5*dt*(lambda_L2_start + lambda_L2_final "
+            "+ lambda_L3_start + lambda_L3_primary)"
+        ),
+        "update_comparison_support": "r <= 10; outer characteristic boundary operation excluded",
+        "raw_operand_scaled_roundoff_pass": True,
+        "max_abs_update_residual_r_le_10": _max_abs(residual[interior]),
+        "max_abs_update_bound_r_le_10": float(np.max(bound[interior])),
+        "max_scaled_update_residual_over_bound_r_le_10": float(np.max(ratio[interior])),
+        "worst_scaled_update_residual_cell_r_le_10": worst_closure_cell,
+        "source_operands": {
+            "lambda_L2_start": signed_summary(l2_start),
+            "lambda_L2_final": signed_summary(l2_final),
+            "lambda_L3_start": signed_summary(l3_start),
+            "lambda_L3_primary": signed_summary(l3_primary),
+        },
+        "connection_residual_evolution": {
+            "input_connection_residual": signed_summary(old_connection),
+            "accepted_connection_residual": signed_summary(new_connection),
+            "delta_Lambda_evolved": signed_summary(actual_delta),
+            "delta_Lambda_metric_from_a_b": signed_summary(delta_metric_lambda),
+            "delta_connection_residual": signed_summary(delta_connection),
+            "identity_residual_delta_connection_minus_delta_Lambda_plus_delta_metric": signed_summary(
+                connection_identity_residual
+            ),
+            "max_abs_identity_residual_full_grid": _max_abs(connection_identity_residual),
+        },
     }
 
 
@@ -451,6 +553,16 @@ def _run_one_step(state: ProductionState, dt: float, arm: str) -> dict:
         )
         for field in ("Aa", "K")
     }
+    final_primary_for_lambda = _geometry_copy(final_l2["geometry"])
+    final_primary_for_lambda.Aa = _arr(accepted.geometry.Aa).copy()
+    final_primary_for_lambda.K = _arr(accepted.geometry.K).copy()
+    lambda_l2_final = vacuum.lambda_l2_rhs(
+        state.grid, final_primary_for_lambda, lambda_m=LAMBDA_M
+    )
+    lambda_budget = _lambda_update_closure(
+        state.grid, state.geometry, accepted.geometry,
+        start["terms"], lambda_l2_final, primary["terms"], dt
+    )
 
     stage_summaries = {}
     for name in STAGE_NAMES:
@@ -502,6 +614,7 @@ def _run_one_step(state: ProductionState, dt: float, arm: str) -> dict:
         "final_implicit_operand_summary": final_l2_summary,
         "accepted_output_summary": output_summary,
         "accepted_Aa_K_update_closure": closure,
+        "accepted_Lambda_update_and_connection_budget": lambda_budget,
         "geometry_stage_count": geometry_calls,
         "final_mixed_L2_call_identified": True,
         "total_primary_L2_calls_including_CMC_projections": l2_calls,
@@ -590,6 +703,8 @@ def main() -> int:
                 "input_unchanged": value["saved_input_unchanged"],
                 "Aa_closure_max_abs_r_le_10": value["accepted_Aa_K_update_closure"]["Aa"]["max_abs_residual_r_le_10"],
                 "K_closure_max_abs_r_le_10": value["accepted_Aa_K_update_closure"]["K"]["max_abs_residual_r_le_10"],
+                "Lambda_closure_max_abs_r_le_10": value["accepted_Lambda_update_and_connection_budget"]["max_abs_update_residual_r_le_10"],
+                "connection_residual_delta_cells_0_1_2_6": value["accepted_Lambda_update_and_connection_budget"]["connection_residual_evolution"]["delta_connection_residual"]["cells_0_1_2_6"],
                 "cmc_refreshes": len(value["cmc_refreshes"]),
             } for key, value in arms.items()
         },
