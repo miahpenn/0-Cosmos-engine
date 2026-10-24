@@ -203,6 +203,56 @@ Workflow [40137296859](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/
 The report has `scientific_admission=false`; no production, initializer, vendor, or dependency path changed.
 
 
+## Same-accepted-state momentum tangent plus independent total-T divergence
+
+**Completed:** workflow [40138324805](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/40138324805) reuses the checksummed baseline and origin-half-cell candidate checkpoints at N=120 and N=240, all at t=0.6. No campaign states were re-evolved. The observer uses the exact current `kernel._geometry_stage_terms` interface (including the native explicit a/b/X RHS), then evaluates the two-sided momentum tangent at epsilon = 2e-5 and 1e-5. It joins the existing independent total stress-energy divergence and six-sector decomposition on those **same directional state pairs**.
+
+### 1. The Lambda-connection rate is strongly coupled to M, but not yet a closed full propagation identity
+
+For the residual `C = Lambda_evolved - Lambda_metric(a,b)`, the candidate relation `Cdot = (2 alpha/a) M` is much closer than its opposite sign `Cdot = -(2 alpha/a) M` on all four accepted states:
+
+| Resolution / lineage | M at cell 0 | Max abs [Cdot - (2 alpha/a) M], full grid | Max abs opposite-sign residual |
+|---|---:|---:|---:|
+| N=120 baseline | -1.031329e-3 | 1.081e-7 | 4.121e-3 |
+| N=120 origin-half-cell candidate | +1.107020e-4 | 1.006e-8 | 4.423e-4 |
+| N=240 baseline | -6.508156e-4 | 3.697e-8 | 2.600e-3 |
+| N=240 origin-half-cell candidate | -1.639339e-3 | 4.166e-8 | 6.549e-3 |
+
+The same-sign relation is consistent at both directional epsilons; geometric five-term tangent closure and six-sector current projection closure pass. However, the same-sign residual remains finite and centre-dominated (cell 0/1/2), so this is a **strong leading-order relation, not exact full matter-coupled propagation closure**. Keep the remainder explicit; do not assume it is roundoff or drop it.
+
+### 2. The independent total-T projection agrees with the canonical projection
+
+For both epsilons and both lineages at N=120/240, the independently reconstructed `rho, pr, pt, j` projections pass their comparison with the canonical total stress-energy projection. The total-T divergence itself is nonzero and centre-localized in the pointwise evaluator. Representative cell-0 values are:
+
+| Resolution / lineage | div T^t_t | div T^r_t | Finite-volume div T^t_t | Finite-volume div T^r_t |
+|---|---:|---:|---:|---:|
+| N=120 baseline | +5.41630e-7 | +1.55747e-7 | +3.83121e-9 | -6.29328e-9 |
+| N=120 origin-half-cell candidate | +5.43384e-7 | +1.67217e-7 | +3.97157e-9 | +7.72126e-11 |
+| N=240 baseline | +1.46405e-7 | +5.32677e-8 | +8.20604e-10 | -9.43553e-9 |
+| N=240 origin-half-cell candidate | +1.46403e-7 | +5.49858e-8 | +8.34340e-10 | -7.79914e-9 |
+
+The pointwise fixed annulus (5<=r<=10) is smaller than the first-cell response: the largest pointwise time-component annulus maxima are about 7.52e-10 at N=120 and 4.88e-11 at N=240. The finite-volume and pointwise forms differ materially in the first few cells; neither is silently selected as the authoritative propagation operator here. Both signed forms remain in the artifact.
+
+These are directional derivatives of the independently projected total tensor along the current semi-discrete RHS, not a zero-divergence claim. The fact that the two methods yield different centre amplitudes is a reason to keep both discretization contracts visible.
+
+### 3. A previous sector-sum discrepancy was observer accounting, not an unexplained source
+
+Summing the six per-sector directional divergences initially differs from the independently calculated total divergence by about `2.8e-16`–`7.6e-16`. The report separately measures the difference between the *sum of per-sector time-density rates* and the total-projection time-density rate. Propagating that difference through the same divergence operator predicts the observed sector-sum gap.
+
+After this explicit time-density accounting, the maximum unexplained remainder is only about `2.8e-20`–`6.5e-20` across the N=120/N=240 lineages and epsilons, and all four divergence channels report `component_corrected_passed=true`. Thus this particular sector-additivity gap is explained by the nonlinear finite-difference time-density projection; it should not be mislabeled as evidence of physical nonconservation. Conversely, the corrected **sector accounting** does not make the total divergence itself vanish—the residuals above remain.
+
+The total-T observer is six-sector (S, D, COSMOS phi, dark matter, baryons, radiation) and zero-shift, matching these saved states; it does not cover optional electromagnetic/charged-dust branches and does not admit the conditional dark-matter exchange law.
+
+### Provenance / exact artifacts
+
+The run passed both N=120 and N=240 jobs, with input digests unchanged, exact current-engine source pins checked, the historical provenance reference for the total-T helper checked independently, and `scientific_admission=false`.
+
+- N=120 artifact [12577267713](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/40138324805/artifacts/12577267713), ZIP SHA-256: `80e4c5d94929458487a8dd05db4f118a9a4bd61acfd7ca3922b4b27f3c31049e`; embedded `report.json` SHA-256: `432206b08347c8110031765b4e2846afbb77eadec79a0206d62b1bc39f46143d`.
+- N=240 artifact [12577152799](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/40138324805/artifacts/12577152799), ZIP SHA-256: `8dfe4f894727ef856ee57d580b99619aa9165bb4b61aa4b58721cd0bb45a3543`; embedded `report.json` SHA-256: `76057a6ec5330c3418cf1ebe0a48314fe9a7e73b4542b912ccb07f7a56c2d8b8`.
+
+**Disposition:** the `Cdot ≈ (2 alpha/a) M` relation is corroborated but not exact at the centre; independent total-T projection is cross-checked, and its sector-sum discrepancy is accounted for, but the total-T divergence remains nonzero. The next gate remains a frozen, convention-pinned full matter-coupled momentum-constraint propagation RHS, including the normalized Hamiltonian-gradient term, reference-metric connection response, and complete stress-energy exchange/conservation residuals. No production change is justified by this diagnostic.
+
+
 Decision: if the K-row benefit disappears at a specific stage, that identifies a stage interaction to isolate. If it persists but Aa/Ricci and constraints remain unchanged or worsen, retain the two defect channels as separate. If the copied step cannot be reconstructed exactly, stop and fix the observer rather than interpreting the result.
 
 ## Guardrails
