@@ -392,6 +392,12 @@ def main() -> int:
         # Accepted-state observer: same grid and operators, no evolution, then
         # verify that observation leaves every saved state array byte-identical.
         for step_index in range(steps + 1):
+            active.update({
+                "enabled": False,
+                "step_index": step_index,
+                "t_start": float(state.t),
+                "inside_geometry_stage": False,
+            })
             before = _state_digest(state)
             terms = original_geometry_stage(
                 state.grid, state.geometry, state.scalars, state.matter, state.electromagnetic
@@ -425,6 +431,7 @@ def main() -> int:
                     f"geometry calls={active['geometry_calls']}, final L2={active['final_l2_record'] is not None}"
                 )
             stages = {name: arrays for name, _, arrays in active["stage_records"]}
+            stage_metadata = {name: rec for name, rec, _ in active["stage_records"]}
             start = stages["start_lapse_refreshed"]
             primary = stages["primary_predictor"]
             final_l2 = active["final_l2_record"][1]
@@ -461,8 +468,8 @@ def main() -> int:
                 "K_cell0_signed_update_closure": float(closure_K[0]),
                 "K_update_closure_max_abs_r_le_10": _max_abs(closure_K[interior]),
                 "K_update_closure_max_abs_full_grid": _max_abs(closure_K),
-                "Aa_regular_origin_fit_start": start.get("Aa", None),
-                "Aa_regular_origin_fit_primary_predictor": primary.get("Aa", None),
+                "Aa_regular_origin_fit_start": stage_metadata["start_lapse_refreshed"]["regularity_fits_even_fields"]["Aa"],
+                "Aa_regular_origin_fit_primary_predictor": stage_metadata["primary_predictor"]["regularity_fits_even_fields"]["Aa"],
             }
             # Preserve the signed pointwise residuals in the compact report;
             # full profiles below carry every cell's closure and source channels.
