@@ -1,0 +1,89 @@
+name: Diagnostic - current-source CMC centre-row saved-state counterfactual
+
+on:
+  pull_request:
+    paths:
+      - tools/audit_cmc_center_row_saved_state_counterfactual.py
+      - tests/test_cmc_center_row_saved_state_counterfactual.py
+      - .github/workflows/cmc-center-row-saved-state-counterfactual.yml
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: cmc-center-row-saved-state-counterfactual-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  saved-state-counterfactual:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - resolution: 60
+            candidate_run_id: 40133940265
+            baseline_artifact: evolved-origin-aa-regularity-N60-t0.6-2026-10-24
+            candidate_artifact: origin-half-cell-candidate-N60-t0.6-2026-10-24
+          - resolution: 120
+            candidate_run_id: 40128647367
+            baseline_artifact: evolved-origin-aa-regularity-N120-t0.6-2026-10-24
+            candidate_artifact: origin-half-cell-candidate-N120-t0.6-2026-10-24
+          - resolution: 240
+            candidate_run_id: 40128647367
+            baseline_artifact: evolved-origin-aa-regularity-N240-t0.6-2026-10-24
+            candidate_artifact: origin-half-cell-candidate-N240-t0.6-2026-10-24
+    steps:
+      - name: Check out pinned diagnostic branch and vendor
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Download saved baseline (no evolution)
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ matrix.baseline_artifact }}
+          path: baseline-reference/N${{ matrix.resolution }}
+          github-token: ${{ github.token }}
+          run-id: 40127716287
+
+      - name: Download saved origin-half-cell candidate (no evolution)
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ matrix.candidate_artifact }}
+          path: candidate-reference/N${{ matrix.resolution }}
+          github-token: ${{ github.token }}
+          run-id: ${{ matrix.candidate_run_id }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install declared requirements
+        run: python -m pip install -r requirements.txt
+
+      - name: Run focused counterfactual regression
+        run: pytest -q tests/test_cmc_center_row_saved_state_counterfactual.py
+
+      - name: Recompute CMC centre-row response on saved accepted state
+        run: >-
+          python tools/audit_cmc_center_row_saved_state_counterfactual.py
+          --resolution ${{ matrix.resolution }}
+          --baseline baseline-reference/N${{ matrix.resolution }}
+          --candidate candidate-reference/N${{ matrix.resolution }}
+          --out results/cmc-center-row-saved-state-counterfactual/N${{ matrix.resolution }}/report.json
+
+      - name: Upload signed saved-state budget
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cmc-center-row-saved-state-counterfactual-N${{ matrix.resolution }}
+          path: results/cmc-center-row-saved-state-counterfactual/N${{ matrix.resolution }}/
+          if-no-files-found: warn
+          retention-days: 90
