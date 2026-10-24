@@ -29,6 +29,11 @@ def test_saved_state_one_step_observer_reconstructs_both_aa_and_k_updates():
         assert result["final_mixed_L2_call_identified"] is True
         assert result["accepted_Aa_K_update_closure"]["Aa"]["raw_operand_scaled_roundoff_pass"] is True
         assert result["accepted_Aa_K_update_closure"]["K"]["raw_operand_scaled_roundoff_pass"] is True
+        lambda_budget = result["accepted_Lambda_update_and_connection_budget"]
+        assert lambda_budget["raw_operand_scaled_roundoff_pass"] is True
+        assert lambda_budget["max_abs_update_residual_r_le_10"] <= lambda_budget["max_abs_update_bound_r_le_10"]
+        assert lambda_budget["connection_residual_evolution"]["max_abs_identity_residual_full_grid"] < 2.0e-12
+        assert set(lambda_budget["connection_residual_evolution"]["delta_connection_residual"]["cells_0_1_2_6"]) == {"0", "1", "2", "6"}
         for stage in result["stage_summaries"].values():
             ricci = stage["ricci_channels"]
             assert ricci["identity_closure"]["max_abs_TF_Ricci_component_reconstruction"] < 2.0e-12
