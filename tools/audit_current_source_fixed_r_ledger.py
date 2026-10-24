@@ -333,17 +333,31 @@ def _assert_stage_geometry_matches(stage: dict, geometry_stage: dict) -> dict:
     return comparisons
 
 
-def run_current_source_witness(root: Path, output_path: Path | None = None) -> dict:
-    """Run exactly one accepted N=24 production step and serialize the live start-stage ledger."""
+def run_current_source_witness(
+    root: Path,
+    output_path: Path | None = None,
+    *,
+    resolution: int = RESOLUTION,
+) -> dict:
+    """Run one accepted production step at a selected resolution; preserve the start-stage ledger."""
+    if isinstance(resolution, bool) or not isinstance(resolution, (int, np.integer)):
+        raise ValueError("resolution must be an integer of at least 8 cells")
+    resolution = int(resolution)
+    if resolution < 8:
+        raise ValueError("resolution must be at least 8 cells")
+    # Keep exactly one accepted step at every grid spacing. The measured RHS is
+    # always the start stage at t=0; final_time follows the same CFL*dr step.
+    final_time = CFL * R_MAX / resolution
+    checkpoint_interval = final_time
     root = root.resolve()
     provenance = verify_current_source_pins(root)
     with tempfile.TemporaryDirectory(prefix="current-source-fixed-r-ledger-") as directory:
         config = CampaignConfig(
-            resolutions=(RESOLUTION,),
+            resolutions=(resolution,),
             r_max=R_MAX,
             cfl=CFL,
-            final_time=FINAL_TIME,
-            checkpoint_interval=CHECKPOINT_INTERVAL,
+            final_time=final_time,
+            checkpoint_interval=checkpoint_interval,
             output_dir=directory,
         )
         kernel = CurrentSourceLedgerKernel()
@@ -410,7 +424,7 @@ def run_current_source_witness(root: Path, output_path: Path | None = None) -> d
         if not isinstance(raw_balance, dict):
             raise RuntimeError("fixed-R observer did not produce its signed raw balance witness")
 
-        retries_path = Path(directory) / f"N{RESOLUTION}" / "radiation_step_retries.json"
+        retries_path = Path(directory) / f"N{resolution}" / "radiation_step_retries.json"
         retries = json.loads(retries_path.read_text(encoding="utf-8")) if retries_path.exists() else []
         if retries:
             raise RuntimeError(f"bounded one-step witness needed radiation retries: {retries!r}")
@@ -424,11 +438,11 @@ def run_current_source_witness(root: Path, output_path: Path | None = None) -> d
             "acceptance_oracle_satisfied": False,
             "physical_fixed_R_residual_threshold_applied": False,
             "run_settings": {
-                "resolution": RESOLUTION,
+                "resolution": resolution,
                 "r_max": R_MAX,
                 "cfl": CFL,
-                "final_time": FINAL_TIME,
-                "checkpoint_interval": CHECKPOINT_INTERVAL,
+                "final_time": final_time,
+                "checkpoint_interval": checkpoint_interval,
                 "accepted_steps": int(result.steps),
                 "t_final": float(result.t_final),
                 "stage_used_for_joint_ledger": "start RHS at accepted-step t_before",
@@ -485,9 +499,13 @@ def run_current_source_witness(root: Path, output_path: Path | None = None) -> d
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repo-root", type=Path, default=Path.cwd())
+    parser.add_argument("--resolution", type=int, default=RESOLUTION,
+                        help="grid resolution for this single accepted-step witness")
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
-    report = run_current_source_witness(args.repo_root, args.output)
+    report = run_current_source_witness(
+        args.repo_root, args.output, resolution=args.resolution
+    )
     fixed = report["fixed_R_signed_rate_operators"]
     scalar = report["live_scalar_exchange_contract"]["reconstruction_check"]
     print(json.dumps({
