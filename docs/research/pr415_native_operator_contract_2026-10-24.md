@@ -42,6 +42,29 @@ Using the existing baseline and half-cell complete t=0.6 checkpoints at N=120 an
 - Reconstruct the actual Aa/K updates from captured operands and require closure to the same raw-operand-scaled roundoff envelope used by the existing audit.
 - Verify bitwise that Arm A's saved input and all original artifacts remain unchanged. Do not chain counterfactual steps; this is a local sensitivity test, not a new trajectory.
 
+
+## First copied one-step result at t=0.6
+
+The stage observer and update reconstruction passed on both lineages at N=120 and N=240 (workflow run 40136649511). All four arms per resolution reported that the saved input remained unchanged; each captured four CMC refreshes, three geometry RHS stages, and raw-operand-scaled A_a/K update closure.
+
+Maximum absolute stage-local residual |K_rhs - CMC target|, across baseline and origin-half-cell lineages:
+
+| Stage | N=120 production | N=120 operator-compatible | N=240 production | N=240 operator-compatible |
+|---|---:|---:|---:|---:|
+| Start-lapse refresh | 2.374e-4 | 1.78e-15–2.48e-15 | 2.406e-4 | 1.09e-14–1.40e-14 |
+| Explicit predictor | 3.382e-4 | 1.55e-15–1.69e-15 | 2.913e-4 | 6.89e-15–2.01e-14 |
+| Primary predictor | 3.382e-4 | 1.95e-15–2.96e-15 | 2.913e-4 | 1.04e-14–1.37e-14 |
+| Accepted-output refresh | 3.380e-4 | 1.94e-15–2.75e-15 | 2.913e-4 | 9.33e-15–1.24e-14 |
+
+The improvement is consistent across both initial-data lineages and all captured stages. The copied solve shares the derivative operators and target definition with the K RHS, so this is a **discrete operator-compatibility result**, not an independent physical validation of the CMC target.
+
+The other source channels did not close as a side effect. On the baseline lineage at the start-lapse refresh, the cell-0 A_a lapse-Hessian term changed from -5.904e-6 to +4.824e-7 at N=120, and from -6.175e-6 to +2.511e-7 at N=240. The trace-free-Ricci term remained approximately -1.2001e-3 at N=120 and +1.0312e-3 at N=240. At the accepted output, H/M/connection maxima changed only slightly (roughly 1e-7, 1e-6, and 1e-8 respectively), while remained materially nonzero. Thus the lapse-row change fixes the sampled K-target compatibility mismatch but does not remove the separate A_a/Ricci or constraint residuals.
+
+Artifact records from run 40136649511:
+- N=120: artifact 12577505582; uploaded ZIP SHA-256 `5170ac602b21fe4c2f0aaf78d905a27839b9445bde9dacbed086473e4e205a67`.
+- N=240: artifact 12577005887; uploaded ZIP SHA-256 `269a97a691a56ce47a1b8a87be49064f231bfe1ea92190aceac9771582836c89`.
+
+
 Decision: if the K-row benefit disappears at a specific stage, that identifies a stage interaction to isolate. If it persists but Aa/Ricci and constraints remain unchanged or worsen, retain the two defect channels as separate. If the copied step cannot be reconstructed exactly, stop and fix the observer rather than interpreting the result.
 
 ## Guardrails
