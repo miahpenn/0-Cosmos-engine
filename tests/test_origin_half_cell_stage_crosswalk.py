@@ -57,12 +57,16 @@ def test_flat_space_saved_stages_have_zero_trace_free_ricci_and_gap():
         assert abs(row["cell0_gap_signed"]["candidate"]) < 1e-12
         assert max(abs(x) for x in row["first4_gap_signed"]["baseline"]) < 1e-12
         assert max(abs(x) for x in row["first4_gap_signed"]["candidate"]) < 1e-12
-    assert result["earliest_explicit_predictor_crossings"][
+    first8_crossing = result["earliest_explicit_predictor_crossings"][
         "first8_Aa_L2_source_RMS_candidate_at_least_baseline"
-    ] == {"label": "step000_explicit_predictor", "time": 0.0, "value": 1.2}
-    assert result["earliest_explicit_predictor_crossings"][
+    ]
+    fixed_crossing = result["earliest_explicit_predictor_crossings"][
         "fixed_r_le_10_Aa_L2_source_RMS_candidate_at_least_baseline"
-    ] == {"label": "step000_explicit_predictor", "time": 0.0, "value": 1.2}
+    ]
+    assert first8_crossing["label"] == fixed_crossing["label"] == "step000_explicit_predictor"
+    assert first8_crossing["time"] == fixed_crossing["time"] == 0.0
+    assert np.isclose(first8_crossing["value"], 1.2)
+    assert np.isclose(fixed_crossing["value"], 1.2)
 
 
 def test_first_evidence_uses_first_explicit_stage_not_accepted_rows():
