@@ -5,6 +5,8 @@ on:
     paths:
       - "tools/audit_current_source_total_stress_energy_divergence.py"
       - "tests/test_current_source_total_stress_energy_divergence.py"
+      - "tools/audit_current_source_total_t_shell_ledger.py"
+      - "tests/test_research_total_t_shell_ledger.py"
       - "tools/audit_total_stress_energy_divergence.py"
       - "tests/test_covariant_total_stress_energy_divergence.py"
       - ".github/workflows/issue4-current-source-total-stress-energy-divergence.yml"
@@ -83,13 +85,16 @@ jobs:
         run: |
           python -m py_compile tools/audit_current_source_total_stress_energy_divergence.py
           python -m py_compile tests/test_current_source_total_stress_energy_divergence.py
+          python -m py_compile tools/audit_current_source_total_t_shell_ledger.py
+          python -m py_compile tests/test_research_total_t_shell_ledger.py
           python -m py_compile tests/test_covariant_total_stress_energy_divergence.py
 
       - name: Run source-pin contract and analytic divergence controls
         run: |
           python -m pytest -q \
             tests/test_current_source_total_stress_energy_divergence.py \
-            tests/test_covariant_total_stress_energy_divergence.py
+            tests/test_covariant_total_stress_energy_divergence.py \
+            tests/test_research_total_t_shell_ledger.py
 
       - name: Run one-resolution current-source frozen-state witness
         run: |
@@ -124,6 +129,39 @@ jobs:
             and .gate_result.scientific_admission == false
             and .scientific_admission == false
           ' results/issue4-current-source-covariant-total-T-divergence/report.json
+
+      - name: Run moving fixed-areal-radius total-T shell ledger
+        run: |
+          mkdir -p results/issue4-current-source-total-T-shell-ledger
+          python tools/audit_current_source_total_t_shell_ledger.py \
+            --resolutions 32 64 128 \
+            --r-max 24 \
+            --inner-R 2 \
+            --outer-R 10 \
+            --epsilons 0.00002 0.00001 \
+            --output results/issue4-current-source-total-T-shell-ledger/report.json
+
+      - name: Assert shell ledger integrity and keep admission gates open
+        run: |
+          jq -e '
+            .schema == "current_source_moving_fixed_R_total_T_shell_ledger_v1"
+            and .status == "completed_diagnostic_only"
+            and .source_witness.source_blob_pins_all_match == true
+            and .source_witness.production_steps_advanced == 0
+            and .configuration.resolutions == [32,64,128]
+            and .configuration.fixed_areal_radius_shell == [2,10]
+            and .configuration.production_steps_advanced == 0
+            and (.resolution_results | map(.resolution)) == [32,64,128]
+            and all(.resolution_results[]; .base_state_unchanged == true)
+            and .gate_result.source_pins_verified == true
+            and .gate_result.all_reported_components_finite == true
+            and .gate_result.base_states_unchanged == true
+            and .gate_result.fixed_R_surfaces_monotone == true
+            and .gate_result.Q_nu_source_law_assigned == false
+            and .gate_result.total_T_conservation_closed == false
+            and .gate_result.physical_residual_threshold_applied == false
+            and .gate_result.scientific_admission == false
+          ' results/issue4-current-source-total-T-shell-ledger/report.json
 
       - name: Summarize radial divergence operator refinement without admission
         run: |
@@ -225,8 +263,11 @@ jobs:
         if: always()
         run: |
           mkdir -p results/issue4-current-source-covariant-total-T-divergence
+          mkdir -p results/issue4-current-source-total-T-shell-ledger
           find results/issue4-current-source-covariant-total-T-divergence -type f ! -name SHA256SUMS.txt -print0 \
             | sort -z | xargs -0 -r sha256sum > results/issue4-current-source-covariant-total-T-divergence/SHA256SUMS.txt
+          find results/issue4-current-source-total-T-shell-ledger -type f ! -name SHA256SUMS.txt -print0 \
+            | sort -z | xargs -0 -r sha256sum > results/issue4-current-source-total-T-shell-ledger/SHA256SUMS.txt
 
       - name: Upload current-source report and manifest
         if: always()
@@ -234,5 +275,14 @@ jobs:
         with:
           name: issue4-current-source-total-T-divergence-${{ github.sha }}
           path: results/issue4-current-source-covariant-total-T-divergence/
+          if-no-files-found: warn
+          retention-days: 90
+
+      - name: Upload total-T shell ledger
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: issue4-current-source-total-T-shell-ledger-\${{ github.sha }}
+          path: results/issue4-current-source-total-T-shell-ledger/
           if-no-files-found: warn
           retention-days: 90
