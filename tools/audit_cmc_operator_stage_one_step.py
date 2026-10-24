@@ -31,6 +31,10 @@ from tools.audit_cmc_center_row_saved_state_counterfactual import (
     _operator_compatible_alpha,
     _restore_state,
 )
+from tools.audit_current_main_centre_proper_radial_ricci import (
+    _lambda_chain_rule_counterfactual,
+    proper_radial_ricci,
+)
 
 VENDOR_COMMIT = "d6052d605673ce9d82cdc99b0df79855fa2ea215"
 R_MAX = 80.0
@@ -66,6 +70,101 @@ def _geometry_copy(geometry: Any) -> Any:
     return geometry.copy()
 
 
+def _ricci_channel_summary(grid: Any, geometry: Any, aa_l2: Any = None) -> dict:
+    """Reuse the pinned Ricci decomposition on this exact copied stage."""
+    _, vacuum, _ = adapter.vendor_modules()
+    r = _arr(grid.centers)
+    a, b, X, alpha, Lambda = (
+        _arr(geometry.a), _arr(geometry.b), _arr(geometry.X),
+        _arr(geometry.alpha), _arr(geometry.Lambda)
+    )
+    d1 = lambda values, parity=1: grid.cell_derivative_fourth(
+        _arr(values), parity=parity
+    )
+    d2 = lambda values, parity=1: grid.cell_second_derivative_fourth(
+        _arr(values), parity=parity
+    )
+    ap, bp = d1(a, 1), d1(b, 1)
+    app, bpp = d2(a, 1), d2(b, 1)
+    lambda_metric = ap / (2.0 * a**2) - bp / (a*b) + 2.0/r*(1.0/b - 1.0/a)
+    connection_residual = Lambda - lambda_metric
+    vendor_terms = vacuum.geometry_terms(grid, geometry)
+    vendor_tf = _arr(vendor_terms["Rr_r"] - _arr(vendor_terms["R"]) / 3.0)
+    direct = proper_radial_ricci(grid, r*np.sqrt(b)/X, np.sqrt(a)/X)
+    direct_tf = _arr(direct["tf_ricci"])
+    lambda_prime = d1(Lambda, -1)
+    tf_lambda_derivative = (2.0/3.0) * X**2 * lambda_prime
+    tf_lambda_algebraic = 0.5 * X**2 * (ap/a) * Lambda
+    tf_metric_remainder = vendor_tf - tf_lambda_derivative - tf_lambda_algebraic
+    chain_arrays, _ = _lambda_chain_rule_counterfactual(
+        grid, r, a, b, X, Lambda,
+        {"Rr_r": vendor_terms["Rr_r"], "R": vendor_terms["R"]},
+        direct_tf,
+    )
+    chain_tf = _arr(chain_arrays["lambda_chain_rule_vendor_tf_ricci"])
+    chain_gap = _arr(chain_arrays["lambda_chain_rule_vendor_minus_direct_tf_ricci"])
+    lapse_hessian = -(
+        _arr(vendor_terms["DrDr_alpha"]) - _arr(vendor_terms["lap_alpha"])/3.0
+    )
+
+    def signed_summary(values: Any) -> dict:
+        values = _arr(values)
+        annulus = (r >= 5.0) & (r <= 10.0)
+        return {
+            "cells_0_1_2_6": {
+                str(i): float(values[i]) for i in (0, 1, 2, 6) if i < values.size
+            },
+            "max_abs_cells_0_to_6": _max_abs(values[:min(7, values.size)]),
+            "max_abs_full_grid": _max_abs(values),
+            "max_abs_fixed_annulus_r5_to10": _max_abs(values[annulus]) if np.any(annulus) else None,
+        }
+
+    result = {
+        "method": (
+            "Reuses the pinned proper-radial and Lambda chain-rule diagnostic formulas "
+            "on each exact saved/captured stage; no state fields are substituted."
+        ),
+        "vendor_tf_ricci_minus_direct_proper_radial": signed_summary(vendor_tf - direct_tf),
+        "chain_rule_counterfactual_tf_ricci_minus_direct_proper_radial": signed_summary(chain_gap),
+        "chain_rule_induced_tf_ricci_shift": signed_summary(chain_tf - vendor_tf),
+        "tf_ricci_vendor_components": {
+            "lambda_D4_derivative": signed_summary(tf_lambda_derivative),
+            "lambda_algebraic": signed_summary(tf_lambda_algebraic),
+            "remaining_metric_bracket": signed_summary(tf_metric_remainder),
+        },
+        "Aa_L2_components": {
+            "lapse_hessian": signed_summary(lapse_hessian),
+            "lambda_D4_derivative": signed_summary(alpha * tf_lambda_derivative),
+            "lambda_algebraic": signed_summary(alpha * tf_lambda_algebraic),
+            "remaining_metric_bracket": signed_summary(alpha * tf_metric_remainder),
+        },
+        "identity_closure": {
+            "max_abs_TF_Ricci_component_reconstruction": _max_abs(
+                vendor_tf - (tf_lambda_derivative + tf_lambda_algebraic + tf_metric_remainder)
+            ),
+            "max_abs_Aa_L2_component_reconstruction": (
+                _max_abs(_arr(aa_l2) - lapse_hessian - alpha*tf_lambda_derivative
+                         - alpha*tf_lambda_algebraic - alpha*tf_metric_remainder)
+                if aa_l2 is not None else None
+            ),
+            "max_abs_lambda_metric_reconstruction": _max_abs(
+                lambda_metric - (
+                    d1(a, 1)/(2.0*a**2) - d1(b, 1)/(a*b) + 2.0/r*(1.0/b - 1.0/a)
+                )
+            ),
+        },
+        "centre_connection_residual": signed_summary(connection_residual),
+    }
+    if not all(np.all(np.isfinite(v)) for v in (
+        vendor_tf, direct_tf, chain_tf, chain_gap, tf_lambda_derivative,
+        tf_lambda_algebraic, tf_metric_remainder, lapse_hessian,
+    )):
+        raise FloatingPointError("non-finite copied-stage Ricci decomposition")
+    if result["identity_closure"]["max_abs_TF_Ricci_component_reconstruction"] > 2.0e-12:
+        raise FloatingPointError("TF Ricci component reconstruction did not close")
+    return result
+
+
 def _profile_summary(grid: Any, geometry: Any, terms: dict | None = None) -> dict:
     """Signed centre values and global maxima, with H/M/connection separate."""
     _, vacuum, _ = adapter.vendor_modules()
@@ -98,12 +197,16 @@ def _profile_summary(grid: Any, geometry: Any, terms: dict | None = None) -> dic
             "max_abs_full_grid_index": full_index,
         }
 
+    captured_aa_l2 = None
+    if terms is not None and "primary_l2" in terms and "Aa" in terms["primary_l2"]:
+        captured_aa_l2 = terms["primary_l2"]["Aa"]
     result = {
         "alpha_cells_0_to_6": [float(x) for x in _arr(geometry.alpha)[:7]],
         "geometry_constraint_residuals": {
             str(name): residual_summary(value) for name, value in constraints.items()
         },
         "connection_constraint_residual": residual_summary(connection),
+        "ricci_channels": _ricci_channel_summary(grid, geometry, captured_aa_l2),
     }
     if terms is not None and "primary_l2" in terms:
         geom_terms = vacuum.geometry_terms(grid, geometry)
@@ -350,11 +453,11 @@ def _run_one_step(state: ProductionState, dt: float, arm: str) -> dict:
     final_l2_summary = _profile_summary(
         state.grid, final_l2["geometry"], {"primary_l2": final_l2["terms"]}
     )
-    output_summary = _profile_summary(state.grid, accepted.geometry)
     output_rhs_terms = kernel._geometry_stage_terms(
         state.grid, accepted.geometry, accepted.scalars, accepted.matter,
         accepted.electromagnetic,
     )
+    output_summary = _profile_summary(state.grid, accepted.geometry, output_rhs_terms)
     output_summary["K_rhs_minus_CMC_target"] = _rhs_target_summary(
         state.grid, output_rhs_terms, refreshes[-1]["target_kdot"]
     )
