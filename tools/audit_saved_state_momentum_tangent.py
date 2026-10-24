@@ -121,6 +121,21 @@ def _compact_total_t_divergence(kernel, state, rates, epsilon: float) -> dict:
     scalar_density_budget = total_t_audit.scalar_sector_energy_time_density_budget(
         state, plus_state, minus_state, epsilon, scalar_rhs_budget
     )
+    if not scalar_rhs_budget["reconstruction_passed"]:
+        raise RuntimeError("pinned scalar RHS term budget did not reconstruct its implementation")
+    if not scalar_density_budget["all_profiles_finite"]:
+        raise FloatingPointError("scalar time-density ledger contains non-finite profiles")
+    expected_pair = {
+        "base_state_sha256": total_t_audit.state_digest(state),
+        "plus_state_sha256": total_t_audit.state_digest(plus_state),
+        "minus_state_sha256": total_t_audit.state_digest(minus_state),
+    }
+    for key, expected_digest in expected_pair.items():
+        if scalar_density_budget[key] != expected_digest:
+            raise RuntimeError(
+                f"scalar time-density ledger paired a different state for {key}: "
+                f"expected={expected_digest}, actual={scalar_density_budget[key]}"
+            )
 
     def density_term_summaries(block: dict) -> dict:
         return {
@@ -155,10 +170,31 @@ def _compact_total_t_divergence(kernel, state, rates, epsilon: float) -> dict:
     }
     sectors = {}
     for sector_name, record in decomposition["sectors"].items():
-        sectors[sector_name] = {
-            channel: _signed_samples(values, r)
-            for channel, values in record["raw_signed_arrays"].items()
+        sector_summary = {
+            "divergence_channels": {
+                channel: _signed_samples(values, r)
+                for channel, values in record["raw_signed_arrays"].items()
+            }
         }
+        operator_components = record.get("operator_component_decomposition")
+        if operator_components is not None:
+            compact_operators = {}
+            for method in ("pointwise", "finite_volume"):
+                raw_terms = operator_components[method]["raw_signed_arrays"]
+                compact_operators[method] = {
+                    "component_reconstruction_passed": operator_components[method][
+                        "component_reconstruction_passed"
+                    ],
+                    "component_sum_gap_max_abs": operator_components[method][
+                        "component_sum_gap_max_abs"
+                    ],
+                    "terms": {
+                        name: _signed_samples(values, r)
+                        for name, values in raw_terms.items()
+                    },
+                }
+            sector_summary["operator_component_decomposition"] = compact_operators
+        sectors[sector_name] = sector_summary
     reconstruction = decomposition["reconstruction"]
     return {
         "epsilon": float(epsilon),
@@ -170,11 +206,18 @@ def _compact_total_t_divergence(kernel, state, rates, epsilon: float) -> dict:
         "time_derivative_witnesses": total.get("time_derivative_witnesses", {}),
         "scalar_time_density_rhs_budget": {
             "status": scalar_density_budget["status"],
-            "term_convention": scalar_density_budget["term_convention"],
+            "rhs_term_reconstruction_passed": scalar_rhs_budget["reconstruction_passed"],
+            "rhs_all_profiles_finite": scalar_rhs_budget["all_profiles_finite"],
             "all_profiles_finite": scalar_density_budget["all_profiles_finite"],
             "conditional_exchange_model_law_accepted": scalar_density_budget[
                 "conditional_exchange_model_law_accepted"
             ],
+            "state_pairing": {
+                "base_state_sha256": scalar_density_budget["base_state_sha256"],
+                "plus_state_sha256": scalar_density_budget["plus_state_sha256"],
+                "minus_state_sha256": scalar_density_budget["minus_state_sha256"],
+            },
+            "term_convention": scalar_density_budget["term_convention"],
             "sectors": scalar_density_channels,
             "interpretation_limit": scalar_density_budget["interpretation"],
         },
