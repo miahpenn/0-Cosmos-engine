@@ -1,0 +1,89 @@
+name: Diagnostic - origin-half-cell stage-wise PIRK crosswalk
+
+on:
+  pull_request:
+    paths:
+      - tools/audit_origin_half_cell_stage_crosswalk.py
+      - tests/test_origin_half_cell_stage_crosswalk.py
+      - docs/research/ORIGIN_HALF_CELL_STAGEWISE_PIRK_CROSSWALK_2026-10-24.md
+      - .github/workflows/origin-half-cell-stagewise-pirk-crosswalk.yml
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: origin-half-cell-stagewise-pirk-crosswalk-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  stagewise-crosswalk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        resolution: [120, 240]
+    env:
+      PYTHONUNBUFFERED: "1"
+      BASELINE_DIR: baseline-reference/N${{ matrix.resolution }}
+      CANDIDATE_DIR: candidate-reference/N${{ matrix.resolution }}
+      OUTPUT: results/origin-half-cell-stagewise-crosswalk-N${{ matrix.resolution }}-2026-10-24/report.json
+
+    steps:
+      - name: Check out diagnostics and pinned vendor
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Download existing baseline artifact (no evolution rerun)
+        uses: actions/download-artifact@v4
+        with:
+          name: evolved-origin-aa-regularity-N${{ matrix.resolution }}-t0.6-2026-10-24
+          path: baseline-reference/N${{ matrix.resolution }}
+          github-token: ${{ github.token }}
+          run-id: 40127716287
+
+      - name: Download existing origin-half-cell candidate artifact (no evolution rerun)
+        uses: actions/download-artifact@v4
+        with:
+          name: origin-half-cell-candidate-N${{ matrix.resolution }}-t0.6-2026-10-24
+          path: candidate-reference/N${{ matrix.resolution }}
+          github-token: ${{ github.token }}
+          run-id: 40128647367
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install repository requirements
+        run: python -m pip install -r requirements.txt
+
+      - name: Compile the offline stage crosswalk and focused tests
+        run: |
+          python -m py_compile tools/audit_origin_half_cell_stage_crosswalk.py
+          python -m py_compile tests/test_origin_half_cell_stage_crosswalk.py
+
+      - name: Run flat-space and stage-crossing tests
+        run: python -m pytest -q tests/test_origin_half_cell_stage_crosswalk.py
+
+      - name: Join all saved accepted and PIRK stage profiles
+        run: |
+          python tools/audit_origin_half_cell_stage_crosswalk.py \
+            --resolution "${{ matrix.resolution }}" \
+            --baseline "$BASELINE_DIR" \
+            --candidate "$CANDIDATE_DIR" \
+            --out "$OUTPUT"
+
+      - name: Upload offline stage crosswalk report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: origin-half-cell-stagewise-crosswalk-N${{ matrix.resolution }}-2026-10-24
+          path: results/origin-half-cell-stagewise-crosswalk-N${{ matrix.resolution }}-2026-10-24/
+          if-no-files-found: warn
+          retention-days: 90
