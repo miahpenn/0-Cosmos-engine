@@ -65,6 +65,50 @@ Artifact records from run 40136649511:
 - N=240: artifact 12577005887; uploaded ZIP SHA-256 `269a97a691a56ce47a1b8a87be49064f231bfe1ea92190aceac9771582836c89`.
 
 
+## Exact t=0.6 evolved-state Ricci channel decomposition
+
+The next observer reuses the existing pinned methods in `audit_evolved_centre_ricci_stage_budget.py` and `audit_current_main_centre_proper_radial_ricci.py`, but applies them to the **same four saved-state copied steps above** rather than initializing a new trajectory. The report now records, at the start-lapse refresh, explicit predictor, primary predictor, final mixed-state L2 operand, and accepted output:
+
+- pinned-vendor TF Ricci versus the independent proper-radial TF Ricci formula;
+- the derivative-only `D4(Lambda)` chain-rule counterfactual gap (the algebraic `Lambda D1(a)` term is deliberately retained);
+- separate signed `D4(Lambda)`, algebraic-`Lambda`, remaining metric-bracket, and A_a lapse-Hessian contributions;
+- full-array reconstruction closure for both the TF Ricci identity and the A_a L2 source split.
+
+The identity closures are at floating-point roundoff: maximum TF-Ricci channel closure is below `1.7e-19`, and maximum A_a L2 reconstruction closure is below `5.5e-19`. This proves the ledger reconstructs the implemented source; it does not prove either Ricci route is the correct continuum equation.
+
+### Accepted-output centre discriminator
+
+Signed values below are at cell 0. “Raw gap” is pinned-vendor TF Ricci minus the independently reconstructed proper-radial TF Ricci; “chain-rule gap” applies only the saved-state derivative representation counterfactual.
+
+| Resolution / saved lineage | Raw gap at cell 0 | Chain-rule gap at cell 0 | Effect of counterfactual |
+|---|---:|---:|---|
+| N=120 baseline | -1.415477e-3 | +4.377803e-4 | magnitude reduced 69.1% (3.23x) |
+| N=120 origin-half-cell candidate | +2.668611e-4 | +1.682555e-4 | magnitude reduced 36.9% (1.59x) |
+| N=240 baseline | +3.598385e-3 | +1.149145e-3 | magnitude reduced 68.1% (3.13x) |
+| N=240 origin-half-cell candidate | +7.151231e-4 | +9.893254e-4 | magnitude **increased 38.3%** |
+
+The response is emphatically not a universal “replace D4 by the chain rule” fix. It reduces the baseline lineage's cell-0 mismatch, does much less for the N=120 half-cell candidate, and worsens cell 0 for the N=240 half-cell candidate. Yet after the counterfactual the fixed physical annulus maximum is only about `1.4e-9` at N=120 and `6.9e-11` at N=240. Cell 6 is likewise about `1.2e-9` / `2.4e-9`; the material residual remains in the first few centre cells. The centre cells do not track the smooth-annulus response.
+
+The signed pattern across cells 0/1/2 also changes with resolution and initialization lineage. For example, after the counterfactual the N=120 baseline residuals are approximately `(+4.38e-4, -7.52e-5, +1.08e-5)`; N=240 baseline is `(+1.149e-3, -2.097e-4, +3.94e-5)`. For the N=240 half-cell lineage the corresponding values are `(+9.893e-4, -1.695e-4, +2.821e-5)`. This supports retaining the centre as a separate regularity/operator-compatibility problem rather than fitting a single global correction.
+
+### What the A_a source budget adds
+
+The A_a L2 channel split remains closed to roundoff, but its signed components are strongly state- and resolution-dependent. On the accepted N=120 baseline, the cell-0 A_a contribution from the `D4(Lambda)` TF-Ricci channel is about `+1.013e-3`, the remaining metric bracket is about `-2.185e-3`, and the lapse-Hessian contribution is about `-8.51e-6`. On the N=240 baseline, the D4 channel is about `-7.03e-5` while the remaining metric bracket is `+1.061e-3`. The algebraic-`Lambda` term is only O(1e-7) or smaller in these examples.
+
+The operator-compatible lapse row changes the accepted cell-0 lapse-Hessian term to roughly `+5.8e-7` at N=120 and `+2.6e-7` at N=240, but leaves the large signed TF-Ricci components and Ricci gap largely unchanged. This is direct evidence that the CMC/K row mismatch and the A_a/Ricci centre residual are distinct channels. The half-cell lineage also changes the A_a component balance substantially, but neither counterfactual yields a uniformly smaller evolved Ricci gap at both resolutions.
+
+### Provenance and reproducibility
+
+The channel decomposition is from workflow run [40136928892](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/40136928892), reusing the verified complete t=0.6 artifacts. Both N=120/N=240 jobs passed, including stage capture and accepted-update closure.
+
+- N=120 artifact [12577046128](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/40136928892/artifacts/12577046128); ZIP SHA-256: `44139de32bdce0c37bd4bf990d88958fcf0554acef4cdc757b95d30cbcd3caee`.
+- N=240 artifact [12577411251](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/40136928892/artifacts/12577411251); ZIP SHA-256: `36e5a7b7d8a4905da629a3f34aa89019030a3d243f81490b8711d6b5f9730b98`.
+
+The input checkpoint SHA-256 values are reproduced in each report; baseline/candidate checkpoints were loaded from the archived artifact bundles, were not re-evolved to t=0.6, and each A/B arm's source input remained unchanged. The report leaves `scientific_admission=false`.
+
+**Interpretation:** current evolved-state data do not support treating the derivative representation counterfactual as a universal cure, despite its strong initialized-slice effect in the archive. The defensible next step is to keep the `D4(Lambda)`/metric-bracket mismatch, the origin half-cell/regularity behavior, the CMC lapse/K compatibility, and the coupled H/M/connection propagation budgets independently observable under one shared native operator contract. Do not promote any one counterfactual into production on this evidence.
+
+
 Decision: if the K-row benefit disappears at a specific stage, that identifies a stage interaction to isolate. If it persists but Aa/Ricci and constraints remain unchanged or worsen, retain the two defect channels as separate. If the copied step cannot be reconstructed exactly, stop and fix the observer rather than interpreting the result.
 
 ## Guardrails
