@@ -12,33 +12,35 @@
 
 ## First captured turn in the source and gap histories
 
-Ratios below are candidate/baseline, computed over the first eight cell centres except where the row explicitly says cell 0. Times are the saved stage's accepted-step start time. The `explicit_predictor` is the first captured predictor operand for each step.
+Ratios below are candidate/baseline. The fixed-support source RMS uses every cell centre with r≤10, while the first-eight-cell statistic is retained for continuity with the earlier crosswalk. Times label each saved stage's accepted-step start time.
 
-| Resolution | First explicit stage with first-8-cell (A_a) L2-source RMS ratio ≥ 1 | First explicit stage with cell-0 source absolute ratio ≥ 1 | First explicit stage with first-8-cell Ricci-gap max ratio ≥ 0.5 | First explicit stage with first-8-cell Ricci-gap RMS ratio ≥ 0.5 |
+| Resolution | First explicit stage with fixed-support (r≤10) source RMS ratio ≥ 1 | First explicit stage with first-8-cell source RMS ratio ≥ 1 | First explicit stage with cell-0 source absolute ratio ≥ 1 | First explicit stage with Ricci-gap max / RMS ratios ≥ 0.5 |
 |---:|---|---|---|---|
-| N=120 | `step011_explicit_predictor`, t=0.22, ratio 1.089 | `step012_explicit_predictor`, t=0.24, ratio 1.012 | `step012_explicit_predictor`, t=0.24, ratio 0.539 | `step012_explicit_predictor`, t=0.24, ratio 0.509 |
-| N=240 | `step010_explicit_predictor`, t=0.10, ratio 1.044 | `step012_explicit_predictor`, t=0.12, ratio 1.042 | `step012_explicit_predictor`, t=0.12, ratio 0.556 | `step012_explicit_predictor`, t=0.12, ratio 0.526 |
+| N=120 | step011_explicit_predictor, t=0.22, ratio 1.033 | step011_explicit_predictor, t=0.22, ratio 1.089 | step012_explicit_predictor, t=0.24, ratio 1.012 | step012_explicit_predictor, t=0.24, max 0.539 / RMS 0.509 |
+| N=240 | step010_explicit_predictor, t=0.10, ratio 1.005 | step010_explicit_predictor, t=0.10, ratio 1.044 | step012_explicit_predictor, t=0.12, ratio 1.042 | step012_explicit_predictor, t=0.12, max 0.556 / RMS 0.526 |
 
-The first multi-cell source-RMS loss occurs one to two steps before the cell-0 source itself matches baseline. At the first source-RMS crossing, the Ricci gap is still reduced versus baseline: its first-eight-cell max/RMS ratios are 0.279/0.240 for N=120 at t=0.22 and 0.103/0.098 for N=240 at t=0.10. By the subsequent crossing shown in the table, the gap has rebounded to roughly half of baseline. Thus the multi-cell source channel signals the turn earlier than a centre-only source test.
+The fixed physical support makes the resolution comparison cleaner than eight cells alone: the first source-RMS crossing occurs at t=0.22 for N=120 (ratio 1.033) and t=0.10 for N=240 (ratio 1.005), at the same respective stages as the first-eight-cell statistic. At those stages the Ricci gap is still reduced versus baseline: first-eight-cell max/RMS ratios are 0.279/0.240 and 0.103/0.098, respectively. One step later for N=120 and two steps later for N=240, the gap has rebounded to roughly half of baseline. Thus the multi-cell source channel signals the turn earlier than a centre-only source test.
 
 ## Non-monotone behaviour and resolution sensitivity
 
-| N | Saved stage/time | First-8-cell Ricci-gap max ratio | Ricci-gap RMS ratio | (A_a) L2-source RMS ratio | Cell-0 source absolute ratio |
-|---:|---|---:|---:|---:|---:|
-| 120 | initial accepted state, t=0.00 | 0.112 | 0.124 | 0.540 | 0.079 |
-| 120 | explicit predictor, t=0.16 | 0.021 | 0.029 | 0.763 | 0.025 |
-| 120 | explicit predictor, t=0.20 | 0.103 | 0.098 | 0.958 | 0.158 |
-| 120 | explicit predictor, t=0.24 | 0.539 | 0.509 | 1.201 | 1.012 |
-| 120 | accepted state, t=0.60 | 0.195 | 0.295 | 0.312 | 0.082 |
-| 240 | initial accepted state, t=0.00 | 0.121 | 0.133 | 0.463 | 0.086 |
-| 240 | explicit predictor, t=0.08 | 0.027 | 0.034 | 0.721 | 0.028 |
-| 240 | explicit predictor, t=0.10 | 0.103 | 0.098 | 1.044 | 0.174 |
-| 240 | explicit predictor, t=0.12 | 0.556 | 0.526 | 1.895 | 1.042 |
-| 240 | accepted state, t=0.60 | 0.168 | 0.169 | 0.506 | 0.433 |
+| N | Saved stage/time | First-8-cell Ricci-gap max ratio | Ricci-gap RMS ratio | Source RMS ratio, first 8 cells | Source RMS ratio, fixed r≤10 | Cell-0 source absolute ratio |
+|---:|---|---:|---:|---:|---:|---:|
+| 120 | initial accepted state, t=0.00 | 0.112 | 0.124 | 0.540 | 0.677 | 0.079 |
+| 120 | explicit predictor, t=0.16 | 0.021 | 0.029 | 0.763 | 0.873 | 0.025 |
+| 120 | explicit predictor, t=0.20 | 0.103 | 0.098 | 0.958 | 0.982 | 0.158 |
+| 120 | explicit predictor, t=0.22 | 0.279 | 0.240 | 1.089 | 1.033 | 0.339 |
+| 120 | explicit predictor, t=0.24 | 0.539 | 0.509 | 1.201 | 1.067 | 1.012 |
+| 120 | accepted state, t=0.60 | 0.195 | 0.295 | 0.312 | 0.337 | 0.082 |
+| 240 | initial accepted state, t=0.00 | 0.121 | 0.133 | 0.463 | 0.776 | 0.086 |
+| 240 | explicit predictor, t=0.08 | 0.027 | 0.034 | 0.721 | 0.941 | 0.028 |
+| 240 | explicit predictor, t=0.10 | 0.103 | 0.098 | 1.044 | 1.005 | 0.174 |
+| 240 | explicit predictor, t=0.11 | 0.288 | 0.247 | 1.376 | 1.030 | 0.369 |
+| 240 | explicit predictor, t=0.12 | 0.556 | 0.526 | 1.895 | 1.046 | 1.042 |
+| 240 | accepted state, t=0.60 | 0.168 | 0.169 | 0.506 | 0.552 | 0.433 |
 
-Both resolutions show a deep initial reduction followed by a rebound and later decline. But the rebound is not aligned in physical time: the first source-RMS crossing occurs around t=0.10 at N=240 and t=0.22 at N=120. The profiles are strikingly similar by step number while their timesteps differ by two. That is a warning against interpreting the candidate trajectory as a resolution-independent physical effect. At t=0.6 the Ricci gap is smaller than baseline in the first eight cells, but the source and cell-0 ratios remain resolution-dependent; the proper-radial representation itself is not thereby proved regular.
+Both resolutions show a deep initial reduction followed by a rebound and later decline. But the rebound is not aligned in physical time: the first fixed-support source-RMS crossing occurs around t=0.10 at N=240 and t=0.22 at N=120. At t=0.60 the Ricci gap is smaller than baseline in the first eight cells, but source and cell-0 ratios remain resolution-dependent; the proper-radial representation itself is not thereby proved regular.
 
-The per-stage JSON report also preserves signed first-four-cell Ricci gaps and source values, the location of each first-eight-cell maximum, the saved Ricci and lapse-Hessian source terms at cell 0, and the matching accepted/PIRK-stage identity. This guards against overinterpreting a cell-0 norm or a single accepted time.
+The per-stage JSON report also preserves fixed-support (r≤10) source and Ricci-gap max/RMS ratios, signed first-four-cell Ricci gaps and source values, the location of each first-eight-cell maximum, the saved Ricci and lapse-Hessian source terms at cell 0, and the matching accepted/PIRK-stage identity. The fixed-radius ratios confirm the first source-RMS crossing at t=0.22 (N=120) and t=0.10 (N=240); this is not an artifact of comparing different physical radii via the first-eight-cell window. This guards against overinterpreting a cell-0 norm or a single accepted time.
 
 ## Interpretation
 
