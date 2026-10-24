@@ -253,6 +253,55 @@ The run passed both N=120 and N=240 jobs, with input digests unchanged, exact cu
 **Disposition:** the `Cdot ≈ (2 alpha/a) M` relation is corroborated but not exact at the centre; independent total-T projection is cross-checked, and its sector-sum discrepancy is accounted for, but the total-T divergence remains nonzero. The next gate remains a frozen, convention-pinned full matter-coupled momentum-constraint propagation RHS, including the normalized Hamiltonian-gradient term, reference-metric connection response, and complete stress-energy exchange/conservation residuals. No production change is justified by this diagnostic.
 
 
+
+
+## Scalar (S)-sector flux/operator crosswalk at the regular centre
+
+The next observer reuses the same accepted t=0.6 states and directional pair, and separates (i) the pointwise (D_1) derivative of the stress flux, (ii) the derivative of a parity-regularized face reconstruction, and (iii) the product-rule remainder of the pointwise flux. It does not pick the finite-volume answer as ground truth: the pointwise quantity is a centre-sampled divergence, whereas the finite-volume quantity is a cell-volume average.
+
+For the time component, define
+[
+F_t=A_t J^r,quad A_t=-alpha^2sqrt{gamma},quad J^r=j/gamma_{rr}.
+]
+The exact discrete product-rule residual reported is
+[
+mathcal{R}_{mathrm{prod},t}
+=D_{1,mathrm{odd}}(A_tJ^r)
+-A_tD_{1,mathrm{odd}}(J^r)
+-J^rD_{1,mathrm{even}}(A_t).
+]
+This is a numerical operator identity, not a new physical source. Its normalization by the centre measure (sqrt{-g}(r_0)) is compared with the measured pointwise S-sector divergence.
+
+### Cell-0 results (epsilon (=10^{-5}))
+
+| Resolution / lineage | S-sector pointwise (
+abla_mu T^mu{}_t) | S-sector FV cell-average divergence | Pointwise vs FV radial-flux contribution | (mathcal R_{mathrm{prod},t}/sqrt{-g}(r_0)) | Difference: observed divergence minus normalized product defect |
+|---|---:|---:|---:|---:|---:|
+| N=120 baseline | +5.41504e-7 | +3.78775e-9 | +6.52357e-6 vs +5.91134e-6 | +5.45945e-7 | -4.44157e-9 (-0.81%) |
+| N=120 origin-half-cell candidate | +5.43257e-7 | +3.92811e-9 | +6.52543e-6 vs +5.91173e-6 | +5.47497e-7 | -4.24009e-9 (-0.77%) |
+| N=240 baseline | +1.46246e-7 | +7.75822e-10 | +6.16471e-6 vs +5.99635e-6 | +1.49143e-7 | -2.89640e-9 (-1.94%) |
+| N=240 origin-half-cell candidate | +1.46244e-7 | +7.89552e-10 | +6.16509e-6 vs +5.99661e-6 | +1.49161e-7 | -2.91658e-9 (-1.95%) |
+
+The leading centre divergence is therefore very close to the normalized discrete product-rule remainder, across both resolutions and both lineages: the difference is below 2% of that leading term. This is a strong localization signal for the origin-cell product/operator treatment of the scalar stress flux. It is not yet a proof that the entire stress-energy divergence equals this one defect; the remaining signed time-density, metric-source, and other-sector terms must remain explicit.
+
+The raw derivative comparison also matters. At cell 0, (D_1(F_t)) minus the face-reconstructed coordinate derivative (before volume normalization) is (-1.52308	imes10^{-7}) at N=120 and (-5.13094	imes10^{-8}) at N=240. Yet the pointwise normalized radial-flux contribution is larger than the FV *cell-average* contribution. This sign reversal is explained by their different measures: the effective FV measure (Delta V/Delta r) is about (1.3333sqrt{-g}(r_0)) at cell 0 for both resolutions. That (4/3) ratio is the expected regular spherical first-cell volume effect; it is not evidence that either operator is intrinsically wrong. Comparing a centre value to a shell average without this measure term would conflate two different observables.
+
+The time-density source ledger reconstructs the S-sector measured directional time-density rate with cell-0 residual (-5.08	imes10^{-14}) at N=120 and about (-1.6	imes10^{-15}) at N=240. Both the pointwise and FV component sums close to their own total divergence at roundoff. Thus this central result is not a component-sum bookkeeping error, nor is the small time-density reconstruction remainder large enough to explain the observed (O(10^{-7})) centre divergence. The D scalar contribution is negligible here; the COSMOS (phi) contribution is several orders smaller than S at cell 0.
+
+### What is and is not established
+
+- The flux product-rule residual is a compelling candidate for the leading **pointwise** S-sector cell-0 divergence; its normalized magnitude and resolution dependence track that divergence across the two saved-state lineages.
+- The FV first-cell result is a cell-volume average and must not be read as a pointwise zero at (r=0). Its much smaller magnitude is not itself proof of better conservation.
+- The same-state data do not establish that the scalar continuum equation is wrong, or that changing the derivative or stress projection is justified. A complete source-aware scalar identity must include the scalar Laplacian’s metric bracket, the lapse/curvature source terms, metric-volume time derivative, and the same product-rule convention.
+- Next bounded discriminator: independently reconstruct the complete S-sector time-component divergence as (time-density rate) + (flux derivative) + (metric source), then replace the flux derivative by its two signed product terms plus the measured (mathcal R_{mathrm{prod},t}). Require exact algebraic closure on every cell and separately report how much of the physical source balance remains after accounting for the product defect. Preserve pointwise and FV forms side by side; do not patch either one into production.
+
+### Provenance
+
+The exact-kernel accepted-state observer and the new crosswalk passed at N=120 and N=240 in [workflow 40138941750](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/40138941750). The run reuses the full checksummed t=0.6 checkpoints; each saved input remains unchanged, the source pins and separately pinned historical total-T helper passed, and scientific admission remains false.
+
+- N=120 [signed flux/operator artifact 12577273369](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/40138941750/artifacts/12577273369), ZIP SHA-256: `b768553159930b7069c67ccb96fa7f32f88d7f8eb556b8f289e109776ea090dd`; report JSON SHA-256: `5415050ffa12f0a45ce9b27921712c64e44d2ce46ffcca6760d4b5f8ccc9bf24`.
+- N=240 [signed flux/operator artifact 12577078610](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/40138941750/artifacts/12577078610), ZIP SHA-256: `5d53d4c3477dfa2ea535e77d75dc4919820a9ab4eb217abff1b30b7f14366fcc`; report JSON SHA-256: `bf8c31dd46f236e5521456573d80d551a39fa7e395ecf199fa9b43f53324edef`.
+
 Decision: if the K-row benefit disappears at a specific stage, that identifies a stage interaction to isolate. If it persists but Aa/Ricci and constraints remain unchanged or worsen, retain the two defect channels as separate. If the copied step cannot be reconstructed exactly, stop and fix the observer rather than interpreting the result.
 
 ## Guardrails
