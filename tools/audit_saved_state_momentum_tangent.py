@@ -130,6 +130,90 @@ def _compact_total_t_divergence(kernel, state, rates, epsilon: float) -> dict:
         "plus_state_sha256": total_t_audit.state_digest(plus_state),
         "minus_state_sha256": total_t_audit.state_digest(minus_state),
     }
+    base_projection = total_t_audit.independent_total_projections(state)
+    inv_sqrt_minus_g = 1.0 / _arr(state.geometry.alpha * np.sqrt(
+        state.geometry.a / state.geometry.X**2
+    ) * (state.geometry.b * _arr(state.grid.centers)**2 / state.geometry.X**2))
+    r_profile = _arr(state.grid.centers)
+    dr = float(state.grid.dr)
+
+    def flux_operator_crosswalk(components: dict) -> dict:
+        """Compare pointwise D1 and finite-volume flux derivatives on identical fields."""
+        objects = total_t_audit._covariant_objects_from_components(state, components)
+        alpha = _arr(objects["alpha"])
+        sqrt_gamma = _arr(objects["sqrt_gamma"])
+        gamma_rr = _arr(objects["gamma_rr"])
+        rho_current = _arr(objects["j"])
+        pressure_r = _arr(objects["pr"])
+        coeff_t = -(alpha**2) * sqrt_gamma
+        current_up = rho_current / gamma_rr
+        flux_t = _arr(objects["flux_t"])
+        coeff_r = alpha * sqrt_gamma
+        flux_r = _arr(objects["flux_r"])
+
+        d1 = lambda values, parity: _arr(
+            state.grid.cell_derivative_fourth(_arr(values), parity=parity)
+        )
+        d_flux_t = d1(flux_t, -1)
+        d_flux_r = d1(flux_r, +1)
+        d_flux_t_fv = _arr(total_t_audit.finite_volume_radial_flux_derivative(
+            flux_t, dr, origin_power=3
+        ))
+        d_flux_r_fv = _arr(total_t_audit.finite_volume_radial_flux_derivative(
+            flux_r, dr, origin_power=2
+        ))
+        product_residual_t = d_flux_t - (
+            coeff_t * d1(current_up, -1) + current_up * d1(coeff_t, +1)
+        )
+        product_residual_r = d_flux_r - (
+            coeff_r * d1(pressure_r, +1) + pressure_r * d1(coeff_r, +1)
+        )
+
+        def signed(values: Any) -> dict:
+            arr = _arr(values)
+            return {
+                "cells_0_1_2_6": {
+                    str(i): float(arr[i]) for i in (0, 1, 2, 6) if i < arr.size
+                },
+                "max_abs_cells_0_to_6": _max_abs(arr[:min(7, arr.size)]),
+                "max_abs_full_grid": _max_abs(arr),
+                "max_abs_fixed_annulus_r5_to10": _max_abs(
+                    arr[(r_profile >= 5.0) & (r_profile <= 10.0)]
+                ),
+            }
+
+        return {
+            "pointwise_vs_finite_volume": {
+                "time_component_flux_derivative_D1_odd": signed(d_flux_t),
+                "time_component_flux_derivative_FV_origin_power3": signed(d_flux_t_fv),
+                "time_component_D1_minus_FV": signed(d_flux_t - d_flux_t_fv),
+                "radial_component_flux_derivative_D1_even": signed(d_flux_r),
+                "radial_component_flux_derivative_FV_origin_power2": signed(d_flux_r_fv),
+                "radial_component_D1_minus_FV": signed(d_flux_r - d_flux_r_fv),
+                "normalization": "Each derivative above is d_r(sqrt(-g) T^r_nu) before division by sqrt(-g).",
+            },
+            "discrete_product_rule_residual": {
+                "time_flux_coeff_times_current": signed(product_residual_t),
+                "radial_flux_coeff_times_pressure": signed(product_residual_r),
+                "definition_time": (
+                    "D1_odd(A_t*J^r) - A_t*D1_odd(J^r) - J^r*D1_even(A_t), "
+                    "A_t=-alpha^2*sqrt(gamma), J^r=j/gamma_rr"
+                ),
+                "definition_radial": (
+                    "D1_even(A_r*p_r) - A_r*D1_even(p_r) - p_r*D1_even(A_r), "
+                    "A_r=alpha*sqrt(gamma)"
+                ),
+                "interpretation_limit": (
+                    "Exact finite-difference product-rule residual for the recorded stencil; "
+                    "not itself a physical conservation residual or proof either flux operator is authoritative."
+                ),
+            },
+        }
+
+    scalar_flux_operator_crosswalk = {
+        sector: flux_operator_crosswalk(components)
+        for sector, components in base_projection["scalar_parts"].items()
+    }
     for key, expected_digest in expected_pair.items():
         if scalar_density_budget[key] != expected_digest:
             raise RuntimeError(
@@ -222,6 +306,7 @@ def _compact_total_t_divergence(kernel, state, rates, epsilon: float) -> dict:
             "interpretation_limit": scalar_density_budget["interpretation"],
         },
         "sector_resolved_divergence": sectors,
+        "scalar_flux_operator_crosswalk": scalar_flux_operator_crosswalk,
         "sector_reconstruction": {
             "all_sectors_reconstruct_total": reconstruction["all_sectors_reconstruct_total"],
             "all_sectors_reconstruct_total_after_time_density_accounting": reconstruction[
