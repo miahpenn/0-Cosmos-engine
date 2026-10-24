@@ -353,10 +353,39 @@ def _audit_pair(kernel: V55ProductionKernel, n: int, baseline: dict, candidate: 
         target = solve_report["target_kdot_from_existing_CMC_projection"]
         kdot_cf = np.asarray(l2_cf["K"], dtype=float) + np.asarray(l3_cf["K"], dtype=float)
         error = kdot_cf - target
-        scale = np.abs(np.asarray(cf_state.geometry.X)**2 / np.asarray(cf_state.geometry.a)) * (
-            np.abs(np.asarray(l2_cf["K"])) + np.abs(np.asarray(l3_cf["K"]))
-        ) + abs(target)
-        bound = 1024.0 * EPS * np.maximum(scale, np.finfo(float).tiny)
+        # Form the pass/fail envelope from the raw D1/D2 operands, not the
+        # cancellation-prone final K_L2 array.
+        d1_mat, d2_mat = _d_matrices(state.grid)
+        geom_alt = cf_state.geometry
+        inv = np.asarray(geom_alt.X, dtype=float) ** 2 / np.asarray(geom_alt.a, dtype=float)
+        d1a = d1_mat @ np.asarray(geom_alt.a, dtype=float)
+        d1b = d1_mat @ np.asarray(geom_alt.b, dtype=float)
+        d1x = d1_mat @ np.asarray(geom_alt.X, dtype=float)
+        lap_c = -0.5 * d1a / geom_alt.a + d1b / geom_alt.b - d1x / geom_alt.X + 2.0 / state.grid.centers
+        total = total_matter_projection(state.grid, geom_alt, cf_state.scalars, cf_state.matter)
+        q = (
+            1.5 * np.asarray(geom_alt.Aa, dtype=float) ** 2
+            + np.asarray(geom_alt.K, dtype=float) ** 2 / 3.0
+            + 4.0 * math.pi * (
+                np.asarray(total["rho"], dtype=float)
+                + np.asarray(total["pr"], dtype=float)
+                + 2.0 * np.asarray(total["pt"], dtype=float)
+            )
+        )
+        _, vacuum, _ = adapter.vendor_modules()
+        l3_saved = np.asarray(vacuum.primary_l3_rhs(state.grid, state.geometry)["K"], dtype=float)
+        quadratic = (
+            np.asarray(state.geometry.Aa, dtype=float) ** 2
+            + 2.0 * (-0.5 * np.asarray(state.geometry.Aa, dtype=float)) ** 2
+            + np.asarray(state.geometry.K, dtype=float) ** 2 / 3.0
+        )
+        ko_k = l3_saved - np.asarray(state.geometry.alpha, dtype=float) * quadratic
+        raw_lap_scale = inv * (
+            np.abs(d2_mat) @ np.abs(alpha_cf)
+            + np.abs(lap_c) * (np.abs(d1_mat) @ np.abs(alpha_cf))
+        )
+        operand_scale = raw_lap_scale + np.abs(alpha_cf * q) + np.abs(ko_k) + abs(target)
+        bound = 1024.0 * EPS * np.maximum(operand_scale, np.finfo(float).tiny)
         if not np.all(np.abs(error[:-1]) <= bound[:-1]):
             raise FloatingPointError(f"{arm} N={n}: production K RHS does not close to fixed CMC target")
         constraint_delta = {
