@@ -182,6 +182,96 @@ def _even_origin_fit(r: np.ndarray, values: np.ndarray) -> dict:
     }
 
 
+def _local_metric_regularization_counterfactual(
+    grid, geometry, vacuum, actual_geometry_terms: dict[str, np.ndarray]
+) -> dict:
+    """Replace only first-cell metric/connection values by a local regular continuation.
+
+    q=(1-a/b)/r^2 is fitted through cells 1,2,3 in r^2. The fit defines a
+    determinant-consistent metric ratio a/b=1-r^2*q, then a, b, X, and Lambda
+    at cell zero. The unchanged pinned discrete Ricci operator is reevaluated
+    on a copied state. This is diagnostic only; it never mutates the accepted
+    state or production equations.
+    """
+    r = _arr(grid.centers)
+    if len(r) < 5:
+        raise ValueError("local origin counterfactual requires at least five cells")
+    r0 = float(r[0])
+    if r0 <= 0.0:
+        raise ValueError("cell-centred grid must have positive first radius")
+    q = (1.0 - _arr(geometry.a) / _arr(geometry.b)) / r**2
+    fit_x = r[1:4] ** 2
+    coeff = np.polynomial.polynomial.polyfit(fit_x, q[1:4], deg=2)
+    x0 = r0**2
+    q0_fit = float(np.polynomial.polynomial.polyval(x0, coeff))
+    qx0_fit = float(coeff[1] + 2.0 * coeff[2] * x0)
+    ratio = 1.0 - x0 * q0_fit
+    if not np.isfinite(ratio) or ratio <= 0.0:
+        raise FloatingPointError("regularized centre metric ratio is not positive")
+
+    a_reg = float(ratio ** (2.0 / 3.0))
+    b_reg = float(ratio ** (-1.0 / 3.0))
+    X_reg = float(ratio ** (-1.0 / 6.0))
+    s_x = -(q0_fit + x0 * qx0_fit)
+    a_x = (2.0 / 3.0) * ratio ** (-1.0 / 3.0) * s_x
+    b_x = (-1.0 / 3.0) * ratio ** (-4.0 / 3.0) * s_x
+    lambda_reg = float(
+        r0 * a_x / a_reg**2
+        - 2.0 * r0 * b_x / (a_reg * b_reg)
+        + 2.0 / r0 * (1.0 / b_reg - 1.0 / a_reg)
+    )
+
+    alpha0 = float(geometry.alpha[0])
+    actual_rtf = alpha0 * (
+        float(actual_geometry_terms["Rr_r"][0])
+        - float(actual_geometry_terms["R"][0]) / 3.0
+    )
+    actual_lapse_hessian_tf = -(
+        float(actual_geometry_terms["DrDr_alpha"][0])
+        - float(actual_geometry_terms["lap_alpha"][0]) / 3.0
+    )
+    actual_l2 = actual_lapse_hessian_tf + actual_rtf
+
+    counterfactual = geometry.copy()
+    counterfactual.a[0] = a_reg
+    counterfactual.b[0] = b_reg
+    counterfactual.X[0] = X_reg
+    counterfactual.Lambda[0] = lambda_reg
+    counter_terms = vacuum.geometry_terms(grid, counterfactual)
+    counter_rtf = alpha0 * (
+        float(counter_terms["Rr_r"][0]) - float(counter_terms["R"][0]) / 3.0
+    )
+    counter_l2 = -(
+        float(counter_terms["DrDr_alpha"][0])
+        - float(counter_terms["lap_alpha"][0]) / 3.0
+    ) + counter_rtf
+
+    return {
+        "role": "offline_same_discrete_operator_counterfactual_not_a_production_fix",
+        "metric_quotient": "q=(1-a/b)/r^2",
+        "fit_support_cells": [1, 2, 3],
+        "fit_variable": "q as a quadratic in r^2",
+        "q_cell0_actual": float(q[0]),
+        "q_cell0_fit_from_cells_1_to_3": q0_fit,
+        "q_cell0_actual_minus_fit": float(q[0] - q0_fit),
+        "a_cell0_actual": float(geometry.a[0]),
+        "a_cell0_regularized": a_reg,
+        "b_cell0_actual": float(geometry.b[0]),
+        "b_cell0_regularized": b_reg,
+        "X_cell0_actual": float(geometry.X[0]),
+        "X_cell0_regularized": X_reg,
+        "Lambda_cell0_actual": float(geometry.Lambda[0]),
+        "Lambda_cell0_from_fitted_metric": lambda_reg,
+        "tracefree_Ricci_cell0_actual": actual_rtf,
+        "tracefree_Ricci_cell0_counterfactual": counter_rtf,
+        "tracefree_Ricci_counterfactual_minus_actual": float(counter_rtf - actual_rtf),
+        "Aa_L2_cell0_actual": actual_l2,
+        "Aa_L2_cell0_counterfactual": float(counter_l2),
+        "counterfactual_metric_identity_ab2": float(a_reg * b_reg**2),
+        "accepted_state_mutated": False,
+    }
+
+
 def _capture_arrays(
     *,
     label: str,
@@ -276,6 +366,12 @@ def _capture_arrays(
     closure = _max_abs(arrays["Aa_l2_closure"]) if "Aa_l2_closure" in arrays else None
     record = {
         "label": label,
+        "local_metric_regularization_counterfactual": (
+            _local_metric_regularization_counterfactual(
+                grid, g, vacuum, geom_terms
+            )
+            if r.size >= 5 else None
+        ),
         "step_index": int(step_index),
         "accepted_time_at_step_start": float(t_start),
         "regularity_fits_even_fields": even_fields,
@@ -424,6 +520,23 @@ def main() -> int:
             rec["state_sha256_before_observation"] = before
             rec["state_sha256_after_observation"] = after
             rec["observer_left_state_unchanged"] = True
+            if step_index == 0:
+                initial_r = _arr(state.grid.centers)
+                initial_q0 = float(
+                    (1.0 - state.geometry.a[0] / state.geometry.b[0])
+                    / initial_r[0]**2
+                )
+                # Initial rho_S=0.5*S^2 and src contains -8*pi*r^2*rho_S.
+                # Since B[0]=src[0], this source alone predicts q0 ~= -4*pi*S[0]^2.
+                pulse_q0 = float(-4.0 * np.pi * np.asarray(state.scalars.S)[0]**2)
+                rec["initial_data_origin_quadrature_audit"] = {
+                    "initializer_rule": "B[0]=src[0] because integ[0]=0.5*dr*src[0] and r[0]=0.5*dr",
+                    "observed_q0": initial_q0,
+                    "local_source_prediction_minus_4pi_S0_squared": pulse_q0,
+                    "observed_minus_pulse_prediction": float(initial_q0 - pulse_q0),
+                    "source_term": "src contains -8*pi*r^2*rho_S with rho_S=0.5*S^2",
+                    "interpretation": "diagnostic correlation; compare with the correct even-source integral average before any production change",
+                }
 
             if step_index == steps:
                 break
@@ -554,6 +667,8 @@ def main() -> int:
             "The fit window and polynomial degree are explicit diagnostics, not a physical regularity bound.",
             "A nonzero extrapolated Aa intercept flags incompatibility with the expected even, trace-free centre series for this discrete profile; it does not identify the continuum equation responsible.",
             "The A_a L2 split is the pinned production source decomposition; its algebraic closure alone is not a continuum regularity proof.",
+            "The cell-0 metric/connection counterfactual fits q=(1-a/b)/r^2 through cells 1-3 and reevaluates the unchanged pinned operator on a copied state; it is causal evidence, not a proposed production correction.",
+            "The initial q0 versus -4*pi*S0^2 comparison isolates the scalar-pulse contribution in the initializer's first source sample; it does not substitute for a fully reconstructed regular radial integral.",
             "Stage histories distinguish the start-lapse-refreshed slice, explicit predictor, primary predictor, final implicit L2 operand, and accepted state. This does not supply internal sub-stages outside the documented production PIRK sequence.",
             "The accepted A_a/K update closure is checked only on r<=10 to avoid conflating the interior source budget with the finite outer-boundary reconstruction.",
             "No production physics, equation, boundary, coefficient, threshold, or scientific-admission flag is changed by this diagnostic.",
