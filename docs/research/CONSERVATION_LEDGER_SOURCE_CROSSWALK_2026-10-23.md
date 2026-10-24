@@ -503,3 +503,38 @@ The coupled-minus-control raw divergence increment before adding an extra condit
 
 **Disposition:** workflow succeeded, with `independent_total_stress_energy_divergence_closed=false` and `scientific_admission=false). This is a zero-shift frozen-state witness only; it does not prove evolving total-T conservation, resolve the radial operator discrepancy, close Issue #4, or settle Issue #210 density-normalization provenance. The time-flow / wave-generator hypothesis remains a conceptual research direction and is not tested by this zero-shift observer.
 
+### 2K. Current-source radial-divergence operator refinement — 24 October 2026
+
+The first current-source total-`T` witness showed that the pointwise cell-centred radial divergence and the spherical finite-volume cell average differed substantially at the origin at (N=60). The next bounded discriminator reused the same current-source observer and compared (N=32,64,128) at (r_{\max}=24), directional tangent epsilons (2\times10^{-5}) and (10^{-5}). It advanced zero production steps and retained both `beta_DM=0` control and `beta_DM=-0.04` conditional-coupling arms.
+
+**Reproducible evidence:** [workflow run 40122310834](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/40122310834), [artifact 12570874964](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/40122310834/artifacts/12570874964), diagnostic/workflow head `24d2297408bb6a2dae39a7aa6164ba7f62436ab9`. The source anchor is `4aec88d0e3ff028e0a65a8ac36b30948625df792`; vendor pin is `d6052d605673ce9d82cdc99b0df79855fa2ea215`. The workflow verified the declared source pins and wrote a signed, finite operator summary. Summary SHA-256: `575d6418b09385414bfcf2d6f3ec6f86b38e9c70b43ba48e574ec87d9ebcc898`. The same exact head passed [lightweight validation](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/40122310840) and [strict campaign/radiation-retry integration](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/40122310850).
+
+#### Annulus refinement
+
+The table reports RMS of the signed (
+u=r) divergence over cell centres (2\le r\le10). These are the two existing discrete observables, not one residual with two names.
+
+| (N) | (Delta r) | Pointwise cell-centred RMS | Spherical FV cell-average RMS | RMS of FV-minus-pointwise profile |
+|---:|---:|---:|---:|---:|
+| 32 | 0.75 | (1.5021\times10^{-8}) | (3.0039\times10^{-9}) | (1.4476\times10^{-8}) |
+| 64 | 0.375 | (1.5474\times10^{-9}) | (1.8654\times10^{-10}) | (1.4925\times10^{-9}) |
+| 128 | 0.1875 | (8.0421\times10^{-11}) | (1.1801\times10^{-11}) | (7.7535\times10^{-11}) |
+
+For the FV operator, RMS reduction factors are (16.10) and (15.81) for successive grid halvings, consistent with fourth-order convergence on this fixed annulus. The pointwise RMS factors are (9.71) and (19.24), so the coarsest-to-middle pair is not yet in a clean asymptotic regime, while the finer pair is consistent with approximately fourth-order decay.
+
+As an additional fixed-coordinate-radius check at (r=5), the pointwise signed values are (-6.7276\times10^{-9},-4.5201\times10^{-10},-2.8854\times10^{-11}); the FV values are (+4.0645\times10^{-9},+2.5910\times10^{-10},+1.6276\times10^{-11}). Both sequences decrease by roughly (15\text{–}16\times) per halving. This is evidence of convergence in the annulus, not authority to choose one discrete operator.
+
+#### Centre-cell limit remains open
+
+| (N) | Pointwise cell 0 | Pointwise cell 1 | FV cell-average 0 | FV cell-average 1 |
+|---:|---:|---:|---:|---:|
+| 32 | (+7.9102\times10^{-7}) | (+2.5050\times10^{-7}) | (+3.3435\times10^{-9}) | (+1.9757\times10^{-9}) |
+| 64 | (+8.2689\times10^{-8}) | (+3.9046\times10^{-8}) | (-1.2021\times10^{-9}) | (-3.9865\times10^{-10}) |
+| 128 | (-4.1154\times10^{-10}) | (+6.2412\times10^{-9}) | (-9.4929\times10^{-10}) | (-3.3693\times10^{-10}) |
+
+The centre-cell sequence is not monotonically convergent: cell 0 changes sign, and pointwise cell 1 remains positive at (N=128) while the FV cell-average remains negative. Accordingly, the refinement narrows the issue to a near-origin/operator-and-measure question; it does **not** establish origin closure.
+
+At the same frozen initial state, the coupled-minus-control radial-divergence increment is at roundoff scale: the largest absolute profile difference across these resolutions is about (1.4\times10^{-20}) for the pointwise operator and (7.7\times10^{-21}) for the FV operator. The two arms are therefore indistinguishable at this start slice to the recorded precision. This is not evidence that the conditional scalar–DM exchange law is physically admitted, nor does it test a later evolved state.
+
+**Disposition:** keep both operators in the evidence record, retain signed near-origin residuals, and do not select the lower residual. The existing analytic controls exercise each operator on separate known identities, but the production-state centre-cell trend still requires a matched-volume/operator derivation before any global total-(T) conservation claim. `independent_total_stress_energy_divergence_closed=false`, `scientific_admission=false`, and no physical residual threshold is applied. Issue #210 and Issue #4 remain open.
+
