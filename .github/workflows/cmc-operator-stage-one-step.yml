@@ -44,7 +44,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: ${{ matrix.baseline_artifact }}
-          path: baseline-reference/N${ matrix.resolution }}
+          path: baseline-reference/N${{ matrix.resolution }}
           github-token: ${{ github.token }}
           run-id: 40127716287
 
@@ -52,7 +52,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: ${{ matrix.candidate_artifact }}
-          path: candidate-reference/N${ matrix.resolution }}
+          path: candidate-reference/N${{ matrix.resolution }}
           github-token: ${{ github.token }}
           run-id: ${{ matrix.candidate_run_id }}
 
@@ -76,15 +76,15 @@ jobs:
         run: >-
           python tools/audit_cmc_operator_stage_one_step.py
           --resolution ${{ matrix.resolution }}
-          --baseline baseline-reference/N${ matrix.resolution }}
-          --candidate candidate-reference/N${ matrix.resolution }}
-          --out results/cmc-operator-stage-one-step/N${ matrix.resolution }}/report.json
+          --baseline baseline-reference/N${{ matrix.resolution }}
+          --candidate candidate-reference/N${{ matrix.resolution }}
+          --out results/cmc-operator-stage-one-step/N${{ matrix.resolution }}/report.json
 
       - name: Upload one-step signed stage ledger
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: cmc-operator-stage-one-step-N${ matrix.resolution }}
-          path: results/cmc-operator-stage-one-step/N${ matrix.resolution }}/
+          name: cmc-operator-stage-one-step-N${{ matrix.resolution }}
+          path: results/cmc-operator-stage-one-step/N${{ matrix.resolution }}/
           if-no-files-found: warn
           retention-days: 90
