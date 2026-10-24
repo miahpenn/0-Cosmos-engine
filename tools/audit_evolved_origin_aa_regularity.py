@@ -629,7 +629,10 @@ def _load_baseline_reference() -> tuple[dict, dict[str, np.ndarray], dict]:
         or not np.isclose(float(config.get("r_max", np.nan)), R_MAX, rtol=0.0, atol=1e-12)
         or not np.isclose(float(config.get("target_time", np.nan)), TARGET_TIME, rtol=0.0, atol=1e-12)
         or not np.isclose(float(config.get("cfl", np.nan)), CFL, rtol=0.0, atol=1e-12)
-        or not np.isclose(float(config.get("fit", {}).get("fit_r_max", FIT_R_MAX), FIT_R_MAX), FIT_R_MAX)
+        or not np.isclose(
+            float(config.get("fit", {}).get("fit_r_max", FIT_R_MAX)),
+            FIT_R_MAX, rtol=0.0, atol=1.0e-12,
+        )
         or int(config.get("fit", {}).get("degree", FIT_DEGREE)) != FIT_DEGREE
     ):
         raise RuntimeError(f"baseline reference configuration mismatch: {config}")
