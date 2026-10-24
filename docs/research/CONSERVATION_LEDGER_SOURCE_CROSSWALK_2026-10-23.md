@@ -538,3 +538,44 @@ At the same frozen initial state, the coupled-minus-control radial-divergence in
 
 **Disposition:** keep both operators in the evidence record, retain signed near-origin residuals, and do not select the lower residual. The existing analytic controls exercise each operator on separate known identities, but the production-state centre-cell trend still requires a matched-volume/operator derivation before any global total-(T) conservation claim. `independent_total_stress_energy_divergence_closed=false`, `scientific_admission=false`, and no physical residual threshold is applied. Issue #210 and Issue #4 remain open.
 
+### 2L. Derive the total-T control-volume ledger from the covariant identity — 24 October 2026
+
+This section fixes the *accounting form* for the next research-only ledger. It does not choose a physical source law or reinterpret the fixed-R Misner–Sharp residual.
+
+For spherical coordinates with zero shift, let (R(t,r)) be the areal radius and set the angular-integrated metric weight
+[
+W(t,r)=4\pi\sqrt{-g}\big/\sin\theta
+      =4\pi\alpha\sqrt{\gamma_{rr}}\,R^2.
+]
+For a named total stress tensor with (
+abla_\mu T^\mu{}_\nu=Q_\nu), the mixed-index identity is
+[
+\partial_t(W T^t{}_\nu)+\partial_r(W T^r{}_\nu)
+ =W\left(Q_\nu+\tfrac12 T^{ab}\partial_\nu g_{ab}\right).
+]
+Thus a zero covariant divergence does **not** mean the two coordinate flux derivatives sum to zero: the metric-work term must be retained, and (Q_\nu) may be set to zero only after the relevant sector exchange and normalization have been justified. (\nu=t) and (\nu=r) are separate signed component ledgers.
+
+For a radial control volume whose boundaries (r_i(t),r_o(t)) may move, define
+[
+I_\nu(t)=\int_{r_i(t)}^{r_o(t)} W T^t{}_\nu\,dr,qquad
+S_\nu(t)=\int_{r_i(t)}^{r_o(t)}
+W\left(Q_\nu+\tfrac12T^{ab}\partial_\nu g_{ab}\right)dr.
+]
+Applying Leibniz's rule gives the auditable balance
+[
+\frac{dI_\nu}{dt}
++\big[W(T^r{}_\nu-\dot r\,T^t{}_\nu)\big]_{r_o}
+-\big[W(T^r{}_\nu-\dot r\,T^t{}_\nu)\big]_{r_i}
+=S_\nu.
+]
+For a constant-areal-radius boundary, use (R(t,r_*(t))=R_*), hence \(\dot r_*=-R_t/R_r\) where (R_r\ne0). The relative-flux term therefore includes the moving-boundary sweep without silently treating a fixed-coordinate surface as fixed (R). If (R_r=0), this coordinate representation fails closed.
+
+**Operator decision, based on the equation being measured—not residual size.** For a control-volume balance, the finite-volume cell-average form in `covariant_divergence_fv_terms_from_profiles` is the structurally aligned diagnostic: it telescopes reconstructed radial face fluxes and pairs them with cell-integrated time-density and metric-source terms under the same `sqrt(-g)` measure. Retain the pointwise cell-centred derivative as an independent local diagnostic, especially at the origin. Do not substitute one for the other, and do not confuse this total-T FV reconstruction with the production per-species HLL/Valencia stage budget.
+
+**Exact-head evidence refreshed at crosswalk head `c81c7fee8b9c44c4304a0673341b8ec3bfff2ac0`.** The current-source total-T refinement completed successfully at [workflow 40122458607](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/40122458607) and preserved artifact [12572200129](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/40122458607/artifacts/12572200129); lightweight validation, strict JSON, and campaign/radiation-retry integration also passed at this head. For the annulus (2\le r\le10), FV RMS values at (N=32,64,128) are (3.0039\times10^{-9},1.8654\times10^{-10},1.1801\times10^{-11}), approximately 16x reduction per halving. The pointwise values are (1.5021\times10^{-8},1.5474\times10^{-9},8.0421\times10^{-11}); the coarse-to-middle ratio is not yet asymptotic. Crucially, the center cells remain sign-sensitive/non-monotone. This supports the **discretization class** for a volume ledger, not physical closure or center regularity.
+
+The current-source fixed-R witness also passed its exact-head validation and retains both flux/work interpolation orders; its fixed-R mass-rate residual remains signed and unresolved. Keep the two lanes separate:
+- **total-T control-volume balance:** integrate the covariant-divergence identity with signed metric-work and any justified (Q_\nu);
+- **Misner–Sharp fixed-R balance:** differentiate the same-stage geometric mass and compare against the archived flux, radial-pressure work, and surface-sweep identity.
+
+Before implementing the integrated shell reporter, require its output to expose both boundary relative fluxes, the integrated metric-work term, any explicitly conditional sector-exchange term, (dI_\nu/dt), and the signed residual separately. Include the orientation-reversal negative control and an analytic manufactured control. No production equations, physical source normalization, historical pins, residual thresholds, or admission flags change under this step. Issue #210, Issue #4, total-T closure, and the radiation near-cone gate remain open.
