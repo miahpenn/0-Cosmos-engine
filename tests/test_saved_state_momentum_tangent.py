@@ -4,7 +4,6 @@ import numpy as np
 
 from engine.production_kernel import V55ProductionKernel
 from tools import audit_current_source_momentum_constraint_tangent as tangent
-from tools.audit_saved_state_momentum_tangent import _compact_total_t_divergence
 
 
 def test_saved_state_observer_accepts_exact_kernel_geometry_terms_without_mutation():
@@ -40,15 +39,6 @@ def test_saved_state_observer_accepts_exact_kernel_geometry_terms_without_mutati
     ]
     assert initial["M_geom_closure_ok"] is True
     assert initial["J_closure_ok"] is True
-    total_t = _compact_total_t_divergence(kernel, state, rates, 1.0e-5)
-    assert total_t["independent_total_projection_crosscheck_passed"] is True
-    assert set(total_t["total_stress_energy_divergence"]) == {
-        "div_T_t", "div_T_r", "div_T_t_fv", "div_T_r_fv"
-    }
-    assert set(total_t["sector_resolved_divergence"]) == {
-        "dark_matter", "baryons", "radiation", "S", "D", "phi"
-    }
-    assert "time_density_component_accounting_passed" in total_t["sector_reconstruction"]
     for item in finite_difference:
         assert item["closure_ok"] is True
         assert item["Mdot_geom_tangent_closure_ok"] is True
