@@ -149,6 +149,27 @@ The current-source witness was executed on PR #414's merge checkout \`e636deec2b
 
 These results establish **stage-aligned operand traceability and local source assembly**, not total stress-energy conservation. In particular, the algebraic mass-rate decomposition closes at \`−2.51e−18\`, but that identity only checks the expansion of the chain rule; it does not make either physical flux/work remainder acceptable. The fixed-\`R\` continuum law and the stress normalization remain independent obligations.
 
+### 2D.1 Latest exact-head current-source artifact
+
+The later exact-head run is preserved at [workflow run 40039446398 / artifact 12539085382](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/40039446398/artifacts/12539085382). PR head was `3b68e00d0617bec623bade5949ec0916b2a0a539`; the workflow checked out merge SHA `c6c5f448ea0c8ec1a932da023309fb19e12c9cc2`. All 25 production blob pins and the vendor gitlink matched. Runtime recorded Python 3.12.15 and NumPy 2.5.4; `OPENBLAS_CORETYPE` and `NPY_DISABLE_CPU_FEATURES` were unset. This pins the source witness, but does not claim cross-run bitwise identity across CPU-dispatch environments.
+
+The one-step capture remains (N=24), (R_{\max}=24), CFL (=0.01), (t_{\rm final}=0.01), with the start RHS at (t=0), zero shift, and radial Maxwell disabled. All seven geometry arrays match their captured RHS-stage arrays exactly. All nine live matter RHS component reconstructions have zero observed arithmetic residual in this report. The conditional scalar exchange check has maximum absolute residual (8.470329472543003\times10^{-22}) against a roundoff bound (6.48128968401772\times10^{-19}).
+
+At (R=10), the retained signed fixed-(R) residuals are:
+
+- Factorized interpolation: (-2.455408867470726\times10^{-6}).
+- Composite interpolation: (-7.358593209677621\times10^{-7}).
+- Factorized versus composite radial-pressure work: (2.1020774473369088\times10^{-4}) versus (2.0848819518718792\times10^{-4}).
+- Stress-flux values: (-4.846324899808519\times10^{-19}) versus (-4.827228557047598\times10^{-19}).
+
+The residual difference is (1.7195495465\times10^{-6}), essentially the difference between the two recorded pressure-work operators; the flux difference is negligible on this scale. This identifies interpolation order as the immediate discrete sensitivity, **not** which operator is physically authorized. Neither result is thresholded or selected.
+
+The same report records a separate mass-gradient witness at the active bracket: native discrete gradient (0.006134080955367126), local-composite RHS (0.006106681695669592), and their residual (2.7399259697534304\times10^{-5}). The Hamiltonian contribution is (9.013332209810083\times10^{-6}), the momentum contribution is (2.2018768110436523\times10^{-18}), and the remaining operator term is (1.8385927487722022\times10^{-5}). The chain-rule term expansion reconstructs to (-5.66\times10^{-18}); that arithmetic closure does not close the physical flux/work balance.
+
+**Source mapping retained for the next derivation:** the live boundary observer consumes the canonical `engine/stress_energy.py` projection assembled by `engine/v55_matter.py`. It takes total `j` and `pr` from scalar plus fluid projections (EM is zero in this run); the archived bridge uses (T^r{}_t=-\alpha\gamma^{rr}j_r) and (T^r{}_r=p_r) under its stated zero-shift convention. The code defines scalar `j=-\Pi\,\partial_r f` per sector scale and fluid `j=hW^2\gamma_{rr}v_r/\kappa`; the radial stresses are assembled sector-wise. This is the implementation mapping, not yet independent authorization that every active S/D/\(\phi\) normalization and tensor convention matches the action-bearing archive source (Issue #210).
+
+Limits remain unchanged: `scientific_admission=false`, `acceptance_oracle_satisfied=false`, no physical residual threshold, and no closure claim for total (T^{\mu\nu}) or Issue #4.
+
 ### 2E. Fixed-\(R\) continuum identity from the archived coordinate-worldtube balance
 
 This is a **conditional continuum derivation** under the archived spherical CMC convention, \(G=c=1\), \(\beta^r_{\rm shift}=0\), coordinate time \(t\), a consistent total stress projection, and \(R_r\ne0\). It derives the moving-tube chain rule from the existing fixed-coordinate identity; it does not resolve the missing primary action/normalization provenance.
