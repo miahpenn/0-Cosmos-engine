@@ -21,6 +21,8 @@ jobs:
   accepted-state-tangent:
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    env:
+      COSMOS_PINNED_SOURCE_ROOT: ${{ github.workspace }}/source
     strategy:
       fail-fast: false
       matrix:
@@ -36,6 +38,15 @@ jobs:
       - name: Check out diagnostic branch and pinned vendor
         uses: actions/checkout@v4
         with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Check out exact historical source reference for independent provenance
+        uses: actions/checkout@v4
+        with:
+          repository: miahpenn/0-Cosmos-engine
+          ref: 7f47669a1c0edfafef9fc5f27b2db80840d3f035
+          path: source
           fetch-depth: 0
           submodules: recursive
 
