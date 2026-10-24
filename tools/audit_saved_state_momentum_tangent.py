@@ -12,6 +12,7 @@ import argparse
 import json
 import math
 from pathlib import Path
+import subprocess
 import sys
 from typing import Any
 
@@ -32,6 +33,8 @@ R_MAX = 80.0
 EXPECTED_TIME = 0.6
 EPSILONS = (2.0e-5, 1.0e-5)
 CENTRE_CELLS = (0, 1, 2, 6)
+TANGENT_HELPER_PATH = "tools/audit_current_source_momentum_constraint_tangent.py"
+TANGENT_HELPER_BLOB = "c62c80ab795fa9b1e08c6e422796cf08b9ee0bdc"
 
 
 def _arr(value: Any) -> np.ndarray:
@@ -243,10 +246,19 @@ def main() -> int:
     parser.add_argument("--out", required=True)
     args = parser.parse_args()
 
-    provenance = tangent.provenance()
+    # The imported tangent helper has a historical provenance guard for an
+    # earlier source snapshot. Do not bypass it by changing those old pins; instead,
+    # this current-source observer validates the active PR source via its exact
+    # source_audit pins and separately locks the reused helper's own Git blob.
     source_pins = source_audit.verify_source_pins()
-    if provenance["vendor_commit"] != source_pins["vendor_commit"]:
-        raise RuntimeError("tangent and saved-state vendor pins disagree")
+    tangent_helper_blob = subprocess.check_output(
+        ["git", "rev-parse", f"HEAD:{TANGENT_HELPER_PATH}"], text=True
+    ).strip()
+    if tangent_helper_blob != TANGENT_HELPER_BLOB:
+        raise RuntimeError(
+            "reused signed tangent helper changed from its reviewed diagnostic blob: "
+            f"expected={TANGENT_HELPER_BLOB}, actual={tangent_helper_blob}"
+        )
     n = args.resolution
     baseline = _load_bundle(args.baseline, n, "baseline")
     candidate = _load_bundle(args.candidate, n, "origin_half_cell_candidate")
@@ -261,8 +273,13 @@ def main() -> int:
         "scientific_admission": False,
         "production_or_vendor_files_modified": False,
         "source_pins": {
-            "momentum_tangent": provenance,
-            "saved_checkpoint_loader": source_pins,
+            "current_engine_vendor_dependencies": source_pins,
+            "reused_tangent_helper": {
+                "path": TANGENT_HELPER_PATH,
+                "git_blob_sha1": tangent_helper_blob,
+                "historical_source_guard_not_used": True,
+                "reason": "The helper's own older production-source pin guard is not applicable to the later current-source branch; current engine source is independently verified by saved_checkpoint_loader source pins.",
+            },
         },
         "configuration": {
             "resolution": n,
