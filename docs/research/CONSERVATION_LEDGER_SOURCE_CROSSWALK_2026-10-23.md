@@ -236,6 +236,44 @@ The first current-source artifact is now captured and its operator checks pass. 
 
 No broad campaign rerun, historical-pin update, production-equation edit, runtime-default change, scientific-admission promotion, or Issue #4 status change is authorized by this step.
 
+
+### 2F. Current-head operator discriminator and source/work identity — 24 October 2026
+
+The exact-head [Lightweight validation run 40113174226](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/40113174226) completed successfully and preserved [artifact 12567890444](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/40113174226/artifacts/12567890444). Its report records PR source head \`5c7e57146cd13eb18b147f27938982a14f4f19e7\` and execution checkout \`7075f578af165dc1967e8ab17810face989314d1\`. All 25 production-file blob pins and the vendor gitlink match. The run is a single accepted \(N=24\) step; its captured RHS is at \(t=0\), \(R_*=10\), zero shift, and radial Maxwell disabled. \`scientific_admission=false\`, \`acceptance_oracle_satisfied=false\`, and no physical residual threshold is applied.
+
+The nine live matter rest/energy/momentum reconstructions have zero observed arithmetic residual in this report. The conditional scalar exchange reconstruction has maximum absolute residual \(8.470329472543003\times10^{-22}\) against an operand-scaled bound \(6.48128968401772\times10^{-19}\). All seven stage arrays \((a,b,X,\alpha,\beta,A_a,K)\) match their captured RHS-stage arrays exactly. These are implementation and stage-alignment checks, not a proof of physical exchange or total-\(T\) conservation.
+
+**Fixed-\(R\) mass-rate comparison, with the same piecewise-linear mass observable and its secant sweep used for both stress operators:**
+
+| Operand at \(R_*=10\) | Factorized factors | Composite local product |
+|---|---:|---:|
+| Stress flux | \(-4.846324899808519\times10^{-19}\) | \(-4.827228557047598\times10^{-19}\) |
+| Radial-pressure work | \(2.1020774473369088\times10^{-4}\) | \(2.0848819518718792\times10^{-4}\) |
+| Piecewise-linear fixed-\(R\) sweep | \(-3.4668261280958277\times10^{-4}\) | \(-3.4668261280958277\times10^{-4}\) |
+| Predicted fixed-\(R\) rate | \(-1.3647486807589237\times10^{-4}\) | \(-1.3819441762239534\times10^{-4}\) |
+| Measured piecewise-linear fixed-\(R\) rate | \(-1.389302769433631\times10^{-4}\) | \(-1.389302769433631\times10^{-4}\) |
+| Signed residual | \(-2.455408867470726\times10^{-6}\) | \(-7.358593209677621\times10^{-7}\) |
+
+Because the measured mass tangent and secant sweep are held common in this table, the residual difference \(1.7195495465\times10^{-6}\) is the radial-pressure-work difference to the displayed precision; the stress-flux difference is negligible at this scale. This is a clean comparison of the two recorded stress/work interpolation operators, but it still does **not** authorize choosing one from the smaller physical remainder. The fourth-order sampled-\(D_r M\) sweep is also retained separately; it must not be mixed with the piecewise-linear tangent or secant sweep.
+
+**The mass-gradient identity is even more operator-sensitive.** At the same target, the sampled discrete gradient is \(0.006134080955367126\). If the primitive factors are interpolated and then multiplied, the RHS is \(0.006140802495695930\), giving residual \(-6.7215403288046\times10^{-6}\). If the cell-local product \(4\pi R_i^2(\rho_i D_rR_i+j_i\dot R_i/\alpha_i)\) is formed first and that composite profile is then interpolated, the RHS is \(0.006106681695669592\), giving residual \(+2.7399259697534304\times10^{-5}\). The two RHS operators differ by \(3.412080002633804\times10^{-5}\), and the residual changes sign. The composite residual decomposes into a Hamiltonian contribution \(9.013332209810083\times10^{-6}\), a negligible momentum contribution \(2.2018768110436523\times10^{-18}\), and an unassigned operator remainder \(1.8385927487722022\times10^{-5}\).
+
+The bracket cells independently show the same unresolved split: at \(R=9.5\), the mass-gradient residual is \(2.9585674663249253\times10^{-5}\), with Hamiltonian contribution \(7.475602277123505\times10^{-6}\) and operator remainder \(2.211007238612415\times10^{-5}\); at \(R=10.5\), the residual is \(2.5212844731819367\times10^{-5}\), with Hamiltonian contribution \(1.0551062142496657\times10^{-5}\) and operator remainder \(1.4661782589319905\times10^{-5}\). Do not confuse this cell-local composite residual with the distinct factor-interpolated target residual above. Neither remainder by itself establishes a missing continuum source.
+
+**A local source/work identity does close algebraically.** The existing diagnostic reconstructs the matter-source contribution
+\[
+S=R^3K^\theta{}_\theta\,\dot K^\theta{}_\theta\big|_{\rm matter},\quad
+W=-4\pi R^2p_r\dot R,\quad
+D=\frac{4\pi}{3}R^2\rho\dot R
+\]
+and tests
+\[
+S-W+D=4\pi R^2(\dot R+\alpha R K^\theta{}_\theta)(\rho/3+p_r).
+\]
+At the target, the composite-profile kinematic closure is \(-3.469446951953608\times10^{-18}\), and the composite \(S-W+D\) residual is \(-4.81482486096809\times10^{-35}\) (its algebraic reconstruction residual is about \(5.86\times10^{-21}\)). Under factorized interpolation, the kinematic closure is \(-8.553779305628395\times10^{-7}\) and the identity's nonzero value is \(1.4121634228192285\times10^{-9}\), consistent with the independently computed kinematic right-hand side. This identifies a noncommuting interpolation effect in the source/work identity; it does not prove global conservation or pick the physical stress-flux operator.
+
+**Next bounded action:** specify and test the discrete operator for the mass-gradient identity from the archived continuum derivation and the chosen fixed-\(R\) observable, using operator-matched manufactured profiles and refinement evidence. Keep both product orders visible until the discretization is justified independently of residual size. Then map the resulting signed identity to the already captured total-stress projection and geometry tangent. No production equation, source normalization, historical pin, or admission flag changes follow from this report.
+
 ## 3. Spherical mass identity: exact scope matters
 
 The archived CMC bridge defines the areal radius `R(t,r)` and Misner–Sharp mass
