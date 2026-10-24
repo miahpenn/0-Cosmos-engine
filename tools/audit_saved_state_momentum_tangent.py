@@ -162,12 +162,44 @@ def _compact_total_t_divergence(kernel, state, rates, epsilon: float) -> dict:
         d_flux_r_fv = _arr(total_t_audit.finite_volume_radial_flux_derivative(
             flux_r, dr, origin_power=2
         ))
+        product_term_t_current = coeff_t * d1(current_up, -1)
+        product_term_t_metric = current_up * d1(coeff_t, +1)
         product_residual_t = d_flux_t - (
-            coeff_t * d1(current_up, -1) + current_up * d1(coeff_t, +1)
+            product_term_t_current + product_term_t_metric
         )
+        product_term_r_pressure = coeff_r * d1(pressure_r, +1)
+        product_term_r_metric = pressure_r * d1(coeff_r, +1)
         product_residual_r = d_flux_r - (
-            coeff_r * d1(pressure_r, +1) + pressure_r * d1(coeff_r, +1)
+            product_term_r_pressure + product_term_r_metric
         )
+        sqrt_minus_g = _arr(objects["sqrt_minus_g"])
+        pointwise_terms = decomposition["sectors"][sector_name][
+            "operator_component_decomposition"
+        ]["pointwise"]["raw_signed_arrays"]
+        pointwise_div_t = _arr(pointwise_terms["component_sum_div_T_t"])
+        pointwise_time_density = _arr(pointwise_terms["time_density_div_T_t"])
+        pointwise_metric_source = _arr(pointwise_terms["metric_source_div_T_t"])
+        product_reconstructed_flux_t = (
+            product_term_t_current + product_term_t_metric + product_residual_t
+        )
+        product_flux_closure = d_flux_t - product_reconstructed_flux_t
+        product_reconstructed_div_t = (
+            pointwise_time_density
+            + pointwise_metric_source
+            + (product_term_t_current + product_term_t_metric + product_residual_t)
+            / sqrt_minus_g
+        )
+        divergence_product_closure = pointwise_div_t - product_reconstructed_div_t
+        remainder_after_product_defect = (
+            pointwise_div_t - product_residual_t / sqrt_minus_g
+        )
+        flux_closure_max = _max_abs(product_flux_closure)
+        divergence_closure_max = _max_abs(divergence_product_closure)
+        if flux_closure_max > 2.0e-18 or divergence_closure_max > 2.0e-18:
+            raise FloatingPointError(
+                f"{sector}: exact pointwise flux/product reconstruction failed: "
+                f"flux={flux_closure_max:.4e}, divergence={divergence_closure_max:.4e}"
+            )
 
         def signed(values: Any) -> dict:
             arr = _arr(values)
@@ -195,6 +227,23 @@ def _compact_total_t_divergence(kernel, state, rates, epsilon: float) -> dict:
             "discrete_product_rule_residual": {
                 "time_flux_coeff_times_current": signed(product_residual_t),
                 "radial_flux_coeff_times_pressure": signed(product_residual_r),
+                "time_flux_product_terms": {
+                    "metric_coefficient_times_current_derivative": signed(product_term_t_current),
+                    "current_times_metric_coefficient_derivative": signed(product_term_t_metric),
+                },
+                "radial_flux_product_terms": {
+                    "metric_coefficient_times_pressure_derivative": signed(product_term_r_pressure),
+                    "pressure_times_metric_coefficient_derivative": signed(product_term_r_metric),
+                },
+                "exact_reconstruction": {
+                    "D1_flux_minus_product_terms_minus_residual_max_abs": flux_closure_max,
+                    "divergence_minus_time_density_metric_source_product_balance_max_abs": divergence_closure_max,
+                    "pointwise_divergence": signed(pointwise_div_t),
+                    "normalized_product_rule_defect": signed(product_residual_t / sqrt_minus_g),
+                    "remainder_after_product_defect": signed(remainder_after_product_defect),
+                    "pointwise_time_density_contribution": signed(pointwise_time_density),
+                    "pointwise_metric_source_contribution": signed(pointwise_metric_source),
+                },
                 "definition_time": (
                     "D1_odd(A_t*J^r) - A_t*D1_odd(J^r) - J^r*D1_even(A_t), "
                     "A_t=-alpha^2*sqrt(gamma), J^r=j/gamma_rr"
@@ -204,8 +253,9 @@ def _compact_total_t_divergence(kernel, state, rates, epsilon: float) -> dict:
                     "A_r=alpha*sqrt(gamma)"
                 ),
                 "interpretation_limit": (
-                    "Exact finite-difference product-rule residual for the recorded stencil; "
-                    "not itself a physical conservation residual or proof either flux operator is authoritative."
+                    "The signed terms reconstruct the implemented pointwise divergence exactly; "
+                    "the size of the product-rule defect is a diagnostic correlation, not by itself "
+                    "a derivation that the remaining continuum source balance vanishes."
                 ),
             },
         }
