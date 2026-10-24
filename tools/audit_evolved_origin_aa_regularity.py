@@ -185,13 +185,15 @@ def _even_origin_fit(r: np.ndarray, values: np.ndarray) -> dict:
 def _local_metric_regularization_counterfactual(
     grid, geometry, vacuum, actual_geometry_terms: dict[str, np.ndarray]
 ) -> dict:
-    """Replace only first-cell metric/connection values by a local regular continuation.
+    """Initial-slice-only regular continuation test; never impose it on evolved fields.
 
-    q=(1-a/b)/r^2 is fitted through cells 1,2,3 in r^2. The fit defines a
-    determinant-consistent metric ratio a/b=1-r^2*q, then a, b, X, and Lambda
-    at cell zero. The unchanged pinned discrete Ricci operator is reevaluated
-    on a copied state. This is diagnostic only; it never mutates the accepted
-    state or production equations.
+    q=(1-a/b)/r^2 is fitted through cells 1,2,3 in r^2. At initialization only,
+    the fit defines the same determinant-consistent ratio a/b=1-r^2*q and the
+    initializer's corresponding X and metric-derived Lambda. The unchanged
+    pinned discrete Ricci operator is reevaluated on a copied state. After
+    evolution X and Lambda are independent evolved fields, so this relation
+    would not be an admissible same-state physical counterfactual. This helper
+    is diagnostic only; it never mutates the accepted state or production equations.
     """
     r = _arr(grid.centers)
     if len(r) < 5:
@@ -370,7 +372,7 @@ def _capture_arrays(
             _local_metric_regularization_counterfactual(
                 grid, g, vacuum, geom_terms
             )
-            if r.size >= 5 else None
+            if label == "accepted_000" and r.size >= 5 else None
         ),
         "step_index": int(step_index),
         "accepted_time_at_step_start": float(t_start),
@@ -667,7 +669,7 @@ def main() -> int:
             "The fit window and polynomial degree are explicit diagnostics, not a physical regularity bound.",
             "A nonzero extrapolated Aa intercept flags incompatibility with the expected even, trace-free centre series for this discrete profile; it does not identify the continuum equation responsible.",
             "The A_a L2 split is the pinned production source decomposition; its algebraic closure alone is not a continuum regularity proof.",
-            "The cell-0 metric/connection counterfactual fits q=(1-a/b)/r^2 through cells 1-3 and reevaluates the unchanged pinned operator on a copied state; it is causal evidence, not a proposed production correction.",
+            "The cell-0 metric/connection counterfactual is restricted to accepted_000: after evolution X and Lambda are independent evolved fields, so imposing initializer relations on later states would be invalid.",
             "The initial q0 versus -4*pi*S0^2 comparison isolates the scalar-pulse contribution in the initializer's first source sample; it does not substitute for a fully reconstructed regular radial integral.",
             "Stage histories distinguish the start-lapse-refreshed slice, explicit predictor, primary predictor, final implicit L2 operand, and accepted state. This does not supply internal sub-stages outside the documented production PIRK sequence.",
             "The accepted A_a/K update closure is checked only on r<=10 to avoid conflating the interior source budget with the finite outer-boundary reconstruction.",
