@@ -34,6 +34,15 @@ sys.modules[_CURRENT_SPEC.name] = CURRENT
 _CURRENT_SPEC.loader.exec_module(CURRENT)
 AUDIT = CURRENT.AUDIT
 
+_WORLD_TUBE_SPEC = importlib.util.spec_from_file_location(
+    "_current_source_worldtube_for_shell_ledger", ROOT / "engine" / "worldtube.py"
+)
+if _WORLD_TUBE_SPEC is None or _WORLD_TUBE_SPEC.loader is None:
+    raise ImportError("cannot load current-source worldtube observables")
+WORLD_TUBE = importlib.util.module_from_spec(_WORLD_TUBE_SPEC)
+sys.modules[_WORLD_TUBE_SPEC.name] = WORLD_TUBE
+_WORLD_TUBE_SPEC.loader.exec_module(WORLD_TUBE)
+
 SCHEMA = "current_source_moving_fixed_R_total_T_shell_ledger_v1"
 DEFAULT_OUTPUT = Path("results/issue4-current-source-total-T-shell-ledger/report.json")
 BETA_DM_CONTROL = 0.0
@@ -195,6 +204,126 @@ def _relative_flux(bundle: dict[str, Any], nu: str, coordinate: float, speed: fl
     return profile_value(r, flux, coordinate) - float(speed) * profile_value(r, density, coordinate)
 
 
+def _piecewise_slope(x: np.ndarray, y: np.ndarray, target: float) -> tuple[float, int]:
+    x = finite("piecewise-slope abscissa", x)
+    y = finite("piecewise-slope profile", y)
+    if x.ndim != 1 or y.shape != x.shape or x.size < 2 or np.any(np.diff(x) <= 0):
+        raise ValueError("piecewise slope requires aligned increasing profiles")
+    if target < x[0] or target > x[-1]:
+        raise ValueError("piecewise slope target lies outside profile")
+    left = int(np.searchsorted(x, target, side="right") - 1)
+    left = max(0, min(left, x.size - 2))
+    return float((y[left + 1] - y[left]) / (x[left + 1] - x[left])), left
+
+
+def _misner_sharp_fixed_R_balance(
+    base_state,
+    base: dict[str, Any],
+    plus: dict[str, Any],
+    minus: dict[str, Any],
+    boundary: dict[str, Any],
+    epsilon: float,
+    mass_base: np.ndarray,
+    mass_plus: np.ndarray,
+    mass_minus: np.ndarray,
+    mass_rate_coordinate: np.ndarray,
+    mass_gradient_coordinate: np.ndarray,
+    Rr_profile: np.ndarray,
+    Rdot_profile: np.ndarray,
+) -> dict[str, Any]:
+    """Compare two discrete fixed-R Misner-Sharp rate operators on the shell state."""
+    target = float(boundary["target_areal_radius"])
+    inv = 1.0 / (2.0 * float(epsilon))
+    R = base["R"]
+    alpha_R = profile_value(R, base["alpha"], target)
+    gamma_inv_R = profile_value(R, 1.0 / base["gamma_rr"], target)
+    j_profile = finite("total radial current for MS balance", base["projection"]["j"])
+    pr_profile = finite("total radial stress for MS balance", base["projection"]["pr"])
+    j_R = profile_value(R, j_profile, target)
+    pr_R = profile_value(R, pr_profile, target)
+    Rr_R = profile_value(R, Rr_profile, target)
+    Rdot_R = profile_value(R, Rdot_profile, target)
+    if abs(Rr_R) <= np.finfo(np.float64).tiny:
+        raise ValueError("fixed-R Misner-Sharp balance requires nonzero dR/dr")
+
+    coordinate_speed = -Rdot_R / Rr_R
+    mass_gradient_R = profile_value(R, mass_gradient_coordinate, target)
+    coordinate_mass_rate_R = profile_value(R, mass_rate_coordinate, target)
+    factorized_sweep = coordinate_speed * mass_gradient_R
+    factorized_fixed_R_rate = coordinate_mass_rate_R + factorized_sweep
+    factorized_flux = -4.0 * math.pi * target**2 * alpha_R * gamma_inv_R * j_R * Rr_R
+    factorized_pressure_work = -4.0 * math.pi * target**2 * pr_R * Rdot_R
+    factorized_predicted = factorized_flux + factorized_pressure_work + factorized_sweep
+    factorized_residual = factorized_fixed_R_rate - factorized_predicted
+
+    # Composite operator: form each profile before interpolating to fixed R.
+    flux_profile = finite(
+        "composite Misner-Sharp stress-flux profile",
+        -4.0 * math.pi * R**2 * base["alpha"] * (1.0 / base["gamma_rr"])
+        * j_profile * Rr_profile,
+    )
+    pressure_work_profile = finite(
+        "composite Misner-Sharp pressure-work profile",
+        -4.0 * math.pi * R**2 * pr_profile * Rdot_profile,
+    )
+    composite_flux = profile_value(R, flux_profile, target)
+    composite_pressure_work = profile_value(R, pressure_work_profile, target)
+    composite_mass_rate = (
+        profile_value(plus["R"], mass_plus, target)
+        - profile_value(minus["R"], mass_minus, target)
+    ) * inv
+    composite_dm_dR, bracket_left = _piecewise_slope(R, mass_base, target)
+    composite_sweep = -Rdot_R * composite_dm_dR
+    composite_predicted = composite_flux + composite_pressure_work + composite_sweep
+    composite_residual = composite_mass_rate - composite_predicted
+
+    values = (
+        coordinate_speed, mass_gradient_R, coordinate_mass_rate_R, factorized_sweep,
+        factorized_fixed_R_rate, factorized_flux, factorized_pressure_work,
+        factorized_predicted, factorized_residual, composite_flux,
+        composite_pressure_work, composite_mass_rate, composite_dm_dR,
+        composite_sweep, composite_predicted, composite_residual,
+    )
+    if not all(math.isfinite(float(value)) for value in values):
+        raise FloatingPointError("Misner-Sharp fixed-R balance contains non-finite components")
+    return {
+        "target_areal_radius": target,
+        "radial_stress_and_flux_projection": (
+            "F=-4*pi*R^2*alpha*gamma^rr*j_r*R_r; "
+            "W=-4*pi*R^2*p_r*R_t; S_R=(dr*/dt)*partial_r(m_MS)"
+        ),
+        "factorized_native_derivative": {
+            "coordinate_mass_rate_at_fixed_r_interpolated_to_R": float(coordinate_mass_rate_R),
+            "native_mass_gradient_dmdr": float(mass_gradient_R),
+            "coordinate_speed_minus_Rt_over_Rr": float(coordinate_speed),
+            "moving_surface_sweep": float(factorized_sweep),
+            "fixed_R_mass_rate_chain_rule": float(factorized_fixed_R_rate),
+            "stress_flux": float(factorized_flux),
+            "radial_pressure_work": float(factorized_pressure_work),
+            "predicted_fixed_R_mass_rate": float(factorized_predicted),
+            "signed_physical_remainder": float(factorized_residual),
+        },
+        "composite_interpolant": {
+            "mass_profile_bracket_left_index": int(bracket_left),
+            "fixed_R_mass_rate_from_plus_minus_interpolant": float(composite_mass_rate),
+            "piecewise_dm_dR": float(composite_dm_dR),
+            "Rdot_at_fixed_coordinate": float(Rdot_R),
+            "moving_surface_sweep": float(composite_sweep),
+            "stress_flux": float(composite_flux),
+            "radial_pressure_work": float(composite_pressure_work),
+            "predicted_fixed_R_mass_rate": float(composite_predicted),
+            "signed_physical_remainder": float(composite_residual),
+        },
+        "interpretation": (
+            "These are two different discrete Misner-Sharp operators on the same "
+            "base/plus/minus states and the same fixed-R face. Preserve both signed "
+            "remainders; neither is selected by residual size."
+        ),
+        "physical_residual_threshold_applied": False,
+        "scientific_admission": False,
+    }
+
+
 def _one_shell_tangent(base_state, plus_state, minus_state, epsilon: float,
                        lower_R: float, upper_R: float) -> dict[str, Any]:
     base = _state_bundle(base_state)
@@ -215,8 +344,6 @@ def _one_shell_tangent(base_state, plus_state, minus_state, epsilon: float,
         rp = _coordinate_for_R(plus, target)
         rm = _coordinate_for_R(minus, target)
         speed = (rp - rm) * inv
-        Rdot = finite("areal-radius directional rate", (plus["R"] - minus["R"]) * inv)
-        Rr = finite("radial areal-radius derivative", AUDIT.d1(base_state.grid, base["R"], +1))
         speed_from_identity = -profile_value(base["r"], Rdot, r0) / profile_value(base["r"], Rr, r0)
         boundaries[name] = {
             "target_areal_radius": float(target),
@@ -229,10 +356,24 @@ def _one_shell_tangent(base_state, plus_state, minus_state, epsilon: float,
         }
 
     work = _metric_work_profiles(base, plus, minus, epsilon, base_state.grid)
+    mass_base = finite("base Misner-Sharp mass", WORLD_TUBE.misner_sharp(base_state.grid, base_state.geometry))
+    mass_plus = finite("plus Misner-Sharp mass", WORLD_TUBE.misner_sharp(plus_state.grid, plus_state.geometry))
+    mass_minus = finite("minus Misner-Sharp mass", WORLD_TUBE.misner_sharp(minus_state.grid, minus_state.geometry))
+    mass_rate_coordinate = finite("coordinate-time Misner-Sharp mass rate", (mass_plus - mass_minus) * inv)
+    mass_gradient_coordinate = finite(
+        "radial Misner-Sharp mass gradient",
+        base_state.grid.cell_derivative_fourth(mass_base, parity=-1),
+    )
+    Rdot = finite("areal-radius directional rate", (plus["R"] - minus["R"]) * inv)
+    Rr = finite(
+        "radial areal-radius derivative",
+        WORLD_TUBE.areal_radius_derivative(base_state.grid, base_state.geometry),
+    )
     work_integrals = {
         "t": _full_integral(base, work["time"], lower_R, upper_R),
         "r": _full_integral(base, work["radial"], lower_R, upper_R),
     }
+    misner_sharp_boundary_balances: dict[str, Any] = {}
     components: dict[str, Any] = {}
     for nu, density_key in (("t", "density_t"), ("r", "density_r")):
         I_plus = _full_integral(plus, plus["objects"][density_key], lower_R, upper_R)
@@ -260,6 +401,12 @@ def _one_shell_tangent(base_state, plus_state, minus_state, epsilon: float,
                 "surface-root, and quadrature errors; it is not a conservation pass/fail."
             ),
         }
+    for name, target in (("inner", lower_R), ("outer", upper_R)):
+        misner_sharp_boundary_balances[name] = _misner_sharp_fixed_R_balance(
+            base_state, base, plus, minus, boundaries[name], epsilon,
+            mass_base, mass_plus, mass_minus, mass_rate_coordinate,
+            mass_gradient_coordinate, Rr, Rdot,
+        )
     all_values = [
         value for nu in components.values()
         for value in (
@@ -268,6 +415,12 @@ def _one_shell_tangent(base_state, plus_state, minus_state, epsilon: float,
             nu["balance_minus_metric_work"],
         )
     ]
+    for pair in misner_sharp_boundary_balances.values():
+        for operator in ("factorized_native_derivative", "composite_interpolant"):
+            all_values.extend([
+                pair[operator]["signed_physical_remainder"],
+                pair[operator]["predicted_fixed_R_mass_rate"],
+            ])
     if not all(math.isfinite(float(value)) for value in all_values):
         raise FloatingPointError("shell ledger contains a non-finite component")
     return {
@@ -279,6 +432,7 @@ def _one_shell_tangent(base_state, plus_state, minus_state, epsilon: float,
         },
         "fixed_R_boundaries": boundaries,
         "components": components,
+        "misner_sharp_fixed_R_boundary_balances": misner_sharp_boundary_balances,
         "metric_work_integral_definition": (
             "4*pi*integral[alpha*sqrt(gamma_rr)*gamma_theta_theta * "
             "0.5*T^{ab}*partial_nu(g_ab)] dr"
