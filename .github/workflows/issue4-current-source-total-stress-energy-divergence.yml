@@ -153,6 +153,18 @@ jobs:
             and .configuration.production_steps_advanced == 0
             and (.resolution_results | map(.resolution)) == [32,64,128]
             and all(.resolution_results[]; .base_state_unchanged == true)
+            and all(.resolution_results[];
+              all(.uncoupled_control.epsilon_rows[];
+                (.misner_sharp_fixed_R_boundary_balances.inner.factorized_native_derivative.signed_physical_remainder | type) == "number"
+                and (.misner_sharp_fixed_R_boundary_balances.inner.composite_interpolant.signed_physical_remainder | type) == "number"
+                and (.misner_sharp_fixed_R_boundary_balances.outer.factorized_native_derivative.signed_physical_remainder | type) == "number"
+                and (.misner_sharp_fixed_R_boundary_balances.outer.composite_interpolant.signed_physical_remainder | type) == "number"))
+            and all(.resolution_results[];
+              all(.conditional_coupled_model.epsilon_rows[];
+                (.misner_sharp_fixed_R_boundary_balances.inner.factorized_native_derivative.signed_physical_remainder | type) == "number"
+                and (.misner_sharp_fixed_R_boundary_balances.inner.composite_interpolant.signed_physical_remainder | type) == "number"
+                and (.misner_sharp_fixed_R_boundary_balances.outer.factorized_native_derivative.signed_physical_remainder | type) == "number"
+                and (.misner_sharp_fixed_R_boundary_balances.outer.composite_interpolant.signed_physical_remainder | type) == "number"))
             and .gate_result.source_pins_verified == true
             and .gate_result.all_reported_components_finite == true
             and .gate_result.base_states_unchanged == true
