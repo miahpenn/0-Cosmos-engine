@@ -224,7 +224,7 @@ The same-sign relation is consistent at both directional epsilons; geometric fiv
 
 For both epsilons and both lineages at N=120/240, the independently reconstructed `rho, pr, pt, j` projections pass their comparison with the canonical total stress-energy projection. The total-T divergence itself is nonzero and centre-localized in the pointwise evaluator. Representative cell-0 values are:
 
-| Resolution / lineage | div T^t_t | div T^r_t | Finite-volume div T^t_t | Finite-volume div T^r_t |
+| Resolution / lineage | \\(\\nabla_\\mu T^\\mu{}_{t}\\) (pointwise) | \\(\\nabla_\\mu T^\\mu{}_{r}\\) (pointwise) | \\(\\nabla_\\mu T^\\mu{}_{t}\\) (finite-volume) | \\(\\nabla_\\mu T^\\mu{}_{r}\\) (finite-volume) |
 |---|---:|---:|---:|---:|
 | N=120 baseline | +5.41630e-7 | +1.55747e-7 | +3.83121e-9 | -6.29328e-9 |
 | N=120 origin-half-cell candidate | +5.43384e-7 | +1.67217e-7 | +3.97157e-9 | +7.72126e-11 |
