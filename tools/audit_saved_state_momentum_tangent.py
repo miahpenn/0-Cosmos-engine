@@ -24,6 +24,7 @@ sys.path.insert(0, str(ROOT))
 from engine.production_kernel import V55ProductionKernel
 from tools import audit_current_source_momentum_constraint_tangent as tangent
 from tools import audit_evolved_origin_aa_regularity as source_audit
+from tools import audit_total_stress_energy_divergence as total_t_audit
 from tools.audit_cmc_center_row_saved_state_counterfactual import (
     _load_bundle,
     _restore_state,
@@ -35,6 +36,8 @@ EPSILONS = (2.0e-5, 1.0e-5)
 CENTRE_CELLS = (0, 1, 2, 6)
 TANGENT_HELPER_PATH = "tools/audit_current_source_momentum_constraint_tangent.py"
 TANGENT_HELPER_BLOB = "c62c80ab795fa9b1e08c6e422796cf08b9ee0bdc"
+TOTAL_T_HELPER_PATH = "tools/audit_total_stress_energy_divergence.py"
+TOTAL_T_HELPER_BLOB = "c10f9e8b9e654d5195fd55c493c3fe06ba5c7082"
 
 
 def _arr(value: Any) -> np.ndarray:
@@ -93,6 +96,70 @@ def _region_error(values: Any, r: np.ndarray) -> dict:
     }
 
 
+def _compact_total_t_divergence(kernel, state, rates, epsilon: float) -> dict:
+    """Rebuild independent sector stress projections on the exact same directional pair."""
+    plus_state = tangent.shifted_state(kernel, state, rates, +epsilon)
+    minus_state = tangent.shifted_state(kernel, state, rates, -epsilon)
+    full = total_t_audit.sector_resolved_divergence_tangent_from_states(
+        state, plus_state, minus_state, epsilon
+    )
+    r = _arr(state.grid.centers)
+    total = full["total"]
+    decomposition = full["sector_decomposition"]
+    total_channels = {
+        name: _signed_samples(total[name], r)
+        for name in ("div_T_t", "div_T_r", "div_T_t_fv", "div_T_r_fv")
+    }
+    sectors = {}
+    for sector_name, record in decomposition["sectors"].items():
+        sectors[sector_name] = {
+            channel: _signed_samples(values, r)
+            for channel, values in record["raw_signed_arrays"].items()
+        }
+    reconstruction = decomposition["reconstruction"]
+    return {
+        "epsilon": float(epsilon),
+        "independent_total_projection_crosscheck_passed": bool(
+            total.get("projection_crosscheck_passed", False)
+        ),
+        "total_projection_crosschecks": total.get("projection_crosscheck", {}),
+        "total_stress_energy_divergence": total_channels,
+        "time_derivative_witnesses": total.get("time_derivative_witnesses", {}),
+        "sector_resolved_divergence": sectors,
+        "sector_reconstruction": {
+            "all_sectors_reconstruct_total": reconstruction["all_sectors_reconstruct_total"],
+            "all_sectors_reconstruct_total_after_time_density_accounting": reconstruction[
+                "all_sectors_reconstruct_total_after_time_density_accounting"
+            ],
+            "time_density_component_accounting_passed": reconstruction[
+                "time_density_component_accounting_passed"
+            ],
+            "raw_sum_max_gap": reconstruction["raw_sum_max_gap"],
+            "unexplained_max_gap_after_time_density": reconstruction["unexplained_max_gap"],
+            "channels": {
+                key: {
+                    field: value
+                    for field, value in record.items()
+                    if field not in ("sum_of_sectors", "sum_minus_total",
+                                     "time_density_component_predicted_gap",
+                                     "unexplained_gap_after_time_density_accounting")
+                }
+                for key, record in reconstruction["channels"].items()
+            },
+        },
+        "time_density_reconstruction": {
+            "summaries": decomposition["time_density_reconstruction"]["summaries"],
+            "term_definition": decomposition["time_density_reconstruction"]["term_definition"],
+        },
+        "pairing": decomposition["state_pairing"],
+        "interpretation_limit": (
+            "This is an independent total-T directional-divergence diagnostic on the same "
+            "accepted-state RHS direction; it does not by itself prove conservation or "
+            "accept the conditional scalar/DM exchange law."
+        ),
+    }
+
+
 def _audit_state(kernel: V55ProductionKernel, bundle: dict, n: int, lineage: str) -> dict:
     state = _restore_state(kernel, bundle, n)
     if not math.isclose(float(state.t), EXPECTED_TIME, rel_tol=0.0, abs_tol=1e-12):
@@ -128,6 +195,10 @@ def _audit_state(kernel: V55ProductionKernel, bundle: dict, n: int, lineage: str
 
     tangent_results = [
         tangent.tangent_for_epsilon(kernel, state, rates, eps)
+        for eps in EPSILONS
+    ]
+    total_t_divergence_results = [
+        _compact_total_t_divergence(kernel, state, rates, eps)
         for eps in EPSILONS
     ]
     analytic = tangent.analytic_geometric_momentum_tangent(
@@ -221,6 +292,7 @@ def _audit_state(kernel: V55ProductionKernel, bundle: dict, n: int, lineage: str
             "interpretation": "The two signed candidates are both retained; this audit does not assume a propagation sign or treat closure as proof of the complete matter-coupled identity.",
         },
         "semi_discrete_momentum_tangent_by_epsilon": eps_reports,
+        "independent_total_stress_energy_divergence_by_epsilon": total_t_divergence_results,
         "epsilon_sensitivity_total_Mdot": _region_error(epsilon_sensitivity, r),
         "analytic_geometric_tangent": {
             "total": _signed_samples(analytic["total"], r),
@@ -254,6 +326,14 @@ def main() -> int:
     tangent_helper_blob = subprocess.check_output(
         ["git", "rev-parse", f"HEAD:{TANGENT_HELPER_PATH}"], text=True
     ).strip()
+    total_t_helper_blob = subprocess.check_output(
+        ["git", "rev-parse", f"HEAD:{TOTAL_T_HELPER_PATH}"], text=True
+    ).strip()
+    if total_t_helper_blob != TOTAL_T_HELPER_BLOB:
+        raise RuntimeError(
+            "reused total-stress-energy divergence helper changed from its reviewed diagnostic blob: "
+            f"expected={TOTAL_T_HELPER_BLOB}, actual={total_t_helper_blob}"
+        )
     if tangent_helper_blob != TANGENT_HELPER_BLOB:
         raise RuntimeError(
             "reused signed tangent helper changed from its reviewed diagnostic blob: "
@@ -279,6 +359,12 @@ def main() -> int:
                 "git_blob_sha1": tangent_helper_blob,
                 "historical_source_guard_not_used": True,
                 "reason": "The helper's own older production-source pin guard is not applicable to the later current-source branch; current engine source is independently verified by saved_checkpoint_loader source pins.",
+            },
+            "reused_total_stress_energy_helper": {
+                "path": TOTAL_T_HELPER_PATH,
+                "git_blob_sha1": total_t_helper_blob,
+                "historical_source_guard_not_used": True,
+                "reason": "Uses the independent total-T projection/divergence functions under a separately pinned helper blob; current engine and vendor sources are verified by saved_checkpoint_loader source pins.",
             },
         },
         "configuration": {
