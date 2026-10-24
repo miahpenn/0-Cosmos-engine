@@ -52,10 +52,11 @@ def test_flat_space_saved_stages_have_zero_trace_free_ricci_and_gap():
     grid = ops.SphericalCellGrid(n, 80.0)
     result = audit(n, _bundle(n), _bundle(n, candidate=True), grid)
     assert result["captured_profile_count"] == 3
-    assert all(row["first8_gap_max_abs_ratio_candidate_over_baseline"] is None
-               for row in result["stage_rows"])
-    assert all(abs(row["cell0_gap_signed"]["baseline"]) < 1e-12
-               for row in result["stage_rows"])
+    for row in result["stage_rows"]:
+        assert abs(row["cell0_gap_signed"]["baseline"]) < 1e-12
+        assert abs(row["cell0_gap_signed"]["candidate"]) < 1e-12
+        assert max(abs(x) for x in row["first4_gap_signed"]["baseline"]) < 1e-12
+        assert max(abs(x) for x in row["first4_gap_signed"]["candidate"]) < 1e-12
     assert result["earliest_explicit_predictor_crossings"][
         "first8_Aa_L2_source_RMS_candidate_at_least_baseline"
     ] == {"label": "step000_explicit_predictor", "time": 0.0, "value": 1.2}
