@@ -33,11 +33,17 @@ def test_saved_state_one_step_observer_reconstructs_both_aa_and_k_updates():
             ricci = stage["ricci_channels"]
             assert ricci["identity_closure"]["max_abs_TF_Ricci_component_reconstruction"] < 2.0e-12
             assert ricci["identity_closure"]["max_abs_Aa_L2_component_reconstruction"] < 2.0e-12
+            assert ricci["identity_closure"]["max_abs_D4_lambda_connection_plus_stencil_chain_reconstruction"] < 2.0e-12
+            assert ricci["identity_closure"]["max_abs_vendor_gap_minus_chain_gap_identity"] < 2.0e-12
+            assert "evolved_D4_minus_metric_D4_connection_response" in ricci["lambda_D4_derivative_split"]
+            assert "metric_D4_minus_metric_chain_rule_response" in ricci["lambda_D4_derivative_split"]
             assert "vendor_tf_ricci_minus_direct_proper_radial" in ricci
             assert "chain_rule_counterfactual_tf_ricci_minus_direct_proper_radial" in ricci
         accepted_ricci = result["accepted_output_summary"]["ricci_channels"]
         assert accepted_ricci["identity_closure"]["max_abs_TF_Ricci_component_reconstruction"] < 2.0e-12
         assert accepted_ricci["identity_closure"]["max_abs_Aa_L2_component_reconstruction"] < 2.0e-12
+        assert accepted_ricci["identity_closure"]["max_abs_D4_lambda_connection_plus_stencil_chain_reconstruction"] < 2.0e-12
+        assert accepted_ricci["identity_closure"]["max_abs_vendor_gap_minus_chain_gap_identity"] < 2.0e-12
 
     assert all(
         refresh["operator_compatible_solve"]["raw_operand_scaled_rows_pass"] is True
