@@ -522,6 +522,16 @@ def _rebuild_origin_half_cell_candidate(kernel, state) -> dict:
     Aa_candidate = Kr - K_candidate / 3.0
 
     original_digest = _state_digest(state)
+    baseline_q0 = float((1.0 - g.a[0] / g.b[0]) / r[0]**2)
+    baseline_Aa0 = float(g.Aa[0])
+    baseline_K0 = float(g.K[0])
+    baseline_Aa_reconstruction_error = _max_abs(_arr(g.Aa) - Aa_candidate)
+    baseline_K_reconstruction_error = _max_abs(_arr(g.K) - K_candidate)
+    if baseline_Aa_reconstruction_error > 2.0e-12 or baseline_K_reconstruction_error > 2.0e-12:
+        raise RuntimeError(
+            "reconstructed initializer A_a/K differ from pinned baseline: "
+            f"Aa={baseline_Aa_reconstruction_error:.6e}, K={baseline_K_reconstruction_error:.6e}"
+        )
     candidate_state = state
     gc = candidate_state.geometry
     gc.a[:] = a_candidate
@@ -553,14 +563,22 @@ def _rebuild_origin_half_cell_candidate(kernel, state) -> dict:
         "initializer_iterations": 6,
         "baseline_point_sampled_reconstruction_max_abs_X6": baseline_reconstruction_error,
         "baseline_reconstruction_matches_X6": True,
+        "baseline_initial_q_cell0": baseline_q0,
+        "candidate_initial_q_cell0": float((1.0 - a_candidate[0] / b_candidate[0]) / r[0]**2),
+        "candidate_minus_baseline_initial_q_cell0": float(
+            (1.0 - a_candidate[0] / b_candidate[0]) / r[0]**2 - baseline_q0
+        ),
+        "baseline_initial_Aa_cell0": baseline_Aa0,
+        "candidate_initial_Aa_cell0": float(Aa_candidate[0]),
+        "baseline_initial_K_cell0": baseline_K0,
+        "candidate_initial_K_cell0": float(K_candidate[0]),
+        "baseline_Aa_reconstruction_max_abs": baseline_Aa_reconstruction_error,
+        "baseline_K_reconstruction_max_abs": baseline_K_reconstruction_error,
         "baseline_point_sampled_max_abs_iteration_updates": baseline_updates,
         "candidate_max_abs_iteration_updates": candidate_updates,
         "candidate_B_cell0_minus_baseline_B_cell0": float(B_candidate[0] - B_baseline[0]),
         "candidate_B_first_three": [float(v) for v in B_candidate[:3]],
         "baseline_B_first_three": [float(v) for v in B_baseline[:3]],
-        "q=(1-a/b)/r^2_cell0_baseline": float(
-            (1.0 - state.geometry.a[0] / state.geometry.b[0]) / r[0]**2
-        ) if False else None,
         "candidate_initial_metric_algebraic_max_abs_ab2_minus_one": _max_abs(
             a_candidate * b_candidate**2 - 1.0
         ),
@@ -790,6 +808,7 @@ def main() -> int:
     from engine.production_kernel import V55ProductionKernel
     from engine.v55_pirk_adapter import vendor_modules
 
+    baseline_report, baseline_profiles, baseline_reference = _load_baseline_reference()
     _, vacuum, _ = vendor_modules()
     kernel = V55ProductionKernel()
     state = kernel.initialize(
@@ -800,6 +819,7 @@ def main() -> int:
         D_amplitude=1.0e-10,
         include_radiation=True,
     )
+    candidate_initialization = _rebuild_origin_half_cell_candidate(kernel, state)
     dt = CFL * R_MAX / RESOLUTION
     steps = int(round(TARGET_TIME / dt))
     if steps < 1 or not np.isclose(steps * dt, TARGET_TIME, rtol=0.0, atol=1.0e-12):
@@ -909,22 +929,8 @@ def main() -> int:
             rec["state_sha256_after_observation"] = after
             rec["observer_left_state_unchanged"] = True
             if step_index == 0:
-                initial_r = _arr(state.grid.centers)
-                initial_q0 = float(
-                    (1.0 - state.geometry.a[0] / state.geometry.b[0])
-                    / initial_r[0]**2
-                )
-                # Initial rho_S=0.5*S^2 and src contains -8*pi*r^2*rho_S.
-                # Since B[0]=src[0], this source alone predicts q0 ~= -4*pi*S[0]^2.
-                pulse_q0 = float(-4.0 * np.pi * np.asarray(state.scalars.S)[0]**2)
-                rec["initial_data_origin_quadrature_audit"] = {
-                    "initializer_rule": "B[0]=src[0] because integ[0]=0.5*dr*src[0] and r[0]=0.5*dr",
-                    "observed_q0": initial_q0,
-                    "local_source_prediction_minus_4pi_S0_squared": pulse_q0,
-                    "observed_minus_pulse_prediction": float(initial_q0 - pulse_q0),
-                    "source_term": "src contains -8*pi*r^2*rho_S with rho_S=0.5*S^2",
-                    "interpretation": "diagnostic correlation; compare with the correct even-source integral average before any production change",
-                }
+                rec["origin_half_cell_candidate_initialization"] = candidate_initialization
+                rec["baseline_reference"] = baseline_reference
 
             if step_index == steps:
                 break
@@ -1021,6 +1027,9 @@ def main() -> int:
         "scientific_admission": False,
         "production_or_vendor_files_modified": False,
         "source_pins": provenance,
+        "initialization_arm": "origin_half_cell_candidate",
+        "origin_half_cell_candidate_initialization": candidate_initialization,
+        "baseline_reference": baseline_reference,
         "configuration": {
             "resolution": RESOLUTION,
             "r_max": R_MAX,
@@ -1062,9 +1071,13 @@ def main() -> int:
             "No production physics, equation, boundary, coefficient, threshold, or scientific-admission flag is changed by this diagnostic.",
         ],
     }
-    # Record the first digest separately after all source-preserving runs.
+    # The report compares against a checksummed pre-existing baseline artifact;
+    # the baseline trajectory is not re-run in this workflow.
     init_record = next(row for row in records if row["label"] == "accepted_000")
     report["initial_state_sha256"] = init_record["state_sha256_before_observation"]
+    report["baseline_comparison"] = _compare_candidate_to_baseline(
+        baseline_report, baseline_profiles, report, out_profiles
+    )
     report_path = OUT / "report.json"
     OUT.mkdir(parents=True, exist_ok=True)
     report_path.write_text(json.dumps(report, indent=2, allow_nan=False) + "\n", encoding="utf-8")
@@ -1080,6 +1093,9 @@ def main() -> int:
     print(json.dumps({
         "status": report["status"],
         "resolution": RESOLUTION,
+        "initialization_arm": report["initialization_arm"],
+        "baseline_reference_run_id": BASELINE_REFERENCE_RUN_ID,
+        "baseline_comparison_key_outcomes": report["baseline_comparison"]["key_outcomes"],
         "target_time": TARGET_TIME,
         "dt": dt,
         "accepted_steps": steps,
