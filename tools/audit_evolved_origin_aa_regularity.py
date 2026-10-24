@@ -394,6 +394,392 @@ def _capture_arrays(
     return record, arrays
 
 
+BASELINE_REFERENCE_RUN_ID = 40127716287
+BASELINE_ARTIFACT_PREFIX = "evolved-origin-aa-regularity-N"
+ORIGIN_HALF_CELL_WEIGHTS = np.asarray(
+    [401.0 / 720.0, -31.0 / 480.0, 11.0 / 1440.0], dtype=float
+)
+
+
+def _integrate_origin_half_cell(src: np.ndarray, dr: float) -> float:
+    """Exact origin half-cell integral for an even source through r^4.
+
+    This is the preserved PR #84/#106 candidate rule. All inter-centre
+    intervals remain the production trapezoid; no other source or coefficient
+    is changed.
+    """
+    values = _arr(src)
+    if values.ndim != 1 or values.size < 3 or not np.all(np.isfinite(values[:3])):
+        raise ValueError("origin half-cell rule requires three finite source samples")
+    if not np.isfinite(dr) or dr <= 0.0:
+        raise ValueError("origin half-cell rule requires a positive finite dr")
+    return float(dr * np.dot(ORIGIN_HALF_CELL_WEIGHTS, values[:3]))
+
+
+def _rebuild_origin_half_cell_candidate(kernel, state) -> dict:
+    """Apply the archived origin-half-cell initializer candidate to this copy.
+
+    Reconstructs the six-pass initializer's Hamiltonian-source recurrence from
+    the accepted baseline initialized data. The baseline point-sampled
+    recurrence must independently reproduce X^6 before the candidate rule is
+    applied. Only the initial metric recurrence changes; the physical scalar
+    profiles and archive matter densities are reinitialized consistently on
+    the candidate metric. Production code and the supplied state object are
+    not changed outside this diagnostic arm.
+    """
+    from engine.scalar_system import cosmos_potential
+    from engine.v55_matter import (
+        RHO_B_PRESENT, RHO_DM_PRESENT, RHO_R_PRESENT, initialize_from_archive,
+    )
+
+    grid = state.grid
+    r = _arr(grid.centers)
+    dr = float(grid.dr)
+    g = state.geometry
+    fields = state.scalars
+    S, PS = _arr(fields.S), _arr(fields.PS)
+    D, PD = _arr(fields.D), _arr(fields.PD)
+    phi, Pi = _arr(fields.phi), _arr(fields.Pi)
+    d1 = lambda values, parity=1: grid.cell_derivative_fourth(values, parity=parity)
+    Sp, Dp = d1(S, 1), d1(D, 1)
+    current = -(PD * Dp)
+
+    phi0, pi0 = 0.179055, 0.00341913
+    rho_r = float(RHO_R_PRESENT)
+    rho0 = 0.5 * pi0**2 + float(cosmos_potential(np.asarray([phi0]))[0])
+    rho0 += float(RHO_DM_PRESENT) + float(RHO_B_PRESENT) + rho_r
+    H0 = float(np.sqrt(max(rho0 / 3.0, 0.0)))
+    Kt, Ktp = np.full_like(r, -H0), d1(np.full_like(r, -H0), 1)
+    rho_matter = (
+        float(RHO_DM_PRESENT) + float(RHO_B_PRESENT) + rho_r
+    ) / (8.0 * np.pi)
+    rho_phi = (0.5 * Pi**2 + cosmos_potential(phi)) / (8.0 * np.pi)
+
+    def source_for_B(B: np.ndarray) -> np.ndarray:
+        rhoS = 0.5 * (PS**2 + B * Sp**2) + 0.5 * S**2
+        rhoD = 0.5 * (PD**2 + B * Dp**2) - 0.5 * D**2
+        rho = rhoS + rhoD + rho_phi + rho_matter
+        Kr = Kt + r * Ktp + 4.0 * np.pi * r * current
+        source = (
+            1.0 - 8.0 * np.pi * r**2 * rho
+            + 2.0 * r**2 * Kr * Kt
+            + r**2 * Kt**2
+        )
+        if not np.all(np.isfinite(source)):
+            raise FloatingPointError("non-finite source in copied origin initializer")
+        return source
+
+    def integrate(src: np.ndarray, origin_rule: str) -> np.ndarray:
+        if origin_rule == "point_sampled":
+            origin_integral = 0.5 * dr * float(src[0])
+        elif origin_rule == "origin_half_cell_candidate":
+            origin_integral = _integrate_origin_half_cell(src, dr)
+        else:
+            raise ValueError(f"unknown origin integral rule: {origin_rule}")
+        integral = np.cumsum(np.r_[
+            origin_integral, 0.5 * dr * (src[1:] + src[:-1])
+        ])
+        return integral / r
+
+    B_baseline = np.ones_like(r)
+    B_candidate = np.ones_like(r)
+    baseline_updates = []
+    candidate_updates = []
+    for _ in range(6):
+        src_baseline = source_for_B(B_baseline)
+        Bnext_baseline = integrate(src_baseline, "point_sampled")
+        baseline_updates.append(_max_abs(Bnext_baseline - B_baseline))
+        B_baseline = Bnext_baseline
+
+        src_candidate = source_for_B(B_candidate)
+        Bnext_candidate = integrate(src_candidate, "origin_half_cell_candidate")
+        candidate_updates.append(_max_abs(Bnext_candidate - B_candidate))
+        B_candidate = Bnext_candidate
+
+    baseline_B_from_state = _arr(g.X)**6
+    baseline_reconstruction_error = _max_abs(B_baseline - baseline_B_from_state)
+    baseline_scale = max(1.0, _max_abs(baseline_B_from_state))
+    if baseline_reconstruction_error > 2.0e-12 * baseline_scale:
+        raise RuntimeError(
+            "baseline point-sampled recurrence failed X^6 reconstruction: "
+            f"{baseline_reconstruction_error:.6e}"
+        )
+    if not np.all(np.isfinite(B_candidate)) or np.any(B_candidate <= 0.0):
+        raise FloatingPointError("origin-half-cell candidate produced invalid B")
+
+    # Reconstruct the same initial-data map used by the archived candidate.
+    A = 1.0 / np.sqrt(B_candidate)
+    a_candidate = A ** (4.0 / 3.0)
+    b_candidate = A ** (-2.0 / 3.0)
+    X_candidate = A ** (-1.0 / 3.0)
+    Lambda_candidate = (
+        d1(a_candidate, 1) / (2.0 * a_candidate**2)
+        - d1(b_candidate, 1) / (a_candidate * b_candidate)
+        + 2.0 / r * (1.0 / b_candidate - 1.0 / a_candidate)
+    )
+    Kr = Kt + r * Ktp + 4.0 * np.pi * r * current
+    K_candidate = Kr + 2.0 * Kt
+    Aa_candidate = Kr - K_candidate / 3.0
+
+    original_digest = _state_digest(state)
+    candidate_state = state
+    gc = candidate_state.geometry
+    gc.a[:] = a_candidate
+    gc.b[:] = b_candidate
+    gc.X[:] = X_candidate
+    gc.Lambda[:] = Lambda_candidate
+    gc.K[:] = K_candidate
+    gc.Aa[:] = Aa_candidate
+    gc.beta.fill(0.0)
+    gc.B.fill(0.0)
+    candidate_state.matter = initialize_from_archive(
+        grid, gc, include_radiation=True
+    )
+    # The baseline initialize() has already run the CMC solve once. Re-solve
+    # on the candidate metric and its reinitialized conservative matter state.
+    gc.alpha[:] = kernel._solve_lapse_for_state(
+        grid, gc, candidate_state.scalars, candidate_state.matter,
+        candidate_state.electromagnetic,
+    )[0]
+    gc.beta.fill(0.0)
+    gc.B.fill(0.0)
+
+    after_digest = _state_digest(candidate_state)
+    return {
+        "method": "PR #84/#106 origin-half-cell-only initializer candidate",
+        "source_rule": "dr * dot([401/720, -31/480, 11/1440], source_cells_0_to_2)",
+        "source_rule_polynomial_exactness": "even source polynomial in r through r^4",
+        "production_intercentre_rule": "unchanged trapezoidal quadrature",
+        "initializer_iterations": 6,
+        "baseline_point_sampled_reconstruction_max_abs_X6": baseline_reconstruction_error,
+        "baseline_reconstruction_matches_X6": True,
+        "baseline_point_sampled_max_abs_iteration_updates": baseline_updates,
+        "candidate_max_abs_iteration_updates": candidate_updates,
+        "candidate_B_cell0_minus_baseline_B_cell0": float(B_candidate[0] - B_baseline[0]),
+        "candidate_B_first_three": [float(v) for v in B_candidate[:3]],
+        "baseline_B_first_three": [float(v) for v in B_baseline[:3]],
+        "q=(1-a/b)/r^2_cell0_baseline": float(
+            (1.0 - state.geometry.a[0] / state.geometry.b[0]) / r[0]**2
+        ) if False else None,
+        "candidate_initial_metric_algebraic_max_abs_ab2_minus_one": _max_abs(
+            a_candidate * b_candidate**2 - 1.0
+        ),
+        "baseline_state_digest_before_candidate_build": original_digest,
+        "candidate_initial_state_digest_after_cmc_refresh": after_digest,
+        "candidate_initial_state_reconstruction_only": True,
+        "production_or_vendor_files_modified": False,
+        "scientific_admission": False,
+    }
+
+
+def _load_baseline_reference() -> tuple[dict, dict[str, np.ndarray], dict]:
+    """Verify and load the already-accepted baseline artifact from run #40127716287."""
+    baseline_dir_value = os.environ.get("REGULARITY_BASELINE_REFERENCE_DIR")
+    if not baseline_dir_value:
+        raise RuntimeError("REGULARITY_BASELINE_REFERENCE_DIR is required for candidate A/B")
+    directory = Path(baseline_dir_value)
+    required = ("report.json", "stage_profiles.npz", "final_state.npz", "SHA256SUMS.json")
+    missing = [name for name in required if not (directory / name).is_file()]
+    if missing:
+        raise FileNotFoundError(f"baseline reference artifact missing {missing} in {directory}")
+
+    sums = json.loads((directory / "SHA256SUMS.json").read_text(encoding="utf-8"))
+    for name in ("report.json", "stage_profiles.npz", "final_state.npz"):
+        actual = hashlib.sha256((directory / name).read_bytes()).hexdigest()
+        expected = sums.get(name)
+        if not expected or actual != expected:
+            raise RuntimeError(
+                f"baseline reference checksum mismatch for {name}: expected={expected}, actual={actual}"
+            )
+    baseline = json.loads((directory / "report.json").read_text(encoding="utf-8"))
+    if baseline.get("schema") != "source_pinned_evolved_origin_Aa_regularity_v1":
+        raise RuntimeError(f"unexpected baseline report schema: {baseline.get('schema')}")
+    if baseline.get("source_pins", {}).get("baseline_commit") != SOURCE_COMMIT:
+        raise RuntimeError("baseline reference uses a different production source commit")
+    if baseline.get("source_pins", {}).get("vendor_commit") != VENDOR_COMMIT:
+        raise RuntimeError("baseline reference uses a different vendor pin")
+    pins = baseline.get("source_pins", {}).get("blobs", {})
+    for path, expected in SOURCE_BLOBS.items():
+        row = pins.get(path)
+        if not row or row.get("expected_blob") != expected:
+            raise RuntimeError(f"baseline reference source pin missing/mismatched: {path}")
+        if row.get("base_blob") != expected or row.get("head_blob") != expected or not row.get("matches"):
+            raise RuntimeError(f"baseline reference does not verify production source blob: {path}")
+    config = baseline.get("configuration", {})
+    if (
+        int(config.get("resolution", -1)) != RESOLUTION
+        or not np.isclose(float(config.get("r_max", np.nan)), R_MAX, rtol=0.0, atol=1e-12)
+        or not np.isclose(float(config.get("target_time", np.nan)), TARGET_TIME, rtol=0.0, atol=1e-12)
+        or not np.isclose(float(config.get("cfl", np.nan)), CFL, rtol=0.0, atol=1e-12)
+        or not np.isclose(float(config.get("fit", {}).get("fit_r_max", FIT_R_MAX), FIT_R_MAX), FIT_R_MAX)
+        or int(config.get("fit", {}).get("degree", FIT_DEGREE)) != FIT_DEGREE
+    ):
+        raise RuntimeError(f"baseline reference configuration mismatch: {config}")
+    with np.load(directory / "stage_profiles.npz", allow_pickle=False) as archive:
+        profiles = {name: np.asarray(archive[name], dtype=float).copy() for name in archive.files}
+    reference = {
+        "workflow_run_id": BASELINE_REFERENCE_RUN_ID,
+        "artifact_name": f"{BASELINE_ARTIFACT_PREFIX}{RESOLUTION}-t0.6-2026-10-24",
+        "artifact_report_audit_head": baseline.get("source_pins", {}).get("audit_head"),
+        "report_sha256": sums["report.json"],
+        "stage_profiles_sha256": sums["stage_profiles.npz"],
+        "final_state_sha256": sums["final_state.npz"],
+        "reference_directory": str(directory),
+        "checksums_verified": True,
+        "production_source_pins_verified": True,
+    }
+    return baseline, profiles, reference
+
+
+def _record_metrics(record: dict) -> dict:
+    fields = record["regularity_fits_even_fields"]
+    src = record["Aa_L2_signed_decomposition"]
+    source_fits = record.get("regularity_fits_Aa_source_channels", {})
+    return {
+        "time": float(record["accepted_time_at_step_start"]),
+        "Aa_cell0": float(fields["Aa"]["cell0"]),
+        "Aa_even_fit_origin": float(fields["Aa"]["origin_intercept"]),
+        "Aa_cell0_minus_even_fit": float(fields["Aa"]["cell0_minus_fit_intercept"]),
+        "K_cell0": float(fields["K"]["cell0"]),
+        "K_cell0_minus_even_fit": float(fields["K"]["cell0_minus_fit_intercept"]),
+        "Aa_L2_cell0": float(src["cell0_primary_l2"]) if src["cell0_primary_l2"] is not None else None,
+        "Aa_lapse_hessian_cell0": float(src["cell0_lapse_hessian"]),
+        "Aa_tracefree_Ricci_cell0": float(src["cell0_tracefree_ricci"]),
+        "Aa_L2_even_fit_origin": source_fits.get("Aa_l2_total", {}).get("origin_intercept"),
+        "Aa_tracefree_Ricci_even_fit_origin": source_fits.get("Aa_tracefree_ricci", {}).get("origin_intercept"),
+    }
+
+
+def _compare_candidate_to_baseline(
+    baseline_report: dict, baseline_profiles: dict[str, np.ndarray],
+    candidate_report: dict, candidate_profiles: dict[str, np.ndarray],
+) -> dict:
+    baseline_records = [r for r in baseline_report["records"] if r["label"].startswith("accepted_")]
+    candidate_records = [r for r in candidate_report["records"] if r["label"].startswith("accepted_")]
+    if len(baseline_records) != len(candidate_records):
+        raise RuntimeError(
+            f"accepted-state history length mismatch: baseline={len(baseline_records)}, candidate={len(candidate_records)}"
+        )
+    r = _arr(candidate_profiles["r"])
+    support = r <= 10.0
+    if not np.any(support):
+        raise RuntimeError("comparison physical support r<=10 is empty")
+    history = []
+    for index, (base_rec, cand_rec) in enumerate(zip(baseline_records, candidate_records)):
+        if base_rec["label"] != cand_rec["label"]:
+            raise RuntimeError(
+                f"accepted-state label mismatch at {index}: {base_rec['label']} vs {cand_rec['label']}"
+            )
+        base_metrics = _record_metrics(base_rec)
+        cand_metrics = _record_metrics(cand_rec)
+        if abs(base_metrics["time"] - cand_metrics["time"]) > 1.0e-12:
+            raise RuntimeError(
+                f"accepted-state time mismatch at {index}: {base_metrics['time']} vs {cand_metrics['time']}"
+            )
+        history.append({
+            "accepted_index": index,
+            "time": cand_metrics["time"],
+            "baseline": base_metrics,
+            "origin_half_cell_candidate": cand_metrics,
+            "candidate_minus_baseline": {
+                key: (
+                    float(cand_metrics[key] - base_metrics[key])
+                    if cand_metrics.get(key) is not None and base_metrics.get(key) is not None
+                    else None
+                )
+                for key in base_metrics if key != "time"
+            },
+        })
+
+    def endpoint_profile_comparison(index: int) -> dict:
+        base_rec, cand_rec = baseline_records[index], candidate_records[index]
+        base_prefix, cand_prefix = base_rec["profile_prefix"], cand_rec["profile_prefix"]
+        items = {}
+        for field in (
+            "a", "b", "X", "alpha", "Aa", "K",
+            "Aa_lapse_hessian_tf", "Aa_tracefree_ricci", "Aa_l2_total", "Aa_l3_total",
+        ):
+            base_key, cand_key = base_prefix + "__" + field, cand_prefix + "__" + field
+            if base_key not in baseline_profiles or cand_key not in candidate_profiles:
+                continue
+            bvalues = _arr(baseline_profiles[base_key])
+            cvalues = _arr(candidate_profiles[cand_key])
+            delta = cvalues - bvalues
+            items[field] = {
+                "cell0_baseline": float(bvalues[0]),
+                "cell0_candidate": float(cvalues[0]),
+                "cell0_candidate_minus_baseline": float(delta[0]),
+                "max_abs_candidate_minus_baseline_r_le_10": _max_abs(delta[support]),
+                "rms_candidate_minus_baseline_r_le_10": float(np.sqrt(np.mean(delta[support]**2))),
+                "max_abs_candidate_minus_baseline_full_grid": _max_abs(delta),
+            }
+        return {
+            "time": candidate_records[index]["accepted_time_at_step_start"],
+            "baseline_profile_prefix": base_prefix,
+            "candidate_profile_prefix": cand_prefix,
+            "fields": items,
+        }
+
+    initial = history[0]
+    final = history[-1]
+    initial_base_l2 = initial["baseline"]["Aa_L2_cell0"]
+    initial_cand_l2 = initial["origin_half_cell_candidate"]["Aa_L2_cell0"]
+    final_base_l2 = final["baseline"]["Aa_L2_cell0"]
+    final_cand_l2 = final["origin_half_cell_candidate"]["Aa_L2_cell0"]
+    initial_source_abs_reduction = (
+        1.0 - abs(initial_cand_l2) / abs(initial_base_l2)
+        if initial_base_l2 not in (None, 0.0) and initial_cand_l2 is not None else None
+    )
+    final_source_abs_change_ratio = (
+        abs(final_cand_l2) / abs(final_base_l2)
+        if final_base_l2 not in (None, 0.0) and final_cand_l2 is not None else None
+    )
+    return {
+        "schema": "origin_half_cell_candidate_vs_existing_baseline_v1",
+        "baseline_reference_run_id": BASELINE_REFERENCE_RUN_ID,
+        "initialization_method": "historical PR #84/#106 exact three-sample origin half-cell quadrature candidate; production trapezoids retained elsewhere",
+        "comparison_contract": {
+            "same_production_source_commit": SOURCE_COMMIT,
+            "same_vendor_commit": VENDOR_COMMIT,
+            "same_resolution_and_domain": True,
+            "same_cfl_and_target_time": True,
+            "same_accepted_state_times": True,
+            "baseline_reused_from_existing_artifact_without_re_evolving": True,
+            "candidate_evolved_by_unchanged_pinned_production_kernel": True,
+            "physical_profile_comparison_support": "r<=10",
+            "fits_are_diagnostic_only": True,
+            "scientific_admission": False,
+        },
+        "baseline_state_digest_initial": baseline_report.get("initial_state_sha256"),
+        "baseline_state_digest_final": baseline_report.get("final_state_sha256"),
+        "candidate_state_digest_initial": candidate_report.get("initial_state_sha256"),
+        "candidate_state_digest_final": candidate_report.get("final_state_sha256"),
+        "baseline_reference_integrity": baseline_report.get("accepted_state_observer_mutation_check_passed"),
+        "key_outcomes": {
+            "baseline_initial": initial["baseline"],
+            "candidate_initial": initial["origin_half_cell_candidate"],
+            "initial_Aa_L2_abs_reduction_fraction": initial_source_abs_reduction,
+            "baseline_final": final["baseline"],
+            "candidate_final": final["origin_half_cell_candidate"],
+            "final_Aa_L2_abs_candidate_to_baseline_ratio": final_source_abs_change_ratio,
+            "final_Aa_cell0_candidate_minus_baseline": final["candidate_minus_baseline"]["Aa_cell0"],
+            "final_Aa_cell0_minus_even_fit_candidate_minus_baseline": final["candidate_minus_baseline"]["Aa_cell0_minus_even_fit"],
+            "final_K_cell0_minus_even_fit_candidate_minus_baseline": final["candidate_minus_baseline"]["K_cell0_minus_even_fit"],
+            "initial_profile_delta": endpoint_profile_comparison(0),
+            "final_profile_delta": endpoint_profile_comparison(len(history)-1),
+        },
+        "accepted_state_centre_source_history": history,
+        "interpretation_limits": [
+            "The baseline is the already completed exact-source run artifact, verified internally and against every production source/vendor blob; baseline was not re-evolved.",
+            "The candidate differs only in origin half-cell quadrature inside a copied six-pass initializer reconstruction; inter-centre trapezoids, evolution equations, coefficients, gauge, boundary rules and production/vendor files are unchanged.",
+            "The archived candidate's quadrature is exact only for even source polynomials through r^4; real-source truncation and matter/metric coupling are not eliminated by the quadrature formula.",
+            "A lower initial A_a source does not establish a correct continuum centre, full constraint closure, or long-time scientific admission.",
+            "The final fit intercepts use the same fixed support/degree as the existing baseline report and are shape indicators, not pass thresholds.",
+        ],
+        "scientific_admission": False,
+    }
+
+
 def main() -> int:
     if RESOLUTION < 16 or R_MAX <= 0.0 or TARGET_TIME <= 0.0 or CFL <= 0.0:
         raise ValueError("invalid resolution / domain / time / CFL")
