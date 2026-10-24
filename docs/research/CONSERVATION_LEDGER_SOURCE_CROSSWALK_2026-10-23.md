@@ -301,6 +301,64 @@ The source/work identity evaluated from the same composite profiles continues to
 
 **Disposition / next bounded step.** Keep this three-grid trend as the current-source operator evidence. Do not launch another fixed-R grid sweep just to improve a residual. The next substantive step is to reconcile the Hamiltonian contribution and its constraint convention against the archive-backed mass-gradient identity and the exact stress projection, while keeping the fixed-\(R\) mass-rate remainder signed. Issue #210 normalization provenance, full evolving total-stress-energy closure, and Issue #4 remain open; production equations and scientific admission remain unchanged.
 
+
+### 2H. Hamiltonian contribution traced through the pinned constraint and live source — 24 October 2026
+
+This reconciliation reuses the exact-head three-resolution artifact from workflow [40114945860](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/40114945860/artifacts/12568445203); it does not run a new evolution.
+
+**Constraint convention.** At the captured start RHS, the pinned vendor constraint returns the geometric BSSN Hamiltonian
+\[
+H_{\rm geom}={}^{(3)}R-\left(A_a^2+2A_b^2\right)+\frac{2}{3}K^2.
+\]
+The current-source observer forms the physical residual
+\[
+\mathcal H=H_{\rm geom}-16\pi\rho_{\rm total},
+\]
+using the canonical total stress projection from the same state. This is the unscaled \(G=1\) Hamiltonian constraint convention. The archived mass-gradient identity then predicts
+\[
+\partial_r m_{\rm MS}
+=4\pi R^2\!\left(\rho_{\rm total}\,\partial_r R
++j_r\frac{\dot R}{\alpha}\right)
++\frac{R^2\,\partial_r R}{4}\,\mathcal H
++\frac{R^2}{2}\frac{\dot R}{\alpha}\,\mathcal M_r
++\epsilon_{\rm op}.
+\]
+Here \(\mathcal M_r\) is the signed radial momentum-constraint residual \(M_{\rm geom}-8\pi j_r\), and \(\epsilon_{\rm op}\) is the retained discrete-operator remainder. The coefficient and sign of the Hamiltonian term follow this exact convention; \(\mathcal H\) must not be divided by \(16\pi\), multiplied by an additional \(\kappa\), or sign-flipped to improve closure.
+
+**Source normalization check.** The captured \(\rho_{\rm total}\) is exactly additive from the archived sector projections: the local S and D scalar projections enter in their physical normalization; the COSMOS \(\phi\) projection and each fluid stress projection carry their single \(1/\kappa\), \(\kappa=8\pi\), conversion; the optional EM projection is identically zero for this witness. At both cells bracketing \(R=10\), the sum of scalar, fluid, and EM density profiles equals the stored total \(\rho\) exactly in all three artifacts.
+
+The same-stage matter source inserted into the production \(K\) and \(A_a\) L3 equations also matches the captured total projection exactly at both bracket cells for \(N=24,48,96\):
+\[
+(\dot K)_{\rm source}=4\pi\alpha(\rho+p_r+2p_t),\qquad
+(\dot A_a)_{\rm source}=-\frac{16\pi}{3}\alpha(p_r-p_t).
+\]
+The source comparison live L3 minus vacuum L3 minus reconstructed source is zero for both fields at the six sampled bracket cells. This is a strong implementation-consistency check for the source path; it is not independent proof of the action premise or of global conservation. The captured momentum-constraint contribution remains negligible (about \(10^{-18}\) in the mass-gradient identity) because this start state has near-zero \(j_r\).
+
+**Signed Hamiltonian trace at the target.**
+
+| \(N\) | \(\mathcal H(R=10)\) | \(16\pi\rho_{\rm total}(R=10)\) | \(\mathcal H/(16\pi\rho)\) | Hamiltonian mass-gradient term | Full composite mass-gradient residual | Hamiltonian share |
+|---:|---:|---:|---:|---:|---:|---:|
+| 24 | \(+3.57066804\times10^{-7}\) | \(2.456320998\times10^{-4}\) | \(1.454\times10^{-3}\) | \(+9.01333221\times10^{-6}\) | \(+2.73992597\times10^{-5}\) | 32.9% |
+| 48 | \(+2.11004816\times10^{-7}\) | \(2.431039987\times10^{-4}\) | \(8.680\times10^{-4}\) | \(+5.26292778\times10^{-6}\) | \(+6.46311726\times10^{-6}\) | 81.4% |
+| 96 | \(+6.06868784\times10^{-8}\) | \(2.424756262\times10^{-4}\) | \(2.503\times10^{-4}\) | \(+1.51607041\times10^{-6}\) | \(+1.59180115\times10^{-6}\) | 95.2% |
+
+At \(N=96\), the full residual decomposes as
+\[
+1.59180115\times10^{-6}
+=1.51607041\times10^{-6}
++4.24919695\times10^{-18}
++7.57307377\times10^{-8}
+\]
+to the displayed precision. The signed Hamiltonian term is therefore the dominant remaining component of this spatial mass-gradient identity. It is not a free source inserted into the evolution. The physical constraint residual itself is positive and declining with resolution; relative to \(16\pi\rho\), it falls from \(1.45\times10^{-3}\) to \(2.50\times10^{-4}\).
+
+**Repository-level explanation to pursue.** The initialization path in engine/v55_initial.py builds the areal-gauge radial metric variable \(B\) by integrating \((rB)'=\mathrm{src}\) with a cell-centred trapezoidal accumulation, then maps \(B\) into \((a,b,X)\). The live diagnostic instead evaluates \(H_{\rm geom}\) through the pinned BSSN curvature operator, which uses fourth-order derivatives of the metric fields and the reference-metric connection. These are not the same discrete constraint operator. Since the recorded RHS is the start stage at \(t=0\), the observed \(\mathcal H\) is present before advancing the step; the CMC lapse update does not enter the Hamiltonian expression. The current evidence therefore points first to a finite-grid initialization/evaluator mismatch, not to an unaccounted stress normalization. The \(N=24\) to \(N=96\) relative reduction supports that interpretation, but does not by itself prove the entire residual's origin.
+
+A related operator caution remains: the archived geometry formula is continuum-equivalent to an areal-gauge \(B'\) identity, but differentiating the transformed \(B=X^2/a\) profile with a separate discrete product rule does not exactly reproduce the BSSN scalar-curvature operator. It must be treated as an operator cross-check, not substituted for the captured \(\mathcal H\).
+
+**Do not conflate the gradient and rate identities.** At \(N=96\), the tube coordinate speed is \(v_R=-\dot R/R_r=-5.68472149\times10^{-2}\); the Hamiltonian piece would contribute \(-8.61843806\times10^{-8}\) to a sweep term if replacing the measured mass gradient with the matter-only gradient. The actual fixed-\(R\) mass-rate residual remains independently reported as \(+2.50290951\times10^{-8}\) with the composite stress/work operator and \(-8.03733470\times10^{-8}\) with the factorized operator. Because the measured rate uses its own captured mass tangent and sweep, the Hamiltonian gradient term is not itself the fixed-\(R\) rate residual, and must not be subtracted from it as though it were an additional physical flux.
+
+**Bounded follow-through.** The source normalization and \(K/A_a\) insertion are now cross-checked against the captured stage. The next step is a diagnostic-only operator comparison of the existing trapezoidal initial-\(B\) reconstruction with the pinned production Hamiltonian evaluator, preserving \(\mathcal H\), \(\epsilon_{\rm op}\), and the fixed-\(R\) rate remainder as separate signed quantities. Do not alter initialization, production equations, source normalization, historical pins, thresholds, or admission flags without that comparison and archive-authorized justification.
+
 ## 3. Spherical mass identity: exact scope matters
 
 The archived CMC bridge defines the areal radius `R(t,r)` and Misner–Sharp mass
