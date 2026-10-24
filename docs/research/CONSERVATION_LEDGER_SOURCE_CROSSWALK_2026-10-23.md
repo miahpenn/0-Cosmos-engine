@@ -8,7 +8,7 @@
 
 Identify the existing equation/diagnostic sources from which a physically interpretable ledger can be derived, state the conditions under which each identity applies, and prevent a coordinate-fixed shell-tail proxy from being mistaken for conserved flux.
 
-This change adds documentation only. It does not alter production equations, introduce a source law, rerun simulations, close Issue #4, or change scientific-admission flags.
+This PR is research-only, but it is not documentation-only: it includes this crosswalk, separately pinned diagnostic entry points, contract tests, and bounded CI workflows. The fixed-areal-radius observer runs a bounded accepted-step capture to inspect same-stage RHS operands; the current-source total-stress-energy observer measures a frozen state without advancing a production step. No production equation, production call site, physical parameter, or vendor source is changed. This work introduces no new physical source law, does not close Issue #4 or Issue #210, and does not change scientific-admission flags.
 
 ## 1. Separate the three balances
 
