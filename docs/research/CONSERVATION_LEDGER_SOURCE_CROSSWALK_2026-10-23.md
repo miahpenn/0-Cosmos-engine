@@ -351,7 +351,37 @@ At \(N=96\), the full residual decomposes as
 \]
 to the displayed precision. The signed Hamiltonian term is therefore the dominant remaining component of this spatial mass-gradient identity. It is not a free source inserted into the evolution. The physical constraint residual itself is positive and declining with resolution; relative to \(16\pi\rho\), it falls from \(1.45\times10^{-3}\) to \(2.50\times10^{-4}\).
 
-**Repository-level explanation to pursue.** The initialization path in engine/v55_initial.py builds the areal-gauge radial metric variable \(B\) by integrating \((rB)'=\mathrm{src}\) with a cell-centred trapezoidal accumulation, then maps \(B\) into \((a,b,X)\). The live diagnostic instead evaluates \(H_{\rm geom}\) through the pinned BSSN curvature operator, which uses fourth-order derivatives of the metric fields and the reference-metric connection. These are not the same discrete constraint operator. Since the recorded RHS is the start stage at \(t=0\), the observed \(\mathcal H\) is present before advancing the step; the CMC lapse update does not enter the Hamiltonian expression. The current evidence therefore points first to a finite-grid initialization/evaluator mismatch, not to an unaccounted stress normalization. The \(N=24\) to \(N=96\) relative reduction supports that interpretation, but does not by itself prove the entire residual's origin.
+**The saved profiles now isolate the discrete origin more tightly.** The initial-data source uses
+\[
+\mathrm{src}=1-8\pi r^2\rho+2r^2K^r{}_rK^\theta{}_\theta+r^2(K^\theta{}_\theta)^2,
+\quad (rB)'=\mathrm{src},
+\]
+with \(B=X^2/a\) in the initialized areal gauge \(R=r\). Using the same captured profiles, the trapezoidal recurrence
+\[
+\frac{r_iB_i-r_{i-1}B_{i-1}}{\Delta r}
+-\frac{\mathrm{src}_i+\mathrm{src}_{i-1}}{2}
+\]
+is at roundoff at both bracket cells (maximum absolute residual \(3.4\text{--}6.7\times10^{-15}\)) for all three resolutions. The initialiser closes its **own trapezoidal discrete equation**.
+
+As a separate operator check, form the areal-gauge Hamiltonian using the pinned fourth-order derivative of \(B\),
+\[
+\mathcal H_B=\frac{2(1-B)}{r^2}-\frac{2D_4 B}{r}
++4K^r{}_rK^\theta{}_\theta+2(K^\theta{}_\theta)^2-16\pi\rho,
+\quad B=X^2/a.
+\]
+This is compared against the saved production BSSN Hamiltonian residual, which is computed through the reference-metric curvature operator on \((a,b,X,\Lambda)\), not by differentiating \(B\) directly.
+
+| \(N\) | Trapezoidal recurrence residual, bracket max | \(\mathcal H_B(R=10)\) from \(D_4B\) | Pinned BSSN \(\mathcal H(R=10)\) | \(\mathcal H_B-\mathcal H_{\rm BSSN}\) |
+|---:|---:|---:|---:|---:|
+| 24 | \(4.88\times10^{-15}\) | \(+1.00619458\times10^{-6}\) | \(+3.57066804\times10^{-7}\) | \(+6.49127779\times10^{-7}\) |
+| 48 | \(6.66\times10^{-15}\) | \(+2.51892770\times10^{-7}\) | \(+2.11004816\times10^{-7}\) | \(+4.08879538\times10^{-8}\) |
+| 96 | \(3.44\times10^{-15}\) | \(+6.32415371\times10^{-8}\) | \(+6.06868784\times10^{-8}\) | \(+2.55465871\times10^{-9}\) |
+
+The \(D_4B\)-based residual falls by factors \(3.995\) and \(3.983\) under each grid halving, while the difference between the two curvature operators falls by factors \(15.87\) and \(16.00\). Thus the finite-grid gap between the transformed-\(B\) derivative and the pinned BSSN scalar-curvature operator is consistent with fourth-order behavior; the leading areal \(B'\)-versus-trapezoidal-source discrepancy is second-order. By \(N=96\), the production BSSN Hamiltonian residual is within about 4.1% of \(\mathcal H_B\). The source comparison also shows \(K^r{}_r=K^\theta{}_\theta+rD_4K^\theta{}_\theta+4\pi rj_r\) to roundoff at the bracket cells, so the radial-extrinsic-curvature/momentum convention does not explain the dominant term.
+
+This sharpens the diagnosis: the dominant positive \(\mathcal H\) is consistent with the **discrete initial-\(B\) reconstruction versus runtime derivative operator**, not a missing or duplicated matter normalization. That is now supported by the saved-profile operator comparison, rather than only inferred from source inspection. It remains a numerical constraint residual, not a new physical source, and it has not been removed or tuned away.
+
+**Do not conflate the gradient and rate identities.** The initialization path in engine/v55_initial.py builds the areal-gauge radial metric variable \(B\) by integrating \((rB)'=\mathrm{src}\) with a cell-centred trapezoidal accumulation, then maps \(B\) into \((a,b,X)\). The live diagnostic instead evaluates \(H_{\rm geom}\) through the pinned BSSN curvature operator, which uses fourth-order derivatives of the metric fields and the reference-metric connection. These are not the same discrete constraint operator. Since the recorded RHS is the start stage at \(t=0\), the observed \(\mathcal H\) is present before advancing the step; the CMC lapse update does not enter the Hamiltonian expression. The current evidence therefore points first to a finite-grid initialization/evaluator mismatch, not to an unaccounted stress normalization. The \(N=24\) to \(N=96\) relative reduction supports that interpretation, but does not by itself prove the entire residual's origin.
 
 A related operator caution remains: the archived geometry formula is continuum-equivalent to an areal-gauge \(B'\) identity, but differentiating the transformed \(B=X^2/a\) profile with a separate discrete product rule does not exactly reproduce the BSSN scalar-curvature operator. It must be treated as an operator cross-check, not substituted for the captured \(\mathcal H\).
 
