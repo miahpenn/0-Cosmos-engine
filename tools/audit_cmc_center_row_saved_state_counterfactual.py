@@ -151,11 +151,6 @@ def _restore_state(kernel: V55ProductionKernel, bundle: dict, resolution: int) -
 
     scalars = ScalarFields(*(np.asarray(arrays[name], dtype=float).copy()
                              for name in ("S", "PS", "D", "PD", "phi", "Pi")))
-    matter = V55MatterState(
-        ConservedSpecies(*(np.asarray(arrays[prefix + suffix], dtype=float).copy()
-                           for suffix in ("_rest", "_energy_t", "_momentum_r")))
-        for prefix in ()
-    )
     # Build the three conserved sectors explicitly to keep their order clear.
     matter = V55MatterState(
         dark_matter=ConservedSpecies(
@@ -353,8 +348,8 @@ def _audit_pair(kernel: V55ProductionKernel, n: int, baseline: dict, candidate: 
         cf_state = _replace_only_lapse(state, alpha_cf)
         counterfactual = _channel_snapshot(cf_state)
         _, vacuum, _ = adapter.vendor_modules()
-        l2_cf = vacuum.primary_l2_rhs(none_grid := state.grid, cf_state.geometry)
-        l3_cf = adapter.primary_l3_with_matter(none_grid, cf_state.geometry, cf_state.scalars, cf_state.matter)
+        l2_cf = vacuum.primary_l2_rhs(state.grid, cf_state.geometry)
+        l3_cf = adapter.primary_l3_with_matter(state.grid, cf_state.geometry, cf_state.scalars, cf_state.matter)
         target = solve_report["target_kdot_from_existing_CMC_projection"]
         kdot_cf = np.asarray(l2_cf["K"], dtype=float) + np.asarray(l3_cf["K"], dtype=float)
         error = kdot_cf - target
