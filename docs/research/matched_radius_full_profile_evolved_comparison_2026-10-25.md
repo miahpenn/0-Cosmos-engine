@@ -46,6 +46,21 @@ These maxima use the same interpolated \(r=0.5\ldots10\) window.
 
 For the partial-joint arm, the max-absolute \(H\) over the same common-radius window is \(2.8871\times10^{-4}\), \(3.8333\times10^{-4}\), and \(3.8767\times10^{-4}\) for N=60/120/240. Its RMS over \(r=2\ldots10\) does decrease, but its near-origin max remains non-monotone and roughly two orders of magnitude larger than the full-profile N=240 maximum. This is consistent with keeping it as a control rather than treating the partial correction as a candidate remedy.
 
+
+## Central regularity witness: full-profile arm converges, partial control does not
+
+The normalized centre witness is \(A_a(r_0)/r_0^2\). Comparing it with the immediately adjacent cell's \(A_a(r_1)/r_1^2\) is a useful local regularity consistency check because it does not compare unlike cell indices across resolutions.
+
+| N | Full-profile centre \(A_a/r_0^2\) | Full-profile adjacent \(A_a/r_1^2\) | Absolute gap |
+|---:|---:|---:|---:|
+| 60 | -8.21965e-6 | -8.47322e-6 | 2.53564e-7 |
+| 120 | -9.88439e-6 | -9.81941e-6 | 6.49810e-8 |
+| 240 | -1.00810e-5 | -1.00752e-5 | 5.80029e-9 |
+
+The centre coefficient approaches approximately \(-1.01\times10^{-5}\), while the centre-to-adjacent gap shrinks from 2.54e-7 to 5.80e-9. The difference between successive centre values falls by a factor 8.47 and then the observed order is about 3.08 under each doubling of N. This is evidence of convergence to a finite regular \(A_a/r^2\) coefficient, not evidence that the coefficient itself must vanish.
+
+For the partial-joint control, the accepted centre values are -7.23741e-5 (N=60), +1.62028e-4 (N=120), and -5.48849e-4 (N=240); the sign and magnitude do not converge. The full-profile arm therefore improves both the matched-radius Hamiltonian residual and the local normalized centre regularity witness in the same accepted t=0.60 states.
+
 ## Interpretation and limits
 
 This is strong evidence that the full continuous-source metric profile produces a much more resolution-consistent accepted-state geometry in the near-origin-to-inner-profile window than the partial first-half-cell correction. The result now holds in both the stage-level \(C_\Lambda\)-rate probe and the evolved \(t=0.60\) Hamiltonian/momentum/\(C_\Lambda\) profiles at matched physical radii.
