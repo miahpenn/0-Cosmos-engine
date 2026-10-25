@@ -1,0 +1,106 @@
+{
+  "schema": "matched-radius-evolved-profile-crosswalk/v1",
+  "status": "completed_offline_diagnostic",
+  "accepted_time": 0.6,
+  "source_pin": "4aec88d0e3ff028e0a65a8ac36b30948625df792",
+  "vendor_pin": "d6052d605673ce9d82cdc99b0df79855fa2ea215",
+  "source_runs": {
+    "partial_joint": 40153734946,
+    "full_continuous_profile": 40156226086
+  },
+  "artifacts": {
+    "partial_joint": {
+      "N60": 12584100185,
+      "N120": 12583184844,
+      "N240": 12583826100
+    },
+    "full_continuous_profile": {
+      "N60": 12584064724,
+      "N120": 12584164579,
+      "N240": 12584980156
+    }
+  },
+  "method": {
+    "common_radius_window": [
+      0.5,
+      10
+    ],
+    "common_samples": 1000,
+    "interpolation": "linear in physical radius",
+    "cell_index_comparison": false
+  },
+  "full_profile": {
+    "H_max_abs": {
+      "N60": 0.00002110371653980727,
+      "N120": 0.000001668451344381816,
+      "N240": 6.498888006564729e-8
+    },
+    "H_rms": {
+      "N60": 0.000007442284775235801,
+      "N120": 5.142596276697162e-7,
+      "N240": 2.780078511970191e-8
+    },
+    "H_rms_r2_to10": {
+      "N60": 0.000004692068143799084,
+      "N120": 3.369861297055796e-7,
+      "N240": 2.1795345146019456e-8
+    },
+    "M_max_abs": {
+      "N60": 0.000006316874063958912,
+      "N120": 4.3960207699871347e-7,
+      "N240": 2.9939432021411974e-8
+    },
+    "C_lambda_max_abs": {
+      "N60": 0.000003907346791961735,
+      "N120": 2.822587889047433e-7,
+      "N240": 2.1467309345975344e-8
+    },
+    "H_at_fixed_radius": {
+      "1": {
+        "N60": -0.000017395233,
+        "N120": -0.0000011115481,
+        "N240": -5.5240741e-8
+      },
+      "2": {
+        "N60": -0.0000062697824,
+        "N120": -4.0289714e-7,
+        "N240": -2.1122662e-8
+      },
+      "3": {
+        "N60": 0.0000026737963,
+        "N120": 2.5024646e-7,
+        "N240": 1.7837754e-8
+      },
+      "5": {
+        "N60": 0.000007928457,
+        "N120": 5.6591121e-7,
+        "N240": 3.5244749e-8
+      },
+      "8": {
+        "N60": -0.0000019496556,
+        "N120": -1.7405649e-7,
+        "N240": -1.2362258e-8
+      }
+    }
+  },
+  "partial_joint": {
+    "H_max_abs": {
+      "N60": 0.00028870567,
+      "N120": 0.00038333191,
+      "N240": 0.00038767011
+    },
+    "H_rms_r2_to10": {
+      "N60": 0.00004225226352106226,
+      "N120": 0.000004267524830333177,
+      "N240": 0.00000116343315216633
+    }
+  },
+  "acceptance": {
+    "all_artifacts_from_existing_runs": true,
+    "matched_radius_interpolation": true,
+    "production_files_changed": false,
+    "full_matter_coupled_propagation_identity_closed": false,
+    "total_stress_energy_conservation_closed": false,
+    "scientific_admission": false
+  }
+}
