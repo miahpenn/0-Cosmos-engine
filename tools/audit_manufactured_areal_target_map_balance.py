@@ -147,6 +147,12 @@ def capture_maps(kernel, accepted, h: float) -> dict[str, Any]:
         raise RuntimeError("target areal map is not monotone at all temporal levels")
     if max(float(np.max(np.abs(x.geometry.beta))) for x in (accepted, state1, state2)) > 1e-14:
         raise RuntimeError("target map control requires the pinned zero-shift branch")
+    annulus_nodes = (start_R >= ANNULUS[0]) & (start_R <= ANNULUS[1])
+    if not np.any(annulus_nodes):
+        raise RuntimeError("no cell centres in the fixed-R annulus for map-motion accounting")
+    delta_R = R1 - start_R
+    annulus_speed = finite("annulus map speed", delta_R[annulus_nodes] / h)
+    annulus_shift_cells = finite("annulus fractional-cell map shift", delta_R[annulus_nodes] / float(accepted.grid.dr))
     times = (float(accepted.t), float(state1.t), float(state2.t))
     return {
         "times": list(times),
@@ -155,6 +161,11 @@ def capture_maps(kernel, accepted, h: float) -> dict[str, Any]:
         "map_max": [float(x[-1]) for x in maps],
         "map_rate_rms": float(rms((R1 - start_R) / h)),
         "map_rate_max_abs": float(np.max(np.abs((R1 - start_R) / h))),
+        "map_rate_rms_R2_to_10": float(rms(annulus_speed)),
+        "map_rate_max_abs_R2_to_10": float(np.max(np.abs(annulus_speed))),
+        "fractional_cell_shift_rms_R2_to_10": float(rms(annulus_shift_cells)),
+        "fractional_cell_shift_max_abs_R2_to_10": float(np.max(np.abs(annulus_shift_cells))),
+        "annulus_cell_count": int(np.count_nonzero(annulus_nodes)),
         "input_state_immutable": True,
         "shadow_states_immutable": True,
     }
