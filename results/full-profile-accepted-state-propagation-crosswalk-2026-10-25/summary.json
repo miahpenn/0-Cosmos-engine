@@ -1,0 +1,208 @@
+{
+  "schema": "full-profile-accepted-state-propagation-candidate-summary/v1",
+  "status": "completed_diagnostic_only",
+  "execution": {
+    "pr": 420,
+    "workflow_run": 40156795380,
+    "tested_observer_commit": "affb42f7dd964838cfc402417f933bf17a9d039c",
+    "resolutions": [
+      60,
+      120,
+      240
+    ],
+    "accepted_time": 0.6,
+    "directional_epsilons": [
+      0.00002,
+      0.00001
+    ],
+    "artifacts": [
+      {
+        "resolution": 60,
+        "artifact_id": 12585305634,
+        "sha256": "474f63f53c3b9337b8e700e6b83a9fc331bcddcdef9c69db374e0b1d85dd5f88"
+      },
+      {
+        "resolution": 120,
+        "artifact_id": 12585325663,
+        "sha256": "39c0afb5829e9bd8b39830dcfa13c777fb5f616535b2e89a932fb4321ee26e39"
+      },
+      {
+        "resolution": 240,
+        "artifact_id": 12585585288,
+        "sha256": "ddf9031ee09c4aad39561a11bc22580320a939660e344336cbd1fc8e2dbb872b"
+      }
+    ]
+  },
+  "provenance": {
+    "source_commit": "4aec88d0e3ff028e0a65a8ac36b30948625df792",
+    "vendor_commit": "d6052d605673ce9d82cdc99b0df79855fa2ea215",
+    "input_artifact_manifests_verified": true,
+    "protected_source_diff_empty": true,
+    "accepted_states_immutable_during_observation": true,
+    "all_profiles_finite": true
+  },
+  "arms": [
+    "production_baseline",
+    "partial_joint",
+    "full_continuous_profile"
+  ],
+  "direct_covariant_Mr_candidate": {
+    "relative_rms": {
+      "60": {
+        "production_baseline": {
+          "full_domain": 0.718245,
+          "r_ge_5": 0.919308
+        },
+        "partial_joint": {
+          "full_domain": 0.906813,
+          "r_ge_5": 1.37521
+        },
+        "full_continuous_profile": {
+          "full_domain": 0.797004,
+          "r_ge_5": 0.8338
+        }
+      },
+      "120": {
+        "production_baseline": {
+          "full_domain": 0.781422,
+          "r_ge_5": 0.339332
+        },
+        "partial_joint": {
+          "full_domain": 0.740678,
+          "r_ge_5": 0.361487
+        },
+        "full_continuous_profile": {
+          "full_domain": 0.956471,
+          "r_ge_5": 0.841925
+        }
+      },
+      "240": {
+        "production_baseline": {
+          "full_domain": 1.95673,
+          "r_ge_5": 0.100415
+        },
+        "partial_joint": {
+          "full_domain": 1.11058,
+          "r_ge_5": 0.10038
+        },
+        "full_continuous_profile": {
+          "full_domain": 0.656616,
+          "r_ge_5": 0.817822
+        }
+      }
+    },
+    "center_cell0_cell1_signed_residual": {
+      "60": {
+        "production_baseline": [
+          -0.00046039716236,
+          -0.0005087751105
+        ],
+        "partial_joint": [
+          0.00011269176846,
+          0.000098363308759
+        ],
+        "full_continuous_profile": [
+          8.789251495e-8,
+          0.0000089751904974
+        ]
+      },
+      "120": {
+        "production_baseline": [
+          -0.007550103478,
+          -0.0009862187926
+        ],
+        "partial_joint": [
+          0.00082874189785,
+          0.00014130528221
+        ],
+        "full_continuous_profile": [
+          -9.3173224337e-7,
+          4.3684632496e-7
+        ]
+      },
+      "240": {
+        "production_baseline": [
+          0.032485246419,
+          -0.004049037349
+        ],
+        "partial_joint": [
+          -0.0039273501839,
+          0.00040300044693
+        ],
+        "full_continuous_profile": [
+          3.0083442669e-9,
+          6.625624719e-9
+        ]
+      }
+    }
+  },
+  "source_mapping": {
+    "name": "actual matter source composite minus provisional -8*pi*alpha*Q_r",
+    "relative_rms": {
+      "60": {
+        "production_baseline": 0.9991078512,
+        "partial_joint": 0.9990911739,
+        "full_continuous_profile": 0.9990910207
+      },
+      "120": {
+        "production_baseline": 0.9999397604,
+        "partial_joint": 0.9999395023,
+        "full_continuous_profile": 0.9999394939
+      },
+      "240": {
+        "production_baseline": 0.9999961657,
+        "partial_joint": 0.9999961626,
+        "full_continuous_profile": 0.9999961624
+      }
+    },
+    "full_profile_cell0_cell1_signed_residual": {
+      "60": [
+        0.00002233073418,
+        0.000058089998181
+      ],
+      "120": [
+        0.000011415467082,
+        0.000033032326917
+      ],
+      "240": [
+        0.0000057315916696,
+        0.000017036680657
+      ]
+    },
+    "full_profile_Qr_cell0_cell1": {
+      "60": [
+        -3.8003437987e-9,
+        -8.4041936167e-9
+      ],
+      "120": [
+        -1.3180217394e-10,
+        -3.6866707949e-10
+      ],
+      "240": [
+        -4.224718448e-12,
+        -1.2477113529e-11
+      ]
+    },
+    "materially_changed_by_metric_profile": false
+  },
+  "exact_discrete_chain_rule_max_abs_error": {
+    "60": 1.0707993838e-13,
+    "120": 1.6410292653e-13,
+    "240": 4.660646987e-13
+  },
+  "acceptance": {
+    "full_matter_coupled_propagation_identity_closed": false,
+    "matter_source_sign_and_normalization_reviewed": false,
+    "reference_metric_connection_coupling_convention_frozen": false,
+    "total_stress_energy_sector_conservation_closed": false,
+    "production_source_or_vendor_changed": false,
+    "scientific_admission": false
+  },
+  "interpretation": [
+    "Centre residual for the provisional direct covariant-M_r candidate is much smaller for the full-profile arm, especially at N=240.",
+    "The same candidate does not converge globally to zero and its r>=5 relative mismatch is worse than baseline at N=120 and N=240.",
+    "The matter-source mapping residual remains about 0.9991 to 0.999996 relative RMS, nearly unchanged across the geometry arms.",
+    "The exact discrete chain rule check is implementation bookkeeping only; it is not the independent continuum propagation oracle.",
+    "No production physics changes or scientific admission."
+  ]
+}
