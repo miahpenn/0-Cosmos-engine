@@ -128,11 +128,49 @@ The recorded decomposition assigns essentially all of the difference to the radi
 
 This explains why a sector-summed (Q_r) of order (10^{-7}) on the coarse central cell can coexist with a much smaller expanded total (Q_r): they are not the same finite-difference operator. It does **not** decide which continuum-equivalent stress-divergence discretization is the accepted conservation diagnostic. The accepted S-sector update is still the expanded cell-centred D1/D2 RHS documented above; the combined-flux observer remains a separate conservation diagnostic. The full matter-coupled propagation and physical sector-conservation gates remain open.
 
-## 6. Disposition and next discriminating check
+## 6. Same-state scalar RHS/current/measure pairing — 2026-10-25
+
+**Exact-head run:** [40212458916](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/40212458916), all N=60/120/240 jobs passed. This was post-processing of SHA-verified accepted states at t=0.60; the accepted states were not advanced or mutated. Production source remains 4aec88d0e3ff028e0a65a8ac36b30948625df792, vendor d6052d605673ce9d82cdc99b0df79855fa2ea215, and the protected engine/vendor/dependency diff was empty.
+
+The audit now records the sector-specific RHS rates, the current tangent, and the spatial-measure rate:
+d_t ln(sqrt(gamma)) = 0.5*a_dot/a + b_dot/b - 3*X_dot/X.
+The current tangent reconstructed from the pinned RHS matches the directional witness, and (j_dot + j*d_t ln(sqrt(gamma)))/alpha matches the observer's time-density contribution. The measured maximum absolute gaps are:
+
+| N | Production-expanded EOM residual max abs | Current-tangent RHS vs directional witness | Reconstructed time-density vs observer |
+|---:|---:|---:|---:|
+| 60 | 8.67e-19 | 4.47e-17 | 7.37e-17 |
+| 120 | 3.47e-18 | 3.51e-16 | 3.55e-16 |
+| 240 | 1.73e-18 | 7.40e-16 | 7.13e-16 |
+
+The production-expanded EOM residual is expected to close because it uses the same pinned Pdot RHS; it is an implementation reconstruction check, not independent physics validation. The separate divergence-form EOM residual differs from the expanded production form by the finite-grid spatial product-rule/operator gap.
+
+The continuum identity is nabla_mu(T_S^mu_r) = EOM_S * D_r(S). On the grid, the pointwise stress divergence, volume-averaged FV divergence, and EOM-gradient pairing are deliberately kept as distinct discrete objects. Their observed gaps are:
+
+| N | Pointwise pairing-gap RMS (full domain) | Pointwise max abs | FV pairing-gap RMS (full domain) | FV max abs |
+|---:|---:|---:|---:|---:|
+| 60 | 1.010e-7 | 7.610e-7 | 3.903e-9 | 2.491e-8 |
+| 120 | 1.050e-8 | 1.084e-7 | 3.761e-10 | 3.706e-9 |
+| 240 | 9.793e-10 | 1.400e-8 | 3.427e-11 | 4.848e-10 |
+
+Do not assign a formal convergence order to the full-domain maxima: the innermost cell represents a different physical radius at each resolution. At fixed coordinate radius r=2, the signed pointwise gap decreases from +1.76049e-7 to +1.26966e-8 to +7.85394e-10, with observed orders 3.79 and 4.01. The FV gap at the same radius decreases from +1.49114e-9 to +5.27063e-11 to +4.11783e-12. This supports a refinement-decreasing discrete pairing remainder; it does not pick a preferred conservation operator.
+
+The shell-integrated comparison uses the FV observer's Simpson-reconstructed alpha*sqrt(gamma) cell measures and cell-centre radius masks. The domain r<10 integrated gap is:
+
+| N | Pointwise divergence minus EOM-pairing integral | FV divergence minus EOM-pairing integral |
+|---:|---:|---:|
+| 60 | +1.26115e-6 | +1.45554e-6 |
+| 120 | +7.96113e-8 | +9.47507e-8 |
+| 240 | +4.86911e-9 | +5.94881e-9 |
+
+Both shell-integrated differences decrease at approximately fourth order over this refinement sequence. These are observer-consistent, volume-weighted crosswalk sums; because the pointwise/EOM operands are cell-centre samples and the FV operand is already volume-averaged, they are not an exact finite-volume conservation identity or a scientific-admission test. The algebraic split of the pointwise pairing gap into its time-density and spatial/metric parts closes to max absolute 2.65e-21, 1.23e-20, and 1.01e-20 at N=60/120/240.
+
+**Artifact provenance:** workflow 40212458916 uploaded N60 artifact 12605564698, N120 artifact 12606088948, and N240 artifact 12605739292. SHA-256 (report.json / profiles.npz): N60 d22faa6fcd80348018054e88bda6d06485482560814f78256c3c98ac2edad19d / d321016747d6d5606458270dfaa0013d8d69b5462fffe470d75401c2992311e4; N120 e6cd0f788802d9a0623eae4d0a5e795bc1d13d27abd519286e7e252ceab713ce / b5b21465a71ef81cb1b7548f9a60039c3fe9bb82c46e36585be3843c5e548096; N240 1545eace2555c8a8ffd95860ec4a98c39676adcf3280674a77706a5fa14355d5 / e17520b8e6169eeccc423f6fa9f9edfbcfcc52541fb994f3ca40bada8508a020.
+
+## 7. Disposition and next discriminating check
 
 1. The origin-volume suspicion is resolved: the observer reconstructs regular (r^2g(r^2)) face profiles and Simpson-integrates the α-weighted spacetime measure; it does not use an arithmetic face-weight average or centre value times Δr.
 2. The pinned S-sector RHS spatial terms reconstruct exactly from the existing current-tangent ledger. That isolated term is not the full `Q_r^S`, which also contains time-density, radial pressure-flux, and metric-source contributions.
-3. Keep pointwise, FV, and expanded divergence results separate and convention-labelled. The next valid scalar EOM crosswalk must be computed on the same accepted base state and same directional RHS endpoints, retaining the sector-specific current tangent, `alpha_dot`/metric-measure rates, pressure flux, metric sources, and every signed scalar RHS term. The current saved artifact contains the scalar current tangent and the total metric rates used by the expanded observer, but not the full sector-resolved set of rate arrays needed to make this comparison independently reproducible; add that instrumentation to a research-only postprocessor (no evolution rerun) before judging the identity. A preliminary probe that directly compared `EOM_residual * D1(S)` to the combined-flux `Q_r^S` is not a like-for-like closure test and is not admitted as evidence, because it mixes the expanded scalar RHS operator with the combined-flux stress-divergence operator. Once the operands are convention-aligned, compare pointwise and shell-integrated forms. Do not select a divergence form based solely on the smaller residual.
+3. The saved-state RHS/current/measure pairing is now instrumented at N=60/120/240, including the exact RHS-rate reconstruction, the spatial-measure log rate, pointwise and FV pairing gaps, and the volume-weighted shell comparison. The current and measure time-density operands close to about 1e-15, while the pointwise/FV pairing remainders decrease at fixed coordinate radii and in shell-weighted comparisons. They remain discrete operator-pairing diagnostics, not an admitted stress-energy conservation identity. Do not select a divergence form based solely on the smaller residual.
 4. The full matter-coupled Brown momentum-propagation identity, total stress-energy sector conservation, the archive-locked φ/DM exchange admission gate, and scientific admission all remain open.
 
 **Disposition:** diagnostic only; production equations and vendor sources unchanged; `scientific_admission=false`.
