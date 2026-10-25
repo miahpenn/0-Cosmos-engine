@@ -56,7 +56,6 @@ The direct signed residual is \(D_{\rm tot}=\dot M_{\rm measured}-(B_{\rm tot}+S
 | Witness | N=60 | N=120 | N=240 |
 |---|---:|---:|---:|
 | max absolute, all cells | 8.975e-6 | 9.317e-7 | 4.133e-8 |
-| RMS, all cells | 1.522e-6 | 1.407e-7 | 7.375e-9 |
 | signed residual at r=1 | +2.310e-6 | +4.368e-7 | +2.947e-8 |
 | signed residual at r=2 | +8.975e-6 | +6.122e-7 | +4.030e-8 |
 | signed residual at r=5 | +9.004e-7 | +1.778e-8 | +1.045e-9 |
