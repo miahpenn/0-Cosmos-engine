@@ -243,7 +243,12 @@ The sign is checked in a local orthonormal frame with vanishing shift and vanish
 
 This is a Bianchi projection result, not the complete spherical-BSSN propagation equation. It does not derive the Brown/BSSN Hamiltonian-gradient slots, the evolved-connection response, or a discrete pointwise/FV/expanded realization. Those terms must still be derived from the accepted evolution split and matched to the existing saved-state tangent without choosing a representation by residual size.
 
-Accordingly, keep `S_Q_candidate = -8*pi*alpha*Q_r` unresolved. Its `Q_r` cannot be interpreted as the DM sector-exchange covector. To accept that candidate, a derivation must show which total-divergence residual it denotes, its index lowering and density measure, and the exact `alpha`/shift/PIRK-time-split coefficient produced by the accepted BSSN evolution. The source crosswalk above supplies no license to infer those missing factors from residual size.
+The continuum source coefficient and sign are now fixed by the projection above:
+\[
+S_{\mathrm{Bianchi},r}=-\kappa\alpha\,\mathcal D^{\mathrm{tot}}_r
+=-8\pi\alpha\,\mathcal D^{\mathrm{tot}}_r\quad(G=1).
+\]
+Keep S_Q_candidate = -8*pi*alpha*Q_r provisional as an **implementation mapping** until its Q_r placeholder is explicitly bound to \(\mathcal D^{\mathrm{tot}}_r\) and the chosen pointwise/FV/expanded discrete divergence measure is reconciled with the saved accepted-state tangent and PIRK split. The source API's Q_\nu is a sector-exchange covector and cannot be substituted for the total-stress divergence. Do not infer the remaining discrete mapping from residual size.
 
 #### E. What the existing tangent and stage captures establish
 
