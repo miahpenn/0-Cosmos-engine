@@ -77,7 +77,7 @@ The following is a *source inspection*, not a new evolution and not a closure re
   \]
   matching the coefficients written in the existing Brown scaffold. **This does not settle the Hamiltonian operand:** the Brown observer deliberately uses a metric-only Ricci reconstruction, whereas the pinned vendor's BSSN Hamiltonian depends on the independently evolved connection variable. Preserve both witnesses until the exact formulation mapping determines which enters each term; do not substitute one because its residual is smaller. Likewise, map Sarbach–Tiglio's shift-adapted time operator and explicit shift/index terms consistently before comparing to a coordinate-time tangent.
 
-- **Connection-evolution coupling:** vendor \`lambda_l2_rhs\` includes \(+\lambda_m\alpha M_r^{\mathrm{geom}}/a\). The local [engine/v55_pirk_adapter.py](https://github.com/miahpenn/0-Cosmos-engine/blob/4aec88d0e3ff028e0a65a8ac36b30948625df792/engine/v55_pirk_adapter.py) adds the matter contribution \(-8\pi\lambda_m\alpha j_{\mathrm{total}}/a\) in \`lambda_l3_with_matter\`. Taken together, those explicit terms form
+- **Connection-evolution coupling:** vendor `lambda_l2_rhs` includes \(+\lambda_m\alpha M_r^{\mathrm{geom}}/a\). The local [engine/v55_pirk_adapter.py](https://github.com/miahpenn/0-Cosmos-engine/blob/4aec88d0e3ff028e0a65a8ac36b30948625df792/engine/v55_pirk_adapter.py) adds the matter contribution \(-8\pi\lambda_m\alpha j_{\mathrm{total}}/a\) in `lambda_l3_with_matter`. Taken together, those explicit terms form
   \[
   \frac{\lambda_m\alpha}{a}\left(M_r^{\mathrm{geom}}-8\pi j_{\mathrm{total}}\right).
   \]
@@ -85,7 +85,7 @@ The following is a *source inspection*, not a new evolution and not a closure re
 
 - **Remaining derivative ledger:** the pinned vendor matter-coupled geometry RHS also contributes the anisotropic-stress source \(-16\pi\alpha(p_r-p_t)/3\) to \(\dot A_a\) and \(+4\pi\alpha(\rho+p_r+2p_t)\) to \(\dot K\). A complete \(\dot M_r\) comparison must propagate these through the discrete derivative and the remaining metric/connection coefficients, differentiate the \(-8\pi j_{\mathrm{total}}\) term, include the Hamiltonian-gradient and connection-constraint terms, and use the actual shift/lapse and reference-metric convention. It must pair these with the **total** sector exchange/divergence budget, not the fluid flux budget alone.
 
-- **Scope limit of the existing Brown observer:** [tools/audit_brown_vacuum_momentum_propagation.py](https://github.com/miahpenn/0-Cosmos-engine/blob/4aec88d0e3ff028e0a65a8ac36b30948625df792/tools/audit_brown_vacuum_momentum_propagation.py) labels the Brown Eq. (11b) prediction as a lower-index \(M_r\) candidate and uses a metric-only Hamiltonian in the \(H,H_r\) slots. Its \`vacuum_rhs_rates\` are built from vendor vacuum RHS blocks, without the local matter L3 source insertion. It therefore cannot be treated as the full matter-coupled acceptance oracle requested by Issue #4. Preserve it as a useful geometric scaffold; derive/extend the matter-coupled identity rather than upgrading its status.
+- **Scope limit of the existing Brown observer:** [tools/audit_brown_vacuum_momentum_propagation.py](https://github.com/miahpenn/0-Cosmos-engine/blob/4aec88d0e3ff028e0a65a8ac36b30948625df792/tools/audit_brown_vacuum_momentum_propagation.py) labels the Brown Eq. (11b) prediction as a lower-index \(M_r\) candidate and uses a metric-only Hamiltonian in the \(H,H_r\) slots. Its `vacuum_rhs_rates` are built from vendor vacuum RHS blocks, without the local matter L3 source insertion. It therefore cannot be treated as the full matter-coupled acceptance oracle requested by Issue #4. Preserve it as a useful geometric scaffold; derive/extend the matter-coupled identity rather than upgrading its status.
 
 - **Exchange caution:** pinned [engine/v55_matter.py](https://github.com/miahpenn/0-Cosmos-engine/blob/4aec88d0e3ff028e0a65a8ac36b30948625df792/engine/v55_matter.py) contains the archive-locked scalar-\(\phi\)/DM exchange pair. Algebraic equal-and-opposite pair entries alone do not prove that the implemented stage RHS and stress projections satisfy \(\nabla_\mu T^{\mu\nu}_{\mathrm{total}}=0\) with the required normalization, index positions, and metric-work terms. That must be checked against the existing signed accepted-state budgets.
 
@@ -98,9 +98,9 @@ Read-only analysis of the three existing artifacts from [workflow run 4020782173
 
 | Resolution | Profile artifact SHA-256 | Direct covariant \(M_r\) candidate residual at fixed \(r=2\) | At fixed \(r=8\) |
 |---:|---|---:|---:|
-| 60 | \`6aade0ced9ce41e472a491f620782b3569926c1193f0b2d17220bcd60414dd4f\` | \(+8.9752\times10^{-6}\) | \(-1.1941\times10^{-6}\) |
-| 120 | \`84a0f7c8c37a6fbc57e8106b16aeba583813133649f61f400238d579a245b84f\` | \(+6.1218\times10^{-7}\) | \(-7.3282\times10^{-8}\) |
-| 240 | \`b0ddbacbc0803c3c07bc28d3d14e3a45a9e23275224f0ba8d5913023c088b4be\` | \(+4.0296\times10^{-8}\) | \(-4.5908\times10^{-9}\) |
+| 60 | `6aade0ced9ce41e472a491f620782b3569926c1193f0b2d17220bcd60414dd4f` | \(+8.9752\times10^{-6}\) | \(-1.1941\times10^{-6}\) |
+| 120 | `84a0f7c8c37a6fbc57e8106b16aeba583813133649f61f400238d579a245b84f` | \(+6.1218\times10^{-7}\) | \(-7.3282\times10^{-8}\) |
+| 240 | `b0ddbacbc0803c3c07bc28d3d14e3a45a9e23275224f0ba8d5913023c088b4be` | \(+4.0296\times10^{-8}\) | \(-4.5908\times10^{-9}\) |
 
 These are fixed **coordinate** radii. The absolute residual decreases at approximately fourth order: observed orders \(3.87,3.93\) at \(r=2\), and \(4.03,4.00\) at \(r=8\). This is consistent with a high-order discrete-truncation trend, but is not proof that the continuum source/index mapping is correct. The N=240 relative RMS residual remains \(0.657\) over the full domain and \(0.818\) for \(r\geq5\), so the candidate is not accepted as closed.
 
