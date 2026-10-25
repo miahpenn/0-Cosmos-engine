@@ -37,7 +37,7 @@ jobs:
       VENDOR_COMMIT: "d6052d605673ce9d82cdc99b0df79855fa2ea215"
       AREAL_CONSTRAINT_BALANCE_RESOLUTION: ${{ matrix.resolution }}
       FULL_PROFILE_ARTIFACT_DIR: reference/full/N${{ matrix.resolution }}
-      AREAL_CONSTRAINT_BALANCE_OUT: results/bssn-areal-constraint-balance-N${{ matrix.resolution }}-2026-10-25
+      AREAL_CONSTRAINT_BALANCE_OUT: results/bssn-areal-constraint-mass-balance-N${{ matrix.resolution }}-2026-10-25
 
     steps:
       - name: Check out diagnostic branch and pinned vendor
