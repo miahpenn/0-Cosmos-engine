@@ -443,8 +443,59 @@ The difference between the accepted-split momentum-source combination and a coun
 
 **Critical interpretation limit:** the report's finite-step connection residual is zero by definition because it reassembles C-out minus C-in from those same endpoints using delta Lambda minus delta Lambda-metric. It is not an independent propagation test and must not be counted as one. The nontrivial checks here are the stage-resolved Lambda update reconstruction, direct canonical total-current/L3 decomposition, provenance checks, and input immutability. This capture did not evaluate an independent full time derivative of M-r or a full matter-coupled propagation RHS.
 
-### Next derivation gate
+### Exact-profile state-matched tangent and total-T ledger — completed
 
-The stage-current/operand availability gap is now filled for this copied diagnostic step. Next, finish the signed equation-to-code crosswalk for the independent full partial-time M-r identity and total-stress source, then join that derivation to an exactly state-matched existing tangent only after the stage and lapse-state mapping is verified. Do not infer or fit S_Q from the captured values and do not launch another resolution or trajectory campaign merely to reproduce this result.
+The next read-only step was executed against the **same exact #420 t=0.60 endpoint profiles** used by the stage capture. This replaces the formerly non-matching #415 lineage with a digest-matched signed \(M_r\) tangent and independent total-\(T\) directional-divergence ledger.
+
+**Successful workflow:** [run 40236402303](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/40236402303). All three resolutions passed source/vendor/dependency guards, helper tests, tangent and total-\(T\) evaluation, and artifact upload. Each lane used the accepted production-source anchor 4aec88d0e3ff028e0a65a8ac36b30948625df792, vendor pin d6052d605673ce9d82cdc99b0df79855fa2ea215, and verified all 11 protected source blobs. The historical total-\(T\) source checkout 7f47669a1c0edfafef9fc5f27b2db80840d3f035 is checked separately as the helper's provenance reference; the accepted RHS remains the current pinned engine.
+
+Output artifacts and SHA-256 digests:
+- **N=60:** [artifact 12615136565](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/40236402303/artifacts/12615136565). ZIP SHA-256 41d646090e05c08684806c5e39d57851f119cf0f38aa90f1d26ab5f72f87d1ce; report JSON SHA-256 16cae6ac099fe7a29a97d1882fbfd4f946869cd0d2b08b7d446740768842147d; tangent NPZ SHA-256 988ccd3c71ac6733bb47d013b32f8ceded9d132d2d21f7483c6ee4953993601b.
+- **N=120:** [artifact 12615555594](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/40236402303/artifacts/12615555594). ZIP SHA-256 9f5c2504f28290ff540c96f93e1fb569f5b960b7a2b3fc312dca9362c8e2eacf; report JSON SHA-256 216b9e834874e9d7de8f88ba75b4a543ac234ea7b611ab7d2652fd4b001c3d8f; tangent NPZ SHA-256 5751a16949b763ad5e96a4afac9db4fb1d92d55a0c6e7ddaabc4cc6b25652e0b.
+- **N=240:** [artifact 12615550675](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/40236402303/artifacts/12615550675). ZIP SHA-256 e8a9cd26fbe3dbfb0bd62fc0606237c387a41efd14ade550df50da9842b38bea; report JSON SHA-256 cdb02d74b9962ad48cf132171f3f0abb2fdb926b9951d3f136a747d4a30121c2; tangent NPZ SHA-256 29a4bc1aeca718eff0dbc0de068809f8279aab94cb7023b004dea545589bf814.
+
+All three input-state digests exactly match the stage-capture artifacts: N=60 2ae2a5704b2b87d16ef9239c8a22ef261ed9108d971d3a5c78a3d1133aa9e9e4; N=120 0266c7fafc5e9a292a9a376f1d91fa45bb8dd103b6f8c21b543c25d0930daacb; N=240 770d36f3db5b60da87f52beb213f8af4731e17021f95c1519ecbdbe759b41cce. Each report confirms input immutability. The ZIP and internal member hashes were rechecked, and all 101 NPZ arrays in each artifact match their array-manifest checksums.
+
+#### Signed semi-discrete momentum tangent
+
+This is a directional derivative of the implemented RHS on the exact accepted state, evaluated with two disposable directions, \(\epsilon=2\times10^{-5}\) and \(10^{-5}\). It is not a continuum proof. The signed \(Mdot\) values below use the \(\epsilon=2\times10^{-5}\) arm; both epsilon arrays and closure bounds are retained in the artifacts.
+
+| N | \( \dot M_r \), cell 0 | cell 1 | cell 2 | cell 6 | max closure residual / bound, \(\epsilon=2e{-5}\) |
+|---:|---:|---:|---:|---:|---:|
+| 60 | +7.95862e-6 | +9.92593e-6 | +6.72202e-6 | -6.55872e-7 | 3.67e-16 / 3.02e-13 |
+| 120 | +6.48208e-7 | +7.23909e-7 | +7.03005e-7 | +1.57069e-7 | 5.88e-16 / 3.01e-13 |
+| 240 | +6.82317e-8 | +8.79386e-8 | +5.72535e-8 | +4.40947e-8 | 5.29e-16 / 3.03e-13 |
+
+The reconstruction of total \(Mdot\) from the geometric-constraint tangent plus the six signed current-sector contributions passes its raw-operand-scaled closure at both epsilons for all resolutions. The smaller closure is bookkeeping of the implemented tangent and current projections, not verification that the underlying source law is physically complete.
+
+#### Reference-metric connection-rate candidate
+
+On the same exact state and with the accepted native CMC metric RHS, the current candidate \( \dot C^r \approx (2\alpha/a)M_r \) fits more closely than its opposite-sign control. Maximum absolute residuals over \(r\le10\):
+
+| N | \( \max|\dot C^r-(2\alpha/a)M_r| \) | \( \max|\dot C^r+(2\alpha/a)M_r| \) |
+|---:|---:|---:|
+| 60 | 4.226e-9 | 2.522e-5 |
+| 120 | 3.856e-10 | 1.755e-6 |
+| 240 | 2.663e-11 | 1.468e-7 |
+
+This supports retaining the positive-sign relation as a **candidate-level diagnostic comparison**. It does not derive the full matter-coupled \(M_r\) propagation RHS, resolve the Hamiltonian-gradient/time-split translation, or admit the source \(S_Q\).
+
+#### Independent total-stress divergence: pointwise and FV kept distinct
+
+The following values are maxima of the **directional divergence witness** assembled from the same base and +/- RHS-direction states. They are not the base-state divergence itself, and pointwise versus finite-volume observables must not be conflated.
+
+| N | Pointwise \(\partial_t\)-component max | FV \(\partial_t\)-component max | Pointwise radial-component max | FV radial-component max |
+|---:|---:|---:|---:|---:|
+| 60 | 1.610e-6 | 1.050e-8 | 7.915e-7 | 7.924e-9 |
+| 120 | 5.415e-7 | 3.798e-9 | 1.128e-7 | 9.003e-10 |
+| 240 | 1.454e-7 | 9.436e-10 | 1.458e-8 | 1.129e-10 |
+
+The pointwise/FV gap remains large in the origin region; the independent total-\(T\) divergence therefore remains nonzero in these witnesses whichever discrete measure is shown. The sector sum's raw gap is \(O(10^{-16})\); after the separately measured time-density accounting the unexplained remainder is \(O(10^{-20})\) or smaller. This closes the known **sector-bookkeeping** gap, not total stress-energy conservation. It also does not choose pointwise over FV, or vice versa.
+
+#### Interpretation and next gate
+
+The state-match problem is resolved: the exact endpoint, stage-source arrays, \(M_r\) tangent, and total-\(T\) directional ledger now refer to the same pinned accepted state at N=60/120/240. The next work should be a **static signed equation-to-code derivation** of the complete matter-coupled \(\partial_t M_r\) RHS: map the accepted Hamiltonian-gradient term and derivative/time split; derive the total-stress Bianchi source with index/lapse/density normalization; retain the vendor off-constraint connection response; then compare the derived RHS against the captured signed \(Mdot\) arrays. Do not choose coefficients by minimizing the measured residual. No further trajectory campaign or generic observer is justified until that derivation names a specific missing operand.
+
+**Scope and admission boundary:** this run evaluated the semi-discrete tangent using disposable +/- epsilon states; it did not take an accepted integration step. All five admission flags remain false. \(S_Q=-8\pi\alpha Q_r\) remains provisional; pointwise, finite-volume, and expanded divergence forms remain separate; no production equation, initializer, vendor, dependency, source pin, or accepted state was changed.
 
 **Status remains unchanged:** the time-split assignments above are source-derived; the full matter-coupled \(M_r\) identity, physical \(S_Q\), reference-metric coupling admission, and total six-sector discrete stress-energy conservation remain open. Pointwise/FV/expanded divergence measures remain separate, and all five scientific-admission flags remain false.
