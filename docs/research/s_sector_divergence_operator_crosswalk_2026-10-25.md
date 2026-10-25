@@ -253,3 +253,35 @@ Halving the directional epsilon changes the measured-minus-predicted residual by
 4. Full matter-coupled Brown propagation, source sign/normalization, reference-metric connection convention, total stress-energy sector conservation, and scientific admission remain open.
 
 **Disposition:** diagnostic only; production equations, vendor sources, and dependencies unchanged; `scientific_admission=false`.
+
+## 11. Same-base paired endpoint-lapse test — 2026-10-25
+
+The follow-up holds the **same exact accepted production-baseline state** at each resolution and reuses its identical geometry/scalar/matter RHS displacement. It creates two matched +/−epsilon endpoint pairs, changing only the lapse recomputation path: pinned production CMC solve versus copied regular-origin CMC row. The observer checks the accepted-state digest before/after, checks the RHS displacement digest in both arms, and requires every non-lapse endpoint field to be bit-identical.
+
+This was completed by [workflow run 40214349711](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/40214349711) for N=60/120/240. All three matrix jobs succeeded. Both epsilon values (2e-5 and 1e-5) were checked for every resolution.
+
+| N | Shared accepted-state SHA256 | Δ(dot α) at r=2 (regular-origin − production) | Δ(Dᵣ dot α) at r=2 | Max absolute Δ Brown residual over full profile | Max absolute Δ of either connection term |
+|---:|---|---:|---:|---:|---:|
+| 60 | `46948673bfb78ee03ce17ab6a854823f107f81871b971f2b5d065df4b4ea25d7` | -1.154312e-3 | +1.233369e-3 | 0 | 0 |
+| 120 | `88e97b0c57c7177079fc7a75c50d3517034e8780b1e6b127a8d114afc4ee7c1c` | -1.506529e-4 | +6.233551e-5 | 0 | 0 |
+| 240 | `fea489afccc1d86cb9a6220c519c94fd3ca5576eda8bca651cd496cf66bdd480` | -1.848800e-5 | +9.602464e-6 | 0 | 0 |
+
+The lapse-response difference is not a null perturbation: at r=2 the directional alpha rate and its radial gradient differ at all three resolutions. Nevertheless, the entire signed profile delta is **exactly zero** for each of these 11 reported quantities at both epsilons: direct covariant Brown residual, total Brown-plus-actual-source residual, first and second connection terms, H-gradient term, raised-KM term, alpha-H term, index-conversion term, provisional matter source, matter-source mapping remainder, and exact chain-rule residual. The endpoint alpha profiles themselves differ; the accepted base state is immutable and all non-lapse endpoint fields match exactly.
+
+**Interpretation:** the choice of *recomputed perturbed-endpoint lapse path alone* cannot explain the observed Brown residual in this observer. This falsifies that specific endpoint-solve explanation; it does not prove the correct continuum identity or exclude a base-state metric/lapse coupling in the full derivation. The production-baseline central residual therefore remains an accepted-base geometric/connection or operator-construction problem. No lapse solver, coefficient, or production equation is changed.
+
+### Reproducibility manifest
+
+| N | Artifact ID | report.json SHA256 | profiles.npz SHA256 |
+|---:|---:|---|---|
+| 60 | 12606259731 | `8bc2d77b3e68cb459150d5139a0a03d3edd4ce5e84a1ad5094801cf6377da374` | `dbe81ba7f0204d7f7491c4e7eecdb73c74ef059a624cc5409404799a7d944a0e` |
+| 120 | 12606503531 | `dc0ee329e992cab7b1e2292e2f16b35153d37aeca8a442ea335d4447b7296df8` | `22826082c288f37a105b1d1ed37ef60075b69a66c28fd0874de978b48dcf6dc1` |
+| 240 | 12607355089 | `391df1aaf841583b0b54dcb91373207fba7f73d70536c4ab21a7ed295e393d83` | `e4e22742d6da68dc6d621c4ca1fb4d5b2e984e64f0534b1909de5e978d015d14` |
+
+The input artifact SHA manifests were verified in each run. Frozen production source remains `4aec88d0e3ff028e0a65a8ac36b30948625df792`, vendor remains `d6052d605673ce9d82cdc99b0df79855fa2ea215`, and the protected source/vendor/dependency diff is empty.
+
+### Disposition / next discriminating check
+
+The next pass should decompose the **accepted-base geometric** residual using the Brown terms in one fixed covariant convention and compare each signed contribution to the measured geometric \\(\\dot M_r^{geom}\\) tangent: \\(\\alpha K M_r\\), \\(-D_r\\alpha H/3\\), \\(\\alpha D_r H/6\\), the two reference-connection terms, and the exact discrete chain-rule pieces. Keep the actual matter-source composite separate from that geometric budget. The same-base lapse endpoint test is complete; do not rerun it or tune a lapse parameter.
+
+**Disposition:** diagnostic only; no evolution rerun; production equations, vendor sources, and dependencies unchanged; `scientific_admission=false`.
