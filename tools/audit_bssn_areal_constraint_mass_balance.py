@@ -254,6 +254,24 @@ def evaluate_state(kernel, state) -> dict[str, Any]:
         "fixed-R residual predicted by H/M/Crr plus remainders",
         local_predicted + local_operator_remainder - (Rt / Rr) * (H_term + M_grad_term + gradient_operator_remainder)
     )
+    # Constraint-only prediction excludes the separately measured finite-
+    # difference/product-rule remainders. Their sum is retained as its own lane.
+    fixed_pred_from_constraints_only = finite(
+        "fixed-R residual predicted by M and Crr local terms plus H/M gradient terms",
+        M_local_term + Crr_local_term - (Rt / Rr) * (H_term + M_grad_term)
+    )
+    fixed_operator_remainder = finite(
+        "fixed-R operator remainder from local and mass-gradient lanes",
+        local_operator_remainder - (Rt / Rr) * gradient_operator_remainder
+    )
+    fixed_constraint_prediction_gap = finite(
+        "fixed residual minus constraint-only prediction",
+        fixed_residual - fixed_pred_from_constraints_only
+    )
+    fixed_constraint_gap_closure = finite(
+        "constraint prediction gap minus declared operator remainder",
+        fixed_constraint_prediction_gap - fixed_operator_remainder
+    )
     fixed_split_gap = finite("fixed residual decomposition gap", fixed_residual - fixed_pred_from_components)
     fixed_hmc_gap = finite("fixed HMC prediction gap", fixed_residual - fixed_pred_from_HMC)
 
@@ -291,6 +309,10 @@ def evaluate_state(kernel, state) -> dict[str, Any]:
         "fixed_residual_chi": fixed_residual_chi,
         "fixed_pred_from_components": fixed_pred_from_components,
         "fixed_pred_from_HMC": fixed_pred_from_HMC,
+        "fixed_pred_from_constraints_only": fixed_pred_from_constraints_only,
+        "fixed_operator_remainder": fixed_operator_remainder,
+        "fixed_constraint_prediction_gap": fixed_constraint_prediction_gap,
+        "fixed_constraint_gap_closure": fixed_constraint_gap_closure,
         "fixed_split_gap": fixed_split_gap,
         "fixed_hmc_gap": fixed_hmc_gap,
         "observed": observed,
@@ -329,6 +351,8 @@ def main() -> int:
     radii = result["R"]
     summary_keys = (
         "fixed_residual", "fixed_residual_chi", "fixed_split_gap", "fixed_hmc_gap",
+        "fixed_pred_from_constraints_only", "fixed_operator_remainder",
+        "fixed_constraint_prediction_gap", "fixed_constraint_gap_closure",
         "local_balance", "local_predicted", "local_operator_remainder",
         "mass_gradient_residual", "H", "M_native", "M_expanded", "M_operator_gap",
         "H_mass_gradient_term", "M_mass_gradient_term", "gradient_operator_remainder",
@@ -336,6 +360,27 @@ def main() -> int:
         "mass_dot_coordinate", "mass_dot_fixed_via_mass", "mass_dot_fixed_via_chi",
     )
     profile_summary = {name: summary(result[name], radii) for name in summary_keys}
+    annulus = (radii >= 2.0) & (radii <= 10.0)
+    fixed_residual_ann = result["fixed_residual"][annulus]
+    constraint_prediction_ann = result["fixed_pred_from_constraints_only"][annulus]
+    momentum_term_ann = result["M_local_term"][annulus]
+    def pearson(x, y):
+        x = np.asarray(x, dtype=np.float64)
+        y = np.asarray(y, dtype=np.float64)
+        if float(np.std(x)) == 0.0 or float(np.std(y)) == 0.0:
+            return None
+        return float(np.corrcoef(x, y)[0, 1])
+    constraint_signal_metrics = {
+        "pearson_fixed_residual_vs_constraint_only_prediction_R_2_to_10": pearson(fixed_residual_ann, constraint_prediction_ann),
+        "pearson_fixed_residual_vs_M_constraint_term_R_2_to_10": pearson(fixed_residual_ann, momentum_term_ann),
+        "rms_constraint_only_prediction_R_2_to_10": float(np.sqrt(np.mean(constraint_prediction_ann**2))),
+        "rms_fixed_operator_remainder_R_2_to_10": float(np.sqrt(np.mean(result["fixed_operator_remainder"][annulus]**2))),
+        "operator_remainder_fraction_of_fixed_residual_rms": float(
+            np.sqrt(np.mean(result["fixed_operator_remainder"][annulus]**2)) /
+            max(np.sqrt(np.mean(fixed_residual_ann**2)), np.finfo(float).tiny)
+        ),
+        "fixed_constraint_gap_closure_max_abs_R_2_to_10": float(np.max(np.abs(result["fixed_constraint_gap_closure"][annulus]))),
+    }
     fixed = {}
     fixed_R_values = result["R"]
     for target in FIXED_RADII:
@@ -374,6 +419,7 @@ def main() -> int:
             "remainders": "All operator remainders and H/M/Crr contributions are emitted separately; no physical residual is thresholded.",
         },
         "profile_summary_R_2_to_10": profile_summary,
+        "constraint_signal_metrics_R_2_to_10": constraint_signal_metrics,
         "fixed_R": fixed,
         "acceptance": {
             "source_pins_match": True,
@@ -399,6 +445,7 @@ def main() -> int:
         "resolution": N,
         "scientific_admission": False,
         "profile_summary_R_2_to_10": profile_summary,
+        "constraint_signal_metrics_R_2_to_10": constraint_signal_metrics,
         "fixed_R": fixed,
     }, indent=2))
     return 0
