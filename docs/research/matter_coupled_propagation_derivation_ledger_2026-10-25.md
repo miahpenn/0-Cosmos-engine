@@ -173,6 +173,31 @@ C^r = Lambda - Lambda_metric
 
 The H slots explicitly use `H_metric`, reconstructed from metric-only Ricci, `Aa`, `Ab`, and `K`; they do not silently receive the matter-subtracted `H_total`. The `M_r` array is passed in as `constraints["momentum"]`, so its geometric-only versus matter-inclusive status is determined by the caller's exact input and manifest. The variable map `Gamma_B^r = Lambda_code - 2/(r*b)` and `C^r = Lambda_code - Lambda_metric` is resolved for this Brown candidate in #421; it is not yet the full accepted-source propagation identity.
 
+#### B.1 Exact same-state substitution identity for matter-inclusive constraints
+
+For this algebra only, keep the Brown operator, lapse, shift, geometry, and derivative operator fixed. Substitute the total constraints
+\[
+M_{r,\mathrm{tot}}=M_{r,\mathrm{geom}}-\kappa j_{\mathrm{tot}},
+\qquad
+H_{\mathrm{tot}}=H_{\mathrm{geom}}-2\kappa\rho_{\mathrm{tot}}.
+\]
+Let \(B_{\mathrm{tot}}\) apply the written Brown operator with \((M_{r,\mathrm{tot}},H_{\mathrm{tot}})\), and \(B_{\mathrm{geom}}\) apply it with \((M_{r,\mathrm{geom}},H_{\mathrm{geom}})\), leaving the same \(C^r\) terms unchanged. Direct substitution gives
+\[
+\begin{aligned}
+B_{\mathrm{tot}}-B_{\mathrm{geom}}
+={}&-\kappa\left[
+\beta D_1(j_{\mathrm{tot}})
++(D_1\beta)j_{\mathrm{tot}}
++\alpha K j_{\mathrm{tot}}\right]\\
+&+\frac{2\kappa}{3}(D_1\alpha)\rho_{\mathrm{tot}}
+-\frac{\kappa\alpha}{3}D_1(\rho_{\mathrm{tot}}).
+\end{aligned}
+\]
+For \(\kappa=8\pi\), the density-gradient terms are \(+\frac{16\pi}{3}(D_1\alpha)\rho_{\mathrm{tot}}-\frac{8\pi}{3}\alpha D_1(\rho_{\mathrm{tot}})\). The connection terms cancel from this difference because they are identical in both substitutions.
+
+This is the exact algebraic constraint-substitution part of the Brown bridge already tabulated in §3.2; it is not evidence that either Brown operator is the accepted \(\dot M_r\), and it does not replace the separate Bianchi source \(-\kappa\alpha\mathcal D^{\mathrm{tot}}_r\). Do not combine the two until the accepted BSSN off-constraint evolution and time-split mapping is derived.
+
+
 #### C. Matter terms actually injected by the accepted coordinate-time RHS
 
 The accepted `engine/v55_pirk_adapter.py` source (blob `be28ceea63fa1b59efc5cc5c460b9df19ae1cbc3`) adds these signed stress-projection terms to the geometry stage:
@@ -397,7 +422,7 @@ Use separate notation:
 
 They are not interchangeable. The scalar sector carries the opposite exchange source, while the total divergence also depends on all included sectors and on the chosen discrete representation. Therefore the sector value `q_DM_r` must not be substituted directly for `D_total_r`.
 
-The candidate `S_Q = -8*pi*alpha*Q_r` remains unadmitted until the derivation defines `Q_r` explicitly as the appropriate **total** lower-index divergence in the same metric, density, lapse, time-split, and discrete-measure convention as `Mdot_r`. Do not infer that definition from a small residual.
+The continuum Bianchi projection now fixes the source object and sign as `S_Bianchi,r = -kappa*alpha*D_total_r` (and `-8*pi*alpha*D_total_r` for G=1). Thus the continuum candidate `S_Q = -8*pi*alpha*Q_r` has that meaning only if `Q_r` is explicitly defined as the total covariant divergence `D_total_r`. Its implementation mapping remains unadmitted until the density/measure representation and accepted time split are matched to `Mdot_r`. Do not infer that mapping from a small residual.
 
 The three existing representations remain distinct: pointwise covariant divergence, finite-volume/cell-integrated divergence, and expanded product-rule divergence. The source trace does not select one by residual magnitude or convergence order.
 
@@ -408,7 +433,7 @@ The three existing representations remain distinct: pointwise covariant divergen
 | DM–COSMOS-phi exchange sign at archive-sector level | Master checkpoint and accepted RHS source shape agree on DM positive / scalar negative; one contradictory earlier gate sentence remains preserved as provenance debt. | **Resolved at sector-pair convention level only.** |
 | Stored density and stress projection scale | RHS consumes archive-normalized rho_DM; fluid Einstein-source projections and COSMOS-phi stress projection apply 1/kappa. | **Code map recorded; total Q_r normalization still open.** |
 | Coordinate-time source operands | partial_t(phi) = alpha*Pi + beta^r*partial_r(phi); scalar source carries alpha; fluid source is mapped into its conservative energy/momentum variables. | **Source-placement map only; no propagation time-split derivation.** |
-| Total stress divergence and S_Q | Sector exchange is not total divergence; pointwise/FV/expanded forms remain distinct. | **Open; do not promote S_Q = -8*pi*alpha*Q_r.** |
+| Total stress divergence and S_Q | Continuum Bianchi projection fixes `-kappa*alpha*D_total_r`; pointwise/FV/expanded forms remain distinct. | **Continuum coefficient derived; discrete source/operator mapping open.** |
 | Hamiltonian-gradient translation | Brown Eq. (11b) slots remain -(D_r alpha)*H/3 + alpha*D_r(H)/6; standard ADM subsidiary coefficients cannot be substituted without deriving the formulation/time split. | **Open.** |
 | Reference-metric connection response in the full source-aware tangent | Section 10.5 derives the candidate matter-current pairing in one Lambda RHS channel. The exact time derivative of the reference-metric target and its discrete stencils/parity must still be carried into Mdot_r. | **Open.** |
 | Total six-sector discrete conservation | Existing ledger verifies signed additivity/bookkeeping, not cancellation of the total discrete stress divergence across scalar and HLL fluid updates. | **Open.** |
