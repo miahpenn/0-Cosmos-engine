@@ -155,10 +155,12 @@ def compare_step(kernel,base,dt):
  annulus=(Rcommon>=2.0)&(Rcommon<=10.0)
  def endpoint_at_radius(radius,profile):
   chi_r=float(np.interp(radius,profile["R"],profile["chi"]))
+  chi_spatial_r=float(np.interp(radius,profile["R"],profile["chi_spatial"]))
+  chi_time_r=float(np.interp(radius,profile["R"],profile["chi_time"]))
   mass_r=0.5*radius*(1.0-chi_r)
   rhs_r=float(np.interp(radius,profile["R"],profile["rhs"]))
   comp_r={name:float(np.interp(radius,profile["R"],values)) for name,values in profile["rhs_components"].items()}
-  return {"chi":chi_r,"mass":mass_r,"rhs":rhs_r,"components":comp_r}
+  return {"chi":chi_r,"chi_spatial":chi_spatial_r,"chi_time":chi_time_r,"mass":mass_r,"rhs":rhs_r,"components":comp_r}
  fixed={}
  radii=(0.5,1.0,2.0,3.0,5.0,8.0,10.0)
  endpoint_fixed={}
@@ -172,8 +174,8 @@ def compare_step(kernel,base,dt):
     "mass_rate":mdot_chi_r,
     "mass_rate_interpolated_mass":(float(np.interp(radius,end["R"],end["mass"]))-float(np.interp(radius,start["R"],start["mass"])))/dt,
     "mass_interpolation_gap":((float(np.interp(radius,end["R"],end["mass"]))-float(np.interp(radius,start["R"],start["mass"])))/dt)-mdot_chi_r,
-    "mass_rate_spatial_metric":float(np.interp(radius,Rcommon,mdot_spatial)),
-    "mass_rate_time_shift_norm":float(np.interp(radius,Rcommon,mdot_time)),
+    "mass_rate_spatial_metric":-0.5*radius*(eR["chi_spatial"]-sR["chi_spatial"])/dt,
+    "mass_rate_time_shift_norm":-0.5*radius*(eR["chi_time"]-sR["chi_time"])/dt,
     "current_rhs_midpoint":rhs_mid_r,
     "residual":mdot_chi_r-rhs_mid_r}
    row.update({f"current_{name}":0.5*(sR["components"][name]+eR["components"][name]) for name in sR["components"]})
