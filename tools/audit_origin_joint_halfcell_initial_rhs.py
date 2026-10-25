@@ -199,6 +199,118 @@ def analyze() -> dict:
             "accepted_increment_over_dt": float(delta_over_dt[i]),
         })
 
+    # Matched-profile comparator: rebuild the *entire* continuous-source metric,
+    # rather than correcting only [0,r0]. Keep Aa/K, scalar fields, and conserved
+    # matter arrays from the source-pinned initializer, matching PR #416's full-
+    # metric shadow definition; only the geometry metric profile differs.
+    full_kernel = V55ProductionKernel()
+    full_state = full_kernel.initialize(
+        resolution=RESOLUTION,
+        r_max=R_MAX,
+        amplitude=AMPLITUDE,
+        width=WIDTH,
+        D_amplitude=D_AMPLITUDE,
+        include_radiation=INCLUDE_RADIATION,
+    )
+    B_full = shadow_one_step.build_continuous_metric_B(
+        full_state.grid,
+        subdivisions=shadow_one_step.METRIC_SUBDIVISIONS,
+    )
+    shadow_one_step.apply_continuous_metric_shadow(full_state, B_full)
+    evolved._install_regular_row(full_kernel)
+    full_state.geometry.alpha = evolved.regular_origin_cmc_lapse(
+        full_state.grid, full_state.geometry,
+        full_state.scalars, full_state.matter
+    )[0].copy()
+    full_input_digest = shadow_one_step.state_digest(full_state)
+    full_grid = full_state.grid
+    full_r = np.asarray(full_grid.centers, dtype=np.float64)
+    full_r0 = 0.5 * float(full_grid.dr)
+    full_stage = full_state.geometry.copy()
+    full_alpha, full_target = full_kernel._solve_lapse_for_state(
+        full_grid, full_stage, full_state.scalars, full_state.matter,
+        full_state.electromagnetic,
+    )
+    full_stage.alpha = np.asarray(full_alpha, dtype=np.float64).copy()
+    full_stage.beta.fill(0.0)
+    full_stage.B.fill(0.0)
+    full_terms = full_kernel._geometry_stage_terms(
+        full_grid, full_stage, full_state.scalars, full_state.matter,
+        full_state.electromagnetic,
+    )
+    full_l2_aa = np.asarray(full_terms["primary_l2"]["Aa"], dtype=np.float64)
+    full_l3_aa = np.asarray(full_terms["primary_l3"]["Aa"], dtype=np.float64)
+    full_total_rhs = full_l2_aa + full_l3_aa
+    _, full_vacuum, _ = adapter.vendor_modules()
+    full_geom_terms = full_vacuum.geometry_terms(full_grid, full_stage)
+    full_lapse_hessian = -(
+        np.asarray(full_geom_terms["DrDr_alpha"], dtype=np.float64)
+        - np.asarray(full_geom_terms["lap_alpha"], dtype=np.float64) / 3.0
+    )
+    full_tf_ricci = np.asarray(full_stage.alpha, dtype=np.float64) * (
+        np.asarray(full_geom_terms["Rr_r"], dtype=np.float64)
+        - np.asarray(full_geom_terms["R"], dtype=np.float64) / 3.0
+    )
+    full_l2_closure = float(np.max(np.abs(
+        full_l2_aa - full_lapse_hessian - full_tf_ricci
+    )))
+    if full_l2_closure > 2.0e-12:
+        raise RuntimeError(
+            f"full continuous-metric Aa L2 split did not close: {full_l2_closure:.17e}"
+        )
+    if shadow_one_step.state_digest(full_state) != full_input_digest:
+        raise RuntimeError("full continuous-metric RHS capture mutated its input state")
+    full_accepted = full_kernel.step(full_state, CFL * R_MAX / RESOLUTION)
+    if shadow_one_step.state_digest(full_state) != full_input_digest:
+        raise RuntimeError("full continuous-metric step mutated its supplied input state")
+    full_accepted_aa = np.asarray(full_accepted.geometry.Aa, dtype=np.float64)
+    full_rhs_cells = []
+    for i in range(min(3, len(full_r))):
+        full_rhs_cells.append({
+            "cell": i,
+            "r": float(full_r[i]),
+            "initial_Aa": float(full_state.geometry.Aa[i]),
+            "lapse_hessian_TF_L2": float(full_lapse_hessian[i]),
+            "tracefree_Ricci_L2": float(full_tf_ricci[i]),
+            "primary_L2_Aa": float(full_l2_aa[i]),
+            "primary_L3_Aa_total": float(full_l3_aa[i]),
+            "combined_initial_Aa_RHS_L2_plus_L3": float(full_total_rhs[i]),
+            "combined_RHS_over_r_squared": float(full_total_rhs[i] / (full_r[i] * full_r[i])),
+            "combined_RHS_over_r0_squared": float(full_total_rhs[i] / (full_r0 * full_r0)),
+            "accepted_one_step_Aa": float(full_accepted_aa[i]),
+            "accepted_one_step_Aa_over_r0_squared": float(
+                full_accepted_aa[i] / (full_r0 * full_r0)
+            ),
+        })
+    full_metrics, full_profiles = evolved._metrics_at_state(full_state)
+    full_metric_comparison = {
+        "method": (
+            "Same source-pinned initializer and copied regular CMC row; full "
+            "continuous-source metric rebuilt at 2048 substeps per coarse dr. "
+            "Aa/K, scalar fields, and conserved matter arrays are held fixed "
+            "as in PR #416's full-metric shadow. Compared with the partial "
+            "half-cell arm, matter is therefore not reinitialized on the rebuilt metric."
+        ),
+        "initial_rhs_cells_0_to_2": full_rhs_cells,
+        "rhs_split_closure_max_abs": full_l2_closure,
+        "initial_constraint_metrics": full_metrics,
+        "initial_constraint_cells_0_to_2": {
+            key: [float(x) for x in np.asarray(value, dtype=np.float64)[:3]]
+            for key, value in full_profiles.items()
+            if key in ("H", "M", "C_lambda", "Aa")
+        },
+        "one_step_state": {
+            "time": float(full_accepted.t),
+            "Aa_cells_0_to_2": [float(x) for x in full_accepted_aa[:3]],
+            "Aa_over_r0_squared_cell0": float(
+                full_accepted_aa[0] / (full_r0 * full_r0)
+            ),
+        },
+        "input_state_unchanged": shadow_one_step.state_digest(full_state) == full_input_digest,
+        "production_or_vendor_files_modified": False,
+        "scientific_admission": False,
+    }
+
     metrics, profiles = evolved._metrics_at_state(state)
     report = {
         "schema": "origin-joint-halfcell-initial-rhs/v1",
@@ -237,6 +349,7 @@ def analyze() -> dict:
         },
         "initial_rhs_cells_0_to_2": rhs_cells,
         "rhs_split_closure_max_abs": split_closure,
+        "full_continuous_metric_comparator": full_metric_comparison,
         "cmc_target_kdot_at_initial_refresh": float(target_kdot),
         "input_state_sha256_before_step": input_digest,
         "input_state_sha256_after_step": state_digest_after_step,
@@ -297,6 +410,9 @@ def main() -> int:
             "Aa_over_r0_squared_cell0"
         ],
         "rhs_split_closure_max_abs": report["rhs_split_closure_max_abs"],
+        "full_metric_cell0_rhs": report["full_continuous_metric_comparator"]["initial_rhs_cells_0_to_2"][0]["combined_initial_Aa_RHS_L2_plus_L3"],
+        "full_metric_cell0_rhs_over_r0_squared": report["full_continuous_metric_comparator"]["initial_rhs_cells_0_to_2"][0]["combined_RHS_over_r0_squared"],
+        "full_metric_cell0_accepted_Aa_over_r0_squared": report["full_continuous_metric_comparator"]["one_step_state"]["Aa_over_r0_squared_cell0"],
         "scientific_admission": False,
         "report_sha256": _sha256(report_path),
         "out": str(OUT),
