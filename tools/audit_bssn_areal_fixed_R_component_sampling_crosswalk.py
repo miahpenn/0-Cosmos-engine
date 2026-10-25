@@ -20,6 +20,7 @@ import json
 import os
 import platform
 import sys
+from itertools import permutations
 from pathlib import Path
 from typing import Any
 
@@ -116,6 +117,16 @@ def main() -> int:
         "native D4(R_t)",
         grid.cell_derivative_fourth(native["Rt"], parity=-1),
     )
+    flux_factor_names = ("R_squared", "lapse_alpha", "inverse_radial_metric", "radial_current_j", "native_D4_Rr")
+    flux_factor_arrays = {
+        "R_squared": finite("native R squared flux factor", R * R),
+        "lapse_alpha": finite("native lapse flux factor", native["alpha"]),
+        "inverse_radial_metric": finite("native inverse radial metric flux factor", native["gamma_inv"]),
+        "radial_current_j": finite("native radial current flux factor", native["j"]),
+        "native_D4_Rr": finite("native D4(R) flux factor", native["Rr"]),
+    }
+    flux_factor_shapley_values: dict[str, list[float]] = {name: [] for name in flux_factor_names}
+    flux_factor_shapley_closure_errors: list[float] = []
     current_component_arrays = {
         "density_time_advection": finite("density current term", -FOUR_PI * R**2 * native["rho"] * native["Rt"]),
         "radial_momentum_flux": finite("radial momentum flux term", -FOUR_PI * R**2 * native["alpha"] * native["gamma_inv"] * native["j"] * native["Rr"]),
@@ -217,6 +228,50 @@ def main() -> int:
             (current_operand_recomputed - current_native_sample) - sum(current_component_deltas_at_R.values())
         )
         current_commutator = float(current_operand_recomputed - current_native_sample)
+
+        # Symmetric Shapley attribution of the radial-momentum-flux interpolation
+        # commutator across R^2, alpha, gamma^rr, j and native D4(R). For a subset
+        # S, factors in S are sampled separately; the complementary factors remain
+        # multiplied on the native grid before interpolation. Averaging every
+        # permutation avoids choosing an arbitrary factor-replacement order.
+        sampled_flux_factors = {
+            "R_squared": R_fixed**2,
+            "lapse_alpha": alpha,
+            "inverse_radial_metric": gamma_inv,
+            "radial_current_j": j,
+            "native_D4_Rr": R_r,
+        }
+        flux_subset_cache: dict[frozenset[str], float] = {}
+        def flux_hybrid_value(subset: frozenset[str]) -> float:
+            if subset not in flux_subset_cache:
+                native_product = np.ones_like(R, dtype=np.float64)
+                sampled_product = 1.0
+                for factor_name in flux_factor_names:
+                    if factor_name in subset:
+                        sampled_product *= sampled_flux_factors[factor_name]
+                    else:
+                        native_product *= flux_factor_arrays[factor_name]
+                complement_at_R = sample("radial momentum flux factor complement", R_fixed, R, native_product)
+                flux_subset_cache[subset] = float(-FOUR_PI * sampled_product * complement_at_R)
+            return flux_subset_cache[subset]
+        flux_factor_shapley_at_R = {name: 0.0 for name in flux_factor_names}
+        permutation_orders = tuple(permutations(flux_factor_names))
+        for order in permutation_orders:
+            subset: frozenset[str] = frozenset()
+            previous = flux_hybrid_value(subset)
+            for factor_name in order:
+                next_subset = subset | frozenset((factor_name,))
+                current_value = flux_hybrid_value(next_subset)
+                flux_factor_shapley_at_R[factor_name] += current_value - previous
+                subset = next_subset
+                previous = current_value
+        for factor_name in flux_factor_names:
+            flux_factor_shapley_at_R[factor_name] /= len(permutation_orders)
+            flux_factor_shapley_values[factor_name].append(flux_factor_shapley_at_R[factor_name])
+        flux_factor_shapley_closure = float(
+            sum(flux_factor_shapley_at_R.values()) - current_component_deltas_at_R["radial_momentum_flux"]
+        )
+        flux_factor_shapley_closure_errors.append(flux_factor_shapley_closure)
         residual_chi = mass_rate_chi - current_operand_recomputed
         residual_mass = mass_rate_mass - current_operand_recomputed
 
@@ -306,7 +361,7 @@ def main() -> int:
         sampling_budget_closure = float(
             delta_residual - delta_prediction - delta_remainder
         )
-        closure_errors.extend((abs(decomposition_closure), abs(sampling_budget_closure), abs(current_component_closure_at_R)))
+        closure_errors.extend((abs(decomposition_closure), abs(sampling_budget_closure), abs(current_component_closure_at_R), abs(flux_factor_shapley_closure)))
         delta_residuals.append(delta_residual)
         current_commutators.append(current_commutator)
         current_component_closure_errors.append(current_component_closure_at_R)
@@ -324,6 +379,12 @@ def main() -> int:
                 "delta_operand_recomputed_minus_native_composite": current_commutator,
                 "component_deltas": current_component_deltas_at_R,
                 "component_budget_closure_error": current_component_closure_at_R,
+                "radial_momentum_flux_factor_shapley": {
+                    "commutator_total": current_component_deltas_at_R["radial_momentum_flux"],
+                    "factor_attributions": flux_factor_shapley_at_R,
+                    "sum_closure_error": flux_factor_shapley_closure,
+                    "interpretation_guard": "Symmetric interpolation-order attribution, not a physical flux correction or operator selector.",
+                },
             },
             "operands_interpolated_minus_grid_composites_interpolated": {
                 "fixed_residual_via_mass": delta_residual,
@@ -417,6 +478,8 @@ def main() -> int:
             "max_abs_native_current_component_closure": float(np.max(np.abs(native_current_component_closure))),
             "max_abs_fixed_R_current_component_commutator_closure": max_abs(current_component_closure_errors),
             "current_component_commutator_max_abs": {name: max_abs(values) for name, values in current_component_deltas.items()},
+            "radial_momentum_flux_factor_shapley_max_abs": {name: max_abs(values) for name, values in flux_factor_shapley_values.items()},
+            "max_abs_radial_flux_factor_shapley_closure": max_abs(flux_factor_shapley_closure_errors),
             "max_abs_delta_constraint_only_prediction": max_abs(delta_predictions),
             "max_abs_delta_fixed_operator_remainder": max_abs(delta_remainders),
             "max_abs_delta_local_operator_remainder": max_abs(delta_local_remainders),
