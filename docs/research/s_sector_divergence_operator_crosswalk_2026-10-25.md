@@ -609,11 +609,13 @@ B_0^{\rm prod}-B_0^{\rm cont}
 =\frac23c_2r_0^2+O(r_0^4).
 \]
 
-| N | \(r_0\) | leading \(B_0^{\rm prod}-B_0^{\rm cont}\) |
-|---:|---:|---:|
-| 60 | 0.6666667 | \(-3.72337\times10^{-4}\) |
-| 120 | 0.3333333 | \(-9.30842\times10^{-5}\) |
-| 240 | 0.1666667 | \(-2.32711\times10^{-5}\) |
+I checked this expansion against an offline reconstruction of the exact six production source iterations and the archived 2048-subdivision continuous-origin oracle. The first-cell values are:
+
+| N | \(r_0\) | \(B_0^{\rm prod}\) | \(B_0^{\rm cont}\) | Actual difference | Leading prediction | Actual / leading |
+|---:|---:|---:|---:|---:|---:|---:|
+| 60 | 0.6666667 | 0.999451131021 | 0.999815763085 | \(-3.64632\times10^{-4}\) | \(-3.72337\times10^{-4}\) | 0.9793 |
+| 120 | 0.3333333 | 0.999860979735 | 0.999953579153 | \(-9.25994\times10^{-5}\) | \(-9.30842\times10^{-5}\) | 0.9948 |
+| 240 | 0.1666667 | 0.999965131356 | 0.999988372055 | \(-2.32407\times10^{-5}\) | \(-2.32711\times10^{-5}\) | 0.9987 |
 
 This leading discrepancy decreases by a factor of four under each grid doubling, but it is still an \(O(\Delta r^2)\) **metric-profile curvature error**. Because \(\Lambda_{\rm metric}\) uses radial derivatives of \(a,b\) and a \(2/r\) connection term, such a central metric-profile error can be amplified in \(C^r_\Lambda\), \(D_rC^r_\Lambda\), and \(D_r^2C^r_\Lambda\). That provides a concrete mechanism consistent with the observed baseline: initialization sets \(\Lambda\) from the same discrete metric-connection formula, so the initial \(C^r_\Lambda\) is paired by construction; the issue is the regularity of the metric profile that is then evolved, not an initial algebraic mismatch between the stored \(\Lambda\) and that same stencil.
 
