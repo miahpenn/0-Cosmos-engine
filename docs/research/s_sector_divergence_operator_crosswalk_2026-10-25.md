@@ -404,9 +404,23 @@ The fixed-radius absolute remainder retains approximately fourth-order decrease 
 
 The research-only observer patch is now on this PR branch. The geometric Brown comparator uses the existing metric-only \(H\); the provisional total candidate uses \(H_{\rm metric}-16\pi\rho\), and the BSSN-representation profiles remain separately recorded. The accepted-state driver also requires and reports the new H-slot witness arrays. Changes are confined to **tools/audit_hybrid_origin_integral_patch_newton.py** and **tools/audit_full_profile_propagation_candidate.py**; no production or vendor files were changed.
 
-The same-state validation is tracked by [workflow run 40224825903](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/40224825903), which was **queued at the last status check**. Until the workflow result is available, the table above remains the post-processing H-only geometric counterfactual; the new observer patch is not yet validated by CI.
+The same-state validation [workflow run 40224825903](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/40224825903) **completed successfully for N=60, 120, and 240**. The workflow verified each input-artifact checksum, kept each frozen accepted-state observer immutable, confirmed the exact source/vendor pins and empty protected engine/vendor/dependency diff, compiled the observer, and evaluated the signed ledger against the saved \(t=0.60\) accepted states. The accepted-state digests match the pre-patch reports exactly; no evolution replay was performed.
 
-Next, inspect that same-state report, then continue the convention-frozen reference-connection/origin-limit comparison with cells 0–2 distinct from matched fixed radii. Keep the \(M_r/M^r\) conversion and metric-rate contribution explicit; matter-source sign/normalization and total-sector exchange remain separate gates.
+The corrected observer's direct covariant-\(M_r\) candidate now reports:
+
+| N | Residual at fixed \(r=2\) | Residual at fixed \(r=8\) | Full-domain RMS |
+|---:|---:|---:|---:|
+| 60 | \(+9.77672\times10^{-6}\) | \(-1.33948\times10^{-6}\) | \(1.60784\times10^{-6}\) |
+| 120 | \(+6.30515\times10^{-7}\) | \(-7.88855\times10^{-8}\) | \(1.39001\times10^{-7}\) |
+| 240 | \(+4.18762\times10^{-8}\) | \(-4.83828\times10^{-9}\) | \(1.42940\times10^{-8}\) |
+
+At fixed \(r=2\), the observed orders are 3.955 and 3.912; at fixed \(r=8\), they are approximately 4.086 and 4.027. The corrected geometric Brown-plus-actual-source remainder agrees closely with the direct candidate at these radii. The signed Brown term sum reconstructs exactly (zero arithmetic gap at the stored precision), and the discrete chain-rule observer remains a separate implementation check.
+
+**The matter-source mapping is still the decisive open discrepancy.** The measured actual matter contribution to the total momentum-constraint tangent minus the provisional \(-8\pi\alpha Q_r\) source remains, at fixed \(r=2\), \(+5.80900\times10^{-5}\), \(+5.77977\times10^{-5}\), and \(+5.83505\times10^{-5}\) for N=60, 120, and 240. It is essentially resolution-independent; the full-domain source-mapping remainder RMS is about \(1.68\times10^{-5}\). This is a distinct source-law/normalization residual, not the same quantity as the Brown propagation residual, and cannot be dismissed by the latter's fourth-order fixed-radius trend.
+
+The regular-origin question also remains open: native cell 0 samples are at different radii for the three resolutions, and the corrected direct residual there changes sign (\(+8.19\times10^{-7}\), \(-6.57\times10^{-7}\), \(+1.36\times10^{-7}\)). Those values are **not** a matched-radius convergence sequence.
+
+Next, keep the existing accepted-state ledger and frozen pins. Derive the matter-source mapping from the validated sector equations—including scalar–DM exchange and the repository's normalization/index definitions—rather than fitting the residual; retain the reference-connection/origin-limit gate as a separate check. Keep \(M_r/M^r\) conversion and metric-rate contribution explicit. No duplicate sweeps, production equation changes, or admission changes.
 
 This does not close the full matter-coupled identity. The current flags remain false: full_matter_coupled_propagation_identity_closed=false, reference_metric_connection_coupling_convention_frozen=false, total_stress_energy_sector_conservation_closed=false, and scientific_admission=false.
 
