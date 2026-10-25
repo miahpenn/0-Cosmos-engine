@@ -487,7 +487,7 @@ Thus the total-versus-geometric Brown source difference tracks the matter-source
 
 At fixed \(r=2\), the corrected observer reports the existing pointwise \(\nabla_\mu T^\mu{}_r\)-style divergence candidate as \(+1.78829\times10^{-7}\), \(+1.29092\times10^{-8}\), and \(+7.97334\times10^{-10}\) for N=60/120/240. The independent finite-volume divergence reports \(+4.49074\times10^{-9}\), \(+2.81380\times10^{-10}\), and \(+1.70483\times10^{-11}\). Their mismatch with the expanded \(Q_r\) candidate decreases strongly at fixed radius, and the pointwise-minus-expanded decomposition closes to roundoff. This remains a comparison of discretizations/conventions, not permission to select whichever form gives the smaller residual.
 
-The component-corrected sector decomposition's unexplained total-divergence gap is at roundoff scale (maximum absolute \(3.12\times10^{-21}\), \(2.99\times10^{-20}\), \(5.47\times10^{-20}\) for N=60/120/240). However, the observer's separate raw uncorrected sector-sum flag remains false, so the complete total-stress-energy conservation gate is **not** marked closed. The archive exchange pair remains locked as
+The component-corrected sector decomposition's unexplained total-divergence gap is at roundoff scale (maximum absolute \(3.12\times10^{-21}\), \(2.99\times10^{-20}\), \(5.47\times10^{-20}\) for N=60/120/240). The raw, uncorrected sector-sum booleans remain false, but the measured pre-correction maximum absolute gaps are only \(1.39\times10^{-17}\), \(3.78\times10^{-17}\), and \(3.03\times10^{-17}\); the saved decomposition identifies the time-density finite-difference-rate difference and accounts for it, leaving the quoted roundoff-scale unexplained gap. This is an accounting/tolerance flag, not evidence by itself of a physical conservation failure. The complete total-stress-energy gate nevertheless remains open because the authoritative sector normalization/source-law interpretation and regular-origin/reference-connection identity have not been admitted. The archive exchange pair remains locked as
 \[
 \nabla_\mu T_{\rm DM}^{\mu\nu}=+\beta\rho_{\rm DM}\nabla^\nu\phi,\qquad
 \nabla_\mu T_\phi^{\mu\nu}=-\beta\rho_{\rm DM}\nabla^\nu\phi,
@@ -501,3 +501,41 @@ with opposite signs and net exchange zero. The local \(S/D\) projections and COS
 3. Keep the reference-metric connection and regular-origin identity as a separate gate. Native cells 0–2 are not matched-radius samples; no origin closure is inferred from the fourth-order fixed-radius trend.
 
 The current flags remain false: full_matter_coupled_propagation_identity_closed=false, reference_metric_connection_coupling_convention_frozen=false, total_stress_energy_sector_conservation_closed=false, scientific_admission=false.
+
+
+## 16. Brown reference-connection convention and origin-limit check — 2026-10-25
+
+**External convention anchor:** Brown, [*BSSN in Spherical Symmetry*, arXiv:0705.3845](https://arxiv.org/abs/0705.3845), defines \(G^r=\Gamma^r-g^{bc}\tilde{\Gamma}^{r}{}_{bc}\) in Eq. (10c) and gives the vacuum \(M_r\) propagation law in Eq. (11b). With the repository variables \(\tilde\gamma_{rr}=a\), \(\tilde\gamma_{\theta\theta}=r^2b\), and \(\chi=X^2\), its reference-metric connection is
+\[
+\tilde\Gamma^r_{\rm metric}
+=\frac{D_ra}{2a^2}-\frac{D_rb}{ab}
++\frac{2}{r}\left(\frac1b-\frac1a\right),
+\qquad
+C^r_\Lambda=\Lambda^r-\tilde\Gamma^r_{\rm metric}.
+\]
+The two propagation terms are
+\[
+T_{G''}=\frac{2}{3}\alpha\chi D_r^2C^r_\Lambda,\quad
+T_{G'}=\left(\frac23\alpha'\chi-\frac13\alpha\chi'
++\alpha\chi\left[\frac{D_rb}{b}+\frac2r\right]\right)D_rC^r_\Lambda.
+\]
+
+### Same-state convention reconstruction
+
+I reconstructed \(C^r_\Lambda\) from the stored accepted-state \(a,b,X,\Lambda\) arrays using the **pinned vendor's actual fourth-order parity-aware derivative stencil**, then independently rebuilt \(T_{G''}\) and \(T_{G'}\). These are same-state post-processing checks; no RHS/evolution replay was used.
+
+| N | \(C^r_\Lambda(r=2)\) | Max \(|C^r_\Lambda|\) on the saved profile | Reconstructed-vs-stored \(C^r_\Lambda\) max difference |
+|---:|---:|---:|---:|
+| 60 | \(+3.90956\times10^{-6}\) | \(3.90956\times10^{-6}\) | \(0\) |
+| 120 | \(+2.78488\times10^{-7}\) | \(2.82346\times10^{-7}\) | \(6.37\times10^{-16}\) |
+| 240 | \(+2.07568\times10^{-8}\) | \(2.14683\times10^{-8}\) | \(1.67\times10^{-16}\) |
+
+At the fixed radius \(r=2\), the connection-constraint profile decreases at observed orders approximately 3.81 and 3.75. The two Brown connection terms also reproduce the corresponding saved signed profiles to floating-point precision (maximum difference \(3.31\times10^{-15}\) for \(T_{G''}\), \(5.59\times10^{-17}\) for \(T_{G'}\)). This independently checks the **sign, index, radial \(r^2b\) factor, and coefficient assembly** in this observer against Brown's Eq. (10c)/(11b); it does not prove that the complete matter-coupled law or the continuum origin limit is closed.
+
+For context, at fixed \(r=2\), the N=240 connection contributions are \(T_{G''}=-6.03\times10^{-9}\) and \(T_{G'}=+3.56\times10^{-9}\), both much smaller than the direct full-profile residual \(+4.19\times10^{-8}\). This agrees with the prior diagnostic caution that no one connection term explains that annular residual.
+
+The first-cell values are **not** a matched-radius convergence sequence: the centers are \(r=0.667,0.333,0.167\) for N=60/120/240. They must not be fit as if they were observations at \(r=0\). Moreover, the large N=240 production-baseline first-cell residual remains a different profile arm from the smooth full-continuous-profile state used for the fixed-\(r\) convergence table. Therefore this reconstruction rules out an obvious reference-connection **observer coefficient/sign mismatch**, but it does not resolve the baseline regular-origin discrepancy.
+
+### Decision
+
+No further change to Brown's connection coefficients is indicated by this saved-state reconstruction. Keep the current observer convention, keep the regular-origin gate open, and isolate the baseline first-cell mismatch using a matched-origin/regularity argument on the *same named state family* before drawing a physical conclusion. No production or vendor file changed; all scientific-admission flags remain false.
