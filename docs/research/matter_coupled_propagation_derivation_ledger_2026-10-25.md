@@ -867,3 +867,60 @@ For comparison only, applying the continuum product rule to this connection-only
 The first three terms in the square bracket multiplying \(\partial_r C^r\), excluding the \(a'/a\) term, match the frozen Brown observer's \(C^r\)-derivative coefficient. The accepted-RHS-derived expression also contains an \(a'/a\cdot\partial_r C^r\) term and a generally nonzero undifferentiated-\(C^r\) term. These cannot be silently discarded, folded into \(S_Q\), or fitted away. Since Brown Eq. (11b) is a structural comparator and the precise Hamiltonian/off-constraint convention in the bridge is not yet admitted, this difference is an **identified formulation-translation obligation**, not yet a verdict that either published or accepted equations are wrong.
 
 **Next gate:** derive how the accepted Hamiltonian constraint and its \(C^r\)-dependent Ricci representation enter the complete off-constraint subsidiary system, then check whether these extra terms are already represented elsewhere under the exact chosen \(H\) definition. Keep the exact discrete \(D_1(F_C)\) form as the primary source trace; the expanded continuum product rule is a diagnostic comparator only. No residual-based coefficient choice, workflow, observer run, or production change is authorized by this derivation.
+
+
+## 10.10 Full accepted instantaneous RHS written directly into \(\dot M_r\)
+
+The preceding connection split is now embedded in the complete accepted-source tangent, without adding Brown's operator as an extra term. At one frozen state, let all right-hand sides below be the full instantaneous coordinate-time RHS assembled from the pinned vendor L2/L3 blocks plus the local V5.5 matter projection. The pinned vendor sets KO_EPSILON=0, so no KO term appears. Set \(A_b=-A_a/2\), and define the total Einstein-source projections \((\rho,p_r,p_t,j_{\mathrm{tot}})\) from the accepted six-sector adapter.
+
+The accepted \(A_a\) and \(K\) rates are
+\[
+\begin{aligned}
+\mathscr A\equiv\dot A_a={}&
+-\left(D_rD_r\alpha-\frac13D^2\alpha\right)
++\alpha\left(R^r{}_r-\frac13R\right)\\
+&+\beta D_1(A_a)+\alpha K A_a
+-\frac{16\pi}{3}\alpha(p_r-p_t),\\
+\mathscr K\equiv\dot K={}&-D^2\alpha+\beta D_1(K)\\
+&+\alpha\left(A_a^2+2A_b^2+\frac13K^2\right)
++4\pi\alpha(\rho+p_r+2p_t).
+\end{aligned}
+\]
+Here \(R^r{}_r,R\) are the pinned vendor's evolved-\(\Lambda\) Ricci expressions. \(D_rD_r\alpha\) and \(D^2\alpha\) denote the vendor's separately evaluated radial Hessian and Laplacian operators; they must not be collapsed into a continuum product-rule expression.
+
+For completeness, the same accepted explicit block supplies
+\[
+\begin{aligned}
+\mathscr b\equiv\dot b={}&\beta D_1(b)+\frac{2b\beta}{r}
+-\frac23b\,\operatorname{div}\beta-2\alpha b A_b,\\
+\mathscr X\equiv\dot X={}&\beta D_1(X)
++\frac{X}{3}\left(\alpha K-\operatorname{div}\beta\right),\\
+\operatorname{div}\beta={}&D_1(\beta)+\beta\left(
+\frac{D_1(a)}{2a}+\frac{D_1(b)}b+\frac2r\right).
+\end{aligned}
+\]
+The exact discrete quotient chain rule remains
+\[
+\dot\chi_r=-\frac12\left[
+\frac{D_1(\mathscr X)}X-\frac{D_1(X)\mathscr X}{X^2}
+\right].
+\]
+Substitution into the implemented geometric constraint gives the full accepted instantaneous tangent
+\[
+\begin{aligned}
+\dot M_{r,\mathrm{geom}}={}&D_1(\mathscr A)-\frac23D_1(\mathscr K)
++6\mathscr A\chi_r+6A_a\dot\chi_r\\
+&+\frac32\mathscr A\left(\frac2r+\frac{D_1(b)}b\right)
++\frac32A_a\left[
+\frac{D_1(\mathscr b)}b
+-\frac{D_1(b)\mathscr b}{b^2}\right],\\
+\dot M_{r,\mathrm{tot}}={}&\dot M_{r,\mathrm{geom}}
+-8\pi\sum_{s\in\{S,D,\mathrm{COSMOS}\text{-}\phi,\mathrm{DM},
+\mathrm{baryon},\mathrm{radiation}\}}\dot j_s .
+\end{aligned}
+\]
+This is the complete RHS-derived identity for the **implemented semi-discrete constraint**, provided every rate and current tangent is evaluated on the same state and with the pinned operators. It supplies an exact bookkeeping target for the saved \(\pm\epsilon\) witness. It does not on its own prove a separate continuum subsidiary equation or total stress-energy conservation.
+
+**No double count:** \(R^r{}_r\) and \(R\) above already use the evolved \(\Lambda\), so the connection response \(F_C\) in §10.9 is a decomposition of the Ricci part of \(\mathscr A\); it must not be appended as a second term to this full formula. Likewise, Brown's \(H\)-gradient and \(C^r\) blocks are a separate continuum comparator to be reconciled against this RHS-derived expression, not extra source terms to add onto it. The accepted-state directional current terms remain the existing state-matched sector ledger; pointwise, FV, and expanded \(\mathcal D_r^{\mathrm{tot}}\) are still distinct possible representations of the continuum Bianchi source.
+
+This closes the equation-to-code assembly of the accepted instantaneous \(\dot M_r\) RHS, not the full matter-coupled continuum propagation identity. The remaining mathematical task is to derive the continuum subsidiary operator from the same field/evolution conventions and explain its term-by-term mapping to this fixed-grid identity and the saved signed tangent. No new observer is warranted unless that derivation identifies a specific missing operand. No production code or admission flag changes follow from this section.
