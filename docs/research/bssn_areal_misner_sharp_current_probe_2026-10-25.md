@@ -123,13 +123,14 @@ Next, compare face (R_r) and (R_t) from the metric-profile reconstruction with f
 **Disposition:** coordinate/current transformation exercised; corrected fixed-\(R\) identity still open; full matter-coupled momentum propagation and total sector conservation remain open; no production changes; \`scientific_admission=false\`.
 
 
+
 ## Addendum — cubic fixed-areal-radius shell crosswalk (2026-10-25)
 
-**Evidence:** shell component-budget workflow [40206277038](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/40206277038), N=60/120/240, using the same SHA-verified accepted t=0.60 profiles, source/vendor pins, and copied `dt)/`dt/2) probes. The protected production/vendor/dependency diff was empty and accepted-state immutability passed.
+**Evidence:** shell component-budget workflow [40206277038](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/40206277038), N=60/120/240, using the same SHA-verified accepted t=0.60 profiles, source/vendor pins, and copied `dt`/`dt/2` probes. The protected production/vendor/dependency diff was empty and accepted-state immutability passed.
 
-The shell observer distinguishes a linearly reconstructed face path from a four-point cubic fixed-(R) query. The cubic face lane independently reconstructs face (chi) and transformed (F=4\pi R^2T_t{}^R), then evaluates shell mass-rate minus endpoint net current at fixed areal boundaries. It is an integrated Misner–Sharp balance diagnostic, not the fluid HLL operator and not the production scalar update.
+The shell observer distinguishes a linearly reconstructed face path from a four-point cubic fixed-`R` query. The cubic face lane independently reconstructs face `chi` and transformed `F=4*pi*R^2*T_t^R`, then evaluates shell mass-rate minus endpoint net current at fixed areal boundaries. It is an integrated Misner–Sharp balance diagnostic, not the fluid HLL operator and not the production scalar update.
 
-At the smaller timestep, the maximum absolute shell residuals over (R=1ldots10) were:
+At the smaller timestep, the maximum absolute shell residuals over `R=1..10` were:
 
 | N | Cell-centred cubic query | Face-reconstructed cubic query | Face reconstruction, linear query |
 |---:|---:|---:|---:|
@@ -139,8 +140,8 @@ At the smaller timestep, the maximum absolute shell residuals over (R=1ldots10) 
 
 The cell-centred cubic maximum decreases at observed orders 3.82 and 3.95. The face-reconstructed cubic maximum decreases at orders **4.00 and 4.08**. By contrast, the face-reconstructed *linear*-query maximum does not display that convergence trend (orders about 1.46 and 0.92 over these three points).
 
-At N=240, the per-shell cubic face residuals are (-4.03\times10^{-8}), (-4.79\times10^{-8}), (+1.03\times10^{-7}), (+1.55\times10^{-7}), and (-1.56\times10^{-7}) for (R=1\text{–}2,2\text{–}3,3\text{–}5,5\text{–}8,8\text{–}10), respectively. The maximum face-minus-cell discrepancy between the cubic-query residuals is (5.18\times10^{-8}) at N=240; the much larger linear-query discrepancy is therefore strongly interpolation-sensitive.
+At N=240, the per-shell cubic face residuals are `-4.03e-8`, `-4.79e-8`, `+1.03e-7`, `+1.55e-7`, and `-1.56e-7` for shells R=1–2, 2–3, 3–5, 5–8, and 8–10, respectively. The maximum face-minus-cell discrepancy between the cubic-query residuals is `5.18e-8` at N=240; the much larger linear-query discrepancy is therefore strongly interpolation-sensitive.
 
-**Interpretation:** the earlier face-shell-versus-cell-centred mismatch is not sampling-independent. With a consistent cubic query on both mass and current, the independent integrated shell witness converges approximately fourth-order over N=60/120/240, in line with the target-map manufactured interpolation controls and the centered fixed-(R) mass/current trend. This is evidence for a finite-grid interpolation remainder in the tested annulus, not a universal error bound or a declaration that cubic interpolation is the production conservation convention.
+**Interpretation:** the earlier face-shell-versus-cell-centred mismatch is not sampling-independent. With a consistent cubic query on both mass and current, the independent integrated shell witness converges approximately fourth-order over N=60/120/240, in line with the target-map manufactured interpolation controls and the centred fixed-`R` mass/current trend. This is evidence for a finite-grid interpolation remainder in the tested annulus, not a universal error bound or a declaration that cubic interpolation is the production conservation convention.
 
 This narrows the next scientific gate: do not continue tuning face geometry or treating the linear-sampled residual as a physical source. Return to the pinned full matter-coupled momentum-constraint propagation identity—specifically the normalized Hamiltonian-gradient, reference-metric connection response, and sector source/exchange mapping that remain unresolved at fixed coordinate radii. The integrated-current, full matter-coupled propagation, total stress-energy conservation, and scientific-admission flags remain false.
