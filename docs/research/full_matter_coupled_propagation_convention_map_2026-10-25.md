@@ -49,17 +49,20 @@ Evidence: [pointwise versus FV total-stress divergence](https://github.com/miahp
 
 ## 5. Brown references and Hamiltonian-gradient normalization
 
-**Reference disambiguation resolved; prefactor translation unresolved.** Two distinct publications must not be combined under one citation:
+**Reference disambiguation resolved; candidate H definition mapped; matter-coupled gradient relation unresolved.** Two distinct publications must not be combined under one citation:
 - J. David Brown, [“BSSN in Spherical Symmetry,” arXiv:0705.3845, Eq. (11b)](https://arxiv.org/abs/0705.3845), which is the structural formula implemented by the repository's Brown observer.
 - J. David Brown and Lisa L. Lowe, [“Modifying the Einstein Equations off the Constraint Hypersurface,” gr-qc/0606008](https://arxiv.org/abs/gr-qc/0606008), a separate off-constraint evolution-equation construction.
 
-In the repository's Brown-BSSN formula, the Hamiltonian-gradient slots are written as
+Brown defines its vacuum Hamiltonian constraint as
+`H = K^2 - K_ij K^ij + R`. With `K_ij = A_ij + (1/3) gamma_ij K` and trace-free `A_ij`, this becomes `H = R - A_ij A^ij + (2/3)K^2`. The repository's metric-only candidate `H_metric = R_metric - Aa^2 - 2*Ab^2 + (2/3)*K^2` has the same algebraic normalization when `A_ij A^ij = Aa^2 + 2*Ab^2`, with the spatial metric/Ricci and mixed-component conventions mapped consistently.
+
+In the repository's Brown-BSSN formula, the Hamiltonian-gradient slots are
 ```text
 -(D_r(alpha)/3) * H + (alpha/6) * D_r(H)
 ```
-with (H) specifically reconstructed as metric-only in that observer, independently of the evolved-Λ connection terms. The original proposal's (-D_i(alpha)H-(alpha/2)D_iH) is **not interchangeable as written**. A normalization change to (H), sign convention, or change between (partial_t), normal-time (partial_perp), and Lie-transport decomposition could affect the comparison, but no such conversion is assumed here.
+with `H` reconstructed as metric-only, independently of the evolved-Λ connection terms. The original proposal's `-D_i(alpha)*H -(alpha/2)*D_i(H)` is **not interchangeable as written**. More strongly, a single overall rescaling or sign flip of `H` cannot reconcile the formulas by itself: the relative coefficient sign between the lapse-gradient and Hamiltonian-gradient terms differs. Coordinate-time versus normal/Lie-split derivative conventions affect shift/advection bookkeeping, but do not alone establish a translation of these two slots. Do not use the proposed formula as the Brown Eq. (11b) expression without a full derivation from the selected field/evolution conventions.
 
-**Required derivation before freezing:** write the exact accepted-source definitions of (H), (M_r), (Q_r), (K), lapse, and shift; state whether the time derivative is coordinate-time or normal/Lie-split; derive the conversion algebraically to the Brown Eq. (11b) convention; and show how the matter part enters without double-counting the explicit connection-constraint response. Until that line-by-line map is supported, Hamiltonian-gradient normalization and the equivalence of the two formulas remain **unresolved**.
+**Remaining derivation before freezing the matter-coupled identity:** map the exact accepted-source definitions of `H`, `M_r`, `Q_r`, `K`, lapse, shift and time-derivative split; then derive the complete matter-coupled propagation relation from the selected Einstein/Bianchi conventions. Brown Eq. (11b) is a vacuum structural formula, so the matter terms must be independently derived and may not be inferred from the source-map residual. Keep the candidate's algebraic `H` normalization separate from whether the full matter-coupled gradient term, source term, and reference-metric response are accepted.
 
 ## 6. Reference-metric connection coupling
 
