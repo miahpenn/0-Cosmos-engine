@@ -966,3 +966,60 @@ Thus the choice of Hamiltonian array changes the \(C^r\)-derivative content of a
 **Required no-double-counting rule:** either derive the complete accepted RHS into a Brown-form equation using the explicitly selected metric-only \(H\) and its full connection correction, or retain the exact rate composition in §10.10. Do not feed \(H_{\mathrm{v},\Lambda}\) into Brown's H slots and also keep the full explicit Brown \(C^r\) block without deriving the combined equation. The accepted RHS composition already carries its evolved-\(\Lambda\) dependence through \(R^r{}_r-R/3\).
 
 This resolves the source-level distinction between the two Hamiltonian slots; it does not yet make Brown Eq. (11b) identical to the accepted RHS-derived \(\dot M_r\). The remaining task is a complete formulation/time-split derivation that reconciles the metric-only curvature crosswalk, the connection terms from §10.9, and the same-state discrete tangent from §10.10. No observer or production change is justified by this algebra alone.
+
+
+## 10.12 Brown Eq. (10b) momentum covector versus the accepted finite-difference constraint
+
+Brown's spherical momentum constraint (Eq. 10b in [Brown, arXiv:0705.3845](https://arxiv.org/abs/0705.3845)) uses the covariant conformal component \(A_{rr}\), the conformal radial metric \(g_{rr}\), the angular component \(g_{\theta\theta}\), and \(\chi\). The continuum field map to the accepted spherical variables is
+\[
+g_{rr}=a,\qquad g_{\theta\theta}=br^2,\qquad
+\chi=X^2,\qquad A_{rr}=aA_a,\qquad A^r{}_r=A_a.
+\]
+With this mapping, Brown's first and last \(A_{rr}\) terms combine as
+\[
+\frac{\partial_r A_{rr}}{g_{rr}}
+-\frac{A_{rr}\partial_r g_{rr}}{g_{rr}^2}
+=\partial_r A_a,
+\]
+and its conformal-factor term becomes
+\[
+-\frac{3A_{rr}\partial_r\chi}{2\chi g_{rr}}
+=-\frac32 A_a\frac{\partial_r\chi}{\chi}
+=-3A_a\frac{\partial_r X}{X}
+=6A_a\chi_r,\qquad
+\chi_r=-\frac{\partial_r X}{2X}.
+\]
+The angular-metric term maps to
+\[
+\frac{3A_{rr}}{2g_{rr}}\frac{\partial_r g_{\theta\theta}}{g_{\theta\theta}}
+=\frac32 A_a\left(\frac{\partial_r b}{b}+\frac2r\right).
+\]
+Together with \(-2\partial_r K/3\), these terms recover the same continuum lower-index covector represented by the pinned vendor's \(M_{r,\mathrm{geom}}\).
+
+The finite-difference expressions are not bitwise identical, because the fixed stencil does not obey an exact product or square chain rule. If Brown Eq. (10b) is evaluated as a discrete expression on the same archived fields, then
+\[
+M_{r,\mathrm{BrownFD}}-M_{r,\mathrm{vendorFD}}
+=\epsilon_{\mathrm{prod}}+\epsilon_{\chi},
+\]
+where
+\[
+\epsilon_{\mathrm{prod}}=
+\frac{D_1(aA_a)-A_aD_1(a)-aD_1(A_a)}{a},
+\qquad
+\epsilon_{\chi}=
+-\frac32A_a\frac{D_1(X^2)}{X^2}
++3A_a\frac{D_1(X)}{X}.
+\]
+This formula separates the ordinary discrete product-rule remainder in \(A_{rr}=aA_a\) from the discrete chain-rule remainder in \(\chi=X^2\). The Brown propagation observer currently feeds the pinned vendor's \`constraints()["momentum"]\) into Eq. (11b), rather than rebuilding \(M_r\) from the Brown Eq. (10b) finite-difference expression. Therefore these terms are a representation-crosswalk correction for comparisons of the **constraint definitions**; they must not be appended to the existing Brown propagation residual a second time.
+
+The archived exact-state profiles were rechecked from the SHA-verified N=60/120/240 artifacts. The algebraic split \((M_{\mathrm{BrownFD}}-M_{\mathrm{vendorFD}})-\epsilon_{\mathrm{prod}}-\epsilon_\chi\) closes to \(3.2\times10^{-20}\) or better on the full grid:
+
+| \(N\) | \(\max_{r\le10}|\epsilon_{\mathrm{prod}}+\epsilon_\chi|\) | \(\max|\epsilon_{\mathrm{prod}}|\) | \(\max|\epsilon_\chi|\) | Difference at \(r=2\) | \(r=3\) | \(r=5\) | \(r=8\) |
+|---:|---:|---:|---:|---:|---:|---:|---:|
+| 60 | \(5.3515\times10^{-9}\) | \(5.3519\times10^{-9}\) | \(1.3850\times10^{-12}\) | \(-5.3515\times10^{-9}\) | \(+7.4187\times10^{-10}\) | \(+3.6735\times10^{-9}\) | \(-1.0973\times10^{-9}\) |
+| 120 | \(5.2514\times10^{-10}\) | \(5.2515\times10^{-10}\) | \(1.0190\times10^{-13}\) | \(-3.7788\times10^{-10}\) | \(+1.2976\times10^{-10}\) | \(+2.5390\times10^{-10}\) | \(-7.4163\times10^{-11}\) |
+| 240 | \(3.6533\times10^{-11}\) | \(3.6534\times10^{-11}\) | \(6.7103\times10^{-15}\) | \(-2.5958\times10^{-11}\) | \(+8.8892\times10^{-12}\) | \(+1.5953\times10^{-11}\) | \(-4.6471\times10^{-12}\) |
+
+The product-rule remainder dominates this particular discrete definition mapping; the square-chain remainder is much smaller on these saved profiles. This is an exact representation-level accounting check, not a measure of the full Brown propagation residual and not a reason to alter the accepted constraint implementation. The Brown observer's existing choice to share the vendor \(M_r\) makes the comparison's primary constraint input unambiguous; only the separate field-definition crosswalk carries the correction above.
+
+No observer, workflow, or evolution was rerun. No code or scientific-admission flag changed.
