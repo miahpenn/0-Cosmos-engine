@@ -281,6 +281,135 @@ def compact_candidate(item: dict[str, Any], raw: dict[float, dict[str, np.ndarra
     brown_residual = geometric["measured_total_minus_Brown_plus_actual_source"]
     raw_item = raw[eps]
 
+    # Term-resolved geometric-only Brown budget. Keep this separate from the
+    # total matter-source mapping ledger: the two answer different questions.
+    brown_term_keys = {
+        "shift_transport": "propagation_geometric_Brown_term_shift",
+        "alpha_K_Mgeom": "propagation_geometric_Brown_term_KM",
+        "minus_Dalpha_Hgeom_over_3": "propagation_geometric_Brown_term_alpha_H",
+        "alpha_DHgeom_over_6": "propagation_geometric_Brown_term_H_gradient",
+        "reference_connection_second": "propagation_geometric_Brown_term_connection_second",
+        "reference_connection_first": "propagation_geometric_Brown_term_connection_first",
+    }
+    brown_required = [
+        *brown_term_keys.values(),
+        "propagation_geometric_Brown_term_sum_reconstruction_gap",
+        "propagation_geometric_Brown_vacuum_source",
+        "propagation_measured_Mgeom_dot",
+        "propagation_Mgeom_dot_nonmatter_measured",
+        "propagation_Mgeom_dot_matter_injection",
+        "propagation_nonmatter_Mgeom_minus_Brown_vacuum",
+        "propagation_exact_chain_rule_residual",
+        "propagation_matter_source_mapping_residual",
+    ]
+    missing_brown = [name for name in brown_required if name not in raw_item]
+    if missing_brown:
+        raise RuntimeError(
+            "signed geometric Brown term ledger is incomplete; missing arrays: "
+            + ", ".join(missing_brown)
+        )
+    term_arrays = {
+        label: np.asarray(raw_item[key], dtype=np.float64)
+        for label, key in brown_term_keys.items()
+    }
+    brown_source = np.asarray(
+        raw_item["propagation_geometric_Brown_vacuum_source"], dtype=np.float64
+    )
+    term_sum = np.zeros_like(brown_source)
+    for values in term_arrays.values():
+        if values.shape != brown_source.shape or not np.all(np.isfinite(values)):
+            raise RuntimeError("invalid or mismatched signed geometric Brown term profile")
+        term_sum = term_sum + values
+    stored_sum_gap = np.asarray(
+        raw_item["propagation_geometric_Brown_term_sum_reconstruction_gap"],
+        dtype=np.float64,
+    )
+    sum_gap = term_sum - brown_source
+    scale = max(
+        1.0,
+        float(np.max(np.abs(term_sum))),
+        float(np.max(np.abs(brown_source))),
+        *(float(np.max(np.abs(values))) for values in term_arrays.values()),
+    )
+    closure_tolerance = 512.0 * np.finfo(np.float64).eps * scale
+    if (
+        stored_sum_gap.shape != brown_source.shape
+        or not np.all(np.isfinite(stored_sum_gap))
+        or float(np.max(np.abs(sum_gap - stored_sum_gap))) > closure_tolerance
+        or float(np.max(np.abs(sum_gap))) > closure_tolerance
+    ):
+        raise RuntimeError(
+            "signed geometric Brown term sum failed reconstruction: "
+            f"max_abs={float(np.max(np.abs(sum_gap))):.6e}, "
+            f"tol={closure_tolerance:.6e}"
+        )
+
+    def brown_sample(index: int | None = None, radius: float | None = None) -> dict[str, Any]:
+        def sample(values: np.ndarray) -> float:
+            if index is not None:
+                return float(values[index])
+            assert radius is not None
+            return float(np.interp(radius, radii, values))
+        return {
+            "coordinate_radius": (
+                float(radii[index]) if index is not None else float(radius)
+            ),
+            "terms": {name: sample(values) for name, values in term_arrays.items()},
+            "term_sum": sample(term_sum),
+            "geometric_Brown_vacuum_source": sample(brown_source),
+            "measured_Mgeom_dot_including_explicit_matter_injection": sample(
+                np.asarray(raw_item["propagation_measured_Mgeom_dot"], dtype=np.float64)
+            ),
+            "measured_Mgeom_dot_after_removing_explicit_matter_injection": sample(
+                np.asarray(raw_item["propagation_Mgeom_dot_nonmatter_measured"], dtype=np.float64)
+            ),
+            "nonmatter_measured_minus_Brown": sample(
+                np.asarray(raw_item["propagation_nonmatter_Mgeom_minus_Brown_vacuum"], dtype=np.float64)
+            ),
+            "explicit_matter_injection_removed": sample(
+                np.asarray(raw_item["propagation_Mgeom_dot_matter_injection"], dtype=np.float64)
+            ),
+            "exact_discrete_chain_rule_residual": sample(
+                np.asarray(raw_item["propagation_exact_chain_rule_residual"], dtype=np.float64)
+            ),
+            "separate_matter_source_mapping_remainder": sample(
+                np.asarray(raw_item["propagation_matter_source_mapping_residual"], dtype=np.float64)
+            ),
+        }
+
+    first_cells = [brown_sample(index=i) for i in range(min(3, len(radii)))]
+    fixed_radius = {
+        str(radius): brown_sample(radius=float(radius))
+        for radius in (2.0, 5.0, 8.0)
+        if float(radii[0]) <= radius <= float(radii[-1])
+    }
+    brown_term_budget = {
+        "status": "signed_geometric_Brown_term_reassembly_passed",
+        "convention": (
+            "geometric-only H_geom/M_geom Brown-vacuum comparator on the pinned "
+            "zero-shift accepted slice; matter injection is removed from the "
+            "measured geometric Mdot before comparison. This is a candidate "
+            "budget, not an admitted full matter-coupled propagation identity."
+        ),
+        "term_sum_reconstruction": {
+            "passed": True,
+            "max_abs_sum_minus_source": float(np.max(np.abs(sum_gap))),
+            "max_abs_difference_vs_independently_recorded_gap": float(
+                np.max(np.abs(sum_gap - stored_sum_gap))
+            ),
+            "tolerance": closure_tolerance,
+        },
+        "first_three_native_cells": first_cells,
+        "matched_coordinate_radius": fixed_radius,
+        "interpretation_limits": [
+            "Native cells 0–2 are reported by cell index and their actual coordinate radii; they are not a fixed-coordinate convergence sequence.",
+            "The signed Brown term sum is compared with the measured geometric tangent after subtracting the separately calculated explicit Aa/K matter injection.",
+            "The exact discrete chain-rule residual and the matter-source mapping remainder remain separate ledger items.",
+            "A small term-sum reconstruction gap verifies internal accounting only; a nonzero measured-minus-Brown remainder does not identify a wrong term without the frozen convention-pinned coupled identity.",
+            "No evolution is advanced and no production equation, initializer, vendor source, or dependency is modified.",
+        ],
+    }
+
     return {
         "epsilon": eps,
         "direct_published_covariant_Mr_candidate": {
@@ -295,6 +424,7 @@ def compact_candidate(item: dict[str, Any], raw: dict[float, dict[str, np.ndarra
             "source_mapping_relative_rms": geometric["full_domain_relative_rms"]["actual_matter_composite_minus_minus8pi_alpha_Qr"],
             "nonmatter_geometric_minus_Brown_vacuum_relative_rms": geometric["full_domain_relative_rms"]["nonmatter_geometric_minus_Brown_vacuum"],
         },
+        "brown_geometric_signed_term_accounting": brown_term_budget,
         "explicit_propagation_profiles": {
             name: summarize_profile(raw_item[name], radii)
             for name in (
