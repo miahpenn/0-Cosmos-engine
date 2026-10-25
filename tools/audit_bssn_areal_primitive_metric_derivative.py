@@ -48,6 +48,7 @@ METHODS = (
     ("observer_composite_cubic", "composite", "cubic"),
     ("observer_operand_cubic", "observer_operand", "cubic"),
     ("raw_metric_cubic", "raw_metric", "cubic"),
+    ("raw_metric_cubic_fixed_stencil", "raw_metric_fixed_stencil", "cubic"),
     ("raw_metric_linear_control", "raw_metric", "linear"),
 )
 
@@ -96,7 +97,7 @@ def lagrange_value_and_derivative(nodes: np.ndarray, values: np.ndarray, x: floa
     return float(weights @ values), float(deriv_weights @ values)
 
 
-def primitive_even(profile: dict[str, Any], field: str, r: float, order: str) -> tuple[float, float]:
+def primitive_even(profile: dict[str, Any], field: str, r: float, order: str, stencil_start: int | None = None) -> tuple[float, float]:
     """Interpolate an even field in s=r^2; return value and d(field)/dr."""
     rs = profile["r"]
     nodes = rs * rs
@@ -104,7 +105,7 @@ def primitive_even(profile: dict[str, Any], field: str, r: float, order: str) ->
     target = float(r) ** 2
     if order == "cubic":
         idx = int(np.searchsorted(nodes, target))
-        start = min(max(idx - 2, 0), nodes.size - 4)
+        start = min(max(idx - 2, 0), nodes.size - 4) if stencil_start is None else min(max(int(stencil_start), 0), nodes.size - 4)
         value, deriv_s = lagrange_value_and_derivative(nodes[start:start+4], values[start:start+4], target)
     elif order == "linear":
         value = float(np.interp(target, nodes, values))
@@ -119,7 +120,7 @@ def primitive_even(profile: dict[str, Any], field: str, r: float, order: str) ->
     return value, deriv_r
 
 
-def primitive_odd(profile: dict[str, Any], field: str, r: float, order: str) -> float:
+def primitive_odd(profile: dict[str, Any], field: str, r: float, order: str, stencil_start: int | None = None) -> float:
     """Interpolate an odd field as r times a regular even profile."""
     rs = profile["r"]
     regular = finite(f"regularized odd field {field}", profile[field] / rs)
@@ -127,7 +128,7 @@ def primitive_odd(profile: dict[str, Any], field: str, r: float, order: str) -> 
     target = float(r) ** 2
     if order == "cubic":
         idx = int(np.searchsorted(nodes, target))
-        start = min(max(idx - 2, 0), nodes.size - 4)
+        start = min(max(idx - 2, 0), nodes.size - 4) if stencil_start is None else min(max(int(stencil_start), 0), nodes.size - 4)
         value, _ = lagrange_value_and_derivative(nodes[start:start+4], regular[start:start+4], target)
     elif order == "linear":
         value = float(np.interp(target, nodes, regular))
@@ -179,9 +180,9 @@ def build_primitive_profile(kernel, profile: dict[str, Any]) -> dict[str, Any]:
     return primitive
 
 
-def evaluate_areal_at_coordinate(profile: dict[str, Any], r: float, order: str) -> tuple[float, float, dict[str, float]]:
-    b, b_r = primitive_even(profile, "b", r, order)
-    X, X_r = primitive_even(profile, "X", r, order)
+def evaluate_areal_at_coordinate(profile: dict[str, Any], r: float, order: str, stencil_start: int | None = None) -> tuple[float, float, dict[str, float]]:
+    b, b_r = primitive_even(profile, "b", r, order, stencil_start)
+    X, X_r = primitive_even(profile, "X", r, order, stencil_start)
     if b <= 0 or X <= 0:
         raise RuntimeError("interpolated b or X is not positive")
     R = float(r) * np.sqrt(b) / X
@@ -193,26 +194,50 @@ def evaluate_areal_at_coordinate(profile: dict[str, Any], r: float, order: str) 
     return R, R_r, {"b": b, "b_r": b_r, "X": X, "X_r": X_r}
 
 
-def invert_areal_radius(profile: dict[str, Any], R_target: float, order: str) -> float:
-    """Invert the primitive-interpolated R(r) on the bracket containing target."""
+def invert_areal_radius(
+    profile: dict[str, Any],
+    R_target: float,
+    order: str,
+    stencil_start: int | None = None,
+    seed: float | None = None,
+) -> float:
+    """Invert R(r); a supplied stencil is held fixed throughout the inversion."""
     R_nodes = profile["observer_R"]
     centers = profile["r"]
-    if R_target < R_nodes[0] or R_target > R_nodes[-1]:
+    if R_target < R_nodes[0] - 1e-12 or R_target > R_nodes[-1] + 1e-12:
         raise RuntimeError(f"fixed R={R_target} is outside primitive center-map range")
-    right = int(np.searchsorted(R_nodes, R_target, side="left"))
-    if right == 0:
-        lo, hi = 0.0, float(centers[0])
-    elif right >= len(centers):
-        lo, hi = float(centers[-2]), float(centers[-1])
+    if stencil_start is None:
+        right = int(np.searchsorted(R_nodes, R_target, side="left"))
+        if right == 0:
+            lo, hi = 0.0, float(centers[0])
+        elif right >= len(centers):
+            lo, hi = float(centers[-2]), float(centers[-1])
+        else:
+            lo, hi = float(centers[right-1]), float(centers[right])
+        Rlo = evaluate_areal_at_coordinate(profile, lo, order)[0]
+        Rhi = evaluate_areal_at_coordinate(profile, hi, order)[0]
+        if Rlo > R_target + 1e-10 or Rhi < R_target - 1e-10:
+            raise RuntimeError(f"primitive map does not bracket R={R_target}: [{Rlo},{Rhi}]")
     else:
-        lo, hi = float(centers[right-1]), float(centers[right])
-    Rlo = evaluate_areal_at_coordinate(profile, lo, order)[0]
-    Rhi = evaluate_areal_at_coordinate(profile, hi, order)[0]
-    if Rlo > R_target + 1e-10 or Rhi < R_target - 1e-10:
-        raise RuntimeError(f"primitive map does not bracket R={R_target}: [{Rlo},{Rhi}]")
+        center = float(np.interp(R_target, R_nodes, centers)) if seed is None else float(seed)
+        span = float(centers[1] - centers[0]) * 1.25
+        lo = max(0.0, center - span)
+        hi = min(float(centers[-1]), center + span)
+        bracketed = False
+        for _ in range(8):
+            Rlo = evaluate_areal_at_coordinate(profile, lo, order, stencil_start)[0]
+            Rhi = evaluate_areal_at_coordinate(profile, hi, order, stencil_start)[0]
+            if Rlo <= R_target <= Rhi:
+                bracketed = True
+                break
+            span *= 2.0
+            lo = max(0.0, center - span)
+            hi = min(float(centers[-1]), center + span)
+        if not bracketed:
+            raise RuntimeError(f"fixed-stencil primitive map did not bracket R={R_target}: [{Rlo},{Rhi}]")
     for _ in range(48):
         mid = 0.5 * (lo + hi)
-        Rmid = evaluate_areal_at_coordinate(profile, mid, order)[0]
+        Rmid = evaluate_areal_at_coordinate(profile, mid, order, stencil_start)[0]
         if Rmid < R_target:
             lo = mid
         else:
@@ -220,18 +245,24 @@ def invert_areal_radius(profile: dict[str, Any], R_target: float, order: str) ->
     return 0.5 * (lo + hi)
 
 
-def primitive_metric_query(profile: dict[str, Any], R_target: float, order: str) -> dict[str, float]:
-    r = invert_areal_radius(profile, R_target, order)
-    R_actual, R_r, geo = evaluate_areal_at_coordinate(profile, r, order)
-    a, _ = primitive_even(profile, "a", r, order)
-    X, _ = primitive_even(profile, "X", r, order)
-    alpha, _ = primitive_even(profile, "alpha", r, order)
-    b, _ = primitive_even(profile, "b", r, order)
-    b_dot, _ = primitive_even(profile, "b_dot", r, order)
-    X_dot, _ = primitive_even(profile, "X_dot", r, order)
-    E, _ = primitive_even(profile, "E", r, order)
-    p_r, _ = primitive_even(profile, "p_r", r, order)
-    j = primitive_odd(profile, "j", r, order)
+def primitive_metric_query(
+    profile: dict[str, Any],
+    R_target: float,
+    order: str,
+    stencil_start: int | None = None,
+    seed: float | None = None,
+) -> dict[str, float]:
+    r = invert_areal_radius(profile, R_target, order, stencil_start, seed)
+    R_actual, R_r, geo = evaluate_areal_at_coordinate(profile, r, order, stencil_start)
+    a, _ = primitive_even(profile, "a", r, order, stencil_start)
+    X, _ = primitive_even(profile, "X", r, order, stencil_start)
+    alpha, _ = primitive_even(profile, "alpha", r, order, stencil_start)
+    b, _ = primitive_even(profile, "b", r, order, stencil_start)
+    b_dot, _ = primitive_even(profile, "b_dot", r, order, stencil_start)
+    X_dot, _ = primitive_even(profile, "X_dot", r, order, stencil_start)
+    E, _ = primitive_even(profile, "E", r, order, stencil_start)
+    p_r, _ = primitive_even(profile, "p_r", r, order, stencil_start)
+    j = primitive_odd(profile, "j", r, order, stencil_start)
 
     R_t = R_target * (0.5 * b_dot / b - X_dot / X)
     g_rr = a / (X * X)
@@ -274,11 +305,37 @@ def observer_query(profile: dict[str, Any], primitive: dict[str, Any], R_target:
     raise ValueError(f"unknown source {source}")
 
 
-def query_method(profile: dict[str, Any], primitive: dict[str, Any], R: float, method: str) -> dict[str, float]:
+def stencil_start_for_coordinate(profile: dict[str, Any], r: float) -> int:
+    nodes = profile["r"] * profile["r"]
+    idx = int(np.searchsorted(nodes, float(r) ** 2))
+    return min(max(idx - 2, 0), nodes.size - 4)
+
+
+def queries_for_method(
+    profiles: tuple[dict[str, Any], dict[str, Any], dict[str, Any]],
+    primitives: tuple[dict[str, Any], dict[str, Any], dict[str, Any]],
+    R: float,
+    method: str,
+) -> list[dict[str, float]]:
     _, source, order = next(spec for spec in METHODS if spec[0] == method)
     if source == "raw_metric":
-        return primitive_metric_query(primitive, R, order)
-    return observer_query(profile, primitive, R, source, order)
+        return [primitive_metric_query(primitives[j], R, order) for j in range(3)]
+    if source == "raw_metric_fixed_stencil":
+        # Anchor the four-point interpolation stencil to the accepted state and
+        # reuse it for all three time slices, preventing time-varying stencil hops.
+        anchor_r = invert_areal_radius(primitives[0], R, "cubic")
+        start = stencil_start_for_coordinate(primitives[0], anchor_r)
+        return [
+            primitive_metric_query(
+                primitives[j],
+                R,
+                "cubic",
+                stencil_start=start,
+                seed=float(np.interp(R, primitives[j]["observer_R"], primitives[j]["r"])),
+            )
+            for j in range(3)
+        ]
+    return [observer_query(profiles[j], primitives[j], R, source, order) for j in range(3)]
 
 
 def residual_summary(residual: np.ndarray, radii: np.ndarray, current: np.ndarray) -> dict[str, float]:
@@ -338,8 +395,8 @@ def temporal_arm(kernel, accepted, h: float) -> dict[str, Any]:
             "current": [np.empty_like(radii) for _ in range(3)],
         }
         for i, R in enumerate(radii):
-            for j in range(3):
-                q = query_method(profiles[j], primitives[j], float(R), method)
+            queries = queries_for_method(profiles, primitives, float(R), method)
+            for j, q in enumerate(queries):
                 vals["chi"][j][i] = q["chi"]
                 vals["current"][j][i] = q["current"]
         chi, current = vals["chi"], vals["current"]
@@ -373,7 +430,7 @@ def temporal_arm(kernel, accepted, h: float) -> dict[str, Any]:
         for R in FIXED_RADII:
             if not lo <= R <= hi:
                 continue
-            qs = [query_method(profiles[j], primitives[j], R, method) for j in range(3)]
+            qs = queries_for_method(profiles, primitives, R, method)
             forward_rate = -0.5 * R * (qs[1]["chi"] - qs[0]["chi"]) / h
             centered_rate = -0.5 * R * (qs[2]["chi"] - qs[0]["chi"]) / (2.0*h)
             forward_avg = 0.5 * (qs[0]["current"] + qs[1]["current"])
@@ -401,22 +458,27 @@ def temporal_arm(kernel, accepted, h: float) -> dict[str, Any]:
             method_summary[method]["fixed_R"][str(R)] = row
 
     direct_comparisons = {}
-    raw = sampled["raw_metric_cubic"]
-    for control in ("observer_composite_cubic", "observer_operand_cubic"):
-        base = sampled[control]
-        for key in ("chi", "current", "forward_rate", "centered_rate", "forward_residual_avg", "centered_residual_mid", "centered_residual_avg"):
-            if key in ("chi", "current"):
-                a = raw[key][1]
-                b = base[key][1]
-            else:
-                a = raw[key][0]
-                b = base[key][0]
-            delta = finite(f"raw cubic minus {control} {key}", a - b)
-            annulus = (radii >= 2.0) & (radii <= 10.0)
-            direct_comparisons[f"raw_metric_cubic_minus_{control}_{key}"] = {
-                "rms_R_2_to_10": float(np.sqrt(np.mean(delta[annulus]**2))),
-                "max_abs_R_2_to_10": float(np.max(np.abs(delta[annulus]))),
-            }
+    for raw_name in ("raw_metric_cubic", "raw_metric_cubic_fixed_stencil"):
+        raw = sampled[raw_name]
+        controls = ["observer_composite_cubic", "observer_operand_cubic"]
+        controls.append("raw_metric_cubic" if raw_name.endswith("fixed_stencil") else "raw_metric_cubic_fixed_stencil")
+        for control in controls:
+            if control == raw_name:
+                continue
+            base = sampled[control]
+            for key in ("chi", "current", "forward_rate", "centered_rate", "forward_residual_avg", "centered_residual_mid", "centered_residual_avg"):
+                if key in ("chi", "current"):
+                    a = raw[key][1]
+                    b = base[key][1]
+                else:
+                    a = raw[key][0]
+                    b = base[key][0]
+                delta = finite(f"{raw_name} minus {control} {key}", a - b)
+                annulus = (radii >= 2.0) & (radii <= 10.0)
+                direct_comparisons[f"{raw_name}_minus_{control}_{key}"] = {
+                    "rms_R_2_to_10": float(np.sqrt(np.mean(delta[annulus]**2))),
+                    "max_abs_R_2_to_10": float(np.max(np.abs(delta[annulus]))),
+                }
 
     return {
         "step_h": float(h),
@@ -520,6 +582,7 @@ def main() -> int:
             },
             "raw_metric_vs_observer": arm["raw_metric_vs_observer_comparisons"],
             "fixed_R_raw_metric_cubic": arm["methods"]["raw_metric_cubic"]["fixed_R"],
+            "fixed_R_raw_metric_cubic_fixed_stencil": arm["methods"]["raw_metric_cubic_fixed_stencil"]["fixed_R"],
         } for arm in arms],
     }, indent=2))
     return 0
