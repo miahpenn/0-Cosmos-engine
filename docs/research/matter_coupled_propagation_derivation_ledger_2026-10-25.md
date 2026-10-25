@@ -88,22 +88,69 @@ Read-only inspection of the files at the recorded accepted-source anchor returne
 
 This crosswalk records exact signed expressions already present in the accepted-source trace. It narrows the index, normalization, and time-split bookkeeping; it does **not** close the continuum identity.
 
-#### A. Constraint objects and source slots
+#### A. Exact momentum residual used by the accepted-state tangent
 
-At the accepted production-source anchor \`4aec88d0e3ff028e0a65a8ac36b30948625df792\`, the native diagnostic helper defines
+The signed \(\dot M_r\) reported by the exact-profile observer is built from the pinned vendor's \`vacuum.constraints(grid, geometry)["momentum"]\`, not by directly calling the separate first-party native diagnostic helper. The source-level observer \`tools/audit_current_source_momentum_constraint_tangent.py\` (blob \`3f00a4e0a2063b86d2e007c5a825f9edfff61a4c\`) defines the measured total residual as
 
-\`\`\`text
-H_geom = R - Aa^2 - 2 Ab^2 + (2/3) K^2
-H_total = H_geom - 2 kappa rho_total
+\[
+M_{r,\mathrm{tot}}=M_{r,\mathrm{geom}}-8\pi j_{\mathrm{tot}},
+\qquad
+j_{\mathrm{tot}}=\sum_{s\in\{S,D,\phi,DM,b,r\}}j_s ,
+\]
 
-M_geom = D1(Aa) - (2/3) D1(K)
-         + 2 (Aa - Ab) D1(R_areal) / R_areal
-M_native = M_geom - kappa S_r
-\`\`\`
+where each \(j_s\) is rebuilt through its accepted scalar/fluid projection. Its expanded geometric constraint is
 
-with spherical trace-freeness \`Ab=-Aa/2\` and \`kappa=8*pi*G\`. The implementation is in \`engine/native_geometry/constraints.py\` (blob \`124d1f237e54d082b4d76213f9ebe144e02b02ba\`). Its \`radial_momentum_source\` argument is a caller-provided lower-radial source, not an inferred mapping.
+\[
+\begin{aligned}
+M_{r,\mathrm{geom}}={}&D_1(A_a)-\frac23D_1(K)
++6A_a\chi_r\\
+&+(A_a-A_b)\left(\frac2r+\frac{D_1(b)}b\right),\\
+\chi_r={}&-\frac{D_1(X)}{2X},\qquad A_b=-\frac12 A_a .
+\end{aligned}
+\]
 
-The canonical \`engine/v55_matter.py\` total projection returns lower-radial momentum density \`j\` alongside \`rho, pr, pt\` (blob \`0ee3c51fac7dc46c63feba2747a750542bcee3d0\`). Its constituent conventions are visible in the pinned sources: fluid projections divide by \`kappa\` in \`engine/matter_system.py\` / \`engine/valencia.py\` (Valencia blob \`03ed86398f424c03d9d6a3e646da9222a34fac5c\`), while \`engine/scalar_system.py\` divides the stored COSMOS-\`phi\` projection by \`kappa\` and leaves the local S/D projections at their archive scale (blob \`e2c2dae9a016b4d6454cf74a9eae8b0167d5733d\`). Consequently, \`radial_momentum_source = total["j"]\` is a **source-mapping candidate** for the native helper, yielding \`M = M_geom - kappa*total["j"]\`; it must not be silently assumed for arbitrary arrays named \`M\`, \`j\`, or \`S_r\` without matching their index and density conventions.
+Here \(D_1\) is the exact fixed-grid, parity-aware cell derivative used by the pinned evaluator. This expanded expression is the observable whose directional tangent is archived in the matched-state report; it is not automatically interchangeable, at finite resolution, with another algebraically rearranged constraint formula.
+
+#### A.1 Exact discrete chain rule for the geometric tangent
+
+Let overdots denote the full instantaneous coordinate-time RHS evaluated on the same frozen state, and let \(D_1\) be held fixed and linear. Differentiating the implemented expression above gives
+
+\[
+\begin{aligned}
+\dot\chi_r
+&=-\frac12\left[
+\frac{D_1(\dot X)}X-\frac{D_1(X)\dot X}{X^2}
+\right],\\[2pt]
+\dot M_{r,\mathrm{geom}}
+&=D_1(\dot A_a)-\frac23D_1(\dot K)
++6\dot A_a\chi_r+6A_a\dot\chi_r\\
+&\quad+\frac{3\dot A_a}{r}
++\frac32\dot A_a\frac{D_1(b)}b\\
+&\quad+\frac32A_a\left[
+\frac{D_1(\dot b)}b
+-\frac{D_1(b)\dot b}{b^2}
+\right],\\[2pt]
+\dot M_{r,\mathrm{tot}}
+&=\dot M_{r,\mathrm{geom}}-8\pi\sum_s\dot j_s .
+\end{aligned}
+\]
+
+Every \(D_1(\dot u)\) means the same pinned derivative applied to the RHS array \(\dot u\). The quotient terms differentiate the implemented \(D_1(X)/X\) and \(D_1(b)/b\) exactly as discrete expressions; they must not be replaced with \(D_1(\log X)\), \(D_1(\log b)\), or a continuum product-rule expansion. The analytic helper \`tools/momentum_constraint_chain_rule.py\` (blob \`354f1bc64dc364d85df3092c7273a1412a30797d\`) implements this signed decomposition, and the existing exact-profile workflow already cross-checks it against the \(\pm\epsilon\) tangent. This is derivation of the **implemented semi-discrete tangent**, not the continuum constraint-propagation identity.
+
+#### A.2 Keep the separate native diagnostic API distinct
+
+The first-party \`engine/native_geometry/constraints.py\` (blob \`124d1f237e54d082b4d76213f9ebe144e02b02ba\`) defines
+
+\[
+\begin{aligned}
+H_{\mathrm{native}}&=R-A_a^2-2A_b^2+\frac23K^2-2\kappa\rho,\\
+M_{\mathrm{native}}&=M_{\mathrm{geom,native}}-\kappa S_r,\\
+M_{\mathrm{geom,native}}&=D_1(A_a)-\frac23D_1(K)
++2(A_a-A_b)\frac{D_1(R_{\mathrm{areal}})}{R_{\mathrm{areal}}}.
+\end{aligned}
+\]
+
+Its \`radial_momentum_source\` argument is a caller-supplied lower-radial source. The canonical \`engine/v55_matter.py\` projection returns \(j\) alongside \(\rho,p_r,p_t\) (blob \`0ee3c51fac7dc46c63feba2747a750542bcee3d0\)); fluid projections carry \(1/\kappa\) in \`engine/matter_system.py\` / \`engine/valencia.py\` (Valencia blob \`03ed86398f424c03d9d6a3e646da9222a34fac5c\)), while \`engine/scalar_system.py\` divides the stored COSMOS-\(\phi\) projection by \(\kappa\) and leaves local S/D projections at their archive scale (blob \`e2c2dae9a016b4d6454cf74a9eae8b0167d5733d\)). Thus \(S_r=j_{\mathrm{tot}}\) is a source-map candidate for that API when the exact projection/index conventions match; it is not authority to equate the native helper's \(M\) with the vendor-tangent \(M_r\). The two forms are continuum-related, but their finite-difference product/chain-rule remainders can differ. Preserve the representations separately in the ledger.
 
 #### B. Brown Eq. (11b): exact signed code form
 
