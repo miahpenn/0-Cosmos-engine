@@ -49,10 +49,13 @@
       "note": "Existing Brown source bridge reconciles signed bookkeeping but does not scientifically admit the source mapping."
     },
     "hamiltonian_gradient_normalization": {
-      "status": "unresolved",
+      "status": "brown_vacuum_H_definition_mapped_matter_coupled_identity_unresolved",
+      "brown_H_definition": "H=K^2-K_ij*K^ij+R = R-A_ij*A^ij+(2/3)*K^2 for trace-free A",
+      "repository_candidate_H": "H_metric=R_metric-Aa^2-2*Ab^2+(2/3)*K^2",
       "brown_candidate_slots": "-(D_r(alpha)/3)*H + (alpha/6)*D_r(H)",
-      "proposal_expression_not_yet_mapped": "-D_i(alpha)*H -(alpha/2)*D_i(H)",
-      "required": "Derive exact translation including H normalization, sign convention, and coordinate-time vs normal/Lie-split derivative."
+      "proposal_expression_not_yet_derived": "-D_i(alpha)*H -(alpha/2)*D_i(H)",
+      "key_correction": "The relative coefficient sign differs; uniform H rescaling/sign flip alone cannot reconcile the formulas. Derive the full matter-coupled relation from selected evolution and Einstein/Bianchi conventions.",
+      "required": "Map exact H, M_r, lapse/sign, shift, time-derivative split, and independent matter terms; Brown Eq. 11b is a vacuum structural scaffold."
     },
     "reference_metric_connection_coupling": {
       "status": "structural_candidate_exists_full_mapping_unresolved",
