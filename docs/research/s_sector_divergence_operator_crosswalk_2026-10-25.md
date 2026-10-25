@@ -202,7 +202,7 @@ The DM expanded comparator residual is coarse-grid limited at N=60 but falls to 
 
 **Limit:** this is an implementation-level consistency check under the provisional archive-locked comparator and the current sector stress normalization. It is not an independent derivation of the historical source law, and it does not close full matter-coupled Brown propagation, total stress-energy conservation, or scientific admission. No evolution was rerun; no production or vendor code was changed.
 
-**Artifact provenance:** exact head 2b723e7aaf129f82ab9270fe28a2587c5f8860b0; artifact IDs N60 12606725843, N120 12606133211, N240 12606611057. All source/vendor guard checks passed.
+**Artifact provenance:** exact head 2b723e7aaf129f82ab9270fe28a2587c5f8860b0; artifact IDs N60 12606725843, N120 12606133211, N240 12606611057. All source/vendor guard checks passed. Report/profile SHA-256: N60 cb8ceae8e81dc351150306996f14d90450a7d6c68e0ca6c164f2649b7d8c4bd7 / 47b93a6a859b602bde5515ab8923e7517bd355d059c8703e3397c4bbcf61191f; N120 47e170b42998be47cff4437cedb0a014b1b951513a5b7b3449e1e7055dd497f1 / bc1a3d23b5c7f6b2358c170d4fca87972607a79b36dfc5b6da50f951d931aaae; N240 42683a5e5cb187decdd22bce6d4b118d6dadc0d1fe71780bca7d2c4ba018d4e9 / 595079087e65ff9c47568b0a8bbf7dc395c4462d2c02fa1f124f9f81ede16b3e.
 
 ## 9. Disposition and next discriminating check
 
