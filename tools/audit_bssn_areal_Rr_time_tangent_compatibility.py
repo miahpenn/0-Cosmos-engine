@@ -378,6 +378,59 @@ def main() -> int:
             "transport_control_note": "D4(chi) is held fixed between the tangent-only pair; the primitive_Rr transport term uses that same chi_r with its own Rr denominator.",
         }
 
+    # Explicitly expose the fixed-R evaluation-order commutator.  The existing
+    # fixed_R lane evaluates each native-grid mass rate first and then interpolates
+    # the composite fields; the anchored lane interpolates native operands to the
+    # fixed-R sample and then reconstructs the mass rate.  Since this expression
+    # is nonlinear, these are distinct measurements even when the current matches.
+    # Keep both; do not use the commutator to select a physical derivative.
+    native_sampling_order_commutator: dict[str, Any] = {}
+    sampling_rate_deltas: list[float] = []
+    sampling_current_deltas: list[float] = []
+    sampling_residual_deltas: list[float] = []
+    sampling_closure_errors: list[float] = []
+    for target, anchored_row in fixed_R_anchored_rows.items():
+        composite_row = fixed_rows[target]["native"]
+        reconstructed_row = anchored_row["native"]
+        delta_rate = float(reconstructed_row["fixed_R_mass_rate"] - composite_row["mass_rate"])
+        delta_current = float(reconstructed_row["current"] - composite_row["current"])
+        delta_residual = float(reconstructed_row["residual"] - composite_row["residual"])
+        closure_error = float(delta_residual - delta_rate + delta_current)
+        sampling_rate_deltas.append(delta_rate)
+        sampling_current_deltas.append(delta_current)
+        sampling_residual_deltas.append(delta_residual)
+        sampling_closure_errors.append(closure_error)
+        native_sampling_order_commutator[target] = {
+            "evaluate_native_grid_then_interpolate": {
+                "mass_rate": float(composite_row["mass_rate"]),
+                "current": float(composite_row["current"]),
+                "residual": float(composite_row["residual"]),
+            },
+            "interpolate_native_operands_then_evaluate": {
+                "mass_rate": float(reconstructed_row["fixed_R_mass_rate"]),
+                "current": float(reconstructed_row["current"]),
+                "residual": float(reconstructed_row["residual"]),
+            },
+            "interpolate_operands_minus_interpolate_composite": {
+                "mass_rate": delta_rate,
+                "current": delta_current,
+                "residual": delta_residual,
+            },
+            "algebraic_budget_closure_error": closure_error,
+            "interpretation_guard": (
+                "Sampling-order commutator only; not a physical residual and not a "
+                "selector for either derivative/interpolation convention."
+            ),
+        }
+    native_sampling_order_summary = {
+        "sample_count": len(native_sampling_order_commutator),
+        "max_abs_mass_rate_delta": float(np.max(np.abs(sampling_rate_deltas))),
+        "rms_mass_rate_delta": float(np.sqrt(np.mean(np.square(sampling_rate_deltas)))),
+        "max_abs_current_delta": float(np.max(np.abs(sampling_current_deltas))),
+        "max_abs_residual_delta": float(np.max(np.abs(sampling_residual_deltas))),
+        "max_abs_algebraic_budget_closure_error": float(np.max(np.abs(sampling_closure_errors))),
+    }
+
     if saved.tangent.state_digest(accepted) != accepted_digest:
         raise RuntimeError("accepted input mutated during Rr tangent audit")
     if float(np.max(np.abs(R_map_gap))) > 2e-11:
@@ -407,10 +460,13 @@ def main() -> int:
             "current_control": "same accepted-state rho,j,p_r,alpha,gamma^rr,R_t; report both native-Rr and primitive-Rr currents",
             "tangent_only_control": "hold primitive Rr and chi_r fixed; swap only D4(Rt) for the analytic tangent of primitive Rr",
             "fixed_R_anchored_crosswalk": "also samples six fixed areal radii using the accepted-state anchored four-point r^2 stencil from the existing primitive-Rr crosswalk; D4(chi) is held common to isolate the Rr time-tangent contribution",
+            "native_fixed_R_sampling_order": "explicitly compares evaluate-native-grid-then-interpolate against interpolate-native-operands-then-evaluate; the commutator is bookkeeping and does not select a physical stencil",
         },
         "profile_summary_R_2_to_10": metrics,
         "fixed_R": fixed_rows,
         "fixed_R_anchored_stencil_crosswalk": fixed_R_anchored_rows,
+        "native_fixed_R_sampling_order_commutator": native_sampling_order_commutator,
+        "native_fixed_R_sampling_order_summary": native_sampling_order_summary,
         "acceptance": {
             "source_vendor_pins_match": True,
             "accepted_artifact_sha_verified": True,
