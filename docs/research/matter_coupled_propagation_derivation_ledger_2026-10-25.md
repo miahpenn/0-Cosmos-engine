@@ -234,7 +234,7 @@ where \(n^\mu\) is the future unit normal and \(\gamma_i{}^\mu\) is the spatial 
 \gamma_i{}^\nu\nabla_\mu\mathcal E^\mu{}_\nu
 =-\kappa\gamma_i{}^\nu\mathcal D^{\mathrm{tot}}_\nu.
 \]
-For the continuum subsidiary system, take the spatial Einstein/evolution equations to hold, \(\gamma_i{}^\mu\gamma_j{}^\nu\mathcal E_{\mu\nu}=0\); an independent discrete evolution-equation defect must remain separately accounted for. In coordinates adapted to the slices, \(n_i=0\), so the spatially projected covector on the right is \(\mathcal D^{\mathrm{tot}}_i\). The spatially projected Bianchi equation then contains the normal-time derivative of \(\mathcal M_i\) with unit coefficient. Since \(\partial_t=\alpha n+\beta\), conversion to coordinate time contributes the source term
+Do not set the spatial Einstein residual \(\gamma_i{}^\mu\gamma_j{}^\nu\mathcal E_{\mu\nu}\) to zero off-constraint: its evolution-equation representation contributes to the homogeneous constraint/connection propagation operator and is part of the remaining BSSN derivation. For the separate Bianchi source, the spatial projection on the right is \(-\kappa\gamma_i{}^\nu\mathcal D^{\mathrm{tot}}_\nu\). In coordinates adapted to the slices, \(n_i=0\), so this projected covector component is \(\mathcal D^{\mathrm{tot}}_i\). The coefficient of the normal-time derivative of the lower-index momentum residual is unity; since \(\partial_t=\alpha n+\beta\), conversion to coordinate time contributes the source term
 \[
 \left.(\partial_t-\mathcal L_\beta)\mathcal M_i\right|_{\mathrm{Bianchi\ source}}
 =-\kappa\alpha\,\mathcal D^{\mathrm{tot}}_i.
