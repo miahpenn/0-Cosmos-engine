@@ -6,10 +6,11 @@ The analytic continuum identity is exact by construction:
     chi(t,R) = 1 - 2*m(t,R)/R
     F(t,R) = d_t m|_R = A*f(R)
 so -R/2 * d_t chi|_R == F at every radius. Profiles are sampled on a
-smoothly moving areal-radius map R(t,r), then queried on common fixed-R
-samples using the same four-point Lagrange interpolation pattern as the
-accepted-state diagnostics. This isolates interpolation/query error; it
-does not exercise the BSSN tensor transformation or admit a physical law.
+smoothly moving radial maps that are either stationary or time-dependent, then queried on
+common fixed-R samples using the same four-point Lagrange interpolation
+pattern as the accepted-state diagnostics. This isolates query and moving-grid
+phase error; it does not exercise the BSSN tensor transformation or admit a
+physical law.
 """
 from __future__ import annotations
 
@@ -52,9 +53,18 @@ def shape_function(R: np.ndarray | float) -> np.ndarray | float:
     return float(out) if out.ndim == 0 else out
 
 
-def areal_map(r: np.ndarray, t: float) -> np.ndarray:
+def areal_map(r: np.ndarray, t: float, map_mode: str) -> np.ndarray:
     x = r / MAP_SCALE
-    return finite("mapped areal radius", r * (1.0 + MAP_AMPLITUDE * t * np.exp(-(x * x))))
+    bump = MAP_AMPLITUDE * np.exp(-(x * x))
+    if map_mode == "static_identity":
+        out = r
+    elif map_mode == "static_distorted":
+        out = r * (1.0 + bump)
+    elif map_mode == "moving_distorted":
+        out = r * (1.0 + t * bump)
+    else:
+        raise ValueError(f"unsupported map mode: {map_mode}")
+    return finite(f"mapped areal radius ({map_mode})", out)
 
 
 def analytic_fields(R: np.ndarray, t: float) -> dict[str, np.ndarray]:
@@ -107,14 +117,14 @@ def observed_order(coarse: float, fine: float) -> float:
     return float(math.log(coarse / fine, 2.0))
 
 
-def run_arm(n: int, step: float) -> dict[str, Any]:
+def run_arm(n: int, step: float, map_mode: str) -> dict[str, Any]:
     dr = RMAX / n
     h = step
     r = (np.arange(n, dtype=np.float64) + 0.5) * dr
     times = (T0, T0 + h, T0 + 2.0 * h)
     profiles = []
     for t in times:
-        R = areal_map(r, t)
+        R = areal_map(r, t, map_mode)
         if np.any(np.diff(R) <= 0.0):
             raise RuntimeError("manufactured areal map is not monotone")
         profiles.append(analytic_fields(R, t))
@@ -131,6 +141,7 @@ def run_arm(n: int, step: float) -> dict[str, Any]:
 
     out: dict[str, Any] = {
         "resolution": n,
+        "map_mode": map_mode,
         "dr": dr,
         "dt": h,
         "time_samples": list(times),
@@ -164,24 +175,27 @@ def main() -> None:
     parser.add_argument("--output", type=Path, default=Path("results/manufactured-areal-fixed-R-balance-2026-10-25/summary.json"))
     args = parser.parse_args()
     results = []
+    map_modes = ("static_identity", "static_distorted", "moving_distorted")
     for n in RESOLUTIONS:
         dr = RMAX / n
-        for label, factor in (("dt", 1.0), ("dt_half", 0.5)):
-            results.append({"step_arm": label, **run_arm(n, factor * CFL * dr)})
+        for map_mode in map_modes:
+            for label, factor in (("dt", 1.0), ("dt_half", 0.5)):
+                results.append({"step_arm": label, **run_arm(n, factor * CFL * dr, map_mode)})
 
-    # Observed spatial orders for the matched dt/dt-half controls.
+    # Observed spatial orders separately for stationary and moving maps.
     order_summary: dict[str, Any] = {}
-    for step_arm in ("dt", "dt_half"):
-        for method in ("linear", "cubic"):
-            for witness in ("forward_minus_endpoint_average_current", "centered_minus_midpoint_current"):
-                values = [
-                    next(item for item in results if item["resolution"] == n and item["step_arm"] == step_arm)["methods"][method][witness]["rms"]
-                    for n in RESOLUTIONS
-                ]
-                order_summary[f"{step_arm}.{method}.{witness}"] = {
-                    "rms_by_resolution": values,
-                    "observed_orders": [observed_order(values[0], values[1]), observed_order(values[1], values[2])],
-                }
+    for map_mode in map_modes:
+        for step_arm in ("dt", "dt_half"):
+            for method in ("linear", "cubic"):
+                for witness in ("forward_minus_endpoint_average_current", "centered_minus_midpoint_current"):
+                    values = [
+                        next(item for item in results if item["resolution"] == n and item["step_arm"] == step_arm and item["map_mode"] == map_mode)["methods"][method][witness]["rms"]
+                        for n in RESOLUTIONS
+                    ]
+                    order_summary[f"{map_mode}.{step_arm}.{method}.{witness}"] = {
+                        "rms_by_resolution": values,
+                        "observed_orders": [observed_order(values[0], values[1]), observed_order(values[1], values[2])],
+                    }
 
     document = {
         "diagnostic": "manufactured exact fixed-areal-radius mass/current interpolation control",
@@ -195,14 +209,18 @@ def main() -> None:
             "fixed_R_current": "M_RATE * R^3/(L^3 + R^3)",
             "exact_identity": "-R/2 * d_t(chi)|_R == fixed_R_current",
             "M0": M0, "M_RATE": M_RATE, "L": PROFILE_SCALE,
-            "moving_areal_map": "R(t,r)=r*(1+MAP_AMPLITUDE*t*exp(-(r/MAP_SCALE)^2))",
+            "map_cases": {
+                "static_identity": "R=r",
+                "static_distorted": "R=r*(1+MAP_AMPLITUDE*exp(-(r/MAP_SCALE)^2))",
+                "moving_distorted": "R(t,r)=r*(1+MAP_AMPLITUDE*t*exp(-(r/MAP_SCALE)^2))",
+            },
             "MAP_AMPLITUDE": MAP_AMPLITUDE, "MAP_SCALE": MAP_SCALE,
             "rmax": RMAX, "annulus": list(ANNULUS),
             "dt_rule": "dt=CFL*dr, compared with dt/2", "CFL": CFL, "t0": T0,
         },
         "results": results,
         "observed_order_summary": order_summary,
-        "interpretation": "A linear-vs-cubic difference quantifies fixed-R query sensitivity for a continuum balance that is exactly zero by construction. It does not test the BSSN tensor transformation, the physical source law, or the parity-aware FV face reconstruction.",
+        "interpretation": "Compare stationary identity-map, stationary distorted-map, and moving distorted-map controls. With a stationary grid the same spatial interpolation operator acts at all times; moving-map changes expose interpolation-phase effects when the query stencil shifts between time levels. The analytic continuum identity is exact in all cases. This does not test the BSSN tensor transformation, physical source law, or parity-aware FV face reconstruction.",
         "production_changed": False,
         "scientific_admission": False,
         "full_matter_coupled_propagation_identity_closed": False,
@@ -210,7 +228,7 @@ def main() -> None:
     }
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(document, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    print(json.dumps({"output": str(args.output), "n_resolutions": len(RESOLUTIONS), "results": results, "orders": order_summary}, indent=2, sort_keys=True))
+    print(json.dumps({"output": str(args.output), "n_resolutions": len(RESOLUTIONS), "n_profiles": len(results), "results": results, "orders": order_summary}, indent=2, sort_keys=True))
 
 
 if __name__ == "__main__":
