@@ -47,7 +47,7 @@ def load_arm(root:Path,n:int,arm:str)->dict:
  if abs(float(report["configuration"]["target_time"])-0.60)>1e-12:
   raise RuntimeError(f"wrong accepted time in {report_path}")
  z=np.load(profiles_path,allow_pickle=False)
- if arm=="full":
+ if arm in ("full","full_continuous_profile"):
   prefix=f"N{n}_full_continuous_metric_profile_final_"
  else:
   prefix=f"N{n}_joint_integral_and_cmc_row_final_"
