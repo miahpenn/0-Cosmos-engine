@@ -870,9 +870,16 @@ def compact_sector_matter_source_mapping(
     full_residual = np.asarray(
         candidate_raw["propagation_matter_source_mapping_residual"], dtype=np.float64
     )
-    full_q = np.asarray(
+    # Keep the existing expanded Q_r candidate distinct from the independently
+    # evaluated pointwise covariant divergence. Their difference is the already
+    # measured radial-flux product-rule gap, not a failed sector-sum identity.
+    full_q_expanded = np.asarray(
         candidate_raw["propagation_Qr_total_stress_divergence"], dtype=np.float64
     )
+    full_q_pointwise = np.asarray(
+        sector_profiles["sector_resolved_total_div_T_r"], dtype=np.float64
+    )
+    full_residual_pointwise = full_composite + 8.0 * np.pi * alpha * full_q_pointwise
     checks = {
         "sum_sector_geometry_injection_minus_existing_total_max_abs": float(
             np.max(np.abs(injection_sum - full_injection))
@@ -880,14 +887,20 @@ def compact_sector_matter_source_mapping(
         "sum_sector_current_minus_composite_minus_injection_max_abs": float(
             np.max(np.abs(current_sum - (full_composite - full_injection)))
         ),
-        "sum_sector_div_T_r_minus_existing_total_Qr_max_abs": float(
-            np.max(np.abs(divergence_sum - full_q))
+        "sum_sector_div_T_r_minus_pointwise_total_Qr_max_abs": float(
+            np.max(np.abs(divergence_sum - full_q_pointwise))
         ),
         "sum_sector_composite_minus_existing_total_max_abs": float(
             np.max(np.abs(composite_sum - full_composite))
         ),
-        "sum_sector_mapping_residual_minus_existing_total_max_abs": float(
-            np.max(np.abs(residual_sum - full_residual))
+        "sum_sector_mapping_residual_minus_pointwise_total_residual_max_abs": float(
+            np.max(np.abs(residual_sum - full_residual_pointwise))
+        ),
+        "pointwise_total_minus_expanded_Qr_operator_gap_max_abs": float(
+            np.max(np.abs(full_q_pointwise - full_q_expanded))
+        ),
+        "pointwise_mapping_residual_minus_expanded_candidate_residual_max_abs": float(
+            np.max(np.abs(full_residual_pointwise - full_residual))
         ),
         "sum_archive_locked_DM_phi_exchange_Qr_max_abs": float(
             np.max(np.abs(expected_exchange_sum))
@@ -916,11 +929,16 @@ def compact_sector_matter_source_mapping(
         "sector_additivity_closure": checks,
         "sector_additivity_all_below_1e-10": all(
             value < 1.0e-10 for key, value in checks.items()
-            if key != "sum_archive_locked_DM_phi_exchange_Qr_max_abs"
+            if key not in (
+                "pointwise_total_minus_expanded_Qr_operator_gap_max_abs",
+                "pointwise_mapping_residual_minus_expanded_candidate_residual_max_abs",
+                "sum_archive_locked_DM_phi_exchange_Qr_max_abs",
+            )
         ),
         "interpretation_limit": (
             "This is a sector-resolved diagnostic of the existing provisional source mapping. "
             "The archive-locked DM/phi exchange is compared but not assumed to pass. "
+            "The pointwise covariant divergence and expanded Q_r candidate are compared separately; their observed product-rule gap is recorded, not classified as a failure of sector additivity.",
             "No source law or discrete divergence convention is admitted by this result."
         ),
         "scientific_admission": False,
@@ -1040,7 +1058,7 @@ def main() -> int:
 
     report_path = OUT / "report.json"
     result = {
-        "schema": "full-profile-accepted-state-propagation-candidate/v6",
+        "schema": "full-profile-accepted-state-propagation-candidate/v7",
         "status": "completed_diagnostic_only",
         "purpose": "Apply the existing convention/index-sensitive propagation candidate and its existing additive sector-resolved total-stress-energy divergence observer to source-pinned accepted t=0.60 states from baseline, partial-joint, and full-continuous-metric arms.",
         "source_pins": {
