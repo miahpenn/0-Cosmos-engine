@@ -98,3 +98,58 @@ The exact discrete derivative of the existing (M_{\rm geom}) definition agrees w
 ## Decision
 
 Keep the full continuous-profile arm as a useful **geometric diagnostic/control**, and the partial half-cell arm as a negative control—not a proposed production correction. The next scientific task is not another metric-profile sweep: it is to resolve the frozen source mapping/index/normalization and complete the total sector conservation/exchange identity using the existing archive-backed convention map and exact accepted-state ledger. No production repair is justified from this candidate comparison alone.
+
+
+## Addendum — source-bridge and fixed-R sampling re-evaluation (2026-10-25)
+
+This addendum supersedes any reading of the source-map relative-RMS number or the earlier linear-sampled shell mismatch as a standalone failed conservation identity. The original measurements remain valid for their declared observables, but the later same-state crosswalks reveal what they do and do not mean.
+
+### 1. Brown matter-source bridge closes as signed bookkeeping
+
+The follow-up [Brown source bridge report](brown_matter_source_bridge_absolute_residual_2026-10-25.md), from the same SHA-verified accepted t=0.60 states and source/vendor pins, defines
+
+- (S_{act}): actual geometric matter injection plus current-tangent composite;
+- (S_Q=-8\pi\alpha Q_r): provisional stress-divergence source;
+- (ΔS=S_{act}-S_Q);
+- (B_{tot}): Brown Eq. 11b candidate evaluated with matter-inclusive constraints;
+- (B_{geom}): the same Brown construction with geometric-only constraints;
+- (D_{tot}=\dot M_{measured}-(B_{tot}+S_Q));
+- (D_{geom}=\dot M_{measured}-(B_{geom}+S_{act})).
+
+The signed relation is
+[
+(B_{tot}-B_{geom})-ΔS=D_{geom}-D_{tot}.
+]
+On the full-profile arm this reassembly closes to maximum absolute (5.08\times10^{-21}), (7.46\times10^{-21}), and (1.06\times10^{-20}) at N=60/120/240. Separately, the Brown total-minus-geometric source difference matches (ΔS) to max absolute (3.625\times10^{-10}), (3.009\times10^{-11}), (2.015\times10^{-12}). At fixed r=2, both are approximately (5.81\times10^{-5}) across refinement.
+
+**Interpretation:** the nearly resolution-invariant (S_{act}-S_Q) term is almost exactly balanced by the matter-dependent difference between Brown evaluated on total versus geometric-only constraints. Do not interpret (ΔS) in isolation as proof of a missing physical source or a production-equation defect.
+
+### 2. Absolute full-candidate residual converges despite poor relative RMS
+
+The direct candidate (D_{tot}) has full-profile global max absolute residual
+[
+8.975\times10^{-6},quad9.317\times10^{-7},quad4.133\times10^{-8}
+]
+at N=60/120/240. At fixed r=2 it is (8.975\times10^{-6},6.122\times10^{-7},4.030\times10^{-8}), observed orders 3.874 and 3.926; at r=8 it is (-1.194\times10^{-6},-7.328\times10^{-8},-4.591\times10^{-9}), orders 4.028 and 3.992. The normalized relative RMS of the earlier candidate remains a conditioning diagnostic and should not be the only convergence criterion when the reference derivative becomes very small.
+
+This is substantial numerical evidence that the full-profile Brown-plus-provisional-(S_Q) candidate has a decreasing absolute remainder on the tested accepted states. It is not scientific admission: Brown Eq. 11b is still a structural scaffold here, and the exact matter-coupled source sign/index/normalization, reference-metric connection convention, regular-origin limit, and total sector conservation law have not all been independently frozen and admitted.
+
+### 3. The fixed-R shell mismatch is also interpolation-sensitive
+
+The separate [Misner–Sharp probe addendum](bssn_areal_misner_sharp_current_probe_2026-10-25.md) records the same accepted-state shell observer after consistent cubic fixed-(R) sampling. At dt/2, maximum absolute shell residual over R=1–10 is:
+
+| N | Cell-centred cubic | Face-reconstructed cubic | Face-reconstructed linear |
+|---:|---:|---:|---:|
+| 60 | 4.543e-5 | 4.233e-5 | 2.923e-5 |
+| 120 | 3.219e-6 | 2.638e-6 | 1.061e-5 |
+| 240 | 2.078e-7 | 1.561e-7 | 5.622e-6 |
+
+The face-cubic maximum shows observed orders 4.00 and 4.08; its N=240 face-minus-cell cubic-query discrepancy is only 5.18e-8, while the linear-query discrepancy is much larger. Together with the centered fixed-(R) mass/current result and the exact target-map manufactured control, this makes the previously large linear-sampled face/cell gap **not sampling-independent**. It does not select cubic interpolation as production authority.
+
+### 4. Current disposition and next gate
+
+The scalar spatial-force crosswalk separately finds an approximately fourth-order annular gap between the pinned expanded D1/D2 RHS form and the cell-centred divergence-form control. Taken together, the scalar spatial operator, fixed-(R) mass/current, and cubic shell witnesses are consistent with finite-grid interpolation/operator remainders in the tested annulus. None alone proves the full continuum law.
+
+The next work should therefore stop repeating interpolation variants and return to the archive-backed full matter-coupled propagation identity: explicitly freeze the covariant versus contravariant (M_r/M^r) mapping, normalized Hamiltonian-gradient term, reference-metric connection derivative/coupling, matter-source contribution, and sector-exchange conventions on the exact accepted states. Keep the origin and fixed-radius annulus as separate gates.
+
+No production equations, initializers, vendor source, dependencies, source pins, or accepted states were changed. `full_matter_coupled_propagation_identity_closed=false`, `total_stress_energy_sector_conservation_closed=false`, and `scientific_admission=false`.
