@@ -1,0 +1,112 @@
+{
+  "schema": "brown-matter-source-bridge/v1",
+  "status": "completed_diagnostic_only",
+  "provenance": {
+    "workflow_run": 40159027760,
+    "workflow_url": "https://github.com/miahpenn/0-Cosmos-engine/actions/runs/40159027760",
+    "tested_observer_commit": "ddc560964067c0e2d1569e401ff6cc92fe969adf",
+    "source_commit": "4aec88d0e3ff028e0a65a8ac36b30948625df792",
+    "vendor_commit": "d6052d605673ce9d82cdc99b0df79855fa2ea215",
+    "accepted_time": 0.6,
+    "resolutions": [
+      60,
+      120,
+      240
+    ],
+    "input_artifact_hashes_verified": true,
+    "protected_source_diff_empty": true,
+    "scientific_admission": false
+  },
+  "definitions": {
+    "source_map_residual": "S_act - S_Q",
+    "brown_source_difference": "B_total_constraints - B_geometric_only_constraints",
+    "direct_candidate_residual": "Mdot_measured - (B_total_constraints + S_Q)",
+    "geometric_actual_source_residual": "Mdot_measured - (B_geometric_only_constraints + S_act)",
+    "exact_relation": "(B_total - B_geometric) - (S_act - S_Q) = D_geom - D_total"
+  },
+  "full_profile_brown_source_bridge_max_abs": {
+    "N60": 3.6248209826523353e-10,
+    "N120": 3.0087366490383e-11,
+    "N240": 2.0149287715208984e-12
+  },
+  "full_profile_algebra_relation_closure_max_abs": {
+    "N60": 5.082197683525802e-21,
+    "N120": 7.4640066396056e-21,
+    "N240": 1.062361771797708e-20
+  },
+  "full_profile_direct_candidate_residual": {
+    "global_max_abs": [
+      0.000008975190539630025,
+      9.317320844504038e-7,
+      4.133041440376011e-8
+    ],
+    "fixed_r1": [
+      0.0000023097171292876633,
+      4.368462090111401e-7,
+      2.946713816347424e-8
+    ],
+    "fixed_r2": [
+      0.000008975190539630025,
+      6.121777351073902e-7,
+      4.029616382967784e-8
+    ],
+    "fixed_r5": [
+      9.003863144823012e-7,
+      1.7778947683555366e-8,
+      1.0450117291711625e-9
+    ],
+    "fixed_r8": [
+      -0.0000011941394368605906,
+      -7.328223122241038e-8,
+      -4.590770475833745e-9
+    ],
+    "observed_order_r2": [
+      3.874,
+      3.926
+    ],
+    "observed_order_r8": [
+      4.028,
+      3.992
+    ]
+  },
+  "other_arms_global_max_abs": {
+    "production_baseline": [
+      0.0005087751105346615,
+      0.007550103478051404,
+      0.032485246419137935
+    ],
+    "partial_joint": [
+      0.0001126917684029241,
+      0.0008287418977519384,
+      0.003927350183927731
+    ]
+  },
+  "source_map_vs_brown_difference_fixed_r2": {
+    "N60": {
+      "source_map": 0.000058089998180853334,
+      "brown_difference": 0.00005808963569875507
+    },
+    "N120": {
+      "source_map": 0.00005779765196100611,
+      "brown_difference": 0.00005779762789595803
+    },
+    "N240": {
+      "source_map": 0.00005835051355553172,
+      "brown_difference": 0.00005835051194662066
+    }
+  },
+  "interpretation": [
+    "The persistent sector source-map residual is almost exactly balanced by the matter-dependent difference between Brown evaluated on total constraints and Brown evaluated on geometric-only constraints.",
+    "The full-profile direct matter-inclusive Brown candidate has a decreasing global max absolute residual and approximately fourth-order residual decrease at fixed r=2 and r=8.",
+    "The normalized relative RMS should not be used alone as a convergence verdict when the measured derivative approaches zero.",
+    "This remains a research diagnostic, not a scientific admission or a total stress-energy conservation result."
+  ],
+  "acceptance": {
+    "brown_matter_source_bridge_numerically_reconciled": true,
+    "full_profile_direct_candidate_absolute_residual_decreases_with_resolution": true,
+    "full_matter_coupled_propagation_identity_scientifically_admitted": false,
+    "total_stress_energy_sector_conservation_closed": false,
+    "production_source_or_vendor_changed": false,
+    "scientific_admission": false
+  }
+}

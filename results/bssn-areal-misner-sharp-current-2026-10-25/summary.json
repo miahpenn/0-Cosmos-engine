@@ -1,0 +1,500 @@
+{
+  "schema": "bssn-areal-misner-sharp-current-probe/v1",
+  "status": "completed_diagnostic_only",
+  "run": {
+    "id": 40160966598,
+    "url": "https://github.com/miahpenn/0-Cosmos-engine/actions/runs/40160966598",
+    "supersedes_preliminary_run": 40160533041,
+    "all_jobs_success": true,
+    "resolutions": [
+      60,
+      120,
+      240
+    ],
+    "accepted_time": 0.6,
+    "dt_rule": "dt=0.03*dr and dt/2"
+  },
+  "source_pin": "4aec88d0e3ff028e0a65a8ac36b30948625df792",
+  "vendor_pin": "d6052d605673ce9d82cdc99b0df79855fa2ea215",
+  "artifacts": {
+    "N60": 12585882618,
+    "N120": 12586386864,
+    "N240": 12586825600
+  },
+  "residuals": {
+    "N60": {
+      "dt_0p04": {
+        "max_abs_R_le_3": 0.000044977758098019825,
+        "rms_R_2_to_10": 0.00003424321833439085,
+        "max_mass_interpolation_gap_R_le_3": 0.0000343033609252476,
+        "rms_mass_interpolation_gap_R_2_to_10": 0.000018590521003026447
+      },
+      "dt_0p02": {
+        "max_abs_R_le_3": 0.000045173660411895115,
+        "rms_R_2_to_10": 0.00003353347667134609,
+        "max_mass_interpolation_gap_R_le_3": 0.000034239515317412747,
+        "rms_mass_interpolation_gap_R_2_to_10": 0.000018562497942868548
+      }
+    },
+    "N120": {
+      "dt_0p02": {
+        "max_abs_R_le_3": 0.00000827216960470721,
+        "rms_R_2_to_10": 0.000007274670175449144,
+        "max_mass_interpolation_gap_R_le_3": 0.000011067235717989636,
+        "rms_mass_interpolation_gap_R_2_to_10": 0.000006803262383023379
+      },
+      "dt_0p01": {
+        "max_abs_R_le_3": 0.000008375430789789773,
+        "rms_R_2_to_10": 0.0000072064559370969405,
+        "max_mass_interpolation_gap_R_le_3": 0.00001106017155095792,
+        "rms_mass_interpolation_gap_R_2_to_10": 0.000006802319299053935
+      }
+    },
+    "N240": {
+      "dt_0p01": {
+        "max_abs_R_le_3": 0.000001931949197470236,
+        "rms_R_2_to_10": 0.0000029475488665579776,
+        "max_mass_interpolation_gap_R_le_3": 0.000004777262858064496,
+        "rms_mass_interpolation_gap_R_2_to_10": 0.000002962206398238954
+      },
+      "dt_0p005": {
+        "max_abs_R_le_3": 0.000001953135417221883,
+        "rms_R_2_to_10": 0.000002957031190427634,
+        "max_mass_interpolation_gap_R_le_3": 0.000004776984963347276,
+        "rms_mass_interpolation_gap_R_2_to_10": 0.0000029733123676551457
+      }
+    }
+  },
+  "N240_dt0p005_fixed_R": {
+    "1": {
+      "mass_rate_chi": 0.000021848415968031726,
+      "mass_rate_interpolated_mass": 0.000023174296938936573,
+      "mass_interpolation_gap": 0.0000013258809709048462,
+      "current_rhs": 0.00002294239857050824,
+      "residual": -0.000001093982602476514
+    },
+    "2": {
+      "mass_rate_chi": 0.0001505738665312531,
+      "mass_rate_interpolated_mass": 0.0001525128190034537,
+      "mass_interpolation_gap": 0.0000019389524722006087,
+      "current_rhs": 0.00015236319625320344,
+      "residual": -0.000001789329721950354
+    },
+    "3": {
+      "mass_rate_chi": 0.00041030571987213404,
+      "mass_rate_interpolated_mass": 0.00041186910712163674,
+      "mass_interpolation_gap": 0.0000015633872495026958,
+      "current_rhs": 0.0004120759552764203,
+      "residual": -0.0000017702354042862576
+    },
+    "5": {
+      "mass_rate_chi": 0.0009670837341223599,
+      "mass_rate_interpolated_mass": 0.0009663128126205732,
+      "mass_interpolation_gap": -7.709215017865894e-7,
+      "current_rhs": 0.000966679584784797,
+      "residual": 4.0414933816191867e-7
+    },
+    "8": {
+      "mass_rate_chi": 0.000732067408068192,
+      "mass_rate_interpolated_mass": 0.000730385220688896,
+      "mass_interpolation_gap": -0.0000016821873792959542,
+      "current_rhs": 0.000729670233501685,
+      "residual": 0.000002397174569073834
+    },
+    "10": {
+      "mass_rate_chi": 0.00022601013360823433,
+      "mass_rate_interpolated_mass": 0.00022504571713932722,
+      "mass_interpolation_gap": -9.644164689071033e-7,
+      "current_rhs": 0.0002253871780473944,
+      "residual": 6.229555608395295e-7
+    },
+    "0.5": {
+      "mass_rate_chi": 0.000002843745649391691,
+      "mass_rate_interpolated_mass": 0.000002957216227150429,
+      "mass_interpolation_gap": 1.1347057775873806e-7,
+      "current_rhs": 0.0000028312233061837216,
+      "residual": 1.2522343207969748e-8
+    }
+  },
+  "acceptance": {
+    "source_pins_match": true,
+    "artifact_hash_verified": true,
+    "accepted_inputs_immutable": true,
+    "zero_shift_precondition": true,
+    "coordinate_and_tensor_transform_exercised": true,
+    "integrated_current_identity_closed": false,
+    "full_matter_coupled_propagation_identity_closed": false,
+    "total_stress_energy_conservation_closed": false,
+    "production_source_or_vendor_changed": false,
+    "scientific_admission": false,
+    "rate_derived_from_interpolated_chi": true,
+    "mass_interpolation_gap_reported_separately": true,
+    "mass_current_decomposition_closure_max_abs": {
+      "N60": 3.21e-14,
+      "N120": 8.85e-14,
+      "N240": 1.75e-13
+    },
+    "mass_rate_component_split_closure_max_abs": 1.75e-13,
+    "fixed_areal_shell_balance_reconstructed": true,
+    "shell_balance_telescoping_closure_max_abs": {
+      "N60": 8.13e-20,
+      "N120": 5.42e-20,
+      "N240": 5.42e-20
+    },
+    "independent_face_flux_reconstructed": true,
+    "face_shell_balance_matches_cell_centered_balance": false,
+    "face_reconstruction_error_decreases_with_refinement": true,
+    "face_derivative_crosswalk_complete": true,
+    "face_geometry_is_dominant_shell_residual_source": false,
+    "temporal_fixed_R_balance_is_next_diagnostic": true
+  },
+  "corrected_method": {
+    "fixed_R_rate": "m_dot|R = -0.5*R*Delta(chi)|R/dt after interpolating chi to common areal radii",
+    "preliminary_method": "Directly interpolated m_MS endpoint profiles are retained only as a separate interpolation-gap diagnostic; not the primary rate",
+    "mass_interpolation_gap": "difference between linearly interpolated m_MS and R*(1-chi_interpolated)/2 at fixed R"
+  },
+  "N240_dt0p005_component_split": {
+    "1": {
+      "mass_rate_spatial_metric": 0.00002197984798705936,
+      "mass_rate_time_shift_norm": -1.3143201583243548e-7,
+      "current_energy_motion": -0.000004106870894981077,
+      "current_radial_current": 0.000025993803124730782,
+      "current_mixed_current": 9.813370340650044e-10,
+      "current_pressure_motion": 0.0000010544850037244725,
+      "current_rhs": 0.00002294239857050824,
+      "residual": -0.000001093982602476514
+    },
+    "2": {
+      "mass_rate_spatial_metric": 0.00015194535695483153,
+      "mass_rate_time_shift_norm": -0.0000013714904316093443,
+      "current_energy_motion": -0.000027618400327234323,
+      "current_radial_current": 0.00017274296972119766,
+      "current_mixed_current": 2.2962740315642363e-8,
+      "current_pressure_motion": 0.000007215664118924447,
+      "current_rhs": 0.00015236319625320344,
+      "residual": -0.000001789329721950354
+    },
+    "3": {
+      "mass_rate_spatial_metric": 0.0004163390099088307,
+      "mass_rate_time_shift_norm": -0.000006033290064122939,
+      "current_energy_motion": -0.00007653062560073452,
+      "current_radial_current": 0.00046787246247427896,
+      "current_mixed_current": 1.357392814243155e-7,
+      "current_pressure_motion": 0.00002059837912145155,
+      "current_rhs": 0.0004120759552764203,
+      "residual": -0.0000017702354042862576
+    },
+    "5": {
+      "mass_rate_spatial_metric": 0.0010062138438163709,
+      "mass_rate_time_shift_norm": -0.00003913010968120779,
+      "current_energy_motion": -0.0002007040013592417,
+      "current_radial_current": 0.0011064702304041483,
+      "current_mixed_current": 8.739396562829261e-7,
+      "current_pressure_motion": 0.0000600394160830084,
+      "current_rhs": 0.000966679584784797,
+      "residual": 4.0414933816191867e-7
+    },
+    "8": {
+      "mass_rate_spatial_metric": 0.0008946023190495167,
+      "mass_rate_time_shift_norm": -0.0001625349109208677,
+      "current_energy_motion": -0.0002815693985065646,
+      "current_radial_current": 0.0008941560189529384,
+      "current_mixed_current": 0.0000018045410051015972,
+      "current_pressure_motion": 0.00011527907204764295,
+      "current_rhs": 0.000729670233501685,
+      "residual": 0.000002397174569073834
+    },
+    "10": {
+      "mass_rate_spatial_metric": 0.0004918933557140904,
+      "mass_rate_time_shift_norm": -0.0002658832220887075,
+      "current_energy_motion": -0.0003367301677123334,
+      "current_radial_current": 0.0003898137982834307,
+      "current_mixed_current": 0.0000012345762773430892,
+      "current_pressure_motion": 0.00017106897119895467,
+      "current_rhs": 0.0002253871780473944,
+      "residual": 6.229555608395295e-7
+    }
+  },
+  "shell_balances_dt_half": {
+    "N60": [
+      {
+        "R_in": 1,
+        "R_out": 2,
+        "shell_mass_rate": 0.00011956393405065936,
+        "net_current_midpoint": 0.00010843817799380505,
+        "residual": 0.000011125756056854316,
+        "relative_abs_residual": 0.1025999907291869
+      },
+      {
+        "R_in": 2,
+        "R_out": 3,
+        "shell_mass_rate": 0.00024046007590372567,
+        "net_current_midpoint": 0.00027390264897549,
+        "residual": -0.00003344257307176434,
+        "relative_abs_residual": 0.1220965667796697
+      },
+      {
+        "R_in": 3,
+        "R_out": 5,
+        "shell_mass_rate": 0.0005661661064304547,
+        "net_current_midpoint": 0.0005163152426669515,
+        "residual": 0.00004985086376350326,
+        "relative_abs_residual": 0.0965512145370837
+      },
+      {
+        "R_in": 5,
+        "R_out": 8,
+        "shell_mass_rate": -0.00017698803914945052,
+        "net_current_midpoint": -0.000216888551123944,
+        "residual": 0.000039900511974493474,
+        "relative_abs_residual": 0.1839678109689237
+      },
+      {
+        "R_in": 8,
+        "R_out": 10,
+        "shell_mass_rate": -0.0005629983403421247,
+        "net_current_midpoint": -0.0004964906482747979,
+        "residual": -0.00006650769206732678,
+        "relative_abs_residual": 0.13395557861649
+      }
+    ],
+    "N120": [
+      {
+        "R_in": 1,
+        "R_out": 2,
+        "shell_mass_rate": 0.0001285739532674857,
+        "net_current_midpoint": 0.000136837612697211,
+        "residual": -0.000008263659429725315,
+        "relative_abs_residual": 0.060390263077819265
+      },
+      {
+        "R_in": 2,
+        "R_out": 3,
+        "shell_mass_rate": 0.000260545450947447,
+        "net_current_midpoint": 0.00025344962392776654,
+        "residual": 0.00000709582701968048,
+        "relative_abs_residual": 0.027996991708706575
+      },
+      {
+        "R_in": 3,
+        "R_out": 5,
+        "shell_mass_rate": 0.0005491130647072852,
+        "net_current_midpoint": 0.0005570908710399744,
+        "residual": -0.000007977806332689252,
+        "relative_abs_residual": 0.014320475792030704
+      },
+      {
+        "R_in": 5,
+        "R_out": 8,
+        "shell_mass_rate": -0.00022342538947839333,
+        "net_current_midpoint": -0.00023989882924936172,
+        "residual": 0.000016473439770968396,
+        "relative_abs_residual": 0.06866827913463953
+      },
+      {
+        "R_in": 8,
+        "R_out": 10,
+        "shell_mass_rate": -0.0005065437218454428,
+        "net_current_midpoint": -0.0005007732414904616,
+        "residual": -0.000005770480354981263,
+        "relative_abs_residual": 0.011523140369494315
+      }
+    ],
+    "N240": [
+      {
+        "R_in": 1,
+        "R_out": 2,
+        "shell_mass_rate": 0.00012872434654864764,
+        "net_current_midpoint": 0.0001294207976827211,
+        "residual": -6.964511340734657e-7,
+        "relative_abs_residual": 0.00538129223852287
+      },
+      {
+        "R_in": 2,
+        "R_out": 3,
+        "shell_mass_rate": 0.0002597373475188292,
+        "net_current_midpoint": 0.000259712759023268,
+        "residual": 2.4588495561200015e-8,
+        "relative_abs_residual": 0.00009467573196508647
+      },
+      {
+        "R_in": 3,
+        "R_out": 5,
+        "shell_mass_rate": 0.0005567791974026016,
+        "net_current_midpoint": 0.0005546036295078877,
+        "residual": 0.0000021755678947138783,
+        "relative_abs_residual": 0.003922743701919709
+      },
+      {
+        "R_in": 5,
+        "R_out": 8,
+        "shell_mass_rate": -0.00023501250662194553,
+        "net_current_midpoint": -0.0002370093512851269,
+        "residual": 0.000001996844663181371,
+        "relative_abs_residual": 0.00842517247675653
+      },
+      {
+        "R_in": 8,
+        "R_out": 10,
+        "shell_mass_rate": -0.0005060622033647989,
+        "net_current_midpoint": -0.0005042830554518237,
+        "residual": -0.0000017791479129752007,
+        "relative_abs_residual": 0.003528073953191097
+      }
+    ]
+  },
+  "face_flux_run": {
+    "id": 40161253120,
+    "url": "https://github.com/miahpenn/0-Cosmos-engine/actions/runs/40161253120",
+    "all_jobs_success": true,
+    "method": "even fields reconstructed in r^2; odd j and Rt reconstructed as r*g(r^2); Rr derived from reconstructed b,X"
+  },
+  "face_shell_balances_dt_half": {
+    "N60": [
+      {
+        "R_in": 1,
+        "R_out": 2,
+        "residual": -0.00002652,
+        "relative_abs_residual": 0.1843,
+        "face_minus_cell_residual": -0.00003765
+      },
+      {
+        "R_in": 2,
+        "R_out": 3,
+        "residual": 0.000001282,
+        "relative_abs_residual": 0.005463,
+        "face_minus_cell_residual": 0.00003472
+      },
+      {
+        "R_in": 3,
+        "R_out": 5,
+        "residual": 0.00002923,
+        "relative_abs_residual": 0.0556,
+        "face_minus_cell_residual": -0.00002062
+      },
+      {
+        "R_in": 5,
+        "R_out": 8,
+        "residual": 0.000018,
+        "relative_abs_residual": 0.08159,
+        "face_minus_cell_residual": -0.0000219
+      },
+      {
+        "R_in": 8,
+        "R_out": 10,
+        "residual": 0.000003851,
+        "relative_abs_residual": 0.007786,
+        "face_minus_cell_residual": 0.00007036
+      }
+    ],
+    "N120": [
+      {
+        "R_in": 1,
+        "R_out": 2,
+        "residual": 0.000005569,
+        "relative_abs_residual": 0.04527,
+        "face_minus_cell_residual": 0.00001383
+      },
+      {
+        "R_in": 2,
+        "R_out": 3,
+        "residual": -0.000009001,
+        "relative_abs_residual": 0.03412,
+        "face_minus_cell_residual": -0.0000161
+      },
+      {
+        "R_in": 3,
+        "R_out": 5,
+        "residual": 0.000008682,
+        "relative_abs_residual": 0.01592,
+        "face_minus_cell_residual": 0.00001666
+      },
+      {
+        "R_in": 5,
+        "R_out": 8,
+        "residual": -0.00001061,
+        "relative_abs_residual": 0.04609,
+        "face_minus_cell_residual": -0.00002708
+      },
+      {
+        "R_in": 8,
+        "R_out": 10,
+        "residual": 0.000009991,
+        "relative_abs_residual": 0.01979,
+        "face_minus_cell_residual": 0.00001576
+      }
+    ],
+    "N240": [
+      {
+        "R_in": 1,
+        "R_out": 2,
+        "residual": 4.453e-7,
+        "relative_abs_residual": 0.003448,
+        "face_minus_cell_residual": 0.000001142
+      },
+      {
+        "R_in": 2,
+        "R_out": 3,
+        "residual": -4.939e-7,
+        "relative_abs_residual": 0.001894,
+        "face_minus_cell_residual": -5.185e-7
+      },
+      {
+        "R_in": 3,
+        "R_out": 5,
+        "residual": -0.000004414,
+        "relative_abs_residual": 0.007922,
+        "face_minus_cell_residual": -0.00000659
+      },
+      {
+        "R_in": 5,
+        "R_out": 8,
+        "residual": -9.561e-7,
+        "relative_abs_residual": 0.004007,
+        "face_minus_cell_residual": -0.000002953
+      },
+      {
+        "R_in": 8,
+        "R_out": 10,
+        "residual": 0.000005622,
+        "relative_abs_residual": 0.01113,
+        "face_minus_cell_residual": 0.000007401
+      }
+    ]
+  },
+  "derivative_current_crosswalk_run": {
+    "id": 40161486243,
+    "url": "https://github.com/miahpenn/0-Cosmos-engine/actions/runs/40161486243",
+    "all_jobs_success": true,
+    "method": "compare metric-derived face Rr/Rt and primitive current with cell-derivative-derived face Rr/Rt, cell-chi, and combined cell-current reconstructions"
+  },
+  "face_derivative_crosswalk": {
+    "N60": {
+      "max_abs_Rr_gap_r_le10": 6.060229922333349e-7,
+      "max_abs_Rt_gap_r_le10": 7.031754657715883e-9,
+      "max_abs_face_shell_residual": 0.000029229777653147363,
+      "max_abs_cell_derivative_face_shell_residual": 0.00002879479771688946,
+      "max_abs_metric_chi_cell_flux_residual": 0.000029294942313342503,
+      "max_abs_cell_chi_primitive_flux_residual": 0.000028966255063286742,
+      "max_abs_cell_chi_cell_flux_residual": 0.000029031419723481882
+    },
+    "N120": {
+      "max_abs_Rr_gap_r_le10": 4.598237568487207e-8,
+      "max_abs_Rt_gap_r_le10": 4.915478683809038e-10,
+      "max_abs_face_shell_residual": 0.00001060697156952042,
+      "max_abs_cell_derivative_face_shell_residual": 0.000010103650204143668,
+      "max_abs_metric_chi_cell_flux_residual": 0.000010610258005150998,
+      "max_abs_cell_chi_primitive_flux_residual": 0.000010102354010670746,
+      "max_abs_cell_chi_cell_flux_residual": 0.000010105640446301324
+    },
+    "N240": {
+      "max_abs_Rr_gap_r_le10": 3.1947628986728205e-9,
+      "max_abs_Rt_gap_r_le10": 3.149673577507173e-11,
+      "max_abs_face_shell_residual": 0.000005621587887421936,
+      "max_abs_cell_derivative_face_shell_residual": 0.000005592121078470502,
+      "max_abs_metric_chi_cell_flux_residual": 0.000005621267587192129,
+      "max_abs_cell_chi_primitive_flux_residual": 0.000005591359600881402,
+      "max_abs_cell_chi_cell_flux_residual": 0.000005591039300651595
+    }
+  }
+}

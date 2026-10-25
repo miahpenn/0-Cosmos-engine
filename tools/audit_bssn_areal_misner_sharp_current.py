@@ -1,0 +1,454 @@
+#!/usr/bin/env python3
+"""Research-only transformed Misner-Sharp current identity probe.
+
+For each saved full-continuous-profile accepted t=0.60 state, take one copied
+production-kernel step at dt and dt/2. Build the areal radius R=r*sqrt(b)/X,
+compute m_MS from the invariant norm of grad(R), transform T_t^R into the
+(t,R) chart, and compare the fixed-R finite-difference mass rate to the
+time-averaged transformed current. The saved accepted state is never mutated.
+The current production branch is zero-shift; nonzero shift fails closed.
+"""
+from __future__ import annotations
+import hashlib,json,os,platform,sys
+from pathlib import Path
+from typing import Any
+import numpy as np
+
+ROOT=Path(__file__).resolve().parents[1]
+sys.path.insert(0,str(ROOT))
+os.environ.setdefault("COSMOS_PINNED_SOURCE_ROOT",str(ROOT))
+from engine.v55_matter import total_matter_projection
+from engine import production_kernel as pkmod
+from engine.production_kernel import V55ProductionKernel
+from tools import audit_full_profile_propagation_candidate as saved
+from tools import audit_origin_cell_joint_shadow_one_step as origin_shadow
+from tools import audit_total_stress_energy_divergence as stress_divergence
+
+SOURCE="4aec88d0e3ff028e0a65a8ac36b30948625df792"
+VENDOR="d6052d605673ce9d82cdc99b0df79855fa2ea215"
+N=int(os.environ.get("AREAL_CURRENT_RESOLUTION","120"))
+FULL_DIR=Path(os.environ.get("FULL_PROFILE_ARTIFACT_DIR",f"reference/full/N{N}"))
+OUT=Path(os.environ.get("AREAL_CURRENT_OUT",f"results/areal-current-identity-N{N}-2026-10-25"))
+TARGET_TIME=0.60
+CFL=0.03
+FOUR_PI=4.0*np.pi
+
+def sha(path:Path)->str:
+ h=hashlib.sha256()
+ with path.open("rb") as f:
+  for chunk in iter(lambda:f.read(1<<20),b""):h.update(chunk)
+ return h.hexdigest()
+
+def finite(name,arr):
+ a=np.asarray(arr,dtype=np.float64)
+ if not np.all(np.isfinite(a)):raise RuntimeError(f"{name} contains non-finite values")
+ return a
+
+def interp4(radius,coords,values):
+ x=float(radius);xs=finite("interpolation coordinates",coords);ys=finite("interpolation values",values)
+ if xs.size<4 or ys.shape!=xs.shape or np.any(np.diff(xs)<=0) or x<xs[0] or x>xs[-1]:
+  raise RuntimeError("cubic interpolation requires four monotone in-range samples")
+ idx=int(np.searchsorted(xs,x))
+ start=min(max(idx-2,0),xs.size-4)
+ nodes=xs[start:start+4];weights=np.ones(4,dtype=np.float64)
+ for k in range(4):
+  for ell in range(4):
+   if ell!=k:weights[k]*=(x-nodes[ell])/(nodes[k]-nodes[ell])
+ return float(weights@ys[start:start+4])
+
+def clone_state(s):
+ return type(s)(
+  grid=s.grid,geometry=s.geometry.copy(),scalars=s.scalars.copy(),matter=s.matter.copy(),
+  electromagnetic=None,t=float(s.t),tau=float(s.tau),e_folds=float(s.e_folds),
+  cycle=getattr(s,"cycle",0),history=list(getattr(s,"history",[])),
+  handoffs=list(getattr(s,"handoffs",[])))
+
+def refreshed_state(kernel,s):
+ q=clone_state(s)
+ q.geometry.alpha=kernel._solve_lapse_for_state(
+  q.grid,q.geometry,q.scalars,q.matter,q.electromagnetic
+ )[0]
+ q.geometry.beta.fill(0.0)
+ q.geometry.B.fill(0.0)
+ if np.max(np.abs(q.geometry.beta))>1e-14:
+  raise RuntimeError("areal-current probe requires the pinned zero-shift branch")
+ return q
+
+def geometry_rate_and_mass(kernel,s):
+ """Return areal radius, R_t, R_r, Misner-Sharp mass and transformed flux."""
+ q=refreshed_state(kernel,s)
+ g=q.geometry;grid=q.grid
+ r=finite("grid centres",grid.centers)
+ a=finite("a",g.a);b=finite("b",g.b);X=finite("X",g.X)
+ alpha=finite("alpha",g.alpha);beta=finite("beta",g.beta)
+ if np.any(a<=0) or np.any(b<=0) or np.any(X<=0) or np.any(alpha<=0):
+  raise RuntimeError("non-positive metric field in areal-current probe")
+ terms=kernel._geometry_stage_terms(grid,g,q.scalars,q.matter,q.electromagnetic)
+ explicit=terms["explicit"]
+ adot=finite("a RHS",explicit["a"]);bdot=finite("b RHS",explicit["b"]);Xdot=finite("X RHS",explicit["X"])
+ R=finite("areal radius",r*np.sqrt(b)/X)
+ Rr=finite("areal-radius radial derivative",grid.cell_derivative_fourth(R,parity=-1))
+ Rt=finite("areal-radius time derivative",R*(0.5*bdot/b-Xdot/X))
+ if np.any(np.diff(R)<=0) or np.any(Rr<=0):
+  raise RuntimeError("areal-radius map is not strictly monotone")
+ grr=a/(X*X)
+ chi_spatial=finite("spatial-gradient contribution to chi",(X*X/a)*Rr*Rr)
+ chi_time=finite("time/shift contribution to chi",-((Rt-beta*Rr)/alpha)**2)
+ chi=finite("invariant radial norm",chi_spatial+chi_time)
+ mass=finite("Misner-Sharp mass",0.5*R*(1.0-chi))
+ proj=total_matter_projection(grid,g,q.scalars,q.matter)
+ E=finite("total Eulerian energy",proj["rho"])
+ j=finite("total covariant radial current",proj["j"])
+ pr=finite("total radial pressure",proj["pr"])
+ j_up=j/grr
+ # Mixed components in the pinned zero-shift (t,r) chart:
+ # T_t^t=-E, T_t^r=-alpha*j^r, T_r^t=j/alpha, T_r^r=p_r.
+ T_t_t=-E
+ T_t_r=-alpha*j_up
+ T_r_t=j/alpha
+ T_r_r=pr
+ # Tensor transformation to y=(t,R(t,r)), x=(t,r), split by source component.
+ TtR_energy=finite("T_t^R energy-motion term",T_t_t*Rt)
+ TtR_radial_current=finite("T_t^R radial-current term",T_t_r*Rr)
+ TtR_mixed_current=finite("T_t^R time-index current term",-(Rt/Rr)*(T_r_t*Rt))
+ TtR_pressure=finite("T_t^R radial-pressure motion term",-(Rt/Rr)*(T_r_r*Rr))
+ T_t_R=finite("transformed mixed current T_t^R",
+  TtR_energy+TtR_radial_current+TtR_mixed_current+TtR_pressure)
+ rhs_components={
+  "energy_motion":finite("current RHS energy-motion",FOUR_PI*R*R*TtR_energy),
+  "radial_current":finite("current RHS radial-current",FOUR_PI*R*R*TtR_radial_current),
+  "mixed_current":finite("current RHS mixed-current",FOUR_PI*R*R*TtR_mixed_current),
+  "pressure_motion":finite("current RHS pressure-motion",FOUR_PI*R*R*TtR_pressure),
+ }
+ rhs=finite("Misner-Sharp current RHS",FOUR_PI*R*R*T_t_R)
+ # Independent face reconstruction: reconstruct primitive stress/metric-rate
+ # profiles separately before forming R, chi and the transformed current.
+ # Even fields are interpolated as regular polynomials in r^2 (finite at r=0);
+ # odd fields use the pinned r*g(r^2) face reconstruction.
+ dr=float(grid.dr)
+ centers=(np.arange(grid.n,dtype=np.float64)+0.5)*dr
+ def face_even_with_derivative(values,name):
+  values=finite(name,values);out=np.empty(grid.n+1,dtype=np.float64);dout=np.empty(grid.n+1,dtype=np.float64)
+  for jface in range(grid.n+1):
+   start=min(max(jface-2,0),grid.n-4)
+   nodes=centers[start:start+4]**2
+   target=(float(jface)*dr)**2
+   weights=np.ones(4,dtype=np.float64);dweights=np.zeros(4,dtype=np.float64)
+   for k in range(4):
+    for ell in range(4):
+     if ell!=k:weights[k]*=(target-nodes[ell])/(nodes[k]-nodes[ell])
+    for m in range(4):
+     if m==k:continue
+     term=1.0/(nodes[k]-nodes[m])
+     for ell in range(4):
+      if ell!=k and ell!=m:term*=(target-nodes[ell])/(nodes[k]-nodes[ell])
+     dweights[k]+=term
+   out[jface]=float(weights@values[start:start+4])
+   dout[jface]=2.0*(float(jface)*dr)*float(dweights@values[start:start+4])
+  return finite(f"even face reconstruction {name}",out),finite(f"even face derivative {name}",dout)
+ def face_even(values,name):
+  return face_even_with_derivative(values,name)[0]
+ def face_odd(values,name):
+  return finite(f"odd face reconstruction {name}",
+   stress_divergence.spherical_flux_face_values(finite(name,values),dr,origin_power=1))
+ af=face_even(a,"a");bf,b_rf=face_even_with_derivative(b,"b");Xf,X_rf=face_even_with_derivative(X,"X");alphaf=face_even(alpha,"alpha")
+ bdotf=face_even(bdot,"b_dot");Xdotf=face_even(Xdot,"X_dot")
+ Ef=face_even(E,"rho");jf=face_odd(j,"j");prf=face_even(pr,"p_r")
+ r_faces=np.arange(grid.n+1,dtype=np.float64)*dr
+ Rf=finite("face areal radius",r_faces*np.sqrt(bf)/Xf)
+ Rrf=np.empty_like(Rf);Rrf[0]=np.sqrt(bf[0])/Xf[0]
+ Rrf[1:]=Rf[1:]*(1.0/r_faces[1:]+0.5*b_rf[1:]/bf[1:]-X_rf[1:]/Xf[1:])
+ Rrf=finite("face areal-radius derivative",Rrf)
+ Rtf=finite("face areal-radius time derivative",Rf*(0.5*bdotf/bf-Xdotf/Xf))
+ if np.any(np.diff(Rf)<=0) or np.any(Rrf<=0):
+  raise RuntimeError("face areal-radius map is not strictly monotone/regular")
+ grrf=af/(Xf*Xf)
+ chi_f=finite("face invariant radial norm",(Xf*Xf/af)*Rrf*Rrf-(Rtf/alphaf)**2)
+ jup_f=jf/grrf
+ # Zero-shift tensor transform, assembled from independently reconstructed
+ # face fields (not by interpolating the already-combined cell-centred current).
+ TtR_f=finite("face transformed mixed current",
+  -Ef*Rtf-alphaf*jup_f*Rrf-(Rtf/Rrf)*(jf/alphaf*Rtf+prf*Rrf))
+ F_f=finite("face areal current",FOUR_PI*Rf*Rf*TtR_f)
+ # Two additional independent reconstructions isolate primitive/current vs
+ # metric-mass face effects: interpolate the cell-centred chi as an even
+ # profile, and reconstruct the already-combined cell current as a regular r^3 profile.
+ chi_f_cellcentered=face_even(chi,"cell-centred chi")
+ F_f_cellcentered=finite("face current from combined cell-centred RHS",
+  stress_divergence.spherical_flux_face_values(finite("cell-centred areal current RHS",rhs),dr,origin_power=3))
+ # Controlled alternative: keep the same face primitives, but obtain R_r and
+ # R_t by reconstructing the pinned cell-centred derivative/RHS fields.
+ Rrf_cell=face_even(Rr,"R_r from cell derivative")
+ Rtf_cell=face_odd(Rt,"R_t from cell RHS")
+ if np.any(Rrf_cell<=0):raise RuntimeError("cell-derived face R_r is not positive")
+ chi_f_cell=finite("face chi using cell-derived Rr/Rt",(Xf*Xf/af)*Rrf_cell*Rrf_cell-(Rtf_cell/alphaf)**2)
+ TtR_f_cell=finite("face current using cell-derived Rr/Rt",
+  -Ef*Rtf_cell-alphaf*jup_f*Rrf_cell-(Rtf_cell/Rrf_cell)*(jf/alphaf*Rtf_cell+prf*Rrf_cell))
+ F_f_cell=finite("face areal current using cell-derived Rr/Rt",FOUR_PI*Rf*Rf*TtR_f_cell)
+ mask10=Rf<=10.0
+ return {"state":q,"R":R,"Rt":Rt,"Rr":Rr,"chi":chi,"chi_spatial":chi_spatial,
+         "chi_time":chi_time,"mass":mass,"T_t_R":T_t_R,"rhs":rhs,
+         "rhs_components":rhs_components,"R_face":Rf,"chi_face":chi_f,
+         "T_t_R_face":TtR_f,"F_face":F_f,"chi_face_cellcentered":chi_f_cellcentered,
+         "F_face_cellcentered":F_f_cellcentered,
+         "chi_face_cell_derivative":chi_f_cell,"F_face_cell_derivative":F_f_cell,
+         "Rr_face_metric_vs_cell_max_abs_r_le10":float(np.max(np.abs((Rrf-Rrf_cell)[mask10]))),
+         "Rt_face_metric_vs_cell_max_abs_r_le10":float(np.max(np.abs((Rtf-Rtf_cell)[mask10]))),
+         "max_abs_beta":float(np.max(np.abs(beta)))}
+
+def compare_step(kernel,base,dt):
+ before=saved.tangent.state_digest(base)
+ start=geometry_rate_and_mass(kernel,base)
+ advanced=kernel.step(clone_state(base),dt)
+ end=geometry_rate_and_mass(kernel,advanced)
+ after=saved.tangent.state_digest(base)
+ if before!=after:raise RuntimeError("saved accepted input state mutated by copied step")
+ lo=max(float(start["R"][0]),float(end["R"][0]))
+ hi=min(float(start["R"][-1]),float(end["R"][-1]),10.0)
+ if not hi>lo:raise RuntimeError("no common areal-radius interval")
+ Rcommon=np.linspace(lo,hi, max(300,base.grid.n*2))
+ m0=np.interp(Rcommon,start["R"],start["mass"])
+ m1=np.interp(Rcommon,end["R"],end["mass"])
+ q0=np.interp(Rcommon,start["R"],start["rhs"])
+ q1=np.interp(Rcommon,end["R"],end["rhs"])
+ chi0=np.interp(Rcommon,start["R"],start["chi"])
+ chi1=np.interp(Rcommon,end["R"],end["chi"])
+ chi_spatial0=np.interp(Rcommon,start["R"],start["chi_spatial"])
+ chi_spatial1=np.interp(Rcommon,end["R"],end["chi_spatial"])
+ chi_time0=np.interp(Rcommon,start["R"],start["chi_time"])
+ chi_time1=np.interp(Rcommon,end["R"],end["chi_time"])
+ # At fixed R, m=R(1-chi)/2, so compute the rate from interpolated chi.
+ # Keep the separately interpolated-m rate to quantify its extra interpolation error.
+ mdot_interpolated_mass=(m1-m0)/dt
+ mdot=-0.5*Rcommon*(chi1-chi0)/dt
+ rhs_mid=0.5*(q0+q1)
+ mdot_spatial=-0.5*Rcommon*(chi_spatial1-chi_spatial0)/dt
+ mdot_time=-0.5*Rcommon*(chi_time1-chi_time0)/dt
+ mass_interpolation_gap=mdot_interpolated_mass-mdot
+ rhs_comp_mid={}
+ for name in start["rhs_components"]:
+  s0=np.interp(Rcommon,start["R"],start["rhs_components"][name])
+  s1=np.interp(Rcommon,end["R"],end["rhs_components"][name])
+  rhs_comp_mid[name]=0.5*(s0+s1)
+ residual=finite("fixed-R mass-current residual",mdot-rhs_mid)
+ residual_interpolated_mass=finite("interpolated-mass fixed-R residual",mdot_interpolated_mass-rhs_mid)
+ residual_decomp=finite("decomposed mass-current residual",
+  mdot_spatial+mdot_time-sum(rhs_comp_mid.values()))
+ decomp_gap=finite("decomposition closure gap",residual-residual_decomp)
+ inner=Rcommon<=3.0
+ annulus=(Rcommon>=2.0)&(Rcommon<=10.0)
+ def endpoint_at_radius(radius,profile):
+  chi_r=float(np.interp(radius,profile["R"],profile["chi"]))
+  chi_spatial_r=float(np.interp(radius,profile["R"],profile["chi_spatial"]))
+  chi_time_r=float(np.interp(radius,profile["R"],profile["chi_time"]))
+  mass_r=0.5*radius*(1.0-chi_r)
+  rhs_r=float(np.interp(radius,profile["R"],profile["rhs"]))
+  comp_r={name:float(np.interp(radius,profile["R"],values)) for name,values in profile["rhs_components"].items()}
+  return {"chi":chi_r,"chi_spatial":chi_spatial_r,"chi_time":chi_time_r,"mass":mass_r,"rhs":rhs_r,"components":comp_r}
+ fixed={}
+ radii=(0.5,1.0,2.0,3.0,5.0,8.0,10.0)
+ endpoint_fixed={}
+ for radius in radii:
+  if lo<=radius<=hi:
+   sR=endpoint_at_radius(radius,start);eR=endpoint_at_radius(radius,end)
+   mdot_r=(eR["mass"]-sR["mass"])/dt
+   mdot_chi_r=-0.5*radius*(eR["chi"]-sR["chi"])/dt
+   rhs_mid_r=0.5*(sR["rhs"]+eR["rhs"])
+   row={
+    "mass_rate":mdot_chi_r,
+    "mass_rate_interpolated_mass":(float(np.interp(radius,end["R"],end["mass"]))-float(np.interp(radius,start["R"],start["mass"])))/dt,
+    "mass_interpolation_gap":((float(np.interp(radius,end["R"],end["mass"]))-float(np.interp(radius,start["R"],start["mass"])))/dt)-mdot_chi_r,
+    "mass_rate_spatial_metric":-0.5*radius*(eR["chi_spatial"]-sR["chi_spatial"])/dt,
+    "mass_rate_time_shift_norm":-0.5*radius*(eR["chi_time"]-sR["chi_time"])/dt,
+    "current_rhs_midpoint":rhs_mid_r,
+    "residual":mdot_chi_r-rhs_mid_r}
+   row.update({f"current_{name}":0.5*(sR["components"][name]+eR["components"][name]) for name in sR["components"]})
+   fixed[str(radius)]=row
+   endpoint_fixed[radius]=(sR,eR)
+ shell_balances=[]
+ shell_bounds=tuple(r for r in (1.0,2.0,3.0,5.0,8.0,10.0) if r in endpoint_fixed)
+ for rin,rout in zip(shell_bounds[:-1],shell_bounds[1:]):
+  sin,ein=endpoint_fixed[rin];sout,eout=endpoint_fixed[rout]
+  shell_mass_rate=((eout["mass"]-ein["mass"])-(sout["mass"]-sin["mass"]))/dt
+  net_current=0.5*((sout["rhs"]-sin["rhs"])+(eout["rhs"]-ein["rhs"]))
+  shell_residual=shell_mass_rate-net_current
+  shell_balances.append({
+   "R_in":rin,"R_out":rout,"shell_mass_rate":shell_mass_rate,
+   "net_current_midpoint":net_current,"residual":shell_residual,
+   "relative_abs_residual":abs(shell_residual)/max(abs(net_current),1e-300),
+   "telescoping_residual_closure":shell_residual-((fixed[str(rout)]["residual"])-(fixed[str(rin)]["residual"]))
+  })
+ face_shell_balances=[]
+ face_bounds=tuple(r for r in (1.0,2.0,3.0,5.0,8.0,10.0)
+  if max(float(start["R_face"][0]),float(end["R_face"][0]))<=r<=min(float(start["R_face"][-1]),float(end["R_face"][-1])))
+ def face_endpoint(radius,profile,chi_key="chi_face",flux_key="F_face"):
+  chi_r=float(np.interp(radius,profile["R_face"],profile[chi_key]))
+  return {"mass":0.5*radius*(1.0-chi_r),
+          "flux":float(np.interp(radius,profile["R_face"],profile[flux_key]))}
+ def make_face_shells(chi_key,flux_key):
+  fixed_variant={r:{"start":face_endpoint(r,start,chi_key,flux_key),
+                    "end":face_endpoint(r,end,chi_key,flux_key)} for r in face_bounds}
+  rows=[]
+  for rin,rout in zip(face_bounds[:-1],face_bounds[1:]):
+   sin,ein=fixed_variant[rin]["start"],fixed_variant[rin]["end"]
+   sout,eout=fixed_variant[rout]["start"],fixed_variant[rout]["end"]
+   shell_rate=((eout["mass"]-ein["mass"])-(sout["mass"]-sin["mass"]))/dt
+   net_flux=0.5*((sout["flux"]-sin["flux"])+(eout["flux"]-ein["flux"]))
+   rows.append({"R_in":rin,"R_out":rout,"shell_mass_rate":shell_rate,
+    "net_face_current_midpoint":net_flux,"residual":shell_rate-net_flux,
+    "relative_abs_residual":abs(shell_rate-net_flux)/max(abs(net_flux),1e-300)})
+  return rows
+ face_fixed={r:{"start":face_endpoint(r,start),"end":face_endpoint(r,end)} for r in face_bounds}
+ face_fixed_cell={r:{"start":face_endpoint(r,start,"chi_face_cell_derivative","F_face_cell_derivative"),
+                    "end":face_endpoint(r,end,"chi_face_cell_derivative","F_face_cell_derivative")} for r in face_bounds}
+ for rin,rout in zip(face_bounds[:-1],face_bounds[1:]):
+  sin,ein=face_fixed[rin]["start"],face_fixed[rin]["end"]
+  sout,eout=face_fixed[rout]["start"],face_fixed[rout]["end"]
+  shell_rate=((eout["mass"]-ein["mass"])-(sout["mass"]-sin["mass"]))/dt
+  net_flux=0.5*((sout["flux"]-sin["flux"])+(eout["flux"]-ein["flux"]))
+  shell_res=shell_rate-net_flux
+  face_shell_balances.append({"R_in":rin,"R_out":rout,"shell_mass_rate":shell_rate,
+   "net_face_current_midpoint":net_flux,"residual":shell_res,
+   "relative_abs_residual":abs(shell_res)/max(abs(net_flux),1e-300)})
+ cell_derivative_face_shell_balances=[]
+ for rin,rout in zip(face_bounds[:-1],face_bounds[1:]):
+  sin,ein=face_fixed_cell[rin]["start"],face_fixed_cell[rin]["end"]
+  sout,eout=face_fixed_cell[rout]["start"],face_fixed_cell[rout]["end"]
+  shell_rate=((eout["mass"]-ein["mass"])-(sout["mass"]-sin["mass"]))/dt
+  net_flux=0.5*((sout["flux"]-sin["flux"])+(eout["flux"]-ein["flux"]))
+  cell_derivative_face_shell_balances.append({"R_in":rin,"R_out":rout,"shell_mass_rate":shell_rate,
+   "net_face_current_midpoint":net_flux,"residual":shell_rate-net_flux})
+ metric_chi_cell_flux_shells=make_face_shells("chi_face","F_face_cellcentered")
+ cell_chi_primitive_flux_shells=make_face_shells("chi_face_cellcentered","F_face")
+ cell_chi_cell_flux_shells=make_face_shells("chi_face_cellcentered","F_face_cellcentered")
+ def endpoint_cell_cubic(radius,profile):
+  chi_r=interp4(radius,profile["R"],profile["chi"])
+  return {"mass":0.5*radius*(1.0-chi_r),"flux":interp4(radius,profile["R"],profile["rhs"])}
+ def endpoint_face_cubic(radius,profile):
+  chi_r=interp4(radius,profile["R_face"],profile["chi_face"])
+  return {"mass":0.5*radius*(1.0-chi_r),"flux":interp4(radius,profile["R_face"],profile["F_face"])}
+ def make_cubic_shells(endpoint_fn):
+  fixed_c={r:{"start":endpoint_fn(r,start),"end":endpoint_fn(r,end)} for r in face_bounds}
+  rows=[]
+  for rin,rout in zip(face_bounds[:-1],face_bounds[1:]):
+   sin,ein=fixed_c[rin]["start"],fixed_c[rin]["end"]
+   sout,eout=fixed_c[rout]["start"],fixed_c[rout]["end"]
+   shell_rate=((eout["mass"]-ein["mass"])-(sout["mass"]-sin["mass"]))/dt
+   net_flux=0.5*((sout["flux"]-sin["flux"])+(eout["flux"]-ein["flux"]))
+   rows.append({"R_in":rin,"R_out":rout,"shell_mass_rate":shell_rate,
+    "net_current_midpoint":net_flux,"residual":shell_rate-net_flux,
+    "relative_abs_residual":abs(shell_rate-net_flux)/max(abs(net_flux),1e-300)})
+  return rows
+ cell_shells_cubic=make_cubic_shells(endpoint_cell_cubic)
+ face_shells_cubic=make_cubic_shells(endpoint_face_cubic)
+ fixed_cubic={}
+ for radius in (0.5,1.0,2.0,3.0,5.0,8.0,10.0):
+  if max(float(start["R"][0]),float(end["R"][0]))<=radius<=min(float(start["R"][-1]),float(end["R"][-1])):
+   sc=endpoint_cell_cubic(radius,start);ec=endpoint_cell_cubic(radius,end)
+   sf=endpoint_face_cubic(radius,start);ef=endpoint_face_cubic(radius,end)
+   cell_rate=(ec["mass"]-sc["mass"])/dt;cell_rhs=0.5*(sc["flux"]+ec["flux"])
+   face_rate=(ef["mass"]-sf["mass"])/dt;face_rhs=0.5*(sf["flux"]+ef["flux"])
+   fixed_cubic[str(radius)]={
+    "cell_centered":{"mass_rate":cell_rate,"current_rhs_midpoint":cell_rhs,"residual":cell_rate-cell_rhs},
+    "face_reconstructed":{"mass_rate":face_rate,"current_rhs_midpoint":face_rhs,"residual":face_rate-face_rhs},
+    "face_minus_cell_residual":(face_rate-face_rhs)-(cell_rate-cell_rhs)}
+ cell_shell_by_bounds={(x["R_in"],x["R_out"]):x for x in shell_balances}
+ for item in face_shell_balances:
+  cell=cell_shell_by_bounds.get((item["R_in"],item["R_out"]))
+  if cell is not None:
+   item["face_minus_cell_residual"]=item["residual"]-cell["residual"]
+ return {
+  "dt":float(dt),"accepted_time":float(base.t),"probe_end_time":float(advanced.t),
+  "steps_advanced_from_saved_input":1,"saved_input_immutable":True,
+  "common_areal_radius_interval":[lo,hi],"common_samples":len(Rcommon),
+  "max_abs_residual_R_le_3":float(np.max(np.abs(residual[inner]))),
+  "rms_residual_R_2_to_10":float(np.sqrt(np.mean(residual[annulus]**2))),
+  "max_abs_residual_R_2_to_10":float(np.max(np.abs(residual[annulus]))),
+  "max_abs_decomposition_closure":float(np.max(np.abs(decomp_gap))),
+  "max_abs_mass_interpolation_gap_R_le_3":float(np.max(np.abs(mass_interpolation_gap[inner]))),
+  "rms_mass_interpolation_gap_R_2_to_10":float(np.sqrt(np.mean(mass_interpolation_gap[annulus]**2))),
+  "max_abs_residual_using_interpolated_mass_R_le_3":float(np.max(np.abs(residual_interpolated_mass[inner]))),
+  "rms_residual_using_interpolated_mass_R_2_to_10":float(np.sqrt(np.mean(residual_interpolated_mass[annulus]**2))),
+  "rms_mass_rate_spatial_metric_R_2_to_10":float(np.sqrt(np.mean(mdot_spatial[annulus]**2))),
+  "rms_mass_rate_time_shift_norm_R_2_to_10":float(np.sqrt(np.mean(mdot_time[annulus]**2))),
+  "rms_current_components_R_2_to_10":{name:float(np.sqrt(np.mean(values[annulus]**2))) for name,values in rhs_comp_mid.items()},
+  "fixed_areal_radius":fixed,
+  "shell_balances":shell_balances,
+  "max_abs_shell_balance_residual":float(max((abs(x["residual"]) for x in shell_balances),default=0.0)),
+  "max_abs_shell_telescoping_closure":float(max((abs(x["telescoping_residual_closure"]) for x in shell_balances),default=0.0)),
+  "face_reconstructed_shell_balances":face_shell_balances,
+  "max_abs_face_shell_balance_residual":float(max((abs(x["residual"]) for x in face_shell_balances),default=0.0)),
+  "face_reconstruction_max_abs_difference_from_cell_shell_residual":float(max((abs(x["face_minus_cell_residual"]) for x in face_shell_balances if "face_minus_cell_residual" in x),default=0.0)),
+  "cell_derivative_face_shell_balances":cell_derivative_face_shell_balances,
+  "max_abs_cell_derivative_face_shell_balance_residual":float(max((abs(x["residual"]) for x in cell_derivative_face_shell_balances),default=0.0)),
+  "metric_chi_cell_flux_shell_balances":metric_chi_cell_flux_shells,
+  "cell_chi_primitive_flux_shell_balances":cell_chi_primitive_flux_shells,
+  "cell_chi_cell_flux_shell_balances":cell_chi_cell_flux_shells,
+  "cell_shell_balances_cubic_interpolation":cell_shells_cubic,
+  "face_shell_balances_cubic_interpolation":face_shells_cubic,
+  "fixed_areal_radius_cubic_interpolation":fixed_cubic,
+  "max_abs_cell_shell_residual_cubic_interpolation":float(max((abs(x["residual"]) for x in cell_shells_cubic),default=0.0)),
+  "max_abs_face_shell_residual_cubic_interpolation":float(max((abs(x["residual"]) for x in face_shells_cubic),default=0.0)),
+  "face_minus_cell_shell_residual_cubic_interpolation":{f"{x['R_in']}-{x['R_out']}":x["residual"]-next(y["residual"] for y in cell_shells_cubic if y["R_in"]==x["R_in"] and y["R_out"]==x["R_out"]) for x in face_shells_cubic},
+  "max_abs_metric_chi_cell_flux_residual":float(max((abs(x["residual"]) for x in metric_chi_cell_flux_shells),default=0.0)),
+  "max_abs_cell_chi_primitive_flux_residual":float(max((abs(x["residual"]) for x in cell_chi_primitive_flux_shells),default=0.0)),
+  "max_abs_cell_chi_cell_flux_residual":float(max((abs(x["residual"]) for x in cell_chi_cell_flux_shells),default=0.0)),
+  "max_abs_Rr_face_metric_vs_cell_gap_r_le10":max(start["Rr_face_metric_vs_cell_max_abs_r_le10"],end["Rr_face_metric_vs_cell_max_abs_r_le10"]),
+  "max_abs_Rt_face_metric_vs_cell_gap_r_le10":max(start["Rt_face_metric_vs_cell_max_abs_r_le10"],end["Rt_face_metric_vs_cell_max_abs_r_le10"]),
+  "start":{"R_cell0":float(start["R"][0]),"Rr_cell0":float(start["Rr"][0]),
+           "Rt_cell0":float(start["Rt"][0]),"chi_cell0":float(start["chi"][0]),
+           "mass_cell0":float(start["mass"][0]),"T_t_R_cell0":float(start["T_t_R"][0])},
+  "end":{"R_cell0":float(end["R"][0]),"Rr_cell0":float(end["Rr"][0]),
+         "Rt_cell0":float(end["Rt"][0]),"chi_cell0":float(end["chi"][0]),
+         "mass_cell0":float(end["mass"][0]),"T_t_R_cell0":float(end["T_t_R"][0])},
+  "max_abs_beta_start_end":max(start["max_abs_beta"],end["max_abs_beta"]),
+  "input_state_immutable":before==after,
+ }
+
+def main()->int:
+ if N not in (60,120,240):raise ValueError("resolution must be 60, 120 or 240")
+ pin=origin_shadow.verify_source_pins()
+ if pin.get("source_commit")!=SOURCE or pin.get("vendor_commit")!=VENDOR:
+  raise RuntimeError("source/vendor pin mismatch")
+ if pin.get("protected_engine_vendor_dependency_diff_empty") is not True:
+  raise RuntimeError("protected source diff not empty")
+ manifest=saved.check_artifact(FULL_DIR,N,full_profile=True)
+ arrays=saved.load_profile_arrays(FULL_DIR)
+ prefix=f"N{N}_full_continuous_metric_profile_final_"
+ kernel,state=saved.reconstruct_state(N,arrays,prefix)
+ origin_shadow._install_regular_row(kernel)
+ if abs(float(state.t)-TARGET_TIME)>1e-12:raise RuntimeError("wrong accepted input time")
+ dt=CFL*float(state.grid.dr)
+ reports=[compare_step(kernel,state,dt),compare_step(kernel,state,dt/2.0)]
+ report={
+  "schema":"bssn-areal-misner-sharp-current-probe/v1","status":"completed_diagnostic_only",
+  "source_pins":{"source_commit":SOURCE,"vendor_commit":VENDOR,"live_pin_check":pin,"full_profile_artifact":manifest},
+  "runtime":{"python":sys.version,"numpy":np.__version__,"platform":platform.platform()},
+  "configuration":{"resolution":N,"accepted_input_time":TARGET_TIME,"cfl_dt":dt,"dt_arms":[dt,dt/2.0],
+   "areal_radius":"R=r*sqrt(b)/X","sqrt_gamma":"sqrt(a)*b*r^2/X^3",
+   "chi":"(X^2/a)*R_r^2 - (R_t-beta*R_r)^2/alpha^2",
+   "mass":"m_MS=R*(1-chi)/2 (G=1)",
+   "current_transform":"T_t^R=(dx^mu/dy^t)(dy^R/dx^nu)T_mu^nu for y=(t,R(t,r)); zero shift enforced",
+   "balance":"d m_MS/dt at fixed R compared with time-averaged 4*pi*R^2*T_t^R"},
+  "probes":reports,
+  "acceptance":{"source_pins_match":True,"accepted_artifact_sha_verified":True,
+   "input_state_immutable":all(x["input_state_immutable"] for x in reports),
+   "zero_shift_precondition":all(x["max_abs_beta_start_end"]<=1e-14 for x in reports),
+   "all_profiles_finite":True,"integrated_current_identity_closed":False,
+   "full_matter_coupled_propagation_identity_closed":False,
+   "total_stress_energy_conservation_closed":False,
+   "production_source_or_vendor_changed":False,"scientific_admission":False},
+  "limitations":[
+   "Finite-difference time rates use one copied step at dt and dt/2; temporal truncation remains and must be judged by the paired timestep comparison.",
+   "The source identity is compared after transforming the mixed stress tensor and fixed-R derivative; this diagnostic does not authorize production changes.",
+   "The archive's areal-coordinate identity is a source target; no source normalization or physical admission is implied."
+  ],
+  "scientific_admission":False}
+ OUT.mkdir(parents=True,exist_ok=True)
+ rp=OUT/"report.json";rp.write_text(json.dumps(report,indent=2,allow_nan=False)+"\n")
+ (OUT/"SHA256SUMS.txt").write_text(f"{sha(rp)}  report.json\n")
+ print(json.dumps({"status":report["status"],"resolution":N,"dt_results":[
+  {"dt":x["dt"],"max_abs_R_le_3":x["max_abs_residual_R_le_3"],"rms_R_2_to_10":x["rms_residual_R_2_to_10"],"fixed_R":x["fixed_areal_radius"]} for x in reports],
+  "input_immutable":report["acceptance"]["input_state_immutable"],"scientific_admission":False},indent=2))
+ return 0
+if __name__=="__main__":raise SystemExit(main())

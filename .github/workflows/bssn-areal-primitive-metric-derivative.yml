@@ -1,0 +1,107 @@
+name: Diagnostic - BSSN primitive-metric fixed-R derivative
+
+on:
+  push:
+    branches: [diag/full-profile-propagation-candidate-ci-2026-10-24]
+    paths:
+      - tools/audit_bssn_areal_primitive_metric_derivative.py
+      - tools/audit_bssn_areal_operand_interpolation.py
+      - tools/audit_bssn_areal_misner_sharp_current.py
+      - .github/workflows/bssn-areal-primitive-metric-derivative.yml
+  pull_request:
+    branches: [diag/origin-full-continuous-metric-evolved-2026-10-24]
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - tools/audit_bssn_areal_primitive_metric_derivative.py
+      - tools/audit_bssn_areal_operand_interpolation.py
+      - tools/audit_bssn_areal_misner_sharp_current.py
+      - .github/workflows/bssn-areal-primitive-metric-derivative.yml
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: bssn-areal-primitive-metric-derivative-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  primitive-metric-derivative:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        resolution: [60, 120, 240]
+    env:
+      PYTHONUNBUFFERED: "1"
+      SOURCE_COMMIT: "4aec88d0e3ff028e0a65a8ac36b30948625df792"
+      VENDOR_COMMIT: "d6052d605673ce9d82cdc99b0df79855fa2ea215"
+      AREAL_PRIMITIVE_DERIVATIVE_RESOLUTION: ${{ matrix.resolution }}
+      FULL_PROFILE_ARTIFACT_DIR: reference/full/N${{ matrix.resolution }}
+      AREAL_PRIMITIVE_DERIVATIVE_OUT: results/bssn-areal-primitive-derivative-N${{ matrix.resolution }}-2026-10-25
+
+    steps:
+      - name: Check out diagnostic branch and pinned vendor
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Download SHA-verified full continuous-source accepted state
+        uses: actions/download-artifact@v4
+        with:
+          repository: miahpenn/0-Cosmos-engine
+          name: origin-full-continuous-metric-evolved-N${{ matrix.resolution }}-t0.6-2026-10-24
+          path: reference/full/N${{ matrix.resolution }}
+          github-token: ${{ github.token }}
+          run-id: 40156226086
+
+      - name: Fail closed if protected production/vendor/dependency files drift
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin "$SOURCE_COMMIT"
+          test "$(git rev-parse "$SOURCE_COMMIT")" = "$SOURCE_COMMIT"
+          test "$(git rev-parse "HEAD:vendor/bb-palatini-unified-r0")" = "$VENDOR_COMMIT"
+          test "$(git -C vendor/bb-palatini-unified-r0 rev-parse HEAD)" = "$VENDOR_COMMIT"
+          protected_diff="$(git diff --name-only "$SOURCE_COMMIT" HEAD -- engine vendor .gitmodules requirements.txt)"
+          if [[ -n "$protected_diff" ]]; then
+            echo "Unexpected changes to protected production/vendor/dependency paths:"
+            echo "$protected_diff"
+            exit 1
+          fi
+          echo "SOURCE_COMMIT=$SOURCE_COMMIT"
+          echo "VENDOR_COMMIT=$VENDOR_COMMIT"
+          echo "PROTECTED_SOURCE_DIFF=empty"
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install repository requirements
+        run: python -m pip install -r requirements.txt
+
+      - name: Compile primitive derivative observer and pinned helpers
+        run: |
+          python -m py_compile \
+            tools/audit_bssn_areal_primitive_metric_derivative.py \
+            tools/audit_bssn_areal_operand_interpolation.py \
+            tools/audit_bssn_areal_misner_sharp_current.py \
+            tools/audit_full_profile_propagation_candidate.py \
+            tools/audit_origin_cell_joint_shadow_one_step.py
+
+      - name: Rebuild fixed-R geometry derivatives and transformed current from primitive fields
+        run: python tools/audit_bssn_areal_primitive_metric_derivative.py
+
+      - name: Upload primitive metric-derivative report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bssn-areal-primitive-derivative-N${{ matrix.resolution }}-2026-10-25
+          path: results/bssn-areal-primitive-derivative-N${{ matrix.resolution }}-2026-10-25/
+          if-no-files-found: warn
+          retention-days: 90

@@ -39,6 +39,7 @@ from engine.v55_matter import (
     initialize_from_archive,
 )
 from engine import v55_pirk_adapter as adapter
+from tools.audit_brown_vacuum_momentum_propagation import metric_only_hamiltonian
 from tools.audit_continuous_origin_half_cell_oracle import (
     analytic_half_cell_envelope,
     continuous_reference,
@@ -394,7 +395,7 @@ def _constraint_propagation_candidate(
     K = finite("propagation K", geom.K)
     gamma_rr = finite("physical gamma_rr", a / X**2)
     gamma_rr_inv = finite("physical gamma^rr", X**2 / a)
-    H = finite("propagation H", base_constraints["H"])
+    H_total_bssn = finite("BSSN-representation total Hamiltonian constraint", base_constraints["H"])
     M_cov = finite("propagation covariant M_r", base_constraints["M"])
     C_up = finite("propagation connection constraint C^r", base_constraints["C_Lambda"])
 
@@ -405,7 +406,21 @@ def _constraint_propagation_candidate(
     raw_base = vacuum.constraints(grid, geom)
     raw_plus = vacuum.constraints(grid, plus_state.geometry)
     raw_minus = vacuum.constraints(grid, minus_state.geometry)
-    H_geom = finite("geometric Hamiltonian constraint", raw_base["hamiltonian"])
+    H_geom_bssn = finite(
+        "BSSN geometric Hamiltonian constraint including evolved Lambda",
+        raw_base["hamiltonian"],
+    )
+    H_geom, metric_h_components = metric_only_hamiltonian(grid, geom)
+    H_geom = finite("metric-only geometric Hamiltonian constraint", H_geom)
+    total = assemble_total_stress_energy(grid, geom, state.scalars, state.matter)
+    H_total_metric = finite(
+        "metric-only total Hamiltonian constraint",
+        H_geom - 16.0 * PI * np.asarray(total.rho),
+    )
+    H_total_slot_delta = finite(
+        "BSSN-representation minus metric-only total Hamiltonian",
+        H_total_bssn - H_total_metric,
+    )
     M_geom = finite("geometric momentum constraint", raw_base["momentum"])
     measured_Mgeom_dot = finite(
         "measured geometric momentum tangent",
@@ -453,7 +468,8 @@ def _constraint_propagation_candidate(
     chi = X * X
     chi_r = d1(chi, 1)
     alpha_r = d1(alpha, 1)
-    H_r = d1(H, 1)
+    H_r = d1(H_total_metric, 1)
+    H_geom_r = d1(H_geom, 1)
     C_r = d1(C_up, -1)
     C_rr = d2(C_up, -1)
     conformal_angular_log_derivative = d1(b, 1) / b + 2.0 / r
@@ -461,7 +477,7 @@ def _constraint_propagation_candidate(
     # Raised-index comparator only; the direct covariant M_r reading of
     # Brown Eq. (11b) is evaluated separately below. Shift is zero on these arms.
     term_KM_up = alpha * K * M_up
-    term_alpha_H_up = -(alpha_r / 3.0) * H
+    term_alpha_H_up = -(alpha_r / 3.0) * H_total_metric
     term_H_gradient_up = (alpha / 6.0) * H_r
     term_C_second_up = (2.0 / 3.0) * alpha * chi * C_rr
     c_first_coeff_up = (
@@ -475,9 +491,6 @@ def _constraint_propagation_candidate(
         + term_C_second_up + term_C_first_up
     )
 
-    total = assemble_total_stress_energy(
-        grid, state.geometry, state.scalars, state.matter
-    )
     plus_total = assemble_total_stress_energy(
         grid, plus_state.geometry, plus_state.scalars, plus_state.matter
     )
@@ -571,7 +584,7 @@ def _constraint_propagation_candidate(
     beta_r = finite("propagation beta", geom.beta)
     term_shift_cov = beta_r * d1(M_cov, -1) + d1(beta_r, -1) * M_cov
     term_KM_cov = alpha * K * M_cov
-    term_alpha_H_cov = -(alpha_r / 3.0) * H
+    term_alpha_H_cov = -(alpha_r / 3.0) * H_total_metric
     term_H_gradient_cov = (alpha / 6.0) * H_r
     term_C_second_cov = (2.0 / 3.0) * alpha * chi * C_rr
     term_C_first_cov = c_first_coeff_up * C_r
@@ -594,7 +607,7 @@ def _constraint_propagation_candidate(
     # to turn it into an evolution for M_total = M_geom - 8*pi*J.
     term_geom_KM = alpha * K * M_geom
     term_geom_alpha_H = -(alpha_r / 3.0) * H_geom
-    term_geom_H_gradient = (alpha / 6.0) * d1(H_geom, 1)
+    term_geom_H_gradient = (alpha / 6.0) * H_geom_r
     term_geom_C_second = (2.0 / 3.0) * alpha * chi * C_rr
     term_geom_C_first = c_first_coeff_up * C_r
     term_geom_shift = beta_r * d1(M_geom, -1) + d1(beta_r, -1) * M_geom
@@ -679,6 +692,31 @@ def _constraint_propagation_candidate(
         np.finfo(np.float64).tiny,
     )
     report = {
+        "hamiltonian_slot_convention": {
+            "status": "diagnostic_convention_corrected_only",
+            "geometric_Brown_slots_use_metric_only_H": True,
+            "total_candidate_uses_metric_only_H_minus_16pi_rho": True,
+            "H_geom_metric_only": witness(H_geom, r),
+            "H_geom_BSSN_Lambda_dependent": witness(H_geom_bssn, r),
+            "H_total_metric_only": witness(H_total_metric, r),
+            "H_total_BSSN_representation": witness(H_total_bssn, r),
+            "H_total_BSSN_minus_metric_only": witness(H_total_slot_delta, r),
+            "not_an_admission_oracle": True,
+        },
+        "reference_connection_convention": {
+            "source": "Brown arXiv:0705.3845 Eq. (10c) and Eq. (11b)",
+            "definition": "C^r_Lambda = Lambda^r - [D_r a/(2*a^2) - D_r b/(a*b) + 2/r*(1/b - 1/a)]",
+            "second_derivative_term": "(2/3)*alpha*X^2*D_r^2(C^r_Lambda)",
+            "first_derivative_term": "[(2/3)*D_r(alpha)*X^2 - (1/3)*alpha*D_r(X^2) + alpha*X^2*(D_r(b)/b + 2/r)]*D_r(C^r_Lambda)",
+            "connection_metric_contracted": witness(geom.Lambda - C_up, r),
+            "C_lambda_constraint_up": witness(C_up, r),
+            "C_lambda_constraint_up_r": witness(C_r, r),
+            "C_lambda_constraint_up_rr": witness(C_rr, r),
+            "angular_log_derivative": witness(conformal_angular_log_derivative, r),
+            "first_derivative_coefficient": witness(c_first_coeff_up, r),
+            "uses_pinned_vendor_parity_aware_stencil": True,
+            "not_an_origin_admission_oracle": True,
+        },
         "exact_discrete_chain_rule": {
             "identity": (
                 "M_geom = D_r Aa - (2/3)D_r K + 6 Aa chi_r "
@@ -822,7 +860,49 @@ def _constraint_propagation_candidate(
         "propagation_exact_chain_rule_residual": Mgeom_chain_residual,
         "propagation_measured_Mtotal_reconstructed_parts": Mtotal_reconstructed_from_parts,
         "propagation_Mtotal_decomposition_residual": Mtotal_decomposition_residual,
+        "propagation_C_lambda_constraint_up": C_up,
+        "propagation_C_lambda_constraint_up_r": C_r,
+        "propagation_C_lambda_constraint_up_rr": C_rr,
+        "propagation_connection_metric_contracted": geom.Lambda - C_up,
+        "propagation_connection_angular_log_derivative": conformal_angular_log_derivative,
+        "propagation_connection_first_coefficient": c_first_coeff_up,
+        "propagation_H_geom_BSSN_Lambda_dependent": H_geom_bssn,
+        "propagation_H_geom_metric_only": H_geom,
+        "propagation_H_total_BSSN_representation": H_total_bssn,
+        "propagation_H_total_metric_only": H_total_metric,
+        "propagation_H_total_BSSN_minus_metric_only": H_total_slot_delta,
+        "propagation_geometric_Brown_term_shift": term_geom_shift,
+        "propagation_geometric_Brown_term_KM": term_geom_KM,
+        "propagation_geometric_Brown_term_alpha_H": term_geom_alpha_H,
+        "propagation_geometric_Brown_term_H_gradient": term_geom_H_gradient,
+        "propagation_geometric_Brown_term_connection_second": term_geom_C_second,
+        "propagation_geometric_Brown_term_connection_first": term_geom_C_first,
         "propagation_geometric_Brown_vacuum_source": brown_geometric_vacuum_source,
+        "propagation_geometry_rhs_Aa": finite("saved production Aa RHS", rates["geometry"]["Aa"]),
+        "propagation_geometry_rhs_K": finite("saved production K RHS", rates["geometry"]["K"]),
+        "propagation_Aa_l2_lapse_hessian": finite(
+            "saved Aa L2 lapse-Hessian piece", rates["Aa_l2_split"]["lapse_hessian"]
+        ),
+        "propagation_Aa_l2_tracefree_ricci": finite(
+            "saved Aa L2 trace-free Ricci piece", rates["Aa_l2_split"]["tracefree_ricci"]
+        ),
+        "propagation_Aa_l2_operator": finite(
+            "saved Aa L2 operator", rates["Aa_l2_split"]["operator"]
+        ),
+        "propagation_Aa_l2_split_residual": finite(
+            "saved Aa L2 split residual", rates["Aa_l2_split"]["residual"]
+        ),
+        "propagation_Aa_non_L2_remainder": finite(
+            "saved Aa non-L2 RHS remainder",
+            np.asarray(rates["geometry"]["Aa"], dtype=np.float64)
+            - np.asarray(rates["Aa_l2_split"]["operator"], dtype=np.float64),
+        ),
+        "propagation_geometric_Brown_term_sum_reconstruction_gap": finite(
+            "geometric Brown source term sum reconstruction gap",
+            term_geom_shift + term_geom_KM + term_geom_alpha_H
+            + term_geom_H_gradient + term_geom_C_second + term_geom_C_first
+            - brown_geometric_vacuum_source,
+        ),
         "propagation_geometric_Brown_plus_Q_source": predicted_Mgeom_dot_brown_plus_Q,
         "propagation_total_Brown_minus_8pi_Jdot": predicted_Mtotal_dot_brown,
         "propagation_total_Brown_plus_Q_minus_8pi_Jdot": predicted_Mtotal_dot_brown_plus_Q,

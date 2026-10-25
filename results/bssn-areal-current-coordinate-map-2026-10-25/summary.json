@@ -1,0 +1,29 @@
+{
+  "schema": "bssn-to-areal-current-map/v1",
+  "status": "analytic_coordinate_map_pinned",
+  "source_commit": "4aec88d0e3ff028e0a65a8ac36b30948625df792",
+  "vendor_commit": "d6052d605673ce9d82cdc99b0df79855fa2ea215",
+  "formulas": {
+    "gamma_rr": "a/X^2",
+    "gamma_theta_theta": "b*r^2/X^2",
+    "areal_radius": "R=r*sqrt(b)/X",
+    "sqrt_gamma": "sqrt(a)*b*r^2/X^3",
+    "sqrt_minus_g_tr": "alpha*sqrt(a)*b*r^2/X^3",
+    "R_r": "R*(1/r + 0.5*b_r/b - X_r/X)",
+    "R_t": "R*(0.5*b_t/b - X_t/X)",
+    "chi": "(X^2/a)*R_r^2 - (R_t-beta*R_r)^2/alpha^2",
+    "misner_sharp_mass_G1": "m=R*(1-chi)/2",
+    "fixed_R_time_derivative": "d/dt|R = d/dt|r - (R_t/R_r)*d/dr|t",
+    "sqrt_minus_g_tR": "sqrt_minus_g_tr/R_r",
+    "mixed_tensor_transform": "T_t^R|_(t,R)=(dx^mu/dy^t)(dy^R/dx^nu)T_mu^nu, y=(t,R(t,r)), x=(t,r)"
+  },
+  "source_archive_identity": "partial_t m_MS at fixed areal radius = 4*pi*R^2*T_t^R in the archive's G=1 areal chart",
+  "acceptance": {
+    "coordinate_map_documented": true,
+    "integrated_current_identity_tested": false,
+    "production_files_changed": false,
+    "full_matter_coupled_propagation_identity_closed": false,
+    "total_stress_energy_conservation_closed": false,
+    "scientific_admission": false
+  }
+}

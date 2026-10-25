@@ -1,0 +1,172 @@
+{
+  "schema": "accepted-state-sector-matter-source-mapping/v1",
+  "status": "completed_diagnostic_only",
+  "execution": {
+    "workflow_run": 40159027760,
+    "workflow_url": "https://github.com/miahpenn/0-Cosmos-engine/actions/runs/40159027760",
+    "pr": 420,
+    "tested_commit": "ddc560964067c0e2d1569e401ff6cc92fe969adf",
+    "resolutions": [
+      60,
+      120,
+      240
+    ],
+    "accepted_time": 0.6,
+    "artifacts": [
+      {
+        "resolution": 60,
+        "id": 12584544612,
+        "sha256": "045cd07a28a1e5d55e88650fb06df5771796999f3887d8c3cc49b050715b7645"
+      },
+      {
+        "resolution": 120,
+        "id": 12585144988,
+        "sha256": "69c42bb0e072449d085c63c45add2f9d75d8c886a9a09f2b3707537b1500ced4"
+      },
+      {
+        "resolution": 240,
+        "id": 12585018461,
+        "sha256": "d817c8e9fb63e7d753fa3d688a8195a79b160b0ce1df628f95ec26df7351ebd3"
+      }
+    ]
+  },
+  "provenance": {
+    "source_commit": "4aec88d0e3ff028e0a65a8ac36b30948625df792",
+    "vendor_commit": "d6052d605673ce9d82cdc99b0df79855fa2ea215",
+    "protected_engine_vendor_dependency_diff_empty": true,
+    "accepted_state_artifact_hashes_verified": true,
+    "accepted_states_immutable_during_observation": true,
+    "exchange_convention": {
+      "dm": "+beta_DM*rho_DM*nabla^nu(phi)",
+      "cosmos_phi": "-beta_DM*rho_DM*nabla^nu(phi)",
+      "source": "GEAR_V5_5_MASTER_CHECKPOINT_2026-10-05 and explicit locked-sign statement in GEAR_V5_5_COVARIANT_GLOBAL_GATE_2026-10-05_v2",
+      "conflicting_earlier_sentence_preserved_as_provenance_debt": true
+    }
+  },
+  "sector_additivity_max_abs": {
+    "N60": {
+      "geometry_injection_vs_total": 1.2027867851011065e-19,
+      "current_vs_composite_minus_injection": 1.5401769486514394e-16,
+      "sector_divergence_vs_pointwise_total": 1.3936324071042384e-17,
+      "mapping_residual_sum_vs_pointwise_total": 3.317387597262522e-16
+    },
+    "N120": {
+      "geometry_injection_vs_total": 8.300922883092143e-20,
+      "current_vs_composite_minus_injection": 5.433004848960643e-16,
+      "sector_divergence_vs_pointwise_total": 3.7757982936703945e-17,
+      "mapping_residual_sum_vs_pointwise_total": 7.986639778342908e-16
+    },
+    "N240": {
+      "geometry_injection_vs_total": 2.2552252220645747e-19,
+      "current_vs_composite_minus_injection": 4.15798309411769e-16,
+      "sector_divergence_vs_pointwise_total": 3.027651658285178e-17,
+      "mapping_residual_sum_vs_pointwise_total": 7.972138574285914e-16
+    }
+  },
+  "full_profile_mapping_residual": {
+    "S_cell0": [
+      0.000042319625697180055,
+      0.000014253166093663924,
+      0.000006095888142152699
+    ],
+    "S_cell1": [
+      0.00006278856670206667,
+      0.000033900909114919796,
+      0.000017153441414128943
+    ],
+    "S_fixed_r2": [
+      0.00006278856670206667,
+      0.00005812927814492398,
+      0.000058364638260582914
+    ],
+    "S_fixed_r5": [
+      0.00006166177257465053,
+      0.00006250426368300825,
+      0.00006245414851985078
+    ],
+    "S_fixed_r8": [
+      0.000021514300180176808,
+      0.000020935894058221214,
+      0.000020785770919465077
+    ],
+    "COSMOS_phi_cell0": [
+      -2.6033410265171903e-8,
+      -3.127321220013442e-9,
+      -6.503972492403983e-11
+    ],
+    "DM_cell0": [
+      1.156938718478421e-9,
+      1.0343448306545786e-9,
+      1.5658035416112537e-9
+    ],
+    "D_cell0": [
+      -5.498868378481759e-20,
+      -8.237692895309582e-21,
+      -1.225947415034889e-21
+    ]
+  },
+  "full_profile_pointwise_sector_divergence": {
+    "S_r2": [
+      1.7907092316777117e-7,
+      1.2926811979485468e-8,
+      7.984220372919493e-10
+    ],
+    "S_r5": [
+      -8.07318331027828e-9,
+      -7.699293028262762e-10,
+      -4.9102446701064476e-11
+    ],
+    "S_r8": [
+      -1.946452212258919e-9,
+      -8.630479868693606e-11,
+      -4.705528093934966e-12
+    ]
+  },
+  "archive_locked_exchange_measured_minus_expected": {
+    "DM_r2": [
+      4.4003773692532315e-15,
+      1.0484690377379296e-15,
+      1.3016674471821198e-16
+    ],
+    "DM_r5": [
+      -8.035752110734214e-15,
+      -6.4320650228513485e-15,
+      -2.228156176181575e-15
+    ],
+    "DM_r8": [
+      3.027677077567003e-15,
+      6.391572268414757e-16,
+      1.618291911279352e-16
+    ],
+    "phi_r2": [
+      -2.421685512982571e-10,
+      -1.7641192425573006e-11,
+      -1.0877461531813923e-12
+    ],
+    "phi_r5": [
+      1.9564504612822166e-11,
+      1.639152404576323e-12,
+      1.0449288550428087e-13
+    ],
+    "phi_r8": [
+      6.289898436087026e-12,
+      3.4205201545873487e-13,
+      2.0292809302905485e-14
+    ]
+  },
+  "pointwise_vs_expanded_qr_gap_max_abs": [
+    7.953436682191528e-7,
+    1.1297054193669536e-7,
+    1.4582213685799461e-8
+  ],
+  "acceptance": {
+    "source_vendor_pins_match": true,
+    "accepted_state_artifact_hashes_verified": true,
+    "per_sector_additivity_closed": true,
+    "archive_locked_dm_phi_exchange_compared_not_assumed": true,
+    "full_matter_coupled_momentum_propagation_closed": false,
+    "total_stress_energy_sector_conservation_closed": false,
+    "production_source_or_vendor_changed": false,
+    "scientific_admission": false
+  }
+}

@@ -1,0 +1,103 @@
+name: Diagnostic - matched-radius evolved profiles
+
+on:
+  push:
+    branches: [diag/full-profile-propagation-candidate-ci-2026-10-24]
+    paths:
+      - tools/audit_matched_radius_evolved_profiles.py
+      - .github/workflows/matched-radius-evolved-profiles.yml
+  pull_request:
+    branches: [diag/origin-full-continuous-metric-evolved-2026-10-24]
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - tools/audit_matched_radius_evolved_profiles.py
+      - .github/workflows/matched-radius-evolved-profiles.yml
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: matched-radius-evolved-profiles-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  matched-radius:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      PYTHONUNBUFFERED: "1"
+      JOINT_ARTIFACT_ROOT: reference/joint
+      FULL_ARTIFACT_ROOT: reference/full
+      MATCHED_RADIUS_OUT: results/matched-radius-full-profile-evolved-2026-10-25
+    steps:
+      - name: Check out diagnostic branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download partial-joint accepted-state artifacts
+        uses: actions/download-artifact@v4
+        with:
+          repository: miahpenn/0-Cosmos-engine
+          name: origin-cell-joint-shadow-evolved-N60-t0.6-2026-10-24
+          path: reference/joint/N60
+          github-token: ${{ github.token }}
+          run-id: 40153734946
+      - uses: actions/download-artifact@v4
+        with:
+          repository: miahpenn/0-Cosmos-engine
+          name: origin-cell-joint-shadow-evolved-N120-t0.6-2026-10-24
+          path: reference/joint/N120
+          github-token: ${{ github.token }}
+          run-id: 40153734946
+      - uses: actions/download-artifact@v4
+        with:
+          repository: miahpenn/0-Cosmos-engine
+          name: origin-cell-joint-shadow-evolved-N240-t0.6-2026-10-24
+          path: reference/joint/N240
+          github-token: ${{ github.token }}
+          run-id: 40153734946
+
+      - name: Download full continuous-source accepted-state artifacts
+        uses: actions/download-artifact@v4
+        with:
+          repository: miahpenn/0-Cosmos-engine
+          name: origin-full-continuous-metric-evolved-N60-t0.6-2026-10-24
+          path: reference/full/N60
+          github-token: ${{ github.token }}
+          run-id: 40156226086
+      - uses: actions/download-artifact@v4
+        with:
+          repository: miahpenn/0-Cosmos-engine
+          name: origin-full-continuous-metric-evolved-N120-t0.6-2026-10-24
+          path: reference/full/N120
+          github-token: ${{ github.token }}
+          run-id: 40156226086
+      - uses: actions/download-artifact@v4
+        with:
+          repository: miahpenn/0-Cosmos-engine
+          name: origin-full-continuous-metric-evolved-N240-t0.6-2026-10-24
+          path: reference/full/N240
+          github-token: ${{ github.token }}
+          run-id: 40156226086
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.txt
+      - name: Install repository requirements
+        run: python -m pip install -r requirements.txt
+      - name: Compile and run matched-radius artifact audit
+        run: |
+          python -m py_compile tools/audit_matched_radius_evolved_profiles.py
+          python tools/audit_matched_radius_evolved_profiles.py
+      - name: Upload matched-radius summary
+        uses: actions/upload-artifact@v4
+        with:
+          name: matched-radius-full-profile-evolved-summary-2026-10-25
+          path: results/matched-radius-full-profile-evolved-2026-10-25/summary.json
+          if-no-files-found: error
+          retention-days: 90
