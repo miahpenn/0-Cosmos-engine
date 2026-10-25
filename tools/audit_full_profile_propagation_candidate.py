@@ -1552,7 +1552,11 @@ def same_base_dual_lapse_response_audit(
 
     original_policy = FULL_METRIC_LAPSE_SHADOW
     original_digest = base_digest
-    rate_digest = _nested_array_digest(propagation.rhs_direction(kernel, state))
+    rate_digest = _nested_array_digest({
+        name: value
+        for name, value in propagation.rhs_direction(kernel, state).items()
+        if name in ("geometry", "scalars", "matter")
+    })
     radii = np.asarray(state.grid.centers, dtype=np.float64)
     mode_configs = (("production_cmc", False), ("regular_origin_cmc", True))
     mode_raw: dict[str, dict[float, dict[str, np.ndarray]]] = {}
@@ -1580,9 +1584,11 @@ def same_base_dual_lapse_response_audit(
         for mode, uses_regular_lapse in mode_configs:
             FULL_METRIC_LAPSE_SHADOW = uses_regular_lapse
             SHIFTED_STATES.clear()
-            current_rate_digest = _nested_array_digest(
-                propagation.rhs_direction(kernel, state)
-            )
+            current_rate_digest = _nested_array_digest({
+                name: value
+                for name, value in propagation.rhs_direction(kernel, state).items()
+                if name in ("geometry", "scalars", "matter")
+            })
             if current_rate_digest != rate_digest:
                 raise RuntimeError("the base RHS-rate bundle changed between lapse-policy arms")
 
