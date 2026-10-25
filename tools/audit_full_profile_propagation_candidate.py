@@ -309,6 +309,17 @@ def compact_candidate(item: dict[str, Any], raw: dict[float, dict[str, np.ndarra
                 "propagation_published_Mr_term_alpha_H",
                 "propagation_published_Mr_matter_source",
                 "propagation_Qr_total_stress_divergence",
+                "propagation_measured_Mgeom_dot",
+                "propagation_Mgeom_dot_nonmatter_measured",
+                "propagation_Mgeom_dot_matter_injection",
+                "propagation_geometric_Brown_term_shift",
+                "propagation_geometric_Brown_term_KM",
+                "propagation_geometric_Brown_term_alpha_H",
+                "propagation_geometric_Brown_term_H_gradient",
+                "propagation_geometric_Brown_term_connection_second",
+                "propagation_geometric_Brown_term_connection_first",
+                "propagation_geometric_Brown_term_sum_reconstruction_gap",
+                "propagation_geometric_Brown_vacuum_source",
             )
             if name in raw_item
         },
