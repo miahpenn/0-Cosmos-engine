@@ -341,6 +341,17 @@ def compare_step(kernel,base,dt):
   return rows
  cell_shells_cubic=make_cubic_shells(endpoint_cell_cubic)
  face_shells_cubic=make_cubic_shells(endpoint_face_cubic)
+ fixed_cubic={}
+ for radius in (0.5,1.0,2.0,3.0,5.0,8.0,10.0):
+  if max(float(start["R"][0]),float(end["R"][0]))<=radius<=min(float(start["R"][-1]),float(end["R"][-1])):
+   sc=endpoint_cell_cubic(radius,start);ec=endpoint_cell_cubic(radius,end)
+   sf=endpoint_face_cubic(radius,start);ef=endpoint_face_cubic(radius,end)
+   cell_rate=(ec["mass"]-sc["mass"])/dt;cell_rhs=0.5*(sc["flux"]+ec["flux"])
+   face_rate=(ef["mass"]-sf["mass"])/dt;face_rhs=0.5*(sf["flux"]+ef["flux"])
+   fixed_cubic[str(radius)]={
+    "cell_centered":{"mass_rate":cell_rate,"current_rhs_midpoint":cell_rhs,"residual":cell_rate-cell_rhs},
+    "face_reconstructed":{"mass_rate":face_rate,"current_rhs_midpoint":face_rhs,"residual":face_rate-face_rhs},
+    "face_minus_cell_residual":(face_rate-face_rhs)-(cell_rate-cell_rhs)}
  cell_shell_by_bounds={(x["R_in"],x["R_out"]):x for x in shell_balances}
  for item in face_shell_balances:
   cell=cell_shell_by_bounds.get((item["R_in"],item["R_out"]))
@@ -375,6 +386,7 @@ def compare_step(kernel,base,dt):
   "cell_chi_cell_flux_shell_balances":cell_chi_cell_flux_shells,
   "cell_shell_balances_cubic_interpolation":cell_shells_cubic,
   "face_shell_balances_cubic_interpolation":face_shells_cubic,
+  "fixed_areal_radius_cubic_interpolation":fixed_cubic,
   "max_abs_cell_shell_residual_cubic_interpolation":float(max((abs(x["residual"]) for x in cell_shells_cubic),default=0.0)),
   "max_abs_face_shell_residual_cubic_interpolation":float(max((abs(x["residual"]) for x in face_shells_cubic),default=0.0)),
   "face_minus_cell_shell_residual_cubic_interpolation":{f"{x['R_in']}-{x['R_out']}":x["residual"]-next(y["residual"] for y in cell_shells_cubic if y["R_in"]==x["R_in"] and y["R_out"]==x["R_out"]) for x in face_shells_cubic},
