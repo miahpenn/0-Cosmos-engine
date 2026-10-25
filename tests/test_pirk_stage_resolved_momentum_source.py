@@ -45,7 +45,7 @@ def test_raw_operand_bound_is_finite_and_scales_with_operands():
 
 
 def test_region_summary_keeps_signed_centre_cells_and_annulus_distinct():
-    r = np.arange(7, dtype=float) + 0.5
+    r = np.array([0.5, 1.5, 2.5, 3.5, 4.5, 5.5, 11.5], dtype=float)
     values = np.array([-1.0, 2.0, -3.0, 4.0, -5.0, 6.0, -7.0])
     result = _region_summary(values, r)
     assert result["signed_cells_0_1_2_6"] == {
