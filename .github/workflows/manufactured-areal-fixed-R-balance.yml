@@ -1,0 +1,84 @@
+name: Diagnostic - manufactured exact fixed-R mass/current balance
+
+on:
+  push:
+    branches: [diag/full-profile-propagation-candidate-ci-2026-10-24]
+    paths:
+      - tools/audit_manufactured_areal_fixed_R_balance.py
+      - docs/research/bssn_areal_high_order_temporal_compatibility_2026-10-25.md
+      - docs/research/manufactured_areal_fixed_R_balance_2026-10-25.md
+      - .github/workflows/manufactured-areal-fixed-R-balance.yml
+  pull_request:
+    branches: [diag/origin-full-continuous-metric-evolved-2026-10-24]
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - tools/audit_manufactured_areal_fixed_R_balance.py
+      - docs/research/bssn_areal_high_order_temporal_compatibility_2026-10-25.md
+      - docs/research/manufactured_areal_fixed_R_balance_2026-10-25.md
+      - .github/workflows/manufactured-areal-fixed-R-balance.yml
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: manufactured-areal-fixed-R-balance-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  manufactured-fixed-R-balance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PYTHONUNBUFFERED: "1"
+      SOURCE_COMMIT: "4aec88d0e3ff028e0a65a8ac36b30948625df792"
+      VENDOR_COMMIT: "d6052d605673ce9d82cdc99b0df79855fa2ea215"
+    steps:
+      - name: Check out diagnostic branch and pinned vendor
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Fail closed on source/vendor/dependency drift
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin "$SOURCE_COMMIT"
+          test "$(git rev-parse "$SOURCE_COMMIT")" = "$SOURCE_COMMIT"
+          test "$(git rev-parse "HEAD:vendor/bb-palatini-unified-r0")" = "$VENDOR_COMMIT"
+          test "$(git -C vendor/bb-palatini-unified-r0 rev-parse HEAD)" = "$VENDOR_COMMIT"
+          protected_diff="$(git diff --name-only "$SOURCE_COMMIT" HEAD -- engine vendor .gitmodules requirements.txt)"
+          if [[ -n "$protected_diff" ]]; then
+            echo "Unexpected changes to protected production/vendor/dependency paths:"
+            echo "$protected_diff"
+            exit 1
+          fi
+          echo "SOURCE_COMMIT=$SOURCE_COMMIT"
+          echo "VENDOR_COMMIT=$VENDOR_COMMIT"
+          echo "PROTECTED_SOURCE_DIFF=empty"
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install numerical dependency
+        run: python -m pip install numpy
+
+      - name: Compile and run exact manufactured balance control
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m py_compile tools/audit_manufactured_areal_fixed_R_balance.py
+          python tools/audit_manufactured_areal_fixed_R_balance.py \
+            --output results/manufactured-areal-fixed-R-balance-2026-10-25/summary.json
+
+      - name: Upload machine-readable results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: manufactured-areal-fixed-R-balance-2026-10-25
+          path: results/manufactured-areal-fixed-R-balance-2026-10-25/
+          if-no-files-found: warn
+          retention-days: 90
