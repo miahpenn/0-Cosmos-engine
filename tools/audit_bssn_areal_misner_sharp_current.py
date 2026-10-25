@@ -158,6 +158,12 @@ def geometry_rate_and_mass(kernel,s):
  TtR_f=finite("face transformed mixed current",
   -Ef*Rtf-alphaf*jup_f*Rrf-(Rtf/Rrf)*(jf/alphaf*Rtf+prf*Rrf))
  F_f=finite("face areal current",FOUR_PI*Rf*Rf*TtR_f)
+ # Two additional independent reconstructions isolate primitive/current vs
+ # metric-mass face effects: interpolate the cell-centred chi as an even
+ # profile, and reconstruct the already-combined cell current as a regular r^3 profile.
+ chi_f_cellcentered=face_even(chi,"cell-centred chi")
+ F_f_cellcentered=finite("face current from combined cell-centred RHS",
+  stress_divergence.spherical_flux_face_values(finite("cell-centred areal current RHS",rhs),dr,origin_power=3))
  # Controlled alternative: keep the same face primitives, but obtain R_r and
  # R_t by reconstructing the pinned cell-centred derivative/RHS fields.
  Rrf_cell=face_even(Rr,"R_r from cell derivative")
@@ -171,8 +177,9 @@ def geometry_rate_and_mass(kernel,s):
  return {"state":q,"R":R,"Rt":Rt,"Rr":Rr,"chi":chi,"chi_spatial":chi_spatial,
          "chi_time":chi_time,"mass":mass,"T_t_R":T_t_R,"rhs":rhs,
          "rhs_components":rhs_components,"R_face":Rf,"chi_face":chi_f,
-         "T_t_R_face":TtR_f,"F_face":F_f,"chi_face_cell_derivative":chi_f_cell,
-         "F_face_cell_derivative":F_f_cell,
+         "T_t_R_face":TtR_f,"F_face":F_f,"chi_face_cellcentered":chi_f_cellcentered,
+         "F_face_cellcentered":F_f_cellcentered,
+         "chi_face_cell_derivative":chi_f_cell,"F_face_cell_derivative":F_f_cell,
          "Rr_face_metric_vs_cell_max_abs_r_le10":float(np.max(np.abs((Rrf-Rrf_cell)[mask10]))),
          "Rt_face_metric_vs_cell_max_abs_r_le10":float(np.max(np.abs((Rtf-Rtf_cell)[mask10]))),
          "max_abs_beta":float(np.max(np.abs(beta)))}
@@ -262,14 +269,26 @@ def compare_step(kernel,base,dt):
  face_shell_balances=[]
  face_bounds=tuple(r for r in (1.0,2.0,3.0,5.0,8.0,10.0)
   if max(float(start["R_face"][0]),float(end["R_face"][0]))<=r<=min(float(start["R_face"][-1]),float(end["R_face"][-1])))
- def face_endpoint(radius,profile,cell_derivative=False):
-  chi_key="chi_face_cell_derivative" if cell_derivative else "chi_face"
-  flux_key="F_face_cell_derivative" if cell_derivative else "F_face"
+ def face_endpoint(radius,profile,chi_key="chi_face",flux_key="F_face"):
   chi_r=float(np.interp(radius,profile["R_face"],profile[chi_key]))
   return {"mass":0.5*radius*(1.0-chi_r),
           "flux":float(np.interp(radius,profile["R_face"],profile[flux_key]))}
+ def make_face_shells(chi_key,flux_key):
+  fixed_variant={r:{"start":face_endpoint(r,start,chi_key,flux_key),
+                    "end":face_endpoint(r,end,chi_key,flux_key)} for r in face_bounds}
+  rows=[]
+  for rin,rout in zip(face_bounds[:-1],face_bounds[1:]):
+   sin,ein=fixed_variant[rin]["start"],fixed_variant[rin]["end"]
+   sout,eout=fixed_variant[rout]["start"],fixed_variant[rout]["end"]
+   shell_rate=((eout["mass"]-ein["mass"])-(sout["mass"]-sin["mass"]))/dt
+   net_flux=0.5*((sout["flux"]-sin["flux"])+(eout["flux"]-ein["flux"]))
+   rows.append({"R_in":rin,"R_out":rout,"shell_mass_rate":shell_rate,
+    "net_face_current_midpoint":net_flux,"residual":shell_rate-net_flux,
+    "relative_abs_residual":abs(shell_rate-net_flux)/max(abs(net_flux),1e-300)})
+  return rows
  face_fixed={r:{"start":face_endpoint(r,start),"end":face_endpoint(r,end)} for r in face_bounds}
- face_fixed_cell={r:{"start":face_endpoint(r,start,True),"end":face_endpoint(r,end,True)} for r in face_bounds}
+ face_fixed_cell={r:{"start":face_endpoint(r,start,"chi_face_cell_derivative","F_face_cell_derivative"),
+                    "end":face_endpoint(r,end,"chi_face_cell_derivative","F_face_cell_derivative")} for r in face_bounds}
  for rin,rout in zip(face_bounds[:-1],face_bounds[1:]):
   sin,ein=face_fixed[rin]["start"],face_fixed[rin]["end"]
   sout,eout=face_fixed[rout]["start"],face_fixed[rout]["end"]
@@ -287,6 +306,9 @@ def compare_step(kernel,base,dt):
   net_flux=0.5*((sout["flux"]-sin["flux"])+(eout["flux"]-ein["flux"]))
   cell_derivative_face_shell_balances.append({"R_in":rin,"R_out":rout,"shell_mass_rate":shell_rate,
    "net_face_current_midpoint":net_flux,"residual":shell_rate-net_flux})
+ metric_chi_cell_flux_shells=make_face_shells("chi_face","F_face_cellcentered")
+ cell_chi_primitive_flux_shells=make_face_shells("chi_face_cellcentered","F_face")
+ cell_chi_cell_flux_shells=make_face_shells("chi_face_cellcentered","F_face_cellcentered")
  cell_shell_by_bounds={(x["R_in"],x["R_out"]):x for x in shell_balances}
  for item in face_shell_balances:
   cell=cell_shell_by_bounds.get((item["R_in"],item["R_out"]))
@@ -316,6 +338,12 @@ def compare_step(kernel,base,dt):
   "face_reconstruction_max_abs_difference_from_cell_shell_residual":float(max((abs(x["face_minus_cell_residual"]) for x in face_shell_balances if "face_minus_cell_residual" in x),default=0.0)),
   "cell_derivative_face_shell_balances":cell_derivative_face_shell_balances,
   "max_abs_cell_derivative_face_shell_balance_residual":float(max((abs(x["residual"]) for x in cell_derivative_face_shell_balances),default=0.0)),
+  "metric_chi_cell_flux_shell_balances":metric_chi_cell_flux_shells,
+  "cell_chi_primitive_flux_shell_balances":cell_chi_primitive_flux_shells,
+  "cell_chi_cell_flux_shell_balances":cell_chi_cell_flux_shells,
+  "max_abs_metric_chi_cell_flux_residual":float(max((abs(x["residual"]) for x in metric_chi_cell_flux_shells),default=0.0)),
+  "max_abs_cell_chi_primitive_flux_residual":float(max((abs(x["residual"]) for x in cell_chi_primitive_flux_shells),default=0.0)),
+  "max_abs_cell_chi_cell_flux_residual":float(max((abs(x["residual"]) for x in cell_chi_cell_flux_shells),default=0.0)),
   "max_abs_Rr_face_metric_vs_cell_gap_r_le10":max(start["Rr_face_metric_vs_cell_max_abs_r_le10"],end["Rr_face_metric_vs_cell_max_abs_r_le10"]),
   "max_abs_Rt_face_metric_vs_cell_gap_r_le10":max(start["Rt_face_metric_vs_cell_max_abs_r_le10"],end["Rt_face_metric_vs_cell_max_abs_r_le10"]),
   "start":{"R_cell0":float(start["R"][0]),"Rr_cell0":float(start["Rr"][0]),
