@@ -102,5 +102,47 @@
     "full_matter_coupled_propagation_identity_closed": false,
     "total_stress_energy_conservation_closed": false,
     "scientific_admission": false
+  },
+  "central_Aa_over_r2": {
+    "full_continuous_profile": {
+      "N60": -0.000008219653563765172,
+      "N120": -0.000009884387874808283,
+      "N240": -0.00001008103831458517
+    },
+    "partial_joint": {
+      "N60": -0.00007237414270259542,
+      "N120": 0.00016202769594988341,
+      "N240": -0.0005488494619035937
+    }
+  },
+  "first_offcenter_Aa_over_r2": {
+    "full_continuous_profile": {
+      "N60": -0.000008473217310657804,
+      "N120": -0.000009819406907921837,
+      "N240": -0.000010075238029484531
+    },
+    "partial_joint": {
+      "N60": -0.0000015729944796239708,
+      "N120": 0.000004919564551530778,
+      "N240": -0.00006825951690660852
+    }
+  },
+  "central_minus_first_offcenter_Aa_over_r2": {
+    "full_continuous_profile": {
+      "N60": 2.535637468926321e-7,
+      "N120": -6.498096688644624e-8,
+      "N240": -5.800285100638619e-9
+    },
+    "partial_joint": {
+      "N60": -0.00007080114115797444,
+      "N120": 0.00015710813149835264,
+      "N240": 0.00001336456500725367
+    }
+  },
+  "central_regular_coeff_observed_order": {
+    "full_continuous_profile": {
+      "N60_to_N120": 3.08158662607605
+    },
+    "interpretation": "centre A_a/r0^2 converges to a finite nonzero coefficient; regularity requires a finite smooth coefficient, not a zero coefficient."
   }
 }
