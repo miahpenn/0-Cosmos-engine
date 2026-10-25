@@ -361,32 +361,36 @@ Artifact `report.json / profiles.npz` SHA-256:
 
 ## 13. Brown Hamiltonian-slot convention audit — 2026-10-25
 
-**Status:** research-only post-processing of the already accepted, SHA-verified (t=0.60) states. No evolution replay, production edit, source-pin change, or admission change.
+**Status:** research-only post-processing of the already accepted, SHA-verified \(t=0.60\) states. No evolution replay, production edit, source-pin change, or admission change.
 
 ### Convention finding
 
-Brown Eq. (11b)'s \(H\) and \(D_r H\) slots use the **metric-only Hamiltonian constraint**. The repository already distinguishes this from the evolved BSSN Hamiltonian: `tools/audit_brown_vacuum_momentum_propagation.py` provides `metric_only_hamiltonian` and a Lambda-only discriminator. At fixed metric, that discriminator leaves \(H_{\rm metric}\) unchanged but confirms that the BSSN Hamiltonian responds as
+Brown Eq. (11b)'s \(H\) and \(D_r H\) slots use the **metric-only Hamiltonian constraint** for its geometric/vacuum comparator. The repository explicitly distinguishes this from the evolved BSSN Hamiltonian: the existing audit helper **tools/audit_brown_vacuum_momentum_propagation.py** provides a metric-only construction and a Lambda-only discriminator. At fixed metric, the discriminator leaves \(H_{\rm metric}\) unchanged but confirms that the BSSN Hamiltonian responds as
+
 \[
 \delta H_{\rm BSSN}=X^2 D_r(\delta\Lambda).
 \]
 
-The saved-state geometric Brown ledger currently obtains its (H) profile from `vacuum.constraints(grid, geom)["hamiltonian"]` inside `tools/audit_hybrid_origin_integral_patch_newton.py`. That is the BSSN constraint profile, not the metric-only (H) required in Brown's two Hamiltonian slots. Therefore the current ledger is a **hybrid convention comparator** for those slots; its term-sum arithmetic check remains valid, but it must not be described as a literal implementation of Brown Eq. (11b) until the slot is corrected. This is an observer/convention issue, not evidence of a production-equation defect.
+The saved-state geometric Brown ledger had sourced \(H\) from the vendor BSSN constraint inside **tools/audit_hybrid_origin_integral_patch_newton.py**. That is the Lambda-dependent BSSN representation, not the metric-only geometric \(H\) required for Brown's two \(H\)-slots. The ledger's signed term-sum arithmetic remains valid, but its earlier label as a Brown geometric comparator was incomplete: it was a **hybrid convention comparator** in those slots. This is an observer/convention issue, not evidence of a production-equation defect.
 
 ### Same-state H-slot counterfactual
 
-Using the stored accepted-state \((a,b,X,A_a,K,\alpha)\) profiles and the repository's parity-aware fourth-order radial operators, I reassembled only
+Using saved accepted-state \(a,b,X,A_a,K,\alpha\) profiles and the repository's parity-aware fourth-order radial operators, I reassembled only
+
 \[
-T_{\alpha H}=-\frac{D_r\alpha}{3}H,
-\qquad
+T_{\alpha H}=-\frac{D_r\alpha}{3}H,\qquad
 T_{\nabla H}=\frac{\alpha}{6}D_rH
 \]
-with metric-only \(H\), retaining the other signed Brown and connection terms unchanged. The corrected residual is
+
+with metric-only \(H\), retaining the other signed geometric Brown and connection terms unchanged. The corrected residual is
+
 \[
 R_{\mathrm{metricH}}=R_{\mathrm{saved}}
 +T_{\alpha H}^{\mathrm{saved}}+T_{\nabla H}^{\mathrm{saved}}
 -T_{\alpha H}^{\mathrm{metric}}-T_{\nabla H}^{\mathrm{metric}}.
 \]
-This is a narrow convention counterfactual on the saved arrays, not a replacement accepted-state oracle.
+
+This is a narrow convention counterfactual on the saved arrays, not an independent accepted-state oracle.
 
 | N | Full-profile residual at fixed \(r=2\), saved H slot | Same residual with metric-only H | Observed order for metric-H residual |
 |---:|---:|---:|---:|
@@ -394,12 +398,14 @@ This is a narrow convention counterfactual on the saved arrays, not a replacemen
 | 120 | \(+6.1215367\times10^{-7}\) | \(+6.3049133\times10^{-7}\) | 3.955 |
 | 240 | \(+4.0294555\times10^{-8}\) | \(+4.1874593\times10^{-8}\) | 3.912 |
 
-The fixed-radius absolute remainder retains approximately fourth-order decrease after this slot correction, so the H-slot mismatch does **not** explain the full-profile annular remainder. It does materially change some baseline/partial-arm centre terms: at N=240 the production-baseline cell-0 residual changes from \(+3.2485246\times10^{-2}\) to \(+3.3113882\times10^{-2}\), and cell 1 from \(-4.0490374\times10^{-3}\) to \(-4.2418994\times10^{-3}\). The origin discrepancy plainly remains; no single connection term is identified as defective.
+The fixed-radius absolute remainder retains approximately fourth-order decrease after this slot correction, so the H-slot mismatch does **not** explain the full-profile annular remainder. It does materially change some baseline/partial-arm centre terms: at \(N=240\), the production-baseline cell-0 residual changes from \(+3.2485246\times10^{-2}\) to \(+3.3113882\times10^{-2}\), and cell 1 from \(-4.0490374\times10^{-3}\) to \(-4.2418994\times10^{-3}\). The origin discrepancy plainly remains; no single connection term is thereby identified as defective.
 
-### Decision and next bounded action
+### Observer patch and next bounded action
 
-1. Correct the **research observer only** so the Brown Eq. (11b) candidate uses the existing metric-only (H) for both (H) and (D_rH), while retaining the BSSN (H) as a separate named diagnostic.
-2. Recompute its signed ledger on the *same* saved accepted states, source/vendor pins, and epsilon choices; no evolution replay or new resolution sweep is needed.
-3. Then continue the convention-frozen reference-connection/origin-limit comparison, with cells 0–2 separate from matched fixed radii. Keep (M_r/M^r) conversion and the metric-rate contribution explicit, and keep matter-source sign/normalization and total sector exchange as separate gates.
+The research-only observer patch is now on this PR branch. The geometric Brown comparator uses the existing metric-only \(H\); the provisional total candidate uses \(H_{\rm metric}-16\pi\rho\), and the BSSN-representation profiles remain separately recorded. The accepted-state driver also requires and reports the new H-slot witness arrays. Changes are confined to **tools/audit_hybrid_origin_integral_patch_newton.py** and **tools/audit_full_profile_propagation_candidate.py**; no production or vendor files were changed.
 
-This does not close the full matter-coupled identity. `full_matter_coupled_propagation_identity_closed=false`, `reference_metric_connection_coupling_convention_frozen=false`, `total_stress_energy_sector_conservation_closed=false`, and `scientific_admission=false`.
+The same-state validation is tracked by [workflow run 40224825903](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/40224825903), which was **queued at the last status check**. Until the workflow result is available, the table above remains the post-processing H-only geometric counterfactual; the new observer patch is not yet validated by CI.
+
+Next, inspect that same-state report, then continue the convention-frozen reference-connection/origin-limit comparison with cells 0–2 distinct from matched fixed radii. Keep the \(M_r/M^r\) conversion and metric-rate contribution explicit; matter-source sign/normalization and total-sector exchange remain separate gates.
+
+This does not close the full matter-coupled identity. The current flags remain false: full_matter_coupled_propagation_identity_closed=false, reference_metric_connection_coupling_convention_frozen=false, total_stress_energy_sector_conservation_closed=false, and scientific_admission=false.
