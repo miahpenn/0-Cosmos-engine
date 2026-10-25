@@ -139,6 +139,7 @@ def main() -> int:
     delta_local_remainders: list[float] = []
     delta_gradient_remainders: list[float] = []
     product_rule_gaps: list[float] = []
+    current_commutators: list[float] = []
 
     for target in FIXED_RADII:
         lane_a = {
@@ -169,7 +170,7 @@ def main() -> int:
         Crr = lane_a["Crr"]
         chi_r = lane_a["chi_r"]
         mass_r_direct = lane_a["mass_r_direct"]
-        current = lane_a["F"]
+        current_native_sample = lane_a["F"]
         R_fixed = float(target)
 
         chi = gamma_inv * R_r * R_r - (R_fixed * Ktheta) ** 2
@@ -186,8 +187,14 @@ def main() -> int:
             chi_dot - (R_t / R_r) * chi_r
         )
         mass_rate_mass = mass_dot_coordinate - (R_t / R_r) * mass_r_direct
-        residual_chi = mass_rate_chi - current
-        residual_mass = mass_rate_mass - current
+        current_operand_recomputed = FOUR_PI * R_fixed**2 * (
+            -rho * R_t
+            - alpha * gamma_inv * j * R_r
+            - (R_t / R_r) * (j * R_t / alpha + pr * R_r)
+        )
+        current_commutator = float(current_operand_recomputed - current_native_sample)
+        residual_chi = mass_rate_chi - current_operand_recomputed
+        residual_mass = mass_rate_mass - current_operand_recomputed
 
         mass_gradient_rhs = FOUR_PI * R_fixed**2 * (
             rho * R_r + j * R_t / alpha
@@ -234,7 +241,9 @@ def main() -> int:
             "mass_dot_coordinate": float(mass_dot_coordinate),
             "fixed_R_mass_rate_via_chi": float(mass_rate_chi),
             "fixed_R_mass_rate_via_mass": float(mass_rate_mass),
-            "current_F_held_common": float(current),
+            "current_F_native_composite_interpolated": float(current_native_sample),
+            "current_F_recomputed_from_interpolated_operands": float(current_operand_recomputed),
+            "current_F_commutator_operand_recomputed_minus_native_composite": current_commutator,
             "fixed_residual_via_chi": float(residual_chi),
             "fixed_residual_via_mass": float(residual_mass),
             "mass_gradient_rhs": float(mass_gradient_rhs),
@@ -275,12 +284,18 @@ def main() -> int:
         )
         closure_errors.extend((abs(decomposition_closure), abs(sampling_budget_closure)))
         delta_residuals.append(delta_residual)
+        current_commutators.append(current_commutator)
         delta_predictions.append(delta_prediction)
         delta_remainders.append(delta_remainder)
         delta_local_remainders.append(delta_local_remainder)
         delta_gradient_remainders.append(delta_gradient_remainder)
         product_rule_gaps.append(float(residual_mass - residual_chi))
         sampling_commutators[str(target)] = {
+            "current_sampling_commutator": {
+                "native_current_composite_interpolated": float(current_native_sample),
+                "current_recomputed_from_interpolated_operands": float(current_operand_recomputed),
+                "delta_operand_recomputed_minus_native_composite": current_commutator,
+            },
             "operands_interpolated_minus_grid_composites_interpolated": {
                 "fixed_residual_via_mass": delta_residual,
                 "constraint_only_prediction": delta_prediction,
@@ -289,10 +304,11 @@ def main() -> int:
                 "gradient_operator_remainder": delta_gradient_remainder,
                 "mass_rate_product_rule_gap": float(residual_mass - residual_chi),
             },
-            "current_delta": 0.0,
+            "current_delta": current_commutator,
             "current_treatment": (
-                "same native observed F interpolated to fixed R and held common "
-                "between the two sampling lanes"
+                "lane A interpolates the native current composite; lane B recomputes "
+                "the same current formula from the interpolated native operands. "
+                "Their difference is reported as its own sampling-order commutator."
             ),
             "budget_closure_error": sampling_budget_closure,
             "interpretation_guard": (
@@ -351,8 +367,9 @@ def main() -> int:
                 "nonlinear mass-rate and H/M/Crr budget"
             ),
             "current": (
-                "same observed native transformed current F interpolated to fixed R "
-                "and held common in both lanes"
+                "lane A interpolates native F; lane B recomputes the same transformed "
+                "current formula from the interpolated rho,j,p_r,alpha,gamma^rr,Rr,Rt. "
+                "Current commutator is reported independently and is not assumed zero."
             ),
             "interpretation": (
                 "sampling-order commutator only; neither lane is promoted by "
@@ -366,6 +383,8 @@ def main() -> int:
             "fixed_R_sample_count": len(FIXED_RADII),
             "max_abs_delta_fixed_residual_via_mass": max_abs(delta_residuals),
             "rms_delta_fixed_residual_via_mass": rms(delta_residuals),
+            "max_abs_current_sampling_commutator": max_abs(current_commutators),
+            "rms_current_sampling_commutator": rms(current_commutators),
             "max_abs_delta_constraint_only_prediction": max_abs(delta_predictions),
             "max_abs_delta_fixed_operator_remainder": max_abs(delta_remainders),
             "max_abs_delta_local_operator_remainder": max_abs(delta_local_remainders),
@@ -378,7 +397,7 @@ def main() -> int:
             "accepted_artifact_sha_verified": True,
             "accepted_state_immutable": True,
             "native_D4_pairing_preserved": True,
-            "current_held_common_between_sampling_lanes": True,
+            "current_sampling_commutator_reported_separately": True,
             "fixed_R_budget_bookkeeping_closed": budget_bookkeeping_closed,
             "integrated_current_identity_closed": False,
             "full_matter_coupled_propagation_identity_closed": False,
