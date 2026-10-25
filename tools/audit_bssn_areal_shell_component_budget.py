@@ -78,7 +78,17 @@ def shell_rows(probe: dict[str, Any], key: str, current_key: str) -> dict[str, d
         rout = finite_float(item["R_out"], f"{key}.R_out")
         shell = f"{rin:g}-{rout:g}"
         mass_rate = finite_float(item["shell_mass_rate"], f"{key}.{shell}.shell_mass_rate")
-        net_current = finite_float(item[current_key], f"{key}.{shell}.{current_key}")
+        current_value = item.get(current_key)
+        current_field = current_key
+        if current_value is None:
+            for fallback_key in ("net_face_current_midpoint", "net_current_midpoint", "net_current"):
+                if fallback_key in item:
+                    current_value = item[fallback_key]
+                    current_field = fallback_key
+                    break
+        if current_value is None:
+            raise RuntimeError(f"{key}.{shell}: no recognized net-current field; found={sorted(item.keys())}")
+        net_current = finite_float(current_value, f"{key}.{shell}.{current_field}")
         residual = finite_float(item["residual"], f"{key}.{shell}.residual")
         closure = residual - (mass_rate - net_current)
         if abs(closure) > 5e-12 * max(1.0, abs(mass_rate), abs(net_current), abs(residual)):
