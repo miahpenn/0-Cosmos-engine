@@ -44,10 +44,28 @@ At N=240 with \(\Delta t/2=0.005\):
 
 The relative mismatch is largest near \(R=1\) (about 4.8% in this sample), falls to around 1.2% at \(R=2\), and is below about 0.4% at the listed radii \(R\ge3\). The \(R\le3\) residual and its refinement trend remain visible, so this is not a closed conservation gate.
 
+
+## Component split of the corrected balance (N=240, \(\Delta t=0.005\))
+
+The corrected rate splits exactly into the spatial-gradient and time/shift parts of \(\chi\), with decomposition closure below \(2\times10^{-13}\). The transformed current is split into energy-motion, radial-current, mixed-current and pressure-motion pieces.
+
+| R | \(\dot m_{\rm spatial}\) | \(\dot m_{\rm time/shift}\) | \(4\pi R^2T_t{}^R\) | Residual |
+|---:|---:|---:|---:|---:|
+| 1 | +2.19798e-5 | -1.31432e-7 | +2.29424e-5 | -1.09398e-6 |
+| 2 | +1.51945e-4 | -1.37149e-6 | +1.52363e-4 | -1.78933e-6 |
+| 3 | +4.16339e-4 | -6.03329e-6 | +4.12076e-4 | -1.77024e-6 |
+| 5 | +1.00621e-3 | -3.91301e-5 | +9.66680e-4 | +4.04149e-7 |
+| 8 | +8.94602e-4 | -1.62535e-4 | +7.29670e-4 | +2.39717e-6 |
+| 10 | +4.91893e-4 | -2.65883e-4 | +2.25387e-4 | +6.22956e-7 |
+
+At \(R=1\), the transformed-current pieces are: energy-motion \(-4.10687\times10^{-6}\), radial current \(+2.59938\times10^{-5}\), pressure-motion \(+1.05449\times10^{-6}\), and mixed-current \(+9.81\times10^{-10}\). At \(R=5\), the corresponding pieces are \(-2.00704\times10^{-4}\), \(+1.10647\times10^{-3}\), \(+6.00394\times10^{-5}\), and \(+8.74\times10^{-7}\). Thus the total current is a cancellation of large signed pieces, just as the geometric mass rate is a cancellation between its spatial and time/shift contributions.
+
+The residual is now localized more clearly: the coordinate/tensor transformation and component bookkeeping close internally, but the fixed-\(R\) identity still has \(O(10^{-6})\) residuals across \(R=1\ldots3\), while it is smaller at \(R=5\) and \(R=10\). This points to the inner spatial derivative / shell interpolation and regular-origin measure as the next numerical focus; it does not by itself imply a missing physical source term.
+
 ## Interpretation and next gate
 
 This probe now applies both parts of the areal-coordinate transformation: fixed-\(R\) differentiation and the transformed mixed-tensor current. The balance improves with spatial refinement, and the dt/2 comparison indicates timestep size is not the main remaining discrepancy. The explicit mass-interpolation gap was an additional numerical effect in the preliminary measurement and is now separately accounted for.
 
-Next, split the corrected inner-shell residual into (i) spatial-gradient versus time/shift contributions to \(\chi\), (ii) transformed current contributions from \(E,j,p_r\), and (iii) finite-volume shell/face reconstruction. Keep this diagnostic independent of the pointwise-versus-expanded \(Q_r\) decomposition.
+Next, compare the corrected fixed-R rate with an independently reconstructed finite-volume shell/face balance using the same areal-radius measure, and isolate the centre-cell reconstruction error. Keep this diagnostic independent of the pointwise-versus-expanded \(Q_r\) decomposition.
 
 **Disposition:** coordinate/current transformation exercised; corrected fixed-\(R\) identity still open; full matter-coupled momentum propagation and total sector conservation remain open; no production changes; \`scientific_admission=false\`.
