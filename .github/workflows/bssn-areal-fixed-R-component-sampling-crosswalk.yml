@@ -26,7 +26,7 @@ permissions:
   actions: read
 
 concurrency:
-  group: bssn-areal-fixed-R-component-sampling-\${{ github.event.pull_request.number || github.ref }}
+  group: bssn-areal-fixed-R-component-sampling-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -41,9 +41,9 @@ jobs:
       PYTHONUNBUFFERED: "1"
       SOURCE_COMMIT: "4aec88d0e3ff028e0a65a8ac36b30948625df792"
       VENDOR_COMMIT: "d6052d605673ce9d82cdc99b0df79855fa2ea215"
-      AREAL_FIXED_R_COMPONENT_RESOLUTION: \${{ matrix.resolution }}
-      FULL_PROFILE_ARTIFACT_DIR: reference/full/N\${{ matrix.resolution }}
-      AREAL_FIXED_R_COMPONENT_OUT: results/bssn-areal-fixed-R-component-sampling-N\${{ matrix.resolution }}-2026-10-25
+      AREAL_FIXED_R_COMPONENT_RESOLUTION: ${{ matrix.resolution }}
+      FULL_PROFILE_ARTIFACT_DIR: reference/full/N${{ matrix.resolution }}
+      AREAL_FIXED_R_COMPONENT_OUT: results/bssn-areal-fixed-R-component-sampling-N${{ matrix.resolution }}-2026-10-25
 
     steps:
       - name: Check out diagnostic branch and pinned vendor
@@ -56,9 +56,9 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           repository: miahpenn/0-Cosmos-engine
-          name: origin-full-continuous-metric-evolved-N\${{ matrix.resolution }}-t0.6-2026-10-24
-          path: reference/full/N\${{ matrix.resolution }}
-          github-token: \${{ github.token }}
+          name: origin-full-continuous-metric-evolved-N${{ matrix.resolution }}-t0.6-2026-10-24
+          path: reference/full/N${{ matrix.resolution }}
+          github-token: ${{ github.token }}
           run-id: 40156226086
 
       - name: Fail closed if protected production/vendor/dependency files drift
@@ -105,7 +105,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: bssn-areal-fixed-R-component-sampling-N\${{ matrix.resolution }}-2026-10-25
-          path: results/bssn-areal-fixed-R-component-sampling-N\${{ matrix.resolution }}-2026-10-25/
+          name: bssn-areal-fixed-R-component-sampling-N${{ matrix.resolution }}-2026-10-25
+          path: results/bssn-areal-fixed-R-component-sampling-N${{ matrix.resolution }}-2026-10-25/
           if-no-files-found: warn
           retention-days: 90
