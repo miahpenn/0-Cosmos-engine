@@ -79,7 +79,9 @@ def geometry_rate_and_mass(kernel,s):
  if np.any(np.diff(R)<=0) or np.any(Rr<=0):
   raise RuntimeError("areal-radius map is not strictly monotone")
  grr=a/(X*X)
- chi=finite("invariant radial norm",((X*X/a)*Rr*Rr)-((Rt-beta*Rr)/alpha)**2)
+ chi_spatial=finite("spatial-gradient contribution to chi",(X*X/a)*Rr*Rr)
+ chi_time=finite("time/shift contribution to chi",-((Rt-beta*Rr)/alpha)**2)
+ chi=finite("invariant radial norm",chi_spatial+chi_time)
  mass=finite("Misner-Sharp mass",0.5*R*(1.0-chi))
  proj=total_matter_projection(grid,g,q.scalars,q.matter)
  E=finite("total Eulerian energy",proj["rho"])
@@ -92,12 +94,23 @@ def geometry_rate_and_mass(kernel,s):
  T_t_r=-alpha*j_up
  T_r_t=j/alpha
  T_r_r=pr
- # Tensor transformation to y=(t,R(t,r)), x=(t,r).
+ # Tensor transformation to y=(t,R(t,r)), x=(t,r), split by source component.
+ TtR_energy=finite("T_t^R energy-motion term",T_t_t*Rt)
+ TtR_radial_current=finite("T_t^R radial-current term",T_t_r*Rr)
+ TtR_mixed_current=finite("T_t^R time-index current term",-(Rt/Rr)*(T_r_t*Rt))
+ TtR_pressure=finite("T_t^R radial-pressure motion term",-(Rt/Rr)*(T_r_r*Rr))
  T_t_R=finite("transformed mixed current T_t^R",
-  T_t_t*Rt+T_t_r*Rr-(Rt/Rr)*(T_r_t*Rt+T_r_r*Rr))
+  TtR_energy+TtR_radial_current+TtR_mixed_current+TtR_pressure)
+ rhs_components={
+  "energy_motion":finite("current RHS energy-motion",FOUR_PI*R*R*TtR_energy),
+  "radial_current":finite("current RHS radial-current",FOUR_PI*R*R*TtR_radial_current),
+  "mixed_current":finite("current RHS mixed-current",FOUR_PI*R*R*TtR_mixed_current),
+  "pressure_motion":finite("current RHS pressure-motion",FOUR_PI*R*R*TtR_pressure),
+ }
  rhs=finite("Misner-Sharp current RHS",FOUR_PI*R*R*T_t_R)
- return {"state":q,"R":R,"Rt":Rt,"Rr":Rr,"chi":chi,"mass":mass,
-         "T_t_R":T_t_R,"rhs":rhs,"max_abs_beta":float(np.max(np.abs(beta)))}
+ return {"state":q,"R":R,"Rt":Rt,"Rr":Rr,"chi":chi,"chi_spatial":chi_spatial,
+         "chi_time":chi_time,"mass":mass,"T_t_R":T_t_R,"rhs":rhs,
+         "rhs_components":rhs_components,"max_abs_beta":float(np.max(np.abs(beta)))}
 
 def compare_step(kernel,base,dt):
  before=saved.tangent.state_digest(base)
@@ -116,16 +129,30 @@ def compare_step(kernel,base,dt):
  q1=np.interp(Rcommon,end["R"],end["rhs"])
  mdot=(m1-m0)/dt
  rhs_mid=0.5*(q0+q1)
+ mdot_spatial=-0.5*Rcommon*(np.interp(Rcommon,end["R"],end["chi_spatial"])-np.interp(Rcommon,start["R"],start["chi_spatial"]))/dt
+ mdot_time=-0.5*Rcommon*(np.interp(Rcommon,end["R"],end["chi_time"])-np.interp(Rcommon,start["R"],start["chi_time"]))/dt
+ rhs_comp_mid={}
+ for name in start["rhs_components"]:
+  s0=np.interp(Rcommon,start["R"],start["rhs_components"][name])
+  s1=np.interp(Rcommon,end["R"],end["rhs_components"][name])
+  rhs_comp_mid[name]=0.5*(s0+s1)
  residual=finite("fixed-R mass-current residual",mdot-rhs_mid)
+ residual_decomp=finite("decomposed mass-current residual",
+  mdot_spatial+mdot_time-sum(rhs_comp_mid.values()))
+ decomp_gap=finite("decomposition closure gap",residual-residual_decomp)
  inner=Rcommon<=3.0
  annulus=(Rcommon>=2.0)&(Rcommon<=10.0)
  fixed={}
  for radius in (0.5,1.0,2.0,3.0,5.0,8.0,10.0):
   if lo<=radius<=hi:
-   fixed[str(radius)]={
+   row={
     "mass_rate":float(np.interp(radius,Rcommon,mdot)),
+    "mass_rate_spatial_metric":float(np.interp(radius,Rcommon,mdot_spatial)),
+    "mass_rate_time_shift_norm":float(np.interp(radius,Rcommon,mdot_time)),
     "current_rhs_midpoint":float(np.interp(radius,Rcommon,rhs_mid)),
     "residual":float(np.interp(radius,Rcommon,residual))}
+   row.update({f"current_{name}":float(np.interp(radius,Rcommon,val)) for name,val in rhs_comp_mid.items()})
+   fixed[str(radius)]=row
  return {
   "dt":float(dt),"accepted_time":float(base.t),"probe_end_time":float(advanced.t),
   "steps_advanced_from_saved_input":1,"saved_input_immutable":True,
@@ -133,6 +160,10 @@ def compare_step(kernel,base,dt):
   "max_abs_residual_R_le_3":float(np.max(np.abs(residual[inner]))),
   "rms_residual_R_2_to_10":float(np.sqrt(np.mean(residual[annulus]**2))),
   "max_abs_residual_R_2_to_10":float(np.max(np.abs(residual[annulus]))),
+  "max_abs_decomposition_closure":float(np.max(np.abs(decomp_gap))),
+  "rms_mass_rate_spatial_metric_R_2_to_10":float(np.sqrt(np.mean(mdot_spatial[annulus]**2))),
+  "rms_mass_rate_time_shift_norm_R_2_to_10":float(np.sqrt(np.mean(mdot_time[annulus]**2))),
+  "rms_current_components_R_2_to_10":{name:float(np.sqrt(np.mean(values[annulus]**2))) for name,values in rhs_comp_mid.items()},
   "fixed_areal_radius":fixed,
   "start":{"R_cell0":float(start["R"][0]),"Rr_cell0":float(start["Rr"][0]),
            "Rt_cell0":float(start["Rt"][0]),"chi_cell0":float(start["chi"][0]),
