@@ -26,6 +26,10 @@ import numpy as np
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
+# The existing sector-resolved divergence module requires a source-root variable
+# at import time; actual archived source/vendor provenance is verified separately
+# by verify_source_pins() and the input artifact manifests below.
+os.environ.setdefault("COSMOS_PINNED_SOURCE_ROOT", str(ROOT))
 
 from engine.production_kernel import V55ProductionKernel
 from engine.scalar_system import ScalarFields
@@ -34,6 +38,7 @@ from engine.v55_matter import V55MatterState
 from engine import v55_pirk_adapter as adapter
 from tools import audit_current_source_momentum_constraint_tangent as tangent
 from tools import audit_hybrid_origin_integral_patch_newton as propagation
+from tools import audit_total_stress_energy_divergence as stress_divergence
 from tools.audit_origin_cell_joint_shadow_one_step import (
     SOURCE_COMMIT,
     VENDOR_COMMIT,
@@ -58,6 +63,7 @@ GEOMETRY_NAMES = ("a", "b", "X", "alpha", "beta", "Aa", "K", "Lambda", "B")
 MATTER_FIELDS = ("rest", "energy_t", "momentum_r")
 EPSILONS = (2.0e-5, 1.0e-5)
 FULL_METRIC_LAPSE_SHADOW = False
+SHIFTED_STATES: dict[float, Any] = {}
 
 
 def sha256(path: Path) -> str:
@@ -225,7 +231,7 @@ def shifted_state_with_matched_lapse(kernel, state, rates, delta):
     geom.alpha = np.asarray(alpha, dtype=np.float64).copy()
     geom.beta = np.zeros_like(geom.beta)
     geom.B = np.zeros_like(geom.B)
-    return type(state)(
+    shifted = type(state)(
         grid=state.grid,
         geometry=geom,
         scalars=scalars,
@@ -234,6 +240,8 @@ def shifted_state_with_matched_lapse(kernel, state, rates, delta):
         tau=state.tau,
         e_folds=state.e_folds,
     )
+    SHIFTED_STATES[float(delta)] = shifted
+    return shifted
 
 
 def summarize_profile(values: Any, radii: np.ndarray) -> dict[str, Any]:
@@ -302,6 +310,111 @@ def compact_candidate(item: dict[str, Any], raw: dict[float, dict[str, np.ndarra
     }
 
 
+def compact_sector_divergence(
+    state,
+    epsilon: float,
+    candidate_raw: dict[str, np.ndarray],
+) -> tuple[dict[str, Any], dict[str, np.ndarray]]:
+    """Reuse the existing additive sector-resolved total-T divergence observer."""
+    try:
+        plus_state = SHIFTED_STATES[float(epsilon)]
+        minus_state = SHIFTED_STATES[-float(epsilon)]
+    except KeyError as exc:
+        raise RuntimeError(f"matched tangent endpoint not captured for epsilon={epsilon}") from exc
+    witnessed = stress_divergence.sector_resolved_divergence_tangent_from_states(
+        state, plus_state, minus_state, float(epsilon)
+    )
+    total = witnessed["total"]
+    decomposition = witnessed["sector_decomposition"]
+    radii = np.asarray(state.grid.centers, dtype=np.float64)
+    total_r = np.asarray(total["div_T_r"], dtype=np.float64)
+    total_r_fv = np.asarray(total["div_T_r_fv"], dtype=np.float64)
+    candidate_qr = np.asarray(
+        candidate_raw["propagation_Qr_total_stress_divergence"], dtype=np.float64
+    )
+    q_compare = total_r - candidate_qr
+    recon = decomposition["reconstruction"]
+    channels = recon["channels"]
+    sector_rows = {}
+    profile_store: dict[str, np.ndarray] = {
+        "sector_resolved_total_div_T_r": total_r,
+        "sector_resolved_total_div_T_r_fv": total_r_fv,
+        "sector_resolved_total_minus_candidate_Qr": q_compare,
+        "sector_resolved_sector_sum_minus_total_div_T_r": np.asarray(
+            channels["div_T_r"]["sum_minus_total"], dtype=np.float64
+        ),
+        "sector_resolved_unexplained_gap_after_time_density_div_T_r": np.asarray(
+            channels["div_T_r"]["unexplained_gap_after_time_density_accounting"],
+            dtype=np.float64,
+        ),
+    }
+    for name, data in decomposition["sectors"].items():
+        raw = data["raw_signed_arrays"]
+        sector_r = np.asarray(raw["div_T_r"], dtype=np.float64)
+        sector_r_fv = np.asarray(raw["div_T_r_fv"], dtype=np.float64)
+        profile_store[f"sector_{name}_div_T_r"] = sector_r
+        profile_store[f"sector_{name}_div_T_r_fv"] = sector_r_fv
+        sector_rows[name] = {
+            "div_T_r": summarize_profile(sector_r, radii),
+            "div_T_r_finite_volume": summarize_profile(sector_r_fv, radii),
+            "cell0_cell1": [float(sector_r[0]), float(sector_r[1])],
+        }
+        # For scalar sectors, also retain the existing observer's signed split
+        # into time-density, radial-flux, and metric-source components.
+        operator = data.get("operator_component_decomposition")
+        if operator:
+            pointwise = operator["pointwise"]["raw_signed_arrays"]
+            names = (
+                "time_density_div_T_r",
+                "radial_flux_div_T_r",
+                "metric_source_div_T_r",
+                "component_sum_div_T_r",
+                "component_sum_gap_div_T_r",
+            )
+            sector_rows[name]["pointwise_operator_terms"] = {
+                term: summarize_profile(np.asarray(pointwise[term], dtype=np.float64), radii)
+                for term in names if term in pointwise
+            }
+            for term in names:
+                if term in pointwise:
+                    profile_store[f"sector_{name}_{term}"] = np.asarray(
+                        pointwise[term], dtype=np.float64
+                    )
+    compact = {
+        "epsilon": float(epsilon),
+        "observer": "existing audit_total_stress_energy_divergence.sector_resolved_divergence_tangent_from_states",
+        "scope": "same saved base accepted state and the exact matched-lapse plus/minus endpoint states used by the existing propagation candidate",
+        "total_div_T_r": summarize_profile(total_r, radii),
+        "total_div_T_r_finite_volume": summarize_profile(total_r_fv, radii),
+        "independent_total_divergence_minus_candidate_Qr": summarize_profile(q_compare, radii),
+        "sector_contributions": sector_rows,
+        "additive_sector_reconstruction": {
+            "all_sectors_reconstruct_total": bool(recon["all_sectors_reconstruct_total"]),
+            "total_div_T_r_sum_passed": bool(channels["div_T_r"]["passed"]),
+            "total_div_T_r_sum_max_abs_gap": float(channels["div_T_r"]["max_abs_gap"]),
+            "total_div_T_r_component_corrected_passed": bool(
+                channels["div_T_r"]["component_corrected_passed"]
+            ),
+            "total_div_T_r_unexplained_max_abs_gap": float(
+                channels["div_T_r"]["max_abs_unexplained_gap"]
+            ),
+            "time_density_component_accounting_passed": bool(
+                recon["time_density_component_accounting_passed"]
+            ),
+            "time_density_gap_div_T_r": summarize_profile(
+                np.asarray(
+                    decomposition["time_density_reconstruction"]["raw_signed_arrays"]["time_density_gap_r"],
+                    dtype=np.float64,
+                ),
+                radii,
+            ),
+        },
+        "sector_pairing": decomposition["state_pairing"],
+        "scientific_admission": False,
+    }
+    return compact, profile_store
+
+
 def main() -> int:
     if RESOLUTION not in (60, 120, 240):
         raise ValueError(f"unsupported resolution {RESOLUTION}")
@@ -337,6 +450,7 @@ def main() -> int:
         tangent.shifted_state = shifted_state_with_matched_lapse
         propagation.shifted_state = shifted_state_with_matched_lapse
 
+        SHIFTED_STATES.clear()
         report, raw = propagation.directional_tangent(kernel, state, vacuum)
         if report.get("state_unchanged") is not True:
             raise RuntimeError(f"{label}: propagation observer mutated its frozen accepted state")
@@ -360,16 +474,24 @@ def main() -> int:
             compact = compact_candidate(item, raw, radii)
             compact["signed_momentum_budget"] = item["signed_momentum_budget"]
             compact["exact_discrete_chain_rule"] = item["independent_constraint_propagation_candidate"]["exact_discrete_chain_rule"]
+            sector_report, sector_profiles = compact_sector_divergence(
+                state, eps, raw[eps]
+            )
+            compact["sector_resolved_stress_energy_divergence"] = sector_report
             arm_rows["epsilon_results"].append(compact)
             for name, values in raw[eps].items():
                 saved_profiles[f"N{RESOLUTION}_{label}_eps{eps:.0e}_{name}"] = np.asarray(values, dtype=np.float64).copy()
+            for name, values in sector_profiles.items():
+                saved_profiles[
+                    f"N{RESOLUTION}_{label}_eps{eps:.0e}_{name}"
+                ] = np.asarray(values, dtype=np.float64).copy()
         summaries.append(arm_rows)
 
     report_path = OUT / "report.json"
     result = {
-        "schema": "full-profile-accepted-state-propagation-candidate/v1",
+        "schema": "full-profile-accepted-state-propagation-candidate/v2",
         "status": "completed_diagnostic_only",
-        "purpose": "Apply the existing convention/index-sensitive propagation candidate to source-pinned accepted t=0.60 states from baseline, partial-joint, and full-continuous-metric arms.",
+        "purpose": "Apply the existing convention/index-sensitive propagation candidate and its existing additive sector-resolved total-stress-energy divergence observer to source-pinned accepted t=0.60 states from baseline, partial-joint, and full-continuous-metric arms.",
         "source_pins": {
             "source_commit": EXPECTED_SOURCE,
             "vendor_commit": EXPECTED_VENDOR,
@@ -410,6 +532,7 @@ def main() -> int:
             "The direct published-covariant-M_r candidate uses matter-inclusive H/M/C with a provisional -8*pi*alpha*Q_r source.",
             "The geometric-vacuum comparator uses H_geom/M_geom and separately compares the actual matter source composite with the independently reconstructed stress-divergence source.",
             "The source-mapping, scalar spatial-operator, variable-mass exchange, and full sector conservation identities remain incomplete/unreviewed.",
+            "Sector-resolved div_T_r is an existing component-accounting observer on the same directional endpoint states; its reconstruction result is measured, not treated as an acceptance threshold.",
             "Centre cells 0/1 are reported separately from fixed physical radii and annuli; no cell-index comparison is presented as a matched-radius comparison.",
             "No evolution is advanced and no initializer, engine, vendor, dependency, or production equation is modified.",
         ],
