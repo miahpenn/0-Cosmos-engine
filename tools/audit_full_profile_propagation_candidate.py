@@ -18,6 +18,7 @@ import hashlib
 import json
 import os
 import platform
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any
@@ -40,6 +41,7 @@ from engine import v55_pirk_adapter as adapter
 from tools import audit_current_source_momentum_constraint_tangent as tangent
 from tools import audit_hybrid_origin_integral_patch_newton as propagation
 from tools import audit_total_stress_energy_divergence as stress_divergence
+from tools import audit_issue4_production_hll_operator_pairing as hll_pairing
 from tools.audit_origin_cell_joint_shadow_one_step import (
     SOURCE_COMMIT,
     VENDOR_COMMIT,
@@ -53,6 +55,7 @@ FULL_DIR = Path(os.environ.get("FULL_PROFILE_ARTIFACT_DIR", f"reference/full/N{R
 OUT = Path(os.environ.get("PROPAGATION_OUT", f"results/full-profile-propagation-N{RESOLUTION}-2026-10-25"))
 EXPECTED_SOURCE = "4aec88d0e3ff028e0a65a8ac36b30948625df792"
 EXPECTED_VENDOR = "d6052d605673ce9d82cdc99b0df79855fa2ea215"
+EXPECTED_HLL_OBSERVER_BLOB = "319667f115a13d8941af7bd3142d97edce76ca4f"
 TARGET_TIME = 0.60
 ARMS = (
     ("production_baseline", "production_baseline", False),
@@ -583,6 +586,98 @@ def operator_pairing_decomposition(
     return report, profile_map
 
 
+def compact_hll_operator_snapshot(state, rates) -> tuple[dict[str, Any], dict[str, np.ndarray]]:
+    """Pair current source-pinned production HLL face/source terms on this saved state."""
+    actual_blob = subprocess.check_output(
+        ["git", "rev-parse", f"HEAD:tools/audit_issue4_production_hll_operator_pairing.py"],
+        cwd=ROOT, text=True
+    ).strip()
+    if actual_blob != EXPECTED_HLL_OBSERVER_BLOB:
+        raise RuntimeError(
+            "HLL diagnostic observer blob changed: "
+            f"expected={EXPECTED_HLL_OBSERVER_BLOB}, actual={actual_blob}"
+        )
+    coupling = float(hll_pairing.BETA_DM_COUPLED)
+    production_coupling = float(hll_pairing.production_kernel_module.BETA_DM)
+    if production_coupling != coupling:
+        raise RuntimeError(
+            "production RHS coupling and HLL source observer coupling differ: "
+            f"{production_coupling} != {coupling}"
+        )
+    before = tangent.state_digest(state)
+    snapshot = hll_pairing.operator_snapshot(state, coupling, rates)
+    after = tangent.state_digest(state)
+    if before != after:
+        raise RuntimeError("HLL operator observer mutated its accepted base state")
+    if not snapshot.get("origin_face_flux_exact_zero", False):
+        raise RuntimeError("production HLL observer failed exact-zero spherical centre face")
+    if not snapshot.get("native_component_arrays_preserved", False):
+        raise RuntimeError("production HLL observer omitted native component arrays")
+
+    species_summary = {}
+    profiles: dict[str, np.ndarray] = {}
+    for name, item in snapshot["species"].items():
+        raw = snapshot["raw_arrays"][name]
+        species_summary[name] = {
+            "origin_face_flux_exact_zero": bool(item["origin_face_flux_exact_zero"]),
+            "hll_minus_projected_stress_momentum_face_flux": item[
+                "hll_momentum_flux_minus_projected_stress_face_flux"
+            ],
+            "geometric_momentum_source_gap_over_kappa": item[
+                "geometric_momentum_source_gap_over_kappa"
+            ],
+            "interaction_momentum_source_gap_over_kappa": item[
+                "interaction_momentum_source_gap_over_kappa"
+            ],
+            "production_rhs_momentum_over_kappa": item[
+                "production_rhs_budget"
+            ]["radial_momentum"],
+            "production_rhs_negative_controls": item["production_rhs_budget"]["negative_controls"],
+        }
+        for raw_key in (
+            "hll_face_flux_momentum_over_kappa",
+            "projected_stress_momentum_face_flux_over_kappa",
+            "hll_minus_projected_momentum_face_flux_over_kappa",
+            "geometric_momentum_source_actual_over_kappa",
+            "geometric_momentum_source_independent_over_kappa",
+            "geometric_momentum_source_gap_over_kappa",
+            "interaction_momentum_source_actual_over_kappa",
+            "interaction_momentum_source_conditional_covariant_over_kappa",
+            "interaction_momentum_source_gap_over_kappa",
+            "production_rhs_momentum_over_kappa",
+        ):
+            profiles[f"hll_{name}_{raw_key}"] = np.asarray(raw[raw_key], dtype=np.float64).copy()
+
+    scalar_summary = snapshot["scalar_sector_projections"]
+    compact = {
+        "observer": "existing audit_issue4_production_hll_operator_pairing.operator_snapshot",
+        "observer_blob": actual_blob,
+        "accepted_state_sha256_before": before,
+        "accepted_state_sha256_after": after,
+        "state_immutable": True,
+        "accepted_time": float(state.t),
+        "zero_shift": bool(snapshot["zero_shift"]),
+        "origin_face_flux_exact_zero_for_all_species": bool(snapshot["origin_face_flux_exact_zero"]),
+        "native_component_arrays_preserved": bool(snapshot["native_component_arrays_preserved"]),
+        "coupling_parameter": coupling,
+        "production_rhs_coupling_parameter": production_coupling,
+        "max_abs_geometric_source_gap_over_kappa": float(
+            snapshot["max_abs_geometric_source_gap_over_kappa"]
+        ),
+        "max_abs_dark_matter_lapse_omission_control_gap_over_kappa": float(
+            snapshot["max_abs_dark_matter_lapse_omission_control_gap_over_kappa"]
+        ),
+        "species": species_summary,
+        "scalar_sector_projection_summaries": scalar_summary,
+        "scope_note": (
+            "This records production fluid HLL face fluxes and source quadrature on the "
+            "same saved accepted state. S/D/phi remain cell-projected scalar sectors, not "
+            "fluid HLL fluxes. Coupling-source interpretation remains conditional."
+        ),
+    }
+    return compact, profiles
+
+
 def main() -> int:
     if RESOLUTION not in (60, 120, 240):
         raise ValueError(f"unsupported resolution {RESOLUTION}")
@@ -615,6 +710,9 @@ def main() -> int:
         FULL_METRIC_LAPSE_SHADOW = bool(uses_regular_lapse)
         kernel, state = reconstruct_state(RESOLUTION, prefix_data, prefix)
         initial_digest = tangent.state_digest(state)
+        hll_snapshot, hll_profiles = compact_hll_operator_snapshot(
+            state, tangent.rhs_direction(kernel, state)
+        )
         tangent.shifted_state = shifted_state_with_matched_lapse
         propagation.shifted_state = shifted_state_with_matched_lapse
 
@@ -636,6 +734,7 @@ def main() -> int:
             "accepted_time": float(state.t),
             "state_digest_sha256": initial_digest,
             "constraint_baseline": report["baseline_constraints"],
+            "production_hll_operator_snapshot": hll_snapshot,
             "epsilon_results": [],
         }
         for item in report["tangent_by_epsilon"]:
@@ -662,11 +761,13 @@ def main() -> int:
                 saved_profiles[
                     f"N{RESOLUTION}_{label}_eps{eps:.0e}_{name}"
                 ] = np.asarray(values, dtype=np.float64).copy()
+        for name, values in hll_profiles.items():
+            saved_profiles[f"N{RESOLUTION}_{label}_{name}"] = np.asarray(values, dtype=np.float64).copy()
         summaries.append(arm_rows)
 
     report_path = OUT / "report.json"
     result = {
-        "schema": "full-profile-accepted-state-propagation-candidate/v3",
+        "schema": "full-profile-accepted-state-propagation-candidate/v4",
         "status": "completed_diagnostic_only",
         "purpose": "Apply the existing convention/index-sensitive propagation candidate and its existing additive sector-resolved total-stress-energy divergence observer to source-pinned accepted t=0.60 states from baseline, partial-joint, and full-continuous-metric arms.",
         "source_pins": {
@@ -697,6 +798,7 @@ def main() -> int:
             "input_artifacts_sha256_verified": True,
             "all_frozen_state_observers_immutable": True,
             "all_reported_profiles_finite": True,
+            "production_hll_operator_snapshots_paired_on_exact_accepted_states": True,
             "full_matter_coupled_propagation_identity_closed": False,
             "matter_source_sign_and_normalization_reviewed": False,
             "reference_metric_connection_coupling_convention_frozen": False,
@@ -709,6 +811,7 @@ def main() -> int:
             "The direct published-covariant-M_r candidate uses matter-inclusive H/M/C with a provisional -8*pi*alpha*Q_r source.",
             "The geometric-vacuum comparator uses H_geom/M_geom and separately compares the actual matter source composite with the independently reconstructed stress-divergence source.",
             "The source-mapping, scalar spatial-operator, variable-mass exchange, and full sector conservation identities remain incomplete/unreviewed.",
+            "Production HLL face/source snapshots are direct observations of the pinned species RHS on the accepted state; they do not by themselves prove total stress-energy conservation or validate the conditional coupling law.",
             "Sector-resolved div_T_r is an existing component-accounting observer on the same directional endpoint states; its reconstruction result is measured, not treated as an acceptance threshold.",
             "Centre cells 0/1 are reported separately from fixed physical radii and annuli; no cell-index comparison is presented as a matched-radius comparison.",
             "No evolution is advanced and no initializer, engine, vendor, dependency, or production equation is modified.",
