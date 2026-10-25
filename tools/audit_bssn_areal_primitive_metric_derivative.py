@@ -157,6 +157,7 @@ def build_primitive_profile(kernel, profile: dict[str, Any]) -> dict[str, Any]:
         "E": finite("Eulerian energy", projected["E"]),
         "j": finite("covariant radial current", projected["j"]),
         "p_r": finite("radial pressure", projected["pr"]),
+        "observer_operands": projected,
         "observer_R": finite("observer R", profile["R"]),
         "observer_Rr": finite("observer Rr", profile["Rr"]),
         "observer_Rt": finite("observer Rt", profile["Rt"]),
@@ -269,7 +270,7 @@ def observer_query(profile: dict[str, Any], primitive: dict[str, Any], R_target:
     if source == "observer_operand":
         # Existing operand audit interpolates the pinned observer's R_r and R_t,
         # rather than differentiating the primitive-metric interpolation.
-        return operand_audit.query_operand(profile, R_target, order)
+        return operand_audit.query_operand(primitive["observer_operands"], R_target, order)
     raise ValueError(f"unknown source {source}")
 
 
@@ -404,8 +405,12 @@ def temporal_arm(kernel, accepted, h: float) -> dict[str, Any]:
     for control in ("observer_composite_cubic", "observer_operand_cubic"):
         base = sampled[control]
         for key in ("chi", "current", "forward_rate", "centered_rate", "forward_residual_avg", "centered_residual_mid", "centered_residual_avg"):
-            a = raw[key][0] if key in ("forward_rate", "centered_rate", "forward_residual_avg", "centered_residual_mid", "centered_residual_avg") else raw[key][0][0]
-            b = base[key][0] if key in ("forward_rate", "centered_rate", "forward_residual_avg", "centered_residual_mid", "centered_residual_avg") else base[key][0][0]
+            if key in ("chi", "current"):
+                a = raw[key][1]
+                b = base[key][1]
+            else:
+                a = raw[key][0]
+                b = base[key][0]
             delta = finite(f"raw cubic minus {control} {key}", a - b)
             annulus = (radii >= 2.0) & (radii <= 10.0)
             direct_comparisons[f"raw_metric_cubic_minus_{control}_{key}"] = {
