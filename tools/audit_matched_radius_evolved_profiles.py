@@ -52,7 +52,7 @@ def load_arm(root:Path,n:int,arm:str)->dict:
  else:
   prefix=f"N{n}_joint_integral_and_cmc_row_final_"
  out={}
- for name in ("r",)+FIELDS:
+ for name in ("r","Aa")+FIELDS:
   key=prefix+name
   if key not in z.files: raise RuntimeError(f"missing {key} in {profiles_path}")
   out[name]=np.asarray(z[key],dtype=np.float64)
@@ -84,11 +84,25 @@ def main()->int:
   "full_continuous_profile":{str(n):metrics(arms["full_continuous_profile"][n]) for n in NS},
   "partial_joint":{str(n):metrics(arms["partial_joint"][n]) for n in NS},
   "fixed_radius_H_full_profile":{},
+  "central_Aa_over_r2":{},
+  "first_offcenter_Aa_over_r2":{},
+  "central_minus_first_offcenter_Aa_over_r2":{},
   "acceptance":{"all_input_hashes_verified":True,"source_vendor_pins_match":True,
     "protected_source_diff_empty":True,"all_profiles_finite":True,
     "production_files_changed":False,"full_matter_coupled_propagation_identity_closed":False,
     "total_stress_energy_conservation_closed":False,"scientific_admission":False}
  }
+ for arm in ("full_continuous_profile","partial_joint"):
+  result["central_Aa_over_r2"][arm]={}
+  result["first_offcenter_Aa_over_r2"][arm]={}
+  result["central_minus_first_offcenter_Aa_over_r2"][arm]={}
+  for n in NS:
+   p=arms[arm][n]
+   centre=float(p["Aa"][0]/(p["r"][0]**2))
+   adjacent=float(p["Aa"][1]/(p["r"][1]**2))
+   result["central_Aa_over_r2"][arm][str(n)]=centre
+   result["first_offcenter_Aa_over_r2"][arm][str(n)]=adjacent
+   result["central_minus_first_offcenter_Aa_over_r2"][arm][str(n)]=centre-adjacent
  for r in (1.0,2.0,3.0,5.0,8.0):
   result["fixed_radius_H_full_profile"][str(int(r))]={str(n):float(np.interp(r,arms["full_continuous_profile"][n]["r"],arms["full_continuous_profile"][n]["profile_H"])) for n in NS}
  OUT.mkdir(parents=True,exist_ok=True)
