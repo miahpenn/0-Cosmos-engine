@@ -272,7 +272,7 @@ def _run(input_dir: Path, resolution: int, output_dir: Path) -> dict:
             },
             "projection_crosscheck_passed": bool(full_total["total"].get("projection_crosscheck_passed", False)),
             "sector_reconstruction": {
-                key: val for key, val in full_total["reconstruction"].items()
+                key: val for key, val in full_total["sector_decomposition"]["reconstruction"].items()
                 if not isinstance(val, (np.ndarray, dict, list))
             },
             "scalar_rhs_reconstruction_passed": bool(scalar_rhs_budget["reconstruction_passed"]),
@@ -315,6 +315,22 @@ def _run(input_dir: Path, resolution: int, output_dir: Path) -> dict:
         raise RuntimeError("input accepted profile state mutated during tangent observation")
     if after_total_t_digest != input_total_t_digest:
         raise RuntimeError("total-T helper observed state mutation")
+
+    recorded_keys = {record["key"] for record in array_records}
+    for key, value in raw_arrays.items():
+        if key in recorded_keys:
+            continue
+        arr = np.ascontiguousarray(np.asarray(value))
+        record = {
+            "key": key,
+            "path": key,
+            "shape": list(arr.shape),
+            "dtype": str(arr.dtype),
+            "sha256": hashlib.sha256(arr.tobytes(order="C")).hexdigest(),
+        }
+        if arr.ndim == 1 and arr.shape == r.shape and arr.dtype.kind in "fiu":
+            record["summary"] = _summary(arr, r)
+        array_records.append(record)
 
     output_dir.mkdir(parents=True, exist_ok=True)
     npz_path = output_dir / "tangent_arrays.npz"
