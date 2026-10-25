@@ -1,0 +1,162 @@
+{
+  "schema": "full-matter-coupled-propagation-convention-map/v1",
+  "status": "documentation_only_convention_inventory",
+  "created_utc_date": "2026-10-25",
+  "branch": "diag/full-matter-coupled-convention-freeze-2026-10-25",
+  "branch_point_diagnostic_sha": "e98b8fa5bd67e9cf023e001e81a6792b5ce469d2",
+  "pr_420_base_sha": "19fbc814a041a7aaf2678c0337a02f02905f40a4",
+  "accepted_state_source_anchor": "4aec88d0e3ff028e0a65a8ac36b30948625df792",
+  "vendor_pin": "d6052d605673ce9d82cdc99b0df79855fa2ea215",
+  "accepted_time": 0.6,
+  "resolutions_with_existing_evidence": [
+    60,
+    120,
+    240
+  ],
+  "scope": {
+    "new_evolution_steps": false,
+    "new_observer_run": false,
+    "production_changes": false,
+    "initializer_changes": false,
+    "vendor_dependency_or_source_pin_changes": false
+  },
+  "conventions": {
+    "brown_candidate_primary_residual": {
+      "status": "resolved_for_candidate_only",
+      "object": "covariant lower-index radial M_r",
+      "connection_object": "contravariant radial C^r",
+      "source": "J. David Brown, BSSN in Spherical Symmetry, arXiv:0705.3845, Eq. 11b",
+      "limitation": "Does not equate M_r with M^r, densitized residuals, or all arrays named M."
+    },
+    "accepted_S_sector_spatial_operator": {
+      "status": "resolved_from_pinned_accepted_update",
+      "form": "L_S=(X^2/a)*(D2(S)+(D1(b)/b-D1(a)/(2a)+2/r-D1(X)/X)*D1(S))",
+      "scalar_momentum_rhs_contribution": "alpha*L_S",
+      "alternatives": "HLL/FV face flux does not define the accepted S-sector update; other stress-divergence forms remain diagnostics."
+    },
+    "physical_stress_divergence_representation": {
+      "status": "unresolved",
+      "candidates": [
+        "pointwise covariant divergence",
+        "cell-integrated/FV divergence",
+        "expanded divergence"
+      ],
+      "note": "Distinct discrete observables; no choice by residual size or fitted closure."
+    },
+    "matter_source_index_density_lapse_normalization": {
+      "status": "unresolved",
+      "provisional_candidate": "-8*pi*alpha*Q_r",
+      "note": "Existing Brown source bridge reconciles signed bookkeeping but does not scientifically admit the source mapping."
+    },
+    "hamiltonian_gradient_normalization": {
+      "status": "brown_vacuum_H_definition_mapped_matter_coupled_identity_unresolved",
+      "brown_H_definition": "H=K^2-K_ij*K^ij+R = R-A_ij*A^ij+(2/3)*K^2 for trace-free A",
+      "repository_candidate_H": "H_metric=R_metric-Aa^2-2*Ab^2+(2/3)*K^2",
+      "brown_candidate_slots": "-(D_r(alpha)/3)*H + (alpha/6)*D_r(H)",
+      "proposal_expression_not_yet_derived": "-D_i(alpha)*H -(alpha/2)*D_i(H)",
+      "key_correction": "The relative coefficient sign differs; uniform H rescaling/sign flip alone cannot reconcile the formulas. Derive the full matter-coupled relation from selected evolution and Einstein/Bianchi conventions.",
+      "required": "Map exact H, M_r, lapse/sign, shift, time-derivative split, and independent matter terms; Brown Eq. 11b is a vacuum structural scaffold."
+    },
+    "reference_metric_connection_coupling": {
+      "status": "structural_candidate_exists_full_mapping_unresolved",
+      "candidate_objects": [
+        "chi=X^2",
+        "C^r=Lambda-Lambda_metric",
+        "D_r^2(C^r)",
+        "D_r(C^r)"
+      ],
+      "note": "Raw Brown connection is translated by Gamma_B^r=Lambda_code-2/(r*b); this gives an algebraic candidate-level C^r residual identity. The complete source-aware propagation/time-split convention is still open. Keep metric-only H/Ricci separate from evolved-Lambda response; do not double-count."
+    },
+    "six_sector_total_stress_energy_exchange": {
+      "status": "unresolved",
+      "sectors": [
+        "S",
+        "D",
+        "COSMOS_phi",
+        "dark_matter",
+        "baryons",
+        "radiation"
+      ],
+      "note": "Sector additivity closes; total conservation/exchange does not. COSMOS-phi normalization premise remains open."
+    },
+    "reference_metric_connection_variable_mapping": {
+      "status": "resolved_for_Brown_candidate_only",
+      "brown_raw_connection_translation": "Gamma_B^r = Lambda_code - 2/(r*b)",
+      "brown_metric_connection": "Gamma_B_metric^r = a'/(2*a^2) - b'/(a*b) - 2/(a*r)",
+      "code_metric_connection": "Lambda_metric = a'/(2*a^2) - b'/(a*b) + 2/r*(1/b - 1/a)",
+      "residual_identity": "C_Brown^r = Gamma_B^r - Gamma_B_metric^r = Lambda_code - Lambda_metric = C_code",
+      "implication": "Brown C^r spatial-derivative terms can use the code's C_code residual, with g_theta_theta=b*r^2 and D_r(log g_theta_theta)=D1(b)/b+2/r.",
+      "limitation": "Algebraic same-state variable/residual mapping only; does not establish the full matter-coupled RHS, time-split equivalence, H-gradient/source law, or total sector conservation."
+    },
+    "archive_locked_dm_phi_exchange": {
+      "status": "sign_pair_locked_with_archive_provenance_conflict; normalization_unresolved",
+      "canonical_source": "GEAR_V5_5_MASTER_CHECKPOINT_2026-10-05.md",
+      "locked_covariant_pair": {
+        "dark_matter": "nabla_mu T_DM^{mu nu} = + beta_DM * rho_DM * nabla^nu(phi)",
+        "cosmos_phi": "nabla_mu T_phi^{mu nu} = - beta_DM * rho_DM * nabla^nu(phi)"
+      },
+      "provenance_debt": "GEAR_V5_5_COVARIANT_GLOBAL_GATE_2026-10-05_v2.md contains an earlier sentence with opposite signs; later explicit locked statement and master checkpoint agree on the pair above.",
+      "accepted_update_shape": {
+        "dark_matter": "covector source components beta_DM*rho_DM*(partial_t(phi),partial_r(phi)) feed conservative Valencia source projection",
+        "cosmos_phi": "Pi_rhs receives alpha*beta_DM*rho_DM",
+        "density_unit": "rho_DM entering source is archive-normalized; Einstein stress projections apply a 1/(8*pi*G) conversion"
+      },
+      "limitation": "The exact conversion between the archive-normalized exchange pair and physical Q_r, including index/lapse/time-split factors in the Brown matter-coupled propagation identity, remains unresolved; source pair additivity alone is not total discrete stress-energy conservation.",
+      "einstein_units_source_mapping": {
+        "status": "derived_for_sector_exchange_pair_only",
+        "kappa": "8*pi*G",
+        "physical_stress_projection": "T_phys = T_archive/kappa",
+        "dark_matter_radial_source": "Q_r_DM_phys = +beta_DM*(rho_DM_archive/kappa)*D_r(phi_stored)",
+        "cosmos_phi_radial_source": "Q_r_phi_phys = -beta_DM*(rho_DM_archive/kappa)*D_r(phi_stored)",
+        "equivalent": "kappa*Q_r_DM_phys = +beta_DM*rho_DM_archive*D_r(phi_stored)",
+        "caveat": "This identifies the sector-exchange scale in stored archive variables. It does not set total Q_r for the combined stress tensor (the sector pair cancels analytically), nor prove that the accepted cell-centred scalar and HLL fluid updates conserve their exchange exactly."
+      }
+    },
+    "matter_inclusive_vs_geometric_brown_operator": {
+      "status": "algebraically_derived_candidate_level",
+      "assumptions": {
+        "H_total": "H_geom - 16*pi*rho",
+        "M_r_total": "M_r_geom - 8*pi*j_r",
+        "connection_residual": "C_total = C_geom = Lambda - Lambda_metric",
+        "units": "G=1"
+      },
+      "expression": "B_total-B_geom = -8*pi*[beta*partial_r(j_r)+(partial_r beta)*j_r+alpha*K*j_r] +(16*pi/3)*(partial_r alpha)*rho -(8*pi/3)*alpha*partial_r(rho)",
+      "interpretation": "The matter-inclusive-minus-geometric Brown operator difference is the exact algebraic combination that tracks DeltaS=S_act-S_Q in the saved #420 accepted-state evidence.",
+      "limitation": "This algebraic identity does not independently derive the covariant matter source term or the exact Q_r index/lapse/time split; total stress-energy conservation and scientific admission remain open."
+    }
+  },
+  "existing_numeric_evidence": {
+    "brown_source_bridge_max_abs_gap_N60_N120_N240": [
+      3.625e-10,
+      3.009e-11,
+      2.015e-12
+    ],
+    "brown_signed_reassembly_closure_max_abs_N60_N120_N240": [
+      5.082197683525802e-21,
+      7.4640066396056e-21,
+      1.062361771797708e-20
+    ],
+    "full_profile_direct_candidate_global_max_abs_N60_N120_N240": [
+      0.000008975190539630025,
+      9.317320844504038e-7,
+      4.133041440376011e-8
+    ],
+    "fixed_r2_observed_orders": [
+      3.874,
+      3.926
+    ],
+    "fixed_r8_observed_orders": [
+      4.028,
+      3.992
+    ],
+    "note": "Existing frozen-state measurements, not a new run or scientific admission."
+  },
+  "admission": {
+    "full_matter_coupled_propagation_identity_closed": false,
+    "matter_source_sign_and_normalization_reviewed": false,
+    "reference_metric_connection_coupling_convention_frozen": false,
+    "total_stress_energy_sector_conservation_closed": false,
+    "scientific_admission": false
+  },
+  "next_gate": "Derive from the covariant Bianchi identities and locked archive stress-energy whether S_Q=-8*pi*alpha*Q_r is the complete source term in the exact lower-index/lapse/derivative/time-split convention; verify source normalization/operator ownership against the existing accepted states; then evaluate the six-sector conservation ledger before choosing any additional observer."
+}
