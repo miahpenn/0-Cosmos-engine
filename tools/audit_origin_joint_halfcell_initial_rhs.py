@@ -197,10 +197,7 @@ def analyze() -> dict:
             "accepted_increment_over_dt": float(delta_over_dt[i]),
         })
 
-    metrics, profiles = evolved.constraint_measure(
-        state.grid, state.geometry, state.scalars, state.matter,
-        state.electromagnetic,
-    )
+    metrics, profiles = evolved._metrics_at_state(state)
     report = {
         "schema": "origin-joint-halfcell-initial-rhs/v1",
         "status": "completed_single_initial_rhs_and_one_step",
