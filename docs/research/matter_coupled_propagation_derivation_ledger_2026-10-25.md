@@ -260,28 +260,41 @@ A further part of the reference-connection path can be resolved directly from th
 = + lambda_m * alpha / a * M_r,total_candidate
 ```
 
-This shows the adapter did not simply omit the matter momentum projection from this particular Lambda-stage momentum-constraint channel: its explicit source term cancels the matter piece implied when the geometry-only constraint is replaced by the candidate matter-inclusive one. It is a source-code algebra identity, not an independent proof that `total["j"]` has the final covariant index/density mapping required by the full Bianchi derivation.
+This proves a source-code identity **within each same-stage call** to the paired vendor/adapter RHS functions. It rules out a simple omission of the matter momentum projection in that Lambda-stage channel. It is not, by itself, a same-state identity for the *accepted step*: `production_kernel.py` advances Lambda with a PIRK combination of start-state `lambda_l2`, a final-primary `lambda_l2`, and `lambda_l3) evaluations from the start and primary-predictor states. Those operands are not all evaluated on one identical state, so their combined accepted-step constraint response must respect that exact split.
 
-The remaining connection obligation is still real. The frozen reference-metric target is independent of X:
+### 10.6 Chain rule for the reference-metric connection target under the accepted CMC metric RHS
+
+The pinned native CMC explicit-metric RHS implementation is `engine/native_geometry/evolution.py`, blob `7b47d700680b12ab3c82cb6a556d40580b103ce9`. Its shared metric core requires `beta=0) for the CMC override and returns:
+
+```text
+a_dot = -2*alpha*a*Aa
+b_dot = -2*alpha*b*Ab = +alpha*b*Aa,  where Ab = -Aa/2
+X_dot = alpha*X*K/3
+```
+
+The frozen reference-metric target uses only a and b; X is absent:
 
 ```text
 Lambda_metric = D_r(a)/(2*a^2) - D_r(b)/(a*b) + 2/r*(1/b - 1/a)
 C^r = Lambda - Lambda_metric
 ```
 
-Because the accepted target is built from a and b only, its formal time chain rule is:
+Substituting the accepted CMC `a_dot` and `b_dot` into the exact chain rule gives the operator expression:
 
 ```text
-partial_t(Lambda_metric)
-  = D_r(a_dot)/(2*a^2) - D_r(a)*a_dot/a^3
-    - D_r(b_dot)/(a*b)
-    + D_r(b)*a_dot/(a^2*b)
-    + D_r(b)*b_dot/(a*b^2)
-    + 2/r*(a_dot/a^2 - b_dot/b^2)
+Lambda_metric_dot
+  = -D_r(alpha*a*Aa)/a^2
+    + 2*alpha*Aa*D_r(a)/a^2
+    - D_r(alpha*b*Aa)/(a*b)
+    - alpha*Aa*D_r(b)/(a*b)
+    - 4*alpha*Aa/(r*a)
+    - 2*alpha*Aa/(r*b)
 
-partial_t(C^r) = partial_t(Lambda) - partial_t(Lambda_metric)
+C_dot^r = Lambda_dot - Lambda_metric_dot
 ```
 
-This is a chain-rule derivation, not a numerical closure result. To obtain the accepted discrete tangent, compute D_r(a_dot) and D_r(b_dot) using the same pinned derivative/parity operators that define D_r(a), D_r(b), and use the actual stage-local CMC explicit RHS for a_dot and b_dot. Then carry this C^r tangent through the selected Brown-vs-accepted time/PIRK split, including the already-known Aa/K matter forcing and the coefficient/sign/operator mapping of each D_r(C^r) and D_r^2(C^r) term. Do not introduce X-dependence into Lambda_metric, and do not infer the missing Mdot_r coefficients by residual fitting.
+Here `D_r` acting on products means the same pinned linear derivative operator applied to the product array; do not replace it with a finite-difference product-rule expansion. This is the exact time derivative of the target's discrete expression at a frozen CMC slice if the same fixed-grid operator is used for both the target and RHS operands. It is a derived operator formula, **not a measured closure result**.
+
+I inspected the existing #420 candidate NPZ inventories: they carry the saved `Mdot), Brown/source terms and six-sector arrays, but do not expose `a_dot`, `b_dot`, or `Lambda_metric_dot` profiles. So the connection tangent cannot currently be evaluated from those bundles alone. The next step is to finish mapping `Lambda_dot` through the accepted PIRK split (including which stage supplies each L2/L3 term) and then decide whether one targeted, RHS-only postprocessor is necessary to emit these missing operands. No evolution or campaign is warranted.
 
 No production/source/vendor/dependency pin or accepted-state artifact changed. All five scientific-admission flags remain false.
