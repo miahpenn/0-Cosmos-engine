@@ -401,7 +401,7 @@ The archive-locked DM–COSMOS-phi exchange pair and the stored-variable unit ma
     "time_split_translation": "open",
     "hamiltonian_gradient_derivation": "brown_candidate_normalization_mapped_accepted_BSSN_translation_open",
     "matter_source_sign_normalization": "continuum_Bianchi_coefficient_derived_discrete_measure_mapping_open",
-    "reference_metric_connection_response": "vendor_Brown_off_constraint_extension_difference_identified_convention_admission_open",
+    "reference_metric_connection_response": "A_a_Ricci_and_Lambda_evolution_extension_differences_derived_convention_admission_open",
     "pointwise_fv_expanded_equivalence": "open",
     "six_sector_total_stress_energy_conservation": "open"
   },
