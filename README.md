@@ -4,14 +4,23 @@ Canonical repository for the coupled GEAR/COSMOS research engine. The goal is a 
 
 ## Start here
 
-1. **[Current engineering status](docs/STATUS.md)** — current production/source anchors, software validation, open scientific-admission gates and evidence provenance.
-2. **[Research workflow](docs/RESEARCH_WORKFLOW.md)** — canonical claim → overlap check → bounded work → exact-head evidence → handoff procedure.
-3. **[SI-agent communications protocol](docs/SI_AGENT_FIRST_READ_COMMS_PROTOCOL.md)** — required onboarding and scalable reading strategy for the long coordination thread.
-4. **[Cross-agent board / comms](https://github.com/miahpenn/0-Cosmos-engine/issues/5)** — ownership claims, current coordination, corrections and durable findings.
-5. **[Production-readiness task board](https://github.com/miahpenn/0-Cosmos-engine/issues/135)** — canonical task inventory, dependencies, PR state and exit criteria.
-6. **[Main-branch governance](https://github.com/miahpenn/0-Cosmos-engine/issues/112)** and [momentum-constraint propagation](https://github.com/miahpenn/0-Cosmos-engine/issues/4) — dedicated blocker threads.
+1. **[Project intent](docs/PROJECT_INTENT.md)** — scientific purpose, scope, working principles and validation boundaries.
+2. **[Current engineering status](docs/STATUS.md)** — current production/source anchors, software validation, open scientific-admission gates and evidence provenance.
+3. **[Research workflow](docs/RESEARCH_WORKFLOW.md)** — canonical claim → overlap check → bounded work → exact-head evidence → handoff procedure.
+4. **[SI-agent communications protocol](docs/SI_AGENT_FIRST_READ_COMMS_PROTOCOL.md)** — required onboarding and scalable reading strategy for the long coordination thread.
+5. **[Cross-agent board / comms](https://github.com/miahpenn/0-Cosmos-engine/issues/5)** — ownership claims, current coordination, corrections and durable findings.
+6. **[Production-readiness task board](https://github.com/miahpenn/0-Cosmos-engine/issues/135)** — canonical task inventory, dependencies, PR state and exit criteria.
+7. **[Main-branch governance](https://github.com/miahpenn/0-Cosmos-engine/issues/112)** and [momentum-constraint propagation](https://github.com/miahpenn/0-Cosmos-engine/issues/4) — dedicated blocker threads.
 
 Use the status document for the verified engineering snapshot; use Issue #135 for task tracking; use Issue #5 for team coordination. Avoid creating parallel status lists or duplicate diagnostics when an existing task/artifact covers the same question.
+
+## Project intent
+
+Cosmos Engine is being developed as a high-fidelity numerical laboratory for the coupled dynamical evolution of spacetime and multi-sector matter under general relativity. The aim is not only to evolve fields, but to keep geometry, constraints and stress-energy consistent with one another as the system evolves.
+
+The engine is being developed around a reference-metric BSSN formulation in spherical symmetry coupled to multi-sector matter sources. The key continuum identities—especially matter-coupled momentum-constraint propagation, Hamiltonian-constraint propagation and control, reference-metric connection response, and total stress-energy/sector-exchange balance—must be derived from the accepted equations, frozen under explicit conventions, and subjected to diagnostic verification.
+
+Implementation progress, diagnostic closure, and scientific validation are tracked separately. The presence of an implemented evolution or diagnostic pathway does not by itself establish that the corresponding continuum identity or conservation law has been verified. See [the full project-intent statement](docs/PROJECT_INTENT.md) and [current status](docs/STATUS.md).
 
 ## Physics and evidence guardrails
 
@@ -20,7 +29,7 @@ Use the status document for the verified engineering snapshot; use Issue #135 fo
 - The exact spherical branch does not by itself represent the archive's full Bianchi-I shear.
 - Keep production physics, diagnostics, test harnesses and campaign orchestration separate.
 - A green unit suite, symbolic identity, frozen-state counterfactual or short smoke does not establish trajectory stability or scientific admission.
-- Pin every result to the exact source SHA, workflow and artifact. Preserve negative results and update the shared board when evidence is superseded.
+- Pin every result to the exact source SHA, workflow and artifact. A hash establishes identity, not scientific correctness or reproducibility by itself. Preserve negative results and update the shared board when evidence is superseded.
 
 ## Code map
 
@@ -56,3 +65,7 @@ Historical/reference modules remain for provenance; consult the status and test 
 - Inspect existing PR discussions, checks and artifacts before re-running tests.
 - Run the applicable exact-head checks after the final change. Do not report a workflow as passing if it did not run on that SHA.
 - Update Issue #135 and the relevant shared thread with result, limits and the next gate.
+
+## License
+
+No license has been specified in this repository. Contact the repository owner regarding licensing and reuse permissions.
