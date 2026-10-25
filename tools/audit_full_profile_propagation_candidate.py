@@ -547,7 +547,7 @@ def operator_pairing_decomposition(
         return {
             "cell0_cell1": [float(arr[0]), float(arr[1])],
             "max_abs_r_le_3": float(np.max(np.abs(arr[centre]))),
-            "rms_r_2_to_10": float(np.sqrt(np.mean(arr[annulus]**2)),
+            "rms_r_2_to_10": float(np.sqrt(np.mean(arr[annulus]**2))),
             "rms_full_domain": float(np.sqrt(np.mean(arr**2))),
             "at_fixed_r": {
                 str(q): float(np.interp(q, r, arr))
