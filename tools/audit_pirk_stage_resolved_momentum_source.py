@@ -216,19 +216,18 @@ def _verify_bundle(input_dir: Path, resolution: int) -> tuple[dict, dict[str, np
 
 
 def _restore_profile_state(
-    kernel: V55ProductionKernel, profile_arrays: dict[str, np.ndarray], resolution: int
+    profile_arrays: dict[str, np.ndarray], resolution: int
 ) -> ProductionState:
     prefix = f"N{resolution}_full_continuous_metric_profile_final_"
-    template = kernel.initialize(
-        resolution=resolution, r_max=R_MAX, amplitude=0.01, width=7.0,
-        D_amplitude=1.0e-10, include_radiation=True,
-    )
-    geom = template.geometry.copy()
+    grid_ops, vacuum, _ = adapter.vendor_modules()
+    grid = grid_ops.SphericalCellGrid(resolution, R_MAX)
+    geometry_values = {}
     for name in GEOMETRY_FIELDS:
         values = _arr(profile_arrays[prefix + name])
-        if values.shape != template.grid.centers.shape:
-            raise ValueError(f"saved geometry field {name} has an unexpected shape")
-        setattr(geom, name, values.copy())
+        if values.shape != grid.centers.shape or not np.all(np.isfinite(values)):
+            raise ValueError(f"saved geometry field {name} has an unexpected shape or non-finite value")
+        geometry_values[name] = values.copy()
+    geometry = vacuum.VacuumState(**geometry_values)
     scalars = ScalarFields(*(
         _arr(profile_arrays[prefix + name]).copy() for name in SCALAR_FIELDS
     ))
@@ -245,8 +244,8 @@ def _restore_profile_state(
         charged_dust=None,
     )
     state = ProductionState(
-        grid=template.grid,
-        geometry=geom,
+        grid=grid,
+        geometry=geometry,
         scalars=scalars,
         matter=matter,
         t=float(np.asarray(profile_arrays[prefix + "t"]).item()),
@@ -330,7 +329,7 @@ def _raw_bound(*operands: np.ndarray, factor: float = 512.0) -> np.ndarray:
     return factor * EPS * np.maximum(scale, np.finfo(np.float64).tiny)
 
 
-def _capture_step(state: ProductionState, resolution: int, dt: float, out_dir: Path) -> dict:
+def _capture_step(state: ProductionState, resolution: int, dt: float, out_dir: Path, report_bundle: dict) -> dict:
     if state.electromagnetic is not None or state.matter.charged_dust is not None:
         raise RuntimeError("this bounded capture is defined only for the archived EM-free six-sector state")
     kernel = V55ProductionKernel()
@@ -571,6 +570,11 @@ def _capture_step(state: ProductionState, resolution: int, dt: float, out_dir: P
             "stage_arrays": source_report,
             "accepted_split_source_combo": _region_summary(finite_step_source_combo, r),
             "same_stage_pair_counterfactual": _region_summary(same_stage_start_pair, r),
+            "final_primary_L2": {
+                "M_r_geometry": _region_summary(m_geom_f, r),
+                "alpha_over_a": _region_summary(alpha_over_a_f, r),
+                "lambda_l2": _region_summary(l2_f, r),
+            },
             "warning": "the accepted PIRK split samples final L2 at the final-primary mixed state and matter L3 at the primary predictor; their second-stage source operands are not interchangeable",
         },
         "closure": {
@@ -626,8 +630,7 @@ def main() -> int:
     out_dir = Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     report, arrays, report_bundle = _verify_bundle(input_dir, args.resolution)
-    kernel = V55ProductionKernel()
-    state = _restore_profile_state(kernel, arrays, args.resolution)
+    state = _restore_profile_state(arrays, args.resolution)
     dt = CFL * R_MAX / args.resolution
     original_dt = float(report["runs"][0]["dt"])
     if not math.isclose(dt, original_dt, rel_tol=0.0, abs_tol=1e-12):
@@ -635,7 +638,7 @@ def main() -> int:
         # new dt explicitly rather than confusing it with the last historical step.
         if not math.isclose(original_dt, CFL * R_MAX / args.resolution, rel_tol=0.0, abs_tol=1e-12):
             raise RuntimeError("input trajectory timestep does not match the pinned CFL/dr rule")
-    result = _capture_step(state, args.resolution, dt, out_dir)
+    result = _capture_step(state, args.resolution, dt, out_dir, report_bundle)
     print(json.dumps({
         "resolution": args.resolution,
         "input_time": result["input_artifact"]["input_time"],
