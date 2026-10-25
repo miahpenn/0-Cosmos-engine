@@ -1,6 +1,11 @@
 name: Diagnostic - corrected origin half-cell closure full evolution
 
 on:
+  push:
+    branches: [diag/origin-full-continuous-metric-evolved-2026-10-24]
+    paths:
+      - tools/audit_origin_cell_joint_shadow_evolved.py
+      - .github/workflows/origin-cell-joint-shadow-evolved.yml
   pull_request:
     branches: [main]
     types: [opened, synchronize, reopened, ready_for_review]
@@ -29,8 +34,9 @@ jobs:
       SOURCE_COMMIT: "4aec88d0e3ff028e0a65a8ac36b30948625df792"
       VENDOR_COMMIT: "d6052d605673ce9d82cdc99b0df79855fa2ea215"
       ORIGIN_EVOLUTION_RESOLUTION: ${{ matrix.resolution }}
+      ORIGIN_EVOLUTION_ARMS: full_continuous_metric_profile
       BASELINE_ARTIFACT_DIR: baseline-reference/N${{ matrix.resolution }}
-      ORIGIN_EVOLUTION_OUT: results/origin-cell-joint-shadow-evolved-N${{ matrix.resolution }}-t0.6-2026-10-24
+      ORIGIN_EVOLUTION_OUT: results/origin-full-continuous-metric-evolved-N${{ matrix.resolution }}-t0.6-2026-10-24
     steps:
       - name: Check out diagnostic branch and pinned vendor
         uses: actions/checkout@v4
@@ -77,14 +83,14 @@ jobs:
       - name: Compile diagnostic observer
         run: python -m py_compile tools/audit_origin_cell_joint_shadow_one_step.py tools/audit_origin_cell_joint_shadow_evolved.py
 
-      - name: Evolve four diagnostic arms through accepted t=0.60
+      - name: Evolve only the full continuous-metric shadow through accepted t=0.60
         run: python tools/audit_origin_cell_joint_shadow_evolved.py
 
       - name: Upload full-state, residual-history and comparison report
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: origin-cell-joint-shadow-evolved-N${{ matrix.resolution }}-t0.6-2026-10-24
-          path: results/origin-cell-joint-shadow-evolved-N${{ matrix.resolution }}-t0.6-2026-10-24/
+          name: origin-full-continuous-metric-evolved-N${{ matrix.resolution }}-t0.6-2026-10-24
+          path: results/origin-full-continuous-metric-evolved-N${{ matrix.resolution }}-t0.6-2026-10-24/
           if-no-files-found: warn
           retention-days: 90
