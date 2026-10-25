@@ -87,6 +87,21 @@
       "residual_identity": "C_Brown^r = Gamma_B^r - Gamma_B_metric^r = Lambda_code - Lambda_metric = C_code",
       "implication": "Brown C^r spatial-derivative terms can use the code's C_code residual, with g_theta_theta=b*r^2 and D_r(log g_theta_theta)=D1(b)/b+2/r.",
       "limitation": "Algebraic same-state variable/residual mapping only; does not establish the full matter-coupled RHS, time-split equivalence, H-gradient/source law, or total sector conservation."
+    },
+    "archive_locked_dm_phi_exchange": {
+      "status": "sign_pair_locked_with_archive_provenance_conflict; normalization_unresolved",
+      "canonical_source": "GEAR_V5_5_MASTER_CHECKPOINT_2026-10-05.md",
+      "locked_covariant_pair": {
+        "dark_matter": "nabla_mu T_DM^{mu nu} = + beta_DM * rho_DM * nabla^nu(phi)",
+        "cosmos_phi": "nabla_mu T_phi^{mu nu} = - beta_DM * rho_DM * nabla^nu(phi)"
+      },
+      "provenance_debt": "GEAR_V5_5_COVARIANT_GLOBAL_GATE_2026-10-05_v2.md contains an earlier sentence with opposite signs; later explicit locked statement and master checkpoint agree on the pair above.",
+      "accepted_update_shape": {
+        "dark_matter": "covector source components beta_DM*rho_DM*(partial_t(phi),partial_r(phi)) feed conservative Valencia source projection",
+        "cosmos_phi": "Pi_rhs receives alpha*beta_DM*rho_DM",
+        "density_unit": "rho_DM entering source is archive-normalized; Einstein stress projections apply a 1/(8*pi*G) conversion"
+      },
+      "limitation": "The exact conversion between the archive-normalized exchange pair and physical Q_r, including index/lapse/time-split factors in the Brown matter-coupled propagation identity, remains unresolved; source pair additivity alone is not total discrete stress-energy conservation."
     }
   },
   "existing_numeric_evidence": {
