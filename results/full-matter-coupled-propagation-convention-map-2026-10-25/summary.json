@@ -101,7 +101,16 @@
         "cosmos_phi": "Pi_rhs receives alpha*beta_DM*rho_DM",
         "density_unit": "rho_DM entering source is archive-normalized; Einstein stress projections apply a 1/(8*pi*G) conversion"
       },
-      "limitation": "The exact conversion between the archive-normalized exchange pair and physical Q_r, including index/lapse/time-split factors in the Brown matter-coupled propagation identity, remains unresolved; source pair additivity alone is not total discrete stress-energy conservation."
+      "limitation": "The exact conversion between the archive-normalized exchange pair and physical Q_r, including index/lapse/time-split factors in the Brown matter-coupled propagation identity, remains unresolved; source pair additivity alone is not total discrete stress-energy conservation.",
+      "einstein_units_source_mapping": {
+        "status": "derived_for_sector_exchange_pair_only",
+        "kappa": "8*pi*G",
+        "physical_stress_projection": "T_phys = T_archive/kappa",
+        "dark_matter_radial_source": "Q_r_DM_phys = +beta_DM*(rho_DM_archive/kappa)*D_r(phi_stored)",
+        "cosmos_phi_radial_source": "Q_r_phi_phys = -beta_DM*(rho_DM_archive/kappa)*D_r(phi_stored)",
+        "equivalent": "kappa*Q_r_DM_phys = +beta_DM*rho_DM_archive*D_r(phi_stored)",
+        "caveat": "This identifies the sector-exchange scale in stored archive variables. It does not set total Q_r for the combined stress tensor (the sector pair cancels analytically), nor prove that the accepted cell-centred scalar and HLL fluid updates conserve their exchange exactly."
+      }
     }
   },
   "existing_numeric_evidence": {
