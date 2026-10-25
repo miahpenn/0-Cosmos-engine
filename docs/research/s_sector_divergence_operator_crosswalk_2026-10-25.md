@@ -285,3 +285,76 @@ The input artifact SHA manifests were verified in each run. Frozen production so
 The next pass should decompose the **accepted-base geometric** residual using the Brown terms in one fixed covariant convention and compare each signed contribution to the measured geometric \(\dot M_r^{geom}\) tangent: \(\alpha K M_r\), \(-D_r\alpha H/3\), \(\alpha D_r H/6\), the two reference-connection terms, and the exact discrete chain-rule pieces. Keep the actual matter-source composite separate from that geometric budget. The same-base lapse endpoint test is complete; do not rerun it or tune a lapse parameter.
 
 **Disposition:** diagnostic only; no evolution rerun; production equations, vendor sources, and dependencies unchanged; `scientific_admission=false`.
+
+
+## 12. Signed geometric Brown term accounting — 2026-10-25
+
+**Status:** diagnostic-only reassembly on the existing SHA-verified accepted states. No evolution was rerun. The observer-only report addition is in [commit 6f0e7e254be83e03c4f81138b7c210450258a99e](https://github.com/miahpenn/0-Cosmos-engine/commit/6f0e7e254be83e03c4f81138b7c210450258a99e). Exact-head workflow [40218549760](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/40218549760) passed N=60/120/240.
+
+The pinned source anchor remains `4aec88d0e3ff028e0a65a8ac36b30948625df792`; vendor remains `d6052d605673ce9d82cdc99b0df79855fa2ea215`. The observer verifies the input artifact manifests, frozen-state immutability, finite profiles, and the protected source/vendor/dependency diff. No production source, initializer, vendor, dependency, or physics convention was changed.
+
+### Definition and accounting check
+
+The measured geometric tangent is separated before comparison:
+
+```text
+G_measured = measured Mgeom_dot - explicit Aa/K matter-injection contribution
+B_geom = shift + alpha*K*Mgeom
+         - (D_r alpha)*Hgeom/3 + alpha*(D_r Hgeom)/6
+         + reference-connection-second + reference-connection-first
+R_geom = G_measured - B_geom
+```
+
+On these accepted CMC states the shift-transport term is zero. The report now emits every signed term at native cells 0–2 and at matched coordinate radii r=2, 5, 8, while retaining the exact discrete chain-rule residual and matter-source mapping remainder as separate ledger entries.
+
+The saved arrays reconstruct `B_geom` with maximum absolute sum gap **0** at all three resolutions and both directional epsilons (2e-5 and 1e-5); the independently recorded reconstruction-gap profile also matches with maximum absolute difference **0**. The configured fail-closed bound is (1.14\times10^{-13}). This is a profile serialization/arithmetic-accounting check—the candidate source itself is defined as the same signed sum—not evidence that the full continuum propagation identity is correct.
+
+The discrete chain-rule residual remains small (maximum absolute value over the three arms and two epsilons is between (1.2\times10^{-13}) and (1.2\times10^{-12}), depending on resolution/arm). Halving the directional epsilon changes the tracked Brown-source, non-matter-tangent, residual, and connection-term profiles by at most about (1.3\times10^{-12}). The central discrepancy is therefore not explained by a finite-difference epsilon artifact.
+
+### Production-baseline origin-cell ledger
+
+The origin cell is at (r=40/N); do not interpret these values as a fixed-coordinate convergence sequence. Values below are the actual saved signed terms.
+
+| N | cell-0 r | \(\alpha K M_{geom}\) | \(-D_r\alpha H_{geom}/3\) | \(\alpha D_r H_{geom}/6\) | connection second | connection first | Brown term sum | measured non-matter \(\dot M_{geom}\) | measured minus Brown |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 60 | 0.667 | -2.158e-5 | +1.163e-8 | -1.044e-4 | -1.660e-3 | +1.278e-3 | -5.082e-4 | -9.686e-4 | -4.604e-4 |
+| 120 | 0.333 | +1.835e-5 | +5.582e-9 | -2.915e-5 | -4.747e-3 | +2.501e-3 | -2.256e-3 | -9.806e-3 | -7.550e-3 |
+| 240 | 0.167 | +1.154e-5 | +1.878e-8 | -5.494e-3 | +1.700e-2 | -2.712e-2 | -1.560e-2 | +1.689e-2 | +3.249e-2 |
+
+The two signed connection terms are individually large and strongly cancel. At N=240 the H-gradient term is also large; the full residual cannot be assigned to one connection term from this table. The measured-minus-Brown residual changes sign and grows under refinement, while the separate source-mapping remainder is smaller on these origin cells. This is evidence of a central geometric/connection or regular-origin construction problem in the production-baseline arm, not identification of a single wrong term.
+
+### Matched-coordinate comparison
+
+All entries are measured-minus-Brown residuals. The coordinate r=2 is a cell centre at each of N=60/120/240; it is not an origin-cell sequence.
+
+| Arm | r=2, N=60 | r=2, N=120 | r=2, N=240 |
+|---|---:|---:|---:|
+| production baseline | -5.088e-4 | +2.526e-4 | -6.914e-5 |
+| partial joint | +9.836e-5 | -3.848e-5 | +1.670e-6 |
+| full continuous profile | +8.975e-6 | +6.122e-7 | +4.029e-8 |
+
+The full-continuous-profile arm retains approximately fourth-order absolute decrease at r=2. The production-baseline r=2 sequence remains sign-changing and non-monotonic. At r=5, the baseline residual changes from -4.154e-5 (N=60) to -1.759e-8 (N=120) and +5.462e-9 (N=240); at r=8 it decreases from -1.719e-6 to -7.688e-8 to -5.547e-9. This supports a near-centre localization, while the production-baseline r=2 witness is still unresolved.
+
+The separate source-mapping remainder at r=2 stays around (5.8\times10^{-5}) across arms/resolutions. It must not be equated with `R_geom` or substituted into the geometric Brown budget. The same-base endpoint lapse-path test in Section 11 remains a negative control: despite a nonzero lapse-rate change, all tracked Brown/connection/source/chain-rule profiles have exactly zero delta between lapse paths.
+
+### Reproducibility and disposition
+
+Accepted production-baseline state digests are unchanged from Section 11:
+
+| N | accepted-state SHA-256 |
+|---:|---|
+| 60 | `46948673bfb78ee03ce17ab6a854823f107f81871b971f2b5d065df4b4ea25d7` |
+| 120 | `88e97b0c57c7177079fc7a75c50d3517034e8780b1e6b127a8d114afc4ee7c1c` |
+| 240 | `fea489afccc1d86cb9a6220c519c94fd3ca5576eda8bca651cd496cf66bdd480` |
+
+Artifact `report.json / profiles.npz` SHA-256:
+
+| N | report.json | profiles.npz |
+|---:|---|---|
+| 60 | `b0251c8caf79f74c9b3105f3346de9b97bb4603b4ba5ede039b2e0c02b496b0b` | `dc55a6876c19acd498e6096215896c65faec4e3bed937331e84e610429a85ffd` |
+| 120 | `639cfd7d8bb1ef32aa7b3ce5b56401840ddd7cb813874c2c5bfb6fa6f7571b14` | `1a34088e870fe443bd3a00905b0b4302596479c556eaeea52833b4f598fa9cda` |
+| 240 | `e35aff78341efedf271f9b981029f21d01fceebb020cbde75e482c7813eb62bf` | `e9b15827c49e2c0aedbc450aeba324967abb5d7e5b5bdd2f50197562c5a1febf` |
+
+**Next discriminator:** do not repeat the lapse-path test or tune/drop individual terms. Freeze the reference-metric connection convention and origin-limit form, then derive/compare the convention-pinned coupled propagation identity against the exact accepted-state tangent, retaining cells 0–2 separately from fixed-r samples. Keep matter-source sign/normalization, total-sector conservation, and scientific admission open.
+
+**Disposition:** diagnostic only; `full_matter_coupled_propagation_identity_closed=false`, `total_stress_energy_sector_conservation_closed=false`, `scientific_admission=false`.
