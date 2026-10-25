@@ -91,6 +91,33 @@ The following is a *source inspection*, not a new evolution and not a closure re
 
 **Best next bounded discriminator:** reassemble the matter-corrected \(M_r\) directional tangent from the already pinned accepted-state arrays, separating (i) derivatives of the \(\dot A_a,\dot K\) rates, (ii) time variation of metric coefficients in \(M_r^{\mathrm{geom}}\), (iii) \(-8\pi\dot j_{\mathrm{total}}\), (iv) the independent Hamiltonian-gradient and connection-constraint prediction, and (v) sector-exchange/divergence terms. Compare signed terms on the same saved states and report centre cells separately from fixed-radius/annular witnesses. No new trajectory is needed unless this reassembly exposes a specific missing operand.
 
+
+## Existing accepted-state artifact cross-check — no rerun
+
+Read-only analysis of the three existing artifacts from [workflow run 40207821733](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/40207821733) was performed with report and profile hashes checked against each archive manifest. The t=0.60 accepted-state snapshots were reused unchanged.
+
+| Resolution | Profile artifact SHA-256 | Direct covariant \(M_r\) candidate residual at fixed \(r=2\) | At fixed \(r=8\) |
+|---:|---|---:|---:|
+| 60 | \`6aade0ced9ce41e472a491f620782b3569926c1193f0b2d17220bcd60414dd4f\` | \(+8.9752\times10^{-6}\) | \(-1.1941\times10^{-6}\) |
+| 120 | \`84a0f7c8c37a6fbc57e8106b16aeba583813133649f61f400238d579a245b84f\` | \(+6.1218\times10^{-7}\) | \(-7.3282\times10^{-8}\) |
+| 240 | \`b0ddbacbc0803c3c07bc28d3d14e3a45a9e23275224f0ba8d5913023c088b4be\` | \(+4.0296\times10^{-8}\) | \(-4.5908\times10^{-9}\) |
+
+These are fixed **coordinate** radii. The absolute residual decreases at approximately fourth order: observed orders \(3.87,3.93\) at \(r=2\), and \(4.03,4.00\) at \(r=8\). This is consistent with a high-order discrete-truncation trend, but is not proof that the continuum source/index mapping is correct. The N=240 relative RMS residual remains \(0.657\) over the full domain and \(0.818\) for \(r\geq5\), so the candidate is not accepted as closed.
+
+### What the large source-mapping residual does—and does not—say
+
+The accepted-state decomposition reports the “actual matter source composite” as the explicit matter injection into the geometric momentum tangent minus \(8\pi\dot j_{\mathrm{total}}\). That object is **not automatically the same isolated term** as the provisional \(-8\pi\alpha Q_r\) divergence contribution: the complete propagation identity also contains matter-corrected Hamiltonian/momentum operands, connection terms, index/time-operator conversion, and the corresponding convention-specific coefficients.
+
+At \(r=2\), the geometric Brown vacuum candidate and actual matter composite nearly cancel:
+- N=60: \(-5.7350\times10^{-5} + 5.8301\times10^{-5} \approx 9.51\times10^{-7}\).
+- N=120: \(-5.7744\times10^{-5} + 5.7812\times10^{-5} \approx 6.80\times10^{-8}\).
+- N=240: \(-5.8347\times10^{-5} + 5.8351\times10^{-5} \approx 4.92\times10^{-9}\).
+
+Meanwhile the independently measured-minus-predicted residual remains larger than those sums (values in the table above). So the right conclusion is **not** “the large source-mapping residual proves conservation is broken.” It identifies a mapping that has not yet been justified as an independent physical law; the full signed propagation equation and its operand conventions still need to be derived and compared as a whole.
+
+For cross-checking bookkeeping only, the exact discrete \(M_r^{\mathrm{geom}}\) chain-rule maximum error is \(1.87\times10^{-13}\), \(1.12\times10^{-12}\), and \(7.13\times10^{-13}\) at N=60/120/240. The decomposition of the total tangent as \(\dot M_r^{\mathrm{geom}}-8\pi\dot j_{\mathrm{total}}\) closes to \(1.55\times10^{-16}\), \(3.84\times10^{-16}\), and \(5.22\times10^{-16}\). Those are strong implementation-bookkeeping checks, not continuum conservation or 0* admission.
+
+
 ## Immediate research disposition
 
 The highest-value next step is **not** another broad paper search or a new evolution. It is an equation-by-equation mapping of Sarbach–Tiglio Eqs. (4.73)–(4.76) onto the pinned engine formulation, with Brown's reference-metric conventions used to resolve notation. Then compare that prediction against the existing accepted-state signed tangent and the already-recorded scalar/matter source budgets.
