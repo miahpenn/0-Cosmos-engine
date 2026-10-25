@@ -1084,6 +1084,7 @@ def compact_sector_expanded_divergence_pairing(
     epsilon: float,
     candidate_raw: dict[str, np.ndarray],
     sector_profiles: dict[str, np.ndarray],
+    sector_source_profiles: dict[str, np.ndarray],
 ) -> tuple[dict[str, Any], dict[str, np.ndarray]]:
     """Build expanded Q_r separately by sector and pair it with both observers.
 
@@ -1202,7 +1203,7 @@ def compact_sector_expanded_divergence_pairing(
         expected_key = f"sector_{raw_sector}_archive_expected_exchange_Qr"
         expected = finite(
             f"{name} archived exchange comparator",
-            sector_profiles.get(expected_key, np.zeros_like(r)),
+            sector_source_profiles.get(expected_key, np.zeros_like(r)),
         )
         point_gap = finite(f"{name} pointwise-minus-expanded gap", pointwise - expanded)
         fv_gap = finite(f"{name} FV-minus-expanded gap", fv - expanded)
@@ -1564,7 +1565,7 @@ def main() -> int:
                 float(hll_snapshot["coupling_parameter"])
             )
             sector_operator_report, sector_operator_profiles = compact_sector_expanded_divergence_pairing(
-                state, rates, eps, raw[eps], sector_profiles
+                state, rates, eps, raw[eps], sector_profiles, sector_source_profiles
             )
             compact["sector_resolved_stress_energy_divergence"] = sector_report
             compact["pointwise_vs_expanded_Qr_discrete_gap_decomposition"] = operator_report
