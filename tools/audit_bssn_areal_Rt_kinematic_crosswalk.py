@@ -132,6 +132,7 @@ def enrich_kinematic_profile(kernel, profile: dict[str, Any]) -> dict[str, Any]:
     if not np.allclose(F_metric, profile["rhs"], rtol=1e-10, atol=1e-10):
         raise RuntimeError("metric-RHS current reconstruction failed native-grid cross-check")
     return {
+        "R": R.copy(),
         "profile": profile,
         "R_t_metric": Rt_metric,
         "R_t_extrinsic": Rt_extrinsic,
