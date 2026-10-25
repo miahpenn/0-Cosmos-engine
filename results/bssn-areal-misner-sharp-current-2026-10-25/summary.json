@@ -133,11 +133,74 @@
       "N60": 3.21e-14,
       "N120": 8.85e-14,
       "N240": 1.75e-13
-    }
+    },
+    "mass_rate_component_split_closure_max_abs": 1.75e-13
   },
   "corrected_method": {
     "fixed_R_rate": "m_dot|R = -0.5*R*Delta(chi)|R/dt after interpolating chi to common areal radii",
     "preliminary_method": "Directly interpolated m_MS endpoint profiles are retained only as a separate interpolation-gap diagnostic; not the primary rate",
     "mass_interpolation_gap": "difference between linearly interpolated m_MS and R*(1-chi_interpolated)/2 at fixed R"
+  },
+  "N240_dt0p005_component_split": {
+    "1": {
+      "mass_rate_spatial_metric": 0.00002197984798705936,
+      "mass_rate_time_shift_norm": -1.3143201583243548e-7,
+      "current_energy_motion": -0.000004106870894981077,
+      "current_radial_current": 0.000025993803124730782,
+      "current_mixed_current": 9.813370340650044e-10,
+      "current_pressure_motion": 0.0000010544850037244725,
+      "current_rhs": 0.00002294239857050824,
+      "residual": -0.000001093982602476514
+    },
+    "2": {
+      "mass_rate_spatial_metric": 0.00015194535695483153,
+      "mass_rate_time_shift_norm": -0.0000013714904316093443,
+      "current_energy_motion": -0.000027618400327234323,
+      "current_radial_current": 0.00017274296972119766,
+      "current_mixed_current": 2.2962740315642363e-8,
+      "current_pressure_motion": 0.000007215664118924447,
+      "current_rhs": 0.00015236319625320344,
+      "residual": -0.000001789329721950354
+    },
+    "3": {
+      "mass_rate_spatial_metric": 0.0004163390099088307,
+      "mass_rate_time_shift_norm": -0.000006033290064122939,
+      "current_energy_motion": -0.00007653062560073452,
+      "current_radial_current": 0.00046787246247427896,
+      "current_mixed_current": 1.357392814243155e-7,
+      "current_pressure_motion": 0.00002059837912145155,
+      "current_rhs": 0.0004120759552764203,
+      "residual": -0.0000017702354042862576
+    },
+    "5": {
+      "mass_rate_spatial_metric": 0.0010062138438163709,
+      "mass_rate_time_shift_norm": -0.00003913010968120779,
+      "current_energy_motion": -0.0002007040013592417,
+      "current_radial_current": 0.0011064702304041483,
+      "current_mixed_current": 8.739396562829261e-7,
+      "current_pressure_motion": 0.0000600394160830084,
+      "current_rhs": 0.000966679584784797,
+      "residual": 4.0414933816191867e-7
+    },
+    "8": {
+      "mass_rate_spatial_metric": 0.0008946023190495167,
+      "mass_rate_time_shift_norm": -0.0001625349109208677,
+      "current_energy_motion": -0.0002815693985065646,
+      "current_radial_current": 0.0008941560189529384,
+      "current_mixed_current": 0.0000018045410051015972,
+      "current_pressure_motion": 0.00011527907204764295,
+      "current_rhs": 0.000729670233501685,
+      "residual": 0.000002397174569073834
+    },
+    "10": {
+      "mass_rate_spatial_metric": 0.0004918933557140904,
+      "mass_rate_time_shift_norm": -0.0002658832220887075,
+      "current_energy_motion": -0.0003367301677123334,
+      "current_radial_current": 0.0003898137982834307,
+      "current_mixed_current": 0.0000012345762773430892,
+      "current_pressure_motion": 0.00017106897119895467,
+      "current_rhs": 0.0002253871780473944,
+      "residual": 6.229555608395295e-7
+    }
   }
 }
