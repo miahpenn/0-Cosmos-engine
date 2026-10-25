@@ -44,6 +44,18 @@ def finite(name,arr):
  if not np.all(np.isfinite(a)):raise RuntimeError(f"{name} contains non-finite values")
  return a
 
+def interp4(radius,coords,values):
+ x=float(radius);xs=finite("interpolation coordinates",coords);ys=finite("interpolation values",values)
+ if xs.size<4 or ys.shape!=xs.shape or np.any(np.diff(xs)<=0) or x<xs[0] or x>xs[-1]:
+  raise RuntimeError("cubic interpolation requires four monotone in-range samples")
+ idx=int(np.searchsorted(xs,x))
+ start=min(max(idx-2,0),xs.size-4)
+ nodes=xs[start:start+4];weights=np.ones(4,dtype=np.float64)
+ for k in range(4):
+  for ell in range(4):
+   if ell!=k:weights[k]*=(x-nodes[ell])/(nodes[k]-nodes[ell])
+ return float(weights@ys[start:start+4])
+
 def clone_state(s):
  return type(s)(
   grid=s.grid,geometry=s.geometry.copy(),scalars=s.scalars.copy(),matter=s.matter.copy(),
@@ -309,6 +321,26 @@ def compare_step(kernel,base,dt):
  metric_chi_cell_flux_shells=make_face_shells("chi_face","F_face_cellcentered")
  cell_chi_primitive_flux_shells=make_face_shells("chi_face_cellcentered","F_face")
  cell_chi_cell_flux_shells=make_face_shells("chi_face_cellcentered","F_face_cellcentered")
+ def endpoint_cell_cubic(radius,profile):
+  chi_r=interp4(radius,profile["R"],profile["chi"])
+  return {"mass":0.5*radius*(1.0-chi_r),"flux":interp4(radius,profile["R"],profile["rhs"])}
+ def endpoint_face_cubic(radius,profile):
+  chi_r=interp4(radius,profile["R_face"],profile["chi_face"])
+  return {"mass":0.5*radius*(1.0-chi_r),"flux":interp4(radius,profile["R_face"],profile["F_face"])}
+ def make_cubic_shells(endpoint_fn):
+  fixed_c={r:{"start":endpoint_fn(r,start),"end":endpoint_fn(r,end)} for r in face_bounds}
+  rows=[]
+  for rin,rout in zip(face_bounds[:-1],face_bounds[1:]):
+   sin,ein=fixed_c[rin]["start"],fixed_c[rin]["end"]
+   sout,eout=fixed_c[rout]["start"],fixed_c[rout]["end"]
+   shell_rate=((eout["mass"]-ein["mass"])-(sout["mass"]-sin["mass"]))/dt
+   net_flux=0.5*((sout["flux"]-sin["flux"])+(eout["flux"]-ein["flux"]))
+   rows.append({"R_in":rin,"R_out":rout,"shell_mass_rate":shell_rate,
+    "net_current_midpoint":net_flux,"residual":shell_rate-net_flux,
+    "relative_abs_residual":abs(shell_rate-net_flux)/max(abs(net_flux),1e-300)})
+  return rows
+ cell_shells_cubic=make_cubic_shells(endpoint_cell_cubic)
+ face_shells_cubic=make_cubic_shells(endpoint_face_cubic)
  cell_shell_by_bounds={(x["R_in"],x["R_out"]):x for x in shell_balances}
  for item in face_shell_balances:
   cell=cell_shell_by_bounds.get((item["R_in"],item["R_out"]))
@@ -341,6 +373,11 @@ def compare_step(kernel,base,dt):
   "metric_chi_cell_flux_shell_balances":metric_chi_cell_flux_shells,
   "cell_chi_primitive_flux_shell_balances":cell_chi_primitive_flux_shells,
   "cell_chi_cell_flux_shell_balances":cell_chi_cell_flux_shells,
+  "cell_shell_balances_cubic_interpolation":cell_shells_cubic,
+  "face_shell_balances_cubic_interpolation":face_shells_cubic,
+  "max_abs_cell_shell_residual_cubic_interpolation":float(max((abs(x["residual"]) for x in cell_shells_cubic),default=0.0)),
+  "max_abs_face_shell_residual_cubic_interpolation":float(max((abs(x["residual"]) for x in face_shells_cubic),default=0.0)),
+  "face_minus_cell_shell_residual_cubic_interpolation":{f"{x['R_in']}-{x['R_out']}":x["residual"]-next(y["residual"] for y in cell_shells_cubic if y["R_in"]==x["R_in"] and y["R_out"]==x["R_out"]) for x in face_shells_cubic},
   "max_abs_metric_chi_cell_flux_residual":float(max((abs(x["residual"]) for x in metric_chi_cell_flux_shells),default=0.0)),
   "max_abs_cell_chi_primitive_flux_residual":float(max((abs(x["residual"]) for x in cell_chi_primitive_flux_shells),default=0.0)),
   "max_abs_cell_chi_cell_flux_residual":float(max((abs(x["residual"]) for x in cell_chi_cell_flux_shells),default=0.0)),
