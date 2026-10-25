@@ -219,6 +219,30 @@ For \(\mathcal E_{\mu\nu}=G_{\mu\nu}-\kappa T_{\mu\nu}^{\mathrm{tot}}\), the con
 
 This fixes the conceptual source object: the sector pair's \(Q^{DM}_\nu\) and \(Q^{\phi}_\nu\) cancel in the continuum sum, while \(\mathcal D^{\mathrm{tot}}_\nu\) measures failure of the **total** stress tensor to be conserved. It does **not** by itself fix how the radial component projects into the accepted lower-index \(M_r\) coordinate-time propagation equation.
 
+#### D.1 Projection result: continuum Bianchi-source coefficient
+
+Use the accepted residual convention
+\[
+\mathcal E_{\mu\nu}=G_{\mu\nu}-\kappa T^{\mathrm{tot}}_{\mu\nu},\qquad
+\mathcal H=2\mathcal E_{\mu\nu}n^\mu n^\nu,\qquad
+\mathcal M_i=-\gamma_i{}^\mu n^\nu\mathcal E_{\mu\nu},
+\]
+where \(n^\mu\) is the future unit normal and \(\gamma_i{}^\mu\) is the spatial projector. With the accepted lower-index momentum sign, \(\mathcal M_i\) corresponds to the geometric momentum constraint minus \(\kappa j_i\). Contracted Bianchi gives
+\[
+\nabla_\mu\mathcal E^\mu{}_\nu=-\kappa\mathcal D^{\mathrm{tot}}_\nu,
+\qquad
+\gamma_i{}^\nu\nabla_\mu\mathcal E^\mu{}_\nu
+=-\kappa\gamma_i{}^\nu\mathcal D^{\mathrm{tot}}_\nu.
+\]
+In coordinates adapted to the slices, \(n_i=0\), so the spatially projected covector on the right is \(\mathcal D^{\mathrm{tot}}_i\). Since \(\partial_t=\alpha n+\beta\), conversion from normal-time to coordinate-time evolution contributes the source term
+\[
+\left.(\partial_t-\mathcal L_\beta)\mathcal M_i\right|_{\mathrm{Bianchi\ source}}
+=-\kappa\alpha\,\mathcal D^{\mathrm{tot}}_i.
+\]
+The sign is checked in a local orthonormal frame with vanishing shift and vanishing spatial Einstein residual: \( \mathcal M_i=-\mathcal E_{0i}\), hence \(\mathcal E^0{}_i=\mathcal M_i\) and \(\partial_t\mathcal M_i=-\kappa\mathcal D^{\mathrm{tot}}_i\). This fixes the **continuum source coefficient** for the stated constraint normalization. For the engine's \(G=1\) units, it is \(-8\pi\alpha\,\mathcal D^{\mathrm{tot}}_r\).
+
+This is a Bianchi projection result, not the complete spherical-BSSN propagation equation. It does not derive the Brown/BSSN Hamiltonian-gradient slots, the evolved-connection response, or a discrete pointwise/FV/expanded realization. Those terms must still be derived from the accepted evolution split and matched to the existing saved-state tangent without choosing a representation by residual size.
+
 Accordingly, keep `S_Q_candidate = -8*pi*alpha*Q_r` unresolved. Its `Q_r` cannot be interpreted as the DM sector-exchange covector. To accept that candidate, a derivation must show which total-divergence residual it denotes, its index lowering and density measure, and the exact `alpha`/shift/PIRK-time-split coefficient produced by the accepted BSSN evolution. The source crosswalk above supplies no license to infer those missing factors from residual size.
 
 #### E. What the existing tangent and stage captures establish
@@ -236,7 +260,7 @@ Each row must end with a derivation citation or an explicit unresolved statement
 | D1 | Exact accepted definitions and index/density convention for M_r, H, Q_r, alpha, shift, K and time derivative | Equation-to-code crosswalk with each raising/lowering and density factor explicit | Partially source-mapped; exact residual/RHS alignment open |
 | D2 | Translate Brown's vacuum structural equation to the accepted coordinate-time / shift / Lie split | Signed term-by-term derivation; identify which terms are already included in the measured tangent | Brown terms source-resolved; accepted time-split translation open |
 | D3 | Derive matter-coupled Hamiltonian-gradient contribution | Derive from selected Einstein/Bianchi conventions and exact accepted H definition; do not infer from residual fitting | Brown H slots resolved; accepted BSSN gradient term open |
-| D4 | Derive source coefficient/sign and map to accepted current tangent | Source law with index, lapse, density weight, unit normalization, and exchange sign explicit | Sector exchange mapped; total-propagation multiplier open |
+| D4 | Derive source coefficient/sign and map to accepted current tangent | Source law with index, lapse, density weight, unit normalization, and exchange sign explicit | Continuum Bianchi coefficient derived; discrete source/operator mapping open |
 | D5 | Derive reference-metric connection response in the full matter-coupled propagation relation | Coefficient/sign of each C^r derivative term, stencils/parity, and a check against double-counting Lambda-dependent H terms | Brown C^r terms mapped; full accepted response open |
 | D6 | Relate pointwise, FV, and expanded stress divergences | Coordinate/measure transformation, boundary/origin treatment, and equivalence proof or explicit non-equivalence | Open |
 | D7 | Close total six-sector stress-energy/exchange accounting | Sector equations and normalized total ledger, including COSMOS-phi normalization premise | Continuum DM/phi pair mapped; six-sector discrete closure open |
