@@ -38,6 +38,7 @@ jobs:
 
       - name: Download partial-joint accepted-state artifacts
         uses: actions/download-artifact@v4
+          repository: miahpenn/0-Cosmos-engine
         with:
           name: origin-cell-joint-shadow-evolved-N60-t0.6-2026-10-24
           path: reference/joint/N60
@@ -58,6 +59,7 @@ jobs:
 
       - name: Download full continuous-source accepted-state artifacts
         uses: actions/download-artifact@v4
+          repository: miahpenn/0-Cosmos-engine
         with:
           name: origin-full-continuous-metric-evolved-N60-t0.6-2026-10-24
           path: reference/full/N60
