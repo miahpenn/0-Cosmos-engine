@@ -2,7 +2,8 @@
 
 **Status:** research-only derivation ledger; no identity admitted.  
 **Parent convention record:** PR #421, head `6dfc53c48aaecc18b8389a75b6de7b14340747d1`.  
-**Accepted-state production-source anchor:** `4aec88d0e3ff028e0a65a8ac36b30948625df792`.  
+**Accepted-state production-source anchor recorded by #421:** `4aec88d0e3ff028e0a65a8ac36b30948625df792`.  
+**Separate Brown-observer source pin:** the pinned `tools/audit_brown_vacuum_momentum_propagation.py` declares `SOURCE_COMMIT = 7f47669a1c0edfafef9fc5f27b2db80840d3f035`; do not conflate these identifiers. Reconcile the exact artifact-manifest source identity and observer source-root contract before executing any observer.  
 **Pinned vendor:** `d6052d605673ce9d82cdc99b0df79855fa2ea215`.  
 **Accepted states:** existing full-continuous-profile states at t=0.60, N=60,120,240.  
 **Scope:** organize the remaining source-backed derivation and identify which measurements already exist. No evolution, no production changes, no new convergence sweep, no scientific admission.
@@ -68,7 +69,22 @@ The existing sector observer covers S, D, COSMOS phi, dark matter, baryons, and 
 
 Keep these representations separate unless a source-backed coordinate/measure/index derivation proves equivalence. In particular, the S-sector centre-cell discrepancy is not a fluid-HLL defect.
 
-## 4. Derivation obligations
+## 4. Exact-source code trace and pin discrepancy
+
+Read-only inspection of the files at the recorded accepted-source anchor returned these blob SHAs:
+
+| Path | Blob SHA at inspected ref | Directly established by the source |
+|---|---|---|
+| `tools/audit_brown_vacuum_momentum_propagation.py` | `d1e61abe2fd9d97760ebf2d7292e7fda9a373b08` | Declares a distinct `SOURCE_COMMIT=7f47669a1c0edfafef9fc5f27b2db80840d3f035` and vendor pin; builds `H_metric` from metric-only Ricci, `Aa), `Ab=-Aa/2), and `K`; explicitly avoids the vendor Hamiltonian to prevent overlap with explicit connection terms. |
+| `engine/native_geometry/constraints.py` | `124d1f237e54d082b4d76213f9ebe144e02b02ba` | Defines `H=R-Aa^2-2Ab^2+2K^2/3-2*kappa*rho`; defines `M=M_geometry-kappa*radial_momentum_source`; its own docstring says source law, index placement, and normalization remain provisional. |
+| `engine/scalar_system.py` | `e2c2dae9a016b4d6454cf74a9eae8b0167d5733d` | Scalar coordinate-time RHS includes shift advection; `Pi) RHS has `alpha*beta_dm*rho_dm` when the optional DM source is supplied. Scalar projections divide the COSMOS-`phi` sector by `KAPPA=8*pi`, while S/D use scale 1. |
+| `engine/matter_rhs.py` | `0153c232ee15b5a9d3dbac37ea858e4d2d730011` | Fluid RHS is conservative face-flux differencing plus source terms; this does not define the scalar S spatial operator. |
+| `engine/stress_energy.py` | `ac3e7518c62bb72e2218a61489fa486bb787809f` | Canonical total stress assembly delegates to the shared matter projection; optional EM projections must already be consumer-normalized. |
+| `engine/v55_pirk_adapter.py` | `be28ceea63fa1b59efc5cc5c460b9df19ae1cbc3` | Matter source enters the primary/Lambda geometry RHS through total projections; the Lambda source shape is `-8*pi*lambda_m*alpha*total[j]/a`. This is code shape, not a derivation of the requested covector source law. |
+
+**Fail-closed finding:** the Brown observer's declared source commit differs from the #421 accepted-state source anchor. This may be an intentional diagnostic/source-root separation, but the manifest and execution contract must prove it before running anything. No observer run is authorized until the identity is reconciled. The source code trace above is a code-level inventory only; it does not settle the continuum Bianchi/source derivation.
+
+## 5. Derivation obligations
 
 Each row must end with a derivation citation or an explicit unresolved statement. A small residual is not a substitute for the derivation.
 
@@ -105,26 +121,26 @@ Do not adjust signs, coefficients, density weights, or normalizations to reduce 
 
 The archive-locked DM–COSMOS-phi exchange pair and the stored-variable unit map apply to that sector pair. They do not by themselves establish the normalized divergence of the total six-sector stress tensor. Preserve the archive's documented conflicting earlier exchange-sign sentence as provenance debt; do not silently rewrite it. Resolve the total-sector statement against the canonical master checkpoint and accepted source equations with a cited premise.
 
-## 5. Minimal next execution sequence
+## 6. Minimal next execution sequence
 
-1. **Source extraction:** read the exact pinned accepted update, native constraint helper, Brown observer, sector source mapper, divergence comparison, and archive master/checkpoint documents. Record path, blob SHA, relevant equation/function, and premise for every source.
+1. **Source extraction:** complete the archive master/checkpoint read at its exact valid path and resolve the accepted-artifact versus Brown-observer source-pin distinction. The initial code trace is recorded in §4; continue recording path, blob SHA, relevant equation/function, and premise for every source.
 2. **Signed symbolic ledger:** write each candidate term with its sign, index position, density weight, units/normalization, derivative operator, and whether it belongs to the measured tangent or the Brown RHS. Unknown entries remain explicitly unknown.
 3. **Derive before measuring:** complete D1–D5 as far as the sources permit. If a premise is genuinely missing or conflicting, report it as a blocker rather than choose by residual size.
 4. **Reconcile existing arrays:** use only SHA-verified #420 artifacts and evaluate whether the derived term mapping is already measurable from saved operands. Do not rerun the existing resolution campaign.
 5. **Targeted observer only if needed:** if a derived term cannot be audited from existing arrays, specify the exact missing observable and implement a diagnostic-only post-processor. It must not advance the kernel or write trajectories.
 6. **Report outcome:** distinguish derived, algebraically checked, numerically observed, provisional, and unresolved statements. Include signed centre cells 0/1 separately from fixed-radius values and global maximum if any targeted residual is recomputed.
 
-## 6. Fail-closed provenance and execution contract
+## 7. Fail-closed provenance and execution contract
 
 - Branch base is PR #421 head `6dfc53c48aaecc18b8389a75b6de7b14340747d1`.
-- Accepted-state production-source anchor must equal `4aec88d0e3ff028e0a65a8ac36b30948625df792`.
+- Accepted-state production-source anchor recorded by #421 is `4aec88d0e3ff028e0a65a8ac36b30948625df792`; separately reconcile the Brown observer's declared source commit `7f47669a1c0edfafef9fc5f27b2db80840d3f035` against the accepted-state manifest before execution.
 - Vendor pin must equal `d6052d605673ce9d82cdc99b0df79855fa2ea215`.
 - Verify each accepted artifact digest against its manifest before reading; preserve original files and record their SHA-256.
 - Abort on any protected-path mismatch in `engine/`, `vendor/`, `.gitmodules`, or `requirements.txt`.
 - No production-kernel call, no new trajectory, no production changes, no source/vendor pin changes, no runner-dispatch matrix.
 - All scientific-admission flags remain false until independently authorized.
 
-## 7. Machine-readable status seed
+## 8. Machine-readable status seed
 
 ```json
 {
@@ -157,7 +173,7 @@ The archive-locked DM–COSMOS-phi exchange pair and the stored-variable unit ma
 }
 ```
 
-## 8. Source records
+## 9. Source records
 
 - PR #421 convention map: `docs/research/full_matter_coupled_propagation_convention_map_2026-10-25.md`.
 - Accepted-state sector matter-source mapping: `docs/research/accepted_state_sector_matter_source_mapping_2026-10-25.md`.
