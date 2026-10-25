@@ -743,3 +743,62 @@ The state-match problem is resolved: the exact endpoint, stage-source arrays, \(
 **Scope and admission boundary:** this run evaluated the semi-discrete tangent using disposable +/- epsilon states; it did not take an accepted integration step. All five admission flags remain false. \(S_Q=-8\pi\alpha Q_r\) remains provisional; pointwise, finite-volume, and expanded divergence forms remain separate; no production equation, initializer, vendor, dependency, source pin, or accepted state was changed.
 
 **Status remains unchanged:** the time-split assignments above are source-derived; the full matter-coupled \(M_r\) identity, physical \(S_Q\), reference-metric coupling admission, and total six-sector discrete stress-energy conservation remain open. Pointwise/FV/expanded divergence measures remain separate, and all five scientific-admission flags remain false.
+
+
+## 10.8 Exact same-state connection-target RHS assembly
+
+The accepted zero-shift, zero-KO coordinate-time RHS for the evolved \(\Lambda\) field and the CMC reference target can be combined without an evolution step. At one frozen state, using the pinned derivative \(D_1\),
+
+\[
+\begin{aligned}
+\dot\Lambda_{\mathrm{code}}
+={}&-\frac{2}{a}\left(A_aD_1\alpha+\alpha D_1A_a\right)
+-\frac{4\alpha(A_a-A_b)}{rb}
++2\alpha A_a\Lambda\\
+&+\lambda_m\frac{\alpha}{a}
+\left(M_{r,\mathrm{geom}}-8\pi j_{\mathrm{tot}}\right).
+\end{aligned}
+\]
+
+The accepted CMC metric RHS has \(\dot a=-2\alpha aA_a\) and \(\dot b=+\alpha bA_a\). Applying the exact chain rule to the discrete reference target
+\[
+\Lambda_{\mathrm{metric}}=
+\frac{D_1(a)}{2a^2}-\frac{D_1(b)}{ab}
++\frac2r\left(\frac1b-\frac1a\right)
+\]
+gives
+\[
+\begin{aligned}
+\dot\Lambda_{\mathrm{metric}}
+={}&-\frac{D_1(\alpha aA_a)}{a^2}
++\frac{2\alpha A_aD_1(a)}{a^2}
+-\frac{D_1(\alpha bA_a)}{ab}\\
+&-\frac{\alpha A_aD_1(b)}{ab}
+-\frac{4\alpha A_a}{ra}
+-\frac{2\alpha A_a}{rb}.
+\end{aligned}
+\]
+Each \(D_1\) acting on a product means the same pinned linear operator applied to that product array; this is not a continuum product-rule expansion. Therefore the exact same-state connection-target rate is
+\[
+\dot C^r=\dot\Lambda_{\mathrm{code}}-\dot\Lambda_{\mathrm{metric}}.
+\]
+
+Under the pinned \(\lambda_m=2\) setting, the current-bearing part of \(\dot\Lambda_{\mathrm{code}}\) becomes exactly
+\[
+\frac{2\alpha}{a}
+\left(M_{r,\mathrm{geom}}-8\pi j_{\mathrm{tot}}\right)
+=\frac{2\alpha}{a}M_{r,\mathrm{tot}}.
+\]
+Consequently, the remainder of the same-state candidate comparison is the explicit geometric expression
+\[
+\begin{aligned}
+\mathcal R_C \equiv \dot C^r-\frac{2\alpha}{a}M_{r,\mathrm{tot}}
+={}&-\frac{2}{a}\left(A_aD_1\alpha+\alpha D_1A_a\right)
+-\frac{4\alpha(A_a-A_b)}{rb}\\
+&+2\alpha A_a\Lambda-\dot\Lambda_{\mathrm{metric}}.
+\end{aligned}
+\]
+This isolates the source pairing exactly and leaves the geometric derivative/connection identity as the remaining termwise comparison. The existing saved-state tangent reports a smaller residual for the positive-sign \(\dot C^r\approx(2\alpha/a)M_{r,\mathrm{tot}}\) candidate than its opposite-sign control, but that report is a candidate diagnostic—not proof that \(\mathcal R_C\) vanishes under the full discrete operators or finite PIRK step.
+
+The accepted finite step remains different: its Lambda increment uses \(L_{2,0}\), \(L_{2,f}\), \(L_{3,0}\), and \(L_{3,p}\), while the CMC metric increment uses explicit RHS at \(0\) and \(p\). The same-state equation above must not be promoted to a finite-step conservation or full \(M_r\)-propagation identity. No run, code modification, or admission-state change is implied by this algebra.
+
