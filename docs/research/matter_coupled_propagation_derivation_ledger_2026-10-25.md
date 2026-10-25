@@ -90,7 +90,7 @@ This crosswalk records exact signed expressions already present in the accepted-
 
 #### A. Exact momentum residual used by the accepted-state tangent
 
-The signed \(\dot M_r\) reported by the exact-profile observer is built from the pinned vendor's \`vacuum.constraints(grid, geometry)["momentum"]\`, not by directly calling the separate first-party native diagnostic helper. The source-level observer \`tools/audit_current_source_momentum_constraint_tangent.py\` (blob \`3f00a4e0a2063b86d2e007c5a825f9edfff61a4c\`) defines the measured total residual as
+The signed \(\dot M_r\) reported by the exact-profile observer is built from the pinned vendor's `vacuum.constraints(grid, geometry)["momentum"]`, not by directly calling the separate first-party native diagnostic helper. The source-level observer `tools/audit_current_source_momentum_constraint_tangent.py` (blob `3f00a4e0a2063b86d2e007c5a825f9edfff61a4c`) defines the measured total residual as
 
 \[
 M_{r,\mathrm{tot}}=M_{r,\mathrm{geom}}-8\pi j_{\mathrm{tot}},
@@ -135,11 +135,11 @@ Let overdots denote the full instantaneous coordinate-time RHS evaluated on the 
 \end{aligned}
 \]
 
-Every \(D_1(\dot u)\) means the same pinned derivative applied to the RHS array \(\dot u\). The quotient terms differentiate the implemented \(D_1(X)/X\) and \(D_1(b)/b\) exactly as discrete expressions; they must not be replaced with \(D_1(\log X)\), \(D_1(\log b)\), or a continuum product-rule expansion. The analytic helper \`tools/momentum_constraint_chain_rule.py\` (blob \`354f1bc64dc364d85df3092c7273a1412a30797d\`) implements this signed decomposition, and the existing exact-profile workflow already cross-checks it against the \(\pm\epsilon\) tangent. This is derivation of the **implemented semi-discrete tangent**, not the continuum constraint-propagation identity.
+Every \(D_1(\dot u)\) means the same pinned derivative applied to the RHS array \(\dot u\). The quotient terms differentiate the implemented \(D_1(X)/X\) and \(D_1(b)/b\) exactly as discrete expressions; they must not be replaced with \(D_1(\log X)\), \(D_1(\log b)\), or a continuum product-rule expansion. The analytic helper `tools/momentum_constraint_chain_rule.py` (blob `354f1bc64dc364d85df3092c7273a1412a30797d`) implements this signed decomposition, and the existing exact-profile workflow already cross-checks it against the \(\pm\epsilon\) tangent. This is derivation of the **implemented semi-discrete tangent**, not the continuum constraint-propagation identity.
 
 #### A.2 Keep the separate native diagnostic API distinct
 
-The first-party \`engine/native_geometry/constraints.py\` (blob \`124d1f237e54d082b4d76213f9ebe144e02b02ba\`) defines
+The first-party `engine/native_geometry/constraints.py` (blob `124d1f237e54d082b4d76213f9ebe144e02b02ba`) defines
 
 \[
 \begin{aligned}
@@ -150,13 +150,13 @@ M_{\mathrm{geom,native}}&=D_1(A_a)-\frac23D_1(K)
 \end{aligned}
 \]
 
-Its \`radial_momentum_source\` argument is a caller-supplied lower-radial source. The canonical \`engine/v55_matter.py\` projection returns \(j\) alongside \(\rho,p_r,p_t\) (blob \`0ee3c51fac7dc46c63feba2747a750542bcee3d0\)); fluid projections carry \(1/\kappa\) in \`engine/matter_system.py\` / \`engine/valencia.py\` (Valencia blob \`03ed86398f424c03d9d6a3e646da9222a34fac5c\)), while \`engine/scalar_system.py\` divides the stored COSMOS-\(\phi\) projection by \(\kappa\) and leaves local S/D projections at their archive scale (blob \`e2c2dae9a016b4d6454cf74a9eae8b0167d5733d\)). Thus \(S_r=j_{\mathrm{tot}}\) is a source-map candidate for that API when the exact projection/index conventions match; it is not authority to equate the native helper's \(M\) with the vendor-tangent \(M_r\). The two forms are continuum-related, but their finite-difference product/chain-rule remainders can differ. Preserve the representations separately in the ledger.
+Its `radial_momentum_source` argument is a caller-supplied lower-radial source. The canonical `engine/v55_matter.py` projection returns \(j\) alongside \(\rho,p_r,p_t\) (blob `0ee3c51fac7dc46c63feba2747a750542bcee3d0\)); fluid projections carry \(1/\kappa\) in `engine/matter_system.py` / `engine/valencia.py` (Valencia blob `03ed86398f424c03d9d6a3e646da9222a34fac5c\)), while `engine/scalar_system.py` divides the stored COSMOS-\(\phi\) projection by \(\kappa\) and leaves local S/D projections at their archive scale (blob `e2c2dae9a016b4d6454cf74a9eae8b0167d5733d\)). Thus \(S_r=j_{\mathrm{tot}}\) is a source-map candidate for that API when the exact projection/index conventions match; it is not authority to equate the native helper's \(M\) with the vendor-tangent \(M_r\). The two forms are continuum-related, but their finite-difference product/chain-rule remainders can differ. Preserve the representations separately in the ledger.
 
 #### B. Brown Eq. (11b): exact signed code form
 
-The pinned Brown observer's \`brown_lower_momentum_rhs()\` (blob \`d1e61abe2fd9d97760ebf2d7292e7fda9a373b08\`) evaluates the following candidate operator term by term:
+The pinned Brown observer's `brown_lower_momentum_rhs()` (blob `d1e61abe2fd9d97760ebf2d7292e7fda9a373b08`) evaluates the following candidate operator term by term:
 
-\`\`\`text
+```text
 B_Brown =
     + beta * D1(M_r)
     + D1(beta) * M_r
@@ -169,23 +169,38 @@ B_Brown =
         + alpha * chi * (D1(b)/b + 2/r) ] * D1(C^r)
 chi = X^2
 C^r = Lambda - Lambda_metric
-\`\`\`
+```
 
-The H slots explicitly use \`H_metric\`, reconstructed from metric-only Ricci, \`Aa\`, \`Ab\`, and \`K\`; they do not silently receive the matter-subtracted \`H_total\`. The \`M_r\` array is passed in as \`constraints["momentum"]\`, so its geometric-only versus matter-inclusive status is determined by the caller's exact input and manifest. The variable map \`Gamma_B^r = Lambda_code - 2/(r*b)\` and \`C^r = Lambda_code - Lambda_metric\` is resolved for this Brown candidate in #421; it is not yet the full accepted-source propagation identity.
+The H slots explicitly use `H_metric`, reconstructed from metric-only Ricci, `Aa`, `Ab`, and `K`; they do not silently receive the matter-subtracted `H_total`. The `M_r` array is passed in as `constraints["momentum"]`, so its geometric-only versus matter-inclusive status is determined by the caller's exact input and manifest. The variable map `Gamma_B^r = Lambda_code - 2/(r*b)` and `C^r = Lambda_code - Lambda_metric` is resolved for this Brown candidate in #421; it is not yet the full accepted-source propagation identity.
 
 #### C. Matter terms actually injected by the accepted coordinate-time RHS
 
-The accepted \`engine/v55_pirk_adapter.py\` source (blob \`be28ceea63fa1b59efc5cc5c460b9df19ae1cbc3\`) adds these signed stress-projection terms to the geometry stage:
+The accepted `engine/v55_pirk_adapter.py` source (blob `be28ceea63fa1b59efc5cc5c460b9df19ae1cbc3`) adds these signed stress-projection terms to the geometry stage:
 
-\`\`\`text
+```text
 (delta Aa_rhs)_matter = -(16*pi/3) * alpha * (pr - pt)
 (delta K_rhs)_matter  = +4*pi * alpha * (rho + pr + 2*pt)
 (delta Lambda_rhs)_matter = -8*pi * lambda_m * alpha * j / a
-\`\`\`
+```
 
-The adapter's \`lambda_m\` defaults to 2 (also the accepted kernel's \`LAMBDA_M\` default), so that last source is \`-16*pi*alpha*j/a\` under that setting. It belongs to the evolved connection RHS and must be traced together with the reference-metric connection constraint, not counted twice through an independently inserted Brown C-term.
+The adapter's `lambda_m` defaults to 2 (also the accepted kernel's `LAMBDA_M` default), so that last source is `-16*pi*alpha*j/a` under that setting. It belongs to the evolved connection RHS and must be traced together with the reference-metric connection constraint, not counted twice through an independently inserted Brown C-term.
 
-The scalar RHS in \`engine/scalar_system.py\` adds \`+alpha*beta_DM*rho_DM_archive\` to the coordinate-time \`Pi\` RHS when the DM source is supplied. In \`engine/valencia.py\`, the DM covector-source API returns \`Q_DM,nu = +beta_DM*rho_DM_archive*partial_nu(phi)\`; the archive-locked COSMOS-\`phi\` sector has the opposite continuum exchange sign. These are **sector-exchange** entries. They are not, individually or by notation alone, the total stress-divergence residual required by the contracted Bianchi identity.
+For the exact \(\dot M_r\) chain rule in §4.1.A.1, isolate the explicit matter additions to the primary rates as
+\[
+m_A=-\frac{16\pi}{3}\alpha(p_r-p_t),\qquad
+m_K=4\pi\alpha(\rho+p_r+2p_t).
+\]
+Their direct contribution to the geometric tangent through the \(\dot A_a\) and \(\dot K\) slots is therefore
+\[
+\left.\dot M_{r,\mathrm{geom}}\right|_{A_a,K\ \mathrm{matter}}
+=D_1(m_A)-\frac23D_1(m_K)
++6m_A\chi_r+\frac{3m_A}{r}
++\frac32m_A\frac{D_1(b)}b .
+\]
+This is only the explicit stress-projection piece of the implemented directional derivative. It does not include the six-sector \(-8\pi\sum_s\dot j_s\) term, and it is not itself the covariant Bianchi source. The remaining RHS terms, including the curvature/connection dependence of \(\dot A_a\), must retain their accepted operators and stage ownership. In particular, the appearance of \(\dot\Lambda\) through the curvature-dependent \(\dot A_a\) must not be double-counted by appending Brown's \(C^r\) terms as though they were independent terms in this exact code derivative.
+
+
+The scalar RHS in `engine/scalar_system.py` adds `+alpha*beta_DM*rho_DM_archive` to the coordinate-time `Pi` RHS when the DM source is supplied. In `engine/valencia.py`, the DM covector-source API returns `Q_DM,nu = +beta_DM*rho_DM_archive*partial_nu(phi)`; the archive-locked COSMOS-`phi` sector has the opposite continuum exchange sign. These are **sector-exchange** entries. They are not, individually or by notation alone, the total stress-divergence residual required by the contracted Bianchi identity.
 
 #### D. The total-stress source object and the unresolved multiplier
 
@@ -204,11 +219,11 @@ For \(\mathcal E_{\mu\nu}=G_{\mu\nu}-\kappa T_{\mu\nu}^{\mathrm{tot}}\), the con
 
 This fixes the conceptual source object: the sector pair's \(\mathcal Q^{DM}_\nu\) and \(\mathcal Q^{\phi}_\nu\) cancel in the continuum sum, while \(\mathcal D^{\mathrm{tot}}_\nu\) measures failure of the **total** stress tensor to be conserved. It does **not** by itself fix how the radial component projects into the accepted lower-index \(M_r\) coordinate-time propagation equation.
 
-Accordingly, keep \`S_Q_candidate = -8*pi*alpha*Q_r\` unresolved. Its \`Q_r\` cannot be interpreted as the DM sector-exchange covector. To accept that candidate, a derivation must show which total-divergence residual it denotes, its index lowering and density measure, and the exact \`alpha\`/shift/PIRK-time-split coefficient produced by the accepted BSSN evolution. The source crosswalk above supplies no license to infer those missing factors from residual size.
+Accordingly, keep `S_Q_candidate = -8*pi*alpha*Q_r` unresolved. Its `Q_r` cannot be interpreted as the DM sector-exchange covector. To accept that candidate, a derivation must show which total-divergence residual it denotes, its index lowering and density measure, and the exact `alpha`/shift/PIRK-time-split coefficient produced by the accepted BSSN evolution. The source crosswalk above supplies no license to infer those missing factors from residual size.
 
 #### E. What the existing tangent and stage captures establish
 
-PR #423's source capture stores the existing PIRK stage operands (\`start_lapse_refreshed\`, \`explicit_predictor\`, and \`primary_predictor\`, with the corresponding L2 calls including \`final_primary_L2\`) from a copied in-memory step. The existing exact-profile tangent observer evaluates the accepted source RHS on the saved state at \(t=0.60\), forms disposable directional \(+\epsilon/-\epsilon\) states, and measures the momentum-constraint tangent and an independent total-\(T\) directional-divergence ledger on the same state. These are the correct saved witnesses to reuse.
+PR #423's source capture stores the existing PIRK stage operands (`start_lapse_refreshed`, `explicit_predictor`, and `primary_predictor`, with the corresponding L2 calls including `final_primary_L2`) from a copied in-memory step. The existing exact-profile tangent observer evaluates the accepted source RHS on the saved state at \(t=0.60\), forms disposable directional \(+\epsilon/-\epsilon\) states, and measures the momentum-constraint tangent and an independent total-\(T\) directional-divergence ledger on the same state. These are the correct saved witnesses to reuse.
 
 Do not equate a raw PIRK substage source with the continuum \(\partial_t M_r\), or compare a full-step finite difference with a single-stage RHS. For the current comparison, the well-defined measured object is the directional derivative of the declared discrete constraint along the full instantaneous accepted coordinate-time RHS; stage arrays identify where source terms enter the integrator. This bookkeeping is source-resolved, but the matter-coupled continuum/time-split identity and total discrete conservation are still open. No additional run is justified by this crosswalk alone.
 
