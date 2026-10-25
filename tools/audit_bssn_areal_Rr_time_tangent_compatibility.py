@@ -258,6 +258,126 @@ def main() -> int:
                     )
                 }
 
+    # Repeat the tangent-only comparison using the exact fixed-R-anchored
+    # stencil policy from audit_bssn_areal_Rr_operator_crosswalk.py. This avoids
+    # choosing a different cubic stencil merely because a target falls near a cell.
+    fixed_R_anchored_rows: dict[str, Any] = {}
+    chi_native_grid = finite(
+        "native chi from Rr and Ktheta",
+        gamma_inv * Rr_native * Rr_native - (R * Ktheta) ** 2,
+    )
+    chi_r_native_grid = finite(
+        "native D4(chi) for fixed-R transport",
+        grid.cell_derivative_fourth(chi_native_grid, parity=1),
+    )
+    tangent_closure_abs: list[float] = []
+    for target in (1.0, 2.0, 3.0, 5.0, 8.0, 10.0):
+        if not low <= target <= high:
+            continue
+        anchor_r = primitive.invert_areal_radius(prim, float(target), "cubic")
+        stencil_start = primitive.stencil_start_for_coordinate(prim, anchor_r)
+        q = primitive.primitive_metric_query(
+            prim,
+            float(target),
+            "cubic",
+            stencil_start=stencil_start,
+            seed=float(np.interp(float(target), prim["observer_R"], prim["r"])),
+        )
+        rq = float(q["coordinate_r"])
+        bq, bq_r = primitive.primitive_even(prim, "b", rq, "cubic", stencil_start)
+        Xq, Xq_r = primitive.primitive_even(prim, "X", rq, "cubic", stencil_start)
+        bdq, bdq_r = primitive.primitive_even(prim, "b_dot", rq, "cubic", stencil_start)
+        Xdq, Xdq_r = primitive.primitive_even(prim, "X_dot", rq, "cubic", stencil_start)
+        if min(bq, Xq, rq) <= 0.0:
+            raise RuntimeError(f"invalid anchored primitive metric at R={target}: r={rq}, b={bq}, X={Xq}")
+        Rq = rq * np.sqrt(bq) / Xq
+        Bq = 1.0 / rq + 0.5 * bq_r / bq - Xq_r / Xq
+        Bdotq = (
+            0.5 * (bdq_r / bq - bq_r * bdq / (bq * bq))
+            - (Xdq_r / Xq - Xq_r * Xdq / (Xq * Xq))
+        )
+        Rtq = Rq * (0.5 * bdq / bq - Xdq / Xq)
+        Rr_anchored = Rq * Bq
+        Rr_dot_anchored = Rtq * Bq + Rq * Bdotq
+
+        Rr_native_at_R = float(areal.interp4(float(target), R, Rr_native))
+        Rr_dot_native_at_R = float(areal.interp4(float(target), R, Rr_t_native))
+        Rt_native_at_R = float(areal.interp4(float(target), R, Rt))
+        gamma_at_R = float(areal.interp4(float(target), R, gamma_inv))
+        gamma_dot_at_R = float(areal.interp4(float(target), R, gamma_inv_dot))
+        Ktheta_at_R = float(areal.interp4(float(target), R, Ktheta))
+        Ktheta_dot_at_R = float(areal.interp4(float(target), R, Ktheta_dot))
+        chi_r_at_R = float(areal.interp4(float(target), R, chi_r_native_grid))
+        current_native_at_R = float(areal.interp4(float(target), R, observed["rhs"]))
+        current_anchored = float(q["current"])
+
+        # The transport derivative is held fixed during the tangent-only A/B
+        # comparison. Its displayed primitive-Rr variant changes only the
+        # 1/Rr transport coefficient; D4(chi) itself is the same measured field.
+        def anchored_mass_terms(Rr_value: float, Rr_dot_value: float) -> dict[str, float]:
+            chi_dot_value = (
+                gamma_dot_at_R * Rr_value * Rr_value
+                + 2.0 * gamma_at_R * Rr_value * Rr_dot_value
+                - 2.0 * float(target) * Rt_native_at_R * Ktheta_at_R * Ktheta_at_R
+                - 2.0 * float(target) * float(target) * Ktheta_at_R * Ktheta_dot_at_R
+            )
+            coordinate_tangent_term = -0.5 * float(target) * chi_dot_value
+            fixed_R_transport_term = (
+                0.5 * float(target) * Rt_native_at_R / Rr_value * chi_r_at_R
+            )
+            return {
+                "chi_dot": float(chi_dot_value),
+                "coordinate_tangent_term": float(coordinate_tangent_term),
+                "fixed_R_transport_term": float(fixed_R_transport_term),
+                "fixed_R_mass_rate": float(coordinate_tangent_term + fixed_R_transport_term),
+            }
+
+        native_terms = anchored_mass_terms(Rr_native_at_R, Rr_dot_native_at_R)
+        primitive_Rr_native_tangent_terms = anchored_mass_terms(Rr_anchored, Rr_dot_native_at_R)
+        primitive_matched_terms = anchored_mass_terms(Rr_anchored, Rr_dot_anchored)
+        tangent_delta_measured = (
+            primitive_matched_terms["fixed_R_mass_rate"]
+            - primitive_Rr_native_tangent_terms["fixed_R_mass_rate"]
+        )
+        tangent_delta_expected = (
+            -float(target) * gamma_at_R * Rr_anchored
+            * (Rr_dot_anchored - Rr_dot_native_at_R)
+        )
+        tangent_delta_closure = tangent_delta_measured - tangent_delta_expected
+        tangent_closure_abs.append(abs(tangent_delta_closure))
+        fixed_R_anchored_rows[str(target)] = {
+            "coordinate_r_anchor": float(anchor_r),
+            "coordinate_r_query": rq,
+            "stencil_start": int(stencil_start),
+            "reconstructed_R_minus_target": float(Rq - float(target)),
+            "Rr_native_D4": Rr_native_at_R,
+            "Rr_primitive_fixed_R_stencil": float(Rr_anchored),
+            "delta_Rr_primitive_minus_native": float(Rr_anchored - Rr_native_at_R),
+            "Rr_dot_native_D4_Rt": Rr_dot_native_at_R,
+            "Rr_dot_primitive_fixed_R_stencil": float(Rr_dot_anchored),
+            "delta_Rr_dot_primitive_minus_native": float(Rr_dot_anchored - Rr_dot_native_at_R),
+            "native": {
+                **native_terms,
+                "current": current_native_at_R,
+                "residual": float(native_terms["fixed_R_mass_rate"] - current_native_at_R),
+            },
+            "primitive_Rr_native_tangent_control": {
+                **primitive_Rr_native_tangent_terms,
+                "current": current_anchored,
+                "residual": float(primitive_Rr_native_tangent_terms["fixed_R_mass_rate"] - current_anchored),
+            },
+            "primitive_Rr_matched_tangent": {
+                **primitive_matched_terms,
+                "current": current_anchored,
+                "residual": float(primitive_matched_terms["fixed_R_mass_rate"] - current_anchored),
+            },
+            "tangent_only_mass_rate_delta_measured": float(tangent_delta_measured),
+            "tangent_only_mass_rate_delta_expected": float(tangent_delta_expected),
+            "tangent_only_delta_closure_error": float(tangent_delta_closure),
+            "current_primitive_minus_native": float(current_anchored - current_native_at_R),
+            "transport_control_note": "D4(chi) is held fixed between the tangent-only pair; the primitive_Rr transport term uses that same chi_r with its own Rr denominator.",
+        }
+
     if saved.tangent.state_digest(accepted) != accepted_digest:
         raise RuntimeError("accepted input mutated during Rr tangent audit")
     if float(np.max(np.abs(R_map_gap))) > 2e-11:
@@ -286,9 +406,11 @@ def main() -> int:
             "primitive_tangent": "Rr=R*(1/r+b_r/(2b)-X_r/X); analytically differentiate this fixed cubic interpolant using b_dot and X_dot",
             "current_control": "same accepted-state rho,j,p_r,alpha,gamma^rr,R_t; report both native-Rr and primitive-Rr currents",
             "tangent_only_control": "hold primitive Rr and chi_r fixed; swap only D4(Rt) for the analytic tangent of primitive Rr",
+            "fixed_R_anchored_crosswalk": "also samples six fixed areal radii using the accepted-state anchored four-point r^2 stencil from the existing primitive-Rr crosswalk; D4(chi) is held common to isolate the Rr time-tangent contribution",
         },
         "profile_summary_R_2_to_10": metrics,
         "fixed_R": fixed_rows,
+        "fixed_R_anchored_stencil_crosswalk": fixed_R_anchored_rows,
         "acceptance": {
             "source_vendor_pins_match": True,
             "accepted_artifact_sha_verified": True,
@@ -296,6 +418,7 @@ def main() -> int:
             "primitive_map_and_Rt_native_node_reconstruction_passed": True,
             "Rr_tangent_component_closure": float(np.max(np.abs(tangent_component_closure))) <= 2e-12,
             "mass_rate_current_delta_closure": float(np.max(np.abs(delta_closure))) <= 2e-12,
+            "fixed_R_anchored_tangent_delta_closure_passed": max(tangent_closure_abs, default=0.0) <= 2e-12,
             "areal_Rr_time_tangent_compatibility_closed": False,
             "integrated_current_identity_closed": False,
             "full_matter_coupled_propagation_identity_closed": False,
