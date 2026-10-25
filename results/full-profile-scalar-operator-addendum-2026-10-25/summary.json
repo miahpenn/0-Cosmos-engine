@@ -1,0 +1,102 @@
+{
+  "schema": "full-profile-scalar-operator-addendum/v1",
+  "status": "completed_diagnostic_only",
+  "run": {
+    "id": 40157745275,
+    "url": "https://github.com/miahpenn/0-Cosmos-engine/actions/runs/40157745275",
+    "resolutions": [
+      60,
+      120,
+      240
+    ],
+    "accepted_time": 0.6,
+    "epsilons": [
+      0.00002,
+      0.00001
+    ]
+  },
+  "artifacts": [
+    {
+      "resolution": 60,
+      "id": 12585232569,
+      "sha256": "426b5810e79f9bc1a683abeab052abd9da0ccef82382a9c3608a737abb76feca"
+    },
+    {
+      "resolution": 120,
+      "id": 12585182574,
+      "sha256": "ff88e075801bdb5d124c810eb63d29cd20e58b35817a1fae1b595a2b96d3dafd"
+    },
+    {
+      "resolution": 240,
+      "id": 12585666768,
+      "sha256": "c6c7d2b17c3d3095297fdbff6da0ed24b96bc67f954c4f45c64bc69a306c278a"
+    }
+  ],
+  "provenance": {
+    "source_commit": "4aec88d0e3ff028e0a65a8ac36b30948625df792",
+    "vendor_commit": "d6052d605673ce9d82cdc99b0df79855fa2ea215",
+    "protected_production_source_diff_empty": true,
+    "accepted_states_verified": true
+  },
+  "full_profile_pointwise_div_T_r_cell0": [
+    7.915433246590128e-7,
+    1.1283873946327369e-7,
+    1.4577988235889381e-8
+  ],
+  "full_profile_S_sector_div_T_r_cell0": [
+    7.926560503931983e-7,
+    1.130003176537034e-7,
+    1.4598916531037695e-8
+  ],
+  "pointwise_minus_expanded_Qr_cell0": [
+    7.953436682191528e-7,
+    1.1297054193669536e-7,
+    1.4582213685799461e-8
+  ],
+  "radial_flux_product_rule_gap_cell0": [
+    7.953440386825744e-7,
+    1.1297055815173891e-7,
+    1.4582214245947769e-8
+  ],
+  "operator_decomposition_max_abs_closure_by_resolution": {
+    "60": 2.6e-20,
+    "120": 2.6e-20,
+    "240": 2.6e-20
+  },
+  "S_current_reconstruction_gap_max_abs_across_arms_epsilons": {
+    "60": 8.393713648397957e-15,
+    "120": 2.1584684790931265e-14,
+    "240": 2.9761608826808957e-14
+  },
+  "S_current_full_profile_N240_cell0": {
+    "pdot_potential_derivative": 0.000010745345,
+    "sdot_lapse_momentum": -0.0000072605933,
+    "pdot_lapse_metric_gradient": 8.5296444e-7,
+    "pdot_lapse_laplacian_second_derivative": 4.2601745e-7,
+    "pdot_trace_curvature": -1.4317672e-7,
+    "actual": 0.0000046205576276838995
+  },
+  "S_current_cell0_N240_partial_vs_full": {
+    "partial_joint": 0.000004620004104520613,
+    "full_profile": 0.0000046205576276838995
+  },
+  "production_HLL": {
+    "origin_face_flux_exact_zero": true,
+    "max_abs_geometric_source_gap_over_kappa": 6.617444900424222e-24,
+    "interpretation": "fluid HLL only; not the scalar sector spatial operator"
+  },
+  "related_curved_chart_control": {
+    "commit": "0a8f1847a33a3a0a9f3b74fbf7bcf7794397a75d",
+    "run": 38970151970,
+    "passed": true,
+    "scope": "static isotropic stress in nonlinear areal-radius chart of flat Minkowski; FV operator refinement calibration only"
+  },
+  "acceptance": {
+    "full_matter_coupled_propagation_identity_closed": false,
+    "matter_source_sign_and_normalization_reviewed": false,
+    "reference_metric_connection_coupling_convention_frozen": false,
+    "total_stress_energy_sector_conservation_closed": false,
+    "production_source_or_vendor_changed": false,
+    "scientific_admission": false
+  }
+}
