@@ -104,6 +104,16 @@ The difference decomposes into the face reconstruction's shell-mass-rate change 
 
 This isolates a meaningful numerical crosswalk: the independent face reconstruction changes the geometric mass-rate and flux differently. The residual does decrease with N, but this face path is not yet an accepted FV identity. The next focused check is to compare the face \(R_r\) and \(R_t\) reconstructed from metric profiles against the face reconstruction of the pinned cell-centred derivative/RHS fields, then identify which part accounts for the face-minus-cell shell shift.
 
+
+## Derivative-vs-current decomposition crosswalk
+
+Run [40161486243](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/40161486243) passed all three resolutions after adding controlled alternatives: (i) metric-derived face \(R_r,R_t\), (ii) face \(R_r,R_t\) reconstructed from the pinned cell-centred derivative/RHS fields, (iii) face \(\chi\) reconstructed from cell-centred \(\chi\), and (iv) face current reconstructed from the already-combined cell-centred current. This distinguishes face geometry from current construction.
+
+At \(N=240\), the metric-derived and cell-derivative-derived face shell residuals are nearly identical: maximum absolute residual \(5.62\times10^{-6}\) versus \(5.59\times10^{-6}\). Their maximum face-\(R_r\) difference for \(R\le10\) is \(3.19\times10^{-9}\), and maximum face-\(R_t\) difference is \(3.15\times10^{-11}\). The metric-\(\chi\)/cell-current, cell-\(\chi\)/primitive-current, and cell-\(\chi\)/cell-current alternatives also remain tightly clustered, with maximum residuals \(5.6213, 5.5914, 5.5910\times10^{-6}\).
+
+At \(N=60\), the face geometry alternatives are visibly less consistent (maximum \(R_r\) gap \(6.06\times10^{-7}\), maximum \(R_t\) gap \(7.03\times10^{-9}\)), but those differences shrink strongly with refinement. This suggests the previously observed face-minus-cell shell discrepancy is not principally caused by the reconstructed \(R_r\) or \(R_t\) formulas. At high resolution, changing the current assembly path also barely changes the shell residual. The remaining residual is therefore more likely tied to the time-discrete fixed-\(R\) mass-rate/current identity itself, or to the accepted-state temporal sampling, than to face interpolation alone. This is a diagnostic localization, not a proof of the continuum conservation law.
+
+Next isolate the temporal balance: compare a centred two-sided fixed-\(R\) mass derivative against the existing forward accepted-step difference, and separately compare instantaneous endpoint \(4\pi R^2T_t{}^R\) with the time-averaged current. Keep both checks on the same immutable accepted-state artifact and retain the existing \(dt\)/\(dt/2\) arms.
 ## Interpretation and next gate
 
 This probe now applies both parts of the areal-coordinate transformation: fixed-\(R\) differentiation and the transformed mixed-tensor current. The balance improves with spatial refinement, and the dt/2 comparison indicates timestep size is not the main remaining discrepancy. The explicit mass-interpolation gap was an additional numerical effect in the preliminary measurement and is now separately accounted for.
