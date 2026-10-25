@@ -111,13 +111,28 @@ def geometry_rate_and_mass(kernel,s):
  rhs=finite("Misner-Sharp current RHS",FOUR_PI*R*R*T_t_R)
  # Independent face reconstruction: reconstruct primitive stress/metric-rate
  # profiles separately before forming R, chi and the transformed current.
+ # Even fields are interpolated as regular polynomials in r^2 (finite at r=0);
+ # odd fields use the pinned r*g(r^2) face reconstruction.
  dr=float(grid.dr)
- def face(values,power,name):
-  return finite(f"face reconstruction {name}",
-   stress_divergence.spherical_flux_face_values(finite(name,values),dr,origin_power=power))
- af=face(a,0,"a");bf=face(b,0,"b");Xf=face(X,0,"X");alphaf=face(alpha,0,"alpha")
- Rrf=face(Rr,0,"R_r");Rtf=face(Rt,1,"R_t")
- Ef=face(E,0,"rho");jf=face(j,1,"j");prf=face(pr,0,"p_r")
+ centers=(np.arange(grid.n,dtype=np.float64)+0.5)*dr
+ def face_even(values,name):
+  values=finite(name,values);out=np.empty(grid.n+1,dtype=np.float64)
+  for jface in range(grid.n+1):
+   start=min(max(jface-2,0),grid.n-4)
+   nodes=centers[start:start+4]**2
+   target=(float(jface)*dr)**2
+   weights=np.ones(4,dtype=np.float64)
+   for k in range(4):
+    for ell in range(4):
+     if ell!=k:weights[k]*=(target-nodes[ell])/(nodes[k]-nodes[ell])
+   out[jface]=float(weights@values[start:start+4])
+  return finite(f"even face reconstruction {name}",out)
+ def face_odd(values,name):
+  return finite(f"odd face reconstruction {name}",
+   stress_divergence.spherical_flux_face_values(finite(name,values),dr,origin_power=1))
+ af=face_even(a,"a");bf=face_even(b,"b");Xf=face_even(X,"X");alphaf=face_even(alpha,"alpha")
+ Rrf=face_even(Rr,"R_r");Rtf=face_odd(Rt,"R_t")
+ Ef=face_even(E,"rho");jf=face_odd(j,"j");prf=face_even(pr,"p_r")
  r_faces=np.arange(grid.n+1,dtype=np.float64)*dr
  Rf=finite("face areal radius",r_faces*np.sqrt(bf)/Xf)
  if np.any(np.diff(Rf)<=0) or np.any(Rrf<=0):
