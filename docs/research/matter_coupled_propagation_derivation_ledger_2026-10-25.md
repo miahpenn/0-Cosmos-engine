@@ -191,53 +191,58 @@ The archive-locked DM–COSMOS-phi exchange pair and the stored-variable unit ma
 
 ### 10.1 Archive sign record and explicit provenance conflict
 
-The Library's canonical `GEAR_V5_5_MASTER_CHECKPOINT_2026-10-05.md` locks the exchange pair as
+The Library's canonical `GEAR_V5_5_MASTER_CHECKPOINT_2026-10-05.md` locks the exchange pair as:
 
 ```text
 nabla_mu T_DM^{mu nu} = + beta_DM * rho_DM * nabla^nu(phi)
 nabla_mu T_phi^{mu nu} = - beta_DM * rho_DM * nabla^nu(phi)
 ```
 
-and therefore locks cancellation of this pair at the continuum sector level. The older Library file `GEAR_V5_5_COVARIANT_GLOBAL_GATE_2026-10-05_v2.md` §13 contains an internal sign contradiction: its first proposed covariant DM exchange sentence uses the opposite DM sign, while its later explicit archive-normalized sign statement agrees with the master checkpoint. Preserve that first sentence as provenance debt; do not silently rewrite it or resolve the conflict by fitting a residual.
+These two sector divergences cancel at the continuum level. The older Library file `GEAR_V5_5_COVARIANT_GLOBAL_GATE_2026-10-05_v2.md`, §13, contains an internal sign contradiction: its first proposed covariant DM exchange sentence uses the opposite DM sign, while its later explicit archive-normalized sign statement agrees with the master checkpoint. Preserve the contradictory sentence as provenance debt; do not silently rewrite it or resolve the conflict by fitting a residual.
 
 The pinned accepted-source code shape is consistent with the master checkpoint's later explicit pair:
-- `engine/valencia.py` blob `03ed86398f424c03d9d6a3e646da9222a34fac5c` defines the lower-covector DM source as (q_t=\beta_{DM}\rho_{DM}\,\partial_t\phi), (q_r=\beta_{DM}\rho_{DM}\,\partial_r\phi).
-- `engine/matter_system.py` blob `0969f4d996e4f8e0fc5b70a7dff147f024907302` states the mixed-stress source equation and applies that covector to the conservative matter RHS. Its coordinate-time source projections are (q_E=-\sqrt{\gamma}(q_t-\beta^r q_r)) and (q_{S_r}=\alpha\sqrt{\gamma}q_r); the separate variable-mass rest-current source is recorded independently.
-- `engine/scalar_system.py` blob `e2c2dae9a016b4d6454cf74a9eae8b0167d5733d` uses \,\(\partial_t\phi=\alpha\Pi+\beta^r\partial_r\phi\)\, and adds (+\alpha\beta_{DM}\rho_{DM}\) to the coordinate-time \,\(\Pi\)\, RHS.
-- `engine/v55_matter.py` blob `0ee3c51fac7dc46c63feba2747a750542bcee3d0` identifies the RHS density as the raw archive-normalized DM density before stress projection. `engine/matter_system.py` applies the (1/\kappa) conversion to fluid Einstein-source projections, and `engine/scalar_system.py` applies the same (1/\kappa) scale to the stored COSMOS-(\phi\) stress projection, with (\kappa=8\pi G\) (and (G=1) for this source path).
 
-Accordingly, the archive-locked sector exchange has the normalized continuum form
-[
-\nabla_\mu T_{DM,phys}^{\mu\nu}=+\frac{\beta_{DM}\rho_{DM,archive}}{\kappa}\nabla^\nu\phi_{stored},\qquad
-\nabla_\mu T_{\phi,phys}^{\mu\nu}=-\frac{\beta_{DM}\rho_{DM,archive}}{\kappa}\nabla^\nu\phi_{stored},
-]
-so these two source divergences cancel. This is a source-convention and unit-map result, not a measurement that the separate cell-centred scalar and HLL fluid updates cancel exactly at each discrete stage.
+- [`engine/valencia.py`](https://github.com/miahpenn/0-Cosmos-engine/blob/4aec88d0e3ff028e0a65a8ac36b30948625df792/engine/valencia.py), blob `03ed86398f424c03d9d6a3e646da9222a34fac5c`, defines the lower-covector DM source as `q_t = beta_DM * rho_DM * partial_t(phi)`, `q_r = beta_DM * rho_DM * partial_r(phi)`.
+- [`engine/matter_system.py`](https://github.com/miahpenn/0-Cosmos-engine/blob/4aec88d0e3ff028e0a65a8ac36b30948625df792/engine/matter_system.py), blob `0969f4d996e4f8e0fc5b70a7dff147f024907302`, states the mixed-stress source equation and applies this covector to the conservative RHS. The accepted Eulerian-energy and radial-momentum source slots are `q_E = -sqrt(gamma) * (q_t - beta^r * q_r)` and `q_Sr = alpha * sqrt(gamma) * q_r`; the variable-mass rest-current source is a separate slot.
+- [`engine/scalar_system.py`](https://github.com/miahpenn/0-Cosmos-engine/blob/4aec88d0e3ff028e0a65a8ac36b30948625df792/engine/scalar_system.py), blob `e2c2dae9a016b4d6454cf74a9eae8b0167d5733d`, uses `partial_t(phi) = alpha * Pi + beta^r * partial_r(phi)` and adds `+alpha * beta_DM * rho_DM` to the coordinate-time Pi RHS.
+- [`engine/v55_matter.py`](https://github.com/miahpenn/0-Cosmos-engine/blob/4aec88d0e3ff028e0a65a8ac36b30948625df792/engine/v55_matter.py), blob `0ee3c51fac7dc46c63feba2747a750542bcee3d0`, identifies the RHS density as raw archive-normalized DM density before stress projection. `engine/matter_system.py` applies a `1/kappa` conversion to fluid Einstein-source projections, and `engine/scalar_system.py` applies the same `1/kappa` scale to the stored COSMOS-phi stress projection, where `kappa = 8*pi*G` and `G=1` in this source path.
 
-### 10.2 The key distinction for the candidate (S_Q)
+Thus the normalized continuum sector-pair convention is:
+
+```text
+nabla_mu T_DM,phys^{mu nu}  = +(beta_DM * rho_DM,archive / kappa) * nabla^nu(phi_stored)
+nabla_mu T_phi,phys^{mu nu} = -(beta_DM * rho_DM,archive / kappa) * nabla^nu(phi_stored)
+```
+
+This is a source-convention and unit-map result, not a measurement that the cell-centred scalar and HLL fluid updates cancel exactly at every discrete stage.
+
+### 10.2 The key distinction for candidate S_Q
 
 Use separate notation:
 
-- (q^{DM}_\nu=+\beta_{DM}\rho_{DM,archive}\partial_\nu\phi_{stored}): the **DM sector exchange covector** accepted by the Valencia RHS.
-- (\mathcal{D}^{total}_r=\nabla_\mu T^{\mu}{}_{r,total}): the **total stress-divergence residual** that enters a source-aware Bianchi/constraint-propagation derivation, if that derivation produces such a term in the selected convention.
+- `q_DM_nu = +beta_DM * rho_DM,archive * partial_nu(phi_stored)`: the **DM sector exchange covector** consumed by the Valencia RHS.
+- `D_total_r = nabla_mu T_total^{mu}{}_{r}`: the **total stress-divergence residual** that enters a source-aware Bianchi/constraint-propagation derivation, if that derivation produces such a term in the selected convention.
 
-They are not interchangeable. The scalar sector carries the opposite exchange source, while the total divergence also depends on all included sectors and on the chosen discrete representation. Thus the sector value (q^{DM}_r) must not be substituted directly for (\mathcal{D}^{total}_r). The candidate (S_Q=-8\pi\alpha Q_r) remains unadmitted until the derivation defines (Q_r) explicitly as the appropriate **total** lower-index divergence in the same metric, density, lapse, time-split, and discrete-measure convention as (\dot M_r).
+They are not interchangeable. The scalar sector carries the opposite exchange source, while the total divergence also depends on all included sectors and on the chosen discrete representation. Therefore the sector value `q_DM_r` must not be substituted directly for `D_total_r`.
 
-The three existing representations remain distinct: pointwise covariant divergence, FV/cell-integrated divergence, and expanded product-rule divergence. The source trace does not select one by its residual magnitude or convergence order.
+The candidate `S_Q = -8*pi*alpha*Q_r` remains unadmitted until the derivation defines `Q_r` explicitly as the appropriate **total** lower-index divergence in the same metric, density, lapse, time-split, and discrete-measure convention as `Mdot_r`. Do not infer that definition from a small residual.
+
+The three existing representations remain distinct: pointwise covariant divergence, finite-volume/cell-integrated divergence, and expanded product-rule divergence. The source trace does not select one by residual magnitude or convergence order.
 
 ### 10.3 What this source trace resolves—and what it does not
 
 | Sub-obligation | Result from pinned source/archive | Status for full propagation identity |
 |---|---|---|
-| DM–COSMOS-(\phi) exchange sign at the archive-sector level | Master checkpoint and accepted RHS source shape agree on DM (+\), scalar (−\); one contradictory earlier gate sentence remains preserved as provenance debt. | **Resolved at sector-pair convention level only.** |
-| Stored density and stress projection scale | RHS consumes archive-normalized (\rho_{DM}\); both fluid Einstein projections and COSMOS-(\phi) stress projection apply (1/\kappa\). | **Code map recorded; total (Q_r) normalization still open.** |
-| Coordinate-time source operands | (\partial_t\phi=\alpha\Pi+\beta^r\partial_r\phi); the scalar source carries (\alpha\), and the fluid source is projected into its conserved energy/momentum variables as above. | **Source-placement map only; no propagation time-split derivation.** |
-| Total stress divergence and (S_Q) | Sector exchange is not the total divergence; pointwise/FV/expanded forms remain distinct. | **Open; do not promote (S_Q=-8\pi\alpha Q_r).** |
-| Hamiltonian-gradient translation | Brown Eq. (11b)'s slots remain ( -(D_r\alpha)H/3+\alpha D_rH/6\); standard ADM subsidiary coefficients cannot be substituted without a formulation/time-split derivation. | **Open.** |
-| Reference-metric connection response in the full source-aware tangent | Existing mapping (C^r=\Lambda-\Lambda_{metric}\) is algebraically resolved for the Brown candidate. The accepted adapter's matter term in the Lambda RHS does not, by itself, derive every (D_rC^r)/(D_r^2C^r) coefficient in the propagated (M_r) identity. | **Open.** |
-| Total six-sector discrete conservation | Existing ledger verifies signed additivity/bookkeeping; it does not prove cancellation of the total discrete stress divergence across scalar and HLL fluid updates. | **Open.** |
+| DM–COSMOS-phi exchange sign at archive-sector level | Master checkpoint and accepted RHS source shape agree on DM positive / scalar negative; one contradictory earlier gate sentence remains preserved as provenance debt. | **Resolved at sector-pair convention level only.** |
+| Stored density and stress projection scale | RHS consumes archive-normalized rho_DM; fluid Einstein-source projections and COSMOS-phi stress projection apply 1/kappa. | **Code map recorded; total Q_r normalization still open.** |
+| Coordinate-time source operands | partial_t(phi) = alpha*Pi + beta^r*partial_r(phi); scalar source carries alpha; fluid source is mapped into its conservative energy/momentum variables. | **Source-placement map only; no propagation time-split derivation.** |
+| Total stress divergence and S_Q | Sector exchange is not total divergence; pointwise/FV/expanded forms remain distinct. | **Open; do not promote S_Q = -8*pi*alpha*Q_r.** |
+| Hamiltonian-gradient translation | Brown Eq. (11b) slots remain -(D_r alpha)*H/3 + alpha*D_r(H)/6; standard ADM subsidiary coefficients cannot be substituted without deriving the formulation/time split. | **Open.** |
+| Reference-metric connection response in the full source-aware tangent | C^r = Lambda - Lambda_metric is algebraically mapped for the Brown candidate. The accepted adapter's matter term in the Lambda RHS does not, by itself, derive every D_r(C^r) / D_r^2(C^r) coefficient in the propagated M_r identity. | **Open.** |
+| Total six-sector discrete conservation | Existing ledger verifies signed additivity/bookkeeping, not cancellation of the total discrete stress divergence across scalar and HLL fluid updates. | **Open.** |
 
 ### 10.4 Next derivation gate
 
-No additional observer is justified by this source trace alone. The next derivation work must combine the accepted source equations with the frozen (M_r/H/C^r) definitions and the selected Brown-vs-accepted time split, and state exactly which total-divergence representation it uses. If the source record does not determine that identity, leave the corresponding coefficient/source operand unresolved rather than inferring it from the #420 residual.
+No additional observer is justified by this source trace alone. Continue from the accepted source equations and frozen M_r/H/C^r definitions, and derive the Brown-vs-accepted time split while stating exactly which total-divergence representation is used. If the source record does not determine an identity or coefficient, leave it unresolved rather than infer it from the #420 residual.
 
 No production/source/vendor/dependency pin or accepted-state artifact changed. All five scientific-admission flags remain false.
