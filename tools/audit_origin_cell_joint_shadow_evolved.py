@@ -28,7 +28,6 @@ sys.path.insert(0, str(ROOT))
 
 from engine.production_kernel import V55ProductionKernel
 from engine.scalar_system import cosmos_potential
-from engine.stress_energy import assemble_total_stress_energy
 from engine.v55_matter import (
     RHO_DM_PRESENT,
     RHO_B_PRESENT,
@@ -171,6 +170,7 @@ def _candidate_half_cell_initializer(state) -> dict:
 
     B = np.ones_like(r)
     source = np.empty_like(r)
+    last_iteration_max_abs_change = None
     for _ in range(6):
         rhoS = 0.5 * (PS**2 + B * Sp**2) + 0.5 * S**2
         rhoD = 0.5 * (PD**2 + B * Dp**2) - 0.5 * D**2
@@ -188,7 +188,9 @@ def _candidate_half_cell_initializer(state) -> dict:
             integ[1:] = I0 + np.cumsum(
                 0.5 * dr * (source[1:] + source[:-1])
             )
-        B = integ / r
+        B_new = integ / r
+        last_iteration_max_abs_change = float(np.max(np.abs(B_new - B)))
+        B = B_new
 
     if not np.all(np.isfinite(B)) or np.any(B <= 0.0):
         raise FloatingPointError("half-cell candidate generated invalid metric quotient")
@@ -221,15 +223,16 @@ def _candidate_half_cell_initializer(state) -> dict:
         "baseline_minus_continuous_B0": float(baseline_B0 - continuous_B0),
         "candidate_minus_continuous_B0": float(B[0] - continuous_B0),
         "source_iterations": 6,
+        "last_iteration_max_abs_change": last_iteration_max_abs_change,
         "all_B_finite_positive": True,
         "matter_reinitialized_on_candidate_metric": True,
     }
 
 def _state_arrays(state) -> dict[str, np.ndarray]:
     arrays = {
-        "t": np.asarray([state.t], dtype=np.float64),
-        "tau": np.asarray([state.tau], dtype=np.float64),
-        "e_folds": np.asarray([state.e_folds], dtype=np.float64),
+        "t": np.asarray(state.t, dtype=np.float64),
+        "tau": np.asarray(state.tau, dtype=np.float64),
+        "e_folds": np.asarray(state.e_folds, dtype=np.float64),
         "r": np.asarray(state.grid.centers, dtype=np.float64),
     }
     for name in ("a", "b", "X", "alpha", "beta", "Aa", "K", "Lambda", "B"):
@@ -245,6 +248,32 @@ def _state_arrays(state) -> dict[str, np.ndarray]:
         for name in ("rest", "energy_t", "momentum_r"):
             arrays[f"{short}_{name}"] = np.asarray(getattr(item, name), dtype=np.float64)
     return arrays
+
+def _compare_baseline_initial_geometry(state) -> dict:
+    path = BASELINE_DIR / "stage_profiles.npz"
+    actual = _state_arrays(state)
+    keys = ("a", "b", "X", "alpha", "beta", "Aa", "K", "Lambda")
+    result = {}
+    with np.load(path, allow_pickle=False) as z:
+        for name in keys:
+            archive_key = f"0000_accepted_000__{name}"
+            if archive_key not in z or name not in actual:
+                result[name] = {"status": "missing_field"}
+                continue
+            expected = np.asarray(z[archive_key], dtype=np.float64)
+            value = np.asarray(actual[name], dtype=np.float64)
+            result[name] = {
+                "status": "compared" if expected.shape == value.shape else "shape_mismatch",
+                "max_abs_delta": float(np.max(np.abs(value - expected)))
+                    if expected.shape == value.shape else None,
+            }
+    vals = [v["max_abs_delta"] for v in result.values()
+            if v.get("status") == "compared" and v.get("max_abs_delta") is not None]
+    return {
+        "all_geometry_fields_compared": all(v.get("status") == "compared" for v in result.values()),
+        "max_abs_delta_any_initial_geometry_field": max(vals) if vals else None,
+        "field_max_abs_delta": result,
+    }
 
 def _compare_baseline_to_archive(state) -> dict:
     path = BASELINE_DIR / "final_state.npz"
@@ -339,12 +368,12 @@ def _run_arm(arm: str) -> tuple[dict, dict]:
     if arm == "production_baseline":
         # Compare the initial state digest and later the final fields to the
         # same pinned saved trajectory; no tolerance retargeting is applied.
-        with np.load(BASELINE_DIR / "report.json", allow_pickle=False) if False else open(BASELINE_DIR / "report.json", "r", encoding="utf-8") as f:
+        with open(BASELINE_DIR / "report.json", "r", encoding="utf-8") as f:
             baseline_report = json.load(f)
         baseline_replay = {
-            "initial_state_sha256_archived": baseline_report.get("initial_state_sha256"),
             "initial_state_sha256_recreated": initial_digest,
-            "initial_digest_equal": initial_digest == baseline_report.get("initial_state_sha256"),
+            "initial_geometry_comparison": _compare_baseline_initial_geometry(state),
+            "note": "The local state-digest helper is not assumed identical to the archived report's digest function; initial geometry is compared field-by-field, and all saved final-state fields are compared below.",
         }
     for step_index in range(1, steps + 1):
         before = state_digest(state)
