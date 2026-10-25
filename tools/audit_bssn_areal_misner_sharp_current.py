@@ -153,19 +153,45 @@ def compare_step(kernel,base,dt):
  decomp_gap=finite("decomposition closure gap",residual-residual_decomp)
  inner=Rcommon<=3.0
  annulus=(Rcommon>=2.0)&(Rcommon<=10.0)
+ def endpoint_at_radius(radius,profile):
+  chi_r=float(np.interp(radius,profile["R"],profile["chi"]))
+  mass_r=0.5*radius*(1.0-chi_r)
+  rhs_r=float(np.interp(radius,profile["R"],profile["rhs"]))
+  comp_r={name:float(np.interp(radius,profile["R"],values)) for name,values in profile["rhs_components"].items()}
+  return {"chi":chi_r,"mass":mass_r,"rhs":rhs_r,"components":comp_r}
  fixed={}
- for radius in (0.5,1.0,2.0,3.0,5.0,8.0,10.0):
+ radii=(0.5,1.0,2.0,3.0,5.0,8.0,10.0)
+ endpoint_fixed={}
+ for radius in radii:
   if lo<=radius<=hi:
+   sR=endpoint_at_radius(radius,start);eR=endpoint_at_radius(radius,end)
+   mdot_r=(eR["mass"]-sR["mass"])/dt
+   mdot_chi_r=-0.5*radius*(eR["chi"]-sR["chi"])/dt
+   rhs_mid_r=0.5*(sR["rhs"]+eR["rhs"])
    row={
-    "mass_rate":float(np.interp(radius,Rcommon,mdot)),
-    "mass_rate_interpolated_mass":float(np.interp(radius,Rcommon,mdot_interpolated_mass)),
-    "mass_interpolation_gap":float(np.interp(radius,Rcommon,mass_interpolation_gap)),
+    "mass_rate":mdot_chi_r,
+    "mass_rate_interpolated_mass":(float(np.interp(radius,end["R"],end["mass"]))-float(np.interp(radius,start["R"],start["mass"])))/dt,
+    "mass_interpolation_gap":((float(np.interp(radius,end["R"],end["mass"]))-float(np.interp(radius,start["R"],start["mass"])))/dt)-mdot_chi_r,
     "mass_rate_spatial_metric":float(np.interp(radius,Rcommon,mdot_spatial)),
     "mass_rate_time_shift_norm":float(np.interp(radius,Rcommon,mdot_time)),
-    "current_rhs_midpoint":float(np.interp(radius,Rcommon,rhs_mid)),
-    "residual":float(np.interp(radius,Rcommon,residual))}
-   row.update({f"current_{name}":float(np.interp(radius,Rcommon,val)) for name,val in rhs_comp_mid.items()})
+    "current_rhs_midpoint":rhs_mid_r,
+    "residual":mdot_chi_r-rhs_mid_r}
+   row.update({f"current_{name}":0.5*(sR["components"][name]+eR["components"][name]) for name in sR["components"]})
    fixed[str(radius)]=row
+   endpoint_fixed[radius]=(sR,eR)
+ shell_balances=[]
+ shell_bounds=tuple(r for r in (1.0,2.0,3.0,5.0,8.0,10.0) if r in endpoint_fixed)
+ for rin,rout in zip(shell_bounds[:-1],shell_bounds[1:]):
+  sin,ein=endpoint_fixed[rin];sout,eout=endpoint_fixed[rout]
+  shell_mass_rate=((eout["mass"]-ein["mass"])-(sout["mass"]-sin["mass"]))/dt
+  net_current=0.5*((sout["rhs"]-sin["rhs"])+(eout["rhs"]-ein["rhs"]))
+  shell_residual=shell_mass_rate-net_current
+  shell_balances.append({
+   "R_in":rin,"R_out":rout,"shell_mass_rate":shell_mass_rate,
+   "net_current_midpoint":net_current,"residual":shell_residual,
+   "relative_abs_residual":abs(shell_residual)/max(abs(net_current),1e-300),
+   "telescoping_residual_closure":shell_residual-((fixed[str(rout)]["residual"])-(fixed[str(rin)]["residual"]))
+  })
  return {
   "dt":float(dt),"accepted_time":float(base.t),"probe_end_time":float(advanced.t),
   "steps_advanced_from_saved_input":1,"saved_input_immutable":True,
@@ -182,6 +208,9 @@ def compare_step(kernel,base,dt):
   "rms_mass_rate_time_shift_norm_R_2_to_10":float(np.sqrt(np.mean(mdot_time[annulus]**2))),
   "rms_current_components_R_2_to_10":{name:float(np.sqrt(np.mean(values[annulus]**2))) for name,values in rhs_comp_mid.items()},
   "fixed_areal_radius":fixed,
+  "shell_balances":shell_balances,
+  "max_abs_shell_balance_residual":float(max((abs(x["residual"]) for x in shell_balances),default=0.0)),
+  "max_abs_shell_telescoping_closure":float(max((abs(x["telescoping_residual_closure"]) for x in shell_balances),default=0.0)),
   "start":{"R_cell0":float(start["R"][0]),"Rr_cell0":float(start["Rr"][0]),
            "Rt_cell0":float(start["Rt"][0]),"chi_cell0":float(start["chi"][0]),
            "mass_cell0":float(start["mass"][0]),"T_t_R_cell0":float(start["T_t_R"][0])},
