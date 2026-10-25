@@ -245,4 +245,23 @@ The three existing representations remain distinct: pointwise covariant divergen
 
 No additional observer is justified by this source trace alone. Continue from the accepted source equations and frozen M_r/H/C^r definitions, and derive the Brown-vs-accepted time split while stating exactly which total-divergence representation is used. If the source record does not determine an identity or coefficient, leave it unresolved rather than infer it from the #420 residual.
 
+### 10.5 Accepted Lambda-stage momentum-source combination (exact source algebra)
+
+A further part of the reference-connection path can be resolved directly from the pinned vendor/adapter source. It narrows the open question but does not close the full propagation identity.
+
+- In vendor `vacuum_bssn.py` at the pinned gitlink `d6052d605673ce9d82cdc99b0df79855fa2ea215` (file blob `099ce52ba9e6dcd38d50c2915248c76c4236f7f4`), `lambda_l2_rhs` includes `+lambda_m * alpha * momentum_constraint(grid, state) / a`. The vendor `momentum_constraint` is the geometry-only quantity; denote it (M_{r,geom}) for this same-state algebra.
+- In accepted-source `engine/v55_pirk_adapter.py` (blob `be28ceea63fa1b59efc5cc5c460b9df19ae1cbc3`), `lambda_l3_with_matter` adds `-8*pi * lambda_m * alpha * total["j"] / a` to the Lambda RHS. Here `total["j"]` is the adapter's canonical combined scalar/fluid radial-momentum projection.
+- Therefore the *paired terms as implemented*, with (G=1) and the candidate source convention, combine algebraically as:
+
+```text
++ lambda_m * alpha / a * M_r,geom
+- 8*pi * lambda_m * alpha / a * j_total
+= + lambda_m * alpha / a * (M_r,geom - 8*pi*j_total)
+= + lambda_m * alpha / a * M_r,total_candidate
+```
+
+This shows the adapter did not simply omit the matter momentum projection from this particular Lambda-stage momentum-constraint channel: its explicit source term cancels the matter piece implied when the geometry-only constraint is replaced by the candidate matter-inclusive one. It is a source-code algebra identity, not an independent proof that `total["j"]` has the final covariant index/density mapping required by the full Bianchi derivation.
+
+The remaining connection obligation is still real: derive the complete evolution of (C^r=\Lambda-\Lambda_{metric}), including the time derivative of (\Lambda_{metric}(a,b,X)), the exact accepted time/PIRK split, the `Aa/K` matter forcing, and the coefficient/sign/stencil mapping of each (D_r C^r) and (D_r^2 C^r) contribution in the propagated lower-index (M_r) identity. This source algebra alone must not freeze the reference-metric connection coupling or alter the admission flag.
+
 No production/source/vendor/dependency pin or accepted-state artifact changed. All five scientific-admission flags remain false.
