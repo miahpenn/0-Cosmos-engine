@@ -116,6 +116,15 @@ def main() -> int:
         "native D4(R_t)",
         grid.cell_derivative_fourth(native["Rt"], parity=-1),
     )
+    current_component_arrays = {
+        "density_time_advection": finite("density current term", -FOUR_PI * R**2 * native["rho"] * native["Rt"]),
+        "radial_momentum_flux": finite("radial momentum flux term", -FOUR_PI * R**2 * native["alpha"] * native["gamma_inv"] * native["j"] * native["Rr"]),
+        "momentum_transport": finite("momentum transport term", -FOUR_PI * R**2 * (native["Rt"] / native["Rr"]) * native["j"] * native["Rt"] / native["alpha"]),
+        "radial_pressure_work": finite("radial pressure work term", -FOUR_PI * R**2 * native["pr"] * native["Rt"]),
+    }
+    native_current_component_closure = finite(
+        "native current component closure", native["F"] - sum(current_component_arrays.values())
+    )
 
     grid_lane_fields = (
         "fixed_residual", "fixed_residual_chi", "fixed_pred_from_constraints_only",
@@ -140,6 +149,8 @@ def main() -> int:
     delta_gradient_remainders: list[float] = []
     product_rule_gaps: list[float] = []
     current_commutators: list[float] = []
+    current_component_deltas: dict[str, list[float]] = {name: [] for name in current_component_arrays}
+    current_component_closure_errors: list[float] = []
 
     for target in FIXED_RADII:
         lane_a = {
@@ -150,6 +161,10 @@ def main() -> int:
         lane_a["gamma_inv_dot"] = sample(
             "gamma^rr tangent", target, R, gamma_inv_dot_grid
         )
+        lane_a["current_component_composites_interpolated"] = {
+            name: sample(name, target, R, values)
+            for name, values in current_component_arrays.items()
+        }
         grid_then_interpolate[str(target)] = lane_a
 
         # Native D4 output fields and native H/M/Crr constraint fields are
@@ -187,10 +202,19 @@ def main() -> int:
             chi_dot - (R_t / R_r) * chi_r
         )
         mass_rate_mass = mass_dot_coordinate - (R_t / R_r) * mass_r_direct
-        current_operand_recomputed = FOUR_PI * R_fixed**2 * (
-            -rho * R_t
-            - alpha * gamma_inv * j * R_r
-            - (R_t / R_r) * (j * R_t / alpha + pr * R_r)
+        current_components_recomputed = {
+            "density_time_advection": -FOUR_PI * R_fixed**2 * rho * R_t,
+            "radial_momentum_flux": -FOUR_PI * R_fixed**2 * alpha * gamma_inv * j * R_r,
+            "momentum_transport": -FOUR_PI * R_fixed**2 * (R_t / R_r) * j * R_t / alpha,
+            "radial_pressure_work": -FOUR_PI * R_fixed**2 * pr * R_t,
+        }
+        current_operand_recomputed = float(sum(current_components_recomputed.values()))
+        current_component_deltas_at_R = {
+            name: float(current_components_recomputed[name] - lane_a["current_component_composites_interpolated"][name])
+            for name in current_components_recomputed
+        }
+        current_component_closure_at_R = float(
+            (current_operand_recomputed - current_native_sample) - sum(current_component_deltas_at_R.values())
         )
         current_commutator = float(current_operand_recomputed - current_native_sample)
         residual_chi = mass_rate_chi - current_operand_recomputed
@@ -282,9 +306,12 @@ def main() -> int:
         sampling_budget_closure = float(
             delta_residual - delta_prediction - delta_remainder
         )
-        closure_errors.extend((abs(decomposition_closure), abs(sampling_budget_closure)))
+        closure_errors.extend((abs(decomposition_closure), abs(sampling_budget_closure), abs(current_component_closure_at_R)))
         delta_residuals.append(delta_residual)
         current_commutators.append(current_commutator)
+        current_component_closure_errors.append(current_component_closure_at_R)
+        for name, value in current_component_deltas_at_R.items():
+            current_component_deltas[name].append(value)
         delta_predictions.append(delta_prediction)
         delta_remainders.append(delta_remainder)
         delta_local_remainders.append(delta_local_remainder)
@@ -295,6 +322,8 @@ def main() -> int:
                 "native_current_composite_interpolated": float(current_native_sample),
                 "current_recomputed_from_interpolated_operands": float(current_operand_recomputed),
                 "delta_operand_recomputed_minus_native_composite": current_commutator,
+                "component_deltas": current_component_deltas_at_R,
+                "component_budget_closure_error": current_component_closure_at_R,
             },
             "operands_interpolated_minus_grid_composites_interpolated": {
                 "fixed_residual_via_mass": delta_residual,
@@ -385,6 +414,9 @@ def main() -> int:
             "rms_delta_fixed_residual_via_mass": rms(delta_residuals),
             "max_abs_current_sampling_commutator": max_abs(current_commutators),
             "rms_current_sampling_commutator": rms(current_commutators),
+            "max_abs_native_current_component_closure": float(np.max(np.abs(native_current_component_closure))),
+            "max_abs_fixed_R_current_component_commutator_closure": max_abs(current_component_closure_errors),
+            "current_component_commutator_max_abs": {name: max_abs(values) for name, values in current_component_deltas.items()},
             "max_abs_delta_constraint_only_prediction": max_abs(delta_predictions),
             "max_abs_delta_fixed_operator_remainder": max_abs(delta_remainders),
             "max_abs_delta_local_operator_remainder": max_abs(delta_local_remainders),
