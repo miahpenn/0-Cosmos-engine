@@ -866,6 +866,18 @@ For comparison only, applying the continuum product rule to this connection-only
 \]
 The first three terms in the square bracket multiplying \(\partial_r C^r\), excluding the \(a'/a\) term, match the frozen Brown observer's \(C^r\)-derivative coefficient. The accepted-RHS-derived expression also contains an \(a'/a\cdot\partial_r C^r\) term and a generally nonzero undifferentiated-\(C^r\) term. These cannot be silently discarded, folded into \(S_Q\), or fitted away. Since Brown Eq. (11b) is a structural comparator and the precise Hamiltonian/off-constraint convention in the bridge is not yet admitted, this difference is an **identified formulation-translation obligation**, not yet a verdict that either published or accepted equations are wrong.
 
+#### Archived-state operator comparison (postprocessing only)
+
+I evaluated the accepted-RHS connection contribution and the Brown \(C^r\) block on the three already saved state profiles from the exact-profile tangent artifacts. The derivative routine was transcribed from the pinned vendor stencil contract; ZIP, report, NPZ, and all 101 per-array SHA checks passed. No production module, observer, workflow, or trajectory was executed.
+
+| \(N\) | \(\max_{r\le10}|\Delta_C\dot M_{\rm geom}|\) | \(\max_{r\le10}|B_C^{\rm Brown}|\) | \(\max_{r\le10}|\Delta_C\dot M_{\rm geom}-B_C^{\rm Brown}|\) | Difference at \(r=2\) | \(r=3\) | \(r=5\) | \(r=8\) |
+|---:|---:|---:|---:|---:|---:|---:|---:|
+| 60 | \(8.1170\times10^{-6}\) | \(6.7514\times10^{-6}\) | \(1.3656\times10^{-6}\) | \(-6.7232\times10^{-7}\) | \(+1.2094\times10^{-9}\) | \(-6.8012\times10^{-8}\) | \(+2.2066\times10^{-8}\) |
+| 120 | \(1.7986\times10^{-6}\) | \(1.4687\times10^{-6}\) | \(3.2991\times10^{-7}\) | \(+2.2896\times10^{-8}\) | \(-5.8548\times10^{-10}\) | \(-4.4699\times10^{-10}\) | \(+1.6963\times10^{-10}\) |
+| 240 | \(9.3221\times10^{-8}\) | \(8.8145\times10^{-8}\) | \(2.4170\times10^{-8}\) | \(-7.5460\times10^{-10}\) | \(+1.3109\times10^{-11}\) | \(-5.3152\times10^{-12}\) | \(+8.5117\times10^{-13}\) |
+
+The maximum mismatch is in the innermost cell for all three resolutions, while the listed fixed-radius mismatches are smaller and decrease over this saved-state family. This is **not** an operator convergence proof: the archived \(C^r\) profile itself changes by several orders as \(N\) changes, and the first-cell radius changes with resolution. It is a same-state signed crosswalk that localizes where the two source decompositions differ and confirms that the inner cells are the sensitive region. It neither selects Brown or the accepted extension as the physical authority nor permits a correction fitted to these values.
+
 **Next gate:** derive how the accepted Hamiltonian constraint and its \(C^r\)-dependent Ricci representation enter the complete off-constraint subsidiary system, then check whether these extra terms are already represented elsewhere under the exact chosen \(H\) definition. Keep the exact discrete \(D_1(F_C)\) form as the primary source trace; the expanded continuum product rule is a diagnostic comparator only. No residual-based coefficient choice, workflow, observer run, or production change is authorized by this derivation.
 
 
