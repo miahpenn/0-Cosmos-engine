@@ -180,8 +180,15 @@ def _capture_one_step(kernel, state) -> tuple[dict[str, Any], dict[str, np.ndarr
     l2_final = _arr(lambda_l2_calls[3]["value"])
     l3_vac_avg = 0.5 * (stages[0]["l3_vacuum"] + stages[2]["l3_vacuum"])
     l3_matter_avg = 0.5 * (stages[0]["l3_matter_actual"] + stages[2]["l3_matter_actual"])
-    lambda_rate_from_stage_budget = 0.5 * (
-        l2_start + l2_final + stages[0]["l3_total"] + stages[2]["l3_total"]
+    lambda_l2_average = 0.5 * (l2_start + l2_final)
+    lambda_l3_vacuum_average = 0.5 * (
+        stages[0]["l3_vacuum"] + stages[2]["l3_vacuum"]
+    )
+    lambda_l3_matter_average = 0.5 * (
+        stages[0]["l3_matter_actual"] + stages[2]["l3_matter_actual"]
+    )
+    lambda_rate_from_stage_budget = (
+        lambda_l2_average + lambda_l3_vacuum_average + lambda_l3_matter_average
     )
     lambda_rate_accepted = (
         _arr(accepted.geometry.Lambda) - _arr(state.geometry.Lambda)
@@ -191,6 +198,14 @@ def _capture_one_step(kernel, state) -> tuple[dict[str, Any], dict[str, np.ndarr
     lambda_metric_rate_fd = (lambda_metric_accepted - lambda_metric_start) / dt
     c_lambda_dot_fd = lambda_rate_accepted - lambda_metric_rate_fd
     c_lambda_dot_budget = lambda_rate_from_stage_budget - lambda_metric_rate_fd
+    negative_lambda_metric_rate = -lambda_metric_rate_fd
+    c_lambda_dot_decomposition_sum = (
+        lambda_l2_average + lambda_l3_vacuum_average
+        + lambda_l3_matter_average + negative_lambda_metric_rate
+    )
+    c_lambda_dot_decomposition_closure = (
+        c_lambda_dot_fd - c_lambda_dot_decomposition_sum
+    )
 
     profiles: dict[str, np.ndarray] = {}
     stage_rows = []
@@ -216,12 +231,20 @@ def _capture_one_step(kernel, state) -> tuple[dict[str, Any], dict[str, np.ndarr
         })
 
     profiles.update({
+        "lambda_l2_start": l2_start.copy(),
+        "lambda_l2_final_primary": l2_final.copy(),
+        "lambda_l2_average_start_final": lambda_l2_average.copy(),
+        "lambda_l3_vacuum_average_start_primary": lambda_l3_vacuum_average.copy(),
+        "lambda_l3_matter_average_start_primary": lambda_l3_matter_average.copy(),
         "lambda_rate_accepted": lambda_rate_accepted.copy(),
         "lambda_rate_from_stage_budget": lambda_rate_from_stage_budget.copy(),
         "lambda_metric_rate_fd": lambda_metric_rate_fd.copy(),
+        "negative_lambda_metric_rate": negative_lambda_metric_rate.copy(),
         "c_lambda_dot_fd": c_lambda_dot_fd.copy(),
         "c_lambda_dot_budget": c_lambda_dot_budget.copy(),
         "c_lambda_dot_budget_minus_fd": (c_lambda_dot_budget - c_lambda_dot_fd).copy(),
+        "c_lambda_dot_decomposition_sum": c_lambda_dot_decomposition_sum.copy(),
+        "c_lambda_dot_decomposition_closure": c_lambda_dot_decomposition_closure.copy(),
     })
     result = {
         "arm": None,
@@ -244,6 +267,15 @@ def _capture_one_step(kernel, state) -> tuple[dict[str, Any], dict[str, np.ndarr
         "c_lambda_dot_budget_minus_fd_max_abs_r_le_10": float(
             np.max(np.abs((c_lambda_dot_budget - c_lambda_dot_fd)[r <= 10.0]))
         ),
+        "c_lambda_dot_decomposition_closure_max_abs_r_le_10": float(
+            np.max(np.abs(c_lambda_dot_decomposition_closure[r <= 10.0]))
+        ),
+        "c_lambda_dot_component_summaries": {
+            "lambda_l2_average_start_final": _summary(lambda_l2_average, r),
+            "lambda_l3_vacuum_average_start_primary": _summary(lambda_l3_vacuum_average, r),
+            "lambda_l3_matter_average_start_primary": _summary(lambda_l3_matter_average, r),
+            "negative_lambda_metric_identity_rate": _summary(negative_lambda_metric_rate, r),
+        },
         "c_lambda_dot_fd": _summary(c_lambda_dot_fd, r),
         "c_lambda_dot_stage_budget": _summary(c_lambda_dot_budget, r),
         "stage_rows": stage_rows,
@@ -289,7 +321,7 @@ def main() -> int:
             all_profiles[f"N{RESOLUTION}_{label}_{key}"] = _arr(values).copy()
 
     report = {
-        "schema": "origin-lambda-stage-current-crosswalk/v1",
+        "schema": "origin-lambda-stage-current-crosswalk/v2",
         "status": "completed_diagnostic_only",
         "source_pins": {
             "source_commit": SOURCE_COMMIT,
@@ -329,6 +361,10 @@ def main() -> int:
             "same_stage_start_and_primary_predictor_currents_captured": all(
                 len(x["stage_rows"]) == 3 for x in arm_rows
             ),
+            "c_lambda_dot_component_decomposition_closes": all(
+                item["c_lambda_dot_decomposition_closure_max_abs_r_le_10"] < 1e-12
+                for item in arm_rows
+            ),
             "full_matter_coupled_propagation_identity_closed": False,
             "total_stress_energy_sector_conservation_closed": False,
             "production_source_or_vendor_changed": False,
@@ -358,6 +394,12 @@ def main() -> int:
             item["arm"]: {
                 "accepted_lambda_rate_minus_stage_budget_max_abs_r_le_10":
                     item["accepted_lambda_rate_minus_stage_budget_max_abs_r_le_10"],
+                "c_lambda_dot_component_closure_max_abs_r_le_10":
+                    item["c_lambda_dot_decomposition_closure_max_abs_r_le_10"],
+                "c_lambda_dot_components_cell0": {
+                    name: values["cell0_cell5"][0]
+                    for name, values in item["c_lambda_dot_component_summaries"].items()
+                },
                 "direct_current_source_gap_max_abs_r_le_10": {
                     row["stage"]: row["actual_minus_direct_current_source"]["max_abs_r_le_10"]
                     for row in item["stage_rows"]
