@@ -924,3 +924,33 @@ This is the complete RHS-derived identity for the **implemented semi-discrete co
 **No double count:** \(R^r{}_r\) and \(R\) above already use the evolved \(\Lambda\), so the connection response \(F_C\) in §10.9 is a decomposition of the Ricci part of \(\mathscr A\); it must not be appended as a second term to this full formula. Likewise, Brown's \(H\)-gradient and \(C^r\) blocks are a separate continuum comparator to be reconciled against this RHS-derived expression, not extra source terms to add onto it. The accepted-state directional current terms remain the existing state-matched sector ledger; pointwise, FV, and expanded \(\mathcal D_r^{\mathrm{tot}}\) are still distinct possible representations of the continuum Bianchi source.
 
 This closes the equation-to-code assembly of the accepted instantaneous \(\dot M_r\) RHS, not the full matter-coupled continuum propagation identity. The remaining mathematical task is to derive the continuum subsidiary operator from the same field/evolution conventions and explain its term-by-term mapping to this fixed-grid identity and the saved signed tangent. No new observer is warranted unless that derivation identifies a specific missing operand. No production code or admission flag changes follow from this section.
+
+
+## 10.11 Hamiltonian slot: metric-only Brown H versus evolved-\(\Lambda\) vendor H
+
+The Brown paper's spherical Hamiltonian constraint \(H\) is written from the metric and its derivatives (Brown Eq. 10a); the corresponding Brown propagation formula uses that \(H\) together with its explicit \(C^r\)-derivative block. By contrast, the pinned vendor's \`constraints()["hamiltonian"]\` uses \`geometry_terms()["R"]\), whose scalar-Ricci bracket contains the evolved-\(\Lambda\) derivative. The two Hamiltonian arrays are therefore different off the connection-constraint surface even though they represent the same continuum constraint when \(C^r=0\).
+
+For exact code bookkeeping, define \(H_{\mathrm{v},0}\) as the vendor Hamiltonian evaluated with the same \(a,b,X,A_a,K,\rho\) but with \(\Lambda\) replaced by the vendor's own \(\Lambda_{\mathrm{metric}}\), using the same stencils. The same-metric offset derived in §10.9 gives the exact relation
+\[
+H_{\mathrm{v},\Lambda}-H_{\mathrm{v},0}=\chi D_1(C^r),\qquad \chi=X^2.
+\]
+This is deliberately **not** written as an exact identity \(H_{\mathrm{v},\Lambda}-H_{\mathrm{Brown,metric}}=\chi D_1(C^r)\): \(H_{\mathrm{v},0}\) and the independently reconstructed Brown metric-only \(H\) use distinct curvature discretizations and are only expected to converge together. That residual is a separate operator-crosswalk term.
+
+If one applies the Brown Hamiltonian-gradient slots to the two vendor-defined arrays, their difference is exactly
+\[
+\Delta_C G_H
+=-\frac13(D_1\alpha)\,\chi D_1(C^r)
++\frac16\alpha D_1\!\left(\chi D_1(C^r)\right).
+\]
+Only after a continuum product-rule expansion does this become
+\[
+\Delta_C G_H
+=\frac16\alpha\chi\,\partial_r^2 C^r
++\left[\frac16\alpha\,\partial_r\chi
+-\frac13(\partial_r\alpha)\chi\right]\partial_r C^r.
+\]
+Thus the choice of Hamiltonian array changes the \(C^r\)-derivative content of a Brown-form representation. The second display is a continuum comparator, not an exact replacement for the first fixed-grid expression.
+
+**Required no-double-counting rule:** either derive the complete accepted RHS into a Brown-form equation using the explicitly selected metric-only \(H\) and its full connection correction, or retain the exact rate composition in §10.10. Do not feed \(H_{\mathrm{v},\Lambda}\) into Brown's H slots and also keep the full explicit Brown \(C^r\) block without deriving the combined equation. The accepted RHS composition already carries its evolved-\(\Lambda\) dependence through \(R^r{}_r-R/3\).
+
+This resolves the source-level distinction between the two Hamiltonian slots; it does not yet make Brown Eq. (11b) identical to the accepted RHS-derived \(\dot M_r\). The remaining task is a complete formulation/time-split derivation that reconciles the metric-only curvature crosswalk, the connection terms from §10.9, and the same-state discrete tangent from §10.10. No observer or production change is justified by this algebra alone.
