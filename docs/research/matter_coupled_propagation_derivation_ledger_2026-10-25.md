@@ -1057,3 +1057,36 @@ closes to the same sub-\(10^{-18}\) roundoff scale on all three archived arrays.
 At the fixed radii \(r=2,5,8\), the independent metric-curvature mismatch exhibits observed orders between about 3.66 and 4.00 over the two resolution doublings. The maxima over \(r\le10\) are inner-cell dominated, so they should not be read as a fixed-radius order. This supports the intended interpretation: the two curvature representations converge toward the same continuum quantity, but remain distinct discrete operators at finite \(N\).
 
 **No-double-counting consequence:** the Brown propagation formula uses \(H_{\mathrm{Brown,metric}}\) together with its explicit \(C^r\) block. The accepted RHS uses \(H_{\mathrm{v},\Lambda}\)'s evolved-\(\Lambda\) dependence within \(R^r{}_r-R/3\). A translation between them must carry both the exact \(\chi D_1(C^r)\) offset and the independently discretized metric-curvature remainder. Do not transfer either one into the physical Bianchi source or tune it to the momentum residual. This was archive-only postprocessing: no RHS, observer, workflow, or evolution was run, and no admission flag changed.
+
+
+## 10.14 Separate the Brown-block mismatch into an operator-composition remainder and the vendor's extra connection term
+
+The same-state table in §10.9 compares the **exact discrete** accepted-RHS connection tangent with Brown Eq. (11b)'s \(C^r\) block after its continuum product-rule expansion has been discretized. These two arrays are not expected to match bitwise: the accepted side differentiates the whole RHS product, while the Brown side uses independently evaluated \(D_2(C^r)\), \(D_1(C^r)\), and product coefficients. To keep that mismatch from being overinterpreted, write
+\[
+F_{\mathrm{base}}=\frac23\alpha\chi D_1(C^r),\qquad
+F_{\mathrm{extra}}=\frac12\alpha\chi\frac{D_1(a)}a C^r,
+\]
+\[
+\mathscr L[F]\equiv D_1(F)+
+\left(6\chi_r+\frac3r+\frac{3D_1(b)}{2b}\right)F.
+\]
+Then the accepted connection contribution is exactly
+\[
+\Delta_C\dot M_{r,\mathrm{geom}}
+=\underbrace{\mathscr L[F_{\mathrm{base}}]-B_C^{\mathrm{Brown}}}_{\epsilon_{\mathrm{op}}}
++\underbrace{\mathscr L[F_{\mathrm{extra}}]}_{\epsilon_{\mathrm{vendor}}}
++B_C^{\mathrm{Brown}}.
+\]
+Here \(\epsilon_{\mathrm{op}}\) contains the finite-grid product-rule, square-chain-rule, and \(D_1D_1\) versus \(D_2\) composition differences. \(\epsilon_{\mathrm{vendor}}\) is the direct response from the extra \(-\tfrac12\Lambda D_1(a)\) term in the pinned vendor's radial-Ricci bracket, after writing \(\Lambda=\Lambda_{\mathrm{metric}}+C^r\). Brown's Eq. (9d) writes the evolved connection on this RHS through its differentiated \((\Gamma^r)'\) term; the code's additional undifferentiated \(C^r\) contribution is retained as an off-constraint formulation difference, not absorbed into \(S_Q\).
+
+Postprocessing of the same SHA-verified saved states gives:
+
+| \(N\) | \(\max_{r\le10}|\epsilon_{\mathrm{op}}|\) | \(\max_{r\le10}|\epsilon_{\mathrm{vendor}}|\) | Ratio of maxima | \(\max_{r\le10}|\Delta_C\dot M-B_C^{\mathrm{Brown}}|\) |
+|---:|---:|---:|---:|---:|
+| 60 | \(1.3623\times10^{-6}\) | \(3.2251\times10^{-9}\) | \(4.22\times10^2\) | \(1.3656\times10^{-6}\) |
+| 120 | \(3.2973\times10^{-7}\) | \(2.7310\times10^{-10}\) | \(1.21\times10^3\) | \(3.2991\times10^{-7}\) |
+| 240 | \(2.4169\times10^{-8}\) | \(2.0857\times10^{-11}\) | \(1.16\times10^3\) | \(2.4170\times10^{-8}\) |
+
+Thus the observed discrete mismatch in §10.9 is dominated on these states by the difference between the discrete product/operator composition and Brown's expanded operator—not by the vendor-only undifferentiated-connection term, whose independent contribution is much smaller. This distinction matters: the exact discrete identity \(\mathscr L[F_{\mathrm{base}}]+\mathscr L[F_{\mathrm{extra}}]\) is source-derived, but the split between the continuum Brown operator and its discretized products is an operator-choice question. The data do not license changing the vendor RHS or adding a fitted correction.
+
+At fixed radii, \(\epsilon_{\mathrm{op}}\) is likewise much smaller at finer resolution; the inner-cell maxima are not a fixed-radius convergence sequence. No observer, workflow, or evolution was rerun for this decomposition. It uses the archived state arrays and the exact pinned derivative stencils only.
