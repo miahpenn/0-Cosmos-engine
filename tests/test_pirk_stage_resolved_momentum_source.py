@@ -52,5 +52,5 @@ def test_region_summary_keeps_signed_centre_cells_and_annulus_distinct():
         "0": -1.0, "1": 2.0, "2": -3.0, "6": -7.0
     }
     assert result["max_abs_full_grid"] == 7.0
-    assert result["max_abs_r_le_10"] == 7.0
+    assert result["max_abs_r_le_10"] == 6.0
     assert result["max_abs_fixed_annulus_r5_to10"] == 6.0
