@@ -249,9 +249,9 @@ No additional observer is justified by this source trace alone. Continue from th
 
 A further part of the reference-connection path can be resolved directly from the pinned vendor/adapter source. It narrows the open question but does not close the full propagation identity.
 
-- In vendor `vacuum_bssn.py` at the pinned gitlink `d6052d605673ce9d82cdc99b0df79855fa2ea215` (file blob `099ce52ba9e6dcd38d50c2915248c76c4236f7f4`), `lambda_l2_rhs` includes `+lambda_m * alpha * momentum_constraint(grid, state) / a`. The vendor `momentum_constraint` is the geometry-only quantity; denote it (M_{r,geom}) for this same-state algebra.
+- In vendor `vacuum_bssn.py` at the pinned gitlink `d6052d605673ce9d82cdc99b0df79855fa2ea215` (file blob `099ce52ba9e6dcd38d50c2915248c76c4236f7f4`), `lambda_l2_rhs` includes `+lambda_m * alpha * momentum_constraint(grid, state) / a`. The vendor `momentum_constraint` is the geometry-only quantity; denote it `M_r,geom` for this same-state algebra.
 - In accepted-source `engine/v55_pirk_adapter.py` (blob `be28ceea63fa1b59efc5cc5c460b9df19ae1cbc3`), `lambda_l3_with_matter` adds `-8*pi * lambda_m * alpha * total["j"] / a` to the Lambda RHS. Here `total["j"]` is the adapter's canonical combined scalar/fluid radial-momentum projection.
-- Therefore the *paired terms as implemented*, with (G=1) and the candidate source convention, combine algebraically as:
+- Therefore the *paired terms as implemented*, with `G=1` and the candidate source convention, combine algebraically as:
 
 ```text
 + lambda_m * alpha / a * M_r,geom
@@ -260,11 +260,11 @@ A further part of the reference-connection path can be resolved directly from th
 = + lambda_m * alpha / a * M_r,total_candidate
 ```
 
-This proves a source-code identity **within each same-stage call** to the paired vendor/adapter RHS functions. It rules out a simple omission of the matter momentum projection in that Lambda-stage channel. It is not, by itself, a same-state identity for the *accepted step*: `production_kernel.py` advances Lambda with a PIRK combination of start-state `lambda_l2`, a final-primary `lambda_l2`, and `lambda_l3) evaluations from the start and primary-predictor states. Those operands are not all evaluated on one identical state, so their combined accepted-step constraint response must respect that exact split.
+This proves a source-code identity **within each same-stage RHS evaluation** when the vendor `lambda_l2` and adapter `lambda_l3` blocks are evaluated on the same state. It rules out a simple omission of the matter momentum projection in that Lambda-stage channel. It is not, by itself, a same-state identity for the *accepted step*: `production_kernel.py` advances Lambda with the start-state `lambda_l2`, a final-primary `lambda_l2`, the start-state `lambda_l3`, and the primary-predictor `lambda_l3`. In particular, the final-primary `lambda_l2` is paired in the update with the predictor-state `lambda_l3`, not with `lambda_l3` evaluated on that final-primary state. The combined accepted-step constraint response must respect that exact split.
 
 ### 10.6 Chain rule for the reference-metric connection target under the accepted CMC metric RHS
 
-The pinned native CMC explicit-metric RHS implementation is `engine/native_geometry/evolution.py`, blob `7b47d700680b12ab3c82cb6a556d40580b103ce9`. Its shared metric core requires `beta=0) for the CMC override and returns:
+The pinned native CMC explicit-metric RHS implementation is `engine/native_geometry/evolution.py`, blob `7b47d700680b12ab3c82cb6a556d40580b103ce9`. Its shared metric core requires `beta=0` for the CMC override and returns:
 
 ```text
 a_dot = -2*alpha*a*Aa
@@ -295,6 +295,6 @@ C_dot^r = Lambda_dot - Lambda_metric_dot
 
 Here `D_r` acting on products means the same pinned linear derivative operator applied to the product array; do not replace it with a finite-difference product-rule expansion. This is the exact time derivative of the target's discrete expression at a frozen CMC slice if the same fixed-grid operator is used for both the target and RHS operands. It is a derived operator formula, **not a measured closure result**.
 
-I inspected the existing #420 candidate NPZ inventories: they carry the saved `Mdot), Brown/source terms and six-sector arrays, but do not expose `a_dot`, `b_dot`, or `Lambda_metric_dot` profiles. So the connection tangent cannot currently be evaluated from those bundles alone. The next step is to finish mapping `Lambda_dot` through the accepted PIRK split (including which stage supplies each L2/L3 term) and then decide whether one targeted, RHS-only postprocessor is necessary to emit these missing operands. No evolution or campaign is warranted.
+I inspected the existing #420 candidate NPZ inventories: they carry the saved `Mdot`, Brown/source terms and six-sector arrays, but do not expose `a_dot`, `b_dot`, or `Lambda_metric_dot` profiles. So the connection tangent cannot currently be evaluated from those bundles alone. The next step is to finish mapping `Lambda_dot` through the accepted PIRK split (including which stage supplies each L2/L3 term) and then decide whether one targeted, RHS-only postprocessor is necessary to emit these missing operands. No evolution or campaign is warranted.
 
 No production/source/vendor/dependency pin or accepted-state artifact changed. All five scientific-admission flags remain false.
