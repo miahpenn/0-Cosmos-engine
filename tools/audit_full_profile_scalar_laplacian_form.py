@@ -101,6 +101,7 @@ def main() -> int:
     b = finite("metric b", geom.b)
     X = finite("metric X", geom.X)
     alpha = finite("lapse", geom.alpha)
+    alphap = d1(grid, alpha, +1)
     if any(np.any(v <= 0.0) for v in (r, a, b, X, alpha)):
         raise RuntimeError("positive-radius, metric, and lapse preconditions failed")
 
@@ -116,9 +117,13 @@ def main() -> int:
         "production expanded scalar Laplacian",
         gamma_rr_inv * (Spp + coefficient * Sp),
     )
-    rhs_spatial_expanded = finite(
-        "production alpha times expanded scalar Laplacian",
+    alpha_laplacian_expanded = finite(
+        "alpha times production expanded scalar Laplacian",
         alpha * lap_expanded,
+    )
+    production_spatial_force = finite(
+        "production complete scalar spatial force",
+        alpha_laplacian_expanded + gamma_rr_inv * alphap * Sp,
     )
 
     # For dsigma^2 = (a/X^2)dr^2 + (b*r^2/X^2)dOmega^2:
@@ -136,17 +141,29 @@ def main() -> int:
         "cell-centred divergence-form scalar Laplacian",
         d1(grid, radial_flux_control, -1) / sqrt_gamma,
     )
-    rhs_spatial_divergence = finite(
+    alpha_laplacian_divergence = finite(
         "alpha times divergence-form scalar Laplacian",
         alpha * lap_divergence_form,
+    )
+    lapse_weighted_radial_flux = finite(
+        "lapse-weighted divergence-form radial flux",
+        alpha * sqrt_gamma_gamma_rr_inv * Sp,
+    )
+    divergence_form_spatial_force = finite(
+        "complete cell-centred divergence-form scalar spatial force",
+        d1(grid, lapse_weighted_radial_flux, -1) / sqrt_gamma,
     )
     lap_gap = finite(
         "divergence-form minus production-form Laplacian",
         lap_divergence_form - lap_expanded,
     )
-    rhs_gap = finite(
-        "alpha-weighted divergence-form minus production-form contribution",
-        rhs_spatial_divergence - rhs_spatial_expanded,
+    alpha_laplacian_gap = finite(
+        "alpha-weighted divergence-form minus expanded Laplacian contribution",
+        alpha_laplacian_divergence - alpha_laplacian_expanded,
+    )
+    spatial_force_gap = finite(
+        "complete divergence-form minus production spatial force",
+        divergence_form_spatial_force - production_spatial_force,
     )
 
     R = finite("accepted areal radius", r * np.sqrt(b) / X)
@@ -164,7 +181,10 @@ def main() -> int:
             "expanded_laplacian": norm_row(lap_expanded, mask),
             "divergence_form_laplacian": norm_row(lap_divergence_form, mask),
             "divergence_minus_expanded_gap": norm_row(lap_gap, mask),
-            "alpha_weighted_rhs_gap": norm_row(rhs_gap, mask),
+            "alpha_weighted_laplacian_gap": norm_row(alpha_laplacian_gap, mask),
+            "production_spatial_force": norm_row(production_spatial_force, mask),
+            "divergence_form_spatial_force": norm_row(divergence_form_spatial_force, mask),
+            "complete_spatial_force_gap": norm_row(spatial_force_gap, mask),
         }
         for band, mask in masks.items()
     }
@@ -178,7 +198,10 @@ def main() -> int:
             ("expanded_laplacian", lap_expanded),
             ("divergence_form_laplacian", lap_divergence_form),
             ("gap", lap_gap),
-            ("alpha_weighted_gap", rhs_gap),
+            ("alpha_weighted_laplacian_gap", alpha_laplacian_gap),
+            ("production_spatial_force", production_spatial_force),
+            ("divergence_form_spatial_force", divergence_form_spatial_force),
+            ("complete_spatial_force_gap", spatial_force_gap),
         ):
             row[name] = float(np.interp(radius, R, values))
         fixed_R_report[str(radius)] = row
@@ -205,8 +228,11 @@ def main() -> int:
             "resolution": N,
             "accepted_time": TARGET_TIME,
             "areal_radius_map": "R=r*sqrt(b)/X",
-            "production_discrete_operator": "gamma_rr_inverse * [D2(S) + (D1(b)/b - D1(a)/(2a) + 2/r - D1(X)/X)*D1(S)]",
-            "comparison_operator": "D1([sqrt(gamma)*gamma^rr*D1(S)], parity=-1)/sqrt(gamma), using the same cell-centred D1",
+            "production_discrete_laplacian": "gamma_rr_inverse * [D2(S) + (D1(b)/b - D1(a)/(2a) + 2/r - D1(X)/X)*D1(S)]",
+            "comparison_discrete_laplacian": "D1(sqrt(gamma)*gamma^rr*D1(S), parity=-1)/sqrt(gamma), using the same cell-centred D1",
+            "production_complete_spatial_force": "alpha*L_expanded + gamma^rr*D1(alpha)*D1(S)",
+            "comparison_complete_spatial_force": "D1(alpha*sqrt(gamma)*gamma^rr*D1(S), parity=-1)/sqrt(gamma)",
+            "continuum_identity": "alpha*Delta(S) + gamma^rr*(d_r alpha)*(d_r S) = (1/sqrt(gamma))*d_r(alpha*sqrt(gamma)*gamma^rr*d_r S)",
             "sqrt_gamma_per_unit_solid_angle": "sqrt(a)*b*r^2/X^3",
             "sqrt_gamma_gamma_rr_inverse": "b*r^2/(X*sqrt(a))",
             "comparison_is_not": [
@@ -222,13 +248,14 @@ def main() -> int:
             "production_uses_expanded_derivative_form": True,
             "scalar_face_flux_is_defined_by_production": False,
             "divergence_form_is_diagnostic_only": True,
+            "complete_spatial_force_gap_is_measured": True,
             "operator_gap_is_measured_not_presumed_zero": True,
             "full_matter_coupled_propagation_identity_closed": False,
             "total_stress_energy_sector_conservation_closed": False,
             "scientific_admission": False,
         },
         "interpretation_guard": [
-            "The continuum operators are algebraically equivalent for the pinned metric definition; their discrete realizations need not match because the finite-difference operators do not satisfy an exact product rule.",
+            "The continuum Laplacian forms and the complete lapse-weighted spatial-force forms are algebraically equivalent for the pinned metric; their discrete realizations need not match because the finite-difference operators do not satisfy an exact product rule.",
             "The divergence-form control is cell-centred and is not a face-flux finite-volume scheme.",
             "Native bands use the accepted areal-radius map but have resolution-dependent sample counts; do not assign a formal convergence order to the R<1 band.",
             "Fixed-R values are interpolated observations; interpolation error is not counted as production evolution error.",
