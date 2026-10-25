@@ -1,0 +1,114 @@
+{
+  "schema": "full-matter-coupled-propagation-convention-map/v1",
+  "status": "documentation_only_convention_inventory",
+  "created_utc_date": "2026-10-25",
+  "branch": "diag/full-matter-coupled-convention-freeze-2026-10-25",
+  "branch_point_diagnostic_sha": "e98b8fa5bd67e9cf023e001e81a6792b5ce469d2",
+  "pr_420_base_sha": "19fbc814a041a7aaf2678c0337a02f02905f40a4",
+  "accepted_state_source_anchor": "4aec88d0e3ff028e0a65a8ac36b30948625df792",
+  "vendor_pin": "d6052d605673ce9d82cdc99b0df79855fa2ea215",
+  "accepted_time": 0.6,
+  "resolutions_with_existing_evidence": [
+    60,
+    120,
+    240
+  ],
+  "scope": {
+    "new_evolution_steps": false,
+    "new_observer_run": false,
+    "production_changes": false,
+    "initializer_changes": false,
+    "vendor_dependency_or_source_pin_changes": false
+  },
+  "conventions": {
+    "brown_candidate_primary_residual": {
+      "status": "resolved_for_candidate_only",
+      "object": "covariant lower-index radial M_r",
+      "connection_object": "contravariant radial C^r",
+      "source": "J. David Brown, BSSN in Spherical Symmetry, arXiv:0705.3845, Eq. 11b",
+      "limitation": "Does not equate M_r with M^r, densitized residuals, or all arrays named M."
+    },
+    "accepted_S_sector_spatial_operator": {
+      "status": "resolved_from_pinned_accepted_update",
+      "form": "L_S=(X^2/a)*(D2(S)+(D1(b)/b-D1(a)/(2a)+2/r-D1(X)/X)*D1(S))",
+      "scalar_momentum_rhs_contribution": "alpha*L_S",
+      "alternatives": "HLL/FV face flux does not define the accepted S-sector update; other stress-divergence forms remain diagnostics."
+    },
+    "physical_stress_divergence_representation": {
+      "status": "unresolved",
+      "candidates": [
+        "pointwise covariant divergence",
+        "cell-integrated/FV divergence",
+        "expanded divergence"
+      ],
+      "note": "Distinct discrete observables; no choice by residual size or fitted closure."
+    },
+    "matter_source_index_density_lapse_normalization": {
+      "status": "unresolved",
+      "provisional_candidate": "-8*pi*alpha*Q_r",
+      "note": "Existing Brown source bridge reconciles signed bookkeeping but does not scientifically admit the source mapping."
+    },
+    "hamiltonian_gradient_normalization": {
+      "status": "unresolved",
+      "brown_candidate_slots": "-(D_r(alpha)/3)*H + (alpha/6)*D_r(H)",
+      "proposal_expression_not_yet_mapped": "-D_i(alpha)*H -(alpha/2)*D_i(H)",
+      "required": "Derive exact translation including H normalization, sign convention, and coordinate-time vs normal/Lie-split derivative."
+    },
+    "reference_metric_connection_coupling": {
+      "status": "structural_candidate_exists_full_mapping_unresolved",
+      "candidate_objects": [
+        "chi=X^2",
+        "C^r=Lambda-Lambda_metric",
+        "D_r^2(C^r)",
+        "D_r(C^r)"
+      ],
+      "note": "Keep metric-only H/Ricci separate from evolved-Lambda response; do not double-count."
+    },
+    "six_sector_total_stress_energy_exchange": {
+      "status": "unresolved",
+      "sectors": [
+        "S",
+        "D",
+        "COSMOS_phi",
+        "dark_matter",
+        "baryons",
+        "radiation"
+      ],
+      "note": "Sector additivity closes; total conservation/exchange does not. COSMOS-phi normalization premise remains open."
+    }
+  },
+  "existing_numeric_evidence": {
+    "brown_source_bridge_max_abs_gap_N60_N120_N240": [
+      3.625e-10,
+      3.009e-11,
+      2.015e-12
+    ],
+    "brown_signed_reassembly_closure_max_abs_N60_N120_N240": [
+      5.082197683525802e-21,
+      7.4640066396056e-21,
+      1.062361771797708e-20
+    ],
+    "full_profile_direct_candidate_global_max_abs_N60_N120_N240": [
+      0.000008975190539630025,
+      9.317320844504038e-7,
+      4.133041440376011e-8
+    ],
+    "fixed_r2_observed_orders": [
+      3.874,
+      3.926
+    ],
+    "fixed_r8_observed_orders": [
+      4.028,
+      3.992
+    ],
+    "note": "Existing frozen-state measurements, not a new run or scientific admission."
+  },
+  "admission": {
+    "full_matter_coupled_propagation_identity_closed": false,
+    "matter_source_sign_and_normalization_reviewed": false,
+    "reference_metric_connection_coupling_convention_frozen": false,
+    "total_stress_energy_sector_conservation_closed": false,
+    "scientific_admission": false
+  },
+  "next_gate": "Archive-backed derivation of the H-gradient translation, connection coupling, source index/density/measure, and complete total-sector exchange before deciding whether any new observer is necessary."
+}
