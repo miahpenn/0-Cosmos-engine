@@ -1,0 +1,81 @@
+name: Diagnostic - initial RHS of joint half-cell origin candidate
+
+on:
+  pull_request:
+    branches:
+      - diag/origin-cell-joint-shadow-one-step-2026-10-24
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - tools/audit_origin_joint_halfcell_initial_rhs.py
+      - .github/workflows/origin-cell-joint-shadow-initial-rhs.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: origin-cell-joint-shadow-initial-rhs-${{github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  initial-rhs:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        resolution: [60, 120, 240]
+    env:
+      PYTHONUNBUFFERED: "1"
+      SOURCE_COMMIT: "4aec88d0e3ff028e0a65a8ac36b30948625df792"
+      VENDOR_COMMIT: "d6052d605673ce9d82cdc99b0df79855fa2ea215"
+      ORIGIN_RHS_RESOLUTION: ${{ matrix.resolution }}
+      ORIGIN_RHS_OUT: results/origin-joint-halfcell-initial-rhs-N${{ matrix.resolution }}-2026-10-24
+    steps:
+      - name: Check out the isolated diagnostic branch and pinned vendor
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Fail closed if protected engine/vendor/dependency pins drift
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin "$SOURCE_COMMIT"
+          test "$(git rev-parse "$SOURCE_COMMIT")" = "$SOURCE_COMMIT"
+          test "$(git rev-parse "HEAD:vendor/bb-palatini-unified-r0")" = "$VENDOR_COMMIT"
+          test "$(git -C vendor/bb-palatini-unified-r0 rev-parse HEAD)" = "$VENDOR_COMMIT"
+          protected_diff="$(git diff --name-only "$SOURCE_COMMIT" HEAD -- engine vendor .gitmodules requirements.txt)"
+          if [[ -n "$protected_diff" ]]; then
+            echo "Unexpected changes to protected production/vendor/dependency paths:"
+            echo "$protected_diff"
+            exit 1
+          fi
+          echo "SOURCE_COMMIT=$SOURCE_COMMIT"
+          echo "VENDOR_COMMIT=$VENDOR_COMMIT"
+          echo "PROTECTED_SOURCE_DIFF=empty"
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install repository requirements
+        run: python -m pip install -r requirements.txt
+
+      - name: Compile bounded initial-RHS observer
+        run: python -m py_compile tools/audit_origin_joint_halfcell_initial_rhs.py
+
+      - name: Capture initial RHS and one-step discriminator only
+        run: python tools/audit_origin_joint_halfcell_initial_rhs.py
+
+      - name: Upload per-resolution signed RHS report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: origin-joint-halfcell-initial-rhs-N${{ matrix.resolution }}-2026-10-24
+          path: results/origin-joint-halfcell-initial-rhs-N${{ matrix.resolution }}-2026-10-24/
+          if-no-files-found: warn
+          retention-days: 90
