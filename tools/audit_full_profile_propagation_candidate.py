@@ -754,6 +754,7 @@ def compact_scalar_eom_divergence_pairing(
     independently formed divergence-operator residual so their finite-grid
     difference is explicit. The FV divergence remains a volume-averaged lane.
     """
+    finite = stress_divergence.finite
     grid, geom = state.grid, state.geometry
     r = np.asarray(grid.centers, dtype=np.float64)
     dr = float(grid.dr)
