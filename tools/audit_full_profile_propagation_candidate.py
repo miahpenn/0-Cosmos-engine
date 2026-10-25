@@ -678,6 +678,67 @@ def compact_hll_operator_snapshot(state, rates) -> tuple[dict[str, Any], dict[st
     return compact, profiles
 
 
+def compact_scalar_current_rate_decomposition(
+    state, scalar_budget: dict[str, Any], candidate_raw: dict[str, np.ndarray]
+) -> tuple[dict[str, Any], dict[str, np.ndarray]]:
+    """Resolve -8*pi*d_t(J_S) into the exact existing scalar RHS rate terms."""
+    if not scalar_budget.get("reconstruction_passed", False):
+        raise RuntimeError("existing scalar RHS term budget did not reconstruct its implementation")
+    r = np.asarray(state.grid.centers, dtype=np.float64)
+    S = np.asarray(state.scalars.S, dtype=np.float64)
+    PS = np.asarray(state.scalars.PS, dtype=np.float64)
+    Sr = stress_divergence.d1(state.grid, S, +1)
+    kappa = float(8.0 * np.pi)
+    sector = scalar_budget["sectors"]["S"]
+    field_terms = sector["field_rate_terms"]["raw_signed_arrays"]
+    momentum_terms = sector["momentum_rate_terms"]["raw_signed_arrays"]
+    profiles: dict[str, np.ndarray] = {}
+    rows: dict[str, Any] = {}
+    contribution_sum = np.zeros_like(r)
+
+    # For j_S = -P_S * D_r(S), the momentum-constraint matter contribution
+    # is -8*pi*j_S. Its RHS tangent is +8*pi*(Pdot_S*D_r(S) + P_S*D_r(Sdot)).
+    for name, values in momentum_terms.items():
+        term = kappa * np.asarray(values, dtype=np.float64) * Sr
+        contribution_sum += term
+        profiles[f"scalar_S_current_rate_from_Pdot_{name}"] = term
+        rows[f"Pdot_{name}"] = summarize_profile(term, r)
+    for name, values in field_terms.items():
+        term = kappa * PS * stress_divergence.d1(
+            state.grid, np.asarray(values, dtype=np.float64), +1
+        )
+        contribution_sum += term
+        profiles[f"scalar_S_current_rate_from_Sdot_{name}"] = term
+        rows[f"Sdot_{name}"] = summarize_profile(term, r)
+
+    actual = np.asarray(candidate_raw["propagation_Mdot_sector_S"], dtype=np.float64)
+    gap = contribution_sum - actual
+    profiles["scalar_S_current_rate_reconstructed"] = contribution_sum
+    profiles["scalar_S_current_rate_actual_tangent"] = actual
+    profiles["scalar_S_current_rate_reconstruction_gap"] = gap
+    report = {
+        "observer": "existing audit_total_stress_energy_divergence.scalar_rhs_term_budget plus exact current derivative j_S=-P_S*D_r(S)",
+        "scalar_rhs_term_budget_status": scalar_budget.get("status"),
+        "scalar_rhs_term_reconstruction_passed": bool(scalar_budget.get("reconstruction_passed")),
+        "current_definition": "j_S=-P_S*D_r(S); Mdot_S contribution=-8*pi*d_t(j_S)=+8*pi*(Pdot_S*D_r(S)+P_S*D_r(Sdot))",
+        "momentum_rate_terms_contribution": {
+            key: rows[key] for key in rows if key.startswith("Pdot_")
+        },
+        "field_rate_terms_contribution": {
+            key: rows[key] for key in rows if key.startswith("Sdot_")
+        },
+        "reconstructed_Mdot_sector_S": summarize_profile(contribution_sum, r),
+        "actual_directional_Mdot_sector_S": summarize_profile(actual, r),
+        "reconstruction_gap": summarize_profile(gap, r),
+        "reconstruction_gap_max_abs": float(np.max(np.abs(gap))),
+        "source_pin_caveat": (
+            "This is a term-by-term reconstruction of the current pinned scalar RHS, "
+            "not acceptance of a scalar/matter exchange law or total-T conservation."
+        ),
+    }
+    return report, profiles
+
+
 def main() -> int:
     if RESOLUTION not in (60, 120, 240):
         raise ValueError(f"unsupported resolution {RESOLUTION}")
@@ -710,9 +771,15 @@ def main() -> int:
         FULL_METRIC_LAPSE_SHADOW = bool(uses_regular_lapse)
         kernel, state = reconstruct_state(RESOLUTION, prefix_data, prefix)
         initial_digest = tangent.state_digest(state)
+        base_rates = tangent.rhs_direction(kernel, state)
         hll_snapshot, hll_profiles = compact_hll_operator_snapshot(
-            state, tangent.rhs_direction(kernel, state)
+            state, base_rates
         )
+        scalar_rhs_budget = stress_divergence.scalar_rhs_term_budget(
+            state, float(hll_snapshot["coupling_parameter"])
+        )
+        if tangent.state_digest(state) != initial_digest:
+            raise RuntimeError("scalar RHS term budget mutated its accepted base state")
         tangent.shifted_state = shifted_state_with_matched_lapse
         propagation.shifted_state = shifted_state_with_matched_lapse
 
@@ -748,8 +815,12 @@ def main() -> int:
             operator_report, operator_profiles = operator_pairing_decomposition(
                 kernel, state, rates, eps, raw[eps]
             )
+            scalar_current_report, scalar_current_profiles = compact_scalar_current_rate_decomposition(
+                state, scalar_rhs_budget, raw[eps]
+            )
             compact["sector_resolved_stress_energy_divergence"] = sector_report
             compact["pointwise_vs_expanded_Qr_discrete_gap_decomposition"] = operator_report
+            compact["scalar_S_current_RHS_term_decomposition"] = scalar_current_report
             arm_rows["epsilon_results"].append(compact)
             for name, values in raw[eps].items():
                 saved_profiles[f"N{RESOLUTION}_{label}_eps{eps:.0e}_{name}"] = np.asarray(values, dtype=np.float64).copy()
@@ -761,13 +832,17 @@ def main() -> int:
                 saved_profiles[
                     f"N{RESOLUTION}_{label}_eps{eps:.0e}_{name}"
                 ] = np.asarray(values, dtype=np.float64).copy()
+            for name, values in scalar_current_profiles.items():
+                saved_profiles[
+                    f"N{RESOLUTION}_{label}_eps{eps:.0e}_{name}"
+                ] = np.asarray(values, dtype=np.float64).copy()
         for name, values in hll_profiles.items():
             saved_profiles[f"N{RESOLUTION}_{label}_{name}"] = np.asarray(values, dtype=np.float64).copy()
         summaries.append(arm_rows)
 
     report_path = OUT / "report.json"
     result = {
-        "schema": "full-profile-accepted-state-propagation-candidate/v4",
+        "schema": "full-profile-accepted-state-propagation-candidate/v5",
         "status": "completed_diagnostic_only",
         "purpose": "Apply the existing convention/index-sensitive propagation candidate and its existing additive sector-resolved total-stress-energy divergence observer to source-pinned accepted t=0.60 states from baseline, partial-joint, and full-continuous-metric arms.",
         "source_pins": {
@@ -799,6 +874,16 @@ def main() -> int:
             "all_frozen_state_observers_immutable": True,
             "all_reported_profiles_finite": True,
             "production_hll_operator_snapshots_paired_on_exact_accepted_states": True,
+            "scalar_S_current_rate_terms_reconstructed": all(
+                item.get("scalar_S_current_RHS_term_decomposition", {}).get(
+                    "scalar_rhs_term_reconstruction_passed"
+                ) is True
+                and item.get("scalar_S_current_RHS_term_decomposition", {}).get(
+                    "reconstruction_gap_max_abs", float("inf")
+                ) < 1.0e-9
+                for arm in summaries
+                for item in arm["epsilon_results"]
+            ),
             "full_matter_coupled_propagation_identity_closed": False,
             "matter_source_sign_and_normalization_reviewed": False,
             "reference_metric_connection_coupling_convention_frozen": False,
