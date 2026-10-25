@@ -416,7 +416,7 @@ The corrected observer's direct covariant-\(M_r\) candidate now reports:
 
 At fixed \(r=2\), the observed orders are 3.955 and 3.912; at fixed \(r=8\), they are approximately 4.086 and 4.027. The corrected geometric Brown-plus-actual-source remainder agrees closely with the direct candidate at these radii. The signed Brown term sum reconstructs exactly (zero arithmetic gap at the stored precision), and the discrete chain-rule observer remains a separate implementation check.
 
-**The matter-source mapping is still the decisive open discrepancy.** The measured actual matter contribution to the total momentum-constraint tangent minus the provisional \(-8\pi\alpha Q_r\) source remains, at fixed \(r=2\), \(+5.80900\times10^{-5}\), \(+5.77977\times10^{-5}\), and \(+5.83505\times10^{-5}\) for N=60, 120, and 240. It is essentially resolution-independent; the full-domain source-mapping remainder RMS is about \(1.68\times10^{-5}\). This is a distinct source-law/normalization residual, not the same quantity as the Brown propagation residual, and cannot be dismissed by the latter's fourth-order fixed-radius trend.
+**Correction after the patched signed-bridge check:** the source-mapping difference \(\Delta S=S_{\rm act}-S_Q\) is large and nearly resolution-independent at fixed \(r=2\), but it is **not an isolated missing-source residual**. On the same H-corrected accepted-state profiles it is balanced by the Brown source difference \(B_{\rm tot}-B_{\rm geom}\); see Section 15 below. Its persistence alone does not imply failed conservation. The still-open gate is the archive-pinned interpretation and normalization of the complete sector source identity, alongside the independent origin/reference-connection and total-sector conservation gates—not driving \(\Delta S\) to zero by fitting or cancelling it.
 
 The regular-origin question also remains open: native cell 0 samples are at different radii for the three resolutions, and the corrected direct residual there changes sign (\(+8.19\times10^{-7}\), \(-6.57\times10^{-7}\), \(+1.36\times10^{-7}\)). Those values are **not** a matched-radius convergence sequence.
 
@@ -451,3 +451,53 @@ At fixed \(r=2\), the earlier saved full-profile ledger gives:
 The ratio is only a **scale comparison**: the conversion term belongs to the raised-index comparator and is not an additive term in the direct covariant residual. It suggests the explicitly recorded metric-rate contribution is not, by magnitude alone at this radius, a dominant explanation for the earlier residual. It does not establish the complete index convention, and the direct-candidate residual will change under the H-slot correction now being validated.
 
 No nonzero-shift conclusion follows from these accepted arms. The index conversion, Brown covariant equation, connection convention, and matter-source mapping remain separately tracked gates; scientific admission stays false.
+
+
+## 15. H-corrected signed source bridge — 2026-10-25
+
+**Status:** post-processing of the existing accepted \(t=0.60\) profiles from workflow [40224825903](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/40224825903). The run passed at N=60/120/240. Input profile hashes and accepted-state digests were unchanged; the source/vendor pins and protected engine/vendor/dependency files were unchanged; no evolution was advanced.
+
+Use the established definitions
+\[
+\begin{aligned}
+B_{\rm tot}&=\text{Brown }M_r\text{ source using the total metric-only }H,\\
+B_{\rm geom}&=\text{geometric-only Brown }M_r\text{ source},\\
+S_{\rm act}&=\text{actual }M_{\rm geom}\text{ matter injection}-8\pi\dot J_r,\\
+S_Q&=-8\pi\alpha Q_r,\qquad \Delta S=S_{\rm act}-S_Q,\\
+D_{\rm tot}&=\dot M_{\rm measured}-(B_{\rm tot}+S_Q),\\
+D_{\rm geom}&=\dot M_{\rm measured}-(B_{\rm geom}+S_{\rm act}).
+\end{aligned}
+\]
+The bridge to test is
+\[
+(B_{\rm tot}-B_{\rm geom})-\Delta S=D_{\rm geom}-D_{\rm tot}.
+\]
+
+### Patched accepted-state results at fixed \(r=2\)
+
+| N | \(B_{\rm tot}-B_{\rm geom}\) | \(\Delta S\) | Difference \((B_{\rm tot}-B_{\rm geom})-\Delta S\) | Max absolute difference over profile | Bridge arithmetic error, max abs |
+|---:|---:|---:|---:|---:|---:|
+| 60 | \(+5.80896357\times10^{-5}\) | \(+5.80899982\times10^{-5}\) | \(-3.62482\times10^{-10}\) | \(3.62482\times10^{-10}\) | \(7.62\times10^{-21}\) |
+| 120 | \(+5.77976279\times10^{-5}\) | \(+5.77976520\times10^{-5}\) | \(-2.40650\times10^{-11}\) | \(3.00874\times10^{-11}\) | \(7.94\times10^{-21}\) |
+| 240 | \(+5.83505119\times10^{-5}\) | \(+5.83505136\times10^{-5}\) | \(-1.60891\times10^{-12}\) | \(2.01493\times10^{-12}\) | \(1.23\times10^{-20}\) |
+
+Thus the total-versus-geometric Brown source difference tracks the matter-source composite difference increasingly closely with refinement. The signed identity \((B_{\rm tot}-B_{\rm geom})-\Delta S=D_{\rm geom}-D_{\rm tot}\) holds to roundoff in the saved arrays. This is a strong algebraic crosswalk of the current observer's terms; it is **not** a standalone derivation of the archive's physical matter source, and it does not close the full matter-coupled propagation identity.
+
+### Stress-divergence and sector accounting controls
+
+At fixed \(r=2\), the corrected observer reports the existing pointwise \(\nabla_\mu T^\mu{}_r\)-style divergence candidate as \(+1.78829\times10^{-7}\), \(+1.29092\times10^{-8}\), and \(+7.97334\times10^{-10}\) for N=60/120/240. The independent finite-volume divergence reports \(+4.49074\times10^{-9}\), \(+2.81380\times10^{-10}\), and \(+1.70483\times10^{-11}\). Their mismatch with the expanded \(Q_r\) candidate decreases strongly at fixed radius, and the pointwise-minus-expanded decomposition closes to roundoff. This remains a comparison of discretizations/conventions, not permission to select whichever form gives the smaller residual.
+
+The component-corrected sector decomposition's unexplained total-divergence gap is at roundoff scale (maximum absolute \(3.12\times10^{-21}\), \(2.99\times10^{-20}\), \(5.47\times10^{-20}\) for N=60/120/240). However, the observer's separate raw uncorrected sector-sum flag remains false, so the complete total-stress-energy conservation gate is **not** marked closed. The archive exchange pair remains locked as
+\[
+\nabla_\mu T_{\rm DM}^{\mu\nu}=+\beta\rho_{\rm DM}\nabla^\nu\phi,\qquad
+\nabla_\mu T_\phi^{\mu\nu}=-\beta\rho_{\rm DM}\nabla^\nu\phi,
+\]
+with opposite signs and net exchange zero. The local \(S/D\) projections and COSMOS-\(\phi\)/fluid projections do not all share one normalization; do not propagate a single \(\kappa\) factor across sectors without the archive's specific definitions.
+
+### Remaining bounded work
+
+1. Preserve the algebraically closed source bridge as a **consistency witness**, not as a fitted source law.
+2. Review the specific source normalization and index conversion against the archive definitions for each stress sector—especially the local \(S\) contribution and the reciprocal COSMOS-\(\phi\)/DM exchange—without modifying production equations.
+3. Keep the reference-metric connection and regular-origin identity as a separate gate. Native cells 0–2 are not matched-radius samples; no origin closure is inferred from the fourth-order fixed-radius trend.
+
+The current flags remain false: full_matter_coupled_propagation_identity_closed=false, reference_metric_connection_coupling_convention_frozen=false, total_stress_energy_sector_conservation_closed=false, scientific_admission=false.
