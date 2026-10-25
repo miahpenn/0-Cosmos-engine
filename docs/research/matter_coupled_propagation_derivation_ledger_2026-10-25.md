@@ -298,3 +298,114 @@ Here `D_r` acting on products means the same pinned linear derivative operator a
 I inspected the existing #420 candidate NPZ inventories: they carry the saved `Mdot`, Brown/source terms and six-sector arrays, but do not expose `a_dot`, `b_dot`, or `Lambda_metric_dot` profiles. So the connection tangent cannot currently be evaluated from those bundles alone. The next step is to finish mapping `Lambda_dot` through the accepted PIRK split (including which stage supplies each L2/L3 term) and then decide whether one targeted, RHS-only postprocessor is necessary to emit these missing operands. No evolution or campaign is warranted.
 
 No production/source/vendor/dependency pin or accepted-state artifact changed. All five scientific-admission flags remain false.
+
+
+## 10.7 Accepted PIRK split for Lambda and the reference-metric response (source-only)
+
+**Finding:** the accepted step's Lambda time split can now be written explicitly from the pinned production kernel. This closes the *stage-assignment bookkeeping question*, not the full \(M_r\) propagation derivation.
+
+**Exact source anchors inspected**
+
+- engine/production_kernel.py — blob 1720615628a98a8d7cfc9fcadcc984fe28c88be1; accepted source anchor 4aec88d0e3ff028e0a65a8ac36b30948625df792.
+- engine/v55_pirk_adapter.py — blob be28ceea63fa1b59efc5cc5c460b9df19ae1cbc3.
+- engine/native_geometry/evolution.py — blob 7b47d700680b12ab3c82cb6a556d40580b103ce9.
+- Pinned vendor vacuum_bssn.py — gitlink d6052d605673ce9d82cdc99b0df79855fa2ea215, file blob 099ce52ba9e6dcd38d50c2915248c76c4236f7f4.
+
+### Stage names and accepted update
+
+Use these labels; they refer to different stage states, not interchangeable samples:
+
+- \(0\): start state after the step refreshes the CMC lapse and sets \(\beta=B=0\).
+- \(p\): primary predictor \(g_1\), formed after the first explicit \(a,b,X\) prediction, scalar/fluid prediction, CMC-lapse solve, and the primary \(A_a,K,\Lambda\) update.
+- \(f\): final-primary operand for the last implicit \(L_2\) evaluation. It uses the final explicit \(a,b,X\), the predictor-resolved lapse, and the final \(A_a,K\); it is a mixed split-stage object, not itself the accepted endpoint.
+- \(n+1\): the completed accepted state, after the final Lambda update and outer-boundary/CMC handling.
+
+The final accepted Lambda update assembled in ProductionKernel.step is
+
+\[
+\Lambda_{n+1}^{\mathrm{pre-boundary}}-\Lambda_0
+=\frac{\Delta t}{2}\left(
+L_{2,0}^{\Lambda}+L_{2,f}^{\Lambda}
++L_{3,0}^{\Lambda}+L_{3,p}^{\Lambda}
+\right).
+\]
+
+The predictor computation of \(g_1^\Lambda\) separately uses \(L_{2,0}^{\Lambda}\), \(L_{2,p}^{\Lambda}\), and \(L_{3,0}^{\Lambda}\). Its \(L_{2,p}^{\Lambda}\) is **not** the second \(L_2\) operand in the final accepted update. That operand is \(L_{2,f}^{\Lambda}\), evaluated after the final implicit-primary \(A_a,K\) update. This distinction is important when reconstructing the tangent or connection budget.
+
+The CMC metric fields use a different split: \(a,b,X\) are updated by the explicit trapezoid from the start and primary-predictor explicit RHS values. For the pinned native CMC RHS with \(\beta=0\), \(A_b=-A_a/2\),
+
+\[
+E_a=-2\alpha a A_a,\qquad
+E_b=-2\alpha b A_b=+\alpha b A_a,\qquad
+E_X=\alpha X K/3.
+\]
+
+Thus the exact accepted metric increments use \(E_{a,0},E_{a,p}\) and \(E_{b,0},E_{b,p}\), not the \(f\) state used by final \(L_2^\Lambda\).
+
+### Lambda source content and the finite-step mismatch that must not be hidden
+
+With zero shift and the pinned vendor's \(KO\_EPSILON=0\), its Lambda terms reduce to
+
+\[
+L_{2}^{\Lambda}
+=-\frac{2}{a}\left(A_a D_r\alpha+\alpha D_r A_a\right)
+-\frac{4\alpha(A_a-A_b)}{rb}
++\lambda_m\frac{\alpha}{a}M_{r,\mathrm{geom}},
+\]
+
+\[
+L_{3,\mathrm{vendor}}^{\Lambda}=2\alpha A_a\Lambda.
+\]
+
+The first-party adapter adds to each stage's \(L_3^\Lambda\) the matter-current term
+
+\[
+L_{3,\mathrm{matter}}^\Lambda=-8\pi\lambda_m\frac{\alpha}{a}j_{\mathrm{total}}.
+\]
+
+At one and the same RHS stage, the two momentum-source terms therefore pair algebraically as
+\[
+\lambda_m\frac{\alpha}{a}
+\left(M_{r,\mathrm{geom}}-8\pi j_{\mathrm{total}}\right).
+\]
+This is a source-code identity for that stage only. In the *accepted finite-step* update the geometry-only momentum term is quadratured at \(0\) and \(f\), whereas \(j_{\mathrm{total}}\) is quadratured at \(0\) and \(p\). Its signed source contribution is therefore
+
+\[
+\frac{\lambda_m\Delta t}{2}
+\left[
+\frac{\alpha_0}{a_0}M_{r,\mathrm{geom},0}
++\frac{\alpha_f}{a_f}M_{r,\mathrm{geom},f}
+-8\pi\left(
+\frac{\alpha_0}{a_0}j_0+
+\frac{\alpha_p}{a_p}j_p
+\right)
+\right].
+\]
+
+Because the second-stage operands are evaluated on different states, the same-stage cancellation cannot be promoted to a finite-step conservation or \(M_r\)-propagation identity. The index, normalization, and Bianchi source map in the earlier obligations remain open.
+
+### Reference-metric response: exact discrete comparison versus instantaneous chain rule
+
+The existing chain-rule expression in §10.6 remains the source-level instantaneous derivative of the sampled target \(\Lambda_{\mathrm{metric}}(a,b)\) when the same fixed \(D_r\) is applied to the product arrays. For an *accepted finite step*, the non-ambiguous discrete quantity is instead
+
+\[
+\Delta\Lambda_{\mathrm{metric}}
+=\Lambda_{\mathrm{metric}}(a_{n+1},b_{n+1})
+-\Lambda_{\mathrm{metric}}(a_0,b_0),
+\qquad
+\Delta C^r=\Delta\Lambda-\Delta\Lambda_{\mathrm{metric}}.
+\]
+
+Evaluate that difference from the actual start and completed accepted arrays, not by replacing it with a single-stage \(\Delta t\,\dot\Lambda_{\mathrm{metric}}\). The target is nonlinear in \(a,b\), and discrete product/chain/composition defects are separately observed; they must not be silently folded into the physical source term.
+
+### Existing-data availability check and next justified action
+
+The existing artifacts do not currently expose all operands needed to independently evaluate the two stage currents in this expression:
+
+- The #420 full-profile profiles.npz files contain the endpoint state and endpoint constraint/profile arrays, not the full \(0,p,f\) scalar/fluid profiles.
+- The archived PR #415 Lambda-budget artifacts provide captured geometry-stage budget values and selected cell summaries. Their matter-\(L_3\) term was inferred from the accepted increment because the full same-stage \(j_0,j_p\) profiles were not archived in that bundle.
+- The separate accepted-endpoint reconstruction of \(j_{\mathrm{total}}\) supports the size/sign of the matter source, but it is an endpoint value, not a substitute for the start/predictor current samples in the accepted PIRK quadrature.
+
+Consequently, the next justified step is a **read-only inventory of existing #408/#415 artifacts and their schemas** for raw stage-resolved scalar/fluid profiles sufficient to reconstruct \(j_0\) and \(j_p\), paired with the exact \(\alpha/a\), \(M_{r,\mathrm{geom}}\), and \(a,b,\Lambda\) operands. If such profiles are absent, identify that precise missing stage operand before proposing a single minimal diagnostic-only capture. No evolution, RHS rerun, source edit, new resolution campaign, or production change is justified by this derivation alone.
+
+**Status remains unchanged:** the time-split assignments above are source-derived; the full matter-coupled \(M_r\) identity, physical \(S_Q\), reference-metric coupling admission, and total six-sector discrete stress-energy conservation remain open. Pointwise/FV/expanded divergence measures remain separate, and all five scientific-admission flags remain false.
