@@ -140,7 +140,10 @@
       "N60": 8.13e-20,
       "N120": 5.42e-20,
       "N240": 5.42e-20
-    }
+    },
+    "independent_face_flux_reconstructed": true,
+    "face_shell_balance_matches_cell_centered_balance": false,
+    "face_reconstruction_error_decreases_with_refinement": true
   },
   "corrected_method": {
     "fixed_R_rate": "m_dot|R = -0.5*R*Delta(chi)|R/dt after interpolating chi to common areal radii",
@@ -334,6 +337,125 @@
         "net_current_midpoint": -0.0005042830554518237,
         "residual": -0.0000017791479129752007,
         "relative_abs_residual": 0.003528073953191097
+      }
+    ]
+  },
+  "face_flux_run": {
+    "id": 40161253120,
+    "url": "https://github.com/miahpenn/0-Cosmos-engine/actions/runs/40161253120",
+    "all_jobs_success": true,
+    "method": "even fields reconstructed in r^2; odd j and Rt reconstructed as r*g(r^2); Rr derived from reconstructed b,X"
+  },
+  "face_shell_balances_dt_half": {
+    "N60": [
+      {
+        "R_in": 1,
+        "R_out": 2,
+        "residual": -0.00002652,
+        "relative_abs_residual": 0.1843,
+        "face_minus_cell_residual": -0.00003765
+      },
+      {
+        "R_in": 2,
+        "R_out": 3,
+        "residual": 0.000001282,
+        "relative_abs_residual": 0.005463,
+        "face_minus_cell_residual": 0.00003472
+      },
+      {
+        "R_in": 3,
+        "R_out": 5,
+        "residual": 0.00002923,
+        "relative_abs_residual": 0.0556,
+        "face_minus_cell_residual": -0.00002062
+      },
+      {
+        "R_in": 5,
+        "R_out": 8,
+        "residual": 0.000018,
+        "relative_abs_residual": 0.08159,
+        "face_minus_cell_residual": -0.0000219
+      },
+      {
+        "R_in": 8,
+        "R_out": 10,
+        "residual": 0.000003851,
+        "relative_abs_residual": 0.007786,
+        "face_minus_cell_residual": 0.00007036
+      }
+    ],
+    "N120": [
+      {
+        "R_in": 1,
+        "R_out": 2,
+        "residual": 0.000005569,
+        "relative_abs_residual": 0.04527,
+        "face_minus_cell_residual": 0.00001383
+      },
+      {
+        "R_in": 2,
+        "R_out": 3,
+        "residual": -0.000009001,
+        "relative_abs_residual": 0.03412,
+        "face_minus_cell_residual": -0.0000161
+      },
+      {
+        "R_in": 3,
+        "R_out": 5,
+        "residual": 0.000008682,
+        "relative_abs_residual": 0.01592,
+        "face_minus_cell_residual": 0.00001666
+      },
+      {
+        "R_in": 5,
+        "R_out": 8,
+        "residual": -0.00001061,
+        "relative_abs_residual": 0.04609,
+        "face_minus_cell_residual": -0.00002708
+      },
+      {
+        "R_in": 8,
+        "R_out": 10,
+        "residual": 0.000009991,
+        "relative_abs_residual": 0.01979,
+        "face_minus_cell_residual": 0.00001576
+      }
+    ],
+    "N240": [
+      {
+        "R_in": 1,
+        "R_out": 2,
+        "residual": 4.453e-7,
+        "relative_abs_residual": 0.003448,
+        "face_minus_cell_residual": 0.000001142
+      },
+      {
+        "R_in": 2,
+        "R_out": 3,
+        "residual": -4.939e-7,
+        "relative_abs_residual": 0.001894,
+        "face_minus_cell_residual": -5.185e-7
+      },
+      {
+        "R_in": 3,
+        "R_out": 5,
+        "residual": -0.000004414,
+        "relative_abs_residual": 0.007922,
+        "face_minus_cell_residual": -0.00000659
+      },
+      {
+        "R_in": 5,
+        "R_out": 8,
+        "residual": -9.561e-7,
+        "relative_abs_residual": 0.004007,
+        "face_minus_cell_residual": -0.000002953
+      },
+      {
+        "R_in": 8,
+        "R_out": 10,
+        "residual": 0.000005622,
+        "relative_abs_residual": 0.01113,
+        "face_minus_cell_residual": 0.000007401
       }
     ]
   }
