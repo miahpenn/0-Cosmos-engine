@@ -18,7 +18,7 @@ permissions:
   actions: read
 
 concurrency:
-  group: matched-radius-evolved-profiles-\${{ github.event.pull_request.number || github.ref }}
+  group: matched-radius-evolved-profiles-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -42,19 +42,21 @@ jobs:
         with:
           name: origin-cell-joint-shadow-evolved-N60-t0.6-2026-10-24
           path: reference/joint/N60
-          github-token: \${{ github.token }}
+          github-token: ${{ github.token }}
           run-id: 40153734946
       - uses: actions/download-artifact@v4
+          repository: miahpenn/0-Cosmos-engine
         with:
           name: origin-cell-joint-shadow-evolved-N120-t0.6-2026-10-24
           path: reference/joint/N120
-          github-token: \${{ github.token }}
+          github-token: ${{ github.token }}
           run-id: 40153734946
       - uses: actions/download-artifact@v4
+          repository: miahpenn/0-Cosmos-engine
         with:
           name: origin-cell-joint-shadow-evolved-N240-t0.6-2026-10-24
           path: reference/joint/N240
-          github-token: \${{ github.token }}
+          github-token: ${{ github.token }}
           run-id: 40153734946
 
       - name: Download full continuous-source accepted-state artifacts
@@ -63,19 +65,21 @@ jobs:
         with:
           name: origin-full-continuous-metric-evolved-N60-t0.6-2026-10-24
           path: reference/full/N60
-          github-token: \${{ github.token }}
+          github-token: ${{ github.token }}
           run-id: 40156226086
       - uses: actions/download-artifact@v4
+          repository: miahpenn/0-Cosmos-engine
         with:
           name: origin-full-continuous-metric-evolved-N120-t0.6-2026-10-24
           path: reference/full/N120
-          github-token: \${{ github.token }}
+          github-token: ${{ github.token }}
           run-id: 40156226086
       - uses: actions/download-artifact@v4
+          repository: miahpenn/0-Cosmos-engine
         with:
           name: origin-full-continuous-metric-evolved-N240-t0.6-2026-10-24
           path: reference/full/N240
-          github-token: \${{ github.token }}
+          github-token: ${{ github.token }}
           run-id: 40156226086
 
       - name: Set up Python 3.12
