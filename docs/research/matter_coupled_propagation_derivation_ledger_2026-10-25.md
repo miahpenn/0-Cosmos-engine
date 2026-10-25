@@ -90,7 +90,7 @@ This crosswalk records exact signed expressions already present in the accepted-
 
 #### A. Exact momentum residual used by the accepted-state tangent
 
-The signed \(\dot M_r\) reported by the exact-profile observer is built from the pinned vendor's `vacuum.constraints(grid, geometry)["momentum"]`, not by directly calling the separate first-party native diagnostic helper. The source-level observer `tools/audit_current_source_momentum_constraint_tangent.py` (blob `3f00a4e0a2063b86d2e007c5a825f9edfff61a4c`) defines the measured total residual as
+With the accepted source convention \(G=1\), \(\kappa=8\pi\). The signed \(\dot M_r\) reported by the exact-profile observer is built from the pinned vendor's `vacuum.constraints(grid, geometry)["momentum"]`, not by directly calling the separate first-party native diagnostic helper. The source-level observer `tools/audit_current_source_momentum_constraint_tangent.py` (blob `3f00a4e0a2063b86d2e007c5a825f9edfff61a4c`) defines the measured total residual as
 
 \[
 M_{r,\mathrm{tot}}=M_{r,\mathrm{geom}}-8\pi j_{\mathrm{tot}},
@@ -217,7 +217,7 @@ For \(\mathcal E_{\mu\nu}=G_{\mu\nu}-\kappa T_{\mu\nu}^{\mathrm{tot}}\), the con
 = -\kappa \mathcal D^{\mathrm{tot}}_\nu.
 \]
 
-This fixes the conceptual source object: the sector pair's \(\mathcal Q^{DM}_\nu\) and \(\mathcal Q^{\phi}_\nu\) cancel in the continuum sum, while \(\mathcal D^{\mathrm{tot}}_\nu\) measures failure of the **total** stress tensor to be conserved. It does **not** by itself fix how the radial component projects into the accepted lower-index \(M_r\) coordinate-time propagation equation.
+This fixes the conceptual source object: the sector pair's \(Q^{DM}_\nu\) and \(Q^{\phi}_\nu\) cancel in the continuum sum, while \(\mathcal D^{\mathrm{tot}}_\nu\) measures failure of the **total** stress tensor to be conserved. It does **not** by itself fix how the radial component projects into the accepted lower-index \(M_r\) coordinate-time propagation equation.
 
 Accordingly, keep `S_Q_candidate = -8*pi*alpha*Q_r` unresolved. Its `Q_r` cannot be interpreted as the DM sector-exchange covector. To accept that candidate, a derivation must show which total-divergence residual it denotes, its index lowering and density measure, and the exact `alpha`/shift/PIRK-time-split coefficient produced by the accepted BSSN evolution. The source crosswalk above supplies no license to infer those missing factors from residual size.
 
