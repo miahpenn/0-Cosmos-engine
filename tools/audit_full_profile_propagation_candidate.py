@@ -320,6 +320,13 @@ def compact_candidate(item: dict[str, Any], raw: dict[float, dict[str, np.ndarra
                 "propagation_geometric_Brown_term_connection_first",
                 "propagation_geometric_Brown_term_sum_reconstruction_gap",
                 "propagation_geometric_Brown_vacuum_source",
+                "propagation_geometry_rhs_Aa",
+                "propagation_geometry_rhs_K",
+                "propagation_Aa_l2_lapse_hessian",
+                "propagation_Aa_l2_tracefree_ricci",
+                "propagation_Aa_l2_operator",
+                "propagation_Aa_l2_split_residual",
+                "propagation_Aa_non_L2_remainder",
             )
             if name in raw_item
         },
@@ -1882,7 +1889,7 @@ def main() -> int:
 
     report_path = OUT / "report.json"
     result = {
-        "schema": "full-profile-accepted-state-propagation-candidate/v9",
+        "schema": "full-profile-accepted-state-propagation-candidate/v10",
         "status": "completed_diagnostic_only",
         "purpose": "Apply the existing convention/index-sensitive propagation candidate and its existing additive sector-resolved total-stress-energy divergence observer to source-pinned accepted t=0.60 states from baseline, partial-joint, and full-continuous-metric arms.",
         "source_pins": {
