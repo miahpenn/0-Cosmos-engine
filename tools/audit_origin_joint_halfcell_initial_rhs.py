@@ -283,7 +283,61 @@ def analyze() -> dict:
             ),
         })
     full_metrics, full_profiles = evolved._metrics_at_state(full_state)
+    # Capture the discrete metric-profile mismatch and raw Ricci operands at the
+    # same stage used for the RHS. This does not take another step or change states.
+    profile_crosswalk = []
+    for i in range(min(6, len(r), len(full_r))):
+        pb = float(stage_geometry.X[i] ** 6)
+        fb = float(full_stage.X[i] ** 6)
+        p_tf = float(stage_geometry.alpha[i]) * (
+            float(geom_terms["Rr_r"][i]) - float(geom_terms["R"][i]) / 3.0
+        )
+        f_tf = float(full_stage.alpha[i]) * (
+            float(full_geom_terms["Rr_r"][i]) - float(full_geom_terms["R"][i]) / 3.0
+        )
+        profile_crosswalk.append({
+            "cell": i,
+            "r": float(r[i]),
+            "partial_B_from_X6": pb,
+            "full_continuous_B_from_X6": fb,
+            "delta_B_partial_minus_full": pb - fb,
+            "partial_a": float(stage_geometry.a[i]),
+            "full_a": float(full_stage.a[i]),
+            "delta_a_partial_minus_full": float(stage_geometry.a[i] - full_stage.a[i]),
+            "partial_b": float(stage_geometry.b[i]),
+            "full_b": float(full_stage.b[i]),
+            "delta_b_partial_minus_full": float(stage_geometry.b[i] - full_stage.b[i]),
+            "partial_X": float(stage_geometry.X[i]),
+            "full_X": float(full_stage.X[i]),
+            "delta_X_partial_minus_full": float(stage_geometry.X[i] - full_stage.X[i]),
+            "partial_Lambda": float(stage_geometry.Lambda[i]),
+            "full_Lambda": float(full_stage.Lambda[i]),
+            "delta_Lambda_partial_minus_full": float(stage_geometry.Lambda[i] - full_stage.Lambda[i]),
+            "partial_stage_Rr_r": float(geom_terms["Rr_r"][i]),
+            "full_stage_Rr_r": float(full_geom_terms["Rr_r"][i]),
+            "delta_Rr_r_partial_minus_full": float(geom_terms["Rr_r"][i] - full_geom_terms["Rr_r"][i]),
+            "partial_stage_R": float(geom_terms["R"][i]),
+            "full_stage_R": float(full_geom_terms["R"][i]),
+            "delta_R_partial_minus_full": float(geom_terms["R"][i] - full_geom_terms["R"][i]),
+            "partial_tracefree_Ricci_Aa_contribution": p_tf,
+            "full_tracefree_Ricci_Aa_contribution": f_tf,
+            "delta_tracefree_Ricci_partial_minus_full": p_tf - f_tf,
+        })
+    profile_crosswalk_summary = {
+        "cells_0_to_5": profile_crosswalk,
+        "cell0_B_delta_abs": abs(profile_crosswalk[0]["delta_B_partial_minus_full"]),
+        "cell1_B_delta_abs": abs(profile_crosswalk[1]["delta_B_partial_minus_full"]),
+        "cell1_delta_B_over_dr_squared": (
+            profile_crosswalk[1]["delta_B_partial_minus_full"] / (float(grid.dr) ** 2)
+        ),
+        "interpretation_limit": (
+            "This reports the profile and operator operands only; it does not equate "
+            "the current initializer's nonlinear source to the older manufactured quadratic source."
+        ),
+    }
+
     full_metric_comparison = {
+        "metric_profile_crosswalk_cells_0_to_5": profile_crosswalk_summary,
         "method": (
             "Same source-pinned initializer and copied regular CMC row; full "
             "continuous-source metric rebuilt at 2048 substeps per coarse dr. "
@@ -530,6 +584,9 @@ def main() -> int:
         "partial_fixed_matter_cell0_rhs": report["partial_metric_fixed_matter_comparator"]["initial_rhs_cells_0_to_2"][0]["combined_initial_Aa_RHS_L2_plus_L3"],
         "partial_fixed_matter_cell0_rhs_over_r0_squared": report["partial_metric_fixed_matter_comparator"]["initial_rhs_cells_0_to_2"][0]["combined_RHS_over_r0_squared"],
         "partial_fixed_matter_cell0_accepted_Aa_over_r0_squared": report["partial_metric_fixed_matter_comparator"]["one_step_state"]["Aa_over_r0_squared_cell0"],
+        "cell1_delta_B_partial_minus_full": report["full_continuous_metric_comparator"]["metric_profile_crosswalk_cells_0_to_5"]["cells_0_to_5"][1]["delta_B_partial_minus_full"],
+        "cell1_delta_B_over_dr_squared": report["full_continuous_metric_comparator"]["metric_profile_crosswalk_cells_0_to_5"]["cell1_delta_B_over_dr_squared"],
+        "cell0_delta_tracefree_Ricci_partial_minus_full": report["full_continuous_metric_comparator"]["metric_profile_crosswalk_cells_0_to_5"]["cells_0_to_5"][0]["delta_tracefree_Ricci_partial_minus_full"],
         "scientific_admission": False,
         "report_sha256": _sha256(report_path),
         "out": str(OUT),
