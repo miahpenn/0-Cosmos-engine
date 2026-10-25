@@ -802,3 +802,68 @@ This isolates the source pairing exactly and leaves the geometric derivative/con
 
 The accepted finite step remains different: its Lambda increment uses \(L_{2,0}\), \(L_{2,f}\), \(L_{3,0}\), and \(L_{3,p}\), while the CMC metric increment uses explicit RHS at \(0\) and \(p\). The same-state equation above must not be promoted to a finite-step conservation or full \(M_r\)-propagation identity. No run, code modification, or admission-state change is implied by this algebra.
 
+
+## 10.9 Accepted Ricci-to-momentum connection response: explicit coefficient comparison
+
+This section isolates the effect of the evolved reference connection in the **accepted vendor RHS itself**, not by assuming Brown's propagated-\(C^r\) block is transferable.
+
+At fixed \(a,b,X,\alpha\), the pinned \`vacuum_bssn.geometry_terms\` uses the evolved \(\Lambda\) only through \(-aD_1\Lambda\) in the scalar-Ricci bracket and through \(-aD_1\Lambda-\tfrac12\Lambda D_1a\) in the radial-Ricci bracket. With
+\[
+C^r=\Lambda-\Lambda_{\mathrm{metric}},\qquad \chi=X^2,
+\]
+linearity of the same \(D_1\) operator therefore gives the exact **same-metric Lambda-offset** contributions
+\[
+\Delta_C R=\chi D_1(C^r),\qquad
+\Delta_C R^r{}_r=\chi\left[D_1(C^r)+\frac{D_1(a)}{2a}C^r\right].
+\]
+This is not the claim that the independent metric-only Ricci reconstruction is bitwise identical to vendor Ricci when \(C^r=0\); the native-vendor crosswalk verifies convergence, not bitwise equality.
+
+Because the accepted primary-L2 \(A_a\) RHS is
+\[
+(L_2 A_a)=-\left(D_rD_r\alpha-\frac13D^2\alpha\right)
++\alpha\left(R^r{}_r-\frac13R\right),
+\]
+the exact same-state Lambda-offset term entering this RHS is
+\[
+F_C\equiv\Delta_C(L_2 A_a)
+=\alpha\chi\left[\frac23D_1(C^r)+\frac{D_1(a)}{2a}C^r\right].
+\]
+The accepted \(K\) L2 block contains only \(-D^2\alpha\), and the \(a,b,X\) explicit metric RHS contains no \(\Lambda\); hence there is no direct \(C^r\)-offset term in those RHS blocks at this frozen state. This isolates the direct connection path through \(A_a\).
+
+Now differentiate the actual lower-index geometric momentum expression
+\[
+M_{r,\mathrm{geom}}=D_1(A_a)-\frac23D_1(K)
++6A_a\chi_r+\frac32A_a\left(\frac2r+\frac{D_1(b)}b\right),
+\qquad \chi_r=-\frac{D_1(X)}{2X}.
+\]
+Holding \(a,b,X,\alpha\) fixed for the connection-only decomposition, \(\Delta_C\dot A_a=F_C\) gives the exact discrete chain-rule contribution
+\[
+\boxed{
+\Delta_C\dot M_{r,\mathrm{geom}}
+=D_1(F_C)+
+\left[6\chi_r+\frac3r+\frac{3D_1(b)}{2b}\right]F_C
+}
+\]
+with the same fixed-grid derivative \(D_1\) acting on the full \(F_C\) array. This formula is source-derived from the accepted RHS and the implemented constraint; it is not the full \(\dot M_r\) and does not include the sector-current tangent \(-8\pi\sum_s\dot j_s\).
+
+For comparison only, applying the continuum product rule to this connection-only expression, with \(\chi=X^2\), yields the Brown-like derivative block plus additional terms:
+\[
+\begin{aligned}
+\Delta_C\dot M_{r,\mathrm{geom}}
+={}&\frac23\alpha\chi\,\partial_r^2 C^r\\
+&+\left[
+\frac23(\partial_r\alpha)\chi-\frac13\alpha(\partial_r\chi)
++\alpha\chi\left(\frac{\partial_r b}{b}+\frac2r\right)
++\frac12\alpha\chi\frac{\partial_r a}{a}
+\right]\partial_r C^r\\
+&+\frac12\left[
+\partial_r\left(\alpha\chi\frac{\partial_r a}{a}\right)
++\alpha\chi\frac{\partial_r a}{a}
+\left(-\frac32\frac{\partial_r\chi}{\chi}
++\frac3r+\frac32\frac{\partial_r b}{b}\right)
+\right]C^r .
+\end{aligned}
+\]
+The first three terms in the square bracket multiplying \(\partial_r C^r\), excluding the \(a'/a\) term, match the frozen Brown observer's \(C^r\)-derivative coefficient. The accepted-RHS-derived expression also contains an \(a'/a\cdot\partial_r C^r\) term and a generally nonzero undifferentiated-\(C^r\) term. These cannot be silently discarded, folded into \(S_Q\), or fitted away. Since Brown Eq. (11b) is a structural comparator and the precise Hamiltonian/off-constraint convention in the bridge is not yet admitted, this difference is an **identified formulation-translation obligation**, not yet a verdict that either published or accepted equations are wrong.
+
+**Next gate:** derive how the accepted Hamiltonian constraint and its \(C^r\)-dependent Ricci representation enter the complete off-constraint subsidiary system, then check whether these extra terms are already represented elsewhere under the exact chosen \(H\) definition. Keep the exact discrete \(D_1(F_C)\) form as the primary source trace; the expanded continuum product rule is a diagnostic comparator only. No residual-based coefficient choice, workflow, observer run, or production change is authorized by this derivation.
