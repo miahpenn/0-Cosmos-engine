@@ -81,10 +81,33 @@ The shell residual telescopes to the difference of the fixed-radius residuals wi
 
 The remaining follow-up is now narrower: compare this fixed-areal-boundary shell balance against a separately reconstructed face-flux FV calculation using the same \(R\)-measure. That will test face reconstruction and cell integration independently of the telescoping boundary arithmetic.
 
+
+## Separate parity-aware FV face reconstruction
+
+Run [40161253120](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/40161253120) adds a separate face path: even metric/stress profiles are reconstructed as regular polynomials in \(r^2\), odd \(j,R_t\) profiles as \(r\,g(r^2)\), and \(R_r\) is differentiated from the reconstructed \(b,X\) face profiles. The transformed current is then formed from the independently reconstructed face primitives; it is not obtained by interpolating the already-combined cell-centred current.
+
+For the smaller timestep, the face-shell residuals are:
+
+| Shell | N=60 | N=120 | N=240 |
+|---|---:|---:|---:|
+| R=1–2 | -2.652e-5 | +5.569e-6 | +4.453e-7 |
+| R=2–3 | +1.282e-6 | -9.001e-6 | -4.939e-7 |
+| R=3–5 | +2.923e-5 | +8.682e-6 | -4.414e-6 |
+| R=5–8 | +1.800e-5 | -1.061e-5 | -9.561e-7 |
+| R=8–10 | +3.851e-6 | +9.991e-6 | +5.622e-6 |
+
+The face-shell residual decreases overall with refinement, but it is not numerically interchangeable with the cell-centred fixed-R shell balance. At N=240, the largest face-shell residual is \(5.62\times10^{-6}\), compared with \(2.18\times10^{-6}\) for the cell-centred shell balance. The face-minus-cell residual difference reaches \(7.40\times10^{-6}\) in R=8–10.
+
+The difference decomposes into the face reconstruction's shell-mass-rate change minus its net-current change. At N=240:
+- R=3–5: face mass-rate shifts by \(-4.00\times10^{-6}\), while net current shifts by \(+2.59\times10^{-6}\), giving a \(-6.59\times10^{-6}\) residual shift.
+- R=8–10: face mass-rate shifts by \(+6.62\times10^{-6}\), while net current shifts by \(-7.85\times10^{-7}\), giving a \(+7.40\times10^{-6}\) residual shift.
+
+This isolates a meaningful numerical crosswalk: the independent face reconstruction changes the geometric mass-rate and flux differently. The residual does decrease with N, but this face path is not yet an accepted FV identity. The next focused check is to compare the face \(R_r\) and \(R_t\) reconstructed from metric profiles against the face reconstruction of the pinned cell-centred derivative/RHS fields, then identify which part accounts for the face-minus-cell shell shift.
+
 ## Interpretation and next gate
 
 This probe now applies both parts of the areal-coordinate transformation: fixed-\(R\) differentiation and the transformed mixed-tensor current. The balance improves with spatial refinement, and the dt/2 comparison indicates timestep size is not the main remaining discrepancy. The explicit mass-interpolation gap was an additional numerical effect in the preliminary measurement and is now separately accounted for.
 
-Next, compare the fixed-areal-boundary shell balance with a separately reconstructed face-flux FV calculation in the same R-measure, and isolate the centre-cell reconstruction error. Keep this diagnostic independent of the pointwise-versus-expanded \(Q_r\) decomposition.
+Next, compare face (R_r) and (R_t) from the metric-profile reconstruction with face values reconstructed from the pinned cell-centred derivative/RHS fields, to localize the face-minus-cell shell shift. Keep this diagnostic independent of the pointwise-versus-expanded \(Q_r\) decomposition.
 
 **Disposition:** coordinate/current transformation exercised; corrected fixed-\(R\) identity still open; full matter-coupled momentum propagation and total sector conservation remain open; no production changes; \`scientific_admission=false\`.
