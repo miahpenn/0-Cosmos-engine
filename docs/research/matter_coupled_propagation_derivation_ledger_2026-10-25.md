@@ -197,6 +197,35 @@ For \(\kappa=8\pi\), the density-gradient terms are \(+\frac{16\pi}{3}(D_1\alpha
 
 This is the exact algebraic constraint-substitution part of the Brown bridge already tabulated in §3.2; it is not evidence that either Brown operator is the accepted \(\dot M_r\), and it does not replace the separate Bianchi source \(-\kappa\alpha\mathcal D^{\mathrm{tot}}_r\). Do not combine the two until the accepted BSSN off-constraint evolution and time-split mapping is derived.
 
+#### B.2 Hamiltonian-gradient normalization: explicit total-to-geometric translation
+
+The two Brown Hamiltonian-gradient slots are
+\[
+G_H[H]\equiv-\frac13(D_1\alpha)H+\frac16\alpha D_1(H).
+\]
+Given the accepted source normalization \(H_{\mathrm{tot}}=H_{\mathrm{geom}}-2\kappa\rho_{\mathrm{tot}}\), substitution—not a product-rule expansion—gives
+\[
+\begin{aligned}
+G_H[H_{\mathrm{tot}}]
+={}&-\frac13(D_1\alpha)H_{\mathrm{geom}}
++\frac16\alpha D_1(H_{\mathrm{geom}})\\
+&+\frac{2\kappa}{3}\rho_{\mathrm{tot}}D_1\alpha
+-\frac{\kappa\alpha}{3}D_1(\rho_{\mathrm{tot}}).
+\end{aligned}
+\]
+Thus the difference between applying the Brown gradient slots to \(H_{\mathrm{tot}}\) and \(H_{\mathrm{geom}}\) is exactly
+\[
+\Delta G_H=\frac{2\kappa}{3}\rho_{\mathrm{tot}}D_1\alpha
+-\frac{\kappa\alpha}{3}D_1(\rho_{\mathrm{tot}})
+=\frac{16\pi}{3}\rho_{\mathrm{tot}}D_1\alpha
+-\frac{8\pi}{3}\alpha D_1(\rho_{\mathrm{tot}})\quad(G=1).
+\]
+This matches the density-gradient part of the full \(B_{\mathrm{tot}}-B_{\mathrm{geom}}\) substitution identity in §B.1; it must not be added a second time as a separate matter source.
+
+This resolves the **normalization algebra within the Brown candidate** and fixes the relative signs of its two H-gradient slots under \(H_{\mathrm{tot}}=H_{\mathrm{geom}}-2\kappa\rho\). It does not yet prove that Brown's complete off-constraint operator, stage split, or discrete \(D_1\) realization is identical to the accepted evolution's \(\dot M_r\). That requires the independent derivation of the evolved-\(A_a,K\) and reference-connection terms from the accepted BSSN equations; no coefficient may be selected by minimizing the archived residual.
+
+
+
 
 #### C. Matter terms actually injected by the accepted coordinate-time RHS
 
