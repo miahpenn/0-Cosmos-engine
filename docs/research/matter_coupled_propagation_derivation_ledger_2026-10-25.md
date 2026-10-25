@@ -1090,3 +1090,33 @@ Postprocessing of the same SHA-verified saved states gives:
 Thus the observed discrete mismatch in §10.9 is dominated on these states by the difference between the discrete product/operator composition and Brown's expanded operator—not by the vendor-only undifferentiated-connection term, whose independent contribution is much smaller. This distinction matters: the exact discrete identity \(\mathscr L[F_{\mathrm{base}}]+\mathscr L[F_{\mathrm{extra}}]\) is source-derived, but the split between the continuum Brown operator and its discretized products is an operator-choice question. The data do not license changing the vendor RHS or adding a fitted correction. The recomposed identity \((\Delta_C\dot M-B_C^{\mathrm{Brown}})-\epsilon_{\mathrm{op}}-\epsilon_{\mathrm{vendor}}\) closes on the archived arrays to at most \(6.4\times10^{-22}\), \(1.1\times10^{-22}\), and \(3.4\times10^{-24}\) over \(r\le10\) for \(N=60,120,240\), respectively.
 
 At fixed radii, \(\epsilon_{\mathrm{op}}\) is likewise much smaller at finer resolution; the inner-cell maxima are not a fixed-radius convergence sequence. No observer, workflow, or evolution was rerun for this decomposition. It uses the archived state arrays and the exact pinned derivative stencils only.
+
+
+## 10.15 Field-evolution origin of the off-constraint connection difference
+
+The previous split can be located one level earlier, directly in the source equations. Brown's Eq. (9d) contains the evolved conformal connection in \(\partial_t A_{rr}\) through the differentiated term
+\[
+\left.\partial_t A_{rr}\right|_{C}
+=\frac23\,g_{rr}\alpha\chi\,\partial_r C^r
+\]
+after subtracting the metric-defined connection. Brown explicitly notes that \(\Gamma^r\) is used on the evolution RHS only when it appears differentiated (same paper, discussion following Eq. (9f)); this is the Brown off-constraint extension represented by Eqs. (9d) and (11b).
+
+The pinned vendor's radial Ricci bracket instead contains the undifferentiated product \(-\tfrac12\Lambda D_1(a)\) in addition to \(-aD_1\Lambda\). Splitting \(\Lambda=\Lambda_{\mathrm{metric}}+C^r\) gives the vendor's exact same-state connection contribution
+\[
+\left.\dot A_a\right|_{C,\mathrm{vendor}}
+=\frac23\alpha\chi D_1(C^r)
++\frac12\alpha\chi\frac{D_1(a)}a C^r,
+\]
+whereas Brown's Eq. (9d), mapped through \(A_{rr}=aA_a\), gives only the first term. Thus
+\[
+\boxed{
+\left.\dot A_a\right|_{C,\mathrm{vendor}}
+-\left.\dot A_a\right|_{C,\mathrm{Brown}}
+=\frac12\alpha\chi\frac{D_1(a)}a C^r
+}
+\]
+at the continuum equation-to-code level, with the stated fixed-grid operators used for the vendor expression. The induced momentum-tangent difference is exactly \(\mathscr L[F_{\mathrm{extra}}]\) from §10.14.
+
+This is a **real off-constraint extension difference**, not merely a truncation error: it vanishes when the connection constraint \(C^r=0\) holds, but is generally nonzero off that surface. The archived numerical contribution is comparatively small, but amplitude alone is not a justification to omit it. Before promoting the Brown identity or admitting the accepted connection convention, the project must establish from its frozen physics/implementation contract whether this vendor-specific extension is intentional and must be carried as part of the accepted BSSN subsystem, or whether the Ricci/evolution representation is meant to match Brown's differentiated-connection form. No production change should occur until that convention decision is explicit.
+
+This source-level identification explains the term already isolated in §§10.9 and 10.14; it does not itself select either extension or close the full matter-coupled propagation identity. No observer, workflow, or evolution was run.
