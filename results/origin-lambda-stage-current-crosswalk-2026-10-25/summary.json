@@ -1,0 +1,158 @@
+{
+  "schema": "origin-lambda-stage-current-crosswalk/v1",
+  "status": "completed_diagnostic_only",
+  "workflow": {
+    "id": 40158222918,
+    "url": "https://github.com/miahpenn/0-Cosmos-engine/actions/runs/40158222918",
+    "all_jobs_success": true,
+    "resolutions": [
+      60,
+      120,
+      240
+    ],
+    "accepted_input_time": 0.6
+  },
+  "provenance": {
+    "source_commit": "4aec88d0e3ff028e0a65a8ac36b30948625df792",
+    "vendor_commit": "d6052d605673ce9d82cdc99b0df79855fa2ea215",
+    "artifacts": [
+      {
+        "resolution": 60,
+        "id": 12584633180,
+        "sha256": "c5a067131937d3607311218f607579778b83e08b7e026d9caea794392a28ea44",
+        "report_sha256": "1f8a20da01af18f9664ebe0af0a240a162523843c811329ffcf0eb49d5a7f45d",
+        "profiles_sha256": "217c22bd437cfee695611382fbb7d0cd4ff9666b74d774168280150bdaf2f35c"
+      },
+      {
+        "resolution": 120,
+        "id": 12584837928,
+        "sha256": "e3fe876888788419830f41d56324431b662249d32d0d039ce63205d39c507079",
+        "report_sha256": "2880dd5f6a5330b340939da4da0a09842e0fbfd24e0d525cc6f151a41040b637",
+        "profiles_sha256": "1bb9e7011bf1ca3535e9a8d0a04c4e4f90b79de1be62e6e18f54d98dae10a296"
+      },
+      {
+        "resolution": 240,
+        "id": 12585662570,
+        "sha256": "510351f235adcab607e559a2ad59da822bebe7ad9b38026eccba588eb47fce67",
+        "report_sha256": "52d8bb2ce1e876daec47ab410545b3bc81d550eb3628963243268b293aa9bac3",
+        "profiles_sha256": "19fb0fa1a070e8a01f6d13424e988b813aaa6d8168a70bc2d915e2e4b0350076"
+      }
+    ],
+    "accepted_state_artifacts_sha_verified": true,
+    "protected_source_diff_empty": true,
+    "accepted_states_unchanged": true
+  },
+  "same_stage_source_pairing": {
+    "expression": "actual adapter Lambda_L3 matter source = -8*pi*LAMBDA_M*alpha*j/a on each captured stage",
+    "max_abs_actual_minus_direct_r_le_10": {
+      "N60": 0,
+      "N120": 0,
+      "N240": 1.3552527156068805e-20
+    },
+    "independent_current_projection_rms_2_to_10_max_abs": 4.47122556924095e-22,
+    "accepted_lambda_rate_minus_stage_budget_max_abs_r_le_10": {
+      "N60": 5.312590645178972e-18,
+      "N120": 1.054386612742153e-17,
+      "N240": 2.0328790734103208e-17
+    },
+    "note": "Implementation/stage pairing only; not an independent physical source-law derivation."
+  },
+  "baseline_start_vs_primary_predictor_cell0": {
+    "N60": {
+      "start_j": -0.00000132287,
+      "primary_predictor_j": -0.00000134981,
+      "start_lambda_l3_matter": 0.0000664087,
+      "primary_predictor_lambda_l3_matter": 0.0000676516,
+      "relative_j_change_percent": -2.037
+    },
+    "N120": {
+      "start_j": -6.72374e-7,
+      "primary_predictor_j": -6.79508e-7,
+      "start_lambda_l3_matter": 0.0000337569,
+      "primary_predictor_lambda_l3_matter": 0.0000340853,
+      "relative_j_change_percent": -1.061
+    },
+    "N240": {
+      "start_j": -3.37466e-7,
+      "primary_predictor_j": -3.39298e-7,
+      "start_lambda_l3_matter": 0.0000169414,
+      "primary_predictor_lambda_l3_matter": 0.000017026,
+      "relative_j_change_percent": -0.543
+    }
+  },
+  "central_C_lambda_dot_max_abs_r_le_3": {
+    "N60": {
+      "production_baseline": 0.00248389,
+      "partial_joint": 0.000175809,
+      "full_continuous_profile": 0.0000131081
+    },
+    "N120": {
+      "production_baseline": 0.00225171,
+      "partial_joint": 0.000365184,
+      "full_continuous_profile": 9.20699e-7
+    },
+    "N240": {
+      "production_baseline": 0.001131,
+      "partial_joint": 0.000576656,
+      "full_continuous_profile": 6.8357e-8
+    }
+  },
+  "full_profile_observed_central_order": {
+    "N60_to_N120": {
+      "ratio": 14.237117668206439,
+      "order": 3.8315851943737744
+    },
+    "N120_to_N240": {
+      "ratio": 13.468979036528813,
+      "order": 3.7515685919562793
+    }
+  },
+  "C_lambda_dot_rms_2_to_10": {
+    "N60": {
+      "production_baseline": 0.00027862,
+      "partial_joint": 0.000045655,
+      "full_continuous_profile": 0.000006286
+    },
+    "N120": {
+      "production_baseline": 0.000032859,
+      "partial_joint": 0.0000067057,
+      "full_continuous_profile": 4.0278e-7
+    },
+    "N240": {
+      "production_baseline": 6.1134e-7,
+      "partial_joint": 3.9615e-7,
+      "full_continuous_profile": 3.1517e-8
+    }
+  },
+  "arms": [
+    "production_baseline",
+    "partial_joint",
+    "full_continuous_profile"
+  ],
+  "stages": [
+    "start",
+    "explicit_predictor",
+    "primary_predictor"
+  ],
+  "probe": {
+    "method": "One copied V55ProductionKernel.step from each saved accepted t=0.60 state for a finite-difference C_Lambda rate; saved input states remained immutable and probe trajectories were not continued.",
+    "probe_times": {
+      "N60": 0.64,
+      "N120": 0.62,
+      "N240": 0.61
+    },
+    "exact_current_stage_capture": true,
+    "finite_profiles": true
+  },
+  "acceptance": {
+    "source_pins_match": true,
+    "input_artifact_hashes_verified": true,
+    "stage_current_projection_matches_independent_projection": true,
+    "lambda_source_matches_direct_formula_at_same_stage": true,
+    "accepted_lambda_rate_stage_budget_closure": true,
+    "full_matter_coupled_propagation_identity_closed": false,
+    "total_stress_energy_sector_conservation_closed": false,
+    "production_source_or_vendor_changed": false,
+    "scientific_admission": false
+  }
+}
