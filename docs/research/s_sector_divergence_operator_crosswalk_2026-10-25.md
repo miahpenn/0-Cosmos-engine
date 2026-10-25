@@ -661,7 +661,17 @@ The actual source path is consistent with that contract:
 - **DM, baryons, radiation:** the fluid projection divides each Eulerian stress projection by \(\kappa\); conservative states and primitive recovery retain Einstein-normalized fluid densities.
 - **DM–\(\phi\) interaction:** the Valencia source constructs \(Q_t=\beta_{\rm DM}\rho_{{\rm DM},E}\partial_t\phi\) and \(Q_r=\beta_{\rm DM}\rho_{{\rm DM},E}\partial_r\phi\) from the same raw normalized DM density passed to the scalar RHS. The matter RHS transforms that same covector into conservative energy/momentum sources \(-\sqrt{\gamma}(Q_t-\beta^rQ_r)\) and \(+\alpha\sqrt{\gamma}Q_r\); the scalar RHS applies the reciprocal \(+\alpha\beta_{\rm DM}\rho_{{\rm DM},E}\) term to \(\dot\Pi\). Stress projection then applies the documented \(1/\kappa\) conversion to both the normalized \(\phi\) sector and normalized fluid sector.
 
-Thus an extra global \(1/\kappa\) on \(Q_\nu\) in the RHS, or dividing S/D projections by \(\kappa\), would double-convert or mis-normalize the active source path. Conversely, treating the projected \(\phi\)/fluid arrays as still Einstein-normalized and dividing them again downstream would also be incorrect. The archived exchange signs remain \(\nabla_\mu T_{\rm DM}^{\mu\nu}=+\beta\rho_{{\rm DM},E}\nabla^\nu\phi\) and \(\nabla_\mu T_\phi^{\mu\nu}=-\beta\rho_{{\rm DM},E}\nabla^\nu\phi\), with the stress-side \(1/\kappa\) inherited from their normalized definitions.
+Thus an extra global \(1/\kappa\) on \(Q_\nu\) in the RHS, or dividing S/D projections by \(\kappa\), would double-convert or mis-normalize the active source path. Conversely, treating the projected \(\phi\)/fluid arrays as still Einstein-normalized and dividing them again downstream would also be incorrect. The locked exchange pair is stated in the archive-normalized source convention:
+\[
+\nabla_\mu T_{{\rm DM},E}^{\mu\nu}=+\beta\rho_{{\rm DM},E}\nabla^\nu\phi,\qquad
+\nabla_\mu T_{\phi,E}^{\mu\nu}=-\beta\rho_{{\rm DM},E}\nabla^\nu\phi.
+\]
+Here \(T_E=\kappa T_{\rm physical}\) for the COSMOS/fluid sectors. Consequently, when the identity is written using the physical stress projections returned by the local engine, both exchange sides carry \(1/\kappa\):
+\[
+\nabla_\mu T_{{\rm DM},{\rm physical}}^{\mu\nu}=+\frac{\beta\rho_{{\rm DM},E}}{\kappa}\nabla^\nu\phi,\qquad
+\nabla_\mu T_{\phi,{\rm physical}}^{\mu\nu}=-\frac{\beta\rho_{{\rm DM},E}}{\kappa}\nabla^\nu\phi.
+\]
+Keep the locked opposite signs, but do not compare the archive-normalized equation directly with physical projected \(T^{\mu\nu}\) without this conversion.
 
 The accepted-state sector audit supports, but does not by itself admit, these source conventions: the dark-matter pointwise exchange comparator has fixed-radius residuals at \(10^{-15}\)–\(10^{-16}\); the COSMOS-\(\phi\) residual decreases with refinement (at \(r=2\), \(-2.422\times10^{-10}\), \(-1.764\times10^{-11}\), \(-1.088\times10^{-12}\) for N=60/120/240). The original archive gate still has a contradictory earlier sentence about the exchange signs; its explicit locked-sign statement and master checkpoint agree, so that provenance contradiction must be reconciled before the canonical source convention is considered frozen.
 
