@@ -739,6 +739,342 @@ def compact_scalar_current_rate_decomposition(
     return report, profiles
 
 
+
+def compact_scalar_eom_divergence_pairing(
+    state,
+    rates: dict[str, Any],
+    scalar_budget: dict[str, Any],
+    candidate_raw: dict[str, np.ndarray],
+    sector_profiles: dict[str, np.ndarray],
+) -> tuple[dict[str, Any], dict[str, np.ndarray]]:
+    """Pair the pinned S RHS with pointwise/FV scalar stress divergence.
+
+    This is a discrete operator-pairing diagnostic, not a closure/admission
+    oracle. It records both the production-expanded RHS residual and an
+    independently formed divergence-operator residual so their finite-grid
+    difference is explicit. The FV divergence remains a volume-averaged lane.
+    """
+    grid, geom = state.grid, state.geometry
+    r = np.asarray(grid.centers, dtype=np.float64)
+    dr = float(grid.dr)
+    if np.any(np.asarray(geom.beta, dtype=np.float64) != 0.0):
+        raise RuntimeError("S-sector EOM pairing currently requires the accepted zero-shift slice")
+    if not math.isfinite(dr) or dr <= 0.0:
+        raise RuntimeError("invalid radial spacing for S-sector EOM pairing")
+
+    d1 = lambda values, parity=1: stress_divergence.d1(grid, values, parity)
+    d2 = lambda values, parity=1: stress_divergence.d2(grid, values, parity)
+    alpha = finite("S EOM lapse", geom.alpha)
+    a = finite("S EOM metric a", geom.a)
+    b = finite("S EOM metric b", geom.b)
+    X = finite("S EOM metric X", geom.X)
+    K = finite("S EOM trace curvature", geom.K)
+    S = finite("S EOM field", state.scalars.S)
+    PS = finite("S EOM momentum", state.scalars.PS)
+    alpha_r = d1(alpha, +1)
+    a_r = d1(a, +1)
+    b_r = d1(b, +1)
+    X_r = d1(X, +1)
+    Sr = d1(S, +1)
+    Srr = d2(S, +1)
+    gamma_rr_inv = finite("S EOM inverse radial metric", X * X / a)
+    sqrt_gamma = finite("S EOM spatial measure", np.sqrt(a) * b * r * r / X**3)
+    sqrt_minus_g = finite("S EOM spacetime measure", alpha * sqrt_gamma)
+
+    # Verify that the paired rates are exactly the already reconstructed
+    # accepted semidiscrete RHS, rather than a second independent RHS formula.
+    budget_s = scalar_budget["sectors"]["S"]
+    budget_sdot = finite(
+        "S EOM budget field rate",
+        budget_s["implementation_rates"]["field_rate"],
+    )
+    budget_pdot = finite(
+        "S EOM budget momentum rate",
+        budget_s["implementation_rates"]["momentum_rate"],
+    )
+    Sdot = finite("S EOM production Sdot", rates["scalars"]["S"])
+    Pdot = finite("S EOM production Pdot", rates["scalars"]["PS"])
+    if not np.allclose(Sdot, budget_sdot, rtol=5.0e-12, atol=5.0e-18):
+        raise RuntimeError("Sdot from directional RHS differs from the pinned scalar budget")
+    if not np.allclose(Pdot, budget_pdot, rtol=5.0e-12, atol=5.0e-18):
+        raise RuntimeError("Pdot from directional RHS differs from the pinned scalar budget")
+
+    lap_bracket = (
+        0.5 * a_r / a - b_r / b + X_r / X - 2.0 / r
+    )
+    lap_expanded = finite(
+        "S production expanded Laplacian",
+        gamma_rr_inv * (Srr - Sr * lap_bracket),
+    )
+    production_spatial_force = finite(
+        "S production full spatial force",
+        lap_expanded + gamma_rr_inv * (alpha_r / alpha) * Sr,
+    )
+    eom_production_expanded = finite(
+        "S production-expanded equation residual",
+        -Pdot / alpha + K * PS + production_spatial_force - S,
+    )
+
+    weighted_radial_gradient = finite(
+        "S lapse-weighted scalar radial flux",
+        alpha * sqrt_gamma * gamma_rr_inv * Sr,
+    )
+    spatial_divergence_form = finite(
+        "S divergence-form spatial operator",
+        d1(weighted_radial_gradient, -1) / (alpha * sqrt_gamma),
+    )
+    eom_divergence_form = finite(
+        "S divergence-form equation residual",
+        -Pdot / alpha + K * PS + spatial_divergence_form - S,
+    )
+    operator_pairing_gap = finite(
+        "S divergence-form minus production-expanded EOM residual",
+        eom_divergence_form - eom_production_expanded,
+    )
+
+    # The current and measure tangent are calculated independently from the
+    # same accepted state's production rates, then checked against the saved
+    # directional tangent and sector-resolved time-density observer.
+    a_dot = finite("S EOM a rate", rates["geometry"]["a"])
+    b_dot = finite("S EOM b rate", rates["geometry"]["b"])
+    X_dot = finite("S EOM X rate", rates["geometry"]["X"])
+    dlog_sqrt_gamma = finite(
+        "S EOM logarithmic spatial-measure rate",
+        0.5 * a_dot / a + b_dot / b - 3.0 * X_dot / X,
+    )
+    current_j = finite("S stress current j_S", -PS * Sr)
+    current_j_dot_rhs = finite(
+        "S current tangent reconstructed from scalar RHS",
+        -Pdot * Sr - PS * d1(Sdot, +1),
+    )
+    current_j_dot_directional = finite(
+        "S current tangent from saved directional witness",
+        -np.asarray(candidate_raw["Mdot_sector_S"], dtype=np.float64) / (8.0 * math.pi),
+    )
+    measure_current_rate = finite(
+        "S current times spatial-measure rate",
+        current_j * dlog_sqrt_gamma,
+    )
+    time_density_rhs = finite(
+        "S time-density divergence reconstructed from current and measure rates",
+        (current_j_dot_rhs + measure_current_rate) / alpha,
+    )
+
+    q_point = finite(
+        "S pointwise stress divergence",
+        sector_profiles["sector_S_div_T_r"],
+    )
+    q_fv = finite(
+        "S finite-volume stress divergence",
+        sector_profiles["sector_S_div_T_r_fv"],
+    )
+    q_time = finite(
+        "S time-density divergence contribution",
+        sector_profiles["sector_S_time_density_div_T_r"],
+    )
+    q_flux = finite(
+        "S radial-flux divergence contribution",
+        sector_profiles["sector_S_radial_flux_div_T_r"],
+    )
+    q_metric = finite(
+        "S metric-source divergence contribution",
+        sector_profiles["sector_S_metric_source_div_T_r"],
+    )
+    eom_times_Sr = finite(
+        "S divergence-form EOM residual times field gradient",
+        eom_divergence_form * Sr,
+    )
+    pointwise_pairing_gap = finite(
+        "S pointwise divergence minus EOM-gradient pairing",
+        q_point - eom_times_Sr,
+    )
+    fv_pairing_gap = finite(
+        "S FV divergence minus EOM-gradient pairing",
+        q_fv - eom_times_Sr,
+    )
+
+    eom_time_piece = finite(
+        "S EOM time/curvature piece times field gradient",
+        (-Pdot / alpha + K * PS) * Sr,
+    )
+    eom_spatial_potential_piece = finite(
+        "S EOM spatial/potential piece times field gradient",
+        (spatial_divergence_form - S) * Sr,
+    )
+    time_pairing_gap = finite(
+        "S time-density versus EOM time-piece pairing gap",
+        q_time - eom_time_piece,
+    )
+    spatial_metric_pairing_gap = finite(
+        "S radial-flux plus metric-source versus EOM spatial pairing gap",
+        q_flux + q_metric - eom_spatial_potential_piece,
+    )
+    pointwise_pairing_reconstructed = finite(
+        "S reconstructed pointwise pairing gap",
+        time_pairing_gap + spatial_metric_pairing_gap,
+    )
+    pointwise_pairing_decomposition_gap = finite(
+        "S pointwise pairing decomposition closure",
+        pointwise_pairing_gap - pointwise_pairing_reconstructed,
+    )
+    pointwise_component_gap = finite(
+        "S pointwise component sum gap",
+        q_point - q_time - q_flux - q_metric,
+    )
+
+    face_measure = stress_divergence.spherical_flux_face_values(
+        sqrt_minus_g, dr, origin_power=2
+    )
+    cell_measure = finite(
+        "S EOM observer Simpson cell measure",
+        (dr / 6.0) * (face_measure[:-1] + 4.0 * sqrt_minus_g + face_measure[1:]),
+    )
+    if np.any(cell_measure <= 0.0):
+        raise RuntimeError("S EOM observer produced a non-positive cell measure")
+
+    # Volume-weighted sums use the observer's own Simpson measure. The FV lane
+    # is already a volume-averaged divergence, so measure*q_FV is its cell
+    # integral. EOM and pointwise lanes are cell-centred samples with the same
+    # measure; these sums are explicit crosswalks, not exact conservation laws.
+    masks = {
+        "origin_r_lt_2": r < 2.0,
+        "annulus_2_le_r_lt_5": (r >= 2.0) & (r < 5.0),
+        "annulus_5_le_r_lt_10": (r >= 5.0) & (r < 10.0),
+        "annulus_2_le_r_lt_8": (r >= 2.0) & (r < 8.0),
+        "domain_r_lt_10": r < 10.0,
+    }
+    def profile_summary(values: np.ndarray, mask: np.ndarray) -> dict[str, Any]:
+        selected = np.asarray(values, dtype=np.float64)[mask]
+        if selected.size == 0:
+            return {"samples": 0, "rms": None, "max_abs": None, "mean_abs": None}
+        return {
+            "samples": int(selected.size),
+            "rms": float(np.sqrt(np.mean(selected * selected))),
+            "max_abs": float(np.max(np.abs(selected))),
+            "mean_abs": float(np.mean(np.abs(selected))),
+        }
+    shells = {}
+    for name, mask in masks.items():
+        shells[name] = {
+            "cell_count": int(np.count_nonzero(mask)),
+            "measure_sum": float(np.sum(cell_measure[mask])),
+            "integral_EOM_gradient_pairing": float(
+                np.sum(cell_measure[mask] * eom_times_Sr[mask])
+            ),
+            "integral_pointwise_divergence": float(
+                np.sum(cell_measure[mask] * q_point[mask])
+            ),
+            "integral_FV_divergence": float(
+                np.sum(cell_measure[mask] * q_fv[mask])
+            ),
+            "pointwise_minus_EOM_integral": float(
+                np.sum(cell_measure[mask] * pointwise_pairing_gap[mask])
+            ),
+            "FV_minus_EOM_integral": float(
+                np.sum(cell_measure[mask] * fv_pairing_gap[mask])
+            ),
+            "pointwise_pairing_gap": profile_summary(pointwise_pairing_gap, mask),
+            "FV_pairing_gap": profile_summary(fv_pairing_gap, mask),
+            "EOM_gradient_pairing": profile_summary(eom_times_Sr, mask),
+        }
+
+    fixed = {}
+    for radius in (1.0, 2.0, 5.0, 8.0):
+        if r[0] <= radius <= r[-1]:
+            fixed[str(radius)] = {
+                "EOM_divergence_form": float(np.interp(radius, r, eom_divergence_form)),
+                "EOM_expanded_production_form": float(np.interp(radius, r, eom_production_expanded)),
+                "EOM_gradient_pairing": float(np.interp(radius, r, eom_times_Sr)),
+                "pointwise_Qr_S": float(np.interp(radius, r, q_point)),
+                "FV_Qr_S": float(np.interp(radius, r, q_fv)),
+                "pointwise_pairing_gap": float(np.interp(radius, r, pointwise_pairing_gap)),
+                "FV_pairing_gap": float(np.interp(radius, r, fv_pairing_gap)),
+                "measure_log_rate": float(np.interp(radius, r, dlog_sqrt_gamma)),
+            }
+
+    profiles = {
+        "scalar_S_production_Sdot": Sdot,
+        "scalar_S_production_Pdot": Pdot,
+        "scalar_S_laplacian_expanded": lap_expanded,
+        "scalar_S_production_spatial_force": production_spatial_force,
+        "scalar_S_eom_expanded_residual": eom_production_expanded,
+        "scalar_S_eom_divergence_form_residual": eom_divergence_form,
+        "scalar_S_eom_operator_pairing_gap": operator_pairing_gap,
+        "scalar_S_eom_times_D1S": eom_times_Sr,
+        "scalar_S_measure_log_rate": dlog_sqrt_gamma,
+        "scalar_S_current_j": current_j,
+        "scalar_S_current_j_dot_rhs": current_j_dot_rhs,
+        "scalar_S_current_j_dot_directional": current_j_dot_directional,
+        "scalar_S_measure_current_rate": measure_current_rate,
+        "scalar_S_time_density_divergence_rhs": time_density_rhs,
+        "scalar_S_time_density_pairing_gap": time_pairing_gap,
+        "scalar_S_spatial_metric_pairing_gap": spatial_metric_pairing_gap,
+        "scalar_S_pointwise_pairing_gap": pointwise_pairing_gap,
+        "scalar_S_fv_pairing_gap": fv_pairing_gap,
+        "scalar_S_pointwise_pairing_decomposition_gap": pointwise_pairing_decomposition_gap,
+        "scalar_S_pointwise_component_sum_gap": pointwise_component_gap,
+    }
+    report = {
+        "status": "completed_operator_pairing_diagnostic_only",
+        "accepted_time": float(state.t),
+        "coordinate_radius_convention": "shell masks select cell centers; cell measures are the same Simpson-reconstructed alpha*sqrt(gamma) measures as the FV observer",
+        "equation_conventions": {
+            "production_expanded_residual": "-Pdot_S/alpha + K*P_S + L_expanded[S] + gamma^rr*(D1(alpha)/alpha)*D1(S) - Vprime(S)",
+            "divergence_form_residual": "-Pdot_S/alpha + K*P_S + D1(alpha*sqrt(gamma)*gamma^rr*D1(S))/(alpha*sqrt(gamma)) - Vprime(S)",
+            "stress_identity_continuum": "nabla_mu(T_S^mu_r) = EOM_S * D_r(S)",
+            "shift": "zero on the accepted CMC slice; nonzero-shift cases fail closed",
+        },
+        "production_rhs_reconstruction": {
+            "Sdot_matches_scalar_budget": True,
+            "Pdot_matches_scalar_budget": True,
+            "expanded_residual": profile_summary(eom_production_expanded, np.ones_like(r, dtype=bool)),
+            "expanded_residual_max_abs": float(np.max(np.abs(eom_production_expanded))),
+        },
+        "current_and_measure_rate": {
+            "measure_log_rate": profile_summary(dlog_sqrt_gamma, np.ones_like(r, dtype=bool)),
+            "current_tangent_RHS_vs_directional_max_abs": float(
+                np.max(np.abs(current_j_dot_rhs - current_j_dot_directional))
+            ),
+            "current_tangent_RHS_vs_directional_rms": float(
+                np.sqrt(np.mean((current_j_dot_rhs - current_j_dot_directional) ** 2))
+            ),
+            "time_density_RHS_vs_observer_max_abs": float(
+                np.max(np.abs(time_density_rhs - q_time))
+            ),
+            "time_density_RHS_vs_observer_rms": float(
+                np.sqrt(np.mean((time_density_rhs - q_time) ** 2))
+            ),
+            "measure_current_rate": profile_summary(measure_current_rate, np.ones_like(r, dtype=bool)),
+        },
+        "operator_pairing": {
+            "divergence_form_minus_production_expanded": profile_summary(
+                operator_pairing_gap, np.ones_like(r, dtype=bool)
+            ),
+            "pointwise_Qr_minus_EOM_times_D1S": profile_summary(
+                pointwise_pairing_gap, np.ones_like(r, dtype=bool)
+            ),
+            "FV_Qr_minus_EOM_times_D1S": profile_summary(
+                fv_pairing_gap, np.ones_like(r, dtype=bool)
+            ),
+            "pointwise_gap_decomposition_max_abs": float(
+                np.max(np.abs(pointwise_pairing_decomposition_gap))
+            ),
+            "pointwise_component_sum_gap_max_abs": float(np.max(np.abs(pointwise_component_gap))),
+            "fixed_coordinate_radius": fixed,
+        },
+        "volume_weighted_shell_comparison": shells,
+        "interpretation_limits": [
+            "The expanded production EOM residual is expected to close because Pdot is reconstructed from that same RHS; this is a source/operator identity, not independent physical validation.",
+            "The divergence-form EOM residual differs from the production-expanded residual by a discrete spatial product-rule/operator-pairing remainder.",
+            "The pointwise stress divergence and the FV volume-averaged divergence are different discrete observers and are reported separately.",
+            "Volume-weighted sums use cell-center samples for pointwise/EOM fields and the FV observer's Simpson cell measures; these are diagnostic crosswalks, not proof of an integrated conservation law.",
+            "No evolution is advanced, no accepted state is mutated, and no source law or scientific admission gate is accepted.",
+        ],
+        "scientific_admission": False,
+    }
+    return report, profiles
+
+
 def compact_sector_matter_source_mapping(
     state,
     rates: dict[str, Any],
@@ -1025,6 +1361,9 @@ def main() -> int:
             scalar_current_report, scalar_current_profiles = compact_scalar_current_rate_decomposition(
                 state, scalar_rhs_budget, raw[eps]
             )
+            scalar_eom_pairing_report, scalar_eom_pairing_profiles = compact_scalar_eom_divergence_pairing(
+                state, rates, scalar_rhs_budget, raw[eps], sector_profiles
+            )
             sector_source_report, sector_source_profiles = compact_sector_matter_source_mapping(
                 state, rates, raw[eps], sector_profiles,
                 float(hll_snapshot["coupling_parameter"])
@@ -1032,6 +1371,7 @@ def main() -> int:
             compact["sector_resolved_stress_energy_divergence"] = sector_report
             compact["pointwise_vs_expanded_Qr_discrete_gap_decomposition"] = operator_report
             compact["scalar_S_current_RHS_term_decomposition"] = scalar_current_report
+            compact["scalar_S_EOM_divergence_operator_pairing"] = scalar_eom_pairing_report
             compact["per_sector_matter_source_mapping"] = sector_source_report
             arm_rows["epsilon_results"].append(compact)
             for name, values in raw[eps].items():
@@ -1045,6 +1385,10 @@ def main() -> int:
                     f"N{RESOLUTION}_{label}_eps{eps:.0e}_{name}"
                 ] = np.asarray(values, dtype=np.float64).copy()
             for name, values in scalar_current_profiles.items():
+                saved_profiles[
+                    f"N{RESOLUTION}_{label}_eps{eps:.0e}_{name}"
+                ] = np.asarray(values, dtype=np.float64).copy()
+            for name, values in scalar_eom_pairing_profiles.items():
                 saved_profiles[
                     f"N{RESOLUTION}_{label}_eps{eps:.0e}_{name}"
                 ] = np.asarray(values, dtype=np.float64).copy()
