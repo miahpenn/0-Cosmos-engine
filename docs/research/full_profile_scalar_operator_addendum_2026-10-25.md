@@ -22,7 +22,7 @@ The directional epsilons are 2e-5 and 1e-5. The saved accepted-state inputs were
 
 For the full-continuous-profile arm, at cells 0/1:
 
-| N | Pointwise total div(T)^r, cell 0 | Pointwise minus expanded Q_r, cell 0 | Radial-flux product-rule gap, cell 0 |
+| N | Pointwise total div_T_r, cell 0 | Pointwise minus expanded Q_r, cell 0 | Radial-flux product-rule gap, cell 0 |
 |---:|---:|---:|---:|
 | 60 | +7.9154e-7 | +7.9534e-7 | +7.9534e-7 |
 | 120 | +1.1284e-7 | +1.1297e-7 | +1.1297e-7 |
