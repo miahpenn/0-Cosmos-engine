@@ -16,14 +16,14 @@ This note responds to Lumen's request to compare the S-only pointwise and finite
 
 At the frozen source pin, the production S-sector RHS uses the cell-centred derivative form
 
-[
+$
 \mathcal L_S[S]=\frac{X^2}{a}\left[D_2S+
 \left(\frac{D_1b}{b}-\frac{D_1a}{2a}+\frac{2}{r}-\frac{D_1X}{X}\right)D_1S\right].
-]
+$
 
 The requested isolated spatial contribution is (\mathcal L_S[S]D_1S). In the scalar momentum RHS, the corresponding Laplacian term is (\alpha\mathcal L_S[S]); a separate lapse-gradient term ( (X^2/a)D_1\alpha D_1S), curvature, potential, shift, and (for the coupled φ field) conditional exchange terms are separate RHS operands.
 
-The sector stress-divergence observer instead evaluates the full (Q_r^S=\nabla_\mu T_S^\mu{}_r) from the time-density/current derivative, radial pressure flux, and metric-source terms. Its FV form reconstructs combined face fluxes and integrates sources and the measure per cell. Therefore, **(Q_r^S) is not the same quantity as the isolated Σ-sector Laplacian contribution (\mathcal L_S[S]D_1S)**. Their raw ratio is a useful crosswalk witness, but a mismatch does not by itself indicate a missing source or a bad scalar RHS.
+The sector stress-divergence observer instead evaluates the full (Q_r^S=\nabla_\mu T_S^\mu{}_r) from the time-density/current derivative, radial pressure flux, and metric-source terms. Its FV form reconstructs combined face fluxes and integrates sources and the measure per cell. Therefore, **(Q_r^S) is not the same quantity as the isolated S-sector Laplacian contribution (\mathcal L_S[S]D_1S)**. Their raw ratio is a useful crosswalk witness, but a mismatch does not by itself indicate a missing source or a bad scalar RHS.
 
 ## 2. The pinned RHS term reconstruction closes
 
@@ -42,13 +42,13 @@ This confirms that the diagnostic reconstructs the pinned RHS spatial contributi
 ## 3. Origin-cell measure
 
 The FV covariant-divergence observer uses the spacetime measure
-[
+$
 \sqrt{-g}=\alpha\sqrt{\gamma},
-]
+$
 not the spatial measure (\sqrt{\gamma}) alone. It reconstructs `sqrt(-g)` to faces with the regular (r^2 g(r^2)) form and computes each measure by Simpson integration,
-[
+$
 V_0=\frac{\Delta r}{6}\left[w(0)+4w(\Delta r/2)+w(\Delta r)\right],\quad w=\sqrt{-g},quad w(0)=0.
-]
+$
 It does **not** use the centre value times Δr. The familiar (\frac43\Delta r\,w(\Delta r/2)) is an excellent near-origin approximation, not the exact Simpson value.
 
 | Resolution | Δr | Observer (V_0=\int\alpha\sqrt{\gamma}\,dr) (Simpson) | Centre value × Δr | (\frac43) centre approximation | Relative Simpson / approximation difference |
@@ -68,6 +68,14 @@ Cell 0 is **not** a fixed-radius sequence: its coordinate radius is (r=\Delta r/
 | (N=60) | (1.98443\times10^{-7}) | (7.92656\times10^{-7}) | 3.9944 | (6.72404\times10^{-9}) | 0.033884 |
 | (N=120) | (1.01414\times10^{-7}) | (1.13000\times10^{-7}) | 1.1143 | (9.04460\times10^{-10}) | 0.008919 |
 | (N=240) | (5.09515\times10^{-8}) | (1.45989\times10^{-8}) | 0.28653 | (1.13385\times10^{-10}) | 0.002225 |
+
+The cell-0 pointwise result is itself the signed sum of large cancelling terms, not the isolated RHS Laplacian. The recorded components are:
+
+| Resolution | Time-density/current | Radial pressure-flux derivative | Metric source | Sum: pointwise Q_r^S |
+|---:|---:|---:|---:|---:|
+| N=60 | -7.45445e-7 | -3.49372e-5 | +3.64753e-5 | +7.92656e-7 |
+| N=120 | -3.78191e-7 | -7.32343e-5 | +7.37255e-5 | +1.13000e-7 |
+| N=240 | -1.89775e-7 | -1.47658e-4 | +1.47862e-4 | +1.45989e-8 |
 
 On the fixed-coordinate annulus (2\le r\le8), the RMS of the isolated spatial contribution stays close to (3.9\times10^{-7}), whereas the full S-sector divergence decreases strongly:
 
