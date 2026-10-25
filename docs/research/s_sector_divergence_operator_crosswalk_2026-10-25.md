@@ -539,3 +539,40 @@ The first-cell values are **not** a matched-radius convergence sequence: the cen
 ### Decision
 
 No further change to Brown's connection coefficients is indicated by this saved-state reconstruction. Keep the current observer convention, keep the regular-origin gate open, and isolate the baseline first-cell mismatch using a matched-origin/regularity argument on the *same named state family* before drawing a physical conclusion. No production or vendor file changed; all scientific-admission flags remain false.
+
+
+
+## 17. Matched connection-profile contrast across the existing origin arms — 2026-10-25
+
+**Method:** I independently reconstructed the reference-metric connection and Brown \(T_{G''},T_{G'}\) terms from the already archived \(t=0.60\) production-baseline, half-cell-integral-only, regular-CMC-row-only, joint-integral-and-CMC-row, and full-continuous-profile state arrays. The derivative stencil is copied algebraically from the pinned vendor's **r0_operators.py** at **d6052d605673ce9d82cdc99b0df79855fa2ea215**: centered fourth-order five-point stencil with parity ghosts and its polynomial-moment outer closure. This is offline post-processing only; no evolution was run.
+
+As a check of implementation fidelity, the reconstructed connection terms reproduce the previously saved signed term arrays:
+- N=60: max differences \(2.17\times10^{-19}\) for \(T_{G''}\) and \(3.23\times10^{-27}\) for \(T_{G'}\).
+- N=120: \(8.67\times10^{-19}\) and \(4.04\times10^{-28}\).
+- N=240: \(1.12\times10^{-14}\) and \(1.27\times10^{-16}\).
+
+### First-cell and full-profile scale
+
+Here \(C_0\) denotes \(C^r_\Lambda\) at the first cell center for each resolution; \(\max|T_{G''}|\) and \(\max|T_{G'}|\) are full-domain profile maxima. These are **separate state arms**, not a same-state perturbation pair.
+
+| Arm | N | \(C_0\) | \(\max |T_{G''}|\) | \(\max |T_{G'}|\) |
+|---|---:|---:|---:|---:|
+| production baseline | 60 | \(+1.07480\times10^{-3}\) | \(1.65991\times10^{-3}\) | \(1.27766\times10^{-3}\) |
+| production baseline | 120 | \(+7.11697\times10^{-4}\) | \(4.74691\times10^{-3}\) | \(2.50145\times10^{-3}\) |
+| production baseline | 240 | \(-8.58895\times10^{-4}\) | \(1.70039\times10^{-2}\) | \(2.71199\times10^{-2}\) |
+| joint integral + CMC-row arm | 60 | \(-8.91046\times10^{-5}\) | \(1.46478\times10^{-4}\) | \(8.22120\times10^{-5}\) |
+| joint integral + CMC-row arm | 120 | \(-6.20906\times10^{-5}\) | \(4.48570\times10^{-4}\) | \(1.17276\times10^{-4}\) |
+| joint integral + CMC-row arm | 240 | \(+5.15855\times10^{-5}\) | \(1.20086\times10^{-3}\) | \(1.23446\times10^{-3}\) |
+| full continuous-profile arm | 60 | \(+3.12809\times10^{-6}\) | \(2.48456\times10^{-6}\) | \(9.23599\times10^{-6}\) |
+| full continuous-profile arm | 120 | \(+1.68878\times10^{-7}\) | \(5.17465\times10^{-7}\) | \(1.98616\times10^{-6}\) |
+| full continuous-profile arm | 240 | \(-8.60088\times10^{-10}\) | \(4.71529\times10^{-8}\) | \(7.69101\times10^{-8}\) |
+
+For N=240, the first four baseline \(C^r_\Lambda\) samples are \([-8.59,-2.98,+1.60,-0.897]\times10^{-4}\), changing sign on adjacent cell centers; its connection contributions are \(+1.7004\times10^{-2}\) and \(-2.7120\times10^{-2}\) at cell 0. In the full continuous-profile arm the first four connection-constraint samples are only \([-0.0860,+0.388,+1.049,+1.415]\times10^{-8}\), and the first-cell connection contributions are \(+4.7153\times10^{-8}\) and \(+2.9170\times10^{-8}\).
+
+The joint integral+CMC-row arm reduces the N=240 full-profile \(\max|C^r_\Lambda|\) from \(8.59\times10^{-4}\) to \(5.16\times10^{-5}\) (about \(16.7\times\)), and reduces the maxima of the two connection terms by about \(14.2\times\) and \(22.0\times\). It still does not reach the full-continuous-profile scale. The half-cell-integral-only arm also reduces the baseline's max connection term levels, while the regular-CMC-row-only arm leaves the baseline-scale defect largely present. Those arm-to-arm changes are **localization evidence** consistent with an inner connection/initialization regularity defect; because the state arrays differ between arms, they do not isolate a single algebraic cause by themselves.
+
+At fixed \(r=2\), the baseline \(C^r_\Lambda\) values are \(-2.39837\times10^{-4}\), \(+2.83213\times10^{-5}\), and \(-1.57285\times10^{-6}\) for N=60/120/240, while the large near-origin derivatives/connection terms grow at N=240. Thus a convergent fixed-radius tail can coexist with a badly behaved first-cell neighborhood. The native first-cell locations differ with resolution (\(0.667,0.333,0.167\)); this is not a matched-\(r=0\) sequence and must not be called a continuum origin-limit test.
+
+### Decision
+
+The pinned Brown connection observer formula and saved term arrays are consistent; the large baseline origin residual is co-localized with a sharp, alternating \(C^r_\Lambda\) inner profile and large \(D_r C^r_\Lambda\)/\(D_r^2 C^r_\Lambda\) operands. This makes the connection-constraint regularity at the origin the leading diagnostic target, not a reason to alter Brown's coefficients. The next bounded step should be an archive-pinned regularity/initialization identity for the same baseline state family, using matched-origin extrapolation and separate \(C^r_\Lambda\), \(D_rC^r_\Lambda\), and \(D_r^2C^r_\Lambda\) checks. Do not infer closure from the arm comparison; keep all admission flags false.
