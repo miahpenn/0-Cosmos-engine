@@ -136,3 +136,17 @@ G_B^r = Gamma_B^r - Gamma_B,metric^r
 Thus, for the same accepted state and the same differentiation operators, the constraint residual entering Brown's `(C^r)'` and `(C^r)''` terms maps algebraically to the code's `Lambda - Lambda_metric`; the radial metric factor in Brown's coefficient is `g_theta_theta = b*r^2`, so `(g_theta_theta)'/g_theta_theta = b'/b + 2/r`. This removes the apparent raw-variable naming mismatch for the **Brown candidate's constraint field**. It is not a proof that the complete production matter-coupled tangent obeys Brown Eq. (11b), nor does it derive the matter-source law, Hamiltonian-gradient translation, or total stress-energy conservation.
 
 **Status refinement:** `reference_metric_connection_variable_mapping = resolved_for_Brown_candidate_only`; `reference_metric_connection_coupling_convention_frozen = false` remains unchanged. The latter stays open until the complete source-aware propagation relation and exact accepted-update derivative/time-split conventions are independently derived. No source code, evolution, or admission state is changed by this algebraic note.
+
+
+## 12. Archive-locked DM–COSMOS-phi exchange: signs versus normalization
+
+The canonical `GEAR_V5_5_MASTER_CHECKPOINT_2026-10-05.md` locks the covariant exchange pair as
+
+```text
+nabla_mu T_DM^{mu nu}  = + beta_DM * rho_DM * nabla^nu(phi)
+nabla_mu T_phi^{mu nu} = - beta_DM * rho_DM * nabla^nu(phi)
+```
+
+The same pair appears in the later explicit sign statement of `GEAR_V5_5_COVARIANT_GLOBAL_GATE_2026-10-05_v2.md` §13. That file's earlier sentence gives the opposite signs, so the archive retains a real provenance conflict; it must not be silently edited away. The implementation follows the master checkpoint / later explicit pair in its DM covector source and scalar `Pi)-RHS source shape: DM uses covector components built from `beta_DM*rho_DM*(partial_t phi, partial_r phi)`, while the scalar `Pi) RHS receives `alpha*beta_DM*rho_DM`. This code-shape match is not a substitute for deriving the exact total-`T) divergence with the accepted normal/time split.
+
+**Normalization seam remains unresolved:** `rho_DM` supplied to the coupled RHS is the archive-normalized conservative density; the scalar and fluid Einstein stress projections apply the stored `1/(8*pi*G)` conversion on their stress arrays. A complete source map must derive the corresponding conversion and index/lapse factors between the archived exchange equation and the physical `Q_r) used in the matter-coupled constraint propagation identity. Do not infer the conversion by fitting the Brown residual. Until the exact archive-normalized coupling and accepted projection conventions are reconciled, keep `matter_source_sign_and_normalization_reviewed = false` and `scientific_admission = false`.
