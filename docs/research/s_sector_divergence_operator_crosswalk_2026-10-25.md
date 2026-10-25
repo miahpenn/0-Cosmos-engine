@@ -409,3 +409,31 @@ The same-state validation is tracked by [workflow run 40224825903](https://githu
 Next, inspect that same-state report, then continue the convention-frozen reference-connection/origin-limit comparison with cells 0–2 distinct from matched fixed radii. Keep the \(M_r/M^r\) conversion and metric-rate contribution explicit; matter-source sign/normalization and total-sector exchange remain separate gates.
 
 This does not close the full matter-coupled identity. The current flags remain false: full_matter_coupled_propagation_identity_closed=false, reference_metric_connection_coupling_convention_frozen=false, total_stress_energy_sector_conservation_closed=false, and scientific_admission=false.
+
+## 14. Index-conversion scale check — 2026-10-25
+
+**Status:** diagnostic inspection of the pre-H-slot-correction accepted-state ledger. The conversion formula itself is unchanged by the H-slot patch; the residual values below belong to the earlier comparator and are not presented as updated post-patch residuals.
+
+The observer keeps the covariant Brown variable \(M_r\) and the raised-index comparison \(M^r=\gamma^{rr}M_r\) distinct. With \(\gamma_{rr}=a/X^2\), lowering the raised-index rate requires
+
+\[
+\partial_t M_r
+=\gamma_{rr}\partial_t M^r
++\left(\partial_t\ln\gamma_{rr}\right)M_r,
+\qquad
+\partial_t\ln\gamma_{rr}=\frac{\dot a}{a}-2\frac{\dot X}{X}.
+\]
+
+The existing comparator explicitly adds this metric-rate contribution as \((\partial_t\ln\gamma_{rr})M_r\); the direct covariant-\(M_r\) candidate is computed separately. Thus the term is not silently omitted from the raised-index conversion.
+
+At fixed \(r=2\), the earlier saved full-profile ledger gives:
+
+| N | Metric-rate index-conversion term | Earlier direct covariant-\(M_r\) residual | Conversion-term scale / residual |
+|---:|---:|---:|---:|
+| 60 | \(+7.1804\times10^{-8}\) | \(+8.9752\times10^{-6}\) | 0.800% |
+| 120 | \(+4.9837\times10^{-9}\) | \(+6.1218\times10^{-7}\) | 0.814% |
+| 240 | \(+3.3844\times10^{-10}\) | \(+4.0296\times10^{-8}\) | 0.840% |
+
+The ratio is only a **scale comparison**: the conversion term belongs to the raised-index comparator and is not an additive term in the direct covariant residual. It suggests the explicitly recorded metric-rate contribution is not, by magnitude alone at this radius, a dominant explanation for the earlier residual. It does not establish the complete index convention, and the direct-candidate residual will change under the H-slot correction now being validated.
+
+No nonzero-shift conclusion follows from these accepted arms. The index conversion, Brown covariant equation, connection convention, and matter-source mapping remain separately tracked gates; scientific admission stays false.
