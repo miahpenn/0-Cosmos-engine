@@ -418,7 +418,7 @@ def main() -> int:
             "primitive_map_and_Rt_native_node_reconstruction_passed": True,
             "Rr_tangent_component_closure": float(np.max(np.abs(tangent_component_closure))) <= 2e-12,
             "mass_rate_current_delta_closure": float(np.max(np.abs(delta_closure))) <= 2e-12,
-            "fixed_R_anchored_tangent_delta_closure_passed": max(tangent_closure_abs, default=0.0) <= 2e-12,
+            "fixed_R_anchored_tangent_delta_closure_passed": bool(max(tangent_closure_abs, default=0.0) <= 2e-12),
             "areal_Rr_time_tangent_compatibility_closed": False,
             "integrated_current_identity_closed": False,
             "full_matter_coupled_propagation_identity_closed": False,
