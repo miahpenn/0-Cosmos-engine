@@ -12,7 +12,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: manufactured-lambda-metric-bianchi-commutator-\${{ github.ref }}
+  group: manufactured-lambda-metric-bianchi-commutator
   cancel-in-progress: false
 
 jobs:
