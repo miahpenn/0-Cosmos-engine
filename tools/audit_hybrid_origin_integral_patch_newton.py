@@ -822,7 +822,19 @@ def _constraint_propagation_candidate(
         "propagation_exact_chain_rule_residual": Mgeom_chain_residual,
         "propagation_measured_Mtotal_reconstructed_parts": Mtotal_reconstructed_from_parts,
         "propagation_Mtotal_decomposition_residual": Mtotal_decomposition_residual,
+        "propagation_geometric_Brown_term_shift": term_geom_shift,
+        "propagation_geometric_Brown_term_KM": term_geom_KM,
+        "propagation_geometric_Brown_term_alpha_H": term_geom_alpha_H,
+        "propagation_geometric_Brown_term_H_gradient": term_geom_H_gradient,
+        "propagation_geometric_Brown_term_connection_second": term_geom_C_second,
+        "propagation_geometric_Brown_term_connection_first": term_geom_C_first,
         "propagation_geometric_Brown_vacuum_source": brown_geometric_vacuum_source,
+        "propagation_geometric_Brown_term_sum_reconstruction_gap": finite(
+            "geometric Brown source term sum reconstruction gap",
+            term_geom_shift + term_geom_KM + term_geom_alpha_H
+            + term_geom_H_gradient + term_geom_C_second + term_geom_C_first
+            - brown_geometric_vacuum_source,
+        ),
         "propagation_geometric_Brown_plus_Q_source": predicted_Mgeom_dot_brown_plus_Q,
         "propagation_total_Brown_minus_8pi_Jdot": predicted_Mtotal_dot_brown,
         "propagation_total_Brown_plus_Q_minus_8pi_Jdot": predicted_Mtotal_dot_brown_plus_Q,
