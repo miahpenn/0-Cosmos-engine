@@ -1120,3 +1120,66 @@ at the continuum equation-to-code level, with the stated fixed-grid operators us
 This is a **real off-constraint extension difference**, not merely a truncation error: it vanishes when the connection constraint \(C^r=0\) holds, but is generally nonzero off that surface. The archived numerical contribution is comparatively small, but amplitude alone is not a justification to omit it. Before promoting the Brown identity or admitting the accepted connection convention, the project must establish from its frozen physics/implementation contract whether this vendor-specific extension is intentional and must be carried as part of the accepted BSSN subsystem, or whether the Ricci/evolution representation is meant to match Brown's differentiated-connection form. No production change should occur until that convention decision is explicit.
 
 This source-level identification explains the term already isolated in §§10.9 and 10.14; it does not itself select either extension or close the full matter-coupled propagation identity. No observer, workflow, or evolution was run.
+
+
+## 10.16 Independent check: the evolved connection RHS differs by \(2\alpha A_a C^r\)
+
+The previous sections isolated the connection term entering the \(A_a\) Ricci RHS. The pinned vendor's **Lambda evolution** has a second, distinct off-constraint difference relative to Brown Eq. (9f). This can be derived from the actual source formulas and the variable map, without residual fitting.
+
+Use the Brown variable
+\[
+\Gamma_B^r=\Lambda-\frac{2}{rb},\qquad
+C^r=\Gamma_B^r-\left[\frac{D_1(a)}{2a^2}
+-\frac{D_1(b)}{ab}-\frac2{ar}\right].
+\]
+For the accepted zero-shift CMC metric RHS, \(\dot b=\alpha bA_a\), so
+\[
+\dot\Gamma_{B,\mathrm{vendor}}^r
+=\dot\Lambda_{\mathrm{vendor}}+\frac{2\dot b}{rb^2}
+=\dot\Lambda_{\mathrm{vendor}}+\frac{2\alpha A_a}{rb}.
+\]
+Expanding the pinned vendor \(\lambda_\mathrm{L2}\) source with \(\lambda_m=2\), its evolved-\(\Lambda\) \(\lambda_\mathrm{L3}\) source, and the accepted \(M_{r,\mathrm{geom}}\) definition gives
+\[
+\begin{aligned}
+\dot\Gamma_{B,\mathrm{vendor}}^r={}&
+-\frac{2A_aD_1(\alpha)}a-\frac{4\alpha D_1(K)}{3a}
+-\frac{6\alpha A_aD_1(X)}{aX}\\
+&+\frac{6\alpha A_a}{ar}
++\frac{3\alpha A_aD_1(b)}{ab}
++2\alpha A_a\Gamma_B^r.
+\end{aligned}
+\]
+By contrast, Brown's published Eq. (9f) with \(v=0\) and \(\beta^r=0\), mapped through \(g_{rr}=a\), \(g_{\theta\theta}=br^2\), \(\chi=X^2\), and \(A_{rr}=aA_a\), gives
+\[
+\begin{aligned}
+\dot\Gamma_{B,\mathrm{Brown}}^r={}&
+-\frac{2A_aD_1(\alpha)}a-\frac{4\alpha D_1(K)}{3a}
+-\frac{6\alpha A_aD_1(X)}{aX}\\
+&+\frac{\alpha A_aD_1(a)}{a^2}
++\frac{\alpha A_aD_1(b)}{ab}
++\frac{2\alpha A_a}{ar}.
+\end{aligned}
+\]
+Subtracting, the metric-factor terms regroup using the explicit definition of \(C^r\):
+\[
+\begin{aligned}
+\dot\Gamma_{B,\mathrm{vendor}}^r-\dot\Gamma_{B,\mathrm{Brown}}^r
+&=\alpha A_a\left[
+\frac4{ar}+\frac{2D_1(b)}{ab}
++2\Gamma_B^r-\frac{D_1(a)}{a^2}
+\right]\\
+&=\boxed{2\alpha A_a C^r}.
+\end{aligned}
+\]
+This is a same-state source-algebra result under the stated zero-shift/CMC and \(\lambda_m=2\) conventions, with the same accepted derivative operators used in the variable map. It is distinct from the extra \(\tfrac12\alpha\chi(D_1a/a)C^r\) in the \(A_a\) Ricci channel (§10.15). Both vanish when \(C^r=0\), but must be retained separately off the connection-constraint surface.
+
+The already saved \(t\simeq0.60\) accepted-state arrays yield the following magnitude of the Lambda-channel difference \(2\alpha A_a C^r\); no observer or workflow was run:
+
+| \(N\) | \(\max_{r\le10}|2\alpha A_a C^r|\) | value at \(r=2\) | \(r=3\) | \(r=5\) | \(r=8\) |
+|---:|---:|---:|---:|---:|---:|
+| 60 | \(4.2885\times10^{-10}\) | \(-2.6471\times10^{-10}\) | \(-3.8781\times10^{-10}\) | \(-1.3356\times10^{-11}\) | \(+1.3507\times10^{-10}\) |
+| 120 | \(3.3803\times10^{-11}\) | \(-2.0391\times10^{-11}\) | \(-3.3803\times10^{-11}\) | \(-7.5365\times10^{-13}\) | \(+6.7447\times10^{-12}\) |
+| 240 | \(2.8833\times10^{-12}\) | \(-1.5075\times10^{-12}\) | \(-2.7589\times10^{-12}\) | \(-1.0267\times10^{-12}\) | \(+1.5577\times10^{-13}\) |
+
+This pins the source of the difference, not its physical acceptability. The small amplitude in these profiles does not authorize dropping the term or altering the accepted vendor RHS. The project must decide, under its frozen formulation contract, whether the vendor's off-constraint extension is intentional and is the one to derive the subsidiary system for, or whether a Brown-compatible extension is required. Until that decision is source/physics-authorized, the reference-metric connection-admission flag remains false.
+
