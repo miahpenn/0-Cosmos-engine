@@ -1,0 +1,104 @@
+{
+  "schema": "bssn-areal-misner-sharp-current-probe/v1",
+  "status": "completed_diagnostic_only",
+  "run": {
+    "id": 40160533041,
+    "url": "https://github.com/miahpenn/0-Cosmos-engine/actions/runs/40160533041",
+    "all_jobs_success": true,
+    "resolutions": [
+      60,
+      120,
+      240
+    ],
+    "accepted_time": 0.6,
+    "dt_rule": "dt=0.03*dr and dt/2"
+  },
+  "source_pin": "4aec88d0e3ff028e0a65a8ac36b30948625df792",
+  "vendor_pin": "d6052d605673ce9d82cdc99b0df79855fa2ea215",
+  "artifacts": {
+    "N60": 12585882618,
+    "N120": 12586386864,
+    "N240": 12586825600
+  },
+  "residuals": {
+    "N60": {
+      "dt_0p04": {
+        "max_abs_R_le_3": 0.000027449603278100273,
+        "rms_R_2_to_10": 0.000022483920636544695
+      },
+      "dt_0p02": {
+        "max_abs_R_le_3": 0.000027521811149488394,
+        "rms_R_2_to_10": 0.00002170026868556557
+      }
+    },
+    "N120": {
+      "dt_0p02": {
+        "max_abs_R_le_3": 0.000009507514787755706,
+        "rms_R_2_to_10": 0.00000444585389358369
+      },
+      "dt_0p01": {
+        "max_abs_R_le_3": 0.000009592721394373002,
+        "rms_R_2_to_10": 0.0000043861014110017715
+      }
+    },
+    "N240": {
+      "dt_0p01": {
+        "max_abs_R_le_3": 0.000005329908824659995,
+        "rms_R_2_to_10": 0.0000020848203749772587
+      },
+      "dt_0p005": {
+        "max_abs_R_le_3": 0.000005295774622351881,
+        "rms_R_2_to_10": 0.000002082272368844522
+      }
+    }
+  },
+  "N240_dt0p005_fixed_R": {
+    "1": {
+      "mass_rate": 0.000023174296938936573,
+      "current_rhs": 0.00002294239857050824,
+      "residual": 2.318983684283306e-7
+    },
+    "2": {
+      "mass_rate": 0.0001525128190034537,
+      "current_rhs": 0.00015236319625320344,
+      "residual": 1.4962275025025507e-7
+    },
+    "3": {
+      "mass_rate": 0.00041186910712163674,
+      "current_rhs": 0.0004120759552764203,
+      "residual": -2.0684815478356197e-7
+    },
+    "5": {
+      "mass_rate": 0.0009663128126205732,
+      "current_rhs": 0.000966679584784797,
+      "residual": -3.6677216362456224e-7
+    },
+    "8": {
+      "mass_rate": 0.000730385220688896,
+      "current_rhs": 0.000729670233501685,
+      "residual": 7.149871897778176e-7
+    },
+    "10": {
+      "mass_rate": 0.00022504571713932722,
+      "current_rhs": 0.0002253871780473944,
+      "residual": -3.4146090806757385e-7
+    },
+    "0.5": {
+      "mass_rate": 0.000002957216227150429,
+      "current_rhs": 0.0000028312233061837216,
+      "residual": 1.259929209667078e-7
+    }
+  },
+  "acceptance": {
+    "source_pins_match": true,
+    "artifact_hash_verified": true,
+    "accepted_inputs_immutable": true,
+    "zero_shift_precondition": true,
+    "coordinate_and_tensor_transform_exercised": true,
+    "integrated_current_identity_closed": false,
+    "full_matter_coupled_propagation_identity_closed": false,
+    "total_stress_energy_conservation_closed": false,
+    "production_source_or_vendor_changed": false,
+    "scientific_admission": false
+  }
+}
