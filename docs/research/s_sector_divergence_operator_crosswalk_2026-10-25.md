@@ -166,11 +166,27 @@ Both shell-integrated differences decrease at approximately fourth order over th
 
 **Artifact provenance:** workflow 40212458916 uploaded N60 artifact 12605564698, N120 artifact 12606088948, and N240 artifact 12605739292. SHA-256 (report.json / profiles.npz): N60 d22faa6fcd80348018054e88bda6d06485482560814f78256c3c98ac2edad19d / d321016747d6d5606458270dfaa0013d8d69b5462fffe470d75401c2992311e4; N120 e6cd0f788802d9a0623eae4d0a5e795bc1d13d27abd519286e7e252ceab713ce / b5b21465a71ef81cb1b7548f9a60039c3fe9bb82c46e36585be3843c5e548096; N240 1545eace2555c8a8ffd95860ec4a98c39676adcf3280674a77706a5fa14355d5 / e17520b8e6169eeccc423f6fa9f9edfbcfcc52541fb994f3ca40bada8508a020.
 
-## 7. Disposition and next discriminating check
+## 7. Archive-locked DM/COSMOS-phi exchange comparator — same accepted states
+
+The same saved-state sector ledger also compares the radial covariant divergences with the archive-locked exchange comparator (Q_r^{DM}=+\beta\rho_{DM}D_r\phi), (Q_r^{\phi}=-\beta\rho_{DM}D_r\phi), using the normalized DM projection from the same stress observer. This is a **diagnostic comparison**, not acceptance of the exchange law or its normalization.
+
+At fixed coordinate radius (r=2), the DM-sector observed divergence is close to its comparator and the signed difference shrinks across the saved-state refinement sequence. The COSMOS-φ observed divergence is much larger than the comparator signal at these resolutions, although its signed difference also decreases rapidly. The two central points are:
+
+| N | DM expected (Q_r) | DM observed (Q_r) | DM observed minus expected | COSMOS-φ expected (Q_r) | COSMOS-φ observed (Q_r) | COSMOS-φ observed minus expected |
+|---:|---:|---:|---:|---:|---:|---:|
+| 60 | +3.86998e-14 | +4.31002e-14 | +4.40038e-15 | -3.86998e-14 | -2.42207e-10 | -2.42169e-10 |
+| 120 | +3.75918e-14 | +3.86402e-14 | +1.04847e-15 | -3.75918e-14 | -1.76788e-11 | -1.76412e-11 |
+| 240 | +3.75661e-14 | +3.76963e-14 | +1.30167e-16 | -3.75661e-14 | -1.12531e-12 | -1.08775e-12 |
+
+For COSMOS-φ, the fixed-r=2 discrepancy drops by factors of about 13.7 then 16.2, approximately fourth-order refinement. Nevertheless, at N=240 it remains about 29 times larger than the expected source itself. The N=60/120/240 values are stable under halving the directional-tangent epsilon from (2\times10^{-5}) to (1\times10^{-5}), so this does not look like a simple finite-difference epsilon artifact. It still does **not** distinguish the small archived exchange signal from the spatial product-rule/operator remainder, nor does it prove that either normalization is wrong.
+
+The DM comparison is encouraging numerical consistency but is too narrow to close the gate: it is one fixed-radius diagnostic on accepted background states. The COSMOS-φ comparison is unresolved at these resolutions because the comparator signal is below the observed discrete remainder. This is consistent with the standing Issue #210 guardrail: no reciprocal source, factor, or density conversion should be selected from a numerically convenient match. The archive-backed exchange normalization and the complete total-sector conservation ledger remain open.
+
+## 8. Disposition and next discriminating check
 
 1. The origin-volume suspicion is resolved: the observer reconstructs regular (r^2g(r^2)) face profiles and Simpson-integrates the α-weighted spacetime measure; it does not use an arithmetic face-weight average or centre value times Δr.
 2. The pinned S-sector RHS spatial terms reconstruct exactly from the existing current-tangent ledger. That isolated term is not the full `Q_r^S`, which also contains time-density, radial pressure-flux, and metric-source contributions.
 3. The saved-state RHS/current/measure pairing is now instrumented at N=60/120/240, including the exact RHS-rate reconstruction, the spatial-measure log rate, pointwise and FV pairing gaps, and the volume-weighted shell comparison. The current and measure time-density operands close to about 1e-15, while the pointwise/FV pairing remainders decrease at fixed coordinate radii and in shell-weighted comparisons. They remain discrete operator-pairing diagnostics, not an admitted stress-energy conservation identity. Do not select a divergence form based solely on the smaller residual.
-4. The full matter-coupled Brown momentum-propagation identity, total stress-energy sector conservation, the archive-locked φ/DM exchange admission gate, and scientific admission all remain open.
+4. The full matter-coupled Brown momentum-propagation identity, total stress-energy sector conservation, the archive-locked φ/DM exchange normalization/admission gate, and scientific admission all remain open.
 
 **Disposition:** diagnostic only; production equations and vendor sources unchanged; `scientific_admission=false`.
