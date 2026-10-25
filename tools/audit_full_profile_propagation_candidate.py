@@ -1670,7 +1670,7 @@ def same_base_dual_lapse_response_audit(
             ) / (2.0 * eps)
             delta_alpha_dot = alpha_dot_reg - alpha_dot_prod
             delta_radial_alpha_dot = stress_divergence.d1(
-                state.grid, delta_alpha_dot, "even"
+                state.grid, delta_alpha_dot, +1
             )
             delta_plus_alpha = (
                 np.asarray(reg["plus"].geometry.alpha, dtype=np.float64)
