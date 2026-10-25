@@ -34,6 +34,7 @@ os.environ.setdefault("COSMOS_PINNED_SOURCE_ROOT", str(ROOT))
 from engine.production_kernel import V55ProductionKernel
 from engine.scalar_system import ScalarFields
 from engine.matter_system import ConservedSpecies
+from engine.stress_energy import assemble_total_stress_energy
 from engine.v55_matter import V55MatterState
 from engine import v55_pirk_adapter as adapter
 from tools import audit_current_source_momentum_constraint_tangent as tangent
@@ -415,6 +416,173 @@ def compact_sector_divergence(
     return compact, profile_store
 
 
+def operator_pairing_decomposition(
+    kernel, state, rates, epsilon: float, candidate_raw: dict[str, np.ndarray]
+) -> tuple[dict[str, Any], dict[str, np.ndarray]]:
+    """Decompose pointwise-minus-expanded Q_r into discrete product/chain-rule gaps.
+
+    Reuses the existing unexpanded covariant-divergence formula, and the same
+    saved-state directional endpoints as the expanded candidate. It does not
+    select which operator is the physical/discrete acceptance convention.
+    """
+    eps = float(epsilon)
+    try:
+        plus_state = SHIFTED_STATES[eps]
+        minus_state = SHIFTED_STATES[-eps]
+    except KeyError as exc:
+        raise RuntimeError(f"operator-pairing endpoints missing for epsilon={eps}") from exc
+
+    grid = state.grid
+    geom = state.geometry
+    r = np.asarray(grid.centers, dtype=np.float64)
+    d1_fn = lambda values, parity: stress_divergence.d1(grid, values, parity)
+    base_projection = stress_divergence.independent_total_projections(state)
+    plus_projection = stress_divergence.independent_total_projections(plus_state)
+    minus_projection = stress_divergence.independent_total_projections(minus_state)
+
+    base_obj = stress_divergence._covariant_objects_from_components(state, base_projection)
+    plus_obj = stress_divergence._covariant_objects_from_components(plus_state, plus_projection)
+    minus_obj = stress_divergence._covariant_objects_from_components(minus_state, minus_projection)
+
+    dt_density_t = (
+        np.asarray(plus_obj["density_t"], dtype=np.float64)
+        - np.asarray(minus_obj["density_t"], dtype=np.float64)
+    ) / (2.0 * eps)
+    dt_density_r = (
+        np.asarray(plus_obj["density_r"], dtype=np.float64)
+        - np.asarray(minus_obj["density_r"], dtype=np.float64)
+    ) / (2.0 * eps)
+    dt_gtt = (
+        np.asarray(plus_obj["gtt"], dtype=np.float64)
+        - np.asarray(minus_obj["gtt"], dtype=np.float64)
+    ) / (2.0 * eps)
+    dt_grr = (
+        np.asarray(plus_obj["gamma_rr"], dtype=np.float64)
+        - np.asarray(minus_obj["gamma_rr"], dtype=np.float64)
+    ) / (2.0 * eps)
+    dt_gth = (
+        np.asarray(plus_obj["gamma_thth"], dtype=np.float64)
+        - np.asarray(minus_obj["gamma_thth"], dtype=np.float64)
+    ) / (2.0 * eps)
+
+    pointwise_terms = stress_divergence.covariant_divergence_terms_from_profiles(
+        r, d1_fn,
+        base_obj["alpha"], base_obj["gamma_rr"], base_obj["gamma_thth"],
+        base_obj["rho"], base_obj["j"], base_obj["pr"], base_obj["pt"],
+        dt_density_t, dt_density_r, dt_gtt, dt_grr, dt_gth,
+    )
+    terms = pointwise_terms["terms"]
+    pointwise = np.asarray(pointwise_terms["div_T_r"], dtype=np.float64)
+    expanded = np.asarray(candidate_raw["propagation_Qr_total_stress_divergence"], dtype=np.float64)
+
+    alpha = np.asarray(geom.alpha, dtype=np.float64)
+    a = np.asarray(geom.a, dtype=np.float64)
+    b = np.asarray(geom.b, dtype=np.float64)
+    X = np.asarray(geom.X, dtype=np.float64)
+    gamma_rr = a / X**2
+    gamma_thth = b * r**2 / X**2
+    rho = np.asarray(base_projection["rho"], dtype=np.float64)
+    j = np.asarray(base_projection["j"], dtype=np.float64)
+    pr = np.asarray(base_projection["pr"], dtype=np.float64)
+    pt = np.asarray(base_projection["pt"], dtype=np.float64)
+
+    alpha_r = d1_fn(alpha, +1)
+    gamma_rr_r = d1_fn(gamma_rr, +1)
+    gamma_thth_r = d1_fn(gamma_thth, +1)
+    b_r = d1_fn(b, +1)
+    X_r = d1_fn(X, +1)
+    areal_log_r = 1.0 / r + 0.5 * b_r / b - X_r / X
+    rho_alpha_log_r = rho * alpha_r / alpha
+
+    total_base = assemble_total_stress_energy(grid, state.geometry, state.scalars, state.matter)
+    total_plus = assemble_total_stress_energy(grid, plus_state.geometry, plus_state.scalars, plus_state.matter)
+    total_minus = assemble_total_stress_energy(grid, minus_state.geometry, minus_state.scalars, minus_state.matter)
+    j_dot = (
+        np.asarray(total_plus.j, dtype=np.float64)
+        - np.asarray(total_minus.j, dtype=np.float64)
+    ) / (2.0 * eps)
+    a_dot = np.asarray(rates["geometry"]["a"], dtype=np.float64)
+    b_dot = np.asarray(rates["geometry"]["b"], dtype=np.float64)
+    X_dot = np.asarray(rates["geometry"]["X"], dtype=np.float64)
+    gamma_rr_log_dot = a_dot / a - 2.0 * X_dot / X
+    areal_log_dot = 0.5 * b_dot / b - X_dot / X
+    expanded_time = j_dot / alpha + (j / alpha) * (
+        0.5 * gamma_rr_log_dot + 2.0 * areal_log_dot
+    )
+    pointwise_time = np.asarray(terms["time_density_div_T_r"], dtype=np.float64)
+    time_product_rule_gap = pointwise_time - expanded_time
+
+    flux_expanded = (
+        d1_fn(pr, +1)
+        + pr * (
+            alpha_r / alpha
+            + 0.5 * gamma_rr_r / gamma_rr
+            + gamma_thth_r / gamma_thth
+        )
+    )
+    flux_product_rule_gap = (
+        np.asarray(terms["radial_flux_div_T_r"], dtype=np.float64) - flux_expanded
+    )
+    gtt_metric_chain_gap = (
+        np.asarray(terms["metric_source_div_T_r_gtt"], dtype=np.float64)
+        - rho_alpha_log_r
+    )
+    areal_metric_chain_gap = (
+        (pr - pt) * (
+            gamma_thth_r / gamma_thth - 2.0 * areal_log_r
+        )
+    )
+
+    total_gap = pointwise - expanded
+    reconstructed_gap = (
+        time_product_rule_gap + flux_product_rule_gap
+        + gtt_metric_chain_gap + areal_metric_chain_gap
+    )
+    closure = total_gap - reconstructed_gap
+
+    def stat(values):
+        arr = np.asarray(values, dtype=np.float64)
+        centre = r <= 3.0
+        annulus = (r >= 2.0) & (r < 10.0)
+        return {
+            "cell0_cell1": [float(arr[0]), float(arr[1])],
+            "max_abs_r_le_3": float(np.max(np.abs(arr[centre]))),
+            "rms_r_2_to_10": float(np.sqrt(np.mean(arr[annulus]**2)),
+            "rms_full_domain": float(np.sqrt(np.mean(arr**2))),
+            "at_fixed_r": {
+                str(q): float(np.interp(q, r, arr))
+                for q in (1.0, 2.0, 3.0, 5.0, 8.0) if r[0] <= q <= r[-1]
+            },
+        }
+
+    profile_map = {
+        "pointwise_div_T_r": pointwise,
+        "expanded_Q_r": expanded,
+        "pointwise_minus_expanded": total_gap,
+        "time_product_rule_gap": time_product_rule_gap,
+        "radial_flux_product_rule_gap": flux_product_rule_gap,
+        "gtt_lapse_metric_chain_gap": gtt_metric_chain_gap,
+        "areal_metric_chain_gap": areal_metric_chain_gap,
+        "reconstructed_sum_of_discrete_gaps": reconstructed_gap,
+        "decomposition_closure": closure,
+    }
+    report = {
+        "epsilon": eps,
+        "observer": "existing unexpanded covariant divergence versus the existing expanded Q_r candidate",
+        "pointwise_minus_expanded": stat(total_gap),
+        "decomposition_terms": {name: stat(values) for name, values in profile_map.items() if name not in ("pointwise_div_T_r", "expanded_Q_r")},
+        "decomposition_closure_max_abs": float(np.max(np.abs(closure))),
+        "decomposition_closure_rms": float(np.sqrt(np.mean(closure**2))),
+        "interpretation": (
+            "Exact algebraic partition of the discrete mismatch into time-product, "
+            "radial-flux product, g_tt/lapse-chain, and areal-radius chain gaps. "
+            "The partition is diagnostic only; it does not select an authoritative "
+            "discrete divergence or physical source law."
+        ),
+    }
+    return report, profile_map
+
+
 def main() -> int:
     if RESOLUTION not in (60, 120, 240):
         raise ValueError(f"unsupported resolution {RESOLUTION}")
@@ -451,6 +619,7 @@ def main() -> int:
         propagation.shifted_state = shifted_state_with_matched_lapse
 
         SHIFTED_STATES.clear()
+        rates = tangent.rhs_direction(kernel, state)
         report, raw = propagation.directional_tangent(kernel, state, vacuum)
         if report.get("state_unchanged") is not True:
             raise RuntimeError(f"{label}: propagation observer mutated its frozen accepted state")
@@ -477,7 +646,11 @@ def main() -> int:
             sector_report, sector_profiles = compact_sector_divergence(
                 state, eps, raw[eps]
             )
+            operator_report, operator_profiles = operator_pairing_decomposition(
+                kernel, state, rates, eps, raw[eps]
+            )
             compact["sector_resolved_stress_energy_divergence"] = sector_report
+            compact["pointwise_vs_expanded_Qr_discrete_gap_decomposition"] = operator_report
             arm_rows["epsilon_results"].append(compact)
             for name, values in raw[eps].items():
                 saved_profiles[f"N{RESOLUTION}_{label}_eps{eps:.0e}_{name}"] = np.asarray(values, dtype=np.float64).copy()
@@ -485,11 +658,15 @@ def main() -> int:
                 saved_profiles[
                     f"N{RESOLUTION}_{label}_eps{eps:.0e}_{name}"
                 ] = np.asarray(values, dtype=np.float64).copy()
+            for name, values in operator_profiles.items():
+                saved_profiles[
+                    f"N{RESOLUTION}_{label}_eps{eps:.0e}_{name}"
+                ] = np.asarray(values, dtype=np.float64).copy()
         summaries.append(arm_rows)
 
     report_path = OUT / "report.json"
     result = {
-        "schema": "full-profile-accepted-state-propagation-candidate/v2",
+        "schema": "full-profile-accepted-state-propagation-candidate/v3",
         "status": "completed_diagnostic_only",
         "purpose": "Apply the existing convention/index-sensitive propagation candidate and its existing additive sector-resolved total-stress-energy divergence observer to source-pinned accepted t=0.60 states from baseline, partial-joint, and full-continuous-metric arms.",
         "source_pins": {
