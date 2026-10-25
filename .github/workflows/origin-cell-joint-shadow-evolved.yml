@@ -13,7 +13,7 @@ permissions:
   actions: read
 
 concurrency:
-  group: origin-cell-joint-shadow-evolved-${{ github.event.pull_request.number || github.ref }}-${{ matrix.resolution }}
+  group: origin-cell-joint-shadow-evolved-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: false
 
 jobs:
