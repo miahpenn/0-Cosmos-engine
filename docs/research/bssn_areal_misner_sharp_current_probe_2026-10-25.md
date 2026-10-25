@@ -62,10 +62,29 @@ At \(R=1\), the transformed-current pieces are: energy-motion \(-4.10687\times10
 
 The residual is now localized more clearly: the coordinate/tensor transformation and component bookkeeping close internally, but the fixed-\(R\) identity still has \(O(10^{-6})\) residuals across \(R=1\ldots3\), while it is smaller at \(R=5\) and \(R=10\). This points to the inner spatial derivative / shell interpolation and regular-origin measure as the next numerical focus; it does not by itself imply a missing physical source term.
 
+
+## Fixed-areal-radius shell balance
+
+Using the same fixed-\(R\) endpoint values, I independently assembled each shell's mass-rate from the change in \(m(R_{\rm out})-m(R_{\rm in})\) and compared it with the net time-averaged boundary current \(4\pi R_{\rm out}^2T_t{}^R-4\pi R_{\rm in}^2T_t{}^R\). This is a telescoping shell balance, not yet the separate reconstructed-face FV observer.
+
+For the smaller timestep at each resolution:
+
+| Shell | N=60 residual | N=120 residual | N=240 residual | Relative residual at N=240 |
+|---|---:|---:|---:|---:|
+| R=1–2 | +1.113e-5 | -8.264e-6 | -6.965e-7 | 0.54% |
+| R=2–3 | -3.344e-5 | +7.096e-6 | +2.459e-8 | 0.0095% |
+| R=3–5 | +4.985e-5 | -7.978e-6 | +2.176e-6 | 0.39% |
+| R=5–8 | +3.990e-5 | +1.647e-5 | +1.997e-6 | 0.84% |
+| R=8–10 | -6.651e-5 | -5.770e-6 | -1.779e-6 | 0.35% |
+
+The shell residual telescopes to the difference of the fixed-radius residuals with a closure gap below \(1.4\times10^{-19}\). All five shells improve substantially in absolute residual from N=60 to N=240; the R=2–3 shell is especially tight at N=240. The R=1–2 and R=5–8 shells remain the largest relative discrepancies. This supports the transformed integrated-current identity away from the centre, while keeping the inner-shell closure open.
+
+The remaining follow-up is now narrower: compare this fixed-areal-boundary shell balance against a separately reconstructed face-flux FV calculation using the same \(R\)-measure. That will test face reconstruction and cell integration independently of the telescoping boundary arithmetic.
+
 ## Interpretation and next gate
 
 This probe now applies both parts of the areal-coordinate transformation: fixed-\(R\) differentiation and the transformed mixed-tensor current. The balance improves with spatial refinement, and the dt/2 comparison indicates timestep size is not the main remaining discrepancy. The explicit mass-interpolation gap was an additional numerical effect in the preliminary measurement and is now separately accounted for.
 
-Next, compare the corrected fixed-R rate with an independently reconstructed finite-volume shell/face balance using the same areal-radius measure, and isolate the centre-cell reconstruction error. Keep this diagnostic independent of the pointwise-versus-expanded \(Q_r\) decomposition.
+Next, compare the fixed-areal-boundary shell balance with a separately reconstructed face-flux FV calculation in the same R-measure, and isolate the centre-cell reconstruction error. Keep this diagnostic independent of the pointwise-versus-expanded \(Q_r\) decomposition.
 
 **Disposition:** coordinate/current transformation exercised; corrected fixed-\(R\) identity still open; full matter-coupled momentum propagation and total sector conservation remain open; no production changes; \`scientific_admission=false\`.
