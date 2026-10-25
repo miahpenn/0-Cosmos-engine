@@ -111,6 +111,18 @@
         "equivalent": "kappa*Q_r_DM_phys = +beta_DM*rho_DM_archive*D_r(phi_stored)",
         "caveat": "This identifies the sector-exchange scale in stored archive variables. It does not set total Q_r for the combined stress tensor (the sector pair cancels analytically), nor prove that the accepted cell-centred scalar and HLL fluid updates conserve their exchange exactly."
       }
+    },
+    "matter_inclusive_vs_geometric_brown_operator": {
+      "status": "algebraically_derived_candidate_level",
+      "assumptions": {
+        "H_total": "H_geom - 16*pi*rho",
+        "M_r_total": "M_r_geom - 8*pi*j_r",
+        "connection_residual": "C_total = C_geom = Lambda - Lambda_metric",
+        "units": "G=1"
+      },
+      "expression": "B_total-B_geom = -8*pi*[beta*partial_r(j_r)+(partial_r beta)*j_r+alpha*K*j_r] +(16*pi/3)*(partial_r alpha)*rho -(8*pi/3)*alpha*partial_r(rho)",
+      "interpretation": "The matter-inclusive-minus-geometric Brown operator difference is the exact algebraic combination that tracks DeltaS=S_act-S_Q in the saved #420 accepted-state evidence.",
+      "limitation": "This algebraic identity does not independently derive the covariant matter source term or the exact Q_r index/lapse/time split; total stress-energy conservation and scientific admission remain open."
     }
   },
   "existing_numeric_evidence": {
@@ -146,5 +158,5 @@
     "total_stress_energy_sector_conservation_closed": false,
     "scientific_admission": false
   },
-  "next_gate": "Archive-backed derivation of H-gradient translation, matter-source index/density/measure, time-split/source-aware propagation relation, and complete total-sector exchange before deciding whether any new observer is necessary."
+  "next_gate": "Derive from the covariant Bianchi identities and locked archive stress-energy whether S_Q=-8*pi*alpha*Q_r is the complete source term in the exact lower-index/lapse/derivative/time-split convention; verify source normalization/operator ownership against the existing accepted states; then evaluate the six-sector conservation ledger before choosing any additional observer."
 }
