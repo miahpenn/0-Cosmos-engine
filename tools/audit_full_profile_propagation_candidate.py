@@ -3,7 +3,7 @@
 
 Research diagnostic only. Loads SHA-verified t=0.60 profiles from the prior
 production-baseline/joint-origin run and the full-continuous-metric shadow.
-Runs the existing RHS tangent and provisional Brown/source-divergence candidate
+Runs the existing RHS tangent and provisional Brown/source-divergence candidate without redefining its equation convention
 on those exact states. Lapse perturbations use the production CMC solver for
 the baseline and the copied regular-origin CMC row for the two shadow arms.
 
