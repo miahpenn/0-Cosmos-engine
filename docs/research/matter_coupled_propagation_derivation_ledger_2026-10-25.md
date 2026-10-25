@@ -238,7 +238,7 @@ The three existing representations remain distinct: pointwise covariant divergen
 | Coordinate-time source operands | partial_t(phi) = alpha*Pi + beta^r*partial_r(phi); scalar source carries alpha; fluid source is mapped into its conservative energy/momentum variables. | **Source-placement map only; no propagation time-split derivation.** |
 | Total stress divergence and S_Q | Sector exchange is not total divergence; pointwise/FV/expanded forms remain distinct. | **Open; do not promote S_Q = -8*pi*alpha*Q_r.** |
 | Hamiltonian-gradient translation | Brown Eq. (11b) slots remain -(D_r alpha)*H/3 + alpha*D_r(H)/6; standard ADM subsidiary coefficients cannot be substituted without deriving the formulation/time split. | **Open.** |
-| Reference-metric connection response in the full source-aware tangent | C^r = Lambda - Lambda_metric is algebraically mapped for the Brown candidate. The accepted adapter's matter term in the Lambda RHS does not, by itself, derive every D_r(C^r) / D_r^2(C^r) coefficient in the propagated M_r identity. | **Open.** |
+| Reference-metric connection response in the full source-aware tangent | Section 10.5 derives the candidate matter-current pairing in one Lambda RHS channel. The exact time derivative of the reference-metric target and its discrete stencils/parity must still be carried into Mdot_r. | **Open.** |
 | Total six-sector discrete conservation | Existing ledger verifies signed additivity/bookkeeping, not cancellation of the total discrete stress divergence across scalar and HLL fluid updates. | **Open.** |
 
 ### 10.4 Next derivation gate
@@ -262,6 +262,26 @@ A further part of the reference-connection path can be resolved directly from th
 
 This shows the adapter did not simply omit the matter momentum projection from this particular Lambda-stage momentum-constraint channel: its explicit source term cancels the matter piece implied when the geometry-only constraint is replaced by the candidate matter-inclusive one. It is a source-code algebra identity, not an independent proof that `total["j"]` has the final covariant index/density mapping required by the full Bianchi derivation.
 
-The remaining connection obligation is still real: derive the complete evolution of (C^r=\Lambda-\Lambda_{metric}), including the time derivative of (\Lambda_{metric}(a,b,X)), the exact accepted time/PIRK split, the `Aa/K` matter forcing, and the coefficient/sign/stencil mapping of each (D_r C^r) and (D_r^2 C^r) contribution in the propagated lower-index (M_r) identity. This source algebra alone must not freeze the reference-metric connection coupling or alter the admission flag.
+The remaining connection obligation is still real. The frozen reference-metric target is independent of X:
+
+```text
+Lambda_metric = D_r(a)/(2*a^2) - D_r(b)/(a*b) + 2/r*(1/b - 1/a)
+C^r = Lambda - Lambda_metric
+```
+
+Because the accepted target is built from a and b only, its formal time chain rule is:
+
+```text
+partial_t(Lambda_metric)
+  = D_r(a_dot)/(2*a^2) - D_r(a)*a_dot/a^3
+    - D_r(b_dot)/(a*b)
+    + D_r(b)*a_dot/(a^2*b)
+    + D_r(b)*b_dot/(a*b^2)
+    + 2/r*(a_dot/a^2 - b_dot/b^2)
+
+partial_t(C^r) = partial_t(Lambda) - partial_t(Lambda_metric)
+```
+
+This is a chain-rule derivation, not a numerical closure result. To obtain the accepted discrete tangent, compute D_r(a_dot) and D_r(b_dot) using the same pinned derivative/parity operators that define D_r(a), D_r(b), and use the actual stage-local CMC explicit RHS for a_dot and b_dot. Then carry this C^r tangent through the selected Brown-vs-accepted time/PIRK split, including the already-known Aa/K matter forcing and the coefficient/sign/operator mapping of each D_r(C^r) and D_r^2(C^r) term. Do not introduce X-dependence into Lambda_metric, and do not infer the missing Mdot_r coefficients by residual fitting.
 
 No production/source/vendor/dependency pin or accepted-state artifact changed. All five scientific-admission flags remain false.
