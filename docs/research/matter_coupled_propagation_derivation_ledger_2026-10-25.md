@@ -275,6 +275,22 @@ S_{\mathrm{Bianchi},r}=-\kappa\alpha\,\mathcal D^{\mathrm{tot}}_r
 \]
 Keep S_Q_candidate = -8*pi*alpha*Q_r provisional as an **implementation mapping** until its Q_r placeholder is explicitly bound to \(\mathcal D^{\mathrm{tot}}_r\) and the chosen pointwise/FV/expanded discrete divergence measure is reconciled with the saved accepted-state tangent and PIRK split. The source API's Q_\nu is a sector-exchange covector and cannot be substituted for the total-stress divergence. Do not infer the remaining discrete mapping from residual size.
 
+#### D.2 Archived exact-state source multiplier — postprocessing only
+
+I re-opened and SHA-verified the existing exact-profile tangent artifacts from workflow run 40236402303; no workflow or observer was rerun. The total-divergence profiles are reconstructed at the saved base state using the accepted RHS-derived time-density terms from the same \(\pm\epsilon\) state pair, and are reported in two different spatial measures. Applying the now-derived continuum multiplier \(-8\pi\alpha\) gives the following Bianchi-source *candidate profiles*:
+
+| Resolution | \(\max|\mathcal D_r^{\mathrm{tot}}|\), pointwise | \(\max|{-8\pi\alpha\mathcal D_r^{\mathrm{tot}}}|\), pointwise | \(\max|\mathcal D_r^{\mathrm{tot}}|\), FV | \(\max|{-8\pi\alpha\mathcal D_r^{\mathrm{tot}}}|\), FV | \(\max|\Delta S_{\mathrm{measure}}|\) |
+|---:|---:|---:|---:|---:|---:|
+| \(N=60\) | \(7.9154\times10^{-7}\) | \(1.9869\times10^{-5}\) (cell 0) | \(7.9241\times10^{-9}\) | \(1.9900\times10^{-7}\) (cell 3) | \(1.9701\times10^{-5}\) |
+| \(N=120\) | \(1.1284\times10^{-7}\) | \(2.8325\times10^{-6}\) (cell 0) | \(9.0029\times10^{-10}\) | \(2.2599\times10^{-8}\) (cell 0) | \(2.8099\times10^{-6}\) |
+| \(N=240\) | \(1.4578\times10^{-8}\) | \(3.6594\times10^{-7}\) (cell 0) | \(1.1287\times10^{-10}\) | \(2.8332\times10^{-9}\) (cell 0) | \(3.6310\times10^{-7}\) |
+
+Here \(\Delta S_{\mathrm{measure}}\equiv-8\pi\alpha(\mathcal D_{r,\mathrm{pointwise}}^{\mathrm{tot}}-\mathcal D_{r,\mathrm{FV}}^{\mathrm{tot}})\); the maxima in the last column occur at cell 0. The signed source at cell 0 is negative in both representations at all three resolutions. The cell-0 \(\dot M_{r,\mathrm{tot}}\) witnesses from the same artifacts are \(+7.9586\times10^{-6}\), \(+6.4821\times10^{-7}\), and \(+6.8232\times10^{-8}\), respectively. This juxtaposition is only a source-term comparison: \(-8\pi\alpha\mathcal D_r^{\mathrm{tot}}\) is one term in the propagation equation, not the complete predicted \(\dot M_r\).
+
+The two source candidates differ by roughly two orders of magnitude near the inner cells at every resolution. This is concrete evidence that the pointwise-versus-FV choice is material to the discrete source mapping; it is **not** evidence favoring either measure, and these centre-cell values are not a fixed-radius convergence sequence because the radii of the first cell change with \(N\).
+
+The source NPZ members rechecked here are the existing report artifacts: N=60 report/array SHA-256 `16cae6ac099fe7a29a97d1882fbfd4f946869cd0d2b08b7d446740768842147d` / `988ccd3c71ac6733bb47d013b32f8ceded9d132d2d21f7483c6ee4953993601b`; N=120 `216b9e834874e9d7de8f88ba75b4a543ac234ea7b611ab7d2652fd4b001c3d8f` / `5751a16949b763ad5e96a4afac9db4fb1d92d55a0c6e7ddaabc4cc6b25652e0b`; N=240 `cdb02d74b9962ad48cf132171f3f0abb2fdb926b9951d3f136a747d4a30121c2` / `29a4bc1aeca718eff0dbc0de068809f8279aab94cb7023b004dea545589bf814`. Each artifact's internal SHA256SUMS check passed. The accepted-state digests remain the same three already recorded in §10.7.
+
 #### E. What the existing tangent and stage captures establish
 
 PR #423's source capture stores the existing PIRK stage operands (`start_lapse_refreshed`, `explicit_predictor`, and `primary_predictor`, with the corresponding L2 calls including `final_primary_L2`) from a copied in-memory step. The existing exact-profile tangent observer evaluates the accepted source RHS on the saved state at \(t=0.60\), forms disposable directional \(+\epsilon/-\epsilon\) states, and measures the momentum-constraint tangent and an independent total-\(T\) directional-divergence ledger on the same state. These are the correct saved witnesses to reuse.
@@ -425,22 +441,6 @@ They are not interchangeable. The scalar sector carries the opposite exchange so
 The continuum Bianchi projection now fixes the source object and sign as `S_Bianchi,r = -kappa*alpha*D_total_r` (and `-8*pi*alpha*D_total_r` for G=1). Thus the continuum candidate `S_Q = -8*pi*alpha*Q_r` has that meaning only if `Q_r` is explicitly defined as the total covariant divergence `D_total_r`. Its implementation mapping remains unadmitted until the density/measure representation and accepted time split are matched to `Mdot_r`. Do not infer that mapping from a small residual.
 
 The three existing representations remain distinct: pointwise covariant divergence, finite-volume/cell-integrated divergence, and expanded product-rule divergence. The source trace does not select one by residual magnitude or convergence order.
-
-#### D.2 Archived exact-state source multiplier — postprocessing only
-
-I re-opened and SHA-verified the existing exact-profile tangent artifacts from workflow run 40236402303; no workflow or observer was rerun. The total-divergence profiles are reconstructed at the saved base state using the accepted RHS-derived time-density terms from the same \(\pm\epsilon\) state pair, and are reported in two different spatial measures. Applying the now-derived continuum multiplier \(-8\pi\alpha\) gives the following Bianchi-source *candidate profiles*:
-
-| Resolution | \(\max|\mathcal D_r^{\mathrm{tot}}|\), pointwise | \(\max|{-8\pi\alpha\mathcal D_r^{\mathrm{tot}}}|\), pointwise | \(\max|\mathcal D_r^{\mathrm{tot}}|\), FV | \(\max|{-8\pi\alpha\mathcal D_r^{\mathrm{tot}}}|\), FV | \(\max|\Delta S_{\mathrm{measure}}|\) |
-|---:|---:|---:|---:|---:|---:|
-| \(N=60\) | \(7.9154\times10^{-7}\) | \(1.9869\times10^{-5}\) (cell 0) | \(7.9241\times10^{-9}\) | \(1.9900\times10^{-7}\) (cell 3) | \(1.9701\times10^{-5}\) |
-| \(N=120\) | \(1.1284\times10^{-7}\) | \(2.8325\times10^{-6}\) (cell 0) | \(9.0029\times10^{-10}\) | \(2.2599\times10^{-8}\) (cell 0) | \(2.8099\times10^{-6}\) |
-| \(N=240\) | \(1.4578\times10^{-8}\) | \(3.6594\times10^{-7}\) (cell 0) | \(1.1287\times10^{-10}\) | \(2.8332\times10^{-9}\) (cell 0) | \(3.6310\times10^{-7}\) |
-
-Here \(\Delta S_{\mathrm{measure}}\equiv-8\pi\alpha(\mathcal D_{r,\mathrm{pointwise}}^{\mathrm{tot}}-\mathcal D_{r,\mathrm{FV}}^{\mathrm{tot}})\); the maxima in the last column occur at cell 0. The signed source at cell 0 is negative in both representations at all three resolutions. The cell-0 \(\dot M_{r,\mathrm{tot}}\) witnesses from the same artifacts are \(+7.9586\times10^{-6}\), \(+6.4821\times10^{-7}\), and \(+6.8232\times10^{-8}\), respectively. This juxtaposition is only a source-term comparison: \(-8\pi\alpha\mathcal D_r^{\mathrm{tot}}\) is one term in the propagation equation, not the complete predicted \(\dot M_r\).
-
-The two source candidates differ by roughly two orders of magnitude near the inner cells at every resolution. This is concrete evidence that the pointwise-versus-FV choice is material to the discrete source mapping; it is **not** evidence favoring either measure, and these centre-cell values are not a fixed-radius convergence sequence because the radii of the first cell change with \(N\).
-
-The source NPZ members rechecked here are the existing report artifacts: N=60 report/array SHA-256 \`16cae6ac099fe7a29a97d1882fbfd4f946869cd0d2b08b7d446740768842147d\` / \`988ccd3c71ac6733bb47d013b32f8ceded9d132d2d21f7483c6ee4953993601b\`; N=120 \`216b9e834874e9d7de8f88ba75b4a543ac234ea7b611ab7d2652fd4b001c3d8f\` / \`5751a16949b763ad5e96a4afac9db4fb1d92d55a0c6e7ddaabc4cc6b25652e0b\`; N=240 \`cdb02d74b9962ad48cf132171f3f0abb2fdb926b9951d3f136a747d4a30121c2\` / \`29a4bc1aeca718eff0dbc0de068809f8279aab94cb7023b004dea545589bf814\`. Each artifact's internal SHA256SUMS check passed. The accepted-state digests remain the same three already recorded in §10.7.
 
 
 
