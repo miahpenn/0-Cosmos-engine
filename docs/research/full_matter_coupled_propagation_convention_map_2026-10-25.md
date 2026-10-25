@@ -101,3 +101,38 @@ No production equation, initializer, gauge, boundary, coupling, floor/clamp, dam
 - `reference_metric_connection_coupling_convention_frozen = false`
 - `total_stress_energy_sector_conservation_closed = false`
 - `scientific_admission = false`
+
+
+## 11. Reference-metric connection-variable translation — candidate-level mapping
+
+The pinned vendor and first-party native geometry helpers use the reference-metric target
+
+```text
+Lambda_metric = a'/(2*a^2) - b'/(a*b) + 2/r*(1/b - 1/a)
+C_code = Lambda - Lambda_metric
+```
+
+Brown's spherical-BSSN connection constraint (Brown, arXiv:0705.3845, Eq. (10c)) is
+
+```text
+G_B^r = -a'/(2*a^2) + Gamma_B^r + b'/(a*b) + 2/(a*r)
+Gamma_B,metric^r = a'/(2*a^2) - b'/(a*b) - 2/(a*r)
+```
+
+The algebraic translation
+
+```text
+Gamma_B^r := Lambda - 2/(r*b)
+``
+
+implies `Gamma_B,metric^r = Lambda_metric - 2/(r*b)` and therefore
+
+```text
+G_B^r = Gamma_B^r - Gamma_B,metric^r
+      = Lambda - Lambda_metric
+      = C_code
+```
+
+Thus, for the same accepted state and the same differentiation operators, the constraint residual entering Brown's `(C^r)'` and `(C^r)''` terms maps algebraically to the code's `Lambda - Lambda_metric`; the radial metric factor in Brown's coefficient is `g_theta_theta = b*r^2`, so `(g_theta_theta)'/g_theta_theta = b'/b + 2/r`. This removes the apparent raw-variable naming mismatch for the **Brown candidate's constraint field**. It is not a proof that the complete production matter-coupled tangent obeys Brown Eq. (11b), nor does it derive the matter-source law, Hamiltonian-gradient translation, or total stress-energy conservation.
+
+**Status refinement:** `reference_metric_connection_variable_mapping = resolved_for_Brown_candidate_only`; `reference_metric_connection_coupling_convention_frozen = false` remains unchanged. The latter stays open until the complete source-aware propagation relation and exact accepted-update derivative/time-split conventions are independently derived. No source code, evolution, or admission state is changed by this algebraic note.
