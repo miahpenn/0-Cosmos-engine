@@ -1077,6 +1077,199 @@ def compact_scalar_eom_divergence_pairing(
     return report, profiles
 
 
+
+def compact_sector_expanded_divergence_pairing(
+    state,
+    rates: dict[str, Any],
+    epsilon: float,
+    candidate_raw: dict[str, np.ndarray],
+    sector_profiles: dict[str, np.ndarray],
+) -> tuple[dict[str, Any], dict[str, np.ndarray]]:
+    """Build expanded Q_r separately by sector and pair it with both observers.
+
+    Uses the same accepted base state, plus/minus directional RHS endpoints,
+    stress projections, and geometry rates. It is diagnostic-only and does not
+    assume that an observed residual establishes a wrong physical source law.
+    """
+    finite = stress_divergence.finite
+    eps = float(epsilon)
+    if not math.isfinite(eps) or eps <= 0.0:
+        raise ValueError("sector pairing epsilon must be positive and finite")
+    try:
+        plus_state = SHIFTED_STATES[eps]
+        minus_state = SHIFTED_STATES[-eps]
+    except KeyError as exc:
+        raise RuntimeError(f"sector pairing endpoints missing for epsilon={eps}") from exc
+
+    grid, geom = state.grid, state.geometry
+    r = finite("sector pairing radii", grid.centers)
+    if np.any(np.asarray(geom.beta, dtype=np.float64) != 0.0):
+        raise RuntimeError("sector expanded pairing currently requires the accepted zero-shift slice")
+    d1 = lambda values, parity=1: stress_divergence.d1(grid, values, parity)
+
+    projection_triplet = (
+        stress_divergence.independent_total_projections(state),
+        stress_divergence.independent_total_projections(plus_state),
+        stress_divergence.independent_total_projections(minus_state),
+    )
+    maps = []
+    for projection in projection_triplet:
+        combined = dict(projection["fluid_parts"])
+        combined.update(projection["scalar_parts"])
+        maps.append(combined)
+    names = ("S", "D", "phi", "dark_matter", "baryons", "radiation")
+    raw_names = {
+        "S": "S",
+        "D": "D",
+        "phi": "COSMOS_phi",
+        "dark_matter": "dark_matter",
+        "baryons": "baryons",
+        "radiation": "radiation",
+    }
+    pointwise_keys = {
+        "S": "sector_S_div_T_r",
+        "D": "sector_D_div_T_r",
+        "phi": "sector_phi_div_T_r",
+        "dark_matter": "sector_dark_matter_div_T_r",
+        "baryons": "sector_baryons_div_T_r",
+        "radiation": "sector_radiation_div_T_r",
+    }
+    fv_keys = {key: value + "_fv" for key, value in pointwise_keys.items()}
+
+    alpha = finite("sector pairing lapse", geom.alpha)
+    alpha_r = d1(alpha, +1)
+    gamma_rr = finite("sector pairing gamma_rr", geom.a / (geom.X * geom.X))
+    gamma_thth = finite("sector pairing gamma_theta_theta", geom.b * r * r / (geom.X * geom.X))
+    gamma_rr_r = d1(gamma_rr, +1)
+    gamma_thth_r = d1(gamma_thth, +1)
+    areal_log_r = 1.0 / r + 0.5 * d1(geom.b, +1) / geom.b - d1(geom.X, +1) / geom.X
+    a_dot = finite("sector pairing a rate", rates["geometry"]["a"])
+    b_dot = finite("sector pairing b rate", rates["geometry"]["b"])
+    X_dot = finite("sector pairing X rate", rates["geometry"]["X"])
+    gamma_rr_log_dot = a_dot / geom.a - 2.0 * X_dot / geom.X
+    areal_log_dot = 0.5 * b_dot / geom.b - X_dot / geom.X
+
+    masks = {
+        "full_domain": np.ones_like(r, dtype=bool),
+        "r_lt_3": r < 3.0,
+        "2_le_r_lt_10": (r >= 2.0) & (r < 10.0),
+        "2_le_r_lt_8": (r >= 2.0) & (r < 8.0),
+    }
+    def stats(values: np.ndarray, mask: np.ndarray) -> dict[str, Any]:
+        selected = finite("sector-pairing stats input", values)[mask]
+        if selected.size == 0:
+            return {"samples": 0, "rms": None, "max_abs": None}
+        return {
+            "samples": int(selected.size),
+            "rms": float(np.sqrt(np.mean(selected * selected))),
+            "max_abs": float(np.max(np.abs(selected))),
+        }
+
+    reports = {}
+    out_profiles: dict[str, np.ndarray] = {}
+    expanded_sum = np.zeros_like(r)
+    pointwise_sum = np.zeros_like(r)
+    fv_sum = np.zeros_like(r)
+    for name in names:
+        raw_sector = raw_names[name]
+        base = maps[0][name]
+        plus = maps[1][name]
+        minus = maps[2][name]
+        rho = finite(f"{name} projected rho", base["rho"])
+        j = finite(f"{name} projected j", base["j"])
+        pr = finite(f"{name} projected radial pressure", base["pr"])
+        pt = finite(f"{name} projected tangential pressure", base["pt"])
+        j_dot = finite(
+            f"{name} directional current tangent",
+            (np.asarray(plus["j"], dtype=np.float64) - np.asarray(minus["j"], dtype=np.float64))
+            / (2.0 * eps),
+        )
+        j_dot_from_constraint = finite(
+            f"{name} constraint current tangent",
+            -np.asarray(candidate_raw[f"Mdot_sector_{raw_sector}"], dtype=np.float64)
+            / (8.0 * math.pi),
+        )
+        expanded = finite(
+            f"{name} expanded sector Qr",
+            j_dot / alpha
+            + (j / alpha) * (0.5 * gamma_rr_log_dot + 2.0 * areal_log_dot)
+            + d1(pr, +1)
+            + (alpha_r / alpha) * (rho + pr)
+            + 2.0 * areal_log_r * (pr - pt),
+        )
+        pointwise = finite(f"{name} pointwise sector Qr", sector_profiles[pointwise_keys[name]])
+        fv = finite(f"{name} finite-volume sector Qr", sector_profiles[fv_keys[name]])
+        expected_key = f"sector_{raw_sector}_archive_expected_exchange_Qr"
+        expected = finite(
+            f"{name} archived exchange comparator",
+            sector_profiles.get(expected_key, np.zeros_like(r)),
+        )
+        point_gap = finite(f"{name} pointwise-minus-expanded gap", pointwise - expanded)
+        fv_gap = finite(f"{name} FV-minus-expanded gap", fv - expanded)
+        q_expected_point = finite(f"{name} pointwise-minus-expected Qr", pointwise - expected)
+        q_expected_expanded = finite(f"{name} expanded-minus-expected Qr", expanded - expected)
+        tangent_gap = finite(f"{name} projected-current versus constraint-current gap", j_dot - j_dot_from_constraint)
+        expanded_sum += expanded
+        pointwise_sum += pointwise
+        fv_sum += fv
+        out_profiles[f"sector_{raw_sector}_expanded_Qr"] = expanded
+        out_profiles[f"sector_{raw_sector}_pointwise_minus_expanded_Qr"] = point_gap
+        out_profiles[f"sector_{raw_sector}_fv_minus_expanded_Qr"] = fv_gap
+        out_profiles[f"sector_{raw_sector}_expanded_minus_expected_exchange_Qr"] = q_expected_expanded
+        out_profiles[f"sector_{raw_sector}_jdot_projection_minus_constraint"] = tangent_gap
+        fixed = {}
+        for radius in (1.0, 2.0, 3.0, 5.0, 8.0):
+            if r[0] <= radius <= r[-1]:
+                fixed[str(radius)] = {
+                    "Q_pointwise": float(np.interp(radius, r, pointwise)),
+                    "Q_expanded": float(np.interp(radius, r, expanded)),
+                    "Q_fv": float(np.interp(radius, r, fv)),
+                    "Q_expected_exchange": float(np.interp(radius, r, expected)),
+                    "pointwise_minus_expanded": float(np.interp(radius, r, point_gap)),
+                    "expanded_minus_expected": float(np.interp(radius, r, q_expected_expanded)),
+                    "pointwise_minus_expected": float(np.interp(radius, r, q_expected_point)),
+                }
+        reports[raw_sector] = {
+            "directional_jdot_vs_constraint_jdot_max_abs": float(np.max(np.abs(tangent_gap))),
+            "pointwise_minus_expanded": {key: stats(point_gap, mask) for key, mask in masks.items()},
+            "fv_minus_expanded": {key: stats(fv_gap, mask) for key, mask in masks.items()},
+            "expanded_minus_expected_exchange": {key: stats(q_expected_expanded, mask) for key, mask in masks.items()},
+            "pointwise_minus_expected_exchange": {key: stats(q_expected_point, mask) for key, mask in masks.items()},
+            "fixed_coordinate_radius": fixed,
+        }
+    total_expanded = finite("sum expanded sector Qr", expanded_sum)
+    total_candidate = finite(
+        "expanded total Brown-source Qr candidate",
+        candidate_raw["propagation_Qr_total_stress_divergence"],
+    )
+    total_expanded_gap = finite("expanded sector-sum minus total candidate", total_expanded - total_candidate)
+    total_pointwise = finite("sum pointwise sector Qr", pointwise_sum)
+    total_pointwise_gap = finite(
+        "pointwise sector-sum minus total combined-flux Qr",
+        total_pointwise - np.asarray(sector_profiles["sector_resolved_total_div_T_r"], dtype=np.float64),
+    )
+    out_profiles["sector_expanded_Qr_sum"] = total_expanded
+    out_profiles["sector_expanded_Qr_sum_minus_total_candidate"] = total_expanded_gap
+    out_profiles["sector_pointwise_Qr_sum_minus_total"] = total_pointwise_gap
+    report = {
+        "status": "completed_sector_expanded_operator_pairing_diagnostic_only",
+        "epsilon": eps,
+        "accepted_time": float(state.t),
+        "sectors": reports,
+        "sum_expanded_sectors_minus_total_candidate_max_abs": float(np.max(np.abs(total_expanded_gap))),
+        "sum_pointwise_sectors_minus_combined_flux_total_max_abs": float(np.max(np.abs(total_pointwise_gap))),
+        "interpretation_limits": [
+            "The expanded sector formulas use the same RHS endpoints and geometry rates as the full accepted-state observer; they are a diagnostic split of the continuum-expanded Qr formula.",
+            "A small sector-pointwise-minus-expanded gap indicates this mismatch is largely discrete operator pairing; it does not by itself accept the archive exchange law.",
+            "The production-expanded total residual may close by construction, and the directional j-dot check is arithmetic bookkeeping rather than physical admission.",
+            "The expected exchange comparator is provisional and archive-sign/normalization gates remain open.",
+            "No evolution is advanced, accepted state is not mutated, and no production/vendor source is changed.",
+        ],
+        "scientific_admission": False,
+    }
+    return report, out_profiles
+
+
 def compact_sector_matter_source_mapping(
     state,
     rates: dict[str, Any],
@@ -1370,11 +1563,15 @@ def main() -> int:
                 state, rates, raw[eps], sector_profiles,
                 float(hll_snapshot["coupling_parameter"])
             )
+            sector_operator_report, sector_operator_profiles = compact_sector_expanded_divergence_pairing(
+                state, rates, eps, raw[eps], sector_profiles
+            )
             compact["sector_resolved_stress_energy_divergence"] = sector_report
             compact["pointwise_vs_expanded_Qr_discrete_gap_decomposition"] = operator_report
             compact["scalar_S_current_RHS_term_decomposition"] = scalar_current_report
             compact["scalar_S_EOM_divergence_operator_pairing"] = scalar_eom_pairing_report
             compact["per_sector_matter_source_mapping"] = sector_source_report
+            compact["per_sector_expanded_divergence_operator_pairing"] = sector_operator_report
             arm_rows["epsilon_results"].append(compact)
             for name, values in raw[eps].items():
                 saved_profiles[f"N{RESOLUTION}_{label}_eps{eps:.0e}_{name}"] = np.asarray(values, dtype=np.float64).copy()
@@ -1395,6 +1592,10 @@ def main() -> int:
                     f"N{RESOLUTION}_{label}_eps{eps:.0e}_{name}"
                 ] = np.asarray(values, dtype=np.float64).copy()
             for name, values in sector_source_profiles.items():
+                saved_profiles[
+                    f"N{RESOLUTION}_{label}_eps{eps:.0e}_{name}"
+                ] = np.asarray(values, dtype=np.float64).copy()
+            for name, values in sector_operator_profiles.items():
                 saved_profiles[
                     f"N{RESOLUTION}_{label}_eps{eps:.0e}_{name}"
                 ] = np.asarray(values, dtype=np.float64).copy()
