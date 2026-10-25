@@ -65,7 +65,7 @@
         "D_r^2(C^r)",
         "D_r(C^r)"
       ],
-      "note": "Keep metric-only H/Ricci separate from evolved-Lambda response; do not double-count."
+      "note": "Raw Brown connection is translated by Gamma_B^r=Lambda_code-2/(r*b); this gives an algebraic candidate-level C^r residual identity. The complete source-aware propagation/time-split convention is still open. Keep metric-only H/Ricci separate from evolved-Lambda response; do not double-count."
     },
     "six_sector_total_stress_energy_exchange": {
       "status": "unresolved",
@@ -78,6 +78,15 @@
         "radiation"
       ],
       "note": "Sector additivity closes; total conservation/exchange does not. COSMOS-phi normalization premise remains open."
+    },
+    "reference_metric_connection_variable_mapping": {
+      "status": "resolved_for_Brown_candidate_only",
+      "brown_raw_connection_translation": "Gamma_B^r = Lambda_code - 2/(r*b)",
+      "brown_metric_connection": "Gamma_B_metric^r = a'/(2*a^2) - b'/(a*b) - 2/(a*r)",
+      "code_metric_connection": "Lambda_metric = a'/(2*a^2) - b'/(a*b) + 2/r*(1/b - 1/a)",
+      "residual_identity": "C_Brown^r = Gamma_B^r - Gamma_B_metric^r = Lambda_code - Lambda_metric = C_code",
+      "implication": "Brown C^r spatial-derivative terms can use the code's C_code residual, with g_theta_theta=b*r^2 and D_r(log g_theta_theta)=D1(b)/b+2/r.",
+      "limitation": "Algebraic same-state variable/residual mapping only; does not establish the full matter-coupled RHS, time-split equivalence, H-gradient/source law, or total sector conservation."
     }
   },
   "existing_numeric_evidence": {
@@ -113,5 +122,5 @@
     "total_stress_energy_sector_conservation_closed": false,
     "scientific_admission": false
   },
-  "next_gate": "Archive-backed derivation of the H-gradient translation, connection coupling, source index/density/measure, and complete total-sector exchange before deciding whether any new observer is necessary."
+  "next_gate": "Archive-backed derivation of H-gradient translation, matter-source index/density/measure, time-split/source-aware propagation relation, and complete total-sector exchange before deciding whether any new observer is necessary."
 }
