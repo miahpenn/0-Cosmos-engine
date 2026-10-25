@@ -150,8 +150,25 @@ def one_resolution(n: int, amplitude: float, length: float) -> dict[str, Any]:
         "radial_over_a": rms["radial_connection"] / max(rms["a_derivative"], 1e-300),
         "radial_over_b": rms["radial_connection"] / max(rms["b_derivative"], 1e-300),
     }
+
+    all_channels = {**channels, "signed_sum": total}
+    origin_native_cells = {
+        str(i): {key: float(values[i]) for key, values in all_channels.items()}
+        for i in range(min(3, n))
+    }
+    region_rms: dict[str, Any] = {}
+    for region, region_mask in (
+        ("origin_R_lt_1", areal_r < 1.0),
+        ("inner_shell_1_to_2", (areal_r >= 1.0) & (areal_r < 2.0)),
+    ):
+        region_rms[region] = {"cell_count": int(region_mask.sum()), "rms": {}}
+        for key, values in all_channels.items():
+            region_rms[region]["rms"][key] = (
+                float(np.sqrt(np.mean(values[region_mask] ** 2)))
+                if np.any(region_mask) else None
+            )
     fixed_R = {}
-    for radius in (2.0, 3.0, 5.0, 8.0):
+    for radius in (0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 3.0, 5.0, 8.0):
         fixed_R[str(radius)] = {
             key: float(np.interp(radius, areal_r, values))
             for key, values in channels.items()
@@ -168,6 +185,8 @@ def one_resolution(n: int, amplitude: float, length: float) -> dict[str, Any]:
         "rms": rms,
         "N4_scaled_rms": scaled,
         "radial_to_other_channel_ratios": ratios,
+        "origin_native_cells_first_three": origin_native_cells,
+        "region_rms": region_rms,
         "identity_closure_max_abs": closure,
         "fixed_R_signed_channels": fixed_R,
     }
@@ -195,6 +214,24 @@ def run_control(
                 for key in keys
             },
         })
+    regional_orders = []
+    for coarse, fine in zip(rows, rows[1:]):
+        pair: dict[str, Any] = {
+            "from_N": coarse["N"],
+            "to_N": fine["N"],
+            "regions": {},
+        }
+        for region in ("origin_R_lt_1", "inner_shell_1_to_2"):
+            pair["regions"][region] = {}
+            for key in keys:
+                e0 = coarse["region_rms"][region]["rms"][key]
+                e1 = fine["region_rms"][region]["rms"][key]
+                pair["regions"][region][key] = (
+                    observed_order(float(e0), float(e1), coarse["N"], fine["N"])
+                    if e0 is not None and e1 is not None and e0 > 0 and e1 > 0
+                    else None
+                )
+        regional_orders.append(pair)
     return {
         "control": name,
         "profile": {
@@ -208,6 +245,7 @@ def run_control(
         },
         "resolutions": rows,
         "observed_order_between_resolutions": orders,
+        "observed_order_origin_and_inner_shell_between_resolutions": regional_orders,
         "interpretation_limits": [
             "Analytic prescribed metric only; no target accepted-state profiles and no evolution.",
             "This is the Bianchi response to replacing nested D1(Lambda_metric) with its D1/D2 chain-rule form; not a matter-coupled propagation identity.",
