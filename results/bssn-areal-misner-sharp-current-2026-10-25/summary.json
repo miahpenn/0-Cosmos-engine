@@ -2,8 +2,8 @@
   "schema": "bssn-areal-misner-sharp-current-probe/v1",
   "status": "completed_diagnostic_only",
   "run": {
-    "id": 40160725682,
-    "url": "https://github.com/miahpenn/0-Cosmos-engine/actions/runs/40160725682",
+    "id": 40160966598,
+    "url": "https://github.com/miahpenn/0-Cosmos-engine/actions/runs/40160966598",
     "supersedes_preliminary_run": 40160533041,
     "all_jobs_success": true,
     "resolutions": [
@@ -134,7 +134,13 @@
       "N120": 8.85e-14,
       "N240": 1.75e-13
     },
-    "mass_rate_component_split_closure_max_abs": 1.75e-13
+    "mass_rate_component_split_closure_max_abs": 1.75e-13,
+    "fixed_areal_shell_balance_reconstructed": true,
+    "shell_balance_telescoping_closure_max_abs": {
+      "N60": 8.13e-20,
+      "N120": 5.42e-20,
+      "N240": 5.42e-20
+    }
   },
   "corrected_method": {
     "fixed_R_rate": "m_dot|R = -0.5*R*Delta(chi)|R/dt after interpolating chi to common areal radii",
@@ -202,5 +208,133 @@
       "current_rhs": 0.0002253871780473944,
       "residual": 6.229555608395295e-7
     }
+  },
+  "shell_balances_dt_half": {
+    "N60": [
+      {
+        "R_in": 1,
+        "R_out": 2,
+        "shell_mass_rate": 0.00011956393405065936,
+        "net_current_midpoint": 0.00010843817799380505,
+        "residual": 0.000011125756056854316,
+        "relative_abs_residual": 0.1025999907291869
+      },
+      {
+        "R_in": 2,
+        "R_out": 3,
+        "shell_mass_rate": 0.00024046007590372567,
+        "net_current_midpoint": 0.00027390264897549,
+        "residual": -0.00003344257307176434,
+        "relative_abs_residual": 0.1220965667796697
+      },
+      {
+        "R_in": 3,
+        "R_out": 5,
+        "shell_mass_rate": 0.0005661661064304547,
+        "net_current_midpoint": 0.0005163152426669515,
+        "residual": 0.00004985086376350326,
+        "relative_abs_residual": 0.0965512145370837
+      },
+      {
+        "R_in": 5,
+        "R_out": 8,
+        "shell_mass_rate": -0.00017698803914945052,
+        "net_current_midpoint": -0.000216888551123944,
+        "residual": 0.000039900511974493474,
+        "relative_abs_residual": 0.1839678109689237
+      },
+      {
+        "R_in": 8,
+        "R_out": 10,
+        "shell_mass_rate": -0.0005629983403421247,
+        "net_current_midpoint": -0.0004964906482747979,
+        "residual": -0.00006650769206732678,
+        "relative_abs_residual": 0.13395557861649
+      }
+    ],
+    "N120": [
+      {
+        "R_in": 1,
+        "R_out": 2,
+        "shell_mass_rate": 0.0001285739532674857,
+        "net_current_midpoint": 0.000136837612697211,
+        "residual": -0.000008263659429725315,
+        "relative_abs_residual": 0.060390263077819265
+      },
+      {
+        "R_in": 2,
+        "R_out": 3,
+        "shell_mass_rate": 0.000260545450947447,
+        "net_current_midpoint": 0.00025344962392776654,
+        "residual": 0.00000709582701968048,
+        "relative_abs_residual": 0.027996991708706575
+      },
+      {
+        "R_in": 3,
+        "R_out": 5,
+        "shell_mass_rate": 0.0005491130647072852,
+        "net_current_midpoint": 0.0005570908710399744,
+        "residual": -0.000007977806332689252,
+        "relative_abs_residual": 0.014320475792030704
+      },
+      {
+        "R_in": 5,
+        "R_out": 8,
+        "shell_mass_rate": -0.00022342538947839333,
+        "net_current_midpoint": -0.00023989882924936172,
+        "residual": 0.000016473439770968396,
+        "relative_abs_residual": 0.06866827913463953
+      },
+      {
+        "R_in": 8,
+        "R_out": 10,
+        "shell_mass_rate": -0.0005065437218454428,
+        "net_current_midpoint": -0.0005007732414904616,
+        "residual": -0.000005770480354981263,
+        "relative_abs_residual": 0.011523140369494315
+      }
+    ],
+    "N240": [
+      {
+        "R_in": 1,
+        "R_out": 2,
+        "shell_mass_rate": 0.00012872434654864764,
+        "net_current_midpoint": 0.0001294207976827211,
+        "residual": -6.964511340734657e-7,
+        "relative_abs_residual": 0.00538129223852287
+      },
+      {
+        "R_in": 2,
+        "R_out": 3,
+        "shell_mass_rate": 0.0002597373475188292,
+        "net_current_midpoint": 0.000259712759023268,
+        "residual": 2.4588495561200015e-8,
+        "relative_abs_residual": 0.00009467573196508647
+      },
+      {
+        "R_in": 3,
+        "R_out": 5,
+        "shell_mass_rate": 0.0005567791974026016,
+        "net_current_midpoint": 0.0005546036295078877,
+        "residual": 0.0000021755678947138783,
+        "relative_abs_residual": 0.003922743701919709
+      },
+      {
+        "R_in": 5,
+        "R_out": 8,
+        "shell_mass_rate": -0.00023501250662194553,
+        "net_current_midpoint": -0.0002370093512851269,
+        "residual": 0.000001996844663181371,
+        "relative_abs_residual": 0.00842517247675653
+      },
+      {
+        "R_in": 8,
+        "R_out": 10,
+        "shell_mass_rate": -0.0005060622033647989,
+        "net_current_midpoint": -0.0005042830554518237,
+        "residual": -0.0000017791479129752007,
+        "relative_abs_residual": 0.003528073953191097
+      }
+    ]
   }
 }
