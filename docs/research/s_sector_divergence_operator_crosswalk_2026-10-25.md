@@ -640,3 +640,59 @@ This supports a careful, bounded conclusion: the half-cell quadrature has a lead
 ### Next bounded diagnostic gate
 
 Keep the production initializer unchanged. The next research-only check is to construct an explicit, archive-pinned regularity ledger for the baseline at initialization and at the saved accepted endpoint: \(B(r_0)\) versus the \(r^2\) Taylor prediction, \(A_a/r^2\) center/adjacent gap, and \(C^r_\Lambda,D_rC^r_\Lambda,D_r^2C^r_\Lambda\) in the same arm. Retain the full-continuous profile as a positive control and the half-cell-only/CMC-only arms as negative controls. No new evolution sweep is needed for the accepted endpoint; all current scientific-admission flags remain false.
+
+
+
+## 19. Archive normalization and authoritative S-sector operator — 2026-10-25
+
+**Status:** source/convention crosswalk on the pinned accepted-state source tree. This does not admit the full propagation identity or modify production physics.
+
+### 19.1 The \(\kappa\) split is sector-specific, and the current projection follows it
+
+The repository's [units contract](https://github.com/miahpenn/0-Cosmos-engine/blob/diag/full-profile-propagation-candidate-ci-2026-10-24/docs/UNITS_CONVENTION.md) and the archived V5.5 global gate state
+\[
+\rho_E=\kappa\rho_{\rm physical},\qquad \kappa=8\pi,\qquad
+\rho_{\rm local}=\frac{\rho_E}{\kappa}.
+\]
+The actual source path is consistent with that contract:
+
+- **Local S and D:** the scalar projection divides their stress projections by \(1\), preserving their archive-locked local normalization.
+- **COSMOS \(\phi\):** the same projection divides its \((\rho,p_r,p_t,j)\) by \(\kappa\).
+- **DM, baryons, radiation:** the fluid projection divides each Eulerian stress projection by \(\kappa\); conservative states and primitive recovery retain Einstein-normalized fluid densities.
+- **DM–\(\phi\) interaction:** the Valencia source constructs \(Q_t=\beta_{\rm DM}\rho_{{\rm DM},E}\partial_t\phi\) and \(Q_r=\beta_{\rm DM}\rho_{{\rm DM},E}\partial_r\phi\) from the same raw normalized DM density passed to the scalar RHS. The matter RHS transforms that same covector into conservative energy/momentum sources \(-\sqrt{\gamma}(Q_t-\beta^rQ_r)\) and \(+\alpha\sqrt{\gamma}Q_r\); the scalar RHS applies the reciprocal \(+\alpha\beta_{\rm DM}\rho_{{\rm DM},E}\) term to \(\dot\Pi\). Stress projection then applies the documented \(1/\kappa\) conversion to both the normalized \(\phi\) sector and normalized fluid sector.
+
+Thus an extra global \(1/\kappa\) on \(Q_\nu\) in the RHS, or dividing S/D projections by \(\kappa\), would double-convert or mis-normalize the active source path. Conversely, treating the projected \(\phi\)/fluid arrays as still Einstein-normalized and dividing them again downstream would also be incorrect. The archived exchange signs remain \(\nabla_\mu T_{\rm DM}^{\mu\nu}=+\beta\rho_{{\rm DM},E}\nabla^\nu\phi\) and \(\nabla_\mu T_\phi^{\mu\nu}=-\beta\rho_{{\rm DM},E}\nabla^\nu\phi\), with the stress-side \(1/\kappa\) inherited from their normalized definitions.
+
+The accepted-state sector audit supports, but does not by itself admit, these source conventions: the dark-matter pointwise exchange comparator has fixed-radius residuals at \(10^{-15}\)–\(10^{-16}\); the COSMOS-\(\phi\) residual decreases with refinement (at \(r=2\), \(-2.422\times10^{-10}\), \(-1.764\times10^{-11}\), \(-1.088\times10^{-12}\) for N=60/120/240). The original archive gate still has a contradictory earlier sentence about the exchange signs; its explicit locked-sign statement and master checkpoint agree, so that provenance contradiction must be reconciled before the canonical source convention is considered frozen.
+
+### 19.2 The accepted S update is the expanded pointwise operator, not an HLL scalar flux
+
+For the accepted zero-shift CMC states, the S-sector scalar momentum RHS is evaluated by the pinned scalar RHS as the expanded pointwise operator:
+\[
+\begin{aligned}
+\mathcal E_S^{\rm prod}={}&
+-\frac{\dot P_S}{\alpha}+KP_S\\
+&+\gamma^{rr}\left[D_r^2S
+-D_rS\left(\frac{D_ra}{2a}-\frac{D_rb}{b}
++\frac{D_rX}{X}-\frac2r\right)\right]\\
+&+\gamma^{rr}\frac{D_r\alpha}{\alpha}D_rS-V_S'(S).
+\end{aligned}
+\]
+The accepted RHS includes this operator directly; unlike the fluid stress sectors, S does **not** have an HLL face-flux update defining its spatial operator. The observer reconstructs the field and momentum RHS terms from the pinned production code; the expanded equation residual closes to \(1.74\times10^{-18}\) maximum absolute at N=240 (and below \(3.5\times10^{-18}\) at every tested resolution).
+
+A distinct diagnostic writes the spatial part as a product-form divergence,
+\[
+\mathcal L_{\rm div}[S]=\frac{D_r\!\left(\alpha\sqrt{\gamma}\,\gamma^{rr}D_rS\right)}{\alpha\sqrt{\gamma}},
+\]
+and compares \(-\dot P_S/\alpha+KP_S+\mathcal L_{\rm div}[S]-V_S'\) with the production-expanded operator. This is **not the operator implemented by the accepted S update**; at finite resolution it differs because the discrete derivative does not satisfy the continuum product rule exactly. The observed max absolute difference between divergence-form and production-expanded residuals is \(1.49697\times10^{-4}\), \(4.32537\times10^{-5}\), and \(1.12018\times10^{-5}\) for N=60/120/240. At fixed \(r=2\), the divergence-form residual decreases from \(-5.11408\times10^{-6}\) to \(-4.45042\times10^{-7}\) to \(-2.28468\times10^{-8}\), while the production-expanded residual stays at roundoff. The pointwise stress-divergence pairing with \(\mathcal E_S D_rS\) also closes in a separate, refinement-dependent tolerance sense; it remains a diagnostic, not a replacement update.
+
+### 19.3 Consequence for Issue #4
+
+This convention review **does not find a missing global \(\kappa\)** that would explain the S source-map residual. The independently projected S/D versus COSMOS-\(\phi\)/fluid normalizations follow the repository unit contract, the DM–\(\phi\) source pair is reciprocal in the accepted RHS convention, and the source-map residual remains S-dominated. The residual therefore still requires the full source-aware Brown constraint-propagation identity (including matter-dependent \(H\) terms, reference-connection response, and the current/measure-rate conversion); it should not be “fixed” by adding a sector-wide scale factor.
+
+Keep these claims separate:
+1. The code's unit conversions are crosswalked to the declared normalization contract.
+2. The accepted S update uses the expanded pointwise spatial operator, while the product-form/FV constructions remain comparison diagnostics.
+3. The full archive source convention remains **not frozen** because the archived sign contradiction and the complete coupled propagation/sector-conservation identity are not yet admitted.
+
+No production, initializer, vendor, or dependency file changed. matter_source_sign_and_normalization_reviewed=false, full_matter_coupled_propagation_identity_closed=false, reference_metric_connection_coupling_convention_frozen=false, total_stress_energy_sector_conservation_closed=false, and scientific_admission=false.
