@@ -95,7 +95,7 @@ The signed \(\dot M_r\) reported by the exact-profile observer is built from the
 \[
 M_{r,\mathrm{tot}}=M_{r,\mathrm{geom}}-8\pi j_{\mathrm{tot}},
 \qquad
-j_{\mathrm{tot}}=\sum_{s\in\{S,D,\phi,DM,b,r\}}j_s ,
+j_{\mathrm{tot}}=j_S+j_D+j_{\mathrm{COSMOS}\text{-}\phi}+j_{\mathrm{DM}}+j_{\mathrm{baryon}}+j_{\mathrm{radiation}} ,
 \]
 
 where each \(j_s\) is rebuilt through its accepted scalar/fluid projection. Its expanded geometric constraint is
