@@ -1023,3 +1023,37 @@ The archived exact-state profiles were rechecked from the SHA-verified N=60/120/
 The product-rule remainder dominates this particular discrete definition mapping; the square-chain remainder is much smaller on these saved profiles. At fixed radii \(r=2,5,8\), the absolute total mapping defect shows observed orders of approximately \(3.82/3.86\), \(3.85/3.99\), and \(3.89/4.00\) across the two resolution doublings. These are empirical orders on the saved profile family, not a standalone proof of the continuum subsidiary identity. This is an exact representation-level accounting check, not a measure of the full Brown propagation residual and not a reason to alter the accepted constraint implementation. The Brown observer's existing choice to share the vendor \(M_r\) makes the comparison's primary constraint input unambiguous; only the separate field-definition crosswalk carries the correction above.
 
 No observer, workflow, or evolution was rerun. No code or scientific-admission flag changed.
+
+
+## 10.13 Hamiltonian curvature crosswalk: exact connection offset versus metric-operator remainder
+
+Section 10.11 distinguishes two objects that must not be conflated. To make that distinction auditable, define on one archived state:
+
+- \(H_{\mathrm{v},\Lambda}\): the pinned vendor Hamiltonian evaluated with the actual evolved \(\Lambda\).
+- \(H_{\mathrm{v},0}\): the **same vendor code and same fields**, but with \(\Lambda\) replaced by \(\Lambda_{\mathrm{metric}}\) before evaluating the vendor Ricci operator.
+- \(H_{\mathrm{Brown,metric}}\): Brown's metric-only Hamiltonian slot from the independent warped-product Ricci reconstruction in the Brown observer.
+
+The source algebra predicts the exact relation
+\[
+H_{\mathrm{v},\Lambda}-H_{\mathrm{v},0}
+=\chi D_1(C^r),\qquad \chi=X^2.
+\]
+Postprocessing of the same SHA-verified N=60/120/240 artifacts confirms that identity to a maximum absolute difference below \(9\times10^{-19}\) over the full profiles. This isolates the **explicit evolved-connection offset**.
+
+The remaining \(H_{\mathrm{v},0}-H_{\mathrm{Brown,metric}}\) is a separate curvature-operator discretization crosswalk: the two implementations evaluate the same continuum metric curvature through different combinations of derivatives and are not expected to coincide bitwise at finite resolution. Replacing this residual with \(\chi D_1(C^r)\) would be incorrect. The decomposition
+\[
+H_{\mathrm{v},\Lambda}-H_{\mathrm{Brown,metric}}
+=\chi D_1(C^r)
++\left(H_{\mathrm{v},0}-H_{\mathrm{Brown,metric}}\right)
+\]
+closes to the same sub-\(10^{-18}\) roundoff scale on all three archived arrays.
+
+| \(N\) | \(\max_{r\le10}|H_{\mathrm{v},0}-H_{\mathrm{Brown,metric}}|\) | \(H_{\mathrm{v},0}-H_{\mathrm{Brown,metric}}\) at \(r=2\) | \(r=5\) | \(r=8\) | \(\max_{r\le10}|\chi D_1 C^r|\) |
+|---:|---:|---:|---:|---:|---:|
+| 60 | \(1.2934\times10^{-5}\) | \(+1.0339\times10^{-5}\) | \(+7.8604\times10^{-6}\) | \(-3.1906\times10^{-6}\) | \(3.0826\times10^{-6}\) |
+| 120 | \(1.6226\times10^{-6}\) | \(+6.8362\times10^{-7}\) | \(+5.2598\times10^{-7}\) | \(-2.5156\times10^{-7}\) | \(3.3144\times10^{-7}\) |
+| 240 | \(4.0536\times10^{-7}\) | \(+4.4218\times10^{-8}\) | \(+3.3180\times10^{-8}\) | \(-1.6539\times10^{-8}\) | \(1.9251\times10^{-8}\) |
+
+At the fixed radii \(r=2,5,8\), the independent metric-curvature mismatch exhibits observed orders between about 3.66 and 4.00 over the two resolution doublings. The maxima over \(r\le10\) are inner-cell dominated, so they should not be read as a fixed-radius order. This supports the intended interpretation: the two curvature representations converge toward the same continuum quantity, but remain distinct discrete operators at finite \(N\).
+
+**No-double-counting consequence:** the Brown propagation formula uses \(H_{\mathrm{Brown,metric}}\) together with its explicit \(C^r\) block. The accepted RHS uses \(H_{\mathrm{v},\Lambda}\)'s evolved-\(\Lambda\) dependence within \(R^r{}_r-R/3\). A translation between them must carry both the exact \(\chi D_1(C^r)\) offset and the independently discretized metric-curvature remainder. Do not transfer either one into the physical Bianchi source or tune it to the momentum residual. This was archive-only postprocessing: no RHS, observer, workflow, or evolution was run, and no admission flag changed.
