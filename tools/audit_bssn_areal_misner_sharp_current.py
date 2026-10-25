@@ -115,26 +115,39 @@ def geometry_rate_and_mass(kernel,s):
  # odd fields use the pinned r*g(r^2) face reconstruction.
  dr=float(grid.dr)
  centers=(np.arange(grid.n,dtype=np.float64)+0.5)*dr
- def face_even(values,name):
-  values=finite(name,values);out=np.empty(grid.n+1,dtype=np.float64)
+ def face_even_with_derivative(values,name):
+  values=finite(name,values);out=np.empty(grid.n+1,dtype=np.float64);dout=np.empty(grid.n+1,dtype=np.float64)
   for jface in range(grid.n+1):
    start=min(max(jface-2,0),grid.n-4)
    nodes=centers[start:start+4]**2
    target=(float(jface)*dr)**2
-   weights=np.ones(4,dtype=np.float64)
+   weights=np.ones(4,dtype=np.float64);dweights=np.zeros(4,dtype=np.float64)
    for k in range(4):
     for ell in range(4):
      if ell!=k:weights[k]*=(target-nodes[ell])/(nodes[k]-nodes[ell])
+    for m in range(4):
+     if m==k:continue
+     term=1.0/(nodes[k]-nodes[m])
+     for ell in range(4):
+      if ell!=k and ell!=m:term*=(target-nodes[ell])/(nodes[k]-nodes[ell])
+     dweights[k]+=term
    out[jface]=float(weights@values[start:start+4])
-  return finite(f"even face reconstruction {name}",out)
+   dout[jface]=2.0*(float(jface)*dr)*float(dweights@values[start:start+4])
+  return finite(f"even face reconstruction {name}",out),finite(f"even face derivative {name}",dout)
+ def face_even(values,name):
+  return face_even_with_derivative(values,name)[0]
  def face_odd(values,name):
   return finite(f"odd face reconstruction {name}",
    stress_divergence.spherical_flux_face_values(finite(name,values),dr,origin_power=1))
- af=face_even(a,"a");bf=face_even(b,"b");Xf=face_even(X,"X");alphaf=face_even(alpha,"alpha")
- Rrf=face_even(Rr,"R_r");Rtf=face_odd(Rt,"R_t")
+ af=face_even(a,"a");bf,b_rf=face_even_with_derivative(b,"b");Xf,X_rf=face_even_with_derivative(X,"X");alphaf=face_even(alpha,"alpha")
+ bdotf=face_even(bdot,"b_dot");Xdotf=face_even(Xdot,"X_dot")
  Ef=face_even(E,"rho");jf=face_odd(j,"j");prf=face_even(pr,"p_r")
  r_faces=np.arange(grid.n+1,dtype=np.float64)*dr
  Rf=finite("face areal radius",r_faces*np.sqrt(bf)/Xf)
+ Rrf=np.empty_like(Rf);Rrf[0]=np.sqrt(bf[0])/Xf[0]
+ Rrf[1:]=Rf[1:]*(1.0/r_faces[1:]+0.5*b_rf[1:]/bf[1:]-X_rf[1:]/Xf[1:])
+ Rrf=finite("face areal-radius derivative",Rrf)
+ Rtf=finite("face areal-radius time derivative",Rf*(0.5*bdotf/bf-Xdotf/Xf))
  if np.any(np.diff(Rf)<=0) or np.any(Rrf<=0):
   raise RuntimeError("face areal-radius map is not strictly monotone/regular")
  grrf=af/(Xf*Xf)
