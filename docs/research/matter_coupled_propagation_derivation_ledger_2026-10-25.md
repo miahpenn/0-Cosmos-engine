@@ -398,14 +398,24 @@ The existing chain-rule expression in §10.6 remains the source-level instantane
 
 Evaluate that difference from the actual start and completed accepted arrays, not by replacing it with a single-stage \(\Delta t\,\dot\Lambda_{\mathrm{metric}}\). The target is nonlinear in \(a,b\), and discrete product/chain/composition defects are separately observed; they must not be silently folded into the physical source term.
 
-### Existing-data availability check and next justified action
+### Existing-data availability check — completed read-only schema audit
 
-The existing artifacts do not currently expose all operands needed to independently evaluate the two stage currents in this expression:
+The read-only schema inventory is complete. It reused downloadable archived artifacts only; no observer, RHS, or evolution was run.
 
-- The #420 full-profile profiles.npz files contain the endpoint state and endpoint constraint/profile arrays, not the full \(0,p,f\) scalar/fluid profiles.
-- The archived PR #415 Lambda-budget artifacts provide captured geometry-stage budget values and selected cell summaries. Their matter-\(L_3\) term was inferred from the accepted increment because the full same-stage \(j_0,j_p\) profiles were not archived in that bundle.
-- The separate accepted-endpoint reconstruction of \(j_{\mathrm{total}}\) supports the size/sign of the matter source, but it is an endpoint value, not a substitute for the start/predictor current samples in the accepted PIRK quadrature.
+- **#420 full-profile states:** the N=60/120/240 artifacts from run 40156226086 (artifact IDs 12584064724, 12584164579, 12584980156) contain endpoint profiles at \(t=0.60\). Their profiles.npz arrays include the completed accepted \(a,b,X,\alpha,A_a,K,\Lambda\), scalars, matter, and endpoint constraints; they do not contain the full start/predictor/final-implicit stage profiles.
+- **#415 saved-state stage reports:** artifacts 12577357052 (N=120) and 12577886263 (N=240) are report.json-only, schema **saved_state_cmc_operator_contract_one_step_v1**. They include summaries for start-lapse-refreshed, explicit-predictor, and primary-predictor stages, plus final-implicit and Lambda/connection budget summaries at selected cells. They do not include a full radial NPZ of stage-resolved scalar/fluid profiles or stage-resolved \(j_{\mathrm{total}}\). The matter-\(L_3\) budget remains increment-inferred in that report.
+- **#408 raw witness:** artifact 12160420638 contains 131 arrays and a stored \(J_{\mathrm{total}}\)/Lambda RHS snapshot, but it is the separate N=60 state at \(t=0.015\) with state digest c6acb371…, and declares the older production-source baseline 7f47669a1c0edfafef9fc5f27b2db80840d3f035, not the #420 accepted-state source anchor 4aec88d0e3ff028e0a65a8ac36b30948625df792. It is useful source/array-schema evidence but is not the target \(t=0.60\) start/predictor witness. Its companion shared_state_signed_arrays.npz has 20 signed residual/divergence arrays, not the missing stage profiles.
 
-Consequently, the next justified step is a **read-only inventory of existing #408/#415 artifacts and their schemas** for raw stage-resolved scalar/fluid profiles sufficient to reconstruct \(j_0\) and \(j_p\), paired with the exact \(\alpha/a\), \(M_{r,\mathrm{geom}}\), and \(a,b,\Lambda\) operands. If such profiles are absent, identify that precise missing stage operand before proposing a single minimal diagnostic-only capture. No evolution, RHS rerun, source edit, new resolution campaign, or production change is justified by this derivation alone.
+**Exact missing operands for the target accepted step:** full radial \(j_0\) and \(j_p\) arrays, reconstructed from the same-stage scalar/fluid fields and geometry; the matching \(\alpha/a\) arrays; and full radial \(M_{r,\mathrm{geom}}\) values for the \(0\) and \(f\) L2 operands. The complete \(a,b,\Lambda\) stage arrays are also required to compute the actual discrete \(\Delta\Lambda_{\mathrm{metric}}\) and \(\Delta C^r\), rather than rely on selected-cell summaries or a single-stage chain-rate approximation.
+
+### Bounded next-step proposal (not executed)
+
+If this proposal is accepted for implementation, the smallest useful addition is a **diagnostic-only, exact-source stage capture** initialized from the checksum-verified #420 \(t=0.60\) accepted checkpoint, separately for the already-existing N=60/120/240 profiles. It would follow the pinned stage assembly in memory only, write no accepted trajectory and touch no production equations, and emit full radial arrays for stages \(0,p,f,n+1\) for:
+1. \(a,b,X,\alpha,A_a,K,\Lambda\) and \(\Lambda_{\mathrm{metric}}\);
+2. the scalar and conservative fluid state required to independently reconstruct each stage's canonical total \(j\);
+3. \(j_{\mathrm{total}}\), \(M_{r,\mathrm{geom}}\), \(\alpha/a\), \(L_2^\Lambda\), and the vendor and matter pieces of \(L_3^\Lambda\), separately and with signs;
+4. the exact state/source/vendor hashes, stage labels, parity/operator contract, and raw-operand-scaled arithmetic closures.
+
+The report would compare the observed discrete \(\Delta C^r=\Delta\Lambda-\Delta\Lambda_{\mathrm{metric}}\) with the independently reconstructed stage budget, keeping cells 0/1 separate from fixed physical radii. It would not infer or fit \(S_Q\), merge pointwise/FV/expanded divergences, or treat finite-step arithmetic closure as scientific admission. **No such capture has been run or authorized here.** Its purpose would be to fill the precise stage-current/operand gap, not repeat the existing convergence campaign.
 
 **Status remains unchanged:** the time-split assignments above are source-derived; the full matter-coupled \(M_r\) identity, physical \(S_Q\), reference-metric coupling admission, and total six-sector discrete stress-energy conservation remain open. Pointwise/FV/expanded divergence measures remain separate, and all five scientific-admission flags remain false.
