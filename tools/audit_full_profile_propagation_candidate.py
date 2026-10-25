@@ -295,6 +295,11 @@ def compact_candidate(item: dict[str, Any], raw: dict[float, dict[str, np.ndarra
         *brown_term_keys.values(),
         "propagation_geometric_Brown_term_sum_reconstruction_gap",
         "propagation_geometric_Brown_vacuum_source",
+        "propagation_H_geom_BSSN_Lambda_dependent",
+        "propagation_H_geom_metric_only",
+        "propagation_H_total_BSSN_representation",
+        "propagation_H_total_metric_only",
+        "propagation_H_total_BSSN_minus_metric_only",
         "propagation_measured_Mgeom_dot",
         "propagation_Mgeom_dot_nonmatter_measured",
         "propagation_Mgeom_dot_matter_injection",
@@ -386,10 +391,11 @@ def compact_candidate(item: dict[str, Any], raw: dict[float, dict[str, np.ndarra
     brown_term_budget = {
         "status": "signed_geometric_Brown_term_reassembly_passed",
         "convention": (
-            "geometric-only H_geom/M_geom Brown-vacuum comparator on the pinned "
-            "zero-shift accepted slice; matter injection is removed from the "
-            "measured geometric Mdot before comparison. This is a candidate "
-            "budget, not an admitted full matter-coupled propagation identity."
+            "geometric-only metric-derived H_geom/M_geom Brown-vacuum comparator "
+            "on the pinned zero-shift accepted slice; the BSSN Lambda-dependent H "
+            "is retained separately as a representation witness. Matter injection "
+            "is removed from measured geometric Mdot before comparison. This is a "
+            "candidate budget, not an admitted full matter-coupled propagation identity."
         ),
         "term_sum_reconstruction": {
             "passed": True,
@@ -425,6 +431,27 @@ def compact_candidate(item: dict[str, Any], raw: dict[float, dict[str, np.ndarra
             "nonmatter_geometric_minus_Brown_vacuum_relative_rms": geometric["full_domain_relative_rms"]["nonmatter_geometric_minus_Brown_vacuum"],
         },
         "brown_geometric_signed_term_accounting": brown_term_budget,
+        "hamiltonian_slot_convention": {
+            "status": "diagnostic_convention_corrected_only",
+            "geometric_Brown_slots_use_metric_only_H": True,
+            "total_candidate_uses_metric_only_H_minus_16pi_rho": True,
+            "H_geom_BSSN_Lambda_dependent": summarize_profile(
+                raw_item["propagation_H_geom_BSSN_Lambda_dependent"], radii
+            ),
+            "H_geom_metric_only": summarize_profile(
+                raw_item["propagation_H_geom_metric_only"], radii
+            ),
+            "H_total_BSSN_representation": summarize_profile(
+                raw_item["propagation_H_total_BSSN_representation"], radii
+            ),
+            "H_total_metric_only": summarize_profile(
+                raw_item["propagation_H_total_metric_only"], radii
+            ),
+            "H_total_BSSN_minus_metric_only": summarize_profile(
+                raw_item["propagation_H_total_BSSN_minus_metric_only"], radii
+            ),
+            "not_an_admission_oracle": True,
+        },
         "explicit_propagation_profiles": {
             name: summarize_profile(raw_item[name], radii)
             for name in (
@@ -442,6 +469,11 @@ def compact_candidate(item: dict[str, Any], raw: dict[float, dict[str, np.ndarra
                 "propagation_measured_Mgeom_dot",
                 "propagation_Mgeom_dot_nonmatter_measured",
                 "propagation_Mgeom_dot_matter_injection",
+                "propagation_H_geom_BSSN_Lambda_dependent",
+                "propagation_H_geom_metric_only",
+                "propagation_H_total_BSSN_representation",
+                "propagation_H_total_metric_only",
+                "propagation_H_total_BSSN_minus_metric_only",
                 "propagation_geometric_Brown_term_shift",
                 "propagation_geometric_Brown_term_KM",
                 "propagation_geometric_Brown_term_alpha_H",
