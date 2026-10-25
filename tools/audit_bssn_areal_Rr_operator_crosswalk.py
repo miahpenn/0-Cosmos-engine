@@ -221,6 +221,66 @@ def temporal_arm(kernel, accepted, h: float) -> dict[str, Any]:
                 "centered_average_residual": float((centered_rate - centered_avg)[q0]),
             }
 
+    # Split the change in each balance into its mass-rate and current sides.
+    # The primitive b/X derivative is the reference bookkeeping lane only; it
+    # is not designated as the physical authority.
+    def balance_arrays(method: str) -> dict[str, np.ndarray]:
+        series = samples[method]
+        chi0, chi1, chi2 = (x["chi"] for x in series)
+        f0, f1, f2 = (x["current"] for x in series)
+        forward_rate = finite(f"{method}.budget.forward_rate", -0.5 * radii * (chi1 - chi0) / h)
+        centered_rate = finite(f"{method}.budget.centered_rate", -0.5 * radii * (chi2 - chi0) / (2.0 * h))
+        forward_current = finite(f"{method}.budget.forward_current", 0.5 * (f0 + f1))
+        centered_midpoint_current = finite(f"{method}.budget.midpoint_current", f1)
+        centered_current = finite(f"{method}.budget.centered_current", (f0 + 2.0 * f1 + f2) / 4.0)
+        return {
+            "forward_mass_rate": forward_rate,
+            "forward_current": forward_current,
+            "forward_residual": finite(f"{method}.budget.forward_residual", forward_rate - forward_current),
+            "centered_mass_rate": centered_rate,
+            "centered_midpoint_current": centered_midpoint_current,
+            "centered_current": centered_current,
+            "centered_midpoint_residual": finite(f"{method}.budget.centered_midpoint_residual", centered_rate - centered_midpoint_current),
+            "centered_residual": finite(f"{method}.budget.centered_residual", centered_rate - centered_current),
+        }
+
+    baseline = balance_arrays("primitive_bX_derivative")
+    operator_component_budget = {}
+    for method in METHODS:
+        this = balance_arrays(method)
+        rr_gap = finite(
+            f"{method}.Rr_minus_primitive_bX",
+            samples[method][1]["R_r"] - samples["primitive_bX_derivative"][1]["R_r"],
+        )
+        row = {
+            "Rr_gap_vs_primitive_bX_derivative": error_summary(rr_gap, radii),
+            "forward": {},
+            "centered_midpoint": {},
+            "centered_time_average": {},
+        }
+        for rate_key, current_key, residual_key in (
+            ("forward_mass_rate", "forward_current", "forward_residual"),
+            ("centered_mass_rate", "centered_midpoint_current", "centered_midpoint_residual"),
+            ("centered_mass_rate", "centered_current", "centered_residual"),
+        ):
+            delta_mass = finite(f"{method}.{rate_key}_delta", this[rate_key] - baseline[rate_key])
+            delta_current = finite(f"{method}.{current_key}_delta", this[current_key] - baseline[current_key])
+            delta_residual = finite(f"{method}.{residual_key}_delta", this[residual_key] - baseline[residual_key])
+            closure = finite(f"{method}.{residual_key}_delta_closure", delta_residual - (delta_mass - delta_current))
+            if rate_key == "forward_mass_rate":
+                lane = "forward"
+            elif current_key == "centered_midpoint_current":
+                lane = "centered_midpoint"
+            else:
+                lane = "centered_time_average"
+            row[lane] = {
+                "delta_mass_rate_vs_primitive_bX": error_summary(delta_mass, radii),
+                "delta_current_vs_primitive_bX": error_summary(delta_current, radii),
+                "delta_residual_vs_primitive_bX": error_summary(delta_residual, radii),
+                "delta_budget_closure": error_summary(closure, radii),
+            }
+        operator_component_budget[method] = row
+
     gap_report = {}
     for key, sequence in derivative_gaps.items():
         values = sequence[1]
@@ -240,6 +300,7 @@ def temporal_arm(kernel, accepted, h: float) -> dict[str, Any]:
         "native_areal_map_max_abs_gap": max(p["native_areal_map_max_abs_gap"] for p in prims),
         "derivative_gaps_at_midpoint": gap_report,
         "variants": variant_report,
+        "operator_component_budget_vs_primitive_bX": operator_component_budget,
         "fixed_R": fixed_R_report,
     }
 
@@ -307,6 +368,7 @@ def main() -> int:
             "arm": arm["arm"],
             "derivative_gaps_at_midpoint": arm["derivative_gaps_at_midpoint"],
             "variants": arm["variants"],
+            "operator_component_budget_vs_primitive_bX": arm["operator_component_budget_vs_primitive_bX"],
         } for arm in arms],
     }, indent=2))
     return 0
