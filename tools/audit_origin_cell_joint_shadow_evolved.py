@@ -39,6 +39,8 @@ from tools.audit_continuous_origin_half_cell_oracle import continuous_reference
 from tools.audit_origin_cell_joint_shadow_one_step import (
     VENDOR_COMMIT,
     SOURCE_COMMIT,
+    apply_continuous_metric_shadow,
+    build_continuous_metric_B,
     constraint_measure,
     metric_lambda_from_geometry,
     regular_origin_cmc_lapse,
@@ -55,12 +57,20 @@ AMPLITUDE = 0.01
 WIDTH = 7.0
 D_AMPLITUDE = 1.0e-10
 INCLUDE_RADIATION = True
-ARMS = (
+DEFAULT_ARMS = (
     "production_baseline",
     "half_cell_integral_only",
     "regular_cmc_row_only",
     "joint_integral_and_cmc_row",
 )
+SUPPORTED_ARMS = frozenset((*DEFAULT_ARMS, "full_continuous_metric_profile"))
+ARMS = tuple(
+    name.strip()
+    for name in os.environ.get("ORIGIN_EVOLUTION_ARMS", ",".join(DEFAULT_ARMS)).split(",")
+    if name.strip()
+)
+if not ARMS or len(set(ARMS)) != len(ARMS) or any(name not in SUPPORTED_ARMS for name in ARMS):
+    raise ValueError(f"invalid ORIGIN_EVOLUTION_ARMS selection: {ARMS}")
 OUT = Path(os.environ.get(
     "ORIGIN_EVOLUTION_OUT",
     f"results/origin-cell-joint-shadow-evolved-N{RESOLUTION}-t0.6-2026-10-24",
@@ -325,6 +335,15 @@ def _metrics_at_state(state) -> tuple[dict, dict]:
         "Aa_at_shared_radii_1_to_5": {
             str(float(q)): float(np.interp(q, r, Aa)) for q in (1., 2., 3., 4., 5.)
         },
+        "H_at_shared_radii_1_to_5": {
+            str(float(q)): float(np.interp(q, r, H)) for q in (1., 2., 3., 4., 5.)
+        },
+        "M_at_shared_radii_1_to_5": {
+            str(float(q)): float(np.interp(q, r, M)) for q in (1., 2., 3., 4., 5.)
+        },
+        "C_lambda_at_shared_radii_1_to_5": {
+            str(float(q)): float(np.interp(q, r, C)) for q in (1., 2., 3., 4., 5.)
+        },
     }
     return metric, profiles
 
@@ -336,9 +355,29 @@ def _run_arm(arm: str) -> tuple[dict, dict]:
         D_amplitude=D_AMPLITUDE, include_radiation=INCLUDE_RADIATION,
     )
     candidate_info = None
-    if arm in ("half_cell_integral_only", "joint_integral_and_cmc_row"):
+    if arm == "full_continuous_metric_profile":
+        B_continuous = build_continuous_metric_B(
+            state.grid, subdivisions=2048
+        )
+        apply_continuous_metric_shadow(state, B_continuous)
+        candidate_info = {
+            "method": "rebuild the full continuous-source radial metric profile over all radii using 2048 substeps per coarse cell",
+            "conformal_metric_profile": "a, b, X rebuilt from B=X^6; Lambda recomputed from that profile",
+            "held_fixed": [
+                "A_a and K from the source-pinned initializer",
+                "all scalar fields and momenta",
+                "all conserved matter arrays",
+            ],
+            "production_initializer_file_modified": False,
+            "matter_reinitialized_on_candidate_metric": False,
+        }
+    elif arm in ("half_cell_integral_only", "joint_integral_and_cmc_row"):
         candidate_info = _candidate_half_cell_initializer(state)
-    has_regular_cmc = arm in ("regular_cmc_row_only", "joint_integral_and_cmc_row")
+    has_regular_cmc = arm in (
+        "regular_cmc_row_only",
+        "joint_integral_and_cmc_row",
+        "full_continuous_metric_profile",
+    )
     if has_regular_cmc:
         _install_regular_row(kernel)
         state.geometry.alpha = regular_origin_cmc_lapse(
@@ -454,9 +493,9 @@ def main() -> int:
             "arms": list(ARMS),
         },
         "initializer_candidate": {
-            "method": "replace only the first half-cell integral I[0]=0.5*dr*src[0] with the high-accuracy continuous reference integral over [0,r0]; keep the other source terms and six source/B iterations, and all later trapezoid intervals, unchanged",
-            "matter": "reinitialized from the candidate metric before the initial CMC solve",
+            "scope": "candidate-specific details are recorded in each run's initializer_candidate field",
             "production_initializer_file_modified": False,
+            "production_or_vendor_files_modified": False,
         },
         "runs": runs,
         "acceptance": {
