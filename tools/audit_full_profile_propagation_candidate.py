@@ -1478,6 +1478,260 @@ def compact_sector_matter_source_mapping(
     return compact, profiles
 
 
+
+def _nested_array_digest(value: Any) -> str:
+    """Stable digest for the frozen semi-discrete RHS-rate bundle."""
+    digest = hashlib.sha256()
+
+    def visit(item: Any, path: str) -> None:
+        digest.update(path.encode("utf-8"))
+        if isinstance(item, dict):
+            for key in sorted(item):
+                visit(item[key], f"{path}/{key}")
+            return
+        array = np.asarray(item, dtype=np.float64)
+        if not np.all(np.isfinite(array)):
+            raise RuntimeError(f"non-finite value in RHS-rate bundle at {path}")
+        digest.update(repr(array.shape).encode("ascii"))
+        digest.update(array.tobytes())
+
+    visit(value, "rates")
+    return digest.hexdigest()
+
+
+def _same_endpoint_fields_except_alpha(left: Any, right: Any) -> bool:
+    """The controlled endpoint pair may differ only in its recomputed lapse."""
+    for name in GEOMETRY_NAMES:
+        if name == "alpha":
+            continue
+        if not np.array_equal(
+            np.asarray(getattr(left.geometry, name)),
+            np.asarray(getattr(right.geometry, name)),
+        ):
+            return False
+    for name in SCALAR_NAMES:
+        if not np.array_equal(
+            np.asarray(getattr(left.scalars, name)),
+            np.asarray(getattr(right.scalars, name)),
+        ):
+            return False
+    for species_name in ("dark_matter", "baryons", "radiation"):
+        left_species = getattr(left.matter, species_name)
+        right_species = getattr(right.matter, species_name)
+        for name in MATTER_FIELDS:
+            if not np.array_equal(
+                np.asarray(getattr(left_species, name)),
+                np.asarray(getattr(right_species, name)),
+            ):
+                return False
+    return True
+
+
+def same_base_dual_lapse_response_audit(
+    resolution: int,
+    joint_arrays: dict[str, np.ndarray],
+    vacuum: Any,
+    expected_base_digest: str,
+) -> tuple[dict[str, Any], dict[str, np.ndarray]]:
+    """Pair endpoint lapse policies on one unchanged production-baseline state.
+
+    The saved accepted base state and semi-discrete RHS direction are held fixed.
+    Only the lapse recomputation used for +/-epsilon endpoint states is changed.
+    This is a sensitivity diagnostic, not a choice/admission of either convention.
+    """
+    global FULL_METRIC_LAPSE_SHADOW
+    prefix = f"N{resolution}_production_baseline_final_"
+    kernel, state = reconstruct_state(resolution, joint_arrays, prefix)
+    base_digest = tangent.state_digest(state)
+    if base_digest != expected_base_digest:
+        raise RuntimeError(
+            "same-base lapse audit did not reconstruct the exact saved production-baseline state"
+        )
+    if abs(float(state.t) - TARGET_TIME) > 1e-12:
+        raise RuntimeError("same-base lapse audit received an unaccepted state")
+
+    original_policy = FULL_METRIC_LAPSE_SHADOW
+    original_digest = base_digest
+    rate_digest = _nested_array_digest(propagation.rhs_direction(kernel, state))
+    radii = np.asarray(state.grid.centers, dtype=np.float64)
+    mode_configs = (("production_cmc", False), ("regular_origin_cmc", True))
+    mode_raw: dict[str, dict[float, dict[str, np.ndarray]]] = {}
+    endpoints: dict[str, dict[float, dict[str, Any]]] = {}
+    mode_summaries: dict[str, Any] = {}
+    profile_store: dict[str, np.ndarray] = {}
+    terms_to_save = (
+        "propagation_Mdot_measured_minus_predicted_covariant_published_Mr",
+        "propagation_Mtotal_measured_minus_Brown_plus_actual_matter_composite",
+        "propagation_term_connection_second",
+        "propagation_term_connection_first",
+        "propagation_term_H_gradient",
+        "propagation_term_KM_raised_M",
+        "propagation_term_alpha_H",
+        "propagation_term_index_conversion",
+        "propagation_published_Mr_matter_source",
+        "propagation_matter_source_mapping_residual",
+        "propagation_exact_chain_rule_residual",
+    )
+    endpoint_non_lapse_equal = True
+
+    try:
+        tangent.shifted_state = shifted_state_with_matched_lapse
+        propagation.shifted_state = shifted_state_with_matched_lapse
+        for mode, uses_regular_lapse in mode_configs:
+            FULL_METRIC_LAPSE_SHADOW = uses_regular_lapse
+            SHIFTED_STATES.clear()
+            current_rate_digest = _nested_array_digest(
+                propagation.rhs_direction(kernel, state)
+            )
+            if current_rate_digest != rate_digest:
+                raise RuntimeError("the base RHS-rate bundle changed between lapse-policy arms")
+
+            report, raw = propagation.directional_tangent(kernel, state, vacuum)
+            if report.get("state_unchanged") is not True:
+                raise RuntimeError(f"{mode}: propagation observer mutated the shared accepted state")
+            if tangent.state_digest(state) != original_digest:
+                raise RuntimeError(f"{mode}: shared accepted base state changed during observation")
+
+            snapshots: dict[float, dict[str, Any]] = {}
+            profile_summaries: dict[str, Any] = {}
+            for epsilon in EPSILONS:
+                eps = float(epsilon)
+                if eps not in SHIFTED_STATES or -eps not in SHIFTED_STATES:
+                    raise RuntimeError(f"{mode}: missing matched +/- endpoint at epsilon={eps}")
+                plus_state = SHIFTED_STATES[eps]
+                minus_state = SHIFTED_STATES[-eps]
+                snapshots[eps] = {"plus": plus_state, "minus": minus_state}
+                eps_tag = f"{eps:.0e}".replace("+", "")
+
+                for sign, endpoint in (("plus", plus_state), ("minus", minus_state)):
+                    profile_store[
+                        f"N{resolution}_same_base_lapse_{mode}_eps{eps_tag}_{sign}_alpha"
+                    ] = np.asarray(endpoint.geometry.alpha, dtype=np.float64).copy()
+
+                for name in terms_to_save:
+                    if name in raw[eps]:
+                        profile_store[
+                            f"N{resolution}_same_base_lapse_{mode}_eps{eps_tag}_{name}"
+                        ] = np.asarray(raw[eps][name], dtype=np.float64).copy()
+                        profile_summaries.setdefault(name, {})[eps_tag] = summarize_profile(
+                            raw[eps][name], radii
+                        )
+
+            endpoints[mode] = snapshots
+            mode_raw[mode] = raw
+            mode_summaries[mode] = {
+                "lapse_treatment": (
+                    "production CMC solve at perturbed endpoints"
+                    if not uses_regular_lapse
+                    else "copied regular-origin CMC row at perturbed endpoints"
+                ),
+                "shared_base_state_sha256": base_digest,
+                "base_rhs_rate_bundle_sha256": current_rate_digest,
+                "observer_state_unchanged": report["state_unchanged"],
+                "profiles": profile_summaries,
+            }
+
+        for epsilon in EPSILONS:
+            eps = float(epsilon)
+            prod = endpoints["production_cmc"][eps]
+            reg = endpoints["regular_origin_cmc"][eps]
+            for sign in ("plus", "minus"):
+                endpoint_non_lapse_equal = (
+                    _same_endpoint_fields_except_alpha(prod[sign], reg[sign])
+                    and endpoint_non_lapse_equal
+                )
+
+        if not endpoint_non_lapse_equal:
+            raise RuntimeError(
+                "controlled lapse-policy comparison changed non-lapse endpoint fields"
+            )
+        if tangent.state_digest(state) != original_digest:
+            raise RuntimeError("shared accepted base state changed after dual-lapse comparison")
+
+        comparison: dict[str, Any] = {}
+        for epsilon in EPSILONS:
+            eps = float(epsilon)
+            eps_tag = f"{eps:.0e}".replace("+", "")
+            prod = endpoints["production_cmc"][eps]
+            reg = endpoints["regular_origin_cmc"][eps]
+            alpha_dot_prod = (
+                np.asarray(prod["plus"].geometry.alpha, dtype=np.float64)
+                - np.asarray(prod["minus"].geometry.alpha, dtype=np.float64)
+            ) / (2.0 * eps)
+            alpha_dot_reg = (
+                np.asarray(reg["plus"].geometry.alpha, dtype=np.float64)
+                - np.asarray(reg["minus"].geometry.alpha, dtype=np.float64)
+            ) / (2.0 * eps)
+            delta_alpha_dot = alpha_dot_reg - alpha_dot_prod
+            delta_radial_alpha_dot = stress_divergence.d1(
+                state.grid, delta_alpha_dot, "even"
+            )
+            delta_plus_alpha = (
+                np.asarray(reg["plus"].geometry.alpha, dtype=np.float64)
+                - np.asarray(prod["plus"].geometry.alpha, dtype=np.float64)
+            )
+            delta_minus_alpha = (
+                np.asarray(reg["minus"].geometry.alpha, dtype=np.float64)
+                - np.asarray(prod["minus"].geometry.alpha, dtype=np.float64)
+            )
+            for name, values in (
+                ("delta_plus_alpha", delta_plus_alpha),
+                ("delta_minus_alpha", delta_minus_alpha),
+                ("delta_directional_alpha_rate", delta_alpha_dot),
+                ("delta_radial_directional_alpha_rate", delta_radial_alpha_dot),
+            ):
+                profile_store[
+                    f"N{resolution}_same_base_lapse_eps{eps_tag}_{name}"
+                ] = np.asarray(values, dtype=np.float64).copy()
+
+            changes: dict[str, Any] = {}
+            for name in terms_to_save:
+                if name not in mode_raw["production_cmc"][eps] or name not in mode_raw["regular_origin_cmc"][eps]:
+                    continue
+                delta = (
+                    np.asarray(mode_raw["regular_origin_cmc"][eps][name], dtype=np.float64)
+                    - np.asarray(mode_raw["production_cmc"][eps][name], dtype=np.float64)
+                )
+                profile_store[
+                    f"N{resolution}_same_base_lapse_eps{eps_tag}_delta_{name}"
+                ] = delta.copy()
+                changes[name] = summarize_profile(delta, radii)
+
+            comparison[eps_tag] = {
+                "production_cmc_plus_minus_lapse_difference": {
+                    "plus": summarize_profile(delta_plus_alpha, radii),
+                    "minus": summarize_profile(delta_minus_alpha, radii),
+                },
+                "regular_origin_minus_production_directional_alpha_rate": summarize_profile(
+                    delta_alpha_dot, radii
+                ),
+                "regular_origin_minus_production_radial_gradient_of_alpha_rate": summarize_profile(
+                    delta_radial_alpha_dot, radii
+                ),
+                "regular_origin_minus_production_signed_term_profiles": changes,
+            }
+
+        summary = {
+            "scope": (
+                "One exact saved production-baseline t=0.60 state per resolution; same RHS-rate bundle, "
+                "same +/-epsilon non-lapse endpoint fields; only endpoint lapse recomputation path changes."
+            ),
+            "resolution": resolution,
+            "accepted_time": float(state.t),
+            "shared_base_state_sha256": base_digest,
+            "base_rhs_rate_bundle_sha256": rate_digest,
+            "same_base_state_immutable": tangent.state_digest(state) == original_digest,
+            "non_lapse_endpoint_fields_identical": endpoint_non_lapse_equal,
+            "mode_results": mode_summaries,
+            "paired_endpoint_differences": comparison,
+            "scientific_admission": False,
+        }
+        return summary, profile_store
+    finally:
+        FULL_METRIC_LAPSE_SHADOW = original_policy
+        SHIFTED_STATES.clear()
+
+
 def main() -> int:
     if RESOLUTION not in (60, 120, 240):
         raise ValueError(f"unsupported resolution {RESOLUTION}")
@@ -1604,9 +1858,14 @@ def main() -> int:
             saved_profiles[f"N{RESOLUTION}_{label}_{name}"] = np.asarray(values, dtype=np.float64).copy()
         summaries.append(arm_rows)
 
+    same_base_lapse_report, same_base_lapse_profiles = same_base_dual_lapse_response_audit(
+        RESOLUTION, joint_arrays, vacuum, state_hashes["production_baseline"]
+    )
+    saved_profiles.update(same_base_lapse_profiles)
+
     report_path = OUT / "report.json"
     result = {
-        "schema": "full-profile-accepted-state-propagation-candidate/v7",
+        "schema": "full-profile-accepted-state-propagation-candidate/v8",
         "status": "completed_diagnostic_only",
         "purpose": "Apply the existing convention/index-sensitive propagation candidate and its existing additive sector-resolved total-stress-energy divergence observer to source-pinned accepted t=0.60 states from baseline, partial-joint, and full-continuous-metric arms.",
         "source_pins": {
@@ -1631,6 +1890,7 @@ def main() -> int:
             },
         },
         "state_sha256": state_hashes,
+        "same_base_dual_lapse_response": same_base_lapse_report,
         "arms": summaries,
         "acceptance": {
             "all_source_pins_match": True,
@@ -1656,6 +1916,10 @@ def main() -> int:
                 for item in arm["epsilon_results"]
             ),
             "archive_locked_DM_phi_exchange_tested_not_assumed": True,
+            "same_base_dual_lapse_endpoint_pairing_complete": (
+                same_base_lapse_report.get("same_base_state_immutable") is True
+                and same_base_lapse_report.get("non_lapse_endpoint_fields_identical") is True
+            ),
             "full_matter_coupled_propagation_identity_closed": False,
             "matter_source_sign_and_normalization_reviewed": False,
             "reference_metric_connection_coupling_convention_frozen": False,
@@ -1671,6 +1935,7 @@ def main() -> int:
             "Production HLL face/source snapshots are direct observations of the pinned species RHS on the accepted state; they do not by themselves prove total stress-energy conservation or validate the conditional coupling law.",
             "Sector-resolved div_T_r is an existing component-accounting observer on the same directional endpoint states; its reconstruction result is measured, not treated as an acceptance threshold.",
             "Centre cells 0/1 are reported separately from fixed physical radii and annuli; no cell-index comparison is presented as a matched-radius comparison.",
+            "The same-base dual-lapse comparison varies only the endpoint lapse recomputation path; it does not admit either convention.",
             "No evolution is advanced and no initializer, engine, vendor, dependency, or production equation is modified.",
         ],
     }
