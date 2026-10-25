@@ -1138,7 +1138,7 @@ For the accepted zero-shift CMC metric RHS, \(\dot b=\alpha bA_a\), so
 =\dot\Lambda_{\mathrm{vendor}}+\frac{2\dot b}{rb^2}
 =\dot\Lambda_{\mathrm{vendor}}+\frac{2\alpha A_a}{rb}.
 \]
-Expanding the pinned vendor \(\lambda_\mathrm{L2}\) source with \(\lambda_m=2\), its evolved-\(\Lambda\) \(\lambda_\mathrm{L3}\) source, and the accepted \(M_{r,\mathrm{geom}}\) definition gives
+Expanding the pinned vendor \(\lambda_{\mathrm{L2}}\) source with \(\lambda_m=2\), its evolved-\(\Lambda\) \(\lambda_{\mathrm{L3}}\) source, and the accepted \(M_{r,\mathrm{geom}}\) definition gives
 \[
 \begin{aligned}
 \dot\Gamma_{B,\mathrm{vendor}}^r={}&
@@ -1149,37 +1149,38 @@ Expanding the pinned vendor \(\lambda_\mathrm{L2}\) source with \(\lambda_m=2\),
 +2\alpha A_a\Gamma_B^r.
 \end{aligned}
 \]
-By contrast, Brown's published Eq. (9f) with \(v=0\) and \(\beta^r=0\), mapped through \(g_{rr}=a\), \(g_{\theta\theta}=br^2\), \(\chi=X^2\), and \(A_{rr}=aA_a\), gives
+Brown's published Eq. (9f) with \(v=0\) and \(\beta^r=0\), mapped through \(g_{rr}=a\), \(g_{\theta\theta}=br^2\), \(\chi=X^2\), and \(A_{rr}=aA_a\), gives the following fixed-grid form, retaining \(D_1(\chi)\) rather than invoking a continuum chain rule:
 \[
 \begin{aligned}
 \dot\Gamma_{B,\mathrm{Brown}}^r={}&
 -\frac{2A_aD_1(\alpha)}a-\frac{4\alpha D_1(K)}{3a}
--\frac{6\alpha A_aD_1(X)}{aX}\\
+-\frac{3\alpha A_aD_1(\chi)}{a\chi}\\
 &+\frac{\alpha A_aD_1(a)}{a^2}
 +\frac{\alpha A_aD_1(b)}{ab}
 +\frac{2\alpha A_a}{ar}.
 \end{aligned}
 \]
-Subtracting, the metric-factor terms regroup using the explicit definition of \(C^r\):
+Subtracting and using the explicit definition of \(C^r\),
 \[
 \begin{aligned}
 \dot\Gamma_{B,\mathrm{vendor}}^r-\dot\Gamma_{B,\mathrm{Brown}}^r
-&=\alpha A_a\left[
-\frac4{ar}+\frac{2D_1(b)}{ab}
-+2\Gamma_B^r-\frac{D_1(a)}{a^2}
-\right]\\
-&=\boxed{2\alpha A_a C^r}.
+&=2\alpha A_a C^r+\epsilon_\chi,\\
+\epsilon_\chi
+&=\frac{3\alpha A_a}{a}\left[
+\frac{D_1(X^2)}{X^2}-\frac{2D_1(X)}X
+\right].
 \end{aligned}
 \]
-This is a same-state source-algebra result under the stated zero-shift/CMC and \(\lambda_m=2\) conventions, with the same accepted derivative operators used in the variable map. It is distinct from the extra \(\tfrac12\alpha\chi(D_1a/a)C^r\) in the \(A_a\) Ricci channel (§10.15). Both vanish when \(C^r=0\), but must be retained separately off the connection-constraint surface.
+The continuum product/chain rule sets \(\epsilon_\chi=0\), giving the clean off-constraint extension difference \(2\alpha A_a C^r\). At finite resolution, \(\epsilon_\chi\) is the explicit square-chain-rule remainder; keeping it separate makes the fixed-grid identity exact.
 
-The already saved \(t\simeq0.60\) accepted-state arrays yield the following magnitude of the Lambda-channel difference \(2\alpha A_a C^r\); no observer or workflow was run:
+The already saved \(t\simeq0.60\) accepted-state arrays yield the following postprocessed comparison; no observer or workflow was run:
 
-| \(N\) | \(\max_{r\le10}|2\alpha A_a C^r|\) | value at \(r=2\) | \(r=3\) | \(r=5\) | \(r=8\) |
-|---:|---:|---:|---:|---:|---:|
-| 60 | \(4.2885\times10^{-10}\) | \(-2.6471\times10^{-10}\) | \(-3.8781\times10^{-10}\) | \(-1.3356\times10^{-11}\) | \(+1.3507\times10^{-10}\) |
-| 120 | \(3.3803\times10^{-11}\) | \(-2.0391\times10^{-11}\) | \(-3.3803\times10^{-11}\) | \(-7.5365\times10^{-13}\) | \(+6.7447\times10^{-12}\) |
-| 240 | \(2.8833\times10^{-12}\) | \(-1.5075\times10^{-12}\) | \(-2.7589\times10^{-12}\) | \(-1.0267\times10^{-12}\) | \(+1.5577\times10^{-13}\) |
+| \(N\) | \(\max_{r\le10}|2\alpha A_a C^r|\) | \(\max_{r\le10}|\epsilon_\chi|\) | \(\max_{r\le10}|\dot\Gamma_{\mathrm{vendor}}-\dot\Gamma_{\mathrm{Brown}}|\) | fixed-radius \(|2\alpha A_a C^r|\) at \(r=2,3,5,8\) |
+|---:|---:|---:|---:|---|
+| 60 | \(4.2885\times10^{-10}\) | \(2.7573\times10^{-12}\) | \(4.2803\times10^{-10}\) | \(-2.6471,-3.8781,-0.1336,+1.3507\)\(\times10^{-10}\) |
+| 120 | \(3.3803\times10^{-11}\) | \(2.0291\times10^{-13}\) | \(3.3790\times10^{-11}\) | \(-2.0391,-3.3803,-0.0754,+0.6745\)\(\times10^{-11}\) |
+| 240 | \(2.8833\times10^{-12}\) | \(1.3361\times10^{-14}\) | \(2.8764\times10^{-12}\) | \(-1.5075,-2.7589,-1.0267,+0.1558\)\(\times10^{-12}\) |
 
-This pins the source of the difference, not its physical acceptability. The small amplitude in these profiles does not authorize dropping the term or altering the accepted vendor RHS. The project must decide, under its frozen formulation contract, whether the vendor's off-constraint extension is intentional and is the one to derive the subsidiary system for, or whether a Brown-compatible extension is required. Until that decision is source/physics-authorized, the reference-metric connection-admission flag remains false.
+The fixed-grid identity \((\dot\Gamma_{\mathrm{vendor}}-\dot\Gamma_{\mathrm{Brown}})-2\alpha A_aC^r-\epsilon_\chi\) closes to at most \(5.2\times10^{-20}\) over \(r\le10\) for these saved arrays. This pins the source of the difference, not its physical acceptability. The small amplitude in these profiles does not authorize dropping the term or altering the accepted vendor RHS.
 
+This is distinct from the extra \(\tfrac12\alpha\chi(D_1a/a)C^r\) in the \(A_a\) Ricci channel (§10.15). Both vanish when \(C^r=0\), but must be retained separately off the connection-constraint surface. The project must decide, under its frozen formulation contract, whether the vendor's off-constraint extension is intentional and is the one to derive the subsidiary system for, or whether a Brown-compatible extension is required. Until that decision is source/physics-authorized, the reference-metric connection-admission flag remains false.
