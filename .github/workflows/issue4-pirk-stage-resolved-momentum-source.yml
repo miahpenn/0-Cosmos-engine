@@ -1,0 +1,97 @@
+name: Diagnostic - Issue 4 PIRK stage-resolved momentum source
+
+on:
+  push:
+    branches:
+      - research/matter-propagation-derivation-ledger-2026-10-25
+    paths:
+      - tools/audit_pirk_stage_resolved_momentum_source.py
+      - tests/test_pirk_stage_resolved_momentum_source.py
+      - .github/workflows/issue4-pirk-stage-resolved-momentum-source.yml
+  pull_request:
+    branches:
+      - diag/full-matter-coupled-convention-freeze-2026-10-25
+    types: [opened, synchronize, reopened]
+    paths:
+      - tools/audit_pirk_stage_resolved_momentum_source.py
+      - tests/test_pirk_stage_resolved_momentum_source.py
+      - .github/workflows/issue4-pirk-stage-resolved-momentum-source.yml
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: issue4-pirk-stage-resolved-source-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  capture:
+    name: N=${{ matrix.resolution }} copied-stage capture
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - resolution: 60
+            artifact_name: origin-full-continuous-metric-evolved-N60-t0.6-2026-10-24
+          - resolution: 120
+            artifact_name: origin-full-continuous-metric-evolved-N120-t0.6-2026-10-24
+          - resolution: 240
+            artifact_name: origin-full-continuous-metric-evolved-N240-t0.6-2026-10-24
+
+    steps:
+      - name: Check out the diagnostic branch and pinned vendor
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Download exact #420 t=0.60 endpoint profile artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: input/N${{ matrix.resolution }}
+          github-token: ${{ github.token }}
+          run-id: 40156226086
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install declared requirements
+        run: python -m pip install -r requirements.txt
+
+      - name: Compile diagnostic and run algebra helper tests
+        run: |
+          python -m py_compile tools/audit_pirk_stage_resolved_momentum_source.py
+          python -m pytest -q tests/test_pirk_stage_resolved_momentum_source.py
+
+      - name: Assert production/vendor/dependency paths remain at the accepted source anchor
+        shell: bash
+        run: |
+          set -euo pipefail
+          SOURCE_COMMIT=4aec88d0e3ff028e0a65a8ac36b30948625df792
+          git cat-file -e "\${SOURCE_COMMIT}^{commit}"
+          git diff --exit-code "$SOURCE_COMMIT" -- engine vendor .gitmodules requirements.txt
+          test "$(git -C vendor/bb-palatini-unified-r0 rev-parse HEAD)" = "d6052d605673ce9d82cdc99b0df79855fa2ea215"
+
+      - name: Capture source-resolved stage arrays on one copied step
+        run: >-
+          python tools/audit_pirk_stage_resolved_momentum_source.py
+          --input-dir input/N${{ matrix.resolution }}
+          --resolution ${{ matrix.resolution }}
+          --out-dir results/issue4-pirk-stage-resolved-source/N${{ matrix.resolution }}
+
+      - name: Upload source-pinned stage arrays and report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: issue4-pirk-stage-resolved-source-N${{ matrix.resolution }}
+          path: results/issue4-pirk-stage-resolved-source/N${{ matrix.resolution }}/
+          if-no-files-found: warn
+          retention-days: 90
