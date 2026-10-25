@@ -711,7 +711,7 @@ def compact_scalar_current_rate_decomposition(
         profiles[f"scalar_S_current_rate_from_Sdot_{name}"] = term
         rows[f"Sdot_{name}"] = summarize_profile(term, r)
 
-    actual = np.asarray(candidate_raw["propagation_Mdot_sector_S"], dtype=np.float64)
+    actual = np.asarray(candidate_raw["Mdot_sector_S"], dtype=np.float64)
     gap = contribution_sum - actual
     profiles["scalar_S_current_rate_reconstructed"] = contribution_sum
     profiles["scalar_S_current_rate_actual_tangent"] = actual
