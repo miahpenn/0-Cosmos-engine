@@ -578,3 +578,63 @@ At fixed \(r=2\), the baseline \(C^r_\Lambda\) values are \(-2.39837\times10^{-4
 ### Decision
 
 The pinned Brown connection observer formula and saved term arrays are consistent; the large baseline origin residual is co-localized with a sharp, alternating \(C^r_\Lambda\) inner profile and large \(D_r C^r_\Lambda\)/\(D_r^2 C^r_\Lambda\) operands. This makes the connection-constraint regularity at the origin the leading diagnostic target, not a reason to alter Brown's coefficients. The next bounded step should be an archive-pinned regularity/initialization identity for the same baseline state family, using matched-origin extrapolation and separate \(C^r_\Lambda\), \(D_rC^r_\Lambda\), and \(D_r^2C^r_\Lambda\) checks. Do not infer closure from the arm comparison; keep all admission flags false.
+
+
+
+## 18. Half-cell initializer Taylor identity — 2026-10-25
+
+The archived production initializer provides a direct analytic link between the central quadrature and the connection-constraint regularity witness. This is a source-level derivation from the existing formula, not a fit to the residual.
+
+In **engine/v55_initial.py**, the areal metric reconstruction uses \(I=rB\), with source
+\[
+I'(r)=s(r)=1-8\pi r^2\rho(r)+2r^2K_rK_t+r^2K_t^2.
+\]
+The first cell is assigned
+\[
+I_0^{\rm prod}=\tfrac12\Delta r\,s(r_0)=r_0s(r_0),\qquad r_0=\tfrac12\Delta r,
+\]
+so \(B_0^{\rm prod}=I_0^{\rm prod}/r_0=s(r_0)\). In the continuous-origin oracle, the matter-gradient coefficient satisfies \(q(r)=O(r^4)\) and the source has the even expansion
+\[
+s(r)=1+c_2r^2+O(r^4),\qquad
+B(r)=\frac1r\int_0^r s(u)\,du
+=1+\frac{c_2}{3}r^2+O(r^4).
+\]
+The archive-normalized homogeneous terms cancel at \(r^2\) because \(3K_t^2=8\pi(\rho_\phi+\rho_{\rm matter})\). Since the initialized local scalar has \(S(0)=S_0=0.01\), \(P_S=0\), and \(S'(r)=O(r)\), the leading remaining coefficient is
+\[
+c_2=-4\pi S_0^2=-1.2566370614\times10^{-3}.
+\]
+Therefore the production first-cell rectangle rule yields \(B_0^{\rm prod}=1+c_2r_0^2+O(r_0^4)\), whereas the regular continuum series gives \(B_0^{\rm cont}=1+\tfrac13c_2r_0^2+O(r_0^4)\). The leading difference is
+\[
+B_0^{\rm prod}-B_0^{\rm cont}
+=\frac23c_2r_0^2+O(r_0^4).
+\]
+
+| N | \(r_0\) | leading \(B_0^{\rm prod}-B_0^{\rm cont}\) |
+|---:|---:|---:|
+| 60 | 0.6666667 | \(-3.72337\times10^{-4}\) |
+| 120 | 0.3333333 | \(-9.30842\times10^{-5}\) |
+| 240 | 0.1666667 | \(-2.32711\times10^{-5}\) |
+
+This leading discrepancy decreases by a factor of four under each grid doubling, but it is still an \(O(\Delta r^2)\) **metric-profile curvature error**. Because \(\Lambda_{\rm metric}\) uses radial derivatives of \(a,b\) and a \(2/r\) connection term, such a central metric-profile error can be amplified in \(C^r_\Lambda\), \(D_rC^r_\Lambda\), and \(D_r^2C^r_\Lambda\). That provides a concrete mechanism consistent with the observed baseline: initialization sets \(\Lambda\) from the same discrete metric-connection formula, so the initial \(C^r_\Lambda\) is paired by construction; the issue is the regularity of the metric profile that is then evolved, not an initial algebraic mismatch between the stored \(\Lambda\) and that same stencil.
+
+### Independent evolved regularity witness
+
+The already archived \(t=0.60\) states also permit a same-arm check of the expected central behavior \(A_a=O(r^2)\): compare \(A_a(r_0)/r_0^2\) with \(A_a(r_1)/r_1^2\), where \(r_1=3r_0\). Their difference is a local shape witness, not a comparison of unlike cell indices across resolutions.
+
+| Arm | N | \(A_a(r_0)/r_0^2\) | \(A_a(r_1)/r_1^2\) | Absolute gap |
+|---|---:|---:|---:|---:|
+| production baseline | 60 | \(+8.18173\times10^{-4}\) | \(-1.62105\times10^{-5}\) | \(8.34384\times10^{-4}\) |
+| production baseline | 120 | \(-7.05101\times10^{-4}\) | \(-3.43351\times10^{-5}\) | \(6.70766\times10^{-4}\) |
+| production baseline | 240 | \(+1.66161\times10^{-4}\) | \(+9.15379\times10^{-5}\) | \(7.46227\times10^{-5}\) |
+| joint integral + CMC-row arm | 60 | \(-7.23741\times10^{-5}\) | \(-1.57299\times10^{-6}\) | \(7.08011\times10^{-5}\) |
+| joint integral + CMC-row arm | 120 | \(+1.62028\times10^{-4}\) | \(+4.91956\times10^{-6}\) | \(1.57108\times10^{-4}\) |
+| joint integral + CMC-row arm | 240 | \(-5.48849\times10^{-4}\) | \(-6.82595\times10^{-5}\) | \(4.80590\times10^{-4}\) |
+| full continuous-profile arm | 60 | \(-8.21965\times10^{-6}\) | \(-8.47322\times10^{-6}\) | \(2.53564\times10^{-7}\) |
+| full continuous-profile arm | 120 | \(-9.88439\times10^{-6}\) | \(-9.81941\times10^{-6}\) | \(6.49810\times10^{-8}\) |
+| full continuous-profile arm | 240 | \(-1.00810\times10^{-5}\) | \(-1.00752\times10^{-5}\) | \(5.80029\times10^{-9}\) |
+
+This supports a careful, bounded conclusion: the half-cell quadrature has a leading-coefficient mismatch, and the baseline/joint arms fail the local \(A_a/r^2\) consistency witness while the full continuous metric-profile arm converges toward a finite central coefficient. It does **not** prove the half-cell error alone causes every accepted-state propagation residual; the joint arm retains errors because only the first half-cell and CMC row differ from baseline, whereas the full profile corrects the radial metric construction over the full domain.
+
+### Next bounded diagnostic gate
+
+Keep the production initializer unchanged. The next research-only check is to construct an explicit, archive-pinned regularity ledger for the baseline at initialization and at the saved accepted endpoint: \(B(r_0)\) versus the \(r^2\) Taylor prediction, \(A_a/r^2\) center/adjacent gap, and \(C^r_\Lambda,D_rC^r_\Lambda,D_r^2C^r_\Lambda\) in the same arm. Retain the full-continuous profile as a positive control and the half-cell-only/CMC-only arms as negative controls. No new evolution sweep is needed for the accepted endpoint; all current scientific-admission flags remain false.
