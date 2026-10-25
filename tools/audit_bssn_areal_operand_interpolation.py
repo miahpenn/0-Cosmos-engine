@@ -250,12 +250,21 @@ def one_arm(kernel, accepted, h: float) -> dict[str, Any]:
         for R in FIXED_RADII:
             if not lo <= R <= hi:
                 continue
-            idx = int(np.argmin(np.abs(radii - R)))
+            order = "linear" if label.endswith("linear") else "cubic"
+            source = "operand" if label.startswith("operand_") else "composite"
+            if source == "composite":
+                q0 = query_composite(start, R, order)
+                q1 = query_composite(end, R, order)
+            else:
+                q0 = query_operand(start_arrays, R, order)
+                q1 = query_operand(end_arrays, R, order)
+            exact_rate = -0.5 * R * (q1["chi"] - q0["chi"]) / h
+            exact_current = 0.5 * (q0["current"] + q1["current"])
             summary[label]["fixed_R"][str(R)] = {
-                "sample_radius": float(radii[idx]),
-                "mass_rate": float(values["mass_rate"][idx]),
-                "current_average": float(values["current_average"][idx]),
-                "residual": float(values["residual"][idx]),
+                "sample_radius": float(R),
+                "mass_rate": scalar_finite(f"{label}.fixed_R.{R}.mass_rate", exact_rate),
+                "current_average": scalar_finite(f"{label}.fixed_R.{R}.current_average", exact_current),
+                "residual": scalar_finite(f"{label}.fixed_R.{R}.residual", exact_rate - exact_current),
             }
 
     paired = {}
