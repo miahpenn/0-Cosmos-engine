@@ -365,7 +365,7 @@ Artifact `report.json / profiles.npz` SHA-256:
 
 ### Convention finding
 
-Brown Eq. (11b)'s (H) and (D_r H) slots use the **metric-only Hamiltonian constraint**. The repository already distinguishes this from the evolved BSSN Hamiltonian: `tools/audit_brown_vacuum_momentum_propagation.py` provides `metric_only_hamiltonian` and a Lambda-only discriminator. At fixed metric, that discriminator leaves (H_{\rm metric}) unchanged but confirms that the BSSN Hamiltonian responds as
+Brown Eq. (11b)'s \(H\) and \(D_r H\) slots use the **metric-only Hamiltonian constraint**. The repository already distinguishes this from the evolved BSSN Hamiltonian: `tools/audit_brown_vacuum_momentum_propagation.py` provides `metric_only_hamiltonian` and a Lambda-only discriminator. At fixed metric, that discriminator leaves \(H_{\rm metric}\) unchanged but confirms that the BSSN Hamiltonian responds as
 \[
 \delta H_{\rm BSSN}=X^2 D_r(\delta\Lambda).
 \]
@@ -374,13 +374,13 @@ The saved-state geometric Brown ledger currently obtains its (H) profile from `v
 
 ### Same-state H-slot counterfactual
 
-Using the stored accepted-state (a,b,X,A_a,K,\alpha) profiles and the repository's parity-aware fourth-order radial operators, I reassembled only
+Using the stored accepted-state \((a,b,X,A_a,K,\alpha)\) profiles and the repository's parity-aware fourth-order radial operators, I reassembled only
 \[
 T_{\alpha H}=-\frac{D_r\alpha}{3}H,
 \qquad
 T_{\nabla H}=\frac{\alpha}{6}D_rH
 \]
-with metric-only (H), retaining the other signed Brown and connection terms unchanged. The corrected residual is
+with metric-only \(H\), retaining the other signed Brown and connection terms unchanged. The corrected residual is
 \[
 R_{\mathrm{metricH}}=R_{\mathrm{saved}}
 +T_{\alpha H}^{\mathrm{saved}}+T_{\nabla H}^{\mathrm{saved}}
@@ -388,13 +388,13 @@ R_{\mathrm{metricH}}=R_{\mathrm{saved}}
 \]
 This is a narrow convention counterfactual on the saved arrays, not a replacement accepted-state oracle.
 
-| N | Full-profile residual at fixed (r=2), saved H slot | Same residual with metric-only H | Observed order for metric-H residual |
+| N | Full-profile residual at fixed \(r=2\), saved H slot | Same residual with metric-only H | Observed order for metric-H residual |
 |---:|---:|---:|---:|
-| 60 | (+8.9748281\times10^{-6}) | (+9.7763622\times10^{-6}) | — |
-| 120 | (+6.1215367\times10^{-7}) | (+6.3049133\times10^{-7}) | 3.955 |
-| 240 | (+4.0294555\times10^{-8}) | (+4.1874593\times10^{-8}) | 3.912 |
+| 60 | \(+8.9748281\times10^{-6}\) | \(+9.7763622\times10^{-6}\) | — |
+| 120 | \(+6.1215367\times10^{-7}\) | \(+6.3049133\times10^{-7}\) | 3.955 |
+| 240 | \(+4.0294555\times10^{-8}\) | \(+4.1874593\times10^{-8}\) | 3.912 |
 
-The fixed-radius absolute remainder retains approximately fourth-order decrease after this slot correction, so the H-slot mismatch does **not** explain the full-profile annular remainder. It does materially change some baseline/partial-arm centre terms: at N=240 the production-baseline cell-0 residual changes from (+3.2485246\times10^{-2}) to (+3.3113882\times10^{-2}), and cell 1 from (-4.0490374\times10^{-3}) to (-4.2418994\times10^{-3}). The origin discrepancy plainly remains; no single connection term is identified as defective.
+The fixed-radius absolute remainder retains approximately fourth-order decrease after this slot correction, so the H-slot mismatch does **not** explain the full-profile annular remainder. It does materially change some baseline/partial-arm centre terms: at N=240 the production-baseline cell-0 residual changes from \(+3.2485246\times10^{-2}\) to \(+3.3113882\times10^{-2}\), and cell 1 from \(-4.0490374\times10^{-3}\) to \(-4.2418994\times10^{-3}\). The origin discrepancy plainly remains; no single connection term is identified as defective.
 
 ### Decision and next bounded action
 
