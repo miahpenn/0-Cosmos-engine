@@ -169,6 +169,8 @@ def analyze() -> dict:
     # The pure RHS is captured before advancing time. One kernel step is then
     # used only as a replay discriminator; there is no chained or full evolution.
     state_digest_before_step = shadow_one_step.state_digest(state)
+    if input_digest != state_digest_before_step:
+        raise RuntimeError("initial RHS capture mutated the candidate input state")
     accepted = kernel.step(state, dt)
     state_digest_after_step = shadow_one_step.state_digest(state)
     if state_digest_after_step != state_digest_before_step:
