@@ -72,3 +72,35 @@ It does **not** prove the complete matter-coupled momentum-constraint propagatio
 ## Disposition
 
 Keep the full continuous radial metric profile as a useful geometric shadow and the partial correction as a negative control. The next physics gate remains the independent, convention-pinned full matter-coupled propagation and sector conservation identity—not a production edit to the already stage-consistent \(\Lambda_{L3}\) source.
+
+
+## 5. Component attribution of the central connection-constraint rate
+
+The v2 rerun explicitly records the start and final-primary Lambda-L2 arrays, plus the start/primary Lambda-L3 vacuum and matter components. This removes the need to infer the final-primary Lambda-L2 term by rearranging the total rate. The decomposition is
+\[
+\dot C_\Lambda =
+\underbrace{\tfrac12(L2_{\rm start}+L2_{\rm final})}_{\text{averaged }L2}
++\underbrace{\tfrac12(L3_{{\rm vac,start}}+L3_{{\rm vac,primary}})}_{\text{vacuum }L3}
++\underbrace{\tfrac12(L3_{{\rm matter,start}}+L3_{{\rm matter,primary}})}_{\text{matter }L3}
+-\dot\Lambda_{\rm metric}.
+\]
+
+The four components close to the directly measured \(\dot C_\Lambda\) within \(2.16\times10^{-17}\) absolute on \(r\le10\). At cell 0:
+
+| N | Arm | averaged \(L2\) | vacuum \(L3\) | matter \(L3\) | \(-\dot\Lambda_{\rm metric}\) | resulting \(\dot C_\Lambda\) |
+|---:|---|---:|---:|---:|---:|---:|
+| 60 | baseline | \(-3.701e-4\) | \(+1.322e-6\) | \(+6.703e-5\) | \(+2.786e-3\) | \(+2.484e-3\) |
+| 60 | partial joint | \(+1.542e-6\) | \(-6.210e-8\) | \(+6.676e-5\) | \(-2.440e-4\) | \(-1.758e-4\) |
+| 60 | full profile | \(+1.501e-6\) | \(-6.915e-9\) | \(+6.677e-5\) | \(-5.787e-5\) | \(+1.039e-5\) |
+| 120 | baseline | \(-7.578e-4\) | \(-1.282e-7\) | \(+3.392e-5\) | \(-1.528e-3\) | \(-2.252e-3\) |
+| 120 | partial joint | \(+1.633e-7\) | \(+1.989e-8\) | \(+3.378e-5\) | \(+3.312e-4\) | \(+3.652e-4\) |
+| 120 | full profile | \(+1.977e-7\) | \(-1.055e-9\) | \(+3.378e-5\) | \(-3.339e-5\) | \(+5.862e-7\) |
+| 240 | baseline | \(-1.526e-3\) | \(-2.203e-9\) | \(+1.698e-5\) | \(+3.776e-4\) | \(-1.131e-3\) |
+| 240 | partial joint | \(+2.146e-8\) | \(-8.405e-9\) | \(+1.691e-5\) | \(-5.936e-4\) | \(-5.767e-4\) |
+| 240 | full profile | \(+2.064e-8\) | \(-1.346e-10\) | \(+1.691e-5\) | \(-1.692e-5\) | \(+1.492e-8\) |
+
+**Attribution:** the matter-\(L3\) source is nearly unchanged between partial and full-profile arms at each resolution. The decisive changed term is \(-\dot\Lambda_{\rm metric}\): in the full-profile arm it nearly cancels the matter-\(L3\) contribution, with the small averaged-\(L2\) and vacuum-\(L3\) terms left over as the residual. In the partial arm the metric-identity rate has the wrong magnitude (and at N=120 the opposite sign), so it overwhelms the same source and leaves a large \(\dot C_\Lambda\).
+
+This is strong evidence that the full-profile metric shadow repairs the **kinematic Lambda/metric-identity pairing** at the origin in the one-step probe; it is not evidence that the physical source/exchange law is fully derived or the momentum constraint propagates. The baseline also shows a large independent averaged-\(L2\) contribution, so all four terms must remain in the ledger.
+
+The exact-head v2 run is [40158404689](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/40158404689); all three resolution jobs passed. Updated artifact hashes and component arrays are recorded in the machine-readable summary. Guardrails remain unchanged.
