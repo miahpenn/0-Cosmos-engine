@@ -703,6 +703,20 @@ def _constraint_propagation_candidate(
             "H_total_BSSN_minus_metric_only": witness(H_total_slot_delta, r),
             "not_an_admission_oracle": True,
         },
+        "reference_connection_convention": {
+            "source": "Brown arXiv:0705.3845 Eq. (10c) and Eq. (11b)",
+            "definition": "C^r_Lambda = Lambda^r - [D_r a/(2*a^2) - D_r b/(a*b) + 2/r*(1/b - 1/a)]",
+            "second_derivative_term": "(2/3)*alpha*X^2*D_r^2(C^r_Lambda)",
+            "first_derivative_term": "[(2/3)*D_r(alpha)*X^2 - (1/3)*alpha*D_r(X^2) + alpha*X^2*(D_r(b)/b + 2/r)]*D_r(C^r_Lambda)",
+            "connection_metric_contracted": witness(geom.Lambda - C_up, r),
+            "C_lambda_constraint_up": witness(C_up, r),
+            "C_lambda_constraint_up_r": witness(C_r, r),
+            "C_lambda_constraint_up_rr": witness(C_rr, r),
+            "angular_log_derivative": witness(conformal_angular_log_derivative, r),
+            "first_derivative_coefficient": witness(c_first_coeff_up, r),
+            "uses_pinned_vendor_parity_aware_stencil": True,
+            "not_an_origin_admission_oracle": True,
+        },
         "exact_discrete_chain_rule": {
             "identity": (
                 "M_geom = D_r Aa - (2/3)D_r K + 6 Aa chi_r "
@@ -846,6 +860,12 @@ def _constraint_propagation_candidate(
         "propagation_exact_chain_rule_residual": Mgeom_chain_residual,
         "propagation_measured_Mtotal_reconstructed_parts": Mtotal_reconstructed_from_parts,
         "propagation_Mtotal_decomposition_residual": Mtotal_decomposition_residual,
+        "propagation_C_lambda_constraint_up": C_up,
+        "propagation_C_lambda_constraint_up_r": C_r,
+        "propagation_C_lambda_constraint_up_rr": C_rr,
+        "propagation_connection_metric_contracted": geom.Lambda - C_up,
+        "propagation_connection_angular_log_derivative": conformal_angular_log_derivative,
+        "propagation_connection_first_coefficient": c_first_coeff_up,
         "propagation_H_geom_BSSN_Lambda_dependent": H_geom_bssn,
         "propagation_H_geom_metric_only": H_geom,
         "propagation_H_total_BSSN_representation": H_total_bssn,
