@@ -332,11 +332,11 @@ Each row must end with a derivation citation or an explicit unresolved statement
 
 | ID | Obligation | Required proof artifact | Current status |
 |---|---|---|---|
-| D1 | Exact accepted definitions and index/density convention for M_r, H, Q_r, alpha, shift, K and time derivative | Equation-to-code crosswalk with each raising/lowering and density factor explicit | Partially source-mapped; exact residual/RHS alignment open |
+| D1 | Exact accepted definitions and index/density convention for M_r, H, Q_r, alpha, shift, K and time derivative | Equation-to-code crosswalk with each raising/lowering and density factor explicit | Accepted discrete tangent assembled; continuum operator/source translation open |
 | D2 | Translate Brown's vacuum structural equation to the accepted coordinate-time / shift / Lie split | Signed term-by-term derivation; identify which terms are already included in the measured tangent | Brown terms source-resolved; accepted time-split translation open |
 | D3 | Derive matter-coupled Hamiltonian-gradient contribution | Derive from selected Einstein/Bianchi conventions and exact accepted H definition; do not infer from residual fitting | Brown H slots and total-H substitution mapped; accepted BSSN gradient/time split open |
 | D4 | Derive source coefficient/sign and map to accepted current tangent | Source law with index, lapse, density weight, unit normalization, and exchange sign explicit | Continuum Bianchi coefficient derived; discrete source/operator mapping open |
-| D5 | Derive reference-metric connection response in the full matter-coupled propagation relation | Coefficient/sign of each C^r derivative term, stencils/parity, and a check against double-counting Lambda-dependent H terms | Brown C^r terms mapped; full accepted response open |
+| D5 | Derive reference-metric connection response in the full matter-coupled propagation relation | Coefficient/sign of each C^r derivative term, stencils/parity, and a check against double-counting Lambda-dependent H terms | Accepted same-state Lambda-offset contribution derived; Brown/H/off-constraint reconciliation open |
 | D6 | Relate pointwise, FV, and expanded stress divergences | Coordinate/measure transformation, boundary/origin treatment, and equivalence proof or explicit non-equivalence | Open |
 | D7 | Close total six-sector stress-energy/exchange accounting | Sector equations and normalized total ledger, including COSMOS-phi normalization premise | Continuum DM/phi pair mapped; six-sector discrete closure open |
 
@@ -397,11 +397,11 @@ The archive-locked DM–COSMOS-phi exchange pair and the stored-variable unit ma
   "new_evolution_performed": false,
   "production_changes": false,
   "derivation_obligations": {
-    "accepted_variable_index_density_map": "open",
+    "accepted_variable_index_density_map": "source_level_discrete_tangent_derived_continuum_translation_open",
     "time_split_translation": "open",
-    "hamiltonian_gradient_derivation": "open",
-    "matter_source_sign_normalization": "open",
-    "reference_metric_connection_response": "open",
+    "hamiltonian_gradient_derivation": "brown_candidate_normalization_mapped_accepted_BSSN_translation_open",
+    "matter_source_sign_normalization": "continuum_Bianchi_coefficient_derived_discrete_measure_mapping_open",
+    "reference_metric_connection_response": "same_state_Lambda_offset_derived_Brown_H_reconciliation_open",
     "pointwise_fv_expanded_equivalence": "open",
     "six_sector_total_stress_energy_conservation": "open"
   },
