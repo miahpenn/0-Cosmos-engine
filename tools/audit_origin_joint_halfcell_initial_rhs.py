@@ -311,6 +311,119 @@ def analyze() -> dict:
         "scientific_admission": False,
     }
 
+    # Matter control: use the exact same partial half-cell metric construction,
+    # but restore the source-pinned initializer's conserved matter arrays before
+    # the copied regular CMC solve. This isolates the effect of matter reprojection.
+    fixed_kernel = V55ProductionKernel()
+    fixed_state = fixed_kernel.initialize(
+        resolution=RESOLUTION,
+        r_max=R_MAX,
+        amplitude=AMPLITUDE,
+        width=WIDTH,
+        D_amplitude=D_AMPLITUDE,
+        include_radiation=INCLUDE_RADIATION,
+    )
+    baseline_matter = fixed_state.matter
+    fixed_candidate_info = evolved._candidate_half_cell_initializer(fixed_state)
+    fixed_state.matter = baseline_matter
+    evolved._install_regular_row(fixed_kernel)
+    fixed_state.geometry.alpha = evolved.regular_origin_cmc_lapse(
+        fixed_state.grid, fixed_state.geometry,
+        fixed_state.scalars, fixed_state.matter
+    )[0].copy()
+    fixed_input_digest = shadow_one_step.state_digest(fixed_state)
+    fixed_grid = fixed_state.grid
+    fixed_r = np.asarray(fixed_grid.centers, dtype=np.float64)
+    fixed_r0 = 0.5 * float(fixed_grid.dr)
+    fixed_stage = fixed_state.geometry.copy()
+    fixed_alpha, fixed_target = fixed_kernel._solve_lapse_for_state(
+        fixed_grid, fixed_stage, fixed_state.scalars, fixed_state.matter,
+        fixed_state.electromagnetic,
+    )
+    fixed_stage.alpha = np.asarray(fixed_alpha, dtype=np.float64).copy()
+    fixed_stage.beta.fill(0.0)
+    fixed_stage.B.fill(0.0)
+    fixed_terms = fixed_kernel._geometry_stage_terms(
+        fixed_grid, fixed_stage, fixed_state.scalars, fixed_state.matter,
+        fixed_state.electromagnetic,
+    )
+    fixed_l2_aa = np.asarray(fixed_terms["primary_l2"]["Aa"], dtype=np.float64)
+    fixed_l3_aa = np.asarray(fixed_terms["primary_l3"]["Aa"], dtype=np.float64)
+    fixed_total_rhs = fixed_l2_aa + fixed_l3_aa
+    _, fixed_vacuum, _ = adapter.vendor_modules()
+    fixed_geom_terms = fixed_vacuum.geometry_terms(fixed_grid, fixed_stage)
+    fixed_lapse_hessian = -(
+        np.asarray(fixed_geom_terms["DrDr_alpha"], dtype=np.float64)
+        - np.asarray(fixed_geom_terms["lap_alpha"], dtype=np.float64) / 3.0
+    )
+    fixed_tf_ricci = np.asarray(fixed_stage.alpha, dtype=np.float64) * (
+        np.asarray(fixed_geom_terms["Rr_r"], dtype=np.float64)
+        - np.asarray(fixed_geom_terms["R"], dtype=np.float64) / 3.0
+    )
+    fixed_l2_closure = float(np.max(np.abs(
+        fixed_l2_aa - fixed_lapse_hessian - fixed_tf_ricci
+    )))
+    if fixed_l2_closure > 2.0e-12:
+        raise RuntimeError(
+            f"partial half-cell fixed-matter Aa L2 split did not close: {fixed_l2_closure:.17e}"
+        )
+    if shadow_one_step.state_digest(fixed_state) != fixed_input_digest:
+        raise RuntimeError("fixed-matter initial RHS capture mutated its input state")
+    fixed_accepted = fixed_kernel.step(fixed_state, CFL * R_MAX / RESOLUTION)
+    if shadow_one_step.state_digest(fixed_state) != fixed_input_digest:
+        raise RuntimeError("fixed-matter step mutated its supplied input state")
+    fixed_accepted_aa = np.asarray(fixed_accepted.geometry.Aa, dtype=np.float64)
+    fixed_rhs_cells = []
+    for i in range(min(3, len(fixed_r))):
+        fixed_rhs_cells.append({
+            "cell": i,
+            "r": float(fixed_r[i]),
+            "initial_Aa": float(fixed_state.geometry.Aa[i]),
+            "lapse_hessian_TF_L2": float(fixed_lapse_hessian[i]),
+            "tracefree_Ricci_L2": float(fixed_tf_ricci[i]),
+            "primary_L2_Aa": float(fixed_l2_aa[i]),
+            "primary_L3_Aa_total": float(fixed_l3_aa[i]),
+            "combined_initial_Aa_RHS_L2_plus_L3": float(fixed_total_rhs[i]),
+            "combined_RHS_over_r_squared": float(
+                fixed_total_rhs[i] / (fixed_r[i] * fixed_r[i])
+            ),
+            "combined_RHS_over_r0_squared": float(
+                fixed_total_rhs[i] / (fixed_r0 * fixed_r0)
+            ),
+            "accepted_one_step_Aa": float(fixed_accepted_aa[i]),
+            "accepted_one_step_Aa_over_r0_squared": float(
+                fixed_accepted_aa[i] / (fixed_r0 * fixed_r0)
+            ),
+        })
+    fixed_metrics, fixed_profiles = evolved._metrics_at_state(fixed_state)
+    partial_fixed_matter_comparison = {
+        "method": (
+            "Same partial [0,r0] integral-only metric and same copied regular CMC row "
+            "as the PR #416 joint arm, but restore the original initializer's conserved "
+            "matter arrays before evaluating the stage RHS. The full continuous metric "
+            "profile is not used in this arm."
+        ),
+        "candidate_initializer_diagnostics": fixed_candidate_info,
+        "initial_rhs_cells_0_to_2": fixed_rhs_cells,
+        "rhs_split_closure_max_abs": fixed_l2_closure,
+        "initial_constraint_metrics": fixed_metrics,
+        "initial_constraint_cells_0_to_2": {
+            key: [float(x) for x in np.asarray(value, dtype=np.float64)[:3]]
+            for key, value in fixed_profiles.items()
+            if key in ("H", "M", "C_lambda", "Aa")
+        },
+        "one_step_state": {
+            "time": float(fixed_accepted.t),
+            "Aa_cells_0_to_2": [float(x) for x in fixed_accepted_aa[:3]],
+            "Aa_over_r0_squared_cell0": float(
+                fixed_accepted_aa[0] / (fixed_r0 * fixed_r0)
+            ),
+        },
+        "input_state_unchanged": shadow_one_step.state_digest(fixed_state) == fixed_input_digest,
+        "production_or_vendor_files_modified": False,
+        "scientific_admission": False,
+    }
+
     metrics, profiles = evolved._metrics_at_state(state)
     report = {
         "schema": "origin-joint-halfcell-initial-rhs/v1",
@@ -350,6 +463,7 @@ def analyze() -> dict:
         "initial_rhs_cells_0_to_2": rhs_cells,
         "rhs_split_closure_max_abs": split_closure,
         "full_continuous_metric_comparator": full_metric_comparison,
+        "partial_metric_fixed_matter_comparator": partial_fixed_matter_comparison,
         "cmc_target_kdot_at_initial_refresh": float(target_kdot),
         "input_state_sha256_before_step": input_digest,
         "input_state_sha256_after_step": state_digest_after_step,
@@ -413,6 +527,9 @@ def main() -> int:
         "full_metric_cell0_rhs": report["full_continuous_metric_comparator"]["initial_rhs_cells_0_to_2"][0]["combined_initial_Aa_RHS_L2_plus_L3"],
         "full_metric_cell0_rhs_over_r0_squared": report["full_continuous_metric_comparator"]["initial_rhs_cells_0_to_2"][0]["combined_RHS_over_r0_squared"],
         "full_metric_cell0_accepted_Aa_over_r0_squared": report["full_continuous_metric_comparator"]["one_step_state"]["Aa_over_r0_squared_cell0"],
+        "partial_fixed_matter_cell0_rhs": report["partial_metric_fixed_matter_comparator"]["initial_rhs_cells_0_to_2"][0]["combined_initial_Aa_RHS_L2_plus_L3"],
+        "partial_fixed_matter_cell0_rhs_over_r0_squared": report["partial_metric_fixed_matter_comparator"]["initial_rhs_cells_0_to_2"][0]["combined_RHS_over_r0_squared"],
+        "partial_fixed_matter_cell0_accepted_Aa_over_r0_squared": report["partial_metric_fixed_matter_comparator"]["one_step_state"]["Aa_over_r0_squared_cell0"],
         "scientific_admission": False,
         "report_sha256": _sha256(report_path),
         "out": str(OUT),
