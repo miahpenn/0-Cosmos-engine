@@ -143,7 +143,10 @@
     },
     "independent_face_flux_reconstructed": true,
     "face_shell_balance_matches_cell_centered_balance": false,
-    "face_reconstruction_error_decreases_with_refinement": true
+    "face_reconstruction_error_decreases_with_refinement": true,
+    "face_derivative_crosswalk_complete": true,
+    "face_geometry_is_dominant_shell_residual_source": false,
+    "temporal_fixed_R_balance_is_next_diagnostic": true
   },
   "corrected_method": {
     "fixed_R_rate": "m_dot|R = -0.5*R*Delta(chi)|R/dt after interpolating chi to common areal radii",
@@ -458,5 +461,40 @@
         "face_minus_cell_residual": 0.000007401
       }
     ]
+  },
+  "derivative_current_crosswalk_run": {
+    "id": 40161486243,
+    "url": "https://github.com/miahpenn/0-Cosmos-engine/actions/runs/40161486243",
+    "all_jobs_success": true,
+    "method": "compare metric-derived face Rr/Rt and primitive current with cell-derivative-derived face Rr/Rt, cell-chi, and combined cell-current reconstructions"
+  },
+  "face_derivative_crosswalk": {
+    "N60": {
+      "max_abs_Rr_gap_r_le10": 6.060229922333349e-7,
+      "max_abs_Rt_gap_r_le10": 7.031754657715883e-9,
+      "max_abs_face_shell_residual": 0.000029229777653147363,
+      "max_abs_cell_derivative_face_shell_residual": 0.00002879479771688946,
+      "max_abs_metric_chi_cell_flux_residual": 0.000029294942313342503,
+      "max_abs_cell_chi_primitive_flux_residual": 0.000028966255063286742,
+      "max_abs_cell_chi_cell_flux_residual": 0.000029031419723481882
+    },
+    "N120": {
+      "max_abs_Rr_gap_r_le10": 4.598237568487207e-8,
+      "max_abs_Rt_gap_r_le10": 4.915478683809038e-10,
+      "max_abs_face_shell_residual": 0.00001060697156952042,
+      "max_abs_cell_derivative_face_shell_residual": 0.000010103650204143668,
+      "max_abs_metric_chi_cell_flux_residual": 0.000010610258005150998,
+      "max_abs_cell_chi_primitive_flux_residual": 0.000010102354010670746,
+      "max_abs_cell_chi_cell_flux_residual": 0.000010105640446301324
+    },
+    "N240": {
+      "max_abs_Rr_gap_r_le10": 3.1947628986728205e-9,
+      "max_abs_Rt_gap_r_le10": 3.149673577507173e-11,
+      "max_abs_face_shell_residual": 0.000005621587887421936,
+      "max_abs_cell_derivative_face_shell_residual": 0.000005592121078470502,
+      "max_abs_metric_chi_cell_flux_residual": 0.000005621267587192129,
+      "max_abs_cell_chi_primitive_flux_residual": 0.000005591359600881402,
+      "max_abs_cell_chi_cell_flux_residual": 0.000005591039300651595
+    }
   }
 }
