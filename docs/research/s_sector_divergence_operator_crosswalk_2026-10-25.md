@@ -103,7 +103,32 @@ Fixed-coordinate samples make the distinction especially clear:
 
 The ratios are not a constant factor across the annulus or resolutions. At fixed `r=2`, both pointwise and FV `Q_r^S` decrease by about fourth order under refinement, consistent with the previously recorded stress-divergence crosswalk. The evidence points away from a simple `4*pi/8*pi`-type normalization error. It does **not** authorize choosing FV over pointwise solely because the FV residual is smaller.
 
-## 5. Disposition and next discriminating check
+## 5. Why sector-summed divergence differs from the expanded total candidate
+
+A follow-up source trace resolves the apparent S-sector/total mismatch. Two separate diagnostic observers are using continuum-equivalent, but discretely different, realizations of the same covariant radial divergence:
+
+- The sector-resolved observer in [audit_total_stress_energy_divergence.py](https://github.com/miahpenn/0-Cosmos-engine/blob/diag/full-profile-propagation-candidate-ci-2026-10-24/tools/audit_total_stress_energy_divergence.py) takes the radial-flux derivative as the cell-centred derivative of the *combined* flux, (D_1(\alpha\sqrt{\gamma}\,p_r)/(\alpha\sqrt{\gamma})), then adds the metric-source terms. Each sector uses the same operation.
+- The expanded candidate in [audit_hybrid_origin_integral_patch_newton.py](https://github.com/miahpenn/0-Cosmos-engine/blob/diag/full-profile-propagation-candidate-ci-2026-10-24/tools/audit_hybrid_origin_integral_patch_newton.py) evaluates the continuum-expanded expression, (D_1(p_r)+(D_1\alpha/\alpha)(\rho+p_r)+2(D_1R/R)(p_r-p_t)), alongside the temporal tangent and metric-time terms.
+
+In the continuum these forms are equivalent. On the frozen grid, (D_1) does not obey an exact product rule, so the combined-flux total and expanded total candidate need not match pointwise. This is not an S-only sector-additivity defect: summing the sector-resolved combined-flux divergences reproduces the combined-flux total to roundoff-scale maximum differences (about (1.4\times10^{-17}), (3.8\times10^{-17}), (3.0\times10^{-17}) for N=60/120/240). The signed sector source-composite/residual decomposition is additive to below (8.0\times10^{-16}) in the same runs. The report's strict raw-sum boolean remains false, so these roundoff-scale comparisons are evidence about the observed arrays—not an admission-gate pass.
+
+For the full-continuous-profile arm at the same accepted (t=0.60) states (directional tangent epsilon (2\times10^{-5})), the combined-flux total minus expanded total candidate is:
+
+| Witness | N=60 | N=120 | N=240 |
+|---|---:|---:|---:|
+| max absolute gap, (r\le3) | (7.95344\times10^{-7}) | (1.12971\times10^{-7}) | (1.45822\times10^{-8}) |
+| RMS gap, (2\le r\le10) | (7.89360\times10^{-8}) | (3.10751\times10^{-9}) | (2.03876\times10^{-10}) |
+| full-domain RMS gap | (1.05669\times10^{-7}) | (1.09514\times10^{-8}) | (1.02051\times10^{-9}) |
+| signed gap at fixed r=2 | (+1.87233\times10^{-7}) | (+1.34634\times10^{-8}) | (+8.33415\times10^{-10}) |
+| signed gap at fixed r=5 | (-9.26693\times10^{-9}) | (-8.87058\times10^{-10}) | (-5.66681\times10^{-11}) |
+| signed gap at fixed r=8 | (-5.90229\times10^{-9}) | (-3.49240\times10^{-10}) | (-2.13651\times10^{-11}) |
+| algebraic gap-decomposition closure max abs | (2.33\times10^{-21}) | (2.13\times10^{-20}) | (2.41\times10^{-20}) |
+
+The recorded decomposition assigns essentially all of the difference to the radial-flux product-rule gap; time-product and lapse/metric-chain gaps are much smaller. At fixed radii (r=2,5,8), the absolute gap decreases at approximately fourth order. Do not infer a fixed-radius order from cell 0: its coordinate radius changes with resolution.
+
+This explains why a sector-summed (Q_r) of order (10^{-7}) on the coarse central cell can coexist with a much smaller expanded total (Q_r): they are not the same finite-difference operator. It does **not** decide which continuum-equivalent stress-divergence discretization is the accepted conservation diagnostic. The accepted S-sector update is still the expanded cell-centred D1/D2 RHS documented above; the combined-flux observer remains a separate conservation diagnostic. The full matter-coupled propagation and physical sector-conservation gates remain open.
+
+## 6. Disposition and next discriminating check
 
 1. The origin-volume suspicion is resolved: the observer reconstructs regular (r^2g(r^2)) face profiles and Simpson-integrates the α-weighted spacetime measure; it does not use an arithmetic face-weight average or centre value times Δr.
 2. The pinned S-sector RHS spatial terms reconstruct exactly from the existing current-tangent ledger. That isolated term is not the full `Q_r^S`, which also contains time-density, radial pressure-flux, and metric-source contributions.
