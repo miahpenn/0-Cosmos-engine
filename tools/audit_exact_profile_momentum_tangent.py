@@ -152,7 +152,7 @@ def _run(input_dir: Path, resolution: int, output_dir: Path) -> dict:
     r = _arr(state.grid.centers)
     input_state_digest = stage_source._state_digest(state)
     input_tangent_digest = tangent.state_digest(state)
-    _, source_pin = adapter_vendors = (None, None)
+    input_total_t_digest = total_t.state_digest(state)
     # Ask both helpers to verify their own reviewed implementation contracts.
     source_pins = source_bundle["source_pin_check"]
     total_t_pins = total_t.verify_provenance()
@@ -313,7 +313,7 @@ def _run(input_dir: Path, resolution: int, output_dir: Path) -> dict:
     after_total_t_digest = total_t.state_digest(state)
     if after_source_digest != input_state_digest or after_tangent_digest != input_tangent_digest:
         raise RuntimeError("input accepted profile state mutated during tangent observation")
-    if after_total_t_digest != total_t.state_digest(state):
+    if after_total_t_digest != input_total_t_digest:
         raise RuntimeError("total-T helper observed state mutation")
 
     output_dir.mkdir(parents=True, exist_ok=True)
