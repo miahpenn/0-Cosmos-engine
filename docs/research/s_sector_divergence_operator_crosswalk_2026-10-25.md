@@ -282,6 +282,6 @@ The input artifact SHA manifests were verified in each run. Frozen production so
 
 ### Disposition / next discriminating check
 
-The next pass should decompose the **accepted-base geometric** residual using the Brown terms in one fixed covariant convention and compare each signed contribution to the measured geometric \\(\\dot M_r^{geom}\\) tangent: \\(\\alpha K M_r\\), \\(-D_r\\alpha H/3\\), \\(\\alpha D_r H/6\\), the two reference-connection terms, and the exact discrete chain-rule pieces. Keep the actual matter-source composite separate from that geometric budget. The same-base lapse endpoint test is complete; do not rerun it or tune a lapse parameter.
+The next pass should decompose the **accepted-base geometric** residual using the Brown terms in one fixed covariant convention and compare each signed contribution to the measured geometric \(\dot M_r^{geom}\) tangent: \(\alpha K M_r\), \(-D_r\alpha H/3\), \(\alpha D_r H/6\), the two reference-connection terms, and the exact discrete chain-rule pieces. Keep the actual matter-source composite separate from that geometric budget. The same-base lapse endpoint test is complete; do not rerun it or tune a lapse parameter.
 
 **Disposition:** diagnostic only; no evolution rerun; production equations, vendor sources, and dependencies unchanged; `scientific_admission=false`.
