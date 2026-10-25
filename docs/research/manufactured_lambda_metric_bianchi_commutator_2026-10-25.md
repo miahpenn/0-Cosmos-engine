@@ -59,7 +59,19 @@ Observed order of the signed-sum RMS is 4.24 from \(N=60\to120\), then 3.97 from
 
 The shorter-scale profile is less asymptotic on the coarse grid, but the fine-grid order remains close to four. Changing amplitude substantially changes the coefficient without changing the observed order. Shortening the length scale also changes the relative channel strengths, but the radial-connection term remains the largest single channel in the tested annulus.
 
-Identity closure was at most \(4.4\times10^{-17}\) in these local runs, well below the accounting guard. Fixed-\(R\) signed samples at \(R=2,3,5,8\) are included in the machine-readable output to make the sign and cancellation structure inspectable rather than reporting RMS alone.
+Identity closure was at most \\(4.4\\times10^{-17}\\) in the verified CI artifact, well below the accounting guard. Fixed-R signed samples at R=0.75, 1.0, 1.25, 1.5, 1.75, 2, 3, 5, and 8 are included in the machine-readable output so the center-to-annulus transition and cancellation signs are visible rather than reporting RMS alone.
+
+## Center and inner-shell readout
+
+The same control now reports the first three native-cell commutator values and region RMS separately for R<1, 1<=R<2, and the annulus 2<=R<10. These are diagnostics of the commutator Delta B_h, not the full target-state propagation residual.
+
+| Profile control | Apparent R<1 RMS order, 60->120 / 120->240 | 1<=R<2 RMS order, 120->240 | Fixed R=0.75 order, 60->120 / 120->240 | Annular signed-sum order, 60->120 / 120->240 |
+|---|---:|---:|---:|---:|
+| Reference (A=0.1, L=7) | 2.90 / 3.66 | 4.19 | 3.60 / 4.29 | 4.24 / 3.97 |
+| Half amplitude (A=0.05, L=7) | 2.95 / 3.67 | 4.15 | 3.63 / 4.28 | 4.16 / 4.01 |
+| Shorter scale (A=0.1, L=5) | 2.83 / 3.64 | 4.16 | 3.52 / 4.25 | 4.30 / 3.93 |
+
+At N=60, the 1<=R<2 region contains no cell centres for these profiles, so no order is inferred from that grid. The origin RMS also samples different numbers of cell centres as N changes (1, 1, and 3 across N=60,120,240); its reported orders are therefore **descriptive, not a formal convergence estimate**. At fixed R>=1, the signed samples generally return to approximately fourth-order refinement, while the R=0.75 coarse-to-middle interval is less asymptotic and its fine interval is closer to fourth order. This supports keeping origin native-cell, fixed-R inner-shell, and annular measurements separate rather than merging them into one error norm or order claim.
 
 ## Interpretation and limits
 
