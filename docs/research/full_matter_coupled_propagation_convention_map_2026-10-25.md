@@ -152,3 +152,34 @@ The same pair appears in the later explicit sign statement of `GEAR_V5_5_COVARIA
 For the DM–phi *sector exchange pair only*, the archive conversion gives a useful conditional unit map: with `kappa = 8*pi*G`, the Einstein-source stress tensors are `T_phys = T_archive/kappa`. In the stored-field convention used by the accepted update, this makes the DM radial exchange contribution `Q_r,DM_phys = +beta_DM*(rho_DM_archive/kappa)*D_r(phi_stored)` and the phi contribution its negative; equivalently, `kappa*Q_r,DM_phys = +beta_DM*rho_DM_archive*D_r(phi_stored)`. This follows the archive-normalized variables actually stored by the engine; it is not a claim that `Q_r` for the **total** stress tensor is nonzero. The total sector exchange cancels algebraically at the continuum-source level. Whether the scalar cell-centred RHS and fluid HLL/source update realize that cancellation in the exact accepted semi-discrete scheme remains a separate measured conservation question.
 
 **Normalization seam remains unresolved:** `rho_DM` supplied to the coupled RHS is the archive-normalized conservative density; the scalar and fluid Einstein stress projections apply the stored `1/(8*pi*G)` conversion on their stress arrays. A complete source map must derive the corresponding conversion and index/lapse factors between the archived exchange equation and the physical `Q_r` used in the matter-coupled constraint propagation identity. Do not infer the conversion by fitting the Brown residual. Until the exact archive-normalized coupling and accepted projection conventions are reconciled, keep `matter_source_sign_and_normalization_reviewed = false` and `scientific_admission = false`.
+
+
+## 13. Explicit matter-inclusive minus geometric Brown operator
+
+Use the accepted native constraint-source definitions at `G=1):
+
+```text
+H_total = H_geom - 16*pi*rho
+M_r_total = M_r_geom - 8*pi*j_r
+```
+
+For Brown Eq. (11b)'s operator
+
+```text
+B[M,H,C] = beta*partial_r(M) + (partial_r beta)*M + alpha*K*M
+             - (partial_r alpha)*H/3 + alpha*partial_r(H)/6
+             + C-constraint derivative terms
+```
+
+and the candidate-level identity `C_total = C_geom = Lambda - Lambda_metric` established above, the connection terms cancel in the difference. Direct substitution gives
+
+```text
+B_total - B_geom
+ = -8*pi*[ beta*partial_r(j_r) + (partial_r beta)*j_r + alpha*K*j_r ]
+   + (16*pi/3)*(partial_r alpha)*rho
+   - (8*pi/3)*alpha*partial_r(rho)
+```
+
+This is an **algebraic consequence of the stated H/M source definitions and Brown operator**, not an independently derived matter-propagation law. In #420's accepted-state artifacts, this difference numerically tracks `DeltaS = S_act - S_Q` at fixed physical radii; the gap decreases with refinement, and the complete `D_tot` absolute remainder is approximately fourth-order at the sampled fixed radii. Consequently, the large `DeltaS` should not be interpreted alone as a missing physical source: it is balanced by the matter terms induced by replacing geometric-only H/M with matter-inclusive constraints.
+
+**Still open:** derive from the covariant Bianchi identities and locked archive stress-energy whether `S_Q=-8*pi*alpha*Q_r` is the complete residual term in these exact lower-index, lapse, derivative, and time-split conventions; confirm the density/current arrays and `Q_r` use the same source normalization and operator; and independently close the six-sector conservation ledger. Do not promote the algebraic bridge closure as physical or scientific closure.
