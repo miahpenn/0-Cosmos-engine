@@ -22,6 +22,7 @@ from engine import production_kernel as pkmod
 from engine.production_kernel import V55ProductionKernel
 from tools import audit_full_profile_propagation_candidate as saved
 from tools import audit_origin_cell_joint_shadow_one_step as origin_shadow
+from tools import audit_total_stress_energy_divergence as stress_divergence
 
 SOURCE="4aec88d0e3ff028e0a65a8ac36b30948625df792"
 VENDOR="d6052d605673ce9d82cdc99b0df79855fa2ea215"
@@ -108,9 +109,31 @@ def geometry_rate_and_mass(kernel,s):
   "pressure_motion":finite("current RHS pressure-motion",FOUR_PI*R*R*TtR_pressure),
  }
  rhs=finite("Misner-Sharp current RHS",FOUR_PI*R*R*T_t_R)
+ # Independent face reconstruction: reconstruct primitive stress/metric-rate
+ # profiles separately before forming R, chi and the transformed current.
+ dr=float(grid.dr)
+ def face(values,power,name):
+  return finite(f"face reconstruction {name}",
+   stress_divergence.spherical_flux_face_values(finite(name,values),dr,origin_power=power))
+ af=face(a,0,"a");bf=face(b,0,"b");Xf=face(X,0,"X");alphaf=face(alpha,0,"alpha")
+ Rrf=face(Rr,0,"R_r");Rtf=face(Rt,1,"R_t")
+ Ef=face(E,0,"rho");jf=face(j,1,"j");prf=face(pr,0,"p_r")
+ r_faces=np.arange(grid.n+1,dtype=np.float64)*dr
+ Rf=finite("face areal radius",r_faces*np.sqrt(bf)/Xf)
+ if np.any(np.diff(Rf)<=0) or np.any(Rrf<=0):
+  raise RuntimeError("face areal-radius map is not strictly monotone/regular")
+ grrf=af/(Xf*Xf)
+ chi_f=finite("face invariant radial norm",(Xf*Xf/af)*Rrf*Rrf-(Rtf/alphaf)**2)
+ jup_f=jf/grrf
+ # Zero-shift tensor transform, assembled from independently reconstructed
+ # face fields (not by interpolating the already-combined cell-centred current).
+ TtR_f=finite("face transformed mixed current",
+  -Ef*Rtf-alphaf*jup_f*Rrf-(Rtf/Rrf)*(jf/alphaf*Rtf+prf*Rrf))
+ F_f=finite("face areal current",FOUR_PI*Rf*Rf*TtR_f)
  return {"state":q,"R":R,"Rt":Rt,"Rr":Rr,"chi":chi,"chi_spatial":chi_spatial,
          "chi_time":chi_time,"mass":mass,"T_t_R":T_t_R,"rhs":rhs,
-         "rhs_components":rhs_components,"max_abs_beta":float(np.max(np.abs(beta)))}
+         "rhs_components":rhs_components,"R_face":Rf,"chi_face":chi_f,
+         "T_t_R_face":TtR_f,"F_face":F_f,"max_abs_beta":float(np.max(np.abs(beta)))}
 
 def compare_step(kernel,base,dt):
  before=saved.tangent.state_digest(base)
@@ -194,6 +217,28 @@ def compare_step(kernel,base,dt):
    "relative_abs_residual":abs(shell_residual)/max(abs(net_current),1e-300),
    "telescoping_residual_closure":shell_residual-((fixed[str(rout)]["residual"])-(fixed[str(rin)]["residual"]))
   })
+ face_shell_balances=[]
+ face_bounds=tuple(r for r in (1.0,2.0,3.0,5.0,8.0,10.0)
+  if max(float(start["R_face"][0]),float(end["R_face"][0]))<=r<=min(float(start["R_face"][-1]),float(end["R_face"][-1])))
+ def face_endpoint(radius,profile):
+  chi_r=float(np.interp(radius,profile["R_face"],profile["chi_face"]))
+  return {"mass":0.5*radius*(1.0-chi_r),
+          "flux":float(np.interp(radius,profile["R_face"],profile["F_face"]))}
+ face_fixed={r:{"start":face_endpoint(r,start),"end":face_endpoint(r,end)} for r in face_bounds}
+ for rin,rout in zip(face_bounds[:-1],face_bounds[1:]):
+  sin,ein=face_fixed[rin]["start"],face_fixed[rin]["end"]
+  sout,eout=face_fixed[rout]["start"],face_fixed[rout]["end"]
+  shell_rate=((eout["mass"]-ein["mass"])-(sout["mass"]-sin["mass"]))/dt
+  net_flux=0.5*((sout["flux"]-sin["flux"])+(eout["flux"]-ein["flux"]))
+  shell_res=shell_rate-net_flux
+  face_shell_balances.append({"R_in":rin,"R_out":rout,"shell_mass_rate":shell_rate,
+   "net_face_current_midpoint":net_flux,"residual":shell_res,
+   "relative_abs_residual":abs(shell_res)/max(abs(net_flux),1e-300)})
+ cell_shell_by_bounds={(x["R_in"],x["R_out"]):x for x in shell_balances}
+ for item in face_shell_balances:
+  cell=cell_shell_by_bounds.get((item["R_in"],item["R_out"]))
+  if cell is not None:
+   item["face_minus_cell_residual"]=item["residual"]-cell["residual"]
  return {
   "dt":float(dt),"accepted_time":float(base.t),"probe_end_time":float(advanced.t),
   "steps_advanced_from_saved_input":1,"saved_input_immutable":True,
@@ -213,6 +258,9 @@ def compare_step(kernel,base,dt):
   "shell_balances":shell_balances,
   "max_abs_shell_balance_residual":float(max((abs(x["residual"]) for x in shell_balances),default=0.0)),
   "max_abs_shell_telescoping_closure":float(max((abs(x["telescoping_residual_closure"]) for x in shell_balances),default=0.0)),
+  "face_reconstructed_shell_balances":face_shell_balances,
+  "max_abs_face_shell_balance_residual":float(max((abs(x["residual"]) for x in face_shell_balances),default=0.0)),
+  "face_reconstruction_max_abs_difference_from_cell_shell_residual":float(max((abs(x["face_minus_cell_residual"]) for x in face_shell_balances if "face_minus_cell_residual" in x),default=0.0)),
   "start":{"R_cell0":float(start["R"][0]),"Rr_cell0":float(start["Rr"][0]),
            "Rt_cell0":float(start["Rt"][0]),"chi_cell0":float(start["chi"][0]),
            "mass_cell0":float(start["mass"][0]),"T_t_R_cell0":float(start["T_t_R"][0])},
