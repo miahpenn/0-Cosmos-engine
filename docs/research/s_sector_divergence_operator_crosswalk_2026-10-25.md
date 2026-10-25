@@ -182,11 +182,33 @@ For COSMOS-φ, the fixed-r=2 discrepancy drops by factors of about 13.7 then 16.
 
 The DM comparison is encouraging numerical consistency but is too narrow to close the gate: it is one fixed-radius diagnostic on accepted background states. The COSMOS-φ comparison is unresolved at these resolutions because the comparator signal is below the observed discrete remainder. This is consistent with the standing Issue #210 guardrail: no reciprocal source, factor, or density conversion should be selected from a numerically convenient match. The archive-backed exchange normalization and the complete total-sector conservation ledger remain open.
 
-## 8. Disposition and next discriminating check
+## 8. Per-sector expanded divergence resolves the apparent COSMOS-phi mismatch — 2026-10-25
+
+**Corrected exact-head workflow:** [40213110427](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/40213110427), all N=60/120/240 jobs passed. This follow-up builds the continuum-expanded radial-divergence expression for each stress sector from the same saved-state directional RHS endpoints, per-sector projected stress, and geometry-rate arrays. The archive-locked expected-source arrays are joined explicitly from the sector-source ledger; no missing comparator is replaced by zero.
+
+This **refines the interim interpretation in Section 7**. The combined-flux pointwise COSMOS-phi divergence is far from the small archived exchange signal, but the sector-expanded divergence matches that comparator closely. The difference is the discrete product-rule/operator-pairing gap, not evidence on these data of a missing physical source.
+
+At fixed coordinate radius r=2:
+
+| N | COSMOS-phi: pointwise minus expanded Qr | COSMOS-phi: expanded minus expected exchange | DM: expanded minus expected exchange | S: expanded minus zero-source comparator | Expanded-sector sum minus total expanded candidate, max abs |
+|---:|---:|---:|---:|---:|---:|
+| 60 | -2.42168e-10 | -6.07801e-16 | -8.90094e-15 | -8.40417e-9 | 6.14e-18 |
+| 120 | -1.76411e-11 | -6.80868e-17 | +1.15190e-17 | -5.54197e-10 | 2.16e-17 |
+| 240 | -1.08770e-12 | -4.72254e-17 | +6.77129e-17 | -3.60805e-11 | 1.66e-17 |
+
+The phi pointwise-minus-expanded gap decreases by factors of approximately 13.7 and 16.2 on successive resolution doublings (about fourth order). At N=240, the expanded phi residual is \(4.72\times10^{-17}\) versus an expected source of about \(-3.76\times10^{-14}\); the N=60/120/240 expanded residuals are about 1.6%, 0.18%, and 0.13% of the expected-source magnitude. The direct projected-current tangent also matches the constraint-derived sector tangent to max absolute \(3.23\times10^{-27}\), \(1.62\times10^{-27}\), and \(1.29\times10^{-26}\) for the phi sector across N=60/120/240.
+
+The DM expanded comparator residual is coarse-grid limited at N=60 but falls to about \(10^{-17}\) at N=120/240. The S-sector expanded residual against its zero-source comparator also decreases at about fourth order at fixed r=2. The sector-expanded sum matches the expanded total candidate to about \(10^{-17}\), while the pointwise sector sum separately matches the combined-flux total to \(1.39\times10^{-17}\), \(3.78\times10^{-17}\), and \(3.03\times10^{-17}\). Thus the two operators each preserve their own sector additivity; the discrepancy is between the operators.
+
+**Limit:** this is an implementation-level consistency check under the provisional archive-locked comparator and the current sector stress normalization. It is not an independent derivation of the historical source law, and it does not close full matter-coupled Brown propagation, total stress-energy conservation, or scientific admission. No evolution was rerun; no production or vendor code was changed.
+
+**Artifact provenance:** exact head 2b723e7aaf129f82ab9270fe28a2587c5f8860b0; artifact IDs N60 12606725843, N120 12606133211, N240 12606611057. All source/vendor guard checks passed.
+
+## 9. Disposition and next discriminating check
 
 1. The origin-volume suspicion is resolved: the observer reconstructs regular (r^2g(r^2)) face profiles and Simpson-integrates the α-weighted spacetime measure; it does not use an arithmetic face-weight average or centre value times Δr.
 2. The pinned S-sector RHS spatial terms reconstruct exactly from the existing current-tangent ledger. That isolated term is not the full `Q_r^S`, which also contains time-density, radial pressure-flux, and metric-source contributions.
 3. The saved-state RHS/current/measure pairing is now instrumented at N=60/120/240, including the exact RHS-rate reconstruction, the spatial-measure log rate, pointwise and FV pairing gaps, and the volume-weighted shell comparison. The current and measure time-density operands close to about 1e-15, while the pointwise/FV pairing remainders decrease at fixed coordinate radii and in shell-weighted comparisons. They remain discrete operator-pairing diagnostics, not an admitted stress-energy conservation identity. Do not select a divergence form based solely on the smaller residual.
-4. The full matter-coupled Brown momentum-propagation identity, total stress-energy sector conservation, the archive-locked φ/DM exchange normalization/admission gate, and scientific admission all remain open.
+4. The sector-expanded comparator now tracks the provisional archive exchange law on these saved states, while the pointwise-vs-expanded product-rule gap is isolated; this remains implementation consistency only. The full matter-coupled Brown momentum-propagation identity, total stress-energy sector conservation, archive provenance/normalization admission, and scientific admission all remain open.
 
 **Disposition:** diagnostic only; production equations and vendor sources unchanged; `scientific_admission=false`.
