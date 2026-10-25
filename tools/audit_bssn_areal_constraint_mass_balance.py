@@ -213,6 +213,16 @@ def evaluate_state(kernel, state) -> dict[str, Any]:
     chi_r = finite("D_r chi", grid.cell_derivative_fourth(chi, parity=1))
     mass = finite("Misner-Sharp mass", 0.5 * R * (1.0 - chi))
     mass_r_direct = finite("D_r mass", grid.cell_derivative_fourth(mass, parity=-1))
+    # Independent product-rule reconstruction of the same mass gradient.
+    # This isolates D_r(m) - [R_r(1-chi)/2 - R D_r(chi)/2] from the
+    # still-open Hamiltonian/momentum/operator mass-gradient balance.
+    mass_r_chain = finite(
+        "chain-rule mass gradient",
+        0.5 * Rr * (1.0 - chi) - 0.5 * R * chi_r,
+    )
+    mass_r_product_rule_gap = finite(
+        "direct minus chain-rule mass gradient", mass_r_direct - mass_r_chain
+    )
     mass_dot_coordinate = finite("coordinate mass tangent", 0.5 * Rt * (1.0 - chi) - 0.5 * R * chi_dot)
     mass_dot_coordinate_chain = finite(
         "coordinate mass tangent chain",
@@ -230,9 +240,20 @@ def evaluate_state(kernel, state) -> dict[str, Any]:
 
     mass_gradient_rhs = finite("Einstein mass-gradient RHS", FOUR_PI * R**2 * (rho * Rr + j * Rt / alpha))
     mass_gradient_residual = finite("mass-gradient residual", mass_r_direct - mass_gradient_rhs)
+    mass_gradient_residual_chain = finite(
+        "chain-rule mass-gradient residual", mass_r_chain - mass_gradient_rhs
+    )
+    mass_gradient_product_rule_closure = finite(
+        "mass-gradient residual split closure",
+        mass_gradient_residual - mass_gradient_residual_chain - mass_r_product_rule_gap,
+    )
     H_term = finite("H mass-gradient term", 0.25 * R**2 * Rr * H)
     M_grad_term = finite("M mass-gradient term", 0.5 * R**2 * (Rt / alpha) * M_native)
     gradient_operator_remainder = finite("mass-gradient constraint/operator remainder", mass_gradient_residual - H_term - M_grad_term)
+    gradient_operator_remainder_chain = finite(
+        "chain-rule mass-gradient constraint/operator remainder",
+        mass_gradient_residual_chain - H_term - M_grad_term,
+    )
 
     f_local = finite("coordinate stress flux", -FOUR_PI * R**2 * alpha * gamma_inv * j * Rr)
     w_local = finite("coordinate pressure work", -FOUR_PI * R**2 * pr * Rt)
@@ -246,6 +267,15 @@ def evaluate_state(kernel, state) -> dict[str, Any]:
     F = finite("transformed current F", observed["rhs"])
     fixed_residual = finite("fixed-R mass/current residual via mass", mdot_fixed_from_mass - F)
     fixed_residual_chi = finite("fixed-R mass/current residual via chi", mdot_fixed_from_chi - F)
+    fixed_residual_chain_mass_gradient = finite(
+        "fixed-R residual using chain-rule mass gradient",
+        local_balance - (Rt / Rr) * mass_gradient_residual_chain,
+    )
+    fixed_mass_gradient_split_gap = finite(
+        "fixed-R direct versus chain mass-gradient closure",
+        fixed_residual - fixed_residual_chain_mass_gradient
+        + (Rt / Rr) * mass_r_product_rule_gap,
+    )
     fixed_pred_from_components = finite(
         "fixed-R residual from local and gradient split",
         local_balance - (Rt / Rr) * mass_gradient_residual
@@ -289,6 +319,13 @@ def evaluate_state(kernel, state) -> dict[str, Any]:
         "chi_r": chi_r,
         "mass_gradient_rhs": mass_gradient_rhs,
         "mass_gradient_residual": mass_gradient_residual,
+        "mass_r_chain": mass_r_chain,
+        "mass_r_product_rule_gap": mass_r_product_rule_gap,
+        "mass_gradient_residual_chain": mass_gradient_residual_chain,
+        "mass_gradient_product_rule_closure": mass_gradient_product_rule_closure,
+        "gradient_operator_remainder_chain": gradient_operator_remainder_chain,
+        "fixed_residual_chain_mass_gradient": fixed_residual_chain_mass_gradient,
+        "fixed_mass_gradient_split_gap": fixed_mass_gradient_split_gap,
         "H": H,
         "M_native": M_native,
         "M_expanded": M_expanded,
@@ -354,7 +391,10 @@ def main() -> int:
         "fixed_pred_from_constraints_only", "fixed_operator_remainder",
         "fixed_constraint_prediction_gap", "fixed_constraint_gap_closure",
         "local_balance", "local_predicted", "local_operator_remainder",
-        "mass_gradient_residual", "H", "M_native", "M_expanded", "M_operator_gap",
+        "mass_gradient_residual", "mass_r_chain", "mass_r_product_rule_gap",
+        "mass_gradient_residual_chain", "mass_gradient_product_rule_closure",
+        "gradient_operator_remainder_chain", "fixed_residual_chain_mass_gradient",
+        "fixed_mass_gradient_split_gap", "H", "M_native", "M_expanded", "M_operator_gap",
         "H_mass_gradient_term", "M_mass_gradient_term", "gradient_operator_remainder",
         "M_local_term", "Crr", "Crr_local_term",
         "mass_dot_coordinate", "mass_dot_fixed_via_mass", "mass_dot_fixed_via_chi",
