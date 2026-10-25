@@ -127,16 +127,27 @@ def compare_step(kernel,base,dt):
  m1=np.interp(Rcommon,end["R"],end["mass"])
  q0=np.interp(Rcommon,start["R"],start["rhs"])
  q1=np.interp(Rcommon,end["R"],end["rhs"])
- mdot=(m1-m0)/dt
+ chi0=np.interp(Rcommon,start["R"],start["chi"])
+ chi1=np.interp(Rcommon,end["R"],end["chi"])
+ chi_spatial0=np.interp(Rcommon,start["R"],start["chi_spatial"])
+ chi_spatial1=np.interp(Rcommon,end["R"],end["chi_spatial"])
+ chi_time0=np.interp(Rcommon,start["R"],start["chi_time"])
+ chi_time1=np.interp(Rcommon,end["R"],end["chi_time"])
+ # At fixed R, m=R(1-chi)/2, so compute the rate from interpolated chi.
+ # Keep the separately interpolated-m rate to quantify its extra interpolation error.
+ mdot_interpolated_mass=(m1-m0)/dt
+ mdot=-0.5*Rcommon*(chi1-chi0)/dt
  rhs_mid=0.5*(q0+q1)
- mdot_spatial=-0.5*Rcommon*(np.interp(Rcommon,end["R"],end["chi_spatial"])-np.interp(Rcommon,start["R"],start["chi_spatial"]))/dt
- mdot_time=-0.5*Rcommon*(np.interp(Rcommon,end["R"],end["chi_time"])-np.interp(Rcommon,start["R"],start["chi_time"]))/dt
+ mdot_spatial=-0.5*Rcommon*(chi_spatial1-chi_spatial0)/dt
+ mdot_time=-0.5*Rcommon*(chi_time1-chi_time0)/dt
+ mass_interpolation_gap=mdot_interpolated_mass-mdot
  rhs_comp_mid={}
  for name in start["rhs_components"]:
   s0=np.interp(Rcommon,start["R"],start["rhs_components"][name])
   s1=np.interp(Rcommon,end["R"],end["rhs_components"][name])
   rhs_comp_mid[name]=0.5*(s0+s1)
  residual=finite("fixed-R mass-current residual",mdot-rhs_mid)
+ residual_interpolated_mass=finite("interpolated-mass fixed-R residual",mdot_interpolated_mass-rhs_mid)
  residual_decomp=finite("decomposed mass-current residual",
   mdot_spatial+mdot_time-sum(rhs_comp_mid.values()))
  decomp_gap=finite("decomposition closure gap",residual-residual_decomp)
@@ -147,6 +158,8 @@ def compare_step(kernel,base,dt):
   if lo<=radius<=hi:
    row={
     "mass_rate":float(np.interp(radius,Rcommon,mdot)),
+    "mass_rate_interpolated_mass":float(np.interp(radius,Rcommon,mdot_interpolated_mass)),
+    "mass_interpolation_gap":float(np.interp(radius,Rcommon,mass_interpolation_gap)),
     "mass_rate_spatial_metric":float(np.interp(radius,Rcommon,mdot_spatial)),
     "mass_rate_time_shift_norm":float(np.interp(radius,Rcommon,mdot_time)),
     "current_rhs_midpoint":float(np.interp(radius,Rcommon,rhs_mid)),
@@ -161,6 +174,10 @@ def compare_step(kernel,base,dt):
   "rms_residual_R_2_to_10":float(np.sqrt(np.mean(residual[annulus]**2))),
   "max_abs_residual_R_2_to_10":float(np.max(np.abs(residual[annulus]))),
   "max_abs_decomposition_closure":float(np.max(np.abs(decomp_gap))),
+  "max_abs_mass_interpolation_gap_R_le_3":float(np.max(np.abs(mass_interpolation_gap[inner]))),
+  "rms_mass_interpolation_gap_R_2_to_10":float(np.sqrt(np.mean(mass_interpolation_gap[annulus]**2))),
+  "max_abs_residual_using_interpolated_mass_R_le_3":float(np.max(np.abs(residual_interpolated_mass[inner]))),
+  "rms_residual_using_interpolated_mass_R_2_to_10":float(np.sqrt(np.mean(residual_interpolated_mass[annulus]**2))),
   "rms_mass_rate_spatial_metric_R_2_to_10":float(np.sqrt(np.mean(mdot_spatial[annulus]**2))),
   "rms_mass_rate_time_shift_norm_R_2_to_10":float(np.sqrt(np.mean(mdot_time[annulus]**2))),
   "rms_current_components_R_2_to_10":{name:float(np.sqrt(np.mean(values[annulus]**2))) for name,values in rhs_comp_mid.items()},
