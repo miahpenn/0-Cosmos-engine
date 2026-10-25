@@ -260,7 +260,7 @@ A further part of the reference-connection path can be resolved directly from th
 = + lambda_m * alpha / a * M_r,total_candidate
 ```
 
-This proves a source-code identity **within each same-stage RHS evaluation** when the vendor `lambda_l2` and adapter `lambda_l3` blocks are evaluated on the same state. It rules out a simple omission of the matter momentum projection in that Lambda-stage channel. It is not, by itself, a same-state identity for the *accepted step*: `production_kernel.py` advances Lambda with the start-state `lambda_l2`, a final-primary `lambda_l2`, the start-state `lambda_l3`, and the primary-predictor `lambda_l3`. In particular, the final-primary `lambda_l2` is paired in the update with the predictor-state `lambda_l3`, not with `lambda_l3` evaluated on that final-primary state. The combined accepted-step constraint response must respect that exact split.
+This proves a source-code identity **within each same-stage RHS evaluation** when the vendor `lambda_l2` and adapter `lambda_l3` blocks are evaluated on the same state. For the existing #420 *semi-discrete* `Mdot` tangent, that same-state RHS pairing is the relevant source-level result: it rules out a simple omission of the matter momentum projection from this Lambda-stage channel. It does not prove the full `C^r` tangent or the complete `Mdot_r` propagation identity. Separately, the finite accepted step in `production_kernel.py` uses a PIRK combination of start-state `lambda_l2`, final-primary `lambda_l2`, start-state `lambda_l3`, and primary-predictor `lambda_l3`; finite-step conservation therefore cannot be inferred from the same-stage RHS pairing alone.
 
 ### 10.6 Chain rule for the reference-metric connection target under the accepted CMC metric RHS
 
