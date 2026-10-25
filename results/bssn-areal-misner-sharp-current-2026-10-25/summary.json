@@ -2,8 +2,9 @@
   "schema": "bssn-areal-misner-sharp-current-probe/v1",
   "status": "completed_diagnostic_only",
   "run": {
-    "id": 40160533041,
-    "url": "https://github.com/miahpenn/0-Cosmos-engine/actions/runs/40160533041",
+    "id": 40160725682,
+    "url": "https://github.com/miahpenn/0-Cosmos-engine/actions/runs/40160725682",
+    "supersedes_preliminary_run": 40160533041,
     "all_jobs_success": true,
     "resolutions": [
       60,
@@ -23,70 +24,96 @@
   "residuals": {
     "N60": {
       "dt_0p04": {
-        "max_abs_R_le_3": 0.000027449603278100273,
-        "rms_R_2_to_10": 0.000022483920636544695
+        "max_abs_R_le_3": 0.000044977758098019825,
+        "rms_R_2_to_10": 0.00003424321833439085,
+        "max_mass_interpolation_gap_R_le_3": 0.0000343033609252476,
+        "rms_mass_interpolation_gap_R_2_to_10": 0.000018590521003026447
       },
       "dt_0p02": {
-        "max_abs_R_le_3": 0.000027521811149488394,
-        "rms_R_2_to_10": 0.00002170026868556557
+        "max_abs_R_le_3": 0.000045173660411895115,
+        "rms_R_2_to_10": 0.00003353347667134609,
+        "max_mass_interpolation_gap_R_le_3": 0.000034239515317412747,
+        "rms_mass_interpolation_gap_R_2_to_10": 0.000018562497942868548
       }
     },
     "N120": {
       "dt_0p02": {
-        "max_abs_R_le_3": 0.000009507514787755706,
-        "rms_R_2_to_10": 0.00000444585389358369
+        "max_abs_R_le_3": 0.00000827216960470721,
+        "rms_R_2_to_10": 0.000007274670175449144,
+        "max_mass_interpolation_gap_R_le_3": 0.000011067235717989636,
+        "rms_mass_interpolation_gap_R_2_to_10": 0.000006803262383023379
       },
       "dt_0p01": {
-        "max_abs_R_le_3": 0.000009592721394373002,
-        "rms_R_2_to_10": 0.0000043861014110017715
+        "max_abs_R_le_3": 0.000008375430789789773,
+        "rms_R_2_to_10": 0.0000072064559370969405,
+        "max_mass_interpolation_gap_R_le_3": 0.00001106017155095792,
+        "rms_mass_interpolation_gap_R_2_to_10": 0.000006802319299053935
       }
     },
     "N240": {
       "dt_0p01": {
-        "max_abs_R_le_3": 0.000005329908824659995,
-        "rms_R_2_to_10": 0.0000020848203749772587
+        "max_abs_R_le_3": 0.000001931949197470236,
+        "rms_R_2_to_10": 0.0000029475488665579776,
+        "max_mass_interpolation_gap_R_le_3": 0.000004777262858064496,
+        "rms_mass_interpolation_gap_R_2_to_10": 0.000002962206398238954
       },
       "dt_0p005": {
-        "max_abs_R_le_3": 0.000005295774622351881,
-        "rms_R_2_to_10": 0.000002082272368844522
+        "max_abs_R_le_3": 0.000001953135417221883,
+        "rms_R_2_to_10": 0.000002957031190427634,
+        "max_mass_interpolation_gap_R_le_3": 0.000004776984963347276,
+        "rms_mass_interpolation_gap_R_2_to_10": 0.0000029733123676551457
       }
     }
   },
   "N240_dt0p005_fixed_R": {
     "1": {
-      "mass_rate": 0.000023174296938936573,
+      "mass_rate_chi": 0.000021848415968031726,
+      "mass_rate_interpolated_mass": 0.000023174296938936573,
+      "mass_interpolation_gap": 0.0000013258809709048462,
       "current_rhs": 0.00002294239857050824,
-      "residual": 2.318983684283306e-7
+      "residual": -0.000001093982602476514
     },
     "2": {
-      "mass_rate": 0.0001525128190034537,
+      "mass_rate_chi": 0.0001505738665312531,
+      "mass_rate_interpolated_mass": 0.0001525128190034537,
+      "mass_interpolation_gap": 0.0000019389524722006087,
       "current_rhs": 0.00015236319625320344,
-      "residual": 1.4962275025025507e-7
+      "residual": -0.000001789329721950354
     },
     "3": {
-      "mass_rate": 0.00041186910712163674,
+      "mass_rate_chi": 0.00041030571987213404,
+      "mass_rate_interpolated_mass": 0.00041186910712163674,
+      "mass_interpolation_gap": 0.0000015633872495026958,
       "current_rhs": 0.0004120759552764203,
-      "residual": -2.0684815478356197e-7
+      "residual": -0.0000017702354042862576
     },
     "5": {
-      "mass_rate": 0.0009663128126205732,
+      "mass_rate_chi": 0.0009670837341223599,
+      "mass_rate_interpolated_mass": 0.0009663128126205732,
+      "mass_interpolation_gap": -7.709215017865894e-7,
       "current_rhs": 0.000966679584784797,
-      "residual": -3.6677216362456224e-7
+      "residual": 4.0414933816191867e-7
     },
     "8": {
-      "mass_rate": 0.000730385220688896,
+      "mass_rate_chi": 0.000732067408068192,
+      "mass_rate_interpolated_mass": 0.000730385220688896,
+      "mass_interpolation_gap": -0.0000016821873792959542,
       "current_rhs": 0.000729670233501685,
-      "residual": 7.149871897778176e-7
+      "residual": 0.000002397174569073834
     },
     "10": {
-      "mass_rate": 0.00022504571713932722,
+      "mass_rate_chi": 0.00022601013360823433,
+      "mass_rate_interpolated_mass": 0.00022504571713932722,
+      "mass_interpolation_gap": -9.644164689071033e-7,
       "current_rhs": 0.0002253871780473944,
-      "residual": -3.4146090806757385e-7
+      "residual": 6.229555608395295e-7
     },
     "0.5": {
-      "mass_rate": 0.000002957216227150429,
+      "mass_rate_chi": 0.000002843745649391691,
+      "mass_rate_interpolated_mass": 0.000002957216227150429,
+      "mass_interpolation_gap": 1.1347057775873806e-7,
       "current_rhs": 0.0000028312233061837216,
-      "residual": 1.259929209667078e-7
+      "residual": 1.2522343207969748e-8
     }
   },
   "acceptance": {
@@ -99,6 +126,18 @@
     "full_matter_coupled_propagation_identity_closed": false,
     "total_stress_energy_conservation_closed": false,
     "production_source_or_vendor_changed": false,
-    "scientific_admission": false
+    "scientific_admission": false,
+    "rate_derived_from_interpolated_chi": true,
+    "mass_interpolation_gap_reported_separately": true,
+    "mass_current_decomposition_closure_max_abs": {
+      "N60": 3.21e-14,
+      "N120": 8.85e-14,
+      "N240": 1.75e-13
+    }
+  },
+  "corrected_method": {
+    "fixed_R_rate": "m_dot|R = -0.5*R*Delta(chi)|R/dt after interpolating chi to common areal radii",
+    "preliminary_method": "Directly interpolated m_MS endpoint profiles are retained only as a separate interpolation-gap diagnostic; not the primary rate",
+    "mass_interpolation_gap": "difference between linearly interpolated m_MS and R*(1-chi_interpolated)/2 at fixed R"
   }
 }
