@@ -546,6 +546,8 @@ No further change to Brown's connection coefficients is indicated by this saved-
 
 **Method:** I independently reconstructed the reference-metric connection and Brown \(T_{G''},T_{G'}\) terms from the already archived \(t=0.60\) production-baseline, half-cell-integral-only, regular-CMC-row-only, joint-integral-and-CMC-row, and full-continuous-profile state arrays. The derivative stencil is copied algebraically from the pinned vendor's **r0_operators.py** at **d6052d605673ce9d82cdc99b0df79855fa2ea215**: centered fourth-order five-point stencil with parity ghosts and its polynomial-moment outer closure. This is offline post-processing only; no evolution was run.
 
+The diagnostic observer was then extended to emit \(C^r_\Lambda\), \(D_rC^r_\Lambda\), \(D_r^2C^r_\Lambda\), the metric-contracted connection, the angular logarithmic derivative, and the first-derivative coefficient for each accepted-state arm. [Workflow 40226089826](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/40226089826) passed on N=60/120/240. It verified the frozen input artifacts and state digests, source/vendor pins, finite output arrays, and an empty protected engine/vendor/dependency diff. The newly emitted profiles agree with this independent reconstruction; the workflow evaluated saved accepted states and did not advance evolution.
+
 As a check of implementation fidelity, the reconstructed connection terms reproduce the previously saved signed term arrays:
 - N=60: max differences \(2.17\times10^{-19}\) for \(T_{G''}\) and \(3.23\times10^{-27}\) for \(T_{G'}\).
 - N=120: \(8.67\times10^{-19}\) and \(4.04\times10^{-28}\).
