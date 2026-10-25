@@ -212,3 +212,44 @@ The DM expanded comparator residual is coarse-grid limited at N=60 but falls to 
 4. The sector-expanded comparator now tracks the provisional archive exchange law on these saved states, while the pointwise-vs-expanded product-rule gap is isolated; this remains implementation consistency only. The full matter-coupled Brown momentum-propagation identity, total stress-energy sector conservation, archive provenance/normalization admission, and scientific admission all remain open.
 
 **Disposition:** diagnostic only; production equations and vendor sources unchanged; `scientific_admission=false`.
+
+## 10. Brown $M_r$ residual: signed geometry versus source ledger — 2026-10-25
+
+This pass reuses the corrected accepted-state artifacts from [workflow run 40213110427](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/40213110427), resolutions N=60/120/240, accepted time t=0.60, and both recorded directional epsilons (2e-5 and 1e-5). The frozen source/vendor pins and diagnostic-only scope are the same as above; no evolution was advanced.
+
+The published-covariant-$M_r$ measured-minus-predicted profile is compared with the independent geometric remainder `Mgeom_dot_nonmatter_measured - geometric_Brown_vacuum_source`. These two arrays agree to floating-point reconstruction accuracy. `exact_chain_rule_residual` remains at about 1e-13 or smaller. Thus the reported Brown-candidate residual is localized in the geometric/connection propagation comparison, not in the exact mass-decomposition chain rule. The source-mapping remainder `actual_matter_source_composite - stress_divergence_source` is a separate unresolved ledger item; it must not be substituted for the Brown residual or called closed.
+
+### Matched-coordinate samples: full-continuous-profile arm
+
+Values below are linear interpolations of the saved cell-centred profiles to the same coordinate radius, not comparisons at the same cell index.
+
+| N | Brown measured-minus-predicted at r=2 | Brown geometric-source sum at r=2 | Connection-second term | Connection-first term | H-gradient term | Separate source-mapping remainder |
+|---:|---:|---:|---:|---:|---:|---:|
+| 60 | +8.975e-6 | +7.398e-7 | -6.478e-7 | -4.195e-7 | +1.914e-6 | +5.809e-5 |
+| 120 | +6.12e-7 | +5.40e-8 | -6.82e-8 | +1.63e-8 | +1.13e-7 | +5.78e-5 |
+| 240 | +4.03e-8 | +4.01e-9 | -6.03e-9 | +3.56e-9 | +6.99e-9 | +5.84e-5 |
+
+The matched-r residual drops by roughly factors 14.7 and 15.2 when N doubles from 60 to 120 to 240, consistent with near-fourth-order behavior over this sample. The result is an implementation-consistency check on this arm, not an admitted propagation identity. In particular, the source-mapping remainder stays around 5.8e-5 and is visibly distinct from the small Brown geometric residual.
+
+### Origin-cell signature: production-baseline arm
+
+The first cell is at r=40/N, so the following rows are an origin-cell diagnostic, **not** a matched-coordinate convergence table.
+
+| N | First-cell radius | Brown measured-minus-predicted | Connection-second term | Connection-first term | Separate source-mapping remainder |
+|---:|---:|---:|---:|---:|---:|
+| 60 | 0.667 | -4.604e-4 | -1.660e-3 | +1.278e-3 | +2.225e-5 |
+| 120 | 0.333 | -7.550e-3 | -4.747e-3 | +2.501e-3 | +1.137e-5 |
+| 240 | 0.167 | +3.249e-2 | +1.700e-2 | -2.712e-2 | +5.706e-6 |
+
+The production-baseline origin-cell residual grows and changes sign under refinement, while the two signed connection terms grow and strongly cancel. The source-mapping remainder on those same cells is much smaller than this residual. By contrast, the full-continuous-profile residual stays small at the origin and decreases strongly at matched radii. This flags an origin-localized geometric/connection regularity or endpoint-response discrepancy in the production-baseline arm; it does **not** yet prove which construction causes it, because the arms also have different accepted-state/profile inputs and different lapse-perturbation policies.
+
+Halving the directional epsilon changes the measured-minus-predicted residual by at most 1.3e-12 across these saved profiles. The observed central mismatch is therefore not explained by the finite-difference epsilon.
+
+### Disposition and next discriminating check
+
+1. The Brown $M_r$ residual and the matter-source mapping remainder are separate: the former tracks the non-matter geometric remainder; the latter still blocks total stress-energy conservation admission.
+2. The production-baseline first-cell connection response is non-regular under refinement in this observer. Do not suppress it by changing the production equation, dropping a term, or tuning a coefficient.
+3. The next diagnostic should hold **one identical accepted base state** fixed and compare its perturbed endpoints with only the lapse-response path changed (production CMC solve versus copied regular-origin CMC row). Record signed changes in lapse and radial-lapse derivative, each connection/H-gradient term, and the Brown residual. This isolates the current arm/lapse-policy confound without another evolution run.
+4. Full matter-coupled Brown propagation, source sign/normalization, reference-metric connection convention, total stress-energy sector conservation, and scientific admission remain open.
+
+**Disposition:** diagnostic only; production equations, vendor sources, and dependencies unchanged; `scientific_admission=false`.
