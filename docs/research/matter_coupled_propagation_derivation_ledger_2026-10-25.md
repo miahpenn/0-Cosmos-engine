@@ -408,14 +408,43 @@ The read-only schema inventory is complete. It reused downloadable archived arti
 
 **Exact missing operands for the target accepted step:** full radial \(j_0\) and \(j_p\) arrays, reconstructed from the same-stage scalar/fluid fields and geometry; the matching \(\alpha/a\) arrays; and full radial \(M_{r,\mathrm{geom}}\) values for the \(0\) and \(f\) L2 operands. The complete \(a,b,\Lambda\) stage arrays are also required to compute the actual discrete \(\Delta\Lambda_{\mathrm{metric}}\) and \(\Delta C^r\), rather than rely on selected-cell summaries or a single-stage chain-rate approximation.
 
-### Bounded next-step proposal (not executed)
+### Stage-capture implementation and result — completed diagnostic-only copied step
 
-If this proposal is accepted for implementation, the smallest useful addition is a **diagnostic-only, exact-source stage capture** initialized from the checksum-verified #420 \(t=0.60\) accepted checkpoint, separately for the already-existing N=60/120/240 profiles. It would follow the pinned stage assembly in memory only, write no accepted trajectory and touch no production equations, and emit full radial arrays for stages \(0,p,f,n+1\) for:
-1. \(a,b,X,\alpha,A_a,K,\Lambda\) and \(\Lambda_{\mathrm{metric}}\);
-2. the scalar and conservative fluid state required to independently reconstruct each stage's canonical total \(j\);
-3. \(j_{\mathrm{total}}\), \(M_{r,\mathrm{geom}}\), \(\alpha/a\), \(L_2^\Lambda\), and the vendor and matter pieces of \(L_3^\Lambda\), separately and with signs;
-4. the exact state/source/vendor hashes, stage labels, parity/operator contract, and raw-operand-scaled arithmetic closures.
+The exact-source capture is now implemented in tools/audit_pirk_stage_resolved_momentum_source.py, with its guarded matrix workflow in .github/workflows/issue4-pirk-stage-resolved-momentum-source.yml and helper tests in tests/test_pirk_stage_resolved_momentum_source.py.
 
-The report would compare the observed discrete \(\Delta C^r=\Delta\Lambda-\Delta\Lambda_{\mathrm{metric}}\) with the independently reconstructed stage budget, keeping cells 0/1 separate from fixed physical radii. It would not infer or fit \(S_Q\), merge pointwise/FV/expanded divergences, or treat finite-step arithmetic closure as scientific admission. **No such capture has been run or authorized here.** Its purpose would be to fill the precise stage-current/operand gap, not repeat the existing convergence campaign.
+**Successful workflow:** [run 40235790388](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/40235790388). All three lanes passed the helper tests, accepted-source/vendor guards, copied-step capture, raw-operand closure assertions, and artifact upload. Inputs were the three checksum-verified #420 endpoint-profile artifacts from [run 40156226086](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/40156226086).
+
+Output artifacts:
+- N=60: [artifact 12614314612](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/40235790388/artifacts/12614314612). report.json SHA-256: bf777499cc9e20b664c7cf906e3ddfb297fba53f44f312d65d62b80a23fae94b; stage_arrays.npz SHA-256: 942325e3bfd9cfcd95ad7b2f0b5511c6303045f2a8eb36c4ec6f5144a0cc3306.
+- N=120: [artifact 12615190935](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/40235790388/artifacts/12615190935). report.json SHA-256: fd33c9fe07847df7eb102244ca344021e70530a918ac5d5d0e65f70ccd65a343; stage_arrays.npz SHA-256: 8d449fbfd224f5608292c375e2c47e625b1e9a70f8562686cbdafd996503fd90.
+- N=240: [artifact 12614533930](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/40235790388/artifacts/12614533930). report.json SHA-256: e52f852694c5a5c36d208a2439af813e699b2e0f7c53e67bfecef08bd21f1658; stage_arrays.npz SHA-256: 8b85b445c4b1213cb6904734ed6fcf7cd9344d857a112685e718b6bef922d141.
+
+The input profile and report member hashes were checked against each artifact's SHA256SUMS.txt. Every lane confirmed production source anchor 4aec88d0e3ff028e0a65a8ac36b30948625df792, vendor pin d6052d605673ce9d82cdc99b0df79855fa2ea215, and all 11 protected source blobs matching the report's pin table. The saved input state digest was unchanged by the copied-step run. No production, initializer, dependency, vendor, or source-pin edit was made.
+
+**Scope precision:** each lane restores the saved accepted endpoint at t approximately 0.60, evaluates one copied in-memory PIRK step, and emits arrays only. The copied output is at t=0.64, 0.62, and 0.61 for N=60, 120, and 240, respectively. This does not replay the historical accepted interval ending at t=0.60 and writes no accepted trajectory. Captured arrays include geometry, scalar and fluid states and RHS terms for the start-lapse-refreshed, explicit-predictor, and primary-predictor stages; the final-primary mixed-stage L2 geometry and result; independently reconstructed total j at start and primary predictor; geometric momentum constraint, alpha/a, and separated vacuum/matter L3 terms. The NPZ contains full radial profiles rather than only centre summaries.
+
+#### Numerical and source-accounting results
+
+| Resolution | Maximum absolute Lambda update residual, r≤10 | Maximum raw-operand bound, r≤10 | Maximum L3 reconstruction residual |
+|---:|---:|---:|---:|
+| N=60 | 1.36e-19 | 7.62e-16 | 2.71e-20 |
+| N=120 | 1.81e-19 | 7.75e-16 | 2.71e-20 |
+| N=240 | 2.01e-19 | 7.78e-16 | 5.42e-20 |
+
+The copied-step Lambda update reconstructs from the exact captured L2-at-start, L2-at-final-primary, L3-at-start, and L3-at-primary-predictor operands within the raw-operand envelope. Independently assembled canonical total j reproduces the adapter's L3 matter term. This verifies stage-source bookkeeping and implementation consistency only; it does not admit the physical normalization of total j, prove S_Q=-8π α Q_r, or close momentum-constraint propagation.
+
+The difference between the accepted-split momentum-source combination and a counterfactual that substitutes the primary-predictor geometric momentum operand for the exact final-primary L2 operand is nonzero. This is expected evidence that the second-stage source operands are not interchangeable, not a residual to fit away:
+
+| N | Difference at cell 0 | Cell 1 | Cell 2 | Cell 6 |
+|---:|---:|---:|---:|---:|
+| 60 | +1.3483e-8 | +1.4570e-8 | +1.5435e-8 | +2.6263e-9 |
+| 120 | +2.4748e-9 | +1.7133e-9 | +1.6554e-9 | +1.7734e-9 |
+| 240 | +5.2274e-10 | +3.0602e-10 | +1.8436e-10 | +2.2799e-10 |
+
+**Critical interpretation limit:** the report's finite-step connection residual is zero by definition because it reassembles C-out minus C-in from those same endpoints using delta Lambda minus delta Lambda-metric. It is not an independent propagation test and must not be counted as one. The nontrivial checks here are the stage-resolved Lambda update reconstruction, direct canonical total-current/L3 decomposition, provenance checks, and input immutability. This capture did not evaluate an independent full time derivative of M-r or a full matter-coupled propagation RHS.
+
+### Next derivation gate
+
+The stage-current/operand availability gap is now filled for this copied diagnostic step. Next, finish the signed equation-to-code crosswalk for the independent full partial-time M-r identity and total-stress source, then join that derivation to an exactly state-matched existing tangent only after the stage and lapse-state mapping is verified. Do not infer or fit S_Q from the captured values and do not launch another resolution or trajectory campaign merely to reproduce this result.
 
 **Status remains unchanged:** the time-split assignments above are source-derived; the full matter-coupled \(M_r\) identity, physical \(S_Q\), reference-metric coupling admission, and total six-sector discrete stress-energy conservation remain open. Pointwise/FV/expanded divergence measures remain separate, and all five scientific-admission flags remain false.
