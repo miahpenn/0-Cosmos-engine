@@ -739,6 +739,195 @@ def compact_scalar_current_rate_decomposition(
     return report, profiles
 
 
+def compact_sector_matter_source_mapping(
+    state,
+    rates: dict[str, Any],
+    candidate_raw: dict[str, np.ndarray],
+    sector_profiles: dict[str, np.ndarray],
+    coupling: float,
+) -> tuple[dict[str, Any], dict[str, np.ndarray]]:
+    """Decompose the existing matter-source composite by frozen stress sector.
+
+    Uses the exact linear matter injection formula already in
+    audit_hybrid_origin_integral_patch_newton, sector projections from the
+    independent total-stress observer, and sector current/divergence profiles
+    measured on the same accepted state and tangent endpoints. The archive-
+    locked DM/phi exchange is reported as a separate conditional comparator.
+    This does not promote any candidate to the accepted propagation oracle.
+    """
+    grid = state.grid
+    r = np.asarray(grid.centers, dtype=np.float64)
+    geom = state.geometry
+    alpha = np.asarray(geom.alpha, dtype=np.float64)
+    b = np.asarray(geom.b, dtype=np.float64)
+    X = np.asarray(geom.X, dtype=np.float64)
+    Aa = np.asarray(geom.Aa, dtype=np.float64)
+    d1 = lambda values, parity=1: stress_divergence.d1(grid, values, parity)
+    chi_r = -0.5 * d1(X, +1) / X
+    radial_bracket = 2.0 / r + d1(b, +1) / b
+
+    projected = stress_divergence.independent_total_projections(state)
+    if not projected.get("projection_crosscheck_passed", False):
+        raise RuntimeError("independent stress-sector projections do not match canonical total")
+
+    sectors = (
+        ("S", "S", "S", "scalar_parts"),
+        ("D", "D", "D", "scalar_parts"),
+        ("COSMOS_phi", "phi", "phi", "scalar_parts"),
+        ("dark_matter", "dark_matter", "dark_matter", "fluid_parts"),
+        ("baryons", "baryons", "baryons", "fluid_parts"),
+        ("radiation", "radiation", "radiation", "fluid_parts"),
+    )
+    rho_dm = np.asarray(projected["fluid_parts"]["dark_matter"]["rho"], dtype=np.float64)
+    phi_r = d1(np.asarray(state.scalars.phi, dtype=np.float64), +1)
+    expected_exchange = {
+        "dark_matter": float(coupling) * rho_dm * phi_r,
+        "COSMOS_phi": -float(coupling) * rho_dm * phi_r,
+    }
+
+    profiles: dict[str, np.ndarray] = {}
+    rows: dict[str, Any] = {}
+    injection_sum = np.zeros_like(r)
+    current_sum = np.zeros_like(r)
+    divergence_sum = np.zeros_like(r)
+    composite_sum = np.zeros_like(r)
+    residual_sum = np.zeros_like(r)
+    expected_exchange_sum = np.zeros_like(r)
+
+    for raw_sector, projection_name, divergence_name, part_kind in sectors:
+        part = projected[part_kind][projection_name]
+        rho = np.asarray(part["rho"], dtype=np.float64)
+        pr = np.asarray(part["pr"], dtype=np.float64)
+        pt = np.asarray(part["pt"], dtype=np.float64)
+        aa_source = -(16.0 * np.pi / 3.0) * alpha * (pr - pt)
+        k_source = 4.0 * np.pi * alpha * (rho + pr + 2.0 * pt)
+        geom_injection = (
+            d1(aa_source, +1)
+            - (2.0 / 3.0) * d1(k_source, +1)
+            + 6.0 * aa_source * chi_r
+            + 1.5 * aa_source * radial_bracket
+        )
+
+        current_key = f"Mdot_sector_{raw_sector}"
+        if current_key not in candidate_raw:
+            raise RuntimeError(f"missing exact tangent current contribution: {current_key}")
+        current_dot = np.asarray(candidate_raw[current_key], dtype=np.float64)
+        div_key = f"sector_{divergence_name}_div_T_r"
+        if div_key not in sector_profiles:
+            raise RuntimeError(f"missing sector divergence profile: {div_key}")
+        q_r = np.asarray(sector_profiles[div_key], dtype=np.float64)
+        divergence_source = -8.0 * np.pi * alpha * q_r
+        composite = geom_injection + current_dot
+        residual = composite - divergence_source
+        injection_sum += geom_injection
+        current_sum += current_dot
+        divergence_sum += q_r
+        composite_sum += composite
+        residual_sum += residual
+
+        expected_q = expected_exchange.get(raw_sector, np.zeros_like(r))
+        exchange_residual = q_r - expected_q
+        expected_exchange_sum += expected_q
+
+        rows[raw_sector] = {
+            "projection": "independent sector stress projection; normalized consistently with total T",
+            "geometry_matter_injection": summarize_profile(geom_injection, r),
+            "current_tangent_minus_8pi_jdot": summarize_profile(current_dot, r),
+            "matter_source_composite": summarize_profile(composite, r),
+            "pointwise_div_T_r": summarize_profile(q_r, r),
+            "stress_divergence_source_minus_8pi_alpha_Qr": summarize_profile(divergence_source, r),
+            "source_mapping_residual_composite_minus_divergence_source": summarize_profile(residual, r),
+            "source_mapping_residual_max_abs": float(np.max(np.abs(residual))),
+            "archive_locked_exchange_comparator": {
+                "law": (
+                    "+beta*rho_DM*D_r(phi)" if raw_sector == "dark_matter"
+                    else "-beta*rho_DM*D_r(phi)" if raw_sector == "COSMOS_phi"
+                    else "zero source for this uncoupled sector"
+                ),
+                "expected_Qr": summarize_profile(expected_q, r),
+                "measured_minus_expected_Qr": summarize_profile(exchange_residual, r),
+                "measured_minus_expected_Qr_max_abs": float(np.max(np.abs(exchange_residual))),
+            },
+        }
+        for suffix, values in (
+            ("geometry_matter_injection", geom_injection),
+            ("current_tangent_minus_8pi_jdot", current_dot),
+            ("matter_source_composite", composite),
+            ("pointwise_div_T_r", q_r),
+            ("divergence_source_minus_8pi_alpha_Qr", divergence_source),
+            ("source_mapping_residual", residual),
+            ("archive_expected_exchange_Qr", expected_q),
+            ("archive_exchange_residual", exchange_residual),
+        ):
+            profiles[f"sector_{raw_sector}_{suffix}"] = np.asarray(values, dtype=np.float64).copy()
+
+    full_injection = np.asarray(
+        candidate_raw["propagation_Mgeom_dot_matter_injection"], dtype=np.float64
+    )
+    full_composite = np.asarray(
+        candidate_raw["propagation_actual_matter_source_composite"], dtype=np.float64
+    )
+    full_residual = np.asarray(
+        candidate_raw["propagation_matter_source_mapping_residual"], dtype=np.float64
+    )
+    full_q = np.asarray(
+        candidate_raw["propagation_Qr_total_stress_divergence"], dtype=np.float64
+    )
+    checks = {
+        "sum_sector_geometry_injection_minus_existing_total_max_abs": float(
+            np.max(np.abs(injection_sum - full_injection))
+        ),
+        "sum_sector_current_minus_composite_minus_injection_max_abs": float(
+            np.max(np.abs(current_sum - (full_composite - full_injection)))
+        ),
+        "sum_sector_div_T_r_minus_existing_total_Qr_max_abs": float(
+            np.max(np.abs(divergence_sum - full_q))
+        ),
+        "sum_sector_composite_minus_existing_total_max_abs": float(
+            np.max(np.abs(composite_sum - full_composite))
+        ),
+        "sum_sector_mapping_residual_minus_existing_total_max_abs": float(
+            np.max(np.abs(residual_sum - full_residual))
+        ),
+        "sum_archive_locked_DM_phi_exchange_Qr_max_abs": float(
+            np.max(np.abs(expected_exchange_sum))
+        ),
+    }
+    profiles.update({
+        "sector_mapping_sum_geometry_injection": injection_sum,
+        "sector_mapping_sum_current_tangent": current_sum,
+        "sector_mapping_sum_div_T_r": divergence_sum,
+        "sector_mapping_sum_matter_source_composite": composite_sum,
+        "sector_mapping_sum_source_mapping_residual": residual_sum,
+        "sector_mapping_full_total_matter_source_composite": full_composite,
+        "sector_mapping_full_total_source_mapping_residual": full_residual,
+    })
+    compact = {
+        "observer": "existing independent_total_projections + existing Mgeom matter-injection source formula + the saved exact tangent currents and sector div_T_r profiles",
+        "accepted_time": float(state.t),
+        "beta_dm_coupling": float(coupling),
+        "archive_exchange_convention": {
+            "DM": "nabla_mu T_DM^{mu nu}=+beta*rho_DM*nabla^nu(phi)",
+            "COSMOS_phi": "nabla_mu T_phi^{mu nu}=-beta*rho_DM*nabla^nu(phi)",
+            "source": "GEAR_V5_5_MASTER_CHECKPOINT_2026-10-05 and the explicit locked-sign statement in GEAR_V5_5_COVARIANT_GLOBAL_GATE_2026-10-05_v2",
+            "normalization_note": "rho_DM is taken from the independently reconstructed sector projection in the same normalized stress-energy units used by the divergence observer",
+        },
+        "sectors": rows,
+        "sector_additivity_closure": checks,
+        "sector_additivity_all_below_1e-10": all(
+            value < 1.0e-10 for key, value in checks.items()
+            if key != "sum_archive_locked_DM_phi_exchange_Qr_max_abs"
+        ),
+        "interpretation_limit": (
+            "This is a sector-resolved diagnostic of the existing provisional source mapping. "
+            "The archive-locked DM/phi exchange is compared but not assumed to pass. "
+            "No source law or discrete divergence convention is admitted by this result."
+        ),
+        "scientific_admission": False,
+    }
+    return compact, profiles
+
+
 def main() -> int:
     if RESOLUTION not in (60, 120, 240):
         raise ValueError(f"unsupported resolution {RESOLUTION}")
@@ -818,9 +1007,14 @@ def main() -> int:
             scalar_current_report, scalar_current_profiles = compact_scalar_current_rate_decomposition(
                 state, scalar_rhs_budget, raw[eps]
             )
+            sector_source_report, sector_source_profiles = compact_sector_matter_source_mapping(
+                state, rates, raw[eps], sector_profiles,
+                float(hll_snapshot["coupling_parameter"])
+            )
             compact["sector_resolved_stress_energy_divergence"] = sector_report
             compact["pointwise_vs_expanded_Qr_discrete_gap_decomposition"] = operator_report
             compact["scalar_S_current_RHS_term_decomposition"] = scalar_current_report
+            compact["per_sector_matter_source_mapping"] = sector_source_report
             arm_rows["epsilon_results"].append(compact)
             for name, values in raw[eps].items():
                 saved_profiles[f"N{RESOLUTION}_{label}_eps{eps:.0e}_{name}"] = np.asarray(values, dtype=np.float64).copy()
@@ -836,13 +1030,17 @@ def main() -> int:
                 saved_profiles[
                     f"N{RESOLUTION}_{label}_eps{eps:.0e}_{name}"
                 ] = np.asarray(values, dtype=np.float64).copy()
+            for name, values in sector_source_profiles.items():
+                saved_profiles[
+                    f"N{RESOLUTION}_{label}_eps{eps:.0e}_{name}"
+                ] = np.asarray(values, dtype=np.float64).copy()
         for name, values in hll_profiles.items():
             saved_profiles[f"N{RESOLUTION}_{label}_{name}"] = np.asarray(values, dtype=np.float64).copy()
         summaries.append(arm_rows)
 
     report_path = OUT / "report.json"
     result = {
-        "schema": "full-profile-accepted-state-propagation-candidate/v5",
+        "schema": "full-profile-accepted-state-propagation-candidate/v6",
         "status": "completed_diagnostic_only",
         "purpose": "Apply the existing convention/index-sensitive propagation candidate and its existing additive sector-resolved total-stress-energy divergence observer to source-pinned accepted t=0.60 states from baseline, partial-joint, and full-continuous-metric arms.",
         "source_pins": {
@@ -884,6 +1082,14 @@ def main() -> int:
                 for arm in summaries
                 for item in arm["epsilon_results"]
             ),
+            "sector_source_mapping_additivity_closes": all(
+                item.get("per_sector_matter_source_mapping", {}).get(
+                    "sector_additivity_all_below_1e-10"
+                ) is True
+                for arm in summaries
+                for item in arm["epsilon_results"]
+            ),
+            "archive_locked_DM_phi_exchange_tested_not_assumed": True,
             "full_matter_coupled_propagation_identity_closed": False,
             "matter_source_sign_and_normalization_reviewed": False,
             "reference_metric_connection_coupling_convention_frozen": False,
