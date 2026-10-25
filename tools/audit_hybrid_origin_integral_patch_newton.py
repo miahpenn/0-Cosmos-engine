@@ -829,6 +829,25 @@ def _constraint_propagation_candidate(
         "propagation_geometric_Brown_term_connection_second": term_geom_C_second,
         "propagation_geometric_Brown_term_connection_first": term_geom_C_first,
         "propagation_geometric_Brown_vacuum_source": brown_geometric_vacuum_source,
+        "propagation_geometry_rhs_Aa": finite("saved production Aa RHS", rates["geometry"]["Aa"]),
+        "propagation_geometry_rhs_K": finite("saved production K RHS", rates["geometry"]["K"]),
+        "propagation_Aa_l2_lapse_hessian": finite(
+            "saved Aa L2 lapse-Hessian piece", rates["Aa_l2_split"]["lapse_hessian"]
+        ),
+        "propagation_Aa_l2_tracefree_ricci": finite(
+            "saved Aa L2 trace-free Ricci piece", rates["Aa_l2_split"]["tracefree_ricci"]
+        ),
+        "propagation_Aa_l2_operator": finite(
+            "saved Aa L2 operator", rates["Aa_l2_split"]["operator"]
+        ),
+        "propagation_Aa_l2_split_residual": finite(
+            "saved Aa L2 split residual", rates["Aa_l2_split"]["residual"]
+        ),
+        "propagation_Aa_non_L2_remainder": finite(
+            "saved Aa non-L2 RHS remainder",
+            np.asarray(rates["geometry"]["Aa"], dtype=np.float64)
+            - np.asarray(rates["Aa_l2_split"]["operator"], dtype=np.float64),
+        ),
         "propagation_geometric_Brown_term_sum_reconstruction_gap": finite(
             "geometric Brown source term sum reconstruction gap",
             term_geom_shift + term_geom_KM + term_geom_alpha_H
