@@ -242,13 +242,27 @@ def run_arm(kernel, accepted, dt: float) -> dict[str, Any]:
             start, end = series["accepted_start"], series["accepted_output"]
             stage0, stage1 = series["kernel_start_stage"], series["kernel_corrected_stage"]
             fixed_R[str(R)][order] = {}
+
+            def at_radius(values, label):
+                if order == "linear":
+                    value = np.interp(R, radii, finite(f"{label} radial samples", values))
+                else:
+                    value = areal.interp4(R, radii, finite(f"{label} radial samples", values))
+                return scalar(f"{label}@R={R}", value)
+
             for lane, chi_key, current_key in (
                 ("metric_rate", "chi_metric", "current_metric"),
                 ("extrinsic_rate", "chi_extrinsic", "current_extrinsic"),
             ):
-                mdot = -0.5 * R * (end[chi_key] - start[chi_key]) / dt
-                endpoint_current = 0.5 * (start[current_key] + end[current_key])
-                stage_current = 0.5 * (stage0[current_key] + stage1[current_key])
+                chi_start = at_radius(start[chi_key], f"{order}.{lane}.chi_start")
+                chi_end = at_radius(end[chi_key], f"{order}.{lane}.chi_end")
+                f_start = at_radius(start[current_key], f"{order}.{lane}.F_start")
+                f_end = at_radius(end[current_key], f"{order}.{lane}.F_end")
+                f_stage0 = at_radius(stage0[current_key], f"{order}.{lane}.F_stage0")
+                f_stage1 = at_radius(stage1[current_key], f"{order}.{lane}.F_stage1")
+                mdot = -0.5 * R * (chi_end - chi_start) / dt
+                endpoint_current = 0.5 * (f_start + f_end)
+                stage_current = 0.5 * (f_stage0 + f_stage1)
                 fixed_R[str(R)][order][lane] = {
                     "mass_rate": scalar("fixed-R mass rate", mdot),
                     "endpoint_current_average": scalar("fixed-R endpoint current", endpoint_current),
