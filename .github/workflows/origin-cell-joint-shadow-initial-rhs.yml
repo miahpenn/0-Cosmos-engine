@@ -3,7 +3,7 @@ name: Diagnostic - initial RHS of joint half-cell origin candidate
 on:
   pull_request:
     branches:
-      - diag/origin-cell-joint-shadow-one-step-2026-10-24
+      - diag/origin-joint-halfcell-rhs-workflow-base-2026-10-24
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - tools/audit_origin_joint_halfcell_initial_rhs.py
