@@ -1,0 +1,68 @@
+{
+  "schema": "pointwise-vs-fv-total-stress-divergence/v1",
+  "status": "completed_diagnostic_only",
+  "run": {
+    "id": 40157745275,
+    "url": "https://github.com/miahpenn/0-Cosmos-engine/actions/runs/40157745275",
+    "accepted_time": 0.6,
+    "resolutions": [
+      60,
+      120,
+      240
+    ],
+    "epsilons": [
+      0.00002,
+      0.00001
+    ]
+  },
+  "artifacts": {
+    "N60": 12585232569,
+    "N120": 12585182574,
+    "N240": 12585666768
+  },
+  "source_pin": "4aec88d0e3ff028e0a65a8ac36b30948625df792",
+  "vendor_pin": "d6052d605673ce9d82cdc99b0df79855fa2ea215",
+  "full_profile_origin_cell": {
+    "pointwise": {
+      "N60": 7.915433246590128e-7,
+      "N120": 1.1283873946327369e-7,
+      "N240": 1.4577988235889381e-8
+    },
+    "finite_volume": {
+      "N60": 6.689402840764972e-9,
+      "N120": 9.002917804656604e-10,
+      "N240": 1.1286608208570379e-10
+    },
+    "ratio_pointwise_to_fv": {
+      "N60": 118.32794996817611,
+      "N120": 125.33574326859876,
+      "N240": 129.1618169648143
+    },
+    "S_sector_pointwise": {
+      "N60": 7.926560503931983e-7,
+      "N120": 1.130003176537034e-7,
+      "N240": 1.4598916531037695e-8
+    }
+  },
+  "full_profile_rms_r2_to10": {
+    "pointwise": {
+      "N60": 7.480865514471851e-8,
+      "N120": 2.856795971080302e-9,
+      "N240": 1.8811953382738968e-10
+    },
+    "finite_volume": {
+      "N60": 5.97269739381595e-9,
+      "N120": 3.78225498196774e-10,
+      "N240": 2.3870351623440237e-11
+    }
+  },
+  "acceptance": {
+    "epsilon_stable": true,
+    "sector_decomposition_present": true,
+    "production_source_or_vendor_changed": false,
+    "authoritative_operator_selected": false,
+    "full_matter_coupled_propagation_identity_closed": false,
+    "total_stress_energy_conservation_closed": false,
+    "scientific_admission": false
+  }
+}
