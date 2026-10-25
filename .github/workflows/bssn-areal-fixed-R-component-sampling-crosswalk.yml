@@ -1,0 +1,111 @@
+name: Diagnostic - BSSN fixed-R component sampling crosswalk
+
+on:
+  push:
+    branches: [diag/full-profile-propagation-candidate-ci-2026-10-24]
+    paths:
+      - tools/audit_bssn_areal_fixed_R_component_sampling_crosswalk.py
+      - tools/audit_bssn_areal_constraint_mass_balance.py
+      - tools/audit_bssn_areal_misner_sharp_current.py
+      - tools/audit_full_profile_propagation_candidate.py
+      - tools/audit_origin_cell_joint_shadow_one_step.py
+      - .github/workflows/bssn-areal-fixed-R-component-sampling-crosswalk.yml
+  pull_request:
+    branches: [diag/origin-full-continuous-metric-evolved-2026-10-24]
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - tools/audit_bssn_areal_fixed_R_component_sampling_crosswalk.py
+      - tools/audit_bssn_areal_constraint_mass_balance.py
+      - tools/audit_bssn_areal_misner_sharp_current.py
+      - tools/audit_full_profile_propagation_candidate.py
+      - tools/audit_origin_cell_joint_shadow_one_step.py
+      - .github/workflows/bssn-areal-fixed-R-component-sampling-crosswalk.yml
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: bssn-areal-fixed-R-component-sampling-\${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  fixed-R-component-sampling:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        resolution: [60, 120, 240]
+    env:
+      PYTHONUNBUFFERED: "1"
+      SOURCE_COMMIT: "4aec88d0e3ff028e0a65a8ac36b30948625df792"
+      VENDOR_COMMIT: "d6052d605673ce9d82cdc99b0df79855fa2ea215"
+      AREAL_FIXED_R_COMPONENT_RESOLUTION: \${{ matrix.resolution }}
+      FULL_PROFILE_ARTIFACT_DIR: reference/full/N\${{ matrix.resolution }}
+      AREAL_FIXED_R_COMPONENT_OUT: results/bssn-areal-fixed-R-component-sampling-N\${{ matrix.resolution }}-2026-10-25
+
+    steps:
+      - name: Check out diagnostic branch and pinned vendor
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Download SHA-verified full continuous-source accepted state
+        uses: actions/download-artifact@v4
+        with:
+          repository: miahpenn/0-Cosmos-engine
+          name: origin-full-continuous-metric-evolved-N\${{ matrix.resolution }}-t0.6-2026-10-24
+          path: reference/full/N\${{ matrix.resolution }}
+          github-token: \${{ github.token }}
+          run-id: 40156226086
+
+      - name: Fail closed if protected production/vendor/dependency files drift
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin "$SOURCE_COMMIT"
+          test "$(git rev-parse "$SOURCE_COMMIT")" = "$SOURCE_COMMIT"
+          test "$(git rev-parse "HEAD:vendor/bb-palatini-unified-r0")" = "$VENDOR_COMMIT"
+          test "$(git -C vendor/bb-palatini-unified-r0 rev-parse HEAD)" = "$VENDOR_COMMIT"
+          protected_diff="$(git diff --name-only "$SOURCE_COMMIT" HEAD -- engine vendor .gitmodules requirements.txt)"
+          if [[ -n "$protected_diff" ]]; then
+            echo "Unexpected changes to protected production/vendor/dependency paths:"
+            echo "$protected_diff"
+            exit 1
+          fi
+          echo "SOURCE_COMMIT=$SOURCE_COMMIT"
+          echo "VENDOR_COMMIT=$VENDOR_COMMIT"
+          echo "PROTECTED_SOURCE_DIFF=empty"
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install repository requirements
+        run: python -m pip install -r requirements.txt
+
+      - name: Compile same-state fixed-R component crosswalk
+        run: |
+          python -m py_compile \
+            tools/audit_bssn_areal_fixed_R_component_sampling_crosswalk.py \
+            tools/audit_bssn_areal_constraint_mass_balance.py \
+            tools/audit_bssn_areal_misner_sharp_current.py \
+            tools/audit_full_profile_propagation_candidate.py \
+            tools/audit_origin_cell_joint_shadow_one_step.py
+
+      - name: Compare fixed-R H/M/Crr and operator sampling lanes
+        run: python tools/audit_bssn_areal_fixed_R_component_sampling_crosswalk.py
+
+      - name: Upload fixed-R component sampling report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bssn-areal-fixed-R-component-sampling-N\${{ matrix.resolution }}-2026-10-25
+          path: results/bssn-areal-fixed-R-component-sampling-N\${{ matrix.resolution }}-2026-10-25/
+          if-no-files-found: warn
+          retention-days: 90
