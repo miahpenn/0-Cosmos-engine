@@ -216,6 +216,66 @@ def _piecewise_slope(x: np.ndarray, y: np.ndarray, target: float) -> tuple[float
     return float((y[left + 1] - y[left]) / (x[left + 1] - x[left])), left
 
 
+def _linear_interp_operands(
+    x: np.ndarray, y: np.ndarray, target: float
+) -> dict[str, Any]:
+    """Expose the exact two endpoint operands used by linear interpolation."""
+    x = finite("interpolation abscissa", x)
+    y = finite("interpolation profile", y)
+    if x.ndim != 1 or y.shape != x.shape or x.size < 2 or np.any(np.diff(x) <= 0.0):
+        raise ValueError("interpolation operands require aligned increasing arrays")
+    if not math.isfinite(float(target)) or target < x[0] or target > x[-1]:
+        raise ValueError("interpolation target lies outside profile")
+    left = int(np.searchsorted(x, float(target), side="right") - 1)
+    left = max(0, min(left, x.size - 2))
+    right = left + 1
+    width = float(x[right] - x[left])
+    theta = float((float(target) - x[left]) / width)
+    value = float((1.0 - theta) * y[left] + theta * y[right])
+    return {
+        "left_index": left,
+        "right_index": right,
+        "target": float(target),
+        "x_left": float(x[left]),
+        "x_right": float(x[right]),
+        "theta": theta,
+        "one_minus_theta": float(1.0 - theta),
+        "theta_one_minus_theta": float(theta * (1.0 - theta)),
+        "delta_R": width,
+        "y_left": float(y[left]),
+        "y_right": float(y[right]),
+        "interpolated_value": value,
+    }
+
+
+def _capture_interpolation_operands(
+    bundle: dict[str, Any],
+    target_R: float,
+    profiles: dict[str, np.ndarray],
+) -> dict[str, Any]:
+    """Read-only endpoint capture for each factor and composite product."""
+    bracket = _linear_interp_operands(bundle["R"], bundle["r"], target_R)
+    factors: dict[str, Any] = {}
+    for name, values in profiles.items():
+        factors[name] = _linear_interp_operands(bundle["R"], values, target_R)
+    return {
+        "state_sha256": bundle["state_sha256"],
+        "R_bracket": {
+            key: bracket[key]
+            for key in (
+                "left_index", "right_index", "target", "x_left", "x_right",
+                "theta", "one_minus_theta", "theta_one_minus_theta", "delta_R"
+            )
+        },
+        "coordinate_radius": {
+            "left": bracket["y_left"],
+            "right": bracket["y_right"],
+            "interpolated": bracket["interpolated_value"],
+        },
+        "factor_endpoints": factors,
+    }
+
+
 def _misner_sharp_fixed_R_balance(
     base_state,
     base: dict[str, Any],
@@ -364,6 +424,45 @@ def _one_shell_tangent(base_state, plus_state, minus_state, epsilon: float,
     mass_base = finite("base Misner-Sharp mass", WORLD_TUBE.misner_sharp(base_state.grid, base_state.geometry))
     mass_plus = finite("plus Misner-Sharp mass", WORLD_TUBE.misner_sharp(plus_state.grid, plus_state.geometry))
     mass_minus = finite("minus Misner-Sharp mass", WORLD_TUBE.misner_sharp(minus_state.grid, minus_state.geometry))
+
+    # Optional sidecar capture uses the same arrays and brackets as the ledger.
+    # It is kept out of the primary report so enabling it cannot alter residual fields.
+    operand_capture: dict[str, Any] = {}
+    for boundary_name, target in (("inner", lower_R), ("outer", upper_R)):
+        state_captures = {}
+        for state_name, bundle, mass_profile in (
+            ("base", base, mass_base),
+            ("plus", plus, mass_plus),
+            ("minus", minus, mass_minus),
+        ):
+            factors = {
+                "areal_radius": bundle["R"],
+                "R_squared": bundle["R"] ** 2,
+                "lapse": bundle["alpha"],
+                "gamma_inverse_rr": 1.0 / bundle["gamma_rr"],
+                "radial_current_j": finite("operand radial current", bundle["projection"]["j"]),
+                "radial_pressure_pr": finite("operand radial pressure", bundle["projection"]["pr"]),
+                "misner_sharp_mass": mass_profile,
+                "Rdot_directional_rate": Rdot,
+                "Rr_base_geometry_derivative": Rr,
+            }
+            factors["composite_flux_product"] = finite(
+                "operand composite flux product",
+                -4.0 * math.pi * bundle["R"] ** 2 * bundle["alpha"]
+                * (1.0 / bundle["gamma_rr"]) * factors["radial_current_j"] * Rr,
+            )
+            factors["composite_pressure_work_product"] = finite(
+                "operand composite pressure work product",
+                -4.0 * math.pi * bundle["R"] ** 2
+                * factors["radial_pressure_pr"] * Rdot,
+            )
+            state_captures[state_name] = _capture_interpolation_operands(
+                bundle, target, factors
+            )
+        operand_capture[boundary_name] = {
+            "target_areal_radius": float(target),
+            "states": state_captures,
+        }
     mass_rate_coordinate = finite("coordinate-time Misner-Sharp mass rate", (mass_plus - mass_minus) * inv)
     mass_gradient_coordinate = finite(
         "radial Misner-Sharp mass gradient",
@@ -430,6 +529,7 @@ def _one_shell_tangent(base_state, plus_state, minus_state, epsilon: float,
             "plus_state_sha256": plus["state_sha256"],
             "minus_state_sha256": minus["state_sha256"],
         },
+        "_interpolation_operands": operand_capture,
         "fixed_R_boundaries": boundaries,
         "components": components,
         "misner_sharp_fixed_R_boundary_balances": misner_sharp_boundary_balances,
@@ -474,6 +574,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         raise ValueError("resolutions must each be >=32")
     provenance = AUDIT.verify_provenance()
     results = []
+    operand_rows = []
     for n in args.resolutions:
         kernel = AUDIT.V55ProductionKernel()
         state = kernel.initialize(resolution=int(n), r_max=float(args.r_max), include_radiation=True)
@@ -487,6 +588,23 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         conditional = _tangent_for_coupling(
             kernel, state, BETA_DM_CONDITIONAL, args.epsilons, args.inner_R, args.outer_R
         )
+        if getattr(args, "operand_output", None) is not None:
+            for coupling_name, tangent in (
+                ("uncoupled_control", uncoupled),
+                ("conditional_coupled_model", conditional),
+            ):
+                for epsilon_row in tangent["epsilon_rows"]:
+                    operand_rows.append({
+                        "resolution": int(n),
+                        "coupling_case": coupling_name,
+                        "coupling": float(tangent["coupling"]),
+                        "epsilon": float(epsilon_row["epsilon"]),
+                        "boundaries": epsilon_row.pop("_interpolation_operands"),
+                    })
+        else:
+            for tangent in (uncoupled, conditional):
+                for epsilon_row in tangent["epsilon_rows"]:
+                    epsilon_row.pop("_interpolation_operands", None)
         digest_after = AUDIT.state_digest(state)
         if digest_before != digest_after:
             raise RuntimeError("shell observer modified the base initialized state")
@@ -499,6 +617,34 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             "conditional_coupled_model": conditional,
             "base_state_unchanged": True,
         })
+    if getattr(args, "operand_output", None) is not None:
+        operand_path = Path(args.operand_output)
+        operand_path.parent.mkdir(parents=True, exist_ok=True)
+        operand_document = {
+            "schema": "current_source_fixed_R_shell_interpolation_operands_v1",
+            "status": "completed_diagnostic_only",
+            "source_provenance": provenance,
+            "configuration": {
+                "resolutions": list(args.resolutions),
+                "r_max": float(args.r_max),
+                "fixed_areal_radius_shell": [float(args.inner_R), float(args.outer_R)],
+                "directional_epsilons": [float(e) for e in args.epsilons],
+                "production_steps_advanced": 0,
+            },
+            "operand_rows": operand_rows,
+            "scientific_admission": False,
+            "production_steps_advanced": 0,
+            "interpretation": (
+                "Read-only interpolation endpoint operands from the exact base/plus/minus "
+                "arrays used by the shell ledger. This sidecar does not modify the primary "
+                "ledger report, residuals, production state, or admission gates."
+            ),
+        }
+        operand_path.write_text(
+            json.dumps(operand_document, indent=2, sort_keys=True, allow_nan=False) + "\\n",
+            encoding="utf-8",
+        )
+
     return {
         "schema": SCHEMA,
         "status": "completed_diagnostic_only",
@@ -549,6 +695,12 @@ def main() -> int:
     parser.add_argument("--outer-R", type=float, default=10.0)
     parser.add_argument("--epsilons", nargs=2, type=float, default=[2.0e-5, 1.0e-5])
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
+    parser.add_argument(
+        "--operand-output",
+        type=Path,
+        default=None,
+        help="optional read-only JSON sidecar with base/plus/minus interpolation brackets and factor endpoints",
+    )
     args = parser.parse_args()
     args.output.parent.mkdir(parents=True, exist_ok=True)
     try:
