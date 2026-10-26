@@ -1,10 +1,14 @@
+from pathlib import Path
 from types import SimpleNamespace
+import hashlib
+import json
 
 import numpy as np
 
 from tools.audit_pirk_same_stage_matter_propagation import (
     KAPPA,
     total_current_tangent,
+    write_signed_artifacts,
 )
 
 
@@ -100,3 +104,34 @@ def test_six_sector_current_tangent_matches_symmetric_directional_difference():
     np.testing.assert_allclose(total_dot, finite_difference, rtol=2.0e-7, atol=2.0e-9)
     assert set(pieces) == {"S", "D", "COSMOS_phi", "dark_matter", "baryons", "radiation"}
     assert np.all(np.isfinite(volume_rate))
+
+
+def test_signed_artifact_writer_preserves_profiles_and_manifest(tmp_path: Path):
+    report = {
+        "schema": "issue4-same-stage-matter-brown-propagation/v1",
+        "status": "completed_rhs_only_diagnostic",
+        "scientific_admission": False,
+        "input_state_digest": "pinned-digest",
+        "input_state_immutable": True,
+    }
+    arrays = {
+        "r": np.array([0.25, 0.75, 1.25]),
+        "accepted_minus_Brown_source_aware_residual": np.array([1.0e-4, -2.0e-5, 3.0e-7]),
+        "connection_D1_Cr": np.array([-1.0e-3, 2.0e-4, 4.0e-5]),
+    }
+
+    sums = write_signed_artifacts(tmp_path, report, arrays)
+
+    persisted = json.loads((tmp_path / "report.json").read_text(encoding="utf-8"))
+    assert persisted["input_state_digest"] == "pinned-digest"
+    assert persisted["scientific_admission"] is False
+    with np.load(tmp_path / "signed_arrays.npz", allow_pickle=False) as saved:
+        assert set(saved.files) == set(arrays)
+        for name, expected in arrays.items():
+            np.testing.assert_array_equal(saved[name], expected)
+    manifest = (tmp_path / "SHA256SUMS.txt").read_text(encoding="utf-8")
+    for name in ("report.json", "signed_arrays.npz"):
+        expected = hashlib.sha256((tmp_path / name).read_bytes()).hexdigest()
+        assert sums[name] == expected
+        assert f"{expected}  {name}" in manifest
+
