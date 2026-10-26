@@ -10,6 +10,7 @@ from tools.audit_pirk_same_stage_matter_propagation import (
     total_current_tangent,
     geometric_constraint_tangent_terms,
     primary_l2_decomposition,
+    solve_cmc_lapse_parity_center_pde_row,
     write_signed_artifacts,
 )
 
@@ -136,6 +137,31 @@ def test_signed_artifact_writer_preserves_profiles_and_manifest(tmp_path: Path):
         expected = hashlib.sha256((tmp_path / name).read_bytes()).hexdigest()
         assert sums[name] == expected
         assert f"{expected}  {name}" in manifest
+
+def test_parity_center_pde_row_reproduces_regular_even_quadratic_lapse():
+    n = 9
+    h = 0.2
+    grid = SimpleNamespace(n=n, dr=h)
+    r = (np.arange(n, dtype=float) + 0.5) * h
+    curvature = -0.005
+    alpha_exact = 1.0 + curvature * (r**2 - r[-1]**2)  # alpha[-1] = 1
+    c = 2.0 / r
+    m = np.zeros(n)
+    rhs = np.zeros(n)
+    rhs[0] = (
+        (alpha_exact[1] - alpha_exact[0]) / h**2
+        + c[0] * (alpha_exact[1] - alpha_exact[0]) / (2.0*h)
+    )
+    for i in range(1, n-1):
+        rhs[i] = (
+            (alpha_exact[i-1] - 2.0*alpha_exact[i] + alpha_exact[i+1]) / h**2
+            + c[i] * (alpha_exact[i+1] - alpha_exact[i-1]) / (2.0*h)
+        )
+    solved, centre_residual = solve_cmc_lapse_parity_center_pde_row(grid, c, m, rhs)
+    np.testing.assert_allclose(solved, alpha_exact, rtol=0.0, atol=2.0e-14)
+    assert abs(centre_residual) < 1.0e-13
+    assert not np.isclose(alpha_exact[0], alpha_exact[1], rtol=0.0, atol=1.0e-14)
+
 
 def test_primary_l2_decomposition_reconstructs_pinned_operator_form():
     n = 7
