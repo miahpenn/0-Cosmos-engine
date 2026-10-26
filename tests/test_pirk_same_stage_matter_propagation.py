@@ -9,6 +9,7 @@ from tools.audit_pirk_same_stage_matter_propagation import (
     KAPPA,
     total_current_tangent,
     geometric_constraint_tangent_terms,
+    primary_l2_decomposition,
     write_signed_artifacts,
 )
 
@@ -113,7 +114,7 @@ def test_signed_artifact_writer_preserves_profiles_and_manifest(tmp_path: Path):
         "status": "completed_rhs_only_diagnostic",
         "scientific_admission": False,
         "stage_state_digest": "pinned-stage-digest",
-        "input_state_immutable": True,
+        "stage_state_immutable": True,
     }
     arrays = {
         "r": np.array([0.25, 0.75, 1.25]),
@@ -135,6 +136,30 @@ def test_signed_artifact_writer_preserves_profiles_and_manifest(tmp_path: Path):
         expected = hashlib.sha256((tmp_path / name).read_bytes()).hexdigest()
         assert sums[name] == expected
         assert f"{expected}  {name}" in manifest
+
+def test_primary_l2_decomposition_reconstructs_pinned_operator_form():
+    n = 7
+    r = np.arange(n, dtype=float) + 0.5
+    alpha = 0.9 + 0.01*r
+    drdr_alpha = 0.002*np.cos(r)
+    lap_alpha = -0.003*np.sin(r)
+    rr = 0.004*np.cos(0.3*r)
+    scalar_r = -0.001*np.sin(0.4*r)
+    aa_lapse = -(drdr_alpha - lap_alpha/3.0)
+    aa_ricci = alpha*(rr-scalar_r/3.0)
+    aa_operator = aa_lapse + aa_ricci
+    k_operator = -lap_alpha
+    split = primary_l2_decomposition(
+        alpha,
+        {"DrDr_alpha": drdr_alpha, "lap_alpha": lap_alpha, "Rr_r": rr, "R": scalar_r},
+        aa_operator,
+        k_operator,
+    )
+    np.testing.assert_allclose(split["Aa_split_residual"], 0.0, rtol=0.0, atol=1.0e-18)
+    np.testing.assert_allclose(split["K_split_residual"], 0.0, rtol=0.0, atol=1.0e-18)
+    np.testing.assert_array_equal(split["Aa_reconstructed"], aa_operator)
+    np.testing.assert_array_equal(split["K_reconstructed_minus_lap_alpha"], k_operator)
+
 
 def test_geometric_constraint_tangent_terms_reconstruct_the_exact_chain_rule():
     grid = LinearGrid(n=9, dr=0.2)
