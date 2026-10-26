@@ -363,6 +363,201 @@ def pointwise_total_divergence_r(
     }
 
 
+def evaluate_center_row_counterfactual(
+    state: ProductionState,
+    arrays: Any,
+    kernel: V55ProductionKernel,
+    baseline_residual: np.ndarray,
+) -> tuple[dict[str, Any], dict[str, np.ndarray]]:
+    """Test a parity-centre CMC row on the same saved pre-refresh profile only."""
+    grid = state.grid
+    h = float(grid.dr)
+    r = finite("counterfactual radii", grid.centers)
+    stage_g = state.geometry
+    pre_g = stage_g.copy()
+    pre_g.alpha = finite("saved pre-refresh alpha", arrays["input__geometry__alpha"]).copy()
+    pre_state = ProductionState(
+        grid=grid, geometry=pre_g, scalars=state.scalars, matter=state.matter,
+        t=state.t, tau=state.tau, e_folds=state.e_folds,
+        electromagnetic=state.electromagnetic,
+    )
+
+    # Confirm lapse refresh changed alpha only. Do not splice state families.
+    unchanged_differences: dict[str, float] = {}
+    for name in GEOMETRY_FIELDS:
+        if name == "alpha":
+            continue
+        unchanged_differences["geometry." + name] = float(np.max(np.abs(
+            np.asarray(arrays["input__geometry__" + name], dtype=float)
+            - np.asarray(getattr(stage_g, name), dtype=float)
+        )))
+    for name in SCALAR_FIELDS:
+        unchanged_differences["scalars." + name] = float(np.max(np.abs(
+            np.asarray(arrays["input__scalars__" + name], dtype=float)
+            - np.asarray(getattr(state.scalars, name), dtype=float)
+        )))
+    for sector in SPECIES:
+        for name in SPECIES_FIELDS:
+            unchanged_differences[f"matter.{sector}.{name}"] = float(np.max(np.abs(
+                np.asarray(arrays[f"input__matter__{sector}__{name}"], dtype=float)
+                - np.asarray(getattr(getattr(state.matter, sector), name), dtype=float)
+            )))
+    other_profile_max_difference = max(unchanged_differences.values(), default=0.0)
+    if other_profile_max_difference > 1.0e-13:
+        raise ValueError("saved lapse-refresh stage differs from input profile outside alpha")
+
+    # Reconstruct the pinned solve from the exact pre-refresh input. Its target
+    # kdot is then held fixed while only the first row is changed.
+    baseline_alpha_rebuilt, kdot = solve_cmc_lapse(
+        grid, pre_g.copy(), state.scalars, state.matter
+    )
+    baseline_alpha_reconstruction = float(np.max(np.abs(baseline_alpha_rebuilt - stage_g.alpha)))
+
+    a = finite("counterfactual lapse metric a", pre_g.a)
+    b = finite("counterfactual lapse metric b", pre_g.b)
+    X = finite("counterfactual lapse metric X", pre_g.X)
+    D1 = lambda values: finite(
+        "counterfactual CMC D1", grid.cell_derivative_fourth(values, parity=1)
+    )
+    c = -0.5 * D1(a) / a + D1(b) / b - D1(X) / X + 2.0 / r
+    inv = X * X / a
+    total = total_matter_projection(grid, pre_g, state.scalars, state.matter)
+    Q = (
+        1.5 * np.asarray(pre_g.Aa, dtype=np.float64) ** 2
+        + np.asarray(pre_g.K, dtype=np.float64) ** 2 / 3.0
+        + 4.0 * math.pi * (
+            np.asarray(total["rho"], dtype=np.float64)
+            + np.asarray(total["pr"], dtype=np.float64)
+            + 2.0 * np.asarray(total["pt"], dtype=np.float64)
+        )
+    )
+    m = Q / inv
+    rhs = -float(kdot) / inv
+    alpha_cf, cf_centre_residual = solve_cmc_lapse_parity_center_pde_row(grid, c, m, rhs)
+
+    # Residual of the same centre PDE row evaluated on the saved baseline lapse.
+    alpha_base = finite("saved baseline refreshed alpha", stage_g.alpha)
+    base_centre_residual = (
+        (alpha_base[1] - alpha_base[0]) / h**2
+        + c[0] * (alpha_base[1] - alpha_base[0]) / (2.0 * h)
+        - m[0] * alpha_base[0] - rhs[0]
+    )
+    centre_profile = pre_g.copy()
+    centre_profile.alpha = alpha_cf.copy()
+    cf_state = ProductionState(
+        grid=grid, geometry=centre_profile, scalars=state.scalars, matter=state.matter,
+        t=state.t, tau=state.tau, e_folds=state.e_folds,
+        electromagnetic=state.electromagnetic,
+    )
+
+    # Instantaneous RHS only: no accepted step, no trajectory advancement.
+    scalar_rhs_cf, matter_rhs_cf, _ = kernel._rhs(cf_state)
+    terms_cf = kernel._geometry_stage_terms(
+        grid, cf_state.geometry, cf_state.scalars, cf_state.matter, cf_state.electromagnetic
+    )
+    rates_cf = {
+        name: finite("counterfactual explicit rate " + name, terms_cf["explicit"][name])
+        for name in ("a", "b", "X")
+    }
+    for name in ("Aa", "K"):
+        rates_cf[name] = finite(
+            "counterfactual primary rate " + name,
+            terms_cf["primary_l2"][name] + terms_cf["primary_l3"][name],
+        )
+    rates_cf["Lambda"] = finite(
+        "counterfactual Lambda rate", terms_cf["lambda_l2"] + terms_cf["lambda_l3"]
+    )
+    _, jdot_cf, volume_rate_cf = total_current_tangent(
+        cf_state, rates_cf, scalar_rhs_cf, matter_rhs_cf
+    )
+    stress_cf = assemble_total_stress_energy(
+        grid, cf_state.geometry, cf_state.scalars, cf_state.matter
+    )
+    _, vacuum, _ = adapter.vendor_modules()
+    constraints_cf = vacuum.constraints(grid, cf_state.geometry)
+    Mgeom_cf = finite("counterfactual geometric M", constraints_cf["momentum"])
+    Mtotal_cf = Mgeom_cf - KAPPA * finite("counterfactual total j", stress_cf.j)
+    geom_terms_cf, Mdot_geom_cf = geometric_constraint_tangent_terms(cf_state, rates_cf)
+    Mdot_total_cf = Mdot_geom_cf - KAPPA * jdot_cf
+
+    brown_constraints_cf = {
+        "momentum": Mtotal_cf,
+        "connection": finite("counterfactual connection", constraints_cf["connection"]),
+    }
+    _, brown_base_cf = brown.brown_lower_momentum_rhs(
+        grid, cf_state.geometry, brown_constraints_cf
+    )
+    Hmatter_cf = -2.0 * KAPPA * finite("counterfactual total rho", stress_cf.rho)
+    Hmatter_gradient_cf = (
+        -(D1(cf_state.geometry.alpha) / 3.0) * Hmatter_cf
+        + (cf_state.geometry.alpha / 6.0) * D1(Hmatter_cf)
+    )
+    divergence_cf, _ = pointwise_total_divergence_r(
+        cf_state, stress_cf, jdot_cf, volume_rate_cf
+    )
+    bianchi_cf = -KAPPA * cf_state.geometry.alpha * divergence_cf
+    predicted_cf = brown_base_cf + Hmatter_gradient_cf + bianchi_cf
+    residual_cf = Mdot_total_cf - predicted_cf
+    vendor_geometry_cf = vacuum.geometry_terms(grid, cf_state.geometry)
+    l2_cf = primary_l2_decomposition(
+        cf_state.geometry.alpha, vendor_geometry_cf,
+        terms_cf["primary_l2"]["Aa"], terms_cf["primary_l2"]["K"],
+    )
+
+    mask = r <= 10.0 + 1.0e-12
+    base_max = float(np.max(np.abs(baseline_residual[mask])))
+    cf_max = float(np.max(np.abs(residual_cf[mask])))
+    report_cf = {
+        "status": "completed_diagnostic_only",
+        "input_state": "saved pre-refresh profile; geometry/scalar/matter unchanged",
+        "baseline_row": "alpha[0] - alpha[1] = 0",
+        "counterfactual_row": "D2(alpha)[0] + c[0]*D1(alpha)[0] - m[0]*alpha[0] = rhs[0], with even ghost alpha[-1]=alpha[0]",
+        "source_commit": SOURCE_COMMIT,
+        "vendor_commit": VENDOR_COMMIT,
+        "local_pre_refresh_state_digest": state_digest(pre_state),
+        "pinned_baseline_lapse_reconstruction_max_abs": baseline_alpha_reconstruction,
+        "frozen_cmc_target_kdot": float(kdot),
+        "max_abs_non_lapse_profile_difference": other_profile_max_difference,
+        "non_lapse_profile_equal": other_profile_max_difference == 0.0,
+        "baseline_alpha_0_minus_1": float(alpha_base[0] - alpha_base[1]),
+        "counterfactual_alpha_0_minus_1": float(alpha_cf[0] - alpha_cf[1]),
+        "baseline_centre_pde_row_residual": float(base_centre_residual),
+        "counterfactual_centre_pde_row_residual": float(cf_centre_residual),
+        "alpha_baseline": summary(alpha_base, r),
+        "alpha_counterfactual": summary(alpha_cf, r),
+        "alpha_counterfactual_minus_baseline": summary(alpha_cf - alpha_base, r),
+        "baseline_max_abs_source_aware_residual_r_le_10": base_max,
+        "counterfactual_max_abs_source_aware_residual_r_le_10": cf_max,
+        "residual_max_ratio_baseline_over_counterfactual": base_max / cf_max if cf_max > 0.0 else None,
+        "baseline_residual": summary(baseline_residual, r),
+        "counterfactual_residual": summary(residual_cf, r),
+        "counterfactual_Aa_lapse_hessian": summary(l2_cf["Aa_lapse_hessian"], r),
+        "counterfactual_Aa_tracefree_ricci": summary(l2_cf["Aa_tracefree_ricci"], r),
+        "counterfactual_K_L2": summary(l2_cf["K_operator"], r),
+        "no_step_or_trajectory": True,
+        "scientific_admission": False,
+    }
+    arrays_cf = {
+        "counterfactual__alpha": alpha_cf.copy(),
+        "counterfactual__alpha_minus_baseline": (alpha_cf - alpha_base).copy(),
+        "counterfactual__DrDr_alpha": l2_cf["DrDr_alpha"].copy(),
+        "counterfactual__lap_alpha": l2_cf["lap_alpha"].copy(),
+        "counterfactual__Aa_lapse_hessian": l2_cf["Aa_lapse_hessian"].copy(),
+        "counterfactual__Aa_tracefree_ricci": l2_cf["Aa_tracefree_ricci"].copy(),
+        "counterfactual__Aa_L2": l2_cf["Aa_operator"].copy(),
+        "counterfactual__K_L2": l2_cf["K_operator"].copy(),
+        "counterfactual__Mdot_geometry": Mdot_geom_cf.copy(),
+        "counterfactual__Mdot_total": Mdot_total_cf.copy(),
+        "counterfactual__source_aware_prediction": predicted_cf.copy(),
+        "counterfactual__residual": residual_cf.copy(),
+        "counterfactual__Mdot_Aa_rate": rates_cf["Aa"].copy(),
+        "counterfactual__Mdot_K_rate": rates_cf["K"].copy(),
+    }
+    for name, values in geom_terms_cf.items():
+        arrays_cf["counterfactual__Mdot_geometry_term__" + name] = np.asarray(values).copy()
+    return report_cf, arrays_cf
+
+
 def verify_stage_bundle(bundle_dir: Path, resolution: int) -> tuple[dict[str, Any], Any, dict[str, Any]]:
     required = ("report.json", "stage_arrays.npz", "SHA256SUMS.txt")
     for filename in required:
