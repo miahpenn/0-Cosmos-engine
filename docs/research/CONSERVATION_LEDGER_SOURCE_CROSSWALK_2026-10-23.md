@@ -647,3 +647,38 @@ The \(t\)-component remainder falls by approximately \(8\times\) with each grid 
 At this initial slice, the \(\beta_{\rm DM}=0\) control and the conditional \(\beta_{\rm DM}=-0.04\) arm are numerically indistinguishable at the recorded precision: the radial remainder differences are roughly \(3.5\times10^{-18}\) and the time-component differences are at or below a few \(10^{-14}\). This is a frozen initial-state discriminator only; it neither validates the conditional exchange law nor tests later-state conservation.
 
 **Next discriminant, without gain fitting:** preserve the raw report, then compare the integrated ledger’s \(R\)-fixed stored-rate/face-flux/work pieces with the existing same-stage Misner–Sharp fixed-\(R\) witness on the same state and faces. Only after matching the two independently defined quantities should we isolate finite-difference and quadrature error with manufactured controls and refinement. Do not fold the total-T remainder into Issue #4 momentum propagation, and do not close Issue #210 source normalization from these numbers.
+
+
+### 2O. Interpolation-gap and moving-fixed-radius residual semantics — 25 October 2026
+
+The independent recomputation in `tools/recompute_fixed_r_balance_artifact.py` confirms that the current composite and factorized operators use different interpolation orderings. For linear interpolation (I_\theta), the exact two-factor identity is
+
+\[
+I_\theta(ab)-I_\theta(a)I_\theta(b)
+=\theta(1-\theta)(a_R-a_L)(b_R-b_L).
+\]
+
+The multi-factor flux/work differences are the corresponding product-interpolation terms. Under smooth bracket refinement, the two-factor gap is (O(h^2)); this asymptotic statement does not certify the observed finite-resolution sequence when the bracket endpoints and \(\theta\) change with resolution. Report each resolution's \(R_L,R_R,\theta\) and compare the measured gap with the identity before describing an empirical convergence rate. The gap is an interpolation-ordering difference, not a separately identified physical source.
+
+**Sign convention for the remainder difference.** With \(\mathcal R_c=\dot m-F_c-W_c\) and \(\mathcal R_f=\dot m-F_f-W_f\), the exact relation is
+\[
+\mathcal R_c-\mathcal R_f=-(F_c-F_f)-(W_c-W_f).
+\]
+The opposite sign applies to \(\mathcal R_f-\mathcal R_c\). Keep this sign explicit in any table or narrative.
+
+**The sweep cancels from the present residual by construction.** The recomputation sets \(\dot m_{\rm obs}=I_\theta(\dot m)+S\) and \(\dot m_{\rm pred}=F_c+W_c+S\), with \(S=-\dot R_t(m_R-m_L)/(R_R-R_L)\). Therefore
+\[
+\dot m_{\rm obs}-\dot m_{\rm pred}
+=I_\theta(\dot m)-F_c-W_c.
+\]
+This cancellation is algebraically correct and is not evidence that the sweep was independently measured or validated. The present single-stage quantity is a **coordinate-rate balance evaluated at the fixed target radius**; the label “fixed-R residual” must not imply an independent measurement of the moving-tube rate.
+
+For linear interpolation on a fixed target \(R_*\), the chain rule gives
+\[
+\frac{d m_{R_*}}{dt}
+=(1-\theta)\dot m_L+\theta\dot m_R
+-\dot R_t\frac{m_R-m_L}{R_R-R_L}.
+\]
+A distinct moving-tube test requires two time levels: independently evaluate the interpolated mass at the same \(R_*\) at both levels, update the bracketing endpoints and \(\theta\) at each level, and compare the finite-difference rate against the independently reconstructed coordinate-rate and sweep terms. The current single-stage observer cannot perform that test. Any future observer should reuse captured/accepted states where possible, avoid changing production equations, and report the signed difference without applying a physical acceptance threshold.
+
+No new trajectory, production equation, source-law assignment, or admission status is authorized by this clarification. Issue #4, Issue #210, total stress-energy closure, and the radiation near-cone gate remain open.
