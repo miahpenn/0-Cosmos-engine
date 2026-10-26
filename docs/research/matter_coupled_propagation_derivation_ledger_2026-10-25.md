@@ -1436,3 +1436,48 @@ where the Brown operator retains its declared metric-only Hamiltonian and explic
 **Interpretation:** the maximum source-aware residual is inner-cell dominated and is not a convergent global maximum across these three resolutions. It moves from cell 0 to cell 1 and grows in absolute magnitude. The fixed-radius residual samples are much smaller but not uniformly monotone: at \(r=2\), they are \(-7.59\times10^{-6}\), \(+1.17\times10^{-5}\), and \(+4.05\times10^{-8}\); at \(r=3\), \(+1.44\times10^{-5}\), \(+7.36\times10^{-7}\), and \(+4.21\times10^{-8}\); at \(r=5\), \(-2.52\times10^{-6}\), \(-5.87\times10^{-8}\), and \(-3.82\times10^{-9}\); at \(r=8\), \(-1.49\times10^{-6}\), \(-8.77\times10^{-8}\), and \(-5.38\times10^{-9}\) for N=60, 120, and 240, respectively. Several fixed-radius values decrease sharply, but the \(r=2\) anomaly and the changing near-origin structure prohibit claiming full convergence from this family.
 
 This is a genuine, same-stage comparison—not the earlier unrefreshed endpoint tangent and not a finite-step secant. It exposes the remaining operator/near-origin mismatch without selecting its physical cause. The residual is not a fit target. Brown/vendor connection-extension reconciliation remains open, the discrete total-stress-energy gate remains open, no production equations or pins changed, and all five scientific-admission flags remain false.
+
+
+## 10.21 Reviewer safeguards: convergence, archive sign provenance, and index convention
+
+**Status:** documentation-only qualification of §§10.18–10.20. These safeguards do not change any production equation, select a physical sign, or admit the propagation identity.
+
+### Remainders: diagnostic, not converged
+
+The independent review reports the factorized remainder at (R=10) as
+
+| N | Factorized remainder |
+|---:|---:|
+| 32 | (-8.14\times10^{-7}) |
+| 64 | (-7.14\times10^{-8}) |
+| 128 | (-2.04\times10^{-8}) |
+
+The magnitude ratios are approximately 11.4 and 3.5. The latter is near the factor 4 expected for a second-order asymptotic regime, but the changing ratios do not establish that the sequence has entered that regime. The composite remainder changes sign between N=32 and N=64, so neither operator currently exhibits clean, established convergence.
+
+**Required wording:** these remainders are *diagnostic, not converged*. No convergence or closure claim may be based on this three-resolution sequence. Additional resolution is not automatically authorized; if later justified, keep the operator, convention, archived inputs, and measurement definition fixed and report the signed component values as well as ratios.
+
+### DM covariant sign: provenance debt, not a code-selection question
+
+The team review identifies contradictory statements in the archived `GEAR_V5_5_COVARIANT_GLOBAL_GATE_2026-10-05_v2.md): one gives
+[
+\nabla_\mu T_{\rm DM}^{\mu\nu}=-\beta\rho\nabla^\nu\phi,
+]
+while another gives the opposite sign. The accepted implementation follows the positive-sign branch in its declared projection. That agreement establishes implementation-to-projection consistency only; it does not establish which sign follows from the original action and definitions.
+
+The conflict must remain unresolved until the original action-level derivation is recovered and traced through the definitions of the interaction term, stress tensor, exchange covector, and index placement. Do not select a branch from residual size or code agreement, and do not rewrite production equations to force agreement.
+
+**Issue-number cross-check:** the live repository's GitHub Issue #210 is titled “physics: reconcile COSMOS/local gravitational density conventions”; it is not currently a DM-sign issue. Accordingly, this ledger records the sign conflict as an archive-provenance gate but does not mislabel it as the live Issue #210. The cross-reference must be reconciled against the archive/task register before assigning or changing an issue number.
+
+### Spatial mass-gradient identity: pin index placement before algebra
+
+Section 5's mass-gradient identity and its rate formula must use an explicit, shared current convention before their momentum terms are manipulated. In particular, distinguish the covector component (j_r) from the contravariant component (j^r), with
+[
+j^r=\gamma^{rr}j_r,\qquad j_r=\gamma_{rr}j^r
+]
+for the declared diagonal radial metric. State how the stored code variable maps to each component, and define whether the velocity factor is precisely (\partial_tR/\alpha) or includes a shift/advection contribution. The sign of the momentum-times-velocity term must be derived from these definitions, not inferred by matching the two existing expressions.
+
+Until that mapping is written down, the Section 5 spatial mass-gradient identity is **not ready for further algebraic comparison**. This is a notation/convention gate, not evidence that either formula is wrong.
+
+### Scope and admission status
+
+These are evidence-quality safeguards. No new evolution, observer, or resolution run was launched for this addendum; no production source, vendor pin, initializer, or accepted-state artifact was changed. The full matter-coupled propagation identity, discrete six-sector conservation, the action-level DM sign, and the index-convention crosswalk remain open. All five scientific-admission flags remain false; PR #423 remains draft.
