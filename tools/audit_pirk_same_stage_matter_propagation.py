@@ -210,25 +210,41 @@ def total_current_tangent(
     return pieces, finite("total current tangent", total), finite("spatial volume rate", volume_rate)
 
 
-def geometric_constraint_tangent(
+def geometric_constraint_tangent_terms(
     state: ProductionState, rates: dict[str, np.ndarray],
-) -> np.ndarray:
-    """Exact chain-rule derivative of the implemented discrete geometric M_r."""
+) -> tuple[dict[str, np.ndarray], np.ndarray]:
+    """Signed term-by-term chain rule for the implemented discrete geometric M_r."""
     g, grid = state.geometry, state.grid
     d = lambda x: d1(grid, x, 1)
     r = finite("r", grid.centers)
     aa, b, X = g.Aa, g.b, g.X
     aadot, kdot, bdot, xdot = rates["Aa"], rates["K"], rates["b"], rates["X"]
-    chi = -0.5 * d(X) / X
-    chi_dot = -0.5 * (d(xdot) / X - d(X) * xdot / X**2)
-    q = 2.0 / r + d(b) / b
-    q_dot = d(bdot) / b - d(b) * bdot / b**2
-    return finite(
-        "geometric M_r tangent",
-        d(aadot) - (2.0 / 3.0) * d(kdot)
-        + 6.0 * aadot * chi + 6.0 * aa * chi_dot
-        + 1.5 * aadot * q + 1.5 * aa * q_dot,
+    Db, DX = d(b), d(X)
+    terms = {
+        "D1_Aa_dot": d(aadot),
+        "minus_two_thirds_D1_K_dot": -(2.0 / 3.0) * d(kdot),
+        "six_Aa_dot_chi": 6.0 * aadot * (-0.5 * DX / X),
+        "minus_three_Aa_D1_X_dot_over_X": -3.0 * aa * d(xdot) / X,
+        "plus_three_Aa_D1_X_X_dot_over_X_squared": 3.0 * aa * DX * xdot / X**2,
+        "three_Aa_dot_over_r": 3.0 * aadot / r,
+        "one_point_five_Aa_dot_D1_b_over_b": 1.5 * aadot * Db / b,
+        "one_point_five_Aa_D1_b_dot_over_b": 1.5 * aa * d(bdot) / b,
+        "minus_one_point_five_Aa_D1_b_b_dot_over_b_squared": -1.5 * aa * Db * bdot / b**2,
+    }
+    total = np.zeros_like(r)
+    for value in terms.values():
+        total += value
+    return (
+        {name: finite("Mdot geometry term " + name, value) for name, value in terms.items()},
+        finite("geometric M_r tangent", total),
     )
+
+
+def geometric_constraint_tangent(
+    state: ProductionState, rates: dict[str, np.ndarray],
+) -> np.ndarray:
+    """Compatibility wrapper for the full signed chain-rule budget."""
+    return geometric_constraint_tangent_terms(state, rates)[1]
 
 
 def pointwise_total_divergence_r(
@@ -330,7 +346,11 @@ def audit_bundle(bundle_dir: str | Path, resolution: int) -> tuple[dict[str, Any
     constraints = vacuum.constraints(grid, geom)
     M_geom = finite("geometric momentum constraint", constraints["momentum"])
     M_total = M_geom - KAPPA * finite("total stress current", stress.j)
-    tangent_geom = geometric_constraint_tangent(state, rates)
+    geometric_Mdot_terms, tangent_geom = geometric_constraint_tangent_terms(state, rates)
+    geometric_Mdot_terms_sum = np.zeros_like(r)
+    for values in geometric_Mdot_terms.values():
+        geometric_Mdot_terms_sum += values
+    geometric_Mdot_terms_residual = tangent_geom - geometric_Mdot_terms_sum
     Mdot_total = tangent_geom - KAPPA * j_dot
 
     # Brown's published structural operator uses the metric-only Hamiltonian.
@@ -399,6 +419,7 @@ def audit_bundle(bundle_dir: str | Path, resolution: int) -> tuple[dict[str, Any
         "M_geometry": np.asarray(M_geom).copy(),
         "M_total": np.asarray(M_total).copy(),
         "Mdot_geometry": np.asarray(tangent_geom).copy(),
+        "Mdot_geometry_term_reconstruction_residual": np.asarray(geometric_Mdot_terms_residual).copy(),
         "Mdot_total_accepted_RHS": np.asarray(Mdot_total).copy(),
         "connection_Cr": np.asarray(constraints["connection"]).copy(),
         "connection_D1_Cr": d1(grid, constraints["connection"], 1).copy(),
@@ -415,6 +436,8 @@ def audit_bundle(bundle_dir: str | Path, resolution: int) -> tuple[dict[str, Any
         "j_dot_total": np.asarray(j_dot).copy(),
         "j_projection_rebuilt": np.asarray(j_rebuilt).copy(),
     })
+    for name, value in geometric_Mdot_terms.items():
+        signed_arrays["Mdot_geometry_term__" + name] = np.asarray(value).copy()
     for name, value in divergence_components.items():
         signed_arrays["div_T_component__" + name] = np.asarray(value).copy()
     for name, value in brown_terms.items():
@@ -449,6 +472,8 @@ def audit_bundle(bundle_dir: str | Path, resolution: int) -> tuple[dict[str, Any
         "current_tangent_by_sector": {k: summary(v, r) for k, v in current_parts_dot.items()},
         "j_dot_total": summary(j_dot, r),
         "geometric_M_dot": summary(tangent_geom, r),
+        "geometric_M_dot_term_budget": {k: summary(v, r) for k, v in geometric_Mdot_terms.items()},
+        "geometric_M_dot_term_reconstruction_residual": summary(geometric_Mdot_terms_residual, r),
         "total_M_dot_accepted_RHS": summary(Mdot_total, r),
         "total_stress_divergence_pointwise": summary(divergence_r, r),
         "pointwise_divergence_components": {k: summary(v, r) for k, v in divergence_components.items()},
