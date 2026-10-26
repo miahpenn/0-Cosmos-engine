@@ -1335,3 +1335,104 @@ The continuum six-sector question can be answered analytically, under the curren
   \]
 
 This closes the **continuum exchange/conservation derivation** for the frozen six-sector system. It does **not** close discrete total-stress conservation: the accepted scalar derivatives, Valencia/HLL face fluxes, cell-centred stress projections, metric-source contractions, and the declared pointwise/FV divergence measures do not form one demonstrated shared discrete conservation operator. The archived pointwise and FV residuals are evidence of truncation/operator mismatch, not permission to tune a coefficient or rewrite the equations. The discrete total-stress-energy gate therefore remains open, and all five scientific-admission flags remain false.
+
+
+## 10.20 Same-stage accepted current tangent and source-aware Brown/Bianchi comparison
+
+**Status:** completed RHS-only diagnostic on the three existing stage-capture artifacts. This supplies the missing \(\dot j_{\mathrm{tot}}\) term at the actual lapse-refreshed stage and evaluates the source-aware Brown candidate on that same state. It does **not** close the full propagation identity.
+
+Workflow: [run 40249740165](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/40249740165). All three lanes passed the archived-artifact checksum and source-pin checks, protected-path comparison, algebra tests, and RHS-only report generation. Reports: [N=60 artifact 12619498327](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/40249740165/artifacts/12619498327), [N=120 artifact 12619669231](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/40249740165/artifacts/12619669231), [N=240 artifact 12619784154](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/40249740165/artifacts/12619784154). The source anchor is 4aec88d0e3ff028e0a65a8ac36b30948625df792 and the vendor pin is d6052d605673ce9d82cdc99b0df79855fa2ea215. No ProductionKernel step, lapse re-solve, copied evolution, or trajectory write was performed by this audit; it calls only the accepted instantaneous RHS on the captured stage-0 arrays and uses the saved stage-0 geometry rates.
+
+### Exact current tangent assembled from the accepted RHS
+
+The accepted projections are
+\[
+j_S=-P_S D_1S,\quad
+j_D=-P_D D_1D,\quad
+j_\phi=-\frac{\Pi D_1\phi}{\kappa},
+\qquad \kappa=8\pi.
+\]
+Since the same fixed spatial operator acts on the field and its rate, their instantaneous derivatives are
+\[
+\dot j_S=-\dot P_S D_1S-P_SD_1\dot S,
+\quad
+\dot j_D=-\dot P_D D_1D-P_DD_1\dot D,
+\]
+\[
+\dot j_\phi=-\frac{\dot\Pi D_1\phi+\Pi D_1\dot\phi}{\kappa}.
+\]
+For each conservative fluid sector \(s\in\{\mathrm{DM},\mathrm{baryon},\mathrm{radiation}\}\), the accepted projection satisfies \(j_s=U_{r,s}/(\kappa\sqrt{\gamma})\). With \(\sqrt{\gamma}=\sqrt{a}\,b\,r^2/X^3\), its exact chain rule is
+\[
+\dot j_s=\frac{\dot U_{r,s}}{\kappa\sqrt{\gamma}}
+-j_s\left(\frac{\dot a}{2a}+\frac{\dot b}{b}-3\frac{\dot X}{X}\right).
+\]
+The metric-volume term is essential: differentiating only the conservative momentum would not give the derivative of the accepted projected current.
+
+Summing all six sector derivatives gives \(\dot j_{\mathrm{tot}}\). It was checked independently against the canonical projected current and the saved stage-current array. Maximum current-projection reconstruction gaps were \(2.12\times10^{-22}\), \(8.47\times10^{-22}\), and \(8.47\times10^{-22}\) for N=60, 120, and 240; the saved stage-current crosscheck gaps were \(9.76\times10^{-21}, 0, 0\). The saved geometric \(M_r\) crosscheck gaps were \(3.26\times10^{-18}, 0, 0\). The S-sector current tangent is dominant in this archived state family; the other five sectors were nevertheless included in the sum.
+
+Using the saved stage-0 rates
+\[
+\dot A_a=(L_{2,0}^{A_a}+L_{3,0}^{A_a}),\quad
+\dot K=(L_{2,0}^{K}+L_{3,0}^{K}),\quad
+(\dot a,\dot b,\dot X)=(E_{a,0},E_{b,0},E_{X,0}),
+\]
+the exact discrete geometric tangent is
+\[
+\begin{aligned}
+\dot M_{r,\mathrm{geom}}={}&D_1\dot A_a-\frac23D_1\dot K
++6\dot A_a\chi_r+6A_a\dot\chi_r\\
+&+\frac32\dot A_a q+\frac32A_a\dot q,\\
+\dot\chi_r={}&-\frac12\left(\frac{D_1\dot X}{X}
+-\frac{D_1X}{X^2}\dot X\right),\\
+\dot q={}&\frac{D_1\dot b}{b}-\frac{D_1b}{b^2}\dot b,\qquad
+q=\frac2r+\frac{D_1b}{b}.
+\end{aligned}
+\]
+Thus the accepted same-stage total tangent used in the comparison is
+\[
+\boxed{\dot M_{r,\mathrm{accepted}}=
+\dot M_{r,\mathrm{geom}}-\kappa\dot j_{\mathrm{tot}}.}
+\]
+The evolved-\(\Lambda\) contribution enters through the already captured \(L_{2,0}^{A_a}\) Ricci evaluation. It is not appended again.
+
+### Pointwise Bianchi source evaluated on the same stage
+
+At zero shift, \(\sqrt{-g}T^t{}_r=\sqrt{\gamma}j_{\mathrm{tot}}\). The source divergence is therefore reconstructed from the same RHS tangent:
+\[
+\mathcal D^{\mathrm{pt}}_{r,h}=
+\frac{\sqrt{\gamma}\left[\dot j_{\mathrm{tot}}+
+j_{\mathrm{tot}}\left(\frac{\dot a}{2a}+\frac{\dot b}{b}
+-3\frac{\dot X}{X}\right)\right]
++D_1(\alpha\sqrt{\gamma}p_r)}
+{\alpha\sqrt{\gamma}}
+-\frac12\left[
+T^{tt}D_1g_{tt}+T^{rr}D_1\gamma_{rr}
++2T^{\theta\theta}D_1\gamma_{\theta\theta}
+\right].
+\]
+This uses the declared **pointwise** divergence operator and the canonical same-stage \((\rho,p_r,p_t,j)\) projections. The lower-index source is \(S^{\mathrm{pt}}_{\mathrm{Bianchi},r,h}=-\kappa\alpha\mathcal D^{\mathrm{pt}}_{r,h}\). It is not a sector-exchange covector.
+
+### Signed numerical results
+
+All maxima below are over \(r\le10\); signed cells 0/1/2/6 and fixed-radius samples are retained in the workflow reports.
+
+| N | \(\max|\dot j_{\mathrm{tot}}|\) | \(\max|\mathcal D^{\mathrm{pt}}_{r,h}|\) | \(\max|S^{\mathrm{pt}}_{\mathrm{Bianchi},r,h}|\) | \(\max|\dot M_{r,\mathrm{accepted}}-\dot M_{r,\mathrm{Brown+source}}|\) | Residual maximum |
+|---:|---:|---:|---:|---:|---|
+| 60 | \(2.4241\times10^{-6}\) | \(7.9565\times10^{-7}\) | \(1.9975\times10^{-5}\) | \(4.1309\times10^{-5}\) | cell 0, \(r=0.6667\), positive |
+| 120 | \(2.4466\times10^{-6}\) | \(1.1501\times10^{-7}\) | \(2.8872\times10^{-6}\) | \(4.3927\times10^{-5}\) | cell 0, \(r=0.3333\), positive |
+| 240 | \(2.4444\times10^{-6}\) | \(1.5676\times10^{-8}\) | \(3.9351\times10^{-7}\) | \(9.0275\times10^{-5}\) | cell 1, \(r=0.5000\), negative |
+
+The pointwise divergence maxima decrease by about a factor of seven on each resolution doubling, matching the independent saved-state divergence ledger in scale and trend. That independently supports the chosen pointwise Bianchi-source construction; it does **not** prove discrete total conservation because the divergence remains nonzero.
+
+The comparison uses the source-aware Brown candidate
+\[
+\mathcal B_{\mathrm{matter}}=
+\mathcal B_{11b}\left[M_{r,\mathrm{total}},
+H_{\mathrm{metric}}-2\kappa\rho,C^r\right]
+-\kappa\alpha\mathcal D^{\mathrm{pt}}_{r,h},
+\]
+where the Brown operator retains its declared metric-only Hamiltonian and explicit \(C^r\) block, \(M_{r,\mathrm{total}}=M_{r,\mathrm{geom}}-\kappa j_{\mathrm{tot}}\), and no residual-selected coefficient is used.
+
+**Interpretation:** the maximum source-aware residual is inner-cell dominated and is not a convergent global maximum across these three resolutions. It moves from cell 0 to cell 1 and grows in absolute magnitude. The fixed-radius residual samples are much smaller but not uniformly monotone: at \(r=2\), they are \(-7.59\times10^{-6}\), \(+1.17\times10^{-5}\), and \(+4.05\times10^{-8}\); at \(r=3\), \(+1.44\times10^{-5}\), \(+7.36\times10^{-7}\), and \(+4.21\times10^{-8}\); at \(r=5\), \(-2.52\times10^{-6}\), \(-5.87\times10^{-8}\), and \(-3.82\times10^{-9}\); at \(r=8\), \(-1.49\times10^{-6}\), \(-8.77\times10^{-8}\), and \(-5.38\times10^{-9}\) for N=60, 120, and 240, respectively. Several fixed-radius values decrease sharply, but the \(r=2\) anomaly and the changing near-origin structure prohibit claiming full convergence from this family.
+
+This is a genuine, same-stage comparison—not the earlier unrefreshed endpoint tangent and not a finite-step secant. It exposes the remaining operator/near-origin mismatch without selecting its physical cause. The residual is not a fit target. Brown/vendor connection-extension reconciliation remains open, the discrete total-stress-energy gate remains open, no production equations or pins changed, and all five scientific-admission flags remain false.
