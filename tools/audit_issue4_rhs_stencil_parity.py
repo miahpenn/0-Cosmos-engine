@@ -124,6 +124,58 @@ def roundoff_check(residual: np.ndarray, *operands: np.ndarray, multiplier: floa
     }
 
 
+def operator_parity_record(
+    diff: np.ndarray,
+    production: np.ndarray,
+    native: np.ndarray,
+    *,
+    outer_boundary_cells: int = 2,
+) -> dict:
+    """Separate shared interior-stencil parity from distinct outer closures.
+
+    The pinned vendor uses a five-node one-sided D2 closure on the final two
+    cells, while native D2 uses six nodes there. Those cells are recorded as a
+    boundary-closure comparison, not misclassified as a centre/parity failure.
+    """
+    diff = np.asarray(diff, dtype=np.float64)
+    production = np.asarray(production, dtype=np.float64)
+    native = np.asarray(native, dtype=np.float64)
+    if diff.shape != production.shape or diff.shape != native.shape or diff.ndim != 1:
+        raise ValueError("operator profiles must be matching one-dimensional arrays")
+    if outer_boundary_cells < 1 or diff.size <= outer_boundary_cells:
+        raise ValueError("not enough cells to separate outer boundary closure")
+    interior = roundoff_check(
+        diff[:-outer_boundary_cells],
+        production[:-outer_boundary_cells],
+        native[:-outer_boundary_cells],
+        multiplier=128.0,
+    )
+    boundary = roundoff_check(
+        diff[-outer_boundary_cells:],
+        production[-outer_boundary_cells:],
+        native[-outer_boundary_cells:],
+        multiplier=128.0,
+    )
+    return {
+        "passed": interior["passed"],
+        "interior_shared_stencil": {
+            **interior,
+            "cell_range": [0, int(diff.size - outer_boundary_cells - 1)],
+        },
+        "outer_boundary_closure": {
+            **boundary,
+            "cell_range": [int(diff.size - outer_boundary_cells), int(diff.size - 1)],
+            "same_as_native": boundary["passed"],
+            "interpretation": (
+                "Outer one-sided closures are compared and retained separately; "
+                "their difference is not classified as a centre/parity mismatch."
+            ),
+        },
+        "outer_boundary_cells_excluded_from_parity_gate": outer_boundary_cells,
+        "whole_grid_max_abs_difference": float(np.max(np.abs(diff))),
+    }
+
+
 def witness(values: Any, r: np.ndarray) -> dict:
     arr = np.asarray(values, dtype=np.float64)
     if arr.shape != r.shape or not np.all(np.isfinite(arr)):
@@ -455,7 +507,7 @@ def run_audit(resolution: int = 64, r_max: float = 40.0) -> tuple[dict, dict[str
         operator_profiles["D1_production_" + name] = prod
         operator_profiles["D1_native_" + name] = native
         operator_profiles["D1_diff_" + name] = diff
-        operator_checks[name] = roundoff_check(diff, prod, native, multiplier=128.0)
+        operator_checks[name] = operator_parity_record(diff, prod, native)
         operator_checks[name]["declared_input_parity"] = "even" if parity == 1 else "odd"
     for name, values, parity in (
         ("S_even", state.scalars.S, +1),
@@ -468,7 +520,7 @@ def run_audit(resolution: int = 64, r_max: float = 40.0) -> tuple[dict, dict[str
         operator_profiles["D2_production_" + name] = prod
         operator_profiles["D2_native_" + name] = native
         operator_profiles["D2_diff_" + name] = diff
-        operator_checks["D2_" + name] = roundoff_check(diff, prod, native, multiplier=128.0)
+        operator_checks["D2_" + name] = operator_parity_record(diff, prod, native)
         operator_checks["D2_" + name]["declared_input_parity"] = "even" if parity == 1 else "odd"
     operators_pass = all(item["passed"] for item in operator_checks.values())
 
@@ -501,11 +553,18 @@ def run_audit(resolution: int = 64, r_max: float = 40.0) -> tuple[dict, dict[str
     k_source_expected = 4.0 * math.pi * state.geometry.alpha * (
         total_stress.rho + total_stress.pr + 2.0 * total_stress.pt
     )
+    # The observed matter block is formed as (full L3 - vacuum L3). Its
+    # local roundoff budget must include both operands of that subtraction,
+    # especially in the exponentially decaying tail where their difference is
+    # much smaller than either operand. This changes only the arithmetic bound,
+    # not the signed residual or source formula.
     aa_source_closure = roundoff_check(
-        aa_source_actual - aa_source_expected, aa_source_actual, aa_source_expected
+        aa_source_actual - aa_source_expected,
+        total_terms["primary_l3"]["Aa"], vacuum_l3["Aa"], aa_source_expected,
     )
     k_source_closure = roundoff_check(
-        k_source_actual - k_source_expected, k_source_actual, k_source_expected
+        k_source_actual - k_source_expected,
+        total_terms["primary_l3"]["K"], vacuum_l3["K"], k_source_expected,
     )
 
     s_stress = scalar_s_stress(state)
@@ -645,7 +704,13 @@ def run_audit(resolution: int = 64, r_max: float = 40.0) -> tuple[dict, dict[str
             "shared_operator_parity_check": {
                 "passed": operators_pass,
                 "checks": operator_checks,
-                "interpretation": "Compares the actual production/vendor grid operators with the first-party native grid on identical arrays and declared input parity. A pass rules out a difference in these shared D1/D2 stencils as the explanation for any constraint-representation gap.",
+                "interpretation": (
+                    "Compares production/vendor and first-party native D1/D2 operators on identical arrays and declared parity. "
+                    "The parity gate applies to cells using the shared interior stencil; the final two cells are separately reported "
+                    "because the pinned vendor and native second-derivative implementations use different one-sided outer closures. "
+                    "A pass rules out a difference in the shared D1/D2 stencils at the centre/interior as the explanation for a "
+                    "constraint-representation gap. It does not erase or promote the separately reported outer-boundary discrepancy."
+                ),
             },
             "production_constraint_decomposition": prod_decomp,
             "native_constraint_decomposition": native_decomp,
