@@ -1548,3 +1548,29 @@ Treat the lapse centre row as the leading code-level hypothesis for the inner-ce
 
 **Admission boundary:** the manufactured stencil control excludes a shared interior D1/D2 mismatch; this new evidence points instead to the CMC lapse boundary row. It still does not close the full matter-coupled identity or the discrete stress-energy conservation gate. All scientific-admission flags remain false.
 
+## 10.24 Counterfactual CMC centre-row result on the existing frozen stage family
+
+**Status:** causal diagnostic strongly supports the centre-row mismatch as a major source of the near-origin propagation residual. It is not full identity closure and does not authorize a production edit.
+
+**Reproducibility**
+- Existing checksummed inputs only; no new copied evolution or trajectory.
+- Diagnostic head: `23fe2398ca0848abf5bdaa222cbcf069059a1103`.
+- All three resolution jobs passed in [workflow run 40259518838](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/40259518838).
+- Exact production source/vendor pins remain `4aec88d0e3ff028e0a65a8ac36b30948625df792` / `d6052d605673ce9d82cdc99b0df79855fa2ea215`.
+- Baseline lapse from the pinned solver reconstructed exactly at each resolution (maximum absolute difference 0); all non-lapse geometry, scalar and matter arrays match the saved pre-refresh profile exactly (maximum difference 0). The CMC target (dot K), interior equations, outer normalization, stress/source definitions, and pins are held fixed; only the centre row changes.
+- Per-resolution signed artifacts: [N=60](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/40259518838/artifacts/12624485684), [N=120](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/40259518838/artifacts/12624200811), [N=240](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/40259518838/artifacts/12623991912). All `report.json` and `signed_arrays.npz` hashes match each artifact's `SHA256SUMS.txt`.
+
+**Maximum absolute source-aware propagation residual for (r\le10)**
+
+| N | Pinned centre row | Parity-centre PDE row | Reduction |
+|---:|---:|---:|---:|
+| 60 | (4.1309155\times10^{-5}) | (2.0782207\times10^{-5}) | (1.99\times) |
+| 120 | (4.3926861\times10^{-5}) | (2.1781373\times10^{-6}) | (20.17\times) |
+| 240 | (9.0275110\times10^{-5}) | (5.0202692\times10^{-7}) | (179.82\times) |
+
+The baseline row produces (alpha_0-\alpha_1=0) (to roundoff). The alternate row enforces the CMC differential equation at the first cell using the even-reflection ghost (alpha_{-1}=\alpha_0); its centre-row residual is (1.3\times10^{-16}), (2.7\times10^{-18}), and (6.4\times10^{-16}) for N=60, 120, and 240. On N=240 the signed propagation residual changes from ((+8.43\times10^{-5},-9.03\times10^{-5},+5.69\times10^{-5})) at cells ((0,1,2)) to ((+5.02\times10^{-7},+2.51\times10^{-7},+9.91\times10^{-8})).
+
+**Interpretation:** the centre-row change has a large, resolution-dependent causal effect on the accepted instantaneous tangent budget. The N=240 reduction is about 180-fold. The remaining N=60/120/240 residual sequence is not uniformly convergent, and the N=240 residual remains nonzero; therefore this is a strong explanation for the dominant inner-cell spike, not a claim that the full matter-coupled identity or conservation law is closed.
+
+**Disposition:** keep the current production solver unchanged pending review of this diagnostic candidate and its convention/provenance. No production equation, initial data, vendor pin, physical source law, evolution result, or admission flag was changed. All five scientific-admission flags remain false.
+
