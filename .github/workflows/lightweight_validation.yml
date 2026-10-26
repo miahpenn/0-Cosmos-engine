@@ -48,6 +48,33 @@ jobs:
       - name: Run complete repository test suite
         run: python -m pytest -q
 
+      - name: Check out exact production source for the Issue #4 discriminator
+        uses: actions/checkout@v4
+        with:
+          ref: 0c40172f32b72a8149549adadf63d668a2f24f3e
+          path: source
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Run one manufactured-profile Issue #4 stencil/parity discriminator
+        env:
+          COSMOS_PINNED_SOURCE_ROOT: ${{ github.workspace }}/source
+        run: |
+          mkdir -p results/issue4-manufactured-stencil-parity
+          python tools/audit_issue4_rhs_stencil_parity.py \
+            --resolution 64 \
+            --r-max 40 \
+            --output-dir results/issue4-manufactured-stencil-parity
+
+      - name: Retain Issue #4 signed tangent evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: issue4-manufactured-stencil-parity
+          path: results/issue4-manufactured-stencil-parity/
+          if-no-files-found: warn
+          retention-days: 90
+
       - name: Emit curved-slice EM exchange discriminator values
         run: python -m pytest -q -s tests/test_research_em_curved_energy_balance.py
 
