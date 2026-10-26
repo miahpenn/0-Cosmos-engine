@@ -89,6 +89,7 @@ jobs:
           --input-dir input/N${{ matrix.resolution }}
           --resolution ${{ matrix.resolution }}
           --out-dir results/issue4-pirk-same-stage-matter-propagation/N${{ matrix.resolution }}
+          --counterfactual-center-row
 
       - name: Upload RHS-only same-stage comparison
         if: always()
