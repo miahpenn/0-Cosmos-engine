@@ -14,14 +14,14 @@ permissions:
   actions: read
 
 concurrency:
-  group: issue4-pirk-same-stage-matter-propagation-\${{ github.ref }}
+  group: issue4-pirk-same-stage-matter-propagation-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
   same-stage:
     env:
-      COSMOS_PINNED_SOURCE_ROOT: \${{ github.workspace }}/source
-    name: N=\${{ matrix.resolution }} refreshed-stage RHS-only comparison
+      COSMOS_PINNED_SOURCE_ROOT: ${{ github.workspace }}/source
+    name: N=${{ matrix.resolution }} refreshed-stage RHS-only comparison
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
@@ -54,9 +54,9 @@ jobs:
       - name: Download existing checksummed stage capture — no new copied step
         uses: actions/download-artifact@v4
         with:
-          name: \${{ matrix.artifact_name }}
-          path: input/N\${{ matrix.resolution }}
-          github-token: \${{ github.token }}
+          name: ${{ matrix.artifact_name }}
+          path: input/N${{ matrix.resolution }}
+          github-token: ${{ github.token }}
           run-id: 40235790388
 
       - name: Set up Python
@@ -86,15 +86,15 @@ jobs:
       - name: Evaluate same-stage RHS and source-aware Brown candidate
         run: >-
           python tools/audit_pirk_same_stage_matter_propagation.py
-          --input-dir input/N\${{ matrix.resolution }}
-          --resolution \${{ matrix.resolution }}
-          --out-dir results/issue4-pirk-same-stage-matter-propagation/N\${{ matrix.resolution }}
+          --input-dir input/N${{ matrix.resolution }}
+          --resolution ${{ matrix.resolution }}
+          --out-dir results/issue4-pirk-same-stage-matter-propagation/N${{ matrix.resolution }}
 
       - name: Upload RHS-only same-stage comparison
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: issue4-pirk-same-stage-matter-propagation-N\${{ matrix.resolution }}
-          path: results/issue4-pirk-same-stage-matter-propagation/N\${{ matrix.resolution }}/
+          name: issue4-pirk-same-stage-matter-propagation-N${{ matrix.resolution }}
+          path: results/issue4-pirk-same-stage-matter-propagation/N${{ matrix.resolution }}/
           if-no-files-found: warn
           retention-days: 90
