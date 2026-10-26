@@ -385,7 +385,8 @@ def _misner_sharp_fixed_R_balance(
 
 
 def _one_shell_tangent(base_state, plus_state, minus_state, epsilon: float,
-                       lower_R: float, upper_R: float) -> dict[str, Any]:
+                       lower_R: float, upper_R: float,
+                       capture_operands: bool = False) -> dict[str, Any]:
     base = _state_bundle(base_state)
     plus = _state_bundle(plus_state)
     minus = _state_bundle(minus_state)
@@ -425,44 +426,43 @@ def _one_shell_tangent(base_state, plus_state, minus_state, epsilon: float,
     mass_plus = finite("plus Misner-Sharp mass", WORLD_TUBE.misner_sharp(plus_state.grid, plus_state.geometry))
     mass_minus = finite("minus Misner-Sharp mass", WORLD_TUBE.misner_sharp(minus_state.grid, minus_state.geometry))
 
-    # Optional sidecar capture uses the same arrays and brackets as the ledger.
-    # It is kept out of the primary report so enabling it cannot alter residual fields.
     operand_capture: dict[str, Any] = {}
-    for boundary_name, target in (("inner", lower_R), ("outer", upper_R)):
-        state_captures = {}
-        for state_name, bundle, mass_profile in (
-            ("base", base, mass_base),
-            ("plus", plus, mass_plus),
-            ("minus", minus, mass_minus),
-        ):
-            factors = {
-                "areal_radius": bundle["R"],
-                "R_squared": bundle["R"] ** 2,
-                "lapse": bundle["alpha"],
-                "gamma_inverse_rr": 1.0 / bundle["gamma_rr"],
-                "radial_current_j": finite("operand radial current", bundle["projection"]["j"]),
-                "radial_pressure_pr": finite("operand radial pressure", bundle["projection"]["pr"]),
-                "misner_sharp_mass": mass_profile,
-                "Rdot_directional_rate": Rdot,
-                "Rr_base_geometry_derivative": Rr,
+    if capture_operands:
+        for boundary_name, target in (("inner", lower_R), ("outer", upper_R)):
+            state_captures = {}
+            for state_name, bundle, mass_profile in (
+                ("base", base, mass_base),
+                ("plus", plus, mass_plus),
+                ("minus", minus, mass_minus),
+            ):
+                factors = {
+                    "areal_radius": bundle["R"],
+                    "R_squared": bundle["R"] ** 2,
+                    "lapse": bundle["alpha"],
+                    "gamma_inverse_rr": 1.0 / bundle["gamma_rr"],
+                    "radial_current_j": finite("operand radial current", bundle["projection"]["j"]),
+                    "radial_pressure_pr": finite("operand radial pressure", bundle["projection"]["pr"]),
+                    "misner_sharp_mass": mass_profile,
+                    "Rdot_directional_rate": Rdot,
+                    "Rr_base_geometry_derivative": Rr,
+                }
+                factors["composite_flux_product"] = finite(
+                    "operand composite flux product",
+                    -4.0 * math.pi * bundle["R"] ** 2 * bundle["alpha"]
+                    * (1.0 / bundle["gamma_rr"]) * factors["radial_current_j"] * Rr,
+                )
+                factors["composite_pressure_work_product"] = finite(
+                    "operand composite pressure work product",
+                    -4.0 * math.pi * bundle["R"] ** 2
+                    * factors["radial_pressure_pr"] * Rdot,
+                )
+                state_captures[state_name] = _capture_interpolation_operands(
+                    bundle, target, factors
+                )
+            operand_capture[boundary_name] = {
+                "target_areal_radius": float(target),
+                "states": state_captures,
             }
-            factors["composite_flux_product"] = finite(
-                "operand composite flux product",
-                -4.0 * math.pi * bundle["R"] ** 2 * bundle["alpha"]
-                * (1.0 / bundle["gamma_rr"]) * factors["radial_current_j"] * Rr,
-            )
-            factors["composite_pressure_work_product"] = finite(
-                "operand composite pressure work product",
-                -4.0 * math.pi * bundle["R"] ** 2
-                * factors["radial_pressure_pr"] * Rdot,
-            )
-            state_captures[state_name] = _capture_interpolation_operands(
-                bundle, target, factors
-            )
-        operand_capture[boundary_name] = {
-            "target_areal_radius": float(target),
-            "states": state_captures,
-        }
     mass_rate_coordinate = finite("coordinate-time Misner-Sharp mass rate", (mass_plus - mass_minus) * inv)
     mass_gradient_coordinate = finite(
         "radial Misner-Sharp mass gradient",
@@ -522,14 +522,13 @@ def _one_shell_tangent(base_state, plus_state, minus_state, epsilon: float,
             ])
     if not all(math.isfinite(float(value)) for value in all_values):
         raise FloatingPointError("shell ledger contains a non-finite component")
-    return {
+    result = {
         "epsilon": float(epsilon),
         "state_pairing": {
             "base_state_sha256": base["state_sha256"],
             "plus_state_sha256": plus["state_sha256"],
             "minus_state_sha256": minus["state_sha256"],
         },
-        "_interpolation_operands": operand_capture,
         "fixed_R_boundaries": boundaries,
         "components": components,
         "misner_sharp_fixed_R_boundary_balances": misner_sharp_boundary_balances,
@@ -544,10 +543,14 @@ def _one_shell_tangent(base_state, plus_state, minus_state, epsilon: float,
         "physical_residual_threshold_applied": False,
         "scientific_admission": False,
     }
+    if capture_operands:
+        result["_interpolation_operands"] = operand_capture
+    return result
 
 
 def _tangent_for_coupling(kernel, state, coupling: float, epsilons: list[float],
-                          lower_R: float, upper_R: float) -> dict[str, Any]:
+                          lower_R: float, upper_R: float,
+                          capture_operands: bool = False) -> dict[str, Any]:
     old_beta = AUDIT.production_kernel_module.BETA_DM
     try:
         AUDIT.production_kernel_module.BETA_DM = float(coupling)
@@ -558,7 +561,7 @@ def _tangent_for_coupling(kernel, state, coupling: float, epsilons: list[float],
     for epsilon in epsilons:
         plus = AUDIT.shifted_state(kernel, state, rates, +float(epsilon))
         minus = AUDIT.shifted_state(kernel, state, rates, -float(epsilon))
-        rows.append(_one_shell_tangent(state, plus, minus, float(epsilon), lower_R, upper_R))
+        rows.append(_one_shell_tangent(state, plus, minus, float(epsilon), lower_R, upper_R, capture_operands))
     return {"coupling": float(coupling), "epsilon_rows": rows, "conditional_law_admitted": False}
 
 
@@ -583,10 +586,12 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             raise RuntimeError("expected zero-shift initialized state")
         digest_before = AUDIT.state_digest(state)
         uncoupled = _tangent_for_coupling(
-            kernel, state, BETA_DM_CONTROL, args.epsilons, args.inner_R, args.outer_R
+            kernel, state, BETA_DM_CONTROL, args.epsilons, args.inner_R, args.outer_R,
+            getattr(args, "operand_output", None) is not None
         )
         conditional = _tangent_for_coupling(
-            kernel, state, BETA_DM_CONDITIONAL, args.epsilons, args.inner_R, args.outer_R
+            kernel, state, BETA_DM_CONDITIONAL, args.epsilons, args.inner_R, args.outer_R,
+            getattr(args, "operand_output", None) is not None
         )
         if getattr(args, "operand_output", None) is not None:
             for coupling_name, tangent in (
