@@ -32,6 +32,7 @@ from engine.scalar_system import ScalarFields
 from engine.stress_energy import assemble_total_stress_energy
 from engine.v55_matter import V55MatterState
 from tools import audit_brown_vacuum_momentum_propagation as brown
+from tools.audit_cmc_lapse_centre_sensitivity import operator_compatible_cmc_arm
 
 KAPPA = 8.0 * math.pi
 R_MAX = 80.0
@@ -363,6 +364,192 @@ def pointwise_total_divergence_r(
     }
 
 
+def evaluate_operator_compatible_cmc_counterfactual(
+    refreshed_state: ProductionState,
+    arrays: Any,
+    kernel: V55ProductionKernel,
+    baseline_residual: np.ndarray,
+) -> tuple[dict[str, Any], dict[str, np.ndarray]]:
+    """Reuse the existing fourth-order CMC arm on this exact saved pre-refresh profile."""
+    grid = refreshed_state.grid
+    r = finite("operator-compatible counterfactual radii", grid.centers)
+    base_g = refreshed_state.geometry
+    pre_g = base_g.copy()
+    pre_g.alpha = finite(
+        "operator-compatible saved pre-refresh lapse", arrays["input__geometry__alpha"]
+    ).copy()
+    pre_state = ProductionState(
+        grid=grid, geometry=pre_g, scalars=refreshed_state.scalars,
+        matter=refreshed_state.matter, t=refreshed_state.t,
+        tau=refreshed_state.tau, e_folds=refreshed_state.e_folds,
+        electromagnetic=refreshed_state.electromagnetic,
+    )
+    source_digest_before = state_digest(pre_state)
+    arm = operator_compatible_cmc_arm(kernel, pre_state, (2.0e-5, 1.0e-5))
+    if arm.get("status") != "completed_diagnostic_only":
+        return {
+            "status": arm.get("status", "failed_closed"),
+            "error_type": arm.get("error_type"),
+            "error": arm.get("error"),
+            "source_profile_state_digest": source_digest_before,
+            "scientific_admission": False,
+            "interpretation": (
+                "The existing fourth-order operator-compatible CMC arm could not be "
+                "constructed on this same saved state; its failure is retained without "
+                "discarding the centre-row-only result."
+            ),
+        }, {}
+
+    alpha_candidate = finite(
+        "operator-compatible full lapse profile",
+        np.asarray(arm["lapse"]["full_profile"], dtype=np.float64),
+    )
+    if alpha_candidate.shape != r.shape:
+        raise ValueError("operator-compatible lapse profile shape disagrees with saved state")
+    candidate_g = pre_g.copy()
+    candidate_g.alpha = alpha_candidate.copy()
+    candidate = ProductionState(
+        grid=grid, geometry=candidate_g, scalars=refreshed_state.scalars,
+        matter=refreshed_state.matter, t=refreshed_state.t,
+        tau=refreshed_state.tau, e_folds=refreshed_state.e_folds,
+        electromagnetic=refreshed_state.electromagnetic,
+    )
+    candidate_digest_before = state_digest(candidate)
+
+    # Re-evaluate the full accepted instantaneous RHS on this lapse profile only.
+    scalar_rhs, matter_rhs, _ = kernel._rhs(candidate)
+    rhs_terms = kernel._geometry_stage_terms(
+        grid, candidate.geometry, candidate.scalars, candidate.matter,
+        candidate.electromagnetic,
+    )
+    rates = {
+        name: finite("operator-compatible explicit " + name, rhs_terms["explicit"][name])
+        for name in ("a", "b", "X")
+    }
+    for name in ("Aa", "K"):
+        rates[name] = finite(
+            "operator-compatible primary " + name,
+            rhs_terms["primary_l2"][name] + rhs_terms["primary_l3"][name],
+        )
+    rates["Lambda"] = finite(
+        "operator-compatible Lambda",
+        rhs_terms["lambda_l2"] + rhs_terms["lambda_l3"],
+    )
+    current_terms, j_dot, volume_rate = total_current_tangent(
+        candidate, rates, scalar_rhs, matter_rhs
+    )
+    stress = assemble_total_stress_energy(
+        grid, candidate.geometry, candidate.scalars, candidate.matter
+    )
+    _, vacuum, _ = adapter.vendor_modules()
+    constraints = vacuum.constraints(grid, candidate.geometry)
+    M_geometry = finite("operator-compatible geometric M", constraints["momentum"])
+    M_total = M_geometry - KAPPA * finite("operator-compatible total j", stress.j)
+    geometry_terms, Mdot_geometry = geometric_constraint_tangent_terms(candidate, rates)
+    Mdot_total = Mdot_geometry - KAPPA * j_dot
+    brown_constraints = {
+        "momentum": M_total,
+        "connection": finite("operator-compatible connection", constraints["connection"]),
+    }
+    brown_terms, brown_base = brown.brown_lower_momentum_rhs(
+        grid, candidate.geometry, brown_constraints
+    )
+    H_matter = -2.0 * KAPPA * finite("operator-compatible total rho", stress.rho)
+    d1_alpha = d1(grid, candidate.geometry.alpha, 1)
+    H_gradient = -(d1_alpha / 3.0) * H_matter + (
+        candidate.geometry.alpha / 6.0
+    ) * d1(grid, H_matter, 1)
+    divergence, divergence_terms = pointwise_total_divergence_r(
+        candidate, stress, j_dot, volume_rate
+    )
+    bianchi = -KAPPA * candidate.geometry.alpha * divergence
+    prediction = brown_base + H_gradient + bianchi
+    residual = Mdot_total - prediction
+    candidate_digest_after = state_digest(candidate)
+    source_digest_after = state_digest(pre_state)
+    if source_digest_after != source_digest_before:
+        raise RuntimeError("operator-compatible arm mutated the saved pre-refresh state")
+    if candidate_digest_after != candidate_digest_before:
+        raise RuntimeError("operator-compatible RHS observer mutated its counterfactual state")
+
+    mask = r <= 10.0 + 1.0e-12
+    baseline_max = float(np.max(np.abs(np.asarray(baseline_residual)[mask])))
+    candidate_max = float(np.max(np.abs(residual[mask])))
+    report = {
+        "status": "completed_diagnostic_only",
+        "source_commit": SOURCE_COMMIT,
+        "vendor_commit": VENDOR_COMMIT,
+        "source_profile_state_digest_before": source_digest_before,
+        "source_profile_state_digest_after": source_digest_after,
+        "counterfactual_state_digest_before": candidate_digest_before,
+        "counterfactual_state_digest_after": candidate_digest_after,
+        "input_states_unchanged": source_digest_after == source_digest_before
+            and candidate_digest_after == candidate_digest_before,
+        "candidate_kind": (
+            "Fourth-order operator-compatible CMC solution: replaces the CMC interior "
+            "D1/D2 operators with the pinned production fourth-order parity-aware operators "
+            "on cells 0..N-2, includes K-L3 dissipation, fixes the original target Kdot, "
+            "and retains alpha[N-1]=1. This is broader than the centre-row-only control."
+        ),
+        "baseline_target_kdot": arm["target_Kdot_from_existing_CMC_projection"],
+        "operator_matrix_residual": arm["matrix_residual"],
+        "actual_Kdot_minus_target": arm["Kdot_minus_target"],
+        "lapse_candidate": summary(alpha_candidate, r),
+        "lapse_minus_baseline": summary(alpha_candidate - np.asarray(base_g.alpha), r),
+        "baseline_max_abs_source_aware_residual_r_le_10": baseline_max,
+        "counterfactual_max_abs_source_aware_residual_r_le_10": candidate_max,
+        "baseline_over_counterfactual_ratio": baseline_max / candidate_max if candidate_max > 0.0 else None,
+        "baseline_residual": summary(baseline_residual, r),
+        "counterfactual_residual": summary(residual, r),
+        "counterfactual_Aa_lapse_hessian": summary(
+            primary_l2_decomposition(
+                candidate.geometry.alpha,
+                vacuum.geometry_terms(grid, candidate.geometry),
+                rhs_terms["primary_l2"]["Aa"], rhs_terms["primary_l2"]["K"],
+            )["Aa_lapse_hessian"], r
+        ),
+        "counterfactual_current_tangent_by_sector": {
+            name: summary(value, r) for name, value in current_terms.items()
+        },
+        "counterfactual_geometry_tangent_terms": {
+            name: summary(value, r) for name, value in geometry_terms.items()
+        },
+        "counterfactual_pointwise_stress_divergence": summary(divergence, r),
+        "counterfactual_divergence_components": {
+            name: summary(value, r) for name, value in divergence_terms.items()
+        },
+        "counterfactual_Brown_terms": {
+            name: summary(value, r) for name, value in brown_terms.items()
+            if isinstance(value, np.ndarray)
+        },
+        "no_step_or_trajectory": True,
+        "scientific_admission": False,
+    }
+    saved_arrays: dict[str, np.ndarray] = {
+        "counterfactual__fourth_order_cmc__alpha": alpha_candidate.copy(),
+        "counterfactual__fourth_order_cmc__alpha_minus_baseline": (
+            alpha_candidate - np.asarray(base_g.alpha)
+        ).copy(),
+        "counterfactual__fourth_order_cmc__Mdot_geometry": Mdot_geometry.copy(),
+        "counterfactual__fourth_order_cmc__Mdot_total": Mdot_total.copy(),
+        "counterfactual__fourth_order_cmc__source_aware_prediction": prediction.copy(),
+        "counterfactual__fourth_order_cmc__residual": residual.copy(),
+        "counterfactual__fourth_order_cmc__j_dot_total": j_dot.copy(),
+        "counterfactual__fourth_order_cmc__div_T_r": divergence.copy(),
+        "counterfactual__fourth_order_cmc__H_matter_gradient": H_gradient.copy(),
+        "counterfactual__fourth_order_cmc__Bianchi_source": bianchi.copy(),
+        "counterfactual__fourth_order_cmc__M_geometry": M_geometry.copy(),
+        "counterfactual__fourth_order_cmc__M_total": M_total.copy(),
+    }
+    for name, value in current_terms.items():
+        saved_arrays["counterfactual__fourth_order_cmc__Jdot_sector__" + name] = np.asarray(value).copy()
+    for name, value in geometry_terms.items():
+        saved_arrays["counterfactual__fourth_order_cmc__Mdot_geometry_term__" + name] = np.asarray(value).copy()
+    for name, value in divergence_terms.items():
+        saved_arrays["counterfactual__fourth_order_cmc__div_T_component__" + name] = np.asarray(value).copy()
+    return report, saved_arrays
+
+
 def evaluate_center_row_counterfactual(
     state: ProductionState,
     arrays: Any,
@@ -555,6 +742,14 @@ def evaluate_center_row_counterfactual(
     }
     for name, values in geom_terms_cf.items():
         arrays_cf["counterfactual__Mdot_geometry_term__" + name] = np.asarray(values).copy()
+
+    # Reuse the repository's already-existing fourth-order CMC arm on the exact
+    # same pre-refresh stage; this is distinct from the centre-row-only control.
+    operator_report, operator_arrays = evaluate_operator_compatible_cmc_counterfactual(
+        state, arrays, kernel, baseline_residual
+    )
+    report_cf["operator_compatible_fourth_order_cmc"] = operator_report
+    arrays_cf.update(operator_arrays)
     return report_cf, arrays_cf
 
 
