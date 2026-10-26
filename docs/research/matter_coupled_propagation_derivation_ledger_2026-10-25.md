@@ -1206,3 +1206,132 @@ For the pinned spherical conformal metric, \(\widetilde\gamma_{rr}=a\) and the r
 This provides a structural explanation for the vendor's \(\tfrac12\alpha\chi[D_1(a)/a]C^r\) contribution in the \(A_a\) RHS identified in §§10.9, 10.14, and 10.15. It does **not** prove that the vendor and Brown choose the same off-constraint extension: Brown's published Eq. (9d) / Eq. (11b) scaffold expresses its explicit connection response through differentiated \(C^r\) terms, while the pinned vendor's algebraic product retains a term linear in \(C^r\). Both extensions agree when \(C^r=0\), but their constraint propagation away from that surface must be derived for the formulation actually admitted by the engine.
 
 **Decision boundary:** current production code is pinned to the vendor form, and its general design requires evolved-\(\Lambda\) Ricci off the constraint surface. That is evidence for deriving the production subsidiary system from the accepted vendor RHS—not permission to silently redefine the production formulation as Brown's equation unchanged. A decision to alter this off-constraint extension would require an explicit physics/formulation review, signed derivation, and production regression gate. Until that is authorized, retain the two correction channels, do not fit them to residuals, and leave the reference-metric connection-admission and full propagation flags false. No workflow, observer, or evolution was run.
+
+
+## 10.18 Accepted PIRK finite-step momentum-constraint secant — archived-stage postprocessing
+
+This section derives the exact finite-step operator actually realized by the accepted PIRK split. It is **not** another instantaneous-RHS tangent and is not a finite-step version of Brown Eq. (11b) by substitution. The archived stage-capture bundles from run [40235790388](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/40235790388) were reused; only their checksummed arrays were post-processed. No RHS, kernel step, observer, or evolution was run during this analysis, and no accepted trajectory was written.
+
+### Exact endpoint identity
+
+Write the implemented total constraint as
+\[
+M_r=M_{r,\mathrm{geom}}-\kappa j_{\mathrm{tot}},\qquad
+M_{r,\mathrm{geom}}=
+D_1 A_a-\frac23D_1K+6A_a\chi_r+\frac32A_aq,
+\]
+\[
+\chi_r=-\frac{D_1X}{2X},\qquad
+q=\frac2r+\frac{D_1b}{b},\qquad \kappa=8\pi.
+\]
+For the saved input endpoint \(0\) and copied output endpoint \(1\), define \(\Delta F=F_1-F_0\). Since the same fixed linear \(D_1\) is used at each endpoint, the exact discrete secant is
+\[
+\begin{aligned}
+\frac{\Delta M_r}{\Delta t}={}&
+\frac{D_1\Delta A_a-\frac23D_1\Delta K}{\Delta t}\\
+&+\frac6{\Delta t}
+\left(\Delta A_a\chi_{r,0}+A_{a,0}\Delta\chi_r
++\Delta A_a\Delta\chi_r\right)\\
+&+\frac{3}{2\Delta t}
+\left(\Delta A_a q_0+A_{a,0}\Delta q+\Delta A_a\Delta q\right)
+-\kappa\frac{\Delta j_{\mathrm{tot}}}{\Delta t}.
+\end{aligned}
+\]
+The two products \(\Delta A_a\Delta\chi_r\) and \(\Delta A_a\Delta q\) are exact finite-step cross terms. The saved postprocessor computes the linear-in-increments pieces and these cross terms independently; the recomposition is an algebraic identity, not an assumed Taylor approximation.
+
+### The actual stage ownership inserted into that identity
+
+With \(0\) the lapse-refreshed start, \(p\) the primary predictor, and \(f\) the final-primary operand for the final implicit \(L_2\) evaluation, the accepted source code assigns
+\[
+\Delta(a,b,X)=\frac{\Delta t}{2}\left(E_0+E_p\right),
+\]
+\[
+\Delta(A_a,K)=\frac{\Delta t}{2}
+\left(L_{2,0}+L_{2,f}+L_{3,0}+L_{3,p}\right),
+\]
+\[
+\Delta\Lambda=\frac{\Delta t}{2}
+\left(L^\Lambda_{2,0}+L^\Lambda_{2,f}
++L^\Lambda_{3,0}+L^\Lambda_{3,p}\right).
+\]
+Each symbol is a field-specific RHS block evaluated at its named captured stage. In particular, \(L_{2,f}\) is reconstructed from the saved final-primary geometry because the vendor primary \(L_2\) operator depends on \((a,b,X,\alpha,\Lambda)\), not \(A_a,K\). The \(\Lambda\)-dependent connection response therefore enters the accepted \(\Delta A_a\) through this final-primary \(L_2\) evaluation; it is not a second term to append to the resulting \(M_r\) secant. The current increment \(\Delta j_{\mathrm{tot}}\) is calculated from the actual endpoint scalar and conservative-fluid profiles, not presumed to be the trapezoid of a single-stage \(\dot j\).
+
+The postprocessor is committed as tools/audit_pirk_momentum_secant.py, with operator/identity tests in tests/test_pirk_momentum_secant.py. It checks artifact member hashes before reading profiles and reconstructs the final-primary \(L_2\) operand directly from its archived geometry with the pinned vendor stencils. Two local unit tests passed: parity-aware derivative polynomial controls and the exact finite-step constraint secant identity.
+
+### Archived numerical closure
+
+| Resolution | Captured \(\Delta t\) | Max lapse-refresh change, \(r\le10\) | Max \(|\Delta M_r/\Delta t|\), \(r\le10\) | Location of secant maximum | Largest field-increment reconstruction residual, \(r\le10\) |
+|---:|---:|---:|---:|---|---:|
+| 60 | 0.04 | \(1.6295\times10^{-4}\) | \(3.6978\times10^{-5}\) | cell 0, \(r=0.6667\) | \(1.01\times10^{-16}\) |
+| 120 | 0.02 | \(4.1698\times10^{-5}\) | \(5.3798\times10^{-5}\) | cell 1, \(r=1.0000\) | \(1.10\times10^{-16}\) |
+| 240 | 0.01 | \(1.0493\times10^{-5}\) | \(9.9685\times10^{-5}\) | cell 1, \(r=0.5000\) | \(9.72\times10^{-17}\) |
+
+The individual \(A_a,K,\Lambda\) increment reconstruction residuals are at or below \(1.71\times10^{-18}\), \(2.01\times10^{-19}\), and \(1.70\times10^{-18}\), respectively, over the reported \(r\le10\) interval; the largest table entries come from the explicit \(a,b,X\) fields and are at double-precision roundoff scale. Independently rebuilding the start-stage current and geometric constraint agrees with the saved stage-source arrays at maximum absolute differences of \(9.76\times10^{-21}\) and \(3.26\times10^{-18}\) (N=60); the corresponding maximums are \(7.73\times10^{-21}\) and \(1.35\times10^{-17}\) (N=120), and \(8.47\times10^{-22}\) and \(8.28\times10^{-25}\) (N=240). The nonlinear cross-term identity closes after division by \(\Delta t\) to \(7.40\times10^{-18}\), \(4.46\times10^{-17}\), and \(1.76\times10^{-16}\) over \(r\le10\).
+
+These three secant maxima are **not a convergence series**: the captured step widths differ, the maximum moves between the first two cells, and the cell-center radii differ. They are evidence that the exact finite-step constraint map and stage assignment have been reconstructed, not evidence that the physical propagation residual converges to zero.
+
+### Mandatory comparison convention
+
+The copied step refreshes the CMC lapse before evaluating the start RHS. The archived endpoint's original lapse and the refreshed stage-0 lapse differ by up to the values in the table, while \(M_{r,\mathrm{geom}}\) and \(j_{\mathrm{tot}}\) themselves do not directly depend on lapse. Thus the old unrefreshed instantaneous tangent and the actual PIRK step's starting tangent are different vector-field evaluations. The Brown structural identity is instantaneous; its right-hand side must be compared to the same-state RHS evaluated on stage 0 with its refreshed lapse, and with the accepted vendor's evolved-\(\Lambda\) Ricci and the declared Hamiltonian/connection translation. It must not be compared directly to \(\Delta M_r/\Delta t\) as if the nonlinear constraint had itself been advanced by a trapezoid rule. This closes the finite-step algebra/stage-bookkeeping subproblem, but **does not close** the full off-constraint subsidiary identity or select between Brown and vendor off-constraint conventions.
+
+No production equations, vendor pins, provenance records, accepted-state profiles, or admission flags changed.
+
+## 10.19 Declare the Bianchi divergence measure and close the continuum six-sector exchange ledger
+
+### Discrete measure convention for the Bianchi source
+
+For the pointwise differential identity, the primary discrete comparison is now declared to be the accepted saved-state observer's **pointwise covariant divergence**:
+\[
+\mathcal D^{\mathrm{pt}}_{r,h}
+=\left(\nabla_\mu T^\mu{}_r\right)_{\text{saved-state directional time derivative},\,D_1}.
+\]
+For zero shift, its implemented form is
+\[
+\mathcal D^{\mathrm{pt}}_{r,h}
+=\frac{\partial_t(\sqrt{-g}T^t{}_r)
++D_1(\sqrt{-g}T^r{}_r)}{\sqrt{-g}}
+-\frac12\left[
+T^{tt}D_1g_{tt}
++T^{rr}D_1\gamma_{rr}
++2T^{\theta\theta}D_1\gamma_{\theta\theta}
+\right],
+\]
+with the same pointwise \(D_1\), metric factors, source contraction, and archived directional time derivative used by tools/audit_total_stress_energy_divergence.py. The corresponding lower-index Bianchi source mapping is explicitly
+\[
+\boxed{S^{\mathrm{pt}}_{\mathrm{Bianchi},r,h}
+=-\kappa\,\alpha_h\,\mathcal D^{\mathrm{pt}}_{r,h}.}
+\]
+This convention is selected because Brown's Eq. (11b) is a pointwise differential identity, not because its numerical residual is the smallest.
+
+The finite-volume spherical-flux divergence remains a separate conservative-flux cross-check. It reconstructs radial flux profiles to faces and differences face fluxes; it is not substituted into the pointwise formula and is not interchangeable with it at finite resolution. Existing exact-state postprocessing, using no new run, gives:
+
+| \(N\) | \(\max|\mathcal D^{\mathrm{pt}}_{r,h}|\), \(r\le10\) | \(\max|S^{\mathrm{pt}}_{\mathrm{Bianchi},r,h}|\), \(r\le10\) | \(\max|\mathcal D^{\mathrm{FV}}_{r,h}|\), \(r\le10\) | \(\max|\kappa\alpha\mathcal D^{\mathrm{FV}}_{r,h}|\), \(r\le10\) |
+|---:|---:|---:|---:|---:|
+| 60 | \(7.9154\times10^{-7}\) | \(1.9869\times10^{-5}\) | \(7.9241\times10^{-9}\) | \(1.9900\times10^{-7}\) |
+| 120 | \(1.1284\times10^{-7}\) | \(2.8325\times10^{-6}\) | \(9.0029\times10^{-10}\) | \(2.2599\times10^{-8}\) |
+| 240 | \(1.4578\times10^{-8}\) | \(3.6594\times10^{-7}\) | \(1.1287\times10^{-10}\) | \(2.8332\times10^{-9}\) |
+
+The two measures differ substantially because their discrete radial operators and flux reconstructions differ. Both decrease across the archived profile family, but neither is identically zero and neither establishes a discrete conservation theorem. The pointwise measure is the nominated Brown-form comparator; the FV measure remains an independent diagnostic. Do not replace one with the other to make the source residual look smaller, and do not identify either discrete divergence with the dark-matter/scalar exchange covector.
+
+### Six-sector continuum conservation result
+
+The continuum six-sector question can be answered analytically, under the currently admitted EM-free system and the frozen sector equations:
+
+- The independent \(S\) and \(D\) scalar fields obey their Klein–Gordon-type equations with their respective \(+\tfrac12 S^2\) and \(-\tfrac12 D^2\) potential conventions. Their individual continuum stress tensors are conserved on their smooth field equations.
+- Baryons and radiation have \(Q_\nu=0\) in the accepted matter equations and are separately conserved in the continuum.
+- The COSMOS-\(\phi\) scalar and dark matter exchange the same archived covector with opposite signs. With \(\kappa=8\pi\), and the accepted scalar stress projection and fluid projection both normalized by the same factor, the exchanged contributions to the normalized divergences are
+  \[
+  \mathcal D_{\nu,\phi}=-\frac{\beta_{\mathrm{dm}}\rho_{\mathrm{DM}}}{\kappa}
+  \partial_\nu\phi,\qquad
+  \mathcal D_{\nu,\mathrm{DM}}=+\frac{\beta_{\mathrm{dm}}\rho_{\mathrm{DM}}}{\kappa}
+  \partial_\nu\phi.
+  \]
+  The \(\rho_{\mathrm{DM}}\) here is the same recovered dark-matter primitive density used by dm_density and the stress projection. The pair cancels component by component; it is not a fitted cancellation.
+- Consequently, for smooth solutions of these six sector equations,
+  \[
+  \nabla_\mu T^{\mu}{}_{\nu,\mathrm{total}}
+  =\sum_{s\in\{S,D,\phi,\mathrm{DM},\mathrm{baryon},\mathrm{radiation}\}}
+  \nabla_\mu T^{\mu}{}_{\nu,s}=0.
+  \]
+
+This closes the **continuum exchange/conservation derivation** for the frozen six-sector system. It does **not** close discrete total-stress conservation: the accepted scalar derivatives, Valencia/HLL face fluxes, cell-centred stress projections, metric-source contractions, and the declared pointwise/FV divergence measures do not form one demonstrated shared discrete conservation operator. The archived pointwise and FV residuals are evidence of truncation/operator mismatch, not permission to tune a coefficient or rewrite the equations. The discrete total-stress-energy gate therefore remains open, and all five scientific-admission flags remain false.
