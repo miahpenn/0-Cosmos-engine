@@ -164,12 +164,15 @@ def provenance() -> dict:
         raise RuntimeError(f"production vendor mismatch: expected {VENDOR_COMMIT}, got {source_vendor}")
     # If a separate source checkout is used, the candidate checkout must carry
     # the same submodule commit. This protects the imported adapter from drift.
-    _, _, _ = adapter.vendor_modules()
+    candidate_vendor = git(ROOT / "vendor" / "bb-palatini-unified-r0", "rev-parse", "HEAD")
+    if candidate_vendor != VENDOR_COMMIT:
+        raise RuntimeError(f"candidate vendor mismatch: expected {VENDOR_COMMIT}, got {candidate_vendor}")
+    adapter.vendor_modules()
     return {
         "production_source_commit": source,
         "production_source_vendor_commit": source_vendor,
         "diagnostic_commit": git(ROOT, "rev-parse", "HEAD"),
-        "candidate_vendor_commit": git(ROOT / "vendor" / "bb-palatini-unified-r0", "rev-parse", "HEAD"),
+        "candidate_vendor_commit": candidate_vendor,
     }
 
 
@@ -378,8 +381,7 @@ def analytic_tangent_pieces(state: ProductionState, rates: dict) -> dict[str, np
     return {
         "production_M_geometry_dot": prod_geom,
         "native_M_geometry_dot": native_geom,
-        "jdot_" + key: value for key, value in {}
-    } | {"jdot_" + key: value for key, value in jdot.items()} | {
+        **{"jdot_" + key: value for key, value in jdot.items()},
         "total_j_dot": total_jdot,
         "production_M_total_dot": prod_geom - KAPPA * total_jdot,
         "native_M_total_dot": native_geom - KAPPA * total_jdot,
@@ -520,13 +522,6 @@ def run_audit(resolution: int = 64, r_max: float = 40.0) -> tuple[dict, dict[str
         d1(grid, aa_s_source, +1) - (2.0 / 3.0) * d1(grid, k_s_source, +1)
         + aa_s_source * (6.0 * chi + 1.5 * q)
     )
-    local_s_native_geom_dot = (
-        d1(native_grid, aa_s_source, +1) - (2.0 / 3.0) * d1(native_grid, k_s_source, +1)
-        + 3.0 * g.Aa * 0.0
-        + 3.0 * aa_s_source * d1(native_grid, areal, -1) / areal
-    )
-    # The zero term above is the explicit Aa_rate*D(R)/R term only if Aa_rate
-    # were zero; keep the actual source-rate contribution here.
     local_s_native_geom_dot = (
         d1(native_grid, aa_s_source, +1) - (2.0 / 3.0) * d1(native_grid, k_s_source, +1)
         + 3.0 * aa_s_source * d1(native_grid, areal, -1) / areal
