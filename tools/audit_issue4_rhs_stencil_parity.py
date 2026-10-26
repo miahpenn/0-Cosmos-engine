@@ -124,6 +124,35 @@ def roundoff_check(residual: np.ndarray, *operands: np.ndarray, multiplier: floa
     }
 
 
+def finite_difference_budget_check(
+    residual: np.ndarray,
+    epsilon: float,
+    total_plus: np.ndarray,
+    total_minus: np.ndarray,
+    geometry_plus: np.ndarray,
+    geometry_minus: np.ndarray,
+    scaled_current_plus: np.ndarray,
+    scaled_current_minus: np.ndarray,
+) -> dict:
+    """Roundoff bound for a budget identity evaluated by centred differences.
+
+    The residual contains differences divided by 2*epsilon. Its arithmetic
+    bound must therefore include the original plus/minus observables divided
+    by 2*epsilon, not just the already-cancelled finite-difference outputs.
+    """
+    if not math.isfinite(epsilon) or epsilon <= 0.0:
+        raise ValueError("epsilon must be finite and positive")
+    scale = 1.0 / (2.0 * epsilon)
+    operands = [
+        np.asarray(values, dtype=np.float64) * scale
+        for values in (
+            total_plus, total_minus, geometry_plus, geometry_minus,
+            scaled_current_plus, scaled_current_minus,
+        )
+    ]
+    return roundoff_check(residual, *operands, multiplier=512.0)
+
+
 def operator_parity_record(
     diff: np.ndarray,
     production: np.ndarray,
@@ -661,13 +690,17 @@ def run_audit(resolution: int = 64, r_max: float = 40.0) -> tuple[dict, dict[str
             "native_vs_analytic_tangent": witness(
                 fd["native_M_total"] - analytic["native_M_total_dot"], r
             ),
-            "production_budget_closure": roundoff_check(
-                fd["production_budget_closure"],
-                fd["production_M_total"], fd["production_M_geometry"], KAPPA * fd["J_total"]
+            "production_budget_closure": finite_difference_budget_check(
+                fd["production_budget_closure"], epsilon,
+                p["production_M_total"], m["production_M_total"],
+                p["production_M_geometry"], m["production_M_geometry"],
+                KAPPA * p["J_total"], KAPPA * m["J_total"],
             ),
-            "native_budget_closure": roundoff_check(
-                fd["native_budget_closure"],
-                fd["native_M_total"], fd["native_M_geometry"], KAPPA * fd["J_total"]
+            "native_budget_closure": finite_difference_budget_check(
+                fd["native_budget_closure"], epsilon,
+                p["native_M_total"], m["native_M_total"],
+                p["native_M_geometry"], m["native_M_geometry"],
+                KAPPA * p["J_total"], KAPPA * m["J_total"],
             ),
             "input_state_digest_plus": state_digest(plus),
             "input_state_digest_minus": state_digest(minus),
