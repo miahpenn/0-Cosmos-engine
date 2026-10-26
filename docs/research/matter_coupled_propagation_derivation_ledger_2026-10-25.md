@@ -1481,3 +1481,26 @@ Until that mapping is written down, the Section 5 spatial mass-gradient identity
 ### Scope and admission status
 
 These are evidence-quality safeguards. No new evolution, observer, or resolution run was launched for this addendum; no production source, vendor pin, initializer, or accepted-state artifact was changed. The full matter-coupled propagation identity, discrete six-sector conservation, the action-level DM sign, and the index-convention crosswalk remain open. All five scientific-admission flags remain false; PR #423 remains draft.
+
+
+## 10.22 Pinned fluid momentum-index crosswalk (static source inspection)
+
+**Status:** source-level mapping only; this narrows the notation question but does not yet authorize algebra on the Section 5 mass-gradient identity.
+
+At accepted source anchor `4aec88d0e3ff028e0a65a8ac36b30948625df792`, `engine/valencia.py` documents the conservative fluid state as
+[
+U_r=\sqrt{-g}\,T^t{}_r,
+]
+and its primitive-to-conserved map forms the covariant Eulerian momentum
+[
+S_r=(\rho+p)W^2\gamma_{rr}v^r
+]
+(the code stores the radial velocity as `v_r`; the displayed index on the velocity is a naming convention, not by itself a tensor-index declaration). For the zero-shift state used by the current accepted-state comparison, the implementation's relation is (U_r=\sqrt{\gamma}S_r). Thus the fluid's stored conservative momentum slot is a **lower-radial-index** quantity, and its normalized projection (U_r/(\kappa\sqrt{\gamma})) maps to (j_r), not (j^r), under this zero-shift convention.
+
+The code uses the inverse metric (gamma^{rr}) to form contractions such as (S^2=\gamma^{rr}S_rS_r); that contraction does not turn the stored (S_r) or (U_r) into a contravariant component. Raising the index explicitly gives (j^r=\gamma^{rr}j_r).
+
+Two limits remain before comparing the Section 5 identities:
+1. Record the exact metric/areal-radius definitions and whether the mass-gradient expression's velocity is Eulerian normal-time (n^\mu\partial_\mu R=\partial_tR/\alpha) (for zero shift) or includes shift/advection.
+2. Derive the momentum term in the mass-gradient identity from the same declared (j_r) convention and source equation, then compare its sign and metric factors to the rate formula. Do not infer the sign from the code's variable names or tune it to the residual.
+
+This crosswalk is based on the pinned `engine/valencia.py` source blob `03ed86398f424c03d9d6a3e646da9222a34fac5c`. It is not an action-level derivation of the contradictory DM exchange sign, and it does not resolve that separate provenance gate. No production source or numerical artifact was changed; no new run was launched.
