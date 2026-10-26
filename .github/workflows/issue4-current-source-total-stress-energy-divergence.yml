@@ -119,8 +119,8 @@ jobs:
             and .source_witness.source_blob_count == 11
             and .source_witness.source_blob_pins_all_match == true
             and .source_witness.production_steps_advanced == 0
-            and .configuration.resolutions == [32,64,128,256]
-            and (.resolution_results | map(.resolution)) == [32,64,128,256]
+            and .configuration.resolutions == [32,64,128]
+            and (.resolution_results | map(.resolution)) == [32,64,128]
             and (.resolution_results | length) == 3
             and .configuration.production_steps_advanced == 0
             and .gate_result.source_pins_verified == true
@@ -137,7 +137,7 @@ jobs:
         run: |
           mkdir -p results/issue4-current-source-total-T-shell-ledger
           python tools/audit_current_source_total_t_shell_ledger.py \
-            --resolutions 32 64 128 \
+            --resolutions 32 64 128 256 \
             --r-max 24 \
             --inner-R 2 \
             --outer-R 10 \
@@ -148,7 +148,7 @@ jobs:
       - name: Verify operand capture leaves the primary ledger byte-identical
         run: |
           python tools/audit_current_source_total_t_shell_ledger.py \
-            --resolutions 32 64 128 \
+            --resolutions 32 64 128 256 \
             --r-max 24 \
             --inner-R 2 \
             --outer-R 10 \
@@ -234,10 +234,10 @@ jobs:
             and .status == "completed_diagnostic_only"
             and .source_witness.source_blob_pins_all_match == true
             and .source_witness.production_steps_advanced == 0
-            and .configuration.resolutions == [32,64,128]
+            and .configuration.resolutions == [32,64,128,256]
             and .configuration.fixed_areal_radius_shell == [2,10]
             and .configuration.production_steps_advanced == 0
-            and (.resolution_results | map(.resolution)) == [32,64,128]
+            and (.resolution_results | map(.resolution)) == [32,64,128,256]
             and all(.resolution_results[]; .base_state_unchanged == true)
             and all(.resolution_results[];
               all(.uncoupled_control.epsilon_rows[];
