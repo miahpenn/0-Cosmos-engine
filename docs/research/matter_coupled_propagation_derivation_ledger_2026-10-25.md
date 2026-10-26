@@ -1504,3 +1504,47 @@ Two limits remain before comparing the Section 5 identities:
 2. Derive the momentum term in the mass-gradient identity from the same declared (j_r) convention and source equation, then compare its sign and metric factors to the rate formula. Do not infer the sign from the code's variable names or tune it to the residual.
 
 This crosswalk is based on the pinned `engine/valencia.py` source blob `03ed86398f424c03d9d6a3e646da9222a34fac5c`. It is not an action-level derivation of the contradictory DM exchange sign, and it does not resolve that separate provenance gate. No production source or numerical artifact was changed; no new run was launched.
+
+## 10.23 Refreshed-stage CMC centre-row / lapse-Hessian discriminator
+
+**Status:** same-stage RHS diagnostic; the centre-row inconsistency is now a concrete source-level lead, not an admitted production fix.
+
+**Provenance and retained evidence**
+- Production source: `4aec88d0e3ff028e0a65a8ac36b30948625df792`.
+- Vendor: `d6052d605673ce9d82cdc99b0df79855fa2ea215`.
+- N=240 refreshed-stage report and 105-array signed NPZ: [workflow run 40259014204](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/40259014204), [artifact 12623656137](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/40259014204/artifacts/12623656137).
+- Stage-state digest before and after RHS: `925e6828a83d7c18338ab80cbf7e18b01adb2e9d8664146aa2655156e8b78710` (identical). The source-profile digest `770d36f3db5b60da87f52beb213f8af4731e17021f95c1519ecbdbe759b41cce` identifies the preceding profile and must not be conflated with the refreshed-stage digest.
+- Report SHA-256: `2d193bcfae399b5361d129ebe6bf3f0c887880b24f8c69ad7ff276806546d7d3`; signed NPZ SHA-256: `6ab69fac1b25acc48c296a17cc2edcf2b4145e414a7370f4f661fdea30cc2ccb`. The output manifest contains these hashes.
+
+**Direct same-stage decomposition**
+The pinned vendor's primary L2 equations are reconstructed on this exact refreshed state:
+[
+(\partial_t A_a)_{L2}
+= -\left(D_rD_r\alpha-\tfrac13\Delta\alpha\right)
++\alpha\left(R^r{}_r-\tfrac13R\right),\qquad
+(\partial_t K)_{L2}=-\Delta\alpha.
+]
+Both signed operator decompositions close exactly array-by-array (zero residual in the recorded arithmetic). The N=240 cell-1 values are:
+- `DrDr_alpha` = (+1.2438288296\times10^{-4})
+- `lap_alpha` = (+1.9130829387\times10^{-4})
+- (A_a) lapse-Hessian part = (-6.0613451670\times10^{-5})
+- (A_a) trace-free-Ricci part = (-1.7363082381\times10^{-6})
+- total (A_a) L2 = (-6.2349759908\times10^{-5}).
+
+Thus the cell-1 (A_a)-L2 spike is overwhelmingly in the lapse-Hessian piece, not the trace-free Ricci piece. The (K)-L2 term has the same (-\Delta\alpha) pattern: cell 0 is (+4.6374309382\times10^{-5}), while cell 1 is (-1.9130829387\times10^{-4}). This provides a concrete origin-localized mechanism for the large geometric tangent terms; it does not by itself prove the full source-aware propagation identity.
+
+**Source-level centre-row mismatch**
+The pinned CMC solver in `engine/cmc_gauge.py` validates a cell-centred grid
+(r_i=(i+\tfrac12)\Delta r), states “Regular center: \(\alpha'(0)=0\),” but encodes the first row as `alpha[0] - alpha[1] = 0`. On the same refreshed state:
+- `alpha[0]` = 0.9987852988733971
+- `alpha[1]` = 0.9987852988733958
+- their difference is (-1.2212453271\times10^{-15});
+- `alpha[2] - alpha[0]` = (+1.2451751339\times10^{-5}).
+
+Equality of the first two *cell-centre samples* is not the regularity condition for a smooth even function: for (\alpha(r)=\alpha_c+c_2r^2+O(r^4)), samples at (r=\tfrac12\Delta r) and (r=\tfrac32\Delta r) differ at order \(\Delta r^2\), even though \(\alpha'(0)=0\). The pinned derivative operators already implement even-parity ghost extension. The present equality row instead flattens the first two lapse samples and creates a sharp discrete curvature transition at cell 1. This is consistent with the observed large `DrDr_alpha`, `lap_alpha`, and (A_a/K)-L2 responses.
+
+**Decision and next discriminator**
+Treat the lapse centre row as the leading code-level hypothesis for the inner-cell mismatch. Before any production change, perform one bounded **counterfactual-only** solve on the same checksummed pre-refresh state: retain the exact CMC target (\dot K), metric/matter fields, outer normalization and interior rows, but replace only the equality row by the centre PDE row obtained from the same cell-centred parity extension, i.e. use the even ghost (\alpha_{-1}=\alpha_0) in the discrete centre equation. Re-evaluate the instantaneous RHS and signed (\dot M_r) budget without stepping the state. Report the first two cells and fixed radii, and compare against the unchanged baseline row. This tests causal relevance without changing production code, vendor pins, physical source laws, or admission flags.
+
+**Admission boundary:** the manufactured stencil control excludes a shared interior D1/D2 mismatch; this new evidence points instead to the CMC lapse boundary row. It still does not close the full matter-coupled identity or the discrete stress-energy conservation gate. All scientific-admission flags remain false.
+
