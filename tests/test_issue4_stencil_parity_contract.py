@@ -67,6 +67,32 @@ def test_production_and_native_momentum_formulas_match_in_flat_regular_chart():
     np.testing.assert_allclose(production[mask], native[mask], rtol=1.0e-12, atol=1.0e-12)
 
 
+def test_finite_difference_budget_bound_includes_pre_difference_operands():
+    epsilon = 2.0e-5
+    residual = np.array([1.0e-15])
+    total_plus = np.array([1.5e-4])
+    total_minus = np.array([1.4e-4])
+    geometry_plus = np.array([1.8e-4])
+    geometry_minus = np.array([1.7e-4])
+    scaled_current_plus = np.array([3.0e-5])
+    scaled_current_minus = np.array([3.0e-5])
+
+    legacy = audit.roundoff_check(
+        residual,
+        np.array([8.0e-4]),
+        np.array([7.0e-4]),
+        np.array([1.0e-4]),
+    )
+    corrected = audit.finite_difference_budget_check(
+        residual, epsilon, total_plus, total_minus,
+        geometry_plus, geometry_minus,
+        scaled_current_plus, scaled_current_minus,
+    )
+    assert legacy["passed"] is False
+    assert corrected["passed"] is True
+    assert corrected["max_bound"] > float(np.max(np.abs(residual)))
+
+
 def test_operator_parity_record_separates_outer_boundary_closure():
     production = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
     native = np.array([1.0, 2.0, 3.0, 4.01, 5.02])
