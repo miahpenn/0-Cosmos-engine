@@ -14,9 +14,13 @@ import hashlib
 import json
 import math
 from pathlib import Path
+import sys
 from typing import Any
 
 import numpy as np
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
 
 from engine import v55_pirk_adapter as adapter
 from engine.matter_system import ConservedSpecies
