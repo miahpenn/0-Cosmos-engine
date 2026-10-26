@@ -39,3 +39,19 @@ The shell ledger uses three brackets per resolution: base state sets the slope; 
 The original table is tied to its archived artifact/run and regenerated from the pinned engine/vendor state, with the diagnostic-tool revision difference explicitly recorded. Base-state brackets are recovered. The interpolation identity remains open. A next test should evaluate endpoint product differences using the captured base/plus/minus operands, or independently evaluate endpoint slopes against an analytic profile. A fourth resolution is an option only if it preserves the same three-bracket shell-ledger construction.
 
 No production campaign, production equation, source-law assignment, physical acceptance threshold, or admission flag changes. Issue #4, Issue #210, total stress-energy closure, and the radiation near-cone gate remain open.
+
+
+## Diagnostic operand sidecar and pre-registered scaling criterion
+
+The shell-ledger audit now has an opt-in `--operand-output PATH` option. It writes a separate `current_source_fixed_R_shell_interpolation_operands_v1` JSON sidecar with the exact endpoint values used for each fixed-`R` interpolation: base, plus, and minus states; inner and outer targets; left/right indices and areal-radius endpoints; `theta`, `1-theta`, `theta(1-theta)`, and `Delta R`; coordinate-radius endpoints; and endpoint values/interpolants for the Misner–Sharp mass, `R^2`, lapse, inverse radial metric, radial current, radial pressure, `Rdot`, `Rr`, and composite flux/work products. The sidecar carries source provenance and remains diagnostic-only with zero production steps and admission false.
+
+The workflow compares the primary JSON report byte-for-byte against a second frozen-state run without `--operand-output`. It hashes the operand sidecar and retains the hash beside the file in the workflow artifact. The new capture is opt-in; without the option, the additional endpoint capture is not computed. The new unit test validates the two-factor interpolation identity and a manufactured-profile scaling criterion.
+
+**Criterion frozen before a new solver-resolution comparison:**
+
+1. Exact identity gate: `I_theta(ab) - I_theta(a) I_theta(b) = theta(1-theta)(a_R-a_L)(b_R-b_L)`. The manufactured-profile test compares both sides using known endpoint values. No fitted correction is allowed.
+2. Define `h = R_R - R_L` and `G = [I_theta(ab)-I_theta(a)I_theta(b)]/[theta(1-theta)h^2]`. Then `G` equals the product of endpoint secant slopes. At target `R_*`, compare against the leading derivative product and subtract the signed first-order term `(1-2theta)h/2 [a'' b' + a' b'']` before testing the residual order.
+3. The manufactured profile uses `a(x)=exp(0.1x)`, `b(x)=2+sin(0.2x)`, halving `h=[0.8,0.4,0.2,0.1,0.05]` and alternating `theta=[1/6,5/6,1/6,5/6,1/6]`. The predeclared pass band is a 3.7–4.5 reduction ratio in the first-order-corrected error at each halving, consistent with `O(h^2)`. This is a test of the interpolation identity/expansion, not a fit to solver residuals.
+4. Only after the manufactured gate passes should the solver comparison add `N=256` at `R=10`, retaining the shell ledger's separate base/plus/minus brackets. The existing N=32/64/128 points are not used to fit a correction. The joined-ledger recompute's sweep cancellation remains a property of that tool only and does not replace the shell ledger's directional observed-rate construction.
+
+The CI comparison is still required to establish that the new sidecar is archived and the primary residual report remains byte-identical. No production equation, vendor pin, threshold, source-law assignment, or scientific-admission flag is changed by this diagnostic instrumentation.
