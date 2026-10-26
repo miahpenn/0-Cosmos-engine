@@ -312,7 +312,7 @@ def verify_stage_bundle(bundle_dir: Path, resolution: int) -> tuple[dict[str, An
 def audit_bundle(bundle_dir: str | Path, resolution: int) -> tuple[dict[str, Any], dict[str, np.ndarray]]:
     report, arrays, bundle = verify_stage_bundle(Path(bundle_dir), resolution)
     state = restore_stage_state(arrays, report, resolution)
-    input_state_digest = state_digest(state)
+    stage_state_digest = state_digest(state)
     grid, geom = state.grid, state.geometry
     r, dr = finite("r", grid.centers), float(grid.dr)
     kernel = V55ProductionKernel()
@@ -364,21 +364,21 @@ def audit_bundle(bundle_dir: str | Path, resolution: int) -> tuple[dict[str, Any
     for name in SPECIES:
         j_rebuilt += getattr(state.matter, name).momentum_r / (np.sqrt(geom.a) * geom.b * r**2 / geom.X**3 * KAPPA)
 
-    input_state_digest_after = state_digest(state)
-    if input_state_digest_after != input_state_digest:
+    stage_state_digest_after = state_digest(state)
+    if stage_state_digest_after != stage_state_digest:
         raise RuntimeError("frozen input stage state mutated during RHS-only audit")
 
     # Preserve all signed cell profiles used to form the same-stage budget.
     # The upstream stage capture remains a separately checksummed input artifact.
     signed_arrays: dict[str, np.ndarray] = {"r": r.copy()}
     for name in GEOMETRY_FIELDS:
-        signed_arrays["input__geometry__" + name] = np.asarray(getattr(geom, name)).copy()
+        signed_arrays["stage_state__geometry__" + name] = np.asarray(getattr(geom, name)).copy()
     for name in SCALAR_FIELDS:
-        signed_arrays["input__scalars__" + name] = np.asarray(getattr(state.scalars, name)).copy()
+        signed_arrays["stage_state__scalars__" + name] = np.asarray(getattr(state.scalars, name)).copy()
     for sector in SPECIES:
         item = getattr(state.matter, sector)
         for name in SPECIES_FIELDS:
-            signed_arrays[f"input__matter__{sector}__{name}"] = np.asarray(getattr(item, name)).copy()
+            signed_arrays[f"stage_state__matter__{sector}__{name}"] = np.asarray(getattr(item, name)).copy()
     for name, value in rates.items():
         signed_arrays["accepted_geometry_rate__" + name] = np.asarray(value).copy()
     for name in SCALAR_FIELDS:
@@ -432,9 +432,10 @@ def audit_bundle(bundle_dir: str | Path, resolution: int) -> tuple[dict[str, Any
         "dt_from_copied_capture": float(report["step"]["dt"]),
         "source_commit": SOURCE_COMMIT,
         "vendor_commit": VENDOR_COMMIT,
-        "input_state_digest": input_state_digest,
-        "input_state_digest_after_rhs": input_state_digest_after,
-        "input_state_immutable": input_state_digest_after == input_state_digest,
+        "source_profile_state_digest": report.get("input_artifact", {}).get("input_state_digest_recomputed"),
+        "stage_state_digest": stage_state_digest,
+        "stage_state_digest_after_rhs": stage_state_digest_after,
+        "stage_state_immutable": stage_state_digest_after == stage_state_digest,
         "input_artifact_report_sha256": member_hashes.get("report.json"),
         "input_stage_arrays_sha256": member_hashes.get("stage_arrays.npz"),
         "artifact_member_sha256": member_hashes,
@@ -482,7 +483,7 @@ def main() -> int:
         "j_dot_total_max_abs_r_le_10": result["j_dot_total"]["max_abs_r_le_10"],
         "bianchi_source_max_abs_r_le_10": result["Bianchi_source_minus_kappa_alpha_D"]["max_abs_r_le_10"],
         "residual_max_abs_r_le_10": result["accepted_minus_Brown_source_aware_residual"]["max_abs_r_le_10"],
-        "input_state_digest": result["input_state_digest"],
+        "stage_state_digest": result["stage_state_digest"],
         "signed_arrays_sha256": sums["signed_arrays.npz"],
         "scientific_admission": False,
     }, indent=2))
