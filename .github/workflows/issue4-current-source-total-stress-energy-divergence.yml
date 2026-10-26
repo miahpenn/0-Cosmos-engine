@@ -96,7 +96,7 @@ jobs:
           python -m pytest -q \
             tests/test_current_source_total_stress_energy_divergence.py \
             tests/test_covariant_total_stress_energy_divergence.py \
-            tests/test_research_total_t_shell_ledger.py \\
+            tests/test_research_total_t_shell_ledger.py \
             tests/test_fixed_R_interpolation_operands.py
 
       - name: Run one-resolution current-source frozen-state witness
@@ -167,7 +167,7 @@ jobs:
           assert data["scientific_admission"] is False
           assert [r["resolution"] for r in data["operand_rows"] if r["coupling_case"] == "uncoupled_control" and r["epsilon"] == 2e-5] == [32, 64, 128]
           digest = hashlib.sha256(path.read_bytes()).hexdigest()
-          Path(str(path) + ".sha256").write_text(f"{digest}  {path.name}\\n", encoding="utf-8")
+          Path(str(path) + ".sha256").write_text(f"{digest}  {path.name}\n", encoding="utf-8")
           print(json.dumps({"operand_sidecar": str(path), "sha256": digest,
                             "operand_rows": len(data["operand_rows"]),
                             "primary_report_byte_identical_without_option": True,
