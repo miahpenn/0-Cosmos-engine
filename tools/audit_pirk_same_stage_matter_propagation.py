@@ -309,7 +309,7 @@ def verify_stage_bundle(bundle_dir: Path, resolution: int) -> tuple[dict[str, An
     return report, arrays, {"sha256": verified, "report_sha256": verified["report.json"]}
 
 
-def audit_bundle(bundle_dir: str | Path, resolution: int) -> dict[str, Any]:
+def audit_bundle(bundle_dir: str | Path, resolution: int) -> tuple[dict[str, Any], dict[str, np.ndarray]]:
     report, arrays, bundle = verify_stage_bundle(Path(bundle_dir), resolution)
     state = restore_stage_state(arrays, report, resolution)
     input_state_digest = state_digest(state)
