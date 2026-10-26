@@ -52,6 +52,51 @@ def d1(grid: Any, values: Any, parity: int = 1) -> np.ndarray:
     return finite("D1", grid.cell_derivative_fourth(finite("D1 input", values), parity=parity))
 
 
+def state_digest(state: ProductionState) -> str:
+    """Stable digest of every base state array used by this same-stage audit."""
+    arrays: dict[str, np.ndarray] = {}
+    for name in GEOMETRY_FIELDS:
+        arrays["geometry." + name] = getattr(state.geometry, name)
+    for name in SCALAR_FIELDS:
+        arrays["scalars." + name] = getattr(state.scalars, name)
+    for sector in (*SPECIES, "charged_dust"):
+        item = getattr(state.matter, sector, None)
+        if item is None:
+            continue
+        for name in SPECIES_FIELDS:
+            arrays["matter." + sector + "." + name] = getattr(item, name)
+    digest = hashlib.sha256()
+    for name in sorted(arrays):
+        values = np.ascontiguousarray(np.asarray(arrays[name]))
+        digest.update(name.encode("utf-8"))
+        digest.update(str(values.dtype).encode("ascii"))
+        digest.update(repr(values.shape).encode("ascii"))
+        digest.update(values.tobytes())
+    return digest.hexdigest()
+
+
+def write_signed_artifacts(out_dir: Path, report: dict[str, Any], arrays: dict[str, np.ndarray]) -> dict[str, str]:
+    """Write the complete signed radial arrays and a SHA-256 manifest."""
+    out_dir.mkdir(parents=True, exist_ok=True)
+    report_path = out_dir / "report.json"
+    arrays_path = out_dir / "signed_arrays.npz"
+    manifest_path = out_dir / "SHA256SUMS.txt"
+    report_path.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    np.savez_compressed(arrays_path, **{
+        key: finite("saved signed array " + key, value)
+        for key, value in sorted(arrays.items())
+    })
+    sums = {
+        "report.json": hashlib.sha256(report_path.read_bytes()).hexdigest(),
+        "signed_arrays.npz": hashlib.sha256(arrays_path.read_bytes()).hexdigest(),
+    }
+    manifest_path.write_text(
+        "".join(f"{digest}  {name}\n" for name, digest in sorted(sums.items())),
+        encoding="utf-8",
+    )
+    return sums
+
+
 def summary(values: Any, r: np.ndarray) -> dict[str, Any]:
     arr = finite("summary input", values)
     mask = r <= 10.0 + 1.0e-12
@@ -267,6 +312,7 @@ def verify_stage_bundle(bundle_dir: Path, resolution: int) -> tuple[dict[str, An
 def audit_bundle(bundle_dir: str | Path, resolution: int) -> dict[str, Any]:
     report, arrays, bundle = verify_stage_bundle(Path(bundle_dir), resolution)
     state = restore_stage_state(arrays, report, resolution)
+    input_state_digest = state_digest(state)
     grid, geom = state.grid, state.geometry
     r, dr = finite("r", grid.centers), float(grid.dr)
     kernel = V55ProductionKernel()
@@ -318,8 +364,65 @@ def audit_bundle(bundle_dir: str | Path, resolution: int) -> dict[str, Any]:
     for name in SPECIES:
         j_rebuilt += getattr(state.matter, name).momentum_r / (np.sqrt(geom.a) * geom.b * r**2 / geom.X**3 * KAPPA)
 
+    input_state_digest_after = state_digest(state)
+    if input_state_digest_after != input_state_digest:
+        raise RuntimeError("frozen input stage state mutated during RHS-only audit")
+
+    # Preserve all signed cell profiles used to form the same-stage budget.
+    # The upstream stage capture remains a separately checksummed input artifact.
+    signed_arrays: dict[str, np.ndarray] = {"r": r.copy()}
+    for name in GEOMETRY_FIELDS:
+        signed_arrays["input__geometry__" + name] = np.asarray(getattr(geom, name)).copy()
+    for name in SCALAR_FIELDS:
+        signed_arrays["input__scalars__" + name] = np.asarray(getattr(state.scalars, name)).copy()
+    for sector in SPECIES:
+        item = getattr(state.matter, sector)
+        for name in SPECIES_FIELDS:
+            signed_arrays[f"input__matter__{sector}__{name}"] = np.asarray(getattr(item, name)).copy()
+    for name, value in rates.items():
+        signed_arrays["accepted_geometry_rate__" + name] = np.asarray(value).copy()
+    for name in SCALAR_FIELDS:
+        signed_arrays["accepted_scalar_rhs__" + name] = np.asarray(getattr(scalar_rhs, name)).copy()
+    for sector in SPECIES:
+        for name in SPECIES_FIELDS:
+            signed_arrays[f"accepted_matter_rhs__{sector}__{name}"] = np.asarray(
+                getattr(matter_rhs[sector], name)
+            ).copy()
+    for name, value in current_parts_dot.items():
+        signed_arrays["Jdot_sector__" + name] = np.asarray(value).copy()
+    signed_arrays.update({
+        "spatial_volume_rate": np.asarray(volume_rate).copy(),
+        "stress__rho": np.asarray(stress.rho).copy(),
+        "stress__j": np.asarray(stress.j).copy(),
+        "stress__pr": np.asarray(stress.pr).copy(),
+        "stress__pt": np.asarray(stress.pt).copy(),
+        "M_geometry": np.asarray(M_geom).copy(),
+        "M_total": np.asarray(M_total).copy(),
+        "Mdot_geometry": np.asarray(tangent_geom).copy(),
+        "Mdot_total_accepted_RHS": np.asarray(Mdot_total).copy(),
+        "connection_Cr": np.asarray(constraints["connection"]).copy(),
+        "connection_D1_Cr": d1(grid, constraints["connection"], 1).copy(),
+        "connection_D2_Cr": finite(
+            "connection D2", grid.cell_second_derivative_fourth(constraints["connection"], parity=1)
+        ).copy(),
+        "H_matter": np.asarray(Hmatter).copy(),
+        "H_matter_gradient": np.asarray(Hmatter_gradient).copy(),
+        "div_T_r_pointwise": np.asarray(divergence_r).copy(),
+        "Bianchi_source_minus_kappa_alpha_D": np.asarray(bianchi_source).copy(),
+        "Brown_homogeneous_source_aware_base": np.asarray(brown_Hgeom_Mtotal).copy(),
+        "source_aware_Brown_prediction": np.asarray(brown_source_aware).copy(),
+        "accepted_minus_Brown_source_aware_residual": np.asarray(residual).copy(),
+        "j_dot_total": np.asarray(j_dot).copy(),
+        "j_projection_rebuilt": np.asarray(j_rebuilt).copy(),
+    })
+    for name, value in divergence_components.items():
+        signed_arrays["div_T_component__" + name] = np.asarray(value).copy()
+    for name, value in brown_terms.items():
+        if isinstance(value, np.ndarray):
+            signed_arrays["Brown_term__" + name] = np.asarray(value).copy()
+
     member_hashes = bundle.get("sha256", {})
-    return {
+    result = {
         "schema": "issue4-same-stage-matter-brown-propagation/v1",
         "status": "completed_rhs_only_diagnostic",
         "scientific_admission": False,
@@ -329,7 +432,14 @@ def audit_bundle(bundle_dir: str | Path, resolution: int) -> dict[str, Any]:
         "dt_from_copied_capture": float(report["step"]["dt"]),
         "source_commit": SOURCE_COMMIT,
         "vendor_commit": VENDOR_COMMIT,
+        "input_state_digest": input_state_digest,
+        "input_state_digest_after_rhs": input_state_digest_after,
+        "input_state_immutable": input_state_digest_after == input_state_digest,
+        "input_artifact_report_sha256": member_hashes.get("report.json"),
+        "input_stage_arrays_sha256": member_hashes.get("stage_arrays.npz"),
         "artifact_member_sha256": member_hashes,
+        "signed_arrays_schema": "issue4-same-stage-signed-arrays/v1",
+        "signed_arrays_fields": sorted(signed_arrays),
         "no_step_or_trajectory": True,
         "no_lapse_resolve": True,
         "source_projection_reconstruction_max_abs": float(np.max(np.abs(j_rebuilt - stress.j))),
@@ -355,6 +465,7 @@ def audit_bundle(bundle_dir: str | Path, resolution: int) -> dict[str, Any]:
             "select the off-constraint connection convention."
         ),
     }
+    return result, signed_arrays
 
 
 def main() -> int:
@@ -363,16 +474,16 @@ def main() -> int:
     parser.add_argument("--resolution", type=int, choices=(60, 120, 240), required=True)
     parser.add_argument("--out-dir", type=Path, required=True)
     args = parser.parse_args()
-    result = audit_bundle(args.input_dir, args.resolution)
-    args.out_dir.mkdir(parents=True, exist_ok=True)
-    report_path = args.out_dir / "report.json"
-    report_path.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    result, signed_arrays = audit_bundle(args.input_dir, args.resolution)
+    sums = write_signed_artifacts(args.out_dir, result, signed_arrays)
     print(json.dumps({
         "resolution": args.resolution,
         "status": result["status"],
         "j_dot_total_max_abs_r_le_10": result["j_dot_total"]["max_abs_r_le_10"],
         "bianchi_source_max_abs_r_le_10": result["Bianchi_source_minus_kappa_alpha_D"]["max_abs_r_le_10"],
         "residual_max_abs_r_le_10": result["accepted_minus_Brown_source_aware_residual"]["max_abs_r_le_10"],
+        "input_state_digest": result["input_state_digest"],
+        "signed_arrays_sha256": sums["signed_arrays.npz"],
         "scientific_admission": False,
     }, indent=2))
     return 0
