@@ -8,6 +8,7 @@ import numpy as np
 from tools.audit_pirk_same_stage_matter_propagation import (
     KAPPA,
     total_current_tangent,
+    geometric_constraint_tangent_terms,
     write_signed_artifacts,
 )
 
@@ -134,4 +135,38 @@ def test_signed_artifact_writer_preserves_profiles_and_manifest(tmp_path: Path):
         expected = hashlib.sha256((tmp_path / name).read_bytes()).hexdigest()
         assert sums[name] == expected
         assert f"{expected}  {name}" in manifest
+
+def test_geometric_constraint_tangent_terms_reconstruct_the_exact_chain_rule():
+    grid = LinearGrid(n=9, dr=0.2)
+    r = grid.centers
+    state = SimpleNamespace(
+        grid=grid,
+        geometry=SimpleNamespace(
+            Aa=1.2e-4*np.exp(-0.4*r),
+            b=1.0+0.015*r**2,
+            X=1.0+0.02/(1.0+r**2),
+        ),
+    )
+    rates = {
+        "Aa": 1.0e-5*np.sin(r),
+        "K": -2.0e-5*np.cos(0.7*r),
+        "b": 3.0e-5*np.sin(0.5*r),
+        "X": -1.0e-5*np.cos(0.3*r),
+    }
+    terms, total = geometric_constraint_tangent_terms(state, rates)
+    rebuilt = np.zeros_like(r)
+    for values in terms.values():
+        rebuilt += values
+    np.testing.assert_array_equal(total, rebuilt)
+    assert set(terms) == {
+        "D1_Aa_dot",
+        "minus_two_thirds_D1_K_dot",
+        "six_Aa_dot_chi",
+        "minus_three_Aa_D1_X_dot_over_X",
+        "plus_three_Aa_D1_X_X_dot_over_X_squared",
+        "three_Aa_dot_over_r",
+        "one_point_five_Aa_dot_D1_b_over_b",
+        "one_point_five_Aa_D1_b_dot_over_b",
+        "minus_one_point_five_Aa_D1_b_b_dot_over_b_squared",
+    }
 
