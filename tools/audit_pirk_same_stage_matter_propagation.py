@@ -239,7 +239,7 @@ def verify_stage_bundle(bundle_dir: Path, resolution: int) -> tuple[dict[str, An
         raise ValueError("unexpected saved-stage artifact schema")
     if report.get("status") != "completed_diagnostic_only":
         raise ValueError("saved-stage artifact is not a completed diagnostic-only capture")
-    if report.get("scientific_admission") is not False:
+    if report.get("admission_flags", {}).get("scientific_admission") is not False:
         raise ValueError("saved-stage artifact admission state is not fail-closed")
     pins = report.get("pins", {})
     if pins.get("source_pin_commit") != SOURCE_COMMIT or pins.get("source_commit") != SOURCE_COMMIT:
