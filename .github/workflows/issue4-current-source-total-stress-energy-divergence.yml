@@ -1,0 +1,397 @@
+name: Issue 4 current-source covariant total stress-energy divergence
+
+on:
+  pull_request:
+    paths:
+      - "tools/audit_current_source_total_stress_energy_divergence.py"
+      - "tests/test_current_source_total_stress_energy_divergence.py"
+      - "tools/audit_current_source_total_t_shell_ledger.py"
+      - "tests/test_research_total_t_shell_ledger.py"
+      - "tests/test_fixed_R_interpolation_operands.py"
+      - "tools/audit_total_stress_energy_divergence.py"
+      - "tests/test_covariant_total_stress_energy_divergence.py"
+      - ".github/workflows/issue4-current-source-total-stress-energy-divergence.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: issue4-current-source-total-T-divergence-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  bounded-current-source-divergence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      PYTHONUNBUFFERED: "1"
+      SOURCE_COMMIT: "4aec88d0e3ff028e0a65a8ac36b30948625df792"
+      VENDOR_COMMIT: "d6052d605673ce9d82cdc99b0df79855fa2ea215"
+      COSMOS_PINNED_SOURCE_ROOT: ${{ github.workspace }}/source
+
+    steps:
+      - name: Check out diagnostic branch and pinned vendor
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Check out exact current-source snapshot separately
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SOURCE_COMMIT }}
+          path: source
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: source/requirements.txt
+
+      - name: Install pinned production dependencies
+        run: python -m pip install -r source/requirements.txt
+
+      - name: Verify the exact source/vendor snapshot and candidate parity
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C source rev-parse HEAD)" = "$SOURCE_COMMIT"
+          test "$(git -C source/vendor/bb-palatini-unified-r0 rev-parse HEAD)" = "$VENDOR_COMMIT"
+          test "$(git -C vendor/bb-palatini-unified-r0 rev-parse HEAD)" = "$VENDOR_COMMIT"
+          while read -r path expected; do
+            test "$(git -C source rev-parse "HEAD:$path")" = "$expected"
+            test "$(git rev-parse "HEAD:$path")" = "$expected"
+          done <<'PINS'
+          engine/production_kernel.py 1720615628a98a8d7cfc9fcadcc984fe28c88be1
+          engine/matter_system.py 0969f4d996e4f8e0fc5b70a7dff147f024907302
+          engine/matter_rhs.py 0153c232ee15b5a9d3dbac37ea858e4d2d730011
+          engine/scalar_system.py e2c2dae9a016b4d6454cf74a9eae8b0167d5733d
+          engine/v55_matter.py 0ee3c51fac7dc46c63feba2747a750542bcee3d0
+          engine/v55_pirk_adapter.py be28ceea63fa1b59efc5cc5c460b9df19ae1cbc3
+          engine/cmc_gauge.py 7b49b5751abebd4faf0130208032cd2080b71f64
+          engine/v55_initial.py 7db2e1a10cf16fb40e4221b0df504fdf39aae611
+          engine/stress_energy.py ac3e7518c62bb72e2218a61489fa486bb787809f
+          engine/valencia.py 03ed86398f424c03d9d6a3e646da9222a34fac5c
+          engine/worldtube.py aea19090cb0fd2ebe5481a8b7af0d26f119a9ad6
+          PINS
+          printf 'CURRENT_SOURCE=%s\n' "$(git -C source rev-parse HEAD)"
+          printf 'CANDIDATE=%s\n' "$(git rev-parse HEAD)"
+          printf 'VENDOR_SOURCE=%s\n' "$(git -C source/vendor/bb-palatini-unified-r0 rev-parse HEAD)"
+
+      - name: Compile current-source witness and contract tests
+        run: |
+          python -m py_compile tools/audit_current_source_total_stress_energy_divergence.py
+          python -m py_compile tests/test_current_source_total_stress_energy_divergence.py
+          python -m py_compile tools/audit_current_source_total_t_shell_ledger.py
+          python -m py_compile tests/test_research_total_t_shell_ledger.py
+          python -m py_compile tests/test_fixed_R_interpolation_operands.py
+          python -m py_compile tests/test_covariant_total_stress_energy_divergence.py
+
+      - name: Run source-pin contract and analytic divergence controls
+        run: |
+          python -m pytest -q \
+            tests/test_current_source_total_stress_energy_divergence.py \
+            tests/test_covariant_total_stress_energy_divergence.py \
+            tests/test_research_total_t_shell_ledger.py \
+            tests/test_fixed_R_interpolation_operands.py
+
+      - name: Run one-resolution current-source frozen-state witness
+        run: |
+          mkdir -p results/issue4-current-source-covariant-total-T-divergence
+          python tools/audit_current_source_total_stress_energy_divergence.py \
+            --resolutions 32 64 128 \
+            --r-max 24 \
+            --epsilons 0.00002 0.00001 \
+            --output results/issue4-current-source-covariant-total-T-divergence/report.json
+
+      - name: Assert witness integrity and keep admission gates open
+        run: |
+          jq -e --arg source "$SOURCE_COMMIT" '
+            .schema == "current_source_covariant_total_stress_energy_divergence_v1"
+            and .status == "completed_diagnostic_only"
+            and .source_provenance.source_commit == $source
+            and .source_provenance.source_blobs_match == true
+            and .source_witness.kind == "current_source_snapshot"
+            and .source_witness.source_blob_count == 11
+            and .source_witness.source_blob_pins_all_match == true
+            and .source_witness.production_steps_advanced == 0
+            and .configuration.resolutions == [32,64,128]
+            and (.resolution_results | map(.resolution)) == [32,64,128]
+            and (.resolution_results | length) == 3
+            and .configuration.production_steps_advanced == 0
+            and .gate_result.source_pins_verified == true
+            and .gate_result.independent_total_projection_matches_canonical == true
+            and .gate_result.all_profiles_finite == true
+            and .gate_result.scalar_rhs_term_reconstruction_passed == true
+            and .gate_result.input_states_unchanged == true
+            and .gate_result.independent_total_stress_energy_divergence_closed == false
+            and .gate_result.scientific_admission == false
+            and .scientific_admission == false
+          ' results/issue4-current-source-covariant-total-T-divergence/report.json
+
+      - name: Run moving fixed-areal-radius total-T shell ledger
+        run: |
+          mkdir -p results/issue4-current-source-total-T-shell-ledger
+          python tools/audit_current_source_total_t_shell_ledger.py \
+            --resolutions 32 64 128 256 \
+            --r-max 24 \
+            --inner-R 2 \
+            --outer-R 10 \
+            --epsilons 0.00002 0.00001 \
+            --output results/issue4-current-source-total-T-shell-ledger/report.json \
+            --operand-output results/issue4-current-source-total-T-shell-ledger/interpolation-operands.json
+
+      - name: Verify operand capture leaves the primary ledger byte-identical
+        run: |
+          python tools/audit_current_source_total_t_shell_ledger.py \
+            --resolutions 32 64 128 256 \
+            --r-max 24 \
+            --inner-R 2 \
+            --outer-R 10 \
+            --epsilons 0.00002 0.00001 \
+            --output results/issue4-current-source-total-T-shell-ledger/report-without-operand-option.json
+          cmp results/issue4-current-source-total-T-shell-ledger/report.json \
+              results/issue4-current-source-total-T-shell-ledger/report-without-operand-option.json
+          python - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+          path = Path("results/issue4-current-source-total-T-shell-ledger/interpolation-operands.json")
+          data = json.loads(path.read_text(encoding="utf-8"))
+          assert data["schema"] == "current_source_fixed_R_shell_interpolation_operands_v1"
+          assert data["status"] == "completed_diagnostic_only"
+          assert data["production_steps_advanced"] == 0
+          assert data["scientific_admission"] is False
+          assert len(data["operand_rows"]) == 16
+          assert [r["resolution"] for r in data["operand_rows"] if r["coupling_case"] == "uncoupled_control" and r["epsilon"] == 2e-5] == [32, 64, 128, 256]
+          for row in data["operand_rows"]:
+              assert set(row["boundaries"]) == {"inner", "outer"}
+              for boundary in row["boundaries"].values():
+                  assert set(boundary["states"]) == {"base", "plus", "minus"}
+                  for state in boundary["states"].values():
+                      bracket = state["R_bracket"]
+                      assert 0.0 <= bracket["theta"] <= 1.0
+                      assert bracket["delta_R"] > 0.0
+                      assert {"R_squared", "radial_pressure_pr", "Rdot_directional_rate",
+                              "composite_pressure_work_product", "composite_flux_product"} <= set(state["factor_endpoints"])
+          digest = hashlib.sha256(path.read_bytes()).hexdigest()
+          Path(str(path) + ".sha256").write_text(f"{digest}  {path.name}\n", encoding="utf-8")
+
+          # Solver comparison only after the manufactured-profile criterion passed above.
+          # Report the raw normalized work gap; do not fit a correction or infer admission.
+          import math
+          comparisons = []
+          for row in data["operand_rows"]:
+              if row["coupling_case"] != "uncoupled_control":
+                  continue
+              if row["epsilon"] != 2e-5:
+                  continue
+              outer = row["boundaries"]["outer"]
+              base = outer["states"]["base"]
+              bracket = base["R_bracket"]
+              factors = base["factor_endpoints"]
+              target_R = outer["target_areal_radius"]
+              composite_work = factors["composite_pressure_work_product"]["interpolated_value"]
+              pressure_R = factors["radial_pressure_pr"]["interpolated_value"]
+              Rdot_R = factors["Rdot_directional_rate"]["interpolated_value"]
+              factorized_work = -4.0 * math.pi * target_R**2 * pressure_R * Rdot_R
+              denominator = bracket["theta_one_minus_theta"] * bracket["delta_R"]**2
+              comparisons.append({
+                  "resolution": row["resolution"],
+                  "coupling_case": row["coupling_case"],
+                  "epsilon": row["epsilon"],
+                  "target_R": target_R,
+                  "left_index": bracket["left_index"],
+                  "R_left": bracket["x_left"],
+                  "R_right": bracket["x_right"],
+                  "theta": bracket["theta"],
+                  "theta_one_minus_theta": bracket["theta_one_minus_theta"],
+                  "delta_R": bracket["delta_R"],
+                  "composite_pressure_work": composite_work,
+                  "factorized_pressure_work": factorized_work,
+                  "composite_minus_factorized_work": composite_work - factorized_work,
+                  "normalized_work_gap": (composite_work - factorized_work) / denominator,
+              })
+          comparison = {
+              "schema": "current_source_fixed_R_pressure_work_interpolation_comparison_v1",
+              "classification": "diagnostic-only raw solver comparison; no fitted correction",
+              "criterion_gate": "manufactured_profile_first_order_corrected_O_h2_test_passed_before_this_step",
+              "resolutions": [32, 64, 128, 256],
+              "target_R": 10.0,
+              "rows": comparisons,
+              "production_steps_advanced": 0,
+              "scientific_admission": False,
+              "physical_residual_threshold_applied": False,
+              "interpretation": "Normalized work gaps and each resolution's actual base-state bracket are reported descriptively. No asymptotic correction is fitted; plus/minus brackets remain preserved in the operand sidecar.",
+          }
+          compare_path = Path("results/issue4-current-source-total-T-shell-ledger/pressure-work-scaling-comparison.json")
+          compare_path.write_text(json.dumps(comparison, indent=2, sort_keys=True, allow_nan=False) + "\n", encoding="utf-8")
+          print(json.dumps({"operand_sidecar": str(path), "sha256": digest,
+                            "operand_rows": len(data["operand_rows"]),
+                            "pressure_work_comparison": str(compare_path),
+                            "comparison_rows": len(comparisons),
+                            "primary_report_byte_identical_without_option": True,
+                            "production_steps_advanced": 0,
+                            "scientific_admission": False}, sort_keys=True))
+          PY
+
+      - name: Assert shell ledger integrity and keep admission gates open
+        run: |
+          jq -e '
+            .schema == "current_source_moving_fixed_R_total_T_shell_ledger_v1"
+            and .status == "completed_diagnostic_only"
+            and .source_witness.source_blob_pins_all_match == true
+            and .source_witness.production_steps_advanced == 0
+            and .configuration.resolutions == [32,64,128,256]
+            and .configuration.fixed_areal_radius_shell == [2,10]
+            and .configuration.production_steps_advanced == 0
+            and (.resolution_results | map(.resolution)) == [32,64,128,256]
+            and all(.resolution_results[]; .base_state_unchanged == true)
+            and all(.resolution_results[];
+              all(.uncoupled_control.epsilon_rows[];
+                (.misner_sharp_fixed_R_boundary_balances.inner.factorized_native_derivative.signed_physical_remainder | type) == "number"
+                and (.misner_sharp_fixed_R_boundary_balances.inner.composite_interpolant.signed_physical_remainder | type) == "number"
+                and (.misner_sharp_fixed_R_boundary_balances.outer.factorized_native_derivative.signed_physical_remainder | type) == "number"
+                and (.misner_sharp_fixed_R_boundary_balances.outer.composite_interpolant.signed_physical_remainder | type) == "number"))
+            and all(.resolution_results[];
+              all(.conditional_coupled_model.epsilon_rows[];
+                (.misner_sharp_fixed_R_boundary_balances.inner.factorized_native_derivative.signed_physical_remainder | type) == "number"
+                and (.misner_sharp_fixed_R_boundary_balances.inner.composite_interpolant.signed_physical_remainder | type) == "number"
+                and (.misner_sharp_fixed_R_boundary_balances.outer.factorized_native_derivative.signed_physical_remainder | type) == "number"
+                and (.misner_sharp_fixed_R_boundary_balances.outer.composite_interpolant.signed_physical_remainder | type) == "number"))
+            and .gate_result.source_pins_verified == true
+            and .gate_result.all_reported_components_finite == true
+            and .gate_result.base_states_unchanged == true
+            and .gate_result.fixed_R_surfaces_monotone == true
+            and .gate_result.Q_nu_source_law_assigned == false
+            and .gate_result.total_T_conservation_closed == false
+            and .gate_result.physical_residual_threshold_applied == false
+            and .gate_result.scientific_admission == false
+          ' results/issue4-current-source-total-T-shell-ledger/report.json
+
+      - name: Summarize radial divergence operator refinement without admission
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          import numpy as np
+
+          report_path = Path("results/issue4-current-source-covariant-total-T-divergence/report.json")
+          report = json.loads(report_path.read_text(encoding="utf-8"))
+          expected = [32, 64, 128]
+          if [row["resolution"] for row in report["resolution_results"]] != expected:
+              raise SystemExit("unexpected current-source refinement resolution set")
+
+          results = []
+          fixed_radii = (1.0, 2.0, 3.0, 5.0, 8.0)
+          for row in report["resolution_results"]:
+              n = int(row["resolution"])
+              dr = float(row["dr"])
+              r = (np.arange(n, dtype=np.float64) + 0.5) * dr
+              annulus = (r >= 2.0) & (r <= 10.0)
+              for arm in ("uncoupled_control", "coupled_baseline"):
+                  raw = row[arm]["raw_arrays"]
+                  pointwise = np.asarray(raw["epsilon_0_div_T_r"], dtype=np.float64)
+                  volume_average = np.asarray(raw["epsilon_0_div_T_r_fv"], dtype=np.float64)
+                  if pointwise.shape != (n,) or volume_average.shape != (n,):
+                      raise SystemExit(f"unexpected divergence array shape at N={n}, arm={arm}")
+                  if not (np.all(np.isfinite(pointwise)) and np.all(np.isfinite(volume_average))):
+                      raise SystemExit(f"nonfinite divergence profile at N={n}, arm={arm}")
+                  delta = volume_average - pointwise
+                  results.append({
+                      "resolution": n,
+                      "dr": dr,
+                      "coupling_arm": arm,
+                      "cell_centered_pointwise": {
+                          "cell0_signed": float(pointwise[0]),
+                          "cell1_signed": float(pointwise[1]),
+                          "cell2_signed": float(pointwise[2]),
+                          "annulus_2_to_10_rms": float(np.sqrt(np.mean(pointwise[annulus]**2))),
+                          "fixed_coordinate_radius_samples": {
+                              str(radius): float(np.interp(radius, r, pointwise))
+                              for radius in fixed_radii
+                          },
+                      },
+                      "spherical_finite_volume_cell_average": {
+                          "cell0_signed": float(volume_average[0]),
+                          "cell1_signed": float(volume_average[1]),
+                          "cell2_signed": float(volume_average[2]),
+                          "annulus_2_to_10_rms": float(np.sqrt(np.mean(volume_average[annulus]**2))),
+                          "fixed_coordinate_radius_samples": {
+                              str(radius): float(np.interp(radius, r, volume_average))
+                              for radius in fixed_radii
+                          },
+                      },
+                      "fv_minus_pointwise_operator_difference": {
+                          "cell0_signed": float(delta[0]),
+                          "cell1_signed": float(delta[1]),
+                          "cell2_signed": float(delta[2]),
+                          "annulus_2_to_10_rms": float(np.sqrt(np.mean(delta[annulus]**2))),
+                          "fixed_coordinate_radius_samples": {
+                              str(radius): float(np.interp(radius, r, delta))
+                              for radius in fixed_radii
+                          },
+                      },
+                  })
+
+          summary = {
+              "classification": "diagnostic operator-refinement summary; not conservation admission",
+              "source_commit": report["source_witness"]["source_commit"],
+              "vendor_commit": report["source_provenance"]["vendor_commit"],
+              "resolutions": expected,
+              "r_max": report["configuration"]["r_max"],
+              "directional_epsilons": report["configuration"]["directional_epsilons"],
+              "operator_definitions": {
+                  "cell_centered_pointwise": "pointwise covariant-divergence identity using the pinned cell-centered fourth-order radial derivative",
+                  "spherical_finite_volume_cell_average": "spherical face-flux reconstruction with Simpson-integrated time/source densities and cell measure",
+              },
+              "interpretation_guard": "These are distinct discrete observables. This report preserves both; it does not select an operator by residual size or claim which operator is physically authorized.",
+              "production_steps_advanced": report["configuration"]["production_steps_advanced"],
+              "scientific_admission": False,
+              "independent_total_stress_energy_divergence_closed": False,
+              "physical_residual_threshold_applied": False,
+              "results": results,
+          }
+          output = Path("results/issue4-current-source-covariant-total-T-divergence/operator-refinement-summary.json")
+          output.write_text(json.dumps(summary, indent=2, sort_keys=True, allow_nan=False) + "\n", encoding="utf-8")
+          print(json.dumps({
+              "classification": summary["classification"],
+              "resolutions": summary["resolutions"],
+              "arms": sorted({r["coupling_arm"] for r in results}),
+              "production_steps_advanced": summary["production_steps_advanced"],
+              "scientific_admission": summary["scientific_admission"],
+              "physical_residual_threshold_applied": summary["physical_residual_threshold_applied"],
+              "summary_artifact": str(output),
+          }, sort_keys=True), flush=True)
+          PY
+
+      - name: Hash current-source witness
+        if: always()
+        run: |
+          mkdir -p results/issue4-current-source-covariant-total-T-divergence
+          mkdir -p results/issue4-current-source-total-T-shell-ledger
+          find results/issue4-current-source-covariant-total-T-divergence -type f ! -name SHA256SUMS.txt -print0 \
+            | sort -z | xargs -0 -r sha256sum > results/issue4-current-source-covariant-total-T-divergence/SHA256SUMS.txt
+          find results/issue4-current-source-total-T-shell-ledger -type f ! -name SHA256SUMS.txt -print0 \
+            | sort -z | xargs -0 -r sha256sum > results/issue4-current-source-total-T-shell-ledger/SHA256SUMS.txt
+
+      - name: Upload current-source report and manifest
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: issue4-current-source-total-T-divergence-${{ github.sha }}
+          path: results/issue4-current-source-covariant-total-T-divergence/
+          if-no-files-found: warn
+          retention-days: 90
+
+      - name: Upload total-T shell ledger
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: issue4-current-source-total-T-shell-ledger-${{ github.sha }}
+          path: results/issue4-current-source-total-T-shell-ledger/
+          if-no-files-found: warn
+          retention-days: 90
