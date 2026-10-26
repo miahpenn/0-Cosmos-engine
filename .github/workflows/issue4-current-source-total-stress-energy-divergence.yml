@@ -7,6 +7,7 @@ on:
       - "tests/test_current_source_total_stress_energy_divergence.py"
       - "tools/audit_current_source_total_t_shell_ledger.py"
       - "tests/test_research_total_t_shell_ledger.py"
+      - "tests/test_fixed_R_interpolation_operands.py"
       - "tools/audit_total_stress_energy_divergence.py"
       - "tests/test_covariant_total_stress_energy_divergence.py"
       - ".github/workflows/issue4-current-source-total-stress-energy-divergence.yml"
@@ -87,6 +88,7 @@ jobs:
           python -m py_compile tests/test_current_source_total_stress_energy_divergence.py
           python -m py_compile tools/audit_current_source_total_t_shell_ledger.py
           python -m py_compile tests/test_research_total_t_shell_ledger.py
+          python -m py_compile tests/test_fixed_R_interpolation_operands.py
           python -m py_compile tests/test_covariant_total_stress_energy_divergence.py
 
       - name: Run source-pin contract and analytic divergence controls
@@ -94,7 +96,8 @@ jobs:
           python -m pytest -q \
             tests/test_current_source_total_stress_energy_divergence.py \
             tests/test_covariant_total_stress_energy_divergence.py \
-            tests/test_research_total_t_shell_ledger.py
+            tests/test_research_total_t_shell_ledger.py \\
+            tests/test_fixed_R_interpolation_operands.py
 
       - name: Run one-resolution current-source frozen-state witness
         run: |
@@ -139,7 +142,38 @@ jobs:
             --inner-R 2 \
             --outer-R 10 \
             --epsilons 0.00002 0.00001 \
-            --output results/issue4-current-source-total-T-shell-ledger/report.json
+            --output results/issue4-current-source-total-T-shell-ledger/report.json \
+            --operand-output results/issue4-current-source-total-T-shell-ledger/interpolation-operands.json
+
+      - name: Verify operand capture leaves the primary ledger byte-identical
+        run: |
+          python tools/audit_current_source_total_t_shell_ledger.py \
+            --resolutions 32 64 128 \
+            --r-max 24 \
+            --inner-R 2 \
+            --outer-R 10 \
+            --epsilons 0.00002 0.00001 \
+            --output results/issue4-current-source-total-T-shell-ledger/report-without-operand-option.json
+          cmp results/issue4-current-source-total-T-shell-ledger/report.json \
+              results/issue4-current-source-total-T-shell-ledger/report-without-operand-option.json
+          python - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+          path = Path("results/issue4-current-source-total-T-shell-ledger/interpolation-operands.json")
+          data = json.loads(path.read_text(encoding="utf-8"))
+          assert data["schema"] == "current_source_fixed_R_shell_interpolation_operands_v1"
+          assert data["status"] == "completed_diagnostic_only"
+          assert data["production_steps_advanced"] == 0
+          assert data["scientific_admission"] is False
+          assert [r["resolution"] for r in data["operand_rows"] if r["coupling_case"] == "uncoupled_control" and r["epsilon"] == 2e-5] == [32, 64, 128]
+          digest = hashlib.sha256(path.read_bytes()).hexdigest()
+          Path(str(path) + ".sha256").write_text(f"{digest}  {path.name}\\n", encoding="utf-8")
+          print(json.dumps({"operand_sidecar": str(path), "sha256": digest,
+                            "operand_rows": len(data["operand_rows"]),
+                            "primary_report_byte_identical_without_option": True,
+                            "production_steps_advanced": 0,
+                            "scientific_admission": False}, sort_keys=True))
+          PY
 
       - name: Assert shell ledger integrity and keep admission gates open
         run: |
