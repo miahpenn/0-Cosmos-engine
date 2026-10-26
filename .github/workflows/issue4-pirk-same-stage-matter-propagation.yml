@@ -1,0 +1,101 @@
+name: Diagnostic - Issue 4 same-stage matter/Brown propagation
+
+on:
+  push:
+    branches:
+      - research/matter-propagation-derivation-ledger-2026-10-25
+    paths:
+      - tools/audit_pirk_same_stage_matter_propagation.py
+      - tests/test_pirk_same_stage_matter_propagation.py
+      - .github/workflows/issue4-pirk-same-stage-matter-propagation.yml
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: issue4-pirk-same-stage-matter-propagation-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  same-stage:
+    env:
+      COSMOS_PINNED_SOURCE_ROOT: ${{ github.workspace }}/source
+    name: N=${{ matrix.resolution }} refreshed-stage RHS-only comparison
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - resolution: 60
+            artifact_name: issue4-pirk-stage-resolved-source-N60
+          - resolution: 120
+            artifact_name: issue4-pirk-stage-resolved-source-N120
+          - resolution: 240
+            artifact_name: issue4-pirk-stage-resolved-source-N240
+
+    steps:
+      - name: Check out diagnostic branch and pinned vendor
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Check out historical source reference for independent provenance
+        uses: actions/checkout@v4
+        with:
+          repository: miahpenn/0-Cosmos-engine
+          ref: 7f47669a1c0edfafef9fc5f27b2db80840d3f035
+          path: source
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Download existing checksummed stage capture — no new copied step
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: input/N${{ matrix.resolution }}
+          github-token: ${{ github.token }}
+          run-id: 40235790388
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install declared requirements
+        run: python -m pip install -r requirements.txt
+
+      - name: Compile and run bounded algebra tests
+        run: |
+          python -m py_compile tools/audit_pirk_same_stage_matter_propagation.py
+          python -m pytest -q tests/test_pirk_same_stage_matter_propagation.py tests/test_pirk_momentum_secant.py
+
+      - name: Assert protected production/vendor/dependency source remains exact
+        shell: bash
+        run: |
+          set -euo pipefail
+          SOURCE_COMMIT=4aec88d0e3ff028e0a65a8ac36b30948625df792
+          git cat-file -e "$SOURCE_COMMIT"
+          git diff --exit-code "$SOURCE_COMMIT" -- engine vendor .gitmodules requirements.txt
+          test "$(git -C vendor/bb-palatini-unified-r0 rev-parse HEAD)" = "d6052d605673ce9d82cdc99b0df79855fa2ea215"
+
+      - name: Evaluate same-stage RHS and source-aware Brown candidate
+        run: >-
+          python tools/audit_pirk_same_stage_matter_propagation.py
+          --input-dir input/N${{ matrix.resolution }}
+          --resolution ${{ matrix.resolution }}
+          --out-dir results/issue4-pirk-same-stage-matter-propagation/N${{ matrix.resolution }}
+          --counterfactual-center-row
+
+      - name: Upload RHS-only same-stage comparison
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: issue4-pirk-same-stage-matter-propagation-N${{ matrix.resolution }}
+          path: results/issue4-pirk-same-stage-matter-propagation/N${{ matrix.resolution }}/
+          if-no-files-found: warn
+          retention-days: 90

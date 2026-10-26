@@ -641,6 +641,7 @@ def operator_compatible_cmc_arm(
                 "maximum": float(np.max(alpha)),
                 "max_abs_change_vs_production": float(np.max(np.abs(alpha - geom.alpha))),
                 "profile": compact_profile(alpha, r),
+                "full_profile": alpha.tolist(),
                 "change_vs_production": compact_profile(alpha - geom.alpha, r),
             },
             "actual_production_Kdot": compact_profile(actual_kdot, r),
