@@ -165,7 +165,18 @@ jobs:
           assert data["status"] == "completed_diagnostic_only"
           assert data["production_steps_advanced"] == 0
           assert data["scientific_admission"] is False
+          assert len(data["operand_rows"]) == 16
           assert [r["resolution"] for r in data["operand_rows"] if r["coupling_case"] == "uncoupled_control" and r["epsilon"] == 2e-5] == [32, 64, 128, 256]
+          for row in data["operand_rows"]:
+              assert set(row["boundaries"]) == {"inner", "outer"}
+              for boundary in row["boundaries"].values():
+                  assert set(boundary["states"]) == {"base", "plus", "minus"}
+                  for state in boundary["states"].values():
+                      bracket = state["R_bracket"]
+                      assert 0.0 <= bracket["theta"] <= 1.0
+                      assert bracket["delta_R"] > 0.0
+                      assert {"R_squared", "radial_pressure_pr", "Rdot_directional_rate",
+                              "composite_pressure_work_product", "composite_flux_product"} <= set(state["factor_endpoints"])
           digest = hashlib.sha256(path.read_bytes()).hexdigest()
           Path(str(path) + ".sha256").write_text(f"{digest}  {path.name}\n", encoding="utf-8")
 
