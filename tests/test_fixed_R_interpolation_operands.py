@@ -44,6 +44,7 @@ def test_manufactured_profile_scaling_after_signed_first_order_correction():
     hs = [0.8, 0.4, 0.2, 0.1, 0.05]
     thetas = [1.0 / 6.0, 5.0 / 6.0, 1.0 / 6.0, 5.0 / 6.0, 1.0 / 6.0]
     errors = []
+    first_order_terms = []
 
     for h, theta in zip(hs, thetas):
         x_left = target - theta * h
@@ -58,8 +59,11 @@ def test_manufactured_profile_scaling_after_signed_first_order_correction():
         signed_first_order = (
             (1.0 - 2.0 * theta) * h / 2.0 * (a2 * b1 + a1 * b2)
         )
+        first_order_terms.append(signed_first_order)
         errors.append(abs(normalized_gap - leading - signed_first_order))
 
+    assert all(first_order_terms[i] * first_order_terms[i + 1] < 0.0
+               for i in range(len(first_order_terms) - 1))
     ratios = [errors[i] / errors[i + 1] for i in range(len(errors) - 1)]
     # Frozen acceptance band: halving h must produce a factor between 3.7 and 4.5.
     assert all(3.7 <= ratio <= 4.5 for ratio in ratios), (errors, ratios)
