@@ -603,7 +603,7 @@ def verify_stage_bundle(bundle_dir: Path, resolution: int) -> tuple[dict[str, An
     return report, arrays, {"sha256": verified, "report_sha256": verified["report.json"]}
 
 
-def audit_bundle(bundle_dir: str | Path, resolution: int) -> tuple[dict[str, Any], dict[str, np.ndarray]]:
+def audit_bundle(bundle_dir: str | Path, resolution: int, *, counterfactual_center_row: bool = False) -> tuple[dict[str, Any], dict[str, np.ndarray]]:
     report, arrays, bundle = verify_stage_bundle(Path(bundle_dir), resolution)
     state = restore_stage_state(arrays, report, resolution)
     stage_state_digest = state_digest(state)
@@ -658,6 +658,13 @@ def audit_bundle(bundle_dir: str | Path, resolution: int) -> tuple[dict[str, Any
     bianchi_source = -KAPPA * geom.alpha * divergence_r
     brown_source_aware = brown_Hgeom_Mtotal + Hmatter_gradient + bianchi_source
     residual = Mdot_total - brown_source_aware
+
+    counterfactual_report = None
+    counterfactual_arrays: dict[str, np.ndarray] = {}
+    if counterfactual_center_row:
+        counterfactual_report, counterfactual_arrays = evaluate_center_row_counterfactual(
+            state, arrays, kernel, residual
+        )
 
     # Independent projection cross-check: conservative fluid momentum / sqrt(gamma)/kappa
     # must reproduce the canonical per-sector j under this zero-shift representation.
@@ -740,6 +747,7 @@ def audit_bundle(bundle_dir: str | Path, resolution: int) -> tuple[dict[str, Any
     for name, value in brown_terms.items():
         if isinstance(value, np.ndarray):
             signed_arrays["Brown_term__" + name] = np.asarray(value).copy()
+    signed_arrays.update(counterfactual_arrays)
 
     member_hashes = bundle.get("sha256", {})
     result = {
@@ -762,7 +770,9 @@ def audit_bundle(bundle_dir: str | Path, resolution: int) -> tuple[dict[str, Any
         "signed_arrays_schema": "issue4-same-stage-signed-arrays/v1",
         "signed_arrays_fields": sorted(signed_arrays),
         "no_step_or_trajectory": True,
-        "no_lapse_resolve": True,
+        "baseline_observer_no_lapse_resolve": True,
+        "counterfactual_center_row_requested": bool(counterfactual_center_row),
+        "counterfactual_center_row": counterfactual_report,
         "source_projection_reconstruction_max_abs": float(np.max(np.abs(j_rebuilt - stress.j))),
         "source_j_stage_crosscheck_max_abs": float(np.max(np.abs(stress.j - arrays["source_start_lapse_refreshed__j_total"]))),
         "geometric_M_stage_crosscheck_max_abs": float(np.max(np.abs(M_geom - arrays["source_start_lapse_refreshed__M_r_geometry"]))),
@@ -799,8 +809,9 @@ def main() -> int:
     parser.add_argument("--input-dir", type=Path, required=True)
     parser.add_argument("--resolution", type=int, choices=(60, 120, 240), required=True)
     parser.add_argument("--out-dir", type=Path, required=True)
+    parser.add_argument("--counterfactual-center-row", action="store_true", help="run frozen-state CMC parity-centre-row counterfactual; no evolution")
     args = parser.parse_args()
-    result, signed_arrays = audit_bundle(args.input_dir, args.resolution)
+    result, signed_arrays = audit_bundle(args.input_dir, args.resolution, counterfactual_center_row=args.counterfactual_center_row)
     sums = write_signed_artifacts(args.out_dir, result, signed_arrays)
     print(json.dumps({
         "resolution": args.resolution,
