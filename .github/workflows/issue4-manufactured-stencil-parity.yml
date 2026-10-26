@@ -63,6 +63,7 @@ jobs:
           changed="$(git diff --name-only "$BASE_SHA...HEAD" | sort)"
           expected="$(printf '%s\n' \
             '.github/workflows/issue4-manufactured-stencil-parity.yml' \
+            '.github/workflows/lightweight_validation.yml' \
             'tests/test_issue4_stencil_parity_contract.py' \
             'tools/audit_issue4_rhs_stencil_parity.py' | sort)"
           test "$changed" = "$expected"
