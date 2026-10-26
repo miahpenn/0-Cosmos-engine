@@ -59,3 +59,30 @@ The workflow compares the primary JSON report byte-for-byte against a second fro
 For the uncoupled control at `epsilon=2e-5`, outer `R=10`, the normalized composite-minus-factorized pressure-work gaps are `-8.81909155e-6`, `-5.83775641e-6`, `-7.22124762e-6`, and `-6.50344931e-6` at `N=32,64,128,256`, respectively. The base `theta` alternates between `5/6` and `1/6`, while plus/minus `theta` values are separately preserved in the sidecar. The fourth point does not produce monotone normalized-gap convergence; the solver-side `O(h^2)` scaling claim therefore remains **unconfirmed**, with no fitted correction.
 
 No production equation, vendor pin, threshold, source-law assignment, or scientific-admission flag changed. The run reports zero production steps, `scientific_admission=false`, and `total_T_conservation_closed=false`.
+
+## Exact pressure-work interpolation-gap decomposition
+
+Using the captured outer-boundary endpoint operands for the uncoupled control at epsilon `2e-5`, the composite-minus-factorized pressure-work gap can be decomposed exactly. Set `A=R^2`, `B=p_r`, `C=Rdot`, and let `I` denote the actual linear interpolation at the fixed target `R*=10`:
+
+```
+I(ABC) - R*^2 I(B) I(C)
+ = [I(A)-R*^2] I(B) I(C)
+ + I(A) [I(BC)-I(B)I(C)]
+ + [I(ABC)-I(A)I(BC)].
+```
+
+Multiplying each term by `-4 pi` yields the geometric `R^2)-interpolation contribution, the pressure–Rdot covariance contribution, and the `R^2)–(`p_r Rdot`) covariance contribution. This is an exact telescoping decomposition for this chosen ordering; the individual covariance allocations depend on ordering, but the sum is invariant.
+
+| N | Geometric term | Pressure–Rdot covariance | R²–(p_r Rdot) covariance | Sum / measured gap |
+|---:|---:|---:|---:|---:|
+| 32 | +1.62144507e-7 | -4.07088737e-7 | -4.44047297e-7 | -6.88991527e-7 |
+| 64 | +4.03202886e-8 | -7.62731758e-8 | -7.80657926e-8 | -1.14018680e-7 |
+| 128 | +1.00693554e-8 | -2.19260930e-8 | -2.34032606e-8 | -3.52599981e-8 |
+| 256 | +2.51658449e-9 | -5.10527985e-9 | -5.35008554e-9 | -7.93878090e-9 |
+
+The row sums agree with the measured gaps within approximately `4e-20` absolute roundoff. The geometric term quarters with each resolution doubling. The two covariance contributions also decrease in magnitude, but their coefficients vary across the actual sampled brackets; consequently, the normalized *total* pressure-work gap remains non-monotonic. This identifies the algebraic sources of the rerun's gap but does not establish solver-side asymptotic order or recover the original execution's unarchived raw operands.
+
+## Latest-head CI disposition
+
+At PR head `c9aac5ec1485e497961241784bb8ce89c34a6b5d`, all four reported checks are green: Issue 4 current-source covariant total stress-energy divergence (run `40254277784`), strict JSON residual reporting contract (`40254277785`), strict campaign plus radiation retry integration (`40254277802`), and lightweight validation (`40254277786`). This validates the current diagnostic/test changes, not scientific closure. No correction was fitted; production steps advanced = 0; scientific admission and total-T conservation closure remain false.
+
