@@ -615,16 +615,11 @@ def run_audit(resolution: int = 64, r_max: float = 40.0) -> tuple[dict, dict[str
         })
 
     after_all = state_digest(state)
-    if before != after_all:
-        raise RuntimeError("observer mutated the frozen manufactured input state")
-    if not operators_pass:
-        raise RuntimeError("production/vendor and first-party shared D1/D2 operator parity checks failed")
-    if not prod_decomp["passed"] or not native_decomp["passed"]:
-        raise RuntimeError("signed momentum-constraint term decomposition failed roundoff closure")
-    if not current_projection_closure["passed"]:
-        raise RuntimeError("six-sector current projection does not reconstruct the canonical total current")
-    if not aa_source_closure["passed"] or not k_source_closure["passed"]:
-        raise RuntimeError("production Aa/K matter-source terms do not reconstruct their declared stress projections")
+    # Do not raise on measured gate outcomes here. The JSON and signed arrays
+    # must be written even when a diagnostic comparison fails; main() applies
+    # execution/reconstruction integrity gates only after retaining the evidence.
+    # In particular, shared D1/D2 parity is the discriminator outcome, not a
+    # reason to suppress the report.
 
     report = {
         "schema": "issue4_manufactured_profile_rhs_stencil_parity_v1",
@@ -725,6 +720,24 @@ def main() -> int:
         parser.error("r-max must be finite and greater than 10")
     args.output_dir.mkdir(parents=True, exist_ok=True)
     report, arrays = run_audit(args.resolution, args.r_max)
+    integrity_checks = {
+        "input_state_immutable": bool(report["input_state"]["immutable"]),
+        "production_constraint_decomposition": bool(report["decision"]["production_constraint_decomposition"]["passed"]),
+        "native_constraint_decomposition": bool(report["decision"]["native_constraint_decomposition"]["passed"]),
+        "current_projection_reconstruction": bool(report["decision"]["current_projection_reconstruction"]["passed"]),
+        "Aa_matter_source_reconstruction": bool(report["decision"]["primary_l3_stress_source_reconstruction"]["Aa"]["passed"]),
+        "K_matter_source_reconstruction": bool(report["decision"]["primary_l3_stress_source_reconstruction"]["K"]["passed"]),
+    }
+    report["diagnostic_integrity"] = {
+        "passed": all(integrity_checks.values()),
+        "checks": integrity_checks,
+        "failed_checks": [name for name, passed in integrity_checks.items() if not passed],
+        "note": (
+            "These are execution/reconstruction integrity gates. The shared_operator_parity_check "
+            "is intentionally reported separately: a mismatch is the diagnostic discriminator "
+            "outcome and must not suppress the signed report."
+        ),
+    }
     arrays_path = args.output_dir / "signed_arrays.npz"
     np.savez_compressed(arrays_path, **arrays)
     report["arrays"] = {
@@ -748,13 +761,18 @@ def main() -> int:
         "vendor": report["provenance"]["production_source_vendor_commit"],
         "resolution": args.resolution,
         "shared_operator_parity_pass": report["decision"]["shared_operator_parity_check"]["passed"],
+        "diagnostic_integrity_pass": report["diagnostic_integrity"]["passed"],
+        "failed_integrity_checks": report["diagnostic_integrity"]["failed_checks"],
         "production_constraint_decomposition_pass": report["decision"]["production_constraint_decomposition"]["passed"],
         "native_constraint_decomposition_pass": report["decision"]["native_constraint_decomposition"]["passed"],
         "input_immutable": report["input_state"]["immutable"],
         "report": str(report_path),
         "arrays": str(arrays_path),
     }, indent=2, sort_keys=True))
-    return 0
+    # A negative operator-parity result is a scientific/diagnostic finding, not
+    # a tool failure. Exit non-zero only when the retained reconstruction or
+    # input-immutability integrity checks fail.
+    return 0 if report["diagnostic_integrity"]["passed"] else 1
 
 
 if __name__ == "__main__":
