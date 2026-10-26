@@ -119,8 +119,8 @@ jobs:
             and .source_witness.source_blob_count == 11
             and .source_witness.source_blob_pins_all_match == true
             and .source_witness.production_steps_advanced == 0
-            and .configuration.resolutions == [32,64,128]
-            and (.resolution_results | map(.resolution)) == [32,64,128]
+            and .configuration.resolutions == [32,64,128,256]
+            and (.resolution_results | map(.resolution)) == [32,64,128,256]
             and (.resolution_results | length) == 3
             and .configuration.production_steps_advanced == 0
             and .gate_result.source_pins_verified == true
@@ -165,11 +165,63 @@ jobs:
           assert data["status"] == "completed_diagnostic_only"
           assert data["production_steps_advanced"] == 0
           assert data["scientific_admission"] is False
-          assert [r["resolution"] for r in data["operand_rows"] if r["coupling_case"] == "uncoupled_control" and r["epsilon"] == 2e-5] == [32, 64, 128]
+          assert [r["resolution"] for r in data["operand_rows"] if r["coupling_case"] == "uncoupled_control" and r["epsilon"] == 2e-5] == [32, 64, 128, 256]
           digest = hashlib.sha256(path.read_bytes()).hexdigest()
           Path(str(path) + ".sha256").write_text(f"{digest}  {path.name}\n", encoding="utf-8")
+
+          # Solver comparison only after the manufactured-profile criterion passed above.
+          # Report the raw normalized work gap; do not fit a correction or infer admission.
+          import math
+          comparisons = []
+          for row in data["operand_rows"]:
+              if row["coupling_case"] != "uncoupled_control":
+                  continue
+              if row["epsilon"] != 2e-5:
+                  continue
+              outer = row["boundaries"]["outer"]
+              base = outer["states"]["base"]
+              bracket = base["R_bracket"]
+              factors = base["factor_endpoints"]
+              target_R = outer["target_areal_radius"]
+              composite_work = factors["composite_pressure_work_product"]["interpolated_value"]
+              pressure_R = factors["radial_pressure_pr"]["interpolated_value"]
+              Rdot_R = factors["Rdot_directional_rate"]["interpolated_value"]
+              factorized_work = -4.0 * math.pi * target_R**2 * pressure_R * Rdot_R
+              denominator = bracket["theta_one_minus_theta"] * bracket["delta_R"]**2
+              comparisons.append({
+                  "resolution": row["resolution"],
+                  "coupling_case": row["coupling_case"],
+                  "epsilon": row["epsilon"],
+                  "target_R": target_R,
+                  "left_index": bracket["left_index"],
+                  "R_left": bracket["x_left"],
+                  "R_right": bracket["x_right"],
+                  "theta": bracket["theta"],
+                  "theta_one_minus_theta": bracket["theta_one_minus_theta"],
+                  "delta_R": bracket["delta_R"],
+                  "composite_pressure_work": composite_work,
+                  "factorized_pressure_work": factorized_work,
+                  "composite_minus_factorized_work": composite_work - factorized_work,
+                  "normalized_work_gap": (composite_work - factorized_work) / denominator,
+              })
+          comparison = {
+              "schema": "current_source_fixed_R_pressure_work_interpolation_comparison_v1",
+              "classification": "diagnostic-only raw solver comparison; no fitted correction",
+              "criterion_gate": "manufactured_profile_first_order_corrected_O_h2_test_passed_before_this_step",
+              "resolutions": [32, 64, 128, 256],
+              "target_R": 10.0,
+              "rows": comparisons,
+              "production_steps_advanced": 0,
+              "scientific_admission": False,
+              "physical_residual_threshold_applied": False,
+              "interpretation": "Normalized work gaps and each resolution's actual base-state bracket are reported descriptively. No asymptotic correction is fitted; plus/minus brackets remain preserved in the operand sidecar.",
+          }
+          compare_path = Path("results/issue4-current-source-total-T-shell-ledger/pressure-work-scaling-comparison.json")
+          compare_path.write_text(json.dumps(comparison, indent=2, sort_keys=True, allow_nan=False) + "\n", encoding="utf-8")
           print(json.dumps({"operand_sidecar": str(path), "sha256": digest,
                             "operand_rows": len(data["operand_rows"]),
+                            "pressure_work_comparison": str(compare_path),
+                            "comparison_rows": len(comparisons),
                             "primary_report_byte_identical_without_option": True,
                             "production_steps_advanced": 0,
                             "scientific_admission": False}, sort_keys=True))
