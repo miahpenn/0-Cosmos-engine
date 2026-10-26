@@ -13,10 +13,9 @@ def test_vendor_and_native_derivative_operators_match_on_declared_parity_profile
     native_grid = NativeSphericalCellGrid(64, 40.0)
     r = vendor_grid.centers
 
-    profiles = (
-        (1.0 + 0.05 * (r / 40.0) ** 2 + 0.01 * (r / 40.0) ** 4, +1),
-        (r / 40.0) + 0.05 * (r / 40.0) ** 3, -1,
-    )
+    even_profile = 1.0 + 0.05 * (r / 40.0) ** 2 + 0.01 * (r / 40.0) ** 4
+    odd_profile = (r / 40.0) + 0.05 * (r / 40.0) ** 3
+    profiles = ((even_profile, +1), (odd_profile, -1))
     for values, parity in profiles:
         np.testing.assert_allclose(
             audit.d1(vendor_grid, values, parity),
