@@ -71,7 +71,7 @@ I(ABC) - R*^2 I(B) I(C)
  + [I(ABC)-I(A)I(BC)].
 ```
 
-Multiplying each term by `-4 pi` yields the geometric `R^2)-interpolation contribution, the pressure–Rdot covariance contribution, and the `R^2)–(`p_r Rdot`) covariance contribution. This is an exact telescoping decomposition for this chosen ordering; the individual covariance allocations depend on ordering, but the sum is invariant.
+Multiplying each term by `-4 pi` yields the geometric `R^2` interpolation contribution, the pressure–`Rdot` covariance contribution, and the `R^2` versus `p_r Rdot` covariance contribution. This is an exact telescoping decomposition for this chosen ordering; the individual covariance allocations depend on ordering, but the sum is invariant.
 
 | N | Geometric term | Pressure–Rdot covariance | R²–(p_r Rdot) covariance | Sum / measured gap |
 |---:|---:|---:|---:|---:|
