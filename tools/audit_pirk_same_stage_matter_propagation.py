@@ -25,6 +25,9 @@ sys.path.insert(0, str(ROOT))
 from engine import v55_pirk_adapter as adapter
 from engine.matter_system import ConservedSpecies
 from engine.production_kernel import ProductionState, V55ProductionKernel
+from engine.cmc_gauge import solve_cmc_lapse
+from engine.v55_matter import total_matter_projection
+from scipy.linalg import solve_banded
 from engine.scalar_system import ScalarFields
 from engine.stress_energy import assemble_total_stress_energy
 from engine.v55_matter import V55MatterState
@@ -95,6 +98,52 @@ def write_signed_artifacts(out_dir: Path, report: dict[str, Any], arrays: dict[s
         encoding="utf-8",
     )
     return sums
+
+
+def solve_cmc_lapse_parity_center_pde_row(
+    grid: Any, c: np.ndarray, m: np.ndarray, rhs: np.ndarray,
+) -> tuple[np.ndarray, float]:
+    """Solve the same second-order CMC interior rows with a parity-ghost centre PDE row.
+
+    For a cell-centred even lapse, alpha[-1]=alpha[0] is the reflected ghost.
+    Thus the first-cell centred differences are D1(alpha)_0=(alpha[1]-alpha[0])/(2h)
+    and D2(alpha)_0=(alpha[1]-alpha[0])/h^2. This diagnostic-only alternative
+    replaces the pinned equality row alpha[0]-alpha[1]=0.
+    """
+    h = float(grid.dr)
+    n = int(grid.n)
+    c = finite("counterfactual CMC c coefficient", c)
+    m = finite("counterfactual CMC m coefficient", m)
+    rhs = finite("counterfactual CMC right hand side", rhs)
+    if c.shape != (n,) or m.shape != (n,) or rhs.shape != (n,) or n < 5:
+        raise ValueError("counterfactual CMC arrays do not match the cell-centred grid")
+    if not math.isfinite(h) or h <= 0.0:
+        raise ValueError("counterfactual CMC grid spacing must be positive")
+    band = np.zeros((3, n), dtype=np.float64)
+    bvec = rhs.copy()
+    # Centre PDE row using the even-reflection ghost alpha[-1]=alpha[0].
+    band[1, 0] = -1.0 / h**2 - c[0] / (2.0 * h) - m[0]
+    band[0, 1] = 1.0 / h**2 + c[0] / (2.0 * h)
+    for i in range(1, n - 1):
+        ci = c[i] / (2.0 * h)
+        band[2, i - 1] = 1.0 / h**2 - ci
+        band[1, i] = -2.0 / h**2 - m[i]
+        band[0, i + 1] = 1.0 / h**2 + ci
+    # Preserve the production outer normalization.
+    band[1, n - 1] = 1.0
+    bvec[n - 1] = 1.0
+    alpha = finite(
+        "counterfactual CMC lapse",
+        solve_banded((1, 1), band, bvec, check_finite=False),
+    )
+    if float(np.min(alpha)) <= 0.0:
+        raise ValueError("counterfactual CMC lapse is not positive")
+    centre_residual = (
+        (alpha[1] - alpha[0]) / h**2
+        + c[0] * (alpha[1] - alpha[0]) / (2.0 * h)
+        - m[0] * alpha[0] - rhs[0]
+    )
+    return alpha, float(centre_residual)
 
 
 def primary_l2_decomposition(
