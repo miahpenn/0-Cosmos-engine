@@ -111,7 +111,7 @@ def test_signed_artifact_writer_preserves_profiles_and_manifest(tmp_path: Path):
         "schema": "issue4-same-stage-matter-brown-propagation/v1",
         "status": "completed_rhs_only_diagnostic",
         "scientific_admission": False,
-        "input_state_digest": "pinned-digest",
+        "stage_state_digest": "pinned-stage-digest",
         "input_state_immutable": True,
     }
     arrays = {
@@ -123,7 +123,7 @@ def test_signed_artifact_writer_preserves_profiles_and_manifest(tmp_path: Path):
     sums = write_signed_artifacts(tmp_path, report, arrays)
 
     persisted = json.loads((tmp_path / "report.json").read_text(encoding="utf-8"))
-    assert persisted["input_state_digest"] == "pinned-digest"
+    assert persisted["stage_state_digest"] == "pinned-stage-digest"
     assert persisted["scientific_admission"] is False
     with np.load(tmp_path / "signed_arrays.npz", allow_pickle=False) as saved:
         assert set(saved.files) == set(arrays)
