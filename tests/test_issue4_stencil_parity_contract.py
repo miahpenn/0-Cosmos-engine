@@ -1,5 +1,7 @@
 """Fast operator/parity controls for the Issue #4 manufactured-profile audit."""
 from types import SimpleNamespace
+import json
+import sys
 
 import numpy as np
 
@@ -62,3 +64,49 @@ def test_production_and_native_momentum_formulas_match_in_flat_regular_chart():
     np.testing.assert_allclose(production[mask], expected[mask], rtol=1.0e-12, atol=1.0e-12)
     np.testing.assert_allclose(native[mask], expected[mask], rtol=1.0e-12, atol=1.0e-12)
     np.testing.assert_allclose(production[mask], native[mask], rtol=1.0e-12, atol=1.0e-12)
+
+
+def test_negative_operator_parity_is_saved_as_a_diagnostic_result(monkeypatch, tmp_path, capsys):
+    report = {
+        "schema": "issue4_manufactured_profile_rhs_stencil_parity_v1",
+        "status": "diagnostic_only_not_scientific_admission",
+        "provenance": {
+            "production_source_commit": "source-sha",
+            "production_source_vendor_commit": "vendor-sha",
+        },
+        "input_state": {"immutable": True},
+        "decision": {
+            "shared_operator_parity_check": {
+                "passed": False,
+                "checks": {"D1_Aa_even": {"passed": False}},
+            },
+            "production_constraint_decomposition": {"passed": True},
+            "native_constraint_decomposition": {"passed": True},
+            "current_projection_reconstruction": {"passed": True},
+            "primary_l3_stress_source_reconstruction": {
+                "Aa": {"passed": True},
+                "K": {"passed": True},
+            },
+        },
+    }
+    arrays = {
+        "r": np.array([0.5, 1.5]),
+        "signed_witness": np.array([1.25e-6, -2.5e-7]),
+    }
+    monkeypatch.setattr(audit, "run_audit", lambda resolution, r_max: (report, arrays))
+    monkeypatch.setattr(
+        sys, "argv", ["audit_issue4_rhs_stencil_parity.py", "--output-dir", str(tmp_path)]
+    )
+
+    assert audit.main() == 0
+    persisted = json.loads((tmp_path / "report.json").read_text(encoding="utf-8"))
+    assert persisted["decision"]["shared_operator_parity_check"]["passed"] is False
+    assert persisted["diagnostic_integrity"]["passed"] is True
+    assert persisted["diagnostic_integrity"]["failed_checks"] == []
+    with np.load(tmp_path / "signed_arrays.npz") as saved:
+        np.testing.assert_array_equal(saved["signed_witness"], arrays["signed_witness"])
+    manifest = json.loads((tmp_path / "SHA256SUMS.json").read_text(encoding="utf-8"))
+    assert manifest["report.json"]
+    assert manifest["signed_arrays.npz"] == persisted["arrays"]["sha256"]
+    assert "shared_operator_parity_pass\": false" in capsys.readouterr().out
+
