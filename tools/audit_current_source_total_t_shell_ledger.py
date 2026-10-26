@@ -646,7 +646,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             ),
         }
         operand_path.write_text(
-            json.dumps(operand_document, indent=2, sort_keys=True, allow_nan=False) + "\\n",
+            json.dumps(operand_document, indent=2, sort_keys=True, allow_nan=False) + "\n",
             encoding="utf-8",
         )
 
