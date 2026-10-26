@@ -97,6 +97,40 @@ def write_signed_artifacts(out_dir: Path, report: dict[str, Any], arrays: dict[s
     return sums
 
 
+def primary_l2_decomposition(
+    alpha: np.ndarray,
+    vendor_geometry: dict[str, Any],
+    primary_l2_aa: np.ndarray,
+    primary_l2_k: np.ndarray,
+) -> dict[str, np.ndarray]:
+    """Recover the pinned vendor's exact Aa/K L2 split on this frozen stage."""
+    alpha = finite("primary L2 lapse", alpha)
+    drdr_alpha = finite("vendor DrDr_alpha", vendor_geometry["DrDr_alpha"])
+    lap_alpha = finite("vendor lap_alpha", vendor_geometry["lap_alpha"])
+    rr = finite("vendor Rr_r", vendor_geometry["Rr_r"])
+    scalar_r = finite("vendor R", vendor_geometry["R"])
+    aa_operator = finite("saved primary L2 Aa", primary_l2_aa)
+    k_operator = finite("saved primary L2 K", primary_l2_k)
+    aa_lapse_hessian = -(drdr_alpha - lap_alpha / 3.0)
+    aa_tracefree_ricci = alpha * (rr - scalar_r / 3.0)
+    aa_reconstructed = aa_lapse_hessian + aa_tracefree_ricci
+    k_reconstructed = -lap_alpha
+    return {
+        "DrDr_alpha": drdr_alpha,
+        "lap_alpha": lap_alpha,
+        "Rr_r": rr,
+        "R": scalar_r,
+        "Aa_lapse_hessian": finite("Aa L2 lapse Hessian", aa_lapse_hessian),
+        "Aa_tracefree_ricci": finite("Aa L2 trace-free Ricci", aa_tracefree_ricci),
+        "Aa_operator": aa_operator,
+        "Aa_reconstructed": finite("Aa L2 reconstructed", aa_reconstructed),
+        "Aa_split_residual": finite("Aa L2 split residual", aa_operator - aa_reconstructed),
+        "K_operator": k_operator,
+        "K_reconstructed_minus_lap_alpha": finite("K L2 reconstructed", k_reconstructed),
+        "K_split_residual": finite("K L2 split residual", k_operator - k_reconstructed),
+    }
+
+
 def summary(values: Any, r: np.ndarray) -> dict[str, Any]:
     arr = finite("summary input", values)
     mask = r <= 10.0 + 1.0e-12
@@ -343,7 +377,14 @@ def audit_bundle(bundle_dir: str | Path, resolution: int) -> tuple[dict[str, Any
 
     stress = assemble_total_stress_energy(grid, geom, state.scalars, state.matter)
     _, vacuum, _ = adapter.vendor_modules()
+    vendor_geometry = vacuum.geometry_terms(grid, geom)
     constraints = vacuum.constraints(grid, geom)
+    l2_arrays = primary_l2_decomposition(
+        geom.alpha,
+        vendor_geometry,
+        arrays[f"{STAGE}__term__primary_l2__Aa"],
+        arrays[f"{STAGE}__term__primary_l2__K"],
+    )
     M_geom = finite("geometric momentum constraint", constraints["momentum"])
     M_total = M_geom - KAPPA * finite("total stress current", stress.j)
     geometric_Mdot_terms, tangent_geom = geometric_constraint_tangent_terms(state, rates)
@@ -421,6 +462,18 @@ def audit_bundle(bundle_dir: str | Path, resolution: int) -> tuple[dict[str, Any
         "Mdot_geometry": np.asarray(tangent_geom).copy(),
         "Mdot_geometry_term_reconstruction_residual": np.asarray(geometric_Mdot_terms_residual).copy(),
         "Mdot_total_accepted_RHS": np.asarray(Mdot_total).copy(),
+        "primary_l2_DrDr_alpha": l2_arrays["DrDr_alpha"].copy(),
+        "primary_l2_lap_alpha": l2_arrays["lap_alpha"].copy(),
+        "primary_l2_Rr_r": l2_arrays["Rr_r"].copy(),
+        "primary_l2_R": l2_arrays["R"].copy(),
+        "primary_l2_Aa_lapse_hessian": l2_arrays["Aa_lapse_hessian"].copy(),
+        "primary_l2_Aa_tracefree_ricci": l2_arrays["Aa_tracefree_ricci"].copy(),
+        "primary_l2_Aa_operator": l2_arrays["Aa_operator"].copy(),
+        "primary_l2_Aa_reconstructed": l2_arrays["Aa_reconstructed"].copy(),
+        "primary_l2_Aa_split_residual": l2_arrays["Aa_split_residual"].copy(),
+        "primary_l2_K_operator": l2_arrays["K_operator"].copy(),
+        "primary_l2_K_reconstructed_minus_lap_alpha": l2_arrays["K_reconstructed_minus_lap_alpha"].copy(),
+        "primary_l2_K_split_residual": l2_arrays["K_split_residual"].copy(),
         "connection_Cr": np.asarray(constraints["connection"]).copy(),
         "connection_D1_Cr": d1(grid, constraints["connection"], 1).copy(),
         "connection_D2_Cr": finite(
@@ -474,6 +527,9 @@ def audit_bundle(bundle_dir: str | Path, resolution: int) -> tuple[dict[str, Any
         "geometric_M_dot": summary(tangent_geom, r),
         "geometric_M_dot_term_budget": {k: summary(v, r) for k, v in geometric_Mdot_terms.items()},
         "geometric_M_dot_term_reconstruction_residual": summary(geometric_Mdot_terms_residual, r),
+        "primary_L2_same_stage_decomposition": {
+            name: summary(values, r) for name, values in l2_arrays.items()
+        },
         "total_M_dot_accepted_RHS": summary(Mdot_total, r),
         "total_stress_divergence_pointwise": summary(divergence_r, r),
         "pointwise_divergence_components": {k: summary(v, r) for k, v in divergence_components.items()},
