@@ -88,8 +88,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if [[ -d results ]]; then
-            find results -type f ! -name SHA256SUMS.txt -print0 | sort -z | xargs -0 -r sha256sum > results/SHA256SUMS.txt
+          out_dir="results/issue4-manufactured-stencil-parity"
+          if [[ -d "$out_dir" ]]; then
+            find "$out_dir" -type f ! -name SHA256SUMS.txt -print0 | sort -z | xargs -0 -r sha256sum > "$out_dir/SHA256SUMS.txt"
           fi
 
       - name: Upload signed budget and provenance
@@ -97,6 +98,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: issue4-manufactured-stencil-parity
-          path: results/
+          path: results/issue4-manufactured-stencil-parity/
           if-no-files-found: warn
           retention-days: 90
