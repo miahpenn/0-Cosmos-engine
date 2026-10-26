@@ -1574,3 +1574,28 @@ The baseline row produces (alpha_0-\alpha_1=0) (to roundoff). The alternate row 
 
 **Disposition:** keep the current production solver unchanged pending review of this diagnostic candidate and its convention/provenance. No production equation, initial data, vendor pin, physical source law, evolution result, or admission flag was changed. All five scientific-admission flags remain false.
 
+## 10.25 Existing fourth-order CMC arm reconciled against the same saved stage
+
+**Status:** comparison passed; it does not replace the full propagation-identity gate.
+
+This explicitly reuses `operator_compatible_cmc_arm()` from the pre-existing `tools/audit_cmc_lapse_centre_sensitivity.py`, rather than duplicating its stencil construction. It applies that arm to the same checksummed pre-refresh state used by §10.24, then recomputes the complete instantaneous RHS and source-aware Brown candidate. No evolution or production solver change.
+
+**Exact provenance**
+- Diagnostic head: `65fe1e13935ea0ace1531ca730fca5e60e26baed`.
+- Exact-head workflow [40259858444](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/40259858444) passed for N=60/120/240.
+- Production source `4aec88d0e3ff028e0a65a8ac36b30948625df792`; vendor `d6052d605673ce9d82cdc99b0df79855fa2ea215`.
+- Signed reports and arrays: [N=60 artifact](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/40259858444/artifacts/12624192010), [N=120 artifact](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/40259858444/artifacts/12624046439), [N=240 artifact](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/40259858444/artifacts/12624416529).
+- SHA-256 of each `report.json` / `signed_arrays.npz`: N=60 `e655c2619ceebc89a62c5990f12a5d34c17f0109553286533b4432896f2805c8` / `546067b4c8f41d49d093ee0221e49d69ede2e8668b1eac998b6d88508dda0768`; N=120 `79e7d59d70bfc9dfce19cf7691ac505a6a88f66801df98ce40834dadeb38b761` / `45c8ac7446e6ce4726d349ced7550aa53e74d8bf388fa95267a59e7bd7a2588b`; N=240 `d8ca8004383c4ca13cff8227ea820e73871614824bfd7d1c9131320c4d17520f` / `6df39e972e95dfd3c7bccab16438d9b75610f5242449ffe8d23c39bd8e1ff149`.
+
+The pre-existing arm uses the pinned fourth-order parity-aware D1/D2 operators on all CMC PDE rows, extracts the K dissipation term from the pinned vendor L3 block, keeps the baseline target `Kdot`, and retains the outer `alpha[-1]=1` normalization. Unlike §10.24's second-order control, it changes the CMC stencil on the whole interior, so it is a separate diagnostic comparison rather than a pure centre-row swap. Its matrix and actual production-Kdot residual checks pass on all three saved states, and before/after digests prove that the saved pre-refresh inputs and the counterfactual state were not mutated.
+
+| N | Baseline max |residual|, (r\le10) | Centre-row-only control | Existing fourth-order CMC arm | Baseline / fourth-order |
+|---:|---:|---:|---:|---:|
+| 60 | (4.1309155\times10^{-5}) | (2.0782207\times10^{-5}) | (2.0858632\times10^{-5}) | (1.98\times) |
+| 120 | (4.3926861\times10^{-5}) | (2.1781373\times10^{-6}) | (2.1816824\times10^{-6}) | (20.13\times) |
+| 240 | (9.0275110\times10^{-5}) | (5.0202692\times10^{-7}) | (5.0228833\times10^{-7}) | (179.73\times) |
+
+**Interpretation:** the full fourth-order operator-compatible CMC solve offers essentially no additional reduction beyond the isolated centre-row-only control: the two residual maxima differ by less than about 0.4% at every N. This supports the centre-localized boundary treatment as the dominant cause of the near-origin spike, rather than a broad interior D1/D2 mismatch. It is not closure: the remaining residuals are nonzero, the reduction factor varies substantially with N, and the sampled sequence does not establish an asymptotic convergence order.
+
+**Disposition:** keep the centre-row hypothesis as the leading causal explanation, but do not change `engine/cmc_gauge.py` on the basis of these counterfactuals alone. The next gate is a candidate repair on an isolated branch, checked against this exact accepted-stage residual and the existing initialization/constraint witnesses, with production source, admission flags, and scientific acceptance unchanged until the repair is independently reviewed.
+
