@@ -4,6 +4,7 @@ import json
 import sys
 
 import numpy as np
+import pytest
 
 from engine.native_geometry import NativeSphericalCellGrid
 from tools import audit_issue4_rhs_stencil_parity as audit
@@ -64,6 +65,19 @@ def test_production_and_native_momentum_formulas_match_in_flat_regular_chart():
     np.testing.assert_allclose(production[mask], expected[mask], rtol=1.0e-12, atol=1.0e-12)
     np.testing.assert_allclose(native[mask], expected[mask], rtol=1.0e-12, atol=1.0e-12)
     np.testing.assert_allclose(production[mask], native[mask], rtol=1.0e-12, atol=1.0e-12)
+
+
+def test_operator_parity_record_separates_outer_boundary_closure():
+    production = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
+    native = np.array([1.0, 2.0, 3.0, 4.01, 5.02])
+    result = audit.operator_parity_record(
+        production - native, production, native, outer_boundary_cells=2
+    )
+    assert result["passed"] is True
+    assert result["interior_shared_stencil"]["passed"] is True
+    assert result["outer_boundary_closure"]["same_as_native"] is False
+    assert result["outer_boundary_closure"]["cell_range"] == [3, 4]
+    assert result["whole_grid_max_abs_difference"] == pytest.approx(0.02)
 
 
 def test_negative_operator_parity_is_saved_as_a_diagnostic_result(monkeypatch, tmp_path, capsys):
