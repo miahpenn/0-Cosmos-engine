@@ -25,7 +25,6 @@ from engine.scalar_system import ScalarFields
 from engine.stress_energy import assemble_total_stress_energy
 from engine.v55_matter import V55MatterState
 from tools import audit_brown_vacuum_momentum_propagation as brown
-from tools import audit_pirk_stage_resolved_momentum_source as stage_source
 
 KAPPA = 8.0 * math.pi
 R_MAX = 80.0
@@ -216,8 +215,53 @@ def pointwise_total_divergence_r(
     }
 
 
+def verify_stage_bundle(bundle_dir: Path, resolution: int) -> tuple[dict[str, Any], Any, dict[str, Any]]:
+    required = ("report.json", "stage_arrays.npz", "SHA256SUMS.txt")
+    for filename in required:
+        if not (bundle_dir / filename).is_file():
+            raise FileNotFoundError(f"stage artifact missing {filename}: {bundle_dir}")
+    expected: dict[str, str] = {}
+    for line in (bundle_dir / "SHA256SUMS.txt").read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        digest, filename = line.split(maxsplit=1)
+        expected[filename.strip().lstrip("*")] = digest
+    verified = {}
+    for filename in ("report.json", "stage_arrays.npz"):
+        if filename not in expected:
+            raise ValueError(f"checksum manifest omits {filename}")
+        actual = hashlib.sha256((bundle_dir / filename).read_bytes()).hexdigest()
+        if actual != expected[filename]:
+            raise ValueError(f"SHA-256 mismatch for {filename}: {actual} != {expected[filename]}")
+        verified[filename] = actual
+    report = json.loads((bundle_dir / "report.json").read_text(encoding="utf-8"))
+    if report.get("schema") != "issue4-pirk-stage-resolved-momentum-source/v1":
+        raise ValueError("unexpected saved-stage artifact schema")
+    if report.get("status") != "completed_diagnostic_only":
+        raise ValueError("saved-stage artifact is not a completed diagnostic-only capture")
+    if report.get("scientific_admission") is not False:
+        raise ValueError("saved-stage artifact admission state is not fail-closed")
+    pins = report.get("pins", {})
+    if pins.get("source_pin_commit") != SOURCE_COMMIT or pins.get("source_commit") != SOURCE_COMMIT:
+        raise ValueError("saved-stage artifact has the wrong accepted source anchor")
+    if pins.get("vendor_pin") != VENDOR_COMMIT or pins.get("vendor_commit") != VENDOR_COMMIT:
+        raise ValueError("saved-stage artifact has the wrong vendor pin")
+    if pins.get("protected_blobs_match") is not True or int(pins.get("protected_source_blobs_checked", 0)) != 11:
+        raise ValueError("saved-stage artifact does not attest all protected source blobs")
+    input_artifact = report.get("input_artifact", {})
+    if int(input_artifact.get("profile_resolution", -1)) != resolution:
+        raise ValueError("saved-stage artifact resolution mismatch")
+    if not math.isclose(float(input_artifact.get("input_time", math.nan)), 0.60, rel_tol=0.0, abs_tol=1.0e-10):
+        raise ValueError("saved-stage artifact does not match the accepted t=0.60 state")
+    with np.load(bundle_dir / "stage_arrays.npz", allow_pickle=False) as npz:
+        arrays = {key: np.asarray(npz[key]).copy() for key in npz.files}
+    if "r" not in arrays:
+        raise ValueError("saved stage arrays have no radial coordinate")
+    return report, arrays, {"sha256": verified, "report_sha256": verified["report.json"]}
+
+
 def audit_bundle(bundle_dir: str | Path, resolution: int) -> dict[str, Any]:
-    report, arrays, bundle = stage_source._verify_bundle(Path(bundle_dir), resolution)
+    report, arrays, bundle = verify_stage_bundle(Path(bundle_dir), resolution)
     state = restore_stage_state(arrays, report, resolution)
     grid, geom = state.grid, state.geometry
     r, dr = finite("r", grid.centers), float(grid.dr)
