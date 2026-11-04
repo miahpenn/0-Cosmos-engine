@@ -1351,3 +1351,164 @@ This is an algebraic rearrangement of the pinned discrete definitions, not an im
 The signed cell values are identical to the lapse-Hessian subtotal in §11; at N=240 they are \(+8.3773\times10^{-5}\), \(-9.0530\times10^{-5}\), and \(+5.6730\times10^{-5}\) at cells 0, 1, and 2.
 
 **Why this matters:** the large primary-L2 lapse contribution is now expressed as a radial-connection-weighted lapse gradient and its discrete radial derivative. The next comparison can be made directly against the Brown trace/tracefree Bianchi blocks using the same \(q\), \(\chi_r\), and radial connection coefficient. This does not yet show that the Brown blocks equal this expression; it supplies an exact, convention-pinned bridge for testing that claim without fitting or choosing a residual-minimizing term.
+
+
+## 13. 0* crosswalk of the borrowed Brown trace and tracefree blocks
+
+**Status:** completed reuse-only comparison on the checksum-verified start_lapse_refreshed stage arrays from workflow run 40235790388, at the accepted \(t=0.60\) state. This tests Brown Eq. (11b) as a geometric structural cross-check against the pinned vendor's same-stage operands. It is not a matter-coupled closure or an acceptance oracle.
+
+**Provenance.** Source commit 4aec88d0e3ff028e0a65a8ac36b30948625df792; vendor commit d6052d605673ce9d82cdc99b0df79855fa2ea215. The three stage-array ZIP SHA256 values are N60 e9f9a243fa017d6cfbd14d0be73ae557fa1eb02959133b58866bda32265184e3, N120 ae6fb6bc164c7c65e2fc77468921609ac74a6b98f02669be88bf11aea62e16e1, and N240 4b2a374519df67fc79abb3b82306e00cca9fee9a150d27957caa47d4bddf273a. Their stage_arrays.npz SHA256 values are respectively 942325e3bfd9cfcd95ad7b2f0b5511c6303045f2a8eb36c4ec6f5144a0cc3306, 8d449fbfd224f5608292c375e2c47e625b1e9a70f8562686cbdafd996503fd90, and 8b85b445c4b1213cb6904734ed6fcf7cd9344d857a112685e718b6bef922d141. The stage-state digests are N60 2ae2a5704b2b87d16ef9239c8a22ef261ed9108d971d3a5c78a3d1133aa9e9e4, N120 0266c7fafc5e9a292a9a376f1d91fa45bb8dd103b6f8c21b543c25d0930daacb, and N240 770d36f3db5b60da87f52beb213f8af4731e17021f95c1519ecbdbe759b41cce. All archive members were checked against their embedded SHA256 manifests. No new RHS, observer, lapse solve, evolution, or production/vendor modification was run.
+
+### 13.1 Trace block: metric-only L2 versus the Brown Hamiltonian-gradient pair
+
+Use the pinned vendor lapse-Hessian definitions on the same stage:
+\[
+D_rD_r\alpha
+=\frac{X^2}{a}\left[
+D_2\alpha-\left(\frac{D_1a}{2a}-\frac{D_1X}{X}\right)D_1\alpha
+\right],
+\]
+\[
+\Gamma^\theta{}_{\theta r,h}
+=\frac1r+\frac{D_1b}{2b}-\frac{D_1X}{X},
+\qquad
+\Delta_h\alpha=D_rD_r\alpha+
+2\frac{X^2}{a}\Gamma^\theta{}_{\theta r,h}D_1\alpha.
+\]
+The pinned primary-L2 lapse and trace rates are
+\[
+A_{\alpha,h}=-\left(D_rD_r\alpha-\frac13\Delta_h\alpha\right),
+\qquad
+\dot K_{L2}=-\Delta_h\alpha.
+\]
+
+For the independent metric-only Ricci route used by Brown, let
+\[
+u=\frac{X}{\sqrt a},\qquad
+R_A=\frac{r\sqrt b}{X},\qquad
+(R_A)_\ell=uD_1R_A,\qquad
+(R_A)_{\ell\ell}=u^2D_2R_A+u(D_1u)(D_1R_A).
+\]
+Then
+\[
+R^r{}_{r,\mathrm{metric}}=-2\frac{(R_A)_{\ell\ell}}{R_A},
+\qquad
+R_{\mathrm{metric}}=-4\frac{(R_A)_{\ell\ell}}{R_A}
++2\frac{1-(R_A)_\ell^2}{R_A^2}.
+\]
+The metric-only Ricci is deliberately independent of evolved \(\Lambda\). The vendor Ricci evaluated at \(\Lambda_{\mathrm{metric}}\) is retained as a separate finite-grid comparator; it is not silently identified with this proper-radial reconstruction.
+
+The exact discrete momentum-constraint coefficient is
+\[
+\Gamma_{A,h}=\frac{D_1R_A}{R_A},
+\]
+because the accepted constraint uses \(D_1R_A/R_A\) directly. No continuum logarithmic product rule is substituted for it. Define
+\[
+A_{R,h}=\alpha\left(R^r{}_{r,\mathrm{metric}}-\frac13R_{\mathrm{metric}}\right).
+\]
+The same-stage metric-only L2 tangent and Brown curvature trace slot are compared as
+\[
+\dot M^{L2,\mathrm{metric}}_{r,h}
+=D_1(A_{\alpha,h}+A_{R,h})
++\frac23D_1(\Delta_h\alpha)
++3\Gamma_{A,h}(A_{\alpha,h}+A_{R,h}),
+\]
+\[
+B_{R,h}=-\frac13(D_1\alpha)R_{\mathrm{metric}}
++\frac16\alpha D_1R_{\mathrm{metric}},
+\qquad
+\epsilon_{\mathrm{trace},h}
+=\dot M^{L2,\mathrm{metric}}_{r,h}-B_{R,h}.
+\]
+The lapse-Hessian part and the metric-Ricci/operator part of this remainder were retained separately.
+
+Maximum absolute \(|\epsilon_{\mathrm{trace},h}|\) by region:
+
+| N | \(r\le10\) | \(r<2\) | \(2\le r<5\) | \(5\le r\le10\) |
+|---:|---:|---:|---:|---:|
+| 60 | \(2.0386\times10^{-5}\) | \(1.9851\times10^{-5}\) | \(2.0386\times10^{-5}\) | \(2.3383\times10^{-6}\) |
+| 120 | \(4.4152\times10^{-5}\) | \(4.4152\times10^{-5}\) | \(6.2164\times10^{-6}\) | \(1.9117\times10^{-7}\) |
+| 240 | \(9.0397\times10^{-5}\) | \(9.0397\times10^{-5}\) | \(3.8050\times10^{-8}\) | \(1.2190\times10^{-8}\) |
+
+At N=240, the first two signed cells are
+\[
+\epsilon_{\mathrm{trace},h}(0,1)
+=(+8.3948\times10^{-5},\,-9.0397\times10^{-5}).
+\]
+The lapse-Hessian contribution alone is
+\[
+(+8.3773\times10^{-5},\,-9.0542\times10^{-5}),
+\]
+while the metric-Ricci/operator contribution is only
+\[
+(+1.7530\times10^{-7},\,+1.4537\times10^{-7}).
+\]
+Thus the remaining trace-slot discrepancy at the first cells is overwhelmingly in the lapse-Hessian/Bochner part, not the metric-Ricci comparison. The remainder is sharply localized toward the origin: at N=240 it is \(3.81\times10^{-8}\) on \(2\le r<5\) and \(1.22\times10^{-8}\) on \(5\le r\le10\). This is a discrete-stage localization, not proof of a missing physical term or a continuum failure.
+
+The independently reconstructed proper-radial Ricci and the pinned vendor Ricci at \(\Lambda=\Lambda_{\mathrm{metric}}\) are not bitwise-identical finite-grid operators. At N=240 their maximum differences over \(r\le10\) are \(5.71\times10^{-8}\) for \(R^r{}_r\) and \(4.03\times10^{-7}\) for \(R\). This is the explicit metric-operator remainder; it is not folded into the lapse-Hessian term.
+
+### 13.2 Tracefree connection block: Brown Eq. (11b) versus the vendor response
+
+Set
+\[
+C^r=\Lambda-\Lambda_{\mathrm{metric}},\qquad
+\Lambda_{\mathrm{metric}}
+=\frac{D_1a}{2a^2}-\frac{D_1b}{ab}
++\frac2r\left(\frac1b-\frac1a\right),
+\]
+and retain the exact vendor response
+\[
+F_C=\alpha X^2\left[
+\frac23D_1C^r+\frac{D_1a}{2a}C^r
+\right],
+\qquad
+P_h=6\chi_r+\frac3r+\frac{3D_1b}{2b},
+\qquad
+\chi_r=-\frac{D_1X}{2X},
+\]
+\[
+\mathscr L_h[F_C]=D_1(F_C)+P_hF_C.
+\]
+The Brown Eq. (11b) connection block, using its own declared discrete operands, is
+\[
+B_{C,h}^{\mathrm{Brown}}
+=\frac23\alpha X^2D_2C^r
++\left[
+\frac23(D_1\alpha)X^2
+-\frac13\alpha D_1(X^2)
++\alpha X^2\left(\frac2r+\frac{D_1b}{b}\right)
+\right]D_1C^r.
+\]
+Define \(\epsilon_{C,h}=\mathscr L_h[F_C]-B_{C,h}^{\mathrm{Brown}}\). The vendor-specific \(D_1a/(2a)\,C^r\) term is retained, not dropped or absorbed into a fitted coefficient.
+
+Maximum absolute \(|\epsilon_{C,h}|\) and the isolated vendor-specific \(a'/2a\) contribution over \(r\le10\):
+
+| N | \(\max|\epsilon_{C,h}|\) | \(\max|\epsilon_{a\text{-extra},h}|\) |
+|---:|---:|---:|
+| 60 | \(1.3659\times10^{-6}\) | \(3.2255\times10^{-9}\) |
+| 120 | \(3.2993\times10^{-7}\) | \(2.7310\times10^{-10}\) |
+| 240 | \(2.4170\times10^{-8}\) | \(2.0857\times10^{-11}\) |
+
+For N=240, the Brown/vendor difference is \(-2.4170\times10^{-8}\) at cell 0 and \(+5.0765\times10^{-9}\) at cell 1. On \(5\le r\le10\), its maximum is \(1.2370\times10^{-11}\). The difference is almost entirely the discrete product/chain-rule remainder in differentiating the base \((2/3)\alpha X^2D_1C^r\) term; the explicit vendor-specific \(a'/2a\) contribution is much smaller. Separately, the same-metric evolved-\(\Lambda\) Ricci offsets reproduce
+\[
+\Delta_\Lambda R^r{}_r
+=X^2\left[D_1C^r+\frac{D_1a}{2a}C^r\right],
+\qquad
+\Delta_\Lambda R=X^2D_1C^r
+\]
+with maximum operand gaps below \(7.2\times10^{-19}\) on \(r\le10\). The saved primary-L2 \(A_a\) and \(K\) rates are independently reconstructed from the pinned vendor Hessian and evolved-\(\Lambda\) Ricci brackets with maximum gaps below \(3.0\times10^{-15}\) across these three archives.
+
+This is a local pass for the source-level tracefree connection mapping, with the finite-grid Brown/vendor remainder left explicit. It is not a claim that the tracefree block closes the full momentum identity.
+
+### 13.3 0* disposition and next discriminator
+
+| 0* dimension | Disposition |
+|---|---|
+| Checkable | Pass for the pinned vendor \(C^r\) Ricci offset and its same-stage Brown comparison; the trace formula and all discrete operands are explicit. |
+| Independent | Pass locally: Brown's metric-only curvature is reconstructed from areal radius/proper radial distance, separately from the evolved-\(\Lambda\) vendor Ricci. |
+| Costed | The tracefree connection product/chain remainder is measured and small away from the origin. The trace-slot lapse-Hessian remainder remains large in the first cells; metric-Ricci and vendor-connection costs are separately reported. |
+| Minimal | No correction coefficient or new physical source is introduced. The metric-operator, product/chain, origin-stencil, and stage remainders remain named and unabsorbed. |
+
+**Conclusion:** the borrowed Brown tracefree connection block is reconciled with the vendor response to the accuracy expected from the pinned discrete product/chain operators, including the vendor-only \(a'/2a\) term. The Brown Hamiltonian-gradient trace block is established at the continuum level, but its same-stage discrete comparison still has a dominant lapse-Hessian remainder at the origin. This is now the next discriminator: isolate the discrete Bochner/commutator and origin-stencil contribution without replacing the accepted stencil, changing the lapse, or selecting terms by residual size.
+
+The total-stress Bianchi source, matter-sector exchange mapping, pointwise/FV/expanded divergence comparison, and PIRK finite-step closure remain separate. No production or vendor changes, no new evolution, no coefficient fitting, and no scientific-admission or acceptance flag changes.
