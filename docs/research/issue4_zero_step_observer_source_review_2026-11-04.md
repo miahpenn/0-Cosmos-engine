@@ -59,7 +59,7 @@ The three tooling fixes and their regression tests were committed on the researc
 
 The guard test now covers clean exit, a forbidden-call exception, and an injected exception. The output test checks bytes written to a temporary file rather than searching source text.
 
-These changes have received source-level inspection only. No test suite, evaluator execution, workflow, or production step has been run after these commits. The next gate is a local, zero-step execution of the focused tests and then the accepted-state evaluator under exact pins; do not use the existing lightweight-validation workflow because it contains a production-step smoke.
+These changes had received source-level inspection only at the time of this review. The execution route is now recorded in `docs/research/issue4_zero_step_observer_execution_handoff_2026-11-04.md`. A branch-gated accepted-state job has been added to the already-registered Issue #4 workflow, with three exact checkouts, original archive ZIP SHA verification, focused contract tests, N=60/120/240 evaluator invocations, runner/BLAS/CPU provenance capture, and failure-safe artifact upload. The workflow is committed on the research branch but has not yet been dispatched. Do not use `lightweight_validation.yml`; it contains a production-step smoke.
 
 ## Scope boundary still outstanding
 
