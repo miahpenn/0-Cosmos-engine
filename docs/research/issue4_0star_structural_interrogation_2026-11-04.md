@@ -1192,3 +1192,59 @@ The pointwise divergence has a strong cancellation structure. At cell 0 for N=24
 The next reuse-only check is to compare the exact stage-owned geometric rates entering \(\dot M_{geom}\) against the individually reconstructed Brown trace and tracefree terms on the same refreshed stage, retaining signed cell 0/1 values. Start with the accepted \(A_a\), \(K\), and evolved-\(\Lambda\) RHS operands and their parity-aware derivative contributions, rather than another total-residual fit. Keep the lapse-refreshed stage, unrefreshed endpoint, and PIRK finite-step secant as three distinct evidence classes.
 
 No production equations, vendor files, accepted states, or workflows were changed or rerun. All scientific-admission and acceptance flags remain false.
+
+
+## 10. Stage-owned geometric tangent decomposition
+
+**Status:** completed offline decomposition of the signed, checksum-verified stage arrays from workflow [40235790388](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/40235790388). No RHS, observer, lapse solve, or evolution was run. This expands the operand-level check identified in §9 without introducing a new data campaign.
+
+### Exact decomposition
+
+From the captured lapse-refreshed stage 0, the accepted instantaneous rates are
+\[
+\dot A_a=L_{2,0}^{A_a}+L_{3,0}^{A_a},\qquad
+\dot K=L_{2,0}^{K}+L_{3,0}^{K},\qquad
+(\dot a,\dot b,\dot X)=(E_{a,0},E_{b,0},E_{X,0}).
+\]
+Using the pinned parity-aware fourth-order \(D_1\) on the archived arrays, I expanded
+\[
+\begin{aligned}
+\dot M_{r,geom}={}&
+D_1\dot A_a-\frac23D_1\dot K
++6\dot A_a\chi_r+6A_a\dot\chi_r\\
+&+\frac32\dot A_a q+\frac32A_a\dot q,
+\end{aligned}
+\]
+and separated the \(L_2\) and \(L_3\) contributions to the three large terms:
+\[
+D_1\dot A_a,\qquad
+-\frac23D_1\dot K,\qquad
+\frac32q\dot A_a.
+\]
+The remaining product-rate terms involving \(\dot\chi_r\) and \(\dot q\), and the \(6\chi_r\dot A_a\) term, were also retained in the recomposition. The resulting full geometric tangent reproduces the previously reported \(\dot M_{r,geom}\) maximum at all three resolutions.
+
+### L2/L3 contribution magnitudes
+
+All entries are maxima of the absolute value over \(r\le10\), in the order \(D_1\dot A_a\), \(-2D_1\dot K/3\), and \(3q\dot A_a/2\):
+
+| N | \(L_2: |D_1\dot A_a|\) | \(L_3: |D_1\dot A_a|\) | \(L_2: |2D_1\dot K/3|\) | \(L_3: |2D_1\dot K/3|\) | \(L_2: |3q\dot A_a/2|\) | \(L_3: |3q\dot A_a/2|\) |
+|---:|---:|---:|---:|---:|---:|---:|
+| 60 | \(3.3738\times10^{-5}\) | \(4.2470\times10^{-6}\) | \(6.8003\times10^{-5}\) | \(2.6892\times10^{-5}\) | \(1.0356\times10^{-4}\) | \(9.6936\times10^{-6}\) |
+| 120 | \(6.4508\times10^{-5}\) | \(4.4272\times10^{-6}\) | \(1.5475\times10^{-4}\) | \(2.7436\times10^{-5}\) | \(1.9433\times10^{-4}\) | \(9.6715\times10^{-6}\) |
+| 240 | \(1.2586\times10^{-4}\) | \(4.4186\times10^{-6}\) | \(3.1861\times10^{-4}\) | \(2.7384\times10^{-5}\) | \(3.7409\times10^{-4}\) | \(9.7060\times10^{-6}\) |
+
+At N=240, signed values at cells 0 and 1 make the cancellation explicit:
+
+| Geometric tangent contribution | L2 cell 0 | L2 cell 1 | L3 cell 0 | L3 cell 1 |
+|---|---:|---:|---:|---:|
+| \(D_1\dot A_a\) | \(-1.2586\times10^{-4}\) | \(-4.0468\times10^{-7}\) | \(-5.1066\times10^{-7}\) | \(-1.5041\times10^{-6}\) |
+| \(-2D_1\dot K/3\) | \(+3.1861\times10^{-4}\) | \(+2.6662\times10^{-4}\) | \(+2.5331\times10^{-6}\) | \(+7.4971\times10^{-6}\) |
+| \(3q\dot A_a/2\) | \(-1.1475\times10^{-4}\) | \(-3.7409\times10^{-4}\) | \(-7.6755\times10^{-7}\) | \(-2.2800\times10^{-6}\) |
+
+### What this narrows—and what it does not
+
+On the archived refreshed-stage family, the large derivative-side contributions are dominated by the primary \(L_2\) operands, not the primary-predictor \(L_3\) operands. At N=240, the largest \(L_2\) contribution to \(3q\dot A_a/2\) is about 39 times its \(L_3\) counterpart; the corresponding ratios for \(D_1\dot A_a\) and \(-2D_1\dot K/3\) are about 28 and 12. This is a strong operand-level localization to the primary \(L_2\) curvature/lapse-Hessian evaluation and its radial derivative/product composition.
+
+It is **not** evidence that \(L_2\) is physically wrong, that a coefficient is missing, or that the Brown candidate should be altered. The terms are individually large and strongly cancel; maxima can occur at different cells. The next legitimate comparison is to expand the pinned primary-\(L_2\) curvature and lapse-Hessian operands themselves, with their exact metric/evolved-\(\Lambda\) inputs, and compare those component-by-component to the Brown trace/tracefree reconstruction on the identical stage. No residual fitting or stage substitution is permitted.
+
+The three ZIP digests and internal report/NPZ SHA-256 manifests were rechecked before this decomposition; all member hashes matched. The CPU/BLAS metadata limitation in §8 still applies. No production equation, vendor pin, accepted state, workflow, or admission flag changed.
