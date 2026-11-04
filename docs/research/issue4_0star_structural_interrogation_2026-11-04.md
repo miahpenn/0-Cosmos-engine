@@ -516,3 +516,171 @@ These pairs cannot be reconciled by a global rescaling or sign change of H. The 
 | Minimal | The source terms collect into one H_geom gradient pair plus alpha K M_r and the two shift-transport terms. | This is the minimal metric-only continuum scaffold, not the complete accepted-system identity. |
 
 **Updated next gate:** the metric-only continuum Hamiltonian-gradient/time-split block is now derived from the pinned BSSN equations. Do not repeat this derivation or launch another campaign. The remaining task is to combine it with the already source-derived vendor off-constraint C^r channels in PR #423 §§10.9–10.17 and the independently derived total-stress Bianchi source, while preserving the exact finite-grid chain-rule/operator remainders and the accepted PIRK stage assignments. Keep the standard ADM expression as a distinct formulation comparator. No new observer is justified until this reconciliation identifies a missing independently measurable operand. All scientific-admission and acceptance flags remain false.
+
+
+## 0* continuation — assembled geometric, connection, and Bianchi-source ledger
+
+**Status:** the three independently derived continuum/source blocks are now assembled into one explicitly labelled candidate decomposition. This is an equation-level synthesis only. It does not close the accepted off-constraint subsidiary system, the discrete divergence mapping, or scientific admission.
+
+### 1. Freeze the two constraint representations
+
+Use the accepted lower-index radial covector and the established \(G=1,\ \kappa=8\pi\) normalization:
+
+\[
+M_{r,\mathrm{tot}}=M_{r,\mathrm{geom}}-\kappa j_{\mathrm{tot}},
+\qquad
+H_{\mathrm{tot}}=H_{\mathrm{geom}}-2\kappa\rho_{\mathrm{tot}}
+=H_{\mathrm{geom}}-16\pi\rho_{\mathrm{tot}}.
+\]
+
+Here \(H_{\mathrm{geom}}=R_{\mathrm{metric}}-\tfrac32A_a^2+\tfrac23K^2\) is the metric-only geometric Hamiltonian. The evolved-\(\Lambda\) vendor Hamiltonian is a separate off-constraint representation and must not be silently substituted into this slot.
+
+### 2. Metric-only homogeneous BSSN scaffold
+
+The already-derived shift and normal blocks combine as
+
+\[
+\begin{aligned}
+B_{\mathrm{geom}}[M,H]
+={}&\beta D_rM+(D_r\beta)M+\alpha K M\\
+&-\frac13(D_r\alpha)H+\frac16\alpha D_rH.
+\end{aligned}
+\]
+
+For the metric-only vacuum scaffold, its operands are \(M_{r,\mathrm{geom}}\) and \(H_{\mathrm{geom}}\). The two Hamiltonian-gradient coefficients are a coupled result of the pinned BSSN normal RHS; they are not interchangeable with the ADM pair.
+
+### 3. Exact constraint-substitution bridge
+
+Changing the homogeneous operator's operands from geometric to total constraints is an exact algebraic transformation, not an additional physical source law:
+
+\[
+\begin{aligned}
+\Delta B_{\mathrm{sub}}
+&\equiv B_{\mathrm{geom}}[M_{\mathrm{tot}},H_{\mathrm{tot}}]
+-B_{\mathrm{geom}}[M_{\mathrm{geom}},H_{\mathrm{geom}}]\\
+&=-\kappa\left[
+\beta D_rj_{\mathrm{tot}}
++(D_r\beta)j_{\mathrm{tot}}
++\alpha K j_{\mathrm{tot}}
+\right]\\
+&\quad+\frac{2\kappa}{3}(D_r\alpha)\rho_{\mathrm{tot}}
+-\frac{\kappa\alpha}{3}D_r\rho_{\mathrm{tot}}.
+\end{aligned}
+\]
+
+Thus \(B_{\mathrm{tot}}=B_{\mathrm{geom}}+\Delta B_{\mathrm{sub}}\). The density-gradient terms are already contained in this substitution. They must not be added again as a separate matter correction.
+
+This identity is the same-state constraint-substitution result recorded in PR #423 §4.1.B.1. It does not, by itself, prove that the homogeneous operator is the complete accepted off-constraint evolution operator.
+
+### 4. Accepted vendor off-constraint connection response
+
+Keep the evolved connection difference
+
+\[
+C^r=\Lambda-\Lambda_{\mathrm{metric}},\qquad \chi=X^2
+\]
+
+separate from the metric-only scaffold. From the pinned vendor Ricci brackets, the same-metric Lambda offsets are
+
+\[
+\Delta_C R=\chi D_1(C^r),\qquad
+\Delta_C R^r{}_r
+=\chi\left[D_1(C^r)+\frac{D_1(a)}{2a}C^r\right].
+\]
+
+Their contribution to the accepted \(A_a\) L2 RHS is
+
+\[
+F_C=\alpha\chi\left[
+\frac23D_1(C^r)+\frac{D_1(a)}{2a}C^r
+\right].
+\]
+
+Differentiating the implemented lower-index geometric momentum constraint at fixed \(a,b,X,\alpha\) gives the exact same-state discrete connection contribution
+
+\[
+\boxed{
+\Delta_C\dot M_{r,\mathrm{geom}}
+=D_1(F_C)+
+\left[
+6\chi_r+\frac3r+\frac{3D_1(b)}{2b}
+\right]F_C
+}
+\]
+
+with \(\chi_r=-D_1(X)/(2X)\).
+
+The continuum product-rule expansion contains the Brown-like \(C^r\)-derivative terms, but also the vendor-specific \(a'/a\,\partial_rC^r\) contribution and an undifferentiated-\(C^r\) term. Those terms remain explicit. The exact \(D_1(F_C)\) expression is primary for code reconciliation; its continuum expansion is a comparator, not a replacement stencil.
+
+**No double count:** this is a decomposition of the evolved-\(\Lambda\) dependence already present in the accepted Ricci RHS. If the full evolved-\(\Lambda\) \(A_a\) RHS is used directly, do not append \(F_C\) or the Brown \(C^r\) block again.
+
+### 5. Independently projected total-stress Bianchi source
+
+Define the total divergence, not a sector-exchange covector,
+
+\[
+\mathcal D^{\mathrm{tot}}_\nu
+=\nabla_\mu T_{\mathrm{tot}}^\mu{}_\nu.
+\]
+
+With the accepted residual convention and lower-index momentum sign, the spatial Bianchi projection fixes the continuum coordinate-time source coefficient:
+
+\[
+\boxed{
+S_{\mathrm{Bianchi},r}
+=-\kappa\alpha\mathcal D^{\mathrm{tot}}_r
+=-8\pi\alpha\mathcal D^{\mathrm{tot}}_r.
+}
+\]
+
+This is a source coefficient and sign, not yet a discrete source mapping. In particular, the DM/COSMOS-\(\phi\) exchange pair is an internal sector exchange; it is not itself \(\mathcal D^{\mathrm{tot}}_r\). The provisional \(Q_r\) placeholder remains unbound until the chosen total-stress divergence is explicitly reconstructed.
+
+Keep the three archived divergence representations separate:
+
+- \(\mathcal D^{\mathrm{tot}}_{r,\mathrm{pointwise}}\);
+- \(\mathcal D^{\mathrm{tot}}_{r,\mathrm{FV}}\);
+- \(\mathcal D^{\mathrm{tot}}_{r,\mathrm{expanded}}\).
+
+The existing accepted-state arrays show that their near-origin values are materially different. No one representation is selected because it gives the smaller residual.
+
+### 6. Composite candidate and its explicit remainder
+
+The assembled continuum/source-level candidate is therefore
+
+\[
+\boxed{
+\begin{aligned}
+\dot M_{r,\mathrm{tot}}
+\stackrel{?}{=}&\
+B_{\mathrm{geom}}[M_{\mathrm{tot}},H_{\mathrm{tot}}]\\
+&+\Delta_C\dot M_{r,\mathrm{geom}}
+-8\pi\alpha\mathcal D^{\mathrm{tot}}_r
++\mathcal R_{\mathrm{off}}
++\mathcal R_{\mathrm{metric}}
++\mathcal R_{\mathrm{disc/stage}} .
+\end{aligned}
+}
+\]
+
+The remainder labels are deliberate, not fitted terms:
+
+- \(\mathcal R_{\mathrm{off}}\): any homogeneous off-constraint contribution from the spatial Einstein residual and the accepted BSSN subsidiary system not yet shown to be represented by the metric-only scaffold plus the explicit \(C^r\) response.
+- \(\mathcal R_{\mathrm{metric}}\): the independently measured metric-only Ricci/Hamiltonian operator crosswalk between the Brown metric reconstruction and the vendor evaluated with \(\Lambda=\Lambda_{\mathrm{metric}}\). These are not bitwise-identical finite-grid operators.
+- \(\mathcal R_{\mathrm{disc/stage}}\): finite-grid product/chain-rule and operator-composition remainders, plus any mismatch between a continuum coordinate-time RHS and a finite PIRK accepted-step construction.
+
+The equation is a **candidate assembly**, not a declaration that these remainders vanish. The direct accepted semi-discrete tangent in PR #423 §10.10 remains the exact code-side comparator. It already contains the evolved-\(\Lambda\) Ricci dependence and all six \(-8\pi\dot j_s\) current tangents; those must not be added a second time to the composite expression.
+
+Likewise, the explicit \(A_a/K\) matter-injection terms are already part of the accepted RHS chain rule. In the continuum constraint-propagation representation their accounting must reconcile with the total-constraint substitution and the Bianchi source; they are not an independent fourth matter source to append.
+
+### 7. 0* disposition and next discriminator
+
+| 0* dimension | Current disposition |
+|---|---|
+| Checkable | Pass locally: each displayed block has a pinned source or an independent geometric/Bianchi derivation. The composite remainder is explicitly exposed. |
+| Independent | Pass locally: geometric propagation, vendor connection response, and total-stress divergence are constructed by distinct routes. |
+| Costed | Partial: the shift, normal, connection, and Bianchi-source contributions are identified; the off-constraint, metric-operator, and discrete/stage costs remain open. |
+| Minimal | Not yet passed for the complete identity: no term can be removed until the three explicit remainder classes are resolved. |
+
+**Next action:** no new observer and no evolution. First reconcile the exact accepted BSSN off-constraint subsidiary operator with the composite expression, including the spatial Einstein residual and the vendor-specific \(C^r\) terms. Then reuse the existing #420/#423 signed arrays to map the already-derived Bianchi source under each declared divergence representation and preserve the existing stage ownership. Only if that derivation identifies a genuinely absent operand should a narrow post-processor be proposed.
+
+All production equations, initializers, vendor files, accepted states, and source pins remain untouched. All scientific-admission and acceptance flags remain false.
