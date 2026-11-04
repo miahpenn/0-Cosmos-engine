@@ -167,6 +167,23 @@ def evaluate_accepted_fixture(
         diagnostic_root, helper_baseline_root
     )
 
+    # In-memory tripwires: any accidental production/PIRK advance fails closed.
+    step_calls = []
+    kernel_class = total_helper.production_kernel_module.V55ProductionKernel
+    if not hasattr(kernel_class, "step"):
+        raise RuntimeError("pinned production kernel exposes no step method to guard")
+
+    def forbidden_production_step(*args, **kwargs):
+        step_calls.append("ProductionKernel.step")
+        raise RuntimeError("zero-step observer forbids ProductionKernel.step")
+
+    kernel_class.step = forbidden_production_step
+    if hasattr(vacuum_bssn, "pirk2_step"):
+        def forbidden_vendor_pirk(*args, **kwargs):
+            step_calls.append("vendor.pirk2_step")
+            raise RuntimeError("zero-step observer forbids vendor PIRK advance")
+        vacuum_bssn.pirk2_step = forbidden_vendor_pirk
+
     state = _state_from_fixture(fixture, r0_operators, vacuum_bssn)
     helper_digest_before = total_helper.state_digest(state)
     require_unchanged(fixture["helper_state_digest"], helper_digest_before)
@@ -215,7 +232,7 @@ def evaluate_accepted_fixture(
     connection_divergence = _finite(
         "spherical divergence D_j(alpha W^j_r)",
         d1(F_C, parity=1)
-        + (6.0 * chi_r + 3.0 / r + 3.0 * da_even * 0.0
+        + (6.0 * chi_r + 3.0 / r
            + 3.0 * d1(b, parity=1) / (2.0 * b)) * F_C,
     )
 
@@ -280,6 +297,8 @@ def evaluate_accepted_fixture(
     require_unchanged(helper_digest_before, helper_digest_after)
     if helper_digest_after != fixture["helper_state_digest"]:
         raise RuntimeError("accepted input state changed during predictor evaluation")
+    if step_calls:
+        raise RuntimeError(f"zero-step tripwire was activated: {step_calls}")
 
     summaries = {}
     for epsilon_label, channels in terms_by_channel.items():
@@ -327,8 +346,9 @@ def evaluate_accepted_fixture(
         "summaries": summaries,
         "input_state_digest_before": helper_digest_before,
         "input_state_digest_after": helper_digest_after,
-        "production_steps_run": 0,
+        "production_steps_run": len(step_calls),
         "state_advanced": False,
+        "zero_step_tripwire": "armed_and_not_triggered",
         "inherited_assumptions": [
             "locked projected-Bianchi continuum identity and sign/index conventions",
             "pinned vendor BSSN constraint mapping",
