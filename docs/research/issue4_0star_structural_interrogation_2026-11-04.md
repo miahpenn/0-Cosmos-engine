@@ -1608,3 +1608,53 @@ For the quartic control, the unmodified smooth-even data have \(\alpha_0-\alpha_
 **Interpretation:** the parity-ghost \(D_1/D_2\) pair passes the smooth-even negative control. The additional two-cell CMC row is what introduces the nonconvergent Bochner-slot defect in this control. The accepted stage's first-two-cell plateau and its approximately \(1/h\)-growing trace remainder have the same signature. This is strong evidence that the centre-row/stencil compatibility is the leading numerical discriminator for the observed central trace mismatch, but it is not yet a complete causal proof for the full curved, matter-coupled stage.
 
 No production boundary condition or stencil is changed. The next step is a source-level derivation of a centre row that is discretely compatible with the existing parity-ghost operators, followed by an independently reviewed research-only comparator. Any proposed row change remains unauthorized and must not be applied to production without explicit approval.
+
+
+## 16. Research-only centre-row alternatives implied by the pinned lapse operator
+
+The pinned lapse equation is assembled from
+\[
+\alpha''+c(r)\alpha'-m(r)\alpha=s(r),
+\qquad
+c=-\frac{D_1a}{2a}+\frac{D_1b}{b}-\frac{D_1X}{X}+\frac2r,
+\quad
+m=\frac{Q}{X^2/a},
+\quad
+s=-\frac{\dot K_{\mathrm{target}}}{X^2/a}.
+\]
+The current interior rows \(i=1,\ldots,N-2\) are second-order centred tri-diagonal rows. The parity-even ghost extension for a cell-centred grid is \(\alpha_{-1}=\alpha_0\), \(\alpha_{-2}=\alpha_1\); it does not imply \(\alpha_0=\alpha_1\).
+
+Two research-only first-row constructions follow directly from the declared stencils. Neither has been installed, solved, or applied to the accepted state.
+
+**A. Order-matched second-order parity-ghost row.** Using
+\[
+D_1^{(2)}\alpha_0=\frac{\alpha_1-\alpha_0}{2h},
+\qquad
+D_2^{(2)}\alpha_0=\frac{\alpha_1-\alpha_0}{h^2},
+\]
+the PDE row at the first cell is
+\[
+\left(-\frac1{h^2}-\frac{c_0}{2h}-m_0\right)\alpha_0
++\left(\frac1{h^2}+\frac{c_0}{2h}\right)\alpha_1=s_0.
+\]
+This preserves the current solver's second-order interior scheme and tri-diagonal bandwidth.
+
+**B. Fourth-order parity-ghost row.** Using the same fourth-order parity-ghost stencil used in the later geometric operators,
+\[
+D_1^{(4)}\alpha_0
+=\frac{9\alpha_1-8\alpha_0-\alpha_2}{12h},
+\qquad
+D_2^{(4)}\alpha_0
+=\frac{15\alpha_1-14\alpha_0-\alpha_2}{12h^2},
+\]
+the first-cell PDE row becomes
+\[
+\left(-\frac{14}{12h^2}-\frac{8c_0}{12h}-m_0\right)\alpha_0
++\left(\frac{15}{12h^2}+\frac{9c_0}{12h}\right)\alpha_1
++\left(-\frac1{12h^2}-\frac{c_0}{12h}\right)\alpha_2=s_0.
+\]
+This row has a second upper diagonal. It would require upgrading the interior rows as well if a uniformly fourth-order lapse solve is intended; mixing it with the current second-order interior rows would need its own accuracy analysis.
+
+The existing outer normalization row is independent of this centre-row derivation and is left untouched. The two candidates are not ranked here: candidate A is order-consistent with the current lapse solve, while candidate B is operator-consistent with the later fourth-order parity-ghost geometric derivatives. Choosing between them requires an explicit accuracy and stage-compatibility decision, not a residual-minimizing selection.
+
+**Authorization boundary:** these are algebraic research candidates only. No new lapse solve, source modification, production edit, or evolution was performed. The next permissible check is a manufactured elliptic solve in a research-only harness, with both interior order and boundary row declared, followed by an independent same-stage comparison. Production remains unchanged unless explicitly authorized.
