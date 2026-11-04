@@ -18,6 +18,7 @@ from typing import Any
 import numpy as np
 
 from tools.issue4_accepted_state_fixture import load_accepted_fixture
+from tools.issue4_bianchi_reference_regression import assert_reference_regression
 from tools.issue4_zero_step_full_bianchi_observer import verify_provenance, require_unchanged
 
 
@@ -314,11 +315,12 @@ def evaluate_accepted_fixture(
                 ),
             }
 
-    return {
+    result = {
         "schema": "issue4-full-bianchi-accepted-fixture-evaluation/v1",
         "status": "diagnostic_evaluation_complete",
         "state_class": "accepted_t_0p60",
         "resolution": resolution,
+        "grid_centers": r.copy(),
         "accepted_time": fixture["accepted_time"],
         "provenance": provenance,
         "input_digests": {
@@ -360,3 +362,5 @@ def evaluate_accepted_fixture(
             "pointwise and finite-volume total-stress divergences are separate comparators",
         ],
     }
+    result["accepted_reference_regression"] = assert_reference_regression(result)
+    return result
