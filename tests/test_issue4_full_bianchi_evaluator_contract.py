@@ -37,6 +37,8 @@ class FullBianchiEvaluatorContractTests(unittest.TestCase):
         self.assertIn("chi = X**2", source)
         self.assertIn("-d1(X, parity=1) / (2.0 * X)", source)
         self.assertIn("d1(F_C, parity=1)", source)
+        self.assertIn("vacuum_bssn.geometry_terms(grid, geom)", source)
+        self.assertIn("ricci_offset_crosscheck", source)
 
 
 if __name__ == "__main__":
