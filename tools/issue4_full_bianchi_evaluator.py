@@ -179,10 +179,10 @@ def evaluate_accepted_fixture(
         raise RuntimeError("zero-step observer forbids ProductionKernel.step")
 
     kernel_class.step = forbidden_production_step
-    if not hasattr(moving_puncture_pirk, "pirk2_step"):
-        raise RuntimeError("pinned vendor has no pirk2_step method to guard")
+    if not hasattr(moving_puncture_pirk, "damped_moving_puncture_pirk2_step"):
+        raise RuntimeError("pinned vendor has no damped_moving_puncture_pirk2_step method to guard")
     def forbidden_vendor_pirk(*args, **kwargs):
-        step_calls.append("vendor.pirk2_step")
+        step_calls.append("vendor.damped_moving_puncture_pirk2_step")
         raise RuntimeError("zero-step observer forbids vendor PIRK advance")
     moving_puncture_pirk.pirk2_step = forbidden_vendor_pirk
 
