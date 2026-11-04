@@ -38,7 +38,7 @@ def assert_reference_regression(result: dict) -> dict:
         raise ValueError("r<=10 regression mask is empty")
     checks = []
     for channel in ("pointwise", "finite_volume"):
-        values = np.asarray(result["summaries"]["eps2e-05"][channel]["residual_tangent_minus_predictor"]["profile"])
+        values = np.asarray(result["channels"]["eps2e-05"][channel]["residual_tangent_minus_predictor"])
         exp_max, exp_annulus, exp_cells = expected[channel]
         annulus = (radii >= 5.0) & (radii <= 10.0)
         witnesses = [
