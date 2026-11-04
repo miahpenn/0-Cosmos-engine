@@ -105,7 +105,17 @@ The observer may add the smallest research-only input adapters needed to expose 
 
 The two adapters must not introduce class-specific equations, coefficients, source terms, or corrections.
 
-## 7. Signed output and comparability
+## 7. Existing archive inputs: verified availability and limits
+
+The artifact audit establishes the following input facts; they are not interchangeable:
+
+- The accepted-state full-Bianchi comparison artifacts contain complete frozen input-state arrays, directional semi-discrete tangent arrays, and pointwise/FV total-stress divergence arrays at N=60/120/240. They do not contain a separately named raw array for every full-Bianchi predictor term. The canonical evaluator must recompute those terms from the saved input state, then reproduce the archived signed tangent/residual witnesses and summary values. This is the required regression path; no accepted-state evolution is needed.
+- The old manufactured tangent artifact contains signed geometric/current decomposition arrays but not the complete frozen state vector needed for the full predictor. Its source pin is older. It is evidence for the existing profile definition and component checks, not a full-Bianchi input archive. Construct the same manufactured profile under the accepted diagnostic/source anchor and record a new complete state digest.
+- The t=0 initialization trace archive contains complete candidate/historical state arrays and the historical initial digest `a256b57f274ee120b55c0f805ed488d91382a9799647c8f9811d7df82aa337c0`. However, that trace does not itself establish the required accepted diagnostic/source anchor in its manifest. It may be used as a state-identity witness, but the observer must recreate or load the state with explicit accepted-anchor provenance and verify the complete digest before evaluating it. If that cannot be established, refuse the t=0 class.
+
+The accepted-state fixture is therefore the first evaluator regression target; manufactured and t=0 inputs each require their own source-pinned complete-state adapter.
+
+## 8. Signed output and comparability
 
 Use the accepted-state report's term names, signs, units, normalization, masks, and summary definitions wherever they apply. The output must include:
 
@@ -121,7 +131,7 @@ Use the accepted-state report's term names, signs, units, normalization, masks, 
 
 Do not compare different resolutions as though they were the same grid. Do not omit a term because it is small or unavailable. Missing terms are explicit refusals or named unavailable operands, not zeros.
 
-## 8. Inherited assumptions and limits
+## 9. Inherited assumptions and limits
 
 The observer inherits, without independently proving:
 
@@ -135,7 +145,7 @@ The report must label these as inherited conventions/assumptions and point to th
 
 The continuum predictor, semi-discrete tangent, and finite-step/PIRK secant remain distinct. This task evaluates the first against the same instantaneous tangent contract as the accepted-state report; it does not claim PIRK finite-step closure.
 
-## 9. Required tests before any numerical run
+## 10. Required tests before any numerical run
 
 1. Exact accepted source/vendor/helper pins accepted.
 2. Each single-pin mismatch independently rejected before state evaluation.
@@ -149,7 +159,7 @@ The continuum predictor, semi-discrete tangent, and finite-step/PIRK secant rema
 
 Do not start the manufactured or (t=0) numerical campaign until these tests pass and the observer implementation has received review.
 
-## 10. Explicit non-goals and authorization boundary
+## 11. Explicit non-goals and authorization boundary
 
 This task does not authorize:
 
@@ -159,7 +169,7 @@ This task does not authorize:
 - changing scientific-admission, conservation-closure, or acceptance-oracle flags;
 - declaring Issue #4 physically or numerically closed.
 
-## 11. Completion definition
+## 12. Completion definition
 
 The tooling task is complete only when the reviewed observer:
 
