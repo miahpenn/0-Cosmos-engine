@@ -74,9 +74,16 @@ class FullBianchiEvaluatorContractTests(unittest.TestCase):
         original_kernel = Kernel.step
         original_vendor = Vendor.damped_moving_puncture_pirk2_step
         calls = []
+        # A clean exit must restore both original methods.
         with evaluator._zero_step_guard(Kernel, Vendor, calls):
             self.assertIsNot(Kernel.step, original_kernel)
             self.assertIsNot(Vendor.damped_moving_puncture_pirk2_step, original_vendor)
+        self.assertIs(Kernel.step, original_kernel)
+        self.assertIs(Vendor.damped_moving_puncture_pirk2_step, original_vendor)
+        self.assertEqual(calls, [])
+
+        # A forbidden call must also restore both original methods.
+        with evaluator._zero_step_guard(Kernel, Vendor, calls):
             with self.assertRaisesRegex(RuntimeError, "forbids ProductionKernel.step"):
                 Kernel().step()
         self.assertIs(Kernel.step, original_kernel)
@@ -90,9 +97,14 @@ class FullBianchiEvaluatorContractTests(unittest.TestCase):
         self.assertIs(Vendor.damped_moving_puncture_pirk2_step, original_vendor)
 
     def test_output_serialization_uses_real_newline(self):
-        source = SOURCE.read_text(encoding="utf-8")
-        self.assertEqual(source.count('write_text(payload + "\\\\n"'), 0)
-        self.assertEqual(source.count('write_text(payload + "\\n"'), 2)
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmp:
+            output = Path(tmp) / "result.json"
+            evaluator._write_json_payload(output, '{"status": "ok"}')
+            written = output.read_bytes()
+        self.assertEqual(written, b'{"status": "ok"}\\n')
+
 
 
 if __name__ == "__main__":
