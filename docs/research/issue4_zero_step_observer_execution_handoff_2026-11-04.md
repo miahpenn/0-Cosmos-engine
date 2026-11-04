@@ -3,7 +3,7 @@
 Date: 2026-11-04  
 Research branch: `research/issue4-zero-step-bianchi-observer-2026-11-04`  
 Workflow implementation commit: `6b8422d1c94822cca44ee1cccf3d93581ab2c21e`  
-Status: workflow prepared on the research branch; **not yet dispatched**.
+Status: first dispatch refused at N=60 due to an optional matter-schema mismatch; research-only adapter correction committed, awaiting rerun.
 
 ## Purpose and scope
 
@@ -96,3 +96,55 @@ It does not contain a production smoke, production step, RHS call, initializer, 
 ## Current boundary
 
 This workflow is prepared on the research branch but has not yet been dispatched. A successful run will establish the committed evaluator's execution against the accepted-state archives under its exact pins. It will not complete the original three-class comparison, establish a missing physical term, or change scientific admission. The next class extensions remain separate work under the same observer contract.
+
+
+## First dispatch result and schema correction (2026-11-04)
+
+The first manual dispatch was run at research-branch SHA
+`c91bc01c551287f6faf47f71b392123b7c4cb52d` (workflow run
+`41932751640`). Provenance gates, archive downloads/checksums, environment
+capture, and focused contract tests passed. The N=60 evaluator then refused
+before producing a Bianchi result:
+
+```text
+AttributeError: 'types.SimpleNamespace' object has no attribute 'charged_dust'
+production_steps_run: 0
+state_advanced: false
+```
+
+The uploaded artifact was inspected directly. All three accepted archives
+(N=60/120/240) contain the same 101-array schema: frozen geometry, six scalar
+arrays, and three fluid species (dark matter, baryons, radiation), plus tangent
+and total-stress-divergence witnesses. No archived array path or NPZ key refers
+to electromagnetic fields, charge, Maxwell, or charged dust. The six-sector
+tangent witnesses are S, D, COSMOS-phi, dark matter, baryons, and radiation.
+
+The pinned production source distinguishes two optional structures:
+
+- `V55MatterState.charged_dust` is an optional additional pressureless fluid
+  carrier. The canonical fluid projection accesses this slot and treats
+  `None` as absent.
+- `total_matter_projection(..., electromagnetic_projection=...)` accepts a
+  separate, already consumer-normalized EM stress/current projection
+  (`rho, pr, pt, j`). Passing no projection means no EM contribution is
+  included; raw electric fields or charge normalization are not inferred.
+
+Therefore the refusal is an adapter schema mismatch: the research fixture
+constructed a `SimpleNamespace` with the three archived species but omitted
+the optional `charged_dust` attribute expected by the pinned canonical
+projection. The evaluator adapter now explicitly supplies
+`charged_dust=None`; it does not create a synthetic species or an EM source.
+The workflow's evaluator blob pin was updated to the corrected blob
+`4fa0e6d8b23304e06938073db8c2d34281991f24`.
+
+This accepted-state archive set is **not an EM-on dataset**. That does not
+mean the codebase lacks an EM formulation: the pinned source has a separate
+radial-Maxwell state and normalized electromagnetic projection path. It means
+the current accepted-state observer cannot claim to have measured or closed
+that contribution. The present run must be described as the archived
+six-sector accepted-state comparison, with EM-on accounting remaining outside
+its scope.
+
+The correction has not yet been rerun. The first dispatch stopped at N=60
+under `set -e`, so N=120 and N=240 were not evaluated. No production step,
+RHS, initializer, source/vendor edit, or scientific-admission change occurred.
