@@ -43,7 +43,7 @@ class BianchiReferenceRegressionTests(unittest.TestCase):
     def test_signed_reference_witnesses_pass(self):
         result = assert_reference_regression(self._fixture())
         self.assertTrue(result["passed"])
-        self.assertEqual(result["residual_sign"], "measured_tangent_minus_predictor")
+        self.assertEqual(result["archived_signed_witness_orientation"], "same")
 
     def test_wrong_residual_sign_is_rejected(self):
         fixture = self._fixture()
