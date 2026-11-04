@@ -1086,3 +1086,72 @@ This endpoint reconstruction shows that the assembled Bianchi candidate is subst
 These values must **not** be compared as if they were the lapse-refreshed stage-0 residuals in #423 §10.20 / workflow #40249740165. That report intentionally refreshes the lapse on the copied PIRK start stage; this endpoint tangent uses the saved accepted lapse without a new CMC solve. The stage change is material near the origin. Both are valid but distinct same-stage/vector-field questions, and neither can substitute for the other.
 
 **Disposition:** the continuum assembly is now checked against both an unrefreshed endpoint tangent and a separately labelled refreshed-stage witness. Fixed-radius residuals are refinement-consistent on several radii; the centre remains unresolved; pointwise total-stress divergence remains nonzero; and FV/expanded forms are still distinct. No scientific-admission flag changes.
+
+
+## 8. PIRK stage ownership, finite-step connection accounting, and CPU provenance
+
+**Status:** reuse-only crosswalk of the already checksummed #423 stage captures. This section distinguishes exact arithmetic/stage accounting from the still-open instantaneous momentum-propagation identity. No RHS, lapse solve, copied step, or evolution was run for this addendum.
+
+### Exact accepted stage ownership
+
+The reused captures are from workflow [40235790388](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/40235790388), artifacts N=60 [12614314612](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/40235790388/artifacts/12614314612), N=120 [12615190935](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/40235790388/artifacts/12615190935), and N=240 [12614533930](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/40235790388/artifacts/12614533930). Their stage-array member hashes match the previously recorded artifact manifests. The copied-step widths are respectively 0.04, 0.02, and 0.01.
+
+The accepted split assigns the connection update as
+[
+\Delta\Lambda=\frac{\Delta t}{2}
+(L^\Lambda_{2,0}+L^\Lambda_{2,f}
++L^\Lambda_{3,0}+L^\Lambda_{3,p}),
+]
+where (f) is the final-primary mixed geometry used by the final implicit (L_2) call and (p) is the primary predictor used by the second (L_3) call. The saved-array reconstruction reproduces the actual (Lambda) increment with maximum residuals over (r\le10) of:
+
+| N | \(\max|\Delta\Lambda_{actual}-\Delta\Lambda_{split}|\) |
+|---:|---:|
+| 60 | \(1.36\times10^{-19}\) |
+| 120 | \(1.81\times10^{-19}\) |
+| 240 | \(2.01\times10^{-19}\) |
+
+The independently reconstructed finite-step connection identity
+[
+\Delta C^r
+=\Delta\Lambda-\Delta\Lambda_{metric}
+]
+closes with a reported zero residual on the full captured arrays at all three resolutions. The raw operands are finite and bounded at approximately (10^{-18}) or below. This is exact finite-step connection/stage accounting; it is not a proof that the continuum subsidiary equation closes.
+
+### The mixed-stage matter/geometric pairing is not interchangeable
+
+The pinned diagnostic decomposition uses
+[
+L^\Lambda_{3,m}=-8\pi\lambda_m\frac{\alpha}{a}j_{tot},
+\qquad \lambda_m=2,
+]
+and (M_{r,geom}) from the pinned vendor momentum-constraint operator. The accepted split's source combination is
+[
+\frac{\Delta t}{2}\left[
+\lambda_m\frac{\alpha_0}{a_0}M_{r,geom,0}
++\lambda_m\frac{\alpha_f}{a_f}M_{r,geom,f}
++L^\Lambda_{3,m,0}+L^\Lambda_{3,m,p}
+\right].
+]
+The same-stage-pair counterfactual replaces the final-primary geometric operand by the primary-predictor geometric operand. The resulting full-grid maximum absolute values over (r\le10) are:
+
+| N | Accepted mixed-stage pairing | Same-stage-pair counterfactual |
+|---:|---:|---:|
+| 60 | \(4.76069\times10^{-7}\) | \(4.61498\times10^{-7}\) |
+| 120 | \(3.41475\times10^{-8}\) | \(3.16727\times10^{-8}\) |
+| 240 | \(9.92118\times10^{-9}\) | \(9.76861\times10^{-9}\) |
+
+The differences are \(1.45704\times10^{-8}\), \(2.47479\times10^{-9}\), and \(1.52568\times10^{-10}\), respectively. These are stage-pairing diagnostics, not terms to tune or subtract from the momentum residual. In particular, the final-primary (L_2) and primary-predictor (L_3) operands must remain assigned to their actual accepted stages; replacing them with a convenient same-stage pair would change the implemented PIRK method.
+
+This agrees with #423 §10.18: the finite-step constraint secant is the exact endpoint map, including nonlinear (Delta A_a\Delta\chi_r) and (Delta A_a\Delta q) terms. It must not be equated directly to an instantaneous Brown/Bianchi RHS. The secant's stage bookkeeping is closed; the physical off-constraint momentum propagation is not.
+
+### Refreshed-stage full-array limitation
+
+The same-stage RHS reports in workflow [40249740165](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/40249740165) are report-only artifacts: their ZIPs contain `report.json`, but not the signed full-grid NPZ arrays. They preserve the reported cells and fixed-radius witnesses, but do not supply the full signed arrays needed to recompute a full-grid vendor-(C) replacement residual. Accordingly, this record does not promote the selected-witness replacement into a full-grid refreshed-stage result. The full-array vendor-(C) comparison remains available only for the distinct unrefreshed endpoint tangent described above. No new RHS observer is justified merely to fill this report-retention gap.
+
+### CPU/BLAS provenance qualification
+
+The three #423 stage-capture reports record Python 3.12.15, NumPy 2.5.4, and a Linux 6.17.0 Azure x86_64 platform string. They do **not** record the actual CPU microarchitecture/model, BLAS implementation or core dispatch, or NumPy SIMD dispatch. Therefore these artifacts are checksum-verified and source-pinned, but they are not sufficient to claim Haswell- or Skylake-specific bitwise reproducibility. The earlier exact-digest comparison remains a separate runner-provenance result; it must not be retroactively assigned to these captures.
+
+For any future numerical replay, record the CPU model/features, BLAS library and selected core, NumPy build/runtime configuration and SIMD dispatch, Python version, runner image, source/vendor pins, and input/output digests. Keep the known accepted digest environment as the reference only where those execution details actually match. Never select a physical term from the smallest cross-run residual.
+
+**Disposition:** the accepted PIRK stage assignment and finite-step connection arithmetic are reconstructed from the saved arrays. The exact refreshed-stage full-grid vendor-(C) comparison is unavailable from the report-only same-stage artifacts. CPU/BLAS metadata is incomplete for cross-architecture bitwise claims. No production code, vendor source, accepted state, scientific-admission flag, or workflow was changed.
