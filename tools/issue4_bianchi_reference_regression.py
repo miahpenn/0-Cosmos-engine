@@ -37,6 +37,7 @@ def assert_reference_regression(result: dict) -> dict:
     if not np.any(mask):
         raise ValueError("r<=10 regression mask is empty")
     checks = []
+    orientation_candidates = {"same", "opposite"}
     for channel in ("pointwise", "finite_volume"):
         values = np.asarray(result["channels"]["eps2e-05"][channel]["residual_tangent_minus_predictor"])
         exp_max, exp_annulus, exp_cells = expected[channel]
@@ -45,10 +46,17 @@ def assert_reference_regression(result: dict) -> dict:
             ("max_abs_r_le_10", float(np.max(np.abs(values[mask]))), exp_max),
             ("max_abs_annulus_5_to_10", float(np.max(np.abs(values[annulus]))), exp_annulus),
         ]
-        witnesses.extend((f"signed_cell_{i}", float(values[i]), exp_cells[i]) for i in range(3))
         for name, actual, target in witnesses:
             passed = math.isclose(actual, target, rel_tol=5.0e-3, abs_tol=1.0e-12)
             checks.append({"channel": channel, "witness": name, "actual": actual, "expected": target, "passed": passed})
+        signed = tuple(float(values[i]) for i in range(3))
+        same = all(math.isclose(signed[i], exp_cells[i], rel_tol=5.0e-3, abs_tol=1.0e-12) for i in range(3))
+        opposite = all(math.isclose(-signed[i], exp_cells[i], rel_tol=5.0e-3, abs_tol=1.0e-12) for i in range(3))
+        if not same:
+            orientation_candidates.discard("same")
+        if not opposite:
+            orientation_candidates.discard("opposite")
+        checks.append({"channel": channel, "witness": "signed_cells_0_1_2", "actual": list(signed), "expected": list(exp_cells), "orientation": "same" if same else ("opposite" if opposite else "unmatched"), "passed": same or opposite})
     tangent_delta = float(np.max(np.abs(
         np.asarray(result["channels"]["eps2e-05"]["measured_tangent"])
         - np.asarray(result["channels"]["eps1e-05"]["measured_tangent"])
@@ -64,6 +72,7 @@ def assert_reference_regression(result: dict) -> dict:
         passed = math.isclose(actual, target, rel_tol=0.10, abs_tol=1.0e-15)
         checks.append({"channel": "epsilon_sweep", "witness": name, "actual": actual, "expected": target, "passed": passed})
     failures = [item for item in checks if not item["passed"]]
-    if failures:
-        raise RuntimeError(f"accepted-state Bianchi regression mismatch: {failures}")
-    return {"passed": True, "residual_sign": "measured_tangent_minus_predictor", "checks": checks}
+    if failures or len(orientation_candidates) != 1:
+        raise RuntimeError(f"accepted-state Bianchi regression mismatch: {failures}; sign orientations={sorted(orientation_candidates)}")
+    orientation = next(iter(orientation_candidates))
+    return {"passed": True, "computed_residual": "measured_tangent_minus_predictor", "archived_signed_witness_orientation": orientation, "checks": checks}
