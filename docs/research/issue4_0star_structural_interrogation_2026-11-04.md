@@ -188,3 +188,76 @@ remains a separately derived continuum source coefficient; its pointwise/FV/expa
 The shift block survives the four methodological checks as a kinematic identity. This is a bounded local result, not a pass of the complete Issue #4 propagation identity. The next derivation must isolate the normal geometric contribution (including the alpha K M_r and Hamiltonian-gradient terms), keep the evolved-connection response distinct, and then combine it with the independently derived total-stress source without double counting. No observer or evolution is warranted until that source-level derivation identifies a missing independently measurable operand.
 
 The cosmological Boolean 0*_eff criterion is not mechanically applied to this tensor-transport identity; the 0* quantification method is applied through its relevant checkability, independence, cost, and minimality tests. All scientific-admission flags remain false.
+
+
+### Direct substitution through the pinned shift RHS
+
+The previous tensor identity can be strengthened: the same result follows by substituting the shift-only pieces of the pinned vendor BSSN RHS into the accepted geometric momentum constraint. This is an independent source-level cross-check, not a Brown-formula assumption.
+
+**Pins and source locations**
+- Accepted production source anchor: `4aec88d0e3ff028e0a65a8ac36b30948625df792`.
+- Vendor commit: `d6052d605673ce9d82cdc99b0df79855fa2ea215`.
+- Vendor source: `RonBibb/bb-palatini-unified-r0/vacuum_bssn.py`, blob `099ce52ba9e6dcd38d50c2915248c76c4236f7f4`.
+- Adapter: `engine/v55_pirk_adapter.py`, blob `be28ceea63fa1b59efc5cc5c460b9df19ae1cbc3`; it composes the pinned explicit, primary-L2, primary-L3 and Lambda stage blocks.
+
+Write (A=A_a), (c_r=-\tfrac12\partial_r\ln X), and (q=2/r+\partial_r\ln b). With (A_b=-A/2), the accepted geometric momentum constraint is
+
+\[
+M_r=A'-\frac23K'+6Ac_r+\frac32Aq.
+\]
+
+The shift-only source equations in the pinned vendor are
+
+\[
+\begin{aligned}
+\dot A|_\beta&=\beta A',&
+\dot K|_\beta&=\beta K',\\
+\dot X|_\beta&=\beta X'-\frac13X\Theta_\beta,&
+\dot b|_\beta&=\beta b'+\frac{2\beta b}{r}
+-\frac23b\Theta_\beta,
+\end{aligned}
+\]
+where the full spherical shift divergence is
+\[
+\Theta_\beta=\beta'
++\beta\left(\frac12\frac{a'}a+\frac{b'}b+\frac2r\right).
+\]
+
+Taking logarithmic derivatives only as an exact algebraic convenience gives
+\[
+\begin{aligned}
+\dot c_r|_\beta
+&=\beta c_r'+\beta'c_r+\frac16\Theta_\beta',\\
+\dot q|_\beta
+&=\beta q'+\beta'q-\frac23\Theta_\beta'.
+\end{aligned}
+\]
+
+Substitute these into the exact derivative of (M_r):
+\[
+\begin{aligned}
+\dot M_r|_\beta
+={}&(\beta A')'-\frac23(\beta K')'
++6\bigl(\beta A'c_r+A\dot c_r|_\beta\bigr)\\
+&+\frac32\bigl(\beta A'q+A\dot q|_\beta\bigr).
+\end{aligned}
+\]
+
+The two terms proportional to (A\Theta_\beta') cancel exactly:
+\[
+6A\left(\frac16\Theta_\beta'\right)
++\frac32A\left(-\frac23\Theta_\beta'\right)=0.
+\]
+The remaining terms collect without an assumption about the value of the constraint:
+\[
+\boxed{
+\dot M_r|_\beta=\beta M_r'+\beta'M_r
+= (\mathcal L_\beta M)_r.
+}
+\]
+
+The cancellation includes the (a'/2a) part of the spherical shift divergence; it is not necessary to discard or approximate that part. This confirms that the two shift terms are exactly the transport of the lower-index radial momentum covector in the continuum shift subsystem.
+
+**Discrete boundary:** the derivation above uses the continuum product rule. On the accepted finite grid, (D_1(\beta D_1u)) is not automatically identical to (\beta D_1(D_1u)+D_1(\beta)D_1u). Preserve the measured finite-grid product/chain-rule remainder from the existing #423/#420 evidence; do not promote the continuum cancellation to an exact discrete stencil identity without that check. No new observer or run is justified by this algebra alone.
+
+**0* score:** the source substitution is checkable against the pinned RHS; independent of Brown and residual fitting; its cost is exactly the shift-transport block; and the two-term covector Lie derivative is minimal under the declared weight-zero index convention. The result is therefore a stronger local pass for the shift block, while the discrete remainder and all normal-geometric/source blocks remain separate open obligations.
