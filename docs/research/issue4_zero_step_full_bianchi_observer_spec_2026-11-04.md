@@ -47,7 +47,9 @@ No fallback, auto-discovery substitution, or "close enough" pin matching is perm
 
 ## 4. Predictor contract
 
-Reuse the accepted-state full-Bianchi predictor implementation and operand definitions. Do not fork or independently re-derive a second predictor.
+The accepted-state full-Bianchi comparison is currently recorded as a derivation/reconstruction report plus checksum-verified artifacts; the repository does not yet contain a single reusable executable full-Bianchi evaluator. The implementation audit also found that the existing tangent and total-stress helpers are component observers, not a complete shared predictor.
+
+Therefore implement **one canonical shared evaluator** in the smallest research-only module/orchestrator that can consume both new state classes and the archived accepted-state fixture. This is a new executable tool, but not a new derivation: transcribe the locked predictor and operand definitions already recorded in PR #427, reuse the reviewed component helpers where their contracts match, and do not create parallel predictor variants. The first regression fixture must reproduce the archived accepted-state comparison under its exact identities and tolerances before either new state class is evaluated.
 
 The report must preserve the signed contributions and ownership of:
 
@@ -88,7 +90,8 @@ The observer may add the smallest research-only input adapters needed to expose 
 
 ### A. Manufactured regular profiles
 
-- Use the already-declared manufactured regular profile definition and parameters; record them fully.
+- Reuse the already-reviewed manufactured profile definition and parameters from `tools/manufactured_momentum_tangent_audit.py` (profile construction is a zero-step state adapter, not an independent physics change); record them fully.
+- Do not modify that existing observer merely to make it satisfy this task. The new adapter may reuse its documented profile formulas and construct the same frozen profile through the canonical state interface under the accepted diagnostic/source anchor.
 - Record resolution, grid, parity, regularity conditions, and complete state digest.
 - Do not promote a manufactured profile to a production-generated state.
 - If its fields do not supply every required predictor operand under the pinned definitions, refuse with the exact missing operand list.
@@ -140,7 +143,7 @@ The continuum predictor, semi-discrete tangent, and finite-step/PIRK secant rema
 4. Production-step guard proves zero calls.
 5. Input-state digest unchanged.
 6. (chi) versus (chi_r) and (C^r) parity conventions match the accepted-state implementation.
-7. Predictor term-by-term outputs match the accepted-state observer on its existing archived accepted-state fixture within the already-declared numerical tolerances.
+7. The canonical evaluator reproduces the archived accepted-state predictor/tangent residual summaries and signed cell witnesses from PR #427 within the already-declared numerical tolerances. The archived comparison is the regression oracle; it is not described as an existing reusable observer.
 8. Both state adapters either pass schema/operand validation or refuse with precise missing-input reasons.
 9. No production, initializer, vendor, dependency, or workflow file is modified.
 
