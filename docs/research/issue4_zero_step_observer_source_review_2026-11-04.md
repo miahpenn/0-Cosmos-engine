@@ -2,7 +2,7 @@
 
 Date: 2026-11-04  
 Reviewed branch: `research/issue4-zero-step-bianchi-observer-2026-11-04`  
-Reviewed head: `eaad31c21a122a4cb739057f41115fb4783a7a9c`  
+Reviewed head: `a67ee9b63e468d741eb469c1e3d73220dc6623bf`  
 Scope: source-level review only. No evaluator execution, workflow trigger, production step, production/vendor/initializer edit, or scientific-admission change.
 
 ## Review disposition
@@ -40,11 +40,9 @@ The replacements correctly refuse accidental calls, but the original attributes 
 
 ### 3. File output appends a literal escape sequence
 
-**Location:** `main`, both `args.output.write_text` branches.
+**Location:** `main`, both JSON output branches.
 
-The source currently appends `"\\n"`, which writes the two literal characters backslash and n rather than a line terminator. Standardize both branches on an actual newline (`"\n"`) and test the resulting file ending.
-
-This is a serialization defect, not a numerical one.
+**Remediated on the research branch:** both branches now call `_write_json_payload`, which writes a real trailing line-feed. The regression test writes a temporary file through that helper and checks the exact output bytes. This is a serialization contract, not a numerical one.
 
 
 ## Remediation commits and verification boundary
@@ -54,7 +52,12 @@ The three tooling fixes and their regression tests were committed on the researc
 - `3cf79e2`: validate actual vendor module origins;
 - `b1c191e`: add the restoring tripwire context manager and correct JSON output newlines;
 - `d4d2e51`: add module-origin, tripwire-restoration, and newline regression tests;
-- `3e73fd2`: finalize the two newline writes after source inspection.
+- `3e73fd2`: finalize the two newline writes after source inspection;
+- `5bd5cff`: factor the JSON payload writer for direct testing;
+- `5ec03e5`: exercise clean tripwire-guard exit and actual output serialization;
+- `a67ee9b`: assert the emitted line-feed byte and refresh this review record.
+
+The guard test now covers clean exit, a forbidden-call exception, and an injected exception. The output test checks bytes written to a temporary file rather than searching source text.
 
 These changes have received source-level inspection only. No test suite, evaluator execution, workflow, or production step has been run after these commits. The next gate is a local, zero-step execution of the focused tests and then the accepted-state evaluator under exact pins; do not use the existing lightweight-validation workflow because it contains a production-step smoke.
 
@@ -72,7 +75,7 @@ The first two classes must be added under the same pinned source/vendor contract
 
 ## Test-coverage observations
 
-The current tests establish useful helper-level contracts and static source properties. They do not yet execute the committed evaluator against an accepted archive, exercise module-origin refusal, assert tripwire restoration, or validate the output-file newline. The existing reference-regression test uses synthetic arrays to test the gate; it is not a substitute for evaluating archived data.
+The focused contract tests now include a preloaded-module-origin refusal, tripwire restoration after clean and exceptional exits, and an actual temporary-file newline check. These tests have not yet been executed. They do not substitute for running the committed evaluator against an accepted archive. The existing reference-regression test uses synthetic arrays to test the gate; it is not a substitute for evaluating archived data.
 
 The existing lightweight-validation workflow includes a production-kernel one-step smoke. Do not use it to run these checks. Before any CI invocation, inspect the complete workflow and ensure the selected route cannot advance a production state. A local zero-step execution path is preferable once archive artifacts and exact pinned checkouts are available.
 
