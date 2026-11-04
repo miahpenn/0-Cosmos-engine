@@ -1569,3 +1569,42 @@ At N=240 the same operands give \(D_rD_r\alpha=-9.2747\times10^{-6}\), the angul
 **0* disposition:** the centre boundary row and its resulting first-cell derivative operands are checkable and source-pinned. This identifies a concrete numerical mechanism capable of feeding the central lapse-Hessian remainder. It does not yet prove that the centre row alone accounts for the full discrepancy, nor does it justify changing the row, the lapse, or the accepted stencil.
 
 **Next derivation:** establish the discrete compatibility (or explicit incompatibility remainder) between this two-cell Neumann row, the parity-ghost \(D_1/D_2\) operators, and the radial Bochner identity. Keep the existing row and operators fixed. A manufactured smooth-even control may be used only as an independent stencil negative control; it must not replace or modify the accepted stage data. No new evolution or production change is warranted at this point.
+
+
+## 15. Manufactured smooth-even negative control for the centre row
+
+To distinguish a defect in the parity-ghost derivative operators from a defect introduced by the extra CMC centre row, a frozen flat-metric negative control was evaluated. It uses the same cell-centred grid and the same fourth-order parity-ghost \(D_1,D_2\) stencils; no accepted stage data are altered and no evolution is run.
+
+For \(a=b=X=1\), \(R_A=r\), the discrete lapse-Hessian/Bochner slot is
+\[
+\mathcal B_h[\alpha]
+=D_1A_h+\frac23D_1(\Delta_h\alpha)
++\frac3r A_h,
+\quad
+A_h=-\left(D_2\alpha-\frac13\Delta_h\alpha\right),
+\quad
+\Delta_h\alpha=D_2\alpha+\frac{2D_1\alpha}{r}.
+\]
+The fixed, non-fitted smooth-even controls are
+\[
+\alpha_4(r)=1+10^{-5}r^2+10^{-8}r^4,
+\qquad
+\alpha_6(r)=\alpha_4(r)+10^{-11}r^6.
+\]
+The centre-row counterfactual is applied only to the manufactured control by setting \(\alpha_0\leftarrow\alpha_1\), exactly reproducing the algebraic effect of the pinned CMC row.
+
+Maximum absolute \(|\mathcal B_h|\) over \(r\le10\):
+
+| N | Quartic, no row | Quartic, row imposed | Sextic, no row | Sextic, row imposed |
+|---:|---:|---:|---:|---:|
+| 60 | \(8.80\times10^{-17}\) | \(8.8168\times10^{-6}\) | \(1.5170\times10^{-9}\) | \(8.8175\times10^{-6}\) |
+| 120 | \(1.88\times10^{-15}\) | \(1.7575\times10^{-5}\) | \(1.8963\times10^{-10}\) | \(1.7575\times10^{-5}\) |
+| 240 | \(1.83\times10^{-14}\) | \(3.5121\times10^{-5}\) | \(2.3722\times10^{-11}\) | \(3.5121\times10^{-5}\) |
+
+The no-row quartic control closes to roundoff. The no-row sextic control decreases by approximately a factor of eight on each resolution doubling, consistent with fourth-order truncation. Imposing the centre row instead makes the residual approximately double on each resolution doubling, i.e. it exhibits the same \(1/h\)-type growth seen in the accepted trace remainder near the origin.
+
+For the quartic control, the unmodified smooth-even data have \(\alpha_0-\alpha_1\) equal to \(-3.5714\times10^{-5}\), \(-8.8988\times10^{-6}\), and \(-2.2228\times10^{-6}\) at N=60/120/240. These are \(O(h^2)\) differences. The centre row forces them to zero; the parity-ghost second derivative then divides the resulting \(O(h^2)\) profile change by \(h^2\), and the momentum-constraint derivative produces the observed \(O(1/h)\) remainder.
+
+**Interpretation:** the parity-ghost \(D_1/D_2\) pair passes the smooth-even negative control. The additional two-cell CMC row is what introduces the nonconvergent Bochner-slot defect in this control. The accepted stage's first-two-cell plateau and its approximately \(1/h\)-growing trace remainder have the same signature. This is strong evidence that the centre-row/stencil compatibility is the leading numerical discriminator for the observed central trace mismatch, but it is not yet a complete causal proof for the full curved, matter-coupled stage.
+
+No production boundary condition or stencil is changed. The next step is a source-level derivation of a centre row that is discretely compatible with the existing parity-ghost operators, followed by an independently reviewed research-only comparator. Any proposed row change remains unauthorized and must not be applied to production without explicit approval.
