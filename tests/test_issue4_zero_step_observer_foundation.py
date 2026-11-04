@@ -79,6 +79,50 @@ class ObserverFoundationTests(unittest.TestCase):
             self.assertEqual(manifest["vendor_commit"], observer.VENDOR)
             self.assertEqual(manifest["accepted_source_blobs"], observer.REQUIRED_SOURCE_BLOBS)
 
+    def test_each_pinned_blob_and_vendor_mismatch_is_rejected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            diagnostic = Path(tmp) / "diagnostic"
+            baseline = Path(tmp) / "baseline"
+            vendor_root = diagnostic / "vendor" / "bb-palatini-unified-r0"
+            vendor_root.mkdir(parents=True)
+            baseline.mkdir()
+
+            probes = [
+                (diagnostic, ("rev-parse", f"HEAD:{path}"))
+                for path in observer.REQUIRED_SOURCE_BLOBS
+            ]
+            probes.extend([
+                (diagnostic, ("rev-parse", "HEAD:tools/audit_current_source_momentum_constraint_tangent.py")),
+                (diagnostic, ("rev-parse", "HEAD:tools/audit_total_stress_energy_divergence.py")),
+                (vendor_root, ("rev-parse", "HEAD")),
+            ])
+
+            for bad_root, bad_args in probes:
+                with self.subTest(root=str(bad_root), args=bad_args):
+                    def fake_git(root, *args):
+                        if root == baseline and args == ("rev-parse", "HEAD"):
+                            return observer.HELPER_BASELINE
+                        if root == diagnostic and args == ("rev-parse", "HEAD"):
+                            return observer.ACCEPTED_SOURCE
+                        if root == vendor_root and args == ("rev-parse", "HEAD"):
+                            return "wrong-vendor" if (root, args) == (bad_root, bad_args) else observer.VENDOR
+                        if root == diagnostic and args[:1] == ("rev-parse",):
+                            key = (root, args)
+                            if key == (bad_root, bad_args):
+                                return "wrong-blob"
+                            name = args[1]
+                            if name.startswith("HEAD:tools/audit_current_source_momentum_constraint_tangent.py"):
+                                return observer.TANGENT_HELPER_BLOB
+                            if name.startswith("HEAD:tools/audit_total_stress_energy_divergence.py"):
+                                return observer.TOTAL_STRESS_HELPER_BLOB
+                            source_path = name.removeprefix("HEAD:")
+                            return observer.REQUIRED_SOURCE_BLOBS.get(source_path, "unexpected")
+                        raise AssertionError(f"unexpected git probe: {root} {args}")
+
+                    with patch.object(observer, "_git", side_effect=fake_git):
+                        with self.assertRaises(RuntimeError):
+                            observer.verify_provenance(diagnostic, baseline)
+
     def test_historical_baseline_cannot_substitute_for_accepted_source(self):
         with tempfile.TemporaryDirectory() as tmp:
             diagnostic = Path(tmp) / "diagnostic"
