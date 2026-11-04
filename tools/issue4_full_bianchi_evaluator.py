@@ -184,7 +184,7 @@ def evaluate_accepted_fixture(
     def forbidden_vendor_pirk(*args, **kwargs):
         step_calls.append("vendor.damped_moving_puncture_pirk2_step")
         raise RuntimeError("zero-step observer forbids vendor PIRK advance")
-    moving_puncture_pirk.pirk2_step = forbidden_vendor_pirk
+    moving_puncture_pirk.damped_moving_puncture_pirk2_step = forbidden_vendor_pirk
 
     state = _state_from_fixture(fixture, r0_operators, vacuum_bssn)
     helper_digest_before = total_helper.state_digest(state)
