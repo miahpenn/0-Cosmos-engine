@@ -10,6 +10,7 @@ on:
   workflow_dispatch:
 
 permissions:
+  actions: read
   contents: read
 
 concurrency:
@@ -18,6 +19,7 @@ concurrency:
 
 jobs:
   bounded-independent-divergence:
+    if: ${{ github.event_name != 'workflow_dispatch' || github.ref != 'refs/heads/research/issue4-zero-step-bianchi-observer-2026-11-04' }}
     runs-on: ubuntu-latest
     timeout-minutes: 55
     env:
@@ -131,5 +133,239 @@ jobs:
         with:
           name: issue4-independent-covariant-total-T-divergence-${{ github.sha }}
           path: results/issue4-independent-covariant-total-T-divergence/
+          if-no-files-found: warn
+          retention-days: 90
+
+
+  # This job is selected only by manually dispatching this already-registered
+  # Issue 4 workflow against the zero-step observer research branch. It is
+  # intentionally separate from the older independent-divergence matrix.
+  accepted-state-zero-step-observer:
+    if: \${{ github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/research/issue4-zero-step-bianchi-observer-2026-11-04' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      PYTHONUNBUFFERED: "1"
+      RUNNER_COMMIT: \${{ github.sha }}
+      DIAGNOSTIC_SOURCE_COMMIT: "4aec88d0e3ff028e0a65a8ac36b30948625df792"
+      HELPER_BASELINE_COMMIT: "7f47669a1c0edfafef9fc5f27b2db80840d3f035"
+      VENDOR_COMMIT: "d6052d605673ce9d82cdc99b0df79855fa2ea215"
+    steps:
+      - name: Check out the observer runner at the dispatched branch SHA
+        uses: actions/checkout@v4
+        with:
+          ref: \${{ github.sha }}
+          path: runner
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Check out the accepted diagnostic source and exact vendor
+        uses: actions/checkout@v4
+        with:
+          ref: \${{ env.DIAGNOSTIC_SOURCE_COMMIT }}
+          path: diagnostic-source
+          fetch-depth: 0
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Check out the protected helper baseline
+        uses: actions/checkout@v4
+        with:
+          ref: \${{ env.HELPER_BASELINE_COMMIT }}
+          path: helper-baseline
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Fail closed on all three source identities and observer blobs
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C runner rev-parse HEAD)" = "$RUNNER_COMMIT"
+          test "$(git -C diagnostic-source rev-parse HEAD)" = "$DIAGNOSTIC_SOURCE_COMMIT"
+          test "$(git -C helper-baseline rev-parse HEAD)" = "$HELPER_BASELINE_COMMIT"
+          test "$(git -C diagnostic-source/vendor/bb-palatini-unified-r0 rev-parse HEAD)" = "$VENDOR_COMMIT"
+          test "$(git -C runner rev-parse HEAD:tools/issue4_full_bianchi_evaluator.py)" = "bdd7574807def8a612e5d39c00c97629d0511ae5"
+          test "$(git -C runner rev-parse HEAD:tools/issue4_accepted_state_fixture.py)" = "c9ec1bbd4373e3f96cd4dac7dcb9c91c1014b2ba"
+          test "$(git -C runner rev-parse HEAD:tools/issue4_bianchi_reference_regression.py)" = "fff8882ff09b3f9f1d1f86c4b331873d87a7d729"
+          test "$(git -C runner rev-parse HEAD:tests/test_issue4_full_bianchi_evaluator_contract.py)" = "cc438c281e056a5ec2b9d6b5a0fc9006fa4a7e6f"
+          test -z "$(git -C runner status --porcelain)"
+          test -z "$(git -C diagnostic-source status --porcelain)"
+          test -z "$(git -C helper-baseline status --porcelain)"
+          printf 'RUNNER=%s\n' "$(git -C runner rev-parse HEAD)"
+          printf 'DIAGNOSTIC_SOURCE=%s\n' "$(git -C diagnostic-source rev-parse HEAD)"
+          printf 'HELPER_BASELINE=%s\n' "$(git -C helper-baseline rev-parse HEAD)"
+          printf 'VENDOR=%s\n' "$(git -C diagnostic-source/vendor/bb-palatini-unified-r0 rev-parse HEAD)"
+
+      - name: Set up exact Python runtime
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12.15"
+
+      - name: Install the recorded numerical and test environment
+        run: |
+          python -m pip install \
+            numpy==2.5.4 \
+            scipy==1.18.1 \
+            sympy==1.14.0 \
+            mpmath==1.3.0 \
+            pytest==9.1.1 \
+            threadpoolctl
+
+      - name: Capture runner, package, BLAS and CPU provenance
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p environment archives results
+          uname -a > environment/uname.txt
+          lscpu > environment/lscpu.txt
+          python - <<'PY'
+          import contextlib
+          import io
+          import json
+          import platform
+          import sys
+          from importlib.metadata import version
+          import numpy as np
+          import scipy
+          import sympy
+          import mpmath
+          import pytest
+          from threadpoolctl import threadpool_info
+
+          def config_text(fn):
+              stream = io.StringIO()
+              with contextlib.redirect_stdout(stream):
+                  fn()
+              return stream.getvalue()
+
+          report = {
+              "python": sys.version,
+              "platform": platform.platform(),
+              "packages": {
+                  name: version(name)
+                  for name in ("numpy", "scipy", "sympy", "mpmath", "pytest", "threadpoolctl")
+              },
+              "numpy_build_config": config_text(np.show_config),
+              "scipy_build_config": config_text(scipy.show_config),
+              "threadpools": threadpool_info(),
+              "runner": {
+                  "github_actions": True,
+                  "runner_os": __import__("os").environ.get("RUNNER_OS"),
+                  "runner_arch": __import__("os").environ.get("RUNNER_ARCH"),
+                  "run_id": __import__("os").environ.get("GITHUB_RUN_ID"),
+                  "sha": __import__("os").environ.get("GITHUB_SHA"),
+              },
+          }
+          with open("environment/runtime.json", "w", encoding="utf-8") as stream:
+              json.dump(report, stream, indent=2, sort_keys=True)
+              stream.write("\n")
+          PY
+          python -m pip freeze > environment/pip-freeze.txt
+
+      - name: Download the original accepted-state archives without extraction
+        shell: bash
+        env:
+          GH_TOKEN: \${{ github.token }}
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 3 \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/artifacts/12615136565/zip" \
+            --output archives/issue4-exact-profile-momentum-tangent-N60.zip
+          curl --fail --location --retry 3 \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/artifacts/12615555594/zip" \
+            --output archives/issue4-exact-profile-momentum-tangent-N120.zip
+          curl --fail --location --retry 3 \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/artifacts/12615550675/zip" \
+            --output archives/issue4-exact-profile-momentum-tangent-N240.zip
+          cat > archives/SHA256SUMS.txt <<'EOF'
+          41d646090e05c08684806c5e39d57851f119cf0f38aa90f1d26ab5f72f87d1ce  archives/issue4-exact-profile-momentum-tangent-N60.zip
+          9f5c2504f28290ff540c96f93e1fb569f5b960b7a2b3fc312dca9362c8e2eacf  archives/issue4-exact-profile-momentum-tangent-N120.zip
+          e8a9cd26fbe3dbfb0bd62fc0606237c387a41efd14ade550df50da9842b38bea  archives/issue4-exact-profile-momentum-tangent-N240.zip
+          EOF
+          sha256sum --check archives/SHA256SUMS.txt
+
+      - name: Run focused zero-step observer contract tests
+        working-directory: runner
+        run: |
+          python -m pytest -q tests/test_issue4_full_bianchi_evaluator_contract.py
+
+      - name: Evaluate the accepted frozen state at N=60, 120 and 240
+        working-directory: runner
+        run: |
+          set -euo pipefail
+          mkdir -p ../results
+          python -m tools.issue4_full_bianchi_evaluator \
+            --archive ../archives/issue4-exact-profile-momentum-tangent-N60.zip \
+            --resolution 60 \
+            --diagnostic-source ../diagnostic-source \
+            --helper-baseline ../helper-baseline \
+            --output ../results/accepted-N60.json
+          python -m tools.issue4_full_bianchi_evaluator \
+            --archive ../archives/issue4-exact-profile-momentum-tangent-N120.zip \
+            --resolution 120 \
+            --diagnostic-source ../diagnostic-source \
+            --helper-baseline ../helper-baseline \
+            --output ../results/accepted-N120.json
+          python -m tools.issue4_full_bianchi_evaluator \
+            --archive ../archives/issue4-exact-profile-momentum-tangent-N240.zip \
+            --resolution 240 \
+            --diagnostic-source ../diagnostic-source \
+            --helper-baseline ../helper-baseline \
+            --output ../results/accepted-N240.json
+
+      - name: Assert accepted-state outputs and zero-step invariants
+        working-directory: runner
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          expected = {
+              60: "2ae2a5704b2b87d16ef9239c8a22ef261ed9108d971d3a5c78a3d1133aa9e9e4",
+              120: "0266c7fafc5e9a292a9a376f1d91fa45bb8dd103b6f8c21b543c25d0930daacb",
+              240: "770d36f3db5b60da87f52beb213f8af4731e17021f95c1519ecbdbe759b41cce",
+          }
+          for n, digest in expected.items():
+              result = json.loads(Path(f"../results/accepted-N{n}.json").read_text())
+              assert result["status"] == "diagnostic_evaluation_complete", (n, result.get("reason"))
+              assert result["resolution"] == n
+              assert result["state_class"] == "accepted_t_0p60"
+              assert result["input_digests"]["upstream_archive_state"] == digest
+              assert result["provenance"]["accepted_diagnostic_source_commit"] == "4aec88d0e3ff028e0a65a8ac36b30948625df792"
+              assert result["provenance"]["protected_helper_baseline_commit"] == "7f47669a1c0edfafef9fc5f27b2db80840d3f035"
+              assert result["provenance"]["vendor_commit"] == "d6052d605673ce9d82cdc99b0df79855fa2ea215"
+              assert result["production_steps_run"] == 0
+              assert result["state_advanced"] is False
+              assert result["zero_step_tripwire"] == "armed_and_not_triggered"
+          print("ISSUE4_ACCEPTED_ZERO_STEP_OBSERVER_PASS resolutions=60,120,240 production_steps=0 state_advanced=false")
+          PY
+
+      - name: Hash retained archives, reports and environment
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p results
+          find archives environment results -type f ! -name SHA256SUMS.txt -print0 \
+            | sort -z | xargs -0 -r sha256sum > results/SHA256SUMS.txt
+
+      - name: Upload archives, evaluator outputs and environment provenance
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: issue4-zero-step-accepted-state-observer-\${{ github.run_id }}
+          path: |
+            archives/
+            environment/
+            results/
           if-no-files-found: warn
           retention-days: 90
