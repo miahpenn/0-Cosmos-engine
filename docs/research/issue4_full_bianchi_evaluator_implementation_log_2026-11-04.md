@@ -89,3 +89,17 @@ Tests were added for:
 The tests are committed but have **not yet been executed** in CI. The committed evaluator itself has also not yet been run against the archives. The offline formula cross-check above is separate evidence, not a substitute for running the committed implementation.
 
 No manufactured or t=0 state adapter has been evaluated. No production step, initializer change, vendor change, workflow change, or admission-state change occurred.
+
+## 6. CI side effect and boundary correction
+
+A draft PR (#428) was opened to expose the repository checks. That unexpectedly triggered the existing `lightweight_validation.yml` workflow, whose standard job includes a separate one-step production-kernel smoke test. The PR was closed when this workflow scope was identified; GitHub continued the already-running job.
+
+The workflow completed successfully:
+- complete repository suite: 981 passed, 14 subtests passed;
+- curved-slice EM discriminator: 1 passed;
+- control-only smoke: passed;
+- pre-existing production smoke: one fresh test state at resolution 40, (r_{max}=40), (dt=0.03), advanced to (t=0.03), reporting `PRODUCTION_STEP_SMOKE_PASS`.
+
+That single smoke step was outside the authorized zero-step observer scope. It was not invoked by the observer, did not use any accepted archive, and did not change production source, initializer, vendor, or any persistent project state. Nevertheless, triggering it was my mistake: I should have inspected the full PR workflow before opening the draft. PR #428 remains closed. No further workflow/CI trigger will be initiated without first checking its complete step list and obtaining authorization where a production step is included.
+
+The passing suite corresponds to PR head `631ded29906081436d2b1b49291c2d065b01cbfe`. A subsequent provenance-manifest-only change at the current branch head has not been rerun. The committed accepted-state evaluator itself has not yet been executed against the archives; the separate formula reconstruction in §4 remains the numerical cross-check.
