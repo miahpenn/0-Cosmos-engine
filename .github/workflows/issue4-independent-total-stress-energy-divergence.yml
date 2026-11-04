@@ -141,12 +141,12 @@ jobs:
   # Issue 4 workflow against the zero-step observer research branch. It is
   # intentionally separate from the older independent-divergence matrix.
   accepted-state-zero-step-observer:
-    if: \${{ github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/research/issue4-zero-step-bianchi-observer-2026-11-04' }}
+    if: ${{ github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/research/issue4-zero-step-bianchi-observer-2026-11-04' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     env:
       PYTHONUNBUFFERED: "1"
-      RUNNER_COMMIT: \${{ github.sha }}
+      RUNNER_COMMIT: ${{ github.sha }}
       DIAGNOSTIC_SOURCE_COMMIT: "4aec88d0e3ff028e0a65a8ac36b30948625df792"
       HELPER_BASELINE_COMMIT: "7f47669a1c0edfafef9fc5f27b2db80840d3f035"
       VENDOR_COMMIT: "d6052d605673ce9d82cdc99b0df79855fa2ea215"
@@ -154,7 +154,7 @@ jobs:
       - name: Check out the observer runner at the dispatched branch SHA
         uses: actions/checkout@v4
         with:
-          ref: \${{ github.sha }}
+          ref: ${{ github.sha }}
           path: runner
           fetch-depth: 0
           persist-credentials: false
@@ -162,7 +162,7 @@ jobs:
       - name: Check out the accepted diagnostic source and exact vendor
         uses: actions/checkout@v4
         with:
-          ref: \${{ env.DIAGNOSTIC_SOURCE_COMMIT }}
+          ref: ${{ env.DIAGNOSTIC_SOURCE_COMMIT }}
           path: diagnostic-source
           fetch-depth: 0
           submodules: recursive
@@ -171,7 +171,7 @@ jobs:
       - name: Check out the protected helper baseline
         uses: actions/checkout@v4
         with:
-          ref: \${{ env.HELPER_BASELINE_COMMIT }}
+          ref: ${{ env.HELPER_BASELINE_COMMIT }}
           path: helper-baseline
           fetch-depth: 0
           persist-credentials: false
@@ -265,7 +265,7 @@ jobs:
       - name: Download the original accepted-state archives without extraction
         shell: bash
         env:
-          GH_TOKEN: \${{ github.token }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           curl --fail --location --retry 3 \
@@ -362,7 +362,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: issue4-zero-step-accepted-state-observer-\${{ github.run_id }}
+          name: issue4-zero-step-accepted-state-observer-${{ github.run_id }}
           path: |
             archives/
             environment/
