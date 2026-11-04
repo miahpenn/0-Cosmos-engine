@@ -1,6 +1,7 @@
 """Unit tests for the Issue #4 zero-step observer foundation."""
 from __future__ import annotations
 
+import ast
 import importlib.util
 from pathlib import Path
 import sys
@@ -42,7 +43,14 @@ class ObserverFoundationTests(unittest.TestCase):
             observer.require_unchanged("before", "after")
 
     def test_no_production_kernel_import_at_module_load(self):
-        self.assertNotIn("engine.production_kernel", sys.modules)
+        tree = ast.parse(MODULE_PATH.read_text(encoding="utf-8"))
+        imported = []
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ImportFrom) and (node.module or "").startswith("engine"):
+                imported.append(node.module)
+            elif isinstance(node, ast.Import):
+                imported.extend(alias.name for alias in node.names if alias.name.startswith("engine"))
+        self.assertEqual(imported, [])
 
     def test_provenance_accepts_only_the_two_distinct_source_checkouts(self):
         with tempfile.TemporaryDirectory() as tmp:
