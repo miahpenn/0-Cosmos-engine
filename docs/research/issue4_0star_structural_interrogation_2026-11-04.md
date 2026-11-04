@@ -1312,3 +1312,42 @@ The lapse-Hessian subtotal at cells 0 and 1 is strikingly close in sign and scal
 The earlier primary-L2 localization can now be sharpened: the central residual is especially aligned with the primary-L2 **lapse-Hessian derivative/product subtotal**, rather than the vendor connection correction or the primary-predictor \(L_3\) block. The exact continuum algebra must now be crosswalked to the discrete identities among \(D_rD_r\alpha\), \(\Delta\alpha\), the radial connection coefficient, and the Brown Hamiltonian-gradient pair. The crosswalk must retain the pinned discrete operators and their product/chain-rule remainders; no continuum product rule may be silently imposed on the grid.
 
 This does not establish a missing physical term or authorize any coefficient adjustment. The central stencil and the exact stage remain the unresolved numerical location. No new RHS, observer, lapse solve, or evolution was run; all scientific-admission flags remain false.
+
+
+## 12. Exact discrete angular-lapse-Hessian rewrite
+
+The primary-L2 lapse-Hessian subtotal from §11 admits a further exact algebraic rewrite on the saved grid. Define
+\[
+\Gamma^\theta{}_{\theta r,h}
+=\frac1r+\frac{D_1b}{2b}-\frac{D_1X}{X}
+=\frac q2+2\chi_r,
+\qquad
+A_{\alpha,h}=\frac{X^2}{a}
+\Gamma^\theta{}_{\theta r,h}D_1\alpha.
+\]
+The pinned vendor definitions of the radial Hessian and scalar Laplacian imply, pointwise on the same discrete arrays,
+\[
+(\Delta\alpha)_h-(D_rD_r\alpha)_h=2A_{\alpha,h}.
+\]
+Consequently, the combined primary-L2 lapse contribution in the three principal momentum-tangent terms is
+\[
+\begin{aligned}
+G_{L2,\alpha,h}
+={}&D_1\left[-(D_rD_r\alpha)_h+\frac13(\Delta\alpha)_h\right]
+-\frac23D_1[-(\Delta\alpha)_h]\\
+&+\frac32q\left[-(D_rD_r\alpha)_h+\frac13(\Delta\alpha)_h\right]\\
+={}&D_1(2A_{\alpha,h})
++q\left[-(D_rD_r\alpha)_h+A_{\alpha,h}\right].
+\end{aligned}
+\]
+This is an algebraic rearrangement of the pinned discrete definitions, not an imposed continuum product rule. Re-evaluation on the archived arrays gives maximum absolute gaps between the two sides over \(r\le10\) of:
+
+| N | Maximum rewrite gap |
+|---:|---:|
+| 60 | \(1.69\times10^{-20}\) |
+| 120 | \(1.08\times10^{-19}\) |
+| 240 | \(1.22\times10^{-19}\) |
+
+The signed cell values are identical to the lapse-Hessian subtotal in §11; at N=240 they are \(+8.3773\times10^{-5}\), \(-9.0530\times10^{-5}\), and \(+5.6730\times10^{-5}\) at cells 0, 1, and 2.
+
+**Why this matters:** the large primary-L2 lapse contribution is now expressed as a radial-connection-weighted lapse gradient and its discrete radial derivative. The next comparison can be made directly against the Brown trace/tracefree Bianchi blocks using the same \(q\), \(\chi_r\), and radial connection coefficient. This does not yet show that the Brown blocks equal this expression; it supplies an exact, convention-pinned bridge for testing that claim without fitting or choosing a residual-minimizing term.
