@@ -17,7 +17,7 @@ from typing import Any
 
 import numpy as np
 
-from tools.issue4_accepted_state_fixture import load_accepted_fixture
+from tools.issue4_accepted_state_fixture import load_accepted_fixture, sector_accounting_summary
 from tools.issue4_bianchi_reference_regression import assert_reference_regression
 from tools.issue4_zero_step_full_bianchi_observer import verify_provenance, require_unchanged
 
@@ -329,6 +329,7 @@ def evaluate_accepted_fixture(
         },
         "projection_crosscheck": projection["projection_crosscheck"],
         "structural_inventory": fixture["structural_inventory"],
+        "six_sector_divergence_accounting": sector_accounting_summary(fixture["report"]),
         "signed_terms": {
             "shift_transport": shift_transport,
             "normal_alpha_K_M": normal_alpha_K_M,
