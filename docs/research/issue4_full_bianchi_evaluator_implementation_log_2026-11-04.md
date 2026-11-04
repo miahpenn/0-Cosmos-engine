@@ -37,7 +37,7 @@ New research-only modules:
 - `tools/issue4_full_bianchi_evaluator.py` — one accepted-state evaluator and machine-readable CLI.
 - `tools/issue4_bianchi_reference_regression.py` — signed reference witnesses and epsilon-sweep regression gate.
 
-The evaluator verifies both source checkouts, all accepted-anchor source blobs, helper blobs, and vendor pin before loading a state. It imports the reviewed total-stress helper only after the provenance gate. It constructs a read-only state view from archived arrays; it does not construct or call a production kernel RHS.
+The evaluator verifies both source checkouts, all accepted-anchor source blobs, helper blobs, and vendor pin before loading a state. It imports the reviewed total-stress helper only after the provenance gate. It constructs a digest-guarded frozen-state view from archived arrays; the evaluator only reads that view and checks its canonical digest before and after. It does not construct or call a production kernel RHS.
 
 The evaluator arms in-memory refusal tripwires for `V55ProductionKernel.step` and the exact vendor `damped_moving_puncture_pirk2_step` entry point. The accepted fixture must remain byte-identical under the pinned tangent-helper digest before and after evaluation.
 
