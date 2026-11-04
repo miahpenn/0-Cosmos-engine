@@ -470,12 +470,12 @@ def main() -> int:
         if args.output is None:
             print(payload)
         else:
-            args.output.write_text(payload + "\\n", encoding="utf-8")
+            args.output.write_text(payload + "\n", encoding="utf-8")
         return 2
     if args.output is None:
         print(payload)
     else:
-        args.output.write_text(payload + "\\n", encoding="utf-8")
+            args.output.write_text(payload + "\n", encoding="utf-8")
     return 0
 
 
