@@ -35,7 +35,7 @@ EXPECTED = {
         "report": "216b9e834874e9d7de8f88ba75b4a543ac234ea7b611ab7d2652fd4b001c3d8f",
         "npz": "5751a16949b763ad5e96a4afac9db4fb1d92d55a0c6e7ddaabc4cc6b25652e0b",
         "archive_state": "0266c7fafc5e9a292a9a376f1d91fa45bb8dd103b6f8c21b543c25d0930daacb",
-        "helper_state": "b3b0b7a4b6d3c3e4a5f5f0e8d8b6c9f2",
+        "helper_state": "032a5d079b76dfe7bf50b08765f03b9f2dcc730ba1a33329517c153a27bf70cb",
     },
     240: {
         "zip": "e8a9cd26fbe3dbfb0bd62fc0606237c387a41efd14ade550df50da9842b38bea",
