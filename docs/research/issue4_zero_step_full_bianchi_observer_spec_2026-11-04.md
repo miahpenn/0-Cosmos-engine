@@ -25,9 +25,14 @@ The observer must fail closed unless all required pins match the accepted-state 
 - tangent helper blob: `3f00a4e0a2063b86d2e007c5a825f9edfff61a4c`;
 - total-stress helper blob: `c10f9e8b9e654d5195fd55c493c3fe06ba5c7082`.
 
-The total-stress helper's historical source-reference commit `7f47669a1c0edfafef9fc5f27b2db80840d3f035` is metadata for its protected helper lineage only. It is **not** an alternate accepted production source pin and must never be used to satisfy the source-anchor gate.
+The reviewed helper chain has a **two-layer source identity** that must remain explicit:
 
-At startup and in the output manifest, record the resolved repository commit, exact source/vendor/helper blob identities, Python and NumPy versions, runner/OS, CPU model/features, BLAS implementation/core dispatch, NumPy SIMD dispatch where available, and all input/output digests. Missing hardware metadata must be reported as unavailable, not inferred.
+- accepted comparison's diagnostic/source anchor: `4aec88d0e3ff028e0a65a8ac36b30948625df792`;
+- protected historical baseline checkout used by the existing tangent/total-stress helpers for source-blob verification: `7f47669a1c0edfafef9fc5f27b2db80840d3f035`.
+
+The historical `7f47669…` checkout is a required, separately named helper-baseline provenance input because the reviewed helpers verify their protected source blobs against it. It is **not** the accepted diagnostic/source anchor, must not be imported as the candidate runtime implementation, and cannot substitute for the `4aec88d…` anchor. The exact role of each checkout must be recorded; do not collapse them into one generic "source commit" field.
+
+At startup and in the output manifest, record the resolved diagnostic checkout commit, separately resolved protected-baseline checkout commit, exact source/vendor/helper blob identities, Python and NumPy versions, runner/OS, CPU model/features, BLAS implementation/core dispatch, NumPy SIMD dispatch where available, and all input/output digests. Missing hardware metadata must be reported as unavailable, not inferred.
 
 No fallback, auto-discovery substitution, or "close enough" pin matching is permitted. A mismatch or missing required identity terminates before state evaluation and produces a machine-readable refusal.
 
