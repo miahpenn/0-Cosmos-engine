@@ -684,3 +684,213 @@ Likewise, the explicit \(A_a/K\) matter-injection terms are already part of the 
 **Next action:** no new observer and no evolution. First reconcile the exact accepted BSSN off-constraint subsidiary operator with the composite expression, including the spatial Einstein residual and the vendor-specific \(C^r\) terms. Then reuse the existing #420/#423 signed arrays to map the already-derived Bianchi source under each declared divergence representation and preserve the existing stage ownership. Only if that derivation identifies a genuinely absent operand should a narrow post-processor be proposed.
 
 All production equations, initializers, vendor files, accepted states, and source pins remain untouched. All scientific-admission and acceptance flags remain false.
+
+
+## 0* continuation — Bianchi projection of the off-constraint spatial Einstein residual
+
+**Status:** source-derived continuum subsidiary identity for the accepted BSSN split, with the evolved-connection residual explicitly identified. This resolves the previously unstructured spatial-Einstein remainder at the continuum equation level, conditional on the accepted total-stress projections. Fixed-grid and PIRK remainders remain separate.
+
+### 1. Project the contracted Bianchi identity before setting the spatial residual to zero
+
+Define the Einstein-equation residual and its 3+1 projections by
+
+\[
+\mathcal E_{\mu\nu}=G_{\mu\nu}-\kappa T^{\mathrm{tot}}_{\mu\nu},
+\quad
+H=2\mathcal E_{\mu\nu}n^\mu n^\nu,
+\quad
+M_i=-\gamma_i{}^\mu n^\nu\mathcal E_{\mu\nu},
+\quad
+\mathcal S_{ij}=\gamma_i{}^\mu\gamma_j{}^\nu\mathcal E_{\mu\nu}.
+\]
+
+Let \(a_i=D_i\ln\alpha\), \(K=-\nabla_\mu n^\mu\), and
+\(\mathcal D_i^{\mathrm{tot}}=\gamma_i{}^\nu\nabla_\mu T_{\mathrm{tot}}^\mu{}_\nu\).
+The mixed residual has the exact decomposition
+
+\[
+\mathcal E^\mu{}_\nu
+=\frac12H n^\mu n_\nu
++n^\mu M_\nu+M^\mu n_\nu+\mathcal S^\mu{}_\nu.
+\]
+
+Taking its spatially projected divergence, without setting \(\mathcal S_{ij}\) to zero, gives
+
+\[
+\gamma_i{}^\nu\nabla_\mu\mathcal E^\mu{}_\nu
+=(\mathcal L_n M)_i-KM_i
++\frac12Ha_i+D_j\mathcal S^j{}_i+a_j\mathcal S^j{}_i.
+\]
+
+The contracted Bianchi identity sets this equal to
+\(-\kappa\mathcal D_i^{\mathrm{tot}}\). Since
+\(\partial_t=\alpha n+\beta\), and \(M_i\) is a spatial covector, the coordinate-time equation is
+
+\[
+(\partial_t-\mathcal L_\beta)M_i
+=\alpha K M_i-\frac12H D_i\alpha
+-\alpha D_j\mathcal S^j{}_i
+-(D_j\alpha)\mathcal S^j{}_i
+-\kappa\alpha\mathcal D_i^{\mathrm{tot}}.
+\]
+
+This is the general projected identity. It exposes the spatial Einstein residual as an actual operand; dropping it before identifying the evolution formulation would be an unjustified assumption.
+
+### 2. The BSSN trace part produces the Brown Hamiltonian-gradient pair
+
+For the accepted tracefree-\(A_{ij}\) / scalar-\(K\) BSSN evolution split, the spatial residual is decomposed as
+
+\[
+\mathcal S^j{}_i
+=-\frac16H_{\mathrm{tot}}\delta^j_i+\Pi^j{}_i,
+\qquad
+\Pi^i{}_i=0.
+\]
+
+The isotropic part is the off-constraint trace left by the BSSN trace/tracefree evolution split; the tracefree part \(\Pi^j{}_i\) retains the connection-dependent spatial Einstein residual. Substitution in the projected identity gives
+
+\[
+\boxed{
+\begin{aligned}
+(\partial_t-\mathcal L_\beta)M_i
+={}&\alpha K M_i
+-\frac13H_{\mathrm{tot}}D_i\alpha
++\frac16\alpha D_iH_{\mathrm{tot}}\\
+&-\alpha D_j\Pi^j{}_i
+-(D_j\alpha)\Pi^j{}_i
+-\kappa\alpha\mathcal D_i^{\mathrm{tot}}.
+\end{aligned}}
+\]
+
+Thus the BSSN Hamiltonian-gradient pair is not an independently chosen correction: it follows from the isotropic spatial Einstein residual \(-H_{\mathrm{tot}}\delta^j_i/6\). The remaining tracefree term is precisely where the accepted off-constraint connection extension must enter. This also explains why the standard ADM pair is not interchangeable: it corresponds to a different spatial-residual trace under its evolution-system convention.
+
+### 3. Identify the accepted vendor's tracefree spatial residual
+
+Use the pinned vendor's same-metric connection offsets, with
+\(C^r=\Lambda-\Lambda_{\mathrm{metric}}\) and \(\chi=X^2\):
+
+\[
+\Delta_\Lambda R^r{}_r
+=\chi\left[D_1(C^r)+\frac{D_1(a)}{2a}C^r\right],
+\qquad
+\Delta_\Lambda R=\chi D_1(C^r).
+\]
+
+The tracefree radial Ricci offset is therefore
+
+\[
+W^r{}_r
+\equiv\Delta_\Lambda R^r{}_r-\frac13\Delta_\Lambda R
+=\chi\left[
+\frac23D_1(C^r)+\frac{D_1(a)}{2a}C^r
+\right],
+\]
+
+with spherical angular components
+\(W^\theta{}_\theta=W^\varphi{}_\varphi=-W^r{}_r/2\).
+
+The accepted primary-\(L_2\) \(A_a\) equation contains
+\(+\alpha(R^r{}_r-R/3)\). Relative to the metric-only Einstein tensor, the vendor's evolved-\(\Lambda\) insertion therefore gives the tracefree spatial residual
+
+\[
+\Pi^i{}_j=-W^i{}_j.
+\]
+
+The matter terms in the accepted \(A_a\) and \(K\) equations are the corresponding tracefree-anisotropic and scalar-trace stress projections from the same declared \((\rho,p_r,p_t)\) total tensor. Under that same projection convention, they do not create a second, independent tracefree residual. The archive's physical \(S/D\)-to-\(T_{\mu\nu}\) normalization remains a separate premise and is not certified by this code-level correspondence.
+
+### 4. Its Bianchi contribution is exactly the already-derived \(F_C\) term
+
+Set \(F_C=\alpha W^r{}_r\), which is exactly the \(\Lambda\)-offset contribution to the accepted \(A_a\) L2 RHS derived in PR #423 §10.9:
+
+\[
+F_C=\alpha\chi\left[
+\frac23D_1(C^r)+\frac{D_1(a)}{2a}C^r
+\right].
+\]
+
+The tracefree residual term in the Bianchi equation becomes
+
+\[
+-\alpha D_j\Pi^j{}_r-(D_j\alpha)\Pi^j{}_r
+=D_j(\alpha W^j{}_r).
+\]
+
+For a radial tracefree mixed tensor with components
+\((F_C,-F_C/2,-F_C/2)\), the physical spherical divergence is
+
+\[
+\boxed{
+D_j(\alpha W^j{}_r)
+=D_1(F_C)
++\left[
+6\chi_r+\frac3r+\frac{3D_1(b)}{2b}
+\right]F_C,
+\qquad
+\chi_r=-\frac{D_1(X)}{2X}.
+}
+\]
+
+This is exactly the accepted-RHS chain-rule expression
+\(\Delta_C\dot M_{r,\mathrm{geom}}=\mathscr L[F_C]\) in PR #423 §§10.9 and 10.14. The equality is structural: it is the Bianchi divergence of the tracefree spatial Einstein residual generated by using the evolved connection in the Ricci RHS.
+
+**Important consequence:** the connection correction is not an extra source to append on top of the accepted \(\dot M_r\) chain rule. It is the Bianchi representation of the same \(\Lambda\)-dependent \(A_a\)-Ricci response already present there. The vendor-specific \(\tfrac12(D_1a/a)C^r\) contribution is part of \(W^r{}_r\); Brown's differentiated-connection expression alone does not contain the full pinned vendor extension.
+
+### 5. The connection constraint is a second, coupled subsidiary variable
+
+The evolution of \(C^r\) is a distinct equation, not another term in the instantaneous \(M_r\) equation. The exact accepted same-state relation from PR #423 §10.8 can be written
+
+\[
+\dot C^r=\frac{2\alpha}{a}M_{r,\mathrm{tot}}+\mathcal G_C,
+\]
+
+where, for the accepted zero-shift, \(\lambda_m=2\) slice,
+
+\[
+\begin{aligned}
+\mathcal G_C={}&
+-\frac2a\left(A_aD_1\alpha+\alpha D_1A_a\right)
+-\frac{4\alpha(A_a-A_b)}{rb}\\
+&+2\alpha A_a\Lambda-\dot\Lambda_{\mathrm{metric}}.
+\end{aligned}
+\]
+
+Here \(\dot\Lambda_{\mathrm{metric}}\) is the exact derivative of the pinned reference target, as defined in PR #423 §10.8. The vendor-versus-Brown connection-evolution difference
+\(2\alpha A_aC^r+\epsilon_\chi\) from §10.16 belongs to this \(C^r\) equation. It is **not** an additional direct source in \(\dot M_r\). The two constraints form a coupled subsystem: \(M_r\) sources the connection-constraint rate, while \(C^r\) supplies the tracefree spatial-residual divergence in the momentum equation.
+
+### 6. Resulting continuum candidate for the accepted vendor formulation
+
+Combining the covector shift transport, the BSSN trace part, the accepted vendor tracefree residual, and the total-stress Bianchi source gives
+
+\[
+\boxed{
+\begin{aligned}
+\partial_t M_{r,\mathrm{tot}}
+={}&\beta^rD_rM_{r,\mathrm{tot}}
++(D_r\beta^r)M_{r,\mathrm{tot}}
++\alpha K M_{r,\mathrm{tot}}\\
+&-\frac13(D_r\alpha)H_{\mathrm{tot}}
++\frac16\alpha D_rH_{\mathrm{tot}}\\
+&+D_j(\alpha W^j{}_r)
+-\kappa\alpha\mathcal D_r^{\mathrm{tot}}.
+\end{aligned}}
+\]
+
+For the pinned spherical vendor connection,
+\(D_j(\alpha W^j{}_r)=\mathscr L[F_C]\) as displayed above. In the smooth six-sector continuum system, \(\mathcal D_r^{\mathrm{tot}}=0\) only under the declared sector equations and their physical normalization premise; the Bianchi source is retained explicitly until that premise is admitted.
+
+This resolves the previously open **continuum off-constraint spatial-residual term** for the pinned vendor Ricci extension. It does not establish exact fixed-grid equality: the \(D_1(F_C)\) representation, metric-only Ricci crosswalk, pointwise total-divergence mapping, and accepted PIRK stage assignment must still be compared with the exact #423 signed tangent. The vendor's \(\dot C^r\) channel remains coupled as a separate line, not double-counted in the momentum source.
+
+### 7. Updated 0* disposition
+
+| Obligation | Disposition |
+|---|---|
+| Spatial residual projection | Derived without setting \(\mathcal S_{ij}=0\). |
+| BSSN isotropic trace contribution | Derived; yields the coupled \(-D_i\alpha\,H/3+\alpha D_iH/6\) pair. |
+| Vendor tracefree connection residual | Identified as \(\Pi^i{}_j=-\Delta_\Lambda R^{i}{}_{j,\mathrm{TF}}\). |
+| Connection contribution to \(\dot M_r\) | Reconciled exactly with the existing \(D_1(F_C)\) chain-rule block. |
+| \(\dot C^r\) coupling | Retained as a separate subsidiary equation; no duplicate \(M_r\) source. |
+| Discrete total-stress and stage closure | Still open; reuse #420/#423 arrays, no new campaign yet. |
+
+The next step is now a reuse-only symbolic/operator reconciliation of the assembled continuum equation with the exact #423 §10.10 instantaneous tangent and §10.18 PIRK secant. Keep pointwise Bianchi divergence as the declared differential comparator and FV as the independent conservative cross-check. No new observer is justified unless that reconciliation identifies a missing saved operand.
+
+All production equations, initializers, vendor files, source pins, and accepted states remain unchanged. All scientific-admission and acceptance flags remain false.
