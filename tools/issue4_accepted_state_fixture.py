@@ -148,6 +148,32 @@ def structural_inventory(arrays: dict[str, np.ndarray], report: dict[str, Any]) 
     }
 
 
+def sector_accounting_summary(report: dict[str, Any]) -> list[dict[str, Any]]:
+    """Retain raw failure and time-density-accounted six-sector witnesses."""
+    summaries = []
+    for item in report["independent_total_stress_energy_divergence_by_epsilon"]:
+        reconstruction = item["raw_array_tree"]["sector_decomposition"]["reconstruction"]
+        channel_summary = {}
+        for name, channel in reconstruction["channels"].items():
+            channel_summary[name] = {
+                "raw_max_abs_gap": channel.get("max_abs_gap"),
+                "max_abs_unexplained_gap": channel.get("max_abs_unexplained_gap"),
+                "raw_sum_passed": channel.get("passed"),
+                "component_corrected_passed": channel.get("component_corrected_passed"),
+            }
+        summaries.append({
+            "epsilon": item["epsilon"],
+            "sector_names": reconstruction["sector_names"],
+            "raw_six_sector_sum_reconstructs_total": reconstruction["all_sectors_reconstruct_total"],
+            "time_density_component_accounting_passed": reconstruction["time_density_component_accounting_passed"],
+            "six_sector_reconstruction_after_accounting": reconstruction["all_sectors_reconstruct_total_after_time_density_accounting"],
+            "raw_sum_max_gap": reconstruction["raw_sum_max_gap"],
+            "max_abs_unexplained_gap_after_accounting": reconstruction["unexplained_max_gap"],
+            "channels": channel_summary,
+        })
+    return summaries
+
+
 def load_accepted_fixture(path: str | Path, resolution: int) -> dict[str, Any]:
     """Load one exact accepted-state archive, refusing any identity mismatch."""
     if resolution not in EXPECTED:
