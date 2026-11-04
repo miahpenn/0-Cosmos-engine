@@ -61,7 +61,8 @@ def _load_vendor(diagnostic_root: Path):
         sys.path.insert(0, path)
     import r0_operators
     import vacuum_bssn
-    return r0_operators, vacuum_bssn
+    import moving_puncture_pirk
+    return r0_operators, vacuum_bssn, moving_puncture_pirk
 
 
 def _state_from_fixture(fixture: dict[str, Any], r0_operators, vacuum_bssn):
@@ -162,7 +163,7 @@ def evaluate_accepted_fixture(
     # Provenance is checked before fixture loading, imports, or state evaluation.
     provenance = verify_provenance(diagnostic_root, helper_baseline_root)
     fixture = load_accepted_fixture(archive_path, resolution)
-    r0_operators, vacuum_bssn = _load_vendor(diagnostic_root)
+    r0_operators, vacuum_bssn, moving_puncture_pirk = _load_vendor(diagnostic_root)
     total_helper = _load_reviewed_total_stress_helper(
         diagnostic_root, helper_baseline_root
     )
@@ -178,11 +179,12 @@ def evaluate_accepted_fixture(
         raise RuntimeError("zero-step observer forbids ProductionKernel.step")
 
     kernel_class.step = forbidden_production_step
-    if hasattr(vacuum_bssn, "pirk2_step"):
-        def forbidden_vendor_pirk(*args, **kwargs):
-            step_calls.append("vendor.pirk2_step")
-            raise RuntimeError("zero-step observer forbids vendor PIRK advance")
-        vacuum_bssn.pirk2_step = forbidden_vendor_pirk
+    if not hasattr(moving_puncture_pirk, "pirk2_step"):
+        raise RuntimeError("pinned vendor has no pirk2_step method to guard")
+    def forbidden_vendor_pirk(*args, **kwargs):
+        step_calls.append("vendor.pirk2_step")
+        raise RuntimeError("zero-step observer forbids vendor PIRK advance")
+    moving_puncture_pirk.pirk2_step = forbidden_vendor_pirk
 
     state = _state_from_fixture(fixture, r0_operators, vacuum_bssn)
     helper_digest_before = total_helper.state_digest(state)
@@ -324,6 +326,7 @@ def evaluate_accepted_fixture(
             "tangent_helper_state": fixture["helper_state_digest"],
         },
         "projection_crosscheck": projection["projection_crosscheck"],
+        "structural_inventory": fixture["structural_inventory"],
         "signed_terms": {
             "shift_transport": shift_transport,
             "normal_alpha_K_M": normal_alpha_K_M,
