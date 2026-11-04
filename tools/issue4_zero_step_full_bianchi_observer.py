@@ -89,12 +89,14 @@ def verify_provenance(
     if mismatches:
         raise RuntimeError("accepted source blob mismatch: " + json.dumps(mismatches, sort_keys=True))
 
+    # The reviewed helper files are part of the accepted diagnostic anchor.
+    # The historical baseline is a separate protected-source identity only.
     tangent_blob = _git(
-        helper_baseline_root, "rev-parse",
+        diagnostic_root, "rev-parse",
         "HEAD:tools/audit_current_source_momentum_constraint_tangent.py",
     )
     total_blob = _git(
-        helper_baseline_root, "rev-parse",
+        diagnostic_root, "rev-parse",
         "HEAD:tools/audit_total_stress_energy_divergence.py",
     )
     if tangent_blob != TANGENT_HELPER_BLOB:
