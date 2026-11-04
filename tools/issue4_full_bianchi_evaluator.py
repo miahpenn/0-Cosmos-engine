@@ -446,6 +446,11 @@ def _jsonable(value: Any):
     return value
 
 
+def _write_json_payload(path: Path, payload: str) -> None:
+    """Write one complete JSON document with a real trailing line terminator."""
+    path.write_text(payload + "\n", encoding="utf-8")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--archive", type=Path, required=True)
@@ -470,12 +475,12 @@ def main() -> int:
         if args.output is None:
             print(payload)
         else:
-            args.output.write_text(payload + "\n", encoding="utf-8")
+            _write_json_payload(args.output, payload)
         return 2
     if args.output is None:
         print(payload)
     else:
-            args.output.write_text(payload + "\n", encoding="utf-8")
+            _write_json_payload(args.output, payload)
     return 0
 
 
