@@ -236,6 +236,20 @@ def evaluate_accepted_fixture(
         "tracefree evolved-connection response W^r_r",
         chi * ((2.0 / 3.0) * dC_odd + (da_even / (2.0 * a)) * C_r),
     )
+    ricci_evolved = vacuum_bssn.geometry_terms(grid, geom)
+    ricci_metric = vacuum_bssn.geometry_terms(grid, metric_geometry)
+    delta_R_scalar = _finite("evolved-minus-metric scalar Ricci", ricci_evolved["R"] - ricci_metric["R"])
+    delta_Rr_r = _finite("evolved-minus-metric radial Ricci", ricci_evolved["Rr_r"] - ricci_metric["Rr_r"])
+    expected_delta_R_scalar = _finite("expected scalar Ricci connection offset", chi * dC_odd)
+    expected_delta_Rr_r = _finite("expected radial Ricci connection offset", chi * (dC_odd + (da_even / (2.0 * a)) * C_r))
+    W_rr_direct = _finite("direct tracefree Ricci connection offset", delta_Rr_r - delta_R_scalar / 3.0)
+    ricci_offset_crosscheck = {
+        "scalar_max_abs_gap": float(np.max(np.abs(delta_R_scalar - expected_delta_R_scalar))),
+        "radial_max_abs_gap": float(np.max(np.abs(delta_Rr_r - expected_delta_Rr_r))),
+        "tracefree_max_abs_gap": float(np.max(np.abs(W_rr - W_rr_direct))),
+    }
+    if max(ricci_offset_crosscheck.values()) > 1.0e-17:
+        raise RuntimeError(f"same-metric Ricci connection-offset cross-check failed: {ricci_offset_crosscheck}")
     F_C = _finite("F_C=alpha W^r_r", alpha * W_rr)
     connection_divergence = _finite(
         "spherical divergence D_j(alpha W^j_r)",
@@ -333,6 +347,7 @@ def evaluate_accepted_fixture(
             "tangent_helper_state": fixture["helper_state_digest"],
         },
         "projection_crosscheck": projection["projection_crosscheck"],
+        "ricci_offset_crosscheck": ricci_offset_crosscheck,
         "structural_inventory": fixture["structural_inventory"],
         "six_sector_divergence_accounting": sector_accounting_summary(fixture["report"]),
         "signed_terms": {
