@@ -1155,3 +1155,40 @@ The three #423 stage-capture reports record Python 3.12.15, NumPy 2.5.4, and a L
 For any future numerical replay, record the CPU model/features, BLAS library and selected core, NumPy build/runtime configuration and SIMD dispatch, Python version, runner image, source/vendor pins, and input/output digests. Keep the known accepted digest environment as the reference only where those execution details actually match. Never select a physical term from the smallest cross-run residual.
 
 **Disposition:** the accepted PIRK stage assignment and finite-step connection arithmetic are reconstructed from the saved arrays. The exact refreshed-stage full-grid vendor-(C) comparison is unavailable from the report-only same-stage artifacts. CPU/BLAS metadata is incomplete for cross-architecture bitwise claims. No production code, vendor source, accepted state, scientific-admission flag, or workflow was changed.
+
+
+## 9. Refreshed-stage residual scale separation
+
+**Status:** reuse-only interpretation of the signed summary reports from #423 workflow [40249740165](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/40249740165). No new numerical result, observer, RHS call, or evolution is introduced here.
+
+The accepted same-stage tangent is
+\[
+\dot M_{r,\mathrm{accepted}}
+=\dot M_{r,\mathrm{geom}}-\kappa\dot j_{\mathrm{tot}},
+\qquad \kappa=8\pi.
+\]
+The archived reports give the following maxima over \(r\le10\):
+
+| N | \(\max|\dot M_{geom}|\) | \(\max|\kappa\dot j_{tot}|\) | \(\max|\dot M_{total}|\) | \(\max|B_{Brown+source}|\) | \(\max|R|\) | \(\max|\mathcal D^{pt}_r|\) |
+|---:|---:|---:|---:|---:|---:|---:|
+| 60 | \(5.9806\times10^{-5}\) | \(6.092\times10^{-5}\) | \(2.8379\times10^{-5}\) | \(1.2930\times10^{-5}\) | \(4.1309\times10^{-5}\) | \(7.9565\times10^{-7}\) |
+| 120 | \(7.1025\times10^{-5}\) | \(6.149\times10^{-5}\) | \(4.4320\times10^{-5}\) | \(1.5853\times10^{-6}\) | \(4.3927\times10^{-5}\) | \(1.1501\times10^{-7}\) |
+| 240 | \(1.0417\times10^{-4}\) | \(6.143\times10^{-5}\) | \(9.0435\times10^{-5}\) | \(4.6171\times10^{-7}\) | \(9.0275\times10^{-5}\) | \(1.5676\times10^{-8}\) |
+
+The \(\kappa\dot j\) column is \(8\pi\) times the reported \(\dot j\) maximum. Maxima in different columns need not occur at the same cell and must not be subtracted as if co-located. Signed residual values at cells 0 and 1 are:
+
+| N | cell 0 | cell 1 |
+|---:|---:|---:|
+| 60 | \(+4.1309\times10^{-5}\) | \(-7.5889\times10^{-6}\) |
+| 120 | \(+4.3927\times10^{-5}\) | \(-4.3463\times10^{-5}\) |
+| 240 | \(+8.4318\times10^{-5}\) | \(-9.0275\times10^{-5}\) |
+
+**Interpretation:** the current tangent is material, but its omission cannot explain the large, oppositely signed adjacent-cell residuals. At N=240 the geometric tangent reaches \(1.0417\times10^{-4}\), while the source-aware Brown prediction is below \(5\times10^{-7}\); the accepted total tangent remains near \(9\times10^{-5}\). Meanwhile the pointwise total-stress divergence decreases across the family. Thus the centre mismatch is not explained solely by the pointwise Bianchi source or by omitting \(\dot j_{tot}\). The unresolved comparison is concentrated in the geometric/stage/operator side of the identity, with central stencil and stage ownership still requiring exact operand-level reconciliation. This localizes the discrepancy; it does not assign a physical cause.
+
+The pointwise divergence has a strong cancellation structure. At cell 0 for N=240, the radial-flux and metric-source pieces are approximately \(-1.7376\times10^{-4}\) and \(+1.7396\times10^{-4}\), while the time-density piece is approximately \(-1.89\times10^{-7}\). Their near cancellation is consistent with the small but nonzero total divergence. It does not establish a discrete conservation identity and does not justify replacing the declared pointwise measure with the finite-volume measure.
+
+### Next operand-level comparison
+
+The next reuse-only check is to compare the exact stage-owned geometric rates entering \(\dot M_{geom}\) against the individually reconstructed Brown trace and tracefree terms on the same refreshed stage, retaining signed cell 0/1 values. Start with the accepted \(A_a\), \(K\), and evolved-\(\Lambda\) RHS operands and their parity-aware derivative contributions, rather than another total-residual fit. Keep the lapse-refreshed stage, unrefreshed endpoint, and PIRK finite-step secant as three distinct evidence classes.
+
+No production equations, vendor files, accepted states, or workflows were changed or rerun. All scientific-admission and acceptance flags remain false.
