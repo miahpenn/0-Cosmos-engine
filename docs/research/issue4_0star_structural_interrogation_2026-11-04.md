@@ -988,10 +988,39 @@ The resulting values (cells and fixed-radius interpolants, not a new full-grid m
 
 | N | cell 0 | cell 1 | cell 2 | \(r=2\) | \(r=3\) | \(r=5\) | \(r=8\) |
 |---:|---:|---:|---:|---:|---:|---:|---:|
-| 60 | \(+3.9943e{-5}\) | \(-6.9164e{-6}\) | \(+2.1505e{-5}\) | \(-6.9164e{-6}\) | \(+1.4399e{-5}\) | \(-2.4469e{-6}\) | \(-1.5153e{-6}\) |
-| 120 | \(+4.3597e{-5}\) | \(-4.3283e{-5}\) | \(+2.9252e{-5}\) | \(+1.1637e{-5}\) | \(+7.3680e{-7}\) | \(-5.8271e{-8}\) | \(-8.7866e{-8}\) |
-| 240 | \(+8.4342e{-5}\) | \(-9.0280e{-5}\) | \(+5.6865e{-5}\) | \(+4.1213e{-8}\) | \(+4.2117e{-8}\) | \(-3.8191e{-9}\) | \(-5.3762e{-9}\) |
+| 60 | \(+3.9943\\times10^{-5}\) | \(-6.9164\\times10^{-6}\) | \(+2.1505\\times10^{-5}\) | \(-6.9164\\times10^{-6}\) | \(+1.4399\\times10^{-5}\) | \(-2.4469\\times10^{-6}\) | \(-1.5153\\times10^{-6}\) |
+| 120 | \(+4.3597\\times10^{-5}\) | \(-4.3283\\times10^{-5}\) | \(+2.9252\\times10^{-5}\) | \(+1.1637\\times10^{-5}\) | \(+7.3680\\times10^{-7}\) | \(-5.8271\\times10^{-8}\) | \(-8.7866\\times10^{-8}\) |
+| 240 | \(+8.4342\\times10^{-5}\) | \(-9.0280\\times10^{-5}\) | \(+5.6865\\times10^{-5}\) | \(+4.1213\\times10^{-8}\) | \(+4.2117\\times10^{-8}\) | \(-3.8191\\times10^{-9}\) | \(-5.3762\\times10^{-9}\) |
 
 This is a bounded replacement of one already-defined term using exact archived operands. It does **not** close the source-aware residual: the dominant near-origin values remain of order \(10^{-5}\) to \(10^{-4}\), while the vendor connection-versus-Brown adjustment is smaller. The remaining discrepancy therefore cannot be attributed solely to the off-constraint \(C^r\) extension. Metric-operator, discrete product/stage, centre, and total-stress mapping obligations remain separate.
+
+
+
+### Same-stage boundary and exact radial-divergence check
+
+The selected-witness update above uses the same lapse-refreshed stage-0 fields as the archived #423 same-stage RHS comparison. It is not compared with the unrefreshed saved-endpoint tangent or with the copied-step finite secant; those are different vector-field/time objects.
+
+The connection-divergence coefficient can also be read directly from the physical spatial metric:
+\[
+\gamma_{\theta\theta}=\frac{br^2}{X^2},
+\qquad
+\Gamma^\theta{}_{\theta r}
+=\frac1r+\frac{D_r b}{2b}-\frac{D_rX}{X}
+=\frac1r+\frac{D_r b}{2b}+2\chi_r .
+\]
+For the mixed tracefree radial tensor
+\(W^i{}_j=\operatorname{diag}(W,-W/2,-W/2)\),
+\[
+D_jW^j{}_r
+=D_rW+2\Gamma^\theta{}_{\theta r}(W-W^\theta{}_\theta)
+=D_rW+3\Gamma^\theta{}_{\theta r}W .
+\]
+Putting \(F_C=\alpha W\) therefore gives
+\[
+D_j(\alpha W^j{}_r)
+=D_rF_C+
+\left(\frac3r+\frac{3D_rb}{2b}+6\chi_r\right)F_C,
+\]
+which is the exact continuum identity underlying \(\mathscr L[F_C]\). Replacing these derivatives by the pinned fixed-grid \(D_1\) defines the saved-state operator witness; it does not make the continuum product rule an exact discrete identity.
 
 No source, vendor, accepted state, or workflow was modified or rerun. The full-grid component operator was recomputed from the saved signed stage arrays only. Scientific-admission and acceptance flags remain false.
