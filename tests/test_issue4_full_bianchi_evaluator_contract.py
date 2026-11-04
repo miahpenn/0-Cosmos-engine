@@ -103,7 +103,7 @@ class FullBianchiEvaluatorContractTests(unittest.TestCase):
             output = Path(tmp) / "result.json"
             evaluator._write_json_payload(output, '{"status": "ok"}')
             written = output.read_bytes()
-        self.assertEqual(written, b'{"status": "ok"}\\n')
+        self.assertEqual(written, b'{"status": "ok"}\n')
 
 
 
