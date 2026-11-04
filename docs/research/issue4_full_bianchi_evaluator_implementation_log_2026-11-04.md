@@ -86,7 +86,7 @@ Tests were added for:
 - signed accepted-state regression witnesses and global sign consistency;
 - zero-step static call contract and parity/`chi` distinctions.
 
-The tests are committed but have **not yet been executed** in CI. The committed evaluator itself has also not yet been run against the archives. The offline formula cross-check above is separate evidence, not a substitute for running the committed implementation.
+The tests were executed by the repository's lightweight-validation workflow on PR head `631ded29906081436d2b1b49291c2d065b01cbfe`; the full suite passed (981 tests and 14 subtests), with the separate EM discriminator also passing. The committed evaluator itself has **not** yet been run against the archives. The offline formula cross-check above is separate evidence, not a substitute for running the committed implementation.
 
 No manufactured or t=0 state adapter has been evaluated. No production step, initializer change, vendor change, workflow change, or admission-state change occurred.
 
