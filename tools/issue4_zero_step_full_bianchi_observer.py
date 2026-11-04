@@ -119,7 +119,9 @@ def verify_provenance(
         "numpy": _numpy_version(),
         "platform": platform.platform(),
         "cpu_model": _cpu_model(),
-        "blas_and_simd": "unavailable until NumPy runtime metadata is captured",
+        "cpu_features": "unavailable",
+        "runner": {"GITHUB_ACTIONS": os.environ.get("GITHUB_ACTIONS", "unavailable"), "RUNNER_OS": os.environ.get("RUNNER_OS", "unavailable"), "RUNNER_ARCH": os.environ.get("RUNNER_ARCH", "unavailable"), "GITHUB_RUN_ID": os.environ.get("GITHUB_RUN_ID", "unavailable")},
+        "blas_implementation_core_dispatch_and_numpy_simd": "unavailable",
     }
 
 
