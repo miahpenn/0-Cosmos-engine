@@ -174,6 +174,7 @@ jobs:
           ref: ${{ env.HELPER_BASELINE_COMMIT }}
           path: helper-baseline
           fetch-depth: 0
+          submodules: recursive
           persist-credentials: false
 
       - name: Fail closed on all three source identities and observer blobs
@@ -183,6 +184,7 @@ jobs:
           test "$(git -C runner rev-parse HEAD)" = "$RUNNER_COMMIT"
           test "$(git -C diagnostic-source rev-parse HEAD)" = "$DIAGNOSTIC_SOURCE_COMMIT"
           test "$(git -C helper-baseline rev-parse HEAD)" = "$HELPER_BASELINE_COMMIT"
+          test "$(git -C helper-baseline/vendor/bb-palatini-unified-r0 rev-parse HEAD)" = "$VENDOR_COMMIT"
           test "$(git -C diagnostic-source/vendor/bb-palatini-unified-r0 rev-parse HEAD)" = "$VENDOR_COMMIT"
           test "$(git -C runner rev-parse HEAD:tools/issue4_full_bianchi_evaluator.py)" = "bdd7574807def8a612e5d39c00c97629d0511ae5"
           test "$(git -C runner rev-parse HEAD:tools/issue4_accepted_state_fixture.py)" = "c9ec1bbd4373e3f96cd4dac7dcb9c91c1014b2ba"
