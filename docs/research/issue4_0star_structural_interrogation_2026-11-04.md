@@ -337,3 +337,79 @@ Thus the alpha K M_r term and the Brown-style Hamiltonian-gradient coefficient p
 | Minimal | The collected expression has no extra fitted coefficient or duplicate source term. | No claim that this is the minimal complete identity. |
 
 **Next derivation:** derive the primary-L2 lapse-Hessian/Ricci contribution against the same constraint chain rule, keeping metric-only Ricci and evolved-Lambda Ricci separate. The target is to establish whether the curvature part completes the same Hamiltonian-gradient pair and to isolate the independent C^r derivative terms. No numerical observer is warranted until that source derivation identifies an operand absent from the existing #420–#424 arrays.
+
+
+## 0* continuation — extrinsic-algebraic normal block
+
+**Status:** source-derived continuum identity for the non-shift, algebraic extrinsic-curvature sector. It fixes the alpha K M_r contribution and the Hamiltonian-gradient pair for the kinetic part of the Hamiltonian only. It does not yet derive the Ricci/lapse-Hessian or evolved-connection blocks.
+
+Use the same accepted source and vendor pins recorded above. From the pinned vendor primary_l3_rhs() and the explicit RHS in vacuum_bssn.py, isolate the non-shift, non-matter algebraic terms. With A=A_a and A_b=-A/2,
+
+\[
+\begin{aligned}
+\dot A|_{\mathrm{alg}}&=\alpha K A,\\
+\dot K|_{\mathrm{alg}}&=\alpha\left(\frac32A^2+\frac13K^2\right),\\
+\dot X|_{\mathrm{alg}}&=\frac13\alpha X K,\\
+\dot b|_{\mathrm{alg}}&=\alpha b A.
+\end{aligned}
+\]
+
+The last two lines give, for c_r=-1/2 partial_r ln X and q=2/r+partial_r ln b,
+
+\[
+\dot c_r|_{\mathrm{alg}}=-\frac16\partial_r(\alpha K),
+\qquad
+\dot q|_{\mathrm{alg}}=\partial_r(\alpha A).
+\]
+
+Starting from
+\[
+M_r=A'-\frac23K'+6Ac_r+\frac32Aq,
+\]
+the exact continuum chain rule yields
+
+\[
+\begin{aligned}
+\dot M_r|_{\mathrm{alg}}
+={}&(\alpha K A)'
+-\frac23\left[\alpha\left(\frac32A^2+\frac13K^2\right)\right]'\\
+&+6\alpha K A c_r-A(\alpha K)'
++\frac32\alpha K A q
++\frac32A(\alpha A)'.
+\end{aligned}
+\]
+
+Define the kinetic part of the geometric Hamiltonian by
+\[
+H_{\mathrm{kin}}=-\frac32A^2+\frac23K^2.
+\]
+Expanding and collecting the signed terms gives the exact identity
+\[
+\boxed{
+\dot M_r|_{\mathrm{alg}}
+=\alpha K M_r
+-\frac13(\partial_r\alpha)H_{\mathrm{kin}}
++\frac16\alpha\,\partial_rH_{\mathrm{kin}}.
+}
+\]
+
+Thus the alpha K M_r term and the Brown-style Hamiltonian-gradient coefficient pair are not merely imported from Brown for this sector: they follow from the accepted BSSN algebraic RHS and the declared momentum-constraint definition. This also shows why the pair must be tracked as a coupled object; its two relative coefficients and signs emerge together from the same chain rule.
+
+### Scope boundary
+
+- This derivation includes only the algebraic A,K,X,b normal terms shown above.
+- It excludes the primary-L2 lapse-Hessian and Ricci terms, which must supply the curvature-dependent completion and any reference-connection C^r response.
+- It excludes the adapter's explicit matter additions to dot A_a and dot K, which remain a separate source-derived block as recorded in PR #423.
+- It excludes the dot Lambda-dependent Ricci response; do not append a Brown C^r block to the direct dot M_r chain rule without deriving its relationship to the evolved connection.
+- As above, this is continuum product-rule algebra. The exact pinned finite-grid chain rule and its operator-composition remainder remain separate.
+
+### 0* score
+
+| Standard | Result | Boundary |
+|---|---|---|
+| Checkable | Pass: every term is a direct substitution from the pinned RHS and the accepted constraint definition. | The Ricci/lapse-Hessian completion is not yet included. |
+| Independent | Pass: derived from the source equations, not from Brown's formula or residual minimization. | This is one RHS block, not the full propagation identity. |
+| Costed | Pays the algebraic extrinsic-curvature contribution: alpha K M_r plus the kinetic Hamiltonian-gradient pair. | Curvature, connection, matter divergence and discrete operator costs remain outstanding. |
+| Minimal | The collected expression has no extra fitted coefficient or duplicate source term. | No claim that this is the minimal complete identity. |
+
+**Next derivation:** derive the primary-L2 lapse-Hessian/Ricci contribution against the same constraint chain rule, keeping metric-only Ricci and evolved-Lambda Ricci separate. The target is to establish whether the curvature part completes the same Hamiltonian-gradient pair and to isolate the independent C^r derivative terms. No numerical observer is warranted until that source derivation identifies an operand absent from the existing #420–#424 arrays.
