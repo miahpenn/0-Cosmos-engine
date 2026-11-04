@@ -1024,3 +1024,65 @@ D_j(\alpha W^j{}_r)
 which is the exact continuum identity underlying \(\mathscr L[F_C]\). Replacing these derivatives by the pinned fixed-grid \(D_1\) defines the saved-state operator witness; it does not make the continuum product rule an exact discrete identity.
 
 No source, vendor, accepted state, or workflow was modified or rerun. The full-grid component operator was recomputed from the saved signed stage arrays only. Scientific-admission and acceptance flags remain false.
+
+
+## 0* continuation — full-array endpoint comparison of the assembled Bianchi candidate
+
+**Status:** completed offline reconstruction from the existing exact-profile tangent artifacts. This comparison uses the unrefreshed saved endpoint at \(t=0.60\), not the later lapse-refreshed stage-0 state in workflow #40249740165. No RHS, lapse solve, observer, production step, or campaign was run here.
+
+### Inputs and provenance
+
+The three artifacts are from the already completed exact-profile tangent workflow [40236402303](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/40236402303). Their production source and vendor pins are respectively 4aec88d0e3ff028e0a65a8ac36b30948625df792 and d6052d605673ce9d82cdc99b0df79855fa2ea215. Each ZIP digest matches the GitHub artifact digest; the internal tangent-array and report hashes were checked against the artifact manifests.
+
+| N | Artifact | ZIP SHA-256 | Tangent NPZ SHA-256 | Report SHA-256 | State digest |
+|---:|---:|---|---|---|---|
+| 60 | [12615136565](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/40236402303/artifacts/12615136565) | 41d646090e05c08684806c5e39d57851f119cf0f38aa90f1d26ab5f72f87d1ce | 988ccd3c71ac6733bb47d013b32f8ceded9d132d2d21f7483c6ee4953993601b | 16cae6ac099fe7a29a97d1882fbfd4f946869cd0d2b08b7d446740768842147d | 2ae2a5704b2b87d16ef9239c8a22ef261ed9108d971d3a5c78a3d1133aa9e9e4 |
+| 120 | [12615555594](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/40236402303/artifacts/12615555594) | 9f5c2504f28290ff540c96f93e1fb569f5b960b7a2b3fc312dca9362c8e2eacf | 5751a16949b763ad5e96a4afac9db4fb1d92d55a0c6e7ddaabc4cc6b25652e0b | 216b9e834874e9d7de8f88ba75b4a543ac234ea7b611ab7d2652fd4b001c3d8f | 0266c7fafc5e9a292a9a376f1d91fa45bb8dd103b6f8c21b543c25d0930daacb |
+| 240 | [12615550675](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/40236402303/artifacts/12615550675) | e8a9cd26fbe3dbfb0bd62fc0606237c387a41efd14ade550df50da9842b38bea | 29a4bc1aeca718eff0dbc0de068809f8279aab94cb7023b004dea545589bf814 | cdb02d74b9962ad48cf132171f3f0abb2fdb926b9951d3f136a747d4a30121c2 | 770d36f3db5b60da87f52beb213f8af4731e17021f95c1519ecbdbe759b41cce |
+
+### Exact reconstruction
+
+For each archived input, I independently rebuilt the accepted lower-index \(M_{r,\mathrm{tot}}\) from the metric constraint and six sector current projections, and checked that its reported full-grid summary matches the artifact's base_state.M_total summary. I rebuilt the metric-only Hamiltonian from the warped-product Ricci representation used by the Brown observer, then formed \(H_{\mathrm{tot}}=H_{\mathrm{metric}}-16\pi\rho_{\mathrm{tot}}\).
+
+The measured operand is the saved full-array tangent_eps2e-05.Mdot; the independently stored pointwise total-stress radial divergence is total_T_eps2e-05.total.div_T_r. The two candidate residuals are
+
+\[
+R_{\mathrm{Brown}}
+=\dot M^{(h)}_{\mathrm{tot}}
+-\left(B_{\mathrm{hom}}^{(h)}[M_{\mathrm{tot}},H_{\mathrm{tot}}]
++B_C^{\mathrm{Brown}}-8\pi\alpha\mathcal D^{\mathrm{pt}}_{r,h}\right),
+\]
+
+\[
+R_{\mathrm{vendor-C}}
+=R_{\mathrm{Brown}}-
+\left(\mathscr L[F_C]-B_C^{\mathrm{Brown}}\right).
+\]
+
+All operators use the pinned parity-aware fourth-order \(D_1,D_2\) stencils. This is a postprocessing reconstruction on the archived unrefreshed endpoint, not a claim that the continuum product rule is exact on the grid.
+
+### Full-grid and fixed-radius result
+
+| N | Brown max \(|R|\), \(r\le10\) | Vendor-\(C\) max \(|R|\), \(r\le10\) | Vendor-\(C\) peak cell / radius |
+|---:|---:|---:|---|
+| 60 | \(2.07835\times10^{-5}\) | \(1.94179\times10^{-5}\) | cell 0 / \(r=0.6667\) |
+| 120 | \(2.17880\times10^{-6}\) | \(1.84889\times10^{-6}\) | cell 0 / \(r=0.3333\) |
+| 240 | \(5.02363\times10^{-7}\) | \(5.26533\times10^{-7}\) | cell 0 / \(r=0.1667\) |
+
+Vendor-\(C\) signed residuals at fixed physical radii are:
+
+| N | \(r=2\) | \(r=3\) | \(r=5\) | \(r=8\) |
+|---:|---:|---:|---:|---:|
+| 60 | \(+1.51494\times10^{-5}\) | \(+9.53819\times10^{-6}\) | \(+6.88155\times10^{-8}\) | \(-1.50983\times10^{-6}\) |
+| 120 | \(+9.45611\times10^{-7}\) | \(+6.74387\times10^{-7}\) | \(-5.66972\times10^{-8}\) | \(-8.78290\times10^{-8}\) |
+| 240 | \(+6.35535\times10^{-8}\) | \(+4.29184\times10^{-8}\) | \(-3.80726\times10^{-9}\) | \(-5.37588\times10^{-9}\) |
+
+At \(r=2,3,8\), the two refinement doublings give empirical orders close to four (approximately 3.90–4.10). At \(r=5\), the residual crosses zero and is cancellation-dominated, so no order is assigned. The full-grid maximum remains at cell 0, whose physical radius changes with resolution; its sequence is not a fixed-radius convergence test and does not close the origin.
+
+### Interpretation and stage boundary
+
+This endpoint reconstruction shows that the assembled Bianchi candidate is substantially closer on fixed-radius witnesses than its moving-centre maximum suggests, but its origin residual remains nonzero. The vendor-\(C\) substitution makes a modest correction: it reduces the full-grid maximum at N=60 and N=120 and changes it slightly upward at N=240. This confirms that the \(C^r\) extension is not the sole remaining discrepancy and that it cannot be deleted based on its size.
+
+These values must **not** be compared as if they were the lapse-refreshed stage-0 residuals in #423 §10.20 / workflow #40249740165. That report intentionally refreshes the lapse on the copied PIRK start stage; this endpoint tangent uses the saved accepted lapse without a new CMC solve. The stage change is material near the origin. Both are valid but distinct same-stage/vector-field questions, and neither can substitute for the other.
+
+**Disposition:** the continuum assembly is now checked against both an unrefreshed endpoint tangent and a separately labelled refreshed-stage witness. Fixed-radius residuals are refinement-consistent on several radii; the centre remains unresolved; pointwise total-stress divergence remains nonzero; and FV/expanded forms are still distinct. No scientific-admission flag changes.
