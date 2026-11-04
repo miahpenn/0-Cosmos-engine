@@ -28,12 +28,12 @@ TOTAL_STRESS_HELPER_BLOB = "c10f9e8b9e654d5195fd55c493c3fe06ba5c7082"
 # These are identities, not interchangeable alternatives. The baseline
 # checkout verifies the protected helper chain; it is never the runtime source.
 REQUIRED_SOURCE_BLOBS = {
-    "engine/production_kernel.py": "9685e76bb5a6f26d6bf383e240de24f37523f265",
-    "engine/matter_system.py": "e52a117690253ddad7b24d116145a65474a351d2",
-    "engine/matter_rhs.py": "f41180efbcff2c72cf36477a765318ab539fac80",
-    "engine/scalar_system.py": "ffc119b1a6f2d495d972323901f76a85783b0a1b",
+    "engine/production_kernel.py": "1720615628a98a8d7cfc9fcadcc984fe28c88be1",
+    "engine/matter_system.py": "0969f4d996e4f8e0fc5b70a7dff147f024907302",
+    "engine/matter_rhs.py": "0153c232ee15b5a9d3dbac37ea858e4d2d730011",
+    "engine/scalar_system.py": "e2c2dae9a016b4d6454cf74a9eae8b0167d5733d",
     "engine/v55_matter.py": "0ee3c51fac7dc46c63feba2747a750542bcee3d0",
-    "engine/v55_pirk_adapter.py": "eeee0492d80889d70e52b0946563eee5054c0f11",
+    "engine/v55_pirk_adapter.py": "be28ceea63fa1b59efc5cc5c460b9df19ae1cbc3",
     "engine/cmc_gauge.py": "7b49b5751abebd4faf0130208032cd2080b71f64",
     "engine/v55_initial.py": "7db2e1a10cf16fb40e4221b0df504fdf39aae611",
     "engine/stress_energy.py": "ac3e7518c62bb72e2218a61489fa486bb787809f",
