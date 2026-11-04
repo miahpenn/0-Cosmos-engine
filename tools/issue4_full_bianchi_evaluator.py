@@ -142,14 +142,20 @@ def _state_from_fixture(fixture: dict[str, Any], r0_operators, vacuum_bssn):
         for name in ("S", "PS", "D", "PD", "phi", "Pi")
     })
     matter = SimpleNamespace(**{
-        species: SimpleNamespace(**{
-            field: _finite(
-                f"matter.{species}.{field}",
-                arrays[f"matter.{species}.{field}"],
-            ).copy()
-            for field in ("rest", "energy_t", "momentum_r")
-        })
-        for species in ("dark_matter", "baryons", "radiation")
+        **{
+            species: SimpleNamespace(**{
+                field: _finite(
+                    f"matter.{species}.{field}",
+                    arrays[f"matter.{species}.{field}"],
+                ).copy()
+                for field in ("rest", "energy_t", "momentum_r")
+            })
+            for species in ("dark_matter", "baryons", "radiation")
+        },
+        # The pinned V55MatterState contract includes this opt-in carrier.
+        # The accepted archive has no charged-dust arrays, so preserve absence
+        # explicitly; do not synthesize a zero-density species or EM source.
+        "charged_dust": None,
     })
     state = SimpleNamespace(
         grid=grid,
