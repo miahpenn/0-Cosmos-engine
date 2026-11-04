@@ -1512,3 +1512,60 @@ This is a local pass for the source-level tracefree connection mapping, with the
 **Conclusion:** the borrowed Brown tracefree connection block is reconciled with the vendor response to the accuracy expected from the pinned discrete product/chain operators, including the vendor-only \(a'/2a\) term. The Brown Hamiltonian-gradient trace block is established at the continuum level, but its same-stage discrete comparison still has a dominant lapse-Hessian remainder at the origin. This is now the next discriminator: isolate the discrete Bochner/commutator and origin-stencil contribution without replacing the accepted stencil, changing the lapse, or selecting terms by residual size.
 
 The total-stress Bianchi source, matter-sector exchange mapping, pointwise/FV/expanded divergence comparison, and PIRK finite-step closure remain separate. No production or vendor changes, no new evolution, no coefficient fitting, and no scientific-admission or acceptance flag changes.
+
+
+## 14. Exact source of the first-two-cell lapse plateau
+
+The previous trace crosswalk localizes the dominant discrete remainder to the primary-L2 lapse-Hessian/Bochner channel. A source inspection now identifies the exact origin row used to obtain the archived lapse.
+
+**Pinned source:** engine/cmc_gauge.py, blob 7b49b5751abebd4faf0130208032cd2080b71f64, at source commit 4aec88d0e3ff028e0a65a8ac36b30948625df792.
+
+In solve_cmc_lapse, the banded solve installs the regular-centre row
+\[
+\texttt{band[1,0]}=1,\qquad \texttt{band[0,1]}=-1,
+\]
+with the source comment Regular center: alpha'(0)=0. For SciPy's (1,1) banded storage, the first matrix row is therefore
+\[
+\boxed{\alpha_0-\alpha_1=0.}
+\]
+The interior elliptic rows begin at \(i=1\). Thus the first two cell-centred lapse values are constrained to be equal by the centre boundary row; this is not an inference from the measured residual.
+
+The archived refreshed-stage arrays confirm the row directly:
+
+| N | \(\alpha_0-\alpha_1\) | \(\alpha_2-\alpha_1\) |
+|---:|---:|---:|
+| 60 | \(0\) | \(1.5902212\times10^{-4}\) |
+| 120 | \(0\) | \(4.7641335\times10^{-5}\) |
+| 240 | \(1.2212\times10^{-15}\) | \(1.2451751\times10^{-5}\) |
+
+The pinned parity-ghost fourth-order cell-centred first-derivative stencil at cell 0 is
+\[
+(D_1\alpha)_0
+=\frac{9\alpha_1-8\alpha_0-\alpha_2}{12h}.
+\]
+The corresponding second-derivative stencil is
+\[
+(D_2\alpha)_0
+=\frac{15\alpha_1-14\alpha_0-\alpha_2}{12h^2}.
+\]
+Using the actual centre-row condition \(\alpha_0=\alpha_1\), these reduce to
+\[
+(D_1\alpha)_0=\frac{\alpha_0-\alpha_2}{12h},
+\qquad
+(D_2\alpha)_0=\frac{\alpha_0-\alpha_2}{12h^2}.
+\]
+Therefore the first-cell Hessian is directly driven by the jump from the centre-row-equal pair to cell 2. This is an exact boundary-row/stencil consequence, not a continuum approximation.
+
+For reference, the reconstructed first-cell derivative operands are:
+
+| N | \((D_1\alpha)_0\) | \((D_2\alpha)_0\) |
+|---:|---:|---:|
+| 60 | \(-9.9389\times10^{-6}\) | \(-7.4542\times10^{-6}\) |
+| 120 | \(-5.9552\times10^{-6}\) | \(-8.9328\times10^{-6}\) |
+| 240 | \(-3.1129\times10^{-6}\) | \(-9.3388\times10^{-6}\) |
+
+At N=240 the same operands give \(D_rD_r\alpha=-9.2747\times10^{-6}\), the angular Hessian contribution \(A_{\alpha,h}=-1.8550\times10^{-5}\), and \(\Delta_h\alpha=-4.6374\times10^{-5}\) in cell 0. The corresponding trace-slot lapse-Hessian remainder is \(+8.3773\times10^{-5}\) in cell 0 and \(-9.0542\times10^{-5}\) in cell 1.
+
+**0* disposition:** the centre boundary row and its resulting first-cell derivative operands are checkable and source-pinned. This identifies a concrete numerical mechanism capable of feeding the central lapse-Hessian remainder. It does not yet prove that the centre row alone accounts for the full discrepancy, nor does it justify changing the row, the lapse, or the accepted stencil.
+
+**Next derivation:** establish the discrete compatibility (or explicit incompatibility remainder) between this two-cell Neumann row, the parity-ghost \(D_1/D_2\) operators, and the radial Bochner identity. Keep the existing row and operators fixed. A manufactured smooth-even control may be used only as an independent stencil negative control; it must not replace or modify the accepted stage data. No new evolution or production change is warranted at this point.
