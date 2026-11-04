@@ -52,7 +52,7 @@ shift transport
 - 8 pi alpha div_T_r_total
 ```
 
-Metric-only Ricci is evaluated by the pinned vendor with a disposable geometry copy whose Lambda is set to the exact metric-derived Lambda. The evolved-connection response is reconstructed separately. The parity/variable distinction is explicit: `chi=X^2`, `chi_r=-D_1(X)/(2X)`, odd-parity `D_1(C^r)`, and even-parity derivatives of the metric and `F_C`. Pointwise and finite-volume stress-divergence channels are never merged or selected by residual size.
+Metric-only Ricci is evaluated by the pinned vendor with a disposable geometry copy whose Lambda is set to the exact metric-derived Lambda. The evolved-connection response is reconstructed separately. The parity/variable distinction is explicit: `chi=X^2`, `chi_r=-D_1(X)/(2X)`, odd-parity `D_1(C^r)`, and even-parity derivatives of the metric and `F_C`. The evaluator also computes the vendor Ricci brackets once with evolved Lambda and once with metric Lambda, then checks the scalar, radial, and tracefree connection offsets independently to a `1e-17` maximum-gap gate. Pointwise and finite-volume stress-divergence channels are never merged or selected by residual size.
 
 The six-sector report preserves both facts: the raw sector-divergence sum does not reconstruct the total directly, while explicit time-density component accounting does; the unexplained remainder remains separately reported.
 
