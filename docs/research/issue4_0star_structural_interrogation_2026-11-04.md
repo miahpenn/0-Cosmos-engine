@@ -894,3 +894,78 @@ This resolves the previously open **continuum off-constraint spatial-residual te
 The next step is now a reuse-only symbolic/operator reconciliation of the assembled continuum equation with the exact #423 §10.10 instantaneous tangent and §10.18 PIRK secant. Keep pointwise Bianchi divergence as the declared differential comparator and FV as the independent conservative cross-check. No new observer is justified unless that reconciliation identifies a missing saved operand.
 
 All production equations, initializers, vendor files, source pins, and accepted states remain unchanged. All scientific-admission and acceptance flags remain false.
+
+
+## 0* continuation — reuse-only fixed-stage verification of the vendor connection divergence
+
+**Status:** completed offline postprocessing of the existing #423 stage-capture artifacts. This re-evaluates the connection-divergence term in the Bianchi decomposition; it does not run an observer, call the production RHS, advance a state, or generate a new trajectory.
+
+### Provenance
+
+The inputs are the stage_start_lapse_refreshed profiles at \(t\simeq0.60\) from the checksum-verified copied-step capture in workflow [40235790388](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/40235790388). All reports confirm production source 4aec88d0e3ff028e0a65a8ac36b30948625df792 and vendor d6052d605673ce9d82cdc99b0df79855fa2ea215. The fourth-order parity derivative implementation is pinned to vendor file r0_operators.py, blob 7f92fd9857981561dc2dff568addae87790c989f.
+
+The ZIP digests match the GitHub artifact digests, and each report.json / stage_arrays.npz member hash matches its internal SHA256SUMS.txt:
+
+| N | Artifact | ZIP SHA-256 | Stage NPZ SHA-256 | Input state digest |
+|---:|---:|---|---|---|
+| 60 | [12614314612](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/40235790388/artifacts/12614314612) | e9f9a243fa017d6cfbd14d0be73ae557fa1eb02959133b58866bda32265184e3 | 942325e3bfd9cfcd95ad7b2f0b5511c6303045f2a8eb36c4ec6f5144a0cc3306 | 2ae2a5704b2b87d16ef9239c8a22ef261ed9108d971d3a5c78a3d1133aa9e9e4 |
+| 120 | [12615190935](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/40235790388/artifacts/12615190935) | ae6fb6bc164c7c65e2fc77468921609ac74a6b98f02669be88bf11aea62e16e1 | 8d449fbfd224f5608292c375e2c47e625b1e9a70f8562686cbdafd996503fd90 | 0266c7fafc5e9a292a9a376f1d91fa45bb8dd103b6f8c21b543c25d0930daacb |
+| 240 | [12614533930](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/40235790388/artifacts/12614533930) | 4b2a374519df67fc79abb3b82306e00cca9fee9a150d27957caa47d4bddf273a | 8b85b445c4b1213cb6904734ed6fcf7cd9344d857a112685e718b6bef922d141 | 770d36f3db5b60da87f52beb213f8af4731e17021f95c1519ecbdbe759b41cce |
+
+### Reconstructed operators
+
+Using the pinned parity-aware \(D_1,D_2\) stencils and the saved start-stage fields, I reconstructed
+
+\[
+C^r=\Lambda-\Lambda_{\mathrm{metric}},
+\quad
+F_{\mathrm{base}}=\frac23\alpha\chi D_1(C^r),
+\quad
+F_{\mathrm{extra}}=\frac12\alpha\chi\frac{D_1(a)}aC^r,
+\]
+
+\[
+\mathscr L[F]
+=D_1(F)+\left(6\chi_r+\frac3r+\frac{3D_1(b)}{2b}\right)F,
+\quad
+F_C=F_{\mathrm{base}}+F_{\mathrm{extra}}.
+\]
+
+The Brown comparator was reconstructed from its displayed \(D_2(C^r)\) and \(D_1(C^r)\) terms. The identity
+
+\[
+\mathscr L[F_C]-B_C^{\mathrm{Brown}}
+=
+\underbrace{\mathscr L[F_{\mathrm{base}}]-B_C^{\mathrm{Brown}}}_{\epsilon_{\mathrm{op}}}
++
+\underbrace{\mathscr L[F_{\mathrm{extra}}]}_{\epsilon_{\mathrm{vendor}}}
+\]
+
+was evaluated on the full saved radial arrays. Maximum absolute values over \(r\le10\) are:
+
+| N | \(\max|\mathscr L[F_C]|\) | \(\max|B_C^{\mathrm{Brown}}|\) | \(\max|\epsilon_{\mathrm{op}}|\) | \(\max|\epsilon_{\mathrm{vendor}}|\) |
+|---:|---:|---:|---:|---:|
+| 60 | \(8.1183\times10^{-6}\) | \(6.7524\times10^{-6}\) | \(1.3627\times10^{-6}\) | \(3.2255\times10^{-9}\) |
+| 120 | \(1.7987\times10^{-6}\) | \(1.4688\times10^{-6}\) | \(3.2975\times10^{-7}\) | \(2.7310\times10^{-10}\) |
+| 240 | \(9.3222\times10^{-8}\) | \(8.8145\times10^{-8}\) | \(2.4170\times10^{-8}\) | \(2.0857\times10^{-11}\) |
+
+The split is consistent with PR #423 §10.14: the finite-grid product/chain/operator-composition remainder dominates the difference from Brown's expanded \(C^r\) block on these profiles. The pinned vendor's additional undifferentiated-\(C^r\) Ricci term is independently present, but much smaller on this state family. Magnitude does not authorize dropping it.
+
+### Selected-witness effect on the existing source-aware residual
+
+The #423 same-stage reports in [run 40249740165](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/40249740165) contain the original residual
+\(R_{\mathrm{Brown}}=\dot M_{\mathrm{accepted}}-\bigl(B_{\mathrm{hom}}+B_C^{\mathrm{Brown}}-\kappa\alpha\mathcal D^{\mathrm{pt}}_r\bigr)\).
+Replacing only \(B_C^{\mathrm{Brown}}\) by the accepted vendor \(\mathscr L[F_C]\) gives
+\(R_{\mathrm{vendor-C}}=R_{\mathrm{Brown}}-\bigl(\mathscr L[F_C]-B_C^{\mathrm{Brown}}\bigr)\).
+
+The resulting values (cells and fixed-radius interpolants, not a new full-grid maximum) are:
+
+| N | cell 0 | cell 1 | cell 2 | \(r=2\) | \(r=3\) | \(r=5\) | \(r=8\) |
+|---:|---:|---:|---:|---:|---:|---:|---:|
+| 60 | \(+3.9943e{-5}\) | \(-6.9164e{-6}\) | \(+2.1505e{-5}\) | \(-6.9164e{-6}\) | \(+1.4399e{-5}\) | \(-2.4469e{-6}\) | \(-1.5153e{-6}\) |
+| 120 | \(+4.3597e{-5}\) | \(-4.3283e{-5}\) | \(+2.9252e{-5}\) | \(+1.1637e{-5}\) | \(+7.3680e{-7}\) | \(-5.8271e{-8}\) | \(-8.7866e{-8}\) |
+| 240 | \(+8.4342e{-5}\) | \(-9.0280e{-5}\) | \(+5.6865e{-5}\) | \(+4.1213e{-8}\) | \(+4.2117e{-8}\) | \(-3.8191e{-9}\) | \(-5.3762e{-9}\) |
+
+This is a bounded replacement of one already-defined term using exact archived operands. It does **not** close the source-aware residual: the dominant near-origin values remain of order \(10^{-5}\) to \(10^{-4}\), while the vendor connection-versus-Brown adjustment is smaller. The remaining discrepancy therefore cannot be attributed solely to the off-constraint \(C^r\) extension. Metric-operator, discrete product/stage, centre, and total-stress mapping obligations remain separate.
+
+No source, vendor, accepted state, or workflow was modified or rerun. The full-grid component operator was recomputed from the saved signed stage arrays only. Scientific-admission and acceptance flags remain false.
