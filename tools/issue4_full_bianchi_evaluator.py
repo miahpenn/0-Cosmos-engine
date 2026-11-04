@@ -8,6 +8,7 @@ it does not construct a kernel, evaluate an RHS, call a step, or mutate state.
 from __future__ import annotations
 
 import argparse
+from contextlib import contextmanager
 import importlib.util
 import json
 import math
@@ -53,6 +54,34 @@ def _load_reviewed_total_stress_helper(diagnostic_root: Path, baseline_root: Pat
             os.environ.pop("COSMOS_PINNED_SOURCE_ROOT", None)
         else:
             os.environ["COSMOS_PINNED_SOURCE_ROOT"] = old
+
+
+@contextmanager
+def _zero_step_guard(kernel_class, vendor_module, step_calls):
+    """Arm both evolution tripwires and restore the original methods on every exit."""
+    vendor_name = "damped_moving_puncture_pirk2_step"
+    if not hasattr(kernel_class, "step"):
+        raise RuntimeError("pinned production kernel exposes no step method to guard")
+    if not hasattr(vendor_module, vendor_name):
+        raise RuntimeError(f"pinned vendor has no {vendor_name} method to guard")
+    original_kernel_step = kernel_class.step
+    original_vendor_pirk = getattr(vendor_module, vendor_name)
+
+    def forbidden_production_step(*args, **kwargs):
+        step_calls.append("ProductionKernel.step")
+        raise RuntimeError("zero-step observer forbids ProductionKernel.step")
+
+    def forbidden_vendor_pirk(*args, **kwargs):
+        step_calls.append("vendor.damped_moving_puncture_pirk2_step")
+        raise RuntimeError("zero-step observer forbids vendor PIRK advance")
+
+    try:
+        kernel_class.step = forbidden_production_step
+        setattr(vendor_module, vendor_name, forbidden_vendor_pirk)
+        yield
+    finally:
+        kernel_class.step = original_kernel_step
+        setattr(vendor_module, vendor_name, original_vendor_pirk)
 
 
 def _load_vendor(diagnostic_root: Path):
@@ -195,27 +224,10 @@ def evaluate_accepted_fixture(
         diagnostic_root, helper_baseline_root
     )
 
-    # In-memory tripwires: any accidental production/PIRK advance fails closed.
+    # In-memory tripwires are restored even if any later evaluation raises.
     step_calls = []
     kernel_class = total_helper.production_kernel_module.V55ProductionKernel
-    if not hasattr(kernel_class, "step"):
-        raise RuntimeError("pinned production kernel exposes no step method to guard")
-
-    def forbidden_production_step(*args, **kwargs):
-        step_calls.append("ProductionKernel.step")
-        raise RuntimeError("zero-step observer forbids ProductionKernel.step")
-
-    kernel_class.step = forbidden_production_step
-    if not hasattr(moving_puncture_pirk, "damped_moving_puncture_pirk2_step"):
-        raise RuntimeError("pinned vendor has no damped_moving_puncture_pirk2_step method to guard")
-    def forbidden_vendor_pirk(*args, **kwargs):
-        step_calls.append("vendor.damped_moving_puncture_pirk2_step")
-        raise RuntimeError("zero-step observer forbids vendor PIRK advance")
-    moving_puncture_pirk.damped_moving_puncture_pirk2_step = forbidden_vendor_pirk
-
-    original_kernel_step = kernel_class.step
-    original_vendor_pirk = moving_puncture_pirk.damped_moving_puncture_pirk2_step
-    try:
+    with _zero_step_guard(kernel_class, moving_puncture_pirk, step_calls):
         state = _state_from_fixture(fixture, r0_operators, vacuum_bssn)
         helper_digest_before = total_helper.state_digest(state)
         require_unchanged(fixture["helper_state_digest"], helper_digest_before)
@@ -419,9 +431,7 @@ def evaluate_accepted_fixture(
         }
         result["accepted_reference_regression"] = assert_reference_regression(result)
         return result
-    finally:
-        kernel_class.step = original_kernel_step
-        moving_puncture_pirk.damped_moving_puncture_pirk2_step = original_vendor_pirk
+
 
 
 def _jsonable(value: Any):
