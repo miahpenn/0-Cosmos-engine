@@ -227,8 +227,11 @@ def evaluate_accepted_fixture(
     chi = X**2
     chi_r = -d1(X, parity=1) / (2.0 * X)
     C_r = _finite("odd connection difference C^r", geom.Lambda - lambda_metric)
-    dC_odd = d1(C_r, parity=-1)
-    da_even = d1(a, parity=1)
+    dC_odd = _finite("odd-parity derivative of C^r", d1(C_r, parity=-1))
+    da_even = _finite("even-parity derivative of a", d1(a, parity=1))
+    db_even = _finite("even-parity derivative of b", d1(b, parity=1))
+    d_alpha_even = _finite("even-parity derivative of alpha", d1(alpha, parity=1))
+    d_H_total_even = _finite("even-parity derivative of H_total", d1(H_total, parity=1))
     W_rr = _finite(
         "tracefree evolved-connection response W^r_r",
         chi * ((2.0 / 3.0) * dC_odd + (da_even / (2.0 * a)) * C_r),
@@ -238,7 +241,7 @@ def evaluate_accepted_fixture(
         "spherical divergence D_j(alpha W^j_r)",
         d1(F_C, parity=1)
         + (6.0 * chi_r + 3.0 / r
-           + 3.0 * d1(b, parity=1) / (2.0 * b)) * F_C,
+           + 3.0 * db_even / (2.0 * b)) * F_C,
     )
 
     # The accepted slice has beta^r identically zero; retain its measured,
@@ -247,11 +250,11 @@ def evaluate_accepted_fixture(
     normal_alpha_K_M = _finite("alpha K M_total", alpha * geom.K * M_total)
     normal_lapse_gradient_H = _finite(
         "-(D_r alpha) H_total / 3",
-        -(1.0 / 3.0) * d1(alpha, parity=1) * H_total,
+        -(1.0 / 3.0) * d_alpha_even * H_total,
     )
     normal_H_gradient = _finite(
         "alpha D_r H_total / 6",
-        (1.0 / 6.0) * alpha * d1(H_total, parity=1),
+        (1.0 / 6.0) * alpha * d_H_total_even,
     )
 
     terms_by_channel = {}
@@ -341,6 +344,13 @@ def evaluate_accepted_fixture(
             "chi": chi,
             "chi_r": chi_r,
             "C_r": C_r,
+            "dC_odd": dC_odd,
+            "da_even": da_even,
+            "db_even": db_even,
+            "d_alpha_even": d_alpha_even,
+            "d_H_total_even": d_H_total_even,
+            "Lambda_metric": lambda_metric,
+            "beta": beta,
             "W_rr": W_rr,
             "F_C": F_C,
             "H_geom": H_geom,
