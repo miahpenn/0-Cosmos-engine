@@ -764,6 +764,32 @@ The isotropic part is the off-constraint trace left by the BSSN trace/tracefree 
 
 Thus the BSSN Hamiltonian-gradient pair is not an independently chosen correction: it follows from the isotropic spatial Einstein residual \(-H_{\mathrm{tot}}\delta^j_i/6\). The remaining tracefree term is precisely where the accepted off-constraint connection extension must enter. This also explains why the standard ADM pair is not interchangeable: it corresponds to a different spatial-residual trace under its evolution-system convention.
 
+**Trace derivation from the accepted BSSN split.** The pinned primary-\(L_2\) / primary-\(L_3\) rates have the standard tracefree spatial form
+
+\[
+(\partial_t-\mathcal L_\beta)A^i{}_j
+=\left[-D^iD_j\alpha+\alpha R^i{}_{j,\Lambda}\right]^{TF}
++\text{algebraic terms}
+-8\pi\alpha\,S^i{}_{j}{}^{TF},
+\]
+
+while the scalar trace equation is
+
+\[
+(\partial_t-\beta^kD_k)K
+=-D^2\alpha+\alpha\left(A_{ij}A^{ij}+\frac13K^2\right)
++4\pi\alpha(\rho+S),
+\quad S=p_r+2p_t.
+\]
+
+The tracefree equation therefore leaves no spatial Einstein tracefree residual when the Ricci is metric-derived. The scalar \(K\) equation is the BSSN trace equation with the Hamiltonian curvature combination eliminated; retaining the off-constraint Hamiltonian residual gives
+\(\gamma^{ij}\mathcal S_{ij}=-H_{\mathrm{tot}}/2\). Hence the isotropic part is exactly
+\(-H_{\mathrm{tot}}\delta^i_j/6\), not an assumed closure condition. Replacing the metric Ricci by the pinned evolved-\(\Lambda\) Ricci changes only the tracefree spatial part by
+\(-\Delta_\Lambda R^i{}_{j}{}^{TF}\), which is the \(\Pi^i{}_j\) identified in §3.
+
+As a formulation cross-check, inserting an isotropic spatial residual \(+\tfrac12H\delta^i_j\) into the same projected Bianchi identity would instead produce the standard ADM pair \(-\tfrac12\alpha D_iH-H D_i\alpha\). The different gradient pairs therefore encode different trace residuals of the corresponding evolution systems, rather than a coefficient choice to be made from the measured tangent.
+
+
 ### 3. Identify the accepted vendor's tracefree spatial residual
 
 Use the pinned vendor's same-metric connection offsets, with
