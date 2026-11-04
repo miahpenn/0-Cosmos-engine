@@ -95,7 +95,7 @@ It does not contain a production smoke, production step, RHS call, initializer, 
 
 ## Current boundary
 
-This workflow is prepared on the research branch but has not yet been dispatched. A successful run will establish the committed evaluator's execution against the accepted-state archives under its exact pins. It will not complete the original three-class comparison, establish a missing physical term, or change scientific admission. The next class extensions remain separate work under the same observer contract.
+The first dispatch was attempted and refused at N=60 for the adapter schema mismatch documented below. The corrected evaluator and matching workflow blob pin are now committed on the research branch; a fresh manual dispatch is required to execute the corrected SHA. A successful run will establish the committed evaluator's execution against the accepted-state archives under its exact pins. It will not complete the original three-class comparison, establish a missing physical term, or change scientific admission. The next class extensions remain separate work under the same observer contract.
 
 
 ## First dispatch result and schema correction (2026-11-04)
