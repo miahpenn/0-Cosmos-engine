@@ -164,3 +164,115 @@ The eventual full predictor must be evaluated on the three state classes using t
 ## 8. Disposition
 
 Research-only. No production equations, initializer, vendor code, source pins, accepted states, or workflows changed. No new evolution or observer was run for this note. Scientific admission, total-stress conservation closure, and the acceptance oracle remain false.
+
+
+## 9. Source-level mapping to primary L2/L3 — bounded result
+
+The pinned reference implementation defines the geometric momentum operand as
+[
+M_{r,\mathrm{geom}}=
+D_1 A_a-\frac23D_1K
++6A_a\chi_r+\frac32A_a q,
+\qquad
+\chi_r=-\frac{D_1X}{2X},\quad
+q=\frac2r+\frac{D_1b}{b}.
+]
+This is the lower-index geometric momentum expression used by the current reference path. Its exact directional derivative along any specified stage-owned RHS is therefore
+[
+\begin{aligned}
+\dot M_{r,\mathrm{geom}}={}&
+D_1\dot A_a-\frac23D_1\dot K
++6\chi_r\dot A_a+6A_a\dot\chi_r\\
+&+\frac32q\dot A_a+\frac32A_a\dot q.
+\end{aligned}
+\]
+This chain rule is the bookkeeping map; it does not identify the result with the Bianchi predictor until the RHS contributions and operator remainders are reconciled.
+
+### 9.1 Primary L2: lapse Hessian and curvature
+
+The pinned primary-L2 definitions are
+[
+L_2^{A_a}=
+-\left(D_rD_r\alpha-\frac13\Delta\alpha\right)
++\alpha\left(R^r{}_r-\frac13R\right),
+\qquad
+L_2^K=-\Delta\alpha.
+]
+They are reproduced in the repository reference implementation and the first-party native candidate. The lapse-Hessian contribution to the three principal derivative slots is
+[
+\begin{aligned}
+G_{L2,\alpha}={}&
+D_1\left[-D_rD_r\alpha+\frac13\Delta\alpha\right]
+-\frac23D_1[-\Delta\alpha]\\
+&+\frac32q\left[-D_rD_r\alpha+\frac13\Delta\alpha\right].
+\end{aligned}
+]
+The pinned discrete identity
+[
+(\Delta\alpha)_h-(D_rD_r\alpha)_h=2A_{\alpha,h},
+\quad
+A_{\alpha,h}=\frac{X^2}{a}
+\left(\frac1r+\frac{D_1b}{2b}-\frac{D_1X}{X}\right)D_1\alpha
+]
+rewrites this exactly as
+[
+G_{L2,\alpha,h}
+=D_1(2A_{\alpha,h})
++q[-(D_rD_r\alpha)_h+A_{\alpha,h}].
+]
+The two saved-grid forms previously agree to at most (1.22\times10^{-19}) over the recorded comparison domain. This is an exact rearrangement of the pinned discrete operators, not a continuum product-rule assumption.
+
+The curvature part is
+[
+G_{L2,R}=
+D_1\left[\alpha\left(R^r{}_r-\frac13R\right)\right]
++\frac32q\alpha\left(R^r{}_r-\frac13R\right),
+]
+with the remaining (6\chi_rL_2^{A_a}) contribution retained in the full chain-rule assembly. The metric-only/evolved-connection distinction must remain explicit. On the pinned same-metric comparison,
+[
+\Delta_\Lambda R^r{}_r
+=\chi\left[D_1C^r+\frac{D_1a}{2a}C^r\right],
+\qquad
+\Delta_\Lambda R=\chi D_1C^r,
+]
+so the tracefree curvature offset is
+[
+W^r{}_r=\Delta_\Lambda R^r{}_r-\frac13\Delta_\Lambda R
+=\chi\left[\frac23D_1C^r+\frac{D_1a}{2a}C^r\right].
+]
+Thus the L2 Ricci term evaluated with evolved \(\Lambda\) is not silently relabelled as metric-only Ricci: its tracefree difference is carried by the separate \(W^r{}_r\) connection slot. The vendor-specific undifferentiated-\(C^r\) term remains present.
+
+### 9.2 Primary L3: extrinsic-curvature and matter-stress RHS
+
+The pinned primary-L3 RHS is
+[
+\begin{aligned}
+L_3^{A_a}={}&
+\beta D_1A_a+\alpha K A_a
+-\frac{16\pi}{3}\alpha(S_r-S_\theta)
++\mathrm{KO}_{A_a},\\
+L_3^K={}&
+\beta D_1K
++\alpha\left(A_a^2+2A_b^2+\frac13K^2\right)
++4\pi\alpha(E+S_r+2S_\theta)
++\mathrm{KO}_{K},
+\end{aligned}
+\]
+with (A_b=-A_a/2). These are the actual primary-L3 source slots; the KO contribution and shift terms are not silently dropped. Inserting these rates into the chain rule in §9 gives their exact contribution to the geometric momentum tangent. In particular, the matter-stress projections in primary L3 are geometry-RHS sources. They are not interchangeable with, and must not be double-counted as, the Bianchi total-stress divergence
+[
+-8\pi\alpha\mathcal D_r^{\mathrm{tot}}.
+]
+The latter is a separate divergence source whose six sector contributions must be summed using the archive-pinned conventions.
+
+### 9.3 Operand inventory and decision on further computation
+
+The checksum-verified #423/#427 stage captures already provide the operands needed for the bounded source mapping: stage-owned (a,b,X,\alpha,\Lambda,A_a,K); primary-L2 and primary-L3 (A_a/K) rates; explicit geometry rates; and the matter-sector/source arrays used by the saved tangent reports. The existing records also preserve refreshed-stage and endpoint tangent comparisons as distinct witnesses.
+
+Consequently, the current source map does **not** identify a missing operand that would justify a new observer or a new evolution. The remaining work is an accounting/reconciliation operation on the existing pinned definitions and arrays:
+1. Apply the chain rule in §9 to L2, L3, and explicit metric-rate slots separately.
+2. Keep the L2 metric-Ricci and evolved-\(\Lambda\) tracefree offset separate.
+3. Keep L3 matter-stress projections separate from the total-stress divergence and six-sector exchange sum.
+4. Compare the resulting same-state tangent with the Bianchi normal-geometric, connection, and total-stress rows; report operator and stage/PIRK remainders separately.
+
+If that comparison reveals a specifically absent field or rate, name it before requesting any additional capture. No new observer, targeted discrete test, lapse solve, or evolution is authorized by this source mapping alone.
+
