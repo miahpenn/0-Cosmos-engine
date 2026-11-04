@@ -1658,3 +1658,92 @@ This row has a second upper diagonal. It would require upgrading the interior ro
 The existing outer normalization row is independent of this centre-row derivation and is left untouched. The two candidates are not ranked here: candidate A is order-consistent with the current lapse solve, while candidate B is operator-consistent with the later fourth-order parity-ghost geometric derivatives. Choosing between them requires an explicit accuracy and stage-compatibility decision, not a residual-minimizing selection.
 
 **Authorization boundary:** these are algebraic research candidates only. No new lapse solve, source modification, production edit, or evolution was performed. The next permissible check is a manufactured elliptic solve in a research-only harness, with both interior order and boundary row declared, followed by an independent same-stage comparison. Production remains unchanged unless explicitly authorized.
+
+
+## 17. Issue #4 closure ledger: one identity, explicit ownership
+
+This section consolidates the existing derivations into one accounting surface. It does not add a new equation, infer a missing physical source, or claim discrete closure. The purpose is to prevent the investigation from branching into independent diagnostics without returning their results to the same propagation identity.
+
+### 17.1 Governing continuum candidate
+
+With the pinned lower-index total momentum constraint, total Hamiltonian constraint, and tracefree spatial residual, retain the source-derived continuum candidate in the form
+
+\[
+\boxed{
+\begin{aligned}
+\partial_t M_{r,\mathrm{tot}}={}&
+\beta D_r M_{r,\mathrm{tot}}
++(D_r\beta)M_{r,\mathrm{tot}}
++\alpha K M_{r,\mathrm{tot}}\\
+&-\frac13(D_r\alpha)H_{\mathrm{tot}}
++\frac16\alpha D_r H_{\mathrm{tot}}
++D_j(\alpha W^j{}_r)
+-8\pi\alpha\mathcal D_r^{\mathrm{tot}} .
+\end{aligned}}
+\]
+
+Here \(W^i{}_j\) is the explicitly isolated tracefree spatial-residual/connection response on the pinned same-metric comparison. This is a continuum Bianchi-projection candidate with source-derived term ownership. It is not, by itself, the full semi-discrete or PIRK propagation identity.
+
+### 17.2 Signed term-ownership ledger
+
+| Ledger slot | Required signed contribution | Independent source / witness | 0* status |
+|---|---|---|---|
+| Shift transport | \(\beta D_r M_r+(D_r\beta)M_r\) | Lower-index, weight-zero covector Lie derivative; compare with pinned shift RHS if nonzero shift is admitted | Continuum source derived; same-stage discrete witness must remain explicit |
+| Normal geometric propagation | \(\alpha K M_r-\tfrac13(D_r\alpha)H+\tfrac16\alpha D_rH\) | Bianchi normal projection and pinned primary-L2/primary-L3 RHS mapping | Continuum mapping derived; trace-slot origin/Bochner remainder remains open |
+| Evolved-connection response | \(D_j(\alpha W^j{}_r)\) | Same-metric evolved-\(\Lambda\) Ricci offset and vendor \(C^r\) response | Tracefree block locally reconciled; finite-grid product/chain remainder retained |
+| Total-stress divergence | \(-8\pi\alpha\mathcal D_r^{\mathrm{tot}}\) | Total-stress Bianchi projection; independently sum the six sector divergences | Continuum source fixed; pointwise/FV/expanded discrete comparisons and sector mapping remain open |
+| Operand conversion | Explicit \(M_{r,\mathrm{geom}}\leftrightarrow M_{r,\mathrm{tot}}\), \(H_{\mathrm{geom}}\leftrightarrow H_{\mathrm{tot}}\) substitutions | Previously derived \(\Delta B_{\mathrm{sub}}\), including density-gradient terms | Algebraic substitution derived; density-gradient terms must be counted exactly once |
+| PIRK/stage realization | No new continuum term: compare the actual stage-owned tangent and finite-step secant against the above sum | Saved signed endpoint tangent arrays and refreshed-stage arrays, with L2/L3 ownership kept distinct | Captured-array Lambda increment reconstruction closes at roundoff; complete momentum finite-step closure not yet established |
+
+The table is an ownership ledger, not a claim that all rows have passed. In particular, the total-stress row is not interchangeable with an individual scalar/dark-matter exchange covector, and the subsidiary \(C^r\) evolution is not an extra direct source in \(\partial_t M_r\).
+
+### 17.3 Matter-source expansion rule
+
+The total source is
+
+\[
+\mathcal D_r^{\mathrm{tot}}
+=\sum_{s\in\{\mathrm{S},\mathrm{D},\mathrm{b},\mathrm{r},\ldots\}}
+\mathcal D_{r,s},
+\]
+
+where the actual six-sector names, signs, and constitutive definitions must be taken from the pinned archive/source convention map, not inferred from this schematic index. The continuum Bianchi term remains
+
+\[
+-8\pi\alpha\sum_s\mathcal D_{r,s}.
+\]
+
+Sector-exchange terms internal to the total stress tensor must cancel in the sum with their documented opposite signs. They are not added a second time as an independent \(Q_r\) source. The previously established dark-matter convention remains \(\nabla_\mu T_{\mathrm{DM}}^{\mu}{}_{\nu}=+\beta\rho_{\mathrm{DM}}\nabla_\nu\phi\), with the scalar exchange opposite; the contrary minus sign in the internal line remains an identified source-document slip, not a selectable branch.
+
+The geometric-to-total constraint substitution already contains the density-gradient contributions:
+
+\[
+\Delta B_{\mathrm{sub}}=
+-\kappa[\beta D_rj+(D_r\beta)j+\alpha Kj]
++\frac{2\kappa}{3}(D_r\alpha)\rho
+-\frac{\kappa\alpha}{3}D_r\rho .
+\]
+
+These terms are part of the change of constraint operands. They must not be counted again inside the total-stress divergence row.
+
+### 17.4 Discrete closure test and stopping rule
+
+The next comparison is deliberately limited to the same accepted state and existing checksum-verified arrays:
+
+1. Reconstruct each signed row using its own pinned operand definitions and stage ownership.
+2. Form the signed continuum-candidate sum without fitting, rescaling, or selecting terms by residual size.
+3. Compare separately against (a) the saved semi-discrete tangent and (b) the measured finite-step/PIRK secant. Do not treat these as interchangeable.
+4. Report cell 0, cell 1, and the fixed physical annulus separately, with signed values as well as maxima.
+5. Preserve distinct columns for pointwise total-stress divergence, finite-volume divergence, and expanded sector sum. A disagreement among these is itself a named remainder.
+6. Apply 0* to every borrowed equation/operator mapping: source and convention pinned; independent witness; explicit numerical cost/remainder; no unearned extra term.
+
+If any ledger slot lacks a saved operand, stop and name that missing operand. Do not launch a new evolution, alter the centre row, change the lapse, or add a physical term merely to make the total close. A new computation is justified only if it is the smallest direct way to obtain a specifically identified missing operand.
+
+### 17.5 Current disposition
+
+- **Derived:** continuum Bianchi projection; shift transport structure; normal geometric trace pair; same-metric evolved-connection response; total-stress Bianchi source; geometric-to-total operand substitution.
+- **Locally reconciled:** pinned vendor tracefree connection mapping and same-metric Ricci offsets; saved Lambda finite-step reconstruction.
+- **Still open:** central discrete trace/Bochner compatibility; six-sector pointwise/FV/expanded divergence reconciliation; complete same-state matter-coupled semi-discrete tangent sum; complete PIRK momentum secant closure.
+- **Not authorized / unchanged:** production equations, initializer, CMC centre row, vendor code, workflows, accepted states, scientific-admission flags, conservation-closure flags, and acceptance oracle.
+
+**0* conclusion:** the current evidence supports a well-defined continuum accounting identity and several independently checked component mappings. It does not yet support the claim that the full matter-coupled discrete propagation identity closes. The investigation returns to that single closure test; the centre-row result remains a bounded numerical sub-investigation, not the project objective.
