@@ -148,3 +148,98 @@ its scope.
 The correction has not yet been rerun. The first dispatch stopped at N=60
 under `set -e`, so N=120 and N=240 were not evaluated. No production step,
 RHS, initializer, source/vendor edit, or scientific-admission change occurred.
+
+
+## Corrected accepted-state dispatch — successful (2026-11-04)
+
+This section supersedes the pending-rerun statements above. The corrected
+workflow was manually dispatched successfully:
+
+- Workflow run: [41935352237](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/41935352237)
+- Run conclusion: `success`; event: `workflow_dispatch`; attempt: 1
+- Branch: `research/issue4-zero-step-bianchi-observer-2026-11-04`
+- Runner commit: `e15afa167190e02c5ae554edf1e1d222109a2ba7`
+- Corrected evaluator blob: `4fa0e6d8b23304e06938073db8c2d34281991f24`
+- Diagnostic source: `4aec88d0e3ff028e0a65a8ac36b30948625df792`
+- Helper baseline: `7f47669a1c0edfafef9fc5f27b2db80840d3f035`
+- Vendor: `d6052d605673ce9d82cdc99b0df79855fa2ea215`
+
+The `accepted-state-zero-step-observer` job completed successfully. All
+provenance checks passed, focused contract tests passed (6/6), and the
+evaluator completed for N=60, 120, and 240. The secondary
+`bounded-independent-divergence` job was skipped by the branch-gated
+workflow; it did not fail and is not part of this accepted-state observer
+result.
+
+Artifact:
+- ID: `13374196058`
+- Name: `issue4-zero-step-accepted-state-observer-41935352237`
+- SHA-256: `31180befe6a50b9fa4fc954f98feecaddf3fa187f4c3e4ac83bdfa4e2d3f46cf`
+- Contains the three original accepted archives, environment provenance,
+  and `accepted-N60.json`, `accepted-N120.json`, `accepted-N240.json`.
+
+### Verified invariants and cross-checks
+
+For every resolution:
+- `status = diagnostic_evaluation_complete`;
+- accepted state class is `accepted_t_0p60`;
+- original upstream state digest matches the pinned expected digest;
+- accepted diagnostic source, helper baseline, and vendor pins match;
+- `production_steps_run = 0`;
+- `state_advanced = false`;
+- input-state digest before and after evaluation is identical;
+- `zero_step_tripwire = armed_and_not_triggered`;
+- accepted-reference regression passed;
+- canonical matter projection cross-checks for `rho`, `j`, `pr`, and `pt` passed;
+- metric-only Ricci / evolved-connection offset cross-checks passed (maximum
+  reported gaps are below 1e-18).
+
+### Residual and sector-accounting observations
+
+The maximum absolute tangent-minus-predictor residual over r<=10 decreases
+with resolution in both independently retained divergence channels:
+
+| N | Pointwise max | Finite-volume max |
+|---:|---:|---:|
+| 60 | 1.8406e-5 | 9.6404e-6 |
+| 120 | 1.5272e-6 | 1.2827e-6 |
+| 240 | 3.9897e-7 | 4.0771e-8 |
+
+The corresponding maximum annular (5<=r<=10) residuals also decrease:
+
+| N | Pointwise annular max | Finite-volume annular max |
+|---:|---:|---:|
+| 60 | 2.0498e-6 | 1.8089e-6 |
+| 120 | 1.6403e-7 | 1.3547e-7 |
+| 240 | 1.0667e-8 | 8.9879e-9 |
+
+These are resolution-trend observations for the archived accepted-state
+comparison, not proof that all centre-cell behavior or the continuum
+constraint-propagation identity is closed.
+
+The six-sector ledger names dark matter, baryons, radiation, S, D, and
+COSMOS-phi. Its raw six-sector sum does not by itself reconstruct the total
+(`raw_sum_passed=false`). After the explicit time-density component
+accounting, the corrected reconstruction passes in all four channels at both
+epsilon values; the largest unexplained gap across the three resolutions is
+of order 1e-20. Preserve both facts in downstream reporting: do not describe
+the raw sum as closed, and do not omit the successful component correction.
+
+### Scope boundary and next step
+
+The artifact's structural inventory records that the full-Bianchi predictor
+terms are reconstructed from the frozen state under the pinned operators;
+they are not present as pre-stored named arrays. The archive contains the
+six-sector accepted-state data only. The codebase's separate radial-Maxwell
+and normalized EM projection pathway remains present, but these accepted
+archives do not carry an EM-on witness/projection. This run therefore does
+not test or close an EM contribution.
+
+This successful run verifies the accepted-state observer execution under
+the exact pins. It does not evaluate manufactured regular profiles or frozen
+production t=0, and it does not change scientific-admission or
+conservation-closure flags. Next authorized sequence: extend the same
+verified observer contract to the manufactured regular-profile class and
+frozen production t=0 class, then compare all three classes under one
+contract. Keep production steps at zero and retain all existing research-only
+guardrails.
