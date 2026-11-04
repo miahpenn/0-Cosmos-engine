@@ -243,3 +243,83 @@ verified observer contract to the manufactured regular-profile class and
 frozen production t=0 class, then compare all three classes under one
 contract. Keep production steps at zero and retain all existing research-only
 guardrails.
+
+
+## Readiness audit for the two remaining comparison classes (2026-11-04)
+
+After the accepted-state run succeeded, the existing repository and available
+Library handoffs were checked for reusable manufactured and frozen-production
+t=0 inputs. This is an input/provenance audit only; no new evaluator or
+physics calculation was run.
+
+### Manufactured regular-profile class: existing Ricci oracle is not the Bianchi fixture
+
+The existing
+`tools/audit_manufactured_regular_ricci_oracle.py` and
+`docs/ISSUE4_MANUFACTURED_REGULAR_RICCI_ORIGIN_2026-10-16.md` provide a
+useful analytic geometry control. Its regular-even profile is
+`B(r)=1+b2*r^2+b4*r^4+b6*r^6`, with the explicit parity-breaking arm
+retained as a negative control. However, this is a Ricci/operator oracle,
+not a full matter-coupled Bianchi fixture:
+
+- it does not archive the six matter/scalar stress sectors, total-stress
+  divergence witnesses, or an independently supplied M tangent required by
+  the accepted-state evaluator;
+- its current implementation calls `V55ProductionKernel.initialize()`
+  to obtain a base grid/state. That is outside the zero-step observer's
+  strict no-initializer contract, even though the diagnostic itself performs
+  no time evolution;
+- its report explicitly disclaims a Brown/Bianchi propagation proof.
+
+Therefore do not route this existing Ricci oracle through the accepted-state
+evaluator or describe it as the manufactured Bianchi class. Reuse its analytic
+profile and negative-control mathematics only as a possible input definition,
+after the full Bianchi witness contract is independently supplied.
+
+### Frozen production t=0: historical tangent artifact is not pin-compatible
+
+A Library handoff records a historical t=0 discrete-constraint tangent
+artifact: workflow `38290633971`, artifact `11766405316`, with N=60/80/120
+baseline/candidate states and symmetric directional tangents. Its production
+source pin is `6d8b3f2790644591326df57c55908863f994cb0c`, not the currently
+accepted diagnostic source pin
+`4aec88d0e3ff028e0a65a8ac36b30948625df792`. It also uses a different
+resolution set and an older artifact schema. It is useful historical context,
+but cannot be silently admitted as the current pinned t=0 class.
+
+The current 2026-10-24 accepted-state artifacts verified in the Library and
+the 2026-11-04 accepted-state observer are at t=0.60, not t=0. No matching
+current-pin t=0 archive with the complete frozen state, total-stress
+divergence witnesses, and tangent arrays was located in the available
+handoffs.
+
+### Required next implementation boundary
+
+The next change must be a fixture/schema extension, not an invocation of the
+production initializer or RHS inside the observer:
+
+1. Identify or create a source-pinned, immutable manufactured full-state
+   fixture that includes the complete frozen geometry, all six named sectors,
+   pointwise and finite-volume total-stress divergence witnesses, and signed
+   tangent witnesses for both epsilon channels. Keep the analytic regularity
+   and parity-breaking controls explicit.
+2. Identify a saved production t=0 state archive under the current accepted
+   diagnostic source/vendor/helper identities, or produce a new archive in a
+   separately authorized capture workflow. The observer itself must only
+   load and verify it; it must not call the initializer, RHS, or evolution.
+3. Extend the fixture loader with explicit schema/class dispatch and
+   fail-closed class-specific provenance/digests. Keep the existing accepted
+   archive loader and regression path unchanged.
+4. Run the existing accepted-state regression unchanged, then run the
+   manufactured and t=0 classes with the same predictor implementation,
+   signed term names, epsilon channels, centre/annulus/fixed-radius summaries,
+   state immutability digest, and zero-step tripwires.
+5. Only then produce the three-class comparison. Do not mix historical
+   source pins, infer absent arrays, synthesize matter/EM contributions,
+   compute missing tangent arrays inside the observer, or relax any gates.
+
+Disposition: the accepted-state class is verified; the other two classes are
+not yet evaluable under the same contract from the currently located inputs.
+This is a concrete fixture/provenance prerequisite, not a physics failure.
+Scientific admission, full propagation closure, and total-stress-energy
+conservation flags remain false.
