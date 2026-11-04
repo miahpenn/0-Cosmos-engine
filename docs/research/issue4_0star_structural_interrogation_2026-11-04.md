@@ -413,3 +413,106 @@ Thus the alpha K M_r term and the Brown-style Hamiltonian-gradient coefficient p
 | Minimal | The collected expression has no extra fitted coefficient or duplicate source term. | No claim that this is the minimal complete identity. |
 
 **Next derivation:** derive the primary-L2 lapse-Hessian/Ricci contribution against the same constraint chain rule, keeping metric-only Ricci and evolved-Lambda Ricci separate. The target is to establish whether the curvature part completes the same Hamiltonian-gradient pair and to isolate the independent C^r derivative terms. No numerical observer is warranted until that source derivation identifies an operand absent from the existing #420–#424 arrays.
+
+
+## 0* continuation — complete metric-only normal geometric block
+
+**Status:** continuum derivation from the pinned BSSN primary-L2 and algebraic normal RHS, on the metric-connection surface (C^r=0). Together with the shift result above, this derives the non-matter, metric-only geometric propagation scaffold. It does not include the accepted vendor's off-constraint connection extension, matter coupling, or finite-grid operator remainders.
+
+The accepted geometric momentum constraint is the radial component of
+\[
+M_i=D_j A^j{}_i-\frac23D_iK,
+\]
+where (A^i{}_j) is trace-free. The pinned primary-L2 source has the tensor form
+\[
+\left.\dot A^i{}_j\right|_{L2}
+=-D^iD_j\alpha+\frac13\delta^i_jD^2\alpha
++\alpha\left(R^i{}_j-\frac13\delta^i_jR\right),
+\qquad
+\left.\dot K\right|_{L2}=-D^2\alpha.
+\]
+For this split block the spatial metric is held fixed, so its covariant derivative is fixed while differentiating the constraint. Therefore
+\[
+\begin{aligned}
+\left.\dot M_i\right|_{L2}
+={}&-D_jD^jD_i\alpha+D_iD^2\alpha\\
+&+D_j\left[\alpha\left(R^j{}_i-\frac13\delta^j_iR\right)\right].
+\end{aligned}
+\]
+
+Using the covector-gradient commutator (Bochner identity)
+\[
+D_jD^jD_i\alpha=D_iD^2\alpha+R_i{}^kD_k\alpha
+\]
+and the contracted spatial Bianchi identity
+\[
+D_jR^j{}_i=\frac12D_iR,
+\]
+the lapse-Hessian and Ricci terms reduce independently to
+\[
+\begin{aligned}
+\left.\dot M_i\right|_{L2}
+&=-R_i{}^kD_k\alpha
++(D_j\alpha)\left(R^j{}_i-\frac13\delta^j_iR\right)
++\frac16\alpha D_iR.
+\end{aligned}
+\]
+For a spherically symmetric radial lapse this is
+\[
+\boxed{
+\left.\dot M_r\right|_{L2,\,C=0}
+=-\frac13(D_r\alpha)R+\frac16\alpha D_rR.
+}
+\]
+
+Combining this curvature contribution with the independently derived extrinsic-algebraic block above, whose kinetic Hamiltonian is
+\[
+H_{\mathrm{kin}}=-\frac32A_a^2+\frac23K^2,
+\]
+gives the full metric-only normal geometric block
+\[
+\boxed{
+\left.\dot M_r\right|_{\mathrm{normal},\,C=0,\,\mathrm{vac}}
+=\alpha K M_r
+-\frac13(D_r\alpha)H_{\mathrm{geom}}
++\frac16\alpha D_rH_{\mathrm{geom}},
+}
+\]
+where
+\[
+H_{\mathrm{geom}}=R-\frac32A_a^2+\frac23K^2.
+\]
+
+Adding the independently derived shift transport gives
+\[
+\left.\partial_tM_r\right|_{C=0,\,\mathrm{vac}}
+=\beta D_rM_r+(D_r\beta)M_r
++\alpha K M_r
+-\frac13(D_r\alpha)H_{\mathrm{geom}}
++\frac16\alpha D_rH_{\mathrm{geom}},
+\]
+for the continuum, metric-only BSSN scaffold and the declared lower-index covector convention.
+
+### Formulation distinction: ADM is not a rescaling of this BSSN result
+
+The standard ADM subsidiary pair recorded in PR #422 is
+\[
+-\alpha D_rH-(D_r\alpha)H
+\]
+(up to the exact convention/order used in that source), whereas the metric-only BSSN block derived here has
+\[
+-\frac13(D_r\alpha)H_{\mathrm{geom}}
++\frac16\alpha D_rH_{\mathrm{geom}}.
+\]
+These pairs cannot be reconciled by a global rescaling or sign change of H. The derivation above shows where the BSSN pair comes from in the pinned L2 plus algebraic normal RHS; it does not authorize transplanting the ADM pair into this BSSN engine. The remaining off-constraint connection response is formulation-specific and is independently documented in PR #423 §§10.9–10.17.
+
+### 0* score and limits
+
+| Standard | Result | Boundary |
+|---|---|---|
+| Checkable | Pass: follows from the pinned L2 tensor RHS, the exact constraint definition, and standard spatial curvature identities. | Ricci-sign convention must remain tied to the pinned source; finite-grid D1/D2 identities are not implied. |
+| Independent | Pass: no Brown propagation formula or measured residual was used to derive the block. | The derivation assumes the metric-connection surface for the Ricci identity; vendor off-constraint terms are separate. |
+| Costed | Pays the metric-only curvature and extrinsic-curvature contributions, including the complete H_geom gradient pair and alpha K M_r. | Does not pay matter, vendor C^r extension, or discrete operator-composition contributions. |
+| Minimal | The source terms collect into one H_geom gradient pair plus alpha K M_r and the two shift-transport terms. | This is the minimal metric-only continuum scaffold, not the complete accepted-system identity. |
+
+**Updated next gate:** the metric-only continuum Hamiltonian-gradient/time-split block is now derived from the pinned BSSN equations. Do not repeat this derivation or launch another campaign. The remaining task is to combine it with the already source-derived vendor off-constraint C^r channels in PR #423 §§10.9–10.17 and the independently derived total-stress Bianchi source, while preserving the exact finite-grid chain-rule/operator remainders and the accepted PIRK stage assignments. Keep the standard ADM expression as a distinct formulation comparator. No new observer is justified until this reconciliation identifies a missing independently measurable operand. All scientific-admission and acceptance flags remain false.
