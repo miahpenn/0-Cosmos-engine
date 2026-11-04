@@ -1248,3 +1248,67 @@ On the archived refreshed-stage family, the large derivative-side contributions 
 It is **not** evidence that \(L_2\) is physically wrong, that a coefficient is missing, or that the Brown candidate should be altered. The terms are individually large and strongly cancel; maxima can occur at different cells. The next legitimate comparison is to expand the pinned primary-\(L_2\) curvature and lapse-Hessian operands themselves, with their exact metric/evolved-\(\Lambda\) inputs, and compare those component-by-component to the Brown trace/tracefree reconstruction on the identical stage. No residual fitting or stage substitution is permitted.
 
 The three ZIP digests and internal report/NPZ SHA-256 manifests were rechecked before this decomposition; all member hashes matched. The CPU/BLAS metadata limitation in §8 still applies. No production equation, vendor pin, accepted state, workflow, or admission flag changed.
+
+
+## 11. Primary-L2 curvature versus lapse-Hessian decomposition
+
+**Status:** completed reuse-only reconstruction from the same checksum-verified stage arrays. The pinned vendor implementation was read at vendor commit `d6052d605673ce9d82cdc99b0df79855fa2ea215`, file `vacuum_bssn.py`, blob `099ce52ba9e6dcd38d50c2915248c76c4236f7f4`. No production or vendor code was changed.
+
+### Pinned primary-L2 formula
+
+The vendor defines
+\[
+L_2^{A_a}
+=-\left(D_rD_r\alpha-\frac13\Delta\alpha\right)
++\alpha\left(R^r{}_r-\frac13R\right),
+\qquad
+L_2^K=-\Delta\alpha.
+\]
+Here \(R^r{}_r\) and \(R\) use the evolved \(\Lambda\) in the vendor BSSN Ricci operator. Rebuilding these two rates from the archived stage-0 metric, lapse, and evolved connection reproduces the saved \(L_{2,0}^{A_a}\) and \(L_{2,0}^{K}\) arrays over \(r\le10\) with maximum absolute gaps:
+
+| N | \(L_2^{A_a}\) reconstruction gap | \(L_2^K\) reconstruction gap |
+|---:|---:|---:|
+| 60 | \(3.25\times10^{-19}\) | \(2.71\times10^{-20}\) |
+| 120 | \(4.47\times10^{-19}\) | \(2.71\times10^{-20}\) |
+| 240 | \(2.24\times10^{-19}\) | \(5.42\times10^{-20}\) |
+
+This independently pins the actual archived primary-L2 operand split, rather than inferring it from the total \(\dot M_{geom}\).
+
+### Lapse-Hessian and Ricci pieces in the momentum tangent
+
+For the three principal derivative/product terms from §10, the primary-L2 contribution separates into
+\[
+\begin{aligned}
+G_{L2,\alpha}={}&
+D_1\left[-D_rD_r\alpha+\frac13\Delta\alpha\right]
+-\frac23D_1(-\Delta\alpha)\\
+&+\frac32q\left[-D_rD_r\alpha+\frac13\Delta\alpha\right],\\
+G_{L2,R}={}&
+D_1\left[\alpha\left(R^r{}_r-\frac13R\right)\right]
++\frac32q\alpha\left(R^r{}_r-\frac13R\right).
+\end{aligned}
+\]
+The separate \(6\chi_r L_2^{A_a}\), \(6A_a\dot\chi_r\), and \(3A_a\dot q/2\) pieces remain in the full geometric tangent; they were not folded into either subtotal.
+
+The maximum absolute values of these two subtotals over \(r\le10\) are:
+
+| N | Lapse-Hessian subtotal \(\max|G_{L2,\alpha}|\) | Ricci subtotal \(\max|G_{L2,R}|\) |
+|---:|---:|---:|
+| 60 | \(2.1987\times10^{-5}\) | \(6.8061\times10^{-5}\) |
+| 120 | \(4.5077\times10^{-5}\) | \(7.4504\times10^{-5}\) |
+| 240 | \(9.0530\times10^{-5}\) | \(7.4973\times10^{-5}\) |
+
+At N=240, signed values at the first three cells are:
+
+| Subtotal | cell 0 | cell 1 | cell 2 |
+|---|---:|---:|---:|
+| Lapse-Hessian \(G_{L2,\alpha}\) | \(+8.3773\times10^{-5}\) | \(-9.0530\times10^{-5}\) | \(+5.6730\times10^{-5}\) |
+| Ricci \(G_{L2,R}\) | \(-5.7787\times10^{-6}\) | \(-1.7340\times10^{-5}\) | \(-2.8473\times10^{-5}\) |
+
+The lapse-Hessian subtotal at cells 0 and 1 is strikingly close in sign and scale to the full source-aware residual at those cells (respectively \(+8.4318\times10^{-5}\) and \(-9.0275\times10^{-5}\)). This is a numerical localization on the saved family, not proof that the residual equals a missing lapse term: the Brown-side identity, Ricci tracefree subtotal, \(L_3\), matter-current tangent, and remaining geometric product terms must all be kept in the same signed comparison.
+
+### Consequence for the next derivation
+
+The earlier primary-L2 localization can now be sharpened: the central residual is especially aligned with the primary-L2 **lapse-Hessian derivative/product subtotal**, rather than the vendor connection correction or the primary-predictor \(L_3\) block. The exact continuum algebra must now be crosswalked to the discrete identities among \(D_rD_r\alpha\), \(\Delta\alpha\), the radial connection coefficient, and the Brown Hamiltonian-gradient pair. The crosswalk must retain the pinned discrete operators and their product/chain-rule remainders; no continuum product rule may be silently imposed on the grid.
+
+This does not establish a missing physical term or authorize any coefficient adjustment. The central stencil and the exact stage remain the unresolved numerical location. No new RHS, observer, lapse solve, or evolution was run; all scientific-admission flags remain false.
