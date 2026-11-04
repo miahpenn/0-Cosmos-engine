@@ -56,16 +56,40 @@ def _load_reviewed_total_stress_helper(diagnostic_root: Path, baseline_root: Pat
 
 
 def _load_vendor(diagnostic_root: Path):
-    vendor_root = diagnostic_root / "vendor" / "bb-palatini-unified-r0"
+    """Import vendor modules only when their actual origins match the pinned tree."""
+    vendor_root = (diagnostic_root / "vendor" / "bb-palatini-unified-r0").resolve()
     if not vendor_root.is_dir():
         raise RuntimeError(f"pinned vendor checkout is missing: {vendor_root}")
     path = str(vendor_root)
     if path not in sys.path:
         sys.path.insert(0, path)
-    import r0_operators
-    import vacuum_bssn
-    import moving_puncture_pirk
-    return r0_operators, vacuum_bssn, moving_puncture_pirk
+
+    def require_pinned_origin(module):
+        origin = getattr(module, "__file__", None)
+        if not origin:
+            raise RuntimeError(
+                f"pinned vendor module {module.__name__!r} has no verifiable __file__"
+            )
+        resolved = Path(origin).resolve()
+        try:
+            resolved.relative_to(vendor_root)
+        except ValueError as exc:
+            raise RuntimeError(
+                f"vendor module origin mismatch for {module.__name__}: "
+                f"{resolved} is outside pinned root {vendor_root}"
+            ) from exc
+        return module
+
+    modules = []
+    for name in ("r0_operators", "vacuum_bssn", "moving_puncture_pirk"):
+        cached = sys.modules.get(name)
+        if cached is not None:
+            # Refuse rather than silently trusting or replacing a preloaded module.
+            modules.append(require_pinned_origin(cached))
+            continue
+        module = __import__(name)
+        modules.append(require_pinned_origin(module))
+    return tuple(modules)
 
 
 def _state_from_fixture(fixture: dict[str, Any], r0_operators, vacuum_bssn):
@@ -189,209 +213,215 @@ def evaluate_accepted_fixture(
         raise RuntimeError("zero-step observer forbids vendor PIRK advance")
     moving_puncture_pirk.damped_moving_puncture_pirk2_step = forbidden_vendor_pirk
 
-    state = _state_from_fixture(fixture, r0_operators, vacuum_bssn)
-    helper_digest_before = total_helper.state_digest(state)
-    require_unchanged(fixture["helper_state_digest"], helper_digest_before)
+    original_kernel_step = kernel_class.step
+    original_vendor_pirk = moving_puncture_pirk.damped_moving_puncture_pirk2_step
+    try:
+        state = _state_from_fixture(fixture, r0_operators, vacuum_bssn)
+        helper_digest_before = total_helper.state_digest(state)
+        require_unchanged(fixture["helper_state_digest"], helper_digest_before)
 
-    grid = state.grid
-    geom = state.geometry
-    d1 = grid.cell_derivative_fourth
-    r = np.asarray(grid.centers, dtype=np.float64)
-    alpha = _finite("alpha", geom.alpha)
-    beta = _finite("beta", geom.beta)
-    a = _finite("a", geom.a)
-    b = _finite("b", geom.b)
-    X = _finite("X", geom.X)
-    if np.any(beta != 0.0):
-        raise RuntimeError("this accepted-state predictor fixture requires exactly zero shift")
+        grid = state.grid
+        geom = state.geometry
+        d1 = grid.cell_derivative_fourth
+        r = np.asarray(grid.centers, dtype=np.float64)
+        alpha = _finite("alpha", geom.alpha)
+        beta = _finite("beta", geom.beta)
+        a = _finite("a", geom.a)
+        b = _finite("b", geom.b)
+        X = _finite("X", geom.X)
+        if np.any(beta != 0.0):
+            raise RuntimeError("this accepted-state predictor fixture requires exactly zero shift")
 
-    # Metric-only geometric constraints: replace evolved Lambda only on a
-    # disposable geometry copy. The accepted input state remains untouched.
-    lambda_metric = _metric_connection_lambda(grid, geom)
-    metric_geometry = geom.copy()
-    metric_geometry.Lambda = lambda_metric.copy()
-    metric_constraints = vacuum_bssn.constraints(grid, metric_geometry)
-    H_geom = _finite("metric-only Hamiltonian constraint", metric_constraints["hamiltonian"])
-    M_geom = _finite("geometric lower-index momentum constraint", metric_constraints["momentum"])
+        # Metric-only geometric constraints: replace evolved Lambda only on a
+        # disposable geometry copy. The accepted input state remains untouched.
+        lambda_metric = _metric_connection_lambda(grid, geom)
+        metric_geometry = geom.copy()
+        metric_geometry.Lambda = lambda_metric.copy()
+        metric_constraints = vacuum_bssn.constraints(grid, metric_geometry)
+        H_geom = _finite("metric-only Hamiltonian constraint", metric_constraints["hamiltonian"])
+        M_geom = _finite("geometric lower-index momentum constraint", metric_constraints["momentum"])
 
-    # Independently reconstruct all six stress sectors using the reviewed helper.
-    projection = total_helper.independent_total_projections(state)
-    if not projection.get("projection_crosscheck_passed", False):
-        raise RuntimeError("independent total-stress projection cross-check failed")
-    rho_total = _finite("rho_total", projection["rho"])
-    j_total = _finite("j_total", projection["j"])
-    H_total = _finite("H_total", H_geom - 16.0 * math.pi * rho_total)
-    M_total = _finite("M_total", M_geom - 8.0 * math.pi * j_total)
+        # Independently reconstruct all six stress sectors using the reviewed helper.
+        projection = total_helper.independent_total_projections(state)
+        if not projection.get("projection_crosscheck_passed", False):
+            raise RuntimeError("independent total-stress projection cross-check failed")
+        rho_total = _finite("rho_total", projection["rho"])
+        j_total = _finite("j_total", projection["j"])
+        H_total = _finite("H_total", H_geom - 16.0 * math.pi * rho_total)
+        M_total = _finite("M_total", M_geom - 8.0 * math.pi * j_total)
 
-    # Keep chi=X^2 distinct from chi_r=-D_1 X/(2X).
-    chi = X**2
-    chi_r = -d1(X, parity=1) / (2.0 * X)
-    C_r = _finite("odd connection difference C^r", geom.Lambda - lambda_metric)
-    dC_odd = _finite("odd-parity derivative of C^r", d1(C_r, parity=-1))
-    da_even = _finite("even-parity derivative of a", d1(a, parity=1))
-    db_even = _finite("even-parity derivative of b", d1(b, parity=1))
-    d_alpha_even = _finite("even-parity derivative of alpha", d1(alpha, parity=1))
-    d_H_total_even = _finite("even-parity derivative of H_total", d1(H_total, parity=1))
-    W_rr = _finite(
-        "tracefree evolved-connection response W^r_r",
-        chi * ((2.0 / 3.0) * dC_odd + (da_even / (2.0 * a)) * C_r),
-    )
-    ricci_evolved = vacuum_bssn.geometry_terms(grid, geom)
-    ricci_metric = vacuum_bssn.geometry_terms(grid, metric_geometry)
-    delta_R_scalar = _finite("evolved-minus-metric scalar Ricci", ricci_evolved["R"] - ricci_metric["R"])
-    delta_Rr_r = _finite("evolved-minus-metric radial Ricci", ricci_evolved["Rr_r"] - ricci_metric["Rr_r"])
-    expected_delta_R_scalar = _finite("expected scalar Ricci connection offset", chi * dC_odd)
-    expected_delta_Rr_r = _finite("expected radial Ricci connection offset", chi * (dC_odd + (da_even / (2.0 * a)) * C_r))
-    W_rr_direct = _finite("direct tracefree Ricci connection offset", delta_Rr_r - delta_R_scalar / 3.0)
-    ricci_offset_crosscheck = {
-        "scalar_max_abs_gap": float(np.max(np.abs(delta_R_scalar - expected_delta_R_scalar))),
-        "radial_max_abs_gap": float(np.max(np.abs(delta_Rr_r - expected_delta_Rr_r))),
-        "tracefree_max_abs_gap": float(np.max(np.abs(W_rr - W_rr_direct))),
-    }
-    if max(ricci_offset_crosscheck.values()) > 1.0e-17:
-        raise RuntimeError(f"same-metric Ricci connection-offset cross-check failed: {ricci_offset_crosscheck}")
-    F_C = _finite("F_C=alpha W^r_r", alpha * W_rr)
-    connection_divergence = _finite(
-        "spherical divergence D_j(alpha W^j_r)",
-        d1(F_C, parity=1)
-        + (6.0 * chi_r + 3.0 / r
-           + 3.0 * db_even / (2.0 * b)) * F_C,
-    )
-
-    # The accepted slice has beta^r identically zero; retain its measured,
-    # separately named transport contribution rather than omitting the term.
-    shift_transport = np.zeros_like(r)
-    normal_alpha_K_M = _finite("alpha K M_total", alpha * geom.K * M_total)
-    normal_lapse_gradient_H = _finite(
-        "-(D_r alpha) H_total / 3",
-        -(1.0 / 3.0) * d_alpha_even * H_total,
-    )
-    normal_H_gradient = _finite(
-        "alpha D_r H_total / 6",
-        (1.0 / 6.0) * alpha * d_H_total_even,
-    )
-
-    terms_by_channel = {}
-    for epsilon_label, epsilon_value in (("eps2e-05", 2.0e-5), ("eps1e-05", 1.0e-5)):
-        tangent = _array_for_path(fixture, f"tangent_{epsilon_label}.Mdot")
-        div_pointwise = _array_for_path(
-            fixture, f"total_T_{epsilon_label}.total.div_T_r"
+        # Keep chi=X^2 distinct from chi_r=-D_1 X/(2X).
+        chi = X**2
+        chi_r = -d1(X, parity=1) / (2.0 * X)
+        C_r = _finite("odd connection difference C^r", geom.Lambda - lambda_metric)
+        dC_odd = _finite("odd-parity derivative of C^r", d1(C_r, parity=-1))
+        da_even = _finite("even-parity derivative of a", d1(a, parity=1))
+        db_even = _finite("even-parity derivative of b", d1(b, parity=1))
+        d_alpha_even = _finite("even-parity derivative of alpha", d1(alpha, parity=1))
+        d_H_total_even = _finite("even-parity derivative of H_total", d1(H_total, parity=1))
+        W_rr = _finite(
+            "tracefree evolved-connection response W^r_r",
+            chi * ((2.0 / 3.0) * dC_odd + (da_even / (2.0 * a)) * C_r),
         )
-        div_fv = _array_for_path(
-            fixture, f"total_T_{epsilon_label}.total.div_T_r_fv"
-        )
-        common = (
-            shift_transport + normal_alpha_K_M + normal_lapse_gradient_H
-            + normal_H_gradient + connection_divergence
-        )
-        pointwise_source = _finite(
-            "pointwise total-stress Bianchi source",
-            -8.0 * math.pi * alpha * div_pointwise,
-        )
-        fv_source = _finite(
-            "finite-volume total-stress Bianchi source",
-            -8.0 * math.pi * alpha * div_fv,
-        )
-        pointwise_predictor = _finite("pointwise full Bianchi predictor", common + pointwise_source)
-        fv_predictor = _finite("finite-volume full Bianchi predictor", common + fv_source)
-        terms_by_channel[epsilon_label] = {
-            "epsilon": epsilon_value,
-            "measured_tangent": tangent,
-            "pointwise": {
-                "div_T_r": div_pointwise,
-                "stress_source": pointwise_source,
-                "predictor": pointwise_predictor,
-                "residual_tangent_minus_predictor": _finite(
-                    "pointwise tangent minus predictor", tangent - pointwise_predictor
-                ),
-            },
-            "finite_volume": {
-                "div_T_r_fv": div_fv,
-                "stress_source": fv_source,
-                "predictor": fv_predictor,
-                "residual_tangent_minus_predictor": _finite(
-                    "finite-volume tangent minus predictor", tangent - fv_predictor
-                ),
-            },
+        ricci_evolved = vacuum_bssn.geometry_terms(grid, geom)
+        ricci_metric = vacuum_bssn.geometry_terms(grid, metric_geometry)
+        delta_R_scalar = _finite("evolved-minus-metric scalar Ricci", ricci_evolved["R"] - ricci_metric["R"])
+        delta_Rr_r = _finite("evolved-minus-metric radial Ricci", ricci_evolved["Rr_r"] - ricci_metric["Rr_r"])
+        expected_delta_R_scalar = _finite("expected scalar Ricci connection offset", chi * dC_odd)
+        expected_delta_Rr_r = _finite("expected radial Ricci connection offset", chi * (dC_odd + (da_even / (2.0 * a)) * C_r))
+        W_rr_direct = _finite("direct tracefree Ricci connection offset", delta_Rr_r - delta_R_scalar / 3.0)
+        ricci_offset_crosscheck = {
+            "scalar_max_abs_gap": float(np.max(np.abs(delta_R_scalar - expected_delta_R_scalar))),
+            "radial_max_abs_gap": float(np.max(np.abs(delta_Rr_r - expected_delta_Rr_r))),
+            "tracefree_max_abs_gap": float(np.max(np.abs(W_rr - W_rr_direct))),
         }
+        if max(ricci_offset_crosscheck.values()) > 1.0e-17:
+            raise RuntimeError(f"same-metric Ricci connection-offset cross-check failed: {ricci_offset_crosscheck}")
+        F_C = _finite("F_C=alpha W^r_r", alpha * W_rr)
+        connection_divergence = _finite(
+            "spherical divergence D_j(alpha W^j_r)",
+            d1(F_C, parity=1)
+            + (6.0 * chi_r + 3.0 / r
+               + 3.0 * db_even / (2.0 * b)) * F_C,
+        )
 
-    helper_digest_after = total_helper.state_digest(state)
-    require_unchanged(helper_digest_before, helper_digest_after)
-    if helper_digest_after != fixture["helper_state_digest"]:
-        raise RuntimeError("accepted input state changed during predictor evaluation")
-    if step_calls:
-        raise RuntimeError(f"zero-step tripwire was activated: {step_calls}")
+        # The accepted slice has beta^r identically zero; retain its measured,
+        # separately named transport contribution rather than omitting the term.
+        shift_transport = np.zeros_like(r)
+        normal_alpha_K_M = _finite("alpha K M_total", alpha * geom.K * M_total)
+        normal_lapse_gradient_H = _finite(
+            "-(D_r alpha) H_total / 3",
+            -(1.0 / 3.0) * d_alpha_even * H_total,
+        )
+        normal_H_gradient = _finite(
+            "alpha D_r H_total / 6",
+            (1.0 / 6.0) * alpha * d_H_total_even,
+        )
 
-    summaries = {}
-    for epsilon_label, channels in terms_by_channel.items():
-        summaries[epsilon_label] = {}
-        for channel_name in ("pointwise", "finite_volume"):
-            channel = channels[channel_name]
-            summaries[epsilon_label][channel_name] = {
-                "predictor": _summary(channel["predictor"], r),
-                "residual_tangent_minus_predictor": _summary(
-                    channel["residual_tangent_minus_predictor"], r
-                ),
+        terms_by_channel = {}
+        for epsilon_label, epsilon_value in (("eps2e-05", 2.0e-5), ("eps1e-05", 1.0e-5)):
+            tangent = _array_for_path(fixture, f"tangent_{epsilon_label}.Mdot")
+            div_pointwise = _array_for_path(
+                fixture, f"total_T_{epsilon_label}.total.div_T_r"
+            )
+            div_fv = _array_for_path(
+                fixture, f"total_T_{epsilon_label}.total.div_T_r_fv"
+            )
+            common = (
+                shift_transport + normal_alpha_K_M + normal_lapse_gradient_H
+                + normal_H_gradient + connection_divergence
+            )
+            pointwise_source = _finite(
+                "pointwise total-stress Bianchi source",
+                -8.0 * math.pi * alpha * div_pointwise,
+            )
+            fv_source = _finite(
+                "finite-volume total-stress Bianchi source",
+                -8.0 * math.pi * alpha * div_fv,
+            )
+            pointwise_predictor = _finite("pointwise full Bianchi predictor", common + pointwise_source)
+            fv_predictor = _finite("finite-volume full Bianchi predictor", common + fv_source)
+            terms_by_channel[epsilon_label] = {
+                "epsilon": epsilon_value,
+                "measured_tangent": tangent,
+                "pointwise": {
+                    "div_T_r": div_pointwise,
+                    "stress_source": pointwise_source,
+                    "predictor": pointwise_predictor,
+                    "residual_tangent_minus_predictor": _finite(
+                        "pointwise tangent minus predictor", tangent - pointwise_predictor
+                    ),
+                },
+                "finite_volume": {
+                    "div_T_r_fv": div_fv,
+                    "stress_source": fv_source,
+                    "predictor": fv_predictor,
+                    "residual_tangent_minus_predictor": _finite(
+                        "finite-volume tangent minus predictor", tangent - fv_predictor
+                    ),
+                },
             }
 
-    result = {
-        "schema": "issue4-full-bianchi-accepted-fixture-evaluation/v1",
-        "status": "diagnostic_evaluation_complete",
-        "state_class": "accepted_t_0p60",
-        "resolution": resolution,
-        "grid_centers": r.copy(),
-        "accepted_time": fixture["accepted_time"],
-        "provenance": provenance,
-        "input_digests": {
-            "upstream_archive_state": fixture["archive_state_digest"],
-            "tangent_helper_state": fixture["helper_state_digest"],
-        },
-        "projection_crosscheck": projection["projection_crosscheck"],
-        "ricci_offset_crosscheck": ricci_offset_crosscheck,
-        "structural_inventory": fixture["structural_inventory"],
-        "six_sector_divergence_accounting": sector_accounting_summary(fixture["report"]),
-        "signed_terms": {
-            "shift_transport": shift_transport,
-            "normal_alpha_K_M": normal_alpha_K_M,
-            "normal_lapse_gradient_H": normal_lapse_gradient_H,
-            "normal_H_gradient": normal_H_gradient,
-            "connection_divergence": connection_divergence,
-            "chi": chi,
-            "chi_r": chi_r,
-            "C_r": C_r,
-            "dC_odd": dC_odd,
-            "da_even": da_even,
-            "db_even": db_even,
-            "d_alpha_even": d_alpha_even,
-            "d_H_total_even": d_H_total_even,
-            "Lambda_metric": lambda_metric,
-            "beta": beta,
-            "W_rr": W_rr,
-            "F_C": F_C,
-            "H_geom": H_geom,
-            "H_total": H_total,
-            "M_geom": M_geom,
-            "M_total": M_total,
-            "rho_total": rho_total,
-            "j_total": j_total,
-        },
-        "channels": terms_by_channel,
-        "summaries": summaries,
-        "input_state_digest_before": helper_digest_before,
-        "input_state_digest_after": helper_digest_after,
-        "production_steps_run": len(step_calls),
-        "state_advanced": False,
-        "zero_step_tripwire": "armed_and_not_triggered",
-        "inherited_assumptions": [
-            "locked projected-Bianchi continuum identity and sign/index conventions",
-            "pinned vendor BSSN constraint mapping",
-            "metric-only Ricci with evolved-Lambda response retained separately",
-            "six-sector stress projections and accepted total-stress divergence definitions",
-            "pointwise and finite-volume total-stress divergences are separate comparators",
-        ],
-    }
-    result["accepted_reference_regression"] = assert_reference_regression(result)
-    return result
+        helper_digest_after = total_helper.state_digest(state)
+        require_unchanged(helper_digest_before, helper_digest_after)
+        if helper_digest_after != fixture["helper_state_digest"]:
+            raise RuntimeError("accepted input state changed during predictor evaluation")
+        if step_calls:
+            raise RuntimeError(f"zero-step tripwire was activated: {step_calls}")
+
+        summaries = {}
+        for epsilon_label, channels in terms_by_channel.items():
+            summaries[epsilon_label] = {}
+            for channel_name in ("pointwise", "finite_volume"):
+                channel = channels[channel_name]
+                summaries[epsilon_label][channel_name] = {
+                    "predictor": _summary(channel["predictor"], r),
+                    "residual_tangent_minus_predictor": _summary(
+                        channel["residual_tangent_minus_predictor"], r
+                    ),
+                }
+
+        result = {
+            "schema": "issue4-full-bianchi-accepted-fixture-evaluation/v1",
+            "status": "diagnostic_evaluation_complete",
+            "state_class": "accepted_t_0p60",
+            "resolution": resolution,
+            "grid_centers": r.copy(),
+            "accepted_time": fixture["accepted_time"],
+            "provenance": provenance,
+            "input_digests": {
+                "upstream_archive_state": fixture["archive_state_digest"],
+                "tangent_helper_state": fixture["helper_state_digest"],
+            },
+            "projection_crosscheck": projection["projection_crosscheck"],
+            "ricci_offset_crosscheck": ricci_offset_crosscheck,
+            "structural_inventory": fixture["structural_inventory"],
+            "six_sector_divergence_accounting": sector_accounting_summary(fixture["report"]),
+            "signed_terms": {
+                "shift_transport": shift_transport,
+                "normal_alpha_K_M": normal_alpha_K_M,
+                "normal_lapse_gradient_H": normal_lapse_gradient_H,
+                "normal_H_gradient": normal_H_gradient,
+                "connection_divergence": connection_divergence,
+                "chi": chi,
+                "chi_r": chi_r,
+                "C_r": C_r,
+                "dC_odd": dC_odd,
+                "da_even": da_even,
+                "db_even": db_even,
+                "d_alpha_even": d_alpha_even,
+                "d_H_total_even": d_H_total_even,
+                "Lambda_metric": lambda_metric,
+                "beta": beta,
+                "W_rr": W_rr,
+                "F_C": F_C,
+                "H_geom": H_geom,
+                "H_total": H_total,
+                "M_geom": M_geom,
+                "M_total": M_total,
+                "rho_total": rho_total,
+                "j_total": j_total,
+            },
+            "channels": terms_by_channel,
+            "summaries": summaries,
+            "input_state_digest_before": helper_digest_before,
+            "input_state_digest_after": helper_digest_after,
+            "production_steps_run": len(step_calls),
+            "state_advanced": False,
+            "zero_step_tripwire": "armed_and_not_triggered",
+            "inherited_assumptions": [
+                "locked projected-Bianchi continuum identity and sign/index conventions",
+                "pinned vendor BSSN constraint mapping",
+                "metric-only Ricci with evolved-Lambda response retained separately",
+                "six-sector stress projections and accepted total-stress divergence definitions",
+                "pointwise and finite-volume total-stress divergences are separate comparators",
+            ],
+        }
+        result["accepted_reference_regression"] = assert_reference_regression(result)
+        return result
+    finally:
+        kernel_class.step = original_kernel_step
+        moving_puncture_pirk.damped_moving_puncture_pirk2_step = original_vendor_pirk
 
 
 def _jsonable(value: Any):
