@@ -7,7 +7,9 @@ it does not construct a kernel, evaluate an RHS, call a step, or mutate state.
 """
 from __future__ import annotations
 
+import argparse
 import importlib.util
+import json
 import math
 import os
 import sys
@@ -365,3 +367,52 @@ def evaluate_accepted_fixture(
     }
     result["accepted_reference_regression"] = assert_reference_regression(result)
     return result
+
+
+def _jsonable(value: Any):
+    if isinstance(value, np.ndarray):
+        return value.tolist()
+    if isinstance(value, np.generic):
+        return value.item()
+    if isinstance(value, dict):
+        return {str(key): _jsonable(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_jsonable(item) for item in value]
+    return value
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--archive", type=Path, required=True)
+    parser.add_argument("--resolution", type=int, choices=(60, 120, 240), required=True)
+    parser.add_argument("--diagnostic-source", type=Path, required=True)
+    parser.add_argument("--helper-baseline", type=Path, required=True)
+    parser.add_argument("--output", type=Path)
+    args = parser.parse_args()
+    try:
+        result = evaluate_accepted_fixture(
+            args.archive, args.resolution, args.diagnostic_source, args.helper_baseline
+        )
+        payload = json.dumps(_jsonable(result), indent=2, sort_keys=True, allow_nan=False)
+    except Exception as exc:
+        payload = json.dumps({
+            "schema": "issue4-full-bianchi-accepted-fixture-evaluation/v1",
+            "status": "refused",
+            "reason": f"{type(exc).__name__}: {exc}",
+            "production_steps_run": 0,
+            "state_advanced": False,
+        }, indent=2, sort_keys=True)
+        if args.output is None:
+            print(payload)
+        else:
+            args.output.write_text(payload + "\\n", encoding="utf-8")
+        return 2
+    if args.output is None:
+        print(payload)
+    else:
+        args.output.write_text(payload + "\\n", encoding="utf-8")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
