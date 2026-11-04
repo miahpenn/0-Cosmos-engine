@@ -1,10 +1,12 @@
-"""Unit tests for the zero-step observer's non-evolving foundation."""
+"""Unit tests for the Issue #4 zero-step observer foundation."""
 from __future__ import annotations
 
 import importlib.util
 from pathlib import Path
 import sys
+import tempfile
 import unittest
+from unittest.mock import patch
 
 MODULE_PATH = Path(__file__).resolve().parents[1] / "tools" / "issue4_zero_step_full_bianchi_observer.py"
 SPEC = importlib.util.spec_from_file_location("issue4_zero_step_observer", MODULE_PATH)
@@ -41,6 +43,59 @@ class ObserverFoundationTests(unittest.TestCase):
 
     def test_no_production_kernel_import_at_module_load(self):
         self.assertNotIn("engine.production_kernel", sys.modules)
+
+    def test_provenance_accepts_only_the_two_distinct_source_checkouts(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            diagnostic = Path(tmp) / "diagnostic"
+            baseline = Path(tmp) / "baseline"
+            vendor_root = diagnostic / "vendor" / "bb-palatini-unified-r0"
+            vendor_root.mkdir(parents=True)
+            baseline.mkdir()
+            expected = {
+                ("HEAD",): observer.ACCEPTED_SOURCE,
+                ("HEAD:tools/audit_current_source_momentum_constraint_tangent.py",): observer.TANGENT_HELPER_BLOB,
+                ("HEAD:tools/audit_total_stress_energy_divergence.py",): observer.TOTAL_STRESS_HELPER_BLOB,
+            }
+            expected.update({
+                (f"HEAD:{path}",): blob
+                for path, blob in observer.REQUIRED_SOURCE_BLOBS.items()
+            })
+
+            def fake_git(root, *args):
+                if root == baseline and args == ("rev-parse", "HEAD"):
+                    return observer.HELPER_BASELINE
+                if root == diagnostic and args == ("rev-parse", "HEAD"):
+                    return observer.ACCEPTED_SOURCE
+                if root == vendor_root and args == ("rev-parse", "HEAD"):
+                    return observer.VENDOR
+                if root == diagnostic and args[:1] == ("rev-parse",):
+                    return expected.get((args[1],), "unexpected")
+                raise AssertionError(f"unexpected git probe: {root} {args}")
+
+            with patch.object(observer, "_git", side_effect=fake_git):
+                manifest = observer.verify_provenance(diagnostic, baseline)
+            self.assertEqual(manifest["accepted_diagnostic_source_commit"], observer.ACCEPTED_SOURCE)
+            self.assertEqual(manifest["protected_helper_baseline_commit"], observer.HELPER_BASELINE)
+            self.assertEqual(manifest["vendor_commit"], observer.VENDOR)
+            self.assertEqual(manifest["accepted_source_blobs"], observer.REQUIRED_SOURCE_BLOBS)
+
+    def test_historical_baseline_cannot_substitute_for_accepted_source(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            diagnostic = Path(tmp) / "diagnostic"
+            baseline = Path(tmp) / "baseline"
+            diagnostic.mkdir()
+            baseline.mkdir()
+
+            def fake_git(root, *args):
+                if root == diagnostic and args == ("rev-parse", "HEAD"):
+                    return observer.HELPER_BASELINE
+                if root == baseline and args == ("rev-parse", "HEAD"):
+                    return observer.HELPER_BASELINE
+                raise AssertionError(f"unexpected git probe: {root} {args}")
+
+            with patch.object(observer, "_git", side_effect=fake_git):
+                with self.assertRaisesRegex(RuntimeError, "accepted diagnostic source commit mismatch"):
+                    observer.verify_provenance(diagnostic, baseline)
 
 
 if __name__ == "__main__":
