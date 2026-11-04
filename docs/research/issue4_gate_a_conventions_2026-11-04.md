@@ -276,3 +276,45 @@ Consequently, the current source map does **not** identify a missing operand tha
 
 If that comparison reveals a specifically absent field or rate, name it before requesting any additional capture. No new observer, targeted discrete test, lapse solve, or evolution is authorized by this source mapping alone.
 
+
+
+## 10. Reuse-only signed chain-rule recomposition
+
+The three checksum-verified refreshed-stage artifacts were downloaded and their internal `SHA256SUMS.txt` member hashes independently rechecked. No workflow or evolution was run. The exact stage-start operands were passed through the pinned cell-centred fourth-order derivative, including its even-parity inner ghost and one-sided outer closure, and the chain rule in §9 was recomposed as
+[
+\dot M_{r,\mathrm{geom}}=
+\underbrace{D_1(L_2^{A_a}+L_3^{A_a})
+-\frac23D_1(L_2^K+L_3^K)
++6\chi_r(L_2^{A_a}+L_3^{A_a})
++\frac32q(L_2^{A_a}+L_3^{A_a})}_{\text{primary L2 + primary L3}}
++\underbrace{6A_a\dot\chi_r+\frac32A_a\dot q}_{\text{explicit metric rates}}.
+]
+Here (dot\chi_r) and (dot q) are computed from the captured explicit (\dot X,\dot b), not estimated from a finite step.
+
+| Resolution | (\max_{r\le10}|\dot M_{geom}|) | L2 contribution max | L3 contribution max | explicit metric-rate max | signed total cells 0 / 1 |
+|---:|---:|---:|---:|---:|---:|
+| 60 | (5.9806333\times10^{-5}) | (7.1739974\times10^{-5}) | (1.3757545\times10^{-5}) | (3.4638665\times10^{-9}) | (+1.0274866\times10^{-5}\;/\;-5.9806333\times10^{-5}) |
+| 120 | (7.1025025\times10^{-5}) | (7.8153381\times10^{-5}) | (1.3933584\times10^{-5}) | (3.9717738\times10^{-9}) | (+3.3160010\times10^{-5}\;/\;-7.1025025\times10^{-5}) |
+| 240 | (1.0416979\times10^{-4}) | (1.0788279\times10^{-4}) | (1.3914957\times10^{-5}) | (4.0149584\times10^{-9}) | (+7.9249069\times10^{-5}\;/\;-1.0416979\times10^{-4}) |
+
+The recomposed total reproduces the previously reported stage-owned geometric tangent maxima for all three resolutions. This is a useful independent arithmetic check on the operand mapping. It also shows that, for this particular tangent and region, primary L2 is the dominant contribution; primary L3 is smaller and the explicit (a,b,X) contribution to the (chi_r,q) factors is much smaller still. These are maxima of separate signed profiles, so they need not occur at the same cell; their maxima must not be added as if co-located.
+
+The signed centre values show why a maximum-only report is insufficient. The cell-0 and cell-1 total rates change in magnitude and sign structure across the three captures, while the L2 piece supplies most of the central profile. This localizes the discrete tangent contribution; it does not identify a missing physical term or establish continuum closure.
+
+### 10.1 Exact artifact provenance
+
+| (N) | (Delta t) | Copied-state digest | Artifact ID | ZIP SHA-256 | NPZ SHA-256 |
+|---:|---:|---|---:|---|---|
+| 60 | 0.04 | `2ae2a5704b2b87d16ef9239c8a22ef261ed9108d971d3a5c78a3d1133aa9e9e4` | 12614314612 | `e9f9a243fa017d6cfbd14d0be73ae557fa1eb02959133b58866bda32265184e3` | `942325e3bfd9cfcd95ad7b2f0b5511c6303045f2a8eb36c4ec6f5144a0cc3306` |
+| 120 | 0.02 | `0266c7fafc5e9a292a9a376f1d91fa45bb8dd103b6f8c21b543c25d0930daacb` | 12615190935 | `ae6fb6bc164c7c65e2fc77468921609ac74a6b98f02669be88bf11aea62e16e1` | `8d449fbfd224f5608292c375e2c47e625b1e9a70f8562686cbdafd996503fd90` |
+| 240 | 0.01 | `770d36f3db5b60da87f52beb213f8af4731e17021f95c1519ecbdbe759b41cce` | 12614533930 | `4b2a374519df67fc79abb3b82306e00cca9fee9a150d27957caa47d4bddf273a` | `8b85b445c4b1213cb6904734ed6fcf7cd9344d857a112685e718b6bef922d141` |
+
+All three reports pin source commit `4aec88d0e3ff028e0a65a8ac36b30948625df792`, vendor commit `d6052d605673ce9d82cdc99b0df79855fa2ea215`, Python 3.12.15 and NumPy 2.5.4. The report does not capture per-run CPU microarchitecture, BLAS core target, or NumPy SIMD dispatch; no CPU-path-specific bitwise claim is made. Because (\Delta t) is halved with each resolution doubling, this triplet is not a pure spatial-only convergence experiment.
+
+### 10.2 What this does and does not settle
+
+**Settled by this reuse-only pass:** the stage-owned (M_{r,geom}) tangent can be exactly recomposed from the captured primary-L2, primary-L3, and explicit metric rates under the pinned derivative. The operand inventory is sufficient for this geometric chain-rule layer.
+
+**Still open:** the comparison of that tangent with the continuum Bianchi normal-geometric trace pair plus the separately owned tracefree connection response and total-stress divergence; the six-sector pointwise/FV/expanded divergence reconciliation; and the full PIRK finite-step momentum secant. The exact recomposition above is not any of those closure claims.
+
+The next operation remains a signed, same-stage comparison of the recomposed L2/L3/metric chain-rule pieces against the Bianchi rows, retaining the previously derived L2 lapse-Hessian/Ricci split and (W^r{}_r) offset. No new observer, targeted test, or evolution is currently justified.
