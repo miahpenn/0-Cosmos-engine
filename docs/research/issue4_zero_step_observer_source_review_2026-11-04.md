@@ -20,7 +20,7 @@ The accepted-state evaluator has a coherent diagnostic structure and preserves t
 
 This is a source review, not a runtime pass. The committed evaluator has not yet been run against the archives, and the latest Ricci-offset gate has not yet been executed.
 
-## Findings requiring correction before relying on the evaluator
+## Findings and remediation status
 
 ### 1. Imported-module provenance is not fail-closed
 
@@ -28,7 +28,7 @@ This is a source review, not a runtime pass. The committed evaluator has not yet
 
 The function verifies that the vendor checkout exists and is pinned, then prepends its path to `sys.path` and performs ordinary imports. Python may nevertheless reuse same-named modules already present in `sys.modules`, or resolve a module from a different path. The source checkout is verified, but the origin of the modules actually used by the evaluator is not.
 
-**Required hardening:** after import, verify each relevant module's resolved `__file__` is beneath the exact pinned vendor root, and fail closed otherwise. Prefer isolated module loading or explicit cache handling so preloaded modules cannot silently satisfy imports. Add a test that preloads a same-named module from an unpinned path and confirms refusal.
+**Remediated on the research branch:** `_load_vendor` now checks each loaded module's resolved `__file__` against the exact pinned vendor root. A preloaded same-named module from outside that root is refused rather than silently reused. A regression test covers that refusal. This verifies the three explicitly imported vendor modules; transitive dependencies are not yet independently enumerated.
 
 ### 2. Evolution tripwires are not restored
 
@@ -36,7 +36,7 @@ The function verifies that the vendor checkout exists and is pinned, then prepen
 
 The replacements correctly refuse accidental calls, but the original attributes are not restored. In a long-lived interpreter or test process this leaves globally imported classes/modules modified after evaluation, even when evaluation succeeds or fails.
 
-**Required hardening:** save the original attributes and restore them in a `finally` block covering all work after arming the tripwires. Add tests for restoration after both successful evaluation and an injected exception. Keep the tripwire active for the entire protected evaluation interval.
+**Remediated on the research branch:** the `_zero_step_guard` context manager saves both original methods, arms the tripwires, and restores them in `finally`. The full protected evaluation is inside the context. Regression tests exercise restoration after a normal exit, a tripwire exception, and an injected exception.
 
 ### 3. File output appends a literal escape sequence
 
@@ -45,6 +45,18 @@ The replacements correctly refuse accidental calls, but the original attributes 
 The source currently appends `"\\n"`, which writes the two literal characters backslash and n rather than a line terminator. Standardize both branches on an actual newline (`"\n"`) and test the resulting file ending.
 
 This is a serialization defect, not a numerical one.
+
+
+## Remediation commits and verification boundary
+
+The three tooling fixes and their regression tests were committed on the research branch:
+
+- `3cf79e2`: validate actual vendor module origins;
+- `b1c191e`: add the restoring tripwire context manager and correct JSON output newlines;
+- `d4d2e51`: add module-origin, tripwire-restoration, and newline regression tests;
+- `3e73fd2`: finalize the two newline writes after source inspection.
+
+These changes have received source-level inspection only. No test suite, evaluator execution, workflow, or production step has been run after these commits. The next gate is a local, zero-step execution of the focused tests and then the accepted-state evaluator under exact pins; do not use the existing lightweight-validation workflow because it contains a production-step smoke.
 
 ## Scope boundary still outstanding
 
