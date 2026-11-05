@@ -199,12 +199,12 @@ def test_fixed_point_map_combined_direction_is_sum_of_independent_blocks_two_eps
     for eps in (2.0e-5,1.0e-5):
         plus=_fixed_point_map_output(
             args,fixed.alpha_in+eps*alpha_direction,
-            {key:eps*value for key,value in
-             ((name,combined_rates[name]) for name in combined_rates)})
+            {name.removesuffix("_dot"):eps*value
+             for name,value in combined_rates.items()})
         minus=_fixed_point_map_output(
             args,fixed.alpha_in-eps*alpha_direction,
-            {key:-eps*value for key,value in
-             ((name,combined_rates[name]) for name in combined_rates)})
+            {name.removesuffix("_dot"):-eps*value
+             for name,value in combined_rates.items()})
         fd=(plus.alpha-minus.alpha)/(2.0*eps)
         np.testing.assert_allclose(
             fd,combined_tangent.alpha_dot,rtol=4.0e-5,atol=2.0e-8)
