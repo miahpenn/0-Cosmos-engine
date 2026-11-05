@@ -58,13 +58,25 @@ def _fluid_conserved(r: np.ndarray, rho: np.ndarray, pressure: np.ndarray,
 
 
 def analytic_matter_rates(r: np.ndarray, *, d1=None, d2=None) -> dict[str, np.ndarray]:
-    """Return continuum equation rates at the declared zero-velocity base.
+    """Return equation rates at the declared zero-velocity base.
 
-    Scalar rates are the flat-slice limits of the pinned scalar equations.
+    Scalar rates use the flat-slice pinned equations. Optional d1/d2 are the\n    pinned grid operators; absent operators select exact continuum Gaussians.
     Fluid rates satisfy spherical continuity and the Valencia/Euler momentum
     equation at rest, including the archived DM exchange covector.
     """
     rr = _finite("grid centers", r)
+    if (d1 is None) != (d2 is None):
+        raise ValueError("d1 and d2 must be supplied together")
+    def radial_derivative(values, width):
+        if d1 is None:
+            return gaussian_radial_derivative(rr, values, width)
+        return _finite("pinned first derivative", d1(values, parity=1))
+    def radial_laplacian(values, width):
+        if d1 is None:
+            return gaussian_laplacian(rr, values, width)
+        first = _finite("pinned first derivative", d1(values, parity=1))
+        second = _finite("pinned second derivative", d2(values, parity=1))
+        return second + 2.0 * first / rr
     scalar_shape = np.exp(-(rr / PROFILE["scalar_width"])**2)
     fluid_shape = np.exp(-(rr / PROFILE["fluid_width"])**2)
 
