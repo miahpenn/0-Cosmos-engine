@@ -101,6 +101,7 @@ jobs:
               project_six_sector_stress_from_arrays,
               fourth_order_cell_derivative,
               physical_k_rhs_and_direction,
+              solve_stage_aware_cmc_tangent_six_sector,
           )
           z=np.load("accepted-state/tangent_arrays.npz")
           r=z["r"]; dr=float(r[1]-r[0])
@@ -134,7 +135,20 @@ jobs:
               total["rho"]+total["pr"]+2.0*total["pt"]))
           np.testing.assert_allclose(kr,pinned,rtol=0.0,atol=2.0e-15)
           np.testing.assert_array_equal(krdot,zeros)
-          print("PASS: six accepted-state sectors reconstructed:",sorted(sectors))
+          zero_dirs={name:{"rho_dot":zeros,"pr_dot":zeros,"pt_dot":zeros,"j_dot":zeros}
+              for name in ("dark_matter","baryons","radiation","S","D","phi")}
+          stage=solve_stage_aware_cmc_tangent_six_sector(
+              sector_projections=sectors,sector_projection_directions=zero_dirs,
+              r=r,dr=dr,a=a,b=b,X=X,alpha_in=alpha,Aa=Aa,K=K,
+              a_dot=zeros,b_dot=zeros,X_dot=zeros,alpha_in_dot=zeros,
+              Aa_dot=zeros,K_dot=zeros,d1=d1,d2=d2)
+          if np.min(stage.base.alpha)<=0.0: raise SystemExit("accepted-state output lapse is not positive")
+          if np.max(np.abs(stage.base.residual))>1.0e-10: raise SystemExit("accepted-state CMC base residual failed")
+          np.testing.assert_allclose(stage.k_rhs_in,kr,rtol=0.0,atol=2.0e-15)
+          print("PASS: six accepted-state sectors reconstructed and bound:",sorted(sectors))
           print("PASS: pinned accepted-state K RHS max abs =",float(np.max(np.abs(kr))))
+          print("PASS: accepted-state stage-aware CMC output lapse min =",float(np.min(stage.base.alpha)))
+          print("PASS: accepted-state CMC base residual max abs =",float(np.max(np.abs(stage.base.residual))))
           print("PASS: six-sector totals max abs =",{k:float(np.max(np.abs(v))) for k,v in total.items()})
+          print("SCOPE: base-state binding only; zero direction is a harness control, not the physical accepted-state tangent.")
           PY
