@@ -14,11 +14,11 @@ def report(state_class, residual_offset=0.0):
     summaries = {}
     for epsilon in ("eps2e-05", "eps1e-05"):
         channels[epsilon] = {
-            "measured_tangent": grid + residual_offset,
+            "measured_tangent": (grid + residual_offset).tolist(),
             "pointwise": {
-                "predictor": grid,
-                "stress_source": grid,
-                "residual_tangent_minus_predictor": grid + residual_offset,
+                "predictor": grid.tolist(),
+                "stress_source": grid.tolist(),
+                "residual_tangent_minus_predictor": (grid + residual_offset).tolist(),
             },
             "finite_volume": {
                 "predictor": grid,
