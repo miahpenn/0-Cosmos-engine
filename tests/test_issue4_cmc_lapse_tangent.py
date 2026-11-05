@@ -487,4 +487,3 @@ def test_fixed_point_map_geometry_and_six_sector_state_block_only_two_epsilons()
         np.testing.assert_allclose(
             fd,tangent.alpha_dot,rtol=4.0e-5,atol=2.0e-8)
 
-            fd,tangent.alpha_dot,rtol=4.0e-5,atol=2.0e-8)
