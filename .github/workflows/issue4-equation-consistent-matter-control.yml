@@ -11,11 +11,14 @@ on:
       - tools/issue4_equation_consistent_matter_direction_evaluator.py
       - tests/test_issue4_equation_consistent_matter_direction.py
       - tests/test_issue4_equation_consistent_matter_direction_fixture.py
+      - tools/issue4_matter_control_comparison.py
+      - tests/test_issue4_matter_control_comparison.py
       - .github/workflows/issue4-equation-consistent-matter-control.yml
   workflow_dispatch:
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: issue4-equation-consistent-matter-full-observer
@@ -66,6 +69,7 @@ jobs:
           python -m pytest -q \
             tests/test_issue4_equation_consistent_matter_direction.py \
             tests/test_issue4_equation_consistent_matter_direction_fixture.py \
+            tests/test_issue4_matter_control_comparison.py \
             tests/test_issue4_manufactured_regular_family.py \
             tests/test_issue4_manufactured_fixture.py \
             tests/test_issue4_accepted_state_fixture.py \
