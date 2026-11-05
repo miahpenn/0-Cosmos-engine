@@ -7,6 +7,9 @@ on:
     paths:
       - tools/issue4_manufactured_regular_family.py
       - tools/issue4_manufactured_tangent_and_divergence.py
+      - tools/issue4_manufactured_fixture.py
+      - tests/test_issue4_manufactured_fixture.py
+      - tests/test_issue4_manufactured_regular_family.py
       - .github/workflows/issue4-manufactured-tangent-divergence.yml
   workflow_dispatch:
 
@@ -53,9 +56,11 @@ jobs:
         run: |
           python -m pip install numpy==2.5.4 scipy==1.18.1 sympy==1.14.0 mpmath==1.3.0 pytest==9.1.1 threadpoolctl
 
-      - name: Compile diagnostic runner
+      - name: Compile diagnostic runner and run schema tests
         run: |
           python -m py_compile tools/issue4_manufactured_tangent_and_divergence.py
+          python -m py_compile tools/issue4_manufactured_fixture.py
+          python -m pytest -q tests/test_issue4_manufactured_regular_family.py tests/test_issue4_manufactured_fixture.py
 
       - name: Generate signed tangent and independent divergence channels
         env:
