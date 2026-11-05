@@ -223,6 +223,108 @@ def differentiate_cmc_discrete(*, base: CMCDiscreteResult, r, dr,
         wdot,wsumdot,Qdot,mdot,cdot)
 
 
+
+@dataclass(frozen=True)
+class CMCFixedPointResult:
+    """Separately labelled self-consistent input/output lapse control."""
+    base: CMCDiscreteResult
+    alpha_in: np.ndarray
+    iterations: int
+    fixed_point_residual: float
+
+
+@dataclass(frozen=True)
+class CMCFixedPointDirectionalResult:
+    """Implicit directional equality for the self-consistent lapse control."""
+    alpha_dot: np.ndarray
+    tangent: CMCDirectionalResult
+    implicit_residual: np.ndarray
+    implicit_residual_max: float
+
+
+def solve_cmc_lapse_fixed_point(*, r, dr, a,b,X,Aa,K,rho,pr,pt,
+        initial_alpha=None, d1, d2, tolerance=2.0e-13, max_iterations=500):
+    """Solve alpha_in = alpha_out as an explicitly separate fixed-point control.
+
+    The map is the pinned physical K-RHS projection followed by the independent
+    discrete CMC output solve. This is not inferred from accepted-stage history
+    and must never be substituted for a production PIRK stage sequence.
+    """
+    r=_validate_grid(r,dr); n=r.size
+    alpha=np.ones(n,dtype=np.float64) if initial_alpha is None else _vec(
+        "fixed-point initial lapse",initial_alpha,n).copy()
+    if np.min(alpha)<=0.0:
+        raise ValueError("fixed-point initial lapse must be positive")
+    zeros=np.zeros(n,dtype=np.float64)
+    previous=math.inf
+    for iteration in range(1,int(max_iterations)+1):
+        kr,_=physical_k_rhs_and_direction(
+            r=r,dr=dr,a=a,b=b,X=X,alpha_in=alpha,Aa=Aa,K=K,
+            rho=rho,pr=pr,pt=pt,a_dot=zeros,b_dot=zeros,X_dot=zeros,
+            alpha_in_dot=zeros,Aa_dot=zeros,K_dot=zeros,
+            rho_dot=zeros,pr_dot=zeros,pt_dot=zeros,d1=d1,d2=d2)
+        out=solve_cmc_discrete(
+            r=r,dr=dr,a=a,b=b,X=X,Aa=Aa,K=K,rho=rho,pr=pr,pt=pt,
+            k_rhs=kr,d1=d1)
+        residual=float(np.max(np.abs(out.alpha-alpha)))
+        if not math.isfinite(residual) or np.min(out.alpha)<=0.0:
+            raise FloatingPointError("CMC lapse fixed-point iteration became invalid")
+        if residual<=tolerance:
+            return CMCFixedPointResult(out,out.alpha.copy(),iteration,residual)
+        # Plain Picard iteration is intentional: no fitted damping or
+        # residual-selected relaxation is introduced into this control.
+        alpha=out.alpha.copy()
+        previous=residual
+    raise RuntimeError(
+        f"CMC lapse fixed point did not converge in {max_iterations} iterations; "
+        f"last update={previous:.6e}")
+
+
+def differentiate_cmc_lapse_fixed_point(*, fixed_point, r,dr,a,b,X,Aa,K,
+        rho,pr,pt,a_dot,b_dot,X_dot,Aa_dot,K_dot,rho_dot,pr_dot,pt_dot,
+        d1,d2):
+    """Solve alpha_dot = D_state(F) + D_alpha(F)[alpha_dot].
+
+    The state direction is supplied independently. The incoming-lapse tangent
+    is not set to zero: the implicit linear system enforces equality of the
+    input and output directional lapse. The Jacobian with respect to alpha_in
+    is assembled by exact directional basis actions of the differentiated
+    pinned equations, not by residual fitting.
+    """
+    r=_validate_grid(r,dr); n=r.size
+    alpha=fixed_point.alpha_in
+    zeros=np.zeros(n,dtype=np.float64)
+
+    def output_direction(alpha_in_dot):
+        kr,krd=physical_k_rhs_and_direction(
+            r=r,dr=dr,a=a,b=b,X=X,alpha_in=alpha,Aa=Aa,K=K,
+            rho=rho,pr=pr,pt=pt,a_dot=a_dot,b_dot=b_dot,X_dot=X_dot,
+            alpha_in_dot=alpha_in_dot,Aa_dot=Aa_dot,K_dot=K_dot,
+            rho_dot=rho_dot,pr_dot=pr_dot,pt_dot=pt_dot,d1=d1,d2=d2)
+        return differentiate_cmc_discrete(
+            base=fixed_point.base,r=r,dr=dr,a=a,b=b,X=X,Aa=Aa,K=K,
+            rho=rho,pr=pr,pt=pt,k_rhs=kr,a_dot=a_dot,b_dot=b_dot,
+            X_dot=X_dot,Aa_dot=Aa_dot,K_dot=K_dot,rho_dot=rho_dot,
+            pr_dot=pr_dot,pt_dot=pt_dot,k_rhs_dot=krd,d1=d1)
+
+    affine=output_direction(zeros).alpha_dot
+    jac=np.empty((n,n),dtype=np.float64)
+    for j in range(n):
+        basis=np.zeros(n,dtype=np.float64); basis[j]=1.0
+        jac[:,j]=output_direction(basis).alpha_dot-affine
+    system=np.eye(n)-jac
+    try:
+        alpha_dot=np.linalg.solve(system,affine)
+    except np.linalg.LinAlgError as exc:
+        raise FloatingPointError("implicit CMC lapse tangent system is singular") from exc
+    tangent=output_direction(alpha_dot)
+    residual=alpha_dot-tangent.alpha_dot
+    maximum=float(np.max(np.abs(residual)))
+    if not np.all(np.isfinite(alpha_dot)) or not math.isfinite(maximum):
+        raise FloatingPointError("implicit CMC lapse tangent is non-finite")
+    return CMCFixedPointDirectionalResult(alpha_dot,tangent,residual,maximum)
+
+
 def central_difference_witness(base_plus: CMCDiscreteResult,
                                 base_minus: CMCDiscreteResult,
                                 epsilon: float,
