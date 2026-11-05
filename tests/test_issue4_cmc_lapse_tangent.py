@@ -7,12 +7,12 @@ from tools.issue4_cmc_lapse_tangent import (
     solve_cmc_discrete,
     differentiate_cmc_discrete,
     central_difference_witness,
+    fourth_order_cell_derivative,
 )
 
 
 def _d1(values, parity=1):
-    # A fixed, linear, second-order operator for the synthetic operator test.
-    return np.gradient(np.asarray(values, dtype=float), 0.5, edge_order=2)
+    return fourth_order_cell_derivative(values, 0.5, parity=parity, order=1)
 
 
 def _state():
@@ -101,3 +101,11 @@ def test_cmc_solver_rejects_nonpositive_metric_and_nonfinite_projection():
 
 # CI gate: independent CMC discrete solve and differentiated operator contract.
 # Regression rerun after preserving the mass-coefficient and potential tangents.
+
+
+def test_independent_derivative_transcription_matches_even_and_odd_polynomial_stencils():
+    dr=0.5; r=(np.arange(12)+0.5)*dr
+    even=fourth_order_cell_derivative(r**2,dr,parity=1,order=1)
+    odd=fourth_order_cell_derivative(r,dr,parity=-1,order=1)
+    np.testing.assert_allclose(even,2.0*r,rtol=0.0,atol=2e-12)
+    np.testing.assert_allclose(odd,np.ones_like(r),rtol=0.0,atol=2e-12)
