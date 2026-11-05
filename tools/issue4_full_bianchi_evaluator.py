@@ -21,6 +21,8 @@ from typing import Any
 import numpy as np
 
 from tools.issue4_accepted_state_fixture import load_accepted_fixture, sector_accounting_summary
+from tools.issue4_manufactured_fixture import load_manufactured_fixture
+from tools.issue4_manufactured_regular_family import STATE_ARRAY_NAMES
 from tools.issue4_bianchi_reference_regression import assert_reference_regression
 from tools.issue4_zero_step_full_bianchi_observer import verify_provenance, require_unchanged
 
@@ -218,13 +220,126 @@ def evaluate_accepted_fixture(
     diagnostic_root: str | Path,
     helper_baseline_root: str | Path,
 ) -> dict[str, Any]:
-    """Evaluate one accepted frozen slice under the single locked predictor."""
+    """Evaluate one accepted frozen slice; accepted loader/regression unchanged."""
     diagnostic_root = Path(diagnostic_root).resolve()
     helper_baseline_root = Path(helper_baseline_root).resolve()
-
-    # Provenance is checked before fixture loading, imports, or state evaluation.
     provenance = verify_provenance(diagnostic_root, helper_baseline_root)
     fixture = load_accepted_fixture(archive_path, resolution)
+    return _evaluate_loaded_fixture(
+        fixture, resolution, diagnostic_root, helper_baseline_root, provenance,
+        state_class="accepted_t_0p60", tangent_semantics="production_rhs_directional",
+    )
+
+
+def manufactured_sector_accounting_summary(report: dict[str, Any]) -> list[dict[str, Any]]:
+    """Compact the manufactured helper's raw and time-density-accounted sector ledger."""
+    rows = []
+    for label, item in report["divergence_reports"].items():
+        channels = {
+            name: {
+                "raw_max_abs_gap": value["max_abs_gap"],
+                "max_abs_unexplained_gap": value["max_abs_unexplained_gap"],
+                "raw_sum_passed": value["passed"],
+                "component_corrected_passed": value["component_corrected_passed"],
+            }
+            for name, value in item["channel_accounting"].items()
+        }
+        rows.append({
+            "epsilon_label": label,
+            "epsilon": 2.0e-5 if label == "eps2e-05" else 1.0e-5,
+            "sector_names": item["sector_names"],
+            "raw_six_sector_sum_reconstructs_total": item["raw_six_sector_reconstruction_passed"],
+            "time_density_component_accounting_passed": item["time_density_component_accounting_passed"],
+            "six_sector_reconstruction_after_accounting": item["six_sector_reconstruction_after_time_density_accounting"],
+            "raw_sum_max_gap": item["raw_sum_max_gap"],
+            "max_abs_unexplained_gap_after_accounting": item["unexplained_max_gap_after_time_density_accounting"],
+            "channels": channels,
+        })
+    return rows
+
+
+def evaluate_manufactured_fixture(
+    archive_path: str | Path,
+    resolution: int,
+    diagnostic_root: str | Path,
+    helper_baseline_root: str | Path,
+) -> dict[str, Any]:
+    """Evaluate the manufactured class through the same locked predictor."""
+    if resolution != 60:
+        raise ValueError("manufactured regular-family fixture is pinned to N=60")
+    diagnostic_root = Path(diagnostic_root).resolve()
+    helper_baseline_root = Path(helper_baseline_root).resolve()
+    provenance = verify_provenance(diagnostic_root, helper_baseline_root)
+    loaded = load_manufactured_fixture(archive_path)
+    report = loaded["report"]
+    arrays = loaded["arrays"]
+    state_arrays = {
+        name: np.asarray(arrays[f"state.base.{name}"], dtype=np.float64)
+        for name in STATE_ARRAY_NAMES
+    }
+    records = report["raw_arrays"]["array_records"]
+    paths = {record["path"] for record in records}
+    required = {
+        "frozen_input_state": {f"state.base.{name}" for name in STATE_ARRAY_NAMES},
+        "analytic_family_tangent": {
+            "tangent_eps2e-05.Mdot", "tangent_eps1e-05.Mdot",
+        },
+        "pointwise_total_stress_divergence": {
+            "total_T_eps2e-05.total.div_T_r", "total_T_eps1e-05.total.div_T_r",
+        },
+        "finite_volume_total_stress_divergence": {
+            "total_T_eps2e-05.total.div_T_r_fv", "total_T_eps1e-05.total.div_T_r_fv",
+        },
+    }
+    structural_inventory = {
+        "lens": "manufactured_fixture_structural_inventory",
+        "stored_operand_families": {
+            name: sorted(expected.intersection(paths)) for name, expected in required.items()
+        },
+        "missing_required_witnesses": {
+            name: sorted(expected.difference(paths)) for name, expected in required.items()
+        },
+        "interpretation": (
+            "The five analytic family states, six-sector projections, manufactured "
+            "central-difference tangent, and pointwise/FV divergence channels are "
+            "stored in the verified fixture archive."
+        ),
+    }
+    missing = {
+        name: values for name, values in structural_inventory["missing_required_witnesses"].items()
+        if values
+    }
+    if missing:
+        raise RuntimeError(f"manufactured fixture structural inventory is incomplete: {missing}")
+    fixture = {
+        "resolution": resolution,
+        "accepted_time": 0.0,
+        "state_arrays": state_arrays,
+        "arrays": arrays,
+        "report": report,
+        "helper_state_digest": report["state_digests"]["base"],
+        "archive_state_digest": report["state_digests"]["base"],
+        "structural_inventory": structural_inventory,
+        "state_class": "manufactured_regular_family",
+        "tangent_semantics": report["tangent_semantics"],
+    }
+    return _evaluate_loaded_fixture(
+        fixture, resolution, diagnostic_root, helper_baseline_root, provenance,
+        state_class="manufactured_regular_family",
+        tangent_semantics="analytic_family_central_difference",
+    )
+
+
+def _evaluate_loaded_fixture(
+    fixture: dict[str, Any],
+    resolution: int,
+    diagnostic_root: Path,
+    helper_baseline_root: Path,
+    provenance: dict[str, Any],
+    *,
+    state_class: str,
+    tangent_semantics: str,
+) -> dict[str, Any]:
     r0_operators, vacuum_bssn, moving_puncture_pirk = _load_vendor(diagnostic_root)
     total_helper = _load_reviewed_total_stress_helper(
         diagnostic_root, helper_baseline_root
@@ -380,12 +495,14 @@ def evaluate_accepted_fixture(
                 }
 
         result = {
-            "schema": "issue4-full-bianchi-accepted-fixture-evaluation/v1",
+            "schema": f"issue4-full-bianchi-{state_class}-evaluation/v1",
             "status": "diagnostic_evaluation_complete",
-            "state_class": "accepted_t_0p60",
+            "state_class": state_class,
+            "tangent_semantics": tangent_semantics,
             "resolution": resolution,
             "grid_centers": r.copy(),
-            "accepted_time": fixture["accepted_time"],
+            "state_time": fixture["accepted_time"],
+            "accepted_time": fixture["accepted_time"] if state_class == "accepted_t_0p60" else None,
             "provenance": provenance,
             "input_digests": {
                 "upstream_archive_state": fixture["archive_state_digest"],
@@ -394,7 +511,11 @@ def evaluate_accepted_fixture(
             "projection_crosscheck": projection["projection_crosscheck"],
             "ricci_offset_crosscheck": ricci_offset_crosscheck,
             "structural_inventory": fixture["structural_inventory"],
-            "six_sector_divergence_accounting": sector_accounting_summary(fixture["report"]),
+            "six_sector_divergence_accounting": (
+                sector_accounting_summary(fixture["report"])
+                if state_class == "accepted_t_0p60"
+                else manufactured_sector_accounting_summary(fixture["report"])
+            ),
             "signed_terms": {
                 "shift_transport": shift_transport,
                 "normal_alpha_K_M": normal_alpha_K_M,
@@ -435,7 +556,13 @@ def evaluate_accepted_fixture(
                 "pointwise and finite-volume total-stress divergences are separate comparators",
             ],
         }
-        result["accepted_reference_regression"] = assert_reference_regression(result)
+        if state_class == "accepted_t_0p60":
+            result["accepted_reference_regression"] = assert_reference_regression(result)
+        else:
+            result["accepted_reference_regression"] = {
+                "executed": False,
+                "reason": "manufactured class has a separate report; accepted-state regression remains unchanged",
+            }
         return result
 
 
