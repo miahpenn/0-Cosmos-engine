@@ -304,6 +304,60 @@ def physical_k_rhs_and_direction(*, r, dr, a, b, X, alpha_in,
     return kr,krd
 
 
+
+SIX_SECTOR_NAMES = (
+    "dark_matter", "baryons", "radiation", "S", "D", "phi",
+)
+
+
+def sum_six_sector_projections(*, sector_projections, sector_projection_directions):
+    """Validate and sum six named base and directional stress projections.
+
+    Each base sector must provide rho/pr/pt/j; each direction must provide
+    rho_dot/pr_dot/pt_dot/j_dot. No sector may be omitted or silently added.
+    Arrays are expected to have already been independently projected under
+    the locked six-sector convention.
+    """
+    expected=set(SIX_SECTOR_NAMES)
+    if not isinstance(sector_projections,dict) or set(sector_projections)!=expected:
+        raise ValueError("base sector projections must contain exactly the six locked sectors")
+    if not isinstance(sector_projection_directions,dict) or set(sector_projection_directions)!=expected:
+        raise ValueError("sector projection directions must contain exactly the six locked sectors")
+    base_keys=("rho","pr","pt","j")
+    dot_keys=("rho_dot","pr_dot","pt_dot","j_dot")
+    base_total={k:None for k in base_keys}
+    dot_total={k:None for k in dot_keys}
+    shape=None
+    for sector in SIX_SECTOR_NAMES:
+        part=sector_projections[sector]
+        direction=sector_projection_directions[sector]
+        if not isinstance(part,dict) or set(part)!=set(base_keys):
+            raise ValueError(f"{sector} base projection must contain rho/pr/pt/j")
+        if not isinstance(direction,dict) or set(direction)!=set(dot_keys):
+            raise ValueError(f"{sector} direction must contain rho_dot/pr_dot/pt_dot/j_dot")
+        for key,value in part.items():
+            arr=_vec(f"{sector} {key}",value)
+            if shape is None: shape=arr.shape
+            if arr.shape!=shape: raise ValueError("six-sector base projection shapes differ")
+            base_total[key]=arr.copy() if base_total[key] is None else base_total[key]+arr
+        for key,value in direction.items():
+            arr=_vec(f"{sector} {key}",value)
+            if arr.shape!=shape: raise ValueError("six-sector directional projection shapes differ")
+            dot_total[key]=arr.copy() if dot_total[key] is None else dot_total[key]+arr
+    return {"base":base_total,"direction":dot_total}
+
+
+def solve_stage_aware_cmc_tangent_six_sector(
+        *, sector_projections, sector_projection_directions, **stage_args):
+    """Stage-aware CMC tangent whose matter source is bound to six named sectors."""
+    combined=sum_six_sector_projections(
+        sector_projections=sector_projections,
+        sector_projection_directions=sector_projection_directions)
+    base=combined["base"]; dot=combined["direction"]
+    return solve_stage_aware_cmc_tangent(
+        **stage_args,rho=base["rho"],pr=base["pr"],pt=base["pt"],
+        rho_dot=dot["rho_dot"],pr_dot=dot["pr_dot"],pt_dot=dot["pt_dot"])
+
 def solve_stage_aware_cmc_tangent(*, r, dr, a,b,X,alpha_in,
         Aa,K,rho,pr,pt,a_dot,b_dot,X_dot,alpha_in_dot,
         Aa_dot,K_dot,rho_dot,pr_dot,pt_dot,d1,d2):
