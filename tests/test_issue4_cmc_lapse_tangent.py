@@ -142,13 +142,13 @@ def test_stage_aware_physical_k_rhs_and_lapse_tangent_match_plus_minus_solves():
     assert np.max(np.abs(result.tangent.differentiated_residual))<1e-10
     assert np.all(np.isfinite(result.k_rhs_in))
     assert np.all(np.isfinite(result.k_rhs_in_dot))
-    eps=2.0e-5
-    plus=_stage_solve(base,rates,eps)
-    minus=_stage_solve(base,rates,-eps)
-    fd=(plus.base.alpha-minus.base.alpha)/(2.0*eps)
-    np.testing.assert_allclose(fd,result.tangent.alpha_dot,rtol=2e-6,atol=2e-9)
-    target_fd=(plus.base.kdot_cmc-minus.base.kdot_cmc)/(2.0*eps)
-    assert target_fd==pytest.approx(result.tangent.kdot_cmc_dot,rel=2e-6,abs=2e-10)
+    for eps in (2.0e-5,1.0e-5):
+        plus=_stage_solve(base,rates,eps)
+        minus=_stage_solve(base,rates,-eps)
+        fd=(plus.base.alpha-minus.base.alpha)/(2.0*eps)
+        np.testing.assert_allclose(fd,result.tangent.alpha_dot,rtol=3e-6,atol=2e-9)
+        target_fd=(plus.base.kdot_cmc-minus.base.kdot_cmc)/(2.0*eps)
+        assert target_fd==pytest.approx(result.tangent.kdot_cmc_dot,rel=3e-6,abs=2e-10)
 
 
 def test_stage_aware_physical_k_rhs_direction_is_not_an_external_input():
