@@ -155,6 +155,61 @@ def test_independent_derivative_transcription_matches_even_and_odd_polynomial_st
     np.testing.assert_allclose(odd,np.ones_like(r),rtol=0.0,atol=2e-12)
 
 
+
+def test_fixed_point_map_combined_direction_is_sum_of_independent_blocks_two_epsilons():
+    """Check lapse/state additivity before interpreting the implicit fixed-point mismatch."""
+    from tools.issue4_cmc_lapse_tangent import solve_cmc_lapse_fixed_point
+    base,rates=_stage_state()
+    r=base["r"]
+    _,_,summed,physical_rates=_physical_six_sector_split(
+        r=r,dr=base["dr"],a=base["a"],b=base["b"],X=base["X"],
+        Aa=base["Aa"],K=base["K"],alpha=base["alpha_in"])
+    args={key:base[key] for key in ("r","dr","a","b","X","Aa","K")}
+    args.update({key:summed["base"][key] for key in ("rho","pr","pt")})
+    fixed=solve_cmc_lapse_fixed_point(**args,d1=_d1,d2=_d2)
+
+    # Recompute the physical instantaneous state direction at the fixed-point
+    # incoming lapse, keeping the independently projected base state fixed.
+    _,_,summed,physical_rates=_physical_six_sector_split(
+        r=r,dr=base["dr"],a=base["a"],b=base["b"],X=base["X"],
+        Aa=base["Aa"],K=base["K"],alpha=fixed.alpha_in)
+    state_rates={key+"_dot":physical_rates["geometry"][key]
+                 for key in ("a","b","X","Aa","K")}
+    for key in ("rho","pr","pt"):
+        state_rates[key+"_dot"]=summed["direction"][key+"_dot"]
+    zeros={key:np.zeros_like(r) for key in
+           ("a_dot","b_dot","X_dot","Aa_dot","K_dot",
+            "rho_dot","pr_dot","pt_dot")}
+    alpha_direction=rates["alpha_in_dot"]
+
+    _,lapse_tangent=_fixed_point_map_block_tangent(
+        args,fixed.alpha_in,zeros,alpha_direction)
+    _,state_tangent=_fixed_point_map_block_tangent(
+        args,fixed.alpha_in,state_rates,np.zeros_like(r))
+    combined_rates={key:state_rates[key] for key in state_rates}
+    _,combined_tangent=_fixed_point_map_block_tangent(
+        args,fixed.alpha_in,combined_rates,alpha_direction)
+
+    # The derivative of this map must be additive in independently varied inputs.
+    np.testing.assert_allclose(
+        combined_tangent.alpha_dot,
+        lapse_tangent.alpha_dot+state_tangent.alpha_dot,
+        rtol=2.0e-10,atol=2.0e-12)
+
+    for eps in (2.0e-5,1.0e-5):
+        plus=_fixed_point_map_output(
+            args,fixed.alpha_in+eps*alpha_direction,
+            {key:eps*value for key,value in
+             ((name,combined_rates[name]) for name in combined_rates)})
+        minus=_fixed_point_map_output(
+            args,fixed.alpha_in-eps*alpha_direction,
+            {key:-eps*value for key,value in
+             ((name,combined_rates[name]) for name in combined_rates)})
+        fd=(plus.alpha-minus.alpha)/(2.0*eps)
+        np.testing.assert_allclose(
+            fd,combined_tangent.alpha_dot,rtol=4.0e-5,atol=2.0e-8)
+
+
 def _d2(values, parity=1):
     return fourth_order_cell_derivative(values, 0.5, parity=parity, order=2)
 
