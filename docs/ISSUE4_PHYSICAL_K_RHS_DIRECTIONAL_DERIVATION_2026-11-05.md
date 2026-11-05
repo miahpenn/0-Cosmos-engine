@@ -197,3 +197,18 @@ Accepted-state (N=60, t=0.60) results:
 - Base CMC row residual maximum: (2.949978586061497\times10^{-16}).
 
 **Remaining directional boundary:** the accepted-state run intentionally supplies zero sector and geometry directions as a harness control. It validates the six-sector base projection, source assembly, and output CMC base solve; it does **not** validate the physical accepted-state tangent. The six sector directional profiles ((\dot\rho,\dot p_r,\dot p_t,\dot j)), together with the coupled geometry/primary directions and (dot\alpha_{\rm in}), still need to be independently derived from the pinned instantaneous equations and bound at both required epsilons. Do not treat the zero-direction accepted-state control as the physical coupled fixture or as a conservation-closure result.
+
+
+
+### Superseding scope correction — incoming lapse direction is unavailable (2026-11-05)
+
+The earlier accepted-state two-stage witness in CI runs [#42097909692](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/42097909692) and [#42098254533](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/42098254533) used a zero incoming-lapse direction as the first-stage anchor. Those runs remain valid demonstrations of the differentiated CMC algebra **conditional on that imposed input direction**, and they show that a nonzero stage-0 output direction propagates through the next refresh. They do **not** establish the physical accepted-state stage-0 tangent or the complete no-frozen-lapse chain. The earlier wording that described this as an anchored first direction is superseded: the archived direction is **unavailable**, not zero.
+
+The accepted-state workflow is therefore narrowed. It now:
+- reconstructs the accepted-state CMC output lapse as a base solve;
+- independently reconstructs scalar, Valencia, metric, primary, and Lambda instantaneous directions from the pinned equations;
+- analytically differentiates all six sector stress projections, including metric/volume dependence;
+- checks each accepted-state sector direction against centered plus/minus projection reconstruction at both \\(\\epsilon=2\\times10^{-5}\\) and \\(10^{-5}\\);
+- records the preceding incoming-lapse direction as unavailable and does not compute or certify an accepted-state stage-0 or stage-1 lapse tangent.
+
+The stage-aware CMC tangent API remains independently tested on controls where the incoming lapse direction is supplied. The accepted-state physical CMC tangent remains blocked until an actual preceding-stage directional record exists, or until a separately labelled self-consistent fixed-point control is constructed and verified. No fixed point is inferred from the archive. No production equations, accepted arrays, source pins, or admission flags are changed.
