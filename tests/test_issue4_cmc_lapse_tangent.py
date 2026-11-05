@@ -466,7 +466,7 @@ def test_fixed_point_map_geometry_and_six_sector_state_block_only_two_epsilons()
     sectors,directions,summed,rates=_physical_six_sector_split(
         r=r,dr=base["dr"],a=base["a"],b=base["b"],X=base["X"],
         Aa=base["Aa"],K=base["K"],alpha=fixed.alpha_in)
-    state_rates={key:rates["geometry"][key] for key in
+    state_rates={key+"_dot":rates["geometry"][key] for key in
                  ("a","b","X","Aa","K")}
     for key in ("rho","pr","pt"):
         state_rates[key+"_dot"]=summed["direction"][key+"_dot"]
