@@ -235,3 +235,84 @@ def central_difference_witness(base_plus: CMCDiscreteResult,
     delta=fd-analytic
     return {"finite_difference":fd,"analytic":analytic,
             "difference":delta,"max_abs_difference":float(np.max(np.abs(delta)))}
+
+
+@dataclass(frozen=True)
+class StageAwareCMCTangentResult:
+    """Stage-aware target projection and output-lapse tangent.
+
+    alpha_in and alpha_in_dot construct the physical incoming K RHS. The
+    returned base.alpha and tangent.alpha_dot are the distinct CMC output
+    lapse and its direction.
+    """
+    base: CMCDiscreteResult
+    tangent: CMCDirectionalResult
+    k_rhs_in: np.ndarray
+    k_rhs_in_dot: np.ndarray
+
+
+def physical_k_rhs_and_direction(*, r, dr, a, b, X, alpha_in,
+        Aa, K, rho, pr, pt, a_dot, b_dot, X_dot, alpha_in_dot,
+        Aa_dot, K_dot, rho_dot, pr_dot, pt_dot, d1, d2):
+    """Independently transcribe native warped-product lapse Laplacian and its direction.
+
+    No production/native/vendor imports. The physical K RHS is reconstructed
+    from the incoming lapse; its direction is derived from incoming-lapse,
+    geometry, primary and matter directions. No k_rhs_dot argument exists.
+    """
+    r = _validate_grid(r, dr); n = r.size
+    names=("a","b","X","alpha_in","Aa","K","rho","pr","pt",
+           "a_dot","b_dot","X_dot","alpha_in_dot","Aa_dot","K_dot",
+           "rho_dot","pr_dot","pt_dot")
+    vals=(a,b,X,alpha_in,Aa,K,rho,pr,pt,a_dot,b_dot,X_dot,
+          alpha_in_dot,Aa_dot,K_dot,rho_dot,pr_dot,pt_dot)
+    f={k:_vec(k,v,n) for k,v in zip(names,vals)}
+    (a,b,X,al,Aa,K,rho,pr,pt,ad,bd,Xd,ald,Aad,Kd,rhod,prd,ptd)=(
+        f[k] for k in names)
+    if np.any(a<=0.0) or np.any(b<=0.0) or np.any(X<=0.0) or np.any(al<=0.0):
+        raise FloatingPointError("physical K-RHS metric and incoming lapse must be positive")
+    D1a=lambda x,p: _vec("D1",d1(x,parity=p),n)
+    D2a=lambda x,p: _vec("D2",d2(x,parity=p),n)
+    with np.errstate(over="ignore",divide="ignore",invalid="ignore"):
+        A=a/X**2
+        R=r*np.sqrt(b)/X
+        Ad=A*(ad/a-2.0*Xd/X)
+        Rd=R*(0.5*bd/b-Xd/X)
+        dA=D1a(A,1); dAd=D1a(Ad,1)
+        dR=D1a(R,-1); dRd=D1a(Rd,-1)
+        d2R=D2a(R,-1); d2Rd=D2a(Rd,-1)
+        dal=D1a(al,1); dald=D1a(ald,1)
+        d2al=D2a(al,1); d2ald=D2a(ald,1)
+        # Native warped-product identity: A=a/X^2, R=r sqrt(b)/X.
+        H=(d2al-0.5*(dA/A)*dal)/A
+        Hdot=(d2ald-0.5*((dAd/A-dA*Ad/A**2)*dal+(dA/A)*dald))/A-H*Ad/A
+        G=2.0*dR*dal/(A*R)
+        Gdot=2.0*((dRd*dal+dR*dald)/(A*R)
+                  -(dR*dal/(A*R))*(Ad/A+Rd/R))
+        lap=H+G
+        lapdot=Hdot+Gdot
+        Q=1.5*Aa**2+K**2/3.0+4.0*np.pi*(rho+pr+2.0*pt)
+        Qdot=3.0*Aa*Aad+(2.0/3.0)*K*Kd+4.0*np.pi*(rhod+prd+2.0*ptd)
+        kr=-lap+al*Q
+        krd=-lapdot+ald*Q+al*Qdot
+    if not np.all(np.isfinite(kr)) or not np.all(np.isfinite(krd)):
+        raise FloatingPointError("physical incoming K RHS or its direction is non-finite")
+    return kr,krd
+
+
+def solve_stage_aware_cmc_tangent(*, r, dr, a,b,X,alpha_in,
+        Aa,K,rho,pr,pt,a_dot,b_dot,X_dot,alpha_in_dot,
+        Aa_dot,K_dot,rho_dot,pr_dot,pt_dot,d1,d2):
+    """Build physical incoming K RHS, project it, solve output lapse and tangent."""
+    kr,krd=physical_k_rhs_and_direction(
+        r=r,dr=dr,a=a,b=b,X=X,alpha_in=alpha_in,Aa=Aa,K=K,
+        rho=rho,pr=pr,pt=pt,a_dot=a_dot,b_dot=b_dot,X_dot=X_dot,
+        alpha_in_dot=alpha_in_dot,Aa_dot=Aa_dot,K_dot=K_dot,
+        rho_dot=rho_dot,pr_dot=pr_dot,pt_dot=pt_dot,d1=d1,d2=d2)
+    base=solve_cmc_discrete(r=r,dr=dr,a=a,b=b,X=X,Aa=Aa,K=K,
+        rho=rho,pr=pr,pt=pt,k_rhs=kr,d1=d1)
+    tangent=differentiate_cmc_discrete(base=base,r=r,dr=dr,
+        a=a,b=b,X=X,Aa=Aa,K=K,rho=rho,pr=pr,pt=pt,k_rhs=kr,
+        a_dot=a_dot,b_dot=b_dot,X_dot=X_dot,Aa_dot=Aa_dot,K_dot=K_dot,
+        rho_dot=rho_dot,pr_dot=pr_dot,pt_dot=pt_dot,k_rhs_dot=krd,d1=d1)
+    return StageAwareCMCTangentResult(base,tangent,kr,krd)
