@@ -98,3 +98,5 @@ def test_cmc_solver_rejects_nonpositive_metric_and_nonfinite_projection():
     bad=dict(base); bad["k_rhs"]=base["k_rhs"].copy(); bad["k_rhs"][4]=np.nan
     with pytest.raises(FloatingPointError,match="K RHS contains non-finite"):
         solve_cmc_discrete(**bad)
+
+# CI gate: independent CMC discrete solve and differentiated operator contract.
