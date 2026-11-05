@@ -2,7 +2,7 @@
 
 **Date:** 2026-11-05  
 **Class:** `manufactured_regular_family`  
-**Status:** contract definition only; no fixture constructed and no evaluation run  
+**Status:** manufactured fixture constructed and fail-closed loader validated; evaluator integration pending  
 **Scope:** research-only, immutable, zero production steps; all scientific-admission and conservation-closure flags remain false.
 
 ## 1. Purpose and boundary
@@ -129,3 +129,27 @@ The manufactured fixture is ready for observer evaluation only when:
 7. A manufactured report is produced with the same signed structure, separate channel summaries, centre cells 0/1 (cell 2 diagnostic), fixed-radius/annular masks, and six-sector raw/accounted summaries.
 
 Only after these gates pass may the manufactured class be evaluated. The t=0 fixture remains a separate subsequent task.
+
+
+## 10. Construction and loader validation record — 2026-11-05
+
+The contract's constructor, projection, tangent, divergence, and archive/loader gates have now been exercised in bounded GitHub Actions workflows.
+
+- Constructor workflow: [run #42072872069](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/42072872069), six tests passed in the pinned Python 3.12.15 environment.
+- Five-state six-sector projection workflow: [run #42073309019](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/42073309019), all independent/canonical projection cross-checks passed.
+- Final manufactured fixture and loader workflow: [run #42074621280](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/42074621280), constructor and schema tests passed; archive generation and fail-closed round-trip loader passed.
+
+Final archive:
+- Class: `manufactured_regular_family`
+- Resolution/domain: `N=60, r_max=40`
+- State members: `U(0), U(±2e-5), U(±1e-5)`
+- Tangent semantics: `analytic_family_central_difference`; explicitly not a production-RHS tangent.
+- Array count: 593
+- ZIP SHA-256: `ad8b376881dfeab692af5804870f1e3743cd4fe1fffbc05ca5ec17c9d98415c3`
+- Artifact: [run #42074621280](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/42074621280)
+
+The runner reports `production_initializer_called=false`, `production_rhs_called=false`, `vendor_step_called=false`, and `production_steps_run=0`. The accepted-state loader, accepted archive, accepted-state regression, production source, and vendor files were not modified.
+
+The raw six-sector divergence reconstruction passed with maximum raw gap approximately `5.56e-18`. The helper's separate time-density-component-accounting flag remains false at both epsilons (the unexplained remainder is approximately `5.56e-18), and is retained as a diagnostic finding rather than promoted to a pass. This is not a physical conservation-closure result.
+
+**Next gate:** add a narrow manufactured-class adapter into the existing full-Bianchi predictor, keeping the accepted loader and accepted regression path unchanged; then run the manufactured report under the same locked predictor and zero-step guards.
