@@ -36,10 +36,10 @@ CODE_PATHS = (
     "tools/issue4_zero_step_full_bianchi_observer.py",
     "tools/issue4_accepted_state_fixture.py",
     "tools/issue4_equation_consistent_matter_direction.py",
-    "tools/issue4_manufactured_fixture.py",
-    "tools/issue4_manufactured_tangent_and_divergence.py",
+    "tools/issue4_equation_consistent_matter_direction_fixture.py",
+    "tools/issue4_equation_consistent_matter_direction_channels.py",
     "tests/test_issue4_equation_consistent_matter_direction.py",
-    "tests/test_issue4_manufactured_fixture.py",
+    "tests/test_issue4_equation_consistent_matter_direction_fixture.py",
     "tests/test_issue4_accepted_state_fixture.py",
     "tests/test_issue4_bianchi_reference_regression.py",
     "tests/test_issue4_full_bianchi_evaluator_contract.py",
@@ -139,7 +139,7 @@ def main():
     sys.path.insert(0, str(vendor_root))
     sys.path.insert(0, str(DIAG))
     from tools.issue4_equation_consistent_matter_direction import (
-        PROFILE, STATE_ARRAY_NAMES, construct_equation_consistent_family,
+        PROFILE, STATE_ARRAY_NAMES, analytic_matter_rates, construct_equation_consistent_family,
     )
     import r0_operators
     import vacuum_bssn
