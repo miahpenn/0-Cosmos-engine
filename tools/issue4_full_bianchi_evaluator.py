@@ -498,8 +498,9 @@ def _evaluate_loaded_fixture(
                             f"{sector} Hamiltonian-gradient contribution",
                             -(8.0 * math.pi / 3.0) * alpha * d1(rho_sector, parity=1),
                         )
+                        tangent_sector_name = "COSMOS_phi" if sector == "phi" else sector
                         tangent_sector = _array_for_path(
-                            fixture, f"tangent_{epsilon_label}.Mdot_sector.{sector}"
+                            fixture, f"tangent_{epsilon_label}.Mdot_sector.{tangent_sector_name}"
                         )
                         divergence_field = "div_T_r" if channel_name == "pointwise" else "div_T_r_fv"
                         divergence_sector = _array_for_path(
