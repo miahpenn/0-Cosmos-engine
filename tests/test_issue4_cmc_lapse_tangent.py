@@ -100,4 +100,4 @@ def test_cmc_solver_rejects_nonpositive_metric_and_nonfinite_projection():
         solve_cmc_discrete(**bad)
 
 # CI gate: independent CMC discrete solve and differentiated operator contract.
-# Regression rerun after preserving the mass-coefficient tangent witness.
+# Regression rerun after preserving the mass-coefficient and potential tangents.
