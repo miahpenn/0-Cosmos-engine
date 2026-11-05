@@ -460,7 +460,7 @@ def main():
         },
         "interpretation_limits": [
             "The matter-direction tangent is an analytic-family central difference, not a production-RHS tangent.",
-            "The constructor calls no production initializer, production RHS, kernel step, or vendor evolution step. Geometry is intentionally frozen and the scalar direction is continuum-analytic.",
+            "The constructor calls no production initializer, production RHS, kernel step, or vendor evolution step. Geometry is intentionally frozen; scalar and fluid gradients use pinned fourth-order grid operators.",
             "Pointwise and finite-volume total-stress divergences are independently evaluated from the same frozen analytic family triplets by the pinned helper.",
             "Six-sector raw sums and time-density component accounting are diagnostic witnesses, not physical conservation or scientific admission.",
         ],
