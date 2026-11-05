@@ -626,6 +626,20 @@ def main() -> int:
             "state_class": result["state_class"],
             "tangent_semantics": result["tangent_semantics"],
             "summaries": result["summaries"],
+            "tangent_summaries": {
+                epsilon: _summary(result["channels"][epsilon]["measured_tangent"], result["grid_centers"])
+                for epsilon in result["channels"]
+            },
+            "predictor_term_summaries": {
+                key: _summary(result["signed_terms"][key], result["grid_centers"])
+                for key in (
+                    "shift_transport", "normal_alpha_K_M",
+                    "normal_lapse_gradient_H", "normal_H_gradient",
+                    "connection_divergence", "H_total", "M_total",
+                    "rho_total", "j_total",
+                )
+            },
+            "six_sector_divergence_accounting": result["six_sector_divergence_accounting"],
             "zero_step_tripwire": result["zero_step_tripwire"],
             "production_steps_run": result["production_steps_run"],
             "state_advanced": result["state_advanced"],
