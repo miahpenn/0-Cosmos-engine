@@ -146,3 +146,12 @@ The accepted-state workflow is narrowed to the derivable pieces: the base CMC ou
 
 
 The corrected workflow is green: [CI run #42099641196](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/42099641196). It verifies the six accepted-state sector projection directions at both epsilons and the base CMC solve, while explicitly withholding the accepted-state lapse-tangent claim at the missing incoming-direction boundary. The independent test job passes 11 tests and the no-production/no-vendor import guard.
+
+
+## Separate self-consistent lapse control — current status (2026-11-05)
+
+A distinct analytic control was added; it is not an assertion about the archived accepted-stage history. For fixed geometry and matter, the pinned K-RHS and proper-volume projection are affine in the incoming lapse. The control assembles the lapse-map Jacobian from exact directional basis actions of the pinned differentiated equations and solves the affine fixed-point system directly. It does not use Picard damping, residual fitting, or production code.
+
+The positive fixed-point base solve and its fixed-point residual gate pass on the manufactured CMC test state. The implicit directional system also solves with a small internal equality residual. However, the independent centered-difference cross-check of that implicit direction **fails**: at the first tested epsilon, the maximum component discrepancy is approximately \\(1.8125\\times10^{-4}\\), with 19 of 20 cells outside the strict tolerance. Therefore the fixed-point directional equality is **not certified**. This is a live derivation discrepancy, not a pass, and must be resolved before any fixed-point tangent claim. The failing test is intentionally retained as a guard.
+
+This manufactured control does not alter the accepted-state boundary: the preceding incoming-lapse direction remains unavailable, not zero. No accepted-state CMC tangent is inferred, no production equations or state are changed, and all scientific-admission flags remain false.
