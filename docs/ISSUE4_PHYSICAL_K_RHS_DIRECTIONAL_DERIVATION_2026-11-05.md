@@ -144,8 +144,28 @@ The bounded workflow run for commit `a21363a3557f16006bacedb31691b89ac85856c2` c
 **Scope limitation:** these new plus/minus tests use a manufactured smooth control and combined ((\rho,p_r,p_t)) input profiles. They verify the independent directional algebra and stage-aware solve, not yet the actual pinned accepted-state six-sector arrays. The next binding gate is to feed the locked six-sector projection outputs and independently derived coupled geometry/primary directions into this API, compare the reconstructed incoming (K_{\rm RHS}) against the pinned L2+L3 component ledger, and run the required two-epsilon plus/minus checks on the accepted (t=0.60) state. Do not claim that physical-state binding or coupled-fixture admission has passed yet.
 
 
-### Discrete-operator equivalence boundary
+### Discrete-operator crosswalk and source-matched implementation (2026-11-05)
 
-The compact (-\nu(D_2+cD_1)\alpha) expression is the radial scalar-Laplacian form of the continuum identity. The new independent code currently differentiates the native warped-product transcription ((A=a/X^2), (R=r\sqrt b/X)) using parity-aware fourth-order (D_1,D_2). Because finite-difference product/quotient operations need not commute, this is **not yet asserted to be bitwise or tolerance-equivalent** to the pinned vendor `primary_l2_rhs()["K"]) used by the stage-aware production projection. That crosswalk must be measured on the exact pinned states before the new independent reconstruction is accepted as the production-discrete K-RHS transcription.
+The first accepted-state crosswalk was run against the immutable `accepted-state-N60.zip` nested in workflow artifact `13442329240` from run `42084531386`. The archived base arrays are at (t=0.60), (N=60), with the locked vendor commit `d6052d605673ce9d82cdc99b0df79855fa2ea215`.
 
-Likewise, the present manufactured regression passes combined total ((\rho,p_r,p_t)) arrays. It does not yet independently reconstruct and bind each of the six named sectors (dark matter, baryons, radiation, S, D, phi) and their directional projections from the accepted archive. These two source-fidelity checks are explicit prerequisites for the accepted-state gate; the seven-test synthetic pass does not waive them.
+The pinned source chain is:
+- `engine/production_kernel.py` at diagnostic source `4aec88d0e3ff028e0a65a8ac36b30948625df792`, blob `1720615628a98a8d7cfc9fcadcc984fe28c88be1`: native CMC explicit metric RHS and stage dispatch;
+- `engine/v55_pirk_adapter.py` at the same source commit, blob `be28ceea63fa1b59efc5cc5c460b9df19ae1cbc3`: `primary_l2_rhs` plus `primary_l3_with_matter`;
+- vendor `vacuum_bssn.py` at the locked vendor commit, blob `099ce52ba9e6dcd38d50c2915248c76c4236f7f4`: `geometry_terms()["lap_alpha"]`, `primary_l2_rhs()["K"]`, and `primary_l3_rhs()["K"]`.
+
+For the CMC slice, (eta=0), and the vendor has (mathrm{KO\_EPSILON}=0). The exact pinned physical K RHS therefore has the fieldwise form
+[
+K_{\rm RHS}^{\rm pin}=
+-\frac{X^2}{a}\left[
+D_2\alpha-D_1\alpha\left(
+\frac{D_1a}{2a}-\frac{D_1b}{b}
++\frac{D_1X}{X}-\frac2r
+\right)\right]
++\alpha\left[\frac32 A_a^2+\frac13K^2
++4\pi(\rho+p_r+2p_t)\right].
+]
+The independent warped-product transcription (A=a/X^2, R=r\sqrt b/X) was evaluated on the same archived geometry. Although continuum-equivalent, its discrete lapse-Laplacian differs from the pinned fieldwise stencil by max absolute (6.892277181380808\times10^{-11}) and RMS (1.0987951371436368\times10^{-11}), with the largest difference in centre cells 0–3. This directly confirms the product/quotient finite-difference non-commutation; it is not a physical residual or a missing matter term.
+
+The independent implementation has now been changed to transcribe the exact pinned fieldwise (D_1/D_2) expression and its analytic directional derivative. It still imports no engine or vendor code, and it retains separate incoming/output lapse directions. A regression test now asserts the stage-aware K RHS against the pinned L2+L3 algebraic form. The updated CI run is `42094234083` and was pending when this record was written; do not mark this implementation gate passed until that run completes successfully.
+
+**Remaining six-sector boundary:** the stage-aware manufactured test still receives combined ((\rho,p_r,p_t)) arrays. The accepted archive contains the scalar fields and all three fluid conserved profiles, and the prior accepted-state audit independently rebuilt all six sectors and cross-checked the summed ((\rho,p_r,p_t,j)) against canonical assembly at (10^{-20})-scale absolute differences. However, those per-sector base projections and their directional projections have not yet been bound as six named inputs to this new stage-aware tangent API. This remains the next explicit gate; neither the exact K-RHS source transcription nor the earlier accepted-state audit alone waives it.
