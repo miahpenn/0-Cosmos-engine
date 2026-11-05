@@ -22,6 +22,7 @@ class CMCDiscreteResult:
     weights: np.ndarray
     proper_volume_total: float
     potential: np.ndarray
+    mass_coefficient: np.ndarray
     radial_coefficient: np.ndarray
 
 
@@ -35,6 +36,7 @@ class CMCDirectionalResult:
     weight_dot: np.ndarray
     proper_volume_total_dot: float
     potential_dot: np.ndarray
+    mass_coefficient_dot: np.ndarray
     radial_coefficient_dot: np.ndarray
 
 
