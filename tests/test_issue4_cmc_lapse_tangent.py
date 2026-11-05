@@ -337,3 +337,124 @@ def test_pinned_instantaneous_six_sector_rates_and_projection_directions_two_eps
             for key,basekey in (("rho_dot","rho"),("pr_dot","pr"),("pt_dot","pt"),("j_dot","j")):
                 fd=(pp[sector][basekey]-pm[sector][basekey])/(2.0*eps)
                 np.testing.assert_allclose(fd,dots[sector][key],rtol=2.0e-4,atol=2.0e-11)
+
+
+def _six_sector_split(base, rates):
+    """Exact additive six-name decomposition for isolated map-block witnesses."""
+    names=("dark_matter","baryons","radiation","S","D","phi")
+    weights=(0.20,0.10,0.05,0.30,0.05,0.30)
+    sectors={}; directions={}
+    for name,weight in zip(names,weights):
+        sectors[name]={key:weight*base[key] for key in ("rho","pr","pt")}
+        sectors[name]["j"]=np.zeros_like(base["rho"])
+        directions[name]={key+"_dot":weight*rates[key+"_dot"]
+                          for key in ("rho","pr","pt")}
+        directions[name]["j_dot"]=np.zeros_like(base["rho"])
+    summed=sum_six_sector_projections(
+        sector_projections=sectors,
+        sector_projection_directions=directions)
+    return summed["base"],summed["direction"]
+
+
+def _fixed_point_map_output(base, alpha_in, state_delta=None):
+    """Evaluate the independent input-lapse -> output-lapse map."""
+    from tools.issue4_cmc_lapse_tangent import (
+        physical_k_rhs_and_direction, solve_cmc_discrete)
+    state_delta={} if state_delta is None else state_delta
+    fields={key:base[key]+state_delta.get(key,np.zeros_like(base[key]))
+            for key in ("a","b","X","Aa","K","rho","pr","pt")}
+    zeros=np.zeros_like(base["r"])
+    kr,_=physical_k_rhs_and_direction(
+        r=base["r"],dr=base["dr"],a=fields["a"],b=fields["b"],X=fields["X"],
+        alpha_in=alpha_in,Aa=fields["Aa"],K=fields["K"],
+        rho=fields["rho"],pr=fields["pr"],pt=fields["pt"],
+        a_dot=zeros,b_dot=zeros,X_dot=zeros,alpha_in_dot=zeros,
+        Aa_dot=zeros,K_dot=zeros,rho_dot=zeros,pr_dot=zeros,pt_dot=zeros,
+        d1=_d1,d2=_d2)
+    return solve_cmc_discrete(
+        r=base["r"],dr=base["dr"],a=fields["a"],b=fields["b"],X=fields["X"],
+        Aa=fields["Aa"],K=fields["K"],rho=fields["rho"],pr=fields["pr"],
+        pt=fields["pt"],k_rhs=kr,d1=_d1)
+
+
+def _fixed_point_map_block_tangent(base, alpha_in, state_rates, alpha_in_dot):
+    """Differentiate one independently selected input block of the output map."""
+    from tools.issue4_cmc_lapse_tangent import (
+        physical_k_rhs_and_direction, differentiate_cmc_discrete)
+    fields={key:base[key] for key in ("a","b","X","Aa","K","rho","pr","pt")}
+    zeros=np.zeros_like(base["r"])
+    kr,kr_dot=physical_k_rhs_and_direction(
+        r=base["r"],dr=base["dr"],a=fields["a"],b=fields["b"],X=fields["X"],
+        alpha_in=alpha_in,Aa=fields["Aa"],K=fields["K"],
+        rho=fields["rho"],pr=fields["pr"],pt=fields["pt"],
+        a_dot=state_rates["a_dot"],b_dot=state_rates["b_dot"],
+        X_dot=state_rates["X_dot"],alpha_in_dot=alpha_in_dot,
+        Aa_dot=state_rates["Aa_dot"],K_dot=state_rates["K_dot"],
+        rho_dot=state_rates["rho_dot"],pr_dot=state_rates["pr_dot"],
+        pt_dot=state_rates["pt_dot"],d1=_d1,d2=_d2)
+    output=_fixed_point_map_output(base,alpha_in)
+    tangent=differentiate_cmc_discrete(
+        base=output,r=base["r"],dr=base["dr"],**fields,k_rhs=kr,
+        a_dot=state_rates["a_dot"],b_dot=state_rates["b_dot"],
+        X_dot=state_rates["X_dot"],Aa_dot=state_rates["Aa_dot"],
+        K_dot=state_rates["K_dot"],rho_dot=state_rates["rho_dot"],
+        pr_dot=state_rates["pr_dot"],pt_dot=state_rates["pt_dot"],
+        k_rhs_dot=kr_dot,d1=_d1)
+    return output,tangent
+
+
+def test_fixed_point_map_incoming_lapse_block_only_two_epsilons():
+    """Incoming-lapse derivative: geometry and all six matter sectors fixed."""
+    from tools.issue4_cmc_lapse_tangent import solve_cmc_lapse_fixed_point
+    base,rates=_stage_state()
+    args={key:base[key] for key in
+          ("r","dr","a","b","X","Aa","K","rho","pr","pt")}
+    fixed=solve_cmc_lapse_fixed_point(**args,d1=_d1,d2=_d2)
+    zeros={key:np.zeros_like(base["r"]) for key in
+           ("a_dot","b_dot","X_dot","Aa_dot","K_dot",
+            "rho_dot","pr_dot","pt_dot")}
+    alpha_direction=rates["alpha_in_dot"]
+    output,tangent=_fixed_point_map_block_tangent(
+        base,fixed.alpha_in,zeros,alpha_direction)
+    assert np.max(np.abs(tangent.differentiated_residual))<1.0e-10
+    for eps in (2.0e-5,1.0e-5):
+        plus=_fixed_point_map_output(
+            base,fixed.alpha_in+eps*alpha_direction)
+        minus=_fixed_point_map_output(
+            base,fixed.alpha_in-eps*alpha_direction)
+        fd=(plus.alpha-minus.alpha)/(2.0*eps)
+        np.testing.assert_allclose(
+            fd,tangent.alpha_dot,rtol=4.0e-5,atol=2.0e-8)
+
+
+def test_fixed_point_map_geometry_and_six_sector_state_block_only_two_epsilons():
+    """State derivative: coupled geometry/six sectors vary; incoming lapse is fixed."""
+    from tools.issue4_cmc_lapse_tangent import solve_cmc_lapse_fixed_point
+    base,rates=_stage_state()
+    args={key:base[key] for key in
+          ("r","dr","a","b","X","Aa","K","rho","pr","pt")}
+    fixed=solve_cmc_lapse_fixed_point(**args,d1=_d1,d2=_d2)
+    sector_base,sector_direction=_six_sector_split(base,rates)
+    # Recombine all six named sectors before differentiating the physical K RHS.
+    state_rates={key:rates[key] for key in
+                 ("a_dot","b_dot","X_dot","Aa_dot","K_dot")}
+    for key in ("rho","pr","pt"):
+        state_rates[key+"_dot"]=sector_direction[key+"_dot"]
+        np.testing.assert_allclose(
+            sector_base[key],base[key],rtol=0.0,atol=1.0e-20)
+    zeros=np.zeros_like(base["r"])
+    output,tangent=_fixed_point_map_block_tangent(
+        base,fixed.alpha_in,state_rates,zeros)
+    assert np.max(np.abs(tangent.differentiated_residual))<1.0e-10
+    delta={key:state_rates[key+"_dot"] for key in
+           ("a","b","X","Aa","K","rho","pr","pt")}
+    for eps in (2.0e-5,1.0e-5):
+        plus=_fixed_point_map_output(
+            base,fixed.alpha_in,
+            {key:eps*value for key,value in delta.items()})
+        minus=_fixed_point_map_output(
+            base,fixed.alpha_in,
+            {key:-eps*value for key,value in delta.items()})
+        fd=(plus.alpha-minus.alpha)/(2.0*eps)
+        np.testing.assert_allclose(
+            fd,tangent.alpha_dot,rtol=4.0e-5,atol=2.0e-8)
