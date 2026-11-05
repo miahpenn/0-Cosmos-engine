@@ -8,6 +8,7 @@ on:
       - tools/issue4_manufactured_regular_family.py
       - tools/issue4_manufactured_tangent_and_divergence.py
       - tools/issue4_manufactured_fixture.py
+      - tools/issue4_full_bianchi_evaluator.py
       - tests/test_issue4_manufactured_fixture.py
       - tests/test_issue4_manufactured_regular_family.py
       - .github/workflows/issue4-manufactured-tangent-divergence.yml
@@ -74,6 +75,20 @@ jobs:
         run: |
           python -m py_compile tools/issue4_manufactured_fixture.py
           python -m tools.issue4_manufactured_fixture --archive issue4-channel-results/issue4_manufactured_regular_family_N60.zip
+
+      - name: Evaluate manufactured fixture with the locked full-Bianchi predictor
+        env:
+          ISSUE4_DIAGNOSTIC_ROOT: ${{ github.workspace }}/diagnostic-source
+          ISSUE4_HELPER_BASELINE_ROOT: ${{ github.workspace }}/helper-baseline
+        run: |
+          python -m py_compile tools/issue4_full_bianchi_evaluator.py
+          python -m tools.issue4_full_bianchi_evaluator \
+            --state-class manufactured \
+            --archive issue4-channel-results/issue4_manufactured_regular_family_N60.zip \
+            --resolution 60 \
+            --diagnostic-source "$ISSUE4_DIAGNOSTIC_ROOT" \
+            --helper-baseline "$ISSUE4_HELPER_BASELINE_ROOT" \
+            --output issue4-channel-results/manufactured-bianchi-report.json
 
       - name: Capture runtime and source provenance
         if: always()
