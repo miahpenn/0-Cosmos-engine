@@ -157,12 +157,17 @@ def main():
     tangent_provenance = tangent.provenance()
     total_provenance = total.verify_provenance()
 
-    r = (np.arange(N, dtype=np.float64) + 0.5) * (R_MAX / N)
-    family_arrays = {"base": construct_equation_consistent_family(r, 0.0)}
+    pinned_grid = r0_operators.SphericalCellGrid(N, R_MAX)
+    r = np.asarray(pinned_grid.centers, dtype=np.float64)
+    rates = analytic_matter_rates(
+        r, d1=pinned_grid.cell_derivative_fourth,
+        d2=pinned_grid.cell_second_derivative_fourth,
+    )
+    family_arrays = {"base": construct_equation_consistent_family(r, 0.0, rates=rates)}
     for eps in EPSILONS:
         label = f"eps{eps:.0e}".replace("+", "")
-        family_arrays[f"{label}_plus"] = construct_equation_consistent_family(r, eps)
-        family_arrays[f"{label}_minus"] = construct_equation_consistent_family(r, -eps)
+        family_arrays[f"{label}_plus"] = construct_equation_consistent_family(r, eps, rates=rates)
+        family_arrays[f"{label}_minus"] = construct_equation_consistent_family(r, -eps, rates=rates)
 
     states = {}
     state_digests = {}
@@ -359,7 +364,7 @@ def main():
         "family_parameterization": {
             "direction": "instantaneous matter-equation direction at s=0",
             "geometry_tangent": "frozen_flat_background_not_Einstein_evolution",
-            "scalar_spatial_operator": "exact_continuum_Gaussian_derivatives_not_pinned_fourth_order_semidiscrete_operator",
+            "scalar_spatial_operator": "pinned_vendor_fourth_order_cell_derivative_and_second_derivative",
             "parameter": "s",
             "U(0)": "base",
             "U(+epsilon)": "plus member independently constructed by analytic formulas",
@@ -450,7 +455,7 @@ def main():
             "dark_matter_force": "beta_DM*partial_r(phi), beta_DM=-0.04",
             "radiation_force": "-partial_r(rho/3)/(4*rho/3)",
             "geometry": "held fixed; no Einstein geometric tangent is supplied",
-            "scalar_operator": "continuum Gaussian Laplacian; not the grid fourth-order semidiscrete operator",
+            "scalar_operator": "pinned grid fourth-order radial derivatives; no scalar RHS call",
         },
         "interpretation_limits": [
             "The matter-direction tangent is an analytic-family central difference, not a production-RHS tangent.",
