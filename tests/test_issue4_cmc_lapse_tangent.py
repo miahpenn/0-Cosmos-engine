@@ -194,6 +194,7 @@ def test_six_sector_stage_aware_binding_requires_all_named_base_and_directional_
     np.testing.assert_allclose(summed["base"]["rho"],base["rho"],rtol=0,atol=1e-20)
     np.testing.assert_allclose(summed["direction"]["rho_dot"],rates["rho_dot"],rtol=0,atol=1e-20)
     stage_args={k:v for k,v in base.items() if k not in ("rho","pr","pt","k_rhs")}
+    stage_args["d2"]=_d2
     stage_args.update({k:v for k,v in rates.items() if k not in
         ("rho_dot","pr_dot","pt_dot","k_rhs_dot")})
     six=solve_stage_aware_cmc_tangent_six_sector(
