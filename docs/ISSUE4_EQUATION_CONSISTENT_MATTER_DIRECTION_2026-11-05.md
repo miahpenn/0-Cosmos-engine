@@ -145,3 +145,10 @@ unexplained reconstruction remainder at approximately `8.4e-18`; the raw
 six-sector sum reconstructs the total. The finite-volume corrected accounting
 passes. Neither remainder is remotely large enough to explain the
 approximately `1.1e-2` frozen-geometry residual.
+
+The full three-class artifact is GitHub Actions artifact
+`13442348419` (outer ZIP SHA-256
+`3ebefc92659fa719aaf74e85159ebfeaa3043e120dccbf9b093565a325638922`).
+It contains the equation-consistent fixture, the accepted fixture and report,
+the immutable arbitrary-family fixture and report, and
+`three-class-comparison.json`.
