@@ -229,7 +229,7 @@ class CMCFixedPointResult:
     """Separately labelled self-consistent input/output lapse control."""
     base: CMCDiscreteResult
     alpha_in: np.ndarray
-    iterations: int
+    linearization_evaluations: int
     fixed_point_residual: float
 
 
@@ -243,7 +243,7 @@ class CMCFixedPointDirectionalResult:
 
 
 def solve_cmc_lapse_fixed_point(*, r, dr, a,b,X,Aa,K,rho,pr,pt,
-        initial_alpha=None, d1, d2, tolerance=2.0e-12, max_iterations=500):
+        initial_alpha=None, d1, d2, tolerance=2.0e-12):
     """Solve alpha_in = alpha_out by the exact affine lapse-map equation.
 
     At fixed geometry and matter the pinned physical K RHS and its proper-
