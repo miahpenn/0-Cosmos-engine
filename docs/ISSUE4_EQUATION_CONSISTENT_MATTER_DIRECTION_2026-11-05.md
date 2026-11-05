@@ -102,8 +102,8 @@ control records the pinned-operator rates as explicit analytic-rate arrays.
 The equation-consistent constructor and full observer completed under the
 locked pins in workflow run
 [42082807688](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/42082807688).
-The full three-class comparison completed in workflow run
-[42084107236](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/42084107236).
+The full three-class comparison and complete 28-test suite passed in workflow run
+[42084531386](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/42084531386).
 The latter run used the exact accepted-state N=60 archive whose SHA-256 is
 `41d646090e05c08684806c5e39d57851f119cf0f38aa90f1d26ab5f72f87d1ce`,
 and the immutable arbitrary-family archive SHA-256
@@ -146,9 +146,9 @@ six-sector sum reconstructs the total. The finite-volume corrected accounting
 passes. Neither remainder is remotely large enough to explain the
 approximately `1.1e-2` frozen-geometry residual.
 
-The full three-class artifact is GitHub Actions artifact
-`13442348419` (outer ZIP SHA-256
-`3ebefc92659fa719aaf74e85159ebfeaa3043e120dccbf9b093565a325638922`).
+The final full three-class artifact is GitHub Actions artifact
+`13442329240` (outer ZIP SHA-256
+`acfc123ff1748c8f7adcbf19e1b94f6fafd24771fd0787daa5542b17ee9f8e1b`).
 It contains the equation-consistent fixture, the accepted fixture and report,
 the immutable arbitrary-family fixture and report, and
 `three-class-comparison.json`.
