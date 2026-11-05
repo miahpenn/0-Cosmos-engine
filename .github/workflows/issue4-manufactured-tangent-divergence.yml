@@ -65,6 +65,11 @@ jobs:
         run: |
           python -m tools.issue4_manufactured_tangent_and_divergence
 
+      - name: Validate packaged fixture with fail-closed manufactured loader
+        run: |
+          python -m py_compile tools/issue4_manufactured_fixture.py
+          python -m tools.issue4_manufactured_fixture --archive issue4-channel-results/issue4_manufactured_regular_family_N60.zip
+
       - name: Capture runtime and source provenance
         if: always()
         run: |
