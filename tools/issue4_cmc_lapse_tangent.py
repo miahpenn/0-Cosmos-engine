@@ -554,7 +554,7 @@ def _hll_fluid_flux(metric,left,right,radiation):
 
 
 def _independent_fluid_rhs(*,r,a,b,X,alpha,beta,Aa,K,state,rho_phi_t,
-                           dphi_r,d1,beta_dm=-0.04,radiation=False):
+                           dphi_r,d1,beta_dm=-0.04,radiation=False,dark_matter=False):
     r=_vec("r",r); n=r.size; dr=float(r[1]-r[0])
     a=_vec("a",a,n); b=_vec("b",b,n); X=_vec("X",X,n)
     alpha=_vec("alpha",alpha,n); beta=_vec("beta",beta,n)
@@ -594,7 +594,7 @@ def _independent_fluid_rhs(*,r,a,b,X,alpha,beta,Aa,K,state,rho_phi_t,
     source_e=sqrtg*(alpha*(Krr*Srr+2.0*Kth*Sth)-Sup*dalpha)
     source_s=sqrtg*(-E*dalpha+Sr*dbeta+0.5*alpha*(Srr*dgrr+2.0*Sth*dgth))
     q_e=np.zeros(n); q_s=np.zeros(n); q_rest=np.zeros(n)
-    if not radiation:
+    if dark_matter:
         rho_raw=prim["rho"]
         q_t=beta_dm*rho_raw*rho_phi_t
         q_r=beta_dm*rho_raw*dphi_r
@@ -653,7 +653,7 @@ def independent_scalar_and_geometry_rates(*,r,dr,a,b,X,alpha,beta,Aa,K,Lambda,
         fluid_rates[name]=_independent_fluid_rhs(
             r=r,a=a,b=b,X=X,alpha=alpha,beta=beta,Aa=Aa,K=K,
             state=fluids[name],rho_phi_t=dphi_t,dphi_r=dphi_r,d1=d1,
-            beta_dm=beta_dm,radiation=(name=="radiation"))
+            beta_dm=beta_dm,radiation=(name=="radiation"),dark_matter=(name=="dark_matter"))
     # Reconstruct the six base projections before forming geometric sources.
     sectors=project_six_sector_stress_from_arrays(
         r=r,a=a,b=b,X=X,scalars=scalars,fluids=fluids,d1=d1)
