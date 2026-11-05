@@ -482,6 +482,87 @@ def _evaluate_loaded_fixture(
         if step_calls:
             raise RuntimeError(f"zero-step tripwire was activated: {step_calls}")
 
+        sector_residual_attribution = {}
+        if state_class == "manufactured_regular_family":
+            sector_names = ("dark_matter", "baryons", "radiation", "S", "D", "phi")
+            for epsilon_label, channel_map in terms_by_channel.items():
+                epsilon_attribution = {}
+                for channel_name in ("pointwise", "finite_volume"):
+                    residual_by_sector = {}
+                    for sector in sector_names:
+                        if sector in ("S", "D", "phi"):
+                            rho_sector = np.asarray(projection["scalar_parts"][sector]["rho"], dtype=np.float64)
+                        else:
+                            rho_sector = np.asarray(projection["fluid_parts"][sector]["rho"], dtype=np.float64)
+                        h_gradient_sector = _finite(
+                            f"{sector} Hamiltonian-gradient contribution",
+                            -(8.0 * math.pi / 3.0) * alpha * d1(rho_sector, parity=1),
+                        )
+                        tangent_sector = _array_for_path(
+                            fixture, f"tangent_{epsilon_label}.Mdot_sector.{sector}"
+                        )
+                        divergence_field = "div_T_r" if channel_name == "pointwise" else "div_T_r_fv"
+                        divergence_sector = _array_for_path(
+                            fixture, f"total_T_{epsilon_label}.sectors.{sector}.{divergence_field}"
+                        )
+                        stress_sector = _finite(
+                            f"{sector} signed stress source",
+                            -8.0 * math.pi * alpha * divergence_sector,
+                        )
+                        predictor_sector = h_gradient_sector + stress_sector
+                        residual_sector = _finite(
+                            f"{sector} tangent-minus-predictor residual",
+                            tangent_sector - predictor_sector,
+                        )
+                        residual_by_sector[sector] = residual_sector
+                        epsilon_attribution.setdefault(channel_name, {})[sector] = {
+                            "measured_tangent": _summary(tangent_sector, r),
+                            "normal_H_gradient": _summary(h_gradient_sector, r),
+                            "stress_source": _summary(stress_sector, r),
+                            "residual": _summary(residual_sector, r),
+                        }
+                    sector_sum = np.zeros_like(r)
+                    for values in residual_by_sector.values():
+                        sector_sum += values
+                    geom_mdot = _array_for_path(
+                        fixture, f"tangent_{epsilon_label}.Mdot_geom"
+                    )
+                    geom_h_gradient = _finite(
+                        "geometric Hamiltonian-gradient contribution",
+                        (1.0 / 6.0) * alpha * d1(H_geom, parity=1),
+                    )
+                    geometry_residual = _finite(
+                        "geometric residual contribution",
+                        geom_mdot - (
+                            shift_transport + normal_alpha_K_M
+                            + normal_lapse_gradient_H + connection_divergence
+                            + geom_h_gradient
+                        ),
+                    )
+                    total_residual = channel_map[channel_name]["residual_tangent_minus_predictor"]
+                    reconstructed_residual = sector_sum + geometry_residual
+                    reconstruction_gap = _finite(
+                        "sector residual reconstruction gap",
+                        total_residual - reconstructed_residual,
+                    )
+                    epsilon_attribution[channel_name]["geometry_residual_contribution"] = _summary(
+                        geometry_residual, r
+                    )
+                    epsilon_attribution[channel_name]["sum_of_six_sector_residuals"] = _summary(
+                        sector_sum, r
+                    )
+                    epsilon_attribution[channel_name]["total_residual"] = _summary(
+                        total_residual, r
+                    )
+                    epsilon_attribution[channel_name]["reconstruction_gap_max_abs"] = float(
+                        np.max(np.abs(reconstruction_gap))
+                    )
+                    if float(np.max(np.abs(reconstruction_gap))) > 5.0e-13:
+                        raise RuntimeError(
+                            f"six-sector residual attribution does not reconstruct total at {epsilon_label}/{channel_name}"
+                        )
+                sector_residual_attribution[epsilon_label] = epsilon_attribution
+
         summaries = {}
         for epsilon_label, channels in terms_by_channel.items():
             summaries[epsilon_label] = {}
@@ -543,6 +624,7 @@ def _evaluate_loaded_fixture(
             },
             "channels": terms_by_channel,
             "summaries": summaries,
+            "sector_residual_attribution": sector_residual_attribution,
             "input_state_digest_before": helper_digest_before,
             "input_state_digest_after": helper_digest_after,
             "production_steps_run": len(step_calls),
@@ -650,6 +732,7 @@ def main() -> int:
                 )
             },
             "six_sector_divergence_accounting": result["six_sector_divergence_accounting"],
+            "sector_residual_attribution": result.get("sector_residual_attribution", {}),
             "zero_step_tripwire": result["zero_step_tripwire"],
             "production_steps_run": result["production_steps_run"],
             "state_advanced": result["state_advanced"],
