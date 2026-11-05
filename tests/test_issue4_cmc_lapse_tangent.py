@@ -9,6 +9,8 @@ from tools.issue4_cmc_lapse_tangent import (
     central_difference_witness,
     fourth_order_cell_derivative,
     solve_stage_aware_cmc_tangent,
+    solve_stage_aware_cmc_tangent_six_sector,
+    sum_six_sector_projections,
 )
 
 
@@ -174,3 +176,31 @@ def test_stage_aware_k_rhs_uses_pinned_fieldwise_l2_lapse_stencil():
         0.5*ap/a-bp/b-2.0*chip-2.0/r))
     Q=1.5*Aa**2+K**2/3.0+4.0*np.pi*(base["rho"]+base["pr"]+2.0*base["pt"])
     np.testing.assert_allclose(result.k_rhs_in,-lap+alpha*Q,rtol=0.0,atol=2e-15)
+
+
+
+def test_six_sector_stage_aware_binding_requires_all_named_base_and_directional_profiles():
+    base,rates=_stage_state()
+    names=("dark_matter","baryons","radiation","S","D","phi")
+    weights=(0.20,0.10,0.05,0.30,0.05,0.30)
+    sector_base={}; sector_dot={}
+    for name,w in zip(names,weights):
+        sector_base[name]={k:w*base[k] for k in ("rho","pr","pt","j")}
+        sector_dot[name]={k+"_dot":w*rates[k+"_dot"] for k in ("rho","pr","pt")}
+        sector_dot[name]["j_dot"]=np.zeros_like(base["rho"])
+    summed=sum_six_sector_projections(
+        sector_projections=sector_base,sector_projection_directions=sector_dot)
+    np.testing.assert_allclose(summed["base"]["rho"],base["rho"],rtol=0,atol=1e-20)
+    np.testing.assert_allclose(summed["direction"]["rho_dot"],rates["rho_dot"],rtol=0,atol=1e-20)
+    stage_args={k:v for k,v in base.items() if k not in ("rho","pr","pt")}
+    stage_args.update({k:v for k,v in rates.items() if k not in
+        ("rho_dot","pr_dot","pt_dot","k_rhs_dot")})
+    six=solve_stage_aware_cmc_tangent_six_sector(
+        sector_projections=sector_base,
+        sector_projection_directions=sector_dot,**stage_args)
+    direct=_stage_solve(base,rates)
+    np.testing.assert_allclose(six.k_rhs_in,direct.k_rhs_in,rtol=0,atol=2e-15)
+    bad=dict(sector_base); bad.pop("D")
+    with pytest.raises(ValueError,match="exactly the six locked sectors"):
+        sum_six_sector_projections(
+            sector_projections=bad,sector_projection_directions=sector_dot)
