@@ -109,6 +109,44 @@ def test_cmc_solver_rejects_nonpositive_metric_and_nonfinite_projection():
 # Regression rerun after preserving the mass-coefficient and potential tangents.
 
 
+
+def test_self_consistent_cmc_lapse_fixed_point_and_implicit_direction_two_epsilons():
+    from tools.issue4_cmc_lapse_tangent import (
+        solve_cmc_lapse_fixed_point,
+        differentiate_cmc_lapse_fixed_point,
+    )
+    base,rates=_stage_state()
+    args={k:base[k] for k in
+        ("r","dr","a","b","X","Aa","K","rho","pr","pt")}
+    fixed=solve_cmc_lapse_fixed_point(**args,d1=_d1,d2=_d2)
+    assert fixed.iterations>0
+    assert fixed.fixed_point_residual<2.0e-13
+    np.testing.assert_allclose(fixed.alpha_in,fixed.base.alpha,rtol=0.0,atol=2.0e-13)
+
+    tangent=differentiate_cmc_lapse_fixed_point(
+        fixed_point=fixed,**args,
+        a_dot=rates["a_dot"],b_dot=rates["b_dot"],X_dot=rates["X_dot"],
+        Aa_dot=rates["Aa_dot"],K_dot=rates["K_dot"],
+        rho_dot=rates["rho_dot"],pr_dot=rates["pr_dot"],pt_dot=rates["pt_dot"],
+        d1=_d1,d2=_d2)
+    assert tangent.implicit_residual_max<2.0e-10
+    assert np.max(np.abs(tangent.alpha_dot))>0.0
+
+    for eps in (2.0e-5,1.0e-5):
+        perturbed={}
+        for key in ("a","b","X","Aa","K","rho","pr","pt"):
+            perturbed[key]=base[key]+eps*rates[key+"_dot"]
+        plus=solve_cmc_lapse_fixed_point(
+            r=base["r"],dr=base["dr"],**perturbed,d1=_d1,d2=_d2)
+        perturbed={}
+        for key in ("a","b","X","Aa","K","rho","pr","pt"):
+            perturbed[key]=base[key]-eps*rates[key+"_dot"]
+        minus=solve_cmc_lapse_fixed_point(
+            r=base["r"],dr=base["dr"],**perturbed,d1=_d1,d2=_d2)
+        fd=(plus.alpha_in-minus.alpha_in)/(2.0*eps)
+        np.testing.assert_allclose(fd,tangent.alpha_dot,rtol=4.0e-5,atol=2.0e-8)
+
+
 def test_independent_derivative_transcription_matches_even_and_odd_polynomial_stencils():
     dr=0.5; r=(np.arange(12)+0.5)*dr
     even=fourth_order_cell_derivative(r**2,dr,parity=1,order=1)
