@@ -611,3 +611,53 @@ def test_fixed_point_map_geometry_and_six_sector_state_block_only_two_epsilons()
         np.testing.assert_allclose(
             fd,tangent.alpha_dot,rtol=4.0e-5,atol=2.0e-8)
 
+
+def test_fixed_point_root_matches_independent_affine_map_and_reports_conditioning():
+    """Separate affine-root construction from implicit tangent conditioning."""
+    from tools.issue4_cmc_lapse_tangent import solve_cmc_lapse_fixed_point
+    base,rates=_stage_state()
+    keys=("a","b","X","Aa","K","rho","pr","pt")
+    args={key:base[key] for key in
+          ("r","dr","a","b","X","Aa","K","rho","pr","pt")}
+    fixed=solve_cmc_lapse_fixed_point(**args,d1=_d1,d2=_d2)
+    n=base["r"].size
+    reference=np.ones(n)
+    eye=np.eye(n)
+    epsilons=(2.0e-5,1.0e-5)
+
+    def affine_root(state_delta):
+        shifted=dict(args)
+        for key in keys:
+            shifted[key]=args[key]+state_delta.get(key,np.zeros(n))
+        fref=_fixed_point_map_output(shifted,reference).alpha
+        jac=np.empty((n,n))
+        for j in range(n):
+            basis=eye[j]
+            jac[:,j]=(
+                _fixed_point_map_output(shifted,reference+basis).alpha-fref)
+        system=np.eye(n)-jac
+        root=np.linalg.solve(system,fref-jac@reference)
+        return root,float(np.linalg.cond(system))
+
+    base_root,base_condition=affine_root({})
+    np.testing.assert_allclose(base_root,fixed.alpha_in,rtol=2.0e-10,atol=2.0e-12)
+    print("fixed-point affine-system condition number:",base_condition)
+
+    for eps in epsilons:
+        plus_delta={key:eps*rates[key+"_dot"] for key in keys}
+        minus_delta={key:-eps*rates[key+"_dot"] for key in keys}
+        plus_root,plus_condition=affine_root(plus_delta)
+        minus_root,minus_condition=affine_root(minus_delta)
+        plus_args={key:args[key]+plus_delta.get(key,np.zeros(n)) for key in keys}
+        minus_args={key:args[key]+minus_delta.get(key,np.zeros(n)) for key in keys}
+        plus=solve_cmc_lapse_fixed_point(
+            r=base["r"],dr=base["dr"],**plus_args,d1=_d1,d2=_d2)
+        minus=solve_cmc_lapse_fixed_point(
+            r=base["r"],dr=base["dr"],**minus_args,d1=_d1,d2=_d2)
+        np.testing.assert_allclose(plus.alpha_in,plus_root,rtol=2.0e-10,atol=2.0e-12)
+        np.testing.assert_allclose(minus.alpha_in,minus_root,rtol=2.0e-10,atol=2.0e-12)
+        fd=(plus.alpha_in-minus.alpha_in)/(2.0*eps)
+        print(
+            f"epsilon={eps:g}; plus/minus affine-system condition numbers="
+            f"{plus_condition:.9e}/{minus_condition:.9e}; "
+            f"root-FD max={np.max(np.abs(fd)):.9e}")
