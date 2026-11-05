@@ -480,6 +480,30 @@ def _fixed_point_map_block_tangent(base, alpha_in, state_rates, alpha_in_dot):
     return output,tangent
 
 
+
+def test_fixed_point_map_full_incoming_lapse_jacobian_basis_two_epsilons():
+    """Compare every analytic incoming-lapse basis column with direct map differences."""
+    from tools.issue4_cmc_lapse_tangent import solve_cmc_lapse_fixed_point
+    base,_=_stage_state()
+    args={key:base[key] for key in
+          ("r","dr","a","b","X","Aa","K","rho","pr","pt")}
+    fixed=solve_cmc_lapse_fixed_point(**args,d1=_d1,d2=_d2)
+    zeros={key:np.zeros_like(base["r"]) for key in
+           ("a_dot","b_dot","X_dot","Aa_dot","K_dot",
+            "rho_dot","pr_dot","pt_dot")}
+    n=base["r"].size
+    for eps in (2.0e-5,1.0e-5):
+        for j in range(n):
+            basis=np.zeros(n); basis[j]=1.0
+            _,analytic=_fixed_point_map_block_tangent(
+                args,fixed.alpha_in,zeros,basis)
+            plus=_fixed_point_map_output(args,fixed.alpha_in+eps*basis)
+            minus=_fixed_point_map_output(args,fixed.alpha_in-eps*basis)
+            fd=(plus.alpha-minus.alpha)/(2.0*eps)
+            np.testing.assert_allclose(
+                fd,analytic.alpha_dot,rtol=4.0e-5,atol=2.0e-8)
+
+
 def test_fixed_point_map_incoming_lapse_block_only_two_epsilons():
     """Incoming-lapse derivative: geometry and all six matter sectors fixed."""
     from tools.issue4_cmc_lapse_tangent import solve_cmc_lapse_fixed_point
