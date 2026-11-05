@@ -326,7 +326,7 @@ def project_six_sector_stress_from_arrays(*, r, a, b, X, scalars, fluids, d1):
     a=_vec("a",a,n); b=_vec("b",b,n); X=_vec("X",X,n)
     if np.any(a<=0.0) or np.any(b<=0.0) or np.any(X<=0.0):
         raise FloatingPointError("six-sector projection requires positive metric fields")
-    if not isinstance(scalars,dict) or set(scalars)!={"S","D","phi"}:
+    if not isinstance(scalars,dict) or set(scalars)!={"S","PS","D","PD","phi","Pi"}:
         raise ValueError("scalar inputs must contain exactly S, D, phi")
     if not isinstance(fluids,dict) or set(fluids)!={"dark_matter","baryons","radiation"}:
         raise ValueError("fluid inputs must contain exactly dark_matter, baryons, radiation")
