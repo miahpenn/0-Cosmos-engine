@@ -181,13 +181,13 @@ def load_manufactured_fixture(path: str | Path) -> dict:
         if tangent.get("semantics") != "analytic_family_central_difference":
             raise RuntimeError(f"tangent semantics mismatch for {label}")
         for flag in (
-            "Mdot_closure_passed",
+            "Mdot_decomposition_accounting_passed",
             "Mdot_geom_term_accounting_passed",
             "plus_minus_six_sector_current_accounting_passed",
         ):
             if tangent.get(flag) is not True:
                 raise RuntimeError(f"tangent accounting failed for {label}: {flag}")
-        for suffix in ("Mdot", "Mdot_geom", "Mdot_reconstructed", "closure_abs", "closure_bound"):
+        for suffix in ("Mdot", "Mdot_geom", "Mdot_reconstructed", "decomposition_gap_abs", "decomposition_roundoff_bound"):
             if f"tangent_{label}.{suffix}" not in arrays:
                 raise RuntimeError(f"missing manufactured tangent witness {label}.{suffix}")
         for key in ("div_T_r", "div_T_r_fv", "div_T_t", "div_T_t_fv"):
