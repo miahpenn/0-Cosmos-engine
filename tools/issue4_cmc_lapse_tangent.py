@@ -181,7 +181,7 @@ def differentiate_cmc_discrete(*, base: CMCDiscreteResult, r, dr,
     if not np.all(np.isfinite(alpha_dot)):
         raise FloatingPointError("CMC lapse tangent is non-finite")
     return CMCDirectionalResult(alpha_dot,kbardot,Adot,rhsdot,residual,
-        wdot,wsumdot,mdot,cdot)
+        wdot,wsumdot,Qdot,mdot,cdot)
 
 
 def central_difference_witness(base_plus: CMCDiscreteResult,
