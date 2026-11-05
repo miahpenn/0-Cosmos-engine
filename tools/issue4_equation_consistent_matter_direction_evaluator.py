@@ -11,7 +11,7 @@ import numpy as np
 from tools.issue4_equation_consistent_matter_direction import STATE_ARRAY_NAMES
 from tools.issue4_equation_consistent_matter_direction_fixture import load_manufactured_fixture
 from tools.issue4_zero_step_full_bianchi_observer import verify_provenance
-from tools.issue4_full_bianchi_evaluator import _evaluate_loaded_fixture, _jsonable, _jsonable
+from tools.issue4_full_bianchi_evaluator import _evaluate_loaded_fixture, _jsonable
 
 
 def evaluate_equation_consistent_fixture(archive_path, resolution, diagnostic_root, helper_baseline_root):
@@ -89,7 +89,7 @@ def main():
         "tangent_semantics": result["tangent_semantics"],
         "production_steps_run": result["production_steps_run"],
         "state_advanced": result["state_advanced"],
-        "zero_step_tripwire": result["zero_step_tripwire"],
+        "zero_step_tripwire": result["zero_step_tripwire"],\n        "summaries": _jsonable(result["summaries"]),
         "output": str(args.output),
     }, indent=2))
 
