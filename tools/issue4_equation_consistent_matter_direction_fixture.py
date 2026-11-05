@@ -29,7 +29,7 @@ EPS_LABELS = ("eps2e-05", "eps1e-05")
 CODE_PATHS = (
     "tools/issue4_full_bianchi_evaluator.py",
     "tools/issue4_zero_step_full_bianchi_observer.py",
-    "tools/issue4_accepted_state_fixture.py",
+    "tools/issue4_accepted_state_fixture.py",\n    "tools/issue4_manufactured_regular_family.py",
     "tools/issue4_equation_consistent_matter_direction.py",
     "tools/issue4_equation_consistent_matter_direction_fixture.py",
     "tools/issue4_equation_consistent_matter_direction_channels.py",
