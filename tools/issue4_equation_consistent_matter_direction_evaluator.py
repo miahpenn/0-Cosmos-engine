@@ -89,7 +89,8 @@ def main():
         "tangent_semantics": result["tangent_semantics"],
         "production_steps_run": result["production_steps_run"],
         "state_advanced": result["state_advanced"],
-        "zero_step_tripwire": result["zero_step_tripwire"],\n        "summaries": _jsonable(result["summaries"]),
+        "zero_step_tripwire": result["zero_step_tripwire"],
+        "summaries": _jsonable(result["summaries"]),
         "output": str(args.output),
     }, indent=2))
 
