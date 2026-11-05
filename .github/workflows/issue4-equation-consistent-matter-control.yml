@@ -1,4 +1,4 @@
-name: Issue 4 equation-consistent matter-direction constructor
+name: Issue 4 equation-consistent matter-direction full observer
 
 on:
   push:
@@ -6,7 +6,11 @@ on:
       - research/issue4-equation-consistent-matter-control-2026-11-05
     paths:
       - tools/issue4_equation_consistent_matter_direction.py
+      - tools/issue4_equation_consistent_matter_direction_channels.py
+      - tools/issue4_equation_consistent_matter_direction_fixture.py
+      - tools/issue4_equation_consistent_matter_direction_evaluator.py
       - tests/test_issue4_equation_consistent_matter_direction.py
+      - tests/test_issue4_equation_consistent_matter_direction_fixture.py
       - .github/workflows/issue4-equation-consistent-matter-control.yml
   workflow_dispatch:
 
@@ -14,17 +18,33 @@ permissions:
   contents: read
 
 concurrency:
-  group: issue4-equation-consistent-matter-control
+  group: issue4-equation-consistent-matter-full-observer
   cancel-in-progress: false
 
 jobs:
-  constructor-contract:
+  build-and-evaluate:
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 25
     steps:
       - name: Checkout isolated research branch
         uses: actions/checkout@v4
         with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Checkout exact diagnostic source anchor
+        uses: actions/checkout@v4
+        with:
+          ref: 4aec88d0e3ff028e0a65a8ac36b30948625df792
+          path: diagnostic-source
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Checkout protected helper baseline
+        uses: actions/checkout@v4
+        with:
+          ref: 7f47669a1c0edfafef9fc5f27b2db80840d3f035
+          path: helper-baseline
           fetch-depth: 0
           submodules: recursive
 
@@ -35,28 +55,64 @@ jobs:
 
       - name: Install bounded numerical environment
         run: |
-          python -m pip install numpy==2.5.4 pytest==9.1.1
+          python -m pip install numpy==2.5.4 scipy==1.18.1 sympy==1.14.0 mpmath==1.3.0 pytest==9.1.1 threadpoolctl
 
-      - name: Compile and test equation-consistent constructor
+      - name: Compile and run constructor, loader, and accepted-path regression tests
         run: |
           python -m py_compile tools/issue4_equation_consistent_matter_direction.py
-          python -m pytest -q tests/test_issue4_equation_consistent_matter_direction.py
+          python -m py_compile tools/issue4_equation_consistent_matter_direction_channels.py
+          python -m py_compile tools/issue4_equation_consistent_matter_direction_fixture.py
+          python -m py_compile tools/issue4_equation_consistent_matter_direction_evaluator.py
+          python -m pytest -q \
+            tests/test_issue4_equation_consistent_matter_direction.py \
+            tests/test_issue4_equation_consistent_matter_direction_fixture.py \
+            tests/test_issue4_manufactured_regular_family.py \
+            tests/test_issue4_manufactured_fixture.py \
+            tests/test_issue4_accepted_state_fixture.py \
+            tests/test_issue4_bianchi_reference_regression.py \
+            tests/test_issue4_full_bianchi_evaluator_contract.py
 
-      - name: Record provenance and runtime
+      - name: Generate six-sector projections, signed tangent, and independent divergence channels
+        env:
+          ISSUE4_DIAGNOSTIC_ROOT: ${{ github.workspace }}/diagnostic-source
+          ISSUE4_HELPER_BASELINE_ROOT: ${{ github.workspace }}/helper-baseline
+          ISSUE4_CHANNEL_OUT: ${{ github.workspace }}/equation-consistent-results
+        run: python -m tools.issue4_equation_consistent_matter_direction_channels
+
+      - name: Validate equation-consistent archive with fail-closed loader
+        run: |
+          python -m tools.issue4_equation_consistent_matter_direction_fixture \
+            --archive equation-consistent-results/issue4_equation_consistent_matter_direction_N60.zip
+
+      - name: Evaluate under the same locked full-Bianchi predictor
+        env:
+          ISSUE4_DIAGNOSTIC_ROOT: ${{ github.workspace }}/diagnostic-source
+          ISSUE4_HELPER_BASELINE_ROOT: ${{ github.workspace }}/helper-baseline
+        run: |
+          python -m tools.issue4_equation_consistent_matter_direction_evaluator \
+            --archive equation-consistent-results/issue4_equation_consistent_matter_direction_N60.zip \
+            --resolution 60 \
+            --diagnostic-source "$ISSUE4_DIAGNOSTIC_ROOT" \
+            --helper-baseline "$ISSUE4_HELPER_BASELINE_ROOT" \
+            --output equation-consistent-results/equation-consistent-bianchi-report.json
+
+      - name: Record runtime and exact provenance
         if: always()
         run: |
           mkdir -p equation-consistent-results
           python --version > equation-consistent-results/python-version.txt
           python -m pip freeze > equation-consistent-results/pip-freeze.txt
           git rev-parse HEAD > equation-consistent-results/research-commit.txt
-          git status --short > equation-consistent-results/git-status.txt
+          git -C diagnostic-source rev-parse HEAD > equation-consistent-results/diagnostic-source-commit.txt
+          git -C helper-baseline rev-parse HEAD > equation-consistent-results/helper-baseline-commit.txt
+          git -C diagnostic-source/vendor/bb-palatini-unified-r0 rev-parse HEAD > equation-consistent-results/vendor-commit.txt
           find equation-consistent-results -type f ! -name SHA256SUMS.txt -print0 | sort -z | xargs -0 -r sha256sum > equation-consistent-results/SHA256SUMS.txt
 
-      - name: Upload constructor contract artifact
+      - name: Upload complete equation-consistent artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: issue4-equation-consistent-constructor-${{ github.run_id }}
+          name: issue4-equation-consistent-matter-direction-${{ github.run_id }}
           path: equation-consistent-results/
           if-no-files-found: warn
           retention-days: 90
