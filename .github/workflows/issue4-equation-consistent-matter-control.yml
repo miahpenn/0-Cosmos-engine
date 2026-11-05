@@ -96,6 +96,52 @@ jobs:
             --helper-baseline "$ISSUE4_HELPER_BASELINE_ROOT" \
             --output equation-consistent-results/equation-consistent-bianchi-report.json
 
+      - name: Download exact accepted-state N60 fixture artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          curl -fsSL \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/repos/miahpenn/0-Cosmos-engine/actions/artifacts/12615136565/zip \
+            -o equation-consistent-results/accepted-state-N60.zip
+          echo "41d646090e05c08684806c5e39d57851f119cf0f38aa90f1d26ab5f72f87d1ce  equation-consistent-results/accepted-state-N60.zip" | sha256sum -c -
+
+      - name: Evaluate accepted t=0.60 state with the same current predictor
+        env:
+          ISSUE4_DIAGNOSTIC_ROOT: ${{ github.workspace }}/diagnostic-source
+          ISSUE4_HELPER_BASELINE_ROOT: ${{ github.workspace }}/helper-baseline
+        run: |
+          python -m tools.issue4_full_bianchi_evaluator \
+            --archive equation-consistent-results/accepted-state-N60.zip \
+            --resolution 60 \
+            --state-class accepted \
+            --diagnostic-source "$ISSUE4_DIAGNOSTIC_ROOT" \
+            --helper-baseline "$ISSUE4_HELPER_BASELINE_ROOT" \
+            --output equation-consistent-results/accepted-bianchi-report.json
+
+      - name: Download and verify immutable arbitrary-family reference
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          curl -fsSL \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/repos/miahpenn/0-Cosmos-engine/actions/artifacts/13439855369/zip \
+            -o equation-consistent-results/arbitrary-family-artifact.zip
+          mkdir -p equation-consistent-results/arbitrary-family
+          unzip -q -o equation-consistent-results/arbitrary-family-artifact.zip -d equation-consistent-results/arbitrary-family
+          echo "ac4a12d5c45c37b505c4f20db83a56b399fb4232cfc0ca7102371cf1717355b7  equation-consistent-results/arbitrary-family/issue4_manufactured_regular_family_N60.zip" | sha256sum -c -
+          echo "b566a405a2cc3a5a27597f9cea225644377d23d42d6acad7fccac1a953045d09  equation-consistent-results/arbitrary-family/manufactured-bianchi-report.json" | sha256sum -c -
+
+      - name: Compare arbitrary, equation-consistent, and accepted-state classes
+        run: |
+          python -m tools.issue4_matter_control_comparison \
+            --arbitrary equation-consistent-results/arbitrary-family/manufactured-bianchi-report.json \
+            --equation-consistent equation-consistent-results/equation-consistent-bianchi-report.json \
+            --accepted equation-consistent-results/accepted-bianchi-report.json \
+            --output equation-consistent-results/three-class-comparison.json
+
       - name: Record runtime and exact provenance
         if: always()
         run: |
