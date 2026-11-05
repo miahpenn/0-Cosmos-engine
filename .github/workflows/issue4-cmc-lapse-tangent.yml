@@ -11,6 +11,7 @@ on:
   workflow_dispatch:
 
 permissions:
+  actions: read
   contents: read
 
 concurrency:
@@ -53,4 +54,87 @@ jobs:
           if bad:
               raise SystemExit(f"forbidden production/vendor imports: {bad}")
           print("PASS: independent module has no production or vendor imports")
+          PY
+
+  accepted-state-crosswalk:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12.15"
+      - name: Install bounded numerical environment
+        run: python -m pip install numpy==2.5.4
+      - name: Download immutable accepted-state comparison artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: issue4-equation-consistent-matter-direction-42084531386
+          run-id: 42084531386
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: accepted-artifact
+      - name: Extract frozen accepted state
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from zipfile import ZipFile
+          outer = Path("accepted-artifact/accepted-state-N60.zip")
+          if not outer.is_file():
+              raise SystemExit(f"missing immutable accepted archive: {outer}")
+          with ZipFile(outer) as z:
+              z.extract("tangent_arrays.npz", "accepted-state")
+              z.extract("report.json", "accepted-state")
+          print("PASS: extracted archived N=60 frozen state and report")
+          PY
+      - name: Rebuild six sectors and pinned K RHS on accepted state
+        run: |
+          python - <<'PY'
+          import json
+          import numpy as np
+          from pathlib import Path
+          from tools.issue4_cmc_lapse_tangent import (
+              project_six_sector_stress_from_arrays,
+              fourth_order_cell_derivative,
+              physical_k_rhs_and_direction,
+          )
+          z=np.load("accepted-state/tangent_arrays.npz")
+          r=z["r"]; dr=float(r[1]-r[0])
+          get=lambda name:z["input__geometry__"+name]
+          a,b,X,alpha,Aa,K=(get(k) for k in ("a","b","X","alpha","Aa","K"))
+          scalars={k:z["input__scalars__"+k] for k in ("S","PS","D","PD","phi","Pi")}
+          fluids={}
+          for name in ("dark_matter","baryons","radiation"):
+              fluids[name]={k:z[f"input__matter__{name}__{k}"] for k in
+                  ("rest","energy_t","momentum_r")}
+          d1=lambda x,parity:fourth_order_cell_derivative(x,dr,parity=parity,order=1)
+          d2=lambda x,parity:fourth_order_cell_derivative(x,dr,parity=parity,order=2)
+          sectors=project_six_sector_stress_from_arrays(
+              r=r,a=a,b=b,X=X,scalars=scalars,fluids=fluids,d1=d1)
+          required={"dark_matter","baryons","radiation","S","D","phi"}
+          if set(sectors)!=required: raise SystemExit("six-sector names mismatch")
+          total={k:sum(sectors[s][k] for s in required) for k in ("rho","pr","pt","j")}
+          report=json.loads(Path("accepted-state/report.json").read_text())
+          if not report["projection_crosscheck_passed"]:
+              raise SystemExit("archived canonical projection crosscheck was not passed")
+          zeros=np.zeros_like(r)
+          kr,krdot=physical_k_rhs_and_direction(
+              r=r,dr=dr,a=a,b=b,X=X,alpha_in=alpha,Aa=Aa,K=K,
+              rho=total["rho"],pr=total["pr"],pt=total["pt"],
+              a_dot=zeros,b_dot=zeros,X_dot=zeros,alpha_in_dot=zeros,
+              Aa_dot=zeros,K_dot=zeros,rho_dot=zeros,pr_dot=zeros,pt_dot=zeros,
+              d1=d1,d2=d2)
+          lap=(X**2/a)*(d2(alpha,1)-d1(alpha,1)*(
+              0.5*d1(a,1)/a-d1(b,1)/b+d1(X,1)/X-2.0/r))
+          pinned=-lap+alpha*(1.5*Aa**2+K**2/3.0+4.0*np.pi*(
+              total["rho"]+total["pr"]+2.0*total["pt"]))
+          np.testing.assert_allclose(kr,pinned,rtol=0.0,atol=2.0e-15)
+          np.testing.assert_array_equal(krdot,zeros)
+          print("PASS: six accepted-state sectors reconstructed:",sorted(sectors))
+          print("PASS: pinned accepted-state K RHS max abs =",float(np.max(np.abs(kr))))
+          print("PASS: six-sector totals max abs =",{k:float(np.max(np.abs(v))) for k,v in total.items()})
           PY
