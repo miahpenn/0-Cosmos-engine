@@ -2,7 +2,7 @@
 """Equation-consistent matter-direction control on a frozen flat background.
 
 This is an analytic instantaneous matter tangent, not a coupled Einstein-
-matter solution. It uses continuum Gaussian derivatives and does not import
+matter solution. It uses analytic Gaussian profiles with injected pinned grid operators and does not import
 engine modules, a production RHS, initializer, kernel, or evolution step.
 """
 from __future__ import annotations
