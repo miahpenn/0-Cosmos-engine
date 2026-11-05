@@ -634,8 +634,9 @@ def test_fixed_point_root_matches_independent_affine_map_and_reports_conditionin
         for j in range(n):
             step=1.0e-5
             basis=step*eye[j]
-            jac[:,j]=(
-                _fixed_point_map_output(shifted,reference+basis).alpha-fref)/step
+            plus=_fixed_point_map_output(shifted,reference+basis).alpha
+            minus=_fixed_point_map_output(shifted,reference-basis).alpha
+            jac[:,j]=(plus-minus)/(2.0*step)
         system=np.eye(n)-jac
         root=np.linalg.solve(system,fref-jac@reference)
         return root,float(np.linalg.cond(system))
