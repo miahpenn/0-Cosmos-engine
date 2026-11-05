@@ -119,7 +119,7 @@ def test_self_consistent_cmc_lapse_fixed_point_and_implicit_direction_two_epsilo
     args={k:base[k] for k in
         ("r","dr","a","b","X","Aa","K","rho","pr","pt")}
     fixed=solve_cmc_lapse_fixed_point(**args,d1=_d1,d2=_d2)
-    assert fixed.iterations>0
+    assert fixed.linearization_evaluations==base["r"].size+1
     assert fixed.fixed_point_residual<2.0e-13
     np.testing.assert_allclose(fixed.alpha_in,fixed.base.alpha,rtol=0.0,atol=2.0e-13)
 
