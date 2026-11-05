@@ -142,3 +142,10 @@ The bounded workflow run for commit `a21363a3557f16006bacedb31691b89ac85856c2` c
 [CI run #42092298042](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/42092298042).
 
 **Scope limitation:** these new plus/minus tests use a manufactured smooth control and combined ((\rho,p_r,p_t)) input profiles. They verify the independent directional algebra and stage-aware solve, not yet the actual pinned accepted-state six-sector arrays. The next binding gate is to feed the locked six-sector projection outputs and independently derived coupled geometry/primary directions into this API, compare the reconstructed incoming (K_{\rm RHS}) against the pinned L2+L3 component ledger, and run the required two-epsilon plus/minus checks on the accepted (t=0.60) state. Do not claim that physical-state binding or coupled-fixture admission has passed yet.
+
+
+### Discrete-operator equivalence boundary
+
+The compact (-\nu(D_2+cD_1)\alpha) expression is the radial scalar-Laplacian form of the continuum identity. The new independent code currently differentiates the native warped-product transcription ((A=a/X^2), (R=r\sqrt b/X)) using parity-aware fourth-order (D_1,D_2). Because finite-difference product/quotient operations need not commute, this is **not yet asserted to be bitwise or tolerance-equivalent** to the pinned vendor `primary_l2_rhs()["K"]) used by the stage-aware production projection. That crosswalk must be measured on the exact pinned states before the new independent reconstruction is accepted as the production-discrete K-RHS transcription.
+
+Likewise, the present manufactured regression passes combined total ((\rho,p_r,p_t)) arrays. It does not yet independently reconstruct and bind each of the six named sectors (dark matter, baryons, radiation, S, D, phi) and their directional projections from the accepted archive. These two source-fidelity checks are explicit prerequisites for the accepted-state gate; the seven-test synthetic pass does not waive them.
