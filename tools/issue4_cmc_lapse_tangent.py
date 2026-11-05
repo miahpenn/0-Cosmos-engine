@@ -443,6 +443,258 @@ def sum_six_sector_projections(*, sector_projections, sector_projection_directio
     return {"base":base_total,"direction":dot_total}
 
 
+
+# Pinned instantaneous source-equation transcription. These routines are
+# deliberately self-contained: no engine, production-kernel, adapter, or
+# vendor import is permitted in this research module.
+def _fluid_primitives_from_conserved(*, r, a,b,X,alpha,beta, state, radiation):
+    r=_vec("fluid radii",r); n=r.size
+    a=_vec("fluid a",a,n); b=_vec("fluid b",b,n); X=_vec("fluid X",X,n)
+    alpha=_vec("fluid alpha",alpha,n); beta=_vec("fluid beta",beta,n)
+    rest=_vec("fluid rest",state["rest"],n)
+    energy=_vec("fluid energy_t",state["energy_t"],n)
+    momentum=_vec("fluid momentum_r",state["momentum_r"],n)
+    sqrtg=np.sqrt(a)*b*r*r/(X**3)
+    grr=a/(X*X); invgrr=1.0/grr
+    Sr=momentum/sqrtg
+    q={"rho":np.empty(n),"pressure":np.zeros(n),"v_r":np.zeros(n),
+       "v2":np.zeros(n),"W":np.ones(n),"E":np.empty(n),"Sr":Sr,
+       "sqrtg":sqrtg,"grr":grr,"invgrr":invgrr}
+    if not radiation:
+        D=rest/sqrtg
+        if np.any(D<=0.0): raise ValueError("dust rest density must be positive")
+        s2=invgrr*Sr*Sr
+        v2=s2/(D*D+s2)
+        W=1.0/np.sqrt(1.0-v2)
+        rho=D/W
+        vr=np.sign(Sr)*np.sqrt(v2/grr)
+        E=D*W
+        q.update(rho=rho,v2=v2,W=W,v_r=vr,E=E)
+        return q
+    E=energy/sqrtg
+    S2=invgrr*Sr*Sr
+    p=np.empty(n); v2=np.empty(n)
+    for i in range(n):
+        if E[i]<0.0 or (S2[i]>0.0 and math.sqrt(S2[i])>=E[i]):
+            raise ValueError(f"radiation state outside admissible cone at cell {i}")
+        if S2[i]==0.0:
+            p[i]=E[i]/3.0; v2[i]=0.0; continue
+        lo=0.0; hi=E[i]/3.0
+        for _ in range(100):
+            mid=0.5*(lo+hi); vv=S2[i]/(E[i]+mid)**2
+            residual=(3.0*mid-E[i])+4.0*mid*vv/(1.0-vv)
+            if abs(residual)<=1.0e-12*E[i]: break
+            if residual>=0.0: hi=mid
+            else: lo=mid
+        p[i]=mid; v2[i]=S2[i]/(E[i]+mid)**2
+    W=1.0/np.sqrt(1.0-v2)
+    vr=np.sign(Sr)*np.sqrt(v2/grr)
+    q.update(rho=3.0*p,pressure=p,v2=v2,W=W,v_r=vr,E=E)
+    return q
+
+
+def _fluid_flux(metric, q, radiation):
+    W=1.0/math.sqrt(1.0-metric["grr"]*q["v_r"]**2)
+    v2=metric["grr"]*q["v_r"]**2
+    h=q["rho"]+q["pressure"]
+    E=h*W*W-q["pressure"]
+    Sr=h*W*W*metric["grr"]*q["v_r"]
+    Sup=Sr/metric["grr"]
+    root=metric["sqrtg"]
+    first=0.0 if radiation else root*q["rho"]*W*(metric["alpha"]*q["v_r"]-metric["beta"])
+    return np.asarray([first,
+        root*(metric["alpha"]*Sup-metric["beta"]*E),
+        root*(metric["alpha"]*(h*W*W*v2+q["pressure"])-metric["beta"]*Sr)])
+
+
+def _fluid_conserved_face(metric,q,radiation):
+    W=1.0/math.sqrt(1.0-metric["grr"]*q["v_r"]**2)
+    h=q["rho"]+q["pressure"]
+    E=h*W*W-q["pressure"]
+    Sr=h*W*W*metric["grr"]*q["v_r"]
+    return np.asarray([0.0 if radiation else metric["sqrtg"]*q["rho"]*W,
+                       metric["sqrtg"]*E,metric["sqrtg"]*Sr])
+
+
+def _minmod_pair(x,y):
+    if x*y<=0.0:return 0.0
+    return math.copysign(min(abs(x),abs(y)),x)
+
+
+def _reconstructed_fluid(q,i,side,grr):
+    attrs={}
+    for name in ("rho","pressure","v_r"):
+        v=q[name]
+        if i<=0: lo=hi=float(v[0])
+        elif i>=len(v)-1: lo=hi=float(v[-1])
+        else:
+            slope=_minmod_pair(float(v[i]-v[i-1]),float(v[i+1]-v[i]))
+            lo=float(v[i]-0.5*slope); hi=float(v[i]+0.5*slope)
+        attrs[name]=lo if side=="left" else hi
+    vmax=(1.0-1.0e-12)/math.sqrt(grr)
+    attrs["rho"]=max(0.0,attrs["rho"])
+    attrs["pressure"]=max(0.0,attrs["pressure"])
+    attrs["v_r"]=max(-vmax,min(vmax,attrs["v_r"]))
+    return attrs
+
+
+def _hll_fluid_flux(metric,left,right,radiation):
+    fl=_fluid_flux(metric,left,radiation); fr=_fluid_flux(metric,right,radiation)
+    ul=_fluid_conserved_face(metric,left,radiation)
+    ur=_fluid_conserved_face(metric,right,radiation)
+    cs=1.0/math.sqrt(3.0) if radiation else 0.0
+    def speed(q,sign):
+        vhat=math.copysign(math.sqrt(metric["grr"]*q["v_r"]**2),q["v_r"])
+        return metric["alpha"]*(q["v_r"]+sign*cs/math.sqrt(metric["grr"]))/(1.0+sign*vhat*cs)-metric["beta"]
+    sm=min(0.0,speed(left,-1.0),speed(right,-1.0))
+    sp=max(0.0,speed(left,1.0),speed(right,1.0))
+    if sp<=0.0:return fr
+    if sm>=0.0:return fl
+    return (sp*fl-sm*fr+sm*sp*(ur-ul))/(sp-sm)
+
+
+def _independent_fluid_rhs(*,r,a,b,X,alpha,beta,Aa,K,state,rho_phi_t,
+                           dphi_r,d1,beta_dm=-0.04,radiation=False):
+    r=_vec("r",r); n=r.size; dr=float(r[1]-r[0])
+    a=_vec("a",a,n); b=_vec("b",b,n); X=_vec("X",X,n)
+    alpha=_vec("alpha",alpha,n); beta=_vec("beta",beta,n)
+    Aa=_vec("Aa",Aa,n); K=_vec("K",K,n)
+    prim=_fluid_primitives_from_conserved(r=r,a=a,b=b,X=X,alpha=alpha,beta=beta,
+                                         state=state,radiation=radiation)
+    da=d1(a,parity=1); db=d1(b,parity=1); dX=d1(X,parity=1)
+    dalpha=d1(alpha,parity=1); dbeta=d1(beta,parity=-1)
+    grr=a/(X*X); gth=b*r*r/(X*X); sqrtg=np.sqrt(a)*b*r*r/(X**3)
+    dgrr=grr*(da/a-2.0*dX/X)
+    dgth=gth*(db/b+2.0/r-2.0*dX/X)
+    face=np.zeros((n+1,3))
+    for i in range(n-1):
+        rf=0.5*(r[i]+r[i+1]); af=0.5*(a[i]+a[i+1])
+        bf=0.5*(b[i]+b[i+1]); xf=0.5*(X[i]+X[i+1])
+        alf=0.5*(alpha[i]+alpha[i+1]); betf=0.5*(beta[i]+beta[i+1])
+        mf={"alpha":alf,"beta":betf,"grr":af/(xf*xf),
+            "sqrtg":math.sqrt(af)*bf*rf*rf/(xf**3)}
+        ql=_reconstructed_fluid(prim,i,"right",mf["grr"])
+        qr=_reconstructed_fluid(prim,i+1,"left",mf["grr"])
+        face[i+1]=_hll_fluid_flux(mf,ql,qr,radiation)
+    if n>1:
+        rf=r[-1]+0.5*dr
+        mf={"alpha":alpha[-1],"beta":beta[-1],"grr":a[-1]/X[-1]**2,
+            "sqrtg":math.sqrt(a[-1])*b[-1]*rf*rf/X[-1]**3}
+    else:
+        mf={"alpha":alpha[-1],"beta":beta[-1],"grr":grr[-1],"sqrtg":sqrtg[-1]}
+    qout={k:float(prim[k][-1]) for k in ("rho","pressure","v_r")}
+    face[-1]=_fluid_flux(mf,qout,radiation)
+    W=prim["W"]; h=prim["rho"]+prim["pressure"]
+    E=h*W*W-prim["pressure"]
+    Sr=h*W*W*grr*prim["v_r"]
+    Sup=Sr/grr
+    Srr=(h*W*W*prim["v2"]+prim["pressure"])/grr
+    Sth=prim["pressure"]/gth
+    Krr=grr*(K/3.0+Aa); Kth=gth*(K/3.0-Aa/2.0)
+    source_e=sqrtg*(alpha*(Krr*Srr+2.0*Kth*Sth)-Sup*dalpha)
+    source_s=sqrtg*(-E*dalpha+Sr*dbeta+0.5*alpha*(Srr*dgrr+2.0*Sth*dgth))
+    q_e=np.zeros(n); q_s=np.zeros(n); q_rest=np.zeros(n)
+    if not radiation:
+        rho_raw=prim["rho"]
+        q_t=beta_dm*rho_raw*rho_phi_t
+        q_r=beta_dm*rho_raw*dphi_r
+        ugrad=prim["W"]*((rho_phi_t-beta*dphi_r)/alpha+prim["v_r"]*dphi_r)
+        q_rest=-alpha*sqrtg*beta_dm*rho_raw*ugrad
+        q_e=-sqrtg*(q_t-beta*q_r)
+        q_s=alpha*sqrtg*q_r
+    rate=-(face[1:]-face[:-1])/dr
+    if not radiation: rate[:,0]+=q_rest
+    rate[:,1]+=source_e+q_e
+    rate[:,2]+=source_s+q_s
+    if radiation: rate[:,0]=0.0
+    return {"rest":rate[:,0],"energy_t":rate[:,1],"momentum_r":rate[:,2]}
+
+
+def independent_scalar_and_geometry_rates(*,r,dr,a,b,X,alpha,beta,Aa,K,Lambda,
+        scalars,fluids,d1,d2,beta_dm=-0.04,lambda_m=2.0):
+    """Derive the instantaneous scalar, fluid, metric, primary and Lambda rates.
+
+    This is a direct transcription of the pinned scalar equations, Valencia
+    finite-volume RHS, native CMC explicit metric equations, and pinned
+    vacuum_bssn L2/L3 primary/Lambda equations. It calls no production RHS.
+    """
+    r=_validate_grid(r,dr); n=r.size
+    a=_vec("a",a,n); b=_vec("b",b,n); X=_vec("X",X,n)
+    alpha=_vec("alpha",alpha,n); beta=_vec("beta",beta,n)
+    Aa=_vec("Aa",Aa,n); K=_vec("K",K,n); Lambda=_vec("Lambda",Lambda,n)
+    if np.any(beta!=0.0): raise ValueError("locked CMC direction requires beta=0")
+    inv=X*X/a
+    ap=d1(a,parity=1); bp=d1(b,parity=1); Xp=d1(X,parity=1)
+    alphap=d1(alpha,parity=1)
+    sqrtg=np.sqrt(a)*b*r*r/(X**3)
+    dm=fluids["dark_matter"]
+    dm_D=_vec("DM rest",dm["rest"],n)/sqrtg
+    dm_S=_vec("DM momentum",dm["momentum_r"],n)/sqrtg
+    dm_s2=(X*X/a)*dm_S*dm_S
+    dm_v2=dm_s2/(dm_D*dm_D+dm_s2)
+    rho_dm=dm_D*np.sqrt(1.0-dm_v2)
+    scalar_rates={}
+    scalar_meta=(("S","PS",lambda f: f,lambda f:0.5*f*f,lambda f:f),
+                 ("D","PD",lambda f:-f,lambda f:-0.5*f*f,lambda f:-f),
+                 ("phi","Pi",lambda f:-8.242522415500654e-5*np.exp(-f),
+                  lambda f:8.242522415500654e-5*(np.exp(-f)-0.10),
+                  lambda f:-8.242522415500654e-5*np.exp(-f)))
+    for field,momentum,Vprime,V,Vsecond in scalar_meta:
+        f=_vec(field,scalars[field],n); p=_vec(momentum,scalars[momentum],n)
+        fp=d1(f,parity=1); fpp=d2(f,parity=1)
+        lap=inv*(fpp-fp*(0.5*ap/a-bp/b+Xp/X-2.0/r))
+        ft=alpha*p
+        pt=alpha*lap+alpha*K*p+inv*alphap*fp-alpha*Vprime(f)
+        if field=="phi": pt=pt+alpha*beta_dm*rho_dm
+        scalar_rates[field]=ft; scalar_rates[momentum]=pt
+    dphi_t=scalar_rates["phi"]; dphi_r=d1(scalars["phi"],parity=1)
+    fluid_rates={}
+    for name in ("dark_matter","baryons","radiation"):
+        fluid_rates[name]=_independent_fluid_rhs(
+            r=r,a=a,b=b,X=X,alpha=alpha,beta=beta,Aa=Aa,K=K,
+            state=fluids[name],rho_phi_t=dphi_t,dphi_r=dphi_r,d1=d1,
+            beta_dm=beta_dm,radiation=(name=="radiation"))
+    # Reconstruct the six base projections before forming geometric sources.
+    sectors=project_six_sector_stress_from_arrays(
+        r=r,a=a,b=b,X=X,scalars=scalars,fluids=fluids,d1=d1)
+    total={k:sum(sectors[s][k] for s in SIX_SECTOR_NAMES)
+           for k in ("rho","pr","pt","j")}
+    # Exact pinned vendor geometry_terms() transcription (zero KO, beta=0).
+    app=d2(a,parity=1); bpp=d2(b,parity=1)
+    chip=-0.5*Xp/X
+    chipp=-0.5*(d2(X,parity=1)/X-(Xp/X)**2)
+    Lp=d1(Lambda,parity=-1)
+    metric_lambda=(1.0-a/b)/(r*r)
+    radial_bracket=(0.5*app/a-a*Lp-0.75*(ap/a)**2+0.5*(bp/b)**2
+        -0.5*Lambda*ap+ap/(r*b)+2.0*metric_lambda*(1.0+r*bp/b)
+        +4.0*chipp-2.0*chip*(ap/a-bp/b-2.0/r))
+    scalar_bracket=(0.5*app/a+bpp/b-a*Lp-(ap/a)**2+0.5*(bp/b)**2
+        +2.0*(3.0-a/b)*bp/(r*b)+4.0*metric_lambda
+        +8.0*(chipp+chip**2)-8.0*chip*(0.5*ap/a-bp/b-2.0/r))
+    Rrr=-inv*radial_bracket; R=-inv*scalar_bracket
+    alphapp=d2(alpha,parity=1)
+    DrDr=inv*(alphapp-alphap*(0.5*ap/a+2.0*chip))
+    lap=inv*(alphapp-alphap*(0.5*ap/a-bp/b-2.0*chip-2.0/r))
+    ab=-0.5*Aa
+    a_dot=-2.0*alpha*a*Aa
+    b_dot=-2.0*alpha*b*ab
+    X_dot=alpha*X*K/3.0
+    Aa_dot=-(DrDr-lap/3.0)+alpha*(Rrr-R/3.0)+alpha*K*Aa-(16.0*math.pi/3.0)*alpha*(total["pr"]-total["pt"])
+    K_dot=-lap+alpha*(Aa*Aa+2.0*ab*ab+K*K/3.0)+4.0*math.pi*alpha*(total["rho"]+total["pr"]+2.0*total["pt"])
+    # Pinned Lambda L2 geometry plus adapter L3 matter source, with beta=0.
+    Mgeom=(d1(Aa,parity=1)-(2.0/3.0)*d1(K,parity=1)
+        +6.0*Aa*chip+(Aa-ab)*(2.0/r+bp/b))
+    Aap=d1(Aa,parity=1)
+    lambda_l2=(-2.0*(Aa*alphap+alpha*Aap)/a
+        -4.0*alpha*(Aa-ab)/(r*b)+lambda_m*alpha*Mgeom/a)
+    lambda_l3=2.0*alpha*Aa*Lambda-(8.0*math.pi*lambda_m)*alpha*total["j"]/a
+    geometry_rates={"a":a_dot,"b":b_dot,"X":X_dot,
+        "Aa":Aa_dot,"K":K_dot,"Lambda":lambda_l2+lambda_l3}
+    return {"geometry":geometry_rates,"scalars":scalar_rates,
+            "matter":fluid_rates,"sectors":sectors,"total":total,
+            "diagnostics":{"M_geometry":Mgeom,"lap_alpha":lap,
+                           "R":R,"Rr_r":Rrr,"rho_dm_raw":rho_dm}}
+
 def solve_stage_aware_cmc_tangent_six_sector(
         *, sector_projections, sector_projection_directions, **stage_args):
     """Stage-aware CMC tangent whose matter source is bound to six named sectors."""
