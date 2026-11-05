@@ -103,3 +103,19 @@ The workflow completed successfully:
 That single smoke step was outside the authorized zero-step observer scope. It was not invoked by the observer, did not use any accepted archive, and did not change production source, initializer, vendor, or any persistent project state. Nevertheless, triggering it was my mistake: I should have inspected the full PR workflow before opening the draft. PR #428 remains closed. No further workflow/CI trigger will be initiated without first checking its complete step list and obtaining authorization where a production step is included.
 
 The passing suite corresponds to PR head `631ded29906081436d2b1b49291c2d065b01cbfe`. Subsequent changes added an explicit same-metric Ricci-offset cross-check and clarified unavailable runner/CPU dispatch metadata; those later commits have not been rerun. The committed accepted-state evaluator itself has not yet been executed against the archives; the separate formula reconstruction in §4 remains the numerical cross-check.
+
+
+## 7. Initializer-free manufactured regular-family constructor — 5 November 2026
+
+A first constructor slice is now committed on the research branch:
+
+- `tools/issue4_manufactured_regular_family.py`
+- `tests/test_issue4_manufactured_regular_family.py`
+
+The constructor is array-only and imports no engine or vendor modules. It builds the canonical state inventory on caller-supplied positive cell centres. The metric is an exact flat areal slice (`a=b=X=alpha=1`, `Aa=K=Lambda=beta=B=0)); the three scalar fields and three fluid rest-density profiles are even Gaussians. Scalar conjugate momenta are even family perturbations. Fluid radial velocities are odd regular profiles proportional to (r e^{-r^2/w^2}). Dust pressure is zero; radiation pressure is (rho/3). Conserved fluid arrays are generated from the explicit flat-slice Valencia map (`D=rho W`, `T^t_t=-E`, `T^t_r=S_r`), not from a production initializer.
+
+The family parameter is (s), and the constructor independently returns (U(0)), (U(+epsilon)), and (U(-epsilon)). Profile widths and rational amplitudes are explicit constants in the module; they are declared synthetic test data, not fitted coefficients or physical claims.
+
+This is deliberately only the constructor foundation. The following gates are **not yet complete**: run the constructor tests; pass each state through the pinned total-stress helper and verify all six sector projections/cross-checks; derive and archive both epsilon tangent arrays and both independent divergence channels; implement the separate manufactured archive loader and evaluator adapter; verify all exact source/helper/vendor/code pins and state/family digests. No manufactured evaluation or CI claim is made by these commits.
+
+No production initializer, RHS, kernel step, vendor step, production source, workflow, or admission/closure flag was changed.
