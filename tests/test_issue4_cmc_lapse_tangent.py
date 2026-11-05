@@ -129,7 +129,7 @@ def _stage_solve(base,rates,eps=0.0):
         ("a","b","X","Aa","K","rho","pr","pt","alpha_in")}
     return solve_stage_aware_cmc_tangent(
         r=base["r"],dr=base["dr"],**values,
-        **{k:v for k,v in rates.items()},
+        **{k:v for k,v in rates.items() if k != 'k_rhs_dot'},
         d1=_d1,d2=_d2)
 
 
