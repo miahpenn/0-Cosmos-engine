@@ -166,11 +166,14 @@ jobs:
               fluid_state={name:{k:fluids[name][k]+eps*rates["matter"][name][k]
                   for k in fluids[name]} for name in fluids}
               return aa_state,bb_state,xx_state,AA_state,K_state,scalar_state,fluid_state
-          # Stage 0 refreshes the saved incoming gauge anchor. Its output
-          # tangent is then carried as the nonzero incoming-lapse direction
-          # into stage 1; alpha_in and alpha_out are never equated.
-          rates0=derive(alpha)
-          dots0=directions(alpha,rates0)
+          # Stage 0 refreshes the saved incoming gauge anchor. Its base
+          # output lapse is computed first; the instantaneous RHS direction
+          # is then evaluated on that refreshed lapse, as in the production
+          # stage ordering. The stage-0 output tangent is propagated into
+          # stage 1 as a nonzero incoming-lapse direction.
+          stage0_base=base_cmc(a,b,X,alpha,Aa,K,scalars,fluids)
+          rates0=derive(stage0_base.alpha)
+          dots0=directions(stage0_base.alpha,rates0)
           stage0=solve_stage_aware_cmc_tangent_six_sector(
               sector_projections=sectors,sector_projection_directions=dots0,
               r=r,dr=dr,a=a,b=b,X=X,alpha_in=alpha,Aa=Aa,K=K,
@@ -178,16 +181,13 @@ jobs:
               X_dot=rates0["geometry"]["X"],alpha_in_dot=zeros,
               Aa_dot=rates0["geometry"]["Aa"],K_dot=rates0["geometry"]["K"],
               d1=d1,d2=d2)
-          # Re-evaluate the instantaneous equations on the stage-0 output
-          # lapse, then propagate stage-0 alpha_dot into the next CMC solve.
-          rates1=derive(stage0.base.alpha)
-          dots1=directions(stage0.base.alpha,rates1)
+          np.testing.assert_allclose(stage0.base.alpha,stage0_base.alpha,rtol=0.0,atol=2e-14)
           stage1=solve_stage_aware_cmc_tangent_six_sector(
-              sector_projections=rates1["sectors"],sector_projection_directions=dots1,
+              sector_projections=sectors,sector_projection_directions=dots0,
               r=r,dr=dr,a=a,b=b,X=X,alpha_in=stage0.base.alpha,Aa=Aa,K=K,
-              a_dot=rates1["geometry"]["a"],b_dot=rates1["geometry"]["b"],
-              X_dot=rates1["geometry"]["X"],alpha_in_dot=stage0.tangent.alpha_dot,
-              Aa_dot=rates1["geometry"]["Aa"],K_dot=rates1["geometry"]["K"],
+              a_dot=rates0["geometry"]["a"],b_dot=rates0["geometry"]["b"],
+              X_dot=rates0["geometry"]["X"],alpha_in_dot=stage0.tangent.alpha_dot,
+              Aa_dot=rates0["geometry"]["Aa"],K_dot=rates0["geometry"]["K"],
               d1=d1,d2=d2)
           if np.max(np.abs(stage0.tangent.alpha_dot))==0.0:
               raise SystemExit("stage-0 CMC output lapse direction unexpectedly vanished")
@@ -208,7 +208,7 @@ jobs:
               np.testing.assert_allclose(target0,stage0.tangent.kdot_cmc_dot,rtol=5.0e-4,atol=2.0e-9)
               # Verify stage 1 with the nonzero propagated incoming-lapse
               # direction from stage 0. This is the full stage-aware tangent.
-              p1=perturb_state(rates1,eps); m1=perturb_state(rates1,-eps)
+              p1=perturb_state(rates0,eps); m1=perturb_state(rates0,-eps)
               alpha1p=stage0.base.alpha+eps*stage0.tangent.alpha_dot
               alpha1m=stage0.base.alpha-eps*stage0.tangent.alpha_dot
               out1p=base_cmc(*p1[:3],alpha1p,*p1[3:])
