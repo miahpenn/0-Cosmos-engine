@@ -97,6 +97,22 @@ with the scalar exchange opposite. The total source operands (ho,p_r,p_t,j) use
 - No scientific admission, acceptance-oracle, physical-exchange, or conservation-closure flag changes.
 - No claim that a passing software or analytic-control test establishes a complete Einstein-matter solution.
 
+## Independent CMC discrete solve and tangent gate
+
+A pure research implementation now exists at `tools/issue4_cmc_lapse_tangent.py`. It reconstructs the discrete tridiagonal CMC operator from supplied arrays, solves the base lapse with the centre Neumann row and fixed unit outer normalization, and independently differentiates:
+- the proper-volume weights and their total;
+- the proper-volume projected CMC target `kdot_cmc`, including the supplied instantaneous `K RHS dot`;
+- the radial first-derivative coefficient (c);
+- the potential (mathcal Q), inverse radial metric coefficient, and (m=mathcal Q/(X^2/a));
+- the complete discrete matrix and right-hand side;
+- the lapse tangent from (A\,\dot\alpha=\dot b-\dot A\,\alpha).
+
+The differentiated residual is retained directly. The plus/minus witness independently resolves the perturbed discrete systems and compares their central difference with the analytic lapse tangent. The module imports no engine, production CMC, vendor, RHS, or stepper code.
+
+CI: [run #42087043808](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/42087043808) — **4 tests passed**, compile passed, and the static import guard confirmed no production/vendor imports. The tests cover all discrete rows, positive lapse, differentiated-system residual, central-difference agreement, proper-volume projection response, and fail-closed invalid inputs.
+
+Important scope limitation: this is the isolated discrete CMC algebra gate. Its current tests inject a fixed linear test derivative operator; the production-pinned fourth-order parity-aware operator and independently reconstructed physical (K)-RHS directional array have not yet been wired into this module. In particular, `k_rhs_dot` is an explicit required input and must be derived from the full instantaneous geometry/matter tangent—not estimated from the lapse residual. Thus this passing CI does **not** yet establish a pinned physical CMC lapse tangent or a coupled control.
+
 ## Current preflight conclusion
 
-The source map identifies the full geometry blocks and confirms that the lapse tangent is a required independent component, not an optional convenience. The coupled fixture is **not yet built**. The next implementation milestone is the independent CMC discrete solve plus differentiated-solve witness, followed by a regular metric-compatible base. Do not label a frozen-lapse or vacuum-geometry shortcut as the coupled control.
+The source map and isolated CMC algebra gate establish the correct differentiated system and its testable contract. The coupled fixture is **not yet built**. The next milestone is to bind the independent solver to the exact pinned fourth-order parity-aware derivative operator, independently reconstruct the base (K)-RHS and its directional derivative from the CMC geometry plus six-sector source equations, and verify the differentiated CMC identity on a regular metric-compatible base. Do not label a frozen-lapse or vacuum-geometry shortcut as the coupled control.
