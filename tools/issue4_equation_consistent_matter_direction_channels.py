@@ -173,7 +173,7 @@ def main():
     state_digests = {}
     projections = {}
     retained: dict[str, np.ndarray] = {}
-    for rate_name, rate_values in analytic_matter_rates(r).items():
+    for rate_name, rate_values in rates.items():
         retained[f"analytic_rate.{rate_name}"] = np.asarray(rate_values, dtype=np.float64)
     family_reports = {}
     for label, arrays in family_arrays.items():
