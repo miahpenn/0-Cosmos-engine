@@ -2,8 +2,23 @@
 
 **Date:** 2026-11-05  
 **Branch:** `research/issue4-coupled-geometric-matter-control-2026-11-05`  
-**Status:** source-equation map and derivation preflight only; no coupled fixture has been constructed or evaluated  
+**Status:** independent stage-aware CMC tangent algebra and accepted-state six-sector base binding passed; physical accepted-state directional binding and coupled fixture remain pending  
 **Scope:** research-only, instantaneous, zero-step; no production RHS, initializer, vendor step, evolution, predictor modification, or admission change.
+
+## Latest source-fidelity checkpoint (2026-11-05)
+
+The independent stage-aware CMC implementation now uses the exact pinned fieldwise L2 lapse-Hessian stencil and its analytic direction, rather than the continuum-equivalent warped-product composite stencil. The accepted-state comparison measured the latter's discrete mismatch at max absolute (6.892277181380808\\times10^{-11}), concentrated in the first cells; the independent implementation was corrected to the pinned fieldwise form.
+
+The six-sector projection is independently reconstructed from the immutable accepted (t=0.60, N=60) archive, then passed by named sector into the stage-aware CMC base solve. [CI run #42095400227](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/42095400227) passed:
+- exact six-sector names and base projections;
+- pinned accepted-state K-RHS crosswalk;
+- positive output CMC lapse, minimum (0.9989137986988448);
+- base CMC residual maximum (2.949978586061497\\times10^{-16});
+- compile, nine independent tests, and no-production/no-vendor import guard.
+
+This accepted-state test deliberately uses zero directional arrays as a base-state harness control. It is **not** the physical coupled tangent. The required ((\\dot\\rho,\\dot p_r,\\dot p_t,\\dot j)) profiles for all six sectors, plus geometry/primary and incoming-lapse directions, still need independent derivation and two-epsilon validation before constructing the new coupled archive.
+
+Detailed source map, measured operator comparison, and exact pins are recorded in [the physical K-RHS directional derivation](ISSUE4_PHYSICAL_K_RHS_DIRECTIONAL_DERIVATION_2026-11-05.md).
 
 ## Purpose and immutable inputs
 
@@ -24,7 +39,7 @@ The CMC branch is not the vacuum moving-puncture evolution. The source path is:
 `V55ProductionKernel._geometry_stage_terms` ->
 `native_cmc_explicit_metric_rhs` for (a,b,X) ->
 `v55_pirk_adapter.geometry_stage_terms` for the primary and Lambda blocks.
-The CMC gauge sets (eta=B=0) on the slice. The lapse is a positive, elliptically determined CMC field, not an independently evolved 1+log variable.
+The CMC gauge sets (\\beta=B=0) on the slice. The lapse is a positive, elliptically determined CMC field, not an independently evolved 1+log variable.
 
 With (eta=0), (A_b=-A_a/2), and the pinned fourth-order parity-aware operators, the explicit metric rates reduce to
 [
