@@ -12,19 +12,41 @@ Define
 \mathcal Q=\frac32 A_a^2+\frac13K^2+
 4\pi(\rho+p_r+2p_t),\qquad \nu=\frac{X^2}{a},
 ]
-and the radial scalar-Laplacian coefficient
+and
 [
 c=-\frac{D_1a}{2a}+\frac{D_1b}{b}
 -\frac{D_1X}{X}+\frac2r.
 ]
-For the locked zero-shift CMC slice, the instantaneous trace equation is
+On the zero-shift CMC slice,
 [
-K_{\rm RHS}=-\Delta_g\alpha+\alpha\mathcal Q
+K_{\rm RHS}(\alpha)=-\Delta_g\alpha+\alpha\mathcal Q
 =-\nu(D_2\alpha+cD_1\alpha)+\alpha\mathcal Q.
 ]
-The same declared discrete operators must be used for the base equation, its direction, and the plus/minus witnesses. The base (K_{\rm RHS}) is therefore reconstructed from the lapse and geometry/matter arrays; it is not a free profile.
+This is the trace of the pinned primary L2 plus L3 equation: L2 supplies (-\Delta_g\alpha), while L3 supplies (alpha(3A_a^2/2+K^2/3)) and the six-sector matter source (4\pi\alpha(\rho+p_r+2p_t)).
 
-## 2. Directional derivative
+## 2. Stage-aware lapse contract: keep input and output distinct
+
+The inspected CMC implementation is stage-aware. Its target routine projects the actual K RHS using the **incoming** `geometry.alpha`; the lapse solver then solves for a new **output** lapse. Thus write these as (\alpha_{\rm in}) and (\alpha_{\rm out}), respectively:
+[
+\lambda=P_w[K_{\rm RHS}(\alpha_{\rm in})],
+\qquad
+L(a,b,X,\mathcal Q)\alpha_{\rm out}=-\lambda,
+]
+with the fixed centre regularity row and outer normalization. Here (P_w[f]=\sum_iw_if_i/W).
+
+The source contract was inspected at repository commit `0c40172f32b72a8149549adadf63d668a2f24f3e`, file `engine/cmc_gauge.py`; the same file is present on this research branch. The source confirms:
+- `target_kdot` forms L2 plus L3 K RHS from the incoming geometry lapse and projects it over all proper-volume cells;
+- `solve_cmc_lapse` then builds the lapse operator and solves for the output lapse;
+- (w_i=r_i^2\sqrt{a_i}b_iX_i^{-3}\Delta r);
+- (c) is assembled using the grid's fourth-order parity-aware first derivative;
+- the interior lapse matrix uses the three-point second-order radial Laplacian row with the centred (cD_1) coefficient;
+- the centre row is (\alpha_0-\alpha_1=0), and the outer row fixes (\alpha_{N-1}=1).
+
+Therefore the three-point interior matrix in `tools/issue4_cmc_lapse_tangent.py` matches the inspected CMC solver's matrix structure; it is not a guessed fourth-order replacement. Its coefficient derivative must nevertheless use the same fourth-order parity-aware (D_1), and all row placements must match the source.
+
+**Do not silently identify** (\alpha_{\rm in}) and (\alpha_{\rm out}). They are separate arguments/outputs of the stage-aware map. A self-consistent analytic fixed-point control may deliberately impose (\alpha_{\rm in}=\alpha_{\rm out}), but that is an additional control condition, not an automatic property of the stage-aware implementation. The direction must carry both (\dot\alpha_{\rm in}) and (\dot\alpha_{\rm out}) until that condition is explicitly established.
+
+## 3. Directional derivative of the physical K RHS
 
 For a fixed grid and fixed linear discrete derivative operators,
 [
@@ -40,87 +62,69 @@ For a fixed grid and fixed linear discrete derivative operators,
 \dot{\mathcal Q}=3A_a\dot A_a+\frac23K\dot K
 +4\pi(\dot\rho+\dot p_r+2\dot p_t).
 ]
-Thus
+The physical projected K-RHS direction is
 [
 \boxed{
 \begin{aligned}
-\dot K_{\rm RHS}={}&
--\dot\nu(D_2\alpha+cD_1\alpha)\\
-&-\nu(D_2\dot\alpha+cD_1\dot\alpha+\dot cD_1\alpha)\\
-&+\dot\alpha\,\mathcal Q+\alpha\dot{\mathcal Q}.
+\dot K_{\rm RHS}^{\rm in}={}&
+-\dot\nu(D_2\alpha_{\rm in}+cD_1\alpha_{\rm in})\\
+&-\nu(D_2\dot\alpha_{\rm in}
++cD_1\dot\alpha_{\rm in}+\dot cD_1\alpha_{\rm in})\\
+&+\dot\alpha_{\rm in}\,\mathcal Q
++\alpha_{\rm in}\dot{\mathcal Q}.
 \end{aligned}}
 ]
-Here (dot K) inside (dot{\mathcal Q}) is the physical base (K_{\rm RHS}). It is not an independently supplied tangent. All other dotted geometry and six-sector source fields must come from the independently derived coupled instantaneous direction.
+Here (dot K) inside (dot{\mathcal Q}) is the physical base (K_{\rm RHS}^{\rm in}). The six-sector source directions and all other dotted geometry/primary fields must be derived independently from the pinned instantaneous equations. No free `k_rhs_dot` profile is permitted.
 
-This expression is affine-linear in the unknown (dot\alpha). Its known terms contain the metric, primary, and six-sector directions; its (dot\alpha)-dependent terms are the linear lapse-feedback operator.
+## 4. Differentiate the proper-volume projection
 
-## 3. Proper-volume projection and coupled base solve
-
-The locked proper-volume weights are
+With
 [
-w_i=r_i^2\frac{\sqrt{a_i}b_i}{X_i^3}\,\Delta r,
-\qquad W=\sum_iw_i.
+w_i=r_i^2\frac{\sqrt{a_i}b_i}{X_i^3}\Delta r,
+\qquad W=\sum_iw_i,
+\qquad
+\frac{\dot w}{w}=\frac12\frac{\dot a}{a}
++\frac{\dot b}{b}-3\frac{\dot X}{X},
 ]
-The CMC target is
-[
-\lambda=\dot K_{\rm CMC}
-=\frac{\sum_iw_i(K_{\rm RHS})_i}{W}.
-]
-Because (K_{\rm RHS}) itself depends on (alpha), a physical base solve must solve for ((\alpha,\lambda)) together, not compute (lambda) from an externally prescribed (K_{\rm RHS}) and then solve for (alpha).
-
-The discrete augmented system has (N+1) unknowns:
-- the centre regularity row for (alpha);
-- the (N-2) interior CMC equations (K_{\rm RHS}=\lambda);
-- the fixed outer lapse normalization;
-- the proper-volume projection equation (\lambda-\sum_iw_i(K_{\rm RHS})_i/W=0).
-
-The last row uses the same declared discrete (K_{\rm RHS}) operator at every cell, including boundary cells. This makes the boundary closure and projection part of the system rather than silently dropping boundary contributions. The exact boundary stencil and centre/outer rows must be pinned to the source contract before implementation.
-
-## 4. Coupled directional solve
-
-Differentiate the projection:
+the target derivative is
 [
 \boxed{
-\dot\lambda=
-\frac{1}{W}\sum_i\left[
-\dot w_i((K_{\rm RHS})_i-\lambda)
-+w_i(\dot K_{\rm RHS})_i
-\right],
+\dot\lambda=\frac1W\sum_i
+\left[\dot w_i((K_{\rm RHS}^{\rm in})_i-\lambda)
++w_i(\dot K_{\rm RHS}^{\rm in})_i\right].
 }
 ]
-where
+The projection includes the complete proper-volume domain, including boundary cells, exactly as the source implementation does. It is differentiated from the physical K RHS built with (\alpha_{\rm in}), not from the solved output lapse unless the fixed-point identity is part of the control definition.
+
+## 5. Differentiate the output CMC lapse solve
+
+The discrete output equation is
 [
-\frac{\dot w}{w}=\frac12\frac{\dot a}{a}
-+\frac{\dot b}{b}-3\frac{\dot X}{X}.
+(D_2+cD_1-\mathcal Q/\nu)\alpha_{\rm out}
+=-\lambda/\nu
 ]
-Together with the differentiated interior equations
+on interior rows, with the fixed centre and outer rows above. Let its assembled matrix and RHS be (A) and (b). Its directional system is
 [
-\dot K_{\rm RHS}=\dot\lambda,
+\boxed{A\dot\alpha_{\rm out}
+=\dot b-\dot A\alpha_{\rm out}.}
 ]
-the differentiated centre row and fixed-normalization row, this is an augmented linear system for ((\dot\alpha,\dot\lambda)). The (dot K_{\rm RHS}) expression in §2 supplies the lapse-feedback coefficients. This replaces the current free `k_rhs_dot` input with a derived coupled unknown.
+The interior RHS derivative is
+[
+\dot b_i=-\frac{\dot\lambda}{\nu_i}
++\frac{\lambda\dot\nu_i}{\nu_i^2}.
+]
+The matrix derivative contains (\dot c), (\dot{\mathcal Q}), and (\dot\nu), with the exact three-point row placement. The centre and fixed outer-normalization rows have zero directional RHS.
 
-The resulting (dot\lambda) must agree with the direct differentiated proper-volume projection above. Retain both the original and differentiated equation residuals, the projection residuals, and the plus/minus independently re-solved witness.
+This is the stage-aware coupling: the incoming lapse direction enters (dot K_{\rm RHS}^{\rm in}), then (dot\lambda) enters the output lapse tangent equation. If the analytic control additionally imposes (\alpha_{\rm in}=\alpha_{\rm out}) and (\dot\alpha_{\rm in}=\dot\alpha_{\rm out}), these equations become one coupled linear system in the common lapse tangent and (dot\lambda). Otherwise retain the two lapse directions and do not force a fixed point.
 
-## 5. Important implementation audit before coding
+## 6. Implementation and validation gates
 
-The current `tools/issue4_cmc_lapse_tangent.py` correctly differentiates its own supplied-array algebra, but its assembled interior radial matrix is a three-point, second-order (D_2+cD_1) stencil. Its coefficient-derivative helper is a separate fourth-order parity-aware transcription. Those facts do **not** establish that the matrix is the exact pinned CMC operator.
-
-Before binding the augmented solve, inspect and transcribe the actual pinned CMC operator, including:
-- cell-centred first- and second-derivative stencils and parity ghosts;
-- centre and outer boundary rows;
-- radial coefficient placement and any face/cell averaging;
-- the precise proper-volume projection domain and weights;
-- whether the outer normalization is fixed or otherwise specified by the source.
-
-Do not call the current three-point matrix the pinned physical CMC operator unless that audit establishes identity. If the pinned operator is wider-band, the augmented system must preserve that exact structure.
-
-## 6. Validation gates
-
-1. Independently reconstruct the physical base (K_{\rm RHS}) from (alpha), metric, primary fields, and six-sector sources.
-2. Solve the augmented base ((\alpha,\lambda)) system and retain row-wise residuals.
-3. Independently derive the full geometry and matter direction; insert the physical base (K_{\rm RHS}) as (dot K) in (dot{\mathcal Q}).
-4. Assemble and solve the augmented ((\dot\alpha,\dot\lambda)) system. No free `k_rhs_dot`.
-5. Compare against independently reconstructed plus/minus augmented base solves at both required epsilons; check metric positivity, parity, determinant/trace-free identities, six-sector projections, and both CMC residuals.
-6. Only after these pass, construct the new immutable coupled archive and run the existing zero-step two-channel observer.
+1. Reconstruct the incoming physical K RHS from the independent L2 trace, L3 trace, and six-sector projections. Cross-check its algebraic form against the formula in §1 without importing or calling production/vendor routines.
+2. Reconstruct the proper-volume projection and its derivative from the incoming lapse, including (\dot w) and (\dot K_{\rm RHS}^{\rm in}).
+3. Bind the output lapse matrix to the inspected source stencil and exact row convention. Retain base and differentiated row-wise residuals.
+4. Solve for (\dot\alpha_{\rm out}) from the differentiated output system. Preserve the distinction between input and output lapse directions.
+5. If and only if the chosen analytic base is a fixed point, impose and test the input/output lapse equality and solve the corresponding coupled block system.
+6. Independently construct plus/minus states at both required epsilons and compare the incoming K-RHS projection, target rate, output lapse, and output lapse tangent. Check positivity, parity, determinant/trace-free identities, six-sector projections, and all CMC residuals.
+7. Only after these pass, construct the new immutable coupled archive and run the existing zero-step two-channel observer.
 
 No production code, accepted archive, existing comparison class, predictor, admission flag, or conservation flag is changed by this derivation.
