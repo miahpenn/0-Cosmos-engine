@@ -11,6 +11,7 @@ from tools.issue4_cmc_lapse_tangent import (
     solve_stage_aware_cmc_tangent,
     solve_stage_aware_cmc_tangent_six_sector,
     sum_six_sector_projections,
+    project_six_sector_stress_from_arrays,
 )
 
 
@@ -206,3 +207,38 @@ def test_six_sector_stage_aware_binding_requires_all_named_base_and_directional_
     with pytest.raises(ValueError,match="exactly the six locked sectors"):
         sum_six_sector_projections(
             sector_projections=bad,sector_projection_directions=sector_dot)
+
+
+def test_independent_six_sector_projector_reconstructs_all_locked_sectors():
+    n=20; dr=0.5; r=(np.arange(n)+0.5)*dr
+    a=1.0+0.01*np.exp(-(r/4.0)**2)
+    b=1.0-0.005*np.exp(-(r/5.0)**2)
+    X=1.0+0.003*np.exp(-(r/6.0)**2)
+    sqrtg=np.sqrt(a)*b*r*r/X**3
+    scalars={
+        "S":0.01*np.exp(-(r/3.0)**2),
+        "PS":np.full(n,2.0e-4),
+        "D":0.002*np.exp(-(r/4.0)**2),
+        "PD":np.full(n,1.0e-5),
+        "phi":np.full(n,0.18),
+        "Pi":np.full(n,3.0e-3),
+    }
+    fluids={}
+    for name,density in (("dark_matter",1.0e-5),("baryons",2.0e-6)):
+        fluids[name]={
+            "rest":sqrtg*np.full(n,density),
+            "energy_t":sqrtg*np.full(n,density),
+            "momentum_r":np.zeros(n),
+        }
+    fluids["radiation"]={
+        "rest":np.zeros(n),
+        "energy_t":sqrtg*np.full(n,1.0e-8),
+        "momentum_r":np.zeros(n),
+    }
+    sectors=project_six_sector_stress_from_arrays(
+        r=r,a=a,b=b,X=X,scalars=scalars,fluids=fluids,
+        d1=lambda x,parity:fourth_order_cell_derivative(x,dr,parity=parity,order=1))
+    assert set(sectors)=={"dark_matter","baryons","radiation","S","D","phi"}
+    for sector in sectors.values():
+        assert set(sector)=={"rho","pr","pt","j"}
+        assert all(np.all(np.isfinite(v)) for v in sector.values())
