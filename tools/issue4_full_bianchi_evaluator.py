@@ -630,6 +630,16 @@ def main() -> int:
                 epsilon: _summary(result["channels"][epsilon]["measured_tangent"], result["grid_centers"])
                 for epsilon in result["channels"]
             },
+            "channel_term_summaries": {
+                epsilon: {
+                    "measured_tangent": _summary(result["channels"][epsilon]["measured_tangent"], result["grid_centers"]),
+                    "pointwise_div_T_r": _summary(result["channels"][epsilon]["pointwise"]["div_T_r"], result["grid_centers"]),
+                    "pointwise_stress_source": _summary(result["channels"][epsilon]["pointwise"]["stress_source"], result["grid_centers"]),
+                    "finite_volume_div_T_r": _summary(result["channels"][epsilon]["finite_volume"]["div_T_r_fv"], result["grid_centers"]),
+                    "finite_volume_stress_source": _summary(result["channels"][epsilon]["finite_volume"]["stress_source"], result["grid_centers"]),
+                }
+                for epsilon in result["channels"]
+            },
             "predictor_term_summaries": {
                 key: _summary(result["signed_terms"][key], result["grid_centers"])
                 for key in (
