@@ -9,12 +9,14 @@
 
 The independent stage-aware CMC implementation now uses the exact pinned fieldwise L2 lapse-Hessian stencil and its analytic direction, rather than the continuum-equivalent warped-product composite stencil. The accepted-state comparison measured the latter's discrete mismatch at max absolute (6.892277181380808\\times10^{-11}), concentrated in the first cells; the independent implementation was corrected to the pinned fieldwise form.
 
-The six-sector projection is independently reconstructed from the immutable accepted (t=0.60, N=60) archive, then passed by named sector into the stage-aware CMC base solve. [CI run #42095400227](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/42095400227) passed:
-- exact six-sector names and base projections;
-- pinned accepted-state K-RHS crosswalk;
-- positive output CMC lapse, minimum (0.9989137986988448);
-- base CMC residual maximum (2.949978586061497\\times10^{-16});
-- compile, nine independent tests, and no-production/no-vendor import guard.
+The six-sector projection is independently reconstructed from the immutable accepted (t=0.60, N=60) archive, then passed by named sector into the stage-aware CMC tangent. [CI run #42097909692](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/42097909692) passed:
+- independent scalar, fluid, metric, primary, and Lambda instantaneous rate reconstruction;
+- analytic six-sector directional projections;
+- stage-0 and stage-1 output-lapse tangent comparisons at both required epsilons;
+- nonzero propagation of the stage-0 output-lapse direction into stage 1;
+- no-production/no-vendor import guard.
+
+Stage-1 output lapse tangent maximum is (4.0608853426564964\times10^{-2}), and its CMC base residual maximum is (2.656566373132607\times10^{-16}). However, the accepted archive contains no preceding CMC-stage input lapse history. The first archived incoming-lapse direction was therefore anchored at zero for the initial refresh. Stage 1 receives a computed nonzero direction, but this is not yet the complete no-frozen-lapse chain. Recover the preceding stage input/directional record before claiming that gate passed.
 
 This accepted-state test deliberately uses zero directional arrays as a base-state harness control. It is **not** the physical coupled tangent. The required ((\\dot\\rho,\\dot p_r,\\dot p_t,\\dot j)) profiles for all six sectors, plus geometry/primary and incoming-lapse directions, still need independent derivation and two-epsilon validation before constructing the new coupled archive.
 
