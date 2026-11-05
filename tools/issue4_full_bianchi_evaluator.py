@@ -588,18 +588,25 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--archive", type=Path, required=True)
     parser.add_argument("--resolution", type=int, choices=(60, 120, 240), required=True)
+    parser.add_argument("--state-class", choices=("accepted", "manufactured"), default="accepted")
     parser.add_argument("--diagnostic-source", type=Path, required=True)
     parser.add_argument("--helper-baseline", type=Path, required=True)
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
     try:
-        result = evaluate_accepted_fixture(
-            args.archive, args.resolution, args.diagnostic_source, args.helper_baseline
-        )
+        if args.state_class == "manufactured":
+            result = evaluate_manufactured_fixture(
+                args.archive, args.resolution, args.diagnostic_source, args.helper_baseline
+            )
+        else:
+            result = evaluate_accepted_fixture(
+                args.archive, args.resolution, args.diagnostic_source, args.helper_baseline
+            )
         payload = json.dumps(_jsonable(result), indent=2, sort_keys=True, allow_nan=False)
     except Exception as exc:
         payload = json.dumps({
-            "schema": "issue4-full-bianchi-accepted-fixture-evaluation/v1",
+            "schema": f"issue4-full-bianchi-{args.state_class}-evaluation/v1",
+            "state_class": "manufactured_regular_family" if args.state_class == "manufactured" else "accepted_t_0p60",
             "status": "refused",
             "reason": f"{type(exc).__name__}: {exc}",
             "production_steps_run": 0,
