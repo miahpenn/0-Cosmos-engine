@@ -165,7 +165,9 @@ def main():
     states = {}
     state_digests = {}
     projections = {}
-    retained: dict[str, np.ndarray] = {}\n    for rate_name, rate_values in analytic_matter_rates(r).items():\n        retained[f"analytic_rate.{rate_name}"] = np.asarray(rate_values, dtype=np.float64)
+    retained: dict[str, np.ndarray] = {}
+    for rate_name, rate_values in analytic_matter_rates(r).items():
+        retained[f"analytic_rate.{rate_name}"] = np.asarray(rate_values, dtype=np.float64)
     family_reports = {}
     for label, arrays in family_arrays.items():
         state = construct_production_state(arrays, r0_operators, vacuum_bssn)
@@ -352,7 +354,10 @@ def main():
         "dr": R_MAX / N,
         "grid_centers": "r_i=(i+1/2)*dr",
         "profile": PROFILE,
-        "family_parameterization": {\n            "direction": "instantaneous matter-equation direction at s=0",\n            "geometry_tangent": "frozen_flat_background_not_Einstein_evolution",\n            "scalar_spatial_operator": "exact_continuum_Gaussian_derivatives_not_pinned_fourth_order_semidiscrete_operator",
+        "family_parameterization": {
+            "direction": "instantaneous matter-equation direction at s=0",
+            "geometry_tangent": "frozen_flat_background_not_Einstein_evolution",
+            "scalar_spatial_operator": "exact_continuum_Gaussian_derivatives_not_pinned_fourth_order_semidiscrete_operator",
             "parameter": "s",
             "U(0)": "base",
             "U(+epsilon)": "plus member independently constructed by analytic formulas",
@@ -362,11 +367,11 @@ def main():
                 "primitive fluid rho_species and pressure_species profiles",
             ],
             "changed": [
-                "scalars.PS", "scalars.PD", "scalars.Pi",
-                "fluid radial velocity profiles (odd in r and linear in s)",
-                "matter.*.rest (Lorentz-weighted conserved density)",
-                "matter.*.energy_t (Lorentz-weighted Eulerian energy)",
-                "matter.*.momentum_r (signed radial momentum)",
+                "scalars.PS, PD, Pi from pinned flat-slice scalar accelerations",
+                "dark-matter velocity from Q_DM,r=beta_DM*rho_DM*partial_r(phi)",
+                "radiation velocity from -partial_r(p)/(rho+p)",
+                "baryon velocity remains zero",
+                "conserved fluid arrays reconstructed from these primitives",
             ],
             "construction_method": "initializer_free_analytic_profile_constructor",
         },
@@ -437,7 +442,15 @@ def main():
                 for row in divergence_reports.values()
             ),
         },
-        "analytic_direction": {\n            "rates": "analytic_rate.* arrays in the archive",\n            "fluid_continuity": "all primitive density time derivatives vanish at the zero-velocity base",\n            "dark_matter_force": "beta_DM*partial_r(phi), beta_DM=-0.04",\n            "radiation_force": "-partial_r(rho/3)/(4*rho/3)",\n            "geometry": "held fixed; no Einstein geometric tangent is supplied",\n            "scalar_operator": "continuum Gaussian Laplacian; not the grid fourth-order semidiscrete operator",\n        },\n        "interpretation_limits": [
+        "analytic_direction": {
+            "rates": "analytic_rate.* arrays in the archive",
+            "fluid_continuity": "all primitive density time derivatives vanish at the zero-velocity base",
+            "dark_matter_force": "beta_DM*partial_r(phi), beta_DM=-0.04",
+            "radiation_force": "-partial_r(rho/3)/(4*rho/3)",
+            "geometry": "held fixed; no Einstein geometric tangent is supplied",
+            "scalar_operator": "continuum Gaussian Laplacian; not the grid fourth-order semidiscrete operator",
+        },
+        "interpretation_limits": [
             "The matter-direction tangent is an analytic-family central difference, not a production-RHS tangent.",
             "The constructor calls no production initializer, production RHS, kernel step, or vendor evolution step. Geometry is intentionally frozen and the scalar direction is continuum-analytic.",
             "Pointwise and finite-volume total-stress divergences are independently evaluated from the same frozen analytic family triplets by the pinned helper.",
