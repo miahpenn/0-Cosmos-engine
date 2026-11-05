@@ -39,7 +39,7 @@ class ManufacturedRegularFamilyTests(unittest.TestCase):
             "scalars.PS", "scalars.PD", "scalars.Pi",
             *(f"matter.{s}.{f}" for s in
               ("dark_matter", "baryons", "radiation")
-              for f in ("energy_t", "momentum_r")),
+              for f in ("rest", "energy_t", "momentum_r")),
         }
         for name in STATE_ARRAY_NAMES:
             if name not in changing:
