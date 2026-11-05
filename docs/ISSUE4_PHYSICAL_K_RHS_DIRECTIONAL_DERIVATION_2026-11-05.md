@@ -153,7 +153,7 @@ The pinned source chain is:
 - `engine/v55_pirk_adapter.py` at the same source commit, blob `be28ceea63fa1b59efc5cc5c460b9df19ae1cbc3`: `primary_l2_rhs` plus `primary_l3_with_matter`;
 - vendor `vacuum_bssn.py` at the locked vendor commit, blob `099ce52ba9e6dcd38d50c2915248c76c4236f7f4`: `geometry_terms()["lap_alpha"]`, `primary_l2_rhs()["K"]`, and `primary_l3_rhs()["K"]`.
 
-For the CMC slice, (eta=0), and the vendor has (mathrm{KO\_EPSILON}=0). The exact pinned physical K RHS therefore has the fieldwise form
+For the CMC slice, (\\beta=0), and the vendor has (mathrm{KO\_EPSILON}=0). The exact pinned physical K RHS therefore has the fieldwise form
 [
 K_{\rm RHS}^{\rm pin}=
 -\frac{X^2}{a}\left[
@@ -170,4 +170,13 @@ The independent implementation has now been changed to transcribe the exact pinn
 
 A strict six-sector binding layer has also been added: `sum_six_sector_projections` and `solve_stage_aware_cmc_tangent_six_sector` require exactly `dark_matter`, `baryons`, `radiation`, `S`, `D`, and `phi`, with base `rho/pr/pt/j` and directional `rho_dot/pr_dot/pt_dot/j_dot` profiles for every sector. Missing or extra sectors fail closed. The synthetic wrapper tests completed successfully in [CI run #42094841283](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/42094841283): 9 tests passed, compile passed, and the static no-production/no-vendor import guard passed.
 
-**Remaining six-sector boundary:** the stage-aware manufactured test still receives combined ((\rho,p_r,p_t)) arrays. The accepted archive contains the scalar fields and all three fluid conserved profiles, and the prior accepted-state audit independently rebuilt all six sectors and cross-checked the summed ((\rho,p_r,p_t,j)) against canonical assembly at (10^{-20})-scale absolute differences. However, those per-sector base projections and their directional projections have not yet been bound as six named inputs to this new stage-aware tangent API. This remains the next explicit gate; neither the exact K-RHS source transcription nor the earlier accepted-state audit alone waives it.
+**Accepted-state base binding now passed:** `project_six_sector_stress_from_arrays` independently reconstructs all six sectors directly from the immutable accepted archive's scalar fields/momenta and three Valencia conserved triples. The accepted-state CI job passes those six named profiles into `solve_stage_aware_cmc_tangent_six_sector`, checks the exact pinned K RHS, and solves the distinct output CMC lapse. [CI run #42095400227](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/42095400227) passed both jobs, including the no-production/no-vendor import guard.
+
+Accepted-state (N=60, t=0.60) results:
+- Six sector names reconstructed and bound: dark matter, baryons, radiation, S, D, phi.
+- Total projection maxima: (max|\rho|=5.489752198434982\times10^{-5}), (max|p_r|=1.4287188104970626\times10^{-5}), (max|p_t|=1.4331527744886261\times10^{-5}), (max|j|=4.222814213833781\times10^{-6}).
+- Pinned K-RHS maximum absolute value: (6.261589268138539\times10^{-5}).
+- Independently solved output lapse minimum: (0.9989137986988448).
+- Base CMC row residual maximum: (2.949978586061497\times10^{-16}).
+
+**Remaining directional boundary:** the accepted-state run intentionally supplies zero sector and geometry directions as a harness control. It validates the six-sector base projection, source assembly, and output CMC base solve; it does **not** validate the physical accepted-state tangent. The six sector directional profiles ((\dot\rho,\dot p_r,\dot p_t,\dot j)), together with the coupled geometry/primary directions and (dot\alpha_{\rm in}), still need to be independently derived from the pinned instantaneous equations and bound at both required epsilons. Do not treat the zero-direction accepted-state control as the physical coupled fixture or as a conservation-closure result.
