@@ -8,6 +8,7 @@ from tools.issue4_cmc_lapse_tangent import (
     differentiate_cmc_discrete,
     central_difference_witness,
     fourth_order_cell_derivative,
+    solve_stage_aware_cmc_tangent,
 )
 
 
