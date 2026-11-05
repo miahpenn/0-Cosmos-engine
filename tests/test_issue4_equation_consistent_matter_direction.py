@@ -103,3 +103,25 @@ def test_plus_minus_tangent_is_signed_and_density_continuity_is_zero():
             diff = (triplet["plus"][f"matter.{species}.{field}"] -
                     triplet["minus"][f"matter.{species}.{field}"]) / (2*eps)
             np.testing.assert_allclose(diff, 0.0, atol=1e-15)
+
+
+
+def test_pinned_operator_injection_controls_scalar_and_fluid_gradients():
+    r = grid()
+    def d1(values, parity):
+        assert parity == 1
+        return 2.0 * np.asarray(values)
+    def d2(values, parity):
+        assert parity == 1
+        return 3.0 * np.asarray(values)
+    rates = analytic_matter_rates(r, d1=d1, d2=d2)
+    shape = np.exp(-(r / PROFILE["scalar_width"])**2)
+    S = PROFILE["scalar_amplitudes"]["S"] * shape
+    D = PROFILE["scalar_amplitudes"]["D"] * shape
+    phi = PROFILE["scalar_amplitudes"]["phi"] * shape
+    np.testing.assert_allclose(rates["PS_dot"], 3*S + 4*S/r - S, rtol=0, atol=0)
+    np.testing.assert_allclose(rates["PD_dot"], 3*D + 4*D/r + D, rtol=0, atol=0)
+    rho_dm = PROFILE["fluid_rest_density_amplitudes"]["dark_matter"] * np.exp(-(r/10.0)**2)
+    np.testing.assert_allclose(rates["dark_matter_v_dot"], -0.04*2*phi, rtol=0, atol=0)
+    rho_rad = PROFILE["fluid_rest_density_amplitudes"]["radiation"] * np.exp(-(r/10.0)**2)
+    np.testing.assert_allclose(rates["radiation_v_dot"], -(2*rho_rad/3)/(4*rho_rad/3), rtol=0, atol=0)
