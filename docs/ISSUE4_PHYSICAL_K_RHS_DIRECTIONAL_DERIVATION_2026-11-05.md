@@ -128,3 +128,17 @@ This is the stage-aware coupling: the incoming lapse direction enters (dot K_{\r
 7. Only after these pass, construct the new immutable coupled archive and run the existing zero-step two-channel observer.
 
 No production code, accepted archive, existing comparison class, predictor, admission flag, or conservation flag is changed by this derivation.
+
+
+## 7. Independent stage-aware implementation checkpoint (2026-11-05)
+
+Implemented in `tools/issue4_cmc_lapse_tangent.py`:
+- `physical_k_rhs_and_direction` independently transcribes the native warped-product lapse-Laplacian identity using (A=a/X^2), (R=r\sqrt b/X), and the parity-aware (D_1,D_2) operators. It differentiates (A), (R), the lapse Hessian, and the matter/primary potential analytically.
+- `solve_stage_aware_cmc_tangent` constructs incoming (K_{\rm RHS}) and its direction internally, projects the incoming source over the full proper-volume measure, solves the distinct output lapse, and differentiates that output solve. Its API has no `k_rhs_dot` argument.
+- Incoming `alpha_in_dot) and output `alpha_dot) remain distinct. The existing output operator keeps the source-matched three-point interior row and fixed centre/outer rows.
+- No engine, production, or vendor imports are used.
+
+The bounded workflow run for commit `a21363a3557f16006bacedb31691b89ac85856c2` completed the compile, all seven tests, and the static no-production/no-vendor import guard successfully:
+[CI run #42092298042](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/42092298042).
+
+**Scope limitation:** these new plus/minus tests use a manufactured smooth control and combined ((\rho,p_r,p_t)) input profiles. They verify the independent directional algebra and stage-aware solve, not yet the actual pinned accepted-state six-sector arrays. The next binding gate is to feed the locked six-sector projection outputs and independently derived coupled geometry/primary directions into this API, compare the reconstructed incoming (K_{\rm RHS}) against the pinned L2+L3 component ledger, and run the required two-epsilon plus/minus checks on the accepted (t=0.60) state. Do not claim that physical-state binding or coupled-fixture admission has passed yet.
