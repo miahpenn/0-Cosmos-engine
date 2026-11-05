@@ -2,7 +2,7 @@
 
 **Date:** 2026-11-05  
 **Class:** `manufactured_regular_family`  
-**Status:** manufactured fixture constructed and fail-closed loader validated; evaluator integration pending  
+**Status:** manufactured fixture constructed, fail-closed loader validated, and first manufactured-class full-Bianchi evaluation completed; admission remains false  
 **Scope:** research-only, immutable, zero production steps; all scientific-admission and conservation-closure flags remain false.
 
 ## 1. Purpose and boundary
@@ -153,3 +153,32 @@ The runner reports `production_initializer_called=false`, `production_rhs_called
 The raw six-sector divergence reconstruction passed with maximum raw gap approximately `5.56e-18`. The helper's separate time-density-component-accounting flag remains false at both epsilons (the unexplained remainder is approximately `5.56e-18), and is retained as a diagnostic finding rather than promoted to a pass. This is not a physical conservation-closure result.
 
 **Next gate:** add a narrow manufactured-class adapter into the existing full-Bianchi predictor, keeping the accepted loader and accepted regression path unchanged; then run the manufactured report under the same locked predictor and zero-step guards.
+
+
+## 11. Manufactured-class predictor evaluation — 2026-11-05
+
+The narrow `manufactured_regular_family` dispatch now feeds the verified archive through the existing locked predictor. The accepted-state loader remains a separate path; accepted regression checks are run independently.
+
+- Final workflow: [run #42075901338](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/42075901338)
+- Full bounded suite: **19 passed** (constructor, manufactured schema/loader, accepted fixture loader, reference regression, and evaluator zero-step contract).
+- Fixture ZIP: `issue4_manufactured_regular_family_N60.zip`
+- Fixture ZIP SHA-256: `fe6fbe606d83704df2d35d838b945a7f68095a3db9af1e571c4830b5fc7f9d4e`
+- Workflow artifact: [download artifact 13437962065](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/42075901338/artifacts/13437962065)
+- Evaluator result: `diagnostic_evaluation_complete`, `state_class=manufactured_regular_family`, `tangent_semantics=analytic_family_central_difference`.
+- Zero-step guard: armed and not triggered; `production_steps_run=0`, `state_advanced=false`.
+- Accepted reference regression is explicitly marked not executed for the manufactured class; its separate reference-regression and accepted-loader tests passed in the same bounded suite.
+
+First manufactured predictor residual summaries (both epsilons agree to displayed precision):
+
+| Channel | Maximum absolute residual for r≤10 | Radius of maximum | Maximum absolute residual, 5≤r≤10 |
+|---|---:|---:|---:|
+| Pointwise | 0.0114832032 | 3.6666667 | 0.0105471861 |
+| Finite volume | 0.0114357635 | 3.6666667 | 0.0104833086 |
+
+The signed residual is (Mdot_{manufactured}-B_{predictor}). The two spatial channels remain separate. These are measured diagnostic residuals, not a fitted correction or an admission result. The epsilon pair is stable to the shown precision.
+
+The report retains all six signed predictor terms, the two divergence channels, centre cells 0/1 (cell 2 diagnostic), fixed-radius samples, annular summaries, and the six-sector divergence ledger. The raw six-sector reconstruction passes (maximum raw gap approximately `5.56e-18`); the separate time-density-component-accounting flag remains false at approximately the same scale. That false flag remains visible and is not reclassified.
+
+All admission flags remain false. No production initializer/RHS/vendor step was called; no production equations, accepted-state loader, or accepted-state regression values were changed.
+
+**Next diagnostic question:** inspect the signed-term decomposition and the time-density accounting remainder to determine which specific term or accounting convention explains the manufactured residual. Do not fit coefficients, tune an operator, evolve the state, or infer physical conservation from this manufactured discriminator.
