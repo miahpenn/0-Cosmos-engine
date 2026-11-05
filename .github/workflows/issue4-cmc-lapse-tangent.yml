@@ -117,9 +117,9 @@ jobs:
               r=r,a=a,b=b,X=X,scalars=scalars,fluids=fluids,d1=d1)
           required={"dark_matter","baryons","radiation","S","D","phi"}
           if set(sectors)!=required: raise SystemExit("six-sector names mismatch")
-          total={k:sum(sectors[s][k] for s in required) for k in ("rho","pr","pt","j")}
-          report=json.loads(Path("accepted-state/report.json").read_text())
-          if not report["projection_crosscheck_passed"]:
+          total={k:sum(sectors[s][k] for s in ("dark_matter","baryons","radiation","S","D","phi")) for k in ("rho","pr","pt","j")}
+          report=json.loads(Path("accepted-artifact/accepted-bianchi-report.json").read_text())
+          if not all(x["matches_canonical"] for x in report["projection_crosscheck"].values()):
               raise SystemExit("archived canonical projection crosscheck was not passed")
           zeros=np.zeros_like(r)
           kr,krdot=physical_k_rhs_and_direction(
