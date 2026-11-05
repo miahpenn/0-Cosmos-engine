@@ -46,9 +46,14 @@ def _finite(name: str, values: np.ndarray) -> np.ndarray:
     return np.ascontiguousarray(result)
 
 
-def _fluid_conserved(rho: np.ndarray, pressure: np.ndarray,
-                     velocity: np.ndarray) -> tuple[np.ndarray, ...]:
-    """Flat-slice Valencia map: gamma_rr=alpha=sqrt(gamma)=1, beta=0."""
+def _fluid_conserved(r: np.ndarray, rho: np.ndarray, pressure: np.ndarray,
+                     velocity: np.ndarray, *, radiation: bool = False) -> tuple[np.ndarray, ...]:
+    """Pinned flat-areal Valencia map, including spherical volume.
+
+    For a=b=X=alpha=1 and beta=0, sqrt(gamma)=r^2. Stored energy_t is
+    positive Eulerian energy times sqrt(gamma); T^t_t=-E. Radiation has
+    no rest-current slot.
+    """
     v = _finite("fluid velocity", velocity)
     if np.any(np.abs(v) >= 1.0):
         raise ValueError("analytic fluid velocity must remain subluminal")
@@ -95,7 +100,9 @@ def construct_regular_family(centers: np.ndarray, s: float = 0.0) -> dict[str, n
         slope = PROFILE["family_velocity_slopes"][species]
         velocity = s * slope * r * fluid_shape
         pressure = rho / 3.0 if species == "radiation" else np.zeros_like(rho)
-        rest, energy_t, momentum_r = _fluid_conserved(rho, pressure, velocity)
+        rest, energy_t, momentum_r = _fluid_conserved(
+            r, rho, pressure, velocity, radiation=(species == "radiation")
+        )
         state[f"matter.{species}.rest"] = rest
         state[f"matter.{species}.energy_t"] = energy_t
         state[f"matter.{species}.momentum_r"] = momentum_r
