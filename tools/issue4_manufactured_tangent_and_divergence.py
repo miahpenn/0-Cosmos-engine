@@ -40,6 +40,9 @@ CODE_PATHS = (
     "tools/issue4_manufactured_tangent_and_divergence.py",
     "tests/test_issue4_manufactured_regular_family.py",
     "tests/test_issue4_manufactured_fixture.py",
+    "tests/test_issue4_accepted_state_fixture.py",
+    "tests/test_issue4_bianchi_reference_regression.py",
+    "tests/test_issue4_full_bianchi_evaluator_contract.py",
 )
 
 
