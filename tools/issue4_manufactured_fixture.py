@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
-"""Fail-closed loader for the Issue #4 manufactured regular-family fixture.
+"""Fail-closed loader for the manufactured Issue #4 full-Bianchi fixture.
 
-This is intentionally separate from the accepted-state fixture loader. It
-accepts only the exact manufactured schema and never changes accepted-state
-loading or regression behavior.
+This is separate from issue4_accepted_state_fixture.py. The accepted-state
+loader and its archive/regression contract are deliberately untouched.
 """
 from __future__ import annotations
 
@@ -12,13 +11,14 @@ import hashlib
 import io
 import json
 from pathlib import Path
+import subprocess
 import zipfile
 
 import numpy as np
 
 from tools.issue4_manufactured_regular_family import STATE_ARRAY_NAMES
 
-SCHEMA = "issue4_manufactured_complete_fixture_v1"
+SCHEMA = "issue4_manufactured_full_bianchi_fixture_v1"
 DIAGNOSTIC = "4aec88d0e3ff028e0a65a8ac36b30948625df792"
 BASELINE = "7f47669a1c0edfafef9fc5f27b2db80840d3f035"
 VENDOR = "d6052d605673ce9d82cdc99b0df79855fa2ea215"
@@ -26,13 +26,26 @@ TANGENT_BLOB = "3f00a4e0a2063b86d2e007c5a825f9edfff61a4c"
 TOTAL_BLOB = "c10f9e8b9e654d5195fd55c493c3fe06ba5c7082"
 STATE_CLASSES = ("base", "eps2e-05_plus", "eps2e-05_minus", "eps1e-05_plus", "eps1e-05_minus")
 EPS_LABELS = ("eps2e-05", "eps1e-05")
+CODE_PATHS = (
+    "tools/issue4_full_bianchi_evaluator.py",
+    "tools/issue4_zero_step_full_bianchi_observer.py",
+    "tools/issue4_accepted_state_fixture.py",
+    "tools/issue4_manufactured_regular_family.py",
+    "tools/issue4_manufactured_fixture.py",
+    "tools/issue4_manufactured_tangent_and_divergence.py",
+    "tests/test_issue4_manufactured_regular_family.py",
+)
 
 
-def sha256(data: bytes) -> str:
+def _sha(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
-def _parse_sums(payload: bytes) -> dict[str, str]:
+def _git(root: Path, *args: str) -> str:
+    return subprocess.check_output(["git", "-C", str(root), *args], text=True).strip()
+
+
+def _member_sums(payload: bytes) -> dict[str, str]:
     result = {}
     for line in payload.decode("utf-8").splitlines():
         digest, name = line.split(None, 1)
@@ -56,102 +69,139 @@ def _state_digest(arrays: dict[str, np.ndarray], label: str) -> str:
 
 
 def load_manufactured_fixture(path: str | Path) -> dict:
-    """Load and fully verify one exact manufactured fixture ZIP."""
+    """Load the distinct manufactured schema, verifying every member and array."""
     archive_path = Path(path)
     payload = archive_path.read_bytes()
     with zipfile.ZipFile(io.BytesIO(payload), "r") as archive:
-        expected_members = {"SHA256SUMS.txt", "report.json", "arrays.npz"}
+        expected_members = {"SHA256SUMS.txt", "report.json", "tangent_arrays.npz"}
         if set(archive.namelist()) != expected_members:
             raise RuntimeError(f"manufactured fixture member set mismatch: {archive.namelist()}")
         sums_bytes = archive.read("SHA256SUMS.txt")
         report_bytes = archive.read("report.json")
-        arrays_bytes = archive.read("arrays.npz")
-    declared = _parse_sums(sums_bytes)
-    actual = {"report.json": sha256(report_bytes), "arrays.npz": sha256(arrays_bytes)}
+        arrays_bytes = archive.read("tangent_arrays.npz")
+    declared = _member_sums(sums_bytes)
+    actual = {
+        "report.json": _sha(report_bytes),
+        "tangent_arrays.npz": _sha(arrays_bytes),
+    }
     if declared != actual:
-        raise RuntimeError(f"manufactured fixture member digest mismatch: declared={declared}, actual={actual}")
+        raise RuntimeError(f"fixture member digest mismatch: declared={declared}, actual={actual}")
 
     report = json.loads(report_bytes)
-    if report.get("schema") != SCHEMA:
-        raise RuntimeError(f"unsupported manufactured fixture schema: {report.get('schema')!r}")
-    if report.get("state_class") != "manufactured_regular_family":
-        raise RuntimeError("fixture state class is not manufactured_regular_family")
-    if report.get("diagnostic_only") is not True or report.get("production_steps") != 0:
-        raise RuntimeError("fixture is not an exact zero-step diagnostic-only artifact")
-    if report.get("scientific_admission") is not False or report.get("acceptance_oracle_satisfied") is not False:
-        raise RuntimeError("manufactured fixture admission flags must remain false")
-    if report.get("production_rhs_evaluated") is not True:
-        raise RuntimeError("fixture does not attest a pinned production RHS evaluation")
-    pins = (
-        report.get("diagnostic_source_commit"),
-        report.get("helper_baseline_commit"),
-        report.get("vendor_commit"),
-        report.get("tangent_helper_blob"),
-        report.get("total_stress_helper_blob"),
+    if report.get("schema") != SCHEMA or report.get("state_class") != "manufactured_regular_family":
+        raise RuntimeError("manufactured fixture schema/class mismatch")
+    required_false = (
+        "scientific_admission", "acceptance_oracle_satisfied",
+        "conservation_closure_admitted", "physical_exchange_law_admitted",
+        "production_initializer_called", "production_rhs_called",
+        "vendor_step_called", "state_advanced",
     )
-    if pins != (DIAGNOSTIC, BASELINE, VENDOR, TANGENT_BLOB, TOTAL_BLOB):
-        raise RuntimeError(f"manufactured fixture provenance mismatch: {pins}")
+    if report.get("production_steps_run") != 0 or any(report.get(key) is not False for key in required_false):
+        raise RuntimeError("manufactured fixture violates zero-step/admission guardrails")
+    if report.get("tangent_semantics") != "analytic_family_central_difference":
+        raise RuntimeError("manufactured tangent semantics are missing or mislabelled")
+    if report.get("tangent_is_production_rhs_tangent") is not False:
+        raise RuntimeError("manufactured tangent must not be labelled as production-RHS tangent")
+    if report.get("state_unchanged_after_construction") is not True:
+        raise RuntimeError("manufactured base state immutability witness is missing")
     if report.get("resolution") != 60 or report.get("r_max") != 40.0:
         raise RuntimeError("manufactured fixture grid identity mismatch")
     if tuple(report.get("directional_epsilons", ())) != (2.0e-5, 1.0e-5):
-        raise RuntimeError("manufactured fixture epsilon identity mismatch")
-    if tuple(report.get("complete_constructed_state_classes", ())) != STATE_CLASSES:
-        raise RuntimeError("manufactured fixture state-class inventory mismatch")
+        raise RuntimeError("manufactured fixture epsilon inventory mismatch")
+
+    pins = report.get("pins", {})
+    if (
+        pins.get("diagnostic_source_anchor") != DIAGNOSTIC
+        or pins.get("helper_baseline") != BASELINE
+        or pins.get("vendor") != VENDOR
+        or pins.get("tangent_helper_blob") != TANGENT_BLOB
+        or pins.get("total_stress_helper_blob") != TOTAL_BLOB
+    ):
+        raise RuntimeError("manufactured fixture diagnostic/helper/vendor provenance mismatch")
+    reviewed = pins.get("reviewed_code_blobs", {})
+    if set(reviewed) != set(CODE_PATHS):
+        raise RuntimeError("reviewed source-code blob inventory mismatch")
+    repo_root = Path(__file__).resolve().parents[1]
+    for code_path in CODE_PATHS:
+        actual_blob = _git(repo_root, "rev-parse", f"HEAD:{code_path}")
+        if reviewed[code_path] != actual_blob:
+            raise RuntimeError(f"reviewed source blob mismatch for {code_path}")
 
     with np.load(io.BytesIO(arrays_bytes), allow_pickle=False) as archive:
         arrays = {key: np.asarray(archive[key]) for key in archive.files}
-    if len(arrays) != report.get("array_count") or sorted(arrays) != report.get("array_names"):
-        raise RuntimeError("manufactured fixture array inventory mismatch")
-    for key, value in arrays.items():
+    records = report.get("raw_arrays", {}).get("array_records", [])
+    if len(records) != report.get("raw_arrays", {}).get("array_count"):
+        raise RuntimeError("array-record count mismatch")
+    if len(arrays) != len(records):
+        raise RuntimeError("NPZ/manifest array count mismatch")
+    declared_names = sorted(record.get("key") for record in records)
+    if declared_names != sorted(arrays) or declared_names != report.get("array_names"):
+        raise RuntimeError("array key inventory mismatch")
+    for record in records:
+        key = record["key"]
+        value = np.ascontiguousarray(arrays[key])
+        if list(value.shape) != record.get("shape") or str(value.dtype) != record.get("dtype"):
+            raise RuntimeError(f"array shape/dtype mismatch for {key}")
         if value.dtype != np.float64 or value.ndim != 1 or not np.all(np.isfinite(value)):
-            raise RuntimeError(f"invalid witness array {key}: dtype={value.dtype}, shape={value.shape}")
+            raise RuntimeError(f"invalid/non-finite fixture array {key}")
+        if _sha(value.tobytes(order="C")) != record.get("sha256"):
+            raise RuntimeError(f"array payload digest mismatch for {key}")
 
-    family_reports = report.get("family_projection_reports", {})
-    if set(family_reports) != set(STATE_CLASSES):
-        raise RuntimeError("manufactured fixture projection report inventory mismatch")
+    state_digests = report.get("state_digests", {})
+    if set(state_digests) != set(STATE_CLASSES):
+        raise RuntimeError("family state digest inventory mismatch")
     for label in STATE_CLASSES:
-        measured = _state_digest(arrays, label)
-        if measured != family_reports[label].get("state_digest"):
+        if _state_digest(arrays, label) != state_digests[label]:
             raise RuntimeError(f"canonical state digest mismatch for {label}")
-        if family_reports[label].get("projection_crosscheck_passed") is not True:
-            raise RuntimeError(f"six-sector projection cross-check did not pass for {label}")
+        family = report["family_projection_reports"].get(label, {})
+        if family.get("projection_crosscheck_passed") is not True:
+            raise RuntimeError(f"six-sector projection cross-check failed for {label}")
+        for sector in ("S", "D", "phi", "dark_matter", "baryons", "radiation"):
+            sector_prefix = (
+                f"projection.{label}.scalar.{sector}." if sector in ("S", "D", "phi")
+                else f"projection.{label}.fluid.{sector}."
+            )
+            for field in ("rho", "pr", "pt", "j"):
+                if sector_prefix + field not in arrays:
+                    raise RuntimeError(f"missing sector projection {label}.{sector}.{field}")
         for field in ("rho", "pr", "pt", "j"):
             if f"projection.{label}.total.{field}" not in arrays:
                 raise RuntimeError(f"missing total projection {label}.{field}")
-        for sector in ("S", "D", "phi"):
-            for field in ("rho", "pr", "pt", "j"):
-                if f"projection.{label}.scalar.{sector}.{field}" not in arrays:
-                    raise RuntimeError(f"missing scalar projection {label}.{sector}.{field}")
-        for sector in ("dark_matter", "baryons", "radiation"):
-            for field in ("rho", "pr", "pt", "j"):
-                if f"projection.{label}.fluid.{sector}.{field}" not in arrays:
-                    raise RuntimeError(f"missing fluid projection {label}.{sector}.{field}")
 
-    tangent_reports = report.get("tangent_reports", {})
-    divergence_reports = report.get("divergence_reports", {})
-    if set(tangent_reports) != set(EPS_LABELS) or set(divergence_reports) != set(EPS_LABELS):
-        raise RuntimeError("tangent/divergence epsilon inventory mismatch")
     for label in EPS_LABELS:
-        tangent = tangent_reports[label]
-        if not all(tangent.get(key) is True for key in (
-            "closure_ok", "Mdot_geom_tangent_closure_ok", "plus_minus_current_projection_closure_ok"
-        )):
-            raise RuntimeError(f"signed tangent arithmetic closure failed at {label}")
-        for key in ("Mdot", "Mdot_geom", "Mdot_reconstructed", "closure_abs", "closure_bound"):
-            if f"tangent.{label}.{key}" not in arrays:
-                raise RuntimeError(f"missing signed tangent witness {label}.{key}")
-        divergence = divergence_reports[label]
-        if divergence.get("plus_projection_crosscheck_passed") is not True or divergence.get("minus_projection_crosscheck_passed") is not True:
-            raise RuntimeError(f"directional stress projection cross-check failed at {label}")
-        for channel in ("pointwise", "finite_volume"):
-            for component in ("div_T_t", "div_T_r"):
-                if f"divergence.{label}.{channel}.{component}" not in arrays:
-                    raise RuntimeError(f"missing {channel} divergence witness {label}.{component}")
+        tangent = report.get("tangent_reports", {}).get(label, {})
+        if tangent.get("semantics") != "analytic_family_central_difference":
+            raise RuntimeError(f"tangent semantics mismatch for {label}")
+        for flag in (
+            "Mdot_closure_passed",
+            "Mdot_geom_term_accounting_passed",
+            "plus_minus_six_sector_current_accounting_passed",
+        ):
+            if tangent.get(flag) is not True:
+                raise RuntimeError(f"tangent accounting failed for {label}: {flag}")
+        for suffix in ("Mdot", "Mdot_geom", "Mdot_reconstructed", "closure_abs", "closure_bound"):
+            if f"tangent_{label}.{suffix}" not in arrays:
+                raise RuntimeError(f"missing manufactured tangent witness {label}.{suffix}")
+        for key in ("div_T_r", "div_T_r_fv", "div_T_t", "div_T_t_fv"):
+            if f"total_T_{label}.total.{key}" not in arrays:
+                raise RuntimeError(f"missing total-stress divergence witness {label}.{key}")
+        divergence = report.get("divergence_reports", {}).get(label, {})
+        if divergence.get("sector_names") != ["dark_matter", "baryons", "radiation", "S", "D", "phi"]:
+            raise RuntimeError(f"six-sector divergence inventory mismatch for {label}")
+
+    witnesses = report.get("arithmetic_witnesses", {})
+    for flag in (
+        "all_family_projections_match_canonical",
+        "all_tangent_accounting_passed",
+        "all_pointwise_operator_component_reconstructions_passed",
+    ):
+        if witnesses.get(flag) is not True:
+            raise RuntimeError(f"manufactured fixture arithmetic witness failed: {flag}")
 
     return {
         "report": report,
         "arrays": arrays,
-        "archive_sha256": sha256(payload),
+        "archive_sha256": _sha(payload),
         "state_class": "manufactured_regular_family",
     }
 
@@ -160,13 +210,14 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--archive", type=Path, required=True)
     args = parser.parse_args()
-    loaded = load_manufactured_fixture(args.archive)
+    fixture = load_manufactured_fixture(args.archive)
     print(json.dumps({
         "status": "PASS",
-        "state_class": loaded["state_class"],
-        "archive_sha256": loaded["archive_sha256"],
-        "array_count": len(loaded["arrays"]),
-        "states": loaded["report"]["complete_constructed_state_classes"],
+        "state_class": fixture["state_class"],
+        "archive_sha256": fixture["archive_sha256"],
+        "array_count": len(fixture["arrays"]),
+        "tangent_semantics": fixture["report"]["tangent_semantics"],
+        "states": list(fixture["report"]["state_digests"]),
         "scientific_admission": False,
         "acceptance_oracle_satisfied": False,
     }, indent=2))
