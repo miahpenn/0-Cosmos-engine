@@ -695,6 +695,108 @@ def independent_scalar_and_geometry_rates(*,r,dr,a,b,X,alpha,beta,Aa,K,Lambda,
             "diagnostics":{"M_geometry":Mgeom,"lap_alpha":lap,
                            "R":R,"Rr_r":Rrr,"rho_dm_raw":rho_dm}}
 
+
+def six_sector_projection_directions(*,r,a,b,X,scalars,fluids,
+        geometry_rates,scalar_rates,matter_rates,d1):
+    """Analytic directional derivative of each locked sector projection.
+
+    Includes metric dependence in scalar gradients and fluid volume/metric
+    recovery. Dust and radiation are differentiated in their own conservative
+    variables; no total-source residual allocation is used.
+    """
+    r=_vec("projection r",r); n=r.size
+    a=_vec("projection a",a,n); b=_vec("projection b",b,n); X=_vec("projection X",X,n)
+    ad=_vec("a_dot",geometry_rates["a"],n)
+    bd=_vec("b_dot",geometry_rates["b"],n)
+    Xd=_vec("X_dot",geometry_rates["X"],n)
+    inv=X*X/a; invd=inv*(2.0*Xd/X-ad/a)
+    out={}
+    for name,field,momentum,norm,potential,potential_dot in (
+        ("S","S","PS",1.0,0.5*np.asarray(scalars["S"])**2,
+         np.asarray(scalars["S"])*scalar_rates["S"]),
+        ("D","D","PD",1.0,-0.5*np.asarray(scalars["D"])**2,
+         -np.asarray(scalars["D"])*scalar_rates["D"]),
+        ("phi","phi","Pi",8.0*math.pi,
+         8.242522415500654e-5*(np.exp(-np.asarray(scalars["phi"]))-0.10),
+         -8.242522415500654e-5*np.exp(-np.asarray(scalars["phi"]))*scalar_rates["phi"]),
+    ):
+        f=_vec(f"{name} field",scalars[field],n); p=_vec(f"{name} momentum",scalars[momentum],n)
+        fd=_vec(f"{name} field dot",scalar_rates[field],n); pd=_vec(f"{name} momentum dot",scalar_rates[momentum],n)
+        fp=d1(f,parity=1); fpd=d1(fd,parity=1)
+        grad=inv*fp*fp
+        gradd=invd*fp*fp+2.0*inv*fp*fpd
+        kin=0.5*p*p; kind=p*pd
+        out[name]={
+            "rho_dot":(kind+0.5*gradd+potential_dot)/norm,
+            "pr_dot":(kind+0.5*gradd-potential_dot)/norm,
+            "pt_dot":(kind-0.5*gradd-potential_dot)/norm,
+            "j_dot":-(pd*fp+p*fpd)/norm,
+        }
+    sqrtg=np.sqrt(a)*b*r*r/(X**3)
+    dlogg=0.5*ad/a+bd/b-3.0*Xd/X
+    grr=a/(X*X); invgrr=1.0/grr
+    dinvgrr=invgrr*(2.0*Xd/X-ad/a)
+    kappa=8.0*math.pi
+    for name in ("dark_matter","baryons","radiation"):
+        U=fluids[name]; Ud=matter_rates[name]
+        rest=_vec(f"{name} rest",U["rest"],n)
+        energy=_vec(f"{name} energy",U["energy_t"],n)
+        mom=_vec(f"{name} momentum",U["momentum_r"],n)
+        restd=_vec(f"{name} rest dot",Ud["rest"],n)
+        energyd=_vec(f"{name} energy dot",Ud["energy_t"],n)
+        momd=_vec(f"{name} momentum dot",Ud["momentum_r"],n)
+        S=mom/sqrtg; Sd=momd/sqrtg-S*dlogg
+        S2=invgrr*S*S
+        S2d=dinvgrr*S*S+2.0*invgrr*S*Sd
+        if name!="radiation":
+            D=rest/sqrtg; Dd=restd/sqrtg-D*dlogg
+            den=D*D+S2; dend=2.0*D*Dd+S2d
+            v2=S2/den
+            v2d=(S2d*den-S2*dend)/(den*den)
+            W=1.0/np.sqrt(1.0-v2)
+            Wd=0.5*W**3*v2d
+            E=D*W; Ed=Dd*W+D*Wd
+            out[name]={
+                "rho_dot":Ed/kappa,
+                "pr_dot":(Ed*v2+E*v2d)/kappa,
+                "pt_dot":np.zeros(n),
+                "j_dot":Sd/kappa,
+            }
+        else:
+            E=energy/sqrtg; Ed=energyd/sqrtg-E*dlogg
+            p=np.empty(n); pd=np.empty(n); v2=np.empty(n); v2d=np.empty(n)
+            for i in range(n):
+                if S2[i]==0.0:
+                    p[i]=E[i]/3.0
+                    # At zero flux the first directional change of S^2 is zero.
+                    pd[i]=Ed[i]/3.0
+                    v2[i]=0.0; v2d[i]=0.0
+                    continue
+                lo=0.0; hi=E[i]/3.0
+                for _ in range(100):
+                    mid=0.5*(lo+hi); vv=S2[i]/(E[i]+mid)**2
+                    F=(3.0*mid-E[i])+4.0*mid*vv/(1.0-vv)
+                    if abs(F)<=1.0e-12*E[i]: break
+                    if F>=0.0: hi=mid
+                    else: lo=mid
+                p[i]=mid; z=E[i]+p[i]; v2[i]=S2[i]/(z*z)
+                vv=v2[i]
+                Fp=3.0+4.0*vv/(1.0-vv)-8.0*p[i]*vv/(z*(1.0-vv)**2)
+                FE=-1.0-8.0*p[i]*vv/(z*(1.0-vv)**2)
+                FS=4.0*p[i]/(z*z*(1.0-vv)**2)
+                pd[i]=-(FE*Ed[i]+FS*S2d[i])/Fp
+                v2d[i]=S2d[i]/(z*z)-2.0*S2[i]*(Ed[i]+pd[i])/(z**3)
+            out[name]={
+                "rho_dot":Ed/kappa,
+                "pr_dot":((Ed+pd)*v2+(E+p)*v2d+pd)/kappa,
+                "pt_dot":pd/kappa,
+                "j_dot":Sd/kappa,
+            }
+    for name in SIX_SECTOR_NAMES:
+        for key in ("rho_dot","pr_dot","pt_dot","j_dot"):
+            out[name][key]=_vec(f"{name} {key}",out[name][key],n)
+    return out
+
 def solve_stage_aware_cmc_tangent_six_sector(
         *, sector_projections, sector_projection_directions, **stage_args):
     """Stage-aware CMC tangent whose matter source is bound to six named sectors."""
