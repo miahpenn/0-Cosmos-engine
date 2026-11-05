@@ -215,3 +215,6 @@ The stage-aware CMC tangent API remains independently tested on controls where t
 
 
 The narrowed accepted-state workflow passed in [CI run #42099641196](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/42099641196), both jobs successful. The independent module ran **11 tests** and passed the static no-production/no-vendor import guard. The accepted-state job verified all six sector projection directions by centered differences at both epsilons, reconstructed the distinct positive output lapse, and retained a base CMC residual of (2.949978586061497\\times10^{-16}). It explicitly reports the incoming-lapse direction as unavailable and certifies no accepted-state output-lapse tangent.
+
+
+Current fixed-point-control status: the base affine solve passes, but the implicit directional two-epsilon cross-check remains failing in [CI run #42101290417](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/42101290417), with max discrepancy approximately 1.36e-6 and 19/20 cells outside tolerance. No directional certification is claimed.
