@@ -620,7 +620,17 @@ def main() -> int:
     if args.output is None:
         print(payload)
     else:
-            _write_json_payload(args.output, payload)
+        _write_json_payload(args.output, payload)
+        print(json.dumps({
+            "status": result["status"],
+            "state_class": result["state_class"],
+            "tangent_semantics": result["tangent_semantics"],
+            "summaries": result["summaries"],
+            "zero_step_tripwire": result["zero_step_tripwire"],
+            "production_steps_run": result["production_steps_run"],
+            "state_advanced": result["state_advanced"],
+            "accepted_reference_regression": result["accepted_reference_regression"],
+        }, indent=2, sort_keys=True, allow_nan=False))
     return 0
 
 
