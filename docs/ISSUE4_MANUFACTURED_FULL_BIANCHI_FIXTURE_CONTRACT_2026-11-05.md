@@ -205,3 +205,31 @@ The finite-volume sector reconstruction independently gives a total residual of 
 The pinned helper's scalar definitions retain the existing signs: (V_S=+S^2/2), (V_D=-D^2/2), with (j=-P D_r f) for each scalar sector. No sign or normalization was changed to obtain this result.
 
 **Next diagnostic-only step:** audit the declared S/D family variations against these pinned scalar stress identities and centre-parity conditions, using independent algebra and the archived arrays. Keep all coefficients fixed; do not call the production RHS, evolve, or promote any conservation/admission flag.
+
+
+## 13. Family-direction consistency audit — 2026-11-05
+
+The sector attribution localizes the residual but does not identify a missing Bianchi term. The current analytic family is deliberately not a production-RHS tangent, and its primitive variations are not aligned with the pinned matter evolution equations.
+
+For the S/D scalar sectors, the pinned flat-slice scalar equations in `engine/scalar_system.py` reduce to:
+
+- `S_dot = PS`, `PS_dot = Laplacian(S) - S`
+- `D_dot = PD`, `PD_dot = Laplacian(D) + D`
+
+The manufactured family instead holds `S` and `D` fixed while setting `PS(s)=s*(1/50)*exp(-r^2/64)` and `PD(s)=s*(1/75)*exp(-r^2/64)`. At (s=0), the field-rate relations are consistent because (PS=PD=0), but the family derivatives of the conjugate momenta are not the scalar accelerations implied by the pinned equations.
+
+An independent continuum Gaussian check at (r=11/3) gives:
+
+| Sector | Family momentum derivative | Flat-slice scalar-equation acceleration |
+|---|---:|---:|
+| S | +1.62106e-2 | -8.75873e-2 |
+| D | +1.08070e-2 | +3.72591e-2 |
+| COSMOS-`phi` | +8.10528e-3 | approximately -2.56898e-3 |
+
+These are analytic formula comparisons only; no scalar or production RHS function was called. The pinned scalar source defines (V_S=+S^2/2), (V_D=-D^2/2), and the COSMOS potential and exchange coefficient. The current family coefficients are declared synthetic controls, not fitted physical values.
+
+The fluid part of the family is also not a physical matter tangent: at (s=0), the density profiles have zero first derivative in (s), while the family assigns nonzero first derivatives to radial velocities. A continuity-consistent tangent would generally require a corresponding density derivative. Radiation additionally has a pressure-gradient acceleration.
+
+**Interpretation:** the measured residual is dominated by S (+1.42664e-2 at the peak) with D opposing it (-2.74708e-3 at the same radius); this is consistent with the chosen arbitrary scalar-momentum direction. The other sectors are orders of magnitude smaller. This does not establish a missing physical term or a failure of the accepted production-RHS identity.
+
+**Next step:** if a physical-tangent discriminator is needed, design a separate analytic matter-direction control whose scalar and fluid primitive derivatives satisfy independently derived field/continuity equations, with its own class label, archive, and provenance. Keep the current `manufactured_regular_family` fixture immutable as the arbitrary-family control. Do not call the production RHS, alter the predictor, or change admission flags.
