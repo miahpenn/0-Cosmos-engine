@@ -223,6 +223,7 @@ jobs:
           print("PASS: stage-1 K-RHS tangent max abs =",float(np.max(np.abs(stage1.k_rhs_in_dot))))
           print("PASS: stage-1 output lapse tangent max abs =",float(np.max(np.abs(stage1.tangent.alpha_dot))))
           print("PASS: stage-1 CMC residual max abs =",float(np.max(np.abs(stage1.base.residual))))
-          print("PASS: both stage-aware CMC tangents match centered differences at eps=2e-5 and 1e-5")
-          print("SCOPE: immutable accepted-state, zero-step directional witness only; no production RHS or evolution called.")
+          print("PASS: both stage-aware CMC output tangents match centered differences at eps=2e-5 and 1e-5")
+          print("SCOPE: immutable accepted-state, zero-step directional witness; stage-1 receives nonzero propagated alpha_in_dot.")
+          print("LIMIT: the archive has no preceding CMC-stage input, so the first archived incoming-lapse direction is anchored at zero; this is not yet the complete no-frozen-lapse chain.")
           PY
