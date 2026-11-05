@@ -481,6 +481,51 @@ def _fixed_point_map_block_tangent(base, alpha_in, state_rates, alpha_in_dot):
 
 
 
+
+def test_stage_fixture_fixed_point_map_state_and_combined_blocks_two_epsilons():
+    """Cross-check the original stage fixture's state block and implicit combined direction."""
+    from tools.issue4_cmc_lapse_tangent import (
+        solve_cmc_lapse_fixed_point,differentiate_cmc_lapse_fixed_point)
+    base,rates=_stage_state()
+    args={key:base[key] for key in
+          ("r","dr","a","b","X","Aa","K","rho","pr","pt")}
+    fixed=solve_cmc_lapse_fixed_point(**args,d1=_d1,d2=_d2)
+    state_rates={key+"_dot":rates[key+"_dot"] for key in
+                 ("a","b","X","Aa","K","rho","pr","pt")}
+    zeros=np.zeros_like(base["r"])
+    _,state_tangent=_fixed_point_map_block_tangent(
+        args,fixed.alpha_in,state_rates,zeros)
+    implicit=differentiate_cmc_lapse_fixed_point(
+        fixed_point=fixed,**args,
+        a_dot=state_rates["a_dot"],b_dot=state_rates["b_dot"],
+        X_dot=state_rates["X_dot"],Aa_dot=state_rates["Aa_dot"],
+        K_dot=state_rates["K_dot"],rho_dot=state_rates["rho_dot"],
+        pr_dot=state_rates["pr_dot"],pt_dot=state_rates["pt_dot"],
+        d1=_d1,d2=_d2)
+    _,combined_tangent=_fixed_point_map_block_tangent(
+        args,fixed.alpha_in,state_rates,implicit.alpha_dot)
+    np.testing.assert_allclose(
+        combined_tangent.alpha_dot,implicit.alpha_dot,
+        rtol=2.0e-10,atol=2.0e-12)
+    for eps in (2.0e-5,1.0e-5):
+        plus_state={key:eps*state_rates[key+"_dot"] for key in
+                    ("a","b","X","Aa","K","rho","pr","pt")}
+        minus_state={key:-eps*state_rates[key+"_dot"] for key in
+                     ("a","b","X","Aa","K","rho","pr","pt")}
+        plus=_fixed_point_map_output(args,fixed.alpha_in,plus_state)
+        minus=_fixed_point_map_output(args,fixed.alpha_in,minus_state)
+        state_fd=(plus.alpha-minus.alpha)/(2.0*eps)
+        np.testing.assert_allclose(
+            state_fd,state_tangent.alpha_dot,rtol=4.0e-5,atol=2.0e-8)
+        plus=_fixed_point_map_output(
+            args,fixed.alpha_in+eps*implicit.alpha_dot,plus_state)
+        minus=_fixed_point_map_output(
+            args,fixed.alpha_in-eps*implicit.alpha_dot,minus_state)
+        combined_fd=(plus.alpha-minus.alpha)/(2.0*eps)
+        np.testing.assert_allclose(
+            combined_fd,implicit.alpha_dot,rtol=4.0e-5,atol=2.0e-8)
+
+
 def test_fixed_point_map_full_incoming_lapse_jacobian_basis_two_epsilons():
     """Compare every analytic incoming-lapse basis column with direct map differences."""
     from tools.issue4_cmc_lapse_tangent import solve_cmc_lapse_fixed_point
