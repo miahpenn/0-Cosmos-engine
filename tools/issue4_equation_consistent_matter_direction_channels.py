@@ -39,6 +39,7 @@ CODE_PATHS = (
     "tools/issue4_equation_consistent_matter_direction.py",
     "tools/issue4_equation_consistent_matter_direction_fixture.py",
     "tools/issue4_equation_consistent_matter_direction_channels.py",
+    "tools/issue4_equation_consistent_matter_direction_evaluator.py",
     "tests/test_issue4_equation_consistent_matter_direction.py",
     "tests/test_issue4_equation_consistent_matter_direction_fixture.py",
     "tests/test_issue4_accepted_state_fixture.py",
