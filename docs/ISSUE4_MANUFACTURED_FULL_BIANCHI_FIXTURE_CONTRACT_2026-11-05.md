@@ -159,11 +159,11 @@ The raw six-sector divergence reconstruction passed with maximum raw gap approxi
 
 The narrow `manufactured_regular_family` dispatch now feeds the verified archive through the existing locked predictor. The accepted-state loader remains a separate path; accepted regression checks are run independently.
 
-- Final workflow: [run #42075901338](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/42075901338)
+- Final workflow: [run #42076902482](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/42076902482)
 - Full bounded suite: **19 passed** (constructor, manufactured schema/loader, accepted fixture loader, reference regression, and evaluator zero-step contract).
 - Fixture ZIP: `issue4_manufactured_regular_family_N60.zip`
-- Fixture ZIP SHA-256: `fe6fbe606d83704df2d35d838b945a7f68095a3db9af1e571c4830b5fc7f9d4e`
-- Workflow artifact: [download artifact 13437962065](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/42075901338/artifacts/13437962065)
+- Fixture ZIP SHA-256: `ac4a12d5c45c37b505c4f20db83a56b399fb4232cfc0ca7102371cf1717355b7`
+- Workflow artifact: [download artifact 13439855369](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/42076902482/artifacts/13439855369)
 - Evaluator result: `diagnostic_evaluation_complete`, `state_class=manufactured_regular_family`, `tangent_semantics=analytic_family_central_difference`.
 - Zero-step guard: armed and not triggered; `production_steps_run=0`, `state_advanced=false`.
 - Accepted reference regression is explicitly marked not executed for the manufactured class; its separate reference-regression and accepted-loader tests passed in the same bounded suite.
@@ -182,3 +182,26 @@ The report retains all six signed predictor terms, the two divergence channels, 
 All admission flags remain false. No production initializer/RHS/vendor step was called; no production equations, accepted-state loader, or accepted-state regression values were changed.
 
 **Next diagnostic question:** inspect the signed-term decomposition and the time-density accounting remainder to determine which specific term or accounting convention explains the manufactured residual. Do not fit coefficients, tune an operator, evolve the state, or infer physical conservation from this manufactured discriminator.
+
+
+## 12. Six-sector residual attribution — 2026-11-05
+
+The latest run adds a signed sector-by-sector reconstruction of the manufactured residual. At the total-residual peak, (r=3.6666667), (epsilon=10^{-5}), pointwise channel:
+
+| Sector | Measured tangent | Normal-H gradient | Stress source | Sector residual |
+|---|---:|---:|---:|---:|
+| Dark matter | -2.80217e-5 | +2.13687e-5 | -2.80217e-5 | -2.13687e-5 |
+| Baryons | -1.16757e-5 | +1.06843e-5 | -1.16757e-5 | -1.06843e-5 |
+| Radiation | -8.89578e-6 | +7.12289e-6 | -1.76810e-6 | -1.42506e-5 |
+| S | -3.78353e-3 | +6.19094e-3 | -2.42408e-2 | **+1.42664e-2** |
+| D | -1.26118e-3 | -1.60484e-3 | +3.09075e-3 | **-2.74708e-3** |
+| COSMOS-`phi` | -3.01084e-5 | -8.25883e-7 | -3.95189e-5 | +1.02364e-5 |
+| **Total** | **-5.12341e-3** | **+4.62445e-3** | **-2.12311e-2** | **+1.14832e-2** |
+
+The six sector residuals reconstruct the total to approximately (1.4\times10^{-16}). The S sector is the dominant positive contribution; D opposes it, while the four remaining sectors are each at roughly (10^{-5}). The S+D residual is approximately (+1.15193\times10^{-2}), with the other four sectors contributing approximately (-3.61\times10^{-5}).
+
+The finite-volume sector reconstruction independently gives a total residual of (+1.14358\times10^{-2}). The pointwise/FV difference is small compared with the residual itself. This is a scalar-sector localization, not evidence that a physical term is missing: the manufactured family is not the accepted production-RHS tangent or a physical trajectory.
+
+The pinned helper's scalar definitions retain the existing signs: (V_S=+S^2/2), (V_D=-D^2/2), with (j=-P D_r f) for each scalar sector. No sign or normalization was changed to obtain this result.
+
+**Next diagnostic-only step:** audit the declared S/D family variations against these pinned scalar stress identities and centre-parity conditions, using independent algebra and the archived arrays. Keep all coefficients fixed; do not call the production RHS, evolve, or promote any conservation/admission flag.
