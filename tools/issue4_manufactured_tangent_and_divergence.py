@@ -264,8 +264,8 @@ def main():
             "Mdot_decomposition_gap_max_abs": float(np.max(np.abs(closure))),
             "Mdot_decomposition_roundoff_bound_max": float(np.max(decomposition_roundoff_bound)),
             "Mdot_geom_term_accounting_passed": geom_closure_ok,
-            "Mdot_geom_term_closure_max_abs": float(np.max(np.abs(geom_closure))),
-            "Mdot_geom_term_closure_max_bound": float(np.max(geom_bound)),
+            "Mdot_geom_term_accounting_gap_max_abs": float(np.max(np.abs(geom_closure))),
+            "Mdot_geom_term_accounting_roundoff_bound_max": float(np.max(geom_bound)),
             "plus_minus_six_sector_current_accounting_passed": current_closure_ok,
         }
         if not (mdot_closure_ok and geom_closure_ok and current_closure_ok):
