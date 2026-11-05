@@ -61,8 +61,13 @@ def _fluid_conserved(r: np.ndarray, rho: np.ndarray, pressure: np.ndarray,
     h = rho + pressure
     energy = h * W*W - pressure
     momentum = h * W*W * v
-    # D=rho W; T^t_t=-E; T^t_r=S_r on this exact flat ADM slice.
-    return rho*W, -energy, momentum
+    # The pinned conservative arrays carry sqrt(gamma)=r^2 on this flat
+    # areal slice. energy_t stores positive Eulerian E; the minus sign in
+    # mixed T^t_t=-E is applied by the tensor projection, not stored here.
+    # Radiation has no rest-current slot in the pinned representation.
+    sqrt_gamma = r*r
+    rest = np.zeros_like(rho) if radiation else sqrt_gamma*rho*W
+    return rest, sqrt_gamma*energy, sqrt_gamma*momentum
 
 
 def construct_regular_family(centers: np.ndarray, s: float = 0.0) -> dict[str, np.ndarray]:
