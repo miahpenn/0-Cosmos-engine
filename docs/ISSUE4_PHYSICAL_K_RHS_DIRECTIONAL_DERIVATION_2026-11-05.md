@@ -144,6 +144,19 @@ The bounded workflow run for commit `a21363a3557f16006bacedb31691b89ac85856c2` c
 **Scope limitation:** these new plus/minus tests use a manufactured smooth control and combined ((\rho,p_r,p_t)) input profiles. They verify the independent directional algebra and stage-aware solve, not yet the actual pinned accepted-state six-sector arrays. The next binding gate is to feed the locked six-sector projection outputs and independently derived coupled geometry/primary directions into this API, compare the reconstructed incoming (K_{\rm RHS}) against the pinned L2+L3 component ledger, and run the required two-epsilon plus/minus checks on the accepted (t=0.60) state. Do not claim that physical-state binding or coupled-fixture admission has passed yet.
 
 
+### Instantaneous six-sector and coupled-geometry direction transcription (2026-11-05)
+
+A new no-import research transcription has been added to `tools/issue4_cmc_lapse_tangent.py`:
+- `independent_scalar_and_geometry_rates` derives the scalar-field rates, three Valencia conservative RHS profiles, native CMC ((a,b,X)) rates, pinned vendor L2/L3 ((A_a,K)) rates, and the (Lambda) L2/L3 rates directly from their source equations;
+- `_independent_fluid_rhs` transcribes cell-centred primitive recovery, minmod reconstruction, face-metric interpolation, HLL fluxes, radial geometric sources, and the DM-only covector exchange/rest-current source. Baryons and radiation receive no DM exchange source;
+- `six_sector_projection_directions` analytically differentiates each scalar and fluid sector's own ((\rho,p_r,p_t,j)) projection, including the metric/volume response and the implicit radiation primitive relation.
+
+The source pins used are diagnostic source `4aec88d0e3ff028e0a65a8ac36b30948625df792`, vendor `d6052d605673ce9d82cdc99b0df79855fa2ea215`, and the scalar/Valencia source files at the diagnostic pin. The vendor primary L2 curvature brackets, L2 lapse Hessian, L3 primary sources, Lambda L2 momentum term, and Lambda L3 matter term are transcribed explicitly. The CMC explicit metric rates are the beta=0 source equations (\dot a=-2\alpha aA_a), (\dot b=\alpha bA_a), (\dot X=\alpha XK/3). No production RHS, production kernel, adapter, or vendor module is imported or called.
+
+The first regression now compares the analytic six-sector projection directions with centered plus/minus reconstruction at both (\epsilon=2\times10^{-5}) and (10^{-5}). CI run [#42097574717](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/42097574717) was queued at the time of this record; its result must be checked before calling this synthetic directional gate passed.
+
+**Scope boundary:** this is the first complete equation transcription, not yet accepted-state admission. The accepted (t=0.60,N=60) archive must next be fed through this independent instantaneous-rate builder. The resulting per-sector directional projections must be bound to the stage-aware CMC tangent, including a nonzero incoming-lapse direction propagated from the preceding CMC stage. The two-epsilon output-lapse and projected-target witnesses remain required. No frozen-lapse assumption, fixed-point identity, production call, fit, or admission change is authorized.
+ 
 ### Discrete-operator crosswalk and source-matched implementation (2026-11-05)
 
 The first accepted-state crosswalk was run against the immutable `accepted-state-N60.zip` nested in workflow artifact `13442329240` from run `42084531386`. The archived base arrays are at (t=0.60), (N=60), with the locked vendor commit `d6052d605673ce9d82cdc99b0df79855fa2ea215`.
