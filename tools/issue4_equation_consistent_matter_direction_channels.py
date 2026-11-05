@@ -455,7 +455,8 @@ def main():
             "dark_matter_force": "beta_DM*partial_r(phi), beta_DM=-0.04",
             "radiation_force": "-partial_r(rho/3)/(4*rho/3)",
             "geometry": "held fixed; no Einstein geometric tangent is supplied",
-            "scalar_operator": "pinned grid fourth-order radial derivatives; no scalar RHS call",
+            "scalar_operator": "pinned vendor fourth-order cell derivative and second derivative",
+            "matter_gradient_operator": "pinned vendor fourth-order cell derivative",
         },
         "interpretation_limits": [
             "The matter-direction tangent is an analytic-family central difference, not a production-RHS tangent.",
