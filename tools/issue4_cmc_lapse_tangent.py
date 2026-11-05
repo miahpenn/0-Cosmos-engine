@@ -49,6 +49,45 @@ def _vec(name, value, n=None):
     return x
 
 
+
+def fourth_order_cell_derivative(values, dr: float, *, parity: int, order: int = 1) -> np.ndarray:
+    """Pinned cell-centred fourth-order derivative with parity ghosts.
+
+    Independent transcription of vendor commit
+    d6052d605673ce9d82cdc99b0df79855fa2ea215, r0_operators.py,
+    SphericalCellGrid._cell_derivative_fourth. No vendor module is imported.
+    """
+    if parity not in (-1, 1):
+        raise ValueError("parity must be +1 (even) or -1 (odd)")
+    if order not in (1, 2):
+        raise ValueError("derivative order must be 1 or 2")
+    if not math.isfinite(float(dr)) or dr <= 0.0:
+        raise ValueError("grid spacing must be finite and positive")
+    u = _vec("derivative input", values)
+    n = u.size
+    if n < 5:
+        raise ValueError("fourth-order derivative requires at least five cells")
+    result = np.empty_like(u)
+    extended = np.empty(n + 4)
+    extended[2:-2] = u
+    extended[1] = parity * u[0]
+    extended[0] = parity * u[1]
+    for i in range(n - 2):
+        stencil = extended[i:i+5]
+        if order == 1:
+            result[i] = (stencil[0]-8.0*stencil[1]+8.0*stencil[3]-stencil[4])/(12.0*dr)
+        else:
+            result[i] = (-stencil[0]+16.0*stencil[1]-30.0*stencil[2]+16.0*stencil[3]-stencil[4])/(12.0*dr**2)
+    indices = np.arange(n-5,n)
+    for i in (n-2,n-1):
+        offsets = indices.astype(float)-float(i)
+        matrix = np.vstack([offsets**power for power in range(5)])
+        target = np.zeros(5)
+        target[order] = float(math.factorial(order))
+        weights = np.linalg.solve(matrix,target)
+        result[i] = float(weights@u[indices])/dr**order
+    return result
+
 def _validate_grid(r, dr):
     r = _vec("radial centres", r)
     if r.size < 3 or np.any(r <= 0.0):
