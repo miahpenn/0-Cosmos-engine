@@ -53,6 +53,36 @@ class ManufacturedRegularFamilyTests(unittest.TestCase):
                 -minus[f"matter.{species}.momentum_r"], rtol=1e-14, atol=1e-18
             )
 
+    def test_conserved_arrays_match_pinned_flat_areal_valencia_convention(self):
+        state = construct_regular_family(self.r, s=1.0e-5)
+        r2 = self.r**2
+        for species in ("dark_matter", "baryons", "radiation"):
+            rho = PROFILE["fluid_rest_density_amplitudes"][species] * np.exp(
+                -(self.r / PROFILE["fluid_width"])**2
+            )
+            slope = PROFILE["family_velocity_slopes"][species]
+            velocity = 1.0e-5 * slope * self.r * np.exp(
+                -(self.r / PROFILE["fluid_width"])**2
+            )
+            pressure = rho / 3.0 if species == "radiation" else np.zeros_like(rho)
+            W = 1.0 / np.sqrt(1.0 - velocity**2)
+            h = rho + pressure
+            expected_energy = r2 * (h * W**2 - pressure)
+            expected_momentum = r2 * h * W**2 * velocity
+            expected_rest = (
+                np.zeros_like(rho) if species == "radiation" else r2 * rho * W
+            )
+            np.testing.assert_allclose(
+                state[f"matter.{species}.rest"], expected_rest, rtol=2e-15, atol=0.0
+            )
+            np.testing.assert_allclose(
+                state[f"matter.{species}.energy_t"], expected_energy, rtol=2e-15, atol=0.0
+            )
+            np.testing.assert_allclose(
+                state[f"matter.{species}.momentum_r"], expected_momentum, rtol=2e-15, atol=0.0
+            )
+            self.assertTrue(np.all(state[f"matter.{species}.energy_t"] > 0.0))
+
     def test_triplet_members_are_independent_arrays_and_epsilon_is_validated(self):
         triplet = construct_triplet(self.r, 2e-5)
         self.assertEqual(set(triplet), {"base", "plus", "minus"})
