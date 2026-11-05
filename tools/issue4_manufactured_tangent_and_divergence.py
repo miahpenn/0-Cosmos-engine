@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""Diagnostic-only RHS tangent and independent covariant-divergence channels."""
+"""Build the exact analytic-family Issue #4 manufactured fixture.
+
+No production initializer, production RHS, kernel step, or vendor evolution
+step is called. The tangent is a central difference of the declared analytic
+family U(s), and both divergence channels use the same frozen triplets.
+"""
 from __future__ import annotations
 
 import hashlib
@@ -26,39 +31,48 @@ EXPECTED_BASELINE = "7f47669a1c0edfafef9fc5f27b2db80840d3f035"
 EXPECTED_VENDOR = "d6052d605673ce9d82cdc99b0df79855fa2ea215"
 EXPECTED_TANGENT_BLOB = "3f00a4e0a2063b86d2e007c5a825f9edfff61a4c"
 EXPECTED_TOTAL_BLOB = "c10f9e8b9e654d5195fd55c493c3fe06ba5c7082"
+CODE_PATHS = (
+    "tools/issue4_full_bianchi_evaluator.py",
+    "tools/issue4_zero_step_full_bianchi_observer.py",
+    "tools/issue4_accepted_state_fixture.py",
+    "tools/issue4_manufactured_regular_family.py",
+    "tools/issue4_manufactured_fixture.py",
+    "tools/issue4_manufactured_tangent_and_divergence.py",
+    "tests/test_issue4_manufactured_regular_family.py",
+)
 
 
 def git(root: Path, *args: str) -> str:
     return subprocess.check_output(["git", "-C", str(root), *args], text=True).strip()
 
 
+def digest_bytes(payload: bytes) -> str:
+    return hashlib.sha256(payload).hexdigest()
+
+
 def digest_file(path: Path) -> str:
-    h = hashlib.sha256()
-    with path.open("rb") as f:
-        for chunk in iter(lambda: f.read(1024 * 1024), b""):
-            h.update(chunk)
-    return h.hexdigest()
+    return digest_bytes(path.read_bytes())
 
 
-def load_pinned_module(name: str, path: Path, env_name: str):
+def load_pinned_module(name: str, path: Path):
     spec = importlib.util.spec_from_file_location(name, path)
     if spec is None or spec.loader is None:
         raise RuntimeError(f"cannot load pinned helper: {path}")
     module = importlib.util.module_from_spec(spec)
-    sys.modules[name] = module
-    old = os.environ.get(env_name)
-    os.environ[env_name] = str(BASELINE)
+    sys.modules[spec.name] = module
+    old = os.environ.get("COSMOS_PINNED_SOURCE_ROOT")
+    os.environ["COSMOS_PINNED_SOURCE_ROOT"] = str(BASELINE)
     try:
         spec.loader.exec_module(module)
     finally:
         if old is None:
-            os.environ.pop(env_name, None)
+            os.environ.pop("COSMOS_PINNED_SOURCE_ROOT", None)
         else:
-            os.environ[env_name] = old
+            os.environ["COSMOS_PINNED_SOURCE_ROOT"] = old
     return module
 
 
-def construct_production_state(arrays, r0, vacuum, tangent):
+def construct_production_state(arrays, r0, vacuum):
     from engine.production_kernel import ProductionState
     from engine.scalar_system import ScalarFields
     from engine.matter_system import ConservedSpecies
@@ -67,7 +81,7 @@ def construct_production_state(arrays, r0, vacuum, tangent):
     r = np.asarray(arrays["grid.centers"], dtype=np.float64)
     grid = r0.SphericalCellGrid(r.size, float(r[0] * 2.0 * r.size))
     if not np.array_equal(np.asarray(grid.centers), r):
-        raise RuntimeError("pinned grid differs from constructed state centers")
+        raise RuntimeError("pinned vendor grid differs from constructed state centers")
     geometry = vacuum.VacuumState(**{
         key: np.asarray(arrays[f"geometry.{key}"], dtype=np.float64).copy()
         for key in ("a", "b", "X", "alpha", "beta", "Aa", "K", "Lambda", "B")
@@ -100,12 +114,9 @@ def add_projection_arrays(out, prefix, projection):
             out[f"{prefix}.fluid.{sector}.{key}"] = np.asarray(value, dtype=np.float64)
 
 
-def add_nested_arrays(out, prefix, values):
-    if isinstance(values, dict):
-        for key, value in values.items():
-            add_nested_arrays(out, f"{prefix}.{key}", value)
-    elif isinstance(values, np.ndarray):
-        out[prefix] = np.asarray(values, dtype=np.float64)
+def add_list_arrays(out, prefix, values):
+    for key, value in values.items():
+        out[f"{prefix}.{key}"] = np.asarray(value, dtype=np.float64)
 
 
 def main():
@@ -118,218 +129,320 @@ def main():
     if (diag_commit, baseline_commit, vendor_commit, tangent_blob, total_blob) != (
         EXPECTED_DIAG, EXPECTED_BASELINE, EXPECTED_VENDOR, EXPECTED_TANGENT_BLOB, EXPECTED_TOTAL_BLOB
     ):
-        raise RuntimeError("one or more diagnostic/helper/vendor pins differ from the locked identities")
+        raise RuntimeError("one or more diagnostic/helper/vendor pins differ from locked identities")
 
     sys.path.insert(0, str(ROOT))
     sys.path.insert(0, str(vendor_root))
     sys.path.insert(0, str(DIAG))
-    from tools.issue4_manufactured_regular_family import construct_regular_family
+    from tools.issue4_manufactured_regular_family import (
+        PROFILE, STATE_ARRAY_NAMES, construct_regular_family,
+    )
     import r0_operators
     import vacuum_bssn
 
     tangent = load_pinned_module(
-        "_issue4_manufactured_signed_tangent",
+        "_issue4_manufactured_constraint_observer",
         DIAG / "tools" / "audit_current_source_momentum_constraint_tangent.py",
-        "COSMOS_PINNED_SOURCE_ROOT",
     )
     total = load_pinned_module(
         "_issue4_manufactured_total_stress",
         DIAG / "tools" / "audit_total_stress_energy_divergence.py",
-        "COSMOS_PINNED_SOURCE_ROOT",
     )
     tangent_provenance = tangent.provenance()
     total_provenance = total.verify_provenance()
 
     r = (np.arange(N, dtype=np.float64) + 0.5) * (R_MAX / N)
-    arrays = construct_regular_family(r, 0.0)
-    state = construct_production_state(arrays, r0_operators, vacuum_bssn, tangent)
-    initial_digest = tangent.state_digest(state)
-    kernel = tangent.V55ProductionKernel()
-
-    # Hard tripwire: no production step is permitted in this observer.
-    def forbidden_step(*args, **kwargs):
-        raise RuntimeError("production step forbidden in manufactured tangent/divergence observer")
-    kernel.step = forbidden_step
-
-    rates = tangent.rhs_direction(kernel, state)
-    base_projection = total.independent_total_projections(state)
-    if not base_projection["projection_crosscheck_passed"]:
-        raise RuntimeError(f"base projection cross-check failed: {base_projection['projection_crosscheck']}")
-
-    retained: dict[str, np.ndarray] = {}
-    for name, value in arrays.items():
-        retained[f"state.base.{name}"] = np.asarray(value, dtype=np.float64)
-    add_projection_arrays(retained, "projection.base", base_projection)
-    family_projection_reports = {"base": {
-        "state_digest": initial_digest,
-        "projection_crosscheck_passed": True,
-        "projection_crosscheck": base_projection["projection_crosscheck"],
-    }}
-    # Preserve all four analytically constructed +/- family members in this
-    # same complete fixture archive, not only in the earlier projection run.
-    for family_eps in EPSILONS:
-        family_label = f"eps{family_eps:.0e}".replace("+", "")
-        for sign, signed_eps in (("plus", family_eps), ("minus", -family_eps)):
-            member = construct_regular_family(r, signed_eps)
-            member_state = construct_production_state(member, r0_operators, vacuum_bssn, tangent)
-            member_digest = tangent.state_digest(member_state)
-            member_projection = total.independent_total_projections(member_state)
-            if not member_projection["projection_crosscheck_passed"]:
-                raise RuntimeError(
-                    f"family projection cross-check failed for {family_label}_{sign}: "
-                    f"{member_projection['projection_crosscheck']}"
-                )
-            member_key = f"{family_label}_{sign}"
-            for key, value in member.items():
-                retained[f"state.{member_key}.{key}"] = np.asarray(value, dtype=np.float64)
-            add_projection_arrays(retained, f"projection.{member_key}", member_projection)
-            if tangent.state_digest(member_state) != member_digest:
-                raise RuntimeError(f"family state mutated during projection: {member_key}")
-            family_projection_reports[member_key] = {
-                "state_digest": member_digest,
-                "projection_crosscheck_passed": True,
-                "projection_crosscheck": member_projection["projection_crosscheck"],
-            }
-    tangent_reports = {}
-    divergence_reports = {}
-    epsilon_sensitivity = {}
-
+    family_arrays = {"base": construct_regular_family(r, 0.0)}
     for eps in EPSILONS:
         label = f"eps{eps:.0e}".replace("+", "")
-        tangent_item = tangent.tangent_for_epsilon(kernel, state, rates, eps)
+        family_arrays[f"{label}_plus"] = construct_regular_family(r, eps)
+        family_arrays[f"{label}_minus"] = construct_regular_family(r, -eps)
+
+    states = {}
+    state_digests = {}
+    projections = {}
+    retained: dict[str, np.ndarray] = {}
+    family_reports = {}
+    for label, arrays in family_arrays.items():
+        state = construct_production_state(arrays, r0_operators, vacuum_bssn)
+        before = tangent.state_digest(state)
+        projection = total.independent_total_projections(state)
+        observed = tangent.observe_constraint(state)
+        after = tangent.state_digest(state)
+        if before != after:
+            raise RuntimeError(f"state {label} mutated during zero-step projection")
+        if not projection["projection_crosscheck_passed"]:
+            raise RuntimeError(f"six-sector projection cross-check failed for {label}")
+        if not observed["M_geom_closure_ok"] or not observed["J_closure_ok"]:
+            raise RuntimeError(f"constraint/current projection accounting failed for {label}")
+        states[label], state_digests[label], projections[label] = state, before, projection
+        for key in STATE_ARRAY_NAMES:
+            retained[f"state.{label}.{key}"] = np.asarray(arrays[key], dtype=np.float64)
+        add_projection_arrays(retained, f"projection.{label}", projection)
+        family_reports[label] = {
+            "state_digest": before,
+            "projection_crosscheck": projection["projection_crosscheck"],
+            "projection_crosscheck_passed": True,
+            "geometric_constraint_term_accounting_passed": True,
+            "six_sector_current_accounting_passed": True,
+        }
+
+    tangent_reports = {}
+    divergence_reports = {}
+    eps_labels = []
+    machine_eps = float(np.finfo(np.float64).eps)
+    for eps in EPSILONS:
+        label = f"eps{eps:.0e}".replace("+", "")
+        eps_labels.append(label)
+        plus_label, minus_label = f"{label}_plus", f"{label}_minus"
+        base_state, plus_state, minus_state = (
+            states["base"], states[plus_label], states[minus_label]
+        )
+        base_obs = tangent.observe_constraint(base_state)
+        plus_obs = tangent.observe_constraint(plus_state)
+        minus_obs = tangent.observe_constraint(minus_state)
+        denom = 2.0 * eps
+        mdot = (plus_obs["M_total"] - minus_obs["M_total"]) / denom
+        mdot_geom = (plus_obs["M_geom"] - minus_obs["M_geom"]) / denom
+        mdot_geom_terms = {
+            key: (plus_obs["M_geom_pieces"][key] - minus_obs["M_geom_pieces"][key]) / denom
+            for key in tangent.GEOMETRIC_M_NAMES
+        }
+        mdot_sector = {
+            key: -8.0 * np.pi * (
+                plus_obs["J_pieces"][key] - minus_obs["J_pieces"][key]
+            ) / denom
+            for key in tangent.SECTOR_NAMES
+        }
+        geom_sum = np.zeros_like(mdot_geom)
+        for value in mdot_geom_terms.values():
+            geom_sum += value
+        reconstructed = mdot_geom.copy()
+        for value in mdot_sector.values():
+            reconstructed += value
+        closure = mdot - reconstructed
+        operand_scale = (
+            np.abs(plus_obs["M_total"]) + np.abs(minus_obs["M_total"])
+            + np.abs(plus_obs["M_geom"]) + np.abs(minus_obs["M_geom"])
+        )
+        for key in tangent.SECTOR_NAMES:
+            operand_scale += 8.0 * np.pi * (
+                np.abs(plus_obs["J_pieces"][key]) + np.abs(minus_obs["J_pieces"][key])
+            )
+        closure_bound = (128.0 * machine_eps / denom) * operand_scale
+        geom_operand_scale = np.zeros_like(mdot_geom)
+        for key in tangent.GEOMETRIC_M_NAMES:
+            geom_operand_scale += (
+                np.abs(plus_obs["M_geom_pieces"][key])
+                + np.abs(minus_obs["M_geom_pieces"][key])
+            )
+        geom_bound = (128.0 * machine_eps / denom) * geom_operand_scale
+        geom_closure = mdot_geom - geom_sum
+        current_closure_ok = bool(plus_obs["J_closure_ok"] and minus_obs["J_closure_ok"])
+        mdot_closure_ok = bool(np.all(np.abs(closure) <= closure_bound))
+        geom_closure_ok = bool(np.all(np.abs(geom_closure) <= geom_bound))
+
+        retained[f"tangent_{label}.Mdot"] = np.asarray(mdot, dtype=np.float64)
+        retained[f"tangent_{label}.Mdot_geom"] = np.asarray(mdot_geom, dtype=np.float64)
+        retained[f"tangent_{label}.Mdot_reconstructed"] = np.asarray(reconstructed, dtype=np.float64)
+        retained[f"tangent_{label}.closure_abs"] = np.abs(closure)
+        retained[f"tangent_{label}.closure_bound"] = closure_bound
+        retained[f"tangent_{label}.Mdot_geom_tangent_closure_abs"] = np.abs(geom_closure)
+        retained[f"tangent_{label}.Mdot_geom_tangent_closure_bound"] = geom_bound
+        for key, value in mdot_sector.items():
+            retained[f"tangent_{label}.Mdot_sector.{key}"] = np.asarray(value, dtype=np.float64)
+        for key, value in mdot_geom_terms.items():
+            retained[f"tangent_{label}.Mdot_geom_terms.{key}"] = np.asarray(value, dtype=np.float64)
         tangent_reports[label] = {
             "epsilon": eps,
-            "closure_ok": bool(tangent_item["closure_ok"]),
-            "closure_max_abs": float(tangent_item["closure_max_abs"]),
-            "closure_max_bound": float(tangent_item["closure_max_bound"]),
-            "Mdot_geom_tangent_closure_ok": bool(tangent_item["Mdot_geom_tangent_closure_ok"]),
-            "Mdot_geom_tangent_closure_max_abs": float(tangent_item["Mdot_geom_tangent_closure_max_abs"]),
-            "Mdot_geom_tangent_closure_max_bound": float(tangent_item["Mdot_geom_tangent_closure_max_bound"]),
-            "plus_minus_current_projection_closure_ok": bool(tangent_item["plus_minus_current_projection_closure_ok"]),
+            "semantics": "analytic_family_central_difference",
+            "Mdot_closure_passed": mdot_closure_ok,
+            "Mdot_closure_max_abs": float(np.max(np.abs(closure))),
+            "Mdot_closure_max_bound": float(np.max(closure_bound)),
+            "Mdot_geom_term_accounting_passed": geom_closure_ok,
+            "Mdot_geom_term_closure_max_abs": float(np.max(np.abs(geom_closure))),
+            "Mdot_geom_term_closure_max_bound": float(np.max(geom_bound)),
+            "plus_minus_six_sector_current_accounting_passed": current_closure_ok,
         }
-        for key in ("Mdot", "Mdot_geom", "Mdot_reconstructed", "closure_abs", "closure_bound",
-                    "Mdot_geom_tangent_closure_abs", "Mdot_geom_tangent_closure_bound"):
-            retained[f"tangent.{label}.{key}"] = np.asarray(tangent_item[key], dtype=np.float64)
-        add_nested_arrays(retained, f"tangent.{label}.sector", tangent_item["Mdot_sector"])
-        add_nested_arrays(retained, f"tangent.{label}.geometry_terms", tangent_item["Mdot_geom_terms"])
+        if not (mdot_closure_ok and geom_closure_ok and current_closure_ok):
+            raise RuntimeError(f"analytic-family signed tangent accounting failed for {label}")
 
-        plus_state = tangent.shifted_state(kernel, state, rates, eps)
-        minus_state = tangent.shifted_state(kernel, state, rates, -eps)
-        plus_projection = total.independent_total_projections(plus_state)
-        minus_projection = total.independent_total_projections(minus_state)
-        if not plus_projection["projection_crosscheck_passed"] or not minus_projection["projection_crosscheck_passed"]:
-            raise RuntimeError(f"directional-state projection cross-check failed at {label}")
-        add_projection_arrays(retained, f"projection.{label}.plus", plus_projection)
-        add_projection_arrays(retained, f"projection.{label}.minus", minus_projection)
-
-        plus_obj = total._covariant_objects_from_components(plus_state, plus_projection)
-        minus_obj = total._covariant_objects_from_components(minus_state, minus_projection)
-        denom = 2.0 * eps
-        dt_density_t = (plus_obj["density_t"] - minus_obj["density_t"]) / denom
-        dt_density_r = (plus_obj["density_r"] - minus_obj["density_r"]) / denom
-        dt_gtt = (plus_obj["gtt"] - minus_obj["gtt"]) / denom
-        plus_grr = plus_state.geometry.a / plus_state.geometry.X**2
-        minus_grr = minus_state.geometry.a / minus_state.geometry.X**2
-        plus_gth = plus_state.geometry.b * r**2 / plus_state.geometry.X**2
-        minus_gth = minus_state.geometry.b * r**2 / minus_state.geometry.X**2
-        dt_grr = (plus_grr - minus_grr) / denom
-        dt_gth = (plus_gth - minus_gth) / denom
-        alpha = np.asarray(state.geometry.alpha, dtype=np.float64)
-        gamma_rr = np.asarray(state.geometry.a / state.geometry.X**2, dtype=np.float64)
-        gamma_thth = np.asarray(state.geometry.b * r**2 / state.geometry.X**2, dtype=np.float64)
-        d1 = lambda values, parity: state.grid.cell_derivative_fourth(values, parity=parity)
-        args = (
-            r, d1, alpha, gamma_rr, gamma_thth,
-            base_projection["rho"], base_projection["j"],
-            base_projection["pr"], base_projection["pt"],
-            dt_density_t, dt_density_r, dt_gtt, dt_grr, dt_gth,
+        sector_result = total.sector_resolved_divergence_tangent_from_states(
+            base_state, plus_state, minus_state, eps
         )
-        point = total.covariant_divergence_terms_from_profiles(*args)
-        fv = total.covariant_divergence_fv_terms_from_profiles(*args)
-        for channel_name, result in (("pointwise", point), ("finite_volume", fv)):
-            retained[f"divergence.{label}.{channel_name}.div_T_t"] = np.asarray(result["div_T_t"], dtype=np.float64)
-            retained[f"divergence.{label}.{channel_name}.div_T_r"] = np.asarray(result["div_T_r"], dtype=np.float64)
-            add_nested_arrays(retained, f"divergence.{label}.{channel_name}.terms", result["terms"])
+        total_result = sector_result["total"]
+        decomposition = sector_result["sector_decomposition"]
+        for key in ("div_T_t", "div_T_r", "div_T_t_fv", "div_T_r_fv"):
+            retained[f"total_T_{label}.total.{key}"] = np.asarray(total_result[key], dtype=np.float64)
+        for sector, record in decomposition["sectors"].items():
+            add_list_arrays(
+                retained, f"total_T_{label}.sectors.{sector}",
+                record["raw_signed_arrays"],
+            )
+            operator = record.get("operator_component_decomposition")
+            if operator:
+                for channel in ("pointwise", "finite_volume"):
+                    for key, value in operator[channel]["raw_signed_arrays"].items():
+                        retained[f"total_T_{label}.sectors.{sector}.{channel}_operator.{key}"] = np.asarray(value, dtype=np.float64)
+        reconstruction = decomposition["reconstruction"]
+        for channel, record in reconstruction["channels"].items():
+            for key in ("sum_of_sectors", "sum_minus_total",
+                        "time_density_component_predicted_gap",
+                        "unexplained_gap_after_time_density_accounting"):
+                retained[f"total_T_{label}.reconstruction.{channel}.{key}"] = np.asarray(record[key], dtype=np.float64)
+        for key, value in decomposition["time_density_reconstruction"]["raw_signed_arrays"].items():
+            retained[f"total_T_{label}.time_density_reconstruction.{key}"] = np.asarray(value, dtype=np.float64)
+
         divergence_reports[label] = {
-            "plus_projection_crosscheck_passed": bool(plus_projection["projection_crosscheck_passed"]),
-            "minus_projection_crosscheck_passed": bool(minus_projection["projection_crosscheck_passed"]),
-            "pointwise_div_T_r_max_abs": float(np.max(np.abs(point["div_T_r"]))),
-            "finite_volume_div_T_r_max_abs": float(np.max(np.abs(fv["div_T_r"]))),
-            "pointwise_component_sum_gap_max_abs": float(np.max(np.abs(point["terms"]["component_sum_gap_div_T_r"]))),
-            "finite_volume_component_sum_gap_max_abs": float(np.max(np.abs(fv["terms"]["component_sum_gap_div_T_r"]))),
+            "pointwise_div_T_r_max_abs": float(np.max(np.abs(total_result["div_T_r"]))),
+            "finite_volume_div_T_r_max_abs": float(np.max(np.abs(total_result["div_T_r_fv"]))),
+            "sector_names": decomposition["sector_names"],
+            "raw_six_sector_reconstruction_passed": reconstruction["all_sectors_reconstruct_total"],
+            "time_density_component_accounting_passed": reconstruction["time_density_component_accounting_passed"],
+            "six_sector_reconstruction_after_time_density_accounting": reconstruction["all_sectors_reconstruct_total_after_time_density_accounting"],
+            "raw_sum_max_gap": reconstruction["raw_sum_max_gap"],
+            "unexplained_max_gap_after_time_density_accounting": reconstruction["unexplained_max_gap"],
+            "pointwise_operator_component_reconstruction_passed": all(
+                decomposition["sectors"][name].get("operator_component_decomposition", {}).get(
+                    "component_reconstruction_passed", True
+                ) for name in ("S", "D", "phi")
+            ),
+            "state_pairing": decomposition["state_pairing"],
         }
 
-    labels = list(tangent_reports)
-    epsilon_sensitivity["max_abs_Mdot_difference"] = float(np.max(np.abs(
-        retained[f"tangent.{labels[0]}.Mdot"] - retained[f"tangent.{labels[1]}.Mdot"]
-    )))
-    if tangent.state_digest(state) != initial_digest:
-        raise RuntimeError("base manufactured state mutated during tangent/divergence observer")
+    base_digest_after = tangent.state_digest(states["base"])
+    if base_digest_after != state_digests["base"]:
+        raise RuntimeError("base frozen state mutated during manufactured fixture construction")
 
-    npz = OUT / "arrays.npz"
-    np.savez_compressed(npz, **retained)
-    manifest = {
-        "schema": "issue4_manufactured_complete_fixture_v1",
-        "diagnostic_only": True,
+    # Preserve the full state and witness inventory in accepted-fixture style.
+    records = []
+    for key in sorted(retained):
+        value = np.ascontiguousarray(np.asarray(retained[key], dtype=np.float64))
+        if not np.all(np.isfinite(value)):
+            raise FloatingPointError(f"non-finite fixture array {key}")
+        records.append({
+            "path": key,
+            "key": key,
+            "shape": list(value.shape),
+            "dtype": str(value.dtype),
+            "sha256": digest_bytes(value.tobytes(order="C")),
+        })
+
+    code_blobs = {path: git(ROOT, "rev-parse", f"HEAD:{path}") for path in CODE_PATHS}
+    report = {
+        "schema": "issue4_manufactured_full_bianchi_fixture_v1",
+        "status": "completed_manufactured_fixture_construction",
         "state_class": "manufactured_regular_family",
+        "diagnostic_only": True,
         "resolution": N,
         "r_max": R_MAX,
+        "dr": R_MAX / N,
+        "grid_centers": "r_i=(i+1/2)*dr",
+        "profile": PROFILE,
+        "family_parameterization": {
+            "parameter": "s",
+            "U(0)": "base",
+            "U(+epsilon)": "plus member independently constructed by analytic formulas",
+            "U(-epsilon)": "minus member independently constructed by analytic formulas",
+            "held_fixed": ["geometry.*", "scalars.S", "scalars.D", "scalars.phi",
+                           "matter.*.rest", "matter.*.energy_t"],
+            "changed": ["scalars.PS", "scalars.PD", "scalars.Pi",
+                        "matter.*.momentum_r"],
+            "construction_method": "initializer_free_analytic_profile_constructor",
+        },
+        "parity": {
+            "geometry": "even",
+            "scalar_fields": "even",
+            "scalar_conjugate_momenta": "even profiles with signed family parameter",
+            "fluid_rest_density": "even",
+            "fluid_radial_velocity": "odd regular r*exp(-r^2/w^2)",
+            "connection_difference_Cr": "odd; C^r=Lambda-Lambda_metric=0 on exact flat geometry",
+        },
+        "sector_names": ["dark_matter", "baryons", "radiation", "S", "D", "phi"],
+        "sector_projection_fields": ["rho", "pr", "pt", "j"],
         "directional_epsilons": list(EPSILONS),
-        "complete_constructed_state_classes": [
-            "base", "eps2e-05_plus", "eps2e-05_minus",
-            "eps1e-05_plus", "eps1e-05_minus",
-        ],
-        "family_projection_reports": family_projection_reports,
-        "production_rhs_evaluated": True,
-        "production_steps": 0,
+        "tangent_semantics": "analytic_family_central_difference",
+        "tangent_definition": "Mdot_manufactured(epsilon)=[M_total(U(+epsilon))-M_total(U(-epsilon))]/(2*epsilon)",
+        "tangent_is_production_rhs_tangent": False,
+        "production_steps_run": 0,
+        "state_advanced": False,
+        "production_initializer_called": False,
+        "production_rhs_called": False,
+        "vendor_step_called": False,
         "scientific_admission": False,
         "acceptance_oracle_satisfied": False,
-        "base_state_digest": initial_digest,
-        "diagnostic_source_commit": diag_commit,
-        "helper_baseline_commit": baseline_commit,
-        "vendor_commit": vendor_commit,
-        "tangent_helper_blob": tangent_blob,
-        "total_stress_helper_blob": total_blob,
-        "tangent_provenance": tangent_provenance,
-        "total_stress_provenance": total_provenance,
+        "conservation_closure_admitted": False,
+        "physical_exchange_law_admitted": False,
+        "admission_flags": {
+            "scientific_admission": False,
+            "acceptance_oracle_satisfied": False,
+            "conservation_closure_admitted": False,
+            "physical_exchange_law_admitted": False,
+        },
+        "state_digests": state_digests,
+        "state_unchanged_after_construction": True,
+        "family_projection_reports": family_reports,
         "tangent_reports": tangent_reports,
         "divergence_reports": divergence_reports,
-        "epsilon_sensitivity": epsilon_sensitivity,
-        "array_count": len(retained),
+        "pins": {
+            "diagnostic_source_anchor": diag_commit,
+            "helper_baseline": baseline_commit,
+            "vendor": vendor_commit,
+            "tangent_helper_blob": tangent_blob,
+            "total_stress_helper_blob": total_blob,
+            "reviewed_code_blobs": code_blobs,
+        },
+        "raw_arrays": {"array_count": len(records), "array_records": records},
         "array_names": sorted(retained),
-        "arrays_member": npz.name,
-        "arrays_sha256": digest_file(npz),
-        "archive_members": ["SHA256SUMS.txt", "report.json", "arrays.npz"],
+        "arithmetic_witnesses": {
+            "all_family_projections_match_canonical": all(
+                row["projection_crosscheck_passed"] for row in family_reports.values()
+            ),
+            "all_tangent_accounting_passed": all(
+                row["Mdot_closure_passed"] and row["Mdot_geom_term_accounting_passed"]
+                and row["plus_minus_six_sector_current_accounting_passed"]
+                for row in tangent_reports.values()
+            ),
+            "all_pointwise_operator_component_reconstructions_passed": all(
+                row["pointwise_operator_component_reconstruction_passed"]
+                for row in divergence_reports.values()
+            ),
+        },
         "interpretation_limits": [
-            "The tangent is the pinned semi-discrete production RHS directional derivative from the manufactured base state; no production step or trajectory is taken.",
-            "Both epsilon channels use the same frozen base state and the pinned two-sided RHS direction with the helper's CMC lapse re-solve.",
-            "Pointwise and finite-volume covariant divergences are independent spatial-flux treatments using the same signed time-density and metric derivatives from the two-sided RHS direction.",
-            "This arithmetic diagnostic does not establish physical conservation closure or scientific admission.",
+            "The manufactured tangent is an analytic-family central difference, not a production-RHS tangent.",
+            "The constructor calls no production initializer, production RHS, kernel step, or vendor evolution step.",
+            "Pointwise and finite-volume total-stress divergences are independently evaluated from the same frozen analytic family triplets by the pinned helper.",
+            "Six-sector raw sums and time-density component accounting are diagnostic witnesses, not physical conservation or scientific admission.",
         ],
     }
-    mp = OUT / "report.json"
-    mp.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
-    sums = OUT / "SHA256SUMS.txt"
-    sums.write_text(
-        f"{digest_file(mp)}  {mp.name}\n{digest_file(npz)}  {npz.name}\n"
+
+    arrays_path = OUT / "tangent_arrays.npz"
+    np.savez_compressed(arrays_path, **retained)
+    report_path = OUT / "report.json"
+    report_path.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
+    sums_path = OUT / "SHA256SUMS.txt"
+    sums_path.write_text(
+        f"{digest_file(report_path)}  report.json\n{digest_file(arrays_path)}  tangent_arrays.npz\n"
     )
     fixture_zip = OUT / "issue4_manufactured_regular_family_N60.zip"
     with zipfile.ZipFile(fixture_zip, "w", compression=zipfile.ZIP_DEFLATED) as archive:
-        archive.write(sums, arcname="SHA256SUMS.txt")
-        archive.write(mp, arcname="report.json")
-        archive.write(npz, arcname="arrays.npz")
+        archive.write(sums_path, arcname="SHA256SUMS.txt")
+        archive.write(report_path, arcname="report.json")
+        archive.write(arrays_path, arcname="tangent_arrays.npz")
     print(json.dumps({
         "status": "PASS",
-        "base_state_digest": initial_digest,
-        "family_projection_reports": family_projection_reports,
+        "state_class": report["state_class"],
+        "tangent_semantics": report["tangent_semantics"],
+        "family_projection_count": len(family_reports),
         "tangent": tangent_reports,
         "divergence": divergence_reports,
-        "epsilon_sensitivity": epsilon_sensitivity,
         "array_count": len(retained),
-        "arrays_sha256": digest_file(npz),
         "fixture_zip": fixture_zip.name,
         "fixture_zip_sha256": digest_file(fixture_zip),
-        "production_steps": 0,
+        "production_initializer_called": False,
+        "production_rhs_called": False,
+        "vendor_step_called": False,
+        "production_steps_run": 0,
     }, indent=2))
 
 
