@@ -1,0 +1,91 @@
+name: Issue 4 manufactured RHS tangent and divergence channels
+
+on:
+  push:
+    branches:
+      - research/issue4-zero-step-bianchi-observer-2026-11-04
+    paths:
+      - tools/issue4_manufactured_regular_family.py
+      - tools/issue4_manufactured_tangent_and_divergence.py
+      - .github/workflows/issue4-manufactured-tangent-divergence.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: issue4-manufactured-tangent-divergence
+  cancel-in-progress: false
+
+jobs:
+  evaluate-independent-channels:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Check out research branch with constructor
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Check out exact diagnostic source anchor
+        uses: actions/checkout@v4
+        with:
+          ref: 4aec88d0e3ff028e0a65a8ac36b30948625df792
+          path: diagnostic-source
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Check out protected helper baseline
+        uses: actions/checkout@v4
+        with:
+          ref: 7f47669a1c0edfafef9fc5f27b2db80840d3f035
+          path: helper-baseline
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Set up pinned Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12.15"
+
+      - name: Install bounded numerical environment
+        run: |
+          python -m pip install numpy==2.5.4 scipy==1.18.1 sympy==1.14.0 mpmath==1.3.0 pytest==9.1.1 threadpoolctl
+
+      - name: Compile diagnostic runner
+        run: |
+          python -m py_compile tools/issue4_manufactured_tangent_and_divergence.py
+
+      - name: Generate signed tangent and independent divergence channels
+        env:
+          ISSUE4_DIAGNOSTIC_ROOT: ${{ github.workspace }}/diagnostic-source
+          ISSUE4_HELPER_BASELINE_ROOT: ${{ github.workspace }}/helper-baseline
+          ISSUE4_CHANNEL_OUT: ${{ github.workspace }}/issue4-channel-results
+        run: |
+          python -m tools.issue4_manufactured_tangent_and_divergence
+
+      - name: Capture runtime and source provenance
+        if: always()
+        run: |
+          mkdir -p issue4-channel-results
+          python --version > issue4-channel-results/python-version.txt
+          python -m pip freeze > issue4-channel-results/pip-freeze.txt
+          git rev-parse HEAD > issue4-channel-results/constructor-commit.txt
+          git -C diagnostic-source rev-parse HEAD > issue4-channel-results/diagnostic-source-commit.txt
+          git -C helper-baseline rev-parse HEAD > issue4-channel-results/helper-baseline-commit.txt
+          git -C diagnostic-source/vendor/bb-palatini-unified-r0 rev-parse HEAD > issue4-channel-results/vendor-commit.txt
+
+      - name: Hash complete channel artifact
+        if: always()
+        run: |
+          find issue4-channel-results -type f ! -name SHA256SUMS.txt -print0 | sort -z | xargs -0 -r sha256sum > issue4-channel-results/SHA256SUMS.txt
+
+      - name: Upload signed channel artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: issue4-manufactured-tangent-divergence-${{ github.run_id }}
+          path: issue4-channel-results/
+          if-no-files-found: warn
+          retention-days: 90
