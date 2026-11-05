@@ -119,3 +119,12 @@ The family parameter is (s), and the constructor independently returns (U(0)), (
 This is deliberately only the constructor foundation. The following gates are **not yet complete**: run the constructor tests; pass each state through the pinned total-stress helper and verify all six sector projections/cross-checks; derive and archive both epsilon tangent arrays and both independent divergence channels; implement the separate manufactured archive loader and evaluator adapter; verify all exact source/helper/vendor/code pins and state/family digests. No manufactured evaluation or CI claim is made by these commits.
 
 No production initializer, RHS, kernel step, vendor step, production source, workflow, or admission/closure flag was changed.
+
+
+## 8. Constructor/Valencia convention correction — 5 November 2026
+
+The first bounded constructor CI run completed successfully: `5 passed in 0.09s` on Ubuntu 24.04.5 / Python 3.12.15 with the recorded numerical package pins. Inspection of the pinned projection helper then exposed a semantic gap not covered by those structural tests: the initial constructor had stored `energy_t` with the mixed-tensor sign and had omitted the spherical `sqrt(gamma)=r^2` Valencia volume factor; it also populated the radiation rest-current slot even though the pinned radiation representation keeps that slot identically zero.
+
+Before any projection was run, the constructor was corrected to store positive conservative energy and momentum with the exact flat-areal spherical volume factor, and zero radiation rest current. A regression test now checks all three species against that convention. The constructor CI must be rerun and pass before projection work begins. The earlier five-test pass validates only the prior structural version and is not evidence for the corrected convention.
+
+No production code, RHS, initializer, vendor source, production step, accepted-state loader, or admission flag was changed.
