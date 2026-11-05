@@ -166,64 +166,42 @@ jobs:
               fluid_state={name:{k:fluids[name][k]+eps*rates["matter"][name][k]
                   for k in fluids[name]} for name in fluids}
               return aa_state,bb_state,xx_state,AA_state,K_state,scalar_state,fluid_state
-          # Stage 0 refreshes the saved incoming gauge anchor. Its base
-          # output lapse is computed first; the instantaneous RHS direction
-          # is then evaluated on that refreshed lapse, as in the production
-          # stage ordering. The stage-0 output tangent is propagated into
-          # stage 1 as a nonzero incoming-lapse direction.
+          # The accepted archive has no preceding CMC-stage input or
+          # incoming-lapse direction. Do not replace that unavailable datum
+          # with zero and do not claim an accepted-state lapse tangent.
+          # The output lapse is nevertheless reconstructed as the base
+          # stage, and the independently derived geometry/matter directions
+          # are checked against accepted-state +/- projections at both epsilons.
           stage0_base=base_cmc(a,b,X,alpha,Aa,K,scalars,fluids)
           rates0=derive(stage0_base.alpha)
           dots0=directions(stage0_base.alpha,rates0)
-          stage0=solve_stage_aware_cmc_tangent_six_sector(
-              sector_projections=sectors,sector_projection_directions=dots0,
-              r=r,dr=dr,a=a,b=b,X=X,alpha_in=alpha,Aa=Aa,K=K,
-              a_dot=rates0["geometry"]["a"],b_dot=rates0["geometry"]["b"],
-              X_dot=rates0["geometry"]["X"],alpha_in_dot=zeros,
-              Aa_dot=rates0["geometry"]["Aa"],K_dot=rates0["geometry"]["K"],
-              d1=d1,d2=d2)
-          np.testing.assert_allclose(stage0.base.alpha,stage0_base.alpha,rtol=0.0,atol=2e-14)
-          stage1=solve_stage_aware_cmc_tangent_six_sector(
-              sector_projections=sectors,sector_projection_directions=dots0,
-              r=r,dr=dr,a=a,b=b,X=X,alpha_in=stage0.base.alpha,Aa=Aa,K=K,
-              a_dot=rates0["geometry"]["a"],b_dot=rates0["geometry"]["b"],
-              X_dot=rates0["geometry"]["X"],alpha_in_dot=stage0.tangent.alpha_dot,
-              Aa_dot=rates0["geometry"]["Aa"],K_dot=rates0["geometry"]["K"],
-              d1=d1,d2=d2)
-          if np.max(np.abs(stage0.tangent.alpha_dot))==0.0:
-              raise SystemExit("stage-0 CMC output lapse direction unexpectedly vanished")
-          if np.max(np.abs(stage1.k_rhs_in_dot))==0.0:
-              raise SystemExit("stage-1 physical K-RHS direction unexpectedly vanished")
-          if np.min(stage1.base.alpha)<=0.0:
-              raise SystemExit("stage-1 output CMC lapse is not positive")
-          if np.max(np.abs(stage1.base.residual))>1.0e-10:
-              raise SystemExit("stage-1 CMC base residual failed")
+          if np.min(stage0_base.alpha)<=0.0:
+              raise SystemExit("stage-0 output CMC lapse is not positive")
+          if np.max(np.abs(stage0_base.residual))>1.0e-10:
+              raise SystemExit("stage-0 CMC base residual failed")
+          projection_errors={}
           for eps in (2.0e-5,1.0e-5):
-              # Verify stage 0 with its archived incoming gauge anchor.
-              p0=perturb_state(rates0,eps); m0=perturb_state(rates0,-eps)
-              alpha0p=base_cmc(*p0[:3],alpha,*p0[3:])
-              alpha0m=base_cmc(*m0[:3],alpha,*m0[3:])
-              fd0=(alpha0p.alpha-alpha0m.alpha)/(2.0*eps)
-              np.testing.assert_allclose(fd0,stage0.tangent.alpha_dot,rtol=5.0e-4,atol=2.0e-8)
-              target0=(alpha0p.kdot_cmc-alpha0m.kdot_cmc)/(2.0*eps)
-              np.testing.assert_allclose(target0,stage0.tangent.kdot_cmc_dot,rtol=5.0e-4,atol=2.0e-9)
-              # Verify stage 1 with the nonzero propagated incoming-lapse
-              # direction from stage 0. This is the full stage-aware tangent.
-              p1=perturb_state(rates0,eps); m1=perturb_state(rates0,-eps)
-              alpha1p=stage0.base.alpha+eps*stage0.tangent.alpha_dot
-              alpha1m=stage0.base.alpha-eps*stage0.tangent.alpha_dot
-              out1p=base_cmc(*p1[:3],alpha1p,*p1[3:])
-              out1m=base_cmc(*m1[:3],alpha1m,*m1[3:])
-              fd1=(out1p.alpha-out1m.alpha)/(2.0*eps)
-              np.testing.assert_allclose(fd1,stage1.tangent.alpha_dot,rtol=7.0e-4,atol=3.0e-8)
-              target1=(out1p.kdot_cmc-out1m.kdot_cmc)/(2.0*eps)
-              np.testing.assert_allclose(target1,stage1.tangent.kdot_cmc_dot,rtol=7.0e-4,atol=3.0e-9)
-          print("PASS: independent accepted-state instantaneous rates derived for six sectors and coupled geometry/primary/Lambda")
-          print("PASS: stage-0 output lapse tangent max abs =",float(np.max(np.abs(stage0.tangent.alpha_dot))))
-          print("PASS: stage-1 incoming lapse tangent max abs =",float(np.max(np.abs(stage0.tangent.alpha_dot))))
-          print("PASS: stage-1 K-RHS tangent max abs =",float(np.max(np.abs(stage1.k_rhs_in_dot))))
-          print("PASS: stage-1 output lapse tangent max abs =",float(np.max(np.abs(stage1.tangent.alpha_dot))))
-          print("PASS: stage-1 CMC residual max abs =",float(np.max(np.abs(stage1.base.residual))))
-          print("PASS: both stage-aware CMC output tangents match centered differences at eps=2e-5 and 1e-5")
-          print("SCOPE: immutable accepted-state, zero-step directional witness; stage-1 receives nonzero propagated alpha_in_dot.")
-          print("LIMIT: the archive has no preceding CMC-stage input, so the first archived incoming-lapse direction is anchored at zero; this is not yet the complete no-frozen-lapse chain.")
+              plus_state=perturb_state(rates0,eps)
+              minus_state=perturb_state(rates0,-eps)
+              plus_parts=project_six_sector_stress_from_arrays(
+                  r=r,a=plus_state[0],b=plus_state[1],X=plus_state[2],
+                  scalars=plus_state[5],fluids=plus_state[6],d1=d1)
+              minus_parts=project_six_sector_stress_from_arrays(
+                  r=r,a=minus_state[0],b=minus_state[1],X=minus_state[2],
+                  scalars=minus_state[5],fluids=minus_state[6],d1=d1)
+              for sector in required:
+                  for base_key,dot_key in (("rho","rho_dot"),("pr","pr_dot"),
+                                           ("pt","pt_dot"),("j","j_dot")):
+                      fd=(plus_parts[sector][base_key]-minus_parts[sector][base_key])/(2.0*eps)
+                      err=float(np.max(np.abs(fd-dots0[sector][dot_key])))
+                      key=f"{sector}.{dot_key}.eps={eps:g}"
+                      projection_errors[key]=err
+                      np.testing.assert_allclose(
+                          fd,dots0[sector][dot_key],rtol=8.0e-4,atol=2.0e-10)
+          print("PASS: accepted-state independent instantaneous rates derived for six sectors and coupled geometry/primary/Lambda")
+          print("PASS: all six sector projection directions match accepted-state centered differences at eps=2e-5 and 1e-5")
+          print("PASS: stage-0 output CMC lapse is positive; base residual max abs =",float(np.max(np.abs(stage0_base.residual))))
+          print("DIRECTIONAL BOUNDARY: accepted archive does not contain the preceding CMC input-lapse direction; it is unavailable, not zero.")
+          print("DIRECTIONAL BOUNDARY: no accepted-state stage-0 or stage-1 output-lapse tangent is certified by this job.")
+          print("SCOPE: immutable accepted-state, zero-step base and directional projection witness; production step count remains zero.")
           PY
