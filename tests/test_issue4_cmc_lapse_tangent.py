@@ -185,7 +185,8 @@ def test_six_sector_stage_aware_binding_requires_all_named_base_and_directional_
     weights=(0.20,0.10,0.05,0.30,0.05,0.30)
     sector_base={}; sector_dot={}
     for name,w in zip(names,weights):
-        sector_base[name]={k:w*base[k] for k in ("rho","pr","pt","j")}
+        sector_base[name]={k:w*base[k] for k in ("rho","pr","pt")}
+        sector_base[name]["j"]=np.zeros_like(base["rho"])
         sector_dot[name]={k+"_dot":w*rates[k+"_dot"] for k in ("rho","pr","pt")}
         sector_dot[name]["j_dot"]=np.zeros_like(base["rho"])
     summed=sum_six_sector_projections(
