@@ -21,9 +21,9 @@ def report(state_class, residual_offset=0.0):
                 "residual_tangent_minus_predictor": (grid + residual_offset).tolist(),
             },
             "finite_volume": {
-                "predictor": grid,
-                "stress_source": grid,
-                "residual_tangent_minus_predictor": grid + residual_offset,
+                "predictor": grid.tolist(),
+                "stress_source": grid.tolist(),
+                "residual_tangent_minus_predictor": (grid + residual_offset).tolist(),
             },
         }
         summaries[epsilon] = {}
