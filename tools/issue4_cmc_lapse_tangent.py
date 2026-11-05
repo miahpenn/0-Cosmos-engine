@@ -246,11 +246,12 @@ def solve_cmc_lapse_fixed_point(*, r, dr, a,b,X,Aa,K,rho,pr,pt,
         initial_alpha=None, d1, d2, tolerance=2.0e-12, max_iterations=500):
     """Solve alpha_in = alpha_out by the exact affine lapse-map equation.
 
-    For fixed geometry and matter, the pinned physical K RHS and its proper-
-    volume projection are linear in alpha_in, so the CMC output map is affine.
-    Its matrix is assembled from independent directional basis actions and
-    solved directly. No iterative relaxation, fitting, or residual tuning is
-    used. This is a separate analytic control, not accepted PIRK history.
+    At fixed geometry and matter the pinned physical K RHS and its proper-
+    volume projection are linear in alpha_in, so the output map is affine.
+    Its Jacobian is assembled from the exact differentiated equations, then
+    the fixed-point linear system is solved directly. No iterative relaxation,
+    fitting, or residual tuning is used. This is a separate analytic control,
+    not accepted PIRK history.
     """
     r=_validate_grid(r,dr); n=r.size
     reference=np.ones(n,dtype=np.float64) if initial_alpha is None else _vec(
@@ -259,24 +260,33 @@ def solve_cmc_lapse_fixed_point(*, r, dr, a,b,X,Aa,K,rho,pr,pt,
         raise ValueError("fixed-point reference lapse must be positive")
     zeros=np.zeros(n,dtype=np.float64)
 
-    def output_map(alpha_in):
+    def map_base(alpha_in):
         kr,_=physical_k_rhs_and_direction(
             r=r,dr=dr,a=a,b=b,X=X,alpha_in=alpha_in,Aa=Aa,K=K,
             rho=rho,pr=pr,pt=pt,a_dot=zeros,b_dot=zeros,X_dot=zeros,
             alpha_in_dot=zeros,Aa_dot=zeros,K_dot=zeros,
             rho_dot=zeros,pr_dot=zeros,pt_dot=zeros,d1=d1,d2=d2)
-        return solve_cmc_discrete(
+        base=solve_cmc_discrete(
             r=r,dr=dr,a=a,b=b,X=X,Aa=Aa,K=K,rho=rho,pr=pr,pt=pt,
             k_rhs=kr,d1=d1)
+        return base,kr
 
-    reference_output=output_map(reference).alpha
+    reference_base,reference_kr=map_base(reference)
     jac=np.empty((n,n),dtype=np.float64)
     for j in range(n):
         basis=np.zeros(n,dtype=np.float64); basis[j]=1.0
-        # Positive reference + basis keeps every evaluation in the physical
-        # lapse domain while recovering the exact affine map column.
-        jac[:,j]=output_map(reference+basis).alpha-reference_output
-    offset=reference_output-jac@reference
+        _,kr_dot=physical_k_rhs_and_direction(
+            r=r,dr=dr,a=a,b=b,X=X,alpha_in=reference,Aa=Aa,K=K,
+            rho=rho,pr=pr,pt=pt,a_dot=zeros,b_dot=zeros,X_dot=zeros,
+            alpha_in_dot=basis,Aa_dot=zeros,K_dot=zeros,
+            rho_dot=zeros,pr_dot=zeros,pt_dot=zeros,d1=d1,d2=d2)
+        tangent=differentiate_cmc_discrete(
+            base=reference_base,r=r,dr=dr,a=a,b=b,X=X,Aa=Aa,K=K,
+            rho=rho,pr=pr,pt=pt,k_rhs=reference_kr,
+            a_dot=zeros,b_dot=zeros,X_dot=zeros,Aa_dot=zeros,K_dot=zeros,
+            rho_dot=zeros,pr_dot=zeros,pt_dot=zeros,k_rhs_dot=kr_dot,d1=d1)
+        jac[:,j]=tangent.alpha_dot
+    offset=reference_base.alpha-jac@reference
     system=np.eye(n)-jac
     try:
         alpha=np.linalg.solve(system,offset)
@@ -284,7 +294,7 @@ def solve_cmc_lapse_fixed_point(*, r, dr, a,b,X,Aa,K,rho,pr,pt,
         raise FloatingPointError("CMC lapse fixed-point affine system is singular") from exc
     if not np.all(np.isfinite(alpha)) or np.min(alpha)<=0.0:
         raise FloatingPointError("CMC lapse fixed point is not finite and positive")
-    base=output_map(alpha)
+    base,_=map_base(alpha)
     residual=float(np.max(np.abs(base.alpha-alpha)))
     if not math.isfinite(residual) or residual>tolerance:
         raise RuntimeError(
