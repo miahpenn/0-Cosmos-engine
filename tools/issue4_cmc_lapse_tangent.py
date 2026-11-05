@@ -115,6 +115,7 @@ def solve_cmc_discrete(*, r, dr, a, b, X, Aa, K, rho, pr, pt,
     A,c,m,inv,Q = _assemble_operator(r,dr,a,b,X,Aa,K,rho,pr,pt,d1)
     rhs = np.zeros(n, dtype=np.float64)
     rhs[1:-1] = -kdot/inv[1:-1]
+    rhs[-1] = 1.0
     try:
         alpha = np.linalg.solve(A, rhs)
     except np.linalg.LinAlgError as exc:
