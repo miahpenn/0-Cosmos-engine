@@ -124,7 +124,11 @@ def load_manufactured_fixture(path: str | Path) -> dict:
         raise RuntimeError("manufactured fixture diagnostic/helper/vendor provenance mismatch")
     reviewed = pins.get("reviewed_code_blobs", {})
     if set(reviewed) != set(CODE_PATHS):
-        raise RuntimeError("reviewed source-code blob inventory mismatch")
+        raise RuntimeError(
+            "reviewed source-code blob inventory mismatch: "
+            f"missing={sorted(set(CODE_PATHS) - set(reviewed))}, "
+            f"extra={sorted(set(reviewed) - set(CODE_PATHS))}"
+        )
     repo_root = Path(__file__).resolve().parents[1]
     for code_path in CODE_PATHS:
         actual_blob = _git(repo_root, "rev-parse", f"HEAD:{code_path}")
