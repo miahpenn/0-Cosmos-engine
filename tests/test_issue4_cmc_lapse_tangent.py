@@ -339,22 +339,44 @@ def test_pinned_instantaneous_six_sector_rates_and_projection_directions_two_eps
                 np.testing.assert_allclose(fd,dots[sector][key],rtol=2.0e-4,atol=2.0e-11)
 
 
-def _six_sector_split(base, rates):
-    """Exact additive six-name decomposition for isolated map-block witnesses."""
-    names=("dark_matter","baryons","radiation","S","D","phi")
-    weights=(0.20,0.10,0.05,0.30,0.05,0.30)
-    sectors={}; directions={}
-    for name,weight in zip(names,weights):
-        sectors[name]={key:weight*base[key] for key in ("rho","pr","pt")}
-        sectors[name]["j"]=np.zeros_like(base["rho"])
-        directions[name]={key+"_dot":weight*rates[key+"_dot"]
-                          for key in ("rho","pr","pt")}
-        directions[name]["j_dot"]=np.zeros_like(base["rho"])
+def _physical_six_sector_split(*, r, dr, a, b, X, Aa, K, alpha):
+    """Build base and directional profiles through the independent six-sector projector."""
+    n=r.size
+    Lambda=1.0e-5*r*np.exp(-(r/5.0)**2)
+    beta=np.zeros(n)
+    scalars={
+        "S":0.008*np.exp(-(r/3.0)**2),"PS":np.full(n,1.5e-4),
+        "D":0.0015*np.exp(-(r/4.0)**2),"PD":np.full(n,8.0e-6),
+        "phi":0.16+0.01*np.exp(-(r/5.0)**2),"Pi":np.full(n,2.0e-3),
+    }
+    sqrtg=np.sqrt(a)*b*r*r/(X**3)
+    fluids={
+        "dark_matter":{"rest":sqrtg*np.full(n,2.5e-5),
+            "energy_t":-sqrtg*alpha*np.full(n,2.5e-5),
+            "momentum_r":sqrtg*np.full(n,2.0e-7)},
+        "baryons":{"rest":sqrtg*np.full(n,4.0e-6),
+            "energy_t":-sqrtg*alpha*np.full(n,4.0e-6),
+            "momentum_r":sqrtg*np.full(n,-1.0e-7)},
+        "radiation":{"rest":np.zeros(n),
+            "energy_t":sqrtg*np.full(n,8.0e-9),
+            "momentum_r":sqrtg*np.full(n,1.0e-10)},
+    }
+    sectors=project_six_sector_stress_from_arrays(
+        r=r,a=a,b=b,X=X,scalars=scalars,fluids=fluids,d1=_d1)
+    rates=independent_scalar_and_geometry_rates(
+        r=r,dr=dr,a=a,b=b,X=X,alpha=alpha,beta=beta,Aa=Aa,K=K,
+        Lambda=Lambda,scalars=scalars,fluids=fluids,d1=_d1,d2=_d2)
+    directions=six_sector_projection_directions(
+        r=r,a=a,b=b,X=X,scalars=scalars,fluids=fluids,
+        geometry_rates=rates["geometry"],scalar_rates=rates["scalars"],
+        matter_rates=rates["matter"],d1=_d1)
     summed=sum_six_sector_projections(
-        sector_projections=sectors,
-        sector_projection_directions=directions)
-    return summed["base"],summed["direction"]
+        sector_projections=sectors,sector_projection_directions=directions)
+    return sectors,directions,summed,rates
 
+
+def _d2(values, parity=1):
+    return fourth_order_cell_derivative(values, 0.5, parity=parity, order=2)
 
 def _fixed_point_map_output(base, alpha_in, state_delta=None):
     """Evaluate the independent input-lapse -> output-lapse map."""
@@ -428,33 +450,41 @@ def test_fixed_point_map_incoming_lapse_block_only_two_epsilons():
 
 
 def test_fixed_point_map_geometry_and_six_sector_state_block_only_two_epsilons():
-    """State derivative: coupled geometry/six sectors vary; incoming lapse is fixed."""
+    """State derivative uses independently projected six-sector base and tangent profiles."""
     from tools.issue4_cmc_lapse_tangent import solve_cmc_lapse_fixed_point
     base,rates=_stage_state()
+    r=base["r"]
+    sectors,directions,summed,_=_physical_six_sector_split(
+        r=r,dr=base["dr"],a=base["a"],b=base["b"],X=base["X"],
+        Aa=base["Aa"],K=base["K"],alpha=base["alpha_in"])
     args={key:base[key] for key in
-          ("r","dr","a","b","X","Aa","K","rho","pr","pt")}
+          ("r","dr","a","b","X","Aa","K")}
+    args.update({key:summed["base"][key] for key in ("rho","pr","pt")})
     fixed=solve_cmc_lapse_fixed_point(**args,d1=_d1,d2=_d2)
-    sector_base,sector_direction=_six_sector_split(base,rates)
-    # Recombine all six named sectors before differentiating the physical K RHS.
-    state_rates={key:rates[key] for key in
-                 ("a_dot","b_dot","X_dot","Aa_dot","K_dot")}
+    # Recompute the independent instantaneous directions at the fixed-point
+    # incoming lapse; the projection base remains the same physical six-sector state.
+    sectors,directions,summed,rates=_physical_six_sector_split(
+        r=r,dr=base["dr"],a=base["a"],b=base["b"],X=base["X"],
+        Aa=base["Aa"],K=base["K"],alpha=fixed.alpha_in)
+    state_rates={key:rates["geometry"][key] for key in
+                 ("a","b","X","Aa","K")}
     for key in ("rho","pr","pt"):
-        state_rates[key+"_dot"]=sector_direction[key+"_dot"]
-        np.testing.assert_allclose(
-            sector_base[key],base[key],rtol=0.0,atol=1.0e-20)
-    zeros=np.zeros_like(base["r"])
+        state_rates[key+"_dot"]=summed["direction"][key+"_dot"]
+    zeros=np.zeros_like(r)
     output,tangent=_fixed_point_map_block_tangent(
-        base,fixed.alpha_in,state_rates,zeros)
+        args,fixed.alpha_in,state_rates,zeros)
     assert np.max(np.abs(tangent.differentiated_residual))<1.0e-10
     delta={key:state_rates[key+"_dot"] for key in
            ("a","b","X","Aa","K","rho","pr","pt")}
     for eps in (2.0e-5,1.0e-5):
         plus=_fixed_point_map_output(
-            base,fixed.alpha_in,
+            args,fixed.alpha_in,
             {key:eps*value for key,value in delta.items()})
         minus=_fixed_point_map_output(
-            base,fixed.alpha_in,
+            args,fixed.alpha_in,
             {key:-eps*value for key,value in delta.items()})
         fd=(plus.alpha-minus.alpha)/(2.0*eps)
         np.testing.assert_allclose(
+            fd,tangent.alpha_dot,rtol=4.0e-5,atol=2.0e-8)
+
             fd,tangent.alpha_dot,rtol=4.0e-5,atol=2.0e-8)
