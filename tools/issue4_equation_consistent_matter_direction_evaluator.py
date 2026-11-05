@@ -11,7 +11,7 @@ import numpy as np
 from tools.issue4_equation_consistent_matter_direction import STATE_ARRAY_NAMES
 from tools.issue4_equation_consistent_matter_direction_fixture import load_manufactured_fixture
 from tools.issue4_zero_step_full_bianchi_observer import verify_provenance
-from tools.issue4_full_bianchi_evaluator import _evaluate_loaded_fixture
+from tools.issue4_full_bianchi_evaluator import _evaluate_loaded_fixture, _jsonable
 
 
 def evaluate_equation_consistent_fixture(archive_path, resolution, diagnostic_root, helper_baseline_root):
