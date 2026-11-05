@@ -133,3 +133,13 @@ Important scope limitation: this is the isolated discrete CMC algebra gate. Its 
 ## Current preflight conclusion
 
 The source map and isolated CMC algebra gate establish the correct differentiated system and its testable contract. The coupled fixture is **not yet built**. The next milestone is to bind the independent solver to the exact pinned fourth-order parity-aware derivative operator, independently reconstruct the base (K)-RHS and its directional derivative from the CMC geometry plus six-sector source equations, and verify the differentiated CMC identity on a regular metric-compatible base. Do not label a frozen-lapse or vacuum-geometry shortcut as the coupled control.
+
+
+
+## Superseding accepted-state directional boundary (2026-11-05)
+
+Slack #423/#427 records confirm that archived captures preserve actual PIRK stage operands (including start, explicit-predictor, and primary-predictor information) and distinguish the unrefreshed endpoint from the lapse-refreshed start-stage witness. They do not document a separate preceding CMC refresh checkpoint carrying the incoming lapse's directional derivative.
+
+Accordingly, the accepted archive's preceding incoming-lapse direction is **unavailable, not zero**. Any prior accepted-state two-stage tangent run that supplied zero at that boundary is retained only as a conditional algebraic demonstration, not as a physical no-frozen-lapse chain.
+
+The accepted-state workflow is narrowed to the derivable pieces: the base CMC output solve; independently transcribed scalar/Valencia, six-sector, metric, primary, and Lambda instantaneous directions; and two-epsilon centered-difference verification of every sector's stress-projection direction. It no longer assigns an accepted-state CMC lapse tangent at the missing boundary. The stage-aware CMC tangent remains testable when its incoming direction is actually supplied; accepted-state lapse-tangent certification remains open. No fixed-point condition is silently imposed, and all production and scientific-admission safeguards remain unchanged.
