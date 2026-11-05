@@ -233,7 +233,7 @@ def main():
             operand_scale += 8.0 * np.pi * (
                 np.abs(plus_obs["J_pieces"][key]) + np.abs(minus_obs["J_pieces"][key])
             )
-        closure_bound = (128.0 * machine_eps / denom) * operand_scale
+        decomposition_roundoff_bound = (128.0 * machine_eps / denom) * operand_scale
         geom_operand_scale = np.zeros_like(mdot_geom)
         for key in tangent.GEOMETRIC_M_NAMES:
             geom_operand_scale += (
@@ -243,16 +243,16 @@ def main():
         geom_bound = (128.0 * machine_eps / denom) * geom_operand_scale
         geom_closure = mdot_geom - geom_sum
         current_closure_ok = bool(plus_obs["J_closure_ok"] and minus_obs["J_closure_ok"])
-        mdot_closure_ok = bool(np.all(np.abs(closure) <= closure_bound))
+        mdot_closure_ok = bool(np.all(np.abs(closure) <= decomposition_roundoff_bound))
         geom_closure_ok = bool(np.all(np.abs(geom_closure) <= geom_bound))
 
         retained[f"tangent_{label}.Mdot"] = np.asarray(mdot, dtype=np.float64)
         retained[f"tangent_{label}.Mdot_geom"] = np.asarray(mdot_geom, dtype=np.float64)
         retained[f"tangent_{label}.Mdot_reconstructed"] = np.asarray(reconstructed, dtype=np.float64)
-        retained[f"tangent_{label}.closure_abs"] = np.abs(closure)
-        retained[f"tangent_{label}.closure_bound"] = closure_bound
-        retained[f"tangent_{label}.Mdot_geom_tangent_closure_abs"] = np.abs(geom_closure)
-        retained[f"tangent_{label}.Mdot_geom_tangent_closure_bound"] = geom_bound
+        retained[f"tangent_{label}.decomposition_gap_abs"] = np.abs(closure)
+        retained[f"tangent_{label}.decomposition_roundoff_bound"] = decomposition_roundoff_bound
+        retained[f"tangent_{label}.Mdot_geom_accounting_gap_abs"] = np.abs(geom_closure)
+        retained[f"tangent_{label}.Mdot_geom_accounting_roundoff_bound"] = geom_bound
         for key, value in mdot_sector.items():
             retained[f"tangent_{label}.Mdot_sector.{key}"] = np.asarray(value, dtype=np.float64)
         for key, value in mdot_geom_terms.items():
@@ -260,9 +260,9 @@ def main():
         tangent_reports[label] = {
             "epsilon": eps,
             "semantics": "analytic_family_central_difference",
-            "Mdot_closure_passed": mdot_closure_ok,
-            "Mdot_closure_max_abs": float(np.max(np.abs(closure))),
-            "Mdot_closure_max_bound": float(np.max(closure_bound)),
+            "Mdot_decomposition_accounting_passed": mdot_closure_ok,
+            "Mdot_decomposition_gap_max_abs": float(np.max(np.abs(closure))),
+            "Mdot_decomposition_roundoff_bound_max": float(np.max(decomposition_roundoff_bound)),
             "Mdot_geom_term_accounting_passed": geom_closure_ok,
             "Mdot_geom_term_closure_max_abs": float(np.max(np.abs(geom_closure))),
             "Mdot_geom_term_closure_max_bound": float(np.max(geom_bound)),
@@ -428,7 +428,7 @@ def main():
                 row["projection_crosscheck_passed"] for row in family_reports.values()
             ),
             "all_tangent_accounting_passed": all(
-                row["Mdot_closure_passed"] and row["Mdot_geom_term_accounting_passed"]
+                row["Mdot_decomposition_accounting_passed"] and row["Mdot_geom_term_accounting_passed"]
                 and row["plus_minus_six_sector_current_accounting_passed"]
                 for row in tangent_reports.values()
             ),
