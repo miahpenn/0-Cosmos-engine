@@ -12,6 +12,8 @@ from tools.issue4_cmc_lapse_tangent import (
     solve_stage_aware_cmc_tangent_six_sector,
     sum_six_sector_projections,
     project_six_sector_stress_from_arrays,
+    independent_scalar_and_geometry_rates,
+    six_sector_projection_directions,
 )
 
 
@@ -242,3 +244,58 @@ def test_independent_six_sector_projector_reconstructs_all_locked_sectors():
     for sector in sectors.values():
         assert set(sector)=={"rho","pr","pt","j"}
         assert all(np.all(np.isfinite(v)) for v in sector.values())
+
+
+def test_pinned_instantaneous_six_sector_rates_and_projection_directions_two_epsilons():
+    n=20; dr=0.5; r=(np.arange(n)+0.5)*dr
+    a=1.0+0.012*np.exp(-(r/3.5)**2)
+    b=1.0-0.006*np.exp(-(r/4.5)**2)
+    X=1.0+0.004*np.exp(-(r/5.5)**2)
+    alpha=1.0-0.025*np.exp(-(r/4.0)**2)
+    beta=np.zeros(n)
+    Aa=1.0e-4*np.exp(-(r/4.0)**2); K=np.full(n,-1.5e-4)
+    Lambda=1.0e-5*r*np.exp(-(r/5.0)**2)
+    scalars={
+        "S":0.008*np.exp(-(r/3.0)**2),"PS":np.full(n,1.5e-4),
+        "D":0.0015*np.exp(-(r/4.0)**2),"PD":np.full(n,8.0e-6),
+        "phi":0.16+0.01*np.exp(-(r/5.0)**2),"Pi":np.full(n,2.0e-3),
+    }
+    sqrtg=np.sqrt(a)*b*r*r/X**3
+    fluids={
+        "dark_matter":{"rest":sqrtg*np.full(n,2.5e-5),
+            "energy_t":-sqrtg*alpha*np.full(n,2.5e-5),
+            "momentum_r":sqrtg*np.full(n,2.0e-7)},
+        "baryons":{"rest":sqrtg*np.full(n,4.0e-6),
+            "energy_t":-sqrtg*alpha*np.full(n,4.0e-6),
+            "momentum_r":sqrtg*np.full(n,-1.0e-7)},
+        "radiation":{"rest":np.zeros(n),
+            "energy_t":sqrtg*np.full(n,8.0e-9),
+            "momentum_r":sqrtg*np.full(n,1.0e-10)},
+    }
+    d1=lambda x,parity=1:fourth_order_cell_derivative(x,dr,parity=parity,order=1)
+    d2=lambda x,parity=1:fourth_order_cell_derivative(x,dr,parity=parity,order=2)
+    rates=independent_scalar_and_geometry_rates(
+        r=r,dr=dr,a=a,b=b,X=X,alpha=alpha,beta=beta,Aa=Aa,K=K,
+        Lambda=Lambda,scalars=scalars,fluids=fluids,d1=d1,d2=d2)
+    assert set(rates["matter"])=={"dark_matter","baryons","radiation"}
+    assert set(rates["sectors"])=={"dark_matter","baryons","radiation","S","D","phi"}
+    dots=six_sector_projection_directions(
+        r=r,a=a,b=b,X=X,scalars=scalars,fluids=fluids,
+        geometry_rates=rates["geometry"],scalar_rates=rates["scalars"],
+        matter_rates=rates["matter"],d1=d1)
+    for eps in (2.0e-5,1.0e-5):
+        ap=a+eps*rates["geometry"]["a"]; am=a-eps*rates["geometry"]["a"]
+        bp=b+eps*rates["geometry"]["b"]; bm=b-eps*rates["geometry"]["b"]
+        Xp=X+eps*rates["geometry"]["X"]; Xm=X-eps*rates["geometry"]["X"]
+        sp={k:scalars[k]+eps*rates["scalars"][k] for k in scalars}
+        sm={k:scalars[k]-eps*rates["scalars"][k] for k in scalars}
+        fp={name:{k:fluids[name][k]+eps*rates["matter"][name][k]
+                  for k in fluids[name]} for name in fluids}
+        fm={name:{k:fluids[name][k]-eps*rates["matter"][name][k]
+                  for k in fluids[name]} for name in fluids}
+        pp=project_six_sector_stress_from_arrays(r=r,a=ap,b=bp,X=Xp,scalars=sp,fluids=fp,d1=d1)
+        pm=project_six_sector_stress_from_arrays(r=r,a=am,b=bm,X=Xm,scalars=sm,fluids=fm,d1=d1)
+        for sector in dots:
+            for key,basekey in (("rho_dot","rho"),("pr_dot","pr"),("pt_dot","pt"),("j_dot","j")):
+                fd=(pp[sector][basekey]-pm[sector][basekey])/(2.0*eps)
+                np.testing.assert_allclose(fd,dots[sector][key],rtol=2.0e-4,atol=2.0e-11)
