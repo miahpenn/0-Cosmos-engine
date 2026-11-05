@@ -212,3 +212,6 @@ The accepted-state workflow is therefore narrowed. It now:
 - records the preceding incoming-lapse direction as unavailable and does not compute or certify an accepted-state stage-0 or stage-1 lapse tangent.
 
 The stage-aware CMC tangent API remains independently tested on controls where the incoming lapse direction is supplied. The accepted-state physical CMC tangent remains blocked until an actual preceding-stage directional record exists, or until a separately labelled self-consistent fixed-point control is constructed and verified. No fixed point is inferred from the archive. No production equations, accepted arrays, source pins, or admission flags are changed.
+
+
+The narrowed accepted-state workflow passed in [CI run #42099641196](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/42099641196), both jobs successful. The independent module ran **11 tests** and passed the static no-production/no-vendor import guard. The accepted-state job verified all six sector projection directions by centered differences at both epsilons, reconstructed the distinct positive output lapse, and retained a base CMC residual of (2.949978586061497\\times10^{-16}). It explicitly reports the incoming-lapse direction as unavailable and certifies no accepted-state output-lapse tangent.
