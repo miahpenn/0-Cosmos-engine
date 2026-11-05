@@ -109,3 +109,54 @@ def test_independent_derivative_transcription_matches_even_and_odd_polynomial_st
     odd=fourth_order_cell_derivative(r,dr,parity=-1,order=1)
     np.testing.assert_allclose(even,2.0*r,rtol=0.0,atol=2e-12)
     np.testing.assert_allclose(odd,np.ones_like(r),rtol=0.0,atol=2e-12)
+
+
+def _d2(values, parity=1):
+    return fourth_order_cell_derivative(values, 0.5, parity=parity, order=2)
+
+
+def _stage_state():
+    base,rates=_state()
+    r=base["r"]
+    base["alpha_in"]=1.0-0.04*np.exp(-(r/4.0)**2)
+    rates["alpha_in_dot"]=0.2e-4*np.exp(-(r/3.0)**2)
+    return base,rates
+
+
+def _stage_solve(base,rates,eps=0.0):
+    values={k:base[k]+eps*rates[k+"_dot"] for k in
+        ("a","b","X","Aa","K","rho","pr","pt","alpha_in")}
+    return solve_stage_aware_cmc_tangent(
+        r=base["r"],dr=base["dr"],**values,
+        **{k:v for k,v in rates.items()},
+        d1=_d1,d2=_d2)
+
+
+def test_stage_aware_physical_k_rhs_and_lapse_tangent_match_plus_minus_solves():
+    from tools.issue4_cmc_lapse_tangent import solve_stage_aware_cmc_tangent
+    base,rates=_stage_state()
+    result=_stage_solve(base,rates)
+    assert np.min(result.base.alpha)>0.0
+    assert np.max(np.abs(result.base.residual))<1e-11
+    assert np.max(np.abs(result.tangent.differentiated_residual))<1e-10
+    assert np.all(np.isfinite(result.k_rhs_in))
+    assert np.all(np.isfinite(result.k_rhs_in_dot))
+    eps=2.0e-5
+    plus=_stage_solve(base,rates,eps)
+    minus=_stage_solve(base,rates,-eps)
+    fd=(plus.base.alpha-minus.base.alpha)/(2.0*eps)
+    np.testing.assert_allclose(fd,result.tangent.alpha_dot,rtol=2e-6,atol=2e-9)
+    target_fd=(plus.base.kdot_cmc-minus.base.kdot_cmc)/(2.0*eps)
+    assert target_fd==pytest.approx(result.tangent.kdot_cmc_dot,rel=2e-6,abs=2e-10)
+
+
+def test_stage_aware_physical_k_rhs_direction_is_not_an_external_input():
+    import inspect
+    from tools.issue4_cmc_lapse_tangent import (
+        physical_k_rhs_and_direction, solve_stage_aware_cmc_tangent)
+    assert "k_rhs_dot" not in inspect.signature(physical_k_rhs_and_direction).parameters
+    assert "k_rhs_dot" not in inspect.signature(solve_stage_aware_cmc_tangent).parameters
+    base,rates=_stage_state()
+    result=_stage_solve(base,rates)
+    assert np.max(np.abs(result.k_rhs_in_dot))>0.0
+    assert np.max(np.abs(result.tangent.alpha_dot))>0.0
