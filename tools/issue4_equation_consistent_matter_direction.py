@@ -57,7 +57,7 @@ def _fluid_conserved(r: np.ndarray, rho: np.ndarray, pressure: np.ndarray,
     return rest, r*r*energy, r*r*momentum
 
 
-def analytic_matter_rates(r: np.ndarray) -> dict[str, np.ndarray]:
+def analytic_matter_rates(r: np.ndarray, *, d1=None, d2=None) -> dict[str, np.ndarray]:
     """Return continuum equation rates at the declared zero-velocity base.
 
     Scalar rates are the flat-slice limits of the pinned scalar equations.
@@ -75,13 +75,13 @@ def analytic_matter_rates(r: np.ndarray) -> dict[str, np.ndarray]:
     S, D, phi = scalar_fields["S"], scalar_fields["D"], scalar_fields["phi"]
     rho_dm = PROFILE["fluid_rest_density_amplitudes"]["dark_matter"] * fluid_shape
 
-    S_accel = gaussian_laplacian(rr, S, PROFILE["scalar_width"]) - S
-    D_accel = gaussian_laplacian(rr, D, PROFILE["scalar_width"]) + D
-    phi_lap = gaussian_laplacian(rr, phi, PROFILE["scalar_width"])
+    S_accel = radial_laplacian(S, PROFILE["scalar_width"]) - S
+    D_accel = radial_laplacian(D, PROFILE["scalar_width"]) + D
+    phi_lap = radial_laplacian(phi, PROFILE["scalar_width"])
     phi_prime = -COSMOS_V0 * COSMOS_LAMBDA * np.exp(-COSMOS_LAMBDA * phi)
     phi_accel = phi_lap - phi_prime + BETA_DM * rho_dm
 
-    phi_r = gaussian_radial_derivative(rr, phi, PROFILE["scalar_width"])
+    phi_r = radial_derivative(phi, PROFILE["scalar_width"])
     rates = {
         "S_dot": np.zeros_like(rr), "PS_dot": S_accel,
         "D_dot": np.zeros_like(rr), "PD_dot": D_accel,
@@ -94,12 +94,12 @@ def analytic_matter_rates(r: np.ndarray) -> dict[str, np.ndarray]:
     }
     rho_rad = PROFILE["fluid_rest_density_amplitudes"]["radiation"] * fluid_shape
     # At rest, (rho+p) dv/dt = -dp/dr for an uncoupled perfect fluid.
-    dp_rad = gaussian_radial_derivative(rr, rho_rad, PROFILE["fluid_width"]) / 3.0
+    dp_rad = radial_derivative(rho_rad, PROFILE["fluid_width"]) / 3.0
     rates["radiation_v_dot"] = -dp_rad / (rho_rad + rho_rad / 3.0)
     return rates
 
 
-def construct_equation_consistent_family(centers: np.ndarray, s: float = 0.0) -> dict[str, np.ndarray]:
+def construct_equation_consistent_family(centers: np.ndarray, s: float = 0.0, *, rates=None) -> dict[str, np.ndarray]:
     """Construct U(s)=U(0)+s*Udot_matter to first order at s=0.
 
     Geometry is deliberately held at exact flat areal values. Scalar fields
@@ -147,11 +147,11 @@ def construct_equation_consistent_family(centers: np.ndarray, s: float = 0.0) ->
     return state
 
 
-def construct_equation_consistent_triplet(centers: np.ndarray, epsilon: float) -> dict[str, dict[str, np.ndarray]]:
+def construct_equation_consistent_triplet(centers: np.ndarray, epsilon: float, *, rates=None) -> dict[str, dict[str, np.ndarray]]:
     if not np.isfinite(epsilon) or epsilon <= 0.0:
         raise ValueError("epsilon must be positive and finite")
     return {
-        "base": construct_equation_consistent_family(centers, 0.0),
-        "plus": construct_equation_consistent_family(centers, float(epsilon)),
-        "minus": construct_equation_consistent_family(centers, -float(epsilon)),
+        "base": construct_equation_consistent_family(centers, 0.0, rates=rates),
+        "plus": construct_equation_consistent_family(centers, float(epsilon), rates=rates),
+        "minus": construct_equation_consistent_family(centers, -float(epsilon), rates=rates),
     }
