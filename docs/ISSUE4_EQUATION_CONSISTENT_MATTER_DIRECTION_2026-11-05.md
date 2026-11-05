@@ -13,7 +13,7 @@ a source of tangent values. This new direction aligns scalar conjugate
 momenta and fluid velocities with the instantaneous matter equations at a
 zero-velocity base state.
 
-## Exact continuum matter direction
+## Equation-consistent matter direction
 
 The base profiles retain the declared Gaussian scalar and density amplitudes
 and widths of the arbitrary-family control. At the base, all scalar conjugate
@@ -65,19 +65,20 @@ primitives using the pinned flat-areal Valencia conventions, including
 ## Deliberate geometry boundary
 
 **This is not a full Einstein-matter tangent.** Geometry, lapse, shift, and
-connection are held exactly flat/fixed. The direction is equation-consistent
-for the scalar and fluid matter equations on that background, but it does
-not supply the metric/extrinsic-curvature tangent required for a coupled
-Einstein-matter solution. Consequently, any residual from the full Bianchi
+connection are held exactly flat/fixed. The direction is equation-consistent for the pinned scalar spatial
+operators and the fluid continuity/Valencia momentum equations on that
+background, but it does not supply the metric/extrinsic-curvature tangent
+required for a coupled Einstein-matter solution. Consequently, any residual from the full Bianchi
 predictor must be interpreted as a frozen-geometry matter-direction control,
 not as a physical closure verdict or evidence of a missing term.
 
-The scalar spatial operators here are exact continuum Gaussian derivatives.
-The pinned production scalar module uses its grid's fourth-order derivative
-operator. The eventual report must record this continuum-vs-discrete operator
-distinction and must not claim exact semi-discrete RHS consistency. A separate
-operator-discretization witness may quantify that difference without calling
-the production RHS.
+The channel runner injects the pinned vendor grid's fourth-order first- and
+second-derivative operators into the analytic-rate constructor. Thus the
+scalar accelerations and the DM/radiation radial gradients use the same pinned
+spatial operators as the scalar/Valencia equations, without calling either
+production RHS. The constructor's no-operator default remains an exact
+continuum-Gaussian reference used by its isolated unit tests. The archived
+control records the pinned-operator rates as explicit analytic-rate arrays.
 
 ## Guardrails
 
