@@ -303,6 +303,15 @@ def main():
             "six_sector_reconstruction_after_time_density_accounting": reconstruction["all_sectors_reconstruct_total_after_time_density_accounting"],
             "raw_sum_max_gap": reconstruction["raw_sum_max_gap"],
             "unexplained_max_gap_after_time_density_accounting": reconstruction["unexplained_max_gap"],
+            "channel_accounting": {
+                key: {
+                    "max_abs_gap": value["max_abs_gap"],
+                    "max_abs_unexplained_gap": value["max_abs_unexplained_gap"],
+                    "passed": value["passed"],
+                    "component_corrected_passed": value["component_corrected_passed"],
+                }
+                for key, value in reconstruction["channels"].items()
+            },
             "pointwise_operator_component_reconstruction_passed": all(
                 decomposition["sectors"][name].get("operator_component_decomposition", {}).get(
                     "component_reconstruction_passed", True
