@@ -254,11 +254,13 @@ class StageAwareCMCTangentResult:
 def physical_k_rhs_and_direction(*, r, dr, a, b, X, alpha_in,
         Aa, K, rho, pr, pt, a_dot, b_dot, X_dot, alpha_in_dot,
         Aa_dot, K_dot, rho_dot, pr_dot, pt_dot, d1, d2):
-    """Independently transcribe native warped-product lapse Laplacian and its direction.
+    """Independently transcribe the pinned discrete L2 lapse Laplacian and its direction.
 
     No production/native/vendor imports. The physical K RHS is reconstructed
-    from the incoming lapse; its direction is derived from incoming-lapse,
-    geometry, primary and matter directions. No k_rhs_dot argument exists.
+    from the pinned vacuum_bssn L2 lapse-Hessian stencil plus the pinned L3
+    geometric and six-sector source terms. Its direction is derived from
+    incoming-lapse, geometry, primary and matter directions. No k_rhs_dot
+    argument exists.
     """
     r = _validate_grid(r, dr); n = r.size
     names=("a","b","X","alpha_in","Aa","K","rho","pr","pt",
@@ -274,27 +276,29 @@ def physical_k_rhs_and_direction(*, r, dr, a, b, X, alpha_in,
     D1a=lambda x,p: _vec("D1",d1(x,parity=p),n)
     D2a=lambda x,p: _vec("D2",d2(x,parity=p),n)
     with np.errstate(over="ignore",divide="ignore",invalid="ignore"):
-        A=a/X**2
-        R=r*np.sqrt(b)/X
-        Ad=A*(ad/a-2.0*Xd/X)
-        Rd=R*(0.5*bd/b-Xd/X)
-        dA=D1a(A,1); dAd=D1a(Ad,1)
-        dR=D1a(R,-1); dRd=D1a(Rd,-1)
-        d2R=D2a(R,-1); d2Rd=D2a(Rd,-1)
+        # Exact pinned vacuum_bssn.geometry_terms()["lap_alpha"] transcription:
+        # inv=X^2/a; chip=-D1(X)/(2X);
+        # lap=inv*(D2(alpha)-D1(alpha)*(D1(a)/(2a)-D1(b)/b-2chip-2/r)).
+        # Keep derivatives on the original fields. Replacing this with
+        # derivatives of A=a/X^2 and R=r*sqrt(b)/X is only continuum-equivalent;
+        # discrete product/quotient rules do not commute with the stencil.
+        inv=X**2/a
+        inv_dot=inv*(2.0*Xd/X-ad/a)
+        ap=D1a(a,1); bp=D1a(b,1); Xp=D1a(X,1)
+        ap_dot=D1a(ad,1); bp_dot=D1a(bd,1); Xp_dot=D1a(Xd,1)
         dal=D1a(al,1); dald=D1a(ald,1)
         d2al=D2a(al,1); d2ald=D2a(ald,1)
-        # Native warped-product identity: A=a/X^2, R=r sqrt(b)/X.
-        H=(d2al-0.5*(dA/A)*dal)/A
-        Hdot=(d2ald-0.5*((dAd/A-dA*Ad/A**2)*dal+(dA/A)*dald))/A-H*Ad/A
-        G=2.0*dR*dal/(A*R)
-        Gdot=2.0*((dRd*dal+dR*dald)/(A*R)
-                  -(dR*dal/(A*R))*(Ad/A+Rd/R))
-        lap=H+G
-        lapdot=Hdot+Gdot
+        h=0.5*ap/a-bp/b+Xp/X-2.0/r
+        h_dot=(0.5*(ap_dot/a-ap*ad/(a*a))
+               -(bp_dot/b-bp*bd/(b*b))
+               +(Xp_dot/X-Xp*Xd/(X*X)))
+        lap=inv*(d2al-dal*h)
+        lap_dot=(inv_dot*(d2al-dal*h)
+                 +inv*(d2ald-dald*h-dal*h_dot))
         Q=1.5*Aa**2+K**2/3.0+4.0*np.pi*(rho+pr+2.0*pt)
         Qdot=3.0*Aa*Aad+(2.0/3.0)*K*Kd+4.0*np.pi*(rhod+prd+2.0*ptd)
         kr=-lap+al*Q
-        krd=-lapdot+ald*Q+al*Qdot
+        krd=-lap_dot+ald*Q+al*Qdot
     if not np.all(np.isfinite(kr)) or not np.all(np.isfinite(krd)):
         raise FloatingPointError("physical incoming K RHS or its direction is non-finite")
     return kr,krd
