@@ -153,11 +153,13 @@ def differentiate_cmc_discrete(*, base: CMCDiscreteResult, r, dr,
     kbardot = float((np.sum(wdot*kr+w*krd)-kbar*wsumdot)/wsum)
 
     A,c,m,inv,Q = _assemble_operator(r,dr,a,b,X,Aa,K,rho,pr,pt,d1)
+    ap = _d1(d1,a,1,n,"D_r a")
+    bp = _d1(d1,b,1,n,"D_r b")
+    Xp = _d1(d1,X,1,n,"D_r X")
     apd = _d1(d1,ad,1,n,"D_r a dot")
     bpd = _d1(d1,bd,1,n,"D_r b dot")
     Xpd = _d1(d1,Xd,1,n,"D_r X dot")
-    cdot = (-0.5*(apd/a-ap*0.0) / a if False else
-            -0.5*(apd/a-ap*ad/(a*a)) +
+    cdot = (-0.5*(apd/a-ap*ad/(a*a)) +
             bpd/b-bp*bd/(b*b)-Xpd/X+Xp*Xd/(X*X))
     Qdot = 3.0*Aa*Aad + (2.0/3.0)*K*Kd + 4.0*np.pi*(rhod+prd+2.0*ptd)
     invdot = inv*(2.0*Xd/X-ad/a)
