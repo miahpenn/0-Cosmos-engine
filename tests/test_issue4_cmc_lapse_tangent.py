@@ -161,3 +161,16 @@ def test_stage_aware_physical_k_rhs_direction_is_not_an_external_input():
     result=_stage_solve(base,rates)
     assert np.max(np.abs(result.k_rhs_in_dot))>0.0
     assert np.max(np.abs(result.tangent.alpha_dot))>0.0
+
+
+def test_stage_aware_k_rhs_uses_pinned_fieldwise_l2_lapse_stencil():
+    base,rates=_stage_state()
+    result=_stage_solve(base,rates)
+    r=base["r"]; a=base["a"]; b=base["b"]; X=base["X"]
+    alpha=base["alpha_in"]; Aa=base["Aa"]; K=base["K"]
+    ap=_d1(a,1); bp=_d1(b,1); Xp=_d1(X,1)
+    chip=-0.5*Xp/X
+    lap=(X**2/a)*(_d2(alpha,1)-_d1(alpha,1)*(
+        0.5*ap/a-bp/b-2.0*chip-2.0/r))
+    Q=1.5*Aa**2+K**2/3.0+4.0*np.pi*(base["rho"]+base["pr"]+2.0*base["pt"])
+    np.testing.assert_allclose(result.k_rhs_in,-lap+alpha*Q,rtol=0.0,atol=2e-15)
