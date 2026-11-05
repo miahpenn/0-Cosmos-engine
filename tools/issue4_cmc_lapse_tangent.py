@@ -310,6 +310,102 @@ SIX_SECTOR_NAMES = (
 )
 
 
+
+
+def project_six_sector_stress_from_arrays(*, r, a, b, X, scalars, fluids, d1):
+    """Independently reconstruct six named Eulerian stress projections.
+
+    Inputs are frozen accepted-state arrays: scalar fields/momenta and the
+    three Valencia conserved triples. This transcribes the pinned scalar and
+    Valencia primitive/projection algebra without importing engine/vendor code.
+    The returned per-sector arrays are rho/pr/pt/j in the locked normalization.
+    """
+    r=_vec("r",r); n=r.size
+    if n<5 or np.any(r<=0.0) or np.any(np.diff(r)<=0.0):
+        raise ValueError("six-sector projection requires increasing positive cell centres")
+    a=_vec("a",a,n); b=_vec("b",b,n); X=_vec("X",X,n)
+    if np.any(a<=0.0) or np.any(b<=0.0) or np.any(X<=0.0):
+        raise FloatingPointError("six-sector projection requires positive metric fields")
+    if not isinstance(scalars,dict) or set(scalars)!={"S","D","phi"}:
+        raise ValueError("scalar inputs must contain exactly S, D, phi")
+    if not isinstance(fluids,dict) or set(fluids)!={"dark_matter","baryons","radiation"}:
+        raise ValueError("fluid inputs must contain exactly dark_matter, baryons, radiation")
+    kappa=8.0*math.pi
+    inv=X*X/a
+    parts={}
+    scalar_data=(
+        ("S",0.5*np.asarray(scalars["S"],dtype=np.float64)**2,1.0,"PS"),
+        ("D",-0.5*np.asarray(scalars["D"],dtype=np.float64)**2,1.0,"PD"),
+        ("phi",8.242522415500654e-5*(np.exp(-np.asarray(scalars["phi"],dtype=np.float64))-0.10),kappa,"Pi"),
+    )
+    for name,potential,norm,momentum_key in scalar_data:
+        field=_vec(f"{name} field",scalars[name],n)
+        momentum=_vec(f"{name} momentum",scalars[momentum_key],n)
+        field_r=_vec(f"{name} radial derivative",d1(field,parity=1),n)
+        grad2=inv*field_r*field_r
+        parts[name]={
+            "rho":(0.5*momentum**2+0.5*grad2+potential)/norm,
+            "pr":(0.5*momentum**2+0.5*grad2-potential)/norm,
+            "pt":(0.5*momentum**2-0.5*grad2-potential)/norm,
+            "j":(-momentum*field_r)/norm,
+        }
+    sqrt_gamma=np.sqrt(a)*b*r*r/(X**3)
+    gamma_rr=a/(X*X); gamma_rr_inv=1.0/gamma_rr
+    for name in ("dark_matter","baryons","radiation"):
+        state=fluids[name]
+        if not isinstance(state,dict) or set(state)!={"rest","energy_t","momentum_r"}:
+            raise ValueError(f"{name} conserved state must contain rest/energy_t/momentum_r")
+        rest=_vec(f"{name} rest",state["rest"],n)
+        energy_t=_vec(f"{name} energy_t",state["energy_t"],n)
+        momentum_r=_vec(f"{name} momentum_r",state["momentum_r"],n)
+        E=energy_t/sqrt_gamma
+        Sr=momentum_r/sqrt_gamma
+        S2=gamma_rr_inv*Sr*Sr
+        rho_fluid=np.empty(n); pressure=np.empty(n); v2=np.empty(n)
+        for i in range(n):
+            if name!="radiation":
+                if rest[i]<=0.0:
+                    raise ValueError(f"{name} rest-current must be positive at cell {i}")
+                Dcons=rest[i]/sqrt_gamma[i]
+                s2=S2[i]
+                v2[i]=s2/(Dcons*Dcons+s2)
+                W=1.0/math.sqrt(1.0-v2[i])
+                rho_fluid[i]=Dcons/W
+                pressure[i]=0.0
+            else:
+                if E[i]<0.0:
+                    raise ValueError(f"radiation energy is negative at cell {i}")
+                if S2[i]==0.0:
+                    rho_fluid[i]=E[i]; pressure[i]=E[i]/3.0; v2[i]=0.0
+                    continue
+                if math.sqrt(S2[i])>=E[i]:
+                    raise ValueError(f"radiation state is outside strict E>|S| cone at cell {i}")
+                lo=0.0; hi=E[i]/3.0
+                for _ in range(80):
+                    mid=0.5*(lo+hi)
+                    trial_v2=S2[i]/((E[i]+mid)**2)
+                    correction=4.0*mid*trial_v2/(1.0-trial_v2)
+                    residual=(3.0*mid-E[i])+correction
+                    if abs(residual)<=1.0e-12*E[i]:
+                        break
+                    if residual>=0.0: hi=mid
+                    else: lo=mid
+                pressure[i]=mid; rho_fluid[i]=3.0*mid
+                v2[i]=S2[i]/((E[i]+mid)**2)
+        W=1.0/np.sqrt(1.0-v2)
+        v_r=np.sign(Sr)*np.sqrt(v2/gamma_rr)
+        h=rho_fluid+pressure
+        parts[name]={
+            "rho":(h*W*W-pressure)/kappa,
+            "pr":(h*W*W*v2+pressure)/kappa,
+            "pt":pressure/kappa,
+            "j":(h*W*W*gamma_rr*v_r)/kappa,
+        }
+    for sector in parts:
+        for key in ("rho","pr","pt","j"):
+            parts[sector][key]=_vec(f"{sector} {key}",parts[sector][key],n)
+    return parts
+
 def sum_six_sector_projections(*, sector_projections, sector_projection_directions):
     """Validate and sum six named base and directional stress projections.
 
