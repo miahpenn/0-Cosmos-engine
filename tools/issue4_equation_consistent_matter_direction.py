@@ -67,10 +67,12 @@ def analytic_matter_rates(r: np.ndarray, *, d1=None, d2=None) -> dict[str, np.nd
     rr = _finite("grid centers", r)
     if (d1 is None) != (d2 is None):
         raise ValueError("d1 and d2 must be supplied together")
+
     def radial_derivative(values, width):
         if d1 is None:
             return gaussian_radial_derivative(rr, values, width)
         return _finite("pinned first derivative", d1(values, parity=1))
+
     def radial_laplacian(values, width):
         if d1 is None:
             return gaussian_laplacian(rr, values, width)
