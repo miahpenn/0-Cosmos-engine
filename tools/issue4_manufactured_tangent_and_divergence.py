@@ -9,6 +9,7 @@ import os
 from pathlib import Path
 import subprocess
 import sys
+import zipfile
 from types import SimpleNamespace
 
 import numpy as np
@@ -159,6 +160,36 @@ def main():
     for name, value in arrays.items():
         retained[f"state.base.{name}"] = np.asarray(value, dtype=np.float64)
     add_projection_arrays(retained, "projection.base", base_projection)
+    family_projection_reports = {"base": {
+        "state_digest": initial_digest,
+        "projection_crosscheck_passed": True,
+        "projection_crosscheck": base_projection["projection_crosscheck"],
+    }}
+    # Preserve all four analytically constructed +/- family members in this
+    # same complete fixture archive, not only in the earlier projection run.
+    for family_eps in EPSILONS:
+        family_label = f"eps{family_eps:.0e}".replace("+", "")
+        for sign, signed_eps in (("plus", family_eps), ("minus", -family_eps)):
+            member = construct_regular_family(r, signed_eps)
+            member_state = construct_production_state(member, r0_operators, vacuum_bssn, tangent)
+            member_digest = tangent.state_digest(member_state)
+            member_projection = total.independent_total_projections(member_state)
+            if not member_projection["projection_crosscheck_passed"]:
+                raise RuntimeError(
+                    f"family projection cross-check failed for {family_label}_{sign}: "
+                    f"{member_projection['projection_crosscheck']}"
+                )
+            member_key = f"{family_label}_{sign}"
+            for key, value in member.items():
+                retained[f"state.{member_key}.{key}"] = np.asarray(value, dtype=np.float64)
+            add_projection_arrays(retained, f"projection.{member_key}", member_projection)
+            if tangent.state_digest(member_state) != member_digest:
+                raise RuntimeError(f"family state mutated during projection: {member_key}")
+            family_projection_reports[member_key] = {
+                "state_digest": member_digest,
+                "projection_crosscheck_passed": True,
+                "projection_crosscheck": member_projection["projection_crosscheck"],
+            }
     tangent_reports = {}
     divergence_reports = {}
     epsilon_sensitivity = {}
@@ -235,15 +266,20 @@ def main():
     if tangent.state_digest(state) != initial_digest:
         raise RuntimeError("base manufactured state mutated during tangent/divergence observer")
 
-    npz = OUT / "issue4_manufactured_tangent_and_divergence_N60.npz"
+    npz = OUT / "arrays.npz"
     np.savez_compressed(npz, **retained)
     manifest = {
-        "schema": "issue4_manufactured_tangent_and_divergence_v1",
+        "schema": "issue4_manufactured_complete_fixture_v1",
         "diagnostic_only": True,
         "state_class": "manufactured_regular_family",
         "resolution": N,
         "r_max": R_MAX,
         "directional_epsilons": list(EPSILONS),
+        "complete_constructed_state_classes": [
+            "base", "eps2e-05_plus", "eps2e-05_minus",
+            "eps1e-05_plus", "eps1e-05_minus",
+        ],
+        "family_projection_reports": family_projection_reports,
         "production_rhs_evaluated": True,
         "production_steps": 0,
         "scientific_admission": False,
@@ -261,8 +297,9 @@ def main():
         "epsilon_sensitivity": epsilon_sensitivity,
         "array_count": len(retained),
         "array_names": sorted(retained),
-        "archive": npz.name,
-        "archive_sha256": digest_file(npz),
+        "arrays_member": npz.name,
+        "arrays_sha256": digest_file(npz),
+        "archive_members": ["SHA256SUMS.txt", "report.json", "arrays.npz"],
         "interpretation_limits": [
             "The tangent is the pinned semi-discrete production RHS directional derivative from the manufactured base state; no production step or trajectory is taken.",
             "Both epsilon channels use the same frozen base state and the pinned two-sided RHS direction with the helper's CMC lapse re-solve.",
@@ -270,19 +307,28 @@ def main():
             "This arithmetic diagnostic does not establish physical conservation closure or scientific admission.",
         ],
     }
-    mp = OUT / "manifest.json"
+    mp = OUT / "report.json"
     mp.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
-    (OUT / "SHA256SUMS.txt").write_text(
-        f"{digest_file(npz)}  {npz.name}\n{digest_file(mp)}  {mp.name}\n"
+    sums = OUT / "SHA256SUMS.txt"
+    sums.write_text(
+        f"{digest_file(mp)}  {mp.name}\n{digest_file(npz)}  {npz.name}\n"
     )
+    fixture_zip = OUT / "issue4_manufactured_regular_family_N60.zip"
+    with zipfile.ZipFile(fixture_zip, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        archive.write(sums, arcname="SHA256SUMS.txt")
+        archive.write(mp, arcname="report.json")
+        archive.write(npz, arcname="arrays.npz")
     print(json.dumps({
         "status": "PASS",
         "base_state_digest": initial_digest,
+        "family_projection_reports": family_projection_reports,
         "tangent": tangent_reports,
         "divergence": divergence_reports,
         "epsilon_sensitivity": epsilon_sensitivity,
         "array_count": len(retained),
-        "archive_sha256": digest_file(npz),
+        "arrays_sha256": digest_file(npz),
+        "fixture_zip": fixture_zip.name,
+        "fixture_zip_sha256": digest_file(fixture_zip),
         "production_steps": 0,
     }, indent=2))
 
