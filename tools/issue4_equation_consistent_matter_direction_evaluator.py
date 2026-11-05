@@ -11,7 +11,7 @@ import numpy as np
 from tools.issue4_equation_consistent_matter_direction import STATE_ARRAY_NAMES
 from tools.issue4_equation_consistent_matter_direction_fixture import load_manufactured_fixture
 from tools.issue4_zero_step_full_bianchi_observer import verify_provenance
-from tools.issue4_full_bianchi_evaluator import _evaluate_loaded_fixture, _jsonable
+from tools.issue4_full_bianchi_evaluator import _evaluate_loaded_fixture, _jsonable, _jsonable
 
 
 def evaluate_equation_consistent_fixture(archive_path, resolution, diagnostic_root, helper_baseline_root):
@@ -82,7 +82,7 @@ def main():
         args.archive, args.resolution, args.diagnostic_source, args.helper_baseline
     )
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n")
+    args.output.write_text(json.dumps(_jsonable(result), indent=2, sort_keys=True, allow_nan=False) + "\n")
     print(json.dumps({
         "status": result["status"],
         "state_class": result["state_class"],
