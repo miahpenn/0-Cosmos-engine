@@ -1,5 +1,5 @@
 {
-  "schema": "issue4.split_derivative_detection_floor.v2",
+  "schema": "issue4.split_derivative_detection_floor.v3",
   "status": "historical_comparison_data",
   "historical_comparison": {
     "source_window": "November 5-6, 2026",
@@ -15,13 +15,19 @@
   },
   "new_study": {
     "protocol_defined": true,
-    "results_available": false,
+    "results_available": true,
     "protocol_file": "tests/test_issue4_affine_root_sensitivity.py",
     "reference": "70-decimal-digit mpmath affine-root solution",
     "float64_solver": "solve_cmc_lapse_fixed_point",
     "detection_rule": "root-shift L2 norm exceeds 10 times baseline float64-vs-mpmath root error, and float64 root-shift discrepancy is at most 10 percent of the high-precision root shift",
     "uniform_perturbation": "all eight state arrays a,b,X,Aa,K,rho,pr,pt receive the same positive smooth shape times each array's own max-absolute scale",
-    "single_component_perturbation": "absolute perturbation to midpoint cell of a; explicitly one component choice, not assumed to match historical component selection"
+    "single_component_perturbation": "absolute perturbation to midpoint cell of a; explicitly one component choice, not assumed to match historical component selection",
+    "results_file": "tests/data/issue4_affine_root/sensitivity_study.json",
+    "summary": {
+      "uniform_smallest_resolved_amplitude": 0.000001,
+      "single_component": "not resolved through 1e-7 absolute perturbation in a[10]",
+      "historical_equivalence_claimed": false
+    }
   },
   "contract_gates": {
     "solver_residual": 2e-12,
@@ -29,5 +35,8 @@
     "absolute_max_error": 2e-8,
     "normwise_relative_error": 1e-7
   },
-  "epsilon_values": [2e-5, 1e-5]
+  "epsilon_values": [
+    0.00002,
+    0.00001
+  ]
 }
