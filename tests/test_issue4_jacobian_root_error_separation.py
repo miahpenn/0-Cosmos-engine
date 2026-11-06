@@ -37,6 +37,22 @@ def _affine_fd_root(args, step):
     return root, jac, float(singular_values[-1]), float(np.linalg.cond(system))
 
 
+def _affine_basis_root(args):
+    """Construct the affine map Jacobian from F(0) and F(e_j), no step size."""
+    n = len(args["r"])
+    zero = np.zeros(n)
+    fzero = _fixed_point_map_output(args, zero).alpha
+    jac = np.empty((n, n))
+    for j in range(n):
+        basis = np.zeros(n)
+        basis[j] = 1.0
+        jac[:, j] = _fixed_point_map_output(args, basis).alpha - fzero
+    system = np.eye(n) - jac
+    root = np.linalg.solve(system, fzero)
+    singular_values = np.linalg.svd(system, compute_uv=False)
+    return root, jac, float(singular_values[-1]), float(np.linalg.cond(system))
+
+
 def _perturbed_float_args(args, rates, epsilon):
     shifted = dict(args)
     for key in ("a", "b", "X", "Aa", "K", "rho", "pr", "pt"):
@@ -55,6 +71,15 @@ def test_report_jacobian_and_root_error_separation():
     mp_root = np.asarray([float(x) for x in mp_root])
     mp_jac = np.asarray([[float(mp_jac[i, j]) for j in range(len(mp_root))]
                          for i in range(len(mp_root))])
+
+    basis_root, basis_jac, basis_sigma_min, basis_condition = _affine_basis_root(args)
+    basis_result = {
+        "root_error_l2_vs_mp": _norm(basis_root - mp_root),
+        "root_error_max_abs_vs_mp": float(np.max(np.abs(basis_root - mp_root))),
+        "jacobian_error_l2_vs_mp": _norm(basis_jac - mp_jac),
+        "system_sigma_min": basis_sigma_min,
+        "system_condition_number": basis_condition,
+    }
 
     affine_sweep = []
     for step in (1e-2, 1e-3, 1e-4, 1e-5, 1e-6, 1e-7, 1e-8):
@@ -83,7 +108,14 @@ def test_report_jacobian_and_root_error_separation():
                   (2 * mp.mpf(str(epsilon))))
             for i in range(len(plus_mp))
         ])
+        plus_mp_float = np.asarray([float(value) for value in plus_mp])
+        minus_mp_float = np.asarray([float(value) for value in minus_mp])
         root_fd_sweep.append({
+            "float64_plus_root_error_l2_vs_mp": _norm(plus_float - plus_mp_float),
+            "float64_minus_root_error_l2_vs_mp": _norm(minus_float - minus_mp_float),
+            "root_error_difference_amplified_by_1_over_2epsilon": _norm(
+                ((plus_float - plus_mp_float) - (minus_float - minus_mp_float))
+                / (2.0 * epsilon)),
             "epsilon": epsilon,
             "float64_fd_vs_mp_exact_fd_l2": _norm(float_fd - mp_fd),
             "float64_fd_vs_implicit_tangent_l2": _norm(float_fd - implicit.alpha_dot),
@@ -102,6 +134,7 @@ def test_report_jacobian_and_root_error_separation():
         "schema": "issue4.jacobian_root_error_separation.v1",
         "reference": "70-decimal-digit mpmath affine fixed point and Jacobian",
         "baseline_float64_root_error_l2": _norm(fixed.alpha_in - mp_root),
+        "affine_basis_jacobian_no_step": basis_result,
         "affine_jacobian_finite_difference_sweep": affine_sweep,
         "perturbed_float64_root_finite_difference_sweep": root_fd_sweep,
         "interpretation_limits": [
