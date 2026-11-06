@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
+import mpmath as mp
 
 from test_issue4_cmc_lapse_tangent import (
     _stage_state,
@@ -20,7 +21,7 @@ from tools.issue4_cmc_lapse_tangent import (
     solve_cmc_lapse_fixed_point,
     differentiate_cmc_lapse_fixed_point,
 )
-from tests.issue4_split_derivative_mp import as_mp_state, exact_fixed_point
+from issue4_split_derivative_mp import as_mp_state, exact_fixed_point, _solve_map
 
 
 EPSILONS = (2.0e-5, 1.0e-5)
@@ -116,9 +117,7 @@ def test_affine_root_matches_extended_precision_conditioning_bound(case):
 def test_mpmath_port_matches_float64_tool_map(case):
     _, _, args, fixed, _, _, _ = case
     mp_state = as_mp_state(args)
-    mapped = exact_fixed_point  # Keep the reference port import explicit below.
-    from tests.issue4_split_derivative_mp import _solve_map
-    mp_output = _solve_map(mp_state, [__import__("mpmath").mpf(float(x))
+    mp_output = _solve_map(mp_state, [mp.mpf(float(x))
                                       for x in fixed.alpha_in], dps=70)
     mp_output = np.asarray([float(value) for value in mp_output])
     float_output = _fixed_point_map_output(args, fixed.alpha_in).alpha
