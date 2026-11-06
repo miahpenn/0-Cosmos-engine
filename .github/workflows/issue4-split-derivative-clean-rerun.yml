@@ -1,4 +1,4 @@
-name: Issue 4 split-derivative clean rerun
+name: Issue 4 split-derivative diagnostics
 
 on:
   push:
@@ -8,6 +8,7 @@ on:
       - tools/issue4_cmc_lapse_tangent.py
       - tests/test_issue4_cmc_lapse_tangent.py
       - tests/test_issue4_split_derivative_clean_rerun.py
+      - tests/test_issue4_affine_root_sensitivity.py
       - tests/issue4_split_derivative_mp.py
       - tests/data/issue4_affine_root/detection_floor.json
       - .github/workflows/issue4-split-derivative-clean-rerun.yml
@@ -51,6 +52,7 @@ jobs:
           python -m py_compile tools/issue4_cmc_lapse_tangent.py
           python -m py_compile tests/issue4_split_derivative_mp.py
           python -m py_compile tests/test_issue4_split_derivative_clean_rerun.py
+          python -m py_compile tests/test_issue4_affine_root_sensitivity.py
 
       - name: Run seven blocking split/root/implicit contracts
         run: python -m pytest -q tests/test_issue4_split_derivative_clean_rerun.py -k "not mpmath_port"
@@ -104,16 +106,20 @@ jobs:
       - name: Compare high-precision port with float64 map
         run: python -m pytest -q tests/test_issue4_split_derivative_clean_rerun.py -k mpmath_port
 
-      - name: Verify detection-floor provenance record
+      - name: Measure new numerical sensitivity protocol against historical comparison points
+        run: python -m pytest -s -q tests/test_issue4_affine_root_sensitivity.py
+
+      - name: Verify historical comparison data remain explicitly labelled
         run: |
           python - <<'PY'
           import json
           from pathlib import Path
           record = json.loads(Path(
               "tests/data/issue4_affine_root/detection_floor.json").read_text())
-          assert record["status"] == "prior_handoff_report_only_clean_rerun_pending"
+          assert record["status"] == "historical_comparison_data"
           assert record["reported_boundaries"]["uniform_normwise_relative_floor"] == 1e-7
           assert record["reported_boundaries"]["single_component_absolute_floor"] == 2e-10
-          assert record["clean_rerun"]["recomputed"] is False
-          print("PASS: historical detection floors remain labelled as un-reproduced")
+          assert record["new_study"]["protocol_defined"] is True
+          assert record["new_study"]["results_available"] is False
+          print("PASS: historical values remain comparison data; new study owns its protocol")
           PY
