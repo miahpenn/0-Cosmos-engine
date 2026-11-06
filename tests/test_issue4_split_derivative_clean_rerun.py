@@ -147,8 +147,8 @@ def test_geometry_and_six_sector_state_only_direction_matches_two_differences(ca
         args, fixed.alpha_in, state_rates, np.zeros_like(fixed.alpha_in))
     assert np.max(np.abs(tangent.differentiated_residual)) < TANGENT_RESIDUAL_GATE
     for epsilon in EPSILONS:
-        delta_plus = {key: epsilon * value for key, value in state_rates.items()}
-        delta_minus = {key: -epsilon * value for key, value in state_rates.items()}
+        delta_plus = {key.removesuffix("_dot"): epsilon * value for key, value in state_rates.items()}
+        delta_minus = {key.removesuffix("_dot"): -epsilon * value for key, value in state_rates.items()}
         plus = _fixed_point_map_output(args, fixed.alpha_in, delta_plus)
         minus = _fixed_point_map_output(args, fixed.alpha_in, delta_minus)
         finite_difference = (plus.alpha - minus.alpha) / (2.0 * epsilon)
@@ -188,6 +188,12 @@ def test_combined_implicit_direction_matches_exact_roots_at_both_epsilons(case):
             f"{np.max(np.abs(implicit.alpha_dot-exact_fd)):.9e}; "
             f"normwise_relative={_normwise_relative(implicit.alpha_dot-exact_fd, exact_fd):.9e}"
         )
+
+
+def test_implicit_tangent_residual_contract(case):
+    _, _, _, _, _, _, implicit = case
+    assert np.all(np.isfinite(implicit.alpha_dot))
+    assert implicit.implicit_residual_max < TANGENT_RESIDUAL_GATE
 
 
 def test_normwise_relative_gate_rejects_one_e_minus_six_negative_control(case):
