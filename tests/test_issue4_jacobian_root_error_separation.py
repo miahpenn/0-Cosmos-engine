@@ -34,7 +34,7 @@ def _affine_fd_root(args, step):
     system = np.eye(n) - jac
     root = np.linalg.solve(system, fref - jac @ reference)
     singular_values = np.linalg.svd(system, compute_uv=False)
-    return root, jac, float(singular_values[-1]), float(np.linalg.cond(system))
+    return root, jac, intercept, float(singular_values[-1]), float(np.linalg.cond(system))
 
 
 def _affine_basis_root(args):
@@ -72,12 +72,12 @@ def _norm(x):
 def test_report_jacobian_and_root_error_separation():
     _, _, args, fixed, rates, _, implicit = _case()
     mp_state = as_mp_state(args)
-    mp_root, mp_jac = exact_fixed_point(mp_state, dps=70)
-    mp_root = np.asarray([float(x) for x in mp_root])
-    mp_jac = np.asarray([[float(mp_jac[i, j]) for j in range(len(mp_root))]
+    mp_root_mp, mp_jac_mp = exact_fixed_point(mp_state, dps=70)
+    mp_root = np.asarray([float(x) for x in mp_root_mp])
+    mp_jac = np.asarray([[float(mp_jac_mp[i, j]) for j in range(len(mp_root))]
                          for i in range(len(mp_root))])
 
-    basis_root, basis_jac, basis_sigma_min, basis_condition = _affine_basis_root(args)
+    basis_root, basis_jac, basis_intercept, basis_sigma_min, basis_condition = _affine_basis_root(args)
     basis_result = {
         "root_error_l2_vs_mp": _norm(basis_root - mp_root),
         "root_error_max_abs_vs_mp": float(np.max(np.abs(basis_root - mp_root))),
@@ -85,6 +85,51 @@ def test_report_jacobian_and_root_error_separation():
         "system_sigma_min": basis_sigma_min,
         "system_condition_number": basis_condition,
     }
+
+    # Solve the float64 affine system again in 70-digit arithmetic using
+    # exactly the same binary64 coefficients. This separates coefficient
+    # construction error from forward error in the float64 linear solve.
+    basis_system = np.eye(len(mp_root)) - basis_jac
+    with mp.workdps(70):
+        mp_system64 = mp.matrix([
+            [mp.mpf(float(basis_system[i, j])) for j in range(len(mp_root))]
+            for i in range(len(mp_root))
+        ])
+        mp_intercept64 = mp.matrix([
+            mp.mpf(float(value)) for value in basis_intercept
+        ])
+        mp_root_from_float64_coefficients = mp.lu_solve(
+            mp_system64, mp_intercept64)
+        mp_root_from_float64_coefficients_float = np.asarray([
+            float(value) for value in mp_root_from_float64_coefficients
+        ])
+        mp_root_error_of_float64_solution = mp.matrix([
+            mp.mpf(float(value)) for value in basis_root
+        ]) - mp_root_from_float64_coefficients
+        mp_system_residual = (
+            mp_system64 * mp.matrix([mp.mpf(float(value)) for value in basis_root])
+            - mp_intercept64
+        )
+        mp_intercept_reference = mp.matrix(mp_root_mp) - mp_jac_mp * mp.matrix(mp_root_mp)
+        mp_system_reference = mp.eye(len(mp_root)) - mp_jac_mp
+        mp_coefficients_root_error = mp_root_from_float64_coefficients - mp.matrix(mp_root_mp)
+        solve_error_decomposition = {
+            "float64_basis_root_error_l2_vs_mp": _norm(basis_root - mp_root),
+            "mp_root_from_float64_coefficients_error_l2_vs_mp": _norm(
+                mp_root_from_float64_coefficients_float - mp_root),
+            "float64_solve_roundoff_error_l2_vs_mp_solve_same_coefficients": float(
+                mp.sqrt(sum(value**2 for value in mp_root_error_of_float64_solution))),
+            "float64_intercept_error_l2_vs_mp": _norm(
+                basis_intercept - np.asarray([float(x) for x in mp_intercept_reference])),
+            "float64_system_matrix_error_l2_vs_mp": _norm(
+                basis_system - np.asarray([[float(mp_system_reference[i, j])
+                                             for j in range(len(mp_root))]
+                                            for i in range(len(mp_root))])),
+            "float64_solve_residual_l2_high_precision": float(
+                mp.sqrt(sum(value**2 for value in mp_system_residual))),
+            "float64_solve_residual_linf_high_precision": float(
+                max(abs(value) for value in mp_system_residual)),
+        }
 
     affine_sweep = []
     for step in (1e-2, 1e-3, 1e-4, 1e-5, 1e-6, 1e-7, 1e-8):
@@ -140,6 +185,7 @@ def test_report_jacobian_and_root_error_separation():
         "reference": "70-decimal-digit mpmath affine fixed point and Jacobian",
         "baseline_float64_root_error_l2": _norm(fixed.alpha_in - mp_root),
         "affine_basis_jacobian_exact_secant": basis_result,
+        "affine_root_error_decomposition": solve_error_decomposition,
         "affine_jacobian_finite_difference_sweep": affine_sweep,
         "perturbed_float64_root_finite_difference_sweep": root_fd_sweep,
         "interpretation_limits": [
