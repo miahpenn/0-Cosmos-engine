@@ -117,5 +117,9 @@
     "historical_single_component_absolute_report": 2e-10,
     "equivalence_claimed": false,
     "reason": "The historical perturbation schedule, component choice, and detection rule are unavailable; this study uses a different explicit protocol."
-  }
+  },
+  "implicit_system_sigma_min": 2.3418977119130276e-7,
+  "root_error_conditioning_bound_from_2e_12_residual": 0.00003819241064415596,
+  "baseline_error_over_conditioning_bound": 0.00015501643191411502,
+  "conditioning_interpretation": "The implicit system is strongly ill-conditioned (sigma_min about 2.34e-7). The observed baseline float64/reference root discrepancy is about 1.55e-4 of the conservative root-error bound implied by a 2e-12 residual gate. This quantifies sensitivity of the root solve; it does not establish the cause of the two strict-test mismatches."
 }
