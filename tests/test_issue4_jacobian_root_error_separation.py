@@ -13,7 +13,7 @@ import numpy as np
 
 from test_issue4_split_derivative_clean_rerun import _case, _perturbed_mp_state
 from test_issue4_cmc_lapse_tangent import _d1, _d2, _fixed_point_map_output
-from issue4_split_derivative_mp import as_mp_state, exact_fixed_point
+from issue4_split_derivative_mp import as_mp_state, exact_fixed_point, _solve_map
 from tools.issue4_cmc_lapse_tangent import solve_cmc_lapse_fixed_point
 
 
@@ -129,6 +129,55 @@ def test_report_jacobian_and_root_error_separation():
             "float64_solve_residual_linf_high_precision": float(
                 max(abs(value) for value in mp_system_residual)),
         }
+
+    # Resolve the coefficient errors back to individual affine-map samples.
+    # This distinguishes rounding in F(anchor) and F(anchor+h e_j) from the
+    # subtraction/division used to form each secant column and the intercept.
+    anchor = np.ones(len(mp_root))
+    amplitude = 1.0e-2
+    fanchor_float = _fixed_point_map_output(args, anchor).alpha
+    with mp.workdps(70):
+        fanchor_mp = _solve_map(
+            mp_state, [mp.mpf(float(value)) for value in anchor], dps=70)
+        fanchor_mp_float = np.asarray([float(value) for value in fanchor_mp])
+    anchor_output_error = fanchor_float - fanchor_mp_float
+    basis_output_errors = []
+    secant_numerator_errors = []
+    for j in range(len(mp_root)):
+        basis = anchor.copy()
+        basis[j] += amplitude
+        fbasis_float = _fixed_point_map_output(args, basis).alpha
+        with mp.workdps(70):
+            fbasis_mp = _solve_map(
+                mp_state, [mp.mpf(float(value)) for value in basis], dps=70)
+            fbasis_mp_float = np.asarray([float(value) for value in fbasis_mp])
+        basis_output_errors.append(_norm(fbasis_float - fbasis_mp_float))
+        secant_numerator_errors.append(
+            (fbasis_float - fanchor_float) -
+            (fbasis_mp_float - fanchor_mp_float))
+    secant_numerator_error_matrix = np.column_stack(secant_numerator_errors)
+    intercept_anchor_contribution = anchor_output_error
+    intercept_jacobian_contribution = -(basis_jac - mp_jac) @ anchor
+    intercept_error_vector = basis_intercept - np.asarray([
+        float(x) for x in mp_intercept_reference
+    ])
+    solve_error_decomposition.update({
+        "float64_anchor_map_output_error_l2_vs_mp": _norm(anchor_output_error),
+        "float64_basis_map_output_error_l2_vs_mp_max": max(basis_output_errors),
+        "float64_basis_map_output_error_l2_vs_mp_rms": float(
+            np.sqrt(np.mean(np.square(basis_output_errors)))),
+        "affine_secant_numerator_error_l2_vs_mp": _norm(
+            secant_numerator_error_matrix),
+        "affine_secant_numerator_error_l2_per_amplitude": _norm(
+            secant_numerator_error_matrix) / amplitude,
+        "intercept_anchor_output_contribution_l2": _norm(
+            intercept_anchor_contribution),
+        "intercept_jacobian_contribution_l2": _norm(
+            intercept_jacobian_contribution),
+        "intercept_component_reconstruction_error_l2": _norm(
+            intercept_error_vector - intercept_anchor_contribution
+            - intercept_jacobian_contribution),
+    })
 
     affine_sweep = []
     for step in (1e-2, 1e-3, 1e-4, 1e-5, 1e-6, 1e-7, 1e-8):
