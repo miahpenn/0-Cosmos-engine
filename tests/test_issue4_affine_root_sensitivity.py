@@ -92,10 +92,15 @@ def test_report_new_affine_root_sensitivity_protocol(case=None):
     global mp_base_root
     _, _, args, fixed, _, _, _ = _case()
     mp_base = as_mp_state(args)
-    mp_base_root = _root_mp(mp_base)
+    mp_root_values, mp_jacobian = exact_fixed_point(mp_base, dps=70)
+    mp_base_root = np.asarray([float(value) for value in mp_root_values])
     float_base = np.asarray(fixed.alpha_in)
     baseline_error = float(np.linalg.norm(float_base - mp_base_root))
     n = len(float_base)
+    system = np.eye(n) - np.asarray(
+        [[float(mp_jacobian[i, j]) for j in range(n)] for i in range(n)])
+    sigma_min = float(np.linalg.svd(system, compute_uv=False)[-1])
+    conditioning_bound = np.sqrt(n) * 2.0e-12 / sigma_min
     shape = np.linspace(0.75, 1.25, n)
 
     uniform_amplitudes = ["1e-11", "1e-10", "1e-9", "1e-8",
@@ -128,6 +133,9 @@ def test_report_new_affine_root_sensitivity_protocol(case=None):
             },
         },
         "baseline_float64_vs_mpmath_root_error_l2": baseline_error,
+        "implicit_system_sigma_min": sigma_min,
+        "root_error_conditioning_bound_from_2e_12_residual": conditioning_bound,
+        "baseline_error_over_conditioning_bound": baseline_error / conditioning_bound,
         "uniform": _measure("__uniform__", uniform_amplitudes, args, mp_base,
                             float_base, shape, baseline_error),
         "single_component": _measure("a", single_amplitudes, args, mp_base,
