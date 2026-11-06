@@ -141,7 +141,7 @@ jobs:
           old_step = next(row for row in affine if row["jacobian_step"] == 1e-5)
           broad_step = next(row for row in affine if row["jacobian_step"] == 1e-2)
           assert old_step["root_error_l2_vs_mp"] > 100.0 * broad_step["root_error_l2_vs_mp"]
-          basis = separation["affine_basis_jacobian_no_step"]
+          basis = separation["affine_basis_jacobian_exact_secant"]
           assert basis["root_error_l2_vs_mp"] < old_step["root_error_l2_vs_mp"]
           assert basis["jacobian_error_l2_vs_mp"] < old_step["jacobian_error_l2"]
           fd = separation["perturbed_float64_root_finite_difference_sweep"]
