@@ -70,10 +70,20 @@ def case():
 
 
 def _perturbed_mp_state(args, state_rates, epsilon):
-    perturbed = {"r": args["r"], "dr": args["dr"]}
-    for key in ("a", "b", "X", "Aa", "K", "rho", "pr", "pt"):
-        perturbed[key] = args[key] + epsilon * state_rates[key + "_dot"]
-    return as_mp_state(perturbed)
+    # Form the perturbation in mpmath, not in NumPy float64. Otherwise the
+    # state arrays are rounded before the high-precision root is evaluated,
+    # contaminating the exact-root finite difference by input quantization.
+    with mp.workdps(70):
+        perturbed = as_mp_state(args)
+        step = mp.mpf(str(epsilon))
+        for key in ("a", "b", "X", "Aa", "K", "rho", "pr", "pt"):
+            direction = [mp.mpf(float(value))
+                         for value in state_rates[key + "_dot"]]
+            perturbed[key] = [
+                perturbed[key][i] + step * direction[i]
+                for i in range(len(direction))
+            ]
+        return perturbed
 
 
 def _normwise_relative(error, reference):
