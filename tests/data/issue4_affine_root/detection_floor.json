@@ -1,14 +1,27 @@
 {
-  "schema": "issue4.split_derivative_detection_floor.v1",
-  "status": "prior_handoff_report_only_clean_rerun_pending",
-  "reported_method": "controlled perturbation/detection study on the synthetic affine-root fixture",
-  "reported_boundaries": {
-    "uniform_normwise_relative_floor": 1e-7,
-    "single_component_absolute_floor": 2e-10
+  "schema": "issue4.split_derivative_detection_floor.v2",
+  "status": "historical_comparison_data",
+  "historical_comparison": {
+    "source_window": "November 5-6, 2026",
+    "reported_method": "controlled perturbation/detection study on the synthetic affine-root fixture",
+    "reported_boundaries": {
+      "uniform_normwise_relative_floor": 1e-7,
+      "single_component_absolute_floor": 2e-10
+    },
+    "original_perturbation_schedule_available": false,
+    "original_component_selection_available": false,
+    "original_detection_decision_rule_available": false,
+    "interpretation": "comparison observations only; not reproduced values, solver tolerances, fitted constants, or acceptance gates"
   },
-  "clean_rerun": {
-    "recomputed": false,
-    "note": "These values are preserved as provenance from the November 6 handoff. The clean branch must independently reproduce or revise them; they are not solver tolerances or fitted constants."
+  "new_study": {
+    "protocol_defined": true,
+    "results_available": false,
+    "protocol_file": "tests/test_issue4_affine_root_sensitivity.py",
+    "reference": "70-decimal-digit mpmath affine-root solution",
+    "float64_solver": "solve_cmc_lapse_fixed_point",
+    "detection_rule": "root-shift L2 norm exceeds 10 times baseline float64-vs-mpmath root error, and float64 root-shift discrepancy is at most 10 percent of the high-precision root shift",
+    "uniform_perturbation": "all eight state arrays a,b,X,Aa,K,rho,pr,pt receive the same positive smooth shape times each array's own max-absolute scale",
+    "single_component_perturbation": "absolute perturbation to midpoint cell of a; explicitly one component choice, not assumed to match historical component selection"
   },
   "contract_gates": {
     "solver_residual": 2e-12,
