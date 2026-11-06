@@ -11,6 +11,7 @@ on:
       - tests/test_issue4_affine_root_sensitivity.py
       - tests/test_issue4_jacobian_root_error_separation.py
       - tests/data/issue4_affine_root/sensitivity_study.json
+      - tests/data/issue4_affine_root/jacobian_root_error_separation.json
       - tests/issue4_split_derivative_mp.py
       - tests/data/issue4_affine_root/detection_floor.json
       - .github/workflows/issue4-split-derivative-clean-rerun.yml
@@ -135,5 +136,16 @@ jobs:
           assert results["implicit_system_sigma_min"] > 0.0
           assert results["root_error_conditioning_bound_from_2e_12_residual"] > 0.0
           assert 0.0 < results["baseline_error_over_conditioning_bound"] < 1.0
+          separation = json.loads(Path("tests/data/issue4_affine_root/jacobian_root_error_separation.json").read_text())
+          affine = separation["affine_jacobian_finite_difference_sweep"]
+          old_step = next(row for row in affine if row["jacobian_step"] == 1e-5)
+          broad_step = next(row for row in affine if row["jacobian_step"] == 1e-2)
+          assert old_step["root_error_l2"] > 100.0 * broad_step["root_error_l2"]
+          fd = separation["perturbed_float64_root_finite_difference_sweep"]
+          epsilon_row = next(row for row in fd if row["epsilon"] == 2e-5)
+          assert epsilon_row["float64_fd_vs_mp_exact_fd_l2"] > 1e-5
+          assert epsilon_row["mp_exact_fd_vs_implicit_tangent_l2"] < 1e-9
+          assert epsilon_row["float64_plus_root_residual"] < 1e-12
+          assert epsilon_row["float64_minus_root_residual"] < 1e-12
           print("PASS: historical values remain comparison data; new study owns its protocol")
           PY
