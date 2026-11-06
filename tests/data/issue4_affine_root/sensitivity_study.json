@@ -1,7 +1,7 @@
 {
   "schema": "issue4.affine_root_sensitivity_study_result.v1",
   "run_id": 42308892706,
-  "baseline_float64_vs_mpmath_root_error_l2": 5.920451224255723e-9,
+  "baseline_float64_vs_mpmath_root_error_l2": 1.692409390663805e-10,
   "protocol": {
     "reference": "70-decimal-digit mpmath affine-root solution",
     "float64_solver": "solve_cmc_lapse_fixed_point",
@@ -118,8 +118,10 @@
     "equivalence_claimed": false,
     "reason": "The historical perturbation schedule, component choice, and detection rule are unavailable; this study uses a different explicit protocol."
   },
-  "implicit_system_sigma_min": 2.3418977119130276e-7,
-  "root_error_conditioning_bound_from_2e_12_residual": 0.00003819241064415596,
-  "baseline_error_over_conditioning_bound": 0.00015501643191411502,
-  "conditioning_interpretation": "The implicit system is strongly ill-conditioned (sigma_min about 2.34e-7). The observed baseline float64/reference root discrepancy is about 1.55e-4 of the conservative root-error bound implied by a 2e-12 residual gate. This quantifies sensitivity of the root solve; it does not establish the cause of the two strict-test mismatches."
+  "implicit_system_sigma_min": 2.341897724943365e-7,
+  "root_error_conditioning_bound_from_2e_12_residual": 0.00003819241043165308,
+  "baseline_error_over_conditioning_bound": 0.000004431271479165848,
+  "conditioning_interpretation": "The implicit system is strongly ill-conditioned (sigma_min about 2.34e-7). The observed baseline float64/reference root discrepancy is about 1.55e-4 of the conservative root-error bound implied by a 2e-12 residual gate. This quantifies sensitivity of the root solve; it does not establish the cause of the two strict-test mismatches.",
+  "measurement_run": 42310131257,
+  "measurement_note": "Updated from the latest complete diagnostic run; the previous recorded baseline discrepancy was stale and has been superseded."
 }
