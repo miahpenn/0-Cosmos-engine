@@ -38,17 +38,19 @@ def _affine_fd_root(args, step):
 
 
 def _affine_basis_root(args):
-    """Construct the affine map Jacobian from F(0) and F(e_j), no step size."""
+    """Construct the affine Jacobian without a step, around a valid lapse."""
     n = len(args["r"])
-    zero = np.zeros(n)
-    fzero = _fixed_point_map_output(args, zero).alpha
+    anchor = np.ones(n)
+    fanchor = _fixed_point_map_output(args, anchor).alpha
     jac = np.empty((n, n))
     for j in range(n):
-        basis = np.zeros(n)
-        basis[j] = 1.0
-        jac[:, j] = _fixed_point_map_output(args, basis).alpha - fzero
+        basis = anchor.copy()
+        basis[j] += 1.0
+        jac[:, j] = _fixed_point_map_output(args, basis).alpha - fanchor
     system = np.eye(n) - jac
-    root = np.linalg.solve(system, fzero)
+    # For F(alpha) = J alpha + b, b = F(anchor) - J anchor.
+    intercept = fanchor - jac @ anchor
+    root = np.linalg.solve(system, intercept)
     singular_values = np.linalg.svd(system, compute_uv=False)
     return root, jac, float(singular_values[-1]), float(np.linalg.cond(system))
 
