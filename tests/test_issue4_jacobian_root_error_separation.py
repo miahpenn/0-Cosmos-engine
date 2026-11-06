@@ -38,17 +38,20 @@ def _affine_fd_root(args, step):
 
 
 def _affine_basis_root(args):
-    """Construct the affine Jacobian without a step, around a valid lapse."""
+    """Recover the affine Jacobian from a finite-amplitude exact secant."""
     n = len(args["r"])
     anchor = np.ones(n)
+    amplitude = 1.0e-2
     fanchor = _fixed_point_map_output(args, anchor).alpha
     jac = np.empty((n, n))
     for j in range(n):
         basis = anchor.copy()
-        basis[j] += 1.0
-        jac[:, j] = _fixed_point_map_output(args, basis).alpha - fanchor
+        basis[j] += amplitude
+        f_basis = _fixed_point_map_output(args, basis).alpha
+        # The map is affine in incoming lapse, so this secant has no
+        # truncation error; the finite amplitude keeps every input physical.
+        jac[:, j] = (f_basis - fanchor) / amplitude
     system = np.eye(n) - jac
-    # For F(alpha) = J alpha + b, b = F(anchor) - J anchor.
     intercept = fanchor - jac @ anchor
     root = np.linalg.solve(system, intercept)
     singular_values = np.linalg.svd(system, compute_uv=False)
@@ -136,7 +139,7 @@ def test_report_jacobian_and_root_error_separation():
         "schema": "issue4.jacobian_root_error_separation.v1",
         "reference": "70-decimal-digit mpmath affine fixed point and Jacobian",
         "baseline_float64_root_error_l2": _norm(fixed.alpha_in - mp_root),
-        "affine_basis_jacobian_no_step": basis_result,
+        "affine_basis_jacobian_exact_secant": basis_result,
         "affine_jacobian_finite_difference_sweep": affine_sweep,
         "perturbed_float64_root_finite_difference_sweep": root_fd_sweep,
         "interpretation_limits": [
