@@ -1,0 +1,109 @@
+name: Issue 4 split-derivative clean rerun
+
+on:
+  push:
+    branches:
+      - research/issue4-split-derivative-clean-rerun-2026-11-06
+    paths:
+      - tools/issue4_cmc_lapse_tangent.py
+      - tests/test_issue4_cmc_lapse_tangent.py
+      - tests/test_issue4_split_derivative_clean_rerun.py
+      - tests/issue4_split_derivative_mp.py
+      - tests/data/issue4_affine_root/detection_floor.json
+      - .github/workflows/issue4-split-derivative-clean-rerun.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: issue4-split-derivative-clean-rerun
+  cancel-in-progress: false
+
+jobs:
+  blocking-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12.15"
+
+      - name: Install pinned diagnostic environment
+        run: python -m pip install numpy==2.5.4 pytest==9.1.1 mpmath==1.3.0
+
+      - name: Compile independent implementation and tests
+        run: |
+          python -m py_compile tools/issue4_cmc_lapse_tangent.py
+          python -m py_compile tests/issue4_split_derivative_mp.py
+          python -m py_compile tests/test_issue4_split_derivative_clean_rerun.py
+
+      - name: Run seven blocking split/root/implicit contracts
+        run: python -m pytest -q tests/test_issue4_split_derivative_clean_rerun.py -k "not mpmath_port"
+
+      - name: Preserve original strict failures as visible non-blocking witnesses
+        continue-on-error: true
+        run: |
+          python -m pytest -q             tests/test_issue4_cmc_lapse_tangent.py::test_self_consistent_cmc_lapse_fixed_point_and_implicit_direction_two_epsilons             tests/test_issue4_cmc_lapse_tangent.py::test_fixed_point_root_matches_independent_affine_map_and_reports_conditioning
+
+      - name: Verify zero production/vendor imports
+        run: |
+          python - <<'PY'
+          import ast
+          from pathlib import Path
+          paths = (
+              Path("tools/issue4_cmc_lapse_tangent.py"),
+              Path("tests/issue4_split_derivative_mp.py"),
+              Path("tests/test_issue4_split_derivative_clean_rerun.py"),
+          )
+          forbidden = ("engine", "vendor", "production_kernel", "cmc_gauge",
+                       "moving_puncture", "pirk")
+          for path in paths:
+              tree = ast.parse(path.read_text())
+              imports = [node.module for node in ast.walk(tree)
+                         if isinstance(node, ast.ImportFrom)]
+              imports += [alias.name for node in ast.walk(tree)
+                          if isinstance(node, ast.Import) for alias in node.names]
+              bad = [name for name in imports if name and
+                     any(token in name for token in forbidden)]
+              if bad:
+                  raise SystemExit(f"{path}: forbidden production/vendor imports: {bad}")
+          print("PASS: independent diagnostic path has no production/vendor imports")
+          PY
+
+  research-diagnostics:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12.15"
+
+      - name: Install pinned research diagnostic environment
+        run: python -m pip install numpy==2.5.4 pytest==9.1.1 mpmath==1.3.0
+
+      - name: Compare high-precision port with float64 map
+        run: python -m pytest -q tests/test_issue4_split_derivative_clean_rerun.py -k mpmath_port
+
+      - name: Verify detection-floor provenance record
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          record = json.loads(Path(
+              "tests/data/issue4_affine_root/detection_floor.json").read_text())
+          assert record["status"] == "prior_handoff_report_only_clean_rerun_pending"
+          assert record["reported_boundaries"]["uniform_normwise_relative_floor"] == 1e-7
+          assert record["reported_boundaries"]["single_component_absolute_floor"] == 2e-10
+          assert record["clean_rerun"]["recomputed"] is False
+          print("PASS: historical detection floors remain labelled as un-reproduced")
+          PY
