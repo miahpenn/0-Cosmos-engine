@@ -26,7 +26,10 @@
     "summary": {
       "uniform_smallest_resolved_amplitude": 0.000001,
       "single_component": "not resolved through 1e-7 absolute perturbation in a[10]",
-      "historical_equivalence_claimed": false
+      "historical_equivalence_claimed": false,
+      "implicit_system_sigma_min": 2.3418977119130276e-7,
+      "root_error_conditioning_bound_from_2e_12_residual": 0.00003819241064415596,
+      "baseline_error_over_conditioning_bound": 0.00015501643191411502
     }
   },
   "contract_gates": {
