@@ -9,6 +9,7 @@ on:
       - tests/test_issue4_cmc_lapse_tangent.py
       - tests/test_issue4_split_derivative_clean_rerun.py
       - tests/test_issue4_affine_root_sensitivity.py
+      - tests/data/issue4_affine_root/sensitivity_study.json
       - tests/issue4_split_derivative_mp.py
       - tests/data/issue4_affine_root/detection_floor.json
       - .github/workflows/issue4-split-derivative-clean-rerun.yml
@@ -117,9 +118,12 @@ jobs:
           record = json.loads(Path(
               "tests/data/issue4_affine_root/detection_floor.json").read_text())
           assert record["status"] == "historical_comparison_data"
-          assert record["reported_boundaries"]["uniform_normwise_relative_floor"] == 1e-7
-          assert record["reported_boundaries"]["single_component_absolute_floor"] == 2e-10
+          assert record["historical_comparison"]["reported_boundaries"]["uniform_normwise_relative_floor"] == 1e-7
+          assert record["historical_comparison"]["reported_boundaries"]["single_component_absolute_floor"] == 2e-10
           assert record["new_study"]["protocol_defined"] is True
-          assert record["new_study"]["results_available"] is False
+          assert record["new_study"]["results_available"] is True
+          results = json.loads(Path(record["new_study"]["results_file"]).read_text())
+          assert results["uniform"]["smallest_resolved_amplitude"] == 1e-6
+          assert results["single_component"]["smallest_resolved_amplitude"] is None
           print("PASS: historical values remain comparison data; new study owns its protocol")
           PY
