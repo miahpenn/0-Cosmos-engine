@@ -5,60 +5,60 @@
   "baseline_float64_root_error_l2": 1.692409390663805e-10,
   "affine_jacobian_finite_difference_sweep": [
     {
-      "step": 0.01,
+      "jacobian_step": 0.01,
       "jacobian_error_l2": 2.7566596791948e-12,
-      "root_error_l2": 1.7468163423198905e-9,
-      "root_error_max_abs": 5.382311263346651e-10,
-      "sigma_min": 2.3418977579584562e-7,
-      "condition_number": 1783063636.938502
+      "root_error_l2_vs_mp": 1.7468163423198905e-9,
+      "root_error_max_abs_vs_mp": 5.382311263346651e-10,
+      "system_sigma_min": 2.3418977579584562e-7,
+      "system_condition_number": 1783063636.938502
     },
     {
-      "step": 0.001,
+      "jacobian_step": 0.001,
       "jacobian_error_l2": 3.506361271110686e-11,
-      "root_error_l2": 1.7407774054406296e-8,
-      "root_error_max_abs": 5.363629429488981e-9,
-      "sigma_min": 2.3418975486396944e-7,
-      "condition_number": 1783063796.3085659
+      "root_error_l2_vs_mp": 1.7407774054406296e-8,
+      "root_error_max_abs_vs_mp": 5.363629429488981e-9,
+      "system_sigma_min": 2.3418975486396944e-7,
+      "system_condition_number": 1783063796.3085659
     },
     {
-      "step": 0.0001,
+      "jacobian_step": 0.0001,
       "jacobian_error_l2": 5.996106121204447e-11,
-      "root_error_l2": 4.968896830365041e-8,
-      "root_error_max_abs": 1.5310112511102147e-8,
-      "sigma_min": 2.3419000386006843e-7,
-      "condition_number": 1783061900.5149574
+      "root_error_l2_vs_mp": 4.968896830365041e-8,
+      "root_error_max_abs_vs_mp": 1.5310112511102147e-8,
+      "system_sigma_min": 2.3419000386006843e-7,
+      "system_condition_number": 1783061900.5149574
     },
     {
-      "step": 0.00001,
+      "jacobian_step": 0.00001,
       "jacobian_error_l2": 1.3261248262696487e-9,
-      "root_error_l2": 2.595683898063066e-7,
-      "root_error_max_abs": 7.997726259034721e-8,
-      "sigma_min": 2.3418808106226987e-7,
-      "condition_number": 1783076540.3189766
+      "root_error_l2_vs_mp": 2.595683898063066e-7,
+      "root_error_max_abs_vs_mp": 7.997726259034721e-8,
+      "system_sigma_min": 2.3418808106226987e-7,
+      "system_condition_number": 1783076540.3189766
     },
     {
-      "step": 0.000001,
+      "jacobian_step": 0.000001,
       "jacobian_error_l2": 8.807345953535308e-9,
-      "root_error_l2": 0.000009878882155332788,
-      "root_error_max_abs": 0.0000030438476690264338,
-      "sigma_min": 2.3413169186843886e-7,
-      "condition_number": 1783505983.4313984
+      "root_error_l2_vs_mp": 0.000009878882155332788,
+      "root_error_max_abs_vs_mp": 0.0000030438476690264338,
+      "system_sigma_min": 2.3413169186843886e-7,
+      "system_condition_number": 1783505983.4313984
     },
     {
-      "step": 1e-7,
+      "jacobian_step": 1e-7,
       "jacobian_error_l2": 4.901599390033469e-8,
-      "root_error_l2": 0.000005955623461238548,
-      "root_error_max_abs": 0.0000018349610996226673,
-      "sigma_min": 2.3415697541789078e-7,
-      "condition_number": 1783313406.0082498
+      "root_error_l2_vs_mp": 0.000005955623461238548,
+      "root_error_max_abs_vs_mp": 0.0000018349610996226673,
+      "system_sigma_min": 2.3415697541789078e-7,
+      "system_condition_number": 1783313406.0082498
     },
     {
-      "step": 1e-8,
+      "jacobian_step": 1e-8,
       "jacobian_error_l2": 0.0000020091965928510793,
-      "root_error_l2": 0.0008797486129124471,
-      "root_error_max_abs": 0.00027106460974990476,
-      "sigma_min": 2.3948785546607097e-7,
-      "condition_number": 1743617738.018607
+      "root_error_l2_vs_mp": 0.0008797486129124471,
+      "root_error_max_abs_vs_mp": 0.00027106460974990476,
+      "system_sigma_min": 2.3948785546607097e-7,
+      "system_condition_number": 1743617738.018607
     }
   ],
   "perturbed_float64_root_finite_difference_sweep": [
