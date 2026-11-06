@@ -9,6 +9,7 @@ on:
       - tests/test_issue4_cmc_lapse_tangent.py
       - tests/test_issue4_split_derivative_clean_rerun.py
       - tests/test_issue4_affine_root_sensitivity.py
+      - tests/test_issue4_jacobian_root_error_separation.py
       - tests/data/issue4_affine_root/sensitivity_study.json
       - tests/issue4_split_derivative_mp.py
       - tests/data/issue4_affine_root/detection_floor.json
@@ -56,6 +57,7 @@ jobs:
           python -m py_compile tests/issue4_split_derivative_mp.py
           python -m py_compile tests/test_issue4_split_derivative_clean_rerun.py
           python -m py_compile tests/test_issue4_affine_root_sensitivity.py
+          python -m py_compile tests/test_issue4_jacobian_root_error_separation.py
 
       - name: Run seven blocking split/root/implicit contracts
         run: python -m pytest -q tests/test_issue4_split_derivative_clean_rerun.py -k "not mpmath_port"
@@ -111,6 +113,9 @@ jobs:
 
       - name: Measure new numerical sensitivity protocol against historical comparison points
         run: python -m pytest -s -q tests/test_issue4_affine_root_sensitivity.py
+
+      - name: Separate affine-Jacobian construction and perturbed-root errors
+        run: python -m pytest -s -q tests/test_issue4_jacobian_root_error_separation.py
 
       - name: Verify historical comparison data remain explicitly labelled
         run: |
