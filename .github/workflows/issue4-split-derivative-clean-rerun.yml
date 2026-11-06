@@ -127,5 +127,8 @@ jobs:
           results = json.loads(Path(record["new_study"]["results_file"]).read_text())
           assert results["uniform"]["smallest_resolved_amplitude"] == 1e-6
           assert results["single_component"]["smallest_resolved_amplitude"] is None
+          assert results["implicit_system_sigma_min"] > 0.0
+          assert results["root_error_conditioning_bound_from_2e_12_residual"] > 0.0
+          assert 0.0 < results["baseline_error_over_conditioning_bound"] < 1.0
           print("PASS: historical values remain comparison data; new study owns its protocol")
           PY
