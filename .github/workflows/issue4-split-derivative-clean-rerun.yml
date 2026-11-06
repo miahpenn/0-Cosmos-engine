@@ -21,6 +21,7 @@ on:
     paths:
       - tests/test_issue4_affine_root_sensitivity.py
       - tests/data/issue4_affine_root/sensitivity_study.json
+      - tests/data/issue4_affine_root/jacobian_root_error_separation.json
       - tools/issue4_cmc_lapse_tangent.py
       - tests/test_issue4_cmc_lapse_tangent.py
       - tests/test_issue4_split_derivative_clean_rerun.py
