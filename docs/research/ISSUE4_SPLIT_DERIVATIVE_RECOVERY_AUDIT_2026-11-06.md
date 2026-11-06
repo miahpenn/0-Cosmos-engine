@@ -1,7 +1,7 @@
 # Issue #4 split-derivative work — recovery and provenance audit
 
 **Recorded:** 2026-11-06  
-**Status:** documentation-only recovery record; original Nov 5–6 commits are not yet recovered  
+**Status:** documentation-only recovery record; original Nov 5–6 commits and bundle were created locally, but the original patch bytes and bundle are not currently available in the active recovery environment  
 **Scientific status:** diagnostic-only; `scientific_admission=false`; no production or solver change
 
 ## Purpose
@@ -21,6 +21,8 @@ This is a recovery/provenance audit, not a new scientific review, not a test imp
   1. `2937ef96` — test-only integrated diagnostic patch.
   2. `8965a198` — CI workflow separation and branch trigger.
 - The handoff describes both commits as local-only, unpushed, unmerged, and diagnostic-only. Searches of the connected GitHub repository did not find that branch or either commit. The abbreviated SHAs above are recorded exactly as supplied; no full SHA is inferred.
+- A subsequent local bundle operation was reported in the Nov 6 conversation: `/mnt/user-data/outputs/issue4-integrated-test-diagnostics.bundle`, 16,133 bytes, SHA-256 `8544465262bfb4806f14dd18b477387fa6391c930928ef165c0eeab3683d6e1e`. `git bundle verify` passed; its only prerequisite was base `f8d5a65`, and the bundle contained commits `2937ef96` and `8965a198` with `8965a198` as branch head. This is a recorded prior-session verification, not a fresh verification in the current environment.
+- The subsequent Slack file-upload attempt returned file ID `F0CFA70KUE9` but failed; Slack reported the file as deleted/no data. No successful Slack file link or upload confirmation was recorded. The handoff messages themselves are available at the two links above, but they are not the bundle attachment.
 
 ## Recovered material
 
@@ -97,7 +99,7 @@ The handoff reports local results under Python `3.12.13`, NumPy `2.5.4`, pytest 
 | `8965a198` workflow-separation patch | Exact original patch bytes and full commit object not recovered |
 | `issue4_integrated_test_only.patch` | Not recovered as a file; only handoff description is available |
 | `issue4_ci_separation_workflow.patch` | Not recovered as a file |
-| Original two-commit Git bundle | Not recovered |
+| Original two-commit Git bundle | Created and `git bundle verify` passed in the prior local session; exact size and SHA-256 recorded above. Slack upload failed (`F0CFA70KUE9`, deleted/no data). Bundle bytes are not present in the current runtime, so a fresh byte-level verification or transfer is still outstanding. |
 | Shared helper, port-guard, detection-floor and derivative-reference exact paths/content | Not fully recovered |
 | Exact pinned CPython `3.12.15` workflow result | Outstanding in the handoff; no run is established by this audit |
 
@@ -106,10 +108,10 @@ The handoff describes the second commit, `8965a198`, as adding workflow separati
 ## Recovery rules and next actions
 
 1. Preserve the recovered `484c79ad` patch and derivative proposal as separate artifacts. Do not rewrite either to make them appear to match the later integrated handoff.
-2. Request the original `issue4_integrated_test_only.patch`, `issue4_ci_separation_workflow.patch`, or verified Git bundle if exact history recovery is required.
-3. On receipt, verify the bundle's base and both commit SHAs, inspect the actual file inventory and diffs, and compare them with this ledger. Record any mismatch rather than resolving it by assumption.
-4. Keep the generator syntax defect and all environment/version differences visible. Any repair or regeneration must be a separately identified change with its own provenance.
-5. Do not create substitute commits under the missing SHAs or label a reconstructed implementation as recovered original history.
+2. Recover the already-created bundle bytes from the prior local output path or a user-provided copy. The recorded prior-session path is `/mnt/user-data/outputs/issue4-integrated-test-diagnostics.bundle`; it does not exist in the current runtime. Do not treat the failed Slack file ID as a usable attachment.
+3. When the bytes are available, recompute SHA-256, run `git bundle verify`, confirm the sole prerequisite is `f8d5a65`, and inspect the two commit objects and their file inventory/diffs against this ledger.
+4. Separately recover the original patch files if available; the bundle may be sufficient to recover the commit trees, but the exact named patch files were not confirmed as uploaded.
+5. Keep the generator syntax defect and all environment/version differences visible. Any repair or regeneration must be a separately identified change with its own provenance. Do not create substitute commits under the missing SHAs or label a reconstructed implementation as recovered original history.
 
 ## Scope and admission
 
