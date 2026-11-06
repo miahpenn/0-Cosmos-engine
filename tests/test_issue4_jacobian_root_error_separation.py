@@ -34,7 +34,7 @@ def _affine_fd_root(args, step):
     system = np.eye(n) - jac
     root = np.linalg.solve(system, fref - jac @ reference)
     singular_values = np.linalg.svd(system, compute_uv=False)
-    return root, jac, intercept, float(singular_values[-1]), float(np.linalg.cond(system))
+    return root, jac, float(singular_values[-1]), float(np.linalg.cond(system))
 
 
 def _affine_basis_root(args):
@@ -55,7 +55,7 @@ def _affine_basis_root(args):
     intercept = fanchor - jac @ anchor
     root = np.linalg.solve(system, intercept)
     singular_values = np.linalg.svd(system, compute_uv=False)
-    return root, jac, float(singular_values[-1]), float(np.linalg.cond(system))
+    return root, jac, intercept, float(singular_values[-1]), float(np.linalg.cond(system))
 
 
 def _perturbed_float_args(args, rates, epsilon):
@@ -112,7 +112,6 @@ def test_report_jacobian_and_root_error_separation():
         )
         mp_intercept_reference = mp.matrix(mp_root_mp) - mp_jac_mp * mp.matrix(mp_root_mp)
         mp_system_reference = mp.eye(len(mp_root)) - mp_jac_mp
-        mp_coefficients_root_error = mp_root_from_float64_coefficients - mp.matrix(mp_root_mp)
         solve_error_decomposition = {
             "float64_basis_root_error_l2_vs_mp": _norm(basis_root - mp_root),
             "mp_root_from_float64_coefficients_error_l2_vs_mp": _norm(
