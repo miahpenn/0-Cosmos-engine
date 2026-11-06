@@ -11,6 +11,16 @@ on:
       - tests/issue4_split_derivative_mp.py
       - tests/data/issue4_affine_root/detection_floor.json
       - .github/workflows/issue4-split-derivative-clean-rerun.yml
+  pull_request:
+    branches:
+      - research/issue4-cmc-lapse-split-key-fix-2026-11-06
+    paths:
+      - tools/issue4_cmc_lapse_tangent.py
+      - tests/test_issue4_cmc_lapse_tangent.py
+      - tests/test_issue4_split_derivative_clean_rerun.py
+      - tests/issue4_split_derivative_mp.py
+      - tests/data/issue4_affine_root/detection_floor.json
+      - .github/workflows/issue4-split-derivative-clean-rerun.yml
   workflow_dispatch:
 
 permissions:
