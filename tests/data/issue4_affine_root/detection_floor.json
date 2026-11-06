@@ -1,0 +1,20 @@
+{
+  "schema": "issue4.split_derivative_detection_floor.v1",
+  "status": "prior_handoff_report_only_clean_rerun_pending",
+  "reported_method": "controlled perturbation/detection study on the synthetic affine-root fixture",
+  "reported_boundaries": {
+    "uniform_normwise_relative_floor": 1e-7,
+    "single_component_absolute_floor": 2e-10
+  },
+  "clean_rerun": {
+    "recomputed": false,
+    "note": "These values are preserved as provenance from the November 6 handoff. The clean branch must independently reproduce or revise them; they are not solver tolerances or fitted constants."
+  },
+  "contract_gates": {
+    "solver_residual": 2e-12,
+    "implicit_tangent_residual": 2e-10,
+    "absolute_max_error": 2e-8,
+    "normwise_relative_error": 1e-7
+  },
+  "epsilon_values": [2e-5, 1e-5]
+}
