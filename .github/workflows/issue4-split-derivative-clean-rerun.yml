@@ -145,6 +145,20 @@ jobs:
           basis = separation["affine_basis_jacobian_exact_secant"]
           assert basis["root_error_l2_vs_mp"] < old_step["root_error_l2_vs_mp"]
           assert basis["jacobian_error_l2_vs_mp"] < old_step["jacobian_error_l2"]
+          decomposition = separation["affine_root_error_decomposition"]
+          import math
+          decomposition_fields = (
+              "float64_basis_root_error_l2_vs_mp",
+              "mp_root_from_float64_coefficients_error_l2_vs_mp",
+              "float64_solve_roundoff_error_l2_vs_mp_solve_same_coefficients",
+              "float64_intercept_error_l2_vs_mp",
+              "float64_system_matrix_error_l2_vs_mp",
+              "float64_solve_residual_l2_high_precision",
+              "float64_solve_residual_linf_high_precision",
+          )
+          assert all(math.isfinite(decomposition[key]) and decomposition[key] >= 0.0
+                     for key in decomposition_fields)
+          assert len(separation["repeat_measurements"]) >= 2
           fd = separation["perturbed_float64_root_finite_difference_sweep"]
           epsilon_row = next(row for row in fd if row["epsilon"] == 2e-5)
           assert epsilon_row["float64_fd_vs_mp_exact_fd_l2"] > 1e-5
