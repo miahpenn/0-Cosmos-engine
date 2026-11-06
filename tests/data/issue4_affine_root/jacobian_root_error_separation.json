@@ -1,0 +1,136 @@
+{
+  "schema": "issue4.jacobian_root_error_separation_result.v1",
+  "workflow_run": 42310131257,
+  "reference": "70-decimal-digit mpmath affine fixed point and Jacobian",
+  "baseline_float64_root_error_l2": 1.692409390663805e-10,
+  "affine_jacobian_finite_difference_sweep": [
+    {
+      "step": 0.01,
+      "jacobian_error_l2": 2.7566596791948e-12,
+      "root_error_l2": 1.7468163423198905e-9,
+      "root_error_max_abs": 5.382311263346651e-10,
+      "sigma_min": 2.3418977579584562e-7,
+      "condition_number": 1783063636.938502
+    },
+    {
+      "step": 0.001,
+      "jacobian_error_l2": 3.506361271110686e-11,
+      "root_error_l2": 1.7407774054406296e-8,
+      "root_error_max_abs": 5.363629429488981e-9,
+      "sigma_min": 2.3418975486396944e-7,
+      "condition_number": 1783063796.3085659
+    },
+    {
+      "step": 0.0001,
+      "jacobian_error_l2": 5.996106121204447e-11,
+      "root_error_l2": 4.968896830365041e-8,
+      "root_error_max_abs": 1.5310112511102147e-8,
+      "sigma_min": 2.3419000386006843e-7,
+      "condition_number": 1783061900.5149574
+    },
+    {
+      "step": 0.00001,
+      "jacobian_error_l2": 1.3261248262696487e-9,
+      "root_error_l2": 2.595683898063066e-7,
+      "root_error_max_abs": 7.997726259034721e-8,
+      "sigma_min": 2.3418808106226987e-7,
+      "condition_number": 1783076540.3189766
+    },
+    {
+      "step": 0.000001,
+      "jacobian_error_l2": 8.807345953535308e-9,
+      "root_error_l2": 0.000009878882155332788,
+      "root_error_max_abs": 0.0000030438476690264338,
+      "sigma_min": 2.3413169186843886e-7,
+      "condition_number": 1783505983.4313984
+    },
+    {
+      "step": 1e-7,
+      "jacobian_error_l2": 4.901599390033469e-8,
+      "root_error_l2": 0.000005955623461238548,
+      "root_error_max_abs": 0.0000018349610996226673,
+      "sigma_min": 2.3415697541789078e-7,
+      "condition_number": 1783313406.0082498
+    },
+    {
+      "step": 1e-8,
+      "jacobian_error_l2": 0.0000020091965928510793,
+      "root_error_l2": 0.0008797486129124471,
+      "root_error_max_abs": 0.00027106460974990476,
+      "sigma_min": 2.3948785546607097e-7,
+      "condition_number": 1743617738.018607
+    }
+  ],
+  "perturbed_float64_root_finite_difference_sweep": [
+    {
+      "epsilon": 0.002,
+      "float64_fd_vs_mp_exact_fd_l2": 0.0000012162213238269676,
+      "mp_exact_fd_vs_implicit_tangent_l2": 3.666161108279741e-8,
+      "float64_plus_root_residual": 2.7977620220553945e-14,
+      "float64_minus_root_residual": 2.7200464103316335e-14
+    },
+    {
+      "epsilon": 0.001,
+      "float64_fd_vs_mp_exact_fd_l2": 0.000007330156446808599,
+      "mp_exact_fd_vs_implicit_tangent_l2": 9.16851708207137e-9,
+      "float64_plus_root_residual": 1.5210055437364645e-14,
+      "float64_minus_root_residual": 3.5638159090467525e-14
+    },
+    {
+      "epsilon": 0.0005,
+      "float64_fd_vs_mp_exact_fd_l2": 0.0000068043800512423685,
+      "mp_exact_fd_vs_implicit_tangent_l2": 2.295295555975589e-9,
+      "float64_plus_root_residual": 3.430589146091734e-14,
+      "float64_minus_root_residual": 3.1308289294429414e-14
+    },
+    {
+      "epsilon": 0.0002,
+      "float64_fd_vs_mp_exact_fd_l2": 0.00007868704243085707,
+      "mp_exact_fd_vs_implicit_tangent_l2": 3.707972764861434e-10,
+      "float64_plus_root_residual": 1.8318679906315083e-14,
+      "float64_minus_root_residual": 3.397282455352979e-14
+    },
+    {
+      "epsilon": 0.0001,
+      "float64_fd_vs_mp_exact_fd_l2": 0.000035584396083742766,
+      "mp_exact_fd_vs_implicit_tangent_l2": 9.586916186822612e-11,
+      "float64_plus_root_residual": 2.120525977034049e-14,
+      "float64_minus_root_residual": 2.864375403532904e-14
+    },
+    {
+      "epsilon": 0.00005,
+      "float64_fd_vs_mp_exact_fd_l2": 0.00004909651007893566,
+      "mp_exact_fd_vs_implicit_tangent_l2": 2.713739457310659e-11,
+      "float64_plus_root_residual": 1.765254609153999e-14,
+      "float64_minus_root_residual": 3.9190872769268026e-14
+    },
+    {
+      "epsilon": 0.00002,
+      "float64_fd_vs_mp_exact_fd_l2": 0.0002208166766940209,
+      "mp_exact_fd_vs_implicit_tangent_l2": 7.89336377534093e-12,
+      "float64_plus_root_residual": 3.2307490016592055e-14,
+      "float64_minus_root_residual": 3.530509218307998e-14
+    },
+    {
+      "epsilon": 0.00001,
+      "float64_fd_vs_mp_exact_fd_l2": 0.000791639503212585,
+      "mp_exact_fd_vs_implicit_tangent_l2": 5.144791489200327e-12,
+      "float64_plus_root_residual": 2.3314683517128287e-14,
+      "float64_minus_root_residual": 3.186340080674199e-14
+    },
+    {
+      "epsilon": 0.000005,
+      "float64_fd_vs_mp_exact_fd_l2": 0.0008179534382239814,
+      "mp_exact_fd_vs_implicit_tangent_l2": 4.457785028630022e-12,
+      "float64_plus_root_residual": 3.863576125695545e-14,
+      "float64_minus_root_residual": 4.04121180963557e-14
+    }
+  ],
+  "conclusions": [
+    "At the historical 1e-5 Jacobian step, the affine-root reconstruction differs from the 70-digit reference by 2.60e-7 L2; at 1e-2 the error is 1.75e-9 L2.",
+    "For the combined direction at epsilon 2e-5, float64 root finite differences differ from the matched high-precision finite difference by 2.21e-4 L2, while the high-precision finite difference differs from the implicit tangent by 7.89e-12 L2.",
+    "The perturbed float64 roots have tiny fixed-point residuals around 1e-14, yet their finite-difference derivative is noisy; residual size alone does not certify derivative accuracy.",
+    "These results strongly implicate numerical root/Jacobian error amplification in both strict witnesses, but do not yet prove the full causal chain or identify the best solver change."
+  ],
+  "guardrails": "Diagnostic-only; no production equations, solver, initializer, vendor code, or tolerance changes."
+}
