@@ -1,0 +1,127 @@
+{
+  "schema": "issue4.affine_root_sensitivity_study_result.v1",
+  "run_id": 42308892706,
+  "baseline_float64_vs_mpmath_root_error_l2": 1.692409390663805e-10,
+  "protocol": {
+    "reference": "70-decimal-digit mpmath affine-root solution",
+    "float64_solver": "solve_cmc_lapse_fixed_point",
+    "detection_rule": "root-shift L2 norm exceeds 10 times baseline float64-vs-mpmath root error, and float64 root-shift discrepancy is at most 10 percent of the high-precision root shift",
+    "uniform_perturbation": "all eight state arrays a,b,X,Aa,K,rho,pr,pt; each receives the same positive smooth shape times its own max-absolute scale",
+    "single_component_perturbation": "one absolute perturbation to the midpoint cell of a; this is one explicit component choice, not a claim about Lumen's choice",
+    "historical_comparison_only": {
+      "original_schedule_and_decision_rule_available": false,
+      "uniform_normwise_relative_reported": 1e-7,
+      "single_component_absolute_reported": 2e-10
+    }
+  },
+  "uniform": {
+    "perturbation": "uniform_relative_all_state_fields",
+    "smallest_resolved_amplitude": 0.000001,
+    "rows": [
+      {
+        "amplitude": 1e-11,
+        "root_shift_l2": 1.7953238095496372e-12,
+        "float64_vs_mp_delta_l2": 4.1722668909453435e-9,
+        "resolved": false
+      },
+      {
+        "amplitude": 1e-10,
+        "root_shift_l2": 2.0777254909806915e-11,
+        "float64_vs_mp_delta_l2": 1.705899186114569e-8,
+        "resolved": false
+      },
+      {
+        "amplitude": 1e-9,
+        "root_shift_l2": 2.0989630153805141e-10,
+        "float64_vs_mp_delta_l2": 4.359566468536047e-9,
+        "resolved": false
+      },
+      {
+        "amplitude": 1e-8,
+        "root_shift_l2": 2.0964839275754684e-9,
+        "float64_vs_mp_delta_l2": 7.687781149319551e-9,
+        "resolved": false
+      },
+      {
+        "amplitude": 1e-7,
+        "root_shift_l2": 2.096313818498992e-8,
+        "float64_vs_mp_delta_l2": 1.5329234496150167e-9,
+        "resolved": false
+      },
+      {
+        "amplitude": 0.000001,
+        "root_shift_l2": 2.096357209088291e-7,
+        "float64_vs_mp_delta_l2": 5.752921348647676e-9,
+        "resolved": true
+      },
+      {
+        "amplitude": 0.00001,
+        "root_shift_l2": 0.000002096370760303412,
+        "float64_vs_mp_delta_l2": 1.2981543305273326e-9,
+        "resolved": true
+      }
+    ]
+  },
+  "single_component": {
+    "perturbation": "single_cell_absolute_a[10]",
+    "smallest_resolved_amplitude": null,
+    "rows": [
+      {
+        "amplitude": 1e-13,
+        "root_shift_l2": 9.930136612989092e-16,
+        "float64_vs_mp_delta_l2": 2.4647625147181033e-9,
+        "resolved": false
+      },
+      {
+        "amplitude": 1e-12,
+        "root_shift_l2": 9.076709799757807e-15,
+        "float64_vs_mp_delta_l2": 1.0767647153703477e-9,
+        "resolved": false
+      },
+      {
+        "amplitude": 1e-11,
+        "root_shift_l2": 9.042976105629694e-14,
+        "float64_vs_mp_delta_l2": 6.201082037778944e-9,
+        "resolved": false
+      },
+      {
+        "amplitude": 1e-10,
+        "root_shift_l2": 9.037327055821387e-13,
+        "float64_vs_mp_delta_l2": 1.1032733626365786e-8,
+        "resolved": false
+      },
+      {
+        "amplitude": 1e-9,
+        "root_shift_l2": 9.03737640817299e-12,
+        "float64_vs_mp_delta_l2": 1.5550851151010808e-8,
+        "resolved": false
+      },
+      {
+        "amplitude": 1e-8,
+        "root_shift_l2": 9.037374882850435e-11,
+        "float64_vs_mp_delta_l2": 2.470083369859293e-8,
+        "resolved": false
+      },
+      {
+        "amplitude": 1e-7,
+        "root_shift_l2": 9.037465280736546e-10,
+        "float64_vs_mp_delta_l2": 4.425256333074742e-9,
+        "resolved": false
+      }
+    ]
+  },
+  "comparison_summary": {
+    "new_uniform_detection_amplitude": 0.000001,
+    "historical_uniform_normwise_relative_report": 1e-7,
+    "new_single_component_detection": "not resolved through 1e-7 absolute perturbation in a[10]",
+    "historical_single_component_absolute_report": 2e-10,
+    "equivalence_claimed": false,
+    "reason": "The historical perturbation schedule, component choice, and detection rule are unavailable; this study uses a different explicit protocol."
+  },
+  "implicit_system_sigma_min": 2.341897724943365e-7,
+  "root_error_conditioning_bound_from_2e_12_residual": 0.00003819241043165308,
+  "baseline_error_over_conditioning_bound": 0.000004431271479165848,
+  "conditioning_interpretation": "The implicit system is strongly ill-conditioned (sigma_min about 2.34e-7). The observed baseline float64/reference root discrepancy is about 1.55e-4 of the conservative root-error bound implied by a 2e-12 residual gate. This quantifies sensitivity of the root solve; it does not establish the cause of the two strict-test mismatches.",
+  "measurement_run": 42310131257,
+  "measurement_note": "Updated from the latest complete diagnostic run; the previous recorded baseline discrepancy was stale and has been superseded."
+}

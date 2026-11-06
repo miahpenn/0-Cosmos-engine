@@ -1,0 +1,233 @@
+{
+  "affine_basis_jacobian_exact_secant": {
+    "jacobian_error_l2_vs_mp": 4.2628256035205415e-12,
+    "root_error_l2_vs_mp": 7.1657572832936985e-9,
+    "root_error_max_abs_vs_mp": 2.2078939787562035e-9,
+    "system_condition_number": 1783063598.6462016,
+    "system_sigma_min": 2.3418978082520396e-7
+  },
+  "affine_jacobian_finite_difference_sweep": [
+    {
+      "jacobian_error_l2": 2.7566596791948e-12,
+      "jacobian_step": 0.01,
+      "root_error_l2_vs_mp": 1.7468163423198905e-9,
+      "root_error_max_abs_vs_mp": 5.382311263346651e-10,
+      "system_condition_number": 1783063636.938502,
+      "system_sigma_min": 2.3418977579584562e-7
+    },
+    {
+      "jacobian_error_l2": 3.506361271110686e-11,
+      "jacobian_step": 0.001,
+      "root_error_l2_vs_mp": 1.7407774054406296e-8,
+      "root_error_max_abs_vs_mp": 5.363629429488981e-9,
+      "system_condition_number": 1783063796.3085659,
+      "system_sigma_min": 2.3418975486396944e-7
+    },
+    {
+      "jacobian_error_l2": 5.996106121204447e-11,
+      "jacobian_step": 0.0001,
+      "root_error_l2_vs_mp": 4.968896830365041e-8,
+      "root_error_max_abs_vs_mp": 1.5310112511102147e-8,
+      "system_condition_number": 1783061900.5149574,
+      "system_sigma_min": 2.3419000386006843e-7
+    },
+    {
+      "jacobian_error_l2": 1.3261248262696487e-9,
+      "jacobian_step": 0.00001,
+      "root_error_l2_vs_mp": 2.595683898063066e-7,
+      "root_error_max_abs_vs_mp": 7.997726259034721e-8,
+      "system_condition_number": 1783076540.3189766,
+      "system_sigma_min": 2.3418808106226987e-7
+    },
+    {
+      "jacobian_error_l2": 8.807345953535308e-9,
+      "jacobian_step": 0.000001,
+      "root_error_l2_vs_mp": 0.000009878882155332788,
+      "root_error_max_abs_vs_mp": 0.0000030438476690264338,
+      "system_condition_number": 1783505983.4313984,
+      "system_sigma_min": 2.3413169186843886e-7
+    },
+    {
+      "jacobian_error_l2": 4.901599390033469e-8,
+      "jacobian_step": 1e-7,
+      "root_error_l2_vs_mp": 0.000005955623461238548,
+      "root_error_max_abs_vs_mp": 0.0000018349610996226673,
+      "system_condition_number": 1783313406.0082498,
+      "system_sigma_min": 2.3415697541789078e-7
+    },
+    {
+      "jacobian_error_l2": 0.0000020091965928510793,
+      "jacobian_step": 1e-8,
+      "root_error_l2_vs_mp": 0.0008797486129124471,
+      "root_error_max_abs_vs_mp": 0.00027106460974990476,
+      "system_condition_number": 1743617738.018607,
+      "system_sigma_min": 2.3948785546607097e-7
+    }
+  ],
+  "affine_root_error_decomposition": {
+    "float64_basis_root_error_l2_vs_mp": 7.1657572832936985e-9,
+    "float64_intercept_error_l2_vs_mp": 7.930341352548405e-12,
+    "float64_solve_residual_l2_high_precision": 3.04955702578255e-14,
+    "float64_solve_residual_linf_high_precision": 1.98903246713659e-14,
+    "float64_solve_roundoff_error_l2_vs_mp_solve_same_coefficients": 9.36076563390329e-10,
+    "float64_system_matrix_error_l2_vs_mp": 4.262781490665923e-12,
+    "mp_root_from_float64_coefficients_error_l2_vs_mp": 6.229680704180829e-9
+  },
+  "baseline_float64_root_error_l2": 1.692409390663805e-10,
+  "interpretation_limits": [
+    "The two sweeps isolate numerical contributions; neither changes a solver tolerance.",
+    "The affine-root sweep reproduces the old central-difference construction with an explicit step sweep.",
+    "The perturbed-root sweep compares float64 solver roots against exact high-precision roots at matching state perturbations.",
+    "No cause is assigned until the measured curves support it."
+  ],
+  "perturbed_float64_root_finite_difference_sweep": [
+    {
+      "epsilon": 0.002,
+      "float64_fd_vs_implicit_tangent_l2": 0.000001252858117145869,
+      "float64_fd_vs_mp_exact_fd_l2": 0.0000012162213238269676,
+      "float64_minus_root_error_l2_vs_mp": 8.438477818872699e-9,
+      "float64_minus_root_residual": 2.7200464103316335e-14,
+      "float64_plus_root_error_l2_vs_mp": 3.5735926025554346e-9,
+      "float64_plus_root_residual": 2.7977620220553945e-14,
+      "mp_exact_fd_vs_implicit_tangent_l2": 3.666161108279741e-8,
+      "root_error_difference_amplified_by_1_over_2epsilon": 0.0000012162213042486803
+    },
+    {
+      "epsilon": 0.001,
+      "float64_fd_vs_implicit_tangent_l2": 0.000007320994326496627,
+      "float64_fd_vs_mp_exact_fd_l2": 0.000007330156446808599,
+      "float64_minus_root_error_l2_vs_mp": 8.621631006689139e-9,
+      "float64_minus_root_residual": 3.5638159090467525e-14,
+      "float64_plus_root_error_l2_vs_mp": 6.038681954353708e-9,
+      "float64_plus_root_residual": 1.5210055437364645e-14,
+      "mp_exact_fd_vs_implicit_tangent_l2": 9.16851708207137e-9,
+      "root_error_difference_amplified_by_1_over_2epsilon": 0.00000733015648046769
+    },
+    {
+      "epsilon": 0.0005,
+      "float64_fd_vs_implicit_tangent_l2": 0.000006806673752359313,
+      "float64_fd_vs_mp_exact_fd_l2": 0.0000068043800512423685,
+      "float64_minus_root_error_l2_vs_mp": 3.8838006871203244e-10,
+      "float64_minus_root_residual": 3.1308289294429414e-14,
+      "float64_plus_root_error_l2_vs_mp": 6.415999908544924e-9,
+      "float64_plus_root_residual": 3.430589146091734e-14,
+      "mp_exact_fd_vs_implicit_tangent_l2": 2.295295555975589e-9,
+      "root_error_difference_amplified_by_1_over_2epsilon": 0.000006804379973338662
+    },
+    {
+      "epsilon": 0.0002,
+      "float64_fd_vs_implicit_tangent_l2": 0.00007868741297492066,
+      "float64_fd_vs_mp_exact_fd_l2": 0.00007868704243085707,
+      "float64_minus_root_error_l2_vs_mp": 1.8425150625910565e-8,
+      "float64_minus_root_residual": 3.397282455352979e-14,
+      "float64_plus_root_error_l2_vs_mp": 1.3049666284212691e-8,
+      "float64_plus_root_residual": 1.8318679906315083e-14,
+      "mp_exact_fd_vs_implicit_tangent_l2": 3.707972764861434e-10,
+      "root_error_difference_amplified_by_1_over_2epsilon": 0.0000786870422751822
+    },
+    {
+      "epsilon": 0.0001,
+      "float64_fd_vs_implicit_tangent_l2": 0.000035584491891339906,
+      "float64_fd_vs_mp_exact_fd_l2": 0.000035584396083742766,
+      "float64_minus_root_error_l2_vs_mp": 8.885224093926354e-9,
+      "float64_minus_root_residual": 2.864375403532904e-14,
+      "float64_plus_root_error_l2_vs_mp": 1.7683448411591327e-9,
+      "float64_plus_root_residual": 2.120525977034049e-14,
+      "mp_exact_fd_vs_implicit_tangent_l2": 9.586916186822612e-11,
+      "root_error_difference_amplified_by_1_over_2epsilon": 0.00003558439626593658
+    },
+    {
+      "epsilon": 0.00005,
+      "float64_fd_vs_implicit_tangent_l2": 0.0000490965372024242,
+      "float64_fd_vs_mp_exact_fd_l2": 0.00004909651007893566,
+      "float64_minus_root_error_l2_vs_mp": 3.3062482712960946e-9,
+      "float64_minus_root_residual": 3.9190872769268026e-14,
+      "float64_plus_root_error_l2_vs_mp": 1.6034026722289502e-9,
+      "float64_plus_root_residual": 1.765254609153999e-14,
+      "mp_exact_fd_vs_implicit_tangent_l2": 2.713739457310659e-11,
+      "root_error_difference_amplified_by_1_over_2epsilon": 0.000049096509432148144
+    },
+    {
+      "epsilon": 0.00002,
+      "float64_fd_vs_implicit_tangent_l2": 0.00022081666880208292,
+      "float64_fd_vs_mp_exact_fd_l2": 0.0002208166766940209,
+      "float64_minus_root_error_l2_vs_mp": 7.717459013683609e-10,
+      "float64_minus_root_residual": 3.530509218307998e-14,
+      "float64_plus_root_error_l2_vs_mp": 8.060921177386925e-9,
+      "float64_plus_root_residual": 3.2307490016592055e-14,
+      "mp_exact_fd_vs_implicit_tangent_l2": 7.89336377534093e-12,
+      "root_error_difference_amplified_by_1_over_2epsilon": 0.00022081667692577515
+    },
+    {
+      "epsilon": 0.00001,
+      "float64_fd_vs_implicit_tangent_l2": 0.0007916395083571581,
+      "float64_fd_vs_mp_exact_fd_l2": 0.000791639503212585,
+      "float64_minus_root_error_l2_vs_mp": 2.3971904823214875e-9,
+      "float64_minus_root_residual": 3.186340080674199e-14,
+      "float64_plus_root_error_l2_vs_mp": 1.3435599624600841e-8,
+      "float64_plus_root_residual": 2.3314683517128287e-14,
+      "mp_exact_fd_vs_implicit_tangent_l2": 5.144791489200327e-12,
+      "root_error_difference_amplified_by_1_over_2epsilon": 0.0007916395053181417
+    },
+    {
+      "epsilon": 0.000005,
+      "float64_fd_vs_implicit_tangent_l2": 0.0008179534337662494,
+      "float64_fd_vs_mp_exact_fd_l2": 0.0008179534382239816,
+      "float64_minus_root_error_l2_vs_mp": 3.7064549874996322e-9,
+      "float64_minus_root_residual": 4.04121180963557e-14,
+      "float64_plus_root_error_l2_vs_mp": 1.1885989346180825e-8,
+      "float64_plus_root_residual": 3.863576125695545e-14,
+      "mp_exact_fd_vs_implicit_tangent_l2": 4.457785028630022e-12,
+      "root_error_difference_amplified_by_1_over_2epsilon": 0.00081795343591412
+    }
+  ],
+  "reference": "70-decimal-digit mpmath affine fixed point and Jacobian",
+  "schema": "issue4.jacobian_root_error_separation.v1",
+  "workflow_run": 42311792002,
+  "repeat_measurements": [
+    {
+      "workflow_run": 42311314930,
+      "affine_basis_jacobian_exact_secant": {
+        "jacobian_error_l2_vs_mp": 4.24592496109429e-12,
+        "root_error_l2_vs_mp": 6.71184110086848e-10,
+        "root_error_max_abs_vs_mp": 2.0679868928397127e-10,
+        "system_condition_number": 1783063739.6474812,
+        "system_sigma_min": 2.3418976230592264e-7
+      },
+      "affine_root_error_decomposition": null,
+      "epsilon_2e_5": {
+        "epsilon": 0.00002,
+        "float64_fd_vs_implicit_tangent_l2": 0.00013385301869784993,
+        "float64_fd_vs_mp_exact_fd_l2": 0.00013385302964847648,
+        "float64_minus_root_error_l2_vs_mp": 2.9139675559383073e-9,
+        "float64_minus_root_residual": 2.7755575615628914e-14,
+        "float64_plus_root_error_l2_vs_mp": 2.4401536009815164e-9,
+        "float64_plus_root_residual": 1.587618925213974e-14,
+        "mp_exact_fd_vs_implicit_tangent_l2": 1.0966929543490725e-11,
+        "root_error_difference_amplified_by_1_over_2epsilon": 0.00013385302891739492
+      }
+    },
+    {
+      "workflow_run": 42311161935,
+      "affine_basis_jacobian_exact_secant": {
+        "jacobian_error_l2_vs_mp": 4.2628256035205415e-12,
+        "root_error_l2_vs_mp": 7.1657572832936985e-9,
+        "root_error_max_abs_vs_mp": 2.2078939787562035e-9,
+        "system_condition_number": 1783063598.6462016,
+        "system_sigma_min": 2.3418978082520396e-7
+      },
+      "affine_root_error_decomposition": null,
+      "epsilon_2e_5": {
+        "epsilon": 0.00002,
+        "float64_fd_vs_implicit_tangent_l2": 0.00022081666880208292,
+        "float64_fd_vs_mp_exact_fd_l2": 0.0002208166766940209,
+        "float64_minus_root_error_l2_vs_mp": 7.717459013683609e-10,
+        "float64_minus_root_residual": 3.530509218307998e-14,
+        "float64_plus_root_error_l2_vs_mp": 8.060921177386925e-9,
+        "float64_plus_root_residual": 3.2307490016592055e-14,
+        "mp_exact_fd_vs_implicit_tangent_l2": 7.89336377534093e-12,
+        "root_error_difference_amplified_by_1_over_2epsilon": 0.00022081667692577515
+      }
+    }
+  ]
+}
