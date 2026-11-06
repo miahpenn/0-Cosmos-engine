@@ -140,7 +140,10 @@ jobs:
           affine = separation["affine_jacobian_finite_difference_sweep"]
           old_step = next(row for row in affine if row["jacobian_step"] == 1e-5)
           broad_step = next(row for row in affine if row["jacobian_step"] == 1e-2)
-          assert old_step["root_error_l2"] > 100.0 * broad_step["root_error_l2"]
+          assert old_step["root_error_l2_vs_mp"] > 100.0 * broad_step["root_error_l2_vs_mp"]
+          basis = separation["affine_basis_jacobian_no_step"]
+          assert basis["root_error_l2_vs_mp"] < old_step["root_error_l2_vs_mp"]
+          assert basis["jacobian_error_l2_vs_mp"] < old_step["jacobian_error_l2"]
           fd = separation["perturbed_float64_root_finite_difference_sweep"]
           epsilon_row = next(row for row in fd if row["epsilon"] == 2e-5)
           assert epsilon_row["float64_fd_vs_mp_exact_fd_l2"] > 1e-5
