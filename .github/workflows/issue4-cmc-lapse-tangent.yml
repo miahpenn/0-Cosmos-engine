@@ -5,6 +5,7 @@ on:
     branches:
       - research/issue4-coupled-geometric-matter-control-2026-11-05
       - issue4-integrated-test-diagnostics
+      - issue4-reference-repro-artifacts
     paths:
       - tools/issue4_cmc_lapse_tangent.py
       - tests/test_issue4_cmc_lapse_tangent.py
@@ -238,19 +239,21 @@ jobs:
       - name: Shared extended-precision port vs float64 tool map (circularity guard)
         run: python -m pytest -q tests/test_issue4_research_port_validation.py
 
-      - name: Regenerate references to temporary files and compare with committed data
+      - name: Regenerate references and write field-by-field comparison report
         run: |
           python tests/data/issue4_affine_root/generate_reference.py 30 "$RUNNER_TEMP/root.json"
           python tests/data/issue4_implicit_derivative/generate_derivative_reference.py 30 "$RUNNER_TEMP/deriv.json"
-          python - <<'PY'
-          import json, os
-          t = os.environ["RUNNER_TEMP"]
-          a = json.load(open("tests/data/issue4_affine_root/issue4_affine_root_reference.json"))
-          b = json.load(open(f"{t}/root.json"))
-          c = json.load(open("tests/data/issue4_implicit_derivative/issue4_implicit_derivative_reference.json"))
-          d = json.load(open(f"{t}/deriv.json"))
-          ok_root = a["root"] == b["root"] and a["cond_inf"] == b["cond_inf"]
-          ok_deriv = all(c["derivative"][e] == d["derivative"][e] for e in c["epsilons"])
-          print("affine-root reference identical:", ok_root, "| derivative reference identical:", ok_deriv)
-          raise SystemExit(0 if (ok_root and ok_deriv) else 1)
-          PY
+          python tests/data/issue4_research/compare_regenerated_references.py \
+            "$RUNNER_TEMP/root.json" "$RUNNER_TEMP/deriv.json" "$RUNNER_TEMP/comparison-report.json"
+
+      - name: Preserve regenerated references and provenance report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: issue4-reference-regeneration-run-${{ github.run_id }}-attempt-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/root.json
+            ${{ runner.temp }}/deriv.json
+            ${{ runner.temp }}/comparison-report.json
+          if-no-files-found: warn
+          retention-days: 90
