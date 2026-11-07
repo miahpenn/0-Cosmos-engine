@@ -68,6 +68,20 @@ Use the pinned potentials and signs, not a refit:
 
 The direction of every term must be differentiated analytically, including metric, lapse, field, momentum, spatial-operator, and exchange-density responses. The scalar direction is not a freely assigned profile. Cross-check the independently coded rates against the pinned source equations and against symmetric plus/minus scalar reconstructions at both epsilons.
 
+### 4.1 Detailed scalar/Valencia derivation note
+
+The pinned source transcription and analytic directional formulas are now recorded in [`docs/ISSUE4_SCALAR_VALENCIA_DIRECTION_DERIVATION_2026-11-07.md`](ISSUE4_SCALAR_VALENCIA_DIRECTION_DERIVATION_2026-11-07.md), using the exact scalar, matter-system, matter-RHS, Valencia, matter-bundle, and production-kernel blob IDs from helper baseline `7f47669a1c0edfafef9fc5f27b2db80840d3f035`.
+
+That note separates:
+- the scalar field-rate map and its full analytic direction, including metric, lapse, spatial-operator, potential, and DM-density responses;
+- the actual stored-array semi-discrete Valencia RHS (face interpolation, minmod reconstruction, HLL flux, geometric sources, and DM exchange);
+- dust and radiation conservative-to-primitive directional recovery;
+- continuum continuity/acceleration witnesses from the finite-volume discrete RHS contract.
+
+The note also records a critical branch requirement: minmod, reconstruction guards, HLL extrema, and radiation recovery must remain on the same differentiable branch across each centered (+\epsilon/-\epsilon) pair. Branch ties or switches are inconclusive, not grounds to smooth or loosen the test. The actual `matter_system.py` stored-array arithmetic is authoritative for the RHS; similarly named alternate helper variables must not be substituted.
+
+**Disposition:** this completes a source-pinned derivation/transcription milestone only. No independent implementation has yet been run, and no scalar/fluid direction gate is claimed as passed.
+
 ## 5. Fluid direction: continuity and acceleration, with pinned discrete realization
 
 For each fluid, the continuum direction must satisfy its declared matter equations on the same base geometry:
@@ -230,7 +244,7 @@ The evaluator must consume this class through a narrow adapter into the existing
 
 No fixture implementation begins until the derivation package is complete and reviewed against the pinned source blobs. Then proceed in this order:
 
-1. **Equation transcription:** document scalar field equations, fluid continuity/acceleration and Valencia conservative equations, CMC metric/primary/Lambda equations, and stage-aware lapse map with exact source/blob/operator pins.
+1. **Equation transcription:** scalar and Valencia source equations and directional contracts are now documented in the linked derivation note; complete the independent code transcription and retain exact source/blob/operator pins, then document the CMC metric/primary/Lambda equations and stage-aware lapse map.
 2. **Base construction:** define a regular analytic base and independently verify metric positivity, parity, centre regularity, determinant/trace-free/connection identities, six-sector base projections, and discrete CMC base residual.
 3. **Direction construction:** derive every scalar, fluid, geometry, primary, connection, and incoming/output lapse direction. No free arrays, residual fitting, coefficient selection, or unexplained zero directions.
 4. **Equation residuals:** evaluate scalar, continuity, acceleration, Valencia, geometric/primary, connection, and both CMC directional residuals on the base and direction.
