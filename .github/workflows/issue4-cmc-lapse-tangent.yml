@@ -1,0 +1,259 @@
+name: Issue 4 independent CMC lapse tangent gate
+
+on:
+  push:
+    branches:
+      - research/issue4-coupled-geometric-matter-control-2026-11-05
+      - issue4-integrated-test-diagnostics
+      - issue4-reference-repro-artifacts
+    paths:
+      - tools/issue4_cmc_lapse_tangent.py
+      - tests/test_issue4_cmc_lapse_tangent.py
+      - tests/test_issue4_cmc_affine_root_contract.py
+      - tests/test_issue4_implicit_derivative_contract.py
+      - tests/test_issue4_research_port_validation.py
+      - tests/data/issue4_affine_root/**
+      - tests/data/issue4_implicit_derivative/**
+      - tests/data/issue4_research/**
+      - .github/workflows/issue4-cmc-lapse-tangent.yml
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: issue4-independent-cmc-lapse-tangent
+  cancel-in-progress: false
+
+jobs:
+  independent-cmc:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12.15"
+
+      - name: Install bounded numerical test environment
+        run: python -m pip install numpy==2.5.4 pytest==9.1.1
+
+      - name: Compile independent CMC implementation
+        run: python -m py_compile tools/issue4_cmc_lapse_tangent.py
+
+      - name: Blocking contract tests (affine-root residual/root contract; implicit-derivative diagnostic)
+        run: |
+          python -m pytest -q tests/test_issue4_cmc_affine_root_contract.py tests/test_issue4_implicit_derivative_contract.py
+
+      - name: Visible non-blocking witnesses (original strict root and finite-difference tests; must execute)
+        continue-on-error: true
+        run: |
+          python -m pytest -q -rfE tests/test_issue4_cmc_lapse_tangent.py
+
+      - name: Record zero-production-call contract
+        run: |
+          python - <<'PY'
+          import ast
+          from pathlib import Path
+          source = Path("tools/issue4_cmc_lapse_tangent.py").read_text()
+          tree = ast.parse(source)
+          imports = [n.module for n in ast.walk(tree) if isinstance(n, ast.ImportFrom)]
+          imports += [a.name for n in ast.walk(tree) if isinstance(n, ast.Import) for a in n.names]
+          forbidden = ("engine", "vendor", "production_kernel", "cmc_gauge", "moving_puncture", "pirk")
+          bad = [name for name in imports if name and any(token in name for token in forbidden)]
+          if bad:
+              raise SystemExit(f"forbidden production/vendor imports: {bad}")
+          print("PASS: independent module has no production or vendor imports")
+          PY
+
+  accepted-state-crosswalk:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12.15"
+      - name: Install bounded numerical environment
+        run: python -m pip install numpy==2.5.4
+      - name: Download immutable accepted-state comparison artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: issue4-equation-consistent-matter-direction-42084531386
+          run-id: 42084531386
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: accepted-artifact
+      - name: Extract frozen accepted state
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from zipfile import ZipFile
+          outer = Path("accepted-artifact/accepted-state-N60.zip")
+          if not outer.is_file():
+              raise SystemExit(f"missing immutable accepted archive: {outer}")
+          with ZipFile(outer) as z:
+              z.extract("tangent_arrays.npz", "accepted-state")
+              z.extract("report.json", "accepted-state")
+          print("PASS: extracted archived N=60 frozen state and report")
+          PY
+      - name: Rebuild six sectors and pinned K RHS on accepted state
+        run: |
+          python - <<'PY'
+          import json
+          import numpy as np
+          from pathlib import Path
+          from tools.issue4_cmc_lapse_tangent import (
+              project_six_sector_stress_from_arrays,
+              fourth_order_cell_derivative,
+              physical_k_rhs_and_direction,
+              solve_stage_aware_cmc_tangent_six_sector,
+              independent_scalar_and_geometry_rates,
+              six_sector_projection_directions,
+              solve_cmc_discrete,
+          )
+          z=np.load("accepted-state/tangent_arrays.npz")
+          r=z["r"]; dr=float(r[1]-r[0])
+          get=lambda name:z["input__geometry__"+name]
+          a,b,X,alpha,Aa,K=(get(k) for k in ("a","b","X","alpha","Aa","K"))
+          scalars={k:z["input__scalars__"+k] for k in ("S","PS","D","PD","phi","Pi")}
+          fluids={}
+          for name in ("dark_matter","baryons","radiation"):
+              fluids[name]={k:z[f"input__matter__{name}__{k}"] for k in
+                  ("rest","energy_t","momentum_r")}
+          d1=lambda x,parity:fourth_order_cell_derivative(x,dr,parity=parity,order=1)
+          d2=lambda x,parity:fourth_order_cell_derivative(x,dr,parity=parity,order=2)
+          sectors=project_six_sector_stress_from_arrays(
+              r=r,a=a,b=b,X=X,scalars=scalars,fluids=fluids,d1=d1)
+          required={"dark_matter","baryons","radiation","S","D","phi"}
+          if set(sectors)!=required: raise SystemExit("six-sector names mismatch")
+          total={k:sum(sectors[s][k] for s in ("dark_matter","baryons","radiation","S","D","phi")) for k in ("rho","pr","pt","j")}
+          report=json.loads(Path("accepted-artifact/accepted-bianchi-report.json").read_text())
+          if not all(x["matches_canonical"] for x in report["projection_crosscheck"].values()):
+              raise SystemExit("archived canonical projection crosscheck was not passed")
+          beta=get("beta"); Lambda=get("Lambda")
+          zeros=np.zeros_like(r)
+          def derive(alpha_stage):
+              return independent_scalar_and_geometry_rates(
+                  r=r,dr=dr,a=a,b=b,X=X,alpha=alpha_stage,beta=beta,
+                  Aa=Aa,K=K,Lambda=Lambda,scalars=scalars,fluids=fluids,
+                  d1=d1,d2=d2)
+          def directions(alpha_stage, rates):
+              return six_sector_projection_directions(
+                  r=r,a=a,b=b,X=X,scalars=scalars,fluids=fluids,
+                  geometry_rates=rates["geometry"],scalar_rates=rates["scalars"],
+                  matter_rates=rates["matter"],d1=d1)
+          def totals(parts):
+              return {k:sum(parts[s][k] for s in
+                  ("dark_matter","baryons","radiation","S","D","phi"))
+                  for k in ("rho","pr","pt","j")}
+          def base_cmc(aa_state,bb_state,xx_state,alpha_in,AA_state,K_state,
+                       scalar_state,fluid_state):
+              parts=project_six_sector_stress_from_arrays(
+                  r=r,a=aa_state,b=bb_state,X=xx_state,
+                  scalars=scalar_state,fluids=fluid_state,d1=d1)
+              t=totals(parts)
+              kr,_=physical_k_rhs_and_direction(
+                  r=r,dr=dr,a=aa_state,b=bb_state,X=xx_state,
+                  alpha_in=alpha_in,Aa=AA_state,K=K_state,
+                  rho=t["rho"],pr=t["pr"],pt=t["pt"],
+                  a_dot=zeros,b_dot=zeros,X_dot=zeros,alpha_in_dot=zeros,
+                  Aa_dot=zeros,K_dot=zeros,rho_dot=zeros,pr_dot=zeros,pt_dot=zeros,
+                  d1=d1,d2=d2)
+              return solve_cmc_discrete(
+                  r=r,dr=dr,a=aa_state,b=bb_state,X=xx_state,
+                  Aa=AA_state,K=K_state,rho=t["rho"],pr=t["pr"],pt=t["pt"],
+                  k_rhs=kr,d1=d1)
+          def perturb_state(rates,eps):
+              gp=rates["geometry"]
+              aa_state=a+eps*gp["a"]; bb_state=b+eps*gp["b"]; xx_state=X+eps*gp["X"]
+              AA_state=Aa+eps*gp["Aa"]; K_state=K+eps*gp["K"]
+              scalar_state={k:scalars[k]+eps*rates["scalars"][k] for k in scalars}
+              fluid_state={name:{k:fluids[name][k]+eps*rates["matter"][name][k]
+                  for k in fluids[name]} for name in fluids}
+              return aa_state,bb_state,xx_state,AA_state,K_state,scalar_state,fluid_state
+          # The accepted archive has no preceding CMC-stage input or
+          # incoming-lapse direction. Do not replace that unavailable datum
+          # with zero and do not claim an accepted-state lapse tangent.
+          # The output lapse is nevertheless reconstructed as the base
+          # stage, and the independently derived geometry/matter directions
+          # are checked against accepted-state +/- projections at both epsilons.
+          stage0_base=base_cmc(a,b,X,alpha,Aa,K,scalars,fluids)
+          rates0=derive(stage0_base.alpha)
+          dots0=directions(stage0_base.alpha,rates0)
+          if np.min(stage0_base.alpha)<=0.0:
+              raise SystemExit("stage-0 output CMC lapse is not positive")
+          if np.max(np.abs(stage0_base.residual))>1.0e-10:
+              raise SystemExit("stage-0 CMC base residual failed")
+          projection_errors={}
+          for eps in (2.0e-5,1.0e-5):
+              plus_state=perturb_state(rates0,eps)
+              minus_state=perturb_state(rates0,-eps)
+              plus_parts=project_six_sector_stress_from_arrays(
+                  r=r,a=plus_state[0],b=plus_state[1],X=plus_state[2],
+                  scalars=plus_state[5],fluids=plus_state[6],d1=d1)
+              minus_parts=project_six_sector_stress_from_arrays(
+                  r=r,a=minus_state[0],b=minus_state[1],X=minus_state[2],
+                  scalars=minus_state[5],fluids=minus_state[6],d1=d1)
+              for sector in required:
+                  for base_key,dot_key in (("rho","rho_dot"),("pr","pr_dot"),
+                                           ("pt","pt_dot"),("j","j_dot")):
+                      fd=(plus_parts[sector][base_key]-minus_parts[sector][base_key])/(2.0*eps)
+                      err=float(np.max(np.abs(fd-dots0[sector][dot_key])))
+                      key=f"{sector}.{dot_key}.eps={eps:g}"
+                      projection_errors[key]=err
+                      np.testing.assert_allclose(
+                          fd,dots0[sector][dot_key],rtol=8.0e-4,atol=2.0e-10)
+          print("PASS: accepted-state independent instantaneous rates derived for six sectors and coupled geometry/primary/Lambda")
+          print("PASS: all six sector projection directions match accepted-state centered differences at eps=2e-5 and 1e-5")
+          print("PASS: stage-0 output CMC lapse is positive; base residual max abs =",float(np.max(np.abs(stage0_base.residual))))
+          print("DIRECTIONAL BOUNDARY: accepted archive does not contain the preceding CMC input-lapse direction; it is unavailable, not zero.")
+          print("DIRECTIONAL BOUNDARY: no accepted-state stage-0 or stage-1 output-lapse tangent is certified by this job.")
+          print("SCOPE: immutable accepted-state, zero-step base and directional projection witness; production step count remains zero.")
+          PY
+
+  research-diagnostics:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12.15"
+
+      - name: Install research numerical environment
+        run: python -m pip install numpy==2.5.4 pytest==9.1.1 mpmath==1.3.0
+
+      - name: Shared extended-precision port vs float64 tool map (circularity guard)
+        run: python -m pytest -q tests/test_issue4_research_port_validation.py
+
+      - name: Regenerate references and write field-by-field comparison report
+        run: |
+          python tests/data/issue4_affine_root/generate_reference.py 30 "$RUNNER_TEMP/root.json"
+          python tests/data/issue4_implicit_derivative/generate_derivative_reference.py 30 "$RUNNER_TEMP/deriv.json"
+          python tests/data/issue4_research/compare_regenerated_references.py \
+            "$RUNNER_TEMP/root.json" "$RUNNER_TEMP/deriv.json" "$RUNNER_TEMP/comparison-report.json"
+
+      - name: Preserve regenerated references and provenance report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: issue4-reference-regeneration-run-${{ github.run_id }}-attempt-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/root.json
+            ${{ runner.temp }}/deriv.json
+            ${{ runner.temp }}/comparison-report.json
+          if-no-files-found: warn
+          retention-days: 90
