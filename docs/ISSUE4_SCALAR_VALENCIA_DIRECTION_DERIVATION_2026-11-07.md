@@ -74,13 +74,13 @@ Let a dot on an operand denote the independent instantaneous direction, and let 
 ]
 The field-rate direction is
 [
-\ddot f=\dot\alpha_{out}p_f+\alpha_{out}\dot p_f
+\delta(\dot f)=\dot\alpha_{out}p_f+\alpha_{out}\dot p_f
 +\dot\beta D_1f+\beta D_1\dot f.
 ]
 The momentum-rate direction is
 [
 \begin{aligned}
-\ddot p_f={}&\dot\beta D_1p_f+\beta D_1\dot p_f
+\delta(\dot p_f)={}&\dot\beta D_1p_f+\beta D_1\dot p_f
 +\dot\alpha_{out}\mathcal L_f+\alpha_{out}\dot{\mathcal L}_f
 +\dot\alpha_{out}Kp_f+\alpha_{out}\dot Kp_f
 +\alpha_{out}K\dot p_f\\
