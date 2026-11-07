@@ -113,6 +113,28 @@ The primary directions are the pinned L2 curvature/lapse-Hessian plus L3 matter-
 
 The connection direction is the pinned Lambda L2 geometry block plus L3 connection and matter momentum source. Retain the exact parity-aware discrete derivatives and source normalization from the pinned implementation; do not replace the L2 block with a continuum simplification. The current independent transcription in `tools/issue4_cmc_lapse_tangent.py` is a source map and implementation starting point, not by itself proof that the new fixture has passed all coupled gates.
 
+For the connection, define the pinned geometry-only momentum bracket
+\[
+M_{geom}=D_1A_a-\frac23D_1K+6A_a\chi'
+ +(A_a-A_b)\left(\frac2r+\frac{D_1b}{b}\right),
+\qquad \chi'=-\frac{D_1X}{2X}.
+\]
+With the locked \(\lambda_m=2\), retain the source-separated blocks
+\[
+\dot\Lambda_{L2}=
+-\frac{2(A_aD_1\alpha+\alpha D_1A_a)}{a}
+-\frac{4\alpha(A_a-A_b)}{rb}
++\frac{\lambda_m\alpha}{a}M_{geom},
+\]
+\[
+\dot\Lambda_{L3}=
+2\alpha A_a\Lambda
+-\frac{8\pi\lambda_m\alpha}{a}j,
+\qquad
+\dot\Lambda=\dot\Lambda_{L2}+\dot\Lambda_{L3}.
+\]
+The matter current \(j\) is the raw sum of the six pinned sector projections; its direction is retained separately in the archive and is not substituted into the base \(\dot\Lambda\) expression.
+
 All curvature, lapse-Hessian, connection, and matter operands must be reconstructed from the declared base arrays and locked operators. The geometry direction is not a vacuum or test-field direction: it uses the same six-sector source projections and their derived directions.
 
 ## 7. CMC lapse: preserve stage-aware input/output semantics
