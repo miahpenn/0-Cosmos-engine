@@ -254,3 +254,159 @@ jobs:
           print("affine-root reference identical:", ok_root, "| derivative reference identical:", ok_deriv)
           raise SystemExit(0 if (ok_root and ok_deriv) else 1)
           PY
+
+      - name: Diagnostic fingerprints and numerical deltas (never fails; does not change the exact-equality result)
+        if: always()
+        continue-on-error: true
+        run: |
+          python - <<'PY'
+          import hashlib, importlib.util, json, os, pathlib, platform, re, sys
+          import numpy as np
+          import mpmath as mp
+          mp.mp.dps = 40
+          t = os.environ["RUNNER_TEMP"]
+          repo = pathlib.Path(".").resolve()
+          sys.path.insert(0, str(repo))
+          out = {"schema": "issue4_research_reference_diagnostic_v1", "diagnostic_only": True}
+
+          def cpu_model():
+              try:
+                  for line in open("/proc/cpuinfo"):
+                      if line.startswith("model name"):
+                          return line.split(":", 1)[1].strip()
+              except OSError:
+                  pass
+              return None
+
+          out["environment"] = {
+              "python": platform.python_version(),
+              "python_implementation": platform.python_implementation(),
+              "numpy": np.__version__,
+              "mpmath": mp.__version__,
+              "platform": platform.platform(),
+              "machine": platform.machine(),
+              "cpu_model": cpu_model(),
+              "runner_image": f"{os.environ.get('ImageOS', '')} {os.environ.get('ImageVersion', '')}".strip(),
+              "github_run_id": os.environ.get("GITHUB_RUN_ID"),
+              "github_run_attempt": os.environ.get("GITHUB_RUN_ATTEMPT"),
+              "github_sha": os.environ.get("GITHUB_SHA"),
+          }
+
+          def fp(name, value):
+              # Only numeric arrays are hashed by bytes. Object arrays hold memory pointers,
+              # so a non-numeric input is recorded by name, type and address-free repr instead.
+              arr = np.asarray(value)
+              if arr.dtype.kind in "biufc":
+                  return {"name": name, "kind": "numeric", "shape": list(arr.shape), "dtype": str(arr.dtype),
+                          "sha256": hashlib.sha256(np.ascontiguousarray(arr).tobytes()).hexdigest()}
+              return {"name": name, "kind": "non_numeric",
+                      "type": f"{type(value).__module__}.{type(value).__qualname__}",
+                      "qualname": getattr(value, "__qualname__", None),
+                      "repr": re.sub(r" at 0x[0-9a-fA-F]+", "", repr(value))}
+
+          fixture_file = repo / "tests" / "test_issue4_cmc_lapse_tangent.py"
+          out["fixture_source_sha256"] = hashlib.sha256(fixture_file.read_bytes()).hexdigest()
+          try:
+              spec = importlib.util.spec_from_file_location("hist", fixture_file)
+              H = importlib.util.module_from_spec(spec)
+              spec.loader.exec_module(H)
+              base, rates = H._stage_state()
+              out["input_fingerprints"] = (
+                  [fp("base." + k, base[k]) for k in sorted(base)]
+                  + [fp("rates." + k, rates[k]) for k in sorted(rates)])
+              out["input_fingerprint_counts"] = {
+                  "total": len(out["input_fingerprints"]),
+                  "numeric_hashed": sum(1 for f in out["input_fingerprints"] if f["kind"] == "numeric"),
+                  "non_numeric_recorded": sum(1 for f in out["input_fingerprints"] if f["kind"] == "non_numeric"),
+              }
+          except Exception as ex:
+              out["input_fingerprints"] = {"error": repr(ex)}
+
+          def load(path):
+              try:
+                  return json.load(open(path))
+              except Exception as ex:
+                  return {"error": repr(ex)}
+
+          a = load("tests/data/issue4_affine_root/issue4_affine_root_reference.json")
+          b = load(f"{t}/root.json")
+          c = load("tests/data/issue4_implicit_derivative/issue4_implicit_derivative_reference.json")
+          d = load(f"{t}/deriv.json")
+
+          root_block = {}
+          if "root" in a and "root" in b:
+              diffs = [abs(mp.mpf(x) - mp.mpf(y)) for x, y in zip(a["root"], b["root"])]
+              root_block = {
+                  "exact_root_strings_identical": a["root"] == b["root"],
+                  "exact_cond_inf_identical": a.get("cond_inf") == b.get("cond_inf"),
+                  "components_changed_by_string": sum(1 for x, y in zip(a["root"], b["root"]) if x != y),
+                  "components_total": len(a["root"]),
+                  "max_abs_root_difference": float(max(diffs)) if diffs else None,
+                  "per_component_abs_difference": [float(x) for x in diffs],
+                  "cond_inf_committed": a.get("cond_inf"),
+                  "cond_inf_regenerated": b.get("cond_inf"),
+                  "abs_cond_inf_difference": (float(abs(mp.mpf(a["cond_inf"]) - mp.mpf(b["cond_inf"])))
+                                              if "cond_inf" in a and "cond_inf" in b else None),
+              }
+          else:
+              root_block = {"error": {"committed": a.get("error"), "regenerated": b.get("error")}}
+          out["affine_root"] = root_block
+
+          deriv_block = {}
+          if "derivative" in c and "derivative" in d:
+              for e in c["epsilons"]:
+                  x_list, y_list = c["derivative"][e], d["derivative"][e]
+                  diffs = [abs(mp.mpf(x) - mp.mpf(y)) for x, y in zip(x_list, y_list)]
+                  deriv_block[e] = {
+                      "exact_strings_identical": x_list == y_list,
+                      "components_changed_by_string": sum(1 for x, y in zip(x_list, y_list) if x != y),
+                      "components_total": len(x_list),
+                      "max_abs_difference": float(max(diffs)),
+                      "per_component_abs_difference": [float(v) for v in diffs],
+                  }
+          else:
+              deriv_block = {"error": {"committed": c.get("error"), "regenerated": d.get("error")}}
+          out["implicit_derivative"] = deriv_block
+
+          out["exact_equality_result_reported_by_existing_step"] = {
+              "affine_root_identical": root_block.get("exact_root_strings_identical"),
+              "derivative_identical": all(v.get("exact_strings_identical") for v in deriv_block.values())
+                  if deriv_block and "error" not in deriv_block else None,
+          }
+          out["provenance"] = {
+              "committed_root_mpmath": a.get("provenance", {}).get("mpmath"),
+              "regenerated_root_mpmath": b.get("provenance", {}).get("mpmath"),
+              "committed_derivative_mpmath": c.get("provenance", {}).get("mpmath"),
+              "regenerated_derivative_mpmath": d.get("provenance", {}).get("mpmath"),
+              "helper_sha256_regenerated_root": b.get("provenance", {}).get("helper_sha256"),
+              "helper_sha256_regenerated_derivative": d.get("provenance", {}).get("helper_sha256"),
+          }
+
+          path = os.path.join(t, "research_diagnostic.json")
+          with open(path, "w") as fh:
+              json.dump(out, fh, indent=1)
+          summary = os.environ.get("GITHUB_STEP_SUMMARY")
+          if summary:
+              with open(summary, "a") as fh:
+                  fh.write("## Research reference diagnostic (not a pass/fail gate)\n\n")
+                  fh.write(f"- Exact-equality result (existing step): {out['exact_equality_result_reported_by_existing_step']}\n")
+                  fh.write(f"- Max abs root difference: {root_block.get('max_abs_root_difference')}\n")
+                  for e, v in deriv_block.items() if "error" not in deriv_block else []:
+                      fh.write(f"- Max abs derivative difference at eps {e}: {v['max_abs_difference']}\n")
+                  fh.write(f"- Python {out['environment']['python']}, numpy {out['environment']['numpy']}, mpmath {out['environment']['mpmath']}\n")
+          print(json.dumps({k: out[k] for k in ("exact_equality_result_reported_by_existing_step",)}, indent=1))
+          print("root max abs diff:", root_block.get("max_abs_root_difference"))
+          for e, v in (deriv_block.items() if "error" not in deriv_block else []):
+              print(f"derivative eps {e} max abs diff:", v["max_abs_difference"])
+          print("wrote", path)
+          PY
+
+      - name: Upload diagnostic record
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: issue4-research-diagnostic-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/research_diagnostic.json
+          if-no-files-found: warn
+          retention-days: 30
