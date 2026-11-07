@@ -69,3 +69,14 @@ Unresolved:
 ## Guardrails
 
 No committed reference, tolerance, production equation, solver, initializer, vendor source, or scientific-admission flag was changed. No fit or replacement was performed. This is diagnostic-only evidence for synthetic research fixtures and numerical witnesses, not a production-physics admission.
+
+
+## Recovery-lane disposition — frozen 2026-11-07
+
+The original reference-reproduction lane is **closed**. The only preserved original-path reproduction available is run [#42411237181](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/42411237181), which regenerated every committed high-precision numeric field exactly under the original generator entry points and comparison predicate.
+
+The earlier false comparison in run [#42407237209](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/42407237209) is **unrecoverable from the retained evidence**: that run did not preserve its generated JSON, so no historical per-field deltas, output hashes, or exact numerical discrepancy can now be recovered. The controlled reproduction did not reproduce it. This closes the recovery task; it does not assert a cause or invalidate the earlier recorded false result. No further attempts to recreate that particular runner event are planned.
+
+The two strict float64 CMC witnesses remain **unchanged and non-blocking**. They failed reproducibly in runs [#42408547071](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/42408547071) and [#42411237181](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/42411237181), while the high-precision fixture comparison passed. Their measured assertion discrepancies are recorded in the workflow/test logs; the tests are retained as visible witnesses and are not reclassified as passing. No tolerance, fixture, production code, or test assertion is changed by this disposition. This record does not claim that the exact numerical floor has been derived from first principles; it freezes the observed float64 witness behavior without using it to block the reference-recovery lane.
+
+**Disposition:** reference recovery complete; historical mismatch cause unrecoverable; float64 witnesses retained unchanged and non-blocking; Issue #4 scientific work proceeds on the separate derivation/evaluator lane. All scientific-admission, acceptance-oracle, physical-exchange, and conservation-closure flags remain false.
