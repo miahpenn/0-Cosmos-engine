@@ -1,0 +1,157 @@
+{
+  "schema": "origin-joint-metric-profile-rhs-crosswalk/v1",
+  "status": "completed_single_initial_rhs_and_one_step",
+  "pr_url": "https://github.com/miahpenn/0-Cosmos-engine/pull/417",
+  "workflow_run": {
+    "id": 40155299835,
+    "url": "https://github.com/miahpenn/0-Cosmos-engine/actions/runs/40155299835",
+    "conclusion": "success",
+    "head_commit": "7e83c61d7cf56fb2846465be4387fd2b615a70e9"
+  },
+  "provenance": {
+    "source_commit": "4aec88d0e3ff028e0a65a8ac36b30948625df792",
+    "vendor_commit": "d6052d605673ce9d82cdc99b0df79855fa2ea215",
+    "resolutions": [
+      60,
+      120,
+      240
+    ],
+    "r_max": 80,
+    "amplitude": 0.01,
+    "width": 7,
+    "D_amplitude": 1e-10,
+    "include_radiation": true,
+    "cfl": 0.03,
+    "full_metric_substeps_per_coarse_dr": 2048,
+    "production_vendor_dependency_changes": false,
+    "scientific_admission": false
+  },
+  "definitions": {
+    "partial_half_cell_reprojected": "Continuous-source integral used only over [0,r0], with later radial intervals on the source-pinned trapezoid recurrence; matter reinitialized on candidate metric.",
+    "partial_half_cell_matter_fixed": "Same partial metric, with source-pinned initializer's original conserved matter arrays restored before CMC solve.",
+    "full_continuous_metric": "Continuous-source metric ODE integrated over full profile at 2048 substeps per coarse dr; Aa, K, scalar fields, and conserved matter arrays held fixed; geometry metric rebuilt.",
+    "centre_rhs_normalization": "(L2[Aa] + L3[Aa]) at cell 0 divided by r0^2.",
+    "accepted_q": "Accepted Aa[0]/r0^2 after exactly one production-kernel step; not a full evolution."
+  },
+  "measurements": [
+    {
+      "resolution": 60,
+      "r0": 0.6666666666666666,
+      "partial_half_cell_reprojected": {
+        "lapse_hessian_tf_l2": -0.000005649483481004025,
+        "tracefree_ricci_l2": -0.0001010245446058882,
+        "l2_aa": -0.0001066740280868922,
+        "l3_aa": -0.000001229535700573978,
+        "initial_rhs": -0.0001079035637874661,
+        "initial_rhs_over_r0_squared": -0.0002427830185217988,
+        "accepted_aa_over_r0_squared": -0.00000967398875748495
+      },
+      "partial_half_cell_matter_fixed": {
+        "tracefree_ricci_l2": -0.0001010245409540571,
+        "l2_aa": -0.0001066739626335783,
+        "l3_aa": -0.000001229535656128773,
+        "initial_rhs": -0.0001079034982897071,
+        "initial_rhs_over_r0_squared": -0.000242782871151841,
+        "accepted_aa_over_r0_squared": -0.000009673982812567593
+      },
+      "full_continuous_metric": {
+        "lapse_hessian_tf_l2": -0.000005647528188783681,
+        "tracefree_ricci_l2": -0.000002025744329405407,
+        "l2_aa": -0.000007673272518189087,
+        "l3_aa": -0.000001229530322496787,
+        "initial_rhs": -0.000008902802840685873,
+        "initial_rhs_over_r0_squared": -0.000020031306391543215,
+        "accepted_aa_over_r0_squared": -8.052758522178141e-7
+      },
+      "partial_fixed_vs_reprojected_relative_rhs_delta": -6.070027417010179e-7,
+      "report_sha256": "e265701c95a31592bf393722c66c8bc5067727c3841cf6385eaa4820a5837a26",
+      "artifact": {
+        "id": 12583399401,
+        "sha256": "673562a0dc4ff034d982926a9961f0a93fe217afacad371d0ac6f3461ce87e97"
+      }
+    },
+    {
+      "resolution": 120,
+      "r0": 0.3333333333333333,
+      "partial_half_cell_reprojected": {
+        "lapse_hessian_tf_l2": -0.000001507053628436203,
+        "tracefree_ricci_l2": -0.0001292552021945888,
+        "l2_aa": -0.000130762255823025,
+        "l3_aa": -3.130467571552879e-7,
+        "initial_rhs": -0.0001310753025801803,
+        "initial_rhs_over_r0_squared": -0.001179677723221623,
+        "accepted_aa_over_r0_squared": -0.00002349858457485608
+      },
+      "partial_half_cell_matter_fixed": {
+        "tracefree_ricci_l2": -0.0001292552016013382,
+        "l2_aa": -0.0001307622396089947,
+        "l3_aa": -3.130467557184777e-7,
+        "initial_rhs": -0.0001310752863647131,
+        "initial_rhs_over_r0_squared": -0.001179677577282418,
+        "accepted_aa_over_r0_squared": -0.00002349858162903177
+      },
+      "full_continuous_metric": {
+        "lapse_hessian_tf_l2": -0.000001507031981649951,
+        "tracefree_ricci_l2": -7.141073404452799e-7,
+        "l2_aa": -0.000002221139322095231,
+        "l3_aa": -3.130465462641383e-7,
+        "initial_rhs": -0.000002534185868359369,
+        "initial_rhs_over_r0_squared": -0.00002280767281523432,
+        "accepted_aa_over_r0_squared": -4.587904411471158e-7
+      },
+      "partial_fixed_vs_reprojected_relative_rhs_delta": -1.2371107967871028e-7,
+      "report_sha256": "b3b726c543c2e68acc79a10e9b1f9c7bc8d3f58c7cc0c60567cd78c5039add6c",
+      "artifact": {
+        "id": 12584352674,
+        "sha256": "41a1b80e84e1293f69553c8125d3ab3c4fe5d2736dffe9f16a982ed55b0f0b2a"
+      }
+    },
+    {
+      "resolution": 240,
+      "r0": 0.16666666666666666,
+      "partial_half_cell_reprojected": {
+        "lapse_hessian_tf_l2": -3.82949992598961e-7,
+        "tracefree_ricci_l2": -0.0001360574355440304,
+        "l2_aa": -0.0001364403855366294,
+        "l3_aa": -7.855344798393378e-8,
+        "initial_rhs": -0.0001365189389846133,
+        "initial_rhs_over_r0_squared": -0.004914681803446079,
+        "accepted_aa_over_r0_squared": -0.00004895003232071811
+      },
+      "partial_half_cell_matter_fixed": {
+        "tracefree_ricci_l2": -0.000136057435465608,
+        "l2_aa": -0.0001364403815415003,
+        "l3_aa": -7.855344793865623e-8,
+        "initial_rhs": -0.000136518934989439,
+        "initial_rhs_over_r0_squared": -0.004914681659619804,
+        "accepted_aa_over_r0_squared": -0.00004895003086785069
+      },
+      "full_continuous_metric": {
+        "lapse_hessian_tf_l2": -3.829916391673706e-7,
+        "tracefree_ricci_l2": -1.835504472135864e-7,
+        "l2_aa": -5.665420863809569e-7,
+        "l3_aa": -7.855343900088386e-8,
+        "initial_rhs": -6.450955253818407e-7,
+        "initial_rhs_over_r0_squared": -0.00002322343891374627,
+        "accepted_aa_over_r0_squared": -2.336351187040742e-7
+      },
+      "partial_fixed_vs_reprojected_relative_rhs_delta": -2.9264616070028298e-8,
+      "report_sha256": "b2d441344874bfb515873166fb3cc13ec269b36f35cfb2590a6117660f2fa368",
+      "artifact": {
+        "id": 12583429289,
+        "sha256": "0aaa58c6b1464481b2fd1c83facb7d3f319fb65597f0d1b4501ae41ab282cb73"
+      }
+    }
+  ],
+  "acceptance": {
+    "all_resolutions_passed": true,
+    "source_and_vendor_pins_pass": true,
+    "all_rhs_and_step_arrays_finite": true,
+    "Aa_l2_split_closure_pass": true,
+    "input_states_unchanged": true,
+    "full_evolution_performed": false,
+    "production_or_vendor_files_modified": false,
+    "scientific_admission": false
+  },
+  "conclusion": "The central defect comes from the partial half-cell metric profile interacting with the discrete trace-free Ricci stencil, not from matter reinitialization. The full continuous metric gives a refinement-stable normalized initial RHS; the partial half-cell metric does not."
+}
