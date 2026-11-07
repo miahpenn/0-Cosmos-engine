@@ -162,7 +162,32 @@ Differentiate the complete expression, the proper-volume weights and normalizati
 [
 A\dot\alpha_{out}=\dot b-\dot A\alpha_{out}.
 ]
-Keep (\dot\alpha_{in}) and (\dot\alpha_{out}) separate. The accepted-state archive's missing preceding incoming-lapse direction must not be replaced by zero. For this new analytic control, provide the incoming-lapse direction from an explicitly declared preceding analytic refresh/stage, or construct and independently validate a self-consistent fixed-point control. The latter is permitted only if both the base fixed-point identity and its two-epsilon directional cross-check pass; a small internal linear-system residual alone is insufficient. The known failing fixed-point directional witness remains a blocker until resolved.
+Keep (\dot\alpha_{in}) and (\dot\alpha_{out}) separate. The accepted-state archive's missing preceding incoming-lapse direction must not be replaced by zero. For this new analytic control, provide the incoming-lapse direction from an explicitly declared preceding analytic refresh/stage, or construct and independently validate a self-consistent fixed-point control. The latter is permitted only if both the base fixed-point identity and its two-epsilon directional cross-check pass; a small internal linear-system residual alone is insufficient.
+
+### 7.1 Synthetic fixed-point lapse-control evidence (2026-11-07)
+
+A refined research-only stage-history cross-check was supplied from the user's sandbox. Its two controls are explicitly separated:
+
+- **History A — declared stage history:** smooth positive Gaussian incoming lapse and an independently declared nonzero incoming-lapse direction. The map residual is intentionally nonzero because this incoming lapse is not the fixed-point root.
+- **History B — self-consistent fixed point:** the same base state and declared state rates, with the incoming lapse set to the affine fixed-point root and its direction set to the independently solved implicit fixed-point tangent.
+
+The refined script reports the following results (user-reported; the sandbox script and run were not independently executable from this repository session):
+
+| Gate | Check | Reported result |
+|---|---|---:|
+| 1 | Linear CMC solve residual at History A incoming lapse | 1.8e-15 |
+| 1 | Map residual at History A incoming lapse | 3.8e-2 (expected nonzero; not a fixed point) |
+| 2 | History A coupled state + incoming-lapse pure-map centered-difference error, two epsilons | 3.0e-10 |
+| 2b | History A incoming-lapse-only pure-map centered-difference error, two epsilons | 9.0e-11 |
+| 3 | History B fixed-point/map residual | 3.0e-14 |
+| 4a | History B analytic implicit identity residual | 1.6e-17 |
+| 4b | History B coupled state + implicit-lapse pure-map centered-difference error, two epsilons | 1.3e-10 / 6.5e-10 |
+
+The reported separation is also explicit: the infinity-norm difference between declared and fixed-point incoming lapse is 2.6e-2; the difference between declared incoming-lapse direction and implicit fixed-point tangent is 1.0e-3. These are distinct controls and are not required to agree.
+
+**Disposition:** this resolves the previously open *synthetic CMC fixed-point directional-control* gate, conditional on the reported run being reproducible against the pinned helper. The independent pure-map centered-difference check at the fixed point is the key added evidence; the implicit residual alone would not suffice. The earlier float64 finite-difference-of-solver-roots discrepancy is not used as the validation target here.
+
+**Scope limit:** the declared geometric and matter rates in this synthetic history are not yet derived from the scalar field and Valencia fluid evolution equations. The script does not construct the physical coupled-matter fixture, accepted-state incoming-lapse history, six-sector archive, or conservation closure. It does not authorize production changes or admission-flag promotion. The script reports a nonzero centre gap for the Gaussian incoming lapse (about 1.2e-3); the base's parity/centre regularity requirements in this specification still need an explicit satisfactory construction for the eventual coupled fixture.
 
 ## 8. Six-sector projection and time-density accounting
 
@@ -225,4 +250,4 @@ A failure at any gate stops the sequence and is recorded without loosening toler
 - No inferred missing lapse direction, silent fixed-point assumption, or unlabelled zero direction.
 - No scientific-admission, acceptance-oracle, physical-exchange, or conservation-closure promotion based on this control.
 
-**Readiness status:** derivation-first specification only. The coupled fixture remains unbuilt; the existing CMC fixed-point directional cross-check and the physical incoming-lapse construction remain explicit gates.
+**Readiness status:** derivation-first specification only. The synthetic self-consistent CMC fixed-point directional control is reported as passing, subject to reproduction against the pinned helper. The coupled fixture remains unbuilt. Equation-consistent scalar and Valencia fluid directions, the physical coupled geometry/connection direction, six-sector directional projections, regularity-complete base, immutable archive, and unchanged zero-step observer remain explicit gates.
