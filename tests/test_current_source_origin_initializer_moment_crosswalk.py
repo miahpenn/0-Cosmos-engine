@@ -67,6 +67,16 @@ def test_authorized_runtime_source_exception_is_exact_and_narrow():
         ["engine/production_kernel.py", "engine/matter_system.py", "engine/matter_rhs.py", "engine/scalar_system.py"]
     ) == []
     assert live._unexpected_runtime_source_paths(["engine/production_kernel.py", "engine/unapproved.py"]) == ["engine/unapproved.py"]
+    assert live.AUTHORIZED_CMC_CENTRE_ROW_HEAD_BLOBS == {
+        "engine/cmc_gauge.py": "c56c077e1fe339bb0699b79d71d407f26dcb3475",
+    }
+    for path, approved_head in live.AUTHORIZED_CMC_CENTRE_ROW_HEAD_BLOBS.items():
+        expected = live.CURRENT_SOURCE_BLOBS[path]
+        assert live._source_blob_matches(path, expected, expected, expected)
+        assert live._source_blob_matches(path, expected, expected, approved_head)
+        assert not live._source_blob_matches(path, expected, expected, "f" * 40)
+        assert not live._source_blob_matches(path, expected, "f" * 40, approved_head)
+    assert live._unexpected_runtime_source_paths(["engine/cmc_gauge.py"]) == []
 
 
 def test_crosswalk_is_one_no_evolution_grid_and_no_exact_moment_substitution():

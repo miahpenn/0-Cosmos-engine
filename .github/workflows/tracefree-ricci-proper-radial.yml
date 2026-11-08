@@ -93,6 +93,9 @@ jobs:
             ["engine/production_kernel.py"]="cc4ae0f58dd5df4e05f596f6e677526586956f26"
             ["engine/v55_pirk_adapter.py"]="be28ceea63fa1b59efc5cc5c460b9df19ae1cbc3"
           )
+          declare -A authorized_cmc_centre_row_heads=(
+            ["engine/cmc_gauge.py"]="c56c077e1fe339bb0699b79d71d407f26dcb3475"
+          )
           declare -A authorized_lane_b_heads=(
             ["engine/matter_system.py"]="0969f4d996e4f8e0fc5b70a7dff147f024907302"
             ["engine/matter_rhs.py"]="0153c232ee15b5a9d3dbac37ea858e4d2d730011"
@@ -106,7 +109,8 @@ jobs:
             test "$source_blob" = "$expected"
             authorized="${authorized_heads[$path]:-}"
             lane_b_authorized="${authorized_lane_b_heads[$path]:-}"
-            if [ "$head_blob" != "$expected" ] && [ "$head_blob" != "$authorized" ] && [ "$head_blob" != "$lane_b_authorized" ]; then
+            cmc_centre_row_authorized="${authorized_cmc_centre_row_heads[$path]:-}"
+            if [ "$head_blob" != "$expected" ] && [ "$head_blob" != "$authorized" ] && [ "$head_blob" != "$lane_b_authorized" ] && [ "$head_blob" != "$cmc_centre_row_authorized" ]; then
               printf 'Unapproved head blob for protected runtime path %s: %s\n' "$path" "$head_blob"
               exit 1
             fi
@@ -115,7 +119,7 @@ jobs:
           changed="$(git diff --name-only "$SOURCE_COMMIT" HEAD -- engine vendor .gitmodules requirements.txt)"
           unexpected=""
           if [ -n "$changed" ]; then
-            unexpected="$(printf '%s\n' "$changed" | grep -Ev '^(engine/native_geometry/__init__\.py|engine/native_geometry/constraints\.py|engine/native_geometry/geometry\.py|engine/native_geometry/operators\.py|engine/native_geometry/evolution\.py|engine/production_kernel\.py|engine/v55_pirk_adapter\.py|engine/matter_system\.py|engine/matter_rhs\.py|engine/scalar_system\.py)$' || true)"
+            unexpected="$(printf '%s\n' "$changed" | grep -Ev '^(engine/native_geometry/__init__\.py|engine/native_geometry/constraints\.py|engine/native_geometry/geometry\.py|engine/native_geometry/operators\.py|engine/native_geometry/evolution\.py|engine/production_kernel\.py|engine/v55_pirk_adapter\.py|engine/matter_system\.py|engine/matter_rhs\.py|engine/scalar_system\.py|engine/cmc_gauge\.py)$' || true)"
           fi
           if [ -n "$unexpected" ]; then
             printf 'Unexpected production/vendor/dependency changes:\n%s\n' "$unexpected"
