@@ -199,14 +199,29 @@ Both worktrees reported an empty `git status --porcelain` after the runs.
   - Diagnostic JSON SHA-256 `cf05eb783ddd81de966888931762e3bcb127d650646b88b77941d31314d340c2`.
   - Contract tests `7 passed`; witness file `2 failed, 16 passed` (base `8965a198`).
 
+## CI after reference regeneration (workflow run 42499448415)
+
+- Run: https://github.com/miahpenn/0-Cosmos-engine/actions/runs/42499448415, attempt 1, head
+  `c35708a5b40c1e80cb833a2979a4226fb69a92b6`, conclusion `success` for all three jobs
+  (`research-diagnostics`, `independent-cmc`, `accepted-state-crosswalk`).
+- Environment, from the run log: Python 3.12.15, numpy 2.5.4, mpmath 1.3.0, pytest 9.1.1.
+- Compare step: `affine-root reference identical: True | derivative reference identical: True`.
+- Diagnostic step: `root max abs diff: 0.0`; `derivative eps 2e-05 max abs diff: 0.0`;
+  `derivative eps 1e-05 max abs diff: 0.0`.
+- `independent-cmc`: contract tests `7 passed`; witness file `2 failed, 16 passed` (non-blocking step).
+- Artifact `issue4-research-diagnostic-42499448415-1`, published digest
+  `sha256:394d03c07f0ef07b93e647d3b813a73726a8aa20aa91fbf510335a9b2aede8ae`. Its contents were not
+  downloaded for this note; the values above are from the run log.
+
 ## Open
 
-- (a) CI on CPython 3.12.15 mismatches the committed references; the cause is unknown. Source:
+- (a) Resolved. CI on CPython 3.12.15 mismatched the committed references at `8965a198`. Source:
   `docs/ISSUE4_DIAGNOSTIC_HANDOFF_2026-11-07.md` on branch
   `docs/issue4-diagnostic-handoff-2026-11-07` (commit `144d5b53`), which records workflow run
   42407237209 printing `affine-root reference identical: False` and
-  `derivative reference identical: False`. Not reproduced locally: the local run above printed
-  `True` for both.
+  `derivative reference identical: False`. Mechanism reproduced locally (see "AVX-512 test"). After
+  the generators switched to a correctly rounded `exp` and the references were regenerated, CI
+  matches exactly (see "CI after reference regeneration").
 - (b) mpmath provenance discrepancy: the root reference records mpmath 1.4.1; local regeneration
   used mpmath 1.3.0 and gave identical strings.
 - (c) Answered: CI fingerprints and environment fields compared with local values; see
