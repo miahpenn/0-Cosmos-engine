@@ -1,0 +1,174 @@
+{
+ "thresholds": {
+  "absolute": 2e-08,
+  "normwise_relative": 1e-07
+ },
+ "max_abs_tangent": 0.0010070077711549783,
+ "boundary_uniform_relative": {
+  "level": 1e-07,
+  "absolute": 1.0149206887237472e-10,
+  "normwise_rel": 1.0078578523353428e-07,
+  "rejected_by": "relative"
+ },
+ "boundary_single_component_absolute": {
+  "level": 2e-10,
+  "absolute": 1.9920870833987914e-10,
+  "normwise_rel": 1.9782241428776044e-07,
+  "rejected_by": "relative"
+ },
+ "note": "Thresholds are the committed predeclared values; they were not adjusted after observing this study.",
+ "rows": {
+  "uniform_relative": [
+   {
+    "level": 1e-09,
+    "absolute": 1.7982995734883156e-12,
+    "normwise_rel": 1.785785200881667e-09,
+    "rejected_by": "none"
+   },
+   {
+    "level": 1e-08,
+    "absolute": 1.0861369312623048e-11,
+    "normwise_rel": 1.0785785008094231e-08,
+    "rejected_by": "none"
+   },
+   {
+    "level": 1e-07,
+    "absolute": 1.0149206887237472e-10,
+    "normwise_rel": 1.0078578523353428e-07,
+    "rejected_by": "relative"
+   },
+   {
+    "level": 2e-07,
+    "absolute": 2.0219284579958696e-10,
+    "normwise_rel": 2.007857851251375e-07,
+    "rejected_by": "relative"
+   },
+   {
+    "level": 5e-07,
+    "absolute": 5.042951774485854e-10,
+    "normwise_rel": 5.007857856612728e-07,
+    "rejected_by": "relative"
+   },
+   {
+    "level": 1e-06,
+    "absolute": 1.007799062735168e-09,
+    "normwise_rel": 1.0007857857652833e-06,
+    "rejected_by": "relative"
+   },
+   {
+    "level": 2e-06,
+    "absolute": 2.0148068341756947e-09,
+    "normwise_rel": 2.0007857868346297e-06,
+    "rejected_by": "relative"
+   },
+   {
+    "level": 5e-06,
+    "absolute": 5.035830147629913e-09,
+    "normwise_rel": 5.0007857891813435e-06,
+    "rejected_by": "relative"
+   },
+   {
+    "level": 1e-05,
+    "absolute": 1.0070869003314664e-08,
+    "normwise_rel": 1.0000785793020756e-05,
+    "rejected_by": "relative"
+   },
+   {
+    "level": 2e-05,
+    "absolute": 2.0140946714684166e-08,
+    "normwise_rel": 2.000078580069958e-05,
+    "rejected_by": "both"
+   },
+   {
+    "level": 5e-05,
+    "absolute": 5.035117984966003e-08,
+    "normwise_rel": 5.000078582459738e-05,
+    "rejected_by": "both"
+   },
+   {
+    "level": 0.0001,
+    "absolute": 1.0070156840715806e-07,
+    "normwise_rel": 0.0001000007858636375,
+    "rejected_by": "both"
+   }
+  ],
+  "single_component_absolute": [
+   {
+    "level": 1e-12,
+    "absolute": 7.912815368216197e-13,
+    "normwise_rel": 7.857750060218939e-10,
+    "rejected_by": "none"
+   },
+   {
+    "level": 1e-11,
+    "absolute": 9.208708231719931e-12,
+    "normwise_rel": 9.144624801052086e-09,
+    "rejected_by": "none"
+   },
+   {
+    "level": 1e-10,
+    "absolute": 9.920870830577855e-11,
+    "normwise_rel": 9.851831458058041e-08,
+    "rejected_by": "none"
+   },
+   {
+    "level": 2e-10,
+    "absolute": 1.9920870833987914e-10,
+    "normwise_rel": 1.9782241428776044e-07,
+    "rejected_by": "relative"
+   },
+   {
+    "level": 5e-10,
+    "absolute": 4.992087082253405e-10,
+    "normwise_rel": 4.957347131939692e-07,
+    "rejected_by": "relative"
+   },
+   {
+    "level": 1e-09,
+    "absolute": 9.99208708179003e-10,
+    "normwise_rel": 9.922552115145379e-07,
+    "rejected_by": "relative"
+   },
+   {
+    "level": 2e-09,
+    "absolute": 1.9992087083031684e-09,
+    "normwise_rel": 1.985296208371007e-06,
+    "rejected_by": "relative"
+   },
+   {
+    "level": 5e-09,
+    "absolute": 4.999208708241984e-09,
+    "normwise_rel": 4.964419198509751e-06,
+    "rejected_by": "relative"
+   },
+   {
+    "level": 1e-08,
+    "absolute": 9.99920870821229e-09,
+    "normwise_rel": 9.929624182146102e-06,
+    "rejected_by": "relative"
+   },
+   {
+    "level": 2e-08,
+    "absolute": 1.9999208708369742e-08,
+    "normwise_rel": 1.9860034149634133e-05,
+    "rejected_by": "relative"
+   },
+   {
+    "level": 5e-08,
+    "absolute": 4.999920870819158e-08,
+    "normwise_rel": 4.9651264051452235e-05,
+    "rejected_by": "both"
+   },
+   {
+    "level": 1e-07,
+    "absolute": 9.999920870832832e-08,
+    "normwise_rel": 9.93033138882464e-05,
+    "rejected_by": "both"
+   }
+  ]
+ },
+ "provenance": {
+  "mpmath": "1.3.0",
+  "reference_dps": 30
+ }
+}
