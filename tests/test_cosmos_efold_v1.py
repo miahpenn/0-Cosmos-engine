@@ -120,3 +120,16 @@ def test_radiation_gauge_is_regular_through_the_turnaround(trace):
     k = np.where(trace.N_turn < -10.0)[0]
     d = np.diff(g["log10_r_over_kin"][k]) / np.diff(trace.N_turn[k])
     assert np.allclose(d, 2.0 / np.log(10.0), rtol=1e-6)
+
+
+def test_both_planck_conventions_are_reported(trace):
+    crossings = ce.contraction_summary(trace)["planck_convention_crossings"]
+    full = crossings["full_planck_density_c5_over_hbar_G2"]
+    reduced = crossings["reduced_planck_density_over_8pi_squared"]
+    assert full["reached"] and reduced["reached"]
+    assert isclose(full["efolds_from_turnaround"], 47.570, abs_tol=2e-3)
+    assert isclose(reduced["efolds_from_turnaround"], 46.495, abs_tol=5e-3)
+    assert isclose(reduced["efolds_below_today"], 44.507, abs_tol=5e-3)
+    # The convention shift is ln(64 pi^2)/6 in the w = 1 regime.
+    shift = full["efolds_from_turnaround"] - reduced["efolds_from_turnaround"]
+    assert isclose(shift, log(64.0 * 3.141592653589793**2) / 6.0, rel_tol=1e-3)
