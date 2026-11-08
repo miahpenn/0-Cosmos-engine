@@ -63,14 +63,28 @@ AUTHORIZED_LANE_B_HEAD_BLOBS = {
     "engine/production_kernel.py": "1720615628a98a8d7cfc9fcadcc984fe28c88be1",
 }
 
+# Exact-blob authorization for the CMC lapse centre-row repair (Issue #4): the
+# first row of the banded CMC solve uses the even parity ghost instead of
+# alpha[0] - alpha[1] = 0. Evidence: results/issue4-gate-c-centre-lapse-defect-2026-11-08
+# and results/cmc-centre-row-repair-evolution-2026-11-08 on the Issue #4 research line.
+AUTHORIZED_CMC_CENTRE_ROW_HEAD_BLOBS = {
+    "engine/cmc_gauge.py": "c56c077e1fe339bb0699b79d71d407f26dcb3475",
+}
+
+
 def _authorized_head_blobs(path: str) -> set[str]:
     return {
         blob for blob in (
             AUTHORIZED_RUNTIME_HEAD_BLOBS.get(path),
             AUTHORIZED_LANE_B_HEAD_BLOBS.get(path),
+            AUTHORIZED_CMC_CENTRE_ROW_HEAD_BLOBS.get(path),
         ) if blob is not None
     }
-AUTHORIZED_RUNTIME_PATHS = frozenset(AUTHORIZED_RUNTIME_HEAD_BLOBS) | frozenset(AUTHORIZED_LANE_B_HEAD_BLOBS)
+AUTHORIZED_RUNTIME_PATHS = (
+    frozenset(AUTHORIZED_RUNTIME_HEAD_BLOBS)
+    | frozenset(AUTHORIZED_LANE_B_HEAD_BLOBS)
+    | frozenset(AUTHORIZED_CMC_CENTRE_ROW_HEAD_BLOBS)
+)
 
 RESOLUTIONS = (40, 60, 80, 120, 160)
 R_MAX = 80.0

@@ -323,6 +323,7 @@ def test_source_pin_guard_allows_only_additive_native_core_files():
     from tools.audit_tracefree_ricci_proper_radial import (
         AUTHORIZED_RUNTIME_HEAD_BLOBS,
         AUTHORIZED_LANE_B_HEAD_BLOBS,
+        AUTHORIZED_CMC_CENTRE_ROW_HEAD_BLOBS,
         AUTHORIZED_RUNTIME_PATHS,
         NATIVE_CANDIDATE_PATHS,
         SOURCE_BLOBS,
@@ -378,6 +379,16 @@ def test_source_pin_guard_allows_only_additive_native_core_files():
         ["engine/production_kernel.py", "vendor/unexpected.py"],
         set(),
     ) == ["vendor/unexpected.py"]
+    assert AUTHORIZED_CMC_CENTRE_ROW_HEAD_BLOBS == {
+        "engine/cmc_gauge.py": "c56c077e1fe339bb0699b79d71d407f26dcb3475",
+    }
+    for path, authorized_head in AUTHORIZED_CMC_CENTRE_ROW_HEAD_BLOBS.items():
+        historical = SOURCE_BLOBS[path]
+        assert _source_blob_matches(path, historical, historical, historical)
+        assert _source_blob_matches(path, historical, historical, authorized_head)
+        assert not _source_blob_matches(path, historical, historical, "f" * 40)
+        assert not _source_blob_matches(path, historical, "f" * 40, authorized_head)
+    assert _unexpected_source_pinned_paths(["engine/cmc_gauge.py"], set()) == []
 
 
 
