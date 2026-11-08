@@ -15,6 +15,11 @@ Checks per resolution:
   - residual_after: measured tangent - Brown predictor (Gate A section 11 slot) - dM
   - rate_removal: tangent with delta removed from the A_a rate, compared with measured - dM
   - fit_form_difference: dM against the fitted form alpha X^2 [D1(u) + 3u/r]
+  - locked_form: the geometric part of the locked full-Bianchi evaluator
+    (tools/issue4_full_bianchi_evaluator.py: H and M at Lambda = Lambda_metric, and
+    D1(alpha W) + (6 phi' + 3/r + 3 D1(b)/(2b)) alpha W with
+    W = X^2 [(2/3) D1(C) + (D1 a / 2a) C]), transcribed here with rho = j = 0,
+    compared with the measured vacuum tangent
 
 Usage: COSMOS_PINNED_SOURCE_ROOT=<checkout of 7f47669a with vendor submodule> \
        python tools/issue4_vendor_connection_term_derivation.py [output.json]
@@ -49,6 +54,27 @@ def derived_term(grid, state, connection):
     return delta, dM, fit
 
 
+def locked_form_prediction(grid, state, vacuum):
+    """Geometric part of the locked evaluator's predictor, transcribed (vacuum)."""
+    d1 = grid.cell_derivative_fourth
+    r = np.asarray(grid.centers, float)
+    a, b, X, alpha, K = (np.asarray(getattr(state, k), float) for k in ("a", "b", "X", "alpha", "K"))
+    lam_m = d1(a, parity=1) / (2.0 * a**2) - d1(b, parity=1) / (a * b) + 2.0 * (1.0 / b - 1.0 / a) / r
+    metric = state.copy()
+    metric.Lambda = lam_m.copy()
+    mc = vacuum.constraints(grid, metric)
+    H = np.asarray(mc["hamiltonian"], float)
+    M = np.asarray(mc["momentum"], float)
+    chi = X**2
+    chi_r = -d1(X, parity=1) / (2.0 * X)
+    C = np.asarray(state.Lambda, float) - lam_m
+    W = chi * ((2.0 / 3.0) * d1(C, parity=-1) + (d1(a, parity=1) / (2.0 * a)) * C)
+    F = alpha * W
+    conn = d1(F, parity=1) + (6.0 * chi_r + 3.0 / r + 3.0 * d1(b, parity=1) / (2.0 * b)) * F
+    return (alpha * K * M - (1.0 / 3.0) * d1(alpha, parity=1) * H
+            + (1.0 / 6.0) * alpha * d1(H, parity=1) + conn)
+
+
 def run(n):
     grid_ops, vacuum, moving = T.adapter.vendor_modules()
     grid = grid_ops.SphericalCellGrid(n, B.R_MAX)
@@ -63,6 +89,7 @@ def run(n):
     removed["Aa"] = rates["Aa"] - delta
     measured_removed = T.tangent_momentum(grid, state, removed, vacuum, EPS)
     before = measured - predicted
+    locked = measured - locked_form_prediction(grid, state, vacuum)
     after = before - dM
     inner = slice(2, n - EDGE)
     sample = lambda f: {f"{t:g}": float(np.interp(t, x, f)) for t in FIXED_RADII}  # noqa: E731
@@ -76,6 +103,9 @@ def run(n):
         "residual_after": {"cell_0": float(after[0]), "cell_1": float(after[1]), "fixed_radius": sample(after),
                            "interior_max_abs": float(np.max(np.abs(after[inner])))},
         "measured_fixed_radius": sample(measured),
+        "locked_form_residual": {"cell_0": float(locked[0]), "fixed_radius": sample(locked),
+                                 "interior_max_abs": float(np.max(np.abs(locked[inner])))},
+        "locked_form_minus_derived_max_abs": float(np.max(np.abs(locked - after))),
     }
 
 
@@ -97,6 +127,11 @@ def main():
             **{f"fixed_r_{t:g}": order([r["residual_after"]["fixed_radius"][f"{t:g}"] for r in rows], RES)
                for t in FIXED_RADII},
         },
+        "orders_locked_form": {
+            "interior_max": order([r["locked_form_residual"]["interior_max_abs"] for r in rows], RES),
+            **{f"fixed_r_{t:g}": order([r["locked_form_residual"]["fixed_radius"][f"{t:g}"] for r in rows], RES)
+               for t in FIXED_RADII},
+        },
     }
     out = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / "results" / "issue4-hamiltonian-slot-decomposition-2026-11-08" / "vendor_connection_term_derivation.json"
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -105,7 +140,8 @@ def main():
         print(f"N={r['N']:>4} before r=2 {r['residual_before']['fixed_radius']['2']:+.2e}  after r=2 "
               f"{r['residual_after']['fixed_radius']['2']:+.2e}  after c0 {r['residual_after']['cell_0']:+.2e}  "
               f"after int {r['residual_after']['interior_max_abs']:.2e}  |dM-fit| {r['fit_form_difference_max_abs']:.1e}  "
-              f"rate-removal {r['rate_removal_closure_max_abs']:.1e}")
+              f"rate-removal {r['rate_removal_closure_max_abs']:.1e}  locked r=2 "
+              f"{r['locked_form_residual']['fixed_radius']['2']:+.2e} locked int {r['locked_form_residual']['interior_max_abs']:.2e}")
     print("orders after:", rep["orders_after"])
 
 
