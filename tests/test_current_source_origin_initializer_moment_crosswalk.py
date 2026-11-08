@@ -77,6 +77,14 @@ def test_authorized_runtime_source_exception_is_exact_and_narrow():
         assert not live._source_blob_matches(path, expected, expected, "f" * 40)
         assert not live._source_blob_matches(path, expected, "f" * 40, approved_head)
     assert live._unexpected_runtime_source_paths(["engine/cmc_gauge.py"]) == []
+    assert live.AUTHORIZED_INITIALIZER_ORIGIN_HEAD_BLOBS == {
+        "engine/v55_initial.py": "75e5f2cb7794520ad7d278e17496b9c03fbf635e",
+    }
+    for path, approved_head in live.AUTHORIZED_INITIALIZER_ORIGIN_HEAD_BLOBS.items():
+        expected = live.CURRENT_SOURCE_BLOBS[path]
+        assert live._source_blob_matches(path, expected, expected, approved_head)
+        assert not live._source_blob_matches(path, expected, expected, "f" * 40)
+    assert live._unexpected_runtime_source_paths(["engine/v55_initial.py"]) == []
 
 
 def test_crosswalk_is_one_no_evolution_grid_and_no_exact_moment_substitution():

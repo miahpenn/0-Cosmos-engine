@@ -13,6 +13,7 @@ byte-identical to its research-line version. strict=True means the suite fails i
 either test ever starts passing, which would mean the witness no longer witnesses
 anything and should be reviewed.
 """
+import numpy as np
 import pytest
 
 _ISSUE4_WITNESS_REASON = (
@@ -32,3 +33,18 @@ def pytest_collection_modifyitems(config, items):
     for item in items:
         if item.nodeid in _ISSUE4_WITNESSES:
             item.add_marker(pytest.mark.xfail(strict=True, reason=_ISSUE4_WITNESS_REASON))
+
+
+def _legacy_cumulative_origin_integral(grid, r, dr, f):
+    """The areal-reconstruction quadrature used before the origin fix: a rectangle over
+    [0, r0] and plain trapezoids. Kept only so origin research diagnostics that study
+    that historical recurrence (and copy it verbatim) keep testing what they were built for."""
+    return np.cumsum(np.r_[0.5 * dr * f[0], 0.5 * dr * (f[1:] + f[:-1])])
+
+
+@pytest.fixture
+def legacy_origin_recurrence(monkeypatch):
+    """Run the initializer with its historical (pre-fix) origin quadrature."""
+    from engine import v55_initial
+
+    monkeypatch.setattr(v55_initial, "_cumulative_origin_integral", _legacy_cumulative_origin_integral)

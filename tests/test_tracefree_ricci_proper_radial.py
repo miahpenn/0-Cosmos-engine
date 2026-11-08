@@ -324,6 +324,7 @@ def test_source_pin_guard_allows_only_additive_native_core_files():
         AUTHORIZED_RUNTIME_HEAD_BLOBS,
         AUTHORIZED_LANE_B_HEAD_BLOBS,
         AUTHORIZED_CMC_CENTRE_ROW_HEAD_BLOBS,
+        AUTHORIZED_INITIALIZER_ORIGIN_HEAD_BLOBS,
         AUTHORIZED_RUNTIME_PATHS,
         NATIVE_CANDIDATE_PATHS,
         SOURCE_BLOBS,
@@ -389,6 +390,14 @@ def test_source_pin_guard_allows_only_additive_native_core_files():
         assert not _source_blob_matches(path, historical, historical, "f" * 40)
         assert not _source_blob_matches(path, historical, "f" * 40, authorized_head)
     assert _unexpected_source_pinned_paths(["engine/cmc_gauge.py"], set()) == []
+    assert AUTHORIZED_INITIALIZER_ORIGIN_HEAD_BLOBS == {
+        "engine/v55_initial.py": "75e5f2cb7794520ad7d278e17496b9c03fbf635e",
+    }
+    for path, authorized_head in AUTHORIZED_INITIALIZER_ORIGIN_HEAD_BLOBS.items():
+        historical = SOURCE_BLOBS[path]
+        assert _source_blob_matches(path, historical, historical, authorized_head)
+        assert not _source_blob_matches(path, historical, historical, "f" * 40)
+    assert _unexpected_source_pinned_paths(["engine/v55_initial.py"], set()) == []
 
 
 

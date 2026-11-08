@@ -5,7 +5,8 @@ from engine.v55_pirk_adapter import vendor_modules
 from tools.audit_analytic_origin_half_cell_self_consistent_response import run_resolution
 
 
-def test_analytic_integral_override_drives_self_consistent_copied_metric():
+def test_analytic_integral_override_drives_self_consistent_copied_metric(legacy_origin_recurrence):
+    # Studies the historical rectangle/trapezoid origin recurrence (copied verbatim by the tool).
     _, vacuum, _ = vendor_modules()
     row, profiles = run_resolution(160, vacuum)
 
@@ -60,7 +61,8 @@ def test_analytic_integral_override_drives_self_consistent_copied_metric():
     assert all(np.all(np.isfinite(values)) for values in profiles.values())
 
 
-def test_enclosure_endpoint_arms_are_separately_reported_not_silently_selected():
+def test_enclosure_endpoint_arms_are_separately_reported_not_silently_selected(legacy_origin_recurrence):
+    # Studies the historical rectangle/trapezoid origin recurrence (copied verbatim by the tool).
     _, vacuum, _ = vendor_modules()
     row, _ = run_resolution(160, vacuum)
     cases = row["cases"]
