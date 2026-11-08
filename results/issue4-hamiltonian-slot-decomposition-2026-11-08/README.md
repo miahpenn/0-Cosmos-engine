@@ -87,6 +87,27 @@ N = 40…1280, ε = 2e-5 and 1e-5 (largest change between ε: 3.7e-12).
   roundoff floor near 1e-12 at N = 1280.
 
 u = (D_r a / 2a)·C is the vendor-specific undifferentiated-C term in Δ_Λ R^r_r recorded in Gate A
-§9.1. The term's shape is consistent with that term entering the A_a equation and reaching M_r
-through the chain rule of §10 (D_r and 3/2·q acting on the A_a rate). That derivation has not been
-written out; the term was found by fitting and is confirmed only by the convergence test above.
+§9.1.
+
+## Derivation of the term (`vendor_connection_term_derivation.json`)
+
+From the pinned vendor code: Λ enters α(R^r_r − R/3) in the A_a rate as α X²[⅔·D_r(C) + u]; the K
+rate has no Λ; and the vendor's M_r = D_r(A_a) − ⅔D_r(K) + 6A_a·φ′ + (3/2)A_a·q. So the A_a-rate piece
+δ = α X² u changes the M_r tangent by exactly
+
+    δṀ_r = D_r(δ) + (6φ′ + (3/2)q)·δ,   φ′ = −D_r(X)/(2X),  q = 2/r + D_r(b)/b,
+
+whose leading part is the fitted α X²[D_r(u) + 3u/r]. Brown Eq. (11b) carries only the ⅔·D_r(C) part.
+
+`tools/issue4_vendor_connection_term_derivation.py` (diagnostic commit `a845f0ad`, SHA-256 of
+`vendor_connection_term_derivation.json`
+`920b69b39a3e1ffbd1adef99ade5dff81a34d18cd1c5673c001d7efdf3c42c8c`), N = 40…1280:
+
+- Removing δ from the actual A_a rate and re-measuring changes the tangent by exactly δṀ_r, to at most
+  2e-13.
+- Measured − Brown (Gate A slot) − δṀ_r converges at fourth order at r = 1 and 2 and about third order at
+  cell 0 and in the interior maximum, to the roundoff floor at N = 1280 (r = 2: +2.38e-9 before,
+  +2.4e-12 after).
+- δṀ_r and the fitted form agree to ≤ 1.5e-11.
+
+The term is derived, not fitted. Gate A §11.1 records it.

@@ -360,6 +360,23 @@ evaluated from the vendor's own constraint routine. It equals the metric-only Ha
 ]
 with coefficients exactly 1 and 3 removes the limit: the remainder converges at fourth order at fixed radius and about third order at cell 0 and in the interior maximum, to the roundoff floor at N = 1280.
 
-\(u\) is the vendor-specific undifferentiated-\(C^r\) term in \(\Delta_\Lambda R^r{}_r\) (§9.1). The shape \(D_1u+\tfrac32q\,u\) with \(q\to2/r\) is what the §10 chain rule produces from a term \(\propto\alpha\chi u\) in the \(A_a\) rate, so the term is consistent with that origin. That derivation, including the sign and the exact form of \(q\), is **not yet written out**; the term was found by fitting and is confirmed only by the convergence test.
+**Derivation.** \(u\) is the vendor-specific undifferentiated-\(C^r\) term in \(\Delta_\Lambda R^r{}_r\) (§9.1). From the pinned vendor code:
 
-**Consequence for Gate B.** The matter-coupled predictor must carry this vendor-specific connection term alongside Brown's \(C^r\) terms; Brown's paper form alone does not close for this vendor even in vacuum. This is a convention of the pinned vendor's Ricci (which uses evolved \(\Lambda\) in a non-standard slot), not evidence of a production defect, and nothing in production is changed.
+1. `geometry_terms`: with \(\Lambda=\Lambda_{\rm metric}+C^r\), \(\alpha(R^r{}_r-\tfrac13R)\) gains \(\alpha\chi\left[\tfrac23D_1C^r+u\right]\).
+2. `primary_l2_rhs`: \(L_2^{A_a}\) contains \(\alpha(R^r{}_r-\tfrac13R)\); \(L_2^K=-\nabla^2\alpha\) has no \(\Lambda\). So the \(A_a\) rate carries the extra \(\delta=\alpha\chi u\), and nothing else carries it.
+3. `momentum_constraint`: \(M_r=D_1A_a-\tfrac23D_1K+6A_a\phi'+\tfrac32A_a q\), with \(\phi'=-D_1X/(2X)\) and \(q=2/r+D_1b/b\). Along a rate, \(M_r\) therefore changes by
+[
+\delta\dot M_r=D_1\delta+\left(6\phi'+\tfrac32q\right)\delta,
+\qquad \delta=\alpha\chi\,\frac{D_1a}{2a}\,C^r,
+]
+with a plus sign. Its leading part is \(\alpha\chi\left[D_1u+3u/r\right]\), the fitted form. Brown Eq. (11b) carries only the \(\tfrac23D_1C^r\) part.
+
+**Checks** (`tools/issue4_vendor_connection_term_derivation.py`, diagnostic commit `a845f0ad`; result `results/issue4-hamiltonian-slot-decomposition-2026-11-08/vendor_connection_term_derivation.json`, SHA-256 `920b69b39a3e1ffbd1adef99ade5dff81a34d18cd1c5673c001d7efdf3c42c8c`; N = 40…1280):
+
+- **Rate removal.** Subtracting \(\delta\) from the actual \(A_a\) rate and re-measuring changes the tangent by exactly \(\delta\dot M_r\), to at most \(2\times10^{-13}\) (roundoff).
+- **Residual.** Measured minus (Brown with the §11 slot) minus \(\delta\dot M_r\) converges at fourth order at fixed radius (r = 1, 2) and about third order at cell 0 and in the interior maximum, to the roundoff floor at N = 1280. At r = 2: \(+2.38\times10^{-9}\) before, \(+2.4\times10^{-12}\) after.
+- **Fit.** \(\delta\dot M_r\) and the fitted form agree to \(\le1.5\times10^{-11}\); the extra pieces \(u\,D_1(\alpha\chi)\) and \(\alpha\chi u(6\phi'+\tfrac32D_1b/b)\) are products of two small amplitudes on this state.
+
+The term is now derived, not fitted.
+
+**Consequence for Gate B.** The vacuum skeleton for this vendor is Brown Eq. (11b) with the §11 Hamiltonian slot plus \(\delta\dot M_r\); on the manufactured state it closes at the stencil order with no unexplained remainder. The matter-coupled predictor must carry \(\delta\dot M_r\) alongside Brown's \(C^r\) terms; Brown's paper form alone does not close for this vendor even in vacuum. This is a convention of the pinned vendor's Ricci (which uses evolved \(\Lambda\) in a non-standard slot), not evidence of a production defect, and nothing in production is changed.
