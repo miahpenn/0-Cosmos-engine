@@ -29,6 +29,10 @@ Established research-backed implementation, test, and diagnostic changes are mer
 
 The workflow retains its checks for a trusted human review on the exact current head when the PR changes `.github/workflows/**`, because workflow/config edits can weaken future validation and merge safeguards. Approval requires a non-author human account whose repository collaborator permission is verified as `write`, `maintain`, or `admin`. Bot accounts, non-collaborators, read-only/triage-only accounts, and reviews whose permission cannot be verified do not qualify; permission lookup errors fail closed. Only a trusted non-author human collaborator's current-head `CHANGES_REQUESTED` review blocks ordinary changes or a workflow/config PR. Untrusted reviews do not independently approve or veto promotion; their feedback remains available for maintainer consideration.
 
+## Production runtime approval gate
+
+A PR that changes production runtime paths — anything under `engine/` or `vendor/`, `.gitmodules`, or `requirements.txt` — is approval-gated in the same way as a workflow/config edit: it needs a trusted non-author human approval on the exact current head, in addition to all required checks. Research, diagnostic, test, tooling, documentation and results changes keep the fast path above. Because approval must come from someone other than the PR author, a production PR authored by the repository owner is merged by hand after review rather than by this helper. This gate was added after PR #436, a production solver change, qualified through the fast path and was merged without owner review.
+
 ## Native geometry source-pinned gate
 
 A PR that adds or changes files under `engine/native_geometry/**`, or changes `.github/workflows/tracefree-ricci-proper-radial.yml`, must also pass the `tracefree-ricci-proper-radial` check on the exact current head and current `main` base. That workflow verifies the pinned existing production file blobs and vendor SHA; it permits only the explicitly listed native candidate files when they are absent from the pinned production source. Any other engine/vendor/dependency diff fails closed. This prevents the native migration from being confused with a production-runtime switch and prevents that scope guard from being silently bypassed.
@@ -41,7 +45,7 @@ The `ledgerPaths` set used by the merge helper must match all paths in `.github/
 
 The fast path does not waive implementation, provenance, regression, integration, or scope gates, and it does not change scientific-admission criteria. A passing software suite is not scientific admission. Truly provisional source-law/index/normalization choices, unexplained mismatches, missing provenance, or production-physics changes outside the declared task scope must remain blocked by their applicable project gates rather than being inferred as accepted from a green CI result.
 
-Workflow/config changes remain approval-gated as described above. For ordinary changes, the merge helper uses exact-head tests and workflow-to-check-suite/PR/base association, checks source/dependency-sensitive ledger paths, and fails closed on stale base, missing/failed checks, unknown mergeability, head movement, or a trusted current-head change request.
+Workflow/config changes remain approval-gated as described above. Production runtime changes are approval-gated as described in the production runtime approval gate. For ordinary changes, the merge helper uses exact-head tests and workflow-to-check-suite/PR/base association, checks source/dependency-sensitive ledger paths, and fails closed on stale base, missing/failed checks, unknown mergeability, head movement, or a trusted current-head change request.
 
 ## Freshness and merge safety
 
