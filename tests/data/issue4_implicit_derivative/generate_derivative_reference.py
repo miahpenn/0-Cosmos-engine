@@ -19,6 +19,40 @@ sys.path.insert(0, str(REPO))
 sys.path.insert(0, str(REPO / "tests" / "data" / "issue4_research"))
 import mp_fixture_helper as P  # noqa: E402
 
+
+# Correctly rounded exp for the fixture. _stage_state() (and _state(), which it calls) use one
+# transcendental function, np.exp, through the fixture module's global `np`. NumPy's float64 exp can
+# differ in the last bit between SIMD code paths (AVX-512 vs not). While the fixture's own _stage_state()
+# runs, the fixture module's `np` is replaced by a proxy whose exp evaluates each element in mpmath at
+# 40 digits and rounds once to float64; every other attribute is NumPy's. The original `np` is restored
+# after each call. Only this generator process is affected; the test fixture file is unchanged.
+class _CorrectlyRoundedExpNumpy:
+    def __getattr__(self, name):
+        return getattr(np, name)
+
+    @staticmethod
+    def exp(x):
+        import mpmath as mp
+        arr = np.asarray(x, dtype=np.float64)
+        with mp.workdps(40):
+            out = [float(mp.exp(mp.mpf(float(v)))) for v in arr.ravel()]
+        return np.array(out, dtype=np.float64).reshape(arr.shape)
+
+
+def _use_correctly_rounded_fixture_exp():
+    """Wrap the loaded fixture's _stage_state so np.exp inside it is correctly rounded."""
+    original = P.T._stage_state
+
+    def stage_state():
+        saved = P.T.np
+        P.T.np = _CorrectlyRoundedExpNumpy()
+        try:
+            return original()
+        finally:
+            P.T.np = saved
+
+    P.T._stage_state = stage_state
+
 EPSILONS = (2.0e-5, 1.0e-5)
 
 
@@ -37,6 +71,7 @@ def derivative(eps):
 def main(dps, out):
     import mpmath as mp
     P.load_historical_fixture(REPO)
+    _use_correctly_rounded_fixture_exp()
     P.set_dps(dps)
     data = dict(
         description="Exact-root central-difference directional derivative of the affine lapse root "
