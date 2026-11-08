@@ -34,92 +34,58 @@ def test_research_ledger_archive_uses_requested_output_directory(tmp_path):
         np.testing.assert_array_equal(archive["H_eff"], history["H_eff"])
 
 
-def test_ledger_observables_uses_shared_volume_weighted_hubble(monkeypatch):
-    grid = SimpleNamespace(
-        centers=np.asarray([1.0, 2.0, 3.0]),
-        volumes=np.asarray([1.0, 9.0, 90.0]),
-        r_max=3.0,
-    )
-    geometry = SimpleNamespace(
-        a=np.ones(3),
-        b=np.ones(3),
-        X=np.ones(3),
-        alpha=np.ones(3),
-        Aa=np.zeros(3),
-        K=np.asarray([-1.0, -3.0, -5.0]),
-    )
-    fields = [np.zeros(3) for _ in range(6)]
-    zeros = np.zeros(3)
-    monkeypatch.setattr(
-        bidirectional_production.q,
-        "matter_projection",
-        lambda *_: (zeros, zeros, zeros, zeros),
-    )
-    monkeypatch.setattr(
-        bidirectional_production.q,
-        "D",
-        lambda _grid, _values, _parity: np.ones(3),
-    )
+def test_drivers_run_on_the_production_kernel_not_the_reference_stack():
+    import ast
+    import inspect
 
-    observed = bidirectional_production.ledger_observables(
-        grid, geometry, fields, Rcoord=2.0
-    )
-
-    assert observed["H_eff"] == effective_hubble(geometry, grid.volumes)
-    assert not np.isclose(observed["H_eff"], -float(np.mean(geometry.K)) / 3.0)
+    for module in (bidirectional_production, coupled_engine):
+        tree = ast.parse(inspect.getsource(module))
+        imported = set()
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ImportFrom):
+                imported.add(node.module or "")
+                imported |= {alias.name for alias in node.names}
+            elif isinstance(node, ast.Import):
+                imported |= {alias.name for alias in node.names}
+        assert not any("reference_pirk_unified" in name or "true_cmc_reference" in name
+                       for name in imported), module.__name__
 
 
-def test_coupled_driver_uses_shared_hubble_for_cycle_observation(monkeypatch):
-    old_state = SimpleNamespace(K=np.asarray([-1.0, -3.0]), alpha=np.ones(2))
-    new_state = SimpleNamespace(
-        K=np.asarray([-2.0, -4.0]), alpha=np.asarray([0.9, 0.9])
-    )
-    grid = SimpleNamespace(volumes=np.asarray([1.0, 9.0]))
-    calls = []
-    previous_rate = 0.123
-    current_rate = 0.456
+def test_ledger_observables_are_the_production_diagnostics():
+    from engine.production_kernel import V55ProductionKernel
 
-    def fake_effective_hubble(state, volumes):
-        calls.append((state, volumes))
-        return previous_rate
+    kernel = V55ProductionKernel()
+    state = kernel.initialize(resolution=24, r_max=40.0)
+    row = bidirectional_production.ledger_observables(kernel, state)
+    diagnostics = kernel.diagnostics(state, profiles=True)
+    for key in bidirectional_production.LEDGER_KEYS:
+        assert row[key] == float(diagnostics[key])
+    assert row["H_eff"] == effective_hubble(state.geometry, state.grid.volumes)
+    # The COSMOS scalar starts at the archive operating point phi = 0.179055,
+    # Pi = 0.00341913 (the old reference initializer had phi = 33.8983, Pi = 0.179055).
+    assert row["phi_outer"] == pytest.approx(0.179055, abs=1e-12)
+    assert row["Pi_outer"] == pytest.approx(0.00341913, rel=1e-6)
+    with pytest.raises(ValueError, match="fixed at coordinate r = 10"):
+        bidirectional_production.ledger_observables(kernel, state, Rcoord=12.0)
 
-    captured = []
-    cycle = SimpleNamespace(
-        observe=lambda *args: (captured.append(args) or "cycle-event")
-    )
-    fields = tuple(np.asarray([float(i)]) for i in range(6))
-    run = SimpleNamespace(
-        grid=grid,
-        state=old_state,
-        fields=fields,
-        t=0.0,
-        tau=0.0,
-        cycle=cycle,
-        handoffs=[],
-        history=[],
-    )
 
-    monkeypatch.setattr(coupled_engine, "effective_hubble", fake_effective_hubble)
-    monkeypatch.setattr(
-        coupled_engine,
-        "step_true_cmc",
-        lambda _g, _s, current_fields, _dt: (new_state, current_fields),
-    )
-    monkeypatch.setattr(
-        coupled_engine,
-        "ledger_observables",
-        lambda *_args: {"H_eff": current_rate, "tau_rate": 1.0},
-    )
-    monkeypatch.setattr(coupled_engine, "handoff_from_ledger", lambda *_args: "handoff")
+def test_coupled_driver_steps_are_production_kernel_steps():
+    from engine.production_kernel import V55ProductionKernel
 
-    event = coupled_engine.advance(run, 0.1)
-
-    assert event == "cycle-event"
-    assert len(calls) == 1 and calls[0][0] is old_state
-    assert calls[0][1] is grid.volumes
-    assert captured and captured[0][-2:] == (previous_rate, current_rate)
-    assert run.history == [{"H_eff": current_rate, "tau_rate": 1.0}]
-    assert run.handoffs == ["handoff"]
+    run = coupled_engine.initialize(n=24)
+    kernel = V55ProductionKernel()
+    reference = kernel.initialize(resolution=24, r_max=40.0)
+    dt = 0.06 * float(run.grid.dr)
+    for _ in range(3):
+        coupled_engine.advance(run, dt)
+        reference = kernel.step(reference, dt)
+    assert run.t == reference.t and run.tau == reference.tau
+    for name in ("a", "b", "X", "alpha", "K", "Aa", "Lambda"):
+        np.testing.assert_array_equal(getattr(run.state.geometry, name),
+                                      getattr(reference.geometry, name))
+    assert len(run.history) == 3 and len(run.handoffs) == 3
+    traj = coupled_engine.trajectory(run)
+    np.testing.assert_array_equal(traj["t"], [row["t"] for row in reference.history])
 
 
 def test_ledger_archive_refuses_time_unstamped_history(tmp_path):

@@ -124,9 +124,13 @@ AUTHORIZED_DOCSTRING_ONLY_HEAD_BLOBS = {
 
 # Engine files outside this audit's runtime set changed by a reviewed repair, authorized as one
 # exact head blob each. engine/true_cmc_reference.py: even-ghost CMC centre row, the same repair
-# as engine/cmc_gauge.py (#436); this audit does not import it.
+# as engine/cmc_gauge.py (#436). engine/coupled_engine.py and engine/bidirectional_production.py:
+# thin drivers over V55ProductionKernel replacing their reference-stack evolution. This audit
+# imports none of them.
 AUTHORIZED_OFF_AUDIT_REPAIR_HEAD_BLOBS = {
     "engine/true_cmc_reference.py": "5cbac98225ce711dab80e5db97672012885fe47c",
+    "engine/coupled_engine.py": "858b40dc5c93e502b3bccde364b9fc3f781fd692",
+    "engine/bidirectional_production.py": "26be783fd3a5a3cb66aca10372d3b592370a8545",
 }
 
 
