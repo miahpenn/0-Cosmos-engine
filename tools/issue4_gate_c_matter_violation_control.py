@@ -74,6 +74,60 @@ def regions(values, r, signal=None):
     return out
 
 
+# ---------------------------------------------------------------------------
+# Lapse study: independent stencil algebra (written here, not imported from the
+# vendor) for the change in the M_r tangent caused by a lapse change.
+# ---------------------------------------------------------------------------
+LAPSE_MODES = ("stored", "cmc", "row_imposed", "smooth_bump", "cmc_centre_even")
+
+
+def own_d(u, h, parity, order):
+    """Fourth-order centred cell derivative with parity ghosts u[-1]=p*u[0], u[-2]=p*u[1];
+    the last two cells use the five-point one-sided rule. Independent implementation."""
+    u = np.asarray(u, float)
+    n = u.size
+    e = np.concatenate([[parity * u[1], parity * u[0]], u])
+    out = np.empty(n)
+    w1 = np.array([1.0, -8.0, 0.0, 8.0, -1.0]) / 12.0
+    w2 = np.array([-1.0, 16.0, -30.0, 16.0, -1.0]) / 12.0
+    w = w1 if order == 1 else w2
+    for i in range(n - 2):
+        out[i] = float(w @ e[i:i + 5]) / h**order
+    for i in (n - 2, n - 1):
+        offs = np.arange(n - 5, n, dtype=float) - i
+        A = np.vstack([offs**k for k in range(5)])
+        t = np.zeros(5)
+        t[order] = 1.0 if order == 1 else 2.0
+        out[i] = float(np.linalg.solve(A, t) @ u[n - 5:]) / h**order
+    return out
+
+
+def even_centre_value(alpha, r):
+    """alpha[0] from the even quartic c0 + c2 r^2 + c4 r^4 through cells 1, 2, 3."""
+    A = np.vstack([np.ones(3), r[1:4]**2, r[1:4]**4]).T
+    c = np.linalg.solve(A, np.asarray(alpha, float)[1:4])
+    return float(c[0] + c[1] * r[0]**2 + c[2] * r[0]**4)
+
+
+def predicted_mdot_change(r, a, b, X, dalpha):
+    """Change in the vendor M_r tangent from the lapse-derivative terms only:
+    L2^{A_a} gains -(DrDr - lap/3)(dalpha), L2^K gains -lap(dalpha), and
+    dM = D1(dL^{A_a}) - (2/3) D1(dL^K) + (6 phi' + 1.5 q) dL^{A_a}."""
+    h = float(r[1] - r[0])
+    d1 = lambda f, p: own_d(f, h, p, 1)  # noqa: E731
+    d2 = lambda f, p: own_d(f, h, p, 2)  # noqa: E731
+    ap, bp = d1(a, 1), d1(b, 1)
+    phip = -0.5 * d1(X, 1) / X
+    inv = X**2 / a
+    al_p, al_pp = d1(dalpha, 1), d2(dalpha, 1)
+    drdr = inv * (al_pp - al_p * (0.5 * ap / a + 2.0 * phip))
+    lap = inv * (al_pp - al_p * (0.5 * ap / a - bp / b - 2.0 * phip - 2.0 / r))
+    dLA = -(drdr - lap / 3.0)
+    dLK = -lap
+    q = 2.0 / r + bp / b
+    return d1(dLA, 1) - (2.0 / 3.0) * d1(dLK, 1) + (6.0 * phip + 1.5 * q) * dLA
+
+
 def make_perturbation(S, eta_rho, eta_j, width, record, resolve_lapse):
     from engine.matter_system import ConservedSpecies
     from engine.production_kernel import V55ProductionKernel
@@ -98,11 +152,34 @@ def make_perturbation(S, eta_rho, eta_j, width, record, resolve_lapse):
         kernel = V55ProductionKernel()
         alpha_old = np.asarray(state.geometry.alpha, float).copy()
         alpha, _ = kernel._solve_lapse_for_state(state.grid, state.geometry, state.scalars, state.matter, None)
-        record["stored_minus_cmc_resolved_lapse_max_abs"] = float(np.max(np.abs(alpha_old - np.asarray(alpha))))
-        record["lapse_resolved"] = bool(resolve_lapse)
-        if resolve_lapse:
-            state.geometry.alpha = np.asarray(alpha, float).copy()
-        record["lapse_change_max_abs"] = float(np.max(np.abs(np.asarray(state.geometry.alpha) - alpha_old)))
+        alpha = np.asarray(alpha, float)
+        record["stored_minus_cmc_resolved_lapse_max_abs"] = float(np.max(np.abs(alpha_old - alpha)))
+        mode = {True: "cmc", False: "stored"}.get(resolve_lapse, resolve_lapse)
+        if mode not in LAPSE_MODES:
+            raise ValueError(f"unknown lapse mode {mode}")
+        new = alpha_old.copy()
+        if mode == "cmc":
+            new = alpha.copy()
+        elif mode == "row_imposed":
+            new[0] = new[1]
+        elif mode == "smooth_bump":
+            new = alpha_old + 1.0e-4 * np.exp(-(r / width) ** 2)
+        elif mode == "cmc_centre_even":
+            new = alpha.copy()
+            new[0] = even_centre_value(alpha, r)
+        state.geometry.alpha = new
+        record["lapse_mode"] = mode
+        record["lapse_resolved"] = mode in ("cmc", "cmc_centre_even")
+        record["lapse_change_max_abs"] = float(np.max(np.abs(new - alpha_old)))
+        record["lapse_centre"] = {
+            name: {"alpha1_minus_alpha0": float(v[1] - v[0]),
+                   "alpha0_minus_even_extrapolation": float(v[0] - even_centre_value(v, r))}
+            for name, v in (("stored", alpha_old), ("cmc", alpha), ("used", new))}
+        g_ = state.geometry
+        dalpha = new - alpha_old
+        record["predicted_mdot_change"] = predicted_mdot_change(
+            r, np.asarray(g_.a, float), np.asarray(g_.b, float), np.asarray(g_.X, float), dalpha).tolist()
+        record["dalpha"] = dalpha.tolist()
         record["dm_rest_change_max_abs"] = float(np.max(np.abs(new_dm.rest - np.asarray(dm.rest))))
         record["baryon_momentum_change_max_abs"] = float(np.max(np.abs(new_ba.momentum_r - np.asarray(ba.momentum_r))))
         return state
@@ -111,6 +188,7 @@ def make_perturbation(S, eta_rho, eta_j, width, record, resolve_lapse):
 
 
 def build(n, input_dir, work, eta_rho, eta_j, width, label, resolve_lapse):
+    """resolve_lapse: True/False (matter study) or a lapse mode name (lapse study)."""
     """Phase 1: restore, perturb, run the unmodified exact-profile pipeline, zip it."""
     import tools.audit_exact_profile_momentum_tangent as X
     import tools.issue4_accepted_state_fixture as F
@@ -190,6 +268,18 @@ def evaluate(record, diag, helper):
         _BASELINE[n] = keep
     elif n in _BASELINE:
         record["minus_baseline"] = {k: regions(keep[k] - _BASELINE[n][k], r) for k in keep}
+        if "predicted_mdot_change" in record and record.get("eta_rho", 0.0) == 0.0 and record.get("eta_j", 0.0) == 0.0:
+            pred = np.asarray(record["predicted_mdot_change"], float)
+            meas_d = keep["measured"] - _BASELINE[n]["measured"]
+            record["lapse_prediction"] = {
+                "measured_change": regions(meas_d, r),
+                "predicted_change": regions(pred, r),
+                "measured_minus_predicted": regions(meas_d - pred, r),
+                "cells_0_to_5": {"measured": [float(v) for v in meas_d[:6]],
+                                 "predicted": [float(v) for v in pred[:6]]},
+            }
+    record.pop("predicted_mdot_change", None)
+    record.pop("dalpha", None)
     record["channels"] = {}
     for eps, chans in res["channels"].items():
         meas = np.asarray(chans["measured_tangent"], float)
@@ -217,6 +307,7 @@ def order(values, ns):
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--phase", choices=("build", "evaluate"), required=True)
+    p.add_argument("--study", choices=("matter", "lapse"), default="matter")
     p.add_argument("--manifest", type=Path, required=True)
     p.add_argument("--input-dir", action="append", help="N=path (build)")
     p.add_argument("--diagnostic-source", type=Path, help="(evaluate)")
@@ -234,9 +325,13 @@ def main():
         built = []
         for n in ns:
             built.append(build(n, inputs[str(n)], a.work_dir, 0.0, 0.0, a.width, "baseline", False))
-            built.append(build(n, inputs[str(n)], a.work_dir, 0.0, 0.0, a.width, "baseline_lapse_resolved", True))
-            built.append(build(n, inputs[str(n)], a.work_dir, a.eta_rho, a.eta_j, a.width, "matter_stored_lapse", False))
-            built.append(build(n, inputs[str(n)], a.work_dir, a.eta_rho, a.eta_j, a.width, "matter_lapse_resolved", True))
+            if a.study == "matter":
+                built.append(build(n, inputs[str(n)], a.work_dir, 0.0, 0.0, a.width, "baseline_lapse_resolved", True))
+                built.append(build(n, inputs[str(n)], a.work_dir, a.eta_rho, a.eta_j, a.width, "matter_stored_lapse", False))
+                built.append(build(n, inputs[str(n)], a.work_dir, a.eta_rho, a.eta_j, a.width, "matter_lapse_resolved", True))
+            else:
+                for mode in LAPSE_MODES[1:]:
+                    built.append(build(n, inputs[str(n)], a.work_dir, 0.0, 0.0, a.width, f"lapse_{mode}", mode))
         a.manifest.write_text(json.dumps({"resolutions": ns, "perturbation":
                                           {"eta_rho": a.eta_rho, "eta_j": a.eta_j, "width": a.width},
                                           "records": built}, indent=1) + "\n")
@@ -251,7 +346,7 @@ def main():
     rows = [evaluate(rec, a.diagnostic_source, a.helper_baseline) for rec in man["records"]]
     eps = "eps1e-05"
     orders = {}
-    for label in ("baseline", "baseline_lapse_resolved", "matter_stored_lapse", "matter_lapse_resolved"):
+    for label in sorted({row["label"] for row in rows}):
         sel = [row for row in rows if row["label"] == label]
         orders[label] = {}
         for name in ("pointwise", "finite_volume"):
@@ -278,6 +373,14 @@ def main():
         if mb:
             print(f"   {row['label']} N={row['N']} injected: d(rho)={mb['rho_total']['max_abs_r_le_10']:.2e} d(j)={mb['j_total']['max_abs_r_le_10']:.2e} "
                   f"d(H_tot)={mb['H_total']['max_abs_r_le_10']:.2e} d(M_tot)={mb['M_total']['max_abs_r_le_10']:.2e} d(meas)={mb['measured']['max_abs_r_le_10']:.2e}")
+        lp = row.get("lapse_prediction")
+        if lp:
+            c = lp["cells_0_to_5"]
+            print(f"   {row['label']} N={row['N']} centre: " + json.dumps(row["lapse_centre"]))
+            print(f"   {row['label']} N={row['N']} dMdot cells0-5 measured={['%+.2e' % v for v in c['measured']]} "
+                  f"predicted={['%+.2e' % v for v in c['predicted']]} | meas-pred max(r<=10)="
+                  f"{lp['measured_minus_predicted']['max_abs_r_le_10']:.2e} vs meas max {lp['measured_change']['max_abs_r_le_10']:.2e}; "
+                  f"r=2 meas {lp['measured_change']['fixed_radius']['2']:+.2e} pred {lp['predicted_change']['fixed_radius']['2']:+.2e}")
         print(f"{row['label']:22s} N={row['N']:>3} |H_tot|={t['H_total']['max_abs_r_le_10']:.2e} |M_tot|={t['M_total']['max_abs_r_le_10']:.2e} "
               f"|meas|={row['channels'][eps]['measured_tangent']['max_abs_r_le_10']:.2e} "
               f"res pw max={s['max_abs_r_le_10']:.2e} r2={s['fixed_radius']['2']:+.2e} r5={s['fixed_radius']['5']:+.2e} ann={s['rms_annulus_5_10']:.2e} "

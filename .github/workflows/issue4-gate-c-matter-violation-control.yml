@@ -15,6 +15,9 @@ on:
       eta_j:
         description: baryon momentum perturbation amplitude
         default: "0.2"
+      study:
+        description: "matter (2x2 matter/lapse) or lapse (lapse-variant study)"
+        default: "lapse"
 
 permissions:
   contents: read
@@ -96,6 +99,7 @@ jobs:
         run: |
           mkdir -p gate-c-matter
           python tools/issue4_gate_c_matter_violation_control.py --phase build \
+            --study "${{ github.event.inputs.study || 'lapse' }}" \
             --manifest gate-c-matter/manifest.json \
             --input-dir 60=input/N60 --input-dir 120=input/N120 --input-dir 240=input/N240 \
             --work-dir gate-c-matter/work \
