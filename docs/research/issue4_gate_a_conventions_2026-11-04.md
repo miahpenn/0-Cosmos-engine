@@ -141,6 +141,10 @@ The manufactured flat-metric controls in #427 distinguish the derivative pair fr
 
 This is evidence for a centre-row/stencil compatibility mechanism in the diagnostic. It is not proof that the row alone explains the curved matter-coupled residual, not a physical attribution, and not authorization to change the CMC equation, lapse, centre row, or derivative stencil. No candidate row is selected by residual size.
 
+### 5.1 Quantified attribution on the accepted states (2026-11-08)
+
+`results/issue4-gate-c-centre-lapse-defect-2026-11-08/` (run 42507992361) measures the mechanism directly in the M_r tangent on the archived t = 0.60 states (N = 60, 120, 240), with matter unchanged and only the lapse varied. A fresh production CMC lapse adds a centre defect of 2.2e-5, 4.5e-5, 9.1e-5 (doubling per doubling); imposing α₀ = α₁ alone on the smooth stored lapse reproduces it; a smooth lapse change does not. Separately implemented stencils predict every variant's change to ≤ 4.3e-8, so the vendor parity-ghost operators behave exactly as the stencil algebra says and are not the cause. A diagnostic copy of `solve_cmc_lapse` with only the centre row replaced by the same three-point equation using the even ghost α₋₁ = α₀ gives a smooth lapse ((α₁ − α₀)/h² ≈ 6.2e-5 at every N) and a centre change of 1.4e-9, 7.2e-10, 3.6e-10. The row is now attributed, not only localized. This still does not authorize a production change; it is the signed, localized mismatch Gate D requires before a repair is proposed for owner review.
+
 ## 6. 0* audit and closure boundaries
 
 Apply 0* to each borrowed or translated object by checking: (i) source and convention pin; (ii) independent derivation/witness; (iii) explicit discrete cost or remainder; (iv) no inferred extra term; and (v) a falsifiable comparison on the same accepted state.

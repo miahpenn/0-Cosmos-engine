@@ -83,6 +83,7 @@ to 6.2e-8 to 8.0e-10. `matter_lapse_resolved` shows the sum of the two effects.
 - This is a diagnostic localization, consistent with Gate A §5. It does not authorize any change to the
   CMC solver, its centre row, the lapse, or the derivative stencils.
 
-**Not settled here:** the analytic derivation of the centre defect from the α₀ = α₁ row (its coefficient
-and the exact N scaling), and how much of it enters the actual PIRK evolution, where the start stage
-refreshes the lapse.
+**Follow-up:** the centre defect is attributed to the CMC solver's centre row in
+`results/issue4-gate-c-centre-lapse-defect-2026-11-08/` (independent stencil prediction, and a ghost-row
+diagnostic solve that removes it). How much of it enters the actual PIRK evolution, where the start stage
+refreshes the lapse, is not settled.
