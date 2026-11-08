@@ -31,7 +31,7 @@ from tools.audit_current_main_centre_proper_radial_ricci import (
 )
 
 PI = float(np.pi)
-SOURCE_COMMIT = "285a2ee0c1a3b97cddeb4519d8e749109b115aab"
+SOURCE_COMMIT = "513a0584f31bae761e6fa5fd650585a022f23fad"
 VENDOR_COMMIT = "d6052d605673ce9d82cdc99b0df79855fa2ea215"
 RESOLUTIONS = (160, 240, 320)
 R_MAX = 80.0
