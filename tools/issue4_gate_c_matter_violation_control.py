@@ -78,7 +78,36 @@ def regions(values, r, signal=None):
 # Lapse study: independent stencil algebra (written here, not imported from the
 # vendor) for the change in the M_r tangent caused by a lapse change.
 # ---------------------------------------------------------------------------
-LAPSE_MODES = ("stored", "cmc", "row_imposed", "smooth_bump", "cmc_centre_even")
+LAPSE_MODES = ("stored", "cmc", "row_imposed", "smooth_bump", "cmc_centre_even", "cmc_ghost_row")
+
+_CENTRE_ROW_PRODUCTION = """    # Regular center: alpha'(0)=0.
+    band[1, 0] = 1.0
+    band[0, 1] = -1.0
+"""
+_CENTRE_ROW_GHOST = """    # DIAGNOSTIC COPY ONLY: centre row from the same equation with the even
+    # parity ghost alpha[-1] = alpha[0] (cell-centred reflection), replacing
+    # alpha[0] - alpha[1] = 0.
+    c0 = c[0] / (2.0 * h)
+    band[1, 0] = -1.0 / h**2 - c0 - m[0]
+    band[0, 1] = 1.0 / h**2 + c0
+    bvec[0] = rhs[0]
+"""
+
+
+def ghost_row_cmc_solver():
+    """Diagnostic copy of engine.cmc_gauge.solve_cmc_lapse with only the centre row changed.
+
+    Built from the function's own source; the replacement must match exactly once, so any
+    drift in the production source makes this fail instead of silently differing."""
+    import inspect
+    import engine.cmc_gauge as cg
+
+    src = inspect.getsource(cg.solve_cmc_lapse)
+    if src.count(_CENTRE_ROW_PRODUCTION) != 1:
+        raise RuntimeError("production CMC centre row not found exactly once")
+    namespace = dict(vars(cg))
+    exec(compile(src.replace(_CENTRE_ROW_PRODUCTION, _CENTRE_ROW_GHOST), "<cmc_ghost_row_diagnostic>", "exec"), namespace)
+    return namespace["solve_cmc_lapse"]
 
 
 def own_d(u, h, parity, order):
@@ -167,6 +196,10 @@ def make_perturbation(S, eta_rho, eta_j, width, record, resolve_lapse):
         elif mode == "cmc_centre_even":
             new = alpha.copy()
             new[0] = even_centre_value(alpha, r)
+        elif mode == "cmc_ghost_row":
+            new, _ = ghost_row_cmc_solver()(state.grid, state.geometry, state.scalars, state.matter)
+            new = np.asarray(new, float)
+            record["ghost_row_minus_production_cmc_max_abs"] = float(np.max(np.abs(new - alpha)))
         state.geometry.alpha = new
         record["lapse_mode"] = mode
         record["lapse_resolved"] = mode in ("cmc", "cmc_centre_even")
@@ -175,6 +208,7 @@ def make_perturbation(S, eta_rho, eta_j, width, record, resolve_lapse):
             name: {"alpha1_minus_alpha0": float(v[1] - v[0]),
                    "alpha0_minus_even_extrapolation": float(v[0] - even_centre_value(v, r))}
             for name, v in (("stored", alpha_old), ("cmc", alpha), ("used", new))}
+        record["lapse_centre"]["used"]["alpha1_minus_alpha0_over_h2"] = float((new[1] - new[0]) / (r[1] - r[0])**2)
         g_ = state.geometry
         dalpha = new - alpha_old
         record["predicted_mdot_change"] = predicted_mdot_change(
