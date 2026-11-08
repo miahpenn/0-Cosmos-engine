@@ -1,0 +1,45 @@
+diff --git a/engine/v55_initial.py b/engine/v55_initial.py
+index 7db2e1a..75e5f2c 100644
+--- a/engine/v55_initial.py
++++ b/engine/v55_initial.py
+@@ -46,6 +46,28 @@ def _d1(grid, x, parity=1):
+     return grid.d1(x, parity)
+ 
+ 
++def _cumulative_origin_integral(grid, r, dr, f):
++    """Fourth-order cumulative integral F(r_i) = int_0^{r_i} f(s) ds of an even f.
++
++    Used for the areal reconstruction (r B)' = src. Any constant error in F is a
++    homogeneous solution, B ~ eps / r: smooth in the continuum but odd and
++    singular at the origin, so the even-parity fourth-order stencils turn
++    eps ~ h^3 into a resolution-independent Hamiltonian-constraint violation at
++    the centre cells. The former rule (a rectangle over [0, r0] and plain
++    trapezoids) left exactly such an O(h^3) constant.
++
++    Over [0, r0]: the exact integral of the even quartic c0 + c2 s^2 + c4 s^4
++    through cells 0-2. Then trapezoids with the Euler-Maclaurin end correction
++    -(h^2/12) [f'(r_i) - f'(r0)], f' from the grid's even-parity derivative.
++    """
++    A = np.vstack([np.ones(3), r[:3] ** 2, r[:3] ** 4]).T
++    c = np.linalg.solve(A, f[:3])
++    first = c[0] * r[0] + c[1] * r[0] ** 3 / 3.0 + c[2] * r[0] ** 5 / 5.0
++    fp = _d1(grid, f, 1)
++    integ = np.cumsum(np.r_[first, 0.5 * dr * (f[1:] + f[:-1])])
++    return integ - (dr * dr / 12.0) * (fp - fp[0])
++
++
+ def build_initial_data(
+     grid,
+     vacuum_state_factory,
+@@ -144,10 +166,7 @@ def build_initial_data(
+             + 2.0 * r * r * Kr * Kt
+             + r * r * Kt * Kt
+         )
+-        integ = np.cumsum(
+-            np.r_[0.5 * dr * src[0],
+-                  0.5 * dr * (src[1:] + src[:-1])]
+-        )
++        integ = _cumulative_origin_integral(grid, r, dr, src)
+         B = integ / r
+ 
+     if np.any(~np.isfinite(B)) or np.any(B <= 0.0):
