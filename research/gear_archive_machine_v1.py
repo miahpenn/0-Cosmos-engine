@@ -74,6 +74,8 @@ def archive_docx_local_rhs(y: Sequence[float], p: LocalParams) -> tuple[float, .
     omega2 = p.kappa + p.g
     alpha2 = p.g - p.kappa
     barrier = (2.0 * 3.141592653589793 / 3.0) * p.G * alpha2 * D**3
+    # Archive Term A damping: an imposed term with no derived origin (GEAR-61/73).
+    # The barrier coefficient is a conditional closure; see docs/PHYSICS_LOCK.md.
     damping = p.eta_G * D**2 * Dd
     return (Sd, -omega2 * S, Dd, alpha2 * D - damping - barrier)
 
