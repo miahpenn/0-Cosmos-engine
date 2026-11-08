@@ -130,6 +130,11 @@ jobs:
           if [ -n "$unexpected" ] && [ "$(git rev-parse "HEAD:engine/local.py")" = "c2ac5fadacd2b303cdcc6b7c187907357950136b" ]; then
             unexpected="$(printf '%s\n' "$unexpected" | grep -Fxv 'engine/local.py' || true)"
           fi
+          # engine/true_cmc_reference.py even-ghost CMC centre row (same repair as #436),
+          # authorized as this exact blob only.
+          if [ -n "$unexpected" ] && [ "$(git rev-parse "HEAD:engine/true_cmc_reference.py")" = "5cbac98225ce711dab80e5db97672012885fe47c" ]; then
+            unexpected="$(printf '%s\n' "$unexpected" | grep -Fxv 'engine/true_cmc_reference.py' || true)"
+          fi
           if [ -n "$unexpected" ]; then
             printf 'Unexpected production/vendor/dependency changes:\n%s\n' "$unexpected"
             exit 1

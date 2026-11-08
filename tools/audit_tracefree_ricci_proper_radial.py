@@ -122,13 +122,20 @@ AUTHORIZED_DOCSTRING_ONLY_HEAD_BLOBS = {
     "engine/local.py": "c2ac5fadacd2b303cdcc6b7c187907357950136b",
 }
 
+# Engine files outside this audit's runtime set changed by a reviewed repair, authorized as one
+# exact head blob each. engine/true_cmc_reference.py: even-ghost CMC centre row, the same repair
+# as engine/cmc_gauge.py (#436); this audit does not import it.
+AUTHORIZED_OFF_AUDIT_REPAIR_HEAD_BLOBS = {
+    "engine/true_cmc_reference.py": "5cbac98225ce711dab80e5db97672012885fe47c",
+}
+
 
 def _drop_authorized_docstring_only_paths(changed_paths: list[str], head_blob_of) -> list[str]:
     """Remove changed paths whose head blob is the exact authorized docstring-only blob."""
+    authorized = {**AUTHORIZED_DOCSTRING_ONLY_HEAD_BLOBS, **AUTHORIZED_OFF_AUDIT_REPAIR_HEAD_BLOBS}
     return [
         path for path in changed_paths
-        if AUTHORIZED_DOCSTRING_ONLY_HEAD_BLOBS.get(path) is None
-        or head_blob_of(path) != AUTHORIZED_DOCSTRING_ONLY_HEAD_BLOBS[path]
+        if authorized.get(path) is None or head_blob_of(path) != authorized[path]
     ]
 
 
