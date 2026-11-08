@@ -125,6 +125,11 @@ jobs:
           if [ -n "$changed" ]; then
             unexpected="$(printf '%s\n' "$changed" | grep -Ev '^(engine/native_geometry/__init__\.py|engine/native_geometry/constraints\.py|engine/native_geometry/geometry\.py|engine/native_geometry/operators\.py|engine/native_geometry/evolution\.py|engine/production_kernel\.py|engine/v55_pirk_adapter\.py|engine/matter_system\.py|engine/matter_rhs\.py|engine/scalar_system\.py|engine/cmc_gauge\.py|engine/v55_initial\.py)$' || true)"
           fi
+          # GEAR-63/65 barrier provenance (PR #441): docstring-only edit of engine/local.py,
+          # authorized as this exact blob only; any other change to the file still fails closed.
+          if [ -n "$unexpected" ] && [ "$(git rev-parse "HEAD:engine/local.py")" = "c2ac5fadacd2b303cdcc6b7c187907357950136b" ]; then
+            unexpected="$(printf '%s\n' "$unexpected" | grep -Fxv 'engine/local.py' || true)"
+          fi
           if [ -n "$unexpected" ]; then
             printf 'Unexpected production/vendor/dependency changes:\n%s\n' "$unexpected"
             exit 1
