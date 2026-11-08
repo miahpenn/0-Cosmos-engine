@@ -52,10 +52,22 @@ jobs:
             ]);
 
             // Research-provenance-first policy: exact-head implementation gates are the
-            // default for established research-backed work. Changes to workflow/config
-            // policy remain approval-gated because they can weaken future safeguards.
+            // default for research and diagnostic work, which auto-merges once the core
+            // checks pass. Two kinds of change stay approval-gated:
+            //   - workflow/config policy, because it can weaken future safeguards;
+            //   - production runtime (engine/, vendor/, .gitmodules, requirements.txt),
+            //     because production merges need owner scrutiny.
+            // An approval must come from a trusted collaborator other than the PR author,
+            // so a gated PR authored by the owner is merged by hand after review.
+            const productionPath = (path) =>
+              path.startsWith("engine/") ||
+              path.startsWith("vendor/") ||
+              path === "vendor" ||
+              path === ".gitmodules" ||
+              path === "requirements.txt";
             const requiresTrustedApproval = (paths) =>
-              paths.some(path => path.startsWith(".github/workflows/"));
+              paths.some(path => path.startsWith(".github/workflows/")) ||
+              paths.some(productionPath);
 
             async function changedFiles(number) {
               const all = [];
@@ -279,7 +291,7 @@ jobs:
                   reviewerState, pr.user?.login, "APPROVED"
                 );
                 if (!hasTrustedApproval) {
-                  core.info(`#${number}: workflow/config changes require trusted approval on exact head ${headSha}.`);
+                  core.info(`#${number}: workflow/config or production-runtime changes require trusted approval on exact head ${headSha}.`);
                   return;
                 }
               }

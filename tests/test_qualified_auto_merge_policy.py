@@ -386,3 +386,46 @@ async function runGate(checks, runs) {
     assert any("missing on current head" in item for item in result["nonActionsApp"])
     assert any("in_progress/no conclusion" in item for item in result["inProgress"])
     assert any("completed/failure" in item for item in result["crossedOrderingFailure"])
+
+
+def test_production_runtime_paths_require_trusted_approval():
+    """Execute the real classifier: production runtime paths are approval-gated, research paths are not."""
+    node = shutil.which("node")
+    assert node is not None, "Node.js is required to exercise the actual inline JavaScript classifier"
+    source = WORKFLOW_PATH.read_text(encoding="utf-8")
+    start = source.index("const productionPath = (path) =>")
+    end = source.index("\n\n            async function changedFiles", start)
+    classifier = source[start:end]
+    script = """
+__CLASSIFIER__
+const cases = {
+  engine: ["engine/cmc_gauge.py"],
+  nativeGeometry: ["engine/native_geometry/geometry.py"],
+  vendorFile: ["vendor/bb-palatini-unified-r0/r0_operators.py"],
+  vendorGitlink: ["vendor"],
+  gitmodules: [".gitmodules"],
+  requirements: ["requirements.txt"],
+  workflow: [".github/workflows/x.yml"],
+  mixed: ["tools/audit.py", "engine/production_kernel.py"],
+  tool: ["tools/issue4_gate_c_accepted_convergence.py"],
+  test: ["tests/test_cmc_lapse_centre_row.py"],
+  results: ["results/x/README.md", "docs/research/note.md"],
+  lookalike: ["engines/readme.md", "requirements-dev.txt", "docs/vendor.md"],
+};
+const out = {};
+for (const [k, v] of Object.entries(cases)) out[k] = requiresTrustedApproval(v);
+process.stdout.write(JSON.stringify(out));
+"""
+    completed = subprocess.run(
+        [node, "-e", script.replace("__CLASSIFIER__", classifier)],
+        check=False, capture_output=True, text=True, timeout=20,
+    )
+    assert completed.returncode == 0, completed.stderr
+    result = json.loads(completed.stdout)
+    for gated in ("engine", "nativeGeometry", "vendorFile", "vendorGitlink", "gitmodules",
+                  "requirements", "workflow", "mixed"):
+        assert result[gated] is True, gated
+    for fast in ("tool", "test", "results", "lookalike"):
+        assert result[fast] is False, fast
+    assert 'paths.some(path => path.startsWith(".github/workflows/"))' in classifier
+    assert "paths.some(productionPath)" in classifier
