@@ -58,6 +58,11 @@ _H0_SI = 2.20e-18             # s^-1, the value the audit used
 RHO_PLANCK_SI = _C**5 / (_HBAR * _G_SI**2)
 RHO_CRIT_TODAY_SI = 3.0 * _H0_SI**2 / (8.0 * PI * _G_SI)
 PLANCK_TO_CRITICAL_DENSITY_RATIO = RHO_PLANCK_SI / RHO_CRIT_TODAY_SI   # 5.954e122
+# The Planck scale is defined only up to factors like (8 pi)^2: the reduced Planck density
+# c^5 / (hbar (8 pi G)^2) is 632x lower (10^119.97). The ratio rho_total/rho_today is the same
+# in any unit system, so the lane's 8 pi G = 1 units do not choose between them; the choice
+# moves the endpoint by ln(64 pi^2)/6 = 1.07 e-folds at w = 1. Both are reported.
+REDUCED_PLANCK_TO_CRITICAL_DENSITY_RATIO = PLANCK_TO_CRITICAL_DENSITY_RATIO / (8.0 * PI) ** 2
 
 # Power-law exponents: rho_i a^n_i = const for sources with no exchange.
 _POWER = {"rho_b": 3.0, "rho_r": 4.0, "rho_shear": 6.0}
@@ -216,11 +221,36 @@ def integrate_cycle(
     )
 
 
+def _crossing(trace: CycleTrace, rho: np.ndarray, ratio: float) -> dict:
+    """Depth where rho_total/rho_today first reaches ``ratio`` after the turnaround."""
+    i_turn = int(np.argmin(np.abs(trace.N_turn)))
+    # rho -> 0 at the turnaround itself; a floor only there keeps the log defined.
+    x = np.log(np.maximum(rho[i_turn:], 1e-300) / trace.rho_today) - np.log(ratio)
+    j = np.where((x[:-1] < 0.0) & (x[1:] >= 0.0))[0]
+    if j.size == 0:
+        return {"reached": False}
+    k = i_turn + int(j[0])
+    w = -x[k - i_turn] / (x[k - i_turn + 1] - x[k - i_turn])
+    interp = lambda arr: float(arr[k] + w * (arr[k + 1] - arr[k]))  # noqa: E731
+    return {
+        "reached": True,
+        "efolds_from_turnaround": -interp(trace.N_turn),
+        "efolds_below_today": -interp(trace.ln_a_today),
+        "phi_span_from_turnaround": abs(interp(trace.phi) - float(trace.phi[i_turn])),
+    }
+
+
 def contraction_summary(trace: CycleTrace) -> dict:
     """Depth of the contraction, reported rather than assumed."""
     i_turn = int(np.argmin(np.abs(trace.N_turn)))
     rho, pr = total_density(trace)
     return {
+        "planck_convention_crossings": {
+            "full_planck_density_c5_over_hbar_G2": _crossing(
+                trace, rho, PLANCK_TO_CRITICAL_DENSITY_RATIO),
+            "reduced_planck_density_over_8pi_squared": _crossing(
+                trace, rho, REDUCED_PLANCK_TO_CRITICAL_DENSITY_RATIO),
+        },
         "endpoint": trace.endpoint,
         "a_turn_over_a_today": float(trace.a_turn_over_a_today),
         "efolds_from_turnaround": float(-trace.N_turn[-1]),
