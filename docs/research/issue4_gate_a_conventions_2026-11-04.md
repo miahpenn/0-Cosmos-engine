@@ -347,3 +347,19 @@ H_{\rm slot}=H_{\rm BSSN}-\chi\,D_1C^r,
 evaluated from the vendor's own constraint routine. It equals the metric-only Hamiltonian in the continuum, is fourth order at every cell including 0 and 1, and its response to a \(\Lambda\)-only mutation is at roundoff (\(\le1.5\times10^{-18}\)). The metric-only construction is kept as a witness. The measured-versus-predicted momentum residual should be reported with both slots, and centre cells 0/1 stay separate from fixed radii.
 
 **Not settled here.** This is a vacuum, manufactured-state result. It does not test the matter-coupled identity, the accepted-state tangent, or whether the Brown residual changes once the slot is switched.
+
+### 11.1 Brown vacuum residual and a vendor-specific connection term (2026-11-08)
+
+`tools/issue4_brown_residual_by_hamiltonian_slot.py` (diagnostic commit `ac418a59`; result `results/issue4-hamiltonian-slot-decomposition-2026-11-08/brown_residual_by_slot.json`, SHA-256 `41769ab7aa4c6c98f4e54ff187b1eef5cff18813455482333ffc208c023d2287`) compares the measured vacuum \(\dot M_r\) tangent with Brown Eq. (11b), N = 40…1280.
+
+- With the §11 slot, the cell-0 residual converges at about third order; with the metric-only slot, at about first order.
+- With either slot, the residual at fixed radius tends to the same nonzero limit (≈ \(2.4\times10^{-9}\) at r = 2 against a local signal of \(4.2\times10^{-6}\)). Brown's vacuum predictor as implemented is therefore missing a term for this vendor.
+- Adding
+[
+\alpha\chi\left[D_1u+\frac{3u}{r}\right],\qquad u=\frac{D_1a}{2a}C^r,
+]
+with coefficients exactly 1 and 3 removes the limit: the remainder converges at fourth order at fixed radius and about third order at cell 0 and in the interior maximum, to the roundoff floor at N = 1280.
+
+\(u\) is the vendor-specific undifferentiated-\(C^r\) term in \(\Delta_\Lambda R^r{}_r\) (§9.1). The shape \(D_1u+\tfrac32q\,u\) with \(q\to2/r\) is what the §10 chain rule produces from a term \(\propto\alpha\chi u\) in the \(A_a\) rate, so the term is consistent with that origin. That derivation, including the sign and the exact form of \(q\), is **not yet written out**; the term was found by fitting and is confirmed only by the convergence test.
+
+**Consequence for Gate B.** The matter-coupled predictor must carry this vendor-specific connection term alongside Brown's \(C^r\) terms; Brown's paper form alone does not close for this vendor even in vacuum. This is a convention of the pinned vendor's Ricci (which uses evolved \(\Lambda\) in a non-standard slot), not evidence of a production defect, and nothing in production is changed.

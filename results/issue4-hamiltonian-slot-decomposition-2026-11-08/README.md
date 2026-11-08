@@ -66,3 +66,27 @@ piece against the exact continuum values of the analytic state:
   for metric-only H at cell 0), and its response to the Λ-only mutation is at roundoff (≤ 1.5e-18).
 
 The Gate A decision that follows is recorded in `docs/research/issue4_gate_a_conventions_2026-11-04.md`, §11.
+
+## Brown vacuum residual with each slot (`brown_residual_by_slot.json`)
+
+`tools/issue4_brown_residual_by_hamiltonian_slot.py` (diagnostic commit `ac418a59`, SHA-256 of
+`brown_residual_by_slot.json` `41769ab7aa4c6c98f4e54ff187b1eef5cff18813455482333ffc208c023d2287`)
+compares the measured two-sided M_r tangent along the pinned vacuum RHS with Brown Eq. (11b),
+N = 40…1280, ε = 2e-5 and 1e-5 (largest change between ε: 3.7e-12).
+
+- **Cell 0.** Metric-only slot: residual converges at about first order (−7.5e-8 at N = 640).
+  H_BSSN − X²·D_r(C) slot: about third order (3.2e-10 at N = 640).
+- **Fixed radius.** With either slot, the residual tends to the same nonzero limit, for example
+  +2.38e-9 at r = 2 (local signal −4.24e-6) and −3.44e-10 at r = 5 (signal −1.99e-6). This limit
+  does not depend on the slot.
+- **The limit is one term.** A least-squares fit of the N = 640 residual (0.5 < r < 30) against
+  candidate shapes gives α X² [1.005·D_r(u) + 3.016·u/r], u = (D_r a / 2a)·C, leaving 0.3% of the
+  residual norm unexplained. With the coefficients fixed at exactly 1 and 3, the remaining residual
+  converges at fourth order at r = 1, 2 and 10 (for example 3.3e-9, 2.1e-10, 1.3e-11 at r = 1 for
+  N = 160, 320, 640) and at about third order at cell 0 and in the interior maximum, down to the
+  roundoff floor near 1e-12 at N = 1280.
+
+u = (D_r a / 2a)·C is the vendor-specific undifferentiated-C term in Δ_Λ R^r_r recorded in Gate A
+§9.1. The term's shape is consistent with that term entering the A_a equation and reaching M_r
+through the chain rule of §10 (D_r and 3/2·q acting on the A_a rate). That derivation has not been
+written out; the term was found by fitting and is confirmed only by the convergence test above.
