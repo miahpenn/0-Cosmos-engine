@@ -72,18 +72,28 @@ AUTHORIZED_CMC_CENTRE_ROW_HEAD_BLOBS = {
 }
 
 
+# Exact-blob authorization for the initializer origin-quadrature repair (Issue #4):
+# the areal reconstruction's cumulative integral is fourth order at the origin, which
+# removes a resolution-independent centre Hamiltonian violation in the initial data.
+AUTHORIZED_INITIALIZER_ORIGIN_HEAD_BLOBS = {
+    "engine/v55_initial.py": "75e5f2cb7794520ad7d278e17496b9c03fbf635e",
+}
+
+
 def _authorized_head_blobs(path: str) -> set[str]:
     return {
         blob for blob in (
             AUTHORIZED_RUNTIME_HEAD_BLOBS.get(path),
             AUTHORIZED_LANE_B_HEAD_BLOBS.get(path),
             AUTHORIZED_CMC_CENTRE_ROW_HEAD_BLOBS.get(path),
+            AUTHORIZED_INITIALIZER_ORIGIN_HEAD_BLOBS.get(path),
         ) if blob is not None
     }
 AUTHORIZED_RUNTIME_PATHS = (
     frozenset(AUTHORIZED_RUNTIME_HEAD_BLOBS)
     | frozenset(AUTHORIZED_LANE_B_HEAD_BLOBS)
     | frozenset(AUTHORIZED_CMC_CENTRE_ROW_HEAD_BLOBS)
+    | frozenset(AUTHORIZED_INITIALIZER_ORIGIN_HEAD_BLOBS)
 )
 
 RESOLUTIONS = (40, 60, 80, 120, 160)

@@ -370,7 +370,8 @@ def test_evolved_lambda_d4_split_closes_and_separates_stencil_channel():
 
 
 
-def test_self_consistent_origin_fit_family_candidates_converge_without_state_mutation():
+def test_self_consistent_origin_fit_family_candidates_converge_without_state_mutation(legacy_origin_recurrence):
+    # Studies the historical rectangle/trapezoid origin recurrence (copied verbatim by the tool).
     """Each supported even-source fit family must close on a copied metric."""
     from engine.production_kernel import V55ProductionKernel
     from engine.v55_pirk_adapter import vendor_modules

@@ -62,12 +62,20 @@ AUTHORIZED_CMC_CENTRE_ROW_HEAD_BLOBS = {
 }
 
 
+# Exact-blob authorization for the initializer origin-quadrature repair (Issue #4):
+# the areal reconstruction's cumulative integral is fourth order at the origin, which
+# removes a resolution-independent centre Hamiltonian violation in the initial data.
+AUTHORIZED_INITIALIZER_ORIGIN_HEAD_BLOBS = {
+    "engine/v55_initial.py": "75e5f2cb7794520ad7d278e17496b9c03fbf635e",
+}
+
 def _authorized_head_blobs(path: str) -> set[str]:
     return {
         blob for blob in (
             AUTHORIZED_RUNTIME_HEAD_BLOBS.get(path),
             AUTHORIZED_LANE_B_HEAD_BLOBS.get(path),
             AUTHORIZED_CMC_CENTRE_ROW_HEAD_BLOBS.get(path),
+            AUTHORIZED_INITIALIZER_ORIGIN_HEAD_BLOBS.get(path),
         ) if blob is not None
     }
 # The native geometry implementation has one independently tracked, exact-blob
@@ -91,6 +99,7 @@ def _unexpected_runtime_source_paths(changed_paths: list[str]) -> list[str]:
         set(AUTHORIZED_RUNTIME_HEAD_BLOBS)
         | set(AUTHORIZED_LANE_B_HEAD_BLOBS)
         | set(AUTHORIZED_CMC_CENTRE_ROW_HEAD_BLOBS)
+        | set(AUTHORIZED_INITIALIZER_ORIGIN_HEAD_BLOBS)
         | set(AUTHORIZED_NATIVE_GEOMETRY_TRANSITIONS)
     )
     return [path for path in changed_paths if path not in allowed]
@@ -233,7 +242,8 @@ def _verify_authorized_source_pins() -> dict:
     for path in changed_paths:
         head_blob = legacy._git("rev-parse", f"HEAD:{path}")
         if (path in AUTHORIZED_RUNTIME_HEAD_BLOBS or path in AUTHORIZED_LANE_B_HEAD_BLOBS
-                or path in AUTHORIZED_CMC_CENTRE_ROW_HEAD_BLOBS):
+                or path in AUTHORIZED_CMC_CENTRE_ROW_HEAD_BLOBS
+                or path in AUTHORIZED_INITIALIZER_ORIGIN_HEAD_BLOBS):
             if head_blob not in _authorized_head_blobs(path):
                 raise RuntimeError(
                     f"authorized runtime path is not at an exact approved blob: {path}={head_blob}"
@@ -256,10 +266,12 @@ def _verify_authorized_source_pins() -> dict:
             path for path in changed_paths
             if path in AUTHORIZED_RUNTIME_HEAD_BLOBS or path in AUTHORIZED_LANE_B_HEAD_BLOBS
             or path in AUTHORIZED_CMC_CENTRE_ROW_HEAD_BLOBS
+            or path in AUTHORIZED_INITIALIZER_ORIGIN_HEAD_BLOBS
         ],
         "authorized_runtime_source_transition": any(
             (path in AUTHORIZED_RUNTIME_HEAD_BLOBS or path in AUTHORIZED_LANE_B_HEAD_BLOBS
-             or path in AUTHORIZED_CMC_CENTRE_ROW_HEAD_BLOBS) for path in changed_paths
+             or path in AUTHORIZED_CMC_CENTRE_ROW_HEAD_BLOBS
+             or path in AUTHORIZED_INITIALIZER_ORIGIN_HEAD_BLOBS) for path in changed_paths
         ),
         "authorized_native_transition_paths": [
             path for path in changed_paths if path in AUTHORIZED_NATIVE_GEOMETRY_TRANSITIONS
