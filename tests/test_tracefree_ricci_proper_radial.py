@@ -461,3 +461,15 @@ def test_docstring_only_authorization_is_exact_blob():
     assert _drop_authorized_docstring_only_paths(["engine/local.py"], lambda p: blob) == []
     assert _drop_authorized_docstring_only_paths(["engine/local.py"], lambda p: "0" * 40) == ["engine/local.py"]
     assert _drop_authorized_docstring_only_paths(["engine/other.py"], lambda p: blob) == ["engine/other.py"]
+
+
+def test_true_cmc_reference_repair_authorization_is_exact_blob():
+    from tools.audit_tracefree_ricci_proper_radial import (
+        AUTHORIZED_OFF_AUDIT_REPAIR_HEAD_BLOBS,
+        _drop_authorized_docstring_only_paths,
+    )
+
+    path = "engine/true_cmc_reference.py"
+    blob = AUTHORIZED_OFF_AUDIT_REPAIR_HEAD_BLOBS[path]
+    assert _drop_authorized_docstring_only_paths([path], lambda p: blob) == []
+    assert _drop_authorized_docstring_only_paths([path], lambda p: "0" * 40) == [path]
