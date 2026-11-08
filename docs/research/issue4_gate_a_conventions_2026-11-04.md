@@ -318,3 +318,32 @@ All three reports pin source commit `4aec88d0e3ff028e0a65a8ac36b30948625df792`, 
 **Still open:** the comparison of that tangent with the continuum Bianchi normal-geometric trace pair plus the separately owned tracefree connection response and total-stress divergence; the six-sector pointwise/FV/expanded divergence reconciliation; and the full PIRK finite-step momentum secant. The exact recomposition above is not any of those closure claims.
 
 The next operation remains a signed, same-stage comparison of the recomposed L2/L3/metric chain-rule pieces against the Bianchi rows, retaining the previously derived L2 lapse-Hessian/Ricci split and (W^r{}_r) offset. No new observer, targeted test, or evolution is currently justified.
+
+## 11. Hamiltonian slot in the Brown predictor — measured result (2026-11-08)
+
+Read-only diagnostic on the vacuum Brown audit's manufactured state (r_max = 40, N = 40…320), production source `7f47669a1c0edfafef9fc5f27b2db80840d3f035`, vendor `d6052d605673ce9d82cdc99b0df79855fa2ea215`. Tools: `tools/issue4_hamiltonian_slot_decomposition.py` and `tools/issue4_hamiltonian_slot_order_source.py`; results and SHA-256 in `results/issue4-hamiltonian-slot-decomposition-2026-11-08/`. No production code is changed and `scientific_admission` stays false.
+
+**Decomposition.** Consistent with §9.1 (\(\Delta_\Lambda R=\chi D_1C^r\)), the pinned BSSN Hamiltonian is affine in \(\Lambda\) (discriminator closure about \(3\times10^{-19}\)), so
+[
+H_{\rm BSSN}-H_{\rm metric}=\chi\,D_1C^r+\text{remainder}.
+]
+The remainder is identical, to the last printed digit, whether \(C^r\) is the manufactured nonzero mode or set to zero. All \(C^r\) dependence is in \(\chi D_1C^r\). The earlier Option C figures (3–7% of max \(|H_{\rm BSSN}|\); fit coefficient −0.03 to −0.04 against \(X^2D_r\Lambda\)) are reproduced exactly as the cell-0 values of the full difference, and the fit used \(\Lambda\) rather than \(C^r\) as the regressor.
+
+**Order.** Against the exact continuum values of the analytic state:
+
+| Construction | order at fixed radius r = 1, 2, 5, 10 | order at cell 0 | max error, N = 320 |
+|---|---|---|---|
+| metric-only \(H\) (warped-product Ricci) | ≈ 4 | ≈ 2 | \(1.9\times10^{-7}\) (cell 0) |
+| vendor \(H_{\rm BSSN}\) with exact \(\Lambda\) | ≈ 4 | ≈ 4 | \(1.5\times10^{-10}\) |
+| vendor \(C^r\) with exact \(\Lambda\) | ≈ 4 | ≈ 5 | \(1.8\times10^{-10}\) |
+| candidate \(H_{\rm BSSN}-\chi D_1C^r\) | ≈ 4 | ≈ 4 | \(2.7\times10^{-10}\) |
+
+The metric-only construction's error behaves like \(h^4/r^2\): fourth order at any fixed radius, second order within the first few cells, where the \(1/R\) and \(1/R^2\) quotients of the warped-product Ricci divide small quantities. This is the whole of the second-order remainder.
+
+**Slot decision (Gate A).** In the continuum the Brown H/H′ slots take the metric-only Hamiltonian; Brown Eq. (11b) carries \(C^r\) explicitly in its other terms, so inserting \(H_{\rm BSSN}\) unchanged would count \(\chi D_1C^r\) twice. For the discrete predictor, the slot is frozen as
+[
+H_{\rm slot}=H_{\rm BSSN}-\chi\,D_1C^r,
+]
+evaluated from the vendor's own constraint routine. It equals the metric-only Hamiltonian in the continuum, is fourth order at every cell including 0 and 1, and its response to a \(\Lambda\)-only mutation is at roundoff (\(\le1.5\times10^{-18}\)). The metric-only construction is kept as a witness. The measured-versus-predicted momentum residual should be reported with both slots, and centre cells 0/1 stay separate from fixed radii.
+
+**Not settled here.** This is a vacuum, manufactured-state result. It does not test the matter-coupled identity, the accepted-state tangent, or whether the Brown residual changes once the slot is switched.

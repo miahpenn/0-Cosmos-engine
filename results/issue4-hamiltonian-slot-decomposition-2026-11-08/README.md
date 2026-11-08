@@ -53,6 +53,16 @@ this manufactured state the Λ part does not vanish under refinement because C i
 construction. Brown Eq. (11b) carries C explicitly in its other terms, so the metric-only slot
 avoids counting that contribution twice; using H_BSSN in the slots requires subtracting X²·D_r(C).
 
-Open: the remainder converges at second order although both constructions use fourth-order
-stencils. Which construction, or which boundary or origin treatment, sets that order is not
-identified here.
+## Where the second order comes from (`order_source.json`)
+
+`tools/issue4_hamiltonian_slot_order_source.py` (diagnostic commit `5f367be2`, SHA-256 of
+`order_source.json` `27cf15253e3b9ed6fa1916a50d533da7c6f8083a807788b6a7f860cf471aa3eb`) measures each
+piece against the exact continuum values of the analytic state:
+
+- Vendor H_BSSN with exact Λ, and vendor C with exact Λ: fourth order at every cell, including 0 and 1.
+- Metric-only H: fourth order at fixed radius (r = 1, 2, 5, 10), second order at cells 0–2. Its error
+  behaves like h⁴/r², from the 1/R and 1/R² quotients of the warped-product Ricci near the centre.
+- Candidate slot H_BSSN − X²·D_r(C): fourth order at every cell (2.7e-10 at N = 320, against 1.9e-7
+  for metric-only H at cell 0), and its response to the Λ-only mutation is at roundoff (≤ 1.5e-18).
+
+The Gate A decision that follows is recorded in `docs/research/issue4_gate_a_conventions_2026-11-04.md`, §11.
