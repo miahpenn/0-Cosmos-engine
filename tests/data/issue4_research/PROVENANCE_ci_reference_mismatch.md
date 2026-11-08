@@ -1,8 +1,13 @@
 # Issue #4 provenance note: research reference comparison, local reproduction
 
-Scope: this note records local reproduction facts only. It changes no production code, fixture,
-generator, tolerance, workflow, or `docs/STATUS.md`. Every value below was either computed in the
-local run described here or read from the file named next to it.
+Scope: this note records local reproduction facts only. Besides this note and the diagnostic
+workflow commit described below, this branch also changes the two reference generators
+(`tests/data/issue4_affine_root/generate_reference.py`,
+`tests/data/issue4_implicit_derivative/generate_derivative_reference.py`) and both reference files
+(`tests/data/issue4_affine_root/issue4_affine_root_reference.json`,
+`tests/data/issue4_implicit_derivative/issue4_implicit_derivative_reference.json`), in separate
+commits. It changes no production code, test fixture, tolerance, or `docs/STATUS.md`. Every value
+below was either computed in the local run described here or read from the file named next to it.
 
 ## Commits and patch
 
@@ -151,6 +156,49 @@ Both worktrees reported an empty `git status --porcelain` after the runs.
 - `tests/data/issue4_affine_root/issue4_affine_root_reference.json`, `provenance`: `"mpmath": "1.4.1"`
 - `tests/data/issue4_implicit_derivative/issue4_implicit_derivative_reference.json`, `provenance`: `"mpmath": "1.3.0"`
 
+## CI artifact comparison (workflow run 42497223250)
+
+- Run: https://github.com/miahpenn/0-Cosmos-engine/actions/runs/42497223250 (push of
+  `20ab5cb88deea2cd75fbb9458497ec29f1c7e3cf`). Job `research-diagnostics`: step "Regenerate references
+  to temporary files and compare with committed data" concluded `failure`; the diagnostic and upload
+  steps concluded `success`.
+- Artifact `issue4-research-diagnostic-42497223250-1` (id 13624181680). Downloaded zip SHA-256
+  `7ba133fb95df96e6ecf0fca2413ef373ce355506fe63dbcc55d952232cc5ef57`, equal to the digest GitHub reports.
+  Extracted `research_diagnostic.json` SHA-256
+  `0b7f4e90828a2bbc6dd6ce72bb2c008c57c3cf44ea6427650e166dd4a1625d96`, saved at
+  `/tmp/claude-0/-home-user/3f8452aa-83fe-5834-bdb1-93689a21c872/scratchpad/ci-artifact-42497223250/extract/research_diagnostic.json`.
+- Compared field by field with local fixed-run 1 (above):
+  - `cpu_model`: CI `AMD EPYC 7763 64-Core Processor`; local `Intel(R) Xeon(R) Processor @ 2.30GHz`.
+  - `platform`: CI `Linux-7.0.0-1017-azure-x86_64-with-glibc2.39`; `runner_image` CI
+    `ubuntu24 20261101.360.1`.
+  - Identical: `python` 3.12.15, `numpy` 2.5.4, `mpmath` 1.3.0, `python_implementation`, `machine`,
+    `fixture_source_sha256`, both helper SHA-256 values, all four mpmath provenance values,
+    `input_fingerprint_counts`.
+  - Input fingerprints: 15 of 23 identical; 8 differ: `base.rho`, `base.pr`, `base.pt`,
+    `rates.a_dot`, `rates.alpha_in_dot`, `rates.b_dot`, `rates.pr_dot`, `rates.rho_dot`.
+  - CI `exact_equality_result_reported_by_existing_step`:
+    `{"affine_root_identical": false, "derivative_identical": false}`.
+  - CI `affine_root`: 19 of 20 components changed by string; `max_abs_root_difference`
+    `2.9336762861e-20`; `cond_inf` identical (`624310584.1`).
+  - CI `implicit_derivative`: 19 of 20 components changed at each epsilon; `max_abs_difference`
+    `4.19435617432e-21` (eps 2e-05) and `1.7326678467376e-19` (eps 1e-05).
+
+## AVX-512 test (local)
+
+- Local NumPy (`np.show_runtime()`) reports SIMD extensions found: `X86_V3`, `X86_V4`, `AVX512_ICL`,
+  `AVX512_SPR`.
+- With `NPY_DISABLE_CPU_FEATURES="X86_V4 AVX512_ICL AVX512_SPR"`, `np.show_runtime()` reports found
+  `X86_V3` and not found `X86_V4`, `AVX512_ICL`, `AVX512_SPR`. Under that setting, from `$S/wt-patch`
+  (HEAD `4406b4e9`), the same generator, compare and diagnostic commands as the fixed runs above
+  (`RUNNER_TEMP=$S/research-diagnostic-noavx512`) gave:
+  - Compare step: `affine-root reference identical: False | derivative reference identical: False`,
+    exit 1.
+  - All 23 input fingerprints identical to the CI artifact.
+  - `exact_equality_result_reported_by_existing_step` identical to CI (`false`, `false`).
+  - Every `per_component_abs_difference` value (root, and derivative at both epsilons) identical to CI.
+  - Diagnostic JSON SHA-256 `cf05eb783ddd81de966888931762e3bcb127d650646b88b77941d31314d340c2`.
+  - Contract tests `7 passed`; witness file `2 failed, 16 passed` (base `8965a198`).
+
 ## Open
 
 - (a) CI on CPython 3.12.15 mismatches the committed references; the cause is unknown. Source:
@@ -161,4 +209,5 @@ Both worktrees reported an empty `git status --porcelain` after the runs.
   `True` for both.
 - (b) mpmath provenance discrepancy: the root reference records mpmath 1.4.1; local regeneration
   used mpmath 1.3.0 and gave identical strings.
-- (c) CI fingerprints and environment fields have not yet been compared with the local values.
+- (c) Answered: CI fingerprints and environment fields compared with local values; see
+  "CI artifact comparison" and "AVX-512 test" above.
