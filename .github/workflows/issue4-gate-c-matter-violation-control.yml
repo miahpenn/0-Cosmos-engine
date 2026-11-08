@@ -11,10 +11,10 @@ on:
     inputs:
       eta_rho:
         description: dark-matter density scaling amplitude
-        default: "0.05"
+        default: "0.5"
       eta_j:
         description: baryon momentum perturbation amplitude
-        default: "0.02"
+        default: "0.2"
 
 permissions:
   contents: read
@@ -99,8 +99,8 @@ jobs:
             --manifest gate-c-matter/manifest.json \
             --input-dir 60=input/N60 --input-dir 120=input/N120 --input-dir 240=input/N240 \
             --work-dir gate-c-matter/work \
-            --eta-rho "${{ github.event.inputs.eta_rho || '0.05' }}" \
-            --eta-j "${{ github.event.inputs.eta_j || '0.02' }}"
+            --eta-rho "${{ github.event.inputs.eta_rho || '0.5' }}" \
+            --eta-j "${{ github.event.inputs.eta_j || '0.2' }}"
 
       - name: Evaluate both through the unchanged locked predictor (separate process)
         run: |

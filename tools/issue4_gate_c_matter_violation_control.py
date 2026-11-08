@@ -74,7 +74,7 @@ def regions(values, r, signal=None):
     return out
 
 
-def make_perturbation(S, eta_rho, eta_j, width, record):
+def make_perturbation(S, eta_rho, eta_j, width, record, resolve_lapse):
     from engine.matter_system import ConservedSpecies
     from engine.production_kernel import V55ProductionKernel
     from engine.v55_matter import V55MatterState
@@ -83,13 +83,6 @@ def make_perturbation(S, eta_rho, eta_j, width, record):
 
     def restore(profile_arrays, resolution):
         state = original(profile_arrays, resolution)
-        if eta_rho == 0.0 and eta_j == 0.0:
-            kernel = V55ProductionKernel()
-            alpha, _ = kernel._solve_lapse_for_state(state.grid, state.geometry, state.scalars, state.matter, None)
-            record["baseline_stored_minus_resolved_lapse_max_abs"] = float(
-                np.max(np.abs(np.asarray(state.geometry.alpha) - np.asarray(alpha))))
-            record["lapse_resolved"] = False
-            return state
         r = np.asarray(state.grid.centers, float)
         g = np.exp(-(r / width) ** 2)
         dm = state.matter.dark_matter
@@ -99,14 +92,17 @@ def make_perturbation(S, eta_rho, eta_j, width, record):
         ba = state.matter.baryons
         new_ba = ConservedSpecies(np.asarray(ba.rest).copy(), np.asarray(ba.energy_t).copy(),
                                   np.asarray(ba.momentum_r) + eta_j * np.asarray(ba.energy_t) * (r / width) * g)
-        state.matter = V55MatterState(dark_matter=new_dm, baryons=new_ba,
-                                      radiation=state.matter.radiation.copy(), charged_dust=None)
+        if eta_rho != 0.0 or eta_j != 0.0:
+            state.matter = V55MatterState(dark_matter=new_dm, baryons=new_ba,
+                                          radiation=state.matter.radiation.copy(), charged_dust=None)
         kernel = V55ProductionKernel()
         alpha_old = np.asarray(state.geometry.alpha, float).copy()
         alpha, _ = kernel._solve_lapse_for_state(state.grid, state.geometry, state.scalars, state.matter, None)
-        state.geometry.alpha = np.asarray(alpha, float).copy()
-        record["lapse_resolved"] = True
-        record["lapse_change_max_abs"] = float(np.max(np.abs(state.geometry.alpha - alpha_old)))
+        record["stored_minus_cmc_resolved_lapse_max_abs"] = float(np.max(np.abs(alpha_old - np.asarray(alpha))))
+        record["lapse_resolved"] = bool(resolve_lapse)
+        if resolve_lapse:
+            state.geometry.alpha = np.asarray(alpha, float).copy()
+        record["lapse_change_max_abs"] = float(np.max(np.abs(np.asarray(state.geometry.alpha) - alpha_old)))
         record["dm_rest_change_max_abs"] = float(np.max(np.abs(new_dm.rest - np.asarray(dm.rest))))
         record["baryon_momentum_change_max_abs"] = float(np.max(np.abs(new_ba.momentum_r - np.asarray(ba.momentum_r))))
         return state
@@ -114,14 +110,14 @@ def make_perturbation(S, eta_rho, eta_j, width, record):
     return original, restore
 
 
-def build(n, input_dir, work, eta_rho, eta_j, width, label):
+def build(n, input_dir, work, eta_rho, eta_j, width, label, resolve_lapse):
     """Phase 1: restore, perturb, run the unmodified exact-profile pipeline, zip it."""
     import tools.audit_exact_profile_momentum_tangent as X
     import tools.issue4_accepted_state_fixture as F
 
     S = X.stage_source
     record = {"label": label, "N": n, "eta_rho": eta_rho, "eta_j": eta_j, "width": width}
-    original, restore = make_perturbation(S, eta_rho, eta_j, width, record)
+    original, restore = make_perturbation(S, eta_rho, eta_j, width, record, resolve_lapse)
     S._restore_profile_state = restore
     try:
         out_dir = work / f"{label}-N{n}"
@@ -159,6 +155,9 @@ def build(n, input_dir, work, eta_rho, eta_j, width, label):
     return record
 
 
+_BASELINE = {}
+
+
 def evaluate(record, diag, helper):
     """Phase 2 (fresh process): the unchanged locked evaluator on the control fixture."""
     import tools.issue4_accepted_state_fixture as F
@@ -185,6 +184,12 @@ def evaluate(record, diag, helper):
     record["ricci_offset_crosscheck"] = res["ricci_offset_crosscheck"]
     st = res["signed_terms"]
     record["terms"] = {k: regions(st[k], r) for k in TERMS}
+    keep = {k: np.asarray(st[k], float).copy() for k in ("rho_total", "j_total", "H_total", "M_total")}
+    keep["measured"] = np.asarray(res["channels"]["eps1e-05"]["measured_tangent"], float).copy()
+    if label == "baseline":
+        _BASELINE[n] = keep
+    elif n in _BASELINE:
+        record["minus_baseline"] = {k: regions(keep[k] - _BASELINE[n][k], r) for k in keep}
     record["channels"] = {}
     for eps, chans in res["channels"].items():
         meas = np.asarray(chans["measured_tangent"], float)
@@ -217,8 +222,8 @@ def main():
     p.add_argument("--diagnostic-source", type=Path, help="(evaluate)")
     p.add_argument("--helper-baseline", type=Path, help="(evaluate)")
     p.add_argument("--work-dir", type=Path, help="(build)")
-    p.add_argument("--eta-rho", type=float, default=0.05)
-    p.add_argument("--eta-j", type=float, default=0.02)
+    p.add_argument("--eta-rho", type=float, default=0.5)
+    p.add_argument("--eta-j", type=float, default=0.2)
     p.add_argument("--width", type=float, default=3.0)
     p.add_argument("--output", type=Path)
     a = p.parse_args()
@@ -228,14 +233,16 @@ def main():
         a.work_dir.mkdir(parents=True, exist_ok=True)
         built = []
         for n in ns:
-            built.append(build(n, inputs[str(n)], a.work_dir, 0.0, 0.0, a.width, "baseline"))
-            built.append(build(n, inputs[str(n)], a.work_dir, a.eta_rho, a.eta_j, a.width, "matter_violation"))
+            built.append(build(n, inputs[str(n)], a.work_dir, 0.0, 0.0, a.width, "baseline", False))
+            built.append(build(n, inputs[str(n)], a.work_dir, 0.0, 0.0, a.width, "baseline_lapse_resolved", True))
+            built.append(build(n, inputs[str(n)], a.work_dir, a.eta_rho, a.eta_j, a.width, "matter_stored_lapse", False))
+            built.append(build(n, inputs[str(n)], a.work_dir, a.eta_rho, a.eta_j, a.width, "matter_lapse_resolved", True))
         a.manifest.write_text(json.dumps({"resolutions": ns, "perturbation":
                                           {"eta_rho": a.eta_rho, "eta_j": a.eta_j, "width": a.width},
                                           "records": built}, indent=1) + "\n")
         for rec in built:
             print(rec["label"], rec["N"], json.dumps(rec["identity"]), rec.get("lapse_change_max_abs"),
-                  rec.get("baseline_stored_minus_resolved_lapse_max_abs"), rec["tangent_closures"],
+                  rec.get("stored_minus_cmc_resolved_lapse_max_abs"), rec["tangent_closures"],
                   rec["total_T_projection_crosschecks"])
         return
     man = json.loads(a.manifest.read_text())
@@ -244,7 +251,7 @@ def main():
     rows = [evaluate(rec, a.diagnostic_source, a.helper_baseline) for rec in man["records"]]
     eps = "eps1e-05"
     orders = {}
-    for label in ("baseline", "matter_violation"):
+    for label in ("baseline", "baseline_lapse_resolved", "matter_stored_lapse", "matter_lapse_resolved"):
         sel = [row for row in rows if row["label"] == label]
         orders[label] = {}
         for name in ("pointwise", "finite_volume"):
@@ -267,11 +274,16 @@ def main():
         t = row["terms"]
         s = row["channels"][eps]["pointwise"]["residual"]
         f = row["channels"][eps]["finite_volume"]["residual"]
-        print(f"{row['label']:16s} N={row['N']:>3} |H_tot|={t['H_total']['max_abs_r_le_10']:.2e} |M_tot|={t['M_total']['max_abs_r_le_10']:.2e} "
+        mb = row.get("minus_baseline")
+        if mb:
+            print(f"   {row['label']} N={row['N']} injected: d(rho)={mb['rho_total']['max_abs_r_le_10']:.2e} d(j)={mb['j_total']['max_abs_r_le_10']:.2e} "
+                  f"d(H_tot)={mb['H_total']['max_abs_r_le_10']:.2e} d(M_tot)={mb['M_total']['max_abs_r_le_10']:.2e} d(meas)={mb['measured']['max_abs_r_le_10']:.2e}")
+        print(f"{row['label']:22s} N={row['N']:>3} |H_tot|={t['H_total']['max_abs_r_le_10']:.2e} |M_tot|={t['M_total']['max_abs_r_le_10']:.2e} "
               f"|meas|={row['channels'][eps]['measured_tangent']['max_abs_r_le_10']:.2e} "
               f"res pw max={s['max_abs_r_le_10']:.2e} r2={s['fixed_radius']['2']:+.2e} r5={s['fixed_radius']['5']:+.2e} ann={s['rms_annulus_5_10']:.2e} "
               f"| fv r2={f['fixed_radius']['2']:+.2e} ann={f['rms_annulus_5_10']:.2e} "
-              f"| state==archive {row['identity']['matches_archived_accepted_state']} lapse {row.get('lapse_change_max_abs', row.get('baseline_stored_minus_resolved_lapse_max_abs'))}")
+              f"| state==archive {row['identity']['matches_archived_accepted_state']} lapse change {row['lapse_change_max_abs']:.2e} "
+              f"(stored-cmc {row['stored_minus_cmc_resolved_lapse_max_abs']:.2e})")
     print("orders:", json.dumps(orders))
 
 
