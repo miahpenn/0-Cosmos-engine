@@ -99,9 +99,9 @@ rate has no Λ; and the vendor's M_r = D_r(A_a) − ⅔D_r(K) + 6A_a·φ′ + (3
 
 whose leading part is the fitted α X²[D_r(u) + 3u/r]. Brown Eq. (11b) carries only the ⅔·D_r(C) part.
 
-`tools/issue4_vendor_connection_term_derivation.py` (diagnostic commit `a845f0ad`, SHA-256 of
+`tools/issue4_vendor_connection_term_derivation.py` (diagnostic commit `b9b8d76d`, SHA-256 of
 `vendor_connection_term_derivation.json`
-`920b69b39a3e1ffbd1adef99ade5dff81a34d18cd1c5673c001d7efdf3c42c8c`), N = 40…1280:
+`83f7db7f3cbb188f23eed091ab0ff95f0d934d3417be850c78c608d661124296`), N = 40…1280:
 
 - Removing δ from the actual A_a rate and re-measuring changes the tangent by exactly δṀ_r, to at most
   2e-13.
@@ -109,5 +109,10 @@ whose leading part is the fitted α X²[D_r(u) + 3u/r]. Brown Eq. (11b) carries 
   cell 0 and in the interior maximum, to the roundoff floor at N = 1280 (r = 2: +2.38e-9 before,
   +2.4e-12 after).
 - δṀ_r and the fitted form agree to ≤ 1.5e-11.
+
+- The locked evaluator's geometric predictor (`tools/issue4_full_bianchi_evaluator.py`, transcribed with
+  ρ = j = 0) closes the same vacuum tangent identically (r = 2: 1.21e-11 at N = 640) and differs from
+  Brown + δṀ_r only by discretization (≤ 6.3e-9 at N = 40, decreasing). It already uses the Gate A slot
+  and the full W connection term, including u.
 
 The term is derived, not fitted. Gate A §11.1 records it.

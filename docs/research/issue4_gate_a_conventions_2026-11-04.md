@@ -371,12 +371,14 @@ with coefficients exactly 1 and 3 removes the limit: the remainder converges at 
 ]
 with a plus sign. Its leading part is \(\alpha\chi\left[D_1u+3u/r\right]\), the fitted form. Brown Eq. (11b) carries only the \(\tfrac23D_1C^r\) part.
 
-**Checks** (`tools/issue4_vendor_connection_term_derivation.py`, diagnostic commit `a845f0ad`; result `results/issue4-hamiltonian-slot-decomposition-2026-11-08/vendor_connection_term_derivation.json`, SHA-256 `920b69b39a3e1ffbd1adef99ade5dff81a34d18cd1c5673c001d7efdf3c42c8c`; N = 40…1280):
+**Checks** (`tools/issue4_vendor_connection_term_derivation.py`, diagnostic commit `b9b8d76d`; result `results/issue4-hamiltonian-slot-decomposition-2026-11-08/vendor_connection_term_derivation.json`, SHA-256 `83f7db7f3cbb188f23eed091ab0ff95f0d934d3417be850c78c608d661124296`; N = 40…1280):
 
 - **Rate removal.** Subtracting \(\delta\) from the actual \(A_a\) rate and re-measuring changes the tangent by exactly \(\delta\dot M_r\), to at most \(2\times10^{-13}\) (roundoff).
 - **Residual.** Measured minus (Brown with the §11 slot) minus \(\delta\dot M_r\) converges at fourth order at fixed radius (r = 1, 2) and about third order at cell 0 and in the interior maximum, to the roundoff floor at N = 1280. At r = 2: \(+2.38\times10^{-9}\) before, \(+2.4\times10^{-12}\) after.
 - **Fit.** \(\delta\dot M_r\) and the fitted form agree to \(\le1.5\times10^{-11}\); the extra pieces \(u\,D_1(\alpha\chi)\) and \(\alpha\chi u(6\phi'+\tfrac32D_1b/b)\) are products of two small amplitudes on this state.
 
 The term is now derived, not fitted.
+
+**The locked evaluator already carries it.** `tools/issue4_full_bianchi_evaluator.py` evaluates \(H\) and \(M\) at \(\Lambda=\Lambda_{\rm metric}\) (by the affine identity this is the §11 slot \(H_{\rm BSSN}-\chi D_1C^r\), not the warped-product metric-only formula) and uses the full connection divergence \(D_1(\alpha W)+(6\phi'+3/r+\tfrac32D_1b/b)\,\alpha W\), \(W=\chi[\tfrac23D_1C^r+u]\). Expanding its \(\tfrac23\) part reproduces Brown's \(C^r\) terms exactly; its \(u\) part is \(\delta\dot M_r\). Transcribed with \(\rho=j=0\) and run on the same vacuum state, it closes the measured tangent identically to Brown plus \(\delta\dot M_r\) (r = 2: \(1.21\times10^{-11}\) at N = 640; fourth order at fixed radius); the two predictors differ only by discretization (\(\le6.3\times10^{-9}\) at N = 40, decreasing). So the older vacuum Brown tool was the outlier, and the locked predictor's geometric skeleton is independently confirmed. What remains for Issue #4 is its matter side on physical states (Gate C).
 
 **Consequence for Gate B.** The vacuum skeleton for this vendor is Brown Eq. (11b) with the §11 Hamiltonian slot plus \(\delta\dot M_r\); on the manufactured state it closes at the stencil order with no unexplained remainder. The matter-coupled predictor must carry \(\delta\dot M_r\) alongside Brown's \(C^r\) terms; Brown's paper form alone does not close for this vendor even in vacuum. This is a convention of the pinned vendor's Ricci (which uses evolved \(\Lambda\) in a non-standard slot), not evidence of a production defect, and nothing in production is changed.
