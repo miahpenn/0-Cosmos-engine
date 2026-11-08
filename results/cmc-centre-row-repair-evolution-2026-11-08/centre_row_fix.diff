@@ -1,0 +1,27 @@
+diff --git a/engine/cmc_gauge.py b/engine/cmc_gauge.py
+index 7b49b57..c56c077 100644
+--- a/engine/cmc_gauge.py
++++ b/engine/cmc_gauge.py
+@@ -212,9 +212,19 @@ def solve_cmc_lapse(
+     band = np.zeros((3, n), dtype=float)
+     bvec = np.zeros(n, dtype=float)
+ 
+-    # Regular center: alpha'(0)=0.
+-    band[1, 0] = 1.0
+-    band[0, 1] = -1.0
++    # Regular center. On the cell-centred grid the lapse is even, so the first
++    # cell uses the same three-point equation as the interior with the even
++    # reflection ghost alpha[-1] = alpha[0] (the parity-ghost convention of the
++    # grid operators). This replaces the former row alpha[0] - alpha[1] = 0,
++    # which is not satisfied by a smooth even lapse (alpha[1] - alpha[0] =
++    # alpha''(0) h^2 there) and left an O(h^2) kink at the origin that the
++    # fourth-order lapse Hessian turned into a centre defect in the momentum
++    # constraint tangent growing like 1/h. Evidence:
++    # results/issue4-gate-c-centre-lapse-defect-2026-11-08 (Issue #4).
++    c0 = c[0] / (2.0 * h)
++    band[1, 0] = -1.0 / h**2 - c0 - m[0]
++    band[0, 1] = 1.0 / h**2 + c0
++    bvec[0] = rhs[0]
+ 
+     for i in range(1, n - 1):
+         ci = c[i] / (2.0 * h)
