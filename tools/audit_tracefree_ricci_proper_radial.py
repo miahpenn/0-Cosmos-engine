@@ -115,6 +115,23 @@ def _git(*args: str) -> str:
 
 
 
+# Documentation-only edits to engine files outside this audit's runtime set, authorized as one
+# exact head blob each. GEAR-63/65 barrier provenance (PR #441) changed only the docstring of
+# engine/local.py; any other content for that file still fails closed.
+AUTHORIZED_DOCSTRING_ONLY_HEAD_BLOBS = {
+    "engine/local.py": "c2ac5fadacd2b303cdcc6b7c187907357950136b",
+}
+
+
+def _drop_authorized_docstring_only_paths(changed_paths: list[str], head_blob_of) -> list[str]:
+    """Remove changed paths whose head blob is the exact authorized docstring-only blob."""
+    return [
+        path for path in changed_paths
+        if AUTHORIZED_DOCSTRING_ONLY_HEAD_BLOBS.get(path) is None
+        or head_blob_of(path) != AUTHORIZED_DOCSTRING_ONLY_HEAD_BLOBS[path]
+    ]
+
+
 def _unexpected_source_pinned_paths(
     changed_paths: list[str], native_paths_in_source: set[str]
 ) -> list[str]:
@@ -402,6 +419,9 @@ def main() -> int:
             raise RuntimeError(f"source provenance mismatch for {path}: {source_pins[path]}")
     changed = _git("diff", "--name-only", SOURCE_COMMIT, "HEAD", "--", "engine", "vendor", ".gitmodules", "requirements.txt")
     changed_paths = changed.splitlines() if changed else []
+    changed_paths = _drop_authorized_docstring_only_paths(
+        changed_paths, lambda path: _git("rev-parse", f"HEAD:{path}")
+    )
     native_paths_in_source = set()
     for path in NATIVE_CANDIDATE_PATHS:
         try:

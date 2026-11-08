@@ -8,7 +8,17 @@ With kappa=0 and g=1:
 - V_D = -D^2/2
 
 ## GEAR-63/65
-The local evolution retains the derived cubic geometric barrier. In the normalized G=1, alpha_D=1 configuration its coefficient is not a fitted parameter.
+The reduced local sector (`engine/local.py`) retains the cubic geometric barrier -(2 pi/3) G alpha_D^2 D^3.
+
+Provenance: the coefficient is derived from a closure, not fitted. It is the conformal force -(R/6) D with the curvature sourced by a pressureless dust remnant of density (1/2) alpha_D^2 D^2, R = 8 pi G (1/2 alpha_D^2 D^2) = 4 pi G alpha_D^2 D^2 (the GEAR-67E converted/dust branch).
+
+Status: conditional on D -> matter conversion, which is open. With D's own stress-energy as the source, the same conformal coupling gives R = -8 pi G alpha_D^2 D^2 and a force of +(4 pi/3) G alpha_D^2 D^3, which is anti-restoring (GEAR-63, Sep 30 rewrite, section 3(b); `docs/CONDITIONAL_CANONICAL_D_TRACE_AUDIT_2026-10-15.md`). With no curvature coupling there is no cubic force; a restoring cubic from the mode's own curvature needs xi < 0, a new parameter. The code applies the barrier at all times, i.e. the post-conversion force also acts on the pre-conversion mode; this is part of the conditional model.
+
+Not adopted: the Clock-Bridge coefficient Lambda_u(R) (Oct 3 report). It scales as Lambda_u = 0.039823 R^2, about 1.0008 R^2/(8 pi), as dimensional scaling of the cavity projection requires, so it replaces the closure with the hand-placed cavity radius R.
+
+The archive damping eta_G D^2 Ddot (`research/gear_archive_machine_v1.py`, `archive_docx` mode only) is a separate imposed term with no derived origin. `engine/local.py` declares `eta_G` but does not use it.
+
+Recorded in GEAR-73 and its amendment (Nov 8, 2026).
 
 ## COSMOS
 The corrected archive operating point uses the reconstructed potential normalization rather than the legacy hard-coded V0=1 control. Archived corrected V0 is approximately 8.2425e-5.
