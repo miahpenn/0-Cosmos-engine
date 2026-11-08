@@ -28,6 +28,9 @@ jobs:
   evaluate:
     runs-on: ubuntu-24.04
     timeout-minutes: 60
+    env:
+      # Same role as in issue4-exact-profile-momentum-tangent.yml: the 7f47669a checkout.
+      COSMOS_PINNED_SOURCE_ROOT: ${{ github.workspace }}/helper-baseline
     steps:
       - name: Checkout research branch
         uses: actions/checkout@v4
