@@ -1,31 +1,16 @@
 name: Research - analytic half-cell self-consistent Ricci response
 
+# HISTORICAL (re-pinned 2026-11-08). This study of the pre-fix initializer's origin
+# half-cell integral requires the engine at source commit 285a2ee0. It now runs,
+# unchanged, at d3934c55, the commit that introduced this version of the workflow and
+# where it passed (run 38801041200). The half-cell defect it studies was repaired by
+# #439. It runs when this file changes or by hand.
 on:
-  push:
-    branches:
-      - research/continuous-integral-self-consistent-ricci-2026-10-15
-    paths:
-      - tools/audit_analytic_origin_half_cell_self_consistent_response.py
-      - tools/audit_manufactured_lambda_symbol_response.py
-      - tools/audit_coupled_lambda_constraint_propagation.py
-      - tests/test_coupled_lambda_constraint_propagation.py
-      - tests/test_manufactured_lambda_symbol_response.py
-      - tools/audit_current_main_centre_proper_radial_ricci.py
-      - tools/audit_continuous_origin_half_cell_oracle.py
-      - tests/test_analytic_origin_half_cell_self_consistent_response.py
-      - .github/workflows/analytic-origin-half-cell-self-consistent-ricci.yml
+  workflow_dispatch:
   pull_request:
     branches: [main]
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
-      - tools/audit_analytic_origin_half_cell_self_consistent_response.py
-      - tools/audit_manufactured_lambda_symbol_response.py
-      - tools/audit_coupled_lambda_constraint_propagation.py
-      - tests/test_coupled_lambda_constraint_propagation.py
-      - tests/test_manufactured_lambda_symbol_response.py
-      - tools/audit_current_main_centre_proper_radial_ricci.py
-      - tools/audit_continuous_origin_half_cell_oracle.py
-      - tests/test_analytic_origin_half_cell_self_consistent_response.py
       - .github/workflows/analytic-origin-half-cell-self-consistent-ricci.yml
 
 permissions:
@@ -47,9 +32,10 @@ jobs:
       LAMBDA_SYMBOL_OUT: "results/manufactured-lambda-symbol-sweep-2026-10-15"
       COUPLED_LAMBDA_OUT: "results/coupled-lambda-constraint-propagation-2026-10-15"
     steps:
-      - name: Check out research branch and pinned vendor
+      - name: Check out the pinned historical commit and its vendor
         uses: actions/checkout@v4
         with:
+          ref: d3934c55c4d20a724f3d9d020c3f154f8779a25f
           fetch-depth: 0
           submodules: recursive
 

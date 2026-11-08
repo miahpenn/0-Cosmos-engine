@@ -1,30 +1,17 @@
 name: Research - current-source origin initializer/moment crosswalk
 
+# HISTORICAL (re-pinned 2026-11-08). This crosswalk studies the pre-fix initializer
+# origin recurrence (rectangle over [0, r0] plus trapezoids), which #439 replaced with
+# a fourth-order origin quadrature. It now runs, unchanged, at its pinned commit
+# (main immediately before #439), where its copied recurrence matches production.
+# It no longer triggers on engine changes; it runs when this file changes or by hand.
 on:
+  workflow_dispatch:
   pull_request:
     branches: [main]
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
-      - tools/audit_current_source_origin_initializer_moment_crosswalk.py
-      - tools/audit_current_main_centre_proper_radial_ricci.py
-      - tests/test_current_source_origin_initializer_moment_crosswalk.py
-      - tests/test_initial_centre_proper_radial_ricci.py
       - .github/workflows/current-source-origin-initializer-moment-crosswalk.yml
-      - engine/production_kernel.py
-      - engine/matter_system.py
-      - engine/matter_rhs.py
-      - engine/scalar_system.py
-      - engine/v55_matter.py
-      - engine/v55_pirk_adapter.py
-      - engine/cmc_gauge.py
-      - engine/v55_initial.py
-      - engine/stress_energy.py
-      - engine/valencia.py
-      - engine/worldtube.py
-      # Native geometry has separate direct tests; this audit pins an immutable production observer.
-      - vendor/**
-      - .gitmodules
-      - requirements.txt
 
 permissions:
   contents: read
@@ -40,9 +27,10 @@ jobs:
     env:
       PYTHONUNBUFFERED: "1"
     steps:
-      - name: Check out PR and pinned vendor
+      - name: Check out the pinned historical commit and its vendor
         uses: actions/checkout@v4
         with:
+          ref: 385e6dc011c15524735242d3b55950b212130df1
           fetch-depth: 0
           submodules: recursive
 
