@@ -75,11 +75,12 @@ def run(n, archive, diag, helper):
         out["terms"][k] = regions(st[k], r)
     for eps, chans in res["channels"].items():
         out["channels"][eps] = {}
+        meas = np.asarray(chans["measured_tangent"], float)
         for name in ("pointwise", "finite_volume"):
             ch = chans[name]
-            meas = np.asarray(ch["measured_tangent"], float)
             out["channels"][eps][name] = {
                 "measured_tangent": regions(meas, r),
+                "stress_source": regions(ch["stress_source"], r),
                 "predictor": regions(ch["predictor"], r),
                 "residual": regions(ch["residual_tangent_minus_predictor"], r, signal=meas),
             }
