@@ -2,9 +2,9 @@ name: Research - analytic half-cell self-consistent Ricci response
 
 # HISTORICAL (re-pinned 2026-11-08). This study of the pre-fix initializer's origin
 # half-cell integral requires the engine at source commit 285a2ee0. It now runs,
-# unchanged, at 6d86f166, the last commit where this workflow passed (run 38845907980).
-# The half-cell defect it studies was repaired by #439. It runs when this file changes
-# or by hand.
+# unchanged, at d3934c55, the commit that introduced this version of the workflow and
+# where it passed (run 38801041200). The half-cell defect it studies was repaired by
+# #439. It runs when this file changes or by hand.
 on:
   workflow_dispatch:
   pull_request:
@@ -35,7 +35,7 @@ jobs:
       - name: Check out the pinned historical commit and its vendor
         uses: actions/checkout@v4
         with:
-          ref: 6d86f1663a1956ca9512e619652df7bb03eb17ee
+          ref: d3934c55c4d20a724f3d9d020c3f154f8779a25f
           fetch-depth: 0
           submodules: recursive
 
