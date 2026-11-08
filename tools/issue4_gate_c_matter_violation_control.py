@@ -44,14 +44,9 @@ import numpy as np
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-import tools.audit_exact_profile_momentum_tangent as X  # noqa: E402
-import tools.issue4_accepted_state_fixture as F  # noqa: E402
-import tools.issue4_full_bianchi_evaluator as E  # noqa: E402
-from engine.matter_system import ConservedSpecies  # noqa: E402
-from engine.production_kernel import V55ProductionKernel  # noqa: E402
-from engine.v55_matter import V55MatterState  # noqa: E402
-
-S = X.stage_source
+# The build phase (production pipeline, repo vendor copy) and the evaluate phase
+# (locked evaluator, which requires vendor modules from the pinned diagnostic-source
+# checkout) run in separate processes; imports are therefore made inside each phase.
 FIXED_RADII = (1.0, 2.0, 3.0, 5.0, 8.0)
 TERMS = ("normal_alpha_K_M", "normal_lapse_gradient_H", "normal_H_gradient", "connection_divergence",
          "H_total", "M_total", "H_geom", "M_geom", "rho_total", "j_total", "C_r")
@@ -79,7 +74,11 @@ def regions(values, r, signal=None):
     return out
 
 
-def make_perturbation(eta_rho, eta_j, width, record):
+def make_perturbation(S, eta_rho, eta_j, width, record):
+    from engine.matter_system import ConservedSpecies
+    from engine.production_kernel import V55ProductionKernel
+    from engine.v55_matter import V55MatterState
+
     original = S._restore_profile_state
 
     def restore(profile_arrays, resolution):
@@ -115,9 +114,14 @@ def make_perturbation(eta_rho, eta_j, width, record):
     return original, restore
 
 
-def run(n, input_dir, work, diag, helper, eta_rho, eta_j, width, label):
+def build(n, input_dir, work, eta_rho, eta_j, width, label):
+    """Phase 1: restore, perturb, run the unmodified exact-profile pipeline, zip it."""
+    import tools.audit_exact_profile_momentum_tangent as X
+    import tools.issue4_accepted_state_fixture as F
+
+    S = X.stage_source
     record = {"label": label, "N": n, "eta_rho": eta_rho, "eta_j": eta_j, "width": width}
-    original, restore = make_perturbation(eta_rho, eta_j, width, record)
+    original, restore = make_perturbation(S, eta_rho, eta_j, width, record)
     S._restore_profile_state = restore
     try:
         out_dir = work / f"{label}-N{n}"
@@ -147,10 +151,25 @@ def run(n, input_dir, work, diag, helper, eta_rho, eta_j, width, label):
         for t in report["semi_discrete_Mdot_tangent_by_epsilon"]]
     record["total_T_projection_crosschecks"] = [
         t["projection_crosscheck_passed"] for t in report["independent_total_stress_energy_divergence_by_epsilon"]]
-    F.EXPECTED[n] = {"zip": sha(zip_bytes), "report": sha(members["report.json"]),
-                     "npz": sha(members["tangent_arrays.npz"]),
-                     "archive_state": report["input"]["input_state_digest"],
-                     "helper_state": report["input"]["input_tangent_digest"]}
+    record["zip_path"] = str(zip_path)
+    record["register"] = {"zip": sha(zip_bytes), "report": sha(members["report.json"]),
+                          "npz": sha(members["tangent_arrays.npz"]),
+                          "archive_state": report["input"]["input_state_digest"],
+                          "helper_state": report["input"]["input_tangent_digest"]}
+    return record
+
+
+def evaluate(record, diag, helper):
+    """Phase 2 (fresh process): the unchanged locked evaluator on the control fixture."""
+    import tools.issue4_accepted_state_fixture as F
+    import tools.issue4_full_bianchi_evaluator as E
+
+    n, label = record["N"], record["label"]
+    zip_path = Path(record["zip_path"])
+    if sha(zip_path.read_bytes()) != record["register"]["zip"]:
+        raise RuntimeError("control fixture changed between build and evaluate")
+    archived = dict(F.EXPECTED[n])
+    F.EXPECTED[n] = dict(record["register"])
     original_regression = E.assert_reference_regression
     E.assert_reference_regression = lambda result: {
         "executed": False, "reason": f"{label}: control state, no archived reference regression"}
@@ -192,22 +211,37 @@ def order(values, ns):
 
 def main():
     p = argparse.ArgumentParser()
-    p.add_argument("--input-dir", action="append", required=True, help="N=path")
-    p.add_argument("--diagnostic-source", type=Path, required=True)
-    p.add_argument("--helper-baseline", type=Path, required=True)
-    p.add_argument("--work-dir", type=Path, required=True)
+    p.add_argument("--phase", choices=("build", "evaluate"), required=True)
+    p.add_argument("--manifest", type=Path, required=True)
+    p.add_argument("--input-dir", action="append", help="N=path (build)")
+    p.add_argument("--diagnostic-source", type=Path, help="(evaluate)")
+    p.add_argument("--helper-baseline", type=Path, help="(evaluate)")
+    p.add_argument("--work-dir", type=Path, help="(build)")
     p.add_argument("--eta-rho", type=float, default=0.05)
     p.add_argument("--eta-j", type=float, default=0.02)
     p.add_argument("--width", type=float, default=3.0)
     p.add_argument("--output", type=Path)
     a = p.parse_args()
-    inputs = dict(item.split("=", 1) for item in a.input_dir)
-    ns = sorted(int(k) for k in inputs)
-    a.work_dir.mkdir(parents=True, exist_ok=True)
-    rows = []
-    for n in ns:
-        rows.append(run(n, inputs[str(n)], a.work_dir, a.diagnostic_source, a.helper_baseline, 0.0, 0.0, a.width, "baseline"))
-        rows.append(run(n, inputs[str(n)], a.work_dir, a.diagnostic_source, a.helper_baseline, a.eta_rho, a.eta_j, a.width, "matter_violation"))
+    if a.phase == "build":
+        inputs = dict(item.split("=", 1) for item in a.input_dir)
+        ns = sorted(int(k) for k in inputs)
+        a.work_dir.mkdir(parents=True, exist_ok=True)
+        built = []
+        for n in ns:
+            built.append(build(n, inputs[str(n)], a.work_dir, 0.0, 0.0, a.width, "baseline"))
+            built.append(build(n, inputs[str(n)], a.work_dir, a.eta_rho, a.eta_j, a.width, "matter_violation"))
+        a.manifest.write_text(json.dumps({"resolutions": ns, "perturbation":
+                                          {"eta_rho": a.eta_rho, "eta_j": a.eta_j, "width": a.width},
+                                          "records": built}, indent=1) + "\n")
+        for rec in built:
+            print(rec["label"], rec["N"], json.dumps(rec["identity"]), rec.get("lapse_change_max_abs"),
+                  rec.get("baseline_stored_minus_resolved_lapse_max_abs"), rec["tangent_closures"],
+                  rec["total_T_projection_crosschecks"])
+        return
+    man = json.loads(a.manifest.read_text())
+    ns = man["resolutions"]
+    a.eta_rho, a.eta_j, a.width = (man["perturbation"][k] for k in ("eta_rho", "eta_j", "width"))
+    rows = [evaluate(rec, a.diagnostic_source, a.helper_baseline) for rec in man["records"]]
     eps = "eps1e-05"
     orders = {}
     for label in ("baseline", "matter_violation"):
