@@ -11,14 +11,17 @@ G,R,mu=1.0,10.0,1.0; k=math.pi/R; gam=math.sqrt(mu*mu-k*k)
 def grid(N):
     h=R/N; return np.arange(N+1)*h, h
 
+def _even_spline(r,y):
+    return CubicSpline(r,y,bc_type=((1,0.0),'not-a-knot'))
+
 def metric(r,h,phi,P):
     """m, a, alpha from constraints. phi,P on vertex grid. returns a,alpha,dphi"""
-    cs=CubicSpline(r,phi,bc_type=((1,0.0),(1,0.0)) if False else 'natural')
-    dphi=cs.derivative()(r)
+    # phi is even at the centre (phi'(0)=0, phi''(0)!=0): do not use 'natural'.
+    dphi=_even_spline(r,phi).derivative()(r)
     return dphi
 def solve_geom(r,h,phi,P,dphi):
     N=len(r)-1
-    sp_phi=CubicSpline(r,phi); sp_d=CubicSpline(r,dphi); sp_P=CubicSpline(r,P)
+    sp_phi=_even_spline(r,phi); sp_d=CubicSpline(r,dphi); sp_P=_even_spline(r,P)
     f=lambda rr,m: 4*math.pi*G*rr*rr*(0.5*sp_P(rr)**2*(1-2*G*m/rr)+0.5*(1-2*G*m/rr)*sp_d(rr)**2-0.5*mu*mu*sp_phi(rr)**2) if rr>0 else 0.0
     m=np.zeros(N+1)
     for j in range(N):
@@ -46,7 +49,6 @@ def rhs(r,h,phi,P):
     F=r*r*al*dphi/a
     dF=CubicSpline(r,F).derivative()(r)
     Pd=np.zeros_like(r); Pd[1:]=dF[1:]/r[1:]**2+a[1:]*al[1:]*mu*mu*phi[1:]
-    Pd[0]=3*dF[0]/ (3*h)*0  # placeholder replaced below
     # centre: (1/r^2)F' -> limit via value at first cell extrapolated (F ~ r^3): use 3*F[1]/r1^3
     Pd[0]=3*F[1]/r[1]**3+a[0]*al[0]*mu*mu*phi[0]
     phid=al*P/a
