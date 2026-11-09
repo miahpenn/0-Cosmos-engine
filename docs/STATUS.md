@@ -1,15 +1,78 @@
-# LIVE readiness overlay — reconciled 18 October 2026 UTC after PR #404
+# LIVE readiness overlay — reconciled 9 November 2026 UTC after PR #452
 
-> **Current main verified:** `bc963003c9af4d6b22ced0698d97a5a5643be557`, merge of PR #404 (accepted-state signed momentum-tangent observer). This is a diagnostic/software checkpoint, not a production-readiness or scientific-admission declaration. `scientific_admission=false`; `acceptance_oracle_satisfied=false`.
+> **Current main:** `d6d52fe`, merge of PR #452. `scientific_admission=false`; `acceptance_oracle_satisfied=false`.
+> Software, diagnostic and research results below do not change either flag.
 
-## Current implementation transitions
+## Issue #4 — closed (completed)
+
+The growing centre momentum-constraint residual is resolved. It came from two discrete centre inconsistencies in the
+production kernel, both repaired:
+
+- **#436** — the CMC lapse solve's centre row `alpha[0] - alpha[1] = 0` (an O(h²) kink at the origin) replaced by the
+  interior three-point equation with the even ghost `alpha[-1] = alpha[0]`; **#442** applies the same row to the older
+  `engine/true_cmc_reference.py`.
+- **#439** — the areal initial-data reconstruction's origin quadrature made fourth order (the former rule left an
+  O(h³) constant, a homogeneous `eps/r` mode, giving centre H ≈ 4.06e-3 at every resolution).
+
+Before (`afc4d96f`) vs after (`main`), default data, t ≈ 12, max |M − 8πJ| on cells 0–2: N = 40: 8.1e-3 → 9.0e-6;
+N = 60: 3.7e-3 → 1.5e-6; N = 80: 6.1e-3 → 5.1e-7. Before, the residual grew and did not converge; now it is bounded
+and converges at roughly fourth order. A residual centre grid-scale mode (irregular `a − b` / `Aa` at r = 0, read by
+M through `3Aa/r`, ω ≈ 3/h, ~1e-8 at t = 0.6) is characterised and is not a gate; Kreiss–Oliger dissipation makes it
+worse; a regularized centre formulation would remove it as a separate owner-reviewed change. Evidence:
+`results/issue4-resolution-2026-11-09/` (#448). The two strict-xfail witnesses in
+`tests/test_issue4_cmc_lapse_tangent.py` concern float64 root conditioning and remain as witnesses.
+
+## Production changes since PR #404 (owner-reviewed)
+
+- **#436, #439** — centre repairs above (with guard authorizations #437 and historical audit re-pins #440).
+- **#442** — even-ghost centre row in `engine/true_cmc_reference.py`.
+- **#443** — `engine/coupled_engine.py` and `engine/bidirectional_production.py` are thin drivers over
+  `V55ProductionKernel`. They formerly evolved `reference_pirk_unified`, whose initializer mapped the archive
+  operating point into the wrong variables (φ ← a = 33.8983, Π ← φ = 0.179055). Ledger, cycle or handoff numbers from
+  those drivers at or before `41ee0cb4` are unverified until re-run. `reference_pirk_unified` and
+  `true_cmc_reference` are provenance-only: `docs/PROVENANCE_OLDER_V55_PATHS.md`.
+- **#441** (docs/comments) — GEAR-63/65 barrier provenance in `docs/PHYSICS_LOCK.md` and `engine/local.py`.
+- **#438** (CI) — production paths (`engine/`, `vendor/`, `.gitmodules`, `requirements.txt`) require owner review
+  before merge; research and diagnostic PRs may merge on passing checks.
+
+## Research and test results since PR #404
+
+- **#444** cross-path consistency: the reduced COSMOS lane and the production kernel start from the same background
+  (H agrees to 8.7e-9; same φ, Π).
+- **#445, #446** `research/cosmos_efold_v1.py`: the COSMOS lane through turnaround and the full contraction in e-fold
+  time, ending at the Planck-density condition; depth reported for both Planck conventions (47.570 / 46.495 e-folds
+  from turnaround).
+- **#447** the DM/scalar exchange in the kernel RHS conserves energy and momentum cell by cell on an inhomogeneous
+  state with shift (~9e-14 of the transfer); fixes the V5.5 gate document §13A sign against the code.
+- **#449–#452** GEAR-69/70B cavity: the engine's D sector reproduces the linear inputs; an independent polar-areal
+  evolution and the production engine (CMC, research harness with an areal Dirichlet wall) both reproduce the
+  centre-proper-time coefficient 4.5826 (engine: 4.5826 ± ~7e-5, second-order convergence), supporting
+  C = 1.4432004 and excluding 1.443222.
+
+## Open machine items
+
+- Ledger shift term: `flux_T` is valid only for β = 0 (production CMC); a moving-puncture (β ≠ 0) run needs the
+  shift term before it can use the Misner–Sharp ledger.
+- Exchange in a finite-volume time evolution (HLL flux, reconstruction) is not yet tested (#447 covers the RHS).
+- Residual Issue #4 centre mode (above), if it ever needs removing.
+- Re-run any cited whole-machine handoff/ledger result that predates #443.
+
+## Prior overlay — reconciled 18 October 2026 UTC after PR #404 (historical)
+
+The overlay below was current until 9 November 2026. Its "next gate" (the source-aware Issue #4 propagation identity)
+is superseded by the Issue #4 closure above.
+
+
+> **Main verified at that time:** `bc963003c9af4d6b22ced0698d97a5a5643be557`, merge of PR #404 (accepted-state signed momentum-tangent observer). This is a diagnostic/software checkpoint, not a production-readiness or scientific-admission declaration. `scientific_admission=false`; `acceptance_oracle_satisfied=false`.
+
+### Implementation transitions (as of PR #404)
 
 - **PR #400 — merged:** Lane B provenance transition. Preserve its provenance/authorization boundaries; it does not alter scientific-admission status.
 - **PR #401 — merged:** scalar–dark-matter exchange source projection, merge commit `9cba72d49f17c84368c52e4bbe5723ada2a90a3c`. The bounded coordinate-time projection is implementation-consistent under the documented variable-mass dust premise. It does not derive the value or microphysical origin of the coupling, establish evolving-state total stress-energy/Bianchi closure, or authorize scientific admission.
 - **PR #404 — merged:** diagnostic-only one-accepted-step signed momentum observer. Exact-head checks passed; initial cell-0 `M` was roundoff-scale and after one step at N=60, dt=0.015 it was `+5.904983078211256e-5`; accepted-state `Mdot[0]=+3.933697986104052e-3`. Geometry tangent and six-sector current projection close; native/vendor geometry-only difference is explained by the signed discrete product/quotient remainder to `1.0e-21` absolute. This localizes the persistent tendency but does not identify a faulty equation or establish full propagation closure. [Report artifact](https://github.com/miahpenn/0-Cosmos-engine/actions/runs/39138091957/artifacts/12141000249).
 - **Production guardrails:** no speculative equation, coefficient, gauge, boundary, coupling, initializer, floor/clamp, damping, or radiation/cone changes. Software checks do not change admission flags.
 
-## Next gate — full source-aware Issue #4 propagation identity
+### Next gate as of PR #404 — source-aware Issue #4 propagation identity (superseded: Issue #4 closed)
 
 Primary lane: [Issue #4](https://github.com/miahpenn/0-Cosmos-engine/issues/4), coordinated through [Issue #5](https://github.com/miahpenn/0-Cosmos-engine/issues/5) and [task board #135](https://github.com/miahpenn/0-Cosmos-engine/issues/135).
 
@@ -21,7 +84,7 @@ Primary lane: [Issue #4](https://github.com/miahpenn/0-Cosmos-engine/issues/4), 
 
 ## Snapshot provenance
 
-The remainder of this file retains the prior post-#395 readiness overlay and earlier snapshots for historical provenance. Where those snapshots conflict with this current overlay, the current post-#401 overlay above is authoritative. Do not treat historical branch heads or check results as current.
+The remainder of this file retains the prior post-#395 readiness overlay and earlier snapshots for historical provenance. Where those snapshots conflict with the current overlay at the top of this file, the current overlay is authoritative. Do not treat historical branch heads or check results as current.
 
 ## Current native CMC runtime transition
 
