@@ -14,7 +14,8 @@ What the harness changes, by monkeypatching only (production files untouched):
     call. For D's derivatives, cells beyond r_w hold odd-reflected ghost values about r_w (cubic
     interpolation), so D = 0 at the areal wall to sub-cell accuracy. D's stress-energy and RHS are
     zero beyond r_w, so the exterior is vacuum and the ghosts never source the geometry.
-Initial data: the gear's growing mode to O(A^3), D = A u + A^3 w, PD = gamma (A u + 3 A^3 w)
+Initial data: the gear's growing mode to O(A^3), D = A u + A^3 w, d_t D = gamma (A u + 3 A^3 w),
+PD = d_t D / alpha
 (u = j0(k r), k = pi/R), with the areal reconstruction of engine/v55_initial (K_theta = 0,
 K_r from the momentum constraint). Not time-symmetric: the observable is a property of the growing-
 mode solution along the centre worldline, so it does not need the slices to coincide.
@@ -162,6 +163,12 @@ def initial_state(N: int, A: float, r_max: float = 20.0, use_w: bool = True):
     tiny = np.full_like(r, MATTER_FLOOR)
     st.matter = V55MatterState(initialize_dust(metrics, tiny.copy()), initialize_dust(metrics, tiny.copy()),
                                initialize_radiation(metrics, tiny.copy()), None)
+    geo.alpha[:] = kernel._solve_lapse_for_state(grid, geo, st.scalars, st.matter, None)[0]
+    # PD is the NORMAL derivative, PD = d_t D / alpha (beta = 0). The growing-mode rate above is per
+    # coordinate time, so divide by the lapse; without this the data carry an O(A^2) error (alpha - 1
+    # ~ -149 A^2) that excites the decaying mode. One pass suffices at O(A^2): the lapse's dependence
+    # on PD is itself O(A^2) smaller.
+    st.scalars = dataclasses.replace(st.scalars, PD=PD / np.asarray(geo.alpha))
     geo.alpha[:] = kernel._solve_lapse_for_state(grid, geo, st.scalars, st.matter, None)[0]
     return kernel, st
 
