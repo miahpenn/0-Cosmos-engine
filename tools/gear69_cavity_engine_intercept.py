@@ -1,4 +1,18 @@
 import json, sys, numpy as np
+
+
+def _observed_order(h, e1, e2):
+    """Observed convergence order from three spacings h0 > h1 > h2 (any ratios)."""
+    from scipy.optimize import brentq
+    if e2 == 0 or e1 / e2 <= 0:
+        return float("nan")
+    target = e1 / e2
+    f = lambda p: (h[0] ** p - h[1] ** p) / (h[1] ** p - h[2] ** p) - target
+    try:
+        return brentq(f, 0.1, 12.0)
+    except ValueError:
+        return float("nan")
+
 F = sys.argv[1]
 def intercepts(N):
     d = json.load(open(f"{F}/cav{N}c.json")); lin = np.array(d["1e-05"])
@@ -19,7 +33,10 @@ if len(Ns) == 3:
     for A in ("0.001", "0.002"):
         I = [res[N][A][2][0] for N in Ns]; h = [40.0 / int(N) for N in Ns]
         e1, e2 = I[0] - I[1], I[1] - I[2]
-        p = np.log(abs(e1 / e2)) / np.log(h[0] / h[1]) if e2 != 0 else float("nan")
+        # Observed order for UNEQUAL refinement ratios: solve
+        # (h0^p - h1^p) / (h1^p - h2^p) = e1 / e2. The closed form
+        # log(e1/e2)/log(h0/h1) holds only when h0/h1 == h1/h2.
+        p = _observed_order(h, e1, e2)
         # Richardson with ratio r = h1/h2 between the two finest
         r = h[1] / h[2]; Iinf = I[2] + (I[2] - I[1]) / (r ** p - 1)
         print(f"A={A} deg2: intercepts {[f'{x:.5f}' for x in I]}  observed order p={p:.2f}  Richardson I_inf={Iinf:.5f} (diff {Iinf - 4.58259:+.1e})")
