@@ -15,7 +15,7 @@ What the harness changes, by monkeypatching only (production files untouched):
     interpolation), so D = 0 at the areal wall to sub-cell accuracy. D's stress-energy and RHS are
     zero beyond r_w, so the exterior is vacuum and the ghosts never source the geometry.
 Initial data: the gear's growing mode to O(A^3), D = A u + A^3 w, d_t D = gamma (A u + 3 A^3 w),
-PD = d_t D / alpha
+PD = d_t D / alpha_gear with alpha_gear = 1 + A^2 alpha2(r)
 (u = j0(k r), k = pi/R), with the areal reconstruction of engine/v55_initial (K_theta = 0,
 K_r from the momentum constraint). Not time-symmetric: the observable is a property of the growing-
 mode solution along the centre worldline, so it does not need the slices to coincide.
@@ -126,7 +126,9 @@ def w_profile(r):
     sol = solve_bvp(f, lambda ya, yb: np.array([ya[1], yb[0]]), mesh, np.zeros((2, 1000)), tol=1e-8, max_nodes=20000)
     assert sol.success
     rin = np.clip(r, 0, R_WALL)
-    return np.where(r < R_WALL, sol.sol(rin)[0], 0.0), float(2 * np.atleast_1d(sol.sol(0.0)[0])[0] - al2[0])
+    w = np.where(r < R_WALL, sol.sol(rin)[0], 0.0)
+    alpha2 = np.interp(rin, rr, al2)          # gear lapse alpha = 1 + A^2 alpha2(r), wall-normalized
+    return w, float(2 * np.atleast_1d(sol.sol(0.0)[0])[0] - al2[0]), alpha2
 
 
 def initial_state(N: int, A: float, r_max: float = 20.0, use_w: bool = True):
@@ -136,9 +138,15 @@ def initial_state(N: int, A: float, r_max: float = 20.0, use_w: bool = True):
     r = np.asarray(grid.centers, float); dr = float(grid.dr)
     inside = r < R_WALL
     u = np.where(inside, spherical_jn(0, K_WAVE * r), 0.0)
-    w = w_profile(r)[0] if use_w else 0.0 * r
+    w, _, alpha2 = w_profile(r)
+    if not use_w:
+        w = 0.0 * r
     D = A * u + A ** 3 * w
-    PD = GAMMA_LIN * (A * u + 3.0 * A ** 3 * w)
+    # PD is the NORMAL derivative, PD = d_t D / alpha. The growing-mode rate is per the GEAR's clock
+    # (polar slicing, lapse 1 + A^2 alpha2(r) normalized at the wall), and the initial slice here is
+    # that same polar slice (K_theta = 0), so divide by the GEAR's lapse, not the engine's CMC lapse
+    # (normalized at r_max). Then PD/D at the centre is gamma (1 + [2 w(0) - alpha2(0)] A^2) from t = 0.
+    PD = GAMMA_LIN * (A * u + 3.0 * A ** 3 * w) / (1.0 + A * A * alpha2)
     z = np.zeros_like(r)
     # Areal reconstruction as in engine/v55_initial (K_theta = 0); D sector normalized with G = 1.
     d1 = lambda x: v55_initial._d1(grid, x, 1)  # noqa: E731
@@ -163,12 +171,6 @@ def initial_state(N: int, A: float, r_max: float = 20.0, use_w: bool = True):
     tiny = np.full_like(r, MATTER_FLOOR)
     st.matter = V55MatterState(initialize_dust(metrics, tiny.copy()), initialize_dust(metrics, tiny.copy()),
                                initialize_radiation(metrics, tiny.copy()), None)
-    geo.alpha[:] = kernel._solve_lapse_for_state(grid, geo, st.scalars, st.matter, None)[0]
-    # PD is the NORMAL derivative, PD = d_t D / alpha (beta = 0). The growing-mode rate above is per
-    # coordinate time, so divide by the lapse; without this the data carry an O(A^2) error (alpha - 1
-    # ~ -149 A^2) that excites the decaying mode. One pass suffices at O(A^2): the lapse's dependence
-    # on PD is itself O(A^2) smaller.
-    st.scalars = dataclasses.replace(st.scalars, PD=PD / np.asarray(geo.alpha))
     geo.alpha[:] = kernel._solve_lapse_for_state(grid, geo, st.scalars, st.matter, None)[0]
     return kernel, st
 
