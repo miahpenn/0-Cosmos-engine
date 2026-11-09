@@ -83,6 +83,24 @@ def summarize(grid, geometry, *, surface_r=10.0, H_eff=0.0,
     )
 
 
+def misner_sharp_shift_flux(R, Rr, Rdot, alpha, beta, rho, pr, j):
+    """Shift contribution to dM/dt of the Misner-Sharp mass at FIXED COORDINATE r.
+
+    With d_t = alpha n + beta d_r and the 3+1 split of T (rho, covariant j_r, mixed S^r_r = pr),
+    d_t M|_r = 4 pi R^2 (T^r_t R' - T^r_r Rdot), where
+        T^r_t = beta rho - alpha j^r - beta^2 j_r / alpha + beta S^r_r,
+        T^r_r = S^r_r - beta j_r / alpha,
+    and Rdot = d_t R at fixed r. The beta = 0 part is the existing ledger,
+    flux_T = -4 pi R^2 alpha j^r R' and work_pR = -4 pi R^2 S^r_r Rdot; this returns the remainder,
+        4 pi R^2 beta [ (rho + S^r_r - beta j_r / alpha) R' + j_r Rdot / alpha ],
+    which is exactly zero for beta = 0 (production CMC). All inputs use the same normalization
+    as flux_T and work_pR.
+    """
+    return 4.0 * np.pi * R**2 * beta * (
+        (rho + pr - beta * j / alpha) * Rr + j * Rdot / alpha
+    )
+
+
 def current_residual(times, masses, rhs):
     """Residual of dM/dt = rhs on an already sampled worldtube ledger."""
     t = np.asarray(times, dtype=float)

@@ -24,7 +24,7 @@ WORLDTUBE_COORDINATE_R = 10.0
 
 LEDGER_KEYS = (
     "H_eff", "tau_rate", "R_sigma", "M_MS", "chi_sigma", "flux_T", "work_pR",
-    "rho_outer", "p_outer", "j_outer",
+    "flux_shift", "rho_outer", "p_outer", "j_outer",
 )
 
 
@@ -68,7 +68,7 @@ def run(N=40, T=24, cfl=.06, Rcoord=WORLDTUBE_COORDINATE_R, **initial_data):
         state = kernel.step(state, dt)
     out = {k: np.asarray([z[k] for z in hist]) for k in hist[0]}
     dM = np.gradient(out["M_MS"], out["t"], edge_order=2)
-    rhs = out["flux_T"] + out["work_pR"]
+    rhs = out["flux_T"] + out["work_pR"] + out["flux_shift"]
     mask = (out["t"] >= 2) & (out["t"] <= out["t"][-1] - 2)
     if not np.any(mask):
         mask = np.ones_like(out["t"], dtype=bool)
