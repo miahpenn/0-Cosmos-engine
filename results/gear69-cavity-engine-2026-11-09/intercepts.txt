@@ -7,5 +7,5 @@ N=150: gamma_num 0.9493702962 (exact 0.9493702942, diff +2.0e-09)
 N=200: gamma_num 0.9493702950 (exact 0.9493702942, diff +8.3e-10)
    A=0.001  deg1: I=4.58229 (-3.0e-04) s=10.98  deg2: I=4.58229 (-3.0e-04) s=10.99  deg3: I=4.58227 (-3.2e-04) s=11.01
    A=0.002  deg1: I=4.58232 (-2.7e-04) s=10.97  deg2: I=4.58234 (-2.5e-04) s=10.96  deg3: I=4.58234 (-2.5e-04) s=10.96
-A=0.001 deg2: intercepts ['4.58131', '4.58204', '4.58229']  observed order p=2.62  Richardson I_inf=4.58251 (diff -8.2e-05)
-A=0.002 deg2: intercepts ['4.58137', '4.58209', '4.58234']  observed order p=2.60  Richardson I_inf=4.58256 (diff -3.2e-05)
+A=0.001 deg2: intercepts ['4.58131', '4.58204', '4.58229']  observed order p=2.03  Richardson I_inf=4.58260 (diff +9.8e-06)
+A=0.002 deg2: intercepts ['4.58137', '4.58209', '4.58234']  observed order p=2.01  Richardson I_inf=4.58265 (diff +6.2e-05)

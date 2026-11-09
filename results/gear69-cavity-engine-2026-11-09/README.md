@@ -26,18 +26,21 @@ side and stress projection for the cavity.
 | 100 | 4.58131 | 4.58137 | 11.26–11.30 |
 | 150 | 4.58204 | 4.58209 | 11.04–11.07 |
 | 200 | 4.58229 | 4.58234 | 10.96–10.99 |
-| Richardson (observed p ≈ 2.6) | 4.58251 | 4.58256 | |
+| Richardson (observed p ≈ 2.0, unequal-ratio solve) | 4.58260 | 4.58265 | |
 
 Target (GEAR-86, AMENDMENT-3-GEAR-87, polar-areal): intercept 4.58259 (prediction 4.58260), slope ≈ 10.9.
 
-- The gap to the target converges: −1.25e-3, −5.3e-4, −2.8e-4 (order ≈ 2.6); the slope converges to 10.9. Against
+- The gap to the target converges: −1.25e-3, −5.3e-4, −2.8e-4, at second order (p = 2.03 and 2.01 from the three-point
+  equation (h₀ᵖ − h₁ᵖ)/(h₁ᵖ − h₂ᵖ) = e₁/e₂; the refinement ratios 1.5 and 1.33 are unequal). The slope converges to 10.9.
+  [Corrected Nov 9: the first version used an equal-ratio order formula and reported p ≈ 2.6 with Richardson values
+  4.58251 / 4.58256; the gear-comparison session caught it (GEAR-88).] Against
   the polar-areal table (`research/gear69_polar_areal_table_N100.csv`) the N = 200 point gaps are −1.2e-4 to −3.4e-4.
-- Pre-registered criterion (|I∞ − 4.58259| ≤ 5e-5 pass; ≤ 2e-4 consistent): A = 0.002 passes (−3e-5); A = 0.001 is
-  consistent (−8e-5). With p = 2 instead of 2.6 the A = 0.002 extrapolation is 4.58266, so the bracket is
-  4.5825–4.5827, i.e. agreement to about ±8e-5 (2e-5 relative).
+- Pre-registered criterion (|I∞ − 4.58259| ≤ 5e-5 pass; ≤ 2e-4 consistent): A = 0.001 passes (+1e-5); A = 0.002 is
+  consistent (+6e-5). The two extrapolations should agree and differ by ~6e-5, so the engine coefficient is
+  4.5826 ± ~7e-5 (about 1.5e-5 relative).
 - Amplitudes 0.001 and 0.002 collapse to about 5e-5 at every N. A = 0.004 (N = 100, 200 runs) carries the O(A⁴)
   initial-data transient at small D_c², the same pattern as the polar-areal A = 0.004 column.
-- C = 1.443222 would shift the coefficient by 2.1e-3, about 25× this uncertainty: the engine, independently of the
+- C = 1.443222 would shift the coefficient by 2.1e-3, about 30× this uncertainty: the engine, independently of the
   polar-areal code, supports C = 1.4432004.
 
 ## Limits
