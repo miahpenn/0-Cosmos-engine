@@ -36,7 +36,7 @@ from .cosmology_observables import (
 )
 from .atomic_io import atomic_savez_compressed
 from .stress_energy import assemble_total_stress_energy
-from .worldtube import areal_radius_derivative
+from .worldtube import areal_radius_derivative, misner_sharp_shift_flux
 from .matter_rhs import species_rhs
 from .matter_system import (
     Species,
@@ -1040,6 +1040,13 @@ class V55ProductionKernel:
         work_pR = -4.0 * math.pi * R[surface]**2 * (
             total.pr[surface] * Rdot[surface]
         )
+        # Shift part of dM/dt at fixed coordinate r (zero in the beta = 0 CMC branch); the
+        # Misner-Sharp balance is d_t M|_r = flux_T + work_pR + flux_shift for any shift.
+        flux_shift = float(misner_sharp_shift_flux(
+            R[surface], Rr[surface], Rdot[surface], geom.alpha[surface],
+            geom.beta[surface], total.rho[surface], total.pr[surface],
+            total.j[surface],
+        ))
 
         # Spatial witnesses for the first runaway source. Diagnostic only:
         # record where the vacuum and explicit geometry RHS are largest and
@@ -1106,6 +1113,7 @@ class V55ProductionKernel:
             "coordinate_energy_flux": float(coordinate_energy_flux),
             "flux_T": float(flux_T),
             "work_pR": float(work_pR),
+            "flux_shift": flux_shift,
             "rho_outer": float(np.mean(total.rho[outer])),
             "p_outer": float(np.mean(total.pr[outer])),
             "j_outer": float(np.mean(total.j[outer])),

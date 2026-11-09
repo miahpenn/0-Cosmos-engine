@@ -99,6 +99,10 @@ jobs:
           declare -A authorized_initializer_origin_heads=(
             ["engine/v55_initial.py"]="75e5f2cb7794520ad7d278e17496b9c03fbf635e"
           )
+          declare -A authorized_ledger_shift_heads=(
+            ["engine/production_kernel.py"]="216ba0a4fbfe2590bf704cae3ddc801dc8655ae0"
+            ["engine/worldtube.py"]="c263a786b2057f4a427243899ae507e8a0c0c8c5"
+          )
           declare -A authorized_lane_b_heads=(
             ["engine/matter_system.py"]="0969f4d996e4f8e0fc5b70a7dff147f024907302"
             ["engine/matter_rhs.py"]="0153c232ee15b5a9d3dbac37ea858e4d2d730011"
@@ -114,7 +118,8 @@ jobs:
             lane_b_authorized="${authorized_lane_b_heads[$path]:-}"
             cmc_centre_row_authorized="${authorized_cmc_centre_row_heads[$path]:-}"
             initializer_origin_authorized="${authorized_initializer_origin_heads[$path]:-}"
-            if [ "$head_blob" != "$expected" ] && [ "$head_blob" != "$authorized" ] && [ "$head_blob" != "$lane_b_authorized" ] && [ "$head_blob" != "$cmc_centre_row_authorized" ] && [ "$head_blob" != "$initializer_origin_authorized" ]; then
+            ledger_shift_authorized="${authorized_ledger_shift_heads[$path]:-}"
+            if [ "$head_blob" != "$expected" ] && [ "$head_blob" != "$authorized" ] && [ "$head_blob" != "$lane_b_authorized" ] && [ "$head_blob" != "$cmc_centre_row_authorized" ] && [ "$head_blob" != "$initializer_origin_authorized" ] && [ "$head_blob" != "$ledger_shift_authorized" ]; then
               printf 'Unapproved head blob for protected runtime path %s: %s\n' "$path" "$head_blob"
               exit 1
             fi
@@ -129,12 +134,14 @@ jobs:
           # (same table as tools/audit_tracefree_ricci_proper_radial.py); any other content still
           # fails closed. local.py: docstring-only barrier provenance (#441). true_cmc_reference.py:
           # even-ghost CMC centre row (#442). coupled_engine.py / bidirectional_production.py:
-          # thin drivers over V55ProductionKernel (this audit imports neither).
+          # thin drivers over V55ProductionKernel; worldtube.py: Misner-Sharp shift-flux helper
+          # (this audit imports none of them).
           declare -A authorized_off_audit_heads=(
             ["engine/local.py"]="c2ac5fadacd2b303cdcc6b7c187907357950136b"
             ["engine/true_cmc_reference.py"]="5cbac98225ce711dab80e5db97672012885fe47c"
             ["engine/coupled_engine.py"]="858b40dc5c93e502b3bccde364b9fc3f781fd692"
-            ["engine/bidirectional_production.py"]="26be783fd3a5a3cb66aca10372d3b592370a8545"
+            ["engine/bidirectional_production.py"]="21e55a57f2029713225cce9b590db57817d4e4f1"
+            ["engine/worldtube.py"]="c263a786b2057f4a427243899ae507e8a0c0c8c5"
           )
           for path in "${!authorized_off_audit_heads[@]}"; do
             if [ -n "$unexpected" ] && [ "$(git rev-parse "HEAD:$path" 2>/dev/null)" = "${authorized_off_audit_heads[$path]}" ]; then

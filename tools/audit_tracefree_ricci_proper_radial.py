@@ -79,6 +79,14 @@ AUTHORIZED_INITIALIZER_ORIGIN_HEAD_BLOBS = {
     "engine/v55_initial.py": "75e5f2cb7794520ad7d278e17496b9c03fbf635e",
 }
 
+# Exact-blob authorization for the Misner-Sharp ledger shift term: engine/worldtube.py gains
+# misner_sharp_shift_flux and production diagnostics report flux_shift (exactly zero for the
+# beta = 0 CMC branch). No evolution change.
+AUTHORIZED_LEDGER_SHIFT_HEAD_BLOBS = {
+    "engine/production_kernel.py": "216ba0a4fbfe2590bf704cae3ddc801dc8655ae0",
+    "engine/worldtube.py": "c263a786b2057f4a427243899ae507e8a0c0c8c5",
+}
+
 
 def _authorized_head_blobs(path: str) -> set[str]:
     return {
@@ -87,6 +95,7 @@ def _authorized_head_blobs(path: str) -> set[str]:
             AUTHORIZED_LANE_B_HEAD_BLOBS.get(path),
             AUTHORIZED_CMC_CENTRE_ROW_HEAD_BLOBS.get(path),
             AUTHORIZED_INITIALIZER_ORIGIN_HEAD_BLOBS.get(path),
+            AUTHORIZED_LEDGER_SHIFT_HEAD_BLOBS.get(path),
         ) if blob is not None
     }
 AUTHORIZED_RUNTIME_PATHS = (
@@ -94,6 +103,7 @@ AUTHORIZED_RUNTIME_PATHS = (
     | frozenset(AUTHORIZED_LANE_B_HEAD_BLOBS)
     | frozenset(AUTHORIZED_CMC_CENTRE_ROW_HEAD_BLOBS)
     | frozenset(AUTHORIZED_INITIALIZER_ORIGIN_HEAD_BLOBS)
+    | frozenset(AUTHORIZED_LEDGER_SHIFT_HEAD_BLOBS)
 )
 
 RESOLUTIONS = (40, 60, 80, 120, 160)
@@ -125,12 +135,14 @@ AUTHORIZED_DOCSTRING_ONLY_HEAD_BLOBS = {
 # Engine files outside this audit's runtime set changed by a reviewed repair, authorized as one
 # exact head blob each. engine/true_cmc_reference.py: even-ghost CMC centre row, the same repair
 # as engine/cmc_gauge.py (#436). engine/coupled_engine.py and engine/bidirectional_production.py:
-# thin drivers over V55ProductionKernel replacing their reference-stack evolution. This audit
+# thin drivers over V55ProductionKernel replacing their reference-stack evolution (bidirectional_production
+# re-authorized for the ledger shift term). engine/worldtube.py: Misner-Sharp shift-flux helper. This audit
 # imports none of them.
 AUTHORIZED_OFF_AUDIT_REPAIR_HEAD_BLOBS = {
     "engine/true_cmc_reference.py": "5cbac98225ce711dab80e5db97672012885fe47c",
     "engine/coupled_engine.py": "858b40dc5c93e502b3bccde364b9fc3f781fd692",
-    "engine/bidirectional_production.py": "26be783fd3a5a3cb66aca10372d3b592370a8545",
+    "engine/bidirectional_production.py": "21e55a57f2029713225cce9b590db57817d4e4f1",
+    "engine/worldtube.py": "c263a786b2057f4a427243899ae507e8a0c0c8c5",
 }
 
 

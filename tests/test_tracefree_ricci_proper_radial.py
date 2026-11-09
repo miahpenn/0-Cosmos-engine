@@ -473,3 +473,20 @@ def test_true_cmc_reference_repair_authorization_is_exact_blob():
     blob = AUTHORIZED_OFF_AUDIT_REPAIR_HEAD_BLOBS[path]
     assert _drop_authorized_docstring_only_paths([path], lambda p: blob) == []
     assert _drop_authorized_docstring_only_paths([path], lambda p: "0" * 40) == [path]
+
+
+def test_ledger_shift_authorization_is_exact_blob():
+    from tools.audit_tracefree_ricci_proper_radial import (
+        AUTHORIZED_LEDGER_SHIFT_HEAD_BLOBS,
+        SOURCE_BLOBS,
+        _source_blob_matches,
+    )
+
+    assert AUTHORIZED_LEDGER_SHIFT_HEAD_BLOBS == {
+        "engine/production_kernel.py": "216ba0a4fbfe2590bf704cae3ddc801dc8655ae0",
+        "engine/worldtube.py": "c263a786b2057f4a427243899ae507e8a0c0c8c5",
+    }
+    for path, authorized_head in AUTHORIZED_LEDGER_SHIFT_HEAD_BLOBS.items():
+        historical = SOURCE_BLOBS[path]
+        assert _source_blob_matches(path, historical, historical, authorized_head)
+        assert not _source_blob_matches(path, historical, historical, "f" * 40)
