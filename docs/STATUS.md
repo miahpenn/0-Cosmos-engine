@@ -66,10 +66,10 @@ Ordered by leverage (review of 10 November 2026). Production items are owner-rev
    result (GEAR-89, GEAR-90, the R ≈ 8 balance, "the ratio is the main clock") takes κ = (π/R)² from the walled cavity.
    Candidate bridge: with λ > 0, D's stiffness is −1 + (3λ/2)S², a local κ supplied by matter. To be derived (chat)
    before the S-pocket results are read as clock statements.
-2. **Present-day baryon/dark-matter split.** `CosmosParams.f_b = 0.157` is unused metadata; the densities that act are
-   `RHO_DM_PRESENT = 2.5857e-5`, `RHO_B_PRESENT = 4.0306e-6` (`engine/v55_matter.py`, `engine/cosmos.py`,
-   `engine/v55_initial.py` docstring), i.e. baryons/DM = 0.156, Ω_b = 0.042. AMENDMENT-GEAR-19: Planck gives 0.157 for
-   baryons/**all matter** (baryons/DM ≈ 0.186). Keeping Ω_m = 0.310 the split would be ρ_b = 4.692e-6,
+2. **Present-day baryon/dark-matter split.** The field `CosmosParams.f_b = 0.157` is not read, but the value is live:
+   `RHO_B_PRESENT / RHO_DM_PRESENT = 0.15588 = 0.157 / e^(−βφ_today)` (GEAR 20's ρ_b a³ / ρ_DM a³ = 0.157 at the
+   coupling reference φ = 0; GEAR-75). So the machine uses 0.157 as baryons/DM. AMENDMENT-GEAR-19: Planck gives 0.157
+   for baryons/**all matter** (baryons/DM ≈ 0.186). Keeping Ω_m = 0.310 the split would be ρ_b = 4.692e-6,
    ρ_DM = 2.520e-5 (baryons +16%, DM −2.6%; the β exchange acts on ρ_DM). **Decision (10 Nov): recorded, deferred
    until the S–D quartic work settles** (AMENDMENT-2-GEAR-19). When done: one deliberate production PR that makes the
    split explicit (a named parameter, or remove the unused `f_b`) with a before/after table of the COSMOS lane outputs
@@ -89,6 +89,15 @@ Ordered by leverage (review of 10 November 2026). Production items are owner-rev
    (worldline proper time, areal-radius rate).
 7. **Outer boundary.** Not specified by the gears; it caused the 6% mass loss when D's front reached r_max and the
    7 October outer-cell radiation failure. Matters for any run long enough for D to reach the edge.
+8. **φ_today and V0 are not derived** (owner, 10 Nov: both must be derived, not calibrated). In the isolated COSMOS
+   lane V0 is a unit: rescaling V0 and all densities by c² (H, π by c) leaves every 0* observable unchanged (e-folds
+   today → turnaround 1.98788, H0·t_turn 5.4183, φ_turn 3.1001, identical to 10 digits for c² = 10 and 1e-6). V0 gains
+   meaning only at joints that carry a scale: (a) production initializes the local lane with the same numbers beside
+   S/D at μ = 1, i.e. it asserts H0 = 5.67e-3 μ; (b) the contraction endpoint imports ρ_Planck/ρ_crit = 5.95e122 from
+   observation. Together these fix μ ≈ 2.6e-31 eV. (c) GEAR-91's floor = vacuum step would give λ = 6.07e4 in the same
+   units. φ_today labels a point on the trajectory (Ω_de = 0.69 imported); t, b and w ≥ 1 are properties of the whole
+   trajectory, so deriving it needs an internal definition of "today". To be derived (chat) before the full-engine
+   pocket runs with φ's supply on.
 
 Also open:
 - Exchange in a finite-volume time evolution (HLL flux, reconstruction) is not yet tested (#447 covers the RHS).
