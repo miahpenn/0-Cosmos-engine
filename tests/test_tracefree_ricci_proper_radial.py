@@ -451,28 +451,28 @@ def test_workflow_shell_allowlist_rejects_unexpected_paths():
     assert unexpected_result.stdout.splitlines() == unexpected
 
 
-def test_docstring_only_authorization_is_exact_blob():
+def test_local_lane_repair_authorization_is_exact_blob():
     from tools.audit_tracefree_ricci_proper_radial import (
-        AUTHORIZED_DOCSTRING_ONLY_HEAD_BLOBS,
-        _drop_authorized_docstring_only_paths,
+        AUTHORIZED_OFF_AUDIT_REPAIR_HEAD_BLOBS,
+        _drop_authorized_off_audit_paths,
     )
 
-    blob = AUTHORIZED_DOCSTRING_ONLY_HEAD_BLOBS["engine/local.py"]
-    assert _drop_authorized_docstring_only_paths(["engine/local.py"], lambda p: blob) == []
-    assert _drop_authorized_docstring_only_paths(["engine/local.py"], lambda p: "0" * 40) == ["engine/local.py"]
-    assert _drop_authorized_docstring_only_paths(["engine/other.py"], lambda p: blob) == ["engine/other.py"]
+    blob = AUTHORIZED_OFF_AUDIT_REPAIR_HEAD_BLOBS["engine/local.py"]
+    assert _drop_authorized_off_audit_paths(["engine/local.py"], lambda p: blob) == []
+    assert _drop_authorized_off_audit_paths(["engine/local.py"], lambda p: "0" * 40) == ["engine/local.py"]
+    assert _drop_authorized_off_audit_paths(["engine/other.py"], lambda p: blob) == ["engine/other.py"]
 
 
 def test_true_cmc_reference_repair_authorization_is_exact_blob():
     from tools.audit_tracefree_ricci_proper_radial import (
         AUTHORIZED_OFF_AUDIT_REPAIR_HEAD_BLOBS,
-        _drop_authorized_docstring_only_paths,
+        _drop_authorized_off_audit_paths,
     )
 
     path = "engine/true_cmc_reference.py"
     blob = AUTHORIZED_OFF_AUDIT_REPAIR_HEAD_BLOBS[path]
-    assert _drop_authorized_docstring_only_paths([path], lambda p: blob) == []
-    assert _drop_authorized_docstring_only_paths([path], lambda p: "0" * 40) == [path]
+    assert _drop_authorized_off_audit_paths([path], lambda p: blob) == []
+    assert _drop_authorized_off_audit_paths([path], lambda p: "0" * 40) == [path]
 
 
 def test_ledger_shift_authorization_is_exact_blob():
