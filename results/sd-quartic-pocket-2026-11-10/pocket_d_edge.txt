@@ -1,0 +1,64 @@
+######## pocket B
+band edge x = 4/3 at r = 9.6; peak edge x = 2/3 at r = 15.6
+  t=  6.8  edge r=  nan  |D|(0)=5.5e-11  centre lapse 0.35-2.51  max lapse 2.51  max|S(0)| 0.0198
+  t=  8.8  edge r=  nan  |D|(0)=5.7e-11  centre lapse 0.35-2.50  max lapse 2.50  max|S(0)| 0.0199
+  t= 10.8  edge r=  nan  |D|(0)=5.7e-11  centre lapse 0.36-2.50  max lapse 2.50  max|S(0)| 0.0199
+  t= 12.8  edge r=  nan  |D|(0)=3.7e-11  centre lapse 0.36-2.64  max lapse 2.64  max|S(0)| 0.0199
+  t= 14.8  edge r=  nan  |D|(0)=1.8e-11  centre lapse 0.36-2.64  max lapse 2.64  max|S(0)| 0.0199
+  t= 16.8  edge r=  nan  |D|(0)=4.0e-11  centre lapse 0.36-2.42  max lapse 2.42  max|S(0)| 0.0198
+  t= 18.8  edge r=  nan  |D|(0)=1.1e-10  centre lapse 0.34-2.42  max lapse 2.42  max|S(0)| 0.0198
+  t= 20.8  edge r=  nan  |D|(0)=2.1e-10  centre lapse 0.31-0.92  max lapse 1.05  max|S(0)| 0.0199
+  t= 22.8  edge r= 28.9  |D|(0)=3.0e-10  centre lapse 0.27-0.92  max lapse 1.08  max|S(0)| 0.0199
+  t= 24.8  edge r= 21.9  |D|(0)=1.2e-09  centre lapse 0.27-2.07  max lapse 2.07  max|S(0)| 0.0197
+  t= 26.8  edge r= 18.6  |D|(0)=5.6e-09  centre lapse 0.47-2.07  max lapse 2.07  max|S(0)| 0.0197
+  t= 28.8  edge r= 15.6  |D|(0)=3.2e-08  centre lapse 0.41-1.65  max lapse 1.84  max|S(0)| 0.0199
+  t= 30.8  edge r= 15.4  |D|(0)=4.1e-08  centre lapse 0.00-1.41  max lapse 1.84  max|S(0)| 0.0151
+  t= 32.8  edge r= 15.1  |D|(0)=5.1e-08  centre lapse 0.00-0.34  max lapse 1.00  max|S(0)| 0.0178
+  t= 34.8  edge r= 13.4  |D|(0)=2.2e-07  centre lapse 0.04-1.39  max lapse 1.39  max|S(0)| 0.0198
+  t= 36.8  edge r= 11.1  |D|(0)=1.5e-06  centre lapse 0.18-2.57  max lapse 2.57  max|S(0)| 0.0197
+######## pocket F2
+band edge x = 4/3 at r = 9.6; peak edge x = 2/3 at r = 15.6
+  t=  6.8  edge r=  nan  |D|(0)=3.0e-11  centre lapse 0.42-2.13  max lapse 2.13  max|S(0)| 0.0200
+  t=  8.8  edge r=  nan  |D|(0)=3.9e-11  centre lapse 0.42-2.15  max lapse 2.15  max|S(0)| 0.0198
+  t= 10.8  edge r=  nan  |D|(0)=3.9e-11  centre lapse 0.42-2.15  max lapse 2.15  max|S(0)| 0.0198
+  t= 12.8  edge r=  nan  |D|(0)=3.8e-11  centre lapse 0.42-2.16  max lapse 2.16  max|S(0)| 0.0199
+  t= 14.8  edge r=  nan  |D|(0)=5.6e-11  centre lapse 0.42-2.11  max lapse 2.11  max|S(0)| 0.0199
+  t= 16.8  edge r=  nan  |D|(0)=7.9e-11  centre lapse 0.42-2.11  max lapse 2.11  max|S(0)| 0.0199
+  t= 18.8  edge r=  nan  |D|(0)=9.8e-11  centre lapse 0.42-2.07  max lapse 2.07  max|S(0)| 0.0199
+  t= 20.8  edge r=  nan  |D|(0)=1.4e-10  centre lapse 0.43-2.07  max lapse 2.07  max|S(0)| 0.0199
+  t= 22.8  edge r=  nan  |D|(0)=1.9e-10  centre lapse 0.43-2.06  max lapse 2.06  max|S(0)| 0.0199
+  t= 24.8  edge r=  nan  |D|(0)=2.6e-10  centre lapse 0.43-2.06  max lapse 2.06  max|S(0)| 0.0198
+  t= 26.8  edge r=  nan  |D|(0)=3.3e-10  centre lapse 0.44-2.06  max lapse 2.06  max|S(0)| 0.0198
+  t= 28.8  edge r=  nan  |D|(0)=8.4e-10  centre lapse 0.44-2.04  max lapse 2.04  max|S(0)| 0.0197
+  t= 30.8  edge r=  nan  |D|(0)=1.4e-09  centre lapse 0.44-1.92  max lapse 1.92  max|S(0)| 0.0198
+  t= 32.8  edge r=  nan  |D|(0)=2.2e-09  centre lapse 0.43-1.92  max lapse 1.92  max|S(0)| 0.0198
+  t= 34.8  edge r= 19.9  |D|(0)=9.4e-09  centre lapse 0.38-1.17  max lapse 1.17  max|S(0)| 0.0197
+  t= 36.8  edge r= 17.9  |D|(0)=2.2e-08  centre lapse 0.33-1.12  max lapse 1.12  max|S(0)| 0.0188
+  t= 38.8  edge r= 16.1  |D|(0)=5.4e-08  centre lapse 0.33-0.96  max lapse 1.02  max|S(0)| 0.0197
+  t= 40.8  edge r= 14.9  |D|(0)=1.3e-07  centre lapse 0.41-0.96  max lapse 1.02  max|S(0)| 0.0197
+  t= 42.8  edge r= 13.1  |D|(0)=4.6e-07  centre lapse 0.41-0.99  max lapse 1.01  max|S(0)| 0.0196
+  t= 44.8  edge r= 12.1  |D|(0)=1.4e-06  centre lapse 0.51-0.99  max lapse 1.01  max|S(0)| 0.0196
+  t= 46.8  edge r= 10.6  |D|(0)=5.3e-06  centre lapse 0.51-0.97  max lapse 1.01  max|S(0)| 0.0196
+######## pocket F15
+band edge x = 4/3 at r = 5.9; peak edge x = 2/3 at r = 15.1
+  t=  6.8  edge r=  nan  |D|(0)=6.4e-11  centre lapse 0.48-1.81  max lapse 1.81  max|S(0)| 0.0173
+  t=  8.8  edge r=  nan  |D|(0)=4.3e-11  centre lapse 0.48-1.78  max lapse 1.78  max|S(0)| 0.0172
+  t= 10.8  edge r=  nan  |D|(0)=3.2e-11  centre lapse 0.48-1.78  max lapse 1.78  max|S(0)| 0.0172
+  t= 12.8  edge r=  nan  |D|(0)=3.7e-11  centre lapse 0.48-1.81  max lapse 1.81  max|S(0)| 0.0173
+  t= 14.8  edge r=  nan  |D|(0)=3.9e-11  centre lapse 0.48-1.80  max lapse 1.80  max|S(0)| 0.0173
+  t= 16.8  edge r=  nan  |D|(0)=6.2e-11  centre lapse 0.48-1.80  max lapse 1.80  max|S(0)| 0.0173
+  t= 18.8  edge r=  nan  |D|(0)=1.2e-10  centre lapse 0.48-1.77  max lapse 1.77  max|S(0)| 0.0173
+  t= 20.8  edge r=  nan  |D|(0)=3.6e-10  centre lapse 0.49-1.77  max lapse 1.77  max|S(0)| 0.0173
+  t= 22.8  edge r=  nan  |D|(0)=7.0e-10  centre lapse 0.49-1.75  max lapse 1.75  max|S(0)| 0.0173
+  t= 24.8  edge r=  nan  |D|(0)=1.9e-09  centre lapse 0.49-1.74  max lapse 1.74  max|S(0)| 0.0173
+  t= 26.8  edge r=  nan  |D|(0)=5.8e-09  centre lapse 0.49-1.74  max lapse 1.74  max|S(0)| 0.0173
+  t= 28.8  edge r=  nan  |D|(0)=1.3e-08  centre lapse 0.49-1.72  max lapse 1.72  max|S(0)| 0.0172
+  t= 30.8  edge r=  nan  |D|(0)=4.5e-08  centre lapse 0.49-1.72  max lapse 1.72  max|S(0)| 0.0172
+  t= 32.8  edge r=  nan  |D|(0)=1.3e-07  centre lapse 0.49-1.72  max lapse 1.72  max|S(0)| 0.0172
+  t= 34.8  edge r= 20.9  |D|(0)=3.0e-07  centre lapse 0.37-1.25  max lapse 1.25  max|S(0)| 0.0172
+  t= 36.8  edge r= 18.1  |D|(0)=6.4e-07  centre lapse 0.34-1.14  max lapse 1.14  max|S(0)| 0.0161
+  t= 38.8  edge r= 16.1  |D|(0)=1.5e-06  centre lapse 0.34-0.79  max lapse 1.02  max|S(0)| 0.0172
+  t= 40.8  edge r= 14.6  |D|(0)=3.1e-06  centre lapse 0.43-0.79  max lapse 1.02  max|S(0)| 0.0172
+  t= 42.8  edge r= 12.6  |D|(0)=1.0e-05  centre lapse 0.43-0.94  max lapse 1.01  max|S(0)| 0.0171
+  t= 44.8  edge r= 11.4  |D|(0)=2.5e-05  centre lapse 0.52-0.94  max lapse 1.01  max|S(0)| 0.0171
+  t= 46.8  edge r=  9.4  |D|(0)=8.7e-05  centre lapse 0.52-0.84  max lapse 1.01  max|S(0)| 0.0171

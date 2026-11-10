@@ -1,0 +1,40 @@
+######## pocket A (pocketA)
+x_c = 2.00, predicted w_loc(centre) = 1.3229
+  t  0-10: w_loc 1.3213  max|S(0)| 0.02000  centre lapse 0.352-2.632
+  t 10-20: w_loc 1.3202  max|S(0)| 0.01993  centre lapse 0.356-2.644
+  t 20-30: w_loc 1.3180  max|S(0)| 0.01989  centre lapse 0.360-2.615
+  t 30-40: w_loc 1.3153  max|S(0)| 0.01971  centre lapse 0.366-2.414
+  t 40-50: w_loc 1.3112  max|S(0)| 0.01970  centre lapse 0.372-2.572
+  t 50-60: w_loc 1.3072  max|S(0)| 0.01955  centre lapse 0.379-2.498
+######## pocket B (pocketB)
+x_c = 2.00, predicted w_loc(centre) = 1.3229
+  t  0-10: w_loc 1.3213  max|S(0)| 0.02000  centre lapse 0.352-2.632
+  t 10-20: w_loc 1.3202  max|S(0)| 0.01993  centre lapse 0.338-2.644
+  t 20-30: w_loc 1.3181  max|S(0)| 0.01991  centre lapse 0.272-2.067
+  t 30-40: w_loc 1.3139  max|S(0)| 0.01981  centre lapse 0.002-6.866
+######## pocket C (pocketC)
+x_c = 1.50, predicted w_loc(centre) = 1.2500
+  t  0-10: w_loc 1.2497  max|S(0)| 0.01732  centre lapse 0.406-2.124
+  t 10-20: w_loc 1.2492  max|S(0)| 0.01729  centre lapse 0.398-2.127
+  t 20-30: w_loc 1.2485  max|S(0)| 0.01728  centre lapse 0.249-2.359
+  t 30-40: w_loc nan  max|S(0)| 0.01505  centre lapse 0.045-0.778
+######## pocket E (pocketE)
+x_c = 1.00, predicted w_loc(centre) = 1.1726
+  t  0-10: w_loc 1.1734  max|S(0)| 0.01414  centre lapse 0.491-1.684
+  t 10-20: w_loc 1.1733  max|S(0)| 0.01412  centre lapse 0.486-1.682
+  t 20-30: w_loc 1.1730  max|S(0)| 0.01413  centre lapse 0.236-1.788
+  t 30-40: w_loc nan  max|S(0)| 0.01317  centre lapse 0.044-0.911
+######## pocket F2 (pocketF2)
+x_c = 2.00, predicted w_loc(centre) = 1.3229
+  t  0-10: w_loc 1.3213  max|S(0)| 0.02000  centre lapse 0.411-2.170
+  t 10-20: w_loc 1.3201  max|S(0)| 0.01995  centre lapse 0.418-2.163
+  t 20-30: w_loc 1.3174  max|S(0)| 0.01989  centre lapse 0.429-2.064
+  t 30-40: w_loc nan  max|S(0)| 0.01977  centre lapse 0.326-1.924
+  t 40-50: w_loc 1.3110  max|S(0)| 0.01965  centre lapse 0.412-0.986
+######## pocket F15 (pocketF15)
+x_c = 1.50, predicted w_loc(centre) = 1.2500
+  t  0-10: w_loc 1.2496  max|S(0)| 0.01732  centre lapse 0.472-1.807
+  t 10-20: w_loc 1.2492  max|S(0)| 0.01729  centre lapse 0.477-1.808
+  t 20-30: w_loc 1.2481  max|S(0)| 0.01727  centre lapse 0.485-1.749
+  t 30-40: w_loc nan  max|S(0)| 0.01720  centre lapse 0.338-1.725
+  t 40-50: w_loc 1.2454  max|S(0)| 0.01714  centre lapse 0.427-0.943
