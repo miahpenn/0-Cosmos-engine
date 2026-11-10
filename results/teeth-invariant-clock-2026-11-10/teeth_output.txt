@@ -1,0 +1,37 @@
+A0.01.npz: 1822 points; ln alpha -4.88..0.50; ln N_K -2.033..0.365
+A0.02.npz: 1755 points; ln alpha -4.80..0.50; ln N_K -1.590..0.358
+A0.005.npz: 1861 points; ln alpha -4.90..0.50; ln N_K -1.920..0.368
+
+== ln alpha (CMC lapse; reproduction): eta^2 within each run
+  |rho_D| (local energy)            0.746 0.624 0.765
+  act_D (local active)              0.852 0.829 0.856
+  D^2 (local)                       0.853 0.831 0.856
+  M_act(r) (enclosed, non-local)    0.249 0.298 0.205
+  r (position; control)             0.426 0.493 0.369
+  t (time; control)                 0.184 0.170 0.206
+  1 - 2m/R (enclosed; N_K's definition)0.194 0.117 0.129
+   cross-run RMS error (curve from A0.01.npz) [spread]:
+  |rho_D| (local energy)            0.998 [1.395]  0.722 [1.426]
+  act_D (local active)              0.629 [1.395]  0.549 [1.426]
+  D^2 (local)                       0.629 [1.395]  0.546 [1.426]
+  M_act(r) (enclosed, non-local)    1.195 [1.395]  1.279 [1.426]
+  r (position; control)             1.000 [1.395]  1.138 [1.426]
+  t (time; control)                 1.272 [1.395]  1.273 [1.426]
+  1 - 2m/R (enclosed; N_K's definition)1.603 [1.395]  1.386 [1.426]
+
+== ln N_K (Kodama norm; slicing-independent): eta^2 within each run
+  |rho_D| (local energy)            0.309 0.338 0.319
+  act_D (local active)              0.368 0.385 0.423
+  D^2 (local)                       0.368 0.385 0.422
+  M_act(r) (enclosed, non-local)    0.031 0.036 0.041
+  r (position; control)             0.035 0.041 0.038
+  t (time; control)                 0.269 0.301 0.269
+  1 - 2m/R (enclosed; N_K's definition)0.737 0.860 0.737
+   cross-run RMS error (curve from A0.01.npz) [spread]:
+  |rho_D| (local energy)            0.133 [0.148]  0.118 [0.152]
+  act_D (local active)              0.119 [0.148]  0.108 [0.152]
+  D^2 (local)                       0.119 [0.148]  0.109 [0.152]
+  M_act(r) (enclosed, non-local)    0.145 [0.148]  0.150 [0.152]
+  r (position; control)             0.148 [0.148]  0.149 [0.152]
+  t (time; control)                 0.128 [0.148]  0.133 [0.152]
+  1 - 2m/R (enclosed; N_K's definition)0.056 [0.148]  0.068 [0.152]
