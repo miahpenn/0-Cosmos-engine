@@ -1,0 +1,5 @@
+endpoint | rho_end/rho_today | e-folds below turnaround | e-folds below today
+|H| = mu, production units (mu = 1, H_today = 5.6690e-03) | 3.112e+04 | 2.1777 | 0.1898   (ok)
+|H| = mu, mu = m_proton, observed H0 | 4.198e+83 | 32.5450 | 30.5571   (ok)
+|H| = mu, mu = m_electron, observed H0 | 1.245e+77 | 30.0398 | 28.0520   (ok)
+Planck density (full; CORRECTION-GEAR-50 ratio) | 5.955e+122 | 47.5700 | 45.5822   (ok)
