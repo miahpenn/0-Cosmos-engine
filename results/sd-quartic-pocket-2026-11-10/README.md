@@ -1,9 +1,10 @@
 # GEAR-67 S–D quartic in the production engine: λ scan and the self-held S pocket (2026-11-10)
 
 Research only. Production keeps `SD_QUARTIC_LAMBDA = 0`; every run here sets λ > 0 and **V0 = 0** in the run script.
-V0 = 0 switches off the φ sector's vacuum supply (a recorded choice, not a decision): the S/D potential adds nothing at
-the saddle, so the vacuum there is whatever φ supplies (GEAR-91, "V = 0*"); with φ's supply off, the ejected D region
-carries −1/(2λ) = −ΔV. CMC slicing, β = 0, no wall. Rates are per local proper time; S's frequency in centre proper time.
+Two different quantities: the saddle's vacuum is 0* (GEAR-91, "V = 0*"): the S/D potential adds nothing there, and the
+value is supplied by another sector. V0 is the φ sector's scale, the thing that supplies it (production 8.24e-5). These
+runs set V0 = 0 literally, switching φ's supply off (a recorded choice, not a decision), so here 0* is resolved to plain
+0 at the saddle and the ejected D region carries −1/(2λ) = −ΔV. CMC slicing, β = 0, no wall. Rates are per local proper time; S's frequency in centre proper time.
 
 ## Scripts
 

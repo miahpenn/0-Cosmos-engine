@@ -2,9 +2,9 @@
 Usage: python research/sd_pocket_engine_v1.py osc.json D0 wD N RMAX T out.npz
 S(t=0) = A(r) (turning point, PS = 0); D = D0 exp(-(r/wD)^2), PD = 0; metric from the Hamiltonian constraint
 (polar-areal, K = 0). Records alpha, S, D, K every 0.1.
-V0 = 0 switches off the phi sector's vacuum supply (research choice, recorded): the S/D potential adds nothing at the
-saddle, so the vacuum there is whatever phi supplies (GEAR-91, 'V = 0*'); with phi's supply off, the ejected D region
-carries -1/(2 lambda)."""
+The saddle's vacuum is 0* (GEAR-91): S/D add nothing there and phi supplies it, at scale V0 (production 8.24e-5).
+These runs set V0 = 0 literally (research choice, recorded): phi's supply is off, 0* resolves to plain 0 at the saddle,
+and the ejected D region carries -1/(2 lambda)."""
 import sys, math, json; sys.path.insert(0, ".")
 import numpy as np, dataclasses
 import engine.scalar_system as ss
