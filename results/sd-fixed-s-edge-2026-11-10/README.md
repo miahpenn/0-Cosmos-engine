@@ -28,13 +28,14 @@ toward zero at **x = 4/3** (r = 9.75 for x_c = 2.0, 6.0 for 1.5), with a gradien
 | D / D\* at r = 12 (x ≈ 1.08 / 0.93) | 0.466 / 0.437 | 0.563 / 0.553 |
 | D / D\* at the x = 4/3 radius (osc / avg) | 0.29 / 0.28 (tail) | 0.35 / 0.27 (tail) |
 | D / D\* at the centre | **0.015** | **0.14–0.16** |
-| oscillating S vs static ⟨S²⟩ | same to ~2% | same to ~10% in the core |
+| oscillating S vs static ⟨S²⟩ | same to ~2–4% | same outside; up to ~30% higher with oscillating S near x = 4/3 and in the core |
 
 - **There is no wall.** The transition is continuous (second order): D's amplitude goes to zero at x = 4/3 and leaks
   inward as a tail. "Edge = |D| ≥ half the cap" sits at x = 2/3 by construction for a settled profile
   (D² = (2/λ)(1 − 3x/4) ≥ 1/λ ⇔ x ≤ 2/3), so that edge measure must not be read as the hold boundary.
-- **D feels the time average of S².** Oscillating S and static ⟨S²⟩ = A²/2 give the same settled profile (the
-  Floquet-band result of the engine pockets, here in its nonlinear, settled form).
+- **D feels the time average of S².** Oscillating S and static ⟨S²⟩ = A²/2 give the same settled profile outside (the
+  Floquet-band result of the engine pockets, here in its nonlinear, settled form); near the band edge the oscillation
+  adds a little (x_c = 1.5: 0.35 vs 0.27 D* at x = 4/3, 0.16 vs 0.14 at the centre).
 - **The lighter pocket does not collapse.** Its core holds D at 14–16% of D\*, against 1.5% for x_c = 2.0: weaker,
   not lost. No wall tension acts, because no wall forms.
 
