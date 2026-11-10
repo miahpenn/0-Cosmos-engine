@@ -92,3 +92,13 @@ def test_initial_hamiltonian_constraint_still_converges_with_lambda(monkeypatch)
         r = np.asarray(state.grid.centers)
         errs.append(float(np.max(np.abs(H[(r >= 2) & (r <= 15)]))))
     assert errs[0] / errs[1] >= 8.0
+
+
+def test_reduced_local_lane_refuses_a_nonzero_lambda(monkeypatch):
+    from engine.local import LocalParams, local_rhs
+
+    y = (0.1, 0.0, 1e-3, 0.0)
+    assert len(local_rhs(y, LocalParams())) == 4
+    monkeypatch.setattr(ss, "SD_QUARTIC_LAMBDA", 1.0)
+    with pytest.raises(NotImplementedError, match="lambda = 0"):
+        local_rhs(y, LocalParams())
