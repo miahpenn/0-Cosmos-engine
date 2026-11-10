@@ -1,0 +1,11 @@
+pocketG15.npz: t 2-15: S(0) freq 1.242, D(0) freq 0.621 (centre proper time), max|D(0)| 6.4e-11
+pocketG15.npz: t 15-30: S(0) freq 1.030, D(0) freq 0.000 (centre proper time), max|D(0)| 1.1e-08
+pocketG15.npz: t 30-45: S(0) freq 0.998, D(0) freq 0.000 (centre proper time), max|D(0)| 1.2e-05
+pocketG2.npz: t 2-15: S(0) freq 1.312, D(0) freq 0.984 (centre proper time), max|D(0)| 6.1e-11
+pocketG2.npz: t 15-30: S(0) freq 1.349, D(0) freq 1.349 (centre proper time), max|D(0)| 6.2e-10
+pocketG2.npz: t 30-45: S(0) freq 1.036, D(0) freq 0.000 (centre proper time), max|D(0)| 5.7e-07
+pocketE.npz: t 2-15: S(0) freq 0.904, D(0) freq 0.000 (centre proper time), max|D(0)| 2.3e-08
+pocketE.npz: t 15-30: S(0) freq 1.423, D(0) freq 0.000 (centre proper time), max|D(0)| 4.4e-05
+pocketB.npz: t 2-15: S(0) freq 1.024, D(0) freq 1.024 (centre proper time), max|D(0)| 5.7e-11
+pocketB.npz: t 15-30: S(0) freq 1.597, D(0) freq 0.319 (centre proper time), max|D(0)| 2.1e-08
+pocketB.npz: t 30-45: S(0) freq 1.115, D(0) freq 0.000 (centre proper time), max|D(0)| 1.6e-04

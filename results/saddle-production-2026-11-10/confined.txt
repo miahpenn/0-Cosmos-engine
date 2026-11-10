@@ -1,0 +1,6 @@
+x_c=1.00 D confined to r < 6.0: core rate  oscillating S (one omega) +0.006  (local omega(r)) +0.005  static <S^2> +0.001
+x_c=1.00 D confined to r < 9.75: core rate  oscillating S (one omega) +0.367  (local omega(r)) +0.367  static <S^2> +0.359
+x_c=1.50 D confined to r < 6.0: core rate  oscillating S (one omega) +0.137  (local omega(r)) +0.104  static <S^2> -0.007
+x_c=1.50 D confined to r < 9.75: core rate  oscillating S (one omega) +0.179  (local omega(r)) +0.079  static <S^2> +0.007
+x_c=2.00 D confined to r < 6.0: core rate  oscillating S (one omega) +0.258  (local omega(r)) +0.176  static <S^2> -0.002
+x_c=2.00 D confined to r < 9.75: core rate  oscillating S (one omega) +0.202  (local omega(r)) +0.142  static <S^2> +0.009
