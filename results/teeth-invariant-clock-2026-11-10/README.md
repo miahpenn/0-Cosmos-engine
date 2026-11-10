@@ -22,8 +22,9 @@ r < 60) and untrapped (1 − 2m/R > 0, where K is timelike; ≈ 4% of D-dominate
 | η² on 1 − 2m/R (N_K's own definition; binning limit) | 0.194 / 0.117 / 0.129 | 0.737 / 0.860 / 0.737 |
 | cross-run error, curve from A = 0.01 predicting A = 0.02 / 0.005 (their spread) | 0.629 (1.40) / 0.546 (1.43) | 0.119 (0.148) / 0.109 (0.152) |
 
-1. **Reproduction.** The CMC-lapse numbers reproduce AMENDMENT-2-GEAR-68 (η² 0.850 / 0.831 / 0.856; cross-run
-   0.62 / 0.54) to the third digit, now on the untrapped subset.
+1. **Reproduction.** On the same point selection as AMENDMENT-2-GEAR-68 (trapped points included) the CMC-lapse scores
+   reproduce it exactly (η² 0.850 / 0.831 / 0.856; cross-run 0.621 / 0.538); on the untrapped subset used here they
+   move by at most 0.004.
 2. **Most of the lapse's range is slicing.** The CMC lapse spans ln α from −4.9 to +0.5 (spread 1.4); the invariant
    clock in the same points spans −2.0 to +0.37 with spread 0.15–0.16, about a ninth.
 3. **On the invariant clock D does not write the clock one-to-one.** Local D² explains 37–42% of ln N_K (against 83–86%
