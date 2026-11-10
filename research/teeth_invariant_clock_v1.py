@@ -10,7 +10,8 @@ It is built from invariants only (m, R), so it does not depend on the slicing.
 Runs (`run`): AMENDMENT-GEAR-68's no-wall set rebuilt on the production engine (CMC, beta = 0, lambda = 0, V0 = 0,
 phi = 0, matter at floor): S = A exp(-(r/w)^2), D = eps exp(-(r/w)^2), time-symmetric, N = 160, r_max = 80, T = 45,
 w = 7, eps = 1e-10, A = 0.005, 0.01, 0.02. Profiles every 1.0: t, r, S, PS, D, PD, alpha, R, m.
-Analysis (`teeth`): AMENDMENT-2-GEAR-68's scores (eta^2 on 30 quantile bins, cross-run RMS error) for ln alpha (CMC,
+Points: D-dominated (|D| > 1e-3, |D| > 5|S|, r < 60) and untrapped (1 - 2m/R > 0, where the Kodama vector is timelike;
+about 4% of D-dominated points are trapped and excluded). Analysis (`teeth`): AMENDMENT-2-GEAR-68's scores (eta^2 on 30 quantile bins, cross-run RMS error) for ln alpha (CMC,
 reproduction) and ln N_K (invariant), against local D^2, act_D = PD^2 + D^2, |rho_D|, the enclosed active source,
 and the controls r, t; plus m/R itself.
 
@@ -82,10 +83,11 @@ def _points(path):
         rhoD = 0.5 * PD**2 + 0.5 * Dp**2 - 0.5 * D**2
         act = PD**2 + D**2; actS = PS**2 + S**2
         Mact = np.cumsum(4 * np.pi * r**2 * (act + actS)) * dr
-        NK = np.sqrt(np.abs(1.0 - 2.0 * m / R))
-        sel = (r < 60) & (np.abs(D) > 1e-3) & (np.abs(D) > 5 * np.abs(S))
+        chi = 1.0 - 2.0 * m / R
+        NK = np.sqrt(np.abs(chi))
+        sel = (r < 60) & (np.abs(D) > 1e-3) & (np.abs(D) > 5 * np.abs(S)) & (chi > 0.0)   # untrapped: Kodama timelike
         for row in zip(np.log(al[sel]), np.log(NK[sel]), np.abs(rhoD[sel]), act[sel], D[sel] ** 2, Mact[sel],
-                       r[sel], np.full(sel.sum(), t), np.abs(m[sel] / R[sel])):
+                       r[sel], np.full(sel.sum(), t), chi[sel]):
             rows.append(row)
     return np.array(rows)
 
@@ -104,7 +106,7 @@ def _predict(edges, mu, x):
 
 
 NAMES = ["|rho_D| (local energy)", "act_D (local active)", "D^2 (local)", "M_act(r) (enclosed, non-local)",
-         "r (position; control)", "t (time; control)", "|m|/R (invariant, enclosed)"]
+         "r (position; control)", "t (time; control)", "1 - 2m/R (enclosed; N_K's definition)"]
 COLS = [2, 3, 4, 5, 6, 7, 8]
 
 
