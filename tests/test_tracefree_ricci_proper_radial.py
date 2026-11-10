@@ -490,3 +490,20 @@ def test_ledger_shift_authorization_is_exact_blob():
         historical = SOURCE_BLOBS[path]
         assert _source_blob_matches(path, historical, historical, authorized_head)
         assert not _source_blob_matches(path, historical, historical, "f" * 40)
+
+
+def test_sd_quartic_authorization_is_exact_blob():
+    from tools.audit_tracefree_ricci_proper_radial import (
+        AUTHORIZED_SD_QUARTIC_HEAD_BLOBS,
+        SOURCE_BLOBS,
+        _source_blob_matches,
+    )
+
+    assert AUTHORIZED_SD_QUARTIC_HEAD_BLOBS == {
+        "engine/scalar_system.py": "9c5ca6ee296315c1f631bababdd2964b6edc9fde",
+        "engine/v55_initial.py": "d127e1f8ff4213eed1eb3369b0f16b66a5e203c7",
+    }
+    for path, authorized_head in AUTHORIZED_SD_QUARTIC_HEAD_BLOBS.items():
+        historical = SOURCE_BLOBS[path]
+        assert _source_blob_matches(path, historical, historical, authorized_head)
+        assert not _source_blob_matches(path, historical, historical, "f" * 40)

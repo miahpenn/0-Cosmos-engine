@@ -99,6 +99,10 @@ jobs:
           declare -A authorized_initializer_origin_heads=(
             ["engine/v55_initial.py"]="75e5f2cb7794520ad7d278e17496b9c03fbf635e"
           )
+          declare -A authorized_sd_quartic_heads=(
+            ["engine/scalar_system.py"]="9c5ca6ee296315c1f631bababdd2964b6edc9fde"
+            ["engine/v55_initial.py"]="d127e1f8ff4213eed1eb3369b0f16b66a5e203c7"
+          )
           declare -A authorized_ledger_shift_heads=(
             ["engine/production_kernel.py"]="216ba0a4fbfe2590bf704cae3ddc801dc8655ae0"
             ["engine/worldtube.py"]="c263a786b2057f4a427243899ae507e8a0c0c8c5"
@@ -119,7 +123,8 @@ jobs:
             cmc_centre_row_authorized="${authorized_cmc_centre_row_heads[$path]:-}"
             initializer_origin_authorized="${authorized_initializer_origin_heads[$path]:-}"
             ledger_shift_authorized="${authorized_ledger_shift_heads[$path]:-}"
-            if [ "$head_blob" != "$expected" ] && [ "$head_blob" != "$authorized" ] && [ "$head_blob" != "$lane_b_authorized" ] && [ "$head_blob" != "$cmc_centre_row_authorized" ] && [ "$head_blob" != "$initializer_origin_authorized" ] && [ "$head_blob" != "$ledger_shift_authorized" ]; then
+            sd_quartic_authorized="${authorized_sd_quartic_heads[$path]:-}"
+            if [ "$head_blob" != "$sd_quartic_authorized" ] && [ "$head_blob" != "$expected" ] && [ "$head_blob" != "$authorized" ] && [ "$head_blob" != "$lane_b_authorized" ] && [ "$head_blob" != "$cmc_centre_row_authorized" ] && [ "$head_blob" != "$initializer_origin_authorized" ] && [ "$head_blob" != "$ledger_shift_authorized" ]; then
               printf 'Unapproved head blob for protected runtime path %s: %s\n' "$path" "$head_blob"
               exit 1
             fi

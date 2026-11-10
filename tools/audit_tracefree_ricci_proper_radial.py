@@ -87,6 +87,14 @@ AUTHORIZED_LEDGER_SHIFT_HEAD_BLOBS = {
     "engine/worldtube.py": "c263a786b2057f4a427243899ae507e8a0c0c8c5",
 }
 
+# Exact-blob authorization for the GEAR-67 S-D quartic made explicit: SD_QUARTIC_LAMBDA = 0.0 in
+# engine/scalar_system.py (production unchanged, bit-identical) and the matching initializer term in
+# engine/v55_initial.py, active only for research lambda > 0.
+AUTHORIZED_SD_QUARTIC_HEAD_BLOBS = {
+    "engine/scalar_system.py": "9c5ca6ee296315c1f631bababdd2964b6edc9fde",
+    "engine/v55_initial.py": "d127e1f8ff4213eed1eb3369b0f16b66a5e203c7",
+}
+
 
 def _authorized_head_blobs(path: str) -> set[str]:
     return {
@@ -96,6 +104,7 @@ def _authorized_head_blobs(path: str) -> set[str]:
             AUTHORIZED_CMC_CENTRE_ROW_HEAD_BLOBS.get(path),
             AUTHORIZED_INITIALIZER_ORIGIN_HEAD_BLOBS.get(path),
             AUTHORIZED_LEDGER_SHIFT_HEAD_BLOBS.get(path),
+            AUTHORIZED_SD_QUARTIC_HEAD_BLOBS.get(path),
         ) if blob is not None
     }
 AUTHORIZED_RUNTIME_PATHS = (
@@ -104,6 +113,7 @@ AUTHORIZED_RUNTIME_PATHS = (
     | frozenset(AUTHORIZED_CMC_CENTRE_ROW_HEAD_BLOBS)
     | frozenset(AUTHORIZED_INITIALIZER_ORIGIN_HEAD_BLOBS)
     | frozenset(AUTHORIZED_LEDGER_SHIFT_HEAD_BLOBS)
+    | frozenset(AUTHORIZED_SD_QUARTIC_HEAD_BLOBS)
 )
 
 RESOLUTIONS = (40, 60, 80, 120, 160)
