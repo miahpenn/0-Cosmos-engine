@@ -1,0 +1,8 @@
+V0 x 10: e-folds today->turnaround 1.9878761623 (base 1.9878761623);  H0*t_turn 5.41834040 (base 5.41834040);  phi_turn 3.10010450 (base 3.10010450)
+V0 x 1e-06: e-folds today->turnaround 1.9878761623 (base 1.9878761623);  H0*t_turn 5.41834040 (base 5.41834040);  phi_turn 3.10010450 (base 3.10010450)
+today: phi=0.179055 Omega_de=0.6899 Omega_m=0.3100 w_phi=-0.8242 H0=5.66897e-03; e-folds to turnaround 1.9879; t_turn*H0 5.418
+backward from today (first point going back where...):
+  Omega_de < Omega_m (DE-matter equality): ln(a/a_today) = -0.3118, phi = 0.02570, t*H0 = -0.2804
+  w_total > -1/3 (acceleration starts): ln(a/a_today) = -0.5340, phi = -0.04165, t*H0 = -0.4414
+  Omega_r > Omega_m (radiation-matter equality): ln(a/a_today) = -12.9360, phi = -12.98533, t*H0 = -0.9401
+  earliest reached: ln a = -12.94, phi = -12.98533, Omega_de = 4.457e-01
