@@ -135,21 +135,15 @@ def _git(*args: str) -> str:
 
 
 
-# Documentation-only edits to engine files outside this audit's runtime set, authorized as one
-# exact head blob each. engine/local.py: GEAR-63/65 barrier provenance docstring (#441) and the
-# GEAR-67 lambda guard (local_rhs refuses SD_QUARTIC_LAMBDA != 0); this audit does not import it.
-# Any other content for that file still fails closed.
-AUTHORIZED_DOCSTRING_ONLY_HEAD_BLOBS = {
-    "engine/local.py": "e66d8af34d58d16b4d0ee7fc27db22860c17b156",
-}
-
 # Engine files outside this audit's runtime set changed by a reviewed repair, authorized as one
-# exact head blob each. engine/true_cmc_reference.py: even-ghost CMC centre row, the same repair
+# exact head blob each. engine/local.py: GEAR-63/65 barrier provenance docstring (#441) and the GEAR-67
+# lambda guard (#457: local_rhs refuses SD_QUARTIC_LAMBDA != 0). engine/true_cmc_reference.py: even-ghost CMC centre row, the same repair
 # as engine/cmc_gauge.py (#436). engine/coupled_engine.py and engine/bidirectional_production.py:
 # thin drivers over V55ProductionKernel replacing their reference-stack evolution (bidirectional_production
 # re-authorized for the ledger shift term). engine/worldtube.py: Misner-Sharp shift-flux helper. This audit
 # imports none of them.
 AUTHORIZED_OFF_AUDIT_REPAIR_HEAD_BLOBS = {
+    "engine/local.py": "e66d8af34d58d16b4d0ee7fc27db22860c17b156",
     "engine/true_cmc_reference.py": "5cbac98225ce711dab80e5db97672012885fe47c",
     "engine/coupled_engine.py": "858b40dc5c93e502b3bccde364b9fc3f781fd692",
     "engine/bidirectional_production.py": "21e55a57f2029713225cce9b590db57817d4e4f1",
@@ -157,9 +151,9 @@ AUTHORIZED_OFF_AUDIT_REPAIR_HEAD_BLOBS = {
 }
 
 
-def _drop_authorized_docstring_only_paths(changed_paths: list[str], head_blob_of) -> list[str]:
-    """Remove changed paths whose head blob is the exact authorized docstring-only blob."""
-    authorized = {**AUTHORIZED_DOCSTRING_ONLY_HEAD_BLOBS, **AUTHORIZED_OFF_AUDIT_REPAIR_HEAD_BLOBS}
+def _drop_authorized_off_audit_paths(changed_paths: list[str], head_blob_of) -> list[str]:
+    """Remove changed paths whose head blob is the exact authorized off-audit repair blob."""
+    authorized = AUTHORIZED_OFF_AUDIT_REPAIR_HEAD_BLOBS
     return [
         path for path in changed_paths
         if authorized.get(path) is None or head_blob_of(path) != authorized[path]
@@ -453,7 +447,7 @@ def main() -> int:
             raise RuntimeError(f"source provenance mismatch for {path}: {source_pins[path]}")
     changed = _git("diff", "--name-only", SOURCE_COMMIT, "HEAD", "--", "engine", "vendor", ".gitmodules", "requirements.txt")
     changed_paths = changed.splitlines() if changed else []
-    changed_paths = _drop_authorized_docstring_only_paths(
+    changed_paths = _drop_authorized_off_audit_paths(
         changed_paths, lambda path: _git("rev-parse", f"HEAD:{path}")
     )
     native_paths_in_source = set()
