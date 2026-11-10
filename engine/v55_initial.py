@@ -20,7 +20,8 @@ from dataclasses import dataclass
 import math
 import numpy as np
 
-from .scalar_system import cosmos_potential
+from .scalar_system import cosmos_potential, sd_potential
+from . import scalar_system as _scalar_system
 from .v55_matter import (
     RHO_TOTAL_PRESENT,
     RHO_DM_PRESENT,
@@ -141,6 +142,9 @@ def build_initial_data(
     for _ in range(6):
         rhoS = 0.5 * (PS**2 + B * Sp**2) + 0.5 * S**2
         rhoD = 0.5 * (PD**2 + B * Dp**2) - 0.5 * D**2
+        if _scalar_system.SD_QUARTIC_LAMBDA != 0.0:
+            # GEAR-67 quartic (research only; production runs lambda = 0, see scalar_system).
+            rhoD = rhoD + sd_potential(S, D) - (0.5 * S**2 - 0.5 * D**2)
         rhoPhi = (0.5 * Pi**2 + cosmos_potential(phi)) / (8.0 * math.pi)
         rhoMatter = (dm0 + b0 + rho_r + rho_charged) / (8.0 * math.pi)
         rho_em = np.zeros(n, dtype=float)
