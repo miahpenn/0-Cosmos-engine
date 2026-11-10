@@ -70,7 +70,11 @@ Ordered by leverage (review of 10 November 2026). Production items are owner-rev
    `RHO_DM_PRESENT = 2.5857e-5`, `RHO_B_PRESENT = 4.0306e-6` (`engine/v55_matter.py`, `engine/cosmos.py`,
    `engine/v55_initial.py` docstring), i.e. baryons/DM = 0.156, Ω_b = 0.042. AMENDMENT-GEAR-19: Planck gives 0.157 for
    baryons/**all matter** (baryons/DM ≈ 0.186). Keeping Ω_m = 0.310 the split would be ρ_b = 4.692e-6,
-   ρ_DM = 2.520e-5 (baryons +16%, DM −2.6%; the β exchange acts on ρ_DM). Owner decision, then a production PR.
+   ρ_DM = 2.520e-5 (baryons +16%, DM −2.6%; the β exchange acts on ρ_DM). **Decision (10 Nov): recorded, deferred
+   until the S–D quartic work settles** (AMENDMENT-2-GEAR-19). When done: one deliberate production PR that makes the
+   split explicit (a named parameter, or remove the unused `f_b`) with a before/after table of the COSMOS lane outputs
+   (turnaround time, z†, the exchange ledger). Rough expected size: (1 + z†) moves ~0.9% if GEAR-19's
+   (1 + z†) ∝ (1 + f_b)^0.363 applies with f_b = baryons/DM.
 3. **COSMOS lane is one-way.** `cosmos_rhs` accepts `exchange_Q` and ignores it; nothing returns from the local lane
    (the 7/9 October objective). Every "self-sustaining loop" statement waits on this. Largest structural job; after
    the S–D pocket physics settles.
@@ -91,8 +95,10 @@ Also open:
 - Residual Issue #4 centre mode (above), if it ever needs removing.
 - Re-run any cited whole-machine handoff/ledger result that predates #443.
 
-Gear amendments owed (chat): re-scope GEAR-68 and GEAR-90 to λ = 0; κ symbol note on GEAR-89 (κ_conf vs κ_el); label
-fix in HANDOFF-D-Mode-Self-Arrest-After-Ejection (Nov 9); the REV19 line.
+Gear amendments filed 10 Nov (Drive): AMENDMENT-5-GEAR-90 (R = π/μ and R ≈ 8 re-scoped to a walled cavity at λ = 0;
+Floquet band in proper time), AMENDMENT-3-GEAR-68 ("no self-arrest" re-scoped to gravity alone; first quartic results;
+the 1.36 lapse peak OPEN), AMENDMENT-3-GEAR-89 (κ_conf vs κ_el), AMENDMENT-HANDOFF-D-Mode-Self-Arrest (label swap,
+s* is the ejected mode's well), AMENDMENT-2-GEAR-19 (f_b unread; live split 0.156), AMENDMENT-REV19 (lines for REV20).
 
 ## Prior overlay — reconciled 18 October 2026 UTC after PR #404 (historical)
 
