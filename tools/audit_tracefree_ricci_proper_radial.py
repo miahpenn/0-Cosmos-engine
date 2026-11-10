@@ -136,10 +136,11 @@ def _git(*args: str) -> str:
 
 
 # Documentation-only edits to engine files outside this audit's runtime set, authorized as one
-# exact head blob each. GEAR-63/65 barrier provenance (PR #441) changed only the docstring of
-# engine/local.py; any other content for that file still fails closed.
+# exact head blob each. engine/local.py: GEAR-63/65 barrier provenance docstring (#441) and the
+# GEAR-67 lambda guard (local_rhs refuses SD_QUARTIC_LAMBDA != 0); this audit does not import it.
+# Any other content for that file still fails closed.
 AUTHORIZED_DOCSTRING_ONLY_HEAD_BLOBS = {
-    "engine/local.py": "c2ac5fadacd2b303cdcc6b7c187907357950136b",
+    "engine/local.py": "e66d8af34d58d16b4d0ee7fc27db22860c17b156",
 }
 
 # Engine files outside this audit's runtime set changed by a reviewed repair, authorized as one
