@@ -94,8 +94,8 @@ Ordered by leverage (review of 10 November 2026). Production items are owner-rev
    today → turnaround 1.98788, H0·t_turn 5.4183, φ_turn 3.1001, identical to 10 digits for c² = 10 and 1e-6). V0 gains
    meaning only at joints that carry a scale: (a) production initializes the local lane with the same numbers beside
    S/D at μ = 1, i.e. it asserts H0 = 5.67e-3 μ; (b) the contraction endpoint imports ρ_Planck/ρ_crit = 5.95e122 from
-   observation. Together these fix μ ≈ 2.6e-31 eV. (c) GEAR-91's floor = vacuum step would give λ = 6.07e4 in the same
-   units. φ_today labels a point on the trajectory (Ω_de = 0.69 imported); t, b and w ≥ 1 are properties of the whole
+   observation. Together these fix μ ≈ 2.6e-31 eV. (c) GEAR-91's floor = vacuum step gives λ = 8π/(2 × 0.10 × V0) ≈ 1.52e6 in the same
+   units (φ is normalised at 8πG = 1, S/D at G = 1). φ_today labels a point on the trajectory (Ω_de = 0.69 imported); t, b and w ≥ 1 are properties of the whole
    trajectory, so deriving it needs an internal definition of "today". To be derived (chat) before the full-engine
    pocket runs with φ's supply on.
 
