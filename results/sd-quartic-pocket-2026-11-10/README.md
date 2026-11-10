@@ -58,6 +58,7 @@ wrong (clocks mixed); `tests/test_research_sd_pocket_v1.py` pins both.
 | C | 1.5 | width 40 | 480, 120 | 40 |
 | E | 1.0 | width 40 | 480, 120 | 40 |
 | F2 / F15 | 2.0 / 1.5 | width 6 (inside only) | 240, 60 | 50 |
+| G2 / G15 | 2.0 / 1.5 | width 6 (inside only) | 240, 60 | 80 requested; stopped at t ≈ 57 |
 
 - **A, stability** (`pocket_summaries.txt`): ω_loc 1.3213 → 1.3072 over 60 units (prediction 1.3229), centre amplitude
   0.0200 → 0.0196; no collapse or dispersal. The centre lapse swings 0.35–2.6 at 2ω (S all potential at its turning
@@ -73,7 +74,12 @@ wrong (clocks mixed); `tests/test_research_sd_pocket_v1.py` pins both.
   t = 48–50 (band edge 9.6); x_c = 1.5: 8.4 at t = 50, still moving (band edge 5.9). B's apparent stall at 15.4 was the
   lapse collapse.
 
-Pending: runs to t = 80 (inside-only seed) to see whether the edge stalls.
+- **No confirmed stall** (G2/G15, `pocket_d_edge_t80.txt`): the x_c = 2.0 edge pauses at r = 10.6 for about 2 units
+  (t ≈ 47–49, band edge 9.6), then moves in (9.4 at t = 50.8, 7.4 at 52.8, 4.4 at 54.8); the x_c = 1.5 edge reaches
+  the centre at t ≈ 55. Both runs stop at t ≈ 57: the CMC lapse solve has no positive solution. The inward move
+  coincides with the ejected region's negative vacuum taking over the r_max = 60 domain (max lapse 1.0 → 1.18 → 1.5 →
+  3.8 over t = 49–55), so field dynamics and the domain's gravity cannot be separated here. The pocket itself is intact
+  until then (centre amplitude 0.0194–0.0197).
 
 ## Limits
 
