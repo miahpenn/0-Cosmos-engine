@@ -1,6 +1,6 @@
-# LIVE readiness overlay — reconciled 9 November 2026 UTC after PR #452
+# LIVE readiness overlay — reconciled 10 November 2026 UTC after PR #458
 
-> **Current main:** `d6d52fe`, merge of PR #452. `scientific_admission=false`; `acceptance_oracle_satisfied=false`.
+> **Current main:** `c2fd01d`, merge of PR #458. `scientific_admission=false`; `acceptance_oracle_satisfied=false`.
 > Software, diagnostic and research results below do not change either flag.
 
 ## Issue #4 — closed (completed)
@@ -31,6 +31,13 @@ worse; a regularized centre formulation would remove it as a separate owner-revi
   operating point into the wrong variables (φ ← a = 33.8983, Π ← φ = 0.179055). Ledger, cycle or handoff numbers from
   those drivers at or before `41ee0cb4` are unverified until re-run. `reference_pirk_unified` and
   `true_cmc_reference` are provenance-only: `docs/PROVENANCE_OLDER_V55_PATHS.md`.
+- **#454** — Misner–Sharp ledger shift term (`engine/worldtube.misner_sharp_shift_flux`); production diagnostics
+  report `flux_shift` (exactly zero on the β = 0 CMC branch); `bidirectional_production` includes it in the ledger.
+- **#456** — GEAR-67 S–D quartic made explicit: `engine.scalar_system.SD_QUARTIC_LAMBDA` with
+  V_SD = ½S² − ½D² + (λ/8)(S⁴ + 6S²D² + D⁴) in the RHS, stress and initializer. **Production keeps λ = 0**
+  (bit-identical); λ > 0 is a research setting and λ itself is unpaid.
+- **#457** — the reduced local lane (`engine/local.py`, the λ = 0 case with its own GEAR-63/65 cubic barrier) refuses
+  to run when λ ≠ 0. **#458** (CI) files its guard authorization under the reviewed-repair table.
 - **#441** (docs/comments) — GEAR-63/65 barrier provenance in `docs/PHYSICS_LOCK.md` and `engine/local.py`.
 - **#438** (CI) — production paths (`engine/`, `vendor/`, `.gitmodules`, `requirements.txt`) require owner review
   before merge; research and diagnostic PRs may merge on passing checks.
@@ -48,14 +55,44 @@ worse; a regularized centre formulation would remove it as a separate owner-revi
   evolution and the production engine (CMC, research harness with an areal Dirichlet wall) both reproduce the
   centre-proper-time coefficient 4.5826 (engine: 4.5826 ± ~7e-5, second-order convergence), supporting
   C = 1.4432004 and excluding 1.443222.
+- **#455** `research/puncture_gauge_kernel_v1.py`: research subclass of the production kernel with the damped
+  moving-puncture gauge (1+log lapse, Gamma-driver); production stays CMC.
 
-## Open machine items
+## Open machine items (backlog — keep until each is closed by a PR or a gear)
 
-- Ledger shift term: `flux_T` is valid only for β = 0 (production CMC); a moving-puncture (β ≠ 0) run needs the
-  shift term before it can use the Misner–Sharp ledger.
+Ordered by leverage (review of 10 November 2026). Production items are owner-reviewed.
+
+1. **Saddle ratio g/κ has no engine counterpart.** Production has g = 1, κ = 0 (Ω_S = Γ_D = 1); every saddle-ratio
+   result (GEAR-89, GEAR-90, the R ≈ 8 balance, "the ratio is the main clock") takes κ = (π/R)² from the walled cavity.
+   Candidate bridge: with λ > 0, D's stiffness is −1 + (3λ/2)S², a local κ supplied by matter. To be derived (chat)
+   before the S-pocket results are read as clock statements.
+2. **Present-day baryon/dark-matter split.** `CosmosParams.f_b = 0.157` is unused metadata; the densities that act are
+   `RHO_DM_PRESENT = 2.5857e-5`, `RHO_B_PRESENT = 4.0306e-6` (`engine/v55_matter.py`, `engine/cosmos.py`,
+   `engine/v55_initial.py` docstring), i.e. baryons/DM = 0.156, Ω_b = 0.042. AMENDMENT-GEAR-19: Planck gives 0.157 for
+   baryons/**all matter** (baryons/DM ≈ 0.186). Keeping Ω_m = 0.310 the split would be ρ_b = 4.692e-6,
+   ρ_DM = 2.520e-5 (baryons +16%, DM −2.6%; the β exchange acts on ρ_DM). Owner decision, then a production PR.
+3. **COSMOS lane is one-way.** `cosmos_rhs` accepts `exchange_Q` and ignores it; nothing returns from the local lane
+   (the 7/9 October objective). Every "self-sustaining loop" statement waits on this. Largest structural job; after
+   the S–D pocket physics settles.
+4. **Two arrest closures.** `engine/local.py` carries the GEAR-63/65 cubic barrier (restoring only if D converts to
+   matter, which is open); production carries the GEAR-67 quartic slot. #457 stops silent disagreement, not the
+   theory split: choose one, or record both as alternatives in a gear.
+5. **Vacuum constant.** φ sector V0 = 8.24e-5 (dark energy) and D's vacuum step ΔV = 1/(2λ) (GEAR-67 3(d) barrier)
+   are separate. With λ > 0 they need one energy budget; where the zero sits is an owner decision (S-pocket research
+   runs use V0 = 0 as a recorded choice).
+6. **Clock claims depend on slicing.** CMC is a choice; GEAR-82 caught a result (trapped surface at t = 22.58) from
+   another gauge. Lapse-based results (teeth test, stall depths) should be repeated with a slicing-independent clock
+   (worldline proper time, areal-radius rate).
+7. **Outer boundary.** Not specified by the gears; it caused the 6% mass loss when D's front reached r_max and the
+   7 October outer-cell radiation failure. Matters for any run long enough for D to reach the edge.
+
+Also open:
 - Exchange in a finite-volume time evolution (HLL flux, reconstruction) is not yet tested (#447 covers the RHS).
 - Residual Issue #4 centre mode (above), if it ever needs removing.
 - Re-run any cited whole-machine handoff/ledger result that predates #443.
+
+Gear amendments owed (chat): re-scope GEAR-68 and GEAR-90 to λ = 0; κ symbol note on GEAR-89 (κ_conf vs κ_el); label
+fix in HANDOFF-D-Mode-Self-Arrest-After-Ejection (Nov 9); the REV19 line.
 
 ## Prior overlay — reconciled 18 October 2026 UTC after PR #404 (historical)
 
