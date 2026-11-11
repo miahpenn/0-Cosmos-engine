@@ -1,7 +1,7 @@
 # Dynamic bag test (HANDOFF Nov 11, Task 2) and chat's two controls
 
 Research only. **Unpaid input: λ = 5000. No V0, φ_today or β_D enters (flat runs: no gravity, no vacuum constant).**
-G_N plays no role in the flat runs; G_reset not involved. Engine run with gravity: `research/sd_bag_engine_v1.py` (pending).
+G_N plays no role in the flat runs; G_reset not involved. Engine runs with gravity: section 3.
 
 ## 1. First flat run, sharp edge, closed box (`flat_two_field.txt`, `research/sd_bag_flat_v1.py`)
 
@@ -34,5 +34,5 @@ state with its gradient tail). Then, with no friction inside:
 4. **Chat's reading 3 (a steady flow of D through intact matter, D inside well below D\*) is not what happens here.**
    The flow exists, but the matter does not stay intact and D inside is not below D\*.
 
-Limits: flat space, no gravity; λ = 5000; one radius (R = 8 ≈ 1.1/√ΔV); no quantum or thermal seeds (the 1e-10 seed and
+Limits (flat runs): no gravity; λ = 5000; one radius (R = 8 ≈ 1.1/√ΔV); no quantum or thermal seeds (the 1e-10 seed and
 the stage-1 profile seed D). The cold start is a diagnostic device, not a mechanism.
