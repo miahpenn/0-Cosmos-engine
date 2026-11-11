@@ -1,0 +1,74 @@
+T1b. dynamic D from a seed at the saddle, hand floor OFF. Unpaid: lambda, V0, phi_today, beta_D, and the seed.
+     lambda matched so that 8 pi DeltaV(phi_today) = F (1.5246e6 at beta_D = 0; 1.5689e6 at beta_D = -0.04). At production V0.
+ beta_D = +0.00: (A) D released today
+  seed 1e-06: D reaches D* at t = 8.0 (H0 t = 0.047); turnaround reached at ln(a_turn/a_today) = 2.02733, phi_turn = 3.1004
+      ln(a/a_today) = 0.25: D energy above the floor / rho_total = 6.312e-02, / dark matter = 3.897e-01, / step = 5.809e-01, w = -0.064
+      ln(a/a_today) = 0.50: D energy above the floor / rho_total = 4.216e-02, / dark matter = 4.014e-01, / step = 2.850e-01, w = -0.052
+      ln(a/a_today) = 1.00: D energy above the floor / rho_total = 1.835e-02, / dark matter = 4.007e-01, / step = 6.474e-02, w = -0.018
+      ln(a/a_today) = 1.50: D energy above the floor / rho_total = 9.786e-03, / dark matter = 3.911e-01, / step = 1.446e-02, w = +0.002
+  seed 1e-10: D reaches D* at t = 17.3 (H0 t = 0.102); turnaround reached at ln(a_turn/a_today) = 2.03295, phi_turn = 3.1005
+      ln(a/a_today) = 0.50: D energy above the floor / rho_total = 4.881e-02, / dark matter = 4.685e-01, / step = 3.326e-01, w = -0.050
+      ln(a/a_today) = 1.00: D energy above the floor / rho_total = 2.135e-02, / dark matter = 4.700e-01, / step = 7.591e-02, w = -0.001
+      ln(a/a_today) = 1.50: D energy above the floor / rho_total = 1.135e-02, / dark matter = 4.592e-01, / step = 1.697e-02, w = +0.000
+  seed 1e-14: D reaches D* at t = 26.6 (H0 t = 0.157); turnaround reached at ln(a_turn/a_today) = 2.03878, phi_turn = 3.1005
+      ln(a/a_today) = 0.50: D energy above the floor / rho_total = 5.602e-02, / dark matter = 5.425e-01, / step = 3.851e-01, w = -0.053
+      ln(a/a_today) = 1.00: D energy above the floor / rho_total = 2.466e-02, / dark matter = 5.472e-01, / step = 8.838e-02, w = +0.002
+      ln(a/a_today) = 1.50: D energy above the floor / rho_total = 1.306e-02, / dark matter = 5.353e-01, / step = 1.978e-02, w = -0.007
+ beta_D = +0.00: (B) D released early (production lane integrated backward to ln a, then forward with D, seed 1e-10)
+    start ln(a/a_today) = -1.0: H/mu = 0.0151, phi = -0.0961
+      from ln a = -1.0: D reaches D* at t = 17.5 (H0 t = 0.264); turnaround reached at ln(a_turn/a_today) = 1.99552, phi_turn = 3.1001
+      ln(a/a_today) = 0.00: D energy above the floor / rho_total = 9.092e-03, / dark matter = 3.429e-02, / step = 1.075e-01, w = -0.031
+      ln(a/a_today) = 0.25: D energy above the floor / rho_total = 5.842e-03, / dark matter = 3.403e-02, / step = 5.074e-02, w = -0.015
+      ln(a/a_today) = 0.50: D energy above the floor / rho_total = 3.704e-03, / dark matter = 3.369e-02, / step = 2.393e-02, w = +0.004
+      ln(a/a_today) = 1.00: D energy above the floor / rho_total = 1.575e-03, / dark matter = 3.288e-02, / step = 5.319e-03, w = -0.003
+      ln(a/a_today) = 1.50: D energy above the floor / rho_total = 8.585e-04, / dark matter = 3.194e-02, / step = 1.183e-03, w = +0.000
+    start ln(a/a_today) = -1.5: H/mu = 0.0303, phi = -0.0894
+      from ln a = -1.5: D reaches D* at t = 17.7 (H0 t = 0.537); turnaround reached at ln(a_turn/a_today) = 1.99077, phi_turn = 3.1001
+      ln(a/a_today) = 0.00: D energy above the floor / rho_total = 3.274e-03, / dark matter = 1.226e-02, / step = 3.845e-02, w = -0.013
+      ln(a/a_today) = 0.25: D energy above the floor / rho_total = 2.095e-03, / dark matter = 1.212e-02, / step = 1.809e-02, w = -0.006
+      ln(a/a_today) = 0.50: D energy above the floor / rho_total = 1.325e-03, / dark matter = 1.198e-02, / step = 8.515e-03, w = -0.007
+      ln(a/a_today) = 1.00: D energy above the floor / rho_total = 5.635e-04, / dark matter = 1.168e-02, / step = 1.890e-03, w = -0.002
+      ln(a/a_today) = 1.50: D energy above the floor / rho_total = 3.084e-04, / dark matter = 1.134e-02, / step = 4.201e-04, w = -0.002
+    start ln(a/a_today) = -2.3: H/mu = 0.0994, phi = -0.0493
+      from ln a = -2.3: D reaches D* at t = 18.3 (H0 t = 1.822); turnaround reached at ln(a_turn/a_today) = 1.98891, phi_turn = 3.1001
+      ln(a/a_today) = 0.00: D energy above the floor / rho_total = 1.178e-03, / dark matter = 4.402e-03, / step = 1.380e-02, w = +0.004
+      ln(a/a_today) = 0.25: D energy above the floor / rho_total = 7.527e-04, / dark matter = 4.347e-03, / step = 6.484e-03, w = -0.006
+      ln(a/a_today) = 0.50: D energy above the floor / rho_total = 4.760e-04, / dark matter = 4.294e-03, / step = 3.051e-03, w = -0.004
+      ln(a/a_today) = 1.00: D energy above the floor / rho_total = 2.024e-04, / dark matter = 4.184e-03, / step = 6.770e-04, w = -0.003
+      ln(a/a_today) = 1.50: D energy above the floor / rho_total = 1.109e-04, / dark matter = 4.062e-03, / step = 1.505e-04, w = -0.002
+ beta_D = -0.04: (A) D released today
+  seed 1e-06: D reaches D* at t = 7.9 (H0 t = 0.047); turnaround reached at ln(a_turn/a_today) = 1.77990, phi_turn = 2.7855
+      ln(a/a_today) = 0.25: D energy above the floor / rho_total = 6.382e-02, / dark matter = 3.936e-01, / step = 5.719e-01, w = -0.082
+      ln(a/a_today) = 0.50: D energy above the floor / rho_total = 4.322e-02, / dark matter = 4.087e-01, / step = 2.737e-01, w = -0.030
+      ln(a/a_today) = 1.00: D energy above the floor / rho_total = 2.004e-02, / dark matter = 4.157e-01, / step = 5.843e-02, w = -0.016
+      ln(a/a_today) = 1.50: D energy above the floor / rho_total = 1.414e-02, / dark matter = 4.158e-01, / step = 1.197e-02, w = +0.010
+  seed 1e-10: D reaches D* at t = 17.1 (H0 t = 0.101); turnaround reached at ln(a_turn/a_today) = 1.78625, phi_turn = 2.7855
+      ln(a/a_today) = 0.50: D energy above the floor / rho_total = 5.007e-02, / dark matter = 4.776e-01, / step = 3.201e-01, w = -0.045
+      ln(a/a_today) = 1.00: D energy above the floor / rho_total = 2.330e-02, / dark matter = 4.880e-01, / step = 6.864e-02, w = +0.005
+      ln(a/a_today) = 1.50: D energy above the floor / rho_total = 1.625e-02, / dark matter = 4.886e-01, / step = 1.409e-02, w = -0.012
+  seed 1e-14: D reaches D* at t = 26.3 (H0 t = 0.155); turnaround reached at ln(a_turn/a_today) = 1.79284, phi_turn = 2.7856
+      ln(a/a_today) = 0.50: D energy above the floor / rho_total = 5.765e-02, / dark matter = 5.552e-01, / step = 3.721e-01, w = -0.047
+      ln(a/a_today) = 1.00: D energy above the floor / rho_total = 2.695e-02, / dark matter = 5.703e-01, / step = 8.029e-02, w = +0.010
+      ln(a/a_today) = 1.50: D energy above the floor / rho_total = 1.858e-02, / dark matter = 5.714e-01, / step = 1.650e-02, w = -0.001
+ beta_D = -0.04: (B) D released early (production lane integrated backward to ln a, then forward with D, seed 1e-10)
+    start ln(a/a_today) = -1.0: H/mu = 0.0151, phi = -0.0961
+      from ln a = -1.0: D reaches D* at t = 17.5 (H0 t = 0.265); turnaround reached at ln(a_turn/a_today) = 1.74140, phi_turn = 2.7850
+      ln(a/a_today) = 0.00: D energy above the floor / rho_total = 8.836e-03, / dark matter = 3.330e-02, / step = 1.045e-01, w = -0.026
+      ln(a/a_today) = 0.25: D energy above the floor / rho_total = 5.741e-03, / dark matter = 3.327e-02, / step = 4.829e-02, w = -0.011
+      ln(a/a_today) = 0.50: D energy above the floor / rho_total = 3.703e-03, / dark matter = 3.321e-02, / step = 2.219e-02, w = -0.014
+      ln(a/a_today) = 1.00: D energy above the floor / rho_total = 1.696e-03, / dark matter = 3.307e-02, / step = 4.628e-03, w = -0.013
+      ln(a/a_today) = 1.50: D energy above the floor / rho_total = 1.297e-03, / dark matter = 3.296e-02, / step = 9.412e-04, w = -0.007
+    start ln(a/a_today) = -1.5: H/mu = 0.0303, phi = -0.0894
+      from ln a = -1.5: D reaches D* at t = 17.7 (H0 t = 0.538); turnaround reached at ln(a_turn/a_today) = 1.73575, phi_turn = 2.7850
+      ln(a/a_today) = 0.00: D energy above the floor / rho_total = 3.182e-03, / dark matter = 1.190e-02, / step = 3.732e-02, w = -0.005
+      ln(a/a_today) = 0.25: D energy above the floor / rho_total = 2.058e-03, / dark matter = 1.185e-02, / step = 1.719e-02, w = -0.010
+      ln(a/a_today) = 0.50: D energy above the floor / rho_total = 1.326e-03, / dark matter = 1.181e-02, / step = 7.883e-03, w = +0.016
+      ln(a/a_today) = 1.00: D energy above the floor / rho_total = 6.080e-04, / dark matter = 1.175e-02, / step = 1.642e-03, w = +0.003
+      ln(a/a_today) = 1.50: D energy above the floor / rho_total = 4.713e-04, / dark matter = 1.170e-02, / step = 3.336e-04, w = +0.013
+    start ln(a/a_today) = -2.3: H/mu = 0.0994, phi = -0.0493
+      from ln a = -2.3: D reaches D* at t = 18.4 (H0 t = 1.825); turnaround reached at ln(a_turn/a_today) = 1.73344, phi_turn = 2.7850
+      ln(a/a_today) = 0.00: D energy above the floor / rho_total = 1.146e-03, / dark matter = 4.274e-03, / step = 1.339e-02, w = +0.003
+      ln(a/a_today) = 0.25: D energy above the floor / rho_total = 7.403e-04, / dark matter = 4.249e-03, / step = 6.162e-03, w = -0.011
+      ln(a/a_today) = 0.50: D energy above the floor / rho_total = 4.767e-04, / dark matter = 4.233e-03, / step = 2.826e-03, w = +0.014
+      ln(a/a_today) = 1.00: D energy above the floor / rho_total = 2.187e-04, / dark matter = 4.209e-03, / step = 5.882e-04, w = -0.003
+      ln(a/a_today) = 1.50: D energy above the floor / rho_total = 1.707e-04, / dark matter = 4.195e-03, / step = 1.196e-04, w = -0.007

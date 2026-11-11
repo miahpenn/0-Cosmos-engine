@@ -1,0 +1,9 @@
+T1a. static D (D = D*(phi)). Unpaid: lambda, V0, phi_today, beta_D. At production V0.
+  engine/cosmos.py (production)                     : e-folds to turnaround 1.9878761623, H0 t_turn 5.41834040, phi_turn 3.10010450
+  (i)   F on, D vacuum off                                                      : e-folds 1.9878761623, a_turn/a_today 7.3000, H0 t_turn 5.418340, phi_turn 3.100105, rho_today 9.641160e-05, Omega_m today 0.3100
+  (ii)  F off, beta_D = 0, lambda = 1.52458e+06                                 : e-folds 1.9878761623, a_turn/a_today 7.3000, H0 t_turn 5.418340, phi_turn 3.100105, rho_today 9.641160e-05, Omega_m today 0.3100
+  (iii) F on AND D vacuum on, beta_D = 0 (double count)                         : e-folds 1.3706635438, a_turn/a_today 3.9380, H0 t_turn 3.217011, phi_turn 2.408665, rho_today 8.816908e-05, Omega_m today 0.3390
+  (iii) F on AND D vacuum on, beta_D = -0.04, lambda = 1.56889e+06              : e-folds 1.2779004145, a_turn/a_today 3.5891, H0 t_turn 2.868750, phi_turn 2.284549, rho_today 8.816908e-05, Omega_m today 0.3390
+  (iv)  F off, beta_D = -0.04, lambda = 1.56889e+06 (matched today)             : e-folds 1.7386400697, a_turn/a_today 5.6896, H0 t_turn 4.260418, phi_turn 2.784959, rho_today 9.641160e-05, Omega_m today 0.3100
+  (iv-) F off, beta_D = +0.04, lambda = 1.48152e+06 (negative control)          : e-folds 2.3318944112, a_turn/a_today 10.2974, H0 t_turn 7.364018, phi_turn 3.528811, rho_today 9.641160e-05, Omega_m today 0.3100
+

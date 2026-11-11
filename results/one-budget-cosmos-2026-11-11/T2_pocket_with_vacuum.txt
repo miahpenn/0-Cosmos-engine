@@ -1,0 +1,49 @@
+Part 1. Pressures in units of DeltaV (D's vacuum step).
+   x      P_S     p_D(settled)   P_tot
+   0.000    0.000     1.000        1.000
+   0.500    0.023     0.391        0.414
+   0.952    0.085     0.082        0.167
+   1.143    0.122     0.020        0.143
+   1.333    0.167     0.000        0.167
+   1.500    0.211     0.000        0.211
+   2.000    0.375     0.000        0.375
+   2.450    0.563     0.000        0.563
+   3.266    1.000     0.000        1.000
+   5.000    2.344     0.000        2.344
+  60.000  337.500     0.000      337.500
+   ejected vacuum outside the matter: pressure +1. Hold band 4/3 <= x <= 2.45: P_S = 0.167 to 0.563.
+   P_tot has a minimum 0.143 at x = 1.143: going outward from the hold, the total
+   pressure would have to rise from there to 1 at x = 0, which attractive gravity cannot support.
+   A static surface needs P_S = 1: x = sqrt(32/3) = 3.266 at the surface, more inside.
+
+Part 2. Bag pockets (surface at P_S = 1, x_surface = 3.266). Lengths in 1/sqrt(DeltaV).
+  x_c = 4  (central density 8.5, pressure 1.50; uniform-D mode at this x: unstable band (2.45 to ~50), single-harmonic estimate)
+     no phi vacuum (v = 0)                v =  0.00: R = 0.0475 (R H = 0.471), M_S = 0.00319, 2m/R = 0.134
+     production turnaround, phi = 3.100   v =  0.45: R = 0.0493 (R H = 0.488), M_S = 0.00355, 2m/R = 0.153
+     V_total = 0 outside, phi = 2.303     v =  1.00: R = 0.0516 (R H = 0.511), M_S = 0.00409, 2m/R = 0.181
+     phi = 1.0                            v =  3.68: R = 0.0718 (R H = 0.711), M_S = 0.01101, 2m/R = 0.466
+     today, phi = 0.179                   v =  8.36: no surface (pressure turns up at r = 20.0000)
+  x_c = 6  (central density 16.1, pressure 3.38; uniform-D mode at this x: unstable band (2.45 to ~50), single-harmonic estimate)
+     no phi vacuum (v = 0)                v =  0.00: R = 0.0642 (R H = 0.635), M_S = 0.01024, 2m/R = 0.319
+     production turnaround, phi = 3.100   v =  0.45: R = 0.0653 (R H = 0.646), M_S = 0.01078, 2m/R = 0.346
+     V_total = 0 outside, phi = 2.303     v =  1.00: R = 0.0667 (R H = 0.661), M_S = 0.01151, 2m/R = 0.382
+     phi = 1.0                            v =  3.68: R = 0.0755 (R H = 0.747), M_S = 0.01662, 2m/R = 0.616
+     today, phi = 0.179                   v =  8.36: no surface (pressure turns up at r = 0.0772)
+  x_c = 10  (central density 38.1, pressure 9.38; uniform-D mode at this x: unstable band (2.45 to ~50), single-harmonic estimate)
+     no phi vacuum (v = 0)                v =  0.00: R = 0.0635 (R H = 0.628), M_S = 0.01399, 2m/R = 0.441
+     production turnaround, phi = 3.100   v =  0.45: R = 0.0639 (R H = 0.633), M_S = 0.01429, 2m/R = 0.462
+     V_total = 0 outside, phi = 2.303     v =  1.00: R = 0.0645 (R H = 0.639), M_S = 0.01466, 2m/R = 0.489
+     phi = 1.0                            v =  3.68: R = 0.0677 (R H = 0.670), M_S = 0.01678, 2m/R = 0.637
+     today, phi = 0.179                   v =  8.36: no surface (pressure turns up at r = 0.0734)
+  x_c = 30  (central density 283.1, pressure 84.38; uniform-D mode at this x: unstable band (2.45 to ~50), single-harmonic estimate)
+     no phi vacuum (v = 0)                v =  0.00: R = 0.0498 (R H = 0.493), M_S = 0.01189, 2m/R = 0.478
+     production turnaround, phi = 3.100   v =  0.45: R = 0.0499 (R H = 0.494), M_S = 0.01196, 2m/R = 0.488
+     V_total = 0 outside, phi = 2.303     v =  1.00: R = 0.0502 (R H = 0.497), M_S = 0.01205, 2m/R = 0.501
+     phi = 1.0                            v =  3.68: R = 0.0515 (R H = 0.510), M_S = 0.01255, 2m/R = 0.569
+     today, phi = 0.179                   v =  8.36: R = 0.0565 (R H = 0.559), M_S = 0.01425, 2m/R = 0.728
+  x_c = 100  (central density 2912.5, pressure 937.50; uniform-D mode at this x: held band, single-harmonic estimate)
+     no phi vacuum (v = 0)                v =  0.00: R = 0.0467 (R H = 0.462), M_S = 0.00942, 2m/R = 0.403
+     production turnaround, phi = 3.100   v =  0.45: R = 0.0470 (R H = 0.465), M_S = 0.00951, 2m/R = 0.413
+     V_total = 0 outside, phi = 2.303     v =  1.00: R = 0.0474 (R H = 0.470), M_S = 0.00962, 2m/R = 0.424
+     phi = 1.0                            v =  3.68: R = 0.0500 (R H = 0.495), M_S = 0.01033, 2m/R = 0.490
+     today, phi = 0.179                   v =  8.36: no surface (pressure turns up at r = 0.0638)
