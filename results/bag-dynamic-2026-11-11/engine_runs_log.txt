@@ -1,0 +1,24 @@
+[bag] x_c = 6.0, R = 6.674, M(r_max) = 1.4891, 2m/R at surface = 0.365, lambda = 5000, vacuum offset = 1.0e-04
+t=  0.00 a0=2.4124 amin/max=1.000/2.412 x(0)=6.000 D(0)/D*=+6.50e-09 |D|max/D*=1.000
+t=  1.95 a0=0.5700 amin/max=0.570/1.007 x(0)=1.578 D(0)/D*=+9.02e-08 |D|max/D*=1.000
+t=  3.90 a0=0.4395 amin/max=0.440/1.009 x(0)=0.052 D(0)/D*=+3.81e-06 |D|max/D*=1.025
+t=  5.85 a0=0.4294 amin/max=0.429/1.010 x(0)=0.587 D(0)/D*=+1.30e-04 |D|max/D*=1.018
+t=  7.80 a0=0.5491 amin/max=0.549/1.010 x(0)=3.484 D(0)/D*=+4.32e-03 |D|max/D*=1.007
+t=  9.75 a0=1.3113 amin/max=1.000/1.396 x(0)=1.435 D(0)/D*=-4.97e-02 |D|max/D*=1.034
+t= 11.70 a0=0.3614 amin/max=0.361/1.015 x(0)=3.348 D(0)/D*=-6.08e-02 |D|max/D*=1.018
+t= 13.65 a0=0.3631 amin/max=0.362/1.013 x(0)=20.626 D(0)/D*=-3.68e-01 |D|max/D*=1.034
+t= 15.60 a0=0.0361 amin/max=0.036/1.025 x(0)=17.653 D(0)/D*=+6.39e-01 |D|max/D*=1.021
+t= 17.55 a0=0.0021 amin/max=0.002/1.402 x(0)=16.323 D(0)/D*=+5.29e-01 |D|max/D*=1.918
+STOPPED at t=19.050: RadiationAdmissibilityError: radiation state inadmissible at stage='explicit-predictor', cell i=3: E=1.76481759194240048e-27, |S|=1.76511742839353972e-27, ratio=1.00016989656750255e+00, con
+
+[nod] x_c = 6.0, R = 6.419, M(r_max) = 1.1437, 2m/R at surface = 0.302, lambda = 5000, vacuum offset = 0.0e+00
+t=  0.00 a0=1.8804 amin/max=1.000/1.880 x(0)=6.000 D(0)/D*=+5.00e-09 |D|max/D*=0.000
+t=  1.95 a0=0.5595 amin/max=0.560/1.003 x(0)=1.549 D(0)/D*=-7.37e-09 |D|max/D*=0.000
+t=  3.90 a0=0.4634 amin/max=0.463/1.004 x(0)=0.042 D(0)/D*=+1.45e-08 |D|max/D*=0.000
+t=  5.85 a0=0.5116 amin/max=0.512/1.004 x(0)=0.749 D(0)/D*=-2.28e-08 |D|max/D*=0.000
+t=  7.80 a0=0.8082 amin/max=0.808/1.004 x(0)=4.388 D(0)/D*=+3.33e-11 |D|max/D*=0.000
+t=  9.75 a0=0.9152 amin/max=0.915/1.041 x(0)=18.248 D(0)/D*=+1.68e-07 |D|max/D*=0.000
+t= 11.70 a0=0.4995 amin/max=0.499/1.004 x(0)=17.461 D(0)/D*=-2.52e-07 |D|max/D*=0.000
+t= 13.65 a0=0.3296 amin/max=0.330/1.002 x(0)=9.810 D(0)/D*=+1.20e-06 |D|max/D*=0.000
+STOPPED at t=14.438: ValueError: CMC lapse solve has no positive solution on this stage: min_alpha=-9.25203681908034228e-05
+
