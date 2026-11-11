@@ -36,3 +36,20 @@ state with its gradient tail). Then, with no friction inside:
 
 Limits (flat runs): no gravity; λ = 5000; one radius (R = 8 ≈ 1.1/√ΔV); no quantum or thermal seeds (the 1e-10 seed and
 the stage-1 profile seed D). The cold start is a diagnostic device, not a mechanism.
+
+## 3. Engine with gravity (`engine_runs_log.txt`, `research/sd_bag_engine_v1.py`)
+
+Thomas-Fermi bag profile x_c = 6 (R = 6.7, 2m/R = 0.37), production kernel (CMC), λ = 5000, D ejected outside, and the
+vacuum zeroed outside by a uniform +ΔV on the S/D energy (φ's vacuum frozen at v = 1, a stated choice). Control: the same
+matter, no D outside, no offset (R = 6.4, 2m/R = 0.30). N = 240, r_max = 30.
+
+| | D(0)/D\* at t = 3.9 / 7.8 / 11.7 / 15.6 | end |
+|---|---|---|
+| bag (D outside) | 4e-6 / 4e-3 / 6e-2 / 0.64 | stopped t = 19.05 (radiation floor inadmissible at cell 3; centre lapse 0.036 at t = 15.6) |
+| control (no D) | 1e-8 / 3e-11 / 3e-7 / – | stopped t = 14.44 (CMC lapse has no positive solution) |
+
+- **The pocket collapses gravitationally in both runs,** with or without D: these static Thomas-Fermi bags are too compact
+  to hold once S oscillates in the engine (the centre's x swings to 17). The engine cannot test bag balance at this x_c.
+- **D fills the core at about 1.3 per unit before the collapse,** against nothing in the control: consistent with
+  sections 1–2.
+- A less compact bag is not available: a static surface needs x ≥ 3.27 everywhere inside.
