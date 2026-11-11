@@ -1,0 +1,46 @@
+A. phi-shift: (V0, D, phi) -> (V0 e^-c, D e^c, phi - c); floor F = D V0 = 8.242522e-06 unchanged
+   c = 0     e-folds to turnaround 1.9878761623  H0 t_turn 5.41834040  phi_turn - phi_today 2.92104950
+   c =   1.0 e-folds to turnaround 1.9878761623  H0 t_turn 5.41834040  phi_turn - phi_today 2.92104950   (V0 = 3.032e-05, D = 2.718e-01)
+   c =  -2.0 e-folds to turnaround 1.9878761623  H0 t_turn 5.41834040  phi_turn - phi_today 2.92104950   (V0 = 6.090e-04, D = 1.353e-02)
+   c =  30.0 e-folds to turnaround 1.9878761623  H0 t_turn 5.41834040  phi_turn - phi_today 2.92104950   (V0 = 7.713e-18, D = 1.069e+12)
+
+B. floor as D's vacuum step, F e^(-4 beta_D (phi - phi_match)); at production V0; beta_D below
+   constant floor (production)        : e-folds to turnaround 1.98788, a_turn/a_today 7.3000, H0 t_turn 5.4183, phi_turn 3.1001
+   beta_D = -0.04, matched today                             : e-folds 1.73864, a_turn/a_today 5.6896, H0 t_turn 4.2604, phi_turn 2.7850, step/F at turnaround 1.517
+   beta_D = -0.04, matched at production's turnaround phi    : e-folds 1.81561, a_turn/a_today 6.1448, H0 t_turn 4.5895, phi_turn 2.8806, step/F at turnaround 0.965
+   beta_D = +0.04, matched today (sign control)              : e-folds 2.33189, a_turn/a_today 10.2974, H0 t_turn 7.3640, phi_turn 3.5288, step/F at turnaround 0.585
+   (matched away from today changes today's dark-energy density, so that row is a different 'today'.)
+   well depth factor e^(-4 beta_D dphi), beta_D = -0.04, today -> turnaround: dphi = 2.92, factor = 1.596e+00
+   well depth factor e^(-4 beta_D dphi), beta_D = -0.04, turnaround -> |H| = mu (proton), ~sqrt6 x 32.55: dphi = 79.73, factor = 3.470e+05
+   well depth factor e^(-4 beta_D dphi), beta_D = -0.04, turnaround -> full Planck endpoint (REV19 phi span): dphi = 117.12, factor = 1.375e+08
+
+C. S in w = 1 contraction: S = c1 J0(mu tau) + c2 Y0(mu tau), H = -1/(3 tau), so |H|/mu = 1/(3 mu tau)
+   last zero of J0 at mu tau = 2.4048 -> |H| = 0.1386 mu;  of Y0 at 0.8936 -> |H| = 0.3730 mu
+   generic mix: last zero between mu tau = 0.894 and 2.405 (next zeros 3.958, 5.520)
+   constant-H criterion 3|H| = 2 mu is mu tau = 0.5, |H| = 0.667 mu: later by 0.524 (J0) to 0.194 (Y0) e-folds (a ~ tau^(1/3))
+   ODE S'' + S'/tau + S = 0 against J0: max difference 7.8e-11
+
+D. quartic in polar form: V4 / rho^4 = 0 + (lambda/8)(1 + sin^2 2 theta)
+   mass terms in polar form: V2 = -rho**2*cos(2*theta)/2  (theta-dependent at order rho^2, not rho^4)
+   field-space curvature of d chi^2 + A(chi)^2 d sigma^2, A^2 = 1 + (3 lambda/2) chi^2:  K = -A''/A = -6*lambda/(3*chi**2*lambda + 2)**2
+   the machine's field space dS^2 + dD^2 has K = 0; K is invariant under field redefinitions.
+   K = 0 requires A'' = 0: A = a + b chi, i.e. polar coordinates (chi = radius, b sigma = angle).
+   about (S, D) = (0, 0): Hessian diag = (1, -1), cubic coefficients [0, 0, 0, 0]
+   about (S, D) = (0, sqrt(2)/sqrt(lambda)): Hessian diag = (4, 2), cubic coefficients [3*sqrt(2)*sqrt(lambda), 0, 3*sqrt(2)*sqrt(lambda), 0]
+   GEAR-97 potential identity, difference: 0
+
+E. Floquet rate of the uniform D mode (k = 0) at w = w_loc(x); free rate 1
+   x=1: 0.454  x=1.33: 0.000  x=2: 0.000  x=2.45: 0.000  x=2.6: 0.046  x=3: 0.293  x=5: 0.535  x=10: 0.620  x=20: 0.556  x=40: 0.100  x=60: 0.000  x=80: 0.000  x=100: 0.000  x=200: 0.000  x=1000: 0.000
+
+F. floor = step (lambda = 8 pi/(2 x 0.10 V0)); pocket densities in units of the floor (= D's step), Thomas-Fermi
+   phi's vacuum today / floor = (e^-phi_today - 0.10)/0.10 = 7.361  (at production V0, phi_today)
+   x_c = 1.33: central density 1.83 floor, mean (inside R) 0.390 floor; static binding needs rho > 2 rho_vac: phi > 1.65 (centre), > 2.12 (mean); today 0.179, V_phi = 0 at 2.303, production turnaround 3.100
+   x_c = 2.0: central density 3.12 floor, mean (inside R) 0.570 floor; static binding needs rho > 2 rho_vac: phi > 1.36 (centre), > 2.05 (mean); today 0.179, V_phi = 0 at 2.303, production turnaround 3.100
+   x_c = 1.33: mean density / critical density today = 0.0334  (R H = 2.744, M H = 0.3447; machine's Omega_b today = 0.0418)
+   x_c = 2.0: mean density / critical density today = 0.0487  (R H = 2.474, M H = 0.3686; machine's Omega_b today = 0.0418)
+
+G. uniform-D Floquet rate inside matter (free rate 1), single-harmonic S, w = w_loc
+   x              0.50   1.00   1.33   1.50   2.00   2.45   3.00   5.00  10.00
+   machine       0.784  0.454  0.000  0.000  0.000  0.000  0.293  0.535  0.620
+   scalar-tensor 0.709  0.084  0.767  0.902  1.174  1.352  1.528  1.896  3.603
+
