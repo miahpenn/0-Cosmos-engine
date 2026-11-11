@@ -1,0 +1,11 @@
+Bag controls, flat space, lambda = 5000, smooth edge (width 1, R = 8), sponge r > 40 (open domain), cold start.
+D(0) is the envelope over each 10-unit window, in units of D* = sqrt(2/lambda).
+  x_in =  2.000  avg  start 2.5e-02 | D(0)/D* per 10 units:  2.5e-02  2.5e-02  2.5e-02  2.5e-02  2.5e-02  2.5e-02  2.5e-02  2.5e-02   mean outgoing D flux t>=50: +1.86e-15
+  x_in =  2.000  osc  start 2.4e-02 | D(0)/D* per 10 units:  1.0e+00  2.0e+00  2.5e+00  3.9e+00  3.3e+00  3.1e+00  2.0e+00  4.5e+00   mean outgoing D flux t>=50: +2.16e-01
+  x_in =  2.000  dyn  start 2.4e-02 | D(0)/D* per 10 units:  4.2e-01  1.6e+00  1.6e+00  1.4e+00  2.9e+00  1.9e+00  2.1e+00  2.4e+00   mean outgoing D flux t>=50: +3.40e-03   S energy inside R+3, t = 0/40/79: 6.776e-01/5.572e-01/2.039e-01
+  x_in =  3.266  avg  start 6.5e-04 | D(0)/D* per 10 units:  6.5e-04  6.5e-04  6.5e-04  6.5e-04  6.5e-04  6.5e-04  6.5e-04  6.5e-04   mean outgoing D flux t>=50: -8.83e-14
+  x_in =  3.266  osc  start 6.5e-04 | D(0)/D* per 10 units:  4.7e-01  4.7e+00  3.7e+00  3.7e+00  3.2e+00  3.3e+00  3.8e+00  2.9e+00   mean outgoing D flux t>=50: +3.82e-01
+  x_in =  3.266  dyn  start 6.5e-04 | D(0)/D* per 10 units:  5.9e-01  2.4e+00  2.1e+00  1.6e+00  2.2e+00  2.4e+00  2.2e+00  2.7e+00   mean outgoing D flux t>=50: +5.03e-03   S energy inside R+3, t = 0/40/79: 1.290e+00/9.619e-01/6.485e-01
+  x_in = 10.000  avg  start 1.6e-08 | D(0)/D* per 10 units:  1.6e-08  1.5e-08  1.4e-08  1.3e-08  1.3e-08  1.2e-08  1.2e-08  1.2e-08   mean outgoing D flux t>=50: +2.98e-13
+  x_in = 10.000  osc  start 1.5e-08 | D(0)/D* per 10 units:  7.2e-02  3.2e+00  4.3e+00  3.0e+00  2.0e+00  3.1e+00  3.5e+00  2.9e+00   mean outgoing D flux t>=50: +1.72e+00
+  x_in = 10.000  dyn  start 1.5e-08 | D(0)/D* per 10 units:  1.6e-02  7.4e-01  2.5e+00  2.8e+00  3.3e+00  3.4e+00  4.7e+00  3.7e+00   mean outgoing D flux t>=50: +5.80e-02   S energy inside R+3, t = 0/40/79: 7.005e+00/3.182e-01/7.667e-01
