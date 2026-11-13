@@ -95,7 +95,49 @@ in cells on a D* branch where the prediction is < 0.2 D*:
 
 ## Task 3. Matched drain test (GEAR-101 §6–7)
 
-TASK3_PLACEHOLDER
+Pocket x_c = 2.0 (R = 8, edge width 1), cold-start D, λ = 5000. S's action J in r < 11, against its 0–6 window
+(windows of 6 units). Rulers: dr 0.04 / 0.02 (flat), dr 0.1 / r_max 24 and 36 (expanding); the static run has one ruler.
+
+| window | (i) flat, with D | (ii) static gravity, with D | (iii) expanding, with D | (i) flat, no D | (ii) static, no D | (iii) expanding, no D |
+|---|---|---|---|---|---|---|
+| 6–12 | 1.006 / 1.006 | 1.007 | 0.875 / 0.874 | 0.847 / 0.848 | 0.884 | 0.881 / 0.880 |
+| 12–18 | 0.799 / 0.799 | 0.983 | 0.849 / 0.848 | 0.615 / 0.616 | 0.731 | 0.827 / 0.826 |
+| 18–24 | 0.781 / 0.781 | 0.713 (collapsing) | 0.834 / 0.833 | 0.399 / 0.401 | 0.557 | 0.797 / 0.796 |
+| 24–30 | 0.731 / 0.731 | 0.436 (collapsing) | 0.821 / 0.821 | 0.214 / 0.215 | 0.377 | 0.777 / 0.778 |
+| 30–36 | 0.664 / 0.665 | 0.418 (collapsing) | 0.810 / 0.809 | 0.098 / 0.099 | 0.199 | 0.762 / 0.762 |
+
+**(ii) with D collapses.** On the static background the pocket with D falls in on itself:
+- the central lapse drops from 0.83 (t = 10) to 0.37 (t = 20) and 0.001 (t = 38);
+- (∂_r R)²/γ_rr, which is 1 − 2M/R up to the extrinsic-curvature term, falls from 0.77 to 0.003 at areal radius 1.6,
+  which is close to forming a horizon;
+- D piles up at the centre, ⟨D²⟩ reaching 16 D*².
+
+Without D (static) there is no collapse, and S disperses. In the static case the inside of the pocket, where D is held
+out, carries the vacuum step +1/(2λ) as positive energy relative to outside: the bag. With S that is enough
+(2M/R ≈ 0.23 at the start) for the static pocket to collapse once D refills it. This is read from one run at one
+resolution; whether it is a physical collapse or a gauge collapse of the maximal slicing is not separated.
+
+Flux of S's energy out through r = 11, against S's energy loss inside, in the no-D runs:
+- flat: 1.00 of the loss at t = 12, 24 and 36, at both dr (free dispersal; the bookkeeping closes);
+- static gravity: 0.94–0.98;
+- expanding: 0.24–0.32 at both rulers. Most of S's lost energy in r < 11 is **not** carried out. Inference, not
+  measured: it is the work against the expansion.
+
+The loss of S's action without D in the expanding run (to 0.76 by t = 36) is therefore not mainly radiation out of
+the pocket. Less than a third of the energy loss leaves through the edge, and the action has no flux of its own in
+this read-out.
+
+Readings:
+- **Read (invariant):** expansion is the ingredient that removes most of the drain. Without D, S keeps 0.10 of its
+  action in flat space, 0.20 on the static background and 0.76 when expanding. With D: 0.66 flat and 0.81 expanding.
+- **Read:** D's bag slows the flat drain a lot: 0.66 with D against 0.10 without. Gravity alone, without D, helps a
+  little (0.10 → 0.20).
+- **Read (one ruler):** gravity without expansion does not stop the drain with D; it turns the pocket into a
+  collapse.
+- **Inference:** expansion freezes S's outward spreading. Peculiar momenta redshift and the Hubble time (10) is shorter
+  than the dispersal time, so S stays in the pocket instead of leaving.
+- **Note (units):** the gravity harness's cell volumes are r² dr (no 4π); absolute energies there are per steradian
+  (`results/dm-one-budget-2026-11-13/AMENDMENT-2-volume-units.md`). The flux comparison above uses matching units.
 
 ## Task 4. Dark-matter double-count check (GEAR-102 §5.2; read-only)
 

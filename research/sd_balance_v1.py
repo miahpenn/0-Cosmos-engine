@@ -16,6 +16,7 @@ lambda = 2500 and 10000 runs test this.
 
 Unpaid inputs: lambda; x_in; L (row spacing); seed 1e-10; the cold start. No V0, phi, beta_D, gravity ("no phi / no
 vacuum"). G_reset not involved.
+Environment NOD=1: no-D control (D = 0 everywhere and no seed, so it stays 0).
 Usage: python research/sd_balance_v1.py GEOM BC x_in lambda L dr T out.npz      (GEOM = sph | row; BC = absorb |
        reflect | periodic; L is the row spacing, ignored for sph)
 """
@@ -45,6 +46,9 @@ def run(geom, bc, x_in, lam, L, dr, T, every=0.5, T_cold=200.0, gamma=0.3, seed=
         wn = (2 * w - (1 - k) * wp + dtc * dtc * aw) / (1 + k)
         wp, w = w, wn
     D = st.to_field(w) + seed * np.exp(-(st.dist / (0.5 * st.R)) ** 2)
+    import os
+    if os.environ.get("NOD", "0") == "1":          # no-D control (Task 3): D = 0 exactly (stays 0: no seed)
+        D = np.zeros_like(D)
     u, w = mult * st.A, mult * D
     up, wp = u.copy(), w.copy()
     dt = 0.4 * dr

@@ -51,7 +51,10 @@ def action_series(R, W=6.0, rp=11.0):
 def flux_vs_loss(R, rp=11.0):
     r = R["r"]; dr = float(r[1] - r[0]); j = int(np.argmin(np.abs(r - rp))); m = r < r[j]
     Sp = np.gradient(R["S"], dr, axis=-1)
-    F = R["alpha"][:, j] * (-R["St"][:, j] * Sp[:, j] / np.sqrt(R["grr"][:, j])) * 4 * math.pi * R["Rar"][:, j] ** 2
+    # the gravity runs' cell volumes are r^2 dr (no 4 pi: research/dm_one_budget_v1 uses grid.volumes); the flat runs'
+    # weights include 4 pi. Use the matching area so flux and energy are in the same units.
+    area = (4 * math.pi if R["kind"] == "flat" else 1.0) * R["Rar"][:, j] ** 2
+    F = R["alpha"][:, j] * (-R["St"][:, j] * Sp[:, j] / np.sqrt(R["grr"][:, j])) * area
     e = 0.5 * R["St"]**2 + 0.5 * Sp**2 / R["grr"] + 0.5 * R["S"]**2 + LAM / 8 * R["S"]**4
     E = (e * R["vol"])[:, m].sum(1)
     t = R["t"]
@@ -80,8 +83,10 @@ def drain(paths):
             if tt_ > t[-1]:
                 continue
             i = int(np.argmin(np.abs(t - tt_)))
+            loss = E[0] - E[i]
             print(f"  {os.path.basename(p)[:30]:30s} t = {t[i]:4.0f}: E_S(r<11) change {E[i] - E[0]:+.3e} ({(E[i]-E[0])/E[0]:+.1%});"
-                  f" energy carried out through r = 11 {cum[i]:+.3e} ({cum[i] / max(E[0] - E[i], 1e-300):.2f} of the loss)")
+                  f" energy carried out through r = 11 {cum[i]:+.3e}"
+                  + (f" ({cum[i] / loss:.2f} of the loss)" if loss > 0 else " (E_S rose: no loss to compare)"))
 
 
 def ringdm(paths):
