@@ -1,0 +1,205 @@
+Balance ratio and resting-point shift (flat, no phi / no vacuum); windows of 10 time units.
+
+row_periodic_2.0_lam10000_L40_0.04: row periodic x_in = 2.0 lambda = 10000 L = 40 dr = 0.04  (plateau windows t >= 200: 20)
+  S: J/J0 0.350 ± 0.010 (whole domain), 0.209 ± 0.022 (pocket); E/E0 0.572 ± 0.034
+  ring energy / S energy (whole domain): 0.819 ± 0.078   [slow ring 0.196 ± 0.067, D_r 0.659 ± 0.053]
+  ring action / S action (whole domain): 1.323 ± 0.286   [slow ring 0.533 ± 0.251, D_r 0.728 ± 0.081]
+  in the pocket: ring E / S E 0.773 ± 0.186, ring J / S J 1.220 ± 0.441
+  slow-ring energy at k_c = 0.3 / 0.5 / 1.0 (relative to S's): 0.119 ± 0.061 / 0.196 ± 0.067 / 0.292 ± 0.078
+  flow per unit t, in units of S's energy (whole domain): W_SD (S->D) -1.48e-03 ± 5.63e-03, W_DS (D->S) +7.71e-04 ± 7.01e-03; windows with W_SD > 0: 8/20, with W_DS > 0: 10/20
+  pocket cells with net S->D in a window: 0.485 ± 0.106; with net D->S: 0.513 ± 0.067; mean |W_SD| / (S energy) per unit t: 4.52e-03
+  shift, far from matter (S ~ 0): cells 4138; mean measured mu -1.36e-01 D*, predicted ring term -6.86e-02, S term -4.27e-02; slope measured/predicted (ring + S) 1.206, (ring only) 1.841; rms residual 4.6e-02 D*
+  shift, pocket: cells 7004; mean measured mu -1.56e-01 D*, predicted ring term -6.48e-02, S term -5.11e-02; slope measured/predicted (ring + S) 1.320, (ring only) 2.173; rms residual 7.4e-02 D*
+  shift, all cells: cells 13315; mean measured mu -1.46e-01 D*, predicted ring term -6.51e-02, S term -4.75e-02; slope measured/predicted (ring + S) 1.280, (ring only) 2.033; rms residual 6.4e-02 D*
+  implied vacuum-energy shift far from matter: sum mu^2 D*^2 dV = 1.692e-03 against ring energy 5.800e-03 (ratio 2.92e-01); per volume 8.06e-06 against the vacuum depth 1/(2 lambda) = 5.00e-05
+
+row_periodic_2.0_lam2500_L40_0.04: row periodic x_in = 2.0 lambda = 2500 L = 40 dr = 0.04  (plateau windows t >= 200: 20)
+  S: J/J0 0.346 ± 0.007 (whole domain), 0.184 ± 0.028 (pocket); E/E0 0.605 ± 0.032
+  ring energy / S energy (whole domain): 0.750 ± 0.081   [slow ring 0.132 ± 0.058, D_r 0.648 ± 0.054]
+  ring action / S action (whole domain): 1.076 ± 0.224   [slow ring 0.337 ± 0.178, D_r 0.703 ± 0.103]
+  in the pocket: ring E / S E 0.778 ± 0.154, ring J / S J 1.093 ± 0.311
+  slow-ring energy at k_c = 0.3 / 0.5 / 1.0 (relative to S's): 0.064 ± 0.038 / 0.132 ± 0.058 / 0.215 ± 0.070
+  flow per unit t, in units of S's energy (whole domain): W_SD (S->D) -7.78e-04 ± 6.52e-03, W_DS (D->S) +8.85e-04 ± 3.91e-03; windows with W_SD > 0: 9/20, with W_DS > 0: 13/20
+  pocket cells with net S->D in a window: 0.480 ± 0.073; with net D->S: 0.531 ± 0.055; mean |W_SD| / (S energy) per unit t: 4.69e-03
+  shift, far from matter (S ~ 0): cells 4518; mean measured mu -1.23e-01 D*, predicted ring term -4.71e-02, S term -5.27e-02; slope measured/predicted (ring + S) 1.218, (ring only) 2.344; rms residual 5.1e-02 D*
+  shift, pocket: cells 8526; mean measured mu -1.41e-01 D*, predicted ring term -5.85e-02, S term -4.69e-02; slope measured/predicted (ring + S) 1.317, (ring only) 2.197; rms residual 7.1e-02 D*
+  shift, all cells: cells 15067; mean measured mu -1.35e-01 D*, predicted ring term -5.39e-02, S term -4.92e-02; slope measured/predicted (ring + S) 1.297, (ring only) 2.272; rms residual 6.7e-02 D*
+  implied vacuum-energy shift far from matter: sum mu^2 D*^2 dV = 4.926e-03 against ring energy 1.322e-02 (ratio 3.73e-01); per volume 2.43e-05 against the vacuum depth 1/(2 lambda) = 2.00e-04
+
+row_periodic_2.0_lam5000_L20_0.02: row periodic x_in = 2.0 lambda = 5000 L = 20 dr = 0.02  (plateau windows t >= 200: 20)
+  S: J/J0 0.308 ± 0.009 (whole domain), 0.308 ± 0.009 (pocket); E/E0 0.568 ± 0.032
+  ring energy / S energy (whole domain): 0.976 ± 0.124   [slow ring 0.100 ± 0.024, D_r 0.902 ± 0.112]
+  ring action / S action (whole domain): 1.649 ± 0.285   [slow ring 0.463 ± 0.156, D_r 0.995 ± 0.111]
+  in the pocket: ring E / S E 0.976 ± 0.124, ring J / S J 1.649 ± 0.285
+  slow-ring energy at k_c = 0.3 / 0.5 / 1.0 (relative to S's): 0.075 ± 0.034 / 0.100 ± 0.024 / 0.185 ± 0.036
+  flow per unit t, in units of S's energy (whole domain): W_SD (S->D) -1.07e-03 ± 8.12e-03, W_DS (D->S) +9.38e-04 ± 6.62e-03; windows with W_SD > 0: 9/20, with W_DS > 0: 13/20
+  pocket cells with net S->D in a window: 0.503 ± 0.085; with net D->S: 0.496 ± 0.066; mean |W_SD| / (S energy) per unit t: 6.25e-03
+  shift, far from matter (S ~ 0): too few cells on a branch with a small prediction
+  shift, pocket: cells 2505; mean measured mu -1.85e-01 D*, predicted ring term -7.65e-02, S term -6.33e-02; slope measured/predicted (ring + S) 1.315, (ring only) 2.214; rms residual 7.0e-02 D*
+  shift, all cells: cells 2505; mean measured mu -1.85e-01 D*, predicted ring term -7.65e-02, S term -6.33e-02; slope measured/predicted (ring + S) 1.315, (ring only) 2.214; rms residual 7.0e-02 D*
+
+row_periodic_2.0_lam5000_L20_0.04: row periodic x_in = 2.0 lambda = 5000 L = 20 dr = 0.04  (plateau windows t >= 200: 20)
+  S: J/J0 0.333 ± 0.031 (whole domain), 0.333 ± 0.031 (pocket); E/E0 0.561 ± 0.030
+  ring energy / S energy (whole domain): 0.955 ± 0.112   [slow ring 0.099 ± 0.054, D_r 0.872 ± 0.130]
+  ring action / S action (whole domain): 1.470 ± 0.363   [slow ring 0.412 ± 0.300, D_r 0.906 ± 0.157]
+  in the pocket: ring E / S E 0.955 ± 0.112, ring J / S J 1.470 ± 0.363
+  slow-ring energy at k_c = 0.3 / 0.5 / 1.0 (relative to S's): 0.038 ± 0.038 / 0.099 ± 0.054 / 0.187 ± 0.058
+  flow per unit t, in units of S's energy (whole domain): W_SD (S->D) -3.46e-04 ± 1.17e-02, W_DS (D->S) -9.82e-05 ± 1.00e-02; windows with W_SD > 0: 12/20, with W_DS > 0: 10/20
+  pocket cells with net S->D in a window: 0.494 ± 0.091; with net D->S: 0.510 ± 0.086; mean |W_SD| / (S energy) per unit t: 7.84e-03
+  shift, far from matter (S ~ 0): too few cells on a branch with a small prediction
+  shift, pocket: cells 2144; mean measured mu -2.18e-01 D*, predicted ring term -9.11e-02, S term -5.61e-02; slope measured/predicted (ring + S) 1.472, (ring only) 2.220; rms residual 1.0e-01 D*
+  shift, all cells: cells 2144; mean measured mu -2.18e-01 D*, predicted ring term -9.11e-02, S term -5.61e-02; slope measured/predicted (ring + S) 1.472, (ring only) 2.220; rms residual 1.0e-01 D*
+
+row_periodic_2.0_lam5000_L40_0.02: row periodic x_in = 2.0 lambda = 5000 L = 40 dr = 0.02  (plateau windows t >= 200: 20)
+  S: J/J0 0.467 ± 0.012 (whole domain), 0.301 ± 0.039 (pocket); E/E0 0.668 ± 0.017
+  ring energy / S energy (whole domain): 0.510 ± 0.035   [slow ring 0.097 ± 0.028, D_r 0.437 ± 0.032]
+  ring action / S action (whole domain): 0.662 ± 0.114   [slow ring 0.214 ± 0.082, D_r 0.417 ± 0.041]
+  in the pocket: ring E / S E 0.467 ± 0.095, ring J / S J 0.573 ± 0.234
+  slow-ring energy at k_c = 0.3 / 0.5 / 1.0 (relative to S's): 0.057 ± 0.025 / 0.097 ± 0.028 / 0.167 ± 0.038
+  flow per unit t, in units of S's energy (whole domain): W_SD (S->D) +1.04e-05 ± 5.94e-03, W_DS (D->S) +4.74e-04 ± 9.88e-03; windows with W_SD > 0: 9/20, with W_DS > 0: 8/20
+  pocket cells with net S->D in a window: 0.515 ± 0.080; with net D->S: 0.503 ± 0.105; mean |W_SD| / (S energy) per unit t: 4.50e-03
+  shift, far from matter (S ~ 0): cells 4506; mean measured mu -1.40e-01 D*, predicted ring term -4.63e-02, S term -5.83e-02; slope measured/predicted (ring + S) 1.297, (ring only) 2.699; rms residual 7.5e-02 D*
+  shift, pocket: cells 7092; mean measured mu -1.54e-01 D*, predicted ring term -4.93e-02, S term -7.06e-02; slope measured/predicted (ring + S) 1.232, (ring only) 2.628; rms residual 5.7e-02 D*
+  shift, all cells: cells 13719; mean measured mu -1.48e-01 D*, predicted ring term -4.80e-02, S term -6.35e-02; slope measured/predicted (ring + S) 1.281, (ring only) 2.672; rms residual 6.8e-02 D*
+  implied vacuum-energy shift far from matter: sum mu^2 D*^2 dV = 2.563e-03 against ring energy 5.909e-03 (ratio 4.34e-01); per volume 1.28e-05 against the vacuum depth 1/(2 lambda) = 1.00e-04
+
+row_periodic_2.0_lam5000_L40_0.04: row periodic x_in = 2.0 lambda = 5000 L = 40 dr = 0.04  (plateau windows t >= 200: 20)
+  S: J/J0 0.350 ± 0.014 (whole domain), 0.175 ± 0.029 (pocket); E/E0 0.581 ± 0.031
+  ring energy / S energy (whole domain): 0.816 ± 0.107   [slow ring 0.171 ± 0.059, D_r 0.677 ± 0.095]
+  ring action / S action (whole domain): 1.146 ± 0.286   [slow ring 0.379 ± 0.177, D_r 0.730 ± 0.164]
+  in the pocket: ring E / S E 0.873 ± 0.233, ring J / S J 1.301 ± 0.394
+  slow-ring energy at k_c = 0.3 / 0.5 / 1.0 (relative to S's): 0.100 ± 0.048 / 0.171 ± 0.059 / 0.283 ± 0.064
+  flow per unit t, in units of S's energy (whole domain): W_SD (S->D) -3.75e-04 ± 5.08e-03, W_DS (D->S) -3.31e-05 ± 5.37e-03; windows with W_SD > 0: 9/20, with W_DS > 0: 8/20
+  pocket cells with net S->D in a window: 0.494 ± 0.071; with net D->S: 0.495 ± 0.073; mean |W_SD| / (S energy) per unit t: 3.99e-03
+  shift, far from matter (S ~ 0): cells 4483; mean measured mu -1.50e-01 D*, predicted ring term -6.62e-02, S term -5.37e-02; slope measured/predicted (ring + S) 1.218, (ring only) 1.932; rms residual 5.3e-02 D*
+  shift, pocket: cells 7850; mean measured mu -1.49e-01 D*, predicted ring term -6.52e-02, S term -4.14e-02; slope measured/predicted (ring + S) 1.388, (ring only) 2.060; rms residual 7.7e-02 D*
+  shift, all cells: cells 14344; mean measured mu -1.49e-01 D*, predicted ring term -6.50e-02, S term -4.59e-02; slope measured/predicted (ring + S) 1.331, (ring only) 2.027; rms residual 7.1e-02 D*
+  implied vacuum-energy shift far from matter: sum mu^2 D*^2 dV = 3.487e-03 against ring energy 1.091e-02 (ratio 3.20e-01); per volume 1.51e-05 against the vacuum depth 1/(2 lambda) = 1.00e-04
+
+row_periodic_2.0_lam5000_L80_0.02: row periodic x_in = 2.0 lambda = 5000 L = 80 dr = 0.02  (plateau windows t >= 200: 20)
+  S: J/J0 0.413 ± 0.035 (whole domain), 0.093 ± 0.030 (pocket); E/E0 0.580 ± 0.019
+  ring energy / S energy (whole domain): 0.782 ± 0.061   [slow ring 0.124 ± 0.039, D_r 0.686 ± 0.063]
+  ring action / S action (whole domain): 0.872 ± 0.101   [slow ring 0.224 ± 0.079, D_r 0.639 ± 0.059]
+  in the pocket: ring E / S E 0.885 ± 0.203, ring J / S J 1.053 ± 0.451
+  slow-ring energy at k_c = 0.3 / 0.5 / 1.0 (relative to S's): 0.070 ± 0.030 / 0.124 ± 0.039 / 0.237 ± 0.054
+  flow per unit t, in units of S's energy (whole domain): W_SD (S->D) +1.41e-04 ± 1.03e-02, W_DS (D->S) -1.29e-04 ± 8.52e-03; windows with W_SD > 0: 10/20, with W_DS > 0: 9/20
+  pocket cells with net S->D in a window: 0.489 ± 0.077; with net D->S: 0.497 ± 0.100; mean |W_SD| / (S energy) per unit t: 7.25e-03
+  shift, far from matter (S ~ 0): cells 23222; mean measured mu -7.19e-02 D*, predicted ring term -3.21e-02, S term -2.81e-02; slope measured/predicted (ring + S) 1.246, (ring only) 2.046; rms residual 3.8e-02 D*
+  shift, pocket: cells 9989; mean measured mu -6.70e-02 D*, predicted ring term -2.94e-02, S term -2.65e-02; slope measured/predicted (ring + S) 1.250, (ring only) 2.108; rms residual 4.1e-02 D*
+  shift, all cells: cells 36047; mean measured mu -6.99e-02 D*, predicted ring term -3.11e-02, S term -2.74e-02; slope measured/predicted (ring + S) 1.248, (ring only) 2.068; rms residual 3.9e-02 D*
+  implied vacuum-energy shift far from matter: sum mu^2 D*^2 dV = 5.265e-03 against ring energy 1.961e-02 (ratio 2.69e-01); per volume 5.44e-06 against the vacuum depth 1/(2 lambda) = 1.00e-04
+
+row_periodic_2.0_lam5000_L80_0.04: row periodic x_in = 2.0 lambda = 5000 L = 80 dr = 0.04  (plateau windows t >= 200: 20)
+  S: J/J0 0.436 ± 0.017 (whole domain), 0.095 ± 0.054 (pocket); E/E0 0.578 ± 0.015
+  ring energy / S energy (whole domain): 0.881 ± 0.067   [slow ring 0.188 ± 0.037, D_r 0.707 ± 0.073]
+  ring action / S action (whole domain): 0.929 ± 0.066   [slow ring 0.262 ± 0.052, D_r 0.659 ± 0.075]
+  in the pocket: ring E / S E 1.150 ± 0.349, ring J / S J 1.286 ± 0.474
+  slow-ring energy at k_c = 0.3 / 0.5 / 1.0 (relative to S's): 0.110 ± 0.033 / 0.188 ± 0.037 / 0.401 ± 0.043
+  flow per unit t, in units of S's energy (whole domain): W_SD (S->D) +3.14e-04 ± 1.56e-02, W_DS (D->S) -3.12e-04 ± 1.11e-02; windows with W_SD > 0: 10/20, with W_DS > 0: 9/20
+  pocket cells with net S->D in a window: 0.492 ± 0.095; with net D->S: 0.500 ± 0.089; mean |W_SD| / (S energy) per unit t: 1.40e-02
+  shift, far from matter (S ~ 0): cells 22750; mean measured mu -7.95e-02 D*, predicted ring term -4.20e-02, S term -2.94e-02; slope measured/predicted (ring + S) 1.085, (ring only) 1.661; rms residual 2.6e-02 D*
+  shift, pocket: cells 10394; mean measured mu -6.98e-02 D*, predicted ring term -4.05e-02, S term -2.44e-02; slope measured/predicted (ring + S) 1.034, (ring only) 1.496; rms residual 2.2e-02 D*
+  shift, all cells: cells 36012; mean measured mu -7.65e-02 D*, predicted ring term -4.17e-02, S term -2.79e-02; slope measured/predicted (ring + S) 1.068, (ring only) 1.607; rms residual 2.4e-02 D*
+  implied vacuum-energy shift far from matter: sum mu^2 D*^2 dV = 7.901e-03 against ring energy 2.987e-02 (ratio 2.65e-01); per volume 7.65e-06 against the vacuum depth 1/(2 lambda) = 1.00e-04
+
+row_periodic_3.266_lam10000_L40_0.04: row periodic x_in = 3.266 lambda = 10000 L = 40 dr = 0.04  (plateau windows t >= 200: 20)
+  S: J/J0 0.320 ± 0.010 (whole domain), 0.181 ± 0.023 (pocket); E/E0 0.533 ± 0.016
+  ring energy / S energy (whole domain): 0.906 ± 0.047   [slow ring 0.086 ± 0.027, D_r 0.831 ± 0.051]
+  ring action / S action (whole domain): 1.154 ± 0.115   [slow ring 0.245 ± 0.082, D_r 0.849 ± 0.083]
+  in the pocket: ring E / S E 0.893 ± 0.099, ring J / S J 1.097 ± 0.207
+  slow-ring energy at k_c = 0.3 / 0.5 / 1.0 (relative to S's): 0.042 ± 0.020 / 0.086 ± 0.027 / 0.170 ± 0.035
+  flow per unit t, in units of S's energy (whole domain): W_SD (S->D) +2.59e-04 ± 3.89e-03, W_DS (D->S) -4.11e-04 ± 6.44e-03; windows with W_SD > 0: 12/20, with W_DS > 0: 9/20
+  pocket cells with net S->D in a window: 0.493 ± 0.073; with net D->S: 0.502 ± 0.081; mean |W_SD| / (S energy) per unit t: 3.22e-03
+  shift, far from matter (S ~ 0): cells 2393; mean measured mu -1.77e-01 D*, predicted ring term -7.79e-02, S term -6.24e-02; slope measured/predicted (ring + S) 1.243, (ring only) 2.073; rms residual 5.6e-02 D*
+  shift, pocket: cells 4689; mean measured mu -1.84e-01 D*, predicted ring term -8.17e-02, S term -6.06e-02; slope measured/predicted (ring + S) 1.271, (ring only) 2.010; rms residual 6.5e-02 D*
+  shift, all cells: cells 8570; mean measured mu -1.83e-01 D*, predicted ring term -8.09e-02, S term -6.02e-02; slope measured/predicted (ring + S) 1.274, (ring only) 2.047; rms residual 6.4e-02 D*
+  implied vacuum-energy shift far from matter: sum mu^2 D*^2 dV = 2.400e-03 against ring energy 6.117e-03 (ratio 3.92e-01); per volume 1.27e-05 against the vacuum depth 1/(2 lambda) = 5.00e-05
+
+row_periodic_3.266_lam2500_L40_0.04: row periodic x_in = 3.266 lambda = 2500 L = 40 dr = 0.04  (plateau windows t >= 200: 20)
+  S: J/J0 0.316 ± 0.011 (whole domain), 0.171 ± 0.024 (pocket); E/E0 0.598 ± 0.019
+  ring energy / S energy (whole domain): 0.714 ± 0.077   [slow ring 0.099 ± 0.024, D_r 0.630 ± 0.058]
+  ring action / S action (whole domain): 1.164 ± 0.093   [slow ring 0.316 ± 0.066, D_r 0.785 ± 0.069]
+  in the pocket: ring E / S E 0.731 ± 0.131, ring J / S J 1.147 ± 0.304
+  slow-ring energy at k_c = 0.3 / 0.5 / 1.0 (relative to S's): 0.049 ± 0.021 / 0.099 ± 0.024 / 0.183 ± 0.035
+  flow per unit t, in units of S's energy (whole domain): W_SD (S->D) +1.02e-04 ± 6.15e-03, W_DS (D->S) -2.29e-04 ± 5.45e-03; windows with W_SD > 0: 9/20, with W_DS > 0: 9/20
+  pocket cells with net S->D in a window: 0.487 ± 0.094; with net D->S: 0.493 ± 0.079; mean |W_SD| / (S energy) per unit t: 4.89e-03
+  shift, far from matter (S ~ 0): cells 1888; mean measured mu -2.08e-01 D*, predicted ring term -8.75e-02, S term -6.45e-02; slope measured/predicted (ring + S) 1.358, (ring only) 2.209; rms residual 7.9e-02 D*
+  shift, pocket: cells 5526; mean measured mu -1.84e-01 D*, predicted ring term -8.24e-02, S term -6.21e-02; slope measured/predicted (ring + S) 1.248, (ring only) 2.034; rms residual 5.6e-02 D*
+  shift, all cells: cells 8963; mean measured mu -1.90e-01 D*, predicted ring term -8.19e-02, S term -6.34e-02; slope measured/predicted (ring + S) 1.281, (ring only) 2.113; rms residual 6.3e-02 D*
+  implied vacuum-energy shift far from matter: sum mu^2 D*^2 dV = 1.280e-02 against ring energy 3.073e-02 (ratio 4.17e-01); per volume 7.06e-05 against the vacuum depth 1/(2 lambda) = 2.00e-04
+
+row_periodic_3.266_lam5000_L20_0.02: row periodic x_in = 3.266 lambda = 5000 L = 20 dr = 0.02  (plateau windows t >= 200: 20)
+  S: J/J0 0.239 ± 0.019 (whole domain), 0.239 ± 0.019 (pocket); E/E0 0.510 ± 0.026
+  ring energy / S energy (whole domain): 1.072 ± 0.105   [slow ring 0.071 ± 0.030, D_r 1.004 ± 0.095]
+  ring action / S action (whole domain): 2.353 ± 0.485   [slow ring 0.561 ± 0.291, D_r 1.531 ± 0.325]
+  in the pocket: ring E / S E 1.072 ± 0.105, ring J / S J 2.353 ± 0.485
+  slow-ring energy at k_c = 0.3 / 0.5 / 1.0 (relative to S's): 0.042 ± 0.037 / 0.071 ± 0.030 / 0.217 ± 0.057
+  flow per unit t, in units of S's energy (whole domain): W_SD (S->D) -2.03e-04 ± 6.68e-03, W_DS (D->S) +5.10e-04 ± 6.42e-03; windows with W_SD > 0: 8/20, with W_DS > 0: 11/20
+  pocket cells with net S->D in a window: 0.492 ± 0.069; with net D->S: 0.508 ± 0.060; mean |W_SD| / (S energy) per unit t: 5.47e-03
+  shift, far from matter (S ~ 0): too few cells on a branch with a small prediction
+  shift, pocket: cells 191; mean measured mu -2.48e-01 D*, predicted ring term -8.80e-02, S term -7.63e-02; slope measured/predicted (ring + S) 1.497, (ring only) 2.596; rms residual 9.1e-02 D*
+  shift, all cells: cells 191; mean measured mu -2.48e-01 D*, predicted ring term -8.80e-02, S term -7.63e-02; slope measured/predicted (ring + S) 1.497, (ring only) 2.596; rms residual 9.1e-02 D*
+
+row_periodic_3.266_lam5000_L20_0.04: row periodic x_in = 3.266 lambda = 5000 L = 20 dr = 0.04  (plateau windows t >= 200: 20)
+  S: J/J0 0.303 ± 0.021 (whole domain), 0.303 ± 0.021 (pocket); E/E0 0.596 ± 0.032
+  ring energy / S energy (whole domain): 0.770 ± 0.101   [slow ring 0.047 ± 0.021, D_r 0.725 ± 0.096]
+  ring action / S action (whole domain): 1.452 ± 0.339   [slow ring 0.358 ± 0.180, D_r 0.862 ± 0.175]
+  in the pocket: ring E / S E 0.770 ± 0.101, ring J / S J 1.452 ± 0.339
+  slow-ring energy at k_c = 0.3 / 0.5 / 1.0 (relative to S's): 0.026 ± 0.016 / 0.047 ± 0.021 / 0.107 ± 0.037
+  flow per unit t, in units of S's energy (whole domain): W_SD (S->D) +6.06e-04 ± 6.93e-03, W_DS (D->S) +2.14e-04 ± 5.46e-03; windows with W_SD > 0: 9/20, with W_DS > 0: 10/20
+  pocket cells with net S->D in a window: 0.511 ± 0.077; with net D->S: 0.491 ± 0.060; mean |W_SD| / (S energy) per unit t: 5.58e-03
+  shift, far from matter (S ~ 0): too few cells on a branch with a small prediction
+  shift, pocket: cells 306; mean measured mu -2.91e-01 D*, predicted ring term -9.52e-02, S term -7.47e-02; slope measured/predicted (ring + S) 1.702, (ring only) 2.796; rms residual 1.4e-01 D*
+  shift, all cells: cells 306; mean measured mu -2.91e-01 D*, predicted ring term -9.52e-02, S term -7.47e-02; slope measured/predicted (ring + S) 1.702, (ring only) 2.796; rms residual 1.4e-01 D*
+
+row_periodic_3.266_lam5000_L40_0.02: row periodic x_in = 3.266 lambda = 5000 L = 40 dr = 0.02  (plateau windows t >= 200: 20)
+  S: J/J0 0.300 ± 0.007 (whole domain), 0.158 ± 0.017 (pocket); E/E0 0.519 ± 0.008
+  ring energy / S energy (whole domain): 0.957 ± 0.041   [slow ring 0.126 ± 0.029, D_r 0.846 ± 0.029]
+  ring action / S action (whole domain): 1.266 ± 0.091   [slow ring 0.345 ± 0.075, D_r 0.836 ± 0.053]
+  in the pocket: ring E / S E 0.989 ± 0.161, ring J / S J 1.328 ± 0.226
+  slow-ring energy at k_c = 0.3 / 0.5 / 1.0 (relative to S's): 0.049 ± 0.015 / 0.126 ± 0.029 / 0.200 ± 0.029
+  flow per unit t, in units of S's energy (whole domain): W_SD (S->D) -6.27e-04 ± 7.01e-03, W_DS (D->S) +7.94e-05 ± 4.65e-03; windows with W_SD > 0: 6/20, with W_DS > 0: 12/20
+  pocket cells with net S->D in a window: 0.492 ± 0.088; with net D->S: 0.489 ± 0.055; mean |W_SD| / (S energy) per unit t: 5.23e-03
+  shift, far from matter (S ~ 0): cells 2621; mean measured mu -1.86e-01 D*, predicted ring term -7.82e-02, S term -6.13e-02; slope measured/predicted (ring + S) 1.318, (ring only) 2.167; rms residual 7.0e-02 D*
+  shift, pocket: cells 5286; mean measured mu -1.84e-01 D*, predicted ring term -8.31e-02, S term -5.80e-02; slope measured/predicted (ring + S) 1.278, (ring only) 2.001; rms residual 7.1e-02 D*
+  shift, all cells: cells 9018; mean measured mu -1.87e-01 D*, predicted ring term -8.13e-02, S term -6.01e-02; slope measured/predicted (ring + S) 1.300, (ring only) 2.081; rms residual 7.1e-02 D*
+  implied vacuum-energy shift far from matter: sum mu^2 D*^2 dV = 5.631e-03 against ring energy 1.390e-02 (ratio 4.05e-01); per volume 2.77e-05 against the vacuum depth 1/(2 lambda) = 1.00e-04
+
+row_periodic_3.266_lam5000_L40_0.04: row periodic x_in = 3.266 lambda = 5000 L = 40 dr = 0.04  (plateau windows t >= 200: 20)
+  S: J/J0 0.291 ± 0.015 (whole domain), 0.164 ± 0.031 (pocket); E/E0 0.486 ± 0.026
+  ring energy / S energy (whole domain): 1.030 ± 0.102   [slow ring 0.099 ± 0.044, D_r 0.950 ± 0.070]
+  ring action / S action (whole domain): 1.355 ± 0.297   [slow ring 0.349 ± 0.185, D_r 0.886 ± 0.097]
+  in the pocket: ring E / S E 1.025 ± 0.202, ring J / S J 1.302 ± 0.355
+  slow-ring energy at k_c = 0.3 / 0.5 / 1.0 (relative to S's): 0.060 ± 0.038 / 0.099 ± 0.044 / 0.175 ± 0.068
+  flow per unit t, in units of S's energy (whole domain): W_SD (S->D) -1.00e-04 ± 6.95e-03, W_DS (D->S) +7.50e-04 ± 7.93e-03; windows with W_SD > 0: 11/20, with W_DS > 0: 11/20
+  pocket cells with net S->D in a window: 0.487 ± 0.081; with net D->S: 0.506 ± 0.073; mean |W_SD| / (S energy) per unit t: 5.24e-03
+  shift, far from matter (S ~ 0): cells 2727; mean measured mu -2.02e-01 D*, predicted ring term -7.59e-02, S term -6.00e-02; slope measured/predicted (ring + S) 1.462, (ring only) 2.357; rms residual 9.7e-02 D*
+  shift, pocket: cells 5229; mean measured mu -1.89e-01 D*, predicted ring term -7.14e-02, S term -5.70e-02; slope measured/predicted (ring + S) 1.461, (ring only) 2.485; rms residual 9.2e-02 D*
+  shift, all cells: cells 9383; mean measured mu -1.97e-01 D*, predicted ring term -7.27e-02, S term -5.77e-02; slope measured/predicted (ring + S) 1.497, (ring only) 2.491; rms residual 9.9e-02 D*
+  implied vacuum-energy shift far from matter: sum mu^2 D*^2 dV = 4.757e-03 against ring energy 1.029e-02 (ratio 4.62e-01); per volume 2.84e-05 against the vacuum depth 1/(2 lambda) = 1.00e-04
+
+row_periodic_3.266_lam5000_L80_0.02: row periodic x_in = 3.266 lambda = 5000 L = 80 dr = 0.02  (plateau windows t >= 200: 20)
+  S: J/J0 0.367 ± 0.004 (whole domain), 0.117 ± 0.027 (pocket); E/E0 0.569 ± 0.026
+  ring energy / S energy (whole domain): 0.717 ± 0.043   [slow ring 0.117 ± 0.020, D_r 0.641 ± 0.043]
+  ring action / S action (whole domain): 0.916 ± 0.092   [slow ring 0.245 ± 0.051, D_r 0.652 ± 0.059]
+  in the pocket: ring E / S E 0.704 ± 0.159, ring J / S J 0.800 ± 0.279
+  slow-ring energy at k_c = 0.3 / 0.5 / 1.0 (relative to S's): 0.078 ± 0.024 / 0.117 ± 0.020 / 0.190 ± 0.020
+  flow per unit t, in units of S's energy (whole domain): W_SD (S->D) -3.99e-04 ± 5.15e-03, W_DS (D->S) +4.86e-04 ± 6.20e-03; windows with W_SD > 0: 9/20, with W_DS > 0: 12/20
+  pocket cells with net S->D in a window: 0.495 ± 0.077; with net D->S: 0.509 ± 0.099; mean |W_SD| / (S energy) per unit t: 4.08e-03
+  shift, far from matter (S ~ 0): cells 22040; mean measured mu -1.02e-01 D*, predicted ring term -4.40e-02, S term -4.54e-02; slope measured/predicted (ring + S) 1.120, (ring only) 2.051; rms residual 3.9e-02 D*
+  shift, pocket: cells 8576; mean measured mu -1.08e-01 D*, predicted ring term -4.08e-02, S term -4.62e-02; slope measured/predicted (ring + S) 1.238, (ring only) 2.440; rms residual 5.6e-02 D*
+  shift, all cells: cells 33156; mean measured mu -1.05e-01 D*, predicted ring term -4.33e-02, S term -4.54e-02; slope measured/predicted (ring + S) 1.168, (ring only) 2.162; rms residual 4.7e-02 D*
+  implied vacuum-energy shift far from matter: sum mu^2 D*^2 dV = 7.533e-03 against ring energy 2.834e-02 (ratio 2.66e-01); per volume 7.97e-06 against the vacuum depth 1/(2 lambda) = 1.00e-04
+
+row_periodic_3.266_lam5000_L80_0.04: row periodic x_in = 3.266 lambda = 5000 L = 80 dr = 0.04  (plateau windows t >= 200: 20)
+  S: J/J0 0.360 ± 0.006 (whole domain), 0.113 ± 0.017 (pocket); E/E0 0.518 ± 0.006
+  ring energy / S energy (whole domain): 0.899 ± 0.043   [slow ring 0.120 ± 0.038, D_r 0.795 ± 0.038]
+  ring action / S action (whole domain): 1.022 ± 0.119   [slow ring 0.244 ± 0.109, D_r 0.752 ± 0.057]
+  in the pocket: ring E / S E 0.876 ± 0.212, ring J / S J 0.846 ± 0.194
+  slow-ring energy at k_c = 0.3 / 0.5 / 1.0 (relative to S's): 0.079 ± 0.030 / 0.120 ± 0.038 / 0.269 ± 0.046
+  flow per unit t, in units of S's energy (whole domain): W_SD (S->D) -2.94e-04 ± 7.03e-03, W_DS (D->S) +2.79e-04 ± 1.01e-02; windows with W_SD > 0: 8/20, with W_DS > 0: 10/20
+  pocket cells with net S->D in a window: 0.475 ± 0.079; with net D->S: 0.513 ± 0.120; mean |W_SD| / (S energy) per unit t: 5.47e-03
+  shift, far from matter (S ~ 0): cells 20980; mean measured mu -1.17e-01 D*, predicted ring term -5.42e-02, S term -4.09e-02; slope measured/predicted (ring + S) 1.205, (ring only) 1.912; rms residual 5.5e-02 D*
+  shift, pocket: cells 9324; mean measured mu -1.15e-01 D*, predicted ring term -5.81e-02, S term -4.62e-02; slope measured/predicted (ring + S) 1.069, (ring only) 1.679; rms residual 2.7e-02 D*
+  shift, all cells: cells 33279; mean measured mu -1.15e-01 D*, predicted ring term -5.57e-02, S term -4.19e-02; slope measured/predicted (ring + S) 1.147, (ring only) 1.800; rms residual 4.7e-02 D*
+  implied vacuum-energy shift far from matter: sum mu^2 D*^2 dV = 1.091e-02 against ring energy 3.465e-02 (ratio 3.15e-01); per volume 1.15e-05 against the vacuum depth 1/(2 lambda) = 1.00e-04
