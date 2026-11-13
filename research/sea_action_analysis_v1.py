@@ -20,7 +20,7 @@ at D* away from matter):
     e = delta_t^2/2 + delta'^2/2 + m^2 delta^2/2,   p = delta_t^2/2 - delta'^2/6 - m^2 delta^2/2   (isotropic average)
 w = <p>/<e> over the window and region (dust: w = 0; radiation: 1/3). Anharmonic corrections are neglected.
 Usage: python research/sea_action_analysis_v1.py flat DIR        (Tasks 1, 2 on research/sd_sea_v1.py output)
-       python research/sea_action_analysis_v1.py grav DIR        (Tasks 0, 1, 3 on research/dm_one_budget_v1.py output)
+       python research/sea_action_analysis_v1.py grav DIR [tmax] (Tasks 0, 1, 3 on research/dm_one_budget_v1.py output)
 """
 import glob
 import math
@@ -34,8 +34,8 @@ DSTAR = math.sqrt(2 / LAM)
 
 
 def windows(t, W, t0=0.0):
-    edges = np.arange(t0, t[-1] + 1e-9, W)
-    return [(a, a + W, (t >= a) & (t < a + W)) for a in edges[:-1] if ((t >= a) & (t < a + W)).sum() >= 4]
+    edges = np.arange(t0, t[-1] - 0.75 * W + 1e-9, W)
+    return [(a, a + W, (t >= a) & (t < a + W)) for a in edges if ((t >= a) & (t < a + W)).sum() >= 4]
 
 
 def action(S, St, vol, mask, sel):
@@ -158,16 +158,19 @@ def flat(dirn):
 
 
 # ------------------------------------------------------------------------------------------- gravity runs (Tasks 0, 1, 3)
-def load_grav(path):
+def load_grav(path, tmax=None):
     d = np.load(path)
     r = d["r"]; dr = float(r[1] - r[0]); t = d["t"]
-    grr = d["grr"] if "grr" in d.files else np.ones_like(d["S"])
+    n = len(t) if tmax is None else int(np.searchsorted(t, tmax + 1e-9))
+    d = {k: (d[k][:n] if d[k].ndim and len(d[k]) == len(t) else d[k]) for k in d.files}
+    t = d["t"]
+    grr = d["grr"] if "grr" in d else np.ones_like(d["S"])
     return dict(r=r, dr=dr, t=t, S=d["S"], PS=d["PS"], D=d["D"], PD=d["PD"], dV=d["dV"], grr=grr, rho=d["rho_dm"],
                 alpha=d["alpha"], name=os.path.basename(path)[:-4])
 
 
-def grav(dirn, W=8.0):
-    runs = {os.path.basename(f)[:-4]: load_grav(f) for f in sorted(glob.glob(os.path.join(dirn, "*.npz")))
+def grav(dirn, W=6.0, tmax=None):
+    runs = {os.path.basename(f)[:-4]: load_grav(f, tmax) for f in sorted(glob.glob(os.path.join(dirn, "*.npz")))
             if not os.path.basename(f).startswith("cfl")}
     print("Gravity on, one-budget rule, lambda = 5000 (c^2 = 304.92, H0 = 0.099); pocket = coordinate r < 11, proper volume.")
     print(f"Windows of {W:g} coordinate time units. S_tau = PS (normal-observer proper-time derivative); proper gradient"
@@ -220,4 +223,7 @@ def grav(dirn, W=8.0):
 
 
 if __name__ == "__main__":
-    {"flat": flat, "grav": grav}[sys.argv[1]](sys.argv[2])
+    if sys.argv[1] == "grav":
+        grav(sys.argv[2], tmax=float(sys.argv[3]) if len(sys.argv) > 3 else None)
+    else:
+        flat(sys.argv[2])
