@@ -1,0 +1,4 @@
+dr10_full_2.0_0.npz: E_S0 = 5.6852e-02; E_S/E_S0 at t = 8/16/24: 1.340/1.228/1.285; no-D: 0.810/0.844/0.790
+  t = 0-4: DM energy in +6.79e-03 per unit t; d/dt[E_S(full) - E_S(noD)] +2.67e-03; ratio 2.5
+  t = 4-12: DM energy in +1.02e-02 per unit t; d/dt[E_S(full) - E_S(noD)] +1.08e-03; ratio 9.4
+  t = 12-24: DM energy in +4.32e-03 per unit t; d/dt[E_S(full) - E_S(noD)] +1.59e-04; ratio 27.1

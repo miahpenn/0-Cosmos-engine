@@ -1,0 +1,52 @@
+Gravity on, one-budget rule, lambda = 5000 (c^2 = 304.92, H0 = 0.099); pocket = coordinate r < 11, proper volume.
+Windows of 6 coordinate time units. S_tau = PS (normal-observer proper-time derivative); proper gradient S'^2 / gamma_rr (the metric correction).
+
+full_1.5_-0.04: t_end = 23.9
+   window    J/J0    E_S/E_S0  E_S+int/E_S0 | settled D (k<0.5): E_pocket   E(r<20)   w(r<20) | travelling E(r<20) w | settled E k_c 0.3/1.0
+      0-6      1.000     1.000      1.309    |  5.563e-03  5.925e-03  -0.392 |  2.284e-03 -0.084 | 6.071e-03 / 7.344e-03
+      6-12     0.880     1.030      1.531    |  3.340e-03  4.078e-03  -0.269 |  6.570e-03 -0.106 | 2.195e-03 / 8.701e-03
+     12-18     0.852     1.071      1.580    |  3.147e-03  4.161e-03  -0.249 |  6.712e-03 -0.003 | 2.417e-03 / 8.299e-03
+     18-24     0.828     1.114      1.632    |  3.037e-03  4.841e-03  -0.321 |  7.150e-03 -0.085 | 3.307e-03 / 8.397e-03
+  last 16 units, profiles: r=0.5: settled D 5.11e-06, S 1.69e-05; r=4: settled D 2.79e-06, S 3.54e-05; r=8: settled D 3.95e-07, S 2.87e-06; r=11: settled D 5.06e-08, S 6.02e-08; r=14: settled D 7.13e-08, S 1.54e-10; r=18: settled D 1.15e-07, S 4.03e-14; r=22: settled D 3.25e-08, S 1.52e-17
+
+full_1.5_0: t_end = 23.9
+   window    J/J0    E_S/E_S0  E_S+int/E_S0 | settled D (k<0.5): E_pocket   E(r<20)   w(r<20) | travelling E(r<20) w | settled E k_c 0.3/1.0
+      0-6      1.000     1.000      1.297    |  4.666e-03  4.981e-03  -0.339 |  2.173e-03 -0.084 | 5.128e-03 / 6.325e-03
+      6-12     0.882     1.027      1.512    |  2.543e-03  2.945e-03  -0.194 |  6.280e-03 -0.088 | 1.372e-03 / 7.324e-03
+     12-18     0.855     1.080      1.557    |  2.481e-03  2.814e-03  -0.032 |  6.508e-03 -0.047 | 1.307e-03 / 6.974e-03
+     18-24     0.835     1.098      1.594    |  2.325e-03  2.586e-03  -0.112 |  6.409e-03 -0.048 | 1.300e-03 / 6.114e-03
+  last 16 units, profiles: r=0.5: settled D 3.46e-06, S 1.66e-05; r=4: settled D 1.84e-06, S 3.41e-05; r=8: settled D 2.08e-07, S 2.76e-06; r=11: settled D 8.42e-09, S 5.78e-08; r=14: settled D 1.98e-08, S 1.50e-10; r=18: settled D 1.41e-09, S 3.86e-14; r=22: settled D 3.18e-09, S 1.47e-17
+
+full_2.0_-0.04: t_end = 23.9
+   window    J/J0    E_S/E_S0  E_S+int/E_S0 | settled D (k<0.5): E_pocket   E(r<20)   w(r<20) | travelling E(r<20) w | settled E k_c 0.3/1.0
+      0-6      1.000     1.000      1.201    |  3.512e-03  3.883e-03  -0.289 |  3.557e-03 -0.154 | 4.531e-03 / 6.565e-03
+      6-12     0.873     1.107      1.572    |  2.623e-03  3.241e-03  +0.115 |  1.417e-02 +0.007 | 1.887e-03 / 9.287e-03
+     12-18     0.848     1.200      1.703    |  2.693e-03  3.828e-03  -0.003 |  1.521e-02 -0.029 | 2.400e-03 / 9.151e-03
+     18-24     0.832     1.297      1.809    |  2.665e-03  4.649e-03  -0.405 |  1.681e-02 -0.096 | 3.138e-03 / 1.025e-02
+  last 16 units, profiles: r=0.5: settled D 3.58e-06, S 2.39e-05; r=4: settled D 2.43e-06, S 5.31e-05; r=8: settled D 3.65e-07, S 3.03e-06; r=11: settled D 5.62e-08, S 5.38e-08; r=14: settled D 7.47e-08, S 1.70e-10; r=18: settled D 1.12e-07, S 5.41e-14; r=22: settled D 3.00e-08, S 2.04e-17
+
+full_2.0_0: t_end = 23.9
+   window    J/J0    E_S/E_S0  E_S+int/E_S0 | settled D (k<0.5): E_pocket   E(r<20)   w(r<20) | travelling E(r<20) w | settled E k_c 0.3/1.0
+      0-6      1.000     1.000      1.193    |  2.941e-03  3.210e-03  -0.243 |  3.304e-03 -0.158 | 3.689e-03 / 5.645e-03
+      6-12     0.875     1.103      1.548    |  2.504e-03  2.795e-03  +0.167 |  1.277e-02 +0.023 | 1.486e-03 / 8.093e-03
+     12-18     0.850     1.200      1.670    |  2.378e-03  2.670e-03  +0.181 |  1.338e-02 -0.018 | 1.355e-03 / 7.285e-03
+     18-24     0.835     1.296      1.777    |  1.863e-03  2.165e-03  +0.100 |  1.479e-02 -0.037 | 9.700e-04 / 6.890e-03
+  last 16 units, profiles: r=0.5: settled D 2.15e-06, S 2.39e-05; r=4: settled D 1.46e-06, S 5.08e-05; r=8: settled D 1.70e-07, S 2.94e-06; r=11: settled D 6.67e-09, S 5.07e-08; r=14: settled D 1.43e-08, S 1.65e-10; r=18: settled D 1.13e-09, S 5.16e-14; r=22: settled D 2.42e-09, S 1.96e-17
+
+noD_1.5_0: t_end = 23.9
+   window    J/J0    E_S/E_S0  E_S+int/E_S0 | settled D (k<0.5): E_pocket   E(r<20)   w(r<20) | travelling E(r<20) w | settled E k_c 0.3/1.0
+      0-6      1.000     1.000      1.000    |
+      6-12     0.881     0.834      0.834    |
+     12-18     0.828     0.772      0.772    |
+     18-24     0.798     0.739      0.739    |
+
+noD_2.0_0: t_end = 23.9
+   window    J/J0    E_S/E_S0  E_S+int/E_S0 | settled D (k<0.5): E_pocket   E(r<20)   w(r<20) | travelling E(r<20) w | settled E k_c 0.3/1.0
+      0-6      1.000     1.000      1.000    |
+      6-12     0.882     0.828      0.828    |
+     12-18     0.829     0.764      0.764    |
+     18-24     0.800     0.730      0.730    |
+
+nomatter_2.0_-0.04: t_end = 23.9
+
+nomatter_2.0_0: t_end = 23.9

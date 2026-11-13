@@ -1,0 +1,21 @@
+Gravity on, one-budget rule, lambda = 5000 (c^2 = 304.92, H0 = 0.099); pocket = coordinate r < 11, proper volume.
+Windows of 6 coordinate time units. S_tau = PS (normal-observer proper-time derivative); proper gradient S'^2 / gamma_rr (the metric correction).
+
+dr10_full_2.0_0: t_end = 40.0
+   window    J/J0    E_S/E_S0  E_S+int/E_S0 | settled D (k<0.5): E_pocket   E(r<20)   w(r<20) | travelling E(r<20) w | settled E k_c 0.3/1.0
+      0-6      1.000     1.000      1.200    |  2.875e-03  3.128e-03  -0.244 |  2.707e-03 -0.118 | 3.658e-03 / 5.256e-03
+      6-12     0.874     0.973      1.433    |  2.423e-03  2.701e-03  +0.189 |  1.023e-02 +0.113 | 1.451e-03 / 7.291e-03
+     12-18     0.848     0.940      1.426    |  2.302e-03  2.582e-03  +0.208 |  1.004e-02 +0.089 | 1.324e-03 / 6.580e-03
+     18-24     0.833     0.919      1.415    |  1.806e-03  2.097e-03  +0.088 |  1.064e-02 +0.076 | 9.518e-04 / 6.307e-03
+     24-30     0.821     0.899      1.394    |  1.460e-03  1.724e-03  -0.099 |  1.124e-02 +0.015 | 7.360e-04 / 5.697e-03
+     30-36     0.809     0.883      1.371    |  1.236e-03  1.471e-03  +0.041 |  1.106e-02 +0.115 | 6.112e-04 / 5.246e-03
+  last 16 units, profiles: r=0.5: settled D 1.52e-07, S 3.01e-05; r=4: settled D 1.28e-07, S 1.08e-05; r=8: settled D 9.31e-09, S 2.29e-07; r=11: settled D 7.66e-10, S 8.33e-09; r=14: settled D 1.70e-09, S 5.50e-11; r=18: settled D 1.11e-10, S 7.21e-15; r=22: settled D 2.67e-10, S 3.10e-18
+
+dr10_noD_2.0_0: t_end = 40.0
+   window    J/J0    E_S/E_S0  E_S+int/E_S0 | settled D (k<0.5): E_pocket   E(r<20)   w(r<20) | travelling E(r<20) w | settled E k_c 0.3/1.0
+      0-6      1.000     1.000      1.000    |
+      6-12     0.880     0.807      0.807    |
+     12-18     0.826     0.741      0.741    |
+     18-24     0.796     0.708      0.708    |
+     24-30     0.778     0.688      0.688    |
+     30-36     0.762     0.673      0.673    |
