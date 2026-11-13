@@ -27,7 +27,8 @@ conserved energy and rest mass per cell (times cell volume), proper volume per c
 Unpaid inputs: lambda = 5000; V0 (rescaled by c^2, so its ratio to the floor is production's); phi_today = 0.179055
 (imported "today", map row 10); beta_D = 0 or -0.04 (beta_S = 0); D's seed 1e-10; x_c; the cold start. G_N = 1;
 G_reset not involved.
-Usage (repo root): python research/dm_one_budget_v1.py CASE x_c beta_D N RMAX T out.npz
+Usage (repo root): python research/dm_one_budget_v1.py CASE x_c beta_D N RMAX T out.npz [CFL]
+  CFL = dt/dr (default 0.06, as in PR #475). Also records gamma_rr = a/X^2 ("grr") for the proper-gradient read-out.
 """
 import dataclasses
 import math
@@ -123,6 +124,7 @@ def initial(case, x_c, beta_D, N, RMAX):
 def main():
     case, x_c, beta_D = sys.argv[1], float(sys.argv[2]), float(sys.argv[3])
     N, RMAX, T, out = int(sys.argv[4]), float(sys.argv[5]), float(sys.argv[6]), sys.argv[7]
+    cfl = float(sys.argv[8]) if len(sys.argv) > 8 else 0.06
     import contextlib
     ctx = g91.coupled(beta_S=0.0, beta_D=beta_D) if beta_D != 0.0 else contextlib.nullcontext()
     with ctx:
@@ -131,8 +133,8 @@ def main():
         st.geometry.alpha[:] = k._solve_lapse_for_state(grid, st.geometry, st.scalars, st.matter, None)[0]
         print(f"[{case} x_c={x_c} beta_D={beta_D}] lambda={LAM:g} c^2={C2:.2f} V0={ss.V0:.4e} D_POT={ss.D_POT} H0={H0:.4f}",
               flush=True)
-        dr = float(grid.dr); dt = 0.06 * dr; every = max(1, int(round(0.5 / dt)))
-        keys = ("t", "alpha", "R", "S", "PS", "D", "PD", "phi", "Pi", "K", "rho_dm", "dm_E", "dm_rest", "dV")
+        dr = float(grid.dr); dt = cfl * dr; every = max(1, int(round(0.5 / dt)))
+        keys = ("t", "alpha", "R", "S", "PS", "D", "PD", "phi", "Pi", "K", "rho_dm", "dm_E", "dm_rest", "dV", "grr")
         rec = {kk: [] for kk in keys}
         nsteps = int(round(T / dt))
         vols = np.asarray(grid.volumes, float)
@@ -146,7 +148,7 @@ def main():
                               ("PS", st.scalars.PS), ("D", st.scalars.D), ("PD", st.scalars.PD),
                               ("phi", st.scalars.phi), ("Pi", st.scalars.Pi), ("K", g.K), ("rho_dm", rdm),
                               ("dm_E", np.asarray(dmst.energy_t) * vols), ("dm_rest", np.asarray(dmst.rest) * vols),
-                              ("dV", sqrtg * vols)):
+                              ("dV", sqrtg * vols), ("grr", g.a / g.X**2)):
                     rec[kk].append(np.array(v, dtype=float).copy())
                 if n % (every * 4) == 0:
                     print(f"t={st.t:6.2f} a0={g.alpha[0]:.4f} K0={g.K[0]:+.4f} S(0)={st.scalars.S[0]:+.3e} "
