@@ -19,7 +19,8 @@ about the window mean, with the local curvature m^2 = -1 + (3 lambda/2)(<D>^2 + 
 at D* away from matter):
     e = delta_t^2/2 + delta'^2/2 + m^2 delta^2/2,   p = delta_t^2/2 - delta'^2/6 - m^2 delta^2/2   (isotropic average)
 w = <p>/<e> over the window and region (dust: w = 0; radiation: 1/3). Anharmonic corrections are neglected.
-Usage: python research/sea_action_analysis_v1.py flat DIR        (Tasks 1, 2 on research/sd_sea_v1.py output)
+Usage: python research/sea_action_analysis_v1.py rates475 FULL.npz NOD.npz NOMATTER.npz  (PR #475 table, proper gradient)
+       python research/sea_action_analysis_v1.py flat DIR        (Tasks 1, 2 on research/sd_sea_v1.py output)
        python research/sea_action_analysis_v1.py grav DIR [tmax] (Tasks 0, 1, 3 on research/dm_one_budget_v1.py output)
 """
 import glob
@@ -223,7 +224,35 @@ def grav(dirn, W=6.0, tmax=None):
 
 
 if __name__ == "__main__":
-    if sys.argv[1] == "grav":
+    if sys.argv[1] == "rates475":
+        pass
+    elif sys.argv[1] == "grav":
         grav(sys.argv[2], tmax=float(sys.argv[3]) if len(sys.argv) > 3 else None)
     else:
         flat(sys.argv[2])
+
+
+def rates475(full, noD, ctrl):
+    """PR #475's rate table (b) recomputed with the proper gradient (S'^2 / gamma_rr). Instantaneous E_S in r < 11."""
+    def es(p):
+        d = np.load(p); r = d["r"]; dr = float(r[1] - r[0]); ins = r < 11.0
+        g = d["grr"] if "grr" in d.files else np.ones_like(d["S"])
+        e = (0.5 * d["PS"]**2 + 0.5 * np.gradient(d["S"], dr, axis=-1)**2 / g + 0.5 * d["S"]**2 + LAM / 8 * d["S"]**4)
+        return d["t"], (e * d["dV"])[:, ins].sum(1), d
+    t, Ef, df = es(full); _, En, _ = es(noD)
+    dc = np.load(ctrl)
+    n = min(len(t), len(dc["t"]), len(En))
+    ins = df["r"] < 11.0
+    edm = (df["dm_E"][:n][:, ins].sum(1) - dc["dm_E"][:n][:, ins].sum(1)) / (8 * math.pi)
+    print(f"{os.path.basename(full)}: E_S0 = {Ef[0]:.4e}; E_S/E_S0 at t = 8/16/24: "
+          + "/".join(f"{Ef[np.argmin(abs(t - x))] / Ef[0]:.3f}" for x in (8, 16, 24))
+          + "; no-D: " + "/".join(f"{En[np.argmin(abs(t - x))] / En[0]:.3f}" for x in (8, 16, 24)))
+    for a, b in ((0, 4), (4, 12), (12, 24)):
+        m = (t[:n] >= a) & (t[:n] <= b)
+        dex = np.polyfit(t[:n][m], edm[m], 1)[0]
+        dS = np.polyfit(t[:n][m], (Ef[:n] - En[:n])[m], 1)[0]
+        print(f"  t = {a}-{b}: DM energy in {dex:+.2e} per unit t; d/dt[E_S(full) - E_S(noD)] {dS:+.2e}; ratio {abs(dex / dS):.1f}")
+
+
+if __name__ == "__main__" and len(sys.argv) > 1 and sys.argv[1] == "rates475":
+    rates475(*sys.argv[2:5])
