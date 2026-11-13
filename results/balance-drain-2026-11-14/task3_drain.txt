@@ -1,0 +1,52 @@
+Task 3: S's action in r < 11, relative to its 0-6 window; windows of 6 time units. x_c = 2.0, cold start, lambda = 5000.
+  window  sph_absorb_2.0_none_0.  sph_absorb_2.0_none_0.  R36_static_full_2.0_0.      R36_full_2.0_0.npz     dr10_full_2.0_0.npz
+     0-6                   1.000                   1.000                   1.000                   1.000                   1.000
+     6-12                  1.006                   1.006                   1.007                   0.875                   0.874
+    12-18                  0.799                   0.799                   0.983                   0.849                   0.848
+    18-24                  0.781                   0.781                   0.713                   0.834                   0.833
+    24-30                  0.731                   0.731                   0.436                   0.821                   0.821
+    30-36                  0.664                   0.665                   0.418                   0.810                   0.809
+    36-42                  0.595                   0.596                                                                        
+
+S's energy flux out through r = 11 against the change of S's energy inside:
+  sph_absorb_2.0_none_0.04.npz   t =   12: E_S(r<11) change +1.263e-01 (+16.3%); energy carried out through r = 11 +3.546e-03 (E_S rose: no loss to compare)
+  sph_absorb_2.0_none_0.04.npz   t =   24: E_S(r<11) change -1.797e-01 (-23.2%); energy carried out through r = 11 +1.053e-02 (0.06 of the loss)
+  sph_absorb_2.0_none_0.04.npz   t =   36: E_S(r<11) change -3.477e-01 (-44.8%); energy carried out through r = 11 +1.861e-01 (0.54 of the loss)
+  sph_absorb_2.0_none_0.02.npz   t =   12: E_S(r<11) change +1.264e-01 (+16.3%); energy carried out through r = 11 +3.546e-03 (E_S rose: no loss to compare)
+  sph_absorb_2.0_none_0.02.npz   t =   24: E_S(r<11) change -1.797e-01 (-23.2%); energy carried out through r = 11 +1.053e-02 (0.06 of the loss)
+  sph_absorb_2.0_none_0.02.npz   t =   36: E_S(r<11) change -3.487e-01 (-45.0%); energy carried out through r = 11 +1.877e-01 (0.54 of the loss)
+  R36_static_full_2.0_0.npz      t =   12: E_S(r<11) change +2.898e-02 (+51.0%); energy carried out through r = 11 -1.525e-05 (E_S rose: no loss to compare)
+  R36_static_full_2.0_0.npz      t =   24: E_S(r<11) change -5.009e-03 (-8.8%); energy carried out through r = 11 -1.496e-05 (-0.00 of the loss)
+  R36_static_full_2.0_0.npz      t =   36: E_S(r<11) change +2.504e-03 (+4.4%); energy carried out through r = 11 -5.874e-05 (E_S rose: no loss to compare)
+  R36_full_2.0_0.npz             t =   12: E_S(r<11) change +1.484e-02 (+26.1%); energy carried out through r = 11 -8.255e-05 (E_S rose: no loss to compare)
+  R36_full_2.0_0.npz             t =   24: E_S(r<11) change +1.587e-02 (+27.9%); energy carried out through r = 11 -7.089e-05 (E_S rose: no loss to compare)
+  R36_full_2.0_0.npz             t =   36: E_S(r<11) change +1.429e-02 (+25.1%); energy carried out through r = 11 -6.512e-05 (E_S rose: no loss to compare)
+  dr10_full_2.0_0.npz            t =   12: E_S(r<11) change +1.483e-02 (+26.1%); energy carried out through r = 11 -8.272e-05 (E_S rose: no loss to compare)
+  dr10_full_2.0_0.npz            t =   24: E_S(r<11) change +1.621e-02 (+28.5%); energy carried out through r = 11 -7.042e-05 (E_S rose: no loss to compare)
+  dr10_full_2.0_0.npz            t =   36: E_S(r<11) change +1.418e-02 (+24.9%); energy carried out through r = 11 -6.387e-05 (E_S rose: no loss to compare)
+Task 3: S's action in r < 11, relative to its 0-6 window; windows of 6 time units. x_c = 2.0, cold start, lambda = 5000.
+  window  flatnoD_sph_absorb_2.0  flatnoD_sph_absorb_2.0  R36_static_noD_2.0_0.n       R36_noD_2.0_0.npz      dr10_noD_2.0_0.npz
+     0-6                   1.000                   1.000                   1.000                   1.000                   1.000
+     6-12                  0.847                   0.848                   0.884                   0.881                   0.880
+    12-18                  0.615                   0.616                   0.731                   0.827                   0.826
+    18-24                  0.399                   0.401                   0.557                   0.797                   0.796
+    24-30                  0.214                   0.215                   0.377                   0.777                   0.778
+    30-36                  0.098                   0.099                   0.199                   0.762                   0.762
+    36-42                  0.051                   0.052                                                                        
+
+S's energy flux out through r = 11 against the change of S's energy inside:
+  flatnoD_sph_absorb_2.0_0.04.np t =   12: E_S(r<11) change -1.888e-01 (-28.1%); energy carried out through r = 11 +1.888e-01 (1.00 of the loss)
+  flatnoD_sph_absorb_2.0_0.04.np t =   24: E_S(r<11) change -4.795e-01 (-71.3%); energy carried out through r = 11 +4.782e-01 (1.00 of the loss)
+  flatnoD_sph_absorb_2.0_0.04.np t =   36: E_S(r<11) change -6.330e-01 (-94.1%); energy carried out through r = 11 +6.329e-01 (1.00 of the loss)
+  flatnoD_sph_absorb_2.0_0.02.np t =   12: E_S(r<11) change -1.897e-01 (-28.2%); energy carried out through r = 11 +1.897e-01 (1.00 of the loss)
+  flatnoD_sph_absorb_2.0_0.02.np t =   24: E_S(r<11) change -4.806e-01 (-71.5%); energy carried out through r = 11 +4.792e-01 (1.00 of the loss)
+  flatnoD_sph_absorb_2.0_0.02.np t =   36: E_S(r<11) change -6.332e-01 (-94.2%); energy carried out through r = 11 +6.331e-01 (1.00 of the loss)
+  R36_static_noD_2.0_0.npz       t =   12: E_S(r<11) change -1.225e-02 (-22.0%); energy carried out through r = 11 +1.149e-02 (0.94 of the loss)
+  R36_static_noD_2.0_0.npz       t =   24: E_S(r<11) change -3.067e-02 (-55.0%); energy carried out through r = 11 +2.950e-02 (0.96 of the loss)
+  R36_static_noD_2.0_0.npz       t =   36: E_S(r<11) change -4.902e-02 (-87.9%); energy carried out through r = 11 +4.781e-02 (0.98 of the loss)
+  R36_noD_2.0_0.npz              t =   12: E_S(r<11) change -7.369e-03 (-13.2%); energy carried out through r = 11 +1.767e-03 (0.24 of the loss)
+  R36_noD_2.0_0.npz              t =   24: E_S(r<11) change -1.229e-02 (-22.0%); energy carried out through r = 11 +3.140e-03 (0.26 of the loss)
+  R36_noD_2.0_0.npz              t =   36: E_S(r<11) change -1.331e-02 (-23.9%); energy carried out through r = 11 +3.740e-03 (0.28 of the loss)
+  dr10_noD_2.0_0.npz             t =   12: E_S(r<11) change -7.281e-03 (-13.1%); energy carried out through r = 11 +1.780e-03 (0.24 of the loss)
+  dr10_noD_2.0_0.npz             t =   24: E_S(r<11) change -1.194e-02 (-21.4%); energy carried out through r = 11 +3.161e-03 (0.26 of the loss)
+  dr10_noD_2.0_0.npz             t =   36: E_S(r<11) change -1.178e-02 (-21.1%); energy carried out through r = 11 +3.813e-03 (0.32 of the loss)

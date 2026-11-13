@@ -21,12 +21,24 @@ Cases:
   noD        D = 0 everywhere; the floor restored as the hand floor at the same value (D_POT = 0.10 at c^2 V0, the
              identity), so the background is identical; S pocket present
   nomatter   no S; D = D* everywhere (one-budget floor); background only
+  static_full / static_noD   gravity, no expansion (HANDOFF Nov 14 Task 3): phi frozen at 0 with a flat potential, no
+             dust or radiation (a 1e-12 trace kept for the dust solver), D's ejected vacuum energy cancelled by a constant (V0 = 8 pi/(2 lambda) at full, 0 at noD),
+             H0 = 0 (maximal slicing). Labelled "no phi / no vacuum".
 Recorded every 0.5: t, alpha, areal R, S, PS, D, PD, phi, Pi, dark-matter density (archive-normalised), the dark-matter
 conserved energy and rest mass per cell (times cell volume), proper volume per cell.
 
 Unpaid inputs: lambda = 5000; V0 (rescaled by c^2, so its ratio to the floor is production's); phi_today = 0.179055
 (imported "today", map row 10); beta_D = 0 or -0.04 (beta_S = 0); D's seed 1e-10; x_c; the cold start. G_N = 1;
 G_reset not involved.
+Research outer edge (HANDOFF Nov 14, Task 6; map row 7): environment variable SPONGE = width w (default 0, off). When on,
+after every step the scalar perturbations S, PS, D - D_bg, PD are relaxed toward the background in the outer shell
+r > r_max - w by the factor exp(-gamma(r) dt), gamma = g0 ((r - r_s)/(r_max - r_s))^2, g0 = SPONGE_G (default 2), with
+D_bg = D's value at the start of the run in the outermost cell (the settled background, D* e^{-beta_D phi}). Geometry,
+phi, Pi and the fluids are untouched. This absorbs outgoing S and D waves (the flat-space sponge of PR #470/#473); it
+removes their energy without adjusting the geometry, so the constraints are not kept inside the shell.
+SPONGE_DUST = 1 (with SPONGE = w) also relaxes the dust species (dark matter, baryons) in the shell toward a uniform
+state at rest at the density of the shell's inner edge (conserved variables rebuilt with initialize_dust on the current
+metric), so dust cannot pile up against the edge.
 Usage (repo root): python research/dm_one_budget_v1.py CASE x_c beta_D N RMAX T out.npz [CFL]
   CFL = dt/dr (default 0.06, as in PR #475). Also records gamma_rr = a/X^2 ("grr") for the proper-gradient read-out.
 """
@@ -74,9 +86,18 @@ def cold_D(r, dr, x, T=200.0, gamma=0.3, seed=1e-10, beta_D=0.0, phi=PHI_TODAY):
 
 
 def initial(case, x_c, beta_D, N, RMAX):
+    static = case.startswith("static_")
+    if static:
+        case = case[len("static_"):]
     ss.SD_QUARTIC_LAMBDA = LAM
     ss.V0 = C2 * V0_PROD
     ss.D_POT = 0.10 if case == "noD" else 0.0
+    if static:
+        # gravity, no expansion: phi frozen (flat potential), no dust/radiation, D's ejected vacuum energy cancelled by
+        # a constant so the background is static (H0 = 0, maximal slicing). Label: "no phi / no vacuum".
+        ss.LAMBDA = 0.0
+        ss.D_POT = 0.0
+        ss.V0 = ss.KAPPA / (2 * LAM) if case != "noD" else 0.0
     k = V55ProductionKernel()
     st = k.initialize(resolution=N, r_max=RMAX, include_radiation=False)
     grid = st.grid
@@ -91,11 +112,16 @@ def initial(case, x_c, beta_D, N, RMAX):
         D = cold_D(r, dr, x, beta_D=beta_D)
     phi = np.full_like(r, PHI_TODAY); Pi = np.full_like(r, math.sqrt(C2) * PI_TODAY)
     dm0, b0, rr0 = C2 * vm.RHO_DM_PRESENT, C2 * vm.RHO_B_PRESENT, C2 * vm.RHO_R_PRESENT
+    if static:
+        phi = z.copy(); Pi = z.copy()
+        dm0, b0, rr0 = 1e-12 * dm0, 1e-12 * b0, 1e-12 * rr0     # trace dust (the dust solver needs a positive rest current)
     # background H0 from the far-field budget (archive-normalised; S = 0, D at its far value)
     Dfar = D[-1]
     Vfar = 8 * math.pi * float(g91.potential(0.0, Dfar, PHI_TODAY, 0.0, beta_D, 1.0, LAM))
-    rho0 = 0.5 * Pi[0] ** 2 + float(ss.cosmos_potential(np.array([PHI_TODAY]))[0]) + Vfar + dm0 + b0 + rr0
-    H0 = math.sqrt(rho0 / 3.0)
+    rho0 = 0.5 * Pi[0] ** 2 + float(ss.cosmos_potential(np.array([phi[0]]))[0]) + Vfar + dm0 + b0 + rr0
+    H0 = math.sqrt(max(rho0, 0.0) / 3.0)
+    if static:
+        H0 = 0.0
     Kt = np.full_like(r, -H0)
     d1 = lambda f: v55_initial._d1(grid, f, 1)  # noqa: E731
     Sp, Dp = d1(S), d1(D)
@@ -134,10 +160,19 @@ def main():
         print(f"[{case} x_c={x_c} beta_D={beta_D}] lambda={LAM:g} c^2={C2:.2f} V0={ss.V0:.4e} D_POT={ss.D_POT} H0={H0:.4f}",
               flush=True)
         dr = float(grid.dr); dt = cfl * dr; every = max(1, int(round(0.5 / dt)))
-        keys = ("t", "alpha", "R", "S", "PS", "D", "PD", "phi", "Pi", "K", "rho_dm", "dm_E", "dm_rest", "dV", "grr")
+        keys = ("t", "alpha", "R", "S", "PS", "D", "PD", "phi", "Pi", "K", "rho_dm", "dm_E", "dm_rest", "dV", "grr", "a", "b")
         rec = {kk: [] for kk in keys}
         nsteps = int(round(T / dt))
         vols = np.asarray(grid.volumes, float)
+        import os
+        sp_w = float(os.environ.get("SPONGE", "0")); sp_g = float(os.environ.get("SPONGE_G", "2"))
+        if sp_w > 0:
+            r_s = r[-1] - sp_w
+            damp = np.exp(-np.where(r > r_s, sp_g * ((r - r_s) / (r[-1] - r_s)) ** 2, 0.0) * dt)
+            D_bg = float(st.scalars.D[-1])
+            sp_dust = os.environ.get("SPONGE_DUST", "0") == "1"
+            shell = r > r_s; j_s = int(np.argmax(shell)) - 1
+            print(f"sponge on: r > {r_s:.2f}, g0 = {sp_g}, D_bg = {D_bg:.5e}, dust = {sp_dust}", flush=True)
         for n in range(nsteps + 1):
             if n % every == 0:
                 g = st.geometry
@@ -148,7 +183,7 @@ def main():
                               ("PS", st.scalars.PS), ("D", st.scalars.D), ("PD", st.scalars.PD),
                               ("phi", st.scalars.phi), ("Pi", st.scalars.Pi), ("K", g.K), ("rho_dm", rdm),
                               ("dm_E", np.asarray(dmst.energy_t) * vols), ("dm_rest", np.asarray(dmst.rest) * vols),
-                              ("dV", sqrtg * vols), ("grr", g.a / g.X**2)):
+                              ("dV", sqrtg * vols), ("grr", g.a / g.X**2), ("a", g.a), ("b", g.b)):
                     rec[kk].append(np.array(v, dtype=float).copy())
                 if n % (every * 4) == 0:
                     print(f"t={st.t:6.2f} a0={g.alpha[0]:.4f} K0={g.K[0]:+.4f} S(0)={st.scalars.S[0]:+.3e} "
@@ -158,6 +193,22 @@ def main():
             if n < nsteps:
                 try:
                     st = k.step(st, dt)
+                    if sp_w > 0:
+                        sc = st.scalars
+                        st = dataclasses.replace(st, scalars=dataclasses.replace(
+                            sc, S=sc.S * damp, PS=sc.PS * damp, D=D_bg + (sc.D - D_bg) * damp, PD=sc.PD * damp))
+                        if sp_dust:
+                            mets = _metric_arrays(metric_slice_from_q(grid, st.geometry))
+                            sg = np.array([m.sqrt_gamma for m in mets])
+                            new = {}
+                            for nm in ("dark_matter", "baryons"):
+                                spc = getattr(st.matter, nm)
+                                rho_s = float(spc.rest[j_s] / sg[j_s])
+                                tgt = initialize_dust(mets, np.full_like(r, rho_s))
+                                new[nm] = type(spc)(*(np.where(shell, tg + (np.asarray(cur) - tg) * damp, np.asarray(cur))
+                                                      for tg, cur in ((tgt.rest, spc.rest), (tgt.energy_t, spc.energy_t),
+                                                                      (tgt.momentum_r, spc.momentum_r))))
+                            st = dataclasses.replace(st, matter=dataclasses.replace(st.matter, **new))
                 except Exception as exc:
                     print(f"STOPPED at t={st.t:.3f}: {type(exc).__name__}: {str(exc)[:200]}", flush=True)
                     break
