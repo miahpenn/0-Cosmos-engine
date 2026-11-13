@@ -163,7 +163,36 @@ averaged over proper volume inside (r < 8) and outside (12 < r < 24) the pocket:
 
 ## Task 5. Central spike (GEAR-101 §5)
 
-TASK5_PLACEHOLDER
+Pocket x_c = 2.0 with D, one-budget, r_max = 36. Three grid spacings: dr = 0.1 (N = 360, to t = 40), 0.075
+(N = 480, to t = 39.6) and 0.05 (N = 720; stopped at t = 32 by the 2-hour run limit). Also r_max = 24 with the
+research edge (Task 6), dr = 0.1.
+
+Dark matter at the innermost cell against r = 2 (so the pocket's general gathering, ≈ 1.4, is divided out):
+
+| t | 28 | 30 | 32 | 34 | 36 | 38 |
+|---|---|---|---|---|---|---|
+| dr = 0.1 | 1.07 | 1.13 | 1.20 | 1.39 | 1.82 | 2.40 |
+| dr = 0.075 | 1.07 | 1.13 | 1.21 | 1.44 | 1.89 | 2.59 |
+| dr = 0.05 | 1.07 | 1.14 | 1.24 | — | — | — |
+
+- **Read (invariant):** the spike's growth is the same at all three spacings to within 3% up to t = 32, and within
+  4–8% at t = 34–38 (slightly higher at finer spacing).
+- **Read (invariant):** its half-width is a fixed physical size, r ≈ 0.2–0.35 (2.5–5.5 cells, depending on the
+  spacing), not a fixed number of cells.
+- **What a grid artefact would look like:** a one-cell feature would grow with the cell-volume ratio, (0.1/0.075)³ =
+  2.4×. The spike doesn't.
+- **Regular centre:** a/b at the innermost cell stays 1 to within 2e-4 throughout, at dr = 0.075 and 0.05. The lapse
+  is even and smooth there.
+- **Independent of the outer edge:** the spike is the same with the research edge at r_max = 24 (4.5 at r = 0.1 by
+  t = 40, against 4.9 at r_max = 36 and 5.9 at the runaway r_max = 24).
+- **Absent without D:** in the no-D runs the profile is flat inside r ≈ 4.
+- **Correction:** #476's "sharpens with resolution" came from the dr = 0.05, r_max = 24 run, whose lapse was already
+  running away at the edge (Task 6). It is withdrawn.
+- **Reading: a physical central collapse of the pressureless dark matter** into the pocket's potential, resolved and
+  convergent to ~10% through t ≈ 38. The pocket with D is deeper, and dust has no pressure to stop focusing at the
+  centre. Whether it goes on to a caustic, a singular density, cannot be told from t ≤ 40.
+- **Note:** the dr = 0.05 run's central lapse rose to 1.11 by t = 32, against 0.92 at dr = 0.1. The edge drift
+  appears earlier at finer spacing even at r_max = 36, so the dr = 0.05 numbers after t ≈ 30 carry that caveat.
 
 ## Task 6. Outer edge (map row 7)
 
@@ -212,3 +241,27 @@ dust-absorbing layer.
   would need its own derivation.
 - Results inside the pocket are unchanged by the layer until the production edge would have run away (t ≈ 24 at
   r_max = 24), so existing results before that time stand.
+
+
+## Claim status
+
+- **Derived:**
+  - λ drops out of the flat-space problem.
+  - The resting-point shift formula, μ = −(3λ/8) D* a² − (3λ/4) D* ⟨S²⟩.
+- **Read (invariant):**
+  - D's ring holds about as much energy as S at the plateau (0.5–1.5), mostly as D_r; the flow runs both ways with
+    no net direction.
+  - The resting-point shift matches the full prediction (5–18% in the spheres); the ring term alone gives 35–70% of
+    it.
+  - Expansion removes most of S's drain; D's bag slows the flat drain.
+  - D's slow ring is 2–5% of the dust dark matter inside the pocket and about 1e-4 outside, and dilutes like dust.
+    No double count in the machine as it stands.
+  - The central dark-matter spike is resolved and physical in its growth to t ≈ 38.
+  - The edge runaway is driven by dust at the edge, and a dust-absorbing layer stops it.
+- **Read (one ruler):** the static pocket with D collapses.
+- **Open:**
+  - Whether the static collapse is physical or slicing.
+  - What the spike becomes after t = 40.
+  - An FRW-matched geometry boundary.
+  - Whether D's ring can be the cosmic dark matter (GEAR-103): these cold-start runs make about 1e-4 of the needed
+    amount outside matter.
