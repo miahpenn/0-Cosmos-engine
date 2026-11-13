@@ -1,0 +1,183 @@
+{
+  "schema": "origin-cell-joint-shadow-one-step-summary/v1",
+  "status": "completed_diagnostic_only",
+  "run_id": 40153240438,
+  "pr_url": "https://github.com/miahpenn/0-Cosmos-engine/pull/416",
+  "artifact_id": 12583486611,
+  "artifact_zip_sha256": "d7130043ba7b69873544c747b717d30cf9ed45fc7ae18c52aa38f01852e9a652",
+  "report_sha256": "40a2440274a0d1fea169c50eaf77cc6bb45d209528299ffc0b6abc74138a8424",
+  "profiles_sha256": "244291ed596268d56225f2400d17261427d72e659aacf5f5e17a4365b1930e74",
+  "source_commit": "4aec88d0e3ff028e0a65a8ac36b30948625df792",
+  "vendor_commit": "d6052d605673ce9d82cdc99b0df79855fa2ea215",
+  "protected_engine_vendor_dependency_diff_empty": true,
+  "runtime": {
+    "python": "3.12.15",
+    "numpy": "2.5.4",
+    "scipy": "1.18.1"
+  },
+  "config": {
+    "resolutions": [
+      60,
+      120,
+      240
+    ],
+    "r_max": 80,
+    "amplitude": 0.01,
+    "width": 7,
+    "D_amplitude": 1e-10,
+    "include_radiation": true,
+    "CFL": 0.03,
+    "steps": 1,
+    "continuous_metric_substeps_per_dr": 2048
+  },
+  "baseline_Aa_full_grid_max_abs_delta_vs_archived_step0": {
+    "N60": 2.2551405187698492e-17,
+    "N120": 3.608224830031759e-16,
+    "N240": 1.6940658945086007e-21
+  },
+  "rows": [
+    {
+      "N": 60,
+      "arm": "baseline",
+      "Aa0": 0.000043499713957242154,
+      "Aa0_over_r0_squared": 0.00009787435640379486,
+      "Hmax_r_le_3": 0.003911018694188664,
+      "Mmax_r_le_3": 0.00015694677217564172,
+      "Clambda_max_r_le_3": 0.000006382961746460771
+    },
+    {
+      "N": 60,
+      "arm": "metric_only",
+      "Aa0": 0.000001325021507965938,
+      "Aa0_over_r0_squared": 0.0000029812983929233606,
+      "Hmax_r_le_3": 0.000010636607474490481,
+      "Mmax_r_le_3": 0.000006393427970088245,
+      "Clambda_max_r_le_3": 2.6105785085051014e-7
+    },
+    {
+      "N": 60,
+      "arm": "cmc_row_only",
+      "Aa0": 0.00004186277573002266,
+      "Aa0_over_r0_squared": 0.00009419124539255099,
+      "Hmax_r_le_3": 0.00390993163212002,
+      "Mmax_r_le_3": 0.00016261502974891445,
+      "Clambda_max_r_le_3": 0.000006622900303079882
+    },
+    {
+      "N": 60,
+      "arm": "joint_metric_and_cmc_row",
+      "Aa0": -3.5790037874800277e-7,
+      "Aa0_over_r0_squared": -8.052758521830062e-7,
+      "Hmax_r_le_3": 0.000011681375977171636,
+      "Mmax_r_le_3": 4.344027861798956e-7,
+      "Clambda_max_r_le_3": 1.8000130114301932e-8
+    },
+    {
+      "N": 120,
+      "arm": "baseline",
+      "Aa0": 0.000021686446919770555,
+      "Aa0_over_r0_squared": 0.000195178022277935,
+      "Hmax_r_le_3": 0.00400864817894913,
+      "Mmax_r_le_3": 0.00015491168421498202,
+      "Clambda_max_r_le_3": 0.0000031527204570338477
+    },
+    {
+      "N": 120,
+      "arm": "metric_only",
+      "Aa0": 8.026790062322757e-7,
+      "Aa0_over_r0_squared": 0.000007224111056090482,
+      "Hmax_r_le_3": 0.0000016304109818864043,
+      "Mmax_r_le_3": 0.000006075062985897001,
+      "Clambda_max_r_le_3": 1.2397896863324855e-7
+    },
+    {
+      "N": 120,
+      "arm": "cmc_row_only",
+      "Aa0": 0.000020838559100171328,
+      "Aa0_over_r0_squared": 0.00018754703190154197,
+      "Hmax_r_le_3": 0.004007575126608702,
+      "Mmax_r_le_3": 0.00016053871898792595,
+      "Clambda_max_r_le_3": 0.0000032690239815836176
+    },
+    {
+      "N": 120,
+      "arm": "joint_metric_and_cmc_row",
+      "Aa0": -5.097671568190678e-8,
+      "Aa0_over_r0_squared": -4.58790441137161e-7,
+      "Hmax_r_le_3": 8.768289318024543e-7,
+      "Mmax_r_le_3": 1.5207382484554695e-8,
+      "Clambda_max_r_le_3": 3.321680808014704e-10
+    },
+    {
+      "N": 240,
+      "arm": "baseline",
+      "Aa0": 0.000010839957676113549,
+      "Aa0_over_r0_squared": 0.0003902384763404878,
+      "Hmax_r_le_3": 0.004032056530096216,
+      "Mmax_r_le_3": 0.00015450693223377813,
+      "Clambda_max_r_le_3": 0.0000015724980286426632
+    },
+    {
+      "N": 240,
+      "arm": "metric_only",
+      "Aa0": 4.2189669669426565e-7,
+      "Aa0_over_r0_squared": 0.000015188281080993564,
+      "Hmax_r_le_3": 0.0000010104997581416274,
+      "Mmax_r_le_3": 0.000006089373205536955,
+      "Clambda_max_r_le_3": 6.21233165323332e-8
+    },
+    {
+      "N": 240,
+      "arm": "cmc_row_only",
+      "Aa0": 0.000010412292955709145,
+      "Aa0_over_r0_squared": 0.00037484254640532925,
+      "Hmax_r_le_3": 0.004030986621030375,
+      "Mmax_r_le_3": 0.0001601241551856826,
+      "Clambda_max_r_le_3": 0.0000016302042064398128
+    },
+    {
+      "N": 240,
+      "arm": "joint_metric_and_cmc_row",
+      "Aa0": -6.4898647818672196e-9,
+      "Aa0_over_r0_squared": -2.3363513214721993e-7,
+      "Hmax_r_le_3": 5.684631400456816e-8,
+      "Mmax_r_le_3": 5.130359860270245e-10,
+      "Clambda_max_r_le_3": 8.031329751636077e-12
+    }
+  ],
+  "initial_crosswalk": [
+    {
+      "N": 60,
+      "saved_production_L2": 0.00109282,
+      "original_metric_regular_CMC_row": -0.000585526,
+      "fine_metric_pinned_CMC_row": 0.0000302673,
+      "fine_metric_regular_CMC_row": -0.0000114673
+    },
+    {
+      "N": 120,
+      "saved_production_L2": 0.00108826,
+      "original_metric_regular_CMC_row": -0.0005709,
+      "fine_metric_pinned_CMC_row": 0.0000398145,
+      "fine_metric_regular_CMC_row": -0.00000244855
+    },
+    {
+      "N": 240,
+      "saved_production_L2": 0.00108751,
+      "original_metric_regular_CMC_row": -0.000567554,
+      "fine_metric_pinned_CMC_row": 0.0000418149,
+      "fine_metric_regular_CMC_row": -5.82833e-7
+    }
+  ],
+  "acceptance": {
+    "all_initial_and_accepted_profiles_finite": true,
+    "step_input_immutable": true,
+    "production_source_or_vendor_changed": false,
+    "scientific_admission": false
+  },
+  "limitations": [
+    "One accepted step only; not a formal convergence or long-time validation.",
+    "Metric shadow holds Aa/K and conserved matter variables fixed, rather than doing a full coupled fixed-point initialization.",
+    "CMC-row shadow is diagnostic only; no production gauge authorization.",
+    "Full matter-coupled momentum propagation and total stress-energy conservation gates remain open."
+  ]
+}
