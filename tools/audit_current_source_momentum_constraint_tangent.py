@@ -350,12 +350,25 @@ def observe_constraint(state: ProductionState) -> dict[str, Any]:
 
 
 def rhs_direction(
-    kernel: V55ProductionKernel, state: ProductionState
+    kernel: V55ProductionKernel,
+    state: ProductionState,
+    *,
+    geometry_terms_override: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
+    """Evaluate a signed source direction; optionally pin terms to the kernel's exact stage interface.
+
+    The default preserves the historical initialized-slice audit. Accepted-state
+    consumers should pass kernel._geometry_stage_terms(...) so native explicit
+    a/b/X RHS overrides are not silently bypassed.
+    """
     srhs, mrhs, _ = kernel._rhs(state)
-    terms = adapter.geometry_stage_terms(
-        state.grid, state.geometry, state.scalars, state.matter,
-        lambda_m=LAMBDA_M,
+    terms = (
+        geometry_terms_override
+        if geometry_terms_override is not None
+        else adapter.geometry_stage_terms(
+            state.grid, state.geometry, state.scalars, state.matter,
+            lambda_m=LAMBDA_M,
+        )
     )
 
     # Same-state decomposition of the vendor's primary L2 Aa rate. The
