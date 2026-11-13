@@ -121,8 +121,15 @@ def metric_only_hamiltonian(grid, state) -> tuple[np.ndarray, dict]:
     return components["H_metric"], components
 
 
-def manufactured_state(grid, vacuum):
-    """Regular parity-class state with deliberately nonzero H, M, and C."""
+def manufactured_state(grid, vacuum, variant: str = "baseline_zero_shift"):
+    """Regular parity-class state with deliberately nonzero H, M, and C.
+
+    Two independent profiles are used: a linear odd connection residual at
+    zero shift, and a cubic odd residual with nonzero odd shift.  Both preserve
+    the regular spherical parity class; neither evolves a production state.
+    """
+    if variant not in ("baseline_zero_shift", "odd_shift_strong_linear_C", "odd_shift_cubic_C"):
+        raise ValueError(f"unsupported manufactured profile variant: {variant}")
     state = vacuum.flat_state(grid)
     r = finite("radii", grid.centers)
     q = (r / 6.0) ** 2
@@ -136,10 +143,21 @@ def manufactured_state(grid, vacuum):
     state.alpha = 1.0 + 4.0e-3 * e
     state.Aa = 2.0e-5 * r**2 * e
     state.K = -2.0e-2 + 2.0e-3 * e
-    state.beta.fill(0.0)
+    if variant == "baseline_zero_shift":
+        state.beta.fill(0.0)
+        c_manufactured = 2.5e-4 * r / 36.0 * e
+    elif variant == "odd_shift_strong_linear_C":
+        # 290x the baseline C amplitude exposes the omitted term above the
+        # truncation floor, while nonzero odd beta exercises shift transport.
+        state.beta = 1.0e-3 * (r / 6.0) * e
+        c_manufactured = 290.0 * 2.5e-4 * r / 36.0 * e
+    else:
+        # Distinct regular odd C~r^3 profile, also with nonzero odd shift.
+        state.beta = 1.0e-3 * (r / 6.0) * e
+        c_manufactured = 100.0 * 2.5e-4 * (r / 6.0) ** 3 * e
     state.B.fill(0.0)
 
-    # Vendor reference-metric connection target plus an odd, nonzero C^r mode.
+    # Vendor reference-metric connection target plus the manufactured odd C^r.
     a_r = d1(grid, state.a, +1)
     b_r = d1(grid, state.b, +1)
     lambda_metric = (
@@ -147,7 +165,6 @@ def manufactured_state(grid, vacuum):
         - b_r / (state.a * state.b)
         + 2.0 / r * (1.0 / state.b - 1.0 / state.a)
     )
-    c_manufactured = 2.5e-4 * r / 36.0 * e
     state.Lambda = lambda_metric + c_manufactured
     state.assert_finite_positive()
     return state
@@ -248,6 +265,46 @@ def brown_lower_momentum_rhs(grid, state, constraints) -> tuple[dict, np.ndarray
     )
 
 
+def vendor_off_constraint_connection_extension(grid, state, constraints) -> tuple[dict, np.ndarray]:
+    """Source-derived C^r-linear correction absent from literal Brown Eq. (11b).
+
+    The pinned vendor radial Ricci bracket contains -0.5*Lambda*D_r(a).
+    With q_a=D_r(a)/(2a), its Lambda-only trace-free A_a response is
+    delta(dot A_a)=(2/3)*alpha*chi*D_r(C)+alpha*chi*q_a*C.  Applying the
+    implemented momentum expression gives the extra C' and C pieces below.
+    This is a candidate vendor-consistent off-constraint predictor, not a
+    production equation edit or an admission oracle.
+    """
+    r = finite("vendor-extension radii", grid.centers)
+    a = finite("vendor-extension a", state.a)
+    b = finite("vendor-extension b", state.b)
+    X = finite("vendor-extension X", state.X)
+    alpha = finite("vendor-extension lapse", state.alpha)
+    C = finite("vendor-extension connection residual", constraints["connection"])
+
+    alpha_chi = alpha * X**2
+    a_r = d1(grid, a, +1)
+    q_a = finite("q_a=a'/(2a)", a_r / (2.0 * a))
+    q_a_r = d1(grid, q_a, -1)  # q_a is odd; its derivative is even.
+    alpha_chi_r = d1(grid, alpha_chi, +1)
+    chip = -0.5 * d1(grid, X, +1) / X
+    log_gtheta_r = d1(grid, b, +1) / b + 2.0 / r
+    gamma_M = 6.0 * chip + 1.5 * log_gtheta_r
+    C_r = d1(grid, C, -1)
+
+    terms = {
+        "additional_Cprime_from_vendor_Ricci": alpha_chi * q_a * C_r,
+        "additional_C_from_vendor_Ricci": (
+            q_a * (alpha_chi_r + gamma_M * alpha_chi)
+            + alpha_chi * q_a_r
+        ) * C,
+    }
+    correction = sum(terms.values(), np.zeros_like(r))
+    return {key: finite(key, value) for key, value in terms.items()}, finite(
+        "vendor off-constraint C-linear correction", correction
+    )
+
+
 def vacuum_rhs_rates(grid, state, vacuum, moving) -> dict[str, np.ndarray]:
     """Actual pinned vacuum semi-discrete RHS for the constraint-dependent fields."""
     explicit = moving.moving_puncture_explicit_rhs(grid, state)
@@ -325,16 +382,28 @@ def residual_region_summary(
     }
 
 
-def audit_resolution(resolution: int, r_max: float, epsilons: tuple[float, float]) -> dict:
+def audit_resolution(
+    resolution: int, r_max: float, epsilons: tuple[float, float],
+    variant: str = "baseline_zero_shift",
+) -> dict:
     grid_ops, vacuum, moving = adapter.vendor_modules()
     grid = grid_ops.SphericalCellGrid(resolution, r_max)
-    state = manufactured_state(grid, vacuum)
+    state = manufactured_state(grid, vacuum, variant=variant)
     r = finite("cell centers", grid.centers)
     base_constraints = vacuum.constraints(grid, state)
     rates = vacuum_rhs_rates(grid, state, vacuum, moving)
     H_metric, metric_h_components = metric_only_hamiltonian(grid, state)
     lambda_slot_control = lambda_hamiltonian_discriminator(grid, state, vacuum)
     brown_terms, predicted = brown_lower_momentum_rhs(grid, state, base_constraints)
+    extension_terms, extension = vendor_off_constraint_connection_extension(
+        grid, state, base_constraints
+    )
+    vendor_consistent_predicted = finite(
+        "vendor-consistent M_r propagation prediction", predicted + extension
+    )
+    wrong_sign_predicted = finite(
+        "wrong-sign vendor-extension predictor", predicted - extension
+    )
 
     if float(np.max(np.abs(base_constraints["hamiltonian"]))) <= 0.0:
         raise RuntimeError("manufactured control accidentally has zero Hamiltonian constraint")
@@ -347,7 +416,13 @@ def audit_resolution(resolution: int, r_max: float, epsilons: tuple[float, float
     measured_rows = []
     for eps in epsilons:
         measured = tangent_momentum(grid, state, rates, vacuum, eps)
-        residual = finite("measured minus Brown prediction", measured - predicted)
+        residual = finite("measured minus literal Brown prediction", measured - predicted)
+        vendor_residual = finite(
+            "measured minus vendor-consistent prediction", measured - vendor_consistent_predicted
+        )
+        wrong_sign_residual = finite(
+            "measured minus wrong-sign vendor-extension predictor", measured - wrong_sign_predicted
+        )
         scale = max(
             float(np.sqrt(np.mean(measured**2))),
             float(np.sqrt(np.mean(predicted**2))),
@@ -373,10 +448,32 @@ def audit_resolution(resolution: int, r_max: float, epsilons: tuple[float, float
                 name: residual_region_summary(residual, measured, predicted, r, mask)
                 for name, mask in region_masks.items()
             },
+            "vendor_consistent_prediction": witness(vendor_consistent_predicted, r),
+            "vendor_consistent_signed_residual": witness(vendor_residual, r),
+            "vendor_consistent_relative_rms_residual": float(np.sqrt(np.mean(vendor_residual**2)) / scale),
+            "vendor_consistent_max_abs_residual": float(np.max(np.abs(vendor_residual))),
+            "vendor_consistent_residual_regions": {
+                name: residual_region_summary(
+                    vendor_residual, measured, vendor_consistent_predicted, r, mask
+                ) for name, mask in region_masks.items()
+            },
+            "wrong_sign_extension_control": {
+                "prediction": witness(wrong_sign_predicted, r),
+                "signed_residual": witness(wrong_sign_residual, r),
+                "relative_rms_residual": float(np.sqrt(np.mean(wrong_sign_residual**2)) / scale),
+                "residual_regions": {
+                    name: residual_region_summary(
+                        wrong_sign_residual, measured, wrong_sign_predicted, r, mask
+                    ) for name, mask in region_masks.items()
+                },
+            },
             "finite": bool(
                 np.all(np.isfinite(measured))
                 and np.all(np.isfinite(predicted))
                 and np.all(np.isfinite(residual))
+                and np.all(np.isfinite(vendor_consistent_predicted))
+                and np.all(np.isfinite(vendor_residual))
+                and np.all(np.isfinite(wrong_sign_residual))
             ),
         })
         measured_rows.append(measured)
@@ -385,6 +482,20 @@ def audit_resolution(resolution: int, r_max: float, epsilons: tuple[float, float
         "epsilon sensitivity",
         measured_rows[0] - measured_rows[1],
     )
+    # Use a fixed physical annulus, rather than a moving grid-cell maximum,
+    # to compare the literal and source-derived predictors.
+    base_annulus_rms = epsilon_rows[0]["residual_regions"]["fixed_annulus_2_to_8"]["abs_rms"]
+    vendor_annulus_rms = epsilon_rows[0]["vendor_consistent_residual_regions"]["fixed_annulus_2_to_8"]["abs_rms"]
+    wrong_sign_annulus_rms = epsilon_rows[0]["wrong_sign_extension_control"]["residual_regions"]["fixed_annulus_2_to_8"]["abs_rms"]
+    vendor_extension_discriminator = {
+        "annulus": "2 <= r <= 8",
+        "reference_epsilon": float(epsilon_rows[0]["epsilon"]),
+        "literal_brown_annulus_abs_rms": float(base_annulus_rms),
+        "vendor_consistent_annulus_abs_rms": float(vendor_annulus_rms),
+        "wrong_sign_extension_annulus_abs_rms": float(wrong_sign_annulus_rms),
+        "vendor_extension_improves_on_annulus": bool(vendor_annulus_rms < base_annulus_rms),
+        "wrong_sign_extension_control_detected": bool(wrong_sign_annulus_rms > vendor_annulus_rms),
+    }
     # Negative control: flip the sign of the Hamiltonian-gradient term and
     # require the mutation to exceed a predeclared operand-scaled roundoff bound.
     negative_prediction = predicted - 2.0 * brown_terms["alpha_DrH_over_6"]
@@ -409,13 +520,15 @@ def audit_resolution(resolution: int, r_max: float, epsilons: tuple[float, float
 
     return {
         "resolution": int(resolution),
+        "profile_variant": variant,
         "r_max": float(r_max),
         "dr": float(grid.dr),
         "manufactured_state": {
             "regular_even_metric_fields": True,
             "Aa_is_O_r_squared": True,
-            "shift_is_zero": True,
+            "shift_is_zero": bool(variant == "baseline_zero_shift"),
             "C_r_is_manufactured_odd_profile": True,
+            "connection_profile_variant": variant,
             "H_BSSN_Lambda_dependent_peak_report_only": witness(base_constraints["hamiltonian"], r),
             "H_metric_only_peak_used_by_Brown": witness(H_metric, r),
             "M_r_peak": witness(base_constraints["momentum"], r),
@@ -438,6 +551,16 @@ def audit_resolution(resolution: int, r_max: float, epsilons: tuple[float, float
         "brown_signed_terms": {
             name: witness(value, r) for name, value in brown_terms.items()
         },
+        "vendor_extension_formula": (
+            "extra_Cprime=alpha*chi*(a'/(2a))*D_r(C); "
+            "extra_C=[(a'/(2a))*((alpha*chi)' + Gamma_M*alpha*chi)"
+            "+alpha*chi*D_r(a'/(2a))]*C; "
+            "Gamma_M=6*chip+3/2*(2/r+b'/b)"
+        ),
+        "vendor_extension_signed_terms": {
+            name: witness(value, r) for name, value in extension_terms.items()
+        },
+        "vendor_extension_discriminator": vendor_extension_discriminator,
         "epsilon_rows": epsilon_rows,
         "epsilon_sensitivity": witness(epsilon_delta, r),
         "negative_control": {
@@ -449,9 +572,11 @@ def audit_resolution(resolution: int, r_max: float, epsilons: tuple[float, float
             "residual_after_mutation": witness(mutation_residual, r),
         },
         "interpretation": (
-            "A failed Brown-vs-measured comparison is a failed continuum discriminator, "
-            "not proof of a production defect. Review reference-metric mapping and "
-            "discrete operator/truncation terms before any admission decision."
+            "Literal Brown Eq. (11b) and the vendor-consistent predictor differ off "
+            "the connection-constraint surface because of the pinned vendor Ricci "
+            "connection term. A better signed-annulus match supports the derived "
+            "extension for this diagnostic family; it does not prove a production "
+            "defect or establish scientific admission."
         ),
         "acceptance_oracle_satisfied": False,
         "scientific_admission": False,
@@ -468,10 +593,58 @@ def main() -> int:
     args.output_dir.mkdir(parents=True, exist_ok=True)
     try:
         pin = provenance()
-        rows = [
-            audit_resolution(int(n), float(args.r_max), (float(args.epsilons[0]), float(args.epsilons[1])))
-            for n in args.resolutions
+        variants = [
+            "baseline_zero_shift",
+            "odd_shift_strong_linear_C",
+            "odd_shift_cubic_C",
         ]
+        rows = [
+            audit_resolution(
+                int(n), float(args.r_max),
+                (float(args.epsilons[0]), float(args.epsilons[1])),
+                variant=variant,
+            )
+            for n in args.resolutions for variant in variants
+        ]
+        # Retain the measured refinement sequence, and gate only its monotonicity.
+        # The expected order follows the pinned fourth-order interior operators;
+        # no fitted coefficient or observed-error threshold is used.
+        fine_band_convergence = {}
+        for variant in variants:
+            fine_rows = sorted(
+                (
+                    row for row in rows
+                    if row["profile_variant"] == variant and row["resolution"] >= 120
+                ),
+                key=lambda row: row["resolution"],
+            )
+            fine_resolutions = [int(row["resolution"]) for row in fine_rows]
+            corrected_rms = [
+                float(row["epsilon_rows"][0]["vendor_consistent_residual_regions"]
+                      ["fixed_annulus_2_to_8"]["abs_rms"])
+                for row in fine_rows
+            ]
+            literal_rms = [
+                float(row["epsilon_rows"][0]["residual_regions"]
+                      ["fixed_annulus_2_to_8"]["abs_rms"])
+                for row in fine_rows
+            ]
+            observed_orders = [
+                math.log(corrected_rms[i] / corrected_rms[i + 1])
+                / math.log(fine_resolutions[i + 1] / fine_resolutions[i])
+                for i in range(len(corrected_rms) - 1)
+            ]
+            fine_band_convergence[variant] = {
+                "resolutions": fine_resolutions,
+                "literal_brown_annulus_abs_rms": literal_rms,
+                "vendor_consistent_annulus_abs_rms": corrected_rms,
+                "observed_orders_vendor_consistent": observed_orders,
+                "corrected_rms_monotone_decreasing": bool(
+                    len(corrected_rms) >= 2
+                    and all(corrected_rms[i + 1] < corrected_rms[i]
+                            for i in range(len(corrected_rms) - 1))
+                ),
+            }
         summary = {
             "schema": "brown_vacuum_momentum_constraint_propagation_manufactured_v1",
             "status": "completed_diagnostic_only",
@@ -481,12 +654,29 @@ def main() -> int:
                 "r_max": float(args.r_max),
                 "epsilons": args.epsilons,
                 "fixed_radii": FIXED_RADII,
+                "profile_variants": variants,
             },
             "rows": rows,
+            "fine_band_convergence": fine_band_convergence,
+            "vendor_extension_monotone_convergence": all(
+                item["corrected_rms_monotone_decreasing"]
+                for item in fine_band_convergence.values()
+            ),
             "all_finite": all(all(e["finite"] for e in row["epsilon_rows"]) for row in rows),
             "negative_control_detected": all(row["negative_control"]["detected"] for row in rows),
             "lambda_hamiltonian_discriminator_passed": all(
                 row["hamiltonian_slot_contract"]["lambda_only_control"]["passed"] for row in rows
+            ),
+            # N=80 is retained descriptively; require the refined N=120/160 band to pass.
+            "vendor_extension_improves_on_fine_annulus": all(
+                row["vendor_extension_discriminator"]["vendor_extension_improves_on_annulus"]
+                for row in rows
+                if row["resolution"] >= 120 and row["profile_variant"] != "baseline_zero_shift"
+            ),
+            "wrong_sign_extension_control_detected": all(
+                row["vendor_extension_discriminator"]["wrong_sign_extension_control_detected"]
+                for row in rows
+                if row["resolution"] >= 120 and row["profile_variant"] != "baseline_zero_shift"
             ),
             "acceptance_oracle_satisfied": False,
             "scientific_admission": False,
@@ -504,20 +694,29 @@ def main() -> int:
             # Re-run one base-state evaluation to retain signed profiles for independent review.
             grid_ops, vacuum, moving = adapter.vendor_modules()
             grid = grid_ops.SphericalCellGrid(n, float(args.r_max))
-            state = manufactured_state(grid, vacuum)
+            variant = row["profile_variant"]
+            state = manufactured_state(grid, vacuum, variant=variant)
             constraints = vacuum.constraints(grid, state)
             rates = vacuum_rhs_rates(grid, state, vacuum, moving)
             terms, predicted = brown_lower_momentum_rhs(grid, state, constraints)
-            arrays[f"N{n}_r"] = np.asarray(grid.centers, dtype=np.float64)
-            arrays[f"N{n}_H"] = np.asarray(constraints["hamiltonian"], dtype=np.float64)
-            arrays[f"N{n}_H_BSSN_Lambda_dependent"] = np.asarray(constraints["hamiltonian"], dtype=np.float64)
-            arrays[f"N{n}_H_metric_only"] = metric_only_hamiltonian(grid, state)[0]
-            arrays[f"N{n}_M"] = np.asarray(constraints["momentum"], dtype=np.float64)
-            arrays[f"N{n}_C"] = np.asarray(constraints["connection"], dtype=np.float64)
-            arrays[f"N{n}_predicted_Mdot"] = predicted
-            arrays[f"N{n}_brown_term_Hgrad"] = terms["alpha_DrH_over_6"]
+            extension_terms, extension = vendor_off_constraint_connection_extension(
+                grid, state, constraints
+            )
+            arrays[f"N{n}_{variant}_r"] = np.asarray(grid.centers, dtype=np.float64)
+            arrays[f"N{n}_{variant}_H"] = np.asarray(constraints["hamiltonian"], dtype=np.float64)
+            arrays[f"N{n}_{variant}_H_metric_only"] = metric_only_hamiltonian(grid, state)[0]
+            arrays[f"N{n}_{variant}_M"] = np.asarray(constraints["momentum"], dtype=np.float64)
+            arrays[f"N{n}_{variant}_C"] = np.asarray(constraints["connection"], dtype=np.float64)
+            arrays[f"N{n}_{variant}_literal_Brown_Mdot"] = predicted
+            arrays[f"N{n}_{variant}_vendor_extension_Cprime"] = extension_terms["additional_Cprime_from_vendor_Ricci"]
+            arrays[f"N{n}_{variant}_vendor_extension_C"] = extension_terms["additional_C_from_vendor_Ricci"]
+            arrays[f"N{n}_{variant}_vendor_consistent_Mdot"] = predicted + extension
             for eps in args.epsilons:
-                arrays[f"N{n}_measured_Mdot_eps{eps:.1e}"] = tangent_momentum(grid, state, rates, vacuum, float(eps))
+                measured = tangent_momentum(grid, state, rates, vacuum, float(eps))
+                arrays[f"N{n}_{variant}_measured_Mdot_eps{eps:.1e}"] = measured
+                arrays[f"N{n}_{variant}_literal_Brown_residual_eps{eps:.1e}"] = measured - predicted
+                arrays[f"N{n}_{variant}_vendor_consistent_residual_eps{eps:.1e}"] = measured - (predicted + extension)
+                arrays[f"N{n}_{variant}_wrong_sign_extension_residual_eps{eps:.1e}"] = measured - (predicted - extension)
         np.savez_compressed(arrays_path, **arrays)
         manifest = {
             "report_sha256": hashlib.sha256(report_path.read_bytes()).hexdigest(),
@@ -531,10 +730,15 @@ def main() -> int:
             "all_finite": summary["all_finite"],
             "negative_control_detected": summary["negative_control_detected"],
             "lambda_hamiltonian_discriminator_passed": summary["lambda_hamiltonian_discriminator_passed"],
-            "relative_rms_by_resolution": {
-                str(row["resolution"]): [x["relative_rms_residual"] for x in row["epsilon_rows"]]
-                for row in rows
+            "relative_rms_by_profile_and_resolution": {
+                f"{row['profile_variant']}_N{row['resolution']}": [
+                    x["relative_rms_residual"] for x in row["epsilon_rows"]
+                ] for row in rows
             },
+            "vendor_extension_improves_on_fine_annulus": summary["vendor_extension_improves_on_fine_annulus"],
+            "vendor_extension_monotone_convergence": summary["vendor_extension_monotone_convergence"],
+            "fine_band_convergence": summary["fine_band_convergence"],
+            "wrong_sign_extension_control_detected": summary["wrong_sign_extension_control_detected"],
             "scientific_admission": False,
         }, indent=2, sort_keys=True), flush=True)
         return 0
