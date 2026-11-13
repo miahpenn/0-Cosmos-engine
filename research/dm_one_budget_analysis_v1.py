@@ -24,17 +24,19 @@ def load(path):
     r = d["r"]; dr = r[1] - r[0]
     t = d["t"]; n = len(t)
     inside = r < R_IN
-    ES, EDM, MDM, c0 = [], [], [], []
+    ES, EI, EDM, MDM, c0 = [], [], [], [], []
     for i in range(n):
         S, PS, dV = d["S"][i], d["PS"][i], d["dV"][i]
         Sp = np.gradient(S, dr)
         # gradient measured on the coordinate grid; gamma_rr ~ 1 + O(2m/r) correction neglected in this read-out
         eS = 0.5 * PS**2 + 0.5 * Sp**2 + 0.5 * S**2 + LAM / 8 * S**4
         ES.append(float(np.sum((eS * dV)[inside])))
+        # S-D interaction energy (3 lambda / 4) S^2 D^2 in the same sphere (who owns it is a convention; reported separately)
+        EI.append(float(np.sum((0.75 * LAM * S**2 * d["D"][i]**2 * dV)[inside])))
         EDM.append(float(np.sum(d["dm_E"][i][inside])) / KAPPA)
         MDM.append(float(np.sum(d["dm_rest"][i][inside])) / KAPPA)
         c0.append(float(d["rho_dm"][i][0]))
-    return dict(r=r, t=t, ES=np.array(ES), EDM=np.array(EDM), MDM=np.array(MDM), rho0=np.array(c0),
+    return dict(r=r, t=t, ES=np.array(ES), EI=np.array(EI), EDM=np.array(EDM), MDM=np.array(MDM), rho0=np.array(c0),
                 rho=d["rho_dm"], D=d["D"], H0=float(d["H0"]), alpha0=d["alpha"][:, 0])
 
 
@@ -79,6 +81,9 @@ def main(dirn):
                     loss = float("nan")
                 print(f"  t = {a}-{b}: dark-matter energy entering the pocket (beyond background) {dex:+.3e} per unit time;"
                       f"  S's energy to D (full - noD) {loss:+.3e} per unit time;  ratio {abs(dex/loss) if loss else float('nan'):.2e}")
+            print("  S's energy with the S-D interaction energy included, (E_S + E_int)/E_S0 at t = 0/8/16/24: " + "/".join(
+                f"{(full['ES'][j] + full['EI'][j]) / ES0:.3f}" for j in [int(np.argmin(np.abs(t - tt))) for tt in (0, 8, 16, 24)])
+                  + f";  E_S0 = {ES0:.4e}")
             # profile of DM around matter at the last common time
             i = n - 1
             rr = full["r"]

@@ -1,0 +1,76 @@
+full_1.5_-0.04: t_end = 23.9
+full_1.5_0: t_end = 23.9
+full_2.0_-0.04: t_end = 23.9
+full_2.0_0: t_end = 23.9
+noD_1.5_0: t_end = 23.9
+noD_2.0_0: t_end = 23.9
+nomatter_2.0_-0.04: t_end = 23.9
+nomatter_2.0_0: t_end = 23.9
+
+=== x_c = 1.5, beta_D = 0 (lambda = 5000, one-budget; H0 = 0.0990) ===
+   t    E_S/E_S0  E_S(noD)/E_S0  E_DM(pocket)  E_DM ctrl   excess DM energy   rho_dm(0)/ctrl   D(0)/D*   alpha(0)
+   0.0     1.000       1.000     1.1057e+01   1.0104e+01   +9.5341e-01       1.0000     0.154    1.1500
+   2.0     0.964       0.878     1.1116e+01   1.0154e+01   +9.6195e-01       1.0165     0.129    1.0384
+   4.0     1.216       0.977     1.1185e+01   1.0207e+01   +9.7803e-01       1.0143     0.279    0.9397
+   6.0     1.582       0.988     1.1257e+01   1.0260e+01   +9.9723e-01       1.0357     0.887    0.8927
+   8.0     1.392       0.857     1.1329e+01   1.0314e+01   +1.0148e+00       1.0632     1.020    0.9658
+  12.0     1.426       0.918     1.1462e+01   1.0419e+01   +1.0431e+00       1.0994     1.111    0.9947
+  15.9     1.780       0.892     1.1582e+01   1.0519e+01   +1.0632e+00       1.1372     0.918    0.9407
+  19.9     1.622       0.832     1.1692e+01   1.0614e+01   +1.0784e+00       1.1782     0.838    0.9560
+  23.9     1.697       0.853     1.1796e+01   1.0705e+01   +1.0909e+00       1.2130     0.889    1.0025
+  t = 0-4: dark-matter energy entering the pocket (beyond background) +6.400e-03 per unit time;  S's energy to D (full - noD) +1.893e-03 per unit time;  ratio 3.38e+00
+  t = 4-12: dark-matter energy entering the pocket (beyond background) +8.092e-03 per unit time;  S's energy to D (full - noD) +6.851e-04 per unit time;  ratio 1.18e+01
+  t = 12-24: dark-matter energy entering the pocket (beyond background) +3.858e-03 per unit time;  S's energy to D (full - noD) +6.312e-04 per unit time;  ratio 6.11e+00
+  S's energy with the S-D interaction energy included, (E_S + E_int)/E_S0 at t = 0/8/16/24: 1.537/2.092/2.457/2.471;  E_S0 = 3.9763e-02
+  rho_dm/ctrl at t = 23.9: r=0.5: 1.1997, r=4: 1.2500, r=8: 1.0970, r=10: 1.0217, r=12: 1.0044, r=16: 0.9952, r=20: 0.9948
+
+=== x_c = 2.0, beta_D = 0 (lambda = 5000, one-budget; H0 = 0.0990) ===
+   t    E_S/E_S0  E_S(noD)/E_S0  E_DM(pocket)  E_DM ctrl   excess DM energy   rho_dm(0)/ctrl   D(0)/D*   alpha(0)
+   0.0     1.000       1.000     1.1323e+01   1.0104e+01   +1.2188e+00       1.0000     0.025    1.1960
+   2.0     0.917       0.872     1.1383e+01   1.0154e+01   +1.2287e+00       1.0294     0.018    1.0257
+   4.0     1.059       0.945     1.1453e+01   1.0207e+01   +1.2465e+00       1.0244     0.035    0.9285
+   6.0     1.472       0.982     1.1529e+01   1.0260e+01   +1.2691e+00       1.0233     0.140    0.9536
+   8.0     1.516       0.853     1.1606e+01   1.0314e+01   +1.2917e+00       1.0484     0.578    0.9304
+  12.0     1.565       0.910     1.1745e+01   1.0419e+01   +1.3260e+00       1.0926     0.563    0.9506
+  15.9     1.640       0.855     1.1869e+01   1.0519e+01   +1.3500e+00       1.1394     1.282    0.9194
+  19.9     1.706       0.811     1.1981e+01   1.0614e+01   +1.3670e+00       1.1868     0.722    0.9320
+  23.9     1.914       0.845     1.2085e+01   1.0705e+01   +1.3802e+00       1.2555     0.224    0.9572
+  t = 0-4: dark-matter energy entering the pocket (beyond background) +7.202e-03 per unit time;  S's energy to D (full - noD) +1.745e-03 per unit time;  ratio 4.13e+00
+  t = 4-12: dark-matter energy entering the pocket (beyond background) +1.005e-02 per unit time;  S's energy to D (full - noD) +2.004e-03 per unit time;  ratio 5.01e+00
+  t = 12-24: dark-matter energy entering the pocket (beyond background) +4.317e-03 per unit time;  S's energy to D (full - noD) +1.807e-03 per unit time;  ratio 2.39e+00
+  S's energy with the S-D interaction energy included, (E_S + E_int)/E_S0 at t = 0/8/16/24: 1.319/2.117/2.236/2.611;  E_S0 = 5.7737e-02
+  rho_dm/ctrl at t = 23.9: r=0.5: 1.2322, r=4: 1.2953, r=8: 1.1101, r=10: 1.0233, r=12: 1.0031, r=16: 0.9925, r=20: 0.9926
+
+=== x_c = 1.5, beta_D = -0.04 (lambda = 5000, one-budget; H0 = 0.0989) ===
+   t    E_S/E_S0  E_S(noD)/E_S0  E_DM(pocket)  E_DM ctrl   excess DM energy   rho_dm(0)/ctrl   D(0)/D*   alpha(0)
+   0.0     1.000       1.000     1.1071e+01   1.0104e+01   +9.6726e-01       1.0000     0.166    1.1523
+   2.0     0.970       0.878     1.1130e+01   1.0154e+01   +9.7580e-01       1.0154     0.141    1.0447
+   4.0     1.244       0.977     1.1199e+01   1.0208e+01   +9.9168e-01       1.0118     0.314    0.9418
+   6.0     1.575       0.988     1.1273e+01   1.0262e+01   +1.0103e+00       1.0336     0.981    0.9008
+   8.0     1.363       0.857     1.1344e+01   1.0317e+01   +1.0271e+00       1.0569     0.971    0.9984
+  12.0     1.594       0.918     1.1479e+01   1.0426e+01   +1.0535e+00       1.0865     1.194    0.9828
+  15.9     1.744       0.892     1.1602e+01   1.0530e+01   +1.0720e+00       1.1242     1.087    0.9209
+  19.9     1.663       0.832     1.1717e+01   1.0631e+01   +1.0857e+00       1.1593     0.993    0.9766
+  23.9     1.826       0.853     1.1827e+01   1.0730e+01   +1.0972e+00       1.1913     0.954    0.9487
+  t = 0-4: dark-matter energy entering the pocket (beyond background) +6.355e-03 per unit time;  S's energy to D (full - noD) +2.033e-03 per unit time;  ratio 3.13e+00
+  t = 4-12: dark-matter energy entering the pocket (beyond background) +7.659e-03 per unit time;  S's energy to D (full - noD) +7.987e-04 per unit time;  ratio 9.59e+00
+  t = 12-24: dark-matter energy entering the pocket (beyond background) +3.514e-03 per unit time;  S's energy to D (full - noD) +7.891e-04 per unit time;  ratio 4.45e+00
+  S's energy with the S-D interaction energy included, (E_S + E_int)/E_S0 at t = 0/8/16/24: 1.556/2.127/2.507/2.537;  E_S0 = 3.9798e-02
+  rho_dm/ctrl at t = 23.9: r=0.5: 1.1795, r=4: 1.2367, r=8: 1.0901, r=10: 1.0170, r=12: 1.0022, r=16: 0.9954, r=20: 0.9953
+
+=== x_c = 2.0, beta_D = -0.04 (lambda = 5000, one-budget; H0 = 0.0989) ===
+   t    E_S/E_S0  E_S(noD)/E_S0  E_DM(pocket)  E_DM ctrl   excess DM energy   rho_dm(0)/ctrl   D(0)/D*   alpha(0)
+   0.0     1.000       1.000     1.1337e+01   1.0104e+01   +1.2332e+00       1.0000     0.026    1.1983
+   2.0     0.920       0.872     1.1397e+01   1.0154e+01   +1.2430e+00       1.0278     0.019    1.0326
+   4.0     1.074       0.945     1.1468e+01   1.0208e+01   +1.2604e+00       1.0197     0.039    0.9360
+   6.0     1.503       0.982     1.1545e+01   1.0262e+01   +1.2825e+00       1.0153     0.167    0.9525
+   8.0     1.533       0.853     1.1621e+01   1.0317e+01   +1.3041e+00       1.0385     0.705    0.9263
+  12.0     1.597       0.910     1.1762e+01   1.0426e+01   +1.3361e+00       1.0740     0.528    0.9448
+  15.9     1.627       0.855     1.1888e+01   1.0530e+01   +1.3577e+00       1.1171     1.125    0.9507
+  19.9     1.759       0.811     1.2004e+01   1.0631e+01   +1.3728e+00       1.1575     1.308    0.9433
+  23.9     1.896       0.845     1.2114e+01   1.0730e+01   +1.3845e+00       1.2145     0.769    0.9345
+  t = 0-4: dark-matter energy entering the pocket (beyond background) +7.102e-03 per unit time;  S's energy to D (full - noD) +1.859e-03 per unit time;  ratio 3.82e+00
+  t = 4-12: dark-matter energy entering the pocket (beyond background) +9.511e-03 per unit time;  S's energy to D (full - noD) +2.064e-03 per unit time;  ratio 4.61e+00
+  t = 12-24: dark-matter energy entering the pocket (beyond background) +3.836e-03 per unit time;  S's energy to D (full - noD) +1.882e-03 per unit time;  ratio 2.04e+00
+  S's energy with the S-D interaction energy included, (E_S + E_int)/E_S0 at t = 0/8/16/24: 1.330/2.168/2.331/2.661;  E_S0 = 5.7782e-02
+  rho_dm/ctrl at t = 23.9: r=0.5: 1.1944, r=4: 1.2746, r=8: 1.1004, r=10: 1.0177, r=12: 1.0008, r=16: 0.9932, r=20: 0.9936
