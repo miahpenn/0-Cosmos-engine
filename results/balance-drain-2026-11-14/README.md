@@ -167,4 +167,46 @@ TASK5_PLACEHOLDER
 
 ## Task 6. Outer edge (map row 7)
 
-TASK6_PLACEHOLDER
+**Root cause (read).** The runaway starts at the edge even with no pocket at all. In the no-matter background
+(r_max = 24, dr = 0.1, to t = 40):
+- dark matter gathers against the edge from the first steps (+0.03% at t = 2, +2% at t = 40);
+- the edge geometry turns anisotropic (a/b off 1 by 1.3% at the edge by t = 40);
+- the central lapse drifts up by 1.8% against the edge's α = 1.
+
+With the pocket the same mode grows much faster: α(0) = 1.33 by t = 40 at dr = 0.1, ≈ 7 by t = 34 at dr = 0.05. Dark
+matter piles up 17% at the edge, and the slower interior clock then pulls more dust outward toward the edge, which
+feeds the drift. S and D waves at the edge are negligible (|S| ~ 1e-8 there).
+
+**Research edge** (`SPONGE=6`, r > r_max − 6 = 18, `research/dm_one_budget_v1.py`). Same no-D pocket, r_max = 24,
+dr = 0.1, to t = 40:
+
+| t | no sponge (production edge): α(0) / α(r = 12) / edge dust pile-up | scalar sponge only (S, D): same | scalar + dust sponge: same |
+|---|---|---|---|
+| 20 | 0.981 / 1.009 / +0.1% | 0.981 / 1.009 / +0.1% | 0.967 / 0.997 / −1.0% |
+| 30 | 1.075 / 1.076 / +4.7% | 1.075 / 1.076 / +4.7% | 0.984 / 0.995 / −1.2% |
+| 40 | 1.335 / 1.354 / +17.5% | 1.335 / 1.354 / +17.5% | 0.987 / 0.993 / −1.4% |
+
+- **Read:** the scalar sponge alone changes nothing, because the drift is not driven by S or D waves.
+- **Read:** relaxing the dust toward a uniform state at rest in the outer shell stops the runaway. Outside the pocket
+  the lapse stays within 0.7% of 1 to t = 40, and the pocket's own dark-matter gathering is unchanged at t = 20
+  (centre/r = 12: 1.262 both).
+- **Read:** the edge anisotropy (a/b ≈ 1.06 at the last cell) is not removed by the sponge; it sits flat from t ≈ 20
+  instead of growing (1.28 by t = 40 without the dust sponge).
+- SPONGE_WITH_D_PLACEHOLDER
+
+**Proposed production change (for Jeremiah's review; not made).** Map row 7: give the production outer edge a
+dust-absorbing layer.
+- A shell of fixed proper width near r_max where the dust species' conserved variables are relaxed toward the
+  homogeneous state at the shell's inner radius (at rest with the normal observers), with a smooth damping profile
+  (quadratic ramp, rate ~2 per unit time at the edge).
+- Optionally the same for the S and D perturbations (harmless; no effect here).
+- Geometry untouched; the vendor's incoming-light constraint stays.
+- Cost: one initialize_dust call per step over the shell.
+- Known limits:
+  - it removes dust energy and momentum without adjusting the geometry, so the constraints are not kept inside the
+    shell;
+  - it leaves the edge's a/b anisotropy, a sign that the light-constraint boundary itself is not an FRW boundary.
+- A fuller fix would be an FRW-matched (homogeneous) outer boundary for the geometry. That is a larger change and
+  would need its own derivation.
+- Results inside the pocket are unchanged by the layer until the production edge would have run away (t ≈ 24 at
+  r_max = 24), so existing results before that time stand.
