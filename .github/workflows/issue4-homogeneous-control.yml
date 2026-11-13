@@ -1,0 +1,80 @@
+name: Issue 4 homogeneous constraint-satisfied control
+
+on:
+  pull_request:
+    paths:
+      - "tools/audit_constraint_satisfied_homogeneous_control.py"
+      - "tools/audit_current_source_momentum_constraint_tangent.py"
+      - ".github/workflows/issue4-homogeneous-control.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: issue4-homogeneous-control-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  homogeneous-control:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout exact PR tree and pinned vendor submodule
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install repository test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+
+      - name: Verify source pins and compile the diagnostic
+        shell: bash
+        run: |
+          set -euo pipefail
+          git rev-parse HEAD
+          git -C vendor/bb-palatini-unified-r0 rev-parse HEAD
+          python -m py_compile \
+            tools/audit_current_source_momentum_constraint_tangent.py \
+            tools/audit_constraint_satisfied_homogeneous_control.py
+
+      - name: Run bounded homogeneous-control discriminator
+        shell: bash
+        run: |
+          set -euo pipefail
+          python tools/audit_constraint_satisfied_homogeneous_control.py \
+            --resolutions 60 80 120 160 \
+            --r-max 80.0 \
+            --epsilons 2e-4 1e-4 \
+            --dt 0.015 \
+            --output artifacts/issue4-homogeneous-control/report.json
+          sha256sum artifacts/issue4-homogeneous-control/report.json \
+            > artifacts/issue4-homogeneous-control/SHA256SUMS.txt
+          jq -e '
+            .status == "completed_diagnostic_only"
+            and .scientific_admission == false
+            and .acceptance_gates.all_constraints_controlled == true
+            and .acceptance_gates.all_tangent_closures_pass == true
+            and .acceptance_gates.all_frozen_states_unchanged == true
+            and .acceptance_gates.all_dt_and_dt_half_checks_completed == true
+            and .acceptance_gates.all_null_Mdot_below_tolerance == true
+          ' artifacts/issue4-homogeneous-control/report.json
+
+      - name: Upload exact report and checksum
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: issue4-homogeneous-control-${{ github.sha }}
+          path: artifacts/issue4-homogeneous-control/
+          if-no-files-found: warn
+          retention-days: 30
