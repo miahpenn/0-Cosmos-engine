@@ -1,18 +1,18 @@
-"""Local GEAR-03 S/D sector with the GEAR-63/65 geometric barrier.
+"""PROVENANCE ONLY. Reduced GEAR-03 S/D lane with the GEAR-63/65 cubic barrier (retired Nov 11 2026).
 
-The cubic barrier -(2 pi/3) G alpha_D^2 D^3 is derived from a closure and is
-conditional: conformal force -(R/6) D with dust-remnant curvature
-R = 8 pi G (1/2 alpha_D^2 D^2) (GEAR-67E converted branch). It assumes D -> matter
-conversion, which is open; with D's own stress-energy the same coupling is
-anti-restoring, +(4 pi/3) G alpha_D^2 D^3. It is applied at all times, so the
-post-conversion force also acts on the pre-conversion mode. See docs/PHYSICS_LOCK.md.
-eta_G is declared for parameter compatibility and is not used here.
+Retired from live physics by DECISION-map-row-5 (Jeremiah, Nov 11 2026; docs/GEAR_TO_CODE_MAP.md row 5): the GEAR-67
+S-D quartic (engine.scalar_system, research settings at lambda > 0) is the one arrest closure. This module is kept,
+unchanged in behaviour, so archive comparisons (research/gear_archive_machine_v1.py) and the reduced control runner
+(engine/run_controls.py) still reproduce it; no production kernel path imports it. See docs/PHYSICS_LOCK.md.
 
-GEAR-67 S-D quartic: this reduced lane has no (lambda/8)(S^4 + 6 S^2 D^2 + D^4) term; it is the
-lambda = 0 case, like the production engine (engine.scalar_system.SD_QUARTIC_LAMBDA). Its own cubic
-barrier above is a different, conditional closure. local_rhs therefore refuses to run when
-SD_QUARTIC_LAMBDA is nonzero, so the two lanes cannot silently disagree; a lambda > 0 reduced model
-would need its own derivation.
+Why retired: the barrier is conditional on D -> matter conversion, which is not shown (with D's own stress-energy the
+same coupling is anti-restoring), and the archive's Term A damping eta_G D^2 Ddot has no derived origin; "always derive"
+and "never force a component" exclude both as live physics. eta_G is declared for parameter compatibility only.
+
+Kept on record: the cubic force -(2 pi/3) G alpha_D^2 D^3 is the force of the quartic (pi/6) G alpha_D^2 D^4, i.e. the
+GEAR-67 D^4 term with lambda = (4 pi/3) G alpha_D^2 = 4.19 (D*^2 = 2/lambda = 3/(2 pi), D* = 0.690988). It is the only
+place the archive fixed lambda from something deeper; it has no S-D cross term (6 S^2 D^2), so matter cannot hold or
+pump D through it. The lambda guard below stays: this lane is the lambda = 0 case of the production quartic.
 """
 from dataclasses import dataclass
 

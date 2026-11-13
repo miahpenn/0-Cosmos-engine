@@ -137,16 +137,17 @@ jobs:
           fi
           # Engine files outside this audit's runtime set, each authorized as one exact head blob
           # (same table as tools/audit_tracefree_ricci_proper_radial.py); any other content still
-          # fails closed. local.py: barrier provenance docstring (#441) and GEAR-67 lambda guard (#457). true_cmc_reference.py:
+          # fails closed. local.py: provenance-only (row-5 decision), after #441 and #457. true_cmc_reference.py:
           # even-ghost CMC centre row (#442). coupled_engine.py / bidirectional_production.py:
-          # thin drivers over V55ProductionKernel; worldtube.py: Misner-Sharp shift-flux helper
+          # thin drivers over V55ProductionKernel; worldtube.py: Misner-Sharp shift-flux helper; run_controls.py: provenance label
           # (this audit imports none of them).
           declare -A authorized_off_audit_heads=(
-            ["engine/local.py"]="e66d8af34d58d16b4d0ee7fc27db22860c17b156"
+            ["engine/local.py"]="421ab84c1e67b815f0573958cab63939c7fca78f"
             ["engine/true_cmc_reference.py"]="5cbac98225ce711dab80e5db97672012885fe47c"
             ["engine/coupled_engine.py"]="858b40dc5c93e502b3bccde364b9fc3f781fd692"
             ["engine/bidirectional_production.py"]="21e55a57f2029713225cce9b590db57817d4e4f1"
             ["engine/worldtube.py"]="c263a786b2057f4a427243899ae507e8a0c0c8c5"
+            ["engine/run_controls.py"]="8eb24c72bbe436896a1b85a23cb91e4de8e6a647"
           )
           for path in "${!authorized_off_audit_heads[@]}"; do
             if [ -n "$unexpected" ] && [ "$(git rev-parse "HEAD:$path" 2>/dev/null)" = "${authorized_off_audit_heads[$path]}" ]; then

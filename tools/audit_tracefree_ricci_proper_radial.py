@@ -136,18 +136,21 @@ def _git(*args: str) -> str:
 
 
 # Engine files outside this audit's runtime set changed by a reviewed repair, authorized as one
-# exact head blob each. engine/local.py: GEAR-63/65 barrier provenance docstring (#441) and the GEAR-67
+# exact head blob each. engine/local.py: provenance-only since DECISION-map-row-5 (Nov 11 2026); earlier the GEAR-63/65
+# barrier provenance docstring (#441) and the GEAR-67
 # lambda guard (#457: local_rhs refuses SD_QUARTIC_LAMBDA != 0). engine/true_cmc_reference.py: even-ghost CMC centre row, the same repair
 # as engine/cmc_gauge.py (#436). engine/coupled_engine.py and engine/bidirectional_production.py:
 # thin drivers over V55ProductionKernel replacing their reference-stack evolution (bidirectional_production
-# re-authorized for the ledger shift term). engine/worldtube.py: Misner-Sharp shift-flux helper. This audit
+# re-authorized for the ledger shift term). engine/worldtube.py: Misner-Sharp shift-flux helper. engine/run_controls.py:
+# labels the reduced lane provenance-only (row-5 decision). This audit
 # imports none of them.
 AUTHORIZED_OFF_AUDIT_REPAIR_HEAD_BLOBS = {
-    "engine/local.py": "e66d8af34d58d16b4d0ee7fc27db22860c17b156",
+    "engine/local.py": "421ab84c1e67b815f0573958cab63939c7fca78f",
     "engine/true_cmc_reference.py": "5cbac98225ce711dab80e5db97672012885fe47c",
     "engine/coupled_engine.py": "858b40dc5c93e502b3bccde364b9fc3f781fd692",
     "engine/bidirectional_production.py": "21e55a57f2029713225cce9b590db57817d4e4f1",
     "engine/worldtube.py": "c263a786b2057f4a427243899ae507e8a0c0c8c5",
+    "engine/run_controls.py": "8eb24c72bbe436896a1b85a23cb91e4de8e6a647",
 }
 
 
