@@ -66,7 +66,17 @@ relative to the 0–6 window):
 | 24–30 | 0.821 / 0.827 / 0.821 | 0.778 / (edge) / 0.777 | 0.900 | 0.688 |
 | 30–36 | 0.809 / — / 0.810 | 0.762 / — / 0.762 | 0.881 | 0.674 |
 
-XC15_TABLE
+**x_c = 1.5, β_D = 0** (J; rulers: r_max = 36 with time step 0.2 dr, and the #475 run, r_max = 24, time step 0.06 dr):
+
+| window | J full: r_max 36 / #475 | J no-D: r_max 36 / #475 | E_S full (r_max 36) | E_S no-D (r_max 36) |
+|---|---|---|---|---|
+| 6–12 | 0.881 / 0.882 | 0.880 / 0.881 | 0.953 | 0.817 |
+| 12–18 | 0.854 / 0.855 | 0.826 / 0.828 | 0.939 | 0.753 |
+| 18–24 | 0.833 / 0.835 | 0.796 / 0.798 | 0.891 | 0.720 |
+| 24–30 | 0.816 / — | 0.776 / — | 0.892 | 0.700 |
+| 30–36 | 0.808 / — | 0.761 / — | 0.867 | 0.686 |
+
+(dr = 0.05 was not run at x_c = 1.5: at r_max = 24 the edge limits it to t ≈ 24–30, the window #475 already covers.)
 
 β_D = −0.04 (one ruler, #475 data, dr = 0.1): J at 18–24 = 0.832 (x_c = 2.0), 0.828 (x_c = 1.5), the same as β_D = 0.
 
@@ -148,7 +158,10 @@ m = 1.0: no run (potential unbounded below; derived above).
   without D, still rising. Settled D does **not** gather: its energy in the pocket halves over the same time; its
   density sits with S inside the pocket at ≈ 0.7–1.4% of S's (r = 0.5–4) and falls off past the edge more slowly than
   S's (r = 14: 1e-9 against S's 5e-11).
-- **Open:** a dark-matter spike in the innermost one or two cells with D (×5 at r = 0.1 by t = 40; ×3.6 at t = 34 at
+- **x_c = 1.5 (r_max = 36):** ρ_dm/ρ_dm(r = 20) at t = 40 is 1.31–1.44 (r = 0.5–4) with D and 1.21 without; no central
+  spike. Settled D's energy in the pocket holds steady here (2.7e-3 → 2.4e-3 from t = 6–12 to 30–36) rather than
+  halving; it still does not grow.
+- **Open:** at x_c = 2.0, a dark-matter spike in the innermost one or two cells with D (×5 at r = 0.1 by t = 40; ×3.6 at t = 34 at
   dr = 0.05, so it sharpens with resolution). It is the same at r_max = 24 and 36. Origin numerics or a real central
   collapse: not decided.
 - **Flat, no sea:** settled D's energy density is comparable to S's from r ≈ 8 out to r ≈ 20 and well below it inside
