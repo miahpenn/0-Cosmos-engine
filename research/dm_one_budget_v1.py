@@ -36,6 +36,9 @@ r > r_max - w by the factor exp(-gamma(r) dt), gamma = g0 ((r - r_s)/(r_max - r_
 D_bg = D's value at the start of the run in the outermost cell (the settled background, D* e^{-beta_D phi}). Geometry,
 phi, Pi and the fluids are untouched. This absorbs outgoing S and D waves (the flat-space sponge of PR #470/#473); it
 removes their energy without adjusting the geometry, so the constraints are not kept inside the shell.
+SPONGE_DUST = 1 (with SPONGE = w) also relaxes the dust species (dark matter, baryons) in the shell toward a uniform
+state at rest at the density of the shell's inner edge (conserved variables rebuilt with initialize_dust on the current
+metric), so dust cannot pile up against the edge.
 Usage (repo root): python research/dm_one_budget_v1.py CASE x_c beta_D N RMAX T out.npz [CFL]
   CFL = dt/dr (default 0.06, as in PR #475). Also records gamma_rr = a/X^2 ("grr") for the proper-gradient read-out.
 """
@@ -167,7 +170,9 @@ def main():
             r_s = r[-1] - sp_w
             damp = np.exp(-np.where(r > r_s, sp_g * ((r - r_s) / (r[-1] - r_s)) ** 2, 0.0) * dt)
             D_bg = float(st.scalars.D[-1])
-            print(f"sponge on: r > {r_s:.2f}, g0 = {sp_g}, D_bg = {D_bg:.5e}", flush=True)
+            sp_dust = os.environ.get("SPONGE_DUST", "0") == "1"
+            shell = r > r_s; j_s = int(np.argmax(shell)) - 1
+            print(f"sponge on: r > {r_s:.2f}, g0 = {sp_g}, D_bg = {D_bg:.5e}, dust = {sp_dust}", flush=True)
         for n in range(nsteps + 1):
             if n % every == 0:
                 g = st.geometry
@@ -192,6 +197,18 @@ def main():
                         sc = st.scalars
                         st = dataclasses.replace(st, scalars=dataclasses.replace(
                             sc, S=sc.S * damp, PS=sc.PS * damp, D=D_bg + (sc.D - D_bg) * damp, PD=sc.PD * damp))
+                        if sp_dust:
+                            mets = _metric_arrays(metric_slice_from_q(grid, st.geometry))
+                            sg = np.array([m.sqrt_gamma for m in mets])
+                            new = {}
+                            for nm in ("dark_matter", "baryons"):
+                                spc = getattr(st.matter, nm)
+                                rho_s = float(spc.rest[j_s] / sg[j_s])
+                                tgt = initialize_dust(mets, np.full_like(r, rho_s))
+                                new[nm] = type(spc)(*(np.where(shell, tg + (np.asarray(cur) - tg) * damp, np.asarray(cur))
+                                                      for tg, cur in ((tgt.rest, spc.rest), (tgt.energy_t, spc.energy_t),
+                                                                      (tgt.momentum_r, spc.momentum_r))))
+                            st = dataclasses.replace(st, matter=dataclasses.replace(st.matter, **new))
                 except Exception as exc:
                     print(f"STOPPED at t={st.t:.3f}: {type(exc).__name__}: {str(exc)[:200]}", flush=True)
                     break
