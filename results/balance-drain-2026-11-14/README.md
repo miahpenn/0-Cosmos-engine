@@ -192,7 +192,9 @@ dr = 0.1, to t = 40:
   (centre/r = 12: 1.262 both).
 - **Read:** the edge anisotropy (a/b ≈ 1.06 at the last cell) is not removed by the sponge; it sits flat from t ≈ 20
   instead of growing (1.28 by t = 40 without the dust sponge).
-- SPONGE_WITH_D_PLACEHOLDER
+- **Read:** with the full pocket (with D; r_max = 24, dr = 0.1, scalar + dust sponge) the lapse at r = 12 stays at
+  0.992–0.996 to t = 40. Without the sponge it is 1.173, and at r_max = 36 it is 1.038. The pocket's dark-matter
+  profile is the same as at r_max = 24 and 36 without the sponge: 1.40–1.41 at r = 2 and 1.52–1.54 at r = 4, at t = 40.
 
 **Proposed production change (for Jeremiah's review; not made).** Map row 7: give the production outer edge a
 dust-absorbing layer.
