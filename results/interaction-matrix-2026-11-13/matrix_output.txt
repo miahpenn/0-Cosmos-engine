@@ -1,0 +1,29 @@
+
+lambda = 0: max|delta target RHS| / max|target RHS| for a 1e-4 bump in the source (exact 0 = no channel)
+source \ target           S          D        phi         DM    baryons  radiation   geometry      lapse
+S                   1.3e-04    0.0e+00    0.0e+00    0.0e+00    0.0e+00    0.0e+00    4.6e-06    4.7e-07
+D                   0.0e+00    1.1e-04    0.0e+00    0.0e+00    0.0e+00    0.0e+00    2.3e-06    2.7e-07
+phi                 0.0e+00    0.0e+00    8.3e-04    4.8e-05    0.0e+00    0.0e+00    1.9e-07    8.0e-09
+DM                  0.0e+00    0.0e+00    5.4e-08    4.6e-05    0.0e+00    0.0e+00    1.4e-07    1.7e-08
+baryons             0.0e+00    0.0e+00    0.0e+00    0.0e+00    4.5e-05    0.0e+00    2.7e-08    3.2e-09
+radiation           0.0e+00    0.0e+00    0.0e+00    0.0e+00    0.0e+00    1.3e-04    2.6e-08    3.1e-09
+geometry:X          2.9e-06    3.7e-06    2.8e-05    8.7e-17    1.2e-16    3.9e-04    5.5e-03    7.5e-08
+geometry:K          2.6e-09    3.4e-09    1.3e-08    0.0e+00    0.0e+00    2.4e-07    9.6e-06    2.5e-08
+geometry:alpha      1.5e-05    1.6e-05    2.6e-05    6.0e-02    6.4e-02    4.3e-04    8.5e-03    6.6e-09
+
+lambda = 5000: max|delta target RHS| / max|target RHS| for a 1e-4 bump in the source (exact 0 = no channel)
+source \ target           S          D        phi         DM    baryons  radiation   geometry      lapse
+S                   9.4e-05    1.2e-05    0.0e+00    0.0e+00    0.0e+00    0.0e+00    4.6e-06    4.8e-07
+D                   7.0e-07    2.6e-04    0.0e+00    0.0e+00    0.0e+00    0.0e+00    2.2e-06    2.7e-07
+phi                 0.0e+00    0.0e+00    8.3e-04    3.7e-05    0.0e+00    0.0e+00    1.9e-07    8.0e-09
+DM                  0.0e+00    0.0e+00    5.4e-08    4.3e-05    0.0e+00    0.0e+00    1.4e-07    1.7e-08
+baryons             0.0e+00    0.0e+00    0.0e+00    0.0e+00    4.3e-05    0.0e+00    2.7e-08    3.2e-09
+radiation           0.0e+00    0.0e+00    0.0e+00    0.0e+00    0.0e+00    1.3e-04    2.6e-08    3.1e-09
+geometry:X          2.1e-06    8.6e-06    2.8e-05    1.4e-16    9.0e-17    3.9e-04    5.5e-03    7.3e-08
+geometry:K          1.9e-09    7.9e-09    1.3e-08    0.0e+00    0.0e+00    2.4e-07    9.6e-06    2.5e-08
+geometry:alpha      1.1e-05    3.6e-05    2.6e-05    4.7e-02    4.9e-02    4.3e-04    8.5e-03    6.4e-09
+
+Floor channel at lambda = 5000 (S = 0, D uniform):
+  scalar energy density of the S/D/phi sectors (median over grid, archive normalisation): D = 0: +2.9516e-06;  D = D*: -9.7048e-05;  difference -1.0000e-04  (-1/(2 lambda) = -1.0000e-04)
+  phi's RHS (max |d_t Pi|): D = 0: 1.169808e-03;  D = D*: 1.169808e-03  (equal = phi does not see D's vacuum)
+  change in each target between D = 0 and D = D*: S 0.0e+00 (abs; zero at D = 0), D 1.1e-17 (abs; zero at D = 0), phi 0.0e+00, DM 0.0e+00, baryons 0.0e+00, radiation 0.0e+00, geometry 4.4e-01, lapse 2.9e-04
