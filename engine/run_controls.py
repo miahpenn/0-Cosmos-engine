@@ -48,6 +48,7 @@ def run_controls():
             "rhs0": cosmos_rhs(cosmos, cp),
         },
         "local": {
+            "status": "PROVENANCE_ONLY_GEAR63_65_RETIRED",
             "state0": local,
             "rhs0": local_rhs0,
             "energy0": local_e0,

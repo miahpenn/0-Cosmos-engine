@@ -38,4 +38,5 @@ The reduced two-lane machine (`engine/cosmos.py`, `local.py`, `interface.py`, `d
 `run_controls.py`, run in CI by `controls.yml` and `lightweight_validation.yml`) and
 `research/gear_archive_machine_v1.py` do not use the V5.5 reference stack. The GEAR-63/65 barrier in
 `engine/local.py` is conditional physics (see `docs/PHYSICS_LOCK.md`), an owner decision rather than a
-numerical defect.
+numerical defect. **Retired to provenance on Nov 11 2026** (DECISION-map-row-5): the GEAR-67 quartic is the one arrest
+closure; `engine/local.py` is kept, unchanged in behaviour, for archive comparisons and the control runner only.

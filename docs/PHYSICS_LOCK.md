@@ -7,7 +7,14 @@ With kappa=0 and g=1:
 - V_S = +S^2/2
 - V_D = -D^2/2
 
-## GEAR-63/65
+## GEAR-63/65 (retired to provenance, Nov 11 2026)
+RETIRED: by DECISION-map-row-5 (Jeremiah, Nov 11 2026; `docs/GEAR_TO_CODE_MAP.md` row 5) the GEAR-67 S-D quartic is the
+one arrest closure. The cubic barrier and the archive damping below are provenance only; `engine/local.py` keeps them,
+unchanged in behaviour, for archive comparisons and the reduced control runner; no production kernel path imports it.
+The cubic force is that of the quartic (pi/6) G alpha_D^2 D^4, i.e. GEAR-67's D^4 term at lambda = (4 pi/3) G alpha_D^2
+= 4.19 (D* = sqrt(3/(2 pi)) = 0.690988), with no S-D cross term: the only place the archive fixed lambda from
+something deeper, kept on record should D -> matter conversion reopen.
+
 The reduced local sector (`engine/local.py`) retains the cubic geometric barrier -(2 pi/3) G alpha_D^2 D^3.
 
 Provenance: the coefficient is derived from a closure, not fitted. It is the conformal force -(R/6) D with the curvature sourced by a pressureless dust remnant of density (1/2) alpha_D^2 D^2, R = 8 pi G (1/2 alpha_D^2 D^2) = 4 pi G alpha_D^2 D^2 (the GEAR-67E converted/dust branch).

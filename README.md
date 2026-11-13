@@ -36,7 +36,7 @@ Implementation progress, diagnostic closure, and scientific validation are track
 ### Matter, scalar fields and stress-energy
 - `engine/scalar_system.py` — S/D/COSMOS scalar evolution and projections.
 - `engine/cosmos.py` — archive homogeneous COSMOS lane, radiation and shear semantics.
-- `engine/local.py` — GEAR local S/D sector and geometric barrier.
+- `engine/local.py` — PROVENANCE ONLY: reduced GEAR-03 S/D lane with the retired GEAR-63/65 cubic barrier (DECISION-map-row-5, Nov 11 2026).
 - `engine/valencia.py` — conservative/primitive identities and tensor-source contraction.
 - `engine/matter_system.py` — conservative spherical dust/radiation transport.
 - `engine/v55_matter.py` — V5.5 matter bundle and operating point.
