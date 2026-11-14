@@ -1,0 +1,55 @@
+kappa = 8 pi; V0 = 8.242522e-05, D = 0.1, lam = 1.0, beta = -0.04; lambda_SD = 0.0
+
+chart V0: H = 1.035146e-02, phi = 0.000000, pi = 0.000000e+00, rho_dm = 8.2425e-05, rho_b = 8.2425e-05, rho_r = 8.2425e-05
+  frozen state, production edge: rho 2.2e-16, p 3.3e-17, friedmann 1.3e-16, kdot 1.5e-12, dPi 0.0e+00, round_trip 0.0e+00
+  frozen state, research wall: rho 2.2e-16, p 3.3e-17, friedmann 1.3e-16, kdot 2.0e-12, dPi 0.0e+00, round_trip 0.0e+00
+  few-step evolution to t = 4, production kernel, production edge, centre cell: (local - COSMOS)/value, per variable; then as a fraction of the variable's change over the run
+      dt      K,X spread           a          H        phi     pi_phi     rho_dm      rho_b      rho_r
+     0.100   8.9e-14     -3.5e-08   +5.7e-08   +2.3e-05   -5.6e-07   +1.1e-07   +1.0e-07   +1.4e-07
+             of change     -8.8e-07   +1.1e-06   +2.3e-05   -5.6e-07   +8.2e-07   +8.1e-07   +8.0e-07
+     0.050   1.7e-13     -8.7e-09   +1.4e-08   +5.7e-06   -1.4e-07   +2.6e-08   +2.6e-08   +3.5e-08
+             of change     -2.2e-07   +2.7e-07   +5.7e-06   -1.4e-07   +2.0e-07   +2.0e-07   +2.0e-07
+     0.025   2.1e-13     -2.2e-09   +3.6e-09   +1.4e-06   -3.5e-08   +6.6e-09   +6.5e-09   +8.7e-09
+             of change     -5.5e-08   +6.8e-08   +1.4e-06   -3.5e-08   +5.1e-08   +5.1e-08   +5.0e-08
+      ratio of residuals, last two dt:        4.00       4.01       4.00       4.00       4.00       4.00       4.00
+  few-step evolution to t = 4, research wall (GEAR-107, closure i): (local - COSMOS)/value, per variable; then as a fraction of the variable's change over the run
+      dt      K,X spread           a          H        phi     pi_phi     rho_dm      rho_b      rho_r
+     0.100   9.5e-14     -3.5e-08   +5.7e-08   +2.3e-05   -5.6e-07   +1.1e-07   +1.0e-07   +1.4e-07
+             of change     -8.8e-07   +1.1e-06   +2.3e-05   -5.6e-07   +8.2e-07   +8.1e-07   +8.0e-07
+     0.050   7.8e-14     -8.7e-09   +1.4e-08   +5.7e-06   -1.4e-07   +2.6e-08   +2.6e-08   +3.5e-08
+             of change     -2.2e-07   +2.7e-07   +5.7e-06   -1.4e-07   +2.0e-07   +2.0e-07   +2.0e-07
+     0.025   7.7e-14     -2.2e-09   +3.6e-09   +1.4e-06   -3.5e-08   +6.6e-09   +6.5e-09   +8.7e-09
+             of change     -5.5e-08   +6.8e-08   +1.4e-06   -3.5e-08   +5.1e-08   +5.1e-08   +5.0e-08
+      ratio of residuals, last two dt:        4.00       4.00       4.00       4.00       4.00       4.00       4.00
+
+chart node: H = 9.449550e-03, phi = 2.302585, pi = 9.078834e-03, rho_dm = 1.6485e-04, rho_b = 4.1213e-05, rho_r = 2.0606e-05
+  frozen state, production edge: rho 0.0e+00, p 4.0e-17, friedmann 1.5e-16, kdot 1.3e-12, dPi 1.1e-11, round_trip 0.0e+00
+  frozen state, research wall: rho 0.0e+00, p 4.0e-17, friedmann 1.5e-16, kdot 2.3e-12, dPi 4.9e-11, round_trip 0.0e+00
+  few-step evolution to t = 4, production kernel, production edge, centre cell: (local - COSMOS)/value, per variable; then as a fraction of the variable's change over the run
+      dt      K,X spread           a          H        phi     pi_phi     rho_dm      rho_b      rho_r
+     0.100   1.8e-13     -3.8e-08   +9.1e-08   -2.8e-08   +2.4e-07   +1.1e-07   +1.1e-07   +1.5e-07
+             of change     -1.0e-06   +1.4e-06   -1.9e-06   +2.1e-06   +9.7e-07   +9.7e-07   +9.6e-07
+     0.050   1.6e-13     -9.4e-09   +2.3e-08   -6.9e-09   +6.0e-08   +2.8e-08   +2.8e-08   +3.8e-08
+             of change     -2.6e-07   +3.4e-07   -4.7e-07   +5.2e-07   +2.4e-07   +2.4e-07   +2.4e-07
+     0.025   2.3e-13     -2.4e-09   +5.7e-09   -1.7e-09   +1.5e-08   +6.9e-09   +7.1e-09   +9.4e-09
+             of change     -6.5e-08   +8.5e-08   -1.2e-07   +1.3e-07   +6.0e-08   +6.1e-08   +6.0e-08
+      ratio of residuals, last two dt:        4.00       4.01       4.00       4.00       4.00       4.00       4.00
+  few-step evolution to t = 4, research wall (GEAR-107, closure i): (local - COSMOS)/value, per variable; then as a fraction of the variable's change over the run
+      dt      K,X spread           a          H        phi     pi_phi     rho_dm      rho_b      rho_r
+     0.100   9.2e-14     -3.8e-08   +9.1e-08   -2.8e-08   +2.4e-07   +1.1e-07   +1.1e-07   +1.5e-07
+             of change     -1.0e-06   +1.4e-06   -1.9e-06   +2.1e-06   +9.7e-07   +9.7e-07   +9.6e-07
+     0.050   9.3e-14     -9.4e-09   +2.3e-08   -6.9e-09   +6.0e-08   +2.8e-08   +2.8e-08   +3.8e-08
+             of change     -2.6e-07   +3.4e-07   -4.7e-07   +5.2e-07   +2.4e-07   +2.4e-07   +2.4e-07
+     0.025   5.2e-14     -2.4e-09   +5.7e-09   -1.7e-09   +1.5e-08   +6.9e-09   +7.1e-09   +9.4e-09
+             of change     -6.5e-08   +8.5e-08   -1.2e-07   +1.3e-07   +6.0e-08   +6.1e-08   +6.0e-08
+      ratio of residuals, last two dt:        4.00       4.00       4.00       4.00       4.00       4.00       4.00
+
+grid ruler (chart node, research wall, dt = 0.05, t = 4): (local - COSMOS)/value
+  n =  8, r_max =  8.0, dr = 1.000: -9.416e-09  +2.266e-08  -6.936e-09  +5.954e-08  +2.760e-08  +2.825e-08  +3.766e-08
+  n = 16, r_max =  8.0, dr = 0.500: -9.416e-09  +2.266e-08  -6.936e-09  +5.954e-08  +2.760e-08  +2.825e-08  +3.766e-08
+  n = 32, r_max =  8.0, dr = 0.250: -9.416e-09  +2.266e-08  -6.936e-09  +5.953e-08  +2.760e-08  +2.825e-08  +3.766e-08
+  n = 16, r_max = 16.0, dr = 1.000: -9.416e-09  +2.266e-08  -6.936e-09  +5.954e-08  +2.760e-08  +2.825e-08  +3.766e-08
+production edge, uniform state (chart node, dt = 0.05): |Aa|/|K| at the centre cell and at the last cell after t = 4
+  n =  8, r_max =  8.0: centre 1.4e-11, last cell 2.7e-12, K spread 5.9e-14
+  n = 16, r_max =  8.0: centre 4.2e-14, last cell 3.3e-10, K spread 1.6e-13
+  n = 32, r_max =  8.0: centre 6.2e-13, last cell 5.6e-10, K spread 8.0e-13
