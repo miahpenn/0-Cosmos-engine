@@ -105,7 +105,7 @@ def report(path, nod=None):
           f" inside r < 1: |H| {np.abs(d['Hc'][:, r < 1]).max():.1e}, |M| {np.abs(d['Mc'][:, r < 1]).max():.1e}")
     # (a)
     print("  (a) S's action. Windows of 6. Columns: J pocket/J0, J whole cell/J0, S's own energy (pocket)/E0"
-          + (", then the same without D, and J with D / J without D" if nod else ""))
+          + (", then the same without D, and J with D / J without D (not normalised)" if nod else ""))
     dn = load(nod) if nod else None
     for nm, c, cn in (("time label", t, dn[3] if dn else None), ("wall proper time", tauw, clocks(dn[0], dn[3])[1] if dn else None)):
         A = action_windows(d, r, c)
@@ -114,8 +114,25 @@ def report(path, nod=None):
         for i, w in enumerate(A):
             line = f"        {w[0]:3.0f}-{w[0]+6:<3.0f}  {w[1]/A[0,1]:.4f}  {w[2]/A[0,2]:.4f}  {w[3]/A[0,3]:.4f}"
             if B is not None and i < len(B):
-                line += f"   |  {B[i,1]/B[0,1]:.4f}  {B[i,2]/B[0,2]:.4f}  {B[i,3]/B[0,3]:.4f}   |  J ratio {(w[1]/A[0,1])/(B[i,1]/B[0,1]):.4f}  (absolute {w[1]/B[i,1]:.4f})"
+                line += f"   |  {B[i,1]/B[0,1]:.4f}  {B[i,2]/B[0,2]:.4f}  {B[i,3]/B[0,3]:.4f}   |  J with D / J without D, absolute: pocket {w[1]/B[i,1]:.4f}  whole cell {w[2]/B[i,2]:.4f}"
             print(line)
+    if "ts" in d.files and len(d["ts"]):
+        def jf(x, c_col, W=6.0):
+            ts = x["ts"]; c = ts[:, TS[c_col]]; o = []
+            for a in np.arange(0, c[-1] - 0.75 * W, W):
+                m = (c >= a) & (c < a + W)
+                o.append((math.sqrt(ts[m, TS["PS2"]].mean() * ts[m, TS["S2"]].mean()), math.sqrt(ts[m, TS["PS2_cell"]].mean() * ts[m, TS["S2_cell"]].mean())))
+            return np.array(o)
+        print("      check from the fine series (every 2nd step; one product for the whole zone, sqrt(<sum PS^2><sum S^2>), which weights the"
+              " zone as one oscillator): J pocket/J0, J cell/J0" + (" | without D | with D / without D, absolute: pocket, whole cell" if nod else ""))
+        for nm, col in (("time label", "t"), ("wall proper time", "tau_wall")):
+            A = jf(d, col); B = jf(dn[0], col) if dn and "ts" in dn[0].files else None
+            print(f"      ruler: {nm}")
+            for i, w in enumerate(A):
+                line = f"        {6*i:3.0f}-{6*i+6:<3.0f}  {w[0]/A[0,0]:.4f}  {w[1]/A[0,1]:.4f}"
+                if B is not None and i < len(B):
+                    line += f"   |  {B[i,0]/B[0,0]:.4f}  {B[i,1]/B[0,1]:.4f}   |  {w[0]/B[i,0]:.4f}  {w[1]/B[i,1]:.4f}"
+                print(line)
     # (b)
     if "ts" in d.files and len(d["ts"]):
         ts = d["ts"]; tt = ts[:, TS["t"]]
@@ -141,22 +158,30 @@ def report(path, nod=None):
     R, Gam, U = areal(d, r, dr)
     chi = Gam**2 - U**2; thp, thm = U + Gam, U - Gam
     al = d["alpha"]; j2 = int(np.argmin(np.abs(r - 2)))
-    print("  (c) collapse. t, centre proper time, alpha(0), alpha(0)/alpha(wall) | inside the Hubble sphere: min chi (= 1 - 2m/R) at areal R, Kodama clock there,"
-          " max 2m/R | TRAPPED (theta+ < 0, theta- < 0)? | anti-trapped beyond areal R | dust rho(0)/rho(r=2), rho(0)/rho(wall)")
-    first = None
+    print("  (c) collapse. t, centre proper time, alpha(0), alpha(0)/alpha(wall) | inside the cosmological horizon: min chi (= 1 - 2m/R) at areal R, Kodama clock there,"
+          " max 2m/R | TRAPPED (theta+ < 0, theta- < 0) inside the cosmological horizon? | cosmological horizon at areal R, and what lies beyond | largest 2m/R over r < 4 and its areal R | dust rho(0)/rho(r=2), rho(0)/rho(wall)")
+    def regions(i):
+        """Normal region (theta+ > 0 > theta-), and the outer cosmological region: the cells joined to the wall that are
+        not normal (anti-trapped while the cell expands, trapped once it contracts)."""
+        normal = (thp[i] > 0) & (thm[i] < 0)
+        outer = np.zeros(len(r), bool)
+        k = len(r) - 1
+        while k >= 0 and not normal[k]:
+            outer[k] = True; k -= 1
+        return normal, outer, (thp[i] < 0) & (thm[i] < 0) & ~outer
     for tq in np.arange(0, t[-1] + 1e-9, 4.0):
         i = int(np.argmin(np.abs(t - tq)))
-        anti = (thp[i] > 0) & (thm[i] > 0); trap = (thp[i] < 0) & (thm[i] < 0)
-        ins = ~anti
-        ins[np.where(anti)[0].min():] = False if anti.any() else ins[-1]
+        normal, outer, loc = regions(i)
+        ins = ~outer
         j = np.where(ins)[0][int(np.argmin(chi[i][ins]))] if ins.any() else 0
-        tr = f"yes, R = {R[i][trap].min():.2f}-{R[i][trap].max():.2f}" if trap.any() else "no"
+        tr = f"yes, R = {R[i][loc].min():.2f}-{R[i][loc].max():.2f}" if loc.any() else "no"
+        kind = "none" if not outer.any() else ("anti-trapped" if thp[i][outer][0] > 0 else "trapped (contracting)")
         print(f"      {t[i]:5.1f}  {tau0[i]:6.2f}  {al[i,0]:.4f}  {al[i,0]/al[i,-1]:.4f} |  {chi[i,j]:+.4f} at {R[i,j]:6.2f}  {math.sqrt(abs(chi[i,j])):.4f}  {1-chi[i,j]:.4f} | {tr:22s} |"
-              f" {R[i][anti].min() if anti.any() else float('nan'):7.2f} | {d['rho_dm'][i,0]/d['rho_dm'][i,j2]:8.3f}  {d['rho_dm'][i,0]/d['rho_dm'][i,-1]:9.3f}")
-    tr_all = [t[i] for i in range(len(t)) if ((thp[i] < 0) & (thm[i] < 0)).any()]
-    print(f"      first trapped surface: " + (f"t = {tr_all[0]:.1f} (centre proper time {tau0[int(np.argmin(np.abs(t - tr_all[0])))]:.2f})" if tr_all else "none in the run")
-          + f"; smallest alpha(0) {al[:,0].min():.4f} at t = {t[int(np.argmin(al[:,0]))]:.1f}; largest 2m/R inside the Hubble sphere over the run: "
-          f"{max((1 - chi[i][~((thp[i] > 0) & (thm[i] > 0))]).max() for i in range(len(t)) if (~((thp[i] > 0) & (thm[i] > 0))).any()):.4f}")
+              f" {R[i][outer].min() if outer.any() else float('nan'):7.2f} {kind:21s} | {(1-chi[i][r<4]).max():.2e} at {R[i][r<4][int(np.argmax((1-chi[i])[r<4]))]:5.2f} | {d['rho_dm'][i,0]/d['rho_dm'][i,j2]:8.3f}  {d['rho_dm'][i,0]/d['rho_dm'][i,-1]:9.3f}")
+    tr_all = [t[i] for i in range(len(t)) if regions(i)[2].any()]
+    mx = [(1 - chi[i][~regions(i)[1]]).max() for i in range(len(t)) if (~regions(i)[1]).any()]
+    print("      first trapped surface inside the cosmological horizon: " + (f"t = {tr_all[0]:.1f} (centre proper time {tau0[int(np.argmin(np.abs(t - tr_all[0])))]:.2f})" if tr_all else "none in the run")
+          + f"; smallest alpha(0) {al[:,0].min():.4f} at t = {t[int(np.argmin(al[:,0]))]:.1f}; largest 2m/R inside the cosmological horizon over the run: {max(mx):.4f}; largest 2m/R over r < 4 over the run: {(1 - chi[:, r < 4]).max():.3e}")
     # (d)
     core = r < 3.0
     print("  (d) core r < 3, windows of 6: x = 2 lambda <S^2>, x at the centre, pocket areal half-width | D at rest/D*, <D^2>/D*^2,"
