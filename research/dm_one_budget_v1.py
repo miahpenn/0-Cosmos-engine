@@ -40,7 +40,8 @@ SPONGE_DUST = 1 (with SPONGE = w) also relaxes the dust species (dark matter, ba
 state at rest at the density of the shell's inner edge (conserved variables rebuilt with initialize_dust on the current
 metric), so dust cannot pile up against the edge.
 Usage (repo root): python research/dm_one_budget_v1.py CASE x_c beta_D N RMAX T out.npz [CFL]
-  CFL = dt/dr (default 0.06, as in PR #475). Also records gamma_rr = a/X^2 ("grr") for the proper-gradient read-out.
+  CFL = dt/dr (default 0.06, as in PR #475). Also records gamma_rr = a/X^2 ("grr") for the proper-gradient read-out, and a, b, Aa (K^theta_theta = K/3 - Aa/2,
+  for the trapped-surface finder and the Kodama clock of research/static_collapse_analysis_v1.py).
 """
 import dataclasses
 import math
@@ -160,7 +161,7 @@ def main():
         print(f"[{case} x_c={x_c} beta_D={beta_D}] lambda={LAM:g} c^2={C2:.2f} V0={ss.V0:.4e} D_POT={ss.D_POT} H0={H0:.4f}",
               flush=True)
         dr = float(grid.dr); dt = cfl * dr; every = max(1, int(round(0.5 / dt)))
-        keys = ("t", "alpha", "R", "S", "PS", "D", "PD", "phi", "Pi", "K", "rho_dm", "dm_E", "dm_rest", "dV", "grr", "a", "b")
+        keys = ("t", "alpha", "R", "S", "PS", "D", "PD", "phi", "Pi", "K", "rho_dm", "dm_E", "dm_rest", "dV", "grr", "a", "b", "Aa")
         rec = {kk: [] for kk in keys}
         nsteps = int(round(T / dt))
         vols = np.asarray(grid.volumes, float)
@@ -183,7 +184,7 @@ def main():
                               ("PS", st.scalars.PS), ("D", st.scalars.D), ("PD", st.scalars.PD),
                               ("phi", st.scalars.phi), ("Pi", st.scalars.Pi), ("K", g.K), ("rho_dm", rdm),
                               ("dm_E", np.asarray(dmst.energy_t) * vols), ("dm_rest", np.asarray(dmst.rest) * vols),
-                              ("dV", sqrtg * vols), ("grr", g.a / g.X**2), ("a", g.a), ("b", g.b)):
+                              ("dV", sqrtg * vols), ("grr", g.a / g.X**2), ("a", g.a), ("b", g.b), ("Aa", g.Aa)):
                     rec[kk].append(np.array(v, dtype=float).copy())
                 if n % (every * 4) == 0:
                     print(f"t={st.t:6.2f} a0={g.alpha[0]:.4f} K0={g.K[0]:+.4f} S(0)={st.scalars.S[0]:+.3e} "

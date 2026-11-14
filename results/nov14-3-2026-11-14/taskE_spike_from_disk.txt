@@ -1,0 +1,9 @@
+PROVISIONAL (expanding runs, production outer edge). Spike = rho_dm(innermost cell) / rho_dm(r = 2).
+  x2.0_D_dr0.1_R36             t_end  40.0 | spike at t = 24/28/32/36/40:   1.02   1.07   1.20   1.82   3.50 | spike half-width at t_end 0.15 (1.5 cells) | S core (half of <S^2>) r = 0.35 | <D^2>(0)/D*^2 = 1.21
+  x2.0_D_dr0.075_R36           t_end  39.6 | spike at t = 24/28/32/36/40:   1.02   1.07   1.21   1.89    -   | spike half-width at t_end 0.19 (2.5 cells) | S core (half of <S^2>) r = 0.34 | <D^2>(0)/D*^2 = 1.18
+  x2.0_D_dr0.05_R36            t_end  32.0 | spike at t = 24/28/32/36/40:   1.02   1.07   1.24    -      -   | spike half-width at t_end 0.28 (5.5 cells) | S core (half of <S^2>) r = 0.43 | <D^2>(0)/D*^2 = 0.82
+  x2.0_D_dr0.1_R24             t_end  40.0 | spike at t = 24/28/32/36/40:   1.02   1.07   1.21   1.92   4.20 | spike half-width at t_end 0.15 (1.5 cells) | S core (half of <S^2>) r = 0.35 | <D^2>(0)/D*^2 = 1.11
+  x2.0_noD_dr0.1_R36           t_end  40.0 | spike at t = 24/28/32/36/40:   1.03   1.04   1.04   1.04   1.04 | spike half-width at t_end nan (nan cells) | S core (half of <S^2>) r = 6.75 | <D^2>(0)/D*^2 = 0.00
+  x2.0_noD_dr0.1_R24           t_end  40.0 | spike at t = 24/28/32/36/40:   1.03   1.04   1.04   1.04   1.04 | spike half-width at t_end nan (nan cells) | S core (half of <S^2>) r = 6.25 | <D^2>(0)/D*^2 = 0.00
+  x1.5_D_dr0.1_R36             t_end  40.0 | spike at t = 24/28/32/36/40:   1.01   1.02   1.02   1.03   1.04 | spike half-width at t_end nan (nan cells) | S core (half of <S^2>) r = 1.05 | <D^2>(0)/D*^2 = 0.96
+  x1.5_noD_dr0.1_R36           t_end  40.0 | spike at t = 24/28/32/36/40:   1.02   1.02   1.02   1.03   1.03 | spike half-width at t_end nan (nan cells) | S core (half of <S^2>) r = 7.15 | <D^2>(0)/D*^2 = 0.00
