@@ -260,7 +260,7 @@ share expected by chance is about 0.2.
 | x_c 2.0 hot (16 / 24 / 36) | 0.660 / 0.674 / 0.675, t = 13 | none | 1787 / 1748 / 1736 |
 | x_c 1.5 hot | 0.755, t = 11.5 | none | 1929 |
 | x_c 2.0 hot, dr 0.05 (r_max 16) | 0.001 at t = 65.5; run stops | flagged at t = 65.5, not clean (below) | 10169 |
-| no D | 0.951, t = 16 | none | 1.06 |
+| no D | 0.854, t = 1 (the opening transient) | none | 1.06 |
 
 - **Read:** the pocket as a whole does not collapse. In every run the lapse outside r < 1 stays within 0.85–1.0 of the
   wall's, and there is no trapped surface inside the cosmological horizon at dr = 0.1. The Kodama clock √|1 − 2m/R|
@@ -332,8 +332,8 @@ Dust density over its wall value at t = 64, x_c = 2.0:
   on the closure, or on dr (≤ 3%).
 - **Read: the spike is a cusp, not a number.** It lives in r < 0.5 and its central value grows without limit as the
   grid is refined (276 → 2033 at the innermost cell, cold; 3511 → 19766 hot). The dust *mass* in it is converged:
-  share of the cell's dust inside r < 0.5 is 1.62e-4 at both resolutions (cold), 9.3e-4 and 9.4e-4 (hot), 2–15 times
-  the share of a uniform cell. "ρ(0)/ρ(2)" should not be quoted as a result; the mass inside a stated radius can be.
+  share of the cell's dust inside r < 0.5 is 1.62e-4 at both resolutions (cold), 9.3e-4 and 9.4e-4 (hot) (r_max 16).
+  Inside r < 1 at r_max = 24 it is 2.3 (cold) and 7.9 (hot) times a uniform cell's share. "ρ(0)/ρ(2)" should not be quoted as a result; the mass inside a stated radius can be.
 - **Read:** the spike is not the wall's doing: 16 / 24 / 36 agree to 6% (hot) and 20% (cold) at the centre, and the
   closure changes it by 1%.
 - **Read:** the spike needs D and goes with D's sign change at the centre. No D: 1.06. x_c = 1.5 cold (D(0) never
