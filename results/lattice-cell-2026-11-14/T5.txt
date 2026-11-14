@@ -1,0 +1,9 @@
+T5: closures. Under (ii) the wall lapse measures the difference of the two time labels (dt_i = alpha_ii(wall) dt_ii).
+
+  p_R16 (ii) vs p_R16_i (i): r_max = 16; alpha_ii(wall) - 1: range -2.14e-02 .. +3.26e-02; label difference at the end: +0.2637 of 40.0;  alpha_i(wall) - 1 max 1.1e-16
+     S(0)                   largest |ii - i| / scale: at equal wall proper time 1.11e-01;  at equal label 4.09e-01
+     D(0)                   largest |ii - i| / scale: at equal wall proper time 9.02e-02;  at equal label 3.42e-01
+     K                      largest |ii - i| / scale: at equal wall proper time 1.33e-04;  at equal label 2.75e-03
+     alpha(0)/alpha(wall)   largest |ii - i| / scale: at equal wall proper time 2.14e-02;  at equal label 3.32e-02
+     X(wall)                largest |ii - i| / scale: at equal wall proper time 2.06e-04;  at equal label 2.39e-03
+     dust(0)/dust(wall)     largest |ii - i| / scale: at equal wall proper time 2.74e-03;  at equal label 5.89e-02

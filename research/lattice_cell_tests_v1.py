@@ -150,10 +150,11 @@ def t5(paths):
         for nm, f in (("S(0)", lambda d: d["S"][:, 0]), ("D(0)", lambda d: d["D"][:, 0]), ("K", lambda d: d["K"][:, 0]),
                       ("alpha(0)/alpha(wall)", lambda d: d["alpha"][:, 0] / d["alpha"][:, -1]),
                       ("X(wall)", lambda d: d["X"][:, -1]), ("dust(0)/dust(wall)", lambda d: d["rho_dm"][:, 0] / d["rho_dm"][:, -1])):
-            y2 = np.interp(t1, T, f(d2)); y1 = f(d1)
+            from scipy.interpolate import CubicSpline
+            y1 = f(d1); y2 = CubicSpline(T, f(d2))(np.clip(t1, T[0], T[-1]))
             m = t1 <= T[-1]
             sc = max(np.abs(y1[m]).max(), 1e-300)
-            raw = np.abs(np.interp(t1, t2, f(d2)) - y1)[m].max() / sc
+            raw = np.abs(CubicSpline(t2, f(d2))(np.clip(t1, t2[0], t2[-1])) - y1)[m].max() / sc
             print(f"     {nm:22s} largest |ii - i| / scale: at equal wall proper time {np.abs(y2 - y1)[m].max()/sc:.2e};  at equal label {raw:.2e}")
 
 

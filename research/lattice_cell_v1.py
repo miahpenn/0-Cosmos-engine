@@ -42,7 +42,8 @@ excess mass, 3 m_ex/r_max = 0.16 at r_max = 24, and no choice of K makes all of 
 tried first, Hamiltonian residual 0.13 at the wall, rejected.) K is not taken from a far-field budget: with psi' = 0
 at both ends the Hamiltonian constraint is solvable only for  K^2 = 24 pi <rho psi^5>/<psi^5>,  the cell average.
 For a uniform cell this is the Friedmann equation with psi = 1. The pocket's profile is laid down in the coordinate
-r, which is proper radius at the wall (psi = 1 there) and slightly less than proper radius inside the pocket.
+r, which is proper radius at the centre (psi = 1 there; the first version normalised psi at the wall, which made the
+pocket's proper size depend on the cell: 1.4% between r_max = 24 and 36, and the ring transient with it).
 
 FORCED / imposed (AUDIT §D): the spherical cell stands in for a space-filling one (Lindquist-Wheeler approximation);
 all neighbours identical and in step; zero shift; the pocket and its start are placed by hand.
@@ -357,7 +358,9 @@ def as_cell(state):
 def conformal_cell_slice(r, dr, grad2, Vm, tol=1e-13, itmax=60):
     """Conformally flat CMC initial slice in a cell: gamma = psi^4 (dr^2 + r^2 dOmega^2), K uniform, Aa = 0.
     Hamiltonian constraint  psi'' + (2/r) psi' = (K^2/12 - 2 pi rho) psi^5,  rho = grad2 / psi^4 + Vm,
-    with psi' = 0 at the centre and at the wall (W1) and psi = 1 at the wall (r is proper there). Integrating over the
+    with psi' = 0 at the centre and at the wall (W1) and psi = 1 at the centre (r is proper radius there, so the
+    same coordinate profile is the same physical pocket in every cell: psi(r) - psi(0) depends only on what lies
+    inside r and on K). Integrating over the
     cell with both ends Neumann gives the solvability condition  K^2 = 24 pi <rho psi^5>/<psi^5>: K is fixed by the
     cell average, not chosen. Second-order finite differences, Newton iteration on (psi, K^2)."""
     n = len(r)
@@ -370,7 +373,7 @@ def conformal_cell_slice(r, dr, grad2, Vm, tol=1e-13, itmax=60):
         lap[1:] += lo[1:] * psi[:-1]; lap[:-1] += hi[:-1] * psi[1:]
         lap[0] += lo[0] * psi[0]; lap[-1] += hi[-1] * psi[-1]
         F[:n] = lap - (K2 / 12 - 2 * math.pi * rho) * psi**5
-        F[n] = psi[-1] - 1.0
+        F[n] = psi[0] - 1.0
         J = np.zeros((n + 1, n + 1))
         idx = np.arange(n)
         # d/dpsi of -(K2/12 - 2 pi (grad2 psi^-4 + Vm)) psi^5 = -(5 K2/12) psi^4 + 2 pi (grad2 + 5 Vm psi^4)
@@ -378,7 +381,7 @@ def conformal_cell_slice(r, dr, grad2, Vm, tol=1e-13, itmax=60):
         J[idx[1:], idx[:-1]] = lo[1:]; J[idx[:-1], idx[1:]] = hi[:-1]
         J[0, 0] += lo[0]; J[n - 1, n - 1] += hi[-1]
         J[:n, n] = -psi**5 / 12
-        J[n, n - 1] = 1.0
+        J[n, 0] = 1.0
         dx = np.linalg.solve(J, -F)
         psi = psi + dx[:n]; K2 = K2 + dx[n]
         if np.max(np.abs(dx[:n])) < tol and abs(dx[n]) < tol * K2:
