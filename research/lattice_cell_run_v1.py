@@ -3,7 +3,8 @@
 One-budget rule (lambda = 5000, V0 and present densities x c^2 = 304.92, D's ejected vacuum is the floor), beta_D =
 beta_S = 0, seed 1e-10. Records every `every` time units: the fields, the geometry (a, b, X, K, Aa, alpha, areal
 radius, gamma_rr), the total stress-energy projections (G = 1 units), the Hamiltonian and momentum constraint residuals
-(H = raw - 16 pi rho, M = raw - 8 pi j), dust dark-matter density, proper cell volumes (per steradian: r^2 dr weights,
+(H = raw - 16 pi rho, M = raw - 8 pi j), dust dark-matter density, the cell's total baryon and dark-matter rest mass (conserved densities, which carry sqrt(gamma), summed x dr; baryons
+have no source, so their total tests the wall's zero flux), proper cell volumes (per steradian: r^2 dr weights,
 no 4 pi), and Kdot of the lapse closure.
 Usage: python research/lattice_cell_run_v1.py CASE x_c N RMAX T out.npz [closure=ii] [start=cold] [cfl=0.2] [every=0.5]
        CASE = full | noD | nomatter
@@ -22,7 +23,7 @@ from engine.stress_energy import assemble_total_stress_energy  # noqa: E402
 from engine.v55_matter import dm_density, metric_slice_from_q  # noqa: E402
 
 KEYS = ("t", "alpha", "R", "S", "PS", "D", "PD", "phi", "Pi", "K", "Aa", "a", "b", "X", "Lambda", "grr", "dV",
-        "rho", "pr", "pt", "j", "Hc", "Mc", "rho_dm", "kdot")
+        "rho", "pr", "pt", "j", "Hc", "Mc", "rho_dm", "kdot", "bar_rest", "dm_rest")
 
 
 def snapshot(k, st):
@@ -37,7 +38,9 @@ def snapshot(k, st):
                 Lambda=g.Lambda, grr=g.a / g.X**2, dV=np.sqrt(g.a) * g.b / g.X**3 * vols, rho=tot.rho, pr=tot.pr,
                 pt=tot.pt, j=tot.j, Hc=raw["hamiltonian"] - 16.0 * math.pi * tot.rho,
                 Mc=raw["momentum"] - 8.0 * math.pi * tot.j,
-                rho_dm=dm_density(metric_slice_from_q(grid, g), st.matter), kdot=kdot)
+                rho_dm=dm_density(metric_slice_from_q(grid, g), st.matter), kdot=kdot,
+                bar_rest=float(np.sum(np.asarray(st.matter.baryons.rest)) * grid.dr),
+                dm_rest=float(np.sum(np.asarray(st.matter.dark_matter.rest)) * grid.dr))
 
 
 def run(case, x_c, N, RMAX, T, out, closure="ii", start="cold", cfl=0.2, every=0.5, verbose=True):

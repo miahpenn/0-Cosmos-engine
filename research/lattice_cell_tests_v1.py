@@ -88,7 +88,8 @@ def t23(paths):
               f" Gamma^2 - 1 at the wall {Gam[0,j]**2-1:+.3e} -> {Gam[-1,j]**2-1:+.3e}; M_in/M_local at the end {Min[-1,j]/M[-1,j]:.5f}")
         print(f"      wall: alpha {d['alpha'][0,-1]:.5f} -> {d['alpha'][-1,-1]:.5f} (range {d['alpha'][:,-1].min():.5f}-{d['alpha'][:,-1].max():.5f});"
               f" a/b - 1 {d['a'][-1,-1]/d['b'][-1,-1]-1:+.2e}; Aa {d['Aa'][-1,-1]:+.2e}; K spread (max-min) {np.ptp(d['K'][-1]):.1e};"
-              f" dust rest mass in the cell: {np.sum(d['rho_dm'][0]*d['dV'][0]):.6e} -> {np.sum(d['rho_dm'][-1]*d['dV'][-1]):.6e}")
+              + (f" baryon rest mass in the cell, relative change over the run: {d['bar_rest'][-1]/d['bar_rest'][0]-1:+.1e}"
+                 f" (largest {np.abs(d['bar_rest']/d['bar_rest'][0]-1).max():.1e})" if "bar_rest" in d.files else ""))
 
 
 def pocket_measures(d, r, dr, t, W=6.0):
