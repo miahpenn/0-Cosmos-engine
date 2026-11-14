@@ -1,0 +1,77 @@
+
+=== p_R12: r_max = 12, dr = 0.1, closure ii, start cold, t_end = 40.0, ok
+  T2  largest residual over the run (and at the last snapshot):   |H|            |M|        (16 pi rho at the wall: 5.88e-02 -> 1.76e-03)
+      centre r<1                3.58e-02 (7.23e-03)   3.51e-02 (1.90e-02)
+      pocket 1-11               3.31e-05 (3.31e-05)   2.26e-04 (2.26e-04)
+      interior 11..wall-0.8     6.97e-07 (7.78e-09)   1.64e-06 (2.67e-08)
+      wall (last 8 cells)       5.43e-06 (1.12e-06)   1.97e-06 (4.75e-08)
+      wall / largest elsewhere: H 0.00, M 0.00  ->  T2 PASS
+  T3a ledger at the last cell: M 8.2082 -> 69.3838; rms dM/dt 2.987e+00; rms work 2.988e+00; rms flux term 2.16e-04; rms (dM/dt - work - flux)/rms dM/dt = 8.82e-04; without the flux term 8.68e-04
+  T3b shell equation at the last cell: U^2 1.44076e+00 -> 1.79927e+00; 2M_in/R + Gamma^2 - 1: 1.44081e+00 -> 1.79921e+00; largest |difference| 5.68e-05 (relative to U^2(0): 3.94e-05); Gamma^2 - 1 at the wall -2.177e-03 -> -9.334e-04; M_in/M_local at the end 0.99997
+      wall: alpha 0.98285 -> 1.00556 (range 0.98285-1.02647); a/b - 1 +5.23e-02; Aa -1.30e-04; K spread (max-min) 1.8e-05; baryon rest mass in the cell, relative change over the run: -6.7e-16 (largest 6.7e-16)
+
+=== p_R16: r_max = 16, dr = 0.1, closure ii, start cold, t_end = 40.0, ok
+  T2  largest residual over the run (and at the last snapshot):   |H|            |M|        (16 pi rho at the wall: 5.88e-02 -> 1.72e-03)
+      centre r<1                2.18e-02 (5.67e-04)   2.32e-02 (8.92e-03)
+      pocket 1-11               3.73e-05 (9.71e-06)   1.60e-04 (6.06e-05)
+      interior 11..wall-0.8     3.75e-07 (4.17e-09)   4.42e-07 (5.29e-08)
+      wall (last 8 cells)       1.87e-06 (3.41e-07)   1.42e-07 (1.09e-08)
+      wall / largest elsewhere: H 0.00, M 0.00  ->  T2 PASS
+  T3a ledger at the last cell: M 16.5150 -> 133.5302; rms dM/dt 5.938e+00; rms work 5.940e+00; rms flux term 1.91e-04; rms (dM/dt - work - flux)/rms dM/dt = 8.08e-04; without the flux term 7.99e-04
+  T3b shell equation at the last cell: U^2 2.24587e+00 -> 2.75284e+00; 2M_in/R + Gamma^2 - 1: 2.24592e+00 -> 2.75283e+00; largest |difference| 5.90e-05 (relative to U^2(0): 2.63e-05); Gamma^2 - 1 at the wall -1.217e-03 -> -7.803e-04; M_in/M_local at the end 0.99999
+      wall: alpha 0.98185 -> 1.00479 (range 0.98185-1.02864); a/b - 1 +3.58e-02; Aa -1.32e-04; K spread (max-min) 1.4e-05; baryon rest mass in the cell, relative change over the run: +0.0e+00 (largest 2.2e-16)
+
+=== p_R24: r_max = 24, dr = 0.1, closure ii, start cold, t_end = 40.0, ok
+  T2  largest residual over the run (and at the last snapshot):   |H|            |M|        (16 pi rho at the wall: 5.88e-02 -> 1.71e-03)
+      centre r<1                2.39e-02 (8.46e-03)   1.57e-02 (2.64e-03)
+      pocket 1-11               3.24e-05 (1.09e-05)   1.80e-04 (9.65e-05)
+      interior 11..wall-0.8     3.94e-07 (2.70e-09)   4.49e-07 (5.19e-08)
+      wall (last 8 cells)       3.99e-07 (4.06e-08)   2.84e-08 (5.17e-09)
+      wall / largest elsewhere: H 0.00, M 0.00  ->  T2 PASS
+  T3a ledger at the last cell: M 48.5879 -> 380.3560; rms dM/dt 1.722e+01; rms work 1.723e+01; rms flux term 7.95e-05; rms (dM/dt - work - flux)/rms dM/dt = 5.87e-04; without the flux term 5.85e-04
+  T3b shell equation at the last cell: U^2 4.55191e+00 -> 5.50135e+00; 2M_in/R + Gamma^2 - 1: 4.55195e+00 -> 5.50135e+00; largest |difference| 5.65e-05 (relative to U^2(0): 1.24e-05); Gamma^2 - 1 at the wall -5.470e-04 -> -5.118e-04; M_in/M_local at the end 1.00000
+      wall: alpha 0.98661 -> 1.00257 (range 0.98661-1.01831); a/b - 1 +1.83e-02; Aa -8.79e-05; K spread (max-min) 1.2e-05; baryon rest mass in the cell, relative change over the run: -2.2e-16 (largest 2.2e-16)
+
+=== p_R36: r_max = 36, dr = 0.1, closure ii, start cold, t_end = 40.0, ok
+  T2  largest residual over the run (and at the last snapshot):   |H|            |M|        (16 pi rho at the wall: 5.88e-02 -> 1.72e-03)
+      centre r<1                2.21e-02 (8.69e-03)   1.62e-02 (1.72e-03)
+      pocket 1-11               4.09e-05 (1.11e-05)   1.75e-04 (1.08e-04)
+      interior 11..wall-0.8     3.99e-07 (2.75e-09)   4.51e-07 (5.24e-08)
+      wall (last 8 cells)       8.38e-08 (3.82e-09)   6.12e-09 (7.06e-11)
+      wall / largest elsewhere: H 0.00, M 0.00  ->  T2 PASS
+  T3a ledger at the last cell: M 151.3753 -> 1172.7356; rms dM/dt 5.333e+01; rms work 5.335e+01; rms flux term 7.83e-06; rms (dM/dt - work - flux)/rms dM/dt = 4.38e-04; without the flux term 4.38e-04
+  T3b shell equation at the last cell: U^2 9.66789e+00 -> 1.16431e+01; 2M_in/R + Gamma^2 - 1: 9.66793e+00 -> 1.16431e+01; largest |difference| 5.84e-05 (relative to U^2(0): 6.04e-06); Gamma^2 - 1 at the wall -2.469e-04 -> -2.457e-04; M_in/M_local at the end 1.00000
+      wall: alpha 0.99302 -> 1.00084 (range 0.99302-1.00849); a/b - 1 +6.90e-03; Aa -3.28e-05; K spread (max-min) 1.1e-05; baryon rest mass in the cell, relative change over the run: +4.4e-16 (largest 4.4e-16)
+
+=== p_R16_i: r_max = 16, dr = 0.1, closure i, start cold, t_end = 40.0, ok
+  T2  largest residual over the run (and at the last snapshot):   |H|            |M|        (16 pi rho at the wall: 5.88e-02 -> 1.77e-03)
+      centre r<1                2.39e-02 (5.21e-03)   2.41e-02 (1.25e-02)
+      pocket 1-11               2.98e-05 (9.09e-06)   1.70e-04 (8.40e-05)
+      interior 11..wall-0.8     3.76e-07 (4.05e-09)   4.39e-07 (5.29e-08)
+      wall (last 8 cells)       1.87e-06 (3.42e-07)   1.37e-07 (1.09e-08)
+      wall / largest elsewhere: H 0.00, M 0.00  ->  T2 PASS
+  T3a ledger at the last cell: M 16.5150 -> 135.8913; rms dM/dt 5.876e+00; rms work 5.878e+00; rms flux term 1.90e-04; rms (dM/dt - work - flux)/rms dM/dt = 3.90e-04; without the flux term 3.72e-04
+  T3b shell equation at the last cell: U^2 2.24587e+00 -> 2.81333e+00; 2M_in/R + Gamma^2 - 1: 2.24592e+00 -> 2.81332e+00; largest |difference| 5.98e-05 (relative to U^2(0): 2.66e-05); Gamma^2 - 1 at the wall -1.217e-03 -> -7.803e-04; M_in/M_local at the end 1.00000
+      wall: alpha 1.00000 -> 1.00000 (range 1.00000-1.00000); a/b - 1 +3.57e-02; Aa -1.33e-04; K spread (max-min) 1.4e-05; baryon rest mass in the cell, relative change over the run: +2.2e-16 (largest 2.2e-16)
+
+=== p_R16_mirror: r_max = 16, dr = 0.1, closure ii, start cold, t_end = 40.0, ok
+  T2  largest residual over the run (and at the last snapshot):   |H|            |M|        (16 pi rho at the wall: 5.88e-02 -> 1.72e-03)
+      centre r<1                2.18e-02 (5.67e-04)   2.32e-02 (8.92e-03)
+      pocket 1-11               3.73e-05 (9.72e-06)   1.60e-04 (6.05e-05)
+      interior 11..wall-0.8     3.75e-07 (4.73e-09)   4.42e-07 (5.71e-08)
+      wall (last 8 cells)       3.77e-06 (8.68e-07)   2.47e-07 (1.84e-08)
+      wall / largest elsewhere: H 0.00, M 0.00  ->  T2 PASS
+  T3a ledger at the last cell: M 16.5150 -> 133.5291; rms dM/dt 5.938e+00; rms work 5.940e+00; rms flux term 1.92e-04; rms (dM/dt - work - flux)/rms dM/dt = 8.09e-04; without the flux term 8.00e-04
+  T3b shell equation at the last cell: U^2 2.24587e+00 -> 2.75284e+00; 2M_in/R + Gamma^2 - 1: 2.24592e+00 -> 2.75284e+00; largest |difference| 6.98e-05 (relative to U^2(0): 3.11e-05); Gamma^2 - 1 at the wall -1.217e-03 -> -7.615e-04; M_in/M_local at the end 1.00000
+      wall: alpha 0.98184 -> 1.00479 (range 0.98184-1.02864); a/b - 1 +3.58e-02; Aa -1.32e-04; K spread (max-min) 1.4e-05; baryon rest mass in the cell, relative change over the run: +0.0e+00 (largest 3.3e-16)
+
+=== p_R24_dr075: r_max = 24, dr = 0.075, closure ii, start cold, t_end = 39.6, ok
+  T2  largest residual over the run (and at the last snapshot):   |H|            |M|        (16 pi rho at the wall: 5.88e-02 -> 1.80e-03)
+      centre r<1                1.51e-02 (4.48e-03)   9.97e-03 (4.20e-03)
+      pocket 1-11               1.88e-05 (6.13e-06)   8.51e-05 (7.23e-05)
+      interior 11..wall-0.8     2.17e-07 (2.47e-09)   2.46e-07 (3.24e-08)
+      wall (last 8 cells)       2.99e-07 (5.35e-08)   2.23e-08 (2.23e-09)
+      wall / largest elsewhere: H 0.00, M 0.00  ->  T2 PASS
+  T3a ledger at the last cell: M 48.6626 -> 392.2637; rms dM/dt 1.713e+01; rms work 1.713e+01; rms flux term 5.92e-05; rms (dM/dt - work - flux)/rms dM/dt = 5.81e-04; without the flux term 5.80e-04
+  T3b shell equation at the last cell: U^2 4.55666e+00 -> 5.70993e+00; 2M_in/R + Gamma^2 - 1: 4.55669e+00 -> 5.70993e+00; largest |difference| 2.96e-05 (relative to U^2(0): 6.50e-06); Gamma^2 - 1 at the wall -4.100e-04 -> -3.831e-04; M_in/M_local at the end 1.00000
+      wall: alpha 0.98661 -> 1.00253 (range 0.98661-1.01827); a/b - 1 +1.81e-02; Aa -8.80e-05; K spread (max-min) 3.0e-06; baryon rest mass in the cell, relative change over the run: +0.0e+00 (largest 2.2e-16)

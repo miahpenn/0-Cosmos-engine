@@ -1,0 +1,74 @@
+
+windows of 6 in the time label t; D split on r < 12; ratios to p_R36
+  p_R36: alpha(0) at t = 0: 1.1873; tau_0 at the end 37.23
+      0-6   J/J0 1.0000 [1.0000]  D at rest 0.4589 [+0.0000]  slow 1.844e-03 [1.000]  travelling 1.356e-03 [1.000]  total [1.000]
+      6-12  J/J0 0.8747 [1.0000]  D at rest 0.9159 [+0.0000]  slow 9.111e-04 [1.000]  travelling 7.673e-03 [1.000]  total [1.000]
+     12-18  J/J0 0.8474 [1.0000]  D at rest 0.9700 [+0.0000]  slow 1.060e-03 [1.000]  travelling 7.262e-03 [1.000]  total [1.000]
+     18-24  J/J0 0.8306 [1.0000]  D at rest 0.9892 [+0.0000]  slow 7.416e-04 [1.000]  travelling 7.526e-03 [1.000]  total [1.000]
+     24-30  J/J0 0.8188 [1.0000]  D at rest 0.9939 [+0.0000]  slow 5.589e-04 [1.000]  travelling 7.686e-03 [1.000]  total [1.000]
+     30-36  J/J0 0.8071 [1.0000]  D at rest 0.9952 [+0.0000]  slow 5.032e-04 [1.000]  travelling 7.783e-03 [1.000]  total [1.000]
+  p_R24: alpha(0) at t = 0: 1.1658; tau_0 at the end 37.34
+      0-6   J/J0 1.0000 [1.0000]  D at rest 0.4612 [+0.0023]  slow 1.890e-03 [1.025]  travelling 1.387e-03 [1.023]  total [1.024]
+      6-12  J/J0 0.8723 [0.9973]  D at rest 0.9170 [+0.0011]  slow 9.068e-04 [0.995]  travelling 7.848e-03 [1.023]  total [1.020]
+     12-18  J/J0 0.8448 [0.9970]  D at rest 0.9709 [+0.0009]  slow 1.058e-03 [0.998]  travelling 7.459e-03 [1.027]  total [1.023]
+     18-24  J/J0 0.8278 [0.9966]  D at rest 0.9896 [+0.0004]  slow 7.605e-04 [1.025]  travelling 7.715e-03 [1.025]  total [1.025]
+     24-30  J/J0 0.8157 [0.9962]  D at rest 0.9939 [-0.0000]  slow 5.884e-04 [1.053]  travelling 7.844e-03 [1.021]  total [1.023]
+     30-36  J/J0 0.8043 [0.9965]  D at rest 0.9952 [-0.0000]  slow 5.258e-04 [1.045]  travelling 7.867e-03 [1.011]  total [1.013]
+  p_R24_dr075: alpha(0) at t = 0: 1.1658; tau_0 at the end 36.98
+      0-6   J/J0 1.0000 [1.0000]  D at rest 0.4606 [+0.0017]  slow 1.863e-03 [1.010]  travelling 1.370e-03 [1.011]  total [1.010]
+      6-12  J/J0 0.8747 [1.0000]  D at rest 0.9165 [+0.0007]  slow 9.337e-04 [1.025]  travelling 7.829e-03 [1.020]  total [1.021]
+     12-18  J/J0 0.8471 [0.9997]  D at rest 0.9699 [-0.0002]  slow 1.089e-03 [1.027]  travelling 7.421e-03 [1.022]  total [1.023]
+     18-24  J/J0 0.8307 [1.0002]  D at rest 0.9890 [-0.0001]  slow 7.708e-04 [1.039]  travelling 7.681e-03 [1.021]  total [1.022]
+     24-30  J/J0 0.8195 [1.0008]  D at rest 0.9942 [+0.0003]  slow 5.822e-04 [1.042]  travelling 7.833e-03 [1.019]  total [1.021]
+     30-36  J/J0 0.8103 [1.0039]  D at rest 0.9952 [+0.0000]  slow 5.246e-04 [1.043]  travelling 7.791e-03 [1.001]  total [1.004]
+  p_R16: alpha(0) at t = 0: 1.1208; tau_0 at the end 37.67
+      0-6   J/J0 1.0000 [1.0000]  D at rest 0.4663 [+0.0074]  slow 2.010e-03 [1.090]  travelling 1.474e-03 [1.087]  total [1.089]
+      6-12  J/J0 0.8665 [0.9907]  D at rest 0.9199 [+0.0041]  slow 9.062e-04 [0.995]  travelling 8.393e-03 [1.094]  total [1.083]
+     12-18  J/J0 0.8383 [0.9893]  D at rest 0.9732 [+0.0032]  slow 1.065e-03 [1.005]  travelling 8.077e-03 [1.112]  total [1.099]
+     18-24  J/J0 0.8208 [0.9882]  D at rest 0.9905 [+0.0013]  slow 8.282e-04 [1.117]  travelling 8.309e-03 [1.104]  total [1.105]
+     24-30  J/J0 0.8076 [0.9863]  D at rest 0.9936 [-0.0003]  slow 6.704e-04 [1.200]  travelling 8.344e-03 [1.086]  total [1.093]
+     30-36  J/J0 0.7974 [0.9879]  D at rest 0.9952 [+0.0000]  slow 5.817e-04 [1.156]  travelling 8.085e-03 [1.039]  total [1.046]
+  p_R12: alpha(0) at t = 0: 1.0718; tau_0 at the end 38.17
+      0-6   J/J0 1.0000 [1.0000]  D at rest 0.4724 [+0.0134]  slow 2.191e-03 [1.188]  travelling 1.611e-03 [1.188]  total [1.188]
+      6-12  J/J0 0.8580 [0.9809]  D at rest 0.9242 [+0.0083]  slow 9.265e-04 [1.017]  travelling 9.414e-03 [1.227]  total [1.205]
+     12-18  J/J0 0.8285 [0.9777]  D at rest 0.9763 [+0.0062]  slow 1.113e-03 [1.050]  travelling 9.226e-03 [1.271]  total [1.242]
+     18-24  J/J0 0.8093 [0.9744]  D at rest 0.9912 [+0.0021]  slow 9.827e-04 [1.325]  travelling 9.437e-03 [1.254]  total [1.260]
+     24-30  J/J0 0.7942 [0.9700]  D at rest 0.9930 [-0.0009]  slow 7.965e-04 [1.425]  travelling 9.289e-03 [1.208]  total [1.223]
+     30-36  J/J0 0.7860 [0.9738]  D at rest 0.9955 [+0.0003]  slow 6.779e-04 [1.347]  travelling 8.686e-03 [1.116]  total [1.130]
+
+windows of 6 in the centre proper time tau_0; D split on r < 12; ratios to p_R36
+  p_R36: alpha(0) at t = 0: 1.1873; tau_0 at the end 37.23
+      0-6   J/J0 1.0000 [1.0000]  D at rest 0.4589 [+0.0000]  slow 1.844e-03 [1.000]  travelling 1.356e-03 [1.000]  total [1.000]
+      6-12  J/J0 0.8881 [1.0000]  D at rest 0.9180 [+0.0000]  slow 9.664e-04 [1.000]  travelling 7.702e-03 [1.000]  total [1.000]
+     12-18  J/J0 0.8482 [1.0000]  D at rest 0.9742 [+0.0000]  slow 9.682e-04 [1.000]  travelling 7.416e-03 [1.000]  total [1.000]
+     18-24  J/J0 0.8364 [1.0000]  D at rest 0.9905 [+0.0000]  slow 7.505e-04 [1.000]  travelling 7.678e-03 [1.000]  total [1.000]
+     24-30  J/J0 0.8216 [1.0000]  D at rest 0.9920 [+0.0000]  slow 5.259e-04 [1.000]  travelling 7.588e-03 [1.000]  total [1.000]
+     30-36  J/J0 0.8100 [1.0000]  D at rest 0.9965 [+0.0000]  slow 4.568e-04 [1.000]  travelling 7.721e-03 [1.000]  total [1.000]
+  p_R24: alpha(0) at t = 0: 1.1658; tau_0 at the end 37.34
+      0-6   J/J0 1.0000 [1.0000]  D at rest 0.4612 [+0.0023]  slow 1.890e-03 [1.025]  travelling 1.387e-03 [1.023]  total [1.024]
+      6-12  J/J0 0.8723 [0.9823]  D at rest 0.9170 [-0.0010]  slow 9.068e-04 [0.938]  travelling 7.848e-03 [1.019]  total [1.010]
+     12-18  J/J0 0.8540 [1.0068]  D at rest 0.9729 [-0.0014]  slow 1.105e-03 [1.141]  travelling 7.516e-03 [1.014]  total [1.028]
+     18-24  J/J0 0.8332 [0.9962]  D at rest 0.9906 [+0.0001]  slow 7.763e-04 [1.034]  travelling 7.882e-03 [1.027]  total [1.027]
+     24-30  J/J0 0.8158 [0.9928]  D at rest 0.9921 [+0.0001]  slow 5.598e-04 [1.064]  travelling 7.710e-03 [1.016]  total [1.019]
+     30-36  J/J0 0.8100 [0.9999]  D at rest 0.9964 [-0.0001]  slow 4.929e-04 [1.079]  travelling 7.913e-03 [1.025]  total [1.028]
+  p_R24_dr075: alpha(0) at t = 0: 1.1658; tau_0 at the end 36.98
+      0-6   J/J0 1.0000 [1.0000]  D at rest 0.4606 [+0.0017]  slow 1.863e-03 [1.010]  travelling 1.370e-03 [1.011]  total [1.010]
+      6-12  J/J0 0.8880 [0.9999]  D at rest 0.9185 [+0.0005]  slow 9.830e-04 [1.017]  travelling 7.849e-03 [1.019]  total [1.019]
+     12-18  J/J0 0.8576 [1.0111]  D at rest 0.9762 [+0.0019]  slow 1.036e-03 [1.070]  travelling 7.651e-03 [1.032]  total [1.036]
+     18-24  J/J0 0.8345 [0.9977]  D at rest 0.9901 [-0.0004]  slow 7.959e-04 [1.060]  travelling 7.989e-03 [1.040]  total [1.042]
+     24-30  J/J0 0.8195 [0.9973]  D at rest 0.9921 [+0.0002]  slow 5.519e-04 [1.049]  travelling 7.604e-03 [1.002]  total [1.005]
+     30-36  J/J0 0.8123 [1.0027]  D at rest 0.9963 [-0.0002]  slow 4.814e-04 [1.054]  travelling 7.707e-03 [0.998]  total [1.001]
+  p_R16: alpha(0) at t = 0: 1.1208; tau_0 at the end 37.67
+      0-6   J/J0 1.0000 [1.0000]  D at rest 0.4663 [+0.0074]  slow 2.010e-03 [1.090]  travelling 1.474e-03 [1.087]  total [1.089]
+      6-12  J/J0 0.8665 [0.9757]  D at rest 0.9199 [+0.0019]  slow 9.062e-04 [0.938]  travelling 8.393e-03 [1.090]  total [1.073]
+     12-18  J/J0 0.8479 [0.9996]  D at rest 0.9754 [+0.0011]  slow 1.118e-03 [1.155]  travelling 8.168e-03 [1.101]  total [1.108]
+     18-24  J/J0 0.8248 [0.9861]  D at rest 0.9905 [+0.0000]  slow 8.562e-04 [1.141]  travelling 8.527e-03 [1.111]  total [1.113]
+     24-30  J/J0 0.8095 [0.9853]  D at rest 0.9922 [+0.0002]  slow 6.107e-04 [1.161]  travelling 8.002e-03 [1.055]  total [1.061]
+     30-36  J/J0 0.8022 [0.9903]  D at rest 0.9971 [+0.0006]  slow 5.405e-04 [1.183]  travelling 8.238e-03 [1.067]  total [1.073]
+  p_R12: alpha(0) at t = 0: 1.0718; tau_0 at the end 38.17
+      0-6   J/J0 1.0000 [1.0000]  D at rest 0.4410 [-0.0179]  slow 1.805e-03 [0.979]  travelling 1.354e-03 [0.999]  total [0.987]
+      6-12  J/J0 0.9074 [1.0217]  D at rest 0.9184 [+0.0004]  slow 1.216e-03 [1.259]  travelling 9.145e-03 [1.187]  total [1.195]
+     12-18  J/J0 0.8564 [1.0097]  D at rest 0.9763 [+0.0020]  slow 1.113e-03 [1.149]  travelling 9.226e-03 [1.244]  total [1.233]
+     18-24  J/J0 0.8426 [1.0074]  D at rest 0.9914 [+0.0009]  slow 9.833e-04 [1.310]  travelling 9.540e-03 [1.242]  total [1.249]
+     24-30  J/J0 0.8246 [1.0036]  D at rest 0.9923 [+0.0003]  slow 7.414e-04 [1.410]  travelling 9.008e-03 [1.187]  total [1.202]
+     30-36  J/J0 0.8187 [1.0107]  D at rest 0.9977 [+0.0012]  slow 6.511e-04 [1.425]  travelling 9.046e-03 [1.172]  total [1.186]
