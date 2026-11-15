@@ -55,7 +55,8 @@ Companions as fractions of each lane equation's own right-hand side, window mean
 | 24 | 2e-4 / 4e-4 / 4e-4 | 3e-4 / 4e-4 / 4e-4 | −4e-4 / −7e-4 / +4e-4 | −2e-4 / −4e-4 / +4e-4 | 2e-6 / 1e-5 / 2e-5 |
 | 36 | 8e-5 / 1.4e-4 / 1.5e-4 | 9e-5 / 1.3e-4 / 1.4e-4 | −1.5e-4 / −2.5e-4 / +1.5e-4 | −8e-5 / −1.4e-4 / +1.4e-4 | 9e-7 / 5e-6 / 7e-6 |
 
-- In the π equation the clock part and the potential part are each up to 9e-3 and cancel to the figures shown.
+- In the π equation the clock part and the potential part are each up to 9e-3 (2e-2 at r_max 16) and cancel to the
+  figures shown.
 - Closure (i) gives the same numbers as (ii). All scale with the pocket's share of the cell.
 - **0\*:** derived from the machine's own equations; closure-free on the dust clock; cell-size dependent as the
   pocket's share; CMC and wall forced, as for C. Small enough here that their sign is the only robust reading.
@@ -128,8 +129,9 @@ independently.
 
 V_SD = ½S² − ½D². There is no D vacuum and no one-budget constant.
 
-- **S:** a harmonic field of mass 1. ρ + 3p = 2(P_S² − ½S²), cycle mean ½ρ_S,E·2 = its density: it gravitates as
-  dust. w = ⅓⟨|∇S|²⟩/ρ_S, the gradient share over three, 1% here. A well-defined, closed, dust-like species.
+- **S:** a harmonic field of mass 1. ρ + 3p = 2(P_S² − ½S²), whose cycle mean equals its density: it gravitates as
+  dust. w = ⅓⟨|∇S|²⟩/ρ_S, two-thirds of the gradient share: of order 1–3% for a pocket of this width. A well-defined,
+  dust-like species, closed up to that gradient pressure.
   The no-D control above is *not* this case: it has the λ = 5000 quartic on S.
 - **D:** tachyonic. The growing mode has P_D = D, D ∝ e^t. Then
   ρ_D = ½P_D² − ½D² + ½|∇D|² ≈ 0 (gradients only), while ρ + 3p = 2P_D² + D² = 3D².
