@@ -126,3 +126,90 @@ def w_test(path, ths=(13.0, 18.0, 24.0)):
             Y = lane(y0, tau[i0:], P_FULL, rho_vac, w, "raychaudhuri")
             rows.append((th, w, [Y[int(np.argmin(np.abs(t - tq))) - i0, 7] / sd_avg[int(np.argmin(np.abs(t - tq)))] - 1 for tq in (30.0, 40.0, 54.0)]))
     return w_read, rows
+
+
+# ---- the S-D species' w(x) in the lane (item 2 of the note's "Proposed next") ----
+
+def eos_terms(d):
+    """Per snapshot, whole cell: the gradient piece (2/3)G/rho, x weighted by S's energy, and the measured w."""
+    t = d["t"]; dr = float(d["r"][1] - d["r"][0]); rows = []
+    for i in range(len(t)):
+        dV = d["dV"][i]; grr = d["grr"][i]
+        s, dd, ps, pd = (SQ * d[k][i] for k in ("S", "D", "PS", "PD"))
+        g2 = (np.gradient(s, dr)**2 + np.gradient(dd, dr)**2) / grr
+        av = lambda q: float(np.sum(q * dV) / np.sum(dV))                                 # noqa: E731
+        K, G, B, U = av(0.5 * (ps**2 + pd**2)), av(0.5 * g2), av(0.5 * (s**2 - dd**2)), av((s**4 + 6 * s**2 * dd**2 + dd**4) / 8)
+        rho = K + G + B + U + 0.5; p = K - G / 3 - B - U - 0.5
+        es = 0.5 * ps**2 + 2 * s**2
+        rows.append((2 * G / 3, p, rho, 2 * av(s**2 * es) / max(av(es), 1e-300)))
+    return np.array(rows)
+
+
+def lane_w(y0, taus, P, rho_vac, wfun):
+    from scipy.integrate import solve_ivp
+    from research.channel_companions_v1 import BETA
+
+    def rhs(_, y):
+        lna, H, phi, pi, dm, b, r, sd = y
+        w = wfun(lna)
+        V = P.V0 * (math.exp(-P.lam * phi) - P.D); Vp = -P.V0 * P.lam * math.exp(-P.lam * phi)
+        r3p = 2 * pi * pi - 2 * V + dm + b + 2 * r - 2 * rho_vac + (1 + 3 * w) * sd
+        return [H, -H * H - r3p / 6, pi, -3 * H * pi - Vp + BETA * dm, -3 * H * dm - BETA * dm * pi, -3 * H * b, -4 * H * r, -3 * H * (1 + w) * sd]
+    s = solve_ivp(rhs, (taus[0], taus[-1]), y0, t_eval=taus, method="DOP853", rtol=1e-11, atol=1e-18)
+    return s.y.T
+
+
+def w_lanes(path, ths=(13.0, 18.0, 24.0)):
+    """Lanes from the period-averaged handoff with: w = 0; w(a) = (2/3)g_h (a_h/a)^2 - (3/28) x_h (a_h/a)^3 (Derived
+    form, dilution laws: gradient share of free waves ~ a^-2, x ~ a^-3); and the cell's own w(t) (oracle ruler)."""
+    from research.cosmos_lane_follow_v1 import averages
+    d = np.load(path, allow_pickle=True); t = d["t"]; A, tau = averages(d)
+    rho_vac = KAP * v_sd(0.0, math.sqrt(2 / LAM)); sd_avg = boxcar(t, A[:, 8], TS)
+    E = eos_terms(d)
+    gw = boxcar(t, E[:, 0], TS) / boxcar(t, E[:, 2], TS); wm = boxcar(t, E[:, 1], TS) / boxcar(t, E[:, 2], TS)
+    xw = boxcar(t, E[:, 3], TS); lna_c = A[:, 10]
+    ok = ~np.isnan(wm)
+    out = []
+    for th in ths:
+        y0, i0 = state(A, tau, t, th, True)
+        g_h, x_h, l_h = (float(np.interp(th, t, q)) for q in (gw, xw, lna_c))
+        forms = {"w = 0": lambda la: 0.0,
+                 "w(a) Derived form": lambda la, g=g_h, x=x_h, l0=l_h: g * math.exp(-2 * (la - l0)) - 3 / 28 * x * math.exp(-3 * (la - l0)),
+                 "cell's own w (oracle)": lambda la: float(np.interp(la, lna_c[ok], wm[ok]))}
+        for name, f in forms.items():
+            Y = lane_w(y0, tau[i0:], P_FULL, rho_vac, f)
+            res = []
+            for tq in (20.0, 30.0, 40.0, 54.0):
+                i = int(np.argmin(np.abs(t - tq)))
+                if i - i0 < len(Y) and not np.isnan(sd_avg[i]):
+                    res.append((tq, Y[i - i0, 7] / sd_avg[i] - 1))
+            out.append((th, name, g_h, x_h, res))
+    return out
+
+
+# ---- D_r by demodulation (replaces the boxcar estimator, which leaks S-locked content: see note) ----
+
+def line_energy(d, omega, L=None, rule="box2"):
+    """Energy / S-D energy in D_fast's line at omega (local proper time), by complex demodulation with a Hann window of
+    length L (default: resolves omega from its nearest neighbour line among sqrt2, 2, 4 at least twice over).
+    Energy of a ring of amplitude A at omega: (1/2) omega^2 A^2 (+ equal potential share) = omega^2 A^2 / 2 * 2 / 2."""
+    t = d["t"]; Df = SQ * d["D"] - d_slow(d, rule); dV = d["dV"]
+    lines = [math.sqrt(2), 2.0, 4.0]
+    gap = min(abs(omega - o) for o in lines if abs(o - omega) > 1e-9)
+    L = L or 2 * 2 * math.pi / gap
+    E = np.array([np.nansum(sd_energy(d, i) * dV[i]) for i in range(len(t))])
+    out = np.full(len(t), np.nan)
+    C = np.full(Df.shape, np.nan, complex)
+    for j in range(Df.shape[1]):
+        a = float(np.mean(d["alpha"][:, j])); z = Df[:, j] * np.exp(-1j * omega * a * t)
+        for i, tc in enumerate(t):
+            m = np.abs(t - tc) <= L / 2 / a
+            if t[0] > tc - L / 2 / a or t[-1] < tc + L / 2 / a or np.isnan(z[m]).any():
+                continue
+            w = np.cos(np.pi * (t[m] - tc) * a / L)**2
+            C[i, j] = np.sum(w * z[m]) / np.sum(w)
+    A2 = 4 * np.abs(C)**2                                    # amplitude^2
+    for i in range(len(t)):
+        if not np.isnan(A2[i]).any():
+            out[i] = float(np.sum(0.5 * omega**2 * A2[i] * dV[i])) / E[i]
+    return out, L
