@@ -213,3 +213,35 @@ def line_energy(d, omega, L=None, rule="box2"):
         if not np.isnan(A2[i]).any():
             out[i] = float(np.sum(0.5 * omega**2 * A2[i] * dV[i])) / E[i]
     return out, L
+
+
+# ---- g's dilution, split: free waves outside the pocket (a^-2, Derived) and the pocket core (a^-n_c) ----
+
+def g_split(d, r_core=6.0):
+    """Per snapshot: contributions of core (r < r_core) and outside to the cell's gradient piece (2/3)G/rho."""
+    t = d["t"]; dr = float(d["r"][1] - d["r"][0]); r = d["r"]; rows = []
+    for i in range(len(t)):
+        dV = d["dV"][i]; grr = d["grr"][i]
+        s, dd, ps, pd = (SQ * d[k][i] for k in ("S", "D", "PS", "PD"))
+        G = 0.5 * (np.gradient(s, dr)**2 + np.gradient(dd, dr)**2) / grr
+        e = 0.5 * (ps**2 + pd**2) + G + 0.5 * (s**2 - dd**2) + (s**4 + 6 * s**2 * dd**2 + dd**4) / 8 + 0.5
+        rows.append((np.sum(G * dV * (r < r_core)), np.sum(G * dV * (r >= r_core)), np.sum(e * dV)))
+    A = np.array(rows); B = np.column_stack([boxcar(t, A[:, j], TS) for j in range(3)])
+    return 2 / 3 * B[:, 0] / B[:, 2], 2 / 3 * B[:, 1] / B[:, 2]
+
+
+def w_lanes_split(path, ths=(13.0, 18.0, 24.0), ncs=(0.0, 0.5, 2.0)):
+    from research.cosmos_lane_follow_v1 import averages
+    d = np.load(path, allow_pickle=True); t = d["t"]; A, tau = averages(d)
+    rho_vac = KAP * v_sd(0.0, math.sqrt(2 / LAM)); sd_avg = boxcar(t, A[:, 8], TS)
+    E = eos_terms(d); xw = boxcar(t, E[:, 3], TS); gc, go = g_split(d); lna_c = A[:, 10]
+    out = []
+    for th in ths:
+        y0, i0 = state(A, tau, t, th, True)
+        c, o, x, l0 = (float(np.interp(th, t, q)) for q in (gc, go, xw, lna_c))
+        for nc in ncs:
+            f = lambda la, c=c, o=o, x=x, l0=l0, nc=nc: c * math.exp(-nc * (la - l0)) + o * math.exp(-2 * (la - l0)) - 3 / 28 * x * math.exp(-3 * (la - l0))  # noqa: E731
+            Y = lane_w(y0, tau[i0:], P_FULL, rho_vac, f)
+            res = [(tq, Y[int(np.argmin(np.abs(t - tq))) - i0, 7] / sd_avg[int(np.argmin(np.abs(t - tq)))] - 1) for tq in (30.0, 40.0, 54.0)]
+            out.append((th, nc, c, o, res))
+    return out
