@@ -199,3 +199,72 @@ def report3(path, r_bs=(4.0, 6.0, 8.0)):
             f = lambda q: float(np.mean(q[m] / (3 * S["E"][m])))     # noqa: E731
             w_s = f(S["TII"]); L = f(lhs); terms = [f(R[k]) for k in ("hI", "tid", "W", "Sb")]; rhs = sum(terms)
             print(f"     {a}-{b}    {w_s:+.4f}             {L-w_s:+.4f}       {L:+.4f}   " + "   ".join(f"{x:+.4f}" for x in terms) + f"   {rhs:+.4f}   {L-rhs:+.4f}")
+
+
+# ---- fourth form: exact boundary terms (comoving boundary) and chat's Amendment 1 (the large terms cancelled on paper) ----
+# Exact moment identity for a region whose boundary moves at v_b = H l_b (comoving), central frame:
+#   Sum T^ii_F = (1/2) I'' - (H' + H^2) I - W_x + S_b - B1 - B2
+#   B1 = l_b A j_F,b v_b                       (momentum carried across the moving boundary)
+#   S_b must then be the central-frame radial stress, T^rr_F = T^rr_slice + 2 H l j + (e + p) H^2 l^2; the boost part is
+#   folded into B1 here (S_b stays slice-frame), leaving B1 - boost = -l_b^2 A H j_slice.
+#   B2 = (1/2) d/dtau [ l_b^2 A (e_b v_b - j_F,b) ]   (energy carried across it, weighted by l_b^2)
+# with j_F = j_slice + (e + p) H l (first-order boost), A = R_areal^2 (per steradian).
+# Amendment 1 (chat): with R_c^2 = I/E, nu = d ln R_c / d ln a, nu' = d nu / d ln a, for a self-similar core of steady
+# energy, the rest-frame pressure is
+#   w_rest = (R_c H)^2 [nu' + (nu - 1)(nu + 1 + H'/H^2)] / 3 + (-W_x + S_b) / (3E)
+# ((nu - 1)(nu - 1/2 - 3 w_bg / 2) in a flat background; H'/H^2 is measured here, the cell being closed).
+# The slice observers move at H l, the core at nu H l, so the slice-frame pressure carries the relative flow:
+#   w_slice = w_rest + (1 + w)(nu - 1)^2 (R_c H)^2 / 3
+
+def analyse4(path, r_b, n_s=2):
+    d = np.load(path, allow_pickle=True); t = d["t"]; r = d["r"]; dr = float(r[1] - r[0])
+    rows = []
+    for i in range(len(t)):
+        o = per_snapshot(d, i, r_b)
+        grr = d["grr"][i]; dV = d["dV"][i]; m = r < r_b; H = -float(d["K"][i].mean()) / 3
+        s, dd, ps, pd = (SQ * d[k][i] for k in ("S", "D", "PS", "PD"))
+        sr, dr_ = np.gradient(s, dr), np.gradient(dd, dr)
+        j = -(ps * sr + pd * dr_) / np.sqrt(grr)
+        Kk = 0.5 * (ps**2 + pd**2); G = 0.5 * (sr**2 + dr_**2) / grr
+        V = 0.5 * (s**2 - dd**2) + (s**4 + 6 * s**2 * dd**2 + dd**4) / 8 + 0.5
+        e = Kk + G + V; p = Kk - G / 3 - V
+        ell = np.concatenate([[0.5 * dr * math.sqrt(grr[0])], 0.5 * dr * math.sqrt(grr[0]) + np.cumsum(0.5 * (np.sqrt(grr[1:]) + np.sqrt(grr[:-1])) * dr)])
+        jb = int(np.searchsorted(r, r_b)) - 1; A = d["R"][i][jb]**2; lb = ell[jb]
+        jF = j[jb] + (e[jb] + p[jb]) * H * lb; vb = H * lb
+        o.update(H=H, Jl=float(np.sum(j * ell * dV * m)), B1=lb * A * jF * vb - lb * A * (2 * H * lb * j[jb] + (e[jb] + p[jb]) * (H * lb)**2),
+                 B2in=lb**2 * A * (e[jb] * vb - jF))
+        rows.append(o)
+    A_ = {k: np.array([o[k] for o in rows]) for k in rows[0]}
+    al = float(np.mean(A_["al"][(t > 12) & (t < 54)])); tau = t * al
+    S = {k: smooth(t, A_[k], n_s) for k in ("E", "I", "TII", "W", "Sb", "ep", "Jl", "H", "B1", "B2in")}
+    H = S["H"]; Hd = np.gradient(H, tau)
+    TF = S["TII"] + 2 * H * S["Jl"] + H**2 * S["ep"]
+    hI = 0.5 * np.gradient(np.gradient(S["I"], tau), tau); tid = -(Hd + H**2) * S["I"]
+    B2 = 0.5 * np.gradient(S["B2in"], tau)
+    # Amendment 1
+    Rc = np.sqrt(S["I"] / S["E"]); lna = np.cumsum(np.concatenate([[0], 0.5 * (H[1:] + H[:-1]) * np.diff(tau)]))
+    nu = np.gradient(np.log(Rc), tau) / H; nup = np.gradient(nu, tau) / H
+    w_s = S["TII"] / (3 * S["E"])
+    tug = (Rc * H)**2 * (nup + (nu - 1) * (nu + 1 + Hd / H**2)) / 3
+    frame = (1 + w_s) * (nu - 1)**2 * (Rc * H)**2 / 3
+    return dict(t=t, E=S["E"], w_s=w_s, TF=TF, hI=hI, tid=tid, W=-S["W"], Sb=S["Sb"], B1=S["B1"], B2=B2,
+                tug=tug, frame=frame, nu=nu, nup=nup, RcH=Rc * H, q=Hd / H**2)
+
+
+def report4(path, r_bs=(6.0, 8.0, 10.0)):
+    print(f"\n=== {path.split('/')[-1]}")
+    for r_b in r_bs:
+        o = analyse4(path, r_b); t = o["t"]
+        print(f"  r_b {r_b:g}")
+        print("     window  R_cH   nu     nu'    H'/H^2 | exact identity /3E: T^ii_F   RHS(no flux)  -B1      -B2      RHS exact  resid | "
+              "Amendment 1: tug    -W_x/3E   S_b/3E   w_rest pred  + frame   = w_slice pred   measured   meas-pred")
+        for a, b in ((13, 30), (30, 54), (13, 54)):
+            m = (t >= a) & (t < b) & ~np.isnan(o["hI"]) & ~np.isnan(o["nup"])
+            f = lambda q: float(np.mean(q[m] / (3 * o["E"][m])))       # noqa: E731
+            g = lambda q: float(np.mean(q[m]))                          # noqa: E731
+            TF, hI, tid, W, Sb, B1, B2 = (f(o[k]) for k in ("TF", "hI", "tid", "W", "Sb", "B1", "B2"))
+            rhs0 = hI + tid + W + Sb; rhs = rhs0 - B1 - B2
+            tug, fr, ws = g(o["tug"]), g(o["frame"]), g(o["w_s"])
+            wr = tug + W + Sb
+            print(f"     {a}-{b}   {g(o['RcH']):.3f}  {g(o['nu']):.3f}  {g(o['nup']):+.3f}  {g(o['q']):+.3f} |       {TF:+.4f}   {rhs0:+.4f}      {-B1:+.4f}  {-B2:+.4f}  {rhs:+.4f}   {TF-rhs:+.4f} |"
+                  f"              {tug:+.4f}   {W:+.4f}   {Sb:+.4f}   {wr:+.4f}      {fr:+.4f}    {wr+fr:+.4f}          {ws:+.4f}   {ws-wr-fr:+.4f}")
