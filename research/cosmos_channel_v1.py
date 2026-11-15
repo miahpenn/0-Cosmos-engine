@@ -42,7 +42,8 @@ def channel(d, i, weight=None):
     K = float(d["K"][i].mean())
     S, PS, D, PD, phi, Pi = (d[k][i] for k in ("S", "PS", "D", "PD", "phi", "Pi"))
     tot = 4 * math.pi * (d["rho"][i] + d["pr"][i] + 2 * d["pt"][i])
-    q_phi = Pi**2 - vc(phi)
+    floor = 0.0 if np.any(D != 0) else 0.10 * C2 * V0_PROD   # the no-D control restores the hand floor (amendment 2)
+    q_phi = Pi**2 - (vc(phi) - floor)
     q_S = KAP * (PS**2 - (0.5 * S**2 + LAM / 8 * S**4))
     q_D = KAP * (PD**2 - (-0.5 * D**2 + LAM / 8 * (6 * S**2 * D**2 + D**4)))
     q_fl = tot - q_phi - q_S - q_D
@@ -50,7 +51,7 @@ def channel(d, i, weight=None):
     Q = shear + K * K / 3 + tot
     Dstar = math.sqrt(2 / LAM)
     q_vac = KAP * (-vsd(0.0, Dstar)) if np.any(D != 0) else 0.0                         # D at rest in its vacuum
-    Qbar_src = bar(Pi)**2 - vc(bar(phi)) + bar(q_fl) + q_vac                            # cosmos lane's source at f_bar
+    Qbar_src = bar(Pi)**2 - (vc(bar(phi)) - floor) + bar(q_fl) + q_vac                            # cosmos lane's source at f_bar
     parts = dict(
         shear=av(al * shear),
         S=av(al * q_S),
