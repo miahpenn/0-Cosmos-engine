@@ -1,0 +1,50 @@
+=== u_x20_cold    rho_SD lane/cell(period-avg) - 1 at t = 30 / 40 / 54; core gradient piece ~ a^-n_c, outside ~ a^-2
+   t_h   13  n_c 0.0  g_core 0.0196 g_out 0.0026   -1.61e-02  -2.53e-02  -3.52e-02
+   t_h   13  n_c 0.5  g_core 0.0196 g_out 0.0026   -9.99e-03  -1.50e-02  -2.21e-02
+   t_h   13  n_c 2.0  g_core 0.0196 g_out 0.0026   +2.13e-03  +3.26e-03  -3.47e-04
+   t_h   18  n_c 0.0  g_core 0.0183 g_out 0.0011   -6.29e-03  -1.40e-02  -2.30e-02
+   t_h   18  n_c 0.5  g_core 0.0183 g_out 0.0011   -3.89e-03  -8.67e-03  -1.56e-02
+   t_h   18  n_c 2.0  g_core 0.0183 g_out 0.0011   +1.61e-03  +2.03e-03  -1.66e-03
+   t_h   24  n_c 0.0  g_core 0.0181 g_out 0.0006   -1.82e-03  -8.58e-03  -1.70e-02
+   t_h   24  n_c 0.5  g_core 0.0181 g_out 0.0006   -1.34e-03  -6.39e-03  -1.33e-02
+   t_h   24  n_c 2.0  g_core 0.0181 g_out 0.0006   -6.31e-05  -1.34e-03  -5.47e-03
+=== u36_x20_cold    rho_SD lane/cell(period-avg) - 1 at t = 30 / 40 / 54; core gradient piece ~ a^-n_c, outside ~ a^-2
+   t_h   13  n_c 0.0  g_core 0.0200 g_out 0.0026   -1.70e-02  -2.65e-02  -3.62e-02
+   t_h   13  n_c 0.5  g_core 0.0200 g_out 0.0026   -1.08e-02  -1.60e-02  -2.29e-02
+   t_h   13  n_c 2.0  g_core 0.0200 g_out 0.0026   +1.55e-03  +2.54e-03  -8.10e-04
+   t_h   18  n_c 0.0  g_core 0.0188 g_out 0.0011   -7.05e-03  -1.51e-02  -2.40e-02
+   t_h   18  n_c 0.5  g_core 0.0188 g_out 0.0011   -4.59e-03  -9.67e-03  -1.64e-02
+   t_h   18  n_c 2.0  g_core 0.0188 g_out 0.0011   +1.04e-03  +1.28e-03  -2.18e-03
+   t_h   24  n_c 0.0  g_core 0.0186 g_out 0.0006   -2.07e-03  -9.21e-03  -1.75e-02
+   t_h   24  n_c 0.5  g_core 0.0186 g_out 0.0006   -1.58e-03  -6.98e-03  -1.38e-02
+   t_h   24  n_c 2.0  g_core 0.0186 g_out 0.0006   -2.67e-04  -1.80e-03  -5.77e-03
+=== u_x15_cold    rho_SD lane/cell(period-avg) - 1 at t = 30 / 40 / 54; core gradient piece ~ a^-n_c, outside ~ a^-2
+   t_h   13  n_c 0.0  g_core 0.0107 g_out 0.0024   -1.08e-02  -1.46e-02  -1.87e-02
+   t_h   13  n_c 0.5  g_core 0.0107 g_out 0.0024   -7.44e-03  -8.94e-03  -1.14e-02
+   t_h   13  n_c 2.0  g_core 0.0107 g_out 0.0024   -8.39e-04  +1.01e-03  +4.42e-04
+   t_h   18  n_c 0.0  g_core 0.0094 g_out 0.0011   -5.06e-03  -7.55e-03  -1.08e-02
+   t_h   18  n_c 0.5  g_core 0.0094 g_out 0.0011   -3.83e-03  -4.83e-03  -6.93e-03
+   t_h   18  n_c 2.0  g_core 0.0094 g_out 0.0011   -1.02e-03  +6.48e-04  +2.12e-04
+   t_h   24  n_c 0.0  g_core 0.0079 g_out 0.0006   -1.73e-03  -2.79e-03  -5.04e-03
+   t_h   24  n_c 0.5  g_core 0.0079 g_out 0.0006   -1.52e-03  -1.83e-03  -3.41e-03
+   t_h   24  n_c 2.0  g_core 0.0079 g_out 0.0006   -9.59e-04  +3.95e-04  +6.11e-05
+=== ui_x20_cold    rho_SD lane/cell(period-avg) - 1 at t = 30 / 40 / 54; core gradient piece ~ a^-n_c, outside ~ a^-2
+   t_h   13  n_c 0.0  g_core 0.0197 g_out 0.0026   -1.62e-02  -2.54e-02  -3.53e-02
+   t_h   13  n_c 0.5  g_core 0.0197 g_out 0.0026   -1.01e-02  -1.51e-02  -2.21e-02
+   t_h   13  n_c 2.0  g_core 0.0197 g_out 0.0026   +2.05e-03  +3.23e-03  -2.16e-04
+   t_h   18  n_c 0.0  g_core 0.0183 g_out 0.0011   -6.44e-03  -1.41e-02  -2.30e-02
+   t_h   18  n_c 0.5  g_core 0.0183 g_out 0.0011   -4.02e-03  -8.78e-03  -1.56e-02
+   t_h   18  n_c 2.0  g_core 0.0183 g_out 0.0011   +1.49e-03  +1.97e-03  -1.57e-03
+   t_h   24  n_c 0.0  g_core 0.0180 g_out 0.0006   -1.78e-03  -8.49e-03  -1.68e-02
+   t_h   24  n_c 0.5  g_core 0.0180 g_out 0.0006   -1.30e-03  -6.30e-03  -1.31e-02
+   t_h   24  n_c 2.0  g_core 0.0180 g_out 0.0006   -2.15e-05  -1.24e-03  -5.23e-03
+=== u16_x20_cold    rho_SD lane/cell(period-avg) - 1 at t = 30 / 40 / 54; core gradient piece ~ a^-n_c, outside ~ a^-2
+   t_h   13  n_c 0.0  g_core 0.0185 g_out 0.0025   -1.42e-02  -2.26e-02  -3.22e-02
+   t_h   13  n_c 0.5  g_core 0.0185 g_out 0.0025   -8.40e-03  -1.28e-02  -1.97e-02
+   t_h   13  n_c 2.0  g_core 0.0185 g_out 0.0025   +3.09e-03  +4.54e-03  +9.22e-04
+   t_h   18  n_c 0.0  g_core 0.0168 g_out 0.0011   -4.73e-03  -1.15e-02  -2.01e-02
+   t_h   18  n_c 0.5  g_core 0.0168 g_out 0.0011   -2.49e-03  -6.51e-03  -1.32e-02
+   t_h   18  n_c 2.0  g_core 0.0168 g_out 0.0011   +2.62e-03  +3.44e-03  -2.02e-04
+   t_h   24  n_c 0.0  g_core 0.0164 g_out 0.0006   -1.51e-03  -7.18e-03  -1.51e-02
+   t_h   24  n_c 0.5  g_core 0.0164 g_out 0.0006   -1.07e-03  -5.17e-03  -1.17e-02
+   t_h   24  n_c 2.0  g_core 0.0164 g_out 0.0006   +1.01e-04  -5.44e-04  -4.48e-03
