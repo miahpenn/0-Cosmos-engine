@@ -507,3 +507,23 @@ def test_sd_quartic_authorization_is_exact_blob():
         historical = SOURCE_BLOBS[path]
         assert _source_blob_matches(path, historical, historical, authorized_head)
         assert not _source_blob_matches(path, historical, historical, "f" * 40)
+
+
+def test_shared_constants_authorization_is_exact_blob():
+    from tools.audit_tracefree_ricci_proper_radial import (
+        AUTHORIZED_OFF_AUDIT_REPAIR_HEAD_BLOBS,
+        AUTHORIZED_SHARED_CONSTANTS_HEAD_BLOBS,
+        SOURCE_BLOBS,
+        _source_blob_matches,
+    )
+
+    assert AUTHORIZED_SHARED_CONSTANTS_HEAD_BLOBS == {
+        "engine/scalar_system.py": "9898f75a418456b54fa0255a9ca3873ef39af0bc",
+        "engine/production_kernel.py": "8c77065e64ef14e50e7fd08e2a8cc165d58e055d",
+    }
+    for path, authorized_head in AUTHORIZED_SHARED_CONSTANTS_HEAD_BLOBS.items():
+        historical = SOURCE_BLOBS[path]
+        assert _source_blob_matches(path, historical, historical, authorized_head)
+        assert not _source_blob_matches(path, historical, historical, "f" * 40)
+    assert AUTHORIZED_OFF_AUDIT_REPAIR_HEAD_BLOBS["engine/model_constants.py"] == "17851bea202b8748119b3c0c5d40f4c9e6e003e6"
+    assert AUTHORIZED_OFF_AUDIT_REPAIR_HEAD_BLOBS["engine/cosmos.py"] == "f1e9c545f1d5fdc1233a11cf3a2624f33b6eb65c"
