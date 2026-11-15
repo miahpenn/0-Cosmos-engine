@@ -1,0 +1,38 @@
+Clock-stop band against the background's w (archive rule; w = 1 reproduces 0.14-0.37):
+   w = +1.000: nu = 0.000, |H|/mu = 0.139 to 0.373
+   w = +0.333: nu = 0.250, |H|/mu = 0.180 to 0.403
+   w = +0.000: nu = 0.500, |H|/mu = 0.212 to 0.424
+   w = -0.070: nu = 0.575, |H|/mu = 0.221 to 0.430
+   w = -0.160: nu = 0.690, |H|/mu = 0.233 to 0.438
+   w = -0.260: nu = 0.851, |H|/mu = 0.248 to 0.447
+   w = -0.300: nu = 0.929, |H|/mu = 0.255 to 0.451
+
+kappa*/lambda* = 3 h^2 / (s rho~), with s = 1 (S-D matter dominant at the reset) unless stated
+   x_A    rho~ (S + held step)   w_hold    omega_S |  A: S-D dominant, band at its own w_hold: h       kappa/lambda       lambda*
+                                                  |  B: stiff background (w = 1), band 0.139-0.373:           kappa/lambda/s     lambda*.s
+                                                  |  C: literal balance H = omega_S:                            kappa/lambda       lambda*
+   1.28   1.345                 -0.317    1.214  |  A: 0.258-0.453   0.148-0.458        55-169
+                                                  |  B: 0.139-0.373   0.043-0.310        81-586
+                                                  |  C: 1.214          3.29               7.6
+   1.50   1.531                 -0.260    1.247  |  A: 0.248-0.447   0.121-0.392        64-208
+                                                  |  B: 0.139-0.373   0.038-0.273        92-668
+                                                  |  C: 1.247          3.04               8.3
+   2.00   2.000                 -0.161    1.318  |  A: 0.233-0.438   0.081-0.287        87-309
+                                                  |  B: 0.139-0.373   0.029-0.209        120-872
+                                                  |  C: 1.318          2.60               9.6
+   2.45   2.475                 -0.094    1.379  |  A: 0.224-0.432   0.061-0.226        111-414
+                                                  |  B: 0.139-0.373   0.023-0.169        149-1079
+                                                  |  C: 1.379          2.30               10.9
+   2.68   2.738                 -0.066    1.408  |  A: 0.220-0.430   0.053-0.202        124-473
+                                                  |  B: 0.139-0.373   0.021-0.152        165-1194
+                                                  |  C: 1.408          2.17               11.6
+
+Under the one-budget rule (D's step = f V0, f = 0.10 FORCED): V0 = (kappa/lambda)/(2f) in mu^2 units, and today's
+dark energy is V0 (e^-phi - f) + pi^2/2. With kappa*/lambda* from C6:
+   kappa*/lambda* over cases A and B: 0.021 to 0.458;  V0 = 0.11 to 2.29 mu^2;  the lane's own H scale sqrt(V0/3) = 0.19 to 0.87 mu
+   today's H << mu then needs today's dark energy << V0: the potential and D's step must nearly cancel.
+   Required closeness to the node (e^-phi = f, phi = ln 10 = 2.303), potential part alone, delta = e^-phi_today - f:
+   eps_today = 0.099 (research runs): delta/f = 8.9e-02 to 1.9e+00  (not small: no cancellation needed)
+   eps_today = 0.00567 (production): delta/f = 2.9e-04 to 6.3e-03
+   eps_today = 1e-40 (S as a particle (order of magnitude)): delta/f = 9.0e-80 to 2.0e-78
+   production's hard-coded state: phi_today = 0.179, e^-phi = 0.836, delta/f = 7.4 (far from the node), with V0 = 8.24e-5 mu^2.
