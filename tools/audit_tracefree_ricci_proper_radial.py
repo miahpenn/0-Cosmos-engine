@@ -95,6 +95,15 @@ AUTHORIZED_SD_QUARTIC_HEAD_BLOBS = {
     "engine/v55_initial.py": "d127e1f8ff4213eed1eb3369b0f16b66a5e203c7",
 }
 
+# Exact-blob authorization for the shared model constants (gap #2, Nov 14 2026): V0, the potential's slope,
+# the hand floor, beta_dm and kappa are defined once in engine/model_constants.py and imported by
+# engine/scalar_system.py and engine/production_kernel.py (and engine/cosmos.py, off-audit below). Values unchanged;
+# production bit-identical.
+AUTHORIZED_SHARED_CONSTANTS_HEAD_BLOBS = {
+    "engine/scalar_system.py": "9898f75a418456b54fa0255a9ca3873ef39af0bc",
+    "engine/production_kernel.py": "8c77065e64ef14e50e7fd08e2a8cc165d58e055d",
+}
+
 
 def _authorized_head_blobs(path: str) -> set[str]:
     return {
@@ -105,6 +114,7 @@ def _authorized_head_blobs(path: str) -> set[str]:
             AUTHORIZED_INITIALIZER_ORIGIN_HEAD_BLOBS.get(path),
             AUTHORIZED_LEDGER_SHIFT_HEAD_BLOBS.get(path),
             AUTHORIZED_SD_QUARTIC_HEAD_BLOBS.get(path),
+            AUTHORIZED_SHARED_CONSTANTS_HEAD_BLOBS.get(path),
         ) if blob is not None
     }
 AUTHORIZED_RUNTIME_PATHS = (
@@ -114,6 +124,7 @@ AUTHORIZED_RUNTIME_PATHS = (
     | frozenset(AUTHORIZED_INITIALIZER_ORIGIN_HEAD_BLOBS)
     | frozenset(AUTHORIZED_LEDGER_SHIFT_HEAD_BLOBS)
     | frozenset(AUTHORIZED_SD_QUARTIC_HEAD_BLOBS)
+    | frozenset(AUTHORIZED_SHARED_CONSTANTS_HEAD_BLOBS)
 )
 
 RESOLUTIONS = (40, 60, 80, 120, 160)
@@ -151,6 +162,9 @@ AUTHORIZED_OFF_AUDIT_REPAIR_HEAD_BLOBS = {
     "engine/bidirectional_production.py": "21e55a57f2029713225cce9b590db57817d4e4f1",
     "engine/worldtube.py": "c263a786b2057f4a427243899ae507e8a0c0c8c5",
     "engine/run_controls.py": "8eb24c72bbe436896a1b85a23cb91e4de8e6a647",
+    # Shared model constants (gap #2): the one copy, and the COSMOS lane's defaults read from it.
+    "engine/model_constants.py": "17851bea202b8748119b3c0c5d40f4c9e6e003e6",
+    "engine/cosmos.py": "f1e9c545f1d5fdc1233a11cf3a2624f33b6eb65c",
 }
 
 

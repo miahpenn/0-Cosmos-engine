@@ -20,18 +20,20 @@ into the exact spherical local stress tensor.
 from dataclasses import dataclass
 from math import exp, isfinite, sqrt
 
+from . import model_constants as _mc
+
 
 @dataclass(frozen=True)
 class CosmosParams:
-    lam: float = 1.0
-    D: float = 0.10
-    beta: float = -0.04
+    lam: float = _mc.LAMBDA_PHI
+    D: float = _mc.D_POT
+    beta: float = _mc.BETA_DM
     omega_de_today: float = 0.69
     omega_r_today: float = 9.2e-5
     omega_shear_today: float = 1.745e-8
     f_b: float = 0.157
     n_contract: float = 47.203
-    V0: float = 8.242522415500654e-5
+    V0: float = _mc.V0
     # Legacy metadata kept for archived parameter payload compatibility.
     # G is absorbed into rho_E=8*pi*G*rho_physical; this implementation fixes
     # G=1 rather than supporting an independent gravitational-coupling sweep.

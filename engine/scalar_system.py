@@ -6,12 +6,9 @@ with the parity convention used by the pinned reference kernel.
 """
 from dataclasses import dataclass
 import numpy as np
-import math
 
-KAPPA = 8.0 * math.pi
-V0 = 8.242522415500654e-5
-D_POT = 0.10
-LAMBDA = 1.0
+from .model_constants import BETA_DM, D_POT, KAPPA, V0  # noqa: F401  (one copy: engine/model_constants.py)
+from .model_constants import LAMBDA_PHI as LAMBDA
 
 # GEAR-67 on-site quartic of the S-D pair (locked input, recorded 2026-11-10).
 #
@@ -76,7 +73,7 @@ def cosmos_potential_prime(phi):
     return -V0 * LAMBDA * np.exp(-LAMBDA * phi)
 
 
-def scalar_rhs_arrays(grid, geometry, fields, beta_dm=-0.04,
+def scalar_rhs_arrays(grid, geometry, fields, beta_dm=BETA_DM,
                       rho_dm=None):
     """Return d_t(S,PS,D,PD,phi,Pi) for the frozen V5.5 scalar system."""
     r = np.asarray(grid.centers)

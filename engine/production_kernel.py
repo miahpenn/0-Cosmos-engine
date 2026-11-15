@@ -64,8 +64,8 @@ from .radial_maxwell import RadialMaxwellState
 from .native_geometry import NativeSphericalCellGrid, native_cmc_explicit_metric_rhs
 from . import v55_pirk_adapter as adapter
 
+from .model_constants import BETA_DM  # one copy: engine/model_constants.py
 
-BETA_DM = -0.04
 LAMBDA_M = 2.0
 CONSTRAINT_INNER_EXCLUSION_RADIUS = 5.0
 
