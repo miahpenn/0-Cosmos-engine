@@ -1,0 +1,54 @@
+
+=== u_x20_cold.npz: x_c 2, r_max 24; core r_b = 8
+  T1. the lag two ways (window means; H > 0.01 only, away from the turnaround)
+     window   nu (size)   nu_j (momentum)   lag's kinetic share of the cell's S-D energy
+     13-20    0.686       0.669             0.0436
+     20-30    0.704       0.689             0.0316
+     30-40    0.668       0.655             0.0236
+     40-50    0.533       0.511             0.0209
+  T2. lane, species as dust, from the period-averaged handoff; rho_SD lane/cell - 1 at t = 30 / 40 / 54
+       t_h   against cell rest-frame energy        against cell slice-frame energy (ruler)
+        13   -1.42e-02 / -1.65e-02 / -1.89e-02     +1.18e-02 / +1.50e-02 / +1.22e-02
+        18   -5.65e-03 / -7.84e-03 / -9.86e-03     +1.01e-02 / +1.34e-02 / +1.09e-02
+        24   -9.96e-04 / -3.00e-03 / -4.66e-03     +5.46e-03 / +8.94e-03 / +6.84e-03
+  T3. early window: the paper formula + the core's energy gain (w_slice measured - predicted)
+     window   E'/(H E)   gain term   residual before   residual after
+     13-30    +0.017     -0.0011     -0.0064           -0.0053
+     30-54    +0.033     +0.0028     +0.0004           -0.0024
+     13-54    +0.026     +0.0011     -0.0025           -0.0036
+
+=== u36_x20_cold.npz: x_c 2, r_max 36; core r_b = 8
+  T1. the lag two ways (window means; H > 0.01 only, away from the turnaround)
+     window   nu (size)   nu_j (momentum)   lag's kinetic share of the cell's S-D energy
+     13-20    0.680       0.663             0.0444
+     20-30    0.695       0.681             0.0324
+     30-40    0.656       0.643             0.0244
+     40-50    0.514       0.490             0.0217
+  T2. lane, species as dust, from the period-averaged handoff; rho_SD lane/cell - 1 at t = 30 / 40 / 54
+       t_h   against cell rest-frame energy        against cell slice-frame energy (ruler)
+        13   -1.46e-02 / -1.71e-02 / -1.89e-02     +1.13e-02 / +1.43e-02 / +1.18e-02
+        18   -6.21e-03 / -8.53e-03 / -1.01e-02     +9.57e-03 / +1.28e-02 / +1.06e-02
+        24   -1.17e-03 / -3.33e-03 / -4.58e-03     +5.35e-03 / +8.68e-03 / +6.78e-03
+  T3. early window: the paper formula + the core's energy gain (w_slice measured - predicted)
+     window   E'/(H E)   gain term   residual before   residual after
+     13-30    +0.017     -0.0017     -0.0069           -0.0052
+     30-54    +0.034     +0.0030     +0.0011           -0.0019
+     13-54    +0.027     +0.0010     -0.0023           -0.0033
+
+=== u_x15_cold.npz: x_c 1.5, r_max 24; core r_b = 8
+  T1. the lag two ways (window means; H > 0.01 only, away from the turnaround)
+     window   nu (size)   nu_j (momentum)   lag's kinetic share of the cell's S-D energy
+     13-20    0.772       0.764             0.0247
+     20-30    0.800       0.793             0.0168
+     30-40    0.791       0.781             0.0121
+     40-50    0.718       0.700             0.0105
+  T2. lane, species as dust, from the period-averaged handoff; rho_SD lane/cell - 1 at t = 30 / 40 / 54
+       t_h   against cell rest-frame energy        against cell slice-frame energy (ruler)
+        13   -1.27e-02 / -1.30e-02 / -1.35e-02     +3.17e-03 / +6.07e-03 / +5.97e-03
+        18   -6.48e-03 / -6.55e-03 / -6.80e-03     +2.69e-03 / +5.77e-03 / +5.96e-03
+        24   -2.47e-03 / -2.37e-03 / -2.30e-03     +1.09e-03 / +4.33e-03 / +4.84e-03
+  T3. early window: the paper formula + the core's energy gain (w_slice measured - predicted)
+     window   E'/(H E)   gain term   residual before   residual after
+     13-30    +0.023     -0.0022     -0.0028           -0.0006
+     30-54    +0.026     +0.0018     +0.0006           -0.0012
+     13-54    +0.025     +0.0001     -0.0008           -0.0010
