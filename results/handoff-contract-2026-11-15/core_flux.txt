@@ -1,0 +1,14 @@
+=== u_x20_cold
+  r_b   4  13-30: F/(H E) = +3.949   J'/(H J) = +0.552   flux share of J' (F chi_b^2 / J') = +11.15
+  r_b   4  30-54: F/(H E) = +3.513   J'/(H J) = -1.335   flux share of J' (F chi_b^2 / J') = -9.92
+  r_b   6  13-30: F/(H E) = +3.141   J'/(H J) = -0.564   flux share of J' (F chi_b^2 / J') = -14.21
+  r_b   6  30-54: F/(H E) = +3.134   J'/(H J) = -1.490   flux share of J' (F chi_b^2 / J') = -11.08
+  r_b   8  13-30: F/(H E) = +3.034   J'/(H J) = -0.657   flux share of J' (F chi_b^2 / J') = -16.31
+  r_b   8  30-54: F/(H E) = +3.056   J'/(H J) = -1.364   flux share of J' (F chi_b^2 / J') = -16.62
+=== u_x15_cold
+  r_b   4  13-30: F/(H E) = +3.994   J'/(H J) = +0.870   flux share of J' (F chi_b^2 / J') = +6.74
+  r_b   4  30-54: F/(H E) = +3.815   J'/(H J) = +0.017   flux share of J' (F chi_b^2 / J') = +43.59
+  r_b   6  13-30: F/(H E) = +3.153   J'/(H J) = -0.306   flux share of J' (F chi_b^2 / J') = -23.22
+  r_b   6  30-54: F/(H E) = +3.134   J'/(H J) = -0.814   flux share of J' (F chi_b^2 / J') = -14.97
+  r_b   8  13-30: F/(H E) = +3.033   J'/(H J) = -0.444   flux share of J' (F chi_b^2 / J') = -20.56
+  r_b   8  30-54: F/(H E) = +3.040   J'/(H J) = -0.830   flux share of J' (F chi_b^2 / J') = -20.15
