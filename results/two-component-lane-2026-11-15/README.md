@@ -12,7 +12,7 @@ Marks: **Derived**, **Read**, **Open**. One-budget rule, λ = 5000, cold start, 
 ## Summary
 
 - **After settling, the closure works.** S–D matter carried as dust follows the cell to 1e-4 in H by t = 24 and to
-  1e-3 by t = 66 (through the turnaround). Residuals scale with the pocket's share. Two rulers: stored cells with
+  1e-3 by t = 66, through the turnaround (2e-3 in the smallest cell). Residuals scale with the pocket's share. Two rulers: stored cells with
   densities solved, fresh cells with densities read.
 - **The held step's fading is derived in form, but it is pocket-scale.** The law gets the step's share right (19%
   of the S–D energy) but releases 15–50% late. The held region also gains energy at about half the w = −1 rate,
@@ -93,8 +93,8 @@ undiluted too long, in too much volume.
 
 (The fresh runs end at t = 24.)
 
-- **Read: pass.** Residuals are at the size of the companion terms (PR #484). Carrying the species improves H four- to
-  eightfold.
+- **Read: pass.** Residuals are at the size of the companion terms (PR #484). Carrying the species improves H 8–11-fold at
+  t = 24 and about fourfold at t = 66.
 - **Scaling:** H's residual at t = 24 goes 1.5e-4 : 7e-5 : 2.5e-5 for r_max 16 : 24 : 36, about the pocket's share
   (0.26 : 0.09 : 0.03). Stored and fresh agree to 20%.
 - The two-component lane started at t = 12 does slightly worse than dust (+2.4% in ρ_SD). At t = 12 the snapshot's D
