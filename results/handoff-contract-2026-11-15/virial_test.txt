@@ -1,0 +1,9 @@
+u_x20_cold    t 13-30: core w measured +0.0044   virial I"/(6E) +0.0087
+u_x20_cold    t 30-54: core w measured +0.0091   virial I"/(6E) -0.1042
+u_x20_cold    t 13-54: core w measured +0.0072   virial I"/(6E) -0.0581
+u36_x20_cold  t 13-30: core w measured +0.0045   virial I"/(6E) +0.0058
+u36_x20_cold  t 30-54: core w measured +0.0094   virial I"/(6E) -0.1012
+u36_x20_cold  t 13-54: core w measured +0.0074   virial I"/(6E) -0.0575
+u_x15_cold    t 13-30: core w measured +0.0033   virial I"/(6E) +0.0432
+u_x15_cold    t 30-54: core w measured +0.0053   virial I"/(6E) -0.1314
+u_x15_cold    t 13-54: core w measured +0.0045   virial I"/(6E) -0.0604

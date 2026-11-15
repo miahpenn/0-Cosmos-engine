@@ -44,3 +44,12 @@ goes to 0 as the pocket settles, and the contract gets a derived w for both piec
 
 Unpaid inputs: the core radius (r = 6, from the EOS note); period averaging over π for core w, which is noisy (±0.02
 snapshot to snapshot), so only long-time means are quoted.
+
+## Addendum: the naive virial test (same day) fails, as written
+
+`virial_test.txt`. Using the flat-space form w_core = Ï/(6E), with I = ∫ρ ℓ² dV over the core in proper distance ℓ,
+gives +0.006 to +0.04 for t = 13–30 and −0.10 to −0.13 for t = 30–54, against the measured +0.004 to +0.009. With
+proper distance, I is dominated by the expansion (ℓ² ∝ a²), not by the pocket. The test needs the expanding-background
+virial, with the Hubble terms in Ï and the pocket's size measured against the flow. **Open; a derivation for chat.**
+Also: with 12-unit windows the core's measured w at t = 13–30 comes out +0.004–0.005 (+0.009–0.010 with plain means).
+The core w figures above carry about ±0.004 from the averaging choice.
