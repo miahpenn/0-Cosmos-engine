@@ -1,0 +1,62 @@
+
+=== u_x20_cold.npz: x_c 2, r_max 24
+  centre (the knot) (t = 18-54, local proper time)
+     S                        lines (resolution +-0.39): 0.63 (21%: below every threshold); 1.83 (70%: a D wave (forced)); 3.07 (8%: pumps D parametrically, an S wave, a D wave (forced))
+     S^2 (pump on D)          lines (resolution +-0.39): 1.18 (40%: below every threshold); 2.49 (18%: an S wave, a D wave (forced)); 3.67 (30%: pumps D parametrically, an S wave, a D wave (forced)); 4.90 (10%: pumps S parametrically, pumps D parametrically, an S wave, a D wave (forced)); 5.91 (1%: pumps S parametrically, pumps D parametrically, an S wave, a D wave (forced))
+     D's ring (D - D_slow)    lines (resolution +-0.39): 1.21 (90%: below every threshold); 2.46 (9%: an S wave, a D wave (forced))
+     D^2 - <D^2> (pump on S)  lines (resolution +-0.39): 1.23 (41%: below every threshold); 2.44 (44%: an S wave, a D wave (forced)); 3.67 (12%: pumps D parametrically, an S wave, a D wave (forced))
+  pocket, r = 3 (t = 18-54, local proper time)
+     S                        lines (resolution +-0.38): 2.01 (99%: an S wave, a D wave (forced))
+     S^2 (pump on D)          lines (resolution +-0.38): 4.03 (96%: pumps S parametrically, pumps D parametrically, an S wave, a D wave (forced))
+     D's ring (D - D_slow)    lines (resolution +-0.38): 1.36 (99%: below every threshold)
+     D^2 - <D^2> (pump on S)  lines (resolution +-0.38): 0.16 (7%: below every threshold); 1.38 (93%: below every threshold)
+  pocket edge, r = 8 (t = 18-54, local proper time)
+     S                        lines (resolution +-0.36): 1.99 (100%: a D wave (forced))
+     S^2 (pump on D)          lines (resolution +-0.36): 4.01 (99%: pumps S parametrically, pumps D parametrically, an S wave, a D wave (forced))
+     D's ring (D - D_slow)    lines (resolution +-0.36): 1.41 (100%: below every threshold)
+     D^2 - <D^2> (pump on S)  lines (resolution +-0.36): 1.41 (99%: below every threshold)
+  the sea, r = 15 (t = 18-54, local proper time)
+     S                        lines (resolution +-0.36): 2.03 (100%: an S wave, a D wave (forced))
+     S^2 (pump on D)          lines (resolution +-0.36): 4.07 (99%: pumps S parametrically, pumps D parametrically, an S wave, a D wave (forced))
+     D's ring (D - D_slow)    lines (resolution +-0.36): 1.44 (100%: a D wave (forced))
+     D^2 - <D^2> (pump on S)  lines (resolution +-0.36): 1.44 (100%: a D wave (forced))
+  Mathieu (S rings D_s into D_r) in the core r < 6: growth mu = (3/32) x_A against D_r's Hubble damping (3/2) H
+     t = 12.0: x_A = 0.184, mu = 0.0172, (3/2)H = +0.0858  ->  net -0.0685
+     t = 18.0: x_A = 0.084, mu = 0.0079, (3/2)H = +0.0681  ->  net -0.0602
+     t = 24.0: x_A = 0.044, mu = 0.0041, (3/2)H = +0.0541  ->  net -0.0499
+     t = 30.0: x_A = 0.026, mu = 0.0024, (3/2)H = +0.0424  ->  net -0.0400
+     t = 40.0: x_A = 0.014, mu = 0.0013, (3/2)H = +0.0255  ->  net -0.0242
+     t = 50.0: x_A = 0.010, mu = 0.0009, (3/2)H = +0.0091  ->  net -0.0082
+  the sea, r = 10-20: D's ring (sum of ring^2 dV) and S's (sum of s^2 dV), comoving; ratio
+     t=12: 3.58e-02 / 9.82e-01 = 0.036  t=24: 1.16e-01 / 1.23e+00 = 0.094  t=36: 8.22e-02 / 1.65e-01 = 0.498  t=48: 5.45e-02 / 1.65e+00 = 0.033
+
+=== u_x15_cold.npz: x_c 1.5, r_max 24
+  centre (the knot) (t = 18-54, local proper time)
+     S                        lines (resolution +-0.37): 2.01 (99%: an S wave, a D wave (forced))
+     S^2 (pump on D)          lines (resolution +-0.37): 2.61 (4%: an S wave, a D wave (forced)); 4.04 (93%: pumps S parametrically, pumps D parametrically, an S wave, a D wave (forced))
+     D's ring (D - D_slow)    lines (resolution +-0.37): 1.43 (99%: a D wave (forced))
+     D^2 - <D^2> (pump on S)  lines (resolution +-0.37): 1.43 (99%: a D wave (forced))
+  pocket, r = 3 (t = 18-54, local proper time)
+     S                        lines (resolution +-0.37): 2.00 (99%: an S wave, a D wave (forced))
+     S^2 (pump on D)          lines (resolution +-0.37): 4.00 (96%: pumps S parametrically, pumps D parametrically, an S wave, a D wave (forced))
+     D's ring (D - D_slow)    lines (resolution +-0.37): 1.40 (99%: below every threshold)
+     D^2 - <D^2> (pump on S)  lines (resolution +-0.37): 1.40 (98%: below every threshold)
+  pocket edge, r = 8 (t = 18-54, local proper time)
+     S                        lines (resolution +-0.36): 2.01 (100%: an S wave, a D wave (forced))
+     S^2 (pump on D)          lines (resolution +-0.36): 4.00 (99%: pumps S parametrically, pumps D parametrically, an S wave, a D wave (forced))
+     D's ring (D - D_slow)    lines (resolution +-0.36): 1.41 (100%: below every threshold)
+     D^2 - <D^2> (pump on S)  lines (resolution +-0.36): 1.41 (99%: below every threshold)
+  the sea, r = 15 (t = 18-54, local proper time)
+     S                        lines (resolution +-0.36): 2.03 (100%: an S wave, a D wave (forced))
+     S^2 (pump on D)          lines (resolution +-0.36): 4.07 (99%: pumps S parametrically, pumps D parametrically, an S wave, a D wave (forced))
+     D's ring (D - D_slow)    lines (resolution +-0.36): 1.44 (100%: a D wave (forced))
+     D^2 - <D^2> (pump on S)  lines (resolution +-0.36): 1.44 (100%: a D wave (forced))
+  Mathieu (S rings D_s into D_r) in the core r < 6: growth mu = (3/32) x_A against D_r's Hubble damping (3/2) H
+     t = 12.0: x_A = 0.135, mu = 0.0127, (3/2)H = +0.0857  ->  net -0.0730
+     t = 18.0: x_A = 0.063, mu = 0.0059, (3/2)H = +0.0680  ->  net -0.0621
+     t = 24.0: x_A = 0.032, mu = 0.0030, (3/2)H = +0.0540  ->  net -0.0510
+     t = 30.0: x_A = 0.018, mu = 0.0017, (3/2)H = +0.0423  ->  net -0.0406
+     t = 40.0: x_A = 0.010, mu = 0.0009, (3/2)H = +0.0255  ->  net -0.0246
+     t = 50.0: x_A = 0.007, mu = 0.0006, (3/2)H = +0.0090  ->  net -0.0084
+  the sea, r = 10-20: D's ring (sum of ring^2 dV) and S's (sum of s^2 dV), comoving; ratio
+     t=12: 1.84e-02 / 8.97e-01 = 0.021  t=24: 7.77e-02 / 1.66e+00 = 0.047  t=36: 5.84e-02 / 1.58e-01 = 0.370  t=48: 3.03e-02 / 1.88e+00 = 0.016
