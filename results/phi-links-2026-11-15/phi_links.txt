@@ -1,0 +1,26 @@
+1. D's vacuum as a function of phi (checked against potential()):
+   phi -1.0: D_s^2 = 3.692465e-04 (numeric min at 3.692465e-04),  V_vac = -8.521438e-05 (numeric -8.521438e-05)
+   phi +0.0: D_s^2 = 4.000000e-04 (numeric min at 4.000000e-04),  V_vac = -1.000000e-04 (numeric -1.000000e-04)
+   phi +1.0: D_s^2 = 4.333148e-04 (numeric min at 4.333148e-04),  V_vac = -1.173511e-04 (numeric -1.173511e-04)
+   phi +2.0: D_s^2 = 4.694043e-04 (numeric min at 4.694043e-04),  V_vac = -1.377128e-04 (numeric -1.377128e-04)
+   phi +3.0: D_s^2 = 5.084997e-04 (numeric min at 5.084997e-04),  V_vac = -1.616074e-04 (numeric -1.616074e-04)
+
+2. The floor from D's step, felt by phi:  V_eff(phi) = V0 e^(-phi) + 8 pi V_vac(phi)  (hand floor off)
+   matching the hand floor at phi = 0 (8 pi / (2 lam) = D_POT V0): lam = 4 pi/(D_POT V0) = 1.5246e+06
+   phi's node (V_eff = 0): hand floor ln(1/D_POT) = 2.3026;  D's floor ln(1/D_POT)/(1 - 4 bD) = 1.9850
+   numeric node 1.9850;  V_eff' < 0 everywhere on [-2, 6]: True (no minimum: phi does not park)
+   floor slope / e^(-phi) slope at the node: 0.160
+
+3. Seed: is D = 0 invariant whatever phi does?  dV/dD at D = 0, random S, phi:
+   max |dV/dD(S, 0, phi)| = 0.0e+00  (D -> -D symmetry: phi cannot seed D)
+
+4. Second reset: D's mass^2 at the saddle (S = 0, D = 0) is -e^(-2 bD phi):
+   over phi in [-50, 50]: max = -1.832e-02 < 0 always. phi cannot make the saddle stable.
+   The saddle is stable for D only if (3 lam/2) S^2 > e^(-2 bD phi): it needs S's energy. With bS = 0, phi has no
+   channel into S; with bS != 0 phi changes S's mass only at phi's rate (~H << S's mass): adiabatic, no S made.
+
+5. kappa: GEAR-03 split K_D - K_S over two, at bS = 0: kappa(phi) = (1 - e^(-2 bD phi))/2 ~ bD phi near phi = 0.
+   phi 0.000: kappa = +0.0000
+   phi 0.500: kappa = -0.0204
+   phi 1.000: kappa = -0.0416
+   phi 1.985: kappa = -0.0861
