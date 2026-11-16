@@ -35,12 +35,19 @@ def test_vacuum_and_masses_are_lambda_free_in_scaled_form(lam):
 
 def test_one_budget_rule_ties_lambda_to_the_floor_and_the_scale_ratio():
     """kappa/(2 lambda) = floor fraction x V0 x density scale  =>  lambda eps^2 = 4 pi/(f v), eps = H_today/mu."""
+    from engine import model_constants as mc
+
     p = cosmos.CosmosParams()
     today = cosmos.construct_present_day(p)
-    f, v = p.D, p.V0 / today.H**2
+    # Step 2 (Nov 16 2026): the hand floor is off in production (p.D = 0); its old size survives as the ruler
+    # FLOOR_FRACTION_TODAY that production's lambda is matched against.
+    assert p.D == 0.0
+    f, v = mc.FLOOR_FRACTION_TODAY, p.V0 / today.H**2
     const = 4.0 * math.pi / (f * v)
     assert const == pytest.approx(49.0, rel=1e-3)
     assert const / today.H**2 == pytest.approx(1.524e6, rel=2e-3)      # lambda at production densities
+    # production's lambda: the same relation matched at phi_today rather than phi = 0 (GEAR-91 floor e^(-4 beta_D phi))
+    assert mc.SD_QUARTIC_LAMBDA == pytest.approx(const / today.H**2 * math.exp(-4.0 * mc.BETA_D * mc.PHI_TODAY), rel=1e-12)
     c2 = 8.0 * math.pi / (2.0 * 5000.0 * f * p.V0)                    # density scale used at lambda = 5000
     assert c2 == pytest.approx(304.92, rel=1e-4)
     assert math.sqrt(const / 5000.0) == pytest.approx(today.H * math.sqrt(c2), rel=1e-4)   # eps = 0.099

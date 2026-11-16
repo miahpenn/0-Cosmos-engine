@@ -10,11 +10,11 @@ sys.path.insert(0, ".")
 import numpy as np  # noqa: E402
 from scipy.integrate import solve_ivp  # noqa: E402
 
-from engine.cosmos import CosmosParams, construct_present_day, cosmos_rhs  # noqa: E402
+from engine.cosmos import HAND_FLOOR_REFERENCE_PARAMS, CosmosParams, construct_present_day, cosmos_rhs  # noqa: E402
 from research.floor_swap_lane_v1 import BD, LAM_PHI0, LAM_TODAY, make  # noqa: E402
 
 SCR = "/tmp/claude-0/-home-claude/a388b6ac-1f6f-5a55-8963-a6c8cbfba238/scratchpad/cell/"
-P = CosmosParams()
+P = HAND_FLOOR_REFERENCE_PARAMS  # hand-floor lane (labelled reference since step 2, Nov 16 2026)
 
 
 def means(d, rcut=20.0):

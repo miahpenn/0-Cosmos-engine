@@ -74,13 +74,19 @@ def test_production_flat_slice_satisfies_same_friedmann_relation():
 
     n = grid.n
     zeros = np.zeros(n, dtype=float)
-    # phi=ln(10) makes the locked COSMOS potential vanish for lambda=1,D=0.1.
+    # Re-baselined for the hand-floor removal step 2 (Nov 16 2026): the hand floor is off, so phi's potential
+    # vanishes at the node of V0 e^-phi plus the sea's floor (engine.cosmos.potential_node), with D at its
+    # phi-dependent rest there (the floor is carried by D). Before step 2: phi = ln(10), D = 0 (hand floor 0.1).
+    from engine.cosmos import CosmosParams as _CP, potential_node as _node
+    from engine.scalar_system import sd_rest_value as _rest
+
+    phi_node = _node(_CP())
     scalar = ScalarFields(
         S=zeros.copy(),
         PS=zeros.copy(),
-        D=zeros.copy(),
+        D=np.full(n, float(_rest(phi_node)), dtype=float),
         PD=zeros.copy(),
-        phi=np.full(n, math.log(10.0), dtype=float),
+        phi=np.full(n, phi_node, dtype=float),
         Pi=zeros.copy(),
     )
     metrics = _metric_arrays(metric_slice_from_q(grid, geometry))

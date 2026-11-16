@@ -118,6 +118,11 @@ def coupled(beta_S=0.0, beta_D=BETA, alpha0=1.0, phi_source=True, kappa_factor=K
 
     kappa_factor and phi_source_sign exist for negative controls only (a missing 8 pi, a reversed sign)."""
     saved_cfg = dict(_CFG)
+    # Step 2 (Nov 16 2026) moved the GEAR-91 coupling into the kernel. This wrapper adds the coupling to an UNCOUPLED
+    # base, so the kernel's own coupling is switched off for the block (counted once, as before).
+    saved_betas = (getattr(_ss, "BETA_S", 0.0), getattr(_ss, "BETA_D", 0.0))
+    if hasattr(_ss, "BETA_S"):
+        _ss.BETA_S, _ss.BETA_D = 0.0, 0.0
     rhs0, proj0 = _pk.scalar_rhs_arrays, _vm.scalar_projection
     _CFG.update(beta_S=float(beta_S), beta_D=float(beta_D), alpha0=float(alpha0), phi_source=bool(phi_source),
                 kappa_factor=float(kappa_factor), phi_source_sign=float(phi_source_sign))
@@ -127,6 +132,8 @@ def coupled(beta_S=0.0, beta_D=BETA, alpha0=1.0, phi_source=True, kappa_factor=K
         yield _CFG
     finally:
         _pk.scalar_rhs_arrays, _vm.scalar_projection = rhs0, proj0
+        if hasattr(_ss, "BETA_S"):
+            _ss.BETA_S, _ss.BETA_D = saved_betas
         _CFG.clear(); _CFG.update(saved_cfg)
 
 

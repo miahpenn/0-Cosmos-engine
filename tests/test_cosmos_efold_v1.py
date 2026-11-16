@@ -8,13 +8,13 @@ import numpy as np
 import pytest
 from scipy.integrate import solve_ivp
 
-from engine.cosmos import CosmosParams, construct_present_day, cosmos_rhs
+from engine.cosmos import HAND_FLOOR_REFERENCE_PARAMS, CosmosParams, construct_present_day, cosmos_rhs
 from research import cosmos_efold_v1 as ce
 
 
 @pytest.fixture(scope="module")
 def trace():
-    return ce.integrate_cycle(CosmosParams())
+    return ce.integrate_cycle(HAND_FLOOR_REFERENCE_PARAMS)
 
 
 def test_density_ratio_is_the_correction_gear_50_audit():
@@ -42,17 +42,17 @@ def test_contraction_ends_at_the_planck_density_and_reports_its_depth(trace):
     assert isclose(summary["efolds_below_today"], 45.582, abs_tol=2e-3)
     assert isclose(summary["phi_span_from_turnaround"], 117.117, abs_tol=5e-3)
     # Neither e-fold conversion is the depth of this trajectory.
-    assert abs(summary["efolds_from_turnaround"] - CosmosParams().n_contract) > 0.3
+    assert abs(summary["efolds_from_turnaround"] - HAND_FLOOR_REFERENCE_PARAMS.n_contract) > 0.3
     assert abs(summary["efolds_from_turnaround"] - 49.19) > 1.0
 
 
 def test_fixed_depth_is_observer_only_and_falls_short_of_planck():
-    tr = ce.integrate_cycle(CosmosParams(), depth=47.203)
+    tr = ce.integrate_cycle(HAND_FLOOR_REFERENCE_PARAMS, depth=47.203)
     summary = ce.contraction_summary(tr)
     assert tr.endpoint == "depth" and tr.status == "ok"
     assert isclose(tr.N_turn[-1], -47.203, abs_tol=1e-9)
     assert summary["density_ratio_at_end"] < 0.2 * ce.PLANCK_TO_CRITICAL_DENSITY_RATIO
-    tr5 = ce.integrate_cycle(CosmosParams(), depth=5.0)
+    tr5 = ce.integrate_cycle(HAND_FLOOR_REFERENCE_PARAMS, depth=5.0)
     assert isclose(tr5.N_turn[-1], -5.0, abs_tol=1e-9)
 
 
@@ -68,7 +68,7 @@ def test_power_law_invariants_hold(trace):
 
 
 def test_stage2_matches_raw_time_where_both_are_valid():
-    p = CosmosParams()
+    p = HAND_FLOOR_REFERENCE_PARAMS
     depth = 4.0
     tr = ce.integrate_cycle(p, depth=depth)
     s = construct_present_day(p)

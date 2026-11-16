@@ -1,0 +1,12 @@
+lambda = 1.568887e+06 (ruler, matched today); beta_D = -0.04; phi_today = 0.179055
+today: H = 5.668968e-03, Hubble time 1/H = 176.399 lane units (1/m_S); H/m_S = 0.00567
+floor today: rho_floor = -8.242522415501e-06; old hand floor -0.1 V0 = -8.242522415501e-06
+node: coupled 2.00968; hand floor 2.30259
+                         node        turnaround   crunch       (Hubble times from today | lane units 1/m_S)
+  coupled floor (new)    2.9543      4.2604       5.9087       | 521.14 751.53 1042.29   ln(a/a_today) at turnaround 1.7386
+  hand floor (reference) 3.7526      5.4183       7.5883       | 661.96 955.79 1338.56
+  anchors (brief):       2.954 / 4.260 / 5.909  (hand floor 3.753 / 5.418 / 7.588)
+
+dynamic-D lane (research/floor_swap_lane_v1.py) at lambda 1.568887e+06 (engine lambda 1.568887e+06, rel diff 0.0e+00)
+  scaled  : events 2.9543 / 4.2604 / 5.9087;  max |engine - dynamic|/max|dynamic| over t <= 0.95 crunch: a 1.7e-07, H 6.4e-07, phi 1.3e-07, Pi 6.1e-07;  H at t = 0: engine 5.6689681601e-03 dynamic 5.6689681601e-03
+  unscaled: events 2.9543 / 4.2604 / 5.9087;  max |engine - dynamic|/max|dynamic| over t <= 0.95 crunch: a 1.7e-07, H 6.4e-07, phi 1.3e-07, Pi 6.1e-07;  H at t = 0: engine 5.6689681601e-03 dynamic 5.6689681601e-03

@@ -1,4 +1,8 @@
-"""Research-only: signed-H COSMOS cycle through the full contraction, in e-fold time.
+"""HAND-FLOOR REFERENCE (Nov 16 2026, step 2 of the hand-floor removal): this study was made on the hand-floor lane;
+its defaults and its own V = V0 (e^-phi - D) are the labelled reference path (engine.cosmos.HAND_FLOOR_REFERENCE_PARAMS).
+A rerun on the coupled floor is open.
+
+Research-only: signed-H COSMOS cycle through the full contraction, in e-fold time.
 
 Brought into the repo from the Drive archive module ``cosmos_efold.py`` (Oct 7, 2026),
 with one change: the end of the contraction is a DENSITY condition, not an e-fold count.
@@ -45,6 +49,7 @@ from scipy.integrate import solve_ivp
 
 from engine.cosmos import (
     CosmosParams,
+    HAND_FLOOR_REFERENCE_PARAMS,
     construct_present_day,
     cosmos_rhs,
     cosmos_rho_p,
@@ -93,7 +98,7 @@ def _rho_p(H, phi, pi, dm, b, r, s, p):
 
 
 def integrate_cycle(
-    p: CosmosParams = CosmosParams(),
+    p: CosmosParams = HAND_FLOOR_REFERENCE_PARAMS,
     depth: float | None = None,
     density_ratio: float = PLANCK_TO_CRITICAL_DENSITY_RATIO,
     handoff: float = 1.0,
@@ -263,7 +268,7 @@ def contraction_summary(trace: CycleTrace) -> dict:
     }
 
 
-def total_density(trace: CycleTrace, p: CosmosParams = CosmosParams()):
+def total_density(trace: CycleTrace, p: CosmosParams = HAND_FLOOR_REFERENCE_PARAMS):
     """rho_total and p_total along the trace (vectorised)."""
     V = p.V0 * (np.exp(-p.lam * trace.phi) - p.D)
     kin = 0.5 * trace.pi_phi ** 2
@@ -272,7 +277,7 @@ def total_density(trace: CycleTrace, p: CosmosParams = CosmosParams()):
     return rho, pr
 
 
-def friedmann_residual(trace: CycleTrace, p: CosmosParams = CosmosParams()):
+def friedmann_residual(trace: CycleTrace, p: CosmosParams = HAND_FLOOR_REFERENCE_PARAMS):
     """(3 H^2 - rho) / S, with S = sum of |component densities|; a witness, never enforced."""
     rho, _ = total_density(trace, p)
     V = p.V0 * (np.exp(-p.lam * trace.phi) - p.D)
@@ -290,7 +295,7 @@ def power_law_invariants(trace: CycleTrace):
     return out
 
 
-def radiation_gauge(trace: CycleTrace, p: CosmosParams = CosmosParams()):
+def radiation_gauge(trace: CycleTrace, p: CosmosParams = HAND_FLOOR_REFERENCE_PARAMS):
     """Log-space radiation diagnostic, regular through the turnaround (see archive module)."""
     rho, pr = total_density(trace, p)
     kin = 0.5 * trace.pi_phi ** 2

@@ -37,7 +37,7 @@ def _lane(p, y0, T=6000.0):
 
 def _today():
     import engine.cosmos as cz
-    p = cz.CosmosParams(); s = cz.construct_present_day(p)
+    p = cz.HAND_FLOOR_REFERENCE_PARAMS; s = cz.construct_present_day(p)  # p: hand-floor lane (reference since step 2)
     return p, np.array([s.a, s.H, s.phi, s.pi_phi, s.rho_dm, s.rho_b, s.rho_r, s.rho_shear])
 
 

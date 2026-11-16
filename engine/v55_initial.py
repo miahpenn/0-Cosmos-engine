@@ -15,6 +15,30 @@ spherical geometry.
 The older reference_pirk_unified.make_initial() is retained unchanged as an
 audit/reference artifact; it contains a historical variable-mapping mismatch
 and is therefore not used here.
+
+Initial structure (hand-floor removal step 2, Nov 16 2026; decision of Nov 15):
+production's default start is TODAY, the background alone, labelled
+"no structure placed": S = 0 and D at the sea's rest D_s(phi_today)
+everywhere, so the floor is carried by D (engine/model_constants.py).
+phi_today is a chart (borrowed). Settled stones enter only as the S-D species
+the lane carries; a reset start is the goal once the floor question resolves.
+The old S pocket survives only as labelled fixtures:
+
+  "none"                  production default: background alone, no structure placed.
+  "rescaled_pocket"       TEST FIXTURE (a): the old pocket's shape with its amplitude
+                          rescaled so that x = lambda A^2 equals pocket_x, CHOSEN BY HAND.
+  "inherited_pocket"      TEST FIXTURE (b): the old pocket's amplitude (0.01) carried
+                          over unchanged to the new lambda, so x = lambda A^2 ~ 157
+                          (INHERITED, not chosen: an artefact of the old lambda = 0 data).
+  "hand_floor_reference"  REFERENCE ONLY: the pre-step-2 default (pocket of amplitude
+                          0.01, D seed 1e-10, PD = D), built with the old arithmetic.
+                          The default under engine.scalar_system.hand_floor_reference().
+
+In both fixtures D is relaxed with friction against the time-averaged S in
+flat space (the cold start of PR #470), from its adiabatic rest
+D^2 = (2/lambda)(e^(-2 beta_D phi) - (3/4) lambda S(r)^2) clipped at 0, plus the
+D_amplitude seed. S is placed at a turning point (PS = 0), not settled: a
+fixture, not a settled stone.
 """
 from dataclasses import dataclass
 import math
@@ -69,6 +93,38 @@ def _cumulative_origin_integral(grid, r, dr, f):
     return integ - (dr * dr / 12.0) * (fp - fp[0])
 
 
+INITIAL_STRUCTURES = ("none", "rescaled_pocket", "inherited_pocket", "hand_floor_reference")
+
+
+def _pocket_D(S, phi0, D_amplitude, r, dr, width, T=200.0, gamma=0.3):
+    """D for the pocket fixtures: relaxed with friction against the time-averaged S, in flat space, then the
+    D_amplitude seed added (the cold start of PR #470; research/dm_one_budget_v1.cold_D, ported). Fixtures only.
+
+    Starts from D's adiabatic rest against the time-averaged S, D^2 = (2/lambda)(e^(-2 beta_D phi) - (3/4) lambda S^2),
+    clipped at 0, and relaxes the gradient energy away (damped wave equation for w = r D, odd ghost at the centre,
+    Neumann at r_max) so the profile is smooth. Not a settled stone: S itself is placed, not settled.
+    """
+    lam = _scalar_system.SD_QUARTIC_LAMBDA
+    eD = math.exp(-2.0 * _scalar_system.BETA_D * phi0)
+    x_avg = 0.75 * lam * S * S                      # (3/2) lambda <S^2>, <S^2> = S^2/2 at a turning point
+    D = np.sqrt(np.clip((2.0 / lam) * (eD - x_avg), 0.0, None))
+    w = r * D
+    wp = w.copy()
+    stiff = float(np.max(np.abs(eD - x_avg))) + 2.0 * eD
+    dt = min(0.4 * dr, 0.5 / math.sqrt(stiff))
+    c = 0.5 * gamma * dt
+    for _ in range(int(math.ceil(T / dt))):
+        lap = np.empty_like(w)
+        lap[1:-1] = (w[2:] - 2.0 * w[1:-1] + w[:-2]) / dr**2
+        lap[0] = (w[1] - 3.0 * w[0]) / dr**2
+        lap[-1] = (w[-2] - 2.0 * w[-1] + w[-1] * (r[-1] + dr) / r[-1]) / dr**2
+        Dv = w / r
+        aw = lap + w * (eD - 0.5 * lam * Dv * Dv - x_avg)
+        wn = (2.0 * w - (1.0 - c) * wp + dt * dt * aw) / (1.0 + c)
+        wp, w = w, wn
+    return w / r + D_amplitude * np.exp(-(r / width) ** 2)
+
+
 def build_initial_data(
     grid,
     vacuum_state_factory,
@@ -77,6 +133,8 @@ def build_initial_data(
     D_amplitude=1.0e-10,
     include_radiation=True,
     *,
+    initial_structure=None,
+    pocket_x=None,
     charged_dust_density=None,
     radial_maxwell_charge_to_mass=None,
 ):
@@ -112,6 +170,23 @@ def build_initial_data(
         if not math.isfinite(charge_to_mass):
             raise ValueError("radial_maxwell_charge_to_mass must be finite and real")
 
+    structure = (
+        _scalar_system.DEFAULT_INITIAL_STRUCTURE if initial_structure is None else initial_structure
+    )
+    if structure not in INITIAL_STRUCTURES:
+        raise ValueError(f"initial_structure must be one of {INITIAL_STRUCTURES}, not {structure!r}")
+    lam = _scalar_system.SD_QUARTIC_LAMBDA
+    if structure != "hand_floor_reference" and lam <= 0.0:
+        raise ValueError(
+            "D has no floor at lambda = 0 (D is unbounded); only the labelled reference "
+            "initial_structure='hand_floor_reference' runs there"
+        )
+    if structure == "rescaled_pocket":
+        if pocket_x is None or not math.isfinite(float(pocket_x)) or float(pocket_x) <= 0.0:
+            raise ValueError("the rescaled pocket needs pocket_x > 0, chosen by hand (label it so)")
+    elif pocket_x is not None:
+        raise ValueError("pocket_x belongs to initial_structure='rescaled_pocket' only")
+
     phi0 = 0.179055
     pi0 = 0.00341913
     dm0 = RHO_DM_PRESENT
@@ -121,12 +196,31 @@ def build_initial_data(
     # excludes anisotropic shear, so it is not silently folded into rho.
     rho0 = 0.5 * pi0**2 + float(cosmos_potential(np.array([phi0]))[0])
     rho0 += dm0 + b0 + rho_r
+    if structure != "hand_floor_reference":
+        # The sea's floor (D at rest, S = 0 far out), Einstein-normalised: KAPPA V_SD(0, D_s; phi_today).
+        # At the today-matched lambda this equals the old hand floor, so H0 is unchanged.
+        rho0 += float(_scalar_system.sea_floor_density(phi0))
     H0 = math.sqrt(max(rho0 / 3.0, 0.0))
 
-    S = amplitude * np.exp(-(r / width) ** 2)
-    D = D_amplitude * np.exp(-(r / width) ** 2)
+    if structure == "hand_floor_reference":
+        # REFERENCE ONLY: the pre-step-2 default initial data, unchanged.
+        S = amplitude * np.exp(-(r / width) ** 2)
+        D = D_amplitude * np.exp(-(r / width) ** 2)
+        PD = D.copy()
+    elif structure == "none":
+        # Production default: background alone, "no structure placed".
+        S = np.zeros_like(r)
+        D = np.full(n, float(_scalar_system.sd_rest_value(phi0)))
+        PD = np.zeros_like(r)
+    else:
+        if structure == "rescaled_pocket":
+            A = math.sqrt(float(pocket_x) / lam)          # FIXTURE (a): x chosen by hand
+        else:
+            A = amplitude                                  # FIXTURE (b): inherited amplitude, x = lambda A^2
+        S = A * np.exp(-(r / width) ** 2)
+        D = _pocket_D(S, phi0, D_amplitude, r, dr, width)
+        PD = np.zeros_like(r)
     PS = np.zeros_like(r)
-    PD = D.copy()
     phi = np.full(n, phi0)
     Pi = np.full(n, pi0)
     Kt = np.full(n, -H0)
@@ -140,11 +234,16 @@ def build_initial_data(
     # Same constrained areal initial-data reconstruction used by the archived
     # V5.5 gate, with corrected COSMOS variables and optional radiation.
     for _ in range(6):
-        rhoS = 0.5 * (PS**2 + B * Sp**2) + 0.5 * S**2
-        rhoD = 0.5 * (PD**2 + B * Dp**2) - 0.5 * D**2
-        if _scalar_system.SD_QUARTIC_LAMBDA != 0.0:
-            # GEAR-67 quartic (research only; production runs lambda = 0, see scalar_system).
-            rhoD = rhoD + sd_potential(S, D) - (0.5 * S**2 - 0.5 * D**2)
+        if _scalar_system.coupling_active():
+            # GEAR-91 (step 2): the full V_SD(S, D; phi), counted once.
+            rhoS = 0.5 * (PS**2 + B * Sp**2)
+            rhoD = 0.5 * (PD**2 + B * Dp**2) + sd_potential(S, D, phi=phi)
+        else:
+            rhoS = 0.5 * (PS**2 + B * Sp**2) + 0.5 * S**2
+            rhoD = 0.5 * (PD**2 + B * Dp**2) - 0.5 * D**2
+            if _scalar_system.SD_QUARTIC_LAMBDA != 0.0:
+                # GEAR-67 quartic without the coupling (uncoupled research setting).
+                rhoD = rhoD + sd_potential(S, D) - (0.5 * S**2 - 0.5 * D**2)
         rhoPhi = (0.5 * Pi**2 + cosmos_potential(phi)) / (8.0 * math.pi)
         rhoMatter = (dm0 + b0 + rho_r + rho_charged) / (8.0 * math.pi)
         rho_em = np.zeros(n, dtype=float)

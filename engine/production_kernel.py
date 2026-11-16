@@ -140,7 +140,16 @@ class V55ProductionKernel:
         include_radiation: bool = True,
         radial_maxwell_charge_to_mass: float | None = None,
         charged_dust_density: np.ndarray | None = None,
+        initial_structure: str | None = None,
+        pocket_x: float | None = None,
     ) -> ProductionState:
+        """Production start: today, background alone ("no structure placed") by default.
+
+        initial_structure: "none" (default), "rescaled_pocket" (fixture, pocket_x by hand),
+        "inherited_pocket" (fixture, x ~ 157 inherited), "hand_floor_reference" (reference only;
+        the default under engine.scalar_system.hand_floor_reference()). See engine/v55_initial.py.
+        amplitude, width and D_amplitude shape the pockets and the reference only.
+        """
         grid_ops, vacuum, _ = adapter.vendor_modules()
         grid = grid_ops.SphericalCellGrid(resolution, r_max)
         init = build_initial_data(
@@ -150,6 +159,8 @@ class V55ProductionKernel:
             width=width,
             D_amplitude=D_amplitude,
             include_radiation=include_radiation,
+            initial_structure=initial_structure,
+            pocket_x=pocket_x,
             charged_dust_density=charged_dust_density,
             radial_maxwell_charge_to_mass=radial_maxwell_charge_to_mass,
         )

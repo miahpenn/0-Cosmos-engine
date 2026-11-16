@@ -9,6 +9,7 @@ from engine.cosmos import CosmosParams, cosmos_rhs, cosmos_rho_p
 from engine.local import LocalParams, local_rhs, local_energy
 from engine.interface import exchange_from_flux
 from engine.diagnostics import friedmann_constraint
+from engine.scalar_system import hand_floor_reference
 
 
 def euler_step(y, rhs, dt):
@@ -26,9 +27,11 @@ def run_controls():
     rho, _ = cosmos_rho_p(cosmos, cp)
     friedmann0 = friedmann_constraint(cosmos[1], rho)
 
-    # Local GEAR-03 control.
+    # Local GEAR-03 control. Provenance only: the reduced lane is the lambda = 0 case, so it runs on the labelled
+    # hand-floor reference path (production runs lambda > 0 since step 2 of the hand-floor removal).
     local = (0.02, 0.0, 1.0e-8, 0.0)
-    local_rhs0 = local_rhs(local, lp, H=0.0)
+    with hand_floor_reference():
+        local_rhs0 = local_rhs(local, lp, H=0.0)
     local_e0 = local_energy(local)
 
     # Interface algebraic conservation control.

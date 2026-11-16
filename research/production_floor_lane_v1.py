@@ -18,10 +18,10 @@ sys.path.insert(0, ".")
 import numpy as np  # noqa: E402
 from scipy.integrate import solve_ivp  # noqa: E402
 
-from engine.cosmos import CosmosParams, construct_present_day, cosmos_rhs  # noqa: E402
+from engine.cosmos import HAND_FLOOR_REFERENCE_PARAMS, CosmosParams, construct_present_day, cosmos_rhs  # noqa: E402
 
 BD = -0.04
-P = CosmosParams()
+P = HAND_FLOOR_REFERENCE_PARAMS  # hand-floor lane (labelled reference since step 2, Nov 16 2026)
 
 
 def rhs_B(f):

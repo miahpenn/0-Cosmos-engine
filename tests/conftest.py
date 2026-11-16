@@ -48,3 +48,51 @@ def legacy_origin_recurrence(monkeypatch):
     from engine import v55_initial
 
     monkeypatch.setattr(v55_initial, "_cumulative_origin_integral", _legacy_cumulative_origin_integral)
+
+
+
+# Hand-floor removal step 2 (Nov 16 2026): test modules that run on the labelled old path,
+# engine.scalar_system.hand_floor_reference() (hand floor on, lambda = 0, no GEAR-91 coupling, the old S-pocket
+# initial data). Kept here, not in the modules, so the Issue #4 witness files stay byte-identical to their
+# research-line versions (several are path-triggers of source-pinned audit workflows).
+_ISSUE4_OLD_DATA = "historical origin / Issue #4 witness pinned to the pre-step-2 S-pocket initial data"
+_NEEDS_STRUCTURE = ("convergence witness of live machinery that needs a non-flat initial metric; production's "
+                    "background-only start is exactly flat (B = 1), where the witness is vacuous")
+_OLD_PROJECTION = ("independent re-implementation of the pre-step-2 scalar projection / RHS "
+                   "(hand floor, lambda = 0, uncoupled)")
+HAND_FLOOR_REFERENCE_MODULES = {
+    "tests/test_analytic_origin_half_cell_self_consistent_response.py": _ISSUE4_OLD_DATA,
+    "tests/test_initial_centre_proper_radial_ricci.py": _ISSUE4_OLD_DATA,
+    "tests/test_issue4_production_hll_operator_pairing.py": _ISSUE4_OLD_DATA,
+    "tests/test_cmc_lapse_centre_row.py": _NEEDS_STRUCTURE,
+    "tests/test_initial_origin_quadrature.py": _NEEDS_STRUCTURE,
+    "tests/test_v55_primary_l2_cmc_slice_refinement.py": _NEEDS_STRUCTURE,
+    "tests/test_research_em_production_metric_gauss.py": _NEEDS_STRUCTURE,
+    "tests/test_covariant_total_stress_energy_divergence.py": _OLD_PROJECTION,
+    "tests/test_scalar_lapse_gradient_metric_contraction.py": _OLD_PROJECTION,
+    "tests/test_gear_archive_machine_v1.py": "archive comparison with the reduced GEAR-63/65 local lane (lambda = 0 provenance)",
+    "tests/test_local_lane_provenance.py": "the reduced GEAR-63/65 lane is the lambda = 0 provenance case",
+    "tests/test_research_gear69_linear_cavity_engine_check.py":
+        "GEAR-69 linear cavity check of the engine at lambda = 0, uncoupled (the pre-step-2 machine)",
+    "tests/test_research_gear91_coupling_v1.py":
+        "the research wrapper adds GEAR-91 to the pre-step-2 (uncoupled, lambda = 0) path it was built on",
+    "tests/test_lane_conversion.py":
+        "the COSMOS <-> local conversion was pinned on the hand-floor path (S = D = 0); both lanes on the reference",
+    "tests/test_cosmos_efold_v1.py": "the e-fold study was made on the hand-floor COSMOS lane",
+}
+
+
+@pytest.fixture(scope="module", autouse=True)
+def _hand_floor_reference_path(request):
+    """Run the modules listed in HAND_FLOOR_REFERENCE_MODULES on the labelled old path (module scope, autouse, so it
+    is active before the module's own module-scoped fixtures)."""
+    import pathlib
+
+    rel = pathlib.Path(str(request.fspath)).resolve().relative_to(pathlib.Path(__file__).resolve().parents[1]).as_posix()
+    if rel not in HAND_FLOOR_REFERENCE_MODULES:
+        yield
+        return
+    from engine.scalar_system import hand_floor_reference
+
+    with hand_floor_reference():
+        yield
