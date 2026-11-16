@@ -113,7 +113,7 @@ jobs:
             ["engine/v55_initial.py"]="80e73e07916be87cc09abc017c3e16ed45525dc8"
           )
           declare -A authorized_lattice_wall_heads=(
-            ["engine/production_kernel.py"]="2467c0071920ff7f1fab336f7092a8f65421ae39"
+            ["engine/production_kernel.py"]="2d9a085667b2ef4adc96e32b6d57dbd610ee0eef"
           )
           declare -A authorized_ledger_shift_heads=(
             ["engine/production_kernel.py"]="216ba0a4fbfe2590bf704cae3ddc801dc8655ae0"

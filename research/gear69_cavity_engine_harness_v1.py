@@ -1,4 +1,5 @@
 """RESEARCH ONLY. Gear 69/70B nonlinear cavity in the production engine (CMC, beta = 0).
+Pinned to the open edge, the edge it was written for (the lattice wall became the expanding default in #505).
 
 Measures the growth of the uncoupled mode D (V_D = -D^2/2, mu = 1, G = 1 normalization) in a
 cavity with a Dirichlet wall at FIXED AREAL RADIUS R = 10, through V55ProductionKernel.step, and
@@ -133,7 +134,7 @@ def w_profile(r):
 
 def initial_state(N: int, A: float, r_max: float = 20.0, use_w: bool = True):
     kernel = pk.V55ProductionKernel()
-    st = kernel.initialize(resolution=N, r_max=r_max, include_radiation=False)
+    st = kernel.initialize(resolution=N, r_max=r_max, include_radiation=False, outer_edge="open_edge")
     grid = st.grid
     r = np.asarray(grid.centers, float); dr = float(grid.dr)
     inside = r < R_WALL
