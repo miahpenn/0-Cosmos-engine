@@ -1,4 +1,5 @@
 """RESEARCH ONLY. Dark-matter pocket experiment (HANDOFF-to-projects Nov 10, Task 3).
+Pinned to the open edge, the edge it was written for (the lattice wall became the expanding default in #505).
 
 Uniform dark matter at the present-day density, phi at production values (V0 on: "at production V0"), a self-held
 S oscillaton (research/sd_oscillaton_v1.py profile, S at its turning point) with a D seed inside, GEAR-67 quartic,
@@ -44,7 +45,7 @@ def main():
                nosource=dict(beta_S=0.0, beta_D=g91.BETA, phi_source=False))[mode]
 
     k = V55ProductionKernel()
-    st = k.initialize(resolution=N, r_max=RMAX, include_radiation=False)
+    st = k.initialize(resolution=N, r_max=RMAX, include_radiation=False, outer_edge="open_edge")
     grid = st.grid
     r = np.asarray(grid.centers); dr = float(grid.dr); z = np.zeros_like(r)
     S = np.interp(r, osc["r"], osc["A"], right=0.0)

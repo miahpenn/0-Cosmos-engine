@@ -569,7 +569,7 @@ def test_lattice_wall_authorization_is_exact_blob():
     )
 
     assert AUTHORIZED_LATTICE_WALL_HEAD_BLOBS == {
-        "engine/production_kernel.py": "2467c0071920ff7f1fab336f7092a8f65421ae39",
+        "engine/production_kernel.py": "2d9a085667b2ef4adc96e32b6d57dbd610ee0eef",
     }
     for path, authorized_head in AUTHORIZED_LATTICE_WALL_HEAD_BLOBS.items():
         historical = SOURCE_BLOBS[path]

@@ -891,7 +891,7 @@ class V55ProductionKernel:
 
         # Turnaround diagnostic: expose the CMC projection and radial lapse
         # response on the same slice. Diagnostic only; no evolution change.
-        from .cmc_gauge import target_kdot
+        from .cmc_gauge import _proper_volume_weights, target_kdot
         if _wall.is_lattice_wall(grid):
             # The wall's K-dot (W4): from the grid's clock, not from the projected K RHS.
             cmc_kdot = _wall.solve_wall_lapse(
@@ -906,6 +906,10 @@ class V55ProductionKernel:
                 grid, geom, state.scalars, state.matter,
                 electromagnetic_projection=electromagnetic_projection,
             )
+        _w, _W = _proper_volume_weights(grid, geom)
+        _rho_dm = np.asarray(dm_density(metric, state.matter), dtype=float)
+        _den = float(np.sum(_w * _rho_dm))
+        fluids_clock_rate = (float(np.sum(_w * geom.alpha * _rho_dm)) / _den) if _den > 0.0 else float("nan")
         alpha_r = grid.cell_derivative_fourth(geom.alpha, parity=1)
         i_alpha = int(np.argmax(np.abs(alpha_r)))
 
@@ -1306,6 +1310,12 @@ class V55ProductionKernel:
             "lapse_max": float(np.max(geom.alpha)),
             "Rdot_sigma": float(Rdot[surface]),
             "cmc_kdot": float(cmc_kdot),
+            # The fluids' clock (the cosmos lane's t: proper time of its own fluids, rest-mass weighted; dust clock of
+            # PR #481): d tau_fluids / dt = <alpha rho_dm> / <rho_dm> over proper volume. Physical results compared
+            # with the cosmos lane are read on this clock, not per tick of the run's label (on the wall, clock "i" is
+            # the wall shell's proper time; in a pocket cell the two differ by the pocket's inner redshift).
+            "fluids_clock_rate": float(fluids_clock_rate),
+            "label_clock_alpha_outer": float(geom.alpha[-1]),
             "cmc_residual_outer_max": float(
                 np.max(np.abs(cmc_residual[outer_cmc & (np.arange(grid.n) < grid.n - 1)]))
             ),
@@ -1330,14 +1340,17 @@ class V55ProductionKernel:
             "radiation_inner_face_energy_flux": float(rad_inner_flux[1]),
             "radiation_boundary_momentum_flux": float(rad_outer_flux[2]),
             "radiation_inner_face_momentum_flux": float(rad_inner_flux[2]),
-            "radiation_boundary_energy_flux_rel_mismatch": float(
+            # Not applicable on the lattice wall: its face flux is exactly zero (W2), so the relative mismatch against
+            # the inner face would read 1.0 by construction. Reported as None there, with the flag below.
+            "radiation_boundary_flux_mismatch_applicable": not _wall.is_lattice_wall(grid),
+            "radiation_boundary_energy_flux_rel_mismatch": (None if _wall.is_lattice_wall(grid) else float(
                 abs(float(rad_outer_flux[1] - rad_inner_flux[1]))
                 / flux_e_scale
-            ),
-            "radiation_boundary_momentum_flux_rel_mismatch": float(
+            )),
+            "radiation_boundary_momentum_flux_rel_mismatch": (None if _wall.is_lattice_wall(grid) else float(
                 abs(float(rad_outer_flux[2] - rad_inner_flux[2]))
                 / flux_s_scale
-            ),
+            )),
             "radiation_outer_div_E": float(rad_outer_div_E),
             "radiation_outer_div_S": float(rad_outer_div_S),
             "radiation_penultimate_div_E": float(rad_penultimate_div_E),

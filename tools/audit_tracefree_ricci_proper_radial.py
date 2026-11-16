@@ -118,8 +118,10 @@ AUTHORIZED_HAND_FLOOR_STEP2_HEAD_BLOBS = {
 # Jeremiah's review): the kernel threads the wall (engine/lattice_wall.py) through the grid the state carries; production's
 # default start (an expanding run) gets the wall, labelled "identical neighbours, in step: one-stone simplification". The
 # open edge is unchanged and bit-identical; this audit runs on the reference path, which keeps the open edge.
+# Re-authorised by the wall follow-up (Nov 16 2026): the fluids-clock-rate diagnostic and the N/A boundary-flux
+# mismatch on the wall (diagnostics only; no evolution change).
 AUTHORIZED_LATTICE_WALL_HEAD_BLOBS = {
-    "engine/production_kernel.py": "2467c0071920ff7f1fab336f7092a8f65421ae39",
+    "engine/production_kernel.py": "2d9a085667b2ef4adc96e32b6d57dbd610ee0eef",
 }
 
 

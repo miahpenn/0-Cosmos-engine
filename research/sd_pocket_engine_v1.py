@@ -1,4 +1,5 @@
 """RESEARCH ONLY. Self-held S pocket (single-harmonic oscillaton profile) in the production engine (CMC, no wall).
+Pinned to the open edge, the edge it was written for (the lattice wall became the expanding default in #505).
 Usage: python research/sd_pocket_engine_v1.py osc.json D0 wD N RMAX T out.npz
 S(t=0) = A(r) (turning point, PS = 0); D = D0 exp(-(r/wD)^2), PD = 0; metric from the Hamiltonian constraint
 (polar-areal, K = 0). Records alpha, S, D, K every 0.1.
@@ -15,7 +16,7 @@ from engine.production_kernel import V55ProductionKernel
 osc = json.load(open(sys.argv[1])); D0, wD = float(sys.argv[2]), float(sys.argv[3])
 N, RMAX, T, out = int(sys.argv[4]), float(sys.argv[5]), float(sys.argv[6]), sys.argv[7]
 lam = osc["lam"]; ss.V0 = 0.0; ss.SD_QUARTIC_LAMBDA = lam
-k = V55ProductionKernel(); st = k.initialize(resolution=N, r_max=RMAX, include_radiation=False)
+k = V55ProductionKernel(); st = k.initialize(resolution=N, r_max=RMAX, include_radiation=False, outer_edge="open_edge")
 grid = st.grid; r = np.asarray(grid.centers); dr = float(grid.dr); z = np.zeros_like(r)
 S = np.interp(r, osc["r"], osc["A"], right=0.0); D = D0 * np.exp(-(r / wD) ** 2)
 d1 = lambda x: v55_initial._d1(grid, x, 1); Sp, Dp = d1(S), d1(D); Bm = np.ones_like(r)

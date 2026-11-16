@@ -1,4 +1,5 @@
 """RESEARCH ONLY. GEAR-67 lambda scan in the production engine (CMC, gravity on, no wall).
+Pinned to the open edge, the edge it was written for (the lattice wall became the expanding default in #505).
 S Gaussian (amplitude S0, width 5, at rest) and a broad D seed (1e-4, width 15). Records alpha, S, D every 0.05 and
 snapshots (with K) every 0.5; on an engine failure the history so far is kept.
 Usage (repo root, COSMOS_PINNED_SOURCE_ROOT set): python research/sd_quartic_scan_v1.py lam S0 N T out.json
@@ -14,7 +15,7 @@ from engine.v55_matter import V55MatterState, metric_slice_from_q
 from engine.production_kernel import V55ProductionKernel
 lam, S0, wS, D0, wD, N, T, RMAX = (float(sys.argv[1]), float(sys.argv[2]), 5.0, 1e-4, 15.0, int(sys.argv[3]), float(sys.argv[4]), 40.0)
 ss.V0 = 0.0; ss.SD_QUARTIC_LAMBDA = lam
-k = V55ProductionKernel(); st = k.initialize(resolution=N, r_max=RMAX, include_radiation=False)
+k = V55ProductionKernel(); st = k.initialize(resolution=N, r_max=RMAX, include_radiation=False, outer_edge="open_edge")
 grid = st.grid; r = np.asarray(grid.centers); dr = float(grid.dr); z = np.zeros_like(r)
 S = S0 * np.exp(-(r / wS) ** 2); D = D0 * np.exp(-(r / wD) ** 2)
 d1 = lambda x: v55_initial._d1(grid, x, 1); Sp, Dp = d1(S), d1(D); Bm = np.ones_like(r)

@@ -1,4 +1,5 @@
 """RESEARCH ONLY. Teeth test on a slicing-independent clock (HANDOFF-to-projects Nov 10, Task 4; backlog item 6).
+Pinned to the open edge, the edge it was written for (the lattice wall became the expanding default in #505).
 
 AMENDMENT-2-GEAR-68 asked whether the CMC lapse is a fixed function of D's local energy (eta^2 ~ 0.85, cross-run
 residual ~0.55 in ln alpha). The lapse is a slicing statement. In spherical symmetry the slicing-independent clock rate
@@ -37,7 +38,7 @@ def run(A, out, N=160, r_max=80.0, T=45.0, w=7.0, eps=1e-10):
 
     ss.V0 = 0.0
     kernel = pk.V55ProductionKernel()
-    st = kernel.initialize(resolution=N, r_max=r_max, include_radiation=False)
+    st = kernel.initialize(resolution=N, r_max=r_max, include_radiation=False, outer_edge="open_edge")
     grid = st.grid; r = np.asarray(grid.centers, float); dr = float(grid.dr)
     gss = np.exp(-(r / w) ** 2); S = A * gss; D = eps * gss; z = np.zeros_like(r)
     d1 = lambda x: v55_initial._d1(grid, x, 1)  # noqa: E731

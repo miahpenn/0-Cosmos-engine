@@ -1,4 +1,5 @@
 """RESEARCH ONLY. Dynamic bag test in the production engine, gravity on (HANDOFF Nov 11, Task 2).
+Pinned to the open edge, the edge it was written for (the lattice wall became the expanding default in #505).
 
 A Thomas-Fermi bag pocket (research/pocket_with_vacuum_tov_v1.py: surface at P_S = DeltaV, x = 3.266) evolved by the
 production kernel (CMC, beta = 0), GEAR-67 quartic at lambda = 5000, S at its turning point (PS = 0), D at its ejected
@@ -66,7 +67,7 @@ def main():
     vm.scalar_projection = projection
 
     k = V55ProductionKernel()
-    st = k.initialize(resolution=N, r_max=RMAX, include_radiation=False)
+    st = k.initialize(resolution=N, r_max=RMAX, include_radiation=False, outer_edge="open_edge")
     grid = st.grid; r = np.asarray(grid.centers); dr = float(grid.dr); z = np.zeros_like(r)
     A_in = np.sqrt(np.interp(r, rp, xp, left=xp[0], right=xp[-1]) / LAM)
     A_s = math.sqrt(X_SURF / LAM)

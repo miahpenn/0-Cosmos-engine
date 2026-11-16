@@ -1,4 +1,5 @@
 """RESEARCH ONLY. Interaction matrix of the production engine (HANDOFF to projects Nov 11 (2), Task 1).
+Pinned to the open edge, the edge it was written for (the lattice wall became the expanding default in #505).
 
 For every ordered pair (source -> target) among S, D, phi, dark matter (DM), baryons, radiation and geometry: does
 switching the source change the target's right-hand side, at fixed everything else? This is the engine's instantaneous
@@ -57,7 +58,7 @@ def build(N=60, r_max=40.0):
     from engine.matter_system import _metric_arrays, initialize_dust, initialize_radiation
     from engine.v55_matter import V55MatterState, metric_slice_from_q
     kernel = pk.V55ProductionKernel()
-    st = kernel.initialize(resolution=N, r_max=r_max)
+    st = kernel.initialize(resolution=N, r_max=r_max, outer_edge="open_edge")
     r = np.asarray(st.grid.centers, float)
     g = np.exp(-(r / 7.0) ** 2)
     sc = dataclasses.replace(st.scalars, S=0.01 * g, PS=0.002 * g, D=0.005 * g, PD=0.001 * g,
