@@ -525,5 +525,34 @@ def test_shared_constants_authorization_is_exact_blob():
         historical = SOURCE_BLOBS[path]
         assert _source_blob_matches(path, historical, historical, authorized_head)
         assert not _source_blob_matches(path, historical, historical, "f" * 40)
-    assert AUTHORIZED_OFF_AUDIT_REPAIR_HEAD_BLOBS["engine/model_constants.py"] == "17851bea202b8748119b3c0c5d40f4c9e6e003e6"
-    assert AUTHORIZED_OFF_AUDIT_REPAIR_HEAD_BLOBS["engine/cosmos.py"] == "f1e9c545f1d5fdc1233a11cf3a2624f33b6eb65c"
+    # Re-authorized by the hand-floor removal step 2 (Nov 16 2026); see the test below. Before: model_constants.py
+    # 17851bea202b8748119b3c0c5d40f4c9e6e003e6, cosmos.py f1e9c545f1d5fdc1233a11cf3a2624f33b6eb65c.
+    assert AUTHORIZED_OFF_AUDIT_REPAIR_HEAD_BLOBS["engine/model_constants.py"] == "ae93e694193586ea6d2532c49f0f320b1a902e76"
+    assert AUTHORIZED_OFF_AUDIT_REPAIR_HEAD_BLOBS["engine/cosmos.py"] == "0475446f4cb020bb3c0f30b9bc74e3b711b55fc2"
+
+
+def test_hand_floor_step2_authorization_is_exact_blob():
+    from tools.audit_tracefree_ricci_proper_radial import (
+        AUTHORIZED_HAND_FLOOR_STEP2_HEAD_BLOBS,
+        AUTHORIZED_OFF_AUDIT_REPAIR_HEAD_BLOBS,
+        SOURCE_BLOBS,
+        _drop_authorized_off_audit_paths,
+        _source_blob_matches,
+    )
+
+    assert AUTHORIZED_HAND_FLOOR_STEP2_HEAD_BLOBS == {
+        "engine/scalar_system.py": "01a440955ccacf9a89bd0d68cec08c984216e9e8",
+        "engine/production_kernel.py": "21e40c004938353e9b43bdbc9abf943f1deb5eef",
+        "engine/v55_initial.py": "80e73e07916be87cc09abc017c3e16ed45525dc8",
+    }
+    for path, authorized_head in AUTHORIZED_HAND_FLOOR_STEP2_HEAD_BLOBS.items():
+        historical = SOURCE_BLOBS[path]
+        assert _source_blob_matches(path, historical, historical, authorized_head)
+        assert not _source_blob_matches(path, historical, historical, "f" * 40)
+    off = {"engine/model_constants.py": "ae93e694193586ea6d2532c49f0f320b1a902e76",
+           "engine/cosmos.py": "0475446f4cb020bb3c0f30b9bc74e3b711b55fc2",
+           "engine/run_controls.py": "e1237ba6462234ef2b196e474f9945a19767b956"}
+    for path, blob in off.items():
+        assert AUTHORIZED_OFF_AUDIT_REPAIR_HEAD_BLOBS[path] == blob
+        assert _drop_authorized_off_audit_paths([path], lambda p, b=blob: b) == []
+        assert _drop_authorized_off_audit_paths([path], lambda p: "0" * 40) == [path]

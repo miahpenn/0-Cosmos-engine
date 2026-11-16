@@ -6,7 +6,7 @@ import numpy as np
 import research.dm_one_budget_v1 as dm
 from engine import cmc_gauge as cg
 from engine.v55_matter import total_matter_projection
-from engine.cosmos import CosmosParams, construct_present_day, cosmos_rho_p
+from engine.cosmos import HAND_FLOOR_REFERENCE_PARAMS, CosmosParams, construct_present_day, cosmos_rho_p
 dm.LAM = 1.5246e6; dm.C2 = 1.0
 k, st, r, H0 = dm.initial("noD", 0.0, 0.0, 20, 40.0)
 g = st.geometry
@@ -17,7 +17,7 @@ kd = cg._project_kdot_from_weights(st.grid, g, st.scalars, st.matter, w, W)
 print("H0", H0, "K", g.K[0], "-> H", -g.K[0] / 3)
 print("Q (uniform?)", Q[[0, 10, 19]], " kdot", kd, " kdot/Q", kd / Q[0])
 # lane: K = -3H, dK/dt = -3 dH/dt = 1.5 (rho+p) with rho_E = 8 pi rho
-p = CosmosParams(); s0 = construct_present_day(p)
+p = HAND_FLOOR_REFERENCE_PARAMS; s0 = construct_present_day(p)  # p: hand-floor lane (labelled reference since step 2, Nov 16 2026)
 y = (s0.a, s0.H, s0.phi, s0.pi_phi, s0.rho_dm, s0.rho_b, s0.rho_r, s0.rho_shear)
 rho, pr = cosmos_rho_p(y, p)
 print("lane: H", s0.H, " dK/dt = 1.5(rho+p) =", 1.5 * (rho + pr), "  K^2/3 + (rho+3p)/2 =", (3*s0.H)**2/3 + (rho + 3*pr)/2)

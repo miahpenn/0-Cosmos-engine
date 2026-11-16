@@ -1,11 +1,12 @@
 """Pins the COSMOS <-> local-lane conversion (results/kappa-channel-2026-11-14/KAPPA_CONVERSION_DECISION.md), one test per lane,
 with a negative control. Normalisation regressions only; no claim about the local-to-cosmos channel."""
+import dataclasses
 import math
 
 import numpy as np
 import pytest
 
-from engine.cosmos import CosmosParams, cosmos_rhs, cosmos_rho_p
+from engine.cosmos import HAND_FLOOR_REFERENCE_PARAMS, CosmosParams, cosmos_rhs, cosmos_rho_p
 from engine.matter_system import KAPPA
 from engine.stress_energy import assemble_total_stress_energy
 from research import lane_conversion_v1 as lcv
@@ -21,7 +22,7 @@ def _y(cs):
 def test_cosmos_lane_conversion_is_pinned(label):
     """COSMOS lane: the chart state obeys H^2 = rho_E/3 and dH = -(rho_E + p_E)/2, and the conversion hands the
     local lane K = -3H, the same phi, pi and fluid densities, and sources rho_E/kappa, p_E/kappa."""
-    p = CosmosParams()
+    p = HAND_FLOOR_REFERENCE_PARAMS
     cs = lcv.chart_state(label, p)
     rho, pres = cosmos_rho_p(_y(cs), p)
     assert cs.H**2 == pytest.approx(rho / 3.0, rel=1e-15)
@@ -37,7 +38,7 @@ def test_cosmos_lane_conversion_is_pinned(label):
 @pytest.mark.parametrize("label", CHARTS)
 def test_local_lane_reproduces_cosmos_lane_under_the_conversion(label):
     """Local lane (production kernel, production stress assembly and lapse solve): frozen state and a few steps."""
-    p = CosmosParams()
+    p = HAND_FLOOR_REFERENCE_PARAMS
     cs = lcv.chart_state(label, p)
     kernel, st = lcv.local_uniform_state(cs, p=p)
     tot = assemble_total_stress_energy(st.grid, st.geometry, st.scalars, st.matter)
@@ -56,9 +57,9 @@ def test_local_lane_reproduces_cosmos_lane_under_the_conversion(label):
 
 def test_negative_control_a_factor_on_beta_breaks_the_match():
     """beta is the same number in both lanes. A sqrt(kappa) on it (the canonical-field coupling) must not pass."""
-    p = CosmosParams()
+    p = HAND_FLOOR_REFERENCE_PARAMS
     cs = lcv.chart_state("node", p)
-    wrong = CosmosParams(beta=p.beta * math.sqrt(8.0 * math.pi))
+    wrong = dataclasses.replace(p, beta=p.beta * math.sqrt(8.0 * math.pi))
     with pytest.raises(ValueError, match="parameter copies differ"):
         lcv.cosmos_to_local(cs, wrong)
     dpi_right = cosmos_rhs(_y(cs), p)[3]
@@ -70,7 +71,7 @@ def test_negative_control_a_factor_on_beta_breaks_the_match():
 
 
 def test_shear_and_sd_are_refused():
-    p = CosmosParams()
+    p = HAND_FLOOR_REFERENCE_PARAMS
     cs = lcv.chart_state("V0", p)
     cs.rho_shear = 1e-9
     with pytest.raises(ValueError, match="rho_shear"):

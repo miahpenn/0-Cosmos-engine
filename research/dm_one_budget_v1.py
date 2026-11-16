@@ -92,6 +92,10 @@ def initial(case, x_c, beta_D, N, RMAX):
     if static:
         case = case[len("static_"):]
     ss.SD_QUARTIC_LAMBDA = LAM
+    # Since step 2 (Nov 16 2026) production carries the GEAR-91 coupling itself; this driver adds it through
+    # research/gear91_coupling_v1.coupled() on an uncoupled base, as before, so the kernel's own coupling is off here.
+    if hasattr(ss, "BETA_D"):
+        ss.BETA_S, ss.BETA_D = 0.0, 0.0
     ss.V0 = C2 * V0_PROD
     ss.D_POT = 0.10 if case == "noD" else 0.0
     if static:
@@ -101,7 +105,10 @@ def initial(case, x_c, beta_D, N, RMAX):
         ss.D_POT = 0.0
         ss.V0 = ss.KAPPA / (2 * LAM) if case != "noD" else 0.0
     k = V55ProductionKernel()
-    st = k.initialize(resolution=N, r_max=RMAX, include_radiation=False)
+    # The old default initial data (S pocket), as this driver always used before step 2: the stale-lapse default
+    # (ALPHA_SEED=stale) then reproduces the earlier runs.
+    old_default = {"initial_structure": "hand_floor_reference"} if hasattr(v55_initial, "INITIAL_STRUCTURES") else {}
+    st = k.initialize(resolution=N, r_max=RMAX, include_radiation=False, **old_default)
     grid = st.grid
     r = np.asarray(grid.centers, float); dr = float(grid.dr); z = np.zeros_like(r)
     x = x_c * 0.5 * (1 - np.tanh((r - R_POCKET) / W_EDGE)) if case != "nomatter" else z.copy()

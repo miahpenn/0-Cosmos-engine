@@ -19,9 +19,9 @@ sys.path.insert(0, ".")
 import numpy as np  # noqa: E402
 from scipy.integrate import solve_ivp  # noqa: E402
 
-from engine.cosmos import CosmosParams, construct_present_day, cosmos_rhs  # noqa: E402
+from engine.cosmos import HAND_FLOOR_REFERENCE_PARAMS, CosmosParams, construct_present_day, cosmos_rhs  # noqa: E402
 
-P = CosmosParams(); KAP = 8 * math.pi; BD = -0.04
+P = HAND_FLOOR_REFERENCE_PARAMS; KAP = 8 * math.pi; BD = -0.04  # P: hand-floor lane (labelled reference since step 2, Nov 16 2026)
 LAM_PHI0 = 4 * math.pi / (P.D * P.V0)                       # floor matched at phi = 0
 LAM_TODAY = LAM_PHI0 * math.exp(-4 * BD * 0.179055)         # matched at phi_today
 

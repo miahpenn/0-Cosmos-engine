@@ -1,4 +1,9 @@
-"""RESEARCH ONLY. The conversion between the COSMOS lane (engine/cosmos.py) and the local lane (production kernel), as
+"""HAND-FLOOR REFERENCE (Nov 16 2026, step 2 of the hand-floor removal): this conversion was built and pinned on the
+hand-floor path (S = D = 0, floor in phi's potential). It now runs on the labelled reference path in both lanes
+(engine.cosmos.HAND_FLOOR_REFERENCE_PARAMS and engine.scalar_system.hand_floor_reference()). The conversion on the
+coupled floor (D at the sea's rest in the local lane <-> the adiabatic floor in the COSMOS lane) is open.
+
+RESEARCH ONLY. The conversion between the COSMOS lane (engine/cosmos.py) and the local lane (production kernel), as
 one function pair, and the two-lane comparison of HANDOFF Nov 14 2026 (5), Task A. Derivation:
 results/kappa-channel-2026-11-14/KAPPA_CONVERSION_DECISION.md. No file in engine/ is changed; the proposal to move the two functions
 into engine/ is in that document, for review.
@@ -28,7 +33,7 @@ import numpy as np  # noqa: E402
 from scipy.integrate import solve_ivp  # noqa: E402
 
 from engine import v55_pirk_adapter as adapter  # noqa: E402
-from engine.cosmos import CosmosParams, CosmosState, cosmos_rhs, cosmos_rho_p  # noqa: E402
+from engine.cosmos import HAND_FLOOR_REFERENCE_PARAMS, CosmosParams, CosmosState, cosmos_rhs, cosmos_rho_p  # noqa: E402
 from engine.matter_system import KAPPA, Species, _metric_arrays, initialize_dust, initialize_radiation, primitives  # noqa: E402
 from engine.production_kernel import BETA_DM, ProductionState, V55ProductionKernel  # noqa: E402
 from engine.scalar_system import ScalarFields  # noqa: E402
@@ -46,7 +51,7 @@ def check_shared_parameters(p: CosmosParams):
         raise ValueError(f"COSMOS and local parameter copies differ: {bad}")
 
 
-def cosmos_to_local(cs: CosmosState, p: CosmosParams = CosmosParams()):
+def cosmos_to_local(cs: CosmosState, p: CosmosParams = HAND_FLOOR_REFERENCE_PARAMS):
     """COSMOS state -> the uniform local-lane data that are the same physical state.
 
     Returns the values the local lane stores (K, phi, Pi and the Einstein-normalised fluid densities handed to
@@ -59,7 +64,7 @@ def cosmos_to_local(cs: CosmosState, p: CosmosParams = CosmosParams()):
                 source_rho=rho_E / KAPPA, source_p=p_E / KAPPA, X=1.0 / cs.a)
 
 
-def local_to_cosmos(state: ProductionState, cell=0, p: CosmosParams = CosmosParams()) -> CosmosState:
+def local_to_cosmos(state: ProductionState, cell=0, p: CosmosParams = HAND_FLOOR_REFERENCE_PARAMS) -> CosmosState:
     """A uniform local state (read at one cell) -> COSMOS state. Refuses a state with S, D or shear at that cell."""
     check_shared_parameters(p)
     g, sc = state.geometry, state.scalars
@@ -76,7 +81,7 @@ def local_to_cosmos(state: ProductionState, cell=0, p: CosmosParams = CosmosPara
 
 
 # ------------------------------------------------------------------------------------------------ chart states
-def chart_state(label: str, p: CosmosParams = CosmosParams()) -> CosmosState:
+def chart_state(label: str, p: CosmosParams = HAND_FLOOR_REFERENCE_PARAMS) -> CosmosState:
     """Homogeneous states built from the model's own constants only (V0, D, lam); no present-day H, no Omegas.
 
     "V0": phi = 0 at rest, every fluid density equal to V0.
@@ -94,14 +99,14 @@ def chart_state(label: str, p: CosmosParams = CosmosParams()) -> CosmosState:
 
 
 # ------------------------------------------------------------------------------------------------ the two arms
-def cosmos_arm(cs: CosmosState, times, p: CosmosParams = CosmosParams()):
+def cosmos_arm(cs: CosmosState, times, p: CosmosParams = HAND_FLOOR_REFERENCE_PARAMS):
     y0 = [cs.a, cs.H, cs.phi, cs.pi_phi, cs.rho_dm, cs.rho_b, cs.rho_r, cs.rho_shear]
     s = solve_ivp(lambda t, y: cosmos_rhs(y, p), (0.0, float(times[-1])), y0, method="DOP853", rtol=1e-13, atol=1e-20,
                   t_eval=np.asarray(times, float))
     return s.y.T
 
 
-def local_uniform_state(cs: CosmosState, n=16, r_max=8.0, wall=False, p: CosmosParams = CosmosParams()):
+def local_uniform_state(cs: CosmosState, n=16, r_max=8.0, wall=False, p: CosmosParams = HAND_FLOOR_REFERENCE_PARAMS):
     """The uniform local state for a COSMOS state, on the production grid (wall=False: production edge) or on the
     lattice-cell grid (wall=True: research wall of GEAR-107, closure (i), alpha = 1 at the wall)."""
     loc = cosmos_to_local(cs, p)
@@ -127,7 +132,7 @@ def local_uniform_state(cs: CosmosState, n=16, r_max=8.0, wall=False, p: CosmosP
     return kernel, ProductionState(grid=grid, geometry=g, scalars=sc, matter=matter)
 
 
-def frozen_state(cs: CosmosState, p: CosmosParams = CosmosParams(), wall=False):
+def frozen_state(cs: CosmosState, p: CosmosParams = HAND_FLOOR_REFERENCE_PARAMS, wall=False):
     """Frozen-state comparison: the local lane's own source values and K-dot against the COSMOS lane's, no stepping."""
     kernel, st = local_uniform_state(cs, wall=wall, p=p)
     loc = cosmos_to_local(cs, p)
@@ -146,7 +151,7 @@ def frozen_state(cs: CosmosState, p: CosmosParams = CosmosParams(), wall=False):
                                      for f in dataclasses.fields(CosmosState) if f.name != "rho_shear")))
 
 
-def local_arm(cs: CosmosState, T, dt, n=16, r_max=8.0, wall=False, p: CosmosParams = CosmosParams()):
+def local_arm(cs: CosmosState, T, dt, n=16, r_max=8.0, wall=False, p: CosmosParams = HAND_FLOOR_REFERENCE_PARAMS):
     """Few-step local evolution of the uniform state; returns the COSMOS variables read back at the centre cell."""
     kernel, st = local_uniform_state(cs, n, r_max, wall, p)
     steps = int(round(T / dt)); tau = 0.0
@@ -163,7 +168,7 @@ def local_arm(cs: CosmosState, T, dt, n=16, r_max=8.0, wall=False, p: CosmosPara
 NAMES = ("a", "H", "phi", "pi_phi", "rho_dm", "rho_b", "rho_r")
 
 
-def compare(label, T=4.0, dts=(0.1, 0.05, 0.025), wall=False, n=16, r_max=8.0, p: CosmosParams = CosmosParams()):
+def compare(label, T=4.0, dts=(0.1, 0.05, 0.025), wall=False, n=16, r_max=8.0, p: CosmosParams = HAND_FLOOR_REFERENCE_PARAMS):
     cs = chart_state(label, p)
     y0 = np.array([cs.a, cs.H, cs.phi, cs.pi_phi, cs.rho_dm, cs.rho_b, cs.rho_r])
     out = []
@@ -177,7 +182,7 @@ def compare(label, T=4.0, dts=(0.1, 0.05, 0.025), wall=False, n=16, r_max=8.0, p
 
 
 if __name__ == "__main__":
-    P = CosmosParams()
+    P = HAND_FLOOR_REFERENCE_PARAMS
     print(f"kappa = 8 pi; V0 = {P.V0:.6e}, D = {P.D}, lam = {P.lam}, beta = {P.beta}; lambda_SD = {ss.SD_QUARTIC_LAMBDA}")
     for label in ("V0", "node"):
         cs = chart_state(label, P)

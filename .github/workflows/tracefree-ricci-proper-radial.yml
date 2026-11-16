@@ -107,6 +107,11 @@ jobs:
             ["engine/scalar_system.py"]="9898f75a418456b54fa0255a9ca3873ef39af0bc"
             ["engine/production_kernel.py"]="8c77065e64ef14e50e7fd08e2a8cc165d58e055d"
           )
+          declare -A authorized_hand_floor_step2_heads=(
+            ["engine/scalar_system.py"]="01a440955ccacf9a89bd0d68cec08c984216e9e8"
+            ["engine/production_kernel.py"]="21e40c004938353e9b43bdbc9abf943f1deb5eef"
+            ["engine/v55_initial.py"]="80e73e07916be87cc09abc017c3e16ed45525dc8"
+          )
           declare -A authorized_ledger_shift_heads=(
             ["engine/production_kernel.py"]="216ba0a4fbfe2590bf704cae3ddc801dc8655ae0"
             ["engine/worldtube.py"]="c263a786b2057f4a427243899ae507e8a0c0c8c5"
@@ -129,7 +134,8 @@ jobs:
             ledger_shift_authorized="${authorized_ledger_shift_heads[$path]:-}"
             sd_quartic_authorized="${authorized_sd_quartic_heads[$path]:-}"
             shared_constants_authorized="${authorized_shared_constants_heads[$path]:-}"
-            if [ "$head_blob" != "$shared_constants_authorized" ] && [ "$head_blob" != "$sd_quartic_authorized" ] && [ "$head_blob" != "$expected" ] && [ "$head_blob" != "$authorized" ] && [ "$head_blob" != "$lane_b_authorized" ] && [ "$head_blob" != "$cmc_centre_row_authorized" ] && [ "$head_blob" != "$initializer_origin_authorized" ] && [ "$head_blob" != "$ledger_shift_authorized" ]; then
+            hand_floor_step2_authorized="${authorized_hand_floor_step2_heads[$path]:-}"
+            if [ "$head_blob" != "$hand_floor_step2_authorized" ] && [ "$head_blob" != "$shared_constants_authorized" ] && [ "$head_blob" != "$sd_quartic_authorized" ] && [ "$head_blob" != "$expected" ] && [ "$head_blob" != "$authorized" ] && [ "$head_blob" != "$lane_b_authorized" ] && [ "$head_blob" != "$cmc_centre_row_authorized" ] && [ "$head_blob" != "$initializer_origin_authorized" ] && [ "$head_blob" != "$ledger_shift_authorized" ]; then
               printf 'Unapproved head blob for protected runtime path %s: %s\n' "$path" "$head_blob"
               exit 1
             fi
@@ -149,12 +155,12 @@ jobs:
           declare -A authorized_off_audit_heads=(
             ["engine/local.py"]="421ab84c1e67b815f0573958cab63939c7fca78f"
             ["engine/true_cmc_reference.py"]="5cbac98225ce711dab80e5db97672012885fe47c"
-            ["engine/coupled_engine.py"]="858b40dc5c93e502b3bccde364b9fc3f781fd692"
+            ["engine/coupled_engine.py"]="4fd5def0a84db375a06c09170a0618c070fdd122"
             ["engine/bidirectional_production.py"]="21e55a57f2029713225cce9b590db57817d4e4f1"
             ["engine/worldtube.py"]="c263a786b2057f4a427243899ae507e8a0c0c8c5"
-            ["engine/run_controls.py"]="8eb24c72bbe436896a1b85a23cb91e4de8e6a647"
-            ["engine/model_constants.py"]="17851bea202b8748119b3c0c5d40f4c9e6e003e6"
-            ["engine/cosmos.py"]="f1e9c545f1d5fdc1233a11cf3a2624f33b6eb65c"
+            ["engine/run_controls.py"]="e1237ba6462234ef2b196e474f9945a19767b956"
+            ["engine/model_constants.py"]="ae93e694193586ea6d2532c49f0f320b1a902e76"
+            ["engine/cosmos.py"]="0475446f4cb020bb3c0f30b9bc74e3b711b55fc2"
           )
           for path in "${!authorized_off_audit_heads[@]}"; do
             if [ -n "$unexpected" ] && [ "$(git rev-parse "HEAD:$path" 2>/dev/null)" = "${authorized_off_audit_heads[$path]}" ]; then
