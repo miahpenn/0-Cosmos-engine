@@ -1,9 +1,9 @@
-# LIVE readiness overlay — reconciled 16 November 2026 UTC after PR #507 (and PR #PRNUM, the dark-matter replacement, once merged)
+# LIVE readiness overlay — reconciled 16 November 2026 UTC after PR #507 (and PR #508, the dark-matter replacement, once merged)
 
 > **Current main:** after the merge of PR #507. `scientific_admission=false`; `acceptance_oracle_satisfied=false`.
 > Nothing below changes either flag. The 10 November overlay that follows is kept as the prior record; where the two
 > conflict, this one is current (notably: production's λ is no longer 0, and the default edge is no longer the open edge).
-> PR #PRNUM's entry below describes the change under review; it is current only once merged.
+> PR #508's entry below describes the change under review; it is current only once merged.
 
 ## Production changes since PR #458 (owner-reviewed)
 
@@ -29,7 +29,7 @@
   cell slice, labelled). The inherited fixture keeps the open edge, labelled "wall behaviour unresolved" (starting H
   ×1.93 on the wall, wall-cell momentum residual degrading after t ≈ 20, weakening convergence). The edge is a per-run
   choice (`lattice_wall.default_edge`), with no module-level toggle.
-- **#PRNUM — the dark-matter replacement (COSMOS lane).** The lane's imported, fully coupled dust is replaced by S–D
+- **#508 — the dark-matter replacement (COSMOS lane).** The lane's imported, fully coupled dust is replaced by S–D
   matter in two parts, both dust-like (w = 0): the **D part** (drained D_r plus D's share in the stones) carries
   β = β_D (GEAR-103), and the **S part** (β_S = 0) is uncoupled. The lane's state has nine slots (`rho_sd_S` last).
   - **Coupled fraction f_D = 0.76 (Read), bounds 0.672–0.853.** Form Derived from GEAR-91: S–D matter pulls φ by
@@ -63,7 +63,7 @@
   of the run's label.
 - **φ's potential (AUDIT-4):** the exponential form and λ_φ = 1, D = 0.10 are constructed and DESI-selected, not derived
   from the machine; the crunch follows from that shape. Production's lane gives w_DE today = −0.824.
-- **Dark matter (#PRNUM):** the KIND is closed (S–D matter, two parts), not the QUANTITY. Today's total is still matched
+- **Dark matter (#508):** the KIND is closed (S–D matter, two parts), not the QUANTITY. Today's total is still matched
   to the chart through the borrowed "today", and baryons and radiation stay imported. f_D: form Derived, value Read
   (cells at λ = 5000, one stone each). Both parts are dust; the filling-window pressure is not carried. The fixed split
   ignores the stone's share drifting with φ (0.753 today, 0.786 at φ = 2.5).
@@ -76,7 +76,7 @@
 - **Gap #3 (native outer boundary): closed for expanding runs** by the wall (#505, #507); the open edge remains for
   static and isolated runs.
 - **Gap #1 (local-to-cosmos channel): receiving half — the COSMOS lane now carries S–D matter as its dark matter
-  (#PRNUM).** Still open: the kernel's dust (still imported, fully coupled); the amount today (borrowed); the filling
+  (#508).** Still open: the kernel's dust (still imported, fully coupled); the amount today (borrowed); the filling
   window's pressure.
 
 ## Open
@@ -85,7 +85,7 @@
   the largest Hamiltonian residual on both edges; the remaining open-edge contracts have no wall versions yet.
 - The leftover held step; the early filling window; w of a population of bound stones.
 - φ's positive term (constructed); the bounce b (unpaid; physical or an observer effect is Jeremiah's to settle).
-- The kernel's dark matter (#PRNUM: still imported, fully coupled dust); f_D's drift with φ; the sea's lag behind its
+- The kernel's dark matter (#508: still imported, fully coupled dust); f_D's drift with φ; the sea's lag behind its
   moving rest (it reads as coupled matter in the β_D-on cell, first order in the lag).
 
 # Prior overlay — reconciled 10 November 2026 UTC after PR #458 (superseded where the overlay above conflicts)
