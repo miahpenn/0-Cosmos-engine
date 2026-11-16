@@ -50,11 +50,11 @@ class CoupledRun:
         return self.state.history
 
 
-def initialize(n=80, rmax=40.0, amplitude=.01, width=7.0, **initial_data):
+def initialize(n=80, rmax=40.0, amplitude=None, width=None, **initial_data):
+    # Pocket arguments are forwarded only when given: the production default (background alone) refuses them.
+    pocket = {k: v for k, v in (("amplitude", amplitude), ("width", width)) if v is not None}
     kernel = V55ProductionKernel()
-    state = kernel.initialize(
-        resolution=n, r_max=rmax, amplitude=amplitude, width=width, **initial_data
-    )
+    state = kernel.initialize(resolution=n, r_max=rmax, **pocket, **initial_data)
     return CoupledRun(kernel, state)
 
 

@@ -128,9 +128,9 @@ def _pocket_D(S, phi0, D_amplitude, r, dr, width, T=200.0, gamma=0.3):
 def build_initial_data(
     grid,
     vacuum_state_factory,
-    amplitude=0.01,
-    width=7.0,
-    D_amplitude=1.0e-10,
+    amplitude=None,
+    width=None,
+    D_amplitude=None,
     include_radiation=True,
     *,
     initial_structure=None,
@@ -181,6 +181,20 @@ def build_initial_data(
             "D has no floor at lambda = 0 (D is unbounded); only the labelled reference "
             "initial_structure='hand_floor_reference' runs there"
         )
+    # The background-only default places no structure, so it refuses pocket arguments instead of silently
+    # dropping them (Jeremiah's review of PR #503). The pockets and the reference keep the old defaults.
+    pocket_args = {"amplitude": amplitude, "width": width, "D_amplitude": D_amplitude}
+    if structure == "none":
+        given = sorted(k for k, v in pocket_args.items() if v is not None)
+        if given:
+            raise ValueError(
+                f"the background-only default ('no structure placed') takes no pocket arguments; got {given}. "
+                "Use initial_structure='rescaled_pocket' / 'inherited_pocket' (labelled fixtures) or the "
+                "hand_floor_reference() path"
+            )
+    amplitude = 0.01 if amplitude is None else amplitude
+    width = 7.0 if width is None else width
+    D_amplitude = 1.0e-10 if D_amplitude is None else D_amplitude
     if structure == "rescaled_pocket":
         if pocket_x is None or not math.isfinite(float(pocket_x)) or float(pocket_x) <= 0.0:
             raise ValueError("the rescaled pocket needs pocket_x > 0, chosen by hand (label it so)")

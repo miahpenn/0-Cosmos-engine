@@ -161,6 +161,29 @@ def test_default_start_is_today_background_alone():
     np.testing.assert_allclose(st.geometry.alpha, 1.0, atol=1e-12)
 
 
+def test_default_start_refuses_pocket_arguments():
+    """The background-only default places no structure, so it refuses pocket arguments instead of silently dropping
+    them (Jeremiah's review of PR #503); the fixtures and the reference keep their old defaults."""
+    from engine import coupled_engine
+
+    for kw in (dict(amplitude=0.01), dict(width=7.0), dict(D_amplitude=1e-10), dict(amplitude=0.02, width=5.0)):
+        with pytest.raises(ValueError, match="no pocket arguments"):
+            V55ProductionKernel().initialize(resolution=24, r_max=40.0, **kw)
+        with pytest.raises(ValueError, match="no pocket arguments"):
+            coupled_engine.initialize(n=24, **{k: v for k, v in kw.items() if k != "D_amplitude"} or dict(D_amplitude=1e-10))
+    run = coupled_engine.initialize(n=24)                       # no pocket arguments: the default, accepted
+    assert np.all(run.state.scalars.S == 0.0)
+    a = V55ProductionKernel().initialize(resolution=24, r_max=40.0, initial_structure="inherited_pocket")
+    b = V55ProductionKernel().initialize(resolution=24, r_max=40.0, initial_structure="inherited_pocket",
+                                         amplitude=0.01, width=7.0, D_amplitude=1e-10)
+    np.testing.assert_array_equal(a.scalars.S, b.scalars.S)     # fixtures: omitted = the old defaults
+    with ss.hand_floor_reference():
+        c = V55ProductionKernel().initialize(resolution=24, r_max=40.0)
+        d = V55ProductionKernel().initialize(resolution=24, r_max=40.0, amplitude=0.01, width=7.0, D_amplitude=1e-10)
+    np.testing.assert_array_equal(c.scalars.S, d.scalars.S)
+    np.testing.assert_array_equal(c.geometry.alpha, d.geometry.alpha)
+
+
 def test_pocket_fixtures_are_labelled_and_converge():
     from engine import v55_pirk_adapter as adapter
 

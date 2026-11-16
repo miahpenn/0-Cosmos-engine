@@ -110,8 +110,8 @@ AUTHORIZED_SHARED_CONSTANTS_HEAD_BLOBS = {
 # labelled reference (engine.scalar_system.hand_floor_reference()), bit-identical; this audit runs on it.
 AUTHORIZED_HAND_FLOOR_STEP2_HEAD_BLOBS = {
     "engine/scalar_system.py": "01a440955ccacf9a89bd0d68cec08c984216e9e8",
-    "engine/production_kernel.py": "99149bf4c86755c608a118ce9db17faf6df041a7",
-    "engine/v55_initial.py": "8bd55722fca9596931f156791c5eaf155ab8eb56",
+    "engine/production_kernel.py": "21e40c004938353e9b43bdbc9abf943f1deb5eef",
+    "engine/v55_initial.py": "80e73e07916be87cc09abc017c3e16ed45525dc8",
 }
 
 
@@ -170,7 +170,7 @@ def _git(*args: str) -> str:
 AUTHORIZED_OFF_AUDIT_REPAIR_HEAD_BLOBS = {
     "engine/local.py": "421ab84c1e67b815f0573958cab63939c7fca78f",
     "engine/true_cmc_reference.py": "5cbac98225ce711dab80e5db97672012885fe47c",
-    "engine/coupled_engine.py": "858b40dc5c93e502b3bccde364b9fc3f781fd692",
+    "engine/coupled_engine.py": "4fd5def0a84db375a06c09170a0618c070fdd122",
     "engine/bidirectional_production.py": "21e55a57f2029713225cce9b590db57817d4e4f1",
     "engine/worldtube.py": "c263a786b2057f4a427243899ae507e8a0c0c8c5",
     # Hand-floor removal step 2 (Nov 16 2026): the provenance local lane runs on the reference path.

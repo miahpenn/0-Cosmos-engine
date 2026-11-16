@@ -42,3 +42,19 @@ the old production default, not a new defect; it is why the reference is kept fo
 coupled path (D at rest in the local lane against the adiabatic floor in the COSMOS lane) it is checked here only
 through check 3. (ii) The open-edge K-dot closure's undamped lapse mode (`results/floor-swap-2026-11-15/KERNEL_DRIFT.md`)
 is not touched: task 2 (native zero-flux closure). (iii) Long runs on the new path (beyond t = 200) not made.
+
+## Review change (Jeremiah, Nov 16): the default start refuses pocket arguments
+
+The background-only default now raises on `amplitude`, `width` or `D_amplitude` instead of silently dropping them;
+the fixtures and the reference keep their old defaults (0.01, 7.0, 1e-10) when the arguments are omitted.
+`engine/coupled_engine.initialize` forwards pocket arguments only when given. CI re-authorised for the three changed
+engine blobs (`v55_initial.py`, `production_kernel.py`, `coupled_engine.py`).
+
+The refusal found two test modules that had been passing the old pocket's arguments and so, on this branch, had been
+running silently on the flat background: `tests/test_coupled_lambda_constraint_propagation.py` (an Issue #4 witness)
+and `tests/test_em_canonical_projection_contract.py`. Both now run on the labelled reference path, like the other
+fifteen. Full suite: 1087 passed, 2 xfailed.
+
+Not changed, for a later decision: thirteen `tools/` audits pass the old pocket's arguments to `initialize`. Run on
+current source they now fail loudly instead of running vacuously on the flat background; most are historical studies
+pinned to older source. The dispatch-only `zero_star_d_mode_time_shape` workflows pass a D amplitude the same way.

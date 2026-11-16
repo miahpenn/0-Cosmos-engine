@@ -64,6 +64,10 @@ HAND_FLOOR_REFERENCE_MODULES = {
     "tests/test_analytic_origin_half_cell_self_consistent_response.py": _ISSUE4_OLD_DATA,
     "tests/test_initial_centre_proper_radial_ricci.py": _ISSUE4_OLD_DATA,
     "tests/test_issue4_production_hll_operator_pairing.py": _ISSUE4_OLD_DATA,
+    "tests/test_coupled_lambda_constraint_propagation.py": _ISSUE4_OLD_DATA + " (it passes the old pocket's arguments; "
+        "found by the default's refusal of pocket arguments)",
+    "tests/test_em_canonical_projection_contract.py": _NEEDS_STRUCTURE + " (it passes the old pocket's arguments; found "
+        "by the default's refusal of pocket arguments)",
     "tests/test_cmc_lapse_centre_row.py": _NEEDS_STRUCTURE,
     "tests/test_initial_origin_quadrature.py": _NEEDS_STRUCTURE,
     "tests/test_v55_primary_l2_cmc_slice_refinement.py": _NEEDS_STRUCTURE,

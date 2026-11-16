@@ -542,8 +542,8 @@ def test_hand_floor_step2_authorization_is_exact_blob():
 
     assert AUTHORIZED_HAND_FLOOR_STEP2_HEAD_BLOBS == {
         "engine/scalar_system.py": "01a440955ccacf9a89bd0d68cec08c984216e9e8",
-        "engine/production_kernel.py": "99149bf4c86755c608a118ce9db17faf6df041a7",
-        "engine/v55_initial.py": "8bd55722fca9596931f156791c5eaf155ab8eb56",
+        "engine/production_kernel.py": "21e40c004938353e9b43bdbc9abf943f1deb5eef",
+        "engine/v55_initial.py": "80e73e07916be87cc09abc017c3e16ed45525dc8",
     }
     for path, authorized_head in AUTHORIZED_HAND_FLOOR_STEP2_HEAD_BLOBS.items():
         historical = SOURCE_BLOBS[path]

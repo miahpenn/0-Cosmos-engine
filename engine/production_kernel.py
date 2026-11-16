@@ -134,9 +134,9 @@ class V55ProductionKernel:
         resolution: int = 80,
         r_max: float = 40.0,
         *,
-        amplitude: float = 0.01,
-        width: float = 7.0,
-        D_amplitude: float = 1.0e-10,
+        amplitude: float | None = None,
+        width: float | None = None,
+        D_amplitude: float | None = None,
         include_radiation: bool = True,
         radial_maxwell_charge_to_mass: float | None = None,
         charged_dust_density: np.ndarray | None = None,
@@ -148,7 +148,8 @@ class V55ProductionKernel:
         initial_structure: "none" (default), "rescaled_pocket" (fixture, pocket_x by hand),
         "inherited_pocket" (fixture, x ~ 157 inherited), "hand_floor_reference" (reference only;
         the default under engine.scalar_system.hand_floor_reference()). See engine/v55_initial.py.
-        amplitude, width and D_amplitude shape the pockets and the reference only.
+        amplitude, width and D_amplitude shape the pockets and the reference only (defaults 0.01, 7.0, 1e-10
+        there); the background-only default refuses them rather than dropping them.
         """
         grid_ops, vacuum, _ = adapter.vendor_modules()
         grid = grid_ops.SphericalCellGrid(resolution, r_max)
