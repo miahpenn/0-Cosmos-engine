@@ -100,3 +100,47 @@ def _hand_floor_reference_path(request):
 
     with hand_floor_reference():
         yield
+
+
+# Zero-flux (lattice-wall) closure, HANDOFF Nov 15 (3) task 2 (Nov 16 2026): production's default start (today,
+# background alone: an expanding run) now gets the lattice wall ("identical neighbours, in step: one-stone
+# simplification"; engine/lattice_wall.py). The modules below are contracts written against the OPEN EDGE's
+# implementation seams; they run with the open edge as the default (engine.lattice_wall.open_edge_reference(),
+# bit-identical to the code before the wall). The wall's own contracts are in tests/test_lattice_wall_kernel.py.
+# Kept here, not in the modules, so the files stay byte-identical (several are path-triggers of source-pinned workflows).
+_OPEN_EDGE_SEAM = ("contract of the open edge's implementation seam, injected through engine.production_kernel.species_rhs "
+                   "/ _solve_lapse / _apply_outer_light_boundary; the wall's flux goes through "
+                   "engine.lattice_wall.wall_species_rhs and its ordering is pinned in test_lattice_wall_kernel.py")
+_OPEN_EDGE_RECON = ("independent reconstruction with the open edge's operators (vendor grid / NativeSphericalCellGrid / "
+                    "the projected-K-dot lapse) compared with the kernel on the state's grid; on the wall it would agree "
+                    "only because the background start is flat")
+_OPEN_EDGE_EM = "radial-Maxwell (EM) preflight: the EM sector runs on the open edge only (the wall refuses it)"
+OPEN_EDGE_REFERENCE_MODULES = {
+    "tests/test_radiation_rhs_admissibility_contract.py": _OPEN_EDGE_SEAM,
+    "tests/test_strict_radiation_rhs_admissibility_contract.py": _OPEN_EDGE_SEAM,
+    "tests/test_native_cmc_explicit_rhs_production_wiring.py": _OPEN_EDGE_SEAM + " (native a/b/X wiring)",
+    "tests/test_constraint_source_normalization_contract.py": _OPEN_EDGE_RECON + " (manufactured states on the "
+        "initialized template; the wall's diagnostic K-dot needs a lapse solve that has no positive solution on them)",
+    "tests/test_native_cmc_explicit_rhs_stage_shadow.py": _OPEN_EDGE_RECON,
+    "tests/test_native_constraints.py": _OPEN_EDGE_RECON,
+    "tests/test_v55_frozen_slice_rhs_shadow.py": _OPEN_EDGE_RECON,
+    "tests/test_v55_lambda_l3_matter_contract.py": _OPEN_EDGE_RECON,
+    "tests/test_research_puncture_gauge_kernel.py": _OPEN_EDGE_RECON + " (vendor moving-puncture step)",
+    "tests/test_em_consumer_gain_contract.py": _OPEN_EDGE_EM + "; it also calls the open edge's solve_cmc_lapse directly",
+    "tests/test_em_preflight_baseline_projection_parity.py": _OPEN_EDGE_EM,
+}
+
+
+@pytest.fixture(scope="module", autouse=True)
+def _open_edge_reference_path(request):
+    """Run the modules listed in OPEN_EDGE_REFERENCE_MODULES with the open edge as the default start's edge."""
+    import pathlib
+
+    rel = pathlib.Path(str(request.fspath)).resolve().relative_to(pathlib.Path(__file__).resolve().parents[1]).as_posix()
+    if rel not in OPEN_EDGE_REFERENCE_MODULES:
+        yield
+        return
+    from engine.lattice_wall import open_edge_reference
+
+    with open_edge_reference():
+        yield

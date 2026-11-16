@@ -114,6 +114,14 @@ AUTHORIZED_HAND_FLOOR_STEP2_HEAD_BLOBS = {
     "engine/v55_initial.py": "80e73e07916be87cc09abc017c3e16ed45525dc8",
 }
 
+# Exact-blob authorization for the zero-flux (lattice-wall) closure (HANDOFF Nov 15 (3) task 2, Nov 16 2026, for
+# Jeremiah's review): the kernel threads the wall (engine/lattice_wall.py) through the grid the state carries; production's
+# default start (an expanding run) gets the wall, labelled "identical neighbours, in step: one-stone simplification". The
+# open edge is unchanged and bit-identical; this audit runs on the reference path, which keeps the open edge.
+AUTHORIZED_LATTICE_WALL_HEAD_BLOBS = {
+    "engine/production_kernel.py": "2467c0071920ff7f1fab336f7092a8f65421ae39",
+}
+
 
 def _authorized_head_blobs(path: str) -> set[str]:
     return {
@@ -126,6 +134,7 @@ def _authorized_head_blobs(path: str) -> set[str]:
             AUTHORIZED_SD_QUARTIC_HEAD_BLOBS.get(path),
             AUTHORIZED_SHARED_CONSTANTS_HEAD_BLOBS.get(path),
             AUTHORIZED_HAND_FLOOR_STEP2_HEAD_BLOBS.get(path),
+            AUTHORIZED_LATTICE_WALL_HEAD_BLOBS.get(path),
         ) if blob is not None
     }
 AUTHORIZED_RUNTIME_PATHS = (
@@ -137,6 +146,7 @@ AUTHORIZED_RUNTIME_PATHS = (
     | frozenset(AUTHORIZED_SD_QUARTIC_HEAD_BLOBS)
     | frozenset(AUTHORIZED_SHARED_CONSTANTS_HEAD_BLOBS)
     | frozenset(AUTHORIZED_HAND_FLOOR_STEP2_HEAD_BLOBS)
+    | frozenset(AUTHORIZED_LATTICE_WALL_HEAD_BLOBS)
 )
 
 RESOLUTIONS = (40, 60, 80, 120, 160)
@@ -179,6 +189,9 @@ AUTHORIZED_OFF_AUDIT_REPAIR_HEAD_BLOBS = {
     # Re-authorized for the hand-floor removal step 2 (Nov 16 2026): lambda, beta_D and the coupled floor.
     "engine/model_constants.py": "ae93e694193586ea6d2532c49f0f320b1a902e76",
     "engine/cosmos.py": "0475446f4cb020bb3c0f30b9bc74e3b711b55fc2",
+    # Zero-flux (lattice-wall) closure (Nov 16 2026): new module. Unlike the files above it IS imported by this audit
+    # (through engine/production_kernel.py), but not exercised: the audit runs on the reference path, open edge.
+    "engine/lattice_wall.py": "b1ecca8e34ec7251e2dcd685a7365d1f6399206a",
 }
 
 

@@ -1,0 +1,3 @@
+engine wall (engine/lattice_wall.py via V55ProductionKernel) vs research LatticeCellKernel (closure i), same initial state, same dt (CFL 0.06), N 60, r_max 24, 100 steps; geometry, scalars, fluids, t, tau
+/tmp/zfw/r_engine_background.npz vs /tmp/zfw/r_research_background.npz: bit-identical True; max relative difference 0.0e+00
+/tmp/zfw/r_engine_pocket.npz vs /tmp/zfw/r_research_pocket.npz: bit-identical True; max relative difference 0.0e+00
