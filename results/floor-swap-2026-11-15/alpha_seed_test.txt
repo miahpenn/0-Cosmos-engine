@@ -1,0 +1,10 @@
+stale (as dm.main)  alpha after first solve: [1.00329175 1.00234208 1.        ]
+   t   25.0  alpha0 1.003313  H 5.124520e-03  lane 5.207803e-03  dH/H -1.60e-02  phi 0.267308 lane 0.267012
+   t   49.9  alpha0 1.003619  H 4.698364e-03  lane 4.831649e-03  dH/H -2.76e-02  phi 0.359360 lane 0.358735
+   t   74.9  alpha0 1.004186  H 4.343429e-03  lane 4.510882e-03  dH/H -3.71e-02  phi 0.453429 lane 0.452437
+   t   99.8  alpha0 1.004933  H 4.035731e-03  lane 4.228916e-03  dH/H -4.57e-02  phi 0.548108 lane 0.546799
+alpha = 1  alpha after first solve: [1. 1. 1.]
+   t   25.0  alpha0 1.000000  H 5.207803e-03  lane 5.207803e-03  dH/H +1.16e-08  phi 0.267012 lane 0.267012
+   t   49.9  alpha0 1.000000  H 4.831649e-03  lane 4.831649e-03  dH/H +1.90e-08  phi 0.358735 lane 0.358735
+   t   74.9  alpha0 1.000000  H 4.510882e-03  lane 4.510882e-03  dH/H +2.09e-08  phi 0.452437 lane 0.452437
+   t   99.8  alpha0 1.000000  H 4.228916e-03  lane 4.228916e-03  dH/H +2.07e-08  phi 0.546799 lane 0.546799
