@@ -16,6 +16,18 @@ All V5.5 matter equations and source terms remain local to this repository.
 
 No bounce, reset, branch flip, shell source, fitted feedback coefficient,
 lapse floor, ejection threshold, or physical stop is present.
+
+Outer edge (HANDOFF Nov 15 2026 (3), task 2; decision 2 confirmed by Jeremiah). The closure is a property of the
+grid the state carries, threaded explicitly through the operators, the fluid flux and the lapse solve
+(engine/lattice_wall.py); nothing module-wide is replaced:
+  "lattice_wall"  EXPANDING runs, and production's default start (today, background alone): the zero-flux lattice
+                  wall, labelled "identical neighbours, in step: one-stone simplification". It reflects outgoing
+                  waves (correct for identical neighbours, wrong for isolated set-ups). Clock "i": alpha = 1 at
+                  the wall (the wall shell's proper time).
+  "open_edge"     STATIC and ISOLATED runs, the labelled pocket fixtures and the hand-floor reference by default:
+                  the pinned incoming-light reconstruction and the projected-K-dot CMC lapse, unchanged
+                  (bit-identical to the code before the wall was added). Its K-dot reads the stored lapse, so a
+                  lapse error is not damped (results/floor-swap-2026-11-15/KERNEL_DRIFT.md).
 """
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -63,6 +75,7 @@ from .v55_matter import (
 from .radial_maxwell import RadialMaxwellState
 from .native_geometry import NativeSphericalCellGrid, native_cmc_explicit_metric_rhs
 from . import v55_pirk_adapter as adapter
+from . import lattice_wall as _wall
 
 from .model_constants import BETA_DM  # one copy: engine/model_constants.py
 
@@ -142,6 +155,8 @@ class V55ProductionKernel:
         charged_dust_density: np.ndarray | None = None,
         initial_structure: str | None = None,
         pocket_x: float | None = None,
+        outer_edge: str | None = None,
+        wall_clock: str = _wall.DEFAULT_WALL_CLOCK,
     ) -> ProductionState:
         """Production start: today, background alone ("no structure placed") by default.
 
@@ -150,8 +165,35 @@ class V55ProductionKernel:
         the default under engine.scalar_system.hand_floor_reference()). See engine/v55_initial.py.
         amplitude, width and D_amplitude shape the pockets and the reference only (defaults 0.01, 7.0, 1e-10
         there); the background-only default refuses them rather than dropping them.
+
+        outer_edge: "lattice_wall" or "open_edge" (engine/lattice_wall.py). Default: the lattice wall for
+        production's start (initial_structure "none": today, background alone, an expanding run), labelled
+        "identical neighbours, in step: one-stone simplification"; the open edge for the labelled pocket fixtures,
+        the hand-floor reference and the radial-Maxwell experiment (their pinned data are areal slices built for
+        it); inside lattice_wall.open_edge_reference() the default start gets the open edge too (labelled reference).
+        The background is exactly flat (psi = 1), so its data are the same on both edges; a pocket fixture on
+        the wall gets the conformally flat cell slice (lattice_wall.conformal_wall_initial_data), labelled.
+        wall_clock: "i" (alpha = 1 at the wall, the default) or "ii" (Kdot = <Q>); wall only.
         """
+        from . import scalar_system as _scalar_system
+
         grid_ops, vacuum, _ = adapter.vendor_modules()
+        structure = (
+            _scalar_system.DEFAULT_INITIAL_STRUCTURE if initial_structure is None else initial_structure
+        )
+        if outer_edge is None:
+            outer_edge = (
+                _wall.expanding_default_edge()
+                if structure == "none" and radial_maxwell_charge_to_mass is None
+                and charged_dust_density is None
+                else _wall.OPEN_EDGE
+            )
+        if outer_edge not in _wall.OUTER_EDGES:
+            raise ValueError(f"outer_edge must be one of {_wall.OUTER_EDGES}, not {outer_edge!r}")
+        if outer_edge == _wall.LATTICE_WALL and (
+            radial_maxwell_charge_to_mass is not None or charged_dust_density is not None
+        ):
+            raise NotImplementedError("the lattice wall has no electromagnetic sector")
         grid = grid_ops.SphericalCellGrid(resolution, r_max)
         init = build_initial_data(
             grid,
@@ -178,6 +220,17 @@ class V55ProductionKernel:
             raise ValueError(
                 "charged_dust_density requires radial_maxwell_charge_to_mass"
             )
+        if outer_edge == _wall.LATTICE_WALL:
+            grid = _wall.as_lattice_wall(grid, wall_clock)
+            if structure != "none":
+                # LABELLED: a pocket fixture on the wall starts on the conformally flat cell slice.
+                geometry, matter, _ = _wall.conformal_wall_initial_data(
+                    grid, init.geometry, init.scalars, include_radiation=include_radiation
+                )
+                init = type(init)(
+                    geometry=geometry, scalars=init.scalars, matter=matter,
+                    H0=init.H0, include_radiation=include_radiation,
+                )
         validate_species_admissibility(
             metric_slice_from_q(grid, init.geometry), init.matter.radiation,
             Species.RADIATION, stage="initialization",
@@ -206,6 +259,10 @@ class V55ProductionKernel:
     def _solve_lapse(
         grid, geometry, scalars, matter, *, electromagnetic_projection=None
     ):
+        if _wall.is_lattice_wall(grid):
+            if electromagnetic_projection is not None:
+                raise NotImplementedError("the lattice wall has no electromagnetic sector")
+            return _wall.solve_wall_lapse(grid, geometry, scalars, matter)
         if electromagnetic_projection is None:
             return solve_cmc_lapse(grid, geometry, scalars, matter)
         return solve_cmc_lapse(
@@ -240,6 +297,16 @@ class V55ProductionKernel:
         projection = self._electromagnetic_projection(
             grid, geometry, electromagnetic
         )
+        if _wall.is_lattice_wall(grid):
+            if projection is not None:
+                raise NotImplementedError("the lattice wall has no electromagnetic sector")
+            grid = _wall.bind(grid, geometry)
+            return adapter.geometry_stage_terms(
+                grid, geometry, scalars, matter, lambda_m=LAMBDA_M,
+                explicit_rhs_override=native_cmc_explicit_metric_rhs(
+                    _wall.native_wall_grid(grid), geometry
+                ),
+            )
         native_grid = NativeSphericalCellGrid(grid.n, grid.r_max)
         native_centers = np.asarray(native_grid.centers, dtype=float)
         production_centers = np.asarray(grid.centers, dtype=float)
@@ -296,6 +363,8 @@ class V55ProductionKernel:
         )
 
     def _rhs(self, state: ProductionState):
+        if _wall.is_lattice_wall(state.grid):
+            return self._wall_rhs(state)
         metric = metric_slice_from_q(state.grid, state.geometry)
 
         rho_dm = dm_density(metric, state.matter)
@@ -351,6 +420,35 @@ class V55ProductionKernel:
             )
         return srhs, mrhs, md
 
+    def _wall_rhs(self, state: ProductionState):
+        """_rhs on a lattice-wall grid: operators bound to the stage's geometry, the wall's face fluxes (W2)."""
+        if state.matter.charged_dust is not None or state.electromagnetic is not None:
+            raise NotImplementedError("the lattice wall has no electromagnetic sector")
+        grid = _wall.bind(state.grid, state.geometry)
+        metric = metric_slice_from_q(grid, state.geometry)
+        rho_dm = dm_density(metric, state.matter)
+        srhs = scalar_rhs_arrays(
+            grid, state.geometry, state.scalars, beta_dm=BETA_DM, rho_dm=rho_dm,
+        )
+        md = geometry_metric_derivatives(
+            metric, lambda values, parity: self._d1(grid, values, parity),
+        )
+        dphi_t = srhs.phi
+        dphi_r = self._d1(grid, state.scalars.phi, 1)
+        mrhs = {}
+        for name, species in (
+            ("dark_matter", Species.DARK_MATTER),
+            ("baryons", Species.BARYON),
+            ("radiation", Species.RADIATION),
+        ):
+            mrhs[name] = _wall.wall_species_rhs(
+                metric, md, getattr(state.matter, name), species,
+                dphi_t=dphi_t if species is Species.DARK_MATTER else None,
+                dphi_r=dphi_r if species is Species.DARK_MATTER else None,
+                beta_dm=BETA_DM,
+            )
+        return srhs, mrhs, md
+
     @staticmethod
     def _apply_outer_light_boundary(
         grid, geometry, scalars, matter, *, electromagnetic_projection=None
@@ -360,7 +458,10 @@ class V55ProductionKernel:
         An optional pre-normalized EM projection follows the canonical total
         stress path. The feature-gated conventional radial-Maxwell experiment
         supplies it from the stage-local Q-face state; default runs remain EM-free.
+        On the lattice wall nothing is prescribed (W3): the interior equations evolve the last cell.
         """
+        if _wall.is_lattice_wall(grid):
+            return None
         adapter.vendor_modules()
         from bssn_characteristic_boundary import apply_light_constraint_boundary
 
@@ -604,7 +705,9 @@ class V55ProductionKernel:
         # state copy also carries the separately resolved alpha/beta gauge fields.
         _copy_final_cmc_state(final_u_old_v, gnew)
 
-        l2_final = vacuum.primary_l2_rhs(grid, final_u_old_v)
+        l2_final = vacuum.primary_l2_rhs(
+            _wall.bind(grid, final_u_old_v), final_u_old_v
+        )
         gnew.Aa = g0.Aa + 0.5 * dt * (
             gterms0["primary_l2"]["Aa"]
             + l2_final["Aa"]
@@ -622,7 +725,7 @@ class V55ProductionKernel:
         final_primary.Aa = gnew.Aa.copy()
         final_primary.K = gnew.K.copy()
         ll2_final = vacuum.lambda_l2_rhs(
-            grid, final_primary, lambda_m=LAMBDA_M
+            _wall.bind(grid, final_primary), final_primary, lambda_m=LAMBDA_M
         )
         gnew.Lambda = g0.Lambda + 0.5 * dt * (
             gterms0["lambda_l2"]
@@ -745,7 +848,8 @@ class V55ProductionKernel:
         return candidate
 
     def diagnostics(self, state: ProductionState, *, profiles: bool = False) -> dict:
-        grid = state.grid
+        # On the lattice wall the operators are bound to the evaluated slice; the open edge's grid is unchanged.
+        grid = _wall.bind(state.grid, state.geometry)
         geom = state.geometry
 
         _, vacuum, moving = adapter.vendor_modules()
@@ -788,7 +892,12 @@ class V55ProductionKernel:
         # Turnaround diagnostic: expose the CMC projection and radial lapse
         # response on the same slice. Diagnostic only; no evolution change.
         from .cmc_gauge import target_kdot
-        if electromagnetic_projection is None:
+        if _wall.is_lattice_wall(grid):
+            # The wall's K-dot (W4): from the grid's clock, not from the projected K RHS.
+            cmc_kdot = _wall.solve_wall_lapse(
+                grid, geom, state.scalars, state.matter
+            )[1]
+        elif electromagnetic_projection is None:
             cmc_kdot = target_kdot(
                 grid, geom, state.scalars, state.matter
             )
@@ -849,6 +958,13 @@ class V55ProductionKernel:
         rad_inner_flux = _hll_flux(
             mf_rad, ql_rad, qr_rad, Species.RADIATION
         )
+        if _wall.is_lattice_wall(grid):
+            # On the wall the last two faces carry the wall's fluxes (W2), not the open edge's outflow.
+            wall_faces = _wall.wall_face_fluxes(
+                metric, state.matter.radiation, Species.RADIATION,
+                np.zeros((grid.n + 1, 3)),
+            )
+            rad_inner_flux, rad_outer_flux = wall_faces[-2], wall_faces[-1]
         # One more interior face lets us distinguish a boundary closure
         # contribution from a genuine outgoing pulse entering the last cell.
         m2_rad, m3_rad = rad_metrics[-3], rad_metrics[-2]
@@ -921,6 +1037,11 @@ class V55ProductionKernel:
             inner_flux = _hll_flux(
                 mf_rad, ql_d, qr_d, species
             )
+            if _wall.is_lattice_wall(grid):
+                wall_faces = _wall.wall_face_fluxes(
+                    metric, field, species, np.zeros((grid.n + 1, 3))
+                )
+                inner_flux, outer_flux = wall_faces[-2], wall_faces[-1]
             div_d = -(
                 float(outer_flux[1]) - float(inner_flux[1])
             ) / dr_rad, -(

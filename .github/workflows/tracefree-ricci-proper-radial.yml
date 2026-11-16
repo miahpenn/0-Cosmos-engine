@@ -112,6 +112,9 @@ jobs:
             ["engine/production_kernel.py"]="21e40c004938353e9b43bdbc9abf943f1deb5eef"
             ["engine/v55_initial.py"]="80e73e07916be87cc09abc017c3e16ed45525dc8"
           )
+          declare -A authorized_lattice_wall_heads=(
+            ["engine/production_kernel.py"]="2467c0071920ff7f1fab336f7092a8f65421ae39"
+          )
           declare -A authorized_ledger_shift_heads=(
             ["engine/production_kernel.py"]="216ba0a4fbfe2590bf704cae3ddc801dc8655ae0"
             ["engine/worldtube.py"]="c263a786b2057f4a427243899ae507e8a0c0c8c5"
@@ -135,7 +138,8 @@ jobs:
             sd_quartic_authorized="${authorized_sd_quartic_heads[$path]:-}"
             shared_constants_authorized="${authorized_shared_constants_heads[$path]:-}"
             hand_floor_step2_authorized="${authorized_hand_floor_step2_heads[$path]:-}"
-            if [ "$head_blob" != "$hand_floor_step2_authorized" ] && [ "$head_blob" != "$shared_constants_authorized" ] && [ "$head_blob" != "$sd_quartic_authorized" ] && [ "$head_blob" != "$expected" ] && [ "$head_blob" != "$authorized" ] && [ "$head_blob" != "$lane_b_authorized" ] && [ "$head_blob" != "$cmc_centre_row_authorized" ] && [ "$head_blob" != "$initializer_origin_authorized" ] && [ "$head_blob" != "$ledger_shift_authorized" ]; then
+            lattice_wall_authorized="${authorized_lattice_wall_heads[$path]:-}"
+            if [ "$head_blob" != "$lattice_wall_authorized" ] && [ "$head_blob" != "$hand_floor_step2_authorized" ] && [ "$head_blob" != "$shared_constants_authorized" ] && [ "$head_blob" != "$sd_quartic_authorized" ] && [ "$head_blob" != "$expected" ] && [ "$head_blob" != "$authorized" ] && [ "$head_blob" != "$lane_b_authorized" ] && [ "$head_blob" != "$cmc_centre_row_authorized" ] && [ "$head_blob" != "$initializer_origin_authorized" ] && [ "$head_blob" != "$ledger_shift_authorized" ]; then
               printf 'Unapproved head blob for protected runtime path %s: %s\n' "$path" "$head_blob"
               exit 1
             fi
@@ -151,7 +155,8 @@ jobs:
           # fails closed. local.py: provenance-only (row-5 decision), after #441 and #457. true_cmc_reference.py:
           # even-ghost CMC centre row (#442). coupled_engine.py / bidirectional_production.py:
           # thin drivers over V55ProductionKernel; worldtube.py: Misner-Sharp shift-flux helper; run_controls.py: provenance label
-          # (this audit imports none of them).
+          # (this audit imports none of them, except lattice_wall.py: the zero-flux wall, imported through
+          # production_kernel.py but not exercised, since the audit runs on the reference path with the open edge).
           declare -A authorized_off_audit_heads=(
             ["engine/local.py"]="421ab84c1e67b815f0573958cab63939c7fca78f"
             ["engine/true_cmc_reference.py"]="5cbac98225ce711dab80e5db97672012885fe47c"
@@ -161,6 +166,7 @@ jobs:
             ["engine/run_controls.py"]="e1237ba6462234ef2b196e474f9945a19767b956"
             ["engine/model_constants.py"]="ae93e694193586ea6d2532c49f0f320b1a902e76"
             ["engine/cosmos.py"]="0475446f4cb020bb3c0f30b9bc74e3b711b55fc2"
+            ["engine/lattice_wall.py"]="b1ecca8e34ec7251e2dcd685a7365d1f6399206a"
           )
           for path in "${!authorized_off_audit_heads[@]}"; do
             if [ -n "$unexpected" ] && [ "$(git rev-parse "HEAD:$path" 2>/dev/null)" = "${authorized_off_audit_heads[$path]}" ]; then

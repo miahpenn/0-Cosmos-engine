@@ -556,3 +556,26 @@ def test_hand_floor_step2_authorization_is_exact_blob():
         assert AUTHORIZED_OFF_AUDIT_REPAIR_HEAD_BLOBS[path] == blob
         assert _drop_authorized_off_audit_paths([path], lambda p, b=blob: b) == []
         assert _drop_authorized_off_audit_paths([path], lambda p: "0" * 40) == [path]
+
+
+def test_lattice_wall_authorization_is_exact_blob():
+    """Zero-flux (lattice-wall) closure, Nov 16 2026: production_kernel.py re-authorised; engine/lattice_wall.py new."""
+    from tools.audit_tracefree_ricci_proper_radial import (
+        AUTHORIZED_LATTICE_WALL_HEAD_BLOBS,
+        AUTHORIZED_OFF_AUDIT_REPAIR_HEAD_BLOBS,
+        SOURCE_BLOBS,
+        _drop_authorized_off_audit_paths,
+        _source_blob_matches,
+    )
+
+    assert AUTHORIZED_LATTICE_WALL_HEAD_BLOBS == {
+        "engine/production_kernel.py": "2467c0071920ff7f1fab336f7092a8f65421ae39",
+    }
+    for path, authorized_head in AUTHORIZED_LATTICE_WALL_HEAD_BLOBS.items():
+        historical = SOURCE_BLOBS[path]
+        assert _source_blob_matches(path, historical, historical, authorized_head)
+        assert not _source_blob_matches(path, historical, historical, "f" * 40)
+    path, blob = "engine/lattice_wall.py", "b1ecca8e34ec7251e2dcd685a7365d1f6399206a"
+    assert AUTHORIZED_OFF_AUDIT_REPAIR_HEAD_BLOBS[path] == blob
+    assert _drop_authorized_off_audit_paths([path], lambda p: blob) == []
+    assert _drop_authorized_off_audit_paths([path], lambda p: "0" * 40) == [path]
