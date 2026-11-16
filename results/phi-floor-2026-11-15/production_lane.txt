@@ -1,0 +1,9 @@
+today: H = 5.66897e-03 (Hubble time 1/H = 176.4 lane units), phi = 0.179055, pi = 0.00341913
+nodes: A 2.3026;  B (matched at phi = 0) 1.9850;  B' (matched today) 2.0097
+
+  variant                         phi reaches node        turnaround (H = 0)       crunch (a -> 1e-3 a_today)   phi at turnaround
+  A  hand floor (engine)            3.753 Hubble times       5.418 (e-folds 1.988)      7.588                     3.100
+  B  coupled, matched at phi=0      2.896 Hubble times       4.188 (e-folds 1.716)      5.816                     2.760
+  B' coupled, matched today         2.954 Hubble times       4.260 (e-folds 1.739)      5.909                     2.785
+
+  (times from today, in units of today's Hubble time 1/H_today; chart-dependent through phi_today)
