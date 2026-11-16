@@ -41,6 +41,28 @@ Labels carried with these constants (and in the PR, the code and the tests):
   sd_rest_value), not against a fixed D*.
 - Unpaid inputs: H/m_S (the one unpaid number under the one-budget rule); V0 and phi_today (borrowed "today");
   FLOOR_FRACTION_TODAY = 0.10 (forced: the old hand floor's size, kept as the matching ruler); BETA_D's value.
+
+The dark-matter replacement (Nov 16 2026; evidence results/sd-dark-matter-2026-11-16/)
+------------------------------------------------------------------------------------
+The COSMOS lane's imported, fully coupled dust is replaced by S-D matter in two parts: the S part (beta_S = 0,
+uncoupled) and the D part (drained D_r plus D's share in the stones), which carries beta = beta_D (GEAR-103).
+
+- The split's FORM is DERIVED (GEAR-91): with beta_S = 0 the S-D sector's only phi-dependent term is
+  -e^(-2 beta_D phi) D^2/2, so S-D matter's source in phi's equation is beta_D times f_D rho_SD with
+  f_D = e^(-2 beta_D phi) (D_s^2 - <D^2>) / rho_SD. Checks: a free D ring (D_r) has f = 1 (GEAR-103); S ringing in
+  the sea has f = 3u/(1 + 3u) = 3/4 at u = e^(-2 beta_D phi) = 1 (S's mass^2 = 1 + 3u: 1 is S's own, uncoupled;
+  3u comes from D's sea: D's share in the stone); the held step has f = 4.
+- SD_MATTER_COUPLED_FRACTION = 0.76 is READ from the stored cells (five cells and two fine-cadence cells, x_c 1.5 and
+  2.0, r_max 16-36, both closures; whole cell and cores r < 6, 8; t = 13-30 and 30-54): the mean of the averaged series
+  is 0.756-0.771 in every case; the averaged series itself ranges over SD_MATTER_COUPLED_FRACTION_BOUNDS. Derived
+  anchor: 3/4 (1 - r) + r with D_r's share r = 0.06-0.08 (AMENDMENT-1) gives 0.765-0.770.
+- The two parts are each held at a fixed coupling. The stone's share 3u/(1 + 3u) drifts with phi (0.753 today, 0.786
+  at phi = 2.5): an approximation, recorded (Open).
+- The QUANTITY is not closed: the total today is the old imported amount, matched through the borrowed "today". Only the
+  KIND is replaced. Baryons and radiation stay imported. The production kernel still carries fully coupled dust
+  (not changed here).
+- Unpaid inputs of the Read value: the cells' lambda = 5000 and their H/m_S, one stone per cell, the cells' x_c, the
+  averaging windows (D's ring period, S's period).
 """
 import math
 
@@ -66,3 +88,14 @@ BETA_D = BETA_DM
 # GEAR-67 on-site quartic, matched TODAY (a ruler, ~1.5689e6): the sea's floor equals FLOOR_FRACTION_TODAY * V0 at
 # PHI_TODAY, so today's reconstructed budget is unchanged. C6: lambda* ~ 10-1000 (the relocated hierarchy).
 SD_QUARTIC_LAMBDA = (KAPPA / (2.0 * FLOOR_FRACTION_TODAY * V0)) * math.exp(-4.0 * BETA_D * PHI_TODAY)
+
+# The dark-matter replacement: S-D matter's coupled (D) fraction today. READ from the stored cells (form derived above);
+# the bounds are the averaged series' full range over cells, radii and windows (results at both ends in the PR).
+SD_MATTER_COUPLED_FRACTION = 0.76
+SD_MATTER_COUPLED_FRACTION_BOUNDS = (0.672, 0.853)
+
+
+def stone_coupled_share(phi):
+    """D's share of a small S ring's mass in the sea (Derived, GEAR-91 with beta_S = 0): 3u / (1 + 3u)."""
+    u = math.exp(-2.0 * BETA_D * phi)
+    return 3.0 * u / (1.0 + 3.0 * u)

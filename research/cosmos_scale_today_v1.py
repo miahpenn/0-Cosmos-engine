@@ -4,8 +4,8 @@ history within a few e-folds (scalar decaying modes grow backwards); markers far
 import sys; sys.path.insert(0, ".")
 import numpy as np, dataclasses
 from scipy.integrate import solve_ivp
-from engine.cosmos import CosmosParams, construct_present_day, cosmos_rhs, cosmos_rho_p, potential
-p = CosmosParams(); s = construct_present_day(p)
+from engine.cosmos import IMPORTED_DUST_REFERENCE_PARAMS, construct_present_day, cosmos_rhs, cosmos_rho_p, potential
+p = IMPORTED_DUST_REFERENCE_PARAMS; s = construct_present_day(p)  # imported, fully coupled dust: the labelled reference since the dark-matter replacement (Nov 16 2026)
 y0 = np.array([s.a, s.H, s.phi, s.pi_phi, s.rho_dm, s.rho_b, s.rho_r, s.rho_shear])
 def run(p, y0, T, back=False):
     f = lambda t, y: np.array(cosmos_rhs(tuple(y), p))

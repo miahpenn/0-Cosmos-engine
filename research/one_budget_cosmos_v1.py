@@ -98,7 +98,7 @@ def t1a():
     print("T1a. static D (D = D*(phi)). Unpaid: lambda, V0, phi_today, beta_D. At production V0.")
     # engine reference
     import engine.cosmos as cz
-    p = cz.CosmosParams(); st = cz.construct_present_day(p)
+    p = cz.IMPORTED_DUST_REFERENCE_PARAMS; st = cz.construct_present_day(p)  # imported, fully coupled dust: the labelled reference since the dark-matter replacement (Nov 16 2026)
     y = np.array([st.a, st.H, st.phi, st.pi_phi, st.rho_dm, st.rho_b, st.rho_r, st.rho_shear])
     ev = lambda t, yy: yy[1]  # noqa: E731
     ev.terminal = True; ev.direction = -1

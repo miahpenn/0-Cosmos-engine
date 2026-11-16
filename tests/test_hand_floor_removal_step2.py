@@ -21,7 +21,7 @@ from engine.production_kernel import V55ProductionKernel
 
 def _lane(P, T=5e4):
     s0 = cz.construct_present_day(P)
-    y0 = [s0.a, s0.H, s0.phi, s0.pi_phi, s0.rho_dm, s0.rho_b, s0.rho_r, s0.rho_shear]
+    y0 = list(cz.state_vector(s0, P))     # nine slots in production (dark-matter replacement), eight on the references
     node = cz.potential_node(P)
     ev_n = lambda t, y: y[2] - node                                    # noqa: E731
     ev_t = lambda t, y: y[1]; ev_t.direction = -1                      # noqa: E731
@@ -65,20 +65,23 @@ def test_coupled_floor_refuses_lambda_zero():
 
 # ------------------------------------------------------------------ the COSMOS lane (regression anchors)
 def test_cosmos_lane_anchor_times_coupled_and_reference():
-    """Hubble times from today (chart-dependent through phi_today): coupled 2.954 / 4.260 / 5.909;
-    the reference (hand floor) 3.753 / 5.418 / 7.588 (research/production_floor_lane_v1.py, PRs #500-#501)."""
-    _, _, new = _lane(cz.CosmosParams())
+    """Hubble times from today (chart-dependent through phi_today): coupled floor with the imported, fully coupled dust
+    2.954 / 4.260 / 5.909 (now the labelled reference IMPORTED_DUST_REFERENCE_PARAMS); the hand-floor reference
+    3.753 / 5.418 / 7.588 (research/production_floor_lane_v1.py, PRs #500-#501). Production since the dark-matter
+    replacement (S-D matter, f_D = 0.76 coupled): pinned in tests/test_sd_dark_matter_replacement.py."""
+    _, _, new = _lane(cz.IMPORTED_DUST_REFERENCE_PARAMS)
     _, _, old = _lane(cz.HAND_FLOOR_REFERENCE_PARAMS)
     np.testing.assert_allclose(new, (2.954, 4.260, 5.909), atol=1.5e-3)
     np.testing.assert_allclose(old, (3.753, 5.418, 7.588), atol=1.5e-3)
 
 
 def test_cosmos_lane_matches_the_dynamic_d_lane():
-    """research/floor_swap_lane_v1.py evolves D dynamically (scaled form); the engine carries it adiabatically."""
+    """research/floor_swap_lane_v1.py evolves D dynamically (scaled form); the engine carries it adiabatically.
+    The research lane carries the imported, fully coupled dust, so it is compared with that labelled reference."""
     from research.floor_swap_lane_v1 import LAM_TODAY, integrate, make
 
     assert LAM_TODAY == pytest.approx(mc.SD_QUARTIC_LAMBDA, rel=1e-14)
-    s0, sol, ev = _lane(cz.CosmosParams())
+    s0, sol, ev = _lane(cz.IMPORTED_DUST_REFERENCE_PARAMS)
     rhs, y0f = make(LAM_TODAY, True)
     d = integrate(rhs, y0f(), cz.potential_node(cz.CosmosParams()))
     ts = np.linspace(0, 0.95 * d.t_events[2][0], 300)
@@ -225,10 +228,16 @@ def test_lambda_zero_has_no_background_default():
 def test_kernel_background_follows_the_cosmos_lane_over_a_short_run():
     """Production kernel, background default, N 20, r_max 40, CFL 0.06, 40 steps (t = 4.8): phi, Pi, H within 1e-8
     of the new COSMOS lane; D within 1e-4 of its phi-dependent rest: it starts at rest with PD = 0 while its rest moves
-    with phi, so it rings about it (amplitude ~5e-5 here, <= 7.3e-5 to t = 200; Read). (t = 200: results note, ~1e-7.)"""
-    P = cz.CosmosParams()
+    with phi, so it rings about it (amplitude ~5e-5 here, <= 7.3e-5 to t = 200; Read). (t = 200: results note, ~1e-7.)
+    The kernel still carries the imported, fully coupled dust (the dark-matter replacement is in the COSMOS lane only),
+    so it is compared with the lane's labelled reference IMPORTED_DUST_REFERENCE_PARAMS. Its gap to the production lane
+    (S-D matter, f_D = 0.76) over this run is pinned below: it is the size of what the kernel does not yet carry."""
+    P = cz.IMPORTED_DUST_REFERENCE_PARAMS
     s0 = cz.construct_present_day(P)
-    y0 = [s0.a, s0.H, s0.phi, s0.pi_phi, s0.rho_dm, s0.rho_b, s0.rho_r, s0.rho_shear]
+    y0 = list(cz.state_vector(s0, P))
+    Pp = cz.CosmosParams()
+    Lp = solve_ivp(lambda t, y: cz.cosmos_rhs(tuple(y), Pp), (0, 6.0), list(cz.state_vector(cz.construct_present_day(Pp), Pp)),
+                   method="DOP853", rtol=1e-13, atol=1e-22, dense_output=True)
     L = solve_ivp(lambda t, y: cz.cosmos_rhs(tuple(y), P), (0, 6.0), y0, method="DOP853", rtol=1e-13, atol=1e-22,
                   dense_output=True)
     k = V55ProductionKernel()
@@ -242,6 +251,11 @@ def test_kernel_background_follows_the_cosmos_lane_over_a_short_run():
     assert np.max(np.abs(st.scalars.phi[m] / y[2] - 1)) < 1e-8
     assert np.max(np.abs(st.scalars.Pi[m] / y[3] - 1)) < 1e-7
     assert abs(-float(np.mean(st.geometry.K[m])) / 3.0 / y[1] - 1) < 1e-7
+    # the kernel against the production lane: Pi differs by ~3e-4 here (phi's pull from the dark matter is 0.76 of the
+    # kernel's), phi by ~1.4e-5: the kernel cannot pass the 1e-7 checks above against production's lane.
+    yp = Lp.sol(st.t)
+    gap_pi = abs(float(np.mean(st.scalars.Pi[m])) / yp[3] - 1)
+    assert 1e-4 < gap_pi < 1e-3
     np.testing.assert_allclose(st.scalars.D[m], ss.sd_rest_value(st.scalars.phi[m]), rtol=1e-4)
     assert np.ptp(st.scalars.D[m]) < 1e-12 * st.scalars.D[0]
 

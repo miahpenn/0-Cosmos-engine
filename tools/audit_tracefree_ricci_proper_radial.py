@@ -198,11 +198,14 @@ AUTHORIZED_OFF_AUDIT_REPAIR_HEAD_BLOBS = {
     "engine/bidirectional_production.py": "21e55a57f2029713225cce9b590db57817d4e4f1",
     "engine/worldtube.py": "c263a786b2057f4a427243899ae507e8a0c0c8c5",
     # Hand-floor removal step 2 (Nov 16 2026): the provenance local lane runs on the reference path.
-    "engine/run_controls.py": "e1237ba6462234ef2b196e474f9945a19767b956",
+    "engine/run_controls.py": "c553a80d027d923434356ca37bdfe239c5c672ff",
     # Shared model constants (gap #2): the one copy, and the COSMOS lane's defaults read from it.
     # Re-authorized for the hand-floor removal step 2 (Nov 16 2026): lambda, beta_D and the coupled floor.
-    "engine/model_constants.py": "ae93e694193586ea6d2532c49f0f320b1a902e76",
-    "engine/cosmos.py": "0475446f4cb020bb3c0f30b9bc74e3b711b55fc2",
+    # Re-authorized for the dark-matter replacement (Nov 16 2026): S-D matter in two parts in the COSMOS lane (f_D Read),
+    # nine-slot state; run_controls.py's control state follows. Before: run_controls.py e1237ba6, model_constants.py
+    # ae93e694, cosmos.py 0475446f.
+    "engine/model_constants.py": "65abb1028f51678c04dcb0309828418664614196",
+    "engine/cosmos.py": "7f7ca759e5678c1f9a4b184cd3426560f3f2bc4e",
     # Zero-flux (lattice-wall) closure (Nov 16 2026): new module. Unlike the files above it IS imported by this audit
     # (through engine/production_kernel.py), but not exercised: the audit runs on the reference path, open edge.
     # Re-authorized for the pocket fixtures on the wall (Nov 16 2026): EXPANDING_STRUCTURES, POCKET_FIXTURE_WALL_LABEL

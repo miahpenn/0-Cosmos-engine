@@ -22,7 +22,7 @@ import engine.matter_rhs as matter_rhs
 import engine.matter_system as msys
 from engine import v55_pirk_adapter as adapter
 from engine.cmc_gauge import solve_cmc_lapse
-from engine.cosmos import CosmosParams, construct_present_day, cosmos_rhs
+from engine.cosmos import IMPORTED_DUST_REFERENCE_PARAMS, construct_present_day, cosmos_rhs, state_vector
 from engine.matter_system import ConservedSpecies, Species
 from engine.native_geometry import native_cmc_explicit_metric_rhs
 from engine.production_kernel import V55ProductionKernel
@@ -143,9 +143,11 @@ def test_wall_face_carries_no_rest_mass_or_energy():
 
 
 def _lane():
-    P = CosmosParams()
+    # The kernel still carries the imported, fully coupled dust (the dark-matter replacement of Nov 16 2026 is in the
+    # COSMOS lane only), so its background is compared with the lane's labelled reference for that physics.
+    P = IMPORTED_DUST_REFERENCE_PARAMS
     s0 = construct_present_day(P)
-    y0 = [s0.a, s0.H, s0.phi, s0.pi_phi, s0.rho_dm, s0.rho_b, s0.rho_r, s0.rho_shear]
+    y0 = list(state_vector(s0, P))
     return solve_ivp(lambda t, y: list(cosmos_rhs(tuple(y), P)), (0, 50), y0, method="DOP853", rtol=1e-11,
                      atol=1e-18, dense_output=True)
 

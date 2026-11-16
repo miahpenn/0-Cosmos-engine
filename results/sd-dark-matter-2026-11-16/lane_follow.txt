@@ -1,0 +1,24 @@
+
+=== u_x20_cold.npz: x_c 2, r_max 24; handed over at t_h = 13 (period-averaged)
+   engine lane vs research lane (same Friedmann form): max |d rho_SD|/rho_SD 2.2e-11, max |dH|/|H(t0)| 1.9e-11
+     t      engine lane: d rho_SD/rho_SD (cell period-avg)   dH/|H(t0)|     | research Raychaudhuri lane (contract): d rho_SD   dH
+    24.0    +6.46e-03                              +5.54e-04      | +6.52e-03   +4.93e-04
+    30.0    +1.17e-02                              +5.69e-04      | +1.18e-02   +4.78e-04
+    40.0    +1.46e-02                              +6.81e-04      | +1.50e-02   +5.26e-04
+    54.0    +1.13e-02                              +1.20e-03      | +1.22e-02   +8.53e-04
+
+=== u36_x20_cold.npz: x_c 2, r_max 36; handed over at t_h = 13 (period-averaged)
+   engine lane vs research lane (same Friedmann form): max |d rho_SD|/rho_SD 2.4e-11, max |dH|/|H(t0)| 2.0e-11
+     t      engine lane: d rho_SD/rho_SD (cell period-avg)   dH/|H(t0)|     | research Raychaudhuri lane (contract): d rho_SD   dH
+    24.0    +5.94e-03                              +5.68e-04      | +6.06e-03   +4.51e-04
+    30.0    +1.10e-02                              +5.91e-04      | +1.13e-02   +4.16e-04
+    40.0    +1.37e-02                              +7.27e-04      | +1.43e-02   +4.29e-04
+    54.0    +1.01e-02                              +1.32e-03      | +1.18e-02   +6.52e-04
+
+=== u_x15_cold.npz: x_c 1.5, r_max 24; handed over at t_h = 10.5 (period-averaged)
+   engine lane vs research lane (same Friedmann form): max |d rho_SD|/rho_SD 3.1e-11, max |dH|/|H(t0)| 2.2e-11
+     t      engine lane: d rho_SD/rho_SD (cell period-avg)   dH/|H(t0)|     | research Raychaudhuri lane (contract): d rho_SD   dH
+    24.0    +9.48e-03                              +5.72e-04      | +9.60e-03   +4.77e-04
+    30.0    +1.02e-02                              +5.91e-04      | +1.05e-02   +4.56e-04
+    40.0    +1.27e-02                              +7.03e-04      | +1.33e-02   +4.81e-04
+    54.0    +1.16e-02                              +1.22e-03      | +1.30e-02   +7.31e-04

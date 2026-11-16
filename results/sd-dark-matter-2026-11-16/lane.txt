@@ -1,0 +1,38 @@
+1. Predicted difference: S-D matter in two parts vs fully coupled imported dust (Hubble times from today;
+   chart-dependent through phi_today). Rulers: DOP853 rtol 1e-11 | DOP853 rtol 1e-9 | Radau rtol 1e-9
+   reference: imported dust, all coupled (8 slots)  node 2.95430 | 2.95430 | 2.95430   turnaround 4.26042 | 4.26042 | 4.26042   crunch 5.90873 | 5.90873 | 5.90873
+                                                    w_DE today -0.824244  dw/dln a today +0.294679  phi at turnaround 2.7850   difference from reference: node +0.00000, turnaround +0.00000, crunch +0.00000, dw/dln a +0.00e+00
+   S-D matter, f_D = 1 (9 slots)                    node 2.95430 | 2.95430 | 2.95430   turnaround 4.26042 | 4.26042 | 4.26042   crunch 5.90873 | 5.90873 | 5.90873
+                                                    w_DE today -0.824244  dw/dln a today +0.294679  phi at turnaround 2.7850   difference from reference: node +0.00000, turnaround -0.00000, crunch +0.00000, dw/dln a -6.54e-14
+   S-D matter, f_D = 0.853 (9 slots)                node 2.95282 | 2.95282 | 2.95282   turnaround 4.25875 | 4.25875 | 4.25875   crunch 5.90692 | 5.90692 | 5.90692
+                                                    w_DE today -0.824244  dw/dln a today +0.297194  phi at turnaround 2.7850   difference from reference: node -0.00148, turnaround -0.00167, crunch -0.00181, dw/dln a +2.51e-03
+   S-D matter, f_D = 0.76 (9 slots)                 node 2.95189 | 2.95189 | 2.95189   turnaround 4.25769 | 4.25769 | 4.25769   crunch 5.90577 | 5.90577 | 5.90577
+                                                    w_DE today -0.824244  dw/dln a today +0.298785  phi at turnaround 2.7850   difference from reference: node -0.00241, turnaround -0.00273, crunch -0.00295, dw/dln a +4.11e-03
+   S-D matter, f_D = 0.672 (9 slots)                node 2.95100 | 2.95100 | 2.95100   turnaround 4.25668 | 4.25668 | 4.25668   crunch 5.90469 | 5.90469 | 5.90469
+                                                    w_DE today -0.824244  dw/dln a today +0.300290  phi at turnaround 2.7850   difference from reference: node -0.00330, turnaround -0.00373, crunch -0.00404, dw/dln a +5.61e-03
+   S-D matter, f_D = 0 (9 slots)                    node 2.94423 | 2.94423 | 2.94423   turnaround 4.24900 | 4.24900 | 4.24900   crunch 5.89637 | 5.89637 | 5.89637
+                                                    w_DE today -0.824244  dw/dln a today +0.311787  phi at turnaround 2.7850   difference from reference: node -0.01007, turnaround -0.01142, crunch -0.01235, dw/dln a +1.71e-02
+
+2. Check 1: the coupling switched to all of it
+   f_D = 1 on the nine-slot path vs the reference: node +3.29e-14, turnaround -3.15e-12, crunch +3.36e-13 Hubble times
+   old path bit-identical to main before this PR: 4000 random states (RHS and rho, p) equal bit for bit; today's state equal; integration to t = 2000 equal: True
+
+3. POKE-2 (chat's homogeneous toy): all the dark matter as one homogeneous S ring; x today; where the contraction reaches x = 4/3; |H|/m_S there (m_S = 2)
+   lambda          lane           ruler     x today      a/a_today at x = 4/3     |H|/m_S there
+   1.57e6 (production ruler)  f_D = 0.76   number   8.0705e-01   0.84590                  2.992e-01  
+   1.57e6 (production ruler)  f_D = 0.76   energy   nan   nan                  nan  today already past the band edge
+   1.57e6 (production ruler)  reference    number   8.0705e-01   0.84590                  3.004e-01  
+   1.57e6 (production ruler)  reference    energy   nan   nan                  nan  today already past the band edge
+   1000 (C6 lambda*)          f_D = 0.76   number   5.1441e-04   0.07280                  4.694e+02  
+   1000 (C6 lambda*)          f_D = 0.76   energy   5.1450e-04   0.10323                  1.646e+02  
+   1000 (C6 lambda*)          reference    number   5.1441e-04   0.07280                  4.712e+02  
+   1000 (C6 lambda*)          reference    energy   5.1450e-04   0.10671                  1.496e+02  
+   100 (C6)                   f_D = 0.76   number   5.1441e-05   0.03379                  4.694e+03  
+   100 (C6)                   f_D = 0.76   energy   5.1442e-05   0.04891                  1.547e+03  
+   100 (C6)                   reference    number   5.1441e-05   0.03379                  4.712e+03  
+   100 (C6)                   reference    energy   5.1442e-05   0.05075                  1.391e+03  
+   10 (C6)                    f_D = 0.76   number   5.1441e-06   0.01568                  4.694e+04  
+   10 (C6)                    f_D = 0.76   energy   5.1441e-06   0.02318                  1.453e+04  
+   10 (C6)                    reference    number   5.1441e-06   0.01568                  4.712e+04  
+   10 (C6)                    reference    energy   5.1441e-06   0.02413                  1.293e+04  
+   (lambda enters x linearly: x = lambda rho / (2 KAPPA) for a small ring; production's lambda is a ruler matched today, C6's lambda* ~ 10-1000; the lane itself is the same in every row)

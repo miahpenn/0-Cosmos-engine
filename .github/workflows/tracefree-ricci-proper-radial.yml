@@ -160,6 +160,8 @@ jobs:
           # fails closed. local.py: provenance-only (row-5 decision), after #441 and #457. true_cmc_reference.py:
           # even-ghost CMC centre row (#442). coupled_engine.py / bidirectional_production.py:
           # thin drivers over V55ProductionKernel; worldtube.py: Misner-Sharp shift-flux helper; run_controls.py: provenance label
+          # (re-authorized with cosmos.py and model_constants.py for the dark-matter replacement, Nov 16 2026: S-D matter
+          # in two parts in the COSMOS lane, nine-slot state)
           # (this audit imports none of them, except lattice_wall.py: the zero-flux wall, imported through
           # production_kernel.py but not exercised, since the audit runs on the reference path with the open edge).
           declare -A authorized_off_audit_heads=(
@@ -168,9 +170,9 @@ jobs:
             ["engine/coupled_engine.py"]="4fd5def0a84db375a06c09170a0618c070fdd122"
             ["engine/bidirectional_production.py"]="21e55a57f2029713225cce9b590db57817d4e4f1"
             ["engine/worldtube.py"]="c263a786b2057f4a427243899ae507e8a0c0c8c5"
-            ["engine/run_controls.py"]="e1237ba6462234ef2b196e474f9945a19767b956"
-            ["engine/model_constants.py"]="ae93e694193586ea6d2532c49f0f320b1a902e76"
-            ["engine/cosmos.py"]="0475446f4cb020bb3c0f30b9bc74e3b711b55fc2"
+            ["engine/run_controls.py"]="c553a80d027d923434356ca37bdfe239c5c672ff"
+            ["engine/model_constants.py"]="65abb1028f51678c04dcb0309828418664614196"
+            ["engine/cosmos.py"]="7f7ca759e5678c1f9a4b184cd3426560f3f2bc4e"
             ["engine/lattice_wall.py"]="a3becc6332d384eab3af662ba82d01512e6213e7"
           )
           for path in "${!authorized_off_audit_heads[@]}"; do

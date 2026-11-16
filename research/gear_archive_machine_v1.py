@@ -19,6 +19,7 @@ from engine.cosmos import (
     cosmos_rhs,
     cosmos_rho_p,
     normalized_budgets,
+    state_vector,
 )
 from engine.local import LocalParams, local_rhs
 
@@ -206,22 +207,17 @@ def _local_cycle_phase(trace: LaneTrace, p: LocalParams) -> tuple[float, ...]:
     return tuple(out)
 
 
-def _cosmos_state_tuple(state: CosmosState) -> tuple[float, ...]:
-    return (
-        state.a,
-        state.H,
-        state.phi,
-        state.pi_phi,
-        state.rho_dm,
-        state.rho_b,
-        state.rho_r,
-        state.rho_shear,
-    )
+def _cosmos_state_tuple(state: CosmosState, cp: CosmosParams) -> tuple[float, ...]:
+    # Nine slots when the lane carries S-D matter in two parts (dark-matter replacement, Nov 16 2026), eight on the
+    # f_D = 1 references (engine.cosmos.state_vector).
+    return tuple(state_vector(state, cp))
+
+
+_COSMOS_KEYS = ("a", "H", "phi", "pi_phi", "rho_dm", "rho_b", "rho_r", "rho_shear", "rho_sd_S")
 
 
 def _cosmos_state_dict(y: Sequence[float]) -> dict[str, float]:
-    keys = ("a", "H", "phi", "pi_phi", "rho_dm", "rho_b", "rho_r", "rho_shear")
-    return dict(zip(keys, (float(v) for v in y), strict=True))
+    return dict(zip(_COSMOS_KEYS[:len(y)], (float(v) for v in y), strict=True))
 
 
 def run_machine(
@@ -278,7 +274,7 @@ def run_machine(
     )
 
     cosmic0_obj = construct_present_day(cp)
-    cosmic0 = _cosmos_state_tuple(cosmic0_obj)
+    cosmic0 = _cosmos_state_tuple(cosmic0_obj, cp)
     cosmic0 = (cosmic0[0], cosmic_branch * abs(cosmic0[1]), *cosmic0[2:])
     cosmos_trace = _integrate_lane(
         cosmic0,
