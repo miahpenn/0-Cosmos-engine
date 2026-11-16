@@ -518,8 +518,11 @@ def main() -> int:
     # Hand-floor removal step 2 (Nov 16 2026): this witness was built on the old S-pocket initial data and the
     # pre-step-2 scalar sector; it runs on the labelled reference path (production's background-only start is exactly
     # flat, where the centre Ricci witness is vacuous). Entered for the rest of main().
+    _reference_path = None
     if hasattr(_scalar_system, "hand_floor_reference"):
-        _scalar_system.hand_floor_reference().__enter__()
+        _reference_path = _scalar_system.hand_floor_reference()   # kept referenced: entered until main() returns
+        _reference_path.__enter__()
+        assert _scalar_system.DEFAULT_INITIAL_STRUCTURE == "hand_floor_reference"
 
     reports = []
     profiles: dict[str, np.ndarray] = {}
