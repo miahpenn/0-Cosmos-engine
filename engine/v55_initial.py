@@ -39,6 +39,13 @@ flat space (the cold start of PR #470), from its adiabatic rest
 D^2 = (2/lambda)(e^(-2 beta_D phi) - (3/4) lambda S(r)^2) clipped at 0, plus the
 D_amplitude seed. S is placed at a turning point (PS = 0), not settled: a
 fixture, not a settled stone.
+
+The slice built here is the AREAL slice (the open edge's data). Since the
+pocket-fixtures step (Nov 16 2026) the production kernel runs both fixtures on
+the lattice wall by default, where their geometry is rebuilt on the conformally
+flat cell slice from the same S and D profiles (LABELLED: the fixtures' data
+changed; engine/lattice_wall.py, POCKET_FIXTURE_WALL_LABEL). The areal slice
+stays the fixtures' open-edge reference (outer_edge="open_edge").
 """
 from dataclasses import dataclass
 import math

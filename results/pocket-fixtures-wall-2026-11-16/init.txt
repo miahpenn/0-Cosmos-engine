@@ -1,0 +1,5 @@
+initial constraint residuals, default edge, r_max 24 (proper-volume L2 / max |H|; L2 M; M last cell; (3/R)|Aa_w|)
+rescaled  N   60 grid LatticeWallGrid: H L2 9.791e-09 max 1.555e-07; M L2 3.634e-18; M(last) -1.57e-17; (3/R)|Aa_w| 0.0e+00; K -1.706036e-02 (ptp 0.0e+00); X(wall) 1.000201; alpha(0) 1.000393
+rescaled  N  120 grid LatticeWallGrid: H L2 2.454e-09 max 3.928e-08; M L2 4.641e-18; M(last) -2.85e-17; (3/R)|Aa_w| 0.0e+00; K -1.706036e-02 (ptp 0.0e+00); X(wall) 1.000201; alpha(0) 1.000393  ratio L2 3.99  max 3.96
+inherited N   60 grid LatticeWallGrid: H L2 1.698e-05 max 7.265e-04; M L2 6.110e-18; M(last) -2.68e-17; (3/R)|Aa_w| 0.0e+00; K -3.284745e-02 (ptp 0.0e+00); X(wall) 1.129612; alpha(0) 1.301109
+inherited N  120 grid LatticeWallGrid: H L2 4.253e-06 max 1.834e-04; M L2 1.073e-17; M(last) -6.32e-17; (3/R)|Aa_w| 0.0e+00; K -3.284429e-02 (ptp 0.0e+00); X(wall) 1.129462; alpha(0) 1.301405  ratio L2 3.99  max 3.96

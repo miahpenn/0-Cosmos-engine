@@ -124,6 +124,16 @@ AUTHORIZED_LATTICE_WALL_HEAD_BLOBS = {
     "engine/production_kernel.py": "2d9a085667b2ef4adc96e32b6d57dbd610ee0eef",
 }
 
+# Exact-blob authorization for the pocket fixtures on the lattice wall by default (Nov 16 2026, for Jeremiah's review;
+# "Pocket fixtures on the wall: yes, as a separate later step. Their pinned data changes, so it should be its own labelled
+# change"): the default-edge choice in production_kernel.py now gives the wall to the two labelled pocket fixtures as well
+# as to the background start; v55_initial.py carries the label in its docstring only. The fixtures' open edge (by name) and
+# the hand-floor reference are bit-identical; this audit runs on the reference path, which keeps the open edge.
+AUTHORIZED_POCKET_FIXTURES_WALL_HEAD_BLOBS = {
+    "engine/production_kernel.py": "a481da7eef965c92d576cf45e8627ab3f44fe74b",
+    "engine/v55_initial.py": "5640b4856ac63beb119ddf065af79ee02b1db689",
+}
+
 
 def _authorized_head_blobs(path: str) -> set[str]:
     return {
@@ -137,6 +147,7 @@ def _authorized_head_blobs(path: str) -> set[str]:
             AUTHORIZED_SHARED_CONSTANTS_HEAD_BLOBS.get(path),
             AUTHORIZED_HAND_FLOOR_STEP2_HEAD_BLOBS.get(path),
             AUTHORIZED_LATTICE_WALL_HEAD_BLOBS.get(path),
+            AUTHORIZED_POCKET_FIXTURES_WALL_HEAD_BLOBS.get(path),
         ) if blob is not None
     }
 AUTHORIZED_RUNTIME_PATHS = (
@@ -149,6 +160,7 @@ AUTHORIZED_RUNTIME_PATHS = (
     | frozenset(AUTHORIZED_SHARED_CONSTANTS_HEAD_BLOBS)
     | frozenset(AUTHORIZED_HAND_FLOOR_STEP2_HEAD_BLOBS)
     | frozenset(AUTHORIZED_LATTICE_WALL_HEAD_BLOBS)
+    | frozenset(AUTHORIZED_POCKET_FIXTURES_WALL_HEAD_BLOBS)
 )
 
 RESOLUTIONS = (40, 60, 80, 120, 160)
@@ -193,7 +205,9 @@ AUTHORIZED_OFF_AUDIT_REPAIR_HEAD_BLOBS = {
     "engine/cosmos.py": "0475446f4cb020bb3c0f30b9bc74e3b711b55fc2",
     # Zero-flux (lattice-wall) closure (Nov 16 2026): new module. Unlike the files above it IS imported by this audit
     # (through engine/production_kernel.py), but not exercised: the audit runs on the reference path, open edge.
-    "engine/lattice_wall.py": "b1ecca8e34ec7251e2dcd685a7365d1f6399206a",
+    # Re-authorized for the pocket fixtures on the wall (Nov 16 2026): EXPANDING_STRUCTURES, POCKET_FIXTURE_WALL_LABEL
+    # and docstrings; the wall's evolution unchanged.
+    "engine/lattice_wall.py": "466ae7205be70b1346e558012e95bc680b6913de",
 }
 
 

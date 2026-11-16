@@ -115,6 +115,10 @@ jobs:
           declare -A authorized_lattice_wall_heads=(
             ["engine/production_kernel.py"]="2d9a085667b2ef4adc96e32b6d57dbd610ee0eef"
           )
+          declare -A authorized_pocket_fixtures_wall_heads=(
+            ["engine/production_kernel.py"]="a481da7eef965c92d576cf45e8627ab3f44fe74b"
+            ["engine/v55_initial.py"]="5640b4856ac63beb119ddf065af79ee02b1db689"
+          )
           declare -A authorized_ledger_shift_heads=(
             ["engine/production_kernel.py"]="216ba0a4fbfe2590bf704cae3ddc801dc8655ae0"
             ["engine/worldtube.py"]="c263a786b2057f4a427243899ae507e8a0c0c8c5"
@@ -139,7 +143,8 @@ jobs:
             shared_constants_authorized="${authorized_shared_constants_heads[$path]:-}"
             hand_floor_step2_authorized="${authorized_hand_floor_step2_heads[$path]:-}"
             lattice_wall_authorized="${authorized_lattice_wall_heads[$path]:-}"
-            if [ "$head_blob" != "$lattice_wall_authorized" ] && [ "$head_blob" != "$hand_floor_step2_authorized" ] && [ "$head_blob" != "$shared_constants_authorized" ] && [ "$head_blob" != "$sd_quartic_authorized" ] && [ "$head_blob" != "$expected" ] && [ "$head_blob" != "$authorized" ] && [ "$head_blob" != "$lane_b_authorized" ] && [ "$head_blob" != "$cmc_centre_row_authorized" ] && [ "$head_blob" != "$initializer_origin_authorized" ] && [ "$head_blob" != "$ledger_shift_authorized" ]; then
+            pocket_fixtures_wall_authorized="${authorized_pocket_fixtures_wall_heads[$path]:-}"
+            if [ "$head_blob" != "$pocket_fixtures_wall_authorized" ] && [ "$head_blob" != "$lattice_wall_authorized" ] && [ "$head_blob" != "$hand_floor_step2_authorized" ] && [ "$head_blob" != "$shared_constants_authorized" ] && [ "$head_blob" != "$sd_quartic_authorized" ] && [ "$head_blob" != "$expected" ] && [ "$head_blob" != "$authorized" ] && [ "$head_blob" != "$lane_b_authorized" ] && [ "$head_blob" != "$cmc_centre_row_authorized" ] && [ "$head_blob" != "$initializer_origin_authorized" ] && [ "$head_blob" != "$ledger_shift_authorized" ]; then
               printf 'Unapproved head blob for protected runtime path %s: %s\n' "$path" "$head_blob"
               exit 1
             fi
@@ -166,7 +171,7 @@ jobs:
             ["engine/run_controls.py"]="e1237ba6462234ef2b196e474f9945a19767b956"
             ["engine/model_constants.py"]="ae93e694193586ea6d2532c49f0f320b1a902e76"
             ["engine/cosmos.py"]="0475446f4cb020bb3c0f30b9bc74e3b711b55fc2"
-            ["engine/lattice_wall.py"]="b1ecca8e34ec7251e2dcd685a7365d1f6399206a"
+            ["engine/lattice_wall.py"]="466ae7205be70b1346e558012e95bc680b6913de"
           )
           for path in "${!authorized_off_audit_heads[@]}"; do
             if [ -n "$unexpected" ] && [ "$(git rev-parse "HEAD:$path" 2>/dev/null)" = "${authorized_off_audit_heads[$path]}" ]; then

@@ -575,7 +575,35 @@ def test_lattice_wall_authorization_is_exact_blob():
         historical = SOURCE_BLOBS[path]
         assert _source_blob_matches(path, historical, historical, authorized_head)
         assert not _source_blob_matches(path, historical, historical, "f" * 40)
-    path, blob = "engine/lattice_wall.py", "b1ecca8e34ec7251e2dcd685a7365d1f6399206a"
+    # lattice_wall.py re-authorized for the pocket fixtures on the wall (Nov 16 2026): see the test below.
+    path, blob = "engine/lattice_wall.py", "466ae7205be70b1346e558012e95bc680b6913de"
+    assert AUTHORIZED_OFF_AUDIT_REPAIR_HEAD_BLOBS[path] == blob
+    assert _drop_authorized_off_audit_paths([path], lambda p: blob) == []
+    assert _drop_authorized_off_audit_paths([path], lambda p: "0" * 40) == [path]
+
+
+def test_pocket_fixtures_wall_authorization_is_exact_blob():
+    """Pocket fixtures on the lattice wall by default (Nov 16 2026): production_kernel.py and v55_initial.py re-authorised;
+    engine/lattice_wall.py re-authorised off-audit."""
+    from tools.audit_tracefree_ricci_proper_radial import (
+        AUTHORIZED_OFF_AUDIT_REPAIR_HEAD_BLOBS,
+        AUTHORIZED_POCKET_FIXTURES_WALL_HEAD_BLOBS,
+        AUTHORIZED_RUNTIME_PATHS,
+        SOURCE_BLOBS,
+        _drop_authorized_off_audit_paths,
+        _source_blob_matches,
+    )
+
+    assert AUTHORIZED_POCKET_FIXTURES_WALL_HEAD_BLOBS == {
+        "engine/production_kernel.py": "a481da7eef965c92d576cf45e8627ab3f44fe74b",
+        "engine/v55_initial.py": "5640b4856ac63beb119ddf065af79ee02b1db689",
+    }
+    for path, authorized_head in AUTHORIZED_POCKET_FIXTURES_WALL_HEAD_BLOBS.items():
+        assert path in AUTHORIZED_RUNTIME_PATHS
+        historical = SOURCE_BLOBS[path]
+        assert _source_blob_matches(path, historical, historical, authorized_head)
+        assert not _source_blob_matches(path, historical, historical, "f" * 40)
+    path, blob = "engine/lattice_wall.py", "466ae7205be70b1346e558012e95bc680b6913de"
     assert AUTHORIZED_OFF_AUDIT_REPAIR_HEAD_BLOBS[path] == blob
     assert _drop_authorized_off_audit_paths([path], lambda p: blob) == []
     assert _drop_authorized_off_audit_paths([path], lambda p: "0" * 40) == [path]

@@ -197,7 +197,11 @@ def test_pocket_fixtures_are_labelled_and_converge():
         errs = []
         for n in (40, 80):
             k = V55ProductionKernel()
-            st = k.initialize(resolution=n, r_max=40.0, initial_structure=struct, **kw)
+            # Pinned to the open edge (pocket-fixtures step, Nov 16 2026): this checks the AREAL slice built by
+            # engine/v55_initial.py, whose reconstruction converges at fourth order (ratio >= 8 for N 40 -> 80). On
+            # the wall (the fixtures' default now) the data are the conformally flat slice, second order; its own
+            # convergence check is tests/test_pocket_fixtures_on_wall.py.
+            st = k.initialize(resolution=n, r_max=40.0, initial_structure=struct, outer_edge="open_edge", **kw)
             r = np.asarray(st.grid.centers)
             A = float(st.scalars.S[0] / math.exp(-(r[0] / 7.0) ** 2))
             assert ss.SD_QUARTIC_LAMBDA * A * A == pytest.approx(x0, rel=1e-12)

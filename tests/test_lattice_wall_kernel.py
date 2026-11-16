@@ -65,8 +65,17 @@ def test_which_runs_get_which_edge():
     assert lw.WALL_LABEL == "identical neighbours, in step: one-stone simplification"
     op = k.initialize(resolution=20, r_max=40.0, outer_edge="open_edge")
     assert type(op.grid) is grid_ops.SphericalCellGrid                  # the open edge's grid, untouched
-    fx = k.initialize(resolution=20, r_max=24.0, initial_structure="rescaled_pocket", pocket_x=2.0)
-    assert type(fx.grid) is grid_ops.SphericalCellGrid                  # fixtures keep the open edge by default
+    # Pocket-fixtures step (Nov 16 2026): the two labelled pocket fixtures are expanding starts and get the wall by
+    # default (conformally flat slice, labelled); their open-edge reference is asked for by name.
+    for struct, kw in (("rescaled_pocket", dict(pocket_x=2.0)), ("inherited_pocket", {})):
+        fx = k.initialize(resolution=20, r_max=24.0, initial_structure=struct, **kw)
+        assert lw.is_lattice_wall(fx.grid) and fx.grid.clock == "i"
+        fo = k.initialize(resolution=20, r_max=24.0, initial_structure=struct, outer_edge="open_edge", **kw)
+        assert type(fo.grid) is grid_ops.SphericalCellGrid
+        with lw.open_edge_reference():
+            assert type(k.initialize(resolution=20, r_max=24.0, initial_structure=struct, **kw).grid) \
+                is grid_ops.SphericalCellGrid
+    assert lw.EXPANDING_STRUCTURES == ("none", "rescaled_pocket", "inherited_pocket")
     with hand_floor_reference():
         ref = k.initialize(resolution=20, r_max=40.0)
     assert type(ref.grid) is grid_ops.SphericalCellGrid                 # the reference path keeps the open edge

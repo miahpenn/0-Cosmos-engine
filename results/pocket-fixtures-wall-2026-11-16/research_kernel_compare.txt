@@ -1,0 +1,2 @@
+rescaled pocket, default edge (grid LatticeWallGrid), N 60, r_max 24.0, 100 steps, CFL 0.06: engine vs research LatticeCellKernel('i') bit-identical True; max relative difference 0.0e+00; tau 2.3997568922112578 vs 2.3997568922112578
+inherited pocket, default edge (grid LatticeWallGrid), N 60, r_max 24.0, 100 steps, CFL 0.06: engine vs research LatticeCellKernel('i') bit-identical True; max relative difference 0.0e+00; tau 1.926090062423494 vs 1.926090062423494

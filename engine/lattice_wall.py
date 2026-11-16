@@ -41,6 +41,16 @@ Initial data. Production's background start is exactly flat (psi = 1) and needs 
 labelled pocket fixtures) needs a conformally flat slice so every metric function can obey W1 at the wall:
 ``conformal_wall_slice`` (K^2 = 24 pi <rho psi^5>/<psi^5> is fixed by the cell average, not chosen).
 
+Which starts get the wall by default (``EXPANDING_STRUCTURES``): production's start (today, background alone) since
+PR #505, and the two labelled pocket fixtures since the pocket-fixtures step (Nov 16 2026; Jeremiah: "Pocket fixtures
+on the wall: yes, as a separate later step. Their pinned data changes, so it should be its own labelled change").
+LABELLED (``POCKET_FIXTURE_WALL_LABEL``): on the wall a fixture's DATA differ from its open-edge data: the conformally
+flat cell slice instead of the areal slice of engine/v55_initial.py (same S and D profiles in the coordinate r, so
+the radius r means a different thing on the two slices); why: the one-stone scope for expanding runs; and the wall
+reflects outgoing waves (the fixture's S-D ringing stays in the cell). The fixtures' open-edge versions remain
+the labelled reference, by name (outer_edge="open_edge"), bit-identical to before. The hand-floor reference and the
+radial-Maxwell experiment keep the open edge by default.
+
 FORCED / imposed: the spherical cell stands in for a space-filling one (Lindquist-Wheeler); all neighbours identical
 and in step; zero shift. Unpaid: the one-stone simplification itself; clock "i" (the wall shell's proper time).
 """
@@ -77,7 +87,15 @@ WALL_CLOCKS = ("i", "ii")
 DEFAULT_WALL_CLOCK = "i"
 
 
-# The edge production's default start (today, background alone: an expanding run) gets when none is asked for.
+# The starts that get the expanding default edge when none is asked for: production's start (today, background alone)
+# and the two labelled pocket fixtures (pocket-fixtures step, Nov 16 2026). The hand-floor reference is not among them.
+EXPANDING_STRUCTURES = ("none", "rescaled_pocket", "inherited_pocket")
+POCKET_FIXTURE_WALL_LABEL = (
+    "pocket fixture on the lattice wall: data changed from the areal slice to the conformally flat cell slice "
+    "(one-stone scope for expanding runs); the wall reflects outgoing waves; open-edge reference by name"
+)
+
+# The edge those expanding starts get when none is asked for.
 _EXPANDING_DEFAULT = {"edge": LATTICE_WALL}
 
 
@@ -87,9 +105,10 @@ def expanding_default_edge() -> str:
 
 @contextlib.contextmanager
 def open_edge_reference():
-    """LABELLED REFERENCE: inside this block production's default start gets the open edge, as it did before the
-    wall was added (bit-identical to that code). For contracts written against the open edge's implementation seams
-    (tests/conftest.py::OPEN_EDGE_REFERENCE_MODULES); not for expanding production runs."""
+    """LABELLED REFERENCE: inside this block the expanding starts (``EXPANDING_STRUCTURES``: production's default start
+    and the pocket fixtures) get the open edge, as they did before the wall was added (bit-identical to that code).
+    For contracts written against the open edge's implementation seams (tests/conftest.py::OPEN_EDGE_REFERENCE_MODULES);
+    not for expanding production runs."""
     saved = _EXPANDING_DEFAULT["edge"]
     _EXPANDING_DEFAULT["edge"] = OPEN_EDGE
     try:
