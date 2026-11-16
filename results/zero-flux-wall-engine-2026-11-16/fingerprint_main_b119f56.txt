@@ -1,0 +1,3 @@
+R  hand-floor reference, 25 steps N 60     sha256 dc76477bee5283efa9e25129c72aacd412b7fb99b7001bace050f3e8cc3f6578
+B  background start, open edge, 25 steps   sha256 ed7409d660923349fe15806753437e73a971dea93d03568a4e308a5506ccaebd
+P  rescaled pocket x=2, open edge, 25 steps sha256 548b148d0f1f19dab0a84865c517a51a735e5bdb91d9108c43c909cc7937f708

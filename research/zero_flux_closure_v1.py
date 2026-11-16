@@ -29,7 +29,8 @@ def lane():
 
 
 def run(kind, N, R, T, eps=0.0, closure="i", cfl=0.06):
-    st = V55ProductionKernel().initialize(resolution=N, r_max=R)
+    # The open edge by name: since the engine wall PR the default start gets the engine's own wall.
+    st = V55ProductionKernel().initialize(resolution=N, r_max=R, outer_edge="open_edge")
     k = V55ProductionKernel() if kind == "open" else LatticeCellKernel(closure)
     if kind != "open":
         st = as_cell(st)

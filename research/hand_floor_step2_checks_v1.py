@@ -137,7 +137,10 @@ def kernel(N, T, ref=False):
                   dense_output=True)
     with ctx:
         k = V55ProductionKernel()
-        st = k.initialize(resolution=N, r_max=40.0, include_radiation=True)
+        # The recorded results (results/hand-floor-step2-2026-11-16/) were taken on the open edge, the only edge then;
+        # since the zero-flux wall PR the default start gets the wall, so the open edge is asked for by name.
+        edge = {"outer_edge": "open_edge"} if not ref else {}
+        st = k.initialize(resolution=N, r_max=40.0, include_radiation=True, **edge)
         dt = 0.06 * float(st.grid.dr)
         every = max(1, int(round(25.0 / dt)))
         print(f"[{'REFERENCE (hand floor)' if ref else 'production (coupled floor, background default)'}] N {N} r_max 40 "
