@@ -29,8 +29,11 @@ from engine.cosmos import CosmosParams, cosmos_rho_p  # noqa: E402
 LAM = 5000.0
 KAP = 8 * math.pi
 V0_1B = KAP / (2 * LAM * 8.2425e-6) * 8.242522415500654e-5   # one-budget rule: c^2 V0, c^2 = 304.92 (as research/dm_one_budget_v1.py)
-P_FULL = CosmosParams(V0=V0_1B, D=0.0)                          # hand floor off; D's ejected vacuum is the floor
-P_NOD = CosmosParams(V0=V0_1B, D=0.10)                          # control without D: the hand floor restored
+# The cells' own physics, stated (Nov 16 2026): no coupled floor (beta_D = 0 in these cells; the vacuum enters as rho_vac
+# below) and imported, fully coupled dust (f_D = 1). Since #503 the defaults had silently added production's coupled
+# floor (lambda = 1.57e6) inside cosmos_rho_p; since the dark-matter replacement an eight-slot call raises.
+P_FULL = CosmosParams(V0=V0_1B, D=0.0, coupled_floor=False, f_D=1.0)    # hand floor off; D's ejected vacuum is the floor
+P_NOD = CosmosParams(V0=V0_1B, D=0.10, coupled_floor=False, f_D=1.0)    # control without D: the hand floor restored
 
 
 def v_sd(S, D):

@@ -15,6 +15,7 @@ from engine.cosmos import (
     cosmos_rhs,
     dV_dphi,
     state_rho_p,
+    state_vector,
 )
 from engine.matter_system import (
     KAPPA,
@@ -49,6 +50,7 @@ def test_independent_cosmos_state_satisfies_friedmann_constraint_and_tangent(
         rho_b=rho_b,
         rho_r=rho_r,
         rho_shear=rho_shear,
+        rho_sd_S=0.3 * rho_dm,  # S-D matter's S part (uncoupled), dark-matter replacement Nov 16 2026
     )
     rho, pressure = state_rho_p(state, params)
     assert math.isfinite(rho) and rho > 0.0
@@ -56,17 +58,15 @@ def test_independent_cosmos_state_satisfies_friedmann_constraint_and_tangent(
     # Construct H from this test state's independently selected matter data.
     # Exercise both expanding and contracting branches.
     state.H = sign * math.sqrt(rho / 3.0)
-    y = (
-        state.a, state.H, state.phi, state.pi_phi,
-        state.rho_dm, state.rho_b, state.rho_r, state.rho_shear,
-    )
+    y = state_vector(state, params)
+    assert len(y) == 9
     dy = cosmos_rhs(y, params)
 
     constraint = state.H**2 - rho / 3.0
     rho_dot = (
         state.pi_phi * dy[3]
         + dV_dphi(state.phi, params) * dy[2]
-        + dy[4] + dy[5] + dy[6] + dy[7]
+        + dy[4] + dy[5] + dy[6] + dy[7] + dy[8]
     )
     constraint_tangent = 2.0 * state.H * dy[1] - rho_dot / 3.0
 

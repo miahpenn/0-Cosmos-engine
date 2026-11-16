@@ -1,0 +1,105 @@
+Derived form check: S ring in the sea, small amplitude (prediction 3/4 = 0.75)
+   s amplitude 0.001: f = 0.75000
+   s amplitude 0.01: f = 0.75001
+   s amplitude 0.1: f = 0.75088
+
+=== u_x20_cold.npz: x_c 2, r_max 24, closure ii, cadence 0.5
+   t      f_D whole (snapshot / averaged over D's and S's periods)   core r<8   core r<6   core share of S-D energy (r<8)
+     5.0  0.8808 / 0.9638                   0.9697     1.1098     0.923
+     9.0  0.3876 / 0.7779                   0.7753     0.7763     0.940
+    13.0  0.3873 / 0.7322                   0.7318     0.7312     0.955
+    18.0  0.3786 / 0.7505                   0.7491     0.7522     0.959
+    24.0  0.0319 / 0.7219                   0.7164     0.7112     0.964
+    30.0  0.5136 / 0.7387                   0.7431     0.7414     0.965
+    40.0  -0.3379 / 0.7363                   0.7384     0.7393     0.967
+    54.0  -1.3745 / 0.6866                   0.6865     0.6834     0.969
+    62.0  1.0100 / 0.8041                   0.8053     0.8054     0.970
+   window t = 13-30: whole: 0.7088 | averaged series mean 0.7592, 0.709 to 0.826   core8: 0.6821 | averaged series mean 0.7588, 0.706 to 0.832   core6: 0.6749 | averaged series mean 0.7600, 0.699 to 0.844
+   window t = 30-54: whole: 0.7914 | averaged series mean 0.7569, 0.679 to 0.831   core8: 0.8196 | averaged series mean 0.7570, 0.680 to 0.831   core6: 0.8143 | averaged series mean 0.7576, 0.675 to 0.837
+
+=== u16_x20_cold.npz: x_c 2, r_max 16, closure ii, cadence 0.5
+   t      f_D whole (snapshot / averaged over D's and S's periods)   core r<8   core r<6   core share of S-D energy (r<8)
+     5.0  0.8776 / 0.9572                   0.9629     1.1007     0.922
+     9.0  0.4354 / 0.7904                   0.7878     0.7928     0.940
+    13.0  0.2461 / 0.7276                   0.7259     0.7241     0.954
+    18.0  0.1355 / 0.7397                   0.7365     0.7372     0.958
+    24.0  0.0419 / 0.7296                   0.7259     0.7208     0.962
+    30.0  0.9832 / 0.7659                   0.7716     0.7740     0.965
+    40.0  0.5654 / 0.7848                   0.7858     0.7912     0.966
+    54.0  -0.6081 / 0.7160                   0.7149     0.7140     0.968
+    62.0  -0.2665 / 0.7496                   0.7503     0.7475     0.969
+   window t = 13-30: whole: 0.7189 | averaged series mean 0.7621, 0.717 to 0.824   core8: 0.6927 | averaged series mean 0.7619, 0.714 to 0.830   core6: 0.6821 | averaged series mean 0.7635, 0.707 to 0.841
+   window t = 30-54: whole: 0.7324 | averaged series mean 0.7558, 0.691 to 0.822   core8: 0.7700 | averaged series mean 0.7558, 0.693 to 0.821   core6: 0.7667 | averaged series mean 0.7564, 0.687 to 0.827
+
+=== u36_x20_cold.npz: x_c 2, r_max 36, closure ii, cadence 0.5
+   t      f_D whole (snapshot / averaged over D's and S's periods)   core r<8   core r<6   core share of S-D energy (r<8)
+     5.0  0.8823 / 0.9667                   0.9729     1.1144     0.924
+     9.0  0.3718 / 0.7730                   0.7704     0.7699     0.940
+    13.0  0.4431 / 0.7351                   0.7352     0.7352     0.956
+    18.0  0.4677 / 0.7557                   0.7550     0.7590     0.960
+    24.0  0.0626 / 0.7213                   0.7154     0.7104     0.964
+    30.0  0.3911 / 0.7286                   0.7323     0.7292     0.965
+    40.0  -0.5785 / 0.7173                   0.7197     0.7188     0.968
+    54.0  -1.2340 / 0.6932                   0.6940     0.6912     0.970
+    62.0  1.2075 / 0.8070                   0.8075     0.8078     0.971
+   window t = 13-30: whole: 0.7088 | averaged series mean 0.7584, 0.708 to 0.828   core8: 0.6826 | averaged series mean 0.7579, 0.704 to 0.834   core6: 0.6772 | averaged series mean 0.7591, 0.697 to 0.846
+   window t = 30-54: whole: 0.8067 | averaged series mean 0.7571, 0.676 to 0.832   core8: 0.8303 | averaged series mean 0.7572, 0.676 to 0.831   core6: 0.8245 | averaged series mean 0.7578, 0.672 to 0.836
+
+=== ui_x20_cold.npz: x_c 2, r_max 24, closure i, cadence 0.5
+   t      f_D whole (snapshot / averaged over D's and S's periods)   core r<8   core r<6   core share of S-D energy (r<8)
+     5.0  0.8825 / 0.9666                   0.9729     1.1157     0.923
+     9.0  0.3744 / 0.7738                   0.7713     0.7712     0.939
+    13.0  0.4333 / 0.7342                   0.7344     0.7342     0.955
+    18.0  0.4455 / 0.7538                   0.7533     0.7571     0.960
+    24.0  0.0236 / 0.7219                   0.7158     0.7108     0.964
+    30.0  0.4536 / 0.7331                   0.7369     0.7341     0.965
+    40.0  -0.4549 / 0.7249                   0.7279     0.7275     0.967
+    54.0  -1.3806 / 0.6883                   0.6892     0.6860     0.969
+    62.0  1.2623 / 0.8078                   0.8083     0.8085     0.970
+   window t = 13-30: whole: 0.7075 | averaged series mean 0.7589, 0.709 to 0.828   core8: 0.6810 | averaged series mean 0.7585, 0.705 to 0.834   core6: 0.6756 | averaged series mean 0.7597, 0.698 to 0.846
+   window t = 30-54: whole: 0.8045 | averaged series mean 0.7573, 0.678 to 0.832   core8: 0.8269 | averaged series mean 0.7574, 0.680 to 0.830   core6: 0.8204 | averaged series mean 0.7580, 0.673 to 0.837
+
+=== u_x15_cold.npz: x_c 1.5, r_max 24, closure ii, cadence 0.5
+   t      f_D whole (snapshot / averaged over D's and S's periods)   core r<8   core r<6   core share of S-D energy (r<8)
+     5.0  0.4246 / 0.7513                   0.7371     0.7559     0.905
+     9.0  1.1162 / 0.8584                   0.8618     0.8901     0.923
+    13.0  0.7010 / 0.7960                   0.7992     0.8080     0.935
+    18.0  0.4942 / 0.7904                   0.7905     0.7976     0.939
+    24.0  2.5614 / 0.8105                   0.8088     0.8140     0.946
+    30.0  0.9320 / 0.7307                   0.7362     0.7358     0.949
+    40.0  -2.3321 / 0.7083                   0.7089     0.7076     0.950
+    54.0  -2.7722 / 0.7156                   0.7160     0.7151     0.953
+    62.0  1.9492 / 0.8127                   0.8159     0.8191     0.954
+   window t = 13-30: whole: 0.9092 | averaged series mean 0.7679, 0.706 to 0.827   core8: 0.8859 | averaged series mean 0.7681, 0.709 to 0.827   core6: 0.9012 | averaged series mean 0.7705, 0.707 to 0.840
+   window t = 30-54: whole: 0.7543 | averaged series mean 0.7618, 0.706 to 0.817   core8: 0.7921 | averaged series mean 0.7622, 0.704 to 0.819   core6: 0.7951 | averaged series mean 0.7637, 0.701 to 0.824
+
+=== f_x20.npz: x_c 2, r_max 24, closure ii, cadence 0.1
+   t      f_D whole (snapshot / averaged over D's and S's periods)   core r<8   core r<6   core share of S-D energy (r<8)
+     5.0  0.8808 / 0.9653                   0.9719     1.1174     0.923
+     9.0  0.3876 / 0.7760                   0.7732     0.7733     0.940
+    13.0  0.3873 / 0.7261                   0.7258     0.7246     0.955
+    18.0  0.3786 / 0.7482                   0.7466     0.7497     0.959
+    24.0  0.0319 / 0.7162                   0.7098     0.7035     0.964
+   window t = 13-30: whole: 0.7055 | averaged series mean 0.7618, 0.705 to 0.834   core8: 0.6816 | averaged series mean 0.7616, 0.699 to 0.841   core6: 0.6782 | averaged series mean 0.7631, 0.693 to 0.853
+
+=== f_x15.npz: x_c 1.5, r_max 24, closure ii, cadence 0.1
+   t      f_D whole (snapshot / averaged over D's and S's periods)   core r<8   core r<6   core share of S-D energy (r<8)
+     5.0  0.4246 / 0.7426                   0.7276     0.7445     0.905
+     9.0  1.1162 / 0.8652                   0.8691     0.8999     0.923
+    13.0  0.7010 / 0.7995                   0.8034     0.8131     0.935
+    18.0  0.4942 / 0.7945                   0.7945     0.8024     0.939
+    24.0  2.5614 / 0.8175                   0.8155     0.8210     0.946
+   window t = 13-30: whole: 0.9115 | averaged series mean 0.7682, 0.697 to 0.835   core8: 0.8913 | averaged series mean 0.7684, 0.701 to 0.836   core6: 0.9117 | averaged series mean 0.7711, 0.698 to 0.850
+
+=== g_x20_bD.npz: x_c 2, r_max 24, closure ii, cadence 0.5, COUPLED beta_D = -0.04
+   t      f_D whole (snapshot / averaged over D's and S's periods)   core r<8   core r<6   core share of S-D energy (r<8)
+     5.0  0.9608 / 0.9934                   0.9663     1.0968     0.923
+     9.0  0.5709 / 0.8733                   0.8136     0.8195     0.941
+    13.0  0.1128 / 0.8400                   0.7457     0.7408     0.953
+    18.0  0.2011 / 0.8989                   0.7593     0.7521     0.957
+    24.0  0.7350 / 0.9760                   0.7831     0.7810     0.958
+    30.0  1.6486 / 1.0575                   0.8022     0.7955     0.961
+    40.0  2.3989 / 1.0395                   0.8037     0.7995     0.959
+    54.0  0.9123 / 0.9172                   0.8173     0.8140     0.943
+   window t = 13-30: whole: 0.9478 | averaged series mean 0.9649, 0.845 to 1.058   core8: 0.7946 | averaged series mean 0.7913, 0.747 to 0.835   core6: 0.7884 | averaged series mean 0.7890, 0.739 to 0.843
+   window t = 30-54: whole: 1.0171 | averaged series mean 1.0035, 0.872 to 1.072   core8: 0.7964 | averaged series mean 0.7912, 0.762 to 0.822   core6: 0.7900 | averaged series mean 0.7858, 0.752 to 0.822

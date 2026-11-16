@@ -9,14 +9,14 @@ import sys
 
 sys.path.insert(0, ".")
 
-from engine.cosmos import CosmosParams, construct_present_day  # noqa: E402
+from engine.cosmos import IMPORTED_DUST_REFERENCE_PARAMS, construct_present_day  # noqa: E402
 from research.cosmos_efold_v1 import PLANCK_TO_CRITICAL_DENSITY_RATIO, integrate_cycle  # noqa: E402
 
 HBAR_H0_EV = 1.054571817e-34 * 2.20e-18 / 1.602176634e-19   # hbar H0 with H0 = 2.20e-18 s^-1 (CORRECTION-GEAR-50)
 
 
 def main():
-    s = construct_present_day(CosmosParams())
+    s = construct_present_day(IMPORTED_DUST_REFERENCE_PARAMS)  # imported, fully coupled dust: the labelled reference since the dark-matter replacement (Nov 16 2026)
     cases = [
         ("|H| = mu, production units (mu = 1, H_today = %.4e)" % s.H, 1.0 / s.H**2),
         ("|H| = mu, mu = m_proton, observed H0", (938.272e6 / HBAR_H0_EV) ** 2),

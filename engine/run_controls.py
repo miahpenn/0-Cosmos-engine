@@ -23,7 +23,8 @@ def run_controls():
 
     # COSMOS control state. It is deliberately not forced to satisfy the
     # Friedmann constraint; the residual is reported rather than hidden.
-    cosmos = (1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
+    # Nine slots: the lane carries dark matter as S-D matter in two parts (the S part last; Nov 16 2026).
+    cosmos = (1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
     rho, _ = cosmos_rho_p(cosmos, cp)
     friedmann0 = friedmann_constraint(cosmos[1], rho)
 

@@ -27,7 +27,7 @@ import numpy as np  # noqa: E402
 from scipy.integrate import solve_ivp  # noqa: E402
 
 import engine.scalar_system as ss  # noqa: E402
-from engine.cosmos import CosmosParams, construct_present_day, cosmos_rhs  # noqa: E402
+from engine.cosmos import IMPORTED_DUST_REFERENCE_PARAMS, construct_present_day, cosmos_rhs  # noqa: E402
 from engine.production_kernel import V55ProductionKernel  # noqa: E402
 
 _HAS_EDGE = "outer_edge" in inspect.signature(V55ProductionKernel.initialize).parameters
@@ -74,7 +74,7 @@ def fingerprint():
 
 
 def lane():
-    P = CosmosParams()
+    P = IMPORTED_DUST_REFERENCE_PARAMS  # imported, fully coupled dust: the labelled reference since the dark-matter replacement (Nov 16 2026)
     s0 = construct_present_day(P)
     y0 = [s0.a, s0.H, s0.phi, s0.pi_phi, s0.rho_dm, s0.rho_b, s0.rho_r, s0.rho_shear]
     return solve_ivp(lambda t, y: list(cosmos_rhs(tuple(y), P)), (0, 2000), y0, method="DOP853", rtol=1e-11,

@@ -15,6 +15,7 @@ from engine.cosmos import (
     cosmos_rhs,
     dV_dphi,
     state_rho_p,
+    state_vector,
 )
 from engine.matter_system import (
     KAPPA,
@@ -35,17 +36,16 @@ def test_cosmos_present_state_satisfies_friedmann_and_continuity():
 
     assert state.H**2 == pytest.approx(rho / 3.0, rel=2e-15, abs=1e-30)
 
-    y = (
-        state.a, state.H, state.phi, state.pi_phi,
-        state.rho_dm, state.rho_b, state.rho_r, state.rho_shear,
-    )
+    # Dark-matter replacement (Nov 16 2026): nine slots, S-D matter's S part (uncoupled) last.
+    y = state_vector(state, params)
+    assert len(y) == 9 and state.rho_sd_S > 0.0
     dy = cosmos_rhs(y, params)
-    # Differentiate rho_phi = pi^2/2 + V(phi), then add the four
+    # Differentiate rho_phi = pi^2/2 + V(phi), then add the five
     # independently evolved components. The scalar-DM exchange must cancel.
     rho_dot = (
         state.pi_phi * dy[3]
         + dV_dphi(state.phi, params) * dy[2]
-        + dy[4] + dy[5] + dy[6] + dy[7]
+        + dy[4] + dy[5] + dy[6] + dy[7] + dy[8]
     )
     assert rho_dot == pytest.approx(
         -3.0 * state.H * (rho + pressure), rel=5e-14, abs=1e-25

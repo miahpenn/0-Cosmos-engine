@@ -525,10 +525,12 @@ def test_shared_constants_authorization_is_exact_blob():
         historical = SOURCE_BLOBS[path]
         assert _source_blob_matches(path, historical, historical, authorized_head)
         assert not _source_blob_matches(path, historical, historical, "f" * 40)
-    # Re-authorized by the hand-floor removal step 2 (Nov 16 2026); see the test below. Before: model_constants.py
-    # 17851bea202b8748119b3c0c5d40f4c9e6e003e6, cosmos.py f1e9c545f1d5fdc1233a11cf3a2624f33b6eb65c.
-    assert AUTHORIZED_OFF_AUDIT_REPAIR_HEAD_BLOBS["engine/model_constants.py"] == "ae93e694193586ea6d2532c49f0f320b1a902e76"
-    assert AUTHORIZED_OFF_AUDIT_REPAIR_HEAD_BLOBS["engine/cosmos.py"] == "0475446f4cb020bb3c0f30b9bc74e3b711b55fc2"
+    # Re-authorized by the hand-floor removal step 2 (Nov 16 2026), then by the dark-matter replacement (Nov 16 2026);
+    # see the tests below. Before step 2: model_constants.py 17851bea202b8748119b3c0c5d40f4c9e6e003e6, cosmos.py
+    # f1e9c545f1d5fdc1233a11cf3a2624f33b6eb65c. Step 2: ae93e694193586ea6d2532c49f0f320b1a902e76,
+    # 0475446f4cb020bb3c0f30b9bc74e3b711b55fc2.
+    assert AUTHORIZED_OFF_AUDIT_REPAIR_HEAD_BLOBS["engine/model_constants.py"] == "65abb1028f51678c04dcb0309828418664614196"
+    assert AUTHORIZED_OFF_AUDIT_REPAIR_HEAD_BLOBS["engine/cosmos.py"] == "7f7ca759e5678c1f9a4b184cd3426560f3f2bc4e"
 
 
 def test_hand_floor_step2_authorization_is_exact_blob():
@@ -549,9 +551,25 @@ def test_hand_floor_step2_authorization_is_exact_blob():
         historical = SOURCE_BLOBS[path]
         assert _source_blob_matches(path, historical, historical, authorized_head)
         assert not _source_blob_matches(path, historical, historical, "f" * 40)
-    off = {"engine/model_constants.py": "ae93e694193586ea6d2532c49f0f320b1a902e76",
-           "engine/cosmos.py": "0475446f4cb020bb3c0f30b9bc74e3b711b55fc2",
-           "engine/run_controls.py": "e1237ba6462234ef2b196e474f9945a19767b956"}
+    # step 2's off-audit blobs (model_constants.py ae93e694, cosmos.py 0475446f, run_controls.py e1237ba6) are
+    # superseded by the dark-matter replacement: test_sd_dark_matter_replacement_authorization_is_exact_blob.
+    for path, old in (("engine/model_constants.py", "ae93e694193586ea6d2532c49f0f320b1a902e76"),
+                      ("engine/cosmos.py", "0475446f4cb020bb3c0f30b9bc74e3b711b55fc2"),
+                      ("engine/run_controls.py", "e1237ba6462234ef2b196e474f9945a19767b956")):
+        assert _drop_authorized_off_audit_paths([path], lambda p, b=old: b) == [path]
+
+
+def test_sd_dark_matter_replacement_authorization_is_exact_blob():
+    """Dark-matter replacement (Nov 16 2026): S-D matter in two parts in the COSMOS lane. cosmos.py, model_constants.py
+    and run_controls.py re-authorized as exact head blobs, off-audit (this audit imports none of them)."""
+    from tools.audit_tracefree_ricci_proper_radial import (
+        AUTHORIZED_OFF_AUDIT_REPAIR_HEAD_BLOBS,
+        _drop_authorized_off_audit_paths,
+    )
+
+    off = {"engine/model_constants.py": "65abb1028f51678c04dcb0309828418664614196",
+           "engine/cosmos.py": "7f7ca759e5678c1f9a4b184cd3426560f3f2bc4e",
+           "engine/run_controls.py": "c553a80d027d923434356ca37bdfe239c5c672ff"}
     for path, blob in off.items():
         assert AUTHORIZED_OFF_AUDIT_REPAIR_HEAD_BLOBS[path] == blob
         assert _drop_authorized_off_audit_paths([path], lambda p, b=blob: b) == []

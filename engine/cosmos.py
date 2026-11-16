@@ -33,6 +33,22 @@ lane are chart-dependent through phi_today.
 
 The old path (hand floor, no coupled floor) is kept only as the labelled
 reference HAND_FLOOR_REFERENCE_PARAMS, bit-identical to the lane before step 2.
+
+Dark matter (the dark-matter replacement, Nov 16 2026; labels in engine/model_constants.py).
+The imported, fully coupled dust is replaced by the machine's S-D matter, carried
+in two parts, both dust-like after settling (w = 0):
+
+    D part  rho_dm   : drained D_r plus D's share in the stones; Amendola coupling
+                       beta = beta_D (GEAR-103), exactly the old dust equations
+    S part  rho_sd_S : S's own share (beta_S = 0): drho_sd_S = -3 H rho_sd_S, no phi force
+
+The coupled fraction today f_D = rho_dm / (rho_dm + rho_sd_S) is READ from the cells
+(SD_MATTER_COUPLED_FRACTION). The total today is the old imported amount, matched to
+the chart through the borrowed "today": what is closed is the KIND of dark matter,
+not its QUANTITY. Baryons and radiation stay imported. With f_D < 1 the state vector
+has nine slots (the S part last); an eight-slot vector is refused, so nothing runs
+the old physics by accident. The old lane (all of it coupled, eight slots) is kept
+bit-identical as the labelled reference IMPORTED_DUST_REFERENCE_PARAMS (f_D = 1).
 """
 from dataclasses import dataclass
 from math import exp, isfinite, log, sqrt
@@ -49,6 +65,9 @@ class CosmosParams:
     coupled_floor: bool = True
     sd_lambda: float = _mc.SD_QUARTIC_LAMBDA   # ruler, matched today (not derived)
     beta_D: float = _mc.BETA_D                 # form derived, value not
+    # Dark matter as S-D matter in two parts: the coupled (D) fraction today, Read from the cells. f_D = 1 is the
+    # labelled reference (imported dust, all of it coupled with beta).
+    f_D: float = _mc.SD_MATTER_COUPLED_FRACTION
     omega_de_today: float = 0.69
     omega_r_today: float = 9.2e-5
     omega_shear_today: float = 1.745e-8
@@ -61,6 +80,8 @@ class CosmosParams:
     G: float = 1.0
 
     def __post_init__(self):
+        if isinstance(self.f_D, bool) or not isfinite(float(self.f_D)) or not 0.0 <= float(self.f_D) <= 1.0:
+            raise ValueError("f_D (the coupled fraction of S-D matter) must lie in [0, 1]")
         if self.coupled_floor and (
             isinstance(self.sd_lambda, bool)
             or not isfinite(float(self.sd_lambda))
@@ -93,10 +114,46 @@ class CosmosState:
     rho_b: float
     rho_r: float
     rho_shear: float
+    # S-D matter's S part (uncoupled). rho_dm is the coupled part: S-D matter's D part in production, the whole
+    # imported dust on the references.
+    rho_sd_S: float = 0.0
+
+    @property
+    def rho_dark(self):
+        """All the dark matter: rho_dm + rho_sd_S."""
+        return self.rho_dm + self.rho_sd_S
 
 
 # REFERENCE ONLY: the pre-step-2 lane (hand floor 0.10 of V0, no coupled floor), bit-identical to it.
-HAND_FLOOR_REFERENCE_PARAMS = CosmosParams(D=_mc.HAND_FLOOR_REFERENCE, coupled_floor=False)
+HAND_FLOOR_REFERENCE_PARAMS = CosmosParams(D=_mc.HAND_FLOOR_REFERENCE, coupled_floor=False, f_D=1.0)
+
+# REFERENCE ONLY: the lane before the dark-matter replacement (coupled floor; imported dust, all of it coupled with
+# beta), bit-identical to it. Eight-slot state vector.
+IMPORTED_DUST_REFERENCE_PARAMS = CosmosParams(f_D=1.0)
+
+
+def _split_today(p: CosmosParams):
+    """Today's dark matter (the imported amount, matched to the chart) split into (coupled, uncoupled)."""
+    total = 2.5857e-5
+    if p.f_D == 1.0:
+        return total, 0.0
+    coupled = p.f_D * total
+    return coupled, total - coupled
+
+
+def _nine_slots(y, p: CosmosParams):
+    """True for the nine-slot (two-part) vector. An eight-slot vector is accepted only on the f_D = 1 references."""
+    n = len(y)
+    if n == 9:
+        return True
+    if n == 8:
+        if p.f_D != 1.0:
+            raise ValueError(
+                "this lane carries dark matter as S-D matter in two parts (f_D < 1): pass the nine-slot state "
+                "(state_vector), or use IMPORTED_DUST_REFERENCE_PARAMS for the old fully coupled dust"
+            )
+        return False
+    raise ValueError(f"cosmos state vector must have 8 (reference) or 9 slots, got {n}")
 
 
 def floor_density(phi, p: CosmosParams):
@@ -130,6 +187,13 @@ def potential_node(p: CosmosParams):
 
 
 def cosmos_rho_p(y, p: CosmosParams):
+    if _nine_slots(y, p):
+        a, H, phi, pi, rho_dm, rho_b, rho_r, rho_s, rho_sd_S = y
+        rho_phi = 0.5 * pi * pi + potential(phi, p)
+        p_phi = 0.5 * pi * pi - potential(phi, p)
+        rho = rho_phi + rho_dm + rho_sd_S + rho_b + rho_r + rho_s
+        pressure = p_phi + rho_r / 3.0 + rho_s
+        return rho, pressure
     a, H, phi, pi, rho_dm, rho_b, rho_r, rho_s = y
     rho_phi = 0.5 * pi * pi + potential(phi, p)
     p_phi = 0.5 * pi * pi - potential(phi, p)
@@ -143,7 +207,7 @@ def construct_present_day(p: CosmosParams = CosmosParams()) -> CosmosState:
     a = 33.8983
     phi = 0.179055
     phidot = 0.00341913
-    rho_dm = 2.5857e-5
+    rho_dm, rho_sd_S = _split_today(p)     # today's imported amount; f_D of it coupled (2.5857e-5, 0 on the references)
     rho_b = 4.0306e-6
     rho_total = 9.64116e-5
     rho_r = p.omega_r_today * rho_total
@@ -158,15 +222,23 @@ def construct_present_day(p: CosmosParams = CosmosParams()) -> CosmosState:
         rho_b=rho_b,
         rho_r=rho_r,
         rho_shear=rho_shear,
+        rho_sd_S=rho_sd_S,
     )
 
 
-def state_rho_p(state: CosmosState, p: CosmosParams):
+def state_vector(state: CosmosState, p: CosmosParams):
+    """The lane's state vector for these params: nine slots (S part last) unless f_D = 1 and the S part is empty."""
     y = (
         state.a, state.H, state.phi, state.pi_phi,
         state.rho_dm, state.rho_b, state.rho_r, state.rho_shear
     )
-    return cosmos_rho_p(y, p)
+    if p.f_D == 1.0 and state.rho_sd_S == 0.0:
+        return y
+    return y + (state.rho_sd_S,)
+
+
+def state_rho_p(state: CosmosState, p: CosmosParams):
+    return cosmos_rho_p(state_vector(state, p), p)
 
 
 def normalized_budgets(state: CosmosState, p: CosmosParams = CosmosParams()):
@@ -176,7 +248,9 @@ def normalized_budgets(state: CosmosState, p: CosmosParams = CosmosParams()):
     rho_phi = 0.5 * state.pi_phi**2 + potential(state.phi, p)
     return {
         "Omega_phi": rho_phi / rho,
-        "Omega_dm": state.rho_dm / rho,
+        "Omega_dm": state.rho_dark / rho,                 # all the dark matter (both parts)
+        "Omega_dm_coupled": state.rho_dm / rho,           # the D part (beta_D); all of it on the references
+        "Omega_dm_uncoupled": state.rho_sd_S / rho,       # the S part (beta_S = 0)
         "Omega_b": state.rho_b / rho,
         "Omega_r": state.rho_r / rho,
         "Omega_shear": state.rho_shear / rho,
@@ -189,7 +263,20 @@ def cosmos_rhs(y, p: CosmosParams, exchange_Q=0.0):
     H is an evolved state variable, so H can cross zero from the equations.
     exchange_Q is retained only as a compatibility argument and is ignored;
     no phenomenological reciprocal source enters this lane.
+
+    Nine slots (production, f_D < 1): the ninth is S-D matter's S part, uncoupled dust. The coupled part (slot 5)
+    keeps the old dust equations with beta (= beta_D, GEAR-103). Eight slots: the f_D = 1 references only.
     """
+    if _nine_slots(y, p):
+        a, H, phi, pi, rho_dm, rho_b, rho_r, rho_s, rho_sd_S = y
+        rho, pressure = cosmos_rho_p(y, p)
+        return (
+            H * a, -0.5 * (rho + pressure), pi,
+            -3.0 * H * pi - dV_dphi(phi, p) + p.beta * rho_dm,
+            -3.0 * H * rho_dm - p.beta * rho_dm * pi,
+            -3.0 * H * rho_b, -4.0 * H * rho_r, -6.0 * H * rho_s,
+            -3.0 * H * rho_sd_S,
+        )
     a, H, phi, pi, rho_dm, rho_b, rho_r, rho_s = y
     rho, pressure = cosmos_rho_p(y, p)
 

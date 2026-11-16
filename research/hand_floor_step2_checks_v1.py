@@ -24,7 +24,7 @@ sys.path.insert(0, ".")
 import numpy as np  # noqa: E402
 from scipy.integrate import solve_ivp  # noqa: E402
 
-import engine.cosmos as cz  # noqa: E402
+import engine.cosmos as cz  # noqa: E402  (production lane of step 2 = IMPORTED_DUST_REFERENCE_PARAMS since Nov 16 2026)
 import engine.scalar_system as ss  # noqa: E402
 from engine.production_kernel import V55ProductionKernel  # noqa: E402
 
@@ -32,7 +32,7 @@ from engine.production_kernel import V55ProductionKernel  # noqa: E402
 def _reference():
     if hasattr(ss, "hand_floor_reference"):
         return ss.hand_floor_reference(), cz.HAND_FLOOR_REFERENCE_PARAMS
-    return contextlib.nullcontext(), cz.CosmosParams()
+    return contextlib.nullcontext(), cz.IMPORTED_DUST_REFERENCE_PARAMS
 
 
 def _feed(h, x):
@@ -86,7 +86,7 @@ def lane_events(P, node, T=5e4):
 
 
 def lane():
-    P = cz.CosmosParams()
+    P = cz.IMPORTED_DUST_REFERENCE_PARAMS
     R = cz.HAND_FLOOR_REFERENCE_PARAMS
     s0, sol, (tn, tt, tc) = lane_events(P, cz.potential_node(P))
     _, solr, (rn, rt, rc) = lane_events(R, cz.potential_node(R))
@@ -130,7 +130,7 @@ def _means(st, rcut=20.0):
 
 
 def kernel(N, T, ref=False):
-    ctx, P = _reference() if ref else (contextlib.nullcontext(), cz.CosmosParams())
+    ctx, P = _reference() if ref else (contextlib.nullcontext(), cz.IMPORTED_DUST_REFERENCE_PARAMS)
     s0 = cz.construct_present_day(P)
     y0 = [s0.a, s0.H, s0.phi, s0.pi_phi, s0.rho_dm, s0.rho_b, s0.rho_r, s0.rho_shear]
     L = solve_ivp(lambda t, y: cz.cosmos_rhs(tuple(y), P), (0, T + 1), y0, method="DOP853", rtol=1e-12, atol=1e-20,
