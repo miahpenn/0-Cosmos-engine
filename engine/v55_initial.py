@@ -41,11 +41,13 @@ D_amplitude seed. S is placed at a turning point (PS = 0), not settled: a
 fixture, not a settled stone.
 
 The slice built here is the AREAL slice (the open edge's data). Since the
-pocket-fixtures step (Nov 16 2026) the production kernel runs both fixtures on
-the lattice wall by default, where their geometry is rebuilt on the conformally
-flat cell slice from the same S and D profiles (LABELLED: the fixtures' data
-changed; engine/lattice_wall.py, POCKET_FIXTURE_WALL_LABEL). The areal slice
-stays the fixtures' open-edge reference (outer_edge="open_edge").
+pocket-fixtures step (Nov 16 2026) the production kernel runs the RESCALED
+fixture on the lattice wall by default, where its geometry is rebuilt on the
+conformally flat cell slice from the same S and D profiles (LABELLED: the
+fixture's data changed; engine/lattice_wall.py, POCKET_FIXTURE_WALL_LABEL). The
+INHERITED fixture keeps the open edge and this areal slice by default, LABELLED
+"wall behaviour unresolved" (lattice_wall.INHERITED_POCKET_WALL_LABEL). The
+areal slice stays each fixture's open-edge reference (outer_edge="open_edge").
 """
 from dataclasses import dataclass
 import math

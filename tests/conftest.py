@@ -105,8 +105,10 @@ def _hand_floor_reference_path(request):
 # Zero-flux (lattice-wall) closure, HANDOFF Nov 15 (3) task 2 (Nov 16 2026): production's default start (today,
 # background alone: an expanding run) now gets the lattice wall ("identical neighbours, in step: one-stone
 # simplification"; engine/lattice_wall.py). The modules below are contracts written against the OPEN EDGE's
-# implementation seams; they run with the open edge as the default (engine.lattice_wall.open_edge_reference(),
-# bit-identical to the code before the wall). The wall's own contracts are in tests/test_lattice_wall_kernel.py.
+# implementation seams; they run on the open edge, asked for explicitly per run (outer_edge="open_edge"), which is
+# bit-identical to the code before the wall. The engine keeps no module-level edge toggle (Jeremiah, Nov 16 2026); the
+# per-run choice is supplied here, in the test harness, by giving the kernel's initialize() this explicit argument
+# for these modules only. The wall's own contracts are in tests/test_lattice_wall_kernel.py.
 # Kept here, not in the modules, so the files stay byte-identical (several are path-triggers of source-pinned workflows).
 _OPEN_EDGE_SEAM = ("contract of the open edge's implementation seam, injected through engine.production_kernel.species_rhs "
                    "/ _solve_lapse / _apply_outer_light_boundary; the wall's flux goes through "
@@ -133,14 +135,26 @@ OPEN_EDGE_REFERENCE_MODULES = {
 
 @pytest.fixture(scope="module", autouse=True)
 def _open_edge_reference_path(request):
-    """Run the modules listed in OPEN_EDGE_REFERENCE_MODULES with the open edge as the default start's edge."""
+    """Run the modules listed in OPEN_EDGE_REFERENCE_MODULES with outer_edge="open_edge" given to every initialize()."""
     import pathlib
 
     rel = pathlib.Path(str(request.fspath)).resolve().relative_to(pathlib.Path(__file__).resolve().parents[1]).as_posix()
     if rel not in OPEN_EDGE_REFERENCE_MODULES:
         yield
         return
-    from engine.lattice_wall import open_edge_reference
+    import functools
 
-    with open_edge_reference():
+    from engine.production_kernel import V55ProductionKernel
+
+    original = V55ProductionKernel.initialize
+
+    @functools.wraps(original)
+    def initialize_on_the_open_edge(self, *args, **kwargs):
+        kwargs.setdefault("outer_edge", "open_edge")          # explicit per-run choice; an explicit argument wins
+        return original(self, *args, **kwargs)
+
+    V55ProductionKernel.initialize = initialize_on_the_open_edge
+    try:
         yield
+    finally:
+        V55ProductionKernel.initialize = original

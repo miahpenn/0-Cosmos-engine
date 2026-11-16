@@ -1,4 +1,67 @@
-# LIVE readiness overlay — reconciled 10 November 2026 UTC after PR #458
+# LIVE readiness overlay — reconciled 16 November 2026 UTC after PR #507
+
+> **Current main:** after the merge of PR #507. `scientific_admission=false`; `acceptance_oracle_satisfied=false`.
+> Nothing below changes either flag. The 10 November overlay that follows is kept as the prior record; where the two
+> conflict, this one is current (notably: production's λ is no longer 0, and the default edge is no longer the open edge).
+
+## Production changes since PR #458 (owner-reviewed)
+
+- **#483** — one copy of the shared constants (`engine/model_constants.py`), imported by the cosmos lane, the scalar
+  system and the production kernel.
+- **#503 — hand-floor removal, step 2.**
+  - The floor is D's step felt through φ (GEAR-91 coupling in the kernel: β_S = 0, β_D = −0.04); the hand floor
+    `D_POT` is 0. The cosmos lane carries the adiabatic coupled floor −κ e^(−4β_D φ)/(2λ).
+  - **λ is on in production:** λ = 4π/(0.10·V0)·e^(−4β_D φ_today) = 1.56889e6, computed from the constants. This closes
+    the "quartic off" gap (D now has a floor of its own).
+  - **Default start:** today, background alone, labelled "no structure placed". The default refuses pocket arguments.
+  - Fixtures: `rescaled_pocket` (x chosen by hand) and `inherited_pocket` (old amplitude at the new λ, x ≈ 157).
+  - The old machine stays available bit-identical: `engine.scalar_system.hand_floor_reference()`,
+    `engine.cosmos.HAND_FLOOR_REFERENCE_PARAMS`.
+  - Production lane (Hubble times from today): node 2.954, turnaround 4.260, crunch 5.909 (hand floor: 3.753 / 5.418 /
+    7.588). There is no bounce in the classical machine.
+- **#505 — the zero-flux lattice wall** (`engine/lattice_wall.py`) as a production kernel option and the default for
+  expanding runs: K̇ from the wall's compatibility, never from the stored lapse, so the open edge's undamped lapse mode
+  cannot occur. Clock "i" (α = 1 at the wall: the wall shell's proper time). Static, isolated and EM runs keep the open edge.
+- **#506** — `fluids_clock_rate` diagnostic (the cosmos lane's t: rest-mass-weighted proper time of its fluids);
+  boundary-flux mismatch reported as not applicable on the wall; seven older research drivers pinned to the open edge.
+- **#507 — pocket fixtures and the wall, split.** The rescaled fixture runs on the wall by default (conformally flat
+  cell slice, labelled). The inherited fixture keeps the open edge, labelled "wall behaviour unresolved" (starting H
+  ×1.93 on the wall, wall-cell momentum residual degrading after t ≈ 20, weakening convergence). The edge is a per-run
+  choice (`lattice_wall.default_edge`), with no module-level toggle.
+
+## Labels carried by these results
+
+- **Floor:** mechanism derived; size set through λ.
+- **λ in production:** a ruler (1.57e6) matched to the old floor through the borrowed "today". C6's reset criterion gives
+  λ* ≈ 10–1000; the gap is the relocated hierarchy.
+- **β_D = −0.04:** form derived (GEAR-91, 0*), value not derived.
+- **All times:** chart-dependent through φ_today = 0.179.
+- **Held-step readings with the coupling on:** against D's φ-dependent rest value.
+- **The wall:** "identical neighbours, in step: one-stone simplification" (scope confirmed by Jeremiah for expanding
+  runs). It reflects outgoing waves: right for identical neighbours, wrong for isolated set-ups.
+- **Physical results compared with the cosmos lane** are read on the fluids' clock (`fluids_clock_rate`), not per tick
+  of the run's label.
+- **φ's potential (AUDIT-4):** the exponential form and λ_φ = 1, D = 0.10 are constructed and DESI-selected, not derived
+  from the machine; the crunch follows from that shape. Production's lane gives w_DE today = −0.824.
+
+## Gaps closed or moved
+
+- **Gap #2 (the density / κ convention): closed.** κ conversion is COORDINATE
+  (`results/kappa-channel-2026-11-14/KAPPA_CONVERSION_DECISION.md`, #480), one-copy constants (#483).
+- **"Quartic off": closed** by #503 (λ on).
+- **Gap #3 (native outer boundary): closed for expanding runs** by the wall (#505, #507); the open edge remains for
+  static and isolated runs.
+- **Gap #1 (local-to-cosmos channel): receiving half open.** Next: the dark-matter replacement (imported dust → the
+  machine's S–D matter: uncoupled S part, D part carrying β_D; the amount today still matched to the chart).
+
+## Open
+
+- Inherited fixture on the wall (unresolved, above); first-order convergence at the wall cell; the centre cell carries
+  the largest Hamiltonian residual on both edges; the remaining open-edge contracts have no wall versions yet.
+- The leftover held step; the early filling window; w of a population of bound stones.
+- φ's positive term (constructed); the bounce b (unpaid; physical or an observer effect is Jeremiah's to settle).
+
+# Prior overlay — reconciled 10 November 2026 UTC after PR #458 (superseded where the overlay above conflicts)
 
 > **Current main:** `c2fd01d`, merge of PR #458. `scientific_admission=false`; `acceptance_oracle_satisfied=false`.
 > Software, diagnostic and research results below do not change either flag.

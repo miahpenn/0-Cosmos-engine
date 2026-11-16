@@ -130,8 +130,8 @@ AUTHORIZED_LATTICE_WALL_HEAD_BLOBS = {
 # as to the background start; v55_initial.py carries the label in its docstring only. The fixtures' open edge (by name) and
 # the hand-floor reference are bit-identical; this audit runs on the reference path, which keeps the open edge.
 AUTHORIZED_POCKET_FIXTURES_WALL_HEAD_BLOBS = {
-    "engine/production_kernel.py": "a481da7eef965c92d576cf45e8627ab3f44fe74b",
-    "engine/v55_initial.py": "5640b4856ac63beb119ddf065af79ee02b1db689",
+    "engine/production_kernel.py": "4e6029eb5a7c12a9e905f27a17625325d9ed09ed",
+    "engine/v55_initial.py": "9f8b2a038ebd53d1a6e18f0482dba99f4363e1e8",
 }
 
 
@@ -207,7 +207,7 @@ AUTHORIZED_OFF_AUDIT_REPAIR_HEAD_BLOBS = {
     # (through engine/production_kernel.py), but not exercised: the audit runs on the reference path, open edge.
     # Re-authorized for the pocket fixtures on the wall (Nov 16 2026): EXPANDING_STRUCTURES, POCKET_FIXTURE_WALL_LABEL
     # and docstrings; the wall's evolution unchanged.
-    "engine/lattice_wall.py": "466ae7205be70b1346e558012e95bc680b6913de",
+    "engine/lattice_wall.py": "a3becc6332d384eab3af662ba82d01512e6213e7",
 }
 
 

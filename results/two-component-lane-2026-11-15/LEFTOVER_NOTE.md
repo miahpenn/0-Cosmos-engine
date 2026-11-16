@@ -75,6 +75,10 @@ mass, ρ + 3p = 2B + 6U − 1:
 
 ## 2c. The sea's answer to the breathing (Derived)
 
+> **Corrected since:** see `AMENDMENT-1-sea-answer.md` in this folder (§2c's "no waves" holds for uniform breathing
+> only), then `AMENDMENT-2-sea-answer.md` (which line opens: S²'s pump at 4, not the knot sideband), and
+> `results/reset-handoff-2026-11-15/AMENDMENT-1-opening-condition.md` (the opening condition: growth vs drain).
+
 **A slow breath gets no answer.**
 
 - The sea (D_s at rest) carries waves only above its gaps: √2 for D, 2 for S. A uniform breathing slower than that

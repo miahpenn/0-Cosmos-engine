@@ -121,3 +121,21 @@ Exact-blob authorisations, recomputed with `git hash-object`:
 - lambda (a ruler, matched today).
 - Fixture only: x = 2 (by hand); the inherited amplitude 0.01; the D seed 1e-10; the cold start's T = 200, gamma = 0.3.
 - N: 60 and 120. r_max 24.
+
+## Split after review (Jeremiah, Nov 16; external review of this PR)
+
+- **Rescaled fixture:** on the wall by default, as above.
+- **Inherited fixture (x ≈ 157):** stays on the open edge by default, LABELLED "wall behaviour unresolved"
+  (`engine.lattice_wall.INHERITED_POCKET_WALL_LABEL`) until its starting-H mismatch (×1.93), the wall-cell momentum
+  residual after t ≈ 20 and the weakening convergence are understood. It can still be run on the wall by asking for
+  `outer_edge="lattice_wall"` (investigation only); the wall results above for it stand as that investigation.
+- **The edge is a per-run choice.** The module-level toggle (`_EXPANDING_DEFAULT`) and its `open_edge_reference()` block
+  are gone from the engine; `lattice_wall.default_edge(structure, electromagnetic=...)` is a pure function of the run's
+  own arguments. The eleven open-edge contract modules get `outer_edge="open_edge"` supplied explicitly per run by the
+  test harness (`tests/conftest.py`), so their files stay byte-identical (some are path triggers of source-pinned
+  workflows). Where this README mentions `open_edge_reference()`, read `outer_edge="open_edge"`.
+- Also in this PR: the reflection reading of #504 and #505 corrected by amendment
+  (`results/zero-flux-closure-2026-11-16/AMENDMENT-1-reflection-reading.md`,
+  `results/zero-flux-wall-engine-2026-11-16/AMENDMENT-1-reflection-reading.md`); a pointer from
+  `results/two-component-lane-2026-11-15/LEFTOVER_NOTE.md` to its sea-answer amendments; `docs/STATUS.md` refreshed.
+- Full suite: 1109 passed, 2 xfailed.

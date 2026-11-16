@@ -1,5 +1,9 @@
-"""The pocket test fixtures on the lattice wall by default (Nov 16 2026; Jeremiah: "Pocket fixtures on the wall: yes, as
-a separate later step. Their pinned data changes, so it should be its own labelled change").
+"""The pocket test fixtures and the lattice wall (Nov 16 2026; Jeremiah: "Pocket fixtures on the wall: yes, as a separate
+later step. Their pinned data changes, so it should be its own labelled change"). Split after the external review of PR
+#507 (Jeremiah, Nov 16): the RESCALED fixture gets the wall by default; the INHERITED fixture (x ~ 157) keeps the open edge
+by default, LABELLED "wall behaviour unresolved" (engine.lattice_wall.INHERITED_POCKET_WALL_LABEL: starting H x1.93,
+wall-cell momentum residual degrading after t ~ 20, weakening convergence). Tests that study a fixture on the wall ask
+for it explicitly (outer_edge="lattice_wall"); for the inherited fixture that is the investigation path, not a default.
 
 LABELLED: on the wall a fixture's data are the conformally flat cell slice (engine.lattice_wall.conformal_wall_initial_data)
 instead of the areal slice of engine/v55_initial.py (the same S and D profiles in the coordinate r); why: the one-stone scope
@@ -38,10 +42,22 @@ def _H_l2(k, st):
     return math.sqrt(np.sum(w * H * H)), math.sqrt(np.sum(w * M * M)), abs(float(M[-1]))
 
 
-@pytest.mark.parametrize("struct,kw", FIXTURES)
-def test_fixture_defaults_to_the_wall_on_the_labelled_conformally_flat_slice(struct, kw):
+def test_default_edges_rescaled_on_the_wall_inherited_on_the_open_edge():
     k = V55ProductionKernel()
-    wall = k.initialize(resolution=30, r_max=24.0, initial_structure=struct, **kw)
+    assert lw.is_lattice_wall(k.initialize(resolution=30, r_max=24.0, initial_structure="rescaled_pocket", pocket_x=2.0).grid)
+    assert not lw.is_lattice_wall(k.initialize(resolution=30, r_max=24.0, initial_structure="inherited_pocket").grid)
+    assert lw.default_edge("rescaled_pocket") == lw.LATTICE_WALL and lw.default_edge("inherited_pocket") == lw.OPEN_EDGE
+    assert "wall behaviour unresolved" in lw.INHERITED_POCKET_WALL_LABEL
+    from engine import coupled_engine
+    assert lw.is_lattice_wall(coupled_engine.initialize(n=30, rmax=24.0, initial_structure="rescaled_pocket",
+                                                        pocket_x=2.0).state.grid)
+    assert not lw.is_lattice_wall(coupled_engine.initialize(n=30, rmax=24.0, initial_structure="inherited_pocket").state.grid)
+
+
+@pytest.mark.parametrize("struct,kw", FIXTURES)
+def test_fixture_on_the_wall_starts_on_the_labelled_conformally_flat_slice(struct, kw):
+    k = V55ProductionKernel()
+    wall = k.initialize(resolution=30, r_max=24.0, initial_structure=struct, outer_edge="lattice_wall", **kw)
     assert lw.is_lattice_wall(wall.grid) and wall.grid.clock == "i"
     g = wall.geometry
     assert np.all(g.a == 1.0) and np.all(g.b == 1.0) and np.all(g.Aa == 0.0) and np.ptp(g.K) == 0.0
@@ -53,21 +69,15 @@ def test_fixture_defaults_to_the_wall_on_the_labelled_conformally_flat_slice(str
     assert not np.array_equal(wall.geometry.X, opened.geometry.X)
     assert not np.array_equal(wall.geometry.K, opened.geometry.K)
     assert "conformally flat" in lw.POCKET_FIXTURE_WALL_LABEL and "reflects outgoing waves" in lw.POCKET_FIXTURE_WALL_LABEL
-    assert struct in lw.EXPANDING_STRUCTURES and "hand_floor_reference" not in lw.EXPANDING_STRUCTURES
-    # The thin driver forwards the fixture and gets the same default.
-    from engine import coupled_engine
-    run = coupled_engine.initialize(n=30, rmax=24.0, initial_structure=struct, **kw)
-    assert lw.is_lattice_wall(run.state.grid)
+    assert "hand_floor_reference" not in lw.EXPANDING_STRUCTURES
 
 
-@pytest.mark.parametrize("struct,kw", FIXTURES)
-def test_open_edge_by_name_is_the_pre_step_reference(struct, kw):
-    """outer_edge="open_edge" by name equals the fixture's default inside lattice_wall.open_edge_reference() (the
-    pre-step behaviour), array for array after three steps (SHA-256 against main: results note)."""
+def test_inherited_default_is_the_open_edge_reference_by_name():
+    """The inherited fixture's default equals its open-edge reference asked for by name, array for array after three
+    steps; both are the pre-step code (SHA-256 against main: results note)."""
     k = V55ProductionKernel()
-    a = k.initialize(resolution=24, r_max=24.0, initial_structure=struct, outer_edge="open_edge", **kw)
-    with lw.open_edge_reference():
-        b = k.initialize(resolution=24, r_max=24.0, initial_structure=struct, **kw)
+    a = k.initialize(resolution=24, r_max=24.0, initial_structure="inherited_pocket", outer_edge="open_edge")
+    b = k.initialize(resolution=24, r_max=24.0, initial_structure="inherited_pocket")
     assert type(a.grid) is type(b.grid) and not lw.is_lattice_wall(a.grid)
     dt = 0.03 * float(a.grid.dr)
     for _ in range(3):
@@ -83,7 +93,7 @@ def test_fixture_initial_constraints_converge_on_the_wall(struct, kw):
     res = []
     for n in (60, 120):
         k = V55ProductionKernel()
-        st = k.initialize(resolution=n, r_max=24.0, initial_structure=struct, **kw)
+        st = k.initialize(resolution=n, r_max=24.0, initial_structure=struct, outer_edge="lattice_wall", **kw)
         res.append(_H_l2(k, st))
     assert res[0][0] / res[1][0] > 3.5, res
     assert max(r[1] for r in res) < 1e-15 and max(r[2] for r in res) < 1e-15   # Aa = 0, K uniform: M = 0 exactly
@@ -93,7 +103,7 @@ def test_fixture_initial_constraints_converge_on_the_wall(struct, kw):
 def test_fixture_short_run_on_the_wall(struct, kw):
     """A few steps on the default edge: finite, nothing crosses the wall, the wall cell's momentum residual small."""
     k = V55ProductionKernel()
-    st = k.initialize(resolution=30, r_max=24.0, initial_structure=struct, **kw)
+    st = k.initialize(resolution=30, r_max=24.0, initial_structure=struct, outer_edge="lattice_wall", **kw)
     dt = 0.06 * float(st.grid.dr)
     for _ in range(12):
         st = k.step(st, dt)

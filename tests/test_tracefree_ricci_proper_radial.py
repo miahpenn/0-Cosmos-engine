@@ -576,7 +576,7 @@ def test_lattice_wall_authorization_is_exact_blob():
         assert _source_blob_matches(path, historical, historical, authorized_head)
         assert not _source_blob_matches(path, historical, historical, "f" * 40)
     # lattice_wall.py re-authorized for the pocket fixtures on the wall (Nov 16 2026): see the test below.
-    path, blob = "engine/lattice_wall.py", "466ae7205be70b1346e558012e95bc680b6913de"
+    path, blob = "engine/lattice_wall.py", "a3becc6332d384eab3af662ba82d01512e6213e7"
     assert AUTHORIZED_OFF_AUDIT_REPAIR_HEAD_BLOBS[path] == blob
     assert _drop_authorized_off_audit_paths([path], lambda p: blob) == []
     assert _drop_authorized_off_audit_paths([path], lambda p: "0" * 40) == [path]
@@ -595,15 +595,15 @@ def test_pocket_fixtures_wall_authorization_is_exact_blob():
     )
 
     assert AUTHORIZED_POCKET_FIXTURES_WALL_HEAD_BLOBS == {
-        "engine/production_kernel.py": "a481da7eef965c92d576cf45e8627ab3f44fe74b",
-        "engine/v55_initial.py": "5640b4856ac63beb119ddf065af79ee02b1db689",
+        "engine/production_kernel.py": "4e6029eb5a7c12a9e905f27a17625325d9ed09ed",
+        "engine/v55_initial.py": "9f8b2a038ebd53d1a6e18f0482dba99f4363e1e8",
     }
     for path, authorized_head in AUTHORIZED_POCKET_FIXTURES_WALL_HEAD_BLOBS.items():
         assert path in AUTHORIZED_RUNTIME_PATHS
         historical = SOURCE_BLOBS[path]
         assert _source_blob_matches(path, historical, historical, authorized_head)
         assert not _source_blob_matches(path, historical, historical, "f" * 40)
-    path, blob = "engine/lattice_wall.py", "466ae7205be70b1346e558012e95bc680b6913de"
+    path, blob = "engine/lattice_wall.py", "a3becc6332d384eab3af662ba82d01512e6213e7"
     assert AUTHORIZED_OFF_AUDIT_REPAIR_HEAD_BLOBS[path] == blob
     assert _drop_authorized_off_audit_paths([path], lambda p: blob) == []
     assert _drop_authorized_off_audit_paths([path], lambda p: "0" * 40) == [path]

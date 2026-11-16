@@ -65,23 +65,27 @@ def test_which_runs_get_which_edge():
     assert lw.WALL_LABEL == "identical neighbours, in step: one-stone simplification"
     op = k.initialize(resolution=20, r_max=40.0, outer_edge="open_edge")
     assert type(op.grid) is grid_ops.SphericalCellGrid                  # the open edge's grid, untouched
-    # Pocket-fixtures step (Nov 16 2026): the two labelled pocket fixtures are expanding starts and get the wall by
-    # default (conformally flat slice, labelled); their open-edge reference is asked for by name.
+    # Pocket-fixtures step (Nov 16 2026): the rescaled pocket fixture gets the wall by default (conformally flat slice,
+    # labelled); the inherited pocket fixture keeps the open edge ("wall behaviour unresolved") unless the wall is asked
+    # for; every open-edge reference is asked for by name. The edge is a per-run choice with no module state.
+    fx = k.initialize(resolution=20, r_max=24.0, initial_structure="rescaled_pocket", pocket_x=2.0)
+    assert lw.is_lattice_wall(fx.grid) and fx.grid.clock == "i"
+    fi = k.initialize(resolution=20, r_max=24.0, initial_structure="inherited_pocket")
+    assert type(fi.grid) is grid_ops.SphericalCellGrid
+    assert lw.is_lattice_wall(k.initialize(resolution=20, r_max=24.0, initial_structure="inherited_pocket",
+                                           outer_edge="lattice_wall").grid)
     for struct, kw in (("rescaled_pocket", dict(pocket_x=2.0)), ("inherited_pocket", {})):
-        fx = k.initialize(resolution=20, r_max=24.0, initial_structure=struct, **kw)
-        assert lw.is_lattice_wall(fx.grid) and fx.grid.clock == "i"
         fo = k.initialize(resolution=20, r_max=24.0, initial_structure=struct, outer_edge="open_edge", **kw)
         assert type(fo.grid) is grid_ops.SphericalCellGrid
-        with lw.open_edge_reference():
-            assert type(k.initialize(resolution=20, r_max=24.0, initial_structure=struct, **kw).grid) \
-                is grid_ops.SphericalCellGrid
-    assert lw.EXPANDING_STRUCTURES == ("none", "rescaled_pocket", "inherited_pocket")
+    assert lw.EXPANDING_STRUCTURES == ("none", "rescaled_pocket")
+    assert "wall behaviour unresolved" in lw.INHERITED_POCKET_WALL_LABEL
     with hand_floor_reference():
         ref = k.initialize(resolution=20, r_max=40.0)
     assert type(ref.grid) is grid_ops.SphericalCellGrid                 # the reference path keeps the open edge
-    with lw.open_edge_reference():
-        assert type(k.initialize(resolution=20, r_max=40.0).grid) is grid_ops.SphericalCellGrid
-    assert lw.expanding_default_edge() == lw.LATTICE_WALL
+    assert type(k.initialize(resolution=20, r_max=40.0, outer_edge="open_edge").grid) is grid_ops.SphericalCellGrid
+    assert lw.default_edge("none") == lw.LATTICE_WALL and lw.default_edge("inherited_pocket") == lw.OPEN_EDGE
+    assert lw.default_edge("none", electromagnetic=True) == lw.OPEN_EDGE
+    assert not hasattr(lw, "open_edge_reference") and not hasattr(lw, "_EXPANDING_DEFAULT")
     assert k.initialize(resolution=20, r_max=40.0, wall_clock="ii").grid.clock == "ii"
     with pytest.raises(ValueError, match="outer_edge"):
         k.initialize(resolution=20, r_max=40.0, outer_edge="sponge")

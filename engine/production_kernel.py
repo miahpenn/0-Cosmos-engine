@@ -172,12 +172,12 @@ class V55ProductionKernel:
         amplitude, width and D_amplitude shape the pockets and the reference only (defaults 0.01, 7.0, 1e-10
         there); the background-only default refuses them rather than dropping them.
 
-        outer_edge: "lattice_wall" or "open_edge" (engine/lattice_wall.py). Default: the lattice wall for the
-        expanding starts (lattice_wall.EXPANDING_STRUCTURES): production's start (initial_structure "none": today,
-        background alone) and the two labelled pocket fixtures, labelled "identical neighbours, in step: one-stone
-        simplification" (the wall reflects outgoing waves); the open edge for the hand-floor reference and the
-        radial-Maxwell experiment (their pinned data are areal slices built for it; the wall has no EM sector).
-        Inside lattice_wall.open_edge_reference() the expanding starts get the open edge too (labelled reference).
+        outer_edge: "lattice_wall" or "open_edge" (engine/lattice_wall.py), chosen per run. Default
+        (lattice_wall.default_edge, no module state): the lattice wall for production's start (initial_structure
+        "none": today, background alone) and the rescaled pocket fixture, labelled "identical neighbours, in step:
+        one-stone simplification" (the wall reflects outgoing waves); the open edge for the inherited pocket fixture
+        (LABELLED "wall behaviour unresolved": lattice_wall.INHERITED_POCKET_WALL_LABEL), the hand-floor reference
+        and the radial-Maxwell experiment (their pinned data are areal slices built for it; the wall has no EM sector).
         The background is exactly flat (psi = 1), so its data are the same on both edges. A pocket fixture on the
         wall gets the conformally flat cell slice (lattice_wall.conformal_wall_initial_data): LABELLED, its data
         differ from the areal slice it has on the open edge (lattice_wall.POCKET_FIXTURE_WALL_LABEL). The fixtures'
@@ -191,11 +191,9 @@ class V55ProductionKernel:
             _scalar_system.DEFAULT_INITIAL_STRUCTURE if initial_structure is None else initial_structure
         )
         if outer_edge is None:
-            outer_edge = (
-                _wall.expanding_default_edge()
-                if structure in _wall.EXPANDING_STRUCTURES and radial_maxwell_charge_to_mass is None
-                and charged_dust_density is None
-                else _wall.OPEN_EDGE
+            outer_edge = _wall.default_edge(
+                structure,
+                electromagnetic=(radial_maxwell_charge_to_mass is not None or charged_dust_density is not None),
             )
         if outer_edge not in _wall.OUTER_EDGES:
             raise ValueError(f"outer_edge must be one of {_wall.OUTER_EDGES}, not {outer_edge!r}")

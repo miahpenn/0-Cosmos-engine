@@ -42,8 +42,13 @@ labelled pocket fixtures) needs a conformally flat slice so every metric functio
 ``conformal_wall_slice`` (K^2 = 24 pi <rho psi^5>/<psi^5> is fixed by the cell average, not chosen).
 
 Which starts get the wall by default (``EXPANDING_STRUCTURES``): production's start (today, background alone) since
-PR #505, and the two labelled pocket fixtures since the pocket-fixtures step (Nov 16 2026; Jeremiah: "Pocket fixtures
-on the wall: yes, as a separate later step. Their pinned data changes, so it should be its own labelled change").
+PR #505, and the rescaled pocket fixture since the pocket-fixtures step (Nov 16 2026; Jeremiah: "Pocket fixtures on
+the wall: yes, as a separate later step. Their pinned data changes, so it should be its own labelled change").
+The inherited pocket fixture (x ~ 157) stays on the open edge by default, LABELLED "wall behaviour unresolved"
+(``INHERITED_POCKET_WALL_LABEL``; Jeremiah, Nov 16, after the external review of PR #507): on the wall its starting
+expansion rate is x1.93 the background's, its wall-cell momentum residual (W1b) degrades after t ~ 20 and its
+convergence weakens. It can still be put on the wall by asking for outer_edge="lattice_wall" (investigation only).
+The edge is a per-run choice (``default_edge``): a pure function of the run's own arguments, with no module state.
 LABELLED (``POCKET_FIXTURE_WALL_LABEL``): on the wall a fixture's DATA differ from its open-edge data: the conformally
 flat cell slice instead of the areal slice of engine/v55_initial.py (same S and D profiles in the coordinate r, so
 the radius r means a different thing on the two slices); why: the one-stone scope for expanding runs; and the wall
@@ -56,7 +61,6 @@ and in step; zero shift. Unpaid: the one-stone simplification itself; clock "i" 
 """
 from __future__ import annotations
 
-import contextlib
 from dataclasses import dataclass, field, replace
 import math
 
@@ -87,34 +91,27 @@ WALL_CLOCKS = ("i", "ii")
 DEFAULT_WALL_CLOCK = "i"
 
 
-# The starts that get the expanding default edge when none is asked for: production's start (today, background alone)
-# and the two labelled pocket fixtures (pocket-fixtures step, Nov 16 2026). The hand-floor reference is not among them.
-EXPANDING_STRUCTURES = ("none", "rescaled_pocket", "inherited_pocket")
+# The starts that get the lattice wall when no edge is asked for: production's start (today, background alone) and the
+# rescaled pocket fixture (pocket-fixtures step, Nov 16 2026). Not the inherited pocket fixture (wall behaviour
+# unresolved: INHERITED_POCKET_WALL_LABEL) and not the hand-floor reference.
+EXPANDING_STRUCTURES = ("none", "rescaled_pocket")
+INHERITED_POCKET_WALL_LABEL = (
+    "inherited pocket fixture (x ~ 157): wall behaviour unresolved -- on the wall its starting H is x1.93 the "
+    "background's, its wall-cell momentum residual degrades after t ~ 20 and convergence weakens; open edge by default"
+)
 POCKET_FIXTURE_WALL_LABEL = (
     "pocket fixture on the lattice wall: data changed from the areal slice to the conformally flat cell slice "
     "(one-stone scope for expanding runs); the wall reflects outgoing waves; open-edge reference by name"
 )
 
-# The edge those expanding starts get when none is asked for.
-_EXPANDING_DEFAULT = {"edge": LATTICE_WALL}
-
-
-def expanding_default_edge() -> str:
-    return _EXPANDING_DEFAULT["edge"]
-
-
-@contextlib.contextmanager
-def open_edge_reference():
-    """LABELLED REFERENCE: inside this block the expanding starts (``EXPANDING_STRUCTURES``: production's default start
-    and the pocket fixtures) get the open edge, as they did before the wall was added (bit-identical to that code).
-    For contracts written against the open edge's implementation seams (tests/conftest.py::OPEN_EDGE_REFERENCE_MODULES);
-    not for expanding production runs."""
-    saved = _EXPANDING_DEFAULT["edge"]
-    _EXPANDING_DEFAULT["edge"] = OPEN_EDGE
-    try:
-        yield
-    finally:
-        _EXPANDING_DEFAULT["edge"] = saved
+def default_edge(structure, *, electromagnetic=False) -> str:
+    """The edge a run gets when it asks for none: a pure function of the run's own arguments (no module state; the
+    former module-level toggle and its open_edge_reference() block were removed, Jeremiah, Nov 16 2026). The lattice
+    wall for EXPANDING_STRUCTURES; the open edge for the inherited pocket fixture, the hand-floor reference and the
+    radial-Maxwell experiment. The open-edge reference for any start is asked for by name, outer_edge="open_edge"."""
+    if electromagnetic:
+        return OPEN_EDGE
+    return LATTICE_WALL if structure in EXPANDING_STRUCTURES else OPEN_EDGE
 
 
 def _poly_weights(g, value_constraint):

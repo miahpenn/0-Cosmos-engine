@@ -116,8 +116,8 @@ jobs:
             ["engine/production_kernel.py"]="2d9a085667b2ef4adc96e32b6d57dbd610ee0eef"
           )
           declare -A authorized_pocket_fixtures_wall_heads=(
-            ["engine/production_kernel.py"]="a481da7eef965c92d576cf45e8627ab3f44fe74b"
-            ["engine/v55_initial.py"]="5640b4856ac63beb119ddf065af79ee02b1db689"
+            ["engine/production_kernel.py"]="4e6029eb5a7c12a9e905f27a17625325d9ed09ed"
+            ["engine/v55_initial.py"]="9f8b2a038ebd53d1a6e18f0482dba99f4363e1e8"
           )
           declare -A authorized_ledger_shift_heads=(
             ["engine/production_kernel.py"]="216ba0a4fbfe2590bf704cae3ddc801dc8655ae0"
@@ -171,7 +171,7 @@ jobs:
             ["engine/run_controls.py"]="e1237ba6462234ef2b196e474f9945a19767b956"
             ["engine/model_constants.py"]="ae93e694193586ea6d2532c49f0f320b1a902e76"
             ["engine/cosmos.py"]="0475446f4cb020bb3c0f30b9bc74e3b711b55fc2"
-            ["engine/lattice_wall.py"]="466ae7205be70b1346e558012e95bc680b6913de"
+            ["engine/lattice_wall.py"]="a3becc6332d384eab3af662ba82d01512e6213e7"
           )
           for path in "${!authorized_off_audit_heads[@]}"; do
             if [ -n "$unexpected" ] && [ "$(git rev-parse "HEAD:$path" 2>/dev/null)" = "${authorized_off_audit_heads[$path]}" ]; then
