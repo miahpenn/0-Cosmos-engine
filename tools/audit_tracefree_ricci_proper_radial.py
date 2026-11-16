@@ -104,6 +104,16 @@ AUTHORIZED_SHARED_CONSTANTS_HEAD_BLOBS = {
     "engine/production_kernel.py": "8c77065e64ef14e50e7fd08e2a8cc165d58e055d",
 }
 
+# Exact-blob authorization for the hand-floor removal step 2 (Nov 16 2026, for Jeremiah's review): the derived coupled
+# floor replaces the hand floor (D_POT = 0), lambda on (matched today, a ruler), the GEAR-91 coupling in the scalar RHS
+# and stress projection, and the background-only default start ("no structure placed"). The old path is kept as the
+# labelled reference (engine.scalar_system.hand_floor_reference()), bit-identical; this audit runs on it.
+AUTHORIZED_HAND_FLOOR_STEP2_HEAD_BLOBS = {
+    "engine/scalar_system.py": "01a440955ccacf9a89bd0d68cec08c984216e9e8",
+    "engine/production_kernel.py": "99149bf4c86755c608a118ce9db17faf6df041a7",
+    "engine/v55_initial.py": "8bd55722fca9596931f156791c5eaf155ab8eb56",
+}
+
 
 def _authorized_head_blobs(path: str) -> set[str]:
     return {
@@ -115,6 +125,7 @@ def _authorized_head_blobs(path: str) -> set[str]:
             AUTHORIZED_LEDGER_SHIFT_HEAD_BLOBS.get(path),
             AUTHORIZED_SD_QUARTIC_HEAD_BLOBS.get(path),
             AUTHORIZED_SHARED_CONSTANTS_HEAD_BLOBS.get(path),
+            AUTHORIZED_HAND_FLOOR_STEP2_HEAD_BLOBS.get(path),
         ) if blob is not None
     }
 AUTHORIZED_RUNTIME_PATHS = (
@@ -125,6 +136,7 @@ AUTHORIZED_RUNTIME_PATHS = (
     | frozenset(AUTHORIZED_LEDGER_SHIFT_HEAD_BLOBS)
     | frozenset(AUTHORIZED_SD_QUARTIC_HEAD_BLOBS)
     | frozenset(AUTHORIZED_SHARED_CONSTANTS_HEAD_BLOBS)
+    | frozenset(AUTHORIZED_HAND_FLOOR_STEP2_HEAD_BLOBS)
 )
 
 RESOLUTIONS = (40, 60, 80, 120, 160)
@@ -161,10 +173,12 @@ AUTHORIZED_OFF_AUDIT_REPAIR_HEAD_BLOBS = {
     "engine/coupled_engine.py": "858b40dc5c93e502b3bccde364b9fc3f781fd692",
     "engine/bidirectional_production.py": "21e55a57f2029713225cce9b590db57817d4e4f1",
     "engine/worldtube.py": "c263a786b2057f4a427243899ae507e8a0c0c8c5",
-    "engine/run_controls.py": "8eb24c72bbe436896a1b85a23cb91e4de8e6a647",
+    # Hand-floor removal step 2 (Nov 16 2026): the provenance local lane runs on the reference path.
+    "engine/run_controls.py": "e1237ba6462234ef2b196e474f9945a19767b956",
     # Shared model constants (gap #2): the one copy, and the COSMOS lane's defaults read from it.
-    "engine/model_constants.py": "17851bea202b8748119b3c0c5d40f4c9e6e003e6",
-    "engine/cosmos.py": "f1e9c545f1d5fdc1233a11cf3a2624f33b6eb65c",
+    # Re-authorized for the hand-floor removal step 2 (Nov 16 2026): lambda, beta_D and the coupled floor.
+    "engine/model_constants.py": "ae93e694193586ea6d2532c49f0f320b1a902e76",
+    "engine/cosmos.py": "0475446f4cb020bb3c0f30b9bc74e3b711b55fc2",
 }
 
 
