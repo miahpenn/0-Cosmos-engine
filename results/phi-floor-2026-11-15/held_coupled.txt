@@ -1,0 +1,16 @@
+held step (phi-aware sea rest) / S-D energy, coupled cell; uncoupled values from the handoff note in brackets
+  t   4.5: 0.1984  [0.176]
+  t   5.0: 0.1742  [0.176]
+  t   6.0: 0.1190  [0.124]
+  t   7.0: 0.0718  [0.077]
+  t   8.0: 0.0478  [0.049]
+  t  10.0: 0.0514  [0.05]
+  t  12.0: 0.0478  [0.054]
+  t  15.0: 0.0254  [0.024]
+  t  18.0: 0.0236  [0.028]
+  t  24.0: 0.0158  [0.018]
+  t  30.0: 0.0128  [0.014]
+  t  40.0: 0.0114  [0.01]
+  t  50.0: 0.0221  [None]
+peak 0.2312 at t 3.5000000000000027
+first time after peak below 0.02 for one D period (raw held): 22.49999999999961

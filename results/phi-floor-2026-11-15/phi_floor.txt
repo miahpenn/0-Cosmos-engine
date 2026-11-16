@@ -1,0 +1,47 @@
+Derived: extra force on phi from D's floor / phi's own slope at phi_today: 0.0197
+
+1. Background cells (no matter) against the derived background; differences cell - prediction
+   run          t      phi - phi0 (cell)   (pred)      dphi      Pi cell     dPi/|Pi|     H cell      dH/H        D/D* cell   e^(-bD phi)
+   bD = 0       10.0   +0.646363        +0.646363   +1.9e-07   +0.06365   -2.2e-07   0.061732   +1.5e-07   1.000000    1.000000
+   bD = 0       20.0   +1.238162        +1.238162   +6.9e-08   +0.05477   -1.6e-07   0.041949   +1.6e-07   1.000000    1.000000
+   bD = 0       30.0   +1.751269        +1.751269   -2.5e-08   +0.04845   -1.1e-07   0.028162   +2.2e-07   1.000000    1.000000
+   bD = 0       40.0   +2.219680        +2.219680   -1.0e-07   +0.04589   -1.1e-07   0.016932   +3.7e-07   1.000000    1.000000
+   bD = 0       50.0   +2.684794        +2.684794   -2.0e-07   +0.04815   -1.6e-07   0.005958   +1.4e-06   1.000000    1.000000
+   bD = 0       60.0   +3.215357        +3.215357   -4.6e-07   +0.06082   -4.4e-07   -0.008314   -2.2e-06   1.000000    1.000000
+   bD = 0       70.0   +4.051438        +4.051441   -2.7e-06   +0.12807   -3.7e-06   -0.045128   -4.6e-06   1.000000    1.000000
+   bD = -0.04   10.0   +0.658357        +0.658453   -9.6e-05   +0.06566   -1.7e-04   0.060781   +1.5e-04   1.033307    1.034064
+   bD = -0.04   20.0   +1.278762        +1.278911   -1.5e-04   +0.05868   -1.3e-05   0.039209   +1.8e-05   1.060080    1.060046
+   bD = -0.04   30.0   +1.847417        +1.847547   -1.3e-04   +0.05614   +7.5e-05   0.022358   -7.9e-05   1.084340    1.084435
+   bD = -0.04   40.0   +2.431547        +2.431613   -6.7e-05   +0.06299   +1.4e-04   0.004933   -1.0e-03   1.110017    1.110071
+   bD = -0.04   50.0   +3.207184        +3.207062   +1.2e-04   +0.10430   +3.9e-04   -0.026115   +7.7e-04   1.144993    1.145051
+   bD = -0.04   58.5   +6.146334        +6.135734   +1.1e-02   +3.19371   +1.3e-02   -1.303280   +1.3e-02   1.285832    1.287903
+   bD = -0.04   58.5   +6.146334        +6.135734   +1.1e-02   +3.19371   +1.3e-02   -1.303280   +1.3e-02   1.285832    1.287903
+
+   coupling's effect on the background (bD = -0.04 minus bD = 0):
+     t   20: d(phi - phi0) = +4.060e-02 (+3.28% of phi's roll),  dH/H = -6.53e-02
+     t   30: d(phi - phi0) = +9.615e-02 (+5.49% of phi's roll),  dH/H = -2.06e-01
+     t   40: d(phi - phi0) = +2.119e-01 (+9.54% of phi's roll),  dH/H = -7.09e-01
+     t   50: d(phi - phi0) = +5.224e-01 (+19.46% of phi's roll),  dH/H = -5.38e+00
+     t   56: d(phi - phi0) = +1.211e+00 (+40.53% of phi's roll),  dH/H = +6.44e+01
+
+3. Pocket cells, x_c 2.0 r_max 24: bD = 0 (u_x20_cold) vs bD = -0.04 (g_x20_bD)
+   bD = 0      status ok; handoff t_h = 12.999999999999812; raw held / S-D energy: peak 0.1987 at t = 4.5; at t = 8, 12, 24: 0.0490 0.0541 0.0182
+      phi(pocket r<6) - phi(sea r>16): t=10: -2.30e-02  t=30: -2.45e-02  t=50: -2.25e-02  t=70: -3.88e-02
+      the collapse: t, H, x in the core (2<s^2>, r<4), D/D_sea in the core, held/S-D energy (raw)
+        t 40.0  H +0.0170  x_core  0.032  D_core/D_sea 1.002  held 0.0101
+        t 44.0  H +0.0127  x_core  0.033  D_core/D_sea 1.027  held 0.0085
+        t 48.0  H +0.0083  x_core  0.031  D_core/D_sea 0.996  held 0.0117
+        t 52.0  H +0.0036  x_core  0.024  D_core/D_sea 0.961  held 0.0148
+        t 54.0  H +0.0011  x_core  0.022  D_core/D_sea 1.017  held 0.0116
+        t 56.0  H -0.0017  x_core  0.030  D_core/D_sea 0.964  held 0.0136
+        t 58.0  H -0.0047  x_core  0.030  D_core/D_sea 0.997  held 0.0157
+   bD = -0.04  status STOPPED at t=58.860: ValueError: invalid spatial volume element: r=7.50000000000000000e-01, a=7.49914107199728974e+00, b=-2.36355088669389146e-01, X=5.89083536964427879e+01, sqrt_gamma=-1.78099454113928056e-06; handoff t_h = None; raw held / S-D energy: peak 0.9940 at t = 54.0; at t = 8, 12, 24: 0.0941 0.2419 0.8158
+      phi(pocket r<6) - phi(sea r>16): t=10: -2.93e-02  t=30: -3.08e-02  t=50: -4.10e-02  t=59: -9.03e-02
+      the collapse: t, H, x in the core (2<s^2>, r<4), D/D_sea in the core, held/S-D energy (raw)
+        t 40.0  H +0.0051  x_core  0.047  D_core/D_sea 0.948  held 0.9712
+        t 44.0  H -0.0039  x_core  0.065  D_core/D_sea 0.937  held 0.9794
+        t 48.0  H -0.0165  x_core  0.055  D_core/D_sea 0.942  held 0.9833
+        t 52.0  H -0.0390  x_core  0.094  D_core/D_sea 0.964  held 0.9864
+        t 54.0  H -0.0616  x_core  0.163  D_core/D_sea 0.944  held 0.9940
+        t 56.0  H -0.1127  x_core  0.185  D_core/D_sea 0.970  held nan
+        t 58.0  H -0.3952  x_core  0.394  D_core/D_sea 0.874  held nan
