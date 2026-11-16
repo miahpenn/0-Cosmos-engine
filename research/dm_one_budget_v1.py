@@ -45,6 +45,7 @@ Usage (repo root): python research/dm_one_budget_v1.py CASE x_c beta_D N RMAX T 
 """
 import dataclasses
 import math
+import os
 import sys
 
 sys.path.insert(0, ".")
@@ -145,6 +146,13 @@ def initial(case, x_c, beta_D, N, RMAX):
         scalars=dataclasses.replace(st.scalars, S=S, PS=z.copy(), D=D, PD=z.copy(), phi=phi, Pi=Pi),
         matter=V55MatterState(initialize_dust(mets, np.full_like(r, dm0)), initialize_dust(mets, np.full_like(r, b0)),
                               initialize_radiation(mets, np.full_like(r, rr0)), None))
+    if os.environ.get("ALPHA_SEED", "stale") == "one":
+        # Floor-swap step 1 finding (results/floor-swap-2026-11-15/KERNEL_DRIFT.md): the lapse left by k.initialize was
+        # solved for production's own initial data (its S pocket at this module's lambda), not for these fields. The
+        # first CMC solve projects K-dot with that stale lapse, and through the open edge its non-uniform part feeds a
+        # lapse mode that the closure does not damp. ALPHA_SEED=one starts from alpha = 1 (default "stale" keeps the
+        # earlier runs reproducible).
+        st.geometry.alpha[:] = 1.0
     return k, st, r, H0
 
 
