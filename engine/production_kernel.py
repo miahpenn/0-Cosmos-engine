@@ -20,14 +20,20 @@ lapse floor, ejection threshold, or physical stop is present.
 Outer edge (HANDOFF Nov 15 2026 (3), task 2; decision 2 confirmed by Jeremiah). The closure is a property of the
 grid the state carries, threaded explicitly through the operators, the fluid flux and the lapse solve
 (engine/lattice_wall.py); nothing module-wide is replaced:
-  "lattice_wall"  EXPANDING runs, and production's default start (today, background alone): the zero-flux lattice
-                  wall, labelled "identical neighbours, in step: one-stone simplification". It reflects outgoing
-                  waves (correct for identical neighbours, wrong for isolated set-ups). Clock "i": alpha = 1 at
-                  the wall (the wall shell's proper time).
-  "open_edge"     STATIC and ISOLATED runs, the labelled pocket fixtures and the hand-floor reference by default:
-                  the pinned incoming-light reconstruction and the projected-K-dot CMC lapse, unchanged
-                  (bit-identical to the code before the wall was added). Its K-dot reads the stored lapse, so a
-                  lapse error is not damped (results/floor-swap-2026-11-15/KERNEL_DRIFT.md).
+  "lattice_wall"  EXPANDING runs, by default: production's default start (today, background alone) and, since the
+                  pocket-fixtures step (Nov 16 2026, Jeremiah: "its own labelled change"), the two labelled pocket
+                  fixtures ("rescaled_pocket", "inherited_pocket"). The zero-flux lattice wall, labelled "identical
+                  neighbours, in step: one-stone simplification". It REFLECTS outgoing waves (correct for identical
+                  neighbours, wrong for isolated set-ups). Clock "i": alpha = 1 at the wall (the wall shell's proper
+                  time); physical results compared with the cosmos lane are read on the fluids' clock
+                  (diagnostics()["fluids_clock_rate"]). LABELLED: the fixtures' DATA CHANGE on the wall, from the
+                  areal slice of engine/v55_initial.py to the conformally flat cell slice
+                  (lattice_wall.conformal_wall_initial_data); same S and D profiles in the coordinate r.
+  "open_edge"     STATIC and ISOLATED runs, the hand-floor reference and the radial-Maxwell experiment by default;
+                  the pocket fixtures' REFERENCE when asked for by name (outer_edge="open_edge": the areal slice,
+                  bit-identical to the fixtures before this step): the pinned incoming-light reconstruction and the
+                  projected-K-dot CMC lapse, unchanged (bit-identical to the code before the wall was added). Its K-dot
+                  reads the stored lapse, so a lapse error is not damped (results/floor-swap-2026-11-15/KERNEL_DRIFT.md).
 """
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -166,13 +172,16 @@ class V55ProductionKernel:
         amplitude, width and D_amplitude shape the pockets and the reference only (defaults 0.01, 7.0, 1e-10
         there); the background-only default refuses them rather than dropping them.
 
-        outer_edge: "lattice_wall" or "open_edge" (engine/lattice_wall.py). Default: the lattice wall for
-        production's start (initial_structure "none": today, background alone, an expanding run), labelled
-        "identical neighbours, in step: one-stone simplification"; the open edge for the labelled pocket fixtures,
-        the hand-floor reference and the radial-Maxwell experiment (their pinned data are areal slices built for
-        it); inside lattice_wall.open_edge_reference() the default start gets the open edge too (labelled reference).
-        The background is exactly flat (psi = 1), so its data are the same on both edges; a pocket fixture on
-        the wall gets the conformally flat cell slice (lattice_wall.conformal_wall_initial_data), labelled.
+        outer_edge: "lattice_wall" or "open_edge" (engine/lattice_wall.py), chosen per run. Default
+        (lattice_wall.default_edge, no module state): the lattice wall for production's start (initial_structure
+        "none": today, background alone) and the rescaled pocket fixture, labelled "identical neighbours, in step:
+        one-stone simplification" (the wall reflects outgoing waves); the open edge for the inherited pocket fixture
+        (LABELLED "wall behaviour unresolved": lattice_wall.INHERITED_POCKET_WALL_LABEL), the hand-floor reference
+        and the radial-Maxwell experiment (their pinned data are areal slices built for it; the wall has no EM sector).
+        The background is exactly flat (psi = 1), so its data are the same on both edges. A pocket fixture on the
+        wall gets the conformally flat cell slice (lattice_wall.conformal_wall_initial_data): LABELLED, its data
+        differ from the areal slice it has on the open edge (lattice_wall.POCKET_FIXTURE_WALL_LABEL). The fixtures'
+        open-edge reference stays available by name, outer_edge="open_edge", bit-identical to before.
         wall_clock: "i" (alpha = 1 at the wall, the default) or "ii" (Kdot = <Q>); wall only.
         """
         from . import scalar_system as _scalar_system
@@ -182,11 +191,9 @@ class V55ProductionKernel:
             _scalar_system.DEFAULT_INITIAL_STRUCTURE if initial_structure is None else initial_structure
         )
         if outer_edge is None:
-            outer_edge = (
-                _wall.expanding_default_edge()
-                if structure == "none" and radial_maxwell_charge_to_mass is None
-                and charged_dust_density is None
-                else _wall.OPEN_EDGE
+            outer_edge = _wall.default_edge(
+                structure,
+                electromagnetic=(radial_maxwell_charge_to_mass is not None or charged_dust_density is not None),
             )
         if outer_edge not in _wall.OUTER_EDGES:
             raise ValueError(f"outer_edge must be one of {_wall.OUTER_EDGES}, not {outer_edge!r}")
@@ -223,7 +230,8 @@ class V55ProductionKernel:
         if outer_edge == _wall.LATTICE_WALL:
             grid = _wall.as_lattice_wall(grid, wall_clock)
             if structure != "none":
-                # LABELLED: a pocket fixture on the wall starts on the conformally flat cell slice.
+                # LABELLED (lattice_wall.POCKET_FIXTURE_WALL_LABEL): a pocket fixture on the wall starts on the
+                # conformally flat cell slice, not on the areal slice it has on the open edge.
                 geometry, matter, _ = _wall.conformal_wall_initial_data(
                     grid, init.geometry, init.scalars, include_radiation=include_radiation
                 )
