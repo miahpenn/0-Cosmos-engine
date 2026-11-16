@@ -1,0 +1,11 @@
+lambda matched at phi = 0: 1.52458e+06;  matched today: 1.56889e+06;  Hubble time 1/H_today = 176.4
+
+(a) scaled vs unscaled lane (same physics): largest relative difference over t = 0 ... 0.95 x crunch
+    lam 1.52e6 (phi = 0): a, H, phi, Pi, rho_dm: 3.4e-13;  D: 5.3e-14;  turnaround 4.187636 vs 4.187636 Hubble times
+    lam 1.57e6 (today): a, H, phi, Pi, rho_dm: 8.8e-14;  D: 3.0e-14;  turnaround 4.260418 vs 4.260418 Hubble times
+
+(c) node / turnaround / crunch, Hubble times from today (chart-dependent: phi_today)
+    production lane, hand floor (engine)     node 2.3026 at 3.753   turnaround 5.418   crunch 7.588
+    swap, lam 1.52e6 (phi = 0)    node 1.9850 at 2.896   turnaround 4.188   crunch 5.816   (D's ringing about its rest: max |d'| = 5.7e-04)
+    swap, lam 1.57e6 (today)      node 2.0097 at 2.954   turnaround 4.260   crunch 5.909   (D's ringing about its rest: max |d'| = 5.7e-04)
+    adiabatic coupled floor (PRODUCTION_LANE.md): B 2.896 / 4.188 / 5.816;  B' 2.954 / 4.260 / 5.909
