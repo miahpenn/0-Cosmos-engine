@@ -64,7 +64,7 @@ sign(Γ) = sign(φ̇) throughout.
   φ's fifth force and the uncoupled part would not, pulling D's share out of the stones. The parts are one body; they
   share one velocity. On the background (∇φ = 0) the two readings are identical, so the check below does not decide this
   choice; the stones argument does.
-- **Labelled one-fluid simplification (label and bound agreed with chat and 0\*, Nov 17; Jeremiah decides on review):** free D_r (6–8% of
+- **Labelled one-fluid simplification (decided by Jeremiah, Nov 17; label and bound agreed with chat and 0\*):** free D_r (6–8% of
   the S–D energy, Read) is lumped with the stones and shares their velocity. Bound:
   - The total coupling is exact. f_D counts D_r at its full coupling, so φ's total pull on the matter (background and
     ∇φ ≠ 0 alike) and the energy exchanged with φ are exact. In the lane nothing can drift apart (it is uniform), so
