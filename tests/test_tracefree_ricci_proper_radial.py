@@ -659,3 +659,21 @@ def test_sd_split_follows_phi_authorization_is_exact_blob():
         assert AUTHORIZED_OFF_AUDIT_REPAIR_HEAD_BLOBS[path] == blob
         assert _drop_authorized_off_audit_paths([path], lambda p, b=blob: b) == []
         assert _drop_authorized_off_audit_paths([path], lambda p: "0" * 40) == [path]
+
+
+def test_reconstruction_window_authorization_is_exact_blob():
+    from tools.audit_tracefree_ricci_proper_radial import (
+        AUTHORIZED_RECONSTRUCTION_WINDOW_HEAD_BLOBS,
+        AUTHORIZED_RUNTIME_PATHS,
+        SOURCE_BLOBS,
+        _source_blob_matches,
+    )
+
+    assert AUTHORIZED_RECONSTRUCTION_WINDOW_HEAD_BLOBS == {
+        "engine/matter_system.py": "30995d2a879b9131b38e644bb83d9295bd2b9a0a",
+    }
+    for path, authorized_head in AUTHORIZED_RECONSTRUCTION_WINDOW_HEAD_BLOBS.items():
+        assert path in AUTHORIZED_RUNTIME_PATHS
+        historical = SOURCE_BLOBS[path]
+        assert _source_blob_matches(path, historical, historical, authorized_head)
+        assert not _source_blob_matches(path, historical, historical, "f" * 40)

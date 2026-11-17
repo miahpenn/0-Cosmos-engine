@@ -260,10 +260,22 @@ def _reconstructed_primitive(
 ) -> FluidPrimitive:
     if side not in ("left", "right"):
         raise ValueError("side must be left or right")
+    # The limited slope at cell i needs only cells i-1, i, i+1 (and the end
+    # cells fall back to piecewise constant), so reconstruct on that window
+    # instead of converting the whole primitive list per face (O(N) per
+    # face, O(N^2) per step). Bit-identical: the same float64 values reach
+    # the same _reconstruct branch (tests/test_reconstruction_window_identity.py).
+    n = len(prim)
+    if i <= 0:
+        window, j = prim[0:1], 0
+    elif i >= n - 1:
+        window, j = prim[n - 1:n], 0
+    else:
+        window, j = prim[i - 1:i + 2], 1
     attrs = {}
     for name in ("rho", "pressure", "v_r"):
-        vals = np.asarray([getattr(q, name) for q in prim])
-        lo, hi = _reconstruct(vals, i)
+        vals = np.asarray([getattr(q, name) for q in window])
+        lo, hi = _reconstruct(vals, j)
         attrs[name] = lo if side == "left" else hi
     rho = max(0.0, attrs["rho"])
     pressure = max(0.0, attrs["pressure"])
