@@ -1,0 +1,409 @@
+"""RESEARCH ONLY. POKE-3's stone toy, rebuilt independently from its written set-up (chat workspace toy, Nov 17 2026).
+Note: results/stone-toy-2026-11-17/README.md.  Nothing in engine/ or vendor/ is used or changed.
+
+Spherical, weak field. S and D are Klein-Gordon fields in scaled units (s = sqrt(lambda) S, d = sqrt(lambda) D; S's bare
+mass 1) with the machine's potential (engine/scalar_system.py, GEAR-91 form, beta_S = 0), times lambda and shifted to be
+zero at D's rest in the sea:
+
+    V(s, d) = s^2/2 - u d^2/2 + (s^4 + 6 s^2 d^2 + d^4)/8 + u^2/2,      u = e^(-2 beta_D phi),  d_sea^2 = 2u.
+
+phi is a constant here (no expansion). Default phi = 0 (u = 1); phi = PHI_TODAY is a ruler (--phi today).
+S's mass in the sea: m^2 = 1 + 3u (= 4 at phi = 0).
+
+Newtonian gravity at grip g = kappa/lambda: Lap Phi = 4 pi G rho with G = g/(8 pi), rho = the scaled energy density
+(zero in the sea). Weak-field operator: field_tt = (1 + 4 Phi) Lap f - (1 + 2 Phi) dV/df  (- sponge * field_t).
+
+Start: the Schroedinger-Poisson ground state of S's ring (mass m, grip G), scaled to half-mass radius R:
+s = A(r), s_t = 0 with (1/2) m^2 A^2 = rho_SP; D = d_sea + seed, d_t = 0. x = A^2 = rho/2 (x_A of PR #491).
+Sponge: damping -gamma(r) f_t on both fields, gamma = GAMMA_MAX ((r - r_s)/(r_max - r_s))^2 for r > r_s = 0.75 r_max.
+
+Usage: python research/stone_toy_v1.py [outdir]     (runs the whole POKE-3 set with both rulers, in parallel)
+"""
+import math
+import os
+import sys
+from multiprocessing import Pool
+
+import numpy as np
+from scipy.integrate import solve_ivp
+
+sys.path.insert(0, ".")
+from engine import model_constants as mc  # noqa: E402  (BETA_D, PHI_TODAY, KAPPA, SD_QUARTIC_LAMBDA: read, not changed)
+
+G_PROD = mc.KAPPA / mc.SD_QUARTIC_LAMBDA        # production grip g = kappa/lambda (~1.60e-5)
+GAMMA_MAX = 1.0                                 # sponge strength (choice; unpaid)
+SAMPLE_EVERY = 0.8                              # time between recorded samples
+R_CENTRE = 1.0                                  # "the centre": volume mean over r < 1 (choice)
+R_CORE = 5.0                                    # "the core": volume mean over r < 5, the ruler on the centre (choice)
+V_DR = 0.71                                     # D_r's speed (PR #491), used only to state travel times
+W_SLOW = (2 * math.pi, 4 * math.pi)             # boxcars for the centre's x = 2<s^2> and D_slow = <d>: two and four of
+#                                                 S's sea periods (pi); the second is the ruler on the first (choice)
+W_FLUX = 10.0                                   # boxcar for the fluxes through 1.5R and 3R (choice)
+
+
+# ---------------------------------------------------------------- Schroedinger-Poisson ground state (dimensionless)
+def sp_profile():
+    """f'' + 2f'/xi = 2 w f, w'' + 2w'/xi = f^2, f(0) = 1, nodeless and decaying. Returns xi, f, xi_half (of f^2 xi^2)."""
+    def shoot(w0, xmax=12.0):
+        def rhs(x, y):
+            f, fp, w, wp = y
+            return [fp, 2 * w * f - 2 * fp / x, wp, f * f - 2 * wp / x]
+        x0 = 1e-6
+        ev_cross = lambda x, y: y[0]          # noqa: E731
+        ev_cross.terminal = True
+        ev_up = lambda x, y: y[1]             # noqa: E731
+        ev_up.terminal = True; ev_up.direction = 1
+        s = solve_ivp(rhs, (x0, xmax), [1, 0, w0, 0], events=(ev_cross, ev_up), rtol=1e-11, atol=1e-13,
+                      max_step=0.01, dense_output=False)
+        if s.t_events[0].size:
+            return -1, s
+        if s.t_events[1].size:
+            return +1, s
+        return 0, s
+    lo, hi = -2.0, 0.0                        # lo: crosses zero; hi: turns up
+    for _ in range(80):
+        mid = 0.5 * (lo + hi)
+        k, _s = shoot(mid)
+        if k < 0:
+            lo = mid
+        else:
+            hi = mid
+    k, s = shoot(lo)
+    xi, f = s.t, s.y[0]
+    # cut where the shot leaves the true solution: at the minimum of f before it crosses
+    imin = int(np.argmin(np.abs(f)))
+    xi, f = xi[: imin + 1], f[: imin + 1]
+    f = np.where(f > 0, f, 0.0)
+    m2 = np.concatenate([[0], np.cumsum(0.5 * (f[1:] ** 2 * xi[1:] ** 2 + f[:-1] ** 2 * xi[:-1] ** 2) * np.diff(xi))])
+    xi_half = float(np.interp(0.5 * m2[-1], m2, xi))
+    return xi, f, xi_half, 0.5 * (lo + hi)
+
+
+_SP = None
+
+
+def sp_amplitude2(r, R, G, m):
+    """x(r) = A^2 for the SP ground state of half-mass radius R: rho = b^4 f^2/(4 pi G m^2), A^2 = 2 rho/m^2."""
+    global _SP
+    if _SP is None:
+        _SP = sp_profile()
+    xi, f, xi_half, _ = _SP
+    b = xi_half / R
+    fr = np.interp(b * r, xi, f, right=0.0)
+    rho = b ** 4 * fr ** 2 / (4 * math.pi * G * m * m)
+    return 2 * rho / (m * m)
+
+
+# ---------------------------------------------------------------- the radial toy
+class Grid:
+    def __init__(self, dr, rmax):
+        self.N = int(round(rmax / dr)); self.dr = dr
+        self.r = (np.arange(self.N) + 0.5) * dr
+        self.rf = np.arange(1, self.N + 1) * dr                        # outer faces
+        rl = np.arange(self.N) * dr
+        self.vol = 4 * math.pi * (self.rf ** 3 - rl ** 3) / 3
+        self.af = self.rf ** 2
+
+    def lap(self, f):
+        F = np.zeros(self.N + 1)
+        F[1:-1] = self.af[:-1] * (f[1:] - f[:-1]) / self.dr               # last face (r_max): Neumann
+        return 4 * math.pi * (F[1:] - F[:-1]) / self.vol
+
+    def grad2(self, f):
+        """|f'|^2 at cells: average of the two face values (faces at the origin and r_max are zero)."""
+        g = np.zeros(self.N + 1)
+        g[1:-1] = ((f[1:] - f[:-1]) / self.dr) ** 2
+        return 0.5 * (g[1:] + g[:-1])
+
+
+def potential(s, d, u):
+    return 0.5 * s * s - 0.5 * u * d * d + (s ** 4 + 6 * s * s * d * d + d ** 4) / 8 + 0.5 * u * u
+
+
+def run(cfg):
+    R, g, dr, grav = cfg["R"], cfg["g"], cfg["dr"], cfg["grav"]
+    u = math.exp(-2 * mc.BETA_D * cfg.get("phi", 0.0))
+    m = math.sqrt(1 + 3 * u); dsea = math.sqrt(2 * u)
+    dt = 0.08 * dr / 0.2
+    T = cfg.get("T", 300.0)
+    rmax = cfg.get("rmax", max(6 * R, 60.0))
+    gr = Grid(dr, rmax); r = gr.r
+    G = g / (8 * math.pi)
+    s = np.sqrt(sp_amplitude2(r, R, G, m)); ps = np.zeros_like(s)
+    seed = cfg.get("seed", "uniform")
+    if seed == "uniform":
+        dd = 1e-6 * np.ones_like(r)
+    elif seed == "noise":
+        dd = 1e-6 * np.random.default_rng(1).standard_normal(int(round(rmax / 0.2)))
+        dd = np.repeat(dd, int(round(0.2 / dr)))[: gr.N]               # same seed at both resolutions
+    else:
+        dd = np.zeros_like(r)
+    d = dsea + dd; pd = np.zeros_like(d)
+    rs = 0.75 * rmax
+    gam = np.where(r > rs, GAMMA_MAX * ((r - rs) / (rmax - rs)) ** 2, 0.0)
+    in3 = r < 3 * R; inner = r < rs
+
+    def rho_parts(s, d, ps, pd):
+        gs, gd = gr.grad2(s), gr.grad2(d)
+        rhoS = 0.5 * ps ** 2 + 0.5 * gs + 0.5 * m * m * s * s + s ** 4 / 8        # S's ring at its in-sea mass
+        rhoSi = rhoS + 0.75 * s * s * (d * d - dsea * dsea)                         # ... with D's actual value
+        rho = 0.5 * ps ** 2 + 0.5 * pd ** 2 + 0.5 * (gs + gd) + potential(s, d, u)
+        return rhoS, rhoSi, rho
+
+    def phi_of(rho):
+        if not grav:
+            return np.zeros_like(rho)
+        dm = rho * gr.vol
+        Min = np.cumsum(dm) - 0.5 * dm
+        outer = np.cumsum((dm / r)[::-1])[::-1] - 0.5 * dm / r
+        return -G * (Min / r + outer)
+
+    def acc(s, d, rho):
+        Phi = phi_of(rho)
+        Vs = s + 0.5 * s ** 3 + 1.5 * s * d * d
+        Vd = -u * d + 0.5 * d ** 3 + 1.5 * s * s * d
+        return ((1 + 4 * Phi) * gr.lap(s) - (1 + 2 * Phi) * Vs,
+                (1 + 4 * Phi) * gr.lap(d) - (1 + 2 * Phi) * Vd, Phi)
+
+    rows = []
+    nsteps = int(round(T / dt)); every = int(round(SAMPLE_EVERY / dt))
+    # every-step records for the breathing readings: the centre (volume mean over r < R_CENTRE) and fluxes through spheres
+    cen = r < R_CENTRE; wc = gr.vol[cen] / gr.vol[cen].sum()
+    cor = r < R_CORE; wk = gr.vol[cor] / gr.vol[cor].sum(); sk2 = np.empty(nsteps + 1)
+    k15, k3 = int(round(1.5 * R / dr)) - 1, int(round(3 * R / dr)) - 1    # faces at 1.5R and 3R
+    sc2 = np.empty(nsteps + 1); dc = np.empty(nsteps + 1); dc2 = np.empty(nsteps + 1); fl = np.empty((3, nsteps + 1))
+
+    def flux(f, pf, k):                                                    # outward energy flux -f_t f_r 4 pi r^2
+        return -0.5 * (pf[k] + pf[k + 1]) * (f[k + 1] - f[k]) / dr * 4 * math.pi * gr.af[k]
+    rhoS, rhoSi, rho = rho_parts(s, d, ps, pd)
+    a_s, a_d, Phi = acc(s, d, rho)
+    for n in range(nsteps + 1):
+        sc2[n] = float(np.dot(wc, s[cen] ** 2)); sk2[n] = float(np.dot(wk, s[cor] ** 2)); dc[n] = float(np.dot(wc, d[cen])); dc2[n] = float(np.dot(wc, d[cen] ** 2))
+        fl[0, n] = flux(d, pd, k15); fl[1, n] = flux(d, pd, k3); fl[2, n] = flux(s, ps, k3)
+        if n % every == 0:
+            rhoS, rhoSi, rho = rho_parts(s, d, ps, pd)
+            ESi3 = float(np.sum(rhoSi[in3] * gr.vol[in3]))
+            ES3 = float(np.sum(rhoS[in3] * gr.vol[in3])); E3 = float(np.sum(rho[in3] * gr.vol[in3]))
+            cS = np.cumsum(rhoS[inner] * gr.vol[inner])
+            rhalf = float(np.interp(0.5 * cS[-1], cS, gr.rf[inner]))
+            xp = 0.5 * float(np.sum(rhoS[in3] ** 2 * gr.vol[in3]) / max(ES3, 1e-300))
+            Eout = float(np.sum((rho * gr.vol)[(~in3) & inner]))
+            rows.append((n * dt, ES3, E3, rhalf, xp, Eout, float(Phi[0]), ESi3))
+        if n == nsteps:
+            break
+        # kick-drift-kick with the sponge applied to the velocities
+        ps += 0.5 * dt * (a_s - gam * ps); pd += 0.5 * dt * (a_d - gam * pd)
+        s += dt * ps; d += dt * pd
+        rhoS, rhoSi, rho = rho_parts(s, d, ps, pd)
+        a_s, a_d, Phi = acc(s, d, rho)
+        ps += 0.5 * dt * (a_s - gam * ps); pd += 0.5 * dt * (a_d - gam * pd)
+    rows = np.array(rows); idx = np.arange(0, nsteps + 1, every)
+
+    def box(y, W):                                                         # centred boxcar over W time units
+        h = int(round(0.5 * W / dt)); c = np.concatenate([[0], np.cumsum(y)])
+        lo = np.maximum(idx - h, 0); hi = np.minimum(idx + h + 1, len(y))
+        return (c[hi] - c[lo]) / (hi - lo)
+    extra = [2 * box(sc2, W_SLOW[0]), 2 * box(sc2, W_SLOW[1]), box(dc, W_SLOW[0]), box(dc, W_SLOW[1]),
+             box(fl[0], W_FLUX), box(fl[1], W_FLUX), box(fl[2], W_FLUX), np.sqrt(box(dc2, W_SLOW[0])), 2 * box(sk2, W_SLOW[0]), 2 * box(sk2, W_SLOW[1])]
+    return cfg, np.column_stack([rows] + extra)
+
+
+# ---------------------------------------------------------------- readings (fixed before looking at the runs)
+def smooth(t, y, W):
+    """Centred moving average over a window of W time units (shrinks at the ends)."""
+    dtt = t[1] - t[0]; h = int(round(0.5 * W / dtt))
+    c = np.concatenate([[0], np.cumsum(y)])
+    i = np.arange(len(y)); lo = np.maximum(i - h, 0); hi = np.minimum(i + h + 1, len(y))
+    return (c[hi] - c[lo]) / (hi - lo)
+
+
+def onset_energy(t, E3, frac=0.02):
+    """Ring-out onset A: first time the S-D energy inside 3R falls `frac` below its running maximum (energy leaving the
+    stone). Choice, fixed after looking at one run (R = 24, dr 0.2, gravity on); 2% (ruler: 5%)."""
+    run_max = np.maximum.accumulate(E3)
+    k = np.nonzero(E3 < (1 - frac) * run_max)[0]
+    return float(t[k[0]]) if k.size else float("nan")
+
+
+def onset_flux(t, Eout, E0, frac=0.01):
+    """Ring-out onset B: first time the energy in the shell 3R < r < 0.75 r_max exceeds its start by `frac` of the
+    stone's starting energy (waves arriving outside the stone, before the sponge). Choice; the second ruler on onset."""
+    k = np.nonzero(Eout > Eout[0] + frac * E0)[0]
+    return float(t[k[0]]) if k.size else float("nan")
+
+
+TENDS = (150.0, 200.0, 300.0, 1000.0)
+
+
+def readings(rows):
+    t, ES3, E3, rh, xp, Eout, P0, ESi3 = rows.T[:8]
+    o = {"rh0": rh[0], "Phi0": P0[0], "xR_inst0": xp[0] * rh[0]}
+    o["onA"] = onset_energy(t, E3); o["onA5"] = onset_energy(t, E3, 0.05); o["onB"] = onset_flux(t, Eout, E3[0])
+    o["onB01"] = onset_flux(t, Eout, E3[0], 0.001)                 # faint arrival (0.1%): third onset ruler
+    lnE = np.log(E3)
+    def rate(t0, t1):                                              # loss rate -d ln E3/dt over [t0, t1]
+        if not (np.isfinite(t0) and t1 <= t[-1] + 1e-9 and t1 > t0):
+            return float("nan")
+        return -(np.interp(t1, t, lnE) - np.interp(t0, t, lnE)) / (t1 - t0)
+    o["rate_on"] = rate(o["onA"], o["onA"] + 50); o["rate_late"] = rate(250.0, 300.0)
+    late = t >= 250
+    o["xR_med_late"] = float(np.median((xp * rh)[late])) if late.any() else float("nan")
+    for W in (25, 50):
+        xR = smooth(t, xp * rh, W)
+        o[f"xR_{W}"] = (t, xR)
+        o[f"xRonA_{W}"] = float(np.interp(o["onA"], t, xR)) if np.isfinite(o["onA"]) else float("nan")
+        o[f"xRlate_{W}"] = float(np.mean(xR[late])) if late.any() else float("nan")
+    o["ends"] = {}
+    for te in TENDS:
+        k = int(np.searchsorted(t, te - 1e-9))
+        if k >= len(t):
+            continue
+        sel = slice(0, k + 1)
+        e = {"dES": ES3[k] / ES3[0] - 1, "dESi": ESi3[k] / ESi3[0] - 1, "dE3": E3[k] / E3[0] - 1,
+             "rh_min": rh[sel].min(), "rh1": rh[k]}
+        for W in (25, 50):   # smoothed with the window ending at te (trailing half-window lost: centred, shrinking)
+            xR = smooth(t[sel], (xp * rh)[sel], W)
+            e[f"xR1_{W}"] = xR[-1]
+        o["ends"][te] = e
+    return o
+
+
+def breathing(rows, R, drest=math.sqrt(2.0)):
+    """Episode readings, by fixed rules (scipy.signal.find_peaks; prominences are choices, stated in the README):
+    bursts = peaks of D's outward flux through 1.5R (boxcar 10), prominence >= 20% of the run's largest value, >= 10 apart;
+    x peaks = peaks of the centre's x (each window), prominence >= 0.3; D_slow minima = dips of the centre's slow D,
+    prominence >= 0.3 (each window)."""
+    from scipy.signal import find_peaks
+    t = rows[:, 0]; xc = rows[:, 8:10]; ds = rows[:, 10:12]; f15 = rows[:, 12]; f3 = rows[:, 13]
+    dtt = t[1] - t[0]; o = {}
+    for name, f in (("b15", f15), ("b3", f3)):
+        pk, _ = find_peaks(f, prominence=0.2 * max(f.max(), 1e-300), distance=int(round(10 / dtt)))
+        o[name] = t[pk]
+    for j, W in enumerate(("a", "b")):
+        pk, _ = find_peaks(xc[:, j], prominence=0.3)
+        o["xpk_t" + W] = t[pk]; o["xpk_v" + W] = xc[pk, j]; o["xmax" + W] = float(xc[:, j].max())
+        pk, _ = find_peaks(-ds[:, j], prominence=0.3)
+        o["dmin_t" + W] = t[pk]; o["dmin_v" + W] = ds[pk, j]
+        o["dlo" + W] = float(ds[:, j].min()); o["dhi" + W] = float(ds[:, j].max())
+        # state intervals (the cleaner reading): D "held" = slow D below half its rest value; "at rest" = above 90% of it;
+        # x "in the band" = centre's x above 4/3
+        o["held" + W] = intervals(t, np.abs(ds[:, j]) < 0.5 * drest); o["rest" + W] = intervals(t, np.abs(ds[:, j]) > 0.9 * drest)
+        o["band" + W] = intervals(t, xc[:, j] > 4.0 / 3.0)
+    o["drms_lo"] = float(rows[:, 15].min()); o["drms_hi"] = float(rows[:, 15].max())
+    o["xcore_max"] = (float(rows[:, 16].max()), float(rows[:, 17].max()))
+    # Core episodes, by rule: the centre's x (4 pi) above 4/3 for >= 8 units, intervals closer than 8 merged. For each:
+    # start, end, peak x at the centre (4 pi) and in the core (r < 5, 4 pi), the lowest |D_slow(0)| (4 pi) and its time,
+    # the largest F_D(1.5R) from the start to the end + 1.5R/0.71 + 10 and its time, and the change of all S-D energy
+    # inside 3R over the same span (fraction of the starting energy).
+    ep = []
+    for a, b in o["bandb"]:
+        if ep and a - ep[-1][1] < 8:
+            ep[-1][1] = b
+        else:
+            ep.append([a, b])
+    out = []
+    for a, b in ep:
+        if b - a < 8:
+            continue
+        m = (t >= a) & (t <= b); m2 = (t >= a) & (t <= b + 1.5 * R / V_DR + 10)
+        i = np.nonzero(m)[0]; i2 = np.nonzero(m2)[0]
+        kd = i[np.argmin(np.abs(ds[i, 1]))]; kf = i2[np.argmax(f15[i2])]
+        out.append((a, b, xc[i, 1].max(), rows[i, 17].max(), abs(ds[kd, 1]), t[kd], f15[kf], t[kf],
+                    (rows[i2[-1], 2] - rows[i2[0], 2]) / rows[0, 2], rows[i, 3].min(), rows[i2, 3].max()))
+    o["episodes"] = out; o["f15max"] = float(f15.max())
+    return o
+
+
+def intervals(t, mask):
+    """[(start, end), ...] of the runs of True in mask."""
+    m = np.concatenate([[False], mask, [False]]).astype(int); e = np.diff(m)
+    a = np.nonzero(e == 1)[0]; b = np.nonzero(e == -1)[0] - 1
+    return [(float(t[i]), float(t[j])) for i, j in zip(a, b)]
+
+
+def configs():
+    cs = []
+    for R, g in ((18, G_PROD), (24, G_PROD), (30, G_PROD), (40, G_PROD), (12, 8 * G_PROD), (20, 8 * G_PROD)):
+        for dr in (0.2, 0.1):
+            for grav in (True, False):
+                cs.append(dict(R=R, g=g, dr=dr, grav=grav, tag="main"))
+    for seed in ("noise", "none"):                                     # seed ruler
+        cs.append(dict(R=24, g=G_PROD, dr=0.2, grav=True, seed=seed, tag=f"seed-{seed}"))
+    cs.append(dict(R=24, g=G_PROD, dr=0.2, grav=True, phi=mc.PHI_TODAY, tag="phi-today"))   # phi ruler
+    cs.append(dict(R=40, g=G_PROD, dr=0.2, grav=True, phi=mc.PHI_TODAY, tag="phi-today"))
+    # the one extension (the cheapest stone): R = 12 at 8g to t = 1000 in a wide box (r_max 240: the stone, which spreads to
+    # r_half ~ 40 by t = 300, stays clear of the sponge); also the box ruler on the r_max = 72 runs above
+    for dr in (0.2, 0.1):
+        for grav in (True, False):
+            cs.append(dict(R=12, g=8 * G_PROD, dr=dr, grav=grav, T=1000.0, rmax=240.0, tag="long"))
+    return cs
+
+
+def label(c):
+    return (f"R={c['R']:<3d} g={c['g']:.3g} dr={c['dr']} grav={'on ' if c['grav'] else 'off'} "
+            f"seed={c.get('seed', 'uniform')} phi={c.get('phi', 0.0):.4g}" + (" LONG rmax=240" if c.get("rmax") else ""))
+
+
+if __name__ == "__main__":
+    outdir = sys.argv[1] if len(sys.argv) > 1 else "results/stone-toy-2026-11-17"
+    os.makedirs(outdir, exist_ok=True)
+    xi, f, xi_half, w0 = sp_profile()
+    I = float(np.trapezoid(f * f * xi * xi, xi))
+    with Pool(min(8, os.cpu_count() or 1)) as pool:
+        res = pool.map(run, configs())
+    with open(os.path.join(outdir, "summary.txt"), "w") as fh:
+        fh.write(f"# POKE-3 stone toy, independent rebuild (research/stone_toy_v1.py). g_prod = kappa/lambda = {G_PROD:.4e}\n")
+        fh.write(f"# SP ground state (dimensionless): w(0) = {w0:.6f}, xi_half = {xi_half:.5f}, "
+                 f"M r_half G m^2 = {I*xi_half:.4f}\n")
+        fh.write("# onA/onA5: first t with all S-D energy inside 3R 2%/5% below its running max; onB: first t the shell"
+                 " 3R<r<0.75rmax holds 1% of the stone's energy more than at t=0.\n# At each end time te: dES = S ring"
+                 " (in-sea mass) inside 3R, te/start - 1; dESi = same with D's actual value in the coupling; dE3 = all"
+                 " S-D energy inside 3R.\n# xR = x proxy times r_half(t); inst0 at t = 0; _W smoothed over W time units"
+                 " (centred; at onset A, and at te).\n# onB01: as onB at 0.1% (faint arrival). rate_on: -dlnE3/dt over"
+                 " [onA, onA+50]; rate_late: over [250, 300]; xRlate_W: mean of smoothed xR over t >= 250; xRmed: median of"
+                 " the instantaneous xR over t >= 250.\n")
+        fh.write("# run                                                          xR_inst0 Phi(0)    onA    onA5   onB  "
+                 " xR25_onA xR50_onA onB01 rate_on rate_late xRlate25 xRlate50 xRmed |  te    dES    dESi   dE3   rh0  rh_min rh_te  xR25_te xR50_te\n")
+        for c, rows in res:
+            o = readings(rows)
+            head = (f"{label(c):62s} {o['xR_inst0']:7.2f} {o['Phi0']:.2e} {o['onA']:6.1f} {o['onA5']:6.1f} {o['onB']:6.1f}"
+                    f"  {o['xRonA_25']:7.2f} {o['xRonA_50']:7.2f} {o['onB01']:6.1f} {o['rate_on']:7.4f} {o['rate_late']:7.4f}"
+                    f" {o['xRlate_25']:7.2f} {o['xRlate_50']:7.2f} {o['xR_med_late']:6.2f}")
+            for te, e in o["ends"].items():
+                fh.write(f"{head} | {te:4.0f} {e['dES']*100:+6.1f} {e['dESi']*100:+6.1f} {e['dE3']*100:+6.1f} "
+                         f"{o['rh0']:5.1f} {e['rh_min']:5.1f} {e['rh1']:5.1f}  {e['xR1_25']:7.2f} {e['xR1_50']:7.2f}\n")
+    with open(os.path.join(outdir, "series.txt"), "w") as fh:
+        fh.write("# every 4 time units. t  E_S(<3R, in-sea mass)  E_all(<3R)  r_half(S)  x_proxy(inst)  E_all(3R<r<0.75rmax)  Phi(0)"
+                 "  E_S(<3R, actual D)  x_centre(2pi)  x_centre(4pi)  D_slow(0)(2pi)  D_slow(0)(4pi)  F_D(1.5R)  F_D(3R)  F_S(3R)"
+                 "  D_rms(0)(2pi)  x_core(2pi)  x_core(4pi)\n")
+        for c, rows in res:
+            fh.write(f"## {label(c)}\n")
+            for row in rows[::5]:
+                fh.write("  ".join(f"{v:.5g}" for v in row) + "\n")
+    fmt = lambda a: "[" + " ".join(f"{v:.4g}" for v in np.atleast_1d(a)) + "]"   # noqa: E731
+    with open(os.path.join(outdir, "episodes.txt"), "w") as fh:
+        fh.write("# Breathing readings (rules in research/stone_toy_v1.py:breathing). Windows a = 2 pi, b = 4 pi.\n"
+                 "# bursts: peak times of D's outward flux through 1.5R and 3R. x peaks: (time, value) of the centre's x ="
+                 " 2<s^2>. D_slow minima: (time, value) of the centre's slow D (rest value sqrt(2u) = 1.414 at phi = 0).\n")
+        fh.write("# The centre = volume mean over r < 1; the core = volume mean over r < 5. D_rms = sqrt<d^2> at the centre.\n")
+        for c, rows in res:
+            o = breathing(rows, c["R"], math.sqrt(2 * math.exp(-2 * mc.BETA_D * c.get("phi", 0.0))))
+            fh.write(f"## {label(c)}\n")
+            fh.write(f"  bursts at 1.5R: n = {len(o['b15'])}  t = {fmt(o['b15'])}  gaps = {fmt(np.diff(o['b15']))}\n")
+            fh.write(f"  bursts at 3R:   n = {len(o['b3'])}  t = {fmt(o['b3'])}  gaps = {fmt(np.diff(o['b3']))}\n")
+            for W in ("a", "b"):
+                fh.write(f"  window {W}: x_centre max = {o['xmax'+W]:.3f}; x peaks t = {fmt(o['xpk_t'+W])} values = "
+                         f"{fmt(o['xpk_v'+W])}\n            D_slow(0) range = {o['dlo'+W]:.3f} to {o['dhi'+W]:.3f}; minima t = "
+                         f"{fmt(o['dmin_t'+W])} values = {fmt(o['dmin_v'+W])}\n")
+                iv = lambda L: " ".join(f"{a:.0f}-{b:.0f}" for a, b in L) or "none"   # noqa: E731
+                fh.write(f"            |D_slow| < 0.5 rest during: {iv(o['held'+W])}\n            |D_slow| > 0.9 rest during: "
+                         f"{iv(o['rest'+W])}\n            x_centre > 4/3 during: {iv(o['band'+W])}\n")
+            fh.write(f"  D_rms(0) (2 pi) range = {o['drms_lo']:.3f} to {o['drms_hi']:.3f}; x_core (r < 5) max = "
+                     f"{o['xcore_max'][0]:.3f} (2 pi), {o['xcore_max'][1]:.3f} (4 pi); largest F_D(1.5R) = {o['f15max']:.4g}\n")
+            fh.write(f"  core episodes (x_centre(4 pi) > 4/3 for >= 8, gaps < 8 merged): n = {len(o['episodes'])}; gaps between"
+                     f" starts = {fmt(np.diff([e[0] for e in o['episodes']]))}\n")
+            fh.write("    start  end   x_centre_pk x_core_pk  |D_slow|min at_t   F_D(1.5R)max at_t   dE(<3R)/E0  r_half min(in) max(after)\n")
+            for e in o["episodes"]:
+                fh.write(f"    {e[0]:5.0f} {e[1]:5.0f}   {e[2]:8.2f} {e[3]:9.2f}   {e[4]:10.3f} {e[5]:5.0f}   {e[6]:10.4g} {e[7]:5.0f}"
+                         f"   {e[8]:+9.4f}   {e[9]:6.1f} {e[10]:6.1f}\n")
+    print(open(os.path.join(outdir, "summary.txt")).read())
