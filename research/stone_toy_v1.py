@@ -20,6 +20,7 @@ Sponge: damping -gamma(r) f_t on both fields, gamma = GAMMA_MAX ((r - r_s)/(r_ma
 Usage: python research/stone_toy_v1.py [outdir]     (runs the whole POKE-3 set with both rulers, in parallel)
        python research/stone_toy_v1.py --quiet [outdir]      (quiet start: x(0) = 0.3, D at its adjusted rest value)
        python research/stone_toy_v1.py --spectrum [outdir]   (D's spectrum during #516's bursts, reruns with probes)
+       python research/stone_toy_v1.py --chaos [outdir]      (chaos step 1: twins, statistics, walls, S's clock)
 """
 import math
 import os
@@ -151,6 +152,8 @@ def run(cfg):
         s = np.sqrt(sp_amplitude2(r, R, G, m))
     else:                                                                 # quiet start: a SHAPE at central x = XC
         s = np.sqrt(quiet_profile(r, R, cfg["xc"], cfg["shape"]))
+    if cfg.get("perturb"):
+        s = s * (1.0 + cfg["perturb"])                                    # twin runs: S scaled by (1 + eps) at t = 0
     ps = np.zeros_like(s)
     seed = cfg.get("seed", "uniform" if start == "sp" else "none")
     if seed == "uniform":
@@ -177,6 +180,17 @@ def run(cfg):
     in3 = r < 3 * R; inner = r < rs
     probes = [int(round(pr / dr)) for pr in cfg.get("probe", ())]          # cells recorded every step (Part B)
     probe_d = []; probe_s = []
+    # chaos mode: snapshots of s, d on r < SNAP_R every SNAP_DT, and cumulative sums of d at t_k -/+ pi for D_slow(r, t_k)
+    snap = cfg.get("snap", False)
+    if snap:
+        ns = int(round(SNAP_R * R / dr)); kev = int(round(SNAP_DT / dt)); hw = int(round(math.pi / dt))
+        csum = np.zeros(ns); want = {}
+        for k in range(0, int(round(T / SNAP_DT)) + 1):
+            nk = k * kev
+            for side, nn in ((0, nk - hw), (1, nk + hw)):
+                if 0 <= nn <= int(round(T / dt)):
+                    want.setdefault(nn, []).append((k, side))
+        cs_at = {}; snaps = []; c0 = []
     sponge_w = 0.0; budget = []                                            # energy closure: box + sponge's take
 
     def grad_energy(f):                                                    # the discrete gradient energy leapfrog conserves
@@ -223,6 +237,13 @@ def run(cfg):
     for n in range(nsteps + 1):
         sc2[n] = float(np.dot(wc, s[cen] ** 2)); sk2[n] = float(np.dot(wk, s[cor] ** 2)); dc[n] = float(np.dot(wc, d[cen])); dc2[n] = float(np.dot(wc, d[cen] ** 2))
         fl[0, n] = flux(d, pd, k15); fl[1, n] = flux(d, pd, k3); fl[2, n] = flux(s, ps, k3)
+        if snap:
+            csum += d[:ns]
+            for k, side in want.get(n, ()):
+                cs_at[(k, side)] = csum.copy() if side == 1 else csum - d[:ns]
+            if n % kev == 0:
+                snaps.append((s[:ns].copy(), d[:ns].copy()))
+            c0.append((s[0], d[0]))
         if probes:
             probe_d.append(d[probes + [0]].copy()); probe_s.append(s[probes + [0]].copy())
         if n % every == 0:
@@ -259,6 +280,12 @@ def run(cfg):
     b = np.array(budget)
     dring = np.sqrt(np.maximum(box(dc2, W_SLOW[0]) - box(dc, W_SLOW[0]) ** 2, 0.0))
     out = np.column_stack([rows] + extra + [b[:, 1], b[:, 2], b[:, 3], dring])
+    if snap:
+        ks = sorted(k for k in range(len(snaps)) if (k, 0) in cs_at and (k, 1) in cs_at)
+        dslow = np.array([(cs_at[(k, 1)] - cs_at[(k, 0)]) / (2 * hw + 1) for k in ks])
+        cfg = dict(cfg, _snap_t=np.arange(len(snaps)) * kev * dt, _snap_s=np.array([a for a, _ in snaps]),
+                   _snap_d=np.array([b for _, b in snaps]), _dslow_t=np.array(ks) * kev * dt, _dslow=dslow,
+                   _c0=np.array(c0), _dt=dt, _rr=r[:ns], _vol=gr.vol[:ns])
     if probes:
         cfg = dict(cfg, _probe_d=np.array(probe_d), _probe_s=np.array(probe_s), _dt=dt)
     return cfg, out
@@ -400,6 +427,165 @@ def label(c):
             f"seed={c.get('seed', 'uniform')} phi={c.get('phi', 0.0):.4g}" + (" LONG rmax=240" if c.get("rmax") else ""))
 
 
+# ---------------------------------------------------------------- chaos step 1 (AUDIT-6, Nov 17): twins and statistics
+SNAP_R = 3.0          # snapshots cover r < 3R
+SNAP_DT = 2.0         # every 2 time units
+CHAOS_BASE = dict(R=30, g=None, grav=False, start="quiet", shape="sp", xc=0.3, T=400.0, rmax=240.0, snap=True,
+                  probe=(45.0, 90.0))
+
+
+def configs_chaos():
+    b = dict(CHAOS_BASE, g=G_PROD)
+    return [dict(b, dr=0.1, tag="base"), dict(b, dr=0.1, perturb=1e-10, tag="twin-1e-10"),
+            dict(b, dr=0.1, perturb=1e-8, tag="twin-1e-8"), dict(b, dr=0.2, tag="base"),
+            dict(b, dr=0.2, perturb=1e-10, tag="twin-1e-10"), dict(b, dr=0.05, tag="base")]
+
+
+def divergence(ca, cb):
+    """Volume-weighted RMS over r < 3R of (s_a - s_b) and (d_a - d_b), at the snapshot times."""
+    w = ca["_vol"] / ca["_vol"].sum()
+    ds_ = np.sqrt(((ca["_snap_s"] - cb["_snap_s"]) ** 2 * w).sum(1)); dd_ = np.sqrt(((ca["_snap_d"] - cb["_snap_d"]) ** 2 * w).sum(1))
+    return ca["_snap_t"], ds_, dd_
+
+
+def growth_reading(t, nrm):
+    """Rules (fixed, no fit): onset = first t with norm > 10x its t = 0 value; slope = ln(norm) difference over the
+    window from the first t above 1e3 x initial to the first t above 1e-3 (before saturation), divided by its length.
+    Also the saturation time (first t above 1e-2)."""
+    n0 = nrm[0]
+    f = lambda m: float(t[np.nonzero(m)[0][0]]) if m.any() else float("nan")   # noqa: E731
+    t_on = f(nrm > 10 * n0); ta = f(nrm > 1e3 * n0); tb = f(nrm > 1e-3); tsat = f(nrm > 1e-2)
+    lam = float("nan")
+    if np.isfinite(ta) and np.isfinite(tb) and tb > ta:
+        lam = (math.log(np.interp(tb, t, nrm)) - math.log(np.interp(ta, t, nrm))) / (tb - ta)
+    return dict(n0=n0, t_on=t_on, ta=ta, tb=tb, lam=lam, tsat=tsat)
+
+
+def omega_centre(c0, dt, W=10.0):
+    """S's clock at the centre from s(0, t) zero crossings: omega = pi / (mean gap between crossings in [t-W/2, t+W/2]),
+    on a grid every 2 units."""
+    s0 = c0[:, 0]; t = np.arange(len(s0)) * dt
+    i = np.nonzero(np.sign(s0[1:]) != np.sign(s0[:-1]))[0]
+    tz = t[i] - s0[i] * dt / (s0[i + 1] - s0[i])
+    grid = np.arange(W / 2, t[-1] - W / 2, 2.0); om = []
+    for tc in grid:
+        z = tz[(tz >= tc - W / 2) & (tz <= tc + W / 2)]
+        om.append(math.pi / np.diff(z).mean() if len(z) > 2 else float("nan"))
+    return grid, np.array(om)
+
+
+def walls(dslow, rr):
+    """Zero crossings of D_slow(r) per profile: count, radii; and per cell the longest run of D_slow < -1 (in samples)."""
+    sg = np.sign(dslow)
+    cross = [rr[np.nonzero(sg[k, 1:] * sg[k, :-1] < 0)[0]] for k in range(len(dslow))]
+    neg = dslow < -1.0
+    longest = np.zeros(dslow.shape[1], int)
+    run = np.zeros(dslow.shape[1], int)
+    for k in range(len(dslow)):
+        run = np.where(neg[k], run + 1, 0); longest = np.maximum(longest, run)
+    return cross, longest
+
+
+STAT_WINDOWS = ((150.0, 400.0), (150.0, 275.0), (275.0, 400.0))
+
+
+def stats(rows, R, W):
+    from scipy.signal import find_peaks
+    t = rows[:, 0]; m = (t >= W[0]) & (t <= W[1])
+    f15 = rows[:, 12]
+    pk, _ = find_peaks(f15, prominence=0.2 * f15.max(), distance=int(round(10 / (t[1] - t[0]))))
+    nb = int(((t[pk] >= W[0]) & (t[pk] <= W[1])).sum())
+    return dict(rate=nb / (W[1] - W[0]), F15=float(rows[m, 12].mean()), F3=float(rows[m, 13].mean()),
+                xk=float(rows[m, 17].mean()), xc=float(rows[m, 9].mean()), ds=float(rows[m, 11].mean()),
+                dsabs=float(np.abs(rows[m, 11]).mean()), drms=float(rows[m, 15].mean()),
+                E3=float(np.interp(W[1], t, rows[:, 2]) / np.interp(W[0], t, rows[:, 2]) - 1))
+
+
+def write_chaos(outdir, res):
+    lab = lambda c: f"dr={c['dr']:<4} {c['tag']}"   # noqa: E731
+    by = {(c["dr"], c["tag"]): (c, rows) for c, rows in res}
+    out = []
+    out.append("# Chaos step 1 (research/stone_toy_v1.py --chaos): #518's quiet start, R 30, SP shape, gravity off, T 400.")
+    out.append("# (a) twins: S scaled by (1 + eps) at t = 0. Norm = volume RMS over r < 3R of the s and d differences.")
+    out.append("#     rules: onset = norm > 10x initial; slope over [first > 1e3 x initial, first > 1e-3]; saturation = > 1e-2.")
+    for dr, tw in ((0.1, "twin-1e-10"), (0.1, "twin-1e-8"), (0.2, "twin-1e-10")):
+        ca, _ = by[(dr, "base")]; cb, _ = by[(dr, tw)]
+        t, ns_, nd_ = divergence(ca, cb)
+        for name, nrm in (("S", ns_), ("D", nd_)):
+            g = growth_reading(t, nrm)
+            out.append(f"  dr={dr} {tw:10s} {name}: n0 {g['n0']:.2e} onset {g['t_on']:.0f}  window [{g['ta']:.0f},{g['tb']:.0f}]"
+                       f"  slope {g['lam']:.4f}  saturation {g['tsat']:.0f}")
+        sel = [k for k in range(0, len(t), 10)]
+        out.append("    t:      " + " ".join(f"{t[k]:8.0f}" for k in sel))
+        out.append("    |dS|:   " + " ".join(f"{ns_[k]:8.1e}" for k in sel))
+        out.append("    |dD|:   " + " ".join(f"{nd_[k]:8.1e}" for k in sel))
+    out.append("# (b) post-burst statistics (rows sampled every 0.8): burst rate (1.5R peaks, #516 rule) per unit time;"
+               " mean F_D(1.5R), F_D(3R); means of x_core (r<5, 4pi), x_centre (4pi), D_slow(0) (4pi), |D_slow(0)|,"
+               " D_rms(0) (2pi); dE3 = relative change of energy inside 3R over the window.")
+    out.append("  run                 window      rate    F_D1.5R  F_D3R   x_core x_centre D_slow |D_slow| D_rms  dE3")
+    for (dr, tag), (c, rows) in sorted(by.items()):
+        if tag not in ("base", "twin-1e-10"):
+            continue
+        for W in STAT_WINDOWS:
+            q = stats(rows, c["R"], W)
+            out.append(f"  {lab(c):18s} {W[0]:3.0f}-{W[1]:3.0f}  {q['rate']:.4f}  {q['F15']:7.2f} {q['F3']:7.2f}  {q['xk']:6.3f} {q['xc']:6.3f}"
+                       f"  {q['ds']:+.3f}  {q['dsabs']:.3f}  {q['drms']:.3f} {q['E3']*100:+6.1f}%")
+    out.append("# (c) D_slow(r, t) = mean of d over [t - pi, t + pi], every 2 units, r < 3R. Walls = zero crossings in r.")
+    for (dr, tag), (c, rows) in sorted(by.items()):
+        if tag != "base":
+            continue
+        cross, longest = walls(c["_dslow"], c["_rr"])
+        tt = c["_dslow_t"]; nw = np.array([len(x) for x in cross])
+        neg = (c["_dslow"] < 0).mean(1)
+        out.append(f"  dr={dr}: walls per profile: max {nw.max()}, mean over t>=150 {nw[tt >= 150].mean():.2f}, first wall at t ="
+                   f" {tt[np.nonzero(nw)[0][0]] if nw.any() else float('nan'):.0f}; fraction of r<3R volume-cells with D_slow < 0"
+                   f" (mean over t>=150) {neg[tt >= 150].mean():.3f}")
+        out.append(f"     longest stay of any cell at D_slow < -1: {longest.max() * SNAP_DT:.0f} units (at r = "
+                   f"{c['_rr'][np.argmax(longest)]:.1f}); cells with a stay > 4 pi: {int((longest * SNAP_DT > 4 * math.pi).sum())}")
+        for k in range(0, len(tt), 25):
+            out.append(f"     t={tt[k]:5.0f}  walls at r = " + (" ".join(f"{x:.1f}" for x in cross[k][:12]) or "-")
+                       + ("  ..." if len(cross[k]) > 12 else ""))
+    out.append("# (d) S's clock at the centre (zero crossings of s(0,t), window 10) against D_slow(0) (4 pi).")
+    for (dr, tag), (c, rows) in sorted(by.items()):
+        if tag != "base":
+            continue
+        g, om = omega_centre(c["_c0"], c["_dt"])
+        ds = np.interp(g, rows[:, 0], rows[:, 11])
+        bins = ((-9, 0.3), (0.3, 1.0), (1.0, 9))
+        parts = []
+        for lo, hi in bins:
+            m = (np.abs(ds) >= lo) & (np.abs(ds) < hi) & np.isfinite(om)
+            parts.append(f"|D_slow| in [{max(lo, 0):.1f},{min(hi, 1.414):.1f}): omega_S {np.nanmean(om[m]):.3f} "
+                         f"(range {np.nanmin(om[m]) if m.any() else float('nan'):.2f}-{np.nanmax(om[m]) if m.any() else float('nan'):.2f}, n {int(m.sum())})")
+        out.append(f"  dr={dr}: " + "; ".join(parts))
+        sel = range(0, len(g), 12)
+        out.append("     t:       " + " ".join(f"{g[k]:6.0f}" for k in sel))
+        out.append("     omega_S: " + " ".join(f"{om[k]:6.2f}" for k in sel))
+        out.append("     D_slow0: " + " ".join(f"{ds[k]:+6.2f}" for k in sel))
+        # burst lines here (D at 1.5R, W 32, centred on the first three 1.5R flux peaks) against 2 omega_S then
+        from scipy.signal import find_peaks
+        t = rows[:, 0]; f15 = rows[:, 12]
+        pk, _ = find_peaks(f15, prominence=0.2 * f15.max(), distance=int(round(10 / (t[1] - t[0]))))
+        for tb in t[pk][:4]:
+            for W in (32.0, 64.0):
+                L, _ = spectrum_lines(c["_probe_d"][:, 0], c["_dt"], W, tb)
+                L3, _ = spectrum_lines(c["_probe_d"][:, 1], c["_dt"], W, tb + 1.5 * c["R"] / V_DR)
+                w2 = 2 * np.nanmean(om[(g >= tb - W / 2) & (g <= tb)])
+                out.append(f"     burst 1.5R t={tb:.0f} W={W:.0f}: D at 1.5R " + " ".join(f"{a:.2f}({b:.2f})" for a, b in L[:4])
+                           + " | D at 3R (t+1.5R/0.71) " + " ".join(f"{a:.2f}({b:.2f})" for a, b in L3[:4])
+                           + f" | 2 omega_S(centre, W before) {w2:.2f}")
+    with open(os.path.join(outdir, "chaos.txt"), "w") as fh:
+        fh.write("\n".join(out) + "\n")
+    # compact series for the figures-free record: divergence norms and D_slow(0) / omega every 2 units
+    with open(os.path.join(outdir, "divergence.txt"), "w") as fh:
+        fh.write("# t, |dS|, |dD| for dr 0.1 twin-1e-10, dr 0.1 twin-1e-8, dr 0.2 twin-1e-10 (every 2 units)\n")
+        cols = []
+        for dr, tw in ((0.1, "twin-1e-10"), (0.1, "twin-1e-8"), (0.2, "twin-1e-10")):
+            t, a, b = divergence(by[(dr, "base")][0], by[(dr, tw)][0]); cols += [a, b]
+        for k in range(len(t)):
+            fh.write(f"{t[k]:.0f} " + " ".join(f"{col[k]:.3e}" for col in cols) + "\n")
+
+
 # ---------------------------------------------------------------- quiet start (Nov 17, follow-up) and burst spectra
 XC_QUIET = 0.3
 T_QUIET = 400.0
@@ -493,7 +679,10 @@ def spectrum_lines(y, dt, W, tc):
     """Hann-windowed power of y over [tc - W/2, tc + W/2]; returns the local maxima above 5% of the largest, as
     (omega in mu units, power / largest), strongest first. Zero-padded x8 for the peak positions (resolution 2 pi / W)."""
     n0 = int(round((tc - W / 2) / dt)); n1 = int(round((tc + W / 2) / dt))
-    n0 = max(n0, 0); n1 = min(n1, len(y)); seg = y[n0:n1] - y[n0:n1].mean()
+    n0 = max(n0, 0); n1 = min(n1, len(y))
+    if n1 - n0 < 16:
+        return [], (n0 * dt, n1 * dt)
+    seg = y[n0:n1] - y[n0:n1].mean()
     w = np.hanning(len(seg)); F = np.fft.rfft(seg * w, 8 * len(seg)); P = np.abs(F) ** 2
     om = 2 * math.pi * np.fft.rfftfreq(8 * len(seg), dt)
     k = [i for i in range(1, len(P) - 1) if P[i] >= P[i - 1] and P[i] >= P[i + 1] and P[i] > 0.05 * P.max()]
@@ -538,6 +727,15 @@ def write_spectrum(outdir, res):
                     fh.write(f"  {name} burst            W={W:.0f}  d at centre [{a:.0f},{b:.0f}]: "
                              + "  ".join(f"{om:.3f}({pw:.2f})" for om, pw in L) + "\n")
 
+
+if __name__ == "__main__" and len(sys.argv) > 1 and sys.argv[1] == "--chaos":
+    outdir = sys.argv[2] if len(sys.argv) > 2 else "results/stone-toy-chaos-2026-11-17"
+    os.makedirs(outdir, exist_ok=True)
+    cs = sorted(configs_chaos(), key=lambda c: c["dr"])
+    with Pool(min(8, os.cpu_count() or 1)) as pool:
+        res = pool.map(run, cs)
+    write_chaos(outdir, res)
+    sys.exit(0)
 
 if __name__ == "__main__" and len(sys.argv) > 1 and sys.argv[1] in ("--quiet", "--spectrum"):
     mode = sys.argv[1]
