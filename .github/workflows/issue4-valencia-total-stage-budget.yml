@@ -1,15 +1,15 @@
 name: Issue 4 bounded total Valencia stage budget
 
+# HISTORICAL (re-pinned 2026-11-17, AUDIT-5 K4; Jeremiah's go). This audit checks the engine as it
+# was before PR #503 (production_kernel.py blob 9685e76b: lambda off, the hand floor). It now runs,
+# unchanged, at 889297dd, where this version of the workflow last passed (run 38854268215),
+# with protected engine paths compared against 889297dd (its base on main). It runs when this
+# file changes or by hand. Same pattern as #440.
+
 on:
+  workflow_dispatch:
   pull_request:
     paths:
-      - "tools/audit_valencia_total_stage_budget.py"
-      - "tools/audit_centre_ricci_fixed_s2.py"
-      - "tools/audit_manufactured_regular_ricci_oracle.py"
-      - "tools/audit_origin_integral_quadrature.py"
-      - "tests/test_centre_ricci_fixed_s2.py"
-      - "tests/test_manufactured_regular_ricci_oracle.py"
-      - "tests/test_origin_integral_quadrature.py"
       - ".github/workflows/issue4-valencia-total-stage-budget.yml"
 
 permissions:
@@ -30,6 +30,7 @@ jobs:
       - name: Check out diagnostic branch and pinned vendor
         uses: actions/checkout@v4
         with:
+          ref: 889297ddc6bfb40f516ffc0adec806d49b5d704a
           fetch-depth: 0
           submodules: recursive
 

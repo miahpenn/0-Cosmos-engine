@@ -1,12 +1,16 @@
 name: CMC lapse centre sensitivity
 
+# HISTORICAL (re-pinned 2026-11-17, AUDIT-5 K4; Jeremiah's go). This audit checks the engine as it
+# was before PR #503 (production_kernel.py blob 17206156: lambda off, the hand floor). It now runs,
+# unchanged, at d53b77fc, where this version of the workflow last passed (run 40259972258),
+# with protected engine paths compared against 4aec88d0 (its base on main). It runs when this
+# file changes or by hand. Same pattern as #440.
+
 on:
+  workflow_dispatch:
   pull_request:
     paths:
-      - "tools/audit_cmc_lapse_centre_sensitivity.py"
-      - "tools/audit_current_source_momentum_constraint_tangent.py"
       - ".github/workflows/cmc-lapse-centre-sensitivity.yml"
-  workflow_dispatch:
 
 permissions:
   contents: read
@@ -22,12 +26,13 @@ jobs:
     env:
       SOURCE_COMMIT: "7f47669a1c0edfafef9fc5f27b2db80840d3f035"
       VENDOR_COMMIT: "d6052d605673ce9d82cdc99b0df79855fa2ea215"
-      BASE_SHA: ${{ github.event.pull_request.base.sha || github.sha }}
+      BASE_SHA: "4aec88d0e3ff028e0a65a8ac36b30948625df792"
       PYTHONUNBUFFERED: "1"
     steps:
       - name: Check out diagnostic PR tree and pinned vendor
         uses: actions/checkout@v4
         with:
+          ref: d53b77fc554793cc1a41ee5c8042a74d561faab9
           fetch-depth: 0
           submodules: recursive
 
