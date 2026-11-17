@@ -1,11 +1,13 @@
-# LIVE readiness overlay — reconciled 17 November 2026 UTC after PR #513
+# LIVE readiness overlay — reconciled 17 November 2026 UTC after PR #516
 
-> **Current main:** after the merge of PR #513 (#510, #511, #512 merged). `scientific_admission=false`;
+> **Current main:** after the merge of PR #516 (#510–#515 merged). `scientific_admission=false`;
 > `acceptance_oracle_satisfied=false`. Nothing below changes either flag. The 10 November overlay that follows is kept as
 > the prior record; where the two conflict, this one is current (notably: production's λ is no longer 0, and the default
 > edge is no longer the open edge). PR #510's entry below is merged (895e54f) and current. Since #510: #511 (pointer
 > lines to the reflection-reading amendments), #512 (stone-balance data, `results/stone-balance-2026-11-17/`), #513
-> (seven pre-#503 audit workflows marked historical, each at its last passing commit, as in #440).
+> (seven pre-#503 audit workflows marked historical, each at its last passing commit, as in #440), #514 (header; band-edge
+> amendment 1.270–2.670), #515 (mass naming: μ the bare mass, ω_S S's clock in a stated regime), #516 (POKE-3's stone
+> toy rebuilt in the repo, `results/stone-toy-2026-11-17/`).
 
 ## The design target (since 17 November 2026)
 
@@ -20,7 +22,11 @@
   between engine versions, labelled so.
 - **The open target (0*, AMENDMENT-CORE-SHEET-2 section 3): a steady balance.** Does the sea, expanded and rung by matter,
   settle? For a stone: is there a stable ringing amplitude x_A* where what it rings out (D_r into the sea) equals what
-  it takes back (exchange into S inside the pocket)? Open; chat derives, Projects measures from stored cells.
+  it takes back (exchange into S inside the pocket)? **Open, and its mechanism unverified.** #512: the stored cells
+  never reach that regime. #516 (stone toy, weak field, no expansion): stones contract, ring out and spread; no settled
+  state, no breathing cycle as derived, and the ring-out is seed-independent, so not the parametric rates the threshold
+  assumed. Chat's status (AMENDMENT-BUNDLE-2-chat, Nov 17): fixed point x_A* Open; breathing cycle Open pending the
+  quiet-start run (Jeremiah's go, Nov 17).
 
 ## Production changes since PR #458 (owner-reviewed)
 
@@ -128,6 +134,7 @@
   the largest Hamiltonian residual on both edges; the remaining open-edge contracts have no wall versions yet.
 - The leftover held step; the early filling window; w of a population of bound stones.
 - **The steady balance (the open target):** a stable stone amplitude x_A*, where D_r rung out equals exchange back into S.
+  Open; not seen in #512 or #516 (see the design target above); the quiet-start run tests the bag's slow draw.
 - φ's positive term (constructed; chat derivation first). The bounce b is no longer open: superseded as the design
   target by AMENDMENT-CORE-SHEET-2 (Jeremiah's November account).
 - The sea's lag behind its moving rest (it reads as coupled matter in the β_D-on cell, first order in the lag): left for
