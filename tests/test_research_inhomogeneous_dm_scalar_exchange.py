@@ -136,7 +136,7 @@ def test_exchange_negative_controls_are_observable():
 
 
 def test_rest_mass_source_matches_variable_mass_law():
-    """d_t(sqrt(gamma) D)|exch = -alpha sqrt(gamma) beta rho u.d phi."""
+    """d_t(sqrt(gamma) D)|exch = -alpha sqrt(gamma) beta rho u.d phi, beta = beta_eff(phi) per cell (S-D matter)."""
     kernel, st, metric = _inhomogeneous_state()
     t = _transfer(kernel, st, metric)
     metrics = _metric_arrays(metric)
@@ -146,10 +146,13 @@ def test_rest_mass_source_matches_variable_mass_law():
     srhs0, _ = _exchange_parts(kernel, st, 0.0)
     dphi_t = srhs0.phi
     expected = np.empty(len(metrics))
+    # Since the split follows phi (Nov 17 2026) the dust is S-D matter with beta_eff(phi) = BETA_DM f_D(phi) per cell.
+    from engine.scalar_system import dark_matter_coupling
+    beta = np.broadcast_to(dark_matter_coupling(st.scalars.phi, pk.BETA_DM), (len(metrics),))
     for i, (m, p) in enumerate(zip(metrics, prim)):
         W = p.lorentz()
         u_dphi = W / m.alpha * (dphi_t[i] + (m.alpha * p.v_r - m.beta) * dphi_r[i])
-        expected[i] = -m.alpha * m.sqrt_gamma * pk.BETA_DM * p.rho * u_dphi
+        expected[i] = -m.alpha * m.sqrt_gamma * beta[i] * p.rho * u_dphi
     np.testing.assert_allclose(
         t["dust_rest"], expected, rtol=1e-12, atol=1e-14 * np.max(np.abs(expected))
     )

@@ -130,7 +130,10 @@ def _means(st, rcut=20.0):
 
 
 def kernel(N, T, ref=False):
-    ctx, P = _reference() if ref else (contextlib.nullcontext(), cz.IMPORTED_DUST_REFERENCE_PARAMS)
+    # step 2's production kernel carried imported, fully coupled dust; since the split follows phi (Nov 17 2026) that is
+    # the labelled reference imported_dust_reference(), paired with the matching lane reference.
+    dust = ss.imported_dust_reference() if hasattr(ss, "imported_dust_reference") else contextlib.nullcontext()
+    ctx, P = _reference() if ref else (dust, cz.IMPORTED_DUST_REFERENCE_PARAMS)
     s0 = cz.construct_present_day(P)
     y0 = [s0.a, s0.H, s0.phi, s0.pi_phi, s0.rho_dm, s0.rho_b, s0.rho_r, s0.rho_shear]
     L = solve_ivp(lambda t, y: cz.cosmos_rhs(tuple(y), P), (0, T + 1), y0, method="DOP853", rtol=1e-12, atol=1e-20,

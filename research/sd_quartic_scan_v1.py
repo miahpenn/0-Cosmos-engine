@@ -13,6 +13,10 @@ from engine import v55_initial
 from engine.matter_system import _metric_arrays, initialize_dust, initialize_radiation
 from engine.v55_matter import V55MatterState, metric_slice_from_q
 from engine.production_kernel import V55ProductionKernel
+import engine.scalar_system as _ss_pin  # noqa: E402
+# Pinned (Nov 17 2026): this driver's stored results were made with the kernel's imported, fully coupled dust; since
+# production's dust is S-D matter whose split follows phi, it runs on the labelled reference (as a script only).
+_ss_pin.SD_MATTER_SPLIT_FOLLOWS_PHI = False
 lam, S0, wS, D0, wD, N, T, RMAX = (float(sys.argv[1]), float(sys.argv[2]), 5.0, 1e-4, 15.0, int(sys.argv[3]), float(sys.argv[4]), 40.0)
 ss.V0 = 0.0; ss.SD_QUARTIC_LAMBDA = lam
 k = V55ProductionKernel(); st = k.initialize(resolution=N, r_max=RMAX, include_radiation=False, outer_edge="open_edge")

@@ -30,6 +30,10 @@ from engine.matter_system import _metric_arrays, initialize_dust, initialize_rad
 from engine.production_kernel import V55ProductionKernel  # noqa: E402
 from engine.v55_matter import RHO_DM_PRESENT, V55MatterState, dm_density, metric_slice_from_q  # noqa: E402
 from research import gear91_coupling_v1 as g91  # noqa: E402
+import engine.scalar_system as _ss_pin  # noqa: E402
+# Pinned (Nov 17 2026): this driver's stored results were made with the kernel's imported, fully coupled dust; since
+# production's dust is S-D matter whose split follows phi, it runs on the labelled reference (as a script only).
+_ss_pin.SD_MATTER_SPLIT_FOLLOWS_PHI = False
 
 PHI_TODAY, PI_TODAY = 0.179055, 0.00341913
 

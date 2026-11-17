@@ -1,0 +1,4 @@
+5. The lane references bit-identical to main (engine/cosmos.py at main)
+   FIXED_SPLIT_REFERENCE (#508's production)     random states (RHS, rho/p) differing: 0 of 8000; today's state equal: True; integration to t = 2000 bit-identical: True
+   IMPORTED_DUST_REFERENCE                       random states (RHS, rho/p) differing: 0 of 8000; today's state equal: True; integration to t = 2000 bit-identical: True
+   HAND_FLOOR_REFERENCE                          random states (RHS, rho/p) differing: 0 of 8000; today's state equal: True; integration to t = 2000 bit-identical: True

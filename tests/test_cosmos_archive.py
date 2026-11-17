@@ -1,6 +1,8 @@
 from math import isclose
 
+from engine.model_constants import sd_matter_coupled_fraction
 from engine.cosmos import (
+    FIXED_SPLIT_REFERENCE_PARAMS,
     IMPORTED_DUST_REFERENCE_PARAMS,
     CosmosParams,
     construct_present_day,
@@ -16,9 +18,11 @@ def test_present_day_operating_point():
     assert state.phi == 0.179055
     assert state.pi_phi == 0.00341913
     # Dark-matter replacement (Nov 16 2026): today's amount is unchanged (matched to the chart); it is now S-D matter in
-    # two parts, rho_dm the coupled D part (f_D = 0.76, Read) and rho_sd_S the uncoupled S part.
+    # two parts, rho_dm the coupled D part and rho_sd_S the uncoupled S part. Since the split follows phi (Nov 17 2026) the
+    # coupled share today is the derived f_D(phi_today) = 0.770 (D_r's share today Read); #508's fixed 0.76 is a reference.
     assert isclose(state.rho_dark, 2.5857e-5, rel_tol=1e-15)
-    assert isclose(state.rho_dm, 0.76 * 2.5857e-5, rel_tol=1e-15)
+    assert isclose(state.rho_dm, sd_matter_coupled_fraction(0.179055) * 2.5857e-5, rel_tol=1e-15)
+    assert isclose(construct_present_day(FIXED_SPLIT_REFERENCE_PARAMS).rho_dm, 0.76 * 2.5857e-5, rel_tol=1e-15)
     assert state.rho_b == 4.0306e-6
     # the labelled reference keeps the old operating point exactly
     ref = construct_present_day(IMPORTED_DUST_REFERENCE_PARAMS)

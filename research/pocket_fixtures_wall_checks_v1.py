@@ -29,6 +29,10 @@ import numpy as np  # noqa: E402
 import engine.scalar_system as ss  # noqa: E402
 from engine.production_kernel import V55ProductionKernel, adapter  # noqa: E402
 from research.zero_flux_wall_engine_checks_v1 import _HAS_EDGE, _hash_state  # noqa: E402
+import engine.scalar_system as _ss_pin  # noqa: E402
+# Pinned (Nov 17 2026): this driver's stored results were made with the kernel's imported, fully coupled dust; since
+# production's dust is S-D matter whose split follows phi, it runs on the labelled reference (as a script only).
+_ss_pin.SD_MATTER_SPLIT_FOLLOWS_PHI = False
 
 FIXTURES = {"rescaled": ("rescaled_pocket", {"pocket_x": 2.0}), "inherited": ("inherited_pocket", {})}
 

@@ -49,6 +49,21 @@ not its QUANTITY. Baryons and radiation stay imported. With f_D < 1 the state ve
 has nine slots (the S part last); an eight-slot vector is refused, so nothing runs
 the old physics by accident. The old lane (all of it coupled, eight slots) is kept
 bit-identical as the labelled reference IMPORTED_DUST_REFERENCE_PARAMS (f_D = 1).
+
+The split follows phi (Nov 17 2026; labels in engine/model_constants.py). Production's coupled share is the DERIVED
+f_D(phi) = (1 - r(phi)) 3u/(1 + 3u) + r(phi), u = e^(-2 beta_D phi), D_r's share today r READ (0.07, bounds 0.06-0.08).
+The two slots stay the two parts (rho_dm coupled, rho_sd_S uncoupled); phi's pull is beta rho_dm as before, and the parts
+exchange
+
+    Gamma = phi_dot rho_SD [f_D'(phi) + beta f_D (1 - f_D)]       (rho_SD = rho_dm + rho_sd_S)
+    drho_dm   = -3 H rho_dm   - beta rho_dm phi_dot + Gamma
+    drho_sd_S = -3 H rho_sd_S                       - Gamma
+
+Gamma is the unique exchange that keeps rho_dm = f_D(phi) rho_SD. It cancels in the sum: the total obeys
+drho_SD = -3 H rho_SD - beta f_D rho_SD phi_dot, the single S-D matter density with beta_eff(phi) = beta f_D(phi) (the
+production kernel's form), and matter + phi conserve energy exactly. Gamma is the stones' rest energy re-dividing between
+S's own mass term and D's sea as the sea deepens with phi: bookkeeping inside each stone, nothing created or lost.
+The fixed split of PR #508 (f_D = 0.76) is kept bit-identical as the labelled reference FIXED_SPLIT_REFERENCE_PARAMS.
 """
 from dataclasses import dataclass
 from math import exp, isfinite, log, sqrt
@@ -65,9 +80,11 @@ class CosmosParams:
     coupled_floor: bool = True
     sd_lambda: float = _mc.SD_QUARTIC_LAMBDA   # ruler, matched today (not derived)
     beta_D: float = _mc.BETA_D                 # form derived, value not
-    # Dark matter as S-D matter in two parts: the coupled (D) fraction today, Read from the cells. f_D = 1 is the
-    # labelled reference (imported dust, all of it coupled with beta).
-    f_D: float = _mc.SD_MATTER_COUPLED_FRACTION
+    # Dark matter as S-D matter in two parts. f_D = None (production): the coupled share follows phi, DERIVED
+    # (model_constants.sd_matter_coupled_fraction) with D_r's share today dr_share_today READ. A number holds the share
+    # fixed: f_D = SD_MATTER_COUPLED_FRACTION is PR #508's labelled reference, f_D = 1 the imported dust (reference).
+    f_D: float | None = None
+    dr_share_today: float = _mc.SD_DR_SHARE_TODAY
     omega_de_today: float = 0.69
     omega_r_today: float = 9.2e-5
     omega_shear_today: float = 1.745e-8
@@ -80,8 +97,21 @@ class CosmosParams:
     G: float = 1.0
 
     def __post_init__(self):
-        if isinstance(self.f_D, bool) or not isfinite(float(self.f_D)) or not 0.0 <= float(self.f_D) <= 1.0:
-            raise ValueError("f_D (the coupled fraction of S-D matter) must lie in [0, 1]")
+        if self.f_D is not None and (
+            isinstance(self.f_D, bool) or not isfinite(float(self.f_D)) or not 0.0 <= float(self.f_D) <= 1.0
+        ):
+            raise ValueError("f_D (the coupled fraction of S-D matter) must lie in [0, 1], or be None (follows phi)")
+        if (
+            isinstance(self.dr_share_today, bool)
+            or not isfinite(float(self.dr_share_today))
+            or not 0.0 <= float(self.dr_share_today) <= 1.0
+        ):
+            raise ValueError("dr_share_today (D_r's share of S-D matter today) must lie in [0, 1]")
+        if self.f_D is None and float(self.beta) != float(self.beta_D):
+            raise ValueError(
+                "the split that follows phi is derived for S-D matter whose coupled part carries beta = beta_D "
+                "(GEAR-103); with beta != beta_D pass a fixed f_D (a labelled reference)"
+            )
         if self.coupled_floor and (
             isinstance(self.sd_lambda, bool)
             or not isfinite(float(self.sd_lambda))
@@ -131,12 +161,34 @@ HAND_FLOOR_REFERENCE_PARAMS = CosmosParams(D=_mc.HAND_FLOOR_REFERENCE, coupled_f
 # beta), bit-identical to it. Eight-slot state vector.
 IMPORTED_DUST_REFERENCE_PARAMS = CosmosParams(f_D=1.0)
 
+# REFERENCE ONLY: the lane of PR #508 (S-D matter in two parts at the fixed Read split f_D = 0.76), bit-identical to it.
+FIXED_SPLIT_REFERENCE_PARAMS = CosmosParams(f_D=_mc.SD_MATTER_COUPLED_FRACTION)
+
+
+def coupled_fraction(phi, p: CosmosParams, derivative=False):
+    """The coupled share of S-D matter at phi: derived f_D(phi) in production (f_D None), the fixed number otherwise."""
+    if p.f_D is not None:
+        return (p.f_D, 0.0) if derivative else p.f_D
+    return _mc.sd_matter_coupled_fraction(phi, r_today=p.dr_share_today, beta_D=p.beta_D, derivative=derivative)
+
+
+def sd_exchange(phi, pi, rho_sd, p: CosmosParams):
+    """Gamma: the energy rate from the uncoupled to the coupled part that keeps rho_dm = f_D(phi) rho_SD (0 when fixed)."""
+    if p.f_D is not None:
+        return 0.0
+    f, df = coupled_fraction(phi, p, derivative=True)
+    return pi * rho_sd * (df + p.beta * f * (1.0 - f))
+
 
 def _split_today(p: CosmosParams):
     """Today's dark matter (the imported amount, matched to the chart) split into (coupled, uncoupled)."""
     total = 2.5857e-5
     if p.f_D == 1.0:
         return total, 0.0
+    if p.f_D is None:
+        # the split follows phi: today's share at the borrowed phi_today (construct_present_day's phi)
+        coupled = coupled_fraction(_mc.PHI_TODAY, p) * total
+        return coupled, total - coupled
     coupled = p.f_D * total
     return coupled, total - coupled
 
@@ -264,12 +316,23 @@ def cosmos_rhs(y, p: CosmosParams, exchange_Q=0.0):
     exchange_Q is retained only as a compatibility argument and is ignored;
     no phenomenological reciprocal source enters this lane.
 
-    Nine slots (production, f_D < 1): the ninth is S-D matter's S part, uncoupled dust. The coupled part (slot 5)
-    keeps the old dust equations with beta (= beta_D, GEAR-103). Eight slots: the f_D = 1 references only.
+    Nine slots (production, f_D < 1 or None): the ninth is S-D matter's S part, uncoupled dust. The coupled part (slot 5)
+    keeps the old dust equations with beta (= beta_D, GEAR-103); with the split following phi (f_D None, production) the
+    parts also exchange Gamma (sd_exchange). Eight slots: the f_D = 1 references only.
     """
     if _nine_slots(y, p):
         a, H, phi, pi, rho_dm, rho_b, rho_r, rho_s, rho_sd_S = y
         rho, pressure = cosmos_rho_p(y, p)
+        if p.f_D is None:
+            # the split follows phi: the parts exchange Gamma (cancels in the sum; see the module notes)
+            gamma = sd_exchange(phi, pi, rho_dm + rho_sd_S, p)
+            return (
+                H * a, -0.5 * (rho + pressure), pi,
+                -3.0 * H * pi - dV_dphi(phi, p) + p.beta * rho_dm,
+                -3.0 * H * rho_dm - p.beta * rho_dm * pi + gamma,
+                -3.0 * H * rho_b, -4.0 * H * rho_r, -6.0 * H * rho_s,
+                -3.0 * H * rho_sd_S - gamma,
+            )
         return (
             H * a, -0.5 * (rho + pressure), pi,
             -3.0 * H * pi - dV_dphi(phi, p) + p.beta * rho_dm,

@@ -22,12 +22,13 @@ import numpy as np  # noqa: E402
 from scipy.integrate import solve_ivp  # noqa: E402
 
 import engine.cosmos as cz  # noqa: E402
+from engine import model_constants as mc  # noqa: E402
 from research.b6_frozen_test_v1 import KAP, LAM, P_FULL, V0_1B, v_sd  # noqa: E402
 from research.cosmos_lane_follow_v1 import averages, lane  # noqa: E402
 from research.reset_handoff_v1 import boxcar  # noqa: E402
 
 TS = math.pi
-P_CELL = cz.CosmosParams(V0=V0_1B, D=0.0, sd_lambda=LAM, beta_D=0.0)     # the cells' physics; f_D default (< 1)
+P_CELL = cz.CosmosParams(V0=V0_1B, D=0.0, sd_lambda=LAM, beta_D=0.0, f_D=mc.SD_MATTER_COUPLED_FRACTION)  # the cells' physics; the fixed split of #508 (pinned when production's split began to follow phi)
 
 
 def engine_lane(y8, taus):

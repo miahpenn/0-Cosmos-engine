@@ -6,7 +6,9 @@ The machine carries one global spherical spacetime with:
 - reference-metric BSSN geometry;
 - local S/D scalar fields;
 - corrected COSMOS scalar;
-- conservative beta-coupled dark matter;
+- conservative beta-coupled dark matter: S-D matter, one transported density whose coupling follows phi,
+  beta_eff(phi) = BETA_DM f_D(phi) (Nov 17 2026; engine/scalar_system.py; the imported, fully coupled dust is the
+  labelled reference scalar_system.imported_dust_reference());
 - conservative baryonic dust;
 - conservative radiation p=rho/3;
 - derived proper time, trapping, Misner-Sharp, and cycle/handoff ledgers.
@@ -71,6 +73,7 @@ from .matter_system import (
     validate_species_admissibility,
 )
 from .scalar_system import ScalarFields, scalar_rhs_arrays
+from . import scalar_system as _scalar_system
 from .v55_initial import build_initial_data
 from .v55_matter import (
     V55MatterState,
@@ -376,11 +379,13 @@ class V55ProductionKernel:
         metric = metric_slice_from_q(state.grid, state.geometry)
 
         rho_dm = dm_density(metric, state.matter)
+        # S-D matter: beta_eff(phi) = BETA_DM f_D(phi) per cell (the split follows phi); BETA_DM on the references.
+        beta_dm = _scalar_system.dark_matter_coupling(state.scalars.phi, BETA_DM)
         srhs = scalar_rhs_arrays(
             state.grid,
             state.geometry,
             state.scalars,
-            beta_dm=BETA_DM,
+            beta_dm=beta_dm,
             rho_dm=rho_dm,
         )
 
@@ -404,7 +409,7 @@ class V55ProductionKernel:
                 species,
                 dphi_t=dphi_t if species is Species.DARK_MATTER else None,
                 dphi_r=dphi_r if species is Species.DARK_MATTER else None,
-                beta_dm=BETA_DM,
+                beta_dm=beta_dm,
             )
 
         carrier = state.matter.charged_dust
@@ -435,8 +440,9 @@ class V55ProductionKernel:
         grid = _wall.bind(state.grid, state.geometry)
         metric = metric_slice_from_q(grid, state.geometry)
         rho_dm = dm_density(metric, state.matter)
+        beta_dm = _scalar_system.dark_matter_coupling(state.scalars.phi, BETA_DM)   # S-D matter (see _rhs)
         srhs = scalar_rhs_arrays(
-            grid, state.geometry, state.scalars, beta_dm=BETA_DM, rho_dm=rho_dm,
+            grid, state.geometry, state.scalars, beta_dm=beta_dm, rho_dm=rho_dm,
         )
         md = geometry_metric_derivatives(
             metric, lambda values, parity: self._d1(grid, values, parity),
@@ -453,7 +459,7 @@ class V55ProductionKernel:
                 metric, md, getattr(state.matter, name), species,
                 dphi_t=dphi_t if species is Species.DARK_MATTER else None,
                 dphi_r=dphi_r if species is Species.DARK_MATTER else None,
-                beta_dm=BETA_DM,
+                beta_dm=beta_dm,
             )
         return srhs, mrhs, md
 
