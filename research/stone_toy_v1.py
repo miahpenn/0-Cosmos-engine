@@ -183,9 +183,10 @@ def run(cfg):
     # chaos mode: snapshots of s, d on r < SNAP_R every SNAP_DT, and cumulative sums of d at t_k -/+ pi for D_slow(r, t_k)
     snap = cfg.get("snap", False)
     if snap:
-        ns = int(round(SNAP_R * R / dr)); kev = int(round(SNAP_DT / dt)); hw = int(round(math.pi / dt))
+        snap_r, snap_dt = cfg.get("snap_r", SNAP_R), cfg.get("snap_dt", SNAP_DT)    # overrides: quiet_stone_main_v1 halo
+        ns = int(round(snap_r * R / dr)); kev = int(round(snap_dt / dt)); hw = int(round(math.pi / dt))
         csum = np.zeros(ns); want = {}
-        for k in range(0, int(round(T / SNAP_DT)) + 1):
+        for k in range(0, int(round(T / snap_dt)) + 1):
             nk = k * kev
             for side, nn in ((0, nk - hw), (1, nk + hw)):
                 if 0 <= nn <= int(round(T / dt)):
