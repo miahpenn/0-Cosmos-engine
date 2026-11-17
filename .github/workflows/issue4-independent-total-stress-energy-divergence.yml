@@ -1,13 +1,16 @@
 name: Issue 4 independent covariant total stress-energy divergence
 
+# HISTORICAL (re-pinned 2026-11-17, AUDIT-5 K4; Jeremiah's go). This audit checks the engine as it
+# was before PR #503 (production_kernel.py blob 17206156: lambda off, the hand floor). It now runs,
+# unchanged, at 6865afd9, where this version of the workflow last passed (run 40139164512),
+# with protected engine paths compared against 4aec88d0 (its base on main). It runs when this
+# file changes or by hand. Same pattern as #440.
+
 on:
+  workflow_dispatch:
   pull_request:
     paths:
-      - "tools/audit_total_stress_energy_divergence.py"
-      - "tests/test_covariant_total_stress_energy_divergence.py"
-      - "tools/audit_current_source_momentum_constraint_tangent.py"
       - ".github/workflows/issue4-independent-total-stress-energy-divergence.yml"
-  workflow_dispatch:
 
 permissions:
   contents: read
@@ -24,13 +27,14 @@ jobs:
       PYTHONUNBUFFERED: "1"
       SOURCE_COMMIT: "7f47669a1c0edfafef9fc5f27b2db80840d3f035"
       VENDOR_COMMIT: "d6052d605673ce9d82cdc99b0df79855fa2ea215"
-      BASE_SHA: ${{ github.event.pull_request.base.sha || github.sha }}
+      BASE_SHA: "4aec88d0e3ff028e0a65a8ac36b30948625df792"
       COSMOS_PINNED_SOURCE_ROOT: ${{ github.workspace }}/source
 
     steps:
       - name: Check out diagnostic branch and pinned vendor
         uses: actions/checkout@v4
         with:
+          ref: 6865afd9956a41e933b4a4c207186f48674a3b22
           fetch-depth: 0
           submodules: recursive
 
