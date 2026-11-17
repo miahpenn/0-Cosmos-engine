@@ -1,5 +1,9 @@
 # Task 2, research: the zero-flux (lattice-wall) closure against production's open edge (research only)
 
+> **Corrected since (PR #507):** this README's reading that "the wall reflects" by t = 30 is withdrawn. Up to t = 30 the
+> growth of the outer S–D energy is the pocket's own outward ringing, seen on the open edge too; see
+> [`AMENDMENT-1-reflection-reading.md`](AMENDMENT-1-reflection-reading.md) in this folder. Pointer added Nov 17 (AUDIT-5, B5).
+
 HANDOFF Nov 15 (3), task 2; one-stone scope confirmed ("identical neighbours, in step: one-stone simplification").
 The zero-flux closure already exists as research: `research/lattice_cell_v1.LatticeCellKernel` (W1–W5: mirror
 ghosts at the wall, no flux, no boundary data, and K̇ from the wall's compatibility). The CMC lapse is solved with zero

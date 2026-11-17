@@ -1,5 +1,9 @@
 # Task 2, engine: the zero-flux (lattice-wall) closure in the production kernel (for Jeremiah's review)
 
+> **Corrected since (PR #507):** this README's reading that "the wall reflects" by t = 30 is withdrawn. Up to t = 30 the
+> growth of the outer S–D energy is the pocket's own outward ringing, seen on the open edge too; see
+> [`AMENDMENT-1-reflection-reading.md`](AMENDMENT-1-reflection-reading.md) in this folder. Pointer added Nov 17 (AUDIT-5, B5).
+
 HANDOFF Nov 15 (3), task 2. Decision 2 (confirmed by Jeremiah): expanding runs use the zero-flux closure, labelled
 **"identical neighbours, in step: one-stone simplification"**. Static and isolated runs keep the open edge. The research
 comparison is `results/zero-flux-closure-2026-11-16/` (#504). The engine change is `engine/lattice_wall.py` plus
