@@ -61,7 +61,7 @@
   - Old path kept bit-identical as `IMPORTED_DUST_REFERENCE_PARAMS` (f_D = 1, eight slots). With f_D < 1 an eight-slot
     state is refused. f_D = 1 on the new path returns the old times to 3e-12. The engine lane at the cells' physics
     follows the cells as the contract's lane did.
-  - POKE-2 (chat's homogeneous toy): the contraction reaches the hold band (x = 4/3) only where |H|/m_S ≈ 0.3
+  - POKE-2 (chat's homogeneous toy): the contraction reaches the hold band (x = 4/3) only where |H|/ω_S ≈ 0.3 (ω_S = 2μ, S's clock in the sea; μ the bare mass)
     (production λ) to ≫ 1 (C6 λ*). S does not cleanly ring there. Ruler-dependent through λ.
   - **The production kernel still carries fully coupled dust** and is compared with the labelled reference; it sits
     3e-4 (Π) from production's lane over a 4.8-unit run. Replacing it is a separate kernel PR.

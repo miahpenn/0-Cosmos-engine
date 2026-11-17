@@ -1,5 +1,8 @@
 # The dark-matter replacement: S–D matter in two parts in the COSMOS lane (engine PR, Nov 16 2026)
 
+> **Naming (Nov 17):** "m_S" in this note is ω_S in the sea, 2μ (μ = S's bare mass, the unit). See
+> [`AMENDMENT-1-mass-naming.md`](AMENDMENT-1-mass-naming.md).
+
 Brief (Jeremiah, Nov 16): replace the lane's imported ρ_dm with S–D matter in two parts, from the handoff contract.
 The S part is uncoupled (β_S = 0) and dust-like after settling. The D part (drained D_r plus D's share in the stones)
 carries β_D; GEAR-103 holds here only. Report the predicted difference against the fully coupled imported dust.
