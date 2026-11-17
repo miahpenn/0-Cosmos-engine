@@ -1,0 +1,200 @@
+# Quiet start (research/stone_toy_v1.py --quiet). x(0) = 0.3, D at d^2 = 2 - 1.5 x(r), s_t = d_t = 0; g = 1.6019e-05; T = 400.0; r_max = 8R.
+# xc0: centre's x (r < 1, 2 pi) at t = 0; xw0: the energy-weighted proxy inside 3R; ring0 / ring20: D's ring at the centre, sqrt(<d^2> - <d>^2) over 2 pi, at t = 0 / max over t <= 20; drift: worst |(E_box + sponge take)/E0 - 1|.
+## R=30  shape=sp    dr=0.05 grav=off
+  xc0 0.277  xw0 0.0939  ring0 0.0229  ring20 0.0338  budget drift 3.76e-04
+  <r^2> change, measured vs Derived -(45/64) x_w0 t^2/2:  t=16: -7.9 / -8.4  t=32: -31.5 / -33.8  t=48: -71.3 / -76.0  t=64: -121.4 / -135.2  t=80: -167.9 / -211.2
+  first t: centre x > 4/3 (4 pi) 36.8; core x (r<5) > 4/3 43.2; |D_slow(0)| < 0.5 rest 36.8; < 0.1 45.6; max x centre 7.83, core 3.98
+  energy inside 3R (change): t=100: -0.0%  t=200: -2.9%  t=300: -24.8%  t=400: -41.0%;  r_half: t=0: 29.9  t=100: 26.2  t=200: 32.7  t=300: 45.1  t=400: 48.8; min 24.7 at 119
+  bursts at 1.5R: n = 4 t = [145.6 186.4 236.8 276.8] gaps = [40.8 50.4 40]
+  bursts at 3R:   n = 5 t = [202.4 242.4 285.6 307.2 375.2] gaps = [40 43.2 21.6 68]
+  core episodes: n = 3; gaps between starts = [140 176.8]
+    start  end   x_centre_pk x_core_pk  |D_slow|min at_t   F_D(1.5R)max at_t   dE(<3R)/E0  r_half min(in) max(after)
+       37   167       7.83      3.98        0.000    82        241.3   186     -0.1157     24.7   36.3
+      177   340       3.26      3.07        0.001   274        241.3   186     -0.4027     29.4   53.2
+      354   400       4.55      3.95        0.016   390        57.91   357     -0.0649     44.0   53.2
+## R=45  shape=sp    dr=0.1  grav=on 
+  xc0 0.280  xw0 0.0939  ring0 0.0226  ring20 0.0278  budget drift 5.95e-03
+  <r^2> change, measured vs Derived -(45/64) x_w0 t^2/2:  t=16: -7.4 / -8.4  t=32: -33.1 / -33.8  t=48: -74.7 / -76.0  t=64: -131.8 / -135.2  t=80: -202.2 / -211.2
+  first t: centre x > 4/3 (4 pi) 52.8; core x (r<5) > 4/3 56.0; |D_slow(0)| < 0.5 rest 52.0; < 0.1 60.0; max x centre 15.74, core 4.16
+  energy inside 3R (change): t=100: -0.0%  t=200: +0.1%  t=300: -8.0%  t=400: -28.3%;  r_half: t=0: 44.9  t=100: 41.5  t=200: 38.4  t=300: 47.0  t=400: 58.4; min 37.0 at 198
+  bursts at 1.5R: n = 5 t = [184.8 204.8 243.2 302.4 373.6] gaps = [20 38.4 59.2 71.2]
+  bursts at 3R:   n = 4 t = [279.2 314.4 330.4 383.2] gaps = [35.2 16 52.8]
+  core episodes: n = 3; gaps between starts = [29.6 72]
+    start  end   x_centre_pk x_core_pk  |D_slow|min at_t   F_D(1.5R)max at_t   dE(<3R)/E0  r_half min(in) max(after)
+       53    74       1.69      2.81        0.013    60          251   159     +0.0008     42.9   44.2
+       82   142       9.37      4.07        0.003   111        535.8   243     -0.0068     39.4   46.0
+      154   400      15.74      4.16        0.001   173         1001   302     -0.2832     37.0   59.5
+## R=45  shape=sp    dr=0.1  grav=off
+  xc0 0.281  xw0 0.0939  ring0 0.0227  ring20 0.0278  budget drift 1.50e-03
+  <r^2> change, measured vs Derived -(45/64) x_w0 t^2/2:  t=16: -7.9 / -8.4  t=32: -32.2 / -33.8  t=48: -72.1 / -76.0  t=64: -127.8 / -135.2  t=80: -197.1 / -211.2
+  first t: centre x > 4/3 (4 pi) 52.0; core x (r<5) > 4/3 56.0; |D_slow(0)| < 0.5 rest 52.0; < 0.1 59.2; max x centre 9.26, core 4.56
+  energy inside 3R (change): t=100: -0.1%  t=200: -0.1%  t=300: -7.5%  t=400: -28.5%;  r_half: t=0: 44.9  t=100: 41.6  t=200: 40.7  t=300: 51.6  t=400: 67.9; min 38.6 at 150
+  bursts at 1.5R: n = 5 t = [160 199.2 243.2 300.8 390.4] gaps = [39.2 44 57.6 89.6]
+  bursts at 3R:   n = 4 t = [250.4 290.4 310.4 374.4] gaps = [40 20 64]
+  core episodes: n = 3; gaps between starts = [29.6 61.6]
+    start  end   x_centre_pk x_core_pk  |D_slow|min at_t   F_D(1.5R)max at_t   dE(<3R)/E0  r_half min(in) max(after)
+       52    63       1.74      2.50        0.041    60        263.6   160     -0.0001     43.5   44.2
+       82   132       4.83      3.62        0.002   114        366.1   199     -0.0046     39.7   46.9
+      143   400       9.26      4.56        0.001   166        728.9   301     -0.2841     38.6   68.4
+## R=30  shape=sp    dr=0.1  grav=on 
+  xc0 0.280  xw0 0.0939  ring0 0.0230  ring20 0.0338  budget drift 3.48e-03
+  <r^2> change, measured vs Derived -(45/64) x_w0 t^2/2:  t=16: -7.9 / -8.4  t=32: -32.1 / -33.8  t=48: -72.7 / -76.0  t=64: -123.0 / -135.2  t=80: -170.9 / -211.2
+  first t: centre x > 4/3 (4 pi) 36.8; core x (r<5) > 4/3 43.2; |D_slow(0)| < 0.5 rest 36.8; < 0.1 45.6; max x centre 10.93, core 3.82
+  energy inside 3R (change): t=100: -0.1%  t=200: -3.1%  t=300: -20.6%  t=400: -41.4%;  r_half: t=0: 29.9  t=100: 25.4  t=200: 31.2  t=300: 49.6  t=400: 67.6; min 23.5 at 131
+  bursts at 1.5R: n = 6 t = [143.2 197.6 251.2 274.4 292 380.8] gaps = [54.4 53.6 23.2 17.6 88.8]
+  bursts at 3R:   n = 4 t = [199.2 261.6 300.8 372] gaps = [62.4 39.2 71.2]
+  core episodes: n = 7; gaps between starts = [46.4 44.8 136.8 31.2 46.4 39.2]
+    start  end   x_centre_pk x_core_pk  |D_slow|min at_t   F_D(1.5R)max at_t   dE(<3R)/E0  r_half min(in) max(after)
+       37    74       4.53      3.44        0.013    56        199.3   143     +0.0002     26.1   29.3
+       83   117       5.01      3.46        0.002    87        199.3   143     -0.0104     24.6   30.3
+      128   253       5.88      3.82        0.005   134        199.3   143     -0.3023     23.5   55.0
+      265   283       3.49      0.55        0.007   266        122.3   292     -0.2052     45.5   65.3
+      296   331      10.93      3.72        0.008   322        212.7   381     -0.2193     49.1   68.2
+      342   373       3.31      1.46        0.009   360        212.7   381     -0.0838     59.2   68.2
+      382   400       2.92      1.01        0.003   391        183.8   382     -0.0216     59.2   68.2
+## R=30  shape=sp    dr=0.1  grav=off
+  xc0 0.281  xw0 0.0939  ring0 0.0230  ring20 0.0337  budget drift 1.50e-03
+  <r^2> change, measured vs Derived -(45/64) x_w0 t^2/2:  t=16: -7.9 / -8.4  t=32: -31.7 / -33.8  t=48: -71.7 / -76.0  t=64: -121.6 / -135.2  t=80: -168.0 / -211.2
+  first t: centre x > 4/3 (4 pi) 36.8; core x (r<5) > 4/3 43.2; |D_slow(0)| < 0.5 rest 36.8; < 0.1 45.6; max x centre 8.63, core 3.49
+  energy inside 3R (change): t=100: -0.1%  t=200: -3.1%  t=300: -23.3%  t=400: -44.4%;  r_half: t=0: 29.9  t=100: 26.4  t=200: 31.0  t=300: 47.9  t=400: 51.4; min 24.2 at 119
+  bursts at 1.5R: n = 6 t = [144 220 263.2 314.4 334.4 383.2] gaps = [76 43.2 51.2 20 48.8]
+  bursts at 3R:   n = 6 t = [202.4 233.6 258.4 314.4 349.6 387.2] gaps = [31.2 24.8 56 35.2 37.6]
+  core episodes: n = 4; gaps between starts = [120.8 95.2 106.4]
+    start  end   x_centre_pk x_core_pk  |D_slow|min at_t   F_D(1.5R)max at_t   dE(<3R)/E0  r_half min(in) max(after)
+       37   147       8.63      3.49        0.002   106        218.4   144     -0.0680     24.2   39.7
+      158   245       3.80      2.09        0.002   218        189.4   263     -0.2974     27.5   50.4
+      253   339       5.78      1.95        0.000   302        189.4   263     -0.3232     41.7   56.0
+      359   398       6.71      2.73        0.011   393        55.11   383     -0.0761     49.3   56.0
+## R=45  shape=sp    dr=0.2  grav=on 
+  xc0 0.281  xw0 0.0939  ring0 0.0225  ring20 0.0280  budget drift 1.02e-02
+  <r^2> change, measured vs Derived -(45/64) x_w0 t^2/2:  t=16: -8.3 / -8.4  t=32: -36.0 / -33.8  t=48: -78.5 / -76.0  t=64: -134.2 / -135.2  t=80: -202.7 / -211.2
+  first t: centre x > 4/3 (4 pi) 52.0; core x (r<5) > 4/3 56.0; |D_slow(0)| < 0.5 rest 52.0; < 0.1 60.0; max x centre 12.69, core 4.50
+  energy inside 3R (change): t=100: +0.1%  t=200: +0.2%  t=300: -4.8%  t=400: -25.3%;  r_half: t=0: 44.9  t=100: 41.5  t=200: 39.5  t=300: 56.6  t=400: 69.7; min 37.6 at 171
+  bursts at 1.5R: n = 9 t = [160.8 188 219.2 243.2 275.2 295.2 315.2 339.2 376.8] gaps = [27.2 31.2 24 32 20 20 24 37.6]
+  bursts at 3R:   n = 5 t = [287.2 312.8 328 350.4 372] gaps = [25.6 15.2 22.4 21.6]
+  core episodes: n = 7; gaps between starts = [31.2 40 37.6 128 41.6 60]
+    start  end   x_centre_pk x_core_pk  |D_slow|min at_t   F_D(1.5R)max at_t   dE(<3R)/E0  r_half min(in) max(after)
+       52    75       1.66      2.90        0.012    69          166   161     +0.0002     42.5   44.1
+       83   115       5.34      4.50        0.001   111        492.3   219     +0.0003     40.2   44.4
+      123   149       7.90      4.07        0.003   140        564.3   243     -0.0072     38.7   47.4
+      161   275      11.16      4.04        0.000   230        564.3   243     -0.2020     37.6   66.5
+      289   305       7.18      2.62        0.007   303        252.5   295     -0.2195     50.0   72.1
+      330   374       9.91      2.55        0.002   331          195   339     -0.1378     55.1   72.1
+      390   400      12.69      2.30        0.000   395        46.33   390     -0.0143     66.3   72.1
+## R=45  shape=sp    dr=0.2  grav=off
+  xc0 0.281  xw0 0.0939  ring0 0.0227  ring20 0.0280  budget drift 6.01e-03
+  <r^2> change, measured vs Derived -(45/64) x_w0 t^2/2:  t=16: -7.9 / -8.4  t=32: -34.3 / -33.8  t=48: -74.9 / -76.0  t=64: -128.8 / -135.2  t=80: -196.0 / -211.2
+  first t: centre x > 4/3 (4 pi) 52.0; core x (r<5) > 4/3 56.0; |D_slow(0)| < 0.5 rest 52.0; < 0.1 59.2; max x centre 12.62, core 5.33
+  energy inside 3R (change): t=100: -0.4%  t=200: -0.3%  t=300: -8.9%  t=400: -25.0%;  r_half: t=0: 44.9  t=100: 41.8  t=200: 42.1  t=300: 46.1  t=400: 64.6; min 37.4 at 199
+  bursts at 1.5R: n = 8 t = [160 184 209.6 228 243.2 303.2 360.8 390.4] gaps = [24 25.6 18.4 15.2 60 57.6 29.6]
+  bursts at 3R:   n = 6 t = [263.2 288 320 342.4 362.4 385.6] gaps = [24.8 32 22.4 20 23.2]
+  core episodes: n = 2; gaps between starts = [29.6]
+    start  end   x_centre_pk x_core_pk  |D_slow|min at_t   F_D(1.5R)max at_t   dE(<3R)/E0  r_half min(in) max(after)
+       52    70       1.71      2.82        0.008    69        251.2   160     -0.0009     43.0   44.2
+       82   400      12.62      5.33        0.001   279        643.9   210     -0.2473     37.4   64.6
+## R=45  shape=gauss dr=0.2  grav=on 
+  xc0 0.280  xw0 0.1075  ring0 0.0225  ring20 0.0272  budget drift 1.09e-02
+  <r^2> change, measured vs Derived -(45/64) x_w0 t^2/2:  t=16: -8.1 / -9.7  t=32: -39.2 / -38.7  t=48: -88.3 / -87.1  t=64: -154.5 / -154.9  t=80: -238.6 / -242.0
+  first t: centre x > 4/3 (4 pi) 60.8; core x (r<5) > 4/3 63.2; |D_slow(0)| < 0.5 rest 59.2; < 0.1 66.4; max x centre 12.99, core 4.80
+  energy inside 3R (change): t=100: -0.1%  t=200: +0.1%  t=300: -5.6%  t=400: -30.6%;  r_half: t=0: 44.9  t=100: 41.2  t=200: 37.5  t=300: 55.7  t=400: 75.7; min 34.3 at 198
+  bursts at 1.5R: n = 5 t = [191.2 213.6 237.6 290.4 348.8] gaps = [22.4 24 52.8 58.4]
+  bursts at 3R:   n = 5 t = [272 297.6 319.2 357.6 392] gaps = [25.6 21.6 38.4 34.4]
+  core episodes: n = 2; gaps between starts = [287.2]
+    start  end   x_centre_pk x_core_pk  |D_slow|min at_t   F_D(1.5R)max at_t   dE(<3R)/E0  r_half min(in) max(after)
+       61   333      12.99      4.80        0.000   309        771.1   349     -0.3058     34.3   78.4
+      348   400       8.75      3.74        0.002   397        771.1   349     -0.1364     59.7   78.4
+## R=45  shape=gauss dr=0.2  grav=off
+  xc0 0.281  xw0 0.1075  ring0 0.0226  ring20 0.0272  budget drift 5.95e-03
+  <r^2> change, measured vs Derived -(45/64) x_w0 t^2/2:  t=16: -8.6 / -9.7  t=32: -37.9 / -38.7  t=48: -84.9 / -87.1  t=64: -148.5 / -154.9  t=80: -230.5 / -242.0
+  first t: centre x > 4/3 (4 pi) 60.8; core x (r<5) > 4/3 63.2; |D_slow(0)| < 0.5 rest 59.2; < 0.1 66.4; max x centre 14.84, core 5.11
+  energy inside 3R (change): t=100: -0.3%  t=200: -0.3%  t=300: -6.2%  t=400: -30.2%;  r_half: t=0: 44.9  t=100: 39.9  t=200: 35.0  t=300: 51.8  t=400: 68.1; min 33.8 at 196
+  bursts at 1.5R: n = 6 t = [192 218.4 237.6 290.4 316 356.8] gaps = [26.4 19.2 52.8 25.6 40.8]
+  bursts at 3R:   n = 5 t = [270.4 311.2 323.2 370.4 393.6] gaps = [40.8 12 47.2 23.2]
+  core episodes: n = 2; gaps between starts = [266.4]
+    start  end   x_centre_pk x_core_pk  |D_slow|min at_t   F_D(1.5R)max at_t   dE(<3R)/E0  r_half min(in) max(after)
+       61   309      14.84      5.11        0.000   254        580.6   357     -0.2985     33.8   68.6
+      327   356       2.58      0.63        0.016   340        580.6   357     -0.1775     54.0   68.6
+## R=30  shape=sp    dr=0.2  grav=on 
+  xc0 0.281  xw0 0.0939  ring0 0.0229  ring20 0.0340  budget drift 7.87e-03
+  <r^2> change, measured vs Derived -(45/64) x_w0 t^2/2:  t=16: -8.1 / -8.4  t=32: -33.3 / -33.8  t=48: -74.3 / -76.0  t=64: -123.8 / -135.2  t=80: -171.6 / -211.2
+  first t: centre x > 4/3 (4 pi) 36.8; core x (r<5) > 4/3 43.2; |D_slow(0)| < 0.5 rest 36.8; < 0.1 45.6; max x centre 8.26, core 3.81
+  energy inside 3R (change): t=100: -0.2%  t=200: -1.6%  t=300: -25.1%  t=400: -42.6%;  r_half: t=0: 29.9  t=100: 25.3  t=200: 31.6  t=300: 44.0  t=400: 55.7; min 23.9 at 90
+  bursts at 1.5R: n = 3 t = [149.6 196.8 256.8] gaps = [47.2 60]
+  bursts at 3R:   n = 6 t = [208.8 243.2 262.4 315.2 332 353.6] gaps = [34.4 19.2 52.8 16.8 21.6]
+  core episodes: n = 4; gaps between starts = [47.2 208 100]
+    start  end   x_centre_pk x_core_pk  |D_slow|min at_t   F_D(1.5R)max at_t   dE(<3R)/E0  r_half min(in) max(after)
+       37    74       4.47      3.38        0.003    50        130.9   146     +0.0026     26.0   29.3
+       84   277       8.26      3.81        0.000   110        196.5   257     -0.3663     23.9   52.1
+      292   384       5.71      3.17        0.002   357        36.14   378     -0.2020     42.0   55.7
+      392   400       4.21      0.74        0.043   395        34.09   399     -0.0055     52.0   55.7
+## R=30  shape=sp    dr=0.2  grav=off
+  xc0 0.281  xw0 0.0939  ring0 0.0230  ring20 0.0339  budget drift 6.01e-03
+  <r^2> change, measured vs Derived -(45/64) x_w0 t^2/2:  t=16: -7.9 / -8.4  t=32: -32.7 / -33.8  t=48: -73.0 / -76.0  t=64: -122.1 / -135.2  t=80: -168.1 / -211.2
+  first t: centre x > 4/3 (4 pi) 36.8; core x (r<5) > 4/3 43.2; |D_slow(0)| < 0.5 rest 36.8; < 0.1 45.6; max x centre 10.42, core 3.72
+  energy inside 3R (change): t=100: -0.4%  t=200: -3.4%  t=300: -21.1%  t=400: -40.9%;  r_half: t=0: 29.9  t=100: 26.1  t=200: 31.4  t=300: 45.2  t=400: 52.4; min 24.6 at 83
+  bursts at 1.5R: n = 5 t = [144 182.4 252.8 268 376.8] gaps = [38.4 70.4 15.2 108.8]
+  bursts at 3R:   n = 5 t = [199.2 235.2 258.4 321.6 356] gaps = [36 23.2 63.2 34.4]
+  core episodes: n = 8; gaps between starts = [46.4 103.2 29.6 28.8 28 82.4 30.4]
+    start  end   x_centre_pk x_core_pk  |D_slow|min at_t   F_D(1.5R)max at_t   dE(<3R)/E0  r_half min(in) max(after)
+       37    74       4.48      3.40        0.014    60        232.9   144     +0.0002     25.7   29.3
+       83   170       8.57      3.55        0.005   139        232.9   144     -0.0922     24.6   41.4
+      186   204       4.04      2.54        0.039   204        204.6   268     -0.1559     29.5   44.5
+      216   233       4.93      2.16        0.003   221        204.6   268     -0.1781     32.7   45.9
+      245   259       2.97      0.70        0.009   254        204.6   268     -0.2277     41.0   49.3
+      273   337      10.42      3.72        0.002   330        178.5   274     -0.2466     39.4   52.6
+      355   373       6.09      1.51        0.002   362        93.01   377     -0.0395     43.1   52.6
+      386   399       2.37      1.70        0.022   392        34.75   386     -0.0057     45.4   52.6
+## R=30  shape=gauss dr=0.2  grav=on 
+  xc0 0.281  xw0 0.1075  ring0 0.0228  ring20 0.0305  budget drift 8.11e-03
+  <r^2> change, measured vs Derived -(45/64) x_w0 t^2/2:  t=16: -8.9 / -9.7  t=32: -37.5 / -38.7  t=48: -85.0 / -87.1  t=64: -147.5 / -154.9  t=80: -211.2 / -242.0
+  first t: centre x > 4/3 (4 pi) 41.6; core x (r<5) > 4/3 46.4; |D_slow(0)| < 0.5 rest 41.6; < 0.1 48.8; max x centre 12.93, core 3.58
+  energy inside 3R (change): t=100: -0.1%  t=200: -3.3%  t=300: -36.7%  t=400: -56.0%;  r_half: t=0: 29.9  t=100: 23.8  t=200: 31.6  t=300: 49.7  t=400: 60.9; min 21.3 at 154
+  bursts at 1.5R: n = 3 t = [143.2 181.6 238.4] gaps = [38.4 56.8]
+  bursts at 3R:   n = 5 t = [200 234.4 262.4 288.8 308.8] gaps = [34.4 28 26.4 20]
+  core episodes: n = 4; gaps between starts = [168 36.8 95.2]
+    start  end   x_centre_pk x_core_pk  |D_slow|min at_t   F_D(1.5R)max at_t   dE(<3R)/E0  r_half min(in) max(after)
+       42   199      12.93      3.58        0.000   108        511.7   182     -0.2314     21.3   45.1
+      210   222       2.56      1.21        0.008   222        229.2   238     -0.2819     31.1   49.5
+      246   324       7.30      3.29        0.003   278        171.6   246     -0.3678     36.2   60.6
+      342   400       3.83      1.28        0.001   369        60.46   342     -0.0810     54.5   61.1
+## R=30  shape=gauss dr=0.2  grav=off
+  xc0 0.281  xw0 0.1075  ring0 0.0228  ring20 0.0305  budget drift 5.95e-03
+  <r^2> change, measured vs Derived -(45/64) x_w0 t^2/2:  t=16: -8.8 / -9.7  t=32: -37.0 / -38.7  t=48: -83.7 / -87.1  t=64: -145.3 / -154.9  t=80: -207.7 / -242.0
+  first t: centre x > 4/3 (4 pi) 41.6; core x (r<5) > 4/3 46.4; |D_slow(0)| < 0.5 rest 41.6; < 0.1 48.8; max x centre 10.43, core 3.54
+  energy inside 3R (change): t=100: -0.3%  t=200: -4.6%  t=300: -31.0%  t=400: -55.8%;  r_half: t=0: 29.9  t=100: 24.0  t=200: 28.8  t=300: 47.9  t=400: 60.5; min 20.0 at 149
+  bursts at 1.5R: n = 8 t = [142.4 183.2 237.6 269.6 281.6 300 358.4 384] gaps = [40.8 54.4 32 12 18.4 58.4 25.6]
+  bursts at 3R:   n = 4 t = [200.8 237.6 286.4 342.4] gaps = [36.8 48.8 56]
+  core episodes: n = 5; gaps between starts = [61.6 143.2 49.6 82.4]
+    start  end   x_centre_pk x_core_pk  |D_slow|min at_t   F_D(1.5R)max at_t   dE(<3R)/E0  r_half min(in) max(after)
+       42    95       2.83      3.54        0.007    49        240.7   142     -0.0020     23.3   28.9
+      103   231      10.43      3.32        0.002   230          255   183     -0.3384     20.0   50.3
+      246   280       5.16      2.24        0.006   276        125.5   282     -0.3035     38.5   57.4
+      296   370       5.75      3.08        0.002   336        114.7   358     -0.2571     47.2   61.7
+      378   400       3.48      1.09        0.006   382        94.99   384     -0.0308     59.3   61.7
+## R=30  shape=sp    dr=0.2  grav=on  D-forced
+  xc0 0.284  xw0 0.0939  ring0 0.0157  ring20 0.0231  budget drift 7.93e-03
+  <r^2> change, measured vs Derived -(45/64) x_w0 t^2/2:  t=16: -8.1 / -8.4  t=32: -33.5 / -33.8  t=48: -74.9 / -76.0  t=64: -124.4 / -135.2  t=80: -171.1 / -211.2
+  first t: centre x > 4/3 (4 pi) 36.0; core x (r<5) > 4/3 41.6; |D_slow(0)| < 0.5 rest 36.8; < 0.1 43.2; max x centre 6.77, core 3.56
+  energy inside 3R (change): t=100: -0.2%  t=200: -3.2%  t=300: -24.8%  t=400: -45.1%;  r_half: t=0: 29.9  t=100: 26.3  t=200: 31.9  t=300: 44.1  t=400: 53.2; min 23.1 at 119
+  bursts at 1.5R: n = 4 t = [186.4 263.2 328.8 367.2] gaps = [76.8 65.6 38.4]
+  bursts at 3R:   n = 4 t = [208 240 315.2 384.8] gaps = [32 75.2 69.6]
+  core episodes: n = 5; gaps between starts = [47.2 121.6 58.4 100]
+    start  end   x_centre_pk x_core_pk  |D_slow|min at_t   F_D(1.5R)max at_t   dE(<3R)/E0  r_half min(in) max(after)
+       36    72       3.80      3.32        0.023    57        77.62   143     +0.0017     26.5   29.3
+       83   193       6.55      3.56        0.001   122        259.9   186     -0.1985     23.1   43.0
+      205   254       6.77      3.28        0.006   253          231   263     -0.2804     31.9   50.0
+      263   331       4.38      2.22        0.002   311          231   263     -0.2548     41.8   56.8
+      363   399       2.24      0.38        0.019   364        83.97   367     -0.0704     49.7   56.8
+## R=30  shape=sp    dr=0.2  grav=on  seed=1e-6
+  xc0 0.281  xw0 0.0939  ring0 0.0229  ring20 0.0340  budget drift 7.87e-03
+  <r^2> change, measured vs Derived -(45/64) x_w0 t^2/2:  t=16: -8.1 / -8.4  t=32: -33.3 / -33.8  t=48: -74.3 / -76.0  t=64: -123.8 / -135.2  t=80: -171.6 / -211.2
+  first t: centre x > 4/3 (4 pi) 36.8; core x (r<5) > 4/3 43.2; |D_slow(0)| < 0.5 rest 36.8; < 0.1 45.6; max x centre 8.60, core 3.81
+  energy inside 3R (change): t=100: -0.2%  t=200: -1.6%  t=300: -24.7%  t=400: -47.7%;  r_half: t=0: 29.9  t=100: 25.3  t=200: 31.3  t=300: 46.9  t=400: 58.1; min 23.9 at 90
+  bursts at 1.5R: n = 6 t = [149.6 196.8 253.6 268 286.4 384.8] gaps = [47.2 56.8 14.4 18.4 98.4]
+  bursts at 3R:   n = 6 t = [208.8 243.2 262.4 286.4 306.4 347.2] gaps = [34.4 19.2 24 20 40.8]
+  core episodes: n = 4; gaps between starts = [47.2 237.6 69.6]
+    start  end   x_centre_pk x_core_pk  |D_slow|min at_t   F_D(1.5R)max at_t   dE(<3R)/E0  r_half min(in) max(after)
+       37    74       4.47      3.38        0.003    50          131   146     +0.0026     26.0   29.3
+       84   262       8.22      3.81        0.000   232        191.9   197     -0.3378     23.9   50.2
+      322   382       8.60      3.60        0.000   333        83.88   385     -0.1703     42.6   58.1
+      391   400       3.28      1.57        0.003   398        31.26   391     -0.0079     54.2   58.1

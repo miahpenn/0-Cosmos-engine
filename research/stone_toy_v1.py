@@ -18,6 +18,8 @@ s = A(r), s_t = 0 with (1/2) m^2 A^2 = rho_SP; D = d_sea + seed, d_t = 0. x = A^
 Sponge: damping -gamma(r) f_t on both fields, gamma = GAMMA_MAX ((r - r_s)/(r_max - r_s))^2 for r > r_s = 0.75 r_max.
 
 Usage: python research/stone_toy_v1.py [outdir]     (runs the whole POKE-3 set with both rulers, in parallel)
+       python research/stone_toy_v1.py --quiet [outdir]      (quiet start: x(0) = 0.3, D at its adjusted rest value)
+       python research/stone_toy_v1.py --spectrum [outdir]   (D's spectrum during #516's bursts, reruns with probes)
 """
 import math
 import os
@@ -94,6 +96,21 @@ def sp_amplitude2(r, R, G, m):
     return 2 * rho / (m * m)
 
 
+def quiet_profile(r, R, xc, shape):
+    """x(r) = A^2 with x(0) = xc and half of the integral of x (S's energy at the start, to leading order) inside R.
+    shape "sp": the SP ground state's shape (f^2); "gauss": exp(-r^2/a^2) with a = R / 1.0877 (Choice; a ruler)."""
+    global _SP
+    if shape == "sp":
+        if _SP is None:
+            _SP = sp_profile()
+        xi, f, xi_half, _ = _SP
+        return xc * np.interp(xi_half * r / R, xi, f, right=0.0) ** 2
+    from scipy.special import erf
+    from scipy.optimize import brentq
+    k = brentq(lambda q: erf(q) - 2 * q * math.exp(-q * q) / math.sqrt(math.pi) - 0.5, 0.5, 2.0)   # r_half / a = 1.0877
+    return xc * np.exp(-(r * k / R) ** 2)
+
+
 # ---------------------------------------------------------------- the radial toy
 class Grid:
     def __init__(self, dr, rmax):
@@ -129,8 +146,13 @@ def run(cfg):
     rmax = cfg.get("rmax", max(6 * R, 60.0))
     gr = Grid(dr, rmax); r = gr.r
     G = g / (8 * math.pi)
-    s = np.sqrt(sp_amplitude2(r, R, G, m)); ps = np.zeros_like(s)
-    seed = cfg.get("seed", "uniform")
+    start = cfg.get("start", "sp")
+    if start == "sp":                                                     # POKE-3's start (#516)
+        s = np.sqrt(sp_amplitude2(r, R, G, m))
+    else:                                                                 # quiet start: a SHAPE at central x = XC
+        s = np.sqrt(quiet_profile(r, R, cfg["xc"], cfg["shape"]))
+    ps = np.zeros_like(s)
+    seed = cfg.get("seed", "uniform" if start == "sp" else "none")
     if seed == "uniform":
         dd = 1e-6 * np.ones_like(r)
     elif seed == "noise":
@@ -139,9 +161,30 @@ def run(cfg):
     else:
         dd = np.zeros_like(r)
     d = dsea + dd; pd = np.zeros_like(d)
+    if start != "sp":
+        # D at its adiabatic rest value in S's period-averaged potential (Derived): d^2 = 2u - (3/2) x, x = A^2 = 2<s^2>
+        # (chat's form; coefficient checked in the README). Held at 0 where x > 4u/3 (none at the start used here).
+        x0 = s * s
+        d = np.sqrt(np.maximum(2 * u - cfg.get("dcoef", 1.5) * x0, 0.0)) + dd
+        if cfg.get("dforce"):
+            # ruler: add D's forced response to s^2's ring at 2 omega_S (s = A cos w t, s^2 = x/2 (1 + cos 2wt)):
+            # dd'' + w_D^2 dd = -(3/4) d x cos 2wt  ->  dd(0) = (3/4) d x / (4w^2 - w_D^2), dd'(0) = 0 (Derived, linear)
+            w2 = 1 + 1.5 * d * d + 0.75 * x0                             # S's in-stone clock^2 (averaged, incl. s^4)
+            wD2 = -u + 1.5 * d * d + 0.75 * x0                            # D's local mass^2 about its slow value
+            d = d + 0.75 * d * x0 / (4 * w2 - wD2)
     rs = 0.75 * rmax
     gam = np.where(r > rs, GAMMA_MAX * ((r - rs) / (rmax - rs)) ** 2, 0.0)
     in3 = r < 3 * R; inner = r < rs
+    probes = [int(round(pr / dr)) for pr in cfg.get("probe", ())]          # cells recorded every step (Part B)
+    probe_d = []; probe_s = []
+    sponge_w = 0.0; budget = []                                            # energy closure: box + sponge's take
+
+    def grad_energy(f):                                                    # the discrete gradient energy leapfrog conserves
+        return 0.5 * float(np.sum(4 * math.pi * gr.af[:-1] * (f[1:] - f[:-1]) ** 2 / dr))
+
+    def box_energy(s, d, ps, pd):
+        return (float(np.sum(gr.vol * (0.5 * ps ** 2 + 0.5 * pd ** 2 + potential(s, d, u)))) + grad_energy(s)
+                + grad_energy(d))
 
     def rho_parts(s, d, ps, pd):
         gs, gd = gr.grad2(s), gr.grad2(d)
@@ -180,6 +223,8 @@ def run(cfg):
     for n in range(nsteps + 1):
         sc2[n] = float(np.dot(wc, s[cen] ** 2)); sk2[n] = float(np.dot(wk, s[cor] ** 2)); dc[n] = float(np.dot(wc, d[cen])); dc2[n] = float(np.dot(wc, d[cen] ** 2))
         fl[0, n] = flux(d, pd, k15); fl[1, n] = flux(d, pd, k3); fl[2, n] = flux(s, ps, k3)
+        if probes:
+            probe_d.append(d[probes + [0]].copy()); probe_s.append(s[probes + [0]].copy())
         if n % every == 0:
             rhoS, rhoSi, rho = rho_parts(s, d, ps, pd)
             ESi3 = float(np.sum(rhoSi[in3] * gr.vol[in3]))
@@ -189,14 +234,18 @@ def run(cfg):
             xp = 0.5 * float(np.sum(rhoS[in3] ** 2 * gr.vol[in3]) / max(ES3, 1e-300))
             Eout = float(np.sum((rho * gr.vol)[(~in3) & inner]))
             rows.append((n * dt, ES3, E3, rhalf, xp, Eout, float(Phi[0]), ESi3))
+            budget.append((n * dt, box_energy(s, d, ps, pd), sponge_w,
+                           float(np.sum(gr.vol[inner] * rho[inner] * r[inner] ** 2)) / max(float(np.sum(gr.vol[inner] * rho[inner])), 1e-300)))
         if n == nsteps:
             break
         # kick-drift-kick with the sponge applied to the velocities
+        sponge_w += 0.5 * dt * float(np.sum(gr.vol * gam * (ps ** 2 + pd ** 2)))
         ps += 0.5 * dt * (a_s - gam * ps); pd += 0.5 * dt * (a_d - gam * pd)
         s += dt * ps; d += dt * pd
         rhoS, rhoSi, rho = rho_parts(s, d, ps, pd)
         a_s, a_d, Phi = acc(s, d, rho)
         ps += 0.5 * dt * (a_s - gam * ps); pd += 0.5 * dt * (a_d - gam * pd)
+        sponge_w += 0.5 * dt * float(np.sum(gr.vol * gam * (ps ** 2 + pd ** 2)))
     rows = np.array(rows); idx = np.arange(0, nsteps + 1, every)
 
     def box(y, W):                                                         # centred boxcar over W time units
@@ -205,7 +254,14 @@ def run(cfg):
         return (c[hi] - c[lo]) / (hi - lo)
     extra = [2 * box(sc2, W_SLOW[0]), 2 * box(sc2, W_SLOW[1]), box(dc, W_SLOW[0]), box(dc, W_SLOW[1]),
              box(fl[0], W_FLUX), box(fl[1], W_FLUX), box(fl[2], W_FLUX), np.sqrt(box(dc2, W_SLOW[0])), 2 * box(sk2, W_SLOW[0]), 2 * box(sk2, W_SLOW[1])]
-    return cfg, np.column_stack([rows] + extra)
+    # columns 18-21: box energy (discrete, all cells), cumulative sponge take, <r^2> of all S-D energy inside 0.75 r_max,
+    # and D's ring at the centre: sqrt(<d^2> - <d>^2) over 2 pi (the quietness reading)
+    b = np.array(budget)
+    dring = np.sqrt(np.maximum(box(dc2, W_SLOW[0]) - box(dc, W_SLOW[0]) ** 2, 0.0))
+    out = np.column_stack([rows] + extra + [b[:, 1], b[:, 2], b[:, 3], dring])
+    if probes:
+        cfg = dict(cfg, _probe_d=np.array(probe_d), _probe_s=np.array(probe_s), _dt=dt)
+    return cfg, out
 
 
 # ---------------------------------------------------------------- readings (fixed before looking at the runs)
@@ -343,6 +399,156 @@ def label(c):
     return (f"R={c['R']:<3d} g={c['g']:.3g} dr={c['dr']} grav={'on ' if c['grav'] else 'off'} "
             f"seed={c.get('seed', 'uniform')} phi={c.get('phi', 0.0):.4g}" + (" LONG rmax=240" if c.get("rmax") else ""))
 
+
+# ---------------------------------------------------------------- quiet start (Nov 17, follow-up) and burst spectra
+XC_QUIET = 0.3
+T_QUIET = 400.0
+
+
+def configs_quiet():
+    cs = []
+    for R in (30, 45):
+        for shape in ("sp", "gauss"):
+            for grav in (True, False):
+                cs.append(dict(R=R, g=G_PROD, dr=0.2, grav=grav, start="quiet", shape=shape, xc=XC_QUIET, T=T_QUIET,
+                               rmax=8.0 * R))
+        for grav in (True, False):
+            cs.append(dict(R=R, g=G_PROD, dr=0.1, grav=grav, start="quiet", shape="sp", xc=XC_QUIET, T=T_QUIET, rmax=8.0 * R))
+    base = dict(R=30, g=G_PROD, dr=0.2, grav=True, start="quiet", shape="sp", xc=XC_QUIET, T=T_QUIET, rmax=240.0)
+    cs.append(dict(base, dforce=True))                                    # ruler: D's forced ring included at the start
+    cs.append(dict(base, seed="uniform"))                                 # ruler: a 1e-6 seed on D
+    cs.append(dict(base, dr=0.05, grav=False))                            # third resolution (one stone)
+    return cs
+
+
+def label_quiet(c):
+    return (f"R={c['R']:<3d} shape={c['shape']:5s} dr={c['dr']:<4} grav={'on ' if c['grav'] else 'off'}"
+            + (" seed=1e-6" if c.get("seed") == "uniform" else "") + (" D-forced" if c.get("dforce") else ""))
+
+
+def quiet_readings(rows, R):
+    t = rows[:, 0]; xw = rows[:, 4]; xc = rows[:, 9]; xk = rows[:, 17]; ds = rows[:, 11]; ring = rows[:, 21]
+    E0 = rows[0, 18]; r2 = rows[:, 20]
+    o = {"xc0": rows[0, 8], "xw0": xw[0], "ring0": ring[0], "ring20": float(ring[t <= 20].max()),
+         "drift": float(np.abs((rows[:, 18] + rows[:, 19]) / E0 - 1).max())}
+    acc = -(45.0 / 64.0) * xw[0]                                          # Derived: d2<r^2>/dt2 = -(45/64) x_w (see README)
+    o["r2"] = [(tt, float(np.interp(tt, t, r2)) - r2[0], 0.5 * acc * tt * tt) for tt in (16, 32, 48, 64, 80)]
+    first = lambda m: float(t[np.nonzero(m)[0][0]]) if m.any() else float("nan")   # noqa: E731
+    o["t_xc_band"] = first(xc > 4 / 3); o["t_xk_band"] = first(xk > 4 / 3)
+    o["t_d_half"] = first(np.abs(ds) < 0.5 * math.sqrt(2)); o["t_d_01"] = first(np.abs(ds) < 0.1)
+    o["xk_max"] = float(xk.max()); o["xc_max"] = float(xc.max())
+    o["E3"] = {te: float(np.interp(te, t, rows[:, 2]) / rows[0, 2] - 1) for te in (100, 200, 300, 400) if te <= t[-1]}
+    o["rh"] = {te: float(np.interp(te, t, rows[:, 3])) for te in (0, 100, 200, 300, 400) if te <= t[-1]}
+    o["rh_min"] = (float(rows[:, 3].min()), float(t[np.argmin(rows[:, 3])]))
+    return o
+
+
+def write_quiet(outdir, res):
+    fmt = lambda a: "[" + " ".join(f"{v:.4g}" for v in np.atleast_1d(a)) + "]"   # noqa: E731
+    with open(os.path.join(outdir, "summary.txt"), "w") as fh:
+        fh.write(f"# Quiet start (research/stone_toy_v1.py --quiet). x(0) = {XC_QUIET}, D at d^2 = 2 - 1.5 x(r), s_t = d_t = 0;"
+                 f" g = {G_PROD:.4e}; T = {T_QUIET}; r_max = 8R.\n# xc0: centre's x (r < 1, 2 pi) at t = 0; xw0: the"
+                 " energy-weighted proxy inside 3R; ring0 / ring20: D's ring at the centre, sqrt(<d^2> - <d>^2) over 2 pi, at"
+                 " t = 0 / max over t <= 20; drift: worst |(E_box + sponge take)/E0 - 1|.\n")
+        for c, rows in res:
+            o = quiet_readings(rows, c["R"])
+            fh.write(f"## {label_quiet(c)}\n")
+            fh.write(f"  xc0 {o['xc0']:.3f}  xw0 {o['xw0']:.4f}  ring0 {o['ring0']:.4f}  ring20 {o['ring20']:.4f}  "
+                     f"budget drift {o['drift']:.2e}\n")
+            fh.write("  <r^2> change, measured vs Derived -(45/64) x_w0 t^2/2:  " + "  ".join(
+                f"t={a:.0f}: {b:+.1f} / {p:+.1f}" for a, b, p in o["r2"]) + "\n")
+            fh.write(f"  first t: centre x > 4/3 (4 pi) {o['t_xc_band']:.1f}; core x (r<5) > 4/3 {o['t_xk_band']:.1f}; "
+                     f"|D_slow(0)| < 0.5 rest {o['t_d_half']:.1f}; < 0.1 {o['t_d_01']:.1f}; max x centre {o['xc_max']:.2f}, "
+                     f"core {o['xk_max']:.2f}\n")
+            fh.write("  energy inside 3R (change): " + "  ".join(f"t={k}: {v*100:+.1f}%" for k, v in o["E3"].items())
+                     + f";  r_half: " + "  ".join(f"t={k}: {v:.1f}" for k, v in o["rh"].items())
+                     + f"; min {o['rh_min'][0]:.1f} at {o['rh_min'][1]:.0f}\n")
+            b = breathing(rows, c["R"])
+            fh.write(f"  bursts at 1.5R: n = {len(b['b15'])} t = {fmt(b['b15'])} gaps = {fmt(np.diff(b['b15']))}\n")
+            fh.write(f"  bursts at 3R:   n = {len(b['b3'])} t = {fmt(b['b3'])} gaps = {fmt(np.diff(b['b3']))}\n")
+            fh.write(f"  core episodes: n = {len(b['episodes'])}; gaps between starts = "
+                     f"{fmt(np.diff([e[0] for e in b['episodes']]))}\n")
+            fh.write("    start  end   x_centre_pk x_core_pk  |D_slow|min at_t   F_D(1.5R)max at_t   dE(<3R)/E0  r_half min(in) max(after)\n")
+            for e in b["episodes"]:
+                fh.write(f"    {e[0]:5.0f} {e[1]:5.0f}   {e[2]:8.2f} {e[3]:9.2f}   {e[4]:10.3f} {e[5]:5.0f}   {e[6]:10.4g} {e[7]:5.0f}"
+                         f"   {e[8]:+9.4f}   {e[9]:6.1f} {e[10]:6.1f}\n")
+    with open(os.path.join(outdir, "series.txt"), "w") as fh:
+        fh.write("# every 4 time units. Columns as results/stone-toy-2026-11-17/series.txt (1-18), then E_box, sponge take,"
+                 " <r^2> of all S-D energy inside 0.75 r_max, D's ring at the centre (2 pi)\n")
+        for c, rows in res:
+            fh.write(f"## {label_quiet(c)}\n")
+            for row in rows[::5]:
+                fh.write("  ".join(f"{v:.5g}" for v in row) + "\n")
+
+
+SPEC_RUNS = ((18, 1.0), (24, 1.0), (12, 8.0))                              # #516 stones: R and grip / g_prod
+SPEC_WINDOWS = (32.0, 64.0)
+
+
+def configs_spectrum():
+    return [dict(R=R, g=k * G_PROD, dr=0.2, grav=True, T=300.0, probe=(1.5 * R, 3.0 * R)) for R, k in SPEC_RUNS]
+
+
+def spectrum_lines(y, dt, W, tc):
+    """Hann-windowed power of y over [tc - W/2, tc + W/2]; returns the local maxima above 5% of the largest, as
+    (omega in mu units, power / largest), strongest first. Zero-padded x8 for the peak positions (resolution 2 pi / W)."""
+    n0 = int(round((tc - W / 2) / dt)); n1 = int(round((tc + W / 2) / dt))
+    n0 = max(n0, 0); n1 = min(n1, len(y)); seg = y[n0:n1] - y[n0:n1].mean()
+    w = np.hanning(len(seg)); F = np.fft.rfft(seg * w, 8 * len(seg)); P = np.abs(F) ** 2
+    om = 2 * math.pi * np.fft.rfftfreq(8 * len(seg), dt)
+    k = [i for i in range(1, len(P) - 1) if P[i] >= P[i - 1] and P[i] >= P[i + 1] and P[i] > 0.05 * P.max()]
+    k.sort(key=lambda i: -P[i])
+    return [(float(om[i]), float(P[i] / P.max())) for i in k[:8]], (n0 * dt, n1 * dt)
+
+
+def write_spectrum(outdir, res):
+    from scipy.signal import find_peaks
+    with open(os.path.join(outdir, "burst_spectra.txt"), "w") as fh:
+        fh.write("# D's spectrum at fixed radii during #516's bursts (reruns of #516's dr 0.2, gravity-on stones; every step"
+                 " recorded at 1.5R, 3R and the centre).\n# Lines: (omega in mu units, power relative to the window's"
+                 " largest), Hann window, local maxima > 5%. Resolution 2 pi / W. Bursts: peaks of F_D(3R) (#516 rule).\n"
+                 "# Reference lines: D's sea gap sqrt2 = 1.414; S's sea clock omega_S = 2 (so 2 omega_S = 4). D at 1.5R is"
+                 " windowed on the 1.5R flux peak t15 (#516 rule) at or before the 3R burst; s and d at the centre over the"
+                 " W units ending at t15 (the in-stone clocks while the burst was made).\n")
+        for c, rows in res:
+            R = c["R"]; dt = c["_dt"]; pdd = c["_probe_d"]; pss = c["_probe_s"]
+            t = rows[:, 0]; f3 = rows[:, 13]; f15 = rows[:, 12]
+            p15, _ = find_peaks(f15, prominence=0.2 * f15.max(), distance=int(round(10 / (t[1] - t[0]))))
+            t15 = t[p15]
+            pk, _ = find_peaks(f3, prominence=0.2 * f3.max(), distance=int(round(10 / (t[1] - t[0]))))
+            tb = t[pk]
+            fh.write(f"## {label(c)}   bursts at 3R: {' '.join(f'{v:.1f}' for v in tb)}\n")
+            if len(tb) == 0:
+                continue
+            picks = [("first", tb[0])] + ([("later", tb[min(2, len(tb) - 1)])] if len(tb) > 1 else [])
+            for name, tc in picks:
+                prev = t15[t15 <= tc]; ta = float(prev[-1]) if len(prev) else float(t15[0])
+                fh.write(f"  {name} burst: 3R peak t = {tc:.1f}; 1.5R peak used t15 = {ta:.1f}\n")
+                for W in SPEC_WINDOWS:
+                    for j, rad in enumerate(("1.5R", "3R")):
+                        tcj = ta if rad == "1.5R" else tc
+                        L, (a, b) = spectrum_lines(pdd[:, j], dt, W, tcj)
+                        fh.write(f"  {name} burst t={tc:.1f}  W={W:.0f}  D at {rad:4s} [{a:.0f},{b:.0f}]: "
+                                 + "  ".join(f"{om:.3f}({pw:.2f})" for om, pw in L) + "\n")
+                    te = ta
+                    L, (a, b) = spectrum_lines(pss[:, 2], dt, W, te - W / 2)
+                    fh.write(f"  {name} burst            W={W:.0f}  s at centre [{a:.0f},{b:.0f}]: "
+                             + "  ".join(f"{om:.3f}({pw:.2f})" for om, pw in L) + "\n")
+                    L, (a, b) = spectrum_lines(pdd[:, 2], dt, W, te - W / 2)
+                    fh.write(f"  {name} burst            W={W:.0f}  d at centre [{a:.0f},{b:.0f}]: "
+                             + "  ".join(f"{om:.3f}({pw:.2f})" for om, pw in L) + "\n")
+
+
+if __name__ == "__main__" and len(sys.argv) > 1 and sys.argv[1] in ("--quiet", "--spectrum"):
+    mode = sys.argv[1]
+    outdir = sys.argv[2] if len(sys.argv) > 2 else "results/stone-toy-quiet-start-2026-11-17"
+    os.makedirs(outdir, exist_ok=True)
+    cs = configs_quiet() if mode == "--quiet" else configs_spectrum()
+    cs.sort(key=lambda c: -(c.get("rmax", 6 * c["R"]) / c["dr"] ** 2))      # longest first
+    with Pool(min(8, os.cpu_count() or 1)) as pool:
+        res = pool.map(run, cs)
+    (write_quiet if mode == "--quiet" else write_spectrum)(outdir, res)
+    sys.exit(0)
 
 if __name__ == "__main__":
     outdir = sys.argv[1] if len(sys.argv) > 1 else "results/stone-toy-2026-11-17"
