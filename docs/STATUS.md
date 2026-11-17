@@ -5,6 +5,21 @@
 > conflict, this one is current (notably: production's λ is no longer 0, and the default edge is no longer the open edge).
 > PR #510's entry below describes the change under review; it is current only once merged.
 
+## The design target (since 17 November 2026)
+
+- **Jeremiah's November account supersedes the August criterion's physical bounce b as the design target.** Source:
+  AMENDMENT-CORE-SHEET-2 (Drive 1oaI4YwR6facCgd-s_vp4a75qGz8SvKAQPLfI_a8VRXw; no other "Amendment 2"), carried to the
+  repo by HANDOFF-Nov17-(1) (Drive 10O-jfYlCSpn3Lbth8vTm6kBb3IRpjRoIwyW0M7T8dAU). D_r is space's doing; matter does
+  the expanding; we always sit pre-apex; the turnaround is D_r's apex. There is no previous or next expansion, only
+  ongoing; S resets the clock wherever there is matter.
+- **The global cycle (turnaround, crunch, bounce) is no longer the design target.** The crunch production's lane shows is
+  a consequence of φ's constructed positive term (GEAR 04/06; AUDIT-4, Drive 1tOszHboOl-6TKV63Ac8FuRHpHzpPuf0ry2cpkORE00I),
+  not a prediction of the account. The lane's turnaround and crunch times below are kept as rulers and as comparisons
+  between engine versions, labelled so.
+- **The open target (0*, AMENDMENT-CORE-SHEET-2 section 3): a steady balance.** Does the sea, expanded and rung by matter,
+  settle? For a stone: is there a stable ringing amplitude x_A* where what it rings out (D_r into the sea) equals what
+  it takes back (exchange into S inside the pocket)? Open; chat derives, Projects measures from stored cells.
+
 ## Production changes since PR #458 (owner-reviewed)
 
 - **#483** — one copy of the shared constants (`engine/model_constants.py`), imported by the cosmos lane, the scalar
@@ -19,7 +34,8 @@
   - The old machine stays available bit-identical: `engine.scalar_system.hand_floor_reference()`,
     `engine.cosmos.HAND_FLOOR_REFERENCE_PARAMS`.
   - Production lane (Hubble times from today): node 2.954, turnaround 4.260, crunch 5.909 (hand floor: 3.753 / 5.418 /
-    7.588). There is no bounce in the classical machine.
+    7.588). There is no bounce in the classical machine. The crunch follows from φ's constructed positive term
+    (see the design target above).
 - **#505 — the zero-flux lattice wall** (`engine/lattice_wall.py`) as a production kernel option and the default for
   expanding runs: K̇ from the wall's compatibility, never from the stored lapse, so the open edge's undamped lapse mode
   cannot occur. Clock "i" (α = 1 at the wall: the wall shell's proper time). Static, isolated and EM runs keep the open edge.
@@ -86,7 +102,8 @@
 - **Physical results compared with the cosmos lane** are read on the fluids' clock (`fluids_clock_rate`), not per tick
   of the run's label.
 - **φ's potential (AUDIT-4):** the exponential form and λ_φ = 1, D = 0.10 are constructed and DESI-selected, not derived
-  from the machine; the crunch follows from that shape. Production's lane gives w_DE today = −0.824.
+  from the machine; the crunch follows from that shape (a consequence of the construction, not a prediction of
+  the November account). Production's lane gives w_DE today = −0.824.
 - **Dark matter (#508):** the KIND is closed (S–D matter, two parts), not the QUANTITY. Today's total is still matched
   to the chart through the borrowed "today", and baryons and radiation stay imported. f_D: form Derived, value Read
   (cells at λ = 5000, one stone each). Both parts are dust; the filling-window pressure is not carried. Since the
@@ -108,9 +125,12 @@
 - Inherited fixture on the wall (unresolved, above); first-order convergence at the wall cell; the centre cell carries
   the largest Hamiltonian residual on both edges; the remaining open-edge contracts have no wall versions yet.
 - The leftover held step; the early filling window; w of a population of bound stones.
-- φ's positive term (constructed); the bounce b (unpaid; physical or an observer effect is Jeremiah's to settle).
+- **The steady balance (the open target):** a stable stone amplitude x_A*, where D_r rung out equals exchange back into S.
+- φ's positive term (constructed; chat derivation first). The bounce b is no longer open: superseded as the design
+  target by AMENDMENT-CORE-SHEET-2 (Jeremiah's November account).
 - The sea's lag behind its moving rest (it reads as coupled matter in the β_D-on cell, first order in the lag): left for
-  later. Whether stones and D_r should be transported separately (two kernel fluids, each with its own derived coupling).
+  later. Whether stones and free D_r should be transported separately (split by object, never by field), if the
+  one-fluid bound (#510) ever matters.
 
 # Prior overlay — reconciled 10 November 2026 UTC after PR #458 (superseded where the overlay above conflicts)
 
