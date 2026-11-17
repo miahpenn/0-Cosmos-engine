@@ -1,5 +1,8 @@
 # S–D matter's equation of state, and the spectrum check
 
+> **Corrected since (Nov 17):** the hold band's edges are 1.270 and 2.670 (#470); the 1.28 and 2.68 rows are the
+> nearest samples. See [`AMENDMENT-1-band-edge.md`](AMENDMENT-1-band-edge.md).
+
 HANDOFF Nov 15 2026 (1), Tasks 1 and 2, with the adjustments agreed that day. RESEARCH ONLY. Algebra and stored states;
 **no new runs**; nothing in `engine/` changed.
 

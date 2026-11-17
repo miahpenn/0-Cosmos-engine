@@ -1,5 +1,8 @@
 # C6 candidate: the reset sets κ*/λ*. Derivation note with 0* verdicts
 
+> **Corrected since (Nov 17):** the hold band's edges are 1.270 and 2.670 (#470); the 1.28 and 2.68 rows are the
+> nearest samples. See [`AMENDMENT-1-band-edge.md`](AMENDMENT-1-band-edge.md).
+
 HANDOFF Nov 15 2026 (1), Task 3. RESEARCH ONLY. Algebra only; no runs. `research/c6_reset_v1.py` → `c6_reset.txt`.
 Sources read: AMENDMENT-CORE-SHEET-C6 (Nov 15), GEAR-104, AMENDMENT-BRIEF-FOR-FABLE (A2: the clock-stop band).
 
