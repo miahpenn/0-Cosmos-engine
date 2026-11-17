@@ -1,9 +1,11 @@
-# LIVE readiness overlay — reconciled 17 November 2026 UTC after PR #509 (and PR #510, the split-follows-φ kernel PR, once merged)
+# LIVE readiness overlay — reconciled 17 November 2026 UTC after PR #513
 
-> **Current main:** after the merge of PR #509 (#508 merged). `scientific_admission=false`; `acceptance_oracle_satisfied=false`.
-> Nothing below changes either flag. The 10 November overlay that follows is kept as the prior record; where the two
-> conflict, this one is current (notably: production's λ is no longer 0, and the default edge is no longer the open edge).
-> PR #510's entry below describes the change under review; it is current only once merged.
+> **Current main:** after the merge of PR #513 (#510, #511, #512 merged). `scientific_admission=false`;
+> `acceptance_oracle_satisfied=false`. Nothing below changes either flag. The 10 November overlay that follows is kept as
+> the prior record; where the two conflict, this one is current (notably: production's λ is no longer 0, and the default
+> edge is no longer the open edge). PR #510's entry below is merged (895e54f) and current. Since #510: #511 (pointer
+> lines to the reflection-reading amendments), #512 (stone-balance data, `results/stone-balance-2026-11-17/`), #513
+> (seven pre-#503 audit workflows marked historical, each at its last passing commit, as in #440).
 
 ## The design target (since 17 November 2026)
 
@@ -64,7 +66,7 @@
   - **The production kernel still carries fully coupled dust** and is compared with the labelled reference; it sits
     3e-4 (Π) from production's lane over a 4.8-unit run. Replacing it is a separate kernel PR.
   - Evidence: `results/sd-dark-matter-2026-11-16/README.md`.
-- **#510 — the split follows φ; the kernel's dust is S–D matter (for Jeremiah's review; decisions on #508).**
+- **#510 — the split follows φ; the kernel's dust is S–D matter (merged 895e54f; decisions on #508; one fluid decided by Jeremiah).**
   - **f_D(φ) Derived:** f_D = (1 − r(φ))·3u/(1 + 3u) + r(φ), u = e^(−2β_D φ). Stones (small S ring in the sea) carry
     rest energy ∝ √(1 + 3u), D_r ∝ √(2u), each at fixed number, so d ln ρ_SD/dφ = −β_D f_D and D_r's share r drifts
     with φ too. **Read:** D_r's share today r = 0.07 (0.06–0.08). f_D = 0.770 today (0.7675–0.7724), 0.795 at the node,
