@@ -64,9 +64,17 @@ sign(Γ) = sign(φ̇) throughout.
   φ's fifth force and the uncoupled part would not, pulling D's share out of the stones. The parts are one body; they
   share one velocity. On the background (∇φ = 0) the two readings are identical, so the check below does not decide this
   choice; the stones argument does.
-- **Labelled one-fluid simplification:** stones and D_r share one velocity in the kernel. Exact on the background; where
-  D_r drains away from a stone it is not. If Jeremiah wants two transported kernel species, the physically separable pair
-  is **stones (β_D·3u/(1+3u)) and D_r (β_D)**, each conserving its own number (no ad hoc exchange), not coupled/uncoupled.
+- **Labelled one-fluid simplification (approved Nov 17; label and bound agreed with chat and 0\*):** free D_r (6–8% of
+  the S–D energy, Read) is lumped with the stones and shares their velocity. Bound:
+  - The total coupling is exact. f_D counts D_r at its full coupling, so φ's total pull on the matter (background and
+    ∇φ ≠ 0 alike) and the energy exchanged with φ are exact. In the lane nothing can drift apart (it is uniform), so
+    there is no error there.
+  - What is lost is the relative drift, and only in the kernel where ∇φ ≠ 0. Each part feels the fluid's average
+    coupling β_D f_D, not its own: stones are pulled 2.0–2.6% too hard today (1.7–2.3% at φ's node and at φ = 2.5), and
+    free D_r 20–23% too weakly, across r's bounds. Computed from `stone_coupled_share` and
+    `sd_matter_coupled_fraction`: stone share 0.7527 today against f_D 0.7675–0.7725.
+  - If a split is ever needed, split by object, **stones (β_D·3u/(1+3u)) and free D_r (β_D)**, each conserving its own
+    number (no ad hoc exchange), never by field (S apart from D, coupled apart from uncoupled).
 - Guard: the derived split needs β = β_D (GEAR-103); `CosmosParams` refuses β ≠ β_D unless a fixed f_D is given.
 
 ## 3. Kernel vs lane (`kernel.txt`)

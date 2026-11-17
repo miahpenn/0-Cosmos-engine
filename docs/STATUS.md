@@ -58,11 +58,13 @@
     that holds ρ_dm = f_D ρ_SD; Γ cancels in the sum (the stones' rest energy re-dividing between S's mass term and D's
     sea). The kernel carries ONE transported S–D matter fluid with β_eff(φ) per cell and reports its two parts
     (`scalar_system.dark_matter_parts`): the parts are the same stones and must move together. Labelled one-fluid
-    simplification: stones and D_r share one velocity.
+    simplification: free D_r (6–8% of the S–D energy) lumped with the stones. The total coupling is exact; only where
+    ∇φ ≠ 0 in the kernel are stones pulled 2.0–2.6% too hard and free D_r 20–23% too weakly. Split by object (stones,
+    free D_r) if ever needed, never by field.
   - **Kernel = lane:** production background (wall), N 20 and 40, t ≤ 200: φ ≤ 3.1e-8, Π ≤ 8.5e-8, H ≤ 3.1e-8, ρ_SD and
     both parts ≤ 1.6e-7, the same level as the reference kernel against the reference lane. The 3e-4 gap in Π is gone (that test is
     now an agreement test).
-  - **Predicted difference against #508's fixed split:** node 2.95202 (+0.00013), turnaround 4.25784 (+0.00015), crunch
+  - **Predicted difference against #508's fixed split (times in Hubble times; φ = 2.0097 at the node):** φ's node at 2.95202 (+0.00013), turnaround 4.25784 (+0.00015), crunch
     5.90595 (+0.00017) Hubble times; +0.00010 to +0.00020 across r's bounds. w_DE today unchanged (−0.824244);
     dw_DE/d ln a today 0.29861 (−0.00017).
   - **Energy:** (ρ_φ + ρ_SD)a³ + ∫3Ha³p_φ dt constant to 2.5e-12 (rtol 1e-11) through the crunch; negative control
