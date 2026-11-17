@@ -1,5 +1,8 @@
 # POKE-2: reconciling projects' |H|/m_S ≈ 0.30 with chat's ≈ 0.002–0.006 (Nov 16 2026)
 
+> **Naming (Nov 17):** "m_S" in this note is ω_S in the sea, 2μ (μ = S's bare mass, the unit). See
+> [`AMENDMENT-1-mass-naming.md`](AMENDMENT-1-mass-naming.md).
+
 Chat's toy estimate put |H|/m_S at the hold-band crossing near today's value (H_today/m_S = 0.0057/2 = 0.0028), on the
 reasoning that under the one-budget rule today's dark-matter density already sits near the band. Projects' lane gives
 0.30 (README §4). The two use the same conventions, so this is not a normalisation error:
