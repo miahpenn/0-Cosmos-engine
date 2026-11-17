@@ -172,7 +172,7 @@ if __name__ == "__main__":
     print("   lambda          lane           ruler     x today      a/a_today at x = 4/3     |H|/m_S there")
     for lam, lab in ((mc.SD_QUARTIC_LAMBDA, "1.57e6 (production ruler)"), (1000.0, "1000 (C6 lambda*)"),
                      (100.0, "100 (C6)"), (10.0, "10 (C6)")):
-        for P, pl in ((cz.CosmosParams(), f"f_D = {mc.SD_MATTER_COUPLED_FRACTION:g}"), (Pref, "reference")):
+        for P, pl in ((cz.FIXED_SPLIT_REFERENCE_PARAMS, f"f_D = {mc.SD_MATTER_COUPLED_FRACTION:g}"), (Pref, "reference")):  # #508 fixed split (reference since the split follows phi)
             _, out = poke2(P, lam, lab)
             for ruler, x0, ac, hm, note in out:
                 print(f"   {lab:26s} {pl:12s} {ruler:8s} {x0:.4e}   {ac:.5f}                  {hm:.3e}  {note}")

@@ -227,34 +227,37 @@ def test_lambda_zero_has_no_background_default():
 # ------------------------------------------------------------------ a short kernel run against the lane
 def test_kernel_background_follows_the_cosmos_lane_over_a_short_run():
     """Production kernel, background default, N 20, r_max 40, CFL 0.06, 40 steps (t = 4.8): phi, Pi, H within 1e-8
-    of the new COSMOS lane; D within 1e-4 of its phi-dependent rest: it starts at rest with PD = 0 while its rest moves
+    of the production COSMOS lane; D within 1e-4 of its phi-dependent rest: it starts at rest with PD = 0 while its rest moves
     with phi, so it rings about it (amplitude ~5e-5 here, <= 7.3e-5 to t = 200; Read). (t = 200: results note, ~1e-7.)
-    The kernel still carries the imported, fully coupled dust (the dark-matter replacement is in the COSMOS lane only),
-    so it is compared with the lane's labelled reference IMPORTED_DUST_REFERENCE_PARAMS. Its gap to the production lane
-    (S-D matter, f_D = 0.76) over this run is pinned below: it is the size of what the kernel does not yet carry."""
-    P = cz.IMPORTED_DUST_REFERENCE_PARAMS
-    s0 = cz.construct_present_day(P)
-    y0 = list(cz.state_vector(s0, P))
+    Since the split follows phi (Nov 17 2026) the kernel carries S-D matter as the lane does, so it is compared with the
+    PRODUCTION lane. The ~3e-4 gap in Pi that PR #508 pinned here (the kernel's fully coupled dust against the lane's S-D
+    matter) is gone: it is now an agreement check. The kernel's labelled reference (imported dust) still agrees with the
+    lane's labelled reference IMPORTED_DUST_REFERENCE_PARAMS, and stays ~3e-4 from production's lane."""
     Pp = cz.CosmosParams()
     Lp = solve_ivp(lambda t, y: cz.cosmos_rhs(tuple(y), Pp), (0, 6.0), list(cz.state_vector(cz.construct_present_day(Pp), Pp)),
                    method="DOP853", rtol=1e-13, atol=1e-22, dense_output=True)
-    L = solve_ivp(lambda t, y: cz.cosmos_rhs(tuple(y), P), (0, 6.0), y0, method="DOP853", rtol=1e-13, atol=1e-22,
-                  dense_output=True)
+    P = cz.IMPORTED_DUST_REFERENCE_PARAMS
+    L = solve_ivp(lambda t, y: cz.cosmos_rhs(tuple(y), P), (0, 6.0), list(cz.state_vector(cz.construct_present_day(P), P)),
+                  method="DOP853", rtol=1e-13, atol=1e-22, dense_output=True)
     k = V55ProductionKernel()
     st = k.initialize(resolution=20, r_max=40.0)
     dt = 0.06 * float(st.grid.dr)
     for _ in range(40):
         st = k.step(st, dt)
-    y = L.sol(st.t)
+    with ss.imported_dust_reference():
+        sr = k.initialize(resolution=20, r_max=40.0)
+        for _ in range(40):
+            sr = k.step(sr, dt)
     r = np.asarray(st.grid.centers)
     m = r < 20.0
-    assert np.max(np.abs(st.scalars.phi[m] / y[2] - 1)) < 1e-8
-    assert np.max(np.abs(st.scalars.Pi[m] / y[3] - 1)) < 1e-7
-    assert abs(-float(np.mean(st.geometry.K[m])) / 3.0 / y[1] - 1) < 1e-7
-    # the kernel against the production lane: Pi differs by ~3e-4 here (phi's pull from the dark matter is 0.76 of the
-    # kernel's), phi by ~1.4e-5: the kernel cannot pass the 1e-7 checks above against production's lane.
-    yp = Lp.sol(st.t)
-    gap_pi = abs(float(np.mean(st.scalars.Pi[m])) / yp[3] - 1)
+    for state, lane in ((st, Lp), (sr, L)):          # production with production; reference with reference
+        y = lane.sol(state.t)
+        assert np.max(np.abs(state.scalars.phi[m] / y[2] - 1)) < 1e-8
+        assert np.max(np.abs(state.scalars.Pi[m] / y[3] - 1)) < 1e-7
+        assert abs(-float(np.mean(state.geometry.K[m])) / 3.0 / y[1] - 1) < 1e-7
+    # the old gap, kept as the record of what the reference does not carry: ~3e-4 in Pi against production's lane
+    yp = Lp.sol(sr.t)
+    gap_pi = abs(float(np.mean(sr.scalars.Pi[m])) / yp[3] - 1)
     assert 1e-4 < gap_pi < 1e-3
     np.testing.assert_allclose(st.scalars.D[m], ss.sd_rest_value(st.scalars.phi[m]), rtol=1e-4)
     assert np.ptp(st.scalars.D[m]) < 1e-12 * st.scalars.D[0]

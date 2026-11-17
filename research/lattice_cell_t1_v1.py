@@ -13,6 +13,10 @@ import research.dm_one_budget_v1 as dm  # noqa: E402
 from engine import scalar_system as ss  # noqa: E402
 from engine.production_kernel import BETA_DM  # noqa: E402
 from research.cell_background_ode_v1 import background  # noqa: E402
+import engine.scalar_system as _ss_pin  # noqa: E402
+# Pinned (Nov 17 2026): this driver's stored results were made with the kernel's imported, fully coupled dust; since
+# production's dust is S-D matter whose split follows phi, it runs on the labelled reference (as a script only).
+_ss_pin.SD_MATTER_SPLIT_FOLLOWS_PHI = False
 
 if __name__ == "__main__":
     print("T1: no pocket. Spread = (max - min)/|mean| over the cell, largest over all snapshots.")

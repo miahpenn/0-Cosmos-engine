@@ -5,6 +5,9 @@ its value f_D = 0.76 is READ from the stored cells (bounds 0.672-0.853); the QUA
 through the borrowed "today" (only the KIND is closed); baryons and radiation stay imported; the production kernel still
 carries fully coupled dust. Evidence: results/sd-dark-matter-2026-11-16/README.md
 (research/sd_dark_matter_split_v1.py, research/sd_dark_matter_lane_v1.py, research/sd_dark_matter_lane_follow_v1.py).
+
+Since the split follows phi (Nov 17 2026, tests/test_sd_split_follows_phi.py) the fixed split f_D = 0.76 pinned here is the
+labelled reference FIXED_SPLIT_REFERENCE_PARAMS, bit-identical to the production lane of PR #508.
 """
 import math
 
@@ -36,7 +39,8 @@ def test_constants_and_labels():
     assert mc.SD_MATTER_COUPLED_FRACTION == 0.76
     lo, hi = mc.SD_MATTER_COUPLED_FRACTION_BOUNDS
     assert lo < mc.SD_MATTER_COUPLED_FRACTION < hi and (lo, hi) == (0.672, 0.853)
-    assert cz.CosmosParams().f_D == mc.SD_MATTER_COUPLED_FRACTION
+    assert cz.FIXED_SPLIT_REFERENCE_PARAMS.f_D == mc.SD_MATTER_COUPLED_FRACTION
+    assert cz.CosmosParams().f_D is None                  # production: the split follows phi (derived)
     assert cz.CosmosParams().beta == mc.BETA_D            # the D part carries beta_D (GEAR-103)
     assert mc.stone_coupled_share(0.0) == 0.75
     # derived anchor 3/4 (1 - r) + r with D_r's share r = 0.06-0.08 (AMENDMENT-1) brackets the Read value's centre
@@ -85,7 +89,7 @@ def test_coupled_fraction_form_from_the_engine_coupling():
 
 # ------------------------------------------------------------------ the lane: two parts, the old path kept
 def test_present_day_split_keeps_todays_amount():
-    s = cz.construct_present_day()
+    s = cz.construct_present_day(cz.FIXED_SPLIT_REFERENCE_PARAMS)
     assert s.rho_dark == pytest.approx(2.5857e-5, rel=1e-15)
     assert s.rho_dm / s.rho_dark == pytest.approx(0.76, rel=1e-14)
     ref = cz.construct_present_day(cz.IMPORTED_DUST_REFERENCE_PARAMS)
@@ -106,7 +110,7 @@ def test_eight_slots_refused_on_the_production_lane():
 
 
 def test_s_part_is_uncoupled_dust_and_d_part_keeps_the_old_equations():
-    P = cz.CosmosParams()
+    P = cz.FIXED_SPLIT_REFERENCE_PARAMS
     y = (2.0, 0.003, 0.7, 0.004, 3e-5, 4e-6, 1e-8, 1e-12, 2e-5)
     dy = cz.cosmos_rhs(y, P)
     assert dy[8] == -3.0 * y[1] * y[8]                                # S part: no phi force, no exchange
@@ -145,15 +149,15 @@ def test_check1_all_coupled_gives_the_old_numbers():
     np.testing.assert_allclose(ref, (2.9543, 4.2604, 5.9087), atol=1e-4)
 
 
-def test_predicted_difference_production_lane():
-    """Production (f_D = 0.76): node 2.9519, turnaround 4.2577, crunch 5.9058 Hubble times from today: each earlier than
+def test_predicted_difference_fixed_split_reference_lane():
+    """The fixed split of PR #508 (f_D = 0.76, now FIXED_SPLIT_REFERENCE_PARAMS): node 2.9519, turnaround 4.2577, crunch 5.9058 Hubble times from today: each earlier than
     the fully coupled dust by 0.0024 / 0.0027 / 0.0030; w_DE today unchanged (-0.8242, matched today); at both ends of
     f_D's bounds the shifts are 0.0015-0.0033 / 0.0017-0.0037 / 0.0018-0.0040, monotone in f_D."""
     _, _, ref = _lane(cz.IMPORTED_DUST_REFERENCE_PARAMS)
-    s0, sol, new = _lane(cz.CosmosParams())
+    s0, sol, new = _lane(cz.FIXED_SPLIT_REFERENCE_PARAMS)
     np.testing.assert_allclose(new, (2.95189, 4.25769, 5.90577), atol=2e-5)
     np.testing.assert_allclose(np.array(new) - np.array(ref), (-0.00241, -0.00273, -0.00295), atol=2e-5)
-    y = sol.sol(0.0); P = cz.CosmosParams()
+    y = sol.sol(0.0); P = cz.FIXED_SPLIT_REFERENCE_PARAMS
     w0 = (0.5 * y[3] ** 2 - cz.potential(y[2], P)) / (0.5 * y[3] ** 2 + cz.potential(y[2], P))
     assert w0 == pytest.approx(-0.824244, abs=1e-6)
     shifts = [np.array(_lane(cz.CosmosParams(f_D=f))[2]) - np.array(ref) for f in (0.853, 0.76, 0.672)]
@@ -171,7 +175,7 @@ def test_check2_engine_lane_equals_the_lane_follow_research_lane():
     from research.cosmos_lane_follow_v1 import lane
 
     rho_vac = KAP * v_sd(0.0, math.sqrt(2 / LAM))
-    P = cz.CosmosParams(V0=V0_1B, D=0.0, sd_lambda=LAM, beta_D=0.0)
+    P = cz.CosmosParams(V0=V0_1B, D=0.0, sd_lambda=LAM, beta_D=0.0, f_D=mc.SD_MATTER_COUPLED_FRACTION)  # fixed split
     y8 = [math.log(1.3), 0.06, 0.4, 0.06, 0.012, 0.0018, 2e-6, 0.004]        # ln a, H, phi, Pi, dm, b, r, S-D matter
     taus = np.linspace(0.0, 30.0, 61)
     R = lane(y8, taus, P_FULL, rho_vac, 0.0, "friedmann")

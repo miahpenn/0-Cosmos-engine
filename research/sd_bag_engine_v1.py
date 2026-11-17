@@ -29,6 +29,10 @@ from engine import v55_initial  # noqa: E402
 from engine.matter_system import _metric_arrays, initialize_dust, initialize_radiation  # noqa: E402
 from engine.production_kernel import V55ProductionKernel  # noqa: E402
 from engine.v55_matter import V55MatterState, metric_slice_from_q  # noqa: E402
+import engine.scalar_system as _ss_pin  # noqa: E402
+# Pinned (Nov 17 2026): this driver's stored results were made with the kernel's imported, fully coupled dust; since
+# production's dust is S-D matter whose split follows phi, it runs on the labelled reference (as a script only).
+_ss_pin.SD_MATTER_SPLIT_FOLLOWS_PHI = False
 
 LAM = 5000.0
 DV = 1.0 / (2 * LAM)

@@ -26,6 +26,10 @@ import sys
 sys.path.insert(0, ".")
 
 import numpy as np  # noqa: E402
+import engine.scalar_system as _ss_pin  # noqa: E402
+# Pinned (Nov 17 2026): this driver's stored results were made with the kernel's imported, fully coupled dust; since
+# production's dust is S-D matter whose split follows phi, it runs on the labelled reference (as a script only).
+_ss_pin.SD_MATTER_SPLIT_FOLLOWS_PHI = False
 
 
 def run(A, out, N=160, r_max=80.0, T=45.0, w=7.0, eps=1e-10):

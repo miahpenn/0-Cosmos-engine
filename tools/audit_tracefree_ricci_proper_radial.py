@@ -135,6 +135,19 @@ AUTHORIZED_POCKET_FIXTURES_WALL_HEAD_BLOBS = {
 }
 
 
+# Exact-blob authorization for "the split follows phi" (Nov 17 2026, Jeremiah's decisions on PR #508; for his review): the
+# kernel's dust is S-D matter, one transported density whose coupling to phi is beta_eff(phi) = BETA_DM f_D(phi) per cell
+# (f_D derived, D_r's share today Read). scalar_system.py: the switch, dark_matter_coupling, dark_matter_parts and the
+# labelled reference imported_dust_reference() (hand_floor_reference() implies it); production_kernel.py: passes
+# beta_eff(phi) on both edges; matter_system.py: accepts a per-cell beta. The references are bit-identical; this audit runs
+# on hand_floor_reference(), which keeps the imported dust.
+AUTHORIZED_SD_SPLIT_FOLLOWS_PHI_HEAD_BLOBS = {
+    "engine/scalar_system.py": "503efcf9f9a4189ea39d234d57e110c6a748ae6a",
+    "engine/production_kernel.py": "94473996b6c3f6f9bebc25270df4f56a291ed181",
+    "engine/matter_system.py": "6f23d05433de7a31581b8ac0c6eef2a745906c54",
+}
+
+
 def _authorized_head_blobs(path: str) -> set[str]:
     return {
         blob for blob in (
@@ -148,6 +161,7 @@ def _authorized_head_blobs(path: str) -> set[str]:
             AUTHORIZED_HAND_FLOOR_STEP2_HEAD_BLOBS.get(path),
             AUTHORIZED_LATTICE_WALL_HEAD_BLOBS.get(path),
             AUTHORIZED_POCKET_FIXTURES_WALL_HEAD_BLOBS.get(path),
+            AUTHORIZED_SD_SPLIT_FOLLOWS_PHI_HEAD_BLOBS.get(path),
         ) if blob is not None
     }
 AUTHORIZED_RUNTIME_PATHS = (
@@ -161,6 +175,7 @@ AUTHORIZED_RUNTIME_PATHS = (
     | frozenset(AUTHORIZED_HAND_FLOOR_STEP2_HEAD_BLOBS)
     | frozenset(AUTHORIZED_LATTICE_WALL_HEAD_BLOBS)
     | frozenset(AUTHORIZED_POCKET_FIXTURES_WALL_HEAD_BLOBS)
+    | frozenset(AUTHORIZED_SD_SPLIT_FOLLOWS_PHI_HEAD_BLOBS)
 )
 
 RESOLUTIONS = (40, 60, 80, 120, 160)
@@ -204,8 +219,10 @@ AUTHORIZED_OFF_AUDIT_REPAIR_HEAD_BLOBS = {
     # Re-authorized for the dark-matter replacement (Nov 16 2026): S-D matter in two parts in the COSMOS lane (f_D Read),
     # nine-slot state; run_controls.py's control state follows. Before: run_controls.py e1237ba6, model_constants.py
     # ae93e694, cosmos.py 0475446f.
-    "engine/model_constants.py": "65abb1028f51678c04dcb0309828418664614196",
-    "engine/cosmos.py": "7f7ca759e5678c1f9a4b184cd3426560f3f2bc4e",
+    # Re-authorized for "the split follows phi" (Nov 17 2026): f_D(phi) derived (sd_matter_coupled_fraction), the lane's
+    # exchange Gamma, FIXED_SPLIT_REFERENCE_PARAMS. Before: model_constants.py 65abb102, cosmos.py 7f7ca759.
+    "engine/model_constants.py": "decb3395d2280e8f40be48ab5eb96693bc30cfd6",
+    "engine/cosmos.py": "b3167ec972fa9b2511720ed87eb31bd77eda99ec",
     # Zero-flux (lattice-wall) closure (Nov 16 2026): new module. Unlike the files above it IS imported by this audit
     # (through engine/production_kernel.py), but not exercised: the audit runs on the reference path, open edge.
     # Re-authorized for the pocket fixtures on the wall (Nov 16 2026): EXPANDING_STRUCTURES, POCKET_FIXTURE_WALL_LABEL

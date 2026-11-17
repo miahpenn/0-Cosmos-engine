@@ -1,0 +1,39 @@
+1. f_D(phi) along production's lane (derived share; D_r's share today 0.07 Read)
+   today       phi = 0.17905  f_D(phi) = 0.76999  rho_dm/rho_SD = 0.76999  stone share 3u/(1+3u) = 0.75268
+   node        phi = 2.00968  f_D(phi) = 0.79464  rho_dm/rho_SD = 0.79464  stone share 3u/(1+3u) = 0.77892
+   turnaround  phi = 2.78498  f_D(phi) = 0.80449  rho_dm/rho_SD = 0.80449  stone share 3u/(1+3u) = 0.78942
+   crunch      phi = 24.56981  f_D(phi) = 0.95888  rho_dm/rho_SD = 0.95888  stone share 3u/(1+3u) = 0.95539
+
+2. Predicted differences (Hubble times from today; chart-dependent through phi_today)
+   lane                                   ruler          node       turnaround   crunch      w_DE today   dw/dln a today
+   imported dust (reference)              DOP853 1e-11  2.954300   4.260418    5.908726    -0.824244    +0.294679
+   imported dust (reference)              DOP853 1e-9   2.954300   4.260418    5.908726    -0.824244    +0.294679
+   imported dust (reference)              Radau 1e-9    2.954300   4.260418    5.908726    -0.824244    +0.294679
+   #508 fixed f_D = 0.76 (reference)      DOP853 1e-11  2.951890   4.257688    5.905774    -0.824244    +0.298785
+   #508 fixed f_D = 0.76 (reference)      DOP853 1e-9   2.951890   4.257688    5.905774    -0.824244    +0.298785
+   #508 fixed f_D = 0.76 (reference)      Radau 1e-9    2.951890   4.257688    5.905774    -0.824244    +0.298785
+   follows phi, r_today = 0.06            DOP853 1e-11  2.951993   4.257813    5.905917    -0.824244    +0.298656
+   follows phi, r_today = 0.06            DOP853 1e-9   2.951993   4.257813    5.905917    -0.824244    +0.298656
+   follows phi, r_today = 0.06            Radau 1e-9    2.951993   4.257813    5.905917    -0.824244    +0.298656
+   follows phi, r_today = 0.07 (prod)     DOP853 1e-11  2.952018   4.257841    5.905947    -0.824244    +0.298614
+   follows phi, r_today = 0.07 (prod)     DOP853 1e-9   2.952018   4.257841    5.905947    -0.824244    +0.298614
+   follows phi, r_today = 0.07 (prod)     Radau 1e-9    2.952018   4.257841    5.905947    -0.824244    +0.298614
+   follows phi, r_today = 0.08            DOP853 1e-11  2.952042   4.257869    5.905977    -0.824244    +0.298572
+   follows phi, r_today = 0.08            DOP853 1e-9   2.952042   4.257869    5.905977    -0.824244    +0.298572
+   follows phi, r_today = 0.08            Radau 1e-9    2.952042   4.257869    5.905977    -0.824244    +0.298572
+
+   differences, follows phi minus #508's fixed split (DOP853 1e-11): node, turnaround, crunch, w_DE today, slope
+   follows phi, r_today = 0.06            vs fixed +0.00010 +0.00013 +0.00014 +0.0e+00 -0.00013   | vs imported -0.00231 -0.00260 -0.00281 +0.00398
+   follows phi, r_today = 0.07 (prod)     vs fixed +0.00013 +0.00015 +0.00017 +0.0e+00 -0.00017   | vs imported -0.00228 -0.00258 -0.00278 +0.00394
+   follows phi, r_today = 0.08            vs fixed +0.00015 +0.00018 +0.00020 +0.0e+00 -0.00021   | vs imported -0.00226 -0.00255 -0.00275 +0.00389
+   rulers: largest event difference between integrators/tolerances 2.5e-10 Hubble times
+
+3. Energy bookkeeping (production lane, today -> crunch)
+   E = (rho_phi + rho_SD) a^3 + int 3 H a^3 p_phi dt (constant iff matter + phi conserve energy); the Friedmann residual grows in the crunch in every lane (dH is in Raychaudhuri form), the reference row is for scale; on the fixed reference rho_dm/rho_SD is not held at 0.76 (its parts are separate fluids), shown for the record
+   production, today -> crunch                                        rtol 1e-11: max |E - E0| / max(|terms|) = 2.5e-12; max |rho_dm/rho_SD - f_D| = 7.4e-13; max |3H^2 - rho|/rho = 6.3e-06
+   production, today -> crunch                                        rtol 1e-09: max |E - E0| / max(|terms|) = 1.1e-10; max |rho_dm/rho_SD - f_D| = 1.9e-11; max |3H^2 - rho|/rho = 3.4e-04
+   production, today -> turnaround                                    rtol 1e-11: max |E - E0| / max(|terms|) = 4.6e-12; max |rho_dm/rho_SD - f_D| = 7.4e-13; max |3H^2 - rho|/rho = 1.6e-08
+   #508 fixed split (reference), today -> crunch                      rtol 1e-11: max |E - E0| / max(|terms|) = 2.4e-12; max |rho_dm/rho_SD - f_D| = 5.0e-02; max |3H^2 - rho|/rho = 3.2e-06
+   NEGATIVE CONTROL: Gamma on the coupled side only, -> turnaround    rtol 1e-11: max |E - E0| / max(|terms|) = 1.7e-04; max |rho_dm/rho_SD - f_D| = 1.3e-02; max |3H^2 - rho|/rho = 1.0e+00
+   two parts with Gamma vs one density with beta_eff(phi) = beta f_D(phi), today -> turnaround: max rel diff phi 5.2e-13, max |dH|/H_today 7.4e-13, rho_SD 3.4e-12
+   Gamma (uncoupled -> coupled) against the phi-matter exchange |beta rho_dm phi_dot|: ratio 0.141-0.225; sign(Gamma) = sign(phi_dot) at 100.0% of samples (energy moves into D's sea while phi rolls up)

@@ -1,0 +1,8 @@
+# main 957dcda (python research/sd_split_kernel_fingerprint_v1.py main, run in a main worktree)
+background wall N20 x40 (dust reference)      e024b05ad8770696
+rescaled pocket wall N24 x6 (dust reference)  23ed59c10f166781
+hand-floor reference open edge N20 x10        3f69072a6f564ea9
+# this branch, labelled references (python research/sd_split_kernel_fingerprint_v1.py ref)
+background wall N20 x40 (dust reference)      e024b05ad8770696
+rescaled pocket wall N24 x6 (dust reference)  23ed59c10f166781
+hand-floor reference open edge N20 x10        3f69072a6f564ea9

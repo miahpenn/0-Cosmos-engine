@@ -1,9 +1,24 @@
-# LIVE readiness overlay — reconciled 16 November 2026 UTC after PR #507 (and PR #508, the dark-matter replacement, once merged)
+# LIVE readiness overlay — reconciled 17 November 2026 UTC after PR #509 (and PR #510, the split-follows-φ kernel PR, once merged)
 
-> **Current main:** after the merge of PR #507. `scientific_admission=false`; `acceptance_oracle_satisfied=false`.
+> **Current main:** after the merge of PR #509 (#508 merged). `scientific_admission=false`; `acceptance_oracle_satisfied=false`.
 > Nothing below changes either flag. The 10 November overlay that follows is kept as the prior record; where the two
 > conflict, this one is current (notably: production's λ is no longer 0, and the default edge is no longer the open edge).
-> PR #508's entry below describes the change under review; it is current only once merged.
+> PR #510's entry below describes the change under review; it is current only once merged.
+
+## The design target (since 17 November 2026)
+
+- **Jeremiah's November account supersedes the August criterion's physical bounce b as the design target.** Source:
+  AMENDMENT-CORE-SHEET-2 (Drive 1oaI4YwR6facCgd-s_vp4a75qGz8SvKAQPLfI_a8VRXw; no other "Amendment 2"), carried to the
+  repo by HANDOFF-Nov17-(1) (Drive 10O-jfYlCSpn3Lbth8vTm6kBb3IRpjRoIwyW0M7T8dAU). D_r is space's doing; matter does
+  the expanding; we always sit pre-apex; the turnaround is D_r's apex. There is no previous or next expansion, only
+  ongoing; S resets the clock wherever there is matter.
+- **The global cycle (turnaround, crunch, bounce) is no longer the design target.** The crunch production's lane shows is
+  a consequence of φ's constructed positive term (GEAR 04/06; AUDIT-4, Drive 1tOszHboOl-6TKV63Ac8FuRHpHzpPuf0ry2cpkORE00I),
+  not a prediction of the account. The lane's turnaround and crunch times below are kept as rulers and as comparisons
+  between engine versions, labelled so.
+- **The open target (0*, AMENDMENT-CORE-SHEET-2 section 3): a steady balance.** Does the sea, expanded and rung by matter,
+  settle? For a stone: is there a stable ringing amplitude x_A* where what it rings out (D_r into the sea) equals what
+  it takes back (exchange into S inside the pocket)? Open; chat derives, Projects measures from stored cells.
 
 ## Production changes since PR #458 (owner-reviewed)
 
@@ -19,7 +34,8 @@
   - The old machine stays available bit-identical: `engine.scalar_system.hand_floor_reference()`,
     `engine.cosmos.HAND_FLOOR_REFERENCE_PARAMS`.
   - Production lane (Hubble times from today): node 2.954, turnaround 4.260, crunch 5.909 (hand floor: 3.753 / 5.418 /
-    7.588). There is no bounce in the classical machine.
+    7.588). There is no bounce in the classical machine. The crunch follows from φ's constructed positive term
+    (see the design target above).
 - **#505 — the zero-flux lattice wall** (`engine/lattice_wall.py`) as a production kernel option and the default for
   expanding runs: K̇ from the wall's compatibility, never from the stored lapse, so the open edge's undamped lapse mode
   cannot occur. Clock "i" (α = 1 at the wall: the wall shell's proper time). Static, isolated and EM runs keep the open edge.
@@ -48,6 +64,30 @@
   - **The production kernel still carries fully coupled dust** and is compared with the labelled reference; it sits
     3e-4 (Π) from production's lane over a 4.8-unit run. Replacing it is a separate kernel PR.
   - Evidence: `results/sd-dark-matter-2026-11-16/README.md`.
+- **#510 — the split follows φ; the kernel's dust is S–D matter (for Jeremiah's review; decisions on #508).**
+  - **f_D(φ) Derived:** f_D = (1 − r(φ))·3u/(1 + 3u) + r(φ), u = e^(−2β_D φ). Stones (small S ring in the sea) carry
+    rest energy ∝ √(1 + 3u), D_r ∝ √(2u), each at fixed number, so d ln ρ_SD/dφ = −β_D f_D and D_r's share r drifts
+    with φ too. **Read:** D_r's share today r = 0.07 (0.06–0.08). f_D = 0.770 today (0.7675–0.7724), 0.795 at the node,
+    0.804 at turnaround, 0.801 at φ = 2.5. Chart-dependent through φ_today.
+  - **Formulation:** one S–D matter density with β_eff(φ) = β_D f_D(φ) is exact (GEAR-91 pull, energy conservation of
+    matter + φ). The lane keeps its two slots (coupled, uncoupled) and adds the exchange Γ = φ̇ ρ_SD [f_D′ + β f_D(1 − f_D)]
+    that holds ρ_dm = f_D ρ_SD; Γ cancels in the sum (the stones' rest energy re-dividing between S's mass term and D's
+    sea). The kernel carries ONE transported S–D matter fluid with β_eff(φ) per cell and reports its two parts
+    (`scalar_system.dark_matter_parts`): the parts are the same stones and must move together. Labelled one-fluid
+    simplification: free D_r (6–8% of the S–D energy) lumped with the stones. The total coupling is exact; only where
+    ∇φ ≠ 0 in the kernel are stones pulled 2.0–2.6% too hard and free D_r 20–23% too weakly. Split by object (stones,
+    free D_r) if ever needed, never by field.
+  - **Kernel = lane:** production background (wall), N 20 and 40, t ≤ 200: φ ≤ 3.1e-8, Π ≤ 8.5e-8, H ≤ 3.1e-8, ρ_SD and
+    both parts ≤ 1.6e-7, the same level as the reference kernel against the reference lane. The 3e-4 gap in Π is gone (that test is
+    now an agreement test).
+  - **Predicted difference against #508's fixed split (times in Hubble times; φ = 2.0097 at the node):** φ's node at 2.95202 (+0.00013), turnaround 4.25784 (+0.00015), crunch
+    5.90595 (+0.00017) Hubble times; +0.00010 to +0.00020 across r's bounds. w_DE today unchanged (−0.824244);
+    dw_DE/d ln a today 0.29861 (−0.00017).
+  - **Energy:** (ρ_φ + ρ_SD)a³ + ∫3Ha³p_φ dt constant to 2.5e-12 (rtol 1e-11) through the crunch; negative control
+    (Γ on one side) 1.7e-4.
+  - **References, bit-identical to main:** `FIXED_SPLIT_REFERENCE_PARAMS` (#508's lane), `IMPORTED_DUST_REFERENCE_PARAMS`,
+    `HAND_FLOOR_REFERENCE_PARAMS`; kernel `scalar_system.imported_dust_reference()` and `hand_floor_reference()`.
+  - Evidence: `results/sd-split-follows-phi-2026-11-17/README.md`.
 
 ## Labels carried by these results
 
@@ -62,11 +102,12 @@
 - **Physical results compared with the cosmos lane** are read on the fluids' clock (`fluids_clock_rate`), not per tick
   of the run's label.
 - **φ's potential (AUDIT-4):** the exponential form and λ_φ = 1, D = 0.10 are constructed and DESI-selected, not derived
-  from the machine; the crunch follows from that shape. Production's lane gives w_DE today = −0.824.
+  from the machine; the crunch follows from that shape (a consequence of the construction, not a prediction of
+  the November account). Production's lane gives w_DE today = −0.824.
 - **Dark matter (#508):** the KIND is closed (S–D matter, two parts), not the QUANTITY. Today's total is still matched
   to the chart through the borrowed "today", and baryons and radiation stay imported. f_D: form Derived, value Read
-  (cells at λ = 5000, one stone each). Both parts are dust; the filling-window pressure is not carried. The fixed split
-  ignores the stone's share drifting with φ (0.753 today, 0.786 at φ = 2.5).
+  (cells at λ = 5000, one stone each). Both parts are dust; the filling-window pressure is not carried. Since the
+  split-follows-φ PR: f_D(φ) form Derived, D_r's share today Read; stones and D_r carried as one fluid in the kernel.
 
 ## Gaps closed or moved
 
@@ -76,17 +117,20 @@
 - **Gap #3 (native outer boundary): closed for expanding runs** by the wall (#505, #507); the open edge remains for
   static and isolated runs.
 - **Gap #1 (local-to-cosmos channel): receiving half — the COSMOS lane now carries S–D matter as its dark matter
-  (#508).** Still open: the kernel's dust (still imported, fully coupled); the amount today (borrowed); the filling
-  window's pressure.
+  (#508), and the kernel carries the same S–D matter with the split following φ (#510).** Still open: the
+  amount today (borrowed); the filling window's pressure.
 
 ## Open
 
 - Inherited fixture on the wall (unresolved, above); first-order convergence at the wall cell; the centre cell carries
   the largest Hamiltonian residual on both edges; the remaining open-edge contracts have no wall versions yet.
 - The leftover held step; the early filling window; w of a population of bound stones.
-- φ's positive term (constructed); the bounce b (unpaid; physical or an observer effect is Jeremiah's to settle).
-- The kernel's dark matter (#508: still imported, fully coupled dust); f_D's drift with φ; the sea's lag behind its
-  moving rest (it reads as coupled matter in the β_D-on cell, first order in the lag).
+- **The steady balance (the open target):** a stable stone amplitude x_A*, where D_r rung out equals exchange back into S.
+- φ's positive term (constructed; chat derivation first). The bounce b is no longer open: superseded as the design
+  target by AMENDMENT-CORE-SHEET-2 (Jeremiah's November account).
+- The sea's lag behind its moving rest (it reads as coupled matter in the β_D-on cell, first order in the lag): left for
+  later. Whether stones and free D_r should be transported separately (split by object, never by field), if the
+  one-fluid bound (#510) ever matters.
 
 # Prior overlay — reconciled 10 November 2026 UTC after PR #458 (superseded where the overlay above conflicts)
 

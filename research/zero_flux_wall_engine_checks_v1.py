@@ -29,6 +29,10 @@ from scipy.integrate import solve_ivp  # noqa: E402
 import engine.scalar_system as ss  # noqa: E402
 from engine.cosmos import IMPORTED_DUST_REFERENCE_PARAMS, construct_present_day, cosmos_rhs  # noqa: E402
 from engine.production_kernel import V55ProductionKernel  # noqa: E402
+import engine.scalar_system as _ss_pin  # noqa: E402
+# Pinned (Nov 17 2026): this driver's stored results were made with the kernel's imported, fully coupled dust; since
+# production's dust is S-D matter whose split follows phi, it runs on the labelled reference (as a script only).
+_ss_pin.SD_MATTER_SPLIT_FOLLOWS_PHI = False
 
 _HAS_EDGE = "outer_edge" in inspect.signature(V55ProductionKernel.initialize).parameters
 

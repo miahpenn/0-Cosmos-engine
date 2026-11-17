@@ -119,6 +119,11 @@ jobs:
             ["engine/production_kernel.py"]="4e6029eb5a7c12a9e905f27a17625325d9ed09ed"
             ["engine/v55_initial.py"]="9f8b2a038ebd53d1a6e18f0482dba99f4363e1e8"
           )
+          declare -A authorized_sd_split_follows_phi_heads=(
+            ["engine/scalar_system.py"]="503efcf9f9a4189ea39d234d57e110c6a748ae6a"
+            ["engine/production_kernel.py"]="94473996b6c3f6f9bebc25270df4f56a291ed181"
+            ["engine/matter_system.py"]="6f23d05433de7a31581b8ac0c6eef2a745906c54"
+          )
           declare -A authorized_ledger_shift_heads=(
             ["engine/production_kernel.py"]="216ba0a4fbfe2590bf704cae3ddc801dc8655ae0"
             ["engine/worldtube.py"]="c263a786b2057f4a427243899ae507e8a0c0c8c5"
@@ -144,7 +149,8 @@ jobs:
             hand_floor_step2_authorized="${authorized_hand_floor_step2_heads[$path]:-}"
             lattice_wall_authorized="${authorized_lattice_wall_heads[$path]:-}"
             pocket_fixtures_wall_authorized="${authorized_pocket_fixtures_wall_heads[$path]:-}"
-            if [ "$head_blob" != "$pocket_fixtures_wall_authorized" ] && [ "$head_blob" != "$lattice_wall_authorized" ] && [ "$head_blob" != "$hand_floor_step2_authorized" ] && [ "$head_blob" != "$shared_constants_authorized" ] && [ "$head_blob" != "$sd_quartic_authorized" ] && [ "$head_blob" != "$expected" ] && [ "$head_blob" != "$authorized" ] && [ "$head_blob" != "$lane_b_authorized" ] && [ "$head_blob" != "$cmc_centre_row_authorized" ] && [ "$head_blob" != "$initializer_origin_authorized" ] && [ "$head_blob" != "$ledger_shift_authorized" ]; then
+            sd_split_follows_phi_authorized="${authorized_sd_split_follows_phi_heads[$path]:-}"
+            if [ "$head_blob" != "$sd_split_follows_phi_authorized" ] && [ "$head_blob" != "$pocket_fixtures_wall_authorized" ] && [ "$head_blob" != "$lattice_wall_authorized" ] && [ "$head_blob" != "$hand_floor_step2_authorized" ] && [ "$head_blob" != "$shared_constants_authorized" ] && [ "$head_blob" != "$sd_quartic_authorized" ] && [ "$head_blob" != "$expected" ] && [ "$head_blob" != "$authorized" ] && [ "$head_blob" != "$lane_b_authorized" ] && [ "$head_blob" != "$cmc_centre_row_authorized" ] && [ "$head_blob" != "$initializer_origin_authorized" ] && [ "$head_blob" != "$ledger_shift_authorized" ]; then
               printf 'Unapproved head blob for protected runtime path %s: %s\n' "$path" "$head_blob"
               exit 1
             fi
@@ -161,7 +167,8 @@ jobs:
           # even-ghost CMC centre row (#442). coupled_engine.py / bidirectional_production.py:
           # thin drivers over V55ProductionKernel; worldtube.py: Misner-Sharp shift-flux helper; run_controls.py: provenance label
           # (re-authorized with cosmos.py and model_constants.py for the dark-matter replacement, Nov 16 2026: S-D matter
-          # in two parts in the COSMOS lane, nine-slot state)
+          # in two parts in the COSMOS lane, nine-slot state; cosmos.py and model_constants.py re-authorized again for the
+          # split following phi, Nov 17 2026)
           # (this audit imports none of them, except lattice_wall.py: the zero-flux wall, imported through
           # production_kernel.py but not exercised, since the audit runs on the reference path with the open edge).
           declare -A authorized_off_audit_heads=(
@@ -171,8 +178,8 @@ jobs:
             ["engine/bidirectional_production.py"]="21e55a57f2029713225cce9b590db57817d4e4f1"
             ["engine/worldtube.py"]="c263a786b2057f4a427243899ae507e8a0c0c8c5"
             ["engine/run_controls.py"]="c553a80d027d923434356ca37bdfe239c5c672ff"
-            ["engine/model_constants.py"]="65abb1028f51678c04dcb0309828418664614196"
-            ["engine/cosmos.py"]="7f7ca759e5678c1f9a4b184cd3426560f3f2bc4e"
+            ["engine/model_constants.py"]="decb3395d2280e8f40be48ab5eb96693bc30cfd6"
+            ["engine/cosmos.py"]="b3167ec972fa9b2511720ed87eb31bd77eda99ec"
             ["engine/lattice_wall.py"]="a3becc6332d384eab3af662ba82d01512e6213e7"
           )
           for path in "${!authorized_off_audit_heads[@]}"; do

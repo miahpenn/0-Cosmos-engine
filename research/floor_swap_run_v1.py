@@ -11,6 +11,10 @@ import sys
 
 sys.path.insert(0, ".")
 import research.dm_one_budget_v1 as dm  # noqa: E402
+import engine.scalar_system as _ss_pin  # noqa: E402
+# Pinned (Nov 17 2026): this driver's stored results were made with the kernel's imported, fully coupled dust; since
+# production's dust is S-D matter whose split follows phi, it runs on the labelled reference (as a script only).
+_ss_pin.SD_MATTER_SPLIT_FOLLOWS_PHI = False
 
 if __name__ == "__main__":
     lam, N, RMAX, T, out = float(sys.argv[1]), sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5]

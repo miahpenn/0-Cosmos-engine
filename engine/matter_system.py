@@ -11,6 +11,8 @@ The physical source identity remains
 
 For dark matter:
     Q_nu = beta rho_DM partial_nu phi.
+beta may be one number or one value per cell: production passes S-D matter's beta_eff(phi) = BETA_DM f_D(phi)
+(engine.scalar_system.dark_matter_coupling; Nov 17 2026), a variable-mass dust whose d ln m / dphi = -beta_eff(phi).
 
 For baryons and radiation:
     Q_nu = 0.
@@ -570,6 +572,7 @@ def _species_rhs_components(
     q_e_diag = np.zeros(n, dtype=float)
     q_s_diag = np.zeros(n, dtype=float)
     q_rest_diag = np.zeros(n, dtype=float)
+    per_cell_beta = np.ndim(beta_dm) != 0
     for i, m in enumerate(metrics):
         source_e, source_s = _valencia_source(
             m, prim[i], float(metric.K[i]), float(metric.Aa[i]),
@@ -584,8 +587,9 @@ def _species_rhs_components(
         if species is Species.DARK_MATTER:
             if dphi_t is None or dphi_r is None:
                 raise ValueError("DM evolution requires dphi_t and dphi_r")
+            beta_i = float(beta_dm[i]) if per_cell_beta else beta_dm
             q_t, q_r = dark_matter_covector_source(
-                beta_dm, prim[i].rho, float(dphi_t[i]), float(dphi_r[i])
+                beta_i, prim[i].rho, float(dphi_t[i]), float(dphi_r[i])
             )
             # Contract the covariant dust equation with u_nu to obtain the
             # variable-mass rest-current source, then project to coordinate time.
@@ -596,7 +600,7 @@ def _species_rhs_components(
                 pi_normal + prim[i].v_r * float(dphi_r[i])
             )
             q_rest_diag[i] = (
-                -m.alpha * m.sqrt_gamma * beta_dm
+                -m.alpha * m.sqrt_gamma * beta_i
                 * prim[i].rho * u_grad_phi
             )
             q_e_diag[i] = -m.sqrt_gamma * (q_t - m.beta * q_r)
