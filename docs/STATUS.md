@@ -1,4 +1,4 @@
-# LIVE readiness overlay — reconciled 17 November 2026 UTC after PR #516
+# LIVE readiness overlay — reconciled 18 November 2026 UTC after PR #523
 
 > **Current main:** after the merge of PR #516 (#510–#515 merged). `scientific_admission=false`;
 > `acceptance_oracle_satisfied=false`. Nothing below changes either flag. The 10 November overlay that follows is kept as
@@ -8,6 +8,10 @@
 > (seven pre-#503 audit workflows marked historical, each at its last passing commit, as in #440), #514 (header; band-edge
 > amendment 1.270–2.670), #515 (mass naming: μ the bare mass, ω_S S's clock in a stated regime), #516 (POKE-3's stone
 > toy rebuilt in the repo, `results/stone-toy-2026-11-17/`).
+> Since #516 (all research or docs unless noted): #517 (header; stone fixed point marked Open), #518 (quiet-start stone toy),
+> #519 (chaos step 1), #520 (quiet stone on main), #521 (**engine**: windowed fluid reconstruction, O(N) per step,
+> bit-identical to the old step, no physics change), #522 (bound stones on main vs the frozen box; amended 18 Nov), #523
+> (gradient-free 2-DOF core's λ vs n). Flags unchanged.
 
 ## The design target (since 17 November 2026)
 

@@ -26,3 +26,6 @@ The saddle rate κ = √(1 − 3n/2) is real only for n < 2/3. The requested n =
 
 ## Limits
 Finite T (full-T mean exceeds the 2nd-half mean at n = 0.3, so there is a transient); 20 phases = s advanced by k·π/20 before measuring (a choice); one renormalisation interval; the 2/3 and 0.8 controls' small λ is finite-T residue.
+
+## Pointer
+Effective n: see chat's ITEM 3 entry and its close-out note (18 Nov 2026) in COORDINATION-LOG-0-star-work-chat-projects-Duet-read-first-each-session (Drive 1xj250uqmn2YnZXgH2M1LDME4eZUBsFz2TQEKy_LzlZk). Read there: the core's n fluctuates across the band edge during the chaotic phase (no single n; sampling coarse), so λ ≈ 0.055 is the core's λ(n) averaged over a fluctuating n. #520's own n has no stored core-x series: Open.
