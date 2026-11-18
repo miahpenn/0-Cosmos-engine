@@ -146,6 +146,12 @@ AUTHORIZED_SD_SPLIT_FOLLOWS_PHI_HEAD_BLOBS = {
     "engine/production_kernel.py": "94473996b6c3f6f9bebc25270df4f56a291ed181",
     "engine/matter_system.py": "6f23d05433de7a31581b8ac0c6eef2a745906c54",
 }
+# Exact-blob authorization for the windowed fluid reconstruction (Nov 17 2026, for Jeremiah's review): matter_system.py's
+# _reconstructed_primitive reconstructs on cells i-1..i+1 instead of converting the whole primitive list per face
+# (O(N^2) per step). Bit-identical (tests/test_reconstruction_window_identity.py).
+AUTHORIZED_RECONSTRUCTION_WINDOW_HEAD_BLOBS = {
+    "engine/matter_system.py": "30995d2a879b9131b38e644bb83d9295bd2b9a0a",
+}
 
 
 def _authorized_head_blobs(path: str) -> set[str]:
@@ -162,6 +168,7 @@ def _authorized_head_blobs(path: str) -> set[str]:
             AUTHORIZED_LATTICE_WALL_HEAD_BLOBS.get(path),
             AUTHORIZED_POCKET_FIXTURES_WALL_HEAD_BLOBS.get(path),
             AUTHORIZED_SD_SPLIT_FOLLOWS_PHI_HEAD_BLOBS.get(path),
+            AUTHORIZED_RECONSTRUCTION_WINDOW_HEAD_BLOBS.get(path),
         ) if blob is not None
     }
 AUTHORIZED_RUNTIME_PATHS = (
@@ -176,6 +183,7 @@ AUTHORIZED_RUNTIME_PATHS = (
     | frozenset(AUTHORIZED_LATTICE_WALL_HEAD_BLOBS)
     | frozenset(AUTHORIZED_POCKET_FIXTURES_WALL_HEAD_BLOBS)
     | frozenset(AUTHORIZED_SD_SPLIT_FOLLOWS_PHI_HEAD_BLOBS)
+    | frozenset(AUTHORIZED_RECONSTRUCTION_WINDOW_HEAD_BLOBS)
 )
 
 RESOLUTIONS = (40, 60, 80, 120, 160)
