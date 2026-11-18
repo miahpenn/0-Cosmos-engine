@@ -175,7 +175,7 @@ def run(cfg):
             w2 = 1 + 1.5 * d * d + 0.75 * x0                             # S's in-stone clock^2 (averaged, incl. s^4)
             wD2 = -u + 1.5 * d * d + 0.75 * x0                            # D's local mass^2 about its slow value
             d = d + 0.75 * d * x0 / (4 * w2 - wD2)
-    rs = 0.75 * rmax
+    rs = cfg.get("rs", 0.75 * rmax)                                      # sponge start (default unchanged; Stage A sets it)
     gam = np.where(r > rs, GAMMA_MAX * ((r - rs) / (rmax - rs)) ** 2, 0.0)
     in3 = r < 3 * R; inner = r < rs
     probes = [int(round(pr / dr)) for pr in cfg.get("probe", ())]          # cells recorded every step (Part B)

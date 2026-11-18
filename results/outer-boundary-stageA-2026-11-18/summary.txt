@@ -1,0 +1,16 @@
+A1 pulse (dr 0.2, rs 52, rmax 88, linear KG m=sqrt2): w/m, v_g, returned inner frac, returned box frac, sponge take, closure
+  1.05 vg 0.305 T    789 inner raw 1.00e-02 ref 9.96e-03 RETURNED +7.02e-05 sponge 0.9905 closure -3.8e-03 (E_in0/E0 1.0365)
+  1.20 vg 0.553 T    435 inner raw 4.59e-03 ref 4.59e-03 RETURNED +4.98e-07 sponge 0.9908 closure -4.8e-03 (E_in0/E0 1.0345)
+  1.60 vg 0.781 T    308 inner raw 1.74e-03 ref 1.74e-03 RETURNED -2.04e-08 sponge 0.9936 closure -4.8e-03 (E_in0/E0 1.0148)
+  2.00 vg 0.866 T    278 inner raw 6.14e-04 ref 6.14e-04 RETURNED -4.25e-09 sponge 0.9933 closure -6.3e-03 (E_in0/E0 1.0054)
+A1 width ruler (rmax 124, sponge width 72) and dr 0.1
+  wide 1.05 RETURNED +1.01e-05 (raw 9.97e-03, ref 9.96e-03)
+  wide 1.20 RETURNED -6.81e-08 (raw 4.59e-03, ref 4.59e-03)
+  dr0.1 1.20 RETURNED +4.71e-07 (raw 9.01e-03, ref 9.01e-03) closure -5.1e-03
+A2 C1-type (R12 x0.3, gravity off, T=100, late = t>=50): rmax, x_p, <r2>, B-surrogate (x_p/<r2>), centre, rhalf
+  rmax    88 xp 0.50085 r2 216.947 B 0.003102 centre 2.05027 rh 10.2436
+  rmax   132 xp 0.50085 r2 216.948 B 0.003102 centre 2.05027 rh 10.2436
+  difference 132 vs 88: xp 1.27e-07  B 7.74e-08  centre 7.15e-08
+A3 C1 audit: dr, closure (box+sponge-E0)/E0, sponge take/E0
+  dr 0.2: closure -4.02e-03 sponge 1.921e-04
+  dr 0.1: closure -9.24e-04 sponge 3.783e-04
