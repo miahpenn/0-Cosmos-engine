@@ -20,7 +20,7 @@
   repo by HANDOFF-Nov17-(1) (Drive 10O-jfYlCSpn3Lbth8vTm6kBb3IRpjRoIwyW0M7T8dAU). D_r is space's doing; matter does
   the expanding; we always sit pre-apex; the turnaround is D_r's apex. There is no previous or next expansion, only
   ongoing; S resets the clock wherever there is matter.
-- **The global cycle (turnaround, crunch, bounce) is no longer the design target.** The crunch production's lane shows is
+- **The cycle is kept as the account:** the local reset and the global bounce are one pulsating cycle seen at two scales. Contraction causes the reset; S fires at H = 0 at the contraction's apex; the fired wave drives expansion. Matter drives the expansion, so a local observer made of matter sees only the post-bounce side. This is not a prediction of the lane's constructed crunch. (Label: the cycle is the ACCOUNT, Read/Open, not Derived; wording confirmed by Jeremiah, coordination log 18 Nov, chat's "JEREMIAH'S CONFIRMATIONS" entry (3); core sheet: AMENDMENT-4-CORE-SHEET-v2, Drive 1mDAw1k_Ou32VbfDGKvHOyFoMM1R4tH2k4oT9UPXZUyI.) The crunch production's lane shows is
   a consequence of φ's constructed positive term (GEAR 04/06; AUDIT-4, Drive 1tOszHboOl-6TKV63Ac8FuRHpHzpPuf0ry2cpkORE00I),
   not a prediction of the account. The lane's turnaround and crunch times below are kept as rulers and as comparisons
   between engine versions, labelled so.
