@@ -1,0 +1,76 @@
+"""RESEARCH ONLY. Contraction approach and the fire at H = 0 (design in the coordination log, Nov 18 2026, with chat's edits A-E).
+Planar periodic comoving lattice as research/pumping_spatial_v1.py, H(t) = Hdot t through zero (bounce at t = 0, a(0) = 1, a minimal there).
+Core equations of #523 (S: 4s + s^3/2 + 1.5 s d^2; D: -d + d^3/2 + 1.5 s^2 d). Start t = -t_i: S uniform at x_i = 0.3, D at rest d = sqrt(2 - 1.5 x_i) + noise;
+t_i solved (homogeneous 2-DOF) so that peak s^2 at t = 0 equals x_c. Readings fixed in the log. Fire rule (set before running): e_D/e_S >= 0.10 first at t_10;
+'way up' if t_10 <= -20, 'at crossing' if -20 < t_10 <= 0, 'after' if 0 < t_10 <= t_end, 'none' otherwise."""
+import math, sys, numpy as np
+from scipy.integrate import solve_ivp
+N, DX, DT = 512, 0.25, 0.02; KK = 2 * np.pi * np.fft.rfftfreq(N, DX); WIN = int(round(3.2 / DT)); XI = 0.3
+GAM = {1.4: 0.12, 2.0: 0.172, 2.6: 0.22}                       # Gamma(x_c): measured 0.140/0.172/0.223 at 1.6/2.0/2.67; 1.4 extrapolated
+def f_hom(Hd):
+    def f(t, y):
+        s, d, ps, pd = y; H = Hd * t
+        return [ps, pd, -3 * H * ps - (4 * s + 0.5 * s ** 3 + 1.5 * s * d * d), -3 * H * pd + d - 0.5 * d ** 3 - 1.5 * s * s * d]
+    return f
+def xpeak_at0(Hd, ti):
+    y0 = [math.sqrt(XI), math.sqrt(2 - 1.5 * XI), 0.0, 0.0]
+    t = np.linspace(-ti - 0.0, 0.0, int(ti / 0.05) + 2)[-int(3.2 / 0.05):]
+    sol = solve_ivp(f_hom(Hd), (-ti, 0.0), y0, method="DOP853", rtol=1e-9, atol=1e-12, t_eval=t)
+    return float(np.max(sol.y[0] ** 2))
+def solve_ti(Hd, xc):
+    est = math.sqrt(math.log(xc / XI) / (1.5 * Hd)); lo, hi = 0.5 * est, 1.7 * est
+    for _ in range(22):
+        m = 0.5 * (lo + hi)
+        if xpeak_at0(Hd, m) < xc: lo = m
+        else: hi = m
+    return 0.5 * (lo + hi)
+def lat(Hd, ti, d0, tend, seed=1):
+    lap = lambda f: np.fft.irfft(-(KK ** 2) * np.fft.rfft(f), N)
+    s = np.full(N, math.sqrt(XI)); ps = np.zeros(N); pd = np.zeros(N)
+    rng = np.random.default_rng(seed); c = np.zeros(len(KK), complex); m = (KK > 0) & (KK <= 4.0); c[m] = np.exp(2j * np.pi * rng.random(m.sum()))
+    nz = np.fft.irfft(c, N); d = math.sqrt(2 - 1.5 * XI) + nz * d0 / nz.std()
+    dk0 = np.abs(np.fft.rfft(d - d.mean())); t = -ti; lna = Hd * ti * ti / 2.0                # ln a at the start (a(0) = 1)
+    def acc(s, d, ps, pd, t, a2):
+        H = Hd * t
+        return (-3 * H * ps + a2 * lap(s) - (4 * s + 0.5 * s ** 3 + 1.5 * s * d * d), -3 * H * pd + a2 * lap(d) - (-d + 0.5 * d ** 3 + 1.5 * s * s * d))
+    a2 = math.exp(-2 * lna); A = acc(s, d, ps, pd, t, a2); n = int(round((ti + tend) / DT))
+    ts, s2, eS, ePD, eFree, drms, dmean, Gk = [], [], [], [], [], [], [], []
+    wfree = None
+    for i in range(n):
+        ps += 0.5 * DT * A[0]; pd += 0.5 * DT * A[1]; s += DT * ps; d += DT * pd; t += DT
+        lna = Hd * t * t / 2.0; a2 = math.exp(-2 * lna); A = acc(s, d, ps, pd, t, a2); ps += 0.5 * DT * A[0]; pd += 0.5 * DT * A[1]
+        if i % 4 == 0:
+            P = np.abs(np.fft.rfft(pd)) ** 2 / N ** 2 * 2; kphys = KK * math.exp(-lna)
+            ts.append(t); s2.append(float(np.mean(s * s))); eS.append(float(np.mean(0.5 * ps * ps + 2 * s * s + s ** 4 / 8)))
+            ePD.append(float(np.mean(pd * pd))); eFree.append(float(P[kphys >= 1.6].sum()))
+            dd = d - d.mean(); drms.append(float(dd.std())); dmean.append(float(d.mean()))
+            Gk.append(float(np.max(np.abs(np.fft.rfft(dd))[(KK > 0.3) & (KK <= 4.0)] / dk0[(KK > 0.3) & (KK <= 4.0)])))
+            if not np.isfinite(drms[-1]) or abs(dmean[-1]) > 50: break
+    return dict(t=np.array(ts), x=np.array(s2) * 2, eS=np.array(eS), eD=np.array(ePD), eFree=np.array(eFree), drms=np.array(drms), dmean=np.array(dmean), Gk=np.array(Gk), Hd=Hd, ti=ti)
+def smooth(y, k=40):
+    c = np.concatenate([[0], np.cumsum(y)]); i = np.arange(len(y)); lo = np.maximum(i - k, 0); return (c[i + 1] - c[lo]) / (i + 1 - lo)
+def readings(r, xc):
+    t = r["t"]; x = r["x"]; Hd = r["Hd"]; eS = smooth(r["eS"]); eD = smooth(r["eD"]); eF = smooth(r["eFree"])
+    frac = eD / np.maximum(eS, 1e-300); i10 = np.nonzero(frac >= 0.10)[0]
+    o = {"t10": float(t[i10[0]]) if i10.size else float("nan")}
+    xs = smooth(x, 40); j = np.nonzero(xs >= 4.0 / 3)[0]; o["t_entry"] = float(t[j[0]]) if j.size else float("nan"); o["H_entry"] = Hd * o["t_entry"]
+    k = np.nonzero(t >= 0)[0][0]; o["f0"] = float(frac[k]); o["fF0"] = float(eF[k] / eS[k]); o["fEnd"] = float(frac[-1]); o["fFEnd"] = float(eF[-1] / eS[-1])
+    o["Gk0"] = float(r["Gk"][k]); o["drms0"] = float(r["drms"][k]); o["xdev0"] = float(x[k])
+    t10 = o["t10"]; o["outcome"] = ("none" if not np.isfinite(t10) else "way up" if t10 <= -20 else "at crossing" if t10 <= 0 else "after")
+    G = GAM[xc]; Eb = 1.75 * G * math.sqrt(G / (1.23 * Hd)); o["Eb"] = Eb
+    tw = 2 * math.sqrt(G / (1.23 * Hd)); a = np.searchsorted(t, -tw); b = np.searchsorted(t, tw)
+    o["lnG_cross"] = float(math.log(max(r["Gk"][min(b, len(t) - 1)] / max(r["Gk"][a], 1e-300), 1e-300))) if r["drms"][min(b, len(t) - 1)] < 0.03 else float("nan")
+    o["dstar0"] = 0.3 / o["Gk0"] if o["drms0"] < 0.03 else float("nan")
+    return o
+if __name__ == "__main__":
+    only = sys.argv[1:]
+    print("Hdot  x_c  t_i   H_entry | d0: outcome t10  f(H=0) fFree(0) f(end) | G_k(0) d0*(=0.3/G_k(0)) lnG_cross vs E_b", flush=True)
+    for Hd in (3e-3, 1e-3, 3e-4, 1e-4, 1e-5, 4e-7):
+        for xc in (1.4, 2.0, 2.6):
+            ti = solve_ti(Hd, xc); tend = min(100.0, 0.05 / Hd); row = f"{Hd:<7g} {xc:<4} {ti:7.0f} "
+            for d0 in (1e-8, 1e-4, 1e-2):
+                r = lat(Hd, ti, d0, tend); o = readings(r, xc)
+                if d0 == 1e-8: row += f"Hentry {o['H_entry']:+.4f} |"
+                row += (f" [{d0:g}: {o['outcome']} t10 {o['t10']:.0f} f0 {o['f0']:.2g} fF0 {o['fF0']:.2g} fEnd {o['fEnd']:.2g}"
+                        f" Gk0 {o['Gk0']:.3g} d* {o['dstar0']:.2g} lnGx {o['lnG_cross']:.2f} Eb {o['Eb']:.1f}]")
+            print(row, flush=True)
