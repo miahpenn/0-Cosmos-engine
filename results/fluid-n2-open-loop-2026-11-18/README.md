@@ -22,3 +22,12 @@ A threshold and finite-time blowup survive with a prescribed forcing, so "forcin
 - Blowup criterion 1e3 is close to bounded runs' peaks near threshold; the s and A brackets may shift with the criterion. Not tested.
 - (a) forcing is trajectory-specific (recorded from one run) and linearly interpolated at RK stages; (b) is one arbitrary steady profile. Neither is the optimal forcing, so the open-loop thresholds are upper bounds on the minimal prescribed forcing needed.
 - 1D scalar proxy only.
+
+## Amendment 1: robustness check (same day), `research/clm_robustness_v1.py` (Measured)
+| N | blowup criterion max\|omega\| > | closed-loop gamma_crit | replay s_crit |
+|---|---|---|---|
+| 256 | 1e3 | 0.9547-0.9558 | 1.344-1.352 |
+| 256 | 1e4 | 0.9644-0.9662 | 1.794-1.800 (hit the search ceiling; may be higher) |
+| 512 | 1e3 | 0.9531-0.9550 | 1.244-1.250 |
+
+What this changes: the closed-loop threshold is stable in N at a fixed criterion (0.955) but moves 0.01 when the criterion goes 1e3 -> 1e4, and the open-loop ratio is NOT robust (1.25 to 1.8+). Near the threshold bounded runs peak at several hundred (417 at N=256, 457 at N=512, for gamma = 0.95) and then decay, so "max|omega| > X" counts transient amplification as blowup. The "35% stronger" in the main result is withdrawn as a number. What stands: with a prescribed forcing a threshold exists and the same trajectory-shaped forcing needs MORE amplitude than the feedback form (every row, at least 1.24x versus 1.006x). The size of the gap needs a proper blowup test (e.g. continue until omega_max follows ~1/(T-t) toward a finite-time singularity, or a much higher cut with the analytic CLM blowup-time fit). That also applies to GEAR N-1's 0.977, which was set by a cut of the same kind (its criterion is not stated).
