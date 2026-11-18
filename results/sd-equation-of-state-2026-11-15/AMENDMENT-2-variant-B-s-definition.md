@@ -1,7 +1,7 @@
 # AMENDMENT-2 (C6_NOTE): the share s was inverted (18 Nov 2026; docs only, no run)
 
 Applies to `results/sd-equation-of-state-2026-11-15/C6_NOTE.md` (§3, variant B and its table). Found by chat's hierarchy pass and
-confirmed by Duet (coordination log, 18 Nov). Not to be confused with the Drive documents also called "Amendment 2"; this file is cited by path.
+confirmed by Duet (COORDINATION-LOG-0-star-work-chat-projects-Duet-read-first-each-session, Drive 1xj250uqmn2YnZXgH2M1LDME4eZUBsFz2TQEKy_LzlZk, 18 Nov entries; the log carries the corrected s). Not to be confused with the Drive documents also called "Amendment 2"; this file is cited by path.
 
 ## What was wrong (Derived)
 With s = S–D matter's share of the total density, ρ_tot = ρ_SD / s, and H² = (κ/λ) ρ_tot / 3 gives
