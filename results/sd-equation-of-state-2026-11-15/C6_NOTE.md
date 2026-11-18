@@ -1,6 +1,6 @@
 # C6 candidate: the reset sets κ*/λ*. Derivation note with 0* verdicts
 
-> **Amended (Nov 18):** the share s in §3 and variant B's table is inverted; see [`AMENDMENT-2-variant-B-s-definition.md`](AMENDMENT-2-variant-B-s-definition.md).
+> **Corrected in place (Nov 18):** s was inverted in §3, variant B and its table; fixed below, record in the amendment (original wording is in git history). **Amended (Nov 18):** the share s in §3 and variant B's table is inverted; see [`AMENDMENT-2-variant-B-s-definition.md`](AMENDMENT-2-variant-B-s-definition.md).
 >
 > **Corrected since (Nov 17):** the hold band's edges are 1.270 and 2.670 (#470); the 1.28 and 2.68 rows are the
 > nearest samples. See [`AMENDMENT-1-band-edge.md`](AMENDMENT-1-band-edge.md).
@@ -33,7 +33,7 @@ A uniform region of S–D matter at the saddle, D_s held out, S ringing with tur
       = x_A/2 + x_A²/8 + ½       (uniform: G = 0; S's ring gives x_A/2 + x_A²/8)
 
 - Every term is λ-free in scaled units.
-- **Gravity's share** is the only place κ*/λ* enters: H² = (κ/λ) s ρ̃ / 3, s = S–D matter's share of the total density
+- **Gravity's share** is the only place κ*/λ* enters: H² = (κ/λ) ρ̃ / (3 s), s = S–D matter's share of the total density
   at the reset.
 - "The uncoupled stiffness, felt as expansion": in the identity of the EOS note the quartic's ringing averages to
   radiation, and radiation's pressure is what makes H fall faster than dust's. That much is derived. That it *is* the
@@ -46,14 +46,14 @@ A uniform region of S–D matter at the saddle, D_s held out, S ringing with tur
 - **A.** S–D matter dominates at the reset (s = 1). The archive's clock-stop rule applied with the region's own w (the
   held w, −0.32 to −0.07 across the band), not w = 1.
 - **B.** A stiff component dominates (the archive's w = 1 contraction). The archive's band 0.139–0.373 unchanged.
-  S–D matter's share s is unknown, so the result is κ*/λ* · s.
+  S–D matter's share s is unknown, so the result is κ*/λ* ÷ s (κ*/λ* = value × s).
 - **C.** The literal balance H = ω_S (S's clock at the saddle, 1.21–1.41).
 
 The clock-stop rule generalised (**Derived**): in a contraction with H = −p/τ, p = 2/(3(1 + w)), S rings as
 τ^(−ν)[c₁J_ν(τ) + c₂Y_ν(τ)], ν = (3p − 1)/2. The archive's band is p/j_ν1 to p/y_ν1. At w = 1 that reproduces
 0.139–0.373. At w = 0: 0.21–0.42. At w = −0.16: 0.23–0.44.
 
-| x_A | ρ̃ | A: h | A: κ*/λ* | A: λ* | B: κ*/λ*·s | B: λ*/s | C: κ*/λ* | C: λ* |
+| x_A | ρ̃ | A: h | A: κ*/λ* | A: λ* | B: κ*/λ* ÷ s | B: λ*·s | C: κ*/λ* | C: λ* |
 |---|---|---|---|---|---|---|---|---|
 | 1.28 (band edge) | 1.35 | 0.26–0.45 | 0.15–0.46 | 55–170 | 0.043–0.31 | 80–590 | 3.3 | 7.6 |
 | 2.00 | 2.00 | 0.23–0.44 | 0.08–0.29 | 87–310 | 0.029–0.21 | 120–870 | 2.6 | 9.6 |
