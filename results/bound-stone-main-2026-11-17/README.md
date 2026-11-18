@@ -68,12 +68,12 @@ quiet: x(0) < 4/3, D at d² = 2u − 1.5x, fields at rest.
 
 - **The outflow partly survives; it is not a shadow (Read, two configurations).** With bound stones the near-gap
   halo still forms on main:
-  - C2's halo matches the toy's (1312 vs 888–1420), with similar growth and drift.
+  - C2's halo is inside the toy's own grid scatter (1312 vs 888–1420, a 60% spread), with similar growth and drift; no closer match is claimed.
   - C1's halo is about half the toy's (38 vs 70–88).
-- **The radiated D flux is 2–3.5× smaller on main** (C2 45/38 vs 96–111; C1 1.1/1.2 vs 1.9–4.2). The areal-3R
+- **The radiated D flux is about 1.4–3.5× smaller on main (mostly 2–3×; C1 at 1.5R only 1.4–1.9×)** (C2 45/38 vs 96–111; C1 1.1/1.2 vs 1.9–4.2). The areal-3R
   energy loss is smaller too (42–51% vs 61–65%).
 - **The burst moves:** C1 earlier (68 vs 90, same ω), C2 later (78 vs 62, ω 2.16 vs 1.96).
-- **So the frozen box overstates the outflow by about ×2–3, but the burst-plus-halo picture is not an artefact of the
+- **So the frozen box overstates the outflow by about ×1.4–3.5 (mostly ×2–3), but the burst-plus-halo picture is not an artefact of the
   frozen background.**
 - **Comoving 3R (Read, not comparable to the toy's 3R):** its loss of 4–10% shows that most of main's areal-3R loss
   stays within the stone's comoving region. But comoving 3R is ~3× larger physically by the end, so it is no
@@ -89,3 +89,12 @@ and shell (scaled with R), the S half-radius rule (r < 0.75 r_max), plus #518/#5
 
 Two configurations. One main grid for C2. No twin. The toy has a sponge; main has the wall. Spherical. Run data
 (npz) are not committed; the script regenerates them.
+
+## Amendment (18 Nov 2026; chat's review of #522 in the coordination log; docs only, no numbers changed)
+
+- **Answer lines corrected** (above): flux ratio 1.4–3.5× (not 2–3.5×); C2's halo "matches" → inside the toy's grid scatter.
+- **C1 is not converged:** main's 1.5R flux moves 22% between grids A and B (1.13 → 1.38); the toy's moves about 5%. The 1.4–1.9× at 1.5R is therefore uncertain.
+- **The binding criterion is mixed:** the energy-integral threshold B > 1 has no virial term; B > 2 adds it by hand. Both are unpaid. Tested at one failure point (B = 1.6) and two bound points (≥ 10); nothing near B = 2.
+- **Absent readings:** no Kodama clock beside the lapse reading (α only), and no D three-part split (at rest, slow ring, travelling). Not read here; label Open.
+- **Centre cell, Open:** C2 origin residual 0.14; D_rms(0) main 1.28 / 1.41 vs the toy's about 1.0 / 1.4–1.6.
+- Heavy follow-ups (C1 grid convergence, a stone with B near 2, the C2 centre residual) are not started; they wait for a decision that hinges on them.
