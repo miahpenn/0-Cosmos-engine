@@ -1,6 +1,6 @@
 # C6 candidate: the reset sets κ*/λ*. Derivation note with 0* verdicts
 
-> **Amended (Nov 18):** the share s in §3 and variant B's table is inverted; see [`AMENDMENT-2-share-s-inverted.md`](AMENDMENT-2-share-s-inverted.md).
+> **Amended (Nov 18):** the share s in §3 and variant B's table is inverted; see [`AMENDMENT-2-variant-B-s-definition.md`](AMENDMENT-2-variant-B-s-definition.md).
 >
 > **Corrected since (Nov 17):** the hold band's edges are 1.270 and 2.670 (#470); the 1.28 and 2.68 rows are the
 > nearest samples. See [`AMENDMENT-1-band-edge.md`](AMENDMENT-1-band-edge.md).
