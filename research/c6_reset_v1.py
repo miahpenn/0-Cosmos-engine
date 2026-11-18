@@ -3,7 +3,7 @@ Note: results/sd-equation-of-state-2026-11-15/C6_NOTE.md.
 
 Scaled units (mu = S's mass at the saddle = 1; energies x 1/lambda). A uniform region at the saddle, D held out, S
 ringing with turning point x_A = lambda A^2:  rho~ = E_S + 1/2,  E_S = x_A/2 + x_A^2/8 (S), 1/2 = the held vacuum step.
-Friedmann (G = 1): H^2 = (kappa/lambda) s rho~ / 3, s = S-D matter's share of the total density at the reset.
+Friedmann (G = 1): H^2 = (kappa/lambda) rho~ / (3 s)  [corrected Nov 18: s was inverted; see AMENDMENT-2-variant-B-s-definition.md], s = S-D matter's share of the total density at the reset.
 Clock stop (archive rule, AMENDMENT-BRIEF A2, generalised from w = 1): background w, H = -p/tau, p = 2/(3(1+w));
 S'' + (3p/tau) S' + S = 0, S = tau^-nu [c1 J_nu + c2 Y_nu], nu = (3p - 1)/2; band |H| in [p/j_nu1, p/y_nu1].
 """
@@ -46,7 +46,7 @@ if __name__ == "__main__":
         lo, hi, nu = band(w)
         print(f"   w = {w:+.3f}: nu = {nu:.3f}, |H|/mu = {lo:.3f} to {hi:.3f}")
     KAP = 8 * math.pi
-    print("\nkappa*/lambda* = 3 h^2 / (s rho~), with s = 1 (S-D matter dominant at the reset) unless stated")
+    print("\nkappa*/lambda* = 3 s h^2 / rho~, with s = 1 (S-D matter dominant at the reset) unless stated")
     print("   x_A    rho~ (S + held step)   w_hold    omega_S |  A: S-D dominant, band at its own w_hold: h       kappa/lambda       lambda*")
     print("                                                  |  B: stiff background (w = 1), band 0.139-0.373:           kappa/lambda/s     lambda*.s")
     print("                                                  |  C: literal balance H = omega_S:                            kappa/lambda       lambda*")
