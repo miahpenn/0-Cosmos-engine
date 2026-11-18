@@ -1,0 +1,8 @@
+R  30 x0 0.3: x_w 0.092 <r2>   1255 draw A 0.0650 2H^2<r2> 0.0807 B = A/(H^2<r2>)   1.6  naive collapse sqrt(2<r2>/A) 197
+R  20 x0 0.3: x_w 0.092 <r2>    558 draw A 0.0650 2H^2<r2> 0.0359 B = A/(H^2<r2>)   3.6  naive collapse sqrt(2<r2>/A) 131
+R  15 x0 0.3: x_w 0.092 <r2>    314 draw A 0.0650 2H^2<r2> 0.0202 B = A/(H^2<r2>)   6.4  naive collapse sqrt(2<r2>/A) 98
+R  12 x0 0.3: x_w 0.092 <r2>    201 draw A 0.0650 2H^2<r2> 0.0129 B = A/(H^2<r2>)  10.1  naive collapse sqrt(2<r2>/A) 79
+R  10 x0 0.3: x_w 0.092 <r2>    139 draw A 0.0650 2H^2<r2> 0.0090 B = A/(H^2<r2>)  14.5  naive collapse sqrt(2<r2>/A) 66
+R  30 x0 1.2: x_w 0.370 <r2>   1255 draw A 0.2598 2H^2<r2> 0.0807 B = A/(H^2<r2>)   6.4  naive collapse sqrt(2<r2>/A) 98
+R  20 x0 1.0: x_w 0.308 <r2>    558 draw A 0.2165 2H^2<r2> 0.0359 B = A/(H^2<r2>)  12.1  naive collapse sqrt(2<r2>/A) 72
+R  15 x0 0.6: x_w 0.185 <r2>    314 draw A 0.1299 2H^2<r2> 0.0202 B = A/(H^2<r2>)  12.9  naive collapse sqrt(2<r2>/A) 70

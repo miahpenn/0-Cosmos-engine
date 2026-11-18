@@ -48,6 +48,8 @@ BAND = (1.4, 1.7)                  # D's near-gap ring (brief)
 SHELL = (1.5 * R0, 4.0 * R0)       # halo shell, areal (brief)
 W_HALO, STEP_HALO = 32.0, 8.0      # halo FFT window and its step (choices)
 W_FLUX, W_RMS = 10.0, 2 * math.pi  # boxcars, as #519 (stone_toy_v1.W_FLUX, W_SLOW[0])
+WINDOWS = (("b+6..b+250", (6, 250)), ("b+6..b+128", (6, 128)), ("b+128..b+250", (128, 250)),
+           ("pre-burst b-60..b-4", (-60, -4)))   # #520's windows; research/bound_stone_main_v1.py sets its own
 
 
 # ------------------------------------------------------------------ speed shim (bit-identical)
@@ -261,8 +263,7 @@ def analyse(outdir):
         Tend = t[-1]
         lines.append(f"## {name}: first burst t_b = {tb:.1f}, line omega = {om:.2f}, 1.5R peaks at "
                      + " ".join(f"{p:.0f}" for p in pks[:8]) + f"; T = {Tend:.0f}")
-        for lab, (a, b) in (("b+6..b+250", (6, 250)), ("b+6..b+128", (6, 128)), ("b+128..b+250", (128, 250)),
-                            ("pre-burst b-60..b-4", (-60, -4))):
+        for lab, (a, b) in WINDOWS:
             W = (tb + a, tb + b)
             if W[1] > Tend + 1e-6:
                 lines.append(f"   {lab}: beyond T"); continue
@@ -282,7 +283,7 @@ def analyse(outdir):
         lines.append("   E3(t)/E3(0) at b-50, b, b+125, b+250: " + " ".join(f"{v:.3f}" for v in fr))
         # ruler on the shell: the same halo reading in COORDINATE (comoving) radius 1.5R-4R (= areal for the toy)
         rco = (np.arange(s["sd"].shape[1]) + 0.5) * (float(s["dr"]))
-        W = (tb + 6, min(tb + 250, Tend))
+        W = (tb + WINDOWS[0][1][0], min(tb + WINDOWS[0][1][1], Tend))
         h = halo(s["sT"], s["sd"], np.broadcast_to(rco, s["sd"].shape), *W, RW=s["sRA"]); span = h[-1, 0] - h[0, 0]
         lines.append(f"   comoving-shell halo (areal measure) {W[0]:.0f}..{W[1]:.0f}: E {h[:, 1].mean():8.2f}  r_c {h[:, 2].mean():6.1f}  "
                      f"v {(h[-1, 2] - h[0, 2]) / span:+.3f}  decay {-math.log(h[-1, 1] / h[0, 1]) / span:+.4f}/unit")
