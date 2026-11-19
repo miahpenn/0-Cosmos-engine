@@ -1,0 +1,39 @@
+A. LANE-LEVEL IDENTITIES
+(vi) r(phi) from two number-conserving objects (rest energy A sqrt(1+3u), B sqrt(u)) vs the lump's r(phi): max |difference| 1.04e-15
+     r(phi) at phi = 0, today, 2, 3: [0.06988, 0.07, 0.07112, 0.07169] (READ today 0.07, bounds 0.06-0.08)
+(vii) D_r pressure: w = k^2/(3 omega^2), m = sqrt2, k ~ 1/a: energy per quantum falls from omega0 to m, share r falls by q = m/omega0 then holds
+     omega0 2: q 0.707, w at birth 0.167; r_after 0.06 <- r_birth 0.083; r_after 0.07 <- r_birth 0.096; r_after 0.08 <- r_birth 0.110
+     omega0 4: q 0.354, w at birth 0.292; r_after 0.06 <- r_birth 0.153; r_after 0.07 <- r_birth 0.176; r_after 0.08 <- r_birth 0.197
+     AMEND-3-GEAR-100 travelling D w 0.13-0.27: omega0 2 gives w = (1-q^2)/3 = 0.167 (inside), omega0 4 gives 0.292 (outside)
+B. FROZEN KERNEL STATE (phi bump FORCED; exchange OFF; D_r pressure not fed to metric)
+N 20 bump 0.05/5.0: phi 0.179-0.227 | (i) RHS sum vs lump 4.09e-16 | (ii) lumped-vs-true pull: stones 2.300% D_r 23.001% (max over cells); split-vs-own-beta 3.3e-16/2.2e-16 | (iii) phi source sum vs lump 2.72e-13 | (iv) lump stone err 2.299%, lump D_r deficit 22.991%, negative-control D_r deficit 24.722%
+     steps 1: v_lump/v_stones-1 +2.294%, v_lump/v_D_r-1 -22.952%, v_D_r/v_stones-1 +32.767%, |sum of objects - lump| momentum 1.20e-16
+     steps 5: v_lump/v_stones-1 +2.294%, v_lump/v_D_r-1 -22.951%, v_D_r/v_stones-1 +32.766%, |sum of objects - lump| momentum 1.80e-07
+     steps 20: v_lump/v_stones-1 +2.294%, v_lump/v_D_r-1 -22.948%, v_D_r/v_stones-1 +32.760%, |sum of objects - lump| momentum 1.77e-06
+N 20 bump 0.05/2.5: phi 0.179-0.222 | (i) RHS sum vs lump 3.32e-16 | (ii) lumped-vs-true pull: stones 2.300% D_r 23.001% (max over cells); split-vs-own-beta 2.2e-16/2.2e-16 | (iii) phi source sum vs lump 4.25e-15 | (iv) lump stone err 2.300%, lump D_r deficit 23.000%, negative-control D_r deficit 24.731%
+     steps 1: v_lump/v_stones-1 +2.300%, v_lump/v_D_r-1 -23.001%, v_D_r/v_stones-1 +32.859%, |sum of objects - lump| momentum 1.73e-16
+     steps 5: v_lump/v_stones-1 +2.300%, v_lump/v_D_r-1 -23.000%, v_D_r/v_stones-1 +32.858%, |sum of objects - lump| momentum 1.59e-07
+     steps 20: v_lump/v_stones-1 +2.300%, v_lump/v_D_r-1 -22.998%, v_D_r/v_stones-1 +32.854%, |sum of objects - lump| momentum 2.76e-06
+N 20 bump 0.15/5.0: phi 0.179-0.323 | (i) RHS sum vs lump 1.54e-16 | (ii) lumped-vs-true pull: stones 2.300% D_r 23.001% (max over cells); split-vs-own-beta 4.4e-16/2.2e-16 | (iii) phi source sum vs lump 2.72e-13 | (iv) lump stone err 2.297%, lump D_r deficit 22.972%, negative-control D_r deficit 24.701%
+     steps 1: v_lump/v_stones-1 +2.283%, v_lump/v_D_r-1 -22.855%, v_D_r/v_stones-1 +32.585%, |sum of objects - lump| momentum 1.60e-16
+     steps 5: v_lump/v_stones-1 +2.283%, v_lump/v_D_r-1 -22.854%, v_D_r/v_stones-1 +32.583%, |sum of objects - lump| momentum 2.84e-07
+     steps 20: v_lump/v_stones-1 +2.283%, v_lump/v_D_r-1 -22.848%, v_D_r/v_stones-1 +32.573%, |sum of objects - lump| momentum 4.28e-06
+N 40 bump 0.05/5.0: phi 0.179-0.229 | (i) RHS sum vs lump 1.99e-16 | (ii) lumped-vs-true pull: stones 2.300% D_r 23.001% (max over cells); split-vs-own-beta 4.4e-16/4.4e-16 | (iii) phi source sum vs lump 1.09e-12 | (iv) lump stone err 2.299%, lump D_r deficit 22.994%, negative-control D_r deficit 24.725%
+     steps 1: v_lump/v_stones-1 +2.294%, v_lump/v_D_r-1 -22.946%, v_D_r/v_stones-1 +32.757%, |sum of objects - lump| momentum 1.15e-16
+     steps 5: v_lump/v_stones-1 +2.294%, v_lump/v_D_r-1 -22.946%, v_D_r/v_stones-1 +32.756%, |sum of objects - lump| momentum 9.02e-08
+     steps 20: v_lump/v_stones-1 +2.294%, v_lump/v_D_r-1 -22.945%, v_D_r/v_stones-1 +32.753%, |sum of objects - lump| momentum 6.79e-07
+N 40 bump 0.05/2.5: phi 0.179-0.227 | (i) RHS sum vs lump 1.41e-16 | (ii) lumped-vs-true pull: stones 2.300% D_r 23.001% (max over cells); split-vs-own-beta 4.4e-16/4.4e-16 | (iii) phi source sum vs lump 3.40e-14 | (iv) lump stone err 2.299%, lump D_r deficit 22.991%, negative-control D_r deficit 24.722%
+     steps 1: v_lump/v_stones-1 +2.300%, v_lump/v_D_r-1 -23.001%, v_D_r/v_stones-1 +32.859%, |sum of objects - lump| momentum 1.47e-16
+     steps 5: v_lump/v_stones-1 +2.300%, v_lump/v_D_r-1 -23.001%, v_D_r/v_stones-1 +32.858%, |sum of objects - lump| momentum 1.07e-07
+     steps 20: v_lump/v_stones-1 +2.300%, v_lump/v_D_r-1 -23.000%, v_D_r/v_stones-1 +32.856%, |sum of objects - lump| momentum 1.46e-06
+N 40 bump 0.15/5.0: phi 0.179-0.328 | (i) RHS sum vs lump 1.47e-16 | (ii) lumped-vs-true pull: stones 2.300% D_r 23.001% (max over cells); split-vs-own-beta 4.4e-16/3.3e-16 | (iii) phi source sum vs lump 2.17e-12 | (iv) lump stone err 2.298%, lump D_r deficit 22.979%, negative-control D_r deficit 24.709%
+     steps 1: v_lump/v_stones-1 +2.281%, v_lump/v_D_r-1 -22.838%, v_D_r/v_stones-1 +32.553%, |sum of objects - lump| momentum 1.54e-16
+     steps 5: v_lump/v_stones-1 +2.281%, v_lump/v_D_r-1 -22.837%, v_D_r/v_stones-1 +32.553%, |sum of objects - lump| momentum 1.19e-07
+     steps 20: v_lump/v_stones-1 +2.281%, v_lump/v_D_r-1 -22.835%, v_D_r/v_stones-1 +32.548%, |sum of objects - lump| momentum 1.31e-06
+(v) RULERS: r_today and phi_today (N 40, bump 0.05/5):
+   r_today 0.06: lump stone err 1.971%, lump D_r deficit 23.241%, negative control D_r deficit 24.725%
+   r_today 0.07: lump stone err 2.299%, lump D_r deficit 22.994%, negative control D_r deficit 24.725%
+   r_today 0.08: lump stone err 2.628%, lump D_r deficit 22.746%, negative control D_r deficit 24.725%
+   phi_today 0.079: lump stone err 2.301%, lump D_r deficit 22.992%
+   phi_today 0.179: lump stone err 2.299%, lump D_r deficit 22.994%
+   phi_today 0.279: lump stone err 2.297%, lump D_r deficit 22.995%
