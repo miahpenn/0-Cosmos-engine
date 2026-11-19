@@ -1,5 +1,8 @@
 # Contraction approach and the fire at H = 0 (Nov 18 2026)
 
+> **SUPERSEDED (Nov 19 2026) as numbers:** this run used #523's core S equation (S mass^2 = 4 at d = 0). The stone toy has S mass^2 = 1 + 1.5 d^2; with it the gains are larger and the 'needs a seed' contraction result changes. See results/toy-s-rerun-2026-11-19/. Verdicts that survive are listed there.
+
+
 Script `research/contraction_crossing_v1.py` (repo root; ~6 min), full table `summary.txt`. Design and readings: coordination log, "DRAFT DESIGN: contraction approach" with chat's edits (A)-(E). Planar periodic comoving lattice (as the Nov 18 spatial run), H(t) = Hdot t through zero, friction 3H on S and D, a(0) = 1, k_phys = k/a. S starts at x = 0.3 with D at rest (d^2 = 2 - 1.5x) plus noise; t_i is solved (homogeneous 2-DOF) so that x(0) = x_c. Fire rule (set before running): e_D/e_S first >= 0.10 at t10; "way up" if t10 <= -20, "at crossing" if -20 < t10 <= 0, "after" if t10 > 0, "none" otherwise. Research only.
 
 ## Result (Measured)
