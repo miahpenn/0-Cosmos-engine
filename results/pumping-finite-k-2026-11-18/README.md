@@ -1,5 +1,8 @@
 # Pumping under expansion: finite-k D mode, friction on S and D (Nov 18 2026)
 
+> **SUPERSEDED (Nov 19 2026) as numbers:** this run used #523's core S equation (S mass^2 = 4 at d = 0). The stone toy has S mass^2 = 1 + 1.5 d^2; with it the gains are larger and the 'needs a seed' contraction result changes. See results/toy-s-rerun-2026-11-19/. Verdicts that survive are listed there.
+
+
 Script `research/pumping_finite_k_v1.py` (run from repo root), table in `summary.txt`. Follows the k = 0 run (results/pumping-core-expansion-2026-11-18). Research only.
 
 ## Setup (fixed before running; the tolerance was set in the script header)

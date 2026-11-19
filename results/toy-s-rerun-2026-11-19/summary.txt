@@ -1,0 +1,12 @@
+A. Gamma0 and resonance, H=0, tiny D, toy S (S mass term 1 s instead of 4 s), k0^2 scan step 0.05
+  x0 1.6: max sigma +0.2372 at kk 1.350  (2-0.375x = 1.400, dev 4%)
+  x0 2.0: max sigma +0.2832 at kk 1.150  (2-0.375x = 1.250, dev 8%)
+  x0 2.67: max sigma +0.3527 at kk 0.850  (2-0.375x = 0.999, dev 15%)
+B. finite-k expansion, toy S (core: G = 24.2 / 87.1 at H=0.0057, x0 2.0 / 2.67). k0 = u*sqrt(2-0.375x), u 0.5..1.5 (41 pts); E = 0.64 G0^2/H, G0 = 0.283 / 0.353
+  x0 2.0 H 0.003: t_exit 55.2 max G 1.979e+05 (ln 12.20) at u* 1.125  E 17.09
+  x0 2.0 H 0.0057: t_exit 30.5 max G 678 (ln 6.52) at u* 1.125  E 8.99
+  x0 2.0 H 0.01: t_exit 18.2 max G 40.13 (ln 3.69) at u* 1.150  E 5.13
+  x0 2.67 H 0.003: t_exit 94.5 max G 3.052e+09 (ln 21.84) at u* 1.300  E 26.58
+  x0 2.67 H 0.0057: t_exit 51.2 max G 1.232e+05 (ln 11.72) at u* 1.300  E 13.99
+  x0 2.67 H 0.01: t_exit 29.7 max G 863.4 (ln 6.76) at u* 1.300  E 7.97
+C. contraction, toy S: see contraction.txt (rows Hdot 1e-3, 1e-4, 1e-5, 4e-7; x_c 2.0, 2.6; d0 1e-8, 1e-4, 1e-2)
