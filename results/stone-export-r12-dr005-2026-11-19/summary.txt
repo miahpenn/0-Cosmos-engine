@@ -1,0 +1,24 @@
+## R 12 g x8 T 400 f 0   E3 dr0.1 -67.0% dr0.05 -74.2%   drift 5.0e-03 / 3.0e-03   sponge 51% / 53%
+  probe 1.5R   w_tot +0.076 / +0.083  (d 0.007)
+    near-gap share  19.8% /  17.2% (d  2.6 pp)  peak 1.414 / 1.414 (d 0.000)  w_s +0.006 / +0.007
+    mid      share  66.1% /  67.5% (d  1.3 pp)  peak 1.728 / 1.728 (d 0.000)  w_s +0.102 / +0.103
+    broad    share  12.8% /  14.0% (d  1.2 pp)  peak 2.010 / 2.011 (d 0.000)  w_s +0.200 / +0.197
+    high     share   1.2% /   1.3% (d  0.1 pp)  peak 3.424 / 3.424 (d 0.000)  w_s +0.297 / +0.298
+  probe 3.0R   w_tot +0.101 / +0.098  (d 0.003)
+    near-gap share  13.0% /  15.2% (d  2.2 pp)  peak 1.461 / 1.461 (d 0.000)  w_s +0.017 / +0.018
+    mid      share  72.2% /  69.5% (d  2.7 pp)  peak 1.728 / 1.728 (d 0.000)  w_s +0.103 / +0.104
+    broad    share  13.6% /  14.1% (d  0.5 pp)  peak 2.010 / 2.011 (d 0.000)  w_s +0.204 / +0.199
+    high     share   1.2% /   1.2% (d  0.0 pp)  peak 3.471 / 3.424 (d 0.047)  w_s +0.285 / +0.279
+## R 12 g x8 T 400 f 1   E3 dr0.1 -82.9% dr0.05 -82.8%   drift 1.3e-02 / 1.2e-02   sponge 73% / 67%
+  probe 1.5R   w_tot +0.093 / +0.074  (d 0.019)
+    near-gap share  11.5% /  19.4% (d  7.9 pp)  peak 1.429 / 1.398 (d 0.031)  w_s +0.007 / -0.000
+    mid      share  69.5% /  48.3% (d 21.2 pp)  peak 1.571 / 1.555 (d 0.016)  w_s +0.079 / +0.081
+    broad    share  16.6% /  29.7% (d 13.1 pp)  peak 2.073 / 2.356 (d 0.283)  w_s +0.196 / +0.207
+    high     share   2.4% /   2.6% (d  0.2 pp)  peak 3.408 / 3.408 (d 0.000)  w_s +0.320 / +0.302
+  probe 3.0R   w_tot +0.096 / +0.101  (d 0.004)
+    near-gap share  10.4% /  14.8% (d  4.3 pp)  peak 1.429 / 1.445 (d 0.016)  w_s +0.015 / +0.013
+    mid      share  71.2% /  52.3% (d 18.9 pp)  peak 1.586 / 1.555 (d 0.031)  w_s +0.084 / +0.084
+    broad    share  16.9% /  30.9% (d 14.0 pp)  peak 2.073 / 2.356 (d 0.283)  w_s +0.197 / +0.212
+    high     share   1.4% /   2.0% (d  0.6 pp)  peak 3.408 / 3.408 (d 0.000)  w_s +0.277 / +0.272
+
+VERDICT (pass: shares within 5 pp, peaks within 0.05, total w within 0.02, at both probes): R12 g x8 f0: PASS; R12 g x8 f1: FAIL
