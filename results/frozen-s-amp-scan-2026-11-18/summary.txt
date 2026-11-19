@@ -1,0 +1,6 @@
+d0 1e-08 G 1.2047e+05 ratio 1.0000 final_rms 0.000142 kstar 1.325
+d0 1e-07 G 1.2047e+05 ratio 1.0000 final_rms 0.00142 kstar 1.325
+d0 1e-06 G 1.2062e+05 ratio 1.0013 final_rms 0.0142 kstar 1.325
+d0 3e-06 G 1.2183e+05 ratio 1.0113 final_rms 0.0425 kstar 1.325
+d0 1e-05 G 1.3486e+05 ratio 1.1194 final_rms 0.129 kstar 1.325
+d0 3e-05 G 1.3154e+05 ratio 1.0919 final_rms 0.638 kstar 1.276
