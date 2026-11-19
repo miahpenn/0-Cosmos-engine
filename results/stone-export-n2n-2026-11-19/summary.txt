@@ -1,0 +1,35 @@
+## R 24 g x1 T 500 f 0   E3 dr0.2 -61.2% dr0.1 -61.4%   drift 7.2e-03 / 2.8e-03   sponge 37% / 42%
+  probe 1.5R   w_tot +0.098 / +0.091  (d 0.007)
+    near-gap share  22.4% /  19.5% (d  2.9 pp)  peak 1.432 / 1.407 (d 0.025)  w_s +0.020 / +0.005
+    mid      share  46.4% /  39.7% (d  6.7 pp)  peak 1.583 / 1.671 (d 0.088)  w_s +0.091 / +0.104
+    broad    share  29.5% /  35.2% (d  5.7 pp)  peak 2.123 / 2.212 (d 0.088)  w_s +0.214 / +0.206
+    high     share   1.7% /   5.6% (d  3.9 pp)  peak 3.543 / 3.468 (d 0.075)  w_s +0.305 / +0.285
+  probe 3.0R   w_tot +0.108 / +0.131  (d 0.023)
+    near-gap share  18.5% /  11.7% (d  6.9 pp)  peak 1.470 / 1.432 (d 0.038)  w_s +0.024 / +0.017
+    mid      share  48.4% /  44.0% (d  4.4 pp)  peak 1.583 / 1.671 (d 0.088)  w_s +0.093 / +0.106
+    broad    share  31.3% /  38.3% (d  7.0 pp)  peak 2.123 / 2.212 (d 0.088)  w_s +0.215 / +0.209
+    high     share   1.9% /   6.1% (d  4.2 pp)  peak 3.480 / 3.455 (d 0.025)  w_s +0.310 / +0.288
+## R 24 g x1 T 500 f 1   E3 dr0.2 -82.2% dr0.1 -73.7%   drift 8.8e-03 / 4.3e-03   sponge 61% / 58%
+  probe 1.5R   w_tot +0.103 / +0.110  (d 0.006)
+    near-gap share  21.4% /  24.2% (d  2.7 pp)  peak 1.432 / 1.407 (d 0.025)  w_s +0.011 / +0.015
+    mid      share  39.5% /  28.0% (d 11.6 pp)  peak 1.633 / 1.734 (d 0.101)  w_s +0.087 / +0.100
+    broad    share  35.5% /  43.9% (d  8.4 pp)  peak 2.035 / 2.161 (d 0.126)  w_s +0.210 / +0.204
+    high     share   3.5% /   4.0% (d  0.5 pp)  peak 3.581 / 3.430 (d 0.150)  w_s +0.317 / +0.288
+  probe 3.0R   w_tot +0.105 / +0.135  (d 0.030)
+    near-gap share  20.6% /  20.7% (d  0.1 pp)  peak 1.432 / 1.546 (d 0.113)  w_s +0.017 / +0.034
+    mid      share  39.4% /  28.3% (d 11.1 pp)  peak 1.646 / 1.734 (d 0.088)  w_s +0.091 / +0.106
+    broad    share  36.5% /  46.6% (d 10.0 pp)  peak 2.174 / 2.174 (d 0.000)  w_s +0.214 / +0.210
+    high     share   3.4% /   4.4% (d  1.0 pp)  peak 3.581 / 3.430 (d 0.150)  w_s +0.307 / +0.289
+## R 12 g x8 T 400 f 0   E3 dr0.2 -64.4% dr0.1 -67.0%   drift 8.4e-03 / 5.0e-03   sponge 51% / 51%
+  probe 1.5R   w_tot +0.076 / +0.076  (d 0.000)
+    near-gap share  17.4% /  19.8% (d  2.4 pp)  peak 1.413 / 1.414 (d 0.000)  w_s +0.005 / +0.006
+    mid      share  65.9% /  66.1% (d  0.2 pp)  peak 1.728 / 1.728 (d 0.000)  w_s +0.103 / +0.102
+    broad    share  15.6% /  12.8% (d  2.8 pp)  peak 2.010 / 2.010 (d 0.000)  w_s +0.203 / +0.200
+    high     share   1.1% /   1.2% (d  0.2 pp)  peak 3.439 / 3.424 (d 0.015)  w_s +0.317 / +0.297
+  probe 3.0R   w_tot +0.105 / +0.101  (d 0.004)
+    near-gap share  11.3% /  13.0% (d  1.6 pp)  peak 1.461 / 1.461 (d 0.000)  w_s +0.019 / +0.017
+    mid      share  71.4% /  72.2% (d  0.8 pp)  peak 1.728 / 1.728 (d 0.000)  w_s +0.104 / +0.103
+    broad    share  16.3% /  13.6% (d  2.6 pp)  peak 2.010 / 2.010 (d 0.000)  w_s +0.203 / +0.204
+    high     share   1.0% /   1.2% (d  0.2 pp)  peak 3.439 / 3.471 (d 0.032)  w_s +0.306 / +0.285
+
+VERDICT (pass: shares within 5 pp, peaks within 0.05, total w within 0.02, at both probes): R24 g x1 f0: FAIL; R24 g x1 f1: FAIL; R12 g x8 f0: PASS
