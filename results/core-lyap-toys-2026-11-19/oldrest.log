@@ -1,0 +1,15 @@
+OLD-S n 0.1000 rtol 1e-12 kappa 0.9220 | lambda full T: mean 0.0724 sd 0.0182 min 0.0321 max 0.1012 | 2nd half mean 0.0684 | n_phases 20
+OLD-S n 0.2000 rtol 1e-12 kappa 0.8367 | lambda full T: mean 0.0769 sd 0.0151 min 0.0442 max 0.1024 | 2nd half mean 0.0548 | n_phases 20
+OLD-S n 0.4000 rtol 1e-12 kappa 0.6325 | lambda full T: mean 0.0640 sd 0.0139 min 0.0396 max 0.0878 | 2nd half mean 0.0529 | n_phases 20
+OLD-S n 0.5500 rtol 1e-12 kappa 0.4183 | lambda full T: mean 0.0483 sd 0.0097 min 0.0254 max 0.0610 | 2nd half mean 0.0405 | n_phases 20
+OLD-S n 0.6200 rtol 1e-12 kappa 0.2646 | lambda full T: mean 0.0145 sd 0.0018 min 0.0116 max 0.0183 | 2nd half mean 0.0156 | n_phases 20
+OLD-S n 0.6400 rtol 1e-12 kappa 0.2000 | lambda full T: mean 0.0066 sd 0.0012 min 0.0040 max 0.0089 | 2nd half mean 0.0062 | n_phases 20
+OLD-S n 0.6500 rtol 1e-12 kappa 0.1581 | lambda full T: mean 0.0040 sd 0.0007 min 0.0029 max 0.0052 | 2nd half mean 0.0023 | n_phases 20
+OLD-S n 0.7000 rtol 1e-12 kappa nan | lambda full T: mean 0.0025 sd 0.0005 min 0.0014 max 0.0033 | 2nd half mean 0.0007 | n_phases 20
+OLD-S n 0.7500 rtol 1e-12 kappa nan | lambda full T: mean 0.0025 sd 0.0004 min 0.0016 max 0.0030 | 2nd half mean 0.0007 | n_phases 20
+OLD-S n 0.8000 rtol 1e-12 kappa nan | lambda full T: mean 0.0026 sd 0.0005 min 0.0016 max 0.0035 | 2nd half mean 0.0007 | n_phases 20
+OLD-S n 0.9000 rtol 1e-12 kappa nan | lambda full T: mean 0.0026 sd 0.0005 min 0.0015 max 0.0034 | 2nd half mean 0.0007 | n_phases 20
+OLD-S n 1.0000 rtol 1e-12 kappa nan | lambda full T: mean 0.0026 sd 0.0006 min 0.0011 max 0.0035 | 2nd half mean 0.0007 | n_phases 20
+OLD-S n 1.1000 rtol 1e-12 kappa nan | lambda full T: mean 0.0025 sd 0.0009 min -0.0004 max 0.0032 | 2nd half mean 0.0006 | n_phases 20
+OLD-S n 1.2000 rtol 1e-12 kappa nan | lambda full T: mean 0.0027 sd 0.0006 min 0.0011 max 0.0033 | 2nd half mean 0.0006 | n_phases 20
+OLD-S n 1.3000 rtol 1e-12 kappa nan | lambda full T: mean 0.0028 sd 0.0005 min 0.0014 max 0.0036 | 2nd half mean 0.0008 | n_phases 20
