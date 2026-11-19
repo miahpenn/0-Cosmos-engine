@@ -1,0 +1,10 @@
+TOY-S n 0.3000 rtol 1e-13 kappa 0.7416 | lambda full T: mean 0.0777 sd 0.0168 min 0.0496 max 0.1075 | 2nd half mean 0.0712 | n_phases 20
+TOY-S n 0.3000 rtol 1e-12 kappa 0.7416 | lambda full T: mean 0.0847 sd 0.0190 min 0.0471 max 0.1104 | 2nd half mean 0.0788 | n_phases 20
+TOY-S n 0.5000 rtol 1e-13 kappa 0.5000 | lambda full T: mean 0.0723 sd 0.0173 min 0.0286 max 0.1042 | 2nd half mean 0.0708 | n_phases 20
+TOY-S n 0.5000 rtol 1e-12 kappa 0.5000 | lambda full T: mean 0.0744 sd 0.0152 min 0.0462 max 0.0970 | 2nd half mean 0.0680 | n_phases 20
+TOY-S n 0.6000 rtol 1e-13 kappa 0.3162 | lambda full T: mean 0.0404 sd 0.0058 min 0.0332 max 0.0511 | 2nd half mean 0.0399 | n_phases 20
+TOY-S n 0.6000 rtol 1e-12 kappa 0.3162 | lambda full T: mean 0.0376 sd 0.0078 min 0.0171 max 0.0497 | 2nd half mean 0.0367 | n_phases 20
+TOY-S n 0.6500 rtol 1e-13 kappa 0.1581 | lambda full T: mean 0.0026 sd 0.0004 min 0.0016 max 0.0031 | 2nd half mean 0.0007 | n_phases 20
+TOY-S n 0.6500 rtol 1e-12 kappa 0.1581 | lambda full T: mean 0.0026 sd 0.0004 min 0.0016 max 0.0031 | 2nd half mean 0.0007 | n_phases 20
+TOY-S n 0.6667 rtol 1e-13 kappa nan | lambda full T: mean 0.0027 sd 0.0004 min 0.0020 max 0.0032 | 2nd half mean 0.0007 | n_phases 20
+TOY-S n 0.6667 rtol 1e-12 kappa nan | lambda full T: mean 0.0027 sd 0.0004 min 0.0020 max 0.0032 | 2nd half mean 0.0007 | n_phases 20
