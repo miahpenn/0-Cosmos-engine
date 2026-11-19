@@ -1,0 +1,9 @@
+(1) FROZEN-S CONTROL: G_k, linear (d0 1e-8) | per d0: frozen / full | detuning-matters (frozen >40% below linear) | backreaction-dominates
+H 0.0057 x0 2.0 te 30.5 lin 679.1 | [1e-05: fr 679.1 fu 679.1 linear] [0.001: fr 680.1 fu 645.7 linear] [0.01: fr 417 fu 162.2 BACKREACTION] [0.1: fr 56.31 fu 18.85 DETUNING]
+H 0.0057 x0 2.67 te 51.3 lin 1.205e+05 | [1e-05: fr 1.349e+05 fu 8.152e+04 linear] [0.001: fr 7858 fu 1569 DETUNING] [0.01: fr 614.1 fu 252.5 DETUNING] [0.1: fr 71.74 fu 35.86 DETUNING]
+H 0.01 x0 2.0 te 18.1 lin 40.22 | [1e-05: fr 40.22 fu 40.22 linear] [0.001: fr 40.22 fu 40.21 linear] [0.01: fr 40.13 fu 39.27 linear] [0.1: fr 29.39 fu 15.44 BACKREACTION]
+(2) TRAPPED-MODE: zero-crossing frequency of the peak-gain mode d_k*(t) in three windows of t_exit; omega_S zero-crossing and sqrt(1+0.375 x) in the same windows; gap sqrt2 = 1.4142
+H 0.0057 x0 2.0 d0 1e-08 k* 1.276 G 679.1 | [0.30-0.50: omega_D 1.253 omega_S nan sqrt(1+.375x) 1.276] [0.60-0.80: omega_D nan omega_S 1.243 sqrt(1+.375x) 1.242] [0.85-1.00: omega_D nan omega_S nan sqrt(1+.375x) 1.226]
+H 0.0057 x0 2.0 d0 0.01 k* 1.227 G 162.2 | [0.30-0.50: omega_D 1.251 omega_S nan sqrt(1+.375x) 1.276] [0.60-0.80: omega_D nan omega_S 1.258 sqrt(1+.375x) 1.230] [0.85-1.00: omega_D nan omega_S nan sqrt(1+.375x) 1.187]
+H 0.0057 x0 2.67 d0 1e-08 k* 1.325 G 1.205e+05 | [0.30-0.50: omega_D 1.303 omega_S 1.316 sqrt(1+.375x) 1.321] [0.60-0.80: omega_D 1.243 omega_S 1.263 sqrt(1+.375x) 1.266] [0.85-1.00: omega_D 1.191 omega_S 1.226 sqrt(1+.375x) 1.225]
+H 0.0057 x0 2.67 d0 0.01 k* 0.589 G 252.5 | [0.30-0.50: omega_D nan omega_S 1.393 sqrt(1+.375x) 1.241] [0.60-0.80: omega_D 3.543 omega_S 1.336 sqrt(1+.375x) 1.167] [0.85-1.00: omega_D nan omega_S 1.461 sqrt(1+.375x) 1.044]
