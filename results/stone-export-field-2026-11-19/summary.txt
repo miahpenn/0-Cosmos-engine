@@ -1,0 +1,147 @@
+# stone-export field run; windows omega: {'near-gap': (1.35, 1.55), 'mid': (1.55, 1.9), 'broad': (2.0, 2.8), 'high': (3.4, 3.6)}
+# E: time-integrated band-passed outward energy through the probe (D only); share = positive E / sum positive E; w_s = int p / int rho (stress ruler);
+# w_d: w from the window's power-weighted omega, [lo, hi] over omega +/- 2 pi / W; vg = sqrt(3 w_s); peak = FFT peak omega in the window.
+
+## R 24 g x1 T 500 f 0   E3 change -61.2%  sponge take 37.5% of E0  drift 7.2e-03
+  probe 1.5R
+    near-gap E       1977 share  22.4%  peak 1.432 mean 1.463  w_s +0.020  w_d +0.022 [+0.016,+0.027]  vg 0.25
+    mid      E       4086 share  46.4%  peak 1.583 mean 1.657  w_s +0.091  w_d +0.091 [+0.087,+0.094]  vg 0.52
+    broad    E       2596 share  29.5%  peak 2.123 mean 2.297  w_s +0.214  w_d +0.207 [+0.206,+0.208]  vg 0.80
+    high     E      152.5 share   1.7%  peak 3.543 mean 3.498  w_s +0.305  w_d +0.279 [+0.278,+0.279]  vg 0.96
+  probe 3.0R
+    near-gap E       1512 share  18.5%  peak 1.470 mean 1.468  w_s +0.024  w_d +0.024 [+0.019,+0.029]  vg 0.27
+    mid      E       3948 share  48.4%  peak 1.583 mean 1.660  w_s +0.093  w_d +0.091 [+0.088,+0.095]  vg 0.53
+    broad    E       2552 share  31.3%  peak 2.123 mean 2.297  w_s +0.215  w_d +0.207 [+0.206,+0.208]  vg 0.80
+    high     E      152.7 share   1.9%  peak 3.480 mean 3.495  w_s +0.310  w_d +0.279 [+0.278,+0.279]  vg 0.96
+
+## R 24 g x1 T 500 f 0.1   E3 change -65.7%  sponge take 41.2% of E0  drift 7.2e-03
+  probe 1.5R
+    near-gap E       2716 share  32.0%  peak 1.470 mean 1.464  w_s +0.021  w_d +0.022 [+0.017,+0.027]  vg 0.25
+    mid      E       3451 share  40.7%  peak 1.571 mean 1.681  w_s +0.098  w_d +0.097 [+0.094,+0.101]  vg 0.54
+    broad    E       2089 share  24.6%  peak 2.073 mean 2.269  w_s +0.211  w_d +0.204 [+0.202,+0.205]  vg 0.79
+    high     E        220 share   2.6%  peak 3.518 mean 3.481  w_s +0.306  w_d +0.278 [+0.278,+0.279]  vg 0.96
+  probe 3.0R
+    near-gap E       2058 share  27.8%  peak 1.470 mean 1.487  w_s +0.032  w_d +0.032 [+0.027,+0.037]  vg 0.31
+    mid      E       3106 share  41.9%  peak 1.721 mean 1.683  w_s +0.099  w_d +0.098 [+0.094,+0.102]  vg 0.55
+    broad    E       2031 share  27.4%  peak 2.073 mean 2.269  w_s +0.211  w_d +0.204 [+0.202,+0.205]  vg 0.80
+    high     E      221.6 share   3.0%  peak 3.418 mean 3.480  w_s +0.308  w_d +0.278 [+0.278,+0.279]  vg 0.96
+
+## R 24 g x1 T 500 f 0.3   E3 change -73.0%  sponge take 51.3% of E0  drift 7.3e-03
+  probe 1.5R
+    near-gap E       2117 share  22.2%  peak 1.445 mean 1.467  w_s +0.022  w_d +0.024 [+0.018,+0.029]  vg 0.26
+    mid      E       3668 share  38.5%  peak 1.684 mean 1.722  w_s +0.109  w_d +0.109 [+0.105,+0.112]  vg 0.57
+    broad    E       3470 share  36.4%  peak 2.035 mean 2.287  w_s +0.213  w_d +0.206 [+0.204,+0.207]  vg 0.80
+    high     E      276.9 share   2.9%  peak 3.531 mean 3.515  w_s +0.307  w_d +0.279 [+0.279,+0.280]  vg 0.96
+  probe 3.0R
+    near-gap E       1779 share  20.4%  peak 1.445 mean 1.473  w_s +0.026  w_d +0.026 [+0.021,+0.031]  vg 0.28
+    mid      E       3378 share  38.7%  peak 1.684 mean 1.724  w_s +0.110  w_d +0.109 [+0.106,+0.112]  vg 0.58
+    broad    E       3304 share  37.8%  peak 2.035 mean 2.299  w_s +0.214  w_d +0.207 [+0.206,+0.209]  vg 0.80
+    high     E        275 share   3.1%  peak 3.531 mean 3.511  w_s +0.313  w_d +0.279 [+0.279,+0.280]  vg 0.97
+
+## R 24 g x1 T 500 f 1   E3 change -82.2%  sponge take 61.1% of E0  drift 8.8e-03
+  probe 1.5R
+    near-gap E       4533 share  21.4%  peak 1.432 mean 1.448  w_s +0.011  w_d +0.015 [+0.010,+0.021]  vg 0.19
+    mid      E       8357 share  39.5%  peak 1.633 mean 1.655  w_s +0.087  w_d +0.090 [+0.086,+0.094]  vg 0.51
+    broad    E       7505 share  35.5%  peak 2.035 mean 2.292  w_s +0.210  w_d +0.206 [+0.205,+0.208]  vg 0.79
+    high     E      749.2 share   3.5%  peak 3.581 mean 3.530  w_s +0.317  w_d +0.280 [+0.279,+0.280]  vg 0.98
+  probe 3.0R
+    near-gap E       4247 share  20.6%  peak 1.432 mean 1.452  w_s +0.017  w_d +0.017 [+0.011,+0.022]  vg 0.23
+    mid      E       8124 share  39.4%  peak 1.646 mean 1.657  w_s +0.091  w_d +0.090 [+0.087,+0.094]  vg 0.52
+    broad    E       7526 share  36.5%  peak 2.174 mean 2.289  w_s +0.214  w_d +0.206 [+0.205,+0.207]  vg 0.80
+    high     E      696.2 share   3.4%  peak 3.581 mean 3.529  w_s +0.307  w_d +0.280 [+0.279,+0.280]  vg 0.96
+
+## R 18 g x1 T 400 f 0   E3 change -75.2%  sponge take 41.4% of E0  drift 6.7e-03
+  probe 1.5R
+    near-gap E       1090 share  26.2%  peak 1.445 mean 1.466  w_s +0.021  w_d +0.023 [+0.016,+0.030]  vg 0.25
+    mid      E       1766 share  42.4%  peak 1.837 mean 1.714  w_s +0.108  w_d +0.106 [+0.102,+0.110]  vg 0.57
+    broad    E       1250 share  30.0%  peak 2.230 mean 2.317  w_s +0.218  w_d +0.209 [+0.207,+0.211]  vg 0.81
+    high     E      56.83 share   1.4%  peak 3.486 mean 3.502  w_s +0.317  w_d +0.279 [+0.278,+0.279]  vg 0.98
+  probe 3.0R
+    near-gap E       1067 share  26.9%  peak 1.461 mean 1.473  w_s +0.026  w_d +0.026 [+0.020,+0.033]  vg 0.28
+    mid      E       1586 share  40.0%  peak 1.837 mean 1.727  w_s +0.112  w_d +0.110 [+0.106,+0.114]  vg 0.58
+    broad    E       1258 share  31.7%  peak 2.230 mean 2.325  w_s +0.221  w_d +0.210 [+0.208,+0.212]  vg 0.81
+    high     E      56.92 share   1.4%  peak 3.486 mean 3.506  w_s +0.315  w_d +0.279 [+0.279,+0.280]  vg 0.97
+
+## R 18 g x1 T 400 f 0.1   E3 change -69.5%  sponge take 36.0% of E0  drift 6.7e-03
+  probe 1.5R
+    near-gap E      515.7 share  20.2%  peak 1.429 mean 1.461  w_s +0.020  w_d +0.021 [+0.014,+0.028]  vg 0.25
+    mid      E      842.9 share  33.1%  peak 1.743 mean 1.732  w_s +0.111  w_d +0.111 [+0.107,+0.115]  vg 0.58
+    broad    E       1157 share  45.4%  peak 2.450 mean 2.416  w_s +0.228  w_d +0.219 [+0.218,+0.221]  vg 0.83
+    high     E       31.6 share   1.2%  peak 3.549 mean 3.517  w_s +0.309  w_d +0.279 [+0.279,+0.280]  vg 0.96
+  probe 3.0R
+    near-gap E      237.3 share  10.7%  peak 1.461 mean 1.477  w_s +0.027  w_d +0.028 [+0.021,+0.034]  vg 0.29
+    mid      E      852.3 share  38.6%  peak 1.743 mean 1.724  w_s +0.112  w_d +0.109 [+0.105,+0.113]  vg 0.58
+    broad    E       1091 share  49.3%  peak 2.450 mean 2.424  w_s +0.230  w_d +0.220 [+0.218,+0.221]  vg 0.83
+    high     E      30.01 share   1.4%  peak 3.549 mean 3.519  w_s +0.306  w_d +0.279 [+0.279,+0.280]  vg 0.96
+
+## R 18 g x1 T 400 f 0.3   E3 change -70.4%  sponge take 38.3% of E0  drift 6.8e-03
+  probe 1.5R
+    near-gap E      617.9 share  16.3%  peak 1.476 mean 1.468  w_s +0.022  w_d +0.024 [+0.017,+0.030]  vg 0.26
+    mid      E       1847 share  48.6%  peak 1.696 mean 1.689  w_s +0.100  w_d +0.100 [+0.095,+0.104]  vg 0.55
+    broad    E       1275 share  33.6%  peak 2.183 mean 2.274  w_s +0.211  w_d +0.204 [+0.203,+0.206]  vg 0.80
+    high     E      56.23 share   1.5%  peak 3.455 mean 3.471  w_s +0.312  w_d +0.278 [+0.277,+0.278]  vg 0.97
+  probe 3.0R
+    near-gap E      516.8 share  14.2%  peak 1.492 mean 1.485  w_s +0.031  w_d +0.031 [+0.025,+0.037]  vg 0.30
+    mid      E       1814 share  49.9%  peak 1.696 mean 1.691  w_s +0.102  w_d +0.100 [+0.096,+0.104]  vg 0.55
+    broad    E       1251 share  34.4%  peak 2.183 mean 2.272  w_s +0.212  w_d +0.204 [+0.202,+0.206]  vg 0.80
+    high     E      52.11 share   1.4%  peak 3.455 mean 3.479  w_s +0.311  w_d +0.278 [+0.278,+0.279]  vg 0.97
+
+## R 18 g x1 T 400 f 1   E3 change -92.8%  sponge take 77.7% of E0  drift 1.1e-02
+  probe 1.5R
+    near-gap E       7266 share  22.1%  peak 1.413 mean 1.426  w_s -0.003  w_d +0.005 [-0.002,+0.013]  vg 0.00
+    mid      E       8575 share  26.1%  peak 1.822 mean 1.747  w_s +0.105  w_d +0.115 [+0.111,+0.119]  vg 0.56
+    broad    E  1.544e+04 share  47.0%  peak 2.057 mean 2.299  w_s +0.204  w_d +0.207 [+0.206,+0.209]  vg 0.78
+    high     E       1546 share   4.7%  peak 3.565 mean 3.528  w_s +0.299  w_d +0.280 [+0.279,+0.280]  vg 0.95
+  probe 3.0R
+    near-gap E       5780 share  18.2%  peak 1.429 mean 1.447  w_s +0.014  w_d +0.015 [+0.008,+0.022]  vg 0.20
+    mid      E       8455 share  26.6%  peak 1.602 mean 1.720  w_s +0.108  w_d +0.108 [+0.104,+0.112]  vg 0.57
+    broad    E  1.585e+04 share  49.9%  peak 2.057 mean 2.316  w_s +0.217  w_d +0.209 [+0.207,+0.211]  vg 0.81
+    high     E       1670 share   5.3%  peak 3.518 mean 3.530  w_s +0.311  w_d +0.280 [+0.279,+0.280]  vg 0.97
+
+## R 12 g x8 T 400 f 0   E3 change -64.4%  sponge take 51.0% of E0  drift 8.4e-03
+  probe 1.5R
+    near-gap E      115.9 share  17.4%  peak 1.413 mean 1.428  w_s +0.005  w_d +0.006 [-0.001,+0.013]  vg 0.12
+    mid      E      439.4 share  65.9%  peak 1.728 mean 1.704  w_s +0.103  w_d +0.104 [+0.100,+0.108]  vg 0.56
+    broad    E        104 share  15.6%  peak 2.010 mean 2.198  w_s +0.203  w_d +0.195 [+0.193,+0.197]  vg 0.78
+    high     E       7.24 share   1.1%  peak 3.439 mean 3.487  w_s +0.317  w_d +0.279 [+0.278,+0.279]  vg 0.98
+  probe 3.0R
+    near-gap E      71.42 share  11.3%  peak 1.461 mean 1.456  w_s +0.019  w_d +0.019 [+0.012,+0.025]  vg 0.24
+    mid      E      450.7 share  71.4%  peak 1.728 mean 1.700  w_s +0.104  w_d +0.103 [+0.098,+0.107]  vg 0.56
+    broad    E      102.7 share  16.3%  peak 2.010 mean 2.200  w_s +0.203  w_d +0.196 [+0.194,+0.198]  vg 0.78
+    high     E      6.543 share   1.0%  peak 3.439 mean 3.492  w_s +0.306  w_d +0.279 [+0.278,+0.279]  vg 0.96
+
+## R 12 g x8 T 400 f 0.1   E3 change -68.1%  sponge take 53.5% of E0  drift 8.5e-03
+  probe 1.5R
+    near-gap E      168.1 share  23.6%  peak 1.413 mean 1.424  w_s +0.003  w_d +0.005 [-0.003,+0.012]  vg 0.09
+    mid      E      357.9 share  50.2%  peak 1.570 mean 1.687  w_s +0.099  w_d +0.099 [+0.095,+0.103]  vg 0.55
+    broad    E      175.9 share  24.7%  peak 2.324 mean 2.337  w_s +0.221  w_d +0.211 [+0.210,+0.213]  vg 0.82
+    high     E      10.99 share   1.5%  peak 3.455 mean 3.464  w_s +0.304  w_d +0.278 [+0.277,+0.278]  vg 0.95
+  probe 3.0R
+    near-gap E        111 share  17.1%  peak 1.508 mean 1.468  w_s +0.024  w_d +0.024 [+0.017,+0.031]  vg 0.27
+    mid      E      360.4 share  55.4%  peak 1.570 mean 1.681  w_s +0.099  w_d +0.097 [+0.093,+0.102]  vg 0.54
+    broad    E        167 share  25.7%  peak 2.324 mean 2.338  w_s +0.221  w_d +0.211 [+0.210,+0.213]  vg 0.81
+    high     E       11.7 share   1.8%  peak 3.455 mean 3.468  w_s +0.313  w_d +0.278 [+0.277,+0.278]  vg 0.97
+
+## R 12 g x8 T 400 f 0.3   E3 change -79.7%  sponge take 51.1% of E0  drift 9.1e-03
+  probe 1.5R
+    near-gap E      78.36 share  12.1%  peak 1.413 mean 1.434  w_s +0.007  w_d +0.009 [+0.002,+0.016]  vg 0.15
+    mid      E      462.6 share  71.4%  peak 1.602 mean 1.709  w_s +0.105  w_d +0.105 [+0.101,+0.109]  vg 0.56
+    broad    E       99.7 share  15.4%  peak 2.010 mean 2.187  w_s +0.199  w_d +0.194 [+0.192,+0.196]  vg 0.77
+    high     E      7.387 share   1.1%  peak 3.565 mean 3.517  w_s +0.322  w_d +0.279 [+0.279,+0.280]  vg 0.98
+  probe 3.0R
+    near-gap E      67.88 share  10.6%  peak 1.445 mean 1.457  w_s +0.019  w_d +0.019 [+0.012,+0.026]  vg 0.24
+    mid      E      469.3 share  73.4%  peak 1.602 mean 1.706  w_s +0.106  w_d +0.104 [+0.100,+0.109]  vg 0.56
+    broad    E      96.02 share  15.0%  peak 2.010 mean 2.181  w_s +0.201  w_d +0.193 [+0.191,+0.195]  vg 0.78
+    high     E      6.281 share   1.0%  peak 3.565 mean 3.523  w_s +0.308  w_d +0.280 [+0.279,+0.280]  vg 0.96
+
+## R 12 g x8 T 400 f 1   E3 change -92.3%  sponge take 75.0% of E0  drift 1.7e-02
+  probe 1.5R
+    near-gap E      756.9 share  11.4%  peak 1.413 mean 1.419  w_s -0.002  w_d +0.002 [-0.005,+0.010]  vg 0.00
+    mid      E       3493 share  52.8%  peak 1.728 mean 1.698  w_s +0.095  w_d +0.102 [+0.098,+0.106]  vg 0.53
+    broad    E       2244 share  33.9%  peak 2.136 mean 2.321  w_s +0.215  w_d +0.210 [+0.208,+0.211]  vg 0.80
+    high     E      122.5 share   1.9%  peak 3.408 mean 3.469  w_s +0.312  w_d +0.278 [+0.277,+0.278]  vg 0.97
+  probe 3.0R
+    near-gap E      793.1 share  11.9%  peak 1.429 mean 1.443  w_s +0.012  w_d +0.013 [+0.006,+0.020]  vg 0.19
+    mid      E       3418 share  51.3%  peak 1.618 mean 1.698  w_s +0.101  w_d +0.102 [+0.098,+0.106]  vg 0.55
+    broad    E       2338 share  35.1%  peak 2.136 mean 2.325  w_s +0.217  w_d +0.210 [+0.208,+0.212]  vg 0.81
+    high     E      112.1 share   1.7%  peak 3.408 mean 3.488  w_s +0.305  w_d +0.279 [+0.278,+0.279]  vg 0.96
