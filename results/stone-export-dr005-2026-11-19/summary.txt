@@ -1,0 +1,24 @@
+## R 24 g x1 T 500 f 0   E3 dr0.2 -61.4% dr0.1 -58.1%   drift 2.8e-03 / 1.7e-03   sponge 42% / 39%
+  probe 1.5R   w_tot +0.091 / +0.113  (d 0.023)
+    near-gap share  19.5% /  22.2% (d  2.6 pp)  peak 1.407 / 1.483 (d 0.075)  w_s +0.005 / +0.021
+    mid      share  39.7% /  34.4% (d  5.3 pp)  peak 1.671 / 1.709 (d 0.038)  w_s +0.104 / +0.098
+    broad    share  35.2% /  39.4% (d  4.2 pp)  peak 2.212 / 2.036 (d 0.176)  w_s +0.206 / +0.210
+    high     share   5.6% /   4.1% (d  1.5 pp)  peak 3.468 / 3.456 (d 0.012)  w_s +0.285 / +0.286
+  probe 3.0R   w_tot +0.131 / +0.124  (d 0.007)
+    near-gap share  11.7% /  20.3% (d  8.6 pp)  peak 1.432 / 1.483 (d 0.050)  w_s +0.017 / +0.031
+    mid      share  44.0% /  37.3% (d  6.7 pp)  peak 1.671 / 1.709 (d 0.038)  w_s +0.106 / +0.097
+    broad    share  38.3% /  38.1% (d  0.1 pp)  peak 2.212 / 2.036 (d 0.176)  w_s +0.209 / +0.208
+    high     share   6.1% /   4.3% (d  1.8 pp)  peak 3.455 / 3.456 (d 0.000)  w_s +0.288 / +0.279
+## R 24 g x1 T 500 f 1   E3 dr0.2 -73.7% dr0.1 -83.4%   drift 4.3e-03 / 3.2e-03   sponge 58% / 65%
+  probe 1.5R   w_tot +0.110 / +0.121  (d 0.011)
+    near-gap share  24.2% /  10.0% (d 14.2 pp)  peak 1.407 / 1.407 (d 0.000)  w_s +0.015 / +0.005
+    mid      share  28.0% /  38.8% (d 10.9 pp)  peak 1.734 / 1.571 (d 0.163)  w_s +0.100 / +0.090
+    broad    share  43.9% /  47.0% (d  3.1 pp)  peak 2.161 / 2.136 (d 0.025)  w_s +0.204 / +0.208
+    high     share   4.0% /   4.2% (d  0.2 pp)  peak 3.430 / 3.418 (d 0.012)  w_s +0.288 / +0.280
+  probe 3.0R   w_tot +0.135 / +0.141  (d 0.006)
+    near-gap share  20.7% /   8.5% (d 12.2 pp)  peak 1.546 / 1.445 (d 0.100)  w_s +0.034 / +0.022
+    mid      share  28.3% /  39.5% (d 11.1 pp)  peak 1.734 / 1.583 (d 0.151)  w_s +0.106 / +0.095
+    broad    share  46.6% /  47.8% (d  1.2 pp)  peak 2.174 / 2.136 (d 0.038)  w_s +0.210 / +0.212
+    high     share   4.4% /   4.2% (d  0.1 pp)  peak 3.430 / 3.518 (d 0.088)  w_s +0.289 / +0.280
+
+VERDICT (pass: shares within 5 pp, peaks within 0.05, total w within 0.02, at both probes): R24 g x1 f0: FAIL; R24 g x1 f1: FAIL
