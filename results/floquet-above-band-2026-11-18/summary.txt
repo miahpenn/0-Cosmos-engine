@@ -1,0 +1,34 @@
+x, mu (amp growth/time), mu*T (per S period), mu/sqrt(x), trace
+   1.50 mu 0 muT 0 mu/sqrt(x) 0 tr 0.82609629
+   2.00 mu 0 muT 0 mu/sqrt(x) 0 tr -0.82112350
+   2.67 mu 0.028715 muT 0.1282 mu/sqrt(x) 0.01757 tr -2.00411092
+   3.00 mu 0.26953 muT 1.169 mu/sqrt(x) 0.1556 tr -2.35124467
+   3.27 mu 0.34642 muT 1.468 mu/sqrt(x) 0.1916 tr -2.56354534
+   4.00 mu 0.46405 muT 1.858 mu/sqrt(x) 0.232 tr -2.92713052
+   5.00 mu 0.54851 muT 2.051 mu/sqrt(x) 0.2453 tr -3.14717167
+   5.33 mu 0.5676 muT 2.079 mu/sqrt(x) 0.2459 tr -3.18151467
+   6.00 mu 0.5987 muT 2.108 mu/sqrt(x) 0.2444 tr -3.21776110
+   8.00 mu 0.65695 muT 2.089 mu/sqrt(x) 0.2323 tr -3.19375674
+  12.00 mu 0.71183 muT 1.935 mu/sqrt(x) 0.2055 tr -3.01121348
+  16.00 mu 0.73842 muT 1.782 mu/sqrt(x) 0.1846 tr -2.84752271
+  24.00 mu 0.76463 muT 1.546 mu/sqrt(x) 0.1561 tr -2.62807817
+  32.00 mu 0.77763 muT 1.381 mu/sqrt(x) 0.1375 tr -2.49568411
+  48.00 mu 0.7906 muT 1.162 mu/sqrt(x) 0.1141 tr -2.34727435
+  64.00 mu 0.79708 muT 1.022 mu/sqrt(x) 0.09963 tr -2.26686718
+ 100.00 mu 0.80407 muT 0.8313 mu/sqrt(x) 0.08041 tr -2.17527261
+ 157.00 mu 0.80858 muT 0.6706 mu/sqrt(x) 0.06453 tr -2.11349441
+ 160.00 mu 0.80873 muT 0.6646 mu/sqrt(x) 0.06394 tr -2.11142647
+METHOD CHECK (inside band, expect ~0): {1.5: 0.0, 2.0: 0.0, 2.67: np.float64(0.02871)}
+(a) SIGN: POSITIVE-ALL | min mu above band 0.2695 at x 3.0
+(b) SOURCE: mu(3.27)=0.3464, 2mu=0.6928; MATCH amplitude reading
+(c) descent from x0=157 to 8/3, H=H_b*sqrt(x/x_b): law | t_total | N_gross | N_net(mu-1.5H) | frac time mu<1.5H | min mu | verdict
+  H_b 0.0057 exact     t    138.4 N_gross      85.7 N_net      82.9 frac_damped 0.00 min_mu 0.09025 -> SATURATES ABOVE
+  H_b 0.0057 dust      t    101.7 N_gross      62.0 N_net      59.9 frac_damped 0.00 min_mu 0.09025 -> SATURATES ABOVE
+  H_b 0.0057 radiation t    152.6 N_gross      93.0 N_net      89.9 frac_damped 0.00 min_mu 0.09025 -> SATURATES ABOVE
+  H_b 0.01 exact     t     78.9 N_gross      48.9 N_net      46.0 frac_damped 0.00 min_mu 0.09025 -> SATURATES ABOVE
+  H_b 0.01 dust      t     58.0 N_gross      35.3 N_net      33.3 frac_damped 0.00 min_mu 0.09025 -> SATURATES ABOVE
+  H_b 0.01 radiation t     87.0 N_gross      53.0 N_net      49.9 frac_damped 0.00 min_mu 0.09025 -> SATURATES ABOVE
+  H_b 0.02 exact     t     39.4 N_gross      24.4 N_net      21.6 frac_damped 0.00 min_mu 0.09025 -> SATURATES ABOVE
+  H_b 0.02 dust      t     29.0 N_gross      17.7 N_net      15.6 frac_damped 0.00 min_mu 0.09025 -> SATURATES ABOVE
+  H_b 0.02 radiation t     43.5 N_gross      26.5 N_net      23.4 frac_damped 0.00 min_mu 0.09025 -> SATURATES ABOVE
+(d) SCALING: mu spread over x=48..160 0.023; mu/sqrt(x) spread 0.785; verdict: mu ~ const (my estimate)
