@@ -12,6 +12,8 @@ CASES = [(24, 1.0, 500.0, 0.0), (24, 1.0, 500.0, 1.0), (12, 8.0, 400.0, 0.0)]
 DRS = (0.2, 0.1)
 if os.environ.get("N2N_FINE"):   # dr 0.1 vs 0.05 on R 24 only (design in the log)
     CASES = CASES[:2]; DRS = (0.1, 0.05)
+    if os.environ.get("N2N_FINE") == "R12":
+        CASES = [(12, 8.0, 400.0, 0.0), (12, 8.0, 400.0, 1.0)]
 
 
 def make(R, gm, T, f, dr):
@@ -40,7 +42,7 @@ def main():
     L = []; verdict = []
     for cs in CASES:
         o2, o1 = res[(cs, DRS[0])], res[(cs, DRS[1])]; ok = True
-        L.append(f"## R {cs[0]} g x{cs[1]:g} T {cs[2]:g} f {cs[3]:g}   E3 dr0.2 {o2['E3']*100:+.1f}% dr0.1 {o1['E3']*100:+.1f}%   drift {o2['drift']:.1e} / {o1['drift']:.1e}"
+        L.append(f"## R {cs[0]} g x{cs[1]:g} T {cs[2]:g} f {cs[3]:g}   E3 dr{DRS[0]} {o2["E3"]*100:+.1f}% dr{DRS[1]} {o1["E3"]*100:+.1f}%   drift {o2['drift']:.1e} / {o1['drift']:.1e}"
                  f"   sponge {o2['sponge']*100:.0f}% / {o1['sponge']*100:.0f}%")
         for j, pn in ((0, 1.5), (1, 3.0)):
             L.append(f"  probe {pn}R   w_tot {o2[('w', j)]:+.3f} / {o1[('w', j)]:+.3f}  (d {abs(o2[('w', j)] - o1[('w', j)]):.3f})")
