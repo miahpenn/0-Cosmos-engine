@@ -78,7 +78,8 @@ def monodromy(x: float, k: float, omega_s: float, *, rtol: float, atol: float):
     multipliers = np.linalg.eigvals(M.astype(complex))
     max_mod = float(np.max(np.abs(multipliers)))
     period = math.pi / omega_s
-    gamma = math.log(max_mod) / period
+    # det(M)=1 implies max_mod >= 1 analytically; clamp roundoff below 1.
+    gamma = max(0.0, math.log(max_mod) / period)
     return {
         "x": x,
         "k": k,
