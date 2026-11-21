@@ -7,6 +7,7 @@
 **Ruler:** chi = r(d - mean), band-passed (rectangular FFT mask), w_stress = int p / int rho, flux = -chi_t chi_r 4 pi, D only.
 
 **Outcome by the rule fixed beforehand: MIXED.**
+> **Update (2026-11-21):** the dr 0.1 / 0.05 checks (#548-#550, results/stone-export-n2n-*, -dr005-*, -r12-dr005-*) fail the resolution rule for R 24 and R 12 f 1. For those, which window is largest (mid vs broad) and the near-gap / mid line positions and split are NOT established; "10 of 12" and "the near-gap line is the stable one" below hold only at dr 0.2. Converged: R 12 f 0 (mid 66-72%), the low-omega total (near-gap + mid), and total w ~0.1-0.14.
 - No window reaches 70% at all offsets. Mid [1.55, 1.9] is the largest window in 10 of 12 runs at 3R (R 24: 39-48%, R 12: 51-73%; R 18 switches to broad [2.0, 2.8] at f = 0.1 and 1).
 - Near-gap [1.35, 1.55] carries 10-28% (3R) / 11-32% (1.5R). Its line is the stable one: peak 1.43-1.49 across f (R 24: 1.432-1.470).
   The mid line is not: peak 1.57-1.84 across f.
