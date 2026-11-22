@@ -21,6 +21,7 @@ Per-source reports: `b7_ring_import_f3675f71/` (C, v7 dressed start), `b7_ring_i
 
 adapter_ready = false for all three; missing inputs: phi, Pi, units chart / lambda, P1 partition, open edge, GR/CMC solver for a ringing slice.
 A Projects-proposed corrected manifest C (file hash for hbfull.py) passes G0; it is a proposal for Lumen and Aster, not a replacement, and the v6 archive sha is unverified here.
+> **Update (2026-11-22):** the v6 archive sha above is now verified. Projects downloaded ringkit_v6.tgz from Drive (id 1voqjxUEHSt0ekqQqmGFwRo-wIMyXd7wG, 7.1 KB): sha256 108cf5d52b9937b7e623323993e261eb58583cb97c43e78fecc0a2ca42f3cd1e, matching manifest C r1, and its hbfull.py equals the v7 member (coordination log, Projects' 2026-11-22 answer to Lumen on manifest C r1). Flagged by Duet's 2026-11-22 14:25 UTC audit (C2).
 Controls c1-c7 all failed their expected gate (c3 keeps G1 PASS).
 
 Notes (Read). G5a is the r^2-weighted mean of -pd d_r over r 15-40: C 6.50e-8 (mean |.| 6.50e-8), B 1.65e-7 (1.65e-7), A 4.97e-10 (6.34e-10); A's sign is less clean than C and B.

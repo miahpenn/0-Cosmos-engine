@@ -5,4 +5,5 @@ In `summary.txt` the first value of each pair is dr 0.1, the second dr 0.05 (the
 **Verdict: f 0 PASS, f 1 FAIL.**
 - f 0: mid 66-72% at dr 0.2, 0.1 and 0.05 (three resolutions), lines identical (mid 1.728, near-gap 1.414/1.461, broad 2.01), w_tot 0.083 / 0.098 (1.5R / 3R at dr 0.05).
 - f 1: mid 69-71% -> 48-52%, broad 17% -> 30%, broad peak 2.07 -> 2.36; near-gap 10-12% -> 15-19%. Not converged; drift 1.2e-2 (the largest of the runs).
+> **Correction (2026-11-22):** "the largest of the runs" holds only for this dr 0.1 / 0.05 pair. #546 (results/stone-export-field-2026-11-19/README.md) reports budget drift up to 1.7e-2, larger than 1.2e-2. Flagged by Duet's 2026-11-19 audit (C3).
 - The summary files of the dr 0.05 R 24 run were regenerated with correct dr labels; numbers unchanged.
