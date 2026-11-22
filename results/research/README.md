@@ -44,3 +44,13 @@ G2-G5 (G1 numbers of a G0-failed source are labelled forensic); H4 tests are par
 
 adapter_ready = false for all. Controls c1-c7 all fail their expected gates. Interpretation limits (Aster): G1d is stored-ledger consistency, not independent
 conservation; G4a validates formula wiring, not the GR constraints; G5a is a sign witness, not a worldtube closure.
+
+## Revision r1h5 (H5 member-path safety, Aster's re-audit of #556)
+
+`summary_r1h5.json` and `_r1h5` report directories: harness commit d680496d (tree 08eddab9), manifest C r1 (74418ebf...), tightened schema
+`research/b7_ring_schemas/b7_ring_source_v1.schema.h5.json` (sha256 8c89c39c..., only the data_member pattern differs from the original
+5e04ab93..., which is kept unmodified). H5: data_member must be a safe basename resolved inside the extracted folder before any read (G0c),
+must be listed in the verified internal MANIFEST.sha256 with the declared digest (new G0h), MANIFEST entries may use sub-folders but never traverse,
+and an unsafe data member loads nothing (G0 FAIL, G1-G7 blocked). Verdicts unchanged: C r1 G0 PASS, G1 PASS, G2-G7 UNTESTED; A, B G0 FAIL (G0e, G0f, G0g;
+G0b and G0h pass). Note: a first draft of the manifest rule used the basename rule and wrongly failed G0b for A and B (their v5 manifest lists
+`v1_offset/...`); fixed before the report was generated.
