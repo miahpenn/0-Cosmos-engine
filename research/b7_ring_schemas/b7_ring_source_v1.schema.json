@@ -1,0 +1,261 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:cosmos:b7:ring-source-v1",
+  "title": "B7 ring source snapshot \u2014 archival contract v1",
+  "description": "Structural validation only. Numerical field, unit, stress and GR admission checks require the audited research harness.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "claim",
+    "source",
+    "slice",
+    "source_dynamics",
+    "evidence"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "b7-ring-source-v1"
+    },
+    "claim": {
+      "const": "candidate_not_admitted"
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "archive_name",
+        "archive_sha256",
+        "manifest_member",
+        "data_member",
+        "data_sha256",
+        "run_label",
+        "code_ref",
+        "environment"
+      ],
+      "properties": {
+        "archive_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "archive_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "manifest_member": {
+          "const": "MANIFEST.sha256"
+        },
+        "data_member": {
+          "type": "string",
+          "pattern": "^[^/][^\\x00]*[.]npz$"
+        },
+        "data_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "run_label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "code_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "environment": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "python",
+            "numpy",
+            "scipy"
+          ],
+          "properties": {
+            "python": {
+              "type": "string",
+              "minLength": 1
+            },
+            "numpy": {
+              "type": "string",
+              "minLength": 1
+            },
+            "scipy": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      }
+    },
+    "slice": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "time",
+        "time_unit",
+        "phase_basis",
+        "radial_grid",
+        "field_keys"
+      ],
+      "properties": {
+        "time": {
+          "type": "number",
+          "minimum": 0
+        },
+        "time_unit": {
+          "const": "mu^-1"
+        },
+        "phase_basis": {
+          "type": "string",
+          "minLength": 1
+        },
+        "radial_grid": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "n_cells",
+            "dr",
+            "r_max",
+            "radius_unit",
+            "centering"
+          ],
+          "properties": {
+            "n_cells": {
+              "type": "integer",
+              "minimum": 8
+            },
+            "dr": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "r_max": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "radius_unit": {
+              "const": "mu^-1"
+            },
+            "centering": {
+              "const": "cell-centred"
+            }
+          }
+        },
+        "field_keys": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "r",
+            "s",
+            "ps",
+            "d",
+            "pd"
+          ],
+          "properties": {
+            "r": {
+              "type": "string",
+              "minLength": 1
+            },
+            "s": {
+              "type": "string",
+              "minLength": 1
+            },
+            "ps": {
+              "type": "string",
+              "minLength": 1
+            },
+            "d": {
+              "type": "string",
+              "minLength": 1
+            },
+            "pd": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      }
+    },
+    "source_dynamics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "potential",
+        "d_sea",
+        "omega_initial",
+        "omega_measured",
+        "omega_uncertainty",
+        "omega_fit_window",
+        "boundary",
+        "state_label"
+      ],
+      "properties": {
+        "potential": {
+          "const": "toy_sd_lambda1_phi_static"
+        },
+        "d_sea": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "omega_initial": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "omega_measured": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "omega_uncertainty": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "omega_fit_window": {
+          "type": "array",
+          "items": {
+            "type": "number",
+            "minimum": 0
+          },
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "boundary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "state_label": {
+          "const": "radiating_quasiperiodic_not_stationary"
+        }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ledger_source",
+        "flux_radii",
+        "known_limitations"
+      ],
+      "properties": {
+        "ledger_source": {
+          "type": "string",
+          "minLength": 1
+        },
+        "flux_radii": {
+          "type": "array",
+          "items": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "known_limitations": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1
+        }
+      }
+    }
+  }
+}

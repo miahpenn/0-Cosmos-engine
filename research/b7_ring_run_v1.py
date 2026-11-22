@@ -39,21 +39,35 @@ def v5_manifest(member, sha, n, dr):
 LEDGER_COL = {"C": 8, "A": 10, "B": 10}
 
 
-def run_source(label, manifest, archive, root):
+def blocked(g, why):
+    return {"gate": g, "result": src.UNTESTED, "checks": [{"check": g + " blocked", "result": src.UNTESTED, "detail": why}]}
+
+
+def run_source(label, manifest, archive, root, schema=None, expected=None):
     keys = manifest["slice"]["field_keys"]
     rep = {"source": label, "data_member": manifest["source"]["data_member"], "data_sha256": manifest["source"]["data_sha256"]}
-    g0 = src.g0_provenance(manifest, archive, root)
+    g0 = src.g0_provenance(manifest, archive, root, schema_path=schema, expected_code_files=expected)
     dp = os.path.join(root, manifest["source"]["data_member"])
     f, d = src.load_slice(dp, keys)
     dr = manifest["slice"]["radial_grid"]["dr"]
     row = src.ledger_row_at(d["rows"], manifest["slice"]["time"], lo=LEDGER_COL[label])
-    gates = {"G0": g0, "G1": src.g1_snapshot(f, manifest, row), "G2": mp.g2_mapping(f, dr, row),
-             "G3": mp.g3_population(), "G4": con.g4_gr_initial_data(f, dr), "G5": mp.g5_boundary(f, dr),
-             "G6": {"gate": "G6", "result": src.UNTESTED, "checks": [{"check": "same-source dressed BVP at measured omega", "result": src.UNTESTED,
-                    "detail": "not implemented; dressed energies 176.38 vs 181.69 (E-matched omega) recorded as not closed by Aster"}]},
-             "G7": {"gate": "G7", "result": src.UNTESTED, "checks": [{"check": "dynamics", "result": src.UNTESTED, "detail": "not authorised"}]}}
+    g1 = src.g1_snapshot(f, manifest, row)
+    gates = {"G0": g0, "G1": g1}
+    if g0["result"] == src.FAIL:
+        rep["forensic_only"] = "G0 failed: the G1 numbers are forensic diagnostics, not evidence for mapping or admission"
+    if g0["result"] == src.FAIL or g1["result"] == src.FAIL:
+        why = "blocked: G0/G1 failed; no mapping computed"
+        for g in ("G2", "G3", "G4", "G5"):
+            gates[g] = blocked(g, why)
+    else:
+        gates.update({"G2": mp.g2_mapping(f, dr, row), "G3": mp.g3_population(), "G4": con.g4_gr_initial_data(f, dr),
+                      "G5": mp.g5_boundary(f, dr)})
+    gates["G6"] = {"gate": "G6", "result": src.UNTESTED, "checks": [{"check": "same-source dressed BVP at measured omega",
+                   "result": src.UNTESTED, "detail": "not implemented in this harness; the v5 dressed2 energy comparison is superseded "
+                   "by v6/v7; nothing inferred"}]}
+    gates["G7"] = {"gate": "G7", "result": src.UNTESTED, "checks": [{"check": "dynamics", "result": src.UNTESTED, "detail": "not authorised"}]}
     rep["gates"] = gates
-    rep["adapter"] = mp.adapter_status()
+    rep["adapter"] = mp.adapter_status(None, gates)
     rep["fingerprint_sha256"] = src.fingerprint(f)
     rep["ledger_row_t300"] = row
     return rep, f, d, row, dr
@@ -97,40 +111,48 @@ def controls(manifest, archive, root, f, row, dr):
     return out
 
 
-def main(v7, v5, mc, outdir):
+def git_ids():
+    import subprocess
+    try:
+        c = subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip()
+        t = subprocess.run(["git", "rev-parse", "HEAD^{tree}"], capture_output=True, text=True).stdout.strip()
+        return {"commit": c, "tree": t}
+    except OSError:
+        return {"commit": "unknown", "tree": "unknown"}
+
+
+SCHEMA = os.path.join(os.path.dirname(os.path.abspath(__file__)), "b7_ring_schemas", "b7_ring_source_v1.schema.json")
+C_EXPECTED = ("dressed_run.py", "evo.py", "hbfull.py")
+
+
+def main(v7, v5, mc, outdir, tag=""):
     manifestC = json.load(open(mc))
-    results = {"runtime": src.environment_report(), "inputs": {"v7": src.sha256_file(v7), "v5": src.sha256_file(v5),
-               "manifestC": src.sha256_file(mc)}, "sources": {}, "controls": {}}
+    results = {"runtime": src.environment_report(), "harness": git_ids(), "tag": tag,
+               "inputs": {"v7": src.sha256_file(v7), "v5": src.sha256_file(v5), "manifestC": src.sha256_file(mc),
+                          "schema": src.sha256_file(SCHEMA)}, "sources": {}, "controls": {}}
     with tempfile.TemporaryDirectory() as t7, tempfile.TemporaryDirectory() as t5:
         r7 = os.path.join(src.safe_extract(v7, t7), "ringkit_v7")
         r5 = os.path.join(src.safe_extract(v5, t5), "ringkit")
-        runs = {"C": (manifestC, v7, r7)}
+        runs = {"C": (manifestC, v7, r7, C_EXPECTED)}
         for k, (mem, sha, n, dr) in V5_SOURCES.items():
-            runs[k] = (v5_manifest(mem, sha, n, dr), v5, r5)
-        for k, (m, arch, root) in runs.items():
-            rep, f, d, row, dr = run_source(k, m, arch, root)
+            runs[k] = (v5_manifest(mem, sha, n, dr), v5, r5, None)
+        for k, (m, arch, root, exp) in runs.items():
+            rep, f, d, row, dr = run_source(k, m, arch, root, SCHEMA, exp)
             if k == "C":
-                # Projects-PROPOSED corrected code_ref (file hash of hbfull.py; v6 archive sha is unverified here)
-                mc2 = copy.deepcopy(m)
-                hb = src.sha256_file(os.path.join(root, "hbfull.py"))
-                mc2["source"]["code_ref"] = m["source"]["code_ref"].replace("108cf5d52b9937b7e623323993e261eb58583cb97c43e78fecc0a2ca42f3cd1e", hb)
-                g = src.g0_provenance(mc2, arch, root)
-                rep["proposed_corrected_manifest_G0"] = {"result": g["result"], "note": "Projects-proposed only; hbfull.py file sha " + hb +
-                                                         "; ringkit_v6.tgz sha 108cf5d5... listed by Lumen, not verified by Projects (archive not held)"}
                 results["controls"] = controls(m, arch, root, f, row, dr)
-                results["controls_ran_on"] = "C"
-                if row is not None:
-                    rep["ledger_row_t300"] = row
+                results["controls_ran_on"] = "C" + ("" if rep["gates"]["G0"]["result"] == src.PASS else " (forensic: G0 failed)")
             results["sources"][k] = rep
     pre = {"C": "f3675f71", "A": "4b3155a5", "B": "af0b7653"}
+    sfx = ("_" + tag) if tag else ""
     for k, rep in results["sources"].items():
-        od = os.path.join(outdir, "b7_ring_import_" + pre[k])
+        od = os.path.join(outdir, "b7_ring_import_" + pre[k] + sfx)
         os.makedirs(od, exist_ok=True)
-        json.dump({"runtime": results["runtime"], "inputs": results["inputs"], **rep,
-                   **({"controls": results["controls"]} if k == "C" else {})}, open(os.path.join(od, "report.json"), "w"), indent=1, default=str)
-    json.dump(results, open(os.path.join(outdir, "summary.json"), "w"), indent=1, default=str)
+        json.dump({"runtime": results["runtime"], "harness": results["harness"], "inputs": results["inputs"], **rep,
+                   **({"controls": results["controls"], "controls_ran_on": results["controls_ran_on"]} if k == "C" else {})},
+                  open(os.path.join(od, "report.json"), "w"), indent=1, default=str)
+    json.dump(results, open(os.path.join(outdir, "summary%s.json" % sfx), "w"), indent=1, default=str)
     return results
 
 
 if __name__ == "__main__":
-    main(*sys.argv[1:5])
+    main(*sys.argv[1:6])

@@ -80,7 +80,7 @@ def safe_extract(tgz, dest):
     return dest
 
 
-def g0_provenance(manifest, archive_path, member_root, env_required=True):
+def g0_provenance(manifest, archive_path, member_root, env_required=True, schema_path=None, expected_code_files=None):
     """G0. manifest = parsed source manifest (b7-ring-source-v1); member_root = extracted folder holding the members."""
     src = manifest["source"]
     cs = []
@@ -96,20 +96,50 @@ def g0_provenance(manifest, archive_path, member_root, env_required=True):
     have = list(np.load(dp).keys()) if os.path.isfile(dp) else []
     miss = [k for k in want if k not in have]
     cs.append(check("G0d declared field keys present", not miss, "missing: %s" % miss))
-    # G0e: code_ref names '<file>.py sha256=<64 hex>'; each named file present in member_root must hash to it.
+    # G0e (H2): code_ref must cite a non-empty, exact, duplicate-free list of '<file>.py ... sha256=<64 hex>' refs. Every
+    # 'sha256=' in code_ref must parse, each file must exist in the member folder with a safe name and match in full, and
+    # every expected file (if given) must be cited. Zero refs is FAIL.
     import re
-    refs = re.findall(r"([\w.]+\.py)[^;]*?sha256=([0-9a-f]{8,64})", src.get("code_ref", ""))
-    bad_ref = []
+    cr = src.get("code_ref", "") or ""
+    refs = re.findall(r"([^\s;()]+\.py)\b[^;]*?sha256=([0-9a-fA-F]+)", cr)
+    n_sha = len(re.findall(r"sha256=", cr))
+    probs = []
+    if not refs:
+        probs.append("no code refs parsed")
+    if len(refs) != n_sha:
+        probs.append("%d 'sha256=' but %d parsed refs" % (n_sha, len(refs)))
+    names = [x[0] for x in refs]
+    if len(set(names)) != len(names):
+        probs.append("duplicate refs")
     for fname, sha in refs:
+        if "/" in fname or "\\" in fname or ".." in fname or os.path.isabs(fname):
+            probs.append("unsafe member name " + fname)
+            continue
+        if len(sha) != 64:
+            probs.append("%s: digest is %d hex, not 64" % (fname, len(sha)))
+            continue
         p = os.path.join(member_root, fname)
-        if os.path.isfile(p):
-            actual = sha256_file(p)
-            if not actual.startswith(sha):
-                bad_ref.append("%s: cited %s... actual %s..." % (fname, sha[:8], actual[:8]))
-    cs.append(check("G0e code_ref file hashes equal member hashes", not bad_ref, "; ".join(bad_ref) or "%d refs" % len(refs)))
+        if not os.path.isfile(p):
+            probs.append(fname + ": member file missing")
+        elif sha256_file(p) != sha.lower():
+            probs.append("%s: cited %s... actual %s..." % (fname, sha[:8], sha256_file(p)[:8]))
+    for fname in (expected_code_files or ()):
+        if fname not in names:
+            probs.append("expected file not cited: " + fname)
+    cs.append(check("G0e code_ref: non-empty exact file hashes, all members match", not probs, "; ".join(probs) or "%d refs" % len(refs)))
     env = src.get("environment", "unknown")
     env_ok = isinstance(env, dict) and all(v not in (None, "", "unknown") for v in env.values())
     cs.append(check("G0f source environment recorded", env_ok or not env_required, str(env)))
+    # G0g (H3): the manifest must validate against the b7-ring-source-v1 schema (Draft 2020-12). No schema = UNTESTED.
+    if schema_path is None:
+        cs.append({"check": "G0g manifest validates against b7-ring-source-v1 schema", "result": UNTESTED, "detail": "no schema supplied"})
+    else:
+        try:
+            import jsonschema
+            jsonschema.Draft202012Validator(json.load(open(schema_path))).validate(manifest)
+            cs.append(check("G0g manifest validates against b7-ring-source-v1 schema", True, "schema sha256 " + sha256_file(schema_path)[:16]))
+        except Exception as e:  # noqa: BLE001 - any failure to validate is a FAIL
+            cs.append(check("G0g manifest validates against b7-ring-source-v1 schema", False, str(e).splitlines()[0][:200]))
     return {"gate": "G0", "result": gate_result(cs), "checks": cs}
 
 

@@ -88,7 +88,18 @@ def g5_boundary(f, dr, destination=None, claim_isolated_escape=False):
     return {"gate": "G5", "result": gate_result(cs), "checks": cs}
 
 
-def adapter_status(destination=None):
-    have = set((destination or {}).keys())
-    miss = [k for k in REQUIRED_DESTINATION if k not in have]
-    return {"adapter_ready": not miss, "missing_inputs": miss}
+def adapter_status(destination=None, gates=None):
+    """H1: ready only if all six destination fields are present AND non-empty AND G0-G6 are all PASS in gates."""
+    dest = destination or {}
+
+    def filled(v):
+        if v is None:
+            return False
+        try:
+            return len(v) > 0
+        except TypeError:
+            return True
+
+    miss = [k for k in REQUIRED_DESTINATION if not filled(dest.get(k))]
+    not_pass = [g for g in ("G0", "G1", "G2", "G3", "G4", "G5", "G6") if (gates or {}).get(g, {}).get("result") != PASS]
+    return {"adapter_ready": not miss and not not_pass, "missing_inputs": miss, "gates_not_pass": not_pass}

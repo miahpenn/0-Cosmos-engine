@@ -78,17 +78,76 @@ def test_adapter_not_ready_without_destination():
     assert a["adapter_ready"] is False and set(a["missing_inputs"]) == set(mp.REQUIRED_DESTINATION)
 
 
-ARCH = all(k in os.environ for k in ("B7_V7_TGZ", "B7_V5_TGZ", "B7_MANIFEST_C"))
+def test_h1_keys_alone_never_unlock_adapter():
+    keys_none = {k: None for k in mp.REQUIRED_DESTINATION}
+    keys_empty = {k: [] for k in mp.REQUIRED_DESTINATION}
+    full = {k: [1.0] for k in mp.REQUIRED_DESTINATION}
+    allpass = {g: {"result": src.PASS} for g in ("G0", "G1", "G2", "G3", "G4", "G5", "G6")}
+    untested = dict(allpass, G4={"result": src.UNTESTED})
+    assert not mp.adapter_status(keys_none, allpass)["adapter_ready"]
+    assert not mp.adapter_status(keys_empty, allpass)["adapter_ready"]
+    assert not mp.adapter_status(full, untested)["adapter_ready"]
+    assert not mp.adapter_status(full, None)["adapter_ready"]
+    assert mp.adapter_status(full, allpass)["adapter_ready"]            # synthetic only
 
 
-@pytest.mark.skipif(not ARCH, reason="source archives not supplied (B7_V7_TGZ, B7_V5_TGZ, B7_MANIFEST_C)")
-def test_real_sources_expected_outcomes(tmp_path):
+def _g0(tmp_path, code_ref, files=None, schema=None):
+    root = tmp_path / "m"
+    root.mkdir(parents=True)
+    (root / "MANIFEST.sha256").write_text("")
+    arch = tmp_path / "a.tgz"
+    arch.write_bytes(b"x")
+    npz = root / "d.npz"
+    np.savez(npz, r=np.zeros(1), t300_s=np.zeros(1), t300_ps=np.zeros(1), t300_d=np.zeros(1), t300_pd=np.zeros(1))
+    for n, c in (files or {}).items():
+        (root / n).write_text(c)
+    m = {"source": {"archive_sha256": src.sha256_file(arch), "data_member": "d.npz", "data_sha256": src.sha256_file(npz),
+                    "code_ref": code_ref, "environment": {"python": "3", "numpy": "2", "scipy": "1"}},
+         "slice": {"field_keys": {"r": "r", "s": "t300_s", "ps": "t300_ps", "d": "t300_d", "pd": "t300_pd"}}}
+    g = src.g0_provenance(m, str(arch), str(root), schema_path=schema, expected_code_files=("a.py",))
+    return {c["check"][:3]: c["result"] for c in g["checks"]}
+
+
+def test_h2_code_ref_is_fail_closed(tmp_path):
+    h = src.sha256_bytes(b"print(1)")
+    ok = _g0(tmp_path / "1", "a.py sha256=" + h, {"a.py": "print(1)"})
+    assert ok["G0e"] == src.PASS
+    assert _g0(tmp_path / "2", "", {"a.py": "print(1)"})["G0e"] == src.FAIL                       # zero refs
+    assert _g0(tmp_path / "3", "a.py sha256=" + h, {})["G0e"] == src.FAIL                          # member missing
+    assert _g0(tmp_path / "4", "a.py sha256=" + h + "; a.py sha256=" + h, {"a.py": "print(1)"})["G0e"] == src.FAIL   # duplicate
+    assert _g0(tmp_path / "5", "a.py sha256=" + h[:12], {"a.py": "print(1)"})["G0e"] == src.FAIL   # short digest
+    assert _g0(tmp_path / "6", "a.py sha256=" + h + "; dep sha256=" + h, {"a.py": "print(1)"})["G0e"] == src.FAIL  # unparsed ref
+    assert _g0(tmp_path / "7", "b.py sha256=" + h, {"b.py": "print(1)"})["G0e"] == src.FAIL        # expected a.py not cited
+    assert _g0(tmp_path / "8", "../a.py sha256=" + h, {"a.py": "print(1)"})["G0e"] == src.FAIL     # unsafe name
+
+
+def test_h3_schema_enforced_and_unsupplied_is_untested(tmp_path):
+    h = src.sha256_bytes(b"print(1)")
+    sch = os.path.join("research", "b7_ring_schemas", "b7_ring_source_v1.schema.json")
+    r = _g0(tmp_path / "1", "a.py sha256=" + h, {"a.py": "print(1)"}, schema=sch)
+    assert r["G0g"] == src.FAIL                                    # minimal manifest lacks required schema fields
+    assert _g0(tmp_path / "2", "a.py sha256=" + h, {"a.py": "print(1)"})["G0g"] == src.UNTESTED
+
+
+ARCH = all(k in os.environ for k in ("B7_V7_TGZ", "B7_V5_TGZ", "B7_MANIFEST_C_R0", "B7_MANIFEST_C_R1"))
+
+
+@pytest.mark.skipif(not ARCH, reason="archives/manifests not supplied (B7_V7_TGZ, B7_V5_TGZ, B7_MANIFEST_C_R0, B7_MANIFEST_C_R1)")
+@pytest.mark.parametrize("rev", ["R0", "R1"])
+def test_real_sources_expected_outcomes(tmp_path, rev):
     from research import b7_ring_run_v1 as run
-    res = run.main(os.environ["B7_V7_TGZ"], os.environ["B7_V5_TGZ"], os.environ["B7_MANIFEST_C"], str(tmp_path))
+    res = run.main(os.environ["B7_V7_TGZ"], os.environ["B7_V5_TGZ"], os.environ["B7_MANIFEST_C_" + rev], str(tmp_path), rev.lower())
     c = res["sources"]["C"]["gates"]
-    assert c["G0"]["result"] == src.FAIL and [x for x in c["G0"]["checks"] if x["result"] == src.FAIL][0]["check"].startswith("G0e")
-    assert res["sources"]["C"]["proposed_corrected_manifest_G0"]["result"] == src.PASS
+    if rev == "R0":                                     # historical: only the code_ref check fails
+        assert c["G0"]["result"] == src.FAIL
+        assert [x["check"][:3] for x in c["G0"]["checks"] if x["result"] == src.FAIL] == ["G0e"]
+        assert c["G2"]["result"] == src.UNTESTED and "blocked" in c["G2"]["checks"][0]["check"]
+    else:
+        assert c["G0"]["result"] == src.PASS and c["G1"]["result"] == src.PASS
     for k in "ABC":
         g = res["sources"][k]["gates"]
-        assert g["G1"]["result"] == src.PASS and g["G4"]["result"] != src.PASS and not res["sources"][k]["adapter"]["adapter_ready"]
+        assert g["G4"]["result"] != src.PASS and not res["sources"][k]["adapter"]["adapter_ready"]
+    for k in "AB":
+        assert res["sources"][k]["gates"]["G0"]["result"] == src.FAIL and "G2" in res["sources"][k]["gates"]
+        assert "blocked" in res["sources"][k]["gates"]["G2"]["checks"][0]["check"]
     assert all(x["as_expected"] for x in res["controls"])
