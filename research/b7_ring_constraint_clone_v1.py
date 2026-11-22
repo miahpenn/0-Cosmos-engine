@@ -2,7 +2,7 @@
 
 Same arithmetic and operation order as the engine loop, with the momentum density j = -(PD D_r) extended by -(PS S_r) (flag),
 and K_t = 0 as a labelled research-only isolated option (flag). Engine functions are imported read-only; nothing in
-engine/ or vendor/ is changed. Design and expected verdicts: Project doc claude/b7-w2-constraint-clone-design.md.
+engine/ or vendor/ is changed. Design and expected verdicts: DESIGN-B7-W2-constraint-clone-Nov22-2026 (Drive 1NWGcJBlGXomhKRusAx-cp2Zf0uwcLhwavIsoMD1UsaM).
 """
 import math
 

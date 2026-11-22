@@ -48,6 +48,7 @@ A uniform region of S–D matter at the saddle, D_s held out, S ringing with tur
 - **B.** A stiff component dominates (the archive's w = 1 contraction). The archive's band 0.139–0.373 unchanged.
   S–D matter's share s is unknown, so the result is κ*/λ* ÷ s (κ*/λ* = value × s).
 - **C.** The literal balance H = ω_S (S's clock at the saddle, 1.21–1.41).
+  > Pointer (Nov 22): in-band omega_S is 1.22-1.41, not 1.21-1.41 (Lumen's AUDIT-6 reply, C5; core sheet v3's omega_S^2 = 1 + 0.375x at x = 4/3).
 
 The clock-stop rule generalised (**Derived**): in a contraction with H = −p/τ, p = 2/(3(1 + w)), S rings as
 τ^(−ν)[c₁J_ν(τ) + c₂Y_ν(τ)], ν = (3p − 1)/2. The archive's band is p/j_ν1 to p/y_ν1. At w = 1 that reproduces

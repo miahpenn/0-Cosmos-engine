@@ -185,6 +185,7 @@ Native clock: 2, S's mass with D_s at rest, in **local** proper time (lapse take
   No clean clock.
 - **Without D (control):** one line at 1.00–1.02. Matter's clock is set by D's state: 1 with no D, 1.21–1.41 at the
   saddle with D_s held out (the band), 2 in the sea.
+  > Pointer (Nov 22): in-band omega_S is 1.22-1.41, not 1.21-1.41 (Lumen's AUDIT-6 reply, C5; core sheet v3's omega_S^2 = 1 + 0.375x at x = 4/3).
 - **Limits:** lines closer than about 18% are not resolved; a Lamé gap structure finer than that is untested. The
   phase wander's own spectrum has its strongest line at 1.36–1.44 near the pocket (D's mass √2: D_r ringing modulates
   S's phase, weakly) and near 1.9 farther out.

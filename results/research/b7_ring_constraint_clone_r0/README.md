@@ -1,6 +1,6 @@
 # B7 W2 constraint-reconstruction clone, run r0 (RESEARCH ONLY)
 
-Design/thresholds fixed beforehand: Project doc `claude/b7-w2-constraint-clone-design.md`. Engine read-only; no engine/ or vendor/ change.
+Design/thresholds fixed beforehand: DESIGN-B7-W2-constraint-clone-Nov22-2026 (Drive 1NWGcJBlGXomhKRusAx-cp2Zf0uwcLhwavIsoMD1UsaM). Engine read-only; no engine/ or vendor/ change.
 Ring = source C t300 (sha f3675f71...) on a **placeholder chart** (S=s/sqrt(lambda), D=d/sqrt(lambda), u=1; not the engine ring; W1 pending), truncated at r_max=60 (toy domain 120). No time evolution.
 
 | Check | Result |
