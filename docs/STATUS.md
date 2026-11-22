@@ -1,5 +1,7 @@
 # LIVE readiness overlay — reconciled 18 November 2026 UTC after PR #523
 
+> **Header pointer (2026-11-22):** main is now at PR #558 (923b4ec). This overlay was reconciled after #523 and has not been re-reconciled for #524-#558; the "Current main" line below is that snapshot, not today's main. For later results see results/research/README.md (#555-#558), the results/ folders of #524-#554, and the coordination log (Drive 1xj250uqmn2YnZXgH2M1LDME4eZUBsFz2TQEKy_LzlZk). Flagged by Duet's 2026-11-19 audit (C2).
+
 > **Current main:** after the merge of PR #516 (#510–#515 merged). `scientific_admission=false`;
 > `acceptance_oracle_satisfied=false`. Nothing below changes either flag. The 10 November overlay that follows is kept as
 > the prior record; where the two conflict, this one is current (notably: production's λ is no longer 0, and the default
