@@ -129,6 +129,77 @@ def test_h3_schema_enforced_and_unsupplied_is_untested(tmp_path):
     assert _g0(tmp_path / "2", "a.py sha256=" + h, {"a.py": "print(1)"})["G0g"] == src.UNTESTED
 
 
+def _h5(tmp_path, data_member, in_manifest=True, symlink_to=None, bad_manifest_name=False):
+    root = tmp_path / "m"
+    root.mkdir(parents=True)
+    arch = tmp_path / "a.tgz"
+    arch.write_bytes(b"x")
+    outside = tmp_path / "outside.npz"
+    z = dict(r=np.zeros(1), t300_s=np.zeros(1), t300_ps=np.zeros(1), t300_d=np.zeros(1), t300_pd=np.zeros(1))
+    np.savez(outside, **z)
+    inner = root / "d.npz"
+    np.savez(inner, **z)
+    if symlink_to:
+        (root / "link.npz").symlink_to(tmp_path / symlink_to)
+    lines = ["%s  d.npz" % src.sha256_file(inner)] if in_manifest else []
+    if bad_manifest_name:
+        lines.append("%s  ../outside.npz" % src.sha256_file(outside))
+    (root / "MANIFEST.sha256").write_text("\n".join(lines) + "\n")
+    ref = data_member if not os.path.isabs(data_member) else data_member
+    target = (root / "d.npz") if data_member in ("d.npz", "link.npz") else outside
+    m = {"source": {"archive_sha256": src.sha256_file(arch), "data_member": ref, "data_sha256": src.sha256_file(target),
+                    "code_ref": "", "environment": {"python": "3", "numpy": "2", "scipy": "1"}},
+         "slice": {"field_keys": {"r": "r", "s": "t300_s", "ps": "t300_ps", "d": "t300_d", "pd": "t300_pd"}}}
+    sch = os.path.join("research", "b7_ring_schemas", "b7_ring_source_v1.schema.h5.json")
+    g = src.g0_provenance(m, str(arch), str(root), schema_path=sch)
+    r = {c["check"][:3]: c["result"] for c in g["checks"]}
+    return g["result"], r, str(outside)
+
+
+def test_h5_traversal_absolute_and_nested_names_fail_g0(tmp_path):
+    for i, name in enumerate(["../outside.npz", "nested/../d.npz", "nested/d.npz", "..", ".hidden.npz"]):
+        res, r, _ = _h5(tmp_path / str(i), name)
+        assert res == src.FAIL and r["G0c"] == src.FAIL and r["G0h"] == src.FAIL, (name, r)
+        assert r["G0g"] == src.FAIL, (name, r)
+    p = str(tmp_path / "x" / "outside.npz")
+    res, r, out = _h5(tmp_path / "x", p)
+    assert res == src.FAIL and r["G0c"] == src.FAIL and r["G0h"] == src.FAIL
+
+
+def test_h5_member_must_be_in_internal_manifest(tmp_path):
+    res, r, _ = _h5(tmp_path / "a", "d.npz", in_manifest=True)
+    assert r["G0c"] == src.PASS and r["G0h"] == src.PASS
+    res, r, _ = _h5(tmp_path / "b", "d.npz", in_manifest=False)
+    assert r["G0c"] == src.PASS and r["G0h"] == src.FAIL and res == src.FAIL
+
+
+def test_h5_symlink_escaping_the_folder_fails(tmp_path):
+    res, r, _ = _h5(tmp_path / "s", "link.npz", symlink_to="outside.npz")
+    assert r["G0c"] == src.FAIL and res == src.FAIL
+
+
+def test_h5_unsafe_name_inside_manifest_fails_g0b(tmp_path):
+    res, r, _ = _h5(tmp_path / "u", "d.npz", bad_manifest_name=True)
+    assert r["G0b"] == src.FAIL and res == src.FAIL
+
+
+def test_h5_manifest_allows_subfolders_but_not_traversal(tmp_path):
+    root = tmp_path / "m"
+    (root / "sub").mkdir(parents=True)
+    (root / "sub" / "x.npy").write_bytes(b"1")
+    assert src.safe_relative_path(str(root), "sub/x.npy") is not None
+    for bad in ("../x", "sub/../../x", "/etc/passwd", "sub//x", "./x", "", "a\\b"):
+        assert src.safe_relative_path(str(root), bad) is None, bad
+
+
+def test_h5_outside_file_is_never_read(tmp_path, monkeypatch):
+    seen = []
+    real = np.load
+    monkeypatch.setattr(np, "load", lambda p, *a, **k: (seen.append(str(p)), real(p, *a, **k))[1])
+    res, r, outside = _h5(tmp_path, "../outside.npz")
+    assert res == src.FAIL and not any(x.endswith("outside.npz") for x in seen)
+
+
 ARCH = all(k in os.environ for k in ("B7_V7_TGZ", "B7_V5_TGZ", "B7_MANIFEST_C_R0", "B7_MANIFEST_C_R1"))
 
 
@@ -146,6 +217,7 @@ def test_real_sources_expected_outcomes(tmp_path, rev):
         assert c["G0"]["result"] == src.PASS and c["G1"]["result"] == src.PASS
     for k in "ABC":
         g = res["sources"][k]["gates"]
+        assert [x for x in g["G0"]["checks"] if x["check"].startswith("G0h")][0]["result"] == src.PASS
         assert g["G4"]["result"] != src.PASS and not res["sources"][k]["adapter"]["adapter_ready"]
     for k in "AB":
         assert res["sources"][k]["gates"]["G0"]["result"] == src.FAIL and "G2" in res["sources"][k]["gates"]
