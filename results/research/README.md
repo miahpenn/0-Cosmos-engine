@@ -1,0 +1,28 @@
+# B7 ring source harness (research only, Nov 22 2026)
+
+Scripts: `research/b7_ring_source_v1.py` (G0, G1), `b7_ring_mapping_v1.py` (G2, G3, G5), `b7_ring_constraint_v1.py` (G4),
+`b7_ring_run_v1.py` (driver), tests `tests/research/test_b7_ring_contract.py`. Design, gates, tolerances and the
+expected failing gate of every control were logged before the run (coordination log, 2026-11-22, Projects, "B7 RESEARCH-ONLY
+HARNESS"). Nothing in `engine/` or `vendor/` changed; no engine run; no G7; no admission. Source archives and arrays are not
+committed: hashes only. Run: `python research/b7_ring_run_v1.py V7.tgz V5.tgz MANIFEST_C.json results/research`.
+
+Inputs (hashed here): ringkit_v7.tgz b4e5bc07...807840a; ringkit_v5.tgz dd4f468e...c9f4; manifest C JSON. Runtime: Python 3.13.18, NumPy 2.5.3, SciPy 1.18.1.
+Per-source reports: `b7_ring_import_f3675f71/` (C, v7 dressed start), `b7_ring_import_4b3155a5/` (A, run_w1917_dr0025), `b7_ring_import_af0b7653/` (B, run_w1877_dr005); `summary.json` has all of it.
+
+| Gate | C (v7 dressed) | A (v5 1.917) | B (v5 1.877) |
+|---|---|---|---|
+| G0 provenance | FAIL: G0e (manifest cites the v6 archive sha 108cf5d5 for hbfull.py; the file is 752d7e5e); G0a-d, f pass | FAIL: G0f (no source environment recorded); G0a-e pass | same as A |
+| G1 snapshot | PASS (energy ledger identity, relative error 0 at t = 300) | PASS | PASS |
+| G2 mapping | UNTESTED (G2a stress-source identity PASS; G2b needs a destination chart) | same | same |
+| G3 population | UNTESTED (no signed P1 partition) | same | same |
+| G4 GR initial data | UNTESTED (G4a momentum density PASS; no engine solver path for a ringing slice) | same | same |
+| G5 boundary | UNTESTED (G5a outgoing sign PASS; no destination edge or worldtube) | same | same |
+| G6, G7 | UNTESTED | UNTESTED | UNTESTED |
+
+adapter_ready = false for all three; missing inputs: phi, Pi, units chart / lambda, P1 partition, open edge, GR/CMC solver for a ringing slice.
+A Projects-proposed corrected manifest C (file hash for hbfull.py) passes G0; it is a proposal for Lumen and Aster, not a replacement, and the v6 archive sha is unverified here.
+Controls c1-c7 all failed their expected gate (c3 keeps G1 PASS).
+
+Notes (Read). G5a is the r^2-weighted mean of -pd d_r over r 15-40: C 6.50e-8 (mean |.| 6.50e-8), B 1.65e-7 (1.65e-7), A 4.97e-10 (6.34e-10); A's sign is less clean than C and B.
+The ledger column of E(<15) is 8 for v7 (evo.py:31) and 10 for v5 run_ files (ringkit README.txt:3). The first run used 8 for all three and showed a G1d/G2a mismatch on A and B; the documented v5 column fixed it. No tolerance changed.
+The engine paths inspected for G4 are listed with file:line in `b7_ring_constraint_v1.py` (`ENGINE_PATHS_INSPECTED`); engine/v55_initial.py:246 (PS = 0) and :254 (j = -PD Dp) are incompatible with a ringing slice.
