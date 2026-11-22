@@ -26,3 +26,21 @@ Controls c1-c7 all failed their expected gate (c3 keeps G1 PASS).
 Notes (Read). G5a is the r^2-weighted mean of -pd d_r over r 15-40: C 6.50e-8 (mean |.| 6.50e-8), B 1.65e-7 (1.65e-7), A 4.97e-10 (6.34e-10); A's sign is less clean than C and B.
 The ledger column of E(<15) is 8 for v7 (evo.py:31) and 10 for v5 run_ files (ringkit README.txt:3). The first run used 8 for all three and showed a G1d/G2a mismatch on A and B; the documented v5 column fixed it. No tolerance changed.
 The engine paths inspected for G4 are listed with file:line in `b7_ring_constraint_v1.py` (`ENGINE_PATHS_INSPECTED`); engine/v55_initial.py:246 (PS = 0) and :254 (j = -PD Dp) are incompatible with a ringing slice.
+
+## Revision r1 (hardening H1-H4, Aster's audit; same day)
+
+The r0 results above (manifest r0, harness a1307779) are unchanged. `summary_r1.json` and the `_r1` report directories come from
+harness commit a62b0ab1 (tree 9e76158e) with Lumen's corrected manifest C r1 (file sha256 74418ebf...5275d041), schema sha256 5e04ab93...ed63a86
+(`research/b7_ring_schemas/`), Python 3.13.18, NumPy 2.5.3, SciPy 1.18.1. Changes (no tolerance or physics change):
+H1 `adapter_status` needs six non-empty destination fields and G0-G6 all PASS; H2 G0e requires a non-empty, exact, duplicate-free list of
+full 64-hex file hashes, every member present, every expected file cited; H3 G0g validates the manifest against the schema, and G0/G1 failure blocks
+G2-G5 (G1 numbers of a G0-failed source are labelled forensic); H4 tests are parametrised r0 (G0 FAIL at G0e only) and r1 (G0 PASS), G6 text updated.
+
+| Gate | C r1 | A | B |
+|---|---|---|---|
+| G0 | PASS (G0a-g) | FAIL (G0e no code refs, G0f no environment, G0g schema: source_dynamics missing) | same as A |
+| G1 | PASS | PASS (forensic) | PASS (forensic) |
+| G2-G6 | UNTESTED (G2a, G4a, G5a sub-checks PASS) | blocked | blocked |
+
+adapter_ready = false for all. Controls c1-c7 all fail their expected gates. Interpretation limits (Aster): G1d is stored-ledger consistency, not independent
+conservation; G4a validates formula wiring, not the GR constraints; G5a is a sign witness, not a worldtube closure.

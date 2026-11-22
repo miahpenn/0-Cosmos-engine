@@ -1,0 +1,183 @@
+{
+ "runtime": {
+  "python": "3.13.18",
+  "numpy": "2.5.3",
+  "scipy": "1.18.1",
+  "platform": "Linux-6.18.44-fc-v726-x86_64-with-glibc2.39",
+  "argv0": "b7_ring_run_v1.py"
+ },
+ "harness": {
+  "commit": "a62b0ab1182c749a7bf39655121718e58fb0a34b",
+  "tree": "9e76158e2f64ed1f6223d74bdfa95761cb1e1f8a"
+ },
+ "inputs": {
+  "v7": "b4e5bc0736f6f4c4e9a418530b25fe809a0c6b88bbe3dfb23e1c5c724807840a",
+  "v5": "dd4f468edbd5438229e02af189cc89f9265cbb2477b71af163ef8c4b0374c9f4",
+  "manifestC": "74418ebfcdbe30766eac3514bfb7895054635d8acc6c2c90ed16b18d5275d041",
+  "schema": "5e04ab93edab14b4b81dab7a0d8d59cf4ede83d2ac81887aa9c9921b4ed63a86"
+ },
+ "source": "A",
+ "data_member": "run_w1917_dr0025.npz",
+ "data_sha256": "4b3155a5ad423c18d3cf622f34882f96f6cf7fd536b19053aa497bcd76b93df9",
+ "forensic_only": "G0 failed: the G1 numbers are forensic diagnostics, not evidence for mapping or admission",
+ "gates": {
+  "G0": {
+   "gate": "G0",
+   "result": "FAIL",
+   "checks": [
+    {
+     "check": "G0a archive sha256 equals declared",
+     "result": "PASS",
+     "detail": "dd4f468edbd5438229e02af189cc89f9265cbb2477b71af163ef8c4b0374c9f4"
+    },
+    {
+     "check": "G0b internal MANIFEST.sha256 verifies",
+     "result": "PASS",
+     "detail": "28 entries, bad: []"
+    },
+    {
+     "check": "G0c data member sha256 equals declared",
+     "result": "PASS",
+     "detail": "4b3155a5ad423c18d3cf622f34882f96f6cf7fd536b19053aa497bcd76b93df9"
+    },
+    {
+     "check": "G0d declared field keys present",
+     "result": "PASS",
+     "detail": "missing: []"
+    },
+    {
+     "check": "G0e code_ref: non-empty exact file hashes, all members match",
+     "result": "FAIL",
+     "detail": "no code refs parsed"
+    },
+    {
+     "check": "G0f source environment recorded",
+     "result": "FAIL",
+     "detail": "unknown"
+    },
+    {
+     "check": "G0g manifest validates against b7-ring-source-v1 schema",
+     "result": "FAIL",
+     "detail": "'source_dynamics' is a required property"
+    }
+   ]
+  },
+  "G1": {
+   "gate": "G1",
+   "result": "PASS",
+   "checks": [
+    {
+     "check": "G1a float64, equal length, finite",
+     "result": "PASS",
+     "detail": "n=4800"
+    },
+    {
+     "check": "G1b r uniform, increasing, cell-centred, declared grid",
+     "result": "PASS",
+     "detail": "n=4800 dr0=0.025 r0=0.0125"
+    },
+    {
+     "check": "G1c ps and pd nonzero (bare profile rejected)",
+     "result": "PASS",
+     "detail": ""
+    },
+    {
+     "check": "G1d energy E(<15,<25,<40) equals stored ledger (rel 1e-09)",
+     "result": "PASS",
+     "detail": "E=['149.153758', '149.247154', '149.332352'] ledger=['149.153758', '149.247154', '149.332352'] maxrel=0.00e+00"
+    }
+   ]
+  },
+  "G2": {
+   "gate": "G2",
+   "result": "UNTESTED",
+   "checks": [
+    {
+     "check": "G2 blocked",
+     "result": "UNTESTED",
+     "detail": "blocked: G0/G1 failed; no mapping computed"
+    }
+   ]
+  },
+  "G3": {
+   "gate": "G3",
+   "result": "UNTESTED",
+   "checks": [
+    {
+     "check": "G3 blocked",
+     "result": "UNTESTED",
+     "detail": "blocked: G0/G1 failed; no mapping computed"
+    }
+   ]
+  },
+  "G4": {
+   "gate": "G4",
+   "result": "UNTESTED",
+   "checks": [
+    {
+     "check": "G4 blocked",
+     "result": "UNTESTED",
+     "detail": "blocked: G0/G1 failed; no mapping computed"
+    }
+   ]
+  },
+  "G5": {
+   "gate": "G5",
+   "result": "UNTESTED",
+   "checks": [
+    {
+     "check": "G5 blocked",
+     "result": "UNTESTED",
+     "detail": "blocked: G0/G1 failed; no mapping computed"
+    }
+   ]
+  },
+  "G6": {
+   "gate": "G6",
+   "result": "UNTESTED",
+   "checks": [
+    {
+     "check": "same-source dressed BVP at measured omega",
+     "result": "UNTESTED",
+     "detail": "not implemented in this harness; the v5 dressed2 energy comparison is superseded by v6/v7; nothing inferred"
+    }
+   ]
+  },
+  "G7": {
+   "gate": "G7",
+   "result": "UNTESTED",
+   "checks": [
+    {
+     "check": "dynamics",
+     "result": "UNTESTED",
+     "detail": "not authorised"
+    }
+   ]
+  }
+ },
+ "adapter": {
+  "adapter_ready": false,
+  "missing_inputs": [
+   "phi",
+   "Pi",
+   "units_chart_lambda",
+   "p1_partition",
+   "open_edge",
+   "gr_cmc_solver_for_ringing_slice"
+  ],
+  "gates_not_pass": [
+   "G0",
+   "G2",
+   "G3",
+   "G4",
+   "G5",
+   "G6"
+  ]
+ },
+ "fingerprint_sha256": "4c931b9bd19e94809ee794b093ea9ff7add7f52a1126831571c3aac46d04c37d",
+ "ledger_row_t300": [
+  149.1537575481185,
+  149.2471540606281,
+  149.3323516159345
+ ]
+}
