@@ -1,7 +1,7 @@
 """RESEARCH ONLY. B7 W2 driver: positive and negative controls, then the placeholder-chart ring test (no time evolution).
 
 Usage: python research/b7_ring_constraint_clone_run_v1.py RING.npz OUTDIR     (RING.npz = source C t300 member, hash recorded)
-Design and thresholds: Project doc claude/b7-w2-constraint-clone-design.md (fixed before the build). Engine used read-only.
+Design and thresholds: DESIGN-B7-W2-constraint-clone-Nov22-2026 (Drive 1NWGcJBlGXomhKRusAx-cp2Zf0uwcLhwavIsoMD1UsaM) (fixed before the build). Engine used read-only.
 """
 import json
 import math
