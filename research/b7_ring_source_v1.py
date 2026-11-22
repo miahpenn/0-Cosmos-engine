@@ -63,6 +63,20 @@ def safe_member_path(root, name):
     return os.path.join(root, name)
 
 
+def safe_relative_path(root, name):
+    """H5: MANIFEST entries may sit in sub-folders but never escape: no absolute path, no '.', '..' or empty component,
+    no backslash/NUL, realpath (symlinks resolved) inside realpath(root). None if unsafe."""
+    if not isinstance(name, str) or not name or "\x00" in name or "\\" in name or os.path.isabs(name):
+        return None
+    if any(part in ("", ".", "..") for part in name.split("/")):
+        return None
+    rr = os.path.realpath(root)
+    p = os.path.realpath(os.path.join(root, name))
+    if os.path.commonpath([rr, p]) != rr or p == rr:
+        return None
+    return os.path.join(root, name)
+
+
 def manifest_digests(root):
     """name -> sha256 from root/MANIFEST.sha256 (names as written; no path is opened here)."""
     d = {}
@@ -87,7 +101,7 @@ def verify_internal_manifest(root):
             sha, name = line.split(None, 1)
             name = name.strip().lstrip("*")
             n += 1
-            p = safe_member_path(root, name)
+            p = safe_relative_path(root, name)
             if p is None or not os.path.isfile(p) or sha256_file(p) != sha:
                 bad.append(name)
     return (not bad), n, bad

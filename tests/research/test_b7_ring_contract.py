@@ -183,6 +183,15 @@ def test_h5_unsafe_name_inside_manifest_fails_g0b(tmp_path):
     assert r["G0b"] == src.FAIL and res == src.FAIL
 
 
+def test_h5_manifest_allows_subfolders_but_not_traversal(tmp_path):
+    root = tmp_path / "m"
+    (root / "sub").mkdir(parents=True)
+    (root / "sub" / "x.npy").write_bytes(b"1")
+    assert src.safe_relative_path(str(root), "sub/x.npy") is not None
+    for bad in ("../x", "sub/../../x", "/etc/passwd", "sub//x", "./x", "", "a\\b"):
+        assert src.safe_relative_path(str(root), bad) is None, bad
+
+
 def test_h5_outside_file_is_never_read(tmp_path, monkeypatch):
     seen = []
     real = np.load
