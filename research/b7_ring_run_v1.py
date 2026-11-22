@@ -47,7 +47,12 @@ def run_source(label, manifest, archive, root, schema=None, expected=None):
     keys = manifest["slice"]["field_keys"]
     rep = {"source": label, "data_member": manifest["source"]["data_member"], "data_sha256": manifest["source"]["data_sha256"]}
     g0 = src.g0_provenance(manifest, archive, root, schema_path=schema, expected_code_files=expected)
-    dp = os.path.join(root, manifest["source"]["data_member"])
+    dp = src.safe_member_path(root, manifest["source"]["data_member"])
+    if dp is None or not os.path.isfile(dp):
+        rep["gates"] = {"G0": g0, **{g: blocked(g, "blocked: data member path unsafe or missing; nothing loaded") for g in
+                                     ("G1", "G2", "G3", "G4", "G5", "G6", "G7")}}
+        rep["adapter"] = mp.adapter_status(None, rep["gates"])
+        return rep, None, None, None, None
     f, d = src.load_slice(dp, keys)
     dr = manifest["slice"]["radial_grid"]["dr"]
     row = src.ledger_row_at(d["rows"], manifest["slice"]["time"], lo=LEDGER_COL[label])
@@ -121,7 +126,7 @@ def git_ids():
         return {"commit": "unknown", "tree": "unknown"}
 
 
-SCHEMA = os.path.join(os.path.dirname(os.path.abspath(__file__)), "b7_ring_schemas", "b7_ring_source_v1.schema.json")
+SCHEMA = os.path.join(os.path.dirname(os.path.abspath(__file__)), "b7_ring_schemas", "b7_ring_source_v1.schema.h5.json")
 C_EXPECTED = ("dressed_run.py", "evo.py", "hbfull.py")
 
 
@@ -129,7 +134,7 @@ def main(v7, v5, mc, outdir, tag=""):
     manifestC = json.load(open(mc))
     results = {"runtime": src.environment_report(), "harness": git_ids(), "tag": tag,
                "inputs": {"v7": src.sha256_file(v7), "v5": src.sha256_file(v5), "manifestC": src.sha256_file(mc),
-                          "schema": src.sha256_file(SCHEMA)}, "sources": {}, "controls": {}}
+                          "schema": src.sha256_file(SCHEMA), "schema_original": src.sha256_file(os.path.join(os.path.dirname(SCHEMA), "b7_ring_source_v1.schema.json"))}, "sources": {}, "controls": {}}
     with tempfile.TemporaryDirectory() as t7, tempfile.TemporaryDirectory() as t5:
         r7 = os.path.join(src.safe_extract(v7, t7), "ringkit_v7")
         r5 = os.path.join(src.safe_extract(v5, t5), "ringkit")
@@ -138,7 +143,7 @@ def main(v7, v5, mc, outdir, tag=""):
             runs[k] = (v5_manifest(mem, sha, n, dr), v5, r5, None)
         for k, (m, arch, root, exp) in runs.items():
             rep, f, d, row, dr = run_source(k, m, arch, root, SCHEMA, exp)
-            if k == "C":
+            if k == "C" and f is not None:
                 results["controls"] = controls(m, arch, root, f, row, dr)
                 results["controls_ran_on"] = "C" + ("" if rep["gates"]["G0"]["result"] == src.PASS else " (forensic: G0 failed)")
             results["sources"][k] = rep

@@ -50,6 +50,31 @@ def gate_result(checks):
     return PASS
 
 
+def safe_member_path(root, name):
+    """H5: basename-only member name resolved strictly inside root (symlinks included); None if unsafe."""
+    if not isinstance(name, str) or not name or "\x00" in name or "/" in name or "\\" in name:
+        return None
+    if name in (".", "..") or name.startswith(".") or os.path.isabs(name):
+        return None
+    rr = os.path.realpath(root)
+    p = os.path.realpath(os.path.join(root, name))
+    if os.path.dirname(p) != rr:
+        return None
+    return os.path.join(root, name)
+
+
+def manifest_digests(root):
+    """name -> sha256 from root/MANIFEST.sha256 (names as written; no path is opened here)."""
+    d = {}
+    with open(os.path.join(root, "MANIFEST.sha256")) as f:
+        for line in f:
+            line = line.strip()
+            if line:
+                sha, name = line.split(None, 1)
+                d[name.strip().lstrip("*")] = sha
+    return d
+
+
 def verify_internal_manifest(root):
     """Every line of root/MANIFEST.sha256 ('<sha>  <name>') against the file in root. Returns (ok, n, bad)."""
     path = os.path.join(root, "MANIFEST.sha256")
@@ -62,8 +87,8 @@ def verify_internal_manifest(root):
             sha, name = line.split(None, 1)
             name = name.strip().lstrip("*")
             n += 1
-            p = os.path.join(root, name)
-            if not os.path.isfile(p) or sha256_file(p) != sha:
+            p = safe_member_path(root, name)
+            if p is None or not os.path.isfile(p) or sha256_file(p) != sha:
                 bad.append(name)
     return (not bad), n, bad
 
@@ -88,12 +113,21 @@ def g0_provenance(manifest, archive_path, member_root, env_required=True, schema
     cs.append(check("G0a archive sha256 equals declared", got == src["archive_sha256"], got))
     ok, n, bad = verify_internal_manifest(member_root)
     cs.append(check("G0b internal MANIFEST.sha256 verifies", ok, "%d entries, bad: %s" % (n, bad)))
-    dp = os.path.join(member_root, src["data_member"])
-    dgot = sha256_file(dp) if os.path.isfile(dp) else "missing"
-    cs.append(check("G0c data member sha256 equals declared", dgot == src["data_sha256"], dgot))
+    dp = safe_member_path(member_root, src.get("data_member"))
+    dgot = sha256_file(dp) if (dp and os.path.isfile(dp)) else ("unsafe path" if dp is None else "missing")
+    cs.append(check("G0c data member path safe, sha256 equals declared", dp is not None and dgot == src["data_sha256"], dgot))
+    try:
+        listed = manifest_digests(member_root).get(src.get("data_member"))
+    except OSError:
+        listed = None
+    cs.append(check("G0h data member listed in internal MANIFEST.sha256 with the declared digest",
+                    dp is not None and listed is not None and listed == src["data_sha256"], str(listed)))
     keys = manifest["slice"]["field_keys"]
     want = [keys[k] for k in ("r", "s", "ps", "d", "pd")]
-    have = list(np.load(dp).keys()) if os.path.isfile(dp) else []
+    try:
+        have = list(np.load(dp).keys()) if (dp and os.path.isfile(dp)) else []
+    except Exception:  # noqa: BLE001 - unreadable data member is a FAIL
+        have = []
     miss = [k for k in want if k not in have]
     cs.append(check("G0d declared field keys present", not miss, "missing: %s" % miss))
     # G0e (H2): code_ref must cite a non-empty, exact, duplicate-free list of '<file>.py ... sha256=<64 hex>' refs. Every
@@ -112,7 +146,7 @@ def g0_provenance(manifest, archive_path, member_root, env_required=True, schema
     if len(set(names)) != len(names):
         probs.append("duplicate refs")
     for fname, sha in refs:
-        if "/" in fname or "\\" in fname or ".." in fname or os.path.isabs(fname):
+        if safe_member_path(member_root, fname) is None:
             probs.append("unsafe member name " + fname)
             continue
         if len(sha) != 64:
