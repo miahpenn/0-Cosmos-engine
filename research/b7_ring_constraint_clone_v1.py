@@ -44,9 +44,11 @@ def reconstruct_slice(grid, vacuum_state_factory, S, PS, D, PD, phi, Pi, *, incl
     Sp = _d1(grid, S, 1)
     Dp = _d1(grid, D, 1)
     Ktp = _d1(grid, Kt, 1)
-    j = -(PD * Dp)
-    if include_ps_momentum:
-        j = j - PS * Sp
+    phip = _d1(grid, phi, 1)
+    # Same signed source as the engine (scalar_momentum_projection), with P_S S_r switchable.
+    j = _ss.scalar_momentum_projection(
+        _ss.ScalarFields(S, PS if include_ps_momentum else np.zeros_like(PS), D, PD, phi, Pi), (Sp, Dp, phip)
+    )
     kin = 1.0 if include_ps_kinetic else 0.0
     B = np.ones_like(r)
     for _ in range(n_iter):
