@@ -1,0 +1,348 @@
+"""RESEARCH ONLY. B7 W2 zero-step origin check (Aster's review, Drive 1nEdruskrM23fooJmQTu2jo75hevhiNDUtMFVRWj2sm8).
+
+Pre-run design, gates and pass/fail criteria: coordination log entry 2026-11-23 ~00:45 UTC (fixed before any run).
+Go: Jeremiah, main chat, 2026-11-23 00:31:38 UTC, "Go on the origin check". No time evolution. Engine, vendor and the
+W2 clone (research/b7_ring_constraint_clone_v1.py) are used read-only; nothing in engine/ or vendor/ changes.
+
+Usage: python research/b7_w2_origin_check_v1.py RING.npz OUTDIR   (RING.npz = source C t300 member, sha f3675f71...)
+
+Steps: 1 reproduce/localize; 2a quadrature unit test; 2b manufactured smooth slice with an independent ODE integral;
+2c quadrature swap on the W2 samples; 3a even (spline) reconstruction of the archived arrays; 3b u = 1.0144 UNTESTED (W1).
+"""
+import json
+import math
+import os
+import sys
+
+sys.path.insert(0, ".")
+import numpy as np  # noqa: E402
+from scipy.integrate import solve_ivp  # noqa: E402
+from scipy.interpolate import CubicSpline  # noqa: E402
+
+from engine import scalar_system as _ss  # noqa: E402
+from engine import v55_pirk_adapter as adapter  # noqa: E402
+from engine.production_kernel import V55ProductionKernel  # noqa: E402
+from engine.scalar_system import cosmos_potential, sd_potential  # noqa: E402
+from engine.stress_energy import assemble_total_stress_energy  # noqa: E402
+from engine.v55_initial import CorrectedInitialData, _cumulative_origin_integral, _d1  # noqa: E402
+from engine.v55_matter import RHO_B_PRESENT, RHO_DM_PRESENT, RHO_R_PRESENT, initialize_from_archive  # noqa: E402
+from research import b7_ring_constraint_clone_run_v1 as w2  # noqa: E402
+from research import b7_ring_constraint_clone_v1 as clone  # noqa: E402
+from research import b7_ring_source_v1 as src  # noqa: E402
+
+# ---- fixed before the run (log entry 2026-11-23 ~00:45 UTC) ----
+R_MAX = 60.0
+DRS = (0.2, 0.1, 0.05)
+G4C_FACTOR = 10.0
+REPRO_RTOL = 1e-12
+QUAD_EXACT_RTOL = 1e-13
+ODE_RTOL, ODE_RTOL_CHECK, ODE_AGREE = 1e-13, 1e-11, 1e-10
+STENCIL_KEEP, QUAD_DROP = 0.5, 0.1          # 2b and 2c readings
+SAMPLING_DROP, NO_EFFECT = 10.0, 2.0        # step 3 readings
+ANNULUS = (2.0, 50.0)
+FIXED_R = 0.3
+MAN_W2 = 25.0                               # manufactured profile width^2
+MAN_FAR_R = 40.0
+FIELDS = ("S", "PS", "D", "PD")
+TOY_KEYS = {"S": "t300_s", "PS": "t300_ps", "D": "t300_d", "PD": "t300_pd"}
+LAM = _ss.SD_QUARTIC_LAMBDA
+
+
+# ---------------------------------------------------------------- reconstruction variants
+def spline_even_integral(r, f):
+    """Independent reference: exact integral of a cubic spline through the even-mirrored samples."""
+    x = np.r_[-r[::-1], r]
+    cs = CubicSpline(x, np.r_[f[::-1], f])
+    P = cs.antiderivative()
+    return P(r) - P(0.0)
+
+
+def _rho(S, PS, D, PD, Sp, Dp, phi, Pi, B, rho_r):
+    rhoS = 0.5 * (PS ** 2 + B * Sp ** 2)
+    rhoD = 0.5 * (PD ** 2 + B * Dp ** 2) + sd_potential(S, D, phi=phi)
+    rhoPhi = (0.5 * Pi ** 2 + cosmos_potential(phi)) / (8.0 * math.pi)
+    rhoMatter = (RHO_DM_PRESENT + RHO_B_PRESENT + rho_r) / (8.0 * math.pi)
+    return rhoS + rhoD + rhoPhi + rhoMatter
+
+
+def reconstruct(grid, vac_factory, S, PS, D, PD, phi, Pi, *, quadrature="engine", src_derivs=None, B_override=None,
+                n_iter=6):
+    """The W2 clone's arithmetic (Hubble K_t, PS terms on, uniform dust), with exactly one of three knobs changed:
+    quadrature ('engine' | 'spline'), src_derivs (analytic (Sp, Dp) used in the Hamiltonian source and its j only),
+    B_override (B supplied from outside). K, j for the geometry, conversion and evaluator are always the clone's."""
+    assert _ss.coupling_active()
+    r = np.asarray(grid.centers)
+    dr = float(grid.dr)
+    rho_r = RHO_R_PRESENT
+    H0 = clone.background_H0(True, True)
+    Kt = np.full(len(r), -H0)
+    Sp, Dp, Ktp = _d1(grid, S, 1), _d1(grid, D, 1), _d1(grid, Kt, 1)
+    j = -(PD * Dp) - PS * Sp
+    sSp, sDp = (Sp, Dp) if src_derivs is None else src_derivs
+    sj = -(PD * sDp) - PS * sSp
+    quad = {"engine": lambda f: _cumulative_origin_integral(grid, r, dr, f),
+            "spline": lambda f: spline_even_integral(r, f)}[quadrature]
+    B = np.ones_like(r)
+    aux = {}
+    if B_override is None:
+        for _ in range(n_iter):
+            rho = _rho(S, PS, D, PD, sSp, sDp, phi, Pi, B, rho_r)
+            Kr = Kt + r * Ktp + 4.0 * math.pi * r * sj
+            srcv = 1.0 - 8.0 * math.pi * r * r * rho + 2.0 * r * r * Kr * Kt + r * r * Kt * Kt
+            Bn = quad(srcv) / r
+            aux["last_dB_absmax"] = float(np.max(np.abs(Bn - B)))
+            B = Bn
+        aux["src_frozen"] = srcv
+    else:
+        B = np.asarray(B_override, dtype=float)
+    A = 1.0 / np.sqrt(B)
+    Kr = Kt + r * Ktp + 4.0 * math.pi * r * j
+    K = Kr + 2.0 * Kt
+    a, b, X = A ** (4.0 / 3.0), A ** (-2.0 / 3.0), A ** (-1.0 / 3.0)
+    Lam = _d1(grid, a, 1) / (2.0 * a * a) - _d1(grid, b, 1) / (a * b) + 2.0 / r * (1.0 / b - 1.0 / a)
+    st = vac_factory(grid)
+    st.a[:], st.b[:], st.X[:] = a, b, X
+    st.alpha[:], st.beta[:] = 1.0, 0.0
+    st.Aa[:], st.K[:], st.Lambda[:], st.B[:] = Kr - K / 3.0, K, Lam, 0.75 * Lam
+    scal = _ss.ScalarFields(S, PS, D, PD, phi, Pi)
+    mat = initialize_from_archive(grid, st, include_radiation=True, charged_dust_density=None)
+    aux.update(B=B, Kr=Kr, Kt=Kt)
+    return CorrectedInitialData(geometry=st, scalars=scal, matter=mat, H0=H0, include_radiation=True), aux
+
+
+def exact_B(grid, fn, rtol):
+    """Independent integral: (rB)' = src(r, B) with analytic sources, y = rB linear in y. fn(r) -> fields and derivs."""
+    H0 = clone.background_H0(True, True)
+    Kt = -H0
+
+    def rhs(t, y):
+        f = fn(np.array([t]))
+        r0 = _rho(f["S"], f["PS"], f["D"], f["PD"], f["Sp"], f["Dp"], f["phi"], f["Pi"], 0.0, RHO_R_PRESENT)[0]
+        r1 = 0.5 * (f["Sp"][0] ** 2 + f["Dp"][0] ** 2)
+        jj = -(f["PD"][0] * f["Dp"][0]) - f["PS"][0] * f["Sp"][0]
+        Kr = Kt + 4.0 * math.pi * t * jj
+        return [1.0 - 8.0 * math.pi * t * t * r0 - 8.0 * math.pi * t * r1 * y[0] + 2.0 * t * t * Kr * Kt + t * t * Kt * Kt]
+
+    r = np.asarray(grid.centers)
+    sol = solve_ivp(rhs, (0.0, float(r[-1])), [0.0], method="DOP853", rtol=rtol, atol=1e-15, t_eval=r)
+    return sol.y[0] / r
+
+
+# ---------------------------------------------------------------- evaluator
+def evaluate(kernel, grid, init):
+    """Per-cell signed H and M exactly as kernel.diagnostics forms them; before and after the lapse solve."""
+    _, vac, _ = adapter.vendor_modules()
+    out = {}
+    for tag in ("pre_lapse", "post_lapse"):
+        if tag == "post_lapse":
+            st = clone.research_state(kernel, grid, init)
+            geom, scal, mat = st.geometry, st.scalars, st.matter
+        else:
+            geom, scal, mat = init.geometry, init.scalars, init.matter
+        raw = vac.constraints(grid, geom)
+        tot = assemble_total_stress_energy(grid, geom, scal, mat)
+        out[tag] = {"H": raw["hamiltonian"] - 16.0 * math.pi * tot.rho, "M": raw["momentum"] - 8.0 * math.pi * tot.j,
+                    "H_geom": np.asarray(raw["hamiltonian"]), "16pi_rho": 16.0 * math.pi * np.asarray(tot.rho),
+                    "M_geom": np.asarray(raw["momentum"]), "8pi_j": 8.0 * math.pi * np.asarray(tot.j)}
+    out["kernel_diag"] = kernel.diagnostics(st)
+    return out
+
+
+def summary(grid, ev, aux=None, ncell=6):
+    r = np.asarray(grid.centers)
+    H = ev["post_lapse"]["H"]
+    ann = (r >= ANNULUS[0]) & (r <= ANNULUS[1])
+    i = int(np.argmax(np.abs(H)))
+    s = {"H01": float(np.max(np.abs(H[:2]))), "H_full_absmax": float(np.max(np.abs(H))),
+         "H_annulus_absmax": float(np.max(np.abs(H[ann]))), "argmax_idx": i, "argmax_r": float(r[i]),
+         "H_at_r0.3": float(np.interp(FIXED_R, r, H)),
+         "M_full_absmax": float(np.max(np.abs(ev["post_lapse"]["M"]))),
+         "H01_pre_lapse": float(np.max(np.abs(ev["pre_lapse"]["H"][:2]))),
+         "kernel_H_full_absmax": float(ev["kernel_diag"]["hamiltonian_full_absmax"]),
+         "cells": {k: [float(x) for x in ev["post_lapse"][k][:ncell]] for k in ("H", "H_geom", "16pi_rho", "M", "M_geom", "8pi_j")}}
+    if aux is not None:
+        s["cells"].update({k: [float(x) for x in aux[k][:ncell]] for k in ("B", "Kr") if k in aux})
+        s["Kt"] = float(aux["Kt"][0])
+        if "last_dB_absmax" in aux:
+            s["last_dB_absmax"] = aux["last_dB_absmax"]
+    return s
+
+
+def even_quartic(r, f):
+    A = np.vstack([np.ones(3), r[:3] ** 2, r[:3] ** 4]).T
+    return [float(c) for c in np.linalg.solve(A, f[:3])]
+
+
+# ---------------------------------------------------------------- inputs
+def _ring(z, grid, how):
+    r_t, rc = z["r"], np.asarray(grid.centers)
+    out = {}
+    for k in FIELDS:
+        y = z[TOY_KEYS[k]]
+        if how == "linear":
+            v = np.interp(rc, r_t, y)                                     # W2 exactly
+        else:
+            v = CubicSpline(np.r_[-r_t[::-1], r_t], np.r_[y[::-1], y])(rc)  # even reconstruction
+        out[k] = v / math.sqrt(LAM)
+    out["phi"], out["Pi"] = np.full(len(rc), clone.PHI0), np.full(len(rc), clone.PI0)
+    return out
+
+
+def manufactured_params(z):
+    """Rule fixed pre-run: A = ring value at cell 0 (dr 0.05), central curvature c2 from the even quartic fit on cells
+    0-2, f_far = ring value at r = 40; f = f_far + (A - f_far + c2' r^2) exp(-r^2/25), c2' = c2 + (A - f_far)/25."""
+    r_t = z["r"]
+    p = {}
+    for k in FIELDS:
+        y = z[TOY_KEYS[k]] / math.sqrt(LAM)
+        A, c2 = y[0], even_quartic(r_t, y)[1]
+        far = float(np.interp(MAN_FAR_R, r_t, y))
+        p[k] = {"A": float(A), "c2": float(c2), "far": far, "c2p": float(c2 + (A - far) / MAN_W2)}
+    return p
+
+
+def manufactured_fn(p):
+    def fn(r):
+        r = np.asarray(r, dtype=float)
+        e = np.exp(-r * r / MAN_W2)
+        out = {}
+        for k in FIELDS:
+            q = p[k]
+            amp = q["A"] - q["far"] + q["c2p"] * r * r
+            out[k] = q["far"] + amp * e
+            out[k + "_r"] = (2.0 * q["c2p"] * r - 2.0 * r / MAN_W2 * amp) * e
+        out["Sp"], out["Dp"] = out["S_r"], out["D_r"]
+        out["phi"], out["Pi"] = np.full(r.shape, clone.PHI0), np.full(r.shape, clone.PI0)
+        return out
+    return fn
+
+
+# ---------------------------------------------------------------- run
+def reading(ratios, keep, drop):
+    if all(x >= keep for x in ratios):
+        return "KEEPS"
+    if all(x <= drop for x in ratios):
+        return "DROPS"
+    return "MIXED"
+
+
+def main(npz, outdir):
+    os.makedirs(outdir, exist_ok=True)
+    kernel = V55ProductionKernel()
+    go, vac, _ = adapter.vendor_modules()
+    z = np.load(npz)
+    r0 = json.load(open("results/research/b7_ring_constraint_clone_r0/report.json"))
+    rep = {"member_sha256": src.sha256_file(npz), "runtime": src.environment_report(), "lambda": LAM,
+           "held_fixed": "uniform dust dm0; G4c = ring H <= 10x PC2 (same grid); Hubble K_t; PS terms on; n_iter 6; r_max 60",
+           "steps": {}}
+    # 2a quadrature unit test (grid only)
+    s2a = {}
+    for dr in DRS:
+        g = go.SphericalCellGrid(int(round(R_MAX / dr)), R_MAX)
+        r = np.asarray(g.centers)
+        c = (1.0, -0.3, 0.02, -1e-3)
+        f4 = c[0] + c[1] * r ** 2 + c[2] * r ** 4
+        F4 = c[0] * r + c[1] * r ** 3 / 3 + c[2] * r ** 5 / 5
+        f6 = f4 + c[3] * r ** 6
+        F6 = F4 + c[3] * r ** 7 / 7
+        q4 = _cumulative_origin_integral(g, r, dr, f4)
+        q6 = _cumulative_origin_integral(g, r, dr, f6)
+        s2a["dr%g" % dr] = {"first_centre_rel_err_r4": float(abs(q4[0] - F4[0]) / abs(F4[0])),
+                            "first_centre_err_r6": float(abs(q6[0] - F6[0])),
+                            "cells0_5_abs_err_r6": [float(x) for x in np.abs(q6 - F6)[:6]],
+                            "spline_ref_first_centre_err_r6": float(abs(spline_even_integral(r, f6)[0] - F6[0]))}
+    s2a["PASS_first_centre_exact_through_r4"] = all(v["first_centre_rel_err_r4"] <= QUAD_EXACT_RTOL for v in s2a.values())
+    e6 = [s2a["dr%g" % d]["first_centre_err_r6"] for d in DRS]
+    s2a["r6_first_centre_order"] = [float(math.log(e6[i] / e6[i + 1], 2)) for i in range(2)]
+    rep["steps"]["2a"] = s2a
+    mp = manufactured_params(z)
+    fn = manufactured_fn(mp)
+    rep["manufactured_params"] = mp
+    S1, S2b, S2c, S3a = {}, {}, {}, {}
+    for dr in DRS:
+        key = "dr%g" % dr
+        g = go.SphericalCellGrid(int(round(R_MAX / dr)), R_MAX)
+        r = np.asarray(g.centers)
+        e2 = w2.engine_slice(g, vac, "rescaled_pocket", pocket_x=0.5)
+        pc2 = summary(g, evaluate(kernel, g, e2))
+        pc2_ref = pc2["kernel_H_full_absmax"]
+        # step 1
+        f = _ring(z, g, "linear")
+        a = [f[k] for k in ("S", "PS", "D", "PD", "phi", "Pi")]
+        base, aux = reconstruct(g, vac.flat_state, *a)
+        sb = summary(g, evaluate(kernel, g, base), aux)
+        arch = r0["grids"][key]["ring"]["hubble"]["H_full_absmax"]
+        cl, _ = clone.reconstruct_slice(g, vac.flat_state, *a)
+        kz, _ = clone.reconstruct_slice(g, vac.flat_state, *a, Kt_mode="zero")
+        S1[key] = {"ring": sb, "PC2": pc2, "archived_H_full_absmax": arch,
+                   "repro_rel": abs(sb["kernel_H_full_absmax"] - arch) / arch,
+                   "variant_equals_clone_bitwise": all(np.array_equal(getattr(cl.geometry, q), getattr(base.geometry, q)) for q in w2.GEOM_FIELDS),
+                   "PC2_archived": r0["grids"][key]["ring"]["hubble"]["PC2_ref"]["H_full_absmax"],
+                   "Kt_zero_control": summary(g, evaluate(kernel, g, kz)),
+                   "ring_over_PC2": sb["H_full_absmax"] / pc2_ref, "G4c": sb["H_full_absmax"] <= G4C_FACTOR * pc2_ref}
+        # 2b manufactured
+        m = fn(r)
+        ma = [m[k] for k in ("S", "PS", "D", "PD", "phi", "Pi")]
+        ME, auxE = reconstruct(g, vac.flat_state, *ma)
+        MQ, auxQ = reconstruct(g, vac.flat_state, *ma, src_derivs=(m["Sp"], m["Dp"]))
+        MQ40, _ = reconstruct(g, vac.flat_state, *ma, src_derivs=(m["Sp"], m["Dp"]), n_iter=40)
+        Bx = exact_B(g, fn, ODE_RTOL)
+        Bx2 = exact_B(g, fn, ODE_RTOL_CHECK)
+        MX, auxX = reconstruct(g, vac.flat_state, *ma, B_override=Bx)
+        sE, sQ, sX = (summary(g, evaluate(kernel, g, x), y) for x, y in ((ME, auxE), (MQ, auxQ), (MX, auxX)))
+        sQ40 = summary(g, evaluate(kernel, g, MQ40))
+        S2b[key] = {"M_E": sE, "M_Q": sQ, "M_X": sX, "M_Q_niter40_H01": sQ40["H01"],
+                    "ode_agree_rel": float(np.max(np.abs(Bx - Bx2) / np.abs(Bx))),
+                    "B_X_minus_B_E_cells0_2": [float(x) for x in (Bx - auxE["B"])[:3]],
+                    "ratio_X_over_E": sX["H01"] / sE["H01"], "ratio_Q_over_E": sQ["H01"] / sE["H01"],
+                    "M_E_over_PC2": sE["H_full_absmax"] / pc2_ref, "M_X_over_PC2": sX["H_full_absmax"] / pc2_ref,
+                    "parity_check": {"S_r_cell0_over_r": float(m["Sp"][0] / r[0]), "B_X_minus_1_over_r2_cells0_2": [float(x) for x in ((Bx - 1) / r ** 2)[:3]]}}
+        # 2c quadrature swap on the W2 samples
+        sw, auxS = reconstruct(g, vac.flat_state, *a, quadrature="spline")
+        ss_ = summary(g, evaluate(kernel, g, sw), auxS)
+        frozen = aux["src_frozen"]
+        dF = spline_even_integral(r, frozen) - _cumulative_origin_integral(g, r, float(g.dr), frozen)
+        S2c[key] = {"swap": ss_, "ratio_swap_over_base": ss_["H01"] / sb["H01"], "dF_frozen_cells0_2": [float(x) for x in dF[:3]],
+                    "dB_rebuilt_cells0_2": [float(x) for x in (auxS["B"] - aux["B"])[:3]],
+                    "G4c": ss_["H_full_absmax"] <= G4C_FACTOR * pc2_ref}
+        # 3a even reconstruction of the archived arrays
+        fe = _ring(z, g, "spline")
+        ae = [fe[k] for k in ("S", "PS", "D", "PD", "phi", "Pi")]
+        ev3, aux3 = reconstruct(g, vac.flat_state, *ae)
+        s3 = summary(g, evaluate(kernel, g, ev3), aux3)
+        coincide = bool(np.all(np.min(np.abs(r[:, None] - z["r"][None, :]), axis=1) <= 1e-12))
+        S3a[key] = {"even_spline": s3, "ratio_spline_over_linear": s3["H01"] / sb["H01"],
+                    "G4c": s3["H_full_absmax"] <= G4C_FACTOR * pc2_ref, "ring_over_PC2": s3["H_full_absmax"] / pc2_ref,
+                    "direct_sampling_applicable": coincide,
+                    "near_origin_fit": {k: {"linear": even_quartic(r, f[k]), "spline": even_quartic(r, fe[k])} for k in FIELDS},
+                    "interp_diff_absmax_cells0_5": {k: float(np.max(np.abs(fe[k] - f[k])[:6])) for k in FIELDS},
+                    "interp_diff_absmax_all": {k: float(np.max(np.abs(fe[k] - f[k]))) for k in FIELDS}}
+    # gates and readings (criteria from the pre-run entry)
+    rep["steps"]["1"] = S1
+    rep["steps"]["1"]["REPRO_PASS"] = all(S1["dr%g" % d]["repro_rel"] <= REPRO_RTOL for d in DRS)
+    ode_ok = all(S2b["dr%g" % d]["ode_agree_rel"] <= ODE_AGREE for d in DRS)
+    S2b["ODE_VALID"] = ode_ok
+    S2b["reading"] = reading([S2b["dr%g" % d]["ratio_X_over_E"] for d in DRS], STENCIL_KEEP, QUAD_DROP) if ode_ok else "UNTESTED"
+    S2c["reading"] = reading([S2c["dr%g" % d]["ratio_swap_over_base"] for d in DRS], STENCIL_KEEP, QUAD_DROP)
+    r3 = [S3a["dr%g" % d]["ratio_spline_over_linear"] for d in DRS]
+    if all(x <= 1 / SAMPLING_DROP for x in r3) or all(S3a["dr%g" % d]["G4c"] for d in DRS):
+        S3a["reading"] = "ACCOUNTS"
+    elif all(1 / NO_EFFECT <= x <= NO_EFFECT for x in r3):
+        S3a["reading"] = "NO_EFFECT"
+    else:
+        S3a["reading"] = "PARTIAL"
+    rep["steps"]["2b"], rep["steps"]["2c"], rep["steps"]["3a"] = S2b, S2c, S3a
+    rep["steps"]["3b"] = {"result": "UNTESTED", "why": "chart-consistent u=1.0144 slice needs W1 (Aster's spec); no proxy"}
+    stencil = S2b["reading"] == "KEEPS" and S2c["reading"] == "KEEPS"
+    quad = S2c["reading"] == "DROPS" and S2b["reading"] == "DROPS"
+    samp = S3a["reading"] == "ACCOUNTS"
+    named = [n for n, ok in (("stencil", stencil), ("quadrature", quad), ("sampling", samp)) if ok]
+    controls_ok = rep["steps"]["1"]["REPRO_PASS"] and s2a["PASS_first_centre_exact_through_r4"]
+    rep["verdict"] = {"controls_ok": controls_ok, "cause": named[0] if (controls_ok and len(named) == 1) else "OPEN",
+                      "readings": {"2b": S2b["reading"], "2c": S2c["reading"], "3a": S3a["reading"], "3b": "UNTESTED"}}
+    json.dump(rep, open(os.path.join(outdir, "report.json"), "w"), indent=1, default=float)
+    return rep
+
+
+if __name__ == "__main__":
+    main(*sys.argv[1:3])
