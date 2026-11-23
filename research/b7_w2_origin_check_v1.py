@@ -663,7 +663,141 @@ def main_3b(npz, w1npz, outdir, w1_archive=None):
     return rep
 
 
+
+# ---------------------------------------------------------------- coherent-B reference on W1 (pre-run entry ~02:25 UTC Nov 23)
+CB_FOOT, CB_U, CB_V, CB_C, CB_FP, CB_ACC, CB_AGREE, CB_ODE = 6, 0.1, 0.1, 100.0, 1e-3, 0.9, 0.1, (1e-13, 1e-11)
+CB_DECIDE = (0.1, 0.05)
+
+
+def spline_fields_fn(r, f, deg):
+    """Even interpolating spline (degree deg) through the cell-centre field values; returns an exact_B-style fn."""
+    from scipy.interpolate import make_interp_spline
+    sp = {k: make_interp_spline(np.r_[-r[::-1], r], np.r_[f[k][::-1], f[k]], k=deg) for k in FIELDS}
+
+    def fn(t):
+        t = np.asarray(t, dtype=float)
+        out = {}
+        for k in FIELDS:
+            out[k], out[k + "_r"] = sp[k](t), sp[k](t, 1)
+        out["Sp"], out["Dp"] = out["S_r"], out["D_r"]
+        out["phi"], out["Pi"] = np.full(t.shape, float(f["phi"][0])), np.full(t.shape, float(f["Pi"][0]))
+        return out
+    return fn
+
+
+def swap(BE, Bref, cells):
+    B = BE.copy()
+    B[list(cells)] = Bref[list(cells)]
+    others = np.setdiff1d(np.arange(len(B)), list(cells))
+    assert np.array_equal(B[others], BE[others])
+    return B
+
+
+def main_cb(npz, w1npz, outdir):
+    os.makedirs(outdir, exist_ok=True)
+    kernel = V55ProductionKernel()
+    go, vac, _ = adapter.vendor_modules()
+    z, w = np.load(npz), np.load(w1npz)
+    r3b = json.load(open("results/research/b7_w2_origin_3b_r0/report.json"))
+    rep = {"member_sha256": src.sha256_file(npz), "w1_slice_npz_sha256": src.sha256_file(w1npz),
+           "runtime": src.environment_report(), "grids": {}}
+    fnm = manufactured_fn(manufactured_params(z))
+    fp = list(range(CB_FOOT))
+
+    for dr in DRS:
+        key = "dr%g" % dr
+        g = go.SphericalCellGrid(int(round(R_MAX / dr)), R_MAX)
+        rc = np.asarray(g.centers)
+
+        def arm(a, B=None):
+            init, aux = reconstruct(g, vac.flat_state, *a, B_override=B)
+            ev = evaluate(kernel, g, init)
+            return ev, aux
+
+        def h(ev):
+            return np.asarray(ev["post_lapse"]["H"][:2], dtype=float)
+
+        e2 = w2.engine_slice(g, vac, "rescaled_pocket", pocket_x=0.5)
+        pc2 = summary(g, evaluate(kernel, g, e2))["kernel_H_full_absmax"]
+        G = {"PC2_engine_H": pc2}
+        # gate V: verified reference on the manufactured slice
+        m = fnm(rc)
+        ma = [m[k] for k in ("S", "PS", "D", "PD", "phi", "Pi")]
+        evE, aE = arm(ma)
+        hEm, hXm = h(evE), h(arm(ma, exact_B(g, fnm, CB_ODE[0]))[0])
+        hQm = h(arm(ma, exact_B(g, spline_fields_fn(rc, m, 5), CB_ODE[0]))[0])
+        G["V_ref_err"], G["V_engine_err"] = float(np.linalg.norm(hQm - hXm)), float(np.linalg.norm(hEm - hXm))
+        G["gate_V"] = G["V_ref_err"] <= CB_V * G["V_engine_err"]
+        # W1 arms
+        f = _w1(w, "A1_hubon", rc, "linear")
+        a = [f[k] for k in ("S", "PS", "D", "PD", "phi", "Pi")]
+        evE, aE = arm(a)
+        BE = aE["B"]
+        evI, _ = arm(a, BE.copy())
+        sE = summary(g, evE, aE)
+        G["gate_I"] = bool(np.array_equal(evI["post_lapse"]["H"], evE["post_lapse"]["H"])
+                           and sE["H01"] == r3b["grids"][key]["W1"]["H01"])
+        B5 = exact_B(g, spline_fields_fn(rc, f, 5), CB_ODE[0])
+        B5b = exact_B(g, spline_fields_fn(rc, f, 5), CB_ODE[1])
+        B3 = exact_B(g, spline_fields_fn(rc, f, 3), CB_ODE[0])
+        evF, _ = arm(a, B5)
+        hE, hF = h(evE), h(evF)
+        hF3, hFb = h(arm(a, B3)[0]), h(arm(a, B5b)[0])
+        dEF = float(np.linalg.norm(hE - hF))
+        G["u_h"] = float(np.linalg.norm(hF - hF3) + np.linalg.norm(hF - hFb))
+        G["gate_U"] = G["u_h"] <= CB_U * dEF
+        pl = evE["post_lapse"]
+        canc = float(np.max(np.maximum(np.abs(pl["H_geom"][:2]), np.abs(pl["16pi_rho"][:2]))))
+        G["cancellation_floor"] = CB_C * EPS * canc
+        G["gate_C"] = dEF >= G["cancellation_floor"]
+        arms = {"S0": [0], "SO": fp[1:], "SB": fp}
+        for ref_tag, Bref, hr in (("quintic", B5, hF), ("cubic", B3, hF3)):
+            d = float(np.linalg.norm(hE - hr))
+            out = {}
+            for tag, cells in arms.items():
+                hx = h(arm(a, swap(BE, Bref, cells))[0])
+                out[tag] = {"h": [float(x) for x in hx], "f": float(1.0 - np.linalg.norm(hx - hr) / d)}
+            G["swaps_" + ref_tag] = out
+        G["gate_FP"] = float(np.linalg.norm(np.asarray(G["swaps_quintic"]["SB"]["h"]) - hF)) <= CB_FP * dEF
+        sF = summary(g, evF)
+        G.update(h_E=[float(x) for x in hE], h_F=[float(x) for x in hF], h_F_cubic=[float(x) for x in hF3],
+                 dEF=dEF, H01_E=sE["H01"], H01_F=sF["H01"], H01_F_over_E=sF["H01"] / sE["H01"],
+                 F_argmax_idx=sF["argmax_idx"], E_over_PC2=sE["H_full_absmax"] / pc2, F_over_PC2=sF["H_full_absmax"] / pc2,
+                 G4c_F=sF["H_full_absmax"] <= G4C_FACTOR * pc2,
+                 dB_E_minus_ref=[float(x) for x in (BE - B5)[:CB_FOOT]], u_B=[float(x) for x in np.abs(B5 - B3)[:CB_FOOT] + np.abs(B5 - B5b)[:CB_FOOT]])
+        rep["grids"][key] = G
+
+    def cls(fs0, fso):
+        a0, ao = fs0 >= CB_ACC, fso >= CB_ACC
+        return "EITHER" if a0 and ao else ("B_0 ACCOUNTS" if a0 else ("OTHER CELLS ACCOUNT" if ao else "COUPLED"))
+
+    Gs = {d: rep["grids"]["dr%g" % d] for d in DRS}
+    gates = {gname: all(Gs[d][gname] for d in DRS) for gname in ("gate_I", "gate_V")}
+    gates.update({gname: all(Gs[d][gname] for d in CB_DECIDE) for gname in ("gate_U", "gate_C", "gate_FP")})
+    for d in DRS:
+        x = Gs[d]
+        x["class_quintic"] = cls(x["swaps_quintic"]["S0"]["f"], x["swaps_quintic"]["SO"]["f"])
+        x["class_cubic"] = cls(x["swaps_cubic"]["S0"]["f"], x["swaps_cubic"]["SO"]["f"])
+    a, b = (Gs[d] for d in CB_DECIDE)
+    if not all(gates.values()):
+        verdict = "STOPPED (" + ",".join(k for k, v in gates.items() if not v) + ")"
+    elif a["class_quintic"] != b["class_quintic"] or any(
+            abs(a["swaps_quintic"][t]["f"] - b["swaps_quintic"][t]["f"]) > CB_AGREE for t in ("S0", "SO")):
+        verdict = "NOT ASYMPTOTIC"
+    elif any(x["class_cubic"] != x["class_quintic"] for x in (a, b)):
+        verdict = "UNCERTAIN"
+    else:
+        verdict = a["class_quintic"]
+    rep["verdict"] = {"gates": gates, "reading": verdict, "dr0.2_class": Gs[0.2]["class_quintic"],
+                      "G4c_F": {"dr%g" % d: Gs[d]["G4c_F"] for d in DRS}}
+    json.dump(rep, open(os.path.join(outdir, "report.json"), "w"), indent=1, default=float)
+    return rep
+
+
 if __name__ == "__main__":
+    if len(sys.argv) > 3 and sys.argv[3] == "w1_cb":
+        main_cb(sys.argv[1], sys.argv[4], sys.argv[2])
+        sys.exit(0)
     if len(sys.argv) > 3 and sys.argv[3] == "w1_3b":
         main_3b(sys.argv[1], sys.argv[4], sys.argv[2], sys.argv[5] if len(sys.argv) > 5 else None)
         sys.exit(0)

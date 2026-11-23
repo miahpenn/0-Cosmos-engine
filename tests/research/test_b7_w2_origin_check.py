@@ -79,3 +79,18 @@ def test_first_s6_exact_through_r4():
     for p in (0, 2, 4):
         F0 = r[0] ** (p + 1) / (p + 1)
         assert abs(oc.first_s6(r, r ** p, dr) - F0) <= 1e-12 * F0
+
+
+def test_swap_changes_only_named_cells():
+    BE, Br = np.ones(20), np.full(20, 2.0)
+    B = oc.swap(BE, Br, [1, 2, 3])
+    assert np.array_equal(np.nonzero(B != BE)[0], [1, 2, 3])
+
+
+def test_spline_reference_matches_analytic_exact_B():
+    g = grid()
+    fn = oc.manufactured_fn(P)
+    r = np.asarray(g.centers)
+    m = fn(r)
+    b = oc.exact_B(g, oc.spline_fields_fn(r, m, 5), 1e-13)
+    assert np.max(np.abs(b - oc.exact_B(g, fn, 1e-13))[:6]) <= 1e-12
