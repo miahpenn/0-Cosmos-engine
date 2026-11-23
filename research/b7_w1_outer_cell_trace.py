@@ -150,7 +150,7 @@ def setup_departures(ops, n):
 
 
 # ---------------------------------------------------------------- instrumented run
-def run(fixture, n, dt):
+def run(fixture, n, dt, nsteps=None, g0_t=None, split=False):
     K = V55ProductionKernel()
     grid = go.SphericalCellGrid(n, R_MAX)
     dr64 = float(grid.dr); dr = mpf(dr64)
@@ -207,6 +207,28 @@ def run(fixture, n, dt):
         tot = assemble_total_stress_energy(s.grid, s.geometry, s.scalars, s.matter)
         return mom(s.geometry, tot.j)
 
+    from engine.native_geometry.geometry import metric_connection_lambda as _mcl
+
+    def split_parts(geo):
+        a64 = float(geo.a[-1]); b64 = float(geo.b[-1]); r64 = float(grid.centers[-1])
+        da_f = float(grid.cell_derivative_fourth(geo.a, parity=1)[-1])
+        db_f = float(grid.cell_derivative_fourth(geo.b, parity=1)[-1])
+        qa_ = [mpf(v) - 1 for v in geo.a[-W:]]; qb_ = [mpf(v) - 1 for v in geo.b[-W:]]
+        A = mpf(a64); B = mpf(b64); R = mpf(r64)
+
+        def L(da, db, tail):
+            return da / (2 * A * A) - db / (A * B) + tail
+        L0 = L(D1(qa_, W - 1, dr), D1(qb_, W - 1, dr), 2 * (1 / B - 1 / A) / R)
+        La = L(mpf(da_f), mpf(db_f), 2 * (1 / B - 1 / A) / R)
+        diff_f = (1.0 / b64) - (1.0 / a64)
+        Lc = L(mpf(da_f), mpf(db_f), 2 * mpf(diff_f) / R)
+        Lb = L(mpf(da_f), mpf(db_f), mpf(2.0 * diff_f / r64))
+        lm64 = float(_mcl(grid, geo)[-1]); lam = float(geo.Lambda[-1])
+        c64 = lam - lm64
+        # contributions to C64 - Cctl, Cctl = Lambda - exact Lambda_metric on stored a, b
+        return dict(a=-(La - L0), c=-(Lc - La), b=-(Lb - Lc),
+                    e=-(mpf(lm64) - Lb) + (mpf(c64) - (mpf(lam) - mpf(lm64))))
+
     rec = dict(fixture=fixture, n=n, dt=dt, dr=dr64, F=FF, sanity=sanity, stages=[], steps=[])
     # setup
     c64 = C64(g); cd = Cdep(g, dep0["a"], dep0["b"]); cc = Cctl(g)
@@ -258,7 +280,7 @@ def run(fixture, n, dt):
     acc_piece = {"Aa": [mp.mpf(0)] * 3, "K": [mp.mpf(0)] * 3}
     dtm = mpf(dt)
     try:
-        for step in range(round(HORIZON / dt)):
+        for step in range(nsteps or round(HORIZON / dt)):
             cap.clear()
             g0 = state.geometry.copy()
             state = K.step(state, dt)
@@ -302,14 +324,19 @@ def run(fixture, n, dt):
 
             # ---- T3 / control: stage increments of C relative to the step base g0
             cb64 = C64(g0); cbd = Cdep(g0, qa, qb); cbc = Cctl(g0)
+            sp0 = split_parts(g0) if split else None
             for stage, w_, qa_s, qb_s, qX_s in (("pred", w1, qa1, qb1, qX1), ("corr", w2, qa2, qb2, qX2)):
                 ca64 = C64(w_["pre"]); cad = Cdep(w_["pre"], qa_s, qb_s); cac = Cctl(w_["pre"])
                 d64 = [mpf(ca64[i]) - mpf(cb64[i]) for i in range(3)]
                 ddp = [cad[i] - cbd[i] for i in range(3)]
                 dct = [cac[i] - cbc[i] for i in range(3)]
                 aa_dep = hp_write(qa_s, qb_s, qX_s, w_["pre"], w_["rho"], w_["j"], r, dr)
+                extra = {}
+                if split:
+                    sp1 = split_parts(w_["pre"])
+                    extra["split"] = {kk: float(sp1[kk] - sp0[kk]) for kk in sp1}
                 rec["stages"].append(dict(
-                    step=step, stage=stage,
+                    step=step, stage=stage, **extra,
                     dC64=[float(x) for x in d64], dCdep=[float(x) for x in ddp],
                     diff_dep=[float(d64[i] - ddp[i]) for i in range(3)],
                     diff_ctl=[float(d64[i] - dct[i]) for i in range(3)],
@@ -333,13 +360,17 @@ def run(fixture, n, dt):
                 piece[nm] = [float(v) for v in vals]
             rec["steps"].append(dict(step=step, t1_worst_over_tol=t1r, write_only_Aa_last=write_only, piece=piece))
             qa, qb, qX = qa2, qb2, qX2
-            peak = max(peak, float(np.max(np.abs(mom_state(state)[-3:]))))
+            if (step + 1) * dt <= (g0_t or HORIZON) + 1e-12:
+                peak = max(peak, float(np.max(np.abs(mom_state(state)[-3:]))))
     finally:
         K._geometry_stage_terms = orig_gst
         vacuum.primary_l2_rhs = orig_l2
         vacuum.lambda_l2_rhs = orig_ll2
         bcb.apply_light_constraint_boundary = orig_write
     rec["G0_peak_e12"] = peak * 1e12
+    gfin = state.geometry
+    rec["drift_ulp"] = {nm: max(float(abs(mpf(getattr(gfin, nm)[n - W + k]) - 1 - q[k])) / float(np.spacing(1.0))
+                                for k in range(W)) for nm, q in (("a", qa), ("b", qb), ("X", qX))}
     rec["acc_piece"] = {nm: [float(x) for x in acc_piece[nm]] for nm in acc_piece}
     return rec
 

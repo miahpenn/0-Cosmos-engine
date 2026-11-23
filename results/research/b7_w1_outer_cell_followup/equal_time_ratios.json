@@ -1,0 +1,45 @@
+{
+ "note": "POST-HOC, report-only (Lumen2 Amendment 5 1CfJRD-KduL5XlbopdgIjdlRiYcYP3C2yz61zfSuTZoA). Equal-time 2400/1200 RMS ratio of the arithmetic-only control at the outer cell, t in (0, 0.024], from report.json only; no new simulation. Moving-block bootstrap, block 8, 4000 resamples, seeds from 20261124.",
+ "rows": {
+  "W1 0.00075": {
+   "t_end": 0.024,
+   "stage_values": 64,
+   "ratio": 2.0733379065212425,
+   "rel_sigma": 0.11026230947445603,
+   "boot_16_84": [
+    1.901619785652607,
+    2.354056801610678
+   ]
+  },
+  "W1 0.000375": {
+   "t_end": 0.024,
+   "stage_values": 128,
+   "ratio": 1.7282285158210202,
+   "rel_sigma": 0.11279663558759115,
+   "boot_16_84": [
+    1.5531344287859472,
+    1.9408695054987704
+   ]
+  },
+  "PC2 0.00075": {
+   "t_end": 0.024,
+   "stage_values": 64,
+   "ratio": 2.055610538799608,
+   "rel_sigma": 0.135252542242716,
+   "boot_16_84": [
+    1.689772975179847,
+    2.223378626794939
+   ]
+  },
+  "PC2 0.000375": {
+   "t_end": 0.024,
+   "stage_values": 128,
+   "ratio": 1.5476742731468769,
+   "rel_sigma": 0.09111527070350105,
+   "boot_16_84": [
+    1.3986169593895477,
+    1.6711002919277245
+   ]
+  }
+ }
+}
