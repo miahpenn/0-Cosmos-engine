@@ -259,13 +259,23 @@ def scalar_rhs_arrays(grid, geometry, fields, beta_dm=BETA_DM,
     return ScalarFields(St, PSt, Dt, Pdt, phit, Pit)
 
 
+def scalar_momentum_projection(fields, radial_derivatives):
+    """Return the covariant radial scalar momentum in Einstein-source units."""
+    Sp, Dp, phip = radial_derivatives
+    j = np.zeros_like(fields.S)
+    j += -fields.PS * Sp
+    j += -fields.PD * Dp
+    j += (-fields.Pi * phip) / KAPPA
+    return j
+
+
 def scalar_projection(grid, geometry, fields):
     """Return the archive-normalized scalar Einstein projections."""
     invr = geometry.X**2 / geometry.a
     e = np.zeros_like(fields.S)
     pr = np.zeros_like(fields.S)
     pt = np.zeros_like(fields.S)
-    j = np.zeros_like(fields.S)
+    radial_derivatives = tuple(_d1(grid, f, 1) for f in (fields.S, fields.D, fields.phi))
 
     # The S-D potential is joint (GEAR-67): its quadratic parts are attributed to S and D as before
     # and the quartic, including the S-D cross term, is added once with D.
@@ -281,17 +291,15 @@ def scalar_projection(grid, geometry, fields):
             V_quartic = 0.0
         V_S = 0.5 * fields.S**2
         V_D = -0.5 * fields.D**2 + V_quartic
-    for f, p, V in (
+    sectors = (
         (fields.S, fields.PS, V_S),
         (fields.D, fields.PD, V_D),
         (fields.phi, fields.Pi, cosmos_potential(fields.phi)),
-    ):
-        fp = _d1(grid, f, 1)
+    )
+    for (f, p, V), fp in zip(sectors, radial_derivatives):
         gr2 = invr * fp * fp
         scale = KAPPA if f is fields.phi else 1.0
         e += (0.5 * p * p + 0.5 * gr2 + V) / scale
         pr += (0.5 * p * p + 0.5 * gr2 - V) / scale
         pt += (0.5 * p * p - 0.5 * gr2 - V) / scale
-        j += (-p * fp) / scale
-
-    return e, pr, pt, j
+    return e, pr, pt, scalar_momentum_projection(fields, radial_derivatives)

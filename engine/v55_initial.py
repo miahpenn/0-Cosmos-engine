@@ -102,7 +102,59 @@ def _cumulative_origin_integral(grid, r, dr, f):
     return integ - (dr * dr / 12.0) * (fp - fp[0])
 
 
-INITIAL_STRUCTURES = ("none", "rescaled_pocket", "inherited_pocket", "hand_floor_reference")
+def _eight_node_origin_integral(grid, r, dr, f):
+    """Integrate the degree-seven local interpolant on each cell-centre interval."""
+    cells = np.arange(len(r))
+    starts = np.minimum(cells - 4, len(r) - 8)
+    indices = starts[:, None] + np.arange(8)
+    # Reflect negative cell centres evenly. Shift the outer stencil inward.
+    samples = (f - 1.0)[np.where(indices < 0, -1 - indices, indices)]
+    pieces = np.empty(len(r))
+    powers = np.arange(1, 9)
+
+    def weights(offset, left):
+        nodes = np.arange(8) - offset + 0.5
+        moments = (0.5**powers - left**powers) / powers
+        return np.linalg.solve(np.vander(nodes, 8, increasing=True).T, moments)
+
+    offsets = cells - starts
+    pieces[0] = dr * (samples[0] @ weights(offsets[0], 0.0))
+    for offset in np.unique(offsets[1:]):
+        rows = (cells > 0) & (offsets == offset)
+        pieces[rows] = dr * (samples[rows] @ weights(offset, -0.5))
+    return r + np.cumsum(pieces)
+
+
+@dataclass(frozen=True)
+class W1ArealProfile:
+    """Research-only, already engine-chart S/D data on exact cell centres.
+
+    No interpolation, phase mapping, or scientific admission is performed here.
+    The COSMOS background and fluids retain the archive operating point.
+    """
+
+    r: np.ndarray
+    S: np.ndarray
+    PS: np.ndarray
+    D: np.ndarray
+    PD: np.ndarray
+
+    def arrays_for(self, r):
+        arrays = []
+        for name in ("r", "S", "PS", "D", "PD"):
+            value = np.asarray(getattr(self, name))
+            if value.dtype.kind not in "iuf" or value.shape != r.shape:
+                raise ValueError(f"W1 {name} must be a real profile matching the grid")
+            value = np.array(value, dtype=float, copy=True)
+            if not np.all(np.isfinite(value)):
+                raise ValueError(f"W1 {name} must be finite")
+            arrays.append(value)
+        if not np.array_equal(arrays[0], r):
+            raise ValueError("W1 cell centres must exactly match the initializer grid")
+        return arrays[1:]
+
+
+INITIAL_STRUCTURES = ("none", "rescaled_pocket", "inherited_pocket", "hand_floor_reference", "w1_research")
 
 
 def _pocket_D(S, phi0, D_amplitude, r, dr, width, T=200.0, gamma=0.3):
@@ -142,6 +194,8 @@ def build_initial_data(
     D_amplitude=None,
     include_radiation=True,
     *,
+    eight_node_areal=False,
+    w1_profile=None,
     initial_structure=None,
     pocket_x=None,
     charged_dust_density=None,
@@ -184,6 +238,15 @@ def build_initial_data(
     )
     if structure not in INITIAL_STRUCTURES:
         raise ValueError(f"initial_structure must be one of {INITIAL_STRUCTURES}, not {structure!r}")
+    if structure == "w1_research":
+        if not isinstance(w1_profile, W1ArealProfile):
+            raise ValueError("w1_research requires a W1ArealProfile")
+        if any(v is not None for v in (amplitude, width, D_amplitude, pocket_x,
+                                       charged_dust_density, radial_maxwell_charge_to_mass)):
+            raise ValueError("W1 cannot be combined with pocket or charged-dust arguments")
+        w1_arrays = w1_profile.arrays_for(r)
+    elif w1_profile is not None:
+        raise ValueError("w1_profile requires initial_structure='w1_research'")
     lam = _scalar_system.SD_QUARTIC_LAMBDA
     if structure != "hand_floor_reference" and lam <= 0.0:
         raise ValueError(
@@ -225,7 +288,9 @@ def build_initial_data(
         rho0 += float(_scalar_system.sea_floor_density(phi0))
     H0 = math.sqrt(max(rho0 / 3.0, 0.0))
 
-    if structure == "hand_floor_reference":
+    if structure == "w1_research":
+        S, PS, D, PD = w1_arrays
+    elif structure == "hand_floor_reference":
         # REFERENCE ONLY: the pre-step-2 default initial data, unchanged.
         S = amplitude * np.exp(-(r / width) ** 2)
         D = D_amplitude * np.exp(-(r / width) ** 2)
@@ -243,19 +308,26 @@ def build_initial_data(
         S = A * np.exp(-(r / width) ** 2)
         D = _pocket_D(S, phi0, D_amplitude, r, dr, width)
         PD = np.zeros_like(r)
-    PS = np.zeros_like(r)
+    if structure != "w1_research":
+        PS = np.zeros_like(r)
     phi = np.full(n, phi0)
     Pi = np.full(n, pi0)
     Kt = np.full(n, -H0)
 
+    scalars = _scalar_system.ScalarFields(S, PS, D, PD, phi, Pi)
     Sp = _d1(grid, S, 1)
     Dp = _d1(grid, D, 1)
+    # phi is the exact constant archive background on every supported start.
+    # Its derivative is zero; a stencil would add cancellation roundoff to j.
+    phip = np.zeros_like(phi)
     Ktp = _d1(grid, Kt, 1)
-    j = -(PD * Dp)
+    # Archive fluids start at rest, and the radial electric field carries no j_r.
+    j = _scalar_system.scalar_momentum_projection(scalars, (Sp, Dp, phip))
     B = np.ones_like(r)
 
     # Same constrained areal initial-data reconstruction used by the archived
     # V5.5 gate, with corrected COSMOS variables and optional radiation.
+    integrate = _eight_node_origin_integral if eight_node_areal else _cumulative_origin_integral
     for _ in range(6):
         if _scalar_system.coupling_active():
             # GEAR-91 (step 2): the full V_SD(S, D; phi), counted once.
@@ -292,7 +364,7 @@ def build_initial_data(
             + 2.0 * r * r * Kr * Kt
             + r * r * Kt * Kt
         )
-        integ = _cumulative_origin_integral(grid, r, dr, src)
+        integ = integrate(grid, r, dr, src)
         B = integ / r
 
     if np.any(~np.isfinite(B)) or np.any(B <= 0.0):
@@ -322,9 +394,6 @@ def build_initial_data(
     state.Lambda[:] = Lambda
     state.B[:] = 0.75 * Lambda
 
-    scalars = __import__("engine.scalar_system", fromlist=["ScalarFields"]).ScalarFields(
-        S, PS, D, PD, phi, Pi
-    )
     matter = initialize_from_archive(
         grid,
         state,

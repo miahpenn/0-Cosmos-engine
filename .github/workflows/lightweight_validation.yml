@@ -48,6 +48,18 @@ jobs:
       - name: Run complete repository test suite
         run: python -m pytest -q
 
+      - name: Check zero-step W1 production initializer against the pinned clone
+        env:
+          OPENBLAS_NUM_THREADS: "1"
+        run: python -m research.b7_w1_initializer_check
+
+      - name: Preserve W1 initializer integration report
+        uses: actions/upload-artifact@v4
+        with:
+          name: w1-initializer-report
+          path: results/research/b7_w1_initializer_draft/report.json
+          if-no-files-found: error
+
       - name: Emit curved-slice EM exchange discriminator values
         run: python -m pytest -q -s tests/test_research_em_curved_energy_balance.py
 

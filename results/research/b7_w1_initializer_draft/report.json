@@ -1,0 +1,89 @@
+{
+  "input_sha256": "16151c445c9dcfcc34cf61e28e268e991ab2bfea629beaa3aa52fadc4c5a98ea",
+  "vendor": "d6052d605673ce9d82cdc99b0df79855fa2ea215",
+  "source_sha": "bf000b38c1be2687a488a06ddf1df80a0e5d9e5b",
+  "python": "3.12.14",
+  "numpy": "2.3.5",
+  "scipy": "1.17.0",
+  "phase": 0.0,
+  "chart": "Hubble on, stored grid-aligned W1",
+  "steps": 0,
+  "grids": {
+    "dr0.05": {
+      "ring": {
+        "H_max": 6.483244797679359e-11,
+        "H_peak_cell": 38,
+        "M_max": 1.4447629651485532e-16
+      },
+      "control": {
+        "H_max": 1.037344879049537e-12,
+        "H_peak_cell": 0,
+        "M_max": 9.62153599077315e-17
+      },
+      "official_G4c_ratio": 62.49845088761228,
+      "official_G4c": "FAIL",
+      "geometry_max_difference": {
+        "a": 0.0,
+        "b": 0.0,
+        "X": 0.0,
+        "K": 0.0,
+        "Aa": 0.0,
+        "Lambda": 0.0,
+        "alpha": 0.0,
+        "beta": 0.0,
+        "B": 0.0
+      },
+      "fields_exact": true,
+      "clone_geometry_bitwise_equal": true
+    },
+    "dr0.025": {
+      "ring": {
+        "H_max": 9.542197598483987e-12,
+        "H_peak_cell": 0,
+        "M_max": 1.9639900534604091e-16
+      },
+      "control": {
+        "H_max": 9.837242755409911e-12,
+        "H_peak_cell": 0,
+        "M_max": 4.749035301922668e-16
+      },
+      "official_G4c_ratio": 0.9700073319057144,
+      "official_G4c": "PASS",
+      "geometry_max_difference": {
+        "a": 0.0,
+        "b": 0.0,
+        "X": 0.0,
+        "K": 0.0,
+        "Aa": 0.0,
+        "Lambda": 0.0,
+        "alpha": 0.0,
+        "beta": 0.0,
+        "B": 0.0
+      },
+      "fields_exact": true,
+      "clone_geometry_bitwise_equal": true
+    }
+  },
+  "threadpools": [
+    {
+      "user_api": "blas",
+      "internal_api": "openblas",
+      "num_threads": 1,
+      "prefix": "libscipy_openblas",
+      "filepath": "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/numpy.libs/libscipy_openblas64_-fdde5778.so",
+      "version": "0.3.30",
+      "threading_layer": "pthreads",
+      "architecture": "SkylakeX"
+    },
+    {
+      "user_api": "blas",
+      "internal_api": "openblas",
+      "num_threads": 1,
+      "prefix": "libscipy_openblas",
+      "filepath": "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/scipy.libs/libscipy_openblas-6cdc3b4a.so",
+      "version": "0.3.30",
+      "threading_layer": "pthreads",
+      "architecture": "SkylakeX"
+    }
+  ]
+}

@@ -166,6 +166,8 @@ class V55ProductionKernel:
         pocket_x: float | None = None,
         outer_edge: str | None = None,
         wall_clock: str = _wall.DEFAULT_WALL_CLOCK,
+        eight_node_areal: bool = False,
+        w1_profile=None,
     ) -> ProductionState:
         """Production start: today, background alone ("no structure placed") by default.
 
@@ -185,6 +187,9 @@ class V55ProductionKernel:
         wall gets the conformally flat cell slice (lattice_wall.conformal_wall_initial_data): LABELLED, its data
         differ from the areal slice it has on the open edge (lattice_wall.POCKET_FIXTURE_WALL_LABEL). The fixtures'
         open-edge reference stays available by name, outer_edge="open_edge", bit-identical to before.
+        eight_node_areal: opt into the candidate eight-node quadrature for open-edge areal starts.
+        w1_profile: W1ArealProfile with initial_structure="w1_research" and explicit open_edge;
+        already mapped research data only, with no promotion or change to the default start.
         wall_clock: "i" (alpha = 1 at the wall, the default) or "ii" (Kdot = <Q>); wall only.
         """
         from . import scalar_system as _scalar_system
@@ -193,6 +198,8 @@ class V55ProductionKernel:
         structure = (
             _scalar_system.DEFAULT_INITIAL_STRUCTURE if initial_structure is None else initial_structure
         )
+        if (structure == "w1_research" or w1_profile is not None) and outer_edge != _wall.OPEN_EDGE:
+            raise ValueError("W1 requires an explicit open-edge areal start")
         if outer_edge is None:
             outer_edge = _wall.default_edge(
                 structure,
@@ -204,6 +211,8 @@ class V55ProductionKernel:
             radial_maxwell_charge_to_mass is not None or charged_dust_density is not None
         ):
             raise NotImplementedError("the lattice wall has no electromagnetic sector")
+        if eight_node_areal and outer_edge != _wall.OPEN_EDGE:
+            raise ValueError("eight_node_areal requires an open-edge areal start")
         grid = grid_ops.SphericalCellGrid(resolution, r_max)
         init = build_initial_data(
             grid,
@@ -212,6 +221,8 @@ class V55ProductionKernel:
             width=width,
             D_amplitude=D_amplitude,
             include_radiation=include_radiation,
+            eight_node_areal=eight_node_areal,
+            w1_profile=w1_profile,
             initial_structure=initial_structure,
             pocket_x=pocket_x,
             charged_dust_density=charged_dust_density,
