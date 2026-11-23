@@ -1,0 +1,94 @@
+# frozen-S threshold follow-up; T = 10000, estimator B, growth = lambda_B > 2e-3; 61 runs; wall 49 s
+# columns: lambda_B [A lambda_A] class span(e-folds) floor floor/est(0.858 R d0) t_end
+
+## primary R 12 (dr 0.1, wd 1.0, sponge 40, H 0, seed 1e-6)
+  xAR  5.50  +0.0000[A +0.0000]  N  span 0.00  floor 1.02e-05  0.99  t_end 9999
+  xAR  5.60  +0.0000[A +0.0000]  N  span 0.00  floor 1.02e-05  0.99  t_end 9997
+  xAR  5.70  +0.0008[A +0.0003]  N  span 2.19  floor 1.04e-05  1.01  t_end 9998
+  xAR  5.80  +0.0022[A +0.0010]  G  span 3.47  floor 1.09e-05  1.06  t_end 4366
+  xAR  5.90  +0.0035[A +0.0017]  G  span 3.47  floor 1.14e-05  1.11  t_end 2660
+  xAR  6.00  +0.0048[A +0.0025]  G  span 3.34  floor 1.15e-05  1.12  t_end 1898
+  xAR  6.10  +0.0061[A +0.0032]  G  span 3.41  floor 1.18e-05  1.14  t_end 1466
+  xAR  6.20  +0.0075[A +0.0040]  G  span 3.32  floor 1.19e-05  1.16  t_end 1192
+  xAR  6.30  +0.0088[A +0.0048]  G  span 3.39  floor 1.22e-05  1.18  t_end 1000
+  xAR  6.40  +0.0101[A +0.0057]  G  span 3.27  floor 1.28e-05  1.24  t_end 861
+  xAR  6.50  +0.0114[A +0.0065]  G  span 3.30  floor 1.28e-05  1.24  t_end 752
+  xAR  6.60  +0.0127[A +0.0074]  G  span 3.18  floor 1.30e-05  1.26  t_end 668
+  xAR  6.70  +0.0139[A +0.0083]  G  span 3.23  floor 1.25e-05  1.21  t_end 599
+  xAR  6.80  +0.0152[A +0.0093]  G  span 3.31  floor 1.22e-05  1.19  t_end 543
+  xAR  6.90  +0.0164[A +0.0103]  G  span 3.16  floor 1.32e-05  1.28  t_end 497
+  xAR  7.00  +0.0178[A +0.0114]  G  span 3.15  floor 1.33e-05  1.29  t_end 456
+  BRACKET (5.7, 5.8)
+  linear interpolation to 2e-3 (Account): 5.789
+
+## primary R 24 (dr 0.1, wd 1.0, sponge 40, H 0, seed 1e-6)
+  xAR  5.50  +0.0000[A -0.0000]  N  span 0.00  floor 2.44e-05  1.19  t_end 9998
+  xAR  5.60  +0.0000[A -0.0000]  N  span 0.00  floor 2.43e-05  1.18  t_end 9998
+  xAR  5.70  +0.0000[A -0.0000]  N  span 0.00  floor 2.44e-05  1.18  t_end 9999
+  xAR  5.80  +0.0000[A +0.0001]  N  span 0.00  floor 2.42e-05  1.18  t_end 9998
+  xAR  5.90  +0.0011[A +0.0005]  N  span 2.65  floor 2.41e-05  1.17  t_end 7153
+  xAR  6.00  +0.0018[A +0.0007]  N  span 2.62  floor 2.42e-05  1.17  t_end 4642
+  xAR  6.10  +0.0024[A +0.0010]  G  span 2.70  floor 2.43e-05  1.18  t_end 3442
+  xAR  6.20  +0.0030[A +0.0013]  G  span 2.67  floor 2.46e-05  1.20  t_end 2739
+  xAR  6.30  +0.0036[A +0.0016]  G  span 2.70  floor 2.45e-05  1.19  t_end 2277
+  xAR  6.40  +0.0043[A +0.0019]  G  span 2.65  floor 2.43e-05  1.18  t_end 1949
+  xAR  6.50  +0.0048[A +0.0022]  G  span 2.62  floor 2.41e-05  1.17  t_end 1706
+  xAR  6.60  +0.0055[A +0.0024]  G  span 2.73  floor 2.42e-05  1.18  t_end 1516
+  xAR  6.70  +0.0061[A +0.0027]  G  span 2.73  floor 2.40e-05  1.16  t_end 1366
+  xAR  6.72  +0.0062[A +0.0028]  G  span 2.71  floor 2.40e-05  1.16  t_end 1339
+  xAR  6.80  +0.0067[A +0.0030]  G  span 2.67  floor 2.42e-05  1.18  t_end 1242
+  xAR  6.90  +0.0073[A +0.0033]  G  span 2.62  floor 2.42e-05  1.18  t_end 1141
+  xAR  7.00  +0.0079[A +0.0036]  G  span 2.64  floor 2.42e-05  1.18  t_end 1054
+  BRACKET (6.0, 6.1)
+  linear interpolation to 2e-3 (Account): 6.037
+
+## predeclared tests
+  R 12 P1 no growth at [5.5]: PASS
+  R 12 P2 growth at 6.1-7.0: PASS
+  R 12 P3 monotonic (no fall > 5%): PASS
+  R 24 P1 no growth at [5.5, 5.6, 5.7]: PASS
+  R 24 P2 growth at 6.3-7.0: PASS
+  R 24 P3 monotonic (no fall > 5%): PASS
+  R 24 P4 witness 6.72: 0.0062 vs 0.007 (0.0049-0.0091): PASS
+  R 12 P5 continuity: 6.0: 0.0048 vs 0.0048 ok; 6.5: 0.0114 vs 0.0114 ok; 7.0: 0.0178 vs 0.0178 ok: PASS
+  R 24 P5 continuity: 6.5: 0.0048 vs 0.0048 ok; 6.72: 0.0062 vs 0.0062 ok; 7.0: 0.0079 vs 0.0079 ok: PASS
+  R 12 P6 control pump off: +0.0000[A -0.0000] N floor 1.21e-05: PASS
+  R 24 P6 control pump off: +0.0000[A -0.0000] N floor 2.43e-05: PASS
+  R 12 P7 rulers: 5.7 ('dr', 0.05): +0.0000[A +0.0001] N vs +0.0008[A +0.0003] N OUT; 5.8 ('dr', 0.05): +0.0020[A +0.0010] N vs +0.0022[A +0.0010] G OUT: FAIL
+  R 24 P7 rulers: 6.0 ('dr', 0.05): +0.0017[A +0.0007] N vs +0.0018[A +0.0007] N ok; 6.0 ('sw', 60.0): +0.0018[A +0.0007] N vs +0.0018[A +0.0007] N ok; 6.1 ('dr', 0.05): +0.0023[A +0.0010] G vs +0.0024[A +0.0010] G ok; 6.1 ('sw', 60.0): +0.0024[A +0.0010] G vs +0.0024[A +0.0010] G ok: PASS
+  R 12 B1 prediction 5.78 in (5.7-0.2, 5.8+0.2): PASS   [continuity, not scored: widened by 0.7 inside]
+  R 24 B1 prediction 6.0 in (6.0-0.2, 6.1+0.2): PASS   [continuity, not scored: widened by 0.7 inside]
+
+## verdict per R
+  R 12: MIXED  (bracket (5.7, 5.8); P1 pass, P2 pass, P3 pass, P6 pass, P7 fail, B1 pass, P5 pass, ruler moved a class)
+  R 24: PASS  (bracket (6.0, 6.1); P1 pass, P2 pass, P3 pass, P6 pass, P7 pass, B1 pass, P4 pass, P5 pass)
+
+## item 3: edge width 0.3 (R 24, T 10000)
+  xAR  5.50  +0.0000[A -0.0000]  N  span 0.00  floor 2.38e-05  1.15  t_end 9998
+  xAR  5.60  +0.0000[A +0.0001]  N  span 0.42  floor 2.38e-05  1.16  t_end 9998
+  xAR  5.70  +0.0011[A +0.0005]  N  span 2.70  floor 2.38e-05  1.15  t_end 6643
+  xAR  5.80  +0.0017[A +0.0008]  N  span 2.72  floor 2.36e-05  1.15  t_end 4306
+  xAR  5.90  +0.0024[A +0.0011]  G  span 2.75  floor 2.37e-05  1.15  t_end 3199
+  xAR  6.00  +0.0030[A +0.0014]  G  span 2.67  floor 2.38e-05  1.16  t_end 2544
+  xAR  6.10  +0.0037[A +0.0017]  G  span 2.73  floor 2.39e-05  1.16  t_end 2118
+  xAR  6.20  +0.0043[A +0.0021]  G  span 2.70  floor 2.39e-05  1.16  t_end 1817
+  xAR  6.30  +0.0050[A +0.0024]  G  span 2.64  floor 2.40e-05  1.16  t_end 1591
+  xAR  6.40  +0.0056[A +0.0027]  G  span 2.68  floor 2.39e-05  1.16  t_end 1415
+  xAR  6.50  +0.0062[A +0.0030]  G  span 2.70  floor 2.40e-05  1.17  t_end 1277
+  xAR  6.60  +0.0068[A +0.0033]  G  span 2.66  floor 2.40e-05  1.16  t_end 1165
+  xAR  6.70  +0.0075[A +0.0036]  G  span 2.67  floor 2.40e-05  1.16  t_end 1071
+  xAR  6.80  +0.0082[A +0.0039]  G  span 2.64  floor 2.40e-05  1.17  t_end 991
+  xAR  6.90  +0.0088[A +0.0043]  G  span 2.68  floor 2.40e-05  1.17  t_end 923
+  xAR  7.00  +0.0092[A +0.0046]  G  span 2.66  floor 2.40e-05  1.17  t_end 863
+  BRACKET wd 0.3 (5.8, 5.9)
+  dr 0.05 on wd 0.3 row 5.8: +0.0017[A +0.0008] N vs +0.0017[A +0.0008] N
+  dr 0.05 on wd 0.3 row 5.9: +0.0023[A +0.0011] G vs +0.0024[A +0.0011] G
+  first growth row wd 1.0 (0.1 grid) 6.1; wd 0.3 5.9; Delta -0.2: OPPOSITE SIGN (prediction FAILS)
+
+## item 4 (R 12, xAR 6.5)
+  H 0: +0.0114[A +0.0065]; H 0.01: +0.0000[A -0.0033] floor 3.56e-06; H 0.004: +0.0058[A +0.0043] floor 7.50e-06 span 3.78
+  4a no growth at H 0.01 (predicted -0.0043): PASS
+  4b H 0.004: 0.0058 vs predicted 0.0054 (+/- 0.004): PASS
+
+## floors below 0.5 x estimate (H 0 runs): none
+## slowest run 16 s
