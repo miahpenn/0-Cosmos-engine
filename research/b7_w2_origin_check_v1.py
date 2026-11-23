@@ -374,7 +374,8 @@ V_JUMP_MAX = 10.0
 J_DROP, J_KEEP, J_MATCH_X = 0.1, 0.5, 2.0
 
 
-def gate_v(go):
+def gate_v(go, order_rmax=None):
+    """order_rmax None = r0 gate (whole domain); 5.0 = r1 gate (pre-run entry ~01:05 UTC Nov 23)."""
     out = {}
     for dr in DRS:
         g = go.SphericalCellGrid(int(round(R_MAX / dr)), R_MAX)
@@ -386,7 +387,8 @@ def gate_v(go):
         F6 = r ** 7 / 7
         e = np.abs(even6_integral(r, r ** 6, dr) - F6)
         ee = np.abs(_cumulative_origin_integral(g, r, dr, r ** 6) - F6)
-        d.update(r6_max_err=float(e.max()), r6_cells0_5=[float(x) for x in e[:6]],
+        sel = np.ones_like(r, dtype=bool) if order_rmax is None else (r <= order_rmax)
+        d.update(r6_max_err=float(e[sel].max()), order_rmax=order_rmax, r6_cells0_5=[float(x) for x in e[:6]],
                  engine_r6_max_err=float(ee.max()), engine_r6_cells0_5=[float(x) for x in ee[:6]])
         out["dr%g" % dr] = d
     ex = all(out[k]["max_rel_err_r%d" % p] <= V_EXACT_RTOL for k in out for p in (0, 2, 4))
@@ -399,12 +401,12 @@ def gate_v(go):
     return out
 
 
-def main_junction(npz, outdir):
+def main_junction(npz, outdir, order_rmax=None):
     os.makedirs(outdir, exist_ok=True)
     kernel = V55ProductionKernel()
     go, vac, _ = adapter.vendor_modules()
     z = np.load(npz)
-    rep = {"member_sha256": src.sha256_file(npz), "runtime": src.environment_report(), "gate_V": gate_v(go), "grids": {}}
+    rep = {"member_sha256": src.sha256_file(npz), "runtime": src.environment_report(), "gate_V": gate_v(go, order_rmax), "grids": {}}
     if not rep["gate_V"]["PASS"]:
         rep["verdict"] = "STOPPED: gate V failed, no swap run"
         json.dump(rep, open(os.path.join(outdir, "report.json"), "w"), indent=1, default=float)
@@ -449,7 +451,9 @@ def main_junction(npz, outdir):
 
 
 if __name__ == "__main__":
-    if len(sys.argv) > 3 and sys.argv[3] == "junction":
+    if len(sys.argv) > 3 and sys.argv[3] == "junction_r1":
+        main_junction(*sys.argv[1:3], order_rmax=5.0)
+    elif len(sys.argv) > 3 and sys.argv[3] == "junction":
         main_junction(*sys.argv[1:3])
     else:
         main(*sys.argv[1:3])
