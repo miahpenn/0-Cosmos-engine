@@ -38,3 +38,17 @@ Report-only (F3, outer cell, RMS of per-stage values):
 - Departure-copy drift over 64 steps: 0.6 to 6.1 ulp of 1 in the outer window.
 
 Full per-stage values are in `report.json`.
+
+## Post-hoc: equal-time ratios (report-only, Lumen² Amendment 5, 1CfJRD-KduL5XlbopdgIjdlRiYcYP3C2yz61zfSuTZoA)
+
+Recomputed from `report.json` only, no new simulation. Window t in (0, 0.024]: dt .00075 first 32 steps
+(64 stage values), dt .000375 all 64 steps (128 values). Same bootstrap (block 8, 4000 resamples). Values in
+`equal_time_ratios.json`.
+
+| Fixture | dt .00075 | dt .000375 |
+|---|---|---|
+| W1 | 2.07 (rel 1-sigma 0.11) | 1.73 (0.11) |
+| PC2 | 2.06 (0.14) | 1.55 (0.09) |
+
+At equal elapsed time the ratio still drops when dt halves, so elapsed time does not explain the trend. Each drop
+is about 1.1 sigma (W1) and 1.6 sigma (PC2) on its own, so the trend is not established either.
