@@ -87,8 +87,24 @@ def _rho(S, PS, D, PD, Sp, Dp, phi, Pi, B, rho_r):
     return rhoS + rhoD + rhoPhi + rhoMatter
 
 
+def first_q4(r, f):
+    """The engine's first piece, same arithmetic as _cumulative_origin_integral."""
+    A = np.vstack([np.ones(3), r[:3] ** 2, r[:3] ** 4]).T
+    c = np.linalg.solve(A, f[:3])
+    return c[0] * r[0] + c[1] * r[0] ** 3 / 3.0 + c[2] * r[0] ** 5 / 5.0
+
+
+def first_s6(r, f, dr):
+    """First-piece test arm FP6: even sextic through cells 0-3, fitted in x = r/dr, integrated over [0, r_0]."""
+    x = r[:4] / dr
+    A = np.vstack([np.ones(4), x ** 2, x ** 4, x ** 6]).T
+    c = np.linalg.solve(A, f[:4])
+    x0 = x[0]
+    return dr * (c[0] * x0 + c[1] * x0 ** 3 / 3.0 + c[2] * x0 ** 5 / 5.0 + c[3] * x0 ** 7 / 7.0)
+
+
 def reconstruct(grid, vac_factory, S, PS, D, PD, phi, Pi, *, quadrature="engine", src_derivs=None, B_override=None,
-                n_iter=6):
+                n_iter=6, first_override=None):
     """The W2 clone's arithmetic (Hubble K_t, PS terms on, uniform dust), with exactly one of three knobs changed:
     quadrature ('engine' | 'spline'), src_derivs (analytic (Sp, Dp) used in the Hamiltonian source and its j only),
     B_override (B supplied from outside). K, j for the geometry, conversion and evaluator are always the clone's."""
@@ -104,7 +120,9 @@ def reconstruct(grid, vac_factory, S, PS, D, PD, phi, Pi, *, quadrature="engine"
     sj = -(PD * sDp) - PS * sSp
     quad = {"engine": lambda f: _cumulative_origin_integral(grid, r, dr, f),
             "spline": lambda f: spline_even_integral(r, f),
-            "even6": lambda f: even6_integral(r, f, dr)}[quadrature]
+            "even6": lambda f: even6_integral(r, f, dr),
+            "fp6": lambda f: _cumulative_origin_integral(grid, r, dr, f) - first_q4(r, f) + first_s6(r, f, dr),
+            "fpo": lambda f: _cumulative_origin_integral(grid, r, dr, f) - first_q4(r, f) + first_override}[quadrature]
     B = np.ones_like(r)
     aux = {}
     if B_override is None:
@@ -450,7 +468,121 @@ def main_junction(npz, outdir, order_rmax=None):
     return rep
 
 
+# ---------------------------------------------------------------- first-piece test (pre-run entry ~01:20 UTC Nov 23)
+EPS = np.finfo(float).eps
+G1_RTOL, G2_ORDER_MIN, G2_FLOOR, G3_FLOOR, G4_FLOOR = 1e-12, 8.5, 100.0, 100.0, 10.0
+R1_MATCH_X, R1_KEEP, R2_DROP, R2_KEEP = 2.0, 0.5, 0.1, 0.5
+
+
+def first_piece_gates(go):
+    from scipy.special import erf
+    g1 = {}
+    for dr in DRS:
+        r = (np.arange(8) + 0.5) * dr
+        g1["dr%g" % dr] = {"r%d" % p: float(abs(first_s6(r, r ** p, dr) - r[0] ** (p + 1) / (p + 1)) / (r[0] ** (p + 1) / (p + 1)))
+                           for p in (0, 2, 4, 6)}
+    g1_pass = all(v <= G1_RTOL for d in g1.values() for v in d.values())
+    g2 = {}
+    for dr in (0.4, 0.2, 0.1):
+        r = (np.arange(8) + 0.5) * dr
+        f = np.exp(-4.0 * r * r)
+        F0 = math.sqrt(math.pi) / 4.0 * erf(2.0 * r[0])
+        e6, e4 = abs(first_s6(r, f, dr) - F0), abs(first_q4(r, f) - F0)
+        g2["dr%g" % dr] = {"err_fp6": e6, "err_engine_q4": e4, "fp6_over_floor": e6 / (EPS * abs(F0)),
+                           "discriminating": e6 >= G2_FLOOR * EPS * abs(F0)}
+    keep = [d for d in (0.4, 0.2, 0.1) if g2["dr%g" % d]["discriminating"]]
+    o6 = [math.log(g2["dr%g" % keep[i]]["err_fp6"] / g2["dr%g" % keep[i + 1]]["err_fp6"], keep[i] / keep[i + 1]) for i in range(len(keep) - 1)]
+    o4 = [math.log(g2["dr%g" % a]["err_engine_q4"] / g2["dr%g" % b]["err_engine_q4"], a / b) for a, b in ((0.4, 0.2), (0.2, 0.1))]
+    g2_state = "UNTESTED" if len(o6) < 2 else ("PASS" if min(o6) >= G2_ORDER_MIN else "FAIL")
+    return {"G1": g1, "G1_PASS": g1_pass, "G2": g2, "G2_orders_fp6": o6, "G2_orders_engine_q4": o4, "G2_state": g2_state}
+
+
+def exact_first_piece(fn, r0, B0):
+    """Oracle: quad of the continuum source over [0, r_0]; B(r) = 1 + (B0 - 1)(r/r_0)^2 (enters only via 8 pi r^2 rho_1 B)."""
+    from scipy.integrate import quad
+    H0 = clone.background_H0(True, True)
+    Kt = -H0
+
+    def srcf(t):
+        f = fn(np.array([t]))
+        B = 1.0 + (B0 - 1.0) * (t / r0) ** 2
+        rho = _rho(f["S"], f["PS"], f["D"], f["PD"], f["Sp"], f["Dp"], f["phi"], f["Pi"], B, RHO_R_PRESENT)[0]
+        jj = -(f["PD"][0] * f["Dp"][0]) - f["PS"][0] * f["Sp"][0]
+        Kr = Kt + 4.0 * math.pi * t * jj
+        return 1.0 - 8.0 * math.pi * t * t * rho + 2.0 * t * t * Kr * Kt + t * t * Kt * Kt
+
+    val, err = quad(srcf, 0.0, r0, epsabs=1e-30, epsrel=1.2e-14, limit=200)
+    return val, err
+
+
+def main_first_piece(npz, outdir):
+    os.makedirs(outdir, exist_ok=True)
+    kernel = V55ProductionKernel()
+    go, vac, _ = adapter.vendor_modules()
+    z = np.load(npz)
+    rep = {"member_sha256": src.sha256_file(npz), "runtime": src.environment_report(), "gates": first_piece_gates(go), "grids": {}}
+    run_fp6 = rep["gates"]["G1_PASS"] and rep["gates"]["G2_state"] == "PASS"
+    fn = manufactured_fn(manufactured_params(z))
+    for dr in DRS:
+        key = "dr%g" % dr
+        g = go.SphericalCellGrid(int(round(R_MAX / dr)), R_MAX)
+        r = np.asarray(g.centers)
+        e2 = w2.engine_slice(g, vac, "rescaled_pocket", pocket_x=0.5)
+        pc2 = summary(g, evaluate(kernel, g, e2))["kernel_H_full_absmax"]
+        s2 = e2.scalars
+        p6, _ = reconstruct(g, vac.flat_state, s2.S, s2.PS, s2.D, s2.PD, s2.phi, s2.Pi, quadrature="even6")
+        floor = summary(g, evaluate(kernel, g, p6))["kernel_H_full_absmax"]
+        m = fn(r)
+        ma = [m[k] for k in ("S", "PS", "D", "PD", "phi", "Pi")]
+        mE, aE = reconstruct(g, vac.flat_state, *ma)
+        Bx = exact_B(g, fn, ODE_RTOL)
+        mX, aX = reconstruct(g, vac.flat_state, *ma, B_override=Bx)
+        fx, fx_err = exact_first_piece(fn, float(r[0]), float(Bx[0]))
+        fE = float(first_q4(r, aE["src_frozen"]))
+        mO, aO = reconstruct(g, vac.flat_state, *ma, quadrature="fpo", first_override=fx)
+        sE, sX, sO = (summary(g, evaluate(kernel, g, x), y) for x, y in ((mE, aE), (mX, aX), (mO, aO)))
+        G = {"PC2_engine_H": pc2, "floor_PC2_Q6_H": floor,
+             "G3_first_exact": fx, "G3_quad_err_est": fx_err, "G3_first_engine": fE, "G3_diff": fx - fE,
+             "G3_discriminating": abs(fx - fE) >= G3_FLOOR * EPS * abs(fx) and fx_err < 0.01 * abs(fx - fE),
+             "G4_discriminating": sX["H01"] >= G4_FLOOR * floor,
+             "man_E": sE, "man_X": sX, "man_FPO": sO, "man_FPO_over_X": sO["H01"] / sX["H01"], "man_FPO_over_E": sO["H01"] / sE["H01"],
+             "dB_FPO_minus_X_cells0_2": [float(x) for x in (aO["B"] - Bx)[:3]], "dB_E_minus_X_cells0_2": [float(x) for x in (aE["B"] - Bx)[:3]]}
+        if run_fp6:
+            f = _ring(z, g, "linear")
+            a = [f[k] for k in ("S", "PS", "D", "PD", "phi", "Pi")]
+            rb, ab = reconstruct(g, vac.flat_state, *a)
+            r6, a6 = reconstruct(g, vac.flat_state, *a, quadrature="fp6")
+            m6, am6 = reconstruct(g, vac.flat_state, *ma, quadrature="fp6")
+            sb, s6, sm6 = summary(g, evaluate(kernel, g, rb), ab), summary(g, evaluate(kernel, g, r6), a6), summary(g, evaluate(kernel, g, m6), am6)
+            G.update(ring_E=sb, ring_FP6=s6, ring_FP6_over_E=s6["H01"] / sb["H01"], ring_FP6_over_PC2=s6["H_full_absmax"] / pc2,
+                     G4c_FP6=s6["H_full_absmax"] <= G4C_FACTOR * pc2, man_FP6=sm6, man_FP6_over_X=sm6["H01"] / sX["H01"],
+                     dB_ring_FP6_minus_E_cells0_2=[float(x) for x in (a6["B"] - ab["B"])[:3]])
+        rep["grids"][key] = G
+    Gs = [rep["grids"]["dr%g" % d] for d in DRS]
+    disc = all(x["G3_discriminating"] and x["G4_discriminating"] for x in Gs)
+    if not disc:
+        r1 = "UNTESTED"
+    elif all(x["man_FPO"]["H01"] <= R1_MATCH_X * x["man_X"]["H01"] for x in Gs):
+        r1 = "FIRST PIECE ACCOUNTS"
+    elif all(x["man_FPO_over_E"] >= R1_KEEP for x in Gs):
+        r1 = "DOES NOT"
+    else:
+        r1 = "MIXED"
+    if not run_fp6:
+        r2 = "UNTESTED (FP6 gates)"
+    else:
+        rr = [x["ring_FP6_over_E"] for x in Gs]
+        r2 = "FIX WORKS" if all(v <= R2_DROP for v in rr) else ("NO EFFECT" if all(v >= R2_KEEP for v in rr) else "PARTIAL")
+    rep["verdict"] = {"R1": r1, "R2": r2, "cause": "FIRST PIECE" if r1 == "FIRST PIECE ACCOUNTS" else "OPEN",
+                      "G4c_FP6_all_grids": all(x.get("G4c_FP6", False) for x in Gs) if run_fp6 else None}
+    json.dump(rep, open(os.path.join(outdir, "report.json"), "w"), indent=1, default=float)
+    return rep
+
+
 if __name__ == "__main__":
+    if len(sys.argv) > 3 and sys.argv[3] == "first_piece":
+        main_first_piece(*sys.argv[1:3])
+        sys.exit(0)
     if len(sys.argv) > 3 and sys.argv[3] == "junction_r1":
         main_junction(*sys.argv[1:3], order_rmax=5.0)
     elif len(sys.argv) > 3 and sys.argv[3] == "junction":

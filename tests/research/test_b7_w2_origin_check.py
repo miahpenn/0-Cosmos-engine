@@ -64,3 +64,18 @@ def test_even6_exact_through_r4_in_every_cell():
     for p in (0, 2, 4):
         F = r ** (p + 1) / (p + 1)
         assert np.max(np.abs(oc.even6_integral(r, r ** p, dr) - F) / np.abs(F)) <= 1e-12
+
+
+def test_first_q4_is_the_engine_first_piece():
+    g = grid()
+    r = np.asarray(g.centers)
+    f = np.cos(r) * np.exp(-r * r / 9.0)
+    assert _cumulative_origin_integral(g, r, float(g.dr), f)[0] == oc.first_q4(r, f)
+
+
+def test_first_s6_exact_through_r4():
+    dr = 0.1
+    r = (np.arange(8) + 0.5) * dr
+    for p in (0, 2, 4):
+        F0 = r[0] ** (p + 1) / (p + 1)
+        assert abs(oc.first_s6(r, r ** p, dr) - F0) <= 1e-12 * F0
