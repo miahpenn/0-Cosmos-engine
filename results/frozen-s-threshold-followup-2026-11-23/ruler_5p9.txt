@@ -1,0 +1,2 @@
+# 5.9 ruler check (R 12, dr 0.05, T 10000): lambda_B +0.0033 [A +0.0016] class G span 3.40 floor 1.14e-05 t_end 2780
+# primary dr 0.1: +0.0035 G. Reading: growth -> (5.7, 5.9) is a measured cross-grid bracket; R 12 stays MIXED.
