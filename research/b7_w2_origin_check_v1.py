@@ -115,9 +115,11 @@ def reconstruct(grid, vac_factory, S, PS, D, PD, phi, Pi, *, quadrature="engine"
     H0 = clone.background_H0(True, True)
     Kt = np.full(len(r), -H0)
     Sp, Dp, Ktp = _d1(grid, S, 1), _d1(grid, D, 1), _d1(grid, Kt, 1)
-    j = -(PD * Dp) - PS * Sp
+    # Same signed source as the engine and the clone (scalar_momentum_projection).
+    fields, phip = _ss.ScalarFields(S, PS, D, PD, phi, Pi), _d1(grid, phi, 1)
+    j = _ss.scalar_momentum_projection(fields, (Sp, Dp, phip))
     sSp, sDp = (Sp, Dp) if src_derivs is None else src_derivs
-    sj = -(PD * sDp) - PS * sSp
+    sj = _ss.scalar_momentum_projection(fields, (sSp, sDp, phip))
     quad = {"engine": lambda f: _cumulative_origin_integral(grid, r, dr, f),
             "spline": lambda f: spline_even_integral(r, f),
             "even6": lambda f: even6_integral(r, f, dr),
