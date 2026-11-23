@@ -579,7 +579,94 @@ def main_first_piece(npz, outdir):
     return rep
 
 
+# ---------------------------------------------------------------- step 3b, W1 input alone (pre-run entry ~02:20 UTC Nov 23)
+B3_ENV_MIN, B3_FLOOR, B3_SURV, B3_REM, P_LO, P_HI = 0.05, 100.0, 0.5, 0.1, 1.00, 1.10
+W1_SHA = "b498ef42e68e778d536b1be0b559df9d65eb758348c3006b9b3a15dbcd3ced91"
+
+
+def _w1(w, tag, rc, how):
+    r_s = w["A1_hubon_dr1_r"]
+    out = {}
+    for k in FIELDS:
+        y = w["%s_dr1_%s" % (tag, k)]
+        out[k] = np.interp(rc, r_s, y) if how == "linear" else CubicSpline(np.r_[-r_s[::-1], r_s], np.r_[y[::-1], y])(rc)
+    out["phi"], out["Pi"] = np.full(len(rc), clone.PHI0), np.full(len(rc), clone.PI0)
+    return out
+
+
+def main_3b(npz, w1npz, outdir, w1_archive=None):
+    os.makedirs(outdir, exist_ok=True)
+    kernel = V55ProductionKernel()
+    go, vac, _ = adapter.vendor_modules()
+    z, w = np.load(npz), np.load(w1npz)
+    r0 = json.load(open("results/research/b7_ring_constraint_clone_r0/report.json"))
+    rep = {"member_sha256": src.sha256_file(npz), "w1_slice_npz_sha256": src.sha256_file(w1npz),
+           "w1_archive_sha256": src.sha256_file(w1_archive) if w1_archive else None, "runtime": src.environment_report(), "grids": {}}
+    rep["w1_archive_matches_log"] = rep["w1_archive_sha256"] == W1_SHA
+
+    def run(g, f):
+        a = [f[k] for k in ("S", "PS", "D", "PD", "phi", "Pi")]
+        init, aux = reconstruct(g, vac.flat_state, *a)
+        return summary(g, evaluate(kernel, g, init), aux)
+
+    for dr in DRS:
+        key = "dr%g" % dr
+        g = go.SphericalCellGrid(int(round(R_MAX / dr)), R_MAX)
+        rc = np.asarray(g.centers)
+        e2 = w2.engine_slice(g, vac, "rescaled_pocket", pocket_x=0.5)
+        pc2 = summary(g, evaluate(kernel, g, e2))["kernel_H_full_absmax"]
+        s2 = e2.scalars
+        p6, _ = reconstruct(g, vac.flat_state, s2.S, s2.PS, s2.D, s2.PD, s2.phi, s2.Pi, quadrature="even6")
+        floor = summary(g, evaluate(kernel, g, p6))["kernel_H_full_absmax"]
+        base = run(g, _ring(z, g, "linear"))
+        arch = r0["grids"][key]["ring"]["hubble"]["H_full_absmax"]
+        G = {"PC2_engine_H": pc2, "floor_PC2_Q6_H": floor, "placeholder": base,
+             "gateB_rel": abs(base["kernel_H_full_absmax"] - arch) / arch}
+        # envelope arm first (declared before W1 arms are read)
+        w1s = run(g, _w1(w, "A1_hubon", rc, "spline"))
+        w1 = run(g, _w1(w, "A1_hubon", rc, "linear"))
+        G["W1_spline"], G["W1"] = w1s, w1
+        G["envelope"] = max(B3_ENV_MIN, 2.0 * abs(w1s["H01"] / w1["H01"] - 1.0))
+        a0 = run(g, _w1(w, "A0_hubon", rc, "linear"))
+        off = run(g, _w1(w, "A1_huboff", rc, "linear"))
+        G["A0_u1_hubon"], G["A1_huboff"] = a0, off
+        G["resolved"] = all(x["H01"] >= B3_FLOOR * floor for x in (base, w1, w1s, a0, off))
+        G["rho"] = w1["H01"] / base["H01"]
+        G["rho_full"] = w1["H_full_absmax"] / base["H_full_absmax"]
+        G["u_effect_A1_over_A0"] = w1["H01"] / a0["H01"]
+        G["chart_effect_on_over_off"] = w1["H01"] / off["H01"]
+        G["W1_over_PC2"] = w1["H_full_absmax"] / pc2
+        G["G4c_W1"] = w1["H_full_absmax"] <= G4C_FACTOR * pc2
+        G["P_met"] = P_LO <= G["rho"] <= P_HI
+        G["P_indistinguishable_from_no_change"] = (1.0 - G["envelope"]) <= P_HI and (1.0 + G["envelope"]) >= P_LO
+        f = _w1(w, "A1_hubon", rc, "linear")
+        Sp, Dp = _d1(g, f["S"], 1), _d1(g, f["D"], 1)
+        jf, jd = -(f["PD"] * Dp) - f["PS"] * Sp, -(f["PD"] * Dp)
+        G["j_PS_Sr_dropped_fraction_max"] = float(1.0 - np.max(np.abs(jd)) / np.max(np.abs(jf)))
+        G["j_PS_Sr_over_j_L2"] = float(np.linalg.norm(f["PS"] * Sp) / np.linalg.norm(jf))
+        rep["grids"][key] = G
+    Gs = [rep["grids"]["dr%g" % d] for d in DRS]
+    rep["gateB_PASS"] = all(x["gateB_rel"] <= REPRO_RTOL for x in Gs)
+    rho = [x["rho"] for x in Gs]
+    centre = all(x["W1"]["argmax_idx"] <= 1 for x in Gs)
+    if not all(x["resolved"] for x in Gs):
+        r3 = "UNRESOLVED on " + ",".join("dr%g" % d for d, x in zip(DRS, Gs) if not x["resolved"])
+    elif all(v >= B3_SURV for v in rho) and centre:
+        r3 = "SURVIVES"
+    elif all(v <= B3_REM for v in rho):
+        r3 = "REMOVED"
+    else:
+        r3 = "MIXED"
+    rep["verdict"] = {"gateB": rep["gateB_PASS"], "R3b": r3 if rep["gateB_PASS"] else "STOPPED (gate B)",
+                      "P_met_all_grids": all(x["P_met"] for x in Gs), "G4c_W1_all_grids": all(x["G4c_W1"] for x in Gs)}
+    json.dump(rep, open(os.path.join(outdir, "report.json"), "w"), indent=1, default=float)
+    return rep
+
+
 if __name__ == "__main__":
+    if len(sys.argv) > 3 and sys.argv[3] == "w1_3b":
+        main_3b(sys.argv[1], sys.argv[4], sys.argv[2], sys.argv[5] if len(sys.argv) > 5 else None)
+        sys.exit(0)
     if len(sys.argv) > 3 and sys.argv[3] == "first_piece":
         main_first_piece(*sys.argv[1:3])
         sys.exit(0)
