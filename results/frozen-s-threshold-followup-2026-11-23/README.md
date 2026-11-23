@@ -10,3 +10,5 @@ Design: Drive DESIGN-frozen-S-threshold-followup-Nov23-2026 (Lumen², predeclare
 - **Item 4 (R 12, 6.5): 4a PASS** (H 0.01 reads no growth); **4b PASS** (H 0.004: 0.0058 vs 0.0114 - 0.006 = 0.0054).
 
 Disclosures: all six P5 rows reached the cap inside their earlier T, so P5 replayed the first scan's fits exactly (a reproduction check, as declared before the run). Measured floors are 0.99-1.33x the analytic estimate (none below 0.5x). Not tested: seed independence at T = 10000, S back-reaction, non-uniform stone, expansion, l > 0. A pass licenses only the linear, frozen, uniform-pump l = 0 threshold for x < 16/15.
+
+**5.9 ruler check (after #565, on Jeremiah's go 2026-11-23 02:08 UTC):** R 12 x_A R 5.9 at dr 0.05 reads 0.0033 (growth, 3.4 e-folds; primary 0.0035). The union bracket (5.7, 5.9) is now measured on both grids. R 12 stays MIXED as declared. `ruler_5p9.txt`, `research/frozen_s_threshold_followup_5p9_v1.py`.
