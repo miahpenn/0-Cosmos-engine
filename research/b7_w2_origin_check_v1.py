@@ -57,6 +57,28 @@ def spline_even_integral(r, f):
     return P(r) - P(0.0)
 
 
+def even6_integral(r, f, dr):
+    """Junction test (research only): one uniform rule at every cell. Each interval [r_{i-1}, r_i], and [0, r_0] first,
+    is integrated exactly over the 6-point Lagrange interpolant through the nearest cell centres, with even ghosts
+    f(-r_k) = f(r_k) (cell-centred: r_{-k-1} = -r_k) at the origin and a one-sided window only at the outer edge."""
+    n = len(r)
+    f = np.asarray(f, dtype=float)
+    pieces = np.empty(n)
+    for i in range(n):
+        lo = min(max(i - 3, -3), n - 6)
+        idx = np.arange(lo, lo + 6)
+        x = idx + 0.5                                   # positions in units of dr
+        xa, xb = (0.0, 0.5) if i == 0 else (i - 0.5, i + 0.5)
+        c = 0.5 * (xa + xb)
+        V = np.vander(x - c, 6, increasing=True)
+        p = np.arange(6)
+        m = ((xb - c) ** (p + 1) - (xa - c) ** (p + 1)) / (p + 1)
+        w = np.linalg.solve(V.T, m)
+        vals = np.where(idx >= 0, f[np.abs(idx)], f[np.clip(-idx - 1, 0, n - 1)])
+        pieces[i] = dr * float(w @ vals)
+    return np.cumsum(pieces)
+
+
 def _rho(S, PS, D, PD, Sp, Dp, phi, Pi, B, rho_r):
     rhoS = 0.5 * (PS ** 2 + B * Sp ** 2)
     rhoD = 0.5 * (PD ** 2 + B * Dp ** 2) + sd_potential(S, D, phi=phi)
@@ -81,7 +103,8 @@ def reconstruct(grid, vac_factory, S, PS, D, PD, phi, Pi, *, quadrature="engine"
     sSp, sDp = (Sp, Dp) if src_derivs is None else src_derivs
     sj = -(PD * sDp) - PS * sSp
     quad = {"engine": lambda f: _cumulative_origin_integral(grid, r, dr, f),
-            "spline": lambda f: spline_even_integral(r, f)}[quadrature]
+            "spline": lambda f: spline_even_integral(r, f),
+            "even6": lambda f: even6_integral(r, f, dr)}[quadrature]
     B = np.ones_like(r)
     aux = {}
     if B_override is None:
@@ -344,5 +367,89 @@ def main(npz, outdir):
     return rep
 
 
+# ---------------------------------------------------------------- junction test (pre-run log entry ~01:00 UTC Nov 23)
+V_EXACT_RTOL = 1e-12
+V_ORDER_MIN = 5.5
+V_JUMP_MAX = 10.0
+J_DROP, J_KEEP, J_MATCH_X = 0.1, 0.5, 2.0
+
+
+def gate_v(go):
+    out = {}
+    for dr in DRS:
+        g = go.SphericalCellGrid(int(round(R_MAX / dr)), R_MAX)
+        r = np.asarray(g.centers)
+        d = {}
+        for p in (0, 2, 4):
+            F = r ** (p + 1) / (p + 1)
+            d["max_rel_err_r%d" % p] = float(np.max(np.abs(even6_integral(r, r ** p, dr) - F) / np.abs(F)))
+        F6 = r ** 7 / 7
+        e = np.abs(even6_integral(r, r ** 6, dr) - F6)
+        ee = np.abs(_cumulative_origin_integral(g, r, dr, r ** 6) - F6)
+        d.update(r6_max_err=float(e.max()), r6_cells0_5=[float(x) for x in e[:6]],
+                 engine_r6_max_err=float(ee.max()), engine_r6_cells0_5=[float(x) for x in ee[:6]])
+        out["dr%g" % dr] = d
+    ex = all(out[k]["max_rel_err_r%d" % p] <= V_EXACT_RTOL for k in out for p in (0, 2, 4))
+    m = [out["dr%g" % d]["r6_max_err"] for d in DRS]
+    order = [float(math.log(m[i] / m[i + 1], 2)) for i in range(2)]
+    c = out["dr0.05"]["r6_cells0_5"]
+    jump = c[1] / c[0] if c[0] > 0 else float("inf")
+    out.update(exact_through_r4=ex, r6_order=order, cell1_over_cell0_dr005=jump,
+               PASS=bool(ex and min(order) >= V_ORDER_MIN and jump <= V_JUMP_MAX))
+    return out
+
+
+def main_junction(npz, outdir):
+    os.makedirs(outdir, exist_ok=True)
+    kernel = V55ProductionKernel()
+    go, vac, _ = adapter.vendor_modules()
+    z = np.load(npz)
+    rep = {"member_sha256": src.sha256_file(npz), "runtime": src.environment_report(), "gate_V": gate_v(go), "grids": {}}
+    if not rep["gate_V"]["PASS"]:
+        rep["verdict"] = "STOPPED: gate V failed, no swap run"
+        json.dump(rep, open(os.path.join(outdir, "report.json"), "w"), indent=1, default=float)
+        return rep
+    fn = manufactured_fn(manufactured_params(z))
+    for dr in DRS:
+        g = go.SphericalCellGrid(int(round(R_MAX / dr)), R_MAX)
+        r = np.asarray(g.centers)
+        pc2 = summary(g, evaluate(kernel, g, w2.engine_slice(g, vac, "rescaled_pocket", pocket_x=0.5)))["kernel_H_full_absmax"]
+        f = _ring(z, g, "linear")
+        a = [f[k] for k in ("S", "PS", "D", "PD", "phi", "Pi")]
+        base, ab = reconstruct(g, vac.flat_state, *a)
+        q6, aq = reconstruct(g, vac.flat_state, *a, quadrature="even6")
+        sb, sq = summary(g, evaluate(kernel, g, base), ab), summary(g, evaluate(kernel, g, q6), aq)
+        m = fn(r)
+        ma = [m[k] for k in ("S", "PS", "D", "PD", "phi", "Pi")]
+        mE, aE = reconstruct(g, vac.flat_state, *ma)
+        mQ, aQ = reconstruct(g, vac.flat_state, *ma, quadrature="even6")
+        mX, aX = reconstruct(g, vac.flat_state, *ma, B_override=exact_B(g, fn, ODE_RTOL))
+        sE, sQ6, sX = (summary(g, evaluate(kernel, g, x), y) for x, y in ((mE, aE), (mQ, aQ), (mX, aX)))
+        e2 = w2.engine_slice(g, vac, "rescaled_pocket", pocket_x=0.5).scalars
+        p6, _ = reconstruct(g, vac.flat_state, e2.S, e2.PS, e2.D, e2.PD, e2.phi, e2.Pi, quadrature="even6")
+        rep["grids"]["dr%g" % dr] = {
+            "PC2_engine_H": pc2, "PC2_rebuilt_Q6_H": summary(g, evaluate(kernel, g, p6))["kernel_H_full_absmax"],
+            "ring_engine": sb, "ring_Q6": sq, "ring_ratio_Q6_over_engine": sq["H01"] / sb["H01"],
+            "ring_engine_over_PC2": sb["H_full_absmax"] / pc2, "ring_Q6_over_PC2": sq["H_full_absmax"] / pc2,
+            "G4c_Q6": sq["H_full_absmax"] <= G4C_FACTOR * pc2,
+            "dB_Q6_minus_engine_cells0_2": [float(x) for x in (aq["B"] - ab["B"])[:3]],
+            "man_E_H01": sE["H01"], "man_Q6_H01": sQ6["H01"], "man_X_H01": sX["H01"],
+            "man_Q6_over_X": sQ6["H01"] / sX["H01"], "man_Q6_cells": sQ6["cells"]["H"], "man_X_cells": sX["cells"]["H"]}
+    G = [rep["grids"]["dr%g" % d] for d in DRS]
+    rr = [x["ring_ratio_Q6_over_engine"] for x in G]
+    if all(x <= J_DROP for x in rr) and all(x["man_Q6_over_X"] <= J_MATCH_X for x in G):
+        v = "JUNCTION IMPLICATED"
+    elif all(x >= J_KEEP for x in rr):
+        v = "NOT THE JUNCTION"
+    else:
+        v = "MIXED"
+    rep["verdict"] = {"reading": v, "G4c_Q6_all_grids": all(x["G4c_Q6"] for x in G)}
+    json.dump(rep, open(os.path.join(outdir, "report.json"), "w"), indent=1, default=float)
+    return rep
+
+
 if __name__ == "__main__":
-    main(*sys.argv[1:3])
+    if len(sys.argv) > 3 and sys.argv[3] == "junction":
+        main_junction(*sys.argv[1:3])
+    else:
+        main(*sys.argv[1:3])

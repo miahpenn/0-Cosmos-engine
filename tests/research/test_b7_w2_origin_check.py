@@ -56,3 +56,11 @@ def test_exact_B_is_tolerance_stable_and_regular():
     b1, b2 = oc.exact_B(g, fn, 1e-13), oc.exact_B(g, fn, 1e-11)
     assert np.max(np.abs(b1 - b2) / np.abs(b1)) <= 1e-10
     assert abs(b1[0] - 1.0) < 1e-6
+
+
+def test_even6_exact_through_r4_in_every_cell():
+    r = np.asarray(grid().centers)
+    dr = float(grid().dr)
+    for p in (0, 2, 4):
+        F = r ** (p + 1) / (p + 1)
+        assert np.max(np.abs(oc.even6_integral(r, r ** p, dr) - F) / np.abs(F)) <= 1e-12
