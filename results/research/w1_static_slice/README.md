@@ -37,6 +37,14 @@ window's upper edge from 58.5 to 59.8 shifts F_st by about 1.2% for D and S on b
 A3 4.3 allowed for, because the static-frame wavenumber is lower on the corrected slice. The engine's derivative is
 4th order, so stencil error is negligible. The paper estimate of 0.2% / 0.4% stencil error used a 2nd-order size.
 
+## Admission reading (pointer, Nov 24 03:32 UTC)
+
+Lumen² rules that W1 derivation AMENDMENT 3 section 5 (Drive 1JU2EhMUs7dSio23VVu0WIPMt33iAY6u9gbD9EKE64aY)
+makes dr 0.025 the admission reading and dr 0.05 record only. **The corrected slice passes its input checks at
+dr 0.025.** dr 0.05's S 'f reading of 1.0106 stays on record as a fail on a record-only grid. The script's combined
+REFUSED line is kept as run. The gate script, the 'f window and the 'f band are unchanged; any change to the window
+or band is Jeremiah's call.
+
 ## Fault cases
 
 Every fault fails 'f (`checks.json`):
