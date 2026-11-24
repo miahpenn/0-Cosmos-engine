@@ -30,3 +30,13 @@ G(x) = sum over band cells of |x| dr.
    - G(Aa + K') grows by at least half of G(M)'s growth.
 3. Outer-edge rise, A6 ring arms A1 and A2, full grid at every save. At the cell of max |M| in r 30-60, PASS if |K' part| >= 0.5 x (|Aa part| + |K' part| + |j part|) at every save in both arms.
 - (1) and (2) rest on one halving over a partial band at t 0.015. The report says so; nothing is extrapolated.
+
+## Amendment 1 (after the add-back check, before any reading)
+- The full-grid check as declared (explicit sum equals vendor M within 1e-12 of max |M|) fails at 3 of 8 saves: 8.6e-12, 5.7e-11 and 1.2e-12 of max |M|.
+- In every case the gap is at most 1.2 x eps x the sum of the term magnitudes, i.e. rounding from summing in a different order.
+- The stored sample cells match the recomputed vendor M exactly (gap 0).
+- The declared criterion is left as written and reported as failed. Readings proceed, labelled with this.
+
+## Amendment 2 (the reruns)
+- Jeremiah's go to rerun Aster's spatial and centre-reconstruction replays (21:06 UTC, relayed) could not be acted on here: this session's permission check refused the first step (building the dr 0.0125 slice).
+- None of those runs exist. Only stored data is read: the two-grid band reading above, plus the archived dr 0.025 dt 3.75e-4 run.
