@@ -154,6 +154,13 @@ AUTHORIZED_RECONSTRUCTION_WINDOW_HEAD_BLOBS = {
 }
 
 
+# Exact-blob authorization for the signed scalar momentum source in PR #572.
+AUTHORIZED_SIGNED_SCALAR_MOMENTUM_HEAD_BLOBS = {
+    "engine/scalar_system.py": "fdfe3003142eadd53d6736e9447cf294c6276f63",
+    "engine/v55_initial.py": "2f128586425468acd165a25c2a7c68387895542c",
+}
+
+
 def _authorized_head_blobs(path: str) -> set[str]:
     return {
         blob for blob in (
@@ -169,6 +176,7 @@ def _authorized_head_blobs(path: str) -> set[str]:
             AUTHORIZED_POCKET_FIXTURES_WALL_HEAD_BLOBS.get(path),
             AUTHORIZED_SD_SPLIT_FOLLOWS_PHI_HEAD_BLOBS.get(path),
             AUTHORIZED_RECONSTRUCTION_WINDOW_HEAD_BLOBS.get(path),
+            AUTHORIZED_SIGNED_SCALAR_MOMENTUM_HEAD_BLOBS.get(path),
         ) if blob is not None
     }
 AUTHORIZED_RUNTIME_PATHS = (
@@ -184,6 +192,7 @@ AUTHORIZED_RUNTIME_PATHS = (
     | frozenset(AUTHORIZED_POCKET_FIXTURES_WALL_HEAD_BLOBS)
     | frozenset(AUTHORIZED_SD_SPLIT_FOLLOWS_PHI_HEAD_BLOBS)
     | frozenset(AUTHORIZED_RECONSTRUCTION_WINDOW_HEAD_BLOBS)
+    | frozenset(AUTHORIZED_SIGNED_SCALAR_MOMENTUM_HEAD_BLOBS)
 )
 
 RESOLUTIONS = (40, 60, 80, 120, 160)

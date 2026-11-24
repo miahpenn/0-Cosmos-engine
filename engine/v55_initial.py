@@ -248,10 +248,13 @@ def build_initial_data(
     Pi = np.full(n, pi0)
     Kt = np.full(n, -H0)
 
+    scalars = _scalar_system.ScalarFields(S, PS, D, PD, phi, Pi)
     Sp = _d1(grid, S, 1)
     Dp = _d1(grid, D, 1)
+    phip = _d1(grid, phi, 1)
     Ktp = _d1(grid, Kt, 1)
-    j = -(PD * Dp)
+    # Archive fluids start at rest, and the radial electric field carries no j_r.
+    j = _scalar_system.scalar_momentum_projection(scalars, (Sp, Dp, phip))
     B = np.ones_like(r)
 
     # Same constrained areal initial-data reconstruction used by the archived
@@ -322,9 +325,6 @@ def build_initial_data(
     state.Lambda[:] = Lambda
     state.B[:] = 0.75 * Lambda
 
-    scalars = __import__("engine.scalar_system", fromlist=["ScalarFields"]).ScalarFields(
-        S, PS, D, PD, phi, Pi
-    )
     matter = initialize_from_archive(
         grid,
         state,
