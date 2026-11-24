@@ -1,0 +1,117 @@
+{
+ "floors": {
+  "A025": {
+   "H_terms_max": {
+    "Ricci": 0.00011596975015930291,
+    "A2": 1.1382761967577949e-13,
+    "K2": 0.00019283256661682945,
+    "16pi_rho": 0.0003087929399310788
+   },
+   "max_abs_K": 0.017007317540554248,
+   "r0_H": 7.137286313178837e-12,
+   "r0_M": 3.99987800641097e-16,
+   "r_floor_H": 7.137286313178837e-12,
+   "r_floor_M": 3.99987800641097e-16,
+   "m0": {
+    "t": 0.0,
+    "finite": true,
+    "H_max": 7.137286313178837e-12,
+    "H_argR": 0.012499999999999999,
+    "M_max": 3.99987800641097e-16,
+    "M_argR": 59.987500000000004,
+    "S_max": 0.0012954891063891416,
+    "H_t": 0.005668968156698712,
+    "D_nonuni": 0.45762513139685423,
+    "fluxD_st_Rf": 5.276784150405346e-10,
+    "fluxD_nocross_Rf": 4.639297539905476e-10,
+    "fluxS_st_Rf": 1.6073875177431977e-13,
+    "fluxS_nocross_Rf": 1.4552188799295317e-13
+   }
+  },
+  "B025": {
+   "H_terms_max": {
+    "Ricci": 2.906314940869429e-12,
+    "A2": 2.2498894166263976e-30,
+    "K2": 0.00019282319663523512,
+    "16pi_rho": 0.00019282319663523517
+   },
+   "max_abs_K": 0.01700690433185454,
+   "r0_H": 2.906356606118335e-12,
+   "r0_M": 6.331918762596834e-16,
+   "r_floor_H": 2.906356606118335e-12,
+   "r_floor_M": 6.331918762596834e-16,
+   "m0": {
+    "t": 0.0,
+    "finite": true,
+    "H_max": 2.906356606118335e-12,
+    "H_argR": 59.987500000000004,
+    "M_max": 6.331918762596834e-16,
+    "M_argR": 59.987500000000004,
+    "S_max": 0.0,
+    "H_t": 0.005668968110618088,
+    "D_nonuni": 0.0,
+    "fluxD_st_Rf": 1.2062841831185515e-33,
+    "fluxD_nocross_Rf": 1.190974309688793e-33,
+    "fluxS_st_Rf": 0.0,
+    "fluxS_nocross_Rf": 0.0
+   }
+  }
+ },
+ "C_H": 0.00011596974329584363,
+ "C_M": 5.7984871647921815e-05,
+ "impl_check": {
+  "H_t0": 0.005668968156698712,
+  "H0": 0.0056689681106181795,
+  "D": {
+   "static": 5.103253668925074e-09,
+   "fault_no_cross": 0.3587308003377385,
+   "fault_H_zero": 0.48565675205022363,
+   "static_PASS": true,
+   "faults_fail": true
+  },
+  "S": {
+   "static": 5.113329035891038e-09,
+   "fault_no_cross": 0.35632959654394497,
+   "fault_H_zero": 0.4855997290331001,
+   "static_PASS": true,
+   "faults_fail": true
+  }
+ },
+ "fault_checks": {
+  "S0a": {
+   "clean_finite": true,
+   "nan_cell_detected": true
+  },
+  "S0b_A025": {
+   "healthy_H_pass": true,
+   "unstable_H_trip": true,
+   "healthy_M_pass": true,
+   "unstable_M_trip": true
+  },
+  "S0b_B025": {
+   "healthy_H_pass": true,
+   "unstable_H_trip": true,
+   "healthy_M_pass": true,
+   "unstable_M_trip": true
+  },
+  "S0b_measure": {
+   "M_with_K_checkerboard": 2.8444445147107484e-08,
+   "trips_vs_floor": true
+  },
+  "S0c": {
+   "x1.005_pass": true,
+   "x1.02_trip": true
+  },
+  "S0e": {
+   "slow_trip": true,
+   "fast_pass": true
+  },
+  "G_run": {
+   "H_2e-2_trip": true,
+   "H_5e-3_pass": true,
+   "M_2e-2_trip": true,
+   "M_5e-3_pass": true
+  }
+ },
+ "prechecks_PASS": true
+}
