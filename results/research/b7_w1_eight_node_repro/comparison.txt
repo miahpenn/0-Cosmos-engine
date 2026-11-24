@@ -1,0 +1,15 @@
+archived share cells0-5 {'dr0.05': np.float64(0.9884813859196462), 'dr0.025': np.float64(0.9985422740524781)}
+== pin
+full 102 values, worst rel diff 0.00e+00 at None
+order_check 40 values, worst rel diff 0.00e+00 at None
+probe 54 values, worst rel diff 0.00e+00 at None
+share {'dr0.05': np.float64(0.9884813859196462), 'dr0.025': np.float64(0.9985422740524781)}
+dr0.05 ratios {'official': 62.4985, '7': 1.911, '9': 2.4077} official peak cell 38 r 1.925 G4c FAIL
+dr0.025 ratios {'official': 0.97, '7': 0.6707, '9': 0.7972} official peak cell 0 r 0.0125 G4c PASS
+== main
+full 102 values, worst rel diff 1.32e+01 at dr0.025_background/9/edge
+order_check 40 values, worst rel diff 4.21e-01 at dr0.05/8/ring/Mmax
+probe 54 values, worst rel diff 4.21e-01 at dr0.05/sixth/ring/Mmax
+share {'dr0.05': np.float64(0.9884813859196462), 'dr0.025': np.float64(0.9985422740524781)}
+dr0.05 ratios {'official': 62.4985, '7': 1.911, '9': 2.4077} official peak cell 38 r 1.925 G4c FAIL
+dr0.025 ratios {'official': 0.97, '7': 0.6707, '9': 0.7972} official peak cell 0 r 0.0125 G4c PASS
