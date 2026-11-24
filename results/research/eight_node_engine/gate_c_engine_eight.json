@@ -1,0 +1,51 @@
+{
+ "mode": "engine_eight",
+ "max_abs_engine_minus_aster_integral": 0.0,
+ "calls": 36,
+ "dr0.05": {
+  "official": {
+   "ratio": 62.49845088761228,
+   "ring_max": 6.483244797679359e-11,
+   "ring_cell": 38,
+   "pocket_max": 1.037344879049537e-12,
+   "background_max": 8.268507948640258e-13
+  },
+  "7": {
+   "ratio": 1.9109648599287588,
+   "ring_max": 2.4404018031647795e-13,
+   "ring_cell": 0,
+   "pocket_max": 1.2770521605801576e-13,
+   "background_max": 2.594765207319322e-16
+  },
+  "9": {
+   "ratio": 2.4077459366155347,
+   "ring_max": 3.074816334706909e-13,
+   "ring_cell": 0,
+   "pocket_max": 1.2770518217669787e-13,
+   "background_max": 2.670021809564724e-16
+  }
+ },
+ "dr0.025": {
+  "official": {
+   "ratio": 0.9700073319057144,
+   "ring_max": 9.542197598483987e-12,
+   "ring_cell": 0,
+   "pocket_max": 9.837242755409911e-12,
+   "background_max": 2.906356606118335e-12
+  },
+  "7": {
+   "ratio": 0.6706735064194073,
+   "ring_max": 3.008696129692609e-13,
+   "ring_cell": 0,
+   "pocket_max": 4.48608167893114e-13,
+   "background_max": 6.088012139197988e-16
+  },
+  "9": {
+   "ratio": 0.797176850974936,
+   "ring_max": 3.3132157228280695e-13,
+   "ring_cell": 0,
+   "pocket_max": 4.1561865711178814e-13,
+   "background_max": 6.264605919832293e-16
+  }
+ }
+}
