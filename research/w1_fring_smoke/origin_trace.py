@@ -72,10 +72,14 @@ class Observer(V55ProductionKernel):
             self.boundary_calls += 1
 
 
-def run(dr, arm, half):
+def run(dr, arm, half, *, accepted_observer=None):
     parent = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
     vendor = subprocess.check_output(["git", "-C", "vendor/bb-palatini-unified-r0", "rev-parse", "HEAD"], text=True).strip()
-    if parent != SOURCE or vendor != VENDOR or hashlib.sha256(INPUT.read_bytes()).hexdigest() != DIGEST:
+    unchanged = subprocess.run(
+        ["git", "diff", "--quiet", SOURCE, "--", "engine", "vendor", "results/research/w1_c9_static/input_checks/report.json"],
+        check=False,
+    ).returncode == 0
+    if not unchanged or vendor != VENDOR or hashlib.sha256(INPUT.read_bytes()).hexdigest() != DIGEST:
         raise ValueError("unexpected smoke source, vendor or static input")
     go,vac,_ = ad.vendor_modules()
     if vac.KO_EPSILON != 0:
@@ -99,7 +103,10 @@ def run(dr, arm, half):
 
     def accepted():
         assert_finite_state(state)
-        return dict(t=state.t, **snapshot(state.grid,state.geometry,state.scalars,state.matter,vac))
+        row = dict(t=state.t, **snapshot(state.grid,state.geometry,state.scalars,state.matter,vac))
+        if accepted_observer is not None:
+            accepted_observer(state, vac, row)
+        return row
 
     rows = [accepted()]
     dt = .03*dr/(2 if half else 1)
@@ -114,7 +121,7 @@ def run(dr, arm, half):
         rows.append(accepted())
     if kernel.term_calls!=3 or kernel.boundary_calls!=2 or not np.isclose(state.t,T_END,atol=1e-17,rtol=0):
         raise RuntimeError("unexpected stage count or end time")
-    return dict(source=parent,vendor=vendor,input_sha256=DIGEST, script_sha256=hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+    return dict(source=SOURCE,checkout=parent,vendor=vendor,input_sha256=DIGEST, script_sha256=hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
                 dr=dr,arm=arm,dt=dt,attempts=attempts,sample_cells=SAMPLES,
                 sample_r=grid.centers[SAMPLES].tolist(),rows=rows,first_step_stages=kernel.stages)
 
