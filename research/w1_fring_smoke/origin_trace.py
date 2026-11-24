@@ -72,7 +72,7 @@ class Observer(V55ProductionKernel):
             self.boundary_calls += 1
 
 
-def run(dr, arm, half, *, accepted_observer=None):
+def run(dr, arm, divisor, *, end_time=T_END, accepted_observer=None):
     parent = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
     vendor = subprocess.check_output(["git", "-C", "vendor/bb-palatini-unified-r0", "rev-parse", "HEAD"], text=True).strip()
     unchanged = subprocess.run(
@@ -109,9 +109,12 @@ def run(dr, arm, half, *, accepted_observer=None):
         return row
 
     rows = [accepted()]
-    dt = .03*dr/(2 if half else 1)
+    dt = .03 * dr / divisor
+    steps = round(end_time / dt)
+    if steps < 1 or not np.isclose(steps * dt, end_time, atol=1e-17, rtol=0):
+        raise ValueError("end time must be a positive multiple of the timestep")
     attempts = 0
-    for step in range(round(T_END/dt)):
+    for step in range(steps):
         kernel.enabled = step == 0
         advanced = advance_with_radiation_admissibility_retries(kernel,state,dt)
         if advanced.retry_count:
@@ -119,7 +122,7 @@ def run(dr, arm, half, *, accepted_observer=None):
         attempts += len(advanced.attempts)
         state = advanced.state
         rows.append(accepted())
-    if kernel.term_calls!=3 or kernel.boundary_calls!=2 or not np.isclose(state.t,T_END,atol=1e-17,rtol=0):
+    if kernel.term_calls!=3 or kernel.boundary_calls!=2 or not np.isclose(state.t,end_time,atol=1e-17,rtol=0):
         raise RuntimeError("unexpected stage count or end time")
     return dict(source=SOURCE,checkout=parent,vendor=vendor,input_sha256=DIGEST, script_sha256=hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
                 dr=dr,arm=arm,dt=dt,attempts=attempts,sample_cells=SAMPLES,
@@ -132,4 +135,4 @@ if __name__ == "__main__":
     p.add_argument("arm",choices=("A","B"))
     p.add_argument("--half",action="store_true")
     args = p.parse_args()
-    print(json.dumps(run(args.dr,args.arm,args.half),indent=2,allow_nan=False))
+    print(json.dumps(run(args.dr, args.arm, 2 if args.half else 1),indent=2,allow_nan=False))

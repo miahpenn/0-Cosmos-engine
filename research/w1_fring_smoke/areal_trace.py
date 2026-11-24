@@ -125,7 +125,7 @@ def main():
             raise ValueError(f"accepted slice disagrees with the pinned trace at t={state.t}")
         observations.append(observe(state, vacuum, row))
 
-    replay = run(args.dr, args.arm, args.half, accepted_observer=record)
+    replay = run(args.dr, args.arm, 2 if args.half else 1, accepted_observer=record)
     if replay["first_step_stages"] != trace["first_step_stages"] or len(observations) != len(trace["rows"]):
         raise ValueError("replay is missing rows or does not reproduce the first-step brackets")
     metadata = {key: value for key, value in replay.items() if key not in ("rows", "first_step_stages")}
