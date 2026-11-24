@@ -1,0 +1,74 @@
+{
+ "targets": {
+  "nine-point H, nominal": {
+   "archived": 8.964956034474003e-11,
+   "reproduced": 8.964956034474003e-11,
+   "bitwise_equal": true,
+   "rel_diff": 0.0
+  },
+  "nine-point H, half": {
+   "archived": 1.492381939598511e-11,
+   "reproduced": 1.492381939598511e-11,
+   "bitwise_equal": true,
+   "rel_diff": 0.0
+  },
+  "nine-point H, quarter": {
+   "archived": -2.201986932636596e-11,
+   "reproduced": -2.201986932636596e-11,
+   "bitwise_equal": true,
+   "rel_diff": 0.0
+  },
+  "X writes, nominal-half": {
+   "archived": 6.269787359174935e-12,
+   "reproduced": 6.269787359174935e-12,
+   "bitwise_equal": true,
+   "rel_diff": 0.0
+  },
+  "X writes, half-quarter": {
+   "archived": 1.6916609999623606e-11,
+   "reproduced": 1.6916609999623606e-11,
+   "bitwise_equal": true,
+   "rel_diff": 0.0
+  },
+  "tracefree rate, nominal-half": {
+   "archived": 6.506347392164191e-11,
+   "reproduced": 6.506347392164191e-11,
+   "bitwise_equal": true,
+   "rel_diff": 0.0
+  },
+  "tracefree rate, half-quarter": {
+   "archived": 1.8596614904850484e-11,
+   "reproduced": 1.8596614904850484e-11,
+   "bitwise_equal": true,
+   "rel_diff": 0.0
+  },
+  "summed writes, nominal-half": {
+   "archived": 9.800459063349984e-12,
+   "reproduced": 9.800459063349984e-12,
+   "bitwise_equal": true,
+   "rel_diff": 0.0
+  },
+  "summed writes, half-quarter": {
+   "archived": 1.85157103949814e-11,
+   "reproduced": 1.85157103949814e-11,
+   "bitwise_equal": true,
+   "rel_diff": 0.0
+  }
+ },
+ "ledgers": {
+  "x": {
+   "leaves": 6021,
+   "same_keys": true,
+   "leaves_differing": 0,
+   "first_differing": [],
+   "max_rel_diff_numeric": 0.0
+  },
+  "c": {
+   "leaves": 7246,
+   "same_keys": true,
+   "leaves_differing": 0,
+   "first_differing": [],
+   "max_rel_diff_numeric": 0.0
+  }
+ }
+}
