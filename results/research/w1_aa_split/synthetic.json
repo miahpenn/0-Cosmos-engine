@@ -1,0 +1,181 @@
+{
+  "readings": {
+    "one dominant tag": {
+      "expected": [
+        "P1",
+        "A"
+      ],
+      "got": [
+        "P1",
+        "A"
+      ],
+      "pass": true,
+      "absolute_sum_over_total": {
+        "1-2": 1.0,
+        "2-4": 1.0
+      },
+      "largest_opposing_pair": {
+        "1-2": [
+          "A",
+          null
+        ],
+        "2-4": [
+          "A",
+          null
+        ]
+      }
+    },
+    "dominant tag that does not fall 2x": {
+      "expected": [
+        "P4",
+        null
+      ],
+      "got": [
+        "P4",
+        null
+      ],
+      "pass": true,
+      "absolute_sum_over_total": {
+        "1-2": 1.0,
+        "2-4": 1.0
+      },
+      "largest_opposing_pair": {
+        "1-2": [
+          "A",
+          null
+        ],
+        "2-4": [
+          "A",
+          null
+        ]
+      }
+    },
+    "dominant tag under half the total": {
+      "expected": [
+        "P4",
+        null
+      ],
+      "got": [
+        "P4",
+        null
+      ],
+      "pass": true,
+      "absolute_sum_over_total": {
+        "1-2": 1.4000000000000001,
+        "2-4": 1.4
+      },
+      "largest_opposing_pair": {
+        "1-2": [
+          "A",
+          "B"
+        ],
+        "2-4": [
+          "A",
+          "B"
+        ]
+      }
+    },
+    "origin group, no single tag": {
+      "expected": [
+        "P2",
+        "origin group"
+      ],
+      "got": [
+        "P2",
+        "origin group"
+      ],
+      "pass": true,
+      "absolute_sum_over_total": {
+        "1-2": 1.0,
+        "2-4": 1.0
+      },
+      "largest_opposing_pair": {
+        "1-2": [
+          "o1",
+          null
+        ],
+        "2-4": [
+          "o1",
+          null
+        ]
+      }
+    },
+    "cancelling pair": {
+      "expected": [
+        "P3",
+        null
+      ],
+      "got": [
+        "P3",
+        null
+      ],
+      "pass": true,
+      "absolute_sum_over_total": {
+        "1-2": 79.02,
+        "2-4": 79.02
+      },
+      "largest_opposing_pair": {
+        "1-2": [
+          "A",
+          "B"
+        ],
+        "2-4": [
+          "A",
+          "B"
+        ]
+      }
+    },
+    "flat split": {
+      "expected": [
+        "P4",
+        null
+      ],
+      "got": [
+        "P4",
+        null
+      ],
+      "pass": true,
+      "absolute_sum_over_total": {
+        "1-2": 1.0,
+        "2-4": 1.0
+      },
+      "largest_opposing_pair": {
+        "1-2": [
+          "t0",
+          null
+        ],
+        "2-4": [
+          "t0",
+          null
+        ]
+      }
+    }
+  },
+  "closure_gate": {
+    "exact sum": {
+      "expected_pass": true,
+      "gate_passed": true,
+      "worst_gap_over_bound": 0.0,
+      "pass": true
+    },
+    "binary64 production sum": {
+      "expected_pass": true,
+      "gate_passed": true,
+      "worst_gap_over_bound": 0.0330895467705754,
+      "pass": true
+    },
+    "closure fault (production off by 20 eps * sum|terms| at one cell)": {
+      "expected_pass": false,
+      "gate_passed": false,
+      "worst_gap_over_bound": 1.9999975421990572,
+      "pass": true
+    },
+    "dropped term": {
+      "expected_pass": false,
+      "gate_passed": false,
+      "worst_gap_over_bound": 27320695252.378193,
+      "pass": true
+    }
+  },
+  "all_discriminate": true
+}
