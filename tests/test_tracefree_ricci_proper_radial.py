@@ -677,3 +677,22 @@ def test_reconstruction_window_authorization_is_exact_blob():
         historical = SOURCE_BLOBS[path]
         assert _source_blob_matches(path, historical, historical, authorized_head)
         assert not _source_blob_matches(path, historical, historical, "f" * 40)
+
+
+def test_signed_scalar_momentum_authorization_is_exact_blob():
+    from tools.audit_tracefree_ricci_proper_radial import (
+        AUTHORIZED_SIGNED_SCALAR_MOMENTUM_HEAD_BLOBS,
+        AUTHORIZED_RUNTIME_PATHS,
+        SOURCE_BLOBS,
+        _source_blob_matches,
+    )
+
+    assert AUTHORIZED_SIGNED_SCALAR_MOMENTUM_HEAD_BLOBS == {
+        "engine/scalar_system.py": "fdfe3003142eadd53d6736e9447cf294c6276f63",
+        "engine/v55_initial.py": "2f128586425468acd165a25c2a7c68387895542c",
+    }
+    for path, authorized_head in AUTHORIZED_SIGNED_SCALAR_MOMENTUM_HEAD_BLOBS.items():
+        assert path in AUTHORIZED_RUNTIME_PATHS
+        historical = SOURCE_BLOBS[path]
+        assert _source_blob_matches(path, historical, historical, authorized_head)
+        assert not _source_blob_matches(path, historical, historical, "f" * 40)
