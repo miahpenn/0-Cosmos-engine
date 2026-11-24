@@ -44,7 +44,7 @@ Static-frame flux at R_f = 20, ring minus control (recorded): D is 5.28e-10 at s
 
 ## Observations (post hoc, not gates)
 
-- **Growth is polynomial, not exponential.** Every growing residual sits at the origin cell. Arm A's H goes roughly as t^1.3 to t^1.5 (x2.5 from step 10 to 20, x2.8 from 50 to 100), and the per-step factor falls with time. A violent instability would not look like that. It reads more like a secular drift of the origin truncation under evolution, but that is an inference, not tested.
+- ~~Growth is polynomial, not exponential.~~ Withdrawn by the reanalysis below: over the stored t range a power law and an exponential fit about equally well, so the t-law is undetermined. Every growing residual in arm A sits at the origin cell.
 - **M starts at round-off, then jumps.** It begins at about 5e-16 and reaches 1e-13 to 1e-12 within the first step in both arms. The A4 floor sizes round-off, not the truncation that evolution switches on at step 1, so S0b M as written trips on a background-only arm. Arm B's H does not grow past its floor; arm A's does.
 - **Cost:** 2.70 s per step at 2400 cells and 1.37 s at 1200, i.e. linear in N. With the two dr 0.025 arms in parallel, the full run is about 40 hours of wall-clock.
 
