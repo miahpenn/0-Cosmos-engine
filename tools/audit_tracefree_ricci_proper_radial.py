@@ -161,6 +161,13 @@ AUTHORIZED_SIGNED_SCALAR_MOMENTUM_HEAD_BLOBS = {
 }
 
 
+# Exact-blob authorization for the supplied-slice entry in PR #574.
+AUTHORIZED_W1_SUPPLIED_SLICE_HEAD_BLOBS = {
+    "engine/v55_initial.py": "f1bb4a4c025bdea0e2c9b701d77f90009053aeb1",
+    "engine/production_kernel.py": "7adc5d03ca7124c5fc3919d2b27da9c17786ccca",
+}
+
+
 def _authorized_head_blobs(path: str) -> set[str]:
     return {
         blob for blob in (
@@ -177,6 +184,7 @@ def _authorized_head_blobs(path: str) -> set[str]:
             AUTHORIZED_SD_SPLIT_FOLLOWS_PHI_HEAD_BLOBS.get(path),
             AUTHORIZED_RECONSTRUCTION_WINDOW_HEAD_BLOBS.get(path),
             AUTHORIZED_SIGNED_SCALAR_MOMENTUM_HEAD_BLOBS.get(path),
+            AUTHORIZED_W1_SUPPLIED_SLICE_HEAD_BLOBS.get(path),
         ) if blob is not None
     }
 AUTHORIZED_RUNTIME_PATHS = (
@@ -193,6 +201,7 @@ AUTHORIZED_RUNTIME_PATHS = (
     | frozenset(AUTHORIZED_SD_SPLIT_FOLLOWS_PHI_HEAD_BLOBS)
     | frozenset(AUTHORIZED_RECONSTRUCTION_WINDOW_HEAD_BLOBS)
     | frozenset(AUTHORIZED_SIGNED_SCALAR_MOMENTUM_HEAD_BLOBS)
+    | frozenset(AUTHORIZED_W1_SUPPLIED_SLICE_HEAD_BLOBS)
 )
 
 RESOLUTIONS = (40, 60, 80, 120, 160)

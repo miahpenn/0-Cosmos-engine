@@ -166,12 +166,14 @@ class V55ProductionKernel:
         pocket_x: float | None = None,
         outer_edge: str | None = None,
         wall_clock: str = _wall.DEFAULT_WALL_CLOCK,
+        supplied_slice=None,
     ) -> ProductionState:
         """Production start: today, background alone ("no structure placed") by default.
 
         initial_structure: "none" (default), "rescaled_pocket" (fixture, pocket_x by hand),
         "inherited_pocket" (fixture, x ~ 157 inherited), "hand_floor_reference" (reference only;
-        the default under engine.scalar_system.hand_floor_reference()). See engine/v55_initial.py.
+        the default under engine.scalar_system.hand_floor_reference()), "supplied_slice" (W1 entry: a grid-aligned
+        v55_initial.SuppliedSlice passed as supplied_slice; open edge only). See engine/v55_initial.py.
         amplitude, width and D_amplitude shape the pockets and the reference only (defaults 0.01, 7.0, 1e-10
         there); the background-only default refuses them rather than dropping them.
 
@@ -204,6 +206,9 @@ class V55ProductionKernel:
             radial_maxwell_charge_to_mass is not None or charged_dust_density is not None
         ):
             raise NotImplementedError("the lattice wall has no electromagnetic sector")
+        if outer_edge == _wall.LATTICE_WALL and (structure == "supplied_slice" or supplied_slice is not None):
+            # W1 entry (v55_initial.SuppliedSlice): open edge only; the wall builds its own conformally flat slice.
+            raise ValueError("a supplied slice runs on the open edge only")
         grid = grid_ops.SphericalCellGrid(resolution, r_max)
         init = build_initial_data(
             grid,
@@ -216,6 +221,7 @@ class V55ProductionKernel:
             pocket_x=pocket_x,
             charged_dust_density=charged_dust_density,
             radial_maxwell_charge_to_mass=radial_maxwell_charge_to_mass,
+            supplied_slice=supplied_slice,
         )
         electromagnetic = None
         if radial_maxwell_charge_to_mass is not None:

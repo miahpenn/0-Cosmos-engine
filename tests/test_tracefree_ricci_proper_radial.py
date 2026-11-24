@@ -696,3 +696,22 @@ def test_signed_scalar_momentum_authorization_is_exact_blob():
         historical = SOURCE_BLOBS[path]
         assert _source_blob_matches(path, historical, historical, authorized_head)
         assert not _source_blob_matches(path, historical, historical, "f" * 40)
+
+
+def test_w1_supplied_slice_authorization_is_exact_blob():
+    from tools.audit_tracefree_ricci_proper_radial import (
+        AUTHORIZED_W1_SUPPLIED_SLICE_HEAD_BLOBS,
+        AUTHORIZED_RUNTIME_PATHS,
+        SOURCE_BLOBS,
+        _source_blob_matches,
+    )
+
+    assert AUTHORIZED_W1_SUPPLIED_SLICE_HEAD_BLOBS == {
+        "engine/v55_initial.py": "f1bb4a4c025bdea0e2c9b701d77f90009053aeb1",
+        "engine/production_kernel.py": "7adc5d03ca7124c5fc3919d2b27da9c17786ccca",
+    }
+    for path, authorized_head in AUTHORIZED_W1_SUPPLIED_SLICE_HEAD_BLOBS.items():
+        assert path in AUTHORIZED_RUNTIME_PATHS
+        historical = SOURCE_BLOBS[path]
+        assert _source_blob_matches(path, historical, historical, authorized_head)
+        assert not _source_blob_matches(path, historical, historical, "f" * 40)
