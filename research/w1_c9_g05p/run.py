@@ -8,7 +8,13 @@ Corrected (static-time) slice, W1 derivation AMENDMENTS 3 and 4 (Drive 1JU2EhMUs
 1J_dGcUVzAy9jceOwxByyvuQ1pyix9hHiC9owyoRNItM), with --static BUILD_JSON from research/w1_static_slice/build.py:
 G0.1 label carries the A3 3.7 fields, G0.3 checks H0_phase, 'd uses the A3 4.5 PD bound, and G0.5'f (static-frame
 flux ratio in [0.99, 1.01], A3 4.3, adopted Nov 24 03:26 UTC) is gated. Without --static, 'f is recorded only.
-Usage: python3 research/w1_c9_g05p/run.py native.npz members.json OUTDIR [--static build.json]
+With --harmonics V10_DIR NATIVE_PY (static mode), G0.5'f follows W1 AMENDMENTS 5 and 6 (Drive
+1U59VB-y99ivjRYx-zO0PaRjTaKt1_YHzIX8-Jfw0gj4, 1fnORgBkyOnowBr9gqP350xniDPZMe6icQYAYCJxO5tM): kappa-weighted mean over
+whole local wavelengths at the producer's discrete k_d, bands [0.999, 1.001] (dr 0.025) and [0.9985, 1.0015]
+(dr 0.05), S from the separated S3 harmonic after a sum-back check (results/research/w1_static_slice_a6/PRERUN.md).
+--variant static|uncorrected|wrong_sign|no_v2 names the construction the S split follows (faults only).
+Usage: python3 research/w1_c9_g05p/run.py native.npz members.json OUTDIR [--static build.json
+       [--harmonics V10_DIR NATIVE_PY [--variant NAME]]]
 """
 import hashlib
 import json
@@ -26,6 +32,8 @@ from research import b7_w2_origin_check_v1 as oc  # noqa: E402
 
 npz_path, members_path, outdir = Path(sys.argv[1]), Path(sys.argv[2]), Path(sys.argv[3])
 STATIC = json.loads(Path(sys.argv[5]).read_text()) if len(sys.argv) > 5 and sys.argv[4] == "--static" else None
+HARM = (sys.argv[7], sys.argv[8]) if len(sys.argv) > 8 and sys.argv[6] == "--harmonics" else None
+VARIANT = sys.argv[10] if len(sys.argv) > 10 and sys.argv[9] == "--variant" else "static"
 outdir.mkdir(parents=True, exist_ok=True)
 z = np.load(npz_path)
 members = json.loads(members_path.read_text())
@@ -48,6 +56,44 @@ if STATIC:   # A3 4.5: last-cell PD envelope factor (1 - v k/Omega + v^2)
     ENV = {0.025: (3.708e-8, 1.1331e-7), 0.05: (3.709e-8, 1.1333e-7)}
 F_BAND = (0.99, 1.01)                    # A3 4.3
 E_EXPECT_STATIC = {"D": 0.756, "S": 0.713}  # A3 4.4, recorded beside 'e
+# A5/A6 'f (PRERUN results/research/w1_static_slice_a6/PRERUN.md)
+F6_BAND = {0.025: (0.999, 1.001), 0.05: (0.9985, 1.0015)}
+F6_WINDOWS = {(0.025, "D"): 59.850, (0.025, "S"): 59.600, (0.05, "D"): 57.050, (0.05, "S"): 59.500}
+SUMBACK_FACTOR = 1e-6   # x edge_tolerance
+if HARM:
+    from research.w1_static_slice import harmonics as hm
+    HNS = hm.load(*HARM)
+
+
+def kd_of(k, dr):
+    return math.acos(1 - (k * dr) ** 2 / 2) / dr
+
+
+def f6_window(r, dr, k, Om, H0, A):
+    Phi = lambda x: k * x - Om * H0 * x * x / 2  # noqa: E731
+    Bmax = 60 - 5 * dr
+    m = math.floor((Phi(Bmax) - Phi(A)) / (2 * math.pi))
+    lo, hi = A, Bmax
+    for _ in range(200):
+        mid = (lo + hi) / 2
+        lo, hi = (mid, hi) if Phi(mid) - Phi(A) < 2 * math.pi * m else (lo, mid)
+    B = round(lo / dr) * dr
+    return (r > A) & (r < B), B, m
+
+
+def f6(grid, r, dr, H0, F, P, Fs, Om, k, A):
+    kd = kd_of(k, dr)
+    dF = grid.cell_derivative_fourth(F, parity=1)
+    Pst = P - H0 * r * dF
+    Gst = dF - H0 * r * Pst
+    a2 = r**2 * ((F - Fs) ** 2 + (Pst / Om) ** 2)
+    wa = (r >= A) & (r <= 60 - 5 * dr)
+    Pt = 2 * math.pi * Om * kd * fit(r[wa], a2[wa], kd)[0]
+    w, B, m = f6_window(r, dr, kd, Om, H0, A)
+    kap = kd - Om * H0 * r
+    g = 4 * math.pi * r**2 * (-Pst * Gst)
+    return {"ratio": float(np.sum((kap * g)[w]) / np.sum(kap[w]) / Pt), "k_d": kd, "B": B, "wavelengths": m,
+            "cells": int(w.sum())}
 U, E_RING = 1.0144275, 1.1525e-4
 
 
@@ -153,6 +199,31 @@ for dr, n in GRIDS:
     G["G0.5p"]["f"] = {"F_st_D/P_tail": FstD / P_tail, "F_st_S/P_S_tail": FstS / PS_tail, "band": F_BAND,
                        "gated": bool(STATIC)}
     G["G0.5p"]["f_PASS"] = all(F_BAND[0] <= q <= F_BAND[1] for q in (FstD / P_tail, FstS / PS_tail))
+    if STATIC and HARM:
+        # A5/A6 'f with S3 separated; the A3 'f above is recorded only
+        G["G0.5p"]["f"]["gated"] = False
+        G["G0.5p"]["f_A3_recorded"] = G["G0.5p"].pop("f")
+        G["G0.5p"].pop("f_PASS")
+        sign, nov2 = {"static": (1, False), "uncorrected": (0, False), "wrong_sign": (-1, False),
+                      "no_v2": (1, True)}[VARIANT]
+        sp = hm.split_S(HNS, np.asarray(z[key + "_x"]), dr, r, sign=sign, no_v2=nov2)
+        tol = SUMBACK_FACTOR * EDGE_TOL[dr]
+        sb = {"S": float(np.max(np.abs(sp["S1"] + sp["S3"] - S))), "PS": float(np.max(np.abs(sp["PS1"] + sp["PS3"] - PS))),
+              "tolerance": tol, "variant": VARIANT}
+        sb["PASS"] = sb["S"] <= tol and sb["PS"] <= tol
+        G["sum_back"] = sb
+        if sb["PASS"]:
+            fD = f6(grid, r, dr, H0, D, PD, Ds, OM2, K2, 20.0)
+            fS = f6(grid, r, dr, H0, sp["S3"], sp["PS3"], 0.0, OM3, K3, 35.0)
+            for nm, fx in (("D", fD), ("S", fS)):
+                assert abs(fx["B"] - F6_WINDOWS[(dr, nm)]) < 1e-9, (nm, fx["B"])
+            band = F6_BAND[dr]
+            G["G0.5p"]["f"] = {"D": fD, "S": fS, "band": band, "operator": "engine 4th-order centred",
+                               "S_source": "S3 harmonic (S1 entries zeroed) via producer mapped()"}
+            G["G0.5p"]["f_PASS"] = all(band[0] <= fx["ratio"] <= band[1] for fx in (fD, fS))
+        else:
+            G["G0.5p"]["f_PASS"] = False
+            G["G0.5p"]["f"] = "not read: sum-back check failed (STOP)"
     # ---- recorded only (5.3)
     w = 4 * math.pi * r * r * dr
     G["recorded"] = {
@@ -169,6 +240,7 @@ for dr, n in GRIDS:
                               and G["entry_reading"] == "PASS" and entry == "ACCEPTED"
                               and g5["a_PASS"] and g5["b_PASS"] and g5["c_PASS"] and g5["d_PASS"]
                               and g5["e_PASS"] and (g5["f_PASS"] or not STATIC))
+    G["admission_grid"] = dr == 0.025
     rep["grids"][key] = G
 
 allp = all(g["input_checks_PASS"] for g in rep["grids"].values())
@@ -178,5 +250,9 @@ rep["outcome"] = ("INPUT CHECKS PASS on both grids (corrected slice); new bytes:
                   if allp and rep["unchanged_from_576"] else
                   "input checks pass but inputs/engine changed: full C9 set must rerun" if allp else
                   "REFUSED/UNDETERMINED at input checks: nothing after them is read")
+if STATIC and HARM:
+    adm = rep["grids"].get("dr0.025", {})
+    rep["admission_reading"] = ("PASS: input checks pass on the admission grid dr 0.025 (A3 5); dr 0.05 record only"
+                                if adm.get("input_checks_PASS") else "FAIL or STOP on the admission grid dr 0.025")
 (outdir / "report.json").write_text(json.dumps(rep, indent=1, default=float))
 print(rep["outcome"])
