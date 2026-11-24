@@ -1,0 +1,576 @@
+{
+ "native_sha256": "339652a2a7e1379b19812893e43bafcf9ab0211422f2b8685c951107b863a295",
+ "grids": {
+  "dr0.05": {
+   "input_checks_PASS": true,
+   "runs": {
+    "B": {
+     "ring": {
+      "R": 6.522928789991222e-11,
+      "argmax": 38,
+      "second": 37,
+      "second_val": 6.50105276144182e-11,
+      "areal_last_step": 0.0,
+      "momentum_projection_calls": 1
+     },
+     "F": 8.268507948640258e-13,
+     "K": {
+      "sech2_k10": {
+       "e_c": 2.2306313517215376e-09,
+       "e_c_cell": 1,
+       "argmax_H": 0,
+       "Hc_max": 0.0014046530128663727,
+       "rel": 1.5880301621036296e-06,
+       "e_at_ring_argmax": 1.265475289662088e-11
+      },
+      "sech2_k100": {
+       "e_c": 2.2181930802583905e-08,
+       "e_c_cell": 1,
+       "argmax_H": 0,
+       "Hc_max": 0.014046530128663727,
+       "rel": 1.5791751129568192e-06,
+       "e_at_ring_argmax": 1.5148861332026087e-10
+      },
+      "gauss_k10": {
+       "e_c": 3.1353386826908636e-09,
+       "e_c_cell": 1,
+       "argmax_H": 0,
+       "Hc_max": 0.0026071895389672656,
+       "rel": 1.2025741265948785e-06,
+       "e_at_ring_argmax": 7.078634580619594e-10
+      }
+     },
+     "checks": {
+      "K0": true,
+      "K1": true,
+      "K2": true,
+      "K3_value": 0.0056073889932513055,
+      "K3_tol": 0.009370662601990496,
+      "K5": true,
+      "K3": true,
+      "carry_over_vs_576": {
+       "F": true,
+       "sech2_k10": true,
+       "sech2_k100": true,
+       "gauss_k10": true
+      }
+     },
+     "C": 2.2306313517215377e-10,
+     "C_gauss": 3.1353386826908634e-10,
+     "R_over_C": 0.2924252268290326,
+     "R_over_C_gauss": 0.20804542826591876,
+     "R_over_F": 78.88882529361186,
+     "sep_e10_over_F": 2697.743493236118,
+     "G4c_rule": "PASS",
+     "G4c_reading": "PASS",
+     "old_control": {
+      "pocket_max": 1.037344879049537e-12,
+      "ring_over_pocket": 62.881004396221904,
+      "direct_ring_over_pocket": {
+       "7": 0.3500811087138558,
+       "9": 0.5182771755123607
+      }
+     },
+     "G1": {
+      "G1.1_residual": 2.2651374944570917e-16,
+      "G1.1_threshold": 3.616026944374177e-13,
+      "G1.1_PASS": true,
+      "G1.2_ratio": 1596382980.426117,
+      "G1.2_PASS": true,
+      "G1.3_max_jS_new_reference": 1.4387714063765811e-08,
+      "G1.3_info_rel_to_574": 8.267036308121812,
+      "G1.3": "RECORDED (W1 A3 6: not applicable to new bytes)",
+      "G1.4_last_dB": 0.0,
+      "G1.4_PASS": true,
+      "G1.5_projection_calls": 1,
+      "G1.5_PASS": true
+     },
+     "G2": {
+      "E_ring": {
+       "flat_r<25": 0.00011528990788211585,
+       "flat_box": 0.00011530044911994636,
+       "areal_r<25": 0.00011529243777095713,
+       "areal_box": 0.0001153029790399684
+      },
+      "E_ring_rel_to_1.1525e-4": {
+       "flat_r<25": 0.00034627229601613685,
+       "flat_box": 0.0004377363986669547,
+       "areal_r<25": 0.0003682236091726576,
+       "areal_box": 0.00045968798237217
+      },
+      "E_ring_PASS_flat_r<25": true,
+      "max_abs_PD_field": 3.235306697652722e-05,
+      "PD_note": "field amplitude vs toy radiated power: not comparable",
+      "f_ring": "NOT COMPUTED (definition not available)"
+     }
+    },
+    "A": {
+     "ring": {
+      "R": 1.7464573242990424e-09,
+      "argmax": 1,
+      "second": 0,
+      "second_val": 4.964250255442768e-10,
+      "areal_last_step": 0.0,
+      "momentum_projection_calls": 1
+     },
+     "F": 1.149420619447894e-12,
+     "K": {
+      "sech2_k10": {
+       "e_c": 3.869057478458719e-08,
+       "e_c_cell": 1,
+       "argmax_H": 0,
+       "Hc_max": 0.0014046530128663727,
+       "rel": 2.7544578219808296e-05,
+       "e_at_ring_argmax": 3.869057478458719e-08
+      },
+      "sech2_k100": {
+       "e_c": 3.870252661321988e-07,
+       "e_c_cell": 1,
+       "argmax_H": 0,
+       "Hc_max": 0.014046530128663727,
+       "rel": 2.7553086960773653e-05,
+       "e_at_ring_argmax": 3.870252661321988e-07
+      },
+      "gauss_k10": {
+       "e_c": 7.353128853460761e-08,
+       "e_c_cell": 1,
+       "argmax_H": 0,
+       "Hc_max": 0.0026071895389672656,
+       "rel": 2.820327691393473e-05,
+       "e_at_ring_argmax": 7.353128853460761e-08
+      }
+     },
+     "checks": {
+      "K0": false,
+      "K1": false,
+      "K2": true,
+      "K3_value": 0.00030881261970638896,
+      "K3_tol": 0.009370662601990496,
+      "K5": false,
+      "K3": true,
+      "carry_over_vs_576": {
+       "F": true,
+       "sech2_k10": true,
+       "sech2_k100": true,
+       "gauss_k10": true
+      }
+     },
+     "C": 3.8690574784587196e-09,
+     "C_gauss": 7.353128853460761e-09,
+     "R_over_C": 0.45139089662600784,
+     "R_over_C_gauss": 0.23751213382818248,
+     "R_over_F": 1519.4240426432627,
+     "sep_e10_over_F": 33660.93676235911,
+     "G4c_rule": "PASS",
+     "G4c_reading": "UNDETERMINED (K failed: K0,K1,K5; rule alone PASS)",
+     "old_control": {
+      "pocket_max": 6.892328258145154e-11,
+      "ring_over_pocket": 25.339148962255674,
+      "direct_ring_over_pocket": {
+       "7": 26.725209815664947,
+       "9": 26.68107634397098
+      }
+     },
+     "G1": {
+      "G1.1_residual": 2.265137494139023e-16,
+      "G1.1_threshold": 3.616026944374177e-13,
+      "G1.1_PASS": true,
+      "G1.2_ratio": 1596382980.6502814,
+      "G1.2_PASS": true,
+      "G1.3_max_jS_new_reference": 1.4387714063765811e-08,
+      "G1.3_info_rel_to_574": 8.267036308121812,
+      "G1.3": "RECORDED (W1 A3 6: not applicable to new bytes)",
+      "G1.4_last_dB": 0.0,
+      "G1.4_PASS": true,
+      "G1.5_projection_calls": 1,
+      "G1.5_PASS": true
+     },
+     "G2": {
+      "E_ring": {
+       "flat_r<25": 0.00011528990788211573,
+       "flat_box": 0.00011530044911994505,
+       "areal_r<25": 0.00011529243777096647,
+       "areal_box": 0.0001153029790399765
+      },
+      "E_ring_rel_to_1.1525e-4": {
+       "flat_r<25": 0.0003462722960150266,
+       "flat_box": 0.0004377363986556304,
+       "areal_r<25": 0.00036822360925348185,
+       "areal_box": 0.00045968798244255815
+      },
+      "E_ring_PASS_flat_r<25": true,
+      "max_abs_PD_field": 3.235306697652722e-05,
+      "PD_note": "field amplitude vs toy radiated power: not comparable",
+      "f_ring": "NOT COMPUTED (definition not available)"
+     }
+    }
+   },
+   "G4": {
+    "A": {
+     "gate_V": true,
+     "V_ref_err": 0.0,
+     "V_engine_err": 1.8913099040939457e-09,
+     "research_vs_engine_B_maxdiff": 4.440892098500626e-16,
+     "dEF": 1.8420956069148535e-09,
+     "u_h": 1.089085691653235e-11,
+     "gate_U": true,
+     "U_ratio": 0.005912210460548454,
+     "share_S0": 0.004780054690234792,
+     "share_cells1_5": 0.8966003437342556,
+     "share_SB": 1.0,
+     "max_dB_0_40": 2.209898930516374e-12,
+     "max_uB_0_40": 9.135248113523176e-12,
+     "cells_dB_over_uB_0_40": 10,
+     "G4.4_PASS": true,
+     "G4.3_defect_over_imprint_1_40": 1.5192203420869822e-05,
+     "dB_cells0_5": [
+      -2.4868995751603507e-14,
+      -1.6509016376176078e-12,
+      -1.9684254226604025e-12,
+      -2.0984325388440084e-12,
+      -2.159050715988542e-12,
+      -2.1928014959371467e-12
+     ],
+     "uB_cells0_5": [
+      4.440892098500626e-16,
+      3.6637359812630166e-15,
+      2.3314683517128287e-15,
+      5.88418203051333e-15,
+      1.7763568394002505e-15,
+      4.451994328746878e-14
+     ]
+    },
+    "B": {
+     "gate_V": true,
+     "V_ref_err": 0.0,
+     "V_engine_err": 4.137921153322293e-12,
+     "research_vs_engine_B_maxdiff": 5.551115123125783e-16,
+     "dEF": 1.03265667457602e-11,
+     "u_h": 1.089085691653235e-11,
+     "gate_U": false,
+     "U_ratio": 1.0546445091253422,
+     "share_S0": 0.9530647955509903,
+     "share_cells1_5": 0.001946750431529809,
+     "share_SB": 1.0,
+     "max_dB_0_40": 1.5289991495137656e-12,
+     "max_uB_0_40": 9.135248113523176e-12,
+     "cells_dB_over_uB_0_40": 1,
+     "G4.4_PASS": true,
+     "G4.3_defect_over_imprint_1_40": 3.4410686792285815e-08,
+     "dB_cells0_5": [
+      1.2212453270876722e-15,
+      5.551115123125783e-16,
+      7.771561172376096e-16,
+      -1.2212453270876722e-15,
+      4.440892098500626e-16,
+      -2.886579864025407e-15
+     ],
+     "uB_cells0_5": [
+      4.440892098500626e-16,
+      3.6637359812630166e-15,
+      2.3314683517128287e-15,
+      5.88418203051333e-15,
+      1.7763568394002505e-15,
+      4.451994328746878e-14
+     ]
+    }
+   }
+  },
+  "dr0.025": {
+   "input_checks_PASS": true,
+   "runs": {
+    "B": {
+     "ring": {
+      "R": 7.137286313178837e-12,
+      "argmax": 0,
+      "second": 76,
+      "second_val": 6.164706034062287e-12,
+      "areal_last_step": 0.0,
+      "momentum_projection_calls": 1
+     },
+     "F": 2.906356606118335e-12,
+     "K": {
+      "sech2_k10": {
+       "e_c": 1.4102388375993036e-10,
+       "e_c_cell": 1,
+       "argmax_H": 0,
+       "Hc_max": 0.0014049147857616614,
+       "rel": 1.0037895905798697e-07,
+       "e_at_ring_argmax": 1.3558499440367855e-10
+      },
+      "sech2_k100": {
+       "e_c": 1.4130773547810227e-09,
+       "e_c_cell": 1,
+       "argmax_H": 0,
+       "Hc_max": 0.014049147857616616,
+       "rel": 1.005810010046222e-07,
+       "e_at_ring_argmax": 1.4024115653488156e-09
+      },
+      "gauss_k10": {
+       "e_c": 1.9887664692158635e-10,
+       "e_c_cell": 1,
+       "argmax_H": 0,
+       "Hc_max": 0.0026076754432295133,
+       "rel": 7.626587405190452e-08,
+       "e_at_ring_argmax": 1.9312105517185763e-10
+      }
+     },
+     "checks": {
+      "K0": true,
+      "K1": true,
+      "K2": true,
+      "K3_value": 0.0020087486167089663,
+      "K3_tol": 0.03,
+      "K5": true,
+      "K3": true,
+      "carry_over_vs_576": {
+       "F": true,
+       "sech2_k10": true,
+       "sech2_k100": true,
+       "gauss_k10": true
+      }
+     },
+     "C": 1.4102388375993035e-11,
+     "C_gauss": 1.9887664692158636e-11,
+     "R_over_C": 0.5061047904005308,
+     "R_over_C_gauss": 0.3588800607641452,
+     "R_over_F": 2.455750370809189,
+     "sep_e10_over_F": 48.52256721114437,
+     "G4c_rule": "PASS",
+     "G4c_reading": "PASS",
+     "old_control": {
+      "pocket_max": 9.837242755409911e-12,
+      "ring_over_pocket": 0.7255372761085666,
+      "direct_ring_over_pocket": {
+       "7": 0.38620500881925757,
+       "9": 0.3770994530710378
+      }
+     },
+     "G1": {
+      "G1.1_residual": 3.99987800641097e-16,
+      "G1.1_threshold": 3.6152690732824614e-13,
+      "G1.1_PASS": true,
+      "G1.2_ratio": 903844834.0326759,
+      "G1.2_PASS": true,
+      "G1.3_max_jS_new_reference": 1.4384698590503986e-08,
+      "G1.3_info_rel_to_574": 8.285944962288019,
+      "G1.3": "RECORDED (W1 A3 6: not applicable to new bytes)",
+      "G1.4_last_dB": 0.0,
+      "G1.4_PASS": true,
+      "G1.5_projection_calls": 1,
+      "G1.5_PASS": true
+     },
+     "G2": {
+      "E_ring": {
+       "flat_r<25": 0.00011531495127307218,
+       "flat_box": 0.00011532559650008882,
+       "areal_r<25": 0.00011531748194551553,
+       "areal_box": 0.00011532812720403599
+      },
+      "E_ring_rel_to_1.1525e-4": {
+       "flat_r<25": 0.0005635685299105742,
+       "flat_box": 0.0006559349248487223,
+       "areal_r<25": 0.0005855266422172267,
+       "areal_box": 0.0006778933105076046
+      },
+      "E_ring_PASS_flat_r<25": true,
+      "max_abs_PD_field": 3.254757038092378e-05,
+      "PD_note": "field amplitude vs toy radiated power: not comparable",
+      "f_ring": "NOT COMPUTED (definition not available)"
+     }
+    },
+    "A": {
+     "ring": {
+      "R": 4.445267840890582e-10,
+      "argmax": 1,
+      "second": 0,
+      "second_val": 9.404998475978296e-11,
+      "areal_last_step": 0.0,
+      "momentum_projection_calls": 1
+     },
+     "F": 4.5976868688103745e-12,
+     "K": {
+      "sech2_k10": {
+       "e_c": 1.037259872004731e-08,
+       "e_c_cell": 1,
+       "argmax_H": 0,
+       "Hc_max": 0.0014049147857616614,
+       "rel": 7.383080329974535e-06,
+       "e_at_ring_argmax": 1.037259872004731e-08
+      },
+      "sech2_k100": {
+       "e_c": 1.0373303409999535e-07,
+       "e_c_cell": 1,
+       "argmax_H": 0,
+       "Hc_max": 0.014049147857616616,
+       "rel": 7.383581919081123e-06,
+       "e_at_ring_argmax": 1.0373303409999535e-07
+      },
+      "gauss_k10": {
+       "e_c": 1.936036914812478e-08,
+       "e_c_cell": 1,
+       "argmax_H": 0,
+       "Hc_max": 0.0026076754432295133,
+       "rel": 7.424378366714091e-06,
+       "e_at_ring_argmax": 1.936036914812478e-08
+      }
+     },
+     "checks": {
+      "K0": false,
+      "K1": false,
+      "K2": true,
+      "K3_value": 6.793303197372147e-05,
+      "K3_tol": 0.03,
+      "K5": false,
+      "K3": true,
+      "carry_over_vs_576": {
+       "F": true,
+       "sech2_k10": true,
+       "sech2_k100": true,
+       "gauss_k10": true
+      }
+     },
+     "C": 1.037259872004731e-09,
+     "C_gauss": 1.936036914812478e-09,
+     "R_over_C": 0.42855874027972685,
+     "R_over_C_gauss": 0.22960656415588773,
+     "R_over_F": 96.68487584585704,
+     "sep_e10_over_F": 2256.04722896911,
+     "G4c_rule": "PASS",
+     "G4c_reading": "UNDETERMINED (K failed: K0,K1,K5; rule alone PASS)",
+     "old_control": {
+      "pocket_max": 1.6876606449139908e-11,
+      "ring_over_pocket": 26.339820474495504,
+      "direct_ring_over_pocket": {
+       "7": 20.123812008895058,
+       "9": 20.134853870909023
+      }
+     },
+     "G1": {
+      "G1.1_residual": 3.999878004720662e-16,
+      "G1.1_threshold": 3.6152690732824614e-13,
+      "G1.1_PASS": true,
+      "G1.2_ratio": 903844834.4146343,
+      "G1.2_PASS": true,
+      "G1.3_max_jS_new_reference": 1.4384698590503986e-08,
+      "G1.3_info_rel_to_574": 8.285944962288019,
+      "G1.3": "RECORDED (W1 A3 6: not applicable to new bytes)",
+      "G1.4_last_dB": 0.0,
+      "G1.4_PASS": true,
+      "G1.5_projection_calls": 1,
+      "G1.5_PASS": true
+     },
+     "G2": {
+      "E_ring": {
+       "flat_r<25": 0.00011531495127307285,
+       "flat_box": 0.0001153255965000931,
+       "areal_r<25": 0.00011531748194551683,
+       "areal_box": 0.00011532812720404088
+      },
+      "E_ring_rel_to_1.1525e-4": {
+       "flat_r<25": 0.0005635685299163473,
+       "flat_box": 0.0006559349248860258,
+       "areal_r<25": 0.000585526642228551,
+       "areal_box": 0.0006778933105500151
+      },
+      "E_ring_PASS_flat_r<25": true,
+      "max_abs_PD_field": 3.254757038092378e-05,
+      "PD_note": "field amplitude vs toy radiated power: not comparable",
+      "f_ring": "NOT COMPUTED (definition not available)"
+     }
+    }
+   },
+   "G4": {
+    "A": {
+     "gate_V": true,
+     "V_ref_err": 0.0,
+     "V_engine_err": 4.554122391849042e-10,
+     "research_vs_engine_B_maxdiff": 5.551115123125783e-16,
+     "dEF": 4.543726249146496e-10,
+     "u_h": 1.8621611545506184e-11,
+     "gate_U": true,
+     "U_ratio": 0.04098312821773563,
+     "share_S0": 0.000894186804001107,
+     "share_cells1_5": 0.9841591939053427,
+     "share_SB": 1.0,
+     "max_dB_0_40": 1.6753265441593612e-13,
+     "max_uB_0_40": 1.5780710072021975e-12,
+     "cells_dB_over_uB_0_40": 18,
+     "G4.4_PASS": true,
+     "G4.3_defect_over_imprint_1_40": 3.770637643503606e-06,
+     "dB_cells0_5": [
+      -4.440892098500626e-16,
+      -1.0247358517290195e-13,
+      -1.2179146580137967e-13,
+      -1.2878587085651816e-13,
+      -1.3278267374516872e-13,
+      -1.3644640972643174e-13
+     ],
+     "uB_cells0_5": [
+      4.440892098500626e-16,
+      2.220446049250313e-15,
+      1.3322676295501878e-15,
+      2.3314683517128287e-15,
+      3.3306690738754696e-15,
+      2.4424906541753444e-15
+     ]
+    },
+    "B": {
+     "gate_V": true,
+     "V_ref_err": 0.0,
+     "V_engine_err": 1.4340791710457935e-11,
+     "research_vs_engine_B_maxdiff": 4.440892098500626e-16,
+     "dEF": 1.2226580441816914e-12,
+     "u_h": 1.8621611545506184e-11,
+     "gate_U": false,
+     "U_ratio": 15.230433099525696,
+     "share_S0": 0.0,
+     "share_cells1_5": 1.0,
+     "share_SB": 1.0,
+     "max_dB_0_40": 2.7755575615628914e-14,
+     "max_uB_0_40": 1.5780710072021975e-12,
+     "cells_dB_over_uB_0_40": 1,
+     "G4.4_PASS": true,
+     "G4.3_defect_over_imprint_1_40": 1.6520143779497026e-08,
+     "dB_cells0_5": [
+      1.1102230246251565e-16,
+      0.0,
+      8.881784197001252e-16,
+      2.4424906541753444e-15,
+      2.9976021664879227e-15,
+      2.220446049250313e-15
+     ],
+     "uB_cells0_5": [
+      4.440892098500626e-16,
+      2.220446049250313e-15,
+      1.3322676295501878e-15,
+      2.3314683517128287e-15,
+      3.3306690738754696e-15,
+      2.4424906541753444e-15
+     ]
+    }
+   }
+  }
+ },
+ "input_checks": {
+  "dr0.025": {
+   "input_checks_PASS": true
+  },
+  "dr0.05": {
+   "input_checks_PASS": true
+  }
+ },
+ "input_checks_admission_reading": "PASS: input checks pass on the admission grid dr 0.025 (A3 5); dr 0.05 record only",
+ "G4.2_RunA_share_change": 0.08755885017108711,
+ "G4.2_RunA_ASYMPTOTIC": true,
+ "K4_ratio": {
+  "A": 3.7300753484089975,
+  "B": 15.817401224879152
+ },
+ "K4_PASS": {
+  "A": false,
+  "B": true
+ },
+ "gate_failures": [],
+ "outcome": "ZERO-STEP C9 SET PASS on the corrected slice (admission grid dr 0.025)"
+}
