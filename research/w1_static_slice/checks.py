@@ -4,7 +4,9 @@ Runs the C9 gate script research/w1_c9_g05p/run.py with --static on: the correct
 (uncorrected) slice; the build with the v^2 P_st piece removed; the build with the wrong-sign phase; and the
 corrected slice with its D or S tail reversed (static-frame momentum P_st = P - H0 r f_r negated beyond r ~ 12).
 Expected (A3 5, A4 3): corrected passes everything; every fault fails 'f; reversed tails also fail 'e.
-Usage: python3 research/w1_static_slice/checks.py BUILD_DIR ADMITTED_NPZ MEMBERS_JSON OUTDIR
+With --harmonics V10_DIR NATIVE_PY, 'f follows W1 AMENDMENTS 5 and 6 (S3 separated; each case's S split follows
+that case's own construction, so the reversed-tail cases, which have none, stop at the sum-back check).
+Usage: python3 research/w1_static_slice/checks.py BUILD_DIR ADMITTED_NPZ MEMBERS_JSON OUTDIR [--harmonics V10 NATIVE_PY]
 """
 import json
 import os
@@ -19,6 +21,9 @@ import numpy as np  # noqa: E402
 from engine import v55_initial as vi, v55_pirk_adapter as ad  # noqa: E402
 
 bdir, admitted, members, out = map(Path, sys.argv[1:5])
+HARM = sys.argv[6:8] if len(sys.argv) > 7 and sys.argv[5] == "--harmonics" else None
+VAR = {"corrected": "static", "uncorrected (admitted)": "uncorrected", "v^2 piece missing": "no_v2",
+       "wrong-sign phase": "wrong_sign", "D tail reversed": "static", "S tail reversed": "static"}
 out.mkdir(parents=True, exist_ok=True)
 build = bdir / "build.json"
 go, vac, _ = ad.vendor_modules()
@@ -46,8 +51,9 @@ with tempfile.TemporaryDirectory() as td:
         cases[case] = d / "native.npz"
     for case, npz in cases.items():
         d = out / case.split(" (")[0].replace(" ", "_").replace("^", "")
-        subprocess.run([sys.executable, "research/w1_c9_g05p/run.py", str(npz), str(members), str(d), "--static", str(build)],
-                       check=True, capture_output=True)
+        extra = ["--harmonics", *HARM, "--variant", VAR[case]] if HARM else []
+        subprocess.run([sys.executable, "research/w1_c9_g05p/run.py", str(npz), str(members), str(d), "--static", str(build),
+                        *extra], check=True, capture_output=True)
         R = json.loads((d / "report.json").read_text())
         rep[case] = {"outcome": R["outcome"], "grids": {k: {
             "G0.1-4": all(v[g] for g in ("G0.1_PASS", "G0.2_PASS", "G0.3_PASS", "G0.4_PASS")),
@@ -55,7 +61,10 @@ with tempfile.TemporaryDirectory() as td:
             "P_tail_rel": v["G0.5p"]["P_tail_rel"], "m_D": v["G0.5p"]["D"]["m"], "m_S": v["G0.5p"]["S"]["m"],
             "PD_last5": v["G0.5p"]["d"]["PD_last5"], "PD_bound": v["G0.5p"]["d"]["PD_bound"],
             "e_D": v["G0.5p"]["e"]["F_win_D/P_tail"], "e_S": v["G0.5p"]["e"]["F_win_S/P_S_tail"],
-            "f_D": v["G0.5p"]["f"]["F_st_D/P_tail"], "f_S": v["G0.5p"]["f"]["F_st_S/P_S_tail"]}
+            **({"f_D": v["G0.5p"]["f"]["F_st_D/P_tail"], "f_S": v["G0.5p"]["f"]["F_st_S/P_S_tail"]} if not HARM else
+               {"sum_back": v["sum_back"]["PASS"],
+                "f_D": v["G0.5p"]["f"]["D"]["ratio"] if isinstance(v["G0.5p"]["f"], dict) else float("nan"),
+                "f_S": v["G0.5p"]["f"]["S"]["ratio"] if isinstance(v["G0.5p"]["f"], dict) else float("nan")})}
             for k, v in R["grids"].items()}}
 (out / "checks.json").write_text(json.dumps(rep, indent=1, default=float))
 for case, c in rep.items():
