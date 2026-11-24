@@ -68,3 +68,57 @@ Asked for by the coordinator (Nov 24 04:11 UTC), ahead of Lumen²'s f_ring A5 S0
 - **Control (arm B):** its max-norm residuals are larger on the finer grid (ratio 0.05 to 0.4). They peak at the edge or at far cells, not the origin, so p cannot be measured on the control from the stored max-norms.
   - Control H at dr 0.025 runs 1.9e-12 to 1.05e-11. At dr 0.05 it runs 2.1e-13 to 1.1e-12.
 - **Ring against control (max-norms, not pointwise):** at t 0.075 on dr 0.025, H is 1.25e-9 against 9.1e-12, a factor of 137, at different cells.
+
+## Timing test (Jeremiah, "Go on the timing test", Nov 24 04:11 UTC; no gating)
+
+Script: `research/w1_fring_smoke/timing.py`. Numbers: `timing_A025.json`, `timing_B025.json`. Each arm took one untimed warm-up step, then 10 timed steps at dr 0.025 on the corrected slice, one process at a time, single thread.
+
+`kernel.step` always calls `kernel.diagnostics` on the accepted state, and that can't be switched off without an engine change. So the bare step is the step time minus the diagnostics time, with the diagnostics timed separately on the same state.
+
+| per step (s, median) | arm A | arm B |
+|---|---|---|
+| step, including the kernel's diagnostics | 2.613 | 2.531 |
+| the kernel's diagnostics alone | 0.389 (15%) | 0.385 |
+| bare step | **2.224** | **2.146** |
+| the smoke's extra readings (`measure`) | 0.116 | 0.114 |
+
+**The diagnostics don't dominate: the step itself does.** One profiled step on arm B (cProfile; its overhead inflates the absolute times) puts the time here:
+- **About 55-60%:** the radiation sector's primitive recovery, `valencia.recover_radiation`, called about 52,800 times per step as a per-cell Python loop.
+- **About 30%:** the four CMC lapse solves.
+- **About 17%:** the diagnostics.
+
+Speeding up the radiation recovery would be an engine change, which is Jeremiah's call under the allowlist.
+
+**Full-run cost for the dr 0.025 pair** (52,651 steps for 12 periods, 26,325 for 6). Wall-clock assumes the two arms run in parallel.
+
+| | 12 periods | 6 periods |
+|---|---|---|
+| diagnostics every step (as now) | 38.3 + 37.1 = **75 arm-h** (about 38 h wall) | **38 arm-h** (about 19 h wall) |
+| diagnostics only at sample times (every 34 steps; needs an engine change) | 32.7 + 31.6 = **64 arm-h** (about 33 h wall) | **32 arm-h** (about 16 h wall) |
+
+Both are against the declared 24 arm-hour ceiling, so none of these four options fits.
+
+## Plan estimate: Lumen²'s proposed origin diagnostic (NOT run; needs Jeremiah's go)
+
+**Step 0 (t = 0):** pointwise H and M at cells 0 to 5 on dr 0.1, 0.05 and 0.025. This is a build plus one evaluation per arm: seconds for each.
+
+**No dr 0.1 slice exists.** `native_static.npz`, Aster's `native.npz` and `members.json` hold only dr 0.05 and 0.025. Building one would take three things:
+1. A fresh Newton solve on dr 0.1's own nodes, by the producer's own rule in `native.py`: `solver(0.1 sqrt(u), R)`, seeded from the same A1 member's even cubic, with the same gamma and the 1e-10 residual check. Aster's `native.npz` stores x only for its two grids.
+2. The corrected-slice path of `research/w1_static_slice/build.py`: theta = omega_u H0 r^2/2 per solver node through the producer's `mapped()`, the theta = 0 positive control, and the S3 split for 'f.
+3. The input checks before any step.
+
+None of it is interpolated from the finer arrays (C9 G0.2). The build is minutes of compute.
+
+**Open before the build:** dr 0.1 has no declared input-check bands. The edge tolerance, the 'd envelope and the 'f window and band are all declared per grid for 0.025 and 0.05 only, and would have to be declared first. At dr 0.1, S3's k dr is about 0.54 (about 11.7 cells per wavelength), so the 'f discretisation term is larger.
+
+**Step 1:** both arms on all three grids to t 0.15, saving pointwise H and M at cells 0 to 5 every step plus the max and where it sits. Then dr 0.1 and dr 0.05 continue to one ring period, t 3.29.
+
+Per arm, scaled linearly in N from the measured dr 0.025 numbers (dr 0.05 measured at 1.37 s per step in the smoke; dr 0.1 not measured):
+
+| grid | steps to t 0.15 | steps to t 3.29 | hours per arm, diagnostics every step | at sample times only |
+|---|---|---|---|---|
+| dr 0.025 | 200 | (not continued) | 0.15 | 0.13 |
+| dr 0.05 | 100 | 2,194 | 0.83 (to t 3.29) | 0.71 |
+| dr 0.1 | 50 | 1,097 | 0.21 (to t 3.29) | 0.18 |
+
+The total is about 2.4 arm-hours. With the six arm-runs spread over the 4 cores, wall-clock is about 1 hour, set by the dr 0.05 arms. Reading cells 0 to 5 every step uses a constraint evaluation like `measure`, already included above. "At sample times only" would still evaluate the cells-0-to-5 reading every step and skip only the kernel's full diagnostics, which needs an engine change.
