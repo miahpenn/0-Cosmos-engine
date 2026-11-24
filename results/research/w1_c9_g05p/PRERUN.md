@@ -21,3 +21,11 @@ not recomputed. If either changed, the full C9 set reruns, input checks first.
 Discrimination (checked before this run, injected faults on the stored arrays): every G0.5' sub-check fails on at
 least one bad input at both grids; G0.1-G0.4 as coded compare against values the script supplies, and the engine
 entry is what refuses misaligned r, a wrong nonzero H0_chart, non-archive phi and an empty label.
+
+Clarification (Aster, added before the run, Nov 24 02:26 UTC): 1.943e-7 (dr 0.025) and 1.949e-7 (dr 0.05) are shared
+initializer limits, with a derived basis only for D and PD; tail checks G0.5'a-d are what tell a correct tail from a
+wrong one under that limit. If S or PS trips the limit, the verdict is UNDETERMINED, and an initializer refusal means
+there is no downstream W1 admission result for that run. The factor of 2 was chosen after the fault tests and fixed
+before the gated run.
+
+Go: Jeremiah, Lumen² channel, Nov 24 02:25 UTC ("If everyone agrees, go"; Lumen², Aster and Duet agreed), relayed.
