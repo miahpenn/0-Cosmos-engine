@@ -409,11 +409,9 @@ def build_initial_data(
             + 2.0 * r * r * Kr * Kt
             + r * r * Kt * Kt
         )
-        integ = _cumulative_origin_integral(grid, r, dr, src)
+        integ = integrate(grid, r, dr, src)
         B_prev, B = B, integ / r
     areal_last_step = float(np.max(np.abs(B - B_prev)))
-        integ = integrate(grid, r, dr, src)
-        B = integ / r
 
     if np.any(~np.isfinite(B)) or np.any(B <= 0.0):
         raise FloatingPointError("invalid constrained initial metric")
