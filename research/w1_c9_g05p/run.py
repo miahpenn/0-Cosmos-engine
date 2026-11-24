@@ -1,7 +1,8 @@
 """C9 W1 input-check rerun per AMENDMENT 2 (Drive 1bpHE2NiBAoYmbMiOOakOqYhBrFARJLd1PsaP6baWmb8).
 
 Scope (Amendment 2, 5.1): input checks only, both grids, evaluated first: G0.1-G0.4 (incl. the engine's
-supplied_slice entry with edge_tolerance per Lumen²'s ruling) and G0.5'a-d. If native.npz (sha256) and the engine
+supplied_slice entry with edge_tolerance per Lumen²'s ruling) and G0.5'a-d; G0.5'e (direction, AMENDMENT 3
+Drive 1E6gfRSm6XvoDd8bbZqdLwNfFNnFaAiocBHQLYUGNYCk, section 9) for runs declared after Nov 24 02:34 UTC; #577 ran without it. If native.npz (sha256) and the engine
 build are unchanged from #576 and every input check passes, the #576 readings stand (5.2); they are not recomputed.
 Usage: python3 research/w1_c9_g05p/run.py native.npz members.json OUTDIR
 """
@@ -108,6 +109,13 @@ for dr, n in GRIDS:
               "D_pred": ENV[dr][0], "PD_pred": ENV[dr][1]},
     }
     G["G0.5p"]["d_PASS"] = edge["D-D_s"] <= ENV[dr][0] * sc and edge["PD"] <= ENV[dr][1] * sc
+    # G0.5'e direction (AMENDMENT 3, 9.5/9.10; adopted Nov 24 02:34 UTC, runs declared after that only):
+    # window mean of the rest-frame flux 4 pi r^2 (-P_rest f_r) > 0 for D and S. Ratio to P_tail recorded, no band.
+    FD = float(np.mean((4 * math.pi * r**2 * (-PDr * dD))[wD]))
+    FS = float(np.mean((4 * math.pi * r**2 * (-PSr * dS))[wS]))
+    PS_tail = 2 * math.pi * OM3 * K3 * AS
+    G["G0.5p"]["e"] = {"F_win_D": FD, "F_win_S": FS, "F_win_D/P_tail": FD / P_tail, "F_win_S/P_S_tail": FS / PS_tail}
+    G["G0.5p"]["e_PASS"] = FD > 0 and FS > 0
     # ---- recorded only (5.3)
     w = 4 * math.pi * r * r * dr
     G["recorded"] = {
@@ -122,7 +130,8 @@ for dr, n in GRIDS:
     g5 = G["G0.5p"]
     G["input_checks_PASS"] = (G["G0.1_PASS"] and G["G0.2_PASS"] and G["G0.3_PASS"] and G["G0.4_PASS"]
                               and G["entry_reading"] == "PASS" and entry == "ACCEPTED"
-                              and g5["a_PASS"] and g5["b_PASS"] and g5["c_PASS"] and g5["d_PASS"])
+                              and g5["a_PASS"] and g5["b_PASS"] and g5["c_PASS"] and g5["d_PASS"]
+                              and g5["e_PASS"])
     rep["grids"][key] = G
 
 allp = all(g["input_checks_PASS"] for g in rep["grids"].values())
