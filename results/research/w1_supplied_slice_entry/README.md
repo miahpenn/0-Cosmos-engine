@@ -17,6 +17,16 @@ Not run: C6 (needs the eight-node integral in the engine), C8 (no archive compar
 
 Discrimination probes (each must be flagged, all were): C1 uniform-phi-guard mutant vs main (bitwise flags) and H0 x(1+1e-12) (4.7 relative); C2 a 1e-10 change in one cell of S; C3 S x(1+1e-12); C4 residual without the P_S S_r term 3.9e-8; C7 second areal step 3.0e-10; C5 a valid slice and a matching H0_chart are accepted.
 
-Inputs: W1 members `native.npz` (Aster, B7-W1-grid-aligned-comparison.zip, Drive 1OUObtOwD7B51pDMiTacKJEjbavVBqv6D; same file on branch aster/w1-profile cfae43c), sha256 16151c445c9dcfcc34cf61e28e268e991ab2bfea629beaa3aa52fadc4c5a98ea, r_max 60, phi = phi0 and Pi = pi0. The archive does not record whether the Hubble chart term was added, so H0_chart is supplied as 0.0 (it only gates validation; no number above depends on it). edge_tolerance 1e-7 (members reach 9.3e-8 in the last five cells).
+Inputs: W1 members `native.npz` (Aster, B7-W1-grid-aligned-comparison.zip, Drive 1OUObtOwD7B51pDMiTacKJEjbavVBqv6D; same file on branch aster/w1-profile cfae43c), sha256 16151c445c9dcfcc34cf61e28e268e991ab2bfea629beaa3aa52fadc4c5a98ea, r_max 60, phi = phi0 and Pi = pi0. The original run passed `H0_chart=0.0`. The original export script `native.py` in the linked archive applies the Hubble chart term to both momenta, using `H0=0.0056689681106181795` from the V10 `report.json` settings. The reproduction script now passes that value as provenance. On both grids the corrected entry accepts the original arrays and produces bit-identical geometry to the historical zero-metadata run. The input momenta already contain the chart term. edge_tolerance 1e-7 (members reach 9.3e-8 in the last five cells).
 
 Reproduce (repo root, OPENBLAS_NUM_THREADS=1): `python3 research/w1_supplied_slice_entry/dump.py X.npz` in checkouts of 1a49290 and 3213444, then `python3 research/w1_supplied_slice_entry/checks.py before.npz main.npz native.npz outdir`. Python 3.13, NumPy 2.5.3, SciPy 1.18.1; vendor d6052d6.
+
+
+## Review amendments
+
+Amendment 1 uses current main for C1. The pre-#572 comparison and
+the original C4 sign failure are retained in the original record. Its
+replacement `max |j_S| > 1e-8` also failed. Amendment 2's 1000-fold
+omission test passes post hoc, with ratios about 1.9e8 and 2.9e8.
+This is evidence about the entry and its sensitivity to the signed
+source. W1 admission and production reruns remain pending.

@@ -125,11 +125,10 @@ def w1(dr, n):
     t = f"dr{dr}"
     grid = go.SphericalCellGrid(n, 60.0)
     f = ss.ScalarFields(z[t + "_S"], z[t + "_PS"], z[t + "_D"], z[t + "_PD"], np.full(n, PHI0), np.full(n, PI0))
+    # The native.py exporter applies the V10 report's H0 to both momenta.
     label = ("Aster B7-W1-grid-aligned-comparison.zip (Drive 1OUObtOwD7B51pDMiTacKJEjbavVBqv6D) native.npz sha256 "
-             "16151c44...; grid-aligned harmonic-balance member, engine centres, r_max 60; chart-term flag not "
-             "recorded in the archive (H0_chart supplied as 0.0)")
-    return grid, vi.SuppliedSlice(f, np.array(grid.centers), 0.0, 1e-7, label)
-
+             "16151c44...; grid-aligned harmonic-balance member, engine centres, r_max 60; Hubble chart term on")
+    return grid, vi.SuppliedSlice(f, np.array(grid.centers), 0.0056689681106181795, 1e-7, label)
 
 kernel = V55ProductionKernel()
 c4, c7 = {}, {}

@@ -120,6 +120,11 @@ jobs:
             ["engine/v55_initial.py"]="9f8b2a038ebd53d1a6e18f0482dba99f4363e1e8"
           )
           # PR #572 authorizes only the reviewed signed scalar momentum blobs.
+          # PR #574, exact reviewed supplied-slice engine blobs.
+          declare -A authorized_w1_supplied_slice_heads=(
+            ["engine/v55_initial.py"]="f1bb4a4c025bdea0e2c9b701d77f90009053aeb1"
+            ["engine/production_kernel.py"]="7adc5d03ca7124c5fc3919d2b27da9c17786ccca"
+          )
           declare -A authorized_signed_scalar_momentum_heads=(
             ["engine/scalar_system.py"]="fdfe3003142eadd53d6736e9447cf294c6276f63"
             ["engine/v55_initial.py"]="2f128586425468acd165a25c2a7c68387895542c"
@@ -160,7 +165,8 @@ jobs:
             sd_split_follows_phi_authorized="${authorized_sd_split_follows_phi_heads[$path]:-}"
             reconstruction_window_authorized="${authorized_reconstruction_window_heads[$path]:-}"
             signed_scalar_momentum_authorized="${authorized_signed_scalar_momentum_heads[$path]:-}"
-            if [ "$head_blob" != "$signed_scalar_momentum_authorized" ] && [ "$head_blob" != "$reconstruction_window_authorized" ] && [ "$head_blob" != "$sd_split_follows_phi_authorized" ] && [ "$head_blob" != "$pocket_fixtures_wall_authorized" ] && [ "$head_blob" != "$lattice_wall_authorized" ] && [ "$head_blob" != "$hand_floor_step2_authorized" ] && [ "$head_blob" != "$shared_constants_authorized" ] && [ "$head_blob" != "$sd_quartic_authorized" ] && [ "$head_blob" != "$expected" ] && [ "$head_blob" != "$authorized" ] && [ "$head_blob" != "$lane_b_authorized" ] && [ "$head_blob" != "$cmc_centre_row_authorized" ] && [ "$head_blob" != "$initializer_origin_authorized" ] && [ "$head_blob" != "$ledger_shift_authorized" ]; then
+            w1_supplied_slice_authorized="${authorized_w1_supplied_slice_heads[$path]:-}"
+            if [ "$head_blob" != "$w1_supplied_slice_authorized" ] && [ "$head_blob" != "$signed_scalar_momentum_authorized" ] && [ "$head_blob" != "$reconstruction_window_authorized" ] && [ "$head_blob" != "$sd_split_follows_phi_authorized" ] && [ "$head_blob" != "$pocket_fixtures_wall_authorized" ] && [ "$head_blob" != "$lattice_wall_authorized" ] && [ "$head_blob" != "$hand_floor_step2_authorized" ] && [ "$head_blob" != "$shared_constants_authorized" ] && [ "$head_blob" != "$sd_quartic_authorized" ] && [ "$head_blob" != "$expected" ] && [ "$head_blob" != "$authorized" ] && [ "$head_blob" != "$lane_b_authorized" ] && [ "$head_blob" != "$cmc_centre_row_authorized" ] && [ "$head_blob" != "$initializer_origin_authorized" ] && [ "$head_blob" != "$ledger_shift_authorized" ]; then
               printf 'Unapproved head blob for protected runtime path %s: %s\n' "$path" "$head_blob"
               exit 1
             fi
