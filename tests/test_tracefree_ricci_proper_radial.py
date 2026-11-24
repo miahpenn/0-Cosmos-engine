@@ -715,3 +715,22 @@ def test_w1_supplied_slice_authorization_is_exact_blob():
         historical = SOURCE_BLOBS[path]
         assert _source_blob_matches(path, historical, historical, authorized_head)
         assert not _source_blob_matches(path, historical, historical, "f" * 40)
+
+
+def test_eight_node_areal_authorization_is_exact_blob():
+    from tools.audit_tracefree_ricci_proper_radial import (
+        AUTHORIZED_EIGHT_NODE_AREAL_HEAD_BLOBS,
+        AUTHORIZED_RUNTIME_PATHS,
+        SOURCE_BLOBS,
+        _source_blob_matches,
+    )
+
+    assert AUTHORIZED_EIGHT_NODE_AREAL_HEAD_BLOBS == {
+        "engine/v55_initial.py": "d613ab44efa6919c6de208a45ac0c2ee8559d25a",
+        "engine/production_kernel.py": "849014d34c532b1f142def2b9b30ae02809e81d7",
+    }
+    for path, authorized_head in AUTHORIZED_EIGHT_NODE_AREAL_HEAD_BLOBS.items():
+        assert path in AUTHORIZED_RUNTIME_PATHS
+        historical = SOURCE_BLOBS[path]
+        assert _source_blob_matches(path, historical, historical, authorized_head)
+        assert not _source_blob_matches(path, historical, historical, "f" * 40)
