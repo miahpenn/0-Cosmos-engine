@@ -11,7 +11,7 @@ Direct nine-point H, A1, cell 0, t 0.015 = 8.50297e-11 against 8.5030e-11: gap 3
 - M, control: FAIL at every save; control at roundoff (|M| equals the sum of its term magnitudes, ~1e-14 at t 0.015).
 - Largest ring lambda meeting (i) at every save: none (M). On H alone, both lambdas meet it.
 
-## A6 3(ii) with A7 2(b,c), cell 0 (nine-point; seven-point agrees in every case)
+## A6 3(ii) with A7 2(b,c), cell 0 (nine-point; seven-point gives the same reading everywhere except control t 0.015, where it reads PASS, factor 177, at roundoff)
 | pair | t 0.015 | t 0.8235 | t 1.6455 | t 3.291 |
 |---|---|---|---|---|
 | ring A1-A2 | PASS, factor 3.94, q 2.98 | PASS, 3.27, q 2.71 | FAIL, 1.62, q 1.69 | FAIL, 0.84, q 0.75 |
