@@ -1,0 +1,129 @@
+{
+ "C1": {
+  "vs_1a49290_differ_keys": [
+   "dr0.025/hand_floor_reference/geom/Aa",
+   "dr0.025/hand_floor_reference/geom/B",
+   "dr0.025/hand_floor_reference/geom/K",
+   "dr0.025/hand_floor_reference/geom/Lambda",
+   "dr0.025/hand_floor_reference/geom/X",
+   "dr0.025/hand_floor_reference/geom/a",
+   "dr0.025/hand_floor_reference/geom/b",
+   "dr0.025/hand_floor_reference/matter/baryons.energy_t",
+   "dr0.025/hand_floor_reference/matter/baryons.rest",
+   "dr0.025/hand_floor_reference/matter/dark_matter.energy_t",
+   "dr0.025/hand_floor_reference/matter/dark_matter.rest",
+   "dr0.025/hand_floor_reference/matter/radiation.energy_t",
+   "dr0.025/inherited_pocket/geom/Aa",
+   "dr0.025/inherited_pocket/geom/K",
+   "dr0.025/none/geom/Aa",
+   "dr0.025/none/geom/K",
+   "dr0.025/rescaled_pocket/geom/Aa",
+   "dr0.025/rescaled_pocket/geom/K",
+   "dr0.05/hand_floor_reference/geom/Aa",
+   "dr0.05/hand_floor_reference/geom/K",
+   "dr0.05/inherited_pocket/geom/Aa",
+   "dr0.05/inherited_pocket/geom/K",
+   "dr0.05/none/geom/Aa",
+   "dr0.05/none/geom/K",
+   "dr0.05/rescaled_pocket/geom/Aa",
+   "dr0.05/rescaled_pocket/geom/K"
+  ],
+  "vs_main_bitwise_differ": [],
+  "vs_1a49290_differ": 26,
+  "vs_1a49290_max_rel": 0.028875379939209727,
+  "vs_1a49290_scalars_differ": [],
+  "PASS": false,
+  "probe_uniform_phi_guard_flagged": true,
+  "probe_H0_1e-12_max_rel": 4.7493517413864845,
+  "probe_H0_flagged": true
+ },
+ "C2": {
+  "vs_main_differ": [],
+  "vs_1a49290_differ": [],
+  "vs_1a49290_max_rel": 0.0,
+  "probe_cell_1e10_flagged": true,
+  "PASS": true
+ },
+ "C3": {
+  "dr0.05": {
+   "bit_identical": true,
+   "probe_rescale_1e12_flagged": true
+  },
+  "dr0.025": {
+   "bit_identical": true,
+   "probe_rescale_1e12_flagged": true
+  },
+  "PASS": true
+ },
+ "C4": {
+  "dr0.05": {
+   "residual": 2.0528763020563184e-16,
+   "PASS_residual": true,
+   "cell": 49,
+   "r": 2.475,
+   "jS": -1.552569083079575e-09,
+   "jD": -4.881216079476795e-10,
+   "opposite_sign": false,
+   "max_abs_jS": 1.552569083079575e-09,
+   "probe_residual_without_jS": 3.902031700611108e-08,
+   "probe_flagged": true
+  },
+  "dr0.025": {
+   "residual": 1.3206269305014127e-16,
+   "PASS_residual": true,
+   "cell": 98,
+   "r": 2.4625000000000004,
+   "jS": -1.549082904208777e-09,
+   "jD": -5.183537177807895e-10,
+   "opposite_sign": false,
+   "max_abs_jS": 1.549082904208777e-09,
+   "probe_residual_without_jS": 3.893269979358436e-08,
+   "probe_flagged": true
+  },
+  "PASS": false
+ },
+ "C7": {
+  "dr0.05": {
+   "last": 0.0,
+   "recorded_matches": true,
+   "steps": [
+    5.767521440203094e-05,
+    2.988114200519476e-10,
+    1.4432899320127035e-15,
+    0.0,
+    0.0,
+    0.0
+   ],
+   "PASS": true,
+   "probe_second_step_flagged": true
+  },
+  "dr0.025": {
+   "last": 0.0,
+   "recorded_matches": true,
+   "steps": [
+    5.768354737512027e-05,
+    2.9879676510802256e-10,
+    1.2212453270876722e-15,
+    0.0,
+    0.0,
+    0.0
+   ],
+   "PASS": true,
+   "probe_second_step_flagged": true
+  },
+  "PASS": true
+ },
+ "C5": {
+  "misaligned_r": "ValueError: supplied_slice r must equal the grid's cell centres exactly (no interpolation)",
+  "wrong_shape": "ValueError: supplied_slice PS must be a float64 array of shape (1200,)",
+  "non_finite": "ValueError: supplied_slice D must be finite",
+  "non_uniform_phi": "ValueError: supplied_slice phi and Pi must equal the archive background exactly (version 1)",
+  "non_uniform_Pi": "ValueError: supplied_slice phi and Pi must equal the archive background exactly (version 1)",
+  "H0_chart_mismatch": "ValueError: supplied_slice H0_chart 0.005668968116287148 must be 0.0 or the initializer's H0 0.0056689",
+  "pocket_args": "ValueError: a supplied slice takes no pocket arguments; got ['amplitude']",
+  "lattice_wall": "ValueError: a supplied slice runs on the open edge only",
+  "probe_valid_and_matching_H0_chart_accepted": true,
+  "PASS": true
+ },
+ "ALL_PASS": false
+}

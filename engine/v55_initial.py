@@ -72,6 +72,31 @@ class CorrectedInitialData:
     matter: V55MatterState
     H0: float
     include_radiation: bool
+    areal_last_step: float = float("nan")   # max|B_6 - B_5| of the areal loop (design check C7)
+
+
+@dataclass(frozen=True)
+class SuppliedSlice:
+    """W1 entry: a scalar slice supplied already in engine chart and units, on the exact cell centres.
+
+    Lumen^2, DESIGN-W1-initial-data-entry-Nov23-2026 (Drive 16eY2t9Mdz4NxUpY_SHcucH7lCyQOxa9bMVtkOhKcars).
+    build_initial_data never interpolates, converts or rescales it; it copies the six arrays and refuses any
+    slice that breaks the contract (r == grid.centers exactly; finite float arrays of shape (n,); phi and Pi
+    exactly the archive background; D at the sea's rest and S, PS, PD at or below edge_tolerance over the last
+    five cells; H0_chart 0.0, or the initializer's H0 to 1e-12 relative). Open edge only.
+
+    scalars: ScalarFields(S, PS, D, PD, phi, Pi). S, D, PS, PD canonical (G = 1); phi, Pi Einstein-normalised.
+    r: the radii the producer sampled at.
+    H0_chart: the H0 of the producer's Hubble chart term (PS += H0 r S_r, PD += H0 r D_r), 0.0 if none was added.
+    edge_tolerance: the producer's stated truncation level for the last five cells.
+    label: provenance (archive ID and sha, toy dr, snapshot time, theta0, u, matching rule, chart-term flag).
+    """
+
+    scalars: object
+    r: np.ndarray
+    H0_chart: float
+    edge_tolerance: float
+    label: str
 
 
 def _d1(grid, x, parity=1):
@@ -102,7 +127,52 @@ def _cumulative_origin_integral(grid, r, dr, f):
     return integ - (dr * dr / 12.0) * (fp - fp[0])
 
 
-INITIAL_STRUCTURES = ("none", "rescaled_pocket", "inherited_pocket", "hand_floor_reference")
+INITIAL_STRUCTURES = ("none", "rescaled_pocket", "inherited_pocket", "hand_floor_reference", "supplied_slice")
+SUPPLIED_SLICE_FIELDS = ("S", "PS", "D", "PD", "phi", "Pi")
+SUPPLIED_SLICE_EDGE_CELLS = 5   # the reach of the outer stencil
+
+
+def _supplied_arrays(supplied, r, phi0, pi0, H0):
+    """Validate a SuppliedSlice against the entry contract and return copies of its six arrays (design 2b-2f)."""
+    if not isinstance(supplied, SuppliedSlice):
+        raise ValueError("supplied_slice must be a SuppliedSlice")
+    if not isinstance(supplied.label, str) or not supplied.label.strip():
+        raise ValueError("supplied_slice needs a provenance label")
+    rr = np.asarray(supplied.r)
+    if rr.dtype.kind != "f" or rr.shape != r.shape or not np.array_equal(rr, r):
+        raise ValueError("supplied_slice r must equal the grid's cell centres exactly (no interpolation)")
+    arrays = {}
+    for name in SUPPLIED_SLICE_FIELDS:
+        value = np.asarray(getattr(supplied.scalars, name))
+        if value.dtype != np.float64 or value.shape != r.shape:
+            raise ValueError(f"supplied_slice {name} must be a float64 array of shape {r.shape}")
+        if not np.all(np.isfinite(value)):
+            raise ValueError(f"supplied_slice {name} must be finite")
+        arrays[name] = np.array(value, dtype=np.float64, copy=True)
+    if np.any(arrays["phi"] != phi0) or np.any(arrays["Pi"] != pi0):
+        raise ValueError("supplied_slice phi and Pi must equal the archive background exactly (version 1)")
+    try:
+        H0_chart = float(supplied.H0_chart)
+        tol = float(supplied.edge_tolerance)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("supplied_slice H0_chart and edge_tolerance must be real") from exc
+    if not math.isfinite(H0_chart) or (H0_chart != 0.0 and abs(H0_chart - H0) > 1e-12 * H0):
+        raise ValueError(f"supplied_slice H0_chart {H0_chart!r} must be 0.0 or the initializer's H0 {H0!r}")
+    if not math.isfinite(tol) or tol <= 0.0:
+        raise ValueError("supplied_slice edge_tolerance must be finite and positive")
+    edge = slice(-SUPPLIED_SLICE_EDGE_CELLS, None)
+    D_rest = float(_scalar_system.sd_rest_value(phi0))
+    offsets = {
+        "D - D_rest": arrays["D"][edge] - D_rest,
+        "S": arrays["S"][edge],
+        "PS": arrays["PS"][edge],
+        "PD": arrays["PD"][edge],
+    }
+    for name, value in offsets.items():
+        if np.max(np.abs(value)) > tol:
+            raise ValueError(f"supplied_slice {name} exceeds edge_tolerance {tol!r} over the last "
+                             f"{SUPPLIED_SLICE_EDGE_CELLS} cells")
+    return arrays
 
 
 def _pocket_D(S, phi0, D_amplitude, r, dr, width, T=200.0, gamma=0.3):
@@ -146,6 +216,7 @@ def build_initial_data(
     pocket_x=None,
     charged_dust_density=None,
     radial_maxwell_charge_to_mass=None,
+    supplied_slice=None,
 ):
     r = np.asarray(grid.centers)
     n = len(r)
@@ -190,9 +261,16 @@ def build_initial_data(
             "D has no floor at lambda = 0 (D is unbounded); only the labelled reference "
             "initial_structure='hand_floor_reference' runs there"
         )
+    if (structure == "supplied_slice") != (supplied_slice is not None):
+        raise ValueError("supplied_slice and initial_structure='supplied_slice' go together")
     # The background-only default places no structure, so it refuses pocket arguments instead of silently
     # dropping them (Jeremiah's review of PR #503). The pockets and the reference keep the old defaults.
-    pocket_args = {"amplitude": amplitude, "width": width, "D_amplitude": D_amplitude}
+    pocket_args = {"amplitude": amplitude, "width": width, "D_amplitude": D_amplitude, "pocket_x": pocket_x}
+    if structure == "supplied_slice":
+        given = sorted(k for k, v in pocket_args.items() if v is not None)
+        if given:
+            raise ValueError(f"a supplied slice takes no pocket arguments; got {given}")
+    pocket_args.pop("pocket_x")
     if structure == "none":
         given = sorted(k for k, v in pocket_args.items() if v is not None)
         if given:
@@ -225,7 +303,13 @@ def build_initial_data(
         rho0 += float(_scalar_system.sea_floor_density(phi0))
     H0 = math.sqrt(max(rho0 / 3.0, 0.0))
 
-    if structure == "hand_floor_reference":
+    if structure == "supplied_slice":
+        supplied = _supplied_arrays(supplied_slice, r, phi0, pi0, H0)
+
+    if structure == "supplied_slice":
+        # W1 entry: the copied slice as given; nothing is interpolated, converted or rescaled.
+        S, PS, D, PD = supplied["S"], supplied["PS"], supplied["D"], supplied["PD"]
+    elif structure == "hand_floor_reference":
         # REFERENCE ONLY: the pre-step-2 default initial data, unchanged.
         S = amplitude * np.exp(-(r / width) ** 2)
         D = D_amplitude * np.exp(-(r / width) ** 2)
@@ -243,9 +327,12 @@ def build_initial_data(
         S = A * np.exp(-(r / width) ** 2)
         D = _pocket_D(S, phi0, D_amplitude, r, dr, width)
         PD = np.zeros_like(r)
-    PS = np.zeros_like(r)
-    phi = np.full(n, phi0)
-    Pi = np.full(n, pi0)
+    if structure == "supplied_slice":
+        phi, Pi = supplied["phi"], supplied["Pi"]
+    else:
+        PS = np.zeros_like(r)
+        phi = np.full(n, phi0)
+        Pi = np.full(n, pi0)
     Kt = np.full(n, -H0)
 
     scalars = _scalar_system.ScalarFields(S, PS, D, PD, phi, Pi)
@@ -254,8 +341,10 @@ def build_initial_data(
     phip = _d1(grid, phi, 1)
     Ktp = _d1(grid, Kt, 1)
     # Archive fluids start at rest, and the radial electric field carries no j_r.
+    # j is formed once, here: Kr = Kt + r Ktp + 4 pi r j has no B in it, so nothing in the loop goes stale.
     j = _scalar_system.scalar_momentum_projection(scalars, (Sp, Dp, phip))
     B = np.ones_like(r)
+    B_prev = B
 
     # Same constrained areal initial-data reconstruction used by the archived
     # V5.5 gate, with corrected COSMOS variables and optional radiation.
@@ -296,7 +385,8 @@ def build_initial_data(
             + r * r * Kt * Kt
         )
         integ = _cumulative_origin_integral(grid, r, dr, src)
-        B = integ / r
+        B_prev, B = B, integ / r
+    areal_last_step = float(np.max(np.abs(B - B_prev)))
 
     if np.any(~np.isfinite(B)) or np.any(B <= 0.0):
         raise FloatingPointError("invalid constrained initial metric")
@@ -339,4 +429,5 @@ def build_initial_data(
         matter=matter,
         H0=H0,
         include_radiation=include_radiation,
+        areal_last_step=areal_last_step,
     )
