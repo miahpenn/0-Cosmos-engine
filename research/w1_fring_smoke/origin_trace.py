@@ -44,9 +44,10 @@ def snapshot(grid, geometry, scalars, matter, vacuum):
 
 
 class Observer(V55ProductionKernel):
-    def __init__(self, vacuum):
+    def __init__(self, vacuum, stage_observer=None):
         super().__init__()
         self.vacuum = vacuum
+        self.stage_observer = stage_observer
         self.enabled = False
         self.term_calls = 0
         self.boundary_calls = 0
@@ -54,6 +55,8 @@ class Observer(V55ProductionKernel):
 
     def record(self, stage, grid, geometry, scalars, matter):
         self.stages.append(dict(stage=stage, **snapshot(grid, geometry, scalars, matter, self.vacuum)))
+        if self.stage_observer is not None:
+            self.stage_observer(stage, grid, geometry.copy())
 
     def _geometry_stage_terms(self, grid, geometry, scalars, matter, electromagnetic):
         if self.enabled:
@@ -72,7 +75,8 @@ class Observer(V55ProductionKernel):
             self.boundary_calls += 1
 
 
-def run(dr, arm, divisor, *, end_time=T_END, accepted_observer=None):
+def run(dr, arm, divisor, *, end_time=T_END, accepted_observer=None,
+        stage_observer=None, stage_step=0):
     parent = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
     vendor = subprocess.check_output(["git", "-C", "vendor/bb-palatini-unified-r0", "rev-parse", "HEAD"], text=True).strip()
     unchanged = subprocess.run(
@@ -87,7 +91,7 @@ def run(dr, arm, divisor, *, end_time=T_END, accepted_observer=None):
     n = round(60/dr)
     grid = go.SphericalCellGrid(n,60.)
     opts = dict(resolution=n,r_max=60.,outer_edge="open_edge",eight_node_areal=True)
-    kernel = Observer(vac)
+    kernel = Observer(vac, stage_observer)
     if arm == "A":
         key = f"dr{dr:g}"
         labels = json.loads(Path("results/research/w1_c9_static/input_checks/report.json").read_text())
@@ -113,9 +117,11 @@ def run(dr, arm, divisor, *, end_time=T_END, accepted_observer=None):
     steps = round(end_time / dt)
     if steps < 1 or not np.isclose(steps * dt, end_time, atol=1e-17, rtol=0):
         raise ValueError("end time must be a positive multiple of the timestep")
+    if not 0 <= stage_step < steps:
+        raise ValueError("stage observation step is outside the replay")
     attempts = 0
     for step in range(steps):
-        kernel.enabled = step == 0
+        kernel.enabled = step == stage_step
         advanced = advance_with_radiation_admissibility_retries(kernel,state,dt)
         if advanced.retry_count:
             raise RuntimeError("retry would break the matched times")
