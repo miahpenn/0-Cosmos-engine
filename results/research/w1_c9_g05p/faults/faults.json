@@ -1,0 +1,98 @@
+{
+ "baseline": {
+  "dr0.025": {
+   "entry": "ACCEPTED",
+   "entry_reading": "PASS",
+   "a": true,
+   "b": true,
+   "c": true,
+   "d": true,
+   "e": true,
+   "e_values": {
+    "F_win_D": 4.275488628557608e-10,
+    "F_win_S": 5.431655391190287e-13,
+    "F_win_D/P_tail": 1.0001430105046898,
+    "F_win_S/P_S_tail": 0.9989162482556714
+   }
+  },
+  "dr0.05": {
+   "entry": "ACCEPTED",
+   "entry_reading": "PASS",
+   "a": true,
+   "b": true,
+   "c": true,
+   "d": true,
+   "e": true,
+   "e_values": {
+    "F_win_D": 4.220667086412086e-10,
+    "F_win_S": 5.270769405026882e-13,
+    "F_win_D/P_tail": 0.999619017061116,
+    "F_win_S/P_S_tail": 0.9981424055144787
+   }
+  }
+ },
+ "S tail reversed": {
+  "dr0.025": {
+   "entry": "ACCEPTED",
+   "entry_reading": "PASS",
+   "a": true,
+   "b": true,
+   "c": true,
+   "d": true,
+   "e": false,
+   "e_values": {
+    "F_win_D": 4.275488628557608e-10,
+    "F_win_S": -5.431655391146025e-13,
+    "F_win_D/P_tail": 1.0001430105046898,
+    "F_win_S/P_S_tail": -0.9989162482556581
+   }
+  },
+  "dr0.05": {
+   "entry": "ACCEPTED",
+   "entry_reading": "PASS",
+   "a": true,
+   "b": true,
+   "c": true,
+   "d": true,
+   "e": false,
+   "e_values": {
+    "F_win_D": 4.220667086412086e-10,
+    "F_win_S": -5.270769404986429e-13,
+    "F_win_D/P_tail": 0.999619017061116,
+    "F_win_S/P_S_tail": -0.9981424055144529
+   }
+  }
+ },
+ "D tail reversed": {
+  "dr0.025": {
+   "entry": "ACCEPTED",
+   "entry_reading": "PASS",
+   "a": true,
+   "b": true,
+   "c": true,
+   "d": false,
+   "e": false,
+   "e_values": {
+    "F_win_D": -4.2754246165452134e-10,
+    "F_win_S": 5.431655391190287e-13,
+    "F_win_D/P_tail": -1.0001430372342996,
+    "F_win_S/P_S_tail": 0.9989162482556714
+   }
+  },
+  "dr0.05": {
+   "entry": "ACCEPTED",
+   "entry_reading": "PASS",
+   "a": true,
+   "b": true,
+   "c": true,
+   "d": false,
+   "e": false,
+   "e_values": {
+    "F_win_D": -4.220604434997571e-10,
+    "F_win_S": 5.270769405026882e-13,
+    "F_win_D/P_tail": -0.9996190580643136,
+    "F_win_S/P_S_tail": 0.9981424055144787
+   }
+  }
+ }
+}
