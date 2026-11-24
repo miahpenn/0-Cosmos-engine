@@ -38,7 +38,7 @@ def samples(values):
     return {name: metric_balance.numbers(value[:6]) for name, value in values.items()}
 
 
-def collect(divisor):
+def collect(divisor, *, end_time=quarter_stage_trace.END):
     step_stages = []
     accepted_rows = []
     grids = []
@@ -53,15 +53,17 @@ def collect(divisor):
     def accepted(state, vacuum, row):
         accepted_rows.append(areal_trace.observe(state, vacuum, row))
 
+    steps = round(end_time / (0.03 * 0.025 / divisor))
     replay = origin_trace.run(
-        0.025, "A", divisor, end_time=quarter_stage_trace.END,
+        0.025, "A", divisor, end_time=end_time,
         stage_observer=record, accepted_observer=accepted, stage_step=None,
     )
     suffix = "-half" if divisor == 2 else ""
     path = (quarter_stage_trace.RESULTS / "quarter.json" if divisor == 4
             else quarter_trace.PREVIOUS / f"A-0.025{suffix}.json")
     reference = json.loads(path.read_text())["quarter_rows" if divisor == 4 else "rows"]
-    if accepted_rows != reference[:divisor+1] or len(step_stages) != divisor:
+    prefix_length = min(steps + 1, len(reference))
+    if accepted_rows[:prefix_length] != reference[:prefix_length] or len(step_stages) != steps:
         raise ValueError("replay disagrees with recorded accepted states")
 
     grid = grids[0]
@@ -97,7 +99,7 @@ def collect(divisor):
         parts["increment_arithmetic"] = trapezoid.astype(WIDE) - wide_rate_increment
         parts["corrector_write"] = corrected.astype(WIDE) - start.X.astype(WIDE) - trapezoid.astype(WIDE)
         predictor_write = predicted.astype(WIDE) - start.X.astype(WIDE) - euler.astype(WIDE)
-        write_key = "last_corrector_write" if i == divisor - 1 else "earlier_corrector_writes"
+        write_key = "last_corrector_write" if i == steps - 1 else "earlier_corrector_writes"
         totals[write_key] += parts["corrector_write"]
         for name in (*FACTORS, "increment_arithmetic"):
             totals[name] += parts[name]
@@ -105,11 +107,11 @@ def collect(divisor):
                          "predictor_write": metric_balance.numbers(predictor_write[:6])})
         previous = corrected
     endpoint = metric_balance.metric_arrays(step_stages[-1]["corrected_after_boundary"], WIDE)
-    reference_integral = WIDE(dt) * divisor * baseline_rate
+    reference_integral = WIDE(dt) * steps * baseline_rate
     np.testing.assert_allclose(
         endpoint[2] - baseline[0], reference_integral + sum(totals.values()), atol=3e-20, rtol=0,
     )
-    return grid, endpoint, totals, per_step, replay["attempts"], baseline
+    return grid, endpoint, totals, per_step, replay["attempts"], baseline, accepted_rows[-1]
 
 
 def main():
@@ -119,8 +121,8 @@ def main():
     old = json.loads(REFERENCE.read_text())
     pairs = {}
     for left, right in ((1, 2), (2, 4)):
-        grid, lv, lt, _, _, lb = replay[left]
-        _, rv, rt, _, _, rb = replay[right]
+        grid, lv, lt, _, _, lb, _ = replay[left]
+        _, rv, rt, _, _, rb, _ = replay[right]
         np.testing.assert_array_equal(lb, rb)
         delta = {key: lt[key] - rt[key] for key in COMPONENTS}
         np.testing.assert_allclose(lv[2] - rv[2], sum(delta.values()), atol=4e-20, rtol=0)

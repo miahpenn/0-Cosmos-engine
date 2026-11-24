@@ -131,7 +131,10 @@ def run(dr, arm, divisor, *, end_time=T_END, accepted_observer=None,
         attempts += len(advanced.attempts)
         state = advanced.state
         rows.append(accepted())
-    if kernel.term_calls!=3 or kernel.boundary_calls!=2 or not np.isclose(state.t,end_time,atol=1e-17,rtol=0):
+    # Accepted time is advanced by repeated binary64 additions.
+    time_roundoff = max(1e-17, steps * np.spacing(end_time))
+    if (kernel.term_calls != 3 or kernel.boundary_calls != 2
+            or not np.isclose(state.t, end_time, atol=time_roundoff, rtol=0)):
         raise RuntimeError("unexpected stage count or end time")
     return dict(source=SOURCE,checkout=parent,vendor=vendor,input_sha256=DIGEST, script_sha256=hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
                 dr=dr,arm=arm,dt=dt,attempts=attempts,sample_cells=SAMPLES,
