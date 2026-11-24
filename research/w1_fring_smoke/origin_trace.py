@@ -117,11 +117,14 @@ def run(dr, arm, divisor, *, end_time=T_END, accepted_observer=None,
     steps = round(end_time / dt)
     if steps < 1 or not np.isclose(steps * dt, end_time, atol=1e-17, rtol=0):
         raise ValueError("end time must be a positive multiple of the timestep")
-    if not 0 <= stage_step < steps:
+    if stage_step is not None and not 0 <= stage_step < steps:
         raise ValueError("stage observation step is outside the replay")
     attempts = 0
     for step in range(steps):
-        kernel.enabled = step == stage_step
+        kernel.enabled = stage_step is None or step == stage_step
+        if kernel.enabled:
+            kernel.term_calls = 0
+            kernel.boundary_calls = 0
         advanced = advance_with_radiation_admissibility_retries(kernel,state,dt)
         if advanced.retry_count:
             raise RuntimeError("retry would break the matched times")
