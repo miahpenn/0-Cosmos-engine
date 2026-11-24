@@ -18,3 +18,10 @@ Relayed Nov 24 23:28 UTC, after the time series above was read. If the band is r
 - **(c) Mixed.** The finer/coarser dt ratio (A2/A1) is 0.19 and 0.18 at t 0.015 and 0.8235, so the finer arm is smaller. It is 1.55 at t 1.6455 and 1.06-1.08 at t 3.291, so the finer arm is larger. Both band readings agree. At dr 0.0125, t 0.015, the ratio is 1.00 on the 17 radii and 1.13 on cell centres.
 - **The contradicting pattern is not seen either.** At dr 0.05 the band is smooth across cells, but there is no clear peak then fall.
 - **Reading.** At dr 0.05 the band does not look like rounding. At dr 0.0125, over t 0.015, its cell-to-cell signs do.
+
+## Band H against time (Jeremiah, Nov 24 23:35 UTC)
+Same read for H, `band_time_H.json` (`band_time.py ... H`; each save reproduces the stored H at cells 0-5 bitwise; the M series rerun is unchanged).
+- **No peak then fade.** Band H grows almost steadily in both arms and both readings and is largest at the last step, t 3.291: A1 1.23e-7, A2 1.05e-7 (peak/last 1.00). Growth from t 0.015 to t 3.291 is about 6,000x (A1) and 4,700x (A2). The 0.25-wide envelope only flattens once, in the cubic reading around t 1.75-2.5 (A1 6.2e-8 to 6.0e-8), then climbs again.
+- **Sign:** band cells 1-4 are all negative at t 0.015, 0.8235 and 1.6455 in both arms; at t 3.291 cell 2 turns positive (2 and 3 flips of 3). The band maximum sits at cell 1 (r 0.075) from t 0.8235 on.
+- **Finer/coarser dt (A2/A1):** 1.08 (cell centres) and 0.53 (17 radii) at t 0.015, then 0.44, 0.77 and 0.85 (cell centres; 17 radii 0.39, 0.72, 0.85) at the later saves: the finer arm is smaller.
+- **dr 0.0125 to t 0.015 (Aster-input samples every 0.00375):** at dt 0.000375 both readings peak at t 0.01125 (17 radii 1.70e-11, cell centres 2.29e-11) and end 1.21x and 1.06x lower; at dt 0.0001875 the 17-radius reading rises at every sample (to 2.43e-11) while cell centres peak at t 0.01125 (4.76e-11, 1.14x the last). Five samples cannot separate this from a wobble. Signs flip in 11 and 10 of 15 band-cell gaps at t 0.015.
