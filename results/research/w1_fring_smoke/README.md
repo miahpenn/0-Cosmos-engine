@@ -1,0 +1,49 @@
+# f_ring Stage 0 timing smoke: results
+
+**Outcome: STOP.** Two stop rules hold on the dr 0.025 pair. Nothing is projected forward, and a new attempt needs Jeremiah's own go.
+
+- **S0e (cost):** 2.70 s per step per arm at 2400 cells. The full run (52,650 steps) would take 79 serial arm-hours for the dr 0.025 pair, against the declared ceiling of 24. With the dr 0.05 pair added it is 99.
+- **S0b (constraint growth):** three readings trip the limit.
+  - Arm A's Hamiltonian residual.
+  - The momentum residual in both arms.
+  - Every one peaks at the origin cell.
+
+Declarations: `PRERUN.md` (commit 9fd6ee8, merged with #583 before any step). Script: `research/w1_fring_smoke/run.py`. Full numbers are in `report.json`, `prechecks.json` and `arm_*.json`. Go: "Go and go" (03:54 UTC) and "Go" (04:02 UTC). The full run was never covered.
+
+## Before any step: all PASS (`prechecks.json`)
+
+- **Static-frame flux estimator** (areal R, H(t) = -<K>/3, f_R = f_r/R_r, G_st = f_R - v P_st), checked against the input-check integrand at step 0:
+  - Correct estimator: max diff 5.1e-9 (D) and 5.1e-9 (S) of the window max. Tolerance 1e-3.
+  - Fault, no cross term: misses by 0.36. Fault, H = 0: misses by 0.49. Both fail, as required.
+- **Stop rules:** every fault case behaved as declared.
+  - S0a detects a NaN cell.
+  - S0b trips on 1.06 (H) and 1.08 (M) per-step growth from the floor, and passes 1.5 r0.
+  - A 1e-10 checkerboard in K pushes M past its limit.
+  - S0c, S0e and G_run trip on their faults and pass their clean cases.
+
+## Stops, dr 0.025 pair (100 steps, t = 0.075)
+
+| | r0 | step 10 | step 50 | step 100 | S0b limit | cell |
+|---|---|---|---|---|---|---|
+| A, H | 7.14e-12 | 5.8e-11 | 4.5e-10 | **1.25e-9** | 7.25e-10 | origin (R 0.013) |
+| A, M | 4.0e-16 | 6.9e-12 | 5.3e-11 | **9.4e-11** | 4.0e-13 | origin |
+| B, H | 2.91e-12 | 2.3e-12 | 1.05e-11 | 9.1e-12 | 2.95e-10 | origin; passes |
+| B, M | 6.3e-16 | 2.6e-13 | 1.4e-12 | **5.8e-12** | 6.3e-13 | origin |
+
+Each S0b limit is 1.54 r0 + 100 r_floor(H), or 1.54 r0 + 1000 r_floor(M). The floors were r0 itself in every case: eps x max|term| for H is about 7e-20, and eps max|K|/dr for M is 1.5e-16.
+
+- **S0a:** all finite.
+- **S0c:** max |S| 1.0000013 x step 0, passes.
+- **G_run** (recorded): never near the guard. Max H is 1.1e-5 C_H and max M is 1.6e-6 C_M.
+- **S0d** (recorded): arm B's non-uniformity reads exactly 0 at steps 1, 10 and 100.
+- **H(t):** 5.66897e-3 to 5.66741e-3.
+
+dr 0.05 pair (record only): S0b M trips in both arms. H passes in both, though arm A's H grows 60x and stays just under its limit.
+
+Static-frame flux at R_f = 20, ring minus control (recorded): D is 5.28e-10 at step 0 and 2.89e-10 at step 100. Without the cross term it reads 4.64e-10 and 2.54e-10. These are instantaneous values, not cycle means.
+
+## Observations (post hoc, not gates)
+
+- **Growth is polynomial, not exponential.** Every growing residual sits at the origin cell. Arm A's H goes roughly as t^1.3 to t^1.5 (x2.5 from step 10 to 20, x2.8 from 50 to 100), and the per-step factor falls with time. A violent instability would not look like that. It reads more like a secular drift of the origin truncation under evolution, but that is an inference, not tested.
+- **M starts at round-off, then jumps.** It begins at about 5e-16 and reaches 1e-13 to 1e-12 within the first step in both arms. The A4 floor sizes round-off, not the truncation that evolution switches on at step 1, so S0b M as written trips on a background-only arm. Arm B's H does not grow past its floor; arm A's does.
+- **Cost:** 2.70 s per step at 2400 cells and 1.37 s at 1200, i.e. linear in N. With the two dr 0.025 arms in parallel, the full run is about 40 hours of wall-clock.
