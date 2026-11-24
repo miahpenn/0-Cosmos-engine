@@ -571,6 +571,27 @@
   "A": false,
   "B": true
  },
- "gate_failures": [],
- "outcome": "ZERO-STEP C9 SET PASS on the corrected slice (admission grid dr 0.025)"
+ "gate_failures": [
+  "dr0.05 G1.3",
+  "dr0.025 G1.3"
+ ],
+ "outcome": "FAIL: G1.3 as written (both grids); every other gated item passes. Stop before the f_ring smoke.",
+ "G1.3_as_written": {
+  "dr0.05": {
+   "max_jS": 1.4387714063765811e-08,
+   "reference_574": 1.552569083079575e-09,
+   "rel": 8.267036308121812,
+   "tolerance": 1e-12,
+   "PASS": false
+  },
+  "dr0.025": {
+   "max_jS": 1.4384698590503986e-08,
+   "reference_574": 1.549082904208777e-09,
+   "rel": 8.285944962288019,
+   "tolerance": 1e-12,
+   "PASS": false
+  }
+ },
+ "G1.3_note": "C9 G1.3 is a regression check against #574 to 1e-12 and was not amended before this run; it reads FAIL on both grids. The script's 'RECORDED / new reference' handling (from W1 A3 6) is withdrawn. Attribution to the input change: C9 Amendment 4 (1EIDdcEts8NeaHckndLzgaFD9RUwdMCEmgMCS0Y-eUis), post hoc.",
+ "outcome_as_run_by_script": "ZERO-STEP C9 SET PASS on the corrected slice (admission grid dr 0.025)"
 }
