@@ -4,7 +4,11 @@ Scope (Amendment 2, 5.1): input checks only, both grids, evaluated first: G0.1-G
 supplied_slice entry with edge_tolerance per Lumen²'s ruling) and G0.5'a-d; G0.5'e (direction, AMENDMENT 3
 Drive 1E6gfRSm6XvoDd8bbZqdLwNfFNnFaAiocBHQLYUGNYCk, section 9) for runs declared after Nov 24 02:34 UTC; #577 ran without it. If native.npz (sha256) and the engine
 build are unchanged from #576 and every input check passes, the #576 readings stand (5.2); they are not recomputed.
-Usage: python3 research/w1_c9_g05p/run.py native.npz members.json OUTDIR
+Corrected (static-time) slice, W1 derivation AMENDMENTS 3 and 4 (Drive 1JU2EhMUs7dSio23VVu0WIPMt33iAY6u9gbD9EKE64aY,
+1J_dGcUVzAy9jceOwxByyvuQ1pyix9hHiC9owyoRNItM), with --static BUILD_JSON from research/w1_static_slice/build.py:
+G0.1 label carries the A3 3.7 fields, G0.3 checks H0_phase, 'd uses the A3 4.5 PD bound, and G0.5'f (static-frame
+flux ratio in [0.99, 1.01], A3 4.3, adopted Nov 24 03:26 UTC) is gated. Without --static, 'f is recorded only.
+Usage: python3 research/w1_c9_g05p/run.py native.npz members.json OUTDIR [--static build.json]
 """
 import hashlib
 import json
@@ -21,6 +25,7 @@ from engine import scalar_system as ss, v55_initial as vi, v55_pirk_adapter as a
 from research import b7_w2_origin_check_v1 as oc  # noqa: E402
 
 npz_path, members_path, outdir = Path(sys.argv[1]), Path(sys.argv[2]), Path(sys.argv[3])
+STATIC = json.loads(Path(sys.argv[5]).read_text()) if len(sys.argv) > 5 and sys.argv[4] == "--static" else None
 outdir.mkdir(parents=True, exist_ok=True)
 z = np.load(npz_path)
 members = json.loads(members_path.read_text())
@@ -39,6 +44,10 @@ OM3, K3 = 3 * OMEGA_U, 5.363607
 P_D_REF = 4.207e-10
 A_D_PRED = 2.2245e-6
 ENV = {0.025: (3.708e-8, 9.693e-8), 0.05: (3.709e-8, 9.696e-8)}
+if STATIC:   # A3 4.5: last-cell PD envelope factor (1 - v k/Omega + v^2)
+    ENV = {0.025: (3.708e-8, 1.1331e-7), 0.05: (3.709e-8, 1.1333e-7)}
+F_BAND = (0.99, 1.01)                    # A3 4.3
+E_EXPECT_STATIC = {"D": 0.756, "S": 0.713}  # A3 4.4, recorded beside 'e
 U, E_RING = 1.0144275, 1.1525e-4
 
 
@@ -52,6 +61,7 @@ rep = {"native_sha256": hashlib.sha256(npz_path.read_bytes()).hexdigest(),
        "engine_blobs": {p: subprocess.check_output(["git", "hash-object", p], text=True).strip() for p in ENGINE_BLOBS_576},
        "edge_tolerance": {str(k): v for k, v in EDGE_TOL.items()}, "grids": {}}
 rep["unchanged_from_576"] = rep["native_sha256"] == NATIVE_SHA_576 and rep["engine_blobs"] == ENGINE_BLOBS_576
+rep["slice"] = "static (W1 A3/A4)" if STATIC else "admitted"
 
 for dr, n in GRIDS:
     key = "dr%g" % dr
@@ -66,6 +76,16 @@ for dr, n in GRIDS:
     label = (f"Aster B7-W1-grid-aligned-comparison.zip native.npz sha256 {rep['native_sha256']}; u={u_lab:.6f}; "
              f"theta0=0; snapshot phase 0; matching: harmonic-balance M2 Newton solve on engine-aligned nodes; "
              f"Hubble chart map; toy dr={m['drhat']!r}; toy matched outer radius={m['Rhat']!r}; H0_chart={H0!r}")
+    if STATIC:
+        gsha = hashlib.sha256(b"".join(np.ascontiguousarray(a).tobytes() for a in (S, PS, D, PD))).hexdigest()
+        H0_phase = float(STATIC["settings"]["H0"])
+        label = (f"W1 corrected slice (A3/A4) file sha256 {rep['native_sha256']}; grid arrays sha256 {gsha}; "
+                 f"slice_time=static (T = t + H0 R^2/2); H0_phase={H0_phase!r}; u={u_lab:.6f}; theta0=0; "
+                 f"snapshot phase omega_u H0 r^2/2 per solver node; matching: Aster's M2 member, stored HB vectors "
+                 f"x through the producer's mapped(); harmonics S {STATIC['harmonics']['S']} D {STATIC['harmonics']['D']}; "
+                 f"control theta=0 bitwise vs native.npz {STATIC['native_npz_sha256']}: "
+                 f"{'PASS' if STATIC['control_PASS'] else 'FAIL'}; toy dr={m['drhat']!r}; "
+                 f"toy matched outer radius={m['Rhat']!r}; H0_chart={H0!r}")
     sl = vi.SuppliedSlice(ss.ScalarFields(S, PS, D, PD, phi, Pi), np.array(r), H0, EDGE_TOL[dr], label)
     G = {}
     # ---- G0.1-G0.4 and the engine entry
@@ -77,9 +97,16 @@ for dr, n in GRIDS:
     except ValueError as e:
         entry = "REFUSED: " + str(e)
     G["G0.1_PASS"] = all(s in label for s in ("u=", "theta0", "phase", "matching", "toy dr", "outer radius", "H0_chart"))
+    if STATIC:
+        G["G0.1_label"] = label
+        G["G0.1_PASS"] = (G["G0.1_PASS"] and STATIC["control_PASS"]
+                          and all(s in label for s in ("slice_time=static", "H0_phase", "harmonics", "control", "sha256")))
     G["G0.2_PASS"] = bool(np.array_equal(sl.r, r))
     G["G0.3_H0"] = H0
     G["G0.3_PASS"] = H0 != 0.0 and abs(sl.H0_chart - H0) <= 1e-12 * H0
+    if STATIC:
+        G["G0.3_H0_phase"] = H0_phase
+        G["G0.3_PASS"] = G["G0.3_PASS"] and abs(H0_phase - H0) <= 1e-12 * H0
     G["G0.4_PASS"] = bool(np.all(phi == PHI0) and np.all(Pi == PI0))
     G["entry"] = {"last5_max": edge, "edge_tolerance": EDGE_TOL[dr], "over": over, "engine": entry}
     if any(nm in over for nm in ("D-D_s", "PD")):
@@ -116,6 +143,16 @@ for dr, n in GRIDS:
     PS_tail = 2 * math.pi * OM3 * K3 * AS
     G["G0.5p"]["e"] = {"F_win_D": FD, "F_win_S": FS, "F_win_D/P_tail": FD / P_tail, "F_win_S/P_S_tail": FS / PS_tail}
     G["G0.5p"]["e_PASS"] = FD > 0 and FS > 0
+    if STATIC:
+        G["G0.5p"]["e"]["expected_ratio_static"] = E_EXPECT_STATIC
+    # G0.5'f static-frame flux (W1 A3 4.3; gated for the corrected slice, recorded otherwise):
+    # F_st = window mean of 4 pi r^2 (-P_st G_st), P_st = P - H0 r f_r, G_st = f_r - H0 r P_st (engine derivatives)
+    GDst, GSst = dD - H0 * r * PDr, dS - H0 * r * PSr
+    FstD = float(np.mean((4 * math.pi * r**2 * (-PDr * GDst))[wD]))
+    FstS = float(np.mean((4 * math.pi * r**2 * (-PSr * GSst))[wS]))
+    G["G0.5p"]["f"] = {"F_st_D/P_tail": FstD / P_tail, "F_st_S/P_S_tail": FstS / PS_tail, "band": F_BAND,
+                       "gated": bool(STATIC)}
+    G["G0.5p"]["f_PASS"] = all(F_BAND[0] <= q <= F_BAND[1] for q in (FstD / P_tail, FstS / PS_tail))
     # ---- recorded only (5.3)
     w = 4 * math.pi * r * r * dr
     G["recorded"] = {
@@ -131,11 +168,13 @@ for dr, n in GRIDS:
     G["input_checks_PASS"] = (G["G0.1_PASS"] and G["G0.2_PASS"] and G["G0.3_PASS"] and G["G0.4_PASS"]
                               and G["entry_reading"] == "PASS" and entry == "ACCEPTED"
                               and g5["a_PASS"] and g5["b_PASS"] and g5["c_PASS"] and g5["d_PASS"]
-                              and g5["e_PASS"])
+                              and g5["e_PASS"] and (g5["f_PASS"] or not STATIC))
     rep["grids"][key] = G
 
 allp = all(g["input_checks_PASS"] for g in rep["grids"].values())
-rep["outcome"] = ("INPUT CHECKS PASS on both grids; #576 readings stand (same bytes, same engine; Amendment 2, 5.2)"
+rep["outcome"] = ("INPUT CHECKS PASS on both grids (corrected slice); new bytes: the zero-step C9 set must rerun "
+                  "on it before it is used (W1 A3 6)" if allp and STATIC else
+                  "INPUT CHECKS PASS on both grids; #576 readings stand (same bytes, same engine; Amendment 2, 5.2)"
                   if allp and rep["unchanged_from_576"] else
                   "input checks pass but inputs/engine changed: full C9 set must rerun" if allp else
                   "REFUSED/UNDETERMINED at input checks: nothing after them is read")
