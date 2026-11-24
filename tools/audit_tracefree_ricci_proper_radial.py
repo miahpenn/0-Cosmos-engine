@@ -168,6 +168,13 @@ AUTHORIZED_W1_SUPPLIED_SLICE_HEAD_BLOBS = {
 }
 
 
+# Exact-blob authorization for the opt-in eight-node areal rule in PR #575.
+AUTHORIZED_EIGHT_NODE_AREAL_HEAD_BLOBS = {
+    "engine/v55_initial.py": "d613ab44efa6919c6de208a45ac0c2ee8559d25a",
+    "engine/production_kernel.py": "849014d34c532b1f142def2b9b30ae02809e81d7",
+}
+
+
 def _authorized_head_blobs(path: str) -> set[str]:
     return {
         blob for blob in (
@@ -185,6 +192,7 @@ def _authorized_head_blobs(path: str) -> set[str]:
             AUTHORIZED_RECONSTRUCTION_WINDOW_HEAD_BLOBS.get(path),
             AUTHORIZED_SIGNED_SCALAR_MOMENTUM_HEAD_BLOBS.get(path),
             AUTHORIZED_W1_SUPPLIED_SLICE_HEAD_BLOBS.get(path),
+            AUTHORIZED_EIGHT_NODE_AREAL_HEAD_BLOBS.get(path),
         ) if blob is not None
     }
 AUTHORIZED_RUNTIME_PATHS = (
@@ -202,6 +210,7 @@ AUTHORIZED_RUNTIME_PATHS = (
     | frozenset(AUTHORIZED_RECONSTRUCTION_WINDOW_HEAD_BLOBS)
     | frozenset(AUTHORIZED_SIGNED_SCALAR_MOMENTUM_HEAD_BLOBS)
     | frozenset(AUTHORIZED_W1_SUPPLIED_SLICE_HEAD_BLOBS)
+    | frozenset(AUTHORIZED_EIGHT_NODE_AREAL_HEAD_BLOBS)
 )
 
 RESOLUTIONS = (40, 60, 80, 120, 160)
