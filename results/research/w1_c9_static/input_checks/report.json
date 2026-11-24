@@ -1,0 +1,283 @@
+{
+ "native_sha256": "339652a2a7e1379b19812893e43bafcf9ab0211422f2b8685c951107b863a295",
+ "engine_blobs": {
+  "engine/v55_initial.py": "d613ab44efa6919c6de208a45ac0c2ee8559d25a",
+  "engine/production_kernel.py": "849014d34c532b1f142def2b9b30ae02809e81d7"
+ },
+ "edge_tolerance": {
+  "0.025": 1.943e-07,
+  "0.05": 1.949e-07
+ },
+ "grids": {
+  "dr0.025": {
+   "G0.1_PASS": true,
+   "G0.1_label": "W1 corrected slice (A3/A4) file sha256 339652a2a7e1379b19812893e43bafcf9ab0211422f2b8685c951107b863a295; grid arrays sha256 e8d19a5a5913347f749e85a904b58aafaf8353e1124c2587c0d7323c81448f03; slice_time=static (T = t + H0 R^2/2); H0_phase=0.0056689681106181795; u=1.014427; theta0=0; snapshot phase omega_u H0 r^2/2 per solver node; matching: Aster's M2 member, stored HB vectors x through the producer's mapped(); harmonics S [1, 3] D [0, 2, 4]; control theta=0 bitwise vs native.npz 16151c445c9dcfcc34cf61e28e268e991ab2bfea629beaa3aa52fadc4c5a98ea: PASS; toy dr=0.02517969774743944; toy matched outer radius=120.00643946429638; H0_chart=0.0056689681106181795",
+   "G0.2_PASS": true,
+   "G0.3_H0": 0.0056689681106181795,
+   "G0.3_PASS": true,
+   "G0.3_H0_phase": 0.0056689681106181795,
+   "G0.4_PASS": true,
+   "entry": {
+    "last5_max": {
+     "D-D_s": 2.1282709513140152e-08,
+     "S": 3.599590451420491e-10,
+     "PS": 4.034791490247827e-09,
+     "PD": 1.0597988134306553e-07
+    },
+    "edge_tolerance": 1.943e-07,
+    "over": [],
+    "engine": "ACCEPTED"
+   },
+   "entry_reading": "PASS",
+   "G0.5p": {
+    "D": {
+     "A": 5.0284330888460805e-12,
+     "m": 0.0003286123478649184,
+     "phase": 2.6150231376386444,
+     "last5_dev": 0.00047644132358448665
+    },
+    "S": {
+     "A": 2.8167815304162954e-15,
+     "m": 0.0007501803442472081,
+     "phase": -3.043984294249456,
+     "last5_dev": 0.0006454129297153166
+    },
+    "P_tail": 4.2749082091493943e-10,
+    "P_tail_rel": 0.016141718362109314,
+    "a_PASS": true,
+    "b_PASS": true,
+    "c_PASS": true,
+    "d": {
+     "D_last5": 2.1282709513140152e-08,
+     "PD_last5": 1.0597988134306553e-07,
+     "D_bound": 3.850001315145741e-08,
+     "PD_bound": 1.1764931203321571e-07,
+     "D_pred": 3.708e-08,
+     "PD_pred": 1.1331e-07
+    },
+    "d_PASS": true,
+    "e": {
+     "F_win_D": 3.2334770588236166e-10,
+     "F_win_S": 3.9011761612059463e-13,
+     "F_win_D/P_tail": 0.7563851434056879,
+     "F_win_S/P_S_tail": 0.717450898138403,
+     "expected_ratio_static": {
+      "D": 0.756,
+      "S": 0.713
+     }
+    },
+    "e_PASS": true,
+    "f_A3_recorded": {
+     "F_st_D/P_tail": 0.9989373526902229,
+     "F_st_S/P_S_tail": 1.0057706485896143,
+     "band": [
+      0.99,
+      1.01
+     ],
+     "gated": false
+    },
+    "f": {
+     "D": {
+      "ratio": 0.9999612455611149,
+      "k_d": 3.5443303878568964,
+      "B": 59.85,
+      "wavelengths": 17,
+      "cells": 1594
+     },
+     "S": {
+      "ratio": 0.9999730608430485,
+      "k_d": 5.367633424552773,
+      "B": 59.6,
+      "wavelengths": 15,
+      "cells": 984
+     },
+     "band": [
+      0.999,
+      1.001
+     ],
+     "operator": "engine 4th-order centred",
+     "S_source": "S3 harmonic (S1 entries zeroed) via producer mapped()"
+    },
+    "f_PASS": true
+   },
+   "sum_back": {
+    "S": 2.168404344971009e-19,
+    "PS": 4.404571325722362e-20,
+    "tolerance": 1.9430000000000002e-13,
+    "variant": "static",
+    "PASS": true
+   },
+   "recorded": {
+    "P_S_tail": 5.437551435684973e-13,
+    "f_snap0": {
+     "25.0": 0.6636047424253181,
+     "60.0": 0.680052314020048
+    },
+    "f_snap0_note": "E_ring = 1.1525e-4 (reference); r_cut 25 and 60",
+    "peaks": {
+     "S": {
+      "max": 0.0012954891063891416,
+      "cell": 0
+     },
+     "PS": {
+      "max": 3.778474186775122e-05,
+      "cell": 106
+     },
+     "D-D_s": {
+      "max": 0.0005201837152601964,
+      "cell": 0
+     },
+     "PD": {
+      "max": 3.254757038092378e-05,
+      "cell": 0
+     }
+    },
+    "old_G0.5_ratios": {
+     "S": 2.778557097599583e-07,
+     "PS": 0.00010678361928129164,
+     "D-D_s": 4.0913832726375376e-05,
+     "PD": 0.003256153381119367
+    }
+   },
+   "input_checks_PASS": true,
+   "admission_grid": true
+  },
+  "dr0.05": {
+   "G0.1_PASS": true,
+   "G0.1_label": "W1 corrected slice (A3/A4) file sha256 339652a2a7e1379b19812893e43bafcf9ab0211422f2b8685c951107b863a295; grid arrays sha256 6b817e0f367f4ce03a6f8348e768de131f9b7bf6c8c3184ead7623d928ef429a; slice_time=static (T = t + H0 R^2/2); H0_phase=0.0056689681106181795; u=1.014427; theta0=0; snapshot phase omega_u H0 r^2/2 per solver node; matching: Aster's M2 member, stored HB vectors x through the producer's mapped(); harmonics S [1, 3] D [0, 2, 4]; control theta=0 bitwise vs native.npz 16151c445c9dcfcc34cf61e28e268e991ab2bfea629beaa3aa52fadc4c5a98ea: PASS; toy dr=0.05035939549487888; toy matched outer radius=120.00643946429638; H0_chart=0.0056689681106181795",
+   "G0.2_PASS": true,
+   "G0.3_H0": 0.0056689681106181795,
+   "G0.3_PASS": true,
+   "G0.3_H0_phase": 0.0056689681106181795,
+   "G0.4_PASS": true,
+   "entry": {
+    "last5_max": {
+     "D-D_s": 2.2490804974049233e-08,
+     "S": 7.777639680932268e-10,
+     "PS": 3.65569935662295e-09,
+     "PD": 1.1123334243480068e-07
+    },
+    "edge_tolerance": 1.949e-07,
+    "over": [],
+    "engine": "ACCEPTED"
+   },
+   "entry_reading": "PASS",
+   "G0.5p": {
+    "D": {
+     "A": 4.96657380367527e-12,
+     "m": 0.0013188537143058283,
+     "phase": 3.1160913793783123,
+     "last5_dev": 0.000644674571245174
+    },
+    "S": {
+     "A": 2.735465690983911e-15,
+     "m": 0.0029722738088826506,
+     "phase": -1.2962982656284079,
+     "last5_dev": 0.0030576252273457616
+    },
+    "P_tail": 4.222318712318783e-10,
+    "P_tail_rel": 0.0036412437173243273,
+    "a_PASS": true,
+    "b_PASS": true,
+    "c_PASS": true,
+    "d": {
+     "D_last5": 2.2490804974049233e-08,
+     "PD_last5": 1.1123334243480068e-07,
+     "D_bound": 3.827278755331654e-08,
+     "PD_bound": 1.1694405536309956e-07,
+     "D_pred": 3.709e-08,
+     "PD_pred": 1.1333e-07
+    },
+    "d_PASS": true,
+    "e": {
+     "F_win_D": 3.198301958523268e-10,
+     "F_win_S": 3.810727606103958e-13,
+     "F_win_D/P_tail": 0.757475258604258,
+     "F_win_S/P_S_tail": 0.7216496749627754,
+     "expected_ratio_static": {
+      "D": 0.756,
+      "S": 0.713
+     }
+    },
+    "e_PASS": true,
+    "f_A3_recorded": {
+     "F_st_D/P_tail": 0.9995550012928243,
+     "F_st_S/P_S_tail": 1.0106431364920956,
+     "band": [
+      0.99,
+      1.01
+     ],
+     "gated": false
+    },
+    "f": {
+     "D": {
+      "ratio": 1.0000497013202096,
+      "k_d": 3.5478208934231694,
+      "B": 57.050000000000004,
+      "wavelengths": 16,
+      "cells": 741
+     },
+     "S": {
+      "ratio": 0.9997815843420048,
+      "k_d": 5.379811556589272,
+      "B": 59.5,
+      "wavelengths": 15,
+      "cells": 490
+     },
+     "band": [
+      0.9985,
+      1.0015
+     ],
+     "operator": "engine 4th-order centred",
+     "S_source": "S3 harmonic (S1 entries zeroed) via producer mapped()"
+    },
+    "f_PASS": true
+   },
+   "sum_back": {
+    "S": 2.168404344971009e-19,
+    "PS": 2.0328790734103208e-20,
+    "tolerance": 1.949e-13,
+    "variant": "static",
+    "PASS": true
+   },
+   "recorded": {
+    "P_S_tail": 5.280578289320958e-13,
+    "f_snap0": {
+     "25.0": 0.6630990251741418,
+     "60.0": 0.680511605372869
+    },
+    "f_snap0_note": "E_ring = 1.1525e-4 (reference); r_cut 25 and 60",
+    "peaks": {
+     "S": {
+      "max": 0.0012955304305542433,
+      "cell": 0
+     },
+     "PS": {
+      "max": 3.7780700505567257e-05,
+      "cell": 53
+     },
+     "D-D_s": {
+      "max": 0.0005202385668177488,
+      "cell": 0
+     },
+     "PD": {
+      "max": 3.235306697652722e-05,
+      "cell": 0
+     }
+    },
+    "old_G0.5_ratios": {
+     "S": 6.00344036504407e-07,
+     "PS": 9.67610263362972e-05,
+     "D-D_s": 4.323171407999105e-05,
+     "PD": 0.003438108124818665
+    }
+   },
+   "input_checks_PASS": true,
+   "admission_grid": false
+  }
+ },
+ "unchanged_from_576": false,
+ "slice": "static (W1 A3/A4)",
+ "outcome": "INPUT CHECKS PASS on both grids (corrected slice); new bytes: the zero-step C9 set must rerun on it before it is used (W1 A3 6)",
+ "admission_reading": "PASS: input checks pass on the admission grid dr 0.025 (A3 5); dr 0.05 record only"
+}
