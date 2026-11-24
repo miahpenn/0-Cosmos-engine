@@ -1,0 +1,88 @@
+{
+ "first check, 5e-4 off": {
+  "got": true,
+  "expected": true,
+  "pass": true
+ },
+ "first check, 2e-3 off": {
+  "got": false,
+  "expected": false,
+  "pass": true
+ },
+ "first check, sign flipped": {
+  "got": false,
+  "expected": false,
+  "pass": true
+ },
+ "3(i) at 5e-4 of terms": {
+  "got": true,
+  "expected": true,
+  "pass": true
+ },
+ "3(i) at 2e-3 of terms at one cell": {
+  "got": false,
+  "expected": false,
+  "pass": true
+ },
+ "3(ii) factor 4": {
+  "got": "pass",
+  "expected": "pass",
+  "pass": true
+ },
+ "3(ii) factor 1.5": {
+  "got": "fail",
+  "expected": "fail",
+  "pass": true
+ },
+ "3(ii) factor 4 hidden by writes": {
+  "got": "fail",
+  "expected": "fail",
+  "pass": true
+ },
+ "3(ii) below floor": {
+  "got": "unresolved",
+  "expected": "unresolved",
+  "pass": true
+ },
+ "3(ii) no fall (sign reversed)": {
+  "got": "fail",
+  "expected": "fail",
+  "pass": true
+ },
+ "3(iii) exponential e^t": {
+  "got": true,
+  "expected": true,
+  "pass": true
+ },
+ "3(iii) power t^1.3": {
+  "got": false,
+  "expected": false,
+  "pass": true
+ },
+ "3(iii) flat": {
+  "got": false,
+  "expected": false,
+  "pass": true
+ },
+ "3(iii) slow exponential (factor 1.2 over the span)": {
+  "got": false,
+  "expected": false,
+  "pass": true
+ },
+ "3(iii) stop: non-finite": {
+  "got": true,
+  "expected": true,
+  "pass": true
+ },
+ "3(iii) stop: order fail while growing": {
+  "got": true,
+  "expected": true,
+  "pass": true
+ },
+ "3(iii) no stop: power law, order passes": {
+  "got": false,
+  "expected": false,
+  "pass": true
+ },
+ "all_discriminate": true
+}
