@@ -127,6 +127,29 @@ def _cumulative_origin_integral(grid, r, dr, f):
     return integ - (dr * dr / 12.0) * (fp - fp[0])
 
 
+def _eight_node_origin_integral(grid, r, dr, f):
+    """Integrate the degree-seven local interpolant on each cell-centre interval."""
+    cells = np.arange(len(r))
+    starts = np.minimum(cells - 4, len(r) - 8)
+    indices = starts[:, None] + np.arange(8)
+    # Reflect negative cell centres evenly. Shift the outer stencil inward.
+    samples = (f - 1.0)[np.where(indices < 0, -1 - indices, indices)]
+    pieces = np.empty(len(r))
+    powers = np.arange(1, 9)
+
+    def weights(offset, left):
+        nodes = np.arange(8) - offset + 0.5
+        moments = (0.5**powers - left**powers) / powers
+        return np.linalg.solve(np.vander(nodes, 8, increasing=True).T, moments)
+
+    offsets = cells - starts
+    pieces[0] = dr * (samples[0] @ weights(offsets[0], 0.0))
+    for offset in np.unique(offsets[1:]):
+        rows = (cells > 0) & (offsets == offset)
+        pieces[rows] = dr * (samples[rows] @ weights(offset, -0.5))
+    return r + np.cumsum(pieces)
+
+
 INITIAL_STRUCTURES = ("none", "rescaled_pocket", "inherited_pocket", "hand_floor_reference", "supplied_slice")
 SUPPLIED_SLICE_FIELDS = ("S", "PS", "D", "PD", "phi", "Pi")
 SUPPLIED_SLICE_EDGE_CELLS = 5   # the reach of the outer stencil
@@ -212,6 +235,7 @@ def build_initial_data(
     D_amplitude=None,
     include_radiation=True,
     *,
+    eight_node_areal=False,
     initial_structure=None,
     pocket_x=None,
     charged_dust_density=None,
@@ -348,6 +372,7 @@ def build_initial_data(
 
     # Same constrained areal initial-data reconstruction used by the archived
     # V5.5 gate, with corrected COSMOS variables and optional radiation.
+    integrate = _eight_node_origin_integral if eight_node_areal else _cumulative_origin_integral
     for _ in range(6):
         if _scalar_system.coupling_active():
             # GEAR-91 (step 2): the full V_SD(S, D; phi), counted once.
@@ -387,6 +412,8 @@ def build_initial_data(
         integ = _cumulative_origin_integral(grid, r, dr, src)
         B_prev, B = B, integ / r
     areal_last_step = float(np.max(np.abs(B - B_prev)))
+        integ = integrate(grid, r, dr, src)
+        B = integ / r
 
     if np.any(~np.isfinite(B)) or np.any(B <= 0.0):
         raise FloatingPointError("invalid constrained initial metric")

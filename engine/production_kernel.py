@@ -167,6 +167,7 @@ class V55ProductionKernel:
         outer_edge: str | None = None,
         wall_clock: str = _wall.DEFAULT_WALL_CLOCK,
         supplied_slice=None,
+        eight_node_areal: bool = False,
     ) -> ProductionState:
         """Production start: today, background alone ("no structure placed") by default.
 
@@ -187,6 +188,7 @@ class V55ProductionKernel:
         wall gets the conformally flat cell slice (lattice_wall.conformal_wall_initial_data): LABELLED, its data
         differ from the areal slice it has on the open edge (lattice_wall.POCKET_FIXTURE_WALL_LABEL). The fixtures'
         open-edge reference stays available by name, outer_edge="open_edge", bit-identical to before.
+        eight_node_areal: opt into the candidate eight-node quadrature for open-edge areal starts.
         wall_clock: "i" (alpha = 1 at the wall, the default) or "ii" (Kdot = <Q>); wall only.
         """
         from . import scalar_system as _scalar_system
@@ -209,6 +211,8 @@ class V55ProductionKernel:
         if outer_edge == _wall.LATTICE_WALL and (structure == "supplied_slice" or supplied_slice is not None):
             # W1 entry (v55_initial.SuppliedSlice): open edge only; the wall builds its own conformally flat slice.
             raise ValueError("a supplied slice runs on the open edge only")
+        if eight_node_areal and outer_edge != _wall.OPEN_EDGE:
+            raise ValueError("eight_node_areal requires an open-edge areal start")
         grid = grid_ops.SphericalCellGrid(resolution, r_max)
         init = build_initial_data(
             grid,
@@ -217,6 +221,7 @@ class V55ProductionKernel:
             width=width,
             D_amplitude=D_amplitude,
             include_radiation=include_radiation,
+            eight_node_areal=eight_node_areal,
             initial_structure=initial_structure,
             pocket_x=pocket_x,
             charged_dust_density=charged_dust_density,
