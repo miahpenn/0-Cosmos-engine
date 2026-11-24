@@ -47,3 +47,24 @@ Static-frame flux at R_f = 20, ring minus control (recorded): D is 5.28e-10 at s
 - **Growth is polynomial, not exponential.** Every growing residual sits at the origin cell. Arm A's H goes roughly as t^1.3 to t^1.5 (x2.5 from step 10 to 20, x2.8 from 50 to 100), and the per-step factor falls with time. A violent instability would not look like that. It reads more like a secular drift of the origin truncation under evolution, but that is an inference, not tested.
 - **M starts at round-off, then jumps.** It begins at about 5e-16 and reaches 1e-13 to 1e-12 within the first step in both arms. The A4 floor sizes round-off, not the truncation that evolution switches on at step 1, so S0b M as written trips on a background-only arm. Arm B's H does not grow past its floor; arm A's does.
 - **Cost:** 2.70 s per step at 2400 cells and 1.37 s at 1200, i.e. linear in N. With the two dr 0.025 arms in parallel, the full run is about 40 hours of wall-clock.
+
+## Diagnostic reanalysis of the stored data (no new steps, nothing gated)
+
+Asked for by the coordinator (Nov 24 04:11 UTC), ahead of Lumen²'s f_ring A5 S0b form. Script: `research/w1_fring_smoke/reanalyse.py`; numbers: `reanalysis.json`. The grids are compared at a common t, t in [0, 0.075]: step 2k on dr 0.025 against step k on dr 0.05.
+
+**Limit:** each step stored only the max-norm H and M and the areal radius where each peaked. Cells 1 to 5, and pointwise ring-against-control values, were not stored, so they can't be read without new steps. The origin cell is read only where both grids peak there.
+
+| arm, residual | t 0.0015 | 0.0075 | 0.015 | 0.0375 | 0.075 | where the max sits |
+|---|---|---|---|---|---|---|
+| A, H: dr 0.05 / dr 0.025 | 10.7 | 1.14 | 1.02 | 1.44 | **1.20** | origin on both grids from t 0.015 |
+| A, M | 1.93 | 3.53 | 3.13 | 0.96 | 1.53 | mostly origin |
+| B (control), H | 0.05 | 0.15 | 0.18 | 0.08 | 0.12 | edge or far cells (R 38 to 60) |
+| B (control), M | 0.41 | 0.12 | 0.31 | 0.20 | 0.17 | mostly the edge (R near 60) |
+
+- **Arm A, H at the origin:** the residual does not fall with refinement. The ratio is 1.0 to 1.4 from t 0.015 on, against about 16 for 4th-order truncation or 4 for a 2nd-order origin. By the replacement form's (iii) that reads as "no fall with refinement".
+  - Fit over t in [0.0375, 0.075]: power law t^1.52 at dr 0.025 and t^1.17 at dr 0.05. An exponential fits about as well, at rates 28 and 22 per unit time.
+  - A factor of 2 in t cannot separate the two laws, so the t-law is undetermined.
+- **Arm A, M:** ratio 1 to 3.5, not a clean order.
+- **Control (arm B):** its max-norm residuals are larger on the finer grid (ratio 0.05 to 0.4). They peak at the edge or at far cells, not the origin, so p cannot be measured on the control from the stored max-norms.
+  - Control H at dr 0.025 runs 1.9e-12 to 1.05e-11. At dr 0.05 it runs 2.1e-13 to 1.1e-12.
+- **Ring against control (max-norms, not pointwise):** at t 0.075 on dr 0.025, H is 1.25e-9 against 9.1e-12, a factor of 137, at different cells.
