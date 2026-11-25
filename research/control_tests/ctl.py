@@ -125,7 +125,9 @@ def save_arrays(state, g0, kdot, R, extra):
     return d
 
 
-def run(name, kernel, state, dt, out_dir, *, with_cdot, t_end=T_END, on_save=None, max_steps=None):
+def run(name, kernel, state, dt, out_dir, *, with_cdot, t_end=T_END, on_save=None, max_steps=None, on_step=None):
+    """on_step(n, state, per_save) -> dict or None, called on every step's state before the step (Test 2 near-save
+    readings); its non-None rows go to rec['near_save']. Default None: unchanged from stage 1."""
     out_dir = Path(out_dir); out_dir.mkdir(parents=True, exist_ok=True)
     dr = state.grid.dr
     steps = round(t_end / dt); per_save = round(SAVE_EVERY_T / dt)
@@ -141,6 +143,10 @@ def run(name, kernel, state, dt, out_dir, *, with_cdot, t_end=T_END, on_save=Non
             cH, cM = cdot(state, R, dt)
             rec["per_step"].append([n * dt] + fixed_points(H, dr) + fixed_points(M, dr)
                                    + fixed_points(cH, dr) + fixed_points(cM, dr))
+        if on_step is not None:
+            x = on_step(n, state, per_save)
+            if x is not None:
+                rec.setdefault("near_save", []).append(x)
         if do_save:
             row = {"step": n, "t": n * dt, "H": fixed_points(H, dr), "M": fixed_points(M, dr),
                    "K_rhs_nonuniform": fixed_points(R["K"] - kdot, dr),
