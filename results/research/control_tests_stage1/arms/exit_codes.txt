@@ -1,0 +1,5 @@
+1a_dr05_dt0_r8 exit 0
+1a_dr05_dt0_r12 exit 0
+1a_dr025_dt0_r8 exit 0
+1a_dr05_dt1_r8 exit 0
+1b_K-0.1_c0.5_dr05_dt0_r8 exit 0

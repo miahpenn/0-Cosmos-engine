@@ -133,7 +133,9 @@ def input_checks(z, dr, kind):
         out["B3_i"] = {"max_abs_alpha_minus_1": float(np.max(np.abs(al - 1))), "limit": lim1,
                        "pass": float(np.max(np.abs(al - 1))) <= lim1}
         nz = int(np.count_nonzero(np.asarray(z["R_Aa"], dtype=float)[:n_int]))
-        out["B3_iii_Aa_rhs_nonzero_interior_cells"] = {"count": nz, "pass": nz == 0}
+        # reading only: the RHS slice carries the solved alpha (|alpha - 1| up to B3 (i)), so its Aa RHS need not be 0.
+        # The gated B3 (iii) is the alpha = 1 repeat (A9 section 2), from b3iii.py, merged in main().
+        out["solved_alpha_Aa_rhs_nonzero_interior_cells"] = {"count": nz}
     else:
         out["B6_G1b1"] = identity(z, "", g, s, dr)
     return out
@@ -213,6 +215,10 @@ def main(out):
         for name, p in meta.items():
             with np.load(inp / f"{name}.npz") as z:
                 res["inputs"][name] = input_checks(z, p["dr"], name[:2])
+        b3 = inp / "b3iii.json"                       # A9 section 2 alpha = 1 repeat (research.control_tests.b3iii)
+        if b3.exists():
+            for name, v in json.loads(b3.read_text()).items():
+                res["inputs"].setdefault(name, {})["B3_iii_alpha1_repeat"] = v
     for js in sorted(out.glob("*_rstage.json")):
         arm = js.name[: -len("_rstage.json")]
         rec = json.loads((out / f"{arm}.json").read_text())
