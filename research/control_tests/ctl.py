@@ -24,11 +24,12 @@ _, VAC, _ = ad.vendor_modules()
 _ORIG = (ss.V0, ss.SD_QUARTIC_LAMBDA)
 
 
-def make(dr, r_max=R_MAX):
+def make(dr, r_max=R_MAX, *, eight_node_areal=False):
     n = round(r_max / dr)
     kernel = V55ProductionKernel()
     ss.V0, ss.SD_QUARTIC_LAMBDA = _ORIG   # initialize() builds the production background, then the overrides apply
-    state = kernel.initialize(resolution=n, r_max=r_max, outer_edge="open_edge", initial_structure="none")
+    state = kernel.initialize(resolution=n, r_max=r_max, outer_edge="open_edge", initial_structure="none",
+                              eight_node_areal=eight_node_areal)
     ss.V0 = 0.0
     ss.SD_QUARTIC_LAMBDA = 0.0
     g = state.geometry
