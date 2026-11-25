@@ -1,0 +1,30 @@
+{
+  "input_sha256": "0cc47fb17b149e36c6ac6c45abb58ac240ed632912549f538d9400a48d46c39b",
+  "source_sha256": {
+    "native.py": "81f8fa3a7675bcf4315a3cabed7cb3b7c56f71ce7801c95089c11b9837f46028",
+    "native.npz": "16151c445c9dcfcc34cf61e28e268e991ab2bfea629beaa3aa52fadc4c5a98ea",
+    "native_static.npz": "339652a2a7e1379b19812893e43bafcf9ab0211422f2b8685c951107b863a295",
+    "hbfull_u.py": "bcb5238aeff8be2080338008c7f48adfaccf675991864bbbd10abf1088761ec7",
+    "hbfull_u.diff": "d1f6853d11e306041daec112bbc8e107e21fd071ed95760bb3651c9fea72a340",
+    "step1_hb.py": "9273942eeca4e22cdc2bb7509a103339402e9eef3352c7def2701bb4e40fe8b4",
+    "step2_map.py": "8d49154c37d509c4a9e609c820dd7f3900f7d792ae9f85d1c3169a5754a8c81b",
+    "step1.json": "561648b18a1407afdeb0c2bd8fa982035835b9a821be30dab427a70d966ff782",
+    "report.json": "4f15f1480af38afcd6ffa48c490d49c6d041de809a92c0ff8d8c452aff5657fe",
+    "hb_members.npz": "74400e5ecdc62110c4e64230e75101820ed93ddaea042141e069a647e7c055c9",
+    "w1_slice.npz": "fda62e34d00948737a4acd1541e18f54f68a5a3fc9b8f8aa6d77e2e773e16216",
+    "w1_slice.json": "07d7803381a0ce82831e258c77895202a5cb8ce5ae05bf792e797a6d73a192af",
+    "README.md": "b85cc2cca7e5f3ccfa9b73718d254fb15e902735f35401aad761675fb037ccbb"
+  },
+  "coarse_control_bitwise": true,
+  "n": 4800,
+  "hb_nodes": 9532,
+  "dr": 0.0125,
+  "hb_iterations": 2,
+  "hb_residual": 6.8540728648258664e-12,
+  "gamma": 1.9618241306439213e-06,
+  "node_offset": 7.105427357601002e-15,
+  "u": 1.0144274858438507,
+  "H0": 0.0056689681106181795,
+  "omega_hat": 1.8957526094140178,
+  "edge_tol": 1.943e-07
+}
