@@ -1,0 +1,257 @@
+name: Research Stage 0 exact-head execution (PR 613)
+on:
+  push:
+    branches: [research/stage0-execution-613]
+    paths: [.github/workflows/research-stage0-execution-613.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: research-stage0-execution-613
+  cancel-in-progress: false
+env:
+  SOURCE_SHA: 'cbf4e6bd759271b2ca15295db8f13e570e8fa3aa'
+  VENDOR_SHA: 'd6052d605673ce9d82cdc99b0df79855fa2ea215'
+  OPENBLAS_NUM_THREADS: '1'
+  OMP_NUM_THREADS: '1'
+  PYTHONUNBUFFERED: '1'
+  PYTHONPATH: '.'
+  OUT: /tmp/stage0-output
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: cbf4e6bd759271b2ca15295db8f13e570e8fa3aa
+          submodules: recursive
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12.16'
+      - name: Verify exact source and install pinned CI dependencies
+        run: |
+          mkdir -p "$OUT"
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          test "$(git -C vendor/bb-palatini-unified-r0 rev-parse HEAD)" = "$VENDOR_SHA"
+          test -z "$(git status --porcelain --untracked-files=no)"
+          git submodule status --recursive | tee "$OUT/submodules.txt"
+          ! grep -E '^[-+U]' "$OUT/submodules.txt"
+          python -m pip install numpy==2.5.5 scipy==1.18.1 sympy==1.14.0 mpmath==1.3.0 pytest==9.2.0 iniconfig==2.3.1 packaging==26.4 pluggy==1.7.0 pygments==2.21.0
+          python -m pip freeze > "$OUT/dependencies.txt"
+          python -c 'import sys,numpy as n; print(sys.version); n.show_runtime()' | tee "$OUT/runtime.txt"
+          lscpu > "$OUT/cpu.txt"
+          printf '%s\n' "$GITHUB_SHA" > "$OUT/harness_sha.txt"
+      - name: Zero-step preflight and field-by-field comparison
+        run: |
+          python -m research.control_tests.stage0 preflight "$OUT/preflight"
+          python - <<'PY' | tee "$OUT/preflight_review.txt"
+          import json, os
+          from pathlib import Path
+          p=json.loads((Path(os.environ["OUT"])/"preflight/stage0_preflight.json").read_text())
+          assert p["provenance"]["head"]==os.environ["SOURCE_SHA"]
+          assert not p["provenance"]["tracked_status"]
+          assert len(p["pairs"])==8
+          for name,pair in p["pairs"].items():
+              assert len(pair["arms"])==2
+              off,on=pair["arms"]
+              assert off["eight_node_areal"] is False and on["eight_node_areal"] is True
+              assert off["hashes"].keys()==on["hashes"].keys()==pair["fields"].keys()
+              assert off["V0"]==on["V0"] and off["SD_QUARTIC_LAMBDA"]==on["SD_QUARTIC_LAMBDA"]
+              for field,x in pair["fields"].items():
+                  assert x["bitwise_equal"]==(off["hashes"][field]==on["hashes"][field])
+                  print(name,field,x["bitwise_equal"],x["max_abs_diff"])
+          PY
+      - name: Checksum output files
+        if: always()
+        run: |
+          if test -d "$OUT"; then
+            cd "$OUT"
+            find . -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 -r sha256sum > SHA256SUMS
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: stage0-preflight
+          path: ${{ env.OUT }}
+          if-no-files-found: error
+          retention-days: 90
+
+  paired-evolution:
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      matrix:
+        mode: [flat, native]
+        arm: [1a_dr05_dt0_r8, 1a_dr025_dt0_r8, 1a_dr05_dt1_r8, 1a_dr05_dt0_r12]
+    env:
+      MODE: ${{ matrix.mode }}
+      ARM: ${{ matrix.arm }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: cbf4e6bd759271b2ca15295db8f13e570e8fa3aa
+          submodules: recursive
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12.16'
+      - name: Verify exact source and install pinned CI dependencies
+        run: |
+          mkdir -p "$OUT"
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          test "$(git -C vendor/bb-palatini-unified-r0 rev-parse HEAD)" = "$VENDOR_SHA"
+          test -z "$(git status --porcelain --untracked-files=no)"
+          git submodule status --recursive | tee "$OUT/submodules.txt"
+          ! grep -E '^[-+U]' "$OUT/submodules.txt"
+          python -m pip install numpy==2.5.5 scipy==1.18.1 sympy==1.14.0 mpmath==1.3.0 pytest==9.2.0 iniconfig==2.3.1 packaging==26.4 pluggy==1.7.0 pygments==2.21.0
+          python -m pip freeze > "$OUT/dependencies.txt"
+          python -c 'import sys,numpy as n; print(sys.version); n.show_runtime()' | tee "$OUT/runtime.txt"
+          lscpu > "$OUT/cpu.txt"
+          printf '%s\n' "$GITHUB_SHA" > "$OUT/harness_sha.txt"
+      - name: Zero-step preflight and field-by-field comparison
+        run: |
+          python -m research.control_tests.stage0 preflight "$OUT/preflight"
+          python - <<'PY' | tee "$OUT/preflight_review.txt"
+          import json, os
+          from pathlib import Path
+          p=json.loads((Path(os.environ["OUT"])/"preflight/stage0_preflight.json").read_text())
+          assert p["provenance"]["head"]==os.environ["SOURCE_SHA"]
+          assert not p["provenance"]["tracked_status"]
+          assert len(p["pairs"])==8
+          for name,pair in p["pairs"].items():
+              assert len(pair["arms"])==2
+              off,on=pair["arms"]
+              assert off["eight_node_areal"] is False and on["eight_node_areal"] is True
+              assert off["hashes"].keys()==on["hashes"].keys()==pair["fields"].keys()
+              assert off["V0"]==on["V0"] and off["SD_QUARTIC_LAMBDA"]==on["SD_QUARTIC_LAMBDA"]
+              for field,x in pair["fields"].items():
+                  assert x["bitwise_equal"]==(off["hashes"][field]==on["hashes"][field])
+                  print(name,field,x["bitwise_equal"],x["max_abs_diff"])
+          PY
+      - name: Evolve paired OFF and ON arms separately on the same runner
+        run: |
+          # Keep both arms even when post-overwrite initial fields match.
+          status=0
+          for switch in off on; do
+            mkdir -p "$OUT/$switch"
+            set +e
+            python -m research.control_tests.stage0 arm "$ARM" "$MODE" "$switch" "$OUT/$switch" 2>&1 | tee "$OUT/$switch/run.log"
+            rc=${PIPESTATUS[0]}
+            set -e
+            echo "$rc" > "$OUT/$switch/exit_code.txt"
+            if test "$rc" != 0; then status=1; fi
+          done
+          exit "$status"
+      - name: Compare initial hashes and quantify centre mode (readings only)
+        run: |
+          python - <<'PY' | tee "$OUT/centre_summary.json"
+          import json, os, math
+          from pathlib import Path
+          import numpy as np
+          from scipy.signal import detrend
+          out=Path(os.environ["OUT"]); arm=os.environ["ARM"]; mode=os.environ["MODE"]
+          pre=json.loads((out/"preflight/stage0_preflight.json").read_text())
+          records=[json.loads((out/sw/f"stage0_{mode}_{sw}_{arm}.json").read_text()) for sw in ("off","on")]
+          report={"mode":mode,"arm":arm,"arms":{},"scientific_admission":False,"method":"linear detrend, Hann FFT; peak frequency and relative phase at shared a-b peak; RMS early/late quarters; no acceptance thresholds"}
+          for i,(sw,r) in enumerate(zip(("off","on"),records)):
+              meta=r["stage0"]; dr=r["dr"]; dt=r["dt"]
+              key=f"{mode}_dr{dr}_r{r['r_max']:g}"
+              assert meta["initial_hashes"]==pre["pairs"][key]["arms"][i]["hashes"]
+              assert meta["provenance"]["head"]==os.environ["SOURCE_SHA"]
+              assert r["steps_done"]==round(2.1/dt)
+              t=np.array([x["t"] for x in r["centre_trace"]])
+              assert len(t)==r["steps_done"]+1 and abs(t[-1]-2.1)<1e-12
+              data=np.stack([np.array([x[field] for x in r["centre_trace"]]) for field in ("a_minus_b","Aa")])
+              n=len(t); q=n//4
+              omega=2*np.pi*np.fft.rfftfreq(n,dt); win=np.hanning(n)
+              f=np.fft.rfft(detrend(data,axis=1)*win[None,:,None],axis=1)
+              def rms(x):
+                  return float(np.sqrt(np.mean(x*x)))
+              cells=[]
+              for j in range(3):
+                  peak=[int(np.argmax(abs(f[k,1:,j]))+1) for k in range(2)]
+                  nonzero=[bool(np.max(abs(f[k,1:,j]))>0) for k in range(2)]
+                  p=peak[0]
+                  phase=float(np.angle(f[1,p,j]*np.conj(f[0,p,j]))) if all(nonzero) and abs(f[1,p,j])>0 else None
+                  row={"cell":j,"omega_peaks":[float(omega[peak[k]]) if nonzero[k] else None for k in range(2)],"omega_dr":[float(omega[peak[k]]*dr) if nonzero[k] else None for k in range(2)],"Aa_minus_a_b_phase_rad":phase,"amplitude":{}}
+                  for k,field in enumerate(("a_minus_b","Aa")):
+                      x=data[k,:,j]; early=rms(detrend(x[:q])); late=rms(detrend(x[-q:]))
+                      row["amplitude"][field]={"early_rms":early,"late_rms":late,"late_over_early":late/early if early else None,"max_abs":float(np.max(np.abs(x)))}
+                  cells.append(row)
+              entry={"dr":dr,"dt":dt,"predicted_omega":math.sqrt(8.803)/dr,"fft_bin_width":float(omega[1]),"cells":cells,"final_save":r["saves"][-1],"initial_reading":meta["initial_reading"]}
+              if mode=="flat" and sw=="off":
+                  base=Path("results/research/control_tests_stage1/arms")/(arm+".json")
+                  if base.exists():
+                      old=json.loads(base.read_text())["saves"][-1]
+                      entry["historical_606_final_H_M"]={k:old[k] for k in ("H","M")}
+              report["arms"][sw]=entry
+          report["initial_fields_equal"]={k:records[0]["stage0"]["initial_hashes"][k]==records[1]["stage0"]["initial_hashes"][k] for k in records[0]["stage0"]["initial_hashes"]}
+          report["save_hashes_equal"]=[a["state_hashes"]==b["state_hashes"] for a,b in zip(records[0]["saves"],records[1]["saves"])]
+          print(json.dumps(report,indent=2,allow_nan=False))
+          PY
+      - name: Checksum output files
+        if: always()
+        run: |
+          if test -d "$OUT"; then
+            cd "$OUT"
+            find . -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 -r sha256sum > SHA256SUMS
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: stage0-${{ matrix.mode }}-${{ matrix.arm }}
+          path: ${{ env.OUT }}
+          if-no-files-found: error
+          retention-days: 90
+
+  engine-suites:
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: cbf4e6bd759271b2ca15295db8f13e570e8fa3aa
+          submodules: recursive
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12.16'
+      - name: Verify exact source and install pinned CI dependencies
+        run: |
+          mkdir -p "$OUT"
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          test "$(git -C vendor/bb-palatini-unified-r0 rev-parse HEAD)" = "$VENDOR_SHA"
+          test -z "$(git status --porcelain --untracked-files=no)"
+          git submodule status --recursive | tee "$OUT/submodules.txt"
+          ! grep -E '^[-+U]' "$OUT/submodules.txt"
+          python -m pip install numpy==2.5.5 scipy==1.18.1 sympy==1.14.0 mpmath==1.3.0 pytest==9.2.0 iniconfig==2.3.1 packaging==26.4 pluggy==1.7.0 pygments==2.21.0
+          python -m pip freeze > "$OUT/dependencies.txt"
+          python -c 'import sys,numpy as n; print(sys.version); n.show_runtime()' | tee "$OUT/runtime.txt"
+          lscpu > "$OUT/cpu.txt"
+          printf '%s\n' "$GITHUB_SHA" > "$OUT/harness_sha.txt"
+      - name: Full repository and engine control suites
+        run: |
+          python -m pytest -q | tee "$OUT/pytest.txt"
+          python -m engine.run_controls | tee "$OUT/controls.txt"
+      - name: Checksum output files
+        if: always()
+        run: |
+          if test -d "$OUT"; then
+            cd "$OUT"
+            find . -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 -r sha256sum > SHA256SUMS
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: stage0-engine-suites
+          path: ${{ env.OUT }}
+          if-no-files-found: error
+          retention-days: 90
